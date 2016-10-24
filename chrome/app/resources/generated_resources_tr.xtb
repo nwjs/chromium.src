@@ -923,6 +923,7 @@ Dolması için gereken süre: <ph name="HOUR" />:<ph name="MINUTE" /></translati
 <translation id="2238379619048995541">Frekans Durumu Verileri</translation>
 <translation id="2239921694246509981">Denetlenen kişi ekle</translation>
 <translation id="2241053333139545397">Çeşitli web sitelerinde verilerinizi okuma ve değiştirme</translation>
+<translation id="2241634353105152135">Sadece bir defa</translation>
 <translation id="2242603986093373032">Cihaz yok</translation>
 <translation id="2242687258748107519">Dosya Bilgileri</translation>
 <translation id="2246340272688122454">Kurtarma görüntüsü indirilemiyor...</translation>
@@ -2974,7 +2975,6 @@ Keşfetmeye devam etmek için herhangi bir tuşa basın.</translation>
 <translation id="4927753642311223124">Burada görülecek bir şey yok, devam edin.</translation>
 <translation id="4929925845384605079">Kullanıcıdan kendi rafına bir web uygulaması veya platforma özgü başka bir eşdeğerini eklemesini isteyen rafa ekleme banner'larının görüntülenmesini etkinleştirir.</translation>
 <translation id="4933484234309072027"><ph name="URL" /> adresinde yerleşik</translation>
-<translation id="4935151320838778332">SADECE BİR DEFA</translation>
 <translation id="493571969993549666">Denetlenen kullanıcı ekle</translation>
 <translation id="4938972461544498524">Dokunmatik yüzey ayarları</translation>
 <translation id="4940047036413029306">Tırnak</translation>
@@ -3762,7 +3762,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="5984222099446776634">Yakın Zamanda Ziyaret Edilenler</translation>
 <translation id="5984814259619230127">Smart Lock Bluetooth Düşük Enerji Keşfi</translation>
 <translation id="5986245990306121338">Etkinleştirilirse, ayarlarda "sekmeleri ve uygulamaları birleştir" seçeneği açık olduğunda bile bir sekme değiştirici gösterilir.</translation>
-<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />Bunlar pil düzeyi, uygulamalarınızı ne sıklıkta kullandığınız, ağ bağlantılarınızın (kablosuz ağ ve Bluetooth gibi) kalitesi ve süresi, öğeler olmaları gerektiği gibi çalışmadığında oluşturulan kilitlenme raporları gibi cihazınız ve cihazınızı nasıl kullandığınızla ilgili genel bilgilerdir. Bu veriler, Google'ın ürünlerini ve hizmetlerini herkes için daha iyi bir hale getirmek için kullanılır. Toplu haldeki bazı bilgiler Android geliştiricileri gibi iş ortaklarına da uygulamalarını ve ürünlerini daha iyi hale getirmelerinde yardımcı olur.<ph name="END_PARAGRAPH1" />
+<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />Bunlar pil düzeyi, uygulamalarınızı ne sıklıkta kullandığınız, ağ bağlantılarınızın (kablosuz ağ ve Bluetooth gibi) kalitesi ve süresi, öğeler olmaları gerektiği gibi çalışmadığında oluşturulan kilitlenme raporları gibi cihazınız ve cihazınızı nasıl kullandığınızla ilgili genel bilgilerdir. Bu veriler, Google'ın ürünlerini ve hizmetlerini herkes için daha iyi bir hale getirmek amacıyla kullanılır. Toplu haldeki bazı bilgiler Android geliştiricileri gibi iş ortaklarına da uygulamalarını ve ürünlerini daha iyi hale getirmelerinde yardımcı olur.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Bu özelliği istediğiniz zaman Android uygulamalarındaki Ayarlar'dan açabilir veya kapatabilirsiniz. Bu ayar, cihazın, sistem güncellemeleri ve güvenlik gibi önemli hizmetleri almak için ihtiyaç duyduğu bilgileri gönderme yeteneğini etkilemez.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990198433782424697">chrome:// URL'lerinde uzantılar</translation>
 <translation id="5990814808592353318">Manuel şifre oluşturma.</translation>
@@ -5166,7 +5166,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7957513156576779045">Eşlemeye izin vermek için Bluetooth'u açın</translation>
 <translation id="7957615753207896812">Klavye cihaz ayarlarını aç</translation>
 <translation id="7959074893852789871">Dosya birden çok sertifika içeriyordu, bunların bazıları içe aktarılmadı:</translation>
-<translation id="7959700692661109221"><ph name="BEGIN_PARAGRAPH" />Google'ın konum hizmeti, cihazınızın konumunun daha hızlı ve doğru bir şekilde tahmin edilmesine yardımcı olmak için kablosuz ağlar gibi kaynaklardan yararlanır. Google'ın konum hizmetlerini açtığınızda, cihazınız konum bilgilerini sağlamak için kablosuz ağlardan yararlanan bir moda geçer. Bu modu konum ayarlarından istediğiniz zamana kapatabilirsiniz.<ph name="END_PARAGRAPH" /></translation>
+<translation id="7959700692661109221"><ph name="BEGIN_PARAGRAPH" />Google'ın konum hizmeti, cihazınızın konumunun daha hızlı ve doğru bir şekilde tahmin edilmesine yardımcı olmak için kablosuz ağlar gibi kaynaklardan yararlanır. Google'ın konum hizmetlerini açtığınızda, cihazınız konum bilgilerini sağlamak için kablosuz ağlardan yararlanan bir moda geçer. Bu modu konum ayarlarından istediğiniz zaman kapatabilirsiniz.<ph name="END_PARAGRAPH" /></translation>
 <translation id="7961015016161918242">Hiçbir Zaman</translation>
 <translation id="7964089325405904043">Şifre içe ve dışa aktarma</translation>
 <translation id="7965010376480416255">Paylaşılan Bellek</translation>
@@ -5473,7 +5473,6 @@ Dolana kadar geçecek süre hesaplanıyor</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Bu dilde herhangi bir giriş yöntemi yok</translation>
 <translation id="8357224663288891423">Uzantılar ve Uygulamalar için Klavye Kısayolları</translation>
-<translation id="8357698472719914638">HER ZAMAN</translation>
 <translation id="8358685469073206162">Sayfalar geri yüklensin mi?</translation>
 <translation id="8363095875018065315">kararlı</translation>
 <translation id="8366396658833131068">Ağ bağlantınız geri yüklendi. Lütfen farklı bir ağ seçin veya kiosk uygulamanızı başlatmak için "Devam Et" düğmesine basın.</translation>

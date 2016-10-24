@@ -922,6 +922,7 @@
 <translation id="2238379619048995541">Date pentru starea activă</translation>
 <translation id="2239921694246509981">Adaugă o persoană monitorizată</translation>
 <translation id="2241053333139545397">Citește și modifică datele de pe o serie de site-uri</translation>
+<translation id="2241634353105152135">Numai o singură dată</translation>
 <translation id="2242603986093373032">Niciun dispozitiv</translation>
 <translation id="2242687258748107519">Informații fișier</translation>
 <translation id="2246340272688122454">Se descarcă imaginea de recuperare...</translation>
@@ -2973,7 +2974,6 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="4927753642311223124">Nimic de văzut aici, treceți mai departe.</translation>
 <translation id="4929925845384605079">Activează afișarea bannerelor Adaugă pe raft, care solicită utilizatorului să adauge o aplicație web pe raft sau într-un spațiu echivalent, specific platformei.</translation>
 <translation id="4933484234309072027">încorporat în <ph name="URL" /></translation>
-<translation id="4935151320838778332">DOAR O DATĂ</translation>
 <translation id="493571969993549666">Adaugă un utilizator monitorizat</translation>
 <translation id="4938972461544498524">Setări pentru touchpad</translation>
 <translation id="4940047036413029306">Ghilimele</translation>
@@ -5469,7 +5469,6 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Această limbă nu are metode de introducere de text</translation>
 <translation id="8357224663288891423">Comenzi rapide de la tastatură pentru extensii și aplicații</translation>
-<translation id="8357698472719914638">ÎNTOTDEAUNA</translation>
 <translation id="8358685469073206162">Restabiliți paginile?</translation>
 <translation id="8363095875018065315">stabil</translation>
 <translation id="8366396658833131068">Conexiunea la rețea a fost restabilită. Selectați altă rețea sau apăsați mai jos pe butonul „Continuați” pentru a lansa aplicația chioșc.</translation>

@@ -923,6 +923,7 @@
 <translation id="2238379619048995541">Dados do estado de frequência</translation>
 <translation id="2239921694246509981">Adicionar pessoa supervisionada</translation>
 <translation id="2241053333139545397">Ler e alterar os seus dados em vários Websites</translation>
+<translation id="2241634353105152135">Apenas uma vez</translation>
 <translation id="2242603986093373032">Nenhum dispositivo</translation>
 <translation id="2242687258748107519">Informação de ficheiro</translation>
 <translation id="2246340272688122454">A transferir imagem de recuperação...</translation>
@@ -2975,7 +2976,6 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="4927753642311223124">Nada de novo a apresentar por aqui.</translation>
 <translation id="4929925845384605079">Ativa a visualização das faixas de adicionar à prateleira, que pedem ao utilizador que adicione uma aplicação Web à respetiva prateleira, ou de um equivalente específico de outra plataforma.</translation>
 <translation id="4933484234309072027">incorporada em <ph name="URL" /></translation>
-<translation id="4935151320838778332">APENAS UMA VEZ</translation>
 <translation id="493571969993549666">Adicionar utilizador supervisionado</translation>
 <translation id="4938972461544498524">Definições do touchpad</translation>
 <translation id="4940047036413029306">Aspas</translation>
@@ -5416,7 +5416,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8272443605911821513">Faça a gestão das suas extensões clicando em Extensões no menu "Mais ferramentas".</translation>
 <translation id="8275038454117074363">Importar</translation>
 <translation id="827606011343515871">Não tem qualquer certificado</translation>
-<translation id="8276560076771292512">Esvaziar Cache e Atualização Pesada</translation>
+<translation id="8276560076771292512">Esvaziar cache e recarregamento forçado</translation>
 <translation id="8279388322240498158">Teclado curdo sorani baseado no inglês</translation>
 <translation id="8280151743281770066">Fonético arménio</translation>
 <translation id="8281886186245836920">Ignorar</translation>
@@ -5471,7 +5471,6 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Este idioma não tem qualquer método de introdução</translation>
 <translation id="8357224663288891423">Atalhos de teclado para extensões e aplicações</translation>
-<translation id="8357698472719914638">SEMPRE</translation>
 <translation id="8358685469073206162">Restaurar páginas?</translation>
 <translation id="8363095875018065315">estável</translation>
 <translation id="8366396658833131068">A conetividade de rede foi restaurada. Selecione uma rede diferente ou prima "Continuar" abaixo para iniciar a aplicação de quiosque.</translation>

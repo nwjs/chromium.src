@@ -94,7 +94,7 @@
 <translation id="1122198203221319518">&amp;साधने</translation>
 <translation id="1122242684574577509">प्रमाणीकरण अयशस्वी. आपण वापरत असलेल्या (<ph name="NETWORK_ID" />) Wi-Fi नेटवर्कसाठी लॉग इन पृष्ठास भेट देण्यासाठी क्लिक करा.</translation>
 <translation id="1122960773616686544">बुकमार्क नाव</translation>
-<translation id="1123316951456119629">आपले Google खाते <ph name="PRODUCT_NAME" /> वरून डिस्कनेक्ट केल्याने, या संगणकावर आपला डेटा तसाच राहील परंतु बदल आपल्या Google खात्यामध्ये अधिक समक्रमित केले जाणार नाहीत. आपल्या Google खात्यात आधीपासून संचयित केलेला डेटा <ph name="BEGIN_LINK" />Google डॅशबोर्ड<ph name="END_LINK" /> वापरून जोपर्यंत काढत नाही तोपर्यंत तो तेथे राहील.</translation>
+<translation id="1123316951456119629">आपले Google खाते <ph name="PRODUCT_NAME" /> वरून डिस्कनेक्ट केल्याने, या संगणकावर आपला डेटा तसाच राहील परंतु बदल आपल्या Google खात्यामध्ये अधिक संंकालित केले जाणार नाहीत. आपल्या Google खात्यात आधीपासून संचयित केलेला डेटा <ph name="BEGIN_LINK" />Google डॅशबोर्ड<ph name="END_LINK" /> वापरून जोपर्यंत काढत नाही तोपर्यंत तो तेथे राहील.</translation>
 <translation id="1124772482545689468">वापरकर्ता</translation>
 <translation id="1128109161498068552">MIDI डिव्हाइसवर प्रवेश करण्यासाठी सिस्टीम विशेष संदेश वापरण्याकरिता कोणत्याही साइटला अनुमती देऊ नका</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
@@ -613,7 +613,7 @@
 <translation id="1781502536226964113">नवीन टॅब पृष्‍ठ उघडा</translation>
 <translation id="1782196717298160133">आपला फोन शोधणे</translation>
 <translation id="1782924894173027610">समक्रमण सर्व्हर व्यस्त आहे, कृपया नंतर पुन्हा प्रयत्न करा.</translation>
-<translation id="1783075131180517613">कृपया आपले समक्रमित सांकेतिक वाक्यांश अद्यतनित करा.</translation>
+<translation id="1783075131180517613">कृपया आपले संंकालित सांकेतिक वाक्यांश अद्यतनित करा.</translation>
 <translation id="1784849162047402014">डिव्हाइसवर डिस्क स्‍थान कमी आहे</translation>
 <translation id="1788636309517085411">डीफॉल्ट वापरा</translation>
 <translation id="1789575671122666129">पॉपअप</translation>
@@ -921,6 +921,7 @@
 <translation id="2238379619048995541">फ्रिक्वेन्सी स्थिती डेटा</translation>
 <translation id="2239921694246509981">पर्यवेक्षी व्यक्ती जोडा</translation>
 <translation id="2241053333139545397">अनेक वेबसाइटवर आपला डेटा वाचा आणि बदला</translation>
+<translation id="2241634353105152135">फक्त एकदाच</translation>
 <translation id="2242603986093373032">डिव्हाइसेस नाहीत</translation>
 <translation id="2242687258748107519">फाईल माहिती</translation>
 <translation id="2246340272688122454">पुनर्प्राप्ती प्रतिमा डाउनलोड करत आहे...</translation>
@@ -1004,7 +1005,7 @@
 <translation id="2342282706041269970">साइन आउट केल्यानंतर पुन्हा साइन इन करून पहा.</translation>
 <translation id="23434688402327542">कझाक कीबोर्ड</translation>
 <translation id="2344028582131185878">स्वयंचलित डाउनलोड</translation>
-<translation id="2347476388323331511">समक्रमित करणे शक्य झाले नाही</translation>
+<translation id="2347476388323331511">संंकालित करणे शक्य झाले नाही</translation>
 <translation id="2348165084656290171">ऑडिओ सामायिक करण्यासाठी, टॅब किंवा संपूर्ण स्क्रीन निवडा.</translation>
 <translation id="2348176352564285430">अॅप: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="2350182423316644347">अनुप्रयोग प्रारंभ करत आहे...</translation>
@@ -1450,7 +1451,7 @@
 <translation id="2888807692577297075">कोणतेही आयटम &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; शी जुळत नाहीत</translation>
 <translation id="2889064240420137087">यासह दुवा उघडा...</translation>
 <translation id="2889925978073739256">सॅन्डबॉक्स न केलेले प्लगिन अवरोधित करणे सुरू ठेवा</translation>
-<translation id="2890624088306605051">केवळ समक्रमित केलेली सेटिंग्ज आणि डेटा पुनर्प्राप्त करा</translation>
+<translation id="2890624088306605051">केवळ संंकालित केलेली सेटिंग्ज आणि डेटा पुनर्प्राप्त करा</translation>
 <translation id="2890678560483811744">निषिद्ध पृष्ठ संदर्भ</translation>
 <translation id="2893168226686371498">डीफॉल्ट ब्राउझर</translation>
 <translation id="289426338439836048">इतर मोबाइल नेटवर्क...</translation>
@@ -1978,7 +1979,7 @@
 <translation id="3574210789297084292">साइन इन करा</translation>
 <translation id="3574305903863751447"><ph name="CITY" />, <ph name="STATE" /> <ph name="COUNTRY" /></translation>
 <translation id="357479282490346887">लिथुआनियन</translation>
-<translation id="3575927481544652747">WebMIDI साठी, Windows Runtime MIDI API अक्षम करा जो Windows 10 किंवा त्यानंतरच्या आवृत्तीवर डीफॉल्टनुसार सक्षम केला जाऊ शकतो.</translation>
+<translation id="3575927481544652747">WebMIDI साठी, Windows Runtime MIDI API अक्षम करा जो Windows 10 किंवा त्यानंतरच्या आवृत्तीवर डीफॉल्टनुसार सक्षम केलेला आहे.</translation>
 <translation id="3576324189521867626">यशस्वीरित्या स्थापित केला</translation>
 <translation id="3578331450833904042">डीफॉल्ट (सर्वकाही उचला)</translation>
 <translation id="3578594933904494462">या टॅबची सामग्री सामायिक केली जात आहे.</translation>
@@ -2042,7 +2043,7 @@
 <translation id="3638527239410403527">केवळ व्यवहारिक पुनर्प्रमाणिकरण पृष्ठांसाठी संकालन क्रेडेन्शियल स्वयं-भरा</translation>
 <translation id="363903084947548957">पुढील इनपुट पद्धत</translation>
 <translation id="3640214691812501263"><ph name="USER_NAME" /> साठी "<ph name="EXTENSION_NAME" />" जोडायचे?</translation>
-<translation id="3643454140968246241"><ph name="COUNT" /> फायली समक्रमित करीत आहे...</translation>
+<translation id="3643454140968246241"><ph name="COUNT" /> फायली संंकालित करीत आहे...</translation>
 <translation id="3644896802912593514">रूंदी</translation>
 <translation id="3646789916214779970">डीफॉल्ट थीमवर रीसेट करा</translation>
 <translation id="3647563953638326454">मेघ आयात</translation>
@@ -2758,7 +2759,7 @@
 <translation id="4677772697204437347">GPU मेमरी</translation>
 <translation id="4681930562518940301">नवीन टॅबमध्‍ये मूळ &amp;प्रतिमा उघडा</translation>
 <translation id="4682551433947286597">साइन-इन स्क्रीनवर दिसणारे वॉलपेपर.</translation>
-<translation id="4684427112815847243">सर्वकाही समक्रमित करा</translation>
+<translation id="4684427112815847243">सर्वकाही संंकालित करा</translation>
 <translation id="4684748086689879921">आयात वगळा</translation>
 <translation id="4685045708662437080">आपल्‍याला अधिक जलद आणि थोड्‍या त्रासात परिणाम देण्‍यासाठी हे Google ला आपला व्‍हॉइस ओळखण्‍यात आणि उच्चार आणि ऑडिओ ओळख सुधारित करण्‍यात मदत करते. <ph name="BEGIN_LINK" />अधिक जाणून घ्‍या<ph name="END_LINK" /></translation>
 <translation id="4690246192099372265">स्वीडिश</translation>
@@ -2784,7 +2785,7 @@
 <translation id="4711094779914110278">तुर्की</translation>
 <translation id="4711638718396952945">सेटिंग्ज पुनर्संचयित करा</translation>
 <translation id="4713544552769165154">ही फाईल Macintosh सॉफ्टवेअर वापरून एका संगणकासाठी डिझाइन केली आहे. ही Chrome OS चालविणार्‍या आपल्या डिव्हाइसशी सुसंगत नाही. कृपया एका सोयीस्कर प्रतिस्थापन अॅप साठी <ph name="BEGIN_LINK" />Chrome वेब स्टोअर<ph name="END_LINK" /> शोधा.<ph name="BEGIN_LINK_HELP" />अधिक जाणून घ्या<ph name="END_LINK_HELP" /></translation>
-<translation id="4714531393479055912"><ph name="PRODUCT_NAME" /> आता आपले संकेतशब्द समक्रमित करू शकतो.</translation>
+<translation id="4714531393479055912"><ph name="PRODUCT_NAME" /> आता आपले संकेतशब्द संंकालित करू शकतो.</translation>
 <translation id="471800408830181311">खासगी की आउटपुट करण्यात अयशस्वी.</translation>
 <translation id="4720113199587244118">डिव्हाइसेस जोडा</translation>
 <translation id="4722735886719213187">टीव्ही संरेखन:</translation>
@@ -2965,7 +2966,6 @@
 <translation id="4927753642311223124">येथे पाहण्यासाठी काही नाही, पुढे चला.</translation>
 <translation id="4929925845384605079">शेल्‍फ बॅनरमध्‍ये जोडाचे प्रदर्शन सक्षम करा, जे वापरकर्त्यास त्यांच्या शेल्‍फमध्‍ये किंवा इतर प्लॅटफॉर्म विशिष्‍ट सममूल्यामध्‍ये एक वेब अनु जोडण्‍याची सूचना देते.</translation>
 <translation id="4933484234309072027"><ph name="URL" /> वर एम्बेड केलेले</translation>
-<translation id="4935151320838778332">फक्त एकदाच</translation>
 <translation id="493571969993549666">पर्यवेक्षी वापरकर्ता जोडा</translation>
 <translation id="4938972461544498524">टचपॅड सेटिंग्ज</translation>
 <translation id="4940047036413029306">कोट</translation>
@@ -3104,7 +3104,7 @@
 <translation id="5137929532584371582">16</translation>
 <translation id="5138177765054221193">फ्लॅश सामग्रीस "अनुमती द्या" वर सेट केलेल्या साइटसाठी, महत्त्वाची नसलेली म्हणून मानलेल्या सामग्रीसह सर्व सामग्री चालवा.</translation>
 <translation id="5139955368427980650">&amp;उघडा</translation>
-<translation id="5141240743006678641">आपल्या Google क्रेडेन्शियलसह समक्रमित केलेले संकेतशब्द कूटबद्ध करा</translation>
+<translation id="5141240743006678641">आपल्या Google क्रेडेन्शियलसह संंकालित केलेले संकेतशब्द कूटबद्ध करा</translation>
 <translation id="5143374789336132547">आपण होम बटण क्लिक करता तेव्हा कोणते पृष्ठ दर्शविले जाते हे "<ph name="EXTENSION_NAME" />" विस्ताराने बदलले आहे.</translation>
 <translation id="5143712164865402236">पूर्ण स्क्रीनमध्ये जा</translation>
 <translation id="5144820558584035333">हँगल 3 संच (390)</translation>
@@ -3240,7 +3240,7 @@
 <translation id="5298219193514155779">द्वारा निर्मित थीम</translation>
 <translation id="5298363578196989456">"<ph name="IMPORT_NAME" />" विस्तार सामायिक केलेले मोड्यूल नसल्यामुळे तो आयात करण्यात अक्षम आहे.</translation>
 <translation id="5299109548848736476">Do Not Track</translation>
-<translation id="5299682071747318445">आपल्या समक्रमित वाक्यांशासह सर्व डेटा कूटबद्ध केला आहे</translation>
+<translation id="5299682071747318445">आपल्या संंकालित वाक्यांशासह सर्व डेटा कूटबद्ध केला आहे</translation>
 <translation id="5300589172476337783">दर्शवा</translation>
 <translation id="5301751748813680278">अतिथी म्हणून प्रविष्ट होत आहे.</translation>
 <translation id="5301954838959518834">ठीक, मला समजले</translation>
@@ -3994,7 +3994,7 @@
 <translation id="6326175484149238433">Chrome मधून काढा</translation>
 <translation id="632744581670418035">कीबोर्ड आच्छादन</translation>
 <translation id="6332639239513813484">भौगोलिक स्थानानुसार स्वयंचलितपणे टाईमझोन अद्यतन</translation>
-<translation id="6333049849394141510">काय समक्रमित करायचे ते निवडा</translation>
+<translation id="6333049849394141510">काय संंकालित करायचे ते निवडा</translation>
 <translation id="6333064448949140209">फाईल डीबग करण्यासाठी Google कडे पाठविली जाईल</translation>
 <translation id="6333834492048057036">शोधासाठी अ‍ॅड्रेस बार वर फोकस करा</translation>
 <translation id="6339034549827494595">रशियन ध्वन्यात्मक (AATSEEL) कीबोर्ड</translation>
@@ -5073,7 +5073,7 @@
 <translation id="7839963980801867006">भाषा मेनूमध्ये कोणत्या विस्तार IMEs उपलब्ध होतील ते निवडा.</translation>
 <translation id="7842346819602959665">"<ph name="EXTENSION_NAME" />" विस्ताराच्या नवीनतम आवृत्तीस अधिक परवानग्या आवश्यक आहेत, म्हणून हा अक्षम केला गेला आहे.</translation>
 <translation id="7844992432319478437">फरक अद्यतनित करत आहे</translation>
-<translation id="7845920762538502375"><ph name="PRODUCT_NAME" /> आपला डेटा समक्रमित करू शकत नाही कारण तो समक्रमण सर्व्हरशी कनेक्ट केलेला नाही. पुन्हा प्रयत्न करत आहे...</translation>
+<translation id="7845920762538502375"><ph name="PRODUCT_NAME" /> आपला डेटा संंकालित करू शकत नाही कारण तो समक्रमण सर्व्हरशी कनेक्ट केलेला नाही. पुन्हा प्रयत्न करत आहे...</translation>
 <translation id="7846076177841592234">निवड रद्द करा</translation>
 <translation id="7846634333498149051">कीबोर्ड</translation>
 <translation id="7847212883280406910"><ph name="IDS_SHORT_PRODUCT_OS_NAME" /> वर स्विच करण्यासाठी Ctrl + Alt + S दाबा</translation>
@@ -5264,7 +5264,7 @@
 <translation id="8098975406164436557">आपले <ph name="DEVICE_TYPE" /> अनलॉक करण्यासाठी हा फोन वापरायचा?</translation>
 <translation id="810066391692572978">फाइल अ‍समर्थित वैशिष्ट्यांचा वापर करीत आहे.</translation>
 <translation id="8101987792947961127">पुढील रीबूटवर Powerwash आवश्यक</translation>
-<translation id="8102535138653976669"><ph name="PRODUCT_NAME" /> आपल्या Google खात्यासह आपला डेटा सुरक्षितपणे समक्रमित करते. सर्वकाही समक्रमित केलेले ठेवा किंवा समक्रमित डेटा प्रकार आणि कूटबद्धीकरण सेटिंग्ज सानुकूल करा.</translation>
+<translation id="8102535138653976669"><ph name="PRODUCT_NAME" /> आपल्या Google खात्यासह आपला डेटा सुरक्षितपणे संंकालित करते. सर्वकाही संंकालित केलेले ठेवा किंवा संंकालित डेटा प्रकार आणि कूटबद्धीकरण सेटिंग्ज सानुकूल करा.</translation>
 <translation id="8104696615244072556">आपले <ph name="IDS_SHORT_PRODUCT_NAME" /> डिव्हाइस Powerwash करा आणि मागील आवृत्तीकडे परत या.</translation>
 <translation id="8105368624971345109">बंद करा</translation>
 <translation id="8106045200081704138">माझ्याशी सामायिक केलेले</translation>
@@ -5299,7 +5299,7 @@
 <translation id="8141520032636997963">Adobe Reader मध्ये उघडा</translation>
 <translation id="8141725884565838206">आपले संकेतशब्द व्यवस्थापित करा</translation>
 <translation id="8142699993796781067">खाजगी नेटवर्क</translation>
-<translation id="8142732521333266922">ठीक, सर्वकाही समक्रमित करा</translation>
+<translation id="8142732521333266922">ठीक, सर्वकाही संंकालित करा</translation>
 <translation id="8144022414479088182">आपल्याला खात्री आहे की आपण संमेलने डिव्हाइसकरिता Chromebox म्हणून हे डिव्हाइस सेट करू इच्छिता?</translation>
 <translation id="8144909191982723922"><ph name="USER_EMAIL_ADDRESS" /> म्हणून साइन इन केले. <ph name="BEGIN_LINK" />Chrome डॅशबोर्ड<ph name="END_LINK" /> वर आपला संकालित केलेला डेटा आणि डिव्हाइसेस व्यवस्थापित करा.</translation>
 <translation id="8145409227593688472">वुबी इनपुट पद्धत</translation>
@@ -5461,7 +5461,6 @@
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">या भाषेमध्ये कोणत्याही इनपूट पद्धती नाहीत</translation>
 <translation id="8357224663288891423">विस्तार आणि अॅप्स साठी कीबोर्ड शॉर्टकट</translation>
-<translation id="8357698472719914638">नेहमी</translation>
 <translation id="8358685469073206162">पृष्ठे पुनर्संचयित करायची?</translation>
 <translation id="8363095875018065315">स्थिर</translation>
 <translation id="8366396658833131068">आपली नेटवर्क कनेक्टिव्हिटी पुनर्संचयित झाली आहे. कृपया एक भिन्न नेटवर्क निवडा किंवा आपला कियोस्क अॅप लाँच करण्यासाठी खालील 'सुरु ठेवा' बटण दाबा.</translation>
@@ -5628,7 +5627,7 @@
 <translation id="8589311641140863898">प्रायोगिक विस्तार API</translation>
 <translation id="8590375307970699841">स्वयंचलित अद्यतने सेट करा</translation>
 <translation id="8592125506633137593">शीर्ष दस्तऐवज वेगळे करणे</translation>
-<translation id="8594787581355215556"><ph name="USER_EMAIL_ADDRESS" /> म्‍हणून साइन इन करा. <ph name="BEGIN_LINK" />Google डॅशबोर्ड<ph name="END_LINK" /> वर आपला समक्रमित डेटा व्यवस्‍थापित करा.</translation>
+<translation id="8594787581355215556"><ph name="USER_EMAIL_ADDRESS" /> म्‍हणून साइन इन करा. <ph name="BEGIN_LINK" />Google डॅशबोर्ड<ph name="END_LINK" /> वर आपला संंकालित डेटा व्यवस्‍थापित करा.</translation>
 <translation id="8595925260712451473">कृपया आपला अभिप्राय येथे प्रविष्ट करा.</translation>
 <translation id="8596540852772265699">सानुकूल फायली</translation>
 <translation id="8596785155158796745">माइक्रोफोन सध्या अनुपलब्ध आहे. <ph name="BEGIN_LINK" />माइक्रोफोन व्यवस्थापित करा<ph name="END_LINK" /></translation>
@@ -5693,7 +5692,7 @@
 <translation id="8673026256276578048">वेबवर शोधा...</translation>
 <translation id="8673383193459449849">सर्व्हर समस्या</translation>
 <translation id="8673795350651259145">सर्व वेब अनुप्रयोगांकरिता, Chrome वेब स्टोअर वरून स्थापित न केलेल्‍यांसाठी देखील मूळ क्लायंटला समर्थन.</translation>
-<translation id="8675377193764357545"><ph name="USER_EMAIL_ADDRESS" /> म्हणून समक्रमित केले</translation>
+<translation id="8675377193764357545"><ph name="USER_EMAIL_ADDRESS" /> म्हणून संंकालित केले</translation>
 <translation id="8677039480012021122">डेटा साफ करा आणि डिस्कनेक्ट करा</translation>
 <translation id="8677212948402625567">सर्व संकुचित करा...</translation>
 <translation id="8678648549315280022">डाउनलोड सेटिंग्ज व्यवस्थापित करा...</translation>
@@ -5804,7 +5803,7 @@
 <translation id="8807632654848257479">स्थिर</translation>
 <translation id="8808478386290700967">वेब स्टोअर</translation>
 <translation id="8808686172382650546">मांजर</translation>
-<translation id="8811462119186190367">आपली सेटिंग्ज समक्रमित केल्यानंतर Chrome ची भाषा "<ph name="FROM_LOCALE" />" मधून "<ph name="TO_LOCALE" />" मध्ये बदलली आहे.</translation>
+<translation id="8811462119186190367">आपली सेटिंग्ज संंकालित केल्यानंतर Chrome ची भाषा "<ph name="FROM_LOCALE" />" मधून "<ph name="TO_LOCALE" />" मध्ये बदलली आहे.</translation>
 <translation id="8813698869395535039"><ph name="USERNAME" /> मध्ये साइन इन करू शकत नाही</translation>
 <translation id="8813811964357448561">कागदी पत्रक</translation>
 <translation id="8814190375133053267">Wi-Fi</translation>

@@ -288,6 +288,7 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
       Si HardwareAccelerationModeEnabled se establece en false, Disable3DAPIs se ignora y es equivalente a que Disable3DAPIs se establezca en true.</translation>
 <translation id="2168397434410358693">Demora de inactividad con alimentación de CA</translation>
 <translation id="2170233653554726857">Habilitar optimización de WPAD</translation>
+<translation id="2178899310296064282">Aplicar al menos el modo restringido moderado en YouTube</translation>
 <translation id="2188979373208322108">Habilita la barra de marcadores en <ph name="PRODUCT_NAME" />. Si se habilita esta configuración, <ph name="PRODUCT_NAME" /> mostrará una barra de marcadores. Si se inhabilita esta configuración, los usuarios no podrán ver la barra de marcadores. Si se habilita o inhabilita esta configuración, los usuarios no podrán cambiarla ni anularla en <ph name="PRODUCT_NAME" />. Si esta configuración no se configura, el usuario podrá decidir si desea usar esta función o no.</translation>
 <translation id="2201555246697292490">Configurar la lista blanca de mensajería nativa</translation>
 <translation id="2204753382813641270">Controlar opción para ocultar archivos automáticamente</translation>
@@ -531,6 +532,7 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
       Si habilitas o inhabilitas esta opción, los usuarios no podrán modificar o anular la opción Habilitar protección contra robo de identidad (phishing) y software malicioso en <ph name="PRODUCT_NAME" />.
 
       Si no se establece esta política, se habilitará, pero el usuario podrá modificarla.</translation>
+<translation id="2787173078141616821">Informar datos sobre el estado de Android</translation>
 <translation id="2801230735743888564">Permitir que los usuarios jueguen con el huevo de pascua del dinosaurio cuando el dispositivo se encuentra sin conexión
 
       Si esta política se configura en False, los usuarios no podrán jugar con el huevo de pascua del dinosaurio cuando el dispositivo se encuentre sin conexión. Si esta configuración se establece en True, los usuarios podrán jugar con el dinosaurio. Si esta política no se configura, los usuarios no podrán jugar con el huevo de pascua del dinosaurio en el Sistema operativo Chrome registrado, pero se les permitirá jugar en otras circunstancias.</translation>
@@ -754,6 +756,16 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 <translation id="3417418267404583991">Si esta política no se configura o se establece en "true", <ph name="PRODUCT_OS_NAME" /> permitirá iniciar sesión como invitado. Los inicios de sesión como invitado son sesiones de usuario anónimas y no requieren contraseña.
 
       Si esta política se establece en "false", <ph name="PRODUCT_OS_NAME" /> no permitirá el inicio de sesiones de invitados.</translation>
+<translation id="3418871497193485241">Aplica un modo restringido mínimo en YouTube y evita que los usuarios
+      seleccionen un modo menos restringido.
+
+      Si esta configuración se establece como estricta, el modo restringido estricto en YouTube estará siempre activo.
+
+      Si esta configuración se establece como moderada, el usuario
+      solo puede elegir el modo restringido moderado y el modo restringido
+      estricto en YouTube, pero no puede inhabilitar el modo restringido.
+
+      Si esta configuración se establece como desactivada o no se establece ningún valor, <ph name="PRODUCT_NAME" /> no se aplica el modo restringido en YouTube. Sin embargo, es posible que las políticas externas, como las de YouTube, apliquen el modo restringido.</translation>
 <translation id="3428247105888806363">Habilitar la predicción de red</translation>
 <translation id="3449886121729668969">Establece la configuración de proxy para <ph name="PRODUCT_NAME" />. Las apps de ARC también podrán usar estas opciones de configuración de proxy.
 
@@ -867,6 +879,12 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 
           De forma predeterminada, todos los hosts de mensajería nativa están incluidos en la lista blanca, pero si una política los incluye en la lista negra, se puede utilizar la lista blanca para anular dicha política.</translation>
 <translation id="384743459174066962">Te permite configurar una lista de patrones de URL que especifican los sitios que no están autorizados a abrir ventanas emergentes. Si esta política no se configura, se usará el valor global predeterminado para todos los sitios ya sea de la política "DefaultPopupsSetting", si está configurada, o de otro tipo de configuración personal del usuario.</translation>
+<translation id="3851039766298741586">Informar datos sobre la sesión de kiosko activa, como
+      el ID de la aplicación y la versión.
+
+      Si la política se establece como falsa, no se informarán los datos de la
+      sesión del kiosko. Si se establece como verdadera o no se establece, se
+      informarán los datos de la sesión del kiosko.</translation>
 <translation id="3859780406608282662">Permite agregar un parámetro para la obtención del valor de inicialización de variaciones en <ph name="PRODUCT_OS_NAME" />.
 
      Si está especificada, agregará un parámetro de consulta llamado "restringir" a la dirección URL que se usará para obtener el valor de inicialización de las variaciones. El valor del parámetro será el valor especificado en esta política.
@@ -881,6 +899,13 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 
           Esta política se aplica solo si la política "DefaultSearchProviderEnabled" está habilitada.</translation>
 <translation id="3864818549971490907">Configuración de complementos predeterminada</translation>
+<translation id="386487026071140458">Esta política dejó de estar disponible; usa las políticas <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" /> y <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />. Esta política se ignora si se establecen las políticas <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" />, <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> o <ph name="FORCEYOUTUBESAFETYMODE_POLICY_NAME" /> (dejó de estar disponible).
+
+      Esta configuración aplica el uso de la función SafeSearch para las consultas en Búsqueda web de Google y evita que los usuarios puedan cambiarla. Además, aplica el modo restringido moderado en YouTube.
+
+      Si habilitas esta configuración, SafeSearch en Búsqueda de Google y el modo restringido moderado en YouTube están siempre activos.
+
+      Si inhabilitas esta configuración o no estableces un valor, SafeSearch en Búsqueda de Google y el modo restringido moderado en YouTube no se aplican.</translation>
 <translation id="3866249974567520381">Descripción</translation>
 <translation id="3866530186104388232">Si esta política no se configura o se establece en "true", <ph name="PRODUCT_OS_NAME" /> mostrará usuarios existentes en la pantalla de inicio de sesión y permitirá seleccionar uno de ellos. Si esta política se establece en "false", <ph name="PRODUCT_OS_NAME" /> solicitará el nombre de usuario y la contraseña para iniciar sesión.</translation>
 <translation id="3868347814555911633">Esta política solo se encuentra activa en el modo de venta.
@@ -1237,6 +1262,13 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 <translation id="5395271912574071439">Habilita el modo de cortina para los hosts de acceso remoto durante una conexión. Si se habilita esta opción, los dispositivos físicos de entrada y salida del host se inhabilitan durante la conexión remota. Si se inhabilita o no se configura esta opción, tanto los usuarios locales como los remotos pueden interactuar con el host cuando se comparte.</translation>
 <translation id="5423001109873148185">Esta política, si se habilita, fuerza la importación de los motores de búsqueda del navegador predeterminado actual. Si se la habilita, esta política también afecta el cuadro de diálogo de importación. Si se la inhabilita, no se importa el motor de búsqueda predeterminado. Si esta política no se configura, se le puede preguntar al usuario si desea importar el motor de búsqueda o la importación puede realizarse de forma automática.</translation>
 <translation id="5423197884968724595">Nombre de restricción de WebView de Android:</translation>
+<translation id="543559563129402336">Esta política dejó de estar disponible. Considera usar <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />, que anula esta política y te permite implementar un ajuste más detallado.
+
+      Aplica el modo restringido moderado en YouTube y evita que los usuarios cambien esta configuración.
+
+      Si se habilita esta configuración, el modo restringido en YouTube se aplica siempre, al menos en el nivel moderado.
+
+      Si esta configuración se inhabilita o no se establece ningún valor, <ph name="PRODUCT_NAME" /> no se aplica el modo restringido en YouTube. Sin embargo, es posible que las políticas externas, como las de YouTube, apliquen el modo restringido.</translation>
 <translation id="5447306928176905178">Habilitar el suministro de información sobre la memoria (tamaño de pila de archivos JavaScript) a las páginas (obsoleto)</translation>
 <translation id="5457065417344056871">Habilitar modo de invitado en el navegador</translation>
 <translation id="5457924070961220141">Te permite configurar el procesador HTML predeterminado cuando se instala <ph name="PRODUCT_FRAME_NAME" />. La configuración predeterminada que se usa cuando esta política no se configura es permitir que el navegador del host realice la representación, pero puedes anular esta opción y hacer que <ph name="PRODUCT_FRAME_NAME" /> muestre páginas HTML de forma predeterminada.</translation>
@@ -1402,6 +1434,13 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 
       Si esta política no se establece, o si se establece en false, <ph name="PRODUCT_NAME" /> no realizará comprobaciones de revocación en línea en la versión 19 de <ph name="PRODUCT_NAME" /> ni en versiones posteriores.</translation>
 <translation id="5966615072639944554">Extensiones que tienen permitido utilizar la API de atestación remota</translation>
+<translation id="5974970919245996815">Los datos informados sobre el estado de Android se envían de vuelta
+      al servidor.
+
+      Si la política se establece como falsa, los datos no se informarán.
+      Si se establece como verdadera o no se establece, los datos se informarán.
+
+      Esta política solo se implementa si las apps de Android están habilitadas.</translation>
 <translation id="5983708779415553259">Comportamiento predeterminado de los sitios que no forman parte de ningún paquete de contenido</translation>
 <translation id="5997543603646547632">Utilizar reloj con formato de 24 horas de forma predeterminada</translation>
 <translation id="6009903244351574348">Permite que <ph name="PRODUCT_FRAME_NAME" /> controle los tipos de contenido que figuran en la lista. Si esta política no se configura, se usará el procesador predeterminado para todos los sitios, como lo especifica la política  "ChromeFrameRendererSettings".</translation>
@@ -1643,6 +1682,7 @@ desactivarlo).</translation>
 <translation id="6828905844648501476">Si esta política se establece en true o no se configura, <ph name="PRODUCT_NAME" /> permitirá la opción de agregar una persona desde el administrador de usuarios.
 
       Si esta política se establece en false, <ph name="PRODUCT_NAME" /> no permitirá la creación de perfiles nuevos desde el administrador de perfiles.</translation>
+<translation id="685769593149966548">Aplicar el modo restringido estricto para YouTube</translation>
 <translation id="687046793986382807">Esta política no está disponible a partir de la versión 35 de <ph name="PRODUCT_NAME" />.
 
       Los datos de la memoria se informan a la página, independientemente del valor de la opción, pero los tamaños especificados
@@ -1965,9 +2005,6 @@ desactivarlo).</translation>
 
       Los identificadores de tipos de conexión reconocidos son "ethernet", "wifi", "wimax", "bluetooth" y "celular".</translation>
 <translation id="7763614521440615342">Mostrar sugerencias de contenido en la página Nueva pestaña</translation>
-<translation id="7766336524667238790">Informa datos sobre la sesión de kiosco activa, como el ID de aplicación y la versión.
-
-      Si la política se establece en false, no se informarán los datos de la sesión. Si se establece en true o no se establece, se informarán los datos de la sesión.</translation>
 <translation id="7774768074957326919">Usar la configuración del proxy del sistema</translation>
 <translation id="7775831859772431793">Puedes especificar la URL del servidor proxy aquí.
 
@@ -2068,6 +2105,7 @@ desactivarlo).</translation>
       Si la política se establece en True, el dispositivo utilizará el formato del reloj de 24 horas. Si se establece en False, el dispositivo usará el formato del reloj de 12 horas.
 
       Si esta política no se establece, el dispositivo utilizará el formato de reloj de 24 horas de manera predeterminada.</translation>
+<translation id="8114382167597081590">No aplicar el modo restringido en YouTube</translation>
 <translation id="8118665053362250806">Configurar el tamaño de caché de disco de medios</translation>
 <translation id="8135937294926049787">Especifica el período de tiempo sin intervención del usuario luego del cual se apaga la pantalla si se usa alimentación de CA.
 
@@ -2269,6 +2307,7 @@ desactivarlo).</translation>
 <translation id="8704831857353097849">Lista de complementos inhabilitados</translation>
 <translation id="8711086062295757690">Especifica la palabra clave, que es el acceso directo utilizado en el cuadro multifunción para activar la búsqueda de este proveedor. Esta política es opcional. Si no se configura, ninguna palabra clave activará el proveedor de búsqueda. Esta política solo se considera si la política "DefaultSearchProviderEnabled" está habilitada.</translation>
 <translation id="8731693562790917685">La configuración del contenido permite especificar de qué manera se manejará el contenido de un tipo específico (por ejemplo, cookies, imágenes o JavaScript).</translation>
+<translation id="8736538322216687231">Aplicar el modo restringido mínimo en YouTube</translation>
 <translation id="8749370016497832113">Permite habilitar la eliminación del historial del navegador y del historial de descargas de <ph name="PRODUCT_NAME" /> y evita que los usuarios cambien esta configuración.
 
       Ten en cuenta que incluso con esta política inhabilitada, no se garantiza que se conserven el historial de navegación y el de descargas. Los usuarios pueden editar o borrar los archivos de la base de datos del historial directamente, y el propio navegador puede caducar o archivar algunos o todos los elementos del historial en cualquier momento.

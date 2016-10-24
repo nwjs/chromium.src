@@ -2126,11 +2126,6 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
 
       Tanınan bağlantı türü tanıtıcıları şunlardır: "ethernet", "wifi", "wimax", "bluetooth" ve "cellular".</translation>
 <translation id="7763614521440615342">Yeni Sekme sayfasında içerik önerileri göster</translation>
-<translation id="7766336524667238790">Uygulama kimliği ve sürümü gibi aktif kiosk oturumuyla ilgili bilgileri rapor edin.
-
-      Bu politika yanlış seçeneğine ayarlanırsa, oturum bilgileri rapor
-      edilmez. Doğru seçeneğine ayarlanırsa veya ayarlanmadan
-      bırakılırsa oturum bilgileri rapor edilir.</translation>
 <translation id="7774768074957326919">Sistem proxy ayarlarını kullan</translation>
 <translation id="7775831859772431793">Proxy sunucunun URL'sini burada belirtebilirsiniz.
 

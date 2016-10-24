@@ -923,6 +923,7 @@
 <translation id="2238379619048995541">Gegevens van frequentiestatus</translation>
 <translation id="2239921694246509981">Persoon met beperkte rechten toevoegen</translation>
 <translation id="2241053333139545397">Je gegevens lezen en wijzigen op een aantal websites</translation>
+<translation id="2241634353105152135">Slechts één keer</translation>
 <translation id="2242603986093373032">Geen apparaten</translation>
 <translation id="2242687258748107519">Bestandsinformatie</translation>
 <translation id="2246340272688122454">Herstelkopie downloaden...</translation>
@@ -2974,7 +2975,6 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="4927753642311223124">Er zijn geen meldingen.</translation>
 <translation id="4929925845384605079">De weergave inschakelen van banners voor het toevoegen aan de plank, die de gebruiker vragen een web-app aan hun plank toe te voegen, of een ander platformspecifiek equivalent.</translation>
 <translation id="4933484234309072027">ingesloten in <ph name="URL" /></translation>
-<translation id="4935151320838778332">SLECHTS ÉÉN KEER</translation>
 <translation id="493571969993549666">Gebruiker met beperkte rechten toevoegen</translation>
 <translation id="4938972461544498524">Touchpadinstellingen</translation>
 <translation id="4940047036413029306">Aanhalingsteken</translation>
@@ -3759,8 +3759,8 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5984222099446776634">Recent bezocht</translation>
 <translation id="5984814259619230127">Smart Lock-detectie via Bluetooth Low Energy</translation>
 <translation id="5986245990306121338">Als deze instelling is ingeschakeld, wordt een tabbladschakelaar weergegeven, ook als de optie 'tabbladen en apps samenvoegen' is ingeschakeld in de instellingen.</translation>
-<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />Dit zijn algemene gegevens over je apparaat en hoe je het apparaat gebruikt, zoals de accustatus, hoe vaak je apps gebruikt, de kwaliteit en duur van je netwerkverbindingen (zoals wifi en Bluetooth), en crashrapporten wanneer zaken niet werken zoals ze zouden moeten werken. Deze gegevens worden gebruikt om de producten en services van Google voor iedereen te verbeteren. Sommige samengevoegde gegevens helpen ook partners, zoals Android-ontwikkelaars, om hun apps en producten beter te maken.<ph name="END_PARAGRAPH1" />
-    <ph name="BEGIN_PARAGRAPH2" />Je kunt dit op elk gewenst moment in- of uitschakelen in de instellingen voor Android-apps. Dit heeft geen invloed op de mogelijkheid van je apparaat om de benodigde gegevens te verzenden zodat het essentiële services kan ontvangen, zoals service-updates en beveiliging.<ph name="END_PARAGRAPH2" /></translation>
+<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />Dit zijn algemene gegevens over je apparaat en hoe je het apparaat gebruikt, zoals de accustatus, hoe vaak je apps gebruikt, de kwaliteit en duur van je netwerkverbindingen (zoals wifi en Bluetooth), en crashrapporten wanneer dingen niet werken zoals zou moeten. Deze gegevens worden gebruikt om de producten en services van Google voor iedereen te verbeteren. Sommige samengevoegde gegevens helpen ook partners, zoals Android-ontwikkelaars, om hun apps en producten beter te maken.<ph name="END_PARAGRAPH1" />
+    <ph name="BEGIN_PARAGRAPH2" />Je kunt dit op elk gewenst moment in- of uitschakelen in de instellingen voor Android-apps. Dit heeft geen invloed op de mogelijkheid van je apparaat om de benodigde gegevens te verzenden waardoor het essentiële services kan ontvangen, zoals service-updates en beveiliging.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990198433782424697">Extensies voor URL's met chrome://</translation>
 <translation id="5990814808592353318">Wachtwoorden handmatig genereren.</translation>
 <translation id="5991049340509704927">Vergroten</translation>
@@ -5471,7 +5471,6 @@ Tijd berekenen tot vol</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Voor deze taal zijn geen invoermethoden beschikbaar</translation>
 <translation id="8357224663288891423">Sneltoetsen voor extensies en apps</translation>
-<translation id="8357698472719914638">ALTIJD</translation>
 <translation id="8358685469073206162">Pagina's herstellen?</translation>
 <translation id="8363095875018065315">stabiel</translation>
 <translation id="8366396658833131068">Je netwerkverbinding is hersteld. Selecteer een ander netwerk of druk hieronder op de knop 'Doorgaan' om je kiosk-app te starten.</translation>

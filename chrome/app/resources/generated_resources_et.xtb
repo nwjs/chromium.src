@@ -923,6 +923,7 @@
 <translation id="2238379619048995541">Sageduse oleku andmed</translation>
 <translation id="2239921694246509981">Jälgitava isiku lisamine</translation>
 <translation id="2241053333139545397">Andmete lugemine ja muutmine mitmel veebisaidil</translation>
+<translation id="2241634353105152135">Ainult ühe korra</translation>
 <translation id="2242603986093373032">Seadmed puuduvad</translation>
 <translation id="2242687258748107519">Faili teave</translation>
 <translation id="2246340272688122454">Taastetõmmise allalaadimine ...</translation>
@@ -2973,7 +2974,6 @@ Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="4927753642311223124">Siin pole ühtegi märguannet, liikuge edasi.</translation>
 <translation id="4929925845384605079">Lubab kuvada riiulile lisamise bännerid või muu platvormipõhise ekvivalendi, mis küsib kasutajalt, kas ta soovib veebirakenduse riiulile lisada.</translation>
 <translation id="4933484234309072027">manustatud aadressil <ph name="URL" /></translation>
-<translation id="4935151320838778332">AINULT KORRA</translation>
 <translation id="493571969993549666">Jälgitava kasutaja lisamine</translation>
 <translation id="4938972461544498524">Puuteplaadi seaded</translation>
 <translation id="4940047036413029306">Jutumärk</translation>
@@ -5470,7 +5470,6 @@ Täislaadimiseks kuluva aja arvutamine</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Keelel puuduvad sisestusviisid</translation>
 <translation id="8357224663288891423">Laienduste ja rakenduste klaviatuuri otseteed</translation>
-<translation id="8357698472719914638">ALATI</translation>
 <translation id="8358685469073206162">Kas taastada lehed?</translation>
 <translation id="8363095875018065315">stabiilne</translation>
 <translation id="8366396658833131068">Võrguühendus on taastatud. Valige teine võrk või vajutage allolevat nuppu „Jätka” rakenduse Kiosk käivitamiseks.</translation>

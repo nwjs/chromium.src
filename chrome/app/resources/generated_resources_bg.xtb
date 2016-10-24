@@ -919,6 +919,7 @@
 <translation id="2238379619048995541">Данни за състоянието на активност</translation>
 <translation id="2239921694246509981">Добавяне на контролиран човек</translation>
 <translation id="2241053333139545397">Четене и промяна на данните ви в няколко уебсайта.</translation>
+<translation id="2241634353105152135">Само веднъж</translation>
 <translation id="2242603986093373032">Няма устройства</translation>
 <translation id="2242687258748107519">Информация за файла</translation>
 <translation id="2246340272688122454">Образът за възстановяване се изтегля...</translation>
@@ -2969,7 +2970,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4927753642311223124">Тук няма нищо, продължете нататък.</translation>
 <translation id="4929925845384605079">Активирайте показването на банери, които подканват потребителя да добави дадено уеб приложение към лавицата си или към друг конкретен за платформата еквивалент.</translation>
 <translation id="4933484234309072027">вградена в <ph name="URL" /></translation>
-<translation id="4935151320838778332">САМО ВЕДНЪЖ</translation>
 <translation id="493571969993549666">Добавяне на контролиран потребител</translation>
 <translation id="4938972461544498524">Настройки за сензорния панел</translation>
 <translation id="4940047036413029306">Кавички</translation>
@@ -5467,7 +5467,6 @@ PDF файл или в Google Диск.</translation>
 <translation id="8356197132883132838">„<ph name="TITLE" />“ – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Няма методи на въвеждане за този език</translation>
 <translation id="8357224663288891423">Клавишни комбинации за разширения и приложения</translation>
-<translation id="8357698472719914638">ВИНАГИ</translation>
 <translation id="8358685469073206162">Да се възстановят ли страниците?</translation>
 <translation id="8363095875018065315">стабилен</translation>
 <translation id="8366396658833131068">Връзката ви с мрежата е възстановена. Моля, изберете друга мрежа или натиснете бутона „Напред“ по-долу, за да стартирате павилионното си приложение.</translation>

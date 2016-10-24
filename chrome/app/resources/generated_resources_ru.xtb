@@ -922,6 +922,7 @@
 <translation id="2238379619048995541">Данные о работе процессора на разных ступенях частоты</translation>
 <translation id="2239921694246509981">Добавить управляемый профиль</translation>
 <translation id="2241053333139545397">Просмотр и изменение данных на нескольких сайтах</translation>
+<translation id="2241634353105152135">Однократно</translation>
 <translation id="2242603986093373032">Устройства не найдены</translation>
 <translation id="2242687258748107519">Информация о файле</translation>
 <translation id="2246340272688122454">Скачивание образа для восстановления…</translation>
@@ -2975,7 +2976,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4927753642311223124">Оповещений нет.</translation>
 <translation id="4929925845384605079">Включает показ баннеров, на которых пользователям предлагают добавить веб-приложение на панель запуска или в аналогичное место (в зависимости от платформы).</translation>
 <translation id="4933484234309072027">встроен в <ph name="URL" /></translation>
-<translation id="4935151320838778332">ТОЛЬКО СЕЙЧАС</translation>
 <translation id="493571969993549666">Создать контролируемый профиль</translation>
 <translation id="4938972461544498524">Настройки сенсорной панели</translation>
 <translation id="4940047036413029306">Кавычка</translation>
@@ -5472,7 +5472,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8356197132883132838"><ph name="TITLE" /> (<ph name="COUNT" />)</translation>
 <translation id="8356258244599961364">Для этого языка не выбран способ ввода</translation>
 <translation id="8357224663288891423">Быстрые клавиши для расширений и приложений</translation>
-<translation id="8357698472719914638">ВСЕГДА</translation>
 <translation id="8358685469073206162">Восстановить страницы?</translation>
 <translation id="8363095875018065315">стабильная</translation>
 <translation id="8366396658833131068">Подключение к сети восстановлено. Выберите другую сеть или нажмите кнопку "Продолжить", чтобы запустить киоск-приложение.</translation>

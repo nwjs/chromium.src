@@ -923,6 +923,7 @@ Vēl jālādē: <ph name="HOUR" />:<ph name="MINUTE" /></translation>
 <translation id="2238379619048995541">Dati par frekvences stāvokli</translation>
 <translation id="2239921694246509981">Pievienot uzraudzītu personu</translation>
 <translation id="2241053333139545397">Lasīt un mainīt jūsu datus vairākās vietnēs</translation>
+<translation id="2241634353105152135">Tikai vienreiz</translation>
 <translation id="2242603986093373032">Nav ierīču</translation>
 <translation id="2242687258748107519">Faila informācija</translation>
 <translation id="2246340272688122454">Notiek atkopšanas attēla lejupielāde...</translation>
@@ -2975,7 +2976,6 @@ Lai turpinātu skatīšanu, nospiediet jebkuru taustiņu.</translation>
 <translation id="4927753642311223124">Te nekā nav, varat doties tālāk!</translation>
 <translation id="4929925845384605079">Tiek iespējoti reklāmkarogi par vienumu pievienošanu plauktam, piedāvājot lietotājam pievienot tīmekļa lietotni savam plauktam vai citam attiecīgajā platformā pieejamajam ekvivalentam.</translation>
 <translation id="4933484234309072027">iegults vietnē <ph name="URL" /></translation>
-<translation id="4935151320838778332">TIKAI VIENREIZ</translation>
 <translation id="493571969993549666">Pievienot uzraudzītu lietotāju</translation>
 <translation id="4938972461544498524">Skārienpaliktņa iestatījumi</translation>
 <translation id="4940047036413029306">Jaut.z.</translation>
@@ -5474,7 +5474,6 @@ Tiek rēķināts atlikušais uzlādes laiks</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> — <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Šai valodai nav ievades metožu</translation>
 <translation id="8357224663288891423">Īsinājumtaustiņi paplašinājumiem un lietotnēm</translation>
-<translation id="8357698472719914638">VIENMĒR</translation>
 <translation id="8358685469073206162">Vai atjaunot lapas?</translation>
 <translation id="8363095875018065315">stabila</translation>
 <translation id="8366396658833131068">Tīkla savienojums ir atjaunots. Lūdzu, atlasiet citu tīklu vai nospiediet tālāk esošo pogu “Turpināt”, lai palaistu savu kioska lietotni.</translation>

@@ -295,6 +295,7 @@ Jos tämä asetus ei ole käytössä, järjestelmäpalkissa ei näytetä suurta 
       Jos käytännön HardwareAccelerationModeEnabled arvoksi asetetaan Epätosi, Disable3DAPIs ohitetaan, jolloin lopputulos vastaa Disable3DAPIs-käytännön arvoa Tosi.</translation>
 <translation id="2168397434410358693">Käyttämättömyysaika käytettäessä laitetta verkkovirralla</translation>
 <translation id="2170233653554726857">Ota WPAD-optimointi käyttöön</translation>
+<translation id="2178899310296064282">Pakota vähintään keskitason rajoitettu tila YouTubessa</translation>
 <translation id="2188979373208322108">Ottaa käyttöön kirjanmerkkipalkin tuotteessa <ph name="PRODUCT_NAME" />. Jos otat tämän asetuksen käyttöön, <ph name="PRODUCT_NAME" /> näyttää kirjanmerkkipalkin. Jos poistat asetuksen käytöstä, kirjanmerkkipalkkia ei näytetä. Valittuasi asetuksen käyttäjät eivät voi muuttaa tai ohittaa sitä tuotteessa <ph name="PRODUCT_NAME" />. Jos asetusta ei ole määritetty, käyttäjä voi käyttää toimintoa halutessaan.</translation>
 <translation id="2201555246697292490">Määritä sallittujen luettelo laitteen omalle viestijärjestelmälle</translation>
 <translation id="2204753382813641270">Hallinnoi hyllyn automaattista piilottamista</translation>
@@ -538,6 +539,7 @@ Kaikki luettelon kohteet ovat tunnuksia, joiden perusteella erotetaan laitteesee
       Jos otat tämän asetuksen käyttöön tai poistat sen käytöstä, käyttäjät eivät voi muuttaa tai ohittaa tuotteen <ph name="PRODUCT_NAME" /> Aktivoi tietojenkalastelu- ja haittaohjelmasuojaus -asetusta.
 
       Jos tätä käytäntöä ei määritetä, ominaisuus ei ole käytössä, mutta käyttäjä voi muuttaa sen itse.</translation>
+<translation id="2787173078141616821">Raportoi tietoja Androidin tilasta</translation>
 <translation id="2801230735743888564">Anna käyttäjien pelata dinosauruspeliä laitteen ollessa offline-tilassa.
 
       Jos tämän käytännön arvo on epätosi, käyttäjät eivät voi pelata dinosauruspeliä laitteen ollessa offline-tilassa. Jos asetuksen arvo on tosi, käyttäjät voivat pelata peliä. Jos käytännön arvoa ei ole määritetty, käyttäjät eivät voi pelata dinosauruspeliä käyttöön otetulla Chrome-käyttöjärjestelmälaitteella, mutta voivat pelata peliä muissa olosuhteissa.</translation>
@@ -763,6 +765,15 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 <translation id="3417418267404583991">Jos tälle käytännölle asetetaan tosi-arvo tai sitä ei määritetä, <ph name="PRODUCT_OS_NAME" /> sallii vieraskirjautumisen. Vieraskirjautuminen on anonyymi käyttökerta, johon ei tarvita salasanaa.
 
       Jos tälle käytännölle asetetaan epätosi-arvo, <ph name="PRODUCT_OS_NAME" /> ei salli vieraskirjautumista.</translation>
+<translation id="3418871497193485241">Pakota vähimmäistason rajoitettu tila YouTubessa ja estä käyttäjiä
+      valitsemasta vähemmän rajoitettua tilaa.
+
+      Jos tämä asetus on tiukka, tiukka rajoitettu tila YouTubessa on aina aktiivinen.
+
+      Jos tämä asetus on keskitaso, käyttäjä voi valita vain keskitason rajoitetun tilan
+      tai tiukan rajoitetun tilan YouTubessa, mutta ei voi poistaa käytöstä rajoitettua tilaa.
+
+      Jos tämä asetus on poistettu käytöstä tai sitä ei ole määritetty, <ph name="PRODUCT_NAME" /> ei pakota rajoitettua tilaa YouTubessa. Ulkoiset käytännöt, esim. YouTuben omat käytännöt, voivat silti pakottaa rajoitetun tilan.</translation>
 <translation id="3428247105888806363">Ota verkkojen esilataus käyttöön</translation>
 <translation id="3449886121729668969">Tämä käytäntö määrittää välityspalvelinasetukset, joita <ph name="PRODUCT_NAME" /> käyttää. Myös ARC-sovellukset voivat käyttää näitä välityspalvelinasetuksia.
 
@@ -876,6 +887,12 @@ Jos tätä asetusta ei ole määritetty, kaikentyyppisiä sovelluksia ja laajenn
 
           Kaikki laitteen omaa viestijärjestelmää käyttävät isännät ovat oletuksena sallittujen luettelossa. Jos kaikki laitteen omaa viestijärjestelmää käyttävät isännät on lisätty kiellettyjen luetteloon käytännön kautta, käytäntö voidaan ohittaa sallittujen luettelon kautta.</translation>
 <translation id="384743459174066962">Voit määrittää luettelon URL-malleja, joissa määritetään sivustot, jotka eivät saa avata ponnahdusikkunoita. Jos tätä käytäntöä ei ole määritetty, kaikille sivustoille käytetään joko DefaultPopupsSetting-käytännön yleistä oletusarvoa, jos se on asetettu, tai käyttäjän henkilökohtaisia määrityksiä.</translation>
+<translation id="3851039766298741586">Raportoi aktiivisen kioskikäyttökerran tietoja, kuten
+      sovellustunnus ja ‑versio.
+
+      Jos käytännön arvo on Epätosi, käyttökertatietoja ei
+      raportoida. Jos arvo on Tosi tai sitä ei aseteta, käyttökertatiedot
+      raportoidaan.</translation>
 <translation id="3859780406608282662">Lisää parametri muunnelmasiemenarvon noutamiseen tuotteessa <ph name="PRODUCT_OS_NAME" />.
 
       Jos tämä arvo on määritetty, muunnelmasiemenarvon nouto-osoitteeseen lisätään kyselyparametri "restrict". Parametrin arvona käytetään tässä käytännössä määritettyä arvoa.
@@ -890,6 +907,13 @@ Jos tätä asetusta ei ole määritetty, kaikentyyppisiä sovelluksia ja laajenn
 
           Tämä käytäntö toteutetaan vain, jos käytäntö DefaultSearchProviderEnabled on käytössä.</translation>
 <translation id="3864818549971490907">Laajennuksien oletusasetus</translation>
+<translation id="386487026071140458">Tämä käytäntö on poistettu käytöstä, käytä sen sijaan seuraavia: <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" /> ja <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />. Tätä käytäntöä ei oteta huomioon, jos <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" />, <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> tai (käytöstä poistettu) <ph name="FORCEYOUTUBESAFETYMODE_POLICY_NAME" /> on käytössä.
+
+      Pakottaa tekemään Google-verkkohaun kyselyt niin, että SafeSearch on aktiivinen, ja estää käyttäjiä muuttamasta tätä asetusta. Asetus myös pakottaa rajoitetun tilan käyttöönoton YouTubessa.
+
+      Jos otat tämän asetuksen käyttöön, Google-haun SafeSearch YouTuben keskitason rajoitettu tila ovat aina aktiivisia.
+
+      Jos poistat tämän asetuksen käytöstä tai et määritä sille arvoa, Google-haun SafeSearchia tai YouTuben rajoitettua tilaa ei pakoteta.</translation>
 <translation id="3866249974567520381">Kuvaus</translation>
 <translation id="3866530186104388232">Jos tälle käytännölle asetetaan tosi-arvo tai sitä ei määritetä, <ph name="PRODUCT_OS_NAME" /> näyttää määritetyt käyttäjät valittavissa kirjautumisruudulla. Jos tälle käytännölle asetetaan epätosi-arvo, <ph name="PRODUCT_OS_NAME" /> näyttää kirjautumisruudulla käyttäjänimen ja salasanan kehotteen.</translation>
 <translation id="3868347814555911633">Tämä käytäntö toimii vain myyntitilassa.
@@ -1247,6 +1271,13 @@ Jos tätä asetusta ei ole määritetty, kaikentyyppisiä sovelluksia ja laajenn
           Jos tämä asetus on poistettu käytöstä tai sitä ei ole määritetty, paikalliset ja etäkäyttäjät voivat olla vuorovaikutuksessa isännän kanssa, kun se jaetaan.</translation>
 <translation id="5423001109873148185">Tämä käytäntö pakottaa hakukoneiden tuonnin nykyisestä oletusselaimesta. Jos käytäntö on käytössä, käytäntö vaikuttaa myös tuonti-ikkunaan. Jos käytäntö ei ole käytössä, oletushakukonetta ei tuoda. Jos käytäntöä ei ole määritetty, käyttäjiltä voidaan kysyä, haluavatko he tuoda hakukoneen, tai hakukone voidaan tuoda automaattisesti.</translation>
 <translation id="5423197884968724595">Android WebView -rajoituksen nimi:</translation>
+<translation id="543559563129402336">Tämä käytäntö on poistettu käytöstä. Harkitse sen sijaan käytäntöä <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />, joka ohittaa tämän käytännön ja sallii tarkemmat asetukset.
+
+      Pakottaa YouTuben keskitason rajoitetun tilan ja estää käyttäjiä muuttamasta tätä asetusta.
+
+      Jos tämä asetus on käytössä, YouTuben rajoitettu tila on aina vähintään keskitaso.
+
+      Jos tämä asetus on poistettu käytöstä tai arvoa ei ole määritetty, <ph name="PRODUCT_NAME" /> ei pakota YouTuben rajoitettua tilaa. Ulkoiset käytännöt, esim. YouTuben omat käytännöt, voivat silti pakottaa rajoitetun tilan.</translation>
 <translation id="5447306928176905178">Ota käyttöön muistitietojen ilmoittaminen (JS-pinon koko) sivulle (vanhentunut)</translation>
 <translation id="5457065417344056871">Ota vierastila käyttöön selaimessa</translation>
 <translation id="5457924070961220141">Voit määrittää oletus-HTML-hahmontajan, kun <ph name="PRODUCT_FRAME_NAME" /> on asennettu. Oletusasetusta käytetään, jos tätä käytäntöä ei ole määritetty. Tällöin isäntäselain suorittaa hahmonnuksen, mutta voit ohittaa asetuksen ja asettaa tuotteen <ph name="PRODUCT_FRAME_NAME" /> hahmontamaan HTML-sivut oletuksena.</translation>
@@ -1413,6 +1444,12 @@ Jos tämä asetus ei ole käytössä tai jos sitä ei määritetä, SafeSearchia
 
       Jos tätä käytäntöä ei aseteta tai jos sen arvoksi on asetettu epätosi, <ph name="PRODUCT_NAME" /> ei suorita näitä tarkistuksia tuotteen <ph name="PRODUCT_NAME" /> versiossa 19 ja myöhemmissä.</translation>
 <translation id="5966615072639944554">Laajennukset, joille sallitaan etätodennussovellusliittymän käyttö</translation>
+<translation id="5974970919245996815">Androidin tilan raportointitiedot lähetetään takaisin palvelimelle.
+
+      Jos käytännön arvoksi on määritetty epätosi, tietoja ei raportoida.
+      Jos sen arvoksi on määritety tosi tai sitä ei ole määritetty ollenkaan, tiedot raportoidaan.
+
+      Tätä käytäntöä sovelletaan vain, jos Android-sovellukset on otettu käyttöön.</translation>
 <translation id="5983708779415553259">Mihinkään sisältöpakettiin kuulumattomien sivustojen oletustoiminta</translation>
 <translation id="5997543603646547632">Käytä oletuksena 24 tunnin kelloa</translation>
 <translation id="6009903244351574348">Anna tuotteen <ph name="PRODUCT_FRAME_NAME" /> käsitellä lueteltuja sisältötyyppejä. Jos tätä käytäntöä ei ole määritetty, kaikki sivustot hahmonnetaan ChromeFrameRendererSettings-käytännön oletushahmonnusmäärityksien mukaan.</translation>
@@ -1658,6 +1695,7 @@ Jos tämä asetus ei ole käytössä tai jos sen arvo on false, tulostuskomento 
 <translation id="6828905844648501476">Jos tämän käytännön arvo on Tosi tai sitä ei määritetä, <ph name="PRODUCT_NAME" /> sallii uusien profiilien luomisen käyttäjäprofiilien hallinnassa.
 
       Jos tämän käytännön arvo on Epätosi, <ph name="PRODUCT_NAME" /> ei salli uusien profiilien luomista käyttäjäprofiilien hallinnassa.</translation>
+<translation id="685769593149966548">Pakota rajoitettu tila YouTubessa</translation>
 <translation id="687046793986382807">Tämä käytäntö on poistettu käytöstä tuotteen <ph name="PRODUCT_NAME" /> versiosta 35 alkaen.
 
       Muistitiedot ilmoitetaan sivulle huolimatta valitusta arvosta, mutta ilmoitetut koot pyöristetään ja päivitystiheyttä rajoitetaan turvallisuussyistä. Jos haluat tarkkoja reaaliaikaisia tietoja, käytä esimerkiksi Telemetry-työkalua.</translation>
@@ -1976,12 +2014,6 @@ Jos tätä käytäntöä ei ole määritetty, käytetään oletusarvoa (32).</tr
 
       Tunnistettuja yhteystyypin tunnuksia ovat ethernet, wifi, wimax, bluetooth ja cellular.</translation>
 <translation id="7763614521440615342">Näytä sisältöehdotuksia Uusi välilehti ‑sivulla</translation>
-<translation id="7766336524667238790">Raportoi aktiivisen kioskikäyttökerran tietoja, kuten
-      sovellustunnuksen ja -version.
-
-      Jos käytännön arvo on Epätosi, käyttökertatietoja ei
-      raportoida. Jos arvo on Tosi tai sitä ei aseteta, käyttökertatiedot
-      raportoidaan.</translation>
 <translation id="7774768074957326919">Käytä järjestelmän välityspalvelimen asetuksia</translation>
 <translation id="7775831859772431793">Voit määrittää välityspalvelimen URL-osoitteen tässä.
 
@@ -2083,6 +2115,7 @@ Jos tätä käytäntöä ei ole määritetty, käytetään oletusarvoa (32).</tr
       Jos käytännön arvoksi asetetaan true, laite käyttää 24 tunnin kelloa. Jos käytännön arvoksi asetetaan false, laite käyttää 12 tunnin kelloa.
 
       Jos käytännön arvoa ei aseteta, laite käyttää oletuksena 24 tunnin kelloa.</translation>
+<translation id="8114382167597081590">Älä pakota rajoitettua tilaa YouTubessa</translation>
 <translation id="8118665053362250806">Aseta medialevyn välimuistin koko</translation>
 <translation id="8135937294926049787">Määrittää käyttämättömyysajan, jonka kuluttua ruutu sammutetaan, kun laitetta käytetään verkkovirralla.
 
@@ -2292,6 +2325,7 @@ Tämä käytäntö ei ole käytössä tavallisilla käyttäjätileillä.</transl
 <translation id="8704831857353097849">Luettelo käytöstä poistetuista laajennuksista</translation>
 <translation id="8711086062295757690">Määrittää avainsanan, joka käynnistää omniboxissa tämän hakupalvelun haun. Tämä käytäntö on valinnainen. Jos sitä ei ole määritetty, mikään avainsana ei käynnistä tätä hakupalvelua. Tämä käytäntö on voimassa vain, jos DefaultSearchProviderEnabled-käytäntö on käytössä.</translation>
 <translation id="8731693562790917685">Sisältöasetuksien avulla voit määrittää, miten tietyn tyyppistä sisältöä (kuten evästeitä, kuvia tai JavaScriptiä) käsitellään.</translation>
+<translation id="8736538322216687231">Pakota YouTuben vähimmäistason rajoitettu tila</translation>
 <translation id="8749370016497832113">Estää tuotteen <ph name="PRODUCT_NAME" /> selaus- ja lataushistorian poistamisen ja estää käyttäjiä muuttamasta asetusta.
 
       Huomaathan, että vaikka käytäntöä ei otettaisi käyttöön, selaus- ja lataushistoriaa ei välttämättä säilytetä: käyttäjät saattavat pystyä muokkaamaan tai poistamaan historiatietokannan tiedostoja käsin, ja selain voi itse poistaa tai arkistoida vanhoja kohteita koska tahansa.

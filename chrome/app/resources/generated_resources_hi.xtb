@@ -922,6 +922,7 @@
 <translation id="2238379619048995541">आवृत्ति स्थिति डेटा</translation>
 <translation id="2239921694246509981">पर्यवेक्षित व्‍यक्‍ति जोड़ें</translation>
 <translation id="2241053333139545397">कई वेबसाइटों पर अपना डेटा पढ़ें और बदलें</translation>
+<translation id="2241634353105152135">बस एक बार</translation>
 <translation id="2242603986093373032">कोई डिवाइस नहीं</translation>
 <translation id="2242687258748107519">फ़ाइल जानकारी</translation>
 <translation id="2246340272688122454">पुनर्प्राप्ति चित्र डाउनलोड कर रहा है...</translation>
@@ -2972,7 +2973,6 @@
 <translation id="4927753642311223124">यहां देखने के लिए कुछ भी नहीं है, आगे चलें.</translation>
 <translation id="4929925845384605079">अलमारी बैनर में जोड़ें का प्रदर्शन सक्षम करें जो उपयोगकर्ताओं को उनकी अलमारी में किसी वेब ऐप को जोड़ने का संकेत देते हैं, या अन्य प्लेटफ़ॉर्म-विशिष्ट समतुल्य का प्रदर्शन सक्षम करें.</translation>
 <translation id="4933484234309072027"><ph name="URL" /> पर एम्बेड किया गया</translation>
-<translation id="4935151320838778332">बस एक बार</translation>
 <translation id="493571969993549666">निगरानी में रखा गया उपयोगकर्ता जोड़ें</translation>
 <translation id="4938972461544498524">Touchpad सेटिंग</translation>
 <translation id="4940047036413029306">कोट</translation>
@@ -5469,7 +5469,6 @@
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">इस भाषा की कोई भी इनपुट विधि नहीं है</translation>
 <translation id="8357224663288891423">एक्सटेंशन और ऐप्स के कीबोर्ड शॉर्टकट</translation>
-<translation id="8357698472719914638">हमेशा</translation>
 <translation id="8358685469073206162">पृष्ठों को पुनर्स्थापित करें?</translation>
 <translation id="8363095875018065315">स्‍थिर</translation>
 <translation id="8366396658833131068">आपकी नेटवर्क कनेक्टिविटी पुनर्स्थापित हो गई है. कृपया अपना किओस्क ऐप्स लॉन्च करने के लिए भिन्न नेटवर्क चुनें या नीचे दिया गया 'जारी रखें' बटन दबाएं.</translation>

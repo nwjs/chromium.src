@@ -919,6 +919,7 @@
 <translation id="2238379619048995541">Datos de estado de frecuencia</translation>
 <translation id="2239921694246509981">Agregar persona supervisada</translation>
 <translation id="2241053333139545397">Leer y modificar tus datos en una serie de sitios web</translation>
+<translation id="2241634353105152135">Solo esta vez</translation>
 <translation id="2242603986093373032">No hay ningún dispositivo.</translation>
 <translation id="2242687258748107519">Información del archivo</translation>
 <translation id="2246340272688122454">Descargando imagen de recuperación...</translation>
@@ -2970,7 +2971,6 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="4927753642311223124">No hay ningún elemento que mostrar.</translation>
 <translation id="4929925845384605079">Permite habilitar la pantalla banners para agregar a la biblioteca, lo que solicita al usuario agregar una aplicación web a sus bibliotecas u otros equivalentes específicos de la plataforma.</translation>
 <translation id="4933484234309072027">insertado en <ph name="URL" /></translation>
-<translation id="4935151320838778332">SOLO UNA VEZ</translation>
 <translation id="493571969993549666">Agregar usuario supervisado</translation>
 <translation id="4938972461544498524">Configuración del touchpad</translation>
 <translation id="4940047036413029306">Comilla</translation>
@@ -5466,7 +5466,6 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8356197132883132838"><ph name="TITLE" /> (<ph name="COUNT" />)</translation>
 <translation id="8356258244599961364">Este idioma no tiene ningún método de entrada.</translation>
 <translation id="8357224663288891423">Combinaciones de teclas para acceso directo: extensiones y aplicaciones</translation>
-<translation id="8357698472719914638">SIEMPRE</translation>
 <translation id="8358685469073206162">¿Restaurar las páginas?</translation>
 <translation id="8363095875018065315">estable</translation>
 <translation id="8366396658833131068">Se restauró la conexión de red. Selecciona una red distinta o presiona el botón "Continuar" para iniciar la aplicación de kiosco.</translation>

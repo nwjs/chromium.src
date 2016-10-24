@@ -922,6 +922,7 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="2238379619048995541">Dati sullo stato di frequenza</translation>
 <translation id="2239921694246509981">Aggiungi persona supervisionata</translation>
 <translation id="2241053333139545397">Leggere e modificare i tuoi dati su una serie di siti web</translation>
+<translation id="2241634353105152135">Solo una volta</translation>
 <translation id="2242603986093373032">Nessun dispositivo</translation>
 <translation id="2242687258748107519">Info sul file</translation>
 <translation id="2246340272688122454">Download dell'immagine di ripristino in corso...</translation>
@@ -2967,7 +2968,6 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="4927753642311223124">Nessuna notifica.</translation>
 <translation id="4929925845384605079">Attiva l'opzione Aggiungi ai banner shelf che chiede all'utente di aggiungere un'app web nel proprio shelf o in una piattaforma specifica equivalente.</translation>
 <translation id="4933484234309072027">incorporata su <ph name="URL" /></translation>
-<translation id="4935151320838778332">SOLO UNA VOLTA</translation>
 <translation id="493571969993549666">Aggiungi utente supervisionato</translation>
 <translation id="4938972461544498524">Impostazioni touchpad</translation>
 <translation id="4940047036413029306">Virg.</translation>
@@ -5454,7 +5454,6 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Questa lingua non ha metodi di immissione</translation>
 <translation id="8357224663288891423">Scorciatoie da tastiera per estensioni e app</translation>
-<translation id="8357698472719914638">SEMPRE</translation>
 <translation id="8358685469073206162">Ripristinare le pagine?</translation>
 <translation id="8363095875018065315">stabile</translation>
 <translation id="8366396658833131068">La connettività di rete è stata ripristinata. Seleziona un'altra rete o premi il pulsante "Continua" sotto per avviare l'app kiosk.</translation>

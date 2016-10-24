@@ -56,7 +56,7 @@
 <translation id="1553358976309200471">Ажурирај Chrome</translation>
 <translation id="1571304935088121812">Копирај корисничко име</translation>
 <translation id="1612196535745283361">Chrome-у је потребан приступ локацији да би тражио уређаје. Приступ локацији је <ph name="BEGIN_LINK" />искључен за овај уређај<ph name="END_LINK" />.</translation>
-<translation id="1620510694547887537">Камеру</translation>
+<translation id="1620510694547887537">Камера</translation>
 <translation id="1623104350909869708">Спречи ову страницу да прави додатне дијалоге</translation>
 <translation id="1628019612362412531">{NUM_SELECTED,plural, =1{Уклони 1 изабрану ставку}one{Уклони # изабрану ставку}few{Уклони # изабране ставке}other{Уклони # изабраних ставки}}</translation>
 <translation id="1639239467298939599">Учитавање</translation>
@@ -282,7 +282,7 @@
 <translation id="4275663329226226506">Медији</translation>
 <translation id="4278390842282768270">Дозвољено</translation>
 <translation id="4300272766492248925">Отвори апликацију</translation>
-<translation id="4307992518367153382">Основне</translation>
+<translation id="4307992518367153382">Основна</translation>
 <translation id="4351244548802238354">Затвори дијалог</translation>
 <translation id="4376501731284077108">Без контроле</translation>
 <translation id="4378154925671717803">Телефон</translation>

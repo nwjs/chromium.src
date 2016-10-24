@@ -924,6 +924,7 @@
 <translation id="2238379619048995541">주파수 상태 데이터</translation>
 <translation id="2239921694246509981">관리 대상 사용자 추가</translation>
 <translation id="2241053333139545397">여러 웹사이트의 데이터를 읽고 변경</translation>
+<translation id="2241634353105152135">한 번만</translation>
 <translation id="2242603986093373032">기기 없음</translation>
 <translation id="2242687258748107519">파일 정보</translation>
 <translation id="2246340272688122454">복구 이미지 다운로드 중...</translation>
@@ -2974,7 +2975,6 @@
 <translation id="4927753642311223124">표시할 내용이 없습니다.</translation>
 <translation id="4929925845384605079">실행기에 추가 배너를 표시하도록 허용하여 사용자에게 실행기에 웹 앱을 추가하라는 메시지 또는 기타 플랫폼별로 이에 상응하는 메시지가 표시되도록 합니다.</translation>
 <translation id="4933484234309072027"><ph name="URL" />에 삽입</translation>
-<translation id="4935151320838778332">한 번만</translation>
 <translation id="493571969993549666">관리 대상 사용자 추가</translation>
 <translation id="4938972461544498524">터치패드 설정</translation>
 <translation id="4940047036413029306">인용</translation>
@@ -3273,7 +3273,7 @@
 <translation id="5328031682234198929">8</translation>
 <translation id="5329858601952122676">삭제(&amp;D)</translation>
 <translation id="5330145655348521461">파일이 다른 데스크톱에서 열려 있습니다. 파일을 보려면 <ph name="USER_NAME" />(<ph name="MAIL_ADDRESS" />)(으)로 이동하세요.</translation>
-<translation id="5330512191124428349">정보 받기</translation>
+<translation id="5330512191124428349">정보 보기</translation>
 <translation id="5332624210073556029">표준시간대:</translation>
 <translation id="5333807720589685258">정확한 PIN 잠금해제 키를 입력하지 않으면 SIM 카드가 영구적으로
       사용 중지됩니다.</translation>
@@ -3761,7 +3761,7 @@
 <translation id="5984222099446776634">최근 방문</translation>
 <translation id="5984814259619230127">Smart Lock 저전력 블루투스(BLE) 검색</translation>
 <translation id="5986245990306121338">사용하도록 설정하면 설정에서 '탭 및 앱 병합' 옵션을 사용하도록 설정한 경우에도 탭 전환 도구가 표시됩니다.</translation>
-<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />이 정보는 배터리 수준, 앱 사용 빈도, 네트워크 연결(Wi-Fi 및 블루투스 등) 품질 및 시간, 오류 발생 시 비정상 종료 보고서 등 내 기기와 기기 사용 방식에 관한 일반적인 정보입니다. 이 정보는 모든 사람을 위해 Google 제품 및 서비스를 개선하는 데 사용됩니다. 집계된 정보 중 일부는 Android 개발자 등의 파트너가 앱과 제품을 개선하는 데 유용하게 사용됩니다.<ph name="END_PARAGRAPH1" />
+<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />이 정보는 배터리 수준, 앱 사용 빈도, 네트워크 연결(Wi-Fi 및 블루투스 등) 품질 및 시간, 오류 발생 시 비정상 종료 보고서 등 내 기기와 기기 사용 방식에 관한 일반적인 정보입니다. 이 정보는 모든 사용자의 Google 제품 및 서비스 이용 경험을 개선하는 데 사용됩니다. 집계된 정보 중 일부는 Android 개발자 등의 파트너가 앱과 제품을 개선하는 데 유용하게 사용됩니다.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Android 앱 설정에서 이 기능을 언제든지 사용 설정하거나 사용 중지할 수 있습니다. 이 기능은 기기에서 시스템 업데이트와 보안 등 필수 서비스를 받는 데 필요한 정보를 전송하는 능력에 영향을 주지 않습니다.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990198433782424697">chrome:// URL의 확장 프로그램</translation>
 <translation id="5990814808592353318">비밀번호 직접 생성</translation>
@@ -4217,7 +4217,7 @@
 <translation id="6607272825297743757">파일 정보</translation>
 <translation id="6607831829715835317">도구 더보기</translation>
 <translation id="6608140561353073361">모든 쿠키 및 사이트 데이터...</translation>
-<translation id="6610183966322615106">프린터를 추가하는 도중에 오류가 발생했습니다.</translation>
+<translation id="6610183966322615106">프린터 추가 도중 오류 발생</translation>
 <translation id="6610610633807698299">URL 입력...</translation>
 <translation id="6612358246767739896">보호된 콘텐츠</translation>
 <translation id="6615455863669487791">표시</translation>
@@ -4595,7 +4595,7 @@
 <translation id="715118844758971915">일반 프린터</translation>
 <translation id="7154130902455071009">다음으로 시작 페이지 변경: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">카메라 또는 파일의 기존 사진</translation>
-<translation id="7155226869555939647">언제나 <ph name="APPLICATION" /> 링크 열기</translation>
+<translation id="7155226869555939647"><ph name="APPLICATION" /> 링크 항상 열기</translation>
 <translation id="715568033737470079">Win32k 잠금 샌드박스 정책 내에서 실행될 PPAPI 플러그인을 지정합니다(Windows 10 이상만 해당).</translation>
 <translation id="7156235233373189579">이 파일은 Windows 소프트웨어를 사용하는 PC용으로 설계되었으며 Chrome OS를 실행하는 기기와 호환되지 않습니다. 적합한 대체 앱을 찾으려면 <ph name="BEGIN_LINK" />Chrome 웹 스토어<ph name="END_LINK" />를 검색하세요. <ph name="BEGIN_LINK_HELP" />자세히 알아보기<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">계속을 클릭하면 <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> 및 <ph name="LEGAL_DOC_LINK_TEXT_4" />에 동의하는 것으로 간주됩니다.</translation>
@@ -5472,7 +5472,6 @@
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" />개</translation>
 <translation id="8356258244599961364">이 언어에 대한 입력 방법이 없습니다.</translation>
 <translation id="8357224663288891423">확장 프로그램 및 앱에 대한 단축키</translation>
-<translation id="8357698472719914638">항상</translation>
 <translation id="8358685469073206162">페이지를 복원하시겠습니까?</translation>
 <translation id="8363095875018065315">안정</translation>
 <translation id="8366396658833131068">네트워크 연결이 복원되었습니다. 키오스크 앱을 실행하려면 다른 네트워크를 선택하거나 아래에서 '계속' 버튼을 누르세요.</translation>
@@ -5649,7 +5648,7 @@
 <translation id="8600929685092827187">웨이크 온 패킷(WOP)</translation>
 <translation id="8601206103050338563">TLS WWW 클라이언트 인증</translation>
 <translation id="8602851771975208551">컴퓨터의 다른 프로그램에서 Chrome 작동에 영향을 줄 수 있는 앱을 추가했습니다.</translation>
-<translation id="8603912787021349466">로그인한 뒤 Android 앱이 자동으로 시작될 수 있게 허용합니다.</translation>
+<translation id="8603912787021349466">로그인한 뒤 Android 앱이 자동으로 시작할 수 있게 허용합니다.</translation>
 <translation id="8605428685123651449">SQLite 메모리</translation>
 <translation id="8605503133013456784">'<ph name="DEVICE_NAME" />'에서 연결을 끊고 페어링을 해제하지 못했습니다.</translation>
 <translation id="8606726445206553943">MIDI 기기를 사용합니다.</translation>

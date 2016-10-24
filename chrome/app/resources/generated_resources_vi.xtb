@@ -924,6 +924,7 @@
 <translation id="2238379619048995541">Dữ liệu trạng thái tần suất</translation>
 <translation id="2239921694246509981">Thêm người được giám sát</translation>
 <translation id="2241053333139545397">Đọc và thay đổi dữ liệu của bạn trên một số trang web</translation>
+<translation id="2241634353105152135">Chỉ một lần</translation>
 <translation id="2242603986093373032">Không có thiết bị nào</translation>
 <translation id="2242687258748107519">Thông tin tệp</translation>
 <translation id="2246340272688122454">Đang tải xuống hình ảnh khôi phục...</translation>
@@ -2975,7 +2976,6 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="4927753642311223124">Không có nội dung nào để xem ở đây, hãy tiếp tục.</translation>
 <translation id="4929925845384605079">Bật hiển thị biểu ngữ thêm vào giá, nhắc người dùng thêm ứng dụng web vào giá của họ hoặc những nơi tương đương khác dành riêng cho nền tảng.</translation>
 <translation id="4933484234309072027">được nhúng trên <ph name="URL" /></translation>
-<translation id="4935151320838778332">CHỈ MỘT LẦN</translation>
 <translation id="493571969993549666">Thêm người dùng được giám sát</translation>
 <translation id="4938972461544498524">Cài đặt bàn di chuột</translation>
 <translation id="4940047036413029306">Dấu ngoặc kép</translation>
@@ -5473,7 +5473,6 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Ngôn ngữ này không có bất kỳ phương thức nhập nào</translation>
 <translation id="8357224663288891423">Phím tắt cho tiện ích và ứng dụng</translation>
-<translation id="8357698472719914638">LUÔN LUÔN</translation>
 <translation id="8358685469073206162">Bạn có muốn khôi phục trang không?</translation>
 <translation id="8363095875018065315">chính thức</translation>
 <translation id="8366396658833131068">Kết nối mạng của bạn đã được khôi phục. Hãy chọn mạng khác hoặc nhấn nút 'Tiếp tục' bên dưới để khởi chạy ứng dụng kiosk của bạn.</translation>

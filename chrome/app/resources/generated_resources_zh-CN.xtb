@@ -919,6 +919,7 @@
 <translation id="2238379619048995541">频率状态数据</translation>
 <translation id="2239921694246509981">添加受监管用户</translation>
 <translation id="2241053333139545397">读取和更改您在一些网站上的数据</translation>
+<translation id="2241634353105152135">仅一次</translation>
 <translation id="2242603986093373032">无任何设备</translation>
 <translation id="2242687258748107519">文件信息</translation>
 <translation id="2246340272688122454">正在下载恢复映像...</translation>
@@ -2963,7 +2964,6 @@
 <translation id="4927753642311223124">这里没有任何通知，往前走吧。</translation>
 <translation id="4929925845384605079">显示“添加到任务栏”横幅（提示用户将网络应用添加到任务栏或其他平台上的同等位置）。</translation>
 <translation id="4933484234309072027">嵌入 <ph name="URL" /></translation>
-<translation id="4935151320838778332">仅一次</translation>
 <translation id="493571969993549666">添加受监管用户</translation>
 <translation id="4938972461544498524">触控板设置</translation>
 <translation id="4940047036413029306">引号</translation>
@@ -5440,7 +5440,6 @@
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /> 项</translation>
 <translation id="8356258244599961364">该语言没有任何输入法</translation>
 <translation id="8357224663288891423">扩展程序和应用的键盘快捷键</translation>
-<translation id="8357698472719914638">始终</translation>
 <translation id="8358685469073206162">要恢复页面吗？</translation>
 <translation id="8363095875018065315">稳定</translation>
 <translation id="8366396658833131068">您的网络连接已恢复。要启动自助服务终端应用，请选择其他网络或按下方的“继续”按钮。</translation>

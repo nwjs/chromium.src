@@ -922,6 +922,7 @@
 <translation id="2238379619048995541">Dane o stanie częstotliwości</translation>
 <translation id="2239921694246509981">Dodaj nadzorowaną osobę</translation>
 <translation id="2241053333139545397">Odczytywanie i modyfikowanie Twoich danych na wielu stronach</translation>
+<translation id="2241634353105152135">Tylko raz</translation>
 <translation id="2242603986093373032">Brak urządzeń</translation>
 <translation id="2242687258748107519">Informacje o pliku</translation>
 <translation id="2246340272688122454">Trwa pobieranie obrazu odzyskiwania...</translation>
@@ -2865,7 +2866,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="4812684235631257312">Host</translation>
 <translation id="4813345808229079766">Połączenie</translation>
 <translation id="4813512666221746211">Błąd sieci</translation>
-<translation id="4816492930507672669">Dopasuj do strony.</translation>
+<translation id="4816492930507672669">Dopasuj do strony</translation>
 <translation id="4816617200045929931">Opisz dokładnie, co działo się przed wyświetleniem komunikatu o błędzie profilu:
 
 ****NIE ZMIENIAJ NIC PONIŻEJ TEJ LINII****</translation>
@@ -2970,7 +2971,6 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="4927753642311223124">Nic tu nie ma.</translation>
 <translation id="4929925845384605079">Włącz wyświetlanie banerów dodawania do półki, zachęcających użytkownika, by dodał aplikację internetową do półki lub do innego podobnego elementu zależnego od platformy.</translation>
 <translation id="4933484234309072027">umieszczone w witrynie <ph name="URL" /></translation>
-<translation id="4935151320838778332">TYLKO RAZ</translation>
 <translation id="493571969993549666">Dodaj nadzorowanego użytkownika</translation>
 <translation id="4938972461544498524">Ustawienia touchpada</translation>
 <translation id="4940047036413029306">Cudzysłów</translation>
@@ -5459,7 +5459,6 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Ten język nie ma żadnej metody wprowadzania</translation>
 <translation id="8357224663288891423">Skróty klawiszowe dla rozszerzeń i aplikacji</translation>
-<translation id="8357698472719914638">ZAWSZE</translation>
 <translation id="8358685469073206162">Przywrócić strony?</translation>
 <translation id="8363095875018065315">stabilna</translation>
 <translation id="8366396658833131068">Łączność z siecią została przywrócona. Wybierz inną sieć lub naciśnij przycisk „Dalej” poniżej, by uruchomić aplikację w trybie kiosku.</translation>

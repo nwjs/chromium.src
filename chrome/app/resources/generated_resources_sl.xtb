@@ -924,6 +924,7 @@
 <translation id="2238379619048995541">Podatki o stanju frekvence</translation>
 <translation id="2239921694246509981">Dodajanje zaščitene osebe</translation>
 <translation id="2241053333139545397">Branje in spreminjanje vaših podatkov na več spletnih mestih</translation>
+<translation id="2241634353105152135">Samo enkrat</translation>
 <translation id="2242603986093373032">Ni naprav</translation>
 <translation id="2242687258748107519">Podatki o datoteki</translation>
 <translation id="2246340272688122454">Prenos posnetka za obnovitev ...</translation>
@@ -2119,7 +2120,7 @@ Iz <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3733127536501031542">Strežnik SSL z nadgradnjo</translation>
 <translation id="3736520371357197498">Če se zavedate varnostnega tveganja, lahko <ph name="BEGIN_LINK" />obiščete to spletno mesto, ki ni varno<ph name="END_LINK" />, preden bodo nevarni programi odstranjeni.</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
-<translation id="3739254215541673094">Odpiranje aplikacije <ph name="APPLICATION" />?</translation>
+<translation id="3739254215541673094">Želite odpreti aplikacijo <ph name="APPLICATION" />?</translation>
 <translation id="3739798227959604811">Zakasnitev pred ponovitvijo:</translation>
 <translation id="3741158646617793859">Naprava <ph name="DEVICE_NAME" /> bo zdaj vidna v skrbniški konzoli</translation>
 <translation id="3741243925913727067">Varnostno kopiranje fotografij in videoposnetkov iz predstavnostne naprave v Google Drive.</translation>
@@ -2975,7 +2976,6 @@ Pritisnite katero koli tipko, če želite še naprej raziskovati.</translation>
 <translation id="4927753642311223124">Tu ni ničesar, pomaknite se naprej.</translation>
 <translation id="4929925845384605079">Omogoča prikaz pasic za dodajanje na polico, pri čemer je uporabnik pozvan, da doda spletno aplikacijo na svojo polico ali ustrezno mesto glede na okolje.</translation>
 <translation id="4933484234309072027">vdelano v <ph name="URL" /></translation>
-<translation id="4935151320838778332">SAMO ENKRAT</translation>
 <translation id="493571969993549666">Dodajanje zaščitenega uporabnika</translation>
 <translation id="4938972461544498524">Nastavitve sledilne ploščice</translation>
 <translation id="4940047036413029306">Narekovaj</translation>
@@ -3764,7 +3764,7 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="5984814259619230127">Odkrivanje prek tehnologije Bluetooth Low Energy za funkcijo Smart Lock</translation>
 <translation id="5986245990306121338">Če je omogočeno, je preklop med zavihki prikazan tudi, če je v nastavitvah vklopljena možnost združevanja zavihkov in aplikacij.</translation>
 <translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />To so splošni podatki o tej napravi in tem, kako se uporablja, na primer raven napolnjenosti akumulatorja, kako pogosto so uporabljene aplikacije, kakovost in trajanje omrežnih povezav (na primer povezav z omrežjem Wi-Fi in povezav Bluetooth) ter poročila o zrušitvah, ko ne gre vse po načrtu. Uporabljeni so za izboljšanje Googlovih izdelkov in storitev za vse. Nekateri združeni podatki tudi pomagajo partnerjem, na primer razvijalcem za Android, izboljšati svoje izdelke.<ph name="END_PARAGRAPH1" />
-    <ph name="BEGIN_PARAGRAPH2" />To lahko kadar koli vklopite ali izklopite nastavitvah aplikacij za Android. To ne vpliva na to, ali lahko naprava pošilja potrebne podatke za prejemanje ključnih storitev, na primer sistemskih posodobitev in varnosti.<ph name="END_PARAGRAPH2" /></translation>
+    <ph name="BEGIN_PARAGRAPH2" />To lahko kadar koli vklopite ali izklopite v nastavitvah aplikacij za Android. To ne vpliva na to, ali lahko naprava pošilja potrebne podatke za prejemanje ključnih storitev, na primer sistemskih posodobitev in varnosti.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990198433782424697">Razširitve na URL-jih chrome://</translation>
 <translation id="5990814808592353318">Ročno ustvarjanje gesel</translation>
 <translation id="5991049340509704927">Povečava</translation>
@@ -5472,7 +5472,6 @@ izračun časa do napolnjenosti</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Ta jezik nima načinov vnosa</translation>
 <translation id="8357224663288891423">Bližnjične tipke za razširitve in aplikacije</translation>
-<translation id="8357698472719914638">VEDNO</translation>
 <translation id="8358685469073206162">Želite obnoviti strani?</translation>
 <translation id="8363095875018065315">stabilen</translation>
 <translation id="8366396658833131068">Omrežna povezava je znova vzpostavljena. Če želite zagnati aplikacijo za kiosk, izberite drugo omrežje ali spodaj pritisnite »Naprej«.</translation>

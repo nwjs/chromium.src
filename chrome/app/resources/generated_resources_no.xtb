@@ -919,6 +919,7 @@
 <translation id="2238379619048995541">Data om frekvenstilstand</translation>
 <translation id="2239921694246509981">Legg til en administrert person</translation>
 <translation id="2241053333139545397">lese og endre opplysningene dine på mange nettsteder</translation>
+<translation id="2241634353105152135">Bare én gang</translation>
 <translation id="2242603986093373032">Ingen enheter</translation>
 <translation id="2242687258748107519">Filinformasjon</translation>
 <translation id="2246340272688122454">Laster ned gjenopprettingsbilde …</translation>
@@ -2966,7 +2967,6 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="4927753642311223124">Her er det ikke noe nytt. Men intet nytt er jo godt nytt!</translation>
 <translation id="4929925845384605079">Slå på visning av «legg til på hyllen»-bannere, som ber en bruker om å legge til et nettprogram på hyllen, eller en annen tilsvarende plattformspesifikk funksjon.</translation>
 <translation id="4933484234309072027">lagt til på <ph name="URL" /></translation>
-<translation id="4935151320838778332">BARE ÉN GANG</translation>
 <translation id="493571969993549666">Legg til en administrert bruker</translation>
 <translation id="4938972461544498524">Innstillinger for styreflate</translation>
 <translation id="4940047036413029306">Sitat</translation>
@@ -3750,7 +3750,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="5984222099446776634">Nylig besøkte</translation>
 <translation id="5984814259619230127">Smart Lock-gjenkjenning av telefoner over Bluetooth LE (Low Energy)</translation>
 <translation id="5986245990306121338">Hvis du slår på dette flagget, vises det en fanevelger selv når alternativet «Slå sammen faner og apper» er slått på i innstillingene.</translation>
-<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />Dette er generell informasjon om enheten din og hvordan du bruker den, for eksempel batterinivå, hvor ofte du bruker appene dine, kvaliteten og varigheten på nettverkstilkoblingene (som Wi-Fi og Bluetooth) og programstopprapporter når ting ikke fungerer som de skal. Dette brukes for å forbedre Googles produkter og tjenester for alle brukere. Enkelte samlede opplysninger brukes også for å hjelpe partnere, for eksempel Android-utviklere, med å forbedre appene og produktene de tilbyr.<ph name="END_PARAGRAPH1" />
+<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />Dette er generell informasjon om enheten din og hvordan du bruker den, for eksempel batterinivå, hvor ofte du bruker appene dine, kvaliteten og varigheten på nettverkstilkoblingene (som Wi-Fi og Bluetooth) og programstopprapporter når ting ikke fungerer som de skal. Dette brukes for å forbedre Googles produkter og tjenester for alle brukere. Enkelte typer kombinert informasjon brukes også for å hjelpe partnere, for eksempel Android-utviklere, med å forbedre appene og produktene de tilbyr.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Du kan når som helst slå dette av eller på ved å gå til innstillingene for Android-apper. Dette har ingen innvirkning på enhetens evne til å sende informasjon den trenger for å motta nødvendige tjenester, for eksempel systemoppdateringer og sikkerhet.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990198433782424697">Utvidelser på chrome://-nettadresser</translation>
 <translation id="5990814808592353318">Manuell passordgenerering.</translation>
@@ -5449,7 +5449,6 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Dette språket har ingen inndatametoder.</translation>
 <translation id="8357224663288891423">Hurtigtaster for utvidelser og apper</translation>
-<translation id="8357698472719914638">ALLTID</translation>
 <translation id="8358685469073206162">Vil du gjenopprette sidene?</translation>
 <translation id="8363095875018065315">stabil</translation>
 <translation id="8366396658833131068">Nettverkstilkoblingen er gjenopprettet. Velg et annet nettverk eller trykk på «Fortsett»-knappen nedenfor for å starte kioskappen din.</translation>
@@ -6024,7 +6023,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="9112614144067920641">Velg en ny personlig kode.</translation>
 <translation id="9112748030372401671">endre bakgrunnen din</translation>
 <translation id="9112987648460918699">Finn</translation>
-<translation id="9114663181201435112">Logg enkelt på</translation>
+<translation id="9114663181201435112">Logg på enkelt</translation>
 <translation id="9115487443206954631">Administrer Cast-enheter</translation>
 <translation id="9115675100829699941">&amp;Bokmerker</translation>
 <translation id="9121814364785106365">Åpne som festet fane</translation>

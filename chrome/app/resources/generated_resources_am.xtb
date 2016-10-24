@@ -923,6 +923,7 @@
 <translation id="2238379619048995541">የተደጋጋሚነት ሁኔታ ውሂብ</translation>
 <translation id="2239921694246509981">ቁጥጥር የሚደረግበት ግለሰብን ያክሉ</translation>
 <translation id="2241053333139545397">ውሂብዎን በተወሰኑ ድር ጣቢያዎች ላይ ያነብባል እና ይቀይራል</translation>
+<translation id="2241634353105152135">አንድ ጊዜ ብቻ</translation>
 <translation id="2242603986093373032">ምንም መሣሪያዎች የሉም</translation>
 <translation id="2242687258748107519">የፋይል መረጃ</translation>
 <translation id="2246340272688122454">የዳግም ማግኛ ምስልን በማውረድ ላይ...</translation>
@@ -2972,7 +2973,6 @@
 <translation id="4927753642311223124">እዚህ ምንም የሚታይ ነገር የለም፣ ይቀጥሉ።</translation>
 <translation id="4929925845384605079">አንድ ተጠቃሚ አንድ የድር መተግበሪያ ወደ መደርደሪያቸው ወይም ወደ የሌላ መሣሪያ ስርዓት እኩያ እንዲያክሉ የሚጠይቃቸውን የወደ መደርደሪያ አክል ሰንደቆችን ያንቁ።</translation>
 <translation id="4933484234309072027"><ph name="URL" /> ላይ ተከትቷል</translation>
-<translation id="4935151320838778332">አንድ ጊዜ ብቻ</translation>
 <translation id="493571969993549666">ክትትል የሚደረግበት ተጠቃሚ አክል</translation>
 <translation id="4938972461544498524">የመዳሰሻ ሰሌዳ ቅንብሮች</translation>
 <translation id="4940047036413029306">ጥቅስ</translation>
@@ -3102,7 +3102,7 @@
 <translation id="512903556749061217">ተያያዟል</translation>
 <translation id="5129301143853688736">አጥቂዎች የእርስዎን መረጃ (ለምሳሌ፣ ፎቶዎች፣ የይለፍ ቃሎች፣ መልዕክቶች እና የብድር ካርዶች) ከ<ph name="DOMAIN" /> ላይ ለመስረቅ እየሞከሩ ሊሆን ይችላል።</translation>
 <translation id="5129662217315786329">ፖሊሽ</translation>
-<translation id="5131347545782851480">ተሰቅ ሰነዶች</translation>
+<translation id="5131347545782851480">የፒዲኤፍ ሰነዶች</translation>
 <translation id="5134856901811723984">በChrome OS ስርዓት በይነገጽ ውስጥ ቁሳዊ ንድፍ</translation>
 <translation id="5135533361271311778">የዕልባት ንጥል መፍጠር አልተቻለም።</translation>
 <translation id="5136529877787728692">F7</translation>
@@ -4934,7 +4934,7 @@
 <translation id="7626009897377900107">የይለፍ ቃል ማመንጨት</translation>
 <translation id="7627262197844840899">ይህ ጣቢያ MasterCardን አይቀበልም።</translation>
 <translation id="7627790789328695202">ውይ፣ <ph name="FILE_NAME" /> አስቀድሞ አለ። ዳግም ይሰይሙትና እንደገና ይሞክሩ።</translation>
-<translation id="7628127343934101653">ተሰቅ ፋይሎችን በነባሪው የተሰቅ መመልከቻ መተግበሪያ ክፈት።</translation>
+<translation id="7628127343934101653">የፒዲኤፍ ፋይሎችን በነባሪው የፒዲኤፍ መመልከቻ መተግበሪያ ክፈት።</translation>
 <translation id="762917759028004464">በአሁኑ ጊዜ መነሻ አሳሹ <ph name="BROWSER_NAME" /> ነው።</translation>
 <translation id="7629536005696009600">ለAndroid መተግበሪያዎች የተከማቹ ምስክርነቶች ወደ ተጓዳኝ ድር ጣቢያዎች እንዲሞሉ ይፍቀዱ።</translation>
 <translation id="7629827748548208700">ትር፦ <ph name="TAB_NAME" /></translation>
@@ -5475,7 +5475,6 @@ nil</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">ይህ ቋንቋ ምንም የግቤት ስልቶች የሉትም</translation>
 <translation id="8357224663288891423">የቅጥያዎች እና መተግበሪያዎች የቁልፍ ሰሌዳ አቋራጮች</translation>
-<translation id="8357698472719914638">ሁልጊዜ</translation>
 <translation id="8358685469073206162">ገጹ ዳግም ይጀምር?</translation>
 <translation id="8363095875018065315">የረጋ</translation>
 <translation id="8366396658833131068">የአውታረ መረብ ግንኙነትዎ ወደነበረበት ተመልሷል። እባክዎ የተለየ አውታረ መረብ ይምረጡ ወይም የኪዮስክ መተግበሪያዎን ለማስጀመር «ቀጥል»ን ይጫኑ።</translation>

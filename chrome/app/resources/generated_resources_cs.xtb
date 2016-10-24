@@ -924,6 +924,7 @@ UPOZORNĚNÍ: Když toto pravidlo povolíte, Chrome bude zaznamenávat data o v
 <translation id="2238379619048995541">Data o stavu frekvence</translation>
 <translation id="2239921694246509981">Přidat dozorovaného uživatele</translation>
 <translation id="2241053333139545397">Čtení a úprava dat na různých webech</translation>
+<translation id="2241634353105152135">Pouze jednou</translation>
 <translation id="2242603986093373032">Žádná zařízení</translation>
 <translation id="2242687258748107519">Informace o souboru</translation>
 <translation id="2246340272688122454">Stahování obrazu pro obnovení...</translation>
@@ -2970,7 +2971,6 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="4927753642311223124">Tady není nic k vidění, rozejděte se.</translation>
 <translation id="4929925845384605079">Umožňuje povolit zobrazení bannerů s výzvou k přidání na poličku, které uživatele vyzývají k tomu, aby si přidali webovou aplikaci na poličku nebo do odpovídajícího umístění na jiné platformě.</translation>
 <translation id="4933484234309072027">vloženo do <ph name="URL" /></translation>
-<translation id="4935151320838778332">POUZE JEDNOU</translation>
 <translation id="493571969993549666">Přidat dozorovaného uživatele</translation>
 <translation id="4938972461544498524">Nastavení touchpadu</translation>
 <translation id="4940047036413029306">Uvozovky</translation>
@@ -5460,7 +5460,6 @@ Výpočet času zbývajícího do úplného nabití</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Tento jazyk nemá žádné metody zadávání</translation>
 <translation id="8357224663288891423">Klávesové zkratky pro rozšíření a aplikace</translation>
-<translation id="8357698472719914638">VŽDY</translation>
 <translation id="8358685469073206162">Obnovit stránky?</translation>
 <translation id="8363095875018065315">stabilní</translation>
 <translation id="8366396658833131068">Připojení k síti je obnoveno. Vyberte jinou síť nebo stisknutím tlačítka Pokračovat níže spusťte aplikaci kiosku.</translation>

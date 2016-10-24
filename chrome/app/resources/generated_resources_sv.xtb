@@ -922,6 +922,7 @@
 <translation id="2238379619048995541">Data för frekvenstillstånd</translation>
 <translation id="2239921694246509981">Lägg till kontrollerad person</translation>
 <translation id="2241053333139545397">Läs och ändra dina uppgifter på ett antal webbplatser</translation>
+<translation id="2241634353105152135">Bara en gång</translation>
 <translation id="2242603986093373032">Inga enheter</translation>
 <translation id="2242687258748107519">Filinformation</translation>
 <translation id="2246340272688122454">Laddar ned återställningsavbildning...</translation>
@@ -2446,7 +2447,7 @@ Alla användare måste logga ut för att fortsätta.</translation>
 <translation id="418179967336296930">Ryskt fonetiskt tangentbord (YaZHert)</translation>
 <translation id="4181841719683918333">Språk</translation>
 <translation id="4187248015940562149">Web Bluetooth aktiveras. Det innebär att webbplatser kan tillåtas att ansluta till och styra Bluetooth-enheter i din närhet.</translation>
-<translation id="4188447344915957833">Aktiverar lagringshanteraren i Material Design-versionen av inställningssidan.</translation>
+<translation id="4188447344915957833">Aktiverar lagringshanteraren i Material Design-inställningarna.</translation>
 <translation id="4189406272289638749">Ett tillägg,  &lt;b&gt;<ph name="EXTENSION_NAME" />&lt;/b&gt;, styr den här inställningen.</translation>
 <translation id="4193154014135846272">Google Dokument</translation>
 <translation id="4193182321948161343">Aktivera användarhanteraren med Material Design</translation>
@@ -2973,7 +2974,6 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="4927753642311223124">Här finns inget att se, fortsätt.</translation>
 <translation id="4929925845384605079">Aktivera visning av banners med en uppmaning till användare att lägga till en webbapp på hyllan eller något motsvarande som är specifikt för den aktuella plattformen.</translation>
 <translation id="4933484234309072027">inbäddad på <ph name="URL" /></translation>
-<translation id="4935151320838778332">BARA EN GÅNG</translation>
 <translation id="493571969993549666">Lägg till en kontrollerad användare</translation>
 <translation id="4938972461544498524">Inställningar för styrplatta</translation>
 <translation id="4940047036413029306">Citat</translation>
@@ -5468,7 +5468,6 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Det här språket saknar inmatningsmetoder</translation>
 <translation id="8357224663288891423">Kortkommandon för tillägg och appar</translation>
-<translation id="8357698472719914638">ALLTID</translation>
 <translation id="8358685469073206162">Vill du återställa sidorna?</translation>
 <translation id="8363095875018065315">stabil</translation>
 <translation id="8366396658833131068">Nätverksanslutningen har återställts. Välj ett annat nätverk eller tryck på knappen Fortsätt om du vill starta kioskappen.</translation>

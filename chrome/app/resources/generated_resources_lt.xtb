@@ -874,7 +874,7 @@
 <translation id="218492098606937156">Įgalinti liečiamus įvykius</translation>
 <translation id="2187317261103489799">Aptikti (numatytoji parinktis)</translation>
 <translation id="2187895286714876935">Serverio sertifikato importavimo klaida</translation>
-<translation id="2188881192257509750">Atidaryti <ph name="APPLICATION" /></translation>
+<translation id="2188881192257509750">Atidaryti „<ph name="APPLICATION" />“</translation>
 <translation id="2190069059097339078">„Wi-Fi“ prisijungimo duomenų atsisiuntimo priemonė</translation>
 <translation id="219008588003277019">Vietinio kliento modulis: „<ph name="NEXE_NAME" />“</translation>
 <translation id="2190355936436201913">(tuščias)</translation>
@@ -923,6 +923,7 @@
 <translation id="2238379619048995541">Dažnumo būsenos duomenys</translation>
 <translation id="2239921694246509981">Pridėti prižiūrimą asmenį</translation>
 <translation id="2241053333139545397">Skaityti ir keisti duomenis keliose svetainėse</translation>
+<translation id="2241634353105152135">Tik vieną kartą</translation>
 <translation id="2242603986093373032">Įrenginių nėra</translation>
 <translation id="2242687258748107519">Failo informacija</translation>
 <translation id="2246340272688122454">Atsisiunčiamas atkūrimo vaizdas...</translation>
@@ -2118,7 +2119,7 @@ Iš <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3733127536501031542">SSL serveris su sąranka</translation>
 <translation id="3736520371357197498">Jei suprantate, kokia rizika gali kilti jūsų saugai, galite <ph name="BEGIN_LINK" />apsilankyti šioje nesaugioje svetainėje<ph name="END_LINK" />, kol iš jos dar nepašalintos pavojingos programos.</translation>
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
-<translation id="3739254215541673094">Atidaryti <ph name="APPLICATION" />?</translation>
+<translation id="3739254215541673094">Atidaryti „<ph name="APPLICATION" />“?</translation>
 <translation id="3739798227959604811">Atidėti iki pakartojimo:</translation>
 <translation id="3741158646617793859">Dabar „<ph name="DEVICE_NAME" />“ bus rodomas „Admin Console“</translation>
 <translation id="3741243925913727067">Kurkite atsargines medijos įrenginio nuotraukų ir vaizdo įrašų kopijas „Google“ diske.</translation>
@@ -2974,7 +2975,6 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="4927753642311223124">Čia nieko nėra, slinkite toliau.</translation>
 <translation id="4929925845384605079">Įgalinti pridėjimo prie lentynos reklamjuosčių, raginančių naudotoją pridėti žiniatinklio programą prie lentynos ar kito konkrečios platformos atitikmens, pateiktį.</translation>
 <translation id="4933484234309072027">įdėtas į <ph name="URL" /></translation>
-<translation id="4935151320838778332">TIK VIENĄ KARTĄ</translation>
 <translation id="493571969993549666">Pridėti prižiūrimą naudotoją</translation>
 <translation id="4938972461544498524">Jutiklinės dalies nustatymai</translation>
 <translation id="4940047036413029306">Kabutė</translation>
@@ -5475,7 +5475,6 @@ Skaičiuojamas laikas, kol bus įkrauta</translation>
 <translation id="8356197132883132838">„<ph name="TITLE" />“ (<ph name="COUNT" />)</translation>
 <translation id="8356258244599961364">Nėra jokių šios kalbos įvesties metodų</translation>
 <translation id="8357224663288891423">Spartieji plėtinių ir programų klavišai</translation>
-<translation id="8357698472719914638">VISADA</translation>
 <translation id="8358685469073206162">Atkurti puslapius?</translation>
 <translation id="8363095875018065315">stabilus</translation>
 <translation id="8366396658833131068">Tinklo ryšys atkurtas. Pasirinkite kitą tinklą arba paspauskite toliau pateiktą mygtuką „Tęsti“, kad paleistumėte viešojo terminalo programą.</translation>

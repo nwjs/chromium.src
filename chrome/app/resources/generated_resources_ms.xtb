@@ -922,6 +922,7 @@
 <translation id="2238379619048995541">Data Keadaan Kekerapan</translation>
 <translation id="2239921694246509981">Tambahkan orang di bawah seliaan</translation>
 <translation id="2241053333139545397">Baca dan tukar data anda pada beberapa tapak web</translation>
+<translation id="2241634353105152135">Hanya sekali</translation>
 <translation id="2242603986093373032">Tiada peranti</translation>
 <translation id="2242687258748107519">Maklumat Fail</translation>
 <translation id="2246340272688122454">Memuat turun imej pemulihan...</translation>
@@ -2974,7 +2975,6 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="4927753642311223124">Tiada apa-apa untuk dilihat di sini, teruskan.</translation>
 <translation id="4929925845384605079">Dayakan pemaparan sepanduk tambahkan kepada rak, yang menggesa pengguna supaya menambahkan apl web kepada rak atau apl setaraf khusus platform lain.</translation>
 <translation id="4933484234309072027">terbenam pada <ph name="URL" /></translation>
-<translation id="4935151320838778332">HANYA SEKALI</translation>
 <translation id="493571969993549666">Tambahkan pengguna di bawah seliaan</translation>
 <translation id="4938972461544498524">Tetapan pad sentuh</translation>
 <translation id="4940047036413029306">Petikan</translation>
@@ -5472,7 +5472,6 @@ perubahan ini berlaku, anda mungkin tidak mahukannya.</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Bahasa ini tidak mempunyai sebarang kaedah input</translation>
 <translation id="8357224663288891423">Pintasan Papan Kekunci untuk Sambungan dan Apl</translation>
-<translation id="8357698472719914638">SENTIASA</translation>
 <translation id="8358685469073206162">Pulihkan halaman?</translation>
 <translation id="8363095875018065315">stabil</translation>
 <translation id="8366396658833131068">Sambungan rangkaian anda sudah dipulihkan. Sila pilih rangkaian lain atau tekan butang 'Teruskan' di bawah untuk melancarkan apl kios anda.</translation>

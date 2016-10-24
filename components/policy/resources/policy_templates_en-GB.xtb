@@ -307,6 +307,7 @@
       If HardwareAccelerationModeEnabled is set to false, Disable3DAPIs is ignored and it is equivalent to Disable3DAPIs being set to true.</translation>
 <translation id="2168397434410358693">Idle delay when running on AC power</translation>
 <translation id="2170233653554726857">Enable WPAD optimisation</translation>
+<translation id="2178899310296064282">Enforce at least Moderate Restricted Mode on YouTube</translation>
 <translation id="2188979373208322108">Enables the bookmark bar on <ph name="PRODUCT_NAME" />.
 
       If you enable this setting, <ph name="PRODUCT_NAME" /> will show a bookmark bar.
@@ -576,6 +577,7 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
       If you enable or disable this setting, users cannot change or override the "Enable phishing and malware protection" setting in <ph name="PRODUCT_NAME" />.
 
       If this policy is left not set, this will be enabled but the user will be able to change it.</translation>
+<translation id="2787173078141616821">Report information about status of Android</translation>
 <translation id="2801230735743888564">Allow users to play dinosaur easter egg game when device is offline.
 
       If this policy is set to False, users will not be able to play the dinosaur Easter egg game when device is offline. If this setting is set to True, users are allowed to play the dinosaur game. If this policy is not set, users are not allowed to play the dinosaur Easter egg game on enrolled Chrome OS, but are allowed to play it under other circumstances.</translation>
@@ -809,6 +811,15 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
 <translation id="3417418267404583991">If this policy is set to true or not configured, <ph name="PRODUCT_OS_NAME" /> will enable guest logins. Guest logins are anonymous user sessions and do not require a password.
 
       If this policy is set to false, <ph name="PRODUCT_OS_NAME" /> will not allow guest sessions to be started.</translation>
+<translation id="3418871497193485241">Enforces a minimum Restricted Mode on YouTube and prevents users from
+      picking a less restricted mode.
+
+      If this setting is set to Strict, Strict Restricted Mode on YouTube is always active.
+
+      If this setting is set to Moderate, the user may only pick Moderate Restricted Mode
+      and Strict Restricted Mode on YouTube, but cannot disable Restricted Mode.
+
+      If this setting is set to Off or no value is set, Restricted Mode on YouTube is not enforced by <ph name="PRODUCT_NAME" />. However, external policies such as YouTube policies might still enforce Restricted Mode.</translation>
 <translation id="3428247105888806363">Enable network prediction.</translation>
 <translation id="3449886121729668969">Configures the proxy settings for <ph name="PRODUCT_NAME" />. These proxy settings will be available for ARC-apps too.
 
@@ -930,6 +941,12 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 <translation id="384743459174066962">Allows you to set a list of url patterns that specify sites which are not allowed to open pop-ups.
 
           If this policy is left unset, the global default value will be used for all sites either from the 'DefaultPop-upsSetting' policy, if it is set, or the user's personal configuration otherwise.</translation>
+<translation id="3851039766298741586">Report information about the active kiosk session, such as
+      application ID and version.
+
+      If the policy is set to false, the kiosk session information will not be
+      reported. If set to true or left unset, kiosk session information will be
+      reported.</translation>
 <translation id="3859780406608282662">Add a parameter to the fetching of the Variations seed in <ph name="PRODUCT_OS_NAME" />.
 
       If specified, will add a query parameter called 'restrict' to the URL used to fetch the Variations seed. The value of the parameter will be the value specified in this policy.
@@ -944,6 +961,13 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 
           This policy is only respected if the 'DefaultSearchProviderEnabled' policy is enabled.</translation>
 <translation id="3864818549971490907"> setting</translation>
+<translation id="386487026071140458">This policy is deprecated, please use <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" /> and <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> instead. This policy is ignored if either the <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" />, the <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> or the (deprecated) <ph name="FORCEYOUTUBESAFETYMODE_POLICY_NAME" /> policies are set.
+
+      Forces queries in Google Web Search to be done with SafeSearch set to active and prevents users from changing this setting. This setting also forces Moderate Restricted Mode on YouTube.
+
+      If you enable this setting, SafeSearch in Google Search and Moderate Restricted Mode YouTube is always active.
+
+      If you disable this setting or do not set a value, SafeSearch in Google Search and Restricted Mode in YouTube is not enforced.</translation>
 <translation id="3866249974567520381">Description</translation>
 <translation id="3866530186104388232">If this policy is set to true or not configured, <ph name="PRODUCT_OS_NAME" /> will show existing users on the login screen and allow the user to pick one. If this policy is set to false, <ph name="PRODUCT_OS_NAME" /> will use the username/password prompt for login.</translation>
 <translation id="3868347814555911633">This policy is active in retail mode only.
@@ -1346,6 +1370,13 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 
       If it is not set, the user may be asked whether to import or importing may happen automatically.</translation>
 <translation id="5423197884968724595">Android WebView restriction name:</translation>
+<translation id="543559563129402336">This policy is deprecated. Consider using <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />, which overrides this policy and allows more fine-grained tuning.
+
+      Forces YouTube Moderate Restricted Mode and prevents users from changing this setting.
+
+      If this setting is enabled, Restricted Mode on YouTube is always enforced to be at least Moderate.
+
+      If this setting is disabled or no value is set, Restricted Mode on YouTube is not enforced by <ph name="PRODUCT_NAME" />. However, policies such as YouTube policies might still enforce Restricted Mode.</translation>
 <translation id="5447306928176905178">Enable reporting memory info (JS heap size) to page (deprecated)</translation>
 <translation id="5457065417344056871">Enable guest mode in browser</translation>
 <translation id="5457924070961220141">Allows you to configure the default HTML renderer when <ph name="PRODUCT_FRAME_NAME" /> is installed.
@@ -1522,6 +1553,13 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 
       If the policy is not set, or is set to false, then <ph name="PRODUCT_NAME" /> will not perform online revocation checks in <ph name="PRODUCT_NAME" /> 19 and later.</translation>
 <translation id="5966615072639944554">Extensions allowed to to use the remote attestation API</translation>
+<translation id="5974970919245996815">Report information about the status of Android is sent back to
+      the server.
+
+      If the policy is set to false, the information will not be reported.
+      If set to true or left unset, the information will be reported.
+
+      This policy only applies if Android apps are enabled.</translation>
 <translation id="5983708779415553259">Default behaviour for sites not in any content pack</translation>
 <translation id="5997543603646547632">Use 24 hour clock by default</translation>
 <translation id="6009903244351574348">Allow <ph name="PRODUCT_FRAME_NAME" /> to handle the listed content types.
@@ -1781,6 +1819,7 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 <translation id="6828905844648501476">If this policy is set to true or not configured, <ph name="PRODUCT_NAME" /> will allow Add Person from the user manager.
 
       If this policy is set to false, <ph name="PRODUCT_NAME" /> will not allow creation of new profiles from the profile manager.</translation>
+<translation id="685769593149966548">Enforce Strict Restricted Mode for YouTube</translation>
 <translation id="687046793986382807">This policy has been retired as of <ph name="PRODUCT_NAME" /> version 35.
 
       Memory info is reported to page anyway, regardless of the option value, but the sizes reported are
@@ -2125,12 +2164,6 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 
       The recognised connection type identifiers are "ethernet", "wifi", "wimax", "bluetooth" and "cellular".</translation>
 <translation id="7763614521440615342">Show content suggestions on the New Tab page</translation>
-<translation id="7766336524667238790">Report information about the active kiosk session, such as
-      application ID and version.
-
-      If the policy is set to false, the session information will not be
-      reported. If set to true or left unset, session information will be
-      reported.</translation>
 <translation id="7774768074957326919">Use system proxy settings</translation>
 <translation id="7775831859772431793">You can specify the URL of the proxy server here.
 
@@ -2241,6 +2274,7 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
       If the policy is set to true, the device will use a 24-hour clock format. If the policy is set to false, the device will use a 12-hour clock format.
 
       If this policy is not set, the device will default to a 24-hour clock format.</translation>
+<translation id="8114382167597081590">Do not enforce Restricted Mode on YouTube</translation>
 <translation id="8118665053362250806">Set media disk cache size</translation>
 <translation id="8135937294926049787">Specifies the length of time without user input after which the screen is turned off when running on AC power.
 
@@ -2469,6 +2503,7 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 
           This policy is only considered if the 'DefaultSearchProviderEnabled' policy is enabled.</translation>
 <translation id="8731693562790917685">Content Settings allow you to specify how contents of a specific type (for example Cookies, Images or JavaScript) is handled.</translation>
+<translation id="8736538322216687231">Force minimum YouTube Restricted Mode</translation>
 <translation id="8749370016497832113">Enables deleting browser history and download history in <ph name="PRODUCT_NAME" /> and prevents users from changing this setting.
 
       Note that even with this policy disabled, the browsing and download history are not guaranteed to be retained: users may be able to edit or delete the history database files directly and the browser itself may expire or archive any or all history items at any time.

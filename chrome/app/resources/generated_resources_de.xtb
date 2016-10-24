@@ -919,6 +919,7 @@
 <translation id="2238379619048995541">Daten für aktiven Zustand</translation>
 <translation id="2239921694246509981">Betreuten Nutzer hinzufügen</translation>
 <translation id="2241053333139545397">Eigene Daten auf verschiedenen Websites lesen und ändern</translation>
+<translation id="2241634353105152135">Nur einmal</translation>
 <translation id="2242603986093373032">Keine Geräte</translation>
 <translation id="2242687258748107519">Dateiinformationen</translation>
 <translation id="2246340272688122454">Wiederherstellungsabbild wird heruntergeladen...</translation>
@@ -2966,7 +2967,6 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="4927753642311223124">Sie haben keine Benachrichtigungen.</translation>
 <translation id="4929925845384605079">Aktiviert die Anzeige von "Zu Ablage hinzufügen"-Bannern, die Nutzer dazu auffordern, eine Web-App ihrer Ablage bzw. einem gleichwertigen plattformspezifischen Element hinzuzufügen</translation>
 <translation id="4933484234309072027">auf <ph name="URL" /> eingebettet</translation>
-<translation id="4935151320838778332">NUR DIESMAL</translation>
 <translation id="493571969993549666">Betreuten Nutzer hinzufügen</translation>
 <translation id="4938972461544498524">Touchpad-Einstellungen</translation>
 <translation id="4940047036413029306">Anführungszeichen</translation>
@@ -3750,7 +3750,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5984222099446776634">Kürzlich besucht</translation>
 <translation id="5984814259619230127">Bluetooth Low Energy-Erkennung für Smart Lock</translation>
 <translation id="5986245990306121338">Ist dies aktiviert, wird auch dann ein Tab-Wechsler angezeigt, wenn in den Einstellungen die Option "Tabs und Apps zusammen anzeigen" aktiviert ist.</translation>
-<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />Hierbei handelt es sich um allgemeine Informationen über das Gerät und dessen Nutzung, z. B. Akkuladezustand, Häufigkeit der App-Nutzung, Qualität und Dauer von Netzwerkverbindungen (z. B. WLAN und Bluetooth) und Absturzberichte, wenn etwas nicht so funktioniert wie es sollte. Sie werden genutzt, um die Produkte und Dienste von Google für alle zu verbessern. Einige zusammengefasste Informationen werden ebenfalls von Partnern, wie Android-Entwicklern, genutzt, um ihre Apps und Produkte zu verbessern.<ph name="END_PARAGRAPH1" />
+<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />Hierbei handelt es sich um allgemeine Informationen über das Gerät und dessen Nutzung, z. B. Akkuladezustand, Häufigkeit der App-Nutzung, Qualität und Dauer von Netzwerkverbindungen (z. B. WLAN und Bluetooth) und Absturzberichte, wenn etwas nicht so funktioniert, wie es sollte. Sie werden genutzt, um die Produkte und Dienste von Google für alle zu verbessern. Einige zusammengefasste Informationen werden ebenfalls von Partnern, wie Android-Entwicklern, genutzt, um ihre Apps und Produkte zu verbessern.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Sie können diese Funktion jederzeit in den Einstellungen für Android-Apps aktivieren oder deaktivieren. Dies hat keine Auswirkungen auf die Fähigkeit des Geräts, Daten für notwendige Dienste wie Systemupdates und Sicherheitsfunktionen zu senden.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990198433782424697">Erweiterungen unter URLs, die mit chrome:// beginnen</translation>
 <translation id="5990814808592353318">Manuelle Passwortgenerierung.</translation>
@@ -5461,7 +5461,6 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Für diese Sprache ist keine Eingabemethode vorhanden.</translation>
 <translation id="8357224663288891423">Tastenkombinationen für Erweiterungen und Apps</translation>
-<translation id="8357698472719914638">IMMER</translation>
 <translation id="8358685469073206162">Seiten wiederherstellen?</translation>
 <translation id="8363095875018065315">Stabil</translation>
 <translation id="8366396658833131068">Ihre Netzwerkverbindung wurde wiederhergestellt. Wählen Sie ein anderes Netzwerk aus oder klicken Sie unten auf "Weiter", um Ihre Kiosk-App zu starten.</translation>

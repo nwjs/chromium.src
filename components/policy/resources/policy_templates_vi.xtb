@@ -305,6 +305,7 @@
       Nếu HardwareAccelerationModeEnabled được đặt thành false thì Disable3DAPIs sẽ được bỏ qua và tương đương với Disable3DAPIs đang được đặt thành true.</translation>
 <translation id="2168397434410358693">Độ trễ lúc không sử dụng khi chạy trên nguồn AC</translation>
 <translation id="2170233653554726857">Bật tối ưu hóa WPAD</translation>
+<translation id="2178899310296064282">Buộc sử dụng ít nhất Chế độ hạn chế trung bình trên YouTube</translation>
 <translation id="2188979373208322108">Bật thanh dấu trang trên <ph name="PRODUCT_NAME" />.
 
       Nếu bạn bật cài đặt này, <ph name="PRODUCT_NAME" /> sẽ hiển thị thanh dấu trang.
@@ -571,6 +572,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Nếu bạn bật hoặc tắt cài đặt này, người dùng không thể thay đổi hoặc ghi đè cài đặt ''Bật tính năng bảo vệ chống lừa đảo và phần mềm độc hại'' trong <ph name="PRODUCT_NAME" />.
 
       Nếu không đặt chính sách này, cài đặt này sẽ được bật nhưng người dùng có thể thay đổi cài đặt này.</translation>
+<translation id="2787173078141616821">Báo cáo thông tin về trạng thái của Android</translation>
 <translation id="2801230735743888564">Cho phép người dùng chơi trò chơi trứng khủng long Phục sinh khi thiết bị ngoại tuyến.
 
 
@@ -806,6 +808,15 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="3417418267404583991">Nếu chính sách này được đặt thành đúng hoặc không được định cấu hình, <ph name="PRODUCT_OS_NAME" /> sẽ bật tính năng đăng nhập với tư cách khách. Các đăng nhập với tư cách khách là các phiên người dùng ẩn danh và không yêu cầu mật khẩu.
 
       Nếu chính sách này được đặt thành sai, <ph name="PRODUCT_OS_NAME" /> sẽ không cho phép bắt đầu phiên khách.</translation>
+<translation id="3418871497193485241">Buộc sử dụng Chế độ hạn chế tối thiểu trên YouTube và ngăn người dùng
+      chọn chế độ hạn chế ít hơn.
+
+      Nếu cài đặt này được đặt thành Nghiêm ngặt thì Chế độ hạn chế nghiêm ngặt trên YouTube luôn hoạt động.
+
+      Nếu cài đặt này được đặt thành Trung bình thì người dùng chỉ có thể chọn Chế độ hạn chế trung bình
+      và Chế độ hạn chế nghiêm ngặt trên YouTube nhưng không thể tắt Chế độ hạn chế.
+
+      Nếu cài đặt này được đặt thành Tắt hoặc không có giá trị nào được đặt, Chế độ hạn chế trên Youtube sẽ không bị <ph name="PRODUCT_NAME" /> bắt buộc sử dụng. Mặc dù vậy, các chính sách bên ngoài như chính sách của YouTube có thể vẫn buộc sử dụng Chế độ hạn chế.</translation>
 <translation id="3428247105888806363">Bật dự đoán mạng</translation>
 <translation id="3449886121729668969">Định cấu hình cài đặt proxy cho <ph name="PRODUCT_NAME" />. Những cài đặt proxy này cũng sẽ khả dụng cho ứng dụng ARC.
 
@@ -921,6 +932,12 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="384743459174066962">Cho phép bạn thiết lập danh sách các mẫu url chỉ định những trang web không được phép mở cửa sổ bật lên.
 
           Nếu không thiết lập chính sách này, giá trị mặc định chung từ chính sách 'DefaultImagesSetting' nếu chính sách này được thiết lập hoặc từ cấu hình cá nhân của người dùng sẽ được sử dụng cho tất cả trang web.</translation>
+<translation id="3851039766298741586">Báo cáo thông tin về phiên kiosk hiện hoạt, chẳng hạn như
+      ID và phiên bản ứng dụng.
+
+      Nếu chính sách này được đặt thành false, thông tin về phiên kiosk sẽ không được
+      báo cáo. Nếu chính sách này được đặt thành true hoặc không được đặt, thông tin về phiên kiosk sẽ được
+      báo cáo.</translation>
 <translation id="3859780406608282662">Thêm thông số cho quá trình tìm nạp khởi đầu Biến thể trong <ph name="PRODUCT_OS_NAME" />.
 
       Nếu được chỉ định, sẽ thêm thông số truy vấn được gọi là 'restrict' vào URL được sử dụng để tìm nạp khởi đầu Biến thể. Giá trị của thông số sẽ là giá trị được chỉ định trong chính sách này.
@@ -935,6 +952,13 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
           Chính sách này chỉ được áp dụng nếu chính sách 'DefaultSearchProviderEnabled' được bật.</translation>
 <translation id="3864818549971490907">Cài đặt plugin mặc định</translation>
+<translation id="386487026071140458">Chính sách này không được dùng nữa, thay vào đó, hãy sử dụng <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" /> và <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />. Chính sách này sẽ bị bỏ qua nếu bạn đặt chính sách <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" />, <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> hoặc <ph name="FORCEYOUTUBESAFETYMODE_POLICY_NAME" /> (không được chấp thuận).
+
+      Buộc hoàn tất các truy vấn trong Google Web Search bằng cách đặt Tìm kiếm an toàn thành hiện hoạt và ngăn người dùng thay đổi cài đặt này. Cài đặt này cũng bắt buộc bật Chế độ hạn chế trung bình trên YouTube.
+
+      Nếu bạn bật cài đặt này, Tìm kiếm an toàn trong Google Tìm kiếm và Chế độ hạn chế trung bình trên YouTube sẽ luôn hoạt động.
+
+      Nếu bạn tắt cài đặt này hoặc không đặt một giá trị, Tìm kiếm an toàn trong Google Tìm kiếm và Chế độ hạn chế trên YouTube sẽ không bị bắt buộc.</translation>
 <translation id="3866249974567520381">Mô tả</translation>
 <translation id="3866530186104388232">Nếu chính sách này được đặt thành đúng hoặc không được định cấu hình, <ph name="PRODUCT_OS_NAME" /> sẽ hiển thị những người dùng hiện có trên màn hình đăng nhập và cho phép chọn một người dùng. Nếu chính sách này được đặt thành sai, <ph name="PRODUCT_OS_NAME" /> sẽ sử dụng lời nhắc nhập tên người dùng/mật khẩu để đăng nhập.</translation>
 <translation id="3868347814555911633">Chính sách này chỉ hoạt động trong chế độ bán lẻ.
@@ -1334,6 +1358,13 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
       Nếu không thiết lập chính sách này, người dùng có thể được hỏi có nhập hay không hoặc quá trình nhập có thể diễn ra tự động.</translation>
 <translation id="5423197884968724595">Tên giới hạn Android WebView:</translation>
+<translation id="543559563129402336">Chính sách này không được dùng nữa. Hãy xem xét việc sử dụng <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> để ghi đè chính sách này và cho phép điều chỉnh chi tiết hơn.
+
+      Buộc sử dụng Chế độ hạn chế trung bình trên Youtube và ngăn người dùng thay đổi cài đặt này.
+
+      Nếu bạn bật cài đặt này, Chế độ hạn chế trên Youtube sẽ luôn bắt buộc phải ở chế độ Trung bình.
+
+      Nếu bạn tắt cài đặt này hoặc không đặt giá trị nào, Chế độ hạn chế trên Youtube sẽ không bị <ph name="PRODUCT_NAME" /> bắt buộc sử dụng. Mặc dù vậy, các chính sách bên ngoài như chính sách của YouTube vẫn có thể buộc áp dụng Chế độ hạn chế.</translation>
 <translation id="5447306928176905178">Bật báo cáo thông tin bộ nhớ (kích thước khối xếp JS) tới trang (không dùng nữa)</translation>
 <translation id="5457065417344056871">Bật chế độ khách trong trình duyệt</translation>
 <translation id="5457924070961220141">Cho phép bạn định cấu hình trình kết xuất HTML mặc định khi  <ph name="PRODUCT_FRAME_NAME" /> được cài đặt.
@@ -1509,6 +1540,13 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
       Nếu chính sách không được đặt hoặc được đặt thành false, khi đó <ph name="PRODUCT_NAME" /> sẽ không thực hiện các kiểm tra thu hồi trực tuyến trong <ph name="PRODUCT_NAME" /> 19 và cao hơn.</translation>
 <translation id="5966615072639944554">Tiện ích được phép sử dụng API chứng thực từ xa</translation>
+<translation id="5974970919245996815">Báo cáo thông tin về trạng thái của Android được gửi lại cho
+      máy chủ.
+
+      Nếu chính sách được đặt thành false, thông tin sẽ không được báo cáo.
+      Nếu chính sách được đặt thành true hoặc không được đặt, thông tin sẽ được báo cáo.
+
+      Chính sách này chỉ áp dụng nếu các ứng dụng Android được bật.</translation>
 <translation id="5983708779415553259">Thao tác mặc định cho trang web không nằm trong bất kỳ gói nội dung nào</translation>
 <translation id="5997543603646547632">Sử dụng đồng hồ 24 giờ theo mặc định</translation>
 <translation id="6009903244351574348">Cho phép <ph name="PRODUCT_FRAME_NAME" /> xử lý loại nội dung được liệt kê.
@@ -1765,6 +1803,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="6828905844648501476">Nếu chính sách này được đặt thành true hoặc không được định cấu hình, <ph name="PRODUCT_NAME" /> sẽ cho phép Thêm người từ trình quản lý người dùng.
 
       Nếu chính sách này được đặt thành false, <ph name="PRODUCT_NAME" /> sẽ không cho phép tạo hồ sơ mới từ trình quản lý người dùng.</translation>
+<translation id="685769593149966548">Buộc sử dụng Chế độ hạn chế nghiêm ngặt cho YouTube</translation>
 <translation id="687046793986382807">Chính sách này sẽ được xóa bỏ kể từ phiên bản 35 của <ph name="PRODUCT_NAME" />.
 
       Thông tin bộ nhớ vẫn được báo cáo tới trang bất kể giá trị tùy chọn như thế nào. Tuy nhiên, kích thước được báo cáo
@@ -2100,12 +2139,6 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
       Các mã định danh loại kết nối được nhận dạng là "ethernet", "wifi", "wimax", "bluetooth" và "cellular".</translation>
 <translation id="7763614521440615342">Hiển thị các đề xuất nội dung trên trang Tab mới</translation>
-<translation id="7766336524667238790">Báo cáo thông tin về phiên kiosk hiện hoạt, chẳng hạn như
-      ID và phiên bản ứng dụng.
-
-      Nếu chính sách này được đặt thành false, thông tin về phiên sẽ không
-      được báo cáo. Nếu chính sách này được đặt thành true hoặc không được
-      đặt, thông tin về phiên sẽ được báo cáo.</translation>
 <translation id="7774768074957326919">Sử dụng cài đặt proxy hệ thống</translation>
 <translation id="7775831859772431793">Bạn có thể chỉ định URL của máy chủ proxy ở đây.
 
@@ -2214,6 +2247,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Nếu chính sách này được đặt thành true, thiết bị sẽ sử dụng định dạng đồng hồ 24 giờ. Nếu chính sách được đặt thành false, thiết bị sẽ sử dụng định dạng đồng hồ 12 giờ.
 
       Nếu chính sách này không được đặt, thiết bị sẽ mặc định về định dạng đồng hồ 24 giờ.</translation>
+<translation id="8114382167597081590">Không buộc sử dụng Chế độ hạn chế trên YouTube</translation>
 <translation id="8118665053362250806">Đặt kích thước bộ nhớ cache của đĩa phương tiện</translation>
 <translation id="8135937294926049787">Chỉ định khoảng thời gian không có thao tác nhập của người dùng mà sau khoảng thời gian đó màn hình bị tắt khi chạy trên nguồn AC.
 
@@ -2442,6 +2476,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
           Chính sách này chỉ được xem xét nếu chính sách 'DefaultSearchProviderEnabled' được bật.</translation>
 <translation id="8731693562790917685">Cài đặt nội dung cho phép bạn chỉ định cách xử lý những loại nội dung cụ thể (ví dụ: Cookie, Hình ảnh hoặc JavaScript).</translation>
+<translation id="8736538322216687231">Buộc sử dụng Chế độ hạn chế tối thiểu trên YouTube</translation>
 <translation id="8749370016497832113">Bật xóa lịch sử trình duyệt và lịch sử tải xuống trong <ph name="PRODUCT_NAME" /> và ngăn người dùng thay đổi cài đặt này.
 
       Xin lưu ý rằng ngay cả khi chính sách này bị tắt, lịch sử duyệt web và lịch sử tải xuống vẫn không được đảm bảo là sẽ được lưu lại: người dùng có thể trực tiếp chỉnh sửa hoặc xóa các tệp cơ sở dữ liệu lịch sử và trình duyệt có thể tự hết hạn hoặc lưu trữ tất cả hoặc bất kỳ mục lịch sử nào vào thời điểm bất kỳ.

@@ -919,6 +919,7 @@
 <translation id="2238379619048995541">Data for frekvenstilstand</translation>
 <translation id="2239921694246509981">Tilføj administreret person</translation>
 <translation id="2241053333139545397">Læse og redigere dine data på en række websites</translation>
+<translation id="2241634353105152135">Kun én gang</translation>
 <translation id="2242603986093373032">Ingen enheder</translation>
 <translation id="2242687258748107519">Filoplysninger</translation>
 <translation id="2246340272688122454">Downloader genoprettelsesbillede...</translation>
@@ -2776,7 +2777,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="4692342183939154835">Hardwarevideokodning i WebRTC</translation>
 <translation id="4692623383562244444">Søgemaskiner</translation>
 <translation id="4697551882387947560">Når browsersessionen afsluttes</translation>
-<translation id="4699172675775169585">Cachelagrede billeder og filer</translation>
+<translation id="4699172675775169585">Billeder og filer, der er gemt i cache</translation>
 <translation id="4699357559218762027">(automatisk opstart)</translation>
 <translation id="4700034875857467999">Bloker (i henhold til politik)</translation>
 <translation id="4704677965327178154">Tillad ikke, at websites anvender et plugin til at få adgang til din computer.</translation>
@@ -2972,7 +2973,6 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="4927753642311223124">Der er intet at se her, så du kan bare gå videre.</translation>
 <translation id="4929925845384605079">Aktivér visningen af bannere, der kan føjes til hylden. Dette giver brugeren besked på at føje en webapp eller en tilsvarende platformspecifik app til sin hylde.</translation>
 <translation id="4933484234309072027">indlejret på <ph name="URL" /></translation>
-<translation id="4935151320838778332">KUN ÉN GANG</translation>
 <translation id="493571969993549666">Tilføj en administreret bruger</translation>
 <translation id="4938972461544498524">Indstillinger for touchpad</translation>
 <translation id="4940047036413029306">Citationstegn</translation>
@@ -5469,7 +5469,6 @@ Beregner resterende tid</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Der findes ingen indtastningsmetoder for dette sprog</translation>
 <translation id="8357224663288891423">Tastaturgenveje til udvidelser og apps</translation>
-<translation id="8357698472719914638">ALTID</translation>
 <translation id="8358685469073206162">Vil du gendanne siderne?</translation>
 <translation id="8363095875018065315">stabil</translation>
 <translation id="8366396658833131068">Netværksforbindelsen er genoprettet. Vælg et andet netværk, eller tryk på knappen "Fortsæt" nedenfor for at åbne din terminalapp.</translation>

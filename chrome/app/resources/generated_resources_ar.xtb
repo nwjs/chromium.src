@@ -923,6 +923,7 @@
 <translation id="2238379619048995541">بيانات حالة التردد</translation>
 <translation id="2239921694246509981">إضافة شخص خاضع للإشراف</translation>
 <translation id="2241053333139545397">قراءة بياناتك وتغييرها على عدد من المواقع</translation>
+<translation id="2241634353105152135">مرة واحدة فقط</translation>
 <translation id="2242603986093373032">ليست هناك أجهزة</translation>
 <translation id="2242687258748107519">معلومات الملف</translation>
 <translation id="2246340272688122454">جارٍ تنزيل صورة الاستعادة...</translation>
@@ -2968,7 +2969,6 @@
 <translation id="4927753642311223124">ليس هناك شيء تراه هنا، انتقل إلى مكان آخر.</translation>
 <translation id="4929925845384605079">تمكين عرض إعلانات بانر الإضافة إلى الرف، والتي تُطالب المستخدم بإضافة تطبيق ويب إلى الرف الخاص به، أو أي وسيط عرض إعلان مكافئ آخر.</translation>
 <translation id="4933484234309072027">مضمن في <ph name="URL" /></translation>
-<translation id="4935151320838778332">مرة واحدة فقط</translation>
 <translation id="493571969993549666">إضافة مستخدم تحت الإشراف</translation>
 <translation id="4938972461544498524">إعدادات لوحة اللمس</translation>
 <translation id="4940047036413029306">علامة اقتباس</translation>
@@ -5466,7 +5466,6 @@
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">هذه اللغة ليست لديها أي أساليب إدخال</translation>
 <translation id="8357224663288891423">اختصارات لوحة المفاتيح للإضافات والتطبيقات</translation>
-<translation id="8357698472719914638">دومًا</translation>
 <translation id="8358685469073206162">هل تريد استعادة الصفحات؟</translation>
 <translation id="8363095875018065315">ثابتة</translation>
 <translation id="8366396658833131068">تمت استعادة اتصال الشبكة. يُرجى تحديد شبكة أخرى أو الضغط على الزر "متابعة" أدناه لتشغيل تطبيق الكشك.</translation>

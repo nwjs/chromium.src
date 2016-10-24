@@ -307,6 +307,7 @@ Vrednost prilagoditve mora biti 100 % ali več.</translation>
       Če je pravilnik HardwareAccelerationModeEnabled onemogočen, se pravilnik Disable3DAPIs prezre in je enako, kot če je pravilnik Disable3DAPIs omogočen.</translation>
 <translation id="2168397434410358693">Časovni zamik nedejavnosti ob napajanju iz električnega omrežja</translation>
 <translation id="2170233653554726857">Omogočanje optimizacije za WPAD</translation>
+<translation id="2178899310296064282">Uveljavitev vsaj zmerno omejenega načina v YouTubu</translation>
 <translation id="2188979373208322108">Omogoča vrstico zaznamkov v brskalniku <ph name="PRODUCT_NAME" />.
 
      Če to nastavitev omogočite, bo <ph name="PRODUCT_NAME" /> prikazoval vrstico z zaznamki.
@@ -576,6 +577,7 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 Če omogočite ali onemogočite to nastavitev, uporabniki ne morejo spremeniti ali preglasiti nastavitve »Omogoči zaščito pred lažnim predstavljanjem in zlonamerno programsko opremo« v brskalniku <ph name="PRODUCT_NAME" />.
 
 Če ta pravilnik ni nastavljen, bo to omogočeno, vendar bo lahko uporabnik spremenil nastavitev.</translation>
+<translation id="2787173078141616821">Poročanje podatkov o stanju Androida</translation>
 <translation id="2801230735743888564">Uporabnikom dovoli igranje skrite igre z dinozavrom, ko je naprava brez internetne povezave.
 
       Če je ta pravilnik onemogočen, uporabniki ne bodo mogli igrati skrite igre z dinozavrom, ko je naprava brez internetne povezave. Če je nastavitev omogočena, bodo uporabniki lahko igrali igro. Če ta pravilnik ni nastavljen, uporabniki igre ne bodo mogli igrati v včlanjenem OS Chrome, lahko pa jo bodo igrali v drugih okoliščinah.</translation>
@@ -811,6 +813,15 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 <translation id="3417418267404583991">Če je ta pravilnik omogočen ali ni nastavljen, <ph name="PRODUCT_OS_NAME" /> omogoči prijave gostov. Prijave gostov so anonimne seje uporabnikov in ne zahtevajo gesla.
 
       Če je pravilnik onemogočen, <ph name="PRODUCT_OS_NAME" /> ne omogoča sej gosta.</translation>
+<translation id="3418871497193485241">Uveljavi najmanjši mogoč Omejeni način v YouTubu in uporabnikom prepreči,
+      da bi izbrali manj omejen način.
+
+      Če je ta nastavitev nastavljena na »Strogo«, je Strogo omejeni način v YouTubu vedno aktiven.
+
+      Če je ta nastavitev nastavljena na »Zmerno«, lahko uporabnik v YouTubu izbere samo Zmerno omejeni način
+      in Strogo omejeni način, Omejenega načina pa ne more onemogočiti.
+
+      Če je ta nastavitev nastavljena na »Izklopljeno« ali ni nastavljena nobena vrednost, <ph name="PRODUCT_NAME" /> v YouTubu ne uveljavi Omejenega načina. Zunanji pravilniki, na primer pravilniki za YouTube, lahko še vedno uveljavijo Omejeni način.</translation>
 <translation id="3428247105888806363">Omogoči omrežno predvidevanje</translation>
 <translation id="3449886121729668969">Določi nastavitve strežnika proxy za izdelek <ph name="PRODUCT_NAME" />. Te nastavitve strežnika proxy so na voljo tudi za aplikacije ARC.
 
@@ -932,6 +943,12 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 <translation id="384743459174066962">Omogoča nastavitev seznama vzorcev URL-jev, s katerim so določena spletna mesta, ki jim ni dovoljeno odpirati pojavnih oken.
 
           Če ta pravilnik ni nastavljen, bo za vsa spletna mesta uporabljena splošna privzeta vrednost iz pravilnika »DefaultPopupsSetting«, kadar je ta nastavljen, ali iz uporabnikove osebne konfiguracije, kadar pravilnik »DefaultImagesSetting« ni nastavljen.</translation>
+<translation id="3851039766298741586">Poročanje podatkov o aktivni seji kioska, na primer
+      ID-ja in različice aplikacije.
+
+      Če je pravilnik onemogočen, se podatki o seji kioska ne
+      poročajo. Če je omogočen ali ni nastavljen, se podatki o seji kioska
+      poročajo.</translation>
 <translation id="3859780406608282662">Dodajanje parametra prejemanju semen različic v izdelku <ph name="PRODUCT_OS_NAME" />.
 
      Če je pravilnik določen, se URL-ju za prenos semen različic doda parameter poizvedbe »restrict«. Vrednost parametra je vrednost, določena v tem pravilniku.
@@ -946,6 +963,13 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 
           Ta pravilnik velja le, če je omogočen pravilnik »DefaultSearchProviderEnabled«.</translation>
 <translation id="3864818549971490907">Privzete nastavitve vtičnikov</translation>
+<translation id="386487026071140458">Ta pravilnik je zastarel; uporabite <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" /> in <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />. Ta pravilnik se prezre, če je nastavljen kateri od teh pravilnikov: <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" />, <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> ali <ph name="FORCEYOUTUBESAFETYMODE_POLICY_NAME" /> (zastarel).
+
+      Vsili, da se poizvedbe v Google Spletnem iskanju opravijo tako, da je Varno iskanje nastavljeno kot aktivno, uporabnikom pa se prepreči, da bi to nastavitev spremenili. Ta nastavitev prav tako vsili Zmerno omejeni način v YouTubu.
+
+      Če to nastavitev omogočite, sta Varno iskanje v Iskanju Google in Zmerno omejeni način v YouTubu vedno aktivna.
+
+      Če to nastavitev onemogočite ali ne nastavite vrednosti, Varno iskanje v Iskanju Google in Omejeni način v YouTubu nista uveljavljena.</translation>
 <translation id="3866249974567520381">Opis</translation>
 <translation id="3866530186104388232">Če je pravilnik omogočen ali ni nastavljen, <ph name="PRODUCT_OS_NAME" /> prikaže obstoječe uporabnike na zaslonu za prijavo, ki jih je mogoče izbrati. Če je pravilnik onemogočen, <ph name="PRODUCT_OS_NAME" /> za prijavo uporabi polje za vnos uporabniškega imena/gesla.</translation>
 <translation id="3868347814555911633">Ta pravilnik je aktiven samo v maloprodajnem načinu.
@@ -1346,6 +1370,13 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 
       Če ni nastavljen, bo uporabnik morda vprašan, ali naj ga uvozi, ali pa bo uvoz izveden samodejno.</translation>
 <translation id="5423197884968724595">Ime omejitve za Android WebView:</translation>
+<translation id="543559563129402336">Ta pravilnik je zastarel. Premislite o uporabi pravilnika <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />, ki preglasi ta pravilnik in omogoča podrobnejše prilagajanje.
+
+      Vsili Zmerno omejeni način v YouTubu in uporabnikom prepreči, da bi to nastavitev spremenili.
+
+      Če je ta nastavitev omogočena, je v YouTubu vedno uveljavljen vsaj Zmerno omejeni način.
+
+      Če je ta nastavitev onemogočena ali ni nastavljena nobena vrednost, <ph name="PRODUCT_NAME" /> ne vsili Omejenega načina v YouTubu. Zunanji pravilniki, na primer pravilniki za YouTube, lahko še vedno uveljavijo Omejeni način.</translation>
 <translation id="5447306928176905178">Omogoči poročanje o podatkih pomnilnika (velikost kopice JS) strani (zastarelo)</translation>
 <translation id="5457065417344056871">Omogočanje načina za goste v brskalniku</translation>
 <translation id="5457924070961220141">Omogoča nastavitev privzetega upodabljalnika HTML, ko je <ph name="PRODUCT_FRAME_NAME" /> nameščen.
@@ -1521,6 +1552,13 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 
       Če pravilnik ni nastavljen ali je nastavljen na »false«, <ph name="PRODUCT_NAME" /> v različici <ph name="PRODUCT_NAME" /> 19 ali novejši ne bo izvajal spletnega pregleda preklica.</translation>
 <translation id="5966615072639944554">Razširitve, ki lahko uporabljajo API za oddaljeno potrditev</translation>
+<translation id="5974970919245996815">Podatki poročila o stanju Androida se pošljejo nazaj
+      v strežnik.
+
+      Če je pravilnik onemogočen, se podatki ne poročajo.
+      Če je omogočen ali ni nastavljen, se podatki ne poročajo.
+
+      Ta pravilnik se uporabi samo, če so omogočene aplikacije za Android.</translation>
 <translation id="5983708779415553259">Privzeto delovanje za spletna mesta, ki niso v nobenem paketu vsebine</translation>
 <translation id="5997543603646547632">Privzeto uporabi 24-urni čas</translation>
 <translation id="6009903244351574348">Omogoča, da <ph name="PRODUCT_FRAME_NAME" /> obravnava navedene vrste vsebine.
@@ -1784,6 +1822,7 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
 <translation id="6828905844648501476">Če je ta pravilnik omogočen ali ni nastavljen, <ph name="PRODUCT_NAME" /> dovoli dodajanje osebe v upravitelju uporabnikov.
 
       Če je ta pravilnik onemogočen, <ph name="PRODUCT_NAME" /> ne dovoli ustvarjanja novih profilov v upravitelju uporabnikov.</translation>
+<translation id="685769593149966548">Uveljavitev Strogo omejena načina v YouTubu</translation>
 <translation id="687046793986382807">Ta pravilnik je zastaral in se ne uporablja več od različice 35 brskalnika <ph name="PRODUCT_NAME" />.
 
       Podatki o pomnilniku se vseeno pošiljajo strani, ne glede na vrednost možnosti, vendar se poslane vrednosti
@@ -2128,12 +2167,6 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
 
       Prepoznani identifikatorji vrste povezav so »ethernet«, »wifi«, »wimax«, »bluetooth« in »cellular«.</translation>
 <translation id="7763614521440615342">Prikaz predlogov vsebine na strani »Nov zavihek«</translation>
-<translation id="7766336524667238790">Poročanje podatkov o aktivni seji kioska, na primer
-      ID-ja in različice aplikacije.
-
-      Če je pravilnik onemogočen, se podatki o seji ne
-      poročajo. Če je omogočen ali ni nastavljen, se podatki o seji
-      poročajo.</translation>
 <translation id="7774768074957326919">Uporaba sistemskih nastavitev proxyja</translation>
 <translation id="7775831859772431793">Tu lahko določite URL strežnika proxy.
 
@@ -2241,6 +2274,7 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
        Če ta pravilnik ni nastavljen na »true«, naprava uporabi 24-urno obliko zapisa časa. Če je pravilnik nastavljen na »false«, naprava uporabi 12-urno obliko zapisa časa.
 
       Če pravilnik ni nastavljen, naprava privzeto uporabi 24-urno obliko zapisa časa.</translation>
+<translation id="8114382167597081590">Ne uveljavi Omejenega načina v YouTubu</translation>
 <translation id="8118665053362250806">Nastavi velikost predpomnilnika predstavnostnega diska</translation>
 <translation id="8135937294926049787">Določa trajanje uporabnike nedejavnosti, po preteku katere se zaslon izklopi, če se napaja iz električnega omrežja.
 
@@ -2369,10 +2403,10 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
 <translation id="8369602308428138533">Časovni zamik izklopa zaslona, če se napaja iz električnega omrežja</translation>
 <translation id="8382184662529825177">Omogoči uporabo oddaljenega potrjevanja za zaščito vsebine za napravo</translation>
 <translation id="838870586332499308">Omogoči podatkovno gostovanje</translation>
-<translation id="8390049129576938611">V brskalniku <ph name="PRODUCT_NAME" /> onemogoči notranji pregledovalnik PDF-jev. Namesto tega ga obravnava kot prenos in uporabniku omogoča odpiranje datotek PDF s privzeto aplikacijo.
+<translation id="8390049129576938611">V brskalniku <ph name="PRODUCT_NAME" /> onemogoči notranji pregledovalnik PDF-jev. Namesto tega datoteke PDF obravnava kot prenose in uporabniku omogoča njihovo odpiranje s privzeto aplikacijo.
 
       Če ta pravilnik ni nastavljen ali je onemogočen, se bo za odpiranje datotek PDF uporabljal vtičnik za PDF-je, razen če ga uporabnik onemogoči.</translation>
-<translation id="8402079500086185021">Vedno odpri datoteke PDF na zunanjem mestu</translation>
+<translation id="8402079500086185021">Vedno odpri datoteke PDF v zunanjem pregledovalniku</translation>
 <translation id="8412312801707973447">Ali se izvaja spletni pregled OCSP/CRL</translation>
 <translation id="8413348101535146315">Omogoča procese prekinitve v upravitelju opravil izdelka <ph name="PRODUCT_NAME" />.
 
@@ -2469,6 +2503,7 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
 
           Ta pravilnik velja le, če je omogočen pravilnik »DefaultSearchProviderEnabled«.</translation>
 <translation id="8731693562790917685">Z nastavitvami vsebine lahko določite, kako se obravnava vsebina različnih vrst (npr. piškotki, slike ali JavaScript).</translation>
+<translation id="8736538322216687231">Vsili najmanjši mogoč Omejeni način v YouTubu</translation>
 <translation id="8749370016497832113">Omogoči brisanje zgodovine brskalnika in zgodovine prenosov v izdelku <ph name="PRODUCT_NAME" /> in uporabnikom preprečuje spreminjanje te nastavitve.
 
       Tudi če je pravilnik onemogočen, zgodovina brskanja in zgodovina prenosov morda ne bosta ohranjeni: uporabniki lahko neposredno urejajo ali brišejo podatkovne zbirke zgodovine, brskalnik pa lahko poteče ali kadar koli arhivira katere koli elemente zgodovine.

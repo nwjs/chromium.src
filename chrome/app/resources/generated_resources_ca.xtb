@@ -922,6 +922,7 @@
 <translation id="2238379619048995541">Dades de l'estat de freqüència</translation>
 <translation id="2239921694246509981">Afegeix una persona supervisada</translation>
 <translation id="2241053333139545397">Llegir i modificar les dades d'una sèrie de llocs web</translation>
+<translation id="2241634353105152135">Només una vegada</translation>
 <translation id="2242603986093373032">No hi ha cap dispositiu</translation>
 <translation id="2242687258748107519">Informació del fitxer</translation>
 <translation id="2246340272688122454">S'està baixant la imatge de recuperació...</translation>
@@ -2444,7 +2445,7 @@ Tots els usuaris han de tancar la sessió per continuar.</translation>
 <translation id="4181841719683918333">Idiomes</translation>
 <translation id="4187248015940562149">Activa Web Bluetooth, la qual cosa pot permetre que els llocs web es connectin a dispositius Bluetooth propers i els controlin.</translation>
 <translation id="4188447344915957833">Activa el gestor d'emmagatzematge a la configuració de Material Design.</translation>
-<translation id="4189406272289638749">Una extensió, &lt;b&gt;<ph name="EXTENSION_NAME" />&lt;/b&gt;, està controlant aquest paràmetre.</translation>
+<translation id="4189406272289638749">Una extensió, &lt;b&gt;<ph name="EXTENSION_NAME" />&lt;/b&gt;, està controlant aquesta opció</translation>
 <translation id="4193154014135846272">Document de Google</translation>
 <translation id="4193182321948161343">Activa l'administrador d'usuaris de Material Design</translation>
 <translation id="4193297030838143153">Adreça de facturació nova...</translation>
@@ -2968,7 +2969,6 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="4927753642311223124">No hi ha cap notificació, podeu continuar.</translation>
 <translation id="4929925845384605079">Activa la visualització de bàners per afegir al prestatge, que conviden l'usuari a afegir una aplicació web al seu prestatge o bé un equivalent específic de la plataforma.</translation>
 <translation id="4933484234309072027">incrustada a <ph name="URL" /></translation>
-<translation id="4935151320838778332">NOMÉS UNA VEGADA</translation>
 <translation id="493571969993549666">Afegeix un usuari supervisat</translation>
 <translation id="4938972461544498524">Configuració del ratolí tàctil</translation>
 <translation id="4940047036413029306">Comet.</translation>
@@ -5456,7 +5456,6 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8356197132883132838"><ph name="TITLE" /> (<ph name="COUNT" />)</translation>
 <translation id="8356258244599961364">Aquest idioma no té cap mètode d'entrada.</translation>
 <translation id="8357224663288891423">Tecles de drecera per a extensions i aplicacions</translation>
-<translation id="8357698472719914638">SEMPRE</translation>
 <translation id="8358685469073206162">Voleu restaurar les pàgines?</translation>
 <translation id="8363095875018065315">estable</translation>
 <translation id="8366396658833131068">S'ha restablert la vostra connectivitat de xarxa. Seleccioneu una altra xarxa o bé premeu el botó Continua per iniciar l'aplicació de quiosc.</translation>
@@ -5843,7 +5842,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8870413625673593573">Tancades recentment</translation>
 <translation id="8871551568777368300">Configuració fixada per l'administrador</translation>
 <translation id="8871696467337989339">Utilitzeu una marca de la línia d'ordres que no és compatible: <ph name="BAD_FLAG" />. Se'n ressentiran l'estabilitat i la seguretat.</translation>
-<translation id="8871974300055371298">Configuració de contingut</translation>
+<translation id="8871974300055371298">Configuració del contingut</translation>
 <translation id="8872155268274985541">S'ha trobat un fitxer de manifest d'actualització extern per a Quiosc no vàlid. No s'ha pogut actualitzar l'aplicació Quiosc. Extraieu la memòria USB.</translation>
 <translation id="8874184842967597500">No connectada</translation>
 <translation id="8876215549894133151">Format:</translation>

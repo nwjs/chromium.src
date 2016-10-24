@@ -1926,9 +1926,6 @@
 
       已识别的连接类型标识符包括“以太网”、“Wi-Fi”、“WiMax”、“蓝牙”和“移动”网络。</translation>
 <translation id="7763614521440615342">在“打开新的标签页”页面上显示内容建议</translation>
-<translation id="7766336524667238790">报告当前自助服务终端的相关信息，例如应用 ID 和版本。
-
-      如果此政策设为 false，系统将不会报告会话信息。如果此政策设为 true 或未设置，系统将报告会话信息。</translation>
 <translation id="7774768074957326919">使用系统代理设置</translation>
 <translation id="7775831859772431793">您可以在此指定代理服务器的网址。
 
@@ -2139,7 +2136,7 @@
 <translation id="8369602308428138533">使用交流电源供电时的屏幕关闭延迟时间</translation>
 <translation id="8382184662529825177">允许为设备使用远程认证来保护内容</translation>
 <translation id="838870586332499308">启用数据漫游</translation>
-<translation id="8390049129576938611">在 <ph name="PRODUCT_NAME" /> 中停用内部 PDF 查看器。否则，Google Chrome 会将其视为下载内容并允许用户使用默认应用打开 PDF 文件。
+<translation id="8390049129576938611">在 <ph name="PRODUCT_NAME" /> 中停用内部 PDF 查看器。改为将此 PDF 查看器视为下载项，并允许用户使用此默认应用打开 PDF 文件。
 
       如果此政策未设置或已停用，系统将使用 PDF 插件打开 PDF 文件，除非用户已停用此插件。</translation>
 <translation id="8402079500086185021">始终使用外部应用打开 PDF 文件</translation>

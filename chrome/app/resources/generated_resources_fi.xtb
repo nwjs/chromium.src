@@ -922,6 +922,7 @@
 <translation id="2238379619048995541">Kellotaajuuden tilan tiedot</translation>
 <translation id="2239921694246509981">Lisää valvottu käyttäjä</translation>
 <translation id="2241053333139545397">lukea ja muuttaa tietojasi useilla eri sivustoilla</translation>
+<translation id="2241634353105152135">Vain kerran</translation>
 <translation id="2242603986093373032">Ei laitteita</translation>
 <translation id="2242687258748107519">Tiedoston tiedot</translation>
 <translation id="2246340272688122454">Ladataan palautusnäköistiedostoa...</translation>
@@ -2966,7 +2967,6 @@ Kaikkien käyttäjien täytyy kirjautua ulos jatkaakseen käyttöä.</translatio
 <translation id="4927753642311223124">Täällä ei ole mitään nähtävää.</translation>
 <translation id="4929925845384605079">Ota käyttöön lisää hyllyyn -bannerien näyttö, joka kehottaa käyttäjää lisäämään verkkosovelluksen hyllyynsä tai muuhun vastaavaan alustakohtaiseen kohteeseen.</translation>
 <translation id="4933484234309072027">upotettu sivustoon <ph name="URL" /></translation>
-<translation id="4935151320838778332">VAIN KERRAN</translation>
 <translation id="493571969993549666">Lisää valvottu käyttäjä</translation>
 <translation id="4938972461544498524">Kosketuslevyn asetukset</translation>
 <translation id="4940047036413029306">Lainausm.</translation>
@@ -5460,7 +5460,6 @@ Tallenna avaintiedosto suojattuun sijaintiin. Tarvitset sitä, jos haluat luoda 
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Tällä kielellä ei ole syöttötapoja</translation>
 <translation id="8357224663288891423">Pikanäppäimet laajennuksille ja sovelluksille</translation>
-<translation id="8357698472719914638">AINA</translation>
 <translation id="8358685469073206162">Palautetaanko sivut?</translation>
 <translation id="8363095875018065315">vakaa</translation>
 <translation id="8366396658833131068">Verkkoyhteytesi on palautettu. Valitse eri verkko tai paina alla olevaa Jatka-painiketta, jos haluat käynnistää kioskisovelluksen.</translation>

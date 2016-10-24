@@ -922,6 +922,7 @@
 <translation id="2238379619048995541">Órajel állapotadatai</translation>
 <translation id="2239921694246509981">Felügyelt személy hozzáadása</translation>
 <translation id="2241053333139545397">Adatainak olvasása és módosítása bizonyos webhelyeken</translation>
+<translation id="2241634353105152135">Csak egyszer</translation>
 <translation id="2242603986093373032">Nincsenek eszközök</translation>
 <translation id="2242687258748107519">Fájlinformáció</translation>
 <translation id="2246340272688122454">Helyreállító képfájl letöltése...</translation>
@@ -2972,7 +2973,6 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="4927753642311223124">Itt nincs semmi, továbbmehet.</translation>
 <translation id="4929925845384605079">„Hozzáadás a polchoz” szalaghirdetések megjelenítésének engedélyezése. Ezek lehetővé teszik a felhasználók számára, hogy egy internetes alkalmazást hozzáadjanak a polcukhoz vagy annak platformfüggő megfelelőjéhez.</translation>
 <translation id="4933484234309072027">be van ágyazva itt: <ph name="URL" /></translation>
-<translation id="4935151320838778332">CSAK EGYSZER</translation>
 <translation id="493571969993549666">Felügyelt felhasználó hozzáadása</translation>
 <translation id="4938972461544498524">Érintőpad beállításai</translation>
 <translation id="4940047036413029306">Idézőjel</translation>
@@ -5469,7 +5469,6 @@ A kulcsfájlt tartsa biztonságos helyen. Szüksége lesz rá ahhoz, hogy új ve
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Ehhez a nyelvhez nem tartozik beviteli mód</translation>
 <translation id="8357224663288891423">Billentyűkódok bővítményekhez és alkalmazásokhoz</translation>
-<translation id="8357698472719914638">MINDIG</translation>
 <translation id="8358685469073206162">Helyreállítja az oldalakat?</translation>
 <translation id="8363095875018065315">stabil</translation>
 <translation id="8366396658833131068">A hálózati kapcsolat helyreállt. Kérjük, válasszon másik hálózatot, vagy nyomja le az alábbi „Folytatás” gombot a kioszkalkalmazás elindításához.</translation>

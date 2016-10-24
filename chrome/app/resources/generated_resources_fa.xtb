@@ -920,6 +920,7 @@
 <translation id="2238379619048995541">داده‌های حالت فرکانس</translation>
 <translation id="2239921694246509981">افزون فرد تحت نظارت</translation>
 <translation id="2241053333139545397">خواندن و تغییر داده‌هایتان در تعدادی از وب‌سایت‌ها</translation>
+<translation id="2241634353105152135">فقط یک بار</translation>
 <translation id="2242603986093373032">دستگاهی موجود نیست</translation>
 <translation id="2242687258748107519">اطلاعات فایل</translation>
 <translation id="2246340272688122454">در حال بارگیری تصویر بازیابی...</translation>
@@ -2968,7 +2969,6 @@
 <translation id="4927753642311223124">اینجا خبری نیست، برگردید.</translation>
 <translation id="4929925845384605079">فعال کردن نمایش افزودن به برنماهای قفسه که از کاربر می‌خواهد یک برنامه وب به قفسه‌اش یا معادل دیگر ویژه پلتفورم اضافه کند.</translation>
 <translation id="4933484234309072027">جاسازی شده در <ph name="URL" /></translation>
-<translation id="4935151320838778332">فقط یک‌بار</translation>
 <translation id="493571969993549666">افزودن کاربر تحت نظارت</translation>
 <translation id="4938972461544498524">تنظیمات صفحه لمسی</translation>
 <translation id="4940047036413029306">نقل قول</translation>
@@ -5466,7 +5466,6 @@
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">این زبان هیچ روش ورودی ندارد</translation>
 <translation id="8357224663288891423">میان‌برهای صفحه‌کلید برای افزونه‌ها و برنامه‌ها</translation>
-<translation id="8357698472719914638">همیشه</translation>
 <translation id="8358685469073206162">صفحه‌ها بازیابی شوند؟</translation>
 <translation id="8363095875018065315">پایدار</translation>
 <translation id="8366396658833131068">اتصالتان به شبکه بازیابی شد. لطفاً شبکه دیگری را انتخاب کنید یا دکمه «ادامه» را در زیر فشار دهید تا برنامه کیوسکتان را راه‌اندازی کنید.</translation>

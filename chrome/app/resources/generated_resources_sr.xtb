@@ -486,7 +486,7 @@
 <translation id="1617097702943948177">Привремена меморија:</translation>
 <translation id="161821681072026592">Попуњавање лозинки при избору налога</translation>
 <translation id="1618268899808219593">Ц&amp;ентар за помоћ</translation>
-<translation id="1620510694547887537">Камеру</translation>
+<translation id="1620510694547887537">Камера</translation>
 <translation id="1624026626836496796">Ово ћете урадити само једном и нећемо сачувати акредитиве.</translation>
 <translation id="1627276047960621195">Дескриптори датотека</translation>
 <translation id="1628736721748648976">Кодирање</translation>
@@ -920,6 +920,7 @@
 <translation id="2238379619048995541">Подаци о стању фреквенције</translation>
 <translation id="2239921694246509981">Додај особу под надзором</translation>
 <translation id="2241053333139545397">Читање и мењање података на више веб-сајтова</translation>
+<translation id="2241634353105152135">Само једном</translation>
 <translation id="2242603986093373032">Нема уређаја</translation>
 <translation id="2242687258748107519">Информације о датотеци</translation>
 <translation id="2246340272688122454">Преузимање слике за обнављање...</translation>
@@ -2970,7 +2971,6 @@
 <translation id="4927753642311223124">Нема шта да се види овде. Наставите даље.</translation>
 <translation id="4929925845384605079">Омогућава приказ банера за додавање на полицу, који траже од корисника да дода веб-апликацију на полицу или на други еквивалентни елемент на одређеној платформи.</translation>
 <translation id="4933484234309072027">уграђено у сајт <ph name="URL" /></translation>
-<translation id="4935151320838778332">САМО ЈЕДНОМ</translation>
 <translation id="493571969993549666">Додај корисника под надзором</translation>
 <translation id="4938972461544498524">Подешавања тачпеда</translation>
 <translation id="4940047036413029306">Наводник</translation>
@@ -4649,7 +4649,7 @@
 <translation id="7243055093079293866">Реците „ОК Google“ на новој картици и на сајту google.com</translation>
 <translation id="7243632151880336635">Обриши и одјави ме</translation>
 <translation id="7245628041916450754"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (Најбоље)</translation>
-<translation id="724691107663265825">Сајт који покушавате да посетите садржи малвер</translation>
+<translation id="724691107663265825">Сајт који ћете посетити садржи малвер</translation>
 <translation id="7246947237293279874">FTP прокси</translation>
 <translation id="725109152065019550">Жао нам је, администратор је онемогућио спољну меморију на овом налогу.</translation>
 <translation id="7252661675567922360">Не учитавај</translation>
@@ -5463,7 +5463,6 @@
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Овај језик нема ниједан метод уноса</translation>
 <translation id="8357224663288891423">Тастерске пречице за додатке и апликације</translation>
-<translation id="8357698472719914638">УВЕК</translation>
 <translation id="8358685469073206162">Желите ли да вратите странице?</translation>
 <translation id="8363095875018065315">стабилан</translation>
 <translation id="8366396658833131068">Веза са мрежом је поново успостављена. Изаберите другу мрежу или притисните дугме „Настави“ у наставку да бисте покренули киоск апликацију.</translation>
@@ -5993,7 +5992,7 @@
 <translation id="9053965862400494292">Дошло је до грешке при подешавању синхронизације.</translation>
 <translation id="9056034633062863292">Ажурирање Chromebox-а</translation>
 <translation id="9056810968620647706">Није пронађено ниједно подударање.</translation>
-<translation id="9057119625587205566">Нема штампача у околини</translation>
+<translation id="9057119625587205566">Нема штампача у близини</translation>
 <translation id="9059868303873565140">Мени статуса</translation>
 <translation id="9064142312330104323">Слика Google профила (учитавање)</translation>
 <translation id="9064275926664971810">Омогућавање аутоматског попуњавања веб-образаца једним кликом</translation>

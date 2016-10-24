@@ -76,7 +76,7 @@
 <translation id="3258596308407688501">Chromium не може читати та писати дані у свій каталог даних:
 
 <ph name="USER_DATA_DIRECTORY" /></translation>
-<translation id="3264279740686075150">Chromium установлено веб-переглядачем за умовчанням.</translation>
+<translation id="3264279740686075150">Chromium ваш веб-переглядач за умовчанням.</translation>
 <translation id="328888136576916638">Ключі API Google відсутні. Деякі функції Chromium буде вимкнено.</translation>
 <translation id="3289635842886789612">Версія Chromium застаріла.</translation>
 <translation id="3296368748942286671">Продовжувати роботу фонових програм, коли Chromium закрито</translation>

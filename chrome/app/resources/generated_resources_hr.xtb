@@ -922,6 +922,7 @@
 <translation id="2238379619048995541">Podaci o stanju učestalosti</translation>
 <translation id="2239921694246509981">Dodaj nadziranog korisnika</translation>
 <translation id="2241053333139545397">čitati i mijenjati vaše podatke na više web-lokacija</translation>
+<translation id="2241634353105152135">Samo jednom</translation>
 <translation id="2242603986093373032">Nema uređaja</translation>
 <translation id="2242687258748107519">Informacije o datoteci</translation>
 <translation id="2246340272688122454">Preuzimanje slike za oporavak sustava...</translation>
@@ -2973,7 +2974,6 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="4927753642311223124">Nema nikakvih obavijesti.</translation>
 <translation id="4929925845384605079">Omogućivanje prikaza bannera za dodavanje na policu kojima se od korisnika traži da dodaju web-aplikaciju na svoju policu ili odgovarajuće područje na drugoj platformi.</translation>
 <translation id="4933484234309072027">ugrađeno na URL <ph name="URL" /></translation>
-<translation id="4935151320838778332">SAMO JEDNOM</translation>
 <translation id="493571969993549666">Dodaj nadziranog korisnika</translation>
 <translation id="4938972461544498524">Postavke dodirne podloge</translation>
 <translation id="4940047036413029306">Navod.</translation>
@@ -5467,7 +5467,6 @@ Ključnu datoteku čuvajte na sigurnom mjestu. Trebat će vam za stvaranje novih
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Ovaj jezik nema nijedan način unosa</translation>
 <translation id="8357224663288891423">Tipkovni prečaci za proširenja i aplikacije</translation>
-<translation id="8357698472719914638">UVIJEK</translation>
 <translation id="8358685469073206162">Želite li vratiti stranice?</translation>
 <translation id="8363095875018065315">stabilan</translation>
 <translation id="8366396658833131068">Veza s mrežom ponovno je uspostavljena. Odaberite neku drugu mrežu ili pritisnite gumb "Nastavi" u nastavku kako biste pokrenuli aplikaciju kioska.</translation>

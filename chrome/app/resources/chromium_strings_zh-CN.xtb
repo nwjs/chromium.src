@@ -76,7 +76,7 @@
 <translation id="3258596308407688501">Chromium 无法读写其数据目录：
 
 <ph name="USER_DATA_DIRECTORY" /></translation>
-<translation id="3264279740686075150">太棒了！Chromium 已设为您的默认浏览器。</translation>
+<translation id="3264279740686075150">太棒了！Chromium 现已成为您的默认浏览器。</translation>
 <translation id="328888136576916638">缺少 Google API 密钥，因此 Chromium 的部分功能将无法使用。</translation>
 <translation id="3289635842886789612">Chromium 版本太旧。</translation>
 <translation id="3296368748942286671">关闭 Chromium 后继续运行后台应用</translation>

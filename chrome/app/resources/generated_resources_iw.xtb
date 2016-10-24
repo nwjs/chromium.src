@@ -918,6 +918,7 @@
 <translation id="2238379619048995541">נתוני מצב תדירות</translation>
 <translation id="2239921694246509981">הוסף משתמש בפיקוח</translation>
 <translation id="2241053333139545397">לקרוא ולשנות את הנתונים שלך במספר אתרים</translation>
+<translation id="2241634353105152135">פעם אחת בלבד</translation>
 <translation id="2242603986093373032">אין מכשירים</translation>
 <translation id="2242687258748107519">פרטי קובץ</translation>
 <translation id="2246340272688122454">מוריד תמונת שחזור...</translation>
@@ -2968,7 +2969,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4927753642311223124">אין התראות להצגה, המשך הלאה.</translation>
 <translation id="4929925845384605079">הפעלת התצוגה של מודעות באנר להוספה למדף, המנחות את המשתמש להוסיף אפליקציית אינטרנט למדף או אפליקצייה שוות ערך אחרת של פלטפורמה ספציפית.</translation>
 <translation id="4933484234309072027">מוטבע ב-<ph name="URL" /></translation>
-<translation id="4935151320838778332">פעם אחת בלבד</translation>
 <translation id="493571969993549666">הוסף משתמש בפיקוח</translation>
 <translation id="4938972461544498524">הגדרות לוח מגע</translation>
 <translation id="4940047036413029306">מרכאה</translation>
@@ -5456,7 +5456,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">לשפה זו אין שיטות קלט</translation>
 <translation id="8357224663288891423">מקשי קיצור עבור תוספים ויישומים</translation>
-<translation id="8357698472719914638">תמיד</translation>
 <translation id="8358685469073206162">האם לשחזר את הדפים?</translation>
 <translation id="8363095875018065315">יציב</translation>
 <translation id="8366396658833131068">קישוריות הרשת שלך התחדשה. בחר רשת אחרת או לחץ על הלחצן 'המשך' שלמטה כדי להפעיל את יישום הקיוסק.</translation>

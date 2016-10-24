@@ -924,6 +924,7 @@ Do úplného nabitia zostáva: <ph name="HOUR" />:<ph name="MINUTE" /></translat
 <translation id="2238379619048995541">Údaje stavu frekvencie</translation>
 <translation id="2239921694246509981">Pridať kontrolovanú osobu</translation>
 <translation id="2241053333139545397">Čítanie a úprava údajov na rôznych weboch</translation>
+<translation id="2241634353105152135">Iba raz</translation>
 <translation id="2242603986093373032">Žiadne zariadenia</translation>
 <translation id="2242687258748107519">Informácie o súbore</translation>
 <translation id="2246340272688122454">Sťahuje sa obraz na obnovenie...</translation>
@@ -2975,7 +2976,6 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="4927753642311223124">Tu sa nič nenachádza, pokračujte ďalej.</translation>
 <translation id="4929925845384605079">Povolenie zobrazenia bannerov na pridanie na poličku, ktoré vyzvú používateľa pridať si webovú aplikáciu na svoju poličku alebo na iný ekvivalent konkrétnych platforiem.</translation>
 <translation id="4933484234309072027">vložené do <ph name="URL" /></translation>
-<translation id="4935151320838778332">IBA RAZ</translation>
 <translation id="493571969993549666">Pridať kontrolovaného používateľa</translation>
 <translation id="4938972461544498524">Nastavenia touchpadu</translation>
 <translation id="4940047036413029306">Úvodzovky</translation>
@@ -5472,7 +5472,6 @@ Prebieha výpočet času do úplného nabitia</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Tento jazyk nemá žiadne metódy vstupu</translation>
 <translation id="8357224663288891423">Klávesové skratky pre rozšírenia a aplikácie</translation>
-<translation id="8357698472719914638">VŽDY</translation>
 <translation id="8358685469073206162">Obnoviť stránky?</translation>
 <translation id="8363095875018065315">stabilné</translation>
 <translation id="8366396658833131068">Vaše pripojenie k sieti je obnovené. Vyberte inú sieť alebo stlačte tlačidlo Pokračovať nachádzajúce sa nižšie a spustite tak aplikáciu Kiosk.</translation>

@@ -924,6 +924,7 @@
 <translation id="2238379619048995541">Data ng Estado ng Dalas</translation>
 <translation id="2239921694246509981">Magdagdag ng pinapangasiwaang tao</translation>
 <translation id="2241053333139545397">Basahin at baguhin ang iyong data sa ilang website</translation>
+<translation id="2241634353105152135">Isang beses lang</translation>
 <translation id="2242603986093373032">Walang mga device</translation>
 <translation id="2242687258748107519">Info ng File</translation>
 <translation id="2246340272688122454">Dina-download ang larawan ng pagbawi...</translation>
@@ -2976,7 +2977,6 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="4927753642311223124">Walang makikita rito, magpatuloy.</translation>
 <translation id="4929925845384605079">I-enable ang pagpapakita sa mga banner na idinagdag sa shelf, na nagpo-prompt sa mga user na magdagdag ng isang web app sa kanilang shelf, o iba pang katumbas na partikular sa platform.</translation>
 <translation id="4933484234309072027">naka-embed sa <ph name="URL" /></translation>
-<translation id="4935151320838778332">ISANG BESES LANG</translation>
 <translation id="493571969993549666">Magdagdag ng pinapangasiwaang user</translation>
 <translation id="4938972461544498524">Mga setting ng touchpad</translation>
 <translation id="4940047036413029306">Panipi</translation>
@@ -5477,7 +5477,6 @@ Kinakalkula ang oras hanggang sa mapuno</translation>
 <translation id="8356258244599961364">Walang anumang mga pamamaraan ng pag-input ang wikang ito</translation>
 <translation id="8357224663288891423">Mga Keyboard Shortcut para sa Mga Extension at App 
 </translation>
-<translation id="8357698472719914638">PALAGI</translation>
 <translation id="8358685469073206162">Ipanumbalik ang mga page?</translation>
 <translation id="8363095875018065315">matatag</translation>
 <translation id="8366396658833131068">Naipanumbalik na ang connectivity ng iyong network. Mangyaring pumili ng ibang network o pindutin ang button sa ibaba na 'Magpatuloy' upang ilunsad ang iyong kiosk app.</translation>

@@ -299,6 +299,7 @@
       Jika HardwareAccelerationModeEnabled disetel ke False, Disable3DAPI akan diabaikan dan setara dengan Disable3DAPI yang disetel ke True.</translation>
 <translation id="2168397434410358693">Menunda waktu menganggur saat menggunakan daya AC</translation>
 <translation id="2170233653554726857">Aktifkan pengoptimalan WPAD</translation>
+<translation id="2178899310296064282">Terapkan setidaknya Mode Terbatas Menengah di Youtube</translation>
 <translation id="2188979373208322108">Mengaktifkan bilah bookmark di <ph name="PRODUCT_NAME" />. Jika Anda mengaktifkan setelan ini, <ph name="PRODUCT_NAME" /> akan menampilkan bilah bookmark. Jika Anda menonaktifkan setelan ini, pengguna tidak akan pernah melihat bilah bookmark. Jika Anda mengaktifkan atau menonaktifkan setelan ini, pengguna tidak dapat mengubah atau menimpanya di <ph name="PRODUCT_NAME" />. Jika setelan ini tidak disetel, pengguna dapat memutuskan untuk menggunakan fungsi ini atau tidak.</translation>
 <translation id="2201555246697292490">Konfigurasikan daftar putih perpesanan asli</translation>
 <translation id="2204753382813641270">Kontrol sembunyi otomatis rak</translation>
@@ -542,6 +543,7 @@
       Jika Anda mengaktifkan atau menonaktifkan setelan ini, pengguna tidak dapat mengubah atau menimpa setelan "Aktifkan perlindungan phishing dan perangkat lunak perusak" di <ph name="PRODUCT_NAME" />.
 
       Jika kebijakan ini tidak disetel, kebijakan akan diaktifkan namun pengguna dapat mengubahnya.</translation>
+<translation id="2787173078141616821">Informasi laporan tentang status Android</translation>
 <translation id="2801230735743888564">Mengizinkan pengguna memainkan game dinosaur easter egg saat perangkat offline.
 
       Jika kebijakan ini disetel ke False, pengguna tidak dapat memainkan game dinosaur easter egg saat perangkat offline. Jika setelan ini disetel ke True, pengguna dapat memainkan game tersebut. Jika kebijakan ini tidak disetel, pengguna tidak dapat memainkan game dinosaur easter egg pada Chrome OS yang terdaftar, tapi pengguna dapat memainkannya dalam situasi tertentu.</translation>
@@ -768,6 +770,15 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="3417418267404583991">Jika kebijakan ini disetel ke true atau tidak dikonfigurasi, <ph name="PRODUCT_OS_NAME" /> akan mengaktifkan masuk sebagai tamu. Masuk sebagai tamu adalah sesi pengguna anonim dan tidak memerlukan sandi.
 
       Jika kebijakan ini disetel ke false, <ph name="PRODUCT_OS_NAME" /> tidak akan mengizinkan dimulainya sesi tamu.</translation>
+<translation id="3418871497193485241">Menerapkan Mode Terbatas minimum di Youtube dan mencegah pengguna agar tidak
+      memilih mode terbatas yang lebih kecil.
+
+      Jika setelan ini disetel ke Mode Ketat, Mode Terbatas Ketat di Youtube akan selalu aktif.
+
+      Jika setelan ini disetel ke Mode Menengah, pengguna hanya dapat memilih Mode Terbatas Menengah
+      dan Mode Terbatas Ketat di Youtube, tetapi tidak dapat menonaktifkan Mode Terbatas.
+
+      Jika setelah ini disetel Nonaktif atau tidak ada pilihan yang disetel, Mode Terbatas di Youtube tidak dapat diterapkan oleh <ph name="PRODUCT_NAME" />. Namun, kebijakan eksternal seperti kebijakan Youtube masih dapat menerapkan Mode Terbatas.</translation>
 <translation id="3428247105888806363">Aktifkan prediksi jaringan</translation>
 <translation id="3449886121729668969">Mengonfigurasi setelan proxy untuk <ph name="PRODUCT_NAME" />. Setelan proxy ini juga akan tersedia untuk aplikasi ARC.
 
@@ -882,6 +893,12 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
           Secara default, semua hosting perpesanan asli dimasukkan dalam daftar putih, namun jika semua hosting perpesanan asli telah dimasukkan dalam daftar hitam sesuai dengan kebijakan, daftar putih dapat digunakan untuk menggantikan kebijakan tersebut.</translation>
 <translation id="384743459174066962">Memungkinkan Anda menyetel daftar pola URL yang menentukan situs yang tidak diizinkan untuk membuka munculan. Jika kebijakan ini tidak disetel, nilai default global akan digunakan untuk semua situs baik dari kebijakan 'DefaultPopupsSetting', jika disetel, atau konfigurasi pribadi pengguna.</translation>
+<translation id="3851039766298741586">Laporkan informasi tentang sesi kios aktif, misalnya
+      ID dan versi aplikasi.
+
+      Jika kebijakan disetel ke False, informasi sesi tidak akan
+      dilaporkan. Jika disetel ke True atau tidak disetel, informasi sesi kios akan
+      dilaporkan.</translation>
 <translation id="3859780406608282662">Tambahkan parameter untuk mengambil sumber Variasi di <ph name="PRODUCT_OS_NAME" />.
 
       Jika ditentukan, akan menambahkan parameter kueri yang disebut 'membatasi' ke URL yang digunakan untuk mengambil sumber Variasi. Nilai parameter akan menjadi nilai yang ditentukan dalam kebijakan ini.
@@ -896,6 +913,13 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
           Kebijakan ini hanya diterapkan jika kebijakan 'DefaultSearchProviderEnabled' diaktifkan.</translation>
 <translation id="3864818549971490907">Setelan plugin default</translation>
+<translation id="386487026071140458">Kebijakan ini tidak berlaku lagi, harap gunakan kebijakan <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" /> dan <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />. Kebijakan ini akan diabaikan jika salah satu dari kebijakan <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" />, <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />, atau (kebijakan yang tidak berlaku) <ph name="FORCEYOUTUBESAFETYMODE_POLICY_NAME" /> ditetapkan.
+
+      Memaksa kueri pada Google Penelusuran Web dapat dilakukan dengan fitur TelusurAman yang disetel ke aktif dan mencegah pengguna agar tidak mengubah setelan ini. Setelan ini juga memaksa Mode Terbatas Menengah di YouTube.
+
+      Jika Anda mengaktifkan setelan ini, TelusurAman di Google Penelusuran dan Mode Terbatas Menengah di Youtube akan selalu aktif .
+
+      Jika Anda menonaktifkan setelan ini atau tidak menetapkan pilihan, TelusurAman di Google Penelusuran dan Mode Terbatas di YouTube tidak akan ditetapkan.</translation>
 <translation id="3866249974567520381">Deskripsi</translation>
 <translation id="3866530186104388232">Jika kebijakan ini diatur ke true atau tidak dikonfigurasi, <ph name="PRODUCT_OS_NAME" /> akan menampilkan pengguna yang ada pada layar masuk dan diizinkan untuk memilih salah satu. Jika kebijakan ini diatur ke false, <ph name="PRODUCT_OS_NAME" /> akan menggunakan permintaan nama pengguna/sandi untuk masuk.</translation>
 <translation id="3868347814555911633">Kebijakan ini hanya aktif dalam mode ritel.
@@ -1252,6 +1276,13 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
           Jika setelan ini dinonaktifkan atau tidak disetel, baik pengguna lokal maupun pengguna jarak jauh dapat berinteraksi dengan hosting ketika sedang dibagikan.</translation>
 <translation id="5423001109873148185">Kebijakan ini memaksa mesin telusur untuk diimpor dari browser default yang digunakan, jika diaktifkan. Jika diaktifkan, kebijakan ini juga memengaruhi dialog impor. Jika dinonaktifkan, mesin telusur default tidak diimpor. Jika tidak disetel, pengguna mungkin akan ditanya apakah ingin mengimpor, atau pengimporan dapat terjadi secara otomatis.</translation>
 <translation id="5423197884968724595">Nama batasan Android WebView:</translation>
+<translation id="543559563129402336">Kebijakan ini tidak berlaku. Pertimbangkan untuk menggunakan kebijakan <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />, yang dapat menggantikan kebijakan ini dan memungkinkan pemilihan yang lebih detail.
+
+      Memaksa Mode Terbatas Menengah di Youtube dan mencegah pengguna agar tidak mengubah setelan ini.
+
+      Jika setelan ini diaktifkan, Mode Terbatas di Youtube akan selalu diterapkan setidaknya ke Mode Menengah.
+
+      Jika setelan ini dinonaktifkan atau tidak ada pilihan yang ditetapkan, Mode Terbatas di YouTube tidak akan ditetapkan oleh <ph name="PRODUCT_NAME" />. Namun, kebijakan eksternal seperti kebijakan Youtube masih dapat menetapkan Mode Terbatas.</translation>
 <translation id="5447306928176905178">Aktifkan pelaporan info memori (JS heap size) ke laman (dipensiunkan)</translation>
 <translation id="5457065417344056871">Mengaktifkan mode tamu dalam browser</translation>
 <translation id="5457924070961220141">Memungkinkan Anda mengonfigurasi perender HTML default saat <ph name="PRODUCT_FRAME_NAME" /> dipasang. Setelan default yang digunakan ketika kebijakan ini tidak disetel adalah mengizinkan browser host melakukan perenderan, tetapi Anda dapat menimpanya secara opsional dan membiarkan <ph name="PRODUCT_FRAME_NAME" /> merender laman HTML secara default.</translation>
@@ -1418,6 +1449,13 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
       Jika kebijakan tidak disetel, atau disetel ke false, <ph name="PRODUCT_NAME" /> tidak akan melakukan pemeriksaan pembatalan online di <ph name="PRODUCT_NAME" /> versi 19 dan yang lebih baru.</translation>
 <translation id="5966615072639944554">Ekstensi yang diizinkan untuk menggunakan API pengesahan jarak jauh</translation>
+<translation id="5974970919245996815">Laporkan informasi tentang status Android yang dikirimkan kembali ke
+      server.
+
+      Jika kebijakan disetel ke False, informasi tidak akan dilaporkan.
+      Jika disetel ke True atau tidak disetel, informasi akan dilaporkan.
+
+      Kebijakan ini hanya berlaku jika Android app diaktifkan.</translation>
 <translation id="5983708779415553259">Perilaku default untuk situs tidak ada dalam paket konten mana pun</translation>
 <translation id="5997543603646547632">Menggunakan 24 jam sebagai default</translation>
 <translation id="6009903244351574348">Memungkinkan <ph name="PRODUCT_FRAME_NAME" /> menangani jenis konten yang tercantum. Jika kebijakan ini tidak disetel, perender default akan digunakan untuk semua situs yang ditentukan oleh kebijakan 'ChromeFrameRendererSettings'.</translation>
@@ -1663,6 +1701,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="6828905844648501476">Jika kebijakan ini disetel ke True atau tidak dikonfigurasi, <ph name="PRODUCT_NAME" /> akan memungkinkan Tambahkan Orang dari pengelola pengguna.
 
       Jika kebijakan ini disetel ke False, <ph name="PRODUCT_NAME" /> tidak akan mengizinkan pembuatan profil baru dari pengelola profil.</translation>
+<translation id="685769593149966548">Terapkan Mode Terbatas Ketat Youtube</translation>
 <translation id="687046793986382807">Kebijakan ini telah dihentikan pada <ph name="PRODUCT_NAME" /> versi 35.
 
       Bagaimanapun juga info memori dilaporkan ke laman, terlepas dari nilai opsinya, namun ukuran yang dilaporkan
@@ -1983,12 +2022,6 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
       Pengenal jenis koneksi yang diketahui saat ini adalah "ethernet", "wifi", "wimax", "bluetooth", dan "cellular".</translation>
 <translation id="7763614521440615342">Tampilkan saran konten di laman Tab Baru</translation>
-<translation id="7766336524667238790">Laporkan informasi tentang sesi kios aktif, misalnya
-      ID dan versi aplikasi
-
-      Jika kebijakan disetel ke False, informasi sesi tidak akan dilaporkan.
-      Jika disetel ke True atau tidak disetel, informasi sesi akan
-     dilaporkan.</translation>
 <translation id="7774768074957326919">Gunakan setelan proxy sistem</translation>
 <translation id="7775831859772431793">Anda dapat menetapkan URL server proxy di sini.
 
@@ -2090,6 +2123,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
       Jika kebijakan ini disetel ke true, perangkat akan menggunakan format 24 jam. Jika kebijakan disetel ke false, perangkat akan menggunakan format 12 jam.
 
       Jika kebijakan ini tidak disetel, perangkat akan menggunakan format default 24 jam.</translation>
+<translation id="8114382167597081590">Jangan terapkan Mode Terbatas di YouTube</translation>
 <translation id="8118665053362250806">Menyetel ukuran cache disk media</translation>
 <translation id="8135937294926049787">Menentukan panjang waktu tanpa masukan pengguna sebelum layar dimatikan ketika menggunakan daya AC.
 
@@ -2213,7 +2247,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="8390049129576938611">Menonaktifkan penampil PDF internal di <ph name="PRODUCT_NAME" />. Bukan memperlakukannya sebagai download dan mengizinkan membuka file PDF menggunakan aplikasi default.
 
       Jika kebijakan ini tidak disetel atau dinonaktifkan, plugin PDF akan digunakan untuk membuka file PDF kecuali pengguna menonaktifkannya.</translation>
-<translation id="8402079500086185021">Selalu Buka file PDF menggunakan secara eksternal</translation>
+<translation id="8402079500086185021">Selalu Buka file PDF secara eksternal</translation>
 <translation id="8412312801707973447">Apakah pemeriksaan OCSP/CRL online dilakukan atau tidak</translation>
 <translation id="8413348101535146315">Memungkinkan proses diakhiri di Pengelola Tugas <ph name="PRODUCT_NAME" />.
 
@@ -2298,6 +2332,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="8704831857353097849">Daftar plugin yang dinonaktifkan</translation>
 <translation id="8711086062295757690">Menentukan kata kunci yang merupakan pintasan yang digunakan dalam omnibox guna memicu penelusuran untuk operator ini. Kebijakan ini bersifat opsional. Jika tidak disetel, kata kunci tidak akan mengaktifkan penyedia penelusuran. Kebijakan ini hanya dipertimbangkan jika kebijakan 'DefaultSearchProviderEnabled' diaktifkan.</translation>
 <translation id="8731693562790917685">Setelan Konten memungkinkan Anda menentukan bagaimana konten jenis tertentu (misalnya Cookie, Gambar, atau JavaScript) ditangani.</translation>
+<translation id="8736538322216687231">Memaksa Mode Terbatas Youtube minimum</translation>
 <translation id="8749370016497832113">Mengaktifkan penghapusan riwayat browser dan riwayat unduhan di <ph name="PRODUCT_NAME" /> dan mencegah pengguna mengubah setelan berikut.
 
       Perhatikan bahwa meskipun kebijakan ini dinonaktifkan, riwayat unduhan dan penjelajahan tidak dijamin akan tersimpan: pengguna dapat mengedit atau menghapus file basis data riwayat secara langsung, dan browser itu sendiri mungkin kedaluwarsa atau mengarsipkan beberapa atau semua item riwayat setiap saat.

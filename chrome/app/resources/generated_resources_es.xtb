@@ -923,6 +923,7 @@
 <translation id="2238379619048995541">Datos de estado de frecuencia</translation>
 <translation id="2239921694246509981">Añadir persona supervisada</translation>
 <translation id="2241053333139545397">Leer y modificar tus datos en una serie de sitios web</translation>
+<translation id="2241634353105152135">Solo una vez</translation>
 <translation id="2242603986093373032">No hay ningún dispositivo.</translation>
 <translation id="2242687258748107519">Información del archivo</translation>
 <translation id="2246340272688122454">Descargando imagen de recuperación...</translation>
@@ -2973,7 +2974,6 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4927753642311223124">Aquí no hay nada que ver, circulen...</translation>
 <translation id="4929925845384605079">Permite que se muestren banners para añadir a la estantería, que preguntan al usuario si desea añadir una aplicación web a su estantería, o el equivalente específico de su plataforma.</translation>
 <translation id="4933484234309072027">insertada en <ph name="URL" /></translation>
-<translation id="4935151320838778332">SOLO UNA VEZ</translation>
 <translation id="493571969993549666">Añadir usuario supervisado</translation>
 <translation id="4938972461544498524">Configuración del panel táctil</translation>
 <translation id="4940047036413029306">Comilla</translation>
@@ -5465,7 +5465,6 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8356197132883132838"><ph name="TITLE" />: <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Idioma sin métodos de entrada</translation>
 <translation id="8357224663288891423">Combinaciones de teclas para extensiones y aplicaciones</translation>
-<translation id="8357698472719914638">SIEMPRE</translation>
 <translation id="8358685469073206162">¿Quieres restaurar las páginas?</translation>
 <translation id="8363095875018065315">estable</translation>
 <translation id="8366396658833131068">Tu conexión de red se ha restaurado. Selecciona una red diferente o pulsa el botón "Continuar" para ejecutar tu aplicación de kiosco.</translation>

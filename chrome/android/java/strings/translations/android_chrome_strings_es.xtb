@@ -286,7 +286,7 @@ Para ajustar el término de búsqueda, mantén pulsado el texto para seleccionar
 <translation id="4351244548802238354">Cerrar cuadro de diálogo</translation>
 <translation id="4376501731284077108">Sin control</translation>
 <translation id="4378154925671717803">Teléfono</translation>
-<translation id="4384468725000734951">Usando Sogou para realizar búsquedas</translation>
+<translation id="4384468725000734951">Sogou se ha establecido como motor de búsqueda predeterminado</translation>
 <translation id="4412992751769744546">Permitir cookies de terceros</translation>
 <translation id="4440256989292146959">Navega más por menos</translation>
 <translation id="4452548195519783679">Marcador añadido a <ph name="FOLDER_NAME" /></translation>
@@ -425,7 +425,7 @@ No obstante, tus acciones no serán totalmente invisibles. El uso del modo incó
 <translation id="5916664084637901428">Activar</translation>
 <translation id="5919204609460789179">Actualiza <ph name="PRODUCT_NAME" /> para iniciar la sincronización</translation>
 <translation id="5939518447894949180">Restablecer</translation>
-<translation id="5942872142862698679">Usando Google para realizar búsquedas</translation>
+<translation id="5942872142862698679">Google se ha establecido como motor de búsqueda predeterminado</translation>
 <translation id="6000066717592683814">Mantener Google como motor de búsqueda predeterminado</translation>
 <translation id="6010869025736512584">Accediendo a la entrada de vídeo</translation>
 <translation id="6012342843556706400">Chrome necesita acceder a la información de ubicación para compartirla con este sitio web.</translation>
@@ -444,7 +444,7 @@ No obstante, tus acciones no serán totalmente invisibles. El uso del modo incó
 <translation id="6159335304067198720"><ph name="PERCENT" /> de ahorro de datos</translation>
 <translation id="6165508094623778733">Más información</translation>
 <translation id="6177390657002841081">Activar Ahorro de Datos</translation>
-<translation id="617991007797131187">Chrome puede usar Sogou para realizar búsquedas en China. Puedes cambiar esta función en <ph name="BEGIN_LINK" />Ajustes<ph name="END_LINK" />.</translation>
+<translation id="617991007797131187">Chrome puede usar Sogou para realizar búsquedas en China. Puedes cambiar esta función en <ph name="BEGIN_LINK" />Ajustes (móvil) o Configuración (ordenador)<ph name="END_LINK" />.</translation>
 <translation id="6181444274883918285">Añadir excepción de sitio web</translation>
 <translation id="6192792657125177640">Excepciones</translation>
 <translation id="6232535412751077445">Al habilitar la opción No realizar seguimiento, se incluirá una solicitud con el tráfico de navegación. El efecto dependerá de si algún sitio web responde a la solicitud y de cómo se interpreta.

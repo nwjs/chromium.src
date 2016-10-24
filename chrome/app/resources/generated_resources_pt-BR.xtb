@@ -922,6 +922,7 @@
 <translation id="2238379619048995541">Dados do estado de frequência</translation>
 <translation id="2239921694246509981">Adicionar pessoa supervisionada</translation>
 <translation id="2241053333139545397">Ler e alterar seus dados em vários websites</translation>
+<translation id="2241634353105152135">Apenas uma vez</translation>
 <translation id="2242603986093373032">Nenhum dispositivo</translation>
 <translation id="2242687258748107519">Informações do arquivo</translation>
 <translation id="2246340272688122454">Fazendo download da imagem de recuperação...</translation>
@@ -2970,7 +2971,6 @@ Todos os usuários devem sair para continuar.</translation>
 <translation id="4927753642311223124">Nada para ver aqui, siga em frente.</translation>
 <translation id="4929925845384605079">Ativar a exibição de banners "adicionar a estante", que incentiva um usuário a adicionar um app da Web à sua estante ou a outro equivalente da plataforma.</translation>
 <translation id="4933484234309072027">incorporado em <ph name="URL" /></translation>
-<translation id="4935151320838778332">APENAS UMA VEZ</translation>
 <translation id="493571969993549666">Adicionar usuário supervisionado</translation>
 <translation id="4938972461544498524">Configurações do touchpad</translation>
 <translation id="4940047036413029306">Aspas</translation>
@@ -3758,7 +3758,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="5984222099446776634">Visitados recentemente</translation>
 <translation id="5984814259619230127">Descoberta do Smart Lock no Bluetooth de baixa energia</translation>
 <translation id="5986245990306121338">Se ativada, um alternador de guias é exibido mesmo quando a opção "Mostrar guias junto com os apps recentes" está ativada nas configurações.</translation>
-<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />Essas são informações gerais sobre seu dispositivo e sobre a forma como você o usa, como nível de bateria, frequência com que você usa seus apps, qualidade e duração das conexões de rede (como Wi-Fi e Bluetooth), bem como relatórios de erros quando os recursos não funcionam conforme o esperado. Elas são usadas para melhorar produtos e serviços do Google para todos. Algumas informações agregadas ajudam os parceiros, por exemplo desenvolvedores Android, a também melhorar apps e produtos.<ph name="END_PARAGRAPH1" />
+<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />Essas são informações gerais sobre seu dispositivo e sobre a forma como você o usa, como nível de bateria, frequência com que você usa seus apps, qualidade e duração das conexões de rede (como Wi-Fi e Bluetooth), bem como relatórios de erros quando os recursos não funcionam conforme o esperado. Elas são usadas para melhorar produtos e serviços do Google para todos. Algumas informações agregadas ajudam os parceiros, por exemplo, desenvolvedores Android, a também melhorar apps e produtos.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />É possível ativar ou desativar esse recurso a qualquer momento nas configurações de apps Android. Isso não afeta a capacidade do seu dispositivo de enviar as informações necessárias para receber serviços essenciais, como atualizações do sistema e de segurança.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990198433782424697">Extensões em URLs chrome://</translation>
 <translation id="5990814808592353318">Geração manual de senha.</translation>
@@ -5470,7 +5470,6 @@ Mantenha a sua chave de arquivo em um local seguro. Você precisará dela para c
 <translation id="8356197132883132838"><ph name="TITLE" /> - <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Este idioma não tem métodos de entrada</translation>
 <translation id="8357224663288891423">Atalhos de teclado para extensões e aplicativos</translation>
-<translation id="8357698472719914638">SEMPRE</translation>
 <translation id="8358685469073206162">Restaurar páginas?</translation>
 <translation id="8363095875018065315">estável</translation>
 <translation id="8366396658833131068">Sua conectividade de rede foi restaurada. Selecione outra rede ou pressione o botão "Continuar" abaixo para iniciar seu aplicativo de quiosque.</translation>

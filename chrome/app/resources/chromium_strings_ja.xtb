@@ -76,7 +76,7 @@
 <translation id="3258596308407688501">Chromium はこのデータ ディレクトリへの読み書きを実行できません:
 
 <ph name="USER_DATA_DIRECTORY" /></translation>
-<translation id="3264279740686075150">Chromium は既定のブラウザです。</translation>
+<translation id="3264279740686075150">既定のブラウザは Chromium です。</translation>
 <translation id="328888136576916638">Google API キーが欠落しています。Chromium の一部の機能は無効になります。</translation>
 <translation id="3289635842886789612">Chromium は古いバージョンです。</translation>
 <translation id="3296368748942286671">Chromium を閉じた際にバックグラウンド アプリの処理を続行する</translation>
