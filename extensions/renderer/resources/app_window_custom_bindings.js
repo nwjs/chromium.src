@@ -381,17 +381,19 @@ function updateAppWindowProperties(update) {
       dispatchEventIfExists(currentWindow, "onMoved");
   }
 
+  // NW fix: fire onRestored earlier than fullscreen/minimize/maximize
+  // events. See nwjs/nw.js#5388.
+  if ((oldData.fullscreen && !update.fullscreen) ||
+      (oldData.minimized && !update.minimized) ||
+      (oldData.maximized && !update.maximized))
+    dispatchEventIfExists(currentWindow, "onRestored");
+
   if (!oldData.fullscreen && update.fullscreen)
     dispatchEventIfExists(currentWindow, "onFullscreened");
   if (!oldData.minimized && update.minimized)
     dispatchEventIfExists(currentWindow, "onMinimized");
   if (!oldData.maximized && update.maximized)
     dispatchEventIfExists(currentWindow, "onMaximized");
-
-  if ((oldData.fullscreen && !update.fullscreen) ||
-      (oldData.minimized && !update.minimized) ||
-      (oldData.maximized && !update.maximized))
-    dispatchEventIfExists(currentWindow, "onRestored");
 
   if (oldData.alphaEnabled !== update.alphaEnabled)
     dispatchEventIfExists(currentWindow, "onAlphaEnabledChanged");
