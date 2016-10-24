@@ -74,7 +74,7 @@ class ActionItem implements NewTabPageItem {
 
         @Override
         public boolean isDismissable() {
-            return mActionListItem.mDismissable;
+            return false;
         }
 
         public void onBindViewHolder(ActionItem item) {

@@ -49,6 +49,6 @@ public class StatusCardViewHolder extends CardViewHolder {
 
     @Override
     public boolean isDismissable() {
-        return true;
+        return false;
     }
 }

@@ -144,5 +144,10 @@ public class SigninPromoItem extends StatusItem implements ItemGroup {
                 getParams().topMargin = 0;
             }
         }
+
+        @Override
+        public boolean isDismissable() {
+            return true;
+        }
     }
 }
