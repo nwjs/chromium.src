@@ -466,12 +466,6 @@ void HandleToggleCapsLock() {
   keyboard->SetCapsLockEnabled(!keyboard->CapsLockIsEnabled());
 }
 
-void HandleToggleHighContrast() {
-  base::RecordAction(UserMetricsAction("Accel_Toggle_High_Contrast"));
-
-  WmShell::Get()->accessibility_delegate()->ToggleHighContrast();
-}
-
 void HandleToggleSpokenFeedback() {
   base::RecordAction(UserMetricsAction("Accel_Toggle_Spoken_Feedback"));
 
@@ -832,7 +826,6 @@ bool AcceleratorController::CanPerformAction(
     case OPEN_GET_HELP:
     case SHOW_IME_MENU_BUBBLE:
     case SUSPEND:
-    case TOGGLE_HIGH_CONTRAST:
     case TOGGLE_SPOKEN_FEEDBACK:
     case TOGGLE_WIFI:
     case VOLUME_DOWN:
@@ -1049,9 +1042,6 @@ void AcceleratorController::PerformAction(AcceleratorAction action,
       break;
     case TOGGLE_CAPS_LOCK:
       HandleToggleCapsLock();
-      break;
-    case TOGGLE_HIGH_CONTRAST:
-      HandleToggleHighContrast();
       break;
     case TOGGLE_SPOKEN_FEEDBACK:
       HandleToggleSpokenFeedback();
