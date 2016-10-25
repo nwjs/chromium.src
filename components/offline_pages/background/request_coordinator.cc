@@ -135,6 +135,7 @@ RequestCoordinator::RequestCoordinator(
       last_offlining_status_(Offliner::RequestStatus::UNKNOWN),
       offliner_timeout_(base::TimeDelta::FromSeconds(
           policy_->GetSinglePageTimeLimitInSeconds())),
+      scheduler_callback_(base::Bind(&EmptySchedulerCallback)),
       weak_ptr_factory_(this) {
   DCHECK(policy_ != nullptr);
   picker_.reset(
@@ -238,6 +239,7 @@ bool RequestCoordinator::CancelActiveRequestIfItMatches(
     if (request_ids.end() != std::find(request_ids.begin(), request_ids.end(),
                                        active_request_->request_id())) {
       StopPrerendering(Offliner::RequestStatus::REQUEST_COORDINATOR_CANCELED);
+      active_request_.reset(nullptr);
       return true;
     }
   }
@@ -475,6 +477,7 @@ void RequestCoordinator::TryNextRequest() {
     is_starting_ = false;
 
     // Let the scheduler know we are done processing.
+    // TODO: Make sure the scheduler callback is valid before running it.
     scheduler_callback_.Run(true);
 
     return;
