@@ -154,41 +154,12 @@ class WebWidgetLockTarget : public content::MouseLockDispatcher::LockTarget {
   blink::WebWidget* webwidget_;
 };
 
-class TextInputModeMapSingleton {
- public:
-  static TextInputModeMapSingleton* GetInstance() {
-    return base::Singleton<TextInputModeMapSingleton>::get();
-  }
-  TextInputModeMapSingleton() {
-    map_["verbatim"] = ui::TEXT_INPUT_MODE_VERBATIM;
-    map_["latin"] = ui::TEXT_INPUT_MODE_LATIN;
-    map_["latin-name"] = ui::TEXT_INPUT_MODE_LATIN_NAME;
-    map_["latin-prose"] = ui::TEXT_INPUT_MODE_LATIN_PROSE;
-    map_["full-width-latin"] = ui::TEXT_INPUT_MODE_FULL_WIDTH_LATIN;
-    map_["kana"] = ui::TEXT_INPUT_MODE_KANA;
-    map_["katakana"] = ui::TEXT_INPUT_MODE_KATAKANA;
-    map_["numeric"] = ui::TEXT_INPUT_MODE_NUMERIC;
-    map_["tel"] = ui::TEXT_INPUT_MODE_TEL;
-    map_["email"] = ui::TEXT_INPUT_MODE_EMAIL;
-    map_["url"] = ui::TEXT_INPUT_MODE_URL;
-  }
-  const TextInputModeMap& map() const { return map_; }
- private:
-  TextInputModeMap map_;
-
-  friend struct base::DefaultSingletonTraits<TextInputModeMapSingleton>;
-
-  DISALLOW_COPY_AND_ASSIGN(TextInputModeMapSingleton);
-};
-
-ui::TextInputMode ConvertInputMode(const blink::WebString& input_mode) {
-  static TextInputModeMapSingleton* singleton =
-      TextInputModeMapSingleton::GetInstance();
-  TextInputModeMap::const_iterator it =
-      singleton->map().find(input_mode.utf8());
-  if (it == singleton->map().end())
-    return ui::TEXT_INPUT_MODE_DEFAULT;
-  return it->second;
+bool IsDateTimeInput(ui::TextInputType type) {
+  return type == ui::TEXT_INPUT_TYPE_DATE ||
+         type == ui::TEXT_INPUT_TYPE_DATE_TIME ||
+         type == ui::TEXT_INPUT_TYPE_DATE_TIME_LOCAL ||
+         type == ui::TEXT_INPUT_TYPE_MONTH ||
+         type == ui::TEXT_INPUT_TYPE_TIME || type == ui::TEXT_INPUT_TYPE_WEEK;
 }
 
 content::RenderWidgetInputHandlerDelegate* GetRenderWidgetInputHandlerDelegate(
@@ -244,6 +215,7 @@ RenderWidget::RenderWidget(CompositorDependencies* compositor_deps,
       host_closing_(false),
       is_swapped_out_(swapped_out),
       for_oopif_(false),
+      text_input_type_(ui::TEXT_INPUT_TYPE_NONE),
       text_input_mode_(ui::TEXT_INPUT_MODE_DEFAULT),
       text_input_flags_(0),
       can_compose_inline_(true),
@@ -954,11 +926,13 @@ void RenderWidget::UpdateTextInputState(ShowIme show_ime,
     return;
   }
 
-  if (!GetWebWidget())
-    return;
+  ui::TextInputType new_type = GetTextInputType();
+  if (IsDateTimeInput(new_type))
+    return;  // Not considered as a text input field in WebKit/Chromium.
 
-  blink::WebTextInputInfo new_info = GetWebWidget()->textInputInfo();
-
+  blink::WebTextInputInfo new_info;
+  if (GetWebWidget())
+    new_info = GetWebWidget()->textInputInfo();
   const ui::TextInputMode new_mode = ConvertInputMode(new_info.inputMode);
 
   bool new_can_compose_inline = CanComposeInline();
@@ -967,14 +941,15 @@ void RenderWidget::UpdateTextInputState(ShowIme show_ime,
   // shown.
   if (show_ime == ShowIme::IF_NEEDED ||
       (IsUsingImeThread() && change_source == ChangeSource::FROM_IME) ||
-      (text_input_mode_ != new_mode || text_input_info_ != new_info ||
+      (text_input_type_ != new_type || text_input_mode_ != new_mode ||
+       text_input_info_ != new_info ||
        can_compose_inline_ != new_can_compose_inline)
 #if defined(OS_ANDROID)
       || text_field_is_dirty_
 #endif
       ) {
     TextInputState params;
-    params.type = WebKitToUiTextInputType(new_info.type);
+    params.type = new_type;
     params.mode = new_mode;
     params.flags = new_info.flags;
     params.value = new_info.value.utf8();
@@ -998,6 +973,7 @@ void RenderWidget::UpdateTextInputState(ShowIme show_ime,
     Send(new ViewHostMsg_TextInputStateChanged(routing_id(), params));
 
     text_input_info_ = new_info;
+    text_input_type_ = new_type;
     text_input_mode_ = new_mode;
     can_compose_inline_ = new_can_compose_inline;
     text_input_flags_ = new_info.flags;
@@ -2031,7 +2007,7 @@ void RenderWidget::resetInputMethod() {
   ImeEventGuard guard(this);
   // If the last text input type is not None, then we should finish any
   // ongoing composition regardless of the new text input type.
-  if (text_input_info_.type != blink::WebTextInputTypeNone) {
+  if (text_input_type_ != ui::TEXT_INPUT_TYPE_NONE) {
     // If a composition text exists, then we need to let the browser process
     // to cancel the input method's ongoing composition session.
     if (GetWebWidget()->finishComposingText(WebWidget::DoNotKeepSelection))
