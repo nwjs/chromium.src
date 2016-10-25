@@ -183,6 +183,9 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
     private static final String ACTION_CLOSE_TABS =
             "com.google.android.apps.chrome.ACTION_CLOSE_TABS";
 
+    /** The task id of the activity that tabs were merged into. */
+    private static int sMergedInstanceTaskId;
+
     private final ActivityStopMetrics mActivityStopMetrics = new ActivityStopMetrics();
 
     private FindToolbarManager mFindToolbarManager;
@@ -1073,6 +1076,25 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
     }
 
     @Override
+    protected boolean isStartedUpCorrectly(Intent intent) {
+        // If tabs from this instance were merged into a different ChromeTabbedActivity instance
+        // then this instance should not be created. This may happen if the process is restarted
+        // e.g. on upgrade or from about://flags. See crbug.com/657418
+        boolean tabsMergedIntoAnotherInstance =
+                sMergedInstanceTaskId != 0 && sMergedInstanceTaskId != getTaskId();
+        if (tabsMergedIntoAnotherInstance) {
+            // Currently only two instances of ChromeTabbedActivity may be running at any given
+            // time. If tabs were merged into another instance and this instance is being killed due
+            // to incorrect startup, then no other instances should exist. Reset the merged instance
+            // task id.
+            setMergedInstanceTaskId(0);
+            return false;
+        }
+
+        return super.isStartedUpCorrectly(intent);
+    }
+
+    @Override
     public void terminateIncognitoSession() {
         getTabModelSelector().getModel(true).closeAllTabs();
     }
@@ -1177,6 +1199,8 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
                 MultiWindowUtils.getInstance().getOpenInOtherWindowActivity(this);
         if (targetActivity == null) return;
 
+        // When a second instance is created, the merged instance task id should be cleared.
+        setMergedInstanceTaskId(0);
         Intent intent = new Intent(this, targetActivity);
         MultiWindowUtils.setOpenInOtherWindowIntentExtras(intent, this, targetActivity);
 
@@ -1596,6 +1620,8 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
         // 4. Ask TabPersistentStore to merge state.
         RecordUserAction.record("Android.MergeState.Live");
         mTabModelSelectorImpl.mergeState();
+
+        setMergedInstanceTaskId(getTaskId());
     }
 
     /**
@@ -1631,5 +1657,9 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
             e.printStackTrace();
         }
 
+    }
+
+    private static void setMergedInstanceTaskId(int mergedInstanceTaskId) {
+        sMergedInstanceTaskId = mergedInstanceTaskId;
     }
 }
