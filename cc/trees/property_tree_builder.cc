@@ -630,10 +630,12 @@ bool AddTransformNodeIfNeeded(
   }
 
   float post_local_scale_factor = 1.0f;
+  if (is_root)
+    post_local_scale_factor =
+        data_for_children->property_trees->transform_tree.device_scale_factor();
 
   if (is_page_scale_layer) {
-    if (!is_root)
-      post_local_scale_factor *= data_from_ancestor.page_scale_factor;
+    post_local_scale_factor *= data_from_ancestor.page_scale_factor;
     data_for_children->property_trees->transform_tree.set_page_scale_factor(
         data_from_ancestor.page_scale_factor);
   }
@@ -644,14 +646,10 @@ bool AddTransformNodeIfNeeded(
   node->source_node_id = source_index;
   node->post_local_scale_factor = post_local_scale_factor;
   if (is_root) {
-    float page_scale_factor_for_root =
-        is_page_scale_layer ? data_from_ancestor.page_scale_factor : 1.f;
+    data_for_children->property_trees->transform_tree.SetDeviceTransform(
+        *data_from_ancestor.device_transform, layer->position());
     data_for_children->property_trees->transform_tree
-        .SetRootTransformsAndScales(data_for_children->property_trees
-                                        ->transform_tree.device_scale_factor(),
-                                    page_scale_factor_for_root,
-                                    *data_from_ancestor.device_transform,
-                                    layer->position());
+        .SetDeviceTransformScaleFactor(*data_from_ancestor.device_transform);
   } else {
     node->source_offset = source_offset;
     node->update_post_local_transform(layer->position(),
@@ -1341,11 +1339,8 @@ void BuildPropertyTreesTopLevelInternal(
     draw_property_utils::UpdateElasticOverscroll(
         property_trees, overscroll_elasticity_layer, elastic_overscroll);
     property_trees->clip_tree.SetViewportClip(gfx::RectF(viewport));
-    float page_scale_factor_for_root =
-        page_scale_layer == root_layer ? page_scale_factor : 1.f;
-    property_trees->transform_tree.SetRootTransformsAndScales(
-        device_scale_factor, page_scale_factor_for_root, device_transform,
-        root_layer->position());
+    property_trees->transform_tree.SetDeviceTransform(device_transform,
+                                                      root_layer->position());
     return;
   }
 
@@ -1389,7 +1384,6 @@ void BuildPropertyTreesTopLevelInternal(
   root_clip.applies_local_clip = true;
   root_clip.clip = gfx::RectF(viewport);
   root_clip.transform_id = kRootPropertyTreeNodeId;
-  root_clip.target_transform_id = kRootPropertyTreeNodeId;
   data_for_recursion.clip_tree_parent =
       data_for_recursion.property_trees->clip_tree.Insert(
           root_clip, kRootPropertyTreeNodeId);
