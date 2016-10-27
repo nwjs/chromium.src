@@ -36,8 +36,10 @@
 
 namespace blink {
 
-WorkerThreadStartupData::WorkerThreadStartupData(const KURL& scriptURL, const String& userAgent, const String& sourceCode, std::unique_ptr<Vector<char>> cachedMetaData, WorkerThreadStartMode startMode, const Vector<CSPHeaderAndType>* contentSecurityPolicyHeaders, const String& referrerPolicy, const SecurityOrigin* starterOrigin, WorkerClients* workerClients, WebAddressSpace addressSpace, const Vector<String>* originTrialTokens, std::unique_ptr<WorkerSettings> workerSettings, V8CacheOptions v8CacheOptions)
+WorkerThreadStartupData::WorkerThreadStartupData(bool isNodeJS, const std::string& main_script, const KURL& scriptURL, const String& userAgent, const String& sourceCode, std::unique_ptr<Vector<char>> cachedMetaData, WorkerThreadStartMode startMode, const Vector<CSPHeaderAndType>* contentSecurityPolicyHeaders, const String& referrerPolicy, const SecurityOrigin* starterOrigin, WorkerClients* workerClients, WebAddressSpace addressSpace, const Vector<String>* originTrialTokens, std::unique_ptr<WorkerSettings> workerSettings, V8CacheOptions v8CacheOptions)
     : m_scriptURL(scriptURL.copy())
+    , m_isNodeJS(isNodeJS)
+    , m_mainScript(main_script)
     , m_userAgent(userAgent.isolatedCopy())
     , m_sourceCode(sourceCode.isolatedCopy())
     , m_cachedMetaData(std::move(cachedMetaData))
