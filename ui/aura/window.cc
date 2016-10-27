@@ -171,7 +171,7 @@ Window::~Window() {
 }
 
 void Window::Init(ui::LayerType layer_type) {
-  SetLayer(base::MakeUnique<ui::Layer>(layer_type));
+  SetLayer(new ui::Layer(layer_type));
   layer()->SetVisible(false);
   layer()->set_delegate(this);
   UpdateLayerName();

@@ -8,6 +8,7 @@
 #include <map>
 
 #include "ash/common/shell_window_ids.h"
+#include "ash/common/wm/forwarding_layer_delegate.h"
 #include "ash/common/wm/mru_window_tracker.h"
 #include "ash/common/wm/window_state.h"
 #include "ash/common/wm_root_window_controller.h"

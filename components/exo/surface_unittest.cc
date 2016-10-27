@@ -129,7 +129,7 @@ TEST_F(SurfaceTest, SetBufferScale) {
       surface->content_size().ToString());
 }
 
-TEST_F(SurfaceTest, MirrorLayers) {
+TEST_F(SurfaceTest, RecreateLayer) {
   gfx::Size buffer_size(512, 512);
   std::unique_ptr<Buffer> buffer(
       new Buffer(exo_test_helper()->CreateGpuMemoryBuffer(buffer_size)));
@@ -141,7 +141,7 @@ TEST_F(SurfaceTest, MirrorLayers) {
   EXPECT_EQ(buffer_size, surface->window()->bounds().size());
   EXPECT_EQ(buffer_size, surface->window()->layer()->bounds().size());
   std::unique_ptr<ui::LayerTreeOwner> old_layer_owner =
-      ::wm::MirrorLayers(surface->window(), false /* sync_bounds */);
+      ::wm::RecreateLayers(surface->window(), nullptr);
   EXPECT_EQ(buffer_size, surface->window()->bounds().size());
   EXPECT_EQ(buffer_size, surface->window()->layer()->bounds().size());
   EXPECT_EQ(buffer_size, old_layer_owner->root()->bounds().size());

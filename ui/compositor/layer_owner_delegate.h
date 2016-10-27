@@ -12,7 +12,8 @@ class Layer;
 
 // Called from RecreateLayer() after the new layer was created. old_layer is
 // the layer that will be returned to the caller of RecreateLayer, new_layer
-// will be the layer now used.
+// will be the layer now used. Used when the layer has external content
+// (SetTextureMailbox / SetDelegatedFrame was called).
 class COMPOSITOR_EXPORT LayerOwnerDelegate {
  public:
   virtual void OnLayerRecreated(Layer* old_layer, Layer* new_layer) = 0;

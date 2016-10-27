@@ -88,7 +88,7 @@ class ScreenshotController::ScreenshotLayer : public ui::LayerOwner,
  public:
   ScreenshotLayer(ui::Layer* parent, bool immediate_overlay)
       : draw_inactive_overlay_(immediate_overlay) {
-    SetLayer(base::MakeUnique<ui::Layer>(ui::LAYER_TEXTURED));
+    SetLayer(new ui::Layer(ui::LAYER_TEXTURED));
     layer()->SetFillsBoundsOpaquely(false);
     layer()->SetBounds(parent->bounds());
     parent->Add(layer());

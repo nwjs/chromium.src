@@ -49,42 +49,6 @@ const ui::Layer* GetRoot(const ui::Layer* layer) {
 
 namespace ui {
 
-class Layer::LayerMirror : public LayerDelegate, LayerObserver {
- public:
-  LayerMirror(Layer* source, Layer* dest)
-      : source_(source), dest_(dest) {
-    dest->AddObserver(this);
-    dest->set_delegate(this);
-  }
-
-  ~LayerMirror() override {
-    dest_->RemoveObserver(this);
-    dest_->set_delegate(nullptr);
-  }
-
-  Layer* dest() { return dest_; }
-
-  // LayerDelegate:
-  void OnPaintLayer(const PaintContext& context) override {
-    if (auto* delegate = source_->delegate())
-      delegate->OnPaintLayer(context);
-  }
-  void OnDelegatedFrameDamage(const gfx::Rect& damage_rect_in_dip) override {}
-  void OnDeviceScaleFactorChanged(float device_scale_factor) override {}
-
-  // LayerObserver:
-  void LayerDestroyed(Layer* layer) override {
-    DCHECK_EQ(dest_, layer);
-    source_->OnMirrorDestroyed(this);
-  }
-
- private:
-  Layer* const source_;
-  Layer* const dest_;
-
-  DISALLOW_COPY_AND_ASSIGN(LayerMirror);
-};
-
 Layer::Layer()
     : type_(LAYER_TEXTURED),
       compositor_(NULL),
@@ -152,52 +116,6 @@ Layer::~Layer() {
   cc_layer_->RemoveFromParent();
   if (mailbox_release_callback_)
     mailbox_release_callback_->Run(gpu::SyncToken(), false);
-}
-
-std::unique_ptr<Layer> Layer::Clone() const {
-  auto clone = base::MakeUnique<Layer>(type_);
-
-  clone->SetTransform(GetTargetTransform());
-  clone->SetBounds(bounds_);
-  clone->SetSubpixelPositionOffset(subpixel_position_offset_);
-  clone->SetMasksToBounds(GetMasksToBounds());
-  clone->SetOpacity(GetTargetOpacity());
-  clone->SetVisible(GetTargetVisibility());
-  clone->SetFillsBoundsOpaquely(fills_bounds_opaquely_);
-  clone->SetFillsBoundsCompletely(fills_bounds_completely_);
-  clone->set_name(name_);
-
-  // Background filters.
-  clone->SetBackgroundBlur(background_blur_radius_);
-  clone->SetBackgroundZoom(zoom_, zoom_inset_);
-
-  // Filters.
-  clone->SetLayerSaturation(layer_saturation_);
-  clone->SetLayerBrightness(GetTargetBrightness());
-  clone->SetLayerGrayscale(GetTargetGrayscale());
-  clone->SetLayerInverted(layer_inverted_);
-  if (alpha_shape_)
-    clone->SetAlphaShape(base::MakeUnique<SkRegion>(*alpha_shape_));
-
-  // cc::Layer state.
-  if (surface_layer_ && !surface_layer_->surface_id().is_null()) {
-    clone->SetShowSurface(
-        surface_layer_->surface_id(),
-        surface_layer_->satisfy_callback(),
-        surface_layer_->require_callback(),
-        surface_layer_->surface_size(),
-        surface_layer_->surface_scale(),
-        frame_size_in_dip_);
-  } else if (type_ == LAYER_SOLID_COLOR) {
-    clone->SetColor(GetTargetColor());
-  }
-  return clone;
-}
-
-std::unique_ptr<Layer> Layer::Mirror() {
-  auto mirror = Clone();
-  mirrors_.emplace_back(base::MakeUnique<LayerMirror>(this, mirror.get()));
-  return mirror;
 }
 
 const Compositor* Layer::GetCompositor() const {
@@ -319,7 +237,7 @@ void Layer::SetAnimator(LayerAnimator* animator) {
 }
 
 LayerAnimator* Layer::GetAnimator() {
-  if (!animator_)
+  if (!animator_.get())
     SetAnimator(LayerAnimator::CreateDefaultAnimator());
   return animator_.get();
 }
@@ -329,7 +247,7 @@ void Layer::SetTransform(const gfx::Transform& transform) {
 }
 
 gfx::Transform Layer::GetTargetTransform() const {
-  if (animator_ && animator_->IsAnimatingProperty(
+  if (animator_.get() && animator_->IsAnimatingProperty(
       LayerAnimationElement::TRANSFORM)) {
     return animator_->GetTargetTransform();
   }
@@ -346,7 +264,7 @@ void Layer::SetSubpixelPositionOffset(const gfx::Vector2dF& offset) {
 }
 
 gfx::Rect Layer::GetTargetBounds() const {
-  if (animator_ && animator_->IsAnimatingProperty(
+  if (animator_.get() && animator_->IsAnimatingProperty(
       LayerAnimationElement::BOUNDS)) {
     return animator_->GetTargetBounds();
   }
@@ -391,7 +309,7 @@ void Layer::SetLayerBrightness(float brightness) {
 }
 
 float Layer::GetTargetBrightness() const {
-  if (animator_ && animator_->IsAnimatingProperty(
+  if (animator_.get() && animator_->IsAnimatingProperty(
       LayerAnimationElement::BRIGHTNESS)) {
     return animator_->GetTargetBrightness();
   }
@@ -403,7 +321,7 @@ void Layer::SetLayerGrayscale(float grayscale) {
 }
 
 float Layer::GetTargetGrayscale() const {
-  if (animator_ && animator_->IsAnimatingProperty(
+  if (animator_.get() && animator_->IsAnimatingProperty(
       LayerAnimationElement::GRAYSCALE)) {
     return animator_->GetTargetGrayscale();
   }
@@ -492,7 +410,7 @@ void Layer::SetLayerBackgroundFilters() {
 }
 
 float Layer::GetTargetOpacity() const {
-  if (animator_ && animator_->IsAnimatingProperty(
+  if (animator_.get() && animator_->IsAnimatingProperty(
       LayerAnimationElement::OPACITY))
     return animator_->GetTargetOpacity();
   return opacity();
@@ -503,7 +421,7 @@ void Layer::SetVisible(bool visible) {
 }
 
 bool Layer::GetTargetVisibility() const {
-  if (animator_ && animator_->IsAnimatingProperty(
+  if (animator_.get() && animator_->IsAnimatingProperty(
       LayerAnimationElement::VISIBILITY))
     return animator_->GetTargetVisibility();
   return visible_;
@@ -567,7 +485,7 @@ void Layer::SetFillsBoundsCompletely(bool fills_bounds_completely) {
 
 void Layer::SwitchToLayer(scoped_refptr<cc::Layer> new_layer) {
   // Finish animations being handled by cc_layer_.
-  if (animator_) {
+  if (animator_.get()) {
     animator_->StopAnimatingProperty(LayerAnimationElement::TRANSFORM);
     animator_->StopAnimatingProperty(LayerAnimationElement::OPACITY);
     animator_->SwitchToLayer(new_layer);
@@ -674,11 +592,7 @@ void Layer::SetShowSurface(
   frame_size_in_dip_ = frame_size_in_dip;
   RecomputeDrawsContentAndUVRect();
 
-  for (const auto& mirror : mirrors_) {
-    mirror->dest()->SetShowSurface(
-        surface_id, satisfy_callback, require_callback,
-        surface_size, scale, frame_size_in_dip);
-  }
+  FOR_EACH_OBSERVER(LayerObserver, observer_list_, SurfaceChanged(this));
 }
 
 void Layer::SetShowSolidColorContent() {
@@ -735,10 +649,9 @@ void Layer::UpdateNinePatchOcclusion(const gfx::Rect& occlusion) {
 
 void Layer::SetColor(SkColor color) { GetAnimator()->SetColor(color); }
 
-SkColor Layer::GetTargetColor() const {
-  if (animator_ && animator_->IsAnimatingProperty(
-      LayerAnimationElement::COLOR))
-    return animator_->GetTargetColor();
+SkColor Layer::GetTargetColor() {
+  if (GetAnimator()->IsAnimatingProperty(LayerAnimationElement::COLOR))
+    return GetAnimator()->GetTargetColor();
   return cc_layer_->background_color();
 }
 
@@ -805,7 +718,7 @@ void Layer::SuppressPaint() {
 void Layer::OnDeviceScaleFactorChanged(float device_scale_factor) {
   if (device_scale_factor_ == device_scale_factor)
     return;
-  if (animator_)
+  if (animator_.get())
     animator_->StopAnimatingProperty(LayerAnimationElement::TRANSFORM);
   device_scale_factor_ = device_scale_factor;
   RecomputeDrawsContentAndUVRect();
@@ -882,9 +795,8 @@ scoped_refptr<cc::DisplayItemList> Layer::PaintContentsToDisplayList(
         PaintContext(display_list.get(), device_scale_factor_, invalidation));
   }
   display_list->Finalize();
-  // TODO(domlaskowski): Move mirror invalidation to Layer::SchedulePaint.
-  for (const auto& mirror : mirrors_)
-    mirror->dest()->SchedulePaint(invalidation);
+  FOR_EACH_OBSERVER(LayerObserver, observer_list_,
+                    DidPaintLayer(this, invalidation));
   return display_list;
 }
 
@@ -1003,11 +915,6 @@ void Layer::SetBoundsFromAnimation(const gfx::Rect& bounds) {
   } else {
     // Always schedule a paint, even if we're invisible.
     SchedulePaint(gfx::Rect(bounds.size()));
-  }
-
-  if (sync_bounds_) {
-    for (const auto& mirror : mirrors_)
-      mirror->dest()->SetBounds(bounds);
   }
 }
 
@@ -1167,16 +1074,6 @@ void Layer::ResetCompositorForAnimatorsInTree(Compositor* compositor) {
 
   for (auto* child : children_)
     child->ResetCompositorForAnimatorsInTree(compositor);
-}
-
-void Layer::OnMirrorDestroyed(LayerMirror* mirror) {
-  const auto it = std::find_if(mirrors_.begin(), mirrors_.end(),
-      [mirror](const std::unique_ptr<LayerMirror>& mirror_ptr) {
-        return mirror_ptr.get() == mirror;
-      });
-
-  DCHECK(it != mirrors_.end());
-  mirrors_.erase(it);
 }
 
 }  // namespace ui

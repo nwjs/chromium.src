@@ -5,8 +5,6 @@
 #ifndef UI_COMPOSITOR_LAYER_TREE_OWNER_H_
 #define UI_COMPOSITOR_LAYER_TREE_OWNER_H_
 
-#include <memory>
-
 #include "base/compiler_specific.h"
 #include "base/macros.h"
 #include "ui/compositor/compositor_export.h"
@@ -18,7 +16,7 @@ class Layer;
 // Scoping object that owns a Layer and all its descendants.
 class COMPOSITOR_EXPORT LayerTreeOwner {
  public:
-  explicit LayerTreeOwner(std::unique_ptr<Layer> root);
+  explicit LayerTreeOwner(Layer* root);
   ~LayerTreeOwner();
 
   Layer* release() WARN_UNUSED_RESULT {
