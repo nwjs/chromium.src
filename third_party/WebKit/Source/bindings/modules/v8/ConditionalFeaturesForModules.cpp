@@ -18,7 +18,7 @@
 #include "bindings/modules/v8/V8WindowPartial.h"
 #include "bindings/modules/v8/V8WorkerNavigatorPartial.h"
 #include "core/dom/ExecutionContext.h"
-#include "core/origin_trials/OriginTrialContext.h"
+#include "core/origin_trials/OriginTrials.h"
 
 namespace blink {
 
@@ -41,56 +41,40 @@ void installConditionalFeaturesForModules(
   ExecutionContext* executionContext = scriptState->getExecutionContext();
   if (!executionContext)
     return;
-  OriginTrialContext* originTrialContext = OriginTrialContext::from(
-      executionContext, OriginTrialContext::DontCreateIfNotExists);
   v8::Isolate* isolate = scriptState->isolate();
   const DOMWrapperWorld& world = scriptState->world();
   v8::Local<v8::Object> global = scriptState->context()->Global();
   if (wrapperTypeInfo == &V8Navigator::wrapperTypeInfo) {
-    if (RuntimeEnabledFeatures::webBluetoothEnabled() ||
-        (originTrialContext &&
-         originTrialContext->isFeatureEnabled("WebBluetooth"))) {
+    if (OriginTrials::webBluetoothEnabled(executionContext)) {
       V8NavigatorPartial::installWebBluetooth(isolate, world,
                                               v8::Local<v8::Object>(),
                                               prototypeObject, interfaceObject);
     }
-    if (RuntimeEnabledFeatures::webShareEnabled() ||
-        (originTrialContext &&
-         originTrialContext->isFeatureEnabled("WebShare"))) {
+    if (OriginTrials::webShareEnabled(executionContext)) {
       V8NavigatorPartial::installWebShare(isolate, world,
                                           v8::Local<v8::Object>(),
                                           prototypeObject, interfaceObject);
     }
-    if (RuntimeEnabledFeatures::webUSBEnabled() ||
-        (originTrialContext &&
-         originTrialContext->isFeatureEnabled("WebUSB"))) {
+    if (OriginTrials::webUSBEnabled(executionContext)) {
       V8NavigatorPartial::installWebUSB(isolate, world, v8::Local<v8::Object>(),
                                         prototypeObject, interfaceObject);
     }
   } else if (wrapperTypeInfo == &V8Window::wrapperTypeInfo) {
-    if (RuntimeEnabledFeatures::webBluetoothEnabled() ||
-        (originTrialContext &&
-         originTrialContext->isFeatureEnabled("WebBluetooth"))) {
+    if (OriginTrials::webBluetoothEnabled(executionContext)) {
       V8WindowPartial::installWebBluetooth(isolate, world, global,
                                            prototypeObject, interfaceObject);
     }
-    if (RuntimeEnabledFeatures::webUSBEnabled() ||
-        (originTrialContext &&
-         originTrialContext->isFeatureEnabled("WebUSB"))) {
+    if (OriginTrials::webUSBEnabled(executionContext)) {
       V8WindowPartial::installWebUSB(isolate, world, global, prototypeObject,
                                      interfaceObject);
     }
   } else if (wrapperTypeInfo == &V8ServiceWorkerGlobalScope::wrapperTypeInfo) {
-    if (RuntimeEnabledFeatures::foreignFetchEnabled() ||
-        (originTrialContext &&
-         originTrialContext->isFeatureEnabled("ForeignFetch"))) {
+    if (OriginTrials::foreignFetchEnabled(executionContext)) {
       V8ServiceWorkerGlobalScope::installForeignFetch(
           isolate, world, global, prototypeObject, interfaceObject);
     }
   } else if (wrapperTypeInfo == &V8InstallEvent::wrapperTypeInfo) {
-    if (RuntimeEnabledFeatures::foreignFetchEnabled() ||
-        (originTrialContext &&
-         originTrialContext->isFeatureEnabled("ForeignFetch"))) {
+    if (OriginTrials::foreignFetchEnabled(executionContext)) {
       V8InstallEvent::installForeignFetch(isolate, world,
                                           v8::Local<v8::Object>(),
                                           prototypeObject, interfaceObject);
