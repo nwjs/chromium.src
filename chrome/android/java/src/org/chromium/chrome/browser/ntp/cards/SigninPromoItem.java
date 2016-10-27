@@ -24,7 +24,7 @@ import java.util.List;
  * Shows a card prompting the user to sign in. This item is also an {@link ItemGroup}, and calling
  * {@link #hide()} or {@link #maybeShow()} will control its visibility.
  */
-public class SigninPromoItem extends StatusItem implements ItemGroup {
+public class SigninPromoItem extends StatusItem implements ItemGroup, ImpressionTracker.Listener {
     private final List<NewTabPageItem> mItems = Collections.<NewTabPageItem>singletonList(this);
     private Observer mChangeObserver;
 
@@ -42,6 +42,8 @@ public class SigninPromoItem extends StatusItem implements ItemGroup {
      */
     private boolean mDismissed;
 
+    private final ImpressionTracker mImpressionTracker = new ImpressionTracker(null, this);
+
     public SigninPromoItem() {
         super(org.chromium.chrome.R.string.snippets_disabled_generic_prompt,
                 org.chromium.chrome.R.string.snippets_disabled_signed_out_instructions,
@@ -58,6 +60,12 @@ public class SigninPromoItem extends StatusItem implements ItemGroup {
     }
 
     @Override
+    public void onBindViewHolder(NewTabPageViewHolder holder) {
+        super.onBindViewHolder(holder);
+        mImpressionTracker.reset(mImpressionTracker.wasTriggered() ? null : holder.itemView);
+    }
+
+    @Override
     public int getType() {
         return NewTabPageItem.VIEW_TYPE_PROMO;
     }
@@ -65,6 +73,12 @@ public class SigninPromoItem extends StatusItem implements ItemGroup {
     @Override
     protected void performAction(Context context) {
         AccountSigninActivity.startIfAllowed(context, SigninAccessPoint.NTP_CONTENT_SUGGESTIONS);
+    }
+
+    @Override
+    public void onImpression() {
+        RecordUserAction.record("Signin_Impression_FromNTPContentSuggestions");
+        mImpressionTracker.reset(null);
     }
 
     /** Sets the {@link Observer} that will be notified when the visibility of the item changes. */
@@ -84,7 +98,6 @@ public class SigninPromoItem extends StatusItem implements ItemGroup {
 
         if (mDismissed) return;
 
-        RecordUserAction.record("Signin_Impression_FromNTPContentSuggestions");
         mChangeObserver.notifyItemInserted(this, 0);
     }
 
