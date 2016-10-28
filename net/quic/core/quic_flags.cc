@@ -170,3 +170,7 @@ bool FLAGS_quic_disable_pre_32 = true;
 // the first packet sent after receiving a packet, even if the sent packet is
 // a retransmission
 bool FLAGS_quic_better_last_send_for_timeout = true;
+
+// If enabled, fix double call of
+// InsertLocallyClosedStreamsHighestOffset in ResetPromised.
+bool FLAGS_quic_bugfix_reset_promised = true;

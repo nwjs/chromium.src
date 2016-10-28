@@ -53,5 +53,6 @@ NET_EXPORT_PRIVATE extern bool FLAGS_quic_enable_app_limited_check;
 NET_EXPORT_PRIVATE extern bool FLAGS_quic_simple_packet_number_length_2;
 NET_EXPORT_PRIVATE extern bool FLAGS_quic_disable_pre_32;
 NET_EXPORT_PRIVATE extern bool FLAGS_quic_better_last_send_for_timeout;
+NET_EXPORT_PRIVATE extern bool FLAGS_quic_bugfix_reset_promised;
 
 #endif  // NET_QUIC_QUIC_FLAGS_H_
