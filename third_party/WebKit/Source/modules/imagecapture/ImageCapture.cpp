@@ -271,6 +271,10 @@ void ImageCapture::onTakePhoto(ScriptPromiseResolver* resolver, media::mojom::bl
 
 void ImageCapture::onServiceConnectionError()
 {
+    if (!Platform::current()) {
+        // TODO(rockot): Clean this up once renderer shutdown sequence is fixed.
+        return;
+    }
     m_service.reset();
     for (ScriptPromiseResolver* resolver : m_serviceRequests)
         resolver->reject(DOMException::create(NotFoundError, kNoServiceError));

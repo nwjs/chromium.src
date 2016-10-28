@@ -19,6 +19,7 @@
 #include "modules/webusb/USBIsochronousOutTransferResult.h"
 #include "modules/webusb/USBOutTransferResult.h"
 #include "platform/mojo/MojoHelper.h"
+#include "public/platform/Platform.h"
 #include "wtf/Assertions.h"
 
 namespace usb = device::usb::blink;
@@ -803,6 +804,11 @@ void USBDevice::asyncReset(ScriptPromiseResolver* resolver, bool success)
 
 void USBDevice::onConnectionError()
 {
+    if (!Platform::current()) {
+        // TODO(rockot): Clean this up once renderer shutdown sequence is fixed.
+        return;
+    }
+
     m_device.reset();
     m_opened = false;
     for (ScriptPromiseResolver* resolver : m_deviceRequests)
