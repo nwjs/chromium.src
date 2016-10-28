@@ -406,6 +406,20 @@ function showURLOverlay(url) {
 }
 
 /**
+ * Shows Google Privacy Policy in overlay dialog. Policy link is detected from
+ * the content of terms view.
+ */
+function showPrivacyPolicyOverlay() {
+  termsView.executeScript({code: 'getPrivacyPolicyLink();'}, function(results) {
+    if (results && results.length == 1 && typeof results[0] == 'string') {
+      showURLOverlay(results[0]);
+    } else {
+      showURLOverlay('https://www.google.com/policies/privacy/');
+    }
+  });
+}
+
+/**
  * Hides overlay dialog.
  */
 function hideOverlay() {
@@ -630,8 +644,9 @@ chrome.app.runtime.onLaunched.addListener(function() {
     doc.getElementById('button-retry').addEventListener('click', onRetry);
     doc.getElementById('button-send-feedback')
         .addEventListener('click', onSendFeedback);
-    doc.getElementById('overlay-close').addEventListener('click',
-        hideOverlay);
+    doc.getElementById('overlay-close').addEventListener('click', hideOverlay);
+    doc.getElementById('privacy-policy-link').addEventListener(
+        'click', showPrivacyPolicyOverlay);
 
     var overlay = doc.getElementById('overlay-container');
     appWindow.contentWindow.cr.ui.overlay.setupOverlay(overlay);
