@@ -1584,6 +1584,7 @@ bool IsTabDetachingInFullscreenEnabled() {
                                      step:(translate::TranslateStep)step
                                 errorType:(translate::TranslateErrors::Type)
                                 errorType {
+#if 0
   // TODO(hajimehoshi): The similar logic exists at TranslateBubbleView::
   // ShowBubble. This should be unified.
   if (translateBubbleController_) {
@@ -1627,6 +1628,7 @@ bool IsTabDetachingInFullscreenEnabled() {
              selector:@selector(translateBubbleWindowWillClose:)
                  name:NSWindowWillCloseNotification
                object:[translateBubbleController_ window]];
+#endif
 }
 
 - (void)dismissPermissionBubble {

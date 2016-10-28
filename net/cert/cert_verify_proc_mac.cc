@@ -5,6 +5,7 @@
 #include "net/cert/cert_verify_proc_mac.h"
 
 #include <CommonCrypto/CommonDigest.h>
+#include <CoreFoundation/CFArray.h>
 #include <CoreServices/CoreServices.h>
 #include <Security/Security.h>
 
@@ -15,6 +16,7 @@
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/mac/mac_logging.h"
+#include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
 #include "base/sha1.h"
 #include "base/strings/string_piece.h"
@@ -377,6 +379,7 @@ int BuildAndEvaluateSecTrustRef(CFArrayRef cert_array,
                                 CFArrayRef trust_policies,
                                 int flags,
                                 CFArrayRef keychain_search_list,
+                                const CertificateList& additional_trust_anchors,
                                 ScopedCFTypeRef<SecTrustRef>* trust_ref,
                                 SecTrustResultType* trust_result,
                                 ScopedCFTypeRef<CFArrayRef>* verified_chain,
@@ -396,6 +399,23 @@ int BuildAndEvaluateSecTrustRef(CFArrayRef cert_array,
 
   if (keychain_search_list) {
     status = SecTrustSetKeychains(tmp_trust, keychain_search_list);
+    if (status)
+      return NetErrorFromOSStatus(status);
+  }
+
+  if (!additional_trust_anchors.empty()) {
+    // Code from TestRootCerts::FixupSecTrustRef in test_root_certs_mac.cc
+    base::ScopedCFTypeRef<CFMutableArrayRef> temporary_roots(
+        CFArrayCreateMutable(kCFAllocatorDefault, additional_trust_anchors.size(), &kCFTypeArrayCallBacks));
+    for (size_t i=0; i<additional_trust_anchors.size(); i++) {
+      CFArrayAppendValue(temporary_roots, additional_trust_anchors[i]->os_cert_handle());
+    }
+
+    status = SecTrustSetAnchorCertificates(tmp_trust, temporary_roots);
+    if (status)
+      return NetErrorFromOSStatus(status);
+
+    status = SecTrustSetAnchorCertificatesOnly(tmp_trust, false);
     if (status)
       return NetErrorFromOSStatus(status);
   }
@@ -528,7 +548,7 @@ CertVerifyProcMac::CertVerifyProcMac() {}
 CertVerifyProcMac::~CertVerifyProcMac() {}
 
 bool CertVerifyProcMac::SupportsAdditionalTrustAnchors() const {
-  return false;
+  return true;
 }
 
 bool CertVerifyProcMac::SupportsOCSPStapling() const {
@@ -683,7 +703,7 @@ int CertVerifyProcMac::VerifyInternal(
 
       int rv = BuildAndEvaluateSecTrustRef(
           cert_array, trust_policies, flags,
-          scoped_alternate_keychain_search_list.get(), &temp_ref,
+          scoped_alternate_keychain_search_list.get(), additional_trust_anchors, &temp_ref,
           &temp_trust_result, &temp_chain, &temp_chain_info);
       if (rv != OK)
         return rv;

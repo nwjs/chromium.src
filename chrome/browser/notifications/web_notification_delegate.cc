@@ -32,7 +32,7 @@ void WebNotificationDelegate::SettingsClick() {
 }
 
 bool WebNotificationDelegate::ShouldDisplaySettingsButton() {
-  return true;
+  return false;
 }
 
 bool WebNotificationDelegate::ShouldDisplayOverFullscreen() const {

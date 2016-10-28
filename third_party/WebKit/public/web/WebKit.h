@@ -58,6 +58,8 @@ BLINK_EXPORT void shutdown();
 BLINK_EXPORT void setLayoutTestMode(bool);
 BLINK_EXPORT bool layoutTestMode();
 
+BLINK_EXPORT void set_web_worker_hooks(void*);
+
 // Enables or disables the use of the mock theme for layout tests. This function
 // must be called only if setLayoutTestMode(true).
 BLINK_EXPORT void setMockThemeEnabledForTest(bool);

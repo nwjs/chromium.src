@@ -11,6 +11,8 @@
 #include "third_party/WebKit/public/web/WebContentSecurityPolicy.h"
 #include "third_party/WebKit/public/web/WebLocalFrame.h"
 
+#include "content/public/renderer/content_renderer_client.h"
+
 namespace content {
 
 SharedWorkerRepository::SharedWorkerRepository(RenderFrameImpl* render_frame)
@@ -22,6 +24,7 @@ SharedWorkerRepository::~SharedWorkerRepository() {}
 
 blink::WebSharedWorkerConnector*
 SharedWorkerRepository::createSharedWorkerConnector(
+    bool isNodeJS,
     const blink::WebURL& url,
     const blink::WebString& name,
     DocumentID document_id,
@@ -31,6 +34,8 @@ SharedWorkerRepository::createSharedWorkerConnector(
     blink::WebSharedWorkerCreationContextType creation_context_type,
     blink::WebWorkerCreationError* error) {
   ViewHostMsg_CreateWorker_Params params;
+  params.is_node_js = isNodeJS;
+  params.root_path = GetContentClient()->renderer()->GetRootPath();
   params.url = url;
   params.name = name;
   params.content_security_policy = content_security_policy;

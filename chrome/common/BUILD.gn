@@ -195,8 +195,8 @@ static_library("common") {
     "//components/prefs",
     "//components/signin/core/common",
     "//components/strings",
-    "//components/translate/content/common",
-    "//components/translate/core/common",
+    #"//components/translate/content/common",
+    #"//components/translate/core/common",
     "//components/url_formatter",
     "//components/variations",
     "//components/version_info",
@@ -309,6 +309,7 @@ static_library("common") {
       "extensions/webstore_install_result.h",
     ]
     public_deps += [
+      "//content/nw/src/api:nw_api",
       "//chrome/common/extensions/api",
       "//chrome/common/extensions/api:extensions_features",
       "//device/usb",

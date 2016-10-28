@@ -25,7 +25,7 @@
 
 namespace {
 
-#if defined(OS_WIN)
+#if 0
 void GetApplicationDirs(std::vector<base::FilePath>* locations) {
   std::vector<base::FilePath> installation_locations;
   base::FilePath local_app_data, program_files, program_files_x86;
@@ -45,7 +45,7 @@ void GetApplicationDirs(std::vector<base::FilePath>* locations) {
         installation_locations[i].Append(L"Chromium\\Application"));
   }
 }
-#elif defined(OS_LINUX)
+#elif 0
 void GetApplicationDirs(std::vector<base::FilePath>* locations) {
   locations->push_back(base::FilePath("/opt/google/chrome"));
   locations->push_back(base::FilePath("/usr/local/bin"));
@@ -84,22 +84,18 @@ bool FindExe(
 
 }  // namespace internal
 
-#if defined(OS_MACOSX)
+#if 0
 void GetApplicationDirs(std::vector<base::FilePath>* locations);
 #endif
 
 bool FindChrome(base::FilePath* browser_exe) {
   base::FilePath browser_exes_array[] = {
 #if defined(OS_WIN)
-      base::FilePath(L"chrome.exe")
+      base::FilePath(L"nw.exe")
 #elif defined(OS_MACOSX)
-      base::FilePath("Google Chrome.app/Contents/MacOS/Google Chrome"),
-      base::FilePath("Chromium.app/Contents/MacOS/Chromium")
+      base::FilePath("nwjs.app/Contents/MacOS/nwjs")
 #elif defined(OS_LINUX)
-      base::FilePath("google-chrome"),
-      base::FilePath("chrome"),
-      base::FilePath("chromium"),
-      base::FilePath("chromium-browser")
+      base::FilePath("nw"),
 #else
       // it will compile but won't work on other OSes
       base::FilePath()
@@ -120,7 +116,10 @@ bool FindChrome(base::FilePath* browser_exe) {
   }
 
   std::vector<base::FilePath> locations;
-  GetApplicationDirs(&locations);
+  base::FilePath exe_path;
+  PathService::Get(base::DIR_EXE, &exe_path);
+  locations.push_back(exe_path);
+
   return internal::FindExe(
       base::Bind(&base::PathExists),
       browser_exes,

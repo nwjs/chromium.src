@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/chrome_views_delegate.h"
 
+#include "content/nw/src/nw_content.h"
 #include <memory>
 
 #include "base/location.h"
@@ -310,6 +311,9 @@ HICON ChromeViewsDelegate::GetSmallWindowIcon() const {
 
 #elif defined(OS_LINUX) && !defined(OS_CHROMEOS)
 gfx::ImageSkia* ChromeViewsDelegate::GetDefaultWindowIcon() const {
+  gfx::ImageSkia* ret = nw::GetAppIcon();
+  if (ret)
+    return ret;
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   return rb.GetImageSkiaNamed(IDR_PRODUCT_LOGO_64);
 }
@@ -505,8 +509,10 @@ void ChromeViewsDelegate::OnGotAppbarAutohideEdges(
 #endif
 
 scoped_refptr<base::TaskRunner>
-ChromeViewsDelegate::GetBlockingPoolTaskRunner() {
-  return content::BrowserThread::GetBlockingPool();
+ChromeViewsDelegate::GetBlockingPoolTaskRunner(bool continue_on_shutdown) {
+  if (!continue_on_shutdown)
+    return content::BrowserThread::GetBlockingPool();
+  return content::BrowserThread::GetBlockingPool()->GetTaskRunnerWithShutdownBehavior(base::SequencedWorkerPool::CONTINUE_ON_SHUTDOWN);
 }
 
 #if !defined(USE_ASH)
