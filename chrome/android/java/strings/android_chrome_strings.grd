@@ -2525,6 +2525,12 @@ You can control the Physical Web in Chrome Settings.
       <message name="IDS_PAYMENTS_SHIPPING_OPTION_LABEL" desc="The title for the section that lets the user select how the product should be shipped.">
         Shipping option
       </message>
+      <message name="IDS_PAYMENTS_CREATE_CARD" desc="The title of the dialog for user to add new payment card.">
+        Add card
+      </message>
+      <message name="IDS_PAYMENTS_EDIT_CARD" desc="The title of the dialog for user to edit payment card.">
+        Edit card
+      </message>
       <message name="IDS_PAYMENTS_ORDER_SUMMARY_LABEL" desc="The title of the section that shows the summary of the order, including names and prices of individual line items, i.e. the bill.">
         Order summary
       </message>
