@@ -46,7 +46,6 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kNTPOfflinePagesFeature,
     &kPhysicalWebFeature,
     &kPhysicalWebIgnoreOtherClientsFeature,
-    &kScanCardsInWebPayments,
     &kSpecialLocaleFeature,
     &kSpecialLocaleWrapper,
     &kTabReparenting,
@@ -83,9 +82,6 @@ const base::Feature kPhysicalWebFeature{"PhysicalWeb",
 
 const base::Feature kPhysicalWebIgnoreOtherClientsFeature{
     "PhysicalWebIgnoreOtherClients", base::FEATURE_DISABLED_BY_DEFAULT};
-
-const base::Feature kScanCardsInWebPayments{"ScanCardsInWebPayments",
-                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kSpecialLocaleFeature{"SpecialLocale",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
