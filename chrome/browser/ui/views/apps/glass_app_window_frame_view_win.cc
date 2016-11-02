@@ -42,6 +42,7 @@ gfx::Insets GlassAppWindowFrameViewWin::GetGlassInsets() const {
 #endif
 }
 
+#if 0
 gfx::Insets GlassAppWindowFrameViewWin::GetClientAreaInsets() const {
   gfx::Insets insets;
   if (base::win::GetVersion() < base::win::VERSION_WIN10) {
@@ -62,6 +63,7 @@ gfx::Insets GlassAppWindowFrameViewWin::GetClientAreaInsets() const {
   }
   return insets;
 }
+#endif
 
 gfx::Rect GlassAppWindowFrameViewWin::GetBoundsForClientView() const {
 #if 1
@@ -84,7 +86,9 @@ gfx::Rect GlassAppWindowFrameViewWin::GetWindowBoundsForClientBounds(
     return bounds();
 
   gfx::Insets insets = GetGlassInsets();
+#if 0
   insets += GetClientAreaInsets();
+#endif
   gfx::Rect window_bounds(
       client_bounds.x() - insets.left(), client_bounds.y() - insets.top(),
       client_bounds.width() + insets.left() + insets.right(),
@@ -148,22 +152,23 @@ const char* GlassAppWindowFrameViewWin::GetClassName() const {
 
 gfx::Size GlassAppWindowFrameViewWin::GetMinimumSize() const {
   gfx::Size min_size = widget_->client_view()->GetMinimumSize();
-
+#if 0
   gfx::Insets insets = GetGlassInsets();
   min_size.Enlarge(insets.left() + insets.right(),
                    insets.top() + insets.bottom());
-
+#endif
   return min_size;
 }
 
 gfx::Size GlassAppWindowFrameViewWin::GetMaximumSize() const {
   gfx::Size max_size = widget_->client_view()->GetMaximumSize();
-
+#if 0
   gfx::Insets insets = GetGlassInsets();
   if (max_size.width())
     max_size.Enlarge(insets.left() + insets.right(), 0);
   if (max_size.height())
     max_size.Enlarge(0, insets.top() + insets.bottom());
-
+#endif
   return max_size;
 }
+
