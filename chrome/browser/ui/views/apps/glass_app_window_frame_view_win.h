@@ -20,8 +20,10 @@ class GlassAppWindowFrameViewWin : public views::NonClientFrameView {
   // The insets to the client area due to the glass frame.
   gfx::Insets GetGlassInsets() const;
 
+#if 0
   // Additional insets to the client area.
   gfx::Insets GetClientAreaInsets() const;
+#endif
 
  private:
   // views::NonClientFrameView implementation.
