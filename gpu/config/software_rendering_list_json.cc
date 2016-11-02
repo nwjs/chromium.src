@@ -18,7 +18,7 @@ const char kSoftwareRenderingListJson[] = LONG_STRING_CONST(
 {
   "name": "software rendering list",
   // Please update the version number whenever you change this file.
-  "version": "11.16",
+  "version": "11.17",
   "entries": [
     {
       "id": 1,
@@ -1360,6 +1360,20 @@ LONG_STRING_CONST(
         "op": ">",
         "value": "16.200.1035.1001"
       },
+      "features": [
+        "gpu_rasterization"
+      ]
+    },
+)  // String split to avoid MSVC char limit.
+LONG_STRING_CONST(
+    {
+      "id": 127,
+      "description": "AMD cards have rendering issues with GPU rasterization on Windows",
+      "cr_bugs": [660897],
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x1002",
       "features": [
         "gpu_rasterization"
       ]
