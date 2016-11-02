@@ -121,6 +121,12 @@ class ExtensionWebContentsObserver
   void OnRequest(content::RenderFrameHost* render_frame_host,
                  const ExtensionHostMsg_Request_Params& params);
 
+  void OnRequestSync(
+                     const ExtensionHostMsg_Request_Params& params,
+                     bool* success,
+                     base::ListValue* response,
+                     std::string* error);
+  content::RenderFrameHost* tmp_render_frame_host_;
   // A helper function for initializing render frames at the creation of the
   // observer.
   void InitializeFrameHelper(content::RenderFrameHost* render_frame_host);

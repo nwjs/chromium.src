@@ -1,2 +1,2 @@
-INTERNAL_NAME=chrome_elf_dll
-ORIGINAL_FILENAME=chrome_elf.dll
+INTERNAL_NAME=nw_elf_dll
+ORIGINAL_FILENAME=nw_elf.dll

@@ -80,8 +80,9 @@ SharedWorker* SharedWorker::create(ExecutionContext* context, const String& url,
     if (scriptURL.isEmpty())
         return nullptr;
 
+    bool isNodeJS = document->frame()->isNodeJS();
     if (document->frame()->loader().client()->sharedWorkerRepositoryClient())
-        document->frame()->loader().client()->sharedWorkerRepositoryClient()->connect(worker, std::move(remotePort), scriptURL, name, exceptionState);
+      document->frame()->loader().client()->sharedWorkerRepositoryClient()->connect(worker, std::move(remotePort), scriptURL, name, exceptionState, isNodeJS);
 
     return worker;
 }

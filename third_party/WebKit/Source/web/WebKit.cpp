@@ -30,6 +30,16 @@
 
 #include "public/web/WebKit.h"
 
+#include "third_party/node/src/node_webkit.h"
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 #include "bindings/core/v8/Microtask.h"
 #include "bindings/core/v8/V8Binding.h"
 #include "bindings/core/v8/V8GCController.h"
@@ -126,6 +136,11 @@ v8::Isolate* mainThreadIsolate()
 void setLayoutTestMode(bool value)
 {
     LayoutTestSupport::setIsRunningLayoutTest(value);
+}
+
+void set_web_worker_hooks(void* fn_start)
+{
+  g_web_worker_start_thread_fn = (VoidPtr4Fn)fn_start;
 }
 
 bool layoutTestMode()
