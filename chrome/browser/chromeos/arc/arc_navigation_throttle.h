@@ -16,8 +16,7 @@
 #include "components/arc/intent_helper/activity_icon_loader.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "ui/gfx/image/image.h"
-
-class GURL;
+#include "url/gurl.h"
 
 namespace content {
 class NavigationHandle;
@@ -80,6 +79,7 @@ class ArcNavigationThrottle : public content::NavigationThrottle {
   void OnIntentPickerClosed(mojo::Array<mojom::IntentHandlerInfoPtr> handlers,
                             std::string selected_app_package,
                             CloseReason close_reason);
+  GURL GetStartingGURL() const;
   // A callback object that allow us to display an IntentPicker when Run() is
   // executed, it also allow us to report the user's selection back to
   // OnIntentPickerClosed().
@@ -90,6 +90,9 @@ class ArcNavigationThrottle : public content::NavigationThrottle {
   // before, this will have a value of CloseReason::INVALID.  Used to avoid
   // popping up the dialog multiple times on chains of multiple redirects.
   CloseReason previous_user_action_;
+
+  // Keeps a referrence to the starting GURL.
+  GURL starting_gurl_;
 
   // This has to be the last member of the class.
   base::WeakPtrFactory<ArcNavigationThrottle> weak_ptr_factory_;
