@@ -289,13 +289,23 @@ class MediaCodecBridge {
 
     @CalledByNative
     private void stop() {
-        mMediaCodec.stop();
+        try {
+            mMediaCodec.stop();
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Failed to stop MediaCodec", e);
+        }
     }
 
     @TargetApi(Build.VERSION_CODES.KITKAT)
     @CalledByNative
     private String getName() {
-        return mMediaCodec.getName();
+        String codecName = "unknown";
+        try {
+            codecName = mMediaCodec.getName();
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Cannot get codec name", e);
+        }
+        return codecName;
     }
 
     @CalledByNative
@@ -357,7 +367,12 @@ class MediaCodecBridge {
     private void setVideoBitrate(int bps) {
         Bundle b = new Bundle();
         b.putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, bps);
-        mMediaCodec.setParameters(b);
+        try {
+            mMediaCodec.setParameters(b);
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Failed to set MediaCodec parameters", e);
+        }
+        Log.v(TAG, "setVideoBitrate " + bps);
     }
 
     @TargetApi(Build.VERSION_CODES.KITKAT)
@@ -365,7 +380,11 @@ class MediaCodecBridge {
     private void requestKeyFrameSoon() {
         Bundle b = new Bundle();
         b.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
-        mMediaCodec.setParameters(b);
+        try {
+            mMediaCodec.setParameters(b);
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Failed to set MediaCodec parameters", e);
+        }
     }
 
     @CalledByNative
