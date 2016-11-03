@@ -858,8 +858,9 @@ void LayerImpl::DidBeginTracing() {}
 
 void LayerImpl::ReleaseResources() {}
 
-void LayerImpl::RecreateResources() {
-}
+void LayerImpl::ReleaseTileResources() {}
+
+void LayerImpl::RecreateTileResources() {}
 
 gfx::ScrollOffset LayerImpl::MaxScrollOffset() const {
   return layer_tree_impl()->property_trees()->scroll_tree.MaxScrollOffset(

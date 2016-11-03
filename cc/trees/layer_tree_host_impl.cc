@@ -1369,7 +1369,7 @@ void LayerTreeHostImpl::SetMemoryPolicy(const ManagedMemoryPolicy& policy) {
   // TODO(boliu): crbug.com/499004 to track removing this.
   if (!policy.bytes_limit_when_visible && resource_pool_ &&
       settings_.using_synchronous_renderer_compositor) {
-    ReleaseTreeResources();
+    ReleaseTileResources();
     CleanUpTileManagerAndUIResources();
 
     // Force a call to NotifyAllTileTasks completed - otherwise this logic may
@@ -1378,7 +1378,7 @@ void LayerTreeHostImpl::SetMemoryPolicy(const ManagedMemoryPolicy& policy) {
     NotifyAllTileTasksCompleted();
 
     CreateTileManagerResources();
-    RecreateTreeResources();
+    RecreateTileResources();
   }
 }
 
@@ -1817,12 +1817,12 @@ void LayerTreeHostImpl::UpdateTreeResourcesForGpuRasterizationIfNeeded() {
   // appropriate rasterizer. Only do this however if we already have a
   // resource pool, since otherwise we might not be able to create a new
   // one.
-  ReleaseTreeResources();
+  ReleaseTileResources();
   if (resource_pool_) {
     CleanUpTileManagerAndUIResources();
     CreateTileManagerResources();
   }
-  RecreateTreeResources();
+  RecreateTileResources();
 
   // We have released tilings for both active and pending tree.
   // We would not have any content to draw until the pending tree is activated.
@@ -2091,12 +2091,20 @@ void LayerTreeHostImpl::ReleaseTreeResources() {
   EvictAllUIResources();
 }
 
-void LayerTreeHostImpl::RecreateTreeResources() {
-  active_tree_->RecreateResources();
+void LayerTreeHostImpl::ReleaseTileResources() {
+  active_tree_->ReleaseTileResources();
   if (pending_tree_)
-    pending_tree_->RecreateResources();
+    pending_tree_->ReleaseTileResources();
   if (recycle_tree_)
-    recycle_tree_->RecreateResources();
+    recycle_tree_->ReleaseTileResources();
+}
+
+void LayerTreeHostImpl::RecreateTileResources() {
+  active_tree_->RecreateTileResources();
+  if (pending_tree_)
+    pending_tree_->RecreateTileResources();
+  if (recycle_tree_)
+    recycle_tree_->RecreateTileResources();
 }
 
 void LayerTreeHostImpl::CreateTileManagerResources() {
@@ -2333,7 +2341,7 @@ bool LayerTreeHostImpl::InitializeRenderer(
     pending_tree_->set_needs_update_draw_properties();
 
   CreateTileManagerResources();
-  RecreateTreeResources();
+  RecreateTileResources();
 
   client_->OnCanDrawStateChanged(CanDraw());
   SetFullViewportDamage();
