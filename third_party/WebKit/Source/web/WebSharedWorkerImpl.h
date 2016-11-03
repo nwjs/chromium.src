@@ -98,7 +98,7 @@ public:
     WebDevToolsAgentClient::WebKitClientMessageLoop* createClientMessageLoop() override;
 
     // WebSharedWorker methods:
-    void startWorkerContext(const WebURL&, const WebString& name, const WebString& contentSecurityPolicy, WebContentSecurityPolicyType, WebAddressSpace) override;
+    void startWorkerContext(bool, const base::FilePath&, const WebURL&, const WebString& name, const WebString& contentSecurityPolicy, WebContentSecurityPolicyType, WebAddressSpace) override;
     void connect(WebMessagePortChannel*) override;
     void terminateWorkerContext() override;
 
@@ -159,6 +159,8 @@ private:
 
     RefPtr<WorkerLoaderProxy> m_loaderProxy;
 
+    bool m_nodejs;
+    base::FilePath m_root_path;
     WebURL m_url;
     WebString m_name;
     WebAddressSpace m_creationAddressSpace;
