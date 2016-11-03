@@ -965,7 +965,7 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 <translation id="3864818549971490907">Configuración de complementos predeterminada</translation>
 <translation id="386487026071140458">Esta política está obsoleta. Te recomendamos que utilices <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" /> y <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> en su lugar. Si se establecen las políticas <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" />, <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> o <ph name="FORCEYOUTUBESAFETYMODE_POLICY_NAME" /> (obsoleta), esta política se ignorará.
 
-      Fuerza las consultas en la Búsqueda web de Google para que se realicen con la función Búsqueda Segura activada e impide que los usuarios modifiquen esta configuración. Además, esta opción fuerza el modo restringido moderado en YouTube.
+      Obliga a que las consultas en la Búsqueda web de Google se realicen con la función Búsqueda Segura activada e impide que los usuarios modifiquen esta configuración. Además, esta opción fuerza el modo restringido moderado en YouTube.
 
       Si habilitas esta opción, la función Búsqueda Segura estará siempre activa en la Búsqueda de Google y el modo restringido moderado lo estará en YouTube.
 
@@ -1548,7 +1548,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
 
       Si no se establece la política o se establece en false, <ph name="PRODUCT_NAME" /> no realizará comprobaciones de revocaciones online en <ph name="PRODUCT_NAME" /> 19 ni en versiones posteriores.</translation>
 <translation id="5966615072639944554">Extensiones con permiso para utilizar la API de confirmación remota</translation>
-<translation id="5974970919245996815">Se enviará la información proporcionada sobre el estado de Android
+<translation id="5974970919245996815">La información sobre el estado de Android se envía 
       al servidor.
 
        Si se asigna el valor false a la política, no se proporcionará la información.

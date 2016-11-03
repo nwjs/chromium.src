@@ -764,7 +764,6 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="2025632980034333559">Arresto anomalo di <ph name="APP_NAME" />. Fai clic su questo fumetto per riavviare l'estensione.</translation>
 <translation id="2028531481946156667">Impossibile avviare la procedura di formattazione.</translation>
 <translation id="2028997212275086731">Archivio RAR</translation>
-<translation id="2031024818991965590">Esegui scansione delle carte in Web Payments</translation>
 <translation id="203168018648013061">Errore di sincronizzazione. Reimposta la sincronizzazione tramite Google Dashboard.</translation>
 <translation id="2031695690821674406">Consente di attivare l'inserimento delle password quando l'utente seleziona esplicitamente un account anziché utilizzare la compilazione automatica delle credenziali al caricamento della pagina.</translation>
 <translation id="2034346955588403444">Aggiungi un'altra rete Wi-Fi</translation>
@@ -4009,7 +4008,6 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="6349839454356033837">Android sta riscontrando problemi nella riproduzione del media.</translation>
 <translation id="6351063337294363751">Puoi cancellare i tuoi dati di navigazione da questo menu</translation>
 <translation id="6353618411602605519">Tastiera croata</translation>
-<translation id="6356558429970749205">Consente di attivare la scansione OCR delle carte di credito dall'interfaccia utente dell'API Web Payments</translation>
 <translation id="6356936121715252359">Impostazioni di archiviazione Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Benvenuto nella famiglia di <ph name="SHORT_PRODUCT_NAME" />. Questo non è un computer come gli altri.</translation>
 <translation id="6361850914223837199">Dettagli errore:</translation>
@@ -4348,6 +4346,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="6828860976882136098">Impostazione degli aggiornamenti automatici per tutti gli utenti non riuscita (errore di esecuzione preliminare: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Ricevi assistenza per il tuo <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Registra nella tua organizzazione</translation>
+<translation id="682971198310367122">Norme sulla privacy di Google</translation>
 <translation id="6830590476636787791">Transizioni animate nel tutorial alla prima esecuzione</translation>
 <translation id="6830728435402077660">Non sicuro</translation>
 <translation id="6831043979455480757">Traduci</translation>
@@ -5803,7 +5802,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="881799181680267069">Nascondi altre</translation>
 <translation id="8818152010000655963">Sfondo</translation>
 <translation id="8818152613617627612">Dati di fatturazione</translation>
-<translation id="8820817407110198400">Segnalibri</translation>
+<translation id="8820817407110198400">Preferiti</translation>
 <translation id="8820961991571528294">Test</translation>
 <translation id="8821045908425223359">Configura automaticamente indirizzo IP</translation>
 <translation id="8822012246577321911">Terze parti</translation>

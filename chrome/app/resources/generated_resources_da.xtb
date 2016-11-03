@@ -761,7 +761,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> er gået ned. Klik her for at genstarte udvidelsen.</translation>
 <translation id="2028531481946156667">Formateringsprocessen kunne ikke startes.</translation>
 <translation id="2028997212275086731">RAR-arkiv</translation>
-<translation id="2031024818991965590">Scan kort i webbetalinger</translation>
 <translation id="203168018648013061">Synkroniseringsfejl: Nulstil synkronisering via Google Betjeningspanel.</translation>
 <translation id="2031695690821674406">Indtastning af adgangskoder, når en konto angives af brugeren, i stedet for automatisk indtastning af loginoplysningerne under sideindlæsning.</translation>
 <translation id="2034346955588403444">Tilføj andre Wi-Fi-netværk</translation>
@@ -4015,7 +4014,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6349839454356033837">Android har problemer med at afspille medier.</translation>
 <translation id="6351063337294363751">Du kan rydde dine browserdata fra denne menu</translation>
 <translation id="6353618411602605519">Kroatisk tastatur</translation>
-<translation id="6356558429970749205">Aktivér OCR-scanning af kreditkort fra brugerfladen for web payments API</translation>
 <translation id="6356936121715252359">Lagerindstillinger for Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Velkommen til <ph name="SHORT_PRODUCT_NAME" />-familien. Dette er ikke en almindelig computer.</translation>
 <translation id="6361850914223837199">Oplysninger om fejl:</translation>
@@ -4354,6 +4352,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6828860976882136098">Automatiske opdateringer kunne ikke konfigureres for alle brugere (fejl ved forhåndsudførelse: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Få hjælp til din <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Tilmeld dig din organisation</translation>
+<translation id="682971198310367122">Googles privatlivspolitik</translation>
 <translation id="6830590476636787791">Animerede overgange i selvstudiet til førstegangsbrugere</translation>
 <translation id="6830728435402077660">Ikke sikker</translation>
 <translation id="6831043979455480757">Oversæt</translation>

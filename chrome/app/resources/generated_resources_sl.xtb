@@ -765,7 +765,6 @@
 <translation id="2025632980034333559">Razširitev <ph name="APP_NAME" /> se je zrušila. Kliknite ta oblaček, da jo znova naložite.</translation>
 <translation id="2028531481946156667">Formatiranja ni bilo mogoče začeti.</translation>
 <translation id="2028997212275086731">Arhiv RAR</translation>
-<translation id="2031024818991965590">Optično branje kartic v storitvi spletnega plačevanja</translation>
 <translation id="203168018648013061">Napaka pri sinhronizaciji: ponastavite sinhronizacijo na Googlovi nadzorni plošči.</translation>
 <translation id="2031695690821674406">Vnos gesel, ko uporabnik izključno izbere račun, namesto samodejnega izpolnjevanja poverilnic pri nalaganju strani.</translation>
 <translation id="2034346955588403444">Dodaj drugo omrežje Wi-Fi</translation>
@@ -4019,7 +4018,6 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="6349839454356033837">Android ima težave pri predvajanju predstavnosti.</translation>
 <translation id="6351063337294363751">Podatke o brskanju lahko izbrišete v tem meniju</translation>
 <translation id="6353618411602605519">Hrvaška tipkovnica</translation>
-<translation id="6356558429970749205">Omogočanje optičnega branja kreditnih kartic v uporabnišjem vmesniku API-ja za spletna plačila</translation>
 <translation id="6356936121715252359">Nastavitve shranjevanja za Adobe Flash Player ...</translation>
 <translation id="6357619544108132570">Pozdravljeni v družini <ph name="SHORT_PRODUCT_NAME" />. To ni navaden računalnik.</translation>
 <translation id="6361850914223837199">Podrobnosti o napaki:</translation>
@@ -4357,6 +4355,7 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="6828860976882136098">Nastavitev samodejnih posodobitev za vse uporabnike ni uspela (napaka preverjanj pred izvajanjem: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Poiščite pomoč za napravo <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Včlanite se v svojo organizacijo</translation>
+<translation id="682971198310367122">Googlov pravilnik o zasebnosti</translation>
 <translation id="6830590476636787791">Animirani prehodi v vadnici za prvi zagon</translation>
 <translation id="6830728435402077660">Ni varno</translation>
 <translation id="6831043979455480757">Prevedi</translation>
@@ -5938,7 +5937,7 @@ izračun časa do napolnjenosti</translation>
 <translation id="8982248110486356984">Preklop med uporabniki</translation>
 <translation id="8986267729801483565">Mesto za prenos:</translation>
 <translation id="8986362086234534611">Pozabi</translation>
-<translation id="8986494364107987395">Samodejno pošlji statistiko uporabe in poročila o zrušitvi Googlu</translation>
+<translation id="8986494364107987395">Samodejno pošlji statistične podatke o uporabi in poročila o zrušitvah Googlu</translation>
 <translation id="8987736167266086032">Nadaljujte, kjer ste ostali</translation>
 <translation id="8987927404178983737">Mesec</translation>
 <translation id="899403249577094719">Osnovni spletni naslov Netscapeovega potrdila</translation>

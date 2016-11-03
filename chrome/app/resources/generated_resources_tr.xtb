@@ -604,7 +604,7 @@
 <translation id="1764226536771329714">beta</translation>
 <translation id="176587472219019965">&amp;Yeni Pencere</translation>
 <translation id="1769104665586091481">Bağlantıyı Yeni &amp;Pencerede Aç</translation>
-<translation id="1772267994638363865">Bunun yapılabilmesi için Ses ve Ses Etkinliği'ni etkinleştirmeniz ve aşağıdaki adımları izleyerek <ph name="DEVICE_TYPE" /> cihazınızı eğitmeniz gerekir.</translation>
+<translation id="1772267994638363865">Bunun yapılabilmesi için Konuşma ve Ses Etkinliği'ni etkinleştirmeniz ve aşağıdaki adımları izleyerek <ph name="DEVICE_TYPE" /> cihazınızı eğitmeniz gerekir.</translation>
 <translation id="177336675152937177">Barındırılan uygulama verileri</translation>
 <translation id="1774367687019337077">Kullanıcının tablet sitesi isteğinde bulunmasına izin verir. Web içeriği genellikle tablet cihazları için optimize edilir. Bu seçenek belirtildiğinde kullanıcı aracısı dizesi tablet cihazını gösterecek biçimde değiştirilir. Bundan sonra geçerli sekmeye tabletler için optimize edilmiş web içeriği gelir.</translation>
 <translation id="1774833706453699074">Açık sayfalara yer işareti koy...</translation>
@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> kilitlendi. Uzantıyı yeniden yüklemek için bu balonu tıklayın.</translation>
 <translation id="2028531481946156667">Biçimlendirme işlemi başlatılamadı.</translation>
 <translation id="2028997212275086731">RAR arşivi</translation>
-<translation id="2031024818991965590">Kartları Web Ödemeleri'nde tara</translation>
 <translation id="203168018648013061">Senkronizasyon Hatası: Lütfen senkronizasyonu Google Hesap Özeti üzerinden sıfırlayın.</translation>
 <translation id="2031695690821674406">Bir hesap kullanıcı tarafından açık bir şekilde seçildiyse sayfa yüklendiğinde kimlik bilgilerini otomatik olarak doldurmak yerine şifrelerin doldurulması.</translation>
 <translation id="2034346955588403444">Başka kablosuz ağ ekle</translation>
@@ -933,7 +932,7 @@ Dolması için gereken süre: <ph name="HOUR" />:<ph name="MINUTE" /></translati
  • denetlenen kullanıcının ziyaret ettiği web sitelerini inceleme ve
  • diğer ayarları yönetme.
 
-Bir denetlenen kullanıcı oluşturulduğunda onunla birlikte Google Hesabı oluşturulmaz. Ayrıca, denetlenen kullanıcıların yer işaretleri, göz atma geçmişleri ve diğer tercihleri Chrome Eşitlemesi ile diğer cihazlarda kullanılmaz.
+Bir denetlenen kullanıcı oluşturulduğunda onunla birlikte Google Hesabı oluşturulmaz. Ayrıca, denetlenen kullanıcıların yer işaretleri, göz atma geçmişleri ve diğer tercihleri Chrome Senkronizasyonu ile diğer cihazlarda kullanılmaz.
 
 Yeni bir denetlenen kullanıcı oluşturduktan sonra, istediğiniz zaman herhangi bir cihazda <ph name="DISPLAY_LINK" /> adresinden söz konusu kullanıcının ayarlarını yönetebilirsiniz. <ph name="BEGIN_LINK" />Denetlenen kullanıcılar hakkında daha fazla bilgi edinin<ph name="END_LINK" /></translation>
 <translation id="2249605167705922988">ör. 1-5, 8, 11-13</translation>
@@ -1477,7 +1476,7 @@ Bu sitenin engellenmesi gerektiğini düşünmüyorum!</translation>
 <translation id="2916974515569113497">Bu seçeneğin etkinleştirilmesi, sabit konumlu öğelerin kendi birleşik katmanlarının olmasını sağlar. Bunun çalışması için sabit konumlu öğelerin de yığınlı içerik oluşturması gerektiğini unutmayın.</translation>
 <translation id="2917297899322145927">V8 derleyici verisini önbelleğe al.</translation>
 <translation id="2918322085844739869">4</translation>
-<translation id="2918583523892407401">Chrome Eşitlemesi korumalı alanını kullan</translation>
+<translation id="2918583523892407401">Chrome Senkronizasyonu korumalı alanını kullan</translation>
 <translation id="291886813706048071">Buradan <ph name="SEARCH_ENGINE" /> ile arama yapabilirsiniz</translation>
 <translation id="2921081876747860777">Yerel verilerinizi korumak için lütfen bir şifre oluşturun.</translation>
 <translation id="2923240520113693977">Estonya Dili</translation>
@@ -2164,7 +2163,7 @@ Bunlar ve diğer talimatlar için lütfen <ph name="ACCOUNT_EMAIL" /> e-postanı
 <translation id="3789841737615482174">Yükle</translation>
 <translation id="3790146417033334899"><ph name="PLUGIN_NAME" /> yalnızca masaüstünde çalışır.</translation>
 <translation id="3790358761803015466">Google Play'e erişilemedi. Şimdi tekrar deneyin.</translation>
-<translation id="3790856258139356663">Chrome Eşitlemesi için test sunucusuna bağlanır.</translation>
+<translation id="3790856258139356663">Chrome Senkronizasyonu için test sunucusuna bağlanır.</translation>
 <translation id="3790909017043401679">SIM kart PIN'ini girme</translation>
 <translation id="3792890930871100565">Yazıcıların bağlantısını kes</translation>
 <translation id="3796648294839530037">Sık Kullanılan Ağlar:</translation>
@@ -2467,7 +2466,7 @@ Tüm kullanıcılar devam etmek için çıkış yapmalıdır.</translation>
 <translation id="4208390505124702064">Ara <ph name="SITE_NAME" /></translation>
 <translation id="4209092469652827314">Büyük</translation>
 <translation id="4209267054566995313">Fare veya dokunmatik alan algılanmadı.</translation>
-<translation id="4209562316857013835">Kablosuz ağ ayarlarının cihazlar arasında senkronize edilebilmesini sağlar. Etkinleştirildiğinde, Kablosuz kimlik bilgileri veri türü Chrome Eşitlemesi ile kaydedilir ve Kablosuz kimlik bilgileri, kullanıcı tercihlerine göre senkronize edilir. (Ayrıca bkz. chrome://settings/syncSetup.)</translation>
+<translation id="4209562316857013835">Kablosuz ağ ayarlarının cihazlar arasında senkronize edilebilmesini sağlar. Etkinleştirildiğinde, Kablosuz kimlik bilgileri veri türü Chrome Senkronizasyonu ile kaydedilir ve Kablosuz kimlik bilgileri, kullanıcı tercihlerine göre senkronize edilir. (Ayrıca bkz. chrome://settings/syncSetup.)</translation>
 <translation id="4209910116082737373">Materyal Tasarım uzantılarını etkinleştir</translation>
 <translation id="421017592316736757">Bu dosyaya erişebilmek için çevrimiçi olmalısınız.</translation>
 <translation id="421182450098841253">Yer İşaretleri Ç&amp;ubuğunu Göster</translation>
@@ -4018,7 +4017,6 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6349839454356033837">Android, medyayı oynatırken bir sorunla karşılaştı.</translation>
 <translation id="6351063337294363751">Bu menüyü kullanarak tarama verilerinizi temizleyebilirsiniz</translation>
 <translation id="6353618411602605519">Hırvatça klavye</translation>
-<translation id="6356558429970749205">Web ödemeleri API'sinin kullanıcı arayüzünden kredi kartlarını OCR tarama işlevini etkinleştir</translation>
 <translation id="6356936121715252359">Adobe Flash Player depolama ayarları...</translation>
 <translation id="6357619544108132570"><ph name="SHORT_PRODUCT_NAME" /> ailesine hoş geldiniz. Bu sıradan bir bilgisayar değildir.</translation>
 <translation id="6361850914223837199">Hata ayrıntıları:</translation>
@@ -4357,6 +4355,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6828860976882136098">Otomatik güncellemeler tüm kullanıcılar için ayarlanamadı (yayın öncesi yürütme hatası: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857"><ph name="DEVICE_TYPE" /> cihazınızla ilgili yardım alın.</translation>
 <translation id="6829270497922309893">Kuruluşunuza kaydolma</translation>
+<translation id="682971198310367122">Google gizlilik politikası</translation>
 <translation id="6830590476636787791">İlk çalıştırma eğiticisinde animasyonlu geçişler</translation>
 <translation id="6830728435402077660">Güvenli değil</translation>
 <translation id="6831043979455480757">Çevir</translation>

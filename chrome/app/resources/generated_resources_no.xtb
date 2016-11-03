@@ -761,7 +761,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> har fått programstopp. Klikk på denne ballongen for å laste inn denne utvidelsen på nytt.</translation>
 <translation id="2028531481946156667">Kunne ikke starte formateringsprosessen.</translation>
 <translation id="2028997212275086731">RAR-arkiv</translation>
-<translation id="2031024818991965590">Skann kort i Web Payments</translation>
 <translation id="203168018648013061">Synkroniseringsfeil: Tilbakestill synkronisering via Google Oversikt.</translation>
 <translation id="2031695690821674406">Inntasting av passord når en konto er uttrykkelig valgt av brukeren i stedet for autoutfylling av påloggingsinformasjon under innlasting av siden.</translation>
 <translation id="2034346955588403444">Legg til et annet Wi-Fi-nettverk</translation>
@@ -4006,7 +4005,6 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="6349839454356033837">Android har problemer med å spille av mediet.</translation>
 <translation id="6351063337294363751">Du kan slette nettleserloggen fra denne menyen</translation>
 <translation id="6353618411602605519">Kroatisk tastatur</translation>
-<translation id="6356558429970749205">Slå på OCR-skanning av kredittkort fra brukergrensesnittet for Web Payments API</translation>
 <translation id="6356936121715252359">Lagringsinnstillinger for Adobe Flash Player</translation>
 <translation id="6357619544108132570">Velkommen til <ph name="SHORT_PRODUCT_NAME" />-familien. Dette er ingen vanlig datamaskin.</translation>
 <translation id="6361850914223837199">Feildetaljer:</translation>
@@ -4344,6 +4342,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="6828860976882136098">Kunne ikke konfigurere automatiske oppdateringer for alle brukerne (feil ved kjøring av forhåndskontroll: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Få hjelp med <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Registrer deg for organisasjonen din</translation>
+<translation id="682971198310367122">Googles personvernregler</translation>
 <translation id="6830590476636787791">Animerte overganger i første bruk-veiledningen</translation>
 <translation id="6830728435402077660">Ikke sikker</translation>
 <translation id="6831043979455480757">Oversett</translation>

@@ -761,7 +761,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> ist abgestürzt. Klicken Sie auf dieses Fenster, um die Erweiterung erneut zu laden.</translation>
 <translation id="2028531481946156667">Formatierung konnte nicht gestartet werden.</translation>
 <translation id="2028997212275086731">RAR-Archiv</translation>
-<translation id="2031024818991965590">Karten in Onlinezahlungen scannen</translation>
 <translation id="203168018648013061">Synchronisierungsfehler: Setzen Sie die Synchronisierung über das Google Dashboard zurück.</translation>
 <translation id="2031695690821674406">Ausfüllen von Passwörtern, wenn ein Konto explizit vom Nutzer ausgewählt wird, anstelle des automatischen Ausfüllens von Anmeldedaten beim Seitenaufbau</translation>
 <translation id="2034346955588403444">Anderes WLAN hinzufügen</translation>
@@ -2366,7 +2365,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="4078738236287221428">Aggressiv</translation>
 <translation id="408098233265424160">Entfernungserkennung für Smart Lock</translation>
 <translation id="4081683084140995376">VR-Shell aktivieren.</translation>
-<translation id="4081979157059999345">Link zur Remotepasswortverwaltung</translation>
+<translation id="4081979157059999345">Link zur Remote-Passwortverwaltung</translation>
 <translation id="4084682180776658562">Lesezeichen</translation>
 <translation id="4084835346725913160"><ph name="TAB_NAME" /> schließen</translation>
 <translation id="4085298594534903246">JavaScript wurde auf dieser Seite blockiert.</translation>
@@ -3488,7 +3487,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5618075537869101857">Die Kioskanwendung konnte nicht gestartet werden.</translation>
 <translation id="5618333180342767515">(dies kann einige Minuten dauern)</translation>
 <translation id="5618972959246891967">Systemdatum</translation>
-<translation id="56197088284879152">Die Verbindung mit folgendem Remotegerät ist überlastet: "<ph name="DEVICE_NAME" />".</translation>
+<translation id="56197088284879152">Die Verbindung mit folgendem Remote-Gerät ist überlastet: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="5620568081365989559">DevTools erfordert Vollzugriff auf <ph name="FOLDER_PATH" />. Achten Sie darauf, dass dadurch keine vertraulichen Informationen offengelegt werden.</translation>
 <translation id="5620612546311710611">Nutzungsstatistiken</translation>
 <translation id="5622017037336776003">PDF in Reader öffnen</translation>
@@ -4006,7 +4005,6 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="6349839454356033837">Bei der Wiedergabe der Medien mit Android ist ein Problem aufgetreten.</translation>
 <translation id="6351063337294363751">Über dieses Menü können Sie Ihre Browserdaten löschen</translation>
 <translation id="6353618411602605519">Kroatische Tastatur</translation>
-<translation id="6356558429970749205">Ermöglicht das OCR-Scannen von Kreditkarten von der UI der Web Payments API</translation>
 <translation id="6356936121715252359">Speichereinstellungen für Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Willkommen bei der <ph name="SHORT_PRODUCT_NAME" />-Familie. Dies ist kein herkömmlicher Computer.</translation>
 <translation id="6361850914223837199">Fehlerdetails:</translation>
@@ -4345,6 +4343,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="6828860976882136098">Automatische Updates für alle Nutzer konnten nicht eingerichtet werden (Preflight-Ausführungsfehler: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Hilfe zu Ihrem Gerät (<ph name="DEVICE_TYPE" />)</translation>
 <translation id="6829270497922309893">Anmeldung in Ihrer Organisation</translation>
+<translation id="682971198310367122">Google-Datenschutzerklärung</translation>
 <translation id="6830590476636787791">Animierte Übergänge bei der Einführung</translation>
 <translation id="6830728435402077660">Nicht sicher</translation>
 <translation id="6831043979455480757">Übersetzen</translation>

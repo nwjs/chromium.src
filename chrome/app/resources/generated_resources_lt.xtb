@@ -764,7 +764,6 @@
 <translation id="2025632980034333559">„<ph name="APP_NAME" />“ užstrigo. Jei norite iš naujo įkelti plėtinį, spustelėkite šį debesėlį.</translation>
 <translation id="2028531481946156667">Neįmanoma pradėti formatavimo proceso.</translation>
 <translation id="2028997212275086731">RAR archyvas</translation>
-<translation id="2031024818991965590">Nuskaityti korteles atliekant žiniatinklio mokėjimus</translation>
 <translation id="203168018648013061">Sinchronizavimo klaida: nustatykite sinchronizavimą iš naujo per „Google“ informacijos suvestinę.</translation>
 <translation id="2031695690821674406">Slaptažodžiai įvedami, kai naudotojas aiškiai pasirenka paskyrą, užuot automatiškai užpildžius prisijungimo duomenis, kai įkeliamas puslapis.</translation>
 <translation id="2034346955588403444">Pridėti kitą „WiFi“ tinklą</translation>
@@ -4018,7 +4017,6 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="6349839454356033837">„Android“ kyla sunkumų paleidžiant mediją.</translation>
 <translation id="6351063337294363751">Galite išvalyti naršymo duomenis iš šio meniu</translation>
 <translation id="6353618411602605519">Kroatiška klaviatūra</translation>
-<translation id="6356558429970749205">Įgalinti kredito kortelių OCR nuskaitymą iš žiniatinklio mokėjimų API NS</translation>
 <translation id="6356936121715252359">„Adobe Flash“ leistuvės saugojimo nustatymai...</translation>
 <translation id="6357619544108132570">Sveikiname prisijungus prie „<ph name="SHORT_PRODUCT_NAME" />“ šeimos. Tai nėra įprastas kompiuteris.</translation>
 <translation id="6361850914223837199">Išsami klaidos informacija:</translation>
@@ -4357,6 +4355,7 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="6828860976882136098">Nepavyko nustatyti automatinių naujinių visiems naudotojams (išankstinio vykdymo klaida: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Gaukite pagalbos dėl „<ph name="DEVICE_TYPE" />“.</translation>
 <translation id="6829270497922309893">Užregistruoti organizacijoje</translation>
+<translation id="682971198310367122">„Google“ privatumo politika</translation>
 <translation id="6830590476636787791">Animuoti perėjimai pirmojo paleidimo mokymo programoje</translation>
 <translation id="6830728435402077660">Nesaugu</translation>
 <translation id="6831043979455480757">Vertėjas</translation>

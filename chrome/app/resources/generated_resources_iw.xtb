@@ -760,7 +760,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> קרס. לחץ על בלון זה כדי לטעון מחדש את התוסף.</translation>
 <translation id="2028531481946156667">לא ניתן להתחיל את תהליך הפרמוט.</translation>
 <translation id="2028997212275086731">‏ארכיון RAR</translation>
-<translation id="2031024818991965590">‏סריקת כרטיסים ב-API של התשלומים באינטרנט</translation>
 <translation id="203168018648013061">‏שגיאת סנכרון: אפס את הסנכרון באמצעות לוח הבקרה של Google.</translation>
 <translation id="2031695690821674406">מילוי סיסמאות כשמשתמש בוחר במפורש בחשבון, במקום מילוי אוטומטי של פרטי כניסה בעת טעינת הדף.</translation>
 <translation id="2034346955588403444">‏הוסף עוד רשת Wi-Fi</translation>
@@ -4012,7 +4011,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6349839454356033837">‏Android נתקל בבעיה בהפעלת המדיה.</translation>
 <translation id="6351063337294363751">בתפריט זה ניתן לנקות את נתוני הגלישה</translation>
 <translation id="6353618411602605519">מקלדת קרואטית</translation>
-<translation id="6356558429970749205">‏הפעל סריקת OCR של כרטיסי אשראי מממשק המשתמש עבור ה-API של התשלומים באינטרנט</translation>
 <translation id="6356936121715252359">‏הגדרות אחסון של Adobe Flash Player...</translation>
 <translation id="6357619544108132570">ברוכים הבאים אל משפחת <ph name="SHORT_PRODUCT_NAME" />. לא מדובר במחשב רגיל.</translation>
 <translation id="6361850914223837199">פרטי השגיאה:</translation>
@@ -4351,6 +4349,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6828860976882136098">הגדרת עדכונים אוטומטיים לכל המשתמשים נכשלה (שגיאת קדם-הפעלה: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">קבל עזרה בשביל ה-<ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">הירשם לארגון שלך</translation>
+<translation id="682971198310367122">‏מדיניות הפרטיות של Google</translation>
 <translation id="6830590476636787791">אנימציית מעברים בהפעלה הראשונה של המדריך</translation>
 <translation id="6830728435402077660">לא מאובטח</translation>
 <translation id="6831043979455480757">תרגם</translation>
@@ -5320,7 +5319,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8165383685500900731">נהל הגדרות מיקרופון...</translation>
 <translation id="8169977663846153645">מחשב את הזמן הנותר לסוללה</translation>
 <translation id="8172078946816149352">‏הגדרות המיקרופון בשביל Adobe Flash Player הן שונות.</translation>
-<translation id="8174047975335711832">פרטי מכשיר</translation>
+<translation id="8174047975335711832">מידע מהמכשיר</translation>
 <translation id="8177196903785554304">פרטי הרשת</translation>
 <translation id="8178665534778830238">תוכן:</translation>
 <translation id="8178711702393637880">‏שימוש באפשרות של secondary thread לעיבוד של תכני אינטרנט בשיטת GPU rasterization. לשם כך יש להפעיל את שיטת GPU rasterization.</translation>

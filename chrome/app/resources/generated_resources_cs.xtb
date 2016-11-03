@@ -765,7 +765,6 @@ UPOZORNĚNÍ: Když toto pravidlo povolíte, Chrome bude zaznamenávat data o v
 <translation id="2025632980034333559">Rozšíření <ph name="APP_NAME" /> selhalo. Kliknutím na tuto bublinu rozšíření obnovíte.</translation>
 <translation id="2028531481946156667">Proces formátování nelze spustit.</translation>
 <translation id="2028997212275086731">Archiv ve formátu RAR</translation>
-<translation id="2031024818991965590">Skenování karet při webových platbách</translation>
 <translation id="203168018648013061">Chyba synchronizace: Resetujte prosím synchronizaci pomocí služby Google Dashboard.</translation>
 <translation id="2031695690821674406">Vyplňování hesel, když uživatel výslovně vybere účet, namísto automatického vyplňování identifikačních údajů při načtení stránky.</translation>
 <translation id="2034346955588403444">Přidat jinou síť Wi-Fi</translation>
@@ -4009,7 +4008,6 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="6349839454356033837">Android má s přehráváním médií problémy.</translation>
 <translation id="6351063337294363751">Z této nabídky lze vymazat údaje o prohlížení</translation>
 <translation id="6353618411602605519">Chorvatská klávesnice</translation>
-<translation id="6356558429970749205">Povolit skenování platebních karet metodou OCR z uživatelského rozhraní k použití v rozhraní API pro webové platby</translation>
 <translation id="6356936121715252359">Nastavení úložiště přehrávače Adobe Flash...</translation>
 <translation id="6357619544108132570">Vítejte v rodině produktů <ph name="SHORT_PRODUCT_NAME" />. Nejedná se o obyčejný počítač.</translation>
 <translation id="6361850914223837199">Podrobnosti o chybě:</translation>
@@ -4348,6 +4346,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="6828860976882136098">Nastavení automatických aktualizací pro všechny uživatele se nezdařilo (chyba při předběžném spuštění: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Získejte nápovědu k zařízení <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Registrace do organizace</translation>
+<translation id="682971198310367122">Zásady ochrany soukromí Google</translation>
 <translation id="6830590476636787791">Animované přechody v úvodním výukovém programu</translation>
 <translation id="6830728435402077660">Nezabezpečeno</translation>
 <translation id="6831043979455480757">Přeložit</translation>
@@ -6018,7 +6017,7 @@ Výpočet času zbývajícího do úplného nabití</translation>
 <translation id="9094033019050270033">Aktualizovat heslo</translation>
 <translation id="9094982973264386462">Odstranit</translation>
 <translation id="9095253524804455615">Odstranit</translation>
-<translation id="9100765901046053179">Pokročilá nastavení</translation>
+<translation id="9100765901046053179">Rozšířená nastavení</translation>
 <translation id="910077499156148110">Přidat výjimku pro web</translation>
 <translation id="9101691533782776290">Spustit aplikaci</translation>
 <translation id="9103001804464916031">{NUM_DOWNLOAD,plural, =1{Probíhá stahování}few{Probíhají stahování}many{Probíhají stahování}other{Probíhají stahování}}</translation>

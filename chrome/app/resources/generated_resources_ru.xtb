@@ -764,7 +764,6 @@
 <translation id="2025632980034333559">Произошел сбой <ph name="APP_NAME" />. Нажмите на это сообщение, чтобы вновь загрузить это расширение.</translation>
 <translation id="2028531481946156667">Не удалось начать форматирование.</translation>
 <translation id="2028997212275086731">Архив RAR</translation>
-<translation id="2031024818991965590">Сканирование карт в Web Payments API</translation>
 <translation id="203168018648013061">Ошибка. Настройте синхронизацию в Личном кабинете Google.</translation>
 <translation id="2031695690821674406">Заполняет пароли не автоматически при загрузке страницы, а при выборе пользователем нужного аккаунта.</translation>
 <translation id="2034346955588403444">Добавить сеть Wi-Fi</translation>
@@ -4018,7 +4017,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6349839454356033837">Не удается воспроизвести мультимедийный файл на устройстве Android.</translation>
 <translation id="6351063337294363751">В этом меню можно удалить данные о работе в браузере</translation>
 <translation id="6353618411602605519">Хорватская раскладка</translation>
-<translation id="6356558429970749205">Включить оптическое распознавание банковских карт в интерфейсе Web Payments API</translation>
 <translation id="6356936121715252359">Настройки сохранения Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Поздравляем с приобретением продукта семейства <ph name="SHORT_PRODUCT_NAME" />! Это больше, чем просто компьютер.</translation>
 <translation id="6361850914223837199">Сведения об ошибке:</translation>
@@ -4357,6 +4355,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6828860976882136098">Не удалось настроить автоматические обновления для всех пользователей (ошибка <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Помощь в работе с устройством <ph name="DEVICE_TYPE" /></translation>
 <translation id="6829270497922309893">Зарегистрируйтесь в вашей организации</translation>
+<translation id="682971198310367122">Политика конфиденциальности Google</translation>
 <translation id="6830590476636787791">Анимированный переход между элементами во время обзора</translation>
 <translation id="6830728435402077660">Не защищено</translation>
 <translation id="6831043979455480757">Перевести</translation>

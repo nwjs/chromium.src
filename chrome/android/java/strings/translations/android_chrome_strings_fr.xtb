@@ -339,6 +339,7 @@ Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée
 <translation id="5039804452771397117">Autoriser</translation>
 <translation id="5040262127954254034">Confidentialité</translation>
 <translation id="5063480226653192405">Utilisation</translation>
+<translation id="5087580092889165836">Ajouter une carte</translation>
 <translation id="5100237604440890931">Réduit – Cliquer pour développer</translation>
 <translation id="510275257476243843">1 heure restante</translation>
 <translation id="5127805178023152808">La synchronisation est désactivée.</translation>
@@ -538,7 +539,6 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="7208788139759694678">Économiseur de données désactivé</translation>
 <translation id="7243308994586599757">Options disponibles au bas de l'écran</translation>
 <translation id="7244362611678346589">Le site <ph name="SEARCH_ENGINE_URL" /> utilise votre position pour afficher les résultats de recherche à proximité.</translation>
-<translation id="7347770551817603360">Contenu hors connexion</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Partager 1 élément sélectionné}one{Partager # élément sélectionné}other{Partager # éléments sélectionnés}}</translation>
 <translation id="7366340029385295517">Diffusion sur "<ph name="SCREEN_NAME" />" en cours…</translation>
 <translation id="7375125077091615385">Type :</translation>

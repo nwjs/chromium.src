@@ -765,7 +765,6 @@
 <translation id="2025632980034333559">لقد تعطل <ph name="APP_NAME" />. انقر على هذا البالون لإعادة تحميل الإضافة.</translation>
 <translation id="2028531481946156667">يتعذر بدء عملية التنسيق.</translation>
 <translation id="2028997212275086731">‏أرشيف RAR</translation>
-<translation id="2031024818991965590">فحص البطاقات في دفعات الويب</translation>
 <translation id="203168018648013061">‏خطأ في المزامنة: الرجاء إعادة ضبط المزامنة عبر لوحة تحكم Google.</translation>
 <translation id="2031695690821674406">ملء كلمات المرور عند تحديد الحساب صراحةً من قبل المستخدم بدلاً من الملء التلقائي لبيانات الاعتماد عند تحميل الصفحة.</translation>
 <translation id="2034346955588403444">‏إضافة شبكة WiFi أخرى</translation>
@@ -4011,7 +4010,6 @@
 <translation id="6349839454356033837">‏يواجه Android مشكلة في تشغيل الوسائط.</translation>
 <translation id="6351063337294363751">يمكنك مسح بيانات التصفح من هذه القائمة</translation>
 <translation id="6353618411602605519">لوحة المفاتيح الكرواتية</translation>
-<translation id="6356558429970749205">‏تمكين فحص التعرف البصري على الحروف (OCR) لبطاقات الائتمان من واجهة المستخدم لواجهة برمجة التطبيقات لدفعات الويب</translation>
 <translation id="6356936121715252359">‏إعدادات التخزين لبرنامج Adobe Flash Player...</translation>
 <translation id="6357619544108132570">مرحبًا بانضمامك إلى عائلة <ph name="SHORT_PRODUCT_NAME" />. معنا ستستمتع بجهاز كمبيوتر غير عادي.</translation>
 <translation id="6361850914223837199">تفاصيل الخطأ:</translation>
@@ -4350,6 +4348,7 @@
 <translation id="6828860976882136098">فشل في إعداد التحديثات التلقائية لجميع المستخدمين (خطأ تنفيذ الاختبار المبدئي: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">الحصول على مساعدة بشأن <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">الاشتراك في منظمتك</translation>
+<translation id="682971198310367122">‏سياسة خصوصية Google</translation>
 <translation id="6830590476636787791">عمليات النقل المتحركة في البرنامج التعليمي الذي يتم تشغيله لأول مرة</translation>
 <translation id="6830728435402077660">غير آمن</translation>
 <translation id="6831043979455480757">ترجمة</translation>
@@ -5519,7 +5518,7 @@
 <translation id="8432745813735585631">‏لوحة المفاتيح الأمريكية Colemak</translation>
 <translation id="8434480141477525001">‏منفذ تصحيح أخطاء NaCl</translation>
 <translation id="8435334418765210033">الشبكات المسجّلة</translation>
-<translation id="8437209419043462667">الأمريكية</translation>
+<translation id="8437209419043462667">العربية</translation>
 <translation id="843730695811085446">‏تُمكن إطار نمط تطبيق الويب للتطبيقات المستضافة، بما في ذلك تطبيقات الإشارات المرجعية. هذا حاليًا غير متاح إلا لـ Ash.</translation>
 <translation id="8437331208797669910">الوصول إلى الصفحة</translation>
 <translation id="843760761634048214">حفظ بطاقة الائتمان</translation>

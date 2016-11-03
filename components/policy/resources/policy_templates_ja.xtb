@@ -1833,7 +1833,7 @@ Active Directory ドメインに参加していない Windows インスタンス
           <ph name="PRODUCT_NAME" /> が「バックグラウンド モード」で動作している場合、最後のブラウザ ウィンドウを閉じてもセッションが終了せず、ブラウザを終了するまでアクティブなままになることがあります。この動作の設定について詳しくは、「BackgroundModeEnabled」ポリシーをご覧ください。
 
           「RestoreOnStartup」ポリシーが前回のセッションから URL を復元するように設定されている場合、このポリシーは適用されず、該当するサイトの Cookie は永続的に保存されます。</translation>
-<translation id="7207095846245296855">Google SafeSearch を強制適用する</translation>
+<translation id="7207095846245296855">Google セーフサーチを強制する</translation>
 <translation id="7216442368414164495">セーフ ブラウジングの詳細レポートを有効にすることをユーザーに許可する</translation>
 <translation id="7227967227357489766">デバイスへのログインを許可するユーザーのリストを定義します。エントリの形式は <ph name="USER_WHITELIST_ENTRY_FORMAT" /> です（例: <ph name="USER_WHITELIST_ENTRY_EXAMPLE" />）。ドメイン上の任意のユーザーを許可するには、<ph name="USER_WHITELIST_ENTRY_WILDCARD" /> のエントリ形式を使用します。
 

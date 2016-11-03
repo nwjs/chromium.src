@@ -765,7 +765,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> falhou. Clique neste balão para recarregar a extensão.</translation>
 <translation id="2028531481946156667">Não foi possível iniciar o processo de formatação.</translation>
 <translation id="2028997212275086731">Arquivo RAR</translation>
-<translation id="2031024818991965590">Digitalizar cartões nos pagamentos Web</translation>
 <translation id="203168018648013061">Erro de Sincronização: reinicialize a Sincronização através do Painel de Controlo do Google.</translation>
 <translation id="2031695690821674406">Preenchimento de palavras-passe quando o utilizador selecionar explicitamente uma palavra-passe, em vez de preencher automaticamente as credenciais durante o carregamento da página.</translation>
 <translation id="2034346955588403444">Adicionar outra rede Wi-Fi</translation>
@@ -4018,7 +4017,6 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6349839454356033837">O Android está com problemas a reproduzir multimédia.</translation>
 <translation id="6351063337294363751">Pode limpar os dados de navegação a partir deste menu</translation>
 <translation id="6353618411602605519">Teclado croata</translation>
-<translation id="6356558429970749205">Ativar a digitalização OCR de cartões de créditos a partir da IU para a API de pagamentos Web</translation>
 <translation id="6356936121715252359">Definições de armazenamento do Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Bem-vindo(a) à família <ph name="SHORT_PRODUCT_NAME" />. Este não é um computador comum.</translation>
 <translation id="6361850914223837199">Detalhes do erro:</translation>
@@ -4357,6 +4355,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6828860976882136098">Falha ao configurar atualizações automáticas para todos os utilizadores (erro de execução da verificação prévia: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Obtenha ajuda com o <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Inscrever-se na sua entidade</translation>
+<translation id="682971198310367122">Política de privacidade da Google</translation>
 <translation id="6830590476636787791">Transições animadas no tutorial de primeira execução</translation>
 <translation id="6830728435402077660">Inseguro</translation>
 <translation id="6831043979455480757">Traduzir</translation>

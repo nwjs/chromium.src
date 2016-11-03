@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> ha dejado de funcionar. Haz clic en este globo a para volver a cargar la extensión.</translation>
 <translation id="2028531481946156667">No se ha podido iniciar el proceso de formateo.</translation>
 <translation id="2028997212275086731">Archivo RAR</translation>
-<translation id="2031024818991965590">Escanear tarjetas en Web Payments</translation>
 <translation id="203168018648013061">Error de sincronización: debes restablecer la sincronización a través del Panel de control de Google.</translation>
 <translation id="2031695690821674406">Completa las contraseñas cuando el usuario selecciona explícitamente una cuenta en lugar de autocompletar las credenciales al cargar la página.</translation>
 <translation id="2034346955588403444">Añadir otra red Wi-Fi</translation>
@@ -4013,7 +4012,6 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6349839454356033837">Android tiene problemas para reproducir contenido multimedia.</translation>
 <translation id="6351063337294363751">En este menú puedes borrar los datos de navegación</translation>
 <translation id="6353618411602605519">Teclado croata</translation>
-<translation id="6356558429970749205">Habilita el escaneado OCR de tarjetas de crédito desde la IU para la API Web Payments</translation>
 <translation id="6356936121715252359">Configuración de almacenamiento de Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Te damos la bienvenida a la familia <ph name="SHORT_PRODUCT_NAME" />. Este no es un ordenador convencional.</translation>
 <translation id="6361850914223837199">Detalles del error:</translation>
@@ -4108,7 +4106,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6466988389784393586">&amp;Abrir todos los marcadores</translation>
 <translation id="646727171725540434">Proxy HTTP</translation>
 <translation id="6468485451923838994">Fuentes</translation>
-<translation id="6472893788822429178">Mostrar el botón Página de inicio</translation>
+<translation id="6472893788822429178">Mostrar el botón Página principal</translation>
 <translation id="6474706907372204693">Método de entrada anterior</translation>
 <translation id="6474884162850599008">Desconectar cuenta de Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> quiere compartir contenido de tu pantalla. Elige lo que quieres compartir.</translation>
@@ -4351,6 +4349,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6828860976882136098">Se ha producido un error al configurar las actualizaciones automáticas para todos los usuarios (error de ejecución preliminar: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Recibe ayuda para tu <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Registro en tu organización</translation>
+<translation id="682971198310367122">Política de Privacidad de Google</translation>
 <translation id="6830590476636787791">Transiciones animadas en el tutorial de primera ejecución</translation>
 <translation id="6830728435402077660">No es seguro</translation>
 <translation id="6831043979455480757">Traducir</translation>
@@ -5518,7 +5517,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8432745813735585631">Teclado EE.UU. Colemak</translation>
 <translation id="8434480141477525001">Puerto de depuración NaCl</translation>
 <translation id="8435334418765210033">Redes recordadas</translation>
-<translation id="8437209419043462667">Estados Unidos</translation>
+<translation id="8437209419043462667">EE. UU.</translation>
 <translation id="843730695811085446">Habilita el marco de estilo de aplicaciones web para aplicaciones alojadas, incluidas aplicaciones de marcadores. Actualmente solo está disponible para Ash.</translation>
 <translation id="8437331208797669910">Acceso a página</translation>
 <translation id="843760761634048214">Guarda la tarjeta de crédito</translation>

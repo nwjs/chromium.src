@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> is vastgelopen. Klik op deze ballon om de extensie opnieuw te laden.</translation>
 <translation id="2028531481946156667">Kan het formatteren niet starten.</translation>
 <translation id="2028997212275086731">RAR-archief</translation>
-<translation id="2031024818991965590">Kaarten scannen in betalingen op internet</translation>
 <translation id="203168018648013061">Synchronisatiefout: stel synchronisatie opnieuw in via Google Dashboard.</translation>
 <translation id="2031695690821674406">Wachtwoord invullen wanneer een account expliciet wordt geselecteerd door de gebruiker in plaats van inloggegevens automatisch aan te vullen wanneer de pagina wordt geladen.</translation>
 <translation id="2034346955588403444">Ander wifi-netwerk toevoegen</translation>
@@ -3386,7 +3385,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5465122519792752163">Nepalees toetsenbord (InScript)</translation>
 <translation id="5465662442746197494">Heb je hulp nodig?</translation>
 <translation id="5469868506864199649">Italiaans</translation>
-<translation id="5469954281417596308">Bladwijzerbeheer</translation>
+<translation id="5469954281417596308">Bookmarkmanager</translation>
 <translation id="5473279832922912143">V8 inschakelen om de experimentele Ignition-interpreter voor JavaScript-uitvoering te gebruiken.</translation>
 <translation id="5473333559083690127">Pincode opnieuw opgeven</translation>
 <translation id="5480254151128201294">Dit apparaat is vergrendeld door de eigenaar.</translation>
@@ -3433,7 +3432,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5527463195266282916">Je probeert een oudere versie van de extensie te installeren.</translation>
 <translation id="5527474464531963247">Je kunt ook een ander netwerk selecteren.</translation>
 <translation id="5527963985407842218">Activering van knop 'Lezermodus'Reader Mode triggering</translation>
-<translation id="5528368756083817449">Bladwijzerbeheer</translation>
+<translation id="5528368756083817449">Bookmarkmanager</translation>
 <translation id="5531274207066050939">Google Payments</translation>
 <translation id="5532223876348815659">Algemeen</translation>
 <translation id="5533555070048896610">Transliteratie (namaste → नमस्ते)</translation>
@@ -4015,7 +4014,6 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="6349839454356033837">Android heeft problemen bij het afspelen van media.</translation>
 <translation id="6351063337294363751">Je kunt je browsergegevens wissen vanuit dit menu</translation>
 <translation id="6353618411602605519">Kroatisch toetsenbord</translation>
-<translation id="6356558429970749205">OCR-scannen van creditcards via de UI inschakelen voor de API voor betalingen op internet</translation>
 <translation id="6356936121715252359">Opslaginstellingen voor Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Welkom bij de <ph name="SHORT_PRODUCT_NAME" />-familie. Dit is geen gewone computer.</translation>
 <translation id="6361850914223837199">Foutdetails:</translation>
@@ -4354,6 +4352,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="6828860976882136098">Kan automatische updates niet instellen voor alle gebruikers (uitvoeringsfout bij pre-flight-procedure: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Ontvang hulp bij je <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Inschrijven in je organisatie</translation>
+<translation id="682971198310367122">Privacybeleid van Google</translation>
 <translation id="6830590476636787791">Overgangen met animatie in de training tijdens de eerste uitvoering</translation>
 <translation id="6830728435402077660">Niet veilig</translation>
 <translation id="6831043979455480757">Vertalen</translation>

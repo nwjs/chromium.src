@@ -1449,7 +1449,7 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
 
       Ako to pravilo nije postavljeno ili je postavljeno na netočno, <ph name="PRODUCT_NAME" /> neće vršiti mrežne provjere opoziva u pregledniku <ph name="PRODUCT_NAME" /> 19 i novijim verzijama.</translation>
 <translation id="5966615072639944554">Proširenja koja smiju upotrebljavati API za daljinsku ovjeru</translation>
-<translation id="5974970919245996815">Prijavljene informacije o statusu Androida šalju se
+<translation id="5974970919245996815">Informacije o statusu Androida šalju se
       poslužitelju.
 
       Ako se pravilo postavi na "false", informacije se neće prijavljivati.

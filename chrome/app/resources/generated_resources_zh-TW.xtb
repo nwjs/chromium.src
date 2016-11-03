@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> 當機了，請按一下這個提示框來重新載入擴充功能。</translation>
 <translation id="2028531481946156667">無法開始格式化程序。</translation>
 <translation id="2028997212275086731">RAR 封存</translation>
-<translation id="2031024818991965590">在 Web Payments 中掃描信用卡</translation>
 <translation id="203168018648013061">同步功能錯誤：請透過「Google 資訊主頁」重設「同步功能」。</translation>
 <translation id="2031695690821674406">當使用者明確選取帳戶時才填入密碼，而不要在網頁載入後自動填入憑證。</translation>
 <translation id="2034346955588403444">新增其他 WiFi 網路</translation>
@@ -4011,7 +4010,6 @@
 <translation id="6349839454356033837">Android 無法順利播放媒體。</translation>
 <translation id="6351063337294363751">你可以使用這個選單清除瀏覽資料</translation>
 <translation id="6353618411602605519">克羅埃西亞文鍵盤</translation>
-<translation id="6356558429970749205">在 Web Payments API 的使用者介面中啟用信用卡 OCR 掃描功能</translation>
 <translation id="6356936121715252359">Adobe Flash Player 儲存設定...</translation>
 <translation id="6357619544108132570">歡迎使用 <ph name="SHORT_PRODUCT_NAME" /> 系列機種，體驗不同凡響的新世代電腦。</translation>
 <translation id="6361850914223837199">錯誤詳細資料：</translation>
@@ -4349,6 +4347,7 @@
 <translation id="6828860976882136098">無法為所有使用者設定自動更新作業 (預先執行錯誤：<ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">取得 <ph name="DEVICE_TYPE" /> 相關說明。</translation>
 <translation id="6829270497922309893">在貴機構中註冊</translation>
+<translation id="682971198310367122">Google 隱私權政策</translation>
 <translation id="6830590476636787791">首次執行教學課程時的動畫轉場效果</translation>
 <translation id="6830728435402077660">不安全</translation>
 <translation id="6831043979455480757">翻譯</translation>

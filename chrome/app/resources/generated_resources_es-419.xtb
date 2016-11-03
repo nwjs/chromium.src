@@ -761,7 +761,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> se ha bloqueado. Haz clic en este globo para volver a cargar la extensión.</translation>
 <translation id="2028531481946156667">No se pudo iniciar el proceso de formato.</translation>
 <translation id="2028997212275086731">Archivo RAR</translation>
-<translation id="2031024818991965590">Escanear tarjetas en pagos web</translation>
 <translation id="203168018648013061">Error de sincronización: debes restablecer la sincronización a través del panel de control de Google.</translation>
 <translation id="2031695690821674406">Las contraseñas se completan cuando el usuario selecciona explícitamente una cuenta en lugar de autocompletar credenciales al cargar la página.</translation>
 <translation id="2034346955588403444">Agregar otra red Wi-Fi</translation>
@@ -831,7 +830,7 @@
 <translation id="2134986351331412790">Este sitio no acepta esta marca de tarjeta de crédito.</translation>
 <translation id="2135787500304447609">&amp;Reanudar</translation>
 <translation id="2136953289241069843">Transliteración (namaste → नमस्कार)</translation>
-<translation id="2137068468602026500">En Explorador web, haz clic en <ph name="BEGIN_BOLD" />Microsoft Edge<ph name="END_BOLD" /></translation>
+<translation id="2137068468602026500">En Navegador web, haz clic en <ph name="BEGIN_BOLD" />Microsoft Edge<ph name="END_BOLD" /></translation>
 <translation id="2137808486242513288">Agregar un usuario</translation>
 <translation id="214169863967063661">Abrir configuración de apariencia</translation>
 <translation id="2142328300403846845">Abrir vínculo como</translation>
@@ -4013,7 +4012,6 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="6349839454356033837">Android tiene problemas para reproducir videos.</translation>
 <translation id="6351063337294363751">Puedes borrar los datos de navegación desde este menú</translation>
 <translation id="6353618411602605519">Teclado croata</translation>
-<translation id="6356558429970749205">Habilita el escaneo con OCR de tarjetas de crédito desde la IU para la API de pagos web</translation>
 <translation id="6356936121715252359">Configuración de almacenamiento de Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Te damos la bienvenida a la familia <ph name="SHORT_PRODUCT_NAME" />. Esta no es una computadora convencional.</translation>
 <translation id="6361850914223837199">Detalles del error:</translation>
@@ -4352,6 +4350,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="6828860976882136098">No se pudieron configurar actualizaciones automáticas para todos los usuarios (error de ejecución preliminar: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Obtén ayuda con tu <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Registro en tu organización</translation>
+<translation id="682971198310367122">Política de privacidad de Google</translation>
 <translation id="6830590476636787791">Transiciones animadas en el tutorial de primera ejecución</translation>
 <translation id="6830728435402077660">No seguro</translation>
 <translation id="6831043979455480757">Traducir</translation>

@@ -765,7 +765,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> has crashed. Click this balloon to reload the extension.</translation>
 <translation id="2028531481946156667">Could not start the formatting process.</translation>
 <translation id="2028997212275086731">RAR archive</translation>
-<translation id="2031024818991965590">Scan Cards in Web Payments</translation>
 <translation id="203168018648013061">Sync Error: Please reset Sync via the Google Dashboard.</translation>
 <translation id="2031695690821674406">Filling of passwords when an account is explicitly selected by the user rather than autofilling credentials on page load.</translation>
 <translation id="2034346955588403444">Add other Wi-Fi network</translation>
@@ -4016,7 +4015,6 @@ Press any key to continue exploring.</translation>
 <translation id="6349839454356033837">Android is having trouble playing media.</translation>
 <translation id="6351063337294363751">You can clear your browsing data from this menu</translation>
 <translation id="6353618411602605519">Croatian keyboard</translation>
-<translation id="6356558429970749205">Enable OCR scanning of credit cards from the UI for the web payments API</translation>
 <translation id="6356936121715252359">Adobe Flash Player storage settings...</translation>
 <translation id="6357619544108132570">Welcome to the <ph name="SHORT_PRODUCT_NAME" /> family. This is no ordinary computer.</translation>
 <translation id="6361850914223837199">Error details:</translation>
@@ -4355,6 +4353,7 @@ Press any key to continue exploring.</translation>
 <translation id="6828860976882136098">Failed to set up automatic updates for all users (preflight execution error: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Get help with your <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Enrol in your organisation</translation>
+<translation id="682971198310367122">Google Privacy Policy</translation>
 <translation id="6830590476636787791">Animated transitions in the first-run tutorial</translation>
 <translation id="6830728435402077660">Not secure</translation>
 <translation id="6831043979455480757">Translate</translation>

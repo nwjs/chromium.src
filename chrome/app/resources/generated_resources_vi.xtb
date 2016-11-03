@@ -765,7 +765,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> đã xảy ra lỗi. Nhấp vào bong bóng này để tải lại tiện ích.</translation>
 <translation id="2028531481946156667">Không thể bắt đầu quá trình định dạng.</translation>
 <translation id="2028997212275086731">Lưu trữ RAR</translation>
-<translation id="2031024818991965590">Quét thẻ trong Thanh toán trên web</translation>
 <translation id="203168018648013061">Lỗi đồng bộ hóa: Vui lòng đặt lại Đồng bộ hóa thông qua Trang tổng quan của Google.</translation>
 <translation id="2031695690821674406">Điền mật khẩu khi tài khoản được người dùng chọn một cách rõ ràng chứ không tự động điền thông tin đăng nhập khi tải trang.</translation>
 <translation id="2034346955588403444">Thêm mạng Wi-Fi khác</translation>
@@ -4018,7 +4017,6 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="6349839454356033837">Android đang gặp sự cố khi phát video.</translation>
 <translation id="6351063337294363751">Bạn có thể xóa dữ liệu duyệt web khỏi menu này</translation>
 <translation id="6353618411602605519">Bàn phím tiếng Croatia</translation>
-<translation id="6356558429970749205">Bật quét OCR của thẻ tín dụng từ giao diện người dùng cho API thanh toán trên web</translation>
 <translation id="6356936121715252359">Cài đặt lưu trữ của Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Chào mừng bạn đến với nhóm sản phẩm <ph name="SHORT_PRODUCT_NAME" />. Đây không phải là máy tính thông thường.</translation>
 <translation id="6361850914223837199">Chi tiết lỗi:</translation>
@@ -4357,6 +4355,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="6828860976882136098">Không thiết lập được cập nhật tự động cho tất cả người dùng (lỗi thực thi kiểm tra <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Nhận trợ giúp với <ph name="DEVICE_TYPE" /> của bạn.</translation>
 <translation id="6829270497922309893">Đăng ký tổ chức của bạn</translation>
+<translation id="682971198310367122">Chính sách bảo mật của Google</translation>
 <translation id="6830590476636787791">Chuyển đổi động trong hướng dẫn chạy vào lần đầu tiên</translation>
 <translation id="6830728435402077660">Không bảo mật</translation>
 <translation id="6831043979455480757">Dịch</translation>

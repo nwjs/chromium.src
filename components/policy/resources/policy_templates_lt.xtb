@@ -816,7 +816,7 @@ Jei nustatyta kaip „Netiesa“ arba nenustatyta, kreipiantis į API įvyks kla
 <translation id="3418871497193485241">Vykdomas minimalus ribotas režimas sistemoje „YouTube“ ir neleidžiama naudotojams
       pasirinkti mažiau riboto režimo.
 
-      Nustačius šį nustatytą į „Griežtas“ sistemoje „YouTube“ visada aktyvus griežtai ribotas režimas.
+      Nustačius šį nustatymą į „Griežtas“, sistemoje „YouTube“ visada aktyvus griežtai ribotas režimas.
 
       Nustačius šį nustatymą į „Vidutiniškas“, naudotojas gali pasirinkti tik vidutiniškai ribotą
       ir griežtai ribotą režimus sistemoje „YouTube“, bet negali išjungti riboto režimo.

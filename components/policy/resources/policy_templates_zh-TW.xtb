@@ -1270,7 +1270,7 @@
           如果這個選項設定為停用或並未做任何設定，則在共用主機時，本機與遠端使用者皆可操作主機。</translation>
 <translation id="5423001109873148185">如果啟用這項政策，則會強制從目前的預設瀏覽器匯入搜尋引擎，並影響匯入對話方塊。如果停用這項政策，則不會匯入搜尋引擎。如果未設定這項政策，系統會自動匯入搜尋引擎，或詢問使用者是否要匯入搜尋引擎。</translation>
 <translation id="5423197884968724595">Android WebView 限制名稱：</translation>
-<translation id="543559563129402336">這項政策已淘汰，建議你改用 <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> 覆寫這項政策，並可進一步調整更精確的設定。
+<translation id="543559563129402336">這項政策已淘汰，建議你改用 <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> 覆寫這項政策，即可進一步微調各項設定。
 
       強制執行中度的 YouTube 嚴格篩選模式，並禁止使用者變更這項設定。
 

@@ -282,7 +282,7 @@ Aby dostosować wyszukiwane hasło, naciśnij je i przytrzymaj, by je zaznaczyć
 <translation id="4275663329226226506">Multimedia</translation>
 <translation id="4278390842282768270">Dopuszczone</translation>
 <translation id="4300272766492248925">Otwórz aplikację</translation>
-<translation id="4307992518367153382">Podstawy</translation>
+<translation id="4307992518367153382">Podstawowe</translation>
 <translation id="4351244548802238354">Zamknij okno</translation>
 <translation id="4376501731284077108">Brak kontroli</translation>
 <translation id="4378154925671717803">Telefon</translation>
@@ -339,6 +339,7 @@ Aby dostosować wyszukiwane hasło, naciśnij je i przytrzymaj, by je zaznaczyć
 <translation id="5039804452771397117">Zezwalaj</translation>
 <translation id="5040262127954254034">Prywatność</translation>
 <translation id="5063480226653192405">Wykorzystanie</translation>
+<translation id="5087580092889165836">Dodaj kartę</translation>
 <translation id="5100237604440890931">Zwinięty – kliknij, by rozwinąć.</translation>
 <translation id="510275257476243843">Pozostała godzina</translation>
 <translation id="5127805178023152808">Synchronizacja jest wyłączona</translation>
@@ -538,7 +539,6 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="7208788139759694678">Oszczędzanie danych wyłączone</translation>
 <translation id="7243308994586599757">Opcje dostępne u dołu ekranu</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> korzysta z danych o Twojej lokalizacji, by pokazywać lokalne wyniki wyszukiwania</translation>
-<translation id="7347770551817603360">Treść offline</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Udostępnij 1 wybrany element}few{Udostępnij # wybrane elementy}many{Udostępnij # wybranych elementów}other{Udostępnij # wybranego elementu}}</translation>
 <translation id="7366340029385295517">Przesyłam na ekran <ph name="SCREEN_NAME" /></translation>
 <translation id="7375125077091615385">Typ:</translation>

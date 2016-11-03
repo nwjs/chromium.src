@@ -928,7 +928,7 @@
 
       Forțează activarea Căutării sigure pentru interogările de pe Căutarea Google pe web și împiedică utilizatorii să modifice această setare. De asemenea, această setare impune Modul restricționat moderat pe YouTube.
 
-      Dacă activezi această setare, Căutarea sigură în Căutarea Google și Modul restricționat pe YouTube vor fi întotdeauna active.
+      Dacă activezi această setare, Căutarea sigură în Căutarea Google și Modul restricționat moderat pe YouTube vor fi întotdeauna active.
 
       Dacă dezactivezi această setare sau nu configurezi nicio valoare, Căutarea sigură în Căutarea Google și Modul restricționat pe YouTube nu vor fi impuse.</translation>
 <translation id="3866249974567520381">Descriere</translation>
@@ -1464,7 +1464,7 @@
 
       Dacă politica nu este configurată sau este dezactivată, <ph name="PRODUCT_NAME" /> nu va efectua verificări de revocare online în <ph name="PRODUCT_NAME" /> versiunea 19 și în versiunile ulterioare.</translation>
 <translation id="5966615072639944554">Extensii cărora li se permite să utilizeze API-ul de atestare la distanță</translation>
-<translation id="5974970919245996815">Raportează informații despre starea Android, informații care sunt trimise înapoi
+<translation id="5974970919245996815">Informațiile de raportare despre starea Android sunt trimise înapoi
       la server.
 
       Dacă politica este dezactivată, informațiile nu vor fi raportate.

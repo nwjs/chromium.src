@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> ক্র্যাশ করেছে৷ এক্সটেনশন পুনঃসূচনা করতে এই বেলুনটি ক্লিক করুন৷</translation>
 <translation id="2028531481946156667">বিন্যাসনের প্রক্রিয়াটি শুরু করতে পারেনা৷</translation>
 <translation id="2028997212275086731">RAR আর্কাইভ</translation>
-<translation id="2031024818991965590">ওয়েবের মাধ্যমে অর্থপ্রদানের জন্য কার্ড স্ক্যান করুন</translation>
 <translation id="203168018648013061">সিঙ্ক ত্রুটি: দয়া করে Google ড্যাশবোর্ডের মাধ্যমে সিঙ্ক পুনরায় সেট করুন৷</translation>
 <translation id="2031695690821674406">যখন ব্যবহারকারীর দ্বারা কোনো অ্যাকাউন্ট সুস্পষ্টরূপে নির্বাচন করা হয়, তখন পৃষ্ঠা লোড করার সময় প্রমাণপত্রাদি স্বতঃপূর্ণ করার বদলে পাসওয়ার্ডগুলির পূরণ করা৷</translation>
 <translation id="2034346955588403444">অন্য WiFi নেটওয়ার্ক যোগ করুন</translation>
@@ -4009,7 +4008,6 @@
 <translation id="6349839454356033837">মিডিয়া প্লে করতে Android এর সমস্যা হচ্ছে।</translation>
 <translation id="6351063337294363751">আপনি এই মেনু থেকে আপনার ব্রাউজিং ডেটা সাফ করতে পারেন</translation>
 <translation id="6353618411602605519">ক্রোয়েশিয় কীবোর্ড</translation>
-<translation id="6356558429970749205">ওয়েবে অর্থপ্রদানের API এর জন্য UI থেকে ক্রেডিট কার্ড এর OCR স্ক্যানিং সক্ষম করুন</translation>
 <translation id="6356936121715252359">Adobe Flash Player সঞ্চয় সেটিংস...</translation>
 <translation id="6357619544108132570"><ph name="SHORT_PRODUCT_NAME" /> পরিবারে স্বাগতম৷ এটি কোনো সাধারণ কম্পিউটার নয়৷</translation>
 <translation id="6361850914223837199">ত্রুটির বিশদ বিবরণ:</translation>
@@ -4349,6 +4347,7 @@
 <translation id="6828860976882136098">সকল ব্যবহারকারীর জন্য স্বয়ংক্রিয় আপডেট সেট আপ করতে ব্যর্থ হয়েছে (ফ্লাইটপূর্ব সম্পাদন ত্রুটি: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">আপনার <ph name="DEVICE_TYPE" /> এর মাধ্যমে সহায়তা পান।</translation>
 <translation id="6829270497922309893">আপনার প্রতিষ্ঠানের মধ্যে নথিভুক্ত করুন</translation>
+<translation id="682971198310367122">Google এর গোপনীয়তা নীতি</translation>
 <translation id="6830590476636787791">প্রথম-চালিত টিউটোরিয়ালে অ্যানিমেটেড রুপান্তরণ</translation>
 <translation id="6830728435402077660">সুরক্ষিত নয়</translation>
 <translation id="6831043979455480757">অনুবাদ</translation>

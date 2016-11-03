@@ -761,7 +761,6 @@
 <translation id="2025632980034333559">“<ph name="APP_NAME" />”崩溃了。点击此信息框，以重新加载该扩展程序。</translation>
 <translation id="2028531481946156667">无法启动格式化过程。</translation>
 <translation id="2028997212275086731">RAR 归档</translation>
-<translation id="2031024818991965590">在 Web Payments 中扫描信用卡</translation>
 <translation id="203168018648013061">发生同步错误：请通过 Google 信息中心重置同步。</translation>
 <translation id="2031695690821674406">在用户明确选择了帐户时填充密码，而不是在页面加载时自动填充凭据。</translation>
 <translation id="2034346955588403444">添加其他 Wi-Fi 网络</translation>
@@ -3997,7 +3996,6 @@
 <translation id="6349839454356033837">Android 在播放媒体时遇到了问题。</translation>
 <translation id="6351063337294363751">您可以使用此菜单清除浏览数据</translation>
 <translation id="6353618411602605519">克罗地亚语键盘</translation>
-<translation id="6356558429970749205">从 Web Payments API 的界面中启用信用卡 OCR 扫描功能</translation>
 <translation id="6356936121715252359">Adobe Flash Player 存储设置…</translation>
 <translation id="6357619544108132570">欢迎使用<ph name="SHORT_PRODUCT_NAME" />系列产品！这不是一款普通的计算机。</translation>
 <translation id="6361850914223837199">错误详情：</translation>
@@ -4335,6 +4333,7 @@
 <translation id="6828860976882136098">未能按您的要求为所有用户设置自动更新（执行预定流程时出错：<ph name="ERROR_NUMBER" />）</translation>
 <translation id="6829250331733125857">获取与<ph name="DEVICE_TYPE" />相关的帮助。</translation>
 <translation id="6829270497922309893">注册到您的组织</translation>
+<translation id="682971198310367122">Google 隐私权政策</translation>
 <translation id="6830590476636787791">首次运行教程期间采用动画转换</translation>
 <translation id="6830728435402077660">不安全</translation>
 <translation id="6831043979455480757">翻译</translation>

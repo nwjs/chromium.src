@@ -762,7 +762,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> خراب شده است. برای تازه‌سازی پسوند بر روی این بالون کلیک کنید.</translation>
 <translation id="2028531481946156667">فرآیند قالب‌بندی شروع نمی‌شود.</translation>
 <translation id="2028997212275086731">‏بایگانی RAR</translation>
-<translation id="2031024818991965590">اسکن کردن کارت‌ها در «پرداخت‌های وب»</translation>
 <translation id="203168018648013061">‏خطای همگام‌سازی: لطفاً همگام‌سازی را ازطریق «داشبورد Google» بازنشانی کنید.</translation>
 <translation id="2031695690821674406">پرکردن گذرواژه‌ها، وقتی یک حساب مشخصاً توسط کاربر انتخاب شده، به جای پر کردن خودکار اعتبارنامه‌ها هنگام بارگیری صفحه.</translation>
 <translation id="2034346955588403444">‏افزودن شبکه WiFi دیگر</translation>
@@ -4012,7 +4011,6 @@
 <translation id="6349839454356033837">‏Android برای پخش رسانه با مشکل روبروست.</translation>
 <translation id="6351063337294363751">می‌توانید داده‌های مرور را از این منو پاک کنید</translation>
 <translation id="6353618411602605519">صفحه‌کلید کرواتی</translation>
-<translation id="6356558429970749205">‏فعال کردن اسکن OCR کارت‌های اعتباری از رابط کاربری برای رابط برنامه‌نویسی نرم‌افزار پرداخت‌ وب</translation>
 <translation id="6356936121715252359">‏تنظیمات ذخیره Adobe Flash Player...</translation>
 <translation id="6357619544108132570">به خانواده <ph name="SHORT_PRODUCT_NAME" /> خوش آمدید. این یک رایانه معمولی نیست.</translation>
 <translation id="6361850914223837199">جزئیات خطا:</translation>
@@ -4351,6 +4349,7 @@
 <translation id="6828860976882136098">راه‌اندازی به‌روزرسانی‌های خودکار برای همه کاربران انجام نشد (خطای اجرای پیش از تولید:‏ <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">برای <ph name="DEVICE_TYPE" /> راهنمایی دریافت کنید.</translation>
 <translation id="6829270497922309893">ثبت‌نام در سازمان شما</translation>
+<translation id="682971198310367122">‏خط‌مشی رازداری Google</translation>
 <translation id="6830590476636787791">انتقال‌های پویانمایی‌شده در اولین اجرای آموزش گام به گام</translation>
 <translation id="6830728435402077660">امن نیست</translation>
 <translation id="6831043979455480757">ترجمه</translation>

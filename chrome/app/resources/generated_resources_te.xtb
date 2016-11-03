@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> క్రాష్ అయ్యింది. పొడగింపును రీలోడ్ చెయ్యడానికి ఈ బెలూన్‌ని క్లిక్ చెయ్యండి.</translation>
 <translation id="2028531481946156667">ఆకృతీకరణ విధానాన్ని ప్రారంభించలేరు.</translation>
 <translation id="2028997212275086731">RAR ఆర్కైవ్</translation>
-<translation id="2031024818991965590">వెబ్ చెల్లింపుల్లో కార్డ్‌లను స్కాన్ చేయి</translation>
 <translation id="203168018648013061">సమకాలీకరణ లోపం: దయచేసి Google డాష్‌బోర్డు ద్వారా సమకాలీకరణను రీసెట్ చేయండి.</translation>
 <translation id="2031695690821674406">పేజీ లోడ్ అయినప్పుడు ఆధారాలను స్వయంచాలకంగా పూరించకుండా వినియోగదారు ఖాతాను ప్రత్యేకంగా ఎంచుకున్నప్పుడు పాస్‌వర్డ్‌లను పూరిస్తుంది.</translation>
 <translation id="2034346955588403444">మరో WiFi నెట్‌వర్క్‌ని జోడించండి</translation>
@@ -4016,7 +4015,6 @@
 <translation id="6349839454356033837">Androidకి మీడియాని ప్లే చేయడంలో సమస్య ఉంది.</translation>
 <translation id="6351063337294363751">మీరు ఈ మెను నుండి మీ బ్రౌజింగ్ డేటాను తీసివేయవచ్చు</translation>
 <translation id="6353618411602605519">క్రొయెటైన్ కీబోర్డ్</translation>
-<translation id="6356558429970749205">వెబ్ చెల్లింపుల API కోసం UI నుండి క్రెడిట్ కార్డ్‌ల OCR స్కానింగ్‌ను ప్రారంభిస్తుంది</translation>
 <translation id="6356936121715252359">Adobe Flash Player నిల్వ సెట్టింగ్‌లు...</translation>
 <translation id="6357619544108132570"><ph name="SHORT_PRODUCT_NAME" /> కుటుంబానికి స్వాగతం. ఇది సాధారణ కంప్యూటర్ కాదు.</translation>
 <translation id="6361850914223837199">లోపం వివరాలు:</translation>
@@ -4355,6 +4353,7 @@
 <translation id="6828860976882136098">వినియోగదారులందరి కోసం స్వయంచాలక నవీకరణలను సెటప్ చేయడం విఫలమైంది (ప్రీఫ్లయిట్ అమలు లోపం: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">మీ <ph name="DEVICE_TYPE" />తో సహాయం పొందండి.</translation>
 <translation id="6829270497922309893">మీ సంస్థలో నమోదు చేయండి</translation>
+<translation id="682971198310367122">Google గోప్యతా విధానం</translation>
 <translation id="6830590476636787791">మొదటి-అమలు ట్యుటోరియల్‌లో యానిమేట్ చేసిన పరివర్తనాలు</translation>
 <translation id="6830728435402077660">సురక్షితం కాదు</translation>
 <translation id="6831043979455480757">అనువదించు</translation>

@@ -656,7 +656,7 @@
 <translation id="1842969606798536927">Paiement</translation>
 <translation id="184456654378801210">(native)</translation>
 <translation id="1844692022597038441">Ce fichier n'est pas disponible hors connexion.</translation>
-<translation id="1846308012215045257">Cliquez en maintenant la touche Ctrl enfoncée pour exécuter <ph name="PLUGIN_NAME" />.</translation>
+<translation id="1846308012215045257">Cliquez ici en maintenant la touche Ctrl enfoncée pour exécuter <ph name="PLUGIN_NAME" />.</translation>
 <translation id="184633654410729720">Clavier thaï (kedmanee)</translation>
 <translation id="1849186935225320012">Le contrôle total des appareils MIDI est activé pour cette page</translation>
 <translation id="1850508293116537636">Rotation &amp;dans le sens des aiguilles d'une montre</translation>
@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> a planté. Cliquez sur cette info-bulle pour actualiser l'extension.</translation>
 <translation id="2028531481946156667">Impossible de lancer le processus de formatage.</translation>
 <translation id="2028997212275086731">Archive RAR</translation>
-<translation id="2031024818991965590">Numériser les cartes pour les paiements Web</translation>
 <translation id="203168018648013061">Erreur de synchronisation. Veuillez réinitialiser la synchronisation via Google Dashboard.</translation>
 <translation id="2031695690821674406">Renseigne des mots de passe lorsqu'un compte est explicitement sélectionné par l'utilisateur, plutôt que de compléter automatiquement les identifiants lors du chargement de la page.</translation>
 <translation id="2034346955588403444">Ajouter un réseau Wi-Fi</translation>
@@ -3108,7 +3107,7 @@ Pour poursuivre l'exploration, appuyez sur n'importe quelle touche.</translation
 <translation id="5136529877787728692">F7</translation>
 <translation id="5137501176474113045">Supprimer cet article</translation>
 <translation id="5137929532584371582">16</translation>
-<translation id="5138177765054221193">Pour les sites qui ont été configurés pour autoriser les contenus Flash, exécute tous les contenus, y compris ceux qui ne sont pas considérés comme importants.</translation>
+<translation id="5138177765054221193">Pour les sites qui ont été configurés pour autoriser les contenus Flash, exécutez tous les contenus, y compris ceux qui ne sont pas considérés comme importants.</translation>
 <translation id="5139955368427980650">&amp;Ouvrir</translation>
 <translation id="5141240743006678641">Chiffrer les mots de passe synchronisés avec vos certificats Google</translation>
 <translation id="5143374789336132547">L'extension <ph name="EXTENSION_NAME" /> a modifié la page affichée lorsque vous cliquez sur le bouton Accueil.</translation>
@@ -4016,7 +4015,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6349839454356033837">Un problème de lecture multimédias est survenu dans Android.</translation>
 <translation id="6351063337294363751">Vous pouvez effacer vos données de navigation à partir de ce menu.</translation>
 <translation id="6353618411602605519">Clavier croate</translation>
-<translation id="6356558429970749205">Activer la numérisation par OCR des cartes de paiement à partir de l'interface utilisateur de l'API de paiements Web</translation>
 <translation id="6356936121715252359">Paramètres de stockage d'Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Bienvenue dans la famille <ph name="SHORT_PRODUCT_NAME" />. Cet ordinateur n'est pas comme les autres.</translation>
 <translation id="6361850914223837199">Informations sur l'erreur :</translation>
@@ -4355,6 +4353,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6828860976882136098">Échec de la configuration des mises à jour automatiques pour tous les utilisateurs (erreur d'exécution avant la période de diffusion : <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Obtenir de l'aide pour votre <ph name="DEVICE_TYPE" /></translation>
 <translation id="6829270497922309893">Inscrivez-vous à votre organisation</translation>
+<translation id="682971198310367122">Règles de confidentialité de Google</translation>
 <translation id="6830590476636787791">Transitions animées dans le didacticiel de démarrage</translation>
 <translation id="6830728435402077660">Non sécurisé</translation>
 <translation id="6831043979455480757">Traduire</translation>

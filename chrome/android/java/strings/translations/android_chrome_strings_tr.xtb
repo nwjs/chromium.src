@@ -339,6 +339,7 @@ Arama teriminizi düzeltmek için uzun basarak terimi seçin. Aramanızı ayrın
 <translation id="5039804452771397117">İzin ver</translation>
 <translation id="5040262127954254034">Gizlilik</translation>
 <translation id="5063480226653192405">Kullanım</translation>
+<translation id="5087580092889165836">Kart ekle</translation>
 <translation id="5100237604440890931">Daraltıldı - Genişletmek için tıklayın.</translation>
 <translation id="510275257476243843">1 saat kaldı</translation>
 <translation id="5127805178023152808">Senkronizasyon kapalı</translation>
@@ -538,7 +539,6 @@ Yine de, görünmez olmazsınız. Gizli moda geçmeniz web'de yaptıklarınızı
 <translation id="7208788139759694678">Veri Tasarrufu devre dışı bırakıldı</translation>
 <translation id="7243308994586599757">Sayfanın altına yakın bir yerde kullanılabilen seçenekler</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" />, yerel arama sonuçlarını göstermek için konumunuzu kullanır</translation>
-<translation id="7347770551817603360">Çevrimdışı içerik</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{1 seçili öğeyi paylaş}other{# seçili öğeyi paylaş}}</translation>
 <translation id="7366340029385295517"><ph name="SCREEN_NAME" /> ekranına yayınlanıyor</translation>
 <translation id="7375125077091615385">Tür:</translation>
@@ -560,7 +560,7 @@ Diğer Google hizmetlerinden yapılan aramalar ve etkinlikler gibi Google hesab�
 <translation id="7562080006725997899">Göz atma verileri temizleniyor</translation>
 <translation id="756809126120519699">Chrome verileri temizlendi</translation>
 <translation id="7588950540487816470">Fiziksel Web</translation>
-<translation id="7593557518625677601">Chrome Eşitlemesi'ni başlatmak için Android ayarlarını açın ve Android sistem senkronizasyonunu yeniden etkinleştirin</translation>
+<translation id="7593557518625677601">Chrome Senkronizasyonu'nu başlatmak için Android ayarlarını açın ve Android sistem senkronizasyonunu yeniden etkinleştirin</translation>
 <translation id="7596558890252710462">İşletim sistemi</translation>
 <translation id="7605594153474022051">Senkronizasyon çalışmıyor</translation>
 <translation id="7612619742409846846">Google'da şu hesapla oturum açıldı:</translation>

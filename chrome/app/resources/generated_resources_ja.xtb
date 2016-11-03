@@ -765,7 +765,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> がクラッシュしました。このバルーンをクリックして再起動してください。</translation>
 <translation id="2028531481946156667">フォーマット処理を開始できませんでした。</translation>
 <translation id="2028997212275086731">RAR アーカイブ</translation>
-<translation id="2031024818991965590">ウェブ決済でカードをスキャンする</translation>
 <translation id="203168018648013061">同期エラー: Google ダッシュボードから同期をリセットしてください。</translation>
 <translation id="2031695690821674406">ユーザーがアカウントを明示的に選択した場合に、ページの読み込み時に認証情報を自動入力するのではなくパスワードの入力を求めます。</translation>
 <translation id="2034346955588403444">他の Wi-Fi ネットワークを追加</translation>
@@ -1179,7 +1178,7 @@
 <translation id="2565828445440744174">試験運用版 WebAssembly</translation>
 <translation id="2566124945717127842">お使いの <ph name="IDS_SHORT_PRODUCT_NAME" /> 搭載デバイスを出荷時の状態にリセットするために、Powerwash を実行します。</translation>
 <translation id="2568774940984945469">情報バー コンテナ</translation>
-<translation id="2570000010887652771">データを保存しました。</translation>
+<translation id="2570000010887652771">データ消費を削減しました。</translation>
 <translation id="2570648609346224037">リカバリ イメージのダウンロード中に問題が発生しました。</translation>
 <translation id="257088987046510401">テーマ</translation>
 <translation id="2572032849266859634"><ph name="VOLUME_NAME" /> への読み取り専用アクセスが許可されました。</translation>
@@ -4017,7 +4016,6 @@
 <translation id="6349839454356033837">問題が発生したため、Android でメディアを再生できません。</translation>
 <translation id="6351063337294363751">このメニューで閲覧データを削除できます</translation>
 <translation id="6353618411602605519">クロアチア語のキーボード</translation>
-<translation id="6356558429970749205">Web Payments API で使用できるように、画面で入力されたクレジット カードの OCR スキャンを有効にします</translation>
 <translation id="6356936121715252359">Adobe Flash Player のストレージ設定...</translation>
 <translation id="6357619544108132570"><ph name="SHORT_PRODUCT_NAME" /> ファミリーへようこそ。これは新しいタイプのパソコンです。</translation>
 <translation id="6361850914223837199">エラーの詳細:</translation>
@@ -4356,6 +4354,7 @@
 <translation id="6828860976882136098">すべてのユーザーで自動更新を行うよう設定できませんでした（プリフライト実行エラー: <ph name="ERROR_NUMBER" />）</translation>
 <translation id="6829250331733125857"><ph name="DEVICE_TYPE" /> に関するヘルプを表示します。</translation>
 <translation id="6829270497922309893">組織への登録</translation>
+<translation id="682971198310367122">Google プライバシー ポリシー</translation>
 <translation id="6830590476636787791">初回実行時のチュートリアルでのアニメーションによる切り替え</translation>
 <translation id="6830728435402077660">保護されていません</translation>
 <translation id="6831043979455480757">翻訳</translation>

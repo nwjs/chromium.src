@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> läks krahhi. Laienduse uuesti laadimiseks klõpsake sellel jutumullil.</translation>
 <translation id="2028531481946156667">Vormindusprotsessi ei õnnestunud käivitada.</translation>
 <translation id="2028997212275086731">RAR-arhiiv</translation>
-<translation id="2031024818991965590">Kaartide skannimine veebimaksetes</translation>
 <translation id="203168018648013061">Sünkroonimisviga: lähtestage sünkroonimine Google Dashboardi abil.</translation>
 <translation id="2031695690821674406">Paroolide sisestamine siis, kui kasutaja valib konto, mitte automaatselt lehe laadimisel.</translation>
 <translation id="2034346955588403444">Muu WiFi-võrgu lisamine</translation>
@@ -4016,7 +4015,6 @@ Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="6349839454356033837">Androidil on probleeme meedia esitamisega.</translation>
 <translation id="6351063337294363751">Selles menüüs saate kustutada oma sirvimisandmed</translation>
 <translation id="6353618411602605519">Horvaatia klaviatuur</translation>
-<translation id="6356558429970749205">Krediitkaartide OCR-skannimise lubamine veebimaksete API kasutajaliideses</translation>
 <translation id="6356936121715252359">Adobe Flash Playeri talletuse seaded...</translation>
 <translation id="6357619544108132570">Tere tulemast <ph name="SHORT_PRODUCT_NAME" />'i kasutajate perre. See ei ole tavaline arvuti.</translation>
 <translation id="6361850914223837199">Vea üksikasjad:</translation>
@@ -4355,6 +4353,7 @@ Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="6828860976882136098">Automaatvärskenduste seadistamine kõikidele kasutajatele ebaõnnestus (esituseelne käivitamisviga: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Abi hankimine seadme <ph name="DEVICE_TYPE" /> puhul.</translation>
 <translation id="6829270497922309893">Registreerumine teie organisatsioonis</translation>
+<translation id="682971198310367122">Google'i privaatsuseeskirjad</translation>
 <translation id="6830590476636787791">Animeeritud üleminekud esmakordse käitamise õpetustes</translation>
 <translation id="6830728435402077660">Pole turvaline</translation>
 <translation id="6831043979455480757">Tõlgi</translation>

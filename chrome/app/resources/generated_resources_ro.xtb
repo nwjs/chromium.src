@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> s-a blocat. Dă clic pe acest balon pentru a reîncărca extensia.</translation>
 <translation id="2028531481946156667">Procesul de formatare nu a putut începe.</translation>
 <translation id="2028997212275086731">Arhivă RAR</translation>
-<translation id="2031024818991965590">Scanează carduri în plățile pe web</translation>
 <translation id="203168018648013061">Eroare de sincronizare: resetați sincronizarea utilizând Tabloul de bord Google.</translation>
 <translation id="2031695690821674406">Completarea parolelor la selectarea explicită a unui cont de către utilizator, în loc de completarea automată a datelor de conectare la încărcarea paginii.</translation>
 <translation id="2034346955588403444">Adaugă altă rețea Wi-Fi</translation>
@@ -3144,7 +3143,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="5167131699331641907">Tastatură neerlandeză</translation>
 <translation id="5170477580121653719">Spațiu disponibil pe Disc Google: <ph name="SPACE_AVAILABLE" />.</translation>
 <translation id="5170568018924773124">Afișează în dosar</translation>
-<translation id="5171045022955879922">Căutați sau introduceți adresa URL</translation>
+<translation id="5171045022955879922">Caută sau introdu adresa URL</translation>
 <translation id="5171343362375269016">Dimensiunea memoriei de swap</translation>
 <translation id="5175870427301879686"><ph name="URL" /> vrea să stocheze permanent date pe computerul tău local.</translation>
 <translation id="5177479852722101802">Blocați în continuare accesul la cameră și microfon</translation>
@@ -4016,7 +4015,6 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="6349839454356033837">Android întâmpină probleme la redarea conținutului media.</translation>
 <translation id="6351063337294363751">Poți șterge datele de navigare din acest meniu</translation>
 <translation id="6353618411602605519">Tastatură croată</translation>
-<translation id="6356558429970749205">Activează scanarea OCR a cardurilor de credit din interfața de utilizare pentru API-ul destinat plăților pe web</translation>
 <translation id="6356936121715252359">Setări privind stocarea Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Bun venit în familia <ph name="SHORT_PRODUCT_NAME" />. Acesta nu este un computer obișnuit.</translation>
 <translation id="6361850914223837199">Detaliile erorii:</translation>
@@ -4355,6 +4353,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="6828860976882136098">Actualizările automate nu au putut fi configurate pentru toți utilizatorii (eroare la executarea testării pe dispozitiv: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Primește ajutor în privința <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Înscrie-te în organizație</translation>
+<translation id="682971198310367122">Politica de confidențialitate Google</translation>
 <translation id="6830590476636787791">Tranziții animate în tutorialul redat la prima rulare</translation>
 <translation id="6830728435402077660">Nesecurizată</translation>
 <translation id="6831043979455480757">Tradu</translation>
@@ -4630,7 +4629,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="721331389620694978">Unele setări care pot reflecta obiceiurile tale de navigare nu vor fi șterse.</translation>
 <translation id="7214227951029819508">Luminozitate:</translation>
 <translation id="7215540216621698970">Lansează speculativ instrumentele Service Worker folosind evenimente tactile și cu mouse-ul.</translation>
-<translation id="7219357088166514551">Căutați cu <ph name="ENGINE" /> sau introduceți adresa URL</translation>
+<translation id="7219357088166514551">Caută cu <ph name="ENGINE" /> sau introdu adresa URL</translation>
 <translation id="722055596168483966">Personalizează serviciile Google</translation>
 <translation id="7221155467930685510">$1 GB</translation>
 <translation id="7221855153210829124">Afișeze notificări</translation>

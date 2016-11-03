@@ -765,15 +765,13 @@
 <translation id="3417418267404583991">Jeśli ta zasada zostanie włączona lub nie będzie skonfigurowana, <ph name="PRODUCT_OS_NAME" /> będzie umożliwiał logowanie się w trybie gościa. Logowania w trybie gościa to anonimowe sesje użytkownika, które nie wymagają hasła.
 
       W przypadku wyłączenia tej zasady <ph name="PRODUCT_OS_NAME" /> nie będzie zezwalać na uruchamianie sesji gościa.</translation>
-<translation id="3418871497193485241">Wymusza minimalny tryb ograniczonego dostępu w YouTube i uniemożliwia 
-      użytkownikom wybór trybu z mniejszymi ograniczeniami.
+<translation id="3418871497193485241">Wymusza minimalny tryb ograniczonego dostępu w YouTube i uniemożliwia użytkownikom wybór trybu z mniejszymi ograniczeniami.
 
-      Jeśli wybierzesz ustawienie „Ścisły”, ścisły tryb ograniczony będzie zawsze aktywny w YouTube.
+Jeśli wybierzesz ustawienie „Ścisły”, ścisły tryb ograniczony będzie zawsze aktywny w YouTube.
 
-      Jeśli wybierzesz ustawienie „Umiarkowany”, użytkownik może wybrać tylko umiarkowany
-      lub ścisły tryb ograniczonego dostępu w YouTube i nie może go wyłączyć.
+Jeśli wybierzesz ustawienie „Umiarkowany”, użytkownik może wybrać tylko umiarkowany lub ścisły tryb ograniczonego dostępu w YouTube i nie może go wyłączyć.
 
-      Jeśli nie podasz wartości albo wybierzesz ustawienie „Wyłącz”, stosowanie trybu ograniczonego dostępu w YouTube nie będzie wymuszane przez przeglądarkę <ph name="PRODUCT_NAME" />. Zewnętrzne zasady, np. zasady YouTube, mogą jednak nadal wymuszać stosowanie trybu ograniczonego dostępu.</translation>
+Jeśli nie podasz wartości albo wybierzesz ustawienie „Wyłącz”, stosowanie trybu ograniczonego dostępu w YouTube nie będzie wymuszane przez przeglądarkę <ph name="PRODUCT_NAME" />. Zewnętrzne zasady, np. zasady YouTube, mogą jednak nadal wymuszać stosowanie trybu ograniczonego dostępu.</translation>
 <translation id="3428247105888806363">Włącz przewidywanie działań sieciowych</translation>
 <translation id="3449886121729668969">Konfiguruje ustawienia serwera proxy dla <ph name="PRODUCT_NAME" />. Będą one też dostępne dla aplikacji ARC.
 
@@ -866,7 +864,7 @@
 
       Jeśli ustawisz tu wartość fałsz, wyjście audio urządzenia nie będzie dostępne, gdy użytkownik będzie zalogowany.
 
-      Ta zasada wpływa na wszystkie typy wyjść audio, a nie tylko na wbudowane głośniki. Wyłącza też dźwiękowe funkcje ułatwień dostępu. Nie włączaj jej, jeśli użytkownik potrzebuje czytnika ekranu.
+      Ta zasada wpływa na wszystkie typy wyjść audio, a nie tylko na wbudowane głośniki. Wyłącza też dźwiękowe ułatwienia dostępu. Nie włączaj jej, jeśli użytkownik potrzebuje czytnika ekranu.
 
       Jeśli nie skonfigurujesz tego ustawienia lub ustawisz dla niego wartość prawda, użytkownicy będą mogli używać wszystkich obsługiwanych wyjść audio urządzenia.</translation>
 <translation id="3808945828600697669">Określ listę wyłączonych wtyczek</translation>
@@ -887,12 +885,9 @@
 
           Domyślnie wszystkie hosty wiadomości natywnych są umieszczane na białej liście, ale jeśli wszystkie hosty wiadomości natywnych zostały umieszczone na czarnej liście na skutek działania zasad, biała lista może posłużyć do zastąpienia tych zasad.</translation>
 <translation id="384743459174066962">Umożliwia skonfigurowanie listy wzorcowych URL-i określających witryny, w których mogą być otwierane wyskakujące okienka. Jeśli ta zasada nie zostanie skonfigurowana, dla wszystkich witryn będzie używana globalna wartość domyślna pochodząca z zasady „DefaultPopupsSetting” (jeśli została skonfigurowana) lub z osobistej konfiguracji użytkownika.</translation>
-<translation id="3851039766298741586">Przesyłaj informacje o aktywnej sesji publicznej,
-      np. dotyczące identyfikatora i wersji aplikacji.
+<translation id="3851039766298741586">Przesyłaj informacje o aktywnej sesji publicznej, np. identyfikator i wersję aplikacji.
 
-      Jeśli ta zasada jest wyłączona, informacje o sesji nie będą
-      przesyłane. Jeśli zasada jest włączona lub nieustawiona, informacje o sesji
-      będą przesyłane.</translation>
+Jeśli ta zasada jest wyłączona, informacje o sesji nie będą przesyłane. Jeśli zasada jest włączona lub nieustawiona, informacje o sesji będą przesyłane.</translation>
 <translation id="3859780406608282662">Dodaj parametr do pobierania odmian referencyjnych w <ph name="PRODUCT_OS_NAME" />.
 
       Jeśli ta zasada jest ustalona, zostanie dodany parametr zapytania „z ograniczeniem” do adresu URL używanego do pobierania odmian referencyjnych. Wartością parametru będzie wartość tej zasady.
@@ -909,11 +904,11 @@
 <translation id="3864818549971490907">Domyślne ustawienie wtyczek</translation>
 <translation id="386487026071140458">Ta zasada została wycofana. Zamiast niej użyj tych: <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" /> lub <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />. Zasada zostanie zignorowana, jeśli ustawiona zostanie któraś z tych zasad: <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" />, <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> lub <ph name="FORCEYOUTUBESAFETYMODE_POLICY_NAME" /> (wycofana).
 
-      Wymusza realizację zapytań w wyszukiwarce Google przy użyciu filtra SafeSearch i uniemożliwia użytkownikom zmianę tego ustawienia. To ustawienie wymusza też włączenie umiarkowanego trybu ograniczonego dostępu w YouTube.
+Wymusza realizację zapytań w wyszukiwarce Google przy użyciu filtra SafeSearch i uniemożliwia użytkownikom zmianę tego ustawienia. To ustawienie wymusza też włączenie umiarkowanego trybu ograniczonego dostępu w YouTube.
 
-      Jeśli włączysz to ustawienie, filtr SafeSearch w wyszukiwarce Google i umiarkowany tryb ograniczonego dostępu w YouTube będą zawsze aktywne.
+Jeśli włączysz to ustawienie, filtr SafeSearch w wyszukiwarce Google i umiarkowany tryb ograniczonego dostępu w YouTube będą zawsze aktywne.
 
-      Jeśli je wyłączysz albo nie podasz wartości, stosowanie filtra SafeSearch w wyszukiwarce Google i trybu ograniczonego dostępu w YouTube nie będzie wymuszane.</translation>
+Jeśli je wyłączysz albo nie podasz wartości, stosowanie filtra SafeSearch w wyszukiwarce Google i trybu ograniczonego dostępu w YouTube nie będzie wymuszane.</translation>
 <translation id="3866249974567520381">Opis</translation>
 <translation id="3866530186104388232">Jeśli ta zasada jest włączona lub nieskonfigurowana, <ph name="PRODUCT_OS_NAME" /> będzie umożliwiał wybranie nazwy użytkownika spośród zarejestrowanych nazw wyświetlanych na ekranie logowania. W przypadku wyłączenia tej zasady <ph name="PRODUCT_OS_NAME" /> będzie prosił o podanie nazwy użytkownika i hasła.</translation>
 <translation id="3868347814555911633">Ta zasada jest aktywna tylko w trybie sklepu.
@@ -1274,11 +1269,11 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="5423197884968724595">Nazwa ograniczenia w Android WebView:</translation>
 <translation id="543559563129402336">Ta zasada została wycofana. Zamiast niej możesz użyć tej zasady: <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />. Zastępuje ona wycofaną zasadę i umożliwia dokładniejszą konfigurację.
 
-      Wymusza umiarkowany tryb ograniczonego dostępu w YouTube i uniemożliwia użytkownikom zmianę tego ustawienia.
+Wymusza umiarkowany tryb ograniczonego dostępu w YouTube i uniemożliwia użytkownikom zmianę tego ustawienia.
 
-      Jeśli to ustawienia jest włączone, tryb ograniczonego dostępu w YouTube będzie zawsze ustawiony co najmniej na poziom „Umiarkowany”.
+Jeśli to ustawienie jest włączone, tryb ograniczonego dostępu w YouTube będzie zawsze ustawiony co najmniej na poziom „Umiarkowany”.
 
-      Jeśli je wyłączysz lub nie podasz wartości, stosowanie trybu ograniczonego dostępu w YouTube nie będzie wymuszane przez przeglądarkę <ph name="PRODUCT_NAME" />. Zewnętrzne zasady, np. zasady YouTube, mogą jednak nadal wymuszać stosowanie trybu ograniczonego dostępu.</translation>
+Jeśli je wyłączysz lub nie podasz wartości, stosowanie trybu ograniczonego dostępu w YouTube nie będzie wymuszane przez przeglądarkę <ph name="PRODUCT_NAME" />. Zewnętrzne zasady, np. zasady YouTube, mogą jednak nadal wymuszać stosowanie trybu ograniczonego dostępu.</translation>
 <translation id="5447306928176905178">Włącz raportowanie informacji o pamięci (rozmiar stosu pamięci JS) do strony (opcja wycofana)</translation>
 <translation id="5457065417344056871">Włącz tryb gościa w przeglądarce</translation>
 <translation id="5457924070961220141">Umożliwia skonfigurowanie domyślnego mechanizmu renderowania HTML po zainstalowaniu wtyczki <ph name="PRODUCT_FRAME_NAME" />. Ustawieniem domyślnym, stosowanym w przypadku nieskonfigurowania tej zasady, jest zezwolenie przeglądarce hosta na wykonywanie renderowania, jednak możesz opcjonalnie zastąpić to ustawienie, tak aby strony HTML były domyślnie renderowane przez wtyczkę <ph name="PRODUCT_FRAME_NAME" />.</translation>
@@ -1445,13 +1440,12 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 
       Jeśli nie ustawisz tej zasady w <ph name="PRODUCT_NAME" /> lub wybierzesz wartość fałsz, <ph name="PRODUCT_NAME" /> 19 i nowsze wersje nie sprawdzają online, czy certyfikat nie został unieważniony.</translation>
 <translation id="5966615072639944554">Rozszerzenia mają pozwolenie na używanie interfejsu API zaświadczania zdalnego</translation>
-<translation id="5974970919245996815">Informacje o stanie Androida są wysyłane z powrotem
-      na serwer.
+<translation id="5974970919245996815">Informacje o stanie Androida są wysyłane z powrotem na serwer.
 
-      Jeśli ta zasada jest wyłączona, informacje nie będą przesyłane.
-      Jeśli zasada jest włączona lub nieustawiona, informacje będą przesyłane.
+Jeśli ta zasada jest wyłączona, informacje nie będą przesyłane.
+Jeśli zasada jest włączona lub nieustawiona, informacje będą przesyłane.
 
-      Ta zasada ma zastosowanie tylko wtedy, gdy są włączone aplikacje na Androida.</translation>
+Ta zasada ma zastosowanie tylko wtedy, gdy są włączone aplikacje na Androida.</translation>
 <translation id="5983708779415553259">Domyślne zachowanie dla witryn nie jest zawarte w żadnym pakiecie treści</translation>
 <translation id="5997543603646547632">Domyślnie używaj zegara 24-godzinnego</translation>
 <translation id="6009903244351574348">Pozwól <ph name="PRODUCT_FRAME_NAME" /> obsługiwać wymienione typy treści. Jeśli ta zasada nie zostanie skonfigurowana, dla wszystkich witryn będzie używany domyślny mechanizm renderujący określony przez zasadę „ChromeFrameRendererSettings”.</translation>
@@ -1463,7 +1457,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="6022948604095165524">Działanie po uruchomieniu</translation>
 <translation id="602728333950205286">Adres URL wyszukiwania dynamicznego od domyślnego dostawcy wyszukiwania</translation>
 <translation id="603410445099326293">Parametry dla sugerowania URL-i używających POST</translation>
-<translation id="6036523166753287175">Włącz omijanie zapory sieciowej przez host dostępu zdalnego</translation>
+<translation id="6036523166753287175">Włącz omijanie zapory sieciowej przez hosta dostępu zdalnego</translation>
 <translation id="6059543311891422586">Używanie akceleracji sprzętowej, jeśli jest dostępna.
 
       Jeśli ta zasada jest włączona lub nieustawiona, akceleracja sprzętowa działa, o ile dana funkcja GPU nie znajduje się na czarnej liście.
@@ -1960,7 +1954,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
           Ta zasada jest przeznaczona do użytku wewnętrznego w <ph name="PRODUCT_NAME" />.</translation>
 <translation id="7712109699186360774">Zawsze mnie pytaj, gdy strona chce użyć kamery i/lub mikrofonu</translation>
 <translation id="7715711044277116530">Wartość procentowa skalowania opóźnienia przyciemnienia ekranu w trybie prezentacji</translation>
-<translation id="7717938661004793600">Skonfiguruj funkcje ułatwień dostępu w <ph name="PRODUCT_OS_NAME" />.</translation>
+<translation id="7717938661004793600">Skonfiguruj ułatwienia dostępu w <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="7719251660743813569">Określa, czy statystyki użytkowania są przesyłane do Google. W przypadku włączenia tej opcji <ph name="PRODUCT_OS_NAME" /> będzie przesyłać statystyki użytkowania. Jeśli opcja będzie wyłączona lub nieskonfigurowana, przesyłanie statystyk zostanie wyłączone.</translation>
 <translation id="7723433108978650103">Blokuje dostęp do wymienionych adresów URL.
 

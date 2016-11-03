@@ -5,7 +5,7 @@
 <translation id="1005274289863221750">Korzystać z Twojego mikrofonu i kamery</translation>
 <translation id="1007233996198401083">Nie można połączyć.</translation>
 <translation id="1007408791287232274">Nie udało się załadować urządzeń.</translation>
-<translation id="1010366937854368312">Dodaj więcej funkcji ułatwień dostępu</translation>
+<translation id="1010366937854368312">Dodaj więcej ułatwień dostępu</translation>
 <translation id="1010833424573920260">{NUM_PAGES,plural, =1{Strona nie odpowiada}few{Strony nie odpowiadają}many{Strony nie odpowiadają}other{Strony nie odpowiadają}}</translation>
 <translation id="1012794136286421601">Twoje pliki z Dokumentów, Arkuszy, Prezentacji i Rysunków są teraz synchronizowane. Otwórz aplikację Dysk Google, aby używać ich online lub offline.</translation>
 <translation id="1013707859758800957">Wtyczka spoza piaskownicy otrzymała zezwolenie na uruchomienie na tej stronie.</translation>
@@ -144,7 +144,7 @@
 <translation id="1187722533808055681">Wyjścia z nieaktywności</translation>
 <translation id="1188807932851744811">Dziennik nie został przesłany.</translation>
 <translation id="1189039156354786998">Strumieniowe przesyłanie filmów jest zablokowane</translation>
-<translation id="1189418886587279221">Włącz funkcje ułatwień dostępu, aby uprościć obsługę urządzenia.</translation>
+<translation id="1189418886587279221">Włącz ułatwienia dostępu, aby uprościć obsługę urządzenia.</translation>
 <translation id="1190144681599273207">Pobranie tego pliku spowoduje przesłanie <ph name="FILE_SIZE" /> przy użyciu komórkowej transmisji danych.</translation>
 <translation id="11901918071949011">{NUM_FILES,plural, =1{Dostęp do pliku zapisanego na Twoim komputerze}few{Dostęp do # plików zapisanych na Twoim komputerze}many{Dostęp do # plików zapisanych na Twoim komputerze}other{Dostęp do # pliku zapisanego na Twoim komputerze}}</translation>
 <translation id="1190855992966397019">Włącz blokadę AppContainer.</translation>
@@ -373,7 +373,7 @@
 <translation id="149054319867505275">Sprawdź poprawność Asm.js, gdy występuje polecenie „use asm”, a następnie przekonwertuj do WebAssembly.</translation>
 <translation id="1493263392339817010">Dostosuj czcionki...</translation>
 <translation id="1493492096534259649">Nie można użyć tego języka do sprawdzania pisowni</translation>
-<translation id="1493892686965953381">Oczekiwanie na <ph name="LOAD_STATE_PARAMETER" />...</translation>
+<translation id="1493892686965953381">Czekam na <ph name="LOAD_STATE_PARAMETER" />...</translation>
 <translation id="1493974697212162251"><ph name="ORIGIN" /> chce się połączyć z:</translation>
 <translation id="1495486559005647033">Inne dostępne urządzenia (<ph name="NUM_PRINTERS" />).</translation>
 <translation id="1497296278783728207">Piaskownica Seccomp-BPF obsługuje TSYNC</translation>
@@ -764,7 +764,6 @@
 <translation id="2025632980034333559">Rozszerzenie <ph name="APP_NAME" /> uległo awarii. Kliknij ten dymek, aby uruchomić je ponownie.</translation>
 <translation id="2028531481946156667">Nie można rozpocząć procesu formatowania.</translation>
 <translation id="2028997212275086731">Archiwum RAR</translation>
-<translation id="2031024818991965590">Skanowanie kart przy płatnościach internetowych</translation>
 <translation id="203168018648013061">Błąd synchronizacji: zresetuj synchronizację za pomocą Panelu Google.</translation>
 <translation id="2031695690821674406">Hasła są automatycznie uzupełniane, gdy użytkownik sam wybierze konto, a nie podczas wczytywania strony.</translation>
 <translation id="2034346955588403444">Dodaj inną sieć Wi-Fi</translation>
@@ -1628,7 +1627,7 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="3108145564672865299">Blokowanie orientacji ekranu</translation>
 <translation id="3108967419958202225">Wybierz</translation>
 <translation id="3112378005171663295">Zwiń</translation>
-<translation id="3115147772012638511">Oczekiwanie na pamięć podręczną...</translation>
+<translation id="3115147772012638511">Czekam na pamięć podręczną...</translation>
 <translation id="3116361045094675131">Klawiatura brytyjska</translation>
 <translation id="3117812041123364382">Włącz/wyłącz swobodną klawiaturę wirtualną.</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME" /> – pomoc</translation>
@@ -1775,7 +1774,7 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="3303818374450886607">Kopie</translation>
 <translation id="3303855915957856445">Brak wyników wyszukiwania</translation>
 <translation id="3305389145870741612">Proces formatowania może potrwać kilka sekund. Czekaj.</translation>
-<translation id="3305661444342691068">Otwieraj podgląd plików PDF.</translation>
+<translation id="3305661444342691068">Otwieraj podgląd plików PDF</translation>
 <translation id="3306684685104080068">Włącz przesyłanie do usług w chmurze takich jak Google Hangouts.</translation>
 <translation id="3307950238492803740">Debuguj wszystko.</translation>
 <translation id="3308006649705061278">Jednostka organizacyjna (OU)</translation>
@@ -1917,7 +1916,7 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="3484869148456018791">Pobierz nowy certyfikat</translation>
 <translation id="3487007233252413104">funkcja anonimowa</translation>
 <translation id="348771913750618459">Procesy logowania oparte na iframe</translation>
-<translation id="348780365869651045">Oczekiwanie na pamięć podręczną aplikacji...</translation>
+<translation id="348780365869651045">Czekam na pamięć podręczną aplikacji...</translation>
 <translation id="3488065109653206955">Częściowo aktywowane</translation>
 <translation id="3489147694311384940">Obsługa zapisu MTP w interfejsie API systemu plików (i menedżerze plików). Operacje szybkiej edycji nie są obsługiwane.</translation>
 <translation id="3493881266323043047">Ważność</translation>
@@ -3358,7 +3357,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5434437302044090070">Włącza eksperymentalną obsługę Chromecasta w aplikacji odtwarzacza wideo w Chrome OS.</translation>
 <translation id="5434706434408777842">F3</translation>
 <translation id="5436430103864390185">Niestandardowe kształty okien nie są obsługiwane.</translation>
-<translation id="5436492226391861498">Trwa oczekiwanie na tunel serwera proxy...</translation>
+<translation id="5436492226391861498">Czekam na tunel serwera proxy...</translation>
 <translation id="5436510242972373446">Wyszukiwanie w <ph name="SITE_NAME" />:</translation>
 <translation id="5438224778284622050">Usunąć pliki offline?</translation>
 <translation id="5438430601586617544">(Brak pakietu)</translation>
@@ -3811,7 +3810,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="6064217302520318294">Blokada ekranu</translation>
 <translation id="6065289257230303064">Atrybuty katalogu podmiotu certyfikatu</translation>
 <translation id="6071181508177083058">potwierdź hasło</translation>
-<translation id="6073903501322152803">Dodaj funkcje ułatwień dostępu</translation>
+<translation id="6073903501322152803">Dodaj ułatwienia dostępu</translation>
 <translation id="6074825444536523002">Formularz Google</translation>
 <translation id="6075731018162044558">Ups. System nie może uzyskać długoterminowego tokenu dostępu API dla tego urządzenia.</translation>
 <translation id="6075907793831890935">Wymiana danych z urządzeniem o nazwie <ph name="HOSTNAME" /></translation>
@@ -4005,7 +4004,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="6333834492048057036">Zaznacz pasek adresu, by przeprowadzić wyszukiwanie</translation>
 <translation id="6339034549827494595">Klawiatura rosyjska – fonetyczna (AATSEEL)</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
-<translation id="6341850831632289108">Wykrywać Twoją lokalizację fizyczną</translation>
+<translation id="6341850831632289108">Wykrywanie Twojej lokalizacji</translation>
 <translation id="634208815998129842">Menedżer zadań</translation>
 <translation id="6344170822609224263">Lista dostępu połączeń sieciowych</translation>
 <translation id="6344584046526421554">Eksperymentalne ułatwienia dostępu</translation>
@@ -4014,7 +4013,6 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="6349839454356033837">Android ma problemy z odtwarzaniem multimediów.</translation>
 <translation id="6351063337294363751">Używając tego menu, możesz wyczyścić dane przeglądania</translation>
 <translation id="6353618411602605519">Klawiatura chorwacka</translation>
-<translation id="6356558429970749205">Włącz skanowanie OCR kart kredytowych z poziomu UI na potrzeby interfejsu API płatności internetowych</translation>
 <translation id="6356936121715252359">Ustawienia pamięci programu Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Witamy w rodzinie <ph name="SHORT_PRODUCT_NAME" />. To nie jest zwyczajny komputer.</translation>
 <translation id="6361850914223837199">Szczegóły błędu:</translation>
@@ -4353,6 +4351,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="6828860976882136098">Nie można skonfigurować automatycznych aktualizacji dla wszystkich użytkowników (błąd wykonania procesu wstępnego: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Uzyskaj pomoc związaną z urządzeniem <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Zarejestruj się w organizacji</translation>
+<translation id="682971198310367122">Polityka prywatności Google</translation>
 <translation id="6830590476636787791">Animowane przejścia w samouczku po pierwszym uruchomieniu</translation>
 <translation id="6830728435402077660">Niebezpieczna</translation>
 <translation id="6831043979455480757">Tłumacz</translation>
@@ -5133,7 +5132,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="7915857946435842056">Włącz funkcje eksperymentalne dla widoków wprowadzania danych IME.</translation>
 <translation id="7917972308273378936">Klawiatura litewska</translation>
 <translation id="7925192822915865931">Włącz zapisywanie offline ostatnio odwiedzanych stron</translation>
-<translation id="7925285046818567682">Oczekiwanie na <ph name="HOST_NAME" />...</translation>
+<translation id="7925285046818567682">Czekam na <ph name="HOST_NAME" />...</translation>
 <translation id="7925686952655276919">Nie synchronizuj przez połączenie komórkowe</translation>
 <translation id="7928710562641958568">Odłącz urządzenie</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> udostępnia ekran i dźwięk.</translation>
@@ -5182,7 +5181,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="7986075254672229615">Włącza eksperymentalną implementację interfejsu API Credential Manager. Włącz to tylko wtedy, gdy na pewno wiesz, co robisz.</translation>
 <translation id="7986295104073916105">Odczytywanie i zmienianie ustawień zapisanych haseł</translation>
 <translation id="7987485481246785146">Klawiatura dla języka sorani oparta na arabskiej</translation>
-<translation id="7988355189918024273">Włącz funkcje ułatwień dostępu</translation>
+<translation id="7988355189918024273">Włącz ułatwienia dostępu</translation>
 <translation id="7988930390477596403">Zostanie aktywowana, gdy następnym razem odblokujesz to urządzenie <ph name="DEVICE_TYPE" />. Dzięki funkcji Smart Lock Twój telefon odblokuje to urządzenie bez potrzeby podawania hasła. Aby aktywować Smart Lock, zostanie włączony Bluetooth.</translation>
 <translation id="7994370417837006925">Wielokrotne logowanie</translation>
 <translation id="799547531016638432">Usuń skrót</translation>

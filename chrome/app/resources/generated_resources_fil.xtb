@@ -764,7 +764,6 @@
 <translation id="2025632980034333559">Nag-crash ang <ph name="APP_NAME" />. Mag-click sa lobong ito upang i-reload ang extension.</translation>
 <translation id="2028531481946156667">Hindi masimulan ang proseso ng pag-format.</translation>
 <translation id="2028997212275086731">Archive na RAR</translation>
-<translation id="2031024818991965590">Mag-scan ng Mga Card sa Mga Pagbabayad sa Web</translation>
 <translation id="203168018648013061">Error sa Pag-sync: Mangyaring i-reset ang Pag-sync sa pamamagitan ng Google Dashboard.</translation>
 <translation id="2031695690821674406">Pupunan ang mga password kapag malinaw na pinili ng user ang isang account sa halip na i-autofill ang mga kredensyal kapag na-load ang page.</translation>
 <translation id="2034346955588403444">Magdagdag ng isa pang Wi-Fi network</translation>
@@ -4019,7 +4018,6 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="6349839454356033837">Nagkakaproblema ang Android sa pagpe-play ng media.</translation>
 <translation id="6351063337294363751">Maaari mong i-clear ang iyong data mula sa pagba-browse sa menu na ito</translation>
 <translation id="6353618411602605519">Croatian na keyboard</translation>
-<translation id="6356558429970749205">I-enable ang pag-ii-scan ng OCR ng mga credit card mula sa UI para sa web payments API</translation>
 <translation id="6356936121715252359">Mga setting sa imbakan ng Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Welcome sa pamilya ng <ph name="SHORT_PRODUCT_NAME" />. Hindi ito ordinaryong computer.</translation>
 <translation id="6361850914223837199">Mga detalye ng error:</translation>
@@ -4358,6 +4356,7 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="6828860976882136098">Hindi na-set up ang mga awtomatikong pag-update para sa lahat ng user (error sa pagpapatupad sa preflight: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Makakuha ng tulong sa iyong <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">I-enroll sa iyong organisasyon</translation>
+<translation id="682971198310367122">Patakaran sa privacy ng Google</translation>
 <translation id="6830590476636787791">Mga naka-animate na transition sa tutorial para sa unang pagpapatakbo</translation>
 <translation id="6830728435402077660">Hindi secure</translation>
 <translation id="6831043979455480757">Isalin</translation>

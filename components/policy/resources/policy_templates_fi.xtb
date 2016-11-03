@@ -911,7 +911,7 @@ Jos tätä asetusta ei ole määritetty, kaikentyyppisiä sovelluksia ja laajenn
 
       Pakottaa tekemään Google-verkkohaun kyselyt niin, että SafeSearch on aktiivinen, ja estää käyttäjiä muuttamasta tätä asetusta. Asetus myös pakottaa rajoitetun tilan käyttöönoton YouTubessa.
 
-      Jos otat tämän asetuksen käyttöön, Google-haun SafeSearch YouTuben keskitason rajoitettu tila ovat aina aktiivisia.
+      Jos otat tämän asetuksen käyttöön, Google-haun SafeSearch ja YouTuben keskitason rajoitettu tila ovat aina aktiivisia.
 
       Jos poistat tämän asetuksen käytöstä tai et määritä sille arvoa, Google-haun SafeSearchia tai YouTuben rajoitettua tilaa ei pakoteta.</translation>
 <translation id="3866249974567520381">Kuvaus</translation>

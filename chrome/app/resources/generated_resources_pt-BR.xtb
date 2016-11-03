@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> travou. Clique neste balão para recarregar a extensão.</translation>
 <translation id="2028531481946156667">Não foi possível iniciar o processo de formatação.</translation>
 <translation id="2028997212275086731">Arquivo RAR</translation>
-<translation id="2031024818991965590">Verificar cartões na API de pagamentos na Web</translation>
 <translation id="203168018648013061">Erro de sincronização: reinicie a sincronização através do Painel do Google.</translation>
 <translation id="2031695690821674406">Preenchimento de senhas quando uma conta está explicitamente selecionada pelo usuário, em vez de preenchimento automático de credenciais no carregamento da página.</translation>
 <translation id="2034346955588403444">Adicionar outra rede Wi-Fi</translation>
@@ -4015,7 +4014,6 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6349839454356033837">O Android encontrou problemas para reproduzir a mídia.</translation>
 <translation id="6351063337294363751">É possível limpar seus dados de navegação desse menu</translation>
 <translation id="6353618411602605519">Teclado croata</translation>
-<translation id="6356558429970749205">Ativar verificação OCR de cartões de crédito da IU para a API de pagamentos na Web</translation>
 <translation id="6356936121715252359">Configurações de armazenamento do Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Bem-vindo à família do <ph name="SHORT_PRODUCT_NAME" />. Este não é um computador qualquer.</translation>
 <translation id="6361850914223837199">Detalhes do erro:</translation>
@@ -4354,6 +4352,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6828860976882136098">Falha ao configurar atualizações automáticas para todos os usuários (erro de execução de simulação: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Receber ajuda para o <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Registrar na sua organização</translation>
+<translation id="682971198310367122">Política de privacidade do Google</translation>
 <translation id="6830590476636787791">Transições animadas no tutorial de primeira execução</translation>
 <translation id="6830728435402077660">Não seguro</translation>
 <translation id="6831043979455480757">Traduzir</translation>

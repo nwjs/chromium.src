@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> ተሰናክሏል። ቅጥያውን ዳግም ለመጫን ይህን ፊኛ ጠቅ ያድርጉ።</translation>
 <translation id="2028531481946156667">የቅርጸት ስራ ሂደቱን መጀመር አልተቻለም።</translation>
 <translation id="2028997212275086731">RAR ማህደር</translation>
-<translation id="2031024818991965590">በድር ክፍያዎች ውስጥ ካርዶችን ይቃኙ</translation>
 <translation id="203168018648013061">የማመሳሰል ስህተት፦ እባክዎ ማመሳሰልን በGoogle Dashboard  በኩል ዳግም ያስጀምሩት።</translation>
 <translation id="2031695690821674406">ገጽ ሲጫን ምስክርነቶችን ከበራስ-መሙላት ይልቅ አንድ መለያ በግልጽ በተጠቃሚው ሲመረጥ የይለፍ ቃላትን መሙላት።</translation>
 <translation id="2034346955588403444">ሌላ የWiFi አውታረ መረብ አክል</translation>
@@ -4014,7 +4013,6 @@
 <translation id="6349839454356033837">Android ሚዲያን ማጫወት ላይ እየተቸገረ ነው።</translation>
 <translation id="6351063337294363751">የእርስዎን የአሰሳ አደራረግ ውሂብ ከዚህ ምናሌ ላይ ማጽዳት ይችላሉ</translation>
 <translation id="6353618411602605519">የክሮሺያኛ ቁልፍ ሰሌዳ</translation>
-<translation id="6356558429970749205">ለድር ክፍያዎች ኤፒአይ ከዩአይ የክሬዲት ካርዶች OCR ቅኝትን አንቃ</translation>
 <translation id="6356936121715252359">የAdobe Flash Player ማከማቺያ ቅንብሮች …</translation>
 <translation id="6357619544108132570">እንኳን ወደ የ<ph name="SHORT_PRODUCT_NAME" /> ቤተሰብ በደህና መጡ። ይሄ የተለመደው ኮምፒውተር አይደለም።</translation>
 <translation id="6361850914223837199">የስህተት ዝርዝሮች፦</translation>
@@ -4353,6 +4351,7 @@
 <translation id="6828860976882136098">ለሁሉም ተጠቃሚዎች የራስ-ሰር ዝማኔዎችን ማዋቀር አልተሳካም (የቅድመ በረራ አፈጻጸም ስህተት፦ <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">በእርስዎ <ph name="DEVICE_TYPE" /> እገዛ ያግኙ።</translation>
 <translation id="6829270497922309893">በእርስዎ ድርጅት ውስጥ ይመዝገቡ</translation>
+<translation id="682971198310367122">የGoogle ግላዊነት መመሪያ</translation>
 <translation id="6830590476636787791">በመጀመሪያ ሂደት አጋዥ ስልጠና ላይ በእነማ የቀረቡ ሽግግሮች</translation>
 <translation id="6830728435402077660">ደህንነቱ አልተጠበቀም</translation>
 <translation id="6831043979455480757">መተርጎም</translation>

@@ -305,7 +305,7 @@
       Hvis HardwareAccelerationModeEnabled settes til false (usann), ignoreres Disable3DAPIs, og det gir samme effekt som å sette Disable3DAPIs til true (sann).</translation>
 <translation id="2168397434410358693">Inaktivitetsforsinkelse når enheten kjører på vekselstrøm</translation>
 <translation id="2170233653554726857">Slå på WPAD-optimalisering</translation>
-<translation id="2178899310296064282">Fremtving bruk av minst Moderat begrenset innhold-modus på YouTube</translation>
+<translation id="2178899310296064282">Fremtving bruk av minst moderat nivå for Begrenset innhold-modus på YouTube</translation>
 <translation id="2188979373208322108">Aktiverer bokmerkeraden i <ph name="PRODUCT_NAME" />.
 
       Hvis du aktiverer denne innstillingen, viser <ph name="PRODUCT_NAME" /> en bokmerkerad.
@@ -793,14 +793,14 @@
 <translation id="3418871497193485241">Fremtvinger bruk av et minimumsnivå for Begrenset innhold-modusen på YouTube og hindrer brukerne
       i å velge en mindre begrenset modus.
 
-      Hvis denne innstillingen er angitt som Streng, er Begrenset innhold-modusen på YouTube alltid
-      aktiv.
+      Hvis denne innstillingen er angitt som Streng (Strict), er
+      Begrenset innhold-modusen på YouTube alltid aktiv.
 
-      Hvis denne innstillingen er angitt som Moderat, kan brukerne bare velge mellom
-      Moderat begrenset innhold-modus og Streng begrenset innhold-modus på YouTube, men
+      Hvis denne innstillingen er angitt som Moderat (Moderate), kan brukerne
+      velge mellom moderat eller strengt nivå for begrenset innhold-modus, men
       de kan ikke slå av Begrenset innhold-modusen.
 
-      Hvis denne innstillingen er angitt som av, eller hvis ingen verdi er angitt, fremtvinger ikke <ph name="PRODUCT_NAME" /> bruk av Begrenset innhold-modusen. Eksterne regler, for eksempel YouTube-regler, kan imidlertid fortsatt fremtvinge bruk av Begrenset innhold-modusen.</translation>
+      Hvis denne innstillingen er angitt som av (Off), eller hvis ingen verdi er angitt, fremtvinger ikke <ph name="PRODUCT_NAME" /> bruk av Begrenset innhold-modusen. Eksterne regler, for eksempel YouTube-regler, kan imidlertid fortsatt fremtvinge bruk av Begrenset innhold-modusen.</translation>
 <translation id="3428247105888806363">Slå på nettverksforutsigelse</translation>
 <translation id="3449886121729668969">Konfigurerer innstillingene for proxy-tjenere for <ph name="PRODUCT_NAME" />. Disse er også tilgjengelige for ARC-apper.
 
@@ -917,8 +917,9 @@
 <translation id="3851039766298741586">Rapportér informasjon om den aktive kioskøkten, for eksempel
       app-ID og -versjon.
 
-      Hvis regelen settes til false (usann), rapporteres ikke informasjonen om kioskøkten.
-      Hvis den settes til true (sann) eller ikke angis, rapporteres informasjonen om kioskøkten.</translation>
+      Hvis regelen settes til false (usann), rapporteres ikke
+      informasjonen om kioskøkten. Hvis den settes til true (sann)
+      eller ikke angis, rapporteres informasjonen om kioskøkten.</translation>
 <translation id="3859780406608282662">Legg til en parameter i hentingen av Variasjoner-utgangsverdien i <ph name="PRODUCT_OS_NAME" />.
 
       Hvis dette er angitt, legges en søkeordsparameter kalt «restrict» til i nettadressen som blir brukt til Variasjoner-utgangsverdien. Verdien for parameteren er den samme som er angitt i denne regelen.
@@ -933,11 +934,11 @@
 
           Denne regelen gjelder bare hvis regelen DefaultSearchProviderEnabledpolicy er slått på.</translation>
 <translation id="3864818549971490907">Standardinnstilling for programtillegg</translation>
-<translation id="386487026071140458">Denne regelen er avviklet. Bruk <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" /> og <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> i stedet. Denne regelen ignoreres hvis <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" />-, <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />- eller (den avviklede) <ph name="FORCEYOUTUBESAFETYMODE_POLICY_NAME" />-regelen er angitt.
+<translation id="386487026071140458">Denne regelen er avviklet. Bruk <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" /> og <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> i stedet. Denne regelen ignoreres hvis regelen <ph name="FORCEGOOGLESAFESEARCH_POLICY_NAME" />, <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" /> eller <ph name="FORCEYOUTUBESAFETYMODE_POLICY_NAME" /> (som er avviklet) er angitt.
 
-      Fremtvinger at søk i Google Nettsøk gjøres med Sikkert Søk aktivert, og hindrer brukere i å endre denne innstillingen. Denne innstillingen fremtvinger også bruk av Moderat begrenset innhold-modus på YouTube.
+      Fremtvinger at søk i Google Nettsøk gjøres med Sikkert Søk aktivert, og hindrer brukere i å endre denne innstillingen. Denne innstillingen fremtvinger også bruk av moderat nivå for Begrenset innhold-modus på YouTube.
 
-      Hvis du slår på denne innstillingen, er alltid Sikkert Søk i Google Søk og Moderat begrenset innhold-modus på YouTube aktivert.
+      Hvis du slår på denne innstillingen, er alltid Sikkert Søk i Google Søk og moderat nivå for Begrenset innhold-modus på YouTube aktivert.
 
       Hvis du slår av denne innstillingen eller ikke angir noen verdi, blir verken Sikkert Søk i Google Søk eller Begrenset innhold-modus på YouTube tvunget brukt.</translation>
 <translation id="3866249974567520381">Beskrivelse</translation>
@@ -1327,9 +1328,9 @@
 <translation id="5423197884968724595">Navn på Android WebView-begrensning:</translation>
 <translation id="543559563129402336">Denne regelen er avviklet. Du kan bruke <ph name="FORCEYOUTUBERESTRICT_POLICY_NAME" />, som overstyrer denne regelen og tillater mer detaljert justering.
 
-      Fremtvinger bruk av Moderat begrenset innhold-modusen på YouTube og hindrer brukere i å endre denne innstillingen.
+      Fremtvinger bruk av moderat nivå for Begrenset innhold-modusen på YouTube og hindrer brukere i å endre denne innstillingen.
 
-      Hvis denne innstillingen er slått på, blir Begrenset innhold-modusen på YouTube tvunget til alltid å være minst Moderat.
+      Hvis denne innstillingen er slått på, blir Begrenset innhold-modusen på YouTube tvunget til alltid å være minst på moderat nivå.
 
       Hvis denne innstillingen er slått av eller ingen verdi er angitt, fremtvinger ikke <ph name="PRODUCT_NAME" /> bruk av Begrenset innhold-modusen på YouTube. Eksterne regler, for eksempel YouTube-regler, kan imidlertid fortsatt fremtvinge bruk av Begrenset innhold-modusen.</translation>
 <translation id="5447306928176905178">Slå på rapportering av minneinformasjon (heap-størrelse for JavaScript) til siden (avviklet)</translation>
@@ -1776,7 +1777,7 @@ skjermtastaturet når som helst og statusen den har på påloggingsskjermen er v
 <translation id="6828905844648501476">Hvis denne regelen settes til true (sann) eller ikke konfigureres, tillater <ph name="PRODUCT_NAME" /> «Legg til person» fra brukerbehandlingen.
 
       Hvis denne regelen settes til false (usann), tillater ikke <ph name="PRODUCT_NAME" /> opprettelse av nye profiler fra profilbehandlingen.</translation>
-<translation id="685769593149966548">Fremtvinger bruk av Streng begrenset innhold-modus for YouTube</translation>
+<translation id="685769593149966548">Fremtvinger bruk av strengt nivå for Begrenset innhold-modus på YouTube</translation>
 <translation id="687046793986382807">Disse retningslinjene ble avviklet fra og med versjon 35 av <ph name="PRODUCT_NAME" />.
 
 Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alternativet, men de rapporterte størrelsene blir kvantisert, og oppdateringsfrekvensen er av sikkerhetsgrunner begrenset. Hvis du vil ha data med sanntidspresisjon, må du bruke verktøy som telemetri (fjernmåling).</translation>

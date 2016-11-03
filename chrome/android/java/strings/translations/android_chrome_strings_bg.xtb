@@ -339,6 +339,7 @@
 <translation id="5039804452771397117">Разрешаване</translation>
 <translation id="5040262127954254034">Поверителност</translation>
 <translation id="5063480226653192405">Употреба</translation>
+<translation id="5087580092889165836">Добавяне на карта</translation>
 <translation id="5100237604440890931">Свито – кликнете за разгъване.</translation>
 <translation id="510275257476243843">Остава 1 час</translation>
 <translation id="5127805178023152808">Синхронизирането е изключено</translation>
@@ -538,7 +539,6 @@
 <translation id="7208788139759694678">Деактивирахте Икономия на данни</translation>
 <translation id="7243308994586599757">Опциите са в долната част на екрана</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> използва местоположението ви, за да показва резултати от местното търсене</translation>
-<translation id="7347770551817603360">Офлайн съдържание</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Споделяне на 1 избран елемент}other{Споделяне на # избрани елемента}}</translation>
 <translation id="7366340029385295517">Предава се към „<ph name="SCREEN_NAME" />“</translation>
 <translation id="7375125077091615385">Тип:</translation>

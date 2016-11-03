@@ -764,7 +764,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" /> ha deixat de funcionar. Feu clic en aquest globus per tornar a carregar l'extensió.</translation>
 <translation id="2028531481946156667">No s'ha pogut iniciar el procés de format.</translation>
 <translation id="2028997212275086731">Arxiu RAR</translation>
-<translation id="2031024818991965590">Escaneja les targetes als pagaments web</translation>
 <translation id="203168018648013061">Error de sincronització: restabliu la sincronització mitjançant Tauler de Google.</translation>
 <translation id="2031695690821674406">S'emplenen les contrasenyes quan l'usuari selecciona un compte de manera explícita en comptes d'emplenar automàticament les credencials en carregar la pàgina.</translation>
 <translation id="2034346955588403444">Afegeix una altra xarxa Wi-Fi</translation>
@@ -4011,7 +4010,6 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="6349839454356033837">Android té problemes per reproduir els fitxers multimèdia.</translation>
 <translation id="6351063337294363751">Pots esborrar les dades de navegació des d'aquest menú</translation>
 <translation id="6353618411602605519">Teclat croat</translation>
-<translation id="6356558429970749205">Activa l'escaneig amb ROC de targetes de crèdit des de la interfície d'usuari per a l'API de pagaments web</translation>
 <translation id="6356936121715252359">Configuració d'emmagatzematge d'Adobe Flash Player...</translation>
 <translation id="6357619544108132570">Us donem la benvinguda a la família <ph name="SHORT_PRODUCT_NAME" />. Aquest no és un ordinador convencional.</translation>
 <translation id="6361850914223837199">Detalls de l'error:</translation>
@@ -4349,6 +4347,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="6828860976882136098">No s'han pogut configurar actualitzacions automàtiques per a tots els usuaris (error d'execució preliminar: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Obteniu ajuda per al dispositiu <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Inscripció a la vostra organització</translation>
+<translation id="682971198310367122">Política de privadesa de Google</translation>
 <translation id="6830590476636787791">Transicions animades al tutorial de la primera execució</translation>
 <translation id="6830728435402077660">No segura</translation>
 <translation id="6831043979455480757">Tradueix</translation>

@@ -765,7 +765,6 @@
 <translation id="2025632980034333559"><ph name="APP_NAME" />이(가) 다운되었습니다. 확장 프로그램을 다시 로드하려면 이 풍선을 클릭하세요.</translation>
 <translation id="2028531481946156667">포맷을 시작하지 못했습니다.</translation>
 <translation id="2028997212275086731">RAR 압축 파일</translation>
-<translation id="2031024818991965590">웹 결제에서 카드 스캔</translation>
 <translation id="203168018648013061">동기화 오류: Google 대시보드를 통해 동기화를 다시 설정하세요.</translation>
 <translation id="2031695690821674406">사용자가 계정을 명시적으로 선택한 경우 페이지 로드 시 사용자 인증 정보를 자동완성하지 않고 비밀번호를 입력합니다.</translation>
 <translation id="2034346955588403444">다른 Wi-Fi 네트워크 추가</translation>
@@ -4017,7 +4016,6 @@
 <translation id="6349839454356033837">Android에서 미디어를 재생하는 중에 문제가 발생했습니다.</translation>
 <translation id="6351063337294363751">이 메뉴에서 인터넷 사용 기록을 삭제할 수 있습니다.</translation>
 <translation id="6353618411602605519">크로아티아어 키보드</translation>
-<translation id="6356558429970749205">UI에서 web payments API에 대한 신용카드 OCR 스캔 사용</translation>
 <translation id="6356936121715252359">Adobe Flash Player 저장공간 설정...</translation>
 <translation id="6357619544108132570"><ph name="SHORT_PRODUCT_NAME" /> 가족이 되신 것을 환영합니다. 뛰어난 기능을 경험해 보세요.</translation>
 <translation id="6361850914223837199">오류 세부정보:</translation>
@@ -4356,6 +4354,7 @@
 <translation id="6828860976882136098">모든 사용자에 대해 자동 업데이트를 설정하지 못했습니다(프리플라이트 실행 오류: <ph name="ERROR_NUMBER" />).</translation>
 <translation id="6829250331733125857"><ph name="DEVICE_TYPE" /> 사용과 관련하여 도움을 받으세요.</translation>
 <translation id="6829270497922309893">조직에 등록</translation>
+<translation id="682971198310367122">Google 개인정보취급방침</translation>
 <translation id="6830590476636787791">첫 실행 가이드에서 전환을 애니메이션으로 실행</translation>
 <translation id="6830728435402077660">안전하지 않음</translation>
 <translation id="6831043979455480757">번역</translation>

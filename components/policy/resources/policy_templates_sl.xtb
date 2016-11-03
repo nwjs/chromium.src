@@ -307,7 +307,7 @@ Vrednost prilagoditve mora biti 100 % ali več.</translation>
       Če je pravilnik HardwareAccelerationModeEnabled onemogočen, se pravilnik Disable3DAPIs prezre in je enako, kot če je pravilnik Disable3DAPIs omogočen.</translation>
 <translation id="2168397434410358693">Časovni zamik nedejavnosti ob napajanju iz električnega omrežja</translation>
 <translation id="2170233653554726857">Omogočanje optimizacije za WPAD</translation>
-<translation id="2178899310296064282">Uveljavitev vsaj zmerno omejenega načina v YouTubu</translation>
+<translation id="2178899310296064282">Uveljavitev vsaj Zmerno omejenega načina v YouTubu</translation>
 <translation id="2188979373208322108">Omogoča vrstico zaznamkov v brskalniku <ph name="PRODUCT_NAME" />.
 
      Če to nastavitev omogočite, bo <ph name="PRODUCT_NAME" /> prikazoval vrstico z zaznamki.
@@ -969,7 +969,7 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 
       Če to nastavitev omogočite, sta Varno iskanje v Iskanju Google in Zmerno omejeni način v YouTubu vedno aktivna.
 
-      Če to nastavitev onemogočite ali ne nastavite vrednosti, Varno iskanje v Iskanju Google in Omejeni način v YouTubu nista uveljavljena.</translation>
+      Če to nastavitev onemogočite ali ne nastavite vrednosti, Varno iskanje v Iskanju Google in Omejeni način v YouTubu nista vsiljena.</translation>
 <translation id="3866249974567520381">Opis</translation>
 <translation id="3866530186104388232">Če je pravilnik omogočen ali ni nastavljen, <ph name="PRODUCT_OS_NAME" /> prikaže obstoječe uporabnike na zaslonu za prijavo, ki jih je mogoče izbrati. Če je pravilnik onemogočen, <ph name="PRODUCT_OS_NAME" /> za prijavo uporabi polje za vnos uporabniškega imena/gesla.</translation>
 <translation id="3868347814555911633">Ta pravilnik je aktiven samo v maloprodajnem načinu.
@@ -1822,7 +1822,7 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
 <translation id="6828905844648501476">Če je ta pravilnik omogočen ali ni nastavljen, <ph name="PRODUCT_NAME" /> dovoli dodajanje osebe v upravitelju uporabnikov.
 
       Če je ta pravilnik onemogočen, <ph name="PRODUCT_NAME" /> ne dovoli ustvarjanja novih profilov v upravitelju uporabnikov.</translation>
-<translation id="685769593149966548">Uveljavitev Strogo omejena načina v YouTubu</translation>
+<translation id="685769593149966548">Uveljavitev Strogo omejenega načina v YouTubu</translation>
 <translation id="687046793986382807">Ta pravilnik je zastaral in se ne uporablja več od različice 35 brskalnika <ph name="PRODUCT_NAME" />.
 
       Podatki o pomnilniku se vseeno pošiljajo strani, ne glede na vrednost možnosti, vendar se poslane vrednosti

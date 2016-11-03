@@ -1542,7 +1542,7 @@
 
       Als het beleid niet is ingesteld, of is ingesteld op 'onwaar', voert <ph name="PRODUCT_NAME" /> geen online intrekkingscontroles uit in <ph name="PRODUCT_NAME" /> 19 en hoger.</translation>
 <translation id="5966615072639944554">Extensies die toestemming hebben de API voor externe bevestiging te gebruiken</translation>
-<translation id="5974970919245996815">Rapportagegegevens over de status van Android wordt teruggestuurd naar
+<translation id="5974970919245996815">Rapportagegegevens over de status van Android worden teruggestuurd naar
       de server.
 
       Als het beleid is ingesteld op 'onwaar', wordt de informatie niet gerapporteerd.
@@ -1807,7 +1807,7 @@
 <translation id="6828905844648501476">Als dit beleid is ingesteld op 'waar' of niet is geconfigureerd, staat <ph name="PRODUCT_NAME" /> 'Persoon toevoegen' toe vanuit gebruikersbeheer.
 
       Als dit beleid is ingesteld op 'onwaar', staat <ph name="PRODUCT_NAME" /> het maken van nieuwe profielen niet toe vanuit profielbeheer.</translation>
-<translation id="685769593149966548">'Strenge 'Beperkte modus' voor YouTube afdwingen</translation>
+<translation id="685769593149966548">Strenge 'Beperkte modus' voor YouTube afdwingen</translation>
 <translation id="687046793986382807">Dit beleid wordt niet meer gebruikt sinds <ph name="PRODUCT_NAME" /> versie 35.
 
 Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien van de optiewaarde, maar de gerapporteerde grootten zijn gekwantiseerd en de snelheid van updates is om veiligheidsredenen beperkt. Om nauwkeurige realtime gegevens te verkrijgen, gebruik je tools zoals Telemetry.</translation>
