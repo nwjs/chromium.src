@@ -59,7 +59,7 @@
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
 <translation id="1077946062898560804">Postavi automatsko ažuriranje za sve korisnike</translation>
 <translation id="1079766198702302550">Uvijek blokiraj pristup kameri</translation>
-<translation id="1082398631555931481"><ph name="THIRD_PARTY_TOOL_NAME" /> želi vratiti vaše postavke Chromea na izvorne zadane vrijednosti. Time će se vaša početna stranica, stranica nove kartice i tražilica vratiti na zadano, proširenja će se onemogućiti, a sve kartice otkvačiti. Izbrisat će se i ostali privremeni podaci i podaci u predmemoriji, na primjer, kolačići te podaci sadržaja i web-lokacija.</translation>
+<translation id="1082398631555931481"><ph name="THIRD_PARTY_TOOL_NAME" /> želi vratiti vaše postavke Chromea na izvorne zadane vrijednosti. Time će se vaša početna stranica, stranica nove kartice i tražilica vratiti na zadano, proširenja će se onemogućiti, a sve kartice otkvačiti. Izbrisat će se i ostali privremeni podaci i podaci u predmemoriji, na primjer, kolačići te podaci o sadržaju i web-lokacijama.</translation>
 <translation id="1082725763867769612">Offline datoteke</translation>
 <translation id="1084824384139382525">Kopiraj adresu &amp;veze</translation>
 <translation id="1087119889335281750">&amp;Nema pravopisnih prijedloga</translation>
@@ -2164,7 +2164,7 @@ s <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3835522725882634757">O, ne! Poslužitelj šalje podatke koje <ph name="PRODUCT_NAME" /> ne razumije. <ph name="BEGIN_LINK" />Prijavite bug<ph name="END_LINK" /> i uključite <ph name="BEGIN2_LINK" />neobrađeni popis<ph name="END2_LINK" />.</translation>
 <translation id="383652340667548381">Srpski</translation>
 <translation id="3838486795898716504">Više za <ph name="PAGE_TITLE" /></translation>
-<translation id="3838543471119263078">Kolačići i ostali podaci web-lokacija i dodataka</translation>
+<translation id="3838543471119263078">Kolačići i ostali podaci o web-lokacijama i dodacima</translation>
 <translation id="3840053866656739575">Prekinuta je veza s vašim Chromeboxom. Približite se ili provjerite svoj uređaj tijekom pokušaja ponovnog povezivanja.</translation>
 <translation id="3840055807562919428">Onemogućuje dohvaćanja skripti treće strane za blokiranje raščlanjivača umetnute u glavni okvir putem funkcije document.write.</translation>
 <translation id="3842552989725514455">Font Serif</translation>

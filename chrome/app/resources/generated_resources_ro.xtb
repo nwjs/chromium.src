@@ -1806,7 +1806,7 @@ De la <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3386219708421216619">Marcajul a fost adăugat</translation>
 <translation id="3391392691301057522">Vechiul cod PIN:</translation>
 <translation id="3391716558283801616">Fila 7</translation>
-<translation id="3392020134425442298">Recuperați fișierul rău-intenționat</translation>
+<translation id="3392020134425442298">Recuperează fișierul rău-intenționat</translation>
 <translation id="3394150261239285340"><ph name="HOST" /> dorește să utilizeze camera foto și microfonul.</translation>
 <translation id="3394279550557729862">Activează compatibilitatea pentru folosirea notificărilor native și a centrului de notificări pe platformele unde acestea sunt disponibile.</translation>
 <translation id="3394862755749546286">Dezactivează canalul media unificat (Android și desktop) pe Android.</translation>
@@ -3075,7 +3075,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="5167131699331641907">Tastatură neerlandeză</translation>
 <translation id="5170477580121653719">Spațiu disponibil pe Disc Google: <ph name="SPACE_AVAILABLE" />.</translation>
 <translation id="5170568018924773124">Afișează în dosar</translation>
-<translation id="5171045022955879922">Căutați sau introduceți adresa URL</translation>
+<translation id="5171045022955879922">Caută sau introdu adresa URL</translation>
 <translation id="5171343362375269016">Dimensiunea memoriei de swap</translation>
 <translation id="5175870427301879686"><ph name="URL" /> vrea să stocheze permanent date pe computerul tău local.</translation>
 <translation id="5177479852722101802">Blocați în continuare accesul la cameră și microfon</translation>
@@ -4517,7 +4517,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="721331389620694978">Unele setări care pot reflecta obiceiurile tale de navigare nu vor fi șterse.</translation>
 <translation id="7214227951029819508">Luminozitate:</translation>
 <translation id="7215540216621698970">Lansează speculativ instrumentele Service Worker folosind evenimente tactile și cu mouse-ul.</translation>
-<translation id="7219357088166514551">Căutați cu <ph name="ENGINE" /> sau introduceți adresa URL</translation>
+<translation id="7219357088166514551">Caută cu <ph name="ENGINE" /> sau introdu adresa URL</translation>
 <translation id="722055596168483966">Personalizează serviciile Google</translation>
 <translation id="7221155467930685510">$1 GB</translation>
 <translation id="7221855153210829124">Afișeze notificări</translation>

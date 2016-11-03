@@ -665,7 +665,7 @@
 
       建議您讓伺服器改用 ECDHE 加密套件。如果無法使用 ECDHE 加密套件，請確定啟用的加密套件會使用 RSA 金鑰交換機制。</translation>
 <translation id="3153348162326497318">允許您指定使用者不得安裝的擴充功能。如果已安裝的擴充功能在黑名單中，就會遭到移除。星號「*」代表排除所有的擴充功能，除非您特別將部分擴充功能列入許可清單。如果未設定這項政策，使用者即可在「<ph name="PRODUCT_NAME" />」中安裝任何擴充功能。</translation>
-<translation id="316778957754360075">我們已於 <ph name="PRODUCT_NAME" /> 版本 29 移除這項設定。如要設定機構代管的擴充功能/應用程式集合，建議您將代管 CRX 封裝檔的網站加入 ExtensionInstallSources 中，並在網頁上提供該封裝檔的直接下載連結。您可以透過 ExtensionInstallForcelist 政策建立該網頁專用的啟動器。</translation>
+<translation id="316778957754360075">我們已於 <ph name="PRODUCT_NAME" /> 版本 29 移除這項設定。如要設定機構代管的擴充功能/應用程式系列，建議您將代管 CRX 封裝檔的網站加入 ExtensionInstallSources 中，並在網頁上提供該封裝檔的直接下載連結。您可以透過 ExtensionInstallForcelist 政策建立該網頁專用的啟動器。</translation>
 <translation id="3185009703220253572">自第 <ph name="SINCE_VERSION" /> 版起</translation>
 <translation id="318812033927804102">配置 <ph name="PRODUCT_NAME" /> 的擴充功能管理設定。
 

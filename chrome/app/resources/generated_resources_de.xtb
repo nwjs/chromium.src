@@ -2316,7 +2316,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="4078738236287221428">Aggressiv</translation>
 <translation id="408098233265424160">Entfernungserkennung für Smart Lock</translation>
 <translation id="4081683084140995376">VR-Shell aktivieren.</translation>
-<translation id="4081979157059999345">Link zur Remotepasswortverwaltung</translation>
+<translation id="4081979157059999345">Link zur Remote-Passwortverwaltung</translation>
 <translation id="4084682180776658562">Lesezeichen</translation>
 <translation id="4084835346725913160"><ph name="TAB_NAME" /> schließen</translation>
 <translation id="4085298594534903246">JavaScript wurde auf dieser Seite blockiert.</translation>
@@ -3408,7 +3408,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5618075537869101857">Die Kioskanwendung konnte nicht gestartet werden.</translation>
 <translation id="5618333180342767515">(dies kann einige Minuten dauern)</translation>
 <translation id="5618972959246891967">Systemdatum</translation>
-<translation id="56197088284879152">Die Verbindung mit folgendem Remotegerät ist überlastet: "<ph name="DEVICE_NAME" />".</translation>
+<translation id="56197088284879152">Die Verbindung mit folgendem Remote-Gerät ist überlastet: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="5620568081365989559">DevTools erfordert Vollzugriff auf <ph name="FOLDER_PATH" />. Achten Sie darauf, dass dadurch keine vertraulichen Informationen offengelegt werden.</translation>
 <translation id="5620612546311710611">Nutzungsstatistiken</translation>
 <translation id="5622017037336776003">PDF in Reader öffnen</translation>

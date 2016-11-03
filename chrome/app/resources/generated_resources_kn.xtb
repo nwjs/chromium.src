@@ -407,7 +407,7 @@
 <translation id="1531865825384516080">SafeSearch URL ಗಳ ವರದಿ ಮಾಡುವಿಕೆ.</translation>
 <translation id="1532697124104874386">ವರ್ಚ್ಯುಯಲ್ ಕೀಬೋರ್ಡ್‌ನ ಸ್ಮಾರ್ಟ್ ನಿಯೋಜನೆಯನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ/ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ.</translation>
 <translation id="1533897085022183721"><ph name="MINUTES" /> ಕ್ಕಿಂತ ಕಡಿಮೆ.</translation>
-<translation id="1533920822694388968">TV ಹೊಂದಾಣಿಕೆ</translation>
+<translation id="1533920822694388968">ಟಿವಿ ಹೊಂದಾಣಿಕೆ</translation>
 <translation id="15373452373711364">ದೊಡ್ಡ ಮೌಸ್ ಕರ್ಸರ್</translation>
 <translation id="1543284117603151572">Edge ನಿಂದ ಆಮದು ಮಾಡಿಕೊಳ್ಳಲಾಗಿದೆ</translation>
 <translation id="1544350195767834591">{NUM_COOKIES,plural, =1{ಇತರೆ ಸೈಟ್‌ಗಳಿಂದ 1}one{ಇತರೆ ಸೈಟ್‌ಗಳಿಂದ #}other{ಇತರೆ ಸೈಟ್‌ಗಳಿಂದ #}}</translation>
@@ -778,7 +778,7 @@
 <translation id="2077129598763517140">ಲಭ್ಯವಿರುವಾಗ ಹಾರ್ಡ್‌ವೇರ್ ಆಕ್ಸಲರೇಶನ್ ಬಳಸು</translation>
 <translation id="2078019350989722914">ಹೊರ ಬರುವುದಕ್ಕೂ ಮುನ್ನ ಎಚ್ಚರಿಸಿ (<ph name="KEY_EQUIVALENT" />)</translation>
 <translation id="2079053412993822885">ನಿಮ್ಮ ಸ್ವಂತ ಪ್ರಮಾಣಪತ್ರಗಳಲ್ಲಿ ಒಂದನ್ನು ಅಳಿಸಿದಲ್ಲಿ, ಅದನ್ನು ಬಳಸಿಕೊಂಡು ನಿಮ್ಮನ್ನು ನೀವು ಗುರುತಿಸಿಕೊಳ್ಳಲು ಇನ್ನೆಂದಿಗೂ ಸಾಧ್ಯವಾಗದೇ ಇರಬಹುದು. </translation>
-<translation id="2079545284768500474">ರದ್ದುಮಾಡು</translation>
+<translation id="2079545284768500474">ರದ್ದುಮಾಡಿ</translation>
 <translation id="2080010875307505892">ಸರ್ಬಿಯಾನ್ ಕೀಬೋರ್ಡ್</translation>
 <translation id="2080070583977670716">ಇನ್ನಷ್ಟು ಸೆಟ್ಟಿಂಗ್‌ಗಳು</translation>
 <translation id="2081322486940989439">ಈ ಸೈಟ್‌ Visa ಅನ್ನು ಸ್ವೀಕರಿಸುವುದಿಲ್ಲ.</translation>
@@ -967,7 +967,7 @@
 <translation id="2312980885338881851">ಓಹ್! ನೀವು ಆಮದು ಮಾಡಿಕೊಳ್ಳಲು ಯಾವುದೇ ಅಸ್ತಿತ್ವದಲ್ಲಿರುವ ಮೇಲ್ವಿಚಾರಣೆ ಬಳಕೆದಾರರನ್ನು ಹೊಂದಿಲ್ಲವೆಂದು ತೋರುತ್ತಿದೆ. ದಯವಿಟ್ಟು ಇನ್ನೊಂದು ಸಾಧನದಿಂದ ಒಂದು ಅಥವಾ ಹೆಚ್ಚಿನವುಗಳನ್ನು ರಚಿಸಿ, ನಂತರ ಅವುಗಳನ್ನು ನೀವು ಇಲ್ಲಿಗೆ ಆಮದು ಮಾಡಿಕೊಳ್ಳಬಹುದು.</translation>
 <translation id="231490303453288303">ಮುಖ್ಯ ಫ್ರೇಮ್‌ನ domContentLoaded (iframes ನಿರ್ಲಕ್ಷಿಸಲಾಗಿದೆ).</translation>
 <translation id="2316129865977710310">ಬೇಡ, ಧನ್ಯವಾದಗಳು</translation>
-<translation id="2317031807364506312">ರದ್ದುಮಾಡು</translation>
+<translation id="2317031807364506312">ರದ್ದುಮಾಡಿ</translation>
 <translation id="2318143611928805047">ಪೇಪರ್ ಗಾತ್ರ</translation>
 <translation id="2322193970951063277">ಶೀರ್ಷಿಕೆಗಳು ಮತ್ತು ಅಡಿಟಿಪ್ಪಣಿಗಳು</translation>
 <translation id="2325650632570794183">ಈ ಫೈಲ್ ಪ್ರಕಾರವು ಬೆಂಬಲಿಸುವುದಿಲ್ಲ. ದಯವಿಟ್ಟು ಈ ಪ್ರಕಾರ ಫೈಲ್ ತೆರೆಯಬಹುದಾದ ಅಪ್ಲಿಕೇಶನ್ ಹುಡುಕಲು Chrome ವೆಬ್ ಅಂಗಡಿಗೆ ಭೇಟಿ ನೀಡಿ.</translation>
@@ -2725,7 +2725,7 @@
 <translation id="4707579418881001319">L2TP/IPSec + ಬಳಕೆದಾರರ ಪ್ರಮಾಣಪತ್ರ</translation>
 <translation id="4707934200082538898">ದಯವಿಟ್ಟು ಮತ್ತಷ್ಟು ಸೂಚನೆಗಳಿಗಾಗಿ <ph name="BEGIN_BOLD" /><ph name="MANAGER_EMAIL" /><ph name="END_BOLD" /> ನಲ್ಲಿ ನಿಮ್ಮ ಇಮೇಲ್ ಪರಿಶೀಲಿಸಿ.</translation>
 <translation id="4708794300267213770">ನಿದ್ರಾವಸ್ಥೆಯಿಂದ ಹೊರಬರುವಾಗ ಲಾಕ್ ಪರದೆ ತೋರಿಸು</translation>
-<translation id="4708849949179781599"><ph name="PRODUCT_NAME" /> ನಿರ್ಗಮಿಸು</translation>
+<translation id="4708849949179781599"><ph name="PRODUCT_NAME" /> ನಿರ್ಗಮಿಸಿ</translation>
 <translation id="4709423352780499397">ಸ್ಥಳೀಯವಾಗಿ ಸಂಗ್ರಹಿಸಲಾದ ಡೇಟಾ</translation>
 <translation id="4709726535665440636">ಆಫ್‌ಸ್ಕ್ರೀನ್ ವಿಷಯ ಬದಲಾವಣೆಯಾದಾಗ ಗೋಚರಿಸುವ ಜಂಪ್‌ಗಳನ್ನು ತಡೆಗಟ್ಟಲು ಸ್ಕ್ರಾಲ್ ಸ್ಥಾನವನ್ನು ಸರಿಹೊಂದಿಸಿ.</translation>
 <translation id="4711094779914110278">ಟರ್ಕಿಶ್</translation>
@@ -2735,7 +2735,7 @@
 <translation id="4714531393479055912">ನಿಮ್ಮ ಪಾಸ್‌ವರ್ಡ್‌ಗಳನ್ನು <ph name="PRODUCT_NAME" /> ಇದೀಗ ಸಿಂಕ್ ಮಾಡಬಹುದು.</translation>
 <translation id="471800408830181311">ಖಾಸಗಿ ಕೀಲಿಯನ್ನು ಔಟ್‌ಪುಟ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ.</translation>
 <translation id="4720113199587244118">ಸಾಧನಗಳನ್ನು ಸೇರಿಸು</translation>
-<translation id="4722735886719213187">TV ಹೊಂದಾಣಿಕೆ:</translation>
+<translation id="4722735886719213187">ಟಿವಿ ಹೊಂದಾಣಿಕೆ:</translation>
 <translation id="4722920479021006856"><ph name="APP_NAME" /> ನಿಮ್ಮ ಪರದೆಯನ್ನು ಹಂಚಿಕೊಳ್ಳುತ್ತಿದೆ.</translation>
 <translation id="4724450788351008910">ಅನುದಾನವನ್ನು ಬದಲಾಯಿಸಲಾಗಿದೆ</translation>
 <translation id="4724850507808590449"><ph name="FILE_COUNT" /> ಫೋಟೋಗಳನ್ನು ಬ್ಯಾಕಪ್ ಮಾಡಲಾಗಿದೆ</translation>
@@ -4846,7 +4846,7 @@
 <translation id="7650701856438921772"><ph name="PRODUCT_NAME" /> ಅನ್ನು ಈ ಭಾಷೆಯಲ್ಲಿ ಪ್ರದರ್ಶಿಸಲಾಗುವುದು</translation>
 <translation id="7652808307838961528"><ph name="PROFILE_NAME" /> ವ್ಯಕ್ತಿಯನ್ನು ಎಡಿಟ್ ಮಾಡಿ</translation>
 <translation id="7654941827281939388">ಈ ಕಂಪ್ಯೂಟರ್‌ನಲ್ಲಿ ಈ ಖಾತೆಯನ್ನು ಈಗಾಗಲೇ ಬಳಸಲಾಗಿದೆ.</translation>
-<translation id="7658239707568436148">ರದ್ದುಮಾಡು</translation>
+<translation id="7658239707568436148">ರದ್ದುಮಾಡಿ</translation>
 <translation id="7659584679870740384">ನೀವು ಈ ಸಾಧನವನ್ನು ಬಳಸಲು ಪ್ರಮಾಣಿತರಾಗಿಲ್ಲ. ಸೈನ್-ಇನ್ ಅನುಮತಿಗಾಗಿ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ.</translation>
 <translation id="7661259717474717992">ಕುಕೀ ಡೇಟಾವನ್ನು ಉಳಿಸಲು ಮತ್ತು ಓದಲು ಸೈಟ್‌ಗಳಿಗೆ ಅನುಮತಿ ನೀಡಿ</translation>
 <translation id="7661451191293163002">ನೋಂದಣಿ ಪ್ರಮಾಣಪತ್ರವನ್ನು ಪಡೆದುಕೊಳ್ಳಲಾಗಲಿಲ್ಲ.</translation>
@@ -4925,7 +4925,7 @@
 <translation id="7782250248211791706">Google ಖಾತೆಯ ಸಂಪರ್ಕವನ್ನು ಕಡಿತಗೊಳಿಸಿ</translation>
 <translation id="778330624322499012"><ph name="PLUGIN_NAME" /> ಅನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ</translation>
 <translation id="7784067724422331729">ನಿಮ್ಮ ಕಂಪ್ಯೂಟರ್‌ನಲ್ಲಿ ಭದ್ರತೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು ಈ ಫೈಲ್ ಅನ್ನು ನಿರ್ಬಂಧಿಸಿದೆ.</translation>
-<translation id="7786207843293321886">ಅತಿಥಿ ಸೆಷನ್‌ನಿಂದ ನಿರ್ಗಮಿಸು</translation>
+<translation id="7786207843293321886">ಅತಿಥಿ ಸೆಷನ್‌ನಿಂದ ನಿರ್ಗಮಿಸಿ</translation>
 <translation id="7786889348652477777">ಅಪ್ಲಿಕೇಶನ್ &amp;ಮರುಲೋಡ್ ಮಾಡಿ</translation>
 <translation id="7787129790495067395">ನೀವು ಪ್ರಸ್ತುತ ಪಾಸ್‌ಫ್ರೇಸ್ ಅನ್ನು ಬಳಸುತ್ತಿರುವಿರಿ. ನಿಮ್ಮ ಪಾಸ್‌ಫ್ರೇಸ್ ಅನ್ನು ನೀವು ಮರೆತು ಹೋದಲ್ಲಿ, ನೀವು Google Dashboard ‌ನಲ್ಲಿ ಬಳಸುತ್ತಿರುವ Google ಸರ್ವರ್‌ನಿಂದ ನಿಮ್ಮ ಡೇಟಾವನ್ನು ತೆರವುಗೊಳಿಸಲು ಸಿಂಕ್ ಅನ್ನು ಮರುಹೊಂದಿಸಬಹುದು.</translation>
 <translation id="7787308148023287649">ಮತ್ತೊಂದು ಪರದೆಯಲ್ಲಿ ಪ್ರದರ್ಶಿಸಿ</translation>
@@ -4969,7 +4969,7 @@
 <translation id="7842346819602959665">"<ph name="EXTENSION_NAME" />" ವಿಸ್ತರಣೆಯ ಹೊಸ ಆವೃತ್ತಿಗೆ ಹೆಚ್ಚಿನ ಅನುಮತಿಯ ಅಗತ್ಯವಿದೆ, ಆದ್ದರಿಂದ ಇದನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ.</translation>
 <translation id="7844992432319478437">ವ್ಯತ್ಯಾಸವನ್ನು ನವೀಕರಿಸಲಾಗುತ್ತಿದೆ</translation>
 <translation id="7845920762538502375">ಸಿಂಕ್‌ ಸರ್ವರ್‌ಗೆ ಸಂಪರ್ಕ ದೊರೆಯದ ಕಾರಣ <ph name="PRODUCT_NAME" /> ಗೆ ನಿಮ್ಮ ಡೇಟಾವನ್ನು ಸಿಂಕ್‌ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮರುಪ್ರಯತ್ನಿಸಲಾಗುತ್ತಿದೆ...</translation>
-<translation id="7846076177841592234">ಆಯ್ಕೆ ರದ್ದುಮಾಡು</translation>
+<translation id="7846076177841592234">ಆಯ್ಕೆ ರದ್ದುಮಾಡಿ</translation>
 <translation id="7846634333498149051">ಕೀಬೋರ್ಡ್</translation>
 <translation id="7847212883280406910"><ph name="IDS_SHORT_PRODUCT_OS_NAME" /> ಗೆ ಬದಲಾಯಿಸಲು Ctrl + Alt + S ಒತ್ತಿರಿ</translation>
 <translation id="7848981435749029886">ನಿಮ್ಮ ಕ್ಯಾಮರಾಗೆ ಪ್ರವೇಶವನ್ನು ನಿಮ್ಮ ನಿರ್ವಾಹಕರಿಂದ ನಿಯಂತ್ರಿಸಲಾಗಿದೆ.</translation>
@@ -5918,7 +5918,7 @@
 <translation id="914454691918598161">ಅಪ್ಲಿಕೇಶನ್ ಮೆನುವಿನಲ್ಲಿ ಅದನ್ನು ನಂತರ ಓದು ಅನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ.</translation>
 <translation id="9145718805518496796">ವಿಸ್ತರಣೆಗಳನ್ನು ಪ್ಯಾಕ್ ಮಾಡಿ...</translation>
 <translation id="9147392381910171771">&amp;ಆಯ್ಕೆಗಳು</translation>
-<translation id="9148058034647219655">ನಿರ್ಗಮಿಸು</translation>
+<translation id="9148058034647219655">ನಿರ್ಗಮಿಸಿ</translation>
 <translation id="9148126808321036104">ಪುನಃ ಸೈನ್ ಇನ್  ಆಗಿ</translation>
 <translation id="9149866541089851383">ಎಡಿಟ್...</translation>
 <translation id="9150045010208374699">ನಿಮ್ಮ ಕ್ಯಾಮರಾವನ್ನು ಬಳಸಿ</translation>

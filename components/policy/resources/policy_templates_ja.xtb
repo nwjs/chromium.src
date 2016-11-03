@@ -1770,7 +1770,7 @@ Active Directory ドメインに参加していない Windows インスタンス
           <ph name="PRODUCT_NAME" /> が「バックグラウンド モード」で動作している場合、最後のブラウザ ウィンドウを閉じてもセッションが終了せず、ブラウザを終了するまでアクティブなままになることがあります。この動作の設定について詳しくは、「BackgroundModeEnabled」ポリシーをご覧ください。
 
           「RestoreOnStartup」ポリシーが前回のセッションから URL を復元するように設定されている場合、このポリシーは適用されず、該当するサイトの Cookie は永続的に保存されます。</translation>
-<translation id="7207095846245296855">Google SafeSearch を強制適用する</translation>
+<translation id="7207095846245296855">Google セーフサーチを強制する</translation>
 <translation id="7216442368414164495">セーフ ブラウジングの詳細レポートを有効にすることをユーザーに許可する</translation>
 <translation id="7227967227357489766">デバイスへのログインを許可するユーザーのリストを定義します。エントリの形式は <ph name="USER_WHITELIST_ENTRY_FORMAT" /> です（例: <ph name="USER_WHITELIST_ENTRY_EXAMPLE" />）。ドメイン上の任意のユーザーを許可するには、<ph name="USER_WHITELIST_ENTRY_WILDCARD" /> のエントリ形式を使用します。
 
@@ -2339,11 +2339,11 @@ Active Directory ドメインに参加していない Windows インスタンス
       目的で使用されます。</translation>
 <translation id="8905426178924715309">このポリシーはサポート終了となりました。代わりに ForceGoogleSafeSearch と ForceYouTubeSafetyMode を使用してください。ForceGoogleSafeSearch ポリシーまたは ForceYouTubeSafetyMode ポリシーのいずれかが設定されている場合、このポリシーは無視されます。
 
-Google ウェブ検索のクエリの実行時に SafeSearch を強制適用するとともに、ユーザーによるこの設定の変更を禁止します。この設定により、YouTube でもセーフモードが強制適用されます。
+Google ウェブ検索のクエリの実行時にセーフサーチを強制的にオンにするとともに、ユーザーによるこの設定の変更を禁止します。この設定により、YouTube でもセーフモードが強制的に適用されます。
 
-この設定を有効にした場合、Google 検索と YouTube では SafeSearch が常時有効になります。
+この設定を有効にした場合、Google 検索と YouTube ではセーフサーチが常にオンになります。
 
-この設定を無効にするか値を設定していない場合、Google 検索と YouTube で SafeSearch は強制適用されません。</translation>
+この設定を無効にするか値を設定していない場合、Google 検索と YouTube でセーフサーチは強制されません。</translation>
 <translation id="8906768759089290519">ゲスト モードを有効にする</translation>
 <translation id="8908294717014659003">メディア キャプチャ デバイスのアクセスをウェブサイトに許可するかどうかを設定できます。デフォルトでメディア キャプチャ デバイスへのアクセスを許可するか、メディア キャプチャ デバイスへのアクセス要求がウェブサイトからあるたびにユーザーに確認することができます。
 

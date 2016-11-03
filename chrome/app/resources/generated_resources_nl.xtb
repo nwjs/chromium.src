@@ -3309,7 +3309,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5465122519792752163">Nepalees toetsenbord (InScript)</translation>
 <translation id="5465662442746197494">Heb je hulp nodig?</translation>
 <translation id="5469868506864199649">Italiaans</translation>
-<translation id="5469954281417596308">Bladwijzerbeheer</translation>
+<translation id="5469954281417596308">Bookmarkmanager</translation>
 <translation id="5473279832922912143">V8 inschakelen om de experimentele Ignition-interpreter voor JavaScript-uitvoering te gebruiken.</translation>
 <translation id="5474139872592516422">Als het bijwerken van <ph name="PLUGIN_NAME" /> is voltooid, moet je de pagina opnieuw laden om de plug-in te activeren.</translation>
 <translation id="5480254151128201294">Dit apparaat is vergrendeld door de eigenaar.</translation>
@@ -3354,7 +3354,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5527463195266282916">Je probeert een oudere versie van de extensie te installeren.</translation>
 <translation id="5527474464531963247">Je kunt ook een ander netwerk selecteren.</translation>
 <translation id="5527963985407842218">Activering van knop 'Lezermodus'Reader Mode triggering</translation>
-<translation id="5528368756083817449">Bladwijzerbeheer</translation>
+<translation id="5528368756083817449">Bookmarkmanager</translation>
 <translation id="5531274207066050939">Google Payments</translation>
 <translation id="5532223876348815659">Algemeen</translation>
 <translation id="5533555070048896610">Transliteratie (namaste → नमस्ते)</translation>
@@ -3764,7 +3764,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="6122093587541546701">E-mailadres (optioneel):</translation>
 <translation id="6122875415561139701">Schrijfbewerking is niet toegestaan op: <ph name="DEVICE_NAME" />.</translation>
 <translation id="6124650939968185064">De volgende extensies zijn afhankelijk van deze extensie:</translation>
-<translation id="6127945163801765632">Het gedeelte 'Alle bladwijzers' in Bladwijzerbeheer inschakelen.</translation>
+<translation id="6127945163801765632">Het gedeelte 'Alle bladwijzers' in Bookmarkmanager inschakelen.</translation>
 <translation id="6129938384427316298">Opmerking van Netscape-certificaat</translation>
 <translation id="6129953537138746214">Spatie</translation>
 <translation id="6132383530370527946">De kleine lettertjes</translation>
@@ -5949,7 +5949,7 @@ Tijd berekenen tot vol</translation>
 <translation id="9189690067274055051">Ontgrendel je telefoon en plaats deze dichter bij je <ph name="DEVICE_TYPE" /> om te ontgrendelen.</translation>
 <translation id="9190063653747922532">L2TP/IPsec + eerder gedeelde sleutel</translation>
 <translation id="9201305942933582053">Google Now voor Chrome</translation>
-<translation id="9202646163273566462">Hiermee wordt de weergave 'Alle bladwijzers' ingeschakeld als standaardbestemming van Bladwijzerbeheer.</translation>
+<translation id="9202646163273566462">Hiermee wordt de weergave 'Alle bladwijzers' ingeschakeld als standaardbestemming van Bookmarkmanager.</translation>
 <translation id="9203398526606335860">&amp;Profiling ingeschakeld</translation>
 <translation id="9203478404496196495">Dempen tabblad opheffen</translation>
 <translation id="9203962528777363226">De beheerder van dit apparaat heeft het toevoegen van nieuwe gebruikers uitgeschakeld</translation>

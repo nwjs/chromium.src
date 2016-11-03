@@ -854,7 +854,7 @@
 
       Jeśli ustawisz tu wartość fałsz, wyjście audio urządzenia nie będzie dostępne, gdy użytkownik będzie zalogowany.
 
-      Ta zasada wpływa na wszystkie typy wyjść audio, a nie tylko na wbudowane głośniki. Wyłącza też dźwiękowe funkcje ułatwień dostępu. Nie włączaj jej, jeśli użytkownik potrzebuje czytnika ekranu.
+      Ta zasada wpływa na wszystkie typy wyjść audio, a nie tylko na wbudowane głośniki. Wyłącza też dźwiękowe ułatwienia dostępu. Nie włączaj jej, jeśli użytkownik potrzebuje czytnika ekranu.
 
       Jeśli nie skonfigurujesz tego ustawienia lub ustawisz dla niego wartość prawda, użytkownicy będą mogli używać wszystkich obsługiwanych wyjść audio urządzenia.</translation>
 <translation id="3808945828600697669">Określ listę wyłączonych wtyczek</translation>
@@ -1410,7 +1410,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="6022948604095165524">Działanie po uruchomieniu</translation>
 <translation id="602728333950205286">Adres URL wyszukiwania dynamicznego od domyślnego dostawcy wyszukiwania</translation>
 <translation id="603410445099326293">Parametry dla sugerowania URL-i używających POST</translation>
-<translation id="6036523166753287175">Włącz omijanie zapory sieciowej przez host dostępu zdalnego</translation>
+<translation id="6036523166753287175">Włącz omijanie zapory sieciowej przez hosta dostępu zdalnego</translation>
 <translation id="6059543311891422586">Używanie akceleracji sprzętowej, jeśli jest dostępna.
 
       Jeśli ta zasada jest włączona lub nieustawiona, akceleracja sprzętowa działa, o ile dana funkcja GPU nie znajduje się na czarnej liście.
@@ -1895,7 +1895,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
           Ta zasada jest przeznaczona do użytku wewnętrznego w <ph name="PRODUCT_NAME" />.</translation>
 <translation id="7712109699186360774">Zawsze mnie pytaj, gdy strona chce użyć kamery i/lub mikrofonu</translation>
 <translation id="7715711044277116530">Wartość procentowa skalowania opóźnienia przyciemnienia ekranu w trybie prezentacji</translation>
-<translation id="7717938661004793600">Skonfiguruj funkcje ułatwień dostępu w <ph name="PRODUCT_OS_NAME" />.</translation>
+<translation id="7717938661004793600">Skonfiguruj ułatwienia dostępu w <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="7719251660743813569">Określa, czy statystyki użytkowania są przesyłane do Google. W przypadku włączenia tej opcji <ph name="PRODUCT_OS_NAME" /> będzie przesyłać statystyki użytkowania. Jeśli opcja będzie wyłączona lub nieskonfigurowana, przesyłanie statystyk zostanie wyłączone.</translation>
 <translation id="7723433108978650103">Blokuje dostęp do wymienionych adresów URL.
 

@@ -4012,7 +4012,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6466492211071551451">Teclado irlandés</translation>
 <translation id="6466988389784393586">&amp;Abrir todos los marcadores</translation>
 <translation id="646727171725540434">Proxy HTTP</translation>
-<translation id="6472893788822429178">Mostrar el botón Página de inicio</translation>
+<translation id="6472893788822429178">Mostrar el botón Página principal</translation>
 <translation id="6474706907372204693">Método de entrada anterior</translation>
 <translation id="6474884162850599008">Desconectar cuenta de Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> quiere compartir contenido de tu pantalla. Elige lo que quieres compartir.</translation>
@@ -5384,7 +5384,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8434177709403049435">&amp;Codificación</translation>
 <translation id="8434480141477525001">Puerto de depuración NaCl</translation>
 <translation id="8435334418765210033">Redes recordadas</translation>
-<translation id="8437209419043462667">Estados Unidos</translation>
+<translation id="8437209419043462667">EE. UU.</translation>
 <translation id="843730695811085446">Habilita el marco de estilo de aplicaciones web para aplicaciones alojadas, incluidas aplicaciones de marcadores. Actualmente solo está disponible para Ash.</translation>
 <translation id="8437331208797669910">Acceso a página</translation>
 <translation id="843760761634048214">Guarda la tarjeta de crédito</translation>

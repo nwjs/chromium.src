@@ -140,7 +140,7 @@
 <translation id="5563479599352954471">Cercar amb un toc</translation>
 <translation id="5620765574781326016">Consulteu més informació sobre els temes en altres llocs web sense sortir de la pàgina.</translation>
 <translation id="5634636535844844681">Chromium requereix Windows 7 o una versió posterior.</translation>
-<translation id="5680901439334282664">Inicieu la sessió a Chromium</translation>
+<translation id="5680901439334282664">Inicia la sessió a Chromium</translation>
 <translation id="5698481217667032250">Mostra Chromium en aquest idioma</translation>
 <translation id="5726838626470692954">El gestor t'ha de suprimir i tornar a afegir a Chromium.</translation>
 <translation id="5768914737813585044">Mostra Chromium OS en aquest idioma</translation>
@@ -265,7 +265,7 @@ Per obtenir més instruccions, consulteu el correu electrònic a <ph name="ACCOU
 En iniciar la sessió, sigui amb l'usuari que sigui, es combinarà amb <ph name="ACCOUNT_EMAIL_NEW" /> la informació de Chromium com ara adreces d'interès, historial i altres configuracions.</translation>
 <translation id="9013087743919948559">Addició a Chromium</translation>
 <translation id="9019929317751753759">Per tal que Chromium sigui més segur, hem desactivat algunes de les extensions que no figuren a <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> i que és possible que s'hagin afegit sense que ho sapigueu.</translation>
-<translation id="9022552996538154597">Inici de sessió a Chromium</translation>
+<translation id="9022552996538154597">Inicia la sessió a Chromium</translation>
 <translation id="9036189287518468038">Menú d'aplicacions de Chromium</translation>
 <translation id="9089354809943900324">Chromium no està actualitzat</translation>
 <translation id="911206726377975832">També voleu suprimir les dades de navegació?</translation>
