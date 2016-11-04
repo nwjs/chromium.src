@@ -58,4 +58,14 @@ void installConditionalFeatures(const WrapperTypeInfo* type,
                                           interfaceObject);
 }
 
+void installPendingConditionalFeaturesOnWindow(const ScriptState* scriptState) {
+  DCHECK(scriptState);
+  DCHECK(scriptState->context() == scriptState->isolate()->GetCurrentContext());
+  DCHECK(scriptState->perContextData());
+  DCHECK(scriptState->world().isMainWorld());
+  (*s_installConditionalFeaturesFunction)(&V8Window::wrapperTypeInfo,
+                                          scriptState, v8::Local<v8::Object>(),
+                                          v8::Local<v8::Function>());
+}
+
 }  // namespace blink
