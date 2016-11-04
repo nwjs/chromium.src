@@ -554,6 +554,9 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   int underflow_count_;
   std::unique_ptr<base::ElapsedTimer> underflow_timer_;
 
+  // Whether the player is currently in autoplay muted state.
+  bool autoplay_muted_ = false;
+
   DISALLOW_COPY_AND_ASSIGN(WebMediaPlayerImpl);
 };
 
