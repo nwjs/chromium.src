@@ -284,6 +284,7 @@ crbug.com/519001 storage/indexeddb/pending-version-change-stuck-works-with-termi
 crbug.com/519002 storage/indexeddb/pending-version-change-stuck.html [ Pass Timeout ]
 
 crbug.com/636239 [ Win7 ] media/video-zoom-controls.html [ Failure ]
+crbug.com/520189 [ Mac ] http/tests/misc/submit-post-keygen.html [ Pass Timeout ]
 
 crbug.com/652978 http/tests/media/encrypted-media/encrypted-media-encrypted-event-different-origin.html [ Pass Crash Timeout ]
 crbug.com/652978 http/tests/media/encrypted-media/encrypted-media-encrypted-event-same-origin.html [ Pass Crash Timeout ]
