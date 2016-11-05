@@ -66,7 +66,8 @@ public class AutoplayMutedNotificationTest extends ChromeActivityTestCaseBase<Ch
 
     @Override
     protected void setUp() throws Exception {
-        mTestServer = EmbeddedTestServer.createAndStartServer(getInstrumentation().getContext());
+        mTestServer = EmbeddedTestServer.createAndStartDefaultServer(
+                getInstrumentation().getContext());
         mAudioFocusChangeListener = new MockAudioFocusChangeListener();
         super.setUp();
     }
