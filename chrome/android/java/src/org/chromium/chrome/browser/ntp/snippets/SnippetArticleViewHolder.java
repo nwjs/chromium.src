@@ -216,7 +216,7 @@ public class SnippetArticleViewHolder extends CardViewHolder implements Impressi
         if (SnippetsConfig.isSaveToOfflineEnabled()
                 && OfflinePageBridge.canSavePage(mArticle.mUrl)) {
             addContextMenuItem(
-                    menu, ID_SAVE_FOR_OFFLINE, R.string.contextmenu_save_offline, listener);
+                    menu, ID_SAVE_FOR_OFFLINE, R.string.contextmenu_save_link, listener);
         }
 
         addContextMenuItem(menu, ID_REMOVE, R.string.remove, listener);
