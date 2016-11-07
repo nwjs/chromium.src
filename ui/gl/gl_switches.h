@@ -30,6 +30,7 @@ GL_EXPORT extern const char kANGLEImplementationOpenGLESName[];
 
 namespace switches {
 
+GL_EXPORT extern const char kCreateDefaultGLContext[];
 GL_EXPORT extern const char kDisableD3D11[];
 GL_EXPORT extern const char kDisableES3GLContext[];
 GL_EXPORT extern const char kDisableGpuVsync[];

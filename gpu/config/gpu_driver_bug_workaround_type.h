@@ -29,6 +29,8 @@
          clear_uniforms_before_first_program_use)            \
   GPU_OP(COUNT_ALL_IN_VARYINGS_PACKING,                      \
          count_all_in_varyings_packing)                      \
+  GPU_OP(CREATE_DEFAULT_GL_CONTEXT,                          \
+         create_default_gl_context)                          \
   GPU_OP(DISABLE_ANGLE_INSTANCED_ARRAYS,                     \
          disable_angle_instanced_arrays)                     \
   GPU_OP(DISABLE_ASYNC_READPIXELS,                           \
