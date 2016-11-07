@@ -95,7 +95,7 @@ TEST_F(ClientPolicyControllerTest, CheckNTPSuggestionsDefined) {
   EXPECT_EQ(policy.name_space, kNTPSuggestionsNamespace);
   EXPECT_FALSE(isTemporary(policy));
   EXPECT_TRUE(controller()->IsRemovedOnCacheReset(kNTPSuggestionsNamespace));
-  EXPECT_FALSE(controller()->IsSupportedByDownload(kNTPSuggestionsNamespace));
+  EXPECT_TRUE(controller()->IsSupportedByDownload(kNTPSuggestionsNamespace));
 }
 
 }  // namespace offline_pages
