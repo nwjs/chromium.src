@@ -1734,6 +1734,7 @@ Više informacija potražite u našem <ph name="BEGIN_LINK" />centru za pomoć<p
 <translation id="3254434849914415189">Odaberite zadanu aplikaciju za <ph name="FILE_TYPE" /> datoteke:</translation>
 <translation id="3255228561559750854">Pretražite ili recite "Ok Google"</translation>
 <translation id="3257011895468050906">Omogući podršku za Token Binding.</translation>
+<translation id="326356299252142602">Koristi Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Font Sans-serif</translation>
 <translation id="3264547943200567728">Postavljanje mreže za Chromebox nije uspjelo</translation>
 <translation id="3265459715026181080">Zatvori prozor</translation>
@@ -4353,6 +4354,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="6828860976882136098">Postavljanje automatskih ažuriranja za sve korisnike nije uspjelo (pogreška prilikom izvršavanja pripremne provjere: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Pomoć za uređaj <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Prijavite u svoju organizaciju</translation>
+<translation id="682971198310367122">Googleova Pravila o privatnosti</translation>
 <translation id="6830590476636787791">Animirani prijelazi u vodiču za prvo pokretanje</translation>
 <translation id="6830728435402077660">Nije sigurno</translation>
 <translation id="6831043979455480757">Prevedi</translation>
@@ -4572,6 +4574,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="711902386174337313">pročitati popis uređaja na koje ste prijavljeni</translation>
 <translation id="7119389851461848805">uključivanje/isključivanje</translation>
 <translation id="7119832699359874134">CVC kôd nije važeći. Provjerite i pokušajte ponovo.</translation>
+<translation id="7122132768827815392">Upotreba Windows Runtime MIDI API-ja za WebMIDI (vrijedi samo za Windows 10 ili novije verzije).</translation>
 <translation id="7122169255686960726">Više kopija</translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" – &lt;em&gt;pretraži Disk&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Povijest preuzimanja</translation>

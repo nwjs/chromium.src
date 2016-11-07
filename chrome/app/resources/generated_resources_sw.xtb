@@ -1732,6 +1732,7 @@ Tembelea <ph name="BEGIN_LINK" />Kituo chetu cha Usaidizi<ph name="END_LINK" /> 
 <translation id="3254434849914415189">Chagua programu chaguo-msingi ya faili <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">Tafuta au useme "Ok Google"</translation>
 <translation id="3257011895468050906">Washa matumizi ya Token Binding.</translation>
+<translation id="326356299252142602">Tumia API ya Windows Runtime MIDI</translation>
 <translation id="3264544094376351444">Fonti ya Sans-serif</translation>
 <translation id="3264547943200567728">Haijaweza kuweka mipangilio ya mtandao wa Chromebox yako</translation>
 <translation id="3265459715026181080">Funga Dirisha</translation>
@@ -4344,6 +4345,7 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="6828860976882136098">Imeshindwa kuweka mipangilio ya masasisho ya kiotomatiki kwa watumiaji wote (hitilafu ya kutoweka vipengele vya kabla vinayohitajika: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Pata usaidizi wa <ph name="DEVICE_TYPE" /> yako.</translation>
 <translation id="6829270497922309893">Jisajili katika shirika lako</translation>
+<translation id="682971198310367122">Sera ya faragha ya Google</translation>
 <translation id="6830590476636787791">Mabadiliko yaliyohuishwa katika kutekeleza mafunzo ya kwanza</translation>
 <translation id="6830728435402077660">Si salama</translation>
 <translation id="6831043979455480757">Tafsiri</translation>
@@ -4564,6 +4566,7 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="711902386174337313">Soma orodha ya vifaa vyako ulivyoingia</translation>
 <translation id="7119389851461848805">nishati</translation>
 <translation id="7119832699359874134">Msimbo batili wa CVC. Tafadhali angalia na ujaribu tena.</translation>
+<translation id="7122132768827815392">Tumia API ya Windows Runtime MIDI kwa WebMIDI (inafanya kazi kwenye Windows 10 au matoleo ya baadaye).</translation>
 <translation id="7122169255686960726">Nakala zaidi</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;Hifadhi ya utafutaji&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Historia ya upakuaji</translation>

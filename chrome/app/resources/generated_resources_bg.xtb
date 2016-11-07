@@ -1731,6 +1731,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3254434849914415189">Избиране на приложението по подразбиране за файлове от тип <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">Потърсете нещо или кажете „OK Google“</translation>
 <translation id="3257011895468050906">Активиране на поддръжката за Token Binding.</translation>
+<translation id="326356299252142602">Използване на приложния програмен интерфейс (API) за MIDI по време на изпълнение за Windows</translation>
 <translation id="3264544094376351444">Безсерифен шрифт</translation>
 <translation id="3264547943200567728">Настройването на мрежата на вашия Chromebox не бе успешно</translation>
 <translation id="3265459715026181080">Затваряне на прозореца</translation>
@@ -4571,6 +4572,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="711902386174337313">Четене на списъка с устройства, на които сте влезли в профила си</translation>
 <translation id="7119389851461848805">захранване</translation>
 <translation id="7119832699359874134">Кодът за проверка е невалиден. Моля, проверете го и опитайте отново.</translation>
+<translation id="7122132768827815392">За WebMIDI да се използва приложният програмен интерфейс (API) за MIDI по време на изпълнение за Windows (работи само на устройства с Windows 10 или по-нова версия).</translation>
 <translation id="7122169255686960726">Още копия</translation>
 <translation id="7126604456862387217">&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; – &lt;em&gt;търсене в Диск&lt;/em&gt;</translation>
 <translation id="7127980134843952133">История на изтеглянията</translation>

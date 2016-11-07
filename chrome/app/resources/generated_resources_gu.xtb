@@ -1731,6 +1731,7 @@
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> ફાઇલો માટે ડિફૉલ્ટ ઍપ્લિકેશન પસંદ કરો:</translation>
 <translation id="3255228561559750854">શોધો અથવા "Ok Google" કહો</translation>
 <translation id="3257011895468050906">Token Binding સમર્થનને સક્ષમ કરો.</translation>
+<translation id="326356299252142602">Windows રનટાઇમ MIDI API નો ઉપયોગ કરો</translation>
 <translation id="3264544094376351444">Sans-Serif ફૉન્ટ</translation>
 <translation id="3264547943200567728">તમારા Chromebox ના નેટવર્કને સેટ કરવામાં નિષ્ફળ થયાં</translation>
 <translation id="3265459715026181080">વિંડો બંધ કરો</translation>
@@ -4572,6 +4573,7 @@
 <translation id="711902386174337313">તમારા સાઇન ઇન કરેલા ઉપકરણોની સૂચિને વાંચો</translation>
 <translation id="7119389851461848805">પાવર</translation>
 <translation id="7119832699359874134">અમાન્ય CVC કોડ. કૃપા કરીને તપાસો અને ફરી પ્રયાસ કરો.</translation>
+<translation id="7122132768827815392">WebMIDI માટે Windows રનટાઇમ MIDI API નો ઉપયોગ કરો (માત્ર Windows 10 અથવા એ પછીના સંસ્કરણો પર જ અસરકારક).</translation>
 <translation id="7122169255686960726">વધુ કૉપિઝ</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;ડ્રાઇવમાં શોધો&lt;/em&gt;</translation>
 <translation id="7127980134843952133">ડાઉનલોડ ઇતિહાસ</translation>

@@ -1736,6 +1736,7 @@ Lūdzu, pārbaudiet savu e-pasta iesūtni <ph name="ACCOUNT_EMAIL" />, lai skat�
 <translation id="3254434849914415189">Izvēlieties noklusējuma lietotni <ph name="FILE_TYPE" /> failu atvēršanai:</translation>
 <translation id="3255228561559750854">Veiciet meklēšanu vai sakiet “Ok Google”.</translation>
 <translation id="3257011895468050906">Iespējot Token Binding atbalstu.</translation>
+<translation id="326356299252142602">Izmantot Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Sans-Serif fonts</translation>
 <translation id="3264547943200567728">Neizdevās iestatīt Chromebox tīklu</translation>
 <translation id="3265459715026181080">Aizvērt logu</translation>
@@ -4577,6 +4578,7 @@ Lai turpinātu skatīšanu, nospiediet jebkuru taustiņu.</translation>
 <translation id="711902386174337313">Lasīt to ierīču sarakstu, kurās esat pierakstījies</translation>
 <translation id="7119389851461848805">ieslēgšana</translation>
 <translation id="7119832699359874134">CVC kods nav derīgs. Lūdzu, pārbaudiet to un mēģiniet vēlreiz.</translation>
+<translation id="7122132768827815392">Izmantot Windows Runtime MIDI API saskarnei WebMIDI (darbojas tikai operētājsistēmā Windows 10 vai jaunākās versijās).</translation>
 <translation id="7122169255686960726">Vairāk kopiju</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' — &lt;em&gt;meklēt Diskā&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Lejupielādes vēsture</translation>

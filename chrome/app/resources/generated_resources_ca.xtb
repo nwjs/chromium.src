@@ -1733,6 +1733,7 @@ Consulteu el vostre correu electrònic (<ph name="ACCOUNT_EMAIL" />) per obtenir
 <translation id="3254434849914415189">Tria l'aplicació predeterminada per als fitxers <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">Cerqueu o digueu "OK Google".</translation>
 <translation id="3257011895468050906">Activa la compatibilitat amb Token Binding.</translation>
+<translation id="326356299252142602">Utilitza l'API Windows Runtime MIDI</translation>
 <translation id="3264544094376351444">Tipus de lletra Sans-serif</translation>
 <translation id="3264547943200567728">No s'ha pogut configurar la xarxa de Chromebox</translation>
 <translation id="3265459715026181080">Tanca la finestra</translation>
@@ -4569,6 +4570,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="711902386174337313">Accedeix a la llista de dispositius en què s'ha iniciat la sessió</translation>
 <translation id="7119389851461848805">engegada</translation>
 <translation id="7119832699359874134">El codi CVC no és vàlid. Comproveu-lo i torneu-ho a provar.</translation>
+<translation id="7122132768827815392">Utilitza l'API Windows Runtime MIDI per a WebMIDI (només funciona amb Windows 10 o versions posteriors).</translation>
 <translation id="7122169255686960726">Més còpies</translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;": &lt;em&gt;cerca a Drive&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Historial de baixades</translation>

@@ -1686,7 +1686,7 @@ Pour vérifier ce point et en savoir plus, veuillez consulter votre compte de me
 <translation id="3184560914950696195">Impossible d'enregistrer les fichiers dans le dossier $1. Les images modifiées seront enregistrées dans le dossier Téléchargements.</translation>
 <translation id="3187212781151025377">Clavier hébreu</translation>
 <translation id="3188366215310983158">Validation en cours…</translation>
-<translation id="3188465121994729530">Moyenne de déplacement</translation>
+<translation id="3188465121994729530">Moyenne glissante</translation>
 <translation id="3190027597350543055">Attente du premier remplissage pour l'affichage des applications</translation>
 <translation id="3190494989851933547">Source d'alimentation :</translation>
 <translation id="3190558889382726167">Mot de passe enregistré</translation>
@@ -1734,6 +1734,7 @@ Pour vérifier ce point et en savoir plus, veuillez consulter votre compte de me
 <translation id="3254434849914415189">Sélectionnez l'application par défaut pour les fichiers <ph name="FILE_TYPE" /> :</translation>
 <translation id="3255228561559750854">Effectuez une recherche ou dites "OK Google"</translation>
 <translation id="3257011895468050906">Activer Token Binding</translation>
+<translation id="326356299252142602">Utiliser l'API Windows Runtime MIDI</translation>
 <translation id="3264544094376351444">Police Sans-Serif</translation>
 <translation id="3264547943200567728">Échec de la configuration de votre réseau Chromebox</translation>
 <translation id="3265459715026181080">Fermer la fenêtre</translation>
@@ -4574,6 +4575,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="711902386174337313">Accéder à la liste de vos appareils connectés</translation>
 <translation id="7119389851461848805">marche/arrêt</translation>
 <translation id="7119832699359874134">Code CVC non valide. Veuillez le vérifier, puis réessayer.</translation>
+<translation id="7122132768827815392">Utiliser l'API Windows Runtime MIDI pour WebMIDI (ne fonctionne que sur Windows 10 ou version ultérieure).</translation>
 <translation id="7122169255686960726">Plus de copies</translation>
 <translation id="7126604456862387217">&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; : &lt;em&gt;rechercher dans Google Drive&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Historique des téléchargements</translation>
@@ -5789,7 +5791,7 @@ Calcul de la durée restante</translation>
 <translation id="878069093594050299">Ce certificat a été vérifié pour les utilisations suivantes :</translation>
 <translation id="8782565991310229362">Annulation du lancement de l'application kiosque.</translation>
 <translation id="8783093612333542422">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt; souhaite partager une imprimante &lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt; avec vous.</translation>
-<translation id="8784626084144195648">Moyenne des éléments placés dans la corbeille</translation>
+<translation id="8784626084144195648">Moyenne par intervalle</translation>
 <translation id="8785135611469711856">Le plug-in ne répond pas</translation>
 <translation id="8787254343425541995">Autoriser les proxys pour les réseaux partagés</translation>
 <translation id="878763818693997570">Ce nom est trop long.</translation>

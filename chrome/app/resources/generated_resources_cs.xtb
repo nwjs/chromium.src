@@ -1735,6 +1735,7 @@ Tyto i další pokyny naleznete v e-mailu, který byl odeslán na adresu <ph n
 <translation id="3254434849914415189">Vyberte pro soubory <ph name="FILE_TYPE" /> výchozí aplikaci:</translation>
 <translation id="3255228561559750854">Vyhledávejte nebo řekněte „Ok Google“.</translation>
 <translation id="3257011895468050906">Aktivuje podporu protokolu Token Binding.</translation>
+<translation id="326356299252142602">Používat Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Bezpatkové písmo</translation>
 <translation id="3264547943200567728">Nastavení sítě v Chromeboxu se nezdařilo</translation>
 <translation id="3265459715026181080">Zavřít okno</translation>
@@ -4567,6 +4568,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="711902386174337313">Číst seznam zařízení, ve kterých jste přihlášeni</translation>
 <translation id="7119389851461848805">napájení</translation>
 <translation id="7119832699359874134">Neplatný kód CVC. Zkontrolujte zadaný údaj a zkuste to znovu.</translation>
+<translation id="7122132768827815392">Používat pro WebMIDI rozhraní Windows Runtime MIDI API (funkční pouze v systému Windows 10 nebo novějším).</translation>
 <translation id="7122169255686960726">Více kopií</translation>
 <translation id="7126604456862387217">&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; – &lt;em&gt;vyhledat na Disku&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Historie stahování</translation>

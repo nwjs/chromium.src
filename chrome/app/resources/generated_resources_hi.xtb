@@ -1734,6 +1734,7 @@
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> फ़ाइलों के लिए डिफ़ॉल्ट ऐप्स  चुनें:</translation>
 <translation id="3255228561559750854">खोजें, या "Ok Google" कहें</translation>
 <translation id="3257011895468050906">Token Binding समर्थन सक्षम करें.</translation>
+<translation id="326356299252142602">Windows Runtime MIDI API का उपयोग करें</translation>
 <translation id="3264544094376351444">Sans-serif फ़ॉन्ट</translation>
 <translation id="3264547943200567728">आपके Chromebox के नेटवर्क को सेट करने में विफल रहा</translation>
 <translation id="3265459715026181080">विंडो बंद करें</translation>
@@ -4352,6 +4353,7 @@
 <translation id="6828860976882136098">सभी उपयोगकर्ताओं के लिए स्वचालित अपडेट सेट करने में विफल (प्रीफ़्लाइट निष्पादन त्रुटि: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">अपने <ph name="DEVICE_TYPE" /> के साथ सहायता प्राप्त करें.</translation>
 <translation id="6829270497922309893">अपने संगठन में नामांकित करें</translation>
+<translation id="682971198310367122">Google गोपनीयता नीति</translation>
 <translation id="6830590476636787791">फ़र्स्ट-रन ट्यूटोरियल में ऐनिमेट होने वाले संक्रमण</translation>
 <translation id="6830728435402077660">सुरक्षित नहीं है</translation>
 <translation id="6831043979455480757">अनुवाद करें</translation>
@@ -4573,6 +4575,7 @@
 <translation id="711902386174337313">अपने प्रवेश किए गए डिवाइस की सूची एक्‍सेस करें</translation>
 <translation id="7119389851461848805">पावर</translation>
 <translation id="7119832699359874134">अमान्य CVC कोड. कृपया जांचें और पुन: प्रयास करें.</translation>
+<translation id="7122132768827815392">WebMIDI के लिए Windows Runtime MIDI API का उपयोग करें (केवल Windows 10 या बाद वाले वर्शन पर प्रभावी है).</translation>
 <translation id="7122169255686960726">अधिक प्रतियां</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;खोज डिस्क&lt;/em&gt;</translation>
 <translation id="7127980134843952133">डाउनलोड इतिहास</translation>

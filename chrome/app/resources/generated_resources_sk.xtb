@@ -1736,6 +1736,7 @@ Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeh
 <translation id="3254434849914415189">Zvoľte pre súbory <ph name="FILE_TYPE" /> predvolenú aplikáciu:</translation>
 <translation id="3255228561559750854">Vyhľadávajte alebo vyslovte „Ok Google“</translation>
 <translation id="3257011895468050906">Povolenie podpory viazania tokenov.</translation>
+<translation id="326356299252142602">Použitie rozhrania Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Bezpätkové písmo</translation>
 <translation id="3264547943200567728">Nepodarilo sa nastaviť sieť pre vaše zariadenie Chromebox</translation>
 <translation id="3265459715026181080">Zatvoriť okno</translation>
@@ -4576,6 +4577,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="711902386174337313">Čítať zoznam zariadení, v ktorých ste prihlásení</translation>
 <translation id="7119389851461848805">napájanie</translation>
 <translation id="7119832699359874134">Neplatný kód CVC. Skontrolujte ho a skúste to znova.</translation>
+<translation id="7122132768827815392">Použitie rozhrania Windows Runtime MIDI API v prípade rozhrania WebMIDI (funguje v systéme Windows 10 a novšom).</translation>
 <translation id="7122169255686960726">Ďalšie kópie</translation>
 <translation id="7126604456862387217">„&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;“ – &lt;em&gt;hľadať na Disku&lt;/em&gt;</translation>
 <translation id="7127980134843952133">História sťahovania</translation>

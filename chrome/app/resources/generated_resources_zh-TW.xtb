@@ -1734,6 +1734,7 @@
 <translation id="3254434849914415189">選擇開啟 <ph name="FILE_TYPE" /> 檔案的預設應用程式：</translation>
 <translation id="3255228561559750854">直接搜尋，或是說出「Ok Google」</translation>
 <translation id="3257011895468050906">啟用 Token Binding 支援。</translation>
+<translation id="326356299252142602">使用 Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Sans-serif 字型</translation>
 <translation id="3264547943200567728">無法設定 Chromebox 的網路</translation>
 <translation id="3265459715026181080">關閉視窗</translation>
@@ -4568,6 +4569,7 @@
 <translation id="711902386174337313">讀取已登入裝置清單</translation>
 <translation id="7119389851461848805">電源鍵</translation>
 <translation id="7119832699359874134">輸入的 CVC 碼有誤。請檢查拼寫是否正確，然後再試一次。</translation>
+<translation id="7122132768827815392">針對 WebMIDI 使用 Windows Runtime MIDI API (僅適用於 Windows 10 以上版本的作業系統)。</translation>
 <translation id="7122169255686960726">更多複本</translation>
 <translation id="7126604456862387217">「&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;」- 搜尋雲端硬碟</translation>
 <translation id="7127980134843952133">下載紀錄</translation>

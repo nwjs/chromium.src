@@ -1729,6 +1729,7 @@
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> फायलींसाठी डीफॉल्ट अनुप्रयोग निवडा:</translation>
 <translation id="3255228561559750854">शोधा किंवा "ओके, Google" म्हणा</translation>
 <translation id="3257011895468050906">Token Binding समर्थन सक्षम करा.</translation>
+<translation id="326356299252142602">Windows Runtime MIDI API वापरा</translation>
 <translation id="3264544094376351444">Sans-serif font</translation>
 <translation id="3264547943200567728">आपल्या Chromebox चे नेटवर्क सेट करण्यात अयशस्वी</translation>
 <translation id="3265459715026181080">विंडो बंद करा</translation>
@@ -4346,6 +4347,7 @@
 <translation id="6828860976882136098">सर्व वापरकर्त्यांसाठी स्वयंचलित अद्यतने सेट करणे अयशस्वी झाले (पूर्वफ्लाइट अंमलबजावणी त्रुटी: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">आपल्‍या <ph name="DEVICE_TYPE" /> सह मदत मिळवा.</translation>
 <translation id="6829270497922309893">आपल्‍या संस्‍थेमध्‍ये नोंदणी करा</translation>
+<translation id="682971198310367122">Google गोपनीयता धोरण</translation>
 <translation id="6830590476636787791">प्रथम-चालणार्‍या ट्यूटोरियल मधील अ‍ॅनिमेट केलेली संक्रमणे</translation>
 <translation id="6830728435402077660">सुरक्षित नाही</translation>
 <translation id="6831043979455480757">भाषांतर करा</translation>
@@ -4566,6 +4568,7 @@
 <translation id="711902386174337313">आपल्या साइन इन केलेल्या डिव्हाइसेसची सूची वाचा</translation>
 <translation id="7119389851461848805">उर्जा</translation>
 <translation id="7119832699359874134">अवैध CVC कोड. कृपया तपासा आणि पुन्हा प्रयत्न करा.</translation>
+<translation id="7122132768827815392">WebMIDI साठी Windows Runtime MIDI API वापरा (केवळ Windows 10 किंवा त्यानंतरच्यांसाठी प्रभावी)</translation>
 <translation id="7122169255686960726">अधिक प्रती</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;ड्राइव्ह शोधा&lt;/em&gt;</translation>
 <translation id="7127980134843952133">इतिहास डाउनलोड करा</translation>

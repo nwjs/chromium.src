@@ -1734,6 +1734,7 @@
 <translation id="3254434849914415189">เลือกแอปพลิเคชันค่าเริ่มต้นสำหรับไฟล์ <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">ค้นหาหรือพูดว่า "Ok Google"</translation>
 <translation id="3257011895468050906">เปิดใช้การสนับสนุน Token Binding</translation>
+<translation id="326356299252142602">ใช้ Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">แบบอักษร Sans-Serif</translation>
 <translation id="3264547943200567728">ไม่สามารถตั้งค่าเครือข่าย Chromebox ของคุณได้</translation>
 <translation id="3265459715026181080">ปิดหน้าต่าง</translation>
@@ -4574,6 +4575,7 @@
 <translation id="711902386174337313">อ่านรายการอุปกรณ์ที่คุณลงชื่อเข้าใช้</translation>
 <translation id="7119389851461848805">เปิด/ปิด</translation>
 <translation id="7119832699359874134">รหัส CVC ไม่ถูกต้อง โปรดตรวจสอบและลองอีกครั้ง</translation>
+<translation id="7122132768827815392">ใช้ Windows Runtime MIDI API สำหรับ WebMIDI (ใช้ได้กับอุปกรณ์ที่ใช้ Windows 10 ขึ้นไปเท่านั้น)</translation>
 <translation id="7122169255686960726">สำเนาเพิ่มเติม</translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" - &lt;em&gt;ค้นหาไดรฟ์&lt;/em&gt;</translation>
 <translation id="7127980134843952133">ประวัติการดาวน์โหลด</translation>

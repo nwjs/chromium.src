@@ -1408,7 +1408,7 @@
 <translation id="2833791489321462313">নিদ্রাবস্থা থেকে জাগতে পাসওয়ার্ড প্রয়োজন৷</translation>
 <translation id="2836269494620652131">ক্র্যাশ</translation>
 <translation id="2836635946302913370">আপনার প্রশাসক এই ব্যবহারকারী নাম দিয়ে প্রবেশ করুন করা অক্ষম করেছে৷</translation>
-<translation id="283669119850230892"><ph name="NETWORK_ID" /> নেটওয়ার্কটি ব্যবহার করতে, প্রথমে নীচে ইন্টারনেট থেকে আপনার সংযোগ সম্পূর্ণ করুন৷</translation>
+<translation id="283669119850230892"><ph name="NETWORK_ID" /> নেটওয়ার্কটি ব্যবহার করতে, প্রথমে নিচে ইন্টারনেট থেকে আপনার সংযোগ সম্পূর্ণ করুন৷</translation>
 <translation id="2838379631617906747">ইনস্টল হচ্ছে</translation>
 <translation id="2841837950101800123">সরবরাহকারী</translation>
 <translation id="2843055980807544929">অক্ষম করা হলে, WM_KEY* এবং WM_CHAR কে Chrome ভিন্নভাবে পরিচালনা করবে।</translation>
@@ -1734,6 +1734,7 @@
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> ফাইলের জন্য ডিফল্ট অ্যাপ্লিকেশন বেছে নিন:</translation>
 <translation id="3255228561559750854">অনুসন্ধান করুন, অথবা "Ok Google" বলুন</translation>
 <translation id="3257011895468050906">Token Binding সমর্থন সক্ষম করুন।</translation>
+<translation id="326356299252142602">Windows রানটাইম MIDI API ব্যবহার করুন</translation>
 <translation id="3264544094376351444">Sans-Serif হরফ</translation>
 <translation id="3264547943200567728">আপনার Chromebox এর নেটওয়ার্ক স্থাপন করতে ব্যর্থ হয়েছে</translation>
 <translation id="3265459715026181080">উইন্ডো বন্ধ করুন</translation>
@@ -2732,7 +2733,7 @@
 <translation id="4635114802498986446">একটি Smart Lock সেটিংস সক্ষম করে যা Chrome ডিভাইসের খুব কাছে (প্রায় একহাত দূরে) আপনার ফোন থাকলে শুধুমাত্র তখনই আনলক করতে দেয়৷</translation>
 <translation id="4636315944522859212">প্রিন্টার পাওয়া গেছে</translation>
 <translation id="4640525840053037973">আপনার Google অ্যাকাউন্ট দিয়ে প্রবেশ করুন</translation>
-<translation id="4641539339823703554">Chrome সিস্টেমের সময় সেট করতে পারেনি। দয়া করে নীচে সময় চেক করুন এবং প্রয়োজনে এটি সংশোধন করুন।</translation>
+<translation id="4641539339823703554">Chrome সিস্টেমের সময় সেট করতে পারেনি। দয়া করে নিচে সময় চেক করুন এবং প্রয়োজনে এটি সংশোধন করুন।</translation>
 <translation id="4641635164232599739"><ph name="FILE_NAME" /> সাধারণভাবে ডাউনলোড করা হয় না এবং এটি বিপজ্জনক হতে পারে৷</translation>
 <translation id="4643612240819915418">নতুন ট্যাবে ভিডিও &amp;খুলুন</translation>
 <translation id="4645676300727003670">&amp;রাখুন</translation>
@@ -2864,7 +2865,7 @@
 <translation id="4816492930507672669">পৃষ্ঠাতে মানানসই</translation>
 <translation id="4816617200045929931">আপনি প্রোফাইল ত্রুটি বার্তাটি পাওয়ার ঠিক আগে কি ঘটেছিল তা আমাদের বলুন:
 
-****এই রেখার নীচে পরিবর্তন করবেন না****</translation>
+****এই রেখার নিচে পরিবর্তন করবেন না****</translation>
 <translation id="4820334425169212497">না, আমি এটা দেখিনি</translation>
 <translation id="4821086771593057290">আপনার পাসওয়ার্ডটি পরিবর্তিত হয়েছে৷ আপনার নতুন পাসওয়ার্ডটি দিয়ে দয়া করে আবার চেষ্টা করুন৷</translation>
 <translation id="4821935166599369261">&amp;প্রোফাইলিং সক্ষমিত</translation>
@@ -4296,7 +4297,7 @@
 <translation id="6739254200873843030">কার্ডের মেয়াদ শেষ হয়েছে৷ দয়া করে তারিখটি পরীক্ষা করুন এবং একটি নতুন কার্ড লিখুন৷</translation>
 <translation id="6740234557573873150"><ph name="FILE_NAME" /> বিরাম দেওয়া হয়েছে</translation>
 <translation id="6745592621698551453">এখনই আপডেট করুন</translation>
-<translation id="6746124502594467657">নীচে যান</translation>
+<translation id="6746124502594467657">নিচে যান</translation>
 <translation id="674632704103926902">আলতো চেপে টেনে আনা সক্ষম করুন</translation>
 <translation id="6746392203843147041">আওয়াজ বাড়ান</translation>
 <translation id="6748140994595080445"><ph name="APP_NAME" /> কীভাবে ভাষা পরিচালনা ও প্রদর্শন করে তা পরিবর্তন করুন৷</translation>
@@ -4568,6 +4569,7 @@
 <translation id="711902386174337313">আপনার সাইন-ইন করা ডিভাইসগুলির তালিকা পড়ুন</translation>
 <translation id="7119389851461848805">পাওয়ার</translation>
 <translation id="7119832699359874134">অবৈধ CVC কোড৷ দয়া করে পরীক্ষা করুন এবং আবার চেষ্টা করুন৷</translation>
+<translation id="7122132768827815392">WebMIDI এর জন্য Windows রানটাইম MIDI API (শুধুমাত্র Windows 10 বা পরবর্তী সংস্করণে কার্যকর) ব্যবহার করুন।</translation>
 <translation id="7122169255686960726">আরো প্রতিলিপি</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;ড্রাইভে অনুসন্ধান করুন&lt;/em&gt;</translation>
 <translation id="7127980134843952133">ইতিহাস ডাউনলোড করুন</translation>
@@ -5365,7 +5367,7 @@
 <translation id="8223479393428528563">অফলাইনে ব্যবহারের জন্য এই ফাইলগুলি সংরক্ষণ করতে, অনলাইনে ফিরে আসুন, ফাইলগুলিতে ডান-ক্লিক করুন এবং <ph name="OFFLINE_CHECKBOX_NAME" /> বিকল্পটি নির্বাচন করুন৷</translation>
 <translation id="8226222018808695353">নিষিদ্ধ</translation>
 <translation id="8226619461731305576">অপেক্ষমাণ</translation>
-<translation id="8226742006292257240">আপনার কম্পিউটারে অ্যাসাইন করা হয়েছে এমন এলোমেলোভাবে জেনারেট হওয়া TPM পাসওয়ার্ডটি নীচে:</translation>
+<translation id="8226742006292257240">আপনার কম্পিউটারে অ্যাসাইন করা হয়েছে এমন এলোমেলোভাবে জেনারেট হওয়া TPM পাসওয়ার্ডটি নিচে:</translation>
 <translation id="8227119283605456246">ফাইল সংযুক্ত করুন</translation>
 <translation id="8230421197304563332">বর্তমানে <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> এর আক্রমণকারীরা আপনার কম্পিউটারে ক্ষতিকারক প্রোগ্রাম ইনস্টল করতে পারে যা আপনার তথ্য (উদাহরণস্বরুপ, ফটো, পাসওয়ার্ড, বার্তা এবং ক্রেডিট কার্ড) চুরি করতে বা মুছে দিতে পারে।</translation>
 <translation id="8233254008506535819">ব্রাউজিং ডেটা সাফ করার ডায়ালগে গুরুত্বপূর্ণ সাইটগুলিকে পরিচ্ছন্ন তালিকায় অন্তর্ভুক্ত করার বিকল্প অন্তর্ভুক্ত করে।</translation>
@@ -5504,7 +5506,7 @@
 <translation id="8418445294933751433">ট্যাব রূপে &amp;দেখান</translation>
 <translation id="8420060421540670057">Google দস্তাবেজ ফাইলগুলি দেখান</translation>
 <translation id="842274098655511832">WebGL খসড়া এক্সটেনশানগুলি</translation>
-<translation id="8424039430705546751">নীচে</translation>
+<translation id="8424039430705546751">নিচে</translation>
 <translation id="8425213833346101688">পরিবর্তন</translation>
 <translation id="8425492902634685834">কার্যদন্ডে পিন করুন</translation>
 <translation id="8425755597197517046">আট&amp;কান এবং অনুসন্ধান করুন</translation>

@@ -1736,6 +1736,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3254434849914415189">Выбор приложения по умолчанию для <ph name="FILE_TYPE" />-файлов</translation>
 <translation id="3255228561559750854">Введите запрос или скажите "О'кей, Google"</translation>
 <translation id="3257011895468050906">Включить поддержку Token Binding.</translation>
+<translation id="326356299252142602">Использовать Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Шрифты без засечек</translation>
 <translation id="3264547943200567728">Не удалось настроить сеть Chromebox</translation>
 <translation id="3265459715026181080">Закрыть окно</translation>
@@ -4577,6 +4578,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="711902386174337313">Доступ к списку устройств, на которых выполнен вход</translation>
 <translation id="7119389851461848805">питание</translation>
 <translation id="7119832699359874134">Неверно указан код CVC. Проверьте его и повторите попытку.</translation>
+<translation id="7122132768827815392">Использование Windows Runtime MIDI API для WebMIDI (только в Windows 10 и выше).</translation>
 <translation id="7122169255686960726">Ещё</translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" – &lt;em&gt;искать на Диске&lt;/em&gt;</translation>
 <translation id="7127980134843952133">История скачиваний</translation>

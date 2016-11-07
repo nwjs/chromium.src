@@ -1735,6 +1735,7 @@
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> கோப்புகளுக்கான இயல்புநிலை பயன்பாட்டைத் தேர்வுசெய்:</translation>
 <translation id="3255228561559750854">தேடவும் அல்லது "சரி, Google" எனச் சொல்லவும்</translation>
 <translation id="3257011895468050906">Token Binding ஆதரவை இயக்கவும்.</translation>
+<translation id="326356299252142602">Windows Runtime MIDI APIஐப் பயன்படுத்து</translation>
 <translation id="3264544094376351444">Sans-Serif எழுத்துரு</translation>
 <translation id="3264547943200567728">உங்கள் Chromebox இன் நெட்வொர்க்கை அமைக்க முடியவில்லை</translation>
 <translation id="3265459715026181080">சாளரத்தை மூடு</translation>
@@ -4571,6 +4572,7 @@
 <translation id="711902386174337313">நீங்கள் உள்நுழைந்துள்ள சாதனங்களின் பட்டியலை அணுகலாம்</translation>
 <translation id="7119389851461848805">பவர்</translation>
 <translation id="7119832699359874134">தவறான CVC குறியீடு. சரிபார்த்து மீண்டும் முயற்சிக்கவும்.</translation>
+<translation id="7122132768827815392">WebMIDIக்கான Windows Runtime MIDI APIஐப் பயன்படுத்து (Windows 10 அல்லது அதற்குப் பிந்தைய பதிப்பில் மட்டும் செயல்படும்).</translation>
 <translation id="7122169255686960726">கூடுதல் பிரதிகள்</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;இயக்ககத்தில் தேடு&lt;/em&gt;</translation>
 <translation id="7127980134843952133">பதிவிறக்க வரலாறு</translation>

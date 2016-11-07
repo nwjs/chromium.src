@@ -1735,6 +1735,7 @@ Bunlar ve diğer talimatlar için lütfen <ph name="ACCOUNT_EMAIL" /> e-postanı
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> dosyaları için varsayılan uygulamayı seç:</translation>
 <translation id="3255228561559750854">Arama yapın veya "OK Google" deyin</translation>
 <translation id="3257011895468050906">Token Binding desteğini etkinleştirin.</translation>
+<translation id="326356299252142602">Windows Runtime MIDI API'yi kullan</translation>
 <translation id="3264544094376351444">Sans-serif yazı tipi</translation>
 <translation id="3264547943200567728">Chromebox'ınızın ağı yapılandırılamadı</translation>
 <translation id="3265459715026181080">Pencereyi Kapat</translation>
@@ -4576,6 +4577,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="711902386174337313">Oturum açmış cihazlarınızın listesini okuma</translation>
 <translation id="7119389851461848805">güç</translation>
 <translation id="7119832699359874134">Geçersiz CVC kodu. Lütfen kontrol edin ve tekrar deneyin.</translation>
+<translation id="7122132768827815392">WebMIDI için Windows Runtime MIDI API'si (yalnızca Windows 10 veya sonrası için geçerlidir).</translation>
 <translation id="7122169255686960726">Daha fazla kopya</translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" - &lt;em&gt;Drive'da ara&lt;/em&gt;</translation>
 <translation id="7127980134843952133">İndirme geçmişi</translation>

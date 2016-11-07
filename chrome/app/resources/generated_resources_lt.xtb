@@ -1735,6 +1735,7 @@ Jei reikia daugiau informacijos, apsilankykite <ph name="BEGIN_LINK" />pagalbos 
 <translation id="3254434849914415189">Keisti numatytąją <ph name="FILE_TYPE" /> failų programą:</translation>
 <translation id="3255228561559750854">Ieškokite arba pasakykite „Ok Google“</translation>
 <translation id="3257011895468050906">Įgalinti „Token Binding“ palaikymą.</translation>
+<translation id="326356299252142602">Naudoti „Windows Runtime MIDI“ API</translation>
 <translation id="3264544094376351444">Šriftas „Sans-Serif“</translation>
 <translation id="3264547943200567728">Nepavyko nustatyti „Chromebox“ tinklo</translation>
 <translation id="3265459715026181080">Uždaryti langą</translation>
@@ -4578,6 +4579,7 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="711902386174337313">Skaityti įrenginių, prie kurių esate prisijungę, sąrašą</translation>
 <translation id="7119389851461848805">maitinimas</translation>
 <translation id="7119832699359874134">Netinkamas kortelės saugos (CVC) kodas. Patikrinkite ir bandykite dar kartą.</translation>
+<translation id="7122132768827815392">Naudoti „Windows Runtime MIDI“ API, skirtą „WebMIDI“ (veikia tik su 10 arba naujesnės versijos „Windows“).</translation>
 <translation id="7122169255686960726">Daugiau kopijų</translation>
 <translation id="7126604456862387217">&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; – &lt;em&gt;ieškoti Diske&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Atsisiuntimų istorija</translation>

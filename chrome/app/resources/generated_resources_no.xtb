@@ -1730,6 +1730,7 @@ Sjekk e-posten din på <ph name="ACCOUNT_EMAIL" /> for instruksjoner om dette og
 <translation id="3254434849914415189">Velg standardapp for <ph name="FILE_TYPE" />-filer:</translation>
 <translation id="3255228561559750854">Søk, eller si «OK Google»</translation>
 <translation id="3257011895468050906">Slå på støtte for Token Binding.</translation>
+<translation id="326356299252142602">Bruk Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Uten seriffer</translation>
 <translation id="3264547943200567728">Kunne ikke konfigurere nettverket for Chromeboxen</translation>
 <translation id="3265459715026181080">Lukk vindu</translation>
@@ -4562,6 +4563,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="711902386174337313">lese listen over de påloggede enhetene dine</translation>
 <translation id="7119389851461848805">av/på</translation>
 <translation id="7119832699359874134">Ugyldig CVC-kode. Sjekk den og prøv på nytt.</translation>
+<translation id="7122132768827815392">Bruk Windows Runtime MIDI API for WebMIDI (gjelder bare for enheter som kjører Windows 10 eller nyere).</translation>
 <translation id="7122169255686960726">Flere eksemplarer</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' – &lt;em&gt;søk i Disk&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Nedlastingslogg</translation>

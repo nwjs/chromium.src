@@ -1741,6 +1741,7 @@
 <translation id="3254434849914415189">Επιλέξτε την προεπιλεγμένη εφαρμογή για τα αρχεία <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">Κάντε αναζήτηση ή πείτε "Ok Google"</translation>
 <translation id="3257011895468050906">Ενεργοποίηση υποστήριξης Token Binding.</translation>
+<translation id="326356299252142602">Χρήση του Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Γραμματοσειρά Sans-serif</translation>
 <translation id="3264547943200567728">Η ρύθμιση του δικτύου του Chromebox σας απέτυχε</translation>
 <translation id="3265459715026181080">Κλείσιμο παραθύρου</translation>
@@ -4592,6 +4593,7 @@
 <translation id="711902386174337313">Ανάγνωση της λίστας με τις συνδεδεμένες συσκευές σας</translation>
 <translation id="7119389851461848805">ενεργοποίηση</translation>
 <translation id="7119832699359874134">Μη έγκυρος κωδικός CVC. Ελέγξτε και δοκιμάστε ξανά.</translation>
+<translation id="7122132768827815392">Χρησιμοποιήστε το Windows Runtime MIDI API για WebMIDI (αποτελεσματικό μόνο σε Windows 10 ή νεότερες εκδόσεις).</translation>
 <translation id="7122169255686960726">Περισσότερα αντίγραφα</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;αναζήτηση Drive&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Ιστορικό λήψεων</translation>

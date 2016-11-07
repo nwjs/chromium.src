@@ -1734,6 +1734,7 @@
 <translation id="3254434849914415189">اختر التطبيق الافتراضي لملفات <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">‏يمكنك البحث أو النطق بعبارة "OK Google"</translation>
 <translation id="3257011895468050906">‏تمكين دعم "Token Binding".</translation>
+<translation id="326356299252142602">‏استخدام واجهة برمجة تطبيقات MIDI لوقت التشغيل في نظام التشغيل Windows</translation>
 <translation id="3264544094376351444">‏خط Sans-serif</translation>
 <translation id="3264547943200567728">‏أخفق إعداد شبكة Chromebox</translation>
 <translation id="3265459715026181080">إغلاق الإطار</translation>
@@ -4570,6 +4571,7 @@
 <translation id="711902386174337313">الاطلاع على قائمة بالأجهزة التي سجلت الدخول</translation>
 <translation id="7119389851461848805">الطاقة</translation>
 <translation id="7119832699359874134">‏رمز التحقق من البطاقة (CVC) غير صالح. يُرجى التحقق وإعادة المحاولة.</translation>
+<translation id="7122132768827815392">‏يمكنك استخدام واجهة برمجة تطبيقات MIDI لوقت التشغيل في نظام التشغيل Windows لـ WebMIDI (فعالة فقط مع نظام التشغيل Windows الإصدار 10 أو الإصدارات الأحدث).</translation>
 <translation id="7122169255686960726">مزيد من النسخ</translation>
 <translation id="7126604456862387217">‏'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;البحث في Drive&lt;/em&gt;</translation>
 <translation id="7127980134843952133">سجل التنزيل</translation>

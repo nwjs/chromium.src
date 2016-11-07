@@ -1729,6 +1729,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3254434849914415189">בחר את יישום ברירת המחדל עבור קובצי <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">‏חפש, או אמור "Ok, Google"</translation>
 <translation id="3257011895468050906">‏אפשר תמיכת Token Binding.</translation>
+<translation id="326356299252142602">‏שימוש ב-Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">‏גופן Sans-Serif</translation>
 <translation id="3264547943200567728">‏נכשל הניסיון להגדיר את הרשת של ה-Chromebox</translation>
 <translation id="3265459715026181080">סגור חלון</translation>
@@ -4569,6 +4570,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="711902386174337313">קריאה של רשימת ההתקנים המחוברים שלך</translation>
 <translation id="7119389851461848805">הפעלה</translation>
 <translation id="7119832699359874134">קוד אימות לא חוקי. בדוק ונסה שוב.</translation>
+<translation id="7122132768827815392">‏השתמש ב-Windows Runtime MIDI API ל-WebMIDI (תקף רק ב-Windows 10 ומעלה).</translation>
 <translation id="7122169255686960726">עותקים נוספים</translation>
 <translation id="7126604456862387217">‏'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;חפש בכונן&lt;/em&gt;</translation>
 <translation id="7127980134843952133">היסטוריית הורדות</translation>

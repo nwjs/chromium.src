@@ -1735,6 +1735,7 @@ Ha további információt szeretne, látogasson el a <ph name="BEGIN_LINK" />Sú
 <translation id="3254434849914415189">Válassza ki az alapértelmezett alkalmazást <ph name="FILE_TYPE" />-fájlokhoz:</translation>
 <translation id="3255228561559750854">Végezzen keresést, vagy mondja azt, hogy „Oké, Google!”</translation>
 <translation id="3257011895468050906">A Token Binding támogatásának engedélyezése.</translation>
+<translation id="326356299252142602">A Windows Runtime MIDI API használata</translation>
 <translation id="3264544094376351444">Talp nélküli betűtípus</translation>
 <translation id="3264547943200567728">Nem sikerült beállítani a Chromebox hálózatát</translation>
 <translation id="3265459715026181080">Ablak bezárása</translation>
@@ -4574,6 +4575,7 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="711902386174337313">A bejelentkezett eszközök listájának olvasása</translation>
 <translation id="7119389851461848805">bekapcsolás</translation>
 <translation id="7119832699359874134">Érvénytelen CVC kód. Ellenőrizze, majd próbálja újra.</translation>
+<translation id="7122132768827815392">A Windows Runtime MIDI API for WebMIDI használata (csak a Windows 10 és újabb verzióknál működik).</translation>
 <translation id="7122169255686960726">Több másolat</translation>
 <translation id="7126604456862387217">„&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;” – &lt;em&gt;keresés a Drive-ban&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Letöltési előzmények</translation>

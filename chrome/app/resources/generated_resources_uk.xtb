@@ -1734,6 +1734,7 @@
 <translation id="3254434849914415189">Вибрати програму за умовчанням для файлів <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">Виконайте пошук або скажіть "OK Google"</translation>
 <translation id="3257011895468050906">Увімкнути підтримку Token Binding.</translation>
+<translation id="326356299252142602">Використовувати API Windows Runtime MIDI</translation>
 <translation id="3264544094376351444">Шрифт Sans-serif</translation>
 <translation id="3264547943200567728">Не вдалося налаштувати мережу Chromebox</translation>
 <translation id="3265459715026181080">Закрити вікно</translation>
@@ -4575,6 +4576,7 @@
 <translation id="711902386174337313">Читати список пристроїв, на яких ви ввійшли</translation>
 <translation id="7119389851461848805">живлення</translation>
 <translation id="7119832699359874134">Недійсний код CVC. Перевірте й повторіть спробу.</translation>
+<translation id="7122132768827815392">Використовувати API Windows Runtime MIDI для WebMIDI (лише в ОС Windows 10 або новіших версіях).</translation>
 <translation id="7122169255686960726">Більше екземплярів</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' – &lt;em&gt;шукати на Диску&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Історія завантажень</translation>

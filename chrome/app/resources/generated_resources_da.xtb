@@ -1734,6 +1734,7 @@ Gå til din e-mail, <ph name="ACCOUNT_EMAIL" />, for at se denne og flere vejled
 <translation id="3254434849914415189">Vælg standardappen for <ph name="FILE_TYPE" />-filer:</translation>
 <translation id="3255228561559750854">Søg, eller sig "Ok Google"</translation>
 <translation id="3257011895468050906">Aktivér understøttelse af Token Binding.</translation>
+<translation id="326356299252142602">Brug Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Sans-serif-skrifttype</translation>
 <translation id="3264547943200567728">Netværket for din Chromebox kunne ikke konfigureres</translation>
 <translation id="3265459715026181080">Luk vindue</translation>
@@ -2294,7 +2295,7 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="394984172568887996">Importeret fra IE</translation>
 <translation id="3950820424414687140">Log ind</translation>
 <translation id="3951872452847539732">Indstillingerne for din netværksproxy administreres af en udvidelse.</translation>
-<translation id="3952219531609536133">Nogle websider anvender gamle eller utraditionelle JavaScript-udvidelser, der kan være i strid med de nyeste JavaScript-funktioner. Denne markering giver mulighed for at deaktivere understøttelse af kompatibilitet for disse funktioner med sådanne sider.</translation>
+<translation id="3952219531609536133">Nogle websider anvender forældede eller utraditionelle JavaScript-udvidelser, der kan være i strid med de nyeste JavaScript-funktioner. Denne markering giver mulighed for at deaktivere understøttelse af kompatibilitet for disse funktioner med sådanne sider.</translation>
 <translation id="3954354850384043518">I gang</translation>
 <translation id="3954582159466790312">&amp;Slå lyden til</translation>
 <translation id="3958088479270651626">Importér bogmærker og indstillinger</translation>
@@ -4573,6 +4574,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="711902386174337313">Læs listen over de enheder, hvor du er logget ind</translation>
 <translation id="7119389851461848805">tænd/sluk</translation>
 <translation id="7119832699359874134">Ugyldig CVC-kode. Kontrollér for fejl, og prøv igen.</translation>
+<translation id="7122132768827815392">Brug Windows Runtime MIDI API til WebMIDI (fungerer kun i Windows 10 eller nyere).</translation>
 <translation id="7122169255686960726">Flere kopier</translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" – &lt;em&gt;søg i Drev&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Downloadhistorik</translation>

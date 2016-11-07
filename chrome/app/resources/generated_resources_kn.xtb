@@ -1735,6 +1735,7 @@
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> ಫೈಲ್‌ಗಳಿಗಾಗಿ ಡಿಫಾಲ್ಟ್ ಅಪ್ಲಿಕೇಶನ್ ಅನ್ನು ಆರಿಸಿ:</translation>
 <translation id="3255228561559750854">ಹುಡುಕಿ, ಅಥವಾ "Ok Google" ಹೇಳಿ</translation>
 <translation id="3257011895468050906">ಟೋಕನ್ ಪ್ರತಿಬಂಧಿಸುವ ಬೆಂಬಲವನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ.</translation>
+<translation id="326356299252142602">Windows Runtime MIDI API ಬಳಸಿ</translation>
 <translation id="3264544094376351444">Sans-Serif ಫಾಂಟ್</translation>
 <translation id="3264547943200567728">ನಿಮ್ಮ Chromebox ನ ನೆಟ್‌ವರ್ಕ್ ಹೊಂದಿಸಲು ವಿಫಲವಾಗಿದೆ</translation>
 <translation id="3265459715026181080">ವಿಂಡೋ ಮುಚ್ಚು</translation>
@@ -4580,6 +4581,7 @@
 <translation id="711902386174337313">ನಿಮ್ಮ ಸೈನ್‌ ಇನ್‌ ಮಾಡಿದ ಸಾಧನಗಳ ಪಟ್ಟಿಯನ್ನು ಓದಿರಿ</translation>
 <translation id="7119389851461848805">ಪವರ್‌</translation>
 <translation id="7119832699359874134">ಅಮಾನ್ಯವಾದ CVC ಕೋಡ್. ಪರಿಶೀಲಿಸಿ ಹಾಗೂ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.</translation>
+<translation id="7122132768827815392">WebMIDI ಗೆ Windows Runtime MIDI API ಬಳಸಿ (Windows 10 ಅಥವಾ ನಂತರದ ಆವೃತ್ತಿಗೆ ಮಾತ್ರ ಪರಿಣಾಮಕಾರಿಯಾಗಿರುತ್ತದೆ).</translation>
 <translation id="7122169255686960726">ಇನ್ನಷ್ಟು ನಕಲುಗಳು</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;ಡ್ರೈವ್ ಹುಡುಕಿ&lt;/em&gt;</translation>
 <translation id="7127980134843952133">ಡೌನ್‌ಲೋಡ್ ಇತಿಹಾಸ</translation>

@@ -1734,6 +1734,7 @@ Para ver mais informações, visite nossa <ph name="BEGIN_LINK" />Central de Aju
 <translation id="3254434849914415189">Escolha o aplicativo padrão para os arquivos <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">Pesquise ou diga "Ok Google"</translation>
 <translation id="3257011895468050906">Ativar o suporte ao Token Binding.</translation>
+<translation id="326356299252142602">Usar Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Fonte Sans-Serif</translation>
 <translation id="3264547943200567728">Falha ao configurar a rede do seu Chromebox</translation>
 <translation id="3265459715026181080">Fechar janela</translation>
@@ -4574,6 +4575,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="711902386174337313">Ler a lista dos dispositivos nos quais você fez login</translation>
 <translation id="7119389851461848805">power</translation>
 <translation id="7119832699359874134">Código CVC inválido. Verifique e tente novamente.</translation>
+<translation id="7122132768827815392">Usar Windows Runtime MIDI API para WebMIDI (eficaz apenas no Windows 10 ou versões posteriores).</translation>
 <translation id="7122169255686960726">Mais cópias</translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" - &lt;em&gt;pesquisar no Google Drive&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Histórico de download</translation>

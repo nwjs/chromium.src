@@ -1734,6 +1734,7 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="3254434849914415189">Wybierz domyślną aplikację dla plików <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">Wyszukaj lub powiedz „OK, Google”</translation>
 <translation id="3257011895468050906">Umożliwia obsługę funkcji Token Binding.</translation>
+<translation id="326356299252142602">Używaj interfejsu Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Czcionka bezszeryfowa</translation>
 <translation id="3264547943200567728">Nie udało się skonfigurować sieci Chromeboksa</translation>
 <translation id="3265459715026181080">Zamknij okno</translation>
@@ -3328,7 +3329,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5402367795255837559">Pismo Braille'a</translation>
 <translation id="540296380408672091">Zawsze blokuj pliki cookie na <ph name="HOST" /></translation>
 <translation id="5403346645236247882">Sprzętowe kodowanie wideo w Cast Streaming</translation>
-<translation id="5407588331881933003">Włącz Android Pay w wersji 1</translation>
+<translation id="5407588331881933003">Włącz Androida Pay w wersji 1</translation>
 <translation id="5408750356094797285">Powiększenie: <ph name="PERCENT" /></translation>
 <translation id="5409029099497331039">Zaskocz mnie</translation>
 <translation id="5411472733320185105">Nie używaj ustawień proxy dla następujących hostów i domen:</translation>
@@ -4571,6 +4572,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="711902386174337313">Odczyt listy zalogowanych urządzeń</translation>
 <translation id="7119389851461848805">zasilanie</translation>
 <translation id="7119832699359874134">Nieprawidłowy kod CVC. Sprawdź wpisane informacje i spróbuj ponownie.</translation>
+<translation id="7122132768827815392">Używaj interfejsu Windows Runtime MIDI API dla WebMIDI (działa tylko w systemie Windows 10 lub nowszym).</translation>
 <translation id="7122169255686960726">Więcej kopii</translation>
 <translation id="7126604456862387217">„&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;” – &lt;em&gt;wyszukaj na Dysku&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Historia pobierania</translation>
@@ -5811,7 +5813,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8820961991571528294">Testowanie</translation>
 <translation id="8821045908425223359">Skonfiguruj adres IP automatycznie</translation>
 <translation id="8822012246577321911">Inna firma</translation>
-<translation id="8822997849521141189">Włącz integrację z Android Pay za pomocą pierwszej wersji interfejsu API</translation>
+<translation id="8822997849521141189">Włącz integrację z Androidem Pay, korzystając z pierwszej wersji interfejsu API</translation>
 <translation id="8823514049557262177">Kopiuj te&amp;kst linku</translation>
 <translation id="8824701697284169214">Dodaj &amp;stronę</translation>
 <translation id="8828933418460119530">Nazwa DNS</translation>

@@ -1735,6 +1735,7 @@
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> ファイルのデフォルト アプリを選択:</translation>
 <translation id="3255228561559750854">検索するかOK Googleと発声</translation>
 <translation id="3257011895468050906">Token Binding のサポートを有効にする。</translation>
+<translation id="326356299252142602">Windows Runtime MIDI API を使用する</translation>
 <translation id="3264544094376351444">Sans Serif フォント</translation>
 <translation id="3264547943200567728">Chromebox のネットワークを設定できませんでした</translation>
 <translation id="3265459715026181080">ウインドウを閉じる</translation>
@@ -4576,6 +4577,7 @@
 <translation id="711902386174337313">ログインしたデバイスのリストの読み取り</translation>
 <translation id="7119389851461848805">電源</translation>
 <translation id="7119832699359874134">CVC コードが無効です。確認してから、もう一度お試しください。</translation>
+<translation id="7122132768827815392">WebMIDI に Windows Runtime MIDI API を使用する（Windows 10 以降でのみ有効）。</translation>
 <translation id="7122169255686960726">コピーを増やす</translation>
 <translation id="7126604456862387217">「&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;」 - &lt;em&gt;&lt;/em&gt;ドライブを検索</translation>
 <translation id="7127980134843952133">ダウンロード履歴</translation>

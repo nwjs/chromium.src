@@ -1735,6 +1735,7 @@ Controleer je e-mail op <ph name="ACCOUNT_EMAIL" /> voor deze en verdere instruc
 <translation id="3254434849914415189">Kies de standaardapp voor <ph name="FILE_TYPE" />-bestanden:</translation>
 <translation id="3255228561559750854">Zoek of zeg 'OK Google'</translation>
 <translation id="3257011895468050906">Ondersteuning voor Token Binding inschakelen.</translation>
+<translation id="326356299252142602">Windows Runtime MIDI API gebruiken</translation>
 <translation id="3264544094376351444">Sans-Serif-lettertype</translation>
 <translation id="3264547943200567728">Kan het netwerk van je Chromebox niet instellen</translation>
 <translation id="3265459715026181080">Sluit venster</translation>
@@ -4574,6 +4575,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="711902386174337313">De lijst met je ingelogde apparaten lezen</translation>
 <translation id="7119389851461848805">aan/uit</translation>
 <translation id="7119832699359874134">Ongeldige CVC-code. Controleer de code en probeer het opnieuw.</translation>
+<translation id="7122132768827815392">Gebruik Windows Runtime MIDI API voor WebMIDI (werkt alleen in Windows 10 of hoger).</translation>
 <translation id="7122169255686960726">Meer kopieën</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;zoeken in Google Drive&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Downloadgeschiedenis</translation>

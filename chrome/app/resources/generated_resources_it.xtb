@@ -1733,6 +1733,7 @@ I dati di accesso del tuo account sono obsoleti.</translation>
 <translation id="3254434849914415189">Seleziona l'applicazione predefinita per i file <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">Effettua una ricerca o dì "OK Google"</translation>
 <translation id="3257011895468050906">Consente di attivare il supporto di Token Binding.</translation>
+<translation id="326356299252142602">Utilizza API Windows Runtime MIDI</translation>
 <translation id="3264544094376351444">Carattere sans-serif</translation>
 <translation id="3264547943200567728">Configurazione della rete del Chromebox non riuscita</translation>
 <translation id="3265459715026181080">Chiudi finestra</translation>
@@ -4568,6 +4569,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="711902386174337313">Lettura dell'elenco di dispositivi su cui è stato eseguito l'accesso</translation>
 <translation id="7119389851461848805">accensione</translation>
 <translation id="7119832699359874134">Codice CVC non valido. Controlla e riprova.</translation>
+<translation id="7122132768827815392">Utilizza API Windows Runtime MIDI per WebMIDI (solo su Windows 10 o versioni successive).</translation>
 <translation id="7122169255686960726">Altre copie</translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" - &lt;em&gt;cerca in Drive&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Cronologia download</translation>

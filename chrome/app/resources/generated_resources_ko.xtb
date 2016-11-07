@@ -1736,6 +1736,7 @@
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> 파일의 기본 앱 선택:</translation>
 <translation id="3255228561559750854">검색하거나 'OK Google'이라고 말하세요.</translation>
 <translation id="3257011895468050906">Token Binding 지원을 사용 설정합니다.</translation>
+<translation id="326356299252142602">Windows Runtime MIDI API 사용</translation>
 <translation id="3264544094376351444">Sans-serif</translation>
 <translation id="3264547943200567728">Chromebox 네트워크 설정 실패</translation>
 <translation id="3265459715026181080">창 닫기</translation>
@@ -4575,6 +4576,7 @@
 <translation id="711902386174337313">로그인한 기기 목록 조회</translation>
 <translation id="7119389851461848805">전원</translation>
 <translation id="7119832699359874134">CVC 코드가 잘못되었습니다. 확인 후 다시 시도해 주세요.</translation>
+<translation id="7122132768827815392">WebMIDI용 Windows Runtime MIDI API를 사용합니다(Windows 10 이후 버전에만 적용).</translation>
 <translation id="7122169255686960726">더보기</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;드라이브 검색&lt;/em&gt;</translation>
 <translation id="7127980134843952133">다운로드 기록</translation>

@@ -1734,6 +1734,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL" /> untuk melihat hal ini dan petu
 <translation id="3254434849914415189">Pilih aplikasi default untuk file <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">Telusuri atau ucapkan "Ok Google"</translation>
 <translation id="3257011895468050906">Aktifkan dukungan Pengikatan Token</translation>
+<translation id="326356299252142602">Gunakan API Windows Runtime MIDI</translation>
 <translation id="3264544094376351444">Font Sans-serif</translation>
 <translation id="3264547943200567728">Gagal menyiapkan jaringan Chromebox</translation>
 <translation id="3265459715026181080">Tutup Jendela</translation>
@@ -4574,6 +4575,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="711902386174337313">Membaca daftar perangkat tempat Anda telah masuk</translation>
 <translation id="7119389851461848805">daya</translation>
 <translation id="7119832699359874134">Kode CVC tidak valid. Harap periksa dan coba lagi.</translation>
+<translation id="7122132768827815392">Gunakan API Windows Runtime MIDI untuk WebMIDI (hanya efektif pada Windows 10 atau yang lebih baru).</translation>
 <translation id="7122169255686960726">Salinan lainnya</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;telusuri Drive&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Riwayat unduhan</translation>

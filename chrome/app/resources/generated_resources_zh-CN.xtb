@@ -1730,6 +1730,7 @@
 <translation id="3254434849914415189">选择用于打开 <ph name="FILE_TYPE" /> 文件的默认应用：</translation>
 <translation id="3255228561559750854">直接输入内容开始搜索或说“Ok Google”</translation>
 <translation id="3257011895468050906">支持 Token Binding。</translation>
+<translation id="326356299252142602">使用 Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Sans-serif 字体</translation>
 <translation id="3264547943200567728">无法设置您的 Chromebox 的网络</translation>
 <translation id="3265459715026181080">关闭窗口</translation>
@@ -4554,6 +4555,7 @@
 <translation id="711902386174337313">读取您登录过的设备的列表</translation>
 <translation id="7119389851461848805">电源</translation>
 <translation id="7119832699359874134">银行卡验证码 (CVC) 无效。请进行检查，然后重试。</translation>
+<translation id="7122132768827815392">针对 WebMIDI 使用 Windows Runtime MIDI API（仅在运行 Windows 10 或更高版本的设备上有效）。</translation>
 <translation id="7122169255686960726">增加副本</translation>
 <translation id="7126604456862387217">&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; - 搜索云端硬盘&lt;em&gt;&lt;/em&gt;</translation>
 <translation id="7127980134843952133">下载记录</translation>

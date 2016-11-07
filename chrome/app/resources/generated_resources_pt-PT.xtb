@@ -1736,6 +1736,7 @@ Verifique o seu email em <ph name="ACCOUNT_EMAIL" /> para obter estas e outras i
 <translation id="3254434849914415189">Escolha a aplicação predefinida para ficheiros <ph name="FILE_TYPE" />:</translation>
 <translation id="3255228561559750854">Pesquise ou diga "OK Google"</translation>
 <translation id="3257011895468050906">Ativar suporte para Token Binding.</translation>
+<translation id="326356299252142602">Utilizar a API Windows Runtime MIDI</translation>
 <translation id="3264544094376351444">Tipo de letra Sans-Serif</translation>
 <translation id="3264547943200567728">Falha ao configurar a rede do seu Chromebox</translation>
 <translation id="3265459715026181080">Fechar janela</translation>
@@ -4576,6 +4577,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="711902386174337313">Ler a lista dos dispositivos com sessão iniciada</translation>
 <translation id="7119389851461848805">alimentação</translation>
 <translation id="7119832699359874134">Código de segurança/CVC inválido. Verifique e tente novamente.</translation>
+<translation id="7122132768827815392">Utilizar a API Windows Runtime MIDI para WebMIDI (eficaz apenas no Windows 10 ou posterior).</translation>
 <translation id="7122169255686960726">Mais cópias</translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" – &lt;em&gt;pesquisar no Google Drive&lt;/em&gt;</translation>
 <translation id="7127980134843952133">Histórico de transferências</translation>

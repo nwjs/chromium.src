@@ -1413,7 +1413,7 @@
 <translation id="2843055980807544929">പ്രവർത്തനരഹിതമാക്കിയിരിക്കുന്നെങ്കിൽ, WM_KEY*, WM_CHAR എന്നിവയെ Chrome പ്രത്യേകം കൈകാര്യം ചെയ്യുന്നതാണ്.</translation>
 <translation id="2843806747483486897">സ്ഥിരസ്ഥിതി മാറ്റുക...</translation>
 <translation id="2844111009524261443">ക്ലിക്കുചെയ്യുമ്പോൾ റൺ ചെയ്യുക</translation>
-<translation id="2845382757467349449">ബുക്ക്മാര്‍‌ക്കുകള്‍‌ ബാര്‍ എപ്പോഴും കാണിക്കുക</translation>
+<translation id="2845382757467349449">ബുക്ക്‌മാർക്ക് ബാർ എപ്പോഴും കാണിക്കുക</translation>
 <translation id="2846816712032308263">വേഗത്തിലുള്ള ടാബ്/വിൻഡോ അടയ്‌ക്കൽ പ്രവർത്തനക്ഷമമാക്കുന്നു - ഒരു ടാബിന്റെ onunload js ഹാൻഡ്ലർ GUI അവലംബിക്കാതെ പ്രവർത്തിപ്പിക്കുന്നു.</translation>
 <translation id="2847759467426165163">ഇതിലേക്ക് കാസ്‌റ്റുചെയ്യുക</translation>
 <translation id="284844301579626260">തിരികെ പോകാൻ |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| അമർത്തുക</translation>
@@ -1453,7 +1453,7 @@
 <translation id="2889925978073739256">അൺസാൻഡ്‌ബോക്‌സ് ചെയ്‌ത പ്ലഗിന്നുകൾ തടയുന്നത് തുടരുക</translation>
 <translation id="2890624088306605051">സമന്വയിപ്പിച്ച ക്രമീകരണവും ഡാറ്റയും മാത്രം വീണ്ടെടുക്കുക</translation>
 <translation id="2890678560483811744">പേജ് റഫറൻസ് പരിധി കവിഞ്ഞു</translation>
-<translation id="2893168226686371498">സ്ഥിരസ്ഥിതി ബ്രൌസര്‍</translation>
+<translation id="2893168226686371498">ഡിഫോൾട്ട് ബ്രൗസര്‍</translation>
 <translation id="289426338439836048">മറ്റ് മൊബൈല്‍ നെറ്റ്‌വര്‍ക്ക്...</translation>
 <translation id="2894745200702272315">ഹാർഡ്‌വയർ ആശ്രയത്വമുള്ള, 'Ok Google' ഹോട്ട്‌വേഡ് കണ്ടെത്തൽ ഫീച്ചറുകളുടെ ഒരു പരീക്ഷണാത്‌മക പതിപ്പ് പ്രവർത്തനക്ഷമമാക്കുന്നു.</translation>
 <translation id="289644616180464099">സിം കാർഡ് ലോക്കുചെയ്‌തു</translation>
@@ -1734,6 +1734,7 @@
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> ഫയലുകൾക്കായി സ്ഥിരസ്ഥിതി അപ്ലിക്കേഷൻ തിരഞ്ഞെടുക്കുക:</translation>
 <translation id="3255228561559750854">തിരയുക, അല്ലെങ്കിൽ "ശരി Google" എന്നു പറയുക</translation>
 <translation id="3257011895468050906">ടോക്കൺ ബൈൻഡിംഗ് പിന്തുണ പ്രവർത്തനക്ഷമമാക്കുക.</translation>
+<translation id="326356299252142602">Windows Runtime MIDI API ഉപയോഗിക്കുക</translation>
 <translation id="3264544094376351444">സാന്‍സ്-സെരിഫ് ഫോണ്ട്</translation>
 <translation id="3264547943200567728">നിങ്ങളുടെ Chromebox-ന്റെ നെറ്റ്‌വർക്ക് സജ്ജമാക്കാനായില്ല</translation>
 <translation id="3265459715026181080">വിന്‍‌ഡോ അടയ്‌ക്കുക</translation>
@@ -3337,7 +3338,7 @@
 <translation id="5417998409611691946"><ph name="DEVICE_TYPE" /> ഉപകരണത്തിന് ഇപ്പോൾ ഇവ ചെയ്യാനാകും:</translation>
 <translation id="5418923334382419584">മ്യാൻമാർ കീബോർഡ്</translation>
 <translation id="5419294236999569767">സിസ്‌റ്റം സമയം</translation>
-<translation id="5421136146218899937">ബ്രൌസിംഗ് ഡാറ്റാ മായ്‌ക്കുന്നു</translation>
+<translation id="5421136146218899937">ബ്രൗസിംഗ് ഡാറ്റ മായ്‌ക്കുക...</translation>
 <translation id="5422221874247253874">ആക്‌സസ് പോയിന്റ്</translation>
 <translation id="5422781158178868512">ക്ഷമിക്കണം, നിങ്ങളുടെ ബാഹ്യ സംഭരണി ഉപകരണം അംഗീകരിക്കാൻ കഴിഞ്ഞില്ല.</translation>
 <translation id="5423849171846380976">സജീവമാക്കി</translation>
@@ -3482,7 +3483,7 @@
 <translation id="5592595402373377407">ഇതുവരെയും മതിയായ ഡാറ്റ ലഭ്യമല്ല.</translation>
 <translation id="5595485650161345191">വിലാസം എഡിറ്റുചെയ്യുക</translation>
 <translation id="5601503069213153581">PIN</translation>
-<translation id="5604324414379907186">ബുക്മാര്‍ക്കുകള്‍ ബാര്‍ എപ്പോഴും കാണിക്കുക</translation>
+<translation id="5604324414379907186">ബുക്ക്‌മാർക്ക് ബാർ എപ്പോഴും കാണിക്കുക</translation>
 <translation id="5605623530403479164">മറ്റ് സെര്‍ച് എഞ്ചിനുകള്‍</translation>
 <translation id="5605716740717446121">ശരിയായ PIN അണ്‍ലോക്കിംഗ് കീ നല്‍കാന്‍ നിങ്ങള്‍ക്ക് കഴിഞ്ഞില്ലെങ്കില്‍ SIM കാര്‍ഡ് ശാശ്വതമായി അപ്രാപ്തമാക്കുന്നതാണ്. ബക്കിയുള്ള ശ്രമങ്ങള്‍: <ph name="TRIES_COUNT" /></translation>
 <translation id="5605830556594064952">യുകെ ദ്വരോക്ക്</translation>
@@ -3739,7 +3740,7 @@
 <translation id="5957613098218939406">കൂടുതൽ ഓപ്‌ഷനുകൾ</translation>
 <translation id="5958529069007801266">സൂപ്പർവൈസുചെയ്‌ത ഉപയോക്താവ്</translation>
 <translation id="5959471481388474538">നെറ്റ്‌വർക്ക് ലഭ്യമല്ല</translation>
-<translation id="5963026469094486319">തീമുകള്‍ നേടുക</translation>
+<translation id="5963026469094486319">തീമുകള്‍ സ്വന്തമാക്കുക</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> പീക്ക്)</translation>
 <translation id="5965403572731919803">ഷെൽഫിലേക്ക് ചേർക്കുക...</translation>
 <translation id="5965661248935608907">നിങ്ങൾ ഹോം ബട്ടൺ ക്ലിക്കുചെയ്യുമ്പോഴോ ഓമ്‌നിബോക്‌സിൽ നിന്ന് തിരയുമ്പോഴോ ദൃശ്യമാകുന്ന പേജും അത് നിയന്ത്രിയ്ക്കും.</translation>
@@ -4573,6 +4574,7 @@
 <translation id="711902386174337313">നിങ്ങളുടെ സൈൻ ഇൻ ചെയ്‌ത ഉപകരണങ്ങളുടെ ലിസ്റ്റ് റീഡുചെയ്യുക</translation>
 <translation id="7119389851461848805">പവർ</translation>
 <translation id="7119832699359874134">CVC കോഡ് അസാധുവാണ്. പരിശോധിച്ച ശേഷം വീണ്ടും ശ്രമിക്കുക.</translation>
+<translation id="7122132768827815392">WebMIDI-യ്‌ക്കായി Windows Runtime MIDI API ഉപയോഗിക്കുക (Windows 10 അല്ലെങ്കിൽ അതിനുശേഷമുള്ളവയിൽ മാത്രം ഫലപ്രദം).</translation>
 <translation id="7122169255686960726">കൂടുതൽ പകർപ്പുകൾ</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;തിരയൽ ഡ്രൈവ്&lt;/em&gt;</translation>
 <translation id="7127980134843952133">ഡൗൺലോഡ് ചരിത്രം</translation>
