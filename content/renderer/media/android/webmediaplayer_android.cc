@@ -1246,11 +1246,11 @@ void WebMediaPlayerAndroid::OnShown() {
     play();
 }
 
-void WebMediaPlayerAndroid::OnSuspendRequested(bool must_suspend) {
+bool WebMediaPlayerAndroid::OnSuspendRequested(bool must_suspend) {
   if (!must_suspend &&
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableMediaSuspend)) {
-    return;
+    return true;
   }
 
   // If we're idle or playing video, pause and release resources; audio only
@@ -1259,6 +1259,8 @@ void WebMediaPlayerAndroid::OnSuspendRequested(bool must_suspend) {
       (hasVideo() && !IsBackgroundVideoCandidate())) {
     SuspendAndReleaseResources();
   }
+
+  return true;
 }
 
 void WebMediaPlayerAndroid::OnPlay() {
