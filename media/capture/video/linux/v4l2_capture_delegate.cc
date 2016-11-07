@@ -394,12 +394,14 @@ void V4L2CaptureDelegate::DoCapture() {
     const scoped_refptr<BufferTracker>& buffer_tracker =
         buffer_tracker_pool_[buffer.index];
 
-    base::TimeDelta timestamp =
-        base::TimeDelta::FromSeconds(buffer.timestamp.tv_sec) +
-        base::TimeDelta::FromMicroseconds(buffer.timestamp.tv_usec);
-    client_->OnIncomingCapturedData(
-        buffer_tracker->start(), buffer_tracker->payload_size(),
-        capture_format_, rotation_, base::TimeTicks::Now(), timestamp);
+    const base::TimeTicks now = base::TimeTicks::Now();
+    if (first_ref_time_.is_null())
+      first_ref_time_ = now;
+    const base::TimeDelta timestamp = now - first_ref_time_;
+
+    client_->OnIncomingCapturedData(buffer_tracker->start(),
+                                    buffer_tracker->payload_size(),
+                                    capture_format_, rotation_, now, timestamp);
 
     if (HANDLE_EINTR(ioctl(device_fd_.get(), VIDIOC_QBUF, &buffer)) < 0) {
       SetErrorState(FROM_HERE, "Failed to enqueue capture buffer");
