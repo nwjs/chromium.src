@@ -346,6 +346,7 @@ public class ImeAdapter {
         if (nativeImeAdapter != 0) {
             createInputConnectionFactory();
         }
+        resetAndHideKeyboard();
     }
 
     /**
@@ -426,6 +427,7 @@ public class ImeAdapter {
      * Call this when view is detached from window
      */
     public void onViewDetachedFromWindow() {
+        resetAndHideKeyboard();
         if (mInputConnectionFactory != null) {
             mInputConnectionFactory.onViewDetachedFromWindow();
         }
@@ -437,7 +439,6 @@ public class ImeAdapter {
      */
     public void onViewFocusChanged(boolean gainFocus) {
         if (DEBUG_LOGS) Log.w(TAG, "onViewFocusChanged: gainFocus [%b]", gainFocus);
-        if (!gainFocus) resetAndHideKeyboard();
         if (mInputConnectionFactory != null) {
             mInputConnectionFactory.onViewFocusChanged(gainFocus);
         }
