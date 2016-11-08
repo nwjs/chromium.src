@@ -512,6 +512,7 @@ DEFINE_TRACE(InspectorNetworkAgent) {
 
 bool InspectorNetworkAgent::shouldBlockRequest(const ResourceRequest& request) {
   if (m_state->booleanProperty(NetworkAgentState::cacheDisabled, false) &&
+      request.requestContext() != WebURLRequest::RequestContextInternal &&
       request.getCachePolicy() == WebCachePolicy::ReturnCacheDataDontLoad) {
     return true;
   }
@@ -636,9 +637,10 @@ void InspectorNetworkAgent::willSendRequest(
 
   if (m_state->booleanProperty(NetworkAgentState::cacheDisabled, false)) {
     // It shouldn't be a ReturnCacheDataDontLoad request as those are blocked
-    // in shouldBlockRequest.
-    DCHECK_NE(WebCachePolicy::ReturnCacheDataDontLoad,
-              request.getCachePolicy());
+    // in shouldBlockRequest unless it's from an internal source.
+    DCHECK(WebCachePolicy::ReturnCacheDataDontLoad !=
+               request.getCachePolicy() ||
+           request.requestContext() == WebURLRequest::RequestContextInternal);
     request.setCachePolicy(WebCachePolicy::BypassingCache);
     request.setShouldResetAppCache(true);
   }
