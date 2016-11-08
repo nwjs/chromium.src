@@ -173,10 +173,8 @@ static void collectScopedResolversForHostedShadowTrees(
   // Adding scoped resolver for active shadow roots for shadow host styling.
   for (ShadowRoot* shadowRoot = &shadow->youngestShadowRoot(); shadowRoot;
        shadowRoot = shadowRoot->olderShadowRoot()) {
-    if (shadowRoot->numberOfStyles() > 0) {
-      if (ScopedStyleResolver* resolver = shadowRoot->scopedStyleResolver())
-        resolvers.append(resolver);
-    }
+    if (ScopedStyleResolver* resolver = shadowRoot->scopedStyleResolver())
+      resolvers.append(resolver);
   }
 }
 
@@ -434,8 +432,6 @@ static void matchHostRules(const Element& element,
 
   for (ShadowRoot* shadowRoot = &shadow->oldestShadowRoot(); shadowRoot;
        shadowRoot = shadowRoot->youngerShadowRoot()) {
-    if (!shadowRoot->numberOfStyles())
-      continue;
     if (ScopedStyleResolver* resolver = shadowRoot->scopedStyleResolver()) {
       collector.clearMatchedRules();
       resolver->collectMatchingShadowHostRules(collector);
