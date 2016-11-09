@@ -60,6 +60,7 @@ import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.contextmenu.ContextMenuPopulator;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchTabHelper;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
+import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.download.ChromeDownloadDelegate;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.help.HelpAndFeedback;
@@ -1528,7 +1529,9 @@ public class Tab implements ViewGroup.OnHierarchyChangeListener,
         if (activity == null) return false;
 
         if (intent == null) intent = new Intent();
-        intent.setPackage(activity.getPackageName());
+        if (intent.getComponent() == null) {
+            intent.setClass(mThemedApplicationContext, ChromeLauncherActivity.class);
+        }
         intent.setAction(Intent.ACTION_VIEW);
         if (TextUtils.isEmpty(intent.getDataString())) intent.setData(Uri.parse(getUrl()));
         if (isIncognito()) {
@@ -1548,7 +1551,7 @@ public class Tab implements ViewGroup.OnHierarchyChangeListener,
                     new TabReparentingParams(this, intent, finalizeCallback));
 
             tabModelSelector.getModel(mIncognito).removeTab(this);
-            
+
             // We can't call updateWindowAndroid here and set mWindowAndroid to null because the tab
             // may navigate while being reparented and cause a crash.
             // TODO(mthiesse): File a bug when crbug isn't down.
