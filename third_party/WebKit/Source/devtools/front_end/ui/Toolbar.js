@@ -715,12 +715,18 @@ WebInspector.ToolbarMenuButton.prototype = {
     _trigger: function(event)
     {
         delete this._triggerTimeout;
+
+        // Throttling avoids entering a bad state on Macs when rapidly triggering context menus just
+        // after the window gains focus. See crbug.com/655556
+        if (this._lastTriggerTime && Date.now() - this._lastTriggerTime < 300)
+          return;
         var contextMenu = new WebInspector.ContextMenu(event,
             this._useSoftMenu,
             this.element.totalOffsetLeft(),
             this.element.totalOffsetTop() + this.element.offsetHeight);
         this._contextMenuHandler(contextMenu);
         contextMenu.show();
+        this._lastTriggerTime = Date.now();
     },
 
     /**
