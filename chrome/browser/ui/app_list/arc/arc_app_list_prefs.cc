@@ -12,6 +12,8 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task_runner_util.h"
+#include "chrome/browser/policy/profile_policy_connector.h"
+#include "chrome/browser/policy/profile_policy_connector_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/app_list_service.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs_factory.h"
@@ -144,6 +146,11 @@ bool IsArcEnabled() {
   return auth_service &&
          auth_service->state() != arc::ArcAuthService::State::NOT_INITIALIZED &&
          auth_service->IsArcEnabled();
+}
+
+bool IsAccountManaged(Profile* profile) {
+  return policy::ProfilePolicyConnectorFactory::GetForBrowserContext(profile)
+      ->IsManaged();
 }
 
 bool GetInt64FromPref(const base::DictionaryValue* dict,
@@ -600,10 +607,13 @@ void ArcAppListPrefs::OnOptInEnabled(bool enabled) {
 }
 
 void ArcAppListPrefs::UpdateDefaultAppsHiddenState() {
-  const arc::ArcAuthService* auth_service = arc::ArcAuthService::Get();
   const bool was_hidden = default_apps_.is_hidden();
-  default_apps_.set_hidden(!auth_service->IsArcEnabled() &&
-                           auth_service->IsArcManaged());
+  // There is no a blacklisting mechanism for Android apps. Until there is
+  // one, we have no option but to ban all pre-installed apps on Android side.
+  // Match this requirement and don't show pre-installed apps for managed users
+  // in app list.
+  const bool now_hidden = IsAccountManaged(profile_);
+  default_apps_.set_hidden(now_hidden);
   if (was_hidden && !default_apps_.is_hidden())
     RegisterDefaultApps();
 }
