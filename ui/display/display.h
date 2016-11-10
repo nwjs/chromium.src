@@ -15,6 +15,11 @@
 #include "mojo/public/cpp/bindings/struct_traits.h"  // nogncheck
 #endif
 
+namespace content {
+  DISPLAY_EXPORT extern bool g_support_transparency;
+  DISPLAY_EXPORT extern bool g_force_cpu_draw;
+}
+
 namespace display {
 
 #if !defined(OS_IOS)

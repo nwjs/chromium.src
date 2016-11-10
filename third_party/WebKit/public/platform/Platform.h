@@ -493,7 +493,7 @@ public:
 
     virtual void didStartWorkerThread() { }
     virtual void willStopWorkerThread() { }
-    virtual void workerContextCreated(const v8::Local<v8::Context>& worker) { }
+    virtual void workerContextCreated(const v8::Local<v8::Context>& worker, bool, const std::string&) { }
     virtual bool allowScriptExtensionForServiceWorker(const WebURL& scriptUrl) { return false; }
 
     // WebCrypto ----------------------------------------------------------
