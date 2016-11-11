@@ -24,6 +24,8 @@ WelcomeHandler::WelcomeHandler(content::WebUI* web_ui)
           ProfileOAuth2TokenServiceFactory::GetForProfile(profile_)),
       result_(WelcomeResult::DEFAULT) {
   oauth2_token_service_->AddObserver(this);
+  base::RecordAction(
+      base::UserMetricsAction("Signin_Impression_FromStartPage"));
 }
 
 WelcomeHandler::~WelcomeHandler() {
