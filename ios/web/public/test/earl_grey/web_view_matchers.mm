@@ -25,6 +25,43 @@ char kGetDocumentBodyJavaScript[] =
 // Script that tests presence of css selector.
 char kTestCssSelectorJavaScriptTemplate[] = "!!document.querySelector(\"%s\");";
 
+// Helper function for matching web views containing or not containing |text|,
+// depending on the value of |should_contain_text|.
+id<GREYMatcher> webViewWithText(std::string text,
+                                web::WebState* web_state,
+                                bool should_contain_text) {
+  MatchesBlock matches = ^BOOL(WKWebView*) {
+    __block BOOL did_succeed = NO;
+    NSDate* deadline =
+        [NSDate dateWithTimeIntervalSinceNow:testing::kWaitForUIElementTimeout];
+    while (([[NSDate date] compare:deadline] != NSOrderedDescending) &&
+           !did_succeed) {
+      std::unique_ptr<base::Value> value =
+          ExecuteJavaScript(web_state, kGetDocumentBodyJavaScript);
+      std::string body;
+      if (value && value->GetAsString(&body)) {
+        BOOL contains_text = body.find(text) != std::string::npos;
+        did_succeed = (contains_text == should_contain_text);
+      }
+      base::test::ios::SpinRunLoopWithMaxDelay(
+          base::TimeDelta::FromSecondsD(testing::kSpinDelaySeconds));
+    }
+    return did_succeed;
+  };
+
+  DescribeToBlock describe = ^(id<GREYDescription> description) {
+    [description appendText:should_contain_text ? @"web view containing "
+                                                : @"web view not containing "];
+    [description appendText:base::SysUTF8ToNSString(text)];
+  };
+
+  return grey_allOf(webViewInWebState(web_state),
+                    [[[GREYElementMatcherBlock alloc]
+                        initWithMatchesBlock:matches
+                            descriptionBlock:describe] autorelease],
+                    nil);
+}
+
 }  // namespace
 
 namespace web {
@@ -45,34 +82,12 @@ id<GREYMatcher> webViewInWebState(WebState* web_state) {
 }
 
 id<GREYMatcher> webViewContainingText(std::string text, WebState* web_state) {
-  MatchesBlock matches = ^BOOL(WKWebView*) {
-    __block BOOL did_succeed = NO;
-    NSDate* deadline =
-        [NSDate dateWithTimeIntervalSinceNow:testing::kWaitForUIElementTimeout];
-    while (([[NSDate date] compare:deadline] != NSOrderedDescending) &&
-           !did_succeed) {
-      std::unique_ptr<base::Value> value =
-          ExecuteJavaScript(web_state, kGetDocumentBodyJavaScript);
-      std::string body;
-      if (value && value->GetAsString(&body)) {
-        did_succeed = body.find(text) != std::string::npos;
-      }
-      base::test::ios::SpinRunLoopWithMaxDelay(
-          base::TimeDelta::FromSecondsD(testing::kSpinDelaySeconds));
-    }
-    return did_succeed;
-  };
+  return webViewWithText(text, web_state, true);
+}
 
-  DescribeToBlock describe = ^(id<GREYDescription> description) {
-    [description appendText:@"web view containing "];
-    [description appendText:base::SysUTF8ToNSString(text)];
-  };
-
-  return grey_allOf(webViewInWebState(web_state),
-                    [[[GREYElementMatcherBlock alloc]
-                        initWithMatchesBlock:matches
-                            descriptionBlock:describe] autorelease],
-                    nil);
+id<GREYMatcher> webViewNotContainingText(std::string text,
+                                         WebState* web_state) {
+  return webViewWithText(text, web_state, false);
 }
 
 id<GREYMatcher> webViewContainingBlockedImage(std::string image_id,
