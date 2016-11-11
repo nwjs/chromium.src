@@ -52,6 +52,7 @@
 #include "chrome/browser/ui/views/passwords/manage_passwords_icon_views.h"
 #include "chrome/browser/ui/views/translate/translate_bubble_view.h"
 #include "chrome/browser/ui/views/translate/translate_icon_view.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
@@ -65,6 +66,7 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/toolbar/toolbar_model.h"
 #include "components/translate/core/browser/language_state.h"
+#include "components/variations/variations_associated_data.h"
 #include "components/zoom/zoom_controller.h"
 #include "components/zoom/zoom_event_manager.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -142,7 +144,8 @@ LocationBarView::LocationBarView(Browser* browser,
       web_contents_null_at_last_refresh_(true),
       should_show_secure_state_(false),
       should_show_nonsecure_state_(false),
-      should_animate_secure_state_(false) {
+      should_animate_secure_state_(false),
+      should_animate_nonsecure_state_(false) {
   edit_bookmarks_enabled_.Init(
       bookmarks::prefs::kEditBookmarksEnabled, profile->GetPrefs(),
       base::Bind(&LocationBarView::UpdateWithoutTabRestore,
@@ -166,6 +169,26 @@ LocationBarView::LocationBarView(Browser* browser,
             switches::kMaterialSecurityVerboseShowAllAnimated ||
         security_verbose_flag ==
             switches::kMaterialSecurityVerboseShowNonSecureAnimated;
+    should_animate_nonsecure_state_ = should_animate_secure_state_;
+  } else if (base::FeatureList::IsEnabled(features::kSecurityChip)) {
+    std::string security_chip_visibility =
+        variations::GetVariationParamValueByFeature(
+            features::kSecurityChip, kSecurityChipFeatureVisibilityParam);
+    should_show_secure_state_ =
+        security_chip_visibility == switches::kSecurityChipShowAll;
+    should_show_nonsecure_state_ =
+        should_show_secure_state_ ||
+        security_chip_visibility == switches::kSecurityChipShowNonSecureOnly;
+
+    std::string security_chip_animation =
+        variations::GetVariationParamValueByFeature(
+            features::kSecurityChip, kSecurityChipFeatureAnimationParam);
+    should_animate_secure_state_ =
+        security_chip_animation == switches::kSecurityChipAnimationAll;
+    should_animate_nonsecure_state_ =
+        should_animate_secure_state_ ||
+        security_chip_animation ==
+            switches::kSecurityChipAnimationNonSecureOnly;
   }
 }
 
@@ -772,7 +795,7 @@ void LocationBarView::Update(const WebContents* contents) {
 
   bool should_show = ShouldShowSecurityChip();
   location_icon_view_->SetSecurityState(
-      should_show, should_show && !contents && should_animate_secure_state_);
+      should_show, should_show && !contents && ShouldAnimateSecurityChip());
 
   OnChanged();  // NOTE: Calls Layout().
 }
@@ -1017,6 +1040,18 @@ bool LocationBarView::ShouldShowSecurityChip() const {
     return should_show_nonsecure_state_ &&
            level == SecurityLevel::DANGEROUS;
   }
+}
+
+bool LocationBarView::ShouldAnimateSecurityChip() const {
+  using SecurityLevel = security_state::SecurityStateModel::SecurityLevel;
+  SecurityLevel level = GetToolbarModel()->GetSecurityLevel(false);
+  if (!ShouldShowSecurityChip())
+    return false;
+  if (level == SecurityLevel::SECURE || level == SecurityLevel::EV_SECURE)
+    return should_animate_secure_state_;
+  return should_animate_nonsecure_state_ &&
+         (level == SecurityLevel::DANGEROUS ||
+          level == SecurityLevel::HTTP_SHOW_WARNING);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

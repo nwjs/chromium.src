@@ -50,6 +50,7 @@
 #include "chrome/browser/ui/content_settings/content_setting_image_model.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/theme_resources.h"
@@ -60,6 +61,7 @@
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/translate/core/browser/language_state.h"
+#include "components/variations/variations_associated_data.h"
 #include "components/zoom/zoom_controller.h"
 #include "components/zoom/zoom_event_manager.h"
 #include "content/public/browser/web_contents.h"
@@ -123,7 +125,8 @@ LocationBarViewMac::LocationBarViewMac(AutocompleteTextField* field,
       location_bar_visible_(true),
       should_show_secure_verbose_(false),
       should_show_nonsecure_verbose_(false),
-      should_animate_security_verbose_(false),
+      should_animate_secure_verbose_(false),
+      should_animate_nonsecure_verbose_(false),
       is_width_available_for_security_verbose_(false),
       weak_ptr_factory_(this) {
   ScopedVector<ContentSettingImageModel> models =
@@ -147,6 +150,7 @@ LocationBarViewMac::LocationBarViewMac(AutocompleteTextField* field,
       !browser->SupportsWindowFeature(Browser::FEATURE_TABSTRIP)];
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+
   if (command_line->HasSwitch(switches::kMaterialSecurityVerbose)) {
     std::string security_verbose_flag =
         command_line->GetSwitchValueASCII(switches::kMaterialSecurityVerbose);
@@ -158,11 +162,33 @@ LocationBarViewMac::LocationBarViewMac(AutocompleteTextField* field,
 
     should_show_nonsecure_verbose_ = true;
 
-    should_animate_security_verbose_ =
+    should_show_nonsecure_verbose_ =
         security_verbose_flag ==
             switches::kMaterialSecurityVerboseShowAllAnimated ||
         security_verbose_flag ==
             switches::kMaterialSecurityVerboseShowNonSecureAnimated;
+    should_animate_secure_verbose_ = should_show_nonsecure_verbose_;
+  } else if (base::FeatureList::IsEnabled(features::kSecurityChip)) {
+    // Visibility value.
+    std::string security_chip = variations::GetVariationParamValueByFeature(
+        features::kSecurityChip, kSecurityChipFeatureVisibilityParam);
+    if (security_chip == switches::kSecurityChipShowNonSecureOnly) {
+      should_show_nonsecure_verbose_ = true;
+    } else if (security_chip == switches::kSecurityChipShowAll) {
+      should_show_secure_verbose_ = true;
+      should_show_nonsecure_verbose_ = true;
+    }
+
+    // Animation value.
+    std::string security_chip_animation =
+        command_line->GetSwitchValueASCII(switches::kSecurityChipAnimation);
+    if (security_chip_animation ==
+        switches::kSecurityChipAnimationNonSecureOnly) {
+      should_animate_nonsecure_verbose_ = true;
+    } else if (security_chip_animation == switches::kSecurityChipAnimationAll) {
+      should_animate_secure_verbose_ = true;
+      should_animate_nonsecure_verbose_ = true;
+    }
   }
 
   // Sets images for the decorations, and performs a layout. This call ensures
@@ -880,8 +906,9 @@ void LocationBarViewMac::UpdateSecurityState(bool tab_changed) {
 
   security_state::SecurityStateModel::SecurityLevel new_security_level =
       GetToolbarModel()->GetSecurityLevel(false);
-  bool is_secure_to_secure = IsSecureConnection(new_security_level) &&
-                             IsSecureConnection(security_level_);
+  bool is_new_level_secure = IsSecureConnection(new_security_level);
+  bool is_secure_to_secure =
+      is_new_level_secure && IsSecureConnection(security_level_);
   bool is_new_security_level =
       security_level_ != new_security_level && !is_secure_to_secure;
   security_level_ = new_security_level;
@@ -891,9 +918,13 @@ void LocationBarViewMac::UpdateSecurityState(bool tab_changed) {
   // animate the decoration if animation is enabled and the state changed is
   // not from a tab switch.
   if (is_width_available_for_security_verbose_) {
+    bool is_animated =
+        (is_new_level_secure && should_animate_secure_verbose_) ||
+        (!is_new_level_secure && should_animate_nonsecure_verbose_);
+
     if (!tab_changed && security_state_bubble_decoration_->HasAnimatedOut())
       security_state_bubble_decoration_->AnimateIn(false);
-    else if (!should_animate_security_verbose_ || tab_changed)
+    else if (!is_animated || tab_changed)
       security_state_bubble_decoration_->ShowWithoutAnimation();
     else if (is_new_security_level)
       security_state_bubble_decoration_->AnimateIn();

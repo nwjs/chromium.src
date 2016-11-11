@@ -874,6 +874,14 @@ const char kSbDisableExtensionBlacklist[] =
 const char kSbManualDownloadBlacklist[] =
     "safebrowsing-manual-download-blacklist";
 
+const char kSecurityChipShowNonSecureOnly[] = "show-nonsecure-only";
+const char kSecurityChipShowAll[] = "show-all";
+
+const char kSecurityChipAnimation[] = "security-chip-animation";
+const char kSecurityChipAnimationNone[] = "none";
+const char kSecurityChipAnimationNonSecureOnly[] = "animate-nonsecure-only";
+const char kSecurityChipAnimationAll[] = "animate-all";
+
 // Causes the process to run as a service process.
 const char kServiceProcess[]                = "service";
 
