@@ -1104,12 +1104,12 @@ public class ExternalNavigationHandlerTest extends NativeLibraryTestBase {
         }
 
         @Override
-        public void startActivity(Intent intent) {
+        public void startActivity(Intent intent, boolean proxy) {
             startActivityIntent = intent;
         }
 
         @Override
-        public boolean startActivityIfNeeded(Intent intent) {
+        public boolean startActivityIfNeeded(Intent intent, boolean proxy) {
             // For simplicity, don't distinguish between startActivityIfNeeded and startActivity
             // until a test requires this distinction.
             startActivityIntent = intent;
@@ -1118,7 +1118,7 @@ public class ExternalNavigationHandlerTest extends NativeLibraryTestBase {
 
         @Override
         public void startIncognitoIntent(Intent intent, String referrerUrl, String fallbackUrl,
-                Tab tab, boolean needsToCloseTab) {
+                Tab tab, boolean needsToCloseTab, boolean proxy) {
             startIncognitoIntentCalled = true;
         }
 
