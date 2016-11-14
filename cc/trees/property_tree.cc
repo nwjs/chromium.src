@@ -739,17 +739,20 @@ void TransformTree::SetRootTransformsAndScales(
   bool invertible = root_to_screen.GetInverse(&root_from_screen);
   DCHECK(invertible);
   TransformNode* root_node = Node(kRootNodeId);
-  root_node->needs_surface_contents_scale = true;
-  root_node->surface_contents_scale = screen_space_scale;
-  SetToScreen(kRootNodeId, root_to_screen);
-  SetFromScreen(kRootNodeId, root_from_screen);
-  set_needs_update(true);
+  if (root_node->surface_contents_scale != screen_space_scale) {
+    root_node->needs_surface_contents_scale = true;
+    root_node->surface_contents_scale = screen_space_scale;
+    SetToScreen(kRootNodeId, root_to_screen);
+    SetFromScreen(kRootNodeId, root_from_screen);
+    set_needs_update(true);
+  }
 
   transform.ConcatTransform(root_from_screen);
   TransformNode* contents_root_node = Node(kContentsRootNodeId);
   if (contents_root_node->post_local != transform) {
     contents_root_node->post_local = transform;
     contents_root_node->needs_local_transform_update = true;
+    set_needs_update(true);
   }
 }
 
