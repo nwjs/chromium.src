@@ -107,6 +107,7 @@
 <translation id="2139186145475833000">Додати на головний екран</translation>
 <translation id="2146738493024040262">Відкрити додаток із миттєвим запуском</translation>
 <translation id="2148716181193084225">Сьогодні</translation>
+<translation id="2154484045852737596">Редагувати картку</translation>
 <translation id="2154710561487035718">Копіювати URL-адресу</translation>
 <translation id="219985413780390209">Захистіть себе та свій пристрій від небезпечних сайтів</translation>
 <translation id="2206488550163399966">Веб-додаток <ph name="APP_NAME" />: <ph name="APP_URL" /></translation>
@@ -445,7 +446,6 @@
 <translation id="6159335304067198720">Заощадження даних: <ph name="PERCENT" /></translation>
 <translation id="6165508094623778733">Докладніше</translation>
 <translation id="6177390657002841081">Увімкнути Заощадження трафіку</translation>
-<translation id="617991007797131187">Chrome може здійснювати пошук за допомогою Sogou в Китаї. Можна змінити цей параметр у <ph name="BEGIN_LINK" />налаштуваннях<ph name="END_LINK" />.</translation>
 <translation id="6181444274883918285">Додати сайт у список винятків</translation>
 <translation id="6192792657125177640">Винятки</translation>
 <translation id="6232535412751077445">Якщо ввімкнути параметр "Не відстежувати", запит додаватиметься в трафік веб-перегляду. Результат залежатиме від того, чи реагує веб-сайт на цей запит і як тлумачиться запит.
@@ -465,6 +465,7 @@
 <translation id="6409731863280057959">Спливаючі вікна</translation>
 <translation id="641643625718530986">Друк…</translation>
 <translation id="6433490469411711332">Змінити контактні дані</translation>
+<translation id="6443118737398455446">Недійсна дата завершення терміну дії</translation>
 <translation id="6447842834002726250">Cookie-файли</translation>
 <translation id="6448273550210938826">Пропозиції пошуку та URL-адрес</translation>
 <translation id="6463070039183944536">Додавання…</translation>

@@ -107,6 +107,7 @@
 <translation id="2139186145475833000">ወደ መነሻ ማያ ገጽ አክል</translation>
 <translation id="2146738493024040262">ቅጽበታዊ መተግበሪያን ክፈት</translation>
 <translation id="2148716181193084225">ዛሬ</translation>
+<translation id="2154484045852737596">ካርትን ያርትዑ</translation>
 <translation id="2154710561487035718">URL ቅዳ</translation>
 <translation id="219985413780390209">እርስዎን እና መሣሪያዎን ከአደገኛ ጣቢያዎች ይጠብቃል</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />፣ የድር መተግበሪያ። <ph name="APP_URL" /></translation>
@@ -445,7 +446,6 @@
 <translation id="6159335304067198720"><ph name="PERCENT" /> የውሂብ ቁጠባዎች</translation>
 <translation id="6165508094623778733">ተጨማሪ ለመረዳት</translation>
 <translation id="6177390657002841081">የውሂብ አስቀማጭን አብራ</translation>
-<translation id="617991007797131187">Chrome በቻይና ውስጥ Sogouን ለፍለጋ ሊጠቀም ይችላል። ይህንን በ<ph name="BEGIN_LINK" />ቅንብሮች<ph name="END_LINK" /> ውስጥ መለወጥ ይችላሉ።</translation>
 <translation id="6181444274883918285">ለየት ያለ ጣቢያን አክል</translation>
 <translation id="6192792657125177640">የተለዩ</translation>
 <translation id="6232535412751077445">«አትከታተል»ን ማንቃት ማለት አንድ ጥያቄ በአሰሳ ትራፊክዎ ላይ ይካተታል ማለት ነው። ማንኛውም ውጤት አንድ ድር ጣቢያ ለጥያቄው ምላሽ ከሰጠና ጥያቄውን በሚተረጎምበት መንገድ ላይ የሚወሰን ነው።
@@ -465,6 +465,7 @@
 <translation id="6409731863280057959">ብቅ-ባዮች</translation>
 <translation id="641643625718530986">አትም…</translation>
 <translation id="6433490469411711332">የዕውቂያ መረጃን ያርትዑ</translation>
+<translation id="6443118737398455446">ልክ ያልሆነ የአገልግሎት ማብቂያ ቀን</translation>
 <translation id="6447842834002726250">ኩኪዎች</translation>
 <translation id="6448273550210938826">የፍለጋ እና ዩአርኤል ጥቆማዎች</translation>
 <translation id="6463070039183944536">በማከል ላይ…</translation>

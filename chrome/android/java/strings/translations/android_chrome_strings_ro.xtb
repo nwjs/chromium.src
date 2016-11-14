@@ -387,7 +387,7 @@ Pentru a ajusta termenii căutării, apasă lung pentru a selecta. Pentru a rafi
 <translation id="554327794654007401">Webul material</translation>
 <translation id="5556459405103347317">Reîncarcă</translation>
 <translation id="5565871407246142825">Carduri de credit</translation>
-<translation id="5578795271662203820">Căutați imaginea cu <ph name="SEARCH_ENGINE" /></translation>
+<translation id="5578795271662203820">Caută imaginea cu <ph name="SEARCH_ENGINE" /></translation>
 <translation id="5579997910517802656">Nu s-a găsit niciun dispozitiv.</translation>
 <translation id="5595485650161345191">Editează adresa</translation>
 <translation id="5596627076506792578">Mai multe opțiuni</translation>
@@ -445,7 +445,6 @@ Totuși, nu ești invizibil(ă). Trecerea în modul incognito nu ascunde activit
 <translation id="6159335304067198720">Economie de date de <ph name="PERCENT" /></translation>
 <translation id="6165508094623778733">Află mai multe</translation>
 <translation id="6177390657002841081">Activează Economizorul de date</translation>
-<translation id="617991007797131187">Chrome poate folosi Sogou pentru căutare în China. Poți modifica această opțiune din <ph name="BEGIN_LINK" />Setări<ph name="END_LINK" />.</translation>
 <translation id="6181444274883918285">Adaugă o excepție privind site-urile</translation>
 <translation id="6192792657125177640">Excepții</translation>
 <translation id="6232535412751077445">Dacă activezi opțiunea „Nu urmări”, o solicitare va fi inclusă împreună cu traficul de navigare. Efectul variază în funcție de răspunsul site-ului la solicitare și în funcție de modul în care este interpretată solicitarea.
@@ -605,7 +604,7 @@ Contul Google poate să ofere alte forme ale istoricului de navigare, cum ar fi 
 <translation id="8063895661287329888">Marcajul nu a putut fi adăugat.</translation>
 <translation id="8068648041423924542">Certificatul nu poate fi selectat.</translation>
 <translation id="8069239273282989646">După comprimare</translation>
-<translation id="8073388330009372546">Vedeți imaginea în filă nouă</translation>
+<translation id="8073388330009372546">Vezi imaginea în filă nouă</translation>
 <translation id="8076014560081431679">Setările salvate pentru site-uri nu vor fi șterse și pot reflecta obiceiurile de navigare. <ph name="BEGIN_LINK" />Află mai multe<ph name="END_LINK" /></translation>
 <translation id="8087000398470557479">Acest conținut provine de pe <ph name="DOMAIN_NAME" />, oferit de Google.</translation>
 <translation id="8103578431304235997">Filă incognito</translation>

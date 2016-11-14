@@ -107,6 +107,7 @@
 <translation id="2139186145475833000">إضافة إلى الشاشة الرئيسية</translation>
 <translation id="2146738493024040262">فتح تطبيق فوري</translation>
 <translation id="2148716181193084225">اليوم</translation>
+<translation id="2154484045852737596">تعديل البطاقة</translation>
 <translation id="2154710561487035718">‏نسخ عنوان URL</translation>
 <translation id="219985413780390209">حمايتك وحماية جهازك من المواقع الخطرة</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />، تطبيق ويب. <ph name="APP_URL" /></translation>
@@ -446,7 +447,6 @@
 <translation id="6159335304067198720">توفير البيانات بنسبة <ph name="PERCENT" /></translation>
 <translation id="6165508094623778733">مزيد من المعلومات</translation>
 <translation id="6177390657002841081">تشغيل إضافة "توفير البيانات"</translation>
-<translation id="617991007797131187">‏يمكن أن يستخدم Chrome محرك Sogou للبحث في الصين. يمكنك تغيير هذا في <ph name="BEGIN_LINK" />الإعدادات<ph name="END_LINK" />.</translation>
 <translation id="6181444274883918285">إضافة موقع ويب إلى قائمة الاستثناءات</translation>
 <translation id="6192792657125177640">الاستثناءات</translation>
 <translation id="6232535412751077445">يعني تمكين ميزة "عدم التعقب" تضمين الطلب مع عدد زيارات التصفح. ويعتمد أي تأثير على استجابة موقع الويب للطلب من عدمه، بالإضافة إلى كيفية تفسير الطلب.
@@ -466,6 +466,7 @@
 <translation id="6409731863280057959">النوافذ المنبثقة</translation>
 <translation id="641643625718530986">طباعة…</translation>
 <translation id="6433490469411711332">تعديل معلومات الاتصال</translation>
+<translation id="6443118737398455446">تاريخ انتهاء الصلاحية غير صالح</translation>
 <translation id="6447842834002726250">ملفّات تعريف الارتباط</translation>
 <translation id="6448273550210938826">‏اقتراحات البحث وعناوين URL</translation>
 <translation id="6463070039183944536">جارٍ الإضافة...</translation>

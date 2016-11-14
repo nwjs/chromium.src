@@ -195,7 +195,7 @@
 <translation id="3063697135517575841">Chrome nie może obecnie potwierdzić karty. Spróbuj ponownie później.</translation>
 <translation id="3093245981617870298">Jesteś offline.</translation>
 <translation id="3105172416063519923">Identyfikator zasobu:</translation>
-<translation id="3109728660330352905">Nie masz autoryzacji do wyświetlania tej strony.</translation>
+<translation id="3109728660330352905">Nie masz uprawnień do wyświetlania tej strony.</translation>
 <translation id="31207688938192855"><ph name="BEGIN_LINK" />Uruchom diagnostykę połączeń<ph name="END_LINK" />.</translation>
 <translation id="3145945101586104090">Dekodowanie odpowiedzi nie powiodło się</translation>
 <translation id="3150653042067488994">Tymczasowy błąd serwera</translation>
@@ -252,7 +252,7 @@
 <translation id="3587482841069643663">Wszystkie</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
 <translation id="3609138628363401169">Serwer nie obsługuje rozszerzenia ponownej negocjacji protokołu TLS.</translation>
-<translation id="36224234498066874">Wyczyść dane przeglądarki...</translation>
+<translation id="36224234498066874">Wyczyść dane przeglądania...</translation>
 <translation id="362276910939193118">Wyświetl całą historię</translation>
 <translation id="3623476034248543066">Pokaż wartość</translation>
 <translation id="3630155396527302611">Jeśli ten program jest już na liście programów mogących korzystać z sieci,

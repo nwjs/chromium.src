@@ -107,6 +107,7 @@
 <translation id="2139186145475833000">Adicionar à tela inicial</translation>
 <translation id="2146738493024040262">Abrir Instant App</translation>
 <translation id="2148716181193084225">Hoje</translation>
+<translation id="2154484045852737596">Editar cartão</translation>
 <translation id="2154710561487035718">Copiar URL</translation>
 <translation id="219985413780390209">Proteger você e seu dispositivo de sites perigosos</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, aplicativo da Web. <ph name="APP_URL" /></translation>
@@ -443,7 +444,6 @@ Para selecionar o termo que quer pesquisar, toque no termo e mantenha-o pression
 <translation id="6159335304067198720">Economia de dados de <ph name="PERCENT" /></translation>
 <translation id="6165508094623778733">Saiba mais</translation>
 <translation id="6177390657002841081">Ativar a Economia de dados</translation>
-<translation id="617991007797131187">O Chrome pode usar o Sogou para fazer pesquisas na China. É possível alterar isso em <ph name="BEGIN_LINK" />Configurações<ph name="END_LINK" />.</translation>
 <translation id="6181444274883918285">Adicionar site às exceções</translation>
 <translation id="6192792657125177640">Exceções</translation>
 <translation id="6232535412751077445">A ativação de "Não rastrear" significa que uma solicitação será incluída no tráfego de navegação. Todo efeito depende de um website responder à solicitação e de como a solicitação é interpretada.
@@ -463,6 +463,7 @@ Por exemplo, alguns websites podem reagir a esse pedido mostrando anúncios que 
 <translation id="6409731863280057959">Pop-ups</translation>
 <translation id="641643625718530986">Imprimir...</translation>
 <translation id="6433490469411711332">Editar informações de contato</translation>
+<translation id="6443118737398455446">Data de vencimento inválida</translation>
 <translation id="6447842834002726250">Cookies</translation>
 <translation id="6448273550210938826">Sugestões de pesquisa e URL</translation>
 <translation id="6463070039183944536">Adicionando…</translation>

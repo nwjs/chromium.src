@@ -71,7 +71,7 @@
 <translation id="1093457606523402488">Widoczne sieci:</translation>
 <translation id="1094607894174825014">Zażądano operacji odczytu lub zapisu z nieprawidłowym offsetem w: „<ph name="DEVICE_NAME" />”.</translation>
 <translation id="1095631072651601838">Tożsamość organizacji <ph name="ORGANIZATION" /> została zweryfikowana przez <ph name="ISSUER" /> w lokalizacji <ph name="LOCALITY" />. Serwer przekazał informacje o przejrzystości certyfikatu, ale nie rozpoznano co najmniej jednego dziennika przejrzystości certyfikatu.</translation>
-<translation id="1097091804514346906">Pokazuje liczniki ilości danych w oknie dialogowym Wyczyść dane przeglądarki.</translation>
+<translation id="1097091804514346906">Pokazuje liczniki ilości danych w oknie dialogowym Wyczyść dane przeglądania.</translation>
 <translation id="1097507499312291972"><ph name="BEGIN_SIGN_IN_LINK" />Zaloguj się<ph name="END_SIGN_IN_LINK" />, by kontrolować i wyświetlać strony, na które wchodzi ta osoba.</translation>
 <translation id="1097658378307015415">Zanim się zalogujesz, wybierz tryb gościa, aby aktywować sieć <ph name="NETWORK_ID" />.</translation>
 <translation id="1104652314727136854">Integruje powiązania plików aplikacji Chrome z systemem operacyjnym.</translation>
@@ -4730,7 +4730,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="7364796246159120393">Wybierz plik</translation>
 <translation id="736515969993332243">Trwa skanowanie w poszukiwaniu sieci.</translation>
 <translation id="7366762109661450129">Powiedz „OK, Google”, gdy ekran jest włączony i odblokowany.</translation>
-<translation id="7366909168761621528">Dane przeglądarki</translation>
+<translation id="7366909168761621528">Dane przeglądania</translation>
 <translation id="7369521049655330548">Wtyczki, które zostały zablokowane na tej stronie:</translation>
 <translation id="7371490661692457119">Domyślna szerokość kafelków</translation>
 <translation id="7373789336584437724">To urządzenie obecnie wysyła do Google dane diagnostyczne i informacje o użytkowaniu. Możesz to zmienić w dowolnym momencie w <ph name="BEGIN_LINK1" />ustawieniach<ph name="END_LINK1" /> urządzenia. <ph name="BEGIN_LINK2" />Więcej informacji<ph name="END_LINK2" /></translation>
@@ -5039,7 +5039,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="7788668840732459509">Pozycja:</translation>
 <translation id="7791543448312431591">Dodaj</translation>
 <translation id="7792012425874949788">Podczas logowania coś poszło nie tak</translation>
-<translation id="7792388396321542707">Przestań udostępniać</translation>
+<translation id="7792388396321542707">Zatrzymaj udostępnianie</translation>
 <translation id="7792744925237334808">Nie pozwalaj witrynom innych firm zapisywać ani odczytywać danych z plików cookie.</translation>
 <translation id="7794058097940213561">Formatuj urządzenie</translation>
 <translation id="779798319486679958">Wybierz typy czcionek</translation>

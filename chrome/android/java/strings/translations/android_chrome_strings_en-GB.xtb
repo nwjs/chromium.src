@@ -107,6 +107,7 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="2139186145475833000">Add to Home screen</translation>
 <translation id="2146738493024040262">Open Instant App</translation>
 <translation id="2148716181193084225">Today</translation>
+<translation id="2154484045852737596">Edit card</translation>
 <translation id="2154710561487035718">Copy URL</translation>
 <translation id="219985413780390209">Protect you and your device from dangerous sites</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, web app. <ph name="APP_URL" /></translation>
@@ -445,7 +446,6 @@ However, you aren't invisible. Going incognito doesn't hide your browsing from y
 <translation id="6159335304067198720"><ph name="PERCENT" /> data savings</translation>
 <translation id="6165508094623778733">Learn more</translation>
 <translation id="6177390657002841081">Turn on Data Saver</translation>
-<translation id="617991007797131187">Chrome can use Sogou for search in China. You can change this in <ph name="BEGIN_LINK" />Settings<ph name="END_LINK" />.</translation>
 <translation id="6181444274883918285">Add site exception</translation>
 <translation id="6192792657125177640">Exceptions</translation>
 <translation id="6232535412751077445">Enabling “Do Not Track” means that a request will be included with your browsing traffic. Any effect depends on whether a website responds to the request and how the request is interpreted.
@@ -465,6 +465,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="6409731863280057959">Pop-ups</translation>
 <translation id="641643625718530986">Print…</translation>
 <translation id="6433490469411711332">Edit contact info</translation>
+<translation id="6443118737398455446">Invalid expiry date</translation>
 <translation id="6447842834002726250">Cookies</translation>
 <translation id="6448273550210938826">Search and URL suggestions</translation>
 <translation id="6463070039183944536">Adding...</translation>

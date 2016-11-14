@@ -107,6 +107,7 @@ Kad galėtumėte naudoti Fizinį žiniatinklį, būtina įgalinti „Bluetooth�
 <translation id="2139186145475833000">Pridėti prie pagr. ekrano</translation>
 <translation id="2146738493024040262">Atidaryti akimirksniu įkeliamą programėlę</translation>
 <translation id="2148716181193084225">Šiandien</translation>
+<translation id="2154484045852737596">Kortelės informacijos redagavimas</translation>
 <translation id="2154710561487035718">Kopijuoti URL adresą</translation>
 <translation id="219985413780390209">Apsaugokite save ir įrenginį nuo pavojingų svetainių</translation>
 <translation id="2206488550163399966">„<ph name="APP_NAME" />“, žiniatinklio programa. <ph name="APP_URL" /></translation>
@@ -445,7 +446,6 @@ Tačiau nesate nematomi. Kai naudojate inkognito režimą, jūsų darbdavys, int
 <translation id="6159335304067198720">Sutaupyta duomenų: <ph name="PERCENT" /></translation>
 <translation id="6165508094623778733">Sužinokite daugiau</translation>
 <translation id="6177390657002841081">Duomenų taupymo priemonės įjungimas</translation>
-<translation id="617991007797131187">Atlikdama paiešką „Chrome“ Kinijoje gali naudoti „Sogou“. Tai galite pakeisti apsilankę <ph name="BEGIN_LINK" />Nustatymuose<ph name="END_LINK" />.</translation>
 <translation id="6181444274883918285">Pridėti svetainės išimtį</translation>
 <translation id="6192792657125177640">Išimtys</translation>
 <translation id="6232535412751077445">Įgalinus funkciją „Nestebėti“, užklausa bus įtraukta į naršymo srautą. Poveikis priklauso nuo to, ar svetainė atsako į užklausą ir kaip užklausa interpretuojama.
@@ -465,6 +465,7 @@ Pavyzdžiui, kai kurios svetainės gali atsakyti į šią užklausą rodydamos j
 <translation id="6409731863280057959">Iššokantieji langai</translation>
 <translation id="641643625718530986">Spausdinti…</translation>
 <translation id="6433490469411711332">Kontaktinės informacijos redagavimas</translation>
+<translation id="6443118737398455446">Netinkama galiojimo pabaigos data</translation>
 <translation id="6447842834002726250">Slapukai</translation>
 <translation id="6448273550210938826">Paieškos ir URL pasiūlymai</translation>
 <translation id="6463070039183944536">Pridedama…</translation>
