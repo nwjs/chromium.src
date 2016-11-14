@@ -1729,6 +1729,9 @@ views::View* ProfileChooserView::CreateMaterialDesignCurrentProfileView(
     return view;
   }
 
+  const base::string16 profile_name =
+      profiles::GetAvatarNameForProfile(browser_->profile()->GetPath());
+
   // The available links depend on the type of profile that is active.
   if (avatar_item.signed_in) {
     if (switches::IsEnableAccountConsistency()) {
@@ -1755,6 +1758,12 @@ views::View* ProfileChooserView::CreateMaterialDesignCurrentProfileView(
           gfx::Insets(name_container_v_spacing, 0));
       profile_name_container->AddChildView(email_label);
     }
+
+    current_profile_card_->SetAccessibleName(
+        l10n_util::GetStringFUTF16(
+            IDS_PROFILES_EDIT_SIGNED_IN_PROFILE_ACCESSIBLE_NAME,
+            profile_name,
+            avatar_item.username));
     return view;
   }
 
@@ -1787,6 +1796,9 @@ views::View* ProfileChooserView::CreateMaterialDesignCurrentProfileView(
     view->AddChildView(extra_links_view);
   }
 
+  current_profile_card_->SetAccessibleName(
+      l10n_util::GetStringFUTF16(
+          IDS_PROFILES_EDIT_PROFILE_ACCESSIBLE_NAME, profile_name));
   return view;
 }
 
