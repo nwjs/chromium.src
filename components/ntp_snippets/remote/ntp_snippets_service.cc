@@ -321,10 +321,11 @@ CategoryStatus NTPSnippetsService::GetCategoryStatus(Category category) {
 CategoryInfo NTPSnippetsService::GetCategoryInfo(Category category) {
   DCHECK(base::ContainsKey(categories_, category));
   const CategoryContent& content = categories_[category];
+  bool is_article = category == articles_category_;
   return CategoryInfo(content.localized_title,
                       ContentSuggestionsCardLayout::FULL_CARD,
                       /*has_more_button=*/false,
-                      /*show_if_empty=*/true);
+                      /*show_if_empty=*/is_article);
 }
 
 void NTPSnippetsService::DismissSuggestion(
