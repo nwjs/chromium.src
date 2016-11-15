@@ -17,7 +17,6 @@ import android.os.Messenger;
 import android.os.RemoteException;
 import android.util.Log;
 
-import org.chromium.base.Callback;
 import org.chromium.base.annotations.SuppressFBWarnings;
 import org.chromium.chrome.browser.ChromeApplication;
 
@@ -46,7 +45,6 @@ public class GSAServiceClient {
     private final GSAServiceConnection mConnection;
     private final GSAHelper mGsaHelper;
     private Context mContext;
-    private Callback<Bundle> mOnMessageReceived;
 
     /** Messenger for communicating with service. */
     private Messenger mService;
@@ -66,7 +64,6 @@ public class GSAServiceClient {
                 String account =
                         mGsaHelper.getGSAAccountFromState(bundle.getByteArray(KEY_GSA_STATE));
                 GSAState.getInstance(mContext.getApplicationContext()).setGsaAccount(account);
-                if (mOnMessageReceived != null) mOnMessageReceived.onResult(bundle);
             } else {
                 super.handleMessage(msg);
             }
@@ -75,15 +72,11 @@ public class GSAServiceClient {
 
     /**
      * Constructs an instance of this class.
-     *
-     * @param context Appliation context.
-     * @param onMessageReceived optional callback when a message is received.
      */
-    GSAServiceClient(Context context, Callback<Bundle> onMessageReceived) {
-        mContext = context;
-        mOnMessageReceived = onMessageReceived;
+    public GSAServiceClient(Context context) {
         mHandler = new IncomingHandler();
         mMessenger = new Messenger(mHandler);
+        mContext = context;
         mConnection = new GSAServiceConnection();
         mGsaHelper = ((ChromeApplication) mContext.getApplicationContext())
                 .createGsaHelper();
@@ -96,7 +89,7 @@ public class GSAServiceClient {
      * established.
      * @return Whether or not the connection to the service was established successfully.
      */
-    boolean connect() {
+    public boolean connect() {
         if (mService != null) Log.e(TAG, "Already connected.");
         Intent intent = new Intent(GSA_SERVICE).setPackage(GSAState.SEARCH_INTENT_PACKAGE);
         return mContext.bindService(
@@ -106,7 +99,7 @@ public class GSAServiceClient {
     /**
      * Disconnects from the service and resets the client's state.
      */
-    void disconnect() {
+    public void disconnect() {
         if (mService == null) return;
 
         mContext.unbindService(mConnection);
@@ -121,7 +114,7 @@ public class GSAServiceClient {
      * Indicates whether or not the client is currently connected to the service.
      * @return true if connected, false otherwise.
      */
-    boolean isConnected() {
+    public boolean isConnected() {
         return mService != null;
     }
 

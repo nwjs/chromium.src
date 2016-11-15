@@ -76,7 +76,7 @@ import org.chromium.chrome.browser.download.DownloadManagerService;
 import org.chromium.chrome.browser.download.DownloadUtils;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.gsa.ContextReporter;
-import org.chromium.chrome.browser.gsa.GSAAccountChangeListener;
+import org.chromium.chrome.browser.gsa.GSAServiceClient;
 import org.chromium.chrome.browser.gsa.GSAState;
 import org.chromium.chrome.browser.help.HelpAndFeedback;
 import org.chromium.chrome.browser.infobar.InfoBarContainer;
@@ -183,6 +183,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     private TabContentManager mTabContentManager;
     private UmaSessionStats mUmaSessionStats;
     private ContextReporter mContextReporter;
+    protected GSAServiceClient mGSAServiceClient;
 
     private boolean mPartnerBrowserRefreshNeeded;
 
@@ -583,7 +584,8 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         ChromeActivitySessionTracker.getInstance().onStartWithNative();
 
         if (GSAState.getInstance(this).isGsaAvailable()) {
-            GSAAccountChangeListener.getInstance().connect();
+            mGSAServiceClient = new GSAServiceClient(this);
+            mGSAServiceClient.connect();
             createContextReporterIfNeeded();
         } else {
             ContextReporter.reportStatus(ContextReporter.STATUS_GSA_NOT_AVAILABLE);
@@ -685,9 +687,9 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         Tab tab = getActivityTab();
         if (tab != null && !hasWindowFocus()) tab.onActivityHidden();
         if (mAppMenuHandler != null) mAppMenuHandler.hideAppMenu();
-
-        if (GSAState.getInstance(this).isGsaAvailable()) {
-            GSAAccountChangeListener.getInstance().disconnect();
+        if (mGSAServiceClient != null) {
+            mGSAServiceClient.disconnect();
+            mGSAServiceClient = null;
             if (mSyncStateChangedListener != null) {
                 ProfileSyncService syncService = ProfileSyncService.get();
                 if (syncService != null) {
