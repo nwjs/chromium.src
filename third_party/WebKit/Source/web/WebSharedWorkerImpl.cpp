@@ -30,6 +30,17 @@
 
 #include "web/WebSharedWorkerImpl.h"
 
+#include "third_party/node/src/node_webkit.h"
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 #include "core/dom/Document.h"
 #include "core/dom/ExecutionContextTask.h"
 #include "core/events/MessageEvent.h"
@@ -298,8 +309,10 @@ void WebSharedWorkerImpl::connectTask(WebMessagePortChannelUniquePtr channel, Ex
     workerGlobalScope->dispatchEvent(createConnectEvent(port));
 }
 
-void WebSharedWorkerImpl::startWorkerContext(const WebURL& url, const WebString& name, const WebString& contentSecurityPolicy, WebContentSecurityPolicyType policyType, WebAddressSpace creationAddressSpace)
+void WebSharedWorkerImpl::startWorkerContext(bool nodejs, const base::FilePath& root_path, const WebURL& url, const WebString& name, const WebString& contentSecurityPolicy, WebContentSecurityPolicyType policyType, WebAddressSpace creationAddressSpace)
 {
+    m_nodejs = nodejs;
+    m_root_path = root_path;
     m_url = url;
     m_name = name;
     m_creationAddressSpace = creationAddressSpace;
@@ -331,6 +344,10 @@ void WebSharedWorkerImpl::onScriptLoaderFinished()
     Document* document = m_mainFrame->frame()->document();
     // FIXME: this document's origin is pristine and without any extra privileges. (crbug.com/254993)
     SecurityOrigin* starterOrigin = document->getSecurityOrigin();
+    std::string main_script = m_root_path.AsUTF8Unsafe();
+    if (g_web_worker_start_thread_fn && m_nodejs) {
+      (*g_web_worker_start_thread_fn)(nullptr, (void*)m_mainScriptLoader->url().path().utf8().data(), &main_script, &m_nodejs);
+    }
 
     WorkerClients* workerClients = WorkerClients::create();
     provideLocalFileSystemToWorker(workerClients, LocalFileSystemClient::create());
@@ -340,7 +357,7 @@ void WebSharedWorkerImpl::onScriptLoaderFinished()
     ContentSecurityPolicy* contentSecurityPolicy = m_mainScriptLoader->releaseContentSecurityPolicy();
     WorkerThreadStartMode startMode = m_workerInspectorProxy->workerStartMode(document);
     std::unique_ptr<WorkerSettings> workerSettings = wrapUnique(new WorkerSettings(document->settings()));
-    std::unique_ptr<WorkerThreadStartupData> startupData = WorkerThreadStartupData::create(
+    std::unique_ptr<WorkerThreadStartupData> startupData = WorkerThreadStartupData::create(m_nodejs, main_script,
         m_url,
         m_loadingDocument->userAgent(),
         m_mainScriptLoader->script(),

@@ -281,6 +281,10 @@ ExtensionFunction::ExtensionFunction()
 ExtensionFunction::~ExtensionFunction() {
 }
 
+bool ExtensionFunction::RunNWSync(base::ListValue* response, std::string* error) {
+  return false;
+}
+
 UIThreadExtensionFunction* ExtensionFunction::AsUIThreadExtensionFunction() {
   return NULL;
 }
@@ -636,3 +640,21 @@ ExtensionFunction::ResponseAction SyncExtensionFunction::Run() {
 bool SyncExtensionFunction::ValidationFailure(SyncExtensionFunction* function) {
   return false;
 }
+
+NWSyncExtensionFunction::NWSyncExtensionFunction() {
+}
+
+NWSyncExtensionFunction::~NWSyncExtensionFunction() {
+}
+
+ExtensionFunction::ResponseAction NWSyncExtensionFunction::Run() {
+  NOTREACHED() << "NWSyncExtensionFunction::Run";
+  return RespondNow(ArgumentList(std::move(results_)));
+}
+
+// static
+bool NWSyncExtensionFunction::ValidationFailure(
+    NWSyncExtensionFunction* function) {
+  return false;
+}
+
