@@ -145,8 +145,7 @@ bool IsUpdatePasswordUIEnabled() {
 }
 
 bool IsQRCodeReaderEnabled() {
-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  return !command_line->HasSwitch(switches::kDisableQRScanner);
+  return false;
 }
 
 bool IsNewClearBrowsingDataUIEnabled() {
