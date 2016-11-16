@@ -279,6 +279,10 @@ ExtensionFunction::ExtensionFunction()
 ExtensionFunction::~ExtensionFunction() {
 }
 
+bool ExtensionFunction::RunNWSync(base::ListValue* response, std::string* error) {
+  return false;
+}
+
 UIThreadExtensionFunction* ExtensionFunction::AsUIThreadExtensionFunction() {
   return NULL;
 }
@@ -620,3 +624,35 @@ void AsyncExtensionFunction::SendResponse(bool success) {
   }
   Respond(std::move(response));
 }
+
+NWSyncExtensionFunction::NWSyncExtensionFunction() {
+}
+
+NWSyncExtensionFunction::~NWSyncExtensionFunction() {
+}
+
+ExtensionFunction::ResponseAction NWSyncExtensionFunction::Run() {
+  NOTREACHED() << "NWSyncExtensionFunction::Run";
+  return RespondNow(ArgumentList(std::move(results_)));
+}
+
+// static
+bool NWSyncExtensionFunction::ValidationFailure(
+    NWSyncExtensionFunction* function) {
+  return false;
+}
+
+void NWSyncExtensionFunction::SetError(const std::string& error) {
+  error_ = error;
+}
+
+void NWSyncExtensionFunction::SetResult(std::unique_ptr<base::Value> result) {
+  results_.reset(new base::ListValue());
+  results_->Append(std::move(result));
+}
+
+void NWSyncExtensionFunction::SetResultList(
+    std::unique_ptr<base::ListValue> results) {
+  results_ = std::move(results);
+}
+

@@ -7,6 +7,8 @@
 #include <stddef.h>
 #include <utility>
 
+#include "base/strings/string_util.h"
+
 #include "chrome/test/chromedriver/chrome/devtools_client.h"
 #include "chrome/test/chromedriver/chrome/devtools_event_listener.h"
 #include "chrome/test/chromedriver/chrome/devtools_http_client.h"
@@ -45,7 +47,9 @@ Status ChromeImpl::GetWebViewIdForFirstTab(std::string* web_view_id) {
   UpdateWebViews(views_info);
   for (size_t i = 0; i < views_info.GetSize(); ++i) {
     const WebViewInfo& view = views_info.Get(i);
-    if (view.type == WebViewInfo::kPage) {
+    if (view.type == WebViewInfo::kPage ||
+        view.type == WebViewInfo::kApp ||
+        (view.type == WebViewInfo::kOther && !base::StartsWith(view.url, "chrome-extension://", base::CompareCase::SENSITIVE))) {
       *web_view_id = view.id;
       return Status(kOk);
     }

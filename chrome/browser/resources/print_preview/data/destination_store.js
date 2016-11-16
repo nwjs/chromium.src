@@ -429,8 +429,10 @@ cr.define('print_preview', function() {
     init: function(
         isInAppKioskMode,
         systemDefaultDestinationId,
-        serializedDefaultDestinationSelectionRulesStr) {
+        serializedDefaultDestinationSelectionRulesStr,
+        isInNWPrintMode) {
       this.pdfPrinterEnabled_ = !isInAppKioskMode;
+      this.isInNWPrintMode_ = isInNWPrintMode;
       this.systemDefaultDestinationId_ = systemDefaultDestinationId;
       this.createLocalPdfPrintDestination_();
 
@@ -459,7 +461,7 @@ cr.define('print_preview', function() {
       var extensionId = '';
       var extensionName = '';
       var foundDestination = false;
-      if (this.appState_.recentDestinations) {
+      if (this.appState_.recentDestinations && !this.isInNWPrintMode_) {
         // Run through the destinations backwards the most recently used is set
         // as the initially selected destination.
         for (var i = this.appState_.recentDestinations.length - 1; i >= 0;
@@ -698,7 +700,7 @@ cr.define('print_preview', function() {
      * @private
      */
     convertPreselectedToDestinationMatch_: function() {
-      if (this.appState_.selectedDestinationId &&
+      if (this.appState_.selectedDestinationId && !this.isInNWPrintMode_ &&
           this.appState_.selectedDestinationOrigin) {
         return this.createExactDestinationMatch_(
             this.appState_.selectedDestinationOrigin,
