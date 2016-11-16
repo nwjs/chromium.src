@@ -77,4 +77,9 @@ bool RenderWidgetHostDelegate::IsHidden() {
   return false;
 }
 
+RenderWidgetHostImpl* RenderWidgetHostDelegate::GetFullscreenRenderWidgetHost()
+    const {
+  return nullptr;
+}
+
 }  // namespace content
