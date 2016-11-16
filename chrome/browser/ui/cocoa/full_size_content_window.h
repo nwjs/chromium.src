@@ -41,6 +41,8 @@
 // [window contentView] to the given frame.
 - (void)forceContentViewFrame:(NSRect)frame;
 
++ (BOOL)setDisableSymbolication:(BOOL)sym;
+
 @end
 
 #endif  // CHROME_BROWSER_UI_COCOA_FULL_SIZE_CONTENT_WINDOW_H_

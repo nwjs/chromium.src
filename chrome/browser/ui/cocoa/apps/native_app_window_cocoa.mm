@@ -16,6 +16,7 @@
 #import "chrome/browser/ui/cocoa/chrome_event_processing_window.h"
 #include "chrome/browser/ui/cocoa/extensions/extension_keybinding_registry_cocoa.h"
 #include "chrome/browser/ui/cocoa/extensions/extension_view_mac.h"
+#import "chrome/browser/ui/cocoa/full_size_content_window.h"
 #include "chrome/common/chrome_switches.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/render_view_host.h"
@@ -395,7 +396,9 @@ void NativeAppWindowCocoa::InstallView() {
 
     NSView* frameView = [[window() contentView] superview];
     [view setFrame:[frameView bounds]];
+    BOOL old = [FullSizeContentWindow setDisableSymbolication:YES];
     [frameView addSubview:view];
+    [FullSizeContentWindow setDisableSymbolication:old];
 
     [[window() standardWindowButton:NSWindowZoomButton] setHidden:YES];
     [[window() standardWindowButton:NSWindowMiniaturizeButton] setHidden:YES];
