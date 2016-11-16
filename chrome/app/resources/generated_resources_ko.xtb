@@ -3939,7 +3939,7 @@
 <translation id="6248988683584659830">설정 검색</translation>
 <translation id="6251870443722440887">GDI 핸들</translation>
 <translation id="6251889282623539337"><ph name="DOMAIN" /> 서비스 약관</translation>
-<translation id="6251924700383757765">개인정보취급방침</translation>
+<translation id="6251924700383757765">개인정보처리방침</translation>
 <translation id="6253586523465486793">당겨서 새로고침에서 비검증 새로고침을 트리거하도록 강제합니다(일반적으로 플래그가 사용 중지된 경우 일반적인 캐시 검증 새로고침을 의미함).</translation>
 <translation id="6254503684448816922">키 손상</translation>
 <translation id="6256079118265363670">Chromebook에서 Google Play 스토어 사용</translation>
@@ -4355,7 +4355,7 @@
 <translation id="6828860976882136098">모든 사용자에 대해 자동 업데이트를 설정하지 못했습니다(프리플라이트 실행 오류: <ph name="ERROR_NUMBER" />).</translation>
 <translation id="6829250331733125857"><ph name="DEVICE_TYPE" /> 사용과 관련하여 도움을 받으세요.</translation>
 <translation id="6829270497922309893">조직에 등록</translation>
-<translation id="682971198310367122">Google 개인정보취급방침</translation>
+<translation id="682971198310367122">Google 개인정보처리방침</translation>
 <translation id="6830590476636787791">첫 실행 가이드에서 전환을 애니메이션으로 실행</translation>
 <translation id="6830728435402077660">안전하지 않음</translation>
 <translation id="6831043979455480757">번역</translation>
@@ -4754,7 +4754,7 @@
           의견 신고와 관련하여 귀하에게 연락을 드릴 수 있습니다. 귀하의 의견은
           문제를 진단하고 Chrome을 개선하는 데 사용됩니다. 명시적 또는
           부수적으로 제출하는 모든 개인정보는 Google의
-          개인정보취급방침에 따라 보호됩니다.<ph name="BEGIN_BOLD" /> 이 의견을 제출함으로써 귀하는 Google에서 Google 제품 또는 서비스 개선을 위해
+          개인정보처리방침에 따라 보호됩니다.<ph name="BEGIN_BOLD" /> 이 의견을 제출함으로써 귀하는 Google에서 Google 제품 또는 서비스 개선을 위해
           귀하가 제공한 의견을 사용하는 데 동의하는 것으로 간주됩니다.
           <ph name="END_BOLD" /></translation>
 <translation id="7386909622585830253">Seccomp-bpf 렌더기 샌드박스</translation>

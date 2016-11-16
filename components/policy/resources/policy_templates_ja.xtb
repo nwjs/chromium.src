@@ -945,6 +945,7 @@
 
       このオプションが無効または未設定の場合、ユーザーはデベロッパー ツールと JavaScript コンソールを使用できます。</translation>
 <translation id="3907986150060929099">公開セッション向けの推奨ロケールを設定する</translation>
+<translation id="3911737181201537215">このポリシーは Android によるログには適用されません。</translation>
 <translation id="391531815696899618">True に設定されている場合、<ph name="PRODUCT_OS_NAME" /> ファイル アプリでの Google ドライブの同期が無効になります。その場合、Google ドライブにデータはアップロードされません。
 
           未設定の場合、または False に設定されている場合、ユーザーは Google ドライブにファイルを転送できます。</translation>
@@ -1957,6 +1958,7 @@ Active Directory ドメインに参加していない Windows インスタンス
       このポリシーの値が 0 の場合は、デフォルトのキャッシュ サイズが使用されます。ユーザーはこの値を変更できません。
 
       このポリシーが未設定の場合は、デフォルトのサイズが使用されます。ユーザーは --disk-cache-size フラグを使用してこの値をオーバーライドできます。</translation>
+<translation id="7604169113182304895">このリストを使用するかどうかは Android アプリ側の選択となります。Android アプリにリストの使用を強制することはできません。</translation>
 <translation id="7612157962821894603"><ph name="PRODUCT_NAME" /> 起動時にシステム全体のフラグを適用</translation>
 <translation id="7614663184588396421">無効なプロトコル スキームのリスト</translation>
 <translation id="7625444193696794922">この端末を固定するリリース チャンネルを指定します。</translation>

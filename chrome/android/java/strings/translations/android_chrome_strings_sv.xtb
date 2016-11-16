@@ -107,6 +107,7 @@ Bluetooth och Plats måste vara aktiverade om du vill använda Physical Web-tjä
 <translation id="2139186145475833000">Lägg till på startskärmen</translation>
 <translation id="2146738493024040262">Öppna snabbappen</translation>
 <translation id="2148716181193084225">Idag</translation>
+<translation id="2154484045852737596">Redigera kortet</translation>
 <translation id="2154710561487035718">Kopiera webbadress</translation>
 <translation id="219985413780390209">Skydda dig själv och enheten från farliga webbplatser</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, webbapp. <ph name="APP_URL" /></translation>
@@ -445,6 +446,7 @@ Du är dock inte osynlig. Trots inkognitoläget kan din arbetsgivare, din intern
 <translation id="6159335304067198720">Sparat utrymme: <ph name="PERCENT" /></translation>
 <translation id="6165508094623778733">Läs mer</translation>
 <translation id="6177390657002841081">Aktivera Databesparing</translation>
+<translation id="617991007797131187">I Kina kan du söka med Sogou i Chrome. Du kan ändra detta i <ph name="BEGIN_LINK" />inställningarna<ph name="END_LINK" />.</translation>
 <translation id="6181444274883918285">Lägg till en webbplats i undantagen</translation>
 <translation id="6192792657125177640">Undantag</translation>
 <translation id="6232535412751077445">Om du aktiverar Do Not Track inkluderas en begäran i din surftrafik. Eventuella effekter beror på om webbplatsen svarar på begäran och hur begäran tolkas.
@@ -464,6 +466,7 @@ Vissa webbplatser kan till exempel svara på begäran genom att visa annonser so
 <translation id="6409731863280057959">Popup-fönster</translation>
 <translation id="641643625718530986">Skriv ut …</translation>
 <translation id="6433490469411711332">Redigera kontaktuppgifter</translation>
+<translation id="6443118737398455446">Ogiltigt förfallodatum</translation>
 <translation id="6447842834002726250">Cookies</translation>
 <translation id="6448273550210938826">Sökning och webbadressförslag</translation>
 <translation id="6463070039183944536">Lägger till …</translation>
