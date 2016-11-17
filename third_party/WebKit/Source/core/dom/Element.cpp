@@ -1905,6 +1905,8 @@ PassRefPtr<ComputedStyle> Element::propagateInheritedProperties(
     StyleRecalcChange change) {
   if (change != IndependentInherit)
     return nullptr;
+  if (isPseudoElement())
+    return nullptr;
   if (needsStyleRecalc())
     return nullptr;
   if (hasAnimations())
