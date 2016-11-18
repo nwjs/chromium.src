@@ -50,6 +50,7 @@ PaintInvalidationReason TablePaintInvalidator::invalidatePaintIfNeeded() {
         continue;
       for (LayoutTableCell* cell = row->firstCell(); cell;
            cell = cell->nextCell()) {
+        cell->ensureIsReadyForPaintInvalidation();
         bool invalidated = false;
         // Table cells paint container's background on the container's backing
         // instead of its own (if any), so we must invalidate it by the
@@ -57,7 +58,8 @@ PaintInvalidationReason TablePaintInvalidator::invalidatePaintIfNeeded() {
         if (section->backgroundChangedSinceLastPaintInvalidation()) {
           sectionInvalidator
               .slowSetPaintingLayerNeedsRepaintAndInvalidateDisplayItemClient(
-                  *cell, PaintInvalidationStyleChange);
+                  cell->backgroundDisplayItemClient(),
+                  PaintInvalidationStyleChange);
           invalidated = true;
         } else if (hasColChangedBackground) {
           LayoutTable::ColAndColGroup colAndColGroup =
@@ -70,15 +72,18 @@ PaintInvalidationReason TablePaintInvalidator::invalidatePaintIfNeeded() {
                column->backgroundChangedSinceLastPaintInvalidation())) {
             sectionInvalidator
                 .slowSetPaintingLayerNeedsRepaintAndInvalidateDisplayItemClient(
-                    *cell, PaintInvalidationStyleChange);
+                    cell->backgroundDisplayItemClient(),
+                    PaintInvalidationStyleChange);
             invalidated = true;
           }
         }
         if ((!invalidated || row->hasSelfPaintingLayer()) &&
-            row->backgroundChangedSinceLastPaintInvalidation())
+            row->backgroundChangedSinceLastPaintInvalidation()) {
           ObjectPaintInvalidator(*row)
               .slowSetPaintingLayerNeedsRepaintAndInvalidateDisplayItemClient(
-                  *cell, PaintInvalidationStyleChange);
+                  cell->backgroundDisplayItemClient(),
+                  PaintInvalidationStyleChange);
+        }
       }
     }
   }

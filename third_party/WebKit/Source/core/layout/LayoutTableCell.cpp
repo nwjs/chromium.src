@@ -45,7 +45,8 @@ using namespace HTMLNames;
 struct SameSizeAsLayoutTableCell : public LayoutBlockFlow {
   unsigned bitfields;
   int paddings[2];
-  void* pointer;
+  void* pointer1;
+  void* pointer2;
 };
 
 static_assert(sizeof(LayoutTableCell) == sizeof(SameSizeAsLayoutTableCell),
@@ -443,6 +444,16 @@ int LayoutTableCell::cellBaselinePosition() const {
   return (borderBefore() + paddingBefore() + contentLogicalHeight()).toInt();
 }
 
+void LayoutTableCell::ensureIsReadyForPaintInvalidation() {
+  LayoutBlockFlow::ensureIsReadyForPaintInvalidation();
+  if (!usesCompositedCellDisplayItemClients())
+    return;
+  if (!m_rowBackgroundDisplayItemClient) {
+    m_rowBackgroundDisplayItemClient =
+        wrapUnique(new LayoutTableCell::RowBackgroundDisplayItemClient(*row()));
+  }
+}
+
 void LayoutTableCell::styleDidChange(StyleDifference diff,
                                      const ComputedStyle* oldStyle) {
   DCHECK_EQ(style()->display(), EDisplay::TableCell);
@@ -484,19 +495,36 @@ void LayoutTableCell::styleDidChange(StyleDifference diff,
   }
 }
 
-// The following rules apply for resolving conflicts and figuring out which border
-// to use.
-// (1) Borders with the 'border-style' of 'hidden' take precedence over all other conflicting
-// borders. Any border with this value suppresses all borders at this location.
-// (2) Borders with a style of 'none' have the lowest priority. Only if the border properties of all
-// the elements meeting at this edge are 'none' will the border be omitted (but note that 'none' is
-// the default value for the border style.)
-// (3) If none of the styles are 'hidden' and at least one of them is not 'none', then narrow borders
-// are discarded in favor of wider ones. If several have the same 'border-width' then styles are preferred
-// in this order: 'double', 'solid', 'dashed', 'dotted', 'ridge', 'outset', 'groove', and the lowest: 'inset'.
-// (4) If border styles differ only in color, then a style set on a cell wins over one on a row,
-// which wins over a row group, column, column group and, lastly, table. It is undefined which color
-// is used when two elements of the same type disagree.
+LayoutTableCell::RowBackgroundDisplayItemClient::RowBackgroundDisplayItemClient(
+    const LayoutTableRow& layoutTableRow)
+    : m_layoutTableRow(layoutTableRow) {}
+
+String LayoutTableCell::RowBackgroundDisplayItemClient::debugName() const {
+  return "RowBackground";
+}
+
+LayoutRect LayoutTableCell::RowBackgroundDisplayItemClient::visualRect() const {
+  return m_layoutTableRow.visualRect();
+}
+
+// The following rules apply for resolving conflicts and figuring out which
+// border to use.
+// (1) Borders with the 'border-style' of 'hidden' take precedence over all
+//     other conflicting borders. Any border with this value suppresses all
+//     borders at this location.
+// (2) Borders with a style of 'none' have the lowest priority. Only if the
+//     border properties of all the elements meeting at this edge are 'none'
+//     will the border be omitted (but note that 'none' is the default value for
+//     the border style.)
+// (3) If none of the styles are 'hidden' and at least one of them is not
+//     'none', then narrow borders are discarded in favor of wider ones. If
+//      several have the same 'border-width' then styles are preferred in this
+//      order: 'double', 'solid', 'dashed', 'dotted', 'ridge', 'outset',
+//     'groove', and the lowest: 'inset'.
+// (4) If border styles differ only in color, then a style set on a cell wins
+//     over one on a row, which wins over a row group, column, column group and,
+//     lastly, table. It is undefined which color is used when two elements of
+//     the same type disagree.
 static bool compareBorders(const CollapsedBorderValue& border1,
                            const CollapsedBorderValue& border2) {
   // Sanity check the values passed in. The null border have lowest priority.
@@ -1375,7 +1403,7 @@ bool LayoutTableCell::backgroundIsKnownToBeOpaqueInRect(
   return LayoutBlockFlow::backgroundIsKnownToBeOpaqueInRect(localRect);
 }
 
-bool LayoutTableCell::usesTableAsAdditionalDisplayItemClient() const {
+bool LayoutTableCell::usesCompositedCellDisplayItemClients() const {
   // In certain cases such as collapsed borders for composited table cells we
   // paint content for the cell into the table graphics layer backing and so
   // must use the table's visual rect.
@@ -1385,11 +1413,18 @@ bool LayoutTableCell::usesTableAsAdditionalDisplayItemClient() const {
 
 void LayoutTableCell::invalidateDisplayItemClients(
     PaintInvalidationReason reason) const {
-  if (m_collapsedBorderValues && usesTableAsAdditionalDisplayItemClient()) {
-    ObjectPaintInvalidator(*this).invalidateDisplayItemClient(
-        *m_collapsedBorderValues, reason);
-  }
   LayoutBlockFlow::invalidateDisplayItemClients(reason);
+
+  if (!usesCompositedCellDisplayItemClients())
+    return;
+
+  ObjectPaintInvalidator invalidator(*this);
+  if (m_collapsedBorderValues)
+    invalidator.invalidateDisplayItemClient(*m_collapsedBorderValues, reason);
+  if (m_rowBackgroundDisplayItemClient) {
+    invalidator.invalidateDisplayItemClient(*m_rowBackgroundDisplayItemClient,
+                                            reason);
+  }
 }
 
 // TODO(lunalu): Deliberately dump the "inner" box of table cells, since that
