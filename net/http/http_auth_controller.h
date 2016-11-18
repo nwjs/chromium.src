@@ -110,12 +110,12 @@ class NET_EXPORT_PRIVATE HttpAuthController
   // URLRequestHttpJob can prompt for credentials.
   void PopulateAuthChallenge();
 
-  // If |result| indicates a permanent failure, disables the current
-  // auth scheme for this controller and returns true.  Returns false
-  // otherwise.
-  bool DisableOnAuthHandlerResult(int result);
+  // Handle the result of calling GenerateAuthToken on an HttpAuthHandler. The
+  // return value of this function should be used as the return value of the
+  // GenerateAuthToken operation.
+  int HandleGenerateTokenResult(int result);
 
-  void OnIOComplete(int result);
+  void OnGenerateAuthTokenDone(int result);
 
   // Indicates if this handler is for Proxy auth or Server auth.
   HttpAuth::Target target_;
