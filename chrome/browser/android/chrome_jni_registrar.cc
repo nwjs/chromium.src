@@ -22,7 +22,6 @@
 #include "chrome/browser/android/browsing_data/browsing_data_counter_bridge.h"
 #include "chrome/browser/android/browsing_data/url_filter_bridge.h"
 #include "chrome/browser/android/chrome_application.h"
-#include "chrome/browser/android/chrome_backup_agent.h"
 #include "chrome/browser/android/chrome_feature_list.h"
 #include "chrome/browser/android/compositor/compositor_view.h"
 #include "chrome/browser/android/compositor/layer_title_cache.h"
@@ -230,7 +229,6 @@ static base::android::RegistrationMethod kChromeRegisteredMethods[] = {
     {"CertificateViewer", RegisterCertificateViewer},
     {"ChildAccountService", RegisterChildAccountService},
     {"ChromeApplication", chrome::android::ChromeApplication::RegisterBindings},
-    {"ChromeBackupAgent", chrome::android::RegisterBackupAgent},
     {"ChromeBlimpClientContextDelegate",
      ChromeBlimpClientContextDelegateAndroid::RegisterJni},
     {"ChromeBrowserProvider",
