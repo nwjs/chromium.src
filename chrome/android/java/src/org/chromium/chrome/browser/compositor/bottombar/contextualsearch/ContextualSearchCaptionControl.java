@@ -12,7 +12,7 @@ import android.widget.TextView;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelAnimation;
-import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelInflater;
+import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelTextViewInflater;
 import org.chromium.chrome.browser.compositor.layouts.ChromeAnimation;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
@@ -20,7 +20,7 @@ import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
  * Controls the Caption View that is shown at the bottom of the control and used
  * as a dynamic resource.
  */
-public class ContextualSearchCaptionControl extends OverlayPanelInflater
+public class ContextualSearchCaptionControl extends OverlayPanelTextViewInflater
         implements ChromeAnimation.Animatable<ContextualSearchCaptionControl.AnimationType> {
     private static final float ANIMATION_PERCENTAGE_ZERO = 0.f;
     private static final float ANIMATION_PERCENTAGE_COMPLETE = 1.f;
@@ -123,6 +123,26 @@ public class ContextualSearchCaptionControl extends OverlayPanelInflater
 
         return mAnimationPercentage;
     }
+
+    /**
+     * @return The text currently showing in the caption view.
+     */
+    public CharSequence getCaptionText() {
+        return mCaption.getText();
+    }
+
+    //========================================================================================
+    // OverlayPanelTextViewInflater overrides
+    //========================================================================================
+
+    @Override
+    protected TextView getTextView() {
+        return mCaption;
+    }
+
+    //========================================================================================
+    // OverlayPanelInflater overrides
+    //========================================================================================
 
     @Override
     protected void onFinishInflate() {
