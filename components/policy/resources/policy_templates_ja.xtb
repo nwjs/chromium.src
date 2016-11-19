@@ -169,7 +169,7 @@
 <translation id="166427968280387991">プロキシ サーバー</translation>
 <translation id="1675002386741412210">サポート対象:</translation>
 <translation id="1679420586049708690">自動ログインする公開セッション</translation>
-<translation id="1680029600835707254">このポリシーを使用すると、どのユーザーが <ph name="PRODUCT_OS_NAME" /> のセッションを開始できるかを管理できます。このポリシーを設定しても、ユーザーが Android で他の Google アカウントにログインするのを阻止することはできません。この指定を行うには、<ph name="ARC_POLICY" /> の一部として Android 用の <ph name="CLOUDDPC_ACCOUNT_MANAGEMENT_POLICY" /> ポリシーを設定してください。</translation>
+<translation id="1680029600835707254">このポリシーを使用すると、どのユーザーが <ph name="PRODUCT_OS_NAME" /> のセッションを開始できるかを管理できます。このポリシーを設定しても、ユーザーが Android で他の Google アカウントにログインするのを阻止することはできません。ログインを阻止するには、<ph name="ARC_POLICY" /> の一部として Android 用の <ph name="CLOUDDPC_ACCOUNT_MANAGEMENT_POLICY" /> ポリシーを設定してください。</translation>
 <translation id="1689963000958717134"><ph name="PRODUCT_OS_NAME" /> デバイスのすべてのユーザーにプッシュ型ネットワーク設定を適用できます。ネットワーク設定は、Open Network Configuration 形式（<ph name="ONC_SPEC_URL" /> をご覧ください）で定義された JSON 形式の文字列です。</translation>
 <translation id="1708496595873025510">バリエーション シードの取得に制限を設定する</translation>
 <translation id="172374442286684480">ローカル データの設定をすべてのサイトに許可する</translation>
@@ -252,7 +252,7 @@
 
       このポリシーを設定しない場合は、すべての設定でデフォルトが使用されます。</translation>
 <translation id="1964634611280150550">シークレット モードを無効にする</translation>
-<translation id="1964802606569741174">このポリシーは Android YouTube アプリには適用されません。YouTube でセーフモードを強制する場合は、Android YouTube アプリのインストールを禁止する必要があります。</translation>
+<translation id="1964802606569741174">このポリシーは Android YouTube アプリには適用されません。YouTube でセーフモードを有効にする場合は、Android YouTube アプリのインストールを禁止する必要があります。</translation>
 <translation id="1969212217917526199">リモート アクセス ホストの Debug ビルドでポリシーをオーバーライドします。
 
           この値は、ポリシー値のマッピングに対するポリシー名の JSON 辞書として解析されます。</translation>
@@ -958,7 +958,7 @@
 <translation id="3964909636571393861">URL のリストへのアクセスを許可する</translation>
 <translation id="3965339130942650562">アイドル状態のユーザーがログアウトされるまでのタイムアウト</translation>
 <translation id="3967075520570946456">OS アップグレード後に初めてブラウザを起動したときのウェルカム ページの表示を有効にします。</translation>
-<translation id="3968660816994975381">このポリシーを使用すると、<ph name="PRODUCT_OS_NAME" /> への新規ユーザーの追加が可能かどうかを管理できます。このポリシーを設定しても、ユーザーが Android で他の Google アカウントにログインするのを阻止することはできません。この指定を行うには、<ph name="ARC_POLICY" /> の一部として Android 用の <ph name="CLOUDDPC_ACCOUNT_MANAGEMENT_POLICY" /> ポリシーを設定してください。</translation>
+<translation id="3968660816994975381">このポリシーを使用すると、<ph name="PRODUCT_OS_NAME" /> への新規ユーザーの追加が可能かどうかを管理できます。このポリシーを設定しても、ユーザーが Android で他の Google アカウントにログインするのを阻止することはできません。ログインを阻止するには、<ph name="ARC_POLICY" /> の一部として Android 用の <ph name="CLOUDDPC_ACCOUNT_MANAGEMENT_POLICY" /> ポリシーを設定してください。</translation>
 <translation id="3973371701361892765">シェルフを自動的に非表示にしない</translation>
 <translation id="3984028218719007910">ログアウト後に <ph name="PRODUCT_OS_NAME" /> がローカル アカウントのデータを保持するかどうかを指定します。true に設定した場合、<ph name="PRODUCT_OS_NAME" /> は永続的アカウントを保持していないため、ユーザー セッションのすべてのデータがログアウト後に破棄されます。このポリシーを false に設定した場合または未設定の場合、端末は（暗号化された）ローカル ユーザー データを保持できます。</translation>
 <translation id="3994569321696536679">Google Apps で <ph name="PRODUCT_NAME" /> の

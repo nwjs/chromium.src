@@ -525,7 +525,7 @@
 <translation id="7000990526846637657">未找到任何记录条目</translation>
 <translation id="7009986207543992532">您尝试连接到 <ph name="DOMAIN" />，但服务器提供的证书有效期过长，因此难以信任。<ph name="BEGIN_LEARN_MORE_LINK" />了解详情<ph name="END_LEARN_MORE_LINK" />。</translation>
 <translation id="7012363358306927923">中国银联</translation>
-<translation id="7012372675181957985">您的 Google 帐户在 <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> 上可能有其他形式的浏览记录</translation>
+<translation id="7012372675181957985">您的 Google 帐号在 <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> 上可能有其他形式的浏览记录</translation>
 <translation id="7029809446516969842">密码</translation>
 <translation id="7087282848513945231">县/郡</translation>
 <translation id="7088615885725309056">往前</translation>
@@ -586,7 +586,7 @@
 <translation id="7600965453749440009">一律不翻译<ph name="LANGUAGE" /></translation>
 <translation id="7610193165460212391">值超出了范围 (<ph name="VALUE" />)。</translation>
 <translation id="7613889955535752492">过期时间：<ph name="EXPIRATION_YEAR" /> 年 <ph name="EXPIRATION_MONTH" /> 月</translation>
-<translation id="7615602087246926389">您已经使用不同版本的 Google 帐户密码加密了数据。请在下方输入。</translation>
+<translation id="7615602087246926389">您已经使用不同版本的 Google 帐号密码加密了数据。请在下方输入。</translation>
 <translation id="7634554953375732414">您与此网站建立的不是私密连接。</translation>
 <translation id="7637571805876720304">要从 Chromium 中移除信用卡吗？</translation>
 <translation id="765676359832457558">隐藏高级设置...</translation>
@@ -656,7 +656,7 @@
 <translation id="8433057134996913067">这将使您退出大多数网站。</translation>
 <translation id="8437238597147034694">撤消移动(&amp;U)</translation>
 <translation id="8466379296835108687">{COUNT,plural, =1{1 张信用卡}other{# 张信用卡}}</translation>
-<translation id="8483780878231876732">要使用您 Google 帐户中的信用卡，请登录 Chrome</translation>
+<translation id="8483780878231876732">要使用您 Google 帐号中的信用卡，请登录 Chrome</translation>
 <translation id="8488350697529856933">适用对象</translation>
 <translation id="8498891568109133222"><ph name="HOST_NAME" /> 的响应时间过长。</translation>
 <translation id="852346902619691059">此服务器无法证明其所在网域是 <ph name="DOMAIN" />；您设备的操作系统不信任服务器的安全证书。出现此问题的原因可能是配置有误，或是有攻击者拦截您的连接。<ph name="BEGIN_LEARN_MORE_LINK" />了解详情<ph name="END_LEARN_MORE_LINK" />。</translation>
@@ -669,7 +669,7 @@
 <translation id="8591846766485502580">您之所以看到这条消息，是因为您的一位家长屏蔽了此网站。</translation>
 <translation id="859285277496340001">证书未指定用于检查是否已吊销证书的机制。</translation>
 <translation id="8647750283161643317">全部重置为默认值</translation>
-<translation id="8680787084697685621">帐户登录详细信息已过期。</translation>
+<translation id="8680787084697685621">帐号登录详细信息已过期。</translation>
 <translation id="8703575177326907206">您与 <ph name="DOMAIN" /> 的连接未加密。</translation>
 <translation id="8725066075913043281">重试</translation>
 <translation id="8728672262656704056">您已进入隐身模式</translation>
@@ -692,7 +692,7 @@
 <translation id="8891727572606052622">代理模式无效。</translation>
 <translation id="889901481107108152">抱歉，此项实验性功能不能用于您的平台。</translation>
 <translation id="8903921497873541725">放大</translation>
-<translation id="8931333241327730545">要将此卡的信息保存到您的 Google 帐户吗？</translation>
+<translation id="8931333241327730545">要将此卡的信息保存到您的 Google 帐号吗？</translation>
 <translation id="8932102934695377596">您的时钟慢了</translation>
 <translation id="8954894007019320973">（续）</translation>
 <translation id="8971063699422889582">服务器的证书已过期。</translation>
