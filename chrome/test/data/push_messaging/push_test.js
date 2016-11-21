@@ -139,7 +139,8 @@ function workerSubscribePush() {
 
 function workerSubscribePushNoKey() {
   // The worker will try to subscribe without providing a key. This should
-  // succeed if the worker was previously subscribed and fail otherwise.
+  // succeed if the worker was previously subscribed with a numeric key
+  // and fail otherwise.
   navigator.serviceWorker.controller.postMessage(
       {command: 'workerSubscribeNoKey'});
 }
