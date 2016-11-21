@@ -37,6 +37,7 @@
 #include "content/public/browser/browser_main_runner.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_descriptors.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "gin/public/isolate_holder.h"
 #include "gin/v8_initializer.h"
@@ -141,6 +142,8 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
 
   CommandLineHelper::AddEnabledFeature(
       *cl, spellcheck::kAndroidSpellCheckerNonLowEnd.name);
+
+  CommandLineHelper::AddDisabledFeature(*cl, features::kWebPayments.name);
 
   return false;
 }
