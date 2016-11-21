@@ -62,6 +62,9 @@ extern const int kTrayRoundedBorderRadius;
 // The padding used on the left and right of labels.
 extern const int kTrayPopupLabelHorizontalPadding;
 
+// The width of ToggleButton views including any border padding.
+extern const int kTrayToggleButtonWidth;
+
 extern const SkColor kBackgroundColor;
 extern const SkColor kHoverBackgroundColor;
 extern const SkColor kPublicAccountBackgroundColor;
