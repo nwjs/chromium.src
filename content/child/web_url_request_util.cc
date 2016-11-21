@@ -206,6 +206,9 @@ int GetLoadFlagsForWebURLRequest(const blink::WebURLRequest& request) {
       break;
     case WebCachePolicy::UseProtocolCachePolicy:
       break;
+    case WebCachePolicy::BypassCacheLoadOnlyFromCache:
+      load_flags |= net::LOAD_ONLY_FROM_CACHE | net::LOAD_BYPASS_CACHE;
+      break;
     default:
       NOTREACHED();
   }

@@ -15,6 +15,8 @@ enum class WebCachePolicy {
                             // data
   ReturnCacheDataDontLoad,  // results of a post - allow stale data and only use
                             // cache
+  BypassCacheLoadOnlyFromCache,  // for cache-only load when disable cache
+                                 // is enabled. Results in a network error.
 };
 
 }  // namespace blink
