@@ -7,6 +7,7 @@
 #import <Foundation/Foundation.h>
 #import <WebKit/WebKit.h>
 
+#include "base/ios/ios_util.h"
 #import "base/ios/weak_nsobject.h"
 #include "base/logging.h"
 #include "ios/web/public/browser_state.h"
