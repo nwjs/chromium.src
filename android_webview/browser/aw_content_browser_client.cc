@@ -31,6 +31,7 @@
 #include "base/files/scoped_file.h"
 #include "base/memory/ptr_util.h"
 #include "base/path_service.h"
+#include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/cdm/browser/cdm_message_filter_android.h"
 #include "components/crash/content/browser/crash_micro_dump_manager_android.h"
 #include "components/navigation_interception/intercept_navigation_delegate.h"
@@ -52,6 +53,7 @@
 #include "net/android/network_library.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/ssl_info.h"
+#include "services/shell/public/cpp/interface_registry.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/resource/resource_bundle_android.h"
 #include "ui/resources/grit/ui_resources.h"
@@ -529,6 +531,14 @@ AwContentBrowserClient::CreateThrottlesForNavigation(
 content::DevToolsManagerDelegate*
 AwContentBrowserClient::GetDevToolsManagerDelegate() {
   return new AwDevToolsManagerDelegate();
+}
+
+void AwContentBrowserClient::RegisterRenderFrameMojoInterfaces(
+    shell::InterfaceRegistry* registry,
+    content::RenderFrameHost* render_frame_host) {
+  registry->AddInterface(
+      base::Bind(&autofill::ContentAutofillDriverFactory::BindAutofillDriver,
+                 render_frame_host));
 }
 
 }  // namespace android_webview
