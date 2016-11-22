@@ -19,6 +19,10 @@ import java.util.concurrent.TimeoutException;
  * A payment integration test for biling addresses.
  */
 public class PaymentRequestBillingAddressTest extends PaymentRequestTestBase {
+    private static final int DECEMBER = 11;
+    private static final int NEXT_YEAR = 1;
+    private static final int FIRST_BILLING_ADDRESS = 0;
+
     /*
      * The index at which the option to add a billing address is located in the billing address
      * selection dropdown.
