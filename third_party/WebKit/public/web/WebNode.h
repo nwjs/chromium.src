@@ -107,10 +107,10 @@ public:
     template<typename T> T to();
     template<typename T> const T toConst() const;
 
+    BLINK_EXPORT WebNode(Node*);
 #if BLINK_IMPLEMENTATION
     BLINK_EXPORT static WebPluginContainer* pluginContainerFromNode(const Node*);
 
-    BLINK_EXPORT WebNode(Node*);
     BLINK_EXPORT WebNode& operator=(Node*);
     BLINK_EXPORT operator Node*() const;
 

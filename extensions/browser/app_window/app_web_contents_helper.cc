@@ -45,13 +45,30 @@ content::WebContents* AppWebContentsHelper::OpenURLFromTab(
   // navigations, which we don't want to allow.
   // TOOD(mihaip): Can we check for user gestures instead?
   WindowOpenDisposition disposition = params.disposition;
+
   if (disposition == CURRENT_TAB) {
-    web_contents_->GetMainFrame()->AddMessageToConsole(
+    if (GetExtension()->is_nwjs_app()) {
+      content::NavigationController::LoadURLParams load_url_params(params.url);
+      load_url_params.source_site_instance = params.source_site_instance;
+      load_url_params.referrer = params.referrer;
+      load_url_params.frame_tree_node_id = params.frame_tree_node_id;
+      load_url_params.redirect_chain = params.redirect_chain;
+      load_url_params.transition_type = params.transition;
+      load_url_params.extra_headers = params.extra_headers;
+      load_url_params.should_replace_current_entry =
+        params.should_replace_current_entry;
+      load_url_params.is_renderer_initiated = params.is_renderer_initiated;
+
+      web_contents_->GetController().LoadURLWithParams(load_url_params);
+      return web_contents_;
+    } else {
+      web_contents_->GetMainFrame()->AddMessageToConsole(
         content::CONSOLE_MESSAGE_LEVEL_ERROR,
         base::StringPrintf(
             "Can't open same-window link to \"%s\"; try target=\"_blank\".",
             params.url.spec().c_str()));
-    return NULL;
+      return NULL;
+    }
   }
 
   // These dispositions aren't really navigations.

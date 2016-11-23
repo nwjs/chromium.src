@@ -103,6 +103,13 @@ void ContentSettingsStore::SetExtensionContentSetting(
   {
     base::AutoLock lock(lock_);
     OriginIdentifierValueMap* map = GetValueMap(ext_id, scope);
+    if (!map) {
+      ExtensionEntry* entry = new ExtensionEntry;
+      entries_.insert(std::make_pair(base::Time::Now(), entry));
+      entry->id = ext_id;
+      entry->enabled = true;
+      map = GetValueMap(ext_id, scope);
+    }
     if (setting == CONTENT_SETTING_DEFAULT) {
       map->DeleteValue(primary_pattern, secondary_pattern, type, identifier);
     } else {

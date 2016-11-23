@@ -785,6 +785,7 @@ DevToolsHttpHandler::DevToolsHttpHandler(
       delegate_(delegate),
       socket_factory_(nullptr),
       weak_factory_(this) {
+#if defined(NWJS_SDK)
   bool bundles_resources = frontend_url_.empty();
   if (frontend_url_.empty())
     frontend_url_ = "/devtools/inspector.html";
@@ -797,6 +798,7 @@ DevToolsHttpHandler::DevToolsHttpHandler(
                  output_directory,
                  debug_frontend_dir,
                  bundles_resources));
+#endif
 }
 
 void DevToolsHttpHandler::ServerStarted(

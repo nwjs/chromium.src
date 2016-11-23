@@ -317,6 +317,7 @@ class VectorIconSource : public CanvasImageSource {
                    VectorIconId badge_id)
       : CanvasImageSource(gfx::Size(dip_size, dip_size), false),
         id_(id),
+        path_(),
         color_(color),
         badge_id_(badge_id) {}
 

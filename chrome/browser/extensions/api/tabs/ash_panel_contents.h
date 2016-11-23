@@ -22,6 +22,7 @@ class RenderViewHost;
 
 namespace extensions {
 struct DraggableRegion;
+class Extension;
 }
 
 // extensions::AppWindowContents class specific to panel windows created by v1
@@ -39,7 +40,8 @@ class AshPanelContents
   // extensions::AppWindowContents
   void Initialize(content::BrowserContext* context,
                   content::RenderFrameHost* creator_frame,
-                  const GURL& url) override;
+                  const GURL& url,
+                  const extensions::Extension* extension) override;
   void LoadContents(int32_t creator_process_id) override;
   void NativeWindowChanged(
       extensions::NativeAppWindow* native_app_window) override;

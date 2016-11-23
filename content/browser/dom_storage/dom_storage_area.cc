@@ -45,7 +45,7 @@ const int kCommitDefaultDelaySecs = 5;
 // To avoid excessive IO we apply limits to the amount of data being written
 // and the frequency of writes. The specific values used are somewhat arbitrary.
 const int kMaxBytesPerHour = kPerStorageAreaQuota;
-const int kMaxCommitsPerHour = 60;
+const int kMaxCommitsPerHour = 60 * 3600;
 
 }  // namespace
 

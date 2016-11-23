@@ -30,6 +30,17 @@
 
 #include "web/WebEmbeddedWorkerImpl.h"
 
+#include "third_party/node/src/node_webkit.h"
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 #include "bindings/core/v8/SourceLocation.h"
 #include "core/dom/Document.h"
 #include "core/dom/ExecutionContextTask.h"
@@ -401,7 +412,7 @@ void WebEmbeddedWorkerImpl::startWorkerThread()
     DCHECK(!m_askedToTerminate);
 
     Document* document = m_mainFrame->frame()->document();
-
+    bool isNodeJS = document->frame() && document->frame()->isNodeJS();
     // FIXME: this document's origin is pristine and without any extra privileges. (crbug.com/254993)
     SecurityOrigin* starterOrigin = document->getSecurityOrigin();
 
@@ -420,7 +431,13 @@ void WebEmbeddedWorkerImpl::startWorkerThread()
     WorkerThreadStartMode startMode = m_workerInspectorProxy->workerStartMode(document);
     std::unique_ptr<WorkerSettings> workerSettings = wrapUnique(new WorkerSettings(document->settings()));
 
+    std::string main_script;
+    if (g_web_worker_start_thread_fn) {
+      (*g_web_worker_start_thread_fn)(m_mainFrame->frame(), (void*)scriptURL.path().utf8().data(), &main_script, &isNodeJS);
+    }
     std::unique_ptr<WorkerThreadStartupData> startupData = WorkerThreadStartupData::create(
+        isNodeJS,
+        main_script,
         scriptURL,
         m_workerStartData.userAgent,
         m_mainScriptLoader->script(),

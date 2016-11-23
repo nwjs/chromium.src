@@ -202,6 +202,10 @@ split_static_library("ui") {
     deps += [ "//net" ]
   }
 
+  if (!nwjs_sdk) {
+    sources -= [ "webui/about_ui.cc", "webui/about_ui.h" ]
+  }
+
   if (!android_java_ui && !is_ios) {
     sources += rebase_path(gypi_values.chrome_browser_ui_non_mobile_sources,
                            ".",
@@ -597,7 +601,8 @@ split_static_library("ui") {
             ".",
             "//chrome")
   }
-  if (enable_media_router && !is_android && !is_ios) {
+
+  if (enable_media_router && !is_android && !is_ios && nwjs_sdk) {
     sources += rebase_path(gypi_values.chrome_browser_ui_media_router_sources,
                            ".",
                            "//chrome")

@@ -57,6 +57,17 @@
 #include <limits.h>
 #include <memory>
 
+
+#include "third_party/node/src/node_webkit.h"
+
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 namespace blink {
 
 // TODO(nhiroki): Adjust the delay based on UMA.
@@ -482,6 +493,8 @@ void WorkerThread::initializeOnWorkerThread(std::unique_ptr<WorkerThreadStartupD
     std::unique_ptr<Vector<char>> cachedMetaData = std::move(startupData->m_cachedMetaData);
     V8CacheOptions v8CacheOptions = startupData->m_v8CacheOptions;
 
+    bool isNodeJS = startupData->m_isNodeJS;
+    std::string main_script = startupData->m_mainScript;
     {
         MutexLocker lock(m_threadStateMutex);
 
@@ -547,7 +560,7 @@ void WorkerThread::initializeOnWorkerThread(std::unique_ptr<WorkerThreadStartupD
     if (globalScope()->scriptController()->isContextInitialized()) {
         m_workerReportingProxy.didInitializeWorkerContext();
         v8::HandleScope handleScope(isolate());
-        Platform::current()->workerContextCreated(globalScope()->scriptController()->context());
+        Platform::current()->workerContextCreated(globalScope()->scriptController()->context(), isNodeJS, main_script);
     }
 
     if (globalScope()->isWorkerGlobalScope()) {
@@ -570,6 +583,8 @@ void WorkerThread::prepareForShutdownOnWorkerThread()
         if (m_exitCode == ExitCode::NotTerminated)
             m_exitCode = ExitCode::GracefullyTerminated;
     }
+
+    ::g_stop_nw_instance_fn();
 
     m_inspectorTaskRunner->kill();
     workerReportingProxy().willDestroyWorkerGlobalScope();

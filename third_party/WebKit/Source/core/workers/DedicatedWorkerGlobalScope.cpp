@@ -79,6 +79,7 @@ void DedicatedWorkerGlobalScope::postMessage(ExecutionContext* context, PassRefP
     std::unique_ptr<MessagePortChannelArray> channels = MessagePort::disentanglePorts(context, ports, exceptionState);
     if (exceptionState.hadException())
         return;
+    if (thread())
     thread()->workerObjectProxy().postMessageToWorkerObject(message, std::move(channels));
 }
 
@@ -101,11 +102,13 @@ static void countDeprecationOnDocument(UseCounter::Feature feature, ExecutionCon
 
 void DedicatedWorkerGlobalScope::countFeature(UseCounter::Feature feature) const
 {
+  if (thread())
     thread()->workerObjectProxy().postTaskToMainExecutionContext(createCrossThreadTask(&countOnDocument, feature));
 }
 
 void DedicatedWorkerGlobalScope::countDeprecation(UseCounter::Feature feature) const
 {
+  if (thread())
     thread()->workerObjectProxy().postTaskToMainExecutionContext(createCrossThreadTask(&countDeprecationOnDocument, feature));
 }
 
