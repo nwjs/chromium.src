@@ -42,7 +42,8 @@ HTMLDocument& RangeTest::document() const {
 }
 
 TEST_F(RangeTest, createAdjustedToTreeScopeWithPositionInShadowTree) {
-  document().body()->setInnerHTML("<div><select><option>012</option></div>");
+  document().body()->setInnerHTML("<div><select><option>012</option></div>",
+                                  ASSERT_NO_EXCEPTION);
   Element* const selectElement = document().querySelector("select");
   const Position& position =
       Position::afterNode(selectElement->userAgentShadowRoot());
