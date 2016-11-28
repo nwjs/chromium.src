@@ -69,6 +69,7 @@
 #include "content/public/common/feature_h264_with_openh264_ffmpeg.h"
 #include "content/public/common/features.h"
 #include "gin/public/gin_features.h"
+#include "media/audio/audio_features.h"
 #include "media/base/media_switches.h"
 #include "media/midi/midi_switches.h"
 #include "ui/base/ui_base_switches.h"
@@ -2058,6 +2059,9 @@ const FeatureEntry kFeatureEntries[] = {
      IDS_FLAGS_ARC_BOOT_COMPLETED,
      IDS_FLAGS_ARC_BOOT_COMPLETED_DESCRIPTION, kOsCrOS,
      FEATURE_VALUE_TYPE(arc::kBootCompletedBroadcastFeature)},
+    {"enumerate-audio-devices", IDS_FLAGS_ENABLE_ENUMERATING_AUDIO_DEVICES_NAME,
+     IDS_FLAGS_ENABLE_ENUMERATING_AUDIO_DEVICES_DESCRIPTION, kOsCrOS,
+     FEATURE_VALUE_TYPE(features::kEnumerateAudioDevices)},
 #endif
     // NOTE: Adding new command-line switches requires adding corresponding
     // entries to enum "LoginCustomFlags" in histograms.xml. See note in
