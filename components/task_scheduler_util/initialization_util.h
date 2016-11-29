@@ -5,12 +5,17 @@
 #ifndef COMPONENTS_TASK_SCHEDULER_UTIL_INITIALIZATION_UTIL_H_
 #define COMPONENTS_TASK_SCHEDULER_UTIL_INITIALIZATION_UTIL_H_
 
+#include <map>
+#include <string>
+
 namespace task_scheduler_util {
 
 // Calls base::TaskScheduler::CreateAndSetDefaultTaskScheduler with arguments
-// derived from the variations system or a default known good set of arguments
-// if the variations parameters are invalid or missing.
-void InitializeDefaultBrowserTaskScheduler();
+// derived from |variation_params|. Returns false on failure. |variation_params|
+// is expected to come from the variations component and map a thread pool name
+// to thread pool parameters.
+bool InitializeDefaultTaskScheduler(
+    const std::map<std::string, std::string>& variation_params);
 
 }  // namespace task_scheduler_util
 
