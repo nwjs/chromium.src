@@ -216,4 +216,17 @@ TEST_F(OfflinePageUtilsTest, CheckExistenceOfPagesWithURL) {
   EXPECT_EQ(base::Time(), latest_saved_time);
 }
 
+TEST_F(OfflinePageUtilsTest, EqualsIgnoringFragment) {
+  EXPECT_TRUE(OfflinePageUtils::EqualsIgnoringFragment(
+      GURL("http://example.com/"), GURL("http://example.com/")));
+  EXPECT_TRUE(OfflinePageUtils::EqualsIgnoringFragment(
+      GURL("http://example.com/"), GURL("http://example.com/#test")));
+  EXPECT_TRUE(OfflinePageUtils::EqualsIgnoringFragment(
+      GURL("http://example.com/#test"), GURL("http://example.com/")));
+  EXPECT_TRUE(OfflinePageUtils::EqualsIgnoringFragment(
+      GURL("http://example.com/#test"), GURL("http://example.com/#test2")));
+  EXPECT_FALSE(OfflinePageUtils::EqualsIgnoringFragment(
+      GURL("http://example.com/"), GURL("http://test.com/#test")));
+}
+
 }  // namespace offline_pages
