@@ -484,7 +484,8 @@ void RequestTrackerImpl::StartRequest(net::URLRequest* request) {
   if (!is_for_static_file_requests_ && addedRequest) {
     NSString* networkActivityKey = GetNetworkActivityKey();
     web::WebThread::PostTask(
-        web::WebThread::UI, FROM_HERE, base::BindBlockArc(^{
+        web::WebThread::UI, FROM_HERE,
+        base::BindBlock(^{
           [[CRWNetworkActivityIndicatorManager sharedInstance]
               startNetworkTaskForGroup:networkActivityKey];
         }));
@@ -564,7 +565,8 @@ void RequestTrackerImpl::StopRequest(net::URLRequest* request) {
   if (!is_for_static_file_requests_ && removedRequests > 0) {
     NSString* networkActivityKey = GetNetworkActivityKey();
     web::WebThread::PostTask(
-        web::WebThread::UI, FROM_HERE, base::BindBlockArc(^{
+        web::WebThread::UI, FROM_HERE,
+        base::BindBlock(^{
           [[CRWNetworkActivityIndicatorManager sharedInstance]
               stopNetworkTaskForGroup:networkActivityKey];
         }));
@@ -583,7 +585,8 @@ void RequestTrackerImpl::StopRedirectedRequest(net::URLRequest* request) {
   if (!is_for_static_file_requests_ && removedRequests > 0) {
     NSString* networkActivityKey = GetNetworkActivityKey();
     web::WebThread::PostTask(
-        web::WebThread::UI, FROM_HERE, base::BindBlockArc(^{
+        web::WebThread::UI, FROM_HERE,
+        base::BindBlock(^{
           [[CRWNetworkActivityIndicatorManager sharedInstance]
               stopNetworkTaskForGroup:networkActivityKey];
         }));
@@ -745,7 +748,7 @@ void RequestTrackerImplTraits::Destruct(const RequestTrackerImpl* t) {
     // destroyed, the object inconstant_t points to won't be deleted while
     // the block is executing (and Destruct() itself will do the deleting).
     web::WebThread::PostTask(web::WebThread::IO, FROM_HERE,
-                             base::BindBlockArc(^{
+                             base::BindBlock(^{
                                inconstant_t->Destruct();
                              }));
   }
@@ -762,9 +765,9 @@ void RequestTrackerImpl::Destruct() {
   }
   InvalidateWeakPtrs();
   // Delete on the UI thread.
-  web::WebThread::PostTask(web::WebThread::UI, FROM_HERE, base::BindBlockArc(^{
-                             delete this;
-                           }));
+  web::WebThread::PostTask(web::WebThread::UI, FROM_HERE, base::BindBlock(^{
+                                                            delete this;
+                                                          }));
 }
 
 #pragma mark Other private methods
@@ -1297,7 +1300,8 @@ void RequestTrackerImpl::CancelRequests() {
   if (!is_for_static_file_requests_ && removedRequests > 0) {
     NSString* networkActivityKey = GetNetworkActivityKey();
     web::WebThread::PostTask(
-        web::WebThread::UI, FROM_HERE, base::BindBlockArc(^{
+        web::WebThread::UI, FROM_HERE,
+        base::BindBlock(^{
           [[CRWNetworkActivityIndicatorManager sharedInstance]
               clearNetworkTasksForGroup:networkActivityKey];
         }));

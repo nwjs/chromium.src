@@ -38,7 +38,7 @@
                  nativeRequest:(net::URLRequest*)nativeRequest
               redirectResponse:(NSURLResponse*)redirectResponse {
   DCHECK_CURRENTLY_ON(web::WebThread::IO);
-  web::WebThread::PostTask(web::WebThread::UI, FROM_HERE, base::BindBlockArc(^{
+  web::WebThread::PostTask(web::WebThread::UI, FROM_HERE, base::BindBlock(^{
                              [_delegate
                                  wasRedirectedToRequest:request
                                        redirectResponse:redirectResponse];
