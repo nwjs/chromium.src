@@ -1577,6 +1577,7 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="3031417829280473749">Agen X</translation>
 <translation id="3031557471081358569">Pilih item yang akan diimpor:</translation>
 <translation id="3033332627063280038">Mengaktifkan penerapan eksperimental Cache-Control: perintah usang saat validasi ulang. Hal ini memungkinkan server menentukan bahwa beberapa sumber daya dapat divalidasi ulang di latar belakang guna meningkatkan latensi.</translation>
+<translation id="3037634479526555501">Mengaktifkan penghitungan perangkat audio untuk percobaan.</translation>
 <translation id="3039828483675273919">Memindahkan $1 item...</translation>
 <translation id="304009983491258911">Ubah PIN kartu SIM</translation>
 <translation id="3041739663168146747">Jika diaktifkan, URL chrome://settings/ akan memuat laman setelan Desain Material.</translation>
@@ -1758,6 +1759,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL" /> untuk melihat hal ini dan petu
 <translation id="3285322247471302225">&amp;Tab Baru</translation>
 <translation id="3288047731229977326">Ekstensi yang berjalan dalam mode pengembang dapat membahayakan komputer Anda. Jika Anda bukan pengembang, Anda sebaiknya menonaktifkan ekstensi yang berjalan dalam mode pengembang ini agar tetap aman.</translation>
 <translation id="3289856944988573801">Untuk memeriksa pembaruan, gunakan Ethernet atau Wi-Fi.</translation>
+<translation id="3290084607612039008">Mengaktifkan penggunaan penghitungan perangkat audio untuk percobaan.</translation>
 <translation id="3293325348208285494">Mulai cepat</translation>
 <translation id="3294437725009624529">Tamu</translation>
 <translation id="329650768420594634">Peringatan "Kemas Ekstensi"</translation>
@@ -5080,7 +5082,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="7839580021124293374">3</translation>
 <translation id="7839804798877833423">Mengambil file ini akan menggunakan sekitar <ph name="FILE_SIZE" /> data seluler.</translation>
 <translation id="7839963980801867006">Pilih IME ekstensi mana yang akan tersedia di menu bahasa.</translation>
-<translation id="7842346819602959665">Versi ekstensi "<ph name="EXTENSION_NAME" />" teranyar memerlukan izin lebih lanjut, jadi ekstensi belum diaktifkan.</translation>
+<translation id="7842346819602959665">Versi ekstensi "<ph name="EXTENSION_NAME" />" terbaru memerlukan izin lebih lanjut, jadi ekstensi belum diaktifkan.</translation>
 <translation id="7844992432319478437">Memperbarui diff</translation>
 <translation id="7845920762538502375"><ph name="PRODUCT_NAME" /> tidak dapat menyinkronkan data karena tidak dapat menyambung ke server sinkronisasi. Mencoba lagi...</translation>
 <translation id="7846076177841592234">Batalkan pilihan</translation>

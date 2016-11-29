@@ -1573,6 +1573,7 @@
 <translation id="3031417829280473749">女特工</translation>
 <translation id="3031557471081358569">选择要导入的内容：</translation>
 <translation id="3033332627063280038">启用 Cache-Control 的实验性实施功能：stale-while-revalidate 指令。此操作允许服务器指定部分资源可以在后台进行重新验证以改善延迟情况。</translation>
+<translation id="3037634479526555501">实验性启用音频设备枚举功能。</translation>
 <translation id="3039828483675273919">正在移动$1项内容…</translation>
 <translation id="304009983491258911">更改 SIM 卡 PIN</translation>
 <translation id="3041739663168146747">此项处于启用状态时，chrome://settings/ 网址将会加载 Material Design 设置页面。</translation>
@@ -1754,6 +1755,7 @@
 <translation id="3285322247471302225">打开新的标签页(&amp;T)</translation>
 <translation id="3288047731229977326">以开发者模式运行的扩展程序可能会损害您的计算机。如果您不是开发者，那么，为安全起见，应停用以开发者模式运行的扩展程序。</translation>
 <translation id="3289856944988573801">要检查是否有更新，请使用以太网或 WLAN。</translation>
+<translation id="3290084607612039008">实验性启用音频设备枚举功能。</translation>
 <translation id="3293325348208285494">快速启动</translation>
 <translation id="3294437725009624529">访客</translation>
 <translation id="329650768420594634">打包扩展程序警告</translation>

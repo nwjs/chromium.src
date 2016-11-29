@@ -1578,6 +1578,7 @@ Lisateabe saamiseks külastage meie <ph name="BEGIN_LINK" />abikeskust<ph name="
 <translation id="3031417829280473749">Agent X</translation>
 <translation id="3031557471081358569">Valige imporditavad üksused:</translation>
 <translation id="3033332627063280038">Lubatakse vahemälu juhtimise katseline juurutamine: direktiiv stale-while-revalidate. See lubab serveritel määrata osade ressursside taustal uuesti valideerimise, et parandada latentsust.</translation>
+<translation id="3037634479526555501">Lubage heliseadmete katseline nummerdamine.</translation>
 <translation id="3039828483675273919">$1 üksuse teisaldamine ...</translation>
 <translation id="304009983491258911">SIM-kaardi PIN-koodi muutmine</translation>
 <translation id="3041739663168146747">Kui see on lubatud, laadib URL chrome://settings/ materiaalse disaini seadete lehe.</translation>
@@ -1759,6 +1760,7 @@ Nende ja edasiste juhiste nägemiseks vaadake meile aadressil <ph name="ACCOUNT_
 <translation id="3285322247471302225">Uus &amp;vaheleht</translation>
 <translation id="3288047731229977326">Arendaja režiimis töötavad laiendused võivad teie arvutit kahjustada. Kui te pole arendaja, peaksite turvalisuse säilitamiseks nende laienduste käitamise arendaja režiimis keelama.</translation>
 <translation id="3289856944988573801">Kasutage värskenduste otsimiseks Etherneti või WiFi-ühendust.</translation>
+<translation id="3290084607612039008">Lubage nummerdatud heliseadmete katseline kasutamine.</translation>
 <translation id="3293325348208285494">Kiirkäivitus</translation>
 <translation id="3294437725009624529">Külaline</translation>
 <translation id="329650768420594634">Pakettlaienduse hoiatus</translation>

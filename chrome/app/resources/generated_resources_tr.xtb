@@ -1578,6 +1578,7 @@ Daha fazla bilgi için <ph name="BEGIN_LINK" />Yardım Merkezimizi<ph name="END_
 <translation id="3031417829280473749">Ajan X</translation>
 <translation id="3031557471081358569">İçe aktarılacak öğeleri seçin:</translation>
 <translation id="3033332627063280038">Deneysel Önbellek Kontrolü olan stale-while-revalidate yönergesini uygulamayı etkinleştir. Bu, sunucunun gecikme süresini iyileştirmek üzere bazı kaynakların arka planda tekrar doğrulanabileceğini belirtmeye izin verir.</translation>
+<translation id="3037634479526555501">Ses cihazlarının numaralandırmasını deneysel olarak etkinleştirin.</translation>
 <translation id="3039828483675273919">$1 öğe taşınıyor...</translation>
 <translation id="304009983491258911">SIM kart PIN kodunu değiştirme</translation>
 <translation id="3041739663168146747">Etkinleştirilirse, chrome://settings/ URL'si, Materyal Tasarım ayarlarına ilişkin sayfayı yükler.</translation>
@@ -1759,6 +1760,7 @@ Bunlar ve diğer talimatlar için lütfen <ph name="ACCOUNT_EMAIL" /> e-postanı
 <translation id="3285322247471302225">Yeni &amp;Sekme</translation>
 <translation id="3288047731229977326">Geliştirici modunda çalışan uzantılar bilgisayarınıza zarar verebilir. Geliştirici değilseniz, geliştirici modundayken güvende olmak için bu uzantıların çalışmasını devre dışı bırakmanız gerekir.</translation>
 <translation id="3289856944988573801">Güncellemeleri kontrol etmek için lütfen Ethernet veya Kablosuz kullanın.</translation>
+<translation id="3290084607612039008">Ses cihazlarının numaralandırmasının kullanımını deneysel olarak etkinleştirin.</translation>
 <translation id="3293325348208285494">Hızlı başlangıç</translation>
 <translation id="3294437725009624529">Misafir</translation>
 <translation id="329650768420594634">Paket Uzantı Uyarısı</translation>

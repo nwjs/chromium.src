@@ -757,7 +757,7 @@
 <translation id="2016430552235416146">Tradicional</translation>
 <translation id="2017052954220678795">Rasterització de GPU per processos</translation>
 <translation id="2017334798163366053">Desactiva la recopilació de dades de rendiment</translation>
-<translation id="2018352199541442911">El vostre dispositiu d'emmagatzematge extern no és compatible en aquests moments.</translation>
+<translation id="2018352199541442911">El teu dispositiu d'emmagatzematge extern no és compatible en aquests moments.</translation>
 <translation id="2019718679933488176">&amp;Obre l'àudio en una pestanya nova</translation>
 <translation id="2023167225947895179">El PIN sembla fàcil d'endevinar</translation>
 <translation id="202352106777823113">La baixada trigava massa i la xarxa l'ha aturat.</translation>
@@ -1576,6 +1576,7 @@ Per obtenir més informació sobre els usuaris supervisats, consulteu el <ph nam
 <translation id="3031417829280473749">Agent X</translation>
 <translation id="3031557471081358569">Seleccioneu els elements que voleu importar:</translation>
 <translation id="3033332627063280038">Activa la implementació experimental de Cache-Control: directiva d'inactivitat durant la revalidació. Això permet que els servidors especifiquin que alguns recursos es puguin revalidar en segon pla per millorar la latència.</translation>
+<translation id="3037634479526555501">Activa l'enumeració de dispositius d'àudio de manera experimental.</translation>
 <translation id="3039828483675273919">S'estan traslladant $1 elements...</translation>
 <translation id="304009983491258911">Canvia el PIN de la targeta SIM</translation>
 <translation id="3041739663168146747">Si s'activa, l'URL chrome://settings/ carrega la pàgina de configuració de Material Design.</translation>
@@ -1757,6 +1758,7 @@ Consulteu el vostre correu electrònic (<ph name="ACCOUNT_EMAIL" />) per obtenir
 <translation id="3285322247471302225">Pes&amp;tanya nova</translation>
 <translation id="3288047731229977326">Les extensions que funcionen amb el mode desenvolupador poden malmetre el vostre ordinador. Si no sou desenvolupador, hauríeu de desactivar aquestes extensions per continuar protegit.</translation>
 <translation id="3289856944988573801">Per comprovar si hi ha actualitzacions, feu servir Ethernet o Wi-Fi.</translation>
+<translation id="3290084607612039008">Activa l'ús de l'enumeració de dispositius d'àudio de manera experimental.</translation>
 <translation id="3293325348208285494">Inici ràpid</translation>
 <translation id="3294437725009624529">Convidat</translation>
 <translation id="329650768420594634">Advertiment de l'extensió de paquets</translation>
@@ -2366,7 +2368,7 @@ Del domini <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4075084141581903552">L'inici de sessió automàtic està disponible amb <ph name="EMAIL_ADDRESS" /></translation>
 <translation id="4078738236287221428">Agressiva</translation>
 <translation id="408098233265424160">Detecció de proximitat de Smart Lock</translation>
-<translation id="4081683084140995376">Activeu el shell de RV.</translation>
+<translation id="4081683084140995376">Activeu el shell d'RV.</translation>
 <translation id="4081979157059999345">Enllaç de gestió remota de contrasenyes</translation>
 <translation id="4084682180776658562">Adreça d'interès</translation>
 <translation id="4084835346725913160">Tanca <ph name="TAB_NAME" /></translation>
@@ -2748,7 +2750,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="4654488276758583406">Molt petit</translation>
 <translation id="465499440663162826">No s'ha pogut connectar a Chrome Web Store.</translation>
 <translation id="4656293982926141856">Aquest ordinador</translation>
-<translation id="4656631038341342120">Activeu el shell de RV si està disponible per a aquest dispositiu.</translation>
+<translation id="4656631038341342120">Activeu el shell d'RV si està disponible per a aquest dispositiu.</translation>
 <translation id="4657031070957997341">Permet sempre els connectors a <ph name="HOST" /></translation>
 <translation id="4663254525753315077">Quan sigui possible, situa el contingut de desplaçament d'un element de desplaçament de desbordament en una capa composta perquè el desplaçament sigui més ràpid.</translation>
 <translation id="4664482161435122549">Error d'exportació PKCS #12</translation>
@@ -3335,7 +3337,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="5419294236999569767">Hora del sistema</translation>
 <translation id="5421136146218899937">Esborra les dades de navegació...</translation>
 <translation id="5422221874247253874">Punt d'accés</translation>
-<translation id="5422781158178868512">El vostre dispositiu d'emmagatzematge extern no s'ha pogut reconèixer.</translation>
+<translation id="5422781158178868512">El dispositiu d'emmagatzematge extern no s'ha pogut reconèixer.</translation>
 <translation id="5423849171846380976">Activat</translation>
 <translation id="5425470845862293575">Permet l'ús del sistema experimental de renderització de tipus de lletra DirectWrite.</translation>
 <translation id="5425722269016440406">Heu d'estar connectat a Internet per desactivar Smart Lock, perquè aquesta opció se sincronitza amb el telèfon i amb altres dispositius. Connecteu-vos a una xarxa en primer lloc.</translation>
@@ -5123,7 +5125,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="7903925330883316394">Utilitat: <ph name="UTILITY_TYPE" /></translation>
 <translation id="7904094684485781019">L'administrador d'aquest compte no ha permès l'inici de sessió múltiple.</translation>
 <translation id="7904402721046740204">S'està autenticant</translation>
-<translation id="7908378463497120834">Com a mínim una partició del vostre dispositiu d'emmagatzematge extern no s'ha pogut muntar.</translation>
+<translation id="7908378463497120834">Com a mínim una partició del dispositiu d'emmagatzematge extern no s'ha pogut muntar.</translation>
 <translation id="7909969815743704077">S'ha baixat en mode d'incògnit</translation>
 <translation id="7910768399700579500">Carpeta &amp;nova</translation>
 <translation id="7915471803647590281">Digueu-nos què passa abans d'enviar els comentaris.</translation>

@@ -1579,6 +1579,7 @@ Z ustvarjanjem zaščitenega uporabnika ne ustvarite Google Računa, njegovi zaz
 <translation id="3031417829280473749">Agent X</translation>
 <translation id="3031557471081358569">Izberite elemente, ki jih želite uvoziti:</translation>
 <translation id="3033332627063280038">Omogoči poskusno izvedbo direktive »Cache-Control: stale-while-revalidate«. To strežnikom omogoča določanje, da se lahko nekatera sredstva znova preverijo v ozadju in s tem zmanjšajo zamude.</translation>
+<translation id="3037634479526555501">Poskusno omogoči naštevanje zvočnih naprav.</translation>
 <translation id="3039828483675273919">Premikanje toliko elementov: $1 ...</translation>
 <translation id="304009983491258911">Sprememba kode PIN za kartico SIM</translation>
 <translation id="3041739663168146747">Če je zastavica omogočena, URL chrome://settings/ naloži stran z nastavitvami materialnega oblikovanja.</translation>
@@ -1760,6 +1761,7 @@ Za ta in dodatna navodila preverite e-pošto za račun <ph name="ACCOUNT_EMAIL" 
 <translation id="3285322247471302225">Nov &amp;zavihek</translation>
 <translation id="3288047731229977326">Razširitve, ki se izvajajo v razvijalskem načinu, lahko škodijo vašemu računalniku. Če niste razvijalec, zaradi varnosti onemogočite razširitve, ki se izvajajo v razvijalskem načinu.</translation>
 <translation id="3289856944988573801">Če želite preveriti, ali so na voljo posodobitve, uporabite ethernet ali Wi-Fi.</translation>
+<translation id="3290084607612039008">Poskusno omogoči uporabo naštevanja zvočnih naprav.</translation>
 <translation id="3293325348208285494">Hiter začetek</translation>
 <translation id="3294437725009624529">Gost</translation>
 <translation id="329650768420594634">Opozorilo glede pakiranja razširitve</translation>

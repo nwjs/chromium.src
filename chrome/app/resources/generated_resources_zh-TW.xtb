@@ -1577,6 +1577,7 @@
 <translation id="3031417829280473749">特務 X</translation>
 <translation id="3031557471081358569">選取要匯入的項目：</translation>
 <translation id="3033332627063280038">啟用實驗性 Cache-Control: stale-while-revalidate 指令實作功能。這樣一來，伺服器便可指定在背景重新驗證部分資源，以改善延遲情況。</translation>
+<translation id="3037634479526555501">(實驗性) 啟用列舉的音訊裝置。</translation>
 <translation id="3039828483675273919">正在移動 $1 個項目...</translation>
 <translation id="304009983491258911">變更 SIM 卡 PIN</translation>
 <translation id="3041739663168146747">啟用後，chrome://settings/ 網址會載入 Material Design 設定網頁。</translation>
@@ -1758,6 +1759,7 @@
 <translation id="3285322247471302225">新增分頁(&amp;T)</translation>
 <translation id="3288047731229977326">在開發人員模式中執行擴充功能可能會損害您的電腦。如果您不是開發人員，最好在開發人員模式中停用這些擴充功能，以策安全。</translation>
 <translation id="3289856944988573801">如要檢查更新，請使用乙太網路或 Wi-Fi。</translation>
+<translation id="3290084607612039008">(實驗性) 允許使用列舉的音訊裝置。</translation>
 <translation id="3293325348208285494">快速啟動</translation>
 <translation id="3294437725009624529">訪客</translation>
 <translation id="329650768420594634">封裝擴充功能警告</translation>

@@ -1579,6 +1579,7 @@ Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeh
 <translation id="3031417829280473749">Agent X</translation>
 <translation id="3031557471081358569">Vyberte položky na import:</translation>
 <translation id="3033332627063280038">Povoľte experimentálnu implementáciu funkcie Cache-Control: smernica typu stale-while-revalidate. Umožňuje serverom určiť, ktoré zdroje môžu byť opätovne overené na pozadí s cieľom zlepšiť latenciu.</translation>
+<translation id="3037634479526555501">Experimentálne povolenie enumerácie zvukových zariadení</translation>
 <translation id="3039828483675273919">Prebieha presúvanie $1 položiek...</translation>
 <translation id="304009983491258911">Zmeňte kód PIN SIM karty</translation>
 <translation id="3041739663168146747">Ak je tento príznak povolený, webová adresa chrome://settings/ načíta stránku nastavení Material Design.</translation>
@@ -1760,6 +1761,7 @@ Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeh
 <translation id="3285322247471302225">Nová &amp;karta</translation>
 <translation id="3288047731229977326">Rozšírenia spustené v režime pre vývojárov môžu poškodiť váš počítač. Ak nie ste vývojár, mali by ste v záujme bezpečnosti rozšírenia spustené v režime vývojára zakázať.</translation>
 <translation id="3289856944988573801">Ak chcete skontrolovať aktualizácie, použite sieť ethernet alebo Wi-Fi.</translation>
+<translation id="3290084607612039008">Experimentálne povoľte používanie enumerovaných zvukových zariadení.</translation>
 <translation id="3293325348208285494">Rýchle spustenie</translation>
 <translation id="3294437725009624529">Hosť</translation>
 <translation id="329650768420594634">Upozornenie na zbalenie rozšírenia</translation>

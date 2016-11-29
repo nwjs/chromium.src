@@ -1580,6 +1580,7 @@ Para obtener más información, accede a nuestro <ph name="BEGIN_LINK" />Centro 
 <translation id="3031417829280473749">Agente X</translation>
 <translation id="3031557471081358569">Selecciona los elementos que quieres importar:</translation>
 <translation id="3033332627063280038">Habilita la implementación experimental de la directiva de control de caché stale_while_revalidate, que permite que los servidores especifiquen que se puedan revalidar algunos recursos en segundo plano para mejorar la latencia.</translation>
+<translation id="3037634479526555501">Habilitar la enumeración de dispositivos de audio de forma experimental.</translation>
 <translation id="3039828483675273919">Moviendo $1 elementos...</translation>
 <translation id="304009983491258911">Cambiar PIN de la tarjeta SIM</translation>
 <translation id="3041739663168146747">Si se habilita, la URL chrome://settings/ cargará la página de configuración de Material Design.</translation>
@@ -1761,6 +1762,7 @@ Accede a tu dirección de correo electrónico <ph name="ACCOUNT_EMAIL" /> para c
 <translation id="3285322247471302225">Nueva &amp;pestaña</translation>
 <translation id="3288047731229977326">Las extensiones que se ejecutan en modo de desarrollador pueden causar daños en el ordenador. Si no eres desarrollador, debes inhabilitar esas extensiones para mantener protegido tu ordenador.</translation>
 <translation id="3289856944988573801">Para comprobar si hay actualizaciones, utiliza una conexión Ethernet o Wi-Fi.</translation>
+<translation id="3290084607612039008">Habilita el uso de la enumeración de dispositivos de audio de forma experimental.</translation>
 <translation id="3293325348208285494">Inicio rápido</translation>
 <translation id="3294437725009624529">Invitado</translation>
 <translation id="329650768420594634">Advertencia sobre el empaquetado de extensión</translation>
@@ -2699,7 +2701,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4579581181964204535">No se puede enviar <ph name="HOST_NAME" />.</translation>
 <translation id="4580526846085481512">¿Seguro que quieres eliminar estos $1 elementos?</translation>
 <translation id="458150753955139441">Pulsa para ir hacia atrás y usa el menú contextual para ver el historial</translation>
-<translation id="4582447636905308869">Nuevo IME coreano, que está basado en el motor HMM de las Herramientas de introducción de texto de Google.</translation>
+<translation id="4582447636905308869">Nuevo IME coreano, que está basado en el motor HMM de las herramientas de introducción de texto de Google.</translation>
 <translation id="4582563038311694664">Restablecer configuración completa</translation>
 <translation id="4583537898417244378">El archivo no es válido o está dañado.</translation>
 <translation id="4585793705637313973">Editar página</translation>
@@ -3934,7 +3936,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6248400709929739064">Habilitar subtítulos</translation>
 <translation id="6248988683584659830">Buscar ajustes</translation>
 <translation id="6251870443722440887">GDI administra</translation>
-<translation id="6251889282623539337">Condiciones de servicio de <ph name="DOMAIN" /></translation>
+<translation id="6251889282623539337">Condiciones de Servicio de <ph name="DOMAIN" /></translation>
 <translation id="6251924700383757765">Política de Privacidad</translation>
 <translation id="6253586523465486793">Obliga a la función de deslizar para actualizar a activar la opción de volver a cargar sin validar (cuando la marca está inhabilitada, suele volver a cargar de forma normal y validar el caché).</translation>
 <translation id="6254503684448816922">Compromiso de clave</translation>
@@ -6111,7 +6113,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="9215934040295798075">Establecer fondo de pantalla</translation>
 <translation id="9218430445555521422">Establecer como predeterminado</translation>
 <translation id="9219103736887031265">Imágenes</translation>
-<translation id="9220525904950070496">Eliminar cuenta</translation>
+<translation id="9220525904950070496">Quitar cuenta</translation>
 <translation id="923467487918828349">Mostrar todas</translation>
 <translation id="930268624053534560">Marcas de tiempo detalladas</translation>
 <translation id="932327136139879170">Página principal</translation>

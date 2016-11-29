@@ -1577,6 +1577,7 @@ Besök vårt <ph name="BEGIN_LINK" />hjälpcenter<ph name="END_LINK" /> om du vi
 <translation id="3031417829280473749">Agent X</translation>
 <translation id="3031557471081358569">Välj objekt att importera:</translation>
 <translation id="3033332627063280038">Aktiverar den experimentella implementeringen av direktivet stale-while-revalidate för cacheminnet. Det tillåter att servrar anger att vissa resurser kan valideras om i bakgrunden för att förbättra latensen.</translation>
+<translation id="3037634479526555501">Aktivera numrering av ljudenheter (experimentell funktion).</translation>
 <translation id="3039828483675273919">$1 objekt flyttas ...</translation>
 <translation id="304009983491258911">Byt PIN för SIM-kort</translation>
 <translation id="3041739663168146747">När detta alternativ är aktiverat kan inställningarna för Material Design öppnas på webbadressen chrome://settings.</translation>
@@ -1758,6 +1759,7 @@ Läs din e-post på <ph name="ACCOUNT_EMAIL" />. Där finns dessa och andra anvi
 <translation id="3285322247471302225">Ny &amp;flik</translation>
 <translation id="3288047731229977326">Tillägg som körs i utvecklarläge kan skada datorn. Om du inte är en utvecklare bör du inaktivera tillägg som körs i utvecklarläge för att skydda dig.</translation>
 <translation id="3289856944988573801">Använd Ethernet eller Wi-Fi om du vill söka efter uppdateringar.</translation>
+<translation id="3290084607612039008">Aktivera användning av numrering av ljudenheter (experimentell funktion).</translation>
 <translation id="3293325348208285494">Snabbstart</translation>
 <translation id="3294437725009624529">Gäst</translation>
 <translation id="329650768420594634">Varning i paketerat tillägg</translation>
@@ -5065,7 +5067,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="7814458197256864873">&amp;Kopiera</translation>
 <translation id="7818135753970109980">Ett nytt tema har lagts till (<ph name="EXTENSION_NAME" />)</translation>
 <translation id="7819857487979277519">PSK (WPA eller RSN)</translation>
-<translation id="782057141565633384">K&amp;opiera videoadres</translation>
+<translation id="782057141565633384">K&amp;opiera videoadress</translation>
 <translation id="7821394484233142159">Accelererad 2D-canvas</translation>
 <translation id="7825423931463735974">Tangentbord för tamil (Tamil99)</translation>
 <translation id="782590969421016895">Använd aktuella sidor</translation>

@@ -1543,7 +1543,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
       Perhatikan bahwa, "sslv3" adalah versi yang lebih awal dibandingkan "tls1", meskipun angkanya lebih besar.</translation>
 <translation id="6177482277304066047">Menyetel versi target untuk Pembaruan Otomatis.
 
-      Menentukan awalan versi target <ph name="PRODUCT_OS_NAME" /> yang harus diperbarui. Jika perangkat menjalankan versi sebelum awalan ditentukan, perangkat akan diperbarui ke versi teranyar dengan awalan yang diberikan. Jika perangkat sudah pada versi terbaru, tidak akan ada pengaruh yang terjadi (tidak dilakukan penurunan versi) dan perangkat akan tetap pada versi sekarang. Format awalan bekerja secara bijak-komponen seperti yang diperagakan pada contoh berikut:
+      Menentukan awalan versi target <ph name="PRODUCT_OS_NAME" /> yang harus diperbarui. Jika perangkat menjalankan versi sebelum awalan ditentukan, perangkat akan diperbarui ke versi terbaru dengan awalan yang diberikan. Jika perangkat sudah pada versi terbaru, tidak akan ada pengaruh yang terjadi (tidak dilakukan penurunan versi) dan perangkat akan tetap pada versi sekarang. Format awalan bekerja secara bijak-komponen seperti yang diperagakan pada contoh berikut:
 
       "" (atau tidak dikonfigurasi): pembaruan ke versi terbaru yang tersedia.
       "1412.": pembaruan ke versi minor apa pun dari 1412 (misal: 1412.24.34 atau 1412.60.2)

@@ -1576,6 +1576,7 @@ Per ulteriori informazioni, visita il nostro <ph name="BEGIN_LINK" />Centro assi
 <translation id="3031417829280473749">Agente X</translation>
 <translation id="3031557471081358569">Seleziona elementi da importare:</translation>
 <translation id="3033332627063280038">Consente di attivare l'implementazione sperimentale dell'istruzione Cache-Control: stale-while-revalidate. Questa istruzione consente ai server di specificare che alcune risorse potrebbero essere riconvalidate in background per migliorare la latenza.</translation>
+<translation id="3037634479526555501">Attiva l'enumerazione sperimentale dei dispositivi audio.</translation>
 <translation id="3039828483675273919">Spostamento di $1 elementi...</translation>
 <translation id="304009983491258911">Modifica il PIN della scheda SIM</translation>
 <translation id="3041739663168146747">Se l'opzione viene attivata, l'URL chrome://md-settings/ carica la pagina delle impostazioni di Material Design.</translation>
@@ -1757,6 +1758,7 @@ I dati di accesso del tuo account sono obsoleti.</translation>
 <translation id="3285322247471302225">Nuova &amp;scheda</translation>
 <translation id="3288047731229977326">Le estensioni in esecuzione in modalità sviluppatore potrebbero danneggiare il computer. Se non sei uno sviluppatore, dovresti disattivare queste estensioni per la tua sicurezza.</translation>
 <translation id="3289856944988573801">Per verificare la disponibilità di aggiornamenti, utilizza una rete Ethernet o Wi-Fi.</translation>
+<translation id="3290084607612039008">Attiva l'utilizzo sperimentale dell'enumerazione dei dispositivi audio.</translation>
 <translation id="3293325348208285494">Avvio veloce</translation>
 <translation id="3294437725009624529">Ospite</translation>
 <translation id="329650768420594634">Avviso sull'estensione Pack</translation>

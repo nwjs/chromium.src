@@ -1577,6 +1577,7 @@ Få flere oplysninger i <ph name="BEGIN_LINK" />Hjælp<ph name="END_LINK" />.</t
 <translation id="3031417829280473749">Scully</translation>
 <translation id="3031557471081358569">Vælg at importere følgende:</translation>
 <translation id="3033332627063280038">Aktivér den eksperimentelle implementering af Cache-kontrol: "stale-while-revalidate"-direktivet. På den måde kan serverne angive, at nogle resourcer kan valideres igen i baggrunden for at formindske forsinkelser.</translation>
+<translation id="3037634479526555501">Aktivér forsøgsvis optællingen af lydenheder.</translation>
 <translation id="3039828483675273919">Flytter $1 elementer...</translation>
 <translation id="304009983491258911">Skift pinkode til SIM-kort</translation>
 <translation id="3041739663168146747">Hvis dette er aktiveret, indlæses siden med indstillinger for material design på webadressen chrome://settings/.</translation>
@@ -1758,6 +1759,7 @@ Gå til din e-mail, <ph name="ACCOUNT_EMAIL" />, for at se denne og flere vejled
 <translation id="3285322247471302225">Ny &amp;fane</translation>
 <translation id="3288047731229977326">Udvidelser, der kører i udviklertilstand, kan skade din computer. Hvis du ikke er udvikler, skal du deaktivere udvidelserne, der kører i udviklertilstand, af hensyn til sikkerheden.</translation>
 <translation id="3289856944988573801">Du kan søge efter opdateringer via Ethernet eller Wi-Fi.</translation>
+<translation id="3290084607612039008">Aktivér forsøgsvis brugen af optælling af lydenheder.</translation>
 <translation id="3293325348208285494">Hurtig start</translation>
 <translation id="3294437725009624529">Gæst</translation>
 <translation id="329650768420594634">Advarsel om pakkeudvidelse</translation>

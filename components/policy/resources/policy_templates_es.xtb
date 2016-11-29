@@ -172,13 +172,13 @@ Si esta política está establecida en "false" o no está establecida, se inhabi
 <translation id="1727394138581151779">Bloquear todos los complementos</translation>
 <translation id="1734716591049455502">Configurar opciones de acceso remoto</translation>
 <translation id="1736269219679256369">Permitir que se continúe desde la página de advertencia de SSL</translation>
-<translation id="1749815929501097806">Permite establecer las Condiciones de servicio que el usuario debe aceptar antes de empezar una sesión de cuenta de dispositivo local.
+<translation id="1749815929501097806">Permite establecer las Condiciones de Servicio que el usuario debe aceptar antes de empezar una sesión de cuenta de dispositivo local.
 
-      Si se establece esta política, <ph name="PRODUCT_OS_NAME" /> descargará las Condiciones de servicio y las presentará al usuario siempre que se haya iniciado una sesión de cuenta de dispositivo local.
+      Si se establece esta política, <ph name="PRODUCT_OS_NAME" /> descargará las Condiciones de Servicio y las presentará al usuario siempre que se haya iniciado una sesión de cuenta de dispositivo local.
 
-     Si no se establece esta política, no se mostrarán las Condiciones de servicio.
+     Si no se establece esta política, no se mostrarán las Condiciones de Servicio.
 
-      La política se debe establecer en una URL desde la que <ph name="PRODUCT_OS_NAME" /> podrá descargar las Condiciones de servicio. Las Condiciones de servicio deben ser texto sin formato, que actúe como texto/sin formato del tipo MIME. No se permite ningún tipo de marcado.</translation>
+      La política se debe establecer en una URL desde la que <ph name="PRODUCT_OS_NAME" /> podrá descargar las Condiciones de Servicio. Las Condiciones de Servicio deben ser texto sin formato, que actúe como texto/sin formato del tipo MIME. No se permite ningún tipo de marcado.</translation>
 <translation id="1757339646969878244">Configura las opciones de acceso remoto en el host de Escritorio Remoto de Chrome.
 
       El host de Escritorio Remoto de Chrome es un servicio nativo que se ejecuta en el ordenador de destino al
@@ -702,7 +702,7 @@ Si se inhabilita o no se configura esta opción, los usuarios podrán decidir si
 
       Independientemente de cómo se configure esta política o de si se configura o no, los usuarios no podrán cambiar la opción de configuración de WPAD.</translation>
 <translation id="3072045631333522102">Protector de pantalla a utilizar en la pantalla de inicio de sesión del modo de venta</translation>
-<translation id="3072847235228302527">Establecer las Condiciones de servicio para una cuenta de dispositivo local</translation>
+<translation id="3072847235228302527">Establecer las Condiciones de Servicio para una cuenta de dispositivo local</translation>
 <translation id="3096595567015595053">Lista de complementos habilitados</translation>
 <translation id="3101501961102569744">Seleccionar la forma de especificar la configuración del servidor proxy</translation>
 <translation id="3117676313396757089">Advertencia: DHE se retirará por completo de <ph name="PRODUCT_NAME" /> a partir de la versión 57 (en torno a marzo de 2017) y esta política dejará de funcionar.

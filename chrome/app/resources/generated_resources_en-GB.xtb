@@ -1578,6 +1578,7 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="3031417829280473749">Agent X</translation>
 <translation id="3031557471081358569">Select items to be imported:</translation>
 <translation id="3033332627063280038">Enable the experimental implementation of the Cache-Control: stale-while-revalidate directive. This permits servers to specify that some resources may be revalidated in the background to improve latency.</translation>
+<translation id="3037634479526555501">Experimentally enable enumerating audio devices.</translation>
 <translation id="3039828483675273919">Moving $1 items...</translation>
 <translation id="304009983491258911">Change SIM card PIN</translation>
 <translation id="3041739663168146747">If enabled, the chrome://settings/ URL loads the Material Design settings page.</translation>
@@ -1759,6 +1760,7 @@ Please check your email at <ph name="ACCOUNT_EMAIL" /> for these and further ins
 <translation id="3285322247471302225">New &amp;Tab</translation>
 <translation id="3288047731229977326">Extensions running in developer mode can harm your computer. If you're not a developer, you should disable these extensions running in developer mode to stay safe.</translation>
 <translation id="3289856944988573801">To check for updates, please use Ethernet or Wi-Fi.</translation>
+<translation id="3290084607612039008">Experimentally enable the use of enumerating audio devices.</translation>
 <translation id="3293325348208285494">Fast start</translation>
 <translation id="3294437725009624529">Guest</translation>
 <translation id="329650768420594634">Pack Extension Warning</translation>

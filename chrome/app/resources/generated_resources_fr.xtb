@@ -1577,6 +1577,7 @@ Pour en savoir plus, consultez notre <ph name="BEGIN_LINK" />Centre d'aide<ph na
 <translation id="3031417829280473749">Agent X</translation>
 <translation id="3031557471081358569">Sélectionnez les éléments à importer :</translation>
 <translation id="3033332627063280038">Activer l'implémentation expérimentale de la directive "Cache-Control: stale-while-revalidate" (elle permet aux serveurs d'exiger la revalidation de certaines ressources en arrière-plan pour optimiser la latence)</translation>
+<translation id="3037634479526555501">Activer l'énumération des appareils audio à titre expérimental</translation>
 <translation id="3039828483675273919">Transfert de $1 éléments en cours…</translation>
 <translation id="304009983491258911">Modifier le code PIN de la carte SIM</translation>
 <translation id="3041739663168146747">Si l'option est activée, l'URL chrome://settings/ charge la page des paramètres Material Design.</translation>
@@ -1758,6 +1759,7 @@ Pour vérifier ce point et en savoir plus, veuillez consulter votre compte de me
 <translation id="3285322247471302225">Nouvel ongle&amp;t</translation>
 <translation id="3288047731229977326">Les extensions exécutées en mode développeur peuvent nuire à votre ordinateur. Si vous n'êtes pas un développeur, nous vous recommandons de désactiver celles-ci afin d'assurer la sécurité de votre ordinateur.</translation>
 <translation id="3289856944988573801">Pour rechercher des mises à jour, veuillez utiliser une connexion Ethernet ou Wi-Fi.</translation>
+<translation id="3290084607612039008">Permet de procéder à l'énumération des appareils audio à titre expérimental.</translation>
 <translation id="3293325348208285494">Démarrage rapide</translation>
 <translation id="3294437725009624529">Invité</translation>
 <translation id="329650768420594634">Avertissement relatif à l'empaquetage d'extensions</translation>

@@ -1578,6 +1578,7 @@ Lisätietoja saat <ph name="BEGIN_LINK" />ohjekeskuksestamme<ph name="END_LINK" 
 <translation id="3031417829280473749">Agentti X</translation>
 <translation id="3031557471081358569">Valitse tuotavat kohteet:</translation>
 <translation id="3033332627063280038">Ottaa käyttöön välimuistin hallinnan komennon stale-while-revalidate kokeellisen version. Tämä antaa palvelimille luvan määrittää jotkin resurssit todentumaan uudelleen taustalla, mikä vähentää viivettä.</translation>
+<translation id="3037634479526555501">Ota käyttöön audiolaitteiden kokeellinen luettelointi</translation>
 <translation id="3039828483675273919">Siirretään $1 kohdetta…</translation>
 <translation id="304009983491258911">Vaihda SIM-kortin PIN-koodi</translation>
 <translation id="3041739663168146747">Jos tämä asetus on käytössä, chrome://settings/-URL-osoite lataa Material design ‑asetussivun.</translation>
@@ -1759,6 +1760,7 @@ Nämä tiedot ja tarkemmat ohjeet ovat sähköpostissasi (<ph name="ACCOUNT_EMAI
 <translation id="3285322247471302225">Uusi välileh&amp;ti</translation>
 <translation id="3288047731229977326">Kehittäjätilassa olevat laajennukset voivat vahingoittaa tietokonettasi. Jos et ole kehittäjä, poista kehittäjätilassa olevat laajennukset käytöstä varmuuden vuoksi.</translation>
 <translation id="3289856944988573801">Tarkista päivitykset Ethernetin tai Wi-Fin kautta.</translation>
+<translation id="3290084607612039008">Ota käyttöön audiolaitteiden kokeellinen luettelointi.</translation>
 <translation id="3293325348208285494">Nopea aloitus</translation>
 <translation id="3294437725009624529">Vieras</translation>
 <translation id="329650768420594634">Varoitus: pakattu laajennus</translation>

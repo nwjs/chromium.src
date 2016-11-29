@@ -1579,6 +1579,7 @@ Tạo người dùng được giám sát sẽ không tạo Tài khoản Google, 
 <translation id="3031417829280473749">Đặc vụ X</translation>
 <translation id="3031557471081358569">Chọn các mục cần nhập:</translation>
 <translation id="3033332627063280038">Cho phép triển khai thử nghiệm Kiểm soát bộ nhớ cache: chỉ thị cũ trong khi xác thực lại. Điều này cho phép các máy chủ chỉ định một số tài nguyên có thể được xác thực lại trong nền để cải thiện độ trễ.</translation>
+<translation id="3037634479526555501">Thử nghiệm cho phép liệt kê các thiết bị âm thanh.</translation>
 <translation id="3039828483675273919">Đang di chuyển $1 mục...</translation>
 <translation id="304009983491258911">Thay đổi mã PIN của thẻ SIM</translation>
 <translation id="3041739663168146747">Nếu được bật, URL chrome://settings/ sẽ tải trang cài đặt Material Design.</translation>
@@ -1760,6 +1761,7 @@ Vui lòng kiểm tra email của bạn tại <ph name="ACCOUNT_EMAIL" /> để b
 <translation id="3285322247471302225">&amp;Tab Mới</translation>
 <translation id="3288047731229977326">Tiện ích chạy ở chế độ nhà phát triển có thể gây hại cho máy tính của bạn. Nếu bạn không phải là nhà phát triển, bạn nên vô hiệu hóa các tiện ích này chạy trong chế độ nhà phát triển để giữ an toàn.</translation>
 <translation id="3289856944988573801">Để kiểm tra các cập nhật, hãy sử dụng kết nối Ethernet hoặc Wi-Fi.</translation>
+<translation id="3290084607612039008">Thử nghiệm cho phép sử dụng liệt kê các thiết bị âm thanh.</translation>
 <translation id="3293325348208285494">Khởi động nhanh</translation>
 <translation id="3294437725009624529">Khách</translation>
 <translation id="329650768420594634">Cảnh báo đóng gói tiện ích</translation>

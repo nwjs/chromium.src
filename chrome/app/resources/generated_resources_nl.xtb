@@ -1578,6 +1578,7 @@ Ga naar ons <ph name="BEGIN_LINK" />Helpcentrum<ph name="END_LINK" /> voor meer 
 <translation id="3031417829280473749">Agente X</translation>
 <translation id="3031557471081358569">Selecteer items die je wilt importeren:</translation>
 <translation id="3033332627063280038">Schakel de experimentele implementatie van Cache-Control in: de instructie stale-while-revalidate. Servers kunnen zodoende specificeren dat bepaalde bronnen op de achtergrond opnieuw kunnen worden gevalideerd om de wachttijd te verbeteren.</translation>
+<translation id="3037634479526555501">Het opsommen van audioapparaten experimenteel inschakelen.</translation>
 <translation id="3039828483675273919">$1 items verplaatsen...</translation>
 <translation id="304009983491258911">Pincode simkaart wijzigen</translation>
 <translation id="3041739663168146747">Als deze instelling is ingeschakeld, wordt de pagina met instellingen voor Material Design geladen via de URL chrome://settings/.</translation>
@@ -1759,6 +1760,7 @@ Controleer je e-mail op <ph name="ACCOUNT_EMAIL" /> voor deze en verdere instruc
 <translation id="3285322247471302225">Nieuw &amp;tabblad</translation>
 <translation id="3288047731229977326">Extensies die in de ontwikkelaarmodus worden uitgevoerd, kunnen je computer beschadigen. Als je geen ontwikkelaar bent, moet je deze extensies uitschakelen, die in de ontwikkelaarsmodus worden uitgevoerd, om beveiligd te blijven.</translation>
 <translation id="3289856944988573801">Gebruik Ethernet of wifi om op updates te controleren.</translation>
+<translation id="3290084607612039008">Het gebruik van het opsommen van audioapparaten experimenteel inschakelen.</translation>
 <translation id="3293325348208285494">Snelle start</translation>
 <translation id="3294437725009624529">Gast</translation>
 <translation id="329650768420594634">Waarschuwing over pakketextensie</translation>

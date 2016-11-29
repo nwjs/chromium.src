@@ -1579,6 +1579,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3031417829280473749">Секретный агент</translation>
 <translation id="3031557471081358569">Выберите элементы для импорта:</translation>
 <translation id="3033332627063280038">Включить экспериментальную функцию Cache-Control – директиву stale-while-revalidate. Она указывает серверам, что некоторые ресурсы можно перепроверять в фоновом режиме. Это ускорит загрузку страниц.</translation>
+<translation id="3037634479526555501">Разрешить экспериментальное создание списка аудиоустройств</translation>
 <translation id="3039828483675273919">Перемещение элементов ($1)…</translation>
 <translation id="304009983491258911">Изменить PIN-код SIM-карты</translation>
 <translation id="3041739663168146747">Включает оформление страницы настроек (chrome://settings) в стиле Material Design.</translation>
@@ -1760,6 +1761,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3285322247471302225">Новая вкладка</translation>
 <translation id="3288047731229977326">Расширения, запущенные в режиме разработчика, могут причинить вред вашему компьютеру. Если вы не являетесь разработчиком, их следует отключить, чтобы обеспечить безопасность данных.</translation>
 <translation id="3289856944988573801">Чтобы проверить наличие обновлений, подключитесь через сеть Ethernet или Wi-Fi.</translation>
+<translation id="3290084607612039008">Разрешить экспериментальное использование списка аудиоустройств</translation>
 <translation id="3293325348208285494">Быстрый запуск</translation>
 <translation id="3294437725009624529">Гость</translation>
 <translation id="329650768420594634">Внимание!</translation>

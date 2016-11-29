@@ -1579,6 +1579,7 @@
 <translation id="3031417829280473749">X 요원</translation>
 <translation id="3031557471081358569">가져올 항목 선택:</translation>
 <translation id="3033332627063280038">캐시 제어 stale-while-revalidate directive의 실험적 구현을 사용할 수 있습니다. 이는 서버가 대기 시간을 개선하기 위해 일부 리소스가 백그라운드에서 재확인될 수 있음을 지정할 수 있도록 허용합니다.</translation>
+<translation id="3037634479526555501">실험적으로 오디오 기기를 나열하여 표시합니다.</translation>
 <translation id="3039828483675273919">$1개 항목 이동 중...</translation>
 <translation id="304009983491258911">SIM 카드 PIN 변경</translation>
 <translation id="3041739663168146747">사용 설정하면 chrome://settings/ URL에서 머티리얼 디자인 설정 페이지를 로드합니다.</translation>
@@ -1760,6 +1761,7 @@
 <translation id="3285322247471302225">새 탭(&amp;T)</translation>
 <translation id="3288047731229977326">개발자 모드로 실행 중인 확장 프로그램은 컴퓨터에 해를 줄 수 있습니다. 개발자가 아닌 경우 컴퓨터를 안전하게 사용하려면 개발자 모드로 실행 중인 확장 프로그램을 사용 중지해야 합니다.</translation>
 <translation id="3289856944988573801">업데이트를 확인하려면 이더넷 또는 Wi-Fi를 사용하세요.</translation>
+<translation id="3290084607612039008">오디오 기기 나열 기능을 실험적으로 사용 설정합니다.</translation>
 <translation id="3293325348208285494">빠른 시작</translation>
 <translation id="3294437725009624529">손님</translation>
 <translation id="329650768420594634">확장 프로그램 패키지 경고</translation>
@@ -2391,7 +2393,7 @@
 <translation id="4095176652090536196">도메인별로 방문 기록을 묶기</translation>
 <translation id="409579654357498729">클라우드 프린트에 추가</translation>
 <translation id="4096508467498758490">개발자 모드 확장 프로그램 사용 중지</translation>
-<translation id="4098354747657067197">사기성 사이트로 이동</translation>
+<translation id="4098354747657067197">사기성 사이트 주의</translation>
 <translation id="409980434320521454">동기화 실패</translation>
 <translation id="4100733287846229632">기기 저장 공간 매우 부족</translation>
 <translation id="4101878899871018532">비밀번호 관리자가 동기화에 사용되는 사용자 인증 정보를 저장하도록 제안하지 않습니다.</translation>

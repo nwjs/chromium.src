@@ -1573,6 +1573,7 @@ Mehr dazu erfahren Sie in <ph name="BEGIN_LINK" />unserer Hilfe<ph name="END_LIN
 <translation id="3031417829280473749">Agentin X</translation>
 <translation id="3031557471081358569">Zu importierende Daten wählen:</translation>
 <translation id="3033332627063280038">Aktivieren Sie die experimentelle Implementierung der Richtlinie "Cache-Control: stale-while-revalidate". Dadurch können Server angeben, dass einige Ressourcen im Hintergrund erneut überprüft werden sollten, um die Latenz zu verbessern.</translation>
+<translation id="3037634479526555501">Testfunktion einer Auflistung von Audiogeräten aktivieren.</translation>
 <translation id="3039828483675273919">$1-Elemente werden verschoben...</translation>
 <translation id="304009983491258911">PIN der SIM-Karte ändern</translation>
 <translation id="3041739663168146747">Wenn die Funktion aktiviert ist, kann mit der URL "chrome://settings/" die Material Design-Einstellungsseite geladen werden.</translation>
@@ -1754,6 +1755,7 @@ Eine Anleitung und weitere Informationen wurden per E-Mail an <ph name="ACCOUNT_
 <translation id="3285322247471302225">Neuer &amp;Tab</translation>
 <translation id="3288047731229977326">Erweiterungen im Entwicklermodus können auf Ihrem Computer Schaden anrichten. Wenn Sie kein Entwickler sind, sollten Sie diese Erweiterungen im Entwicklermodus deaktivieren, um sicher zu sein.</translation>
 <translation id="3289856944988573801">Verwenden Sie Ethernet oder WLAN zur Suche nach Updates.</translation>
+<translation id="3290084607612039008">Testfunktion der Verwendung einer Auflistung von Audiogeräten aktivieren.</translation>
 <translation id="3293325348208285494">Schnellstart</translation>
 <translation id="3294437725009624529">Gast</translation>
 <translation id="329650768420594634">Erweiterung packen: Warnung</translation>
