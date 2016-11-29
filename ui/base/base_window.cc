@@ -13,7 +13,7 @@ bool BaseWindow::IsRestored(const BaseWindow& window) {
 }
 
 void BaseWindow::ForceClose() {
-  Close();
+  
 }
 
 }  // namespace ui

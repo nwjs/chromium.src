@@ -162,7 +162,7 @@ void NativeAppWindowViews::Close() {
 }
 
 void NativeAppWindowViews::ForceClose() {
-  widget_->Close(true);
+  widget_->SetForceClose(true);
 }
 
 void NativeAppWindowViews::Activate() {
