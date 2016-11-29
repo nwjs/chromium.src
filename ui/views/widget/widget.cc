@@ -154,6 +154,7 @@ Widget::Widget()
       frame_type_(FRAME_TYPE_DEFAULT),
       always_render_as_active_(false),
       widget_closed_(false),
+      force_close_(false),
       saved_show_state_(ui::SHOW_STATE_DEFAULT),
       focus_on_creation_(true),
       is_top_level_(false),
@@ -561,7 +562,7 @@ void Widget::SetShape(std::unique_ptr<SkRegion> shape) {
   native_widget_->SetShape(std::move(shape));
 }
 
-void Widget::Close(bool force) {
+void Widget::Close() {
   if (widget_closed_) {
     // It appears we can hit this code path if you close a modal dialog then
     // close the last browser before the destructor is hit, which triggers
@@ -572,7 +573,7 @@ void Widget::Close(bool force) {
   bool can_close = true;
   if (non_client_view_)
     can_close = non_client_view_->CanClose();
-  if (can_close && !force)
+  if (can_close && !force_close_)
     can_close = NWCanClose();
   if (can_close) {
     SaveWindowPlacement();
@@ -589,6 +590,10 @@ void Widget::Close(bool force) {
     native_widget_->Close();
     widget_closed_ = true;
   }
+}
+
+void Widget::SetForceClose(bool force) {
+  force_close_ = force;
 }
 
 void Widget::CloseNow() {

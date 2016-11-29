@@ -479,7 +479,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   void SetShape(std::unique_ptr<SkRegion> shape);
 
   // Hides the widget then closes it after a return to the message loop.
-  virtual void Close(bool force = false);
+  virtual void Close();
+
+  void SetForceClose(bool force);
 
   // TODO(beng): Move off public API.
   // Closes the widget immediately. Compare to |Close|. This will destroy the
@@ -924,6 +926,8 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Set to true if the widget is in the process of closing.
   bool widget_closed_;
+
+  bool force_close_;
 
   // The saved "show" state for this window. See note in SetInitialBounds
   // that explains why we save this.
