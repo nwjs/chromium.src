@@ -27,8 +27,8 @@ TEST(BindObjcBlockTestARC, TestScopedClosureRunnerExitScope) {
   int run_count = 0;
   int* ptr = &run_count;
   {
-    base::ScopedClosureRunner runner(base::BindBlock(^{
-        (*ptr)++;
+    base::ScopedClosureRunner runner(base::BindBlockArc(^{
+      (*ptr)++;
     }));
     EXPECT_EQ(0, run_count);
   }
@@ -40,8 +40,8 @@ TEST(BindObjcBlockTestARC, TestScopedClosureRunnerRelease) {
   int* ptr = &run_count;
   base::Closure c;
   {
-    base::ScopedClosureRunner runner(base::BindBlock(^{
-        (*ptr)++;
+    base::ScopedClosureRunner runner(base::BindBlockArc(^{
+      (*ptr)++;
     }));
     c = runner.Release();
     EXPECT_EQ(0, run_count);
@@ -53,13 +53,17 @@ TEST(BindObjcBlockTestARC, TestScopedClosureRunnerRelease) {
 
 TEST(BindObjcBlockTestARC, TestReturnValue) {
   const int kReturnValue = 42;
-  base::Callback<int(void)> c = base::BindBlock(^{return kReturnValue;});
+  base::Callback<int(void)> c = base::BindBlockArc(^{
+    return kReturnValue;
+  });
   EXPECT_EQ(kReturnValue, c.Run());
 }
 
 TEST(BindObjcBlockTestARC, TestArgument) {
   const int kArgument = 42;
-  base::Callback<int(int)> c = base::BindBlock(^(int a){return a + 1;});
+  base::Callback<int(int)> c = base::BindBlockArc(^(int a) {
+    return a + 1;
+  });
   EXPECT_EQ(kArgument + 1, c.Run(kArgument));
 }
 
@@ -67,8 +71,8 @@ TEST(BindObjcBlockTestARC, TestTwoArguments) {
   std::string result;
   std::string* ptr = &result;
   base::Callback<void(const std::string&, const std::string&)> c =
-      base::BindBlock(^(const std::string& a, const std::string& b) {
-          *ptr = a + b;
+      base::BindBlockArc(^(const std::string& a, const std::string& b) {
+        *ptr = a + b;
       });
   c.Run("forty", "two");
   EXPECT_EQ(result, "fortytwo");
@@ -77,14 +81,12 @@ TEST(BindObjcBlockTestARC, TestTwoArguments) {
 TEST(BindObjcBlockTestARC, TestThreeArguments) {
   std::string result;
   std::string* ptr = &result;
-  base::Callback<void(const std::string&,
-                      const std::string&,
-                      const std::string&)> c =
-      base::BindBlock(^(const std::string& a,
-                        const std::string& b,
-                        const std::string& c) {
-          *ptr = a + b + c;
-      });
+  base::Callback<void(const std::string&, const std::string&,
+                      const std::string&)>
+      c = base::BindBlockArc(
+          ^(const std::string& a, const std::string& b, const std::string& c) {
+            *ptr = a + b + c;
+          });
   c.Run("six", "times", "nine");
   EXPECT_EQ(result, "sixtimesnine");
 }
@@ -94,12 +96,13 @@ TEST(BindObjcBlockTestARC, TestSixArguments) {
   std::string* ptr = &result1;
   int result2;
   int* ptr2 = &result2;
-  base::Callback<void(int, int, const std::string&, const std::string&,
-                      int, const std::string&)> c =
-      base::BindBlock(^(int a, int b, const std::string& c,
-                        const std::string& d, int e, const std::string& f) {
-          *ptr = c + d + f;
-          *ptr2 = a + b + e;
+  base::Callback<void(int, int, const std::string&, const std::string&, int,
+                      const std::string&)>
+      c = base::BindBlockArc(^(int a, int b, const std::string& c,
+                               const std::string& d, int e,
+                               const std::string& f) {
+        *ptr = c + d + f;
+        *ptr2 = a + b + e;
       });
   c.Run(1, 2, "infinite", "improbability", 3, "drive");
   EXPECT_EQ(result1, "infiniteimprobabilitydrive");
