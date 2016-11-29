@@ -1381,7 +1381,8 @@ void InspectorNetworkAgent::getCertificate(
   for (auto& resource : m_resourcesData->resources()) {
     RefPtr<SecurityOrigin> resourceOrigin =
         SecurityOrigin::create(resource->requestedURL());
-    if (resourceOrigin->isSameSchemeHostPort(securityOrigin.get())) {
+    if (resourceOrigin->isSameSchemeHostPort(securityOrigin.get()) &&
+        resource->certificate().size()) {
       for (auto& cert : resource->certificate())
         certificate->get()->addItem(base64Encode(cert.latin1()));
       return;
