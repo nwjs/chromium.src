@@ -22,6 +22,7 @@
 #include "media/base/audio_buffer_converter.h"
 #include "media/base/audio_latency.h"
 #include "media/base/bind_to_current_loop.h"
+#include "media/base/channel_mixing_matrix.h"
 #include "media/base/demuxer_stream.h"
 #include "media/base/media_log.h"
 #include "media/base/media_switches.h"
@@ -47,6 +48,7 @@ AudioRendererImpl::AudioRendererImpl(
       tick_clock_(new base::DefaultTickClock()),
       last_audio_memory_usage_(0),
       last_decoded_sample_rate_(0),
+      last_decoded_channel_layout_(CHANNEL_LAYOUT_NONE),
       playback_rate_(0.0),
       state_(kUninitialized),
       buffering_state_(BUFFERING_HAVE_NOTHING),
@@ -428,6 +430,9 @@ void AudioRendererImpl::Initialize(DemuxerStream* stream,
                                 sample_rate, preferred_buffer_size));
   }
 
+  last_decoded_channel_layout_ =
+      stream->audio_decoder_config().channel_layout();
+
   audio_clock_.reset(
       new AudioClock(base::TimeDelta(), audio_parameters_.sample_rate()));
 
@@ -467,6 +472,7 @@ void AudioRendererImpl::OnAudioBufferStreamInitialized(bool success) {
   // based on the decoder format.
   algorithm_.reset(new AudioRendererAlgorithm());
   algorithm_->Initialize(audio_parameters_);
+  ConfigureChannelMask();
 
   ChangeState_Locked(kFlushed);
 
@@ -559,15 +565,25 @@ void AudioRendererImpl::DecodedAudioReady(
   bool need_another_buffer = true;
 
   if (expecting_config_changes_) {
-    if (last_decoded_sample_rate_ &&
-        buffer->sample_rate() != last_decoded_sample_rate_) {
-      DVLOG(1) << __func__ << " Updating audio sample_rate."
-               << " ts:" << buffer->timestamp().InMicroseconds()
-               << " old:" << last_decoded_sample_rate_
-               << " new:" << buffer->sample_rate();
-      OnConfigChange();
+    if (!buffer->end_of_stream()) {
+      if (last_decoded_sample_rate_ &&
+          buffer->sample_rate() != last_decoded_sample_rate_) {
+        DVLOG(1) << __func__ << " Updating audio sample_rate."
+                 << " ts:" << buffer->timestamp().InMicroseconds()
+                 << " old:" << last_decoded_sample_rate_
+                 << " new:" << buffer->sample_rate();
+        OnConfigChange();
+      }
+      last_decoded_sample_rate_ = buffer->sample_rate();
+
+      if (last_decoded_channel_layout_ != buffer->channel_layout()) {
+        last_decoded_channel_layout_ = buffer->channel_layout();
+
+        // Input layouts should never be discrete.
+        DCHECK_NE(last_decoded_channel_layout_, CHANNEL_LAYOUT_DISCRETE);
+        ConfigureChannelMask();
+      }
     }
-    last_decoded_sample_rate_ = buffer->sample_rate();
 
     DCHECK(buffer_converter_);
     buffer_converter_->AddInput(buffer);
@@ -936,6 +952,40 @@ void AudioRendererImpl::SetBufferingState_Locked(
   task_runner_->PostTask(
       FROM_HERE, base::Bind(&AudioRendererImpl::OnBufferingStateChange,
                             weak_factory_.GetWeakPtr(), buffering_state_));
+}
+
+void AudioRendererImpl::ConfigureChannelMask() {
+  DCHECK(algorithm_);
+  DCHECK(audio_parameters_.IsValid());
+  DCHECK_NE(last_decoded_channel_layout_, CHANNEL_LAYOUT_NONE);
+  DCHECK_NE(last_decoded_channel_layout_, CHANNEL_LAYOUT_UNSUPPORTED);
+  DCHECK_NE(last_decoded_channel_layout_, CHANNEL_LAYOUT_DISCRETE);
+
+  const int input_channel_count =
+      ChannelLayoutToChannelCount(last_decoded_channel_layout_);
+
+  // If we're actually downmixing the signal, no mask is necessary, but ensure
+  // we clear any existing mask if present.
+  if (input_channel_count >= audio_parameters_.channels()) {
+    algorithm_->SetChannelMask(
+        std::vector<bool>(audio_parameters_.channels(), true));
+    return;
+  }
+
+  // Determine the matrix used to upmix the channels.
+  std::vector<std::vector<float>> matrix;
+  ChannelMixingMatrix(last_decoded_channel_layout_, input_channel_count,
+                      audio_parameters_.channel_layout(),
+                      audio_parameters_.channels())
+      .CreateTransformationMatrix(&matrix);
+
+  // All channels with a zero mix are muted and can be ignored.
+  std::vector<bool> channel_mask(audio_parameters_.channels(), false);
+  for (size_t ch = 0; ch < matrix.size(); ++ch) {
+    channel_mask[ch] = std::any_of(matrix[ch].begin(), matrix[ch].end(),
+                                   [](float mix) { return !!mix; });
+  }
+  algorithm_->SetChannelMask(std::move(channel_mask));
 }
 
 }  // namespace media
