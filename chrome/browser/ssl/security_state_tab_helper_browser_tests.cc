@@ -888,6 +888,18 @@ IN_PROC_BROWSER_TEST_F(SecurityStateLoadingTest, NavigationStateChanges) {
       browser()->tab_strip_model()->GetActiveWebContents());
 }
 
+// Inject a script into the page. Used by tests that check for visible
+// password fields to wait for notifications about these
+// fields. Notifications about visible password fields are queued at the
+// end of the event loop, so waiting for a dummy script to run ensures
+// that these notifcations have been sent.
+void InjectScript(content::WebContents* contents) {
+  bool js_result = false;
+  EXPECT_TRUE(content::ExecuteScriptAndExtractBool(
+      contents, "window.domAutomationController.send(true);", &js_result));
+  EXPECT_TRUE(js_result);
+}
+
 // Tests that when a visible password field is detected on an HTTP page
 // load, and when the command-line flag is set, the security level is
 // downgraded to HTTP_SHOW_WARNING.
@@ -904,6 +916,7 @@ IN_PROC_BROWSER_TEST_P(SecurityStateTabHelperTestWithPasswordCcSwitch,
   ui_test_utils::NavigateToURL(
       browser(), GetURLWithNonLocalHostname(embedded_test_server(),
                                             "/password/simple_password.html"));
+  InjectScript(contents);
   security_state::SecurityInfo security_info;
   helper->GetSecurityInfo(&security_info);
   EXPECT_EQ(security_state::HTTP_SHOW_WARNING, security_info.security_level);
@@ -931,6 +944,7 @@ IN_PROC_BROWSER_TEST_P(SecurityStateTabHelperTestWithPasswordCcSwitch,
       browser(),
       GetURLWithNonLocalHostname(embedded_test_server(),
                                  "/password/invisible_password.html"));
+  InjectScript(contents);
   security_state::SecurityInfo security_info;
   helper->GetSecurityInfo(&security_info);
   EXPECT_EQ(security_state::NONE, security_info.security_level);
@@ -958,6 +972,7 @@ IN_PROC_BROWSER_TEST_P(SecurityStateTabHelperTestWithPasswordCcSwitch,
       browser(),
       GetURLWithNonLocalHostname(embedded_test_server(),
                                  "/password/simple_password_in_iframe.html"));
+  InjectScript(contents);
   security_state::SecurityInfo security_info;
   helper->GetSecurityInfo(&security_info);
   EXPECT_EQ(security_state::HTTP_SHOW_WARNING, security_info.security_level);
@@ -999,6 +1014,7 @@ IN_PROC_BROWSER_TEST_P(SecurityStateTabHelperTestWithPasswordCcSwitch,
   ui_test_utils::NavigateToURL(
       browser(),
       GetURLWithNonLocalHostname(embedded_test_server(), replacement_path));
+  InjectScript(contents);
   security_state::SecurityInfo security_info;
   helper->GetSecurityInfo(&security_info);
   EXPECT_EQ(security_state::HTTP_SHOW_WARNING, security_info.security_level);
@@ -1028,6 +1044,7 @@ IN_PROC_BROWSER_TEST_F(SecurityStateTabHelperTest,
   ui_test_utils::NavigateToURL(
       browser(), GetURLWithNonLocalHostname(embedded_test_server(),
                                             "/password/simple_password.html"));
+  InjectScript(contents);
   // The security level should not be HTTP_SHOW_WARNING, because the
   // command-line switch was not set.
   security_state::SecurityInfo security_info;
@@ -1057,6 +1074,7 @@ IN_PROC_BROWSER_TEST_P(SecurityStateTabHelperTestWithPasswordCcSwitch,
   GURL url = GetURLWithNonLocalHostname(&https_server_,
                                         "/password/simple_password.html");
   ui_test_utils::NavigateToURL(browser(), url);
+  InjectScript(contents);
   // The security level should not be HTTP_SHOW_WARNING, because the page was
   // HTTPS instead of HTTP.
   security_state::SecurityInfo security_info;
