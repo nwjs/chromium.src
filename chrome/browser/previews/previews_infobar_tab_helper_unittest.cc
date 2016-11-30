@@ -100,5 +100,6 @@ TEST_F(PreviewsInfoBarTabHelperUnitTest, CreateLitePageInfoBar) {
   // Navigate to reset the displayed state.
   content::WebContentsTester::For(web_contents())
       ->NavigateAndCommit(GURL(kTestUrl));
+
   EXPECT_FALSE(infobar_tab_helper->displayed_preview_infobar());
 }
