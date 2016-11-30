@@ -39,6 +39,7 @@
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
 #include "components/arc/arc_bridge_service.h"
+#include "components/arc/arc_features.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/sync_preferences/pref_service_syncable.h"
@@ -401,21 +402,14 @@ void ArcAuthService::RequestAccountInfoInternal(
     return;
   }
 
-  // If endpoint is passed via command line flag, use automatic auth code
-  // fetching.
-  const base::CommandLine* command_line =
-      base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(chromeos::switches::kArcUseAuthEndpoint)) {
-    std::string auth_endpoint = command_line->GetSwitchValueASCII(
-        chromeos::switches::kArcUseAuthEndpoint);
-    if (!auth_endpoint.empty()) {
-      DCHECK(!auth_code_fetcher_);
-      auth_code_fetcher_ = base::MakeUnique<ArcAuthCodeFetcher>(
-          profile_, context_.get(), auth_endpoint);
-      auth_code_fetcher_->Fetch(base::Bind(&ArcAuthService::OnAuthCodeFetched,
-                                           weak_ptr_factory_.GetWeakPtr()));
-      return;
-    }
+  // Optionally retrive auth code in silent mode.
+  if (base::FeatureList::IsEnabled(arc::kArcUseAuthEndpointFeature)) {
+    DCHECK(!auth_code_fetcher_);
+    auth_code_fetcher_ =
+        base::MakeUnique<ArcAuthCodeFetcher>(profile_, context_.get());
+    auth_code_fetcher_->Fetch(base::Bind(&ArcAuthService::OnAuthCodeFetched,
+                                         weak_ptr_factory_.GetWeakPtr()));
+    return;
   }
 
   // Otherwise, show LSO page to user after HTTP context preparation, and let
