@@ -13,7 +13,7 @@
 
 สำหรับคอมพิวเตอร์ระยะไกลที่มีแป้นพิมพ์ที่ไม่ใช่แบบอังกฤษ-อเมริกา ข้อความที่ได้รับอาจไม่ถูกต้อง สำหรับการจัดวางแป้นพิมพ์แบบอื่นๆ จะมีการสนับสนุนในเร็วๆ นี้!
 
-สำหรับข้อมูลเกี่ยวกับความเป็นส่วนตัว โปรดดูนโยบายส่วนบุคคลของ Google (http://goo.gl/SyrVzj) และนโยบายส่วนบุคคลของ Chrome (http://goo.gl/0uXE5d)</translation>
+สำหรับข้อมูลเกี่ยวกับความเป็นส่วนตัว โปรดดูนโยบายความเป็นส่วนตัวของ Google (http://goo.gl/SyrVzj) และนโยบายความเป็นส่วนตัวของ Chrome (http://goo.gl/0uXE5d)</translation>
 <translation id="1324095856329524885">(คุณลักษณะนี้ยังไม่มีให้ใช้งานในคอมพิวเตอร์ของคุณ)</translation>
 <translation id="1342297293546459414">ดูและควบคุมคอมพิวเตอร์ที่ใช้งานร่วมกัน</translation>
 <translation id="1389790901665088353">ดาวน์โหลด Chrome Remote Desktop Host Installer</translation>
@@ -52,7 +52,7 @@
 • บนคอมพิวเตอร์แต่ละเครื่อง ให้ตั้งค่าการเข้าถึงระยะไกลโดยใช้แอป Chrome Remote Desktop จาก Chrome เว็บสโตร์ที่ https://chrome.google.com/remotedesktop
 • บนอุปกรณ์ Android ให้เปิดแอปและแตะคอมพิวเตอร์เครื่องที่ออนไลน์อยู่เพื่อเชื่อมต่อ
 
-สำหรับข้อมูลเกี่ยวกับความเป็นส่วนตัว โปรดดูนโยบายส่วนบุคคลของ Google (http://goo.gl/SyrVzj) และนโยบายส่วนบุคคลของ Chrome (http://goo.gl/0uXE5d)</translation>
+สำหรับข้อมูลเกี่ยวกับความเป็นส่วนตัว โปรดดูนโยบายความเป็นส่วนตัวของ Google (http://goo.gl/SyrVzj) และนโยบายความเป็นส่วนตัวของ Chrome (http://goo.gl/0uXE5d)</translation>
 <translation id="2124408767156847088">เข้าถึงคอมพิวเตอร์ของคุณจากอุปกรณ์ Android ได้อย่างปลอดภัย</translation>
 <translation id="2208514473086078157">การตั้งค่านโยบายไม่อนุญาตให้แชร์คอมพิวเตอร์นี้เป็นโฮสต์ Chrome Remote Desktop โปรดติดต่อขอรับความช่วยเหลือจากผู้ดูแลระบบของคุณ</translation>
 <translation id="2220529011494928058">รายงานปัญหา</translation>
@@ -223,6 +223,7 @@ Desktop Host</translation>
 <translation id="6640610550128933069">ออนไลน์ล่าสุด <ph name="DATE" /></translation>
 <translation id="6668065415969892472">PIN ของคุณได้รับการอัปเดตแล้ว</translation>
 <translation id="6681800064886881394">ลิขสิทธิ์ 2013 Google Inc. สงวนลิขสิทธิ์</translation>
+<translation id="6705482892455291412">หลังจากที่ป้อนรหัสแล้ว ระบบจะขอให้คุณยอมรับการเชื่อมต่อและเริ่มการแชร์เซสชัน</translation>
 <translation id="6746493157771801606">ล้างประวัติ</translation>
 <translation id="6748108480210050150">จาก</translation>
 <translation id="677755392401385740">โฮสต์เริ่มใช้งานสำหรับผู้ใช้: <ph name="HOST_USERNAME" /></translation>
@@ -299,6 +300,7 @@ Desktop Host</translation>
 <translation id="9188433529406846933">ให้สิทธิ์</translation>
 <translation id="9213184081240281106">การกำหนดค่าโฮสต์ไม่ถูกต้อง</translation>
 <translation id="951991426597076286">ปฏิเสธ</translation>
+<translation id="962733587145768554">โปรดเลือก '<ph name="SHARE" />' บนกล่องโต้ตอบการเชื่อมต่อเพื่อทำตามขั้นตอนให้เสร็จสิ้น</translation>
 <translation id="979100198331752041">Chrome Remote Desktop บน <ph name="HOSTNAME" /> เก่าเกินไปและต้องมีการอัปเดต</translation>
 <translation id="985602178874221306">The Chromium Authors</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (ออนไลน์ล่าสุดเมื่อ <ph name="DATE_OR_TIME" />)</translation>
