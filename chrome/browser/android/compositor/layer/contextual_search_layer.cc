@@ -265,20 +265,26 @@ void ContextualSearchLayer::SetProperties(
       AddBarTextLayer(search_caption_);
     }
     if (search_caption_resource) {
+      // The Term might not be visible or initialized yet, so set up main_text
+      // with whichever main bar text seems appropriate.
+      bool bar_text_visible = search_term_opacity > 0.0f;
+      scoped_refptr<cc::UIResourceLayer> main_text =
+          (bar_text_visible ? bar_text_ : search_context_);
+
       // Calculate position of the Caption and offset the main bar text and
       // Search Context to allow for it.
       // Without a caption they are not moved from their default centered
       // positions. When there is a Caption interpolate their positions between
       // the default and adjusted (moved up by the size of the caption and
       // margin).
-      float bar_text_height = bar_text_->bounds().height();
+      float bar_text_height = main_text->bounds().height();
       float search_caption_height = search_caption_resource->size.height();
       float text_margin = floor(
           (search_bar_height - bar_text_height - search_caption_height) / 5);
       float search_caption_top =
           search_bar_top + bar_text_height + text_margin * 2;
       // Get the current centered position set up by the OverlayPanelLayer.
-      float bar_text_top_centered = bar_text_->position().y();
+      float bar_text_top_centered = main_text->position().y();
       float bar_text_adjust =
           search_caption_animation_percentage *
           (search_caption_height + text_margin) / 2;

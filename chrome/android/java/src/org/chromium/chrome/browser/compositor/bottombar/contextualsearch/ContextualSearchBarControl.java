@@ -47,13 +47,15 @@ public class ContextualSearchBarControl
 
     /**
      * The opacity of the Bar's Search Context.
+     * This text control may not be initialized until the opacity is set beyond 0.
      */
-    private float mSearchBarContextOpacity = 1.f;
+    private float mSearchBarContextOpacity = 0.f;
 
     /**
      * The opacity of the Bar's Search Term.
+     * This text control may not be initialized until the opacity is set beyond 0.
      */
-    private float mSearchBarTermOpacity = 1.f;
+    private float mSearchBarTermOpacity = 0.f;
 
     /**
      * Constructs a new bottom bar control container by inflating views from XML.
