@@ -40,6 +40,7 @@ std::string ArcAppTest::GetAppId(const arc::mojom::ShortcutInfo& shortcut) {
 ArcAppTest::ArcAppTest() {
   user_manager_enabler_.reset(new chromeos::ScopedUserManagerEnabler(
       new chromeos::FakeChromeUserManager()));
+  CreateFakeAppsAndPackages();
 }
 
 ArcAppTest::~ArcAppTest() {
@@ -66,6 +67,37 @@ void ArcAppTest::SetUp(Profile* profile) {
   // profile manager (which is null).
   chromeos::ProfileHelper::Get()->SetUserToProfileMappingForTesting(user,
                                                                     profile_);
+
+  // A valid |arc_app_list_prefs_| is needed for the Arc bridge service and the
+  // Arc auth service.
+  arc_app_list_pref_ = ArcAppListPrefs::Get(profile_);
+  if (!arc_app_list_pref_) {
+    ArcAppListPrefsFactory::GetInstance()->RecreateServiceInstanceForTesting(
+        profile_);
+  }
+  bridge_service_.reset(new arc::FakeArcBridgeService());
+
+  auth_service_.reset(new arc::ArcAuthService(bridge_service_.get()));
+  DCHECK(arc::ArcAuthService::Get());
+  arc::ArcAuthService::DisableUIForTesting();
+  arc_auth_service()->OnPrimaryUserProfilePrepared(profile_);
+
+  arc_app_list_pref_ = ArcAppListPrefs::Get(profile_);
+  DCHECK(arc_app_list_pref_);
+  base::RunLoop run_loop;
+  arc_app_list_pref_->SetDefaltAppsReadyCallback(run_loop.QuitClosure());
+  run_loop.Run();
+
+  auth_service_->EnableArc();
+  app_instance_.reset(new arc::FakeAppInstance(arc_app_list_pref_));
+  bridge_service_->app()->SetInstance(app_instance_.get());
+
+  // Check initial conditions.
+  EXPECT_EQ(bridge_service_.get(), arc::ArcBridgeService::Get());
+  EXPECT_FALSE(arc::ArcBridgeService::Get()->ready());
+}
+
+void ArcAppTest::CreateFakeAppsAndPackages() {
   arc::mojom::AppInfo app;
   // Make sure we have enough data for test.
   for (int i = 0; i < 3; ++i) {
@@ -123,38 +155,12 @@ void ArcAppTest::SetUp(Profile* profile) {
         base::StringPrintf("fake.shortcut.%d.icon_resource_id", i);
     fake_shortcuts_.push_back(shortcutInfo);
   }
-
-  // A valid |arc_app_list_prefs_| is needed for the Arc bridge service and the
-  // Arc auth service.
-  arc_app_list_pref_ = ArcAppListPrefs::Get(profile_);
-  if (!arc_app_list_pref_) {
-    ArcAppListPrefsFactory::GetInstance()->RecreateServiceInstanceForTesting(
-        profile_);
-  }
-  bridge_service_.reset(new arc::FakeArcBridgeService());
-
-  auth_service_.reset(new arc::ArcAuthService(bridge_service_.get()));
-  DCHECK(arc::ArcAuthService::Get());
-  arc::ArcAuthService::DisableUIForTesting();
-  arc_auth_service()->OnPrimaryUserProfilePrepared(profile_);
-
-  arc_app_list_pref_ = ArcAppListPrefs::Get(profile_);
-  DCHECK(arc_app_list_pref_);
-  base::RunLoop run_loop;
-  arc_app_list_pref_->SetDefaltAppsReadyCallback(run_loop.QuitClosure());
-  run_loop.Run();
-
-  auth_service_->EnableArc();
-  app_instance_.reset(new arc::FakeAppInstance(arc_app_list_pref_));
-  bridge_service_->app()->SetInstance(app_instance_.get());
-
-  // Check initial conditions.
-  EXPECT_EQ(bridge_service_.get(), arc::ArcBridgeService::Get());
-  EXPECT_FALSE(arc::ArcBridgeService::Get()->ready());
 }
 
 void ArcAppTest::TearDown() {
+  app_instance_.reset();
   auth_service_.reset();
+  bridge_service_.reset();
   if (dbus_thread_manager_initialized_) {
     // DBusThreadManager may be initialized from other testing utility,
     // such as ash::test::AshTestHelper::SetUp(), so Shutdown() only when
@@ -162,6 +168,7 @@ void ArcAppTest::TearDown() {
     chromeos::DBusThreadManager::Shutdown();
     dbus_thread_manager_initialized_ = false;
   }
+  profile_ = nullptr;
 }
 
 void ArcAppTest::StopArcInstance() {
