@@ -3085,4 +3085,8 @@ void Internals::crash() {
   CHECK(false) << "Intentional crash";
 }
 
+void Internals::setIsLowEndDevice(bool isLowEndDevice) {
+  MemoryCoordinator::setIsLowEndDeviceForTesting(isLowEndDevice);
+}
+
 }  // namespace blink

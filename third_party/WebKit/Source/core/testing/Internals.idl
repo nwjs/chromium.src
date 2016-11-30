@@ -362,4 +362,6 @@
     OriginTrialsTest originTrialsTest();
 
     void crash();
+
+    void setIsLowEndDevice(boolean isLowEndDevice);
 };
