@@ -6,6 +6,7 @@
 
 #include "net/quic/core/crypto/proof_verifier.h"
 #include "net/quic/core/quic_server_id.h"
+#include "net/quic/core/quic_time.h"
 #include "net/quic/test_tools/crypto_test_utils.h"
 #include "net/quic/test_tools/mock_random.h"
 #include "net/quic/test_tools/quic_test_utils.h"
@@ -475,6 +476,31 @@ TEST(QuicCryptoClientConfigTest, ProcessReject) {
                                     out_params, &error));
   EXPECT_FALSE(cached.has_server_designated_connection_id());
   EXPECT_FALSE(cached.has_server_nonce());
+}
+
+TEST(QuicCryptoClientConfigTest, ProcessRejectWithLongTTL) {
+  CryptoHandshakeMessage rej;
+  CryptoTestUtils::FillInDummyReject(&rej, /* stateless */ false);
+  QuicTime::Delta one_week = QuicTime::Delta::FromSeconds(kNumSecondsPerWeek);
+  int64_t long_ttl = 3 * one_week.ToSeconds();
+  rej.SetValue(kSTTL, long_ttl);
+
+  // Now process the rejection.
+  QuicCryptoClientConfig::CachedState cached;
+  scoped_refptr<QuicCryptoNegotiatedParameters> out_params(
+      new QuicCryptoNegotiatedParameters);
+  string error;
+  QuicCryptoClientConfig config(CryptoTestUtils::ProofVerifierForTesting());
+  EXPECT_EQ(QUIC_NO_ERROR,
+            config.ProcessRejection(rej, QuicWallTime::FromUNIXSeconds(0),
+                                    AllSupportedVersions().front(), "", &cached,
+                                    out_params, &error));
+  cached.SetProofValid();
+  EXPECT_FALSE(cached.IsComplete(QuicWallTime::FromUNIXSeconds(long_ttl)));
+  EXPECT_FALSE(
+      cached.IsComplete(QuicWallTime::FromUNIXSeconds(one_week.ToSeconds())));
+  EXPECT_TRUE(cached.IsComplete(
+      QuicWallTime::FromUNIXSeconds(one_week.ToSeconds() - 1)));
 }
 
 TEST(QuicCryptoClientConfigTest, ProcessStatelessReject) {
