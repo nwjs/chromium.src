@@ -354,4 +354,8 @@ void WebRuntimeFeatures::enableSendBeaconThrowForBlobWithNonSimpleType(
       enable);
 }
 
+void WebRuntimeFeatures::enableRemotePlaybackAPI(bool enable) {
+  RuntimeEnabledFeatures::setRemotePlaybackEnabled(enable);
+}
+
 }  // namespace blink
