@@ -270,8 +270,10 @@ void DownloadController::OnDownloadUpdated(DownloadItem* item) {
       ConvertUTF8ToJavaString(env, item->GetTargetFilePath().value());
   ScopedJavaLocalRef<jstring> jfilename = ConvertUTF8ToJavaString(
       env, item->GetTargetFilePath().BaseName().value());
+  std::string original_url = item->GetOriginalUrl().SchemeIs(url::kDataScheme)
+        ? std::string() : item->GetOriginalUrl().spec();
   ScopedJavaLocalRef<jstring> joriginal_url =
-      ConvertUTF8ToJavaString(env, item->GetOriginalUrl().spec());
+      ConvertUTF8ToJavaString(env, original_url);
   ScopedJavaLocalRef<jstring> jreferrer_url =
       ConvertUTF8ToJavaString(env, item->GetReferrerUrl().spec());
 
