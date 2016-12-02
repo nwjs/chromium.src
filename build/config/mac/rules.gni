@@ -457,6 +457,11 @@ set_defaults("mac_framework_bundle") {
 #             "app" to create a .app bundle (default)
 #             "xpc" to create an .xpc service bundle
 #
+#     package_type:
+#         (optional) string, the product package type to create. Options are:
+#             "app" to create a .app bundle (default)
+#             "xpc" to create an .xpc service bundle
+#
 #     info_plist:
 #         (optional) string, path to the Info.plist file that will be used for
 #         the bundle.
@@ -485,6 +490,23 @@ template("mac_app_bundle") {
   _output_name = target_name
   if (defined(invoker.output_name)) {
     _output_name = invoker.output_name
+  }
+
+  _package_type = "app"
+  if (defined(invoker.package_type)) {
+    _package_type = invoker.package_type
+  }
+
+  if (_package_type == "app") {
+    _output_extension = "app"
+    _product_type = "com.apple.product-type.application"
+    _write_pkg_info = true
+  } else if (_package_type == "xpc") {
+    _output_extension = "xpc"
+    _product_type = "com.apple.product-type.xpc-service"
+    _write_pkg_info = false
+  } else {
+    assert(false, "Unsupported packge_type: " + packge_type)
   }
 
   _package_type = "app"
