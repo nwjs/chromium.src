@@ -32,6 +32,9 @@ class VIEWS_EXPORT NativeMenuWin {
   void Rebuild(MenuInsertionDelegateWin* delegate);
   void UpdateStates();
 
+  void set_is_popup_menu(bool flag) { is_popup_menu_ = flag; }
+  HMENU menu() const { return menu_; }
+
  private:
   // IMPORTANT: Note about indices.
   //            Functions in this class deal in two index spaces:
@@ -98,6 +101,9 @@ class VIEWS_EXPORT NativeMenuWin {
 
   // If we're a submenu, this is our parent.
   NativeMenuWin* parent_;
+
+  // A flag to indicate whether to create a menubar or popupmenu.
+  bool is_popup_menu_;
 
   // If non-null the destructor sets this to true. This is set to non-null while
   // the menu is showing. It is used to detect if the menu was deleted while

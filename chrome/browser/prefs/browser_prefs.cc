@@ -474,7 +474,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   DownloadPrefs::RegisterProfilePrefs(registry);
   HostContentSettingsMap::RegisterProfilePrefs(registry);
   IncognitoModePrefs::RegisterProfilePrefs(registry);
-  InstantUI::RegisterProfilePrefs(registry);
+  //InstantUI::RegisterProfilePrefs(registry);
   NavigationCorrectionTabObserver::RegisterProfilePrefs(registry);
   MediaCaptureDevicesDispatcher::RegisterProfilePrefs(registry);
   MediaDeviceIDSalt::RegisterProfilePrefs(registry);
@@ -624,7 +624,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   ash::launcher::RegisterChromeLauncherUserPrefs(registry);
 #endif
 
-#if !defined(OS_ANDROID) && !defined(OS_IOS)
+#if 0
   MdHistoryUI::RegisterProfilePrefs(registry);
 #endif
 

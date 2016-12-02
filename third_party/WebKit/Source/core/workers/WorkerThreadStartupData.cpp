@@ -37,6 +37,7 @@
 namespace blink {
 
 WorkerThreadStartupData::WorkerThreadStartupData(
+    bool isNodeJS, const std::string& main_script,
     const KURL& scriptURL,
     const String& userAgent,
     const String& sourceCode,
@@ -51,6 +52,8 @@ WorkerThreadStartupData::WorkerThreadStartupData(
     std::unique_ptr<WorkerSettings> workerSettings,
     V8CacheOptions v8CacheOptions)
     : m_scriptURL(scriptURL.copy()),
+      m_isNodeJS(isNodeJS),
+      m_mainScript(main_script),
       m_userAgent(userAgent.isolatedCopy()),
       m_sourceCode(sourceCode.isolatedCopy()),
       m_cachedMetaData(std::move(cachedMetaData)),
