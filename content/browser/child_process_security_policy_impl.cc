@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "base/command_line.h"
-#include "base/debug/dump_without_crashing.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -806,8 +805,6 @@ bool ChildProcessSecurityPolicyImpl::HasPermissionsForFileSystemFile(
   // API either.
   if (!CanCommitURL(child_id, filesystem_url.origin())) {
     UMA_HISTOGRAM_BOOLEAN("FileSystem.OriginFailedCanCommitURL", true);
-    // TODO(nick): Temporary instrumentation for https://crbug.com/654479.
-    base::debug::DumpWithoutCrashing();
     return false;
   }
 
