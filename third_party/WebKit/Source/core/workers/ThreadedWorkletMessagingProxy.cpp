@@ -55,7 +55,7 @@ void ThreadedWorkletMessagingProxy::initialize() {
 
   // TODO(ikilpatrick): Decide on sensible a value for referrerPolicy.
   std::unique_ptr<WorkerThreadStartupData> startupData =
-      WorkerThreadStartupData::create(
+    WorkerThreadStartupData::create(false, std::string(),
           scriptURL, document->userAgent(), String(), nullptr, startMode,
           csp->headers().get(), /* referrerPolicy */ String(), starterOrigin,
           nullptr, document->addressSpace(),

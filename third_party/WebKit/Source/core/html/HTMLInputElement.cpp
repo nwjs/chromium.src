@@ -1711,12 +1711,32 @@ bool HTMLInputElement::isInRequiredRadioButtonGroup() {
   return false;
 }
 
+const AtomicString& HTMLInputElement::nwworkingdir() const
+{
+  return fastGetAttribute(nwworkingdirAttr);
+}
+
+void HTMLInputElement::setNwworkingdir(const AtomicString& value)
+{
+  setAttribute(nwworkingdirAttr, value);
+}
+
 HTMLInputElement* HTMLInputElement::checkedRadioButtonForGroup() {
   if (checked())
     return this;
   if (RadioButtonGroupScope* scope = radioButtonGroupScope())
     return scope->checkedButtonForGroup(name());
   return nullptr;
+}
+
+String HTMLInputElement::nwsaveas() const
+{
+  return fastGetAttribute(nwsaveasAttr);
+}
+
+void HTMLInputElement::setNwsaveas(const String& value)
+{
+  setAttribute(nwsaveasAttr, AtomicString(value));
 }
 
 RadioButtonGroupScope* HTMLInputElement::radioButtonGroupScope() const {

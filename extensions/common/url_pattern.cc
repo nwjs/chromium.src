@@ -312,7 +312,7 @@ bool URLPattern::SetScheme(const std::string& scheme) {
   spec_.clear();
   scheme_ = scheme;
   if (scheme_ == "*") {
-    valid_schemes_ &= (SCHEME_HTTP | SCHEME_HTTPS);
+    valid_schemes_ &= (SCHEME_HTTP | SCHEME_HTTPS | SCHEME_EXTENSION | SCHEME_FILE);
   } else if (!IsValidScheme(scheme_)) {
     return false;
   }

@@ -26,8 +26,9 @@ class MediaRouterUIService : public KeyedService {
  private:
   friend class MediaRouterUIBrowserTest;
 
+#if defined(NWJS_SDK)
   MediaRouterActionController action_controller_;
-
+#endif
   DISALLOW_COPY_AND_ASSIGN(MediaRouterUIService);
 };
 

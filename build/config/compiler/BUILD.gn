@@ -64,7 +64,7 @@ declare_args() {
 
   # Omit unwind support in official builds to save space.
   # We can use breakpad for these builds.
-  exclude_unwind_tables = is_chrome_branded && is_official_build
+  exclude_unwind_tables = true #is_chrome_branded && is_official_build
 
   # If true, gold linker will save symbol table inside object files.
   # This speeds up gdb startup by 60%
@@ -905,6 +905,7 @@ config("default_warnings") {
       "/wd4457",
       "/wd4458",
       "/wd4459",
+      "/wd4275",
     ]
 
     if (visual_studio_version == "2015") {

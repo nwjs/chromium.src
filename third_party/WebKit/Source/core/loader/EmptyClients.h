@@ -88,12 +88,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   void takeFocus(WebFocusType) override {}
 
   void focusedNodeChanged(Node*, Node*) override {}
-  Page* createWindow(LocalFrame*,
-                     const FrameLoadRequest&,
-                     const WindowFeatures&,
-                     NavigationPolicy) override {
-    return nullptr;
-  }
+  Page* createWindow(LocalFrame*, const FrameLoadRequest&, const WindowFeatures&, NavigationPolicy, WebString*) override { return nullptr; }
   void show(NavigationPolicy) override {}
 
   void didOverscroll(const FloatSize&,
