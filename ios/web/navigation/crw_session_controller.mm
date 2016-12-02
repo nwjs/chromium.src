@@ -772,7 +772,7 @@ NSString* const kWindowNameKey = @"windowName";
       delta++;
     }
 
-    while (delta < 0) {
+    while (delta < 0 && result > 0) {
       // To stop the user getting 'stuck' on redirecting pages they weren't
       // even aware existed, it is necessary to pass over pages that would
       // immediately result in a redirect (the entry *before* the redirected
@@ -783,6 +783,9 @@ NSString* const kWindowNameKey = @"windowName";
       --result;
       ++delta;
     }
+    // Result may be out of bounds, so stop trying to skip redirect items and
+    // simply add the remainder.
+    result += delta;
   } else if (delta > 0) {
     NSInteger count = static_cast<NSInteger>([_entries count]);
     if (_pendingEntry && _pendingEntryIndex == -1) {
@@ -796,7 +799,7 @@ NSString* const kWindowNameKey = @"windowName";
       return NSNotFound;
     }
 
-    while (delta > 0) {
+    while (delta > 0 && result < count) {
       ++result;
       --delta;
       // As with going back, skip over redirects.
@@ -805,6 +808,9 @@ NSString* const kWindowNameKey = @"windowName";
         ++result;
       }
     }
+    // Result may be out of bounds, so stop trying to skip redirect items and
+    // simply add the remainder.
+    result += delta;
   }
 
   return result;
