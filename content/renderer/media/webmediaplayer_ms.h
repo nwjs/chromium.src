@@ -163,6 +163,8 @@ class CONTENT_EXPORT WebMediaPlayerMS
   // The callback for MediaStreamVideoRenderer to signal a new frame is
   // available.
   void OnFrameAvailable(const scoped_refptr<media::VideoFrame>& frame);
+  void OnRotationChanged(media::VideoRotation video_rotation, bool is_opaque);
+
   // Need repaint due to state change.
   void RepaintInternal();
 
