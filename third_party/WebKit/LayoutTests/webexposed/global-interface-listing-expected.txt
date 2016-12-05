@@ -4533,7 +4533,7 @@ interface PaymentRequest : EventTarget
     getter shippingOption
     getter shippingType
     method abort
-    method canMakeActivePayment
+    method canMakePayment
     method constructor
     method show
     setter onshippingaddresschange
