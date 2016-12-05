@@ -19,6 +19,7 @@
 #include "chromeos/chromeos_switches.h"
 #include "content/public/test/browser_test_utils.h"
 #include "mojo/common/common_type_converters.h"
+#include "ui/events/event_constants.h"
 
 namespace mojo {
 
@@ -254,7 +255,7 @@ IN_PROC_BROWSER_TEST_P(ArcAppDeferredLauncherBrowserTest, StartAppDeferred) {
     EXPECT_FALSE(shelf_delegate()->GetShelfIDForAppID(app_id));
 
   // Launching non-ready Arc app creates item on shelf and spinning animation.
-  arc::LaunchApp(profile(), app_id);
+  arc::LaunchApp(profile(), app_id, ui::EF_LEFT_MOUSE_BUTTON);
   EXPECT_TRUE(shelf_delegate()->GetShelfIDForAppID(app_id));
   AppAnimatedWaiter(app_id).Wait();
 

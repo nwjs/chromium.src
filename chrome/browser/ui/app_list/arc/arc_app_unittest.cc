@@ -42,6 +42,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/app_list/app_list_constants.h"
 #include "ui/app_list/app_list_model.h"
+#include "ui/events/event_constants.h"
 #include "ui/gfx/geometry/safe_integer_conversions.h"
 #include "ui/gfx/image/image_skia.h"
 
@@ -905,7 +906,7 @@ TEST_F(ArcAppModelBuilderTest, LastLaunchTime) {
   EXPECT_EQ(base::Time(), app_info->last_launch_time);
 
   base::Time time_before = base::Time::Now();
-  arc::LaunchApp(profile(), id2);
+  arc::LaunchApp(profile(), id2, ui::EF_NONE);
   base::Time time_after = base::Time::Now();
 
   app_info = prefs->GetApp(id2);
@@ -947,7 +948,7 @@ TEST_F(ArcPlayStoreAppTest, PlayStore) {
   ASSERT_TRUE(app_info);
   EXPECT_FALSE(app_info->ready);
 
-  arc::LaunchApp(profile(), arc::kPlayStoreAppId);
+  arc::LaunchApp(profile(), arc::kPlayStoreAppId, ui::EF_NONE);
   EXPECT_TRUE(arc_test()->arc_auth_service()->IsArcEnabled());
 }
 
