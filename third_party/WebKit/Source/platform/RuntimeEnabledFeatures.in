@@ -213,7 +213,7 @@ Sensor status=experimental
 ServiceWorkerNavigationPreload
 SetRootScroller status=experimental
 ShadowDOMV1 status=stable
-ShadowPiercingDescendantCombinator status=test
+ShadowPiercingDescendantCombinator status=experimental
 ShapeDetection status=experimental
 SharedArrayBuffer
 SharedWorker status=stable
