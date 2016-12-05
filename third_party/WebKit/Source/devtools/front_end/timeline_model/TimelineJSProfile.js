@@ -80,6 +80,7 @@ WebInspector.TimelineJSProfileProcessor.generateJSFrameEvents = function(events)
         case WebInspector.TimelineModel.RecordType.RunMicrotasks:
         case WebInspector.TimelineModel.RecordType.FunctionCall:
         case WebInspector.TimelineModel.RecordType.EvaluateScript:
+        case WebInspector.TimelineModel.RecordType.EventDispatch:
             return true;
         }
         return false;
