@@ -665,6 +665,15 @@
 <translation id="2884728160143956392">Tillåt sessionscookies på dessa webbplatser</translation>
 <translation id="2893546967669465276">Skicka systemloggar till hanteringsservern</translation>
 <translation id="2899002520262095963">Android-appar kan använda nätverkskonfigurationer och CA-certifikat som har angetts via den här principen men saknar tillgång till vissa konfigurationsalternativ.</translation>
+<translation id="2901399514673504930">Behandla externa lagringsenheter som skrivskyddade.
+
+      Denna princip gäller endast när ExternalStorageDisabled är inställd på falskt eller inte är konfigurerad.
+
+      När principen är inställd på sant kan inte användare spara något på externa lagringsenheter..
+
+      Om inställningen har inaktiverats eller inte har konfigurerats kan användare skapa och redigera filer från externa lagringsenheter som är fysiskt skrivbara.
+
+      Dynamisk uppdatering av den här principen stöds av M56 och senare.</translation>
 <translation id="2906874737073861391">Lista över tillägg i AppPack</translation>
 <translation id="2908277604670530363">Högsta antalet samtidiga anslutningar till proxyservern</translation>
 <translation id="2948087343485265211">Anger om ljudaktivitet påverkar energihanteringen.
@@ -1516,6 +1525,11 @@
           Om den här inställningen är aktiverad jämför fjärråtkomstvärden namnet på den lokala användaren (som värden är kopplad till) med namnet på det Google-konto som registrerats som ägare till värden (dvs. ”andersandersson” om värden ägs av Google-kontot ”andersandersson@example.com”).  Fjärråtkomstvärden kommer inte att starta om namnet på ägaren till värden skiljer sig från namnet på den lokala användaren som värden är kopplad till.  Policyn RemoteAccessHostMatchUsername ska användas tillsammans med RemoteAccessHostDomain så att Google-kontot som tillhör ägaren till värden kopplas till en viss domän (dvs. ”example.com”).
 
           Om den här inställningen är inaktiverad eller inte har angetts kan fjärråtkomstvärden kopplas till vilken lokal användare som helst.</translation>
+<translation id="5694594914843889579">När den här principen är inställd på sant är inte extern lagring tillgängligt i filsökaren.
+
+      Principen gäller för alla typer av lagringsmedia, till exempel USB-minnen, externa hårddiskar, SD-kort och andra minneskort och optisk lagring. Den interna lagringen påverkas inte och du kan därmed komma åt filer som har sparats i mappen Hämtade filer. Google Drive påverkas inte heller av den här principen.
+
+      Om inställningen har inaktiverats eller inte har konfigurerats kan användare använda alla typer av extern lagring som stöds av deras enhet.</translation>
 <translation id="5697306356229823047">Rapportera enhetsanvändare</translation>
 <translation id="570062449808736508">När man ställt in ett annat värde för principen än en tom sträng läser WebView webbadressbegränsningar från innehållsutgivaren med utfärdarnamnet.</translation>
 <translation id="5703863730741917647">Ange vilken åtgärd som ska vidtas när fördröjningen på grund av inaktivitet har uppnåtts.

@@ -626,6 +626,15 @@
 <translation id="2884728160143956392">Omogući kolačiće na ovim web-lokacijama samo tijekom sesija</translation>
 <translation id="2893546967669465276">Šalji zapisinike sustava poslužitelju za upravljanje</translation>
 <translation id="2899002520262095963">Android aplikacije mogu upotrebljavati mrežne konfiguracije i CA certifikate postavljene putem tog pravila, no nemaju pristup nekim opcijama konfiguracije.</translation>
+<translation id="2901399514673504930">Postupaj s vanjskim uređajima za pohranu kao da su samo za čitanje.
+
+      To se pravilo primjenjuje samo kada je ExternalStorageDisabled postavljeno na False ili nije konfigurirano.
+
+      Kada se to pravilo postavi na True, korisnici ne mogu ništa zapisivati na vanjske uređaje za pohranu.
+
+      Ako se ta postavka onemogući ili ne konfigurira, korisnici mogu izrađivati i izmjenjivati datoteke na vanjskim uređajima za pohranu na kojima se može fizički zapisivati.
+
+      Dinamičko osvježavanje tog pravila podržano je u verziji M56 i kasnijim verzijama.</translation>
 <translation id="2906874737073861391">Popis proširenja AppPack</translation>
 <translation id="2908277604670530363">Maksimalan broj istodobnih veza na proxy poslužitelju</translation>
 <translation id="2948087343485265211">Određuje hoće li zvučna aktivnost utjecati na upravljanje napajanjem.
@@ -1412,6 +1421,11 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
           Ako se ta postavka omogući, host daljinskog pristupa uspoređuje ime lokalnog korisnika (s kojim je taj host povezan) i naziv Google računa koji je registriran kao vlasnik hosta (tj., "johndoe" ako je vlasnik hosta Google račun "johndoe@example.com"). Host daljinskog pristupa neće se pokrenuti ako se vlasnik hosta razlikuje od imena lokalnog korisnika s kojim je host povezan. Pravilo RemoteAccessHostMatchUsername treba se upotrebljavati zajedno s pravilom RemoteAccessHostDomain kako bi se primijenilo i to da je Google račun vlasnika hosta povezan s određenom domenom (tj., "example.com").
 
           Ako se to pravilo onemogući ili ne postavi, host daljinskog pristupa može se povezati s bilo kojim lokalnim korisnikom.</translation>
+<translation id="5694594914843889579">Kada se to pravilo postavi na True, vanjska pohrana neće biti dostupna u pregledniku datoteka.
+
+      To pravilo utječe na sve vrste medija za pohranu, na primjer USB flash pogone, vanjske tvrde diskove, SD i ostale memorijske kartice, optičku pohranu itd. Ne utječe na unutarnju pohranu, pa se i dalje može pristupati datotekama spremljenima u mapu Preuzimanja. To pravilo ne utječe ni na Google disk.
+
+      Ako se ta postavka onemogući ili ako se ne konfigurira, korisnici na svojem uređaju mogu upotrebljavati sve podržane vrste vanjske pohrane.</translation>
 <translation id="5697306356229823047">Izvješće o korisnicima uređaja</translation>
 <translation id="570062449808736508">Kada je to pravilo postavljeno na niz koji nije prazan, web-prikaz će čitati ograničenja za URL-ove davatelja sadržaja s određenim nazivom nadležnog tijela.</translation>
 <translation id="5703863730741917647">Određuje radnju koja se poduzima kada se dosegne odgoda zbog neaktivnosti.

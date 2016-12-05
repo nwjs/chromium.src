@@ -643,6 +643,15 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 <translation id="2884728160143956392">Povoliť na týchto stránkach súbory cookie platné len pre reláciu</translation>
 <translation id="2893546967669465276">Odosielanie denníkov systému na správcovský server</translation>
 <translation id="2899002520262095963">Aplikácie pre Android môžu používať konfigurácie siete a certifikáty CA nastavené prostredníctvom tohto pravidla, nemajú však prístup k rovnakým možnostiam konfigurácie.</translation>
+<translation id="2901399514673504930">Umožňuje nastaviť externé úložné zariadenia ako „Iba na čítanie“.
+
+      Toto pravidlo platí iba vtedy, keď je parameter ExternalStorageDisabled nastavený na možnosť False alebo keď nie je nakonfigurovaný.
+
+      Ak ho nastavíte na možnosť True, používatelia nebudú môcť na externé úložné zariadenia nič zapísať.
+
+      Ak toto nastavenie zakážete alebo ho nenakonfigurujete, používatelia môžu vytvárať a upravovať súbory externých úložných zariadení, ktoré sú fyzicky zapísateľné.
+
+      Dynamické obnovovanie tohto pravidla je podporované vo verzii M56 a starších.</translation>
 <translation id="2906874737073861391">Zoznam rozšírení AppPack</translation>
 <translation id="2908277604670530363">Maximálny počet súčasných pripojení k serveru proxy</translation>
 <translation id="2948087343485265211">Určuje, či prehrávanie zvuku ovplyvňuje správu napájania.
@@ -1484,6 +1493,11 @@ Pozrite si tiež pravidlo RemoteAccessHostDomain.</translation>
           Ak toto nastavenie povolíte, hostiteľ vzdialeného prístupu porovná meno miestneho používateľa (ku ktorému je tento hostiteľ priradený) s názvom účtu Google registrovanom ako vlastník hostiteľa (t. j. „jankovac“, ak je vlastníkom hostiteľa účet Google s názvom „jankovac@domena.sk). Hostiteľ vzdialeného prístupu sa nespustí, keď sa meno vlastníka hostiteľa odlišuje od mena miestneho používateľa, ku ktorému je hostiteľ priradený. Pravidlo RemoteAccessHostMatchUsername by ste mali používať spolu s pravidlom RemoteAccessHostDomain. Vynútite tak priradenie účtu Google vlastníka hostiteľa k špecifickej doméne (t. j. „domena.sk“).
 
           Ak toto nastavenie zakážete alebo nenastavíte, hostiteľa vzdialeného prístupu bude možné priradiť k ľubovoľnému miestnemu používateľovi.</translation>
+<translation id="5694594914843889579">Ak je toto pravidlo nastavené na hodnotu True, externé úložisko sa nezobrazí v prehliadači súborov.
+
+      Toto pravidlo sa vzťahuje na všetky typy pamäťových médií, ako sú prenosné disky USB, externé pevné disky, SD karty a ďalšie typy pamäťových kariet, optické úložiská a pod. Na interné úložisko sa nevzťahuje, takže položky v priečinku Stiahnuté súbory je možné otvoriť. Toto pravidlo tiež nemá žiadny vplyv na službu Disk Google.
+
+      Ak je toto nastavenie zakázané alebo nie je nakonfigurované, používatelia môžu v zariadeniach používať všetky podporované typy externých úložísk.</translation>
 <translation id="5697306356229823047">Nahlásiť používateľov zariadenia</translation>
 <translation id="570062449808736508">Ak je toto pravidlo nastavené na reťazec, ktorý neobsahuje prázdne hodnoty, zobrazenie WebView bude čítať obmedzenia týkajúce sa webových adries od poskytovateľa obsahu s uvedeným názvom autority.</translation>
 <translation id="5703863730741917647">Určte akciu, ktorá sa má uskutočniť po uplynutí určitého času nečinnosti.

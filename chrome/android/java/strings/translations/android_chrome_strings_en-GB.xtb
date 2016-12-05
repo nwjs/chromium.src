@@ -95,6 +95,7 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="1966710179511230534">Please update your sign-in details.</translation>
 <translation id="1974060860693918893">Advanced</translation>
 <translation id="1984937141057606926">Allowed, except third-party</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> wants to pair</translation>
 <translation id="1994173015038366702">Site URL</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB other apps</translation>
 <translation id="2020194265157481222">Name on card required</translation>
@@ -266,6 +267,7 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="3950820424414687140">Sign in</translation>
 <translation id="3967822245660637423">Download complete</translation>
 <translation id="397583555483684758">Sync has stopped working</translation>
+<translation id="3985215325736559418">Do you want to download <ph name="FILE_NAME" /> again?</translation>
 <translation id="3988213473815854515">Location is allowed</translation>
 <translation id="3997476611815694295">Unimportant storage</translation>
 <translation id="4002066346123236978">Title</translation>
@@ -355,6 +357,7 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="4996978546172906250">Share via</translation>
 <translation id="5000922062037820727">Blocked (recommended)</translation>
 <translation id="5005498671520578047">Copy password</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> wants to connect</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Allow</translation>
 <translation id="5040262127954254034">Privacy</translation>
@@ -610,6 +613,7 @@ Your Google account may have other forms of browsing history like searches and a
 <translation id="7682287625158474539">Shipping</translation>
 <translation id="7698359219371678927">Create email in <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">See what's nearby</translation>
+<translation id="7746006994124500250">Download pending...</translation>
 <translation id="7764225426217299476">Add address</translation>
 <translation id="7765158879357617694">Move</translation>
 <translation id="7769602470925380267">Accept and sign out</translation>
@@ -633,6 +637,7 @@ Your Google account may have other forms of browsing history like searches and a
 <translation id="7998918019931843664">Re-open closed tab</translation>
 <translation id="7999064672810608036">Are you sure that you want to clear all local data, including cookies, and reset all permissions for this website?</translation>
 <translation id="8007176423574883786">Turned off for this device</translation>
+<translation id="8008818777654712271">Automatically send some system information and page content to Google to help detect dangerous apps and sites</translation>
 <translation id="802154636333426148">Download failed</translation>
 <translation id="8026334261755873520">Clear browsing data</translation>
 <translation id="8033827949643255796">selected</translation>

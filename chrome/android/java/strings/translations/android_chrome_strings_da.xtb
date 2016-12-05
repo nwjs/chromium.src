@@ -95,6 +95,7 @@ Du skal aktivere Bluetooth og Placering for at kunne bruge Fysisk web.</translat
 <translation id="1966710179511230534">Opdater dine loginoplysninger.</translation>
 <translation id="1974060860693918893">Avanceret</translation>
 <translation id="1984937141057606926">Tilladt, undtagen tredjepartscookies</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> vil gerne parre</translation>
 <translation id="1994173015038366702">Webadresse</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB af andre apps</translation>
 <translation id="2020194265157481222">Navn på kort er obligatorisk</translation>
@@ -266,6 +267,7 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 <translation id="3950820424414687140">Log ind</translation>
 <translation id="3967822245660637423">Download gennemført</translation>
 <translation id="397583555483684758">Synkroniseringen fungerer ikke mere</translation>
+<translation id="3985215325736559418">Vil du downloade <ph name="FILE_NAME" /> igen?</translation>
 <translation id="3988213473815854515">Placeringen er tilladt</translation>
 <translation id="3997476611815694295">Lagerplads, der ikke er vigtig</translation>
 <translation id="4002066346123236978">Titel</translation>
@@ -355,6 +357,7 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 <translation id="4996978546172906250">Del via</translation>
 <translation id="5000922062037820727">Blokeret (anbefales)</translation>
 <translation id="5005498671520578047">Kopiér adgangskode</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> vil gerne oprette forbindelse</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Tillad</translation>
 <translation id="5040262127954254034">Beskyttelse af personlige oplysninger</translation>
@@ -610,6 +613,7 @@ Din Google-konto kan have andre former for browserhistorik, f.eks. søgninger og
 <translation id="7682287625158474539">Forsendelse</translation>
 <translation id="7698359219371678927">Opret e-mail i <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Se, hvad der er i nærheden</translation>
+<translation id="7746006994124500250">Download afventer...</translation>
 <translation id="7764225426217299476">Tilføj adresse</translation>
 <translation id="7765158879357617694">Flyt</translation>
 <translation id="7769602470925380267">Acceptér, og log ud</translation>
@@ -633,6 +637,7 @@ Din Google-konto kan have andre former for browserhistorik, f.eks. søgninger og
 <translation id="7998918019931843664">Åbn lukket fane igen</translation>
 <translation id="7999064672810608036">Er du sikker på, at du vil slette alle lokale data, herunder cookies, og nulstille alle tilladelser for dette website?</translation>
 <translation id="8007176423574883786">Deaktiveret på denne enhed</translation>
+<translation id="8008818777654712271">Sender automatisk nogle systemoplysninger og sideindhold til Google som en hjælp til at registrere skadelige apps og websites</translation>
 <translation id="802154636333426148">Download mislykkedes</translation>
 <translation id="8026334261755873520">Ryd browserdata</translation>
 <translation id="8033827949643255796">valgt</translation>

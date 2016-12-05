@@ -9,6 +9,7 @@
 <translation id="1055184225775184556">&amp;Hozzáadás visszavonása</translation>
 <translation id="10614374240317010">Az alábbi oldalakról soha ne mentsen jelszavakat</translation>
 <translation id="106701514854093668">Asztali könyvjelzők</translation>
+<translation id="1074497978438210769">Nem biztonságos</translation>
 <translation id="1080116354587839789">Szélességhez igazítás</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> - mindig legyen lefordítva</translation>
 <translation id="1107591249535594099">Ha be van jelölve, a Chrome ezen az eszközön tárolja a kártya egy példányát az űrlapok gyorsabb kitöltéséhez.</translation>
@@ -38,6 +39,7 @@
 <translation id="129553762522093515">Mostanában bezárt</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Próbálkozzon a cookie-k törlésével<ph name="END_LINK" /></translation>
 <translation id="1339601241726513588">Regisztrációs domain:</translation>
+<translation id="1344211575059133124">Úgy tűnik, hogy a webhely felkereséséhez engedélyére van szükség</translation>
 <translation id="1344588688991793829">A Chromium Automatikus kitöltési beállításai…</translation>
 <translation id="1374468813861204354">javaslatok</translation>
 <translation id="1375198122581997741">A verzióról</translation>
@@ -69,6 +71,7 @@
 <translation id="168841957122794586">A szervertanúsítvány gyenge titkosítási kulcsot tartalmaz.</translation>
 <translation id="1701955595840307032">Javasolt tartalmak fogadása</translation>
 <translation id="1710259589646384581">OS</translation>
+<translation id="1721312023322545264">A webhely felkereséséhez <ph name="NAME" /> engedélyére van szükség</translation>
 <translation id="1734864079702812349">American Express</translation>
 <translation id="1734878702283171397">Próbálja felvenni a kapcsolatot a rendszergazdával.</translation>
 <translation id="1745358365027406341">Az oldal letöltése később</translation>
@@ -171,6 +174,7 @@
 <translation id="2742870351467570537">A kijelölt elemek eltávolítása</translation>
 <translation id="277499241957683684">Hiányzó eszközrekord</translation>
 <translation id="2784949926578158345">A kapcsolat alaphelyzetbe állt.</translation>
+<translation id="2794233252405721443">A webhely le van tiltva</translation>
 <translation id="2824775600643448204">Cím- és keresősáv</translation>
 <translation id="2826760142808435982">A kapcsolat <ph name="KX" /> algoritmust használ kulcscserélő mechanizmusként, kódolása pedig <ph name="CIPHER" /> használatával történt.</translation>
 <translation id="2835170189407361413">Űrlap törlése</translation>
@@ -247,6 +251,7 @@
 <translation id="3549644494707163724">Az összes szinkronizált adat titkosítása saját összetett szinkronizálási jelszóval</translation>
 <translation id="3549761410225185768"><ph name="NUM_TABS_MORE" /> további...</translation>
 <translation id="3555561725129903880">A szerver nem tudta bizonyítani, hogy valóban a(z) <ph name="DOMAIN" /> domainbe tartozik; biztonsági tanúsítványa a(z) <ph name="DOMAIN2" /> domainről származik. Ennek oka lehet konfigurációs hiba, vagy hogy támadó térítette el az Ön kapcsolódását. <ph name="BEGIN_LEARN_MORE_LINK" />További információ<ph name="END_LEARN_MORE_LINK" />.</translation>
+<translation id="3556433843310711081">A letiltást a kezelő oldhatja fel</translation>
 <translation id="3566021033012934673">Az Ön kapcsolata nem privát</translation>
 <translation id="3583757800736429874">&amp;Áthelyezés újra</translation>
 <translation id="3586931643579894722">Részletek elrejtése</translation>
@@ -284,8 +289,8 @@
 <translation id="3858027520442213535">Dátum és idő frissítése</translation>
 <translation id="3884278016824448484">Eszközazonosító-ütközés</translation>
 <translation id="3885155851504623709">Körzet</translation>
+<translation id="3886446263141354045">Webhely-hozzáférési kérelme elküldve a következő személynek: <ph name="NAME" /></translation>
 <translation id="3901925938762663762">A kártya lejárt</translation>
-<translation id="3910267023907260648">Megpróbálta elérni a(z) <ph name="DOMAIN" /> webhelyet, de a szerver gyenge aláírási algoritmust használó tanúsítványt mutatott be. Ez alapján elképzelhető, hogy a szerver által megadott biztonsági tanúsítványt hamisították, és a szerver nem az, amelyikre számított (lehet, hogy éppen a támadóval áll kapcsolatban). <ph name="BEGIN_LEARN_MORE_LINK" />További információ<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="3933571093587347751">{1,plural, =1{A szerver nem tudta bizonyítani, hogy valóban a(z) <ph name="DOMAIN" /> domainbe tartozik; biztonsági tanúsítványa állítólag holnaptól érvényes. Ennek oka lehet konfigurációs hiba, de az is lehet, hogy támadó térítette el az Ön kapcsolódását. <ph name="BEGIN_LEARN_MORE_LINK" />További információ<ph name="END_LEARN_MORE_LINK" />.}other{A szerver nem tudta bizonyítani, hogy valóban a(z) <ph name="DOMAIN" /> domainbe tartozik; biztonsági tanúsítványa elméletileg # nap múlva lép érvénybe. Ennek oka lehet konfigurációs hiba, de az is lehet, hogy támadó térítette el az Ön kapcsolódását. <ph name="BEGIN_LEARN_MORE_LINK" />További információ<ph name="END_LEARN_MORE_LINK" />.}}</translation>
 <translation id="3934680773876859118">PDF dokumentum betöltése sikertelen</translation>
 <translation id="3963721102035795474">Olvasási mód</translation>
@@ -356,6 +361,7 @@
 <translation id="4813512666221746211">Hálózati hiba</translation>
 <translation id="4816492930507672669">Igazítás az oldalmérethez</translation>
 <translation id="4850886885716139402">Nézet</translation>
+<translation id="4858792381671956233">Megkérdezted a szüleidet, hogy meg szabad-e látogatnod ezt a webhelyet</translation>
 <translation id="4880827082731008257">Keresés az előzmények között</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />, <ph name="TYPE_2" /> és <ph name="TYPE_3" /></translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{és egy további weboldal}other{és # további weboldal}}</translation>
@@ -424,9 +430,11 @@
 <translation id="5629630648637658800">Az irányelv-beállítások betöltése sikertelen</translation>
 <translation id="5631439013527180824">Érvénytelen eszközkezelési token</translation>
 <translation id="5677928146339483299">Letiltva</translation>
+<translation id="5694783966845939798">Megpróbálta elérni a(z) <ph name="DOMAIN" /> webhelyet, de a szerver gyenge aláírási algoritmust (pl. SHA-1-et) használó tanúsítványt mutatott be. Ez alapján elképzelhető, hogy a szerver által megadott biztonsági tanúsítványt hamisították, és a szerver nem az, amelyikre számított (lehet, hogy éppen a támadóval áll kapcsolatban). <ph name="BEGIN_LEARN_MORE_LINK" />További információ<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="5710435578057952990">A webhely valódiságát nem ellenőriztük.</translation>
 <translation id="5720705177508910913">Jelenlegi felhasználó</translation>
 <translation id="572328651809341494">Nemrég megnyitott lapok</translation>
+<translation id="5732392974455271431">A letiltást a szüleid oldhatják fel</translation>
 <translation id="5784606427469807560">A kártya ellenőrzése során hiba történt. Ellenőrizze az internetkapcsolatot, majd próbálkozzon újra.</translation>
 <translation id="5785756445106461925">Emellett az oldal azonban más forrásokat is tartalmaz, amelyek nem biztonságosak. Ezeket a forrásokat mások is megtekinthetik átvitel közben, és megváltoztatásukkal a támadók módosíthatják az oldal viselkedését.</translation>
 <translation id="5786044859038896871">Ki szeretné tölteni a kártyaadatait?</translation>
@@ -479,6 +487,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{1 egyéb javaslat}other{# egyéb javaslat}}</translation>
 <translation id="6387478394221739770">Érdekli néhány remek új Chrome-funkció? Próbálja ki a Béta csatornánkat a chrome.com/beta webhelyen.</translation>
 <translation id="6389758589412724634">Elfogyott a memória, miközben a Chromium megpróbálta megjeleníteni ezt a weboldalt.</translation>
+<translation id="6414888972213066896">Megkérdezted a szülőt, hogy meg szabad-e látogatnod ezt a webhelyet</translation>
 <translation id="6416403317709441254">Pillanatnyilag nem tudja felkeresni a(z) <ph name="SITE" /> webhelyet, mivel az olyan titkosított hitelesítési adatokat küldött, amelyeket a Chromium nem tud feldolgozni. A hálózati hibák és támadások rendszerint átmenetiek, ezért az említett oldal később valószínűleg már működni fog. <ph name="BEGIN_LEARN_MORE_LINK" />További információ<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6417515091412812850">Nem lehet ellenőrizni, hogy a tanúsítványt visszavonták-e.</translation>
 <translation id="6433595998831338502">A(z) <ph name="HOST_NAME" /> visszautasította a csatlakozást.</translation>
@@ -491,6 +500,7 @@
 <translation id="6529602333819889595">&amp;Törlés újra</translation>
 <translation id="6534179046333460208">Fizikai web – javaslatok</translation>
 <translation id="6550675742724504774">Beállítások</translation>
+<translation id="6563469144985748109">A kezelő még nem hagyta jóvá</translation>
 <translation id="6593753688552673085">kevesebb, mint <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="6596325263575161958">Titkosítási lehetőségek</translation>
 <translation id="662080504995468778">Mégse</translation>
@@ -509,6 +519,7 @@
 <translation id="674375294223700098">Ismeretlen szervertanúsítvány-hiba.</translation>
 <translation id="6753269504797312559">Házirend értéke</translation>
 <translation id="6757797048963528358">Eszköze alvó üzemmódba váltott.</translation>
+<translation id="6778737459546443941">A szülő még nem hagyta jóvá</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">A(z) <ph name="URL" /> helyen lévő weboldal pillanatnyilag nem érhető el. Lehetséges, hogy túlterhelt, vagy karbantartás miatt nem működik.</translation>
 <translation id="6831043979455480757">Fordítás</translation>
@@ -565,8 +576,10 @@ Pszt! Az inkognitómód (<ph name="SHORTCUT_KEY" />) hasznos lehet a következő
 <translation id="7419106976560586862">Profil elérési útja</translation>
 <translation id="7424977062513257142">A weboldal egy beágyazott oldalának közlendője:</translation>
 <translation id="7441627299479586546">Az irányelv tárgya nem megfelelő</translation>
+<translation id="7444046173054089907">Ez a webhely le van tiltva</translation>
 <translation id="7445762425076701745">Nem sikerült teljesen ellenőrizni a szerver azonosságát, amelyhez kapcsolódik. Egy olyan névvel kapcsolódik a szerverhez, amelynek tulajdonjogát egy külső tanúsítványkibocsátó nem ellenőrizheti. Mivel egyes tanúsítványkibocsátók figyelmen kívül hagyják ezeket a neveket, így semmi nem biztosítja, hogy a kívánt webhelyhez kapcsolódik, és nem egy támadó webhelyhez.</translation>
 <translation id="7451311239929941790"><ph name="BEGIN_LINK" />További információk megtekintése<ph name="END_LINK" /> a problémával kapcsolatban.</translation>
+<translation id="7460163899615895653">A többi eszközön legutoljára megtekintett lapok láthatók itt</translation>
 <translation id="7469372306589899959">Kártya igazolása…</translation>
 <translation id="7481312909269577407">Előre</translation>
 <translation id="7485870689360869515">Nem található adat.</translation>
@@ -576,6 +589,7 @@ Pszt! Az inkognitómód (<ph name="SHORTCUT_KEY" />) hasznos lehet a következő
 <translation id="7535087603100972091">Érték</translation>
 <translation id="7537536606612762813">Kötelező</translation>
 <translation id="7542995811387359312">Az automatikus bankkártya-kitöltés le van tiltva, mivel ez az űrlap nem biztonságos kapcsolatot használ.</translation>
+<translation id="7543525346216957623">Kérd a szülő segítségét</translation>
 <translation id="7549584377607005141">Ez a weboldal korábban megadott adatokat kér ahhoz, hogy megfelelően jelenjen meg. Az adatokat újra elküldheti, de ezzel meg fog ismételni minden olyan műveletet, amelyet ez az oldal korábban végrehajtott.</translation>
 <translation id="7554791636758816595">Új lap</translation>
 <translation id="7568593326407688803">Az oldal nyelve<ph name="ORIGINAL_LANGUAGE" />Kívánja lefordítani?</translation>
@@ -600,6 +614,7 @@ Pszt! Az inkognitómód (<ph name="SHORTCUT_KEY" />) hasznos lehet a következő
 <translation id="7716424297397655342">A webhely nem tölthető be a gyorsítótárból</translation>
 <translation id="7733391738235763478">(<ph name="NUMBER_VISITS" />)</translation>
 <translation id="7752995774971033316">Nem kezelt</translation>
+<translation id="7755287808199759310">A letiltást a szülő oldhatja fel</translation>
 <translation id="7758069387465995638">Előfordulhat, hogy a tűzfal vagy a vírusirtó szoftver tiltotta le a kapcsolatot.</translation>
 <translation id="7761701407923456692">A szerver tanúsítványa nem egyezik az URL-lel</translation>
 <translation id="777702478322588152">Prefektúra</translation>
@@ -667,6 +682,7 @@ Pszt! Az inkognitómód (<ph name="SHORTCUT_KEY" />) hasznos lehet a következő
 <translation id="856992080682148">A webhely tanúsítványa 2017-ben vagy később jár le, a tanúsítványlánc pedig tartalmaz egy SHA-1 titkosítással aláírt tanúsítványt.</translation>
 <translation id="8571890674111243710">Oldal fordítása erre a nyelvre: <ph name="LANGUAGE" />...</translation>
 <translation id="859285277496340001">Ez a tanúsítvány nem határoz meg olyan mechanizmust, amely ellenőrizné, hogy visszavonták-e.</translation>
+<translation id="8620436878122366504">A szüleid még nem hagyták jóvá</translation>
 <translation id="8647750283161643317">Minden visszaállítása az alapértékre</translation>
 <translation id="8703575177326907206">A kapcsolat (<ph name="DOMAIN" />) nem titkosított.</translation>
 <translation id="8725066075913043281">Újrapróbálás</translation>
@@ -705,6 +721,7 @@ Pszt! Az inkognitómód (<ph name="SHORTCUT_KEY" />) hasznos lehet a következő
 <translation id="9050666287014529139">Összetett jelszó</translation>
 <translation id="9065203028668620118">Szerkesztés</translation>
 <translation id="9068849894565669697">Szín kiválasztása</translation>
+<translation id="9076283476770535406">Lehet, hogy felnőtt tartalommal rendelkezik</translation>
 <translation id="9092364396508701805">A(z) <ph name="HOST_NAME" /> oldal nem működik</translation>
 <translation id="9103872766612412690">A(z) <ph name="SITE" /> webhely rendes esetben titkosítást alkalmaz az Ön adatainak védelme érdekében. Amikor a Chromium most csatlakozni próbált, a(z) <ph name="SITE" /> webhely szokatlan és helytelen hitelesítési adatokat küldött vissza.Ez olyankor fordulhat elő, amikor egy támadó megpróbálja magát kiadni a(z) <ph name="SITE" /> webhelynek, vagy valamilyen Wi-Fi-bejelentkezési képernyő megszakította a kapcsolatot. Adatai továbbra is biztonságban vannak, mivel a Chromium még azt megelőzően megszakította a kapcsolatot, hogy bármiféle adatcserére sor kerülhetett volna.</translation>
 <translation id="9137013805542155359">Eredeti megjelenítése</translation>
@@ -719,6 +736,7 @@ Pszt! Az inkognitómód (<ph name="SHORTCUT_KEY" />) hasznos lehet a következő
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="935608979562296692">ŰRLAP TÖRLÉSE</translation>
 <translation id="939736085109172342">Új mappa</translation>
+<translation id="941721044073577244">Úgy tűnik, nincs jogosultsága a webhely felkeresésére</translation>
 <translation id="962701380617707048">A kártyaadatok frissítése érdekében adja meg a(z) <ph name="CREDIT_CARD" /> kártya lejárati dátumát és CVC-kódját</translation>
 <translation id="969892804517981540">Hivatalos verzió</translation>
 <translation id="988159990683914416">Fejlesztői változat</translation>

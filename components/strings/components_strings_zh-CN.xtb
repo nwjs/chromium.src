@@ -9,6 +9,7 @@
 <translation id="1055184225775184556">撤消添加(&amp;U)</translation>
 <translation id="10614374240317010">一律不保存</translation>
 <translation id="106701514854093668">桌面书签</translation>
+<translation id="1074497978438210769">不安全</translation>
 <translation id="1080116354587839789">适合窗口宽度</translation>
 <translation id="1103523840287552314">总是翻译<ph name="LANGUAGE" /></translation>
 <translation id="1107591249535594099">选中后，Chrome 会将您的信用卡副本存储在此设备上，以加快表单填写速度。</translation>
@@ -38,6 +39,7 @@
 <translation id="129553762522093515">最近关闭的标签页</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />尝试清除 Cookie<ph name="END_LINK" /></translation>
 <translation id="1339601241726513588">注册域：</translation>
+<translation id="1344211575059133124">您似乎需要获得许可，然后才能访问此网站</translation>
 <translation id="1344588688991793829">Chromium自动填充设置…</translation>
 <translation id="1374468813861204354">建议</translation>
 <translation id="1375198122581997741">关于版本</translation>
@@ -69,6 +71,7 @@
 <translation id="168841957122794586">服务器证书包含弱加密密钥。</translation>
 <translation id="1701955595840307032">获取推荐内容</translation>
 <translation id="1710259589646384581">操作系统</translation>
+<translation id="1721312023322545264">您需要获得<ph name="NAME" />的许可，然后才能访问此网站</translation>
 <translation id="1734864079702812349">美国运通卡</translation>
 <translation id="1734878702283171397">请尝试联系系统管理员。</translation>
 <translation id="1745358365027406341">稍后下载网页</translation>
@@ -171,6 +174,7 @@
 <translation id="2742870351467570537">移除所选项</translation>
 <translation id="277499241957683684">缺少设备记录</translation>
 <translation id="2784949926578158345">连接已重置。</translation>
+<translation id="2794233252405721443">网站已被屏蔽</translation>
 <translation id="2824775600643448204">地址和搜索栏</translation>
 <translation id="2826760142808435982">该连接使用 <ph name="CIPHER" /> 进行加密和身份验证，并使用 <ph name="KX" /> 作为密钥交换机制。</translation>
 <translation id="2835170189407361413">清除表单</translation>
@@ -233,7 +237,7 @@
 <translation id="3427342743765426898">恢复修改(&amp;R)</translation>
 <translation id="3435896845095436175">启用</translation>
 <translation id="3447661539832366887">此设备的所有者已关闭恐龙游戏。</translation>
-<translation id="3450660100078934250">MasterCard</translation>
+<translation id="3450660100078934250">Mastercard</translation>
 <translation id="3452404311384756672">抓取时间间隔：</translation>
 <translation id="3462200631372590220">隐藏详情</translation>
 <translation id="3479539252931486093">不应该出现这种情况？请<ph name="BEGIN_LINK" />告诉我们<ph name="END_LINK" /></translation>
@@ -247,6 +251,7 @@
 <translation id="3549644494707163724">使用您自己的同步密码加密所有已同步数据</translation>
 <translation id="3549761410225185768">还有 <ph name="NUM_TABS_MORE" /> 个…</translation>
 <translation id="3555561725129903880">此服务器无法证明其所在网域是 <ph name="DOMAIN" />；服务器的安全证书来自 <ph name="DOMAIN2" />。出现此问题的原因可能是配置有误，或是有攻击者拦截您的连接。<ph name="BEGIN_LEARN_MORE_LINK" />了解详情<ph name="END_LEARN_MORE_LINK" />。</translation>
+<translation id="3556433843310711081">您的管理员可为您取消屏蔽此网站</translation>
 <translation id="3566021033012934673">您的连接不是私密连接</translation>
 <translation id="3583757800736429874">恢复移动(&amp;R)</translation>
 <translation id="3586931643579894722">隐藏详细信息</translation>
@@ -283,8 +288,8 @@
 <translation id="3858027520442213535">更新日期和时间</translation>
 <translation id="3884278016824448484">设备标识符存在冲突</translation>
 <translation id="3885155851504623709">区</translation>
+<translation id="3886446263141354045">系统已将您针对此网站提出的访问请求发送给<ph name="NAME" /></translation>
 <translation id="3901925938762663762">此信用卡已过期</translation>
-<translation id="3910267023907260648">您尝试连接到 <ph name="DOMAIN" />，但服务器提供的证书是使用防护力薄弱的签名算法进行签署的。这意味着服务器提供的安全凭据可能是伪造的，而且这个服务器可能并不是您想要访问的服务器（您可能正在与攻击者进行通信）。<ph name="BEGIN_LEARN_MORE_LINK" />了解详情<ph name="END_LEARN_MORE_LINK" />。</translation>
 <translation id="3933571093587347751">{1,plural, =1{此服务器无法证明其所在网域是 <ph name="DOMAIN" />；服务器的安全证书大概明天才会生效。出现此问题的原因可能是配置有误，或是有攻击者拦截您的连接。<ph name="BEGIN_LEARN_MORE_LINK" />了解详情<ph name="END_LEARN_MORE_LINK" />。}other{此服务器无法证明其所在网域是 <ph name="DOMAIN" />；服务器的安全证书大概 # 天后才会生效。出现此问题的原因可能是配置有误，或是有攻击者拦截您的连接。<ph name="BEGIN_LEARN_MORE_LINK" />了解详情<ph name="END_LEARN_MORE_LINK" />。}}</translation>
 <translation id="3934680773876859118">无法加载 PDF 文档</translation>
 <translation id="3963721102035795474">阅读器模式</translation>
@@ -355,6 +360,7 @@
 <translation id="4813512666221746211">网络错误</translation>
 <translation id="4816492930507672669">适合页面大小</translation>
 <translation id="4850886885716139402">视图</translation>
+<translation id="4858792381671956233">您已向父母发送请求，询问他们是否允许您访问此网站</translation>
 <translation id="4880827082731008257">搜索历史记录</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />、<ph name="TYPE_2" />、<ph name="TYPE_3" /></translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{和另外 1 个网页}other{和另外 # 个网页}}</translation>
@@ -423,9 +429,11 @@
 <translation id="5629630648637658800">无法加载策略设置</translation>
 <translation id="5631439013527180824">设备管理令牌无效</translation>
 <translation id="5677928146339483299">已屏蔽</translation>
+<translation id="5694783966845939798">您尝试连接到 <ph name="DOMAIN" />，但相应服务器提供的证书是使用防护力薄弱的签名算法（如 SHA-1）签署的。这意味着该服务器提供的安全凭据可能是伪造的，而且该服务器可能并不是您想访问的服务器（您可能正在与攻击者通信）。<ph name="BEGIN_LEARN_MORE_LINK" />了解详情<ph name="END_LEARN_MORE_LINK" />。</translation>
 <translation id="5710435578057952990">此网站尚未经过身份验证。</translation>
 <translation id="5720705177508910913">当前用户</translation>
 <translation id="572328651809341494">最近打开的标签页</translation>
+<translation id="5732392974455271431">您的父母可为您取消屏蔽此网站</translation>
 <translation id="5784606427469807560">确认您的信用卡时出现问题。请检查您的互联网连接，然后重试。</translation>
 <translation id="5785756445106461925">而且，此页中包含其他不安全的资源。他人能在这些资源传输过程中进行查看，攻击者也可以修改这些资源，从而改变此页的外观。</translation>
 <translation id="5786044859038896871">要填充您的信用卡信息吗？</translation>
@@ -477,6 +485,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{1 条其他建议}other{# 条其他建议}}</translation>
 <translation id="6387478394221739770">想试试超酷的 Chrome 新功能？欢迎访问 chrome.com/beta，试用我们的测试版！</translation>
 <translation id="6389758589412724634">Chromium 在尝试显示此网页时内存不足。</translation>
+<translation id="6414888972213066896">您已向父亲/母亲发送请求，询问其是否允许您访问此网站</translation>
 <translation id="6416403317709441254">您目前无法访问 <ph name="SITE" />，因为此网站发送的凭据是乱码，Chromium 无法处理。网络错误和攻击行为通常是暂时的，因此，此网页稍后可能就会恢复正常。<ph name="BEGIN_LEARN_MORE_LINK" />了解详情<ph name="END_LEARN_MORE_LINK" />。</translation>
 <translation id="6417515091412812850">无法检查证书是否已吊销。</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> 拒绝了我们的连接请求。</translation>
@@ -489,6 +498,7 @@
 <translation id="6529602333819889595">恢复删除(&amp;R)</translation>
 <translation id="6534179046333460208">实物网建议</translation>
 <translation id="6550675742724504774">选项</translation>
+<translation id="6563469144985748109">您的管理员尚未批准此请求</translation>
 <translation id="6593753688552673085">不到 <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="6596325263575161958">加密选项</translation>
 <translation id="662080504995468778">留下</translation>
@@ -507,6 +517,7 @@
 <translation id="674375294223700098">未知的服务器证书错误。</translation>
 <translation id="6753269504797312559">政策值</translation>
 <translation id="6757797048963528358">您的设备已进入休眠模式。</translation>
+<translation id="6778737459546443941">您的父亲/母亲尚未批准此请求</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">网址为 <ph name="URL" /> 的网页目前无法访问。该网页可能已超载或关闭进行维护。</translation>
 <translation id="6831043979455480757">翻译</translation>
@@ -563,8 +574,10 @@
 <translation id="7419106976560586862">个人资料路径</translation>
 <translation id="7424977062513257142">此网页上的嵌入式页面显示：</translation>
 <translation id="7441627299479586546">策略主题有误</translation>
+<translation id="7444046173054089907">此网站已被屏蔽</translation>
 <translation id="7445762425076701745">无法完全验证您所连接到的服务器的身份。您在连接服务器时使用的服务器名称仅在您的网络中有效，而外部证书授权中心无法验证该名称的所有权。由于一些证书授权中心仍然会为这些名称颁发证书，因此无法确保您连接到想要访问的网站而不是攻击网站。</translation>
 <translation id="7451311239929941790"><ph name="BEGIN_LINK" />详细了解<ph name="END_LINK" />此问题。</translation>
+<translation id="7460163899615895653">此处将会显示您最近从其他设备打开的标签页</translation>
 <translation id="7469372306589899959">确认信用卡</translation>
 <translation id="7481312909269577407">前进</translation>
 <translation id="7485870689360869515">找不到数据。</translation>
@@ -574,6 +587,7 @@
 <translation id="7535087603100972091">值</translation>
 <translation id="7537536606612762813">强制</translation>
 <translation id="7542995811387359312">由于该表单不使用安全连接，因此自动填写信用卡信息的功能已停用。</translation>
+<translation id="7543525346216957623">请先征得您父亲/母亲的许可</translation>
 <translation id="7549584377607005141">此网页需要使用您之前输入的数据才能正常显示。您可以重新发送这些数据，不过，这么做会重复执行此网页之前执行过的所有操作。</translation>
 <translation id="7554791636758816595">新标签页</translation>
 <translation id="7568593326407688803">此网页为<ph name="ORIGINAL_LANGUAGE" />网页，是否需要翻译？</translation>
@@ -598,6 +612,7 @@
 <translation id="7716424297397655342">无法从缓存中加载此网站</translation>
 <translation id="7733391738235763478">（<ph name="NUMBER_VISITS" /> 次）</translation>
 <translation id="7752995774971033316">非托管</translation>
+<translation id="7755287808199759310">您的父亲/母亲可为您取消屏蔽此网站</translation>
 <translation id="7758069387465995638">防火墙或防病毒软件可能已阻止您连接到网络。</translation>
 <translation id="7761701407923456692">服务器的证书与网址不相符。</translation>
 <translation id="777702478322588152">县</translation>
@@ -665,6 +680,7 @@
 <translation id="856992080682148">此网站的证书将于 2017 年或之后过期，并且此网站的证书链包含使用 SHA-1 签署的证书。</translation>
 <translation id="8571890674111243710">正在将网页翻译成<ph name="LANGUAGE" />...</translation>
 <translation id="859285277496340001">证书未指定用于检查是否已吊销证书的机制。</translation>
+<translation id="8620436878122366504">您的父母尚未批准此请求</translation>
 <translation id="8647750283161643317">全部重置为默认值</translation>
 <translation id="8703575177326907206">您与 <ph name="DOMAIN" /> 的连接未加密。</translation>
 <translation id="8725066075913043281">重试</translation>
@@ -703,6 +719,7 @@
 <translation id="9050666287014529139">密码</translation>
 <translation id="9065203028668620118">修改</translation>
 <translation id="9068849894565669697">选择颜色</translation>
+<translation id="9076283476770535406">此网站可能包含成人内容</translation>
 <translation id="9092364396508701805"><ph name="HOST_NAME" /> 网页无法正常运作</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> 通常会使用加密技术来保护您的信息。Chromium 此次尝试连接到 <ph name="SITE" /> 时，此网站发回了异常的错误凭据。这可能是因为有攻击者在试图冒充 <ph name="SITE" />，或 Wi-Fi 登录屏幕中断了此次连接。请放心，您的信息仍然是安全的，因为 Chromium 尚未进行任何数据交换便停止了连接。</translation>
 <translation id="9137013805542155359">显示原始网页</translation>
@@ -717,6 +734,7 @@
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="935608979562296692">清除表单内容</translation>
 <translation id="939736085109172342">新建文件夹</translation>
+<translation id="941721044073577244">您似乎无权访问此网站</translation>
 <translation id="962701380617707048">输入“<ph name="CREDIT_CARD" />”的过期日期和银行卡验证码 (CVC) 以更新您的信用卡详情</translation>
 <translation id="969892804517981540">正式版本</translation>
 <translation id="988159990683914416">开发者内部版本</translation>

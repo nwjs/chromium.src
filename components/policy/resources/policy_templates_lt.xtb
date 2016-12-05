@@ -660,6 +660,15 @@ Jei ši politika negalioja arba nenustatyta, iškviečiant API įvyks klaida ir 
 <translation id="2884728160143956392">Leisti tik sesijų slapukus šiose svetainėse</translation>
 <translation id="2893546967669465276">Sistemos žurnalų siuntimas valdymo serveriui</translation>
 <translation id="2899002520262095963">„Android“ programos gali naudoti šioje politikoje nustatytas tinklo konfigūracijas ir CA sertifikatus, bet negali pasiekti kai kurių konfigūravimo parinkčių.</translation>
+<translation id="2901399514673504930">Laikyti išorinius saugyklos įrenginius kaip tik skaitomus.
+
+      Ši politika galioja tik tada, kai „ExternalStorageDisabled“ nustatyta į „false“ ar nėra sukonfigūruota.
+
+      Kai ši politika nustatyta į „true“, naudotojai negalės nieko rašyti į išorinius saugyklos įrenginius.
+
+      Jei šis nustatymas išjungtas ar nesukonfigūruotas, naudotojai gali kurti ir keisti išorinių saugyklos įrenginių failus, į kuriuos galima įrašyti turinio.
+
+      Dinaminis šios politikos atnaujinimas palaikomas naudojant M56 ir naujesnes versijas.</translation>
 <translation id="2906874737073861391">„Programų paketo“ plėtinių sąrašas</translation>
 <translation id="2908277604670530363">Didžiausias jungčių prie tarpinio serverio vienu metu skaičius</translation>
 <translation id="2948087343485265211">Nurodo, ar garso įrašo veikla paveikia energijos valdymą.
@@ -1510,6 +1519,11 @@ Jei ši politika negalioja arba nenustatyta, iškviečiant API įvyks klaida ir 
           Įgalinus šį nustatymą, nuotolinės prieigos priegloba palygina vietinio naudotojo (su kuriuo susieta priegloba) vardą ir „Google“ paskyros, kuri užregistruota kaip prieglobos savininko paskyra (pvz., „vardenispavardenis“, jei priegloba priklauso „vardenispavardenis@example.com“, „Google“ paskyra), pavadinimą. Nuotolinės prieigos priegloba nebus paleista, jei prieglobos savininko vardas skirsis nuo vietinio naudotojo, su kuriuo susieta priegloba, vardo. Politiką „RemoteAccessHostMatchUsername“ reikia naudoti su „RemoteAccessHostDomain“, kad prieglobos savininko „Google“ paskyra taip pat būtų susieta su konkrečiu domenu (pvz., „example.com“).
 
           Jei šį nustatymą išjungsite arba jo nenustatysite, nuotolinės prieigos prieglobą bus galima susieti su bet kuriuo vietiniu naudotoju.</translation>
+<translation id="5694594914843889579">Kai ši politika nustatyta į „true“, išorinė saugykla nepasiekiama failų naršyklėje.
+
+      Ši politika turi įtakos visų tipų saugyklos medijai. Pvz., USB atmintinėms, išoriniams standiesiems diskams, SD ir kitoms atminties kortelėms, optinei saugyklai ir kt. Vidinė saugykla nepaveikiama, todėl atsisiuntimų aplanke išsaugotus failus vis tiek galima pasiekti. Be to, ši politika neturi įtakos „Google“ diskui.
+
+      Jei šis nustatymas išjungtas arba nesukonfigūruotas, naudotojai įrenginyje gali naudoti visų palaikomų tipų išorinę saugyklą.</translation>
 <translation id="5697306356229823047">Pateikti įrenginio naudotojų ataskaitą</translation>
 <translation id="570062449808736508">Kai bus nustatyta ne tuščia šios politikos eilutė, „WebView“ perskaitys URL apribojimus iš turinio teikėjo su nurodytu įstaigos pavadinimu.</translation>
 <translation id="5703863730741917647">Nurodykite veiksmą, kuris bus atliktas, kai bus pasiektas neaktyvumo delsos laikas.

@@ -95,6 +95,7 @@ Debes activar la ubicación y el Bluetooth para utilizar la Web física.</transl
 <translation id="1966710179511230534">Actualiza tus datos de inicio de sesión.</translation>
 <translation id="1974060860693918893">Opciones avanzadas</translation>
 <translation id="1984937141057606926">Permitidas (excepto cookies de terceros)</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> quiere vincularse</translation>
 <translation id="1994173015038366702">URL del sitio</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> kB de otras aplicaciones</translation>
 <translation id="2020194265157481222">Se necesita el nombre de la tarjeta</translation>
@@ -266,6 +267,7 @@ Para ajustar el término de búsqueda, mantén pulsado el texto para seleccionar
 <translation id="3950820424414687140">Iniciar sesión</translation>
 <translation id="3967822245660637423">Descarga completa</translation>
 <translation id="397583555483684758">La sincronización ha dejado de funcionar</translation>
+<translation id="3985215325736559418">¿Quieres volver a descargar el archivo <ph name="FILE_NAME" />?</translation>
 <translation id="3988213473815854515">Se permite la ubicación</translation>
 <translation id="3997476611815694295">Almacenamiento no importante</translation>
 <translation id="4002066346123236978">Título</translation>
@@ -355,6 +357,7 @@ Para ajustar el término de búsqueda, mantén pulsado el texto para seleccionar
 <translation id="4996978546172906250">Compartir a través de</translation>
 <translation id="5000922062037820727">Bloqueado (recomendado)</translation>
 <translation id="5005498671520578047">Copiar contraseña</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> quiere conectarse</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Permitir</translation>
 <translation id="5040262127954254034">Privacidad</translation>
@@ -610,6 +613,7 @@ Es posible que tu cuenta de Google tenga otras formas del historial de navegaci�
 <translation id="7682287625158474539">Dirección de envío</translation>
 <translation id="7698359219371678927">Crear correo electrónico en <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Consultar las URL cercanas</translation>
+<translation id="7746006994124500250">Descarga pendiente...</translation>
 <translation id="7764225426217299476">Añadir dirección</translation>
 <translation id="7765158879357617694">Mover</translation>
 <translation id="7769602470925380267">Aceptar y cerrar sesión</translation>
@@ -633,6 +637,7 @@ Es posible que tu cuenta de Google tenga otras formas del historial de navegaci�
 <translation id="7998918019931843664">Volver a abrir pestaña cerrada</translation>
 <translation id="7999064672810608036">¿Estás seguro de que quieres borrar todos los datos locales, incluidas las cookies, y restablecer todos los permisos de este sitio web?</translation>
 <translation id="8007176423574883786">Desactivada para este dispositivo</translation>
+<translation id="8008818777654712271">Enviar automáticamente información del sistema y contenido de las páginas a Google para que pueda detectar aplicaciones y sitios web peligrosos</translation>
 <translation id="802154636333426148">No se ha podido descargar el archivo</translation>
 <translation id="8026334261755873520">Borrar datos de navegación</translation>
 <translation id="8033827949643255796">seleccionados</translation>

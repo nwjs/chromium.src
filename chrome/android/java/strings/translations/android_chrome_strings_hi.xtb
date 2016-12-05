@@ -95,6 +95,7 @@
 <translation id="1966710179511230534">कृपया अपने प्रवेश विवरण अपडेट करें.</translation>
 <translation id="1974060860693918893">उन्नत</translation>
 <translation id="1984937141057606926">तृतीय-पक्ष को छोड़कर अनुमति है</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> युग्मित करना चाहता है</translation>
 <translation id="1994173015038366702">साइट URL</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB अन्य ऐप्लिकेशन</translation>
 <translation id="2020194265157481222">कार्ड पर नाम आवश्यक है</translation>
@@ -266,6 +267,7 @@
 <translation id="3950820424414687140">प्रवेश करें</translation>
 <translation id="3967822245660637423">डाउनलोड पूर्ण</translation>
 <translation id="397583555483684758">समन्‍वयन ने कार्य करना बंद कर दिया है</translation>
+<translation id="3985215325736559418">क्या आप <ph name="FILE_NAME" /> को फिर से डाउनलोड करना चाहते हैं?</translation>
 <translation id="3988213473815854515">स्‍थान अनुमत है</translation>
 <translation id="3997476611815694295">महत्वहीन मेमोरी</translation>
 <translation id="4002066346123236978">शीर्षक</translation>
@@ -355,6 +357,7 @@
 <translation id="4996978546172906250">इसके द्वारा साझा करें</translation>
 <translation id="5000922062037820727">अवरोधित (सुझाया गया)</translation>
 <translation id="5005498671520578047">पासवर्ड कॉपी करें</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> कनेक्ट करना चाहती है</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">अनुमति दें</translation>
 <translation id="5040262127954254034">निजता</translation>
@@ -610,6 +613,7 @@
 <translation id="7682287625158474539">शिपिंग</translation>
 <translation id="7698359219371678927"><ph name="APP_NAME" /> में ईमेल बनाएं</translation>
 <translation id="771135159654932189">देखें कि आस-पास क्या है</translation>
+<translation id="7746006994124500250">डाउनलोड लंबित...</translation>
 <translation id="7764225426217299476">पता जोड़ें</translation>
 <translation id="7765158879357617694">ले जाएं</translation>
 <translation id="7769602470925380267">स्वीकार करें और प्रस्थान करें</translation>
@@ -633,6 +637,7 @@
 <translation id="7998918019931843664">बंद टैब फिर से खोलें</translation>
 <translation id="7999064672810608036">क्‍या आप वाकई कुकी सहित इस वेबसाइट का सभी स्‍थानीय डेटा साफ़ करना और इसकी सभी अनुमतियों को रीसेट करना चाहते हैं?</translation>
 <translation id="8007176423574883786">इस डिवाइस के लिए बंद कर दिया गया है</translation>
+<translation id="8008818777654712271">खतरनाक ऐप्लिकेशन और साइटों का पता लगाने में सहायता करने के लिए Google को अपने आप कुछ सिस्टम जानकारी और पृष्ठ सामग्री भेजें</translation>
 <translation id="802154636333426148">डाउनलोड विफल रहा</translation>
 <translation id="8026334261755873520">ब्राउज़िंग डेटा साफ़ करें</translation>
 <translation id="8033827949643255796">चयनित</translation>

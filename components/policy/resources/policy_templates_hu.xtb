@@ -626,6 +626,15 @@
 <translation id="2884728160143956392">Csak a programfolyamatra szóló cookie-k engedélyezése ezeken a webhelyeken</translation>
 <translation id="2893546967669465276">Rendszernaplók küldése a kezelőszervernek</translation>
 <translation id="2899002520262095963">Az androidos alkalmazások használhatják a házirenden keresztül beállított hálózati beállításokat és a CA tanúsítványokat, de nem rendelkeznek hozzáféréssel egyes konfigurációs beállításokhoz.</translation>
+<translation id="2901399514673504930">A külső tárolóeszközök kezelése írásvédettként.
+
+      Ez a házirend csak akkor érvényes, ha az ExternalStorageDisabled házirend értéke hamis, vagy ha nincs konfigurálva.
+
+      Ha ennek a házirendnek az értéke igaz, a felhasználók semmit sem írhatnak a külső tárolóeszközökre.
+
+      Ha ki van kapcsolva, vagy ha nincs konfigurálva, akkor a felhasználók létrehozhatnak és módosíthatnak fájlokat azokon a külső tárolóeszközökön, amelyek írása fizikailag lehetséges.
+
+      Az M56-os és újabb verziók támogatják a házirend dinamikus frissítését.</translation>
 <translation id="2906874737073861391">AppPack bővítmények listája</translation>
 <translation id="2908277604670530363">Egyidejű kapcsolatok maximális száma a proxyszerverhez</translation>
 <translation id="2948087343485265211">Meghatározza, hogy az audiotevékenység hatással van-e az energiagazdálkodásra.
@@ -1405,6 +1414,11 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
           Ha a beállítás engedélyezve van, a távoli elérésű gazdagép összeveti a helyi felhasználó (akihez a gazdagép társítva van) nevét és a gazdagép tulajdonosaként regisztrált Google-fiók nevét (amely „johndoe”, ha a gazdagép tulajdonosa a „johndoe@example.com” Google-fiók).  A távoli elérésű gazdagép nem indul el, ha a gazdagép tulajdonosának neve eltér annak a helyi felhasználónak a nevétől, akihez a gazdagép társítva van.  A RemoteAccessHostMatchUsername házirendet a RemoteAccessHostDomain házirenddel együtt használva kényszeríthető az is, hogy a gazdagép tulajdonosának Google-fiókja egy meghatározott domainhez (pl. „example.com”) legyen társítva.
 
           Ha ez a beállítás le van tiltva, illetve nincs megadva, akkor a távoli elérésű gazdagép bármely helyi felhasználóhoz társítható.</translation>
+<translation id="5694594914843889579">Ha a házirend értéke Igaz, a külső tárhely nem lesz hozzáférhető a fájlböngészőben.
+
+      A házirend minden adathordozóra vonatkozik, például USB-tárra, külső merevlemezre, SD- és egyéb memóriakártyákra, optikai tárhelyre stb. A belső tárhelyre nincs hatással, így a Letöltések mappában mentett fájlok továbbra is elérhetők lesznek. A Google Drive-ra szintén nem érvényes ez a házirend.
+
+      Ha ez a beállítás ki van kapcsolva, vagy ha nincs konfigurálva, akkor a felhasználók bármilyen típusú támogatott külső tárhelyet használhatnak az eszközükkel.</translation>
 <translation id="5697306356229823047">Eszközfelhasználók jelentése</translation>
 <translation id="570062449808736508">Ha a házirend értéke nem üres karakterlánc, akkor a WebView beolvassa a tartalomszolgáltatótól kapott URL-korlátozásokat és az adott hatóság nevét.</translation>
 <translation id="5703863730741917647">A tétlenségi késleltetés elérésekor végrehajtandó művelet megadása.

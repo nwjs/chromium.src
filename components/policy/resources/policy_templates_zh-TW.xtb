@@ -623,6 +623,15 @@
 <translation id="2884728160143956392">只有本次工作階段允許這些網站的 Cookie</translation>
 <translation id="2893546967669465276">將系統紀錄傳送到管理伺服器</translation>
 <translation id="2899002520262095963">Android 應用程式可以使用透過這項政策指定的網路設定和 CA 憑證，但無法存取部分設定選項。</translation>
+<translation id="2901399514673504930">以唯讀模式處理外部儲存裝置。
+
+      將 ExternalStorageDisabled 設為 false 或不予設定時，這項政策才會生效。
+
+      將這項政策設為 true 時，使用者無法對外部儲存裝置寫入任何內容。
+
+      如果停用或未指定這項設定，只要外部儲存裝置可供寫入內容，使用者即可在其中建立及修改檔案。
+
+      M56 以上版本支援這項政策的動態更新功能。</translation>
 <translation id="2906874737073861391">AppPack 擴充功能清單</translation>
 <translation id="2908277604670530363">Proxy 伺服器的並行連線數量上限</translation>
 <translation id="2948087343485265211">指定會影響電源管理的音訊活動。
@@ -1406,6 +1415,11 @@
           如果啟用這項設定，遠端存取主機會比對本機使用者 (與主機相關聯的使用者) 的名稱和註冊為主機擁有者的 Google 帳戶名稱 (也就是說，如果主機是由「johndoe@example.com」這個 Google 帳戶所擁有，帳戶名稱就是「johndoe」)。如果兩者不符，遠端存取主機就不會啟動。建議您配合使用 RemoteAccessHostMatchUsername 政策和 RemoteAccessHostDomain，一併強制讓主機擁有者的 Google 帳戶與特定網域 (在此例中即為「example.com」) 相關聯。
 
           如果停用或未指定這項設定，則任何本機使用者皆可與遠端存取主機建立關聯。</translation>
+<translation id="5694594914843889579">將這項政策設為 true 時，無法在檔案瀏覽器中存取外部儲存裝置。
+
+      這項政策會影響所有類型的儲存媒體 (例如 USB 隨身碟、外接硬碟、SD 卡和其他記憶卡、光學儲存裝置等等)，內部儲存空間則不受影響，因此儲存在「下載」資料夾中的檔案仍可供存取。此外，Google 雲端硬碟不受這項政策影響。
+
+      如果停用或未指定這項設定，使用者即可在裝置上使用各種支援的外部儲存裝置。</translation>
 <translation id="5697306356229823047">回報裝置使用者</translation>
 <translation id="570062449808736508">如果將這項政策設為非空白字串，WebView 就會讀取內容提供者 (擁有指定授權單位名稱) 的網址限制設定。</translation>
 <translation id="5703863730741917647">指定系統在達到閒置延遲時間時所採取的動作。

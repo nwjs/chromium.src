@@ -95,6 +95,7 @@
 <translation id="1966710179511230534">請更新您的登入詳細資料。</translation>
 <translation id="1974060860693918893">進階</translation>
 <translation id="1984937141057606926">允許 (第三方網站除外)</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> 要求配對</translation>
 <translation id="1994173015038366702">網站網址</translation>
 <translation id="200815880754187296">其他應用程式佔 <ph name="KILOBYTES" /> KB</translation>
 <translation id="2020194265157481222">請提供持卡人姓名</translation>
@@ -266,6 +267,7 @@
 <translation id="3950820424414687140">登入</translation>
 <translation id="3967822245660637423">下載完成</translation>
 <translation id="397583555483684758">同步處理功能已停止運作</translation>
+<translation id="3985215325736559418">你要再次下載 <ph name="FILE_NAME" /> 嗎？</translation>
 <translation id="3988213473815854515">禁止存取位置資訊</translation>
 <translation id="3997476611815694295">不重要網站的儲存資料量</translation>
 <translation id="4002066346123236978">標題</translation>
@@ -355,6 +357,7 @@
 <translation id="4996978546172906250">分享方式：</translation>
 <translation id="5000922062037820727">已封鎖 (建議)</translation>
 <translation id="5005498671520578047">複製密碼</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> 要求連線</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">允許</translation>
 <translation id="5040262127954254034">隱私權</translation>
@@ -610,6 +613,7 @@
 <translation id="7682287625158474539">寄送地址</translation>
 <translation id="7698359219371678927">在「<ph name="APP_NAME" />」中建立電子郵件</translation>
 <translation id="771135159654932189">查看附近有無實體化網路網頁</translation>
+<translation id="7746006994124500250">正在等候下載…</translation>
 <translation id="7764225426217299476">新增地址</translation>
 <translation id="7765158879357617694">移動</translation>
 <translation id="7769602470925380267">接受並登出</translation>
@@ -633,6 +637,7 @@
 <translation id="7998918019931843664">重新開啟先前關閉的分頁</translation>
 <translation id="7999064672810608036">您確定要刪除這個網站儲存的所有本機資料 (包括 Cookie 在內)，並重設這個網站的所有權限嗎？</translation>
 <translation id="8007176423574883786">已在這個裝置上關閉</translation>
+<translation id="8008818777654712271">自動傳送部分系統資訊和網頁內容給 Google，協助偵測危險的應用程式和網站。</translation>
 <translation id="802154636333426148">下載失敗</translation>
 <translation id="8026334261755873520">清除瀏覽資料</translation>
 <translation id="8033827949643255796">已選取</translation>

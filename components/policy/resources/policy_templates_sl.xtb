@@ -660,6 +660,15 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 <translation id="2884728160143956392">Na teh mestih dovoli samo sejne piškotke</translation>
 <translation id="2893546967669465276">Pošiljanje sistemskih dnevnikov v strežnik za upravljanje</translation>
 <translation id="2899002520262095963">Aplikacije za Android lahko uporabljajo omrežne konfiguracije in potrdila overitelja potrdil, nastavljena s tem pravilnikom, vendar nimajo dostopa do nekaterih možnosti konfiguracij.</translation>
+<translation id="2901399514673504930">Zunanje naprave za shranjevanje naj bodo samo za branje.
+
+      Ta pravilnik se uporablja samo, če je ExternalStorageDisabled izklopljen ali če ni nastavljen.
+
+      Če je ta pravilnik omogočen, uporabniki ne morejo pisati na zunanje naprave za shranjevanje.
+
+      Če je ta nastavitev onemogočena ali ni nastavljena, lahko uporabniki ustvarjajo in spreminjajo datoteke v zunanjih napravah za shranjevanje, ki podpirajo pisanje nanje.
+
+      Dinamično osveževanje tega pravilnika je podprto v različici M56 in novejših.</translation>
 <translation id="2906874737073861391">Seznam razširitev AppPack</translation>
 <translation id="2908277604670530363">Največje dovoljeno število hkratnih povezav s strežnikom proxy</translation>
 <translation id="2948087343485265211">Določa, ali zvočna dejavnost vpliva na upravljanje napajanja.
@@ -1509,6 +1518,11 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
           Če je ta nastavitev omogočena, gostitelj za oddaljeni dostop primerja ime lokalnega uporabnika (s katerim je povezan gostitelj) in ime Google Računa, ki je registriran kot lastnik gostitelja (tj. »janeznovak«, če je lastnik gostitelja Google Račun »janeznovak@example.com«). Gostitelj za oddaljeni dostop se ne bo zagnal, če se ime lastnika gostitelja razlikuje od imena lokalnega uporabnika, s katerim je povezan gostitelj. Pravilnik RemoteAccessHostMatchUsername se mora uporabljati skupaj s pravilnikom RemoteAccessHostDomain, da se prav tako uveljavi, da je Google Račun lastnika gostitelja povezan s točno določeno domeno (tj. »example.com«).
 
           Če je ta nastavitev onemogočena ali ni nastavljena, je mogoče gostitelja za oddaljeni dostop povezati s poljubnim lokalnim uporabnikom.</translation>
+<translation id="5694594914843889579">Ko je ta pravilnik omogočen, zunanji pomnilnik ne bo na voljo za datotečni brskalnik.
+
+      Ta pravilnik se uporablja za vse vrste nosilcev podatkov, kot so bliskovni pogoni USB, zunanji trdi diski, kartice SD in druge pomnilniške kartice, optični nosilci podatkov ipd. Na notranji pomnilnik to ne vpliva, zato je do datotek, shranjenih v mapi »Prenosi«, še vedno mogoče dostopati. Ta pravilnik prav tako ne vpliva na Google Drive.
+
+      Če je ta nastavitev onemogočena ali ni nastavljena, lahko uporabniki v svoji napravi uporabljajo vse podprte oblike zunanjega pomnilnika.</translation>
 <translation id="5697306356229823047">Poročanje o uporabnikih naprave</translation>
 <translation id="570062449808736508">Če je ta pravilnik nastavljen na niz, ki ni prazen, spletni pogled prebere omejitve za URL-je ponudnika vsebine z danim imenom overitelja.</translation>
 <translation id="5703863730741917647">Določanje dejanja, ki se izvede, ko je dosežena zakasnitev zaradi nedejavnosti.

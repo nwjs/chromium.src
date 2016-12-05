@@ -95,6 +95,7 @@
 <translation id="1966710179511230534">Моля, актуализирайте данните си за вход.</translation>
 <translation id="1974060860693918893">Разширени</translation>
 <translation id="1984937141057606926">Разрешено, но не и за трети страни</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> иска да се сдвои</translation>
 <translation id="1994173015038366702">URL адрес на сайт</translation>
 <translation id="200815880754187296">Други приложения: <ph name="KILOBYTES" /> КБ</translation>
 <translation id="2020194265157481222">Името на картодържателя е задължително</translation>
@@ -266,6 +267,7 @@
 <translation id="3950820424414687140">Вход</translation>
 <translation id="3967822245660637423">Изтеглянето завърши</translation>
 <translation id="397583555483684758">Синхронизирането спря да работи</translation>
+<translation id="3985215325736559418">Искате ли отново да изтеглите „<ph name="FILE_NAME" />“?</translation>
 <translation id="3988213473815854515">Местоположението е разрешено</translation>
 <translation id="3997476611815694295">Маловажни данни в хранилището</translation>
 <translation id="4002066346123236978">Заглавие</translation>
@@ -355,6 +357,7 @@
 <translation id="4996978546172906250">Споделяне чрез</translation>
 <translation id="5000922062037820727">Блокирано (препоръчително)</translation>
 <translation id="5005498671520578047">Копиране на паролата</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> иска да се свърже</translation>
 <translation id="5016205925109358554">Серифен</translation>
 <translation id="5039804452771397117">Разрешаване</translation>
 <translation id="5040262127954254034">Поверителност</translation>
@@ -610,6 +613,7 @@
 <translation id="7682287625158474539">Адрес за доставка</translation>
 <translation id="7698359219371678927">Създайте имейл в <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Преглед на нещата в близост</translation>
+<translation id="7746006994124500250">Предстои изтегляне...</translation>
 <translation id="7764225426217299476">Добавяне на адрес</translation>
 <translation id="7765158879357617694">Преместване</translation>
 <translation id="7769602470925380267">Приемане и излизане от профила</translation>
@@ -633,6 +637,7 @@
 <translation id="7998918019931843664">Повторно отваряне на затворения раздел</translation>
 <translation id="7999064672810608036">Наистина ли искате да изчистите всички локални данни, включително „бисквитките“, и да нулирате всички разрешения за този уебсайт?</translation>
 <translation id="8007176423574883786">Изключено за това устройство</translation>
+<translation id="8008818777654712271">Автоматично изпращане до Google на системна информация и част от съдържанието на страниците с цел по-лесно откриване на опасни приложения и сайтове</translation>
 <translation id="802154636333426148">Изтеглянето не бе успешно</translation>
 <translation id="8026334261755873520">Изчистване на данните за сърфирането</translation>
 <translation id="8033827949643255796">откроени</translation>

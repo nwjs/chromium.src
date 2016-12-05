@@ -95,6 +95,7 @@ Lai izmantotu fizisko tīmekli, ir jābūt ieslēgtam Bluetooth savienojumam un 
 <translation id="1966710179511230534">Lūdzu, atjauniniet pierakstīšanās informāciju.</translation>
 <translation id="1974060860693918893">Papildu</translation>
 <translation id="1984937141057606926">Atļauti, izņemot trešo pušu sīkfailus</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> vēlas savienot pārī</translation>
 <translation id="1994173015038366702">Vietnes URL</translation>
 <translation id="200815880754187296">Citas lietotnes: <ph name="KILOBYTES" /> KB</translation>
 <translation id="2020194265157481222">Jānorāda vārds un uzvārds uz kartes</translation>
@@ -266,6 +267,7 @@ Lai pielāgotu meklēšanas vienumu, nospiediet un turiet to. Lai veiktu precīz
 <translation id="3950820424414687140">Pierakstīties</translation>
 <translation id="3967822245660637423">Lejupielāde pabeigta</translation>
 <translation id="397583555483684758">Sinhronizācija vairs nedarbojas</translation>
+<translation id="3985215325736559418">Vai vēlaties vēlreiz lejupielādēt failu <ph name="FILE_NAME" />?</translation>
 <translation id="3988213473815854515">Atļauta piekļuve atrašanās vietas informācijai</translation>
 <translation id="3997476611815694295">Nesvarīga krātuve</translation>
 <translation id="4002066346123236978">Nosaukums</translation>
@@ -355,6 +357,7 @@ Lai pielāgotu meklēšanas vienumu, nospiediet un turiet to. Lai veiktu precīz
 <translation id="4996978546172906250">Kopīgošanas veids:</translation>
 <translation id="5000922062037820727">Bloķēta (ieteicams)</translation>
 <translation id="5005498671520578047">Paroles kopēšana</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> vēlas izveidot savienojumu</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Atļaut</translation>
 <translation id="5040262127954254034">Konfidencialitāte</translation>
@@ -610,6 +613,7 @@ Jūsu Google kontam vietnē <ph name="BEGIN_LINK" />history.google.com<ph name=
 <translation id="7682287625158474539">Piegāde</translation>
 <translation id="7698359219371678927">Izveidojiet e-pasta ziņojumu lietotnē <ph name="APP_NAME" />.</translation>
 <translation id="771135159654932189">Skatīt tuvumā esošos objektus</translation>
+<translation id="7746006994124500250">Lejupielāde tiek gaidīta...</translation>
 <translation id="7764225426217299476">Pievienot adresi</translation>
 <translation id="7765158879357617694">Pārvietot</translation>
 <translation id="7769602470925380267">Piekrist un izrakstīties</translation>
@@ -633,6 +637,7 @@ Jūsu Google kontam vietnē <ph name="BEGIN_LINK" />history.google.com<ph name=
 <translation id="7998918019931843664">Vēlreiz atvērt aizvērto cilni</translation>
 <translation id="7999064672810608036">Vai tiešām vēlaties notīrīt visus ar šo vietni saistītos lokālos datus, tostarp sīkfailus, un atiestatīt visas atļaujas?</translation>
 <translation id="8007176423574883786">Izslēgts šai ierīcei</translation>
+<translation id="8008818777654712271">Automātiski sūtīt noteiktu sistēmas informāciju un lapas saturu Google serveriem, lai palīdzētu noteikt bīstamas lietotnes un vietnes</translation>
 <translation id="802154636333426148">Lejupielāde neizdevās</translation>
 <translation id="8026334261755873520">Notīrīt pārlūkošanas datus</translation>
 <translation id="8033827949643255796">atlasīti</translation>

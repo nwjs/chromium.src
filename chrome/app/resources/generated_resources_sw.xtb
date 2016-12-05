@@ -2140,7 +2140,6 @@ Kutoka <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3709244229496787112">Kivinjari kimezimika kabla upakuaji kukamilika.</translation>
 <translation id="3711895659073496551">Sitisha</translation>
 <translation id="3712897371525859903">Hifadhi ukurasa k&amp;ama...</translation>
-<translation id="3713494718070140825"><ph name="BEGIN_WHITEPAPER_LINK" />Tuma kiotomatiki<ph name="END_WHITEPAPER_LINK" /> baadhi ya maelezo ya mfumo na maudhui ya ukurasa kwa Google ili kusaidia kugundua programu na tovuti hatari. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="3714633008798122362">kalenda ya wavuti</translation>
 <translation id="3715597595485130451">Unganisha kwenye Wi-Fi</translation>
 <translation id="3716615839203649375">ruhusu</translation>
@@ -3807,6 +3806,7 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="5957613098218939406">Chaguo Zaidi</translation>
 <translation id="5958529069007801266">Mtumiaji anayesimamiwa</translation>
 <translation id="5959471481388474538">Mtandao haupatikani</translation>
+<translation id="5959728338436674663">Tuma kiotomatiki <ph name="BEGIN_WHITEPAPER_LINK" />maelezo ya mfumo na maudhui kadha ya ukurasa<ph name="END_WHITEPAPER_LINK" /> kwa Google ili kusaidia kugundua programu na tovuti hatari. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Pata mandhari</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> kilele)</translation>
 <translation id="5965403572731919803">Ongeza kwenye rafu...</translation>

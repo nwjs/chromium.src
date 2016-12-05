@@ -95,6 +95,7 @@ Du må ha slått på Bluetooth og Posisjon for å bruke det fysiske nettet.</tra
 <translation id="1966710179511230534">Oppdater påloggingsinformasjonen din.</translation>
 <translation id="1974060860693918893">Avansert</translation>
 <translation id="1984937141057606926">Tillatt – unntatt fra tredjeparter.</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> vil koble til</translation>
 <translation id="1994173015038366702">Nettadressen til nettstedet</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> kB andre apper</translation>
 <translation id="2020194265157481222">Navnet som er oppført på kortet, er obligatorisk</translation>
@@ -266,6 +267,7 @@ Hvis du vil endre søkeordet, kan du trykke på det og holde for å merke det. H
 <translation id="3950820424414687140">Logg på</translation>
 <translation id="3967822245660637423">Nedlasting fullført</translation>
 <translation id="397583555483684758">Synkroniseringen har sluttet å fungere</translation>
+<translation id="3985215325736559418">Vil du laste ned <ph name="FILE_NAME" /> igjen?</translation>
 <translation id="3988213473815854515">Posisjon er tillatt</translation>
 <translation id="3997476611815694295">Uviktig lagring</translation>
 <translation id="4002066346123236978">Tittel</translation>
@@ -355,6 +357,7 @@ Hvis du vil endre søkeordet, kan du trykke på det og holde for å merke det. H
 <translation id="4996978546172906250">Del via</translation>
 <translation id="5000922062037820727">Blokkert (anbefales)</translation>
 <translation id="5005498671520578047">Kopiér passordet</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> vil koble til</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Tillat</translation>
 <translation id="5040262127954254034">Personvern</translation>
@@ -610,6 +613,7 @@ Det kan hende Google-kontoen din har andre typer nettlesingslogger, for eksempel
 <translation id="7682287625158474539">Forsendelse</translation>
 <translation id="7698359219371678927">Opprett en e-post i <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Se hva som er i nærheten</translation>
+<translation id="7746006994124500250">Nedlasting venter …</translation>
 <translation id="7764225426217299476">Legg til adresse</translation>
 <translation id="7765158879357617694">Flytt</translation>
 <translation id="7769602470925380267">Godta og logg av</translation>
@@ -633,8 +637,9 @@ Det kan hende Google-kontoen din har andre typer nettlesingslogger, for eksempel
 <translation id="7998918019931843664">Åpne lukkede faner igjen</translation>
 <translation id="7999064672810608036">Er du sikker på at du vil slette alle lokale data, deriblant informasjonskapsler, og tilbakestille alle tillatelser for dette nettstedet?</translation>
 <translation id="8007176423574883786">Slått av for denne enheten</translation>
+<translation id="8008818777654712271">Send automatisk noe systeminformasjon og sideinnhold til Google for å bidra til å oppdage farlige apper og nettsteder.</translation>
 <translation id="802154636333426148">Nedlastingen mislyktes</translation>
-<translation id="8026334261755873520">Slett nettleserdata</translation>
+<translation id="8026334261755873520">Slett nettlesingsdata</translation>
 <translation id="8033827949643255796">valgt</translation>
 <translation id="8035133914807600019">Ny mappe</translation>
 <translation id="8037750541064988519"><ph name="DAYS" /> dager igjen</translation>

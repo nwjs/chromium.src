@@ -660,6 +660,15 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
 <translation id="2884728160143956392">Allow session only cookies on these sites</translation>
 <translation id="2893546967669465276">Send system logs to the management server</translation>
 <translation id="2899002520262095963">Android apps can use the network configurations and CA certificates set via this policy, but do not have access to some configuration options.</translation>
+<translation id="2901399514673504930">Treat external storage devices as read-only.
+
+      This policy is effective only when ExternalStorageDisabled is set to false or not configured.
+
+      When this policy is set to true, users cannot write anything to external storage devices.
+
+      If this setting is disabled or not configured then users can create and modify files of external storage devices which are physically writable.
+
+      Dynamic refresh of this policy is supported in M56 and later.</translation>
 <translation id="2906874737073861391">List of AppPack extensions</translation>
 <translation id="2908277604670530363">Maximum number of concurrent connections to the proxy server</translation>
 <translation id="2948087343485265211">Specifies whether audio activity affects power management.
@@ -1510,6 +1519,11 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
           If this setting is enabled, then the remote access host compares the name of the local user (that the host is associated with) and the name of the Google account registered as the host owner (i.e. "johndoe" if the host is owned by "johndoe@example.com" Google account). The remote access host will not start if the name of the host owner is different from the name of the local user that the host is associated with. RemoteAccessHostMatchUsername policy should be used together with RemoteAccessHostDomain to also enforce that the Google account of the host owner is associated with a specific domain (i.e. "example.com").
 
           If this setting is disabled or not set, then the remote access host can be associated with any local user.</translation>
+<translation id="5694594914843889579">When this policy is set to true, external storage will not be available in the file browser.
+
+      This policy affects all types of storage media. For example: USB flash drives, external hard drives, SD and other memory cards, optical storage, etc. Internal storage is not affected, therefore files saved in the Download folder can still be accessed. Google Drive is also not affected by this policy.
+
+      If this setting is disabled or not configured then users can use all supported types of external storage on their device.</translation>
 <translation id="5697306356229823047">Report device users</translation>
 <translation id="570062449808736508">When this policy is set to a non-empty string, the WebView will read URL restrictions from the content provider with the given authority name.</translation>
 <translation id="5703863730741917647">Specify the action to take when the idle delay is reached.

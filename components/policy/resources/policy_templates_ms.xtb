@@ -662,6 +662,15 @@ chrome.enterprise.platformKeys.challengeUserKey().
 <translation id="2884728160143956392">Benarkan sesi kuki sahaja pada tapak ini</translation>
 <translation id="2893546967669465276">Hantar log sistem ke pelayan pengurusan</translation>
 <translation id="2899002520262095963">Apl Android boleh menggunakan konfigurasi rangkaian dan sijil CA yang ditetapkan melalui dasar ini tetapi tiada akses kepada beberapa pilihan konfigurasi.</translation>
+<translation id="2901399514673504930">Anggap peranti storan luaran sebagai baca sahaja.
+
+      Dasar ini hanya berkesan apabila ExternalStorageDisabled ditetapkan kepada palsu atau tidak dikonfigurasikan.
+
+      Apabila dasar ini ditetapkan kepada benar, pengguna tidak boleh menulis apa-apa pada peranti storan luaran.
+
+      Jika tetapan ini dilumpuhkan atau tidak dikonfigurasikan, pengguna boleh membuat atau mengubah suai fail peranti storan luaran yang boleh ditulis.
+
+      Muat semula dinamik dasar ini disokong dalam M56 dan lebih baharu.</translation>
 <translation id="2906874737073861391">Senarai sambungan AppPack</translation>
 <translation id="2908277604670530363">Bilangan maksimum sambungan serentak kepada pelayan proksi</translation>
 <translation id="2948087343485265211">Menyatakan sama ada aktiviti audio menjejaskan pengurusan kuasa.
@@ -1509,6 +1518,11 @@ chrome.enterprise.platformKeys.challengeUserKey().
           Jika tetapan ini didayakan, maka hos akses jauh membandingkan nama pengguna setempat (yang berkaitan dengan hos) dan nama akaun Google yang didaftarkan sebagai pemilih hos (iaitu "johandolah" jika hos dimiliki oleh akaun Google "johandolah@contoh.com").  Hos akses jauh tidak akan dimulakan jika nama pemilik hos berbeza daripada nama pengguna setempat yang berkaitan dengan hos tersebut.  Dasar RemoteAccessHostMatchUsername hendaklah digunakan bersama-sama dengan RemoteAccessHostDomain dan perlu turut menguatkuasakan bahawa akaun Google bagi pemilik hos dikaitkan dengan domain tertentu (iaitu "contoh.com").
 
           Jika tetapan ini dilumpuhkan atau tidak ditetapkan, maka hos akses jauh boleh dikaitkan dengan mana-mana pengguna setempat.</translation>
+<translation id="5694594914843889579">Apabila dasar ini ditetapkan kepada benar, storan luaran tidak akan tersedia dalam penyemak imbas fail.
+
+      Dasar ini mempengaruhi semua jenis media storan. Contohnya: pemacu kilat USB, pemacu keras luaran, kad SD dan kad memori lain, storan optik dsb. Storan dalaman tidak terjejas, oleh itu, fail yang disimpan dalam folder Muat Turun masih boleh diakses. Google Drive turut tidak terjejas oleh dasar ini.
+
+      Jika tetapan ini dilumpuhkan atau tidak dikonfigurasi, maka pengguna boleh menggunakan semua jenis storan luaran yang disokong pada peranti mereka.</translation>
 <translation id="5697306356229823047">Laporkan pengguna peranti</translation>
 <translation id="570062449808736508">Apabila dasar ini ditetapkan kepada rentetan bukan kosong, WebView akan membaca sekatan URL daripada pembekal kandungan dengan nama autoriti yang diberikan.</translation>
 <translation id="5703863730741917647">Menentukan tindakan yang perlu diambil apabila kelewatan melahu dicapai.

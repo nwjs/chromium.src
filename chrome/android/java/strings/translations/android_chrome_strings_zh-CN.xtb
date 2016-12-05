@@ -95,6 +95,7 @@
 <translation id="1966710179511230534">请更新您的登录详细信息。</translation>
 <translation id="1974060860693918893">高级</translation>
 <translation id="1984937141057606926">允许（第三方除外）</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> 希望与以下所选设备配对：</translation>
 <translation id="1994173015038366702">网站网址</translation>
 <translation id="200815880754187296">其他应用已占用的空间：<ph name="KILOBYTES" /> KB</translation>
 <translation id="2020194265157481222">持卡人姓名是必填项</translation>
@@ -266,6 +267,7 @@
 <translation id="3950820424414687140">登录</translation>
 <translation id="3967822245660637423">下载完毕</translation>
 <translation id="397583555483684758">同步功能已停止工作</translation>
+<translation id="3985215325736559418">要重新下载“<ph name="FILE_NAME" />”吗？</translation>
 <translation id="3988213473815854515">允许访问位置信息</translation>
 <translation id="3997476611815694295">不重要网站的存储数据</translation>
 <translation id="4002066346123236978">标题</translation>
@@ -355,6 +357,7 @@
 <translation id="4996978546172906250">分享方式</translation>
 <translation id="5000922062037820727">已阻止（推荐）</translation>
 <translation id="5005498671520578047">复制密码</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> 希望连接到以下所选设备：</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">允许</translation>
 <translation id="5040262127954254034">隐私设置</translation>
@@ -610,6 +613,7 @@
 <translation id="7682287625158474539">送货地址</translation>
 <translation id="7698359219371678927">在 <ph name="APP_NAME" /> 中创建电子邮件</translation>
 <translation id="771135159654932189">查看附近的实物网网址</translation>
+<translation id="7746006994124500250">待下载…</translation>
 <translation id="7764225426217299476">添加地址</translation>
 <translation id="7765158879357617694">移动</translation>
 <translation id="7769602470925380267">接受并退出</translation>
@@ -633,6 +637,7 @@
 <translation id="7998918019931843664">重新打开关闭的标签页</translation>
 <translation id="7999064672810608036">确定要清除该网站的所有本地数据（包括 Cookie）并重置该网站的所有权限吗？</translation>
 <translation id="8007176423574883786">已对此设备停用</translation>
+<translation id="8008818777654712271">自动向 Google 发送某些系统信息和网页内容，以帮助检测危险应用和网站</translation>
 <translation id="802154636333426148">下载失败</translation>
 <translation id="8026334261755873520">清除浏览数据</translation>
 <translation id="8033827949643255796">已选中</translation>

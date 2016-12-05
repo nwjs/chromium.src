@@ -9,6 +9,7 @@
 <translation id="1055184225775184556">&amp;Vrátiť späť pridanie</translation>
 <translation id="10614374240317010">Neuložené</translation>
 <translation id="106701514854093668">Záložky plochy</translation>
+<translation id="1074497978438210769">Nezabezpečené</translation>
 <translation id="1080116354587839789">Prispôsobiť šírke</translation>
 <translation id="1103523840287552314">Vždy preložiť nasledujúci jazyk: <ph name="LANGUAGE" /></translation>
 <translation id="1107591249535594099">Ak je toto nastavenie začiarknuté, Chrome uloží kópiu karty na toto zariadenie, aby ste mohli vypĺňať formuláre rýchlejšie.</translation>
@@ -38,6 +39,7 @@
 <translation id="129553762522093515">Naposledy zatvorené</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Skúste vymazať súbory cookie<ph name="END_LINK" /></translation>
 <translation id="1339601241726513588">Doména registrácie:</translation>
+<translation id="1344211575059133124">Zdá sa, že prístup na tento web si vyžaduje povolenie</translation>
 <translation id="1344588688991793829">Nastavenia Automatického dopĺňania prehliadača Chromium...</translation>
 <translation id="1374468813861204354">návrhy</translation>
 <translation id="1375198122581997741">Informácie o verzii</translation>
@@ -69,6 +71,7 @@
 <translation id="168841957122794586">Certifikát servera obsahuje slabý kryptografický kľúč.</translation>
 <translation id="1701955595840307032">Získanie navrhovaného obsahu</translation>
 <translation id="1710259589646384581">OS</translation>
+<translation id="1721312023322545264">Ak chcete navštíviť tento web, potrebujete povolenie od správcu <ph name="NAME" /></translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Skúste kontaktovať správcu systému.</translation>
 <translation id="1745358365027406341">Stiahnuť stránku neskôr</translation>
@@ -171,6 +174,7 @@
 <translation id="2742870351467570537">Odstrániť vybraté položky</translation>
 <translation id="277499241957683684">Chýbajúci záznam zariadenia</translation>
 <translation id="2784949926578158345">Spojenie bolo obnovené.</translation>
+<translation id="2794233252405721443">Web je blokovaný</translation>
 <translation id="2824775600643448204">Panel s adresou a vyhľadávací panel</translation>
 <translation id="2826760142808435982">Pripojenie je šifrované pomocou štandardu <ph name="CIPHER" /> a používa mechanizmus výmeny kľúčov <ph name="KX" />.</translation>
 <translation id="2835170189407361413">Vymazať formulár</translation>
@@ -246,6 +250,7 @@
 <translation id="3549644494707163724">Šifrovať všetky synchronizované údaje pomocou vlastnej prístupovej frázy pre synchronizáciu</translation>
 <translation id="3549761410225185768">Ďalšie: <ph name="NUM_TABS_MORE" />...</translation>
 <translation id="3555561725129903880">Tomuto serveru sa nepodarilo dokázať, že ide o doménu <ph name="DOMAIN" />; jej bezpečnostný certifikát pochádza z domény <ph name="DOMAIN2" />. Môže to byť následok nesprávnej konfigurácie alebo napadnutia vášho pripojenia útočníkom. <ph name="BEGIN_LEARN_MORE_LINK" />Ďalšie informácie<ph name="END_LEARN_MORE_LINK" /></translation>
+<translation id="3556433843310711081">Váš správca ho môže pre vás odblokovať</translation>
 <translation id="3566021033012934673">Vaše pripojenie nie je súkromné</translation>
 <translation id="3583757800736429874">&amp;Znova presunúť</translation>
 <translation id="3586931643579894722">Skryť podrobnosti</translation>
@@ -282,8 +287,8 @@
 <translation id="3858027520442213535">Aktualizovať dátum a čas</translation>
 <translation id="3884278016824448484">Kolidujúci identifikátor zariadenia</translation>
 <translation id="3885155851504623709">Okrsok</translation>
+<translation id="3886446263141354045">Vaša žiadosť o prístup na tento web sa odoslala správcovi <ph name="NAME" /></translation>
 <translation id="3901925938762663762">Platnosť karty vypršala</translation>
-<translation id="3910267023907260648">Pokúsili ste sa prejsť do domény <ph name="DOMAIN" />, ale server predložil certifikát podpísaný slabým algoritmom podpisu. Znamená to, že predložené poverenia zabezpečenia mohli byť sfalšované a môže ísť o úplne iný server, než ste očakávali (je možné, že komunikujete s útočníkom) <ph name="BEGIN_LEARN_MORE_LINK" />Ďalšie informácie<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="3933571093587347751">{1,plural, =1{Tomuto serveru sa nepodarilo dokázať, že ide o doménu <ph name="DOMAIN" />; jej certifikát by mal začať platiť od zajtra. Môže to byť následok nesprávnej konfigurácie alebo napadnutia vášho pripojenia útočníkom. <ph name="BEGIN_LEARN_MORE_LINK" />Ďalšie informácie<ph name="END_LEARN_MORE_LINK" />}few{Tomuto serveru sa nepodarilo dokázať, že ide o doménu <ph name="DOMAIN" />; jej certifikát by mal začať platiť o # dni. Môže to byť následok nesprávnej konfigurácie alebo napadnutia vášho pripojenia útočníkom. <ph name="BEGIN_LEARN_MORE_LINK" />Ďalšie informácie<ph name="END_LEARN_MORE_LINK" />}many{Tomuto serveru sa nepodarilo dokázať, že ide o doménu <ph name="DOMAIN" />; jej certifikát by mal začať platiť o # dňa. Môže to byť následok nesprávnej konfigurácie alebo napadnutia vášho pripojenia útočníkom. <ph name="BEGIN_LEARN_MORE_LINK" />Ďalšie informácie<ph name="END_LEARN_MORE_LINK" />}other{Tomuto serveru sa nepodarilo dokázať, že ide o doménu <ph name="DOMAIN" />; jej certifikát by mal začať platiť o # dní. Môže to byť následok nesprávnej konfigurácie alebo napadnutia vášho pripojenia útočníkom. <ph name="BEGIN_LEARN_MORE_LINK" />Ďalšie informácie<ph name="END_LEARN_MORE_LINK" />}}</translation>
 <translation id="3934680773876859118">Načítanie dokumentu PDF zlyhalo</translation>
 <translation id="3963721102035795474">Režim čítačky</translation>
@@ -354,6 +359,7 @@
 <translation id="4813512666221746211">Chyba siete</translation>
 <translation id="4816492930507672669">Prispôsobiť stránke</translation>
 <translation id="4850886885716139402">Zobraziť</translation>
+<translation id="4858792381671956233">Požiadali ste rodičov o povolenie návštevy tohto webu.</translation>
 <translation id="4880827082731008257">Hľadať v histórii</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /></translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{a 1 ďalšia webová stránka}few{a # ďalšie webové stránky}many{a # ďalšej webovej stránky}other{a # ďalších webových stránok}}</translation>
@@ -422,9 +428,11 @@
 <translation id="5629630648637658800">Nastavenia pravidla sa nepodarilo načítať</translation>
 <translation id="5631439013527180824">Neplatný token správy zariadenia</translation>
 <translation id="5677928146339483299">Zablokované</translation>
+<translation id="5694783966845939798">Pokúsili ste sa prejsť do domény <ph name="DOMAIN" />, ale server predložil certifikát podpísaný slabým algoritmom podpisu (napr. SHA-1). Znamená to, že predložené bezpečnostné poverenia mohli byť sfalšované a môže ísť o úplne iný server, ako ste očakávali (je možné, že komunikujete s útočníkom). <ph name="BEGIN_LEARN_MORE_LINK" />Ďalšie informácie<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="5710435578057952990">Identita tejto webovej stránky nebola overená.</translation>
 <translation id="5720705177508910913">Aktuálny používateľ</translation>
 <translation id="572328651809341494">Nedávne karty</translation>
+<translation id="5732392974455271431">Vaši rodičia ho môžu pre vás odblokovať</translation>
 <translation id="5784606427469807560">Pri overovaní karty sa vyskytol problém. Skontrolujte pripojenie k internetu a skúste to znova.</translation>
 <translation id="5785756445106461925">Táto stránka obsahuje aj iné zdroje, ktoré nie sú zabezpečené. Tieto zdroje môžu pri prenose vidieť ostatní používatelia a útočník ich môže upraviť tak, aby zmenil vzhľad stránky.</translation>
 <translation id="5786044859038896871">Chcete vyplniť informácie o karte?</translation>
@@ -476,6 +484,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{1 ďalší návrh}few{# ďalšie návrhy}many{# ďalšieho návrhu}other{# ďalších návrhov}}</translation>
 <translation id="6387478394221739770">Máte záujem o skvelé nové funkcie prehliadača Chrome? Vyskúšajte verziu beta na stránke chrome.com/beta.</translation>
 <translation id="6389758589412724634">Pri pokuse o zobrazenie tejto webovej stránky došlo miesto v pamäti prehliadača Google Chromium.</translation>
+<translation id="6414888972213066896">Opýtali ste sa svojho rodiča, či môžete navštíviť tento web</translation>
 <translation id="6416403317709441254">Web <ph name="SITE" /> momentálne nemôžete navštíviť, pretože odoslal zakódované poverenia, ktoré Chromium neodkáže spracovať. Chyby siete a útoky sú zvyčajne dočasné, takže táto stránka by mala pravdepodobne neskôr fungovať. <ph name="BEGIN_LEARN_MORE_LINK" />Ďalšie informácie<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6417515091412812850">Nie je možné skontrolovať, či bol certifikát odmietnutý.</translation>
 <translation id="6433595998831338502">Web <ph name="HOST_NAME" /> zamietol pripojenie.</translation>
@@ -488,6 +497,7 @@
 <translation id="6529602333819889595">&amp;Znova odstrániť</translation>
 <translation id="6534179046333460208">Návrhy Fyzického webu</translation>
 <translation id="6550675742724504774">Možnosti</translation>
+<translation id="6563469144985748109">Váš správca to zatiaľ neschválil</translation>
 <translation id="6593753688552673085">menej ako <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="6596325263575161958">Možnosti šifrovania</translation>
 <translation id="662080504995468778">Zostať</translation>
@@ -506,6 +516,7 @@
 <translation id="674375294223700098">Neznáma chyba spôsobená certifikátom servera.</translation>
 <translation id="6753269504797312559">Hodnota pravidla</translation>
 <translation id="6757797048963528358">Vaše zariadenie prešlo do režimu spánku.</translation>
+<translation id="6778737459546443941">Váš rodič to zatiaľ neschválil</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Webová stránka na adrese <ph name="URL" /> momentálne nie je k dispozícii. Môže byť preťažená alebo na nej prebieha údržba.</translation>
 <translation id="6831043979455480757">Preložiť</translation>
@@ -562,8 +573,10 @@ Nabudúce by sa vám mohol hodiť režim inkognito (<ph name="SHORTCUT_KEY" />).
 <translation id="7419106976560586862">Cesta profilu</translation>
 <translation id="7424977062513257142">Vložená stránka na tejto webstránke hovorí:</translation>
 <translation id="7441627299479586546">Chybný predmet pravidla</translation>
+<translation id="7444046173054089907">Tento web je blokovaný</translation>
 <translation id="7445762425076701745">Identita servera, ku ktorému ste pripojení, sa nedá úplne overiť. Ste pripojení k serveru, ktorý používa názov platný iba v rámci vašej siete. Externá certifikačná autorita nemôže vlastníctvo názvu nijakým spôsobom overiť. Niektoré certifikačné autority však vydajú certifikát aj pre takéto názvy, a preto sa nedá zaručiť, že ste pripojení k požadovaným webovým stránkam a nie k stránkam útočníka.</translation>
 <translation id="7451311239929941790"><ph name="BEGIN_LINK" />Ďalšie informácie o tomto probléme<ph name="END_LINK" /></translation>
+<translation id="7460163899615895653">Vaše nedávne karty z iných zariadení sa zobrazia na tomto mieste</translation>
 <translation id="7469372306589899959">Overovanie karty</translation>
 <translation id="7481312909269577407">Dopredu</translation>
 <translation id="7485870689360869515">Nenašli sa žiadne údaje.</translation>
@@ -573,6 +586,7 @@ Nabudúce by sa vám mohol hodiť režim inkognito (<ph name="SHORTCUT_KEY" />).
 <translation id="7535087603100972091">Hodnota</translation>
 <translation id="7537536606612762813">Povinné</translation>
 <translation id="7542995811387359312">Automatické dopĺňanie údajov o kreditnej karte je zakázané, pretože tento formulár nepoužíva zabezpečené pripojenie.</translation>
+<translation id="7543525346216957623">Opýtajte sa rodiča</translation>
 <translation id="7549584377607005141">Správne zobrazenie tejto webovej stránky si vyžaduje údaje, ktoré ste zadali v minulosti. Tieto údaje môžete poslať znova, ale v tom prípade zopakujete všetky akcie, ktoré sa na tejto stránke vykonali v minulosti.</translation>
 <translation id="7554791636758816595">Nová karta</translation>
 <translation id="7568593326407688803">Táto stránka je v jazyku<ph name="ORIGINAL_LANGUAGE" />Chceli by ste ju preložiť?</translation>
@@ -597,6 +611,7 @@ Nabudúce by sa vám mohol hodiť režim inkognito (<ph name="SHORTCUT_KEY" />).
 <translation id="7716424297397655342">Tento web nie je možné načítať z vyrovnávacej pamäte</translation>
 <translation id="7733391738235763478">(<ph name="NUMBER_VISITS" />)</translation>
 <translation id="7752995774971033316">Nespravované</translation>
+<translation id="7755287808199759310">Váš rodič ho môže pre vás odblokovať</translation>
 <translation id="7758069387465995638">Pripojenie mohla zablokovať brána firewall alebo antivírusový softvér.</translation>
 <translation id="7761701407923456692">Certifikát servera sa nezhoduje s webovou adresou.</translation>
 <translation id="777702478322588152">Prefektúra</translation>
@@ -664,6 +679,7 @@ Nabudúce by sa vám mohol hodiť režim inkognito (<ph name="SHORTCUT_KEY" />).
 <translation id="856992080682148">Platnosť certifikátu pre tieto stránky vyprší v roku 2017 alebo neskôr a reťazec certifikátu obsahuje certifikát podpísaný pomocou funkcie SHA-1.</translation>
 <translation id="8571890674111243710">Prebieha preklad stránky do jazyka: <ph name="LANGUAGE" />...</translation>
 <translation id="859285277496340001">V certifikáte nie je uvedené, akým spôsobom sa má skontrolovať, či certifikát nebol odmietnutý.</translation>
+<translation id="8620436878122366504">Vaši rodičia to zatiaľ neschválili</translation>
 <translation id="8647750283161643317">Obnoviť predvolené nastavenia všetkých experimentov</translation>
 <translation id="8703575177326907206">Vaše pripojenie k doméne <ph name="DOMAIN" /> sa nešifruje.</translation>
 <translation id="8725066075913043281">Skúsiť znova</translation>
@@ -702,6 +718,7 @@ Nabudúce by sa vám mohol hodiť režim inkognito (<ph name="SHORTCUT_KEY" />).
 <translation id="9050666287014529139">Prístupová fráza</translation>
 <translation id="9065203028668620118">Upraviť</translation>
 <translation id="9068849894565669697">Výber farby</translation>
+<translation id="9076283476770535406">Môže zahŕňať obsah pre dospelých</translation>
 <translation id="9092364396508701805">Táto stránka webu <ph name="HOST_NAME" /> nefunguje</translation>
 <translation id="9103872766612412690">Web <ph name="SITE" /> zvyčajne chráni vaše informácie pomocou šifrovania. Keď sa prehliadač Chromium tentokrát pokúsil pripojiť k webu <ph name="SITE" />, odoslal späť nezvyčajné a nesprávne poverenia. Môže sa to stať vtedy, keď sa za web <ph name="SITE" /> snaží vydávať útočník alebo keď pripojenie preruší prihlasovacia obrazovka siete Wi-Fi. Vaše informácie sú stále zabezpečené, pretože prehliadač Chromium zastavil pripojenie ešte pred výmenou dát.</translation>
 <translation id="9137013805542155359">Zobraziť originál</translation>
@@ -716,6 +733,7 @@ Nabudúce by sa vám mohol hodiť režim inkognito (<ph name="SHORTCUT_KEY" />).
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="935608979562296692">VYMAZAŤ FORMULÁR</translation>
 <translation id="939736085109172342">Nový priečinok</translation>
+<translation id="941721044073577244">Zdá sa, že nemáte povolenie pristupovať na tento web</translation>
 <translation id="962701380617707048">Ak chcete aktualizovať podrobnosti o karte <ph name="CREDIT_CARD" />, zadajte dátum vypršania platnosti a kód CVC</translation>
 <translation id="969892804517981540">Oficiálne zostavenie</translation>
 <translation id="988159990683914416">Zostavenie pre vývojárov</translation>

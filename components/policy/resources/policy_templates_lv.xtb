@@ -663,6 +663,15 @@
 <translation id="2884728160143956392">Atļauj izmantot tikai sesijai lietojamos sīkfailus šajās vietnēs</translation>
 <translation id="2893546967669465276">Sistēmas žurnālu sūtīšana pārvaldības serverim</translation>
 <translation id="2899002520262095963">Android lietotnes var izmantot tīkla konfigurācijas un CA sertifikātus, kas iestatīti, izmantojot šo politiku, bet lietotnēm nav piekļuves dažām konfigurācijas opcijām.</translation>
+<translation id="2901399514673504930">Izmantot ārējās atmiņas ierīces kā tikai lasāmas.
+
+      Šī politika ir spēkā tikai tad, ja iestatījums ExternalStorageDisabled ir iestatīts kā aplams vai nav konfigurēts.
+
+      Ja šī politika ir iestatīta kā patiesa, lietotāji nevar neko rakstīt ārējās atmiņas ierīcēs.
+
+      Ja šis iestatījums ir atspējots vai nav konfigurēts, lietotāji var izveidot un modificēt failus ārējās atmiņas ierīcēs, kas ir fiziski rakstāmas.
+
+      Šīs politikas dinamiskā atsvaidzināšana tiek atbalstīta versijā M56 vai jaunākās versijās.</translation>
 <translation id="2906874737073861391">AppPack paplašinājumu saraksts</translation>
 <translation id="2908277604670530363">Maksimālais vienlaikus iespējamais savienojumu skaits ar starpniekserveri</translation>
 <translation id="2948087343485265211">Tiek norādīts, vai audio darbība ietekmē jaudas pārvaldību.
@@ -1500,6 +1509,11 @@ Ja šis iestatījums ir atspējots vai tam nav iestatīta vērtība, pārlūkā 
           Ja šis iestatījums ir iespējots, attālās piekļuves saimniekdatorā tiek salīdzināts lokālā lietotāja vārds (ar kuru ir saistīts saimniekdators) ar tā Google konta vārdu, kas ir reģistrēts kā saimniekdatora īpašnieks (piemēram, ja saimniekdators pieder Google konta janisberzins@example.com lietotājam, lokālā lietotāja vārdam ir jābūt “janisberzins”). Ja saimniekdatora īpašnieka vārds atšķiras no lokālā lietotāja vārda, ar kuru ir saistīts saimniekdators, attālās piekļuves saimniekdators netiek startēts. Politika RemoteAccessHostMatchUsername ir jāizmanto kopā ar politiku RemoteAccessHostDomain, lai ieviestu arī saimniekdatora īpašnieka Google konta saistīšanu ar konkrētu domēnu (piemēram, example.com).
 
           Ja šis iestatījums ir atspējots vai nav iestatīts, attālās piekļuves saimniekdatoru var saistīt ar jebkuru lokālo lietotāju.</translation>
+<translation id="5694594914843889579">Ja politika ir iestatīta kā patiesa, ārējā krātuve nav pieejama failu pārlūkā.
+
+      Šī politika attiecas uz visiem datu nesēju veidiem, piemēram, USB zibatmiņas diskiem, ārējiem cietajiem diskiem, SD un citām atmiņas kartēm, optiskajām krātuvēm u. c. Uz iekšējo krātuvi politika neattiecas, tādēļ failiem, kas saglabāti mapē Lejupielādes, joprojām var piekļūt. Šī politika neattiecas arī uz pakalpojumu Google disks.
+
+      Ja šis iestatījums ir atspējots vai nav konfigurēts, lietotāji savās ierīcēs var izmantot visus atbalstītos ārējo krātuvju veidus.</translation>
 <translation id="5697306356229823047">Ziņošana par ierīces lietotājiem</translation>
 <translation id="570062449808736508">Ja šai politikai ir iestatīta virkne, kas nav tukša, komponents WebView lasīs URL ierobežojumus no satura nodrošinātāja ar norādīto iestādes nosaukumu.</translation>
 <translation id="5703863730741917647">Darbība, kas ir jāveic, kad ir aizritējis laiks līdz dīkstāvei.

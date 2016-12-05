@@ -95,6 +95,7 @@ Je moet Bluetooth en Locatie hebben ingeschakeld om het Fysieke web te gebruiken
 <translation id="1966710179511230534">Update je inloggegevens.</translation>
 <translation id="1974060860693918893">Geavanceerd</translation>
 <translation id="1984937141057606926">Toegestaan, behalve van derden</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> wil koppelen</translation>
 <translation id="1994173015038366702">Site-URL</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB voor andere apps</translation>
 <translation id="2020194265157481222">Naam op kaart vereist</translation>
@@ -266,6 +267,7 @@ Als je de zoekterm wilt aanpassen, houd je deze aangeraakt om de term te selecte
 <translation id="3950820424414687140">Inloggen</translation>
 <translation id="3967822245660637423">Downloaden voltooid</translation>
 <translation id="397583555483684758">Synchronisatie werkt niet meer</translation>
+<translation id="3985215325736559418">Wil je <ph name="FILE_NAME" /> opnieuw downloaden?</translation>
 <translation id="3988213473815854515">Locatie is toegestaan</translation>
 <translation id="3997476611815694295">Onbelangrijke opslag</translation>
 <translation id="4002066346123236978">Titel</translation>
@@ -355,6 +357,7 @@ Als je de zoekterm wilt aanpassen, houd je deze aangeraakt om de term te selecte
 <translation id="4996978546172906250">Delen via</translation>
 <translation id="5000922062037820727">Geblokkeerd (aanbevolen)</translation>
 <translation id="5005498671520578047">Wachtwoord kopiëren</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> wil verbinding maken</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Toestaan</translation>
 <translation id="5040262127954254034">Privacy</translation>
@@ -610,6 +613,7 @@ Voor je Google-account kunnen andere vormen van browsegeschiedenis (zoals zoekop
 <translation id="7682287625158474539">Verzendadres</translation>
 <translation id="7698359219371678927">E-mail in <ph name="APP_NAME" /> maken</translation>
 <translation id="771135159654932189">Bekijken wat er in de buurt is</translation>
+<translation id="7746006994124500250">Download in behandeling...</translation>
 <translation id="7764225426217299476">Adres toevoegen</translation>
 <translation id="7765158879357617694">Verplaatsen</translation>
 <translation id="7769602470925380267">Accepteren en uitloggen</translation>
@@ -633,6 +637,7 @@ Voor je Google-account kunnen andere vormen van browsegeschiedenis (zoals zoekop
 <translation id="7998918019931843664">Gesloten tabblad opnieuw openen</translation>
 <translation id="7999064672810608036">Weet je zeker dat je alle gegevens, inclusief cookies, voor deze website wilt wissen en alle rechten opnieuw wilt instellen?</translation>
 <translation id="8007176423574883786">Uitgeschakeld voor dit apparaat</translation>
+<translation id="8008818777654712271">Bepaalde systeeminformatie en paginacontent automatisch verzenden naar Google om te helpen bij de detectie van gevaarlijke apps en sites</translation>
 <translation id="802154636333426148">Downloaden mislukt</translation>
 <translation id="8026334261755873520">Browsegegevens wissen</translation>
 <translation id="8033827949643255796">geselecteerd</translation>

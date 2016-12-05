@@ -25,6 +25,7 @@
 <translation id="1779356040007214683">為了讓 Chromium 的安全性更有保障，我們已將部分未列在 <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> 中的擴充功能停用，它們可能在您不知情的情況下加入瀏覽器。</translation>
 <translation id="1808667845054772817">重新安裝 Chromium</translation>
 <translation id="1816404578968201294">Chromium 需要位置資訊存取權，才能與這個網站分享。</translation>
+<translation id="1838412507805038478">Chromium 已驗證這個網站的憑證是由「<ph name="ISSUER" />」所核發。</translation>
 <translation id="1869480248812203386">您可以自動將疑似安全性事件的詳細資料傳送給 Google，協助我們讓 Chromium 變得更安全、更好用。</translation>
 <translation id="1881322772814446296">您已登入管理化環境下的帳戶，並將管理控制權授予您的 Chromium 設定檔。您的 Chromium 資料 (例如應用程式、書籤、紀錄、密碼和其他設定) 均將永久與 <ph name="USER_NAME" /> 建立關聯。您可以透過 Google 帳戶資訊主頁刪除這些資料，但您無法將這些資料與其他帳戶建立關聯。如要另行保留現有的 Chromium 資料，您可以選擇建立新的設定檔。<ph name="LEARN_MORE" /></translation>
 <translation id="1929939181775079593">Chromium 沒有回應，要立即重新啟動嗎？</translation>

@@ -617,6 +617,15 @@ Pokud zásadu nenastavíte, bude se považovat za aktivované (viz popis výše)
 <translation id="2884728160143956392">Povolit soubory cookie pouze pro relaci na těchto stránkách</translation>
 <translation id="2893546967669465276">Odesílat systémové protokoly na server správy</translation>
 <translation id="2899002520262095963">Aplikace Android mohou používat konfigurace sítě a certifikáty CA nastavené pomocí této zásady, ale nemají přístup k některým možnostem konfigurace.</translation>
+<translation id="2901399514673504930">Zacházet s externími úložnými zařízeními, jako by byla pouze pro čtení.
+
+      Tato zásada je účinná, pouze pokud je zásada ExternalStorageDisabled nastavena na hodnotu False nebo není nakonfigurována.
+
+      Pokud je tato zásada nastavena na hodnotu True, uživatelé do externích úložných zařízení nemohou nic zapisovat.
+
+      Pokud je toto nastavení deaktivováno nebo není nakonfigurováno, uživatelé mohou vytvářet a upravovat soubory na externích úložných zařízeních, která fyzicky umožňují zápis.
+
+      Dynamické obnovování této zásady je podporováno od verze M56.</translation>
 <translation id="2906874737073861391">Seznam rozšíření AppPack</translation>
 <translation id="2908277604670530363">Maximální počet současných připojení k proxy serveru</translation>
 <translation id="2948087343485265211">Určuje, zda aktivita zvukových zařízení ovlivňuje správu napájení.
@@ -1444,6 +1453,11 @@ Přečtěte si také o zásadě RemoteAccessHostDomain.</translation>
 Pokud je toto nastavení aktivováno, hostitel vzdáleného přístupu porovná jméno místního uživatele (k němuž je hostitel přidružen) a název účtu Google, který je registrován jako vlastník hostitele (je-li hostitel vlastněn například účtem Google jannovak@example.com, bude tímto názvem „jannovak“).  Pokud se název vlastníka hostitele liší od jména místního uživatele, k němuž je hostitel přidružen, hostitel vzdáleného přístupu se nespustí. Zásadu RemoteAccessHostMatchUsername doporučujeme používat společně se zásadou RemoteAccessHostDomain, protože tak lze vynutit konkrétní doménu účtu Google vlastníka hostitele (např. example.com).
 
 Pokud je toto nastavení deaktivováno nebo není nakonfigurováno, lze hostitele vzdáleného přístupu přidružit k libovolnému místnímu uživateli.</translation>
+<translation id="5694594914843889579">Když je tato zásada nastavena na hodnotu True, externí úložiště nebude k dispozici v prohlížeči souborů.
+
+      Tato zásada má vliv na všechny typy úložných médií. Jedná se například o jednotky USB flash, externí pevné disky, paměťové karty SD a další paměťové karty, optická úložiště apod. Na interní úložiště tato zásada vliv nemá. Soubory ve složce Stažené zůstanou přístupné. Tato zásada nemá vliv ani na Disk Google.
+
+      Pokud je toto nastavení deaktivováno nebo není nakonfigurováno, mohou uživatelé v zařízení používat všechny podporované typy externích úložišť.</translation>
 <translation id="5697306356229823047">Hlásit uživatele zařízení</translation>
 <translation id="570062449808736508">Když je tato zásada nastavena na neprázdný řetězec, služba WebView bude načítat omezení adres URL od poskytovatele obsahu pod zadaným názvem autority.</translation>
 <translation id="5703863730741917647">Určuje akci, která bude provedena po určité době nečinnosti.

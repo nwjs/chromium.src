@@ -590,6 +590,15 @@
 <translation id="2884728160143956392">在这些网站上允许仅限会话的 Cookie</translation>
 <translation id="2893546967669465276">将系统日志发送到管理服务器</translation>
 <translation id="2899002520262095963">Android 应用可以使用通过此政策设置的网络配置和 CA 证书，但无法访问某些配置选项。</translation>
+<translation id="2901399514673504930">以只读模式处理外部存储设备。
+
+      此政策仅在 ExternalStorageDisabled 设为 False 或未配置时有效。
+
+      如果此政策设为 True，用户便无法向外部存储设备写入任何内容。
+
+      如果此设置已停用或未配置，用户则可在外部存储设备上创建和修改文件（即，可向此类设备实际写入内容）。
+
+      M56 及更高版本均支持动态刷新此政策。</translation>
 <translation id="2906874737073861391">AppPack 扩展程序列表</translation>
 <translation id="2908277604670530363">可同时连接到代理服务器的连接数上限</translation>
 <translation id="2948087343485265211">指定音频活动是否影响电源管理。
@@ -1349,6 +1358,11 @@
           如果此设置处于启用状态，远程访问主机会对比本地用户（与主机关联的用户）的名称和注册为主机所有者的 Google 帐号的名称（例如，如果主机归 Google 帐号“johndoe@example.com”所有，Google 帐号的名称就是“johndoe”）。如果两者不同，远程访问主机将不会启动。RemoteAccessHostMatchUsername 政策应与 RemoteAccessHostDomain 一起使用，以便一并强制将主机所有者的 Google 帐号与特定网域（对于上述示例，网域为“example.com”）相关联。
 
           如果此设置处于停用状态或未指定，远程访问主机可以与任何本地用户关联。</translation>
+<translation id="5694594914843889579">如果此政策设为 True，用户便无法在文件浏览器中使用外部存储设备。
+
+      此政策会影响所有类型的存储媒介。例如：USB 闪存驱动器、外部硬盘、SD 卡和其他存储卡、光存储器等。内部存储不会受到影响，因此用户仍然可以访问存储在“下载”文件夹中的文件。Google 云端硬盘也不会受此政策影响。
+
+      如果此设置已停用或未配置，用户则可使用自己设备所支持的所有类型的外部存储设备。</translation>
 <translation id="5697306356229823047">报告设备用户</translation>
 <translation id="570062449808736508">此政策设为非空字符串时，WebView 将读取具有指定机构名称的内容提供方的网址限制条件。</translation>
 <translation id="5703863730741917647">指定闲置延迟时间已过时执行的操作。

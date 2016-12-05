@@ -630,6 +630,15 @@
 <translation id="2884728160143956392">Zezwalaj na pliki cookie w tych witrynach tylko na czas sesji</translation>
 <translation id="2893546967669465276">Wysyłaj dzienniki systemowe na serwer zarządzania</translation>
 <translation id="2899002520262095963">Aplikacje na Androida mogą używać konfiguracji sieci i certyfikatów CA ustawianych przez tę zasadę, ale nie mają dostępu do niektórych opcji konfiguracji.</translation>
+<translation id="2901399514673504930">Używaj zewnętrznych urządzeń pamięci tylko do odczytu.
+
+      Ta zasada obowiązuje tylko wtedy, gdy ustawienie ExternalStorageDisabled jest wyłączone lub nie jest skonfigurowane.
+
+      Po włączeniu tej zasady użytkownicy nie będą mogli niczego zapisywać na zewnętrznych urządzeniach pamięci.
+
+      W przypadku wyłączenia lub nieskonfigurowania tego ustawienia użytkownicy będą mogli tworzyć i modyfikować pliki na zewnętrznych urządzeniach pamięci, które fizycznie umożliwiają zapis.
+
+      Dynamiczne odświeżanie tej zasady jest obsługiwane w wersji M56 i nowszych.</translation>
 <translation id="2906874737073861391">Lista rozszerzeń z pakietu aplikacji</translation>
 <translation id="2908277604670530363">Maksymalna liczba jednoczesnych połączeń z serwerem proxy</translation>
 <translation id="2948087343485265211">Określa, czy aktywność związana z dźwiękiem wpływa na zarządzanie energią.
@@ -1410,6 +1419,11 @@ Jeśli je wyłączysz lub nie podasz wartości, stosowanie trybu ograniczonego d
           Po włączeniu tego ustawienia host dostępu zdalnego porównuje nazwę użytkownika lokalnego (z którym host jest skojarzony) z nazwą konta Google zarejestrowaną jako właściciel hosta (tj. „jankowalski”, jeśli właścicielem konta Google jest „jankowalski@example.com”). Host dostępu zdalnego nie uruchomi się, jeśli nazwa właściciela hosta będzie się różniła od nazwy użytkownika lokalnego, z którym host jest skojarzony. Zasadę RemoteAccessHostMatchUsername należy stosować w połączeniu z RemoteAccessHostDomain, by wymusić również weryfikowanie, czy konto Google właściciela hosta jest skojarzone z wybraną domeną (tj. „example.com”).
 
           Jeśli wyłączysz to ustawienie lub go nie skonfigurujesz, host zdalnego dostępu będzie mógł być skojarzony z dowolnym użytkownikiem lokalnym.</translation>
+<translation id="5694594914843889579">Po włączeniu tej zasady pamięci zewnętrzne będą niedostępne w przeglądarce plików.
+
+      Ta zasada dotyczy wszystkich typów nośników pamięci, takich jak na przykład napędy flash USB, zewnętrzne dyski twarde, karty pamięci SD i inne, pamięci optyczne itd. Pamięć wewnętrzna nie podlega tej zasadzie, więc nadal będzie można otwierać pliki z folderu Pobrane. Ta zasada nie dotyczy też Dysku Google.
+
+      W przypadku wyłączenia lub nieskonfigurowania tego ustawienia użytkownicy będą mogli korzystać na urządzeniu ze wszystkich obsługiwanych typów pamięci zewnętrznych.</translation>
 <translation id="5697306356229823047">Raportuj użytkowników urządzenia</translation>
 <translation id="570062449808736508">Gdy dla tej zasady zostanie ustawiony ciąg niepusty, komponent WebView będzie odczytywać ograniczenia URL przekazywane przez dostawcę treści o określonej nazwie urzędowej.</translation>
 <translation id="5703863730741917647">Określa czynność podejmowaną po osiągnięciu opóźnienia bezczynności.

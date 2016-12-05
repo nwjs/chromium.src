@@ -95,6 +95,7 @@ Pentru a folosi Webul material, trebuie să activezi Bluetooth și Locația.</tr
 <translation id="1966710179511230534">Actualizați detaliile de conectare.</translation>
 <translation id="1974060860693918893">Avansate</translation>
 <translation id="1984937141057606926">Permise, cu excepția celor terță parte</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> dorește să se asocieze</translation>
 <translation id="1994173015038366702">Adresa URL a site-ului</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB pentru alte aplicații</translation>
 <translation id="2020194265157481222">Numele de pe card este obligatoriu</translation>
@@ -266,6 +267,7 @@ Pentru a ajusta termenii căutării, apasă lung pentru a selecta. Pentru a rafi
 <translation id="3950820424414687140">Conectează-te</translation>
 <translation id="3967822245660637423">Descărcare finalizată</translation>
 <translation id="397583555483684758">Sincronizarea nu mai funcționează</translation>
+<translation id="3985215325736559418">Dorești să descarci <ph name="FILE_NAME" /> din nou?</translation>
 <translation id="3988213473815854515">Accesul la locație este permis</translation>
 <translation id="3997476611815694295">Stocare neimportantă</translation>
 <translation id="4002066346123236978">Titlu</translation>
@@ -355,6 +357,7 @@ Pentru a ajusta termenii căutării, apasă lung pentru a selecta. Pentru a rafi
 <translation id="4996978546172906250">Trimiteți prin</translation>
 <translation id="5000922062037820727">Blocată (recomandat)</translation>
 <translation id="5005498671520578047">Copiază parola</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> dorește să se conecteze</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Permite</translation>
 <translation id="5040262127954254034">Confidențialitate</translation>
@@ -610,6 +613,7 @@ Contul Google poate să ofere alte forme ale istoricului de navigare, cum ar fi 
 <translation id="7682287625158474539">Expediere</translation>
 <translation id="7698359219371678927">Creează un e-mail în <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Vezi ce este în apropiere</translation>
+<translation id="7746006994124500250">Descărcare în așteptare…</translation>
 <translation id="7764225426217299476">Adaugă o adresă</translation>
 <translation id="7765158879357617694">Mută</translation>
 <translation id="7769602470925380267">Acceptă și deconectează-te</translation>
@@ -633,6 +637,7 @@ Contul Google poate să ofere alte forme ale istoricului de navigare, cum ar fi 
 <translation id="7998918019931843664">Redeschideți fila închisă</translation>
 <translation id="7999064672810608036">Sigur dorești să ștergi toate datele locale, inclusiv cookie-urile pentru acest site și să îi resetezi permisiunile?</translation>
 <translation id="8007176423574883786">Dezactivată pentru acest dispozitiv</translation>
+<translation id="8008818777654712271">Trimite automat anumite informații despre sistem și conținutul paginii la Google pentru a detecta aplicațiile și site-urile periculoase</translation>
 <translation id="802154636333426148">Descărcarea nu a reușit</translation>
 <translation id="8026334261755873520">Șterge datele de navigare</translation>
 <translation id="8033827949643255796">selectate</translation>

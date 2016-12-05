@@ -9,6 +9,7 @@
 <translation id="1055184225775184556">&amp;Toevoegen ongedaan maken</translation>
 <translation id="10614374240317010">Nooit opgeslagen</translation>
 <translation id="106701514854093668">Desktopbladwijzers</translation>
+<translation id="1074497978438210769">Niet veilig</translation>
 <translation id="1080116354587839789">Aanpassen aan breedte</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> altijd vertalen</translation>
 <translation id="1107591249535594099">Als deze optie is aangevinkt, bewaart Chrome een exemplaar van je kaart op dit apparaat om formulieren sneller te kunnen invullen.</translation>
@@ -38,6 +39,7 @@
 <translation id="129553762522093515">Recent gesloten</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Probeer je cookies te wissen<ph name="END_LINK" /></translation>
 <translation id="1339601241726513588">Inschrijvingsdomein:</translation>
+<translation id="1344211575059133124">Het lijkt erop dat je toestemming nodig hebt om deze site te bezoeken</translation>
 <translation id="1344588688991793829">Instellingen voor automatisch aanvullen in Chromium...</translation>
 <translation id="1374468813861204354">suggesties</translation>
 <translation id="1375198122581997741">Over deze versie</translation>
@@ -69,6 +71,7 @@
 <translation id="168841957122794586">Het servercertificaat bevat een zwakke cryptografische sleutel.</translation>
 <translation id="1701955595840307032">Voorgestelde content ophalen</translation>
 <translation id="1710259589646384581">Besturingssysteem</translation>
+<translation id="1721312023322545264">Je hebt toestemming van <ph name="NAME" /> nodig om deze site te bezoeken</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Probeer contact op te nemen met de systeembeheerder.</translation>
 <translation id="1745358365027406341">Pagina later downloaden</translation>
@@ -171,6 +174,7 @@
 <translation id="2742870351467570537">Geselecteerde items verwijderen</translation>
 <translation id="277499241957683684">Apparaatrecord ontbreekt</translation>
 <translation id="2784949926578158345">De verbinding is opnieuw ingesteld.</translation>
+<translation id="2794233252405721443">Site geblokkeerd</translation>
 <translation id="2824775600643448204">Adres- en zoekbalk</translation>
 <translation id="2826760142808435982">De verbinding is gecodeerd en geverifieerd met <ph name="CIPHER" /> en gebruikt <ph name="KX" /> als mechanisme voor sleuteluitwisseling.</translation>
 <translation id="2835170189407361413">Formulier leegmaken</translation>
@@ -246,6 +250,7 @@
 <translation id="3549644494707163724">Alle gesynchroniseerde gegevens versleutelen met je eigen wachtwoordzin voor synchronisatie</translation>
 <translation id="3549761410225185768"><ph name="NUM_TABS_MORE" /> meer...</translation>
 <translation id="3555561725129903880">De server kan niet bewijzen dat dit <ph name="DOMAIN" /> is. Het beveiligingscertificaat van de server is afkomstig van <ph name="DOMAIN2" />. Dit kan worden veroorzaakt door een verkeerde configuratie of een aanvaller die je verbinding onderschept. <ph name="BEGIN_LEARN_MORE_LINK" />Meer informatie<ph name="END_LEARN_MORE_LINK" />.</translation>
+<translation id="3556433843310711081">Je beheerder kan de blokkering van de site opheffen</translation>
 <translation id="3566021033012934673">Je verbinding is niet privé</translation>
 <translation id="3583757800736429874">&amp;Opnieuw verplaatsen</translation>
 <translation id="3586931643579894722">Details verbergen</translation>
@@ -282,8 +287,8 @@
 <translation id="3858027520442213535">Datum en tijd updaten</translation>
 <translation id="3884278016824448484">Conflicterende apparaat-ID's</translation>
 <translation id="3885155851504623709">Gemeente</translation>
+<translation id="3886446263141354045">Je verzoek voor toegang tot deze website is verzonden naar <ph name="NAME" /></translation>
 <translation id="3901925938762663762">De kaart is verlopen</translation>
-<translation id="3910267023907260648">Je probeert <ph name="DOMAIN" /> te bereiken. De server heeft echter een certificaat geretourneerd dat een zwak ondertekeningsalgoritme gebruikt. Dit betekent dat de beveiligingsreferenties die de server heeft geretourneerd mogelijk zijn vervalst en de server zelf een imitatie is (wellicht een server die je schade probeert te berokkenen). <ph name="BEGIN_LEARN_MORE_LINK" />Meer informatie<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="3933571093587347751">{1,plural, =1{Deze server kan niet bewijzen dat dit <ph name="DOMAIN" /> is. Het bijbehorende beveiligingscertificaat is zogenaamd van morgen. Dit kan worden veroorzaakt door een verkeerde configuratie of een aanvaller die je verbinding onderschept. <ph name="BEGIN_LEARN_MORE_LINK" />Meer informatie<ph name="END_LEARN_MORE_LINK" />.}other{Deze server kan niet bewijzen dat dit <ph name="DOMAIN" /> is. Het bijbehorende beveiligingscertificaat is zogenaamd van # dagen in de toekomst. Dit kan worden veroorzaakt door een verkeerde configuratie of een aanvaller die je verbinding onderschept. <ph name="BEGIN_LEARN_MORE_LINK" />Meer informatie<ph name="END_LEARN_MORE_LINK" />.}}</translation>
 <translation id="3934680773876859118">PDF-document kan niet worden geladen</translation>
 <translation id="3963721102035795474">Lezermodus</translation>
@@ -354,6 +359,7 @@
 <translation id="4813512666221746211">Netwerkfout</translation>
 <translation id="4816492930507672669">Aanpassen aan pagina</translation>
 <translation id="4850886885716139402">Weergave</translation>
+<translation id="4858792381671956233">Je hebt je ouders gevraagd of je deze site mag bezoeken</translation>
 <translation id="4880827082731008257">Geschiedenis doorzoeken</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /></translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{en nog 1 webpagina}other{en nog # webpagina's}}</translation>
@@ -422,9 +428,11 @@
 <translation id="5629630648637658800">Laden van beleidsinstellingen is mislukt</translation>
 <translation id="5631439013527180824">Ongeldige token voor apparaatbeheer</translation>
 <translation id="5677928146339483299">Geblokkeerd</translation>
+<translation id="5694783966845939798">Je hebt geprobeerd <ph name="DOMAIN" /> te bereiken. De server heeft echter een certificaat geretourneerd dat een zwak ondertekeningsalgoritme gebruikt. Dit houdt in dat de betrouwbaarheidsverklaring van de server kan zijn vervalst. Het is mogelijk dat de server zelf een imitatie is (wellicht een server die je schade probeert te berokkenen). <ph name="BEGIN_LEARN_MORE_LINK" />Meer informatie<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="5710435578057952990">De identiteit van deze website is niet geverifieerd.</translation>
 <translation id="5720705177508910913">Huidige gebruiker</translation>
 <translation id="572328651809341494">Recent gebruikte tabbladen</translation>
+<translation id="5732392974455271431">Je ouders kunnen de blokkering van deze site opheffen</translation>
 <translation id="5784606427469807560">Er is een probleem opgetreden bij het bevestigen van je creditcard. Controleer je internetverbinding en probeer het opnieuw.</translation>
 <translation id="5785756445106461925">Bovendien bevat deze pagina bronnen die niet beveiligd zijn. Deze bronnen kunnen tijdens verzending door anderen worden bekeken en kunnen door een aanvaller worden gewijzigd om het uiterlijk van de pagina aan te passen.</translation>
 <translation id="5786044859038896871">Wil je de gegevens van je creditcard laten invullen?</translation>
@@ -476,6 +484,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{1 andere suggestie}other{# andere suggesties}}</translation>
 <translation id="6387478394221739770">Ben je geïnteresseerd in nieuwe, coole Chrome-functies? Probeer ons bèta-kanaal op chrome.com/beta.</translation>
 <translation id="6389758589412724634">Chromium beschikt over onvoldoende geheugen om deze webpagina weer te geven.</translation>
+<translation id="6414888972213066896">Je hebt je vader of moeder gevraagd of je deze site mag bezoeken</translation>
 <translation id="6416403317709441254">Je kunt <ph name="SITE" /> op dit moment niet bezoeken, omdat de website gecodeerde inloggegevens heeft verstuurd die niet door Chromium kunnen worden verwerkt. Aangezien netwerkfouten en aanvallen meestal van tijdelijke aard zijn, zal deze pagina later waarschijnlijk weer correct werken. <ph name="BEGIN_LEARN_MORE_LINK" />Meer informatie<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6417515091412812850">Kan niet controleren of het certificaat is ingetrokken.</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> heeft de verbinding geweigerd.</translation>
@@ -488,6 +497,7 @@
 <translation id="6529602333819889595">&amp;Opnieuw verwijderen</translation>
 <translation id="6534179046333460208">Fysieke web-suggesties</translation>
 <translation id="6550675742724504774">Opties</translation>
+<translation id="6563469144985748109">Je beheerder heeft dit nog niet goedgekeurd</translation>
 <translation id="6593753688552673085">minder dan <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="6596325263575161958">Opties voor encryptie</translation>
 <translation id="662080504995468778">Blijven</translation>
@@ -506,6 +516,7 @@
 <translation id="674375294223700098">Onbekende fout met servercertificaat.</translation>
 <translation id="6753269504797312559">Beleidswaarde</translation>
 <translation id="6757797048963528358">De slaapstand van je apparaat is geactiveerd.</translation>
+<translation id="6778737459546443941">Je vader of moeder heeft dit nog niet goedgekeurd</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">De webpagina op <ph name="URL" /> is momenteel niet beschikbaar. De pagina bevat wellicht teveel verkeer of is offline wegens onderhoud.</translation>
 <translation id="6831043979455480757">Vertalen</translation>
@@ -562,8 +573,10 @@ De volgende keer kan het handig zijn de incognitomodus <ph name="SHORTCUT_KEY" /
 <translation id="7419106976560586862">Profielpad</translation>
 <translation id="7424977062513257142">Een ingesloten pagina op deze webpagina meldt het volgende:</translation>
 <translation id="7441627299479586546">Onjuist beleidsonderwerp</translation>
+<translation id="7444046173054089907">Deze site is geblokkeerd</translation>
 <translation id="7445762425076701745">De identiteit van de server waarmee je verbinding maakt, kan niet volledig worden geverifieerd. Je hebt verbinding gemaakt met een server die een naam gebruikt die alleen binnen je netwerk geldig is. Een externe certificeringsinstantie kan hiervoor nooit het eigendom verifiëren. Aangezien sommige certificeringsinstanties toch certificaten voor deze namen verlenen, kun je nooit zeker weten of je verbinding hebt met de bedoelde website en niet met een aanvaller.</translation>
 <translation id="7451311239929941790"><ph name="BEGIN_LINK" />Meer informatie<ph name="END_LINK" /> over dit probleem.</translation>
+<translation id="7460163899615895653">Je recente tabbladen van andere apparaten worden hier weergegeven</translation>
 <translation id="7469372306589899959">Creditcard bevestigen</translation>
 <translation id="7481312909269577407">Vooruit</translation>
 <translation id="7485870689360869515">Geen gegevens gevonden.</translation>
@@ -573,6 +586,7 @@ De volgende keer kan het handig zijn de incognitomodus <ph name="SHORTCUT_KEY" /
 <translation id="7535087603100972091">Waarde</translation>
 <translation id="7537536606612762813">Verplicht</translation>
 <translation id="7542995811387359312">Het automatisch invullen van creditcardnummers is uitgeschakeld, omdat dit formulier geen beveiligde verbinding gebruikt.</translation>
+<translation id="7543525346216957623">Vraag het aan je vader of moeder</translation>
 <translation id="7549584377607005141">Deze webpagina kan alleen correct worden weergegeven op basis van gegevens die je eerder hebt opgegeven. Je kunt deze gegevens opnieuw verzenden, maar hierdoor worden de acties herhaald die eerder op deze pagina zijn uitgevoerd.</translation>
 <translation id="7554791636758816595">Nieuw tabblad</translation>
 <translation id="7568593326407688803">Deze pagina is geschreven in het<ph name="ORIGINAL_LANGUAGE" />Wil je deze laten vertalen?</translation>
@@ -597,6 +611,7 @@ De volgende keer kan het handig zijn de incognitomodus <ph name="SHORTCUT_KEY" /
 <translation id="7716424297397655342">Deze site kan niet worden geladen vanuit het cachegeheugen</translation>
 <translation id="7733391738235763478">(<ph name="NUMBER_VISITS" />)</translation>
 <translation id="7752995774971033316">Niet-beheerd</translation>
+<translation id="7755287808199759310">Je vader of moeder kan de blokkering van deze site opheffen</translation>
 <translation id="7758069387465995638">De verbinding is mogelijk geblokkeerd door de firewall of antivirussoftware.</translation>
 <translation id="7761701407923456692">Het servercertificaat komt niet overeen met de URL.</translation>
 <translation id="777702478322588152">Prefectuur</translation>
@@ -664,6 +679,7 @@ De volgende keer kan het handig zijn de incognitomodus <ph name="SHORTCUT_KEY" /
 <translation id="856992080682148">Het certificaat voor deze site verloopt in 2017 of later en de certificaatketen bevat een certificaat dat is ondertekend met SHA-1.</translation>
 <translation id="8571890674111243710">Pagina wordt vertaald in het <ph name="LANGUAGE" />...</translation>
 <translation id="859285277496340001">Er wordt in het certificaat geen methode gespecificeerd waarmee kan worden gecontroleerd of het certificaat is ingetrokken.</translation>
+<translation id="8620436878122366504">Je ouders hebben dit nog niet goedgekeurd</translation>
 <translation id="8647750283161643317">Alle standaardinstellingen herstellen</translation>
 <translation id="8703575177326907206">Je verbinding met <ph name="DOMAIN" /> is niet gecodeerd.</translation>
 <translation id="8725066075913043281">Opnieuw proberen</translation>
@@ -702,6 +718,7 @@ De volgende keer kan het handig zijn de incognitomodus <ph name="SHORTCUT_KEY" /
 <translation id="9050666287014529139">Wachtwoordzin</translation>
 <translation id="9065203028668620118">Bewerken</translation>
 <translation id="9068849894565669697">Kleur selecteren</translation>
+<translation id="9076283476770535406">De site kan content voor volwassenen bevatten</translation>
 <translation id="9092364396508701805">De pagina op <ph name="HOST_NAME" /> werkt niet</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> gebruikt gewoonlijk versleuteling om je gegevens te beschermen. Toen Chromium deze keer probeerde verbinding te maken met <ph name="SITE" />, retourneerde de website ongewone en onjuiste inloggegevens. Dit gebeurt wanneer een aanvaller probeert zich als <ph name="SITE" /> voor te doen of wanneer een wifi-inlogscherm de verbinding heeft verbroken. Je gegevens zijn nog steeds veilig omdat Chromium de verbinding heeft beëindigd voordat er gegevens konden worden uitgewisseld.</translation>
 <translation id="9137013805542155359">Origineel weergeven</translation>
@@ -716,6 +733,7 @@ De volgende keer kan het handig zijn de incognitomodus <ph name="SHORTCUT_KEY" /
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="935608979562296692">FORMULIER LEEGMAKEN</translation>
 <translation id="939736085109172342">Nieuwe map</translation>
+<translation id="941721044073577244">Het lijkt erop dat je geen toestemming hebt om deze site te bezoeken</translation>
 <translation id="962701380617707048">Geef de vervaldatum en CVC-code voor <ph name="CREDIT_CARD" /> op om je creditcardgegevens te updaten</translation>
 <translation id="969892804517981540">Officiële build</translation>
 <translation id="988159990683914416">Ontwikkelaarsbuild</translation>

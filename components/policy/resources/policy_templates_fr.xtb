@@ -665,6 +665,15 @@ Si cette règle est définie sur "False", les utilisateurs ne pourront pas jouer
 <translation id="2884728160143956392">Autoriser les cookies limités à la session sur ces sites</translation>
 <translation id="2893546967669465276">Envoyer des journaux système au serveur de gestion</translation>
 <translation id="2899002520262095963">Les applications Android peuvent utiliser les configurations réseau et les certificats CA définis par cette règle, mais elles n'ont pas accès à certaines options de configuration.</translation>
+<translation id="2901399514673504930">Traite les appareils de stockage externe en lecture seule.
+
+      Cette règle ne s'applique que si ExternalStorageDisabled est défini sur "False" ou n'est pas configuré.
+
+      Lorsque la règle est définie sur "True", les utilisateurs ne peuvent pas écrire sur les appareils de stockage externe.
+
+      Si ce paramètre est désactivé ou non configuré, les utilisateurs peuvent alors créer et modifier des fichiers d'appareils de stockage externe qui sont accessibles physiquement en écriture.
+
+      Une actualisation dynamique de cette règle est acceptée dans M56 (ou version ultérieure).</translation>
 <translation id="2906874737073861391">Liste des extensions AppPack</translation>
 <translation id="2908277604670530363">Nombre maximal de connexions simultanées au serveur proxy</translation>
 <translation id="2948087343485265211">Indiquer si l'activité audio a une incidence sur la gestion de l'alimentation
@@ -1526,6 +1535,11 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
           Si ce paramètre est activé, l'hôte d'accès à distance compare le nom de l'utilisateur local (auquel l'hôte est associé) au nom du compte Google enregistré en tant que propriétaire de l'hôte (par exemple, "pierredupont" si l'hôte appartient au compte Google pierredupont@example.com). L'hôte d'accès à distance ne démarre pas si le nom du propriétaire de l'hôte diffère du nom de l'utilisateur local auquel l'hôte est associé. La règle RemoteAccessHostMatchUsername doit être utilisée avec la règle RemoteAccessHostDomain pour faire également en sorte que le compte Google du propriétaire de l'hôte soit associé à un domaine spécifique (soit example.com).
 
           Si ce paramètre est désactivé ou n'est pas configuré, l'hôte d'accès à distance peut être associé à n'importe quel utilisateur local.</translation>
+<translation id="5694594914843889579">Lorsque cette règle est définie sur "True", le navigateur de fichiers n'offre pas la possibilité de procéder à un stockage externe.
+
+      Cette règle concerne tous les types de support de stockage (clés USB, disques durs externes, cartes SD, autres cartes mémoire, etc.). Elle ne concerne pas Google Drive ni le stockage interne. Dès lors, les fichiers enregistrés dans le dossier de téléchargement restent accessibles.
+
+      En cas de désactivation ou de non-configuration de ce paramètre, l'appareil fonctionne avec tous les supports de stockage externe compatibles.</translation>
 <translation id="5697306356229823047">Générer une liste des utilisateurs de l'appareil</translation>
 <translation id="570062449808736508">Lorsque ce règlement est défini sur une chaîne non vide, WebView lit les restrictions d'URL depuis le fournisseur de contenu portant le nom de l'autorité indiquée.</translation>
 <translation id="5703863730741917647">Définit l'action à effectuer lorsque le délai d'inactivité est atteint.

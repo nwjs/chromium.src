@@ -742,7 +742,7 @@
 <translation id="1951615167417147110">Прокрутити вгору на одну сторінку</translation>
 <translation id="1956050014111002555">Файл містив декілька сертифікатів, жоден із яких не було імпортовано:</translation>
 <translation id="1957988341423158185">URL-адреса для відстеження навігації</translation>
-<translation id="1961376890474801922">Експериментальна функція, у якій гості, як-от &amp;lt;webview&gt; застосовуються в інфраструктурі позапроцесних елементів iframe.</translation>
+<translation id="1961376890474801922">Експериментальний режим, у якому гостьові теги, як-от &amp;lt;webview&gt;, застосовуються в інфраструктурі позапроцесних елементів iframe.</translation>
 <translation id="1962233722219655970">На цій сторінці використовується програма Native Client, яка не працює на вашому комп’ютері.</translation>
 <translation id="1963227389609234879">Видалити всі</translation>
 <translation id="1965328510789761112">Приватна пам’ять</translation>
@@ -2145,7 +2145,6 @@
 <translation id="3709244229496787112">Завантаження не закінчилося через завершення роботи веб-переглядача.</translation>
 <translation id="3711895659073496551">Призупинити</translation>
 <translation id="3712897371525859903">Зберегти сторінку &amp;як...</translation>
-<translation id="3713494718070140825"><ph name="BEGIN_WHITEPAPER_LINK" />Автоматично надсилати<ph name="END_WHITEPAPER_LINK" /> в Google деяку інформацію про систему та вміст сторінок, щоб допомогти виявляти небезпечні додатки й сайти. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="3714633008798122362">веб-календар</translation>
 <translation id="3715597595485130451">Під’єднання до мережі Wi-Fi</translation>
 <translation id="3716615839203649375">дозволити</translation>
@@ -3816,6 +3815,7 @@
 <translation id="5957613098218939406">Інші параметри</translation>
 <translation id="5958529069007801266">Контрольований користувач</translation>
 <translation id="5959471481388474538">Мережа не доступна</translation>
+<translation id="5959728338436674663">Автоматично надсилати в Google деяку <ph name="BEGIN_WHITEPAPER_LINK" />інформацію про систему та вміст сторінок<ph name="END_WHITEPAPER_LINK" />, щоб допомогти виявляти небезпечні додатки й сайти<ph name="PRIVACY_PAGE_LINK" />.</translation>
 <translation id="5963026469094486319">Інші теми</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (максимум <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">Додати на полицю…</translation>

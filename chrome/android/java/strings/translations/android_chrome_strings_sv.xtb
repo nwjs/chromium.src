@@ -95,6 +95,7 @@ Bluetooth och Plats måste vara aktiverade om du vill använda Physical Web-tjä
 <translation id="1966710179511230534">Uppdatera dina inloggningsuppgifter.</translation>
 <translation id="1974060860693918893">Avancerat</translation>
 <translation id="1984937141057606926">Tillåts, men inte från tredje part</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> vill kopplas</translation>
 <translation id="1994173015038366702">Webbadress</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> kB används av övriga appar</translation>
 <translation id="2020194265157481222">Namnet på kortet måste anges</translation>
@@ -266,6 +267,7 @@ Om du vill ändra söktermen trycker du länge för att välja. Om du vill förf
 <translation id="3950820424414687140">Logga in</translation>
 <translation id="3967822245660637423">Nedladdning slutförd</translation>
 <translation id="397583555483684758">Synkroniseringen har slutat fungera</translation>
+<translation id="3985215325736559418">Vill du ladda ned <ph name="FILE_NAME" /> igen?</translation>
 <translation id="3988213473815854515">Platsen är tillåten</translation>
 <translation id="3997476611815694295">Oviktig lagring</translation>
 <translation id="4002066346123236978">Titel</translation>
@@ -355,6 +357,7 @@ Om du vill ändra söktermen trycker du länge för att välja. Om du vill förf
 <translation id="4996978546172906250">Dela via</translation>
 <translation id="5000922062037820727">Blockerad (rekommenderas)</translation>
 <translation id="5005498671520578047">Kopiera lösenord</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> vill ansluta</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Tillåt</translation>
 <translation id="5040262127954254034">Sekretess</translation>
@@ -610,6 +613,7 @@ Det kan finnas andra former av webbhistorik i Google-kontot på <ph name="BEGIN_
 <translation id="7682287625158474539">Frakt</translation>
 <translation id="7698359219371678927">Skapa ett e-postmeddelande i <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Se vad som finns i närheten</translation>
+<translation id="7746006994124500250">Nedladdning väntar …</translation>
 <translation id="7764225426217299476">Lägg till adress</translation>
 <translation id="7765158879357617694">Flytta</translation>
 <translation id="7769602470925380267">Godkänn och logga ut</translation>
@@ -633,6 +637,7 @@ Det kan finnas andra former av webbhistorik i Google-kontot på <ph name="BEGIN_
 <translation id="7998918019931843664">Öppna en stängd flik på nytt</translation>
 <translation id="7999064672810608036">Vill du ta bort all lokal data för webbplatsen, inklusive cookies, och återställa alla behörigheter för den?</translation>
 <translation id="8007176423574883786">Inaktiverad för den här enheten</translation>
+<translation id="8008818777654712271">Viss information om systemet och innehåll på sidan skickas automatiskt till Google i syfte att identifiera skadliga appar och webbplatser.</translation>
 <translation id="802154636333426148">Nedladdningen misslyckades</translation>
 <translation id="8026334261755873520">Rensa webbinformation</translation>
 <translation id="8033827949643255796">markerat</translation>

@@ -622,6 +622,15 @@ Kaikki luettelon kohteet ovat tunnuksia, joiden perusteella erotetaan laitteesee
 <translation id="2884728160143956392">Salli vain käyttökerran evästeet näissä sivustoissa</translation>
 <translation id="2893546967669465276">Lähetä järjestelmälokeja hallintapalvelimelle</translation>
 <translation id="2899002520262095963">Android-sovellukset voivat käyttää tämän käytännön kautta asetettuja verkkomäärityksiä ja CA-varmenteita, mutta ne eivät voi käyttää joitain määritysasetuksia.</translation>
+<translation id="2901399514673504930">Käsittele ulkoisia tallennuslaitteita vain luku ‑laitteina.
+
+      Tämä käytäntö on voimassa vain kun ExternalStorageDisabled-arvoksi on määritetty epätosi tai sitä ei ole määritetty.
+
+      Jos tämän käytännön arvoksi on määritetty tosi, käyttäjät eivät voi kirjoittaa mitään ulkoisille tallennuslaitteille.
+
+      Jos tämä asetus on poistettu käytöstä tai sitä ei ole määritetty, käyttäjät voivat luoda ja muokata sellaisten ulkoisten tallennustilojen tiedostoja, joihin voi kirjoittaa.
+
+      Tämän käytännön dynaamista päivittämistä tuetaan M56:ssa ja sitä uudemmissa versioissa.</translation>
 <translation id="2906874737073861391">AppPack-laajennusten luettelo</translation>
 <translation id="2908277604670530363">Enimmäismäärä samanaikaisia ​​yhteyksiä välityspalvelimeen</translation>
 <translation id="2948087343485265211">Määrittää, vaikuttaako äänitoiminta virranhallintaan.
@@ -1407,6 +1416,11 @@ Jos käytäntöä ei määritetä, käyttäjät voivat valita, tuleeko hylly pii
           Jos tämä asetus on käytössä, etäkäytön isäntä vertaa paikallisen käyttäjän nimeä (johon isäntä on liitetty) Google-tiliin, joka on rekisteröity isännän omistajaksi (esim. ”mattimeikalainen”, jos isännän omistava Google-tili on mattimeikalainen@example.com). Etäkäytön isäntä ei käynnisty, jos isännän omistajan nimi ei vastaa paikallista käyttäjää, johon isäntä on liitetty. Käytännön RemoteAccessHostMatchUsername kanssa täytyy määrittää RemoteAccessHostDomain, jos halutaan edellyttää myös, että isännän omistajan Google-tili on liitetty tiettyyn verkkotunnukseen (kuten example.comiin).
 
           Jos tämä asetus on pois käytöstä tai sitä ei aseteta, etäkäytön isäntä voidaan liittää mihin tahansa paikalliseen käyttäjään.</translation>
+<translation id="5694594914843889579">Jos tämän käytännön arvoksi on määritetty tosi, ulkoista tallennustilaa ei voi käyttää tiedostoselaimessa.
+
+      Käytäntö koskee kaikentyyppistä tallennustilaa, esimerkiksi USB-muistitikkuja, ulkoisia kiintolevyjä, SD- ja muita muistikortteja, optisia levyjä jne. Käytäntö ei vaikuta sisäiseen tallennustilaan, joten latauskansioon tallennettuja tiedostoja voi käyttää. Käytäntö ei myöskään koske Google Drivea.
+
+      Jos asetus on poistettu käytöstä tai sitä ei ole määritetty, käyttäjät voivat käyttää laitteellaan kaikkia tuettuja ulkoisia tallennustilatyyppejä.</translation>
 <translation id="5697306356229823047">Raportoi laitteen käyttäjistä</translation>
 <translation id="570062449808736508">Kun tämän käytännön arvoksi asetetaan muu kuin tyhjä merkkijono, WebView lukee URL-osoiterajoitukset sisällöntarjoajalta, joka vastaa annettua merkkijonoa.</translation>
 <translation id="5703863730741917647">Määritä toiminto, joka suoritetaan, jos käyttäjä ei tee mitään määritetyn ajan kuluessa.

@@ -127,15 +127,15 @@
 
       Si la política no es defineix, el valor predeterminat MultiProfileUserBehaviorMustBePrimary s'aplica a usuaris gestionats per l'empresa i MultiProfileUserBehaviorUnrestricted s'utilitzarà per a usuaris no gestionats.</translation>
 <translation id="1465619815762735808">Clic per executar</translation>
-<translation id="1468307069016535757">Estableix l'estat predeterminat de la funció d'accessibilitat de contrast elevat a la pantalla d'inici de sessió.
+<translation id="1468307069016535757">Estableix l'estat predeterminat de la funció d'accessibilitat d'alt contrast a la pantalla d'inici de sessió.
 
-          Si el valor d'aquesta política s'estableix a vertader, el mode de contrast elevat s'activarà quan es mostri la pantalla d'inici de sessió.
+          Si el valor d'aquesta política s'estableix a vertader, el mode d'alt contrast s'activarà quan es mostri la pantalla d'inici de sessió.
 
-          Si el valor d'aquesta política s'estableix a fals, el mode de contrast elevat es desactivarà quan es mostri la pantalla d'inici de sessió. 
+          Si el valor d'aquesta política s'estableix a fals, el mode d'alt contrast es desactivarà quan es mostri la pantalla d'inici de sessió. 
 
-          Si s'estableix aquesta política, els usuaris la podran ignorar temporalment si activen o desactiven el mode de contrast elevat. No obstant això, l'elecció de l'usuari no es constant i l'estat predeterminat es restablirà quan la pantalla es torni a mostrar o si l'usuari es manté inactiu a la pantalla d'inici de sessió durant un minut.
+          Si s'estableix aquesta política, els usuaris la podran ignorar temporalment si activen o desactiven el mode d'alt contrast. No obstant això, l'elecció de l'usuari no es constant i l'estat predeterminat es restablirà quan la pantalla es torni a mostrar o si l'usuari es manté inactiu a la pantalla d'inici de sessió durant un minut.
 
-          Si no s'estableix aquesta política, el mode de contrast elevat es desactivarà quan la pantalla d'inici de sessió es mostri per primera vegada. Els usuaris poden activar o desactivar el mode de contrast elevat en qualsevol moment i el seu estat a la pantalla d'inici de sessió es mantindrà entre els usuaris.</translation>
+          Si no s'estableix aquesta política, el mode d'alt contrast es desactivarà quan la pantalla d'inici de sessió es mostri per primera vegada. Els usuaris poden activar o desactivar el mode d'alt contrast en qualsevol moment i el seu estat a la pantalla d'inici de sessió es mantindrà entre els usuaris.</translation>
 <translation id="1468707346106619889">Si aquesta política s'estableix com a verdadera, es permet utilitzar l'escriptori unificat
       i està activat de manera predeterminada. Així, les aplicacions poden ocupar diverses pantalles.
       Per desactivar l'escriptori unificat en pantalles concretes, l'usuari pot
@@ -606,13 +606,22 @@ Cada entrada de la llista especifica un identificador, que s'utilitza internamen
 
       No establir aquesta política és igual que activar l'opció de configuració, amb el funcionament descrit abans.</translation>
 <translation id="2850122204195089673">Establiu que l'escriptori unificat estigui disponible i activat de manera predeterminada.</translation>
-<translation id="285480231336205327">Activa el mode de contrast elevat</translation>
+<translation id="285480231336205327">Activa el mode d'alt contrast</translation>
 <translation id="2872961005593481000">Apaga</translation>
 <translation id="2874209944580848064">Nota per als dispositius <ph name="PRODUCT_OS_NAME" /> que admeten aplicacions per a Android:</translation>
 <translation id="2877225735001246144">Desactiva la cerca de CNAME en negociar l'autenticació de Kerberos</translation>
 <translation id="2884728160143956392">Permet les galetes només de sessió en aquests llocs</translation>
 <translation id="2893546967669465276">Envia registres del sistema al servidor de gestió</translation>
 <translation id="2899002520262095963">Les aplicacions per a Android poden utilitzar les configuracions de xarxa i els certificats de CA establerts a través d'aquesta política, però no tenen accés a algunes opcions de configuració.</translation>
+<translation id="2901399514673504930">Utilitza els dispositius d'emmagatzematge extern com a només de lectura.
+
+      Aquesta política només es fa efectiva quan ExternalStorageDisabled està establerta en "false" o no està configurada.
+
+      Quan aquesta política s'estableix en "true", els usuaris no poden escriure res als dispositius d'emmagatzematge extern.
+
+      Si aquesta opció de configuració està desactivada o no està configurada, els usuaris poden crear fitxers als dispositius d'emmagatzematge extern i modificar-los, sempre que permetin l'escriptura física.
+
+      Aquesta política es pot actualitzar dinàmicament a M56 i versions posteriors.</translation>
 <translation id="2906874737073861391">Llista d'extensions d'AppPack</translation>
 <translation id="2908277604670530363">Nombre màxim de connexions paral·leles al servidor intermediari</translation>
 <translation id="2948087343485265211">Especifica si l'activitat d'àudio afecta la gestió d'alimentació.
@@ -1387,6 +1396,11 @@ Si la política no es defineix, els usuaris podran triar si el prestatge s'ha d'
           Si aquesta opció de configuració s'activa, l'amfitrió d'accés remot compara el nom de l'usuari local (amb el qual està associat l'amfitrió) i el nom del compte de Google registrat com a propietari de l'amfitrió (és a dir, "jordiferrer" si l'amfitrió és propietat del compte de Google "jordiferrer@example.com"). L'amfitrió d'accés remot no s'iniciarà si el nom del propietari de l'amfitrió no és el mateix que el nom de l'usuari local amb el qual està associat l'amfitrió. La política RemoteAccessHostMatchUsername s'ha d'utilitzar juntament amb RemoteAccessHostDomain per garantir que el compte de Google del propietari de l'amfitrió estigui associat amb un domini específic (és a dir, "example.com").
 
           Si aquesta opció de configuració es desactiva o no s'estableix, l'amfitrió d'accés remot es pot associar amb qualsevol usuari local.</translation>
+<translation id="5694594914843889579">Quan aquesta política s'estableixi en "true", l'emmagatzematge extern no estarà disponible al navegador de fitxers.
+
+      Aquesta política afecta tots els tipus de mitjans d'emmagatzematge. Per exemple: unitats flaix USB, unitats de disc dur externes, SD i altres targetes de memòria, emmagatzematge òptic, etc. Aquesta política no afecta l'emmagatzematge intern, de manera que podràs continuar accedint als fitxers desats a la carpeta Baixades. Aquesta política tampoc no afecta Google Drive.
+
+      Si aquesta opció de configuració està desactivada o no està configurada, els usuaris podran utilitzar tots els tipus d'emmagatzematge extern compatibles al seu dispositiu.</translation>
 <translation id="5697306356229823047">Informa dels usuaris de dispositius</translation>
 <translation id="570062449808736508">Si aquesta política es defineix en una cadena que no sigui buida, WebView llegirà les restriccions d'URL del proveïdor de contingut amb el nom d'autoritat indicat.</translation>
 <translation id="5703863730741917647">Especifica l'acció que s'ha d'emprendre quan s'està inactiu.
@@ -2089,7 +2103,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
       Si aquesta opció de configuració està definida, els usuaris no poden canviar-la.
 
       Si no està definida, els usuaris poden activar i desactivar Android Backup Service a l'aplicació Configuració d'Android.</translation>
-<translation id="7818131573217430250">Estableix l'estat predeterminat del mode de contrast elevat a la pantalla d'inici de sessió</translation>
+<translation id="7818131573217430250">Estableix l'estat predeterminat del mode d'alt contrast a la pantalla d'inici de sessió</translation>
 <translation id="7831595031698917016">Especifica el retard màxim en mil·lisegons entre la recepció de la invalidació d'una política i l'obtenció de la política nova del servei de gestió del dispositiu.
 
       En configurar aquesta política se substitueix el valor predeterminat de 5.000 mil·lisegons. Els valors vàlids per a aquesta política se situen en un interval de 1.000 (1 segon) a 300.000 (5 minuts). Tots els valors que no es trobin dins d'aquest interval estaran subjectes al límit respectiu.
@@ -2195,15 +2209,15 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 <translation id="8141795997560411818">Aquesta política no impedeix que l'usuari utilitzi l'aplicació Google Drive per a Android. Si vols impedir l'accés a Google Drive, has de denegar la instal·lació d'aquesta aplicació.</translation>
 <translation id="8146727383888924340">Permet que els usuaris bescanviïn ofertes a través del registre de Chrome OS.</translation>
 <translation id="8148785525797916822">Suprimeix l'advertiment que es mostra quan <ph name="PRODUCT_NAME" /> s'executa en un ordinador o un sistema operatiu que ja no s'admet.</translation>
-<translation id="8148901634826284024">Activeu la funció d'accessibilitat del mode de contrast elevat.
+<translation id="8148901634826284024">Activeu la funció d'accessibilitat del mode d'alt contrast.
 
-          Si el valor d'aquesta política s'estableix a vertader, el mode de contrast elevat sempre estarà activat.
+          Si el valor d'aquesta política s'estableix a vertader, el mode d'alt contrast sempre estarà activat.
 
-           Si el valor d'aquesta política s'estableix a fals, el mode de contrast elevat sempre estarà desactivat.
+           Si el valor d'aquesta política s'estableix a fals, el mode d'alt contrast sempre estarà desactivat.
 
           Si s'estableix aquesta política, els usuaris no podran canviar-la ni ignorar-la.
 
-          Si no s'estableix aquesta política, el mode de contrast elevat es desactivarà inicialment, però l'usuari el podrà activar en qualsevol moment.</translation>
+          Si no s'estableix aquesta política, el mode d'alt contrast es desactivarà inicialment, però l'usuari el podrà activar en qualsevol moment.</translation>
 <translation id="815061180603915310">Si s'estableix com a activada, aquesta política obliga a canviar el perfil al mode efímer. Si aquesta política s'estableix com una política de sistema operatiu (per exemple, GPO a Windows), s'aplicarà a tots els perfils del sistema; si s'estableix com una política en núvol, s'aplicarà només a un perfil amb la sessió iniciada com un compte gestionat.
 
       En aquest mode, les dades del perfil només són presents al disc durant el temps que dura la sessió. Un cop tancat el navegador, no es conserven característiques com l'historial de navegació, les extensions i les seves dades, ni les dades web com ara galetes o bases de dades web. Tanmateix, això no impedeix que l'usuari baixi manualment qualsevol dada al disc, desi pàgines o n'imprimeixi.

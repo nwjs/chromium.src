@@ -95,6 +95,7 @@ Fiziksel Web'i kullanabilmeniz için Bluetooth ve Konum özelliklerinin açık o
 <translation id="1966710179511230534">Lütfen oturum açma ayrıntılarınızı güncelleyin.</translation>
 <translation id="1974060860693918893">Gelişmiş</translation>
 <translation id="1984937141057606926">Üçüncü taraf hariç izin verildi</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> eşlenmek istiyor</translation>
 <translation id="1994173015038366702">Site URL'si</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB diğer uygulamalar</translation>
 <translation id="2020194265157481222">Kart üzerindeki isim gerekli</translation>
@@ -266,6 +267,7 @@ Arama teriminizi düzeltmek için uzun basarak terimi seçin. Aramanızı ayrın
 <translation id="3950820424414687140">Oturum açın</translation>
 <translation id="3967822245660637423">İndirme tamamlandı</translation>
 <translation id="397583555483684758">Senkronizasyonun çalışması durdu</translation>
+<translation id="3985215325736559418"><ph name="FILE_NAME" /> dosyasını tekrar indirmek istiyor musunuz?</translation>
 <translation id="3988213473815854515">Konuma izin veriliyor</translation>
 <translation id="3997476611815694295">Önemli olmayan depolama alanı</translation>
 <translation id="4002066346123236978">Başlık</translation>
@@ -355,6 +357,7 @@ Arama teriminizi düzeltmek için uzun basarak terimi seçin. Aramanızı ayrın
 <translation id="4996978546172906250">Paylaşım yöntemi:</translation>
 <translation id="5000922062037820727">Engellendi (önerilir)</translation>
 <translation id="5005498671520578047">Şifreyi kopyalayın</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> bağlanmak istiyor</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">İzin ver</translation>
 <translation id="5040262127954254034">Gizlilik</translation>
@@ -610,6 +613,7 @@ Diğer Google hizmetlerinden yapılan aramalar ve etkinlikler gibi Google hesab�
 <translation id="7682287625158474539">Sevkiyat</translation>
 <translation id="7698359219371678927"><ph name="APP_NAME" /> adlı uygulamada e-posta oluşturun</translation>
 <translation id="771135159654932189">Yakınlarda nelerin olduğunu görün</translation>
+<translation id="7746006994124500250">İndirme işlemi beklemede...</translation>
 <translation id="7764225426217299476">Adres ekle</translation>
 <translation id="7765158879357617694">Taşı</translation>
 <translation id="7769602470925380267">Kabul et ve oturumu kapat</translation>
@@ -633,6 +637,7 @@ Diğer Google hizmetlerinden yapılan aramalar ve etkinlikler gibi Google hesab�
 <translation id="7998918019931843664">Kapatılan sekmeyi yeniden aç</translation>
 <translation id="7999064672810608036">Bu web sitesine ilişkin çerezler dahil tüm yerel verileri temizlemek ve bu sitenin tüm izinlerini sıfırlamak istediğinizden emin misiniz?</translation>
 <translation id="8007176423574883786">Bu cihaz için kapatıldı</translation>
+<translation id="8008818777654712271">Tehlikeli uygulamaların ve sitelerin tespit edilmesine yardımcı olmak için Google'a bazı sistem bilgilerini ve sayfa içeriklerini otomatik olarak gönder</translation>
 <translation id="802154636333426148">İndirilemedi</translation>
 <translation id="8026334261755873520">Tarama verilerini temizle</translation>
 <translation id="8033827949643255796">seçildi</translation>

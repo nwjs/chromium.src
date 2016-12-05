@@ -655,6 +655,15 @@
 <translation id="2884728160143956392">Payagan ang mga cookies sa session lamang sa mga site na ito</translation>
 <translation id="2893546967669465276">Magpadala ng mga log ng system sa server sa pamamahala</translation>
 <translation id="2899002520262095963">Maaaring gamitin ng mga Android app ang mga configuration ng network at mga CA certificate na itinakda sa pamamagitan ng patakarang ito, ngunit walang access ang mga ito sa ilang opsyon sa configuration.</translation>
+<translation id="2901399514673504930">Itinuturing ang mga external storage device bilang read-only.
+
+      Ipapatupad lang ang patakarang ito kapag nakatakda sa false o hindi naka-configure ang ExternalStorageDisabled.
+
+      Kapag nakatakda sa true ang patakarang ito, hindi makakapag-write ang mga user ng kahit ano sa mga external storage device.
+
+      Kung naka-disable o hindi naka-configure ang setting na ito, maaaring gumawa at baguhin ng mga user ang mga file ng mga external storage device kung saan pisikal na makakapag-write.
+
+      Ang dynamic na pag-refresh ng patakarang ito ay sinusuportahan sa M56 at mas bagong bersyon.</translation>
 <translation id="2906874737073861391">Listahan ng mga extension ng AppPack</translation>
 <translation id="2908277604670530363">Pinakamataas na bilang ng sabay-sabay na koneksyon sa proxy server</translation>
 <translation id="2948087343485265211">Tinutukoy kung nakakaapekto ang aktibidad ng audio sa pamamahala ng power.
@@ -1496,6 +1505,11 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
           Kung naka-enable ang setting na ito, ihahambing ng host ng malayuang access ang pangalan ng lokal na user (kung saan nauugnay ang host) at the pangalan ng Google account na nakarehistro bilang may-ari ng host (ibig sabihin, "johndoe" kung pagmamay-ari ng Google account na "johndoe@example.com" ang host).  Hindi magsisimula ang host ng malayuang access kung iba ang pangalan ng may-ari ng host sa pangalan ng lokal na user kung saan nauugnay ang host.  Dapat na gamitin ang patakarang RemoteAccessHostMatchUsername kasama ng RemoteAccessHostDomain upang ipatupad din na dapat ang Google account ng may-ari ng host ay nauugnay sa isang partikular na domain (ibig sabihin, "example.com").
 
           Kung naka-disable o hindi nakatakda ang setting na ito, maaaring maugnay sa sinumang lokal na user ang host ng malayuang access.</translation>
+<translation id="5694594914843889579">Kapag nakatakda sa true ang patakarang ito, hindi magiging available ang external storage sa browser ng file.
+
+      Naaapektuhan ng patakarang ito ang lahat ng uri ng storage media. Halimbawa: Mga USB flash drive, external hard drive, SD at iba pang mga memory card, optical storage atbp. Hindi naaapektuhan ang internal storage, samakatuwid, maa-access pa rin ang mga file na naka-save sa folder na Download. Hindi rin naaapektuhan ng patakarang ito ang Google Drive.
+
+      Kung hindi pinapagana ang setting na ito o hindi naka-configure, magagamit ng mga user ang lahat ng sinusuportahang uri ng external storage sa kanilang device.</translation>
 <translation id="5697306356229823047">I-ulat ang mga user ng device</translation>
 <translation id="570062449808736508">Kapag nakatakda ang patakarang ito sa isang string na may laman, babasahin ng WebView ang mga paghihigpit sa URL mula sa provider ng content gamit ang ibinigay na pangalan ng kinauukulan.</translation>
 <translation id="5703863730741917647">Tukuyin ang pagkilos na gagawin kapag naabot na ang pagkaantala ng idle.

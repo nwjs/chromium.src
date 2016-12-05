@@ -95,6 +95,7 @@
 <translation id="1966710179511230534">لطفاً جزئیات ورود به سیستم را به‌روز کنید.</translation>
 <translation id="1974060860693918893">پیشرفته</translation>
 <translation id="1984937141057606926">مجاز، به غیر از طرف ثالث</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> می‌خواهد مرتبط شود</translation>
 <translation id="1994173015038366702">نشانی وب سایت</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> کیلوبایت توسط سایر برنامه‌ها</translation>
 <translation id="2020194265157481222">نام روی کارت لازم است</translation>
@@ -266,6 +267,7 @@
 <translation id="3950820424414687140">ورود به سیستم</translation>
 <translation id="3967822245660637423">بارگیری کامل شد</translation>
 <translation id="397583555483684758">همگام‌سازی متوقف شده است</translation>
+<translation id="3985215325736559418">می‌خواهید دوباره <ph name="FILE_NAME" /> را بارگیری کنید؟</translation>
 <translation id="3988213473815854515">مکان مجاز است</translation>
 <translation id="3997476611815694295">فضای ذخیره غیرمهم</translation>
 <translation id="4002066346123236978">عنوان</translation>
@@ -355,6 +357,7 @@
 <translation id="4996978546172906250">اشتراک‌گذاری از طریق</translation>
 <translation id="5000922062037820727">مسدود (توصیه می‌شود)</translation>
 <translation id="5005498671520578047">کپی گذرواژه</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> می‌خواهد مرتبط شود</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">اجازه دادن</translation>
 <translation id="5040262127954254034">حریم خصوصی</translation>
@@ -609,6 +612,7 @@
 <translation id="7682287625158474539">ارسال</translation>
 <translation id="7698359219371678927">ایجاد رایانامه در <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">مشاهده چیزهایی که در نزدیکی است</translation>
+<translation id="7746006994124500250">بارگیری در حالت تعلیق...</translation>
 <translation id="7764225426217299476">افزودن آدرس</translation>
 <translation id="7765158879357617694">انتقال</translation>
 <translation id="7769602470925380267">پذیرش و خروج از سیستم</translation>
@@ -632,6 +636,7 @@
 <translation id="7998918019931843664">بازکردن مجدد برگه‌های بسته شده</translation>
 <translation id="7999064672810608036">مطمئنید که می‌خواهید تمام داده‌های محلی، شامل کوکی‌ها را حذف کرده و تمام مجوزهای این وب‌سایت را بازنشانی کنید؟</translation>
 <translation id="8007176423574883786">برای این دستگاه غیرفعال شد</translation>
+<translation id="8008818777654712271">‏ارسال خودکار برخی از اطلاعات سیستم و محتوای صفحه به Google برای کمک به شناسایی برنامه‌ها و سایت‌های خطرناک</translation>
 <translation id="802154636333426148">بارگیری نشد</translation>
 <translation id="8026334261755873520">پاک کردن داده‌های مرور</translation>
 <translation id="8033827949643255796">انتخاب شد</translation>

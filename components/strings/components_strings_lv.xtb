@@ -9,6 +9,7 @@
 <translation id="1055184225775184556">&amp;Pievienošanas atsaukšana</translation>
 <translation id="10614374240317010">Netiek saglabātas</translation>
 <translation id="106701514854093668">Datora grāmatzīmes</translation>
+<translation id="1074497978438210769">Nav droša</translation>
 <translation id="1080116354587839789">Ietilpināt pēc platuma</translation>
 <translation id="1103523840287552314">Vienmēr tulkot <ph name="LANGUAGE" /> valodas saturu</translation>
 <translation id="1107591249535594099">Ja šī izvēles rūtiņa ir atzīmēta, pārlūks Chrome saglabās jūsu kartes kopiju šajā ierīcē, lai nodrošinātu ātrāku veidlapu aizpildi.</translation>
@@ -38,6 +39,7 @@
 <translation id="129553762522093515">Nesen aizvērtas</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Dzēsiet sīkfailus<ph name="END_LINK" /></translation>
 <translation id="1339601241726513588">Reģistrācijas domēns:</translation>
+<translation id="1344211575059133124">Šķiet, ka jums ir nepieciešama atļauja apmeklēt šo vietni</translation>
 <translation id="1344588688991793829">Chromium automātiskās aizpildes iestatījumi...</translation>
 <translation id="1374468813861204354">ieteikumus</translation>
 <translation id="1375198122581997741">Par versiju</translation>
@@ -69,6 +71,7 @@
 <translation id="168841957122794586">Servera sertifikāts ietver vāju kriptogrāfisko atslēgu.</translation>
 <translation id="1701955595840307032">Iegūt ieteikto saturu</translation>
 <translation id="1710259589646384581">Operētājsistēma</translation>
+<translation id="1721312023322545264">Jums ir nepieciešama atļauja no <ph name="NAME" />, lai apmeklētu šo vietni</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Sazinieties ar sistēmas administratoru.</translation>
 <translation id="1745358365027406341">Lejupielādēt lapu vēlāk</translation>
@@ -171,6 +174,7 @@
 <translation id="2742870351467570537">Noņemt atlasītos vienumus</translation>
 <translation id="277499241957683684">Trūkst ierīces ieraksta.</translation>
 <translation id="2784949926578158345">Savienojums tika atiestatīts.</translation>
+<translation id="2794233252405721443">Vietne bloķēta</translation>
 <translation id="2824775600643448204">Adreses un meklēšanas josla</translation>
 <translation id="2826760142808435982">Savienojums ir šifrēts un autentificēts, izmantojot <ph name="CIPHER" />, un tajā tiek izmantots <ph name="KX" /> kā atslēgu apmaiņas mehānisms.</translation>
 <translation id="2835170189407361413">Notīrīt veidlapu</translation>
@@ -249,6 +253,7 @@
 <translation id="3549644494707163724">Šifrēt visus sinhronizētos datus, izmantojot sinhronizācijas ieejas frāzi</translation>
 <translation id="3549761410225185768">Vēl <ph name="NUM_TABS_MORE" />...</translation>
 <translation id="3555561725129903880">Šis serveris nevarēja pierādīt, ka tas ir <ph name="DOMAIN" />; tā drošības sertifikāts ir no domēna <ph name="DOMAIN2" />. Šī problēma var rasties nepareizas konfigurācijas dēļ vai tādēļ, ka kāds uzbrucējs ir pārtvēris jūsu savienojumu. <ph name="BEGIN_LEARN_MORE_LINK" />Uzziniet vairāk<ph name="END_LEARN_MORE_LINK" />.</translation>
+<translation id="3556433843310711081">Lai atbloķētu, vērsieties pie pārvaldnieka</translation>
 <translation id="3566021033012934673">Jūsu savienojums nav privāts</translation>
 <translation id="3583757800736429874">&amp;Pārvietošanas atsaukuma atcelšana</translation>
 <translation id="3586931643579894722">Slēpt detaļas</translation>
@@ -285,8 +290,8 @@
 <translation id="3858027520442213535">Atjaunināt datumu un laiku</translation>
 <translation id="3884278016824448484">Ierīces identifikators rada konfliktu.</translation>
 <translation id="3885155851504623709">Pagasts</translation>
+<translation id="3886446263141354045">Pieprasījums piekļūt šai vietnei ir nosūtīts lietotājam <ph name="NAME" /></translation>
 <translation id="3901925938762663762">Kartes derīguma termiņš ir beidzies.</translation>
-<translation id="3910267023907260648">Jūs mēģinājāt sasniegt domēnu <ph name="DOMAIN" />, bet serveris uzrādīja sertifikātu, kas ir parakstīts, izmantojot vāju paraksta algoritmu. Tas nozīmē, ka servera norādītie drošības akreditācijas dati var būt viltoti un šis serveris var nebūt tas serveris, kuru mēģināt sasniegt (iespējams, jūs sazināties ar uzbrucēju). <ph name="BEGIN_LEARN_MORE_LINK" />Uzziniet vairāk<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="3933571093587347751">{1,plural, =1{Šis serveris nevarēja pierādīt, ka ir <ph name="DOMAIN" />; šķiet, ka tā drošības sertifikāts sāks darboties rīt. Šī problēma var rasties nepareizas konfigurācijas dēļ vai tādēļ, ka kāds uzbrucējs ir pārtvēris jūsu savienojumu. <ph name="BEGIN_LEARN_MORE_LINK" />Uzziniet vairāk<ph name="END_LEARN_MORE_LINK" />.}zero{Šis serveris nevarēja pierādīt, ka ir <ph name="DOMAIN" />; šķiet, ka tā drošības sertifikāts sāks darboties pēc # dienām. Šī problēma var rasties nepareizas konfigurācijas dēļ vai tādēļ, ka kāds uzbrucējs ir pārtvēris jūsu savienojumu. <ph name="BEGIN_LEARN_MORE_LINK" />Uzziniet vairāk<ph name="END_LEARN_MORE_LINK" />.}one{Šis serveris nevarēja pierādīt, ka ir <ph name="DOMAIN" />; šķiet, ka tā drošības sertifikāts sāks darboties pēc # dienas. Šī problēma var rasties nepareizas konfigurācijas dēļ vai tādēļ, ka kāds uzbrucējs ir pārtvēris jūsu savienojumu. <ph name="BEGIN_LEARN_MORE_LINK" />Uzziniet vairāk<ph name="END_LEARN_MORE_LINK" />.}other{Šis serveris nevarēja pierādīt, ka ir <ph name="DOMAIN" />; šķiet, ka tā drošības sertifikāts sāks darboties pēc # dienām. Šī problēma var rasties nepareizas konfigurācijas dēļ vai tādēļ, ka kāds uzbrucējs ir pārtvēris jūsu savienojumu. <ph name="BEGIN_LEARN_MORE_LINK" />Uzziniet vairāk<ph name="END_LEARN_MORE_LINK" />.}}</translation>
 <translation id="3934680773876859118">Neizdevās ielādēt PDF dokumentu</translation>
 <translation id="3963721102035795474">Lasītāja režīms</translation>
@@ -357,6 +362,7 @@
 <translation id="4813512666221746211">Tīkla kļūda</translation>
 <translation id="4816492930507672669">Ietilpināt lapā</translation>
 <translation id="4850886885716139402">Skatīt</translation>
+<translation id="4858792381671956233">Jūs lūdzāt vecākiem atļauju apmeklēt šo lapu</translation>
 <translation id="4880827082731008257">Meklēšanas vēsture</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /></translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{un vēl 1 tīmekļa lapa}zero{un vēl # tīmekļa lapas}one{un vēl # tīmekļa lapa}other{un vēl # tīmekļa lapas}}</translation>
@@ -425,9 +431,11 @@
 <translation id="5629630648637658800">Neizdevās ielādēt politikas iestatījumus.</translation>
 <translation id="5631439013527180824">Ierīces pārvaldības marķieris nav derīgs.</translation>
 <translation id="5677928146339483299">Bloķēts</translation>
+<translation id="5694783966845939798">Jūs mēģinājāt sasniegt domēnu <ph name="DOMAIN" />, bet serveris uzrādīja sertifikātu, kas ir parakstīts, izmantojot vāju paraksta algoritmu (piemēram, SHA-1). Tas nozīmē, ka servera norādītie drošības akreditācijas dati var būt viltoti un šis serveris var nebūt tas serveris, kuru mēģināt sasniegt (iespējams, jūs sazināties ar uzbrucēju). <ph name="BEGIN_LEARN_MORE_LINK" />Uzziniet vairāk<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="5710435578057952990">Tīmekļa vietnes identitāte nav apstiprināta.</translation>
 <translation id="5720705177508910913">Pašreizējais lietotājs</translation>
 <translation id="572328651809341494">Nesen atvērtas cilnes</translation>
+<translation id="5732392974455271431">Lai atbloķētu, vērsieties pie vecākiem</translation>
 <translation id="5784606427469807560">Apstiprinot karti, radās problēma. Pārbaudiet interneta savienojumu un mēģiniet vēlreiz.</translation>
 <translation id="5785756445106461925">Turklāt šajā lapā ir citi resursi, kas nav droši. Kamēr šie resursi tiek pārsūtīti, tos var aplūkot citi, kā arī uzbrucējs var tos pārveidot, lai mainītu lapas izskatu.</translation>
 <translation id="5786044859038896871">Vai vēlaties aizpildīt laukus ar kartes informāciju?</translation>
@@ -480,6 +488,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{vēl 1 ieteikums}zero{vēl # ieteikumi}one{vēl # ieteikums}other{vēl # ieteikumi}}</translation>
 <translation id="6387478394221739770">Vai jūs interesē jaunas Chrome funkcijas? Izmēģiniet mūsu Beta versiju, kas pieejama vietnē chrome.com/beta.</translation>
 <translation id="6389758589412724634">Mēģinot parādīt šo tīmekļa lapu, pārlūka Chromium atmiņā nepietika vietas.</translation>
+<translation id="6414888972213066896">Jūs lūdzāt vienam no vecākiem atļauju apmeklēt šo vietni</translation>
 <translation id="6416403317709441254">Šobrīd nevarat apmeklēt vietni <ph name="SITE" />, jo no tās tika nosūtīti sajaukti akreditācijas dati, kurus nevar apstrādāt pārlūkā Chromium. Tīkla kļūdas un brīdinājumi parasti ir īslaicīgi, tāpēc šī lapa vēlāk, visticamāk, darbosies. <ph name="BEGIN_LEARN_MORE_LINK" />Uzziniet vairāk<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6417515091412812850">Nevar pārbaudīt, vai sertifikāts ir atsaukts.</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> noraidīja savienojuma izveidi.</translation>
@@ -492,6 +501,7 @@
 <translation id="6529602333819889595">&amp;Dzēšanas atsaukuma atcelšana</translation>
 <translation id="6534179046333460208">Fiziskā tīmekļa ieteikumi</translation>
 <translation id="6550675742724504774">Opcijas</translation>
+<translation id="6563469144985748109">Jūsu vadītājs vēl nav to apstiprinājis</translation>
 <translation id="6593753688552673085">mazāk nekā <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="6596325263575161958">Šifrēšanas opcijas</translation>
 <translation id="662080504995468778">Palikt</translation>
@@ -510,6 +520,7 @@
 <translation id="674375294223700098">Nezināma servera sertifikāta kļūda.</translation>
 <translation id="6753269504797312559">Politikas vērtība</translation>
 <translation id="6757797048963528358">Ierīce tika pārslēgta miega režīmā.</translation>
+<translation id="6778737459546443941">Neviens no jūsu vecākiem vēl nav to apstiprinājis</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159"><ph name="URL" /> tīmekļa lapa pašlaik nav pieejama.  Tā var būt pārslogota vai nedarbojas uzturēšanas darbu dēļ.</translation>
 <translation id="6831043979455480757">Tulkot</translation>
@@ -566,8 +577,10 @@ Nākamreiz jums varētu noderēt inkognito režīms (<ph name="SHORTCUT_KEY" />)
 <translation id="7419106976560586862">Profila ceļš</translation>
 <translation id="7424977062513257142">Šajā vietnē iegultā lapā ir rakstīts:</translation>
 <translation id="7441627299479586546">Politikas subjekts nav pareizs.</translation>
+<translation id="7444046173054089907">Šī vietne ir bloķēta</translation>
 <translation id="7445762425076701745">Nevar pilnībā apstiprināt servera identifikācijas datus, ar kuru esat savienots. Jums ir izveidots savienojums ar serveri, izmantojot nosaukumu, kas ir derīgs tikai jūsu tīklā, kam ārējā sertifikāta izdevējiestāde nekādā veidā nevar apstiprināt īpašumtiesības. Tā kā dažas sertifikāta izdevējiestādes tāpat izsniegs sertifikātus šādiem nosaukumiem, nav iespējams garantēt, ka jūs esat savienots ar vajadzīgo vietni, nevis uzbrucēju.</translation>
 <translation id="7451311239929941790"><ph name="BEGIN_LINK" />Uzzināt vairāk<ph name="END_LINK" /> par šo problēmu.</translation>
+<translation id="7460163899615895653">Jūsu nesen izmantotās cilnes no citām ierīcēm tiek rādītas šeit</translation>
 <translation id="7469372306589899959">Notiek kartes apstiprināšana</translation>
 <translation id="7481312909269577407">Pārsūtīt</translation>
 <translation id="7485870689360869515">Dati netika atrasti.</translation>
@@ -577,6 +590,7 @@ Nākamreiz jums varētu noderēt inkognito režīms (<ph name="SHORTCUT_KEY" />)
 <translation id="7535087603100972091">Vērtība</translation>
 <translation id="7537536606612762813">Obligāti</translation>
 <translation id="7542995811387359312">Automātiska kredītkartes numura ievadīšana ir atspējota, jo šai veidlapai netiek izmantots drošs savienojums.</translation>
+<translation id="7543525346216957623">Lūdziet kādam no vecākiem</translation>
 <translation id="7549584377607005141">Lai tīmekļa lapu varētu attēlot pareizi, tai nepieciešami jūsu iepriekš ievadītie dati. Varat atkārtoti nosūtīt šos datus, taču tādā gadījumā tiks atkārtota ikviena darbība, ko pirms tam veica lapa.</translation>
 <translation id="7554791636758816595">Jauna cilne</translation>
 <translation id="7568593326407688803">Šī lapa ir rakstīta<ph name="ORIGINAL_LANGUAGE" />valodā. Vai vēlaties to tulkot?</translation>
@@ -601,6 +615,7 @@ Nākamreiz jums varētu noderēt inkognito režīms (<ph name="SHORTCUT_KEY" />)
 <translation id="7716424297397655342">Šo vietni nevar ielādēt no kešatmiņas</translation>
 <translation id="7733391738235763478">(<ph name="NUMBER_VISITS" />)</translation>
 <translation id="7752995774971033316">Netiek pārvaldīts</translation>
+<translation id="7755287808199759310">Lai atbloķētu, vēsieties pie vecāka</translation>
 <translation id="7758069387465995638">Iespējams, savienojumu ir bloķējis ugunsmūris vai pretvīrusu programmatūra.</translation>
 <translation id="7761701407923456692">Servera sertifikāts neatbilst URL.</translation>
 <translation id="777702478322588152">Prefektūra</translation>
@@ -668,6 +683,7 @@ Nākamreiz jums varētu noderēt inkognito režīms (<ph name="SHORTCUT_KEY" />)
 <translation id="856992080682148">Šīs vietnes sertifikāta derīgums beidzas 2017. gadā vai vēlāk, un sertifikātu ķēdē ir iekļauts sertifikāts, kas ir parakstīts, izmantojot SHA-1.</translation>
 <translation id="8571890674111243710">Notiek lapas tulkošana uz <ph name="LANGUAGE" /> valodu...</translation>
 <translation id="859285277496340001">Sertifikāts nenorāda mehānismu, ar kuru pārbaudīt, vai tas nav atsaukts.</translation>
+<translation id="8620436878122366504">Jūsu vecāki vēl nav to apstiprinājuši</translation>
 <translation id="8647750283161643317">Atiestatīt visiem to noklusējuma iestatījumus</translation>
 <translation id="8703575177326907206">Jūsu savienojums ar <ph name="DOMAIN" /> nav kodēts.</translation>
 <translation id="8725066075913043281">Mēģināt vēlreiz</translation>
@@ -706,6 +722,7 @@ Nākamreiz jums varētu noderēt inkognito režīms (<ph name="SHORTCUT_KEY" />)
 <translation id="9050666287014529139">Ieejas frāze</translation>
 <translation id="9065203028668620118">Labot</translation>
 <translation id="9068849894565669697">Krāsas izvēle</translation>
+<translation id="9076283476770535406">Vietnē var būt pieaugušajiem paredzēts saturs</translation>
 <translation id="9092364396508701805">Vietnes <ph name="HOST_NAME" /> lapa nedarbojas</translation>
 <translation id="9103872766612412690">Vietnē <ph name="SITE" /> informācijas aizsargāšanai parasti tiek izmantota šifrēšana. Kad pārlūkā Chromium tika mēģināts izveidot savienojumu ar vietni <ph name="SITE" />, šoreiz tā nosūtīja neparastus un nepareizus akreditācijas datus. Iespējams, tas notika, jo uzbrucējs mēģināja uzdoties par vietni <ph name="SITE" />, vai arī Wi-Fi pierakstīšanās ekrāns pārtrauca savienojumu. Jūsu informācija joprojām ir drošībā, jo pārlūks Chromium pārtrauca savienojumu, pirms tika veikta jebkādu datu apmaiņa.</translation>
 <translation id="9137013805542155359">Rādīt oriģinālo</translation>
@@ -720,6 +737,7 @@ Nākamreiz jums varētu noderēt inkognito režīms (<ph name="SHORTCUT_KEY" />)
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="935608979562296692">NOTĪRĪT VEIDLAPU</translation>
 <translation id="939736085109172342">Jauna mape</translation>
+<translation id="941721044073577244">Šķiet, ka jums nav atļaujas apmeklēt šo vietni</translation>
 <translation id="962701380617707048">Lai atjauninātu kartes informāciju, ievadiet kredītkartes <ph name="CREDIT_CARD" /> derīguma termiņu un CVC</translation>
 <translation id="969892804517981540">Oficiālā Uzbūve</translation>
 <translation id="988159990683914416">Attīstītāja konstrukcija</translation>

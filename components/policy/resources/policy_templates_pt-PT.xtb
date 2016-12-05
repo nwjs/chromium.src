@@ -629,6 +629,15 @@
 <translation id="2884728160143956392">Permitir apenas cookies da sessão nestes sites</translation>
 <translation id="2893546967669465276">Enviar registos do sistema para o servidor de gestão</translation>
 <translation id="2899002520262095963">As aplicações Android podem utilizar as configurações de rede e os certificados da AC (Autoridade de certificação) definidos através desta política, mas não têm acesso a algumas opções de configuração.</translation>
+<translation id="2901399514673504930">Tratar dispositivos de memória externa como sendo só de leitura.
+
+      Esta política entra em vigor apenas quando ExternalStorageDisabled está definido como falso ou não configurado.
+
+      Quando esta política está definida como verdadeira, os utilizadores não podem escrever nada em dispositivos de armazenamento externo.
+
+      Se esta definição for desativada ou não estiver configurada, os utilizadores podem criar e modificar ficheiros de dispositivos de armazenamento externo que são graváveis fisicamente.
+
+      A atualização dinâmica desta política é compatível com o M56 e posterior.</translation>
 <translation id="2906874737073861391">Lista de extensões AppPack</translation>
 <translation id="2908277604670530363">Número máximo de ligações simultâneas ao servidor proxy</translation>
 <translation id="2948087343485265211">Especifica se a atividade do áudio afeta a gestão da energia.
@@ -1416,6 +1425,11 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
           Se esta definição estiver ativada, o anfitrião de acesso remoto compara o nome do utilizador local (ao qual o anfitrião está associado) e o nome da Conta Google registada como proprietária do anfitrião (ou seja, "joaosilva" caso o anfitrião seja propriedade da Conta Google "joaosilva@example.com"). Se o nome do proprietário do anfitrião for diferente do nome do utilizador local ao qual o anfitrião está associado, o anfitrião de acesso remoto não inicia. Deve utilizar a política RemoteAccessHostMatchUsername em conjunto com a política RemoteAccessHostDomain para exigir também que a Conta Google do proprietário do anfitrião esteja associada a um domínio específico (ou seja, "example.com").
 
           Se esta definição estiver desativada ou não estiver definida, o anfitrião de acesso remoto pode ser associado a qualquer utilizador local.</translation>
+<translation id="5694594914843889579">Se esta política estiver definida como verdadeira, o armazenamento externo não estará disponível no navegador de ficheiros.
+
+      Esta política afeta todos os tipos de suporte de armazenamento. Por exemplo: unidades flash USB, discos rígidos externos, cartões SD e outros cartões de memória, armazenamento ótico, etc. O armazenamento interno não é afetado, pelo que continua a ser possível aceder aos ficheiros guardados na pasta Transferência. O Google Drive também não é afetado por esta política.
+
+      Se esta definição estiver desativada ou não estiver configurada, os utilizadores poderão utilizar todos os tipos de armazenamento externo compatíveis no respetivo dispositivo.</translation>
 <translation id="5697306356229823047">Comunicar utilizadores do dispositivo</translation>
 <translation id="570062449808736508">Quando esta política está definida para uma string não vazia, o WebView lê as restrições de URL do fornecedor de conteúdos com o nome da autoridade indicado.</translation>
 <translation id="5703863730741917647">Especifique a ação a executar quando o atraso de inatividade for atingido.

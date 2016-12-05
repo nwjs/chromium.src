@@ -9,6 +9,7 @@
 <translation id="1055184225775184556">&amp;واگرد افزودن</translation>
 <translation id="10614374240317010">هرگز ذخیره نمی‌شود</translation>
 <translation id="106701514854093668">نشانک‌های دسک‌تاپ</translation>
+<translation id="1074497978438210769">امن نیست</translation>
 <translation id="1080116354587839789">متناسب با پهنا</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> همیشه ترجمه شود</translation>
 <translation id="1107591249535594099">‏اگر علامت زده شود، Chrome یک کپی از این کارت را در دستگاه نگهداری می‌کند تا برای پرکردن فرم‌ها از آن استفاده شود.</translation>
@@ -38,6 +39,7 @@
 <translation id="129553762522093515">اخیراً بسته‌شده</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />کوکی‌ها را پاک کنید<ph name="END_LINK" /></translation>
 <translation id="1339601241726513588">دامنه ثبت‌نام:</translation>
+<translation id="1344211575059133124">گویا برای بازدید این سایت به اجازه نیاز دارید</translation>
 <translation id="1344588688991793829">‏تنظیمات تکمیل خودکار Chromium...</translation>
 <translation id="1374468813861204354">پیشنهادات</translation>
 <translation id="1375198122581997741">درباره نسخه</translation>
@@ -69,6 +71,7 @@
 <translation id="168841957122794586">گواهی‌نامه سرور دارای یک کلید رمزنگاری ضعیف است.</translation>
 <translation id="1701955595840307032">دریافت محتوای پیشنهادی</translation>
 <translation id="1710259589646384581">OS</translation>
+<translation id="1721312023322545264">برای بازدید این سایت باید از <ph name="NAME" /> اجازه بگیرید</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">با سرپرست سیستم تماس بگیرید.</translation>
 <translation id="1745358365027406341">بارگیری صفحه در فرصت دیگری</translation>
@@ -171,6 +174,7 @@
 <translation id="2742870351467570537">حذف آیتم های انتخاب شده</translation>
 <translation id="277499241957683684">ثبت دستگاه موجود نیست</translation>
 <translation id="2784949926578158345">اتصال مجدداً برقرار شد.</translation>
+<translation id="2794233252405721443">سایت مسدودشده</translation>
 <translation id="2824775600643448204">نوار جستجو و آدرس</translation>
 <translation id="2826760142808435982">اتصال با استفاده از <ph name="CIPHER" /> رمزگذاری و راستی‌آزمایی شده است و از <ph name="KX" /> به عنوان مکانیسم تبادل کلید استفاده می‌کند.</translation>
 <translation id="2835170189407361413">پاک کردن فرم</translation>
@@ -249,6 +253,7 @@
 <translation id="3549644494707163724">رمزگذاری همه داده‌های همگام‌سازی‌شده با رمزعبارتی همگام‌سازی خودتان</translation>
 <translation id="3549761410225185768"><ph name="NUM_TABS_MORE" /> برگه بیشتر...</translation>
 <translation id="3555561725129903880">این سرور نتوانست ثابت کند <ph name="DOMAIN" /> است؛ گواهینامه امنیتی آن از <ph name="DOMAIN2" /> است. ممکن است پیکربندی اشتباهی علت آن باشد یا مهاجمی ارتباط شما را اتصالتان را قطع کرده باشد. <ph name="BEGIN_LEARN_MORE_LINK" />بیشتر بدانید<ph name="END_LEARN_MORE_LINK" />.</translation>
+<translation id="3556433843310711081">مدیرتان می‌تواند این سایت را برای شما بگشاید</translation>
 <translation id="3566021033012934673">اتصال شما خصوصی نیست</translation>
 <translation id="3583757800736429874">&amp;انجام مجدد انتقال</translation>
 <translation id="3586931643579894722">عدم نمایش جزئیات</translation>
@@ -286,8 +291,8 @@
 <translation id="3858027520442213535">به‌روزرسانی تاریخ و زمان</translation>
 <translation id="3884278016824448484">شناسه دستگاه یکسان نیست</translation>
 <translation id="3885155851504623709">استان</translation>
+<translation id="3886446263141354045">درخواست شما برای دسترسی به این سایت برای <ph name="NAME" /> ارسال شده است</translation>
 <translation id="3901925938762663762">کارت منقضی شده است</translation>
-<translation id="3910267023907260648">سعی داشتید به <ph name="DOMAIN" /> دسترسی داشته باشید، اما سرور گواهینامه‌ای ارائه کرد که با استفاده از الگوریتم امضای ضعیفی امضا شده است. به این معنی که ممکن است گواهینامه‌های امنیتی ارائه‌شده توسط این سرور جعلی باشد و ممکن است این سرور، سرور موردانتظار شما نباشد (شاید درحال ارتباط با یک مهاجم باشید). <ph name="BEGIN_LEARN_MORE_LINK" />بیشتر بدانید<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="3933571093587347751">{1,plural, =1{این سرور نمی‌تواند ثابت کند <ph name="DOMAIN" /> است؛ اعتبار گواهینامه امنیتی آن ظاهراً فردا شروع می‌شود. ممکن است علت این موضوع پیکربندی اشتباه باشد یا مهاجمی اتصالتان را قطع می‌کند. <ph name="BEGIN_LEARN_MORE_LINK" />بیشتر بدانید<ph name="END_LEARN_MORE_LINK" />.}one{این سرور نتوانست ثابت کند <ph name="DOMAIN" /> است؛ اعتبار گواهینامه امنیتی آن ظاهراً # روز دیگر شروع می‌شود. ممکن است علت این موضوع پیکربندی اشتباه باشد یا مهاجمی اتصالتان را قطع می‌کند. <ph name="BEGIN_LEARN_MORE_LINK" />بیشتر بدانید<ph name="END_LEARN_MORE_LINK" />.}other{این سرور نتوانست ثابت کند <ph name="DOMAIN" /> است؛ اعتبار گواهینامه امنیتی آن ظاهراً # روز دیگر شروع می‌شود. ممکن است علت این موضوع پیکربندی اشتباه باشد یا مهاجمی اتصالتان را قطع می‌کند. <ph name="BEGIN_LEARN_MORE_LINK" />بیشتر بدانید<ph name="END_LEARN_MORE_LINK" />.}}</translation>
 <translation id="3934680773876859118">‏بارگیری سند PDF انجام نشد</translation>
 <translation id="3963721102035795474">حالت «خواننده»</translation>
@@ -358,6 +363,7 @@
 <translation id="4813512666221746211">خطای شبکه</translation>
 <translation id="4816492930507672669">متناسب با صفحه</translation>
 <translation id="4850886885716139402">نما</translation>
+<translation id="4858792381671956233">از والدینتان پرسیدید آیا اجازه بازدید از این سایت را دارید</translation>
 <translation id="4880827082731008257">سابقه جستجو</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />،‏ <ph name="TYPE_2" />،‏ <ph name="TYPE_3" /></translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{ و ۱ صفحه وب دیگر}one{ و # صفحه وب دیگر}other{ و # صفحه وب دیگر}}</translation>
@@ -426,9 +432,11 @@
 <translation id="5629630648637658800">تنظیمات خط‌مشی بارگیری نشد</translation>
 <translation id="5631439013527180824">نشانه مدیریت دستگاه نامعتبر است</translation>
 <translation id="5677928146339483299">مسدود است</translation>
+<translation id="5694783966845939798">‏سعی کردید به <ph name="DOMAIN" /> دسترسی داشته باشید، اما سرور گواهینامه‌ای ارائه کرد که با استفاده از الگوریتم امضای ضعیفی (مثل SHA-1) امضا شده بود. این یعنی ممکن است اعتبارنامه‌های امنیتی ارائه‌شده توسط این سرور جعلی باشند و ممکن است این سرور، سرور موردانتظار شما نباشد (شاید درحال ارتباط با یک مهاجم باشید). <ph name="BEGIN_LEARN_MORE_LINK" />بیشتر بدانید<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="5710435578057952990">هویت این وب سایت تأیید نشده است.</translation>
 <translation id="5720705177508910913">کاربر کنونی</translation>
 <translation id="572328651809341494">برگه‌های اخیر</translation>
+<translation id="5732392974455271431">والدینتان می‌توانند این سایت را برای شما بگشایند</translation>
 <translation id="5784606427469807560">هنگام تأیید کارت مشکلی پیش آمد. اتصال اینترنتتان را بررسی و دوباره امتحان کنید.</translation>
 <translation id="5785756445106461925">علاوه بر این، این صفحه دارای منابع دیگری است که امن نیستند. دیگران می‌توانند در حین انتقال، این منابع را ببینند و این منابع می‌توانند برای تغییر قفل صفحه، توسط یک مهاجم تغییر داده شوند.</translation>
 <translation id="5786044859038896871">می‌خواهید اطلاعات کارتتان را وارد کنید؟</translation>
@@ -481,6 +489,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{۱ پیشنهاد دیگر}one{# پیشنهاد دیگر}other{# پیشنهاد دیگر}}</translation>
 <translation id="6387478394221739770">‏علاقه‌مند به قابلیت‌های جدید و جالب Chrome هستید؟ کانال بتای ما را در chrome.com/beta امتحان کنید.</translation>
 <translation id="6389758589412724634">‏Chromium هنگام تلاش برای نمایش این صفحه با کمبود حافظه روبرو شد.</translation>
+<translation id="6414888972213066896">از والدینتان پرسیدید آیا اجازه بازدید از این سایت را دارید</translation>
 <translation id="6416403317709441254">‏درحال‌حاضر نمی‌توانید از <ph name="SITE" /> دیدن کنید، زیرا این وب‌سایت اعتبارنامه‌های درهمی ارسال کرده است که Chromium نمی‌تواند آن‌ها را پردازش کند. خطاها و حمله‌های شبکه معمولاً موقتی هستند، بنابراین احتمالاً این صفحه بعداً کار خواهد کرد. <ph name="BEGIN_LEARN_MORE_LINK" />بیشتر بدانید<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6417515091412812850">امکان بررسی اینکه آیا مجوز باطل شده است یا نه وجود ندارد.</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> از اتصال خودداری کرد.</translation>
@@ -493,6 +502,7 @@
 <translation id="6529602333819889595">&amp;انجام مجدد حذف</translation>
 <translation id="6534179046333460208">پیشنهادهای «وب فیزیکی»</translation>
 <translation id="6550675742724504774">گزینه‌ها</translation>
+<translation id="6563469144985748109">مدیرتان هنوز این سایت را تأیید نکرده است</translation>
 <translation id="6593753688552673085">کمتر از <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="6596325263575161958">گزینه‌های رمزگذاری</translation>
 <translation id="662080504995468778">ماندن</translation>
@@ -511,6 +521,7 @@
 <translation id="674375294223700098">خطای ناشناس گواهی سرور.</translation>
 <translation id="6753269504797312559">مقدار خط‌‌مشی</translation>
 <translation id="6757797048963528358">دستگاهتان به خواب رفته است.</translation>
+<translation id="6778737459546443941">والدینتان هنوز این سایت را تأیید نکرده‌اند</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">صفحهٔ وب موجود در <ph name="URL" /> در حال حاضر موجود نیست. ممکن است بیش از حد مشغول باشد یا برای انجام تعمیرات در دسترس نباشد.</translation>
 <translation id="6831043979455480757">ترجمه</translation>
@@ -567,8 +578,10 @@
 <translation id="7419106976560586862">مسیر نمایه</translation>
 <translation id="7424977062513257142">صفحه جاسازی‌شده‌ای در این صفحه وب می‌گوید:</translation>
 <translation id="7441627299479586546">موضوع خط‌مشی اشتباه است</translation>
+<translation id="7444046173054089907">این سایت مسدود شده است</translation>
 <translation id="7445762425076701745">هویت سروری که به آن متصل شده‌اید به‌طور کامل راستی‌آزمایی نمی‌شود. با استفاده از نامی به سرور متصل شده‌اید که فقط در شبکه شما معتبر است و ارائه دهنده مجوز خارجی قادر به راستی‌آزمایی مالکیت آن نیست. به دلیل آنکه برخی از ارائه دهندگان مجوز بدون توجه به هر موردی، مجوزهایی را برای این نام‌ها ارائه می‌کنند، روشی برای اطمینان از این امر وجود ندارد که آیا شما به سایت مورد نظر خود متصل شده‌اید یا یک سایت مضر.</translation>
 <translation id="7451311239929941790">درباره این مشکل <ph name="BEGIN_LINK" />بیشتر بدانید<ph name="END_LINK" />.</translation>
+<translation id="7460163899615895653">برگه‌های اخیر شما از دیگر دستگاه‌ها اینجا نشان داده می‌شوند</translation>
 <translation id="7469372306589899959">درحال تایید کارت</translation>
 <translation id="7481312909269577407">ارسال کردن</translation>
 <translation id="7485870689360869515">هیچ داده‌ای یافت نشد.</translation>
@@ -578,6 +591,7 @@
 <translation id="7535087603100972091">مقدار</translation>
 <translation id="7537536606612762813">اجباری</translation>
 <translation id="7542995811387359312">تکمیل خودکار کارت اعتباری غیر فعال است زیرا این فرم از یک اتصال امن استفاده نمی‌کند.</translation>
+<translation id="7543525346216957623">از والدینتان بخواهید این کار را انجام دهد</translation>
 <translation id="7549584377607005141">این صفحه وب برای نمایش صحیح به داده‌هایی نیاز دارد که قبلاً وارد کرده‌اید. می‌توانید این داده‌ها را دوباره ارسال کنید، اما با انجام این کار، هر اقدامی که این صفحه قبلاً انجام داده است تکرار می‌شود.</translation>
 <translation id="7554791636758816595">برگهٔ جدید</translation>
 <translation id="7568593326407688803">این صفحه به <ph name="ORIGINAL_LANGUAGE" /> است، آیا مایلید ترجمه شود؟</translation>
@@ -602,6 +616,7 @@
 <translation id="7716424297397655342">این سایت نمی‌تواند از حافظه پنهان بار شود</translation>
 <translation id="7733391738235763478">(<ph name="NUMBER_VISITS" />)</translation>
 <translation id="7752995774971033316">مدیریت نشده</translation>
+<translation id="7755287808199759310">والدینتان می‌توانند این سایت را برای شما بگشایند</translation>
 <translation id="7758069387465995638">دیوار آتش یا نرم‌افزار ضدویروس ممکن است مانع اتصال شده باشد.</translation>
 <translation id="7761701407923456692">گواهی سرور با نشانی وب مطابقت ندارد.</translation>
 <translation id="777702478322588152">حوزه اداری</translation>
@@ -669,6 +684,7 @@
 <translation id="856992080682148">‏گواهی این سایت در سال ۲۰۱۷ یا بعد از آن منقضی می‌شود و زنجیره گواهی حاوی یک گواهی با امضای SHA-1 است.</translation>
 <translation id="8571890674111243710">ترجمه صفحه به <ph name="LANGUAGE" />...</translation>
 <translation id="859285277496340001">این مجوز هیچ مکانیزمی را برای بررسی اینکه آیا باطل شده یا نه مشخص نمی‌کند.</translation>
+<translation id="8620436878122366504">والدینتان هنوز این سایت را تأیید نکرده‌اند</translation>
 <translation id="8647750283161643317">بازنشانی همه به موارد پیش‌فرض</translation>
 <translation id="8703575177326907206">اتصال شما به <ph name="DOMAIN" /> رمزگذاری نشده است.</translation>
 <translation id="8725066075913043281">سعی مجدد</translation>
@@ -707,6 +723,7 @@
 <translation id="9050666287014529139">عبارت عبور</translation>
 <translation id="9065203028668620118">ویرایش</translation>
 <translation id="9068849894565669697">انتخاب رنگ</translation>
+<translation id="9076283476770535406">این سایت ممکن است شامل محتوای مخصوص بزرگسالان باشد</translation>
 <translation id="9092364396508701805">صفحه <ph name="HOST_NAME" /> کار نمی‌کند</translation>
 <translation id="9103872766612412690">‏<ph name="SITE" /> معمولاً برای محافظت از اطلاعات شما از رمزگذاری استفاده می‌کند. اما این بار که Chromium تلاش کرد به <ph name="SITE" /> متصل شود، وب‌سایت اعتبارنامه‌ای نامعمول و نادرست را برگرداند. ممکن است مهاجمی در تلاش باشد خود را به‌جای <ph name="SITE" /> معرفی کند یا یک صفحه ورود به سیستم Wi-Fi در ارتباط اختلال ایجاد کرده باشد. اطلاعات شما همچنان ایمن است، زیرا Chromium قبل از هرگونه تبادل داده، اتصال را متوقف کرد.</translation>
 <translation id="9137013805542155359">نمایش مورد اصلی</translation>
@@ -721,6 +738,7 @@
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="935608979562296692">پاک کردن فرم</translation>
 <translation id="939736085109172342">پوشهٔ جدید</translation>
+<translation id="941721044073577244">گویا اجازه بازدید از این سایت را ندارید</translation>
 <translation id="962701380617707048">‏برای به‌روزرسانی جزئیات کارتتان، تاریخ انقضا و CVC کارت <ph name="CREDIT_CARD" /> را وارد کنید</translation>
 <translation id="969892804517981540">ساخت رسمی</translation>
 <translation id="988159990683914416">ساخت برنامه‌نویس</translation>

@@ -626,6 +626,15 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 <translation id="2884728160143956392">Tillad cookies, der kun bruges i én session, på disse websites</translation>
 <translation id="2893546967669465276">Send systemlogfiler til administrationsserveren</translation>
 <translation id="2899002520262095963">Android-apps kan anvende de netværkskonfigurationer og CA-certifikater, der er angivet via denne politik, men de har ikke adgang til bestemte konfigurationsmuligheder.</translation>
+<translation id="2901399514673504930">Eksterne lagerenheder behandles som skrivebeskyttet.
+
+      Denne politik træder kun i kraft, hvis ExternalStorageDisabled er angivet til Falsk eller ikke er konfigureret.
+
+      Hvis denne politik er angivet til Sand, kan brugere ikke skrive noget til eksterne lagerenheder.
+
+      Hvis denne indstilling er deaktiveret eller ikke er konfigureret, kan brugere oprette og ændre filer på eksterne lagerenheder, der er mulige at skrive til.
+
+      Dynamisk opdatering af denne politik understøttes i M56 og nyere versioner.</translation>
 <translation id="2906874737073861391">Liste over AppPack-udvidelser</translation>
 <translation id="2908277604670530363">Maksimalt antal samtidige forbindelser til proxyserveren</translation>
 <translation id="2948087343485265211">Angiver, om lydaktivitet påvirker strømstyring.
@@ -1423,6 +1432,11 @@ Hvis denne politik ikke er indstillet, er standardfrekvensen 3 minutter. Minimum
           Hvis denne indstilling er aktiveret, sammenligner hosten for fjernadgang navnet på den lokale bruger (som hosten er tilknyttet) med navnet på den Google-konto, der er registreret som ejer af hosten (dvs. "jenshansen", hvis hosten ejes af Google-kontoen "jenshansen@example.com"). Hosten til fjernadgang starter ikke, hvis navnet på ejeren af hosten er et andet end navnet på den lokale bruger, som hosten er tilknyttet. Politikken RemoteAccessHostMatchUsername skal bruges sammen med RemoteAccessHostDomain for også at gennemtvinge, at hostejerens Google-konto tilknyttes et specifikt domæne (dvs. "example.com").
 
           Hvis denne indstilling er deaktiveret eller ikke er konfigureret, kan hosten for fjernadgang tilknyttes enhver lokal bruger.</translation>
+<translation id="5694594914843889579">Hvis denne politik er indstillet til Sand, vil eksternt lager ikke være tilgængelig i filbrowseren.
+
+      Denne politik omfatter alle typer lagermedier, f.eks. USB-nøgler, eksterne harddiske, SD- og andre hukommelseskort, optisk lagring m.v. Det interne lager påvirkes ikke, derfor er der stadig adgang til filer, der er gemt i mappen Download. Google Drev er heller ikke omfattet af denne politik.
+
+      Hvis denne indstilling er deaktiveret eller ikke er konfigureret, kan brugerne benytte alle understøttede eksterne lagertyper på deres enhed.</translation>
 <translation id="5697306356229823047">Rapportér enhedsbrugere</translation>
 <translation id="570062449808736508">Når denne politik er angivet til en udfyldt streng, læser WebView webadressebegrænsninger fra indholdsudbyderen med det angivne myndighedsnavn.</translation>
 <translation id="5703863730741917647">Angiv handling, der igangsættes ved inaktiv forsinkelse.

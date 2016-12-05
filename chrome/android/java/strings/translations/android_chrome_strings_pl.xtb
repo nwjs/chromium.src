@@ -95,6 +95,7 @@ Aby korzystać z internetu rzeczy, musisz włączyć Bluetooth i Lokalizację.</
 <translation id="1966710179511230534">Zaktualizuj swoje dane logowania.</translation>
 <translation id="1974060860693918893">Zaawansowane</translation>
 <translation id="1984937141057606926">Dozwolone, z wyjątkiem witryn innych firm</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> chce się sparować</translation>
 <translation id="1994173015038366702">URL strony</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB innych aplikacji</translation>
 <translation id="2020194265157481222">Na karcie musi być imię i nazwisko</translation>
@@ -266,6 +267,7 @@ Aby dostosować wyszukiwane hasło, naciśnij je i przytrzymaj, by je zaznaczyć
 <translation id="3950820424414687140">Zaloguj się</translation>
 <translation id="3967822245660637423">Pobieranie zakończone</translation>
 <translation id="397583555483684758">Synchronizacja przestała działać</translation>
+<translation id="3985215325736559418">Czy chcesz ponownie pobrać plik <ph name="FILE_NAME" />?</translation>
 <translation id="3988213473815854515">Lokalizacja jest dozwolona</translation>
 <translation id="3997476611815694295">Nieistotne dane</translation>
 <translation id="4002066346123236978">Tytuł</translation>
@@ -355,6 +357,7 @@ Aby dostosować wyszukiwane hasło, naciśnij je i przytrzymaj, by je zaznaczyć
 <translation id="4996978546172906250">Udostępnij przez</translation>
 <translation id="5000922062037820727">Zablokowane (zalecane)</translation>
 <translation id="5005498671520578047">Skopiuj hasło</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> chce się połączyć</translation>
 <translation id="5016205925109358554">Szeryfowa</translation>
 <translation id="5039804452771397117">Zezwalaj</translation>
 <translation id="5040262127954254034">Prywatność</translation>
@@ -610,6 +613,7 @@ Inne rodzaje historii przeglądania, takie jak wyszukiwania i aktywność w inny
 <translation id="7682287625158474539">Adres wysyłkowy</translation>
 <translation id="7698359219371678927">Utwórz e-maila w aplikacji <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Zobacz, co jest w pobliżu</translation>
+<translation id="7746006994124500250">Pobieranie oczekuje…</translation>
 <translation id="7764225426217299476">Dodaj adres</translation>
 <translation id="7765158879357617694">Przenieś</translation>
 <translation id="7769602470925380267">Zaakceptuj i wyloguj się</translation>
@@ -633,6 +637,7 @@ Inne rodzaje historii przeglądania, takie jak wyszukiwania i aktywność w inny
 <translation id="7998918019931843664">Otwórz ponownie zamkniętą kartę</translation>
 <translation id="7999064672810608036">Na pewno chcesz usunąć wszystkie dane lokalne (w tym pliki cookie) i zresetować uprawnienia tej witryny?</translation>
 <translation id="8007176423574883786">Wyłączona na tym urządzeniu</translation>
+<translation id="8008818777654712271">Automatycznie wysyłaj do Google pewne informacje o systemie i część zawartości stron, by pomóc w wykrywaniu niebezpiecznych aplikacji i witryn</translation>
 <translation id="802154636333426148">Nie udało się pobrać</translation>
 <translation id="8026334261755873520">Wyczyść dane przeglądania</translation>
 <translation id="8033827949643255796">wybrano</translation>

@@ -627,6 +627,15 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="2884728160143956392">Izinkan cookie sesi saja di situs-situs tersebut</translation>
 <translation id="2893546967669465276">Mengirim log sistem ke server pengelolaan</translation>
 <translation id="2899002520262095963">Aplikasi Android dapat menggunakan konfigurasi jaringan dan sertifikat CA yang disetel melalui kebijakan ini, namun tidak memiliki akses ke beberapa opsi konfigurasi.</translation>
+<translation id="2901399514673504930">Memperlakukan perangkat penyimpanan eksternal sebagai hanya baca.
+
+      Kebijakan ini hanya berlaku jika ExternalStorageDisabled disetel ke false atau tidak dikonfigurasi.
+
+      Jika kebijakan ini disetel ke true, pengguna tidak dapat menulis apa pun di perangkat penyimpanan eksternal.
+
+      Jika setelan ini dinonaktifkan atau tidak dikonfigurasi, pengguna dapat membuat dan memodifikasi file perangkat penyimpanan eksternal yang dapat ditulis secara fisik.
+
+      Penyegaran dinamis untuk kebijakan ini didukung dalam M56 dan yang lebih baru.</translation>
 <translation id="2906874737073861391">Daftar ekstensi AppPack</translation>
 <translation id="2908277604670530363">Jumlah maksimal sambungan serentak ke server proxy</translation>
 <translation id="2948087343485265211">Menentukan apakah aktivitas audio mempengaruhi pengelolaan daya.
@@ -1412,6 +1421,11 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
           Jika setelan ini diaktifkan, host akses jarak jauh membandingkan nama pengguna lokal (yang dikaitkan dengan host) dan nama akun Google yang terdaftar sebagai pemilik host ("johndoe" jika host adalah milik akun Google "johndoe@example.com").  Host akses jarak jauh tidak akan dimulai jika nama pemilik host berbeda dengan nama pengguna lokal yang dikaitkan dengan host.  Kebijakan RemoteAccessHostMatchUsername seharusnya digunakan bersama dengan RemoteAccessHostDomain untuk juga menerapkan bahwa akun Google pemilik host dikaitkan dengan domain khusus ("example.com").
 
           Jika setelan ini dinonaktifkan atau tidak disetel, host akses jarak jauh dapat dikaitkan dengan pengguna lokal apa pun.</translation>
+<translation id="5694594914843889579">Jika kebijakan ini disetel ke true, penyimpanan eksternal tidak akan tersedia di browser file.
+
+      Kebijakan ini memengaruhi semua jenis media penyimpanan. Misalnya: flash drive USB, hard drive eksternal, SD dan kartu memori lainnya, penyimpanan optik, dll. Penyimpanan internal tidak terpengaruh, sehingga file yang disimpan di folder Download tetap dapat diakses. Google Drive juga tidak terpengaruh oleh kebijakan ini.
+
+      Jika setelan ini dinonaktifkan atau tidak dikonfigurasi, pengguna dapat menggunakan semua jenis penyimpanan eksternal yang didukung di perangkat mereka.</translation>
 <translation id="5697306356229823047">Laporkan pengguna perangkat</translation>
 <translation id="570062449808736508">Jika kebijakan ini disetel ke string yang tidak kosong, WebView akan membaca batasan URL dari penyedia konten dengan nama otoritas yang diberikan.</translation>
 <translation id="5703863730741917647">Tentukan tindakan yang akan diambil saat penundaan nganggur dicapai.

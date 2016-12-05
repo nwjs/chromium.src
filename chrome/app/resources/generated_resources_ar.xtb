@@ -2143,7 +2143,6 @@
 <translation id="3709244229496787112">تم إيقاف تشغيل المتصفح قبل انتهاء التنزيل.</translation>
 <translation id="3711895659073496551">تعليق</translation>
 <translation id="3712897371525859903">حفظ الصفحة &amp;باسم...</translation>
-<translation id="3713494718070140825">‏<ph name="BEGIN_WHITEPAPER_LINK" />إرسال<ph name="END_WHITEPAPER_LINK" /> بعض معلومات النظام ومحتوى الصفحة إلى Google تلقائيًا للمساعدة في اكتشاف التطبيقات والمواقع الضارة. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="3714633008798122362">تقويم الويب</translation>
 <translation id="3715597595485130451">‏الاتصال بـ Wi-Fi</translation>
 <translation id="3716615839203649375">سماح</translation>
@@ -3810,6 +3809,7 @@
 <translation id="5957613098218939406">خيارات إضافية</translation>
 <translation id="5958529069007801266">مستخدم يخضع للإدارة</translation>
 <translation id="5959471481388474538">الشبكة غير متاحة</translation>
+<translation id="5959728338436674663">‏يمكنك إرسال بعض <ph name="BEGIN_WHITEPAPER_LINK" />معلومات النظام ومحتوى الصفحة<ph name="END_WHITEPAPER_LINK" /> إلى Google تلقائيًا للمساعدة في اكتشاف التطبيقات والمواقع الضارة. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">الحصول على مظاهر</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> في الذروة)</translation>
 <translation id="5965403572731919803">إضافة إلى الرف...</translation>

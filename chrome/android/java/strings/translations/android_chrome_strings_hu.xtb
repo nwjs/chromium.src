@@ -95,6 +95,7 @@ A Fizikai web használatához be kell kapcsolnia a Bluetooth funkciót és a hel
 <translation id="1966710179511230534">Kérjük, frissítse bejelentkezési adatait.</translation>
 <translation id="1974060860693918893">Speciális</translation>
 <translation id="1984937141057606926">Engedélyezve, kivéve a harmadik felektől származó cookie-kat</translation>
+<translation id="1993768208584545658">A(z) <ph name="SITE" /> párosítást szeretne végrehajtani</translation>
 <translation id="1994173015038366702">Webhely URL-je</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB más alkalmazások által</translation>
 <translation id="2020194265157481222">A kártyán szereplő név megadása kötelező</translation>
@@ -266,6 +267,7 @@ A keresési kifejezés módosításához hosszú nyomva tartással hajthat végr
 <translation id="3950820424414687140">Bejelentkezés</translation>
 <translation id="3967822245660637423">A letöltés sikeres</translation>
 <translation id="397583555483684758">A szinkronizálás leállt</translation>
+<translation id="3985215325736559418">Ismét letölti a(z) <ph name="FILE_NAME" /> fájlt?</translation>
 <translation id="3988213473815854515">Hely engedélyezve</translation>
 <translation id="3997476611815694295">Nem fontos tárhely</translation>
 <translation id="4002066346123236978">Cím</translation>
@@ -355,6 +357,7 @@ A keresési kifejezés módosításához hosszú nyomva tartással hajthat végr
 <translation id="4996978546172906250">Megosztás itt:</translation>
 <translation id="5000922062037820727">Letiltva (ajánlott)</translation>
 <translation id="5005498671520578047">Jelszó másolása</translation>
+<translation id="5011311129201317034">A(z) <ph name="SITE" /> csatlakozni szeretne</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Engedélyezés</translation>
 <translation id="5040262127954254034">Adatvédelem</translation>
@@ -610,6 +613,7 @@ Előfordulhat, hogy Google-fiókjában (a <ph name="BEGIN_LINK" />history.google
 <translation id="7682287625158474539">Szállítási cím</translation>
 <translation id="7698359219371678927">E-mail létrehozása a(z) <ph name="APP_NAME" /> alkalmazásban</translation>
 <translation id="771135159654932189">Közeli URL-ek megtekintése</translation>
+<translation id="7746006994124500250">Letöltés függőben…</translation>
 <translation id="7764225426217299476">Cím hozzáadása</translation>
 <translation id="7765158879357617694">Áthelyezés</translation>
 <translation id="7769602470925380267">Elfogadás és kijelentkezés</translation>
@@ -633,6 +637,7 @@ Előfordulhat, hogy Google-fiókjában (a <ph name="BEGIN_LINK" />history.google
 <translation id="7998918019931843664">Bezárt lap megnyitása</translation>
 <translation id="7999064672810608036">Biztosan törli a webhellyel kapcsolatos összes helyi adatot (a cookie-kkal együtt), és visszaállítja az összes engedélyt?</translation>
 <translation id="8007176423574883786">Kikapcsolva ezen az eszközön</translation>
+<translation id="8008818777654712271">Bizonyos rendszer-információk és oldaltartalmak automatikus küldése a Google-nak a veszélyes alkalmazások és webhelyek felderítése érdekében</translation>
 <translation id="802154636333426148">Nem sikerült a letöltés</translation>
 <translation id="8026334261755873520">Böngészési adatok törlése</translation>
 <translation id="8033827949643255796">kijelölve</translation>

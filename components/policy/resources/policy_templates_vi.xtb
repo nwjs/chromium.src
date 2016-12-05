@@ -656,6 +656,15 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="2884728160143956392">Cho phép cookie chỉ trong phiên trên các trang web này</translation>
 <translation id="2893546967669465276">Gửi nhật ký hệ thống đến máy chủ quản lý</translation>
 <translation id="2899002520262095963">Các ứng dụng Android có thể sử dụng cấu hình mạng và chứng chỉ CA được đặt qua chính sách này nhưng không có quyền truy cập vào một số tùy chọn cấu hình.</translation>
+<translation id="2901399514673504930">Coi thiết bị lưu trữ bên ngoài là chỉ đọc.
+
+      Chính sách này chỉ hiệu quả khi ExternalStorageDisabled được đặt thành false hoặc không được định cấu hình.
+
+      Khi chính sách này được đặt thành true, người dùng không thể ghi bất kỳ nội dung gì vào thiết bị lưu trữ bên ngoài.
+
+      Nếu cài đặt này bị tắt hoặc không được định cấu hình thì người dùng có thể tạo và sửa đổi các tệp của thiết bị lưu trữ bên ngoài có thể ghi được.
+
+      Làm mới động chính sách này được hỗ trợ trong M56 trở lên.</translation>
 <translation id="2906874737073861391">Danh sách tiện ích trong AppPack</translation>
 <translation id="2908277604670530363">Số lượng tối đa kết nối đồng thời tới máy chủ proxy</translation>
 <translation id="2948087343485265211">Chỉ định xem hoạt động âm thanh có ảnh hưởng đến việc quản lý nguồn không.
@@ -1497,6 +1506,11 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Nếu cài đặt này được bật thì máy chủ truy cập từ xa sẽ so sánh tên của người dùng ngôn ngữ (có liên kết với máy chủ) và tên tài khoản Google được đăng ký làm chủ sở hữu máy chủ (tức là: "johndoe" nếu máy chủ được tài khoản Google "johndoe@example.com" sở hữu). Máy chủ truy cập từ xa sẽ không khởi động nếu tên của chủ sở hữu máy chủ khác với tên của người dùng ngôn ngữ có liên kết với máy chủ. Nên sử dụng chính sách RemoteAccessHostMatchUsername cùng với chính sách RemoteAccessHostDomain để đồng thời buộc tài khoản Google của chủ sở hữu máy chủ liên kết với miền cụ thể (tức là: "example.com").
 
           Nếu cài đặt này bị tắt hoặc không được đặt thì máy chủ truy cập từ xa có thể được liên kết với bất kỳ người dùng ngôn ngữ nào.</translation>
+<translation id="5694594914843889579">Khi chính sách này được đặt thành true, bộ nhớ ngoài sẽ không khả dụng trong trình duyệt tệp.
+
+      Chính sách này ảnh hưởng tới tất cả các loại phương tiện lưu trữ. Ví dụ: ổ USB flash, ổ đĩa cứng bên ngoài, SD và các thẻ nhớ khác, bộ nhớ quang v.v.. Bộ nhớ trong không bị ảnh hưởng, do đó vẫn có thể truy cập vào các tệp đã lưu trong thư mục Tải xuống. Google Drive cũng không bị ảnh hưởng bởi chính sách này.
+
+      Nếu cài đặt này bị tắt hoặc không được định cấu hình thì người dùng có thể sử dụng tất cả các loại bộ nhớ ngoài được hỗ trợ trên thiết bị của họ.</translation>
 <translation id="5697306356229823047">Báo cáo người dùng thiết bị</translation>
 <translation id="570062449808736508">Khi chính sách này được đặt thành chuỗi không trống, WebView sẽ đọc hạn chế URL từ nhà cung cấp nội dung có tên tổ chức cho trước.</translation>
 <translation id="5703863730741917647">Chỉ định tác vụ sẽ thực hiện khi đạt độ trễ không hoạt động.

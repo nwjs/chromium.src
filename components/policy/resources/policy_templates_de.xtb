@@ -611,6 +611,15 @@ Falls die Richtlinie auf "false" gesetzt wird, kann eine verzögerungsfreie auto
 <translation id="2884728160143956392">Auf diesen Websites Cookies für die jeweilige Sitzung zulassen</translation>
 <translation id="2893546967669465276">Systemprotokolle an den Verwaltungsserver senden</translation>
 <translation id="2899002520262095963">Android-Apps können die über diese Richtlinie festgelegten Netzwerkkonfigurationen und CA-Zertifikate verwenden, haben jedoch keinen Zugriff auf bestimmte Konfigurationsoptionen.</translation>
+<translation id="2901399514673504930">Externe Speichergeräte nur schreibgeschützt verwenden.
+
+      Diese Einstellung ist nur gültig, wenn "ExternalStorageDisabled" auf "false" gesetzt oder nicht konfiguriert ist.
+
+      Wenn diese Einstellung auf "true" gesetzt ist, können Nutzer keine Daten auf externe Speichergeräte übertragen.
+
+      Wenn diese Einstellung deaktiviert oder nicht konfiguriert ist, können Nutzer Dateien auf externen Speichergeräten erstellen und bearbeiten, sofern diese nicht schreibgeschützt sind.
+
+      Die dynamische Aktualisierung dieser Einstellung wird ab M56 unterstützt.</translation>
 <translation id="2906874737073861391">Liste der AppPack-Erweiterungen</translation>
 <translation id="2908277604670530363">Maximale Anzahl gleichzeitiger Verbindungen zum Proxyserver</translation>
 <translation id="2948087343485265211">Hiermit wird angegeben, ob Audioaktivitäten Einfluss auf den Energiesparmodus haben.
@@ -1394,6 +1403,11 @@ Wird diese Einstellung deaktiviert oder kein Wert festgelegt, wird der eingeschr
           Wenn diese Einstellung aktiviert ist, vergleicht der Host für den Remote-Zugriff den Namen des mit dem Host verknüpften lokalen Nutzers mit dem Namen des Google-Kontos, das als Hosteigentümer registriert ist (z. B. "maxmustermann", wenn der Hosteigentümer das Google-Konto "maxmustermann@ihrebeispielurl.de" ist). Der Host für den Remote-Zugriff wird nicht gestartet, wenn der Name des Hosteigentümers vom Namen des mit dem Host verknüpften lokalen Nutzers abweicht. Die Richtlinie "RemoteAccessHostMatchUsername" sollte in Kombination mit "RemoteAccessHostDomain" eingesetzt werden. So wird durchgesetzt, dass das Google-Konto des Hosteigentümers mit einer bestimmten Domain (z. B. "ihrebeispielurl.de") verknüpft wird.
 
           Ist diese Einstellung deaktiviert oder nicht konfiguriert, kann der Host für den Remote-Zugriff mit jedem lokalen Nutzer verknüpft werden.</translation>
+<translation id="5694594914843889579">Wenn diese Einstellung auf "true" gesetzt ist, ist im Datei-Browser kein externer Speicher verfügbar.
+
+      Diese Einstellung gilt für alle Arten von Speichermedien, wie USB-Speichersticks, externe Festplatten, SD-Karten und andere Speicherkarten sowie optische Speichermedien. Der interne Speicher ist nicht betroffen, im Downloadordner gespeicherte Dateien können darum weiterhin abgerufen werden. Zudem hat diese Einstellung keine Auswirkungen auf Google Drive.
+
+      Ist diese Einstellung deaktiviert oder nicht konfiguriert, können die Nutzer alle unterstützten externen Speichermedien auf ihrem Gerät verwenden.</translation>
 <translation id="5697306356229823047">Gerätenutzer aufzeichnen</translation>
 <translation id="570062449808736508">Wenn für diese Richtlinie kein leerer String angegeben ist, wird WebView URL-Einschränkungen des Contentanbieters des angegebenen Befugnisnamens erkennen.</translation>
 <translation id="5703863730741917647">Geben Sie die beim Erreichen der Leerlaufverzögerung auszuführende Aktion an.

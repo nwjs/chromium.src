@@ -616,6 +616,15 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 <translation id="2884728160143956392">Permitir cookies de sesión única en estos sitios</translation>
 <translation id="2893546967669465276">Enviar registros del sistema al servidor de administración</translation>
 <translation id="2899002520262095963">A través de esta política, las apps de Android pueden usar la configuración de red y los Certificados de CA, pero no tienen acceso a algunas opciones de configuración.</translation>
+<translation id="2901399514673504930">Trata los dispositivos de almacenamiento externo como de solo lectura.
+
+      Esta política es eficaz solo cuando ExternalStorageDisabled se establece como falsa o no se configura.
+
+      Cuando esta política se establece como verdadera, los usuarios no podrán escribir nada en dispositivos de almacenamiento externos.
+
+      Si esta configuración se inhabilita o no se configura, los usuarios podrán crear y modificar archivos de dispositivos de almacenamiento externo que permitan la escritura de forma física.
+
+      La actualización dinámica de esta política es compatible en M56 y versiones posteriores.</translation>
 <translation id="2906874737073861391">Lista de extensiones AppPack</translation>
 <translation id="2908277604670530363">Cantidad máxima de conexiones simultáneas con el servidor proxy</translation>
 <translation id="2948087343485265211">Especifica si la actividad de audio afecta a la administración de energía.
@@ -780,13 +789,13 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 <translation id="3418871497193485241">Aplica un modo restringido mínimo en YouTube y evita que los usuarios
       seleccionen un modo menos restringido.
 
-      Si esta configuración se establece como estricta, el modo restringido estricto en YouTube estará siempre activo.
+      Si esta configuración se establece como estricta, el modo restringido estricto en YouTube estará activo siempre.
 
       Si esta configuración se establece como moderada, el usuario
       solo puede elegir el modo restringido moderado y el modo restringido
       estricto en YouTube, pero no puede inhabilitar el modo restringido.
 
-      Si esta configuración se establece como desactivada o no se establece ningún valor, <ph name="PRODUCT_NAME" /> no se aplica el modo restringido en YouTube. Sin embargo, es posible que las políticas externas, como las de YouTube, apliquen el modo restringido.</translation>
+      Si esta configuración se establece como desactivada o no se establece ningún valor, <ph name="PRODUCT_NAME" /> no aplica el modo restringido en YouTube. Sin embargo, es posible que las políticas externas, como las de YouTube, apliquen el modo restringido.</translation>
 <translation id="3428247105888806363">Habilitar la predicción de red</translation>
 <translation id="3449886121729668969">Establece la configuración de proxy para <ph name="PRODUCT_NAME" />. Las apps de ARC también podrán usar estas opciones de configuración de proxy.
 
@@ -900,12 +909,12 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 
           De forma predeterminada, todos los hosts de mensajería nativa están incluidos en la lista blanca, pero si una política los incluye en la lista negra, se puede utilizar la lista blanca para anular dicha política.</translation>
 <translation id="384743459174066962">Te permite configurar una lista de patrones de URL que especifican los sitios que no están autorizados a abrir ventanas emergentes. Si esta política no se configura, se usará el valor global predeterminado para todos los sitios ya sea de la política "DefaultPopupsSetting", si está configurada, o de otro tipo de configuración personal del usuario.</translation>
-<translation id="3851039766298741586">Informar datos sobre la sesión de kiosko activa, como
+<translation id="3851039766298741586">Informar datos sobre la sesión de kiosco activa, como
       el ID de la aplicación y la versión.
 
       Si la política se establece como falsa, no se informarán los datos de la
-      sesión del kiosko. Si se establece como verdadera o no se establece, se
-      informarán los datos de la sesión del kiosko.</translation>
+      sesión del kiosco. Si se establece como verdadera o no se establece, se
+      informarán los datos de la sesión del kiosco.</translation>
 <translation id="3859780406608282662">Permite agregar un parámetro para la obtención del valor de inicialización de variaciones en <ph name="PRODUCT_OS_NAME" />.
 
      Si está especificada, agregará un parámetro de consulta llamado "restringir" a la dirección URL que se usará para obtener el valor de inicialización de las variaciones. El valor del parámetro será el valor especificado en esta política.
@@ -924,7 +933,7 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 
       Esta configuración aplica el uso de la función SafeSearch para las consultas en Búsqueda web de Google y evita que los usuarios puedan cambiarla. Además, aplica el modo restringido moderado en YouTube.
 
-      Si habilitas esta configuración, SafeSearch en Búsqueda de Google y el modo restringido moderado en YouTube están siempre activos.
+      Si habilitas esta configuración, SafeSearch en Búsqueda de Google y el modo restringido moderado en YouTube están activos siempre.
 
       Si inhabilitas esta configuración o no estableces un valor, SafeSearch en Búsqueda de Google y el modo restringido moderado en YouTube no se aplican.</translation>
 <translation id="3866249974567520381">Descripción</translation>
@@ -1318,7 +1327,7 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 
       Si se habilita esta configuración, el modo restringido en YouTube se aplica siempre, al menos en el nivel moderado.
 
-      Si esta configuración se inhabilita o no se establece ningún valor, <ph name="PRODUCT_NAME" /> no se aplica el modo restringido en YouTube. Sin embargo, es posible que las políticas externas, como las de YouTube, apliquen el modo restringido.</translation>
+      Si esta configuración se inhabilita o no se establece ningún valor, <ph name="PRODUCT_NAME" /> no aplica el modo restringido en YouTube. Sin embargo, es posible que las políticas externas, como las de YouTube, apliquen el modo restringido.</translation>
 <translation id="5447306928176905178">Habilitar el suministro de información sobre la memoria (tamaño de pila de archivos JavaScript) a las páginas (obsoleto)</translation>
 <translation id="5457065417344056871">Habilitar modo de invitado en el navegador</translation>
 <translation id="5457924070961220141">Te permite configurar el procesador HTML predeterminado cuando se instala <ph name="PRODUCT_FRAME_NAME" />. La configuración predeterminada que se usa cuando esta política no se configura es permitir que el navegador del host realice la representación, pero puedes anular esta opción y hacer que <ph name="PRODUCT_FRAME_NAME" /> muestre páginas HTML de forma predeterminada.</translation>
@@ -1400,6 +1409,11 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
           Si esta configuración está habilitada, el host de acceso remoto compara el nombre del usuario local (con el que está asociado el host) y el nombre de la cuenta de Google registrada como propietario del host (es decir, "juanperez" si el host pertenece a la cuenta de Google "juanperez@ejemplo.com"). El host de acceso remoto no se iniciará si el nombre del propietario del host es diferente del nombre del usuario local con el que está asociado el host. Se debe usar la política RemoteAccessHostMatchUsername junto con RemoteAccessHostDomain para exigir también que la cuenta de Google del propietario del host esté asociada con un dominio específico (es decir, "ejemplo.com").
 
           Si esta configuración está inhabilitada o no está establecida, el host de acceso remoto se puede asociar con cualquier usuario local.</translation>
+<translation id="5694594914843889579">Cuando esta política se establece como verdadera, el almacenamiento externo no estará disponible en el navegador de archivos.
+
+      Esta política afecta todos los tipos de medios de almacenamiento, p. ej., memorias USB, discos rígidos externos, tarjetas de memoria SD y de otros tipos, almacenamiento óptico, etc. El almacenamiento interno no se ve afectado, por lo que aún se puede acceder a los archivos guardados en la carpeta de Descargas. Esta política tampoco afecta a Google Drive.
+
+      Si esta opción se inhabilita o no se configura, los usuarios podrán usar todos los tipos compatibles de almacenamiento externo en su dispositivo.</translation>
 <translation id="5697306356229823047">Informa sobre los usuarios de dispositivos.</translation>
 <translation id="570062449808736508">Cuando esta política se establece con una string no vacía, WebView leerá las restricciones de URL del proveedor de contenido con el nombre de la autoridad proporcionado.</translation>
 <translation id="5703863730741917647">Especifica la acción a realizar si se alcanza la demora de inactividad.
@@ -1437,7 +1451,7 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 
       Si habilitas esta configuración, la lista de complementos especificados se puede usar en <ph name="PRODUCT_NAME" />. Los usuarios pueden habilitarlos o inhabilitarlos en "about:plugins", incluso si el complemento también coincide con un patrón en DisabledPlugins. Los usuarios también pueden habilitar e inhabilitar complementos que no coincidan con ningún patrón en DisabledPlugins, DisabledPluginsExceptions y EnabledPlugins.
 
-      El objetivo de esta política es implementar una lista estricta de complementos no permitidos en la que la lista de "DisabledPlugins" contiene entradas con caracteres comodín, como inhabilitar todos los complementos "*" o inhabilitar todos los complementos de Java "*Java*", pero el administrador desea habilitar una versión específica, como "IcedTea Java 2.3". Estas versiones específicas se pueden especificar en esta política.
+      El objetivo de esta política es implementar una lista estricta de complementos no permitidos en la que la lista de "DisabledPlugins" contiene entradas con caracteres comodín, como inhabilitar todos los complementos "*" o inhabilitar todos los complementos de Java "*Java*", pero el administrador desea habilitar una versión específica, como "IcedTea Java 2.3". Estas versiones en particular se pueden especificar en esta política.
 
       Ten en cuenta que tanto el nombre del complemento como el nombre del grupo de complementos deben exceptuarse. Cada grupo de complementos se muestra en una sección diferente en "about:plugins"; cada sección puede tener uno o más complementos. Por ejemplo, el complemento "Shockwave Flash" pertenece al grupo "Adobe Flash Player". Si deseas que ese complemento se exceptúe de la lista de complementos no permitidos, ambos nombres deben coincidir en la lista de excepciones.
 
@@ -1529,15 +1543,15 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
       Si esta política no se configura, la lista de dispositivos USB que se pueden separar está vacía.</translation>
 <translation id="608377055310226486">Esta política dejó de estar disponible. Usa <ph name="DEFAULT_PLUGINS_SETTING_POLICY" /> para controlar la disponibilidad del complemento Flash y <ph name="ALWAYS_OPEN_PDF_EXTERNALLY_POLICY" /> para controlar el uso del lector de PDF integrado para abrir archivos PDF.
 
-      Especifica una lista de complementos que se inhabilitan en <ph name="PRODUCT_NAME" /> y evita que los usuarios cambien esta configuración.
+      Especifica una lista de complementos que se habilitan en <ph name="PRODUCT_NAME" /> y evita que los usuarios cambien esta configuración.
 
       Los caracteres comodín "*" y "?" se pueden usar para buscar secuencias de caracteres arbitrarios. "*" busca un número arbitrario de caracteres y "?" especifica un único carácter opcional, es decir, busca un carácter o ninguno. El carácter de escape es "\", para buscar los caracteres "*", "?" o "\", usa "\" delante de ellos.
 
-      Si estableces esta configuración, la lista especificada de complementos no se usará nunca en <ph name="PRODUCT_NAME" />. Los complementos se marcan como inhabilitados en "about:plugins" y los usuarios no pueden habilitarlos.
+      Si están instalados, los complementes especificados en la lista se usarán siempre en <ph name="PRODUCT_NAME" />. Los complementos se marcan como habilitados en "about:plugins" y los usuarios no pueden inhabilitarlos.
 
-      Ten en cuenta que las políticas EnabledPlugins y DisabledPluginsExceptions pueden anular esta política.
+      Ten en cuenta que esta política puede anular las políticas EnabledPlugins y DisabledPluginsExceptions.
 
-      Si esta política no se establece, el usuario puede usar cualquier complemento instalado en el sistema, excepto los complementos peligrosos, desactualizados o con una codificación incompatible.</translation>
+      Si esta política no se establece, el usuario puede inhabilitar cualquier complemento instalado en el sistema.</translation>
 <translation id="6093156968240188330">Permitir que los usuarios remotos interactúen con las ventanas con permisos elevados en sesiones de asistencia remota</translation>
 <translation id="6095999036251797924">Especifica el tiempo que debe transcurrir sin que el usuario realice una acción antes de que la pantalla se bloquee cuando se utiliza CA o batería.
 

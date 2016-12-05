@@ -95,6 +95,7 @@ Vous devez activer le Bluetooth et les services de localisation pour utiliser le
 <translation id="1966710179511230534">Veuillez mettre à jour vos informations de connexion.</translation>
 <translation id="1974060860693918893">Paramètres avancés</translation>
 <translation id="1984937141057606926">Autorisés, sauf cookies tiers</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> tente de s'associer</translation>
 <translation id="1994173015038366702">URL du site</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> Ko par d'autres applis</translation>
 <translation id="2020194265157481222">Nom sur la carte obligatoire</translation>
@@ -266,6 +267,7 @@ Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée
 <translation id="3950820424414687140">Ouvrir une session</translation>
 <translation id="3967822245660637423">Téléchargement terminé</translation>
 <translation id="397583555483684758">La synchronisation s'est arrêtée.</translation>
+<translation id="3985215325736559418">Voulez-vous télécharger <ph name="FILE_NAME" /> de nouveau ?</translation>
 <translation id="3988213473815854515">Position autorisée</translation>
 <translation id="3997476611815694295">Stockage non important</translation>
 <translation id="4002066346123236978">Titre</translation>
@@ -355,6 +357,7 @@ Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée
 <translation id="4996978546172906250">Partager via</translation>
 <translation id="5000922062037820727">Bloquée (recommandé)</translation>
 <translation id="5005498671520578047">Copier mot de passe</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> tente de se connecter</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Autoriser</translation>
 <translation id="5040262127954254034">Confidentialité</translation>
@@ -610,6 +613,7 @@ Votre compte Google conserve peut-être d'autres formes d'historique de navigati
 <translation id="7682287625158474539">Adresse de livraison</translation>
 <translation id="7698359219371678927">Créer un e-mail dans <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Voir les URL à proximité</translation>
+<translation id="7746006994124500250">Téléchargement en attente…</translation>
 <translation id="7764225426217299476">Ajouter une adresse</translation>
 <translation id="7765158879357617694">Déplacer</translation>
 <translation id="7769602470925380267">Accepter et se déconnecter</translation>
@@ -633,6 +637,7 @@ Votre compte Google conserve peut-être d'autres formes d'historique de navigati
 <translation id="7998918019931843664">Rouvrir un onglet fermé</translation>
 <translation id="7999064672810608036">Voulez-vous vraiment effacer toutes les données locales, y compris les cookies, et réinitialiser toutes les autorisations pour ce site Web ?</translation>
 <translation id="8007176423574883786">Désactivée pour cet appareil</translation>
+<translation id="8008818777654712271">Envoyer automatiquement des informations système et du contenu de page à Google afin de faciliter la détection d'applications et de sites dangereux</translation>
 <translation id="802154636333426148">Échec du téléchargement</translation>
 <translation id="8026334261755873520">Effacer les données de navigation</translation>
 <translation id="8033827949643255796">sélectionné</translation>

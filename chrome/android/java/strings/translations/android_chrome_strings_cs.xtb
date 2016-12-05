@@ -95,6 +95,7 @@ Chcete-li fyzický web používat, je třeba aktivovat Bluetooth a určování 
 <translation id="1966710179511230534">Aktualizujte prosím své přihlašovací údaje.</translation>
 <translation id="1974060860693918893">Rozšířená nastavení</translation>
 <translation id="1984937141057606926">Povoleno, s výjimkou souborů cookie třetí strany</translation>
+<translation id="1993768208584545658">Web <ph name="SITE" /> žádá o spárování</translation>
 <translation id="1994173015038366702">Adresa URL webu</translation>
 <translation id="200815880754187296">Ostatní aplikace: <ph name="KILOBYTES" /> kB</translation>
 <translation id="2020194265157481222">Jméno na kartě je vyžadováno</translation>
@@ -266,6 +267,7 @@ Chcete-li vyhledávací dotaz upravit, proveďte výběr dlouhým stisknutím. C
 <translation id="3950820424414687140">Přihlaste se</translation>
 <translation id="3967822245660637423">Stahování bylo dokončeno</translation>
 <translation id="397583555483684758">Synchronizace přestala fungovat</translation>
+<translation id="3985215325736559418">Opravdu soubor <ph name="FILE_NAME" /> chcete stáhnout znovu?</translation>
 <translation id="3988213473815854515">Přístup k poloze je povolen</translation>
 <translation id="3997476611815694295">Nedůležité úložiště</translation>
 <translation id="4002066346123236978">Název</translation>
@@ -355,6 +357,7 @@ Chcete-li vyhledávací dotaz upravit, proveďte výběr dlouhým stisknutím. C
 <translation id="4996978546172906250">Sdílet prostřednictvím</translation>
 <translation id="5000922062037820727">Blokováno (doporučeno)</translation>
 <translation id="5005498671520578047">Kopírování hesla</translation>
+<translation id="5011311129201317034">Web <ph name="SITE" /> žádá o připojení</translation>
 <translation id="5016205925109358554">Patková</translation>
 <translation id="5039804452771397117">Povolit</translation>
 <translation id="5040262127954254034">Ochrana soukromí</translation>
@@ -610,6 +613,7 @@ Na stránce <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> moh
 <translation id="7682287625158474539">Doprava</translation>
 <translation id="7698359219371678927">Vytvořit e-mail v aplikaci <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Zobrazit weby v okolí</translation>
+<translation id="7746006994124500250">Nevyřízené stahování...</translation>
 <translation id="7764225426217299476">Přidat adresu</translation>
 <translation id="7765158879357617694">Přesunout</translation>
 <translation id="7769602470925380267">Přijmout a odhlásit se</translation>
@@ -633,6 +637,7 @@ Na stránce <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> moh
 <translation id="7998918019931843664">Znovu otevřít zavřenou kartu</translation>
 <translation id="7999064672810608036">Opravdu chcete vymazat všechna místní data tohoto webu, včetně souborů cookie, a resetovat všechna jeho oprávnění?</translation>
 <translation id="8007176423574883786">Vypnuto v tomto zařízení</translation>
+<translation id="8008818777654712271">Automaticky odesílat část informací o systému a obsahu stránek do Googlu s cílem pomoci rozpoznávat nebezpečné aplikace a weby.</translation>
 <translation id="802154636333426148">Stažení se nezdařilo</translation>
 <translation id="8026334261755873520">Vymazat údaje o prohlížení</translation>
 <translation id="8033827949643255796">vybráno</translation>

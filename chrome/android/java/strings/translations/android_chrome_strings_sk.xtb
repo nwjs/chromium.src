@@ -95,6 +95,7 @@ Ak chcete používať Fyzický web, musíte mať zapnuté rozhranie Bluetooth a�
 <translation id="1966710179511230534">Aktualizujte svoje prihlasovacie údaje.</translation>
 <translation id="1974060860693918893">Rozšírené</translation>
 <translation id="1984937141057606926">Povolené (okrem tretích strán)</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> žiada o spárovanie</translation>
 <translation id="1994173015038366702">Webová adresa stránok</translation>
 <translation id="200815880754187296">Ďalšie aplikácie: <ph name="KILOBYTES" /> KB</translation>
 <translation id="2020194265157481222">Meno na karte je povinné</translation>
@@ -266,6 +267,7 @@ Ak chcete upraviť hľadaný výraz, vyberte ho dlhým stlačením. Ak chcete vy
 <translation id="3950820424414687140">Prihlásiť sa</translation>
 <translation id="3967822245660637423">Sťahovanie bolo dokončené</translation>
 <translation id="397583555483684758">Synchronizácia prestala fungovať</translation>
+<translation id="3985215325736559418">Chcete znova stiahnuť súbor <ph name="FILE_NAME" />?</translation>
 <translation id="3988213473815854515">Poloha je povolená</translation>
 <translation id="3997476611815694295">Nedôležité úložisko</translation>
 <translation id="4002066346123236978">Názov</translation>
@@ -355,6 +357,7 @@ Ak chcete upraviť hľadaný výraz, vyberte ho dlhým stlačením. Ak chcete vy
 <translation id="4996978546172906250">Zdieľať prostredníctvom</translation>
 <translation id="5000922062037820727">Blokované (odporúčané)</translation>
 <translation id="5005498671520578047">Kopírovanie hesla</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> žiada o pripojenie</translation>
 <translation id="5016205925109358554">Pätkové</translation>
 <translation id="5039804452771397117">Povoliť</translation>
 <translation id="5040262127954254034">Ochrana súkromia</translation>
@@ -610,6 +613,7 @@ Váš účet Google môže mať na adrese <ph name="BEGIN_LINK" />history.google
 <translation id="7682287625158474539">Dodacia</translation>
 <translation id="7698359219371678927">Vytvorte správu v aplikácii <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Zobraziť webové stránky v okolí</translation>
+<translation id="7746006994124500250">Čaká sa na stiahnutie…</translation>
 <translation id="7764225426217299476">Pridať adresu</translation>
 <translation id="7765158879357617694">Presunúť</translation>
 <translation id="7769602470925380267">Prijať a odhlásiť</translation>
@@ -633,6 +637,7 @@ Váš účet Google môže mať na adrese <ph name="BEGIN_LINK" />history.google
 <translation id="7998918019931843664">Znova otvoriť zavretú kartu</translation>
 <translation id="7999064672810608036">Naozaj chcete vymazať všetky miestne údaje (vrátane súborov cookie) a obnoviť všetky povolenia pre tieto webové stránky?</translation>
 <translation id="8007176423574883786">Vypnuté v tomto zariadení</translation>
+<translation id="8008818777654712271">Automaticky odosielať niektoré informácie o systéme a obsah stránok Googlu s cieľom pomôcť rozpoznávať nebezpečné aplikácie a weby</translation>
 <translation id="802154636333426148">Stiahnutie zlyhalo</translation>
 <translation id="8026334261755873520">Vymazať dáta prehliadania</translation>
 <translation id="8033827949643255796">vybrané</translation>

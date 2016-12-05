@@ -9,6 +9,7 @@
 <translation id="1055184225775184556">&amp;Poništi dodavanje</translation>
 <translation id="10614374240317010">Zaporke se nikad ne spremaju</translation>
 <translation id="106701514854093668">Oznake radne površine</translation>
+<translation id="1074497978438210769">Nije sigurno</translation>
 <translation id="1080116354587839789">Prilagođavanje širini</translation>
 <translation id="1103523840287552314">Uvijek prevedi <ph name="LANGUAGE" /></translation>
 <translation id="1107591249535594099">Ako je označeno, Chrome će pohraniti kopiju vaše kartice na uređaj radi bržeg popunjavanja obrazaca.</translation>
@@ -38,6 +39,7 @@
 <translation id="129553762522093515">Nedavno zatvoreno</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Izbrišite kolačiće<ph name="END_LINK" /></translation>
 <translation id="1339601241726513588">Domena upisa:</translation>
+<translation id="1344211575059133124">Izgleda da ti je za posjet toj web-lokaciji potrebno dopuštenje</translation>
 <translation id="1344588688991793829">Postavke automatskog popunjavanja u Chromiumu...</translation>
 <translation id="1374468813861204354">prijedlozi</translation>
 <translation id="1375198122581997741">O verziji</translation>
@@ -69,6 +71,7 @@
 <translation id="168841957122794586">Certifikat poslužitelja sadrži slab kriptografski ključ!</translation>
 <translation id="1701955595840307032">Prikaz predloženog sadržaja</translation>
 <translation id="1710259589646384581">OS</translation>
+<translation id="1721312023322545264"><ph name="NAME" /> mora dopustiti da posjetiš tu web-lokaciju</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Pokušajte kontaktirati administratora sustava.</translation>
 <translation id="1745358365027406341">Preuzmi stranicu kasnije</translation>
@@ -171,6 +174,7 @@
 <translation id="2742870351467570537">Ukloni odabrane stavke</translation>
 <translation id="277499241957683684">Zapis uređaja nije prisutan</translation>
 <translation id="2784949926578158345">Veza je ponovo uspostavljena.</translation>
+<translation id="2794233252405721443">Web-lokacija blokirana</translation>
 <translation id="2824775600643448204">Adresna traka i traka za pretraživanje</translation>
 <translation id="2826760142808435982">Veza je kriptirana i autentificirana šifrom <ph name="CIPHER" />, a <ph name="KX" /> služi za mehanizam razmjene ključeva.</translation>
 <translation id="2835170189407361413">Obriši obrazac</translation>
@@ -249,6 +253,7 @@
 <translation id="3549644494707163724">Šifriranje svih sinkroniziranih podataka vlastitom zaporkom za sinkronizaciju</translation>
 <translation id="3549761410225185768">Još <ph name="NUM_TABS_MORE" />...</translation>
 <translation id="3555561725129903880">Poslužitelj nije mogao dokazati da je to <ph name="DOMAIN" /> jer sigurnosni certifikat potječe s domene <ph name="DOMAIN2" />. Razlog može biti pogrešna konfiguracija ili napad na vašu vezu. <ph name="BEGIN_LEARN_MORE_LINK" />Saznajte više<ph name="END_LEARN_MORE_LINK" />.</translation>
+<translation id="3556433843310711081">Voditelj je može deblokirati</translation>
 <translation id="3566021033012934673">Vaša veza nije privatna</translation>
 <translation id="3583757800736429874">&amp;Ponovi premještanje</translation>
 <translation id="3586931643579894722">Sakrij detalje</translation>
@@ -285,8 +290,8 @@
 <translation id="3858027520442213535">Ažuriraj datum i vrijeme</translation>
 <translation id="3884278016824448484">Identifikator uređaja sukobljen je</translation>
 <translation id="3885155851504623709">Župa</translation>
+<translation id="3886446263141354045">Zahtjev za pristup toj web-lokaciji poslan je korisniku <ph name="NAME" /></translation>
 <translation id="3901925938762663762">Kartica je istekla</translation>
-<translation id="3910267023907260648">Pokušali ste otvoriti <ph name="DOMAIN" />, ali poslužitelj je prikazao certifikat potpisan slabim algoritmom potpisa. To znači da su sigurnosne vjerodajnice koje je poslužitelj prikazao možda krivotvorene, a poslužitelj možda nije onaj koji očekujete (možda komunicirate s napadačem). <ph name="BEGIN_LEARN_MORE_LINK" />Saznajte više<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="3933571093587347751">{1,plural, =1{Poslužitelj nije mogao dokazati da je to <ph name="DOMAIN" /> jer je sigurnosni certifikat navodno izdan sutra. Razlog može biti pogrešna konfiguracija ili napad na vašu vezu. <ph name="BEGIN_LEARN_MORE_LINK" />Saznajte više<ph name="END_LEARN_MORE_LINK" />.}one{Poslužitelj nije mogao dokazati da je to <ph name="DOMAIN" /> jer je sigurnosni certifikat navodno izdan # dan u budućnosti. Razlog može biti pogrešna konfiguracija ili napad na vašu vezu. <ph name="BEGIN_LEARN_MORE_LINK" />Saznajte više<ph name="END_LEARN_MORE_LINK" />.}few{Poslužitelj nije mogao dokazati da je to <ph name="DOMAIN" /> jer je sigurnosni certifikat navodno izdan # dana u budućnosti. Razlog može biti pogrešna konfiguracija ili napad na vašu vezu. <ph name="BEGIN_LEARN_MORE_LINK" />Saznajte više<ph name="END_LEARN_MORE_LINK" />.}other{Poslužitelj nije mogao dokazati da je to <ph name="DOMAIN" /> jer je sigurnosni certifikat navodno izdan # dana u budućnosti. Razlog može biti pogrešna konfiguracija ili napad na vašu vezu. <ph name="BEGIN_LEARN_MORE_LINK" />Saznajte više<ph name="END_LEARN_MORE_LINK" />.}}</translation>
 <translation id="3934680773876859118">Učitavanje dokumenta PDF nije uspjelo</translation>
 <translation id="3963721102035795474">Način čitača</translation>
@@ -357,6 +362,7 @@
 <translation id="4813512666221746211">Pogreška mreže</translation>
 <translation id="4816492930507672669">Prilagodi stranici</translation>
 <translation id="4850886885716139402">Prikaz</translation>
+<translation id="4858792381671956233">Pitao si roditelje smiješ li otvoriti tu web-lokaciju</translation>
 <translation id="4880827082731008257">Pretraži povijest</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /></translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{i još 1 web-stranica}one{i još # web-stranica}few{i još # web-stranice}other{i još # web-stranica}}</translation>
@@ -425,9 +431,11 @@
 <translation id="5629630648637658800">Učitavanje postavki pravila nije uspjelo</translation>
 <translation id="5631439013527180824">Token za upravljanje uređajem nije važeći</translation>
 <translation id="5677928146339483299">Blokirano</translation>
+<translation id="5694783966845939798">Pokušali ste otvoriti <ph name="DOMAIN" />, ali je poslužitelj pružio certifikat potpisan slabim algoritmom potpisa (kao što je SHA-1). To znači da su sigurnosne vjerodajnice koje je poslužitelj pružio možda krivotvorene, a poslužitelj možda nije onaj koji očekujete (možda komunicirate s napadačem). <ph name="BEGIN_LEARN_MORE_LINK" />Saznajte više<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="5710435578057952990">Identitet ove web lokacije nije ovjeren.</translation>
 <translation id="5720705177508910913">Trenutačni korisnik:</translation>
 <translation id="572328651809341494">Nedavne kartice</translation>
+<translation id="5732392974455271431">Tvoji je roditelji mogu deblokirati</translation>
 <translation id="5784606427469807560">Pojavio se problem prilikom potvrđivanja kartice. Provjerite internetsku vezu i pokušajte ponovo.</translation>
 <translation id="5785756445106461925">Nadalje, ova stranica sadrži druge resurse koji nisu sigurni. Te resurse mogu vidjeti drugi tijekom prijenosa i napadač ih može izmijeniti kako bi promijenio izgled stranice.</translation>
 <translation id="5786044859038896871">Želite li ispuniti podatke o kartici?</translation>
@@ -480,6 +488,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{1 drugi prijedlog}one{# drugi prijedlog}few{# druga prijedloga}other{# drugih prijedloga}}</translation>
 <translation id="6387478394221739770">Zanimaju li vas nove, kul značajke preglednika Chrome? Isprobajte naš beta kanal na stranici chrome.com/beta.</translation>
 <translation id="6389758589412724634">Chromium je ostao bez memorije dok je pokušavao prikazati ovu web-stranicu.</translation>
+<translation id="6414888972213066896">Pitao si roditelja smiješ li otvoriti tu web-lokaciju</translation>
 <translation id="6416403317709441254">Trenutačno ne možete otvoriti <ph name="SITE" /> jer je web-lokacija poslala kodirane vjerodajnice koje Chromium ne može obraditi. Mrežne pogreške i napadi uglavnom su privremeni, tako da će ta stranica vjerojatno kasnije funkcionirati. <ph name="BEGIN_LEARN_MORE_LINK" />Saznajte više<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6417515091412812850">Nije moguće provjeriti je li certifikat opozvan.</translation>
 <translation id="6433595998831338502">Host <ph name="HOST_NAME" /> odbio je povezivanje.</translation>
@@ -492,6 +501,7 @@
 <translation id="6529602333819889595">&amp;Ponovi brisanje</translation>
 <translation id="6534179046333460208">Prijedlozi Fizičkog weba</translation>
 <translation id="6550675742724504774">Opcije</translation>
+<translation id="6563469144985748109">Voditelj je još nije odobrio</translation>
 <translation id="6593753688552673085">manje od <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="6596325263575161958">Opcije šifriranja</translation>
 <translation id="662080504995468778">Ostani</translation>
@@ -510,6 +520,7 @@
 <translation id="674375294223700098">Nepoznata pogreška certifikata poslužitelja</translation>
 <translation id="6753269504797312559">Vrijednost pravila</translation>
 <translation id="6757797048963528358">Uređaj je u stanju mirovanja.</translation>
+<translation id="6778737459546443941">Roditelj je još nije odobrio</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Web-stranica na <ph name="URL" /> trenutno nije dostupna.  Možda je preopterećena ili isključena zbog održavanja.</translation>
 <translation id="6831043979455480757">Prevedi</translation>
@@ -566,8 +577,10 @@ Psst! Sljedeći bi vam put mogao koristiti anonimni način <ph name="SHORTCUT_KE
 <translation id="7419106976560586862">Putanja profila</translation>
 <translation id="7424977062513257142">Ugrađena stranica na ovoj web-lokaciji navodi sljedeće:</translation>
 <translation id="7441627299479586546">Pogrešan predmet pravila</translation>
+<translation id="7444046173054089907">Ova je web-lokacija blokirana</translation>
 <translation id="7445762425076701745">Identitet poslužitelja s kojim ste se povezali ne može se u potpunosti potvrditi. Povezali ste se s poslužiteljem upotrebom imena koje je valjano samo unutar vaše mreže, a za koje vanjsko tijelo za izdavanje certifikata nikako ne može potvrditi vlasništvo. Budući da postoje tijela za izdavanje certifikata koja će izdati certifikat za ta imena bez obzira na sve, nema načina da budete sigurni da ste povezani sa željenom web-lokacijom, a ne s napadačem.</translation>
 <translation id="7451311239929941790"><ph name="BEGIN_LINK" />Saznajte više<ph name="END_LINK" /> o tom problemu.</translation>
+<translation id="7460163899615895653">Ovdje se prikazuju vaše nedavne kartice s drugih uređaja</translation>
 <translation id="7469372306589899959">Potvrđivanje kartice</translation>
 <translation id="7481312909269577407">Naprijed</translation>
 <translation id="7485870689360869515">Nema pronađenih podataka.</translation>
@@ -577,6 +590,7 @@ Psst! Sljedeći bi vam put mogao koristiti anonimni način <ph name="SHORTCUT_KE
 <translation id="7535087603100972091">Vrijednost</translation>
 <translation id="7537536606612762813">Obavezno</translation>
 <translation id="7542995811387359312">Automatsko popunjavanje kreditne kartice onemogućeno je jer se ovaj obrazac ne služi sigurnom vezom.</translation>
+<translation id="7543525346216957623">Zamoli roditelja</translation>
 <translation id="7549584377607005141">Ova web-stranica zahtijeva podatke koje ste ranije unijeli da bi se pravilno prikazala. Te podatke možete poslati ponovo, ali time ćete ponoviti sve radnje koje je ta stranica prethodno izvela.</translation>
 <translation id="7554791636758816595">Nova kartica</translation>
 <translation id="7568593326407688803">Ova je stranica na ovom jeziku:<ph name="ORIGINAL_LANGUAGE" />Želite li je prevesti?</translation>
@@ -601,6 +615,7 @@ Psst! Sljedeći bi vam put mogao koristiti anonimni način <ph name="SHORTCUT_KE
 <translation id="7716424297397655342">Web-lokacija se ne može učitati iz predmemorije</translation>
 <translation id="7733391738235763478">(<ph name="NUMBER_VISITS" />)</translation>
 <translation id="7752995774971033316">Nema upravitelja</translation>
+<translation id="7755287808199759310">Roditelj je može deblokirati</translation>
 <translation id="7758069387465995638">Vezu možda blokira vatrozid ili antivirusni softver.</translation>
 <translation id="7761701407923456692">Certifikat poslužitelja ne podudara se s URL-om.</translation>
 <translation id="777702478322588152">Prefektura</translation>
@@ -668,6 +683,7 @@ Psst! Sljedeći bi vam put mogao koristiti anonimni način <ph name="SHORTCUT_KE
 <translation id="856992080682148">Certifikat za ovu web-lokaciju istječe 2017. ili kasnije, a lanac certifikata sadrži certifikat s SHA-1 potpisom.</translation>
 <translation id="8571890674111243710">Prijevod stranice na <ph name="LANGUAGE" />...</translation>
 <translation id="859285277496340001">Certifikat ne navodi mehanizam za provjeru svojeg opoziva.</translation>
+<translation id="8620436878122366504">Roditelji je još nisu odobrili</translation>
 <translation id="8647750283161643317">Vrati sve na zadano</translation>
 <translation id="8703575177326907206">Vaša veza s <ph name="DOMAIN" /> nije šifrirana.</translation>
 <translation id="8725066075913043281">Pokušajte ponovo</translation>
@@ -706,6 +722,7 @@ Psst! Sljedeći bi vam put mogao koristiti anonimni način <ph name="SHORTCUT_KE
 <translation id="9050666287014529139">Zaporka</translation>
 <translation id="9065203028668620118">Uredi</translation>
 <translation id="9068849894565669697">Odaberite boju</translation>
+<translation id="9076283476770535406">Možda ima sadržaj za odrasle</translation>
 <translation id="9092364396508701805">Stranica hosta <ph name="HOST_NAME" /> ne funkcionira</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> obično upotrebljava enkripciju radi zaštite vaših podataka. Prilikom ovog pokušaja povezivanja Chromiuma s web-lokacijom <ph name="SITE" /> ta je web-lokacija vratila neuobičajene
 i netočne vjerodajnice. To može značiti da se neki napadač pokušava predstaviti kao <ph name="SITE" /> ili je zaslon za prijavu na Wi-Fi prekinuo vezu. Vaši su podaci još uvijek sigurni jer je Chromium zaustavio povezivanje prije razmjene podataka.</translation>
@@ -721,6 +738,7 @@ i netočne vjerodajnice. To može značiti da se neki napadač pokušava predsta
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="935608979562296692">IZBRIŠI OBRAZAC</translation>
 <translation id="939736085109172342">Nova mapa</translation>
+<translation id="941721044073577244">Izgleda da nemate dopuštenje za posjet toj web-lokaciji</translation>
 <translation id="962701380617707048">Unesite datum isteka i CVC za karticu <ph name="CREDIT_CARD" /> da biste ažurirali podatke o kartici</translation>
 <translation id="969892804517981540">Službeni sastavak</translation>
 <translation id="988159990683914416">Sastavak razvojnog programera</translation>

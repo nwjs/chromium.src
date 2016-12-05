@@ -9,6 +9,7 @@
 <translation id="1055184225775184556">Eklemeyi &amp;Geri Al</translation>
 <translation id="10614374240317010">Hiç kaydedilmeyecekler</translation>
 <translation id="106701514854093668">Masaüstü Yer İşaretleri</translation>
+<translation id="1074497978438210769">Güvenli değil</translation>
 <translation id="1080116354587839789">Genişliğe sığdır</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> dilini daima çevir</translation>
 <translation id="1107591249535594099">İşaretlenirse Chrome, formları daha hızlı doldurma amacıyla kartınızın bir kopyasını bu cihazda depolar.</translation>
@@ -38,6 +39,7 @@
 <translation id="129553762522093515">Son kapatılan</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Çerezlerinizi temizlemeyi deneyin<ph name="END_LINK" /></translation>
 <translation id="1339601241726513588">Kayıt alan adı:</translation>
+<translation id="1344211575059133124">Bu siteyi ziyaret etmek için izne ihtiyacınız var gibi görünüyor</translation>
 <translation id="1344588688991793829">Chromium Otomatik Doldurma ayarları...</translation>
 <translation id="1374468813861204354">öneriler</translation>
 <translation id="1375198122581997741">Sürüm Hakkında</translation>
@@ -69,6 +71,7 @@
 <translation id="168841957122794586">Sunucu sertifikasında zayıf bir şifreleme anahtarı var.</translation>
 <translation id="1701955595840307032">Önerilen içeriği al</translation>
 <translation id="1710259589646384581">OS</translation>
+<translation id="1721312023322545264">Bu siteyi ziyaret etmek için <ph name="NAME" /> size izin vermelidir</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">Sistem yöneticisiyle iletişime geçmeyi deneyin.</translation>
 <translation id="1745358365027406341">Sayfayı daha sonra indir</translation>
@@ -171,6 +174,7 @@
 <translation id="2742870351467570537">Seçilen öğeleri kaldır</translation>
 <translation id="277499241957683684">Eksik cihaz kaydı</translation>
 <translation id="2784949926578158345">Bağlantı sıfırlandı.</translation>
+<translation id="2794233252405721443">Site engellenmiş</translation>
 <translation id="2824775600643448204">Adres ve arama çubuğu</translation>
 <translation id="2826760142808435982">Bağlantı <ph name="CIPHER" /> kullanılarak şifrelenmiş ve kimliği doğrulanmıştır. Anahtar değişim mekanizması olarak <ph name="KX" /> kullanılır.</translation>
 <translation id="2835170189407361413">Formu temizle</translation>
@@ -249,6 +253,7 @@
 <translation id="3549644494707163724">Senkronize edilen tüm verileri kendi senkronizasyon parolanızla şifreleyin</translation>
 <translation id="3549761410225185768"><ph name="NUM_TABS_MORE" /> tane daha...</translation>
 <translation id="3555561725129903880">Bu sunucu, <ph name="DOMAIN" /> olduğunu kanıtlayamadı. Güvenlik sertifikası <ph name="DOMAIN2" /> alan adından geliyor. Bu durum yanlış yapılandırmadan veya bağlantınıza müdahale eden bir saldırgandan kaynaklanıyor olabilir. <ph name="BEGIN_LEARN_MORE_LINK" />Daha fazla bilgi edinin<ph name="END_LEARN_MORE_LINK" />.</translation>
+<translation id="3556433843310711081">Yöneticiniz engellemeyi kaldırabilir</translation>
 <translation id="3566021033012934673">Bağlantınız gizli değil</translation>
 <translation id="3583757800736429874">Taşımayı &amp;Yeniden Yap</translation>
 <translation id="3586931643579894722">Ayrıntıları gizle</translation>
@@ -286,8 +291,8 @@
 <translation id="3858027520442213535">Tarih ve saati güncelle</translation>
 <translation id="3884278016824448484">Çakışan cihaz tanımlayıcısı</translation>
 <translation id="3885155851504623709">Bucak</translation>
+<translation id="3886446263141354045">Bu siteye erişim isteğiniz şu kişiye gönderildi: <ph name="NAME" /></translation>
 <translation id="3901925938762663762">Kartın kullanım süresi doldu</translation>
-<translation id="3910267023907260648"><ph name="DOMAIN" /> alan adına erişme girişiminde bulundunuz, ancak sunucu zayıf bir imza algoritması kullanılarak imzalanmış bir sertifika sağladı. Bu durum, sunucunun sağladığı güvenlik bilgilerinin sahte olabileceği anlamına gelir ve sunucu sizin beklediğiniz sunucu olmayabilir (bir saldırgan ile irtibat kuruyor olabilirsiniz). <ph name="BEGIN_LEARN_MORE_LINK" />Daha fazla bilgi edinin<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="3933571093587347751">{1,plural, =1{Bu sunucu, <ph name="DOMAIN" /> olduğunu kanıtlayamadı. Güvenlik sertifikasının alınma tarihinin yarın olduğu iddia ediliyor. Bu durum, yanlış yapılandırmadan veya bağlantınıza müdahale eden bir saldırgandan kaynaklanıyor olabilir. <ph name="BEGIN_LEARN_MORE_LINK" />Daha fazla bilgi edinin<ph name="END_LEARN_MORE_LINK" />.}other{Bu sunucu, <ph name="DOMAIN" /> olduğunu kanıtlayamadı. Güvenlik sertifikasının alınma tarihinin # gün sonra olduğu iddia ediliyor. Bu durum, yanlış yapılandırmadan veya bağlantınıza müdahale eden bir saldırgandan kaynaklanıyor olabilir. <ph name="BEGIN_LEARN_MORE_LINK" />Daha fazla bilgi edinin<ph name="END_LEARN_MORE_LINK" />.}}</translation>
 <translation id="3934680773876859118">PDF dokümanı yüklenemedi</translation>
 <translation id="3963721102035795474">Okuyucu Modu</translation>
@@ -358,6 +363,7 @@
 <translation id="4813512666221746211">Ağ hatası</translation>
 <translation id="4816492930507672669">Sayfaya sığdır</translation>
 <translation id="4850886885716139402">Görüntüle</translation>
+<translation id="4858792381671956233">Ebeveynlerinize bu siteyi ziyaret etmenizin uygun olup olmadığını sordunuz</translation>
 <translation id="4880827082731008257">Geçmişte ara</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /></translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{ve 1 web sayfası daha}other{ve # web sayfası daha}}</translation>
@@ -426,9 +432,11 @@
 <translation id="5629630648637658800">Politika ayarları yüklenemedi</translation>
 <translation id="5631439013527180824">Geçersiz cihaz yönetimi jetonu</translation>
 <translation id="5677928146339483299">Engellenenler</translation>
+<translation id="5694783966845939798"><ph name="DOMAIN" /> alan adına erişme girişiminde bulundunuz, ancak sunucu zayıf bir imza algoritması kullanılarak imzalanmış bir sertifika sağladı. Bu durum, sunucunun sağladığı güvenlik bilgilerinin sahte olabileceği anlamına gelir ve sunucu sizin beklediğiniz sunucu olmayabilir (bir saldırgan ile irtibat kuruyor olabilirsiniz). <ph name="BEGIN_LEARN_MORE_LINK" />Daha fazla bilgi<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="5710435578057952990">Bu web sitesinin kimliği doğrulanmadı.</translation>
 <translation id="5720705177508910913">Geçerli kullanıcı</translation>
 <translation id="572328651809341494">Son sekmeler</translation>
+<translation id="5732392974455271431">Ebeveynleriniz engellemeyi kaldırabilir</translation>
 <translation id="5784606427469807560">Kartınız onaylanırken bir sorun oluştu. İnternet bağlantınızı kontrol edip tekrar deneyin.</translation>
 <translation id="5785756445106461925">Ayrıca, bu sayfa güvenli olmayan başka kaynaklar içeriyor. Bu kaynaklar, aktarım sırasında başkaları tarafından görülebilir ve bir saldırgan tarafından sayfanın görünüşünü değiştirmek üzere kullanılabilir.</translation>
 <translation id="5786044859038896871">Kart bilgilerinizin doldurulmasını istiyor musunuz?</translation>
@@ -481,6 +489,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{1 öneri daha}other{# öneri daha}}</translation>
 <translation id="6387478394221739770">Chrome'daki etkileyici, yeni özellikler ilginizi çekiyor mu? chrome.com/beta adresinden beta kanalımızı deneyin.</translation>
 <translation id="6389758589412724634">Bu web sayfası görüntülenmeye çalışılırken Chromium'da bellek kalmadı.</translation>
+<translation id="6414888972213066896">Ebeveyninize bu siteyi ziyaret etmenizin uygun olup olmadığını sordunuz</translation>
 <translation id="6416403317709441254"><ph name="SITE" /> web sitesi Chromium'un işleyemediği karışık kimlik bilgileri gönderdiğinden bu web sitesini şu anda ziyaret edemezsiniz. Ağ hataları ve saldırılar genellikle geçici türdendir, dolayısıyla bu sayfa muhtemelen daha sonra çalışacaktır. <ph name="BEGIN_LEARN_MORE_LINK" />Daha fazla bilgi edinin<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6417515091412812850">Sertifikanın iptal edilip edilmediği kontrol edilemiyor.</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> bağlanmayı reddetti.</translation>
@@ -493,6 +502,7 @@
 <translation id="6529602333819889595">Silmeyi &amp;Yeniden Yap</translation>
 <translation id="6534179046333460208">Fiziksel Web önerileri</translation>
 <translation id="6550675742724504774">Seçenekler</translation>
+<translation id="6563469144985748109">Yöneticiniz henüz onaylamadı</translation>
 <translation id="6593753688552673085"><ph name="UPPER_ESTIMATE" />'tan az</translation>
 <translation id="6596325263575161958">Şifreleme seçenekleri</translation>
 <translation id="662080504995468778">Kal</translation>
@@ -511,6 +521,7 @@
 <translation id="674375294223700098">Bilinmeyen sunucu sertifikası hatası.</translation>
 <translation id="6753269504797312559">Politika değeri</translation>
 <translation id="6757797048963528358">Cihazınız uyku moduna geçti.</translation>
+<translation id="6778737459546443941">Ebeveyniniz henüz onaylamadı</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159"><ph name="URL" /> adresindeki web sayfası şu anda kullanılamıyor. Aşırı yüklenmiş veya bakım için kapatılmış olabilir.</translation>
 <translation id="6831043979455480757">Çevir</translation>
@@ -567,8 +578,10 @@ Hatırlatma! Bir dahaki sefere Gizli mod <ph name="SHORTCUT_KEY" /> kullanışl�
 <translation id="7419106976560586862">Profil Yolu</translation>
 <translation id="7424977062513257142">Bu web sayfasındaki yerleşik bir sayfanın mesajı:</translation>
 <translation id="7441627299479586546">Politika konusu yanlış</translation>
+<translation id="7444046173054089907">Bu site engellenmiş</translation>
 <translation id="7445762425076701745">Bağlı olduğunuz sunucunun kimliği tam olarak doğrulanamıyor. Sunucuya yalnızca ağınızın içinde geçerli olan ve dış sertifika yetkilisi tarafından hiçbir şekilde sahipliği doğrulanamayacak bir ad kullanarak bağlandınız. Bazı sertifika yetkilileri bu adlar için sertifikalar yayınlasa da, bir saldırgana değil, hedeflenen web sitesine bağlandığınızdan emin olmanın herhangi bir yolu yoktur.</translation>
 <translation id="7451311239929941790">Bu sorun hakkında <ph name="BEGIN_LINK" />daha fazla<ph name="END_LINK" /> bilgi edinme.</translation>
+<translation id="7460163899615895653">Diğer cihazlardan yeni tarihli sekmeleriniz burada görünür</translation>
 <translation id="7469372306589899959">Kart onaylanıyor</translation>
 <translation id="7481312909269577407">İleri</translation>
 <translation id="7485870689360869515">Hiçbir veri bulunamadı.</translation>
@@ -578,6 +591,7 @@ Hatırlatma! Bir dahaki sefere Gizli mod <ph name="SHORTCUT_KEY" /> kullanışl�
 <translation id="7535087603100972091">Değer</translation>
 <translation id="7537536606612762813">Zorunlu</translation>
 <translation id="7542995811387359312">Bu form güvenli bağlantı kullanmadığından kredi kartı bilgilerini otomatik doldurma özelliği devre dışı bırakıldı.</translation>
+<translation id="7543525346216957623">Ebeveyninize sorun</translation>
 <translation id="7549584377607005141">Bu Web sayfasının düzgün şekilde görüntülenmesi için, önceden girdiğiniz veriler gerekiyor. Bu verileri tekrar gönderebilirsiniz, ancak bunu yaptığınızda bu sayfanın daha önce gerçekleştirdiği işlemler de tekrar edilir.</translation>
 <translation id="7554791636758816595">Yeni Sekme</translation>
 <translation id="7568593326407688803">Bu sayfanın dili<ph name="ORIGINAL_LANGUAGE" />Çevrilmesini istiyor musunuz?</translation>
@@ -602,6 +616,7 @@ Hatırlatma! Bir dahaki sefere Gizli mod <ph name="SHORTCUT_KEY" /> kullanışl�
 <translation id="7716424297397655342">Bu site önbellekten yüklenemiyor</translation>
 <translation id="7733391738235763478">(<ph name="NUMBER_VISITS" />)</translation>
 <translation id="7752995774971033316">Yönetimden kaldırıldı</translation>
+<translation id="7755287808199759310">Ebeveyniniz engellemeyi sizin için kaldırabilir</translation>
 <translation id="7758069387465995638">Bağlantıyı güvenlik duvarı veya virüsten korunma yazılımı engellemiş olabilir.</translation>
 <translation id="7761701407923456692">Sunucu sertifikası URL ile eşleşmiyor.</translation>
 <translation id="777702478322588152">İdari bölge</translation>
@@ -669,6 +684,7 @@ Hatırlatma! Bir dahaki sefere Gizli mod <ph name="SHORTCUT_KEY" /> kullanışl�
 <translation id="856992080682148">Bu siteye ilişkin sertifikanın süresi 2017'de veya daha sonra doluyor ve sertifika zinciri, SHA-1 kullanılarak imzalanmış bir sertifika içeriyor.</translation>
 <translation id="8571890674111243710">Sayfa <ph name="LANGUAGE" /> diline çevriliyor...</translation>
 <translation id="859285277496340001">Sertifika, iptal edilip edilmediğinin denetlenebileceği bir mekanizma belirtmiyor.</translation>
+<translation id="8620436878122366504">Ebeveynleriniz henüz onaylamadı</translation>
 <translation id="8647750283161643317">Tümünü varsayılan değerlere sıfırla</translation>
 <translation id="8703575177326907206"><ph name="DOMAIN" /> bağlantınız şifrelenmedi.</translation>
 <translation id="8725066075913043281">Yeniden dene</translation>
@@ -707,6 +723,7 @@ Hatırlatma! Bir dahaki sefere Gizli mod <ph name="SHORTCUT_KEY" /> kullanışl�
 <translation id="9050666287014529139">Parola</translation>
 <translation id="9065203028668620118">Düzenle</translation>
 <translation id="9068849894565669697">Renk seçin</translation>
+<translation id="9076283476770535406">Yetişkin içeriği bulunabilir</translation>
 <translation id="9092364396508701805"><ph name="HOST_NAME" /> sayfası çalışmıyor</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> normalde bilgilerinizi korumak için şifreleme kullanmaktadır. Chromium bu sefer <ph name="SITE" /> sitesine bağlanmayı denediğinde, web sitesi sıra dışı ve yanlış kimlik bilgileri döndürdü. Bir saldırgan <ph name="SITE" /> gibi davranmaya çalışıyor olabilir ya da bir Kablosuz oturum açma ekranı bağlantıyı kesmiştir. Chromium herhangi bir veri alışverişinden önce bağlantıyı durdurduğu için bilgileriniz hâlâ güvendedir.</translation>
 <translation id="9137013805542155359">Orijinali göster</translation>
@@ -721,6 +738,7 @@ Hatırlatma! Bir dahaki sefere Gizli mod <ph name="SHORTCUT_KEY" /> kullanışl�
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="935608979562296692">FORMU TEMİZLE</translation>
 <translation id="939736085109172342">Yeni klasör</translation>
+<translation id="941721044073577244">Bu siteyi ziyaret etme izninizin olmadığı görülüyor</translation>
 <translation id="962701380617707048">Kart ayrıntılarınızı güncellemek için <ph name="CREDIT_CARD" /> numaralı karta ilişkin son kullanma tarihini ve CVC kodunu girin</translation>
 <translation id="969892804517981540">Resmi Derleme</translation>
 <translation id="988159990683914416">Geliştirici Derlemesi</translation>

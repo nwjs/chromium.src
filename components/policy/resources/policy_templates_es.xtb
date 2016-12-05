@@ -659,6 +659,15 @@ Si se inhabilita o no se configura esta opción, los usuarios podrán decidir si
 <translation id="2884728160143956392">Permitir las cookies de sesión de estos sitios</translation>
 <translation id="2893546967669465276">Enviar los registros del sistema al servidor de administración</translation>
 <translation id="2899002520262095963">Las aplicaciones para Android pueden utilizar los ajustes de red y los certificados de CA configurados mediante esta política, pero no tienen acceso a algunas opciones de configuración.</translation>
+<translation id="2901399514673504930">Usa los dispositivos de almacenamiento externo como dispositivos de solo lectura.
+
+      Esta política solo es efectiva si se asigna el valor False a ExternalStorageDisabled o si no se configura.
+
+      Si se asigna el valor True a esta política, los usuarios no podrán escribir nada en dispositivos de almacenamiento externo.
+
+      Si esta opción no se configura o se inhabilita, los usuarios podrán crear y modificar archivos de dispositivos de almacenamiento externo en los que se pueda escribir físicamente.
+
+      La actualización dinámica de esta política se admite en M56 y versiones posteriores.</translation>
 <translation id="2906874737073861391">Lista de extensiones AppPack</translation>
 <translation id="2908277604670530363">Número máximo de conexiones simultáneas con el servidor proxy</translation>
 <translation id="2948087343485265211">Permite especificar si la actividad de audio afecta a la administración de energía.
@@ -1505,6 +1514,11 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
           Si esta opción está habilitada, el host de acceso remoto compara el nombre del usuario local (con el que está asociado el host) con el nombre de la cuenta de Google registrado como el propietario del host (es decir, juanmartinez si el host pertenece a la cuenta de Google juanmartinez@example.com). El host de acceso remoto no se iniciará si el nombre del propietario del host es diferente del nombre del usuario local con el que el host está asociado. La política RemoteAccessHostMatchUsername debe utilizarse junto con la política RemoteAccessHostDomain para garantizar que la cuenta de Google del propietario del host esté asociada a un dominio específico (es decir, example.com).
 
           Si esta opción está inhabilitada, el host de acceso remoto puede asociarse a cualquier usuario local.</translation>
+<translation id="5694594914843889579">Si se asigna el valor True a esta política, el almacenamiento externo no estará disponible en el explorador de archivos.
+
+      Esta política afecta a todos los tipos de medios de almacenamiento, por ejemplo, unidades flash USB, unidades de disco duro externos, tarjetas SD, otras tarjetas de memoria, otros tipos de almacenamiento óptico, etc. El almacenamiento interno no se ve afectado, por lo que aún se puede acceder a los archivos guardados en la carpeta de descargas. Esta política tampoco afecta a Google Drive.
+
+      Si esta opción no se configura o se inhabilita, los usuarios podrán usar todos los tipos de almacenamiento externo compatibles en su dispositivo.</translation>
 <translation id="5697306356229823047">Permite informar sobre usuarios de dispositivos</translation>
 <translation id="570062449808736508">Si esta política se asigna a una cadena no vacía, WebView leerá las restricciones de URL del proveedor de contenido con el nombre de autoridad especificado.</translation>
 <translation id="5703863730741917647">Permite especificar la acción a emprender si se alcanza el retraso de inactividad.

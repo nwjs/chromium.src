@@ -660,6 +660,15 @@ vastama ühele printeritest, mida <ph name="PRODUCT_NAME" /> toetab.
 <translation id="2884728160143956392">Luba nendel saitidel vaid seansi küpsised</translation>
 <translation id="2893546967669465276">Süsteemilogide saatmine haldusserverisse</translation>
 <translation id="2899002520262095963">Androidi rakendused saavad kasutada selle reegliga määratud võrguseadistusi ja CA-sertifikaate, kuid ei pääse juurde mõnele seadistusvalikule.</translation>
+<translation id="2901399514673504930">Kohtleb väliseid salvestusseadmeid kirjutuskaitstuna.
+
+      See reegel kehtib ainult siis, kui ExternalStorageDisabled on määratud valeks või seadistamata.
+
+      Kui reegli väärtuseks on määratud Tõene, ei saa kasutajad välistele salvestusseadmetele midagi kirjutada.
+
+      Kui seade on keelatud või seadistamata, saavad kasutajad välistel salvestusseadmetel luua ja muuta faile, mis on füüsiliselt kirjutatavad.
+
+      Selle reegli dünaamilist värskendamist toetatakse versioonis M56 ja uuemates.</translation>
 <translation id="2906874737073861391">AppPacki laienduste loend</translation>
 <translation id="2908277604670530363">Puhverserveri samaaegsete ühenduste maksimaalne arv</translation>
 <translation id="2948087343485265211">Määrab, kas helitoimingud mõjutavad toitehaldust.
@@ -1493,6 +1502,11 @@ vastama ühele printeritest, mida <ph name="PRODUCT_NAME" /> toetab.
           Kui seade on lubatud, võrdleb kaugjuurdepääsu host kohaliku kasutaja (kellega host on seotud) nime ja hosti omanikuna registreeritud Google’i konto nime (st „johndoe”, kui host kuulub Google’i kontole „johndoe@example.com”). Kaugjuurdepääsu host ei käivitu, kui hosti omaniku nimi erineb kohaliku kasutaja nimest, kellega host on seotud. Reeglit RemoteAccessHostMatchUsername tuleb kasutada koos reegliga RemoteAccessHostDomain, kui hosti omaniku Google’i konto peab olema seotud konkreetse domeeniga (nt „example.com”).
 
           Kui seade on keelatud või määramata, võib kaugjuurdepääsu host olla seotud mis tahes kohaliku kasutajaga.</translation>
+<translation id="5694594914843889579">Kui reegli väärtuseks on määratud Tõene, siis ei ole väline salvestusseade failibrauseris saadaval.
+
+      Reegel kehtib kõigile salvestusseadmete tüüpidele, näiteks USB-välkmäludraivid, välised kõvakettad, SD-kaardid jm mälukaardid, optilised salvestusseadmed jne. See ei kehti sisemälu kohta, mistõttu kausta Allalaadimised salvestatud failidele on juurdepääs olemas. Reegel ei kehti ka Google Drive'ile.
+
+      Kui seade on keelatud või seadistamata, siis saab seadmes kasutada kõiki toetatud väliste salvestusseadmete tüüpe.</translation>
 <translation id="5697306356229823047">Seadme kasutajatest teavitamine</translation>
 <translation id="570062449808736508">Kui see reegel on määratud mittetühjale stringile, loeb WebView URL-i piiranguid antud volituse nimega sisupakkujalt.</translation>
 <translation id="5703863730741917647">Määrab toimingu, mis rakendub tegevusetuse viivitusaja täitumisel.

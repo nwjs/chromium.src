@@ -95,6 +95,7 @@ Anda harus mengaktifkan Bluetooth dan Lokasi agar dapat menggunakan Web Fisik.</
 <translation id="1966710179511230534">Perbarui detail ID masuk Anda.</translation>
 <translation id="1974060860693918893">Lanjutan</translation>
 <translation id="1984937141057606926">Diizinkan, kecuali pihak ketiga</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> ingin menyandingkan</translation>
 <translation id="1994173015038366702">URL situs</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB aplikasi lain</translation>
 <translation id="2020194265157481222">Perlu nama di kartu</translation>
@@ -266,6 +267,7 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="3950820424414687140">Masuk</translation>
 <translation id="3967822245660637423">Unduhan selesai</translation>
 <translation id="397583555483684758">Sinkronisasi berhenti berfungsi</translation>
+<translation id="3985215325736559418">Ingin mendownload <ph name="FILE_NAME" /> lagi?</translation>
 <translation id="3988213473815854515">Lokasi diaktifkan</translation>
 <translation id="3997476611815694295">Penyimpanan tidak penting</translation>
 <translation id="4002066346123236978">Judul</translation>
@@ -355,6 +357,7 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="4996978546172906250">Bagikan dengan</translation>
 <translation id="5000922062037820727">Diblokir (disarankan)</translation>
 <translation id="5005498671520578047">Salin sandi</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> ingin terhubung</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Izinkan</translation>
 <translation id="5040262127954254034">Privasi</translation>
@@ -610,6 +613,7 @@ Akun Google Anda mungkin memiliki bentuk riwayat penjelajahan lain seperti penel
 <translation id="7682287625158474539">Pengiriman</translation>
 <translation id="7698359219371678927">Buat email di <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Lihat yang ada di sekitar</translation>
+<translation id="7746006994124500250">Proses download tertunda...</translation>
 <translation id="7764225426217299476">Tambahkan alamat</translation>
 <translation id="7765158879357617694">Pindahkan</translation>
 <translation id="7769602470925380267">Terima dan keluar</translation>
@@ -633,6 +637,7 @@ Akun Google Anda mungkin memiliki bentuk riwayat penjelajahan lain seperti penel
 <translation id="7998918019931843664">Buka kembali tab yang ditutup</translation>
 <translation id="7999064672810608036">Yakin ingin menghapus semua data lokal, termasuk cookie, dan menyetel ulang semua izin untuk situs web ini?</translation>
 <translation id="8007176423574883786">Dinonaktifkan untuk perangkat ini</translation>
+<translation id="8008818777654712271">Mengirim sebagian informasi sistem dan konten halaman secara otomatis ke Google untuk membantu mendeteksi aplikasi dan situs berbahaya</translation>
 <translation id="802154636333426148">Download gagal</translation>
 <translation id="8026334261755873520">Hapus data penjelajahan</translation>
 <translation id="8033827949643255796">dipilih</translation>

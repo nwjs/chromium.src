@@ -95,6 +95,7 @@
 <translation id="1966710179511230534">Posodobite podrobnosti prijave.</translation>
 <translation id="1974060860693918893">Dodatno</translation>
 <translation id="1984937141057606926">Dovoljeno, razen za druga spletna mesta</translation>
+<translation id="1993768208584545658"><ph name="SITE" /> želi opraviti seznanitev</translation>
 <translation id="1994173015038366702">URL spletnega mesta</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB drugih aplikacij</translation>
 <translation id="2020194265157481222">Ime na kartici je obvezno</translation>
@@ -266,6 +267,7 @@ Fizični splet lahko nadzirate v Chromovih nastavitvah.
 <translation id="3950820424414687140">Prijava</translation>
 <translation id="3967822245660637423">Prenos končan</translation>
 <translation id="397583555483684758">Sinhronizacija je prenehala delovati</translation>
+<translation id="3985215325736559418">Ali želite znova prenesti datoteko <ph name="FILE_NAME" />?</translation>
 <translation id="3988213473815854515">Lokacija je dovoljena</translation>
 <translation id="3997476611815694295">Nepomembni shranjeni podatki</translation>
 <translation id="4002066346123236978">Naslov</translation>
@@ -355,6 +357,7 @@ Fizični splet lahko nadzirate v Chromovih nastavitvah.
 <translation id="4996978546172906250">Skupna raba prek</translation>
 <translation id="5000922062037820727">Blokirano (priporočeno)</translation>
 <translation id="5005498671520578047">Kopiranje gesla</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> se želite povezati</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Dovoli</translation>
 <translation id="5040262127954254034">Zasebnost</translation>
@@ -610,6 +613,7 @@ V Google Računu so morda druge vrste zgodovine brskanja, kot so iskanja in deja
 <translation id="7682287625158474539">Pošiljanje</translation>
 <translation id="7698359219371678927">Ustvarite e-poštno sporočilo v aplikaciji <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Ogled strani v bližini</translation>
+<translation id="7746006994124500250">Prenos na čakanju ...</translation>
 <translation id="7764225426217299476">Dodaj naslov</translation>
 <translation id="7765158879357617694">Premakni</translation>
 <translation id="7769602470925380267">Sprejem in odjava</translation>
@@ -633,6 +637,7 @@ V Google Računu so morda druge vrste zgodovine brskanja, kot so iskanja in deja
 <translation id="7998918019931843664">Vnovično odpiranje zaprtega zavihka</translation>
 <translation id="7999064672810608036">Ali želite res izbrisati vse lokalne podatke, vključno s piškotki, in ponastaviti vsa dovoljenja za to spletno mesto?</translation>
 <translation id="8007176423574883786">Izklopljeno za to napravo</translation>
+<translation id="8008818777654712271">Samodejno pošlji nekatere informacije o sistemu in vsebino strani Googlu zaradi hitrejšega zaznavanja nevarnih aplikacij in spletnih mest</translation>
 <translation id="802154636333426148">Prenos ni uspel</translation>
 <translation id="8026334261755873520">Izbriši podatke brskanja</translation>
 <translation id="8033827949643255796">izbrani</translation>

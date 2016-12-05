@@ -95,6 +95,7 @@
 <translation id="1966710179511230534">Ενημερώστε τα στοιχεία σύνδεσής σας.</translation>
 <translation id="1974060860693918893">Σύνθετες</translation>
 <translation id="1984937141057606926">Να επιτρέπονται, εκτός από τα cookie τρίτου μέρους</translation>
+<translation id="1993768208584545658">Ο ιστότοπος <ph name="SITE" /> επιθυμεί σύζευξη</translation>
 <translation id="1994173015038366702">URL ιστότοπου</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB από άλλες εφαρμογές</translation>
 <translation id="2020194265157481222">Απαιτείται το όνομα στην κάρτα</translation>
@@ -266,6 +267,7 @@
 <translation id="3950820424414687140">Σύνδεση</translation>
 <translation id="3967822245660637423">Ολοκλήρωση λήψης</translation>
 <translation id="397583555483684758">Ο συγχρονισμός σταμάτησε να λειτουργεί</translation>
+<translation id="3985215325736559418">Θέλετε να κατεβάσετε ξανά το αρχείο <ph name="FILE_NAME" />;</translation>
 <translation id="3988213473815854515">Η τοποθεσία επιτρέπεται</translation>
 <translation id="3997476611815694295">Ασήμαντος αποθηκευτικός χώρος</translation>
 <translation id="4002066346123236978">Τίτλος</translation>
@@ -355,6 +357,7 @@
 <translation id="4996978546172906250">Κοινή χρήση μέσω</translation>
 <translation id="5000922062037820727">Αποκλείεται (συνιστάται)</translation>
 <translation id="5005498671520578047">Αντιγραφή κωδικού πρόσβασης</translation>
+<translation id="5011311129201317034">Ο ιστότοπος <ph name="SITE" /> επιθυμεί σύνδεση</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">Επιτρέπεται</translation>
 <translation id="5040262127954254034">Απόρρητο</translation>
@@ -610,6 +613,7 @@
 <translation id="7682287625158474539">Αποστολή</translation>
 <translation id="7698359219371678927">Δημιουργία μηνύματος ηλεκτρονικού ταχυδρομείου στην εφαρμογή <ph name="APP_NAME" /></translation>
 <translation id="771135159654932189">Δείτε τι υπάρχει κοντά</translation>
+<translation id="7746006994124500250">Λήψη σε εκκρεμότητα…</translation>
 <translation id="7764225426217299476">Προσθήκη διεύθυνσης</translation>
 <translation id="7765158879357617694">Μεταφορά</translation>
 <translation id="7769602470925380267">Αποδοχή και αποσύνδεση</translation>
@@ -633,6 +637,7 @@
 <translation id="7998918019931843664">Εκ νέου άνοιγμα κλειστής καρτέλας</translation>
 <translation id="7999064672810608036">Είστε βέβαιοι ότι θέλετε να διαγράψετε όλα τα δεδομένα γι' αυτόν τον ιστότοπο, όπως τα cookie, και να επαναφέρετε όλα τα δικαιώματά του;</translation>
 <translation id="8007176423574883786">Έχει απενεργοποιηθεί για αυτήν τη συσκευή</translation>
+<translation id="8008818777654712271">Αυτόματη αποστολή ορισμένων πληροφοριών συστήματος και περιεχομένου σελίδων στην Google για διευκόλυνση του εντοπισμού επικίνδυνων εφαρμογών και ιστοτόπων</translation>
 <translation id="802154636333426148">Η λήψη απέτυχε</translation>
 <translation id="8026334261755873520">Διαγραφή δεδομένων περιήγησης</translation>
 <translation id="8033827949643255796">επιλεγμένο</translation>

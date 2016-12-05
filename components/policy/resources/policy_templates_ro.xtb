@@ -632,6 +632,15 @@
 <translation id="2884728160143956392">Permite cookie-uri de sesiune pe aceste site-uri</translation>
 <translation id="2893546967669465276">Trimite jurnalele de sistem serverului de gestionare</translation>
 <translation id="2899002520262095963">Aplicațiile Android pot folosi configurațiile rețelei și certificatele CA stabilite prin această politică, dar nu au acces la anumite opțiuni de configurare.</translation>
+<translation id="2901399514673504930">Dispozitivele de stocare externe sunt tratate ca „numai în citire”.
+
+      Această politică se aplică numai când politica ExternalStorageDisabled este dezactivată sau nu este configurată.
+
+      Când această politică este activată, utilizatorii nu pot scrie nimic pe dispozitivele de stocare externe.
+
+      Dacă setarea este dezactivată sau nu este configurată, utilizatorii pot crea și modifica fișierele dispozitivelor de stocare externe pe care se poate scrie.
+
+      Actualizarea dinamică a acestei politici este acceptată în M56 sau versiunile ulterioare.</translation>
 <translation id="2906874737073861391">Lista extensiilor din pachetul de aplicații</translation>
 <translation id="2908277604670530363">Numărul maxim de conexiuni simultane la serverul proxy</translation>
 <translation id="2948087343485265211">Indică dacă activitatea audio afectează gestionarea consumului de energie.
@@ -1426,6 +1435,11 @@
           Dacă această setare este activată, gazda de acces la distanță compară numele utilizatorului local (cu care este asociată gazda) și numele contului Google înregistrat ca proprietar al gazdei (adică „johndoe” dacă proprietarul gazdei este Contul Google „johndoe@example.com”). Gazda de acces la distanță nu va porni dacă numele proprietarului gazdei este diferit de numele utilizatorului local cu care este asociată gazda. Politica RemoteAccessHostMatchUsername trebuie să fie folosită împreună cu politica RemoteAccessHostDomain pentru a impune și asocierea Contului Google cu un anumit domeniu (adică „example.com”).
 
           Dacă această setare este dezactivată sau nu este configurată, gazda de acces poate fi asociată oricărui utilizator local.</translation>
+<translation id="5694594914843889579">Dacă această politică este activată, stocarea externă nu va fi disponibilă în browserul de fișiere.
+
+      Această politică afectează toate tipurile de suporturi de stocare. De exemplu: unități flash USB, hard diskuri externe, carduri SD și alte carduri de memorie, stocarea optică etc. Stocarea internă nu este afectată. Prin urmare, fișierele salvate în dosarul Descărcări pot fi în continuare accesate. Nici Google Drive nu este afectat de această politică.
+
+      Dacă această setare este dezactivată sau nu este configurată, utilizatorii pot folosi pe dispozitivele lor toate tipurile de dispozitive de stocare externe acceptate.</translation>
 <translation id="5697306356229823047">Raportează utilizatorii dispozitivului</translation>
 <translation id="570062449808736508">Când această politică este setată la un șir completat, WebView va citi restricțiile privind adresele URL de la furnizorul de conținut cu numele de autoritate indicat.</translation>
 <translation id="5703863730741917647">Specificați acțiunea de urmat după trecerea intervalului de inactivitate.

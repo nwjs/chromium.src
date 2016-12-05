@@ -95,6 +95,7 @@ Kad galėtumėte naudoti Fizinį žiniatinklį, būtina įgalinti „Bluetooth�
 <translation id="1966710179511230534">Atnaujinkite išsamią prisijungimo informaciją.</translation>
 <translation id="1974060860693918893">Išplėstiniai</translation>
 <translation id="1984937141057606926">Leidžiama (išskyrus trečiąsias šalis)</translation>
+<translation id="1993768208584545658">Svetainė <ph name="SITE" /> nori būti susieta su</translation>
 <translation id="1994173015038366702">Svetainės URL</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB užima kitos programos</translation>
 <translation id="2020194265157481222">Būtina nurodyti ant kortelės pateiktą vardą</translation>
@@ -266,6 +267,7 @@ Jei norite koreguoti paieškos terminą, paspauskite ir laikykite, kad jį pasir
 <translation id="3950820424414687140">Prisijungti</translation>
 <translation id="3967822245660637423">Atsisiuntimas baigtas</translation>
 <translation id="397583555483684758">Sinchronizavimas nebeveikia</translation>
+<translation id="3985215325736559418">Ar norite dar kartą atsisiųsti <ph name="FILE_NAME" />?</translation>
 <translation id="3988213473815854515">Vietovės informacija leidžiama</translation>
 <translation id="3997476611815694295">Nesvarbi saugykla</translation>
 <translation id="4002066346123236978">Pavadinimas</translation>
@@ -355,6 +357,7 @@ Jei norite koreguoti paieškos terminą, paspauskite ir laikykite, kad jį pasir
 <translation id="4996978546172906250">Bendrinti per</translation>
 <translation id="5000922062037820727">Užblokuota (rekomenduojama)</translation>
 <translation id="5005498671520578047">Kopijuoti slaptažodį</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> nori prisijungti</translation>
 <translation id="5016205925109358554">Su užraitais</translation>
 <translation id="5039804452771397117">Leisti</translation>
 <translation id="5040262127954254034">Privatumas</translation>
@@ -610,6 +613,7 @@ Adresu <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> gali bū
 <translation id="7682287625158474539">Pristatymas</translation>
 <translation id="7698359219371678927">Kurti el. laišką naudojant „<ph name="APP_NAME" />“</translation>
 <translation id="771135159654932189">Sužinokite, kas yra netoliese</translation>
+<translation id="7746006994124500250">Laukiama atsisiuntimo...</translation>
 <translation id="7764225426217299476">Pridėti adresą</translation>
 <translation id="7765158879357617694">Perkelti</translation>
 <translation id="7769602470925380267">Sutikti ir atsijungti</translation>
@@ -633,6 +637,7 @@ Adresu <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> gali bū
 <translation id="7998918019931843664">Iš naujo atidarykite uždarytą skirtuko lapą</translation>
 <translation id="7999064672810608036">Ar tikrai norite išvalyti visus šios svetainės vietinius duomenis, įskaitant slapukus, ir iš naujo nustatyti visus leidimus?</translation>
 <translation id="8007176423574883786">Išjungta šiame įrenginyje</translation>
+<translation id="8008818777654712271">Automatiškai „Google“ siųsti tam tikrą sistemos informaciją ir puslapio turinį, norint padėti aptikti pavojingas programas ir svetaines</translation>
 <translation id="802154636333426148">Įvyko atsisiuntimo klaida</translation>
 <translation id="8026334261755873520">Išvalyti naršymo duomenis</translation>
 <translation id="8033827949643255796">pasirinkta</translation>

@@ -655,6 +655,15 @@ False (yanlış) olarak ayarlanırsa veya hiç ayarlanmazsa, API'ye yapılan ça
 <translation id="2884728160143956392">Bu sitelerde yalnızca oturum için olan çerezlere izin ver</translation>
 <translation id="2893546967669465276">Yönetim sunucusuna sistem günlükleri gönder</translation>
 <translation id="2899002520262095963">Android uygulamaları, bu politika aracılığıyla ayarlanan CA sertifikalarını ve ağ yapılandırmalarını kullanabilir, ancak bazı yapılandırma seçeneklerine erişemez.</translation>
+<translation id="2901399514673504930">Harici depolama cihazlarını salt okunur olarak ele al.
+
+      Bu politika sadece ExternalStorageDisabled özelliği false (yanlış) değerine ayarlandığında veya yapılandırılmadığında geçerlidir.
+
+      Bu politika true (doğru) değerine ayarlandığında kullanıcılar harici depolama cihazlarına hiçbir şey yazamaz.
+
+      Bu ayar devre dışı bırakılırsa veya yapılandırılmazsa kullanıcılar fiziksel olarak yazılabilir harici depolama cihazlarında dosyalar oluşturabilir ve mevcut dosyalarda değişiklik yapabilir.
+
+      Bu politikanın dinamik yenilemesi M56 ve sonraki sürümlerde desteklenir.</translation>
 <translation id="2906874737073861391">AppPack uzantılarının listesi</translation>
 <translation id="2908277604670530363">Proxy sunucusuyla yapılabilecek maksimum eşzamanlı bağlantı sayısı</translation>
 <translation id="2948087343485265211">Ses etkinliğinin güç yönetimini etkileyip etkilemeyeceğini belirtir.
@@ -1492,6 +1501,11 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
           Bu ayar etkinleştirilirse uzaktan erişim ana makinesi, yerel kullanıcının adını (ana makinenin ilişkilendirildiği ad) ana makinenin sahibi olarak kayıtlı Google hesabının adıyla (ör. ana makinenin sahibi "candogru@example.com" Google hesabı ise, bu ad "candogru" olur) karşılaştırır. Ana makinenin sahibinin adı ana makinenin ilişkilendirildiği yerel kullanıcının adından farklı olursa uzaktan erişim ana makinesi çalışmaz. Ana makinenin sahibine ait Google hesabının belirli bir alan adıyla (ör. "example.com") ilişkilendirilmesini de sağlamak için RemoteAccessHostMatchUsername politikası RemoteAccessHostDomain ile birlikte kullanılmalıdır.
 
           Bu ayar devre dışı bırakılırsa veya hiç yapılandırılmazsa, uzaktan erişim ana makinesi herhangi bir yerel kullanıcıyla ilişkilendirilebilir.</translation>
+<translation id="5694594914843889579">Bu politika true (doğru) değerine ayarlandığında harici depolama birimi dosya tarayıcısında kullanılamaz.
+
+      Bu politika tüm depolama ortamı türlerini etkiler. Örneğin: USB flaş sürücüleri, harici sabit diskler, SD ve diğer bellek kartları, optik depolama birimleri vb. Dahili depolama birimi bu politikadan etkilenmez, dolayısıyla İndirilenler klasörüne kaydedilen dosyalara erişilebilir. Google Drive da bu politikadan etkilenmez.
+
+      Bu ayar devre dışı bırakılırsa veya yapılandırılmazsa kullanıcılar cihazlarında desteklenen tüm harici depolama birimi türlerini kullanabilir.</translation>
 <translation id="5697306356229823047">Cihaz kullanıcılarını raporla</translation>
 <translation id="570062449808736508">Bu politika boş olmayan bir dizeye ayarlanırsa WebView, belirtilen yetkili adına sahip içerik sağlayıcıdan URL kısıtlamalarını okur.</translation>
 <translation id="5703863730741917647">Boşta kalma süresine ulaşıldığında yapılacak işlemi belirtir.
