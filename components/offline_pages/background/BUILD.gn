@@ -10,6 +10,8 @@ static_library("background_offliner") {
   sources = [
     "change_requests_state_task.cc",
     "change_requests_state_task.h",
+    "connection_notifier.cc",
+    "connection_notifier.h",
     "device_conditions.h",
     "mark_attempt_aborted_task.cc",
     "mark_attempt_aborted_task.h",
