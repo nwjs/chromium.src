@@ -66,9 +66,7 @@
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_update_install_gate.h"
 #include "chrome/browser/chromeos/extensions/device_local_account_management_policy_provider.h"
-#include "chrome/browser/chromeos/extensions/signin_screen_policy_provider.h"
 #include "chrome/browser/chromeos/policy/device_local_account.h"
-#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/login/login_state.h"
 #include "components/user_manager/user.h"
@@ -120,10 +118,6 @@ void ExtensionSystemImpl::Shared::InitPrefs() {
       profile_, store_factory_, ValueStoreFrontend::BackendType::RULES, false));
 
 #if defined(OS_CHROMEOS)
-  // We can not perform check for Signin Profile here, as it would result in
-  // recursive call upon creation of Signin Profile, so we will create
-  // SigninScreenPolicyProvider lazily in RegisterManagementPolicyProviders.
-
   const user_manager::User* user =
       user_manager::UserManager::Get()->GetActiveUser();
   policy::DeviceLocalAccount::Type device_local_account_type;
@@ -134,7 +128,7 @@ void ExtensionSystemImpl::Shared::InitPrefs() {
         new chromeos::DeviceLocalAccountManagementPolicyProvider(
             device_local_account_type));
   }
-#endif
+#endif  // defined(OS_CHROMEOS)
 }
 
 void ExtensionSystemImpl::Shared::RegisterManagementPolicyProviders() {
@@ -143,20 +137,10 @@ void ExtensionSystemImpl::Shared::RegisterManagementPolicyProviders() {
           ->GetProviders());
 
 #if defined(OS_CHROMEOS)
-  // Lazy creation of SigninScreenPolicyProvider.
-  if (!signin_screen_policy_provider_) {
-    if (chromeos::ProfileHelper::IsSigninProfile(profile_)) {
-      signin_screen_policy_provider_.reset(
-          new chromeos::SigninScreenPolicyProvider());
-    }
-  }
-
   if (device_local_account_management_policy_provider_) {
     management_policy_->RegisterProvider(
         device_local_account_management_policy_provider_.get());
   }
-  if (signin_screen_policy_provider_)
-    management_policy_->RegisterProvider(signin_screen_policy_provider_.get());
 #endif  // defined(OS_CHROMEOS)
 
   management_policy_->RegisterProvider(InstallVerifier::Get(profile_));

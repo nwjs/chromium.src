@@ -23,7 +23,6 @@ class BehaviorFeature : public SimpleFeature {
   static const char kDoNotSync[];
   static const char kZoomWithoutBubble[];
   static const char kAllowUsbDevicesPermissionInterfaceClass[];
-  static const char kSigninScreen[];
 };
 
 }  // namespace extensions
