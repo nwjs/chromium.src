@@ -27,6 +27,7 @@
         "device::BatteryMonitor",
         "device::mojom::LightSensor",
         "device::mojom::MotionSensor",
+        "device::mojom::OrientationAbsoluteSensor",
         "device::mojom::OrientationSensor",
         "device::mojom::TimeZoneMonitor",
         "media::mojom::ImageCapture",
