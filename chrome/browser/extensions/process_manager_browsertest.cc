@@ -731,7 +731,7 @@ IN_PROC_BROWSER_TEST_F(ProcessManagerBrowserTest,
       main_frame->GetProcess()->GetID(),
       GURL("chrome-extension://some-extension-id/resource.html")));
 
-  if (IsIsolateExtensionsEnabled()) {
+  if (extensions::IsIsolateExtensionsEnabled()) {
     EXPECT_TRUE(policy->CanCommitURL(
         extension_frame->GetProcess()->GetID(),
         GURL("blob:chrome-extension://some-extension-id/some-guid")));
