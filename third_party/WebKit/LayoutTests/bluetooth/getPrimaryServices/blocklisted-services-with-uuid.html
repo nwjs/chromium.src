@@ -5,7 +5,7 @@
 <script>
 'use strict';
 promise_test(() => {
-  return setBluetoothFakeAdapter('BlacklistTestAdapter')
+  return setBluetoothFakeAdapter('BlocklistTestAdapter')
     .then(() => requestDeviceWithKeyDown({
       filters: [{services: ['device_information']}],
       optionalServices: ['human_interface_device']}))
@@ -17,5 +17,5 @@ promise_test(() => {
                        'Tip: Add the service UUID to \'optionalServices\' ' +
                        'in requestDevice() options. https://goo.gl/HxfxSQ',
       'SecurityError')));
-}, 'Request for services. Does not return blacklisted service.');
+}, 'Request for services. Does not return blocklisted service.');
 </script>

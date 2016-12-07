@@ -10,18 +10,18 @@ promise_test(() => {
                                   '\'optionalServices\' in requestDevice() ' +
                                   'options. https://goo.gl/HxfxSQ',
                                   'SecurityError');
-  return setBluetoothFakeAdapter('BlacklistTestAdapter')
+  return setBluetoothFakeAdapter('BlocklistTestAdapter')
     .then(() => requestDeviceWithKeyDown({
-      filters: [{services: [blacklist_test_service_uuid]}],
+      filters: [{services: [blocklist_test_service_uuid]}],
       optionalServices: ['human_interface_device']
     }))
     .then(device => device.gatt.connect())
     .then(gattServer => Promise.all([
       assert_promise_rejects_with_message(
         gattServer.getPrimaryService('human_interface_device'),
-        expected, 'Blacklisted service not accessible.'),
+        expected, 'Blocklisted service not accessible.'),
       assert_promise_rejects_with_message(
         gattServer.getPrimaryServices('human_interface_device'),
-        expected, 'Blacklisted services not accessible.')]));
-}, 'Blacklisted UUID in optionalServices is removed and access not granted.');
+        expected, 'Blocklisted services not accessible.')]));
+}, 'Blocklisted UUID in optionalServices is removed and access not granted.');
 </script>

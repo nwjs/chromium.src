@@ -5,19 +5,18 @@
 <script>
 'use strict';
 promise_test(() => {
-  return setBluetoothFakeAdapter('BlacklistTestAdapter')
+  return setBluetoothFakeAdapter('BlocklistTestAdapter')
     .then(() => requestDeviceWithKeyDown({
       filters: [{services: ['device_information']}]}))
     .then(device => device.gatt.connect())
     .then(gattServer => gattServer.getPrimaryService('device_information'))
     .then(service => {
       return assert_promise_rejects_with_message(
-        service.getCharacteristics('serial_number_string'),
-        new DOMException('getCharacteristic(s) called with blacklisted UUID. ' +
+        service.getCharacteristic('serial_number_string'),
+        new DOMException('getCharacteristic(s) called with blocklisted UUID. ' +
                          'https://goo.gl/4NeimX',
                          'SecurityError'),
-        'Serial Number String characteristic is blacklisted.');
+        'Serial Number String characteristic is blocklisted.');
     });
-}, 'Serial Number String characteristic is blacklisted. Should reject with ' +
-   'SecurityError.');
+}, 'Serial Number String characteristic is blocklisted.');
 </script>

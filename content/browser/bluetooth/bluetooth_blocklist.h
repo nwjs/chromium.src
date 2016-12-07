@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_BROWSER_BLUETOOTH_BLUETOOTH_BLACKLIST_H_
-#define CONTENT_BROWSER_BLUETOOTH_BLUETOOTH_BLACKLIST_H_
+#ifndef CONTENT_BROWSER_BLUETOOTH_BLUETOOTH_BLOCKLIST_H_
+#define CONTENT_BROWSER_BLUETOOTH_BLUETOOTH_BLOCKLIST_H_
 
 #include <map>
 #include <vector>
@@ -17,30 +17,30 @@
 
 namespace content {
 
-// Implements the Web Bluetooth Blacklist policy as defined in the Web Bluetooth
+// Implements the Web Bluetooth Blocklist policy as defined in the Web Bluetooth
 // specification:
-// https://webbluetoothcg.github.io/web-bluetooth/#the-gatt-blacklist
+// https://webbluetoothcg.github.io/web-bluetooth/#the-gatt-blocklist
 //
 // Client code may query UUIDs to determine if they are excluded from use by the
-// blacklist.
+// blocklist.
 //
-// Singleton access via Get() enforces only one copy of blacklist.
-class CONTENT_EXPORT BluetoothBlacklist final {
+// Singleton access via Get() enforces only one copy of blocklist.
+class CONTENT_EXPORT BluetoothBlocklist final {
  public:
-  // Blacklist value terminology from Web Bluetooth specification:
-  // https://webbluetoothcg.github.io/web-bluetooth/#the-gatt-blacklist
+  // Blocklist value terminology from Web Bluetooth specification:
+  // https://webbluetoothcg.github.io/web-bluetooth/#the-gatt-blocklist
   enum class Value {
     EXCLUDE,        // Implies EXCLUDE_READS and EXCLUDE_WRITES.
     EXCLUDE_READS,  // Excluded from read operations.
     EXCLUDE_WRITES  // Excluded from write operations.
   };
 
-  ~BluetoothBlacklist();
+  ~BluetoothBlocklist();
 
-  // Returns a singleton instance of the blacklist.
-  static BluetoothBlacklist& Get();
+  // Returns a singleton instance of the blocklist.
+  static BluetoothBlocklist& Get();
 
-  // Adds a UUID to the blacklist to be excluded from operations, merging with
+  // Adds a UUID to the blocklist to be excluded from operations, merging with
   // any previous value and resulting in the strictest exclusion rule from the
   // combination of the two, E.G.:
   //   Add(uuid, EXCLUDE_READS);
@@ -49,15 +49,15 @@ class CONTENT_EXPORT BluetoothBlacklist final {
   // Requires UUID to be valid.
   void Add(const device::BluetoothUUID&, Value);
 
-  // Adds UUIDs to the blacklist by parsing a blacklist string and calling
+  // Adds UUIDs to the blocklist by parsing a blocklist string and calling
   // Add(uuid, value).
   //
-  // The blacklist string format is defined at
-  // ContentBrowserClient::GetWebBluetoothBlacklist().
+  // The blocklist string format is defined at
+  // ContentBrowserClient::GetWebBluetoothBlocklist().
   //
   // Malformed pairs in the string are ignored, including invalid UUID or
   // exclusion values. Duplicate UUIDs follow Add()'s merging rule.
-  void Add(base::StringPiece blacklist_string);
+  void Add(base::StringPiece blocklist_string);
 
   // Returns if a UUID is excluded from all operations. UUID must be valid.
   bool IsExcluded(const device::BluetoothUUID&) const;
@@ -78,29 +78,29 @@ class CONTENT_EXPORT BluetoothBlacklist final {
   void RemoveExcludedUUIDs(
       blink::mojom::WebBluetoothRequestDeviceOptions* options);
 
-  // Size of blacklist.
-  size_t size() { return blacklisted_uuids_.size(); }
+  // Size of blocklist.
+  size_t size() { return blocklisted_uuids_.size(); }
 
   void ResetToDefaultValuesForTest();
 
  private:
   // friend LazyInstance to permit access to private constructor.
-  friend base::DefaultLazyInstanceTraits<BluetoothBlacklist>;
+  friend base::DefaultLazyInstanceTraits<BluetoothBlocklist>;
 
-  BluetoothBlacklist();
+  BluetoothBlocklist();
 
   void PopulateWithDefaultValues();
 
-  // Populates blacklist with values obtained dynamically from a server, able
+  // Populates blocklist with values obtained dynamically from a server, able
   // to be updated without shipping new executable versions.
   void PopulateWithServerProvidedValues();
 
-  // Map of UUID to blacklisted value.
-  std::map<device::BluetoothUUID, Value> blacklisted_uuids_;
+  // Map of UUID to blocklisted value.
+  std::map<device::BluetoothUUID, Value> blocklisted_uuids_;
 
-  DISALLOW_COPY_AND_ASSIGN(BluetoothBlacklist);
+  DISALLOW_COPY_AND_ASSIGN(BluetoothBlocklist);
 };
 
 }  // namespace content
 
-#endif  // CONTENT_BROWSER_BLUETOOTH_BLUETOOTH_BLACKLIST_H_
+#endif  // CONTENT_BROWSER_BLUETOOTH_BLUETOOTH_BLOCKLIST_H_

@@ -5,19 +5,19 @@
 <script>
 'use strict';
 promise_test(() => {
-  return setBluetoothFakeAdapter('BlacklistTestAdapter')
+  return setBluetoothFakeAdapter('BlocklistTestAdapter')
     .then(() => requestDeviceWithKeyDown({
-      filters: [{services: [blacklist_test_service_uuid]}]}))
+      filters: [{services: [blocklist_test_service_uuid]}]}))
     .then(device => device.gatt.connect())
     .then(gattServer => gattServer.getPrimaryService(
-      blacklist_test_service_uuid))
+      blocklist_test_service_uuid))
     .then(service => service.getCharacteristic(
-      blacklist_exclude_reads_characteristic_uuid))
+      blocklist_exclude_reads_characteristic_uuid))
     .then(characteristic => {
       return characteristic.writeValue(new Uint8Array(1 /* length */))
         .then(() => assert_promise_rejects_with_message(
           characteristic.readValue(), new DOMException(
-            'readValue() called on blacklisted object marked exclude-reads. ' +
+            'readValue() called on blocklisted object marked exclude-reads. ' +
             'https://goo.gl/4NeimX',
             'SecurityError'),
           'readValue() should reject.'))

@@ -5,14 +5,14 @@
 <script>
 'use strict';
 promise_test(() => {
-  return setBluetoothFakeAdapter('BlacklistTestAdapter')
+  return setBluetoothFakeAdapter('BlocklistTestAdapter')
     .then(() => assert_promise_rejects_with_message(
       requestDeviceWithKeyDown({
         filters: [{services: ['human_interface_device']}]}),
       new DOMException(
-        'requestDevice() called with a filter containing a blacklisted UUID. ' +
+        'requestDevice() called with a filter containing a blocklisted UUID. ' +
         'https://goo.gl/4NeimX',
         'SecurityError'),
-      'Requesting blacklisted service rejects.'));
-}, 'Reject with SecurityError if requesting a blacklisted service.');
+      'Requesting blocklisted service rejects.'));
+}, 'Reject with SecurityError if requesting a blocklisted service.');
 </script>

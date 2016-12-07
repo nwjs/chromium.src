@@ -3,15 +3,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Script for converting the Web Bluetooth GATT blacklist into the format
-expected by ContentBrowserClient#GetWebBluetoothBlacklist.
+"""Script for converting the Web Bluetooth GATT blocklist into the format
+expected by ContentBrowserClient#GetWebBluetoothBlocklist.
 
 See:
-https://github.com/WebBluetoothCG/registries/blob/master/gatt_blacklist.txt
+https://github.com/WebBluetoothCG/registries/blob/master/gatt_blocklist.txt
 content/public/browser/content_browser_client.h
 
 Usage:
-  compact_blacklist.py <gatt_blacklist.txt>
+  compact_blocklist.py <gatt_blocklist.txt>
 """
 
 import collections
@@ -69,7 +69,7 @@ def ShortenUUID(uuid):
   return uuid
 
 
-def Process(line, blacklist):
+def Process(line, blocklist):
   line = line.strip().lower()
   if not line or line.startswith('#'):
     return
@@ -80,32 +80,32 @@ def Process(line, blacklist):
   if not ValidUUID(uuid):
     raise InvalidUUIDException('Invalid UUID: %s' % line)
   uuid = ShortenUUID(uuid)
-  if uuid in blacklist:
+  if uuid in blocklist:
     raise DuplicateUUIDException('Duplicate UUID: %s' % line)
   if len(fields) == 1:
-    blacklist[uuid] = 'e'
+    blocklist[uuid] = 'e'
   elif fields[1] == 'exclude-writes':
-    blacklist[uuid] = 'w'
+    blocklist[uuid] = 'w'
   elif fields[1] == 'exclude-reads':
-    blacklist[uuid] = 'r'
+    blocklist[uuid] = 'r'
   else:
     raise InvalidExclusionException('Invalid exclusion value: %s' % line)
 
 
 def main():
   if len(sys.argv) != 2:
-    print('Usage: %s <gatt_blacklist.txt>' % sys.argv[0])
+    print('Usage: %s <gatt_blocklist.txt>' % sys.argv[0])
     return 1
 
   try:
-    blacklist = collections.OrderedDict()
+    blocklist = collections.OrderedDict()
     with open(sys.argv[1]) as f:
       for line in f:
-        Process(line, blacklist)
-    print(','.join('%s:%s' % (uuid, blacklist[uuid]) for uuid in blacklist))
+        Process(line, blocklist)
+    print(','.join('%s:%s' % (uuid, blocklist[uuid]) for uuid in blocklist))
     return 0
   except Exception as e:
-    print('Failed to compact blacklist. %s' % e)
+    print('Failed to compact blocklist. %s' % e)
     return 1
 
 

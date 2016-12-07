@@ -5,9 +5,9 @@
 <script>
 'use strict';
 promise_test(() => {
-  return setBluetoothFakeAdapter('BlacklistTestAdapter')
+  return setBluetoothFakeAdapter('BlocklistTestAdapter')
     .then(() => requestDeviceWithKeyDown({
-      filters: [{services: [blacklist_test_service_uuid]}],
+      filters: [{services: [blocklist_test_service_uuid]}],
       optionalServices: ['generic_access']}))
     .then(device => device.gatt.connect())
     .then(gattServer => gattServer.getPrimaryService('generic_access'))
@@ -17,7 +17,7 @@ promise_test(() => {
         .then(() => assert_promise_rejects_with_message(
           characteristic.writeValue(new Uint8Array(1 /* length */)),
           new DOMException(
-            'writeValue() called on blacklisted object marked exclude-writes.' +
+            'writeValue() called on blocklisted object marked exclude-writes.' +
             ' https://goo.gl/4NeimX',
             'SecurityError'),
           'writeValue() should reject.'));

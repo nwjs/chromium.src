@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/browser/bluetooth/bluetooth_blacklist.h"
+#include "content/browser/bluetooth/bluetooth_blocklist.h"
 
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
@@ -14,11 +14,11 @@ using device::BluetoothUUID;
 
 namespace {
 
-static base::LazyInstance<content::BluetoothBlacklist>::Leaky g_singleton =
+static base::LazyInstance<content::BluetoothBlocklist>::Leaky g_singleton =
     LAZY_INSTANCE_INITIALIZER;
 
 void RecordUMAParsedNonEmptyString(bool success) {
-  UMA_HISTOGRAM_BOOLEAN("Bluetooth.Web.Blacklist.ParsedNonEmptyString",
+  UMA_HISTOGRAM_BOOLEAN("Bluetooth.Web.Blocklist.ParsedNonEmptyString",
                         success);
 }
 
@@ -26,16 +26,16 @@ void RecordUMAParsedNonEmptyString(bool success) {
 
 namespace content {
 
-BluetoothBlacklist::~BluetoothBlacklist() {}
+BluetoothBlocklist::~BluetoothBlocklist() {}
 
 // static
-BluetoothBlacklist& BluetoothBlacklist::Get() {
+BluetoothBlocklist& BluetoothBlocklist::Get() {
   return g_singleton.Get();
 }
 
-void BluetoothBlacklist::Add(const BluetoothUUID& uuid, Value value) {
+void BluetoothBlocklist::Add(const BluetoothUUID& uuid, Value value) {
   CHECK(uuid.IsValid());
-  auto insert_result = blacklisted_uuids_.insert(std::make_pair(uuid, value));
+  auto insert_result = blocklisted_uuids_.insert(std::make_pair(uuid, value));
   bool inserted = insert_result.second;
   if (!inserted) {
     Value& stored = insert_result.first->second;
@@ -44,13 +44,13 @@ void BluetoothBlacklist::Add(const BluetoothUUID& uuid, Value value) {
   }
 }
 
-void BluetoothBlacklist::Add(base::StringPiece blacklist_string) {
-  if (blacklist_string.empty())
+void BluetoothBlocklist::Add(base::StringPiece blocklist_string) {
+  if (blocklist_string.empty())
     return;
   base::StringPairs kv_pairs;
   bool parsed_values = false;
   bool invalid_values = false;
-  SplitStringIntoKeyValuePairs(blacklist_string,
+  SplitStringIntoKeyValuePairs(blocklist_string,
                                ':',  // Key-value delimiter
                                ',',  // Key-value pair delimiter
                                &kv_pairs);
@@ -77,15 +77,15 @@ void BluetoothBlacklist::Add(base::StringPiece blacklist_string) {
   RecordUMAParsedNonEmptyString(parsed_values && !invalid_values);
 }
 
-bool BluetoothBlacklist::IsExcluded(const BluetoothUUID& uuid) const {
+bool BluetoothBlocklist::IsExcluded(const BluetoothUUID& uuid) const {
   CHECK(uuid.IsValid());
-  const auto& it = blacklisted_uuids_.find(uuid);
-  if (it == blacklisted_uuids_.end())
+  const auto& it = blocklisted_uuids_.find(uuid);
+  if (it == blocklisted_uuids_.end())
     return false;
   return it->second == Value::EXCLUDE;
 }
 
-bool BluetoothBlacklist::IsExcluded(
+bool BluetoothBlocklist::IsExcluded(
     const mojo::Array<blink::mojom::WebBluetoothScanFilterPtr>& filters) {
   for (const blink::mojom::WebBluetoothScanFilterPtr& filter : filters) {
     for (const base::Optional<BluetoothUUID>& service : filter->services) {
@@ -97,65 +97,65 @@ bool BluetoothBlacklist::IsExcluded(
   return false;
 }
 
-bool BluetoothBlacklist::IsExcludedFromReads(const BluetoothUUID& uuid) const {
+bool BluetoothBlocklist::IsExcludedFromReads(const BluetoothUUID& uuid) const {
   CHECK(uuid.IsValid());
-  const auto& it = blacklisted_uuids_.find(uuid);
-  if (it == blacklisted_uuids_.end())
+  const auto& it = blocklisted_uuids_.find(uuid);
+  if (it == blocklisted_uuids_.end())
     return false;
   return it->second == Value::EXCLUDE || it->second == Value::EXCLUDE_READS;
 }
 
-bool BluetoothBlacklist::IsExcludedFromWrites(const BluetoothUUID& uuid) const {
+bool BluetoothBlocklist::IsExcludedFromWrites(const BluetoothUUID& uuid) const {
   CHECK(uuid.IsValid());
-  const auto& it = blacklisted_uuids_.find(uuid);
-  if (it == blacklisted_uuids_.end())
+  const auto& it = blocklisted_uuids_.find(uuid);
+  if (it == blocklisted_uuids_.end())
     return false;
   return it->second == Value::EXCLUDE || it->second == Value::EXCLUDE_WRITES;
 }
 
-void BluetoothBlacklist::RemoveExcludedUUIDs(
+void BluetoothBlocklist::RemoveExcludedUUIDs(
     blink::mojom::WebBluetoothRequestDeviceOptions* options) {
   mojo::Array<base::Optional<BluetoothUUID>>
-      optional_services_blacklist_filtered;
+      optional_services_blocklist_filtered;
   for (const base::Optional<BluetoothUUID>& uuid : options->optional_services) {
     if (!IsExcluded(uuid.value())) {
-      optional_services_blacklist_filtered.push_back(uuid);
+      optional_services_blocklist_filtered.push_back(uuid);
     }
   }
-  options->optional_services = std::move(optional_services_blacklist_filtered);
+  options->optional_services = std::move(optional_services_blocklist_filtered);
 }
 
-void BluetoothBlacklist::ResetToDefaultValuesForTest() {
-  blacklisted_uuids_.clear();
+void BluetoothBlocklist::ResetToDefaultValuesForTest() {
+  blocklisted_uuids_.clear();
   PopulateWithDefaultValues();
   PopulateWithServerProvidedValues();
 }
 
-BluetoothBlacklist::BluetoothBlacklist() {
+BluetoothBlocklist::BluetoothBlocklist() {
   PopulateWithDefaultValues();
   PopulateWithServerProvidedValues();
 }
 
-void BluetoothBlacklist::PopulateWithDefaultValues() {
-  blacklisted_uuids_.clear();
+void BluetoothBlocklist::PopulateWithDefaultValues() {
+  blocklisted_uuids_.clear();
 
   // Testing from Layout Tests Note:
   //
   // Random UUIDs for object & exclude permutations that do not exist in the
-  // standard blacklist are included to facilitate integration testing from
-  // Layout Tests.  Unit tests can dynamically modify the blacklist, but don't
+  // standard blocklist are included to facilitate integration testing from
+  // Layout Tests.  Unit tests can dynamically modify the blocklist, but don't
   // offer the full integration test to the Web Bluetooth Javascript bindings.
   //
   // This is done for simplicity as opposed to exposing a testing API that can
-  // add to the blacklist over time, which would be over engineered.
+  // add to the blocklist over time, which would be over engineered.
   //
-  // Remove testing UUIDs if the specified blacklist is updated to include UUIDs
+  // Remove testing UUIDs if the specified blocklist is updated to include UUIDs
   // that match the specific permutations.
   DCHECK(BluetoothUUID("00001800-0000-1000-8000-00805f9b34fb") ==
          BluetoothUUID("1800"));
 
-  // Blacklist UUIDs updated 2016-09-01 from:
-  // https://github.com/WebBluetoothCG/registries/blob/master/gatt_blacklist.txt
+  // Blocklist UUIDs updated 2016-09-01 from:
+  // https://github.com/WebBluetoothCG/registries/blob/master/gatt_blocklist.txt
   // Short UUIDs are used for readability of this list.
   //
   // Services:
@@ -180,10 +180,10 @@ void BluetoothBlacklist::PopulateWithDefaultValues() {
       Value::EXCLUDE_READS);
 }
 
-void BluetoothBlacklist::PopulateWithServerProvidedValues() {
+void BluetoothBlocklist::PopulateWithServerProvidedValues() {
   // DCHECK to maybe help debug https://crbug.com/604078.
   DCHECK(GetContentClient());
-  Add(GetContentClient()->browser()->GetWebBluetoothBlacklist());
+  Add(GetContentClient()->browser()->GetWebBluetoothBlocklist());
 }
 
 }  // namespace content

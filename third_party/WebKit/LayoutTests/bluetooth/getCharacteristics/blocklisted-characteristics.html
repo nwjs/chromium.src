@@ -5,7 +5,7 @@
 <script>
 'use strict';
 promise_test(() => {
-  return setBluetoothFakeAdapter('BlacklistTestAdapter')
+  return setBluetoothFakeAdapter('BlocklistTestAdapter')
     .then(() => requestDeviceWithKeyDown({
       filters: [{services: ['device_information']}]}))
     .then(device => device.gatt.connect())
@@ -14,6 +14,6 @@ promise_test(() => {
       service.getCharacteristics(),
       new DOMException('No Characteristics found in service.',
                        'NotFoundError')));
-}, 'The Device Information service is composed of blacklisted ' +
+}, 'The Device Information service is composed of blocklisted ' +
    'characteristics so we shouldn\'t find any.');
 </script>
