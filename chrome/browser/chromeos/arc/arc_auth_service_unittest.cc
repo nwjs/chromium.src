@@ -14,6 +14,7 @@
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "chrome/browser/chromeos/arc/arc_auth_service.h"
+#include "chrome/browser/chromeos/arc/arc_optin_uma.h"
 #include "chrome/browser/chromeos/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/chromeos/login/users/scoped_user_manager_enabler.h"
 #include "chrome/browser/chromeos/login/users/wallpaper/wallpaper_manager.h"
@@ -434,6 +435,26 @@ TEST_F(ArcAuthServiceTest, RemoveDataFolder) {
 
   auth_service()->StartArc();
   EXPECT_EQ(ArcAuthService::State::ACTIVE, auth_service()->state());
+  auth_service()->Shutdown();
+}
+
+TEST_F(ArcAuthServiceTest, IgnoreSecondErrorReporting) {
+  profile()->GetPrefs()->SetBoolean(prefs::kArcEnabled, true);
+  auth_service()->OnPrimaryUserProfilePrepared(profile());
+  auth_service()->StartArc();
+  EXPECT_EQ(ArcAuthService::State::ACTIVE, auth_service()->state());
+
+  // Report some failure that does not stop the bridge.
+  auth_service()->OnProvisioningFinished(
+      ProvisioningResult::GMS_SIGN_IN_FAILED);
+  EXPECT_EQ(ArcAuthService::State::ACTIVE, auth_service()->state());
+
+  // Try to send another error that stops the bridge if sent first. It should
+  // be ignored.
+  auth_service()->OnProvisioningFinished(
+      ProvisioningResult::CHROME_SERVER_COMMUNICATION_ERROR);
+  EXPECT_EQ(ArcAuthService::State::ACTIVE, auth_service()->state());
+
   auth_service()->Shutdown();
 }
 

@@ -291,6 +291,7 @@ class ArcAuthService : public ArcService,
   base::ObserverList<Observer> observer_list_;
   std::unique_ptr<ArcAppLauncher> playstore_launcher_;
   bool reenable_arc_ = false;
+  bool provisioning_reported_ = false;
   base::OneShotTimer arc_sign_in_timer_;
 
   // Notifies the correct callback whenever the auth_code is ready.

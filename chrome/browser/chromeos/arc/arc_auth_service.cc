@@ -505,6 +505,18 @@ void ArcAuthService::OnProvisioningFinished(ProvisioningResult result) {
   // guaranty set here. prefs::kArcDataRemoveRequested is also can be active
   // for now.
 
+  if (provisioning_reported_) {
+    // We don't expect ProvisioningResult::SUCCESS is reported twice or reported
+    // after an error.
+    DCHECK_NE(result, ProvisioningResult::SUCCESS);
+    // TODO (khmel): Consider changing LOG to NOTREACHED once we guaranty that
+    // no double message can happen in production.
+    LOG(WARNING) << " Provisioning result was already reported. Ignoring "
+                 << " additional result " << static_cast<int>(result) << ".";
+    return;
+  }
+  provisioning_reported_ = true;
+
   if (result == ProvisioningResult::CHROME_SERVER_COMMUNICATION_ERROR) {
     // For backwards compatibility, use NETWORK_ERROR for
     // CHROME_SERVER_COMMUNICATION_ERROR case.
@@ -857,6 +869,8 @@ void ArcAuthService::StartArc() {
 
   // Arc must be started only if no pending data removal request exists.
   DCHECK(!profile_->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
+
+  provisioning_reported_ = false;
 
   arc_bridge_service()->RequestStart();
   SetState(State::ACTIVE);
