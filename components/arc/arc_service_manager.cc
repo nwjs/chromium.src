@@ -86,11 +86,6 @@ ArcServiceManager* ArcServiceManager::Get() {
   return g_arc_service_manager;
 }
 
-// static
-bool ArcServiceManager::IsInitialized() {
-  return g_arc_service_manager;
-}
-
 ArcBridgeService* ArcServiceManager::arc_bridge_service() {
   DCHECK(thread_checker_.CalledOnValidThread());
   return arc_bridge_service_.get();
@@ -108,19 +103,6 @@ void ArcServiceManager::OnPrimaryUserProfilePrepared(
   DCHECK(thread_checker_.CalledOnValidThread());
   AddService(base::MakeUnique<ArcNotificationManager>(arc_bridge_service(),
                                                       account_id));
-}
-
-void ArcServiceManager::AddObserver(Observer* observer) {
-  observer_list_.AddObserver(observer);
-}
-
-void ArcServiceManager::RemoveObserver(Observer* observer) {
-  observer_list_.RemoveObserver(observer);
-}
-
-void ArcServiceManager::OnAppsUpdated() {
-  for (auto& observer : observer_list_)
-    observer.OnAppsUpdated();
 }
 
 void ArcServiceManager::Shutdown() {

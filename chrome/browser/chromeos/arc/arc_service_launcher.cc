@@ -4,8 +4,6 @@
 
 #include "chrome/browser/chromeos/arc/arc_service_launcher.h"
 
-#include <utility>
-
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "chrome/browser/chromeos/arc/arc_auth_service.h"
@@ -45,13 +43,10 @@ void ArcServiceLauncher::Initialize() {
   arc_service_manager_->AddService(
       base::MakeUnique<ArcEnterpriseReportingService>(
           arc_service_manager_->arc_bridge_service()));
-  auto intent_helper = base::MakeUnique<ArcIntentHelperBridge>(
-      arc_bridge_service, arc_service_manager_->icon_loader(),
-      arc_service_manager_->activity_resolver());
-  // We don't have to remove observer since
-  // ArcServiceManager always outlives ArcIntentHelperBridge.
-  intent_helper->AddObserver(arc_service_manager_.get());
-  arc_service_manager_->AddService(std::move(intent_helper));
+  arc_service_manager_->AddService(base::MakeUnique<ArcIntentHelperBridge>(
+      arc_service_manager_->arc_bridge_service(),
+      arc_service_manager_->icon_loader(),
+      arc_service_manager_->activity_resolver()));
   arc_service_manager_->AddService(base::MakeUnique<ArcPolicyBridge>(
       arc_service_manager_->arc_bridge_service()));
   arc_service_manager_->AddService(base::MakeUnique<ArcPrintService>(

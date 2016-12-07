@@ -6,7 +6,6 @@
 
 #include <stddef.h>
 
-#include <set>
 #include <utility>
 
 #include "base/bind.h"
@@ -18,7 +17,6 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/values.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
-#include "chrome/browser/chromeos/arc/arc_session_manager.h"
 #include "chrome/browser/chromeos/drive/drive_integration_service.h"
 #include "chrome/browser/chromeos/drive/file_system_util.h"
 #include "chrome/browser/chromeos/extensions/file_manager/private_api_util.h"
@@ -399,22 +397,11 @@ EventRouter::EventRouter(Profile* profile)
   ObserveEvents();
 }
 
-EventRouter::~EventRouter() = default;
-
-void EventRouter::OnAppsUpdated() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  BroadcastEvent(profile_,
-                 extensions::events::FILE_MANAGER_PRIVATE_ON_APPS_UPDATED,
-                 file_manager_private::OnAppsUpdated::kEventName,
-                 file_manager_private::OnAppsUpdated::Create());
+EventRouter::~EventRouter() {
 }
 
 void EventRouter::Shutdown() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-
-  if (arc::ArcServiceManager::IsInitialized())
-    arc::ArcServiceManager::Get()->RemoveObserver(this);
-
   chromeos::system::TimezoneSettings::GetInstance()->RemoveObserver(this);
 
   DLOG_IF(WARNING, !file_watchers_.empty())
@@ -505,9 +492,6 @@ void EventRouter::ObserveEvents() {
   pref_change_registrar_->Add(prefs::kUse24HourClock, callback);
 
   chromeos::system::TimezoneSettings::GetInstance()->AddObserver(this);
-
-  if (arc::ArcSessionManager::IsAllowedForProfile(profile_))
-    arc::ArcServiceManager::Get()->AddObserver(this);
 }
 
 // File watch setup routines.

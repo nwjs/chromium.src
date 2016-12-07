@@ -26,7 +26,6 @@
 #include "chromeos/disks/disk_mount_manager.h"
 #include "chromeos/network/network_state_handler_observer.h"
 #include "chromeos/settings/timezone_settings.h"
-#include "components/arc/arc_service_manager.h"
 #include "components/drive/chromeos/file_system_observer.h"
 #include "components/drive/chromeos/sync_client.h"
 #include "components/drive/service/drive_service_interface.h"
@@ -59,8 +58,7 @@ class EventRouter : public KeyedService,
                     public chromeos::system::TimezoneSettings::Observer,
                     public drive::FileSystemObserver,
                     public drive::DriveServiceObserver,
-                    public VolumeManagerObserver,
-                    public arc::ArcServiceManager::Observer {
+                    public VolumeManagerObserver {
  public:
   typedef base::Callback<void(const base::FilePath& virtual_path,
                               const drive::FileChange* list,
@@ -70,9 +68,6 @@ class EventRouter : public KeyedService,
 
   explicit EventRouter(Profile* profile);
   ~EventRouter() override;
-
-  // arc::ArcServiceManager::Observer overrides.
-  void OnAppsUpdated() override;
 
   // KeyedService overrides.
   void Shutdown() override;

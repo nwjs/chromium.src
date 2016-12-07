@@ -1005,7 +1005,5 @@ interface Events {
   static void onDeviceChanged(DeviceEvent event);
 
   static void onDriveSyncError(DriveSyncErrorEvent event);
-
-  static void onAppsUpdated();
 };
 };
