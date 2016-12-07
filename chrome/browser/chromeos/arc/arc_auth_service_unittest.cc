@@ -26,6 +26,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/fake_session_manager_client.h"
 #include "components/arc/arc_bridge_service.h"
 #include "components/arc/test/fake_arc_bridge_service.h"
 #include "components/prefs/pref_service.h"
@@ -52,6 +53,9 @@ class ArcAuthServiceTest : public testing::Test {
   ~ArcAuthServiceTest() override = default;
 
   void SetUp() override {
+    chromeos::DBusThreadManager::GetSetterForTesting()->SetSessionManagerClient(
+        base::MakeUnique<chromeos::FakeSessionManagerClient>());
+
     chromeos::DBusThreadManager::Initialize();
 
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
@@ -95,6 +99,17 @@ class ArcAuthServiceTest : public testing::Test {
   FakeArcBridgeService* bridge_service() { return bridge_service_.get(); }
   ArcAuthService* auth_service() { return auth_service_.get(); }
 
+  bool WaitForDataRemoved(ArcAuthService::State expected_state) {
+    if (auth_service()->state() != ArcAuthService::State::REMOVING_DATA_DIR)
+      return false;
+
+    base::RunLoop().RunUntilIdle();
+    if (auth_service()->state() != expected_state)
+      return false;
+
+    return true;
+  }
+
  private:
   void StartPreferenceSyncing() const {
     PrefServiceSyncableFromProfile(profile_.get())
@@ -123,14 +138,16 @@ TEST_F(ArcAuthServiceTest, PrefChangeTriggersService) {
   ASSERT_FALSE(pref->GetBoolean(prefs::kArcEnabled));
 
   auth_service()->OnPrimaryUserProfilePrepared(profile());
-  ASSERT_EQ(ArcAuthService::State::STOPPED, auth_service()->state());
+
+  ASSERT_TRUE(WaitForDataRemoved(ArcAuthService::State::STOPPED));
 
   pref->SetBoolean(prefs::kArcEnabled, true);
+  base::RunLoop().RunUntilIdle();
   ASSERT_EQ(ArcAuthService::State::SHOWING_TERMS_OF_SERVICE,
             auth_service()->state());
 
   pref->SetBoolean(prefs::kArcEnabled, false);
-  ASSERT_EQ(ArcAuthService::State::STOPPED, auth_service()->state());
+  ASSERT_TRUE(WaitForDataRemoved(ArcAuthService::State::STOPPED));
 
   // Correctly stop service.
   auth_service()->Shutdown();
@@ -184,16 +201,17 @@ TEST_F(ArcAuthServiceTest, BaseWorkflow) {
   auth_service()->OnPrimaryUserProfilePrepared(profile());
 
   // By default ARC is not enabled.
-  ASSERT_EQ(ArcAuthService::State::STOPPED, auth_service()->state());
+  ASSERT_TRUE(WaitForDataRemoved(ArcAuthService::State::STOPPED));
 
   profile()->GetPrefs()->SetBoolean(prefs::kArcEnabled, true);
+  base::RunLoop().RunUntilIdle();
 
   // Setting profile and pref initiates a code fetching process.
   ASSERT_EQ(ArcAuthService::State::SHOWING_TERMS_OF_SERVICE,
             auth_service()->state());
 
   // TODO(hidehiko): Verify state transition from SHOWING_TERMS_OF_SERVICE ->
-  // CHECKING_ANDROID_MANAGEMENT, when we extract ArcSessionManager.
+  // CHECKING_ANDROID_MANAGEMENT, when we extract ArcAuthService.
   auth_service()->StartArc();
 
   ASSERT_EQ(ArcAuthService::State::ACTIVE, auth_service()->state());
@@ -226,10 +244,16 @@ TEST_F(ArcAuthServiceTest, CancelFetchingDisablesArc) {
 
   auth_service()->OnPrimaryUserProfilePrepared(profile());
   pref->SetBoolean(prefs::kArcEnabled, true);
+  base::RunLoop().RunUntilIdle();
+
   ASSERT_EQ(ArcAuthService::State::SHOWING_TERMS_OF_SERVICE,
             auth_service()->state());
 
   auth_service()->CancelAuthCode();
+
+  // Wait until data is removed.
+  ASSERT_TRUE(WaitForDataRemoved(ArcAuthService::State::STOPPED));
+
   ASSERT_EQ(ArcAuthService::State::STOPPED, auth_service()->state());
   ASSERT_FALSE(pref->GetBoolean(prefs::kArcEnabled));
 
@@ -242,6 +266,7 @@ TEST_F(ArcAuthServiceTest, CloseUIKeepsArcEnabled) {
 
   auth_service()->OnPrimaryUserProfilePrepared(profile());
   pref->SetBoolean(prefs::kArcEnabled, true);
+  base::RunLoop().RunUntilIdle();
 
   auth_service()->StartArc();
 
@@ -359,6 +384,56 @@ TEST_F(ArcAuthServiceTest, DisabledForNonPrimaryProfile) {
   EXPECT_FALSE(chromeos::ProfileHelper::IsPrimaryProfile(second_profile.get()));
   EXPECT_FALSE(ArcAppListPrefs::Get(second_profile.get()));
 
+  auth_service()->Shutdown();
+}
+
+TEST_F(ArcAuthServiceTest, RemoveDataFolder) {
+  profile()->GetPrefs()->SetBoolean(prefs::kArcEnabled, false);
+  // Starting session manager with prefs::kArcEnabled off automatically removes
+  // Android's data folder.
+  auth_service()->OnPrimaryUserProfilePrepared(profile());
+  EXPECT_TRUE(
+      profile()->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
+  EXPECT_EQ(ArcAuthService::State::REMOVING_DATA_DIR, auth_service()->state());
+  // Enable ARC. Data is removed asyncronously. At this moment session manager
+  // should be in REMOVING_DATA_DIR state.
+  profile()->GetPrefs()->SetBoolean(prefs::kArcEnabled, true);
+  EXPECT_TRUE(
+      profile()->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
+  EXPECT_EQ(ArcAuthService::State::REMOVING_DATA_DIR, auth_service()->state());
+  // Wait until data is removed.
+  base::RunLoop().RunUntilIdle();
+  EXPECT_FALSE(
+      profile()->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
+  EXPECT_EQ(ArcAuthService::State::SHOWING_TERMS_OF_SERVICE,
+            auth_service()->state());
+  auth_service()->StartArc();
+  EXPECT_EQ(ArcAuthService::State::ACTIVE, auth_service()->state());
+
+  // Now request to remove data and stop session manager.
+  auth_service()->RemoveArcData();
+  ASSERT_TRUE(
+      profile()->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
+  EXPECT_EQ(ArcAuthService::State::ACTIVE, auth_service()->state());
+  auth_service()->Shutdown();
+  base::RunLoop().RunUntilIdle();
+  // Request should persist.
+  ASSERT_TRUE(
+      profile()->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
+
+  // Emulate next sign-in. Data should be removed first and ARC started after.
+  auth_service()->OnPrimaryUserProfilePrepared(profile());
+  EXPECT_TRUE(
+      profile()->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
+
+  ASSERT_TRUE(
+      WaitForDataRemoved(ArcAuthService::State::SHOWING_TERMS_OF_SERVICE));
+
+  EXPECT_FALSE(
+      profile()->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
+
+  auth_service()->StartArc();
+  EXPECT_EQ(ArcAuthService::State::ACTIVE, auth_service()->state());
   auth_service()->Shutdown();
 }
 

@@ -101,6 +101,7 @@ class ArcAuthService : public ArcService,
     STOPPED,
     SHOWING_TERMS_OF_SERVICE,
     CHECKING_ANDROID_MANAGEMENT,
+    REMOVING_DATA_DIR,
     ACTIVE,
   };
 
@@ -116,6 +117,10 @@ class ArcAuthService : public ArcService,
 
     // Called to notify that ARC has been initialized successfully.
     virtual void OnInitialStart() {}
+
+    // Called to notify that Android data has been removed. Used in
+    // browser_tests
+    virtual void OnArcDataRemoved() {}
   };
 
   explicit ArcAuthService(ArcBridgeService* bridge_service);
@@ -247,6 +252,8 @@ class ArcAuthService : public ArcService,
       std::unique_ptr<AccountInfoNotifier> account_info_notifier);
   void OnAccountInfoReady(mojom::AccountInfoPtr account_info);
 
+  void MaybeReenableArc();
+
   // Callback for Robot auth in Kiosk mode.
   void OnRobotAuthCodeFetched(const std::string& auth_code);
 
@@ -283,7 +290,6 @@ class ArcAuthService : public ArcService,
   State state_ = State::NOT_INITIALIZED;
   base::ObserverList<Observer> observer_list_;
   std::unique_ptr<ArcAppLauncher> playstore_launcher_;
-  bool clear_required_ = false;
   bool reenable_arc_ = false;
   base::OneShotTimer arc_sign_in_timer_;
 

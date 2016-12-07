@@ -212,6 +212,7 @@ void ArcAuthService::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   // TODO(dspaid): Implement a mechanism to allow this to sync on first boot
   // only.
+  registry->RegisterBooleanPref(prefs::kArcDataRemoveRequested, false);
   registry->RegisterBooleanPref(prefs::kArcEnabled, false);
   registry->RegisterBooleanPref(prefs::kArcSignedIn, false);
   registry->RegisterBooleanPref(prefs::kArcTermsAccepted, false);
@@ -291,30 +292,35 @@ void ArcAuthService::OnBridgeStopped(ArcBridgeService::StopReason reason) {
     OnProvisioningFinished(ProvisioningResult::ARC_STOPPED);
   }
 
-  if (clear_required_) {
+  if (profile_->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested)) {
     // This should be always true, but just in case as this is looked at
     // inside RemoveArcData() at first.
     DCHECK(arc_bridge_service()->stopped());
     RemoveArcData();
   } else {
     // To support special "Stop and enable ARC" procedure for enterprise,
-    // here call OnArcDataRemoved(true) as if the data removal is successfully
-    // done.
-    // TODO(hidehiko): Restructure the code. crbug.com/665316
+    // here call MaybeReenableArc() asyncronously.
     base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::Bind(&ArcAuthService::OnArcDataRemoved,
-                              weak_ptr_factory_.GetWeakPtr(), true));
+        FROM_HERE, base::Bind(&ArcAuthService::MaybeReenableArc,
+                              weak_ptr_factory_.GetWeakPtr()));
   }
 }
 
 void ArcAuthService::RemoveArcData() {
+  // Ignore redundant data removal request.
+  if (state() == State::REMOVING_DATA_DIR)
+    return;
+
+  // OnArcDataRemoved resets this flag.
+  profile_->GetPrefs()->SetBoolean(prefs::kArcDataRemoveRequested, true);
+
   if (!arc_bridge_service()->stopped()) {
     // Just set a flag. On bridge stopped, this will be re-called,
     // then session manager should remove the data.
-    clear_required_ = true;
     return;
   }
-  clear_required_ = false;
+
+  SetState(State::REMOVING_DATA_DIR);
   chromeos::DBusThreadManager::Get()->GetSessionManagerClient()->RemoveArcData(
       cryptohome::Identification(
           multi_user_util::GetAccountIdFromProfile(profile_)),
@@ -325,12 +331,28 @@ void ArcAuthService::RemoveArcData() {
 void ArcAuthService::OnArcDataRemoved(bool success) {
   LOG_IF(ERROR, !success) << "Required ARC user data wipe failed.";
 
+  // TODO(khmel): Browser tests may shutdown profile by itself. Update browser
+  // tests and remove this check.
+  if (state() == State::NOT_INITIALIZED)
+    return;
+
+  for (auto& observer : observer_list_)
+    observer.OnArcDataRemoved();
+
+  profile_->GetPrefs()->SetBoolean(prefs::kArcDataRemoveRequested, false);
+  DCHECK_EQ(state(), State::REMOVING_DATA_DIR);
+  SetState(State::STOPPED);
+
+  MaybeReenableArc();
+}
+
+void ArcAuthService::MaybeReenableArc() {
   // Here check if |reenable_arc_| is marked or not.
   // The only case this happens should be in the special case for enterprise
   // "on managed lost" case. In that case, OnBridgeStopped() should trigger
   // the RemoveArcData(), then this.
   // TODO(hidehiko): Restructure the code.
-  if (!reenable_arc_)
+  if (!reenable_arc_ || !IsArcEnabled())
     return;
 
   // Restart ARC anyway. Let the enterprise reporting instance decide whether
@@ -477,7 +499,11 @@ void ArcAuthService::OnSignInFailed(mojom::ArcSignInFailureReason reason) {
 
 void ArcAuthService::OnProvisioningFinished(ProvisioningResult result) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK_EQ(state_, State::ACTIVE);
+
+  // Due asynchronous nature of stopping Arc bridge, OnProvisioningFinished may
+  // arrive after setting the |State::STOPPED| state and |State::Active| is not
+  // guaranty set here. prefs::kArcDataRemoveRequested is also can be active
+  // for now.
 
   if (result == ProvisioningResult::CHROME_SERVER_COMMUNICATION_ERROR) {
     // For backwards compatibility, use NETWORK_ERROR for
@@ -646,7 +672,14 @@ void ArcAuthService::OnPrimaryUserProfilePrepared(Profile* profile) {
       prefs::kArcEnabled, base::Bind(&ArcAuthService::OnOptInPreferenceChanged,
                                      weak_ptr_factory_.GetWeakPtr()));
   if (profile_->GetPrefs()->GetBoolean(prefs::kArcEnabled)) {
-    OnOptInPreferenceChanged();
+    // Don't start ARC if there is a pending request to remove the data. Restart
+    // ARC once data removal finishes.
+    if (profile_->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested)) {
+      reenable_arc_ = true;
+      RemoveArcData();
+    } else {
+      OnOptInPreferenceChanged();
+    }
   } else {
     RemoveArcData();
     PrefServiceSyncableFromProfile(profile_)->AddObserver(this);
@@ -727,6 +760,8 @@ void ArcAuthService::OnOptInPreferenceChanged() {
     observer.OnOptInEnabled(arc_enabled);
 
   if (!arc_enabled) {
+    // Reset any pending request to re-enable Arc.
+    reenable_arc_ = false;
     StopArc();
     RemoveArcData();
     return;
@@ -734,6 +769,13 @@ void ArcAuthService::OnOptInPreferenceChanged() {
 
   if (state_ == State::ACTIVE)
     return;
+
+  if (state_ == State::REMOVING_DATA_DIR) {
+    // Data removal request is in progress. Set flag to re-enable Arc once it is
+    // finished.
+    reenable_arc_ = true;
+    return;
+  }
 
   if (support_host_)
     support_host_->SetArcManaged(IsArcManaged());
@@ -785,7 +827,7 @@ void ArcAuthService::ShutdownBridge() {
   android_management_checker_.reset();
   auth_code_fetcher_.reset();
   arc_bridge_service()->RequestStop();
-  if (state_ != State::NOT_INITIALIZED)
+  if (state_ != State::NOT_INITIALIZED && state_ != State::REMOVING_DATA_DIR)
     SetState(State::STOPPED);
   for (auto& observer : observer_list_)
     observer.OnShutdownBridge();
@@ -812,6 +854,10 @@ void ArcAuthService::StopAndEnableArc() {
 
 void ArcAuthService::StartArc() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+
+  // Arc must be started only if no pending data removal request exists.
+  DCHECK(!profile_->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
+
   arc_bridge_service()->RequestStart();
   SetState(State::ACTIVE);
 }
@@ -1083,6 +1129,8 @@ std::ostream& operator<<(std::ostream& os, const ArcAuthService::State& state) {
       return os << "SHOWING_TERMS_OF_SERVICE";
     case ArcAuthService::State::CHECKING_ANDROID_MANAGEMENT:
       return os << "CHECKING_ANDROID_MANAGEMENT";
+    case ArcAuthService::State::REMOVING_DATA_DIR:
+      return os << "REMOVING_DATA_DIR";
     case ArcAuthService::State::ACTIVE:
       return os << "ACTIVE";
   }
