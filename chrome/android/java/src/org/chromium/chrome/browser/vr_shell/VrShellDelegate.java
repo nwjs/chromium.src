@@ -258,6 +258,7 @@ public class VrShellDelegate {
             case ENTER_VR_REQUESTED:
                 break;
             case ENTER_VR_SUCCEEDED:
+                mVrShell.setWebVrModeEnabled(true);
                 nativeSetPresentResult(mNativeVrShellDelegate, true);
                 mRequestedWebVR = false;
                 break;
