@@ -14,6 +14,7 @@
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/metrics/user_metrics.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
@@ -899,6 +900,7 @@ void ContentViewCoreImpl::SendOrientationChangeEvent(
     const JavaParamRef<jobject>& obj,
     jint orientation) {
   if (device_orientation_ != orientation) {
+    base::RecordAction(base::UserMetricsAction("ScreenOrientationChange"));
     device_orientation_ = orientation;
     SendOrientationChangeEventInternal();
   }
