@@ -3303,6 +3303,7 @@ const CSSValue* ComputedStyleCSSValueMapping::get(
     case CSSPropertyOffsetDistance:
       return zoomAdjustedPixelValueForLength(style.offsetDistance(), style);
 
+    case CSSPropertyOffsetRotate:
     case CSSPropertyOffsetRotation: {
       CSSValueList* list = CSSValueList::createSpaceSeparated();
       if (style.offsetRotation().type == OffsetRotationAuto)

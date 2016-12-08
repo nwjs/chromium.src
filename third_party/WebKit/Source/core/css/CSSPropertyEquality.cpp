@@ -195,6 +195,7 @@ bool CSSPropertyEquality::propertiesEqual(CSSPropertyID prop,
       return a.offsetDistance() == b.offsetDistance();
     case CSSPropertyOffsetPosition:
       return a.offsetPosition() == b.offsetPosition();
+    case CSSPropertyOffsetRotate:
     case CSSPropertyOffsetRotation:
       return a.offsetRotation() == b.offsetRotation();
     case CSSPropertyOpacity:
