@@ -126,16 +126,12 @@ public class AccountSigninView extends FrameLayout implements ProfileDownloader.
     }
 
     /**
-     * Initializes this view with profile data cache, delegate and listener.
+     * Initializes this view with profile images and full names.
      * @param profileData ProfileDataCache that will be used to call to retrieve user account info.
-     * @param delegate    The UI object creation delegate.
-     * @param listener    The account selection event listener.
      */
-    public void init(ProfileDataCache profileData, Delegate delegate, Listener listener) {
+    public void init(ProfileDataCache profileData) {
         mProfileData = profileData;
         mProfileData.setObserver(this);
-        mDelegate = delegate;
-        mListener = listener;
         showSigninPage();
     }
 
@@ -216,15 +212,27 @@ public class AccountSigninView extends FrameLayout implements ProfileDownloader.
     }
 
     /**
+     * Set the account selection event listener.  See {@link Listener}
+     *
+     * @param listener The listener.
+     */
+    public void setListener(Listener listener) {
+        mListener = listener;
+    }
+
+    /**
+     * Set the UI object creation delegate. See {@link Delegate}
+     * @param delegate The delegate.
+     */
+    public void setDelegate(Delegate delegate) {
+        mDelegate = delegate;
+    }
+
+    /**
      * Refresh the list of available system accounts.
      */
     private void updateAccounts() {
         if (mSignedIn || mProfileData == null) return;
-
-        if (!ExternalAuthUtils.getInstance().canUseGooglePlayServices(getContext(),
-                    new UserRecoverableErrorHandler.ModalDialog(mDelegate.getActivity()))) {
-            return;
-        }
 
         List<String> oldAccountNames = mAccountNames;
         mAccountNames = mAccountManagerHelper.getGoogleAccountNames();
@@ -355,6 +363,11 @@ public class AccountSigninView extends FrameLayout implements ProfileDownloader.
     }
 
     private void showConfirmSigninPageAccountTrackerServiceCheck() {
+        if (!ExternalAuthUtils.getInstance().canUseGooglePlayServices(getContext(),
+                new UserRecoverableErrorHandler.ModalDialog(mDelegate.getActivity()))) {
+            return;
+        }
+
         // Disable the buttons to prevent them being clicked again while waiting for the callbacks.
         setButtonsEnabled(false);
 
