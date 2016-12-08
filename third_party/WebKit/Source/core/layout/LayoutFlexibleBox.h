@@ -63,10 +63,6 @@ class CORE_EXPORT LayoutFlexibleBox : public LayoutBlock {
   void paintChildren(const PaintInfo&, const LayoutPoint&) const final;
 
   bool isHorizontalFlow() const;
-  virtual LayoutObject* layoutSpecialExcludedChild(bool relayoutChildren,
-                                                   SubtreeLayoutScope&) {
-    return nullptr;
-  }
 
   const OrderIterator& orderIterator() const { return m_orderIterator; }
 
@@ -183,8 +179,7 @@ class CORE_EXPORT LayoutFlexibleBox : public LayoutBlock {
   bool hasAutoMarginsInCrossAxis(const LayoutBox& child) const;
   bool updateAutoMarginsInCrossAxis(LayoutBox& child,
                                     LayoutUnit availableAlignmentSpace);
-  void repositionLogicalHeightDependentFlexItems(Vector<LineContext>&,
-                                                 LayoutObject* childToExclude);
+  void repositionLogicalHeightDependentFlexItems(Vector<LineContext>&);
   LayoutUnit clientLogicalBottomAfterRepositioning();
 
   LayoutUnit availableAlignmentSpaceForChild(LayoutUnit lineCrossAxisExtent,
@@ -210,8 +205,7 @@ class CORE_EXPORT LayoutFlexibleBox : public LayoutBlock {
                            double& totalFlexShrink,
                            double& totalWeightedFlexShrink,
                            LayoutUnit& sumHypotheticalMainSize,
-                           bool relayoutChildren,
-                           LayoutObject* childToExclude);
+                           bool relayoutChildren);
 
   void freezeInflexibleItems(FlexSign,
                              OrderedFlexItemList& children,
@@ -247,7 +241,7 @@ class CORE_EXPORT LayoutFlexibleBox : public LayoutBlock {
                            LayoutUnit crossAxisOffset,
                            LayoutUnit availableFreeSpace);
   void alignFlexLines(Vector<LineContext>&);
-  void alignChildren(const Vector<LineContext>&, LayoutObject* childToExclude);
+  void alignChildren(const Vector<LineContext>&);
   void applyStretchAlignmentToChild(LayoutBox& child,
                                     LayoutUnit lineCrossAxisExtent);
   void flipForRightToLeftColumn();

@@ -443,13 +443,12 @@ void LayoutFlexibleBox::paintChildren(const PaintInfo& paintInfo,
 }
 
 void LayoutFlexibleBox::repositionLogicalHeightDependentFlexItems(
-    Vector<LineContext>& lineContexts,
-    LayoutObject* childToExclude) {
+    Vector<LineContext>& lineContexts) {
   LayoutUnit crossAxisStartEdge =
       lineContexts.isEmpty() ? LayoutUnit() : lineContexts[0].crossAxisOffset;
   alignFlexLines(lineContexts);
 
-  alignChildren(lineContexts, childToExclude);
+  alignChildren(lineContexts);
 
   if (style()->flexWrap() == FlexWrapReverse)
     flipForWrapReverse(lineContexts, crossAxisStartEdge);
@@ -983,19 +982,13 @@ void LayoutFlexibleBox::layoutFlexItems(bool relayoutChildren,
   PaintLayerScrollableArea::PreventRelayoutScope preventRelayoutScope(
       layoutScope);
 
-  // Fieldsets need to find their legend and position it inside the border of
-  // the object. The legend then gets skipped during normal layout. It
-  // doesn't get included in the normal layout process but is instead skipped.
-  LayoutObject* childToExclude =
-      layoutSpecialExcludedChild(relayoutChildren, layoutScope);
 
   m_orderIterator.first();
   LayoutUnit crossAxisOffset =
       flowAwareBorderBefore() + flowAwarePaddingBefore();
   while (computeNextFlexLine(orderedChildren, sumFlexBaseSize, totalFlexGrow,
                              totalFlexShrink, totalWeightedFlexShrink,
-                             sumHypotheticalMainSize, relayoutChildren,
-                             childToExclude)) {
+                             sumHypotheticalMainSize, relayoutChildren)) {
     LayoutUnit containerMainInnerSize =
         mainAxisContentExtent(sumHypotheticalMainSize);
     // availableFreeSpace is the initial amount of free space in this flexbox.
@@ -1045,7 +1038,7 @@ void LayoutFlexibleBox::layoutFlexItems(bool relayoutChildren,
   }
 
   updateLogicalHeight();
-  repositionLogicalHeightDependentFlexItems(lineContexts, childToExclude);
+  repositionLogicalHeightDependentFlexItems(lineContexts);
 }
 
 LayoutUnit LayoutFlexibleBox::autoMarginOffsetInMainAxis(
@@ -1391,8 +1384,7 @@ bool LayoutFlexibleBox::computeNextFlexLine(
     double& totalFlexShrink,
     double& totalWeightedFlexShrink,
     LayoutUnit& sumHypotheticalMainSize,
-    bool relayoutChildren,
-    LayoutObject* childToExclude) {
+    bool relayoutChildren) {
   orderedChildren.clear();
   sumFlexBaseSize = LayoutUnit();
   totalFlexGrow = totalFlexShrink = totalWeightedFlexShrink = 0;
@@ -1407,9 +1399,6 @@ bool LayoutFlexibleBox::computeNextFlexLine(
 
   for (LayoutBox* child = m_orderIterator.currentChild(); child;
        child = m_orderIterator.next()) {
-    if (childToExclude == child)
-      continue;  // Skip this child, since it will be positioned by the
-                 // specialized subclass (fieldsets runs).
 
     if (child->isOutOfFlowPositioned()) {
       orderedChildren.append(FlexItem(child));
@@ -2125,8 +2114,7 @@ void LayoutFlexibleBox::adjustAlignmentForChild(LayoutBox& child,
                                           LayoutSize(LayoutUnit(), delta));
 }
 
-void LayoutFlexibleBox::alignChildren(const Vector<LineContext>& lineContexts,
-                                      LayoutObject* childToExclude) {
+void LayoutFlexibleBox::alignChildren(const Vector<LineContext>& lineContexts) {
   // Keep track of the space between the baseline edge and the after edge of
   // the box for each line.
   Vector<LayoutUnit> minMarginAfterBaselines;
@@ -2141,8 +2129,6 @@ void LayoutFlexibleBox::alignChildren(const Vector<LineContext>& lineContexts,
          childNumber < lineContexts[lineNumber].numberOfChildren;
          ++childNumber, child = m_orderIterator.next()) {
       DCHECK(child);
-      if (child == childToExclude)
-        continue;
       if (child->isOutOfFlowPositioned()) {
         if (style()->flexWrap() == FlexWrapReverse)
           adjustAlignmentForChild(*child, lineCrossAxisExtent);

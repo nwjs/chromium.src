@@ -1271,3 +1271,16 @@ crbug.com/646323 [ Mac ] editing/selection/modify_move/move_backward_line_import
 crbug.com/646323 [ Win Linux ] editing/selection/modify_move/move_backward_line_import_crash.html [ Crash ]
 
 crbug.com/645640 inspector/extensions/extensions-eval.html [ NeedsManualRebaseline ]
+
+crbug.com/670837 fast/css/fieldset-display-row.html [ NeedsRebaseline ]
+crbug.com/670837 fast/forms/006.html [ NeedsRebaseline ]
+crbug.com/670837 fast/forms/007.html [ NeedsRebaseline ]
+crbug.com/670837 fast/forms/fieldset/fieldset-align.html [ NeedsRebaseline ]
+crbug.com/670837 fast/forms/fieldset/fieldset-legend-padding-unclipped-fieldset-border.html [ NeedsRebaseline ]
+crbug.com/670837 fast/forms/fieldset/fieldset-with-float.html [ NeedsRebaseline ]
+crbug.com/670837 fast/forms/fieldset/float-before-fieldset.html [ NeedsRebaseline ]
+crbug.com/670837 fast/ruby/rubyDOM-remove-text2.html [ NeedsRebaseline ]
+crbug.com/670837 fast/text/whitespace/normal-after-nowrap-breaking.html [ NeedsRebaseline ]
+crbug.com/670837 fast/writing-mode/fieldsets.html [ NeedsRebaseline ]
+crbug.com/670837 paint/masks/fieldset-mask.html [ NeedsRebaseline ]
+crbug.com/670837 svg/custom/inline-svg-in-xhtml.xml [ NeedsRebaseline ]
