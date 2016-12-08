@@ -277,7 +277,7 @@ TEST_F(MediaRouterUITest, SortSinksByIconType) {
 }
 
 TEST_F(MediaRouterUITest, FilterNonDisplayRoutes) {
-  CreateMediaRouterUI(profile());
+  CreateMediaRouterUI(&profile_);
 
   MediaSource media_source("mediaSource");
   MediaRoute display_route_1("routeId1", media_source, "sinkId1", "desc 1",
@@ -300,7 +300,7 @@ TEST_F(MediaRouterUITest, FilterNonDisplayRoutes) {
 }
 
 TEST_F(MediaRouterUITest, FilterNonDisplayJoinableRoutes) {
-  CreateMediaRouterUI(profile());
+  CreateMediaRouterUI(&profile_);
 
   MediaSource media_source("mediaSource");
   MediaRoute display_route_1("routeId1", media_source, "sinkId1", "desc 1",
