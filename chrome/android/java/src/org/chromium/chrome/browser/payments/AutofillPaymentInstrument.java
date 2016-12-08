@@ -94,6 +94,10 @@ public class AutofillPaymentInstrument extends PaymentInstrument
         // Keep the cvc for after the normalization.
         mSecurityCode = cvc;
 
+        // The card number changes for unmasked cards.
+        assert updatedCard.getNumber().length() > 4;
+        mCard.setNumber(updatedCard.getNumber());
+
         // Update the card's expiration date.
         mCard.setMonth(updatedCard.getMonth());
         mCard.setYear(updatedCard.getYear());
