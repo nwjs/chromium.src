@@ -1393,6 +1393,7 @@ class CORE_EXPORT UseCounter {
     CustomElementRegistryDefine = 1689,
     LinkHeaderServiceWorker = 1690,
     CSSShadowPiercingDescendantCombinator = 1691,
+    FullscreenAllowedByOrientationChange = 1696,
 
     // Add new features immediately above this line. Don't change assigned
     // numbers of any item, and don't reuse removed slots.
