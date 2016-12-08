@@ -235,6 +235,7 @@
 #include "platform/network/ContentSecurityPolicyParsers.h"
 #include "platform/network/HTTPParsers.h"
 #include "platform/scheduler/CancellableTaskFactory.h"
+#include "platform/scroll/Scrollbar.h"
 #include "platform/scroll/ScrollbarTheme.h"
 #include "platform/text/PlatformLocale.h"
 #include "platform/text/SegmentedString.h"
@@ -5967,13 +5968,17 @@ static LayoutObject* nearestCommonHoverAncestor(LayoutObject* obj1,
 
 void Document::updateHoverActiveState(const HitTestRequest& request,
                                       Element* innerElement,
-                                      bool hitScrollbar) {
+                                      Scrollbar* hitScrollbar) {
   DCHECK(!request.readOnly());
 
-  if (request.active() && m_frame && !hitScrollbar)
+  // Only cancel hover state when hitting native scrollbar because custom
+  // scrollbar's style depends on the owner element's hover state.
+  bool hitNativeScrollbar = hitScrollbar && !hitScrollbar->isCustomScrollbar();
+
+  if (request.active() && m_frame && !hitNativeScrollbar)
     m_frame->eventHandler().notifyElementActivated();
 
-  Element* innerElementInDocument = hitScrollbar ? nullptr : innerElement;
+  Element* innerElementInDocument = hitNativeScrollbar ? nullptr : innerElement;
   while (innerElementInDocument && innerElementInDocument->document() != this) {
     innerElementInDocument->document().updateHoverActiveState(
         request, innerElementInDocument, hitScrollbar);
@@ -5982,7 +5987,7 @@ void Document::updateHoverActiveState(const HitTestRequest& request,
 
   updateDistribution();
   Element* oldActiveElement = activeHoverElement();
-  if (oldActiveElement && (!request.active() || hitScrollbar)) {
+  if (oldActiveElement && (!request.active() || hitNativeScrollbar)) {
     // The oldActiveElement layoutObject is null, dropped on :active by setting
     // display: none, for instance. We still need to clear the ActiveChain as
     // the mouse is released.
