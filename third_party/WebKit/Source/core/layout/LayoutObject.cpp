@@ -2785,8 +2785,7 @@ void LayoutObject::destroyAndCleanupAnonymousWrappers() {
 
   LayoutObject* destroyRoot = this;
   for (LayoutObject *destroyRootParent = destroyRoot->parent();
-       destroyRootParent && destroyRootParent->isAnonymous() &&
-       !destroyRootParent->parent()->createsAnonymousWrapper();
+       destroyRootParent && destroyRootParent->isAnonymous();
        destroyRoot = destroyRootParent,
                     destroyRootParent = destroyRootParent->parent()) {
     // Anonymous block continuations are tracked and destroyed elsewhere (see
