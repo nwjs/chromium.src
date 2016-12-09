@@ -929,6 +929,7 @@ std::vector<std::pair<std::string, int> > Dispatcher::GetJsResources() {
 #endif  // defined(ENABLE_MEDIA_ROUTER)
 
   resources.push_back(std::make_pair("nw.App",       IDR_NWAPI_APP_JS));
+  resources.push_back(std::make_pair("nw.AutoUpdater",       IDR_NWAPI_AUTOUPDATER_JS));
   resources.push_back(std::make_pair("nw.Window",    IDR_NWAPI_WINDOW_JS));
   resources.push_back(std::make_pair("nw.Clipboard", IDR_NWAPI_CLIPBOARD_JS));
   resources.push_back(std::make_pair("nw.Menu",      IDR_NWAPI_MENU_JS));

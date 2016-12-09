@@ -1123,6 +1123,11 @@ if (is_win || (is_linux && !is_component_build)) {
       "-current_version",
       chrome_dylib_version,
       "-Wl,-order_file," + rebase_path("app/framework.order", root_build_dir),
+      ## next 4 lines is for squirrel autoupdate
+      "-F",
+      "../../content/nw/external_binaries",
+      "-rpath",
+      "@loader_path/..",
     ]
 
     if (is_component_build) {
