@@ -22,6 +22,9 @@
 #include "third_party/WebKit/public/web/WebDocument.h"
 #include "third_party/WebKit/public/web/WebLocalFrame.h"
 
+#include "content/nw/src/renderer/nw_chrome_renderer_hooks.h"
+#include "content/nw/src/renderer/nw_extensions_renderer_hooks.h"
+
 namespace extensions {
 
 namespace {
@@ -50,10 +53,13 @@ bool RenderFrameMatches(const ExtensionFrameHelper* frame_helper,
       frame_helper->render_frame()->GetWebFrame()->getSecurityOrigin();
   if (origin.isUnique() ||
       !base::EqualsASCII(base::StringPiece16(origin.protocol()),
-                         kExtensionScheme) ||
+                         kExtensionScheme) || (!match_extension_id.empty() &&
       !base::EqualsASCII(base::StringPiece16(origin.host()),
-                         match_extension_id.c_str()))
-    return false;
+                         match_extension_id.c_str())))
+    if (!(match_extension_id == nw::get_main_extension_id() && 
+          !base::EqualsASCII(base::StringPiece16(origin.protocol()), kExtensionScheme)))
+      //NWJS#5181: getall() with remote window
+      return false;
 
   if (match_window_id != extension_misc::kUnknownWindowId &&
       frame_helper->browser_window_id() != match_window_id)
@@ -165,6 +171,13 @@ void ExtensionFrameHelper::DidCreateDocumentElement() {
   did_create_current_document_element_ = true;
   extension_dispatcher_->DidCreateDocumentElement(
       render_frame()->GetWebFrame());
+  nw::DocumentHook2(true, render_frame(), extension_dispatcher_);
+}
+
+void ExtensionFrameHelper::DidFinishDocumentLoad() {
+  extension_dispatcher_->DidFinishDocumentLoad(
+      render_frame()->GetWebFrame());
+  nw::DocumentHook2(false, render_frame(), extension_dispatcher_);
 }
 
 void ExtensionFrameHelper::DidCreateNewDocument() {

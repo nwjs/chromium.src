@@ -94,9 +94,10 @@ AudioManagerBase::~AudioManagerBase() {
   DCHECK(GetTaskRunner()->BelongsToCurrentThread());
 
   // All the output streams should have been deleted.
-  CHECK_EQ(0, num_output_streams_);
+  //disable the check for NWJS#5318
+  //CHECK_EQ(0, num_output_streams_);
   // All the input streams should have been deleted.
-  CHECK_EQ(0, num_input_streams_);
+  //CHECK_EQ(0, num_input_streams_);
 }
 
 base::string16 AudioManagerBase::GetAudioInputDeviceModel() {

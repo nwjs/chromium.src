@@ -132,7 +132,8 @@ void FileInputType::handleDOMActivateEvent(Event* event) {
   if (element().isDisabledFormControl())
     return;
 
-  if (!UserGestureIndicator::utilizeUserGesture())
+  HTMLInputElement& input = element();
+  if (!UserGestureIndicator::utilizeUserGesture() && !input.document().frame()->isNodeJS())
     return;
 
   if (ChromeClient* chromeClient = this->chromeClient()) {
@@ -147,6 +148,10 @@ void FileInputType::handleDOMActivateEvent(Event* event) {
     settings.selectedFiles = m_fileList->pathsForUserVisibleFiles();
     settings.useMediaCapture = RuntimeEnabledFeatures::mediaCaptureEnabled() &&
                                input.fastHasAttribute(captureAttr);
+    settings.initialPath = input.nwworkingdir();
+    settings.directoryChooser = input.fastHasAttribute(nwdirectoryAttr);
+    settings.saveAs = input.fastHasAttribute(nwsaveasAttr);
+    settings.initialValue = input.nwsaveas();
     chromeClient->openFileChooser(input.document().frame(),
                                   newFileChooser(settings));
   }
@@ -186,7 +191,15 @@ bool FileInputType::getTypeSpecificValue(String& value) {
   // decided to try to parse the value by looking for backslashes
   // (because that's what Windows file paths use). To be compatible
   // with that code, we make up a fake path for the file.
-  value = "C:\\fakepath\\" + m_fileList->item(0)->name();
+  //value = "C:\\fakepath\\" + m_fileList->item(0)->name();
+  unsigned numFiles = m_fileList->length();
+  StringBuilder val;
+  val.append(m_fileList->item(0)->path());
+  for (unsigned i = 1; i < numFiles; ++i) {
+    val.append(';');
+    val.append(m_fileList->item(i)->path());
+  }
+  value = val.toString();
   return true;
 }
 
@@ -322,7 +335,12 @@ void FileInputType::setFiles(FileList* files) {
   element().setChangedSinceLastFormControlChangeEvent(false);
 }
 
-void FileInputType::filesChosen(const Vector<FileChooserFileInfo>& files) {
+void FileInputType::filesChosen(const Vector<FileChooserFileInfo>& files, bool canceled) {
+  if (canceled) {
+    element().dispatchScopedEvent(Event::createBubble(EventTypeNames::cancel));
+    return;
+  }
+
   setFiles(
       createFileList(files, element().fastHasAttribute(webkitdirectoryAttr)));
 }

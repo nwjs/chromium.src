@@ -24,6 +24,7 @@ class CONTENT_EXPORT DOMStorageMap
     : public base::RefCountedThreadSafe<DOMStorageMap> {
  public:
   explicit DOMStorageMap(size_t quota);
+  static void SetQuotaOverride(size_t quota) {quota_override_ = quota; }
 
   unsigned Length() const;
   base::NullableString16 Key(unsigned index);
@@ -46,7 +47,7 @@ class CONTENT_EXPORT DOMStorageMap
 
   size_t bytes_used() const { return bytes_used_; }
   size_t quota() const { return quota_; }
-  void set_quota(size_t quota) { quota_ = quota; }
+  void set_quota(size_t quota) { quota_ = quota > quota_override_ ? quota : quota_override_; }
 
   static size_t CountBytes(const DOMStorageValuesMap& values);
 
@@ -61,6 +62,7 @@ class CONTENT_EXPORT DOMStorageMap
   unsigned last_key_index_;
   size_t bytes_used_;
   size_t quota_;
+  static size_t quota_override_;
 };
 
 }  // namespace content
