@@ -138,6 +138,9 @@ class DownloadItemView : public views::InkDropHostView,
   void OnBlur() override;
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(DownloadItemViewDangerousDownloadLabelTest,
+                           AdjustTextAndGetSize);
+
   enum State { NORMAL = 0, HOT, PUSHED };
   class DropDownButton;
 
@@ -199,7 +202,7 @@ class DownloadItemView : public views::InkDropHostView,
   // Reverts from dangerous mode to normal download mode.
   void ClearWarningDialog();
 
-  // Start displaying the dangerous download warning or the malicious download
+  // Starts displaying the dangerous download warning or the malicious download
   // warning.
   void ShowWarningDialog();
 
@@ -215,6 +218,12 @@ class DownloadItemView : public views::InkDropHostView,
   // lines.  The size is computed only the first time this method is invoked
   // and simply returned on subsequent calls.
   void SizeLabelToMinWidth();
+
+  // Given a multiline |label|, decides whether it should be displayed on one
+  // line (if short), or broken across two lines.  In the latter case,
+  // linebreaks near the middle of the string and sets the label's text
+  // accordingly.  Returns the preferred size for the label.
+  static gfx::Size AdjustTextAndGetSize(views::Label* label);
 
   // Reenables the item after it has been disabled when a user clicked it to
   // open the downloaded file.
