@@ -169,6 +169,7 @@ onabort
 onanimationstart
 onanimationiteration
 onanimationend
+onauxclick
 onbeforecopy
 onbeforecut
 onbeforepaste
@@ -230,6 +231,14 @@ onpaste
 onpause
 onplay
 onplaying
+onpointercancel
+onpointerdown
+onpointerenter
+onpointerleave
+onpointermove
+onpointerout
+onpointerover
+onpointerup
 onpopstate
 onprogress
 onratechange
