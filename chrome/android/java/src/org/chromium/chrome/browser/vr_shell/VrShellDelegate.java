@@ -336,7 +336,8 @@ public class VrShellDelegate {
             } finally {
                 StrictMode.setThreadPolicy(oldPolicy);
             }
-        } else if (mLastVRExit + REENTER_VR_TIMEOUT_MS > SystemClock.uptimeMillis()) {
+        } else if (mVrDaydreamApi.isDaydreamCurrentViewer()
+                && mLastVRExit + REENTER_VR_TIMEOUT_MS > SystemClock.uptimeMillis()) {
             enterVRIfNecessary();
         }
     }
