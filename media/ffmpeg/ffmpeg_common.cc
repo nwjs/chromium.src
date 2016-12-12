@@ -128,6 +128,12 @@ AVCodecID AudioCodecToCodecID(AudioCodec audio_codec,
       return AV_CODEC_ID_AAC;
     case kCodecALAC:
       return AV_CODEC_ID_ALAC;
+#if BUILDFLAG(ENABLE_AC3_EAC3_AUDIO_DEMUXING)
+    case kCodecAC3:
+      return AV_CODEC_ID_AC3;
+    case kCodecEAC3:
+      return AV_CODEC_ID_EAC3;
+#endif
     case kCodecMP3:
       return AV_CODEC_ID_MP3;
     case kCodecPCM:
