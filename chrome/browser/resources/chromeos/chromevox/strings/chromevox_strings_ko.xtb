@@ -105,7 +105,7 @@
 <translation id="2089387485033699258">ko</translation>
 <translation id="2091933974477985526">이전 수정 가능 텍스트 영역</translation>
 <translation id="2100350898815792233">모든 구두점을 읽음</translation>
-<translation id="2110480898214777136">페이지, 대화 또는 기타 컨테이너 내부에서 처음부터 끝 또는 끝부터 처음까지 래핑합니다.</translation>
+<translation id="2110480898214777136">페이지, 대화 또는 기타 컨테이너 내부에서 처음부터 끝 또는 끝부터 처음에 래핑합니다.</translation>
 <translation id="2119965627982867824">spnbtn</translation>
 <translation id="2121067395472282800">액세스 키:<ph name="KEY" /></translation>
 <translation id="2155457205053847599">아래의 목록에서 옵션을 선택하여 현재의 6점 점자 표를 변경합니다.</translation>
@@ -611,7 +611,7 @@ Chrome 브라우저 메뉴를 열려면 Alt+F를 누릅니다.</translation>
 <translation id="6657128831881431364">진행률 표시줄</translation>
 <translation id="6659594942844771486">탭</translation>
 <translation id="667999046851023355">문서</translation>
-<translation id="6688209025607531203">모달 이외의 알림</translation>
+<translation id="6688209025607531203">비모달 알림</translation>
 <translation id="6697092096875747123">이전 콤보 상자</translation>
 <translation id="6702609185760332517">{COUNT,plural, =1{느낌표}other{느낌표 #개}}</translation>
 <translation id="6710213216561001401">이전</translation>

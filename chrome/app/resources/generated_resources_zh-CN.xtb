@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">启动页</translation>
 <translation id="1354868058853714482">Adobe Reader 已过期，可能不安全。</translation>
 <translation id="1355408554203439639">3D 软件光栅化处理程序</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> 已被屏蔽</translation>
 <translation id="1355542767438520308">出现错误，系统可能尚未删除部分项。</translation>
 <translation id="1357589289913453911">扩展程序 ID</translation>
 <translation id="1358032944105037487">日语键盘</translation>
@@ -503,7 +504,7 @@
 <translation id="1627276047960621195">文件描述符</translation>
 <translation id="1628736721748648976">编码</translation>
 <translation id="1632803087685957583">可让您调整键盘重复输入速率、字词预测功能等</translation>
-<translation id="1632840525091989276">此设备目前会向 Google 发送诊断数据和使用情况数据。它的所有者强制启用了这项设置。<ph name="BEGIN_LINK1" />了解详情<ph name="END_LINK1" /></translation>
+<translation id="1632840525091989276">此设备目前会向 Google 发送诊断数据和使用情况数据。设备的所有者启用了这项设置。<ph name="BEGIN_LINK1" />了解详情<ph name="END_LINK1" /></translation>
 <translation id="1634788685286903402">信任该证书，以便标识电子邮件用户的身份。</translation>
 <translation id="1635033183663317347">这是您的监护人安装的。</translation>
 <translation id="1636212173818785548">确定</translation>
@@ -1336,7 +1337,7 @@
 <translation id="2733275712367076659">您有以下组织发给您的身份证书：</translation>
 <translation id="2733364097704495499">要将打印机“<ph name="PRINTER_NAME" />”注册到 Google 云打印吗？</translation>
 <translation id="2735698359135166290">罗马尼亚语标准键盘</translation>
-<translation id="2737363922397526254">折叠...</translation>
+<translation id="2737363922397526254">收起...</translation>
 <translation id="2737755522130570180">禁止通过 document.write 加载脚本</translation>
 <translation id="2738771556149464852">不晚于</translation>
 <translation id="2739191690716947896">调试</translation>
@@ -1659,7 +1660,7 @@
 <translation id="3101709781009526431">日期和时间</translation>
 <translation id="3108145564672865299">屏幕方向锁定</translation>
 <translation id="3108967419958202225">选择...</translation>
-<translation id="3112378005171663295">折叠</translation>
+<translation id="3112378005171663295">收起</translation>
 <translation id="3115147772012638511">正在等待存入缓存...</translation>
 <translation id="3116361045094675131">英语（英国）键盘</translation>
 <translation id="3117812041123364382">启用/停用浮动虚拟键盘。</translation>
@@ -2213,7 +2214,6 @@
 <translation id="3801082500826908679">法罗语</translation>
 <translation id="3803991353670408298">请先添加其他输入法，然后再删除该输入法。</translation>
 <translation id="380408572480438692">启用性能数据收集功能有助于 Google 逐步改进系统。除非您提交反馈报告 (Alt-Shift-I) 并在其中包含性能数据，否则，系统不会发送任何数据。您随时可以返回此页停用性能数据收集功能。</translation>
-<translation id="3807249107536149332">登录屏幕中不允许使用“<ph name="EXTENSION_NAME" />”（扩展程序 ID 为“<ph name="EXTENSION_ID" />”）。</translation>
 <translation id="3807747707162121253">取消(&amp;C)</translation>
 <translation id="3809280248639369696">外星人</translation>
 <translation id="3810973564298564668">管理</translation>
@@ -4377,7 +4377,7 @@
 <translation id="6739254200873843030">该卡已过期。请检查日期或输入新卡。</translation>
 <translation id="6739923123728562974">显示桌面快捷方式</translation>
 <translation id="6740234557573873150">“<ph name="FILE_NAME" />”已暂停</translation>
-<translation id="6742339027238151589">可供脚本访问</translation>
+<translation id="6742339027238151589">脚本可访问</translation>
 <translation id="6744792120234414128">针对访客的跨进程框架</translation>
 <translation id="6745592621698551453">立即更新</translation>
 <translation id="6746124502594467657">下移</translation>
@@ -4408,7 +4408,7 @@
 <translation id="6792072150955115067"><ph name="APP_NAME" />想要与 <ph name="TARGET_NAME" /> 共享您屏幕上的内容。请选择您希望共享哪些内容。</translation>
 <translation id="6793604637258913070">文本插入符号出现或移动时突出显示</translation>
 <translation id="6797493596609571643">糟糕，出问题了。</translation>
-<translation id="6798780071646309401">已开启“大写锁定”模式</translation>
+<translation id="6798780071646309401">已开启大写锁定模式</translation>
 <translation id="6798954102094737107">插件：<ph name="PLUGIN_NAME" /></translation>
 <translation id="6802031077390104172"><ph name="USAGE" /> (<ph name="OID" />)</translation>
 <translation id="6804671422566312077">在新窗口中打开所有书签(&amp;N)</translation>
@@ -5009,7 +5009,7 @@
 <translation id="761779991806306006">未保存任何密码。</translation>
 <translation id="7618337809041914424">打印框架(&amp;P)…</translation>
 <translation id="7624154074265342755">无线网络</translation>
-<translation id="7624337243375417909">已关闭“大写锁定”模式</translation>
+<translation id="7624337243375417909">已关闭大写锁定模式</translation>
 <translation id="7626009897377900107">密码生成功能</translation>
 <translation id="7627262197844840899">此网站不接受万事达卡。</translation>
 <translation id="7627790789328695202">糟糕，<ph name="FILE_NAME" />已存在。请改用其他名称并重试。</translation>
@@ -5239,7 +5239,7 @@
 <translation id="7946068607136443002">在触摸视图模式下，应用列表将以全屏模式显示。在非触摸视图模式下，此项不发挥任何作用。</translation>
 <translation id="794676567536738329">确认权限</translation>
 <translation id="794746364162672493">系统即将卸载“<ph name="APP_NAME" />”。
-并将从此设备上移除与该应用相关的数据。</translation>
+与该应用相关的数据会从此设备上移除。</translation>
 <translation id="7947962633355574091">复制视频地址(&amp;O)</translation>
 <translation id="7949686702102054831">清空并重置</translation>
 <translation id="7950040156882184764">互联网打印协议 (HTTP)</translation>
@@ -5800,7 +5800,7 @@
 <translation id="8673795350651259145">对于所有网络应用（包括不是从 Chrome 网上应用店安装的应用），均支持 Native Client。</translation>
 <translation id="8675377193764357545">以 <ph name="USER_EMAIL_ADDRESS" /> 的身份同步</translation>
 <translation id="8677039480012021122">清除数据并取消关联</translation>
-<translation id="8677212948402625567">全部折叠...</translation>
+<translation id="8677212948402625567">全部收起...</translation>
 <translation id="8678648549315280022">管理下载设置…</translation>
 <translation id="8680251145628383637">登录后即可在您的任何设备上获取自己的书签、历史记录、密码和其他设置。此外，您还会自动登录到 Google 服务。</translation>
 <translation id="8680536109547170164"><ph name="QUERY" />，答案，<ph name="ANSWER" /></translation>

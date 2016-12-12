@@ -39,7 +39,7 @@
 <translation id="129553762522093515">Son kapatılan</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Çerezlerinizi temizlemeyi deneyin<ph name="END_LINK" /></translation>
 <translation id="1339601241726513588">Kayıt alan adı:</translation>
-<translation id="1344211575059133124">Bu siteyi ziyaret etmek için izne ihtiyacınız var gibi görünüyor</translation>
+<translation id="1344211575059133124">Bu siteyi ziyaret etmek için izne ihtiyacınız var</translation>
 <translation id="1344588688991793829">Chromium Otomatik Doldurma ayarları...</translation>
 <translation id="1374468813861204354">öneriler</translation>
 <translation id="1375198122581997741">Sürüm Hakkında</translation>
@@ -738,7 +738,7 @@ Hatırlatma! Bir dahaki sefere Gizli mod <ph name="SHORTCUT_KEY" /> kullanışl�
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="935608979562296692">FORMU TEMİZLE</translation>
 <translation id="939736085109172342">Yeni klasör</translation>
-<translation id="941721044073577244">Bu siteyi ziyaret etme izninizin olmadığı görülüyor</translation>
+<translation id="941721044073577244">Bu siteyi ziyaret etme izniniz yok</translation>
 <translation id="962701380617707048">Kart ayrıntılarınızı güncellemek için <ph name="CREDIT_CARD" /> numaralı karta ilişkin son kullanma tarihini ve CVC kodunu girin</translation>
 <translation id="969892804517981540">Resmi Derleme</translation>
 <translation id="988159990683914416">Geliştirici Derlemesi</translation>

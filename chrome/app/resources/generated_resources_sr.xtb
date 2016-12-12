@@ -267,6 +267,7 @@
 <translation id="1353966721814789986">Странице приликом покретања</translation>
 <translation id="1354868058853714482">Adobe Reader је застарео и можда није безбедан.</translation>
 <translation id="1355408554203439639">3D софтверска алатка за растеризацију</translation>
+<translation id="1355466263109342573">Додатна компонента <ph name="PLUGIN_NAME" /> је блокирана</translation>
 <translation id="1355542767438520308">Дошло је до грешке. Неке ставке можда нису избрисане.</translation>
 <translation id="1357589289913453911">ИД додатка</translation>
 <translation id="1358032944105037487">Језик тастатуре: јапански</translation>
@@ -2217,7 +2218,6 @@
 <translation id="3801082500826908679">Фарска</translation>
 <translation id="3803991353670408298">Додајте други метод уноса пре него што овај уклоните.</translation>
 <translation id="380408572480438692">Ако омогућите прикупљање података о учинку, помоћи ћете Google-у да временом побољшава систем. Никакви подаци се не шаљу док не пошаљете извештај са повратним информацијама (Alt-Shift-I) и уврстите податке о учинку. У било ком тренутку можете да се вратите на овај екран и онемогућите прикупљање.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (ИД додатка „<ph name="EXTENSION_ID" />“) није дозвољен на екрану за пријављивање.</translation>
 <translation id="3807747707162121253">&amp;Откажи</translation>
 <translation id="3809280248639369696">Месечев зрак</translation>
 <translation id="3810973564298564668">Промени</translation>
@@ -3385,7 +3385,7 @@
 <translation id="5388885445722491159">Упарено</translation>
 <translation id="5389237414310520250">Прављење новог корисника није успело. Проверите да ли имате довољно простора на хард-диску и одговарајуће дозволе и покушајте поново.</translation>
 <translation id="5390284375844109566">Индексирана база података</translation>
-<translation id="5390743329570580756">Пошаљи за</translation>
+<translation id="5390743329570580756">Пошаљи за:</translation>
 <translation id="5392544185395226057">Омогућите подршку за Native Client.</translation>
 <translation id="5396126354477659676">Додатна компонента <ph name="PEPPER_PLUGIN_NAME" /> на домену <ph name="PEPPER_PLUGIN_DOMAIN" /> жели да приступи рачунару.</translation>
 <translation id="539755880180803351">Означава веб-обрасце са типом поља са предвиђањима помоћу аутоматског попуњавања који функционишу као текст резервисаног места.</translation>
@@ -3815,6 +3815,7 @@
 <translation id="5957613098218939406">Још опција</translation>
 <translation id="5958529069007801266">Корисник под надзором</translation>
 <translation id="5959471481388474538">Мрежа није доступна</translation>
+<translation id="5959728338436674663">Аутоматски шаљите одређене <ph name="BEGIN_WHITEPAPER_LINK" />информације о систему и садржај страница<ph name="END_WHITEPAPER_LINK" /> Google-у да бисте нам помогли да откријемо опасне апликације и сајтове. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Набави теме</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (највише <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">Додај на полицу...</translation>
@@ -5032,7 +5033,7 @@
 <translation id="7624154074265342755">Бежичне мреже</translation>
 <translation id="7624337243375417909">caps lock је искључен</translation>
 <translation id="7626009897377900107">Генерисање лозинки</translation>
-<translation id="7627262197844840899">Овај сајт не прихвата MasterCard.</translation>
+<translation id="7627262197844840899">Овај сајт не прихвата Mastercard.</translation>
 <translation id="7627790789328695202">Упс, <ph name="FILE_NAME" /> већ постоји. Преименујте датотеку и покушајте поново.</translation>
 <translation id="7628127343934101653">Отварај PDF датотеке у подразумеваној апликацији за преглед PDF-а.</translation>
 <translation id="762917759028004464">Подразумевани прегледач је тренутно <ph name="BROWSER_NAME" />.</translation>

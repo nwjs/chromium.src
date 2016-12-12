@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Kezdőoldalak</translation>
 <translation id="1354868058853714482">Az Adobe Reader elavult, ezért lehet, hogy nem biztonságos.</translation>
 <translation id="1355408554203439639">3D szoftveres raszterező</translation>
+<translation id="1355466263109342573">A(z) <ph name="PLUGIN_NAME" /> le van tiltva</translation>
 <translation id="1355542767438520308">Hiba történt. Lehet, hogy egyes elemek nem törlődtek.</translation>
 <translation id="1357589289913453911">Bővítményazonosító</translation>
 <translation id="1358032944105037487">Japán billentyűzet</translation>
@@ -2220,7 +2221,6 @@ Innen: <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">feröer-szigeteki</translation>
 <translation id="3803991353670408298">Mielőtt eltávolítaná ezt a beviteli módot, adjon hozzá egy másikat.</translation>
 <translation id="380408572480438692">A teljesítményadatok gyűjtésének engedélyezésével hozzásegíti a Google-t a rendszer továbbfejlesztéséhez. A rendszer nem küld adatokat, amíg Ön nem nyújt be visszajelzést (Alt-Shift-I), illetve nem mellékeli a teljesítményadatokat. Bármikor visszatérhet erre a képernyőre a gyűjtés letiltásához.</translation>
-<translation id="3807249107536149332">A(z) <ph name="EXTENSION_NAME" /> (bővítményazonosító: „<ph name="EXTENSION_ID" />”) használata nem engedélyezett a bejelentkezési képernyőn.</translation>
 <translation id="3807747707162121253">&amp;Törlés</translation>
 <translation id="3809280248639369696">Alien</translation>
 <translation id="3810973564298564668">Szerkesztés</translation>
@@ -3815,6 +3815,7 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="5957613098218939406">További lehetőségek</translation>
 <translation id="5958529069007801266">Felügyelt felhasználó</translation>
 <translation id="5959471481388474538">A hálózat nem érhető el</translation>
+<translation id="5959728338436674663">Bizonyos <ph name="BEGIN_WHITEPAPER_LINK" />rendszer-információk és oldaltartalmak<ph name="END_WHITEPAPER_LINK" /> automatikus küldése a Google-nak a veszélyes alkalmazások és webhelyek felderítése érdekében. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Témák letöltése</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (csúcs: <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">Hozzáadás a polchoz...</translation>

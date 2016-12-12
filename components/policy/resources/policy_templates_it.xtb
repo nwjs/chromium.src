@@ -597,7 +597,7 @@ Se la norma non viene impostata l'impostazione verrà attivata ma gli utenti pot
 <translation id="2899002520262095963">Le app Android possono utilizzare le configurazioni di rete e i certificati CA impostati tramite questa norma ma non hanno accesso ad alcune opzioni di configurazione.</translation>
 <translation id="2901399514673504930">Considera i dispositivi di archiviazione esterni come di sola lettura.
 
-      Questa norma è efficace solo quando ExternalStorageDisabled è impostato su false o non viene del tutto configurato.
+      Questa norma è efficace solo quando ExternalStorageDisabled è impostato su false o non viene configurato.
 
       Se la norma è impostata su true, gli utenti non possono scrivere su dispositivi di archiviazione esterni.
 
@@ -1362,7 +1362,7 @@ Vedi anche RemoteAccessHostDomain.</translation>
           Quando questa impostazione è attiva, l'host di accesso remoto confronta il nome dell'utente locale (a cui è associato l'host) con il nome dell'account Google registrato come proprietario dell'host (ad esempio "mariorossi" se l'host è di proprietà dell'account Google "mariorossi@esempio.com").  L'host di accesso remoto non viene avviato se il nome del proprietario dell'host non coincide con quello dell'utente locale a cui è associato l'host.  La norma RemoteAccessHostMatchUsername dovrebbe essere utilizzata insieme a RemoteAccessHostDomain per assicurare che l'account Google del proprietario dell'host sia associato a un dominio specifico (ad esempio, "esempio.com").
 
           Se questa impostazione è disattivata o non viene impostata, l'host di accesso remoto può essere associato a qualsiasi utente locale.</translation>
-<translation id="5694594914843889579">Quando questa norma è impostata su True, la memoria esterna non sarà disponibile nei file che è possibile sfogliare.
+<translation id="5694594914843889579">Quando questa norma è impostata su true, la memoria esterna non sarà disponibile nei file che è possibile sfogliare.
 
       Questa norma riguarda tutti i tipi di supporti di memorizzazione. Ad esempio: unità flash USB, dischi rigidi esterni, schede di memoria SD e di altro tipo, memorie ottiche e così via. La memoria interna non è interessata, quindi i file salvati nella cartella Download rimangono accessibili. Anche Google Drive non è interessato da questa norma.
 

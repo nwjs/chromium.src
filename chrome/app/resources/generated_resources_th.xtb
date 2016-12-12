@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">หน้าเริ่มต้นใช้งาน</translation>
 <translation id="1354868058853714482">Adobe Reader ไม่ได้รับการอัปเดตและอาจไม่ปลอดภัย</translation>
 <translation id="1355408554203439639">โปรแกรมแรสเตอร์ซอฟต์แวร์ 3 มิติ</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> ถูกบล็อก</translation>
 <translation id="1355542767438520308">เกิดข้อผิดพลาด บางรายการอาจไม่ได้ถูกลบ</translation>
 <translation id="1357589289913453911">รหัสส่วนขยาย</translation>
 <translation id="1358032944105037487">แป้นพิมพ์ภาษาญี่ปุ่น</translation>
@@ -2219,7 +2220,6 @@
 <translation id="3801082500826908679">แฟโร</translation>
 <translation id="3803991353670408298">โปรดเพิ่มวิธีป้อนข้อมูลอื่นก่อนลบวิธีนี้</translation>
 <translation id="380408572480438692">การเปิดใช้งานการเก็บรวบรวมข้อมูลผลการปฏิบัติงานจะช่วยให้ Google สามารถปรับปรุงระบบตามกาลเวลา จะไม่มีข้อมูลถูกส่งไปจนกว่าคุณจะยื่นรายงานข้อเสนอแนะ (Alt + Shift-I) และใส่ข้อมูลผลการปฏิบัติงาน คุณสามารถกลับสู่หน้าจอนี้เพื่อปิดใช้งานการเก็บรวบรวมในเวลาใดก็ได้</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (รหัสส่วนขยาย "<ph name="EXTENSION_ID" />") ไม่ได้รับอนุญาตในหน้าจอการเข้าสู่ระบบ</translation>
 <translation id="3807747707162121253">&amp;ยกเลิก</translation>
 <translation id="3809280248639369696">มูนบีม</translation>
 <translation id="3810973564298564668">จัดการ</translation>
@@ -3815,6 +3815,7 @@
 <translation id="5957613098218939406">ตัวเลือกเพิ่มเติม</translation>
 <translation id="5958529069007801266">ผู้ใช้ภายใต้การดูแล</translation>
 <translation id="5959471481388474538">เครือข่ายไม่สามารถใช้งานได้</translation>
+<translation id="5959728338436674663">ส่ง<ph name="BEGIN_WHITEPAPER_LINK" />ข้อมูลบางอย่างของระบบและเนื้อหาของหน้าเว็บ<ph name="END_WHITEPAPER_LINK" />ไปยัง Google เพื่อช่วยตรวจหาแอปและเว็บไซต์ที่เป็นอันตรายโดยอัตโนมัติ<ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">ดูธีม</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (สูงสุด <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">เพิ่มลงในชั้นวาง...</translation>
@@ -6291,7 +6292,7 @@
 <translation id="981121421437150478">ออฟไลน์</translation>
 <translation id="984870422930397199">เปิดใช้การติดป้ายหน้าออฟไลน์บนหน้าแท็บใหม่ ใช้ได้เมื่อเปิดใช้หน้าออฟไลน์เท่านั้น</translation>
 <translation id="98515147261107953">แนวนอน</translation>
-<translation id="985579990208596979">เปิดใช้ตัวประสานงานหน่วยความจำแทน Listener การใช้หน่วยความจำ</translation>
+<translation id="985579990208596979">เปิดใช้ Memory Coordinator แทน Memory Pressure Listener</translation>
 <translation id="986646739000587506">ปิดการแชร์เดสก์ท็อปด้วยต้นฉบับของแท็บ</translation>
 <translation id="987267091708560486">{NUM_ITEMS,plural, =1{การดำเนินการนี้จะลบ $1 รายการจากอุปกรณ์นี้อย่างถาวร}other{การดำเนินการนี้จะลบ $1 รายการจากอุปกรณ์นี้อย่างถาวร}}</translation>
 <translation id="990878533354103361">คุณลักษณะมุมมองการป้อนข้อมูลรุ่นทดสอบ</translation>

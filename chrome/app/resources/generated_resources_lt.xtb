@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Paleisties puslapiai</translation>
 <translation id="1354868058853714482">„Adobe Reader“ programa pasenusi ir gali būti nesaugi.</translation>
 <translation id="1355408554203439639">3D programinės įrangos keistuvas į rastrinį vaizdą</translation>
+<translation id="1355466263109342573">„<ph name="PLUGIN_NAME" />“ užblokuotas</translation>
 <translation id="1355542767438520308">Įvyko klaida. Kai kurie elementai galėjo nebūti ištrinti.</translation>
 <translation id="1357589289913453911">Plėtinio ID</translation>
 <translation id="1358032944105037487">Japoniška klaviatūra</translation>
@@ -2220,7 +2221,6 @@ Iš <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Farerų</translation>
 <translation id="3803991353670408298">Prieš pašalindami šį įvesties metodą pridėkite kitą.</translation>
 <translation id="380408572480438692">Įgalinus našumo duomenų rinkimą „Google“ galės lengviau tobulinti sistemą laikui bėgant. Jokie duomenys nesiunčiami, kol pateikiate atsiliepimų ataskaitą („Alt“ – „Shift“ – I) ir įtraukiate našumo duomenis. Bet kada galite grįžti į šį ekraną ir neleisti rinkti duomenų.</translation>
-<translation id="3807249107536149332">„<ph name="EXTENSION_NAME" />“ (plėtinio ID „<ph name="EXTENSION_ID" />“) neleidžiamas prisijungimo ekrane.</translation>
 <translation id="3807747707162121253">&amp;Atšaukti</translation>
 <translation id="3809280248639369696">Mėnulio spindulys</translation>
 <translation id="3810973564298564668">Valdyti</translation>
@@ -3817,6 +3817,7 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="5957613098218939406">Daugiau parinkčių</translation>
 <translation id="5958529069007801266">Prižiūrimas naudotojas</translation>
 <translation id="5959471481388474538">Tinklas negalimas</translation>
+<translation id="5959728338436674663">Automatiškai siųsti tam tikrą <ph name="BEGIN_WHITEPAPER_LINK" />sistemos informaciją ir puslapio turinį<ph name="END_WHITEPAPER_LINK" /> į sistemą „Google“ siekiant padėti aptikti pavojingas programas ir svetaines. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Gauti temas</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (maks. <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">Pridėti prie lentynos...</translation>

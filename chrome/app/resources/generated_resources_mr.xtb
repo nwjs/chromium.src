@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">स्टार्टअप पृष्ठे</translation>
 <translation id="1354868058853714482">Adobe Reader कालबाह्य आणि कदाचित असुरक्षित आहे.</translation>
 <translation id="1355408554203439639">3D सॉफ्टवेअर रास्टरायझर</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> अवरोधित केले आहे</translation>
 <translation id="1355542767438520308">एक त्रुटी आली. काही आयटम हटविले जाऊ शकत नाहीत.</translation>
 <translation id="1357589289913453911">विस्तार Id</translation>
 <translation id="1358032944105037487">जपानी कीबोर्ड</translation>
@@ -2213,7 +2214,6 @@
 <translation id="3801082500826908679">फारोसे</translation>
 <translation id="3803991353670408298">कृपया ही दूर करण्यापूर्वी दुसरी इनपुट पद्धत जोडा.</translation>
 <translation id="380408572480438692">कार्यप्रदर्शन डेटाचे संकलन सक्षम केल्याने वेळोवेळी सिस्टीम सुधारण्यात Google ला मदत होईल. आपण एक अभिप्राय अहवाल दाखल करेपर्यंत (Alt-Shift-I) आणि कार्यप्रदर्शन डेटा समाविष्ट करेपर्यंत कोणताही डेटा पाठविला जात नाही. आपण संकलन अक्षम करण्यासाठी या स्क्रीनवर कधीही परत येऊ शकता.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> लॉगिन स्क्रीनवर (विस्तार ID "<ph name="EXTENSION_ID" />") ची अनुमती नाही.</translation>
 <translation id="3807747707162121253">&amp;रद्द करा</translation>
 <translation id="3809280248639369696">चंद्रकिरण</translation>
 <translation id="3810973564298564668">व्यवस्थापित करा</translation>
@@ -3807,6 +3807,7 @@
 <translation id="5957613098218939406">अधिक पर्याय</translation>
 <translation id="5958529069007801266">पर्यवेक्षी वापरकर्ता</translation>
 <translation id="5959471481388474538">नेटवर्क उपलब्ध नाही</translation>
+<translation id="5959728338436674663">धोकादायक अॅप्स आणि साइट शोधण्यात मदत करण्‍यासाठी काही <ph name="BEGIN_WHITEPAPER_LINK" />सिस्टीम माहिती आणि पृष्ठ सामग्री<ph name="END_WHITEPAPER_LINK" /> स्वयंचलितपणे Google कडे पाठवा. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">थीम मिळवा</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> सर्वोच्च)</translation>
 <translation id="5965403572731919803">शेल्फमध्ये जोडा...</translation>
@@ -4420,7 +4421,7 @@
 <translation id="6792072150955115067"><ph name="APP_NAME" /> आपल्या स्क्रीनची सामग्री <ph name="TARGET_NAME" /> सह सामायिक करू इच्छित आहे. आपण सामायिक करू इच्छित असलेले निवडा.</translation>
 <translation id="6793604637258913070">मजकूर घालण्याचे स्थान दिसते किंवा हलते तेव्हा ते हायलाइट करा</translation>
 <translation id="6797493596609571643">अरेरे, काहीतरी चूक झाली.</translation>
-<translation id="6798780071646309401">capslock चालू आहे</translation>
+<translation id="6798780071646309401">कॅप्स लॉक चालू आहे</translation>
 <translation id="6798954102094737107">प्लगिन: <ph name="PLUGIN_NAME" /></translation>
 <translation id="6802031077390104172"><ph name="USAGE" /> (<ph name="OID" />)</translation>
 <translation id="6804671422566312077">सर्व बुकमार्क &amp;नवीन विंडोमध्ये उघडा</translation>
@@ -5030,7 +5031,7 @@
 <translation id="761779991806306006">कोणतेही संकेतशब्द जतन केलेले नाहीत.</translation>
 <translation id="7618337809041914424">&amp;फ्रेम मुद्रित करा...</translation>
 <translation id="7624154074265342755">वायरलेस नेटवर्क</translation>
-<translation id="7624337243375417909">capslock बंद आहे</translation>
+<translation id="7624337243375417909">कॅप्सलॉक बंद आहे</translation>
 <translation id="7626009897377900107">संकेतशब्द निर्मिती</translation>
 <translation id="7627262197844840899">ही साइट MasterCard स्वीकारत नाही.</translation>
 <translation id="7627790789328695202">अरेरे, <ph name="FILE_NAME" /> आधीपासून अस्तित्वात आहे. हे पुनर्नामित करा आणि पुन्हा प्रयत्न करा.</translation>
@@ -5063,7 +5064,7 @@
 <translation id="7664620655576155379">असमर्थित Bluetooth डिव्हाइस: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="7665369617277396874">खाते जोडा</translation>
 <translation id="766747607778166022">क्रेडिट कार्ड व्यवस्थापित करा...</translation>
-<translation id="7669271284792375604">या साइट वरील आक्रमणकर्ते कदाचित आपल्या ब्राउझिंग अनुभवास हानी पोहोचविणारे प्रोग्राम (उदाहरणार्थ, आपले मुख्यपृष्ठ बदलून किंवा आपण भेट देता त्या साइटवर अतिरिक्त जाहिराती दर्शवून) स्थापित करण्यामध्ये आपली फसवणूक करण्‍याचा प्रयत्न करू शकतात.</translation>
+<translation id="7669271284792375604">या साइट वरील आक्रमणकर्ते कदाचित आपल्या ब्राउझिंग अनुभवास हानी पोहोचविणारे प्रोग्राम (उदाहरणार्थ, आपले मुख्यपृष्ठ बदलून किंवा आपण भेट देता त्या साइटवर अतिरिक्त जाहिराती दर्शवून) स्थापित करून आपली फसवणूक करण्‍याचा प्रयत्न करू शकतात.</translation>
 <translation id="7671130400130574146">सिस्टम शीर्षक बार आणि किनारी वापरा</translation>
 <translation id="7671576867600624">तंत्रज्ञान:</translation>
 <translation id="7676077734785147678">विस्तार IMEs</translation>
@@ -5324,7 +5325,7 @@
 <translation id="8017667670902200762">खराब प्रमाणीकरण</translation>
 <translation id="8022523925619404071">स्वयंअद्यतन सक्षम करा</translation>
 <translation id="8023801379949507775">त्वरित विस्तार अद्यतनित करा</translation>
-<translation id="8025119109950072390">या साइट वरील आक्रमणकर्ते सॉफ्‍टवेअर स्थापित करणे किंवा आपली वैवक्तिक माहिती (उदाहरणार्थ, संकेतशब्द, फोन नंबर किंवा क्रेडिट कार्ड) उघड करणे यासारखे काहीतरी धोकादायक करण्‍यामध्‍ये आपल्‍याला युक्तीने गुंतवू शकतात.</translation>
+<translation id="8025119109950072390">या साइट वरील आक्रमणकर्ते सॉफ्‍टवेअर स्थापित करणे किंवा आपली वैयक्तिक माहिती (उदाहरणार्थ, संकेतशब्द, फोन नंबर किंवा क्रेडिट कार्ड) उघड करणे यासारखे काहीतरी धोकादायक करण्‍यामध्‍ये आपल्‍याला युक्तीने गुंतवू शकतात.</translation>
 <translation id="8025789898011765392">कार्ये</translation>
 <translation id="802597130941734897">नौवहन पत्ते व्यवस्थापित करा...</translation>
 <translation id="8026334261755873520">ब्राउझिंग डेटा साफ करा</translation>

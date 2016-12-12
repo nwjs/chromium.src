@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">ആരംഭ പേജുകള്‍</translation>
 <translation id="1354868058853714482">Adobe Reader കാലവധി കഴിഞ്ഞതായതിനാല്‍ സുരക്ഷിതമായിരിക്കില്ല.</translation>
 <translation id="1355408554203439639">3D സോഫ്റ്റ്‌വെയർ റാസ്‌റ്ററൈസർ</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> പ്ലഗിൻ ബ്ലോക്കുചെയ്‌തു</translation>
 <translation id="1355542767438520308">ഒരു പിശക് സംഭവിച്ചു. ചില ഇനങ്ങൾ ഇല്ലാതാക്കാൻ ഇടയില്ല.</translation>
 <translation id="1357589289913453911">വിപുലീകരണ ഐഡി</translation>
 <translation id="1358032944105037487">ജാപ്പനീസ്‌ കീബോര്‍ഡ്</translation>
@@ -2219,7 +2220,6 @@
 <translation id="3801082500826908679">ഫാറോസി</translation>
 <translation id="3803991353670408298">ഇത് നീക്കംചെയ്യുന്നതിന് മുമ്പ് ദയവായി മറ്റൊരു ഇന്‍പുട്ട് രീതി ചേര്‍ക്കുക.</translation>
 <translation id="380408572480438692">പ്രകടന ഡാറ്റയുടെ ശേഖരം പ്രവർത്തനക്ഷമമാക്കുന്നത് കാലാന്തരത്തിൽ സിസ്റ്റം മെച്ചപ്പെടുത്താൻ Google-നെ സഹായിക്കും. നിങ്ങൾ ഒരു ഫീഡ്‌ബാക്ക് റിപ്പോർട്ട് ഫയൽ ചെയ്യുന്നതുവരെയും (Alt-Shift-I) പ്രകടന ഡാറ്റ ഉൾപ്പെടുത്തുന്നതുവരെയും ഡാറ്റയൊന്നും അയയ്‌ക്കില്ല. ശേഖരം പ്രവർത്തനരഹിതമാക്കാനായി നിങ്ങൾക്ക് എപ്പോൾ വേണമെങ്കിലും ഈ സ്‌ക്രീനിലേക്ക് തിരിച്ചുവരാനാകും.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> ("<ph name="EXTENSION_ID" />" വിപുലീകരണ ഐഡി) ലോഗിൻ സ്‌ക്രീനിൽ അനുവദനീയമല്ല.</translation>
 <translation id="3807747707162121253">&amp;റദ്ദാക്കൂ</translation>
 <translation id="3809280248639369696">മൂൺബീം</translation>
 <translation id="3810973564298564668">മാനേജ് ചെയ്യുക</translation>
@@ -3813,6 +3813,7 @@
 <translation id="5957613098218939406">കൂടുതൽ ഓപ്‌ഷനുകൾ</translation>
 <translation id="5958529069007801266">സൂപ്പർവൈസുചെയ്‌ത ഉപയോക്താവ്</translation>
 <translation id="5959471481388474538">നെറ്റ്‌വർക്ക് ലഭ്യമല്ല</translation>
+<translation id="5959728338436674663">അപകടകരമായ ആപ്‌സുകളും സൈറ്റുകളും കണ്ടെത്താൻ സഹായിക്കുന്നതിന്‌ ചില <ph name="BEGIN_WHITEPAPER_LINK" />സിസ്‌റ്റം വിവരങ്ങളും പേജ്‌ ഉള്ളടക്കവും<ph name="END_WHITEPAPER_LINK" /> Google-ന്‌ സ്വയമേവ അയയ്‌ക്കുക. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">തീമുകള്‍ സ്വന്തമാക്കുക</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> പീക്ക്)</translation>
 <translation id="5965403572731919803">ഷെൽഫിലേക്ക് ചേർക്കുക...</translation>

@@ -661,7 +661,7 @@ False (yanlış) olarak ayarlanırsa veya hiç ayarlanmazsa, API'ye yapılan ça
 
       Bu politika true (doğru) değerine ayarlandığında kullanıcılar harici depolama cihazlarına hiçbir şey yazamaz.
 
-      Bu ayar devre dışı bırakılırsa veya yapılandırılmazsa kullanıcılar fiziksel olarak yazılabilir harici depolama cihazlarında dosyalar oluşturabilir ve mevcut dosyalarda değişiklik yapabilir.
+      Bu ayar devre dışı bırakılır veya yapılandırılmazsa kullanıcılar fiziksel olarak yazılabilir harici depolama cihazlarında dosya oluşturabilir ve mevcut dosyalarda değişiklik yapabilir.
 
       Bu politikanın dinamik yenilemesi M56 ve sonraki sürümlerde desteklenir.</translation>
 <translation id="2906874737073861391">AppPack uzantılarının listesi</translation>
@@ -1505,7 +1505,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 
       Bu politika tüm depolama ortamı türlerini etkiler. Örneğin: USB flaş sürücüleri, harici sabit diskler, SD ve diğer bellek kartları, optik depolama birimleri vb. Dahili depolama birimi bu politikadan etkilenmez, dolayısıyla İndirilenler klasörüne kaydedilen dosyalara erişilebilir. Google Drive da bu politikadan etkilenmez.
 
-      Bu ayar devre dışı bırakılırsa veya yapılandırılmazsa kullanıcılar cihazlarında desteklenen tüm harici depolama birimi türlerini kullanabilir.</translation>
+      Bu ayar devre dışı bırakılır veya yapılandırılmazsa kullanıcılar cihazlarında desteklenen tüm harici depolama birimi türlerini kullanabilir.</translation>
 <translation id="5697306356229823047">Cihaz kullanıcılarını raporla</translation>
 <translation id="570062449808736508">Bu politika boş olmayan bir dizeye ayarlanırsa WebView, belirtilen yetkili adına sahip içerik sağlayıcıdan URL kısıtlamalarını okur.</translation>
 <translation id="5703863730741917647">Boşta kalma süresine ulaşıldığında yapılacak işlemi belirtir.

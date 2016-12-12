@@ -558,7 +558,7 @@
 <translation id="7219179957768738017">Tilkoblingen bruker <ph name="SSL_VERSION" />.</translation>
 <translation id="724975217298816891">Skriv inn utløpsdatoen og verifiseringskoden for <ph name="CREDIT_CARD" /> for å oppdatere kortinformasjonen din. Når du bekrefter, deles denne informasjonen med dette nettstedet.</translation>
 <translation id="725866823122871198">En privat forbindelse til <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> kan ikke opprettes fordi datoen og klokkeslettet (<ph name="DATE_AND_TIME" />) på datamaskinen er feil.</translation>
-<translation id="7269802741830436641">Denne nettsiden har en omdirigeringsloop</translation>
+<translation id="7269802741830436641">Denne nettsiden har en omdirigeringssløyfe</translation>
 <translation id="7275334191706090484">Administrerte bokmerker</translation>
 <translation id="7298195798382681320">Anbefalt</translation>
 <translation id="7309308571273880165">Programstopprapport opprettet <ph name="CRASH_TIME" /> (opplasting er forespurt av brukeren, men den har ikke blitt utført ennå)</translation>

@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Stránky pri spustení</translation>
 <translation id="1354868058853714482">Program Adobe Reader je zastaraný a môže mať problémy so zabezpečením.</translation>
 <translation id="1355408554203439639">Softvérový rasterizátor 3D</translation>
+<translation id="1355466263109342573">Doplnok <ph name="PLUGIN_NAME" /> je blokovaný</translation>
 <translation id="1355542767438520308">Došlo ku chybe. Niektoré položky sa nemuseli odstrániť.</translation>
 <translation id="1357589289913453911">ID rozšírenia</translation>
 <translation id="1358032944105037487">japonská klávesnica</translation>
@@ -2221,7 +2222,6 @@ z domény <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Faerčina</translation>
 <translation id="3803991353670408298">Pred odstránením tohto spôsobu zadávania pridajte iný spôsob zadávania.</translation>
 <translation id="380408572480438692">Povolením zhromažďovania údajov o výkonnosti pomôžete spoločnosti Google postupom času zlepšovať systém. Kým neodošlete správu so spätnou väzbou (Alt-Shift-I) a nezahrniete údaje o výkonnosti, neodošlú sa žiadne údaje. Zhromažďovanie údajov môžete po prejdení späť na túto stránku kedykoľvek zakázať.</translation>
-<translation id="3807249107536149332">Rozšírenie <ph name="EXTENSION_NAME" /> (ID rozšírenia – <ph name="EXTENSION_ID" />) nie je povolené na prihlasovacej obrazovke.</translation>
 <translation id="3807747707162121253">&amp;Zrušiť</translation>
 <translation id="3809280248639369696">Mesačný lúč</translation>
 <translation id="3810973564298564668">Spravovať</translation>

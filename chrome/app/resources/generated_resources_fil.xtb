@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Mga page sa startup</translation>
 <translation id="1354868058853714482">Hindi napapanahon ang Adobe Reader na ito at maaaring hindi ligtas.</translation>
 <translation id="1355408554203439639">3D software rasterizer</translation>
+<translation id="1355466263109342573">Naka-block ang <ph name="PLUGIN_NAME" /></translation>
 <translation id="1355542767438520308">Nagkaroon ng isang error. Maaaring may mga item na hindi natanggal.</translation>
 <translation id="1357589289913453911">Id ng Extension</translation>
 <translation id="1358032944105037487">Hapon na keyboard</translation>
@@ -2222,7 +2223,6 @@ Mula Sa <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Faroese</translation>
 <translation id="3803991353670408298">Mangyaring magdagdag ng isa pang paraan ng pag-input bago alisin ang isang ito.</translation>
 <translation id="380408572480438692">Makakatulong sa Google ang pag-e-enable sa pagkolekta ng data ng pagganap na pahusayin ang system sa paglipas ng panahon. Walang ipinapadalang data hanggang sa maghain ka ng ulat ng feedback (Alt-Shift-I) at magsama ng data ng pagganap. Makakabalik ka sa screen na ito upang i-disable ang pagkolekta anumang oras.</translation>
-<translation id="3807249107536149332">Ang <ph name="EXTENSION_NAME" /> (extension ID "<ph name="EXTENSION_ID" />") ay hindi pinapayagan sa screen sa pag-login.</translation>
 <translation id="3807747707162121253">&amp;Kanselahin</translation>
 <translation id="3809280248639369696">Alien</translation>
 <translation id="3810973564298564668">Mamahala</translation>
@@ -3818,6 +3818,7 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="5957613098218939406">Higit Pang Mga Opsyon</translation>
 <translation id="5958529069007801266">Pinangangasiwaang user</translation>
 <translation id="5959471481388474538">Hindi available ang network</translation>
+<translation id="5959728338436674663">Awtomatikong magpadala ng ilang <ph name="BEGIN_WHITEPAPER_LINK" />impormasyon sa system at content ng page<ph name="END_WHITEPAPER_LINK" /> sa Google upang makatulong na tumukoy ng mapapanganib na app at site. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Kumuha ng mga tema</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> ang pinakamataas)</translation>
 <translation id="5965403572731919803">Idagdag sa shelf...</translation>

@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">প্রারম্ভ পৃষ্ঠা</translation>
 <translation id="1354868058853714482">Adobe Reader তারিখ সীমার বাইরে এবং অসুরক্ষিত হতে পারে৷</translation>
 <translation id="1355408554203439639">3D সফ্টওয়্যার রাস্টারাইজার</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> অবরুদ্ধ করা রয়েছে</translation>
 <translation id="1355542767438520308">একটি সমস্যা হয়েছে৷ কিছু আইটেম নাও মুছে ফেলা হতে পারে৷</translation>
 <translation id="1357589289913453911">এক্সটেনশান Id</translation>
 <translation id="1358032944105037487">জাপানী কীবোর্ড</translation>
@@ -1852,7 +1853,7 @@
 <translation id="3341703758641437857">ফাইল URLগুলিতে অ্যাক্সেস মঞ্জুর করুন</translation>
 <translation id="3344786168130157628">অ্যাক্সেস পয়েন্ট নাম:</translation>
 <translation id="3345886924813989455">কোন সমর্থিত ব্রাউজার খুঁজে পাওয়া যায় নি</translation>
-<translation id="3346734205185115290">VR হেডসেট উপলব্ধ থাকলে, এই ডিভাইসের জন্য সেটির মাধ্যমে ব্রাউজিং সক্ষম করুন।</translation>
+<translation id="3346734205185115290">(ভিআর)VR হেডসেট উপলব্ধ থাকলে, এই ডিভাইসের জন্য সেটির মাধ্যমে ব্রাউজিং সক্ষম করুন।</translation>
 <translation id="3347086966102161372">চি&amp;ত্র ঠিকানা কপি করুন</translation>
 <translation id="3348038390189153836">সরানোযোগ্য ডিভাইস সনাক্ত করা হয়েছে</translation>
 <translation id="3348459612390503954">অভিনন্দন</translation>
@@ -2215,7 +2216,6 @@
 <translation id="3801082500826908679">ফেয়ারোইজ</translation>
 <translation id="3803991353670408298">এটি সরানোর আগে দয়া করে অন্য ইনপুট পদ্ধতি যুক্ত করুন৷</translation>
 <translation id="380408572480438692">কার্য-সম্পাদনা ডেটার সংগ্রহ সক্ষম করলে দিনে দিনে এটি Google কে তার সিস্টেম উন্নত করতে সাহায্য করবে৷ আপনি যতক্ষণ না কোনো প্রতিক্রিয়া প্রতিবেদন (Alt-Shift-I) এবং কার্য-সম্পাদনার ডেটা অন্তর্ভুক্ত করবেন ততক্ষণ কোনো ডেটা পাঠানো হয় না৷ সংগ্রহ অক্ষম করতে আপনি যেকোনো সময়ে এই স্ক্রীনে ফিরে আসতে পারেন৷</translation>
-<translation id="3807249107536149332">লগইন স্ক্রিনে <ph name="EXTENSION_NAME" /> (এক্সটেনশান আইডি "<ph name="EXTENSION_ID" />") অনুমোদিত নয়।</translation>
 <translation id="3807747707162121253">&amp;বাতিল</translation>
 <translation id="3809280248639369696">চন্দ্রপ্রভা</translation>
 <translation id="3810973564298564668">পরিচালনা</translation>
@@ -3299,7 +3299,7 @@
 <translation id="529175790091471945">এই ডিভাইসটি ফর্ম্যাট করুন</translation>
 <translation id="5292890015345653304">একটি SD কার্ড অথবা USB মেমোরি স্টিক ঢোকান</translation>
 <translation id="5294529402252479912">Adobe Reader এখনই আপডেট করুন</translation>
-<translation id="5297526204711817721">এই সাইটে আপনার সংযোগ ব্যক্তিগত নয়। যেকোনো সময় VR মোড থেকে বেরিয়ে যাওয়ার জন্য, হেডসেট সরান এবং 'পিছনে' চাপুন।</translation>
+<translation id="5297526204711817721">এই সাইটে আপনার সংযোগ ব্যক্তিগত নয়। যেকোনো সময় (ভিআর)VR মোড থেকে বেরিয়ে যাওয়ার জন্য, হেডসেট সরান এবং 'পিছনে' চাপুন।</translation>
 <translation id="5298219193514155779">থিম তৈরি করেছেন</translation>
 <translation id="5298363578196989456">এটি একটি শেয়ার্ড মডিউল না হওয়ার কারণে "<ph name="IMPORT_NAME" />" এক্সটেনশান আমদানি করতে অক্ষম।</translation>
 <translation id="5299109548848736476">ট্র্যাক করবেন না</translation>
@@ -3807,6 +3807,7 @@
 <translation id="5957613098218939406">আরো বিকল্পগুলি</translation>
 <translation id="5958529069007801266">তত্ত্বাবধানে থাকা ব্যবহারকারী</translation>
 <translation id="5959471481388474538">নেটওয়ার্ক উপলব্ধ নয়</translation>
+<translation id="5959728338436674663">বিপজ্জনক অ্যাপ্লিকেশান ও সাইটগুলি সনাক্ত করতে Google এর কাছে কিছু<ph name="BEGIN_WHITEPAPER_LINK" /> সিস্টেম তথ্য ও পৃষ্ঠার সামগ্রী<ph name="END_WHITEPAPER_LINK" /> স্বয়ংক্রিয়ভাবে পাঠান। <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">থিমগুলি পান</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> পিক)</translation>
 <translation id="5965403572731919803">শেল্ফে যোগ করুন...</translation>
@@ -5464,7 +5465,7 @@
 <translation id="8190193592390505034"><ph name="PROVIDER_NAME" />-তে সংযুক্ত হচ্ছে</translation>
 <translation id="8191230140820435481">আপনার অ্যাপ্লিকেশন, এক্সটেনশন, এবং থিম পরিচালনা করুন</translation>
 <translation id="8191453843330043793">V8 প্রক্সী সমাধানকারী</translation>
-<translation id="8195027750202970175">ডিস্কে মাপ</translation>
+<translation id="8195027750202970175">ডিস্কের মাপ</translation>
 <translation id="8200772114523450471">পুনঃসূচনা</translation>
 <translation id="8202160505685531999">অাপনার <ph name="DEVICE_TYPE" /> প্রোফাইল আপডেট করার জন্য দয়া করে পুনরায় আপনার পাসওয়ার্ড লিখুন।</translation>
 <translation id="8204484782770036444">• <ph name="PERMISSION" /></translation>
@@ -6230,7 +6231,7 @@
 <translation id="9184146175870444618">স্পর্শের-মাধ্যমে-শুরু বলবৎ করে, এবং নিক্ষেপের সময় স্ক্রোল প্রতি ইভেন্ট শ্রোতাদের প্রথম স্পর্শের-মাধ্যমে-নড়ানোকে অক্রিয় হিসাবে গণ্য করা হয়।</translation>
 <translation id="9184473426683023988">ডিভাইসে আমদানি করুন এবং বাইন্ড করুন</translation>
 <translation id="9186729806195986201">এছাড়াও <ph name="IDS_SHORT_PRODUCT_NAME" /> এর পূর্বে ইনস্টল করা সংস্করণ ফিরিয়ে আনুন৷</translation>
-<translation id="9187651461283037651">Chrome ভইআর (VR) সক্ষম করুন।</translation>
+<translation id="9187651461283037651">Chrome ভইআর ((ভিআর)VR) সক্ষম করুন।</translation>
 <translation id="9188441292293901223">এই <ph name="DEVICE_TYPE" /> আনলক করতে দয়া করে আপনার ফোনকে একটি আরো নতুন সংস্করণের Android এ আপডেট করুন৷</translation>
 <translation id="9189690067274055051">আপনার ফোন আনলক করুন এবং প্রবেশ করতে আপনার <ph name="DEVICE_TYPE" />-এর কাছাকাছি আনুন।</translation>
 <translation id="9190063653747922532">L2TP/IPসেকে + পূর্বে-শেয়ার করা কী</translation>

@@ -1541,9 +1541,9 @@ Hvis denne politik ikke er indstillet, er standardfrekvensen 3 minutter. Minimum
       Hvis du deaktiverer denne indstilling eller ikke konfigurerer en værdi, håndhæves Beskyttet søgning i Google Søgning ikke.</translation>
 <translation id="5937539742111853215">Denne politik styrer kun udviklertilstanden for <ph name="PRODUCT_OS_NAME" />. Hvis du vil forhindre adgang til Indstillinger for udviklere i Android, skal du angive politikken <ph name="DEVELOPER_TOOLS_POLICY" />.</translation>
 <translation id="5946082169633555022">Betakanal</translation>
-<translation id="5950205771952201658">Set i lyset af, at ikke-omfattende tilbagekaldskontroller på nettet ikke giver nogen effektiv form for sikkerhed, er disse deaktiveret som standard i <ph name="PRODUCT_NAME" /> version 19 og nyere. Ved at angive denne politik til Sand gendannes de tidligere indstillinger, så der udføres OCSP/CRL-kontroller på nettet.
+<translation id="5950205771952201658">Set i lyset af, at ikke-omfattende tilbagekaldskontrollér på nettet ikke giver nogen effektiv form for sikkerhed, er disse deaktiveret som standard i <ph name="PRODUCT_NAME" /> version 19 og nyere. Ved at angive denne politik til Sand gendannes de tidligere indstillinger, så der udføres OCSP/CRL-kontrollér på nettet.
 
-      Hvis politikken ikke er angivet eller er angivet til Falsk, udfører <ph name="PRODUCT_NAME" /> ikke tilbagekaldskontroller på nettet i <ph name="PRODUCT_NAME" /> 19 og nyere.</translation>
+      Hvis politikken ikke er angivet eller er angivet til Falsk, udfører <ph name="PRODUCT_NAME" /> ikke tilbagekaldskontrollér på nettet i <ph name="PRODUCT_NAME" /> 19 og nyere.</translation>
 <translation id="5966615072639944554">Udvidelser har tilladelse til at bruge Remote Attestation API.</translation>
 <translation id="5983708779415553259">Standardadfærd for websites, der ikke findes i en indholdspakke</translation>
 <translation id="5997543603646547632">Brug 24-timers ur som standard</translation>

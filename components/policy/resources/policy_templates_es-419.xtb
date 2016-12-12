@@ -2513,7 +2513,7 @@ desactivarlo).</translation>
 <translation id="9088433379343318874">Habilitar el proveedor de contenido de un usuario supervisado</translation>
 <translation id="9088444059179765143">Configurar el método de detección automática de la zona horaria</translation>
 <translation id="9096086085182305205">Lista blanca del servidor de autenticación</translation>
-<translation id="9098186110082719131">Se requiere el ingreso de la contraseña cada seis horas.</translation>
+<translation id="9098186110082719131">Se requiere el ingreso de la contraseña cada 6 horas.</translation>
 <translation id="9098553063150791878">Políticas para la autenticación HTTP</translation>
 <translation id="9105265795073104888">Las apps de Android tienen a su disposición solo un subgrupo de opciones de configuración de proxy. Dichas apps pueden elegir usar el proxy de forma voluntaria, pero no puedes forzarlas a que lo usen.</translation>
 <translation id="9112897538922695510">Te permite registrar una lista de controladores de protocolo. Esto solo puede ser una política recomendada. La propiedad |protocol| se debe establecer para el esquema (por ejemplo, "mailto") de la URL, y la propiedad |url| se debe establecer para el patrón de la URL de la aplicación que controla el esquema. El patrón puede incluir una especificación "%s" que, si está presente, se reemplazará por la URL controlada.
@@ -2543,7 +2543,7 @@ desactivarlo).</translation>
 <translation id="930930237275114205">Configurar directorio de datos de usuario de <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="944607242500063080">Configura los modos de desbloqueo rápido permitidos.</translation>
 <translation id="944817693306670849">Configurar el tamaño de caché de disco</translation>
-<translation id="969164417253718105">Esta configuración controla la frecuencia con la que la pantalla bloqueada solicitará la contraseña para continuar usando el desbloqueo rápido. Cada vez que ingresas a la pantalla bloqueada, si el último ingreso de contraseña superó al de esta configuración, el desbloqueo rápido no estará disponible para la pantalla bloqueada.
+<translation id="969164417253718105">Esta configuración controla la frecuencia con la que la pantalla bloqueada solicitará la contraseña para continuar usando el desbloqueo rápido. Cada vez que ingresas a la pantalla bloqueada, si el último ingreso de contraseña superó al de esta configuración, el desbloqueo rápido no estará disponible para la pantalla bloqueada. Si el usuario permanece en la pantalla de bloqueo luego de este período de tiempo, se solicitará que el usuario ingrese una contraseña cada vez que ingrese un código incorrecto o se active la pantalla de bloqueo (lo que ocurra primero).
 
       Si se establece esta configuración, se les solicitará a los usuarios que utilizan el desbloqueo rápido que ingresen sus contraseñas en la pantalla bloqueada, de acuerdo con esta configuración.
 

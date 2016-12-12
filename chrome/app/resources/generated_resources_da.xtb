@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Startsider</translation>
 <translation id="1354868058853714482">Adobe Reader er forældet og er muligvis ikke sikkert.</translation>
 <translation id="1355408554203439639">3D-softwarerasterisering</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> er blokeret</translation>
 <translation id="1355542767438520308">Der opstod en fejl. Nogle elementer er ikke slettet.</translation>
 <translation id="1357589289913453911">Udvidelses-id</translation>
 <translation id="1358032944105037487">Japansk tastatur</translation>
@@ -1694,7 +1695,7 @@ Gå til din e-mail, <ph name="ACCOUNT_EMAIL" />, for at se denne og flere vejled
 <translation id="3140353188828248647">Fokuser på adresselinje</translation>
 <translation id="3141917231319778873">Den angivne anmodning understøttes ikke på: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="3144126448740580210">UDFØR</translation>
-<translation id="3144135466825225871">Crx-filen kunne ikke erstattes. Kontroller, om filen er i brug.</translation>
+<translation id="3144135466825225871">Crx-filen kunne ikke erstattes. Kontrollér, om filen er i brug.</translation>
 <translation id="3144647712221361880">Åbn linket som</translation>
 <translation id="3149510190863420837">Chrome-apps</translation>
 <translation id="3150927491400159470">Intensiv genindlæsning</translation>
@@ -1891,7 +1892,7 @@ Fra <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3394150261239285340"><ph name="HOST" /> ønsker at bruge dit kamera og din mikrofon.</translation>
 <translation id="3394279550557729862">Aktivér understøttelse af indbyggede underretninger og underretningscenteret på platforme, hvor disse er tilgængelige.</translation>
 <translation id="3394862755749546286">Deaktiverer den fælles mediekanal (for Android og computer) i Android.</translation>
-<translation id="3396331542604645348">Den valgte printer er ikke tilgængelig eller ikke installeret korrekt. Kontroller din printer, eller vælg en anden printer.</translation>
+<translation id="3396331542604645348">Den valgte printer er ikke tilgængelig eller ikke installeret korrekt. Kontrollér din printer, eller vælg en anden printer.</translation>
 <translation id="3399597614303179694">Makedonsk tastatur</translation>
 <translation id="3401130144947259741">Sporing af begivenheder eksporteres til Sporing af hændelse til Windows (ETW) og kan opfanges af værktøjer som f.eks. UIForETW eller Xperf, hvis funktionen aktiveres.</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
@@ -2219,7 +2220,6 @@ Fra <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Færøsk</translation>
 <translation id="3803991353670408298">Tilføj en anden indtastningsmetode, inden du fjerner denne.</translation>
 <translation id="380408572480438692">Aktiverer registrering af ydelsesdata, der hjælper Google med at forbedre systemet med tiden. Der sendes ingen data, før du indgiver en feedbackrapport (Alt-Shift-I) og medtager ydelsesdata. Du kan altid vende tilbage til dette skærmbillede for at deaktivere registreringen.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (udvidelses-id "<ph name="EXTENSION_ID" />") er ikke tilladt på en loginskærm.</translation>
 <translation id="3807747707162121253">&amp;Annuller</translation>
 <translation id="3809280248639369696">Rumvæsen</translation>
 <translation id="3810973564298564668">Valgmuligheder</translation>
@@ -2402,7 +2402,7 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4057041477816018958"><ph name="SPEED" /> - <ph name="RECEIVED_AMOUNT" /></translation>
 <translation id="4057896668975954729">Se i Webshop</translation>
 <translation id="4058720513957747556">AppSocket (TCP/IP)</translation>
-<translation id="4058793769387728514">Kontroller dokument nu</translation>
+<translation id="4058793769387728514">Kontrollér dokument nu</translation>
 <translation id="4059285154003114015">&amp;Udskriv ramme...</translation>
 <translation id="406070391919917862">Apps i baggrunden</translation>
 <translation id="4060944176855070426">Deltag på AD-domænet</translation>
@@ -3813,6 +3813,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5957613098218939406">Flere valgmuligheder</translation>
 <translation id="5958529069007801266">Overvåget bruger</translation>
 <translation id="5959471481388474538">Netværket er ikke tilgængeligt</translation>
+<translation id="5959728338436674663">Send automatisk <ph name="BEGIN_WHITEPAPER_LINK" />nogle systemoplysninger og noget sideindhold<ph name="END_WHITEPAPER_LINK" /> til Google som en hjælp til at registrere skadelige apps og websites. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Hent temaer</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (maks. <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">Føj til hylden...</translation>
@@ -3890,7 +3891,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="6074825444536523002">Google-formular</translation>
 <translation id="6075731018162044558">Ups! Systemet kunne ikke hente et langfristet API-adgangstoken til denne enhed.</translation>
 <translation id="6075907793831890935">Udveksle data med enheden ved navn <ph name="HOSTNAME" /></translation>
-<translation id="6076448957780543068">Medtag dette skærmbillede</translation>
+<translation id="6076448957780543068">Inkluder dette skærmbillede</translation>
 <translation id="6080100832288487452">Glidende indtastning på det virtuelle tastatur.</translation>
 <translation id="6080689532560039067">Se systemklokkeslættet</translation>
 <translation id="6080696365213338172">Du har opnår adgang til indhold vha. et administratorcertifikat. De data, du angiver til <ph name="DOMAIN" />, kan indhentes af din administrator.</translation>
@@ -4852,7 +4853,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7382160026931194400">De |indholdsindstillinger| og #søgemaskiner#, du har gemt, ryddes ikke og kan afspejle dine søgevaner.</translation>
 <translation id="7383627141017162945">Indlæs hele websitet</translation>
 <translation id="7384292194278095697">Denne enhed understøttes ikke længere</translation>
-<translation id="7385854874724088939">Der gik noget galt, da du prøvede at udskrive.  Kontroller din printer, og prøv igen.</translation>
+<translation id="7385854874724088939">Der gik noget galt, da du prøvede at udskrive.  Kontrollér din printer, og prøv igen.</translation>
 <translation id="7386824183915085801">Versionsnummeret på din Chrome-browser og dit operativsystem sendes sammen med
           eventuelle oplysninger, du vælger at medtage herover. Hvis du medtager din e-mailadresse,
           kan Google kontakte dig vedrørende din feedbackrapport. Denne feedback
@@ -5492,7 +5493,7 @@ Beregner resterende tid</translation>
 <translation id="8226742006292257240">Nedenfor ses den vilkårlige TPM-adgangskode, der er tilknyttet din computer:</translation>
 <translation id="8227119283605456246">Vedhæft fil</translation>
 <translation id="8230421197304563332">Hackere, der i øjeblikket befinder sig på <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />, vil muligvis forsøge at installere skadelige programmer på din computer, som stjæler eller sletter dine oplysninger (f.eks. billeder, adgangskoder, beskeder og kreditkortoplysninger).</translation>
-<translation id="8233254008506535819">Medtag muligheden for at hvidliste vigtige websites i dialogboksen til at rydde browserdata.</translation>
+<translation id="8233254008506535819">Inkluder muligheden for at hvidliste vigtige websites i dialogboksen til at rydde browserdata.</translation>
 <translation id="8236231079192337250">Chrome Webshop Galleri-appen til printerdrivere</translation>
 <translation id="8238649969398088015">Hjælpetip</translation>
 <translation id="8240697550402899963">Brug klassisk tema</translation>
@@ -6292,7 +6293,7 @@ Efterfølgende underretninger, vinduer og dialogbokse kan blive delt mellem skri
 <translation id="981121421437150478">Offline</translation>
 <translation id="984870422930397199">Aktiverer badging af offlinesider på siden Ny fane. Kun relevant, hvis offlinesider er aktiveret.</translation>
 <translation id="98515147261107953">Liggende</translation>
-<translation id="985579990208596979">Aktivér hukommelseskoordinator i stedet for lyttefunktioner for hukommelsespres.</translation>
+<translation id="985579990208596979">Aktivér hukommelseskoordinator i stedet for den interne mekanisme til frigivelse af hukommelse.</translation>
 <translation id="986646739000587506">Deaktiver skrivebordsdeling med fane som kilde</translation>
 <translation id="987267091708560486">{NUM_ITEMS,plural, =1{Denne handling sletter $1 element permanent fra denne enhed.}one{Denne handling sletter $1 element permanent fra denne enhed.}other{Denne handling sletter $1 elementer permanent fra denne enhed.}}</translation>
 <translation id="990878533354103361">Eksperimenterende funktioner for inputvisning</translation>

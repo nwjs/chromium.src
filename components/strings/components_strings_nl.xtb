@@ -484,7 +484,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{1 andere suggestie}other{# andere suggesties}}</translation>
 <translation id="6387478394221739770">Ben je geïnteresseerd in nieuwe, coole Chrome-functies? Probeer ons bèta-kanaal op chrome.com/beta.</translation>
 <translation id="6389758589412724634">Chromium beschikt over onvoldoende geheugen om deze webpagina weer te geven.</translation>
-<translation id="6414888972213066896">Je hebt je vader of moeder gevraagd of je deze site mag bezoeken</translation>
+<translation id="6414888972213066896">Je hebt je ouder of voogd gevraagd of je deze site mag bezoeken</translation>
 <translation id="6416403317709441254">Je kunt <ph name="SITE" /> op dit moment niet bezoeken, omdat de website gecodeerde inloggegevens heeft verstuurd die niet door Chromium kunnen worden verwerkt. Aangezien netwerkfouten en aanvallen meestal van tijdelijke aard zijn, zal deze pagina later waarschijnlijk weer correct werken. <ph name="BEGIN_LEARN_MORE_LINK" />Meer informatie<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6417515091412812850">Kan niet controleren of het certificaat is ingetrokken.</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> heeft de verbinding geweigerd.</translation>
@@ -516,7 +516,7 @@
 <translation id="674375294223700098">Onbekende fout met servercertificaat.</translation>
 <translation id="6753269504797312559">Beleidswaarde</translation>
 <translation id="6757797048963528358">De slaapstand van je apparaat is geactiveerd.</translation>
-<translation id="6778737459546443941">Je vader of moeder heeft dit nog niet goedgekeurd</translation>
+<translation id="6778737459546443941">Je ouder of voogd heeft dit nog niet goedgekeurd</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">De webpagina op <ph name="URL" /> is momenteel niet beschikbaar. De pagina bevat wellicht teveel verkeer of is offline wegens onderhoud.</translation>
 <translation id="6831043979455480757">Vertalen</translation>
@@ -586,7 +586,7 @@ De volgende keer kan het handig zijn de incognitomodus <ph name="SHORTCUT_KEY" /
 <translation id="7535087603100972091">Waarde</translation>
 <translation id="7537536606612762813">Verplicht</translation>
 <translation id="7542995811387359312">Het automatisch invullen van creditcardnummers is uitgeschakeld, omdat dit formulier geen beveiligde verbinding gebruikt.</translation>
-<translation id="7543525346216957623">Vraag het aan je vader of moeder</translation>
+<translation id="7543525346216957623">Vraag het aan je ouder of voogd</translation>
 <translation id="7549584377607005141">Deze webpagina kan alleen correct worden weergegeven op basis van gegevens die je eerder hebt opgegeven. Je kunt deze gegevens opnieuw verzenden, maar hierdoor worden de acties herhaald die eerder op deze pagina zijn uitgevoerd.</translation>
 <translation id="7554791636758816595">Nieuw tabblad</translation>
 <translation id="7568593326407688803">Deze pagina is geschreven in het<ph name="ORIGINAL_LANGUAGE" />Wil je deze laten vertalen?</translation>
@@ -611,7 +611,7 @@ De volgende keer kan het handig zijn de incognitomodus <ph name="SHORTCUT_KEY" /
 <translation id="7716424297397655342">Deze site kan niet worden geladen vanuit het cachegeheugen</translation>
 <translation id="7733391738235763478">(<ph name="NUMBER_VISITS" />)</translation>
 <translation id="7752995774971033316">Niet-beheerd</translation>
-<translation id="7755287808199759310">Je vader of moeder kan de blokkering van deze site opheffen</translation>
+<translation id="7755287808199759310">Je ouder of voogd kan de blokkering van deze site opheffen</translation>
 <translation id="7758069387465995638">De verbinding is mogelijk geblokkeerd door de firewall of antivirussoftware.</translation>
 <translation id="7761701407923456692">Het servercertificaat komt niet overeen met de URL.</translation>
 <translation id="777702478322588152">Prefectuur</translation>

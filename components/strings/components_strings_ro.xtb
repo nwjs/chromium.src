@@ -363,7 +363,7 @@
 <translation id="4813512666221746211">Eroare de rețea</translation>
 <translation id="4816492930507672669">Încadrați în pagină</translation>
 <translation id="4850886885716139402">Afișează</translation>
-<translation id="4858792381671956233">Ai întrebat părinții dacă poți accesa acest site</translation>
+<translation id="4858792381671956233">Ți-ai întrebat părinții dacă poți accesa acest site</translation>
 <translation id="4880827082731008257">Caută în istoric</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /></translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{și încă 1 pagină web}few{și încă # pagini web}other{și încă # de pagini web}}</translation>
@@ -489,7 +489,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{o altă sugestie}few{alte # sugestii}other{alte # de sugestii}}</translation>
 <translation id="6387478394221739770">Doriți să utilizați funcții Chrome noi și interesante? Încercați canalul nostru beta de la chrome.com/beta.</translation>
 <translation id="6389758589412724634">Chromium nu a avut suficientă memorie la afișarea paginii web.</translation>
-<translation id="6414888972213066896">Ai întrebat părintele dacă poți accesa acest site</translation>
+<translation id="6414888972213066896">Ți-ai întrebat părintele dacă poți accesa acest site</translation>
 <translation id="6416403317709441254">Momentan, nu poți accesa site-ul <ph name="SITE" />, deoarece acesta a trimis date de conectare într-un format necunoscut pe care Chromium nu le poate procesa. Erorile de rețea și atacurile sunt de obicei temporare și probabil că această pagină va funcționa mai târziu. <ph name="BEGIN_LEARN_MORE_LINK" />Află mai multe<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6417515091412812850">Nu se poate verifica dacă certificatul a fost revocat.</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> a refuzat conexiunea.</translation>
@@ -521,7 +521,7 @@
 <translation id="674375294223700098">Eroare de certificat de server necunoscută.</translation>
 <translation id="6753269504797312559">Valoarea politicii</translation>
 <translation id="6757797048963528358">Dispozitivul este inactiv.</translation>
-<translation id="6778737459546443941">Părintele nu l-a aprobat încă</translation>
+<translation id="6778737459546443941">Părintele tău nu l-a aprobat încă</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Pagina web de la <ph name="URL" /> nu este disponibilă momentan. Poate fi supraîncărcată sau dezactivată pentru lucrări de întreținere.</translation>
 <translation id="6831043979455480757">Tradu</translation>
@@ -616,7 +616,7 @@ Data viitoare ați putea utiliza combinația <ph name="SHORTCUT_KEY" /> pentru a
 <translation id="7716424297397655342">Acest site nu poate fi încărcat din memoria cache</translation>
 <translation id="7733391738235763478">(<ph name="NUMBER_VISITS" />)</translation>
 <translation id="7752995774971033316">Negestionat</translation>
-<translation id="7755287808199759310">Părintele îl poate debloca pentru tine</translation>
+<translation id="7755287808199759310">Părintele tău îl poate debloca pentru tine</translation>
 <translation id="7758069387465995638">Este posibil ca firewallul sau software-ul antivirus să fi blocat conexiunea.</translation>
 <translation id="7761701407923456692">Certificatul serverului nu se potrivește cu adresa URL.</translation>
 <translation id="777702478322588152">Prefectură</translation>
@@ -684,7 +684,7 @@ Data viitoare ați putea utiliza combinația <ph name="SHORTCUT_KEY" /> pentru a
 <translation id="856992080682148">Certificatul pentru acest site expiră în 2017 sau mai târziu, iar lanțul de certificate conține un certificat semnat cu SHA-1.</translation>
 <translation id="8571890674111243710">Se traduce pagina în <ph name="LANGUAGE" />...</translation>
 <translation id="859285277496340001">Certificatul nu specifică un mecanism pentru a verifica dacă acesta a fost revocat.</translation>
-<translation id="8620436878122366504">Părinții nu l-au aprobat încă</translation>
+<translation id="8620436878122366504">Părinții tăi nu l-au aprobat încă</translation>
 <translation id="8647750283161643317">Resetați-le pe toate la valorile prestabilite</translation>
 <translation id="8703575177326907206">Conexiunea la <ph name="DOMAIN" /> nu este criptată.</translation>
 <translation id="8725066075913043281">Încearcă din nou</translation>

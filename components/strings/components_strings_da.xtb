@@ -684,7 +684,7 @@ Psst! Prøv at bruge Inkognitotilstand <ph name="SHORTCUT_KEY" /> næste gang.</
 <translation id="856992080682148">Certifikatet for dette website udløber i 2017 eller senere, og certifikatkæden indeholder et certifikat, der er signeret med SHA-1.</translation>
 <translation id="8571890674111243710">Oversætter siden til <ph name="LANGUAGE" />...</translation>
 <translation id="859285277496340001">Certifikatet angiver ikke en mekanisme, der kontrollerer, om den har været tilbagekaldt.</translation>
-<translation id="8620436878122366504">Dine forældre har ikke godkendt den endnu</translation>
+<translation id="8620436878122366504">Dine forældre har ikke godkendt det endnu</translation>
 <translation id="8647750283161643317">Nulstil alle til standard</translation>
 <translation id="8703575177326907206">Din forbindelse til <ph name="DOMAIN" /> er ikke krypteret.</translation>
 <translation id="8725066075913043281">Forsøg igen</translation>

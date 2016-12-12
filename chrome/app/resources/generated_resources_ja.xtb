@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">起動ページ</translation>
 <translation id="1354868058853714482">Adobe Reader のバージョンが古いため安全でない可能性があります。</translation>
 <translation id="1355408554203439639">3D ソフトウェア ラスタライザ</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> はブロックされています</translation>
 <translation id="1355542767438520308">エラーが発生しました。いくつかの項目が削除されていない可能性があります。</translation>
 <translation id="1357589289913453911">拡張機能 ID</translation>
 <translation id="1358032944105037487">日本語のキーボード</translation>
@@ -2220,7 +2221,6 @@
 <translation id="3801082500826908679">フェロー語</translation>
 <translation id="3803991353670408298">別の入力方法を追加しないと、この入力方法を削除できません。</translation>
 <translation id="380408572480438692">パフォーマンス データの収集を有効にすると、Google によるシステムの改善に役立てることができます。フィードバック レポートを作成（Alt-Shift-I）してパフォーマンス データを追加するまでは、データは送信されません。いつでもこの画面に戻って、データの収集を無効にできます。</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" />（拡張機能 ID「<ph name="EXTENSION_ID" />」）はログイン画面ではインストールできません。</translation>
 <translation id="3807747707162121253">キャンセル(&amp;C)</translation>
 <translation id="3809280248639369696">ムーンビーム</translation>
 <translation id="3810973564298564668">管理</translation>
@@ -3816,6 +3816,7 @@
 <translation id="5957613098218939406">その他のオプション</translation>
 <translation id="5958529069007801266">監視対象ユーザー</translation>
 <translation id="5959471481388474538">ネットワークは利用できません</translation>
+<translation id="5959728338436674663">危険なアプリやサイトの検出に役立てるために一部の<ph name="BEGIN_WHITEPAPER_LINK" />システム情報やページのコンテンツ<ph name="END_WHITEPAPER_LINK" />を Google に自動送信する。<ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">テーマを取得</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" />（最大 <ph name="NUM_KILOBYTES_LIVE" />）</translation>
 <translation id="5965403572731919803">シェルフに追加...</translation>

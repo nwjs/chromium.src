@@ -231,7 +231,7 @@ Gå til din e-mail på <ph name="ACCOUNT_EMAIL" /> for at få yderligere vejledn
 <translation id="7617377681829253106">Chromium er blevet bedre</translation>
 <translation id="7641113255207688324">Chromium er ikke din standardbrowser.</translation>
 <translation id="7729447699958282447">Chromium kunne ikke synkronisere dine data, fordi synkronisering ikke er tilgængelig for dit domæne.</translation>
-<translation id="7747138024166251722">Installationsprogrammet kunne ikke oprette en midlertidig mappe. Kontroller, om der er tilstrækkelig diskplads, og om der er tilladelse til at installere software.</translation>
+<translation id="7747138024166251722">Installationsprogrammet kunne ikke oprette en midlertidig mappe. Kontrollér, om der er tilstrækkelig diskplads, og om der er tilladelse til at installere software.</translation>
 <translation id="7937630085815544518">Du loggede ind på Chromium som <ph name="USER_EMAIL_ADDRESS" />. Brug den samme konto til at logge ind igen.</translation>
 <translation id="795025003224538582">Genstart ikke</translation>
 <translation id="7962572577636132072">Chromium opdateres automatisk, så du altid har den nyeste version.</translation>

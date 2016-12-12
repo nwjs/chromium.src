@@ -267,6 +267,7 @@
 <translation id="1353966721814789986">Σελίδες εκκίνησης</translation>
 <translation id="1354868058853714482">Το Adobe Reader έχει λήξει και ενδέχεται να μην είναι ασφαλές.</translation>
 <translation id="1355408554203439639">Πρόγραμμα επεξεργασίας ράστερ τρισδιάστατου λογισμικού</translation>
+<translation id="1355466263109342573">Η προσθήκη <ph name="PLUGIN_NAME" /> είναι αποκλεισμένη</translation>
 <translation id="1355542767438520308">Παρουσιάστηκε σφάλμα. Ορισμένα στοιχεία ενδέχεται να μην έχουν διαγραφεί.</translation>
 <translation id="1357589289913453911">Αναγνωριστικό επέκτασης</translation>
 <translation id="1358032944105037487">Πληκτρολόγιο με ιαπωνικούς χαρακτήρες</translation>
@@ -2228,7 +2229,6 @@
 <translation id="3801082500826908679">Φερόε</translation>
 <translation id="3803991353670408298">Προτού καταργήσετε αυτή τη μέθοδο εισαγωγής, προσθέστε μία άλλη.</translation>
 <translation id="380408572480438692">Η ενεργοποίηση της συλλογής δεδομένων απόδοσης θα διευκολύνει την Google να βελτιώσει το σύστημα με την πάροδο του χρόνου. Δεν αποστέλλονται δεδομένα χωρίς να καταθέσετε πρώτα αναφορά σχολίων (Alt-Shift-I) και να συμπεριλάβετε τα δεδομένα απόδοσης. Μπορείτε να επιστρέψετε σε αυτήν την οθόνη για να απενεργοποιήσετε τη συλλογή ανά πάσα στιγμή.</translation>
-<translation id="3807249107536149332">Η επέκταση <ph name="EXTENSION_NAME" /> (αναγνωριστικό επέκτασης "<ph name="EXTENSION_ID" />") δεν επιτρέπεται σε μια οθόνη σύνδεσης.</translation>
 <translation id="3807747707162121253">&amp;Ακύρωση</translation>
 <translation id="3809280248639369696">Σεληνόφως</translation>
 <translation id="3810973564298564668">Διαχείριση</translation>
@@ -3831,6 +3831,7 @@
 <translation id="5957613098218939406">Περισσότερες επιλογές</translation>
 <translation id="5958529069007801266">Εποπτευόμενος χρήστης</translation>
 <translation id="5959471481388474538">Το δίκτυο δεν είναι διαθέσιμο</translation>
+<translation id="5959728338436674663">Αυτόματη αποστολή ορισμένων <ph name="BEGIN_WHITEPAPER_LINK" />πληροφοριών συστήματος και περιεχομένου σελίδων<ph name="END_WHITEPAPER_LINK" /> στην Google για διευκόλυνση του εντοπισμού επικίνδυνων εφαρμογών και ιστοτόπων<ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Λήψη θεμάτων</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> μέγιστη τιμή)</translation>
 <translation id="5965403572731919803">Προσθήκη στο ράφι…</translation>
@@ -4469,7 +4470,7 @@
 <translation id="6828860976882136098">Αποτυχία ρύθμισης αυτόματων ενημερώσεων για όλους τους χρήστες (σφάλμα προληπτικής εκτέλεσης: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="6829250331733125857">Λάβετε βοήθεια για τη συσκευή σας <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6829270497922309893">Εγγραφή στον οργανισμό σας</translation>
-<translation id="682971198310367122">Πολιτική Απορρήτου Google</translation>
+<translation id="682971198310367122">Πολιτική απορρήτου Google</translation>
 <translation id="6830590476636787791">Κινούμενες μεταβάσεις στον οδηγό πρώτης εκκίνησης</translation>
 <translation id="6830728435402077660">Μη ασφαλές</translation>
 <translation id="6831043979455480757">Μετάφραση</translation>

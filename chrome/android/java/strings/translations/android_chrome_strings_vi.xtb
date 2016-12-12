@@ -267,7 +267,7 @@ Bạn có thể kiểm soát cài đặt Web trong cuộc sống trên Chrome.
 <translation id="3950820424414687140">Đăng nhập</translation>
 <translation id="3967822245660637423">Tải xuống hoàn tất</translation>
 <translation id="397583555483684758">Đồng bộ hóa đã ngừng hoạt động</translation>
-<translation id="3985215325736559418">Bạn có muốn tải xuống <ph name="FILE_NAME" /> lần nữa không?</translation>
+<translation id="3985215325736559418">Bạn có muốn tải lại <ph name="FILE_NAME" /> xuống không?</translation>
 <translation id="3988213473815854515">Vị trí được cho phép</translation>
 <translation id="3997476611815694295">Bộ nhớ không quan trọng</translation>
 <translation id="4002066346123236978">Tiêu đề</translation>
@@ -527,6 +527,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="666731172850799929">Mở trong <ph name="APP_NAME" /></translation>
 <translation id="666981079809192359">Thông báo bảo mật của Chrome</translation>
 <translation id="6698801883190606802">Quản lý dữ liệu được đồng bộ hóa</translation>
+<translation id="6701279291835318271">Báo cáo bảo mật</translation>
 <translation id="6710213216561001401">Trước đó</translation>
 <translation id="6738867403308150051">Đang tải xuống...</translation>
 <translation id="6743044928064272573">Tùy chọn nhận hàng</translation>

@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">"Beim Start"-Seiten</translation>
 <translation id="1354868058853714482">Adobe Reader ist veraltet und somit möglicherweise unsicher.</translation>
 <translation id="1355408554203439639">3D-Softwareraster</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> ist blockiert</translation>
 <translation id="1355542767438520308">Ein Fehler ist aufgetreten. Einige Elemente wurden möglicherweise nicht gelöscht.</translation>
 <translation id="1357589289913453911">Erweiterungs-ID</translation>
 <translation id="1358032944105037487">Japanische Tastatur </translation>
@@ -739,7 +740,7 @@
 <translation id="1951615167417147110">Eine Seite nach oben blättern</translation>
 <translation id="1956050014111002555">Die Datei enthielt mehrere Zertifikate, von denen keines importiert wurde:</translation>
 <translation id="1957988341423158185">Trace-Label für Navigations-Tracing</translation>
-<translation id="1961376890474801922">Sehr experimentell – Gäste wie &amp;lt;webview&gt; werden auf der Out-of-Process-iFrame-Infrastruktur implementiert.</translation>
+<translation id="1961376890474801922">Sehr experimentell – Gast-Content wie &amp;lt;webview&gt; wird auf der Out-of-Process-iFrame-Infrastruktur implementiert.</translation>
 <translation id="1962233722219655970">Diese Seite verwendet eine Native Client App, die auf Ihrem Computer nicht funktioniert.</translation>
 <translation id="1963227389609234879">Alle entfernen</translation>
 <translation id="1965328510789761112">Privater Speicher</translation>
@@ -2215,7 +2216,6 @@ von <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Färöisch</translation>
 <translation id="3803991353670408298">Fügen Sie vor dem Entfernen dieser Eingabemethode eine andere Eingabemethode hinzu.</translation>
 <translation id="380408572480438692">Bei Aktivierung der Erfassung von Leistungsdaten kann Google das System mit der Zeit verbessern. Daten werden erst gesendet, wenn Sie mittels Alt+Shift+I einen Feedback-Bericht mit Leistungsdaten einreichen. Sie können jederzeit zu diesem Bildschirm zurückkehren, um die Datenerfassung zu deaktivieren.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (Erweiterungs-ID "<ph name="EXTENSION_ID" />") ist auf Anmeldeseiten nicht zulässig.</translation>
 <translation id="3807747707162121253">Abbre&amp;chen</translation>
 <translation id="3809280248639369696">Alien</translation>
 <translation id="3810973564298564668">Verwalten</translation>
@@ -2609,7 +2609,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="4354806558096370704">Aktiviert die Verwendung des nativen CUPS-Druck-Back-Ends.</translation>
 <translation id="4355925451975609675">Zum Weitergehen |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| drücken</translation>
 <translation id="4356334633973342967">Oder eigenen Treiber angeben:</translation>
-<translation id="4356973930735388585">Angreifer auf dieser Website versuchen unter Umständen, gefährliche Programme auf Ihrem Computer zu installieren, um Ihre Daten zu stehlen oder zu löschen, zum Beispiel Fotos, Passwörter, Nachrichten und Kreditkartendaten.</translation>
+<translation id="4356973930735388585">Unbefugte Dritte auf dieser Website versuchen unter Umständen, gefährliche Programme auf Ihrem Computer zu installieren, um Ihre Daten zu stehlen oder zu löschen, zum Beispiel Fotos, Passwörter, Nachrichten und Kreditkartendaten.</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
 <translation id="4358697938732213860">Adresse hinzufügen</translation>
 <translation id="4359408040881008151">Wurde aufgrund der abhängigen Erweiterungen installiert</translation>
@@ -3805,6 +3805,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5957613098218939406">Weitere Optionen</translation>
 <translation id="5958529069007801266">Betreuter Nutzer</translation>
 <translation id="5959471481388474538">Netzwerk nicht verfügbar</translation>
+<translation id="5959728338436674663"><ph name="BEGIN_WHITEPAPER_LINK" />Ich möchte automatisch einige Systeminformationen und Seiteninhalte an Google senden<ph name="END_WHITEPAPER_LINK" />, um bei der Erfassung schädlicher Apps und Websites zu helfen. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Designs abrufen</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (Spitzenwert <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">Zu Ablage hinzufügen...</translation>
@@ -3904,7 +3905,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="6103681770816982672">Achtung: Sie wechseln zur Entwicklerversion.</translation>
 <translation id="6103830523912109737">Input IME API aktivieren</translation>
 <translation id="6105158702728922449">Ihre Kamera und Ihr Mikrofon verwenden</translation>
-<translation id="6105877918873366097">Letzter Zugriff</translation>
+<translation id="6105877918873366097">Letzter Zugriff am:</translation>
 <translation id="6107012941649240045">Ausgestellt für</translation>
 <translation id="6107079717483424262">Ihre Stimme erkennen, wenn Sie "Ok Google" sagen</translation>
 <translation id="6109228527970300988">Emojis, Handschriften und Spracheingabe im IME-Aktivierungsmenü</translation>
@@ -4071,8 +4072,8 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="6325191661371220117">Automatisches Starten deaktivieren</translation>
 <translation id="6326175484149238433">Aus Chrome entfernen</translation>
 <translation id="632744581670418035">Tastatur-Overlay</translation>
-<translation id="6327785803543103246">Automatische Web-Proxy-Erkennung</translation>
-<translation id="6328786501058569169">Diese Website ist irreführend</translation>
+<translation id="6327785803543103246">Web-Proxy Autodiscovery</translation>
+<translation id="6328786501058569169">Sie befinden sich auf einer betrügerischen Website</translation>
 <translation id="6333049849394141510">Auswahl synchronisieren</translation>
 <translation id="6333064448949140209">Datei wird zur Fehlerbehebung an Google gesendet</translation>
 <translation id="6333834492048057036">Adressleiste für die Suche fokussieren</translation>
@@ -4386,8 +4387,8 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="6739254200873843030">Die Karte ist abgelaufen. Bitte überprüfen Sie das Datum oder geben Sie eine neue Karte ein.</translation>
 <translation id="6739923123728562974">Desktopverknüpfung einblenden</translation>
 <translation id="6740234557573873150"><ph name="FILE_NAME" /> pausiert</translation>
-<translation id="6742339027238151589">Für Skript zugänglich</translation>
-<translation id="6744792120234414128">Out-of-Process-iFrames für Gäste</translation>
+<translation id="6742339027238151589">Zugänglich für Skript</translation>
+<translation id="6744792120234414128">Cross-Process-Frames für Gast-Content</translation>
 <translation id="6745592621698551453">Jetzt aktualisieren</translation>
 <translation id="6746124502594467657">Nach unten</translation>
 <translation id="674632704103926902">Antippen und Ziehen aktivieren</translation>
@@ -4735,7 +4736,7 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="7223775956298141902">Es sind keine Erweiterungen vorhanden :-(.</translation>
 <translation id="7224023051066864079">Subnetzmaske:</translation>
 <translation id="7225179976675429563">Netzwerktyp fehlt.</translation>
-<translation id="7228479291753472782">Einstellungen manipulieren, die festlegen, ob Websites Funktionen wie die Standortbestimmung, das Mikrofon, die Kamera usw. verwenden dürfen</translation>
+<translation id="7228479291753472782">Einstellungen bearbeiten, die festlegen, ob Websites Funktionen wie die Standortbestimmung, das Mikrofon, die Kamera usw. verwenden dürfen</translation>
 <translation id="7229570126336867161">EVDO erforderlich</translation>
 <translation id="7230787553283372882">Textgröße anpassen</translation>
 <translation id="7238585580608191973">SHA-256-Fingerabdruck</translation>
@@ -5062,7 +5063,7 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="7664620655576155379">Nicht unterstütztes Bluetooth-Gerät: "<ph name="DEVICE_NAME" />"</translation>
 <translation id="7665369617277396874">Konto hinzufügen</translation>
 <translation id="766747607778166022">Kreditkarten verwalten...</translation>
-<translation id="7669271284792375604">Angreifer auf dieser Website versuchen eventuell, Sie zur Installation von Programmen zu bewegen, die sich nachteilig auf Ihre Browsernutzung auswirken. Dabei kann zum Beispiel Ihre Startseite geändert werden oder es erscheinen zusätzliche Anzeigen auf von Ihnen besuchten Websites.</translation>
+<translation id="7669271284792375604">Unbefugte Dritte auf dieser Website versuchen eventuell, Sie zur Installation von Programmen zu bewegen, die sich nachteilig auf Ihre Browsernutzung auswirken. Dabei kann zum Beispiel Ihre Startseite geändert werden oder es erscheinen zusätzliche Anzeigen auf von Ihnen besuchten Websites.</translation>
 <translation id="7671130400130574146">Titelleiste und Ränder des Systems verwenden</translation>
 <translation id="7671576867600624">Technologie:</translation>
 <translation id="7676077734785147678">Erweiterungs-IMEs</translation>
@@ -5325,7 +5326,7 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="8017667670902200762">Fehlerhafte Authentifizierung</translation>
 <translation id="8022523925619404071">Automatische Updates aktivieren</translation>
 <translation id="8023801379949507775">Erweiterungen jetzt aktualisieren</translation>
-<translation id="8025119109950072390">Angreifer auf dieser Website versuchen unter Umständen auf betrügerische Weise, Sie zur Installation von Software zu bewegen oder Ihnen personenbezogene Daten zu entlocken, zum Beispiel Passwörter, Telefonnummern oder Kreditkartendaten.</translation>
+<translation id="8025119109950072390">Unbefugte Dritte auf dieser Website versuchen unter Umständen auf betrügerische Weise, Sie zur Installation von Software zu bewegen oder Ihnen personenbezogene Daten zu entlocken, zum Beispiel Passwörter, Telefonnummern oder Kreditkartendaten.</translation>
 <translation id="8025789898011765392">Aufgaben</translation>
 <translation id="802597130941734897">Versandadressen verwalten...</translation>
 <translation id="8026334261755873520">Browserdaten löschen</translation>

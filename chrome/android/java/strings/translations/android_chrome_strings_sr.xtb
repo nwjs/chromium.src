@@ -161,7 +161,7 @@
 <translation id="2621115761605608342">Дозволите JavaScript за одређени сајт.</translation>
 <translation id="2646820313617290661">Родитељи помажу у управљању овим подешавањима.</translation>
 <translation id="2653659639078652383">Пошаљи</translation>
-<translation id="2677748264148917807">Напусти</translation>
+<translation id="2677748264148917807">Затвори</translation>
 <translation id="2707726405694321444">Освежи страницу</translation>
 <translation id="2709516037105925701">Аутоматско попуњавање</translation>
 <translation id="271033894570825754">Ново</translation>
@@ -527,6 +527,7 @@
 <translation id="666731172850799929">Отвори у <ph name="APP_NAME" /></translation>
 <translation id="666981079809192359">Chrome обавештење о приватности</translation>
 <translation id="6698801883190606802">Управљајте синхронизованим подацима</translation>
+<translation id="6701279291835318271">Извештаји о безбедности</translation>
 <translation id="6710213216561001401">Претходно</translation>
 <translation id="6738867403308150051">Преузима се...</translation>
 <translation id="6743044928064272573">Опција преузимања</translation>

@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">स्टार्टअप पृष्ठ</translation>
 <translation id="1354868058853714482">Adobe Reader पुराना हो चुका है और असुरक्षित हो सकता है.</translation>
 <translation id="1355408554203439639">3D सॉफ़्टवेयर रास्टराइज़र</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> अवरोधित है</translation>
 <translation id="1355542767438520308">कोई त्रुटि हुई. संभवत: कुछ आइटम हटाए नहीं गए हैं.</translation>
 <translation id="1357589289913453911">एक्सटेंशन आईडी</translation>
 <translation id="1358032944105037487">जापानी कीबोर्ड</translation>
@@ -742,7 +743,7 @@
 <translation id="1951615167417147110">एक पृष्‍ठ ऊपर स्‍क्रॉल करें</translation>
 <translation id="1956050014111002555">फ़ाइल में एकाधिक प्रमाणपत्र थे, जिनमें से किसी को भी आयात नहीं किया गया था:</translation>
 <translation id="1957988341423158185">मार्गदर्शक ट्रेसिंग के लिए लेबल ट्रेस करें</translation>
-<translation id="1961376890474801922">उच्च प्रयोगात्मक जहां &lt;webview&gt; जैसे अतिथि प्रक्रिया से बाहर की iframe संरचना पर कार्यान्वित होते हैं.</translation>
+<translation id="1961376890474801922">उच्च रूप से प्रयोगात्मक, जहां &lt;webview&gt; जैसे अतिथि प्रक्रिया से बाहर की iframe संरचना पर कार्यान्वित होते हैं.</translation>
 <translation id="1962233722219655970">यह पृष्ठ एक ऐसे नेटिव क्लाइंट का उपयोग करता है जो आपके कंप्यूटर पर काम नहीं करता.</translation>
 <translation id="1963227389609234879">सभी को निकालें</translation>
 <translation id="1965328510789761112">गोपनीय मेमोरी</translation>
@@ -1706,7 +1707,7 @@
 <translation id="3154429428035006212">एक माह से अधिक समय से ऑफ़लाइन</translation>
 <translation id="3157931365184549694">पुनर्स्थापित करें</translation>
 <translation id="3158564748719736353">सक्षम होने पर, कैप्टिव पोर्टल की पृष्ठभूमि में नेटवर्क से कनेक्ट होने पर सूचना दिखाई देती है.</translation>
-<translation id="3159386328383139451">Google बेहतर स्थानीय अनुभव देने के लिए आपके स्थान का उपयोग कर सकता है. आप <ph name="SETTINGS_LINK" /> में इसे बदल सकते हैं.</translation>
+<translation id="3159386328383139451">Google बेहतर स्थानीय अनुभव देने के लिए आपके स्थान का उपयोग करता है. आप <ph name="SETTINGS_LINK" /> में इसे बदल सकते हैं.</translation>
 <translation id="3160041952246459240">आपके पास इन सर्वर की पहचान करने वाली फ़ाइल पर प्रमाणपत्र हैं:</translation>
 <translation id="316125635462764134">ऐप्स निकालें</translation>
 <translation id="3161522574479303604">सभी भाषाएं</translation>
@@ -1745,7 +1746,7 @@
 <translation id="3206175707080061730">"$1" नामक एक फ़ाइल पहले से ही मौजूद है. क्‍या आप इसे प्रतिस्थापित करना चाहते हैं?</translation>
 <translation id="320825648481311438">जब सक्षम हो, तो ब्राउज़र Google खाते में प्रवेश और प्रस्थान करना प्रबंधित करता है.</translation>
 <translation id="3208703785962634733">पुष्टि न की गई</translation>
-<translation id="3209459032754159027">स्वतः भरण ड्रॉपडाउन में क्रेडिट कार्ड प्रवेश प्रोमो दिखाना सक्षम करें.</translation>
+<translation id="3209459032754159027">ऑटोमैटिक भरने वाले ड्रॉपडाउन में क्रेडिट कार्ड प्रवेश प्रोमो दिखाना सक्षम करें.</translation>
 <translation id="3211904643589960506">जीते-जागते वेब ऑब्जेक्ट के लिए URL की स्कैनिंग सक्षम करें.</translation>
 <translation id="3216508313927987948">ऐसा करने के लिए, आपको अपने <ph name="DEVICE_TYPE" /> को निम्न चरण में सिखाना होगा.</translation>
 <translation id="3220586366024592812"><ph name="CLOUD_PRINT_NAME" /> कनेक्‍टर प्रक्रिया क्रैश हो गई है. पुन: प्रारंभ करें?</translation>
@@ -2219,7 +2220,6 @@
 <translation id="3801082500826908679">फ़ारोईस</translation>
 <translation id="3803991353670408298">कृपया इसे निकालने से पहले कोई अन्‍य इनपुट पद्धति जोड़ें.</translation>
 <translation id="380408572480438692">निष्पादन डेटा के संकलन को सक्षम बनाने से, Google को समय के साथ सिस्टम बेहतर बनाने में सहायता मिलेगी. जब तक आप फ़ीडबैक रिपोर्ट फ़ाइल नहीं कर देते (Alt-Shift-I) और प्रदर्शन डेटा शामिल नहीं कर लेते तब तक कोई डेटा नहीं भेजा जाता. आप किसी भी समय मेमोरी को अक्षम करने के लिए इस स्क्रीन पर वापस लौट सकते हैं.</translation>
-<translation id="3807249107536149332">लॉगिन स्क्रीन पर <ph name="EXTENSION_NAME" /> (एक्‍सटेंशन आईडी  "<ph name="EXTENSION_ID" />") की अनुमति नहीं है.</translation>
 <translation id="3807747707162121253">&amp;रद्द करें</translation>
 <translation id="3809280248639369696">मूनबीम</translation>
 <translation id="3810973564298564668">प्रबंधित करें</translation>
@@ -3814,6 +3814,7 @@
 <translation id="5957613098218939406">अधिक विकल्प</translation>
 <translation id="5958529069007801266">निगरानी में रखा गया उपयोगकर्ता</translation>
 <translation id="5959471481388474538">नेटवर्क उपलब्ध नहीं</translation>
+<translation id="5959728338436674663">Google को कुछ <ph name="BEGIN_WHITEPAPER_LINK" />सिस्टम संबंधी जानकारी और पृष्ठ सामग्री<ph name="END_WHITEPAPER_LINK" /> अपने आप भेजें ताकि खतरनाक ऐप्लिकेशन और साइटों का पता लगाने में सहायता मिल सके. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">थीम प्राप्त करें</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> उच्चतम)</translation>
 <translation id="5965403572731919803">अलमारी में जोड़ें...</translation>
@@ -3997,7 +3998,7 @@
 <translation id="6226777517901268232">निजी कुंजी फ़ाइल (वैकल्पिक)</translation>
 <translation id="6227235786875481728">यह फ़ाइल चलाई नहीं जा सकती.</translation>
 <translation id="6228691855869374890">इस साइट के पास MIDI डिवाइस का पूर्ण नियंत्रण है.</translation>
-<translation id="6229890768313448549">Google Play सेवा की शर्तें लोड नहीं की जा सकतीं. कृपया फिर से आज़माएं.</translation>
+<translation id="6229890768313448549">Google Play सेवा की शर्तें लोड नहीं की जा सकतीं. कृपया फिर से कोशिश करें.</translation>
 <translation id="6231148928368101651">पैनल </translation>
 <translation id="6231881193380278751">पृष्‍ठ को स्‍वत: रीफ्रेश करने के लिए URL में एक क्‍वेरी परम जोड़ें: chrome://device-log/?refresh=&lt;sec&gt;</translation>
 <translation id="6232017090690406397">बैटरी</translation>
@@ -5793,7 +5794,7 @@
 <translation id="8632275030377321303">उपयोगकर्ता द्वारा प्रॉक्सी में बदलाव नहीं किया जा सकता.</translation>
 <translation id="8636038761987659075">साइट की सेटिंग, सभी साइट और साइट के विवरण के साथ</translation>
 <translation id="8637688295594795546">सिस्टम अपडेट उपलब्ध है. डाउनलोड करने के लिए तैयार हो रहा है...</translation>
-<translation id="8638602948366220068">स्वतः भरण क्रेडिट कार्ड प्रवेश प्रोमो सक्षम करें</translation>
+<translation id="8638602948366220068">ऑटोमैटिक भरने वाला क्रेडिट कार्ड प्रवेश प्रोमो सक्षम करें</translation>
 <translation id="8639504893694748827">शून्य-कॉपी वाला रास्टराइज़र</translation>
 <translation id="8639963783467694461">ऑटोमैटिक भरना की सेटिंग...</translation>
 <translation id="8642171459927087831">पहुंच टोकन</translation>
@@ -6137,7 +6138,7 @@
 <translation id="9057119625587205566">आस-पास कोई प्रिंटर नहीं</translation>
 <translation id="9059868303873565140">स्‍थिति मेनू</translation>
 <translation id="9064142312330104323">Google प्रोफ़ाइल फ़ोटो (लोड हो रहा है)</translation>
-<translation id="9064275926664971810">फ़ॉर्म को एक ही क्लिक में भरने के लिए स्वत: भरण सक्षम करें</translation>
+<translation id="9064275926664971810">फ़ॉर्म को एक ही क्लिक में भरने के लिए ऑटोमैटिक भरना सक्षम करें</translation>
 <translation id="9064939804718829769">स्थानांतरित किया जा रहा है...</translation>
 <translation id="9065203028668620118">संपादित करें</translation>
 <translation id="9066075624350113914">इस PDF दस्तावेज़ के भाग दिखाए नहीं जा सकते.</translation>

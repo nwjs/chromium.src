@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Halaman permulaan</translation>
 <translation id="1354868058853714482">Adobe Reader sudah lapuk dan mungkin tidak selamat.</translation>
 <translation id="1355408554203439639">Rasterizer perisian 3D</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> disekat</translation>
 <translation id="1355542767438520308">Ralat berlaku. Sesetengah item mungkin tidak dipadamkan.</translation>
 <translation id="1357589289913453911">Id Sambungan</translation>
 <translation id="1358032944105037487">Papan kekunci Jepun</translation>
@@ -2220,7 +2221,6 @@ Daripada <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Bahasa Faroese</translation>
 <translation id="3803991353670408298">Sila tambah kaedah input lain sebelum mengeluarkan ini.</translation>
 <translation id="380408572480438692">Tindakan mendayakan pengumpulan data prestasi akan membantu Google menambah baik sistem dengan berlalunya masa. Tiada data dihantar sehingga anda memfailkan laporan maklum balas (Alt-Shift-I) dan menyertakan data prestasi. Anda boleh kembali ke skrin ini untuk melumpuhkan pengumpulan pada bila-bila masa.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (ID sambungan "<ph name="EXTENSION_ID" />") tidak dibenarkan pada skrin log masuk.</translation>
 <translation id="3807747707162121253">&amp;Batal</translation>
 <translation id="3809280248639369696">Cahaya bulan</translation>
 <translation id="3810973564298564668">Urus</translation>
@@ -3816,6 +3816,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="5957613098218939406">Lebih Banyak Pilihan</translation>
 <translation id="5958529069007801266">Pengguna diselia</translation>
 <translation id="5959471481388474538">Rangkaian tak tersedia</translation>
+<translation id="5959728338436674663">Hantar secara automatik beberapa <ph name="BEGIN_WHITEPAPER_LINK" />maklumat sistem dan kandungan halaman<ph name="END_WHITEPAPER_LINK" /> kepada Google untuk membantu anda mengesan apl dan tapak yang berbahaya. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Dapatkan tema</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> puncak)</translation>
 <translation id="5965403572731919803">Tambahkan pada rak...</translation>

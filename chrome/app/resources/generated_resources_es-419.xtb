@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Páginas de inicio</translation>
 <translation id="1354868058853714482">Adobe Reader está desactualizado y puede no ser seguro.</translation>
 <translation id="1355408554203439639">Rasterizador de software 3D</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> está bloqueado</translation>
 <translation id="1355542767438520308">Se produjo un error. Es posible que no se hayan eliminado algunos elementos.</translation>
 <translation id="1357589289913453911">ID de extensión</translation>
 <translation id="1358032944105037487">Teclado japonés</translation>
@@ -2216,7 +2217,6 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Feroés</translation>
 <translation id="3803991353670408298">Agrega otro método de entrada antes de eliminar éste.</translation>
 <translation id="380408572480438692">Si habilitas la recopilación de datos de rendimiento, ayudarás a Google a mejorar el sistema con el tiempo. Para que se envíen los datos, debes presentar un informe de comentarios (Alt+Mayúscula+I) e incluir datos de rendimiento. Puedes volver a esta pantalla para inhabilitar la recopilación en cualquier momento.</translation>
-<translation id="3807249107536149332">No se permite <ph name="EXTENSION_NAME" /> (ID de la extensión "<ph name="EXTENSION_ID" />") en una pantalla de acceso.</translation>
 <translation id="3807747707162121253">&amp;Cancelar</translation>
 <translation id="3809280248639369696">Alien</translation>
 <translation id="3810973564298564668">Administrar</translation>
@@ -3134,7 +3134,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="5088534251099454936">PKCS N. º 1, SHA-512 con encriptación RSA</translation>
 <translation id="509429900233858213">Se ha producido un error.</translation>
 <translation id="5094721898978802975">Comunicarse con aplicaciones nativas en cooperación</translation>
-<translation id="5096691708387552456">Habilita la carga (o descarga) de páginas en segundo plano y de forma simultánea en los dispositivos Android svelte (512 MB de RAM). De lo contrario, la carga en segundo plano se realizará cuando el dispositivo svelte esté inactivo.</translation>
+<translation id="5096691708387552456">Habilita la carga (o descarga) de páginas en segundo plano y de forma simultánea en los dispositivos Android de gama baja (512 MB de RAM). De lo contrario, la carga en segundo plano se realizará cuando el dispositivo svelte esté inactivo.</translation>
 <translation id="5097002363526479830">Error al conectar a la red "<ph name="NAME" />": <ph name="DETAILS" /></translation>
 <translation id="5098629044894065541">Hebreo</translation>
 <translation id="5098647635849512368">No se puede encontrar la ruta de acceso absoluta al directorio al paquete.</translation>
@@ -3812,6 +3812,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="5957613098218939406">Más opciones</translation>
 <translation id="5958529069007801266">Usuario supervisado</translation>
 <translation id="5959471481388474538">Red no disponible</translation>
+<translation id="5959728338436674663">Enviar automáticamente <ph name="BEGIN_WHITEPAPER_LINK" />determinado contenido de la página e información del sistema<ph name="END_WHITEPAPER_LINK" /> a Google para detectar apps y sitios peligrosos <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Obtener temas</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> máximo)</translation>
 <translation id="5965403572731919803">Agregar a la biblioteca…</translation>
@@ -5376,7 +5377,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8074127646604999664">Permitir que los sitios cerrados recientemente terminen de enviar y recibir datos</translation>
 <translation id="8077684120002777443">Nombre de usuario (p. ej., usuario@ejemplo.com)</translation>
 <translation id="8079530767338315840">Repetir</translation>
-<translation id="8081035298624755899">Habilita la carga en segundo plano y de forma simultánea en dispositivos svelte.</translation>
+<translation id="8081035298624755899">Habilita la carga en segundo plano y de forma simultánea en dispositivos de gama baja.</translation>
 <translation id="8083739373364455075">Obtén 100 GB de espacio libre con Google Drive</translation>
 <translation id="8086015605808120405">Configurando <ph name="PRINTER_NAME" />…</translation>
 <translation id="8088137642766812908">Ten cuidado con esta función</translation>

@@ -266,6 +266,7 @@ Na následující obrazovce prosím zadejte zpětnou vazbu, která nám problém
 <translation id="1353966721814789986">Stránky otevírané při spuštění</translation>
 <translation id="1354868058853714482">Program Adobe Reader je zastaralý a nemusí být zabezpečený.</translation>
 <translation id="1355408554203439639">3D softwarový rasterizér</translation>
+<translation id="1355466263109342573">Plugin <ph name="PLUGIN_NAME" /> je blokován</translation>
 <translation id="1355542767438520308">Došlo k chybě. Některé položky možná nebyly smazány.</translation>
 <translation id="1357589289913453911">ID rozšíření</translation>
 <translation id="1358032944105037487">Japonská klávesnice</translation>
@@ -743,7 +744,7 @@ UPOZORNĚNÍ: Když toto pravidlo povolíte, Chrome bude zaznamenávat data o v
 <translation id="1951615167417147110">Přejít o 1 stránku nahoru</translation>
 <translation id="1956050014111002555">Soubor obsahoval více certifikátů, ale žádný z nich nebyl importován:</translation>
 <translation id="1957988341423158185">Štítek pro sledování prohlížení internetu</translation>
-<translation id="1961376890474801922">Velmi experimentální funkce, ve které jsou hosté, jako je &amp;lt;webview&gt;, implementováni v infrastruktuře prvků iframe mimo proces.</translation>
+<translation id="1961376890474801922">Vysoce experimentální funkce, ve které jsou hosté, jako je &amp;lt;webview&gt;, implementováni v infrastruktuře prvků iframe mimo proces.</translation>
 <translation id="1962233722219655970">Tato stránka používá aplikaci nativního klienta, která ve vašem počítači nefunguje.</translation>
 <translation id="1963227389609234879">Odstranit vše</translation>
 <translation id="1965328510789761112">Privátní paměť</translation>
@@ -2218,7 +2219,6 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="3801082500826908679">faerština</translation>
 <translation id="3803991353670408298">Před odstraněním této metody zadávání dat prosím přidejte jinou.</translation>
 <translation id="380408572480438692">Pokud aktivujete shromažďování údajů o výkonu, pomůžete společnosti Google systém postupně zlepšovat. Žádné údaje nebudou odesílány, dokud neodešlete zprávu se zpětnou vazbou (Alt+Shift+I) a údaje o výkonu v něm neuvedete. Shromažďování dat můžete na této stránce kdykoli deaktivovat.</translation>
-<translation id="3807249107536149332">Rozšíření <ph name="EXTENSION_NAME" /> (ID: <ph name="EXTENSION_ID" />) na přihlašovací obrazovce není povoleno.</translation>
 <translation id="3807747707162121253">Zrušit</translation>
 <translation id="3809280248639369696">Marťan</translation>
 <translation id="3810973564298564668">Spravovat</translation>

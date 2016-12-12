@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Začetne strani</translation>
 <translation id="1354868058853714482">Adobe Reader je zastarel in morda ni varen.</translation>
 <translation id="1355408554203439639">Programski rasterizator 3D</translation>
+<translation id="1355466263109342573">Vtičnik <ph name="PLUGIN_NAME" /> je blokiran</translation>
 <translation id="1355542767438520308">Prišlo je do napake. Nekateri elementi morda niso izbrisani.</translation>
 <translation id="1357589289913453911">ID razširitve</translation>
 <translation id="1358032944105037487">Japonska tipkovnica</translation>
@@ -2221,7 +2222,6 @@ Iz <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">ferščina</translation>
 <translation id="3803991353670408298">Preden odstranite način vnosa, dodajte novega.</translation>
 <translation id="380408572480438692">Če omogočite zbiranje podatkov o učinkovitosti delovanja, boste Googlu pomagali sčasoma izboljšati sistem. Nobeni podatki se ne pošljejo, dokler ne pošljete poročila (Alt–Shift–I), v katerega vključite podatke o učinkovitosti delovanja. Na to stran se lahko kadar koli vrnete in onemogočite zbiranje podatkov.</translation>
-<translation id="3807249107536149332">Razširitev <ph name="EXTENSION_NAME" /> (ID razširitve »<ph name="EXTENSION_ID" />«) ni dovoljena na zaslonu za prijavo.</translation>
 <translation id="3807747707162121253">&amp;Prekliči</translation>
 <translation id="3809280248639369696">Vesoljec</translation>
 <translation id="3810973564298564668">Upravljanje</translation>
@@ -5042,7 +5042,7 @@ Uporabljajte to funkcijo samo z računi, ki jim zaupate.</translation>
 <translation id="7624154074265342755">Brezžična omrežja</translation>
 <translation id="7624337243375417909">zaklepanje velikih črk je izklopljeno</translation>
 <translation id="7626009897377900107">Ustvarjanje gesel</translation>
-<translation id="7627262197844840899">To spletno mesto ne sprejema kartic MasterCard.</translation>
+<translation id="7627262197844840899">To spletno mesto ne sprejema kartic Mastercard.</translation>
 <translation id="7627790789328695202">Ups, datoteka <ph name="FILE_NAME" /> že obstaja. Preimenujte jo in poskusite znova.</translation>
 <translation id="7628127343934101653">Odpri datoteke PDF v privzeti aplikaciji za pregledovanje PDF-jev.</translation>
 <translation id="762917759028004464">Privzeti brskalnik je trenutno <ph name="BROWSER_NAME" />.</translation>

@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">시작 페이지</translation>
 <translation id="1354868058853714482">Adobe Reader가 오래되어 보안에 문제가 있을 수 있습니다.</translation>
 <translation id="1355408554203439639">3D 소프트웨어 래스터라이저</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" />이(가) 차단되었습니다.</translation>
 <translation id="1355542767438520308">오류가 발생했습니다. 일부 항목이 삭제되지 않았을 수 있습니다.</translation>
 <translation id="1357589289913453911">확장 프로그램 ID</translation>
 <translation id="1358032944105037487">일본어 키보드</translation>
@@ -290,7 +291,7 @@
 <translation id="1375321115329958930">저장된 비밀번호</translation>
 <translation id="1376740484579795545">사용 설정하면 chrome://downloads/ URL에서 머티리얼 디자인 다운로드 페이지를 로드합니다.</translation>
 <translation id="1377600615067678409">건너뛰기</translation>
-<translation id="1378613616312864539"><ph name="NAME" />님이 이 설정을 제어함</translation>
+<translation id="1378613616312864539"><ph name="NAME" />이(가) 이 설정을 제어함</translation>
 <translation id="1378727793141957596">Google 드라이브에 오신 것을 환영합니다.</translation>
 <translation id="1383861834909034572">완료되면 열기</translation>
 <translation id="1383876407941801731">검색</translation>
@@ -1708,7 +1709,7 @@
 <translation id="3154429428035006212">1달 이상 오프라인 상태</translation>
 <translation id="3157931365184549694">복구</translation>
 <translation id="3158564748719736353">사용하도록 설정하면 기기가 웹포털 인증의 보호를 받는 네트워크에 연결될 때 알림이 표시됩니다.</translation>
-<translation id="3159386328383139451">Google에서 사용자 위치를 사용하여 더 나은 로컬 환경을 제공합니다. <ph name="SETTINGS_LINK" />에서 이 설정을 변경할 수 있습니다.</translation>
+<translation id="3159386328383139451">Google에서 사용자 위치를 사용하여 더 나은 지역 정보를 제공합니다. <ph name="SETTINGS_LINK" />에서 이 설정을 변경할 수 있습니다.</translation>
 <translation id="3160041952246459240">다음 서버를 식별하는 인증서가 등록되어 있습니다.</translation>
 <translation id="316125635462764134">앱 제거</translation>
 <translation id="3161522574479303604">모든 언어</translation>
@@ -2221,7 +2222,6 @@
 <translation id="3801082500826908679">페로스어</translation>
 <translation id="3803991353670408298">이 입력 방법을 제거하기 전에 다른 입력 방법을 추가하세요.</translation>
 <translation id="380408572480438692">성능 데이터를 수집하도록 설정하면 시간이 지남에 따라 Google에서 시스템을 개선하는 데 도움이 됩니다. 데이터는 사용자가 피드백 보고서를 제출하고(Alt-Shift-I) 성능 데이터를 포함할 때까지 전송되지 않습니다. 언제든지 이 화면으로 돌아와 데이터 수집을 중지할 수 있습니다.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" />(확장 프로그램 ID: '<ph name="EXTENSION_ID" />')은(는) 로그인 화면에서 허용되지 않습니다.</translation>
 <translation id="3807747707162121253">취소(&amp;C)</translation>
 <translation id="3809280248639369696">달빛</translation>
 <translation id="3810973564298564668">관리</translation>
@@ -3816,6 +3816,7 @@
 <translation id="5957613098218939406">옵션 더보기</translation>
 <translation id="5958529069007801266">관리 대상 사용자</translation>
 <translation id="5959471481388474538">네트워크에 연결할 수 없음</translation>
+<translation id="5959728338436674663">위험한 앱과 사이트를 감지할 수 있도록 일부 <ph name="BEGIN_WHITEPAPER_LINK" />시스템 정보와 페이지 콘텐츠<ph name="END_WHITEPAPER_LINK" />를 Google로 자동 전송합니다. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">테마 추가</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" />(최대 <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">실행기에 추가...</translation>

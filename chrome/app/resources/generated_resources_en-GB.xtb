@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Startup pages:</translation>
 <translation id="1354868058853714482">Adobe Reader is out of date and may be insecure.</translation>
 <translation id="1355408554203439639">3D software rasteriser</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> is blocked</translation>
 <translation id="1355542767438520308">An error occured. Some items may not have been deleted.</translation>
 <translation id="1357589289913453911">Extension ID</translation>
 <translation id="1358032944105037487">Japanese keyboard</translation>
@@ -2220,7 +2221,6 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Faroese</translation>
 <translation id="3803991353670408298">Please add another input method before removing this one.</translation>
 <translation id="380408572480438692">Enabling collection of performance data will help Google improve the system over time. No data is sent until you file a feedback report (Alt-Shift-I) and include performance data. You can return to this screen to disable collection at any time.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (extension ID "<ph name="EXTENSION_ID" />") is not allowed on a login screen.</translation>
 <translation id="3807747707162121253">&amp;Cancel</translation>
 <translation id="3809280248639369696">Moonbeam</translation>
 <translation id="3810973564298564668">Manage</translation>

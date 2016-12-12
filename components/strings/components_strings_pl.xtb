@@ -432,7 +432,7 @@
 <translation id="5629630648637658800">Ładowanie ustawień zasady nie powiodło się</translation>
 <translation id="5631439013527180824">Nieprawidłowy token zarządzania urządzeniem</translation>
 <translation id="5677928146339483299">Zablokowane</translation>
-<translation id="5694783966845939798">Próbujesz połączyć się z domeną <ph name="DOMAIN" />, ale serwer przedstawił certyfikat podpisany słabym algorytmem (np. SHA-1). Oznacza to, że dane logowania podane przez serwer mogły zostać sfałszowane, a serwer może nie być tym, którego oczekujesz (możliwe, że komunikujesz się z intruzem). <ph name="BEGIN_LEARN_MORE_LINK" />Dowiedz się więcej<ph name="END_LEARN_MORE_LINK" />.</translation>
+<translation id="5694783966845939798">Próbujesz połączyć się z domeną <ph name="DOMAIN" />, ale serwer przedstawił certyfikat podpisany słabym algorytmem (np. SHA-1). Oznacza to, że dane logowania podane przez serwer mogły zostać sfałszowane, a serwer może nie być tym, którego oczekujesz (możliwe, że komunikujesz się z intruzem). <ph name="BEGIN_LEARN_MORE_LINK" />Więcej informacji<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="5710435578057952990">Tożsamość witryny nie została zweryfikowana.</translation>
 <translation id="5720705177508910913">Bieżący użytkownik</translation>
 <translation id="572328651809341494">Ostatnie karty</translation>
@@ -489,7 +489,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{1 inna podpowiedź}few{# inne podpowiedzi}many{# innych podpowiedzi}other{# innej podpowiedzi}}</translation>
 <translation id="6387478394221739770">Interesują Cię nowe, przydatne funkcje Chrome? Wypróbuj wersję beta ze strony chrome.com/beta.</translation>
 <translation id="6389758589412724634">Podczas próby wyświetlenia tej strony w Chromium zabrakło pamięci.</translation>
-<translation id="6414888972213066896">Zapytałeś rodzica, czy możesz odwiedzić tę witrynę</translation>
+<translation id="6414888972213066896">Zapytałeś rodzica, czy możesz odwiedzić tę stronę</translation>
 <translation id="6416403317709441254">Nie możesz teraz wejść na <ph name="SITE" />, bo ta witryna wysłała zaszyfrowane dane logowania, których Chromium nie może przetworzyć. Błędy sieci i ataki są zazwyczaj przejściowe, więc prawdopodobnie później strona będzie działać. <ph name="BEGIN_LEARN_MORE_LINK" />Dowiedz się więcej<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6417515091412812850">Nie można sprawdzić, czy certyfikat został unieważniony.</translation>
 <translation id="6433595998831338502">Serwer <ph name="HOST_NAME" /> odrzucił połączenie.</translation>

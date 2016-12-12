@@ -158,7 +158,7 @@
 <translation id="2639739919103226564">الحالة:</translation>
 <translation id="2650446666397867134">تم رفض الدخول إلى الملف</translation>
 <translation id="2653659639078652383">إرسال</translation>
-<translation id="2674170444375937751">هل تريد بالتأكيد حذف هذه الصفحات من السجل؟</translation>
+<translation id="2674170444375937751">هل تريد فعلًا حذف هذه الصفحات من السجل؟</translation>
 <translation id="2677748264148917807">الخروج</translation>
 <translation id="269990154133806163">قدم الخادم شهادة لم يتم الكشف عنها علنًا باستخدام سياسة شهادة الشفافية. وهذا ضروري لبعض الشهادات، لضمان أنها جديرة بالثقة ومحمية من المهاجمين. <ph name="BEGIN_LEARN_MORE_LINK" />مزيد من المعلومات<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="2704283930420550640">القيمة لا تطابق التنسيق.</translation>
@@ -571,7 +571,7 @@
 <translation id="7378627244592794276">لا</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">التأكد من البطاقة</translation>
-<translation id="7394102162464064926">هل تريد بالتأكيد حذف هذه الصفحات من السجل؟
+<translation id="7394102162464064926">هل تريد فعلًا حذف هذه الصفحات من السجل؟
 
 اعلم أنه يمكن الاستفادة من وضع التصفح المتخفي <ph name="SHORTCUT_KEY" /> في المرة التالية.</translation>
 <translation id="7400418766976504921">‏عنوان URL</translation>

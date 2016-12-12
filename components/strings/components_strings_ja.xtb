@@ -363,7 +363,7 @@
 <translation id="4813512666221746211">ネットワーク エラー</translation>
 <translation id="4816492930507672669">ページサイズに合わせる</translation>
 <translation id="4850886885716139402">表示</translation>
-<translation id="4858792381671956233">このサイトを開いてもよいか保護者にたずねました</translation>
+<translation id="4858792381671956233">このサイトを開いてもよいかの問い合わせを保護者に送信しました</translation>
 <translation id="4880827082731008257">履歴を検索</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />、<ph name="TYPE_2" />、<ph name="TYPE_3" /></translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{他 1 件のウェブページ}other{他 # 件のウェブページ}}</translation>
@@ -489,7 +489,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{他 1 件の候補}other{他 # 件の候補}}</translation>
 <translation id="6387478394221739770">Chrome の新しい機能に関心をお持ちでしたら、chrome.com/beta から Beta チャンネルをお試しください。</translation>
 <translation id="6389758589412724634">このウェブページを表示しようとしましたが、Chromium のメモリが不足しています。</translation>
-<translation id="6414888972213066896">このサイトを開いてもよいか保護者にたずねました</translation>
+<translation id="6414888972213066896">このサイトを開いてもよいかの問い合わせを保護者に送信しました</translation>
 <translation id="6416403317709441254"><ph name="SITE" /> から送信された暗号化済みの認証情報を Chromium で処理できないため、現在このウェブサイトにアクセスできません。通常、ネットワーク エラーや不正な操作は一時的なものです。少し時間をおくと、またページにアクセスできるようになる可能性があります。<ph name="BEGIN_LEARN_MORE_LINK" />詳細<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6417515091412812850">証明書が取り消されたかどうかを確認できません。</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> で接続が拒否されました。</translation>

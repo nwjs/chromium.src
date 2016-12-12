@@ -357,7 +357,7 @@
 <translation id="4996978546172906250">שתף באמצעות</translation>
 <translation id="5000922062037820727">חסומה (מומלץ)</translation>
 <translation id="5005498671520578047">העתק סיסמה</translation>
-<translation id="5011311129201317034"><ph name="SITE" /> רוצה להתחבר אל</translation>
+<translation id="5011311129201317034"><ph name="SITE" /> מבקש להתחבר אל</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5039804452771397117">אפשר</translation>
 <translation id="5040262127954254034">פרטיות</translation>
@@ -527,6 +527,7 @@
 <translation id="666731172850799929">פתח ב-<ph name="APP_NAME" /></translation>
 <translation id="666981079809192359">‏הודעת הפרטיות של Chrome</translation>
 <translation id="6698801883190606802">נהל נתונים מסונכרנים</translation>
+<translation id="6701279291835318271">דוחות אבטחה</translation>
 <translation id="6710213216561001401">הקודם</translation>
 <translation id="6738867403308150051">מוריד...</translation>
 <translation id="6743044928064272573">אפשרות איסוף</translation>

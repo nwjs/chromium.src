@@ -71,7 +71,7 @@
 <translation id="168841957122794586">אישור השרת מכיל מפתח הצפנה חלש.</translation>
 <translation id="1701955595840307032">קבל הצעות לתוכן</translation>
 <translation id="1710259589646384581">מערכת הפעלה</translation>
-<translation id="1721312023322545264">עליך לפנות אל <ph name="NAME" /> לקבלת הרשאה לבקר באתר הזה</translation>
+<translation id="1721312023322545264">עליך לפנות אל <ph name="NAME" /> לקבלת הרשאה לביקור באתר הזה</translation>
 <translation id="1734864079702812349">Amex</translation>
 <translation id="1734878702283171397">נסה לפנות אל מנהל המערכת.</translation>
 <translation id="1745358365027406341">הורד את הדף מאוחר יותר</translation>
@@ -494,7 +494,7 @@ Del</translation>
 <translation id="6386120369904791316">{COUNT,plural, =1{הצעה אחת נוספת}two{שתי הצעות נוספות}many{# הצעות נוספות}other{# הצעות נוספות}}</translation>
 <translation id="6387478394221739770">‏מעוניין בתכונות חדשות ומגניבות של Chrome? נסה את ערוץ הביטא שלנו בכתובת chrome.com/beta.</translation>
 <translation id="6389758589412724634">‏אזל הזיכרון הזמין ל-Chromium בניסיון להציג את דף האינטרנט הזה.</translation>
-<translation id="6414888972213066896">שאלת את אחד מההורים שלך אם אתה יכול לבקר באתר הזה</translation>
+<translation id="6414888972213066896">שאלת אחד מהוריך אם אתה יכול לבקר באתר הזה</translation>
 <translation id="6416403317709441254">‏לא ניתן לבקר עכשיו ב-<ph name="SITE" /> מכיוון שהאתר שלח אישורים לא תקינים ש-Chromium לא מצליח לעבד. שגיאות רשת ותקיפות מתרחשות בדרך כלל לזמן מוגבל, ולכן סביר להניח שדף זה יחזור לפעול מאוחר יותר. <ph name="BEGIN_LEARN_MORE_LINK" />למידע נוסף<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6417515091412812850">לא ניתן לבדוק אם האישור נשלל.</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> סירב להתחבר.</translation>
@@ -526,7 +526,7 @@ Del</translation>
 <translation id="674375294223700098">שגיאת אישור שרת לא ידוע.</translation>
 <translation id="6753269504797312559">ערך מדיניות</translation>
 <translation id="6757797048963528358">המכשיר עבר למצב שינה.</translation>
-<translation id="6778737459546443941">ההורה שאותו שאלת עדיין לא אישר זאת</translation>
+<translation id="6778737459546443941">ההורה ששאלת עדיין לא אישר זאת</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">דף האינטרנט <ph name="URL" /> אינו זמין כעת. ייתכן שהוא בעומס יתר או שהושבת לצורך תחזוקה.</translation>
 <translation id="6831043979455480757">תרגם</translation>

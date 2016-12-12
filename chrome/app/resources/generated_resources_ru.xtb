@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Страницы при запуске</translation>
 <translation id="1354868058853714482">Текущая версия Adobe Reader устарела. Ее использование может быть небезопасным.</translation>
 <translation id="1355408554203439639">Растеризатор 3D-программ</translation>
+<translation id="1355466263109342573">Плагин "<ph name="PLUGIN_NAME" />" заблокирован</translation>
 <translation id="1355542767438520308">Произошла ошибка. Возможно, не все элементы были удалены.</translation>
 <translation id="1357589289913453911">Идентификатор расширения</translation>
 <translation id="1358032944105037487">Японская раскладка</translation>
@@ -2221,7 +2222,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3801082500826908679">Фарерский</translation>
 <translation id="3803991353670408298">Добавьте другой способ ввода, прежде чем удалять этот.</translation>
 <translation id="380408572480438692">Сбор данных о производительности помогает Google улучшать работу системы. Данные отправляются только тогда, когда пользователь отправляет отзыв (Alt-Shift-I) и решает приложить к нему данные о производительности. В любое время можно вернуться на эту страницу и отключить сбор данных.</translation>
-<translation id="3807249107536149332">Расширение "<ph name="EXTENSION_NAME" />" (ID <ph name="EXTENSION_ID" />) запрещено использовать на экране входа</translation>
 <translation id="3807747707162121253">&amp;Отмена</translation>
 <translation id="3809280248639369696">Пришелец</translation>
 <translation id="3810973564298564668">Настроить</translation>
@@ -3817,6 +3817,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5957613098218939406">Другое</translation>
 <translation id="5958529069007801266">Контролируемый профиль</translation>
 <translation id="5959471481388474538">Сеть недоступна</translation>
+<translation id="5959728338436674663">Автоматически отправлять <ph name="BEGIN_WHITEPAPER_LINK" />системную информацию и контент страниц<ph name="END_WHITEPAPER_LINK" /> в Google, чтобы улучшить распознавание опасных приложений и сайтов. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Выбрать тему</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (макс. <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">Добавить на панель запуска...</translation>

@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Käynnistyssivut:</translation>
 <translation id="1354868058853714482">Adobe Reader on vanhentunut ja siinä voi olla tietosuoja-aukkoja.</translation>
 <translation id="1355408554203439639">Ohjelmistopohjainen 3D-rasterointi</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> on estetty</translation>
 <translation id="1355542767438520308">Tapahtui virhe. Kaikkia kohteita ei välttämättä poistettu.</translation>
 <translation id="1357589289913453911">Laajennustunnus</translation>
 <translation id="1358032944105037487">Näppäimistö: japani</translation>
@@ -2220,7 +2221,6 @@ verkkotunnuksesta <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">fääri</translation>
 <translation id="3803991353670408298">Lisää toinen syöttötapa ennen tämän tavan poistamista.</translation>
 <translation id="380408572480438692">Ottamalla tehokkuustietojen keräämisen käyttöön autat Googlea parantamaan järjestelmää ajan myötä. Tietoja lähetetään vasta luodessasi palauteraportin (Alt-Shift-I) ja lisätessäsi siihen tehokkuustiedot. Voit poistaa tietojen keräämisen käytöstä milloin tahansa palaamalla tähän ruutuun.</translation>
-<translation id="3807249107536149332">Laajennusta <ph name="EXTENSION_NAME" /> (<ph name="EXTENSION_ID" />) ei sallita kirjautumisnäytöllä.</translation>
 <translation id="3807747707162121253">&amp;Peruuta</translation>
 <translation id="3809280248639369696">Kuunsäde</translation>
 <translation id="3810973564298564668">Hallinnoi</translation>
@@ -5031,7 +5031,7 @@ Käytä tätä ominaisuutta vain luotettavien tilien kanssa.</translation>
 <translation id="7624154074265342755">Langattomat verkot</translation>
 <translation id="7624337243375417909">caps lock pois päältä</translation>
 <translation id="7626009897377900107">Salasanojen luominen</translation>
-<translation id="7627262197844840899">Tässä sivustossa ei voi käyttää MasterCardia.</translation>
+<translation id="7627262197844840899">Tässä sivustossa ei voi käyttää Mastercardia.</translation>
 <translation id="7627790789328695202">Hups, <ph name="FILE_NAME" /> on jo olemassa. Anna kohteelle toinen nimi ja yritä uudelleen.</translation>
 <translation id="7628127343934101653">Avaa PDF-tiedostot PDF:ien oletuskatselusovelluksessa</translation>
 <translation id="762917759028004464">Tällä hetkellä oletusselain on <ph name="BROWSER_NAME" />.</translation>

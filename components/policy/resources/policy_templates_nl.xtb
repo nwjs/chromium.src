@@ -657,13 +657,13 @@
 <translation id="2899002520262095963">Android-apps kunnen de netwerkconfiguraties en CA-certificaten gebruiken die via dit beleid zijn ingesteld, maar hebben geen toegang tot bepaalde configuratieopties.</translation>
 <translation id="2901399514673504930">Externe opslagapparaten behandelen als alleen-lezen.
 
-      Dit beleid is alleen van toepassing wanneer ExternalStorageDisabled is ingesteld op 'onwaar' of niet is geconfigureerd.
+      Deze instelling is alleen van toepassing wanneer ExternalStorageDisabled is ingesteld op 'onwaar' of niet is geconfigureerd.
 
-      Wanneer dit beleid is ingesteld op 'waar', kunnen gebruikers niets schrijven naar externe opslagapparaten.
+      Wanneer deze instelling is ingesteld op 'waar', kunnen gebruikers niets schrijven naar externe opslagapparaten.
 
-      Als deze instelling is uitgeschakeld of niet is geconfigureerd, kunnen gebruikers bestanden maken en aanpassen op externe opslagapparaten waarop fysiek kan worden geschreven.
+      Als deze instelling is uitgeschakeld of niet is geconfigureerd, kunnen gebruikers bestanden maken en aanpassen op externe opslagapparaten waarop kan worden geschreven.
 
-      Dynamische vernieuwing van dit beleid wordt ondersteund in M56 en hoger.</translation>
+      Dynamische vernieuwing van deze instelling wordt ondersteund in M56 en hoger.</translation>
 <translation id="2906874737073861391">Lijst met app-pakketextensies</translation>
 <translation id="2908277604670530363">Maximaal aantal gelijktijdige verbindingen met de proxyserver</translation>
 <translation id="2948087343485265211">Hiermee wordt gespecificeerd of audioactiviteit invloed heeft op stroombeheer.
@@ -1507,9 +1507,9 @@
           Als deze instelling is ingeschakeld, vergelijkt de host voor externe toegang de naam van de lokale gebruiker (waaraan de host is gekoppeld) met de naam van het Google-account dat is geregistreerd als eigenaar van de host (bijvoorbeeld 'jansmits' als de host eigendom is van het Google-account jansmits@voorbeeld.nl). De host voor externe toegang wordt niet gestart als de naam van de hosteigenaar anders is dan de naam van de lokale gebruiker waaraan de host is gekoppeld. Het beleid 'RemoteAccessHostMatchUsername' moet samen met 'RemoteAccessHostDomain' worden gebruikt om ook te zorgen dat het Google-account van de hosteigenaar aan een specifiek domein wordt gekoppeld (zoals 'voorbeeld.nl').
 
           Als deze instelling is uitgeschakeld of niet ingesteld, kan de host voor externe toegang aan elke lokale gebruiker worden gekoppeld.</translation>
-<translation id="5694594914843889579">Wanneer dit beleid is ingesteld op 'waar', is externe opslag niet beschikbaar in de bestandsbrowser.
+<translation id="5694594914843889579">Wanneer de instelling is ingesteld op 'waar', is externe opslag niet beschikbaar in de bestandsbrowser.
 
-      Dit beleid is van toepassing op alle typen opslagmedia. Bijvoorbeeld: USB-flashdrives, externe harde schijven, SD-kaarten en andere geheugenkaarten, optische opslag, enzovoort. Dit is niet van toepassing op interne opslag, dus bestanden die zijn opgeslagen in de downloadmap, zijn nog steeds toegankelijk. Dit beleid is ook niet van toepassing op Google Drive.
+      Deze instelling is van toepassing op alle typen opslagmedia. Bijvoorbeeld: USB-flashdrives, externe harde schijven, SD-kaarten en andere geheugenkaarten, optische opslag, enzovoort. Deze is niet van toepassing op interne opslag, dus bestanden die zijn opgeslagen in de downloadmap, zijn nog steeds toegankelijk. De instelling is ook niet van toepassing op Google Drive.
 
       Als deze instelling is uitgeschakeld of niet is geconfigureerd, kunnen gebruikers alle ondersteunde typen externe opslag gebruiken op hun apparaat.</translation>
 <translation id="5697306356229823047">Apparaatgebruikers melden</translation>

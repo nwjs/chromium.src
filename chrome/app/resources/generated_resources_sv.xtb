@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Startsidor</translation>
 <translation id="1354868058853714482">Adobe Reader är inte uppdaterat och kan vara osäkert.</translation>
 <translation id="1355408554203439639">3D-rastreringsprogramvara</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> har blockerats</translation>
 <translation id="1355542767438520308">Ett fel uppstod. Vissa objekt kanske inte har tagits bort.</translation>
 <translation id="1357589289913453911">Tilläggs-ID</translation>
 <translation id="1358032944105037487">Japanskt tangentbord</translation>
@@ -2219,7 +2220,6 @@ Från <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">färöiska</translation>
 <translation id="3803991353670408298">Lägg till en annan inmatningsmetod innan du tar bort den här.</translation>
 <translation id="380408572480438692">Aktivering av insamling av resultatdata hjälper Google att förbättra systemet med tiden. Inga data skickas förrän du skickar en feedbackrapport (Alt-Skift-I) och inkluderar resultatdata. Du kan när som helst återgå till den här skärmen för att inaktivera insamlingen.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (tilläggs-id <ph name="EXTENSION_ID" />) får inte användas på en inloggningsskärm.</translation>
 <translation id="3807747707162121253">&amp;Avbryt</translation>
 <translation id="3809280248639369696">Utomjording</translation>
 <translation id="3810973564298564668">Hantera</translation>
@@ -3815,6 +3815,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="5957613098218939406">Fler alternativ</translation>
 <translation id="5958529069007801266">Övervakad användare</translation>
 <translation id="5959471481388474538">Nätverket är inte tillgängligt</translation>
+<translation id="5959728338436674663">Skicka automatiskt viss <ph name="BEGIN_WHITEPAPER_LINK" />information om systemet och innehåll på sidan<ph name="END_WHITEPAPER_LINK" /> för att hjälpa Google att identifiera skadliga appar och webbplatser. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Hämta teman</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> som mest)</translation>
 <translation id="5965403572731919803">Lägg till på hyllan …</translation>

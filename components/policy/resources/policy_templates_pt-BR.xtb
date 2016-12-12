@@ -1399,9 +1399,9 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
           Se esta configuração é ativada, o host de acesso remoto compara o nome do usuário local (ao qual o host está associado) com o nome da Conta do Google registrada como proprietária do host (ou seja, "johndoe" se o host for propriedade da Conta do Google "johndoe@example.com"). O host de acesso remoto não é iniciado se o nome do proprietário do host é diferente do nome do usuário local ao qual o host está associado. A política RemoteAccessHostMatchUsername deve ser usada juntamente com RemoteAccessHostDomain para garantir, também, que a Conta do Google do proprietário do host esteja associada a um domínio específico (ou seja, "example.com").
 
           Se esta configuração é desativada ou não é definida, o host de acesso remoto pode ser associado a qualquer usuário local.</translation>
-<translation id="5694594914843889579">Quando esta política for definida como "true", o armazenamento externo não ficará disponível no navegador de arquivos.
+<translation id="5694594914843889579">Quando esta política é definida como "true", o armazenamento externo não fica disponível no navegador de arquivos.
 
-      Esta política afeta todos os tipos de mídia de armazenamento, como, por exemplo: unidades flash USB, discos rígidos externos, cartões SD e outros cartões de memória, armazenamento óptico, etc. Como o armazenamento interno não é afetado, os arquivos salvos na pasta "Download" podem ser acessados. O Google Drive também não é afetado por esta política.
+      Esta política afeta todos os tipos de mídia de armazenamento, como, por exemplo: unidades flash USB, discos rígidos externos, cartões SD e outros cartões de memória, armazenamento óptico, etc. Como o armazenamento interno não é afetado, os arquivos salvos na pasta "Download" continuam acessíveis. O Google Drive também não é afetado por esta política.
 
       Se esta configuração for desativada ou não for definida, os usuários poderão usar todos os tipos de armazenamento externo compatíveis com o dispositivo.</translation>
 <translation id="5697306356229823047">Reporta os usuários do dispositivo</translation>

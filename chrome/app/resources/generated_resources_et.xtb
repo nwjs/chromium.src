@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Käivitamisel avatavad lehed</translation>
 <translation id="1354868058853714482">Adobe Reader on aegunud ega pruugi olla turvaline.</translation>
 <translation id="1355408554203439639">3D-tarkvararasterdaja</translation>
+<translation id="1355466263109342573">Pistikprogramm <ph name="PLUGIN_NAME" /> on blokeeritud</translation>
 <translation id="1355542767438520308">Ilmnes viga. Mõnd üksust ei pruugitud kustutada.</translation>
 <translation id="1357589289913453911">Laienduse ID</translation>
 <translation id="1358032944105037487">Jaapani klaviatuur</translation>
@@ -2220,7 +2221,6 @@ Asukohast <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">fääri</translation>
 <translation id="3803991353670408298">Enne selle sisestusmeetodi eemaldamist lisage mõni muu sisestusmeetod.</translation>
 <translation id="380408572480438692">Kui lubate toimivusandmete kogumise, siis aitab see Google'il aja jooksul süsteemi täiustada. Andmed saadetakse alles siis, kui saadate tagasiside aruande (Alt-tõstuklahv-I) ja lisate toimivusandmed. Võite igal ajal naasta sellele kuvale ja keelata andmete kogumise.</translation>
-<translation id="3807249107536149332">Laiendus <ph name="EXTENSION_NAME" /> (laienduse ID „<ph name="EXTENSION_ID" />”) pole sisselogimisekraanil lubatud.</translation>
 <translation id="3807747707162121253">&amp;Loobu</translation>
 <translation id="3809280248639369696">Tulnukas</translation>
 <translation id="3810973564298564668">Halda</translation>
@@ -3815,6 +3815,7 @@ Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="5957613098218939406">Rohkem valikuid</translation>
 <translation id="5958529069007801266">Valvatav kasutaja</translation>
 <translation id="5959471481388474538">Võrk ei ole saadaval</translation>
+<translation id="5959728338436674663">Saatke Google'ile automaatselt <ph name="BEGIN_WHITEPAPER_LINK" />süsteemiteavet ja lehe sisu<ph name="END_WHITEPAPER_LINK" />, et aidata tuvastada ohtlikke rakendusi ja saite. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Hangi teemasid</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (tipp <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">Lisa riiulile ...</translation>

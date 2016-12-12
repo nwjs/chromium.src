@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Startpagina's</translation>
 <translation id="1354868058853714482">Adobe Reader is verouderd en is mogelijk onveilig om te gebruiken.</translation>
 <translation id="1355408554203439639">3D-softwareraster</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> wordt geblokkeerd</translation>
 <translation id="1355542767438520308">Er is een fout opgetreden. Sommige items zijn mogelijk niet verwijderd.</translation>
 <translation id="1357589289913453911">Extensie-ID</translation>
 <translation id="1358032944105037487">Japans toetsenbord</translation>
@@ -742,7 +743,7 @@
 <translation id="1951615167417147110">Eén pagina omhoog bladeren</translation>
 <translation id="1956050014111002555">Het bestand bevatte meerdere certificaten. Geen van deze certificaten is geïmporteerd:</translation>
 <translation id="1957988341423158185">Traceringslabel voor navigatietracering</translation>
-<translation id="1961376890474801922">Zeer experimenteel waarbij gasten zoals &amp;lt;webview&gt; worden geïmplementeerd in de iframe-infrastructuur buiten het proces.</translation>
+<translation id="1961376890474801922">Zeer experimenteel waarbij gasttags zoals &amp;lt;webview&gt; worden geïmplementeerd in de iframe-infrastructuur buiten het proces.</translation>
 <translation id="1962233722219655970">Deze pagina gebruikt een Native Client-app die niet werkt op je computer.</translation>
 <translation id="1963227389609234879">Alles verwijderen</translation>
 <translation id="1965328510789761112">Privégeheugen</translation>
@@ -2220,7 +2221,6 @@ van <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Faeröers</translation>
 <translation id="3803991353670408298">Voeg een andere invoermethode toe voordat je deze verwijdert.</translation>
 <translation id="380408572480438692">Als je het verzamelen van prestatiegegevens inschakelt, help je Google het systeem steeds verder te verbeteren. Er worden geen gegevens verzonden totdat je een feedbackrapport (Alt-Shift-I) indient en prestatiegegevens opneemt. Je kunt op elk gewenst moment teruggaan naar dit scherm om het verzamelen uit te schakelen.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (extensie-ID <ph name="EXTENSION_ID" />) is niet toegestaan op een inlogscherm.</translation>
 <translation id="3807747707162121253">A&amp;nnuleren</translation>
 <translation id="3809280248639369696">Marsmannetje</translation>
 <translation id="3810973564298564668">Beheren</translation>
@@ -3814,6 +3814,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5957613098218939406">Meer opties</translation>
 <translation id="5958529069007801266">Gebruiker met beperkte rechten</translation>
 <translation id="5959471481388474538">Netwerk niet beschikbaar</translation>
+<translation id="5959728338436674663">Bepaalde <ph name="BEGIN_WHITEPAPER_LINK" />systeeminformatie en paginacontent<ph name="END_WHITEPAPER_LINK" /> automatisch verzenden naar Google om te helpen bij de detectie van gevaarlijke apps en sites. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Thema's ophalen</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> piek)</translation>
 <translation id="5965403572731919803">Toevoegen aan plank...</translation>
@@ -4396,7 +4397,7 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="6739923123728562974">Bureaubladsnelkoppeling weergeven</translation>
 <translation id="6740234557573873150"><ph name="FILE_NAME" /> onderbroken</translation>
 <translation id="6742339027238151589">Toegankelijk voor script</translation>
-<translation id="6744792120234414128">Frames voor meerdere processen voor gasten</translation>
+<translation id="6744792120234414128">Frames voor meerdere processen voor gasttags</translation>
 <translation id="6745592621698551453">Nu updaten</translation>
 <translation id="6746124502594467657">Omlaag</translation>
 <translation id="674632704103926902">Tikken en slepen inschakelen</translation>

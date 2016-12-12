@@ -445,7 +445,7 @@
 <translation id="5809361687334836369">{HOURS,plural, =1{# 小时前}other{# 小时前}}</translation>
 <translation id="5817918615728894473">配对</translation>
 <translation id="583281660410589416">未知</translation>
-<translation id="5832934273103296195">已展开 - 点击即可折叠</translation>
+<translation id="5832934273103296195">已展开 - 点击即可收起</translation>
 <translation id="583891442612896534">Chrome 无法连接到 Google 服务器来进行数据压缩，因此您节省的数据流量可能有限。</translation>
 <translation id="5860033963881614850">关闭</translation>
 <translation id="5867027562311576691">更多报道即将奉上。伴您度过美好的晨间时光。</translation>
@@ -460,7 +460,7 @@
 <translation id="6000066717592683814">继续使用 Google</translation>
 <translation id="6010869025736512584">正在存取视频输入</translation>
 <translation id="6012342843556706400">Chrome 需要具有位置信息使用权，才能批准此网站的分享请求。</translation>
-<translation id="6031101910111098835">已折叠 - 点击即可展开</translation>
+<translation id="6031101910111098835">已收起 - 点击即可展开</translation>
 <translation id="6040143037577758943">关闭</translation>
 <translation id="6042308850641462728">更多</translation>
 <translation id="604996488070107836">出现未知错误，未能下载 <ph name="FILE_NAME" />。</translation>
@@ -527,6 +527,7 @@
 <translation id="666731172850799929">在 <ph name="APP_NAME" />中打开</translation>
 <translation id="666981079809192359">Chrome 隐私权声明</translation>
 <translation id="6698801883190606802">管理已同步的数据</translation>
+<translation id="6701279291835318271">安全报告</translation>
 <translation id="6710213216561001401">上一个</translation>
 <translation id="6738867403308150051">即将开始下载…</translation>
 <translation id="6743044928064272573">取货选项</translation>

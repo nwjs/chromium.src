@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Laman permulaan</translation>
 <translation id="1354868058853714482">Adobe Reader sudah usang dan mungkin tidak aman.</translation>
 <translation id="1355408554203439639">Rasterizer perangkat lunak 3D</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> diblokir</translation>
 <translation id="1355542767438520308">Terjadi kesalahan. Beberapa item mungkin belum dihapus.</translation>
 <translation id="1357589289913453911">ID Ekstensi</translation>
 <translation id="1358032944105037487">Keyboard untuk bahasa Jepang</translation>
@@ -1702,7 +1703,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL" /> untuk melihat hal ini dan petu
 <translation id="315141861755603168">"<ph name="BUNDLE_NAME" />" menambahkan aplikasi ini:</translation>
 <translation id="3151786313568798007">Orientasi</translation>
 <translation id="3153177132960373163">Izinkan semua situs menggunakan plugin untuk mengakses komputer Anda</translation>
-<translation id="3154351730702813399">Admin perangkat dapat memantau aktivitas penjelajahan Anda.</translation>
+<translation id="3154351730702813399">Admin perangkat dapat memantau aktivitas akses internet Anda.</translation>
 <translation id="3154429428035006212">Offline selama lebih dari satu bulan</translation>
 <translation id="3157931365184549694">Pulihkan</translation>
 <translation id="3158564748719736353">Jika diaktifkan, pemberitahuan ditampilkan saat perangkat tersambung ke jaringan di belakang portal tertahan.</translation>
@@ -2219,7 +2220,6 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Faeroe</translation>
 <translation id="3803991353670408298">Tambahkan metode masukan lain sebelum menghapus ini.</translation>
 <translation id="380408572480438692">Mengaktifkan koleksi data kinerja akan membantu meningkatkan sistem sepanjang waktu. Tidak ada data yang terkirim hingga mengajukan laporan masukan (Alt-Shift-I) dan menyertakan data kinerja. Anda dapat kembali ke layar ini untuk menonaktifkan koleksi kapan saja.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (ID ekstensi "<ph name="EXTENSION_ID" />") tidak diizinkan di layar login.</translation>
 <translation id="3807747707162121253">&amp;Batal</translation>
 <translation id="3809280248639369696">Alien</translation>
 <translation id="3810973564298564668">Kelola</translation>
@@ -5028,7 +5028,7 @@ Hanya gunakan fitur ini dengan akun yang Anda percayai.</translation>
 <translation id="760197030861754408">Buka <ph name="LANDING_PAGE" /> untuk terhubung.</translation>
 <translation id="7602079150116086782">Tidak ada tab dari perangkat lainnya</translation>
 <translation id="7603461642606849762">Debug hanya jika URL manifes berakhir dengan debug.nmf.</translation>
-<translation id="7604942372593434070">Mengakses aktivitas penjelajahan Anda</translation>
+<translation id="7604942372593434070">Mengakses aktivitas akses internet Anda</translation>
 <translation id="7605594153474022051">Sinkronisasi tidak berfungsi</translation>
 <translation id="7606992457248886637">Otoritas</translation>
 <translation id="7607002721634913082">Dijeda</translation>

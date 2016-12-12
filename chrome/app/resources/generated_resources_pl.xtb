@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Strony otwierane po uruchomieniu</translation>
 <translation id="1354868058853714482">Program Adobe Reader jest nieaktualny i może mieć luki w zabezpieczeniach.</translation>
 <translation id="1355408554203439639">Programowy rasteryzator 3D</translation>
+<translation id="1355466263109342573">Wtyczka <ph name="PLUGIN_NAME" /> jest zablokowana</translation>
 <translation id="1355542767438520308">Wystąpił błąd. Niektóre elementy mogły nie zostać usunięte.</translation>
 <translation id="1357589289913453911">Identyfikator rozszerzenia</translation>
 <translation id="1358032944105037487">Klawiatura japońska</translation>
@@ -506,7 +507,7 @@
 <translation id="1627276047960621195">Deskryptory plików</translation>
 <translation id="1628736721748648976">Kodowanie</translation>
 <translation id="1632803087685957583">Pozwala zmienić ustawienia m.in. podpowiadania słów czy szybkości powtarzania klawiszy</translation>
-<translation id="1632840525091989276">To urządzenie obecnie wysyła do Google dane diagnostyczne i informacje o użytkowaniu. Zostało wymuszone przez właściciela. <ph name="BEGIN_LINK1" />Więcej informacji<ph name="END_LINK1" /></translation>
+<translation id="1632840525091989276">To urządzenie obecnie wysyła do Google dane diagnostyczne i informacje o użytkowaniu. Takie ustawienie zostało wymuszone przez właściciela. <ph name="BEGIN_LINK1" />Więcej informacji<ph name="END_LINK1" /></translation>
 <translation id="1634788685286903402">Ufaj temu certyfikatowi przy identyfikowaniu użytkowników poczty e-mail.</translation>
 <translation id="1635033183663317347">Zainstalowane przez opiekuna.</translation>
 <translation id="1636212173818785548">OK</translation>
@@ -617,7 +618,7 @@
 <translation id="1764226536771329714">beta</translation>
 <translation id="176587472219019965">&amp;Nowe okno</translation>
 <translation id="1769104665586091481">Otwórz link w nowym &amp;oknie</translation>
-<translation id="1772267994638363865">Aby to było możliwe, musisz włączyć aktywność głosową i dźwiękową oraz przeszkolić swoje urządzenie <ph name="DEVICE_TYPE" /> w następnym kroku.</translation>
+<translation id="1772267994638363865">Aby to było możliwe, musisz włączyć aktywność związaną z głosem i dźwiękiem oraz przeszkolić swoje urządzenie <ph name="DEVICE_TYPE" /> w następnym kroku.</translation>
 <translation id="1773212559869067373">Certyfikat uwierzytelniania został odrzucony lokalnie</translation>
 <translation id="177336675152937177">Dane udostępnianych aplikacji</translation>
 <translation id="1774367687019337077">Pozwala użytkownikowi zażądać strony w wersji na tablety. Treść WWW jest często zoptymalizowana pod kątem tabletów. Po zaznaczeniu tej opcji łańcuch agenta użytkownika jest zmieniany, by wskazywał, że przeglądarka działa na tablecie. Na bieżącej karcie będzie potem pobierana treść WWW zoptymalizowana pod kątem tabletów.</translation>
@@ -742,7 +743,7 @@
 <translation id="1951615167417147110">Przewiń o jedną stronę w górę</translation>
 <translation id="1956050014111002555">Plik zawierał wiele certyfikatów, z których żaden nie został zaimportowany:</translation>
 <translation id="1957988341423158185">Etykieta danych śledzenia nawigacji</translation>
-<translation id="1961376890474801922">Wysoce eksperymentalna, gdzie goście, jak &amp;lt;webview&gt;, są implementowani w infrastrukturze iframe poza procesem.</translation>
+<translation id="1961376890474801922">Wysoce eksperymentalna, gdzie goście np. komponenty &amp;lt;webview&gt;, są implementowani w infrastrukturze iframe poza procesem.</translation>
 <translation id="1962233722219655970">Ta strona używa aplikacji klienta natywnego, która nie działa na Twoim komputerze.</translation>
 <translation id="1963227389609234879">Usuń wszystko</translation>
 <translation id="1965328510789761112">Pamięć prywatna</translation>
@@ -1702,11 +1703,11 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="315141861755603168">„<ph name="BUNDLE_NAME" />” dodaje te aplikacje:</translation>
 <translation id="3151786313568798007">Orientacja</translation>
 <translation id="3153177132960373163">Zezwalaj wszystkim stronom na dostęp do komputera przez wtyczkę</translation>
-<translation id="3154351730702813399">Administrator urządzenia może monitorować Twoją aktywność przeglądania.</translation>
+<translation id="3154351730702813399">Administrator urządzenia może monitorować Twoją aktywność związaną z przeglądaniem.</translation>
 <translation id="3154429428035006212">Offline od ponad miesiąca</translation>
 <translation id="3157931365184549694">Przywróć</translation>
 <translation id="3158564748719736353">Jeśli ta opcja jest włączona, wyświetlane jest powiadomienie, gdy urządzenie zostanie podłączone do sieci poprzez portal przechwytujący.</translation>
-<translation id="3159386328383139451">Google korzysta z informacji o Twojej lokalizacji, by zapewnić Ci lepsze wyniki lokalne. Możesz to zmienić, otwierając <ph name="SETTINGS_LINK" />.</translation>
+<translation id="3159386328383139451">Google korzysta z informacji o Twojej lokalizacji, by zapewnić Ci lepsze wyniki lokalne. Możesz to zmienić na stronie <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3160041952246459240">Masz zapisane certyfikaty, które umożliwiają identyfikację następujących serwerów:</translation>
 <translation id="316125635462764134">Usuń aplikację</translation>
 <translation id="3161522574479303604">Wszystkie języki</translation>
@@ -2219,7 +2220,6 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="3801082500826908679">Farerski</translation>
 <translation id="3803991353670408298">Przed usunięciem sposobu wprowadzania tekstu dodaj inny.</translation>
 <translation id="380408572480438692">Włączenie zbierania danych o wydajności pomaga Google udoskonalać system. Dane nie są wysyłane, póki nie sporządzisz raportu z opinią (Alt-Shift-I) i nie załączysz danych o wydajności. Możesz w dowolnym momencie wrócić do tego ekranu, by wyłączyć zbieranie danych.</translation>
-<translation id="3807249107536149332">Rozszerzenie <ph name="EXTENSION_NAME" /> (identyfikator rozszerzenia „<ph name="EXTENSION_ID" />”) jest niedozwolone na ekranie logowania.</translation>
 <translation id="3807747707162121253">&amp;Anuluj</translation>
 <translation id="3809280248639369696">Księżycowy promień</translation>
 <translation id="3810973564298564668">Zarządzaj</translation>
@@ -3385,7 +3385,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5388885445722491159">Sparowane</translation>
 <translation id="5389237414310520250">Nie można utworzyć nowego użytkownika. Sprawdź miejsce na dysku twardym i uprawnienia, a potem spróbuj ponownie.</translation>
 <translation id="5390284375844109566">Zindeksowana baza danych</translation>
-<translation id="5390743329570580756">Wyślij do</translation>
+<translation id="5390743329570580756">Wyślij do:</translation>
 <translation id="5392544185395226057">Włącz obsługę klienta natywnego.</translation>
 <translation id="5396126354477659676"><ph name="PEPPER_PLUGIN_NAME" /> na <ph name="PEPPER_PLUGIN_DOMAIN" /> chce mieć dostęp do Twojego komputera.</translation>
 <translation id="539755880180803351">Dodaje do formularzy internetowych informacje o typie pola autouzupełniania jako tekst zastępczy.</translation>
@@ -4396,7 +4396,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="6739923123728562974">Pokaż skrót na pulpicie</translation>
 <translation id="6740234557573873150">Wstrzymano pobieranie <ph name="FILE_NAME" /></translation>
 <translation id="6742339027238151589">Dostępny dla skryptu</translation>
-<translation id="6744792120234414128">Przetwarzanie krosowe ramek dla gości</translation>
+<translation id="6744792120234414128">Przetwarzanie ramek dla gości w osobnych procesach</translation>
 <translation id="6745592621698551453">Aktualizuj teraz</translation>
 <translation id="6746124502594467657">W dół</translation>
 <translation id="674632704103926902">Włącz przeciąganie dotykiem</translation>
@@ -4453,7 +4453,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="6829270497922309893">Zarejestruj się w organizacji</translation>
 <translation id="682971198310367122">Polityka prywatności Google</translation>
 <translation id="6830590476636787791">Animowane przejścia w samouczku po pierwszym uruchomieniu</translation>
-<translation id="6830728435402077660">Niebezpieczna</translation>
+<translation id="6830728435402077660">Niezabezpieczona</translation>
 <translation id="6831043979455480757">Tłumacz</translation>
 <translation id="6832874810062085277">pytaj</translation>
 <translation id="6833901631330113163">Południowoeuropejski</translation>

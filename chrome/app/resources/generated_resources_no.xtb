@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Oppstartsider</translation>
 <translation id="1354868058853714482">Adobe Reader er utdatert og kan være usikkert.</translation>
 <translation id="1355408554203439639">Programvarebasert 3D-rasterisering</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> er blokkert</translation>
 <translation id="1355542767438520308">Det oppsto en feil. Enkelte elementer ble muligens ikke slettet.</translation>
 <translation id="1357589289913453911">Utvidelses-ID</translation>
 <translation id="1358032944105037487">Japansk tastatur</translation>
@@ -2214,7 +2215,6 @@ Fra <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Færøysk</translation>
 <translation id="3803991353670408298">Legg til en ny inndatametode før du fjerner denne.</translation>
 <translation id="380408572480438692">Aktivering av innsamling av ytelsesdata hjelper Google med å bekrefte systemet over tid, Data sendes ikke inn før du fyller ut en tilbakemeldingsrapport (Alt-Shift-I) og legger ved ytelsesdata. Du kan deaktivere innsamlingen når som helst via denne skjermen.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (utvidelses-ID «<ph name="EXTENSION_ID" />») tillates ikke på påloggingsskjermer.</translation>
 <translation id="3807747707162121253">&amp;Avbryt</translation>
 <translation id="3809280248639369696">Marsboer</translation>
 <translation id="3810973564298564668">Administrer</translation>
@@ -3805,6 +3805,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="5957613098218939406">Flere alternativer</translation>
 <translation id="5958529069007801266">Administrert bruker</translation>
 <translation id="5959471481388474538">Nettverket er utilgjengelig</translation>
+<translation id="5959728338436674663">Send automatisk noe <ph name="BEGIN_WHITEPAPER_LINK" />systeminformasjon og sideinnhold<ph name="END_WHITEPAPER_LINK" /> til Google for å bidra til å oppdage farlige apper og nettsteder. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Hent temaer</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> toppverdi)</translation>
 <translation id="5965403572731919803">Legg til på hyllen</translation>

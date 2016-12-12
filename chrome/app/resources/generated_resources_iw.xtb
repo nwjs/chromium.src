@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">דפי הפעלה</translation>
 <translation id="1354868058853714482">‏Adobe Reader אינו מעודכן ועשוי להיות לא מאובטח.</translation>
 <translation id="1355408554203439639">יוצר רשת הנקודות של תוכנות תלת ממד</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> חסום</translation>
 <translation id="1355542767438520308">אירעה שגיאה. ייתכן שפריטים מסוימים לא נמחקו.</translation>
 <translation id="1357589289913453911">מזהה תוסף</translation>
 <translation id="1358032944105037487">מקלדת יפנית</translation>
@@ -2213,7 +2214,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3801082500826908679">פארואזית</translation>
 <translation id="3803991353670408298">הוסף שיטת קלט אחרת לפני שתסיר את זו.</translation>
 <translation id="380408572480438692">‏הפעלת האפשרות לאיסוף נתוני ביצועים תסייע ל-Google לשפר את המערכת עם הזמן. הנתונים נשלחים רק לאחר שאתה מגיש דוח משוב (Alt-Shift-I) וכולל את נתוני הביצועים. תוכל לחזור למסך זה כדי להשבית את איסוף הנתונים בכל עת.</translation>
-<translation id="3807249107536149332">לא ניתן להשתמש ב-<ph name="EXTENSION_NAME" /> (מזהה תוסף "<ph name="EXTENSION_ID" />") במסך התחברות.</translation>
 <translation id="3807747707162121253">&amp;ביטול</translation>
 <translation id="3809280248639369696">מר ירח</translation>
 <translation id="3810973564298564668">נהל</translation>
@@ -2607,7 +2607,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4354806558096370704">‏מאפשר את השימוש בהדפסה עורפית של מערכת CUPS המקורית.</translation>
 <translation id="4355925451975609675">הקש על |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| כדי להתקדם</translation>
 <translation id="4356334633973342967">או ציין מנהל התקן משלך:</translation>
-<translation id="4356973930735388585">תוקפים באתר הזה עשויים לנסות להתקין במחשב שלך תוכניות מסוכנות שגונבות או מוחקות מידע שלך (לדוגמה, תמונות, סיסמאות, הודעות ופרטי כרטיסי אשראי).</translation>
+<translation id="4356973930735388585">תוקפים באתר הזה עשויים לנסות להתקין במחשב שלך תוכניות מסוכנות שגונבות או מוחקות מידע שלך (לדוגמה: תמונות, סיסמאות, הודעות ופרטי כרטיסי אשראי).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />‏, <ph name="LANGUAGE_2" /></translation>
 <translation id="4358697938732213860">הוסף כתובת</translation>
 <translation id="4359408040881008151">הותקן מפני שיש תוספים התלויים בו.</translation>
@@ -2968,7 +2968,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4862050643946421924">מוסיף מכשיר...</translation>
 <translation id="4862642413395066333">‏חתימה על תגובות OCSP</translation>
 <translation id="4865571580044923428">נהל חריגים...</translation>
-<translation id="4866139711390152178">‏הבעלים יכול לבחור לשלוח אל Google נתוני אבחון ושימוש ממכשיר זה. <ph name="BEGIN_LINK1" />מידע נוסף<ph name="END_LINK1" /></translation>
+<translation id="4866139711390152178">‏הבעלים יכול לשלוח אל Google נתוני אבחון ושימוש ממכשיר זה. <ph name="BEGIN_LINK1" />מידע נוסף<ph name="END_LINK1" /></translation>
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME" /> אינו יכול לקבוע או להגדיר את דפדפן ברירת המחדל.</translation>
 <translation id="48704129375571883">הוסף תכונות נוספות</translation>
 <translation id="4871210892959306034">$1 KB</translation>
@@ -4373,7 +4373,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6721972322305477112">&amp;קובץ</translation>
 <translation id="672213144943476270">בטל את נעילת הפרופיל שלך לפני גלישה כאורח.</translation>
 <translation id="6722177191671650307">‏BLE Advertising ביישומי Chrome</translation>
-<translation id="6722602912425568859">‏התוסף שולט בשרת ה-proxy של הרשת.</translation>
+<translation id="6722602912425568859">‏בשרת ה-proxy של הרשת שולט תוסף.</translation>
 <translation id="6723354935081862304">‏הדפס ל-Google Docs ויעדי ענן אחרים. <ph name="BEGIN_LINK" />היכנס<ph name="END_LINK" /> כדי להדפיס אל Google Cloud Print.</translation>
 <translation id="6723661294526996303">ייבא סימניות והגדרות...</translation>
 <translation id="6723839937902243910">חשמל</translation>
@@ -6277,7 +6277,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="981121421437150478">לא מקוון</translation>
 <translation id="984870422930397199">מפעיל הצגת תג בדפים לא מקוונים בדף הכרטיסייה החדשה. רלוונטי רק אם הפעלת דפים לא מקוונים.</translation>
 <translation id="98515147261107953">לרוחב</translation>
-<translation id="985579990208596979">הפעל מתאם זיכרון במקום מאזינים בלחץ על הזיכרון.</translation>
+<translation id="985579990208596979">הפעל מתאם זיכרון במקום ציתות ללחצים על הזיכרון.</translation>
 <translation id="986646739000587506">השבתת שיתוף שולחן העבודה עם מקור הכרטיסייה</translation>
 <translation id="987267091708560486">{NUM_ITEMS,plural, =1{הפעולה תמחק לצמיתות פריט $1 מהמכשיר הזה.}two{הפעולה תמחק לצמיתות $1 פריטים מהמכשיר הזה.}many{הפעולה תמחק לצמיתות $1 פריטים מהמכשיר הזה.}other{הפעולה תמחק לצמיתות $1 פריטים מהמכשיר הזה.}}</translation>
 <translation id="990878533354103361">תכונות ניסיוניות של תצוגת קלט</translation>

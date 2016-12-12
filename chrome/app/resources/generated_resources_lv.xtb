@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Sākumlapas</translation>
 <translation id="1354868058853714482">Adobe Reader versija ir novecojusi un var nebūt droša.</translation>
 <translation id="1355408554203439639">3D programmatūras rastrētājs</translation>
+<translation id="1355466263109342573">Spraudnis <ph name="PLUGIN_NAME" /> ir bloķēts</translation>
 <translation id="1355542767438520308">Radās kļūda. Iespējams, nav dzēsti daži vienumi.</translation>
 <translation id="1357589289913453911">Paplašinājuma ID</translation>
 <translation id="1358032944105037487">Japāņu tastatūra</translation>
@@ -2221,7 +2222,6 @@ no <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Fēru valoda</translation>
 <translation id="3803991353670408298">Lūdzu, pievienojiet citu ievades metodi pirms šīs metodes noņemšanas.</translation>
 <translation id="380408572480438692">Iespējojot veiktspējas datu apkopošanu, palīdzēsiet uzņēmumam Google laika gaitā uzlabot sistēmu. Kamēr neesat iesniedzis atsauksmi (Alt-Shift-I) un ietvēris veiktspējas datus, dati netiek nosūtīti. Jebkurā brīdī varat atgriezties šajā ekrānā, lai atspējotu apkopošanu.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (paplašinājuma ID “<ph name="EXTENSION_ID" />”) nav atļauts pieteikšanās ekrānā.</translation>
 <translation id="3807747707162121253">Atcelt</translation>
 <translation id="3809280248639369696">Citplanētietis</translation>
 <translation id="3810973564298564668">Pārvaldīt</translation>
@@ -3817,6 +3817,7 @@ Lai turpinātu skatīšanu, nospiediet jebkuru taustiņu.</translation>
 <translation id="5957613098218939406">Citas opcijas</translation>
 <translation id="5958529069007801266">Uzraudzīts lietotājs</translation>
 <translation id="5959471481388474538">Tīkls nav pieejams.</translation>
+<translation id="5959728338436674663">Automātiski sūtīt Google serveriem noteiktu <ph name="BEGIN_WHITEPAPER_LINK" />sistēmas informāciju un lapu saturu<ph name="END_WHITEPAPER_LINK" />, lai palīdzētu noteikt bīstamas lietotnes un vietnes. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Iegūt motīvus</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (maks. <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">Pievienot plauktam...</translation>

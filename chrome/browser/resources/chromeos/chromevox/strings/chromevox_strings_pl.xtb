@@ -472,7 +472,7 @@ Jeśli nie korzystasz już z samouczka, użyj czytnika ChromeVox, by przejść 
 <translation id="5374320867641260420">Brak przycisku Dalej.</translation>
 <translation id="5382299583965267720">Brak następnego nagłówka poziomu 1.</translation>
 <translation id="5402367795255837559">Pismo Braille'a</translation>
-<translation id="5402791055281059602">Alert modalny</translation>
+<translation id="5402791055281059602">Alert w oknie modalnym</translation>
 <translation id="5407530583102765689">{COUNT,plural, =1{średnik}few{# średniki}many{# średników}other{# semicolons}}</translation>
 <translation id="5411891038905756502">Brak poprzedniego punktu przejścia.</translation>
 <translation id="5417034931411865818">Kliknij element pod klawiszem sterującym $1</translation>
@@ -611,7 +611,7 @@ Aby otworzyć menu przeglądarki Chrome, naciśnij Alt + F.</translation>
 <translation id="6657128831881431364">Pasek postępu</translation>
 <translation id="6659594942844771486">Tab</translation>
 <translation id="667999046851023355">Dokument</translation>
-<translation id="6688209025607531203">Alert niemodalny</translation>
+<translation id="6688209025607531203">Alert nie w oknie modalnym</translation>
 <translation id="6697092096875747123">Poprzednie pole złożone</translation>
 <translation id="6702609185760332517">{COUNT,plural, =1{wykrzyknik}few{# wykrzykniki}many{# wykrzykników}other{# wykrzyknika}}</translation>
 <translation id="6710213216561001401">Wstecz</translation>

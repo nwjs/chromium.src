@@ -267,6 +267,7 @@ SharedArrayBuffer.</translation>
 <translation id="1353966721814789986">Pàgines d'inici</translation>
 <translation id="1354868058853714482">Adobe Reader no està actualitzat i pot ser insegur.</translation>
 <translation id="1355408554203439639">Rasteritzador de programari 3D</translation>
+<translation id="1355466263109342573">El connector <ph name="PLUGIN_NAME" /> està bloquejat</translation>
 <translation id="1355542767438520308">S'ha produït un error. És possible que alguns elements no s'hagin suprimit.</translation>
 <translation id="1357589289913453911">Identificador de l'extensió</translation>
 <translation id="1358032944105037487">Teclat japonès</translation>
@@ -2218,7 +2219,6 @@ Del domini <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Feroès</translation>
 <translation id="3803991353670408298">Afegiu un altre mètode d'entrada abans d'eliminar aquest.</translation>
 <translation id="380408572480438692">L'activació de la recopilació de dades de rendiment ajudarà Google a millorar el sistema amb el temps. No s'enviarà cap dada fins que no empleneu un informe de comentaris (Alt-Maj-I) i les dades de rendiment. Podeu tornar a aquesta pantalla per desactivar la recopilació en qualsevol moment.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (amb identificador d'extensió "<ph name="EXTENSION_ID" />") no es permet a les pantalles d'inici de sessió.</translation>
 <translation id="3807747707162121253">&amp;Cancel·la</translation>
 <translation id="3809280248639369696">Extraterrestre</translation>
 <translation id="3810973564298564668">Gestiona</translation>

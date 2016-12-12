@@ -669,7 +669,7 @@
 
       Denna princip gäller endast när ExternalStorageDisabled är inställd på falskt eller inte är konfigurerad.
 
-      När principen är inställd på sant kan inte användare spara något på externa lagringsenheter..
+      När principen är inställd på sant kan inte användare spara något på externa lagringsenheter.
 
       Om inställningen har inaktiverats eller inte har konfigurerats kan användare skapa och redigera filer från externa lagringsenheter som är fysiskt skrivbara.
 

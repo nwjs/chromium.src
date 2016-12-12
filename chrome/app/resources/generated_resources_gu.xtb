@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">સ્ટાર્ટઅપ પૃષ્ઠો</translation>
 <translation id="1354868058853714482">Adobe Reader જૂનું છે અને તે અસુરક્ષિત હોઈ શકે છે.</translation>
 <translation id="1355408554203439639">3D સૉફ્ટવેર રાસ્ટરાઇઝર</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> અવરોધિત છે</translation>
 <translation id="1355542767438520308">એક ભૂલ આવી. કેટલીક વસ્તુઓ કાઢવામાં આવી શકી નથી.</translation>
 <translation id="1357589289913453911">એક્સ્ટેન્શન ID</translation>
 <translation id="1358032944105037487">જાપાનીઝ કીબોર્ડ</translation>
@@ -2215,7 +2216,6 @@
 <translation id="3801082500826908679">ફોરિસ્ત</translation>
 <translation id="3803991353670408298">કૃપા કરીને આને દૂર કરતા પહેલા બીજી ઇનપુટ પદ્ધતિ ઉમેરો.</translation>
 <translation id="380408572480438692">પ્રદર્શન ડેટાના સંગ્રહને સક્ષમ કરવું Google ને સમય જતાં સિસ્ટમને બહેતર બનાવવામાં મદદ કરશે. જ્યાં સુધી તમે પ્રતિસાદ રિપોર્ટ (Alt-Shift-I) ફાઇલ નહીં કરો અને પ્રદર્શન ડેટાને સામેલ નહીં કરો ત્યાં સુધી કોઈ ડેટા મોકલવામાં આવશે નહીં. તમે કોઈપણ સમયે સંગ્રહને અક્ષમ કરવા માટે આ સ્ક્રીન પર પાછા આવી શકો છો.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (એક્સ્ટેન્શન ID "<ph name="EXTENSION_ID" />") ને લોગિન સ્ક્રીન પર મંજૂરી નથી.</translation>
 <translation id="3807747707162121253">&amp;કેન્સલ કરો</translation>
 <translation id="3809280248639369696">મૂનબીમ</translation>
 <translation id="3810973564298564668">મેનેજ કરો</translation>
@@ -3810,6 +3810,7 @@
 <translation id="5957613098218939406">વધુ વિકલ્પો</translation>
 <translation id="5958529069007801266">નિરીક્ષણ કરેલ વપરાશકર્તા</translation>
 <translation id="5959471481388474538">નેટવર્ક ઉપલબ્ધ નથી</translation>
+<translation id="5959728338436674663">જોખમી અ‍ૅપ્લિકેશનો અને સાઇટ્સ શોધવામાં સહાય કરવા માટે Google ને કેટલીક <ph name="BEGIN_WHITEPAPER_LINK" />સિસ્ટમ માહિતી અને પૃષ્ઠ સામગ્રી<ph name="END_WHITEPAPER_LINK" /> આપમેળે મોકલો. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">થીમ્સ મેળવો</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> પિક)</translation>
 <translation id="5965403572731919803">શેલ્ફ પર ઉમેરો...</translation>

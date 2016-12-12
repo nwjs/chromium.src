@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Pagine di avvio</translation>
 <translation id="1354868058853714482">Adobe Reader non è aggiornato e potrebbe non essere sicuro.</translation>
 <translation id="1355408554203439639">Unità di rasterizzazione software 3D</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> è bloccato</translation>
 <translation id="1355542767438520308">Si è verificato un errore. Alcuni elementi potrebbero non essere stati eliminati.</translation>
 <translation id="1357589289913453911">ID estensione</translation>
 <translation id="1358032944105037487">Tastiera giapponese</translation>
@@ -2216,7 +2217,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="3801082500826908679">Faroese</translation>
 <translation id="3803991353670408298">Aggiungi un altro metodo di inserimento prima di rimuovere questo.</translation>
 <translation id="380408572480438692">Se attivi la raccolta dei dati sul rendimento, consenti a Google di migliorare il sistema nel tempo. I dati vengono inviati soltanto quando presenti un rapporto di feedback (Alt+Maiusc+I) e includi dati sul rendimento. Puoi tornare in qualsiasi momento in questa schermata per disattivare la raccolta.</translation>
-<translation id="3807249107536149332">L'estensione <ph name="EXTENSION_NAME" /> (ID estensione "<ph name="EXTENSION_ID" />") non è consentita in una schermata di accesso.</translation>
 <translation id="3807747707162121253">&amp;Annulla</translation>
 <translation id="3809280248639369696">Raggio di luna</translation>
 <translation id="3810973564298564668">Gestisci</translation>
@@ -3808,6 +3808,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="5957613098218939406">Altre opzioni</translation>
 <translation id="5958529069007801266">Utente supervisionato</translation>
 <translation id="5959471481388474538">Rete non disponibile</translation>
+<translation id="5959728338436674663">Invia automaticamente a Google <ph name="BEGIN_WHITEPAPER_LINK" />alcune informazioni sul sistema e alcuni contenuti delle pagine<ph name="END_WHITEPAPER_LINK" /> per contribuire a rilevare app e siti pericolosi. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Scegli un tema</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (picco di <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">Aggiungi a shelf...</translation>

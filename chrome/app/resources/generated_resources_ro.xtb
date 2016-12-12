@@ -51,7 +51,7 @@
 <translation id="1064835277883315402">Alăturați-vă rețelei private</translation>
 <translation id="1064912851688322329">Deconectați Contul dvs. Google</translation>
 <translation id="1065449928621190041">Tastatură franceză canadiană</translation>
-<translation id="1067048845568873861">Creată</translation>
+<translation id="1067048845568873861">Creat</translation>
 <translation id="1067274860119234953">Închiderea automată a filelor</translation>
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1070377999570795893">Un alt program de pe computerul tău a adăugat o extensie care poate schimba modul în care funcționează Chrome.
@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">Pagini de pornire</translation>
 <translation id="1354868058853714482">Adobe Reader nu este actualizat și poate fi nesigur.</translation>
 <translation id="1355408554203439639">Software de rasterizare 3D</translation>
+<translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> este blocat</translation>
 <translation id="1355542767438520308">A apărut o eroare. Este posibil ca unele elemente să nu fi fost șterse.</translation>
 <translation id="1357589289913453911">Codul extensiei</translation>
 <translation id="1358032944105037487">Tastatură japoneză</translation>
@@ -2219,7 +2220,6 @@ De la <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3801082500826908679">Feroeză</translation>
 <translation id="3803991353670408298">Adaugă altă metodă de introducere a textului, înainte de a o elimina pe aceasta.</translation>
 <translation id="380408572480438692">Activarea culegerii datelor privind performanța va permite Google să îmbunătățească sistemul în timp. Nu sunt trimise date decât după ce completați un raport de feedback (Alt-Shift-I) și includeți date privind performanța. Puteți să reveniți oricând la acest ecran pentru a dezactiva culegerea datelor.</translation>
-<translation id="3807249107536149332">Extensia <ph name="EXTENSION_NAME" /> (cu ID-ul „<ph name="EXTENSION_ID" />”) nu este permisă într-un ecran de conectare.</translation>
 <translation id="3807747707162121253">&amp;Anulează</translation>
 <translation id="3809280248639369696">Rază de lună</translation>
 <translation id="3810973564298564668">Gestionează</translation>
@@ -3387,7 +3387,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="5388885445722491159">Împerecheat</translation>
 <translation id="5389237414310520250">Noul utilizator nu a putut fi creat. Verifică spațiul de pe hard disk și permisiunile, apoi încearcă din nou.</translation>
 <translation id="5390284375844109566">Bază de date indexată</translation>
-<translation id="5390743329570580756">Trimite pentru</translation>
+<translation id="5390743329570580756">Trimis pentru</translation>
 <translation id="5392544185395226057">Activează compatibilitatea pentru Clientul nativ.</translation>
 <translation id="5396126354477659676">Pluginul <ph name="PEPPER_PLUGIN_NAME" /> de pe <ph name="PEPPER_PLUGIN_DOMAIN" /> dorește să vă acceseze computerul.</translation>
 <translation id="539755880180803351">Adnotează formularele web cu predicțiile de introducere din câmpul de completare automată ca text substituent.</translation>
@@ -3815,6 +3815,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="5957613098218939406">Mai multe opțiuni</translation>
 <translation id="5958529069007801266">Utilizator monitorizat</translation>
 <translation id="5959471481388474538">Rețea indisponibilă</translation>
+<translation id="5959728338436674663">Trimite automat anumite <ph name="BEGIN_WHITEPAPER_LINK" />informații despre sistem și conținutul paginii<ph name="END_WHITEPAPER_LINK" /> la Google pentru a detecta aplicațiile și site-urile periculoase. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Descarcă teme</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (maximum <ph name="NUM_KILOBYTES_LIVE" />)</translation>
 <translation id="5965403572731919803">Adaugă pe raft...</translation>
@@ -4396,7 +4397,7 @@ Folosește funcția numai pentru conturile în care ai încredere.</translation>
 <translation id="6739923123728562974">Afișează comanda rapidă pe desktop</translation>
 <translation id="6740234557573873150">Descărcarea fișierului <ph name="FILE_NAME" /> a fost întreruptă</translation>
 <translation id="6742339027238151589">Accesibilă scriptului</translation>
-<translation id="6744792120234414128">Procesarea încrucișată a cadrelor pentru invitați</translation>
+<translation id="6744792120234414128">Cadre în procese diferite pentru invitați</translation>
 <translation id="6745592621698551453">Actualizați acum</translation>
 <translation id="6746124502594467657">Mutați în jos</translation>
 <translation id="674632704103926902">Activați tragerea prin atingere</translation>

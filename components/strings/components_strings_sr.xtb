@@ -159,7 +159,7 @@
 <translation id="2650446666397867134">Приступ датотеци је одбијен</translation>
 <translation id="2653659639078652383">Пошаљи</translation>
 <translation id="2674170444375937751">Желите ли стварно да избришете ове странице из историје?</translation>
-<translation id="2677748264148917807">Напусти</translation>
+<translation id="2677748264148917807">Затвори</translation>
 <translation id="269990154133806163">Сервер је послао сертификат који није јавно откривен помоћу смерница за транспарентност сертификата. То је обавезно за неке сертификате да бисмо се уверили да су поуздани и да штите од нападача. <ph name="BEGIN_LEARN_MORE_LINK" />Сазнајте више<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="2704283930420550640">Вредност се не подудара са форматом.</translation>
 <translation id="2704951214193499422">Chromium није успео да потврди картицу. Пробајте поново касније.</translation>
@@ -239,7 +239,7 @@
 <translation id="3427342743765426898">&amp;Понови измену</translation>
 <translation id="3435896845095436175">Омогући</translation>
 <translation id="3447661539832366887">Власник овог уређаја је искључио ову застарелу игру.</translation>
-<translation id="3450660100078934250">MasterCard</translation>
+<translation id="3450660100078934250">Mastercard</translation>
 <translation id="3452404311384756672">Интервал учитавања:</translation>
 <translation id="3462200631372590220">Сакриј напредно</translation>
 <translation id="3479539252931486093">Да ли је ово било неочекивано? <ph name="BEGIN_LINK" />Обавестите нас<ph name="END_LINK" /></translation>
@@ -504,7 +504,7 @@
 <translation id="6563469144985748109">Менаџер га још увек није одобрио</translation>
 <translation id="6593753688552673085">мање од <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="6596325263575161958">Опције шифровања</translation>
-<translation id="662080504995468778">Не напуштај</translation>
+<translation id="662080504995468778">Не затварај</translation>
 <translation id="6628463337424475685"><ph name="ENGINE" /> претрага</translation>
 <translation id="6644283850729428850">Ове смернице су застареле.</translation>
 <translation id="6652240803263749613">Овај сервер не може да докаже да је <ph name="DOMAIN" />; оперативни систем вашег рачунара нема поверења у његов безбедносни сертификат. Узрок томе је можда погрешна конфигурација или нападач који је прекинуо везу. <ph name="BEGIN_LEARN_MORE_LINK" />Сазнајте више<ph name="END_LEARN_MORE_LINK" />.</translation>

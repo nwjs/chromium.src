@@ -363,7 +363,7 @@
 <translation id="4813512666221746211">Kesalahan jaringan</translation>
 <translation id="4816492930507672669">Paskan dengan halaman</translation>
 <translation id="4850886885716139402">Lihat</translation>
-<translation id="4858792381671956233">Anda telah meminta izin kepada orang tua untuk mengunjungi situs ini</translation>
+<translation id="4858792381671956233">Kamu telah meminta izin kepada orang tua untuk mengunjungi situs ini</translation>
 <translation id="4880827082731008257">Telusuri riwayat</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /></translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{dan 1 laman web lainnya}other{dan # laman web lainnya}}</translation>
@@ -436,7 +436,7 @@
 <translation id="5710435578057952990">Identitas situs Web ini belum diverifikasi.</translation>
 <translation id="5720705177508910913">Pengguna saat ini</translation>
 <translation id="572328651809341494">Tab baru-baru ini</translation>
-<translation id="5732392974455271431">Orang tua dapat membuka blokirnya untuk Anda</translation>
+<translation id="5732392974455271431">Orang tua dapat membuka blokirnya untukmu</translation>
 <translation id="5784606427469807560">Terjadi masalah saat mengonfirmasi kartu. Periksa sambungan internet Anda dan coba lagi.</translation>
 <translation id="5785756445106461925">Selain itu, laman ini berisi sumber daya lainnya yang tidak aman. Sumber daya ini dapat dilihat oleh orang lain saat transit dan dapat dimodifikasi oleh penyerang untuk mengubah tampilan perangkat.</translation>
 <translation id="5786044859038896871">Ingin mengisi informasi kartu?</translation>
@@ -489,7 +489,7 @@
 <translation id="6386120369904791316">{COUNT,plural, =1{1 saran lain}other{# saran lain}}</translation>
 <translation id="6387478394221739770">Tertarik dengan fitur Chrome baru yang keren? Coba saluran beta kami di chrome.com/beta.</translation>
 <translation id="6389758589412724634">Chromium kehabisan memori saat mencoba menampilkan laman web ini.</translation>
-<translation id="6414888972213066896">Anda telah meminta izin kepada orang tua untuk mengunjungi situs ini</translation>
+<translation id="6414888972213066896">Kamu telah meminta izin kepada orang tua untuk mengunjungi situs ini</translation>
 <translation id="6416403317709441254">Saat ini, Anda tidak dapat mengunjungi <ph name="SITE" /> karena situs web ini mengirimkan kredensial acak yang tidak dapat diproses oleh Chromium. Kesalahan dan serangan jaringan biasanya bersifat sementara, jadi laman ini mungkin akan bekerja nanti. <ph name="BEGIN_LEARN_MORE_LINK" />Pelajari lebih lanjut<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6417515091412812850">Tidak dapat memeriksa apakah sertifikat telah ditarik.</translation>
 <translation id="6433595998831338502"><ph name="HOST_NAME" /> menolak untuk tersambung.</translation>
@@ -521,7 +521,7 @@
 <translation id="674375294223700098">Kesalahan sertifikat server tidak dikenal.</translation>
 <translation id="6753269504797312559">Nilai kebijakan</translation>
 <translation id="6757797048963528358">Perangkat Anda sedang dalam mode tidur.</translation>
-<translation id="6778737459546443941">Orang tua Anda belum menyetujuinya</translation>
+<translation id="6778737459546443941">Orang tuamu belum menyetujuinya</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Saat ini laman web di <ph name="URL" /> tidak tersedia. Mungkin laman web sedang kelebihan muatan atau terganggu karena ada perawatan.</translation>
 <translation id="6831043979455480757">Terjemahkan</translation>
@@ -616,7 +616,7 @@ Ssst! <ph name="SHORTCUT_KEY" /> mode penyamaran mungkin berguna suatu saat nant
 <translation id="7716424297397655342">Situs ini tidak dapat dimuat dari cache</translation>
 <translation id="7733391738235763478">(<ph name="NUMBER_VISITS" />)</translation>
 <translation id="7752995774971033316">Tidak terkelola</translation>
-<translation id="7755287808199759310">Orang tua dapat membuka blokirnya untuk Anda</translation>
+<translation id="7755287808199759310">Orang tua dapat membuka blokirnya untukmu</translation>
 <translation id="7758069387465995638">Perangkat lunak antivirus atau firewall mungkin memblokir sambungan.</translation>
 <translation id="7761701407923456692">Sertifikat server tidak cocok dengan URL.</translation>
 <translation id="777702478322588152">Prefektur</translation>
@@ -684,7 +684,7 @@ Ssst! <ph name="SHORTCUT_KEY" /> mode penyamaran mungkin berguna suatu saat nant
 <translation id="856992080682148">Sertifikat untuk situs ini berakhir masa berlakunya pada tahun 2017 atau lebih lama, dan rantai sertifikat tersebut berisi sertifikat yang ditandatangani menggunakan SHA-1.</translation>
 <translation id="8571890674111243710">Menerjemahkan laman ke <ph name="LANGUAGE" />...</translation>
 <translation id="859285277496340001">Sertifikat tidak menetapkan mekanisme untuk memeriksa apakah sertifikat telah ditarik.</translation>
-<translation id="8620436878122366504">Orang tua Anda belum menyetujuinya</translation>
+<translation id="8620436878122366504">Orang tuamu belum menyetujuinya</translation>
 <translation id="8647750283161643317">Setel ulang semua ke default</translation>
 <translation id="8703575177326907206">Sambungan ke <ph name="DOMAIN" /> tidak dienkripsi.</translation>
 <translation id="8725066075913043281">Coba lagi</translation>

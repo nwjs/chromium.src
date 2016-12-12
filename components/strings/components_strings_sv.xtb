@@ -502,7 +502,7 @@
 <translation id="6529602333819889595">&amp;Gör om Ta bort</translation>
 <translation id="6534179046333460208">Förslag från Physical Web</translation>
 <translation id="6550675742724504774">Alternativ</translation>
-<translation id="6563469144985748109">Den ansvarige har inte godkänt begäran ännu</translation>
+<translation id="6563469144985748109">Den ansvarige har inte godkänt den ännu</translation>
 <translation id="6593753688552673085">mindre än <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="6596325263575161958">Krypteringsalternativ</translation>
 <translation id="662080504995468778">Stanna kvar</translation>
@@ -521,7 +521,7 @@
 <translation id="674375294223700098">Fel - okänt servercertifikat.</translation>
 <translation id="6753269504797312559">Policyvärde</translation>
 <translation id="6757797048963528358">Enheten gick i viloläge.</translation>
-<translation id="6778737459546443941">Din förälder har inte godkänt begäran ännu</translation>
+<translation id="6778737459546443941">Din förälder har inte godkänt den ännu</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Webbsidan <ph name="URL" /> är inte tillgänglig just nu. Den kan vara överbelastad eller ligga nere för underhåll.</translation>
 <translation id="6831043979455480757">Översätt</translation>
@@ -684,7 +684,7 @@ Psst! Nästa gång kanske inkognitoläget <ph name="SHORTCUT_KEY" /> kan vara n�
 <translation id="856992080682148">Certifikatet för den här webbplatsen upphör 2017 eller senare. Certifikatkedjan innehåller ett certifikat som signerades med SHA-1.</translation>
 <translation id="8571890674111243710">Översätter sidan till <ph name="LANGUAGE" />...</translation>
 <translation id="859285277496340001">Certifikatet har inte någon specificerad mekanism för att kontrollera om det har återkallats.</translation>
-<translation id="8620436878122366504">Dina föräldrar har inte godkänt begäran ännu</translation>
+<translation id="8620436878122366504">Dina föräldrar har inte godkänt den ännu</translation>
 <translation id="8647750283161643317">Återställ alla till standardvärden</translation>
 <translation id="8703575177326907206">Din anslutning till <ph name="DOMAIN" /> är inte krypterad.</translation>
 <translation id="8725066075913043281">Försök igen</translation>

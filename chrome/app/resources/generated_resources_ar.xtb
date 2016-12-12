@@ -266,6 +266,7 @@
 <translation id="1353966721814789986">صفحات بدء التشغيل</translation>
 <translation id="1354868058853714482">‏برنامج Adobe Reader غير محدث وقد يكون غير آمن.</translation>
 <translation id="1355408554203439639">أداة تحويل البرنامج ثلاثي الأبعاد</translation>
+<translation id="1355466263109342573">تم حظر <ph name="PLUGIN_NAME" /></translation>
 <translation id="1355542767438520308">حدث خطأ. ربما لم يتمّ حذف بعض العناصر.</translation>
 <translation id="1357589289913453911">معرّف الإضافة</translation>
 <translation id="1358032944105037487">لوحة المفاتيح اليابانية</translation>
@@ -636,7 +637,7 @@
 <translation id="1791171857110101796">‏الحدث onload لإطار التحميل العلوي (تم تنفيذ "كل المهام" في الصفحة، سلوك قديم)</translation>
 <translation id="1792619191750875668">شاشة تم توسيعها</translation>
 <translation id="1792705092719258158">تمكين وضع الشاشة المنعكس.</translation>
-<translation id="1793119619663054394">‏هل تريد بالتأكيد إزالة "<ph name="PROFILE_NAME" />" وكل البيانات المرتبطة بمتصفح Chrome من جهاز الكمبيوتر هذا؟ لا يمكن التراجع عن هذا الإجراء.</translation>
+<translation id="1793119619663054394">‏هل تريد فعلًا إزالة "<ph name="PROFILE_NAME" />" وكل البيانات المرتبطة بمتصفح Chrome من جهاز الكمبيوتر هذا؟ لا يمكن التراجع عن هذا الإجراء.</translation>
 <translation id="1794791083288629568">يمكنك إرسال تعليقات لمساعدتنا في إصلاح هذه المشكلة.</translation>
 <translation id="1795214765651529549">استخدام المظهر الكلاسيكي</translation>
 <translation id="179767530217573436">آخر 4 أسابيع</translation>
@@ -713,7 +714,7 @@
 <translation id="1901769927849168791">‏اكتشاف بطاقة SD</translation>
 <translation id="1902576642799138955">فترة الصلاحية</translation>
 <translation id="1903219944620007795">بالنسبة إلى إدخال النص، حدّد لغة للتعرف على طرق الإدخال المتوفرة.</translation>
-<translation id="1909880997794698664">هل تريد بالتأكيد تشغيل هذا الجهاز في وضع الكشك بشكل دائم؟</translation>
+<translation id="1909880997794698664">هل تريد فعلًا تشغيل هذا الجهاز في وضع الكشك بشكل دائم؟</translation>
 <translation id="1910572251697014317">‏لقد أرسلت Google إشعارًا إلى هذا الهاتف. تجدر الإشارة إلى أنه يمكن لهاتفك باستخدام البلوتوث أن يحتفظ بإلغاء قفل <ph name="DEVICE_TYPE" /> من على بُعد أكثر من 100 قدم. إذا أحدث ذلك مشكلة لك، يمكنك &lt;a&gt; تعطيل هذه الميزة مؤقتًا&lt;/a&gt;.</translation>
 <translation id="1910721550319506122">مرحبًا!</translation>
 <translation id="1916502483199172559">الصورة الرمزية الافتراضية الحمراء</translation>
@@ -1491,7 +1492,7 @@
 <translation id="2894745200702272315">‏تمكين نسخة تجريبية من ميزات كشف الكلمة المهمة "Ok Google" والتي لها اعتمادية الأجهزة.</translation>
 <translation id="289644616180464099">‏تم قفل شريحة SIM</translation>
 <translation id="289695669188700754">معرّف المفتاح: <ph name="KEY_ID" /></translation>
-<translation id="2897878306272793870">هل تريد بالتأكيد فتح هذا العدد من علامات التبويب<ph name="TAB_COUNT" />؟</translation>
+<translation id="2897878306272793870">هل تريد فعلًا فتح هذا العدد من علامات التبويب<ph name="TAB_COUNT" />؟</translation>
 <translation id="2902127500170292085"><ph name="EXTENSION_NAME" /> يتعذر الاتصال بهذه الطابعة. تأكد من توصيل الطابعة، ثم أعد المحاولة.</translation>
 <translation id="2902734494705624966">أمريكية موسعة</translation>
 <translation id="2903493209154104877">العناوين</translation>
@@ -1577,7 +1578,7 @@
 <translation id="3007072109817179209">‏الدعم في WebRTC لفك تشفير مقاطع الفيديو المضمنة باستخدام جهاز النظام الأساسي.</translation>
 <translation id="3007214526293698309">إصلاح النسبة</translation>
 <translation id="3008863991906202557">عند التمكين، سيتم تحويل قائمة مستخدم سطح المكتب إلى إصدار التصميم متعدد الأبعاد مع تدفق أكثر سهولة.</translation>
-<translation id="3009300415590184725">هل تريد بالتأكيد إلغاء عملية إعداد خدمة بيانات الجوال؟</translation>
+<translation id="3009300415590184725">هل تريد فعلًا إلغاء عملية إعداد خدمة بيانات الجوال؟</translation>
 <translation id="3009779501245596802">قواعد بيانات مفهرسة</translation>
 <translation id="3010279545267083280">تم حذف كلمة المرور</translation>
 <translation id="3011284594919057757">‏حول Flash</translation>
@@ -2217,7 +2218,6 @@
 <translation id="3801082500826908679">الفاروية</translation>
 <translation id="3803991353670408298">الرجاء إضافة طريقة إدخال أخرى قبل إزالة هذه الطريقة.</translation>
 <translation id="380408572480438692">‏يساعد تمكين جمع بيانات مستوى الأداء Google في تحسين النظام بمرور الوقت. وتجدر الإشارة إلى أنه لا يتم إرسال أية بيانات حتى ترسل تقريرًا بتعليقاتك (Alt-Shift-I) مع تضمين بيانات مستوى الأداء. ويمكنك الرجوع إلى هذه الشاشة لتعطيل جمع البيانات متى شئت.</translation>
-<translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (معرف الإضافة "<ph name="EXTENSION_ID" />") غير مسموح به على شاشة تسجيل الدخول.</translation>
 <translation id="3807747707162121253">إل&amp;غاء</translation>
 <translation id="3809280248639369696">شعاع القمر</translation>
 <translation id="3810973564298564668">إدارة محرّكات البحث</translation>
@@ -2558,7 +2558,7 @@
 <translation id="4278390842282768270">مسموح بها</translation>
 <translation id="4279490309300973883">النسخ المطابق</translation>
 <translation id="4281844954008187215">شروط الخدمة</translation>
-<translation id="4284105660453474798">هل تريد بالتأكيد حذف "$1"؟</translation>
+<translation id="4284105660453474798">هل تريد فعلًا حذف "$1"؟</translation>
 <translation id="4285498937028063278">إزالة تثبيت</translation>
 <translation id="428565720843367874">أخفق برنامج مكافحة الفيروسات بشكل غير متوقع أثناء فحص هذا الملف.</translation>
 <translation id="428608937826130504">عنصر الرف 8</translation>
@@ -2750,7 +2750,7 @@
 <translation id="4572815280350369984">ملف <ph name="FILE_TYPE" /></translation>
 <translation id="457386861538956877">المزيد...</translation>
 <translation id="4579581181964204535">يتعذّر إرسال <ph name="HOST_NAME" />.</translation>
-<translation id="4580526846085481512">هل تريد بالتأكيد حذف عناصر $1؟</translation>
+<translation id="4580526846085481512">هل تريد فعلًا حذف عناصر $1؟</translation>
 <translation id="458150753955139441">اضغط للرجوع، واستخدم قائمة السياق لمشاهدة السجلَ</translation>
 <translation id="4582447636905308869">‏محرر أسلوب الإدخال (IME) الكوري الجديد الذي يعتمد على محرك HMM لأدوات الإدخال من Google.</translation>
 <translation id="4582563038311694664">إعادة تعيين كل الإعدادات</translation>
@@ -4758,7 +4758,7 @@
 <translation id="7252661675567922360">عدم التحميل</translation>
 <translation id="7253521419891527137">&amp;مزيد من المعلومات</translation>
 <translation id="7254554697254365959">تعذرت ترجمة هذه الصفحة.</translation>
-<translation id="7254951428499890870">هل تريد بالتأكيد تشغيل "<ph name="APP_NAME" />" في الوضع التشخيصي؟</translation>
+<translation id="7254951428499890870">هل تريد فعلًا تشغيل "<ph name="APP_NAME" />" في الوضع التشخيصي؟</translation>
 <translation id="7255220508626648026">إرسال: <ph name="ROUTETITLE" /></translation>
 <translation id="7255935316994522020">تطبيق</translation>
 <translation id="7256405249507348194">خطأ غير معروف: <ph name="DESC" /></translation>
@@ -6294,7 +6294,7 @@
 <translation id="986646739000587506">تعطيل مشاركة سطح المكتب مع مصدر علامة التبويب</translation>
 <translation id="987267091708560486">{NUM_ITEMS,plural, =1{سيؤدي هذا إلى حذف عنصر $1 من هذا الجهاز نهائيًا.}zero{سيؤدي هذا إلى حذف $1 عنصر من هذا الجهاز نهائيًا.}two{سيؤدي هذا إلى حذف عنصرين ($1) من هذا الجهاز نهائيًا.}few{سيؤدي هذا إلى حذف $1 عناصر من هذا الجهاز نهائيًا.}many{سيؤدي هذا إلى حذف $1 عنصرًا من هذا الجهاز نهائيًا.}other{سيؤدي هذا إلى حذف $1 عنصر من هذا الجهاز نهائيًا.}}</translation>
 <translation id="990878533354103361">الميزات التجريبية لنافذة الإدخال</translation>
-<translation id="992032470292211616">قد تضر الإضافات والتطبيقات والمظاهر بجهازك. هل تريد بالتأكيد المتابعة؟</translation>
+<translation id="992032470292211616">قد تضر الإضافات والتطبيقات والمظاهر بجهازك. هل تريد فعلًا المتابعة؟</translation>
 <translation id="992592832486024913">‏تعطيل ChromeVox (التعليقات المنطوقة)</translation>
 <translation id="994289308992179865">ت&amp;كرار</translation>
 <translation id="996250603853062861">إنشاء اتصال آمن...</translation>
