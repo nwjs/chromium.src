@@ -11,7 +11,12 @@
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_macros.h"
+#include "base/single_thread_task_runner.h"
+#include "media/audio/null_audio_sink.h"
+#include "media/base/audio_timestamp_helper.h"
 #include "media/base/bind_to_current_loop.h"
+#include "media/base/media_log.h"
 #include "third_party/WebKit/public/platform/WebAudioSourceProviderClient.h"
 
 using blink::WebVector;
@@ -92,12 +97,14 @@ class WebAudioSourceProviderImpl::TeeFilter
 };
 
 WebAudioSourceProviderImpl::WebAudioSourceProviderImpl(
-    const scoped_refptr<SwitchableAudioRendererSink>& sink)
+    scoped_refptr<SwitchableAudioRendererSink> sink,
+    scoped_refptr<MediaLog> media_log)
     : volume_(1.0),
       state_(kStopped),
       client_(nullptr),
-      sink_(sink),
+      sink_(std::move(sink)),
       tee_filter_(new TeeFilter()),
+      media_log_(std::move(media_log)),
       weak_factory_(this) {}
 
 WebAudioSourceProviderImpl::~WebAudioSourceProviderImpl() {
@@ -113,7 +120,8 @@ void WebAudioSourceProviderImpl::setClient(
   base::AutoLock auto_lock(sink_lock_);
   if (client) {
     // Detach the audio renderer from normal playback.
-    sink_->Stop();
+    if (sink_)
+      sink_->Stop();
 
     // The client will now take control by calling provideInput() periodically.
     client_ = client;
@@ -132,11 +140,13 @@ void WebAudioSourceProviderImpl::setClient(
 
   // Restore normal playback.
   client_ = nullptr;
-  sink_->SetVolume(volume_);
-  if (state_ >= kStarted)
-    sink_->Start();
-  if (state_ >= kPlaying)
-    sink_->Play();
+  if (sink_) {
+    sink_->SetVolume(volume_);
+    if (state_ >= kStarted)
+      sink_->Start();
+    if (state_ >= kPlaying)
+      sink_->Play();
+  }
 }
 
 void WebAudioSourceProviderImpl::provideInput(
@@ -173,6 +183,22 @@ void WebAudioSourceProviderImpl::Initialize(const AudioParameters& params,
                                             RenderCallback* renderer) {
   base::AutoLock auto_lock(sink_lock_);
   DCHECK_EQ(state_, kStopped);
+
+  OutputDeviceStatus device_status =
+      sink_ ? sink_->GetOutputDeviceInfo().device_status()
+            : OUTPUT_DEVICE_STATUS_ERROR_NOT_FOUND;
+
+  UMA_HISTOGRAM_ENUMERATION("Media.WebAudioSourceProvider.SinkStatus",
+                            device_status, OUTPUT_DEVICE_STATUS_MAX + 1);
+
+  if (device_status != OUTPUT_DEVICE_STATUS_OK) {
+    // Since null sink is always OK, we will fall back to it once and forever.
+    if (sink_)
+      sink_->Stop();
+    sink_ = CreateFallbackSink();
+    MEDIA_LOG(ERROR, media_log_)
+        << "Output device error, falling back to null sink";
+  }
 
   tee_filter_->Initialize(renderer, params.channels(), params.sample_rate());
 
@@ -217,14 +243,15 @@ void WebAudioSourceProviderImpl::Pause() {
 bool WebAudioSourceProviderImpl::SetVolume(double volume) {
   base::AutoLock auto_lock(sink_lock_);
   volume_ = volume;
-  if (!client_)
+  if (!client_ && sink_)
     sink_->SetVolume(volume);
   return true;
 }
 
-media::OutputDeviceInfo WebAudioSourceProviderImpl::GetOutputDeviceInfo() {
+OutputDeviceInfo WebAudioSourceProviderImpl::GetOutputDeviceInfo() {
   base::AutoLock auto_lock(sink_lock_);
-  return sink_->GetOutputDeviceInfo();
+  return sink_ ? sink_->GetOutputDeviceInfo()
+               : OutputDeviceInfo(OUTPUT_DEVICE_STATUS_ERROR_NOT_FOUND);
 }
 
 bool WebAudioSourceProviderImpl::CurrentThreadIsRenderingThread() {
@@ -237,8 +264,8 @@ void WebAudioSourceProviderImpl::SwitchOutputDevice(
     const url::Origin& security_origin,
     const OutputDeviceStatusCB& callback) {
   base::AutoLock auto_lock(sink_lock_);
-  if (client_)
-    callback.Run(media::OUTPUT_DEVICE_STATUS_ERROR_INTERNAL);
+  if (client_ || !sink_)
+    callback.Run(OUTPUT_DEVICE_STATUS_ERROR_INTERNAL);
   else
     sink_->SwitchOutputDevice(device_id, security_origin, callback);
 }
@@ -270,6 +297,12 @@ void WebAudioSourceProviderImpl::OnSetFormat() {
 
   // Inform Blink about the audio stream format.
   client_->setFormat(tee_filter_->channels(), tee_filter_->sample_rate());
+}
+
+scoped_refptr<SwitchableAudioRendererSink>
+WebAudioSourceProviderImpl::CreateFallbackSink() {
+  // Assuming it is called on media thread.
+  return new NullAudioSink(base::ThreadTaskRunnerHandle::Get());
 }
 
 int WebAudioSourceProviderImpl::TeeFilter::Render(AudioBus* audio_bus,
