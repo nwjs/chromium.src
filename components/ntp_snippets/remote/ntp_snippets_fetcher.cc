@@ -526,10 +526,13 @@ void NTPSnippetsFetcher::FetchSnippetsImpl(const GURL& url,
     headers.SetHeader("Authorization", auth_header);
   headers.SetHeader("Content-Type", "application/json; charset=UTF-8");
   // Add X-Client-Data header with experiment IDs from field trials.
+  // Note: It's fine to pass in |is_signed_in| false, which does not affect
+  // transmission of experiment ids coming from the variations server.
+  bool is_signed_in = false;
   variations::AppendVariationHeaders(url,
                                      false,  // incognito
                                      false,  // uma_enabled
-                                     &headers);
+                                     is_signed_in, &headers);
   url_fetcher_->SetExtraRequestHeaders(headers.ToString());
   url_fetcher_->SetUploadData("application/json", request);
   // Log the request for debugging network issues.
