@@ -11,7 +11,11 @@
 namespace media_router {
 
 MediaRouterUIService::MediaRouterUIService(Profile* profile)
-    : action_controller_(profile) {}
+#if defined(NWJS_SDK)
+   : action_controller_(profile) {}
+#else
+  {}
+#endif
 
 MediaRouterUIService::~MediaRouterUIService() {}
 
@@ -21,7 +25,11 @@ MediaRouterUIService* MediaRouterUIService::Get(Profile* profile) {
 }
 
 MediaRouterActionController* MediaRouterUIService::action_controller() {
+#if defined(NWJS_SDK)
   return &action_controller_;
+#else
+  return nullptr;
+#endif
 }
 
 }  // namespace media_router

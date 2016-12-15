@@ -248,7 +248,7 @@ void PluginInfoMessageFilter::PluginsLoaded(
         plugin_metadata->GetSecurityStatus(output->plugin),
         plugin_metadata->identifier(), &output->status);
   }
-
+#if 0
   if (output->status == ChromeViewHostMsg_GetPluginInfo_Status::kNotFound) {
     // Check to see if the component updater can fetch an implementation.
     base::PostTaskAndReplyWithResult(
@@ -261,9 +261,9 @@ void PluginInfoMessageFilter::PluginsLoaded(
                    params, base::Passed(&output),
                    base::Passed(&plugin_metadata), reply_msg));
   } else {
+#endif
     GetPluginInfoReply(params, std::move(output), std::move(plugin_metadata),
                        reply_msg);
-  }
 }
 
 #if BUILDFLAG(ENABLE_PEPPER_CDMS)
