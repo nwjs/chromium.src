@@ -2504,6 +2504,7 @@ void RenderWidgetHostImpl::GrantFileAccessFromDropData(DropData* drop_data) {
         GURL(storage::GetIsolatedFileSystemRootURIString(
                  file_system_url.origin(), filesystem_id, std::string())
                  .append(register_name));
+    file_system_file.filesystem_id = filesystem_id;
   }
 }
 
