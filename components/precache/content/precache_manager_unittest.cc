@@ -28,7 +28,7 @@
 #include "components/precache/core/precache_database.h"
 #include "components/precache/core/precache_switches.h"
 #include "components/precache/core/proto/unfinished_work.pb.h"
-#include "components/variations/variations_params_manager.h"
+#include "components/variations/variations_associated_data.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/test/test_browser_context.h"
@@ -57,6 +57,7 @@ using ::testing::Invoke;
 using ::testing::IsEmpty;
 using ::testing::Pair;
 using ::testing::SaveArg;
+using variations::testing::VariationParamsManager;
 
 const char kConfigURL[] = "http://config-url.com";
 const char kManifestURLPrefix[] = "http://manifest-url-prefix.com/";
@@ -228,7 +229,6 @@ class PrecacheManagerTest : public testing::Test {
   testing::NiceMock<MockHistoryService> history_service_;
   base::HistogramTester histograms_;
   net::HttpResponseInfo info_;
-  variations::testing::VariationParamsManager variation_params_;
 };
 
 TEST_F(PrecacheManagerTest, StartAndFinishPrecaching) {
@@ -260,8 +260,8 @@ TEST_F(PrecacheManagerTest, StartAndFinishPrecaching) {
 }
 
 TEST_F(PrecacheManagerTest, StartPrecachingWithGoodSizedCache) {
-  variation_params_.SetVariationParams(kPrecacheFieldTrialName,
-                                       {{kMinCacheSizeParam, "1"}});
+  VariationParamsManager variation_params(kPrecacheFieldTrialName,
+                                          {{kMinCacheSizeParam, "1"}});
 
   // Let's store something in the cache so we pass the min_cache_size threshold.
   disk_cache::Backend* cache_backend;
@@ -316,8 +316,8 @@ TEST_F(PrecacheManagerTest, StartPrecachingWithGoodSizedCache) {
 TEST_F(PrecacheManagerTest, StartPrecachingStopsOnSmallCaches) {
   // We don't have any entry in the cache, so the reported cache_size = 0 and
   // thus it will fall below the threshold of 1.
-  variation_params_.SetVariationParams(kPrecacheFieldTrialName,
-                                       {{kMinCacheSizeParam, "1"}});
+  VariationParamsManager variation_params(kPrecacheFieldTrialName,
+                                          {{kMinCacheSizeParam, "1"}});
   EXPECT_FALSE(precache_manager_->IsPrecaching());
 
   precache_manager_->StartPrecaching(precache_callback_.GetCallback());
