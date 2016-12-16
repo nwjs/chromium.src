@@ -31,8 +31,7 @@ declare_args() {
   # Enables Native Client support.
   # Temporarily disable nacl on arm64 linux to get rid of compilation errors.
   # TODO(mcgrathr): When mipsel-nacl-clang is available, drop the exclusion.
-  enable_nacl = !is_ios && !is_android && !is_chromecast &&
-                current_cpu != "mipsel" && !(is_linux && target_cpu == "arm64")
+  enable_nacl = false
 
   # Non-SFI is not yet supported on mipsel
   enable_nacl_nonsfi = current_cpu != "mipsel"
@@ -51,7 +50,7 @@ declare_args() {
 
   # Enables proprietary codecs and demuxers; e.g. H264, AAC, MP3, and MP4.
   # We always build Google Chrome and Chromecast with proprietary codecs.
-  proprietary_codecs = is_chrome_branded || is_chromecast
+  proprietary_codecs = true
 
   enable_captive_portal_detection = !is_android && !is_ios && !is_chromecast
 
@@ -59,13 +58,13 @@ declare_args() {
   # Android stores them separately on the Java side.
   enable_session_service = !is_android && !is_ios && !is_chromecast
 
-  enable_plugin_installation = is_win || is_mac
+  enable_plugin_installation = false
 
   enable_app_list = is_chromeos
 
   enable_supervised_users = !is_ios && !is_chromecast
 
-  enable_remoting = !is_ios && !is_chromecast
+  enable_remoting = false
 
   # Hangout services is an extension that adds extra features to Hangouts.
   # For official GYP builds, this flag is set.
@@ -80,7 +79,7 @@ declare_args() {
   } else if (is_android) {
     safe_browsing_mode = 2
   } else {
-    safe_browsing_mode = 1
+    safe_browsing_mode = 0
   }
 
   # Set to true make a build that disables activation of field trial tests
