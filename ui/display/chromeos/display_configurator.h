@@ -247,6 +247,7 @@ class DISPLAY_EXPORT DisplayConfigurator : public NativeDisplayObserver {
 
   // NativeDisplayDelegate::Observer overrides:
   void OnConfigurationChanged() override;
+  void OnDisplaySnapshotsInvalidated() override;
 
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
