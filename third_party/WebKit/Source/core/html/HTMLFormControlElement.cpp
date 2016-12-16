@@ -454,7 +454,7 @@ void HTMLFormControlElement::findCustomValidationMessageTextDirection(
 
 void HTMLFormControlElement::updateVisibleValidationMessage() {
   Page* page = document().page();
-  if (!page)
+  if (!page || !page->isPageVisible())
     return;
   String message;
   if (layoutObject() && willValidate())
