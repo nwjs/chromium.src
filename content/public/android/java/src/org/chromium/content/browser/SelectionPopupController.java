@@ -741,9 +741,6 @@ public class SelectionPopupController extends ActionModeCallbackHelper {
         if (actionModeItem == MENU_ITEM_SHARE) {
             return isAllowedByClient && isShareAvailable();
         }
-        if (actionModeItem == MENU_ITEM_WEB_SEARCH) {
-            return isAllowedByClient && isWebSearchAvailable();
-        }
         return isAllowedByClient;
     }
 
@@ -944,13 +941,6 @@ public class SelectionPopupController extends ActionModeCallbackHelper {
     private boolean isShareAvailable() {
         Intent intent = new Intent(Intent.ACTION_SEND);
         intent.setType("text/plain");
-        return mContext.getPackageManager().queryIntentActivities(intent,
-                PackageManager.MATCH_DEFAULT_ONLY).size() > 0;
-    }
-
-    private boolean isWebSearchAvailable() {
-        Intent intent = new Intent(Intent.ACTION_WEB_SEARCH);
-        intent.putExtra(SearchManager.EXTRA_NEW_SEARCH, true);
         return mContext.getPackageManager().queryIntentActivities(intent,
                 PackageManager.MATCH_DEFAULT_ONLY).size() > 0;
     }
