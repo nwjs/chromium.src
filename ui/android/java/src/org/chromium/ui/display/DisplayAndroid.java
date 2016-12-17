@@ -256,7 +256,7 @@ public class DisplayAndroid {
      * this method is called as many times as startAccurateListening().
      */
     public static void stopAccurateListening() {
-        getManager().startAccurateListening();
+        getManager().stopAccurateListening();
     }
 
     /* package */ DisplayAndroid(Display display) {
