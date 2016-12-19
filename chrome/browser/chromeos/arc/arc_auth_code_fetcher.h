@@ -12,6 +12,7 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/chromeos/arc/arc_auth_context.h"
+#include "chrome/browser/chromeos/arc/arc_optin_uma.h"
 #include "google_apis/gaia/oauth2_token_service.h"
 #include "net/url_request/url_fetcher_delegate.h"
 
@@ -50,6 +51,9 @@ class ArcAuthCodeFetcher : public OAuth2TokenService::Consumer,
  private:
   void ResetFetchers();
   void OnPrepared(net::URLRequestContextGetter* request_context_getter);
+
+  void ReportResult(const std::string& auth_code,
+                    OptInSilentAuthCode uma_status);
 
   // Unowned pointers.
   Profile* const profile_;

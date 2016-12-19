@@ -65,7 +65,7 @@ void ArcAuthCodeFetcher::Fetch(const FetchCallback& callback) {
 void ArcAuthCodeFetcher::OnPrepared(
     net::URLRequestContextGetter* request_context_getter) {
   if (!request_context_getter) {
-    base::ResetAndReturn(&callback_).Run(std::string());
+    ReportResult(std::string(), OptInSilentAuthCode::CONTEXT_NOT_READY);
     return;
   }
 
@@ -116,7 +116,7 @@ void ArcAuthCodeFetcher::OnGetTokenFailure(
     const GoogleServiceAuthError& error) {
   VLOG(2) << "Failed to get LST " << error.ToString() << ".";
   ResetFetchers();
-  base::ResetAndReturn(&callback_).Run(std::string());
+  ReportResult(std::string(), OptInSilentAuthCode::NO_LST_TOKEN);
 }
 
 void ArcAuthCodeFetcher::OnURLFetchComplete(const net::URLFetcher* source) {
@@ -128,7 +128,14 @@ void ArcAuthCodeFetcher::OnURLFetchComplete(const net::URLFetcher* source) {
 
   if (response_code != net::HTTP_OK) {
     VLOG(2) << "Server returned wrong response code: " << response_code << ".";
-    base::ResetAndReturn(&callback_).Run(std::string());
+    OptInSilentAuthCode uma_status;
+    if (response_code >= 400 && response_code < 500)
+      uma_status = OptInSilentAuthCode::HTTP_CLIENT_FAILURE;
+    if (response_code >= 500 && response_code < 600)
+      uma_status = OptInSilentAuthCode::HTTP_SERVER_FAILURE;
+    else
+      uma_status = OptInSilentAuthCode::HTTP_UNKNOWN_FAILURE;
+    ReportResult(std::string(), uma_status);
     return;
   }
 
@@ -139,7 +146,7 @@ void ArcAuthCodeFetcher::OnURLFetchComplete(const net::URLFetcher* source) {
   if (!auth_code_info) {
     VLOG(2) << "Unable to deserialize auth code json data: " << error_msg
             << ".";
-    base::ResetAndReturn(&callback_).Run(std::string());
+    ReportResult(std::string(), OptInSilentAuthCode::RESPONSE_PARSE_FAILURE);
     return;
   }
 
@@ -147,7 +154,7 @@ void ArcAuthCodeFetcher::OnURLFetchComplete(const net::URLFetcher* source) {
       base::DictionaryValue::From(std::move(auth_code_info));
   if (!auth_code_dictionary) {
     NOTREACHED();
-    base::ResetAndReturn(&callback_).Run(std::string());
+    ReportResult(std::string(), OptInSilentAuthCode::RESPONSE_PARSE_FAILURE);
     return;
   }
 
@@ -155,16 +162,22 @@ void ArcAuthCodeFetcher::OnURLFetchComplete(const net::URLFetcher* source) {
   if (!auth_code_dictionary->GetString(kToken, &auth_code) ||
       auth_code.empty()) {
     VLOG(2) << "Response does not contain auth code.";
-    base::ResetAndReturn(&callback_).Run(std::string());
+    ReportResult(std::string(), OptInSilentAuthCode::NO_AUTH_CODE_IN_RESPONSE);
     return;
   }
 
-  base::ResetAndReturn(&callback_).Run(auth_code);
+  ReportResult(auth_code, OptInSilentAuthCode::SUCCESS);
 }
 
 void ArcAuthCodeFetcher::ResetFetchers() {
   login_token_request_.reset();
   auth_code_fetcher_.reset();
+}
+
+void ArcAuthCodeFetcher::ReportResult(const std::string& auth_code,
+                                      OptInSilentAuthCode uma_status) {
+  UpdateSilentAuthCodeUMA(uma_status);
+  base::ResetAndReturn(&callback_).Run(auth_code);
 }
 
 }  // namespace arc

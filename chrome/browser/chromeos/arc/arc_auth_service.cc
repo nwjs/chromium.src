@@ -434,6 +434,10 @@ void ArcAuthService::RequestAccountInfoInternal(
     return;
   }
 
+  // Report that silent auth code is not activated. All other states are
+  // reported in ArcBackgroundAuthCodeFetcher.
+  UpdateSilentAuthCodeUMA(OptInSilentAuthCode::DISABLED);
+
   // Otherwise, show LSO page to user after HTTP context preparation, and let
   // them click "Sign in" button.
   DCHECK(context_);
