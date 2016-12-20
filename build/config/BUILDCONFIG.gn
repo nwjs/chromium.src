@@ -133,6 +133,8 @@ declare_args() {
   # Debug build. Enabling official builds automatically sets is_debug to false.
   is_debug = !is_official_build
 
+  nwjs_sdk = true
+
   # Whether we're a traditional desktop unix.
   is_desktop_linux = current_os == "linux"
 
