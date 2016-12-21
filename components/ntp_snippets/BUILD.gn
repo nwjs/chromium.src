@@ -128,6 +128,7 @@ source_set("unit_tests") {
     "remote/remote_suggestions_provider_unittest.cc",
     "remote/request_throttler_unittest.cc",
     "sessions/foreign_sessions_suggestions_provider_unittest.cc",
+    "sessions/tab_delegate_sync_adapter_unittest.cc",
   ]
 
   deps = [
