@@ -47,6 +47,7 @@ class Pointer : public ui::EventHandler,
   // pointer location, in surface local coordinates.
   void SetCursor(Surface* surface, const gfx::Point& hotspot);
 
+  bool HasStylusDelegate() const;
   // Set delegate for stylus events.
   void SetStylusDelegate(PointerStylusDelegate* delegate);
 
