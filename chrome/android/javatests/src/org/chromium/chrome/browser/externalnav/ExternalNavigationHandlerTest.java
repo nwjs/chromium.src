@@ -21,6 +21,7 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
 import org.chromium.chrome.browser.externalnav.ExternalNavigationHandler.OverrideUrlLoadingResult;
+import org.chromium.chrome.browser.instantapps.InstantAppsHandler;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
 import org.chromium.chrome.browser.webapps.ChromeWebApkHost;
@@ -45,6 +46,7 @@ public class ExternalNavigationHandlerTest extends NativeLibraryTestBase {
     private static final int START_FILE = 0x8;
     private static final int START_OTHER_ACTIVITY = 0x10;
     private static final int INTENT_SANITIZATION_EXCEPTION = 0x20;
+    private static final int PROXY_FOR_INSTANT_APPS = 0x40;
 
     private static final String SEARCH_RESULT_URL_FOR_TOM_HANKS =
             "https://www.google.com/search?q=tom+hanks";
@@ -1241,6 +1243,7 @@ public class ExternalNavigationHandlerTest extends NativeLibraryTestBase {
             // For simplicity, don't distinguish between startActivityIfNeeded and startActivity
             // until a test requires this distinction.
             startActivityIntent = intent;
+            mCalledWithProxy = proxy;
             return true;
         }
 
@@ -1300,13 +1303,14 @@ public class ExternalNavigationHandlerTest extends NativeLibraryTestBase {
 
         @Override
         public boolean isSerpReferrer(String referrerUrl, Tab tab) {
-            return false;
+            return mIsSerpReferrer;
         }
 
         public void reset() {
             startActivityIntent = null;
             startIncognitoIntentCalled = false;
             startFileIntentCalled = false;
+            mCalledWithProxy = false;
         }
 
         public void setCanResolveActivity(boolean value) {
@@ -1333,8 +1337,12 @@ public class ExternalNavigationHandlerTest extends NativeLibraryTestBase {
             mCanHandleWithInstantApp = value;
         }
 
-        public Intent startActivityIntent = null;
-        public boolean startIncognitoIntentCalled = false;
+        public void setIsSerpReferrer(boolean value) {
+            mIsSerpReferrer = value;
+        }
+
+        public Intent startActivityIntent;
+        public boolean startIncognitoIntentCalled;
 
         // This should not be reset for every run of check().
         private Boolean mQueryIntentOverride;
@@ -1342,6 +1350,8 @@ public class ExternalNavigationHandlerTest extends NativeLibraryTestBase {
         private String mNewUrlAfterClobbering;
         private String mReferrerUrlForClobbering;
         private boolean mCanHandleWithInstantApp;
+        private boolean mIsSerpReferrer;
+        public boolean mCalledWithProxy;
         public boolean mIsChromeAppInForeground = true;
         public boolean mIsWithinCurrentWebappScope;
 
@@ -1431,6 +1441,7 @@ public class ExternalNavigationHandlerTest extends NativeLibraryTestBase {
             boolean expectStartFile = (otherExpectation & START_FILE) != 0;
             boolean expectSaneIntent = expectStartOtherActivity
                     && (otherExpectation & INTENT_SANITIZATION_EXCEPTION) == 0;
+            boolean expectProxyForIA = (otherExpectation & PROXY_FOR_INSTANT_APPS) != 0;
 
             mDelegate.reset();
 
@@ -1464,6 +1475,7 @@ public class ExternalNavigationHandlerTest extends NativeLibraryTestBase {
             assertEquals(expectStartChrome, startChromeCalled);
             assertEquals(expectStartWebApk, startWebApkCalled);
             assertEquals(expectStartFile, mDelegate.startFileIntentCalled);
+            assertEquals(expectProxyForIA, mDelegate.mCalledWithProxy);
 
             if (startActivityCalled && expectSaneIntent) {
                 checkIntentSanity(mDelegate.startActivityIntent, "Intent");
