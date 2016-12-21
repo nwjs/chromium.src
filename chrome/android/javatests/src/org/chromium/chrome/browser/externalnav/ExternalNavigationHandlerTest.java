@@ -540,6 +540,95 @@ public class ExternalNavigationHandlerTest extends NativeLibraryTestBase {
     }
 
     @SmallTest
+    public void testInstantAppsIntent_incomingIntentRedirect() throws Exception {
+        TestContext context = new TestContext();
+        int transTypeLinkFromIntent = PageTransition.LINK
+                | PageTransition.FROM_API;
+        TabRedirectHandler redirectHandler = new TabRedirectHandler(context);
+        Intent fooIntent = Intent.parseUri("http://instantappenabled.com",
+                Intent.URI_INTENT_SCHEME);
+        redirectHandler.updateIntent(fooIntent);
+        redirectHandler.updateNewUrlLoading(transTypeLinkFromIntent, false, false, 0, 0);
+        redirectHandler.updateNewUrlLoading(transTypeLinkFromIntent, true, false, 0, 0);
+
+        mDelegate.setCanHandleWithInstantApp(true);
+        checkUrl("http://goo.gl/1234")
+                .withPageTransition(transTypeLinkFromIntent)
+                .withIsRedirect(true)
+                .withRedirectHandler(redirectHandler)
+                .expecting(OverrideUrlLoadingResult.OVERRIDE_WITH_EXTERNAL_INTENT, IGNORE);
+
+        // URL that cannot be handled with instant apps should stay in Chrome.
+        mDelegate.setCanHandleWithInstantApp(false);
+        checkUrl("http://goo.gl/1234")
+                .withPageTransition(transTypeLinkFromIntent)
+                .withIsRedirect(true)
+                .withRedirectHandler(redirectHandler)
+                .expecting(OverrideUrlLoadingResult.NO_OVERRIDE, IGNORE);
+    }
+
+    @SmallTest
+    public void testInstantAppsIntent_handleNavigation() {
+        mDelegate.setCanHandleWithInstantApp(false);
+        checkUrl("http://maybeinstantapp.com")
+                .withPageTransition(PageTransition.LINK)
+                .expecting(OverrideUrlLoadingResult.NO_OVERRIDE, IGNORE);
+
+        mDelegate.setCanHandleWithInstantApp(true);
+        checkUrl("http://maybeinstantapp.com")
+                .withPageTransition(PageTransition.LINK)
+                .expecting(OverrideUrlLoadingResult.OVERRIDE_WITH_EXTERNAL_INTENT, IGNORE);
+    }
+
+    @SmallTest
+    public void testInstantAppsIntent_serpReferrer() {
+        String intentUrl = "intent://buzzfeed.com/tasty#Intent;scheme=http;"
+                + "package=com.google.android.instantapps.supervisor;"
+                + "action=com.google.android.instantapps.START;"
+                + "S.com.google.android.instantapps.FALLBACK_PACKAGE="
+                + "com.android.chrome;S.com.google.android.instantapps.INSTANT_APP_PACKAGE="
+                + "com.yelp.android;S.android.intent.extra.REFERRER_NAME="
+                + "https%3A%2F%2Fwww.google.com;end";
+        mDelegate.setIsSerpReferrer(true);
+        checkUrl(intentUrl)
+                .expecting(OverrideUrlLoadingResult.OVERRIDE_WITH_EXTERNAL_INTENT,
+                        START_OTHER_ACTIVITY | PROXY_FOR_INSTANT_APPS);
+        assertTrue(mDelegate.startActivityIntent.hasExtra(
+                InstantAppsHandler.IS_GOOGLE_SEARCH_REFERRER));
+
+        // Check that we block all instant app intent:// URLs not from SERP
+        mDelegate.setIsSerpReferrer(false);
+        checkUrl(intentUrl)
+                .expecting(OverrideUrlLoadingResult.NO_OVERRIDE, IGNORE);
+
+        // Check that IS_GOOGLE_SEARCH_REFERRER param is stripped on non-supervisor intents.
+        mDelegate.setIsSerpReferrer(true);
+        String nonSupervisor = "intent://buzzfeed.com/tasty#Intent;scheme=http;"
+                + "package=com.imdb;action=com.google.VIEW;"
+                + "S.com.google.android.gms.instantapps.IS_GOOGLE_SEARCH_REFERRER="
+                + "true;S.android.intent.extra.REFERRER_NAME="
+                + "https%3A%2F%2Fwww.google.com;end";
+        checkUrl(nonSupervisor)
+                .expecting(OverrideUrlLoadingResult.OVERRIDE_WITH_EXTERNAL_INTENT,
+                        START_OTHER_ACTIVITY);
+        assertFalse(mDelegate.startActivityIntent.hasExtra(
+                InstantAppsHandler.IS_GOOGLE_SEARCH_REFERRER));
+
+        // Check that Supervisor is detected by action even without package
+        for (String action : ExternalNavigationHandler.SUPERVISOR_START_ACTIONS) {
+            String intentWithoutPackage = "intent://buzzfeed.com/tasty#Intent;scheme=http;"
+                    + "action=" + action + ";"
+                    + "S.com.google.android.instantapps.FALLBACK_PACKAGE="
+                    + "com.android.chrome;S.com.google.android.instantapps.INSTANT_APP_PACKAGE="
+                    + "com.yelp.android;S.android.intent.extra.REFERRER_NAME="
+                    + "https%3A%2F%2Fwww.google.com;end";
+            mDelegate.setIsSerpReferrer(false);
+            checkUrl(intentWithoutPackage)
+                    .expecting(OverrideUrlLoadingResult.NO_OVERRIDE, IGNORE);
+        }
+    }
+
+    @SmallTest
     public void testFallbackUrl_IntentResolutionSucceeds() {
         // IMDB app is installed.
         mDelegate.setCanResolveActivity(true);
