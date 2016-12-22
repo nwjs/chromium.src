@@ -1111,12 +1111,15 @@ int LayoutTableSection::distributeExtraLogicalHeightToRows(
   return extraLogicalHeight - remainingExtraLogicalHeight;
 }
 
-static bool shouldFlexCellChild(LayoutObject* cellDescendant) {
-  return cellDescendant->isAtomicInlineLevel() ||
-         (cellDescendant->isBox() &&
-          toLayoutBox(cellDescendant)->style()->overflowY() !=
-              OverflowVisible &&
-          toLayoutBox(cellDescendant)->style()->overflowY() != OverflowHidden);
+static bool shouldFlexCellChild(const LayoutTableCell& cell,
+                                LayoutObject* cellDescendant) {
+  if (!cell.style()->logicalHeight().isSpecified())
+    return false;
+  if (cellDescendant->style()->overflowY() == OverflowVisible ||
+      cellDescendant->style()->overflowY() == OverflowHidden)
+    return true;
+  return cellDescendant->isBox() &&
+         toLayoutBox(cellDescendant)->shouldBeConsideredAsReplaced();
 }
 
 void LayoutTableSection::layoutRows() {
@@ -1902,7 +1905,7 @@ void LayoutTableSection::relayoutCellIfFlexed(LayoutTableCell& cell,
   for (LayoutObject* child = cell.firstChild(); child;
        child = child->nextSibling()) {
     if (!child->isText() && child->style()->logicalHeight().isPercentOrCalc() &&
-        (flexAllChildren || shouldFlexCellChild(child)) &&
+        (flexAllChildren || shouldFlexCellChild(cell, child)) &&
         (!child->isTable() || toLayoutTable(child)->hasSections())) {
       cellChildrenFlex = true;
       break;
@@ -1913,7 +1916,7 @@ void LayoutTableSection::relayoutCellIfFlexed(LayoutTableCell& cell,
     if (TrackedLayoutBoxListHashSet* percentHeightDescendants =
             cell.percentHeightDescendants()) {
       for (auto* descendant : *percentHeightDescendants) {
-        if (flexAllChildren || shouldFlexCellChild(descendant)) {
+        if (flexAllChildren || shouldFlexCellChild(cell, descendant)) {
           cellChildrenFlex = true;
           break;
         }

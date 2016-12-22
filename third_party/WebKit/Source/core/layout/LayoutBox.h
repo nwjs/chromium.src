@@ -1095,6 +1095,7 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
 
   bool shrinkToAvoidFloats() const;
   virtual bool avoidsFloats() const;
+  bool shouldBeConsideredAsReplaced() const;
 
   void updateFragmentationInfoForChild(LayoutBox&);
   bool childNeedsRelayoutForPagination(const LayoutBox&) const;
