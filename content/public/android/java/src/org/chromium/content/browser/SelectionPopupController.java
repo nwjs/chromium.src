@@ -206,7 +206,6 @@ public class SelectionPopupController extends ActionModeCallbackHelper {
             return true;
         }
 
-        // On ICS, startActionMode throws an NPE when getParent() is null.
         ActionMode actionMode = null;
         if (mView.getParent() != null) {
             assert mWebContents != null;
@@ -218,6 +217,7 @@ public class SelectionPopupController extends ActionModeCallbackHelper {
             LGEmailActionModeWorkaround.runIfNecessary(mContext, actionMode);
         }
         mActionMode = actionMode;
+        mUnselectAllOnDismiss = true;
         return isActionModeValid();
     }
 
