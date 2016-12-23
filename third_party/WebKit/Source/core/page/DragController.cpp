@@ -219,7 +219,8 @@ void DragController::dragExited(DragData* dragData) {
   if (frameView) {
     DataTransferAccessPolicy policy =
         (!m_documentUnderMouse ||
-         m_documentUnderMouse->getSecurityOrigin()->isLocal())
+         m_documentUnderMouse->getSecurityOrigin()->isLocal() ||
+         m_documentUnderMouse->getSecurityOrigin()->hasUniversalAccess())
             ? DataTransferReadable
             : DataTransferTypesReadable;
     DataTransfer* dataTransfer = createDraggingDataTransfer(policy, dragData);
@@ -701,7 +702,7 @@ bool DragController::tryDHTMLDrag(DragData* dragData,
     return false;
 
   DataTransferAccessPolicy policy =
-      m_documentUnderMouse->getSecurityOrigin()->isLocal()
+    m_documentUnderMouse->getSecurityOrigin()->isLocal() || m_documentUnderMouse->getSecurityOrigin()->hasUniversalAccess()
           ? DataTransferReadable
           : DataTransferTypesReadable;
   DataTransfer* dataTransfer = createDraggingDataTransfer(policy, dragData);

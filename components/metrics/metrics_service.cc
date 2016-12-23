@@ -275,7 +275,7 @@ MetricsService::MetricsService(MetricsStateManager* state_manager,
       clean_exit_beacon_(client->GetRegistryBackupKey(), local_state),
       recording_state_(UNSET),
       reporting_active_(false),
-      test_mode_active_(false),
+      test_mode_active_(true),
       state_(INITIALIZED),
       log_upload_in_progress_(false),
       idle_since_last_transmission_(false),
@@ -317,9 +317,9 @@ void MetricsService::InitializeMetricsRecordingState() {
 }
 
 void MetricsService::Start() {
-  HandleIdleSinceLastTransmission(false);
+  test_mode_active_ = true;
   EnableRecording();
-  EnableReporting();
+  DisableReporting();
 }
 
 void MetricsService::StartRecordingForTests() {
