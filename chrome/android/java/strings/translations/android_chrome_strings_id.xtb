@@ -15,7 +15,7 @@
 <translation id="1197267115302279827">Pindahkan bookmark</translation>
 <translation id="119944043368869598">Hapus semua</translation>
 <translation id="1201402288615127009">Berikutnya</translation>
-<translation id="1204037785786432551">Unduh tautan</translation>
+<translation id="1204037785786432551">Download tautan</translation>
 <translation id="1206892813135768548">Salin teks tautan</translation>
 <translation id="1209206284964581585">Sembunyikan sekarang</translation>
 <translation id="1211530540767271776">Tidak ada perangkat USB di sini</translation>
@@ -33,7 +33,7 @@ Anda harus mengaktifkan Bluetooth dan Lokasi agar dapat menggunakan Web Fisik.</
 <translation id="1340482604681802745">Alamat pengambilan</translation>
 <translation id="13410144310025252">Lihat di Chrome</translation>
 <translation id="1369915414381695676">Situs <ph name="SITE_NAME" /> ditambahkan</translation>
-<translation id="1373696734384179344">Memori tidak cukup untuk mengunduh konten yang dipilih.</translation>
+<translation id="1373696734384179344">Memori tidak cukup untuk mendownload konten yang dipilih.</translation>
 <translation id="1376578503827013741">Menghitung…</translation>
 <translation id="138361230106469022">Hai, <ph name="FULL_NAME" /></translation>
 <translation id="1383876407941801731">Telusuri</translation>
@@ -138,7 +138,7 @@ Anda dapat mengontrol Web Fisik di Setelan Chrome.
 <translation id="2369533728426058518">tab terbuka</translation>
 <translation id="2385560268894525395">minggu lalu</translation>
 <translation id="2387895666653383613">Ukuran teks</translation>
-<translation id="238909021488141516">Terjadi kesalahan saat mengunduh konten.</translation>
+<translation id="238909021488141516">Terjadi kesalahan saat mendownload konten.</translation>
 <translation id="2414886740292270097">Gelap</translation>
 <translation id="2433507940547922241">Tampilan</translation>
 <translation id="2439248520967274840">Anda masuk ke <ph name="TO_ACCOUNT" />. Sebagian bookmark, riwayat, sandi, dan setelan lain yang sudah ada sebelumnya disinkronkan ke <ph name="FROM_ACCOUNT" />. Apa yang ingin Anda lakukan dengan data yang sudah ada?</translation>
@@ -212,7 +212,7 @@ Anda dapat mengontrol Web Fisik di Setelan Chrome.
 <translation id="3278850099957560514">Hemat data dengan menggunakan Google untuk mengoptimalkan laman yang Anda kunjungi. Laman yang diakses menggunakan sambungan pribadi (HTTPS) atau tab Penyamaran tidak akan dioptimalkan maupun dilihat oleh Google.</translation>
 <translation id="3282497668470633863">Tambahkan nama di kartu</translation>
 <translation id="3282568296779691940">Masuk ke Chrome</translation>
-<translation id="3303414029551471755">Lanjutkan untuk mengunduh konten?</translation>
+<translation id="3303414029551471755">Lanjutkan untuk mendownload konten?</translation>
 <translation id="3320021301628644560">Tambahkan alamat penagihan</translation>
 <translation id="3328801116991980348">Informasi situs</translation>
 <translation id="3350687908700087792">Tutup semua jendela penyamaran</translation>
@@ -342,6 +342,7 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="4807963036345170158">Penghemat Data nonaktif</translation>
 <translation id="4816465935029283692">Jenis data</translation>
 <translation id="4827948050554950725">Tambahkan kartu kredit</translation>
+<translation id="4835385943915508971">Chrome tidak memiliki akses ke sumber daya yang diminta.</translation>
 <translation id="4850886885716139402">Lihat</translation>
 <translation id="4860895144060829044">Panggil</translation>
 <translation id="4881695831933465202">Buka</translation>
@@ -382,7 +383,7 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="5210365745912300556">Tutup tab</translation>
 <translation id="5222676887888702881">Keluar</translation>
 <translation id="5233638681132016545">Tab baru</translation>
-<translation id="5271967389191913893">Perangkat tidak dapat membuka konten untuk diunduh.</translation>
+<translation id="5271967389191913893">Perangkat tidak dapat membuka konten untuk didownload.</translation>
 <translation id="528192093759286357">Seret dari atas dan ketuk tombol kembali untuk keluar dari mode layar penuh.</translation>
 <translation id="5284584623296338184">Perubahan pada bookmark, riwayat, sandi, dan setelan lainnya tidak akan disinkronkan lagi dengan Akun Google Anda. Namun, data yang sudah ada akan tetap disimpan di akun Google Anda.</translation>
 <translation id="5301954838959518834">Oke, paham</translation>
@@ -406,7 +407,7 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> GB tersedia</translation>
 <translation id="544291274896356069">Mode penyamaran akan ditutup jika tautan ini dibuka di aplikasi eksternal. Lanjutkan?</translation>
 <translation id="5447201525962359567">Semua penyimpanan situs, termasuk cookie dan data lain yang tersimpan secara lokal</translation>
-<translation id="5456381639095306749">Unduh laman</translation>
+<translation id="5456381639095306749">Download laman</translation>
 <translation id="54817484435770891">Tambahkan alamat yang valid</translation>
 <translation id="548278423535722844">Buka di aplikasi peta</translation>
 <translation id="5487521232677179737">Hapus data</translation>
@@ -430,13 +431,13 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="5677928146339483299">Dicekal</translation>
 <translation id="5684874026226664614">Ups. Laman ini tidak dapat diterjemahkan.</translation>
 <translation id="5708031556037168012">Simpan data yang sudah ada di perangkat dan impor data ke <ph name="TO_ACCOUNT" /> secara permanen.</translation>
-<translation id="5719837394786370183">Halaman yang Anda lihat dalam tab penyamaran tidak akan disimpan di riwayat, penyimpanan cookie, atau riwayat penelusuran browser setelah semua tab penyamaran ditutup. File apa pun yang diunduh atau bookmark yang dibuat akan tetap tersimpan.
+<translation id="5719837394786370183">Halaman yang Anda lihat dalam tab penyamaran tidak akan disimpan di riwayat, penyimpanan cookie, atau riwayat penelusuran browser setelah semua tab penyamaran ditutup. File apa pun yang didownload atau bookmark yang dibuat akan tetap tersimpan.
 
 Namun demikian, bukan berarti Anda sama sekali tidak terlihat. Menggunakan mode penyamaran tidak akan menyembunyikan penjelajahan yang Anda lakukan dari atasan di kantor, dari penyedia layanan internet, maupun situs web yang Anda kunjungi.</translation>
 <translation id="572328651809341494">Tab baru-baru ini</translation>
 <translation id="572392919096807438">Ingat keputusan saya</translation>
 <translation id="5748802427693696783">Beralih ke tab standar</translation>
-<translation id="5749068826913805084">Chrome memerlukan akses penyimpanan untuk mengunduh file.</translation>
+<translation id="5749068826913805084">Chrome memerlukan akses penyimpanan untuk mendownload file.</translation>
 <translation id="57586589942790530">Nomor kartu tidak valid</translation>
 <translation id="5763382633136178763">Tab penyamaran</translation>
 <translation id="5765780083710877561">Deskripsi:</translation>
@@ -501,7 +502,7 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="6448273550210938826">Penelusuran dan saran URL</translation>
 <translation id="6463070039183944536">Menambahkan…</translation>
 <translation id="6464825623202322042">Perangkat ini</translation>
-<translation id="6475951671322991020">Unduh video</translation>
+<translation id="6475951671322991020">Download video</translation>
 <translation id="6477460825583319731">Alamat email tidak valid</translation>
 <translation id="6482749332252372425">Unduhan <ph name="FILE_NAME" /> gagal karena ruang penyimpanan tidak cukup.</translation>
 <translation id="6527303717912515753">Bagikan</translation>
@@ -529,11 +530,11 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="6698801883190606802">Kelola data yang disinkronkan</translation>
 <translation id="6701279291835318271">Laporan keamanan</translation>
 <translation id="6710213216561001401">Sebelumnya</translation>
-<translation id="6738867403308150051">Mengunduh…</translation>
+<translation id="6738867403308150051">Mendownload…</translation>
 <translation id="6743044928064272573">Opsi pengambilan</translation>
 <translation id="6762156594045689028">Untuk mengubah setelan ini, <ph name="BEGIN_LINK" />setel ulang sinkronisasi<ph name="END_LINK" /></translation>
 <translation id="6764789522080107716">Tidak dapat membuka file</translation>
-<translation id="6770414673596662518">Sistem Penjelajahan Aman Chrome juga dapat digunakan untuk mendeteksi laman berbahaya dan melindungi Anda dari phishing, perangkat lunak perusak, dan unduhan berbahaya.</translation>
+<translation id="6770414673596662518">Sistem Penjelajahan Aman Chrome juga dapat digunakan untuk mendeteksi laman berbahaya dan melindungi Anda dari phishing, perangkat lunak perusak, dan download berbahaya.</translation>
 <translation id="6790428901817661496">Putar</translation>
 <translation id="679325081238418596">Dapatkan bookmark, riwayat, sandi, dan setelan lainnya di semua perangkat Anda</translation>
 <translation id="6820607729870073286">Anda tidak memiliki setelan situs web yang tersimpan.</translation>
@@ -541,7 +542,7 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="6831043979455480757">Terjemahkan</translation>
 <translation id="6846298663435243399">Memuat…</translation>
 <translation id="6850830437481525139"><ph name="TAB_COUNT" /> tab ditutup</translation>
-<translation id="6864459304226931083">Unduh gambar</translation>
+<translation id="6864459304226931083">Download gambar</translation>
 <translation id="6865313869410766144">Data formulir isi-otomatis</translation>
 <translation id="6868088497967843822">Masuk untuk mendapatkan bookmark, riwayat, sandi, dan setelan Anda lainnya di semua perangkat</translation>
 <translation id="6891858906296486776">{OPEN_TABS,plural, =1{%1$d tab terbuka}other{%1$d tab terbuka}}</translation>
@@ -552,12 +553,12 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="6973630695168034713">Folder</translation>
 <translation id="6978479750597523876">Setel ulang setelan terjemahan</translation>
 <translation id="6981982820502123353">Aksesibilitas</translation>
-<translation id="6985347914332179298">Tidak ada unduhan di sini</translation>
+<translation id="6985347914332179298">Tidak ada download di sini</translation>
 <translation id="6990079615885386641">Dapatkan aplikasi dari Google Play Store: <ph name="APP_ACTION" /></translation>
 <translation id="699220179437400583">Otomatis melaporkan detail kemungkinan insiden keamanan ke Google</translation>
 <translation id="6992289844737586249">Tanya terlebih dahulu sebelum mengizinkan situs menggunakan mikrofon Anda (disarankan)</translation>
 <translation id="7001663382399377034">Tambahkan penerima</translation>
-<translation id="7021515813996758557"><ph name="FILE_NAME" /> diunduh</translation>
+<translation id="7021515813996758557"><ph name="FILE_NAME" /> didownload</translation>
 <translation id="7022756207310403729">Buka di browser</translation>
 <translation id="7029809446516969842">Sandi</translation>
 <translation id="7031882061095297553">Sinkronkan ke</translation>
@@ -592,7 +593,7 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 Akun Google Anda mungkin memiliki bentuk riwayat penjelajahan lain seperti penelusuran dan aktivitas dari layanan Google lainnya di <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />.</translation>
 <translation id="7493994139787901920"><ph name="VERSION" /> (Diperbarui <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Harap tunggu...</translation>
-<translation id="7514365320538308">Unduh</translation>
+<translation id="7514365320538308">Download</translation>
 <translation id="7521387064766892559">Javascript</translation>
 <translation id="753693763123565012">Itu saja untuk sekarang</translation>
 <translation id="7562080006725997899">Menghapus data penjelajahan</translation>
@@ -691,12 +692,12 @@ Akun Google Anda mungkin memiliki bentuk riwayat penjelajahan lain seperti penel
 <translation id="857943718398505171">Diizinkan (disarankan)</translation>
 <translation id="8583805026567836021">Menghapus data akun</translation>
 <translation id="858637041960032120">+ nomor telepon</translation>
-<translation id="8617240290563765734">Buka URL yang disarankan yang ditentukan di konten unduhan?</translation>
-<translation id="862875433388403934">Konten (film, musik, dsb.) yang diunduh di aplikasi lain mungkin tidak dapat diputar lagi hingga aplikasi tersebut mendapatkan kembali lisensi berdasarkan kredensial perangkat yang baru.
+<translation id="8617240290563765734">Buka URL yang disarankan yang ditentukan di konten download?</translation>
+<translation id="862875433388403934">Konten (film, musik, dsb.) yang didownload di aplikasi lain mungkin tidak dapat diputar lagi hingga aplikasi tersebut mendapatkan kembali lisensi berdasarkan kredensial perangkat yang baru.
 
-Untuk mendapatkan lisensi baru, sambungkan ke internet dan putar konten yang diunduh.</translation>
+Untuk mendapatkan lisensi baru, sambungkan ke internet dan putar konten yang didownload.</translation>
 <translation id="8636825310635137004">Untuk mendapatkan tab dari perangkat lainnya, aktifkan sinkronisasi.</translation>
-<translation id="8639651215196239211">Semua unduhan</translation>
+<translation id="8639651215196239211">Semua download</translation>
 <translation id="8660471606262461360">Dari Google Payments</translation>
 <translation id="8676374126336081632">Hapus masukan</translation>
 <translation id="869891660844655955">Masa berlaku</translation>

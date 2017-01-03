@@ -1450,7 +1450,6 @@
 <translation id="2845382757467349449">बुकमार्क बार हमेशा दिखाएं</translation>
 <translation id="2846816712032308263">टैब/विंडो को त्वरित रूप से बंद करना सक्षम बनाती है - किसी टैब के ऑनअनलोड js हैंडलर को GUI से स्वतंत्र रूप से चलाती है.</translation>
 <translation id="2847759467426165163">इस पर कास्ट करें</translation>
-<translation id="284844301579626260">वापस जाने के लिए |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| दबाएं</translation>
 <translation id="2849362176025371110">Google को निदान और उपयोग का डेटा अपने आप भेजें. आप इसे अपनी डिवाइस <ph name="BEGIN_LINK1" />सेटिंग<ph name="END_LINK1" /> में किसी भी समय बदल सकते हैं. <ph name="BEGIN_LINK2" />अधिक जानें<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">महत्वपूर्ण</translation>
@@ -2610,7 +2609,6 @@
 <translation id="4350019051035968019">इस डिवाइस को उस डोमेन पर नामांकित नहीं किया जा सकता जिससे आपका खाता संबंधित है क्योंकि डिवाइस को भिन्न डोमेन द्वारा प्रबंधित करने के लिए चिह्नित किया गया है.</translation>
 <translation id="4350426338152422833">सभी टैब पर ऑडियो फ़ोकस प्रबधित करें</translation>
 <translation id="4354806558096370704">स्थानीय CUPS प्रिंटिंग बैकएंड का उपयोग सक्षम करता है.</translation>
-<translation id="4355925451975609675">आगे जाने के लिए |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| दबाएं</translation>
 <translation id="4356334633973342967">या अपना स्वयं का ड्राइवर निर्दिष्ट करें:</translation>
 <translation id="4356973930735388585">इस साइट पर मौजूद हमलावर आपके कंप्यूटर पर ऐसे खतरनाक प्रोग्राम इंस्टॉल करने की कोशिश कर सकते हैं जो आपकी जानकारी (उदाहरण के लिए, फ़ोटो, पासवर्ड, संदेश और क्रेडिट कार्ड) चुरा लेते हैं या उसे हटा देते हैं.</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4697,7 +4695,6 @@
 <translation id="715118844758971915">क्‍लासि‍क प्रिंटर</translation>
 <translation id="7154130902455071009">अपना आरंभ पृष्ठ इसमें बदलें: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">कैमरा या फ़ाइल से मौजूदा फ़ोटो</translation>
-<translation id="7155226869555939647">हमेशा <ph name="APPLICATION" /> के लिए लिंक खोलें</translation>
 <translation id="7156235233373189579">फ़ाइल को Windows सॉफ़्टवेयर का उपयोग करने वाले पीसी के लिए डिज़ाइन किया गया है. यह आपके उस डिवाइस से संगत नहीं है जिस पर Chrome OS चल रहा है. कृपया उपयुक्त प्रतिस्थापना ऐप्स के लिए <ph name="BEGIN_LINK" />Chrome वेब स्टोर<ph name="END_LINK" /> खोजें.<ph name="BEGIN_LINK_HELP" />और जानें<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">जारी रखें क्लिक करके आप <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" />, और <ph name="LEGAL_DOC_LINK_TEXT_4" /> से सहमति देते हैं.</translation>
 <translation id="7158238151765743968">"<ph name="DEVICE_NAME" />" से कनेक्शन अभी भी प्रगति में है.</translation>

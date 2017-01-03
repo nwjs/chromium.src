@@ -2552,7 +2552,7 @@ W przypadku wyłączenia lub nieskonfigurowania tej zasady tworzenie zrzutów ek
 <translation id="930930237275114205">Ustaw katalog danych użytkownika <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="944607242500063080">Konfigurowanie dozwolonych trybów szybkiego odblokowania.</translation>
 <translation id="944817693306670849">Ustaw rozmiar dyskowej pamięci podręcznej.</translation>
-<translation id="969164417253718105">To ustawienie określa, jak często trzeba podawać hasło na ekranie blokady, gdy używane jest szybkie odblokowanie. Szybkie odblokowanie ekranu blokady nie będzie możliwe, jeśli hasło podano ostatnio dawniej niż określa to wartość tego ustawienia. Jeśli ekran blokady będzie otwarty dłużej niż wartość tego ustawienia, użytkownik będzie musiał podać hasło po wystąpieniu pierwszego z tych zdarzeń: najbliższe podanie błędnego kodu lub ponowne wyświetlenie ekranu blokady.
+<translation id="969164417253718105">To ustawienie określa, jak często trzeba podawać hasło na ekranie blokady, gdy używane jest szybkie odblokowanie. Szybkie odblokowanie ekranu blokady nie będzie możliwe, jeśli od ostatniego wpisania hasła minęło więcej czasu, niż określa to wartość tego ustawienia. Jeśli ekran blokady będzie otwarty dłużej niż wartość tego ustawienia, użytkownik będzie musiał podać hasło po wystąpieniu pierwszego z tych zdarzeń: najbliższe podanie błędnego kodu lub ponowne wyświetlenie ekranu blokady.
 
       Gdy to ustawienie jest skonfigurowane, jego wartość określa, jak często użytkownicy korzystający z szybkiego odblokowania muszą podawać swoje hasło na ekranie blokady.
 

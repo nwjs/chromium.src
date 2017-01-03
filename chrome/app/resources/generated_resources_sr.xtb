@@ -1448,7 +1448,6 @@
 <translation id="2845382757467349449">Увек приказуј траку са обележивачима</translation>
 <translation id="2846816712032308263">Омогућава брзо затварање картице/прозора – покреће js обрађивач onunload на картици независно од графичког корисничког интерфејса.</translation>
 <translation id="2847759467426165163">Пребаци на</translation>
-<translation id="284844301579626260">Притисните |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| да бисте се вратили</translation>
 <translation id="2849362176025371110">Аутоматски шаљите дијагностику и податке о коришћењу Google-у. Ово можете да промените у било ком тренутку у <ph name="BEGIN_LINK1" />подешавањима<ph name="END_LINK1" /> уређаја. <ph name="BEGIN_LINK2" />Сазнајте више<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Од пресудне важности</translation>
@@ -2609,7 +2608,6 @@
 <translation id="4350019051035968019">Овај уређај не може да се региструје на домену коме припада ваш налог јер је означен као уређај којим управља други домен.</translation>
 <translation id="4350426338152422833">Управљај аудио фокусом на свим картицама</translation>
 <translation id="4354806558096370704">Омогућава коришћење матичног CUPS позадинског механизама за штампање.</translation>
-<translation id="4355925451975609675">Притисните |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| да бисте ишли даље</translation>
 <translation id="4356334633973342967">Или наведите свој управљачки програм:</translation>
 <translation id="4356973930735388585">Нападачи на овом сајту ће можда покушати да инсталирају опасне програме на рачунару који краду или бришу информације (на пример, слике, лозинке, поруке и бројеве кредитних картица).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4696,7 +4694,6 @@
 <translation id="715118844758971915">Класични штампачи</translation>
 <translation id="7154130902455071009">Промените почетну страницу у: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Постојећа фотографија из камере или датотеке</translation>
-<translation id="7155226869555939647">Увек отварај линкове за <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Ова датотека је дизајнирана за рачунар који користи Windows софтвер. Она није компатибилна са вашим уређајем који користи Chrome ОС. Претражите <ph name="BEGIN_LINK" />Chrome веб-продавницу<ph name="END_LINK" /> да бисте пронашли одговарајућу апликацију за замену.<ph name="BEGIN_LINK_HELP" />Сазнајте више<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Кликом на Настави прихватате документе <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> и <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">Повезивање са уређајем „<ph name="DEVICE_NAME" />“ је још увек у току.</translation>

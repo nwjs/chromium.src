@@ -178,7 +178,7 @@
 <translation id="1561424797596341174">Penggantian kebijakan untuk versi Debug host akses jarak jauh</translation>
 <translation id="1583248206450240930">Gunakan <ph name="PRODUCT_FRAME_NAME" /> jika tidak diubah</translation>
 <translation id="1608755754295374538">URL yang akan diberi akses ke perangkat perekam audio tanpa peringatan</translation>
-<translation id="1617235075406854669">Aktifkan penghapusan riwayat unduhan atau browser</translation>
+<translation id="1617235075406854669">Aktifkan penghapusan riwayat download atau browser</translation>
 <translation id="1617384279878333801">Mengaktifkan tambahkan orang di pengelola profil</translation>
 <translation id="163200210584085447">Pola dalam daftar ini akan dicocokkan dengan
       asal keamanan URL yang meminta.  Jika ditemukan kecocokan, akses ke perangkat
@@ -198,11 +198,11 @@
 <translation id="1736269219679256369">Memungkinkan melanjutkan dari laman peringatan SSL</translation>
 <translation id="1749815929501097806">Menyetel Persyaratan Layanan yang harus diterima oleh pengguna sebelum sebelum memulai sesi akun lokal perangkat.
 
-      Jika kebijakan ini disetel, <ph name="PRODUCT_OS_NAME" /> akan mengunduh Persyaratan Layanan dan menyajikannya kepada pengguna saat sesi akun lokal perangkat dimulai. Pengguna hanya akan diizinkan menuju sesi tersebut setelah menerima Persyaratan Layanan.
+      Jika kebijakan ini disetel, <ph name="PRODUCT_OS_NAME" /> akan mendownload Persyaratan Layanan dan menyajikannya kepada pengguna saat sesi akun lokal perangkat dimulai. Pengguna hanya akan diizinkan menuju sesi tersebut setelah menerima Persyaratan Layanan.
 
       Jika kebijakan ini tidak disetel, tidak ada Persyaratan Layanan yang ditampilkan.
 
-      Kebijakan ini harus disetel ke URL di tempat <ph name="PRODUCT_OS_NAME" /> dapat mengunduh Persyaratan Layanan tersebut. Persyaratan Layanan ini harus dalam teks biasa, yang disajikan sebagai teks/biasa jenis MIME. Tidak ada markup yang diizinkan.</translation>
+      Kebijakan ini harus disetel ke URL di tempat <ph name="PRODUCT_OS_NAME" /> dapat mendownload Persyaratan Layanan tersebut. Persyaratan Layanan ini harus dalam teks biasa, yang disajikan sebagai teks/biasa jenis MIME. Tidak ada markup yang diizinkan.</translation>
 <translation id="1757339646969878244">Konfigurasi opsi akses jarak jauh di host Chrome Desktop Jarak Jauh
 
       Host Chrome Desktop Jarak Jauh adalah layanan bawaan yang berjalan di
@@ -235,7 +235,7 @@
       Jika kebijakan ini disetel sebagai string yang mewakili nama domain, <ph name="PRODUCT_OS_NAME" /> akan menampilkan opsi pelengkapan otomatis selama proses masuk pengguna, sehingga pengguna dapat mengetikkan nama penggunanya tanpa ekstensi nama domain. Pengguna dapat mengganti ekstensi nama domain ini.</translation>
 <translation id="1865417998205858223">Izin Kunci</translation>
 <translation id="186719019195685253">Kebijakan yang diambil saat penundaan nganggur tercapai ketika dijalankan pada daya AC</translation>
-<translation id="187819629719252111">Memungkinkan akses ke file lokal pada mesin dengan mengizinkan <ph name="PRODUCT_NAME" /> menampilkan dialog pemilihan file. Jika Anda mengaktifkan setelan ini, pengguna dapat membuka dialog pemilihan file seperti biasa. Jika Anda menonaktifkan setelan ini, setiap kali pengguna melakukan tindakan yang akan memicu dialog pemilihan file (seperti mengimpor bookmark, mengunggah file, menyimpan tautan, dll.), yang akan ditampilkan adalah pesan, dan pengguna dianggap telah mengeklik Batal pada dialog pemilihan file. Jika setelan ini tidak disetel, pengguna dapat membuka dialog pemilihan file seperti biasa.</translation>
+<translation id="187819629719252111">Memungkinkan akses ke file lokal pada mesin dengan mengizinkan <ph name="PRODUCT_NAME" /> menampilkan dialog pemilihan file. Jika Anda mengaktifkan setelan ini, pengguna dapat membuka dialog pemilihan file seperti biasa. Jika Anda menonaktifkan setelan ini, setiap kali pengguna melakukan tindakan yang akan memicu dialog pemilihan file (seperti mengimpor bookmark, mengupload file, menyimpan tautan, dll.), yang akan ditampilkan adalah pesan, dan pengguna dianggap telah mengeklik Batal pada dialog pemilihan file. Jika setelan ini tidak disetel, pengguna dapat membuka dialog pemilihan file seperti biasa.</translation>
 <translation id="1879485426724769439">Menentukan zona waktu untuk digunakan pada perangkat. Pengguna dapat mengganti zona waktu yang telah ditentukan untuk sesi aktif. Akan tetapi, saat pengguna keluar, zona waktu akan kembali ke setelan yang telah ditentukan. Jika nilai tidak valid diberikan, kebijakan ini tetap diaktifkan dengan "GMT" sebagai gantinya. Jika string kosong, kebijakan akan diabaikan.
 
       Jika kebijakan ini tidak digunakan, zona waktu yang saat ini sedang aktif akan tetap digunakan, namun pengguna dapat mengubah zona waktu dan perubahan tersebut akan terus digunakan. Oleh karena itu, perubahan yang dilakukan oleh satu pengguna akan memengaruhi layar info masuk dan semua pengguna lain.
@@ -267,9 +267,9 @@
 <translation id="1969212217917526199">Menggantikan kebijakan pada versi Debug untuk host akses jarak jauh.
 
           Nilainya diuraikan dalam bentuk kamus nama kebijakan JSON untuk pemetaan nilai kebijakan.</translation>
-<translation id="1988371335297483117">Payload pembaruan otomatis di <ph name="PRODUCT_OS_NAME" /> dapat diunduh via HTTP, bukan HTTPS. Cara ini memungkinkan penyimpanan cache HTTP yang transparan dari unduhan HTTP.
+<translation id="1988371335297483117">Payload pembaruan otomatis di <ph name="PRODUCT_OS_NAME" /> dapat didownload via HTTP, bukan HTTPS. Cara ini memungkinkan penyimpanan cache HTTP yang transparan dari download HTTP.
 
-      Jika kebijakan ini disetel ke true, <ph name="PRODUCT_OS_NAME" /> akan berupaya mengunduh payload pembaruan otomatis via HTTP. Jika kebijakan ini disetel ke false atau tidak disetel, HTTPS akan digunakan untuk mengunduh payload pembaruan otomatis.</translation>
+      Jika kebijakan ini disetel ke true, <ph name="PRODUCT_OS_NAME" /> akan berupaya mendownload payload pembaruan otomatis via HTTP. Jika kebijakan ini disetel ke false atau tidak disetel, HTTPS akan digunakan untuk mendownload payload pembaruan otomatis.</translation>
 <translation id="2006530844219044261">Pengelolaan daya</translation>
 <translation id="201557587962247231">Frekuensi unggahan laporan status perangkat</translation>
 <translation id="2018836497795982119">Menjelaskan jangka waktu dalam milidetik terkait layanan pengelolaan perangkat yang ditanyakan untuk informasi kebijakan pengguna.
@@ -343,7 +343,7 @@
           Nilai kebijakan harus ditentukan dalam milidetik. Nilai dibatasi agar kurang dari atau sama dengan penundaan menganggur.</translation>
 <translation id="2292084646366244343"><ph name="PRODUCT_NAME" /> dapat menggunakan layanan web Google untuk membantu mengatasi masalah ejaan yang salah. Jika setelan ini diaktifkan, layanan ini akan selalu digunakan. Jika setelan ini dinonaktifkan, layanan ini tidak akan pernah digunakan.
 
-      Memeriksa ejaan tetap dapat dilakukan menggunakan kamus yang diunduh; kebijakan ini hanya mengontrol penggunaan layanan online.
+      Memeriksa ejaan tetap dapat dilakukan menggunakan kamus yang didownload; kebijakan ini hanya mengontrol penggunaan layanan online.
 
       Jika setelan ini tidak dikonfigurasi, maka pengguna dapat memilih apakah layanan memeriksa ejaan harus digunakan atau tidak.</translation>
 <translation id="2294382669900758280">Pemutaran video di aplikasi Android tidak dipertimbangkan, meski kebijakan ini disetel ke <ph name="TRUE" />.</translation>
@@ -375,16 +375,16 @@
           akan memungkinkan penggunaan host Native Messaging pada tingkat pengguna.</translation>
 <translation id="240213793013362302">Mengonfigurasi gambar wallpaper.
 
-      Kebijakan ini memungkinkan Anda mengonfigurasikan gambar wallpaper yang ditampilkan di desktop dan di latar belakang layar masuk untuk pengguna. Kebijakan ini disetel dengan menetapkan URL tempat <ph name="PRODUCT_OS_NAME" /> dapat mengunduh gambar wallpaper dan potongan kriptografi yang digunakan untuk memverifikasi integritas unduhan. Gambar harus dalam format JPEG dan ukuran filenya tidak boleh melebihi 16 MB. URL harus dapat diakses tanpa autentikasi apa pun.
+      Kebijakan ini memungkinkan Anda mengonfigurasikan gambar wallpaper yang ditampilkan di desktop dan di latar belakang layar masuk untuk pengguna. Kebijakan ini disetel dengan menetapkan URL tempat <ph name="PRODUCT_OS_NAME" /> dapat mendownload gambar wallpaper dan potongan kriptografi yang digunakan untuk memverifikasi integritas download. Gambar harus dalam format JPEG dan ukuran filenya tidak boleh melebihi 16 MB. URL harus dapat diakses tanpa autentikasi apa pun.
 
-      Gambar wallpaper akan diunduh dan disimpan dalam cache. Gambar ini akan diunduh lagi jika URL atau potongan berubah.
+      Gambar wallpaper akan didownload dan disimpan dalam cache. Gambar ini akan didownload lagi jika URL atau potongan berubah.
 
       Kebijakan ini seharusnya ditetapkan sebagai string yang mengekspresikan URL dan potongan dalam format JSON, yang sesuai dengan skema berikut:
       {
         "type": "object",
         "properties": {
           "url": {
-            "description": "URL tempat gambar wallpaper dapat diunduh.",
+            "description": "URL tempat gambar wallpaper dapat didownload.",
             "type": "string"
           },
           "hash": {
@@ -394,7 +394,7 @@
         }
       }
 
-      Jika kebijakan ini disetel, <ph name="PRODUCT_OS_NAME" /> akan mengunduh dan menggunakan gambar wallpaper.
+      Jika kebijakan ini disetel, <ph name="PRODUCT_OS_NAME" /> akan mendownload dan menggunakan gambar wallpaper.
 
       Jika Anda menyetel kebijakan ini, pengguna tidak dapat mengubah atau menggantinya.
 
@@ -579,24 +579,24 @@
       Jika setelan ini dinonaktifkan atau tidak dikonfigurasi, pengguna dapat memilih untuk melanjutkan ke situs yang diberi tanda setelah peringatan ditampilkan.</translation>
 <translation id="2812021780168085286">Memungkinkan Anda menentukan URL mana yang diizinkan memasang ekstensi, aplikasi, dan tema.
 
-          Mulai <ph name="PRODUCT_NAME" /> versi 21, pemasangan ekstensi, aplikasi, dan skrip pengguna dari luar Toko Web Chrome akan semakin sulit. Sebelumnya, pengguna dapat mengeklik tautan ke file *.crx, dan <ph name="PRODUCT_NAME" /> akan menawarkan untuk memasang file ini setelah beberapa peringatan. Pada <ph name="PRODUCT_NAME" /> 21 ke atas, file seperti itu harus diunduh dan diseret ke laman setelan <ph name="PRODUCT_NAME" />. Setelan ini memungkinkan URL tertentu memiliki alur pemasangan lama yang lebih mudah.
+          Mulai <ph name="PRODUCT_NAME" /> versi 21, pemasangan ekstensi, aplikasi, dan skrip pengguna dari luar Toko Web Chrome akan semakin sulit. Sebelumnya, pengguna dapat mengeklik tautan ke file *.crx, dan <ph name="PRODUCT_NAME" /> akan menawarkan untuk memasang file ini setelah beberapa peringatan. Pada <ph name="PRODUCT_NAME" /> 21 ke atas, file seperti itu harus didownload dan diseret ke laman setelan <ph name="PRODUCT_NAME" />. Setelan ini memungkinkan URL tertentu memiliki alur pemasangan lama yang lebih mudah.
 
           Setiap item dalam daftar ini adalah pola yang cocok dengan gaya ekstensi (lihat https://developer.chrome.com/extensions/match_patterns). 
-Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam daftar ini dengan mudah. Lokasi file *.crx dan laman tempat unduhan dimulai (perujuk) harus diizinkan dengan pola ini.
+Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam daftar ini dengan mudah. Lokasi file *.crx dan laman tempat download dimulai (perujuk) harus diizinkan dengan pola ini.
 
           ExtensionInstallBlacklist lebih diutamakan dibandingkan dengan kebijakan ini. Artinya, ekstensi dalam daftar hitam tidak akan dipasang, meskipun berasal dari situs dalam daftar ini.</translation>
 <translation id="2818551149761607847">Mengonfigurasi gambar avatar pengguna.
 
-      Kebijakan ini memungkinkan Anda mengonfigurasi gambar avatar yang mewakili pengguna di layar masuk. Kebijakan ini disetel dengan menetapkan URL yang dapat digunakan <ph name="PRODUCT_OS_NAME" /> untuk mengunduh gambar avatar dan potongan kriptografis yang digunakan untuk memverifikasi integritas unduhan. Gambar harus berformat JPEG dan ukurannya tidak lebih dari 512 KB. URL harus dapat diakses tanpa memerlukan autentikasi.
+      Kebijakan ini memungkinkan Anda mengonfigurasi gambar avatar yang mewakili pengguna di layar masuk. Kebijakan ini disetel dengan menetapkan URL yang dapat digunakan <ph name="PRODUCT_OS_NAME" /> untuk mendownload gambar avatar dan potongan kriptografis yang digunakan untuk memverifikasi integritas download. Gambar harus berformat JPEG dan ukurannya tidak lebih dari 512 KB. URL harus dapat diakses tanpa memerlukan autentikasi.
 
-      Gambar avatar diunduh dan disimpan dalam cache. Gambar tersebut diunduh ulang jika URL atau potongan kriptografis berubah.
+      Gambar avatar didownload dan disimpan dalam cache. Gambar tersebut didownload ulang jika URL atau potongan kriptografis berubah.
 
       Kebijakan harus ditetapkan sebagai string yang menunjukkan URL dan potongan dalam format JSON, sesuai dengan skema berikut:
       {
         "type": "object",
         "properties": {
           "url": {
-            "description": "URL yang dapat digunakan untuk mengunduh gambar avatar.",
+            "description": "URL yang dapat digunakan untuk mendownload gambar avatar.",
             "type": "string"
           },
           "hash": {
@@ -606,7 +606,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
         }
       }
 
-      Jika kebijakan ini disetel, <ph name="PRODUCT_OS_NAME" /> akan mengunduh dan menggunakan gambar avatar.
+      Jika kebijakan ini disetel, <ph name="PRODUCT_OS_NAME" /> akan mendownload dan menggunakan gambar avatar.
 
       Jika Anda menyetel kebijakan ini, pengguna tidak dapat mengubah atau menggantinya.
 
@@ -695,7 +695,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
       Server sebaiknya dimigrasikan ke cipher suite ECDHE. Jika tidak tersedia, pastikan cipher suite yang menggunakan pertukaran kunci RSA diaktifkan.</translation>
 <translation id="3153348162326497318">Memungkinkan Anda menentukan ekstensi mana yang TIDAK dapat dipasang oleh pengguna. Ekstensi yang sudah terpasang akan dihapus jika masuk dalam daftar hitam. Nilai daftar hitam '*' berarti semua ekstensi tercantum dalam daftar hitam kecuali secara eksplisit tercantum dalam daftar putih. Jika kebijakan ini dibiarkan tanpa disetel, pengguna dapat memasang ekstensi apa pun di <ph name="PRODUCT_NAME" />.</translation>
-<translation id="316778957754360075">Setelan ini tidak lagi digunakan sejak <ph name="PRODUCT_NAME" /> versi 29. Cara yang disarankan untuk menyiapkan koleksi aplikasi/ekstensi yang dihosting organisasi adalah dengan menyertakan situs yang menghosting paket CRX di ExtensionInstallSources dan meletakkan tautan unduhan langsung di paket dalam laman web. Peluncur untuk laman web tersebut dapat dibuat menggunakan kebijakan ExtensionInstallForcelist.</translation>
+<translation id="316778957754360075">Setelan ini tidak lagi digunakan sejak <ph name="PRODUCT_NAME" /> versi 29. Cara yang disarankan untuk menyiapkan koleksi aplikasi/ekstensi yang dihosting organisasi adalah dengan menyertakan situs yang menghosting paket CRX di ExtensionInstallSources dan meletakkan tautan download langsung di paket dalam laman web. Peluncur untuk laman web tersebut dapat dibuat menggunakan kebijakan ExtensionInstallForcelist.</translation>
 <translation id="3185009703220253572">sejak versi <ph name="SINCE_VERSION" /></translation>
 <translation id="3187220842205194486">Aplikasi Android tidak bisa mendapat akses ke kunci perusahaan. Kebijakan ini tidak memengaruhinya.</translation>
 <translation id="318812033927804102">Mengonfigurasi setelan pengelolaan ekstensi untuk <ph name="PRODUCT_NAME" />.
@@ -724,7 +724,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
           Setelan berikut hanya dapat digunakan untuk konfigurasi "*" default:
 
-          "install_sources": Setiap item dalam daftar ini adalah pola pencocokan gaya-ekstensi (lihat https://developer.chrome.com/extensions/match_patterns). Pengguna akan dapat memasang item dengan mudah dari URL apa pun yang cocok dengan item di dalam daftar ini. Lokasi file *.crx dan laman tempat unduhan dimulai (misalnya perujuk) harus diizinkan oleh pola ini.
+          "install_sources": Setiap item dalam daftar ini adalah pola pencocokan gaya-ekstensi (lihat https://developer.chrome.com/extensions/match_patterns). Pengguna akan dapat memasang item dengan mudah dari URL apa pun yang cocok dengan item di dalam daftar ini. Lokasi file *.crx dan laman tempat download dimulai (misalnya perujuk) harus diizinkan oleh pola ini.
 
           "allowed_types": Setelan ini memasukkan jenis ekstensi/aplikasi yang diizinkan yang dapat dipasang di <ph name="PRODUCT_NAME" /> ke daftar putih.  Nilainya adalah daftar string, yang masing-masing terdiri dari: "extension", "theme", "user_script", "hosted_app", "legacy_packaged_app", atau "platform_app". Lihat <ph name="PRODUCT_NAME" /> dokumentasi ekstensi untuk informasi selengkapnya tentang jenis ini.
 
@@ -889,13 +889,13 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="3788662722837364290">Setelan pengelolaan daya saat pengguna sedang menganggur</translation>
 <translation id="3793095274466276777">Mengonfigurasi pemeriksaan browser default di <ph name="PRODUCT_NAME" /> dan mencegah pengguna mengubahnya. Jika Anda mengaktifkan setelan ini, <ph name="PRODUCT_NAME" /> akan selalu memeriksa saat permulaan apakah itu browser default dan mendaftar sendiri secara otomatis jika memungkinkan. Jika setelan ini dinonaktifkan, <ph name="PRODUCT_NAME" /> tidak akan memeriksa apakah itu browser default dan akan menonaktifkan kontrol pengguna untuk setelan opsi ini. Jika setelan ini tidak disetel, <ph name="PRODUCT_NAME" /> akan mengizinkan pengguna mengontrol apakah itu browser default dan apakah pemberitahuan pengguna harus ditampilkan ketika tidak muncul.</translation>
 <translation id="379659290574555063">Memperlakukan perangkat penyimpanan eksternal sebagai hanya baca.</translation>
-<translation id="3800626789999016379">Mengonfigurasi direktori yang akan digunakan oleh <ph name="PRODUCT_NAME" /> untuk mengunduh file.
+<translation id="3800626789999016379">Mengonfigurasi direktori yang akan digunakan oleh <ph name="PRODUCT_NAME" /> untuk mendownload file.
 
-      Jika Anda menyetel kebijakan ini, <ph name="PRODUCT_NAME" /> akan menggunakan direktori yang diberikan terlepas apakah pengguna telah menetapkan satu tanda atau mengaktifkan tanda untuk dimintai lokasi unduhan setiap saat.
+      Jika Anda menyetel kebijakan ini, <ph name="PRODUCT_NAME" /> akan menggunakan direktori yang diberikan terlepas apakah pengguna telah menetapkan satu tanda atau mengaktifkan tanda untuk dimintai lokasi download setiap saat.
 
       Buka https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables untuk melihat daftar variabel yang dapat digunakan.
 
-      Jika kebijakan ini tidak disetel, direktori unduhan default akan digunakan dan pengguna dapat mengubahnya.</translation>
+      Jika kebijakan ini tidak disetel, direktori download default akan digunakan dan pengguna dapat mengubahnya.</translation>
 <translation id="3805659594028420438">Aktifkan ekstensi sertifikat terikat domain TLS (tidak lagi digunakan)</translation>
 <translation id="3806576699227917885">Mengizinkan pemutaran audio.
 
@@ -1635,7 +1635,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
       Jika dinonaktifkan, data formulir isi-otomatis tidak akan diimpor.
 
       Jika tidak disetel, pengguna mungkin akan ditanya apakah ingin mengimpor atau proses impor dapat berlangsung secara otomatis.</translation>
-<translation id="6233173491898450179">Setel direktori unduhan</translation>
+<translation id="6233173491898450179">Setel direktori download</translation>
 <translation id="6244210204546589761">URL untuk membuka saat permulaan</translation>
 <translation id="6258193603492867656">Menentukan apakah SPN Kerberos yang dihasilkan harus mencakup port non-standar. Jika Anda mengaktifkan setelan ini, dan port non-standar (selain port 80 atau 443) dimasukkan, port ini akan dimasukkan ke SPN Kerberos yang dihasilkan. Jika Anda menonaktifkan setelan ini atau membiarkannya tidak disetel, SPN Kerberos yang dihasilkan tidak akan pernah mencakup port.</translation>
 <translation id="6281043242780654992">Mengonfigurasikan kebijakan untuk Perpesanan Asli. Hosting perpesanan asli yang dimasukkan dalam daftar hitam tidak akan diizinkan kecuali telah dimasukkan dalam daftar putih.</translation>
@@ -2171,7 +2171,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
           Untuk contoh detailnya, buka:
           <ph name="PROXY_HELP_URL" />.</translation>
-<translation id="793134539373873765">Tentukan apakah p2p akan digunakan untuk payload pembaruan OS. Jika disetel ke True, perangkat akan membagi dan berusaha menggunakan payload pembaruan pada LAN, serta berpotensi mengurangi penggunaan dan kepadatan bandwidth internet. Jika payload pembaruan tidak tersedia di LAN, perangkat tersebut akan kembali mengunduh dari server yang diperbarui. Jika disetel ke False atau tidak dikonfigurasi, p2p tidak akan digunakan.</translation>
+<translation id="793134539373873765">Tentukan apakah p2p akan digunakan untuk payload pembaruan OS. Jika disetel ke True, perangkat akan membagi dan berusaha menggunakan payload pembaruan pada LAN, serta berpotensi mengurangi penggunaan dan kepadatan bandwidth internet. Jika payload pembaruan tidak tersedia di LAN, perangkat tersebut akan kembali mendownload dari server yang diperbarui. Jika disetel ke False atau tidak dikonfigurasi, p2p tidak akan digunakan.</translation>
 <translation id="7933141401888114454">Mengaktifkan pembuatan pengguna yang dilindungi</translation>
 <translation id="793473937901685727">Menyetel ketersediaan sertifikat untuk aplikasi ARC</translation>
 <translation id="7936098023732125869">Mengaktifkan penggunaan penyedia penelusuran default.
@@ -2248,7 +2248,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
           Jika kebijakan ini tidak disetel, mode kontras tinggi pertama-tama dinonaktifkan, namun dapat diaktifkan oleh pengguna kapan saja.</translation>
 <translation id="815061180603915310">Jika disetel ke aktif, kebijakan ini akan memaksa profil dialihkan ke mode singkat. Jika ditetapkan sebagai kebijakan OS (misalnya, GPO di Windows), kebijakan ini akan berlaku untuk setiap profil di sistem; jika disetel sebagai kebijakan Awan, kebijakan ini hanya akan berlaku untuk profil tempat masuk dengan akun terkelola.
 
-      Dalam mode ini, data profil hanya akan dipertahankan di disk selama durasi sesi pengguna. Beberapa fitur seperti riwayat browser, ekstensi dan datanya, data web seperti cookie dan basis data web, tidak akan dipertahankan setelah browser ditutup. Namun, hal ini tidak mencegah pengguna mengunduh data apa pun ke disk secara manual, menyimpan laman, atau mencetak laman
+      Dalam mode ini, data profil hanya akan dipertahankan di disk selama durasi sesi pengguna. Beberapa fitur seperti riwayat browser, ekstensi dan datanya, data web seperti cookie dan basis data web, tidak akan dipertahankan setelah browser ditutup. Namun, hal ini tidak mencegah pengguna mendownload data apa pun ke disk secara manual, menyimpan laman, atau mencetak laman
 
       Jika pengguna mengaktifkan sinkronkan semua, data ini akan dipertahankan di profil sinkronisasinya layaknya di profil reguler. Mode penyamaran juga tersedia jika tidak dinonaktifkan secara eksplisit oleh kebijakan.
 
@@ -2379,7 +2379,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
       akan diberi label sebagai perangkat lunak perusak oleh Google dan vendor antivirus.
 
       Setelan ini tidak perlu dikonfigurasi secara manual!  Template
-      yang mudah digunakan untuk Windows, Mac, dan Linux dapat diunduh dari <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" />.
+      yang mudah digunakan untuk Windows, Mac, dan Linux dapat didownload dari <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" />.
 
       Cara yang disarankan untuk mengonfigurasi kebijakan ini di Windows adalah melalui GPO, meskipun
       menyediakan kebijakan melalui registri masih didukung untuk Windows
@@ -2417,13 +2417,13 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="8711086062295757690">Menentukan kata kunci yang merupakan pintasan yang digunakan dalam omnibox guna memicu penelusuran untuk operator ini. Kebijakan ini bersifat opsional. Jika tidak disetel, kata kunci tidak akan mengaktifkan penyedia penelusuran. Kebijakan ini hanya dipertimbangkan jika kebijakan 'DefaultSearchProviderEnabled' diaktifkan.</translation>
 <translation id="8731693562790917685">Setelan Konten memungkinkan Anda menentukan bagaimana konten jenis tertentu (misalnya Cookie, Gambar, atau JavaScript) ditangani.</translation>
 <translation id="8736538322216687231">Memaksa Mode Terbatas YouTube minimum</translation>
-<translation id="8749370016497832113">Mengaktifkan penghapusan riwayat browser dan riwayat unduhan di <ph name="PRODUCT_NAME" /> dan mencegah pengguna mengubah setelan berikut.
+<translation id="8749370016497832113">Mengaktifkan penghapusan riwayat browser dan riwayat download di <ph name="PRODUCT_NAME" /> dan mencegah pengguna mengubah setelan berikut.
 
-      Perhatikan bahwa meskipun kebijakan ini dinonaktifkan, riwayat unduhan dan penjelajahan tidak dijamin akan tersimpan: pengguna dapat mengedit atau menghapus file basis data riwayat secara langsung, dan browser itu sendiri mungkin kedaluwarsa atau mengarsipkan beberapa atau semua item riwayat setiap saat.
+      Perhatikan bahwa meskipun kebijakan ini dinonaktifkan, riwayat download dan penjelajahan tidak dijamin akan tersimpan: pengguna dapat mengedit atau menghapus file basis data riwayat secara langsung, dan browser itu sendiri mungkin kedaluwarsa atau dapat mengarsipkan beberapa atau semua item riwayat kapan saja.
 
-      Jika setelan ini diaktifkan atau tidak disetel, riwayat penjelajahan atau unduhan dapat dihapus.
+      Jika setelan ini diaktifkan atau tidak disetel, riwayat penjelajahan atau download dapat dihapus.
 
-      Jika setelan ini dinonaktifkan, riwayat penjelajahan dan unduhan tidak dapat dihapus.</translation>
+      Jika setelan ini dinonaktifkan, riwayat penjelajahan dan download tidak dapat dihapus.</translation>
 <translation id="8764119899999036911">Menentukan apakah Kerberos SPN yang dihasilkan didasarkan pada nama DNS kanonik atau nama asli yang dimasukkan. Jika Anda mengaktifkan setelan ini, pencarian CNAME akan dilewati dan nama server akan digunakan seperti saat dimasukkan. Jika Anda menonaktifkan setelan ini atau membiarkannya tidak disetel, nama kanonik server akan ditentukan melalui pencarian CNAME.</translation>
 <translation id="8774131509736383471">Jika kebijakan ini disetel ke True, <ph name="PRODUCT_NAME" /> akan memaksimalkan jendela yang ditampilkan pada percobaan pertama tanpa syarat.
       Jika kebijakan ini disetel ke False atau tidak dikonfigurasi, keputusan untuk memaksimalkan jendela pertama akan ditampilkan menurut ukuran layar.</translation>
@@ -2453,7 +2453,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
           (Penggunaan dihentikan di nilai 50, dihapus di nilai 52. Setelah 52, jika nilai 1 disetel, nilai akan diperlakukan sebagai 0 - memprediksi tindakan jaringan di sambungan jaringan apa pun.)</translation>
 <translation id="8828766846428537606">Mengonfigurasi beranda default pada <ph name="PRODUCT_NAME" /> dan mencegah pengguna mengubahnya. Setelan beranda pengguna hanya dikunci sepenuhnya, jika Anda memilih beranda sebagai laman tab baru, atau menyetelnya menjadi URL dan menentukan URL beranda. Jika Anda tidak menentukan URL beranda, pengguna masih dapat menyetel beranda ke laman tab baru dengan menentukan 'chrome://newtab'.</translation>
 <translation id="8833109046074170275">Autentikasi melalui alur GAIA default</translation>
-<translation id="8838303810937202360"><ph name="PRODUCT_OS_NAME" /> menyimpan Aplikasi dan Ekstensi dalam cache untuk pemasangan oleh banyak pengguna pada perangkat tunggal guna menghindari unduhan ulang oleh setiap pengguna.
+<translation id="8838303810937202360"><ph name="PRODUCT_OS_NAME" /> menyimpan Aplikasi dan Ekstensi dalam cache untuk pemasangan oleh banyak pengguna pada perangkat tunggal guna menghindari download ulang oleh setiap pengguna.
       Jika kebijakan ini tidak dikonfigurasi atau nilainya kurang dari 1 MB, <ph name="PRODUCT_OS_NAME" /> akan menggunakan ukuran cache default.</translation>
 <translation id="8858120573534680488">Anda tidak dapat memaksakan aplikasi Android agar menggunakan proxy. Bagian setelan proxy disediakan untuk aplikasi Android, yang dapat dipilih untuk dipatuhi secara sukarela:
 
@@ -2494,11 +2494,11 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
       profil tampilan ICC untuk menyesuaikan kalibrasi monitor.
 
       Jika kebijakan ini disetel ke False, perangkat tidak akan mencoba
-      menghubungi Quirks Server untuk mengunduh file konfigurasi.
+      menghubungi Quirks Server untuk mendownload file konfigurasi.
 
       Jika kebijakan ini disetel ke True atau tidak dikonfigurasi,
       <ph name="PRODUCT_OS_NAME" /> akan
-      otomatis menghubungi Quirks Server dan mengunduh file konfigurasi,
+      otomatis menghubungi Quirks Server dan mendownload file konfigurasi,
       jika tersedia, dan menyimpannya di perangkat.  File tersebut dapat,
       misalnya, digunakan untuk meningkatkan kualitas tampilan monitor yang terpasang.</translation>
 <translation id="8906768759089290519">Aktifkan mode tamu</translation>

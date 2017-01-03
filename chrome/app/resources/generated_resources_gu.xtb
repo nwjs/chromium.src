@@ -1446,7 +1446,6 @@
 <translation id="2845382757467349449">બુકમાર્ક્સ બાર હંમેશા બતાવો</translation>
 <translation id="2846816712032308263">ઝડપી ટેબ/ વિંડો બંધ કરવું સક્ષમ કરે છે - GUI ના તે ટેબના onunload js હેન્ડલરને સ્વતંત્રરીતે શરૂ કરે છે.</translation>
 <translation id="2847759467426165163">આના પર કાસ્ટ કરો</translation>
-<translation id="284844301579626260">પાછળ જવા માટે |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| દબાવો</translation>
 <translation id="2849362176025371110">Google ને આપમેળે નિદાન અને વપરાશ ડેટા મોકલો. તમે તમારી ઉપકરણ <ph name="BEGIN_LINK1" />સેટિંગ્સ<ph name="END_LINK1" />માં આને કોઈપણ સમયે બદલી શકો છો. <ph name="BEGIN_LINK2" />વધુ જાણો<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">મહત્વપૂર્ણ</translation>
@@ -2607,7 +2606,6 @@
 <translation id="4350019051035968019">તમારું એકાઉન્ટ જે ડોમેનથી સંબંધિત છે તેમાં આ ઉપકરણની નોંધણી કરી શકાતી નથી કારણ કે ઉપકરણને સંચાલન માટે કોઈ ભિન્ન ડોમેન દ્વારા ચિહ્નિત કરેલ છે.</translation>
 <translation id="4350426338152422833">સમગ્ર ટૅબ્સ પર ઑડિઓ ફોકસ સંચાલિત કરો</translation>
 <translation id="4354806558096370704">મૂળ CUPS છાપ બેકએન્ડના ઉપયોગને સક્ષમ કરે છે.</translation>
-<translation id="4355925451975609675">આગળ જવા માટે |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| દબાવો</translation>
 <translation id="4356334633973342967">અથવા તમારા પોતાના ડ્રાઇવરનો ઉલ્લેખ કરો:</translation>
 <translation id="4356973930735388585">આ સાઇટ પરના હુમલાખોરો તમારા કમ્પ્યુટર પર તમારી માહિતી (ઉદાહરણ તરીકે, ફોટા, પાસવર્ડ્સ, સંદેશા અને ક્રેડિટ કાર્ડ્સ) ને ચોરી શકે કે કાઢી નાખે તેવા જોખમી પ્રોગ્રામ્સને ઇન્સ્ટોલ કરવાનો પ્રયાસ કરી શકે છે.</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4694,7 +4692,6 @@
 <translation id="715118844758971915">ક્લાસિક પ્રિન્ટર્સ</translation>
 <translation id="7154130902455071009">તમારા પ્રારંભ પૃષ્ઠને આ પર બદલો: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">કૅમેરા અથવા ફાઇલમાંથી અસ્તિત્વમાંનો ફોટો</translation>
-<translation id="7155226869555939647"><ph name="APPLICATION" /> માટે હંમેશાં લિંક્સ ખોલો</translation>
 <translation id="7156235233373189579">આ ફાઇલની રચના Windows સૉફ્ટવેરનો ઉપયોગ કરી રહેલ એક PC માટે કરવામાં આવી છે. આ Chrome OS ચલાવી રહેલા તમારા ઉપકરણ સાથે સુસંગત નથી. કૃપા કરીને એક અનુકૂળ અવેજી ઍપ્લિકેશન માટે <ph name="BEGIN_LINK" />Chrome વેબ દુકાન<ph name="END_LINK" /> પર શોધો.<ph name="BEGIN_LINK_HELP" />વધુ જાણો<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">ચાલુ રાખો પર ક્લિક કરીને તમે <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> અને <ph name="LEGAL_DOC_LINK_TEXT_4" />થી સંમત થાઓ છો.</translation>
 <translation id="7158238151765743968">"<ph name="DEVICE_NAME" />" પર કનેક્શન હજી પણ પ્રક્રિયામાં છે.</translation>

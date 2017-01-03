@@ -206,7 +206,7 @@
 <translation id="3145945101586104090">Gagal mendekodekan tanggapan</translation>
 <translation id="3150653042067488994">Kesalahan server sementara</translation>
 <translation id="3157931365184549694">Pulihkan</translation>
-<translation id="3167968892399408617">Halaman yang Anda lihat di tab penyamaran tidak akan disimpan dalam riwayat browser, penyimpanan cookie, atau riwayat penelusuran setelah Anda menutup semua tab penyamaran. File apa pun yang diunduh atau bookmark yang dibuat akan tetap tersimpan.</translation>
+<translation id="3167968892399408617">Halaman yang Anda lihat di tab penyamaran tidak akan disimpan dalam riwayat browser, penyimpanan cookie, atau riwayat penelusuran setelah Anda menutup semua tab penyamaran. File apa pun yang didownload atau bookmark yang dibuat akan tetap tersimpan.</translation>
 <translation id="3169472444629675720">Discover</translation>
 <translation id="3174168572213147020">Pulau</translation>
 <translation id="3176929007561373547">Periksa setelan proxy atau hubungi administrator jaringan untuk
@@ -392,7 +392,7 @@
 <translation id="5171045022955879922">Telusuri atau ketik URL</translation>
 <translation id="5172758083709347301">Mesin</translation>
 <translation id="5179510805599951267">Bukan <ph name="ORIGINAL_LANGUAGE" />? Laporkan kesalahan deteksi ini</translation>
-<translation id="5181140330217080051">Mengunduh</translation>
+<translation id="5181140330217080051">Mendownload</translation>
 <translation id="5190835502935405962">Bilah Bookmark</translation>
 <translation id="5199729219167945352">Eksperimen</translation>
 <translation id="5199841536747119669">Saran Anda ditampilkan di sini</translation>
@@ -498,7 +498,7 @@
 <translation id="6458467102616083041">Diabaikan karena penelusuran default dinonaktifkan oleh kebijakan.</translation>
 <translation id="6462969404041126431">Server ini tidak dapat membuktikan bahwa ini adalah <ph name="DOMAIN" />; sertifikat keamanannya mungkin sudah dicabut. Hal ini dapat disebabkan oleh kesalahan konfigurasi atau ada penyerang yang mencegat sambungan Anda. <ph name="BEGIN_LEARN_MORE_LINK" />Pelajari lebih lanjut<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="647261751007945333">Kebijakan perangkat</translation>
-<translation id="6489534406876378309">Mulai mengunggah kerusakan</translation>
+<translation id="6489534406876378309">Mulai mengupload kerusakan</translation>
 <translation id="6529602333819889595">&amp;Ulangi Penghapusan</translation>
 <translation id="6534179046333460208">Saran Web Fisik</translation>
 <translation id="6550675742724504774">Opsi</translation>
@@ -586,7 +586,7 @@ Ssst! <ph name="SHORTCUT_KEY" /> mode penyamaran mungkin berguna suatu saat nant
 <translation id="7481312909269577407">Maju</translation>
 <translation id="7485870689360869515">Tidak ada data yang ditemukan.</translation>
 <translation id="7508255263130623398">ID perangkat kebijakan yang dikembalikan kosong atau tidak cocok dengan ID perangkat saat ini</translation>
-<translation id="7514365320538308">Unduh</translation>
+<translation id="7514365320538308">Download</translation>
 <translation id="7518003948725431193">Tidak ada laman web yang ditemukan untuk alamat web:<ph name="URL" /></translation>
 <translation id="7535087603100972091">Nilai</translation>
 <translation id="7537536606612762813">Wajib</translation>

@@ -1450,7 +1450,6 @@ Não acho que este site deva ser bloqueado.</translation>
 <translation id="2845382757467349449">Sempre mostrar a barra de favoritos</translation>
 <translation id="2846816712032308263">Ativa o fechamento rápido de guias/janelas – executa um gerenciador js de onunload da guia, independentemente da GUI.</translation>
 <translation id="2847759467426165163">Transmitir para</translation>
-<translation id="284844301579626260">Pressione |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| para voltar</translation>
 <translation id="2849362176025371110">Enviar dados de uso e diagnóstico automaticamente para o Google. É possível alterar essa opção a qualquer momento nas <ph name="BEGIN_LINK1" />configurações<ph name="END_LINK1" /> do seu dispositivo. <ph name="BEGIN_LINK2" />Saiba mais<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Crítico</translation>
@@ -2610,7 +2609,6 @@ Todos os usuários devem sair para continuar.</translation>
 <translation id="4350019051035968019">Este dispositivo não pode ser inscrito no domínio ao qual sua conta pertence, porque ele está marcado para ser gerenciado por outro domínio.</translation>
 <translation id="4350426338152422833">Gerenciar o foco de áudio em todas as guias</translation>
 <translation id="4354806558096370704">Ativa o uso do back-end de impressão CUPS nativo.</translation>
-<translation id="4355925451975609675">Pressione |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| para avançar</translation>
 <translation id="4356334633973342967">Ou especifique seu próprio driver:</translation>
 <translation id="4356973930735388585">Invasores nesse site podem tentar instalar programas perigosos no seu computador para roubar ou excluir informações (por exemplo, fotos, senhas, mensagens e cartões de crédito).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4697,7 +4695,6 @@ Use esse recurso somente com contas nas quais você confia.</translation>
 <translation id="715118844758971915">Impressoras tradicionais</translation>
 <translation id="7154130902455071009">Alterar sua página inicial para: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Foto existente na câmera ou em arquivo</translation>
-<translation id="7155226869555939647">Sempre abrir links de <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Este arquivo foi projetado para um computador que utiliza o software do Windows. Ele não é compatível com seu dispositivo, que executa o Chrome OS. Procure um app substituto adequado na <ph name="BEGIN_LINK" />Chrome Web Store<ph name="END_LINK" />.<ph name="BEGIN_LINK_HELP" />Saiba mais<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Ao clicar em "Continuar", você aceita os seguintes documentos legais: <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> e <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">A conexão com "<ph name="DEVICE_NAME" />" ainda está em andamento.</translation>

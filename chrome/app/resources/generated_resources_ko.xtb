@@ -1452,7 +1452,6 @@
 <translation id="2845382757467349449">북마크바 항상 표시</translation>
 <translation id="2846816712032308263">빠른 탭/창 닫기 사용 - 탭의 onunload js 핸들러를 GUI와 별도로 실행합니다.</translation>
 <translation id="2847759467426165163">전송할 기기</translation>
-<translation id="284844301579626260">돌아가려면 |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />|을(를) 누르세요.</translation>
 <translation id="2849362176025371110">진단 및 사용 데이터를 Google에 자동 전송합니다. 언제든지 기기 <ph name="BEGIN_LINK1" />설정<ph name="END_LINK1" />에서 변경할 수 있습니다. <ph name="BEGIN_LINK2" />자세히 알아보기<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" />(<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">중요</translation>
@@ -2612,7 +2611,6 @@
 <translation id="4350019051035968019">이 기기는 다른 도메인에서 관리하는 것으로 표시되어 있기 때문에 사용자의 계정이 속한 도메인에 등록할 수 없습니다.</translation>
 <translation id="4350426338152422833">탭에서 오디오 포커스 관리</translation>
 <translation id="4354806558096370704">기본 CUPS 인쇄 백엔드를 사용하도록 설정합니다.</translation>
-<translation id="4355925451975609675">앞으로 이동하려면 |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />|을(를) 누르세요.</translation>
 <translation id="4356334633973342967">또는 드라이버 지정:</translation>
 <translation id="4356973930735388585">이 사이트의 공격자가 사용자 정보(예: 사진, 비밀번호, 메시지, 신용카드)를 도용하거나 삭제하는 위험한 프로그램을 컴퓨터에 설치하려고 시도할 수 있습니다.</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4698,7 +4696,6 @@
 <translation id="715118844758971915">일반 프린터</translation>
 <translation id="7154130902455071009">다음으로 시작 페이지 변경: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">카메라 또는 파일의 기존 사진</translation>
-<translation id="7155226869555939647"><ph name="APPLICATION" /> 링크 항상 열기</translation>
 <translation id="7156235233373189579">이 파일은 Windows 소프트웨어를 사용하는 PC용으로 설계되었으며 Chrome OS를 실행하는 기기와 호환되지 않습니다. 적합한 대체 앱을 찾으려면 <ph name="BEGIN_LINK" />Chrome 웹 스토어<ph name="END_LINK" />를 검색하세요. <ph name="BEGIN_LINK_HELP" />자세히 알아보기<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">계속을 클릭하면 <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> 및 <ph name="LEGAL_DOC_LINK_TEXT_4" />에 동의하는 것으로 간주됩니다.</translation>
 <translation id="7158238151765743968"><ph name="DEVICE_NAME" />에 연결 중입니다.</translation>

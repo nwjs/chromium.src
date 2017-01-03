@@ -62,7 +62,7 @@ Aby korzystać z internetu rzeczy, musisz włączyć Bluetooth i Lokalizację.</
 <translation id="1620510694547887537">Kamera</translation>
 <translation id="1623104350909869708">Zapobiegaj wyświetlaniu dodatkowych okien dialogowych na tej stronie</translation>
 <translation id="1628019612362412531">{NUM_SELECTED,plural, =1{Usuń 1 wybrany element}few{Usuń # wybrane elementy}many{Usuń # wybranych elementów}other{Usuń # wybranego elementu}}</translation>
-<translation id="1639239467298939599">Wczytywanie</translation>
+<translation id="1639239467298939599">Wczytuję</translation>
 <translation id="1641113438599504367">Bezpieczne przeglądanie</translation>
 <translation id="164269334534774161">Oglądasz kopię offline tej strony z <ph name="CREATION_TIME" /></translation>
 <translation id="1643702317193804718">Tłumaczę stronę na <ph name="SOURCE_LANGUAGE" />…</translation>
@@ -342,6 +342,7 @@ Aby dostosować wyszukiwane hasło, naciśnij je i przytrzymaj, by je zaznaczyć
 <translation id="4807963036345170158">Oszczędzanie danych jest wyłączone</translation>
 <translation id="4816465935029283692">Typy danych</translation>
 <translation id="4827948050554950725">Dodaj kartę kredytową</translation>
+<translation id="4835385943915508971">Chrome nie ma dostępu do żądanego zasobu.</translation>
 <translation id="4850886885716139402">Widok</translation>
 <translation id="4860895144060829044">Zadzwoń</translation>
 <translation id="4881695831933465202">Otwórz</translation>
@@ -539,7 +540,7 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="6820607729870073286">Nie masz zapisanych żadnych ustawień witryny.</translation>
 <translation id="6820686453637990663">Kod CVC</translation>
 <translation id="6831043979455480757">Tłumacz</translation>
-<translation id="6846298663435243399">Wczytywanie…</translation>
+<translation id="6846298663435243399">Wczytuję…</translation>
 <translation id="6850830437481525139">Zamknięte karty: <ph name="TAB_COUNT" /></translation>
 <translation id="6864459304226931083">Pobierz obraz</translation>
 <translation id="6865313869410766144">Autouzupełnianie danych formularzy</translation>

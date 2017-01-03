@@ -468,7 +468,7 @@ SharedArrayBuffer.</translation>
 <translation id="1568323446248056064">Obre la configuració de la pantalla</translation>
 <translation id="1568822834048182062">Les adreces d'interès, l'historial, les contrasenyes i altres configuracions es sincronitzaran amb el vostre compte de Google.</translation>
 <translation id="1571119610742640910">Composició per a fons d'arrel fixa</translation>
-<translation id="1572876035008611720">Introduïu el correu electrònic</translation>
+<translation id="1572876035008611720">Introdueix el correu electrònic</translation>
 <translation id="1576594961618857597">Avatar blanc predeterminat</translation>
 <translation id="1580652505892042215">Context:</translation>
 <translation id="1581962803218266616">Mostra a Finder</translation>
@@ -1450,7 +1450,6 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="2845382757467349449">Mostra la barra d'adreces d'interès</translation>
 <translation id="2846816712032308263">Activa el tancament ràpid de la pestanya/finestra; executa un gestor js de descàrrega de la pestanya independentment de la interfície gràfica d'usuari.</translation>
 <translation id="2847759467426165163">Emissió a</translation>
-<translation id="284844301579626260">Premeu |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| per tornar</translation>
 <translation id="2849362176025371110">Envieu automàticament dades de diagnòstic i d'ús a Google. Podeu canviar-ho en qualsevol moment a la <ph name="BEGIN_LINK1" />configuració<ph name="END_LINK1" /> del dispositiu. <ph name="BEGIN_LINK2" />Més informació<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Crítica</translation>
@@ -2609,7 +2608,6 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="4350019051035968019">No es pot inscriure aquest dispositiu al domini del vostre compte perquè s'ha indicat que el dispositiu es gestiona en un altre domini.</translation>
 <translation id="4350426338152422833">Gestiona el focus d'àudio en diverses pestanyes</translation>
 <translation id="4354806558096370704">Permet utilitzar la interfície d'impressió del sistema CUPS natiu.</translation>
-<translation id="4355925451975609675">Premeu |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| per avançar</translation>
 <translation id="4356334633973342967">O especifica el teu controlador:</translation>
 <translation id="4356973930735388585">Els atacants d'aquest lloc poden provar d'instal·lar programes perillosos a l'ordinador per robar o suprimir la teva informació (per exemple, les fotos, les contrasenyes, els missatges i les targetes de crèdit).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" /> i <ph name="LANGUAGE_2" /></translation>
@@ -4693,7 +4691,6 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="715118844758971915">Impressores clàssiques</translation>
 <translation id="7154130902455071009">Canvia la pàgina d'inici per: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Foto existent de la càmera o d'un fitxer</translation>
-<translation id="7155226869555939647">Obre sempre els enllaços de l'aplicació <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Aquest fitxer està dissenyat per a un ordinador que faci servir programari de Windows. No és compatible amb el vostre dispositiu, que funciona amb Chrome OS. Cerqueu una aplicació adequada equivalent a <ph name="BEGIN_LINK" />Chrome Web Store<ph name="END_LINK" />. <ph name="BEGIN_LINK_HELP" />Més informació<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">En fer clic a Continua, accepteu les <ph name="LEGAL_DOC_LINK_TEXT_1" />, les <ph name="LEGAL_DOC_LINK_TEXT_2" />, les <ph name="LEGAL_DOC_LINK_TEXT_3" /> i la <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">La connexió a "<ph name="DEVICE_NAME" />" encara està en curs.</translation>
@@ -5237,7 +5234,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="7908378463497120834">Com a mínim una partició del dispositiu d'emmagatzematge extern no s'ha pogut muntar.</translation>
 <translation id="7909969815743704077">S'ha baixat en mode d'incògnit</translation>
 <translation id="7910768399700579500">Carpeta &amp;nova</translation>
-<translation id="7915471803647590281">Digueu-nos què passa abans d'enviar els comentaris.</translation>
+<translation id="7915471803647590281">Indica'ns el problema abans d'enviar els comentaris.</translation>
 <translation id="7915679104416252393">Activa el selector de pestanyes en mode de document.</translation>
 <translation id="7915857946435842056">Activa les funcions experimentals de les visualitzacions d'introducció de text d'IME.</translation>
 <translation id="7917972308273378936">Teclat lituà</translation>

@@ -100,7 +100,7 @@ Zur Verwendung von Physical Web müssen Bluetooth und der Standortdienst aktivie
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB sonstiger Apps</translation>
 <translation id="2020194265157481222">"Name auf der Karte" ist ein Pflichtfeld</translation>
 <translation id="2020525020270327736">Website kopieren</translation>
-<translation id="2038563949887743358">"Desktop-Version anfordern" aktivieren</translation>
+<translation id="2038563949887743358">"Desktopversion anfordern" aktivieren</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> GB sonstiger Apps</translation>
 <translation id="2073235970478114994">Bilder laden</translation>
 <translation id="2079545284768500474">Rückgängig</translation>
@@ -342,6 +342,7 @@ Zur Anpassung des Suchbegriffs drücken Sie einige Sekunden lang auf den entspre
 <translation id="4807963036345170158">Datensparmodus deaktiviert</translation>
 <translation id="4816465935029283692">Datentypen</translation>
 <translation id="4827948050554950725">Kreditkarte hinzufügen</translation>
+<translation id="4835385943915508971">Chrome hat keinen Zugriff auf die angeforderte Ressource.</translation>
 <translation id="4850886885716139402">Anzeigen</translation>
 <translation id="4860895144060829044">Anrufen</translation>
 <translation id="4881695831933465202">Öffnen</translation>
@@ -687,7 +688,7 @@ Eventuell finden Sie unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="8523928698583292556">Gespeichertes Passwort löschen</translation>
 <translation id="854522910157234410">Diese Seite öffnen</translation>
 <translation id="8562452229998620586">Gespeicherte Passwörter erscheinen hier.</translation>
-<translation id="856481929701340285">Desktop-Version anfordern</translation>
+<translation id="856481929701340285">Desktopversion anfordern</translation>
 <translation id="857943718398505171">Zugelassen (empfohlen)</translation>
 <translation id="8583805026567836021">Kontodaten werden gelöscht</translation>
 <translation id="858637041960032120">Weitere Nummer
@@ -730,7 +731,7 @@ Um neue Lizenzen zu erwerben, stellen Sie eine Internetverbindung her und spiele
 <translation id="9038649477754266430">Vorhersagedienst zum schnelleren Laden von Seiten verwenden</translation>
 <translation id="9050666287014529139">Passphrase</translation>
 <translation id="9060538597317784206">App <ph name="APP_NAME" /> im Play Store anzeigen. Bewertung: <ph name="APP_RATING" /></translation>
-<translation id="9063523880881406963">"Desktop-Version anfordern" deaktivieren</translation>
+<translation id="9063523880881406963">"Desktopversion anfordern" deaktivieren</translation>
 <translation id="9065203028668620118">Bearbeiten</translation>
 <translation id="9070377983101773829">Sprachsuche starten</translation>
 <translation id="9078964945751709336">Weitere Informationen erforderlich</translation>

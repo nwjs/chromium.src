@@ -125,9 +125,9 @@ Du skal aktivere Bluetooth og Placering for at kunne bruge Fysisk web.</translat
 <translation id="2315043854645842844">Klientens certifikatvalg understøttes ikke af operativsystemet.</translation>
 <translation id="2321958826496381788">Træk i skyderen, indtil du kan læse dette uden problemer. Når du trykker to gange på et afsnit, skal teksten som minimum være på denne størrelse.</translation>
 <translation id="2323763861024343754">Websitelagerplads</translation>
-<translation id="2331464965008647960">Der er enheder i nærheden af dig, som udsender websider via Bluetooth. Chrome scanner efter sider og viser dem, når du starter din enhed. Siderne går gennem en Google-tjeneste, så kvaliteten af sideresultaterne forbedres.
+<translation id="2331464965008647960">Der er enheder i nærheden af dig, som udsender websider via Bluetooth. Chrome søger efter sider og viser dem, når du starter din enhed. Siderne går gennem en Google-tjeneste, så kvaliteten af sideresultaterne forbedres.
 
-Du kan kontrollere Fysisk web i Chrome-indstillingerne.
+Du kan administrere Fysisk web i Chrome-indstillingerne.
 
 <ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /></translation>
 <translation id="2343328333327081434">Installerer…</translation>
@@ -342,6 +342,7 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 <translation id="4807963036345170158">Datasparefunktionen er slået fra</translation>
 <translation id="4816465935029283692">Datatyper</translation>
 <translation id="4827948050554950725">Tilføj kreditkort</translation>
+<translation id="4835385943915508971">Chrome har ikke adgang til den ressource, du anmoder om.</translation>
 <translation id="4850886885716139402">Vis</translation>
 <translation id="4860895144060829044">Ring op</translation>
 <translation id="4881695831933465202">Åbn</translation>

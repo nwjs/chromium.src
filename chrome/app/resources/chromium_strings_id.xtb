@@ -39,7 +39,7 @@
 <translation id="2316129865977710310">Lain kali</translation>
 <translation id="2347108572062610441">Ekstensi ini telah mengubah apa yang ditampilkan oleh laman saat Anda memulai Chromium.</translation>
 <translation id="2372704305038231957">Chromium 32-bit mungkin tidak berfungsi dengan semestinya karena sudah tidak didukung di sistem Linux ini. Tingkatkan versi ke Chromium 64-bit.</translation>
-<translation id="2389622953163669926">{NUM_DOWNLOAD,plural, =1{Unduhan sedang berlangsung. Ingin membatalkan unduhan dan keluar dari Chromium?}other{# unduhan sedang berlangsung. Ingin membatalkan unduhan dan keluar dari Chromium?}}</translation>
+<translation id="2389622953163669926">{NUM_DOWNLOAD,plural, =1{Unduhan sedang berlangsung. Ingin membatalkan download dan keluar dari Chromium?}other{# download sedang berlangsung. Ingin membatalkan download dan keluar dari Chromium?}}</translation>
 <translation id="2396765026452590966">Ekstensi "<ph name="EXTENSION_NAME" />" telah mengubah apa yang ditampilkan oleh laman saat Anda memulai Chromium.</translation>
 <translation id="2483889755041906834">Di Chromium</translation>
 <translation id="2485422356828889247">Copot pemasangan</translation>
@@ -51,9 +51,9 @@
 <translation id="2587578672395088481">Chromium OS harus dimulai ulang untuk menerapkan pembaruan.</translation>
 <translation id="2605472041568654097">Bantu jadikan Chromium lebih baik dengan melaporkan setelan saat ini.</translation>
 <translation id="2636877269779209383">Chromium memerlukan akses kamera untuk membagikannya dengan situs ini.</translation>
-<translation id="2648074677641340862">Terjadi kesalahan pada sistem operasi saat pemasangan berlangsung. Unduh Chromium lagi.</translation>
+<translation id="2648074677641340862">Terjadi kesalahan pada sistem operasi saat pemasangan berlangsung. Download Chromium lagi.</translation>
 <translation id="2685838254101182273">Chromium telah berhenti memperbarui dan tidak lagi mendukung versi sistem operasi ini.</translation>
-<translation id="2705212601509139398">Situs ini menggunakan plugin Chromium Frame yang akan segera tidak didukung. Copot pemasangannya dan unduh browser yang kompatibel.</translation>
+<translation id="2705212601509139398">Situs ini menggunakan plugin Chromium Frame yang akan segera tidak didukung. Copot pemasangannya dan download browser yang kompatibel.</translation>
 <translation id="2711502716910134313">Tab Chromium</translation>
 <translation id="2718390899429598676">Untuk keamanan tambahan, Chromium akan mengenkripsi data Anda.</translation>
 <translation id="2770231113462710648">Ubah browser default ke:</translation>
@@ -65,7 +65,7 @@
 <translation id="3032787606318309379">Menambahkan Chromium...</translation>
 <translation id="3046695367536568084">Anda harus masuk ke Chromium untuk menggunakan aplikasi. Ini memungkinkan Chromium menyinkronkan aplikasi, bookmark, riwayat, sandi, dan setelan lainnya antar perangkat.</translation>
 <translation id="3068515742935458733">Bantu Chromium menjadi lebih baik dengan mengirim laporan kerusakan dan <ph name="UMA_LINK" /> ke Google</translation>
-<translation id="3103660991484857065">Pemasang gagal membatalkan kompresi arsip. Unduh Chromium lagi.</translation>
+<translation id="3103660991484857065">Pemasang gagal membatalkan kompresi arsip. Download Chromium lagi.</translation>
 <translation id="3130323860337406239">Chromium menggunakan mikrofon Anda.</translation>
 <translation id="313551035350905294">Anda masuk dengan akun yang dikelola dan memberikan administratornya kendali atas profil Chromium Anda. Data Chromium Anda, seperti aplikasi, bookmark, riwayat, sandi, dan setelan lain selamanya akan dikaitkan ke <ph name="USER_NAME" />. Anda dapat menghapus data ini melalui Dasbor Akun Google, namun Anda tidak akan dapat mengaitkan data ini dengan akun yang lain.</translation>
 <translation id="3155163173539279776">Luncurkan ulang Chromium</translation>
@@ -134,7 +134,7 @@
 <translation id="5386450000063123300">Memperbarui Chromium (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="5398878173008909840">Tersedia Chromium versi baru.</translation>
 <translation id="5427571867875391349">Setel Chromium sebagai browser default</translation>
-<translation id="5466153949126434691">Chromium otomatis diperbarui sehingga Anda selalu memiliki versi terbaru. Saat unduhan ini selesai, Chromium akan dimulai ulang dan siap digunakan.</translation>
+<translation id="5466153949126434691">Chromium otomatis diperbarui sehingga Anda selalu memiliki versi terbaru. Saat download ini selesai, Chromium akan dimulai ulang dan siap digunakan.</translation>
 <translation id="5479196819031988440">Chromium OS tidak dapat membuka laman ini.</translation>
 <translation id="549669000822060376">Harap tunggu selagi Chromium memasang pembaruan sistem terkini.</translation>
 <translation id="556167189552180495">Chromium ditampilkan dalam bahasa ini.</translation>
@@ -174,7 +174,7 @@
 <translation id="6475912303565314141">Juga mengontrol laman apa yang ditampilkan saat Anda memulai Chromium.</translation>
 <translation id="6485906693002546646">Anda menggunakan <ph name="PROFILE_EMAIL" /> untuk menyinkronkan barang-barang Chromium. Untuk memperbarui preferensi sinkronisasi atau menggunakan Chromium tanpa akun Google, kunjungi <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6510925080656968729">Copot Pemasangan Chromium</translation>
-<translation id="6526111688217511984">Chromium memerlukan akses penyimpanan untuk mengunduh file.</translation>
+<translation id="6526111688217511984">Chromium memerlukan akses penyimpanan untuk mendownload file.</translation>
 <translation id="6584627348340620412">Versi Chromium 32-bit berikutnya sudah tidak mendukung sistem Linux ini, tingkatkan versi ke Chromium 64-bit.</translation>
 <translation id="6593914713218535185">Chromium mungkin tidak berfungsi dengan semestinya karena sudah tidak didukung di sistem Linux ini.</translation>
 <translation id="6637001341228460105">Chromium memerlukan akses mikrofon untuk membagikannya dengan situs ini.</translation>
@@ -243,11 +243,11 @@ Lihat email Anda di <ph name="ACCOUNT_EMAIL" /> untuk petunjuk lebih lanjut.</tr
 <translation id="81770708095080097">File ini berbahaya, jadi Chromium telah memblokirnya.</translation>
 <translation id="8269379391216269538">Bantu kami membuat Chromium menjadi lebih baik</translation>
 <translation id="8290862415967981663">File ini mungkin berbahaya, jadi Chromium telah memblokirnya.</translation>
-<translation id="8453117565092476964">Arsip pemasang rusak atau tidak valid. Unduh Chromium lagi.</translation>
+<translation id="8453117565092476964">Arsip pemasang rusak atau tidak valid. Download Chromium lagi.</translation>
 <translation id="8493179195440786826">Chromium Terlalu Lawas</translation>
 <translation id="85843667276690461">Dapatkan bantuan tentang penggunaan Chromium</translation>
 <translation id="8586442755830160949">Hak Cipta <ph name="YEAR" /> Pengarang Chromium. Semua hak dilindungi undang-undang.</translation>
-<translation id="8621669128220841554">Pemasangan gagal karena kesalahan yang tidak ditentukan. Unduh Chromium lagi.</translation>
+<translation id="8621669128220841554">Pemasangan gagal karena kesalahan yang tidak ditentukan. Download Chromium lagi.</translation>
 <translation id="8628626585870903697">Chromium tidak menyertakan penampil PDF yang dibutuhkan agar Pratinjau Cetak berfungsi.</translation>
 <translation id="8667808506758191620"><ph name="DEVICE_TYPE" /> Anda sudah diperbarui.</translation>
 <translation id="8697124171261953979">Juga mengontrol laman apa yang ditampilkan saat Anda memulai Chromium atau menelusuri dari Omnibox.</translation>

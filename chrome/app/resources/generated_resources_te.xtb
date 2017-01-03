@@ -1450,7 +1450,6 @@
 <translation id="2845382757467349449">ఎల్లప్పుడూ బుక్‌మార్క్‌ల బార్‌ను చూపు</translation>
 <translation id="2846816712032308263">వేగంగా ట్యాబ్/విండో మూసివేతను ప్రారంభిస్తుంది - ట్యాబ్ యొక్క onunload js హ్యాండ్లర్‌ను GUI లేకుండా స్వతంత్రంగా అమలు చేస్తుంది.</translation>
 <translation id="2847759467426165163">దీనికి ప్రసారం చేయండి</translation>
-<translation id="284844301579626260">వెనుకకు వెళ్లడానికి |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />|ని నొక్కండి</translation>
 <translation id="2849362176025371110">విశ్లేషణ మరియు వినియోగ డేటాను స్వయంచాలకంగా Googleకు పంపుతుంది. మీరు దీన్ని మీ పరికర <ph name="BEGIN_LINK1" />సెట్టింగ్‌ల<ph name="END_LINK1" />లో ఎప్పుడైనా మార్చవచ్చు. <ph name="BEGIN_LINK2" />మరింత తెలుసుకోండి<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">క్లిష్టమైన</translation>
@@ -2611,7 +2610,6 @@
 <translation id="4350019051035968019">ఈ పరికరాన్ని మీ ఖాతా చెందిన డొమైన్‌కు నమోదు చేయడం సాధ్యపడదు ఎందుకంటే పరికరం వేరే డొమైన్ ద్వారా నిర్వహించబడేలా గుర్తించబడింది.</translation>
 <translation id="4350426338152422833">ట్యాబ్‌ల్లో ఆడియో కేంద్రీకరణను నిర్వహించు</translation>
 <translation id="4354806558096370704">స్థానిక CUPS ముద్రణ బ్యాకెండ్ వినియోగాన్ని ప్రారంభిస్తుంది.</translation>
-<translation id="4355925451975609675">ముందుకు వెళ్లడానికి |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />|ని నొక్కండి</translation>
 <translation id="4356334633973342967">లేదంటే, మీ స్వంత డ్రైవర్‌ను పేర్కొనండి:</translation>
 <translation id="4356973930735388585">ఈ సైట్‌లోని దాడి చేసేవారు మీ సమాచారాన్ని (ఉదాహరణకు, ఫోటోలు, పాస్‌వర్డ్‌లు, సందేశాలు మరియు క్రెడిట్ కార్డ్‌లు) దొంగిలించడం కోసం లేదా తొలగించడం కోసం మీ కంప్యూటర్‌లో ప్రమాదకరమైన ప్రోగ్రామ్‌లను ఇన్‌స్టాల్ చేయడానికి ప్రయత్నించవచ్చు.</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4698,7 +4696,6 @@
 <translation id="715118844758971915">క్లాసిక్ ప్రింటర్‌లు</translation>
 <translation id="7154130902455071009">మీ ప్రారంభ పేజీని దీనికి మార్చండి: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">కెమెరా లేదా ఫైల్‌లో ఉన్న ఫోటో</translation>
-<translation id="7155226869555939647">ఎల్లప్పుడూ <ph name="APPLICATION" /> కోసం లింక్‌లను తెరువు</translation>
 <translation id="7156235233373189579">ఈ ఫైల్ Windows సాఫ్ట్‌వేర్ ఉపయోగించే PC కోసం రూపొందించబడింది. ఇది Chrome OSను అమలు చేసే మీ పరికరానికి అనుకూలమైనది కాదు. దయచేసి తగిన ప్రత్యామ్నాయ అనువర్తనం కోసం <ph name="BEGIN_LINK" />Chrome వెబ్ స్టోర్<ph name="END_LINK" />లో శోధించండి.<ph name="BEGIN_LINK_HELP" />మరింత తెలుసుకోండి<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">కొనసాగించు క్లిక్ చేయడం ద్వారా మీరు <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> మరియు <ph name="LEGAL_DOC_LINK_TEXT_4" />కి అంగీకరిస్తారు.</translation>
 <translation id="7158238151765743968">"<ph name="DEVICE_NAME" />"కు కనెక్షన్ ఇప్పటికీ పురోగతిలో ఉంది.</translation>

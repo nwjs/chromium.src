@@ -742,7 +742,7 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="1950295184970569138">* Foto profilo Google (caricamento in corso)</translation>
 <translation id="1951615167417147110">Scorri una pagina</translation>
 <translation id="1956050014111002555">Il file conteneva più certificati, che non sono stati importati:</translation>
-<translation id="1957988341423158185">Etichetta delle tracce per il tracciamento della navigazione</translation>
+<translation id="1957988341423158185">Etichetta delle tracce per il monitoraggio della navigazione</translation>
 <translation id="1961376890474801922">Altamente sperimentale in cui gli ospiti come &amp;lt;webview&gt; sono implementati nell'infrastruttura dell'iframe out-of-process.</translation>
 <translation id="1962233722219655970">Questa pagina utilizza un'app Native Client che non funziona sul tuo computer.</translation>
 <translation id="1963227389609234879">Rimuovi tutto</translation>
@@ -1449,7 +1449,6 @@ Non credo che questo sito debba essere bloccato.</translation>
 <translation id="2845382757467349449">Mostra sempre barra dei Preferiti</translation>
 <translation id="2846816712032308263">Consente la chiusura veloce di schede/finestre - viene eseguito il gestore onunload js di una scheda indipendentemente dalla GUI.</translation>
 <translation id="2847759467426165163">Trasmetti a</translation>
-<translation id="284844301579626260">Premi |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| per tornare indietro</translation>
 <translation id="2849362176025371110">Invia automaticamente a Google dati di diagnostica e utilizzo. Potrai modificare questa opzione in qualsiasi momento nelle <ph name="BEGIN_LINK1" />impostazioni<ph name="END_LINK1" /> del dispositivo. <ph name="BEGIN_LINK2" />Ulteriori informazioni<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Critica</translation>
@@ -1891,7 +1890,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="3394862755749546286">Consente di disattivare la pipeline dei media unificata (Android e desktop) su Android.</translation>
 <translation id="3396331542604645348">La stampante selezionata non è disponibile o non è installata correttamente. Controlla la stampante o prova a selezionarne un'altra.</translation>
 <translation id="3399597614303179694">Tastiera macedone</translation>
-<translation id="3401130144947259741">Se l'opzione viene attivata, gli eventi di tracciamento vengono esportati in ETW (Event Tracing for Windows) e quindi possono essere acquisiti tramite strumenti come UIForETW o Xperf.</translation>
+<translation id="3401130144947259741">Se l'opzione viene attivata, gli eventi di monitoraggio vengono esportati in ETW (Event Tracing for Windows) e quindi possono essere acquisiti tramite strumenti come UIForETW o Xperf.</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="340485819826776184">Utilizza le previsioni per completare i termini di ricerca e gli URL digitati nella barra degli indirizzi</translation>
 <translation id="3405664148539009465">Personalizza caratteri</translation>
@@ -1935,7 +1934,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="3454157711543303649">Attivazione completata</translation>
 <translation id="3456236151053308041">Consente di attivare le estensioni IME per fornire visualizzazioni personalizzate per i metodi di immissione degli utenti, ad esempio tastiere virtuali.</translation>
 <translation id="345693547134384690">Apri &amp;immagine in un'altra scheda</translation>
-<translation id="3458620904104024826">Attiva l'esportazione di eventi di tracciamento in ETW.</translation>
+<translation id="3458620904104024826">Attiva l'esportazione di eventi di monitoraggio in ETW.</translation>
 <translation id="3459509316159669723">Stampa</translation>
 <translation id="3459774175445953971">Ultima modifica:</translation>
 <translation id="3460771772332290399">Modalità di ricaricamento automatico offline</translation>
@@ -2608,7 +2607,6 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="4350019051035968019">Questo dispositivo non può essere registrato sul dominio a cui appartiene il tuo account perché è contrassegnato per essere gestito da un altro dominio.</translation>
 <translation id="4350426338152422833">Gestisci il focus audio tra le schede</translation>
 <translation id="4354806558096370704">Consente di attivare l'utilizzo del backend di stampa nativo CUPS.</translation>
-<translation id="4355925451975609675">Premi |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| per andare avanti</translation>
 <translation id="4356334633973342967">In alternativa specifica il tuo driver:</translation>
 <translation id="4356973930735388585">I malintenzionati su questo sito potrebbero tentare di installare sul tuo computer programmi pericolosi che scoprono o eliminano i tuoi dati (ad esempio foto, password, messaggi e carte di credito).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -3374,7 +3372,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="5379140238605961210">Continua a impedire l'accesso al microfono</translation>
 <translation id="5379268888377976432">Annulla eliminazione</translation>
 <translation id="5380103295189760361">Tieni premuto Ctrl, Alt, Maiusc o Cerca per visualizzare le scorciatoie da tastiera per questi tasti di modifica.</translation>
-<translation id="5382392428640372740">Attiva il tracciamento della navigazione</translation>
+<translation id="5382392428640372740">Attiva il monitoraggio della navigazione</translation>
 <translation id="5382591305415226340">Gestisci i link supportati</translation>
 <translation id="5388588172257446328">Nome utente:</translation>
 <translation id="5388885445722491159">Accoppiato</translation>
@@ -4426,7 +4424,7 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="6802031077390104172"><ph name="USAGE" /> (<ph name="OID" />)</translation>
 <translation id="6804671422566312077">Apri tutti i Preferiti in &amp;un'altra finestra</translation>
 <translation id="6805647936811177813">Accedi a <ph name="TOKEN_NAME" /> per importare il certificato client da <ph name="HOST_NAME" />.</translation>
-<translation id="680572642341004180">Attiva tracciamento RLZ su <ph name="SHORT_PRODUCT_OS_NAME" />.</translation>
+<translation id="680572642341004180">Attiva monitoraggio RLZ su <ph name="SHORT_PRODUCT_OS_NAME" />.</translation>
 <translation id="6807889908376551050">Mostra tutte...</translation>
 <translation id="6809448577646370871">Apertura di una finestra personalizzata per le app di Chrome.</translation>
 <translation id="6810613314571580006">Accedi automaticamente ai siti web utilizzando credenziali memorizzate. Quando la funzione non è attiva, ti viene chiesta la conferma prima di ogni accesso ai siti web.</translation>
@@ -4691,7 +4689,6 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="715118844758971915">Stampanti classiche</translation>
 <translation id="7154130902455071009">Cambio della pagina iniziale con: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Foto esistente da fotocamera o file</translation>
-<translation id="7155226869555939647">Apri sempre i link di <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Questo file è supportato su PC con software Windows. Non è compatibile con i dispositivi con Chrome OS. Cerca sul <ph name="BEGIN_LINK" />Chrome Web Store<ph name="END_LINK" /> un'app sostitutiva adatta.<ph name="BEGIN_LINK_HELP" />Ulteriori informazioni<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Se fai clic su Continua, accetti i <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> e le <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">Connessione a "<ph name="DEVICE_NAME" />" ancora in corso.</translation>

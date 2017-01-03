@@ -467,7 +467,7 @@
 <translation id="1568323446248056064">Megjelenítőeszköz beállításainak megnyitása</translation>
 <translation id="1568822834048182062">A könyvjelzők, előzmények, jelszavak és más beállítások szinkronizálódnak Google-fiókjával.</translation>
 <translation id="1571119610742640910">Összeállítás rögzített gyökérhátterekhez.</translation>
-<translation id="1572876035008611720">Adja meg e-mail címét</translation>
+<translation id="1572876035008611720">Adja meg e-mail-címét</translation>
 <translation id="1576594961618857597">Alapértelmezett fehér avatar</translation>
 <translation id="1580652505892042215">Kontextus:</translation>
 <translation id="1581962803218266616">Megjelenítés a Finderben</translation>
@@ -1451,7 +1451,6 @@ Miután létrehozott egy új felügyelt felhasználót, bármikor és bármilyen
 <translation id="2845382757467349449">A könyvjelzők eszköztára mindig látható</translation>
 <translation id="2846816712032308263">A lapok/ablakok gyors bezárásának engedélyezése – egy lap kiürítési js-kezelőjének futtatása a GUI-tól függetlenül.</translation>
 <translation id="2847759467426165163">Átküldés a következőre</translation>
-<translation id="284844301579626260">Nyomja meg a |<ph name="ACCELERATOR1" />| + |<ph name="ACCELERATOR2" />| billentyűkombinációt a visszalépéshez</translation>
 <translation id="2849362176025371110">Diagnosztikai és használati adatok automatikus küldése a Google-nak. Eszköze <ph name="BEGIN_LINK1" />beállításai<ph name="END_LINK1" /> között bármikor módosíthatja. <ph name="BEGIN_LINK2" />További információ<ph name="END_LINK2" />.</translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Fontos</translation>
@@ -2610,7 +2609,6 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="4350019051035968019">Ez az eszköz nem regisztrálható annál a domainnél, amelyhez fiókja tartozik, mert az eszköz felügyeletére egy másik domain van kijelölve.</translation>
 <translation id="4350426338152422833">Az audiofókusz lapokon átnyúló kezelése</translation>
 <translation id="4354806558096370704">Engedélyezi a natív CUPS nyomtatási háttéralkalmazást.</translation>
-<translation id="4355925451975609675">A továbblépéshez nyomja meg a(z) |<ph name="ACCELERATOR1" />| + |<ph name="ACCELERATOR2" />| billentyűkombinációt</translation>
 <translation id="4356334633973342967">Vagy adja meg saját illesztőprogramját:</translation>
 <translation id="4356973930735388585">Előfordulhat, hogy a webhely támadói olyan veszélyes programokat próbálnak telepíteni számítógépére, amelyek ellopják vagy törlik adatait (például fotóit, jelszavait, üzeneteit vagy hitelkártyaadatait).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -3273,7 +3271,7 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="52550593576409946">A kioszkalkalmazást nem sikerült elindítani.</translation>
 <translation id="5255315797444241226">A megadott összetett jelszó helytelen.</translation>
 <translation id="5258266922137542658">PPAPI (folyamaton belüli)</translation>
-<translation id="5260508466980570042">Sajnáljuk, e-mail címét vagy jelszavát nem sikerült megerősíteni. Próbálja ismét.</translation>
+<translation id="5260508466980570042">Sajnáljuk, e-mail-címét vagy jelszavát nem sikerült megerősíteni. Próbálja ismét.</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />Fájljait bárhonnan, akár offline módban is elérheti.<ph name="MARKUP_2" />
     A Google Drive-on lévő fájlok naprakészek és bármilyen eszközről hozzáférhetők.<ph name="MARKUP_3" />
     <ph name="MARKUP_4" />Fájljait biztonságosan tárolhatja.<ph name="MARKUP_5" />
@@ -4667,7 +4665,7 @@ Kizárólag olyan fiókok esetében használja a funkciót, amelyekben megbízik
 <translation id="7106346894903675391">További tárhely vásárlása...</translation>
 <translation id="7108338896283013870">Elrejtés</translation>
 <translation id="7108668606237948702">enter</translation>
-<translation id="7113502843173351041">Megismerheti az Ön e-mail címét</translation>
+<translation id="7113502843173351041">Megismerheti az Ön e-mail-címét</translation>
 <translation id="7114054701490058191">A jelszavak nem egyeznek</translation>
 <translation id="7115051913071512405">Próbálja ki</translation>
 <translation id="711507025649937374">Érintésalapú szövegkijelölési stratégia</translation>
@@ -4697,7 +4695,6 @@ Kizárólag olyan fiókok esetében használja a funkciót, amelyekben megbízik
 <translation id="715118844758971915">Hagyományos nyomtatók</translation>
 <translation id="7154130902455071009">Kezdőoldal módosítása a következőre: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Meglévő fénykép a fényképezőgépről vagy fájlból</translation>
-<translation id="7155226869555939647">Mindig  nyissa meg a(z) <ph name="APPLICATION" /> linkjeit</translation>
 <translation id="7156235233373189579">Ezt a fájlt Windows-szoftvereket használó számítógéphez készítették. Nem kompatibilis az Ön Chrome OS-t futtató eszközével. A <ph name="BEGIN_LINK" />Chrome Internetes áruházban<ph name="END_LINK" /> kereshet megfelelő helyettesítő alkalmazást. <ph name="BEGIN_LINK_HELP" />További információ<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">A Folytatás lehetőségre kattintva elfogadja a következőket: <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> és <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">A(z) „<ph name="DEVICE_NAME" />” eszközhöz való csatlakozás még mindig folyamatban van.</translation>

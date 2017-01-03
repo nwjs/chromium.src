@@ -1452,7 +1452,6 @@ To spletno mesto ne sme biti blokirano.</translation>
 <translation id="2845382757467349449">Vedno pokaži vrstico z zaznamki</translation>
 <translation id="2846816712032308263">Omogoči hitro zapiranje zavihka/okna – zažene rutino za obravnavo onunload js za zavihek neodvisno od grafičnega uporabniškega vmesnika.</translation>
 <translation id="2847759467426165163">Predvajanje v napravi</translation>
-<translation id="284844301579626260">Pritisnite |<ph name="ACCELERATOR1" />| + |<ph name="ACCELERATOR2" />|, če se želite vrniti</translation>
 <translation id="2849362176025371110">Samodejno pošiljanje diagnostičnih podatkov in podatkov o uporabi Googlu. To nastavitev lahko kadar koli spremenite v <ph name="BEGIN_LINK1" />nastavitvah<ph name="END_LINK1" /> naprave. <ph name="BEGIN_LINK2" />Več o tem<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Kritično</translation>
@@ -2613,7 +2612,6 @@ Pritisnite katero koli tipko, če želite še naprej raziskovati.</translation>
 <translation id="4350019051035968019">Te naprave ni mogoče včlaniti v domeno vašega računa, ker je naprava označena za upravljanje v drugi domeni.</translation>
 <translation id="4350426338152422833">Upravljaj osredotočenost zvoka na zavihkih</translation>
 <translation id="4354806558096370704">Omogoča uporabo izvornega zalednega dela za tiskanje CUPS.</translation>
-<translation id="4355925451975609675">Pritisnite |<ph name="ACCELERATOR1" />| + |<ph name="ACCELERATOR2" />|, če želite nadaljevati</translation>
 <translation id="4356334633973342967">Ali navedite svoj gonilnik:</translation>
 <translation id="4356973930735388585">Napadalci na tem spletnem mestu lahko poskusijo v vašem računalniku namestiti nevarne programe, ki kradejo ali brišejo podatke (na primer fotografije, gesla, sporočila in podatke kreditnih kartic).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4699,7 +4697,6 @@ Uporabljajte to funkcijo samo z računi, ki jim zaupate.</translation>
 <translation id="715118844758971915">Navadni tiskalniki</translation>
 <translation id="7154130902455071009">Sprememba začetne strani na: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Obstoječa fotografija iz fotoaparata ali datoteke</translation>
-<translation id="7155226869555939647">Vedno odpri povezave za aplikacijo <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Ta datoteka je zasnovana za namizni računalnik, ki uporablja programsko opremo Windows. Ni združljiva z vašo napravo, ki uporablja sistem Chrome OS. Poiščite ustrezno nadomestno aplikacijo v <ph name="BEGIN_LINK" />Spletni trgovini Chrome<ph name="END_LINK" />.<ph name="BEGIN_LINK_HELP" />Več o tem<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Če kliknete »Nadaljuj«, se strinjate s pogoji, ki jih določajo <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> in <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">Povezava z napravo »<ph name="DEVICE_NAME" />« še vedno poteka.</translation>

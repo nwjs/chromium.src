@@ -1453,7 +1453,6 @@ sistema operativo desde una unidad USB
 <translation id="2845382757467349449">Mostrar siempre la barra de marcadores</translation>
 <translation id="2846816712032308263">Permite cerrar rápidamente ventanas y pestañas, ya que ejecuta el controlador onunload de JavaScript de forma independiente a la interfaz gráfica de usuario.</translation>
 <translation id="2847759467426165163">Enviar a</translation>
-<translation id="284844301579626260">Pulsa |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| para volver a la página anterior</translation>
 <translation id="2849362176025371110">Envía a Google datos de uso y diagnósticos automáticamente. Puedes cambiar esta función en los <ph name="BEGIN_LINK1" />ajustes<ph name="END_LINK1" /> del dispositivo en cualquier momento. <ph name="BEGIN_LINK2" />Más información<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Crítica</translation>
@@ -2611,7 +2610,6 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4350019051035968019">Este dispositivo no se puede registrar en el dominio al que pertenece tu cuenta porque ya lo administra otro dominio.</translation>
 <translation id="4350426338152422833">Administrar el foco de audio en varias pestañas</translation>
 <translation id="4354806558096370704">Habilita el uso del servidor de impresión CUPS nativo.</translation>
-<translation id="4355925451975609675">Pulsa |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| para ir a la página siguiente</translation>
 <translation id="4356334633973342967">O especificar un controlador:</translation>
 <translation id="4356973930735388585">Es posible que los atacantes que se encuentren en este sitio web intenten instalar programas peligrosos en tu ordenador para robar o eliminar tu información (por ejemplo, fotos, contraseñas, mensajes y tarjetas de crédito).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" /> y <ph name="LANGUAGE_2" /></translation>
@@ -4692,7 +4690,6 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="715118844758971915">Impresoras clásicas</translation>
 <translation id="7154130902455071009">Cambiar página de inicio por: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Foto de la cámara o archivo</translation>
-<translation id="7155226869555939647">Abrir siempre los enlaces de <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Este archivo está diseñado para un ordenador que utilice software de Windows. No es compatible con tu dispositivo, que utiliza Chrome OS. Puedes buscar una aplicación equivalente adecuada en <ph name="BEGIN_LINK" />Chrome Web Store<ph name="END_LINK" />.<ph name="BEGIN_LINK_HELP" />Más información<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Al hacer clic en Continuar, aceptas las disposiciones de los siguientes documentos legales: <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> y <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">La conexión con <ph name="DEVICE_NAME" /> sigue en curso.</translation>

@@ -1448,7 +1448,6 @@ Jeg synes ikke, dette website skal blokeres.</translation>
 <translation id="2845382757467349449">Vis altid bogmærkelinjen</translation>
 <translation id="2846816712032308263">Aktiverer hurtig lukning af fane/vindue – kører en fanes onunload js handler uafhængigt af GUI'en.</translation>
 <translation id="2847759467426165163">Cast til</translation>
-<translation id="284844301579626260">Tryk på |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| for at gå tilbage</translation>
 <translation id="2849362176025371110">Send automatisk diagnostik og brugsdata til Google. Du kan til enhver tid ændre dette i <ph name="BEGIN_LINK1" />indstillingerne<ph name="END_LINK1" /> for din enhed. <ph name="BEGIN_LINK2" />Få flere oplysninger<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Kritisk</translation>
@@ -2086,7 +2085,7 @@ Fra <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3627588569887975815">Åbn link i inkognitovindue</translation>
 <translation id="3627671146180677314">Tidspunkt for fornyelse af Netscape-certifikat</translation>
 <translation id="3631337165634322335">Undtagelserne nedenfor gælder kun for den aktuelle inkognitosession.</translation>
-<translation id="3633586230741134985">Indstillinger for applikationsliste</translation>
+<translation id="3633586230741134985">Indstillinger for appliste</translation>
 <translation id="3633997706330212530">Du kan vælge at deaktivere disse tjenester.</translation>
 <translation id="3635030235490426869">Fane 1</translation>
 <translation id="3636096452488277381">Goddag <ph name="USER_GIVEN_NAME" /></translation>
@@ -2610,7 +2609,6 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="4350019051035968019">Denne enhed kan ikke tilmeldes det domæne, som din konto hører under, da enheden er markeret til administration på et andet domæne.</translation>
 <translation id="4350426338152422833">Administrer lydfokusering på flere faner</translation>
 <translation id="4354806558096370704">Aktiverer brugen af den indbyggede backend til CUPS-udskrivning.</translation>
-<translation id="4355925451975609675">Tryk på |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| for at gå fremad</translation>
 <translation id="4356334633973342967">Du kan også angive din egen driver:</translation>
 <translation id="4356973930735388585">Hackere på dette website vil muligvis forsøge at installere skadelige programmer på din computer, som stjæler eller sletter dine oplysninger (f.eks. billeder, adgangskoder, beskeder og kreditkortoplysninger).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -3368,7 +3366,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5367260322267293088">Aktivér den eksperimentelle side Ny fane med store ikoner.</translation>
 <translation id="5368720394188453070">Din telefon er låst. Lås den op for at få adgang.</translation>
 <translation id="5369733589844510457">Denne handling sletter permanent denne brugers downloads, offlinefiler, browserdata og Android-lagerplads. Handlingen kan ikke fortrydes.</translation>
-<translation id="5369927996833026114">Oplev Chrome-applikationslisten</translation>
+<translation id="5369927996833026114">Oplev Chrome-applisten</translation>
 <translation id="5370819323174483825">&amp;Opdater</translation>
 <translation id="5372066618989754822">Aktivér adgang til den nye IME-menu på siden Sprogindstillinger.</translation>
 <translation id="5372529912055771682">Den medfølgende tilstand for tilmelding understøttes ikke af denne version af operativsystemet. Sørg for, at du kører den nyeste version, og prøv igen.</translation>
@@ -4251,7 +4249,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6544215763872433504">Googles webbrowser til dig</translation>
 <translation id="6545325945815270297">Administrer dine synkroniserede data og enheder i <ph name="BEGIN_LINK" />Chrome Betjeningspanel<ph name="END_LINK" />.</translation>
 <translation id="6545665334409411530">Gentagelseshastighed</translation>
-<translation id="6545834809683560467">Brug en forslagstjeneste til at færdiggøre søgninger og webadresser, der indtastes i adresselinjen eller i søgefeltet i Appliste</translation>
+<translation id="6545834809683560467">Brug en forslagstjeneste til at færdiggøre søgninger og webadresser, der indtastes i adresselinjen eller søgefeltet i applisten</translation>
 <translation id="6546686722964485737">Opret forbindelse til WiMAX-netværk</translation>
 <translation id="6547316139431024316">Advar ikke om denne udvidelse igen</translation>
 <translation id="6547354035488017500">Din enhed holder op med at svare, hvis du ikke frigør mindst 512 MB. Slet filer fra lageret på enheden for at frigøre plads.</translation>
@@ -4696,7 +4694,6 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="715118844758971915">Klassiske printere</translation>
 <translation id="7154130902455071009">Skifte din startside til: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Eksisterende billede fra kamera eller fil</translation>
-<translation id="7155226869555939647">Åbn altid links til <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Denne fil er designet til en pc, som bruger Windows-software. Den er ikke kompatibel med din enhed, som kører Chrome OS. Find en tilsvarende app i <ph name="BEGIN_LINK" />Chrome Webshop<ph name="END_LINK" /> i stedet.<ph name="BEGIN_LINK_HELP" />Få flere oplysninger<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Ved at klikke på Fortsæt accepterer du <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> og <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">Forbindelsen til "<ph name="DEVICE_NAME" />" er stadig aktiv.</translation>
@@ -4837,7 +4834,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7361824946268431273">En hurtigere, enklere og mere sikker computer</translation>
 <translation id="7364745943115323529">Cast...</translation>
 <translation id="7364796246159120393">Vælg fil</translation>
-<translation id="736515969993332243">Scanner efter netværk.</translation>
+<translation id="736515969993332243">Søger efter netværk.</translation>
 <translation id="7366762109661450129">Sig "Ok Google", når skærmen er tændt og låst op.</translation>
 <translation id="7366909168761621528">Browserdata</translation>
 <translation id="7369521049655330548">Følgende plugins blev blokeret på denne side:</translation>

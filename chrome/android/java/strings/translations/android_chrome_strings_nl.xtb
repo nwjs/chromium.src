@@ -342,6 +342,7 @@ Als je de zoekterm wilt aanpassen, houd je deze aangeraakt om de term te selecte
 <translation id="4807963036345170158">Databesparing is uitgeschakeld</translation>
 <translation id="4816465935029283692">Gegevenstypen</translation>
 <translation id="4827948050554950725">Een creditcard toevoegen</translation>
+<translation id="4835385943915508971">Chrome heeft geen toegang tot de gevraagde bron.</translation>
 <translation id="4850886885716139402">Weergave</translation>
 <translation id="4860895144060829044">Bellen</translation>
 <translation id="4881695831933465202">Openen</translation>
@@ -465,7 +466,7 @@ Je bent echter niet onzichtbaar. Als je incognito bent, wordt je browsegeschiede
 <translation id="6042308850641462728">Meer</translation>
 <translation id="604996488070107836">Download van <ph name="FILE_NAME" /> mislukt vanwege een onbekende fout.</translation>
 <translation id="605721222689873409">JJ</translation>
-<translation id="6075798973483050474">Startpagina bewerken</translation>
+<translation id="6075798973483050474">Homepage bewerken</translation>
 <translation id="6078323886959318429">Snelle link toevoegen</translation>
 <translation id="60923314841986378"><ph name="HOURS" /> uur resterend</translation>
 <translation id="6108923351542677676">Instellen wordt uitgevoerd...</translation>
@@ -749,7 +750,7 @@ Maak verbinding met internet en speel je gedownloade content af om nieuwe licent
 <translation id="9198708126133947749">De gegevens van dit apparaat vervangen door de gegevens van <ph name="TO_ACCOUNT" />. Je kunt je bestaande gegevens ophalen door terug te schakelen naar <ph name="FROM_ACCOUNT" />.</translation>
 <translation id="9206873250291191720">A</translation>
 <translation id="9219103736887031265">Afbeeldingen</translation>
-<translation id="932327136139879170">Startpagina</translation>
+<translation id="932327136139879170">Homepage</translation>
 <translation id="938850635132480979">Fout: <ph name="ERROR_CODE" /></translation>
 <translation id="945632385593298557">Toegang tot je microfoon</translation>
 <translation id="95817756606698420">Chrome kan <ph name="BEGIN_BOLD" />Sogou<ph name="END_BOLD" /> gebruiken voor zoekopdrachten in China. Je kunt dit wijzigen in <ph name="BEGIN_LINK" />Instellingen<ph name="END_LINK" />.</translation>

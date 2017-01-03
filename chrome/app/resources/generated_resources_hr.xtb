@@ -1450,7 +1450,6 @@ Mislim da ta web-lokacija ne bi trebala biti blokirana!</translation>
 <translation id="2845382757467349449">Uvijek prikaži traku oznake</translation>
 <translation id="2846816712032308263">Omogućuje brzo zatvaranje kartice/prozora – pokreće rukovatelja kartice "OnUnload JS" neovisno o grafičkom korisničkom sučelju.</translation>
 <translation id="2847759467426165163">Emitiranje na uređaju</translation>
-<translation id="284844301579626260">Pritisnite |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| da biste išli unatrag</translation>
 <translation id="2849362176025371110">Dijagnostika i podaci o upotrebi automatski se šalju Googleu. To možete promijeniti u bilo kojem trenutku u <ph name="BEGIN_LINK1" />postavkama<ph name="END_LINK1" /> uređaja. <ph name="BEGIN_LINK2" />Saznajte više<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Kritično</translation>
@@ -2611,7 +2610,6 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="4350019051035968019">Uređaj se ne može prijaviti na domenu kojoj pripada vaš račun jer je postavljen za upravljanje na nekoj drugoj domeni.</translation>
 <translation id="4350426338152422833">Upravljanje audiofokusom u karticama</translation>
 <translation id="4354806558096370704">Omogućuje upotrebu nativnog pozadinskog sustava CUPS za ispis.</translation>
-<translation id="4355925451975609675">Pritisnite |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| da biste išli unaprijed</translation>
 <translation id="4356334633973342967">Možete i navesti vlastiti upravljački program:</translation>
 <translation id="4356973930735388585">Napadači na ovoj web-lokaciji mogu pokušati instalirati opasne programe na vaše računalo radi krađe ili brisanja vaših podataka (na primjer fotografija, zaporki, poruka i brojeva kreditnih kartica).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4696,7 +4694,6 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="715118844758971915">Klasični pisači</translation>
 <translation id="7154130902455071009">promijeniti vašu početnu stranicu u: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Postojeća fotografija s fotoaparata ili iz datoteke</translation>
-<translation id="7155226869555939647">Uvijek otvaraj veze za <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Ova datoteka predviđena je za računalo koje upotrebljava Windows softver. Nije kompatibilna s vašim uređajem koji radi na Chrome OS-u. Potražite odgovarajuću zamjensku datoteku u <ph name="BEGIN_LINK" />Chrome web-trgovini<ph name="END_LINK" />.<ph name="BEGIN_LINK_HELP" />Saznajte više<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Klikom na Nastavi prihvaćate sljedeće: <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> i <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">Povezivanje s uređajem "<ph name="DEVICE_NAME" />" još je u tijeku.</translation>

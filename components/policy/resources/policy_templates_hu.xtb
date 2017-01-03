@@ -482,7 +482,7 @@
 <translation id="2514328368635166290">Megadja az alapértelmezett keresési szolgáltató kedvenc ikonjának URL-jét. Nem kötelező házirend. Ha nincs beállítva, akkor a keresési szolgáltatónak nem jelenik meg ikonja. Ez a házirend csak akkor teljesül, ha a "DefaultSearchProviderEnabled" házirend engedélyezve van.</translation>
 <translation id="2516525961735516234">Meghatározza, hogy a videotevékenység hatással van-e az energiagazdálkodásra.
 
-          Ha a házirend Igaz értékre van állítva, vagy nincs beállítva, a rendszer nem tekinti tétlennek a felhasználót videolejátszás közben. Ez meggátolja a tétlenségi, képernyő-elsötétítési, képernyő-kikapcsolási és képernyő-lezárási késleltetés elérését, illetve a vonatkozó műveletek végrehajtását.
+          Ha a házirend Igaz értékre van állítva, vagy nincs beállítva, a rendszer nem tekinti tétlennek a felhasználót videólejátszás közben. Ez meggátolja a tétlenségi, képernyő-elsötétítési, képernyő-kikapcsolási és képernyő-lezárási késleltetés elérését, illetve a vonatkozó műveletek végrehajtását.
 
           Ha a házirend Hamis értékre van állítva, a videotevékenység nem gátolja meg, hogy a rendszer tétlennek tekintse a felhasználót.</translation>
 <translation id="2516600974234263142">Engedélyezi a nyomtatást a(z) <ph name="PRODUCT_NAME" /> programban, és megakadályozza, hogy a felhasználók módosítsák ezt a beállítást.

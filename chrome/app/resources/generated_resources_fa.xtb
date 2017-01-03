@@ -1448,7 +1448,6 @@
 <translation id="2845382757467349449">همیشه نوار نشانک‌ها نمایش داده شود</translation>
 <translation id="2846816712032308263">‏بستن سریع برگه/پنجره را فعال می‌کند - کنترل‌کننده onunload js برگه را مستقل از GUI اجرا می‌کند.</translation>
 <translation id="2847759467426165163">فرستادن به</translation>
-<translation id="284844301579626260">برای برگشتن به عقب، |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| را فشار دهید</translation>
 <translation id="2849362176025371110">‏به‌طور خودکار داده‌های تشخیصی و استفاده به Google ارسال کنید. هرزمان خواستید می‌توانید این تنظیم را در <ph name="BEGIN_LINK1" />تنظیمات<ph name="END_LINK1" /> دستگاه تغییر دهید. <ph name="BEGIN_LINK2" />بیشتر بدانید<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">مهم</translation>
@@ -2609,7 +2608,6 @@
 <translation id="4350019051035968019">این دستگاه نمی‌تواند در دامنه‌ای که حسابتان متعلق به آن است، ثبت‌نام کند زیرا دستگاه برای مدیریت توسط دامنه دیگری علامت‌گذاری شده است.</translation>
 <translation id="4350426338152422833">مدیریت تنظیم کانون صوتی در میان برگه‌ها</translation>
 <translation id="4354806558096370704">‏استفاده از مرحله نهایی چاپ CUPS محلی را امکان‌پذیر می‌کند.</translation>
-<translation id="4355925451975609675">برای رفتن به جلو، |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| را فشار دهید</translation>
 <translation id="4356334633973342967">یا درایور خود را مشخص کنید</translation>
 <translation id="4356973930735388585">مهاجم‌ها در این سایت ممکن است تلاش کنند برنامه‌های خطرناکی در رایانه شما نصب کنند که اطلاعات شما (مانند عکس‌ها، گذرواژه‌ها، پیام‌ها و کارت‌های اعتباری) را به سرقت می‌برند یا حذف می‌کنند.</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />، <ph name="LANGUAGE_2" /></translation>
@@ -4694,7 +4692,6 @@
 <translation id="715118844758971915">چاپگرهای کلاسیک</translation>
 <translation id="7154130902455071009">تغییر صفحه شروعتان به: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">عکس موجود از دوربین یا فایل</translation>
-<translation id="7155226869555939647">پیوندها همیشه برای <ph name="APPLICATION" /> باز شوند</translation>
 <translation id="7156235233373189579">‏این فایل برای رایانه‌ای است که از نرم‌افزار Windows استفاده می‌کند، این فایل با دستگاه شما که Chrome OS روی آن نصب است سازگار نیست. لطفاً <ph name="BEGIN_LINK" />فروشگاه وب Chrome‏<ph name="END_LINK" /> را برای برنامه مناسب جایگزین بررسی کنید.<ph name="BEGIN_LINK_HELP" />بیشتر بدانید<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">با کلیک کردن ادامه با <ph name="LEGAL_DOC_LINK_TEXT_1" />،‏ <ph name="LEGAL_DOC_LINK_TEXT_2" />،‏ <ph name="LEGAL_DOC_LINK_TEXT_3" /> و <ph name="LEGAL_DOC_LINK_TEXT_4" /> موافقت می‌کنید.</translation>
 <translation id="7158238151765743968">اتصال به «<ph name="DEVICE_NAME" />» همچنان در جریان است.</translation>

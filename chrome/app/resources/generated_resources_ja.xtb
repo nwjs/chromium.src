@@ -1451,7 +1451,6 @@
 <translation id="2845382757467349449">ブックマーク バーを常に表示</translation>
 <translation id="2846816712032308263">タブ/ウィンドウを高速に閉じられるようにします（タブの onunload js ハンドラを GUI とは別に実行します）。</translation>
 <translation id="2847759467426165163">キャストするデバイス:</translation>
-<translation id="284844301579626260">|<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| キーを押して戻る</translation>
 <translation id="2849362176025371110">診断と使用状況のデータを Google に自動送信します。この設定は、端末の<ph name="BEGIN_LINK1" />設定<ph name="END_LINK1" />でいつでも変更できます。<ph name="BEGIN_LINK2" />詳細<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" />（<ph name="UNICODE_NAME" />）</translation>
 <translation id="2849936225196189499">重要</translation>
@@ -2612,7 +2611,6 @@
 <translation id="4350019051035968019">このデバイスは、別のドメインの管理対象として指定されているため、現在のアカウントの所属先ドメインに登録することはできません。</translation>
 <translation id="4350426338152422833">タブ間で音声フォーカスを調整する</translation>
 <translation id="4354806558096370704">ネイティブ CUPS 印刷バックエンドの使用を有効にします。</translation>
-<translation id="4355925451975609675">|<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| キーを押して進む</translation>
 <translation id="4356334633973342967">または独自のドライバを指定:</translation>
 <translation id="4356973930735388585">このサイトを利用すると、悪意のあるユーザーによって、危険なプログラム（写真、パスワード、メッセージ、クレジット カード番号などの情報を盗み取るか削除するプログラム）がお使いのパソコンにインストールされる可能性があります。</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />、<ph name="LANGUAGE_2" /></translation>
@@ -4699,7 +4697,6 @@
 <translation id="715118844758971915">従来のプリンタ</translation>
 <translation id="7154130902455071009">スタート ページを次に変更します: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">カメラやファイルに保存されている写真</translation>
-<translation id="7155226869555939647">リンクは常に <ph name="APPLICATION" /> で開く</translation>
 <translation id="7156235233373189579">このファイルは Windows ソフトウェアを使用する PC 向けのもので、Chrome OS を実行するデバイスとは互換性がありません。<ph name="BEGIN_LINK" />Chrome ウェブストア<ph name="END_LINK" />で、このデバイスで使用できる代わりのアプリをお探しください。<ph name="BEGIN_LINK_HELP" />詳細<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">[続行] をクリックすると、<ph name="LEGAL_DOC_LINK_TEXT_1" />、<ph name="LEGAL_DOC_LINK_TEXT_2" />、<ph name="LEGAL_DOC_LINK_TEXT_3" />、<ph name="LEGAL_DOC_LINK_TEXT_4" />に同意したことになります。</translation>
 <translation id="7158238151765743968">「<ph name="DEVICE_NAME" />」に引き続き接続しています。</translation>

@@ -1452,7 +1452,6 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="2845382757467349449">Vždy zobraziť panel so záložkami</translation>
 <translation id="2846816712032308263">Povoliť rýchle zatváranie kariet alebo okien – táto možnosť spustí ovládač karty onunload v jazyku JavaScript nezávisle od hlavného používateľského rozhrania.</translation>
 <translation id="2847759467426165163">Prenášať do</translation>
-<translation id="284844301579626260">Stlačením klávesov |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| prejdete späť</translation>
 <translation id="2849362176025371110">Automaticky odosielať diagnostické údaje a údaje o používaní Googlu. Toto nastavenie môžete kedykoľvek zmeniť v <ph name="BEGIN_LINK1" />nastaveniach<ph name="END_LINK1" /> zariadenia. <ph name="BEGIN_LINK2" />Ďalšie informácie<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Kritické</translation>
@@ -2613,7 +2612,6 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="4350019051035968019">Toto zariadenie nemôže byť zaregistrované do domény vášho účtu, pretože je označené ako spravované inou doménou.</translation>
 <translation id="4350426338152422833">Správa zamerania zvuku vo viacerých kartách</translation>
 <translation id="4354806558096370704">Povoľuje používanie natívnej tlače CUPS na strane servera.</translation>
-<translation id="4355925451975609675">Stlačením klávesov |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| prejdete dopredu</translation>
 <translation id="4356334633973342967">Alebo vyberte vlastný ovládač:</translation>
 <translation id="4356973930735388585">Útočníci na tomto webe sa možno pokúsia nainštalovať na váš počítač nebezpečné programy, ktoré ukradnú alebo odstránia vaše informácie, napríklad fotky, heslá, správy alebo kreditné karty.</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -2690,7 +2688,7 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="4467100756425880649">Galéria Internetového obchodu Chrome</translation>
 <translation id="4470564870223067757">Hangul 2 Set</translation>
 <translation id="4474155171896946103">Všetky karty uložiť ako záložky...</translation>
-<translation id="4475552974751346499">Prehľadať prevz. súbory</translation>
+<translation id="4475552974751346499">Hľadať stiahnuté súbory</translation>
 <translation id="4476590490540813026">Športovkyňa</translation>
 <translation id="4477219268485577442">Bulharská fonetická klávesnica</translation>
 <translation id="4478664379124702289">Uložiť &amp;odkaz ako...</translation>
@@ -2739,7 +2737,7 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="4545759655004063573">Uloženie nie je možné z dôvodu nedostatočných oprávnení. Uložte položku inde.</translation>
 <translation id="4547659257713117923">Žiadne karty z iných zariadení</translation>
 <translation id="4547992677060857254">Vybratý priečinok obsahuje citlivé súbory. Naozaj chcete aplikácii $1 povoliť trvalý prístup na zapisovanie pre tento priečinok?</translation>
-<translation id="4552089082226364758">Blesk</translation>
+<translation id="4552089082226364758">Flash</translation>
 <translation id="4552495056028768700">Prístup k stránke</translation>
 <translation id="4552678318981539154">Kúpiť väčší ukladací priestor</translation>
 <translation id="4554591392113183336">Verzia externého rozšírenia je rovnaká alebo nižšia ako existujúca verzia</translation>
@@ -4699,7 +4697,6 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="715118844758971915">Klasické tlačiarne</translation>
 <translation id="7154130902455071009">Zmeniť úvodnú stránku na: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Existujúca fotka z fotoaparátu alebo súboru</translation>
-<translation id="7155226869555939647">Vždy otvárať odkazy pre <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Tento súbor je určený pre počítač so softvérom Windows. Nie je kompatibilný s vaším zariadením používajúcim OS Chrome. Vyhľadajte vhodnú náhradnú aplikáciu v <ph name="BEGIN_LINK" />Internetovom obchode Chrome<ph name="END_LINK" />.<ph name="BEGIN_LINK_HELP" />Viac informácií<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Kliknutím na položku Pokračovať vyjadrujete súhlas s dokumentmi <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> a <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">Stále prebieha pripájanie k zariadeniu <ph name="DEVICE_NAME" />.</translation>

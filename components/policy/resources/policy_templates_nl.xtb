@@ -106,7 +106,7 @@
 <translation id="1330145147221172764">Schermtoetsenbord inschakelen</translation>
 <translation id="1330985749576490863">Schakelt Google Drive uit via mobiele verbindingen in de app Bestanden van <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="13356285923490863">Naam van beleid</translation>
-<translation id="1353966721814789986">Startpagina's</translation>
+<translation id="1353966721814789986">Homepage's</translation>
 <translation id="1359553908012294236">Als dit beleid is ingesteld op 'waar' of niet is geconfigureerd, schakelt <ph name="PRODUCT_NAME" /> gast-logins in. Gast-logins zijn profielen van <ph name="PRODUCT_NAME" /> waarbij alle vensters in de incognitomodus worden geopend.
 
       Als dit beleid is ingesteld op 'onwaar', staat <ph name="PRODUCT_NAME" /> niet toe dat er gastprofielen worden gestart.</translation>
@@ -791,9 +791,9 @@
       Als dit beleid is ingesteld op 'onwaar', wordt de ingebouwde DNS-client nooit gebruikt.
 
       Als dit beleid niet wordt ingesteld, kunnen de gebruikers wijzigen of de ingebouwde DNS-client wordt gebruikt door chrome://flags te bewerken of een opdrachtregelmarkering op te geven.</translation>
-<translation id="3214164532079860003">Indien ingeschakeld, wordt met dit beleid afgedwongen dat de startpagina wordt geïmporteerd uit de huidige standaardbrowser.
+<translation id="3214164532079860003">Indien ingeschakeld, wordt met dit beleid afgedwongen dat de homepage wordt geïmporteerd uit de huidige standaardbrowser.
 
-      Als dit beleid is uitgeschakeld, wordt de startpagina niet geïmporteerd.
+      Als dit beleid is uitgeschakeld, wordt de homepage niet geïmporteerd.
 
       Als dit beleid niet is ingesteld, kan de gebruiker worden gevraagd of deze wil importeren, of wordt er automatisch geïmporteerd.</translation>
 <translation id="3219421230122020860">Incognitomodus beschikbaar</translation>
@@ -1174,15 +1174,15 @@
 <translation id="4476769083125004742">Als dit beleid wordt ingesteld op <ph name="BLOCK_GEOLOCATION_SETTING" />, hebben de Android-apps geen toegang tot locatiegegevens. Als je een andere waarde voor dit beleid instelt of het beleid niet instelt, wordt de gebruiker om toestemming gevraagd wanneer een Android-app toegang tot locatiegegevens probeert te krijgen.</translation>
 <translation id="447686899376429408">Als dit is ingesteld op 'true' (waar) of niet is ingesteld, kunnen gebruikers tabbladen, sites of het bureaublad vanuit de browser casten. Als dit is ingesteld op 'false' (onwaar), is deze optie uitgeschakeld.</translation>
 <translation id="4480694116501920047">SafeSearch afdwingen</translation>
-<translation id="4482640907922304445">Hiermee wordt de knop 'Startpagina' weergegeven in de werkbalk van <ph name="PRODUCT_NAME" />.
+<translation id="4482640907922304445">Hiermee wordt de knop 'Homepage' weergegeven in de werkbalk van <ph name="PRODUCT_NAME" />.
 
-      Als je deze instelling inschakelt, wordt de knop 'Startpagina' altijd weergegeven.
+      Als je deze instelling inschakelt, wordt de knop 'Homepage' altijd weergegeven.
 
-      Als je deze instelling uitschakelt, wordt de knop 'Startpagina' nooit weergegeven.
+      Als je deze instelling uitschakelt, wordt de knop 'Homepage' nooit weergegeven.
 
       Als je deze instelling in- of uitschakelt, kunnen gebruikers de instelling niet aanpassen of negeren in <ph name="PRODUCT_NAME" />.
 
-      Als dit beleid niet wordt ingesteld, kan de gebruiker kiezen of de knop 'Startpagina' wel of niet wordt weergegeven.</translation>
+      Als dit beleid niet wordt ingesteld, kan de gebruiker kiezen of de knop 'Homepage' wel of niet wordt weergegeven.</translation>
 <translation id="4492287494009043413">Het maken van screenshots uitschakelen</translation>
 <translation id="450537894712826981">Configureert de cachegrootte die <ph name="PRODUCT_NAME" /> gebruikt voor het opslaan van gecachte bestanden op de schijf.
 
@@ -1398,7 +1398,7 @@
 <translation id="5307432759655324440">Beschikbaarheid van incognitomodus</translation>
 <translation id="5318185076587284965">Het gebruik van relayservers door de host voor externe toegang inschakelen</translation>
 <translation id="5330684698007383292"><ph name="PRODUCT_FRAME_NAME" /> toestaan de volgende soorten content te verwerken.</translation>
-<translation id="5365946944967967336">Knop 'Startpagina' in de werkbalk weergeven</translation>
+<translation id="5365946944967967336">Knop 'Homepage' in de werkbalk weergeven</translation>
 <translation id="5366977351895725771">Als dit is ingesteld op 'false' (niet waar) wordt het maken van gebruikers met beperkte rechten uitgeschakeld voor deze gebruiker. Bestaande gebruikers met beperkte rechten blijven beschikbaar.
 
           Als dit is ingesteld op 'true' (waar) of niet is geconfigureerd, kunnen gebruikers met beperkte rechten worden gemaakt en beheerd door deze gebruiker.</translation>
@@ -1459,7 +1459,7 @@
 
       Dit beleid is alleen van toepassing als Android-apps zijn ingeschakeld.</translation>
 <translation id="5511702823008968136">Bladwijzerbalk inschakelen</translation>
-<translation id="5512418063782665071">URL van startpagina</translation>
+<translation id="5512418063782665071">URL van homepage</translation>
 <translation id="5523812257194833591">Een openbare sessie om automatisch in te loggen na een vertraging.
 
       Als dit beleid is ingesteld, wordt de opgegeven sessie automatisch ingelogd na een tijdsperiode zonder gebruikersinteractie op het inlogscherm is verstreken. De openbare sessie moet al zijn geconfigureerd (zie |DeviceLocalAccounts|).
@@ -1746,7 +1746,7 @@
 
           Dit beleid wordt alleen gerespecteerd als het beleid 'DefaultSearchProviderEnabled' is ingeschakeld.</translation>
 <translation id="6367755442345892511">Of de gebruiker het releasekanaal moet configureren</translation>
-<translation id="6368011194414932347">De startpagina-URL configureren</translation>
+<translation id="6368011194414932347">De homepage-URL configureren</translation>
 <translation id="6368403635025849609">JavaScript toestaan op deze sites</translation>
 <translation id="6373222873250380826">Schakelt automatische updates uit als dit is ingesteld op 'True'.
 
@@ -1967,15 +1967,15 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Als het beleid is uitgeschakeld, worden er geen bladwijzers geïmporteerd.
 
       Als dit beleid niet wordt ingesteld, kan de gebruiker worden gevraagd of deze wil importeren, of wordt er automatisch geïmporteerd.</translation>
-<translation id="7055358889740598917">Hiermee wordt de standaardstartpagina-URL in <ph name="PRODUCT_NAME" /> geconfigureerd en wordt voorkomen dat gebruikers deze wijzigen.
+<translation id="7055358889740598917">Hiermee wordt de standaardhomepage-URL in <ph name="PRODUCT_NAME" /> geconfigureerd en wordt voorkomen dat gebruikers deze wijzigen.
 
-          De startpagina is de pagina die wordt geopend met de startpaginaknop. De pagina's die worden geopend bij het opstarten, worden beheerd door het RestoreOnStartup-beleid.
+          De homepage is de pagina die wordt geopend met de homepageknop. De pagina's die worden geopend bij het opstarten, worden beheerd door het RestoreOnStartup-beleid.
 
-          Het type startpagina kan worden ingesteld op een URL die je hier opgeeft of op de nieuwe tabbladpagina. Als je de nieuwe tabbladpagina selecteert, is dit beleid niet van kracht.
+          Het type homepage kan worden ingesteld op een URL die je hier opgeeft of op de nieuwe tabbladpagina. Als je de nieuwe tabbladpagina selecteert, is dit beleid niet van kracht.
 
-          Als je deze instelling inschakelt, kunnen gebruikers hun startpagina-URL in <ph name="PRODUCT_NAME" /> niet wijzigen, maar kunnen ze de nieuwe tabbladpagina nog steeds kiezen als startpagina.
+          Als je deze instelling inschakelt, kunnen gebruikers hun homepage-URL in <ph name="PRODUCT_NAME" /> niet wijzigen, maar kunnen ze de nieuwe tabbladpagina nog steeds kiezen als homepage.
 
-          Als dit beleid niet wordt ingesteld, kan de gebruiker zijn eigen startpagina kiezen als HomepageIsNewTabPage ook niet is ingesteld.
+          Als dit beleid niet wordt ingesteld, kan de gebruiker zijn eigen homepage kiezen als HomepageIsNewTabPage ook niet is ingesteld.
 
           Dit beleid is niet beschikbaar op Windows-instanties die niet zijn gekoppeld aan een Active Directory-domein.</translation>
 <translation id="7063895219334505671">Pop-ups toestaan ​​op deze sites</translation>
@@ -2065,7 +2065,7 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="7258823566580374486">Afschermen van hosts voor externe toegang inschakelen</translation>
 <translation id="7260277299188117560">Automatisch updaten van p2p ingeschakeld</translation>
 <translation id="7267809745244694722">Mediatoetsen worden standaard ingesteld op functietoetsen</translation>
-<translation id="7271085005502526897">Startpagina importeren uit standaardbrowser bij eerste uitvoering</translation>
+<translation id="7271085005502526897">Homepage importeren uit standaardbrowser bij eerste uitvoering</translation>
 <translation id="7273823081800296768">Als deze instelling is ingeschakeld of niet is geconfigureerd, kunnen gebruikers clients en hosts aanmelden op het moment dat verbinding wordt gemaakt, zodat er niet elke keer een pincode hoeft te worden opgegeven.
 
           Als deze instelling is uitgeschakeld, is deze functie niet beschikbaar.</translation>
@@ -2455,15 +2455,15 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="8312129124898414409">Hiermee kun je instellen of websites sleutels mogen genereren. Het genereren van sleutels kan ofwel worden toegestaan voor alle websites ofwel worden geweigerd voor alle websites.
 
           Als dit beleid niet wordt ingesteld, wordt 'BlockKeygen' gebruikt en kan de gebruiker dit wijzigen.</translation>
-<translation id="8316806736175990584">Hiermee wordt het type standaardstartpagina in <ph name="PRODUCT_NAME" /> geconfigureerd en wordt voorkomen dat gebruikers deze instelling kunnen wijzigen. De startpagina kan worden ingesteld op een door jou gespecificeerde URL of op de nieuwe tabbladpagina.
+<translation id="8316806736175990584">Hiermee wordt het type standaardhomepage in <ph name="PRODUCT_NAME" /> geconfigureerd en wordt voorkomen dat gebruikers deze instelling kunnen wijzigen. De homepage kan worden ingesteld op een door jou gespecificeerde URL of op de nieuwe tabbladpagina.
 
-          Als je deze instelling inschakelt, wordt de nieuwe tabbladpagina altijd gebruikt voor de startpagina en wordt de URL voor de startpagina genegeerd.
+          Als je deze instelling inschakelt, wordt de nieuwe tabbladpagina altijd gebruikt voor de homepage en wordt de URL voor de homepage genegeerd.
 
-          Als je deze instelling uitschakelt, wordt de nieuwe tabbladpagina nooit weergegeven als de startpagina, tenzij de URL is ingesteld op 'chrome://newtab'.
+          Als je deze instelling uitschakelt, wordt de nieuwe tabbladpagina nooit weergegeven als de homepage, tenzij de URL is ingesteld op 'chrome://newtab'.
 
-          Als je deze instelling in- of uitschakelt, kunnen gebruikers het type startpagina niet aanpassen in <ph name="PRODUCT_NAME" />.
+          Als je deze instelling in- of uitschakelt, kunnen gebruikers het type homepage niet aanpassen in <ph name="PRODUCT_NAME" />.
 
-          Als dit beleid niet wordt ingesteld, kan de gebruiker ervoor kiezen de nieuwe tabbladpagina als startpagina te gebruiken of een eigen pagina als startpagina te gebruiken.
+          Als dit beleid niet wordt ingesteld, kan de gebruiker ervoor kiezen de nieuwe tabbladpagina als homepage te gebruiken of een eigen pagina als homepage te gebruiken.
 
           Dit beleid is niet beschikbaar op Windows-instanties die niet zijn gekoppeld aan een Active Directory-domein.</translation>
 <translation id="8329984337216493753">Dit beleid is alleen ingeschakeld in de winkelmodus.
@@ -2493,7 +2493,7 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Als deze optie is ingesteld op 'waar' (true) of niet is geconfigureerd, kan de gebruiker processen in Taakbeheer beëindigen.</translation>
 <translation id="8424255554404582727">Standaard displayrotatie instellen, wordt telkens toegepast na opnieuw opstarten</translation>
 <translation id="8426231401662877819">Scherm 90 graden met de klok mee draaien</translation>
-<translation id="8451988835943702790">De pagina 'Nieuw tabblad' als startpagina gebruiken</translation>
+<translation id="8451988835943702790">De pagina 'Nieuw tabblad' als homepage gebruiken</translation>
 <translation id="8458790683633857482">Hiermee wordt een reeks beleidsregels gespecificeerd om door te geven aan de ARC-runtime. De waarde moet geldige JSON zijn.</translation>
 <translation id="8465065632133292531">Parameters voor instant-URL die POST gebruikt</translation>
 <translation id="847472800012384958">Niet toestaan dat sites pop-ups weergeven</translation>
@@ -2606,9 +2606,9 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Als het beleid niet is ingesteld of is ingesteld op 'False', wordt de locatie niet gerapporteerd.</translation>
 <translation id="8818768076343557335">Netwerkacties voorspellen op elk netwerk dat niet mobiel is.
           (Beëindigd in 50, verwijderd in 52. Als na 52 waarde 1 is ingesteld, wordt deze waarde verwerkt als 0 - netwerkacties voorspellen voor elke netwerkverbinding.)</translation>
-<translation id="8828766846428537606">Hiermee wordt de standaard startpagina in <ph name="PRODUCT_NAME" /> geconfigureerd en wordt voorkomen dat gebruikers deze instelling kunnen wijzigen.
+<translation id="8828766846428537606">Hiermee wordt de standaard homepage in <ph name="PRODUCT_NAME" /> geconfigureerd en wordt voorkomen dat gebruikers deze instelling kunnen wijzigen.
 
-      De instellingen voor de startpagina worden alleen volledig voor de gebruiker vergrendeld als je de pagina 'Nieuw tabblad' als de startpagina selecteert of als je zelf een URL voor de startpagina specificeert. Als je geen URL voor de startpagina opgeeft, kan de gebruiker nog steeds de pagina 'Nieuw tabblad' als startpagina instellen door 'chrome://newtab' op te geven.</translation>
+      De instellingen voor de homepage worden alleen volledig voor de gebruiker vergrendeld als je de pagina 'Nieuw tabblad' als de homepage selecteert of als je zelf een URL voor de homepage specificeert. Als je geen URL voor de homepage opgeeft, kan de gebruiker nog steeds de pagina 'Nieuw tabblad' als homepage instellen door 'chrome://newtab' op te geven.</translation>
 <translation id="8833109046074170275">Verificatie via GAIA (standaard)</translation>
 <translation id="8838303810937202360">Met <ph name="PRODUCT_OS_NAME" /> worden apps en extensies in het cachegeheugen geplaatst voor de installatie door meerdere gebruikers van een enkel apparaat om te voorkomen dat ze opnieuw worden gedownload voor iedere gebruiker.
       Als dit beleid niet is geconfigureerd of de waarde lager is dan 1 MB, gebruikt <ph name="PRODUCT_OS_NAME" /> het standaardformaat van de cache.</translation>
@@ -2623,7 +2623,7 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
           Als je het PAC-script voor de proxy kiest, ontvangen de Android-apps de script-URL.</translation>
 <translation id="8858642179038618439">Beperkte modus van YouTube afdwingen</translation>
 <translation id="8864975621965365890">Hiermee onderdruk je de prompt die wordt weergegeven wanneer een site wordt weergegeven door <ph name="PRODUCT_FRAME_NAME" />.</translation>
-<translation id="8870318296973696995">Startpagina</translation>
+<translation id="8870318296973696995">Homepage</translation>
 <translation id="88890388118515381">
       Specificeert een lijst met apps die zonder gebruikersinteractie op de achtergrond op het inlogscherm worden geïnstalleerd en die niet kunnen worden verwijderd. Alle rechten die worden aangevraagd door de apps, worden impliciet zonder gebruikersinteractie verleend, inclusief aanvullende rechten die worden aangevraagd door toekomstige versies van de app.
 

@@ -18,7 +18,7 @@
 <translation id="1029317248976101138">Powiększ</translation>
 <translation id="1029595648591494741">Wypróbować „<ph name="EXTENSION_NAME" />”?</translation>
 <translation id="1030173864176315846">Wydrukowano <ph name="PAGE_NUMBER" /> str. na: <ph name="PRINTER_NAME" /></translation>
-<translation id="1031362278801463162">Wczytywanie podglądu</translation>
+<translation id="1031362278801463162">Wczytuję podgląd</translation>
 <translation id="1031573127485938293">Pytaj (zgodnie z zasadami)</translation>
 <translation id="103279545524624934">Aby uruchomić aplikacje na Androida, zwolnij miejsce na dysku.</translation>
 <translation id="1033780634303702874">Dostęp do urządzeń szeregowych</translation>
@@ -514,7 +514,7 @@
 <translation id="1637765355341780467">Coś poszło nie tak podczas otwierania Twojego profilu. Niektóre funkcje mogą być niedostępne.</translation>
 <translation id="1638447702436460526">Nie znaleziono drukarki</translation>
 <translation id="1638861483461592770">Włącza eksperymentalną implementację podświetlania dotknięć-gestów.</translation>
-<translation id="1639239467298939599">Wczytywanie</translation>
+<translation id="1639239467298939599">Wczytuję</translation>
 <translation id="1640283014264083726">PKCS #1, MD4 z szyfrowaniem RSA</translation>
 <translation id="1640694374286790050">Włącz liczniki czyszczenia danych przeglądarki.</translation>
 <translation id="1642494467033190216">Zanim włączysz inne funkcje debugowania, musisz wyłączyć zabezpieczenie rootfs i ponownie uruchomić urządzenie.</translation>
@@ -1450,7 +1450,6 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="2845382757467349449">Zawsze pokazuj pasek zakładek</translation>
 <translation id="2846816712032308263">Włącza szybkie zamykanie kart/okien – uruchamia moduł js zwolnienia karty niezależnie od GUI.</translation>
 <translation id="2847759467426165163">Prześlij do</translation>
-<translation id="284844301579626260">Naciśnij |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />|, by wrócić</translation>
 <translation id="2849362176025371110">Automatycznie wysyłaj do Google dane diagnostyczne i informacje dotyczące użytkowania. Tę opcję możesz zmienić w dowolnym momencie w <ph name="BEGIN_LINK1" />ustawieniach<ph name="END_LINK1" /> urządzenia. <ph name="BEGIN_LINK2" />Więcej informacji<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Krytyczne</translation>
@@ -1579,7 +1578,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="3007214526293698309">Stałe proporcje</translation>
 <translation id="3008863991906202557">Po włączeniu tej opcji menu użytkownika na komputerze zostanie przełączone na bardziej intuicyjną wersję Material Design.</translation>
 <translation id="3009300415590184725">Czy na pewno chcesz anulować konfigurowanie komórkowej usługi transmisji danych?</translation>
-<translation id="3009779501245596802">Zaindeksowane bazy danych</translation>
+<translation id="3009779501245596802">Zindeksowane bazy danych</translation>
 <translation id="3010279545267083280">Hasło usunięte</translation>
 <translation id="3011284594919057757">Flash – informacje</translation>
 <translation id="3011362742078013760">Otwórz wszystkie zakładki w oknie &amp;incognito</translation>
@@ -2611,7 +2610,6 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="4350019051035968019">To urządzenie jest oznaczone jako zarządzane przez inną domenę i nie można go przypisać do domeny, do której należy Twoje konto.</translation>
 <translation id="4350426338152422833">Zarządzaj aktywnością audio w kartach</translation>
 <translation id="4354806558096370704">Włącza użycie natywnego procesu drukowania CUPS.</translation>
-<translation id="4355925451975609675">Naciśnij |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />|, by przejść dalej</translation>
 <translation id="4356334633973342967">Możesz też wybrać własny sterownik:</translation>
 <translation id="4356973930735388585">Osoby atakujące tę stronę mogą próbować zainstalować na Twoim komputerze niebezpieczne programy przeznaczone do kradzieży lub usuwania Twoich danych (na przykład zdjęć, haseł, wiadomości czy numerów kart kredytowych).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -2748,7 +2746,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="4556110439722119938">Zakładki, historia, hasła i inne ustawienia zostaną zsynchronizowane z kontem Google, by można było z nich korzystać na dowolnym urządzeniu.</translation>
 <translation id="4557136421275541763">Ostrzeżenie:</translation>
 <translation id="4558426062282641716">Przesłano prośbę o pozwolenie na automatyczne uruchamianie</translation>
-<translation id="456664934433279154">Określa, czy używać widoków zestawu narzędzi w oparciu o okna aplikacji Chrome.</translation>
+<translation id="456664934433279154">Określa, czy okna aplikacji w Chrome mają korzystać z biblioteki Toolkit-views.</translation>
 <translation id="4567772783389002344">Dodaj słowo</translation>
 <translation id="4569998400745857585">Menu zawierające ukryte rozszerzenia</translation>
 <translation id="4572659312570518089">Podczas łączenia się z urządzeniem „<ph name="DEVICE_NAME" />” zostało anulowane uwierzytelnianie.</translation>
@@ -3488,7 +3486,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5511823366942919280">Na pewno chcesz skonfigurować to urządzenie jako „Shark”?</translation>
 <translation id="5512653252560939721">Certyfikat użytkownika musi być wspierany sprzętowo.</translation>
 <translation id="5513242761114685513">Menu kontekstowe</translation>
-<translation id="5515008897660088170">Okna aplikacji widoków zestawu narzędzi</translation>
+<translation id="5515008897660088170">Okna aplikacji korzystające z Toolkit-views</translation>
 <translation id="5516183516694518900">Zaloguj się w Chrome na swoje konto Google, by mieć dostęp do zakładek, historii, haseł i innych ustawień na wszystkich swoich urządzeniach.</translation>
 <translation id="551752069230578406">Dodaję drukarkę do konta. Może to chwilę potrwać...</translation>
 <translation id="5518584115117143805">Certyfikat szyfrowania poczty e-mail</translation>
@@ -3813,7 +3811,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5957613098218939406">Więcej opcji</translation>
 <translation id="5958529069007801266">Użytkownik nadzorowany</translation>
 <translation id="5959471481388474538">Sieć niedostępna</translation>
-<translation id="5959728338436674663">Automatycznie wysyłaj do Google niektóre <ph name="BEGIN_WHITEPAPER_LINK" />informacje o systemie i treści stron<ph name="END_WHITEPAPER_LINK" />, by pomóc w wykrywaniu niebezpiecznych aplikacji i witryn. <ph name="PRIVACY_PAGE_LINK" /></translation>
+<translation id="5959728338436674663">Automatycznie wysyłaj do Google niektóre <ph name="BEGIN_WHITEPAPER_LINK" />informacje o systemie i część zawartości stron<ph name="END_WHITEPAPER_LINK" />, by pomóc w wykrywaniu niebezpiecznych aplikacji i witryn. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5963026469094486319">Pobierz motywy</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> w szczycie)</translation>
 <translation id="5965403572731919803">Dodaj do półki...</translation>
@@ -4694,7 +4692,6 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="715118844758971915">Drukarki tradycyjne</translation>
 <translation id="7154130902455071009">Zmień stronę startową na: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Istniejące zdjęcie z kamery lub pliku</translation>
-<translation id="7155226869555939647">Zawsze otwieraj linki do <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Ten plik został opracowany z myślą o komputerach z Windows. Jest on niezgodny z Twoim urządzeniem z Chrome OS. Spróbuj znaleźć aplikację zastępczą w <ph name="BEGIN_LINK" />Chrome Web Store<ph name="END_LINK" />. <ph name="BEGIN_LINK_HELP" />Więcej informacji<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Klikając Dalej, akceptujesz <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> i <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">Połączenie z urządzeniem <ph name="DEVICE_NAME" /> jest nadal w toku.</translation>
@@ -5163,7 +5160,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="7807711621188256451">Zawsze zezwalaj witrynie <ph name="HOST" /> na dostęp do kamery</translation>
 <translation id="7809868303668093729">Eksperymentalny efekt końca przewijania w odpowiedzi na dalekie przewinięcie w pionie.</translation>
 <translation id="7810202088502699111">Wyskakujące okienka na tej stronie zostały zablokowane.</translation>
-<translation id="7812634759091149319">Powoduje, że okno dialogowe Informacje o aplikacji oparte na widokach zestawu narzędzi jest dostępne na chrome://apps lub chrome://extensions zamiast okna dialogowego uprawnień rozszerzenia natywnego lub linku szczegółów (który prowadzi do Chrome Web Store).</translation>
+<translation id="7812634759091149319">Powoduje, że okno dialogowe Informacje o aplikacji korzystające z biblioteki Toolkit-views jest dostępne na chrome://apps lub chrome://extensions zamiast okna dialogowego uprawnień rozszerzenia natywnego lub linku szczegółów (który prowadzi do Chrome Web Store).</translation>
 <translation id="7814458197256864873">&amp;Kopiuj</translation>
 <translation id="7818135753970109980">Dodano nowy motyw (<ph name="EXTENSION_NAME" />)</translation>
 <translation id="7819857487979277519">Klucz wstępny (WPA lub RSN)</translation>
@@ -5577,7 +5574,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8351419472474436977">To rozszerzenie przejęło kontrolę nad ustawieniami Twojego serwera proxy, co oznacza, że może zmieniać, przerywać lub podsłuchiwać wszystko, co robisz online. Jeśli nie masz pewności, skąd się wzięła ta zmiana, prawdopodobnie jej nie chcesz.</translation>
 <translation id="8352772353338965963">Tu możesz dodać konto do wielokrotnego logowania. Ponieważ dostęp do wszystkich zalogowanych kont można uzyskać bez podawania hasła, tej funkcji należy używać tylko z zaufanymi kontami.</translation>
 <translation id="8353683614194668312">Będzie mieć te uprawnienia:</translation>
-<translation id="8354560714384889844">Informacyjne okno dialogowe aplikacji widoków zestawu narzędzi.</translation>
+<translation id="8354560714384889844">Informacyjne okno dialogowe aplikacji korzystające z Toolkit-views.</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8356258244599961364">Ten język nie ma żadnej metody wprowadzania</translation>
 <translation id="8357224663288891423">Skróty klawiszowe dla rozszerzeń i aplikacji</translation>

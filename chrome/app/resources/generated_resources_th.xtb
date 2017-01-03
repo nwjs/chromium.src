@@ -1450,7 +1450,6 @@
 <translation id="2845382757467349449">แสดงแถบบุ๊กมาร์กเสมอ</translation>
 <translation id="2846816712032308263">ช่วยให้ปิดแท็บ/หน้าต่างได้อย่างรวดเร็ว - เรียกใช้เครื่องจัดการ onunload js ของแท็บอย่างเป็นอิสระจาก GUI</translation>
 <translation id="2847759467426165163">ส่งไปยัง</translation>
-<translation id="284844301579626260">กด |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| เพื่อย้อนกลับ</translation>
 <translation id="2849362176025371110">ส่งข้อมูลการวินิจฉัยและการใช้งานไปยัง Google โดยอัตโนมัติ คุณสามารถเปลี่ยนการตั้งค่านี้ได้ตลอดเวลาใน<ph name="BEGIN_LINK1" />การตั้งค่า<ph name="END_LINK1" />ของอุปกรณ์ <ph name="BEGIN_LINK2" />เรียนรู้เพิ่มเติม<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">สำคัญ</translation>
@@ -2611,7 +2610,6 @@
 <translation id="4350019051035968019">ไม่สามารถลงทะเบียนอุปกรณ์นี้กับโดเมนที่บัญชีของคุณใช้อยู่ได้ เนื่องจากอุปกรณ์มีการทำเครื่องหมายไว้ว่าได้รับการจัดการจากโดเมนอื่น</translation>
 <translation id="4350426338152422833">จัดการการโฟกัสเสียงในแท็บต่างๆ</translation>
 <translation id="4354806558096370704">เปิดการใช้งานแบ็กเอนด์การพิมพ์ CUPS แบบดั้งเดิม</translation>
-<translation id="4355925451975609675">กด |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| เพื่อไปข้างหน้า</translation>
 <translation id="4356334633973342967">หรือระบุไดรเวอร์ของคุณเอง:</translation>
 <translation id="4356973930735388585">ผู้โจมตีในเว็บไซต์นี้อาจพยายามติดตั้งโปรแกรมอันตรายซึ่งจะขโมยหรือลบข้อมูล (ตัวอย่างเช่น รูปภาพ รหัสผ่าน ข้อความ และบัตรเครดิต) ลงในคอมพิวเตอร์ของคุณ</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4697,7 +4695,6 @@
 <translation id="715118844758971915">เครื่องพิมพ์แบบเดิม</translation>
 <translation id="7154130902455071009">เปลี่ยนหน้าเริ่มต้นของคุณเป็น: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">รูปภาพที่มีอยู่จากกล้องหรือไฟล์</translation>
-<translation id="7155226869555939647">เปิดลิงก์ของ <ph name="APPLICATION" /> ทุกครั้ง</translation>
 <translation id="7156235233373189579">ไฟล์นี้ออกแบบมาสำหรับพีซีที่ใช้ซอฟต์แวร์บน Windows ซึ่งไม่สามารถเข้ากันได้กับอุปกรณ์ของคุณซึ่งใช้ Chrome OS โปรดค้นหาแอปทดแทนที่เหมาะสมบน <ph name="BEGIN_LINK" />Chrome เว็บสโตร์<ph name="END_LINK" /> <ph name="BEGIN_LINK_HELP" />เรียนรู้เพิ่มเติม<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">การคลิก "ดำเนินการต่อ" หมายถึงคุณตกลงตาม <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> และ <ph name="LEGAL_DOC_LINK_TEXT_4" /></translation>
 <translation id="7158238151765743968">การเชื่อมต่อกับ "<ph name="DEVICE_NAME" />" ยังดำเนินการอยู่</translation>

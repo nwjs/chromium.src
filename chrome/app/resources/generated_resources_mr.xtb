@@ -1449,7 +1449,6 @@
 <translation id="2845382757467349449">नेहमी बुकमार्क बार दर्शवा</translation>
 <translation id="2846816712032308263">जलद टॅब/विंडो बंद करणे सक्षम करते - GUI च्या  टॅब चे onunload js हँडलर वैयक्तिकरित्या चालविते.</translation>
 <translation id="2847759467426165163">यावर कास्ट करा</translation>
-<translation id="284844301579626260">मागे जाण्यासाठी |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| दाबा</translation>
 <translation id="2849362176025371110">Google कडे स्वयंचलितपणे निदान आणि वापर डेटा पाठवा. आपल्या डिव्हाइस <ph name="BEGIN_LINK1" />सेटिंग्ज<ph name="END_LINK1" /> मध्ये आपण हे कधीही बदलू शकता. <ph name="BEGIN_LINK2" />अधिक जाणून घ्या<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">गंभीर</translation>
@@ -2604,7 +2603,6 @@
 <translation id="4350019051035968019">एका भिन्न डोमेनद्वारे व्यवस्थापनासाठी डिव्हाइस चिन्हांकित केले असल्यामुळे आपले खाते ज्या मालकीचे आहे त्या डोमेवर या डिव्हाइसची नोंदणी केली जाऊ शकत नाही.</translation>
 <translation id="4350426338152422833">टॅब भोवती ऑडिओ फोकस व्यवस्थापित करा</translation>
 <translation id="4354806558096370704">मूळ CUPS मुद्रण बॅकएंडचा वापर सक्षम करते.</translation>
-<translation id="4355925451975609675">पुढे जाण्यासाठी |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| दाबा</translation>
 <translation id="4356334633973342967">किंवा आपल्या स्वत:चा ड्राइव्हर निर्दिष्ट करा:</translation>
 <translation id="4356973930735388585">या साइट वरील आक्रमणकर्ते आपली माहिती (उदाहरणार्थ, फोटो, संकेतशब्द, संदेश आणि क्रेडिट कार्ड) चोरणारे किंवा हटविणारे धोकादायक प्रोग्राम आपल्या संगणकावर स्थापित करण्‍याचा प्रयत्न करू शकतात.</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4690,7 +4688,6 @@
 <translation id="715118844758971915">क्लासिक प्रिंटर</translation>
 <translation id="7154130902455071009">आपले प्रारंभ पृष्ठ यावर बदला: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">कॅमेरा किंवा फाईल मधील विद्यमान फोटो</translation>
-<translation id="7155226869555939647">नेहमी <ph name="APPLICATION" /> साठी दुवे उघडा</translation>
 <translation id="7156235233373189579">ही फाईल Windows सॉफ्टवेअर वापरून एका PC साठी डिझाइन केली आहे. ही Chrome OS चालविणार्‍या आपल्या डिव्हाइसशी सुसंगत नाही. कृपया एका सोयीस्कर प्रतिस्थापन अॅप साठी <ph name="BEGIN_LINK" />Chrome वेब स्टोअर<ph name="END_LINK" /> शोधा.<ph name="BEGIN_LINK_HELP" />अधिक जाणून घ्या<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">सुरु ठेवा क्लिक करून आपण <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> आणि <ph name="LEGAL_DOC_LINK_TEXT_4" /> ला सहमती देता.</translation>
 <translation id="7158238151765743968">"<ph name="DEVICE_NAME" />" चे कनेक्शन अद्याप प्रगतीपथावर आहे.</translation>

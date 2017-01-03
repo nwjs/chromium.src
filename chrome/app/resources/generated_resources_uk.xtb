@@ -1450,7 +1450,6 @@
 <translation id="2845382757467349449">Завжди показувати панель закладок</translation>
 <translation id="2846816712032308263">Дозволяє швидко закривати вкладки або вікна – використовує обробник JS під час закриття вкладок незалежно від GUI.</translation>
 <translation id="2847759467426165163">Транслювати на</translation>
-<translation id="284844301579626260">Натисніть клавіші |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />|, щоб повернутися назад</translation>
 <translation id="2849362176025371110">Автоматично надсилати в Google дані про діагностику та використання. Цей параметр можна будь-коли змінити в <ph name="BEGIN_LINK1" />налаштуваннях<ph name="END_LINK1" /> пристрою. <ph name="BEGIN_LINK2" />Докладніше<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Вирішальні</translation>
@@ -2611,7 +2610,6 @@
 <translation id="4350019051035968019">Цей пристрій не можна зареєструвати в домені, до якого належить ваш обліковий запис, оскільки пристрій зареєстрований в іншому домені.</translation>
 <translation id="4350426338152422833">Керувати активізацією звуку на вкладках</translation>
 <translation id="4354806558096370704">Дозволяється використовувати рідний сервер CUPS для друку.</translation>
-<translation id="4355925451975609675">Натисніть клавіші |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />|, щоб перейти далі</translation>
 <translation id="4356334633973342967">Або виберіть свій драйвер:</translation>
 <translation id="4356973930735388585">Зловмисники на цьому сайті можуть намагатися встановити на ваш комп’ютер небезпечні програми, що викрадають або видаляють інформацію (наприклад, фотографії, паролі, повідомлення й дані кредитних карток).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4698,7 +4696,6 @@
 <translation id="715118844758971915">Типові принтери</translation>
 <translation id="7154130902455071009">Зробити <ph name="START_PAGE" /> домашньою сторінкою</translation>
 <translation id="7155171745945906037">Наявні фотографії з камери або файлу</translation>
-<translation id="7155226869555939647">Завжди відкривати посилання для додатка <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Цей файл створено для ПК, на яких використовується програмне забезпечення Windows. Він несумісний із вашим пристроєм, оскільки на ньому встановлено ОС Chrome. Знайдіть відповідний додаток у <ph name="BEGIN_LINK" />Веб-магазині Chrome<ph name="END_LINK" />.<ph name="BEGIN_LINK_HELP" />Докладніше<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Натискаючи "Продовжити", ви приймаєте такі документи: <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> і <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">Під’єднання до пристрою "<ph name="DEVICE_NAME" />" досі триває.</translation>

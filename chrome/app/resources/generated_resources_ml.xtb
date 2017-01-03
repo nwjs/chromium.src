@@ -1450,7 +1450,6 @@
 <translation id="2845382757467349449">ബുക്ക്‌മാർക്ക് ബാർ എപ്പോഴും കാണിക്കുക</translation>
 <translation id="2846816712032308263">വേഗത്തിലുള്ള ടാബ്/വിൻഡോ അടയ്‌ക്കൽ പ്രവർത്തനക്ഷമമാക്കുന്നു - ഒരു ടാബിന്റെ onunload js ഹാൻഡ്ലർ GUI അവലംബിക്കാതെ പ്രവർത്തിപ്പിക്കുന്നു.</translation>
 <translation id="2847759467426165163">ഇതിലേക്ക് കാസ്‌റ്റുചെയ്യുക</translation>
-<translation id="284844301579626260">തിരികെ പോകാൻ |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| അമർത്തുക</translation>
 <translation id="2849362176025371110">Google-ന് ഡയഗ്‌ണോസ്‌റ്റിക്, ഉപയോഗ വിവരം സ്വയം അയയ്‌ക്കുക. നിങ്ങളുടെ ഉപകരണത്തിന്റെ <ph name="BEGIN_LINK1" />ക്രമീകരണത്തിൽ<ph name="END_LINK1" /> എപ്പോൾ വേണമെങ്കിലും ഇത് മാറ്റാനാകും. <ph name="BEGIN_LINK2" />കൂടുതലറിയുക<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">ഗുരുതരം</translation>
@@ -2609,7 +2608,6 @@
 <translation id="4350019051035968019">മറ്റൊരു ഡൊമെയ്‌ൻ, ഉപകരണത്തെ നിയന്ത്രിക്കുന്നതിനായി അടയാളപ്പെടുത്തിയിരിക്കുന്നതിനാൽ, ഈ ഉപകരണത്തിന് നിങ്ങളുടെ അക്കൗണ്ട് ഉൾപ്പെട്ടിരിക്കുന്ന ഡൊമെയ്‌നിലേക്ക് എൻറോൾ ചെയ്യാനാവില്ല.</translation>
 <translation id="4350426338152422833">ടാബുകളിലുടനീളം ഓഡിയോ ഫോക്കസ്‌ മാനേജുചെയ്യുക</translation>
 <translation id="4354806558096370704">നേറ്റീവ് CUPS പ്രിന്റിംഗ് ബാക്ക്എൻഡിന്റെ ഉപയോഗം പ്രവർത്തനക്ഷമമാക്കുന്നു.</translation>
-<translation id="4355925451975609675">മുന്നോട്ട് പോകാൻ |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| അമർത്തുക</translation>
 <translation id="4356334633973342967">അല്ലെങ്കിൽ നിങ്ങളുടേത് മാത്രമായ ഡ്രൈവറെ വ്യക്തമാക്കുക:</translation>
 <translation id="4356973930735388585">ഈ സൈറ്റിലെ ആക്രമണകാരികൾ നിങ്ങളുടെ വിവരങ്ങൾ മോഷ്‌ടിക്കാനോ ഇല്ലാതാക്കാനോ ഇടയുള്ള (ഉദാഹരണത്തിന്, ഫോട്ടോകൾ, പാസ്‌വേഡുകൾ, സന്ദേശങ്ങൾ, ക്രെഡിറ്റ് കാർഡുകൾ എന്നിവ) അപകടകരമായ പ്രോഗ്രാമുകൾ കമ്പ്യൂട്ടറിൽ ഇൻസ്‌റ്റാൾ ചെയ്യാൻ ശ്രമിച്ചേക്കാം.</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /> എന്നീ ഭാഷകൾ</translation>
@@ -4696,7 +4694,6 @@
 <translation id="715118844758971915">ക്ലാസിക് പ്രിന്ററുകൾ</translation>
 <translation id="7154130902455071009">നിങ്ങളുടെ ആരംഭ പേജ് ഇതായി മാറ്റുക: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">ക്യാമറയിൽ നിന്നോ ഫയലിൽ നിന്നോ ഉള്ള നിലവിലെ ഫോട്ടോ</translation>
-<translation id="7155226869555939647">എപ്പോഴും <ph name="APPLICATION" />-ന്റെ ലിങ്കുകൾ തുറക്കുക</translation>
 <translation id="7156235233373189579">ഈ ഫയൽ, Windows സോഫ്റ്റ്‌വെയർ ഉപയോഗിക്കുന്ന ഒരു PC-യ്ക്കായി രൂപകൽപ്പന ചെയ്തിരിക്കുന്നു. Chrome OS പ്രവർത്തിപ്പിക്കുന്ന നിങ്ങളുടെ ഉപകരണത്തിന് ഇത് അനുയോജ്യമല്ല. അനുയോജ്യമായ മറ്റൊരു അപ്ലിക്കേഷനായി <ph name="BEGIN_LINK" />Chrome വെബ് സ്റ്റോറിൽ<ph name="END_LINK" /> തിരയുക.<ph name="BEGIN_LINK_HELP" />കൂടുതലറിയുക<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">തുടരുക ക്ലിക്കുചെയ്യുന്നതിലൂടെ നിങ്ങൾ <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" />, <ph name="LEGAL_DOC_LINK_TEXT_4" /> എന്നിവ അംഗീകരിക്കുന്നു.</translation>
 <translation id="7158238151765743968">"<ph name="DEVICE_NAME" />" എന്നതിലേക്കുള്ള കണക്ഷൻ ഇപ്പോഴും പുരോഗതിയിലാണ്.</translation>

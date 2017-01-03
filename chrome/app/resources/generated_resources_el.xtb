@@ -1454,7 +1454,6 @@
 <translation id="2845382757467349449">Διαρκής εμφάνιση γραμμής σελιδοδεικτών</translation>
 <translation id="2846816712032308263">Ενεργοποιεί το γρήγορο κλείσιμο καρτέλας/παραθύρου - εκτελεί το δείκτη χειρισμού onunload js μιας καρτέλας ανεξάρτητα από το GUI.</translation>
 <translation id="2847759467426165163">Μετάδοση σε</translation>
-<translation id="284844301579626260">Πατήστε |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| για επιστροφή</translation>
 <translation id="2849362176025371110">Αυτόματη αποστολή διαγνωστικών και δεδομένων χρήσης στην Google. Μπορείτε να αλλάξετε αυτήν την επιλογή ανά πάσα στιγμή στις <ph name="BEGIN_LINK1" />Ρυθμίσεις<ph name="END_LINK1" /> της συσκευής σας. <ph name="BEGIN_LINK2" />Μάθετε περισσότερα<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Κρίσιμη</translation>
@@ -2621,7 +2620,6 @@
 <translation id="4350019051035968019">Δεν είναι δυνατή η εγγραφή αυτής της συσκευής στον τομέα στον οποίο ανήκει ο λογαριασμός σας, επειδή η συσκευή έχει επισημανθεί για διαχείριση από κάποιον άλλο τομέα.</translation>
 <translation id="4350426338152422833">Διαχείριση εστίασης ήχου στις καρτέλες</translation>
 <translation id="4354806558096370704">Επιτρέπει τη χρήση του εγγενούς υπόβαθρου εκτύπωσης CUPS.</translation>
-<translation id="4355925451975609675">Πατήστε |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| για να μεταβείτε εμπρός</translation>
 <translation id="4356334633973342967">Εναλλακτικά, ορίστε το δικό σας πρόγραμμα οδήγησης:</translation>
 <translation id="4356973930735388585">Οι εισβολείς σε αυτόν τον ιστότοπο μπορεί να επιχειρήσουν να εγκαταστήσουν επικίνδυνα προγράμματα στον υπολογιστή σας, τα οποία μπορούν να υποκλέψουν ή να διαγράψουν τα δεδομένα σας (για παράδειγμα, φωτογραφίες, κωδικούς πρόσβασης, μηνύματα και στοιχεία πιστωτικών καρτών).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4715,7 +4713,6 @@
 <translation id="715118844758971915">Συμβατικοί εκτυπωτές</translation>
 <translation id="7154130902455071009">Αλλαγή της σελίδας έναρξης σε: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Υπάρχουσα φωτογραφία από την κάμερα ή το αρχείο</translation>
-<translation id="7155226869555939647">Να ανοίγουν πάντα οι σύνδεσμοι για την εφαρμογή <ph name="APPLICATION" /></translation>
 <translation id="7156235233373189579">Αυτό το αρχείο έχει σχεδιαστεί για υπολογιστές που χρησιμοποιούν λογισμικό Windows. Δεν είναι συμβατό με τη συσκευή σας η οποία εκτελεί Chrome OS. Αναζητήστε μια εφαρμογή κατάλληλη για να το αντικαταστήσει στο <ph name="BEGIN_LINK" />Chrome Web Store<ph name="END_LINK" />.<ph name="BEGIN_LINK_HELP" />Μάθετε περισσότερα<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Εάν κάνετε κλικ στο κουμπί "Συνέχεια", δηλώνετε ότι αποδέχεστε τους όρους των νομικών εγγράφων <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> και <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">Η σύνδεση με τη συσκευή "<ph name="DEVICE_NAME" />" εξακολουθεί να βρίσκεται σε εξέλιξη.</translation>

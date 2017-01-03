@@ -1446,7 +1446,6 @@ Ich glaube nicht, dass diese Website blockiert werden sollte.</translation>
 <translation id="2845382757467349449">Lesezeichenleiste immer anzeigen</translation>
 <translation id="2846816712032308263">Aktiviert schnelles Schließen von Tabs und Fenstern – führt den onunload-JS-Handler eines Tabs unabhängig von der GUI aus</translation>
 <translation id="2847759467426165163">Übertragen an</translation>
-<translation id="284844301579626260">Zum Zurückkehren |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| drücken</translation>
 <translation id="2849362176025371110">Diagnose- und Nutzungsdaten automatisch an Google senden. Sie können dies jederzeit <ph name="BEGIN_LINK1" />in den Geräteeinstellungen ändern<ph name="END_LINK1" />. <ph name="BEGIN_LINK2" />Weitere Informationen<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Kritisch</translation>
@@ -2607,7 +2606,6 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="4350019051035968019">Dieses Gerät kann nicht in der Domain registriert werden, zu der Ihr Konto gehört, weil das Gerät für die Verwaltung in einer anderen Domain gekennzeichnet wurde.</translation>
 <translation id="4350426338152422833">Audiofokus für alle Tabs verwalten</translation>
 <translation id="4354806558096370704">Aktiviert die Verwendung des nativen CUPS-Druck-Back-Ends.</translation>
-<translation id="4355925451975609675">Zum Weitergehen |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| drücken</translation>
 <translation id="4356334633973342967">Oder eigenen Treiber angeben:</translation>
 <translation id="4356973930735388585">Unbefugte Dritte auf dieser Website versuchen unter Umständen, gefährliche Programme auf Ihrem Computer zu installieren, um Ihre Daten zu stehlen oder zu löschen, zum Beispiel Fotos, Passwörter, Nachrichten und Kreditkartendaten.</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -3654,7 +3652,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5749861707650047230">{NUM_DOWNLOAD,plural, =1{Download abbrechen}other{Downloads abbrechen}}</translation>
 <translation id="5750288053043553775">0</translation>
 <translation id="5751545372099101699">Ablageartikel 4</translation>
-<translation id="5752162773804266219">Damit Ihr <ph name="DEVICE_TYPE" /> auf Sie reagieren kann und Sie einen zuverlässigen und einfachen Zugriff auf die Sprachsuche erhalten, müssen Sie Google den Klang Ihrer Stimme beibringen.</translation>
+<translation id="5752162773804266219">Damit dein <ph name="DEVICE_TYPE" /> auf dich reagieren kann und du einen zuverlässigen und einfachen Zugriff auf die Sprachsuche erhältst, musst du Google den Klang deiner Stimme beibringen.</translation>
 <translation id="5752453871435543420">Chrome OS-Cloud-Sicherung</translation>
 <translation id="5754903485544371559">Zu Anwendungen hinzufügen...</translation>
 <translation id="5756163054456765343">H&amp;ilfe</translation>
@@ -4686,7 +4684,6 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="715118844758971915">Klassische Drucker</translation>
 <translation id="7154130902455071009">Startseite in <ph name="START_PAGE" /> ändern</translation>
 <translation id="7155171745945906037">Vorhandenes Foto von der Kamera oder als Datei</translation>
-<translation id="7155226869555939647">Links für <ph name="APPLICATION" /> immer öffnen</translation>
 <translation id="7156235233373189579">Diese Datei wurde für einen PC mit Windows-Software entwickelt und ist nicht mit Ihrem Chrome OS-Gerät kompatibel. Suchen Sie im <ph name="BEGIN_LINK" />Chrome Web Store<ph name="END_LINK" /> nach einer geeigneten Ersatz-App. <ph name="BEGIN_LINK_HELP" />Weitere Informationen<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Durch Klicken auf "Weiter" stimmen Sie den <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> und der <ph name="LEGAL_DOC_LINK_TEXT_4" /> zu.</translation>
 <translation id="7158238151765743968">Es wird weiterhin versucht, eine Verbindung zu "<ph name="DEVICE_NAME" />" herzustellen.</translation>

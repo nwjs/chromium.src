@@ -1450,7 +1450,6 @@
 <translation id="2845382757467349449">永遠顯示書籤列</translation>
 <translation id="2846816712032308263">快速關閉分頁/視窗，將分頁的 onunload js 處理常式與 GUI 分別執行。</translation>
 <translation id="2847759467426165163">投放至</translation>
-<translation id="284844301579626260">按下 |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| 鍵即可返回上一頁</translation>
 <translation id="2849362176025371110">自動將診斷資料和使用資料傳送給 Google。您隨時可以在裝置<ph name="BEGIN_LINK1" />設定<ph name="END_LINK1" />中變更這項設定。<ph name="BEGIN_LINK2" />瞭解詳情<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">重要</translation>
@@ -2610,7 +2609,6 @@
 <translation id="4350019051035968019">這台裝置已標示為由其他網域管理，因此無法註冊到您帳戶所屬的網域。</translation>
 <translation id="4350426338152422833">管理各分頁的音訊焦點</translation>
 <translation id="4354806558096370704">允許使用原生 CUPS 列印後端。</translation>
-<translation id="4355925451975609675">按下 |<ph name="ACCELERATOR1" />|+|<ph name="ACCELERATOR2" />| 鍵即可前往下一頁</translation>
 <translation id="4356334633973342967">或指定你自己的硬碟：</translation>
 <translation id="4356973930735388585">攻擊者可能會試圖透過這個網站在你的電腦上安裝危險程式，藉此竊取或刪除你的資訊 (例如相片、密碼、郵件和信用卡資料)。</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />、<ph name="LANGUAGE_2" /></translation>
@@ -4691,7 +4689,6 @@
 <translation id="715118844758971915">傳統印表機</translation>
 <translation id="7154130902455071009">將您的起始網頁變更為：<ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">現有的相機相片或圖庫相片</translation>
-<translation id="7155226869555939647">一律開啟「<ph name="APPLICATION" />」的連結</translation>
 <translation id="7156235233373189579">這個檔案是專為使用 Windows 軟體的 PC 電腦所設計，與搭載 Chrome 作業系統的裝置不相容。請前往 <ph name="BEGIN_LINK" />Chrome 線上應用程式商店<ph name="END_LINK" />尋找適合的替代應用程式。<ph name="BEGIN_LINK_HELP" />瞭解詳情<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">按一下 [繼續] 即表示您同意接受《<ph name="LEGAL_DOC_LINK_TEXT_1" />》、《<ph name="LEGAL_DOC_LINK_TEXT_2" />》、《<ph name="LEGAL_DOC_LINK_TEXT_3" />》和《<ph name="LEGAL_DOC_LINK_TEXT_4" />》中的各項規定。</translation>
 <translation id="7158238151765743968">仍在連線至「<ph name="DEVICE_NAME" />」。</translation>

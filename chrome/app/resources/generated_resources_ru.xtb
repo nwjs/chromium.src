@@ -1452,7 +1452,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="2845382757467349449">Всегда показывать панель закладок</translation>
 <translation id="2846816712032308263">Быстрое  закрытие окон и вкладок – JS-обработчик "onunload" для вкладки выполняется независимо от интерфейса пользователя.</translation>
 <translation id="2847759467426165163">Выберите устройство</translation>
-<translation id="284844301579626260">Чтобы вернуться, нажмите |<ph name="ACCELERATOR1" />| + |<ph name="ACCELERATOR2" />|</translation>
 <translation id="2849362176025371110">Разрешите автоматическую отправку в Google данных об использовании и диагностике устройства. Вы можете в любое время выключить или снова включить эту функцию в <ph name="BEGIN_LINK1" />настройках устройства<ph name="END_LINK1" />. <ph name="BEGIN_LINK2" />Подробнее…<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">Критическое</translation>
@@ -2613,7 +2612,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4350019051035968019">Это устройство уже зарегистрировано в другом домене.</translation>
 <translation id="4350426338152422833">Управлять аудиофокусом на всех вкладках</translation>
 <translation id="4354806558096370704">Позволяет использовать сервер печати CUPS.</translation>
-<translation id="4355925451975609675">Чтобы перейти вперед, нажмите |<ph name="ACCELERATOR1" />| + |<ph name="ACCELERATOR2" />|</translation>
 <translation id="4356334633973342967">Или укажите другой драйвер:</translation>
 <translation id="4356973930735388585">Злоумышленники могут использовать этот сайт, чтобы установить на ваш компьютер вредоносное ПО, которое крадет или удаляет личную информацию (например, фотографии, пароли, сообщения и реквизиты банковских карт).</translation>
 <translation id="4358353773267946514"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /></translation>
@@ -4700,7 +4698,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="715118844758971915">Обычные принтеры</translation>
 <translation id="7154130902455071009">Смена стартовой страницы на <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">Фото с камеры или из галереи</translation>
-<translation id="7155226869555939647">Всегда открывать ссылки из приложения "<ph name="APPLICATION" />"</translation>
 <translation id="7156235233373189579">Этот файл предназначен для компьютера с ПО Windows. Он не совместим с устройством на базе Chrome OS. Найдите аналогичное приложение в <ph name="BEGIN_LINK" />Интернет-магазине Chrome<ph name="END_LINK" />. <ph name="BEGIN_LINK_HELP" />Подробнее...<ph name="END_LINK_HELP" /></translation>
 <translation id="7157063064925785854">Нажимая "Продолжить", вы принимаете следующие правила и условия: <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" /> и <ph name="LEGAL_DOC_LINK_TEXT_4" />.</translation>
 <translation id="7158238151765743968">Выполняется подключение к устройству "<ph name="DEVICE_NAME" />".</translation>
