@@ -181,8 +181,9 @@ void BookmarkSuggestionsProvider::ClearHistory(
     base::Time begin,
     base::Time end,
     const base::Callback<bool(const GURL& url)>& filter) {
-  // The last visit dates are not "owned" by the bookmark suggestion provider so
-  // it is cleared directly from browsing_data_remover.cc.
+  // TODO(vitaliii): Do not remove all dates, but only the ones matched by the
+  // time range and the filter.
+  RemoveAllLastVisitDates(bookmark_model_);
   ClearDismissedSuggestionsForDebugging(provided_category_);
   FetchBookmarks();
   // Temporarily enter an "explicitly disabled" state, so that any open UIs
