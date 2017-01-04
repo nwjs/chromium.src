@@ -188,7 +188,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL" /> untuk petunjuk lebih lanjut.</
 <translation id="6400076122676892962">Komputer ini akan segera berhenti menerima pembaruan Google Chrome karena Mac OS X 10.6, 10.7, dan 10.8 sudah tidak didukung.</translation>
 <translation id="6410540444482791104">Anda dapat membantu menjadikan Chrome lebih aman dan lebih mudah digunakan dengan mengirim sebagian informasi sistem dan konten halaman secara otomatis ke Google untuk membantu mendeteksi aplikasi dan situs berbahaya.</translation>
 <translation id="6470176598693778404">Komputer ini tidak akan menerima pembaruan Google Chrome lagi karena Mac OS X 10.6, 10.7, dan 10.8 sudah tidak didukung.</translation>
-<translation id="6477562832195530369">{NUM_DOWNLOAD,plural, =1{Unduhan sedang berlangsung. Ingin membatalkan download dan keluar dari Google Chrome?}other{# download sedang berlangsung. Ingin membatalkan download dan keluar dari Google Chrome?}}</translation>
+<translation id="6477562832195530369">{NUM_DOWNLOAD,plural, =1{Download sedang berlangsung. Ingin membatalkan download dan keluar dari Google Chrome?}other{# download sedang berlangsung. Ingin membatalkan download dan keluar dari Google Chrome?}}</translation>
 <translation id="6566149418543181476">Memperbarui Google Chrome (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6598387184982954187">Anda menggunakan <ph name="PROFILE_EMAIL" /> untuk menyinkronkan barang-barang Chrome. Untuk memperbarui preferensi sinkronisasi atau untuk menggunakan Chrome tanpa akun Google, kunjungi <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6600954340915313787">Disalin ke Chrome</translation>
