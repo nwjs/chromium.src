@@ -19,10 +19,9 @@ namespace device {
 
 class VRServiceImpl : public mojom::VRService {
  public:
-  DEVICE_VR_EXPORT VRServiceImpl();
   DEVICE_VR_EXPORT ~VRServiceImpl() override;
 
-  DEVICE_VR_EXPORT static void Create(
+  DEVICE_VR_EXPORT static void BindRequest(
       mojo::InterfaceRequest<mojom::VRService> request);
 
   mojom::VRServiceClient* client() { return client_.get(); }
@@ -36,6 +35,11 @@ class VRServiceImpl : public mojom::VRService {
   friend class VRDeviceManagerTest;
   friend class VRDisplayImpl;
 
+  DEVICE_VR_EXPORT VRServiceImpl();
+
+  // Mojo connection handling.
+  DEVICE_VR_EXPORT void Bind(mojo::InterfaceRequest<mojom::VRService> request);
+  void RemoveFromDeviceManager();
   void RemoveDevice(VRDevice* device);
 
   // mojom::VRService implementation
@@ -43,11 +47,14 @@ class VRServiceImpl : public mojom::VRService {
                  const SetClientCallback& callback) override;
   void SetListeningForActivate(bool listening) override;
 
-  std::map<VRDevice*, std::unique_ptr<VRDisplayImpl>> displays_;
+  using DisplayImplMap = std::map<VRDevice*, std::unique_ptr<VRDisplayImpl>>;
+  DisplayImplMap displays_;
 
   mojom::VRServiceClientPtr client_;
 
   bool listening_for_activate_;
+
+  std::unique_ptr<mojo::Binding<mojom::VRService>> binding_;
 
   DISALLOW_COPY_AND_ASSIGN(VRServiceImpl);
 };

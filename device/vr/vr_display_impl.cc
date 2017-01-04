@@ -25,9 +25,7 @@ VRDisplayImpl::VRDisplayImpl(device::VRDevice* device, VRServiceImpl* service)
   }
 }
 
-VRDisplayImpl::~VRDisplayImpl() {
-  device_->RemoveService(service_);
-}
+VRDisplayImpl::~VRDisplayImpl() {}
 
 void VRDisplayImpl::GetPose(const GetPoseCallback& callback) {
   if (!device_->IsAccessAllowed(service_)) {
