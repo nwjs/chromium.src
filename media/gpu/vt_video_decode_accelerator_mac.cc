@@ -833,13 +833,8 @@ void VTVideoDecodeAccelerator::FlushTask(TaskType type) {
 
   FinishDelayedFrames();
 
-  if (type == TASK_DESTROY && session_) {
-    // Destroy the decoding session before returning from the decoder thread.
-    VTDecompressionSessionInvalidate(session_);
-    session_.reset();
-  }
-
-  // Queue a task even if flushing fails, so that destruction always completes.
+  // Always queue a task, even if FinishDelayedFrames() fails, so that
+  // destruction always completes.
   gpu_task_runner_->PostTask(
       FROM_HERE,
       base::Bind(&VTVideoDecodeAccelerator::FlushDone, weak_this_, type));
