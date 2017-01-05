@@ -16,8 +16,8 @@ def reorder_imports(input_dir, output_dir, architecture):
   (pdbs, manifests etc.).
   """
 
-  input_image = os.path.join(input_dir, 'chrome.exe')
-  output_image = os.path.join(output_dir, 'chrome.exe')
+  input_image = os.path.join(input_dir, 'nw.exe')
+  output_image = os.path.join(output_dir, 'nw.exe')
 
   swap_exe = os.path.join(
     __file__,
@@ -29,11 +29,11 @@ def reorder_imports(input_dir, output_dir, architecture):
   if architecture == 'x64':
     args.append('--x64');
 
-  args.append('chrome_elf.dll');
+  args.append('nw_elf.dll');
 
   subprocess.check_call(args)
 
-  for fname in glob.iglob(os.path.join(input_dir, 'chrome.exe.*')):
+  for fname in glob.iglob(os.path.join(input_dir, 'nw.exe.*')):
     shutil.copy(fname, os.path.join(output_dir, os.path.basename(fname)))
   return 0
 
@@ -41,9 +41,9 @@ def reorder_imports(input_dir, output_dir, architecture):
 def main(argv):
   usage = 'reorder_imports.py -i <input_dir> -o <output_dir> -a <target_arch>'
   parser = optparse.OptionParser(usage=usage)
-  parser.add_option('-i', '--input', help='reorder chrome.exe in DIR',
+  parser.add_option('-i', '--input', help='reorder nw.exe in DIR',
       metavar='DIR')
-  parser.add_option('-o', '--output', help='write new chrome.exe to DIR',
+  parser.add_option('-o', '--output', help='write new nw.exe to DIR',
       metavar='DIR')
   parser.add_option('-a', '--arch', help='architecture of build (optional)',
       default='ia32')
