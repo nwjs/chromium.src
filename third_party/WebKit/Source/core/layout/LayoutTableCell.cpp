@@ -68,12 +68,12 @@ LayoutTableCell::LayoutTableCell(Element* element)
 }
 
 LayoutTableCell::CollapsedBorderValues::CollapsedBorderValues(
-    const LayoutTable& layoutTable,
+    const LayoutTableCell& layoutTableCell,
     const CollapsedBorderValue& startBorder,
     const CollapsedBorderValue& endBorder,
     const CollapsedBorderValue& beforeBorder,
     const CollapsedBorderValue& afterBorder)
-    : m_layoutTable(layoutTable),
+    : m_layoutTableCell(layoutTableCell),
       m_startBorder(startBorder),
       m_endBorder(endBorder),
       m_beforeBorder(beforeBorder),
@@ -92,7 +92,7 @@ String LayoutTableCell::CollapsedBorderValues::debugName() const {
 }
 
 LayoutRect LayoutTableCell::CollapsedBorderValues::visualRect() const {
-  return m_layoutTable.visualRect();
+  return m_layoutTableCell.table()->visualRect();
 }
 
 void LayoutTableCell::willBeRemovedFromTree() {
@@ -1318,7 +1318,7 @@ static void addBorderStyle(LayoutTable::CollapsedBorderValues& borderValues,
 void LayoutTableCell::collectBorderValues(
     LayoutTable::CollapsedBorderValues& borderValues) {
   CollapsedBorderValues newValues(
-      *table(), computeCollapsedStartBorder(), computeCollapsedEndBorder(),
+      *this, computeCollapsedStartBorder(), computeCollapsedEndBorder(),
       computeCollapsedBeforeBorder(), computeCollapsedAfterBorder());
 
   bool changed = false;
@@ -1331,7 +1331,7 @@ void LayoutTableCell::collectBorderValues(
   } else if (!m_collapsedBorderValues) {
     changed = true;
     m_collapsedBorderValues = wrapUnique(new CollapsedBorderValues(
-        *table(), newValues.startBorder(), newValues.endBorder(),
+        *this, newValues.startBorder(), newValues.endBorder(),
         newValues.beforeBorder(), newValues.afterBorder()));
   } else {
     // We check visuallyEquals so that the table cell is invalidated only if a
@@ -1352,10 +1352,11 @@ void LayoutTableCell::collectBorderValues(
   // the table's backing.
   // TODO(crbug.com/451090#c5): Need a way to invalidate/repaint the borders
   // only.
-  if (changed)
+  if (changed) {
     ObjectPaintInvalidator(*table())
         .slowSetPaintingLayerNeedsRepaintAndInvalidateDisplayItemClient(
             *this, PaintInvalidationStyleChange);
+  }
 
   addBorderStyle(borderValues, newValues.startBorder());
   addBorderStyle(borderValues, newValues.endBorder());
