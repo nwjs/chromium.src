@@ -54,6 +54,7 @@
 #include "core/html/HTMLFrameElementBase.h"
 #include "core/html/HTMLPlugInElement.h"
 #include "core/input/EventHandler.h"
+#include "core/inspector/ConsoleMessage.h"
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/layout/HitTestResult.h"
 #include "core/layout/LayoutView.h"
@@ -472,6 +473,11 @@ void LocalFrame::printNavigationErrorMessage(const Frame& targetFrame,
       document()->url().getString() + "'. " + reason + "\n";
 
   localDOMWindow()->printErrorMessage(message);
+}
+
+void LocalFrame::printNavigationWarning(const String& message) {
+  m_console->addMessage(
+      ConsoleMessage::create(JSMessageSource, WarningMessageLevel, message));
 }
 
 WindowProxyManager* LocalFrame::getWindowProxyManager() const {
