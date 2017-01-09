@@ -87,6 +87,7 @@ static_library("renderer") {
   defines = []
 
   deps = [
+    "//content/nw:nw_renderer",
     "//chrome:resources",
     "//chrome:strings",
     "//chrome/common",
@@ -107,9 +108,9 @@ static_library("renderer") {
     "//components/resources:components_resources",
     "//components/startup_metric_utils/common:interfaces",
     "//components/subresource_filter/content/renderer",
-    "//components/translate/content/renderer",
+#    "//components/translate/content/renderer",
     "//components/translate/core/common",
-    "//components/translate/core/language_detection",
+    #"//components/translate/core/language_detection",
     "//components/visitedlink/renderer",
     "//components/web_cache/renderer",
     "//content/app/resources",

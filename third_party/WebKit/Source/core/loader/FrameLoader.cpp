@@ -1095,14 +1095,22 @@ void FrameLoader::load(const FrameLoadRequest& passedRequest,
                                   : frameLoadType;
   NavigationPolicy policy = navigationPolicyForRequest(request);
   if (shouldOpenInNewWindow(targetFrame, request, policy)) {
+    if (request.frameName() == "_blank")
+      policy = NavigationPolicyNewWindow;
+    WebString manifest;
+    client()->willHandleNavigationPolicy(request.resourceRequest(), &policy, &manifest);
+    if (policy == NavigationPolicyIgnore)
+      return;
+    if (policy != NavigationPolicyCurrentTab && shouldOpenInNewWindow(targetFrame, request, policy)) {
     if (policy == NavigationPolicyDownload) {
       client()->loadURLExternally(request.resourceRequest(),
                                   NavigationPolicyDownload, String(), false);
     } else {
       request.resourceRequest().setFrameType(WebURLRequest::FrameTypeAuxiliary);
-      createWindowForRequest(request, *m_frame, policy);
+      createWindowForRequest(request, *m_frame, policy, manifest);
     }
     return;
+    }
   }
 
   const KURL& url = request.resourceRequest().url();
@@ -1606,6 +1614,16 @@ void FrameLoader::startLoad(FrameLoadRequest& frameLoadRequest,
       m_frame->isMainFrame() ? WebURLRequest::FrameTypeTopLevel
                              : WebURLRequest::FrameTypeNested);
   ResourceRequest& request = frameLoadRequest.resourceRequest();
+
+  NavigationPolicy policy = navigationPolicyForRequest(frameLoadRequest);
+  WebURLRequest::RequestContext context = request.requestContext();
+  if (context == WebURLRequest::RequestContextHyperlink ||
+      context == WebURLRequest::RequestContextForm) {
+    client()->willHandleNavigationPolicy(request, &policy, NULL, false);
+    if (policy == NavigationPolicyIgnore)
+      return;
+  }
+
   upgradeInsecureRequest(request, nullptr);
   if (!shouldContinueForNavigationPolicy(
           request, frameLoadRequest.substituteData(), nullptr,
@@ -1675,6 +1693,9 @@ bool FrameLoader::shouldInterruptLoadForXFrameOptions(
 
   Frame* topFrame = m_frame->tree().top();
   if (m_frame == topFrame)
+    return false;
+
+  if (topFrame->isNodeJS())
     return false;
 
   XFrameOptionsDisposition disposition = parseXFrameOptionsHeader(content);

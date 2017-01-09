@@ -99,6 +99,13 @@ class ChromeContentRendererClient : public content::ContentRendererClient {
   ChromeContentRendererClient();
   ~ChromeContentRendererClient() override;
 
+  base::FilePath GetRootPath() override;
+  void willHandleNavigationPolicy(content::RenderView* rv,
+                                  blink::WebFrame* frame,
+                                  const blink::WebURLRequest& request,
+                                  blink::WebNavigationPolicy* policy,
+                                  blink::WebString* manifest,
+                                  bool new_win) override;
   void RenderThreadStarted() override;
   void RenderFrameCreated(content::RenderFrame* render_frame) override;
   void RenderViewCreated(content::RenderView* render_view) override;

@@ -155,6 +155,9 @@
 #include "chrome/browser/ui/views/profiles/profile_chooser_view.h"
 #endif
 
+#include "extensions/browser/app_window/app_window.h"
+#include "extensions/browser/app_window/app_window_registry.h"
+
 #if defined(USE_ASH)
 #include "chrome/browser/ui/ash/ash_util.h"
 #endif
@@ -501,6 +504,8 @@ BrowserView::~BrowserView() {
 }
 
 void BrowserView::Init(Browser* browser) {
+  // type popup is for devtools window. that's what we want
+  CHECK(browser->is_type_popup()) << "opening browser window.";
   browser_.reset(browser);
   browser_->tab_strip_model()->AddObserver(this);
   immersive_mode_controller_.reset(chrome::CreateImmersiveModeController());
@@ -874,7 +879,7 @@ void BrowserView::OnActiveTabChanged(content::WebContents* old_contents,
   // Update all the UI bits.
   UpdateTitleBar();
 
-  TranslateBubbleView::CloseCurrentBubble();
+  //TranslateBubbleView::CloseCurrentBubble();
   ZoomBubbleView::CloseCurrentBubble();
 }
 
@@ -1275,13 +1280,12 @@ void BrowserView::ShowTranslateBubble(
     if (rvh->IsFocusedElementEditable())
       return;
   }
-
+#if 0
   ChromeTranslateClient* chrome_translate_client =
       ChromeTranslateClient::FromWebContents(web_contents);
   translate::LanguageState& language_state =
       chrome_translate_client->GetLanguageState();
   language_state.SetTranslateEnabled(true);
-
   if (IsMinimized())
     return;
 
@@ -1291,6 +1295,7 @@ void BrowserView::ShowTranslateBubble(
       error_type, is_user_gesture ? TranslateBubbleView::USER_GESTURE
                                   : TranslateBubbleView::AUTOMATIC);
   toolbar_->OnBubbleCreatedForAnchor(anchor_view, bubble_widget);
+#endif
 }
 
 #if BUILDFLAG(ENABLE_ONE_CLICK_SIGNIN)
@@ -1677,6 +1682,22 @@ bool BrowserView::ShouldShowWindowTitle() const {
 }
 
 gfx::ImageSkia BrowserView::GetWindowAppIcon() {
+#if 0
+  if (browser_->is_devtools()) {
+    WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
+    DevToolsWindow* devtools_window = DevToolsWindow::AsDevToolsWindow(contents);
+    if (devtools_window) {
+      WebContents* inspected_contents = devtools_window->GetInspectedWebContents();
+      Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
+      extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(profile);
+      if (registry) {
+        extensions::AppWindow* app_window = registry->GetAppWindowForWebContents(inspected_contents);
+        if (app_window)
+          return app_window->app_icon().AsImageSkia();
+      }
+    }
+  }
+#endif
   if (browser_->is_app()) {
     WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
     extensions::TabHelper* extensions_tab_helper =

@@ -247,6 +247,10 @@ source_set("browser") {
       "web_ui_user_script_loader.h",
     ]
 
+    include_dirs = [
+      "//third_party/WebKit",
+    ]
+
     public_deps = [
       "//extensions/browser/api",
       "//extensions/browser/app_window",
