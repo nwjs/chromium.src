@@ -1394,7 +1394,11 @@ class CORE_EXPORT UseCounter {
     LinkHeaderServiceWorker = 1690,
     CSSShadowPiercingDescendantCombinator = 1691,
     FullscreenAllowedByOrientationChange = 1696,
-
+    TopNavInSandbox = 1749,
+    TopNavInSandboxWithoutGesture = 1750,
+    TopNavInSandboxWithPerm = 1751,
+    TopNavInSandboxWithPermButNoGesture = 1752,
+    
     // Add new features immediately above this line. Don't change assigned
     // numbers of any item, and don't reuse removed slots.
     // Also, run update_use_counter_feature_enum.py in
