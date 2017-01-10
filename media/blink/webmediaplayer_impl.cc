@@ -341,14 +341,21 @@ void WebMediaPlayerImpl::DisableOverlay() {
 }
 
 void WebMediaPlayerImpl::enteredFullscreen() {
-  if (!force_video_overlays_ && !disable_fullscreen_video_overlays_)
+  // |force_video_overlays_| implies that we're already in overlay mode, so take
+  // no action here.  Otherwise, switch to an overlay if it's allowed and if
+  // it will display properly.
+  if (!force_video_overlays_ && !disable_fullscreen_video_overlays_ &&
+      DoesOverlaySupportMetadata()) {
     EnableOverlay();
+  }
   if (observer_)
     observer_->OnEnteredFullscreen();
 }
 
 void WebMediaPlayerImpl::exitedFullscreen() {
-  if (!force_video_overlays_ && !disable_fullscreen_video_overlays_)
+  // If we're in overlay mode, then exit it unless we're supposed to be in
+  // overlay mode all the time.
+  if (!force_video_overlays_ && overlay_enabled_)
     DisableOverlay();
   if (observer_)
     observer_->OnExitedFullscreen();
@@ -1136,8 +1143,15 @@ void WebMediaPlayerImpl::OnMetadata(PipelineMetadata metadata) {
     pipeline_metadata_.natural_size = GetRotatedVideoSize(
         pipeline_metadata_.video_rotation, pipeline_metadata_.natural_size);
 
-    if (overlay_enabled_ && surface_manager_)
-      surface_manager_->NaturalSizeChanged(pipeline_metadata_.natural_size);
+    if (overlay_enabled_) {
+      // SurfaceView doesn't support rotated video, so transition back if
+      // the video is now rotated.  If |force_video_overlays_|, we keep the
+      // overlay anyway so that the state machine keeps working.
+      if (!force_video_overlays_ && !DoesOverlaySupportMetadata())
+        DisableOverlay();
+      else if (surface_manager_)
+        surface_manager_->NaturalSizeChanged(pipeline_metadata_.natural_size);
+    }
 
     DCHECK(!video_weblayer_);
     video_weblayer_.reset(new cc_blink::WebLayerImpl(cc::VideoLayer::Create(
@@ -1952,6 +1966,10 @@ void WebMediaPlayerImpl::CreateWatchTimeReporter() {
     watch_time_reporter_->OnHidden();
   else
     watch_time_reporter_->OnShown();
+}
+
+bool WebMediaPlayerImpl::DoesOverlaySupportMetadata() const {
+  return pipeline_metadata_.video_rotation == VIDEO_ROTATION_0;
 }
 
 }  // namespace media

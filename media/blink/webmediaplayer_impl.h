@@ -359,6 +359,10 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
 
   void CreateWatchTimeReporter();
 
+  // Return whether |pipeline_metadata_| is compatible with an overlay. This
+  // is intended for android.
+  bool DoesOverlaySupportMetadata() const;
+
   blink::WebLocalFrame* frame_;
 
   // The playback state last reported to |delegate_|, to avoid setting duplicate
