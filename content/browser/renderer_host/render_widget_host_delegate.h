@@ -236,6 +236,11 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   virtual void FocusOwningWebContents(
       RenderWidgetHostImpl* render_widget_host) {}
 
+  // Notifies the delegate that a focused editable element has been touched
+  // inside this RenderWidgetHost. If |editable| is true then the focused
+  // element accepts text input.
+  virtual void FocusedNodeTouched(bool editable) {}
+
  protected:
   virtual ~RenderWidgetHostDelegate() {}
 };
