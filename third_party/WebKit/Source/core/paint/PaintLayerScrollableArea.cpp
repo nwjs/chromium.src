@@ -86,6 +86,12 @@
 
 namespace blink {
 
+static LayoutRect localToAbsolute(LayoutBox& offset, LayoutRect rect) {
+  return LayoutRect(
+      offset.localToAbsoluteQuad(FloatQuad(FloatRect(rect)), UseTransforms)
+          .boundingBox());
+}
+
 PaintLayerScrollableAreaRareData::PaintLayerScrollableAreaRareData() {}
 
 const int ResizerControlExpandRatioForTouch = 2;
@@ -1606,25 +1612,17 @@ LayoutRect PaintLayerScrollableArea::scrollIntoView(
   ScrollOffset oldScrollOffset = scrollOffset();
   ScrollOffset newScrollOffset(clampScrollOffset(roundedIntSize(
       toScrollOffset(FloatPoint(r.location()) + oldScrollOffset))));
-
-  if (newScrollOffset == oldScrollOffset) {
-    return LayoutRect(
-        box()
-            .localToAbsoluteQuad(FloatQuad(FloatRect(intersection(
-                                     layerBounds, localExposeRect))),
-                                 UseTransforms)
-            .boundingBox());
-  }
-
   setScrollOffset(newScrollOffset, scrollType, ScrollBehaviorInstant);
   ScrollOffset scrollOffsetDifference = scrollOffset() - oldScrollOffset;
   localExposeRect.move(-LayoutSize(scrollOffsetDifference));
-  return LayoutRect(
-      box()
-          .localToAbsoluteQuad(
-              FloatQuad(FloatRect(intersection(layerBounds, localExposeRect))),
-              UseTransforms)
-          .boundingBox());
+
+  LayoutRect intersect =
+      localToAbsolute(box(), intersection(layerBounds, localExposeRect));
+  if (intersect.isEmpty() && !layerBounds.isEmpty() &&
+      !localExposeRect.isEmpty()) {
+    return localToAbsolute(box(), localExposeRect);
+  }
+  return intersect;
 }
 
 void PaintLayerScrollableArea::updateScrollableAreaSet(bool hasOverflow) {
