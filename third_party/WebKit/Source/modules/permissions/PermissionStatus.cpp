@@ -89,11 +89,10 @@ String PermissionStatus::state() const {
 void PermissionStatus::startListening() {
   DCHECK(!m_binding.is_bound());
   mojom::blink::PermissionObserverPtr observer;
-  m_binding.Bind(mojo::MakeRequest(&observer));
+  m_binding.Bind(mojo::GetProxy(&observer));
 
   mojom::blink::PermissionServicePtr service;
-  connectToPermissionService(getExecutionContext(),
-                             mojo::MakeRequest(&service));
+  connectToPermissionService(getExecutionContext(), mojo::GetProxy(&service));
   service->AddPermissionObserver(m_descriptor->Clone(),
                                  getExecutionContext()->getSecurityOrigin(),
                                  m_status, std::move(observer));
