@@ -123,6 +123,7 @@ class ImeTitleView : public views::View, public views::ButtonListener {
         new views::Label(l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_IME));
     title_label_->SetBorder(views::CreateEmptyBorder(
         0, kMenuEdgeEffectivePadding, kTrayMenuBottomRowPadding, 0));
+    UpdateStyle();
     title_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     AddChildView(title_label_);
     box_layout->SetFlexForView(title_label_, 1);
@@ -136,10 +137,19 @@ class ImeTitleView : public views::View, public views::ButtonListener {
     }
   }
 
+  void UpdateStyle() {
+    if (!GetNativeTheme() || !title_label_) {
+      return;
+    }
+
+    TrayPopupItemStyle style(GetNativeTheme(),
+                             TrayPopupItemStyle::FontStyle::TITLE);
+    style.SetupLabel(title_label_);
+  }
+
   // views::View:
   void OnNativeThemeChanged(const ui::NativeTheme* theme) override {
-    TrayPopupItemStyle style(theme, TrayPopupItemStyle::FontStyle::TITLE);
-    style.SetupLabel(title_label_);
+    UpdateStyle();
   }
 
   // views::ButtonListener:
@@ -245,8 +255,11 @@ class ImeButtonsView : public views::View,
                    bool show_voice_button,
                    bool show_settings_button) {
     if (MaterialDesignController::IsSystemTrayMenuMaterial()) {
-      SetLayoutManager(
-          new views::BoxLayout(views::BoxLayout::kHorizontal, 0, 0, 0));
+      auto* box_layout =
+          new views::BoxLayout(views::BoxLayout::kHorizontal, 0, 0, 0);
+      box_layout->set_minimum_cross_axis_size(
+          GetTrayConstant(TRAY_POPUP_ITEM_MIN_HEIGHT));
+      SetLayoutManager(box_layout);
       SetBorder(views::CreatePaddedBorder(
           views::CreateSolidSidedBorder(kSeparatorWidth, 0, 0, 0,
                                         kHorizontalSeparatorColor),
