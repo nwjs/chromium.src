@@ -274,10 +274,6 @@ void DownloadManagerService::OnHistoryQueryComplete() {
     GetAllDownloadsInternal(false);
   if (pending_get_downloads_actions_ & OFF_THE_RECORD)
     GetAllDownloadsInternal(true);
-
-  // Monitor all DownloadItems for changes.
-  updateNotifier(this, GetDownloadManager(false), original_notifier_);
-  updateNotifier(this, GetDownloadManager(true), off_the_record_notifier_);
 }
 
 void DownloadManagerService::OnDownloadUpdated(
