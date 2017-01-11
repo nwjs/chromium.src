@@ -267,7 +267,7 @@ bool GoogleUpdateSettings::IsSystemInstall() {
 }
 
 bool GoogleUpdateSettings::GetCollectStatsConsent() {
-  return GetCollectStatsConsentAtLevel(IsSystemInstall());
+  return false; //GetCollectStatsConsentAtLevel(IsSystemInstall());
 }
 
 // Older versions of Chrome unconditionally read from HKCU\...\ClientState\...

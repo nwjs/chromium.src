@@ -30,6 +30,22 @@
 
 #include "public/web/WebKit.h"
 
+#include "third_party/node/src/node_webkit.h"
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
+#include "modules/gamepad/NavigatorGamepad.h"
+#include "public/web/WebFrame.h"
+#include "public/web/WebDocument.h"
+#include "core/dom/Document.h"
+
 #include "bindings/core/v8/Microtask.h"
 #include "bindings/core/v8/V8Binding.h"
 #include "bindings/core/v8/V8GCController.h"
@@ -122,8 +138,21 @@ bool layoutTestMode() {
   return LayoutTestSupport::isRunningLayoutTest();
 }
 
+void set_web_worker_hooks(void* fn_start)
+{
+  g_web_worker_start_thread_fn = (VoidPtr4Fn)fn_start;
+}
+
 void setMockThemeEnabledForTest(bool value) {
   LayoutTestSupport::setMockThemeEnabledForTest(value);
+}
+
+void fix_gamepad_nw(WebFrame* frame)
+{
+  Document* doc = frame->document();
+  NavigatorGamepad* gamepad = NavigatorGamepad::from(*doc);
+  ((ContextLifecycleObserver*)gamepad)->setContext(static_cast<ExecutionContext*>(doc));
+  gamepad->gamepads();
 }
 
 void setFontAntialiasingEnabledForTest(bool value) {

@@ -32,7 +32,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
 // TerminateProcess. We need to hook CRT's attempt to set an exception.
 // NOTE: Do not hook if ASan is present, or ASan will fail to install
 // its own unhandled exception filter.
-#if !defined(ADDRESS_SANITIZER)
+#if 0 ////disable this or NW will fail with Enigma VB
     elf_crash::DisableSetUnhandledExceptionFilter();
 #endif  // !defined (ADDRESS_SANITIZER)
 

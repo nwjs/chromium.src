@@ -99,6 +99,7 @@ enum ShouldAllowOpenURLFailureReason {
   FAILURE_LAST,
 };
 
+#if 0
 RenderProcessHostPrivilege GetPrivilegeRequiredByUrl(
     const GURL& url,
     ExtensionRegistry* registry) {
@@ -143,6 +144,7 @@ RenderProcessHostPrivilege GetProcessPrivilege(
 
   return PRIV_EXTENSION;
 }
+#endif
 
 // Determines whether the extension |origin| passed in can be committed by
 // the process identified by |child_id| and returns true or false
@@ -376,6 +378,8 @@ bool ChromeContentBrowserClientExtensionsPart::IsSuitableHost(
     Profile* profile,
     content::RenderProcessHost* process_host,
     const GURL& site_url) {
+  return true;
+#if 0
   DCHECK(profile);
 
   ExtensionRegistry* registry = ExtensionRegistry::Get(profile);
@@ -392,6 +396,7 @@ bool ChromeContentBrowserClientExtensionsPart::IsSuitableHost(
       GetPrivilegeRequiredByUrl(site_url, registry);
   return GetProcessPrivilege(process_host, process_map, registry) ==
          privilege_required;
+#endif
 }
 
 // static

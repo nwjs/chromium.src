@@ -82,12 +82,18 @@ struct WebFileChooserParams {
   // initiated by a document.
   WebURL requestor;
 
+  WebString initialPath;
+  bool extractDirectory;
+
   WebFileChooserParams()
       : multiSelect(false),
         directory(false),
         saveAs(false),
         useMediaCapture(false),
-        needLocalPath(true) {}
+        needLocalPath(true),
+        extractDirectory(true)
+    {
+    }
 };
 
 }  // namespace blink

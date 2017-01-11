@@ -718,7 +718,7 @@ String HTMLCanvasElement::toDataURL(const String& mimeType,
                                      "to offscreen.");
     return String();
   }
-  if (!originClean()) {
+  if (!document().frame()->isNodeJS() && !originClean()) {
     exceptionState.throwSecurityError("Tainted canvases may not be exported.");
     return String();
   }

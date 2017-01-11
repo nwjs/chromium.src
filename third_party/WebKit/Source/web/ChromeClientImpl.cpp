@@ -360,7 +360,8 @@ WebNavigationPolicy effectiveNavigationPolicy(NavigationPolicy navigationPolicy,
 Page* ChromeClientImpl::createWindow(LocalFrame* frame,
                                      const FrameLoadRequest& r,
                                      const WindowFeatures& features,
-                                     NavigationPolicy navigationPolicy) {
+                                     NavigationPolicy navigationPolicy,
+                                     WebString* manifest) {
   if (!m_webView->client())
     return nullptr;
 
@@ -375,7 +376,7 @@ Page* ChromeClientImpl::createWindow(LocalFrame* frame,
   WebViewImpl* newView = toWebViewImpl(m_webView->client()->createView(
       WebLocalFrameImpl::fromFrame(frame),
       WrappedResourceRequest(r.resourceRequest()), features, r.frameName(),
-      policy, r.getShouldSetOpener() == NeverSetOpener || features.noopener));
+      policy, r.getShouldSetOpener() == NeverSetOpener || features.noopener, manifest));
   if (!newView)
     return nullptr;
   return newView->page();
@@ -716,14 +717,20 @@ void ChromeClientImpl::openFileChooser(LocalFrame* frame,
 
   WebFileChooserParams params;
   params.multiSelect = fileChooser->settings().allowsMultipleFiles;
-  params.directory = fileChooser->settings().allowsDirectoryUpload;
+  params.directory = fileChooser->settings().allowsDirectoryUpload || fileChooser->settings().directoryChooser;
   params.acceptTypes = fileChooser->settings().acceptTypes();
   params.selectedFiles = fileChooser->settings().selectedFiles;
-  if (params.selectedFiles.size() > 0)
+  if (params.selectedFiles.size() > 0) {
     params.initialValue = params.selectedFiles[0];
+  } else {
+    params.initialValue = fileChooser->settings().initialValue;
+  }
   params.useMediaCapture = fileChooser->settings().useMediaCapture;
   params.needLocalPath = fileChooser->settings().allowsDirectoryUpload;
   params.requestor = frame->document()->url();
+  params.initialPath = fileChooser->settings().initialPath;
+  params.saveAs = fileChooser->settings().saveAs;
+  params.extractDirectory = fileChooser->settings().allowsDirectoryUpload;
 
   WebFileChooserCompletionImpl* chooserCompletion =
       new WebFileChooserCompletionImpl(std::move(fileChooser));
