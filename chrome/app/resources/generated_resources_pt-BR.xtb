@@ -1721,6 +1721,7 @@ Para ver mais informações, visite nossa <ph name="BEGIN_LINK" />Central de Aju
 <translation id="3177048931975664371">Clique para ocultar senha</translation>
 <translation id="3177909033752230686">Idioma da página:</translation>
 <translation id="3180365125572747493">Digite uma senha para criptografar este arquivo de certificado.</translation>
+<translation id="3181110748548073003">Pressione |<ph name="SHORTCUT" />| para avançar</translation>
 <translation id="3182749001423093222">Verificação ortográfica</translation>
 <translation id="3183139917765991655">Importador de perfil</translation>
 <translation id="3184560914950696195">Não é possível salvar em $1. As imagens editadas serão salvas na pasta Downloads.</translation>
@@ -2555,6 +2556,7 @@ Todos os usuários devem sair para continuar.</translation>
 <translation id="4267171000817377500">Plug-ins</translation>
 <translation id="4268025649754414643">Codificação de chaves</translation>
 <translation id="4268574628540273656">URL:</translation>
+<translation id="4269006336413657989">Lembrar minha escolha para links do app <ph name="APPLICATION" /></translation>
 <translation id="4270393598798225102">Versão <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Nenhuma correspondência</translation>
 <translation id="4275830172053184480">Reiniciar seu dispositivo</translation>
@@ -3805,6 +3807,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">A alteração dessa configuração afetará todas as redes compartilhadas.</translation>
 <translation id="5946591249682680882">Código de relatório <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">Não abrir</translation>
 <translation id="5948544841277865110">Adicionar rede privada</translation>
 <translation id="5951823343679007761">Sem bateria</translation>
 <translation id="5956585768868398362">Esta é a página de pesquisa que você esperava?</translation>
@@ -3918,6 +3921,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="6110466548232134880">A identidade de <ph name="ORGANIZATION" /> em <ph name="LOCALITY" /> foi confirmada por <ph name="ISSUER" />. Nenhuma informação de Transparência de certificado foi fornecida pelo servidor.</translation>
 <translation id="6111770213269631447">Transliteração (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Editar pessoa, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
+<translation id="6115424132962100663">Pressione |<ph name="SHORTCUT" />| para voltar</translation>
 <translation id="6116921718742659598">Alterar configurações de idioma e de entrada</translation>
 <translation id="6120205520491252677">Fixar esta página na tela inicial...</translation>
 <translation id="6122081475643980456">Sua conexão com a Internet está sendo controlada</translation>

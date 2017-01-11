@@ -1446,7 +1446,7 @@
 <translation id="2845382757467349449">总是显示书签栏</translation>
 <translation id="2846816712032308263">启用快速关闭标签页/窗口功能 - 将标签页的 onunload js 处理程序与 GUI 分开运行。</translation>
 <translation id="2847759467426165163">投射到</translation>
-<translation id="2849362176025371110">自动向 Google 发送诊断信息和使用情况数据。您随时可在设备的<ph name="BEGIN_LINK1" />设置<ph name="END_LINK1" />部分中更改这项设置。<ph name="BEGIN_LINK2" />了解详情<ph name="END_LINK2" /></translation>
+<translation id="2849362176025371110">自动向 Google 发送诊断数据和使用情况数据。您随时可在设备的<ph name="BEGIN_LINK1" />设置<ph name="END_LINK1" />部分中更改这项设置。<ph name="BEGIN_LINK2" />了解详情<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">关键</translation>
 <translation id="2850124913210091882">备份</translation>
@@ -1717,6 +1717,7 @@
 <translation id="3177048931975664371">点击可隐藏密码</translation>
 <translation id="3177909033752230686">网页语言：</translation>
 <translation id="3180365125572747493">请输入密码，用于加密该证书文件。</translation>
+<translation id="3181110748548073003">按 |<ph name="SHORTCUT" />| 即可前进</translation>
 <translation id="3182749001423093222">拼写检查</translation>
 <translation id="3183139917765991655">个人资料导入应用</translation>
 <translation id="3184560914950696195">无法保存到 $1。经过修改的图片将保存在“下载内容”文件夹中。</translation>
@@ -2548,6 +2549,7 @@
 <translation id="4267171000817377500">插件</translation>
 <translation id="4268025649754414643">密钥加密</translation>
 <translation id="4268574628540273656">网址：</translation>
+<translation id="4269006336413657989">记住我对<ph name="APPLICATION" />链接的选择</translation>
 <translation id="4270393598798225102">版本 <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">找不到相符的结果</translation>
 <translation id="4275830172053184480">重启您的设备</translation>
@@ -3788,6 +3790,7 @@
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">更改此设置会影响所有共享网络。</translation>
 <translation id="5946591249682680882">报告ID：<ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">不要打开</translation>
 <translation id="5948544841277865110">添加专用网络</translation>
 <translation id="5951823343679007761">没有电池</translation>
 <translation id="5956585768868398362">这是您想要的搜索页面吗？</translation>
@@ -3901,6 +3904,7 @@
 <translation id="6110466548232134880">位于<ph name="LOCALITY" />的<ph name="ORGANIZATION" />的身份已通过了<ph name="ISSUER" />的验证。服务器未提供任何 Certificate Transparency 信息。</translation>
 <translation id="6111770213269631447">音译(namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">修改用户，<ph name="PROFILE_NAME" />，<ph name="USERNAME" /></translation>
+<translation id="6115424132962100663">按 |<ph name="SHORTCUT" />| 即可后退</translation>
 <translation id="6116921718742659598">更改语言和输入设置</translation>
 <translation id="6120205520491252677">将此网页固定到“开始”屏幕...</translation>
 <translation id="6122081475643980456">您的互联网连接受到控制</translation>
@@ -4720,7 +4724,7 @@
 <translation id="7222232353993864120">电子邮件地址</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7222624196722476520">保加利亚语注音键盘</translation>
-<translation id="722363467515709460">启用屏幕放大镜</translation>
+<translation id="722363467515709460">启用放大镜</translation>
 <translation id="7223775956298141902">啊哦，您没有任何扩展程序 :-(</translation>
 <translation id="7224023051066864079">子网掩码：</translation>
 <translation id="7225179976675429563">缺少网络类型</translation>

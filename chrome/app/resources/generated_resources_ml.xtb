@@ -1721,6 +1721,7 @@
 <translation id="3177048931975664371">പാസ്‌വേഡ് മറയ്ക്കുന്നതിനായി ക്ലിക്ക് ചെയ്യുക</translation>
 <translation id="3177909033752230686">പേജ് ഭാഷ:</translation>
 <translation id="3180365125572747493">ഈ സാക്‍ഷ്യപത്ര ഫയല്‍ എന്‍‌ക്രിപ്റ്റ് ചെയ്യുന്നതിന് ദയവായി ഒരു പാസ്‌വേഡ് നല്‍കുക.</translation>
+<translation id="3181110748548073003">മുന്നോട്ട് പോകാൻ |<ph name="SHORTCUT" />| അമർത്തുക</translation>
 <translation id="3182749001423093222">അക്ഷരത്തെറ്റ് പരിശോധന</translation>
 <translation id="3183139917765991655">പ്രൊഫൈൽ ഇംപോർട്ടർ</translation>
 <translation id="3184560914950696195">$1 എന്നതിലേക്ക് സംരക്ഷിക്കാൻ കഴിയില്ല. എഡിറ്റുചെയ്‌ത ചിത്രങ്ങൾ ഡൗൺലോഡുകൾ ഫോൾഡറിലേക്ക് സംരക്ഷിക്കപ്പെടും.</translation>
@@ -2553,6 +2554,7 @@
 <translation id="4267171000817377500">പ്ലഗിന്നുകൾ</translation>
 <translation id="4268025649754414643">കീ എന്‍‌സിഫെര്‍‌മെന്‍റ്</translation>
 <translation id="4268574628540273656">URL:</translation>
+<translation id="4269006336413657989"><ph name="APPLICATION" /> ലിങ്കുകൾക്കുള്ള എന്റെ ചോയ്‌സ് ഓർക്കുക</translation>
 <translation id="4270393598798225102"><ph name="NUMBER" /> പതിപ്പ്</translation>
 <translation id="4271396100647220620">ഒന്നും യോജിക്കുന്നില്ല</translation>
 <translation id="4275830172053184480">നിങ്ങളുടെ ഉപകരണം പുനരാരംഭിക്കുക</translation>
@@ -3805,6 +3807,7 @@
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">ഈ ക്രമീകരണം മാറ്റുന്നത് എല്ലാ പങ്കിട്ട നെറ്റ്‌വർക്കുകളെയും ബാധിക്കുന്നതിനിടയാക്കും.</translation>
 <translation id="5946591249682680882">റിപ്പോർട്ട് ഐഡി <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">തുറക്കരുത്</translation>
 <translation id="5948544841277865110">സ്വകാര്യ നെറ്റ്‌വര്‍ക്ക് ചേര്‍ക്കുക</translation>
 <translation id="5951823343679007761">ബാറ്ററി ഇല്ല</translation>
 <translation id="5956585768868398362">നിങ്ങൾ പ്രതീക്ഷിക്കുന്ന തിരയൽ പേജ് ഇതാണോ?</translation>
@@ -3918,6 +3921,7 @@
 <translation id="6110466548232134880"><ph name="LOCALITY" /> എന്നയിടത്തെ <ph name="ORGANIZATION" /> എന്നതിന്റെ ഐഡന്റിറ്റി <ph name="ISSUER" /> പരിശോധിച്ചുറപ്പിച്ചു. സാധുവായ സർട്ടിഫിക്കറ്റ് സുതാര്യത വിവരങ്ങൾ നൽകിയത് സെർവർ ആണ്.</translation>
 <translation id="6111770213269631447">ലിപ്യന്തരണം (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444"><ph name="USERNAME" /> എന്നയാളിന്റെ <ph name="PROFILE_NAME" /> പ്രൊഫൈൽ എഡിറ്റുചെയ്യുക</translation>
+<translation id="6115424132962100663">തിരിക പോകാൻ |<ph name="SHORTCUT" />| അമർത്തുക</translation>
 <translation id="6116921718742659598">ഭാഷയും ഇൻപുട്ട് ക്രമീകരണങ്ങളും മാറ്റുക</translation>
 <translation id="6120205520491252677">ഈ പേജ് ആരംഭ സ്‌ക്രീനിലേക്ക് പിൻ ചെയ്യുക...</translation>
 <translation id="6122081475643980456">നിങ്ങളുടെ ഇന്റർനെറ്റ് കണക്ഷൻ നിയന്ത്രിക്കുന്നു</translation>

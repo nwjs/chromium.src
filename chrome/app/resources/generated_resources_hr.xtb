@@ -1721,6 +1721,7 @@ Više informacija potražite u našem <ph name="BEGIN_LINK" />centru za pomoć<p
 <translation id="3177048931975664371">Kliknite za skrivanje zaporke</translation>
 <translation id="3177909033752230686">Jezik stranice:</translation>
 <translation id="3180365125572747493">Unesite zaporku da biste kriptirali ovu datoteku certifikata.</translation>
+<translation id="3181110748548073003">Pritisnite |<ph name="SHORTCUT" />| za pomicanje unaprijed</translation>
 <translation id="3182749001423093222">Provjera pravopisa</translation>
 <translation id="3183139917765991655">Uvoz profila</translation>
 <translation id="3184560914950696195">Spremanje u direktorij $1 nije moguće. Uređene slike bit će spremljene u mapu Preuzimanja.</translation>
@@ -2555,6 +2556,7 @@ Svi se korisnici moraju prijaviti za nastavak.</translation>
 <translation id="4267171000817377500">Dodaci</translation>
 <translation id="4268025649754414643">Šifriranje ključa</translation>
 <translation id="4268574628540273656">URL:</translation>
+<translation id="4269006336413657989">Zapamti moj odabir za veze aplikacije <ph name="APPLICATION" /></translation>
 <translation id="4270393598798225102">Verzija <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Nema rezultata</translation>
 <translation id="4275830172053184480">Ponovo pokrenite svoj uređaj</translation>
@@ -3807,6 +3809,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">Promjena te postavke utjecat će na sve dijeljene mreže.</translation>
 <translation id="5946591249682680882">ID izvješća <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">Ne otvaraj</translation>
 <translation id="5948544841277865110">Dodaj privatnu mrežu</translation>
 <translation id="5951823343679007761">Nema baterije</translation>
 <translation id="5956585768868398362">Je li to stranica pretraživanja koju ste očekivali?</translation>
@@ -3920,6 +3923,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="6110466548232134880">Izdavatelj certifikata <ph name="ISSUER" /> potvrdio je identitet organizacije <ph name="ORGANIZATION" /> na lokaciji <ph name="LOCALITY" />. Poslužitelj nije pružio informacije o transparentnosti certifikata.</translation>
 <translation id="6111770213269631447">transliteracija (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Uređivanje osobe, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
+<translation id="6115424132962100663">Pritisnite |<ph name="SHORTCUT" />| za pomicanje unatrag</translation>
 <translation id="6116921718742659598">Promijenite postavke jezika i unosa</translation>
 <translation id="6120205520491252677">Prikvači ovu stranicu na zaslon Start...</translation>
 <translation id="6122081475643980456">Internetskom vezom upravlja proširenje</translation>
@@ -4734,7 +4738,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="7219357088166514551">Pretražite <ph name="ENGINE" /> ili upišite URL</translation>
 <translation id="722055596168483966">Prilagođavanje Googleovih usluga</translation>
 <translation id="7221155467930685510">$1 GB</translation>
-<translation id="7221855153210829124">Prikaži obavijesti</translation>
+<translation id="7221855153210829124">Prikazati obavijesti</translation>
 <translation id="7221869452894271364">Ponovno učitaj ovu stranicu</translation>
 <translation id="7222232353993864120">Adresa e-pošte</translation>
 <translation id="7222373446505536781">F11</translation>

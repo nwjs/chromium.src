@@ -1720,6 +1720,7 @@ I dati di accesso del tuo account sono obsoleti.</translation>
 <translation id="3177048931975664371">Fai clic per nascondere la password</translation>
 <translation id="3177909033752230686">Lingua della pagina:</translation>
 <translation id="3180365125572747493">Inserisci una password per crittografare il file del certificato.</translation>
+<translation id="3181110748548073003">Premi |<ph name="SHORTCUT" />| per andare avanti</translation>
 <translation id="3182749001423093222">Controllo ortografico</translation>
 <translation id="3183139917765991655">Profile Importer</translation>
 <translation id="3184560914950696195">Impossibile salvare su $1. Le immagini modificate verranno salvate nella cartella Download.</translation>
@@ -2552,6 +2553,7 @@ Per continuare, devono disconnettersi tutti gli utenti.</translation>
 <translation id="4267171000817377500">Plug-in</translation>
 <translation id="4268025649754414643">Crittografia chiave</translation>
 <translation id="4268574628540273656">URL:</translation>
+<translation id="4269006336413657989">Ricorda la mia scelta per i link di <ph name="APPLICATION" /></translation>
 <translation id="4270393598798225102">Versione <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Nessuna corrispondenza</translation>
 <translation id="4275830172053184480">Riavvia il dispositivo</translation>
@@ -3800,6 +3802,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">La modifica di questa impostazione avrà effetto su tutte le reti condivise.</translation>
 <translation id="5946591249682680882">ID rapporto <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">Non aprire</translation>
 <translation id="5948544841277865110">Aggiungi rete privata</translation>
 <translation id="5951823343679007761">Nessuna batteria</translation>
 <translation id="5956585768868398362">È la pagina di ricerca prevista?</translation>
@@ -3913,6 +3916,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="6110466548232134880">L'identità di <ph name="ORGANIZATION" /> a <ph name="LOCALITY" /> è stata verificata da <ph name="ISSUER" />. Non sono state fornite informazioni su Certificate Transparency dal server.</translation>
 <translation id="6111770213269631447">Traslitterazione (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Modifica persona, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
+<translation id="6115424132962100663">Premi |<ph name="SHORTCUT" />| per tornare indietro</translation>
 <translation id="6116921718742659598">Modifica impostazioni della lingua e di immissione</translation>
 <translation id="6120205520491252677">Blocca questa pagina in schermata iniziale...</translation>
 <translation id="6122081475643980456">La tua connessione Internet è controllata</translation>

@@ -1718,6 +1718,7 @@ Revisa tu correo electrónico <ph name="ACCOUNT_EMAIL" /> para consultar estas y
 <translation id="3177048931975664371">Haz clic para ocultar la contraseña</translation>
 <translation id="3177909033752230686">Idioma de la página:</translation>
 <translation id="3180365125572747493">Ingresa una contraseña para encriptar este archivo de certificado.</translation>
+<translation id="3181110748548073003">Presionar |<ph name="SHORTCUT" />| para avanzar</translation>
 <translation id="3182749001423093222">Corrector ortográfico</translation>
 <translation id="3183139917765991655">Importador de perfiles</translation>
 <translation id="3184560914950696195">No se puede guardar en $1. Las imágenes editadas se guardarán en la carpeta de descargas.</translation>
@@ -2552,6 +2553,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="4267171000817377500">Complementos</translation>
 <translation id="4268025649754414643">Cifrado de clave</translation>
 <translation id="4268574628540273656">URL:</translation>
+<translation id="4269006336413657989">Recordar mi selección para los vínculos de <ph name="APPLICATION" /></translation>
 <translation id="4270393598798225102">Versión <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">No hay coincidencias</translation>
 <translation id="4275830172053184480">Reiniciar tu dispositivo</translation>
@@ -3804,6 +3806,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">Si se cambia la configuración, las redes compartidas se verán afectadas.</translation>
 <translation id="5946591249682680882">ID de informe: <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">No abrir</translation>
 <translation id="5948544841277865110">Agregar red privada</translation>
 <translation id="5951823343679007761">No hay batería</translation>
 <translation id="5956585768868398362">¿Esta es la página de búsqueda que esperabas ver?</translation>
@@ -3917,6 +3920,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="6110466548232134880"><ph name="ISSUER" /> verificó la identidad de <ph name="ORGANIZATION" /> en <ph name="LOCALITY" />. El servidor no proporcionó ninguna información de transparencia de certificados.</translation>
 <translation id="6111770213269631447">Transliteración (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Editar persona, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
+<translation id="6115424132962100663">Presionar |<ph name="SHORTCUT" />| para volver</translation>
 <translation id="6116921718742659598">Cambiar la configuración de idioma y de entrada de texto</translation>
 <translation id="6120205520491252677">Fijar esta página a la Pantalla de inicio...</translation>
 <translation id="6122081475643980456">Se está controlando tu conexión a Internet</translation>

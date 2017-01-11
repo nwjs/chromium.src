@@ -1185,7 +1185,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="2541423446708352368">Vis alle nedlastinger</translation>
 <translation id="2542049655219295786">Google-tabell</translation>
 <translation id="2544853746127077729">Autentiseringssertifikatet ble avvist av nettverket</translation>
-<translation id="2546283357679194313">Informasjonskapsler og nettstedsdata</translation>
+<translation id="2546283357679194313">Informasjonskapsler og data fra nettsteder</translation>
 <translation id="2547921442987553570">Legg til i <ph name="EXTENSION_NAME" /></translation>
 <translation id="2549646943416322527">Seccomp Detector</translation>
 <translation id="2550212893339833758">Virtuelt minne</translation>
@@ -1193,7 +1193,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> kan ikke koble til <ph name="NETWORK_ID" />. Velg et annet nettverk eller prøv på nytt senere.</translation>
 <translation id="2553440850688409052">Skjul dette programtillegget</translation>
 <translation id="2554553592469060349">Den valgte filen er for stor (maksimal størrelse: 3 MB).</translation>
-<translation id="255632937203580977">Påminnelser for enhetsgjenkjennelse</translation>
+<translation id="255632937203580977">Påminnelser for enhetsgjenkjenning</translation>
 <translation id="2557899542277210112">For rask tilgang plasserer du bokmerkene her i bokmerkeraden.</translation>
 <translation id="2558578666171469771">Google Play-butikken på <ph name="DEVICE_TYPE" />-enheten din nå</translation>
 <translation id="255937426064304553">USA internasjonalt</translation>
@@ -1717,6 +1717,7 @@ Sjekk e-posten din på <ph name="ACCOUNT_EMAIL" /> for instruksjoner om dette og
 <translation id="3177048931975664371">Klikk for å skjule passord</translation>
 <translation id="3177909033752230686">Språket siden er på:</translation>
 <translation id="3180365125572747493">Skriv inn et passord for å kryptere denne sertifikatfilen.</translation>
+<translation id="3181110748548073003">Trykk på |<ph name="SHORTCUT" />| for å gå fremover</translation>
 <translation id="3182749001423093222">Stavekontroll</translation>
 <translation id="3183139917765991655">Profile Importer</translation>
 <translation id="3184560914950696195">Kunne ikke lagre til $1. Redigerte bilder blir lagret i Nedlastinger-mappen.</translation>
@@ -2548,6 +2549,7 @@ Alle brukere må logge av for å fortsette.</translation>
 <translation id="4267171000817377500">Programtillegg</translation>
 <translation id="4268025649754414643">Nøkkelchiffrering</translation>
 <translation id="4268574628540273656">Nettadresse:</translation>
+<translation id="4269006336413657989">Husk valget mitt for <ph name="APPLICATION" />-linker</translation>
 <translation id="4270393598798225102">Versjon <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Ingen treff</translation>
 <translation id="4275830172053184480">Start enheten din på nytt</translation>
@@ -3797,6 +3799,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">Endringer i denne innstillingen påvirker alle delte nettverk.</translation>
 <translation id="5946591249682680882">Rapport-ID <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">Ikke åpne</translation>
 <translation id="5948544841277865110">Legg til privat nettverk</translation>
 <translation id="5951823343679007761">Uten batteri</translation>
 <translation id="5956585768868398362">Er dette søkesiden du forventet?</translation>
@@ -3910,6 +3913,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="6110466548232134880">Identiteten til <ph name="ORGANIZATION" /> på <ph name="LOCALITY" /> er verifisert av <ph name="ISSUER" />. Det er ikke mottatt informasjon om sertifikatåpenhet fra tjeneren.</translation>
 <translation id="6111770213269631447">Translitterasjon (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Endre personen <ph name="PROFILE_NAME" /> (<ph name="USERNAME" />)</translation>
+<translation id="6115424132962100663">Trykk på |<ph name="SHORTCUT" />| for å gå tilbake</translation>
 <translation id="6116921718742659598">Endre språk- og inndatainnstillinger</translation>
 <translation id="6120205520491252677">Fest denne siden til startsiden</translation>
 <translation id="6122081475643980456">Internett-tilkoblingen din kontrolleres</translation>
@@ -5457,7 +5461,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8206745257863499010">Plystre</translation>
 <translation id="8206859287963243715">Mobil</translation>
 <translation id="8209677645716428427">En administrert bruker kan utforske nettet med veiledning fra deg. Som administrator for en administrert bruker i Chrome kan du:</translation>
-<translation id="8211154138148153396">Varsler for enhetsgjenkjennelse på lokalt nettverk.</translation>
+<translation id="8211154138148153396">Varsler for enhetsgjenkjenning på lokalt nettverk.</translation>
 <translation id="8212451793255924321">Bytt til en annen person.</translation>
 <translation id="8213577208796878755">Én annen tilgjengelig enhet.</translation>
 <translation id="8214489666383623925">Åpne fil</translation>

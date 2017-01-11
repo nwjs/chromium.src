@@ -1722,6 +1722,7 @@ Nende ja edasiste juhiste nägemiseks vaadake meile aadressil <ph name="ACCOUNT_
 <translation id="3177048931975664371">Parooli peitmiseks klõpsake</translation>
 <translation id="3177909033752230686">Lehe keel:</translation>
 <translation id="3180365125572747493">Sisestage parool selle sertifikaadifaili krüpteerimiseks.</translation>
+<translation id="3181110748548073003">Edasiliikumiseks vajutage klaviatuuri otseteed |<ph name="SHORTCUT" />|</translation>
 <translation id="3182749001423093222">Õigekirjakontroll</translation>
 <translation id="3183139917765991655">Profiili importija</translation>
 <translation id="3184560914950696195">Asukohta $1 ei saa salvestada. Muudetud pildid salvestatakse kausta Allalaadimised.</translation>
@@ -2556,6 +2557,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="4267171000817377500">Pistikprogrammid</translation>
 <translation id="4268025649754414643">Võtme šifreerimine</translation>
 <translation id="4268574628540273656">URL:</translation>
+<translation id="4269006336413657989">Jäta minu valik rakenduse <ph name="APPLICATION" /> linkide puhul meelde</translation>
 <translation id="4270393598798225102">Versioon <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Vasted puuduvad</translation>
 <translation id="4275830172053184480">Taaskäivitage seade</translation>
@@ -3807,6 +3809,7 @@ Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">Selle seade muutmine mõjutab kõiki jagatud võrke.</translation>
 <translation id="5946591249682680882">Aruande ID <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">Ära ava</translation>
 <translation id="5948544841277865110">Lisa privaatne võrk</translation>
 <translation id="5951823343679007761">Aku puudub</translation>
 <translation id="5956585768868398362">Kas see on otsinguleht, mida ootasite?</translation>
@@ -3920,6 +3923,7 @@ Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="6110466548232134880">Organisatsiooni <ph name="ORGANIZATION" /> identiteedi asukohas <ph name="LOCALITY" /> kinnitas väljaandja <ph name="ISSUER" />. Server ei esitanud sertifikaadi läbipaistvuse teavet.</translation>
 <translation id="6111770213269631447">Transliteratsioon (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Muuda isikut <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
+<translation id="6115424132962100663">Tagasiliikumiseks vajutage klaviatuuri otseteed |<ph name="SHORTCUT" />|</translation>
 <translation id="6116921718742659598">Keele ja sisestusseadete muutmine</translation>
 <translation id="6120205520491252677">Kinnita see leht avakuvale ...</translation>
 <translation id="6122081475643980456">Teie Interneti-ühendust juhitakse</translation>

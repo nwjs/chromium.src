@@ -1724,6 +1724,7 @@ Accede a tu dirección de correo electrónico <ph name="ACCOUNT_EMAIL" /> para c
 <translation id="3177048931975664371">Haz clic aquí para ocultar la contraseña</translation>
 <translation id="3177909033752230686">Idioma de la página:</translation>
 <translation id="3180365125572747493">Introduce una contraseña para cifrar este archivo de certificado.</translation>
+<translation id="3181110748548073003">Pulsa |<ph name="SHORTCUT" />| para ir a la página siguiente</translation>
 <translation id="3182749001423093222">Revisión ortográfica</translation>
 <translation id="3183139917765991655">Importador de perfiles</translation>
 <translation id="3184560914950696195">No se puede guardar en $1. Las imágenes editadas se guardarán en la carpeta de descargas.</translation>
@@ -2555,6 +2556,7 @@ Todos los usuarios deben cerrar sesión para continuar.</translation>
 <translation id="4267171000817377500">Complementos</translation>
 <translation id="4268025649754414643">Cifrado de clave</translation>
 <translation id="4268574628540273656">URL:</translation>
+<translation id="4269006336413657989">Recordar mi selección para todos los enlaces de <ph name="APPLICATION" /></translation>
 <translation id="4270393598798225102">Versión <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Sin resultados</translation>
 <translation id="4275830172053184480">Reiniciar tu dispositivo</translation>
@@ -3804,6 +3806,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">Si cambias esta opción, todas las redes compartidas se verán afectadas.</translation>
 <translation id="5946591249682680882">ID de informe <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">No abrir</translation>
 <translation id="5948544841277865110">Añadir red privada</translation>
 <translation id="5951823343679007761">Sin batería</translation>
 <translation id="5956585768868398362">¿Es esta la página de búsqueda que esperabas?</translation>
@@ -3917,6 +3920,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6110466548232134880"><ph name="ISSUER" /> ha verificado la identidad de <ph name="ORGANIZATION" /> en <ph name="LOCALITY" />. El servidor no ha proporcionado información de Transparencia de certificados.</translation>
 <translation id="6111770213269631447">Transliteración (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Editar persona (<ph name="PROFILE_NAME" />, <ph name="USERNAME" />)</translation>
+<translation id="6115424132962100663">Pulsa |<ph name="SHORTCUT" />| para ir a la página anterior</translation>
 <translation id="6116921718742659598">Cambiar configuración de idioma y de introducción de texto</translation>
 <translation id="6120205520491252677">Fijar esta página en la pantalla de inicio...</translation>
 <translation id="6122081475643980456">Tu conexión a Internet está siendo controlada</translation>

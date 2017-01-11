@@ -72,7 +72,7 @@
 <translation id="2888126860611144412">क्रोम के बारे में</translation>
 <translation id="2900322993655997287">Google Chrome डिफ़ॉल्ट ब्राउज़र निर्धारित या सेट नहीं कर सकता.</translation>
 <translation id="3037838751736561277">Google Chrome पृष्ठभूमि मोड में है.</translation>
-<translation id="3047079729301751317"><ph name="USERNAME" /> को डिस्कनेक्ट करने से आपका इतिहास, बुकमार्क, सेटिंग, और इस डिवाइस पर संग्रहीत अन्य Chrome डेटा साफ़ हो जाएगा. आपके Google खाते में संग्रहीत डेटा साफ़ नहीं होगा और उसे <ph name="GOOGLE_DASHBOARD_LINK" />Google डैशबोर्ड<ph name="END_GOOGLE_DASHBOARD_LINK" /> पर प्रबंधित किया जा सकता है.</translation>
+<translation id="3047079729301751317"><ph name="USERNAME" /> को डिसकनेक्ट करने से आपका इतिहास, बुकमार्क, सेटिंग, और इस डिवाइस पर संग्रहीत अन्य Chrome डेटा साफ़ हो जाएगा. आपके Google खाते में संग्रहीत डेटा साफ़ नहीं होगा और उसे <ph name="GOOGLE_DASHBOARD_LINK" />Google डैशबोर्ड<ph name="END_GOOGLE_DASHBOARD_LINK" /> पर प्रबंधित किया जा सकता है.</translation>
 <translation id="3065168410429928842">Chrome टैब</translation>
 <translation id="3080151273017101988">Google Chrome के बंद होने पर पृष्ठभूमि ऐप्स  चलाना जारी रखें</translation>
 <translation id="3089968997497233615">Google Chrome का एक नया, सुरक्षित वर्शन उपलब्‍ध है.</translation>
@@ -150,7 +150,7 @@
 <translation id="5204098752394657250">Google Chrome <ph name="TERMS_OF_SERVICE_LINK" />सेवा की शर्तों<ph name="END_TERMS_OF_SERVICE_LINK" /></translation>
 <translation id="5243785881901838525">Google पेमेंट्स (Chrome पर कॉपी किया गया)</translation>
 <translation id="5251420635869119124">अतिथि कोई पदचिह्न छोड़े बिना Chrome का उपयोग कर सकते हैं.</translation>
-<translation id="5253588388888612165">यदि आप इस कंप्यूटर को <ph name="PROFILE_NAME" /> से साझा करते हैं, तो स्वयं को Chrome में अलग से जोड़ें. अन्यथा उनके Google खाते को डिस्कनेक्ट करें.</translation>
+<translation id="5253588388888612165">यदि आप इस कंप्यूटर को <ph name="PROFILE_NAME" /> से साझा करते हैं, तो स्वयं को Chrome में अलग से जोड़ें. अन्यथा उनके Google खाते को डिसकनेक्ट करें.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome 1 सेकंड में पुन: प्रारंभ हो जाएगा.}one{Google Chrome # सेकंड में पुन: प्रारंभ हो जाएगा.}other{Google Chrome # सेकंड में पुन: प्रारंभ हो जाएगा.}}</translation>
 <translation id="5328989068199000832">Google Chrome बाइनरी</translation>
 <translation id="5334545119300433702">यह मॉड्यूल Google Chrome से विरोध के लिए जाना जाता है.</translation>

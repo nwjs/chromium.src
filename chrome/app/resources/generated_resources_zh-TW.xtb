@@ -1721,6 +1721,7 @@
 <translation id="3177048931975664371">按這裡隱藏密碼</translation>
 <translation id="3177909033752230686">網頁語言：</translation>
 <translation id="3180365125572747493">請輸入對這個憑證檔案進行加密時使用的密碼。</translation>
+<translation id="3181110748548073003">按下 |<ph name="SHORTCUT" />| 即可繼續</translation>
 <translation id="3182749001423093222">拼字檢查</translation>
 <translation id="3183139917765991655">設定檔匯入工具</translation>
 <translation id="3184560914950696195">無法儲存到 $1，系統會將編輯過的圖片儲存在「下載」資料夾。</translation>
@@ -2554,6 +2555,7 @@
 <translation id="4267171000817377500">外掛程式</translation>
 <translation id="4268025649754414643">金鑰編密</translation>
 <translation id="4268574628540273656">網址：</translation>
+<translation id="4269006336413657989">記住我對「<ph name="APPLICATION" />」連結的選擇</translation>
 <translation id="4270393598798225102">第 <ph name="NUMBER" /> 版</translation>
 <translation id="4271396100647220620">找不到相符的項目</translation>
 <translation id="4275830172053184480">重新啟動裝置</translation>
@@ -3802,6 +3804,7 @@
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">變更這項設定會影響所有共用網路。</translation>
 <translation id="5946591249682680882">報表 ID <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">不要開啟</translation>
 <translation id="5948544841277865110">新增私人網路</translation>
 <translation id="5951823343679007761">未安裝電池</translation>
 <translation id="5956585768868398362">這是您想要的搜尋頁面嗎？</translation>
@@ -3915,6 +3918,7 @@
 <translation id="6110466548232134880"><ph name="ORGANIZATION" /> (所在地：<ph name="LOCALITY" />) 的身分已通過 <ph name="ISSUER" /> 驗證，但伺服器未提供 Certificate Transparency 資訊。</translation>
 <translation id="6111770213269631447">音譯 (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">編輯使用者，<ph name="PROFILE_NAME" />，<ph name="USERNAME" /></translation>
+<translation id="6115424132962100663">按下 |<ph name="SHORTCUT" />| 即可返回</translation>
 <translation id="6116921718742659598">變更語言和輸入設定</translation>
 <translation id="6120205520491252677">將這個網頁固定到開始畫面...</translation>
 <translation id="6122081475643980456">您的網際網路連線目前受到控制</translation>

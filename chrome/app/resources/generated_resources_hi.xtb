@@ -97,7 +97,7 @@
 <translation id="1122198203221319518">&amp;टूल</translation>
 <translation id="1122242684574577509">प्रमाणीकरण विफल रहा. आप जिस वाई-फ़ाई नेटवर्क (<ph name="NETWORK_ID" />) का उपयोग कर रहे हैं उसके लॉगिन पृष्‍ठ पर जाएं.</translation>
 <translation id="1122960773616686544">बुकमार्क का नाम</translation>
-<translation id="1123316951456119629"><ph name="PRODUCT_NAME" /> से अपना Google खाता डिस्कनेक्ट करने से, आपका डेटा इस कंप्यूटर पर बना रहेगा लेकिन बदलावों को अब आपके Google खाता से समन्वयित नहीं किया जाएगा. आपके Google खाता में पहले से संग्रहीत डेटा तब तक वहां बना रहेगा जब तक कि आप <ph name="BEGIN_LINK" />Google डैशबोर्ड<ph name="END_LINK" /> का उपयोग करके उसे निकाल नहीं देते.</translation>
+<translation id="1123316951456119629"><ph name="PRODUCT_NAME" /> से अपना Google खाता डिसकनेक्ट करने से, आपका डेटा इस कंप्यूटर पर बना रहेगा लेकिन बदलावों को अब आपके Google खाता से समन्वयित नहीं किया जाएगा. आपके Google खाता में पहले से संग्रहीत डेटा तब तक वहां बना रहेगा जब तक कि आप <ph name="BEGIN_LINK" />Google डैशबोर्ड<ph name="END_LINK" /> का उपयोग करके उसे निकाल नहीं देते.</translation>
 <translation id="1124772482545689468">उपयोगकर्ता</translation>
 <translation id="1128109161498068552">किसी भी साइट को MIDI डिवाइस को एक्सेस करने के लिए सिस्टम अनन्य संदेशों का उपयोग न करने दें.</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
@@ -1721,6 +1721,7 @@
 <translation id="3177048931975664371">पासवर्ड छुपाने के लिए क्लिक करें</translation>
 <translation id="3177909033752230686">पृष्ठ की भाषा:</translation>
 <translation id="3180365125572747493">इस प्रमाणपत्र फ़ाइल को एन्‍क्रिप्‍ट करने के लिए कृपया पासवर्ड डालें.</translation>
+<translation id="3181110748548073003">आगे जाने के लिए |<ph name="SHORTCUT" />| दबाएं</translation>
 <translation id="3182749001423093222">वर्तनी परीक्षण</translation>
 <translation id="3183139917765991655">प्रोफ़ाइल आयातकर्ता</translation>
 <translation id="3184560914950696195">$1 पर नहीं सहेजी जा सकती. संपादित चित्र, डाउनलोड फ़ोल्डर में सहेजी जाएंगी.</translation>
@@ -2209,7 +2210,7 @@
 <translation id="3790358761803015466">Google Play तक नहीं पहुंच सके. अभी पुन: प्रयास करें.</translation>
 <translation id="3790856258139356663">Chrome सिंक के परीक्षण सर्वर से कनेक्ट करता है.</translation>
 <translation id="3790909017043401679">सिम कार्ड पिन दर्ज करें</translation>
-<translation id="3792890930871100565">प्रिंटर डिस्कनेक्ट करें</translation>
+<translation id="3792890930871100565">प्रिंटर डिसकनेक्ट करें</translation>
 <translation id="3796648294839530037">पसंदीदा नेटवर्क:</translation>
 <translation id="3797900183766075808">“<ph name="SEARCH_TERMS" />” को खोजने के लिए <ph name="SEARCH_ENGINE" /> पर &amp;खोजें</translation>
 <translation id="3798325802885154040">आपको क्लिक करने के लिए टैप करें सुविधा को सक्षम/अक्षम करने देती है</translation>
@@ -2554,6 +2555,7 @@
 <translation id="4267171000817377500">प्लग इन</translation>
 <translation id="4268025649754414643">कुंजी कूटलेखन</translation>
 <translation id="4268574628540273656">URL:</translation>
+<translation id="4269006336413657989"><ph name="APPLICATION" /> लिंक के लिए मेरी पसंद याद रखें</translation>
 <translation id="4270393598798225102">वर्शन <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">कोई मिलान नहीं</translation>
 <translation id="4275830172053184480">अपना डिवाइस पुन: प्रारंभ करें</translation>
@@ -2917,7 +2919,7 @@
 <translation id="480319080797177742">कनेक्ट है</translation>
 <translation id="4803909571878637176">विस्थापित कर रहा है</translation>
 <translation id="4804331037112292643">फ़ाइल खोलें/सहेजें संवाद</translation>
-<translation id="4804818685124855865">डिस्कनेक्ट करें</translation>
+<translation id="4804818685124855865">डिसकनेक्ट करें</translation>
 <translation id="4807098396393229769">कार्ड पर नाम</translation>
 <translation id="4809190954660909198">नए बिलिंग विवरण...</translation>
 <translation id="480990236307250886">मुख्यपृष्ठ खोलें</translation>
@@ -3806,6 +3808,7 @@
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">यह सेटिंग बदलने से सभी साझा नेटवर्क प्रभावित होंगे.</translation>
 <translation id="5946591249682680882">रिपोर्ट आईडी <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">नहीं खोलें</translation>
 <translation id="5948544841277865110">निजी नेटवर्क जोड़ें</translation>
 <translation id="5951823343679007761">कोई बैटरी नहीं</translation>
 <translation id="5956585768868398362">क्या यह वही खोज पृष्ठ है जिसकी आप अपेक्षा कर रहे थे?</translation>
@@ -3919,6 +3922,7 @@
 <translation id="6110466548232134880"><ph name="LOCALITY" /> में <ph name="ORGANIZATION" /> की पहचान <ph name="ISSUER" /> द्वारा सत्यापित की गई है. सर्वर द्वारा किसी प्रमाणपत्र पारदर्शिता जानकारी की आपूर्ति नहीं की गई थी.</translation>
 <translation id="6111770213269631447">लिप्यंतरण (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">व्यक्ति, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /> संपादित करें</translation>
+<translation id="6115424132962100663">वापस जाने के लिए |<ph name="SHORTCUT" />| दबाएं</translation>
 <translation id="6116921718742659598">भाषा और अक्षर सेटिंग बदलें</translation>
 <translation id="6120205520491252677">इस पृष्ठ को प्रारंभ स्क्रीन में पिन करें...</translation>
 <translation id="6122081475643980456">आपका इंटरनेट कनेक्शन नियंत्रित किया जा रहा है</translation>
@@ -4827,7 +4831,7 @@
 <translation id="7352495173098919663">संपादित करें</translation>
 <translation id="7352651011704765696">कुछ गलत हुआ</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> को नई अनुमतियों की आवश्‍यकता है</translation>
-<translation id="735745346212279324">VPN डिस्कनेक्ट है</translation>
+<translation id="735745346212279324">VPN डिसकनेक्ट है</translation>
 <translation id="7360183604634508679">बुकमार्क मेनू</translation>
 <translation id="7361039089383199231">$1 बाइट</translation>
 <translation id="736108944194701898">माउस गति:</translation>
@@ -5138,7 +5142,7 @@
 <translation id="7774497835322490043">GDB डीबग स्टब सक्षम करें. इससे स्टार्टअप पर नेटिव क्लाइंट ऐप्स  बंद हो जाएगा और वह उसमें nacl-gdb (NaCl SDK की ओर से) के अनुलग्न होने की प्रतीक्षा करेगा.</translation>
 <translation id="7781335840981796660">सभी उपयोगकर्ता खाते और स्थानीय डेटा को निकाल दिया जाएगा.</translation>
 <translation id="7782102568078991263">Google की ओर से कोई और सुझाव नहीं</translation>
-<translation id="7782250248211791706">Google खाता डिस्कनेक्ट करें</translation>
+<translation id="7782250248211791706">Google खाता डिसकनेक्ट करें</translation>
 <translation id="778330624322499012"><ph name="PLUGIN_NAME" /> लोड नहीं कर सके</translation>
 <translation id="7784067724422331729">आपके कंप्यूटर की सुरक्षा सेटिंग ने इस फ़ाइल को अवरोधित किया है.</translation>
 <translation id="7786207843293321886">अतिथि सत्र से बाहर निकलें</translation>
@@ -5339,7 +5343,7 @@
 <translation id="8026964361287906498">(एंटरप्राइज़ नीति द्वारा प्रबंधित)</translation>
 <translation id="8028060951694135607">Microsoft Key Recovery</translation>
 <translation id="8028993641010258682">आकार</translation>
-<translation id="8030169304546394654">डिस्कनेक्ट किया गया</translation>
+<translation id="8030169304546394654">डिसकनेक्ट किया गया</translation>
 <translation id="803030522067524905">Google सुरक्षित ब्राउज़िंग को हाल ही में <ph name="SITE" /> पर फ़िशिंग का पता चला है. आपको भ्रमित करने के लिए फ़िशिंग साइट अन्य वेबसाइट होने का दावा करती हैं. <ph name="BEGIN_LEARN_MORE_LINK" />अधिक जानें<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="8030656706657716245">प्रिंटर जोड़ें</translation>
 <translation id="8031722894461705849">स्‍लोवाक कीबोर्ड</translation>
@@ -5826,7 +5830,7 @@
 <translation id="8673383193459449849">सर्वर संबंधी समस्या</translation>
 <translation id="8673795350651259145">सभी वेब ऐप्स के लिए नेटिव क्लाइंट समर्थन, यहां तक कि वे भी जिन्‍हें Chrome वेब स्‍टोर से इंस्‍टॉल नहीं किया गया था.</translation>
 <translation id="8675377193764357545"><ph name="USER_EMAIL_ADDRESS" /> के रूप में समन्‍वयित किया गया</translation>
-<translation id="8677039480012021122">डेटा साफ़ करें और डिस्कनेक्ट करें</translation>
+<translation id="8677039480012021122">डेटा साफ़ करें और डिसकनेक्ट करें</translation>
 <translation id="8677212948402625567">सभी संक्षिप्त करें...</translation>
 <translation id="8678648549315280022">डाउनलोड सेटिंग प्रबंधित करें...</translation>
 <translation id="8680251145628383637">अपने सभी डिवाइसों पर अपने बुकमार्क, इतिहास, पासवर्ड और अन्‍य सेटिंग प्राप्‍त करने के लिए प्रवेश करें. आप अपनी Google सेवाओं में भी अपने आप प्रवेश कर जाएंगे.</translation>
@@ -6104,7 +6108,7 @@
 <translation id="9025098623496448965">ठीक है, मुझे साइन-इन स्क्रीन पर वापस ले जाएं</translation>
 <translation id="902638246363752736">कीबोर्ड सेटिंग</translation>
 <translation id="9026731007018893674">डाउनलोड करें</translation>
-<translation id="9026738002206640372">खाता डिस्कनेक्ट करें</translation>
+<translation id="9026738002206640372">खाता डिसकनेक्ट करें</translation>
 <translation id="9027146684281895941">यह व्यक्ति आपके Google खाते से जिन वेबसाइट पर जाता है, उन्हें नियंत्रित करने और देखने के लिए इस व्यक्ति का निरीक्षण करें.</translation>
 <translation id="9027459031423301635">नए &amp;टैब में लिंक खोलें</translation>
 <translation id="9027603907212475920">समन्वयन सेट अप करें...</translation>

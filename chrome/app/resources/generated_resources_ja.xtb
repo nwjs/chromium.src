@@ -1722,6 +1722,7 @@
 <translation id="3177048931975664371">クリックしてパスワードを隠す</translation>
 <translation id="3177909033752230686">ページの言語:</translation>
 <translation id="3180365125572747493">この証明書ファイルの暗号化に使用するパスワードを入力してください。</translation>
+<translation id="3181110748548073003">次に進むには |<ph name="SHORTCUT" />| キーを押します</translation>
 <translation id="3182749001423093222">スペルチェック</translation>
 <translation id="3183139917765991655">プロフィール インポーター</translation>
 <translation id="3184560914950696195">$1 に保存することができません。編集した画像はダウンロード フォルダに保存されます。</translation>
@@ -2556,6 +2557,7 @@
 <translation id="4267171000817377500">プラグイン</translation>
 <translation id="4268025649754414643">キーの暗号化</translation>
 <translation id="4268574628540273656">URL:</translation>
+<translation id="4269006336413657989"><ph name="APPLICATION" /> リンクに行った操作を記憶する</translation>
 <translation id="4270393598798225102">バージョン <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">一致する結果は見つかりませんでした</translation>
 <translation id="4275830172053184480">デバイスの再起動</translation>
@@ -3808,6 +3810,7 @@
 <translation id="5942207977017515242">https://support.google.com/chrome/?hl=<ph name="GRITLANGCODE_1" />&amp;p=settings_sign_in</translation>
 <translation id="594301743853606029">この設定を変更すると、共有しているすべてのネットワークに影響します。</translation>
 <translation id="5946591249682680882">レポート ID <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
+<translation id="5948205789991352045">開かない</translation>
 <translation id="5948544841277865110">プライベート ネットワークを追加</translation>
 <translation id="5951823343679007761">バッテリなし</translation>
 <translation id="5956585768868398362">この検索ページでよろしいですか？</translation>
@@ -3921,6 +3924,7 @@
 <translation id="6110466548232134880"><ph name="ORGANIZATION" />（<ph name="LOCALITY" />）の識別情報が <ph name="ISSUER" /> によって確認されました。証明書の透明性に関する情報がサーバーから提供されませんでした。</translation>
 <translation id="6111770213269631447">文字変換（namaskar → নমস্কার）</translation>
 <translation id="6112952769866305444">ユーザー（<ph name="PROFILE_NAME" />、<ph name="USERNAME" />）を編集</translation>
+<translation id="6115424132962100663">前に戻るには |<ph name="SHORTCUT" />| キーを押します</translation>
 <translation id="6116921718742659598">言語と入力の設定を変更</translation>
 <translation id="6120205520491252677">このページを起動画面に固定...</translation>
 <translation id="6122081475643980456">インターネット接続が制限されています</translation>
