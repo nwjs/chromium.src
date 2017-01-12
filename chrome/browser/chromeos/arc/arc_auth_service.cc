@@ -16,6 +16,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/chromeos/arc/arc_auth_code_fetcher.h"
 #include "chrome/browser/chromeos/arc/arc_auth_context.h"
+#include "chrome/browser/chromeos/arc/arc_auth_notification.h"
 #include "chrome/browser/chromeos/arc/arc_optin_uma.h"
 #include "chrome/browser/chromeos/arc/arc_support_host.h"
 #include "chrome/browser/chromeos/arc/auth/arc_robot_auth.h"
@@ -713,9 +714,20 @@ void ArcAuthService::OnIsSyncingChanged() {
 
   if (IsArcEnabled())
     OnOptInPreferenceChanged();
+
+  if (!g_disable_ui_for_testing &&
+      !base::CommandLine::ForCurrentProcess()->HasSwitch(
+          chromeos::switches::kEnableArcOOBEOptIn) &&
+      profile_->IsNewProfile() &&
+      !profile_->GetPrefs()->HasPrefPath(prefs::kArcEnabled)) {
+    ArcAuthNotification::Show(profile_);
+  }
 }
 
 void ArcAuthService::Shutdown() {
+  if (!g_disable_ui_for_testing)
+    ArcAuthNotification::Hide();
+
   ShutdownBridge();
   if (support_host_) {
     support_host_->Close();
@@ -774,6 +786,13 @@ void ArcAuthService::OnOptInPreferenceChanged() {
   const bool arc_enabled = IsArcEnabled();
   for (auto& observer : observer_list_)
     observer.OnOptInEnabled(arc_enabled);
+
+  // Hide auth notification if it was opened before and arc.enabled pref was
+  // explicitly set to true or false.
+  if (!g_disable_ui_for_testing &&
+      profile_->GetPrefs()->HasPrefPath(prefs::kArcEnabled)) {
+    ArcAuthNotification::Hide();
+  }
 
   if (!arc_enabled) {
     // Reset any pending request to re-enable Arc.
