@@ -825,6 +825,7 @@ void PrintPreviewHandler::HandleGetPreview(const base::ListValue* args) {
   if (g_nw_print_options) {
     bool landscape, backgrounds;
     int margins_type;
+    int copies;
     base::DictionaryValue* media_size_value = nullptr;
     base::DictionaryValue* custom_margins = nullptr;
 
@@ -840,6 +841,8 @@ void PrintPreviewHandler::HandleGetPreview(const base::ListValue* args) {
       settings->SetInteger(printing::kSettingMarginsType, margins_type);
     if (g_nw_print_options->GetDictionary(printing::kSettingMarginsCustom, &custom_margins) && !custom_margins->empty())
       settings->Set(printing::kSettingMarginsCustom, custom_margins->CreateDeepCopy());
+    if (g_nw_print_options->GetInteger(printing::kSettingCopies, &copies))
+      settings->SetInteger(printing::kSettingCopies, copies);
   }
 
   if (display_header_footer) {
