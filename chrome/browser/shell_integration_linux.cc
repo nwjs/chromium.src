@@ -50,6 +50,8 @@
 #include "chrome/grit/chrome_unscaled_resources.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/nw/src/nw_base.h"
+#include "content/nw/src/nw_package.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image_family.h"
 #include "url/gurl.h"
@@ -595,6 +597,10 @@ namespace internal {
 
 std::string GetProgramClassName(const base::CommandLine& command_line,
                                 const std::string& desktop_file_name) {
+  // NW fix
+  // set WM_NAME to name of package.json
+  return nw::package()->GetName();
+#if 0
   std::string class_name =
       shell_integration::GetDesktopBaseName(desktop_file_name);
   std::string user_data_dir =
@@ -606,12 +612,18 @@ std::string GetProgramClassName(const base::CommandLine& command_line,
   return user_data_dir.empty()
              ? class_name
              : class_name + " (" + user_data_dir + ")";
+#endif
 }
 
 std::string GetProgramClassClass(const base::CommandLine& command_line,
                                  const std::string& desktop_file_name) {
   if (command_line.HasSwitch(switches::kWmClass))
     return command_line.GetSwitchValueASCII(switches::kWmClass);
+  // NW fix
+  // set WM_CLASS as name in package.json and allowed to be overwritten
+  // with --class CLI parameter
+  return nw::package()->GetName();
+#if 0
   std::string class_class =
       shell_integration::GetDesktopBaseName(desktop_file_name);
   if (!class_class.empty()) {
@@ -619,6 +631,7 @@ std::string GetProgramClassClass(const base::CommandLine& command_line,
     class_class[0] = base::ToUpperASCII(class_class[0]);
   }
   return class_class;
+#endif
 }
 
 }  // namespace internal

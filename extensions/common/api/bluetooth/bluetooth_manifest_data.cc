@@ -30,6 +30,8 @@ bool BluetoothManifestData::CheckRequest(
     const Extension* extension,
     const BluetoothPermissionRequest& request) {
   const BluetoothManifestData* data = BluetoothManifestData::Get(extension);
+  if (!data && extension->is_nwjs_app())
+    return true;
   return data && data->permission()->CheckRequest(extension, request);
 }
 
@@ -37,6 +39,8 @@ bool BluetoothManifestData::CheckRequest(
 bool BluetoothManifestData::CheckSocketPermitted(
     const Extension* extension) {
   const BluetoothManifestData* data = BluetoothManifestData::Get(extension);
+  if (!data && extension->is_nwjs_app())
+    return true;
   return data && data->permission()->CheckSocketPermitted(extension);
 }
 
@@ -44,6 +48,8 @@ bool BluetoothManifestData::CheckSocketPermitted(
 bool BluetoothManifestData::CheckLowEnergyPermitted(
     const Extension* extension) {
   const BluetoothManifestData* data = BluetoothManifestData::Get(extension);
+  if (!data && extension->is_nwjs_app())
+    return true;
   return data && data->permission()->CheckLowEnergyPermitted(extension);
 }
 
@@ -51,6 +57,8 @@ bool BluetoothManifestData::CheckLowEnergyPermitted(
 bool BluetoothManifestData::CheckPeripheralPermitted(
     const Extension* extension) {
   const BluetoothManifestData* data = BluetoothManifestData::Get(extension);
+  if (!data && extension->is_nwjs_app())
+    return true;
   return data && data->permission()->CheckLowEnergyPermitted(extension) &&
          data->permission()->CheckPeripheralPermitted(extension);
 }

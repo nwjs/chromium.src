@@ -124,6 +124,13 @@ bool IsPluginLoadingAccessibleResourceInWebView(
     extensions::ExtensionRegistry* extension_registry,
     int process_id,
     const GURL& resource) {
+  const std::string extension_id = resource.host();
+  const extensions::Extension* extension = extension_registry->GetExtensionById(
+      extension_id, extensions::ExtensionRegistry::ENABLED);
+  if (extension && extension->is_nwjs_app()) //NWJS#5548: enable flash
+                                             //by default
+    return true;
+
   extensions::WebViewRendererState* renderer_state =
       extensions::WebViewRendererState::GetInstance();
   std::string partition_id;
@@ -132,9 +139,6 @@ bool IsPluginLoadingAccessibleResourceInWebView(
     return false;
   }
 
-  const std::string extension_id = resource.host();
-  const extensions::Extension* extension = extension_registry->GetExtensionById(
-      extension_id, extensions::ExtensionRegistry::ENABLED);
   if (!extension || !extensions::WebviewInfo::IsResourceWebviewAccessible(
           extension, partition_id, resource.path())) {
     return false;
@@ -243,7 +247,7 @@ void PluginInfoMessageFilter::PluginsLoaded(
     context_.DecidePluginStatus(params, output->plugin, plugin_metadata.get(),
                                 &output->status);
   }
-
+#if 0
   if (output->status == ChromeViewHostMsg_GetPluginInfo_Status::kNotFound) {
     // Check to see if the component updater can fetch an implementation.
     base::PostTaskAndReplyWithResult(
@@ -256,9 +260,9 @@ void PluginInfoMessageFilter::PluginsLoaded(
                    params, base::Passed(&output),
                    base::Passed(&plugin_metadata), reply_msg));
   } else {
+#endif
     GetPluginInfoReply(params, std::move(output), std::move(plugin_metadata),
                        reply_msg);
-  }
 }
 
 #if defined(ENABLE_PEPPER_CDMS)

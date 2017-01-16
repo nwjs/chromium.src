@@ -55,7 +55,7 @@ class SharedWorkerRepositoryClient {
                        WebMessagePortChannelUniquePtr,
                        const KURL&,
                        const String& name,
-                       ExceptionState&) = 0;
+                       ExceptionState&, bool) = 0;
 
   virtual void documentDetached(Document*) = 0;
 };

@@ -29,6 +29,7 @@
 #include "core/dom/Document.h"
 #include "core/dom/shadow/ShadowRoot.h"
 #include "core/frame/FrameHost.h"
+#include "core/frame/LocalFrame.h"
 #include "core/html/HTMLDivElement.h"
 #include "core/html/HTMLInputElement.h"
 #include "core/page/ChromeClient.h"
@@ -62,7 +63,7 @@ DEFINE_TRACE(ChooserOnlyTemporalInputTypeView) {
 
 void ChooserOnlyTemporalInputTypeView::handleDOMActivateEvent(Event*) {
   if (element().isDisabledOrReadOnly() || !element().layoutObject() ||
-      !UserGestureIndicator::processingUserGesture() ||
+      (!UserGestureIndicator::processingUserGesture() && !element().document().frame()->isNodeJS()) ||
       element().openShadowRoot())
     return;
 
