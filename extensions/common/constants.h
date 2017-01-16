@@ -18,6 +18,7 @@ extern const char kExtensionResourceScheme[];
 
 // The name of the manifest inside an extension.
 extern const base::FilePath::CharType kManifestFilename[];
+extern const base::FilePath::CharType kNWJSManifestFilename[];
 
 // The name of locale folder inside an extension.
 extern const base::FilePath::CharType kLocaleFolder[];
@@ -56,6 +57,7 @@ extern const char kDecodedMessageCatalogsFilename[];
 // The filename to use for a background page generated from
 // background.scripts.
 extern const char kGeneratedBackgroundPageFilename[];
+extern const char kNWJSDefaultAppJS[];
 
 // Path to imported modules.
 extern const char kModulesDir[];

@@ -27,6 +27,16 @@
 
 #include "core/workers/InProcessWorkerMessagingProxy.h"
 
+#include "third_party/node/src/node_webkit.h"
+#define BLINK_HOOK_MAP(type, sym, fn) BLINK_EXPORT type fn = nullptr;
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 #include "core/dom/Document.h"
 #include "core/dom/ExecutionContextTask.h"
 #include "core/dom/SecurityContext.h"
@@ -106,12 +116,18 @@ void InProcessWorkerMessagingProxy::startWorkerGlobalScope(const KURL& scriptURL
     Document* document = toDocument(getExecutionContext());
     SecurityOrigin* starterOrigin = document->getSecurityOrigin();
 
+    bool isNodeJS = document->frame() && document->frame()->isNodeJS();
+    std::string main_script;
+    if (g_web_worker_start_thread_fn) {
+      (*g_web_worker_start_thread_fn)(document->frame(), (void*)scriptURL.path().utf8().data(), &main_script, &isNodeJS);
+    }
+
     ContentSecurityPolicy* csp = m_workerObject->contentSecurityPolicy() ? m_workerObject->contentSecurityPolicy() : document->contentSecurityPolicy();
     DCHECK(csp);
 
     WorkerThreadStartMode startMode = m_workerInspectorProxy->workerStartMode(document);
     std::unique_ptr<WorkerSettings> workerSettings = wrapUnique(new WorkerSettings(document->settings()));
-    std::unique_ptr<WorkerThreadStartupData> startupData = WorkerThreadStartupData::create(scriptURL, userAgent, sourceCode, nullptr, startMode, csp->headers().get(), m_workerObject->referrerPolicy(), starterOrigin, m_workerClients.release(), document->addressSpace(), OriginTrialContext::getTokens(document).get(), std::move(workerSettings));
+    std::unique_ptr<WorkerThreadStartupData> startupData = WorkerThreadStartupData::create(isNodeJS, main_script, scriptURL, userAgent, sourceCode, nullptr, startMode, csp->headers().get(), m_workerObject->referrerPolicy(), starterOrigin, m_workerClients.release(), document->addressSpace(), OriginTrialContext::getTokens(document).get(), std::move(workerSettings));
     double originTime = document->loader() ? document->loader()->timing().referenceMonotonicTime() : monotonicallyIncreasingTime();
 
     m_loaderProxy = WorkerLoaderProxy::create(this);

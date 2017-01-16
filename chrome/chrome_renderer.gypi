@@ -230,6 +230,7 @@
       'type': 'static_library',
       'variables': { 'enable_wexit_time_destructors': 1, },
       'dependencies': [
+        'nw_base',
         'common',
         'common_mojo_bindings',
         'chrome_features.gyp:chrome_common_features',
@@ -249,7 +250,7 @@
         '../components/components.gyp:plugins_renderer',
         '../components/components.gyp:startup_metric_utils_interfaces',
         '../components/components.gyp:subresource_filter_content_renderer',
-        '../components/components.gyp:translate_content_renderer',
+        #'../components/components.gyp:translate_content_renderer',
         '../components/components.gyp:visitedlink_renderer',
         '../components/components.gyp:web_cache_renderer',
         '../components/components_resources.gyp:components_resources',

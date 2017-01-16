@@ -646,6 +646,12 @@ class CONTENT_EXPORT RenderFrameImpl
       const blink::WebCString& data,
       blink::WebFrameSerializerClient::FrameSerializationStatus status)
       override;
+  void willHandleNavigationPolicy(
+                                          blink::WebFrame*,
+                                          const blink::WebURLRequest&,
+                                          blink::WebNavigationPolicy*,
+                                          blink::WebString* manifest = NULL,
+                                          bool new_win = true) override;
 
   // Binds to the FrameHost in the browser.
   void Bind(mojom::FrameRequest frame, mojom::FrameHostPtr frame_host);

@@ -73,6 +73,8 @@ std::string GetDisplayName(Manifest::Type type) {
       return "user script";
     case Manifest::TYPE_SHARED_MODULE:
       return "shared module";
+    case Manifest::TYPE_NWJS_APP:
+      return "NW.js app";
     case Manifest::NUM_LOAD_TYPES:
       NOTREACHED();
   }
@@ -205,6 +207,15 @@ Feature::Availability SimpleFeature::IsAvailableToManifest(
   // when we compile feature files.
   Manifest::Type type_to_check = (type == Manifest::TYPE_USER_SCRIPT) ?
       Manifest::TYPE_EXTENSION : type;
+  if (type == Manifest::TYPE_NWJS_APP) {
+    if (!platforms_.empty() && !base::ContainsValue(platforms_, platform))
+      return CreateAvailability(INVALID_PLATFORM, type);
+    if (!extension_types_.empty() && name_ == "devtools_page" && //NWJS#4959
+        !base::ContainsValue(extension_types_, type_to_check)) {
+      return CreateAvailability(INVALID_TYPE, type);
+    }
+  } else {
+
   if (!extension_types_.empty() &&
       !base::ContainsValue(extension_types_, type_to_check)) {
     return CreateAvailability(INVALID_TYPE, type);
@@ -245,6 +256,7 @@ Feature::Availability SimpleFeature::IsAvailableToManifest(
   if (channel_ && *channel_ < GetCurrentChannel())
     return CreateAvailability(UNSUPPORTED_CHANNEL, *channel_);
 
+  } // is nwjs app
   return CheckDependencies(base::Bind(&IsAvailableToManifestForBind,
                                       extension_id,
                                       type,
@@ -272,6 +284,8 @@ Feature::Availability SimpleFeature::IsAvailableToContext(
   // extension API calls, since there's no guarantee that the extension is
   // "active" in current renderer process when the API permission check is
   // done.
+  if (!(extension && extension->is_nwjs_app() && context != WEB_PAGE_CONTEXT)) {
+
   if (!contexts_.empty() && !base::ContainsValue(contexts_, context))
     return CreateAvailability(INVALID_CONTEXT, context);
 
@@ -282,6 +296,8 @@ Feature::Availability SimpleFeature::IsAvailableToContext(
       !matches_.MatchesURL(url)) {
     return CreateAvailability(INVALID_URL, url);
   }
+
+  } // nwjs app
 
   // TODO(kalman): Assert that if the context was a webpage or WebUI context
   // then at some point a "matches" restriction was checked.

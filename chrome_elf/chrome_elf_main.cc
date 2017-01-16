@@ -44,12 +44,13 @@ base::string16 GetExeName() {
 
 void InitializeCrashReportingForProcess() {
   // We want to initialize crash reporting only in chrome.exe
-  if (GetExeName() != L"chrome.exe")
-    return;
+  // NWJS#5362: support renaming exe
+  //if (GetExeName() != L"nw.exe")
+  //  return;
   ChromeCrashReporterClient::InitializeCrashReportingForProcess();
 }
 
-#if !defined(ADDRESS_SANITIZER)
+#if 0
 // chrome_elf loads early in the process and initializes Crashpad. That in turn
 // uses the SetUnhandledExceptionFilter API to set a top level exception
 // handler for the process. When the process eventually initializes, CRT sets
@@ -117,7 +118,7 @@ extern "C" __declspec(dllexport) void SetMetricsClientId(
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
   if (reason == DLL_PROCESS_ATTACH) {
-#if !defined(ADDRESS_SANITIZER)
+#if 0 //disable this or NW will fail with Enigma VB
     DisableSetUnhandledExceptionFilter();
 #endif
 

@@ -43,14 +43,14 @@ public:
 
     Context* lifecycleContext() const { return m_lifecycleContext; }
 
+    void setContext(Context*);
+
 protected:
     explicit LifecycleObserver(Context* context)
         : m_lifecycleContext(nullptr)
     {
         setContext(context);
     }
-
-    void setContext(Context*);
 
     void clearContext()
     {

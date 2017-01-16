@@ -35,6 +35,7 @@ if (enable_nacl) {
 
     output_prefix = "$root_out_dir/pnacl/pnacl_public_"
     outputs = [
+      "$root_out_dir/pnacl",
       "${output_prefix}pnacl_json",
     ]
 

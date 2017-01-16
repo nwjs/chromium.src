@@ -11,7 +11,7 @@
       '<(grit_out_dir)/renderer_resources_200_percent.pak',
       '<(grit_out_dir)/theme_resources_200_percent.pak',
     ],
-    'pak_output': '<(SHARED_INTERMEDIATE_DIR)/repack/chrome_200_percent.pak',
+    'pak_output': '<(SHARED_INTERMEDIATE_DIR)/repack/nw_200_percent.pak',
     'conditions': [
       ['OS != "ios"', {
         'pak_inputs': [

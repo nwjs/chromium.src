@@ -79,6 +79,7 @@ split_static_library("browser") {
     "//sql",
   ]
   deps = [
+    "//content/nw:nw_browser",
     "//chrome:extra_resources",
     "//chrome:resources",
     "//chrome:strings",
@@ -98,7 +99,7 @@ split_static_library("browser") {
     "//components/certificate_reporting",
     "//components/certificate_transparency",
     "//components/cloud_devices/common",
-    "//components/component_updater",
+    #"//components/component_updater",
     "//components/content_settings/content/common",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",
@@ -147,7 +148,7 @@ split_static_library("browser") {
     "//components/policy/proto",
     "//components/proxy_config",
     "//components/query_parser",
-    "//components/rappor",
+    #"//components/rappor",
     "//components/renderer_context_menu",
     "//components/search",
     "//components/search_engines",
@@ -345,7 +346,7 @@ split_static_library("browser") {
       "//components/profile_metrics",
       "//components/proxy_config",
       "//components/resources",
-      "//components/safe_browsing_db",
+      #"//components/safe_browsing_db",
       "//components/safe_json",
       "//components/sessions",
       "//components/ssl_config",
@@ -1001,7 +1002,11 @@ if (!is_ios) {
 # GYP version: chrome/chrome_resources.gyp:chrome_resources
 # (generate_browser_resources action)
 grit("resources") {
-  source = "browser_resources.grd"
+  if (nwjs_sdk) {
+    source = "browser_resources.grd"
+  } else {
+    source = "nwjs_resources.grd"
+  }
   defines = chrome_grit_defines
   output_dir = "$root_gen_dir/chrome"
   outputs = [

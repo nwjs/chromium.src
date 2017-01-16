@@ -209,7 +209,10 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
 
   content::WebContents* GetInspectedWebContents();
 
- private:
+  void Close();
+
+ public:
+
   friend class DevToolsWindowTesting;
   friend class DevToolsWindowCreationObserver;
 
@@ -242,7 +245,8 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
                  content::WebContents* main_web_contents,
                  DevToolsUIBindings* bindings,
                  content::WebContents* inspected_web_contents,
-                 bool can_dock);
+                 bool can_dock,
+                 bool headless = false);
 
   static DevToolsWindow* Create(Profile* profile,
                                 const GURL& frontend_url,
@@ -251,7 +255,9 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
                                 bool v8_only_frontend,
                                 const std::string& remote_frontend,
                                 bool can_dock,
-                                const std::string& settings);
+                                const std::string& settings,
+                                content::WebContents* cdt_web_contents = nullptr);
+
   static GURL GetDevToolsURL(Profile* profile,
                              const GURL& base_url,
                              bool shared_worker_frontend,
@@ -278,7 +284,8 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
                           int opener_render_frame_id,
                           const std::string& frame_name,
                           const GURL& target_url,
-                          content::WebContents* new_contents) override;
+                          content::WebContents* new_contents,
+                          const base::string16& nw_window_manifest) override;
   void CloseContents(content::WebContents* source) override;
   void ContentsZoomChange(bool zoom_in) override;
   void BeforeUnloadFired(content::WebContents* tab,
@@ -309,6 +316,7 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
   void SetIsDocked(bool is_docked) override;
   void OpenInNewTab(const std::string& url) override;
   void SetWhitelistedShortcuts(const std::string& message) override;
+ public:
   void InspectedContentsClosing() override;
   void OnLoadCompleted() override;
   void ReadyForTest() override;
@@ -333,6 +341,7 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
   Browser* browser_;
   bool is_docked_;
   const bool can_dock_;
+  const bool headless_;
   LifeStage life_stage_;
   DevToolsToggleAction action_on_load_;
   DevToolsContentsResizingStrategy contents_resizing_strategy_;

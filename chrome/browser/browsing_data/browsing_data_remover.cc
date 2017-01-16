@@ -127,6 +127,7 @@ using content::DOMStorageContext;
 
 namespace {
 
+#if !defined(DISABLE_NACL)
 void UIThreadTrampolineHelper(const base::Closure& callback) {
   BrowserThread::PostTask(BrowserThread::UI, FROM_HERE, callback);
 }
@@ -139,6 +140,7 @@ base::Closure UIThreadTrampoline(const base::Closure& callback) {
   // task is actually posted.
   return base::Bind(&UIThreadTrampolineHelper, callback);
 }
+#endif
 
 template <typename T>
 void IgnoreArgumentHelper(const base::Closure& callback, T unused_argument) {
@@ -201,6 +203,7 @@ void ClearPnaclCacheOnIOThread(base::Time begin,
 }
 #endif
 
+#if 0
 void ClearCookiesOnIOThread(base::Time delete_begin,
                             base::Time delete_end,
                             net::URLRequestContextGetter* rq_context,
@@ -224,6 +227,7 @@ void ClearCookiesWithPredicateOnIOThread(
   cookie_store->DeleteAllCreatedBetweenWithPredicateAsync(
       delete_begin, delete_end, predicate, IgnoreArgument<int>(callback));
 }
+#endif
 
 void OnClearedChannelIDsOnIOThread(net::URLRequestContextGetter* rq_context,
                                    const base::Closure& callback) {
@@ -717,6 +721,7 @@ void BrowsingDataRemover::RemoveImpl(
     // doesn't make sense to apply the time period of deleting in the last X
     // hours/days to the safebrowsing cookies since they aren't the result of
     // any user action.
+#if 0
     if (delete_begin_ == base::Time()) {
       safe_browsing::SafeBrowsingService* sb_service =
           g_browser_process->safe_browsing_service();
@@ -744,7 +749,7 @@ void BrowsingDataRemover::RemoveImpl(
         }
       }
     }
-
+#endif
     MediaDeviceIDSalt::Reset(profile_->GetPrefs());
   }
 

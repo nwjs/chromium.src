@@ -50,7 +50,7 @@ public:
     SharedWorkerRepositoryClient() { }
     virtual ~SharedWorkerRepositoryClient() { }
 
-    virtual void connect(SharedWorker*, WebMessagePortChannelUniquePtr, const KURL&, const String& name, ExceptionState&)  = 0;
+    virtual void connect(SharedWorker*, WebMessagePortChannelUniquePtr, const KURL&, const String& name, ExceptionState&, bool)  = 0;
 
     virtual void documentDetached(Document*) = 0;
 };

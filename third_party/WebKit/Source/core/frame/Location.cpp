@@ -120,10 +120,14 @@ String Location::origin() const
 DOMStringList* Location::ancestorOrigins() const
 {
     DOMStringList* origins = DOMStringList::create(DOMStringList::Location);
-    if (!m_frame)
+    if (!m_frame || m_frame->isNwFakeTop())
         return origins;
-    for (Frame* frame = m_frame->tree().parent(); frame; frame = frame->tree().parent())
+    for (Frame* frame = m_frame->tree().parent(); frame; frame = frame->tree().parent()) {
         origins->append(frame->securityContext()->getSecurityOrigin()->toString());
+        if (frame->isNwFakeTop())
+            break;
+    }
+        
     return origins;
 }
 

@@ -7,6 +7,8 @@
 #include <memory>
 #include <utility>
 
+#include "content/nw/src/nw_content.h"
+
 #include "base/auto_reset.h"
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -122,6 +124,15 @@ using blink::WebWidget;
 #define STATIC_ASSERT_ENUM(a, b)                            \
   static_assert(static_cast<int>(a) == static_cast<int>(b), \
                 "mismatching enums: " #a)
+
+namespace nw {
+typedef bool (*RenderWidgetWasHiddenHookFn)(content::RenderWidget*);
+#if defined(COMPONENT_BUILD)
+CONTENT_EXPORT RenderWidgetWasHiddenHookFn gRenderWidgetWasHiddenHook = nullptr;
+#else
+RenderWidgetWasHiddenHookFn gRenderWidgetWasHiddenHook = nullptr;
+#endif
+}
 
 namespace {
 
@@ -626,6 +637,8 @@ void RenderWidget::OnChangeResizeRect(const gfx::Rect& resizer_rect) {
 }
 
 void RenderWidget::OnWasHidden() {
+  if (nw::gRenderWidgetWasHiddenHook && nw::gRenderWidgetWasHiddenHook(this))
+    return;
   TRACE_EVENT0("renderer", "RenderWidget::OnWasHidden");
   // Go into a mode where we stop generating paint and scrolling events.
   SetHidden(true);

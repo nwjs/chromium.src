@@ -206,6 +206,7 @@ check_targets = [
 #      this situation much easier to create. if the build always lists the
 #      files and passes them to a script, it will always be correct.
 exec_script_whitelist = [
+  "//content/nw/BUILD.gn",
   "//android_webview/BUILD.gn",
   "//ash/BUILD.gn",
   "//build/config/BUILD.gn",

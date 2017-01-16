@@ -207,6 +207,8 @@ ChromeMetricsServicesManagerClient::GetURLRequestContext() {
 
 bool ChromeMetricsServicesManagerClient::IsSafeBrowsingEnabled(
     const base::Closure& on_update_callback) {
+  return false;
+#if 0
   // Start listening for updates to SB service state. This is done here instead
   // of in the constructor to avoid errors from trying to instantiate SB
   // service before the IO thread exists.
@@ -222,6 +224,7 @@ bool ChromeMetricsServicesManagerClient::IsSafeBrowsingEnabled(
   }
 
   return sb_service && sb_service->enabled_by_prefs();
+#endif
 }
 
 bool ChromeMetricsServicesManagerClient::IsMetricsReportingEnabled() {
@@ -229,9 +232,13 @@ bool ChromeMetricsServicesManagerClient::IsMetricsReportingEnabled() {
 }
 
 bool ChromeMetricsServicesManagerClient::OnlyDoMetricsRecording() {
+#if 1
+  return true;
+#else
   const base::CommandLine* cmdline = base::CommandLine::ForCurrentProcess();
   return cmdline->HasSwitch(switches::kMetricsRecordingOnly) ||
          cmdline->HasSwitch(switches::kEnableBenchmarking);
+#endif
 }
 
 #if defined(OS_WIN)

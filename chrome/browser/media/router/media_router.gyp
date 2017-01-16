@@ -37,6 +37,11 @@
             '<@(media_router_non_android_sources)',
           ]
         }],
+        [ 'OS!="win"', {
+           'sources/': [ ['exclude', '_win(_browsertest|_unittest|_test)?\\.(h|cc)$'],
+                    ['exclude', '(^|/)win/'],
+                    ['exclude', '(^|/)win_[^/]*\\.(h|cc)$'] ],
+        }],
       ]
     },
     {

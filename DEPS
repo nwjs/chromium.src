@@ -13,6 +13,8 @@ vars = {
     'https://chromium.googlesource.com',
   'freetype_android_revision':
     'c38be52bf8de3b1699d74932b849bf150265819e',
+  'nwjs_git':
+    'https://github.com/nwjs',
   'google_toolbox_for_mac_revision':
     'e7b41fad2e7f77abf560c79f984c60d5ec6d419c',
   'libfuzzer_revision':
@@ -168,8 +170,13 @@ deps = {
     (Var("chromium_git")) + '/chromium/deps/acid3.git@6be0a66a1ebd7ebc5abc1b2f405a945f6d871521',
   'src/tools/swarming_client':
     (Var("chromium_git")) + '/external/swarming.client.git@e4288c3040a32f2e7ad92f957668f2ee3d36e5a6',
-  'src/v8':
-    (Var("chromium_git")) + '/v8/v8.git@f8cbe2768cc88cb40e24c929fb28965bfb0ca6fe'
+  #'src/v8':
+  #  (Var("chromium_git")) + '/v8/v8.git@f8cbe2768cc88cb40e24c929fb28965bfb0ca6fe'
+  #  (Var("nwjs_git")) + '/v8.git@origin/nw16',
+  #'src/content/nw':
+  #  (Var("nwjs_git")) + '/nw.js.git@origin/nw16',
+  #'src/third_party/node':
+  #  (Var("nwjs_git")) + '/node.git@origin/nw16',
 }
 
 deps_os = {
@@ -952,7 +959,18 @@ hooks = [
       '.',
     'name':
       'doclava'
-  }
+  },
+  {
+    'action': [
+      'python',
+      'src/content/nw/tools/patcher.py',
+      '--patch-config', 'src/content/nw/patch/patch.cfg'
+    ],
+    'pattern':
+      '.',
+    'name':
+      'nw_patch'
+  },
 ]
 
 include_rules = [
