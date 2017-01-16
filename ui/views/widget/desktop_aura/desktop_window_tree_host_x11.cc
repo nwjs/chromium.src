@@ -63,6 +63,8 @@
 #include "ui/wm/core/compound_event_filter.h"
 #include "ui/wm/core/window_util.h"
 
+#include "content/nw/src/browser/global_menu_bar_x11.h"
+
 DECLARE_WINDOW_PROPERTY_TYPE(views::DesktopWindowTreeHostX11*);
 
 namespace content {
@@ -359,6 +361,7 @@ void DesktopWindowTreeHostX11::Close() {
 }
 
 void DesktopWindowTreeHostX11::CloseNow() {
+  global_menu_bar_x11_.reset();
   if (xwindow_ == None)
     return;
 
@@ -2102,6 +2105,16 @@ ui::NativeTheme* DesktopWindowTreeHost::GetNativeTheme(aura::Window* window) {
   }
 
   return ui::NativeThemeAura::instance();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// DesktopWindowTreeHostX11, public:
+// NW fix
+
+void DesktopWindowTreeHostX11::SetGlobalMenu(ui::MenuModel* model) {
+  global_menu_bar_x11_.reset(model ?
+                               new nw::GlobalMenuBarX11(this, model) :
+                               nullptr);
 }
 
 }  // namespace views

@@ -123,6 +123,7 @@ component("views") {
       if (use_atk) {
         sources += gypi_values.views_desktop_aura_x11_sources
         configs += [ "//build/config/linux/atk" ]
+        deps += [ "//build/linux/libgio:libgio" ]
       } else if (is_win) {
         sources += gypi_values.views_desktop_aura_win_sources
       } else if (use_ozone) {
