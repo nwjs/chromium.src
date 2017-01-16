@@ -30,9 +30,10 @@ var try_hidden = function (view) {
 };
 
 var try_nw = function (view) {
-  if (view.nw)
-    return view;
-  return privates(view);
+  if (view.nw) {
+    return true;
+  }
+  return false;
 };
 
 Object.defineProperty(Bounds.prototype, 'left', {
@@ -203,7 +204,9 @@ appWindow.registerCustomHook(function(bindingsAPI) {
   apiFunctions.setHandleRequest('getAll', function() {
     var views = runtimeNatives.GetExtensionViews(-1, -1, 'APP_WINDOW');
     return $Array.map(views, function(win) {
-      try_nw(win).nw.Window.get(); //construct the window object for NWJS#5294
+      if(try_nw(win)) {
+        win.nw.Window.get(); //construct the window object for NWJS#5294
+      }
       return try_hidden(win).chrome.app.window.current();
     });
   });
