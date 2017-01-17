@@ -263,13 +263,8 @@ void GpuRasterBufferProvider::PlaybackOnWorkerThread(
       raster_source, resource_has_previous_content, resource_lock->size(),
       raster_full_rect, raster_dirty_rect, scales, playback_settings);
 
-  // Turn on distance fields for layers that have ever animated.
-  bool use_distance_field_text =
-      use_distance_field_text_ ||
-      raster_source->ShouldAttemptToUseDistanceFieldText();
-
   RasterizePicture(picture.get(), worker_context_provider_, resource_lock,
-                   async_worker_context_enabled_, use_distance_field_text,
+                   async_worker_context_enabled_, use_distance_field_text_,
                    raster_source->CanUseLCDText(), msaa_sample_count_,
                    raster_source->image_decode_controller(),
                    playback_settings.use_image_hijack_canvas);
