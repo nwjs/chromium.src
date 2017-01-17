@@ -126,9 +126,7 @@
 #include "content/public/browser/provision_fetcher_impl.h"
 #endif
 
-#if defined(ENABLE_WEBVR)
 #include "device/vr/vr_service_impl.h"  // nogncheck
-#endif
 
 using base::TimeDelta;
 
@@ -239,6 +237,11 @@ class RemoterFactoryImpl final : public media::mojom::RemoterFactory {
   DISALLOW_COPY_AND_ASSIGN(RemoterFactoryImpl);
 };
 #endif  // BUILDFLAG(ENABLE_MEDIA_REMOTING)
+
+template <typename Interface>
+void IgnoreInterfaceRequest(mojo::InterfaceRequest<Interface> request) {
+  // Intentionally ignore the interface request.
+}
 
 }  // namespace
 
@@ -2274,7 +2277,11 @@ void RenderFrameHostImpl::RegisterMojoInterfaces() {
 #if defined(ENABLE_WEBVR)
   GetInterfaceRegistry()->AddInterface<device::mojom::VRService>(
       base::Bind(&device::VRServiceImpl::BindRequest));
+#else
+  GetInterfaceRegistry()->AddInterface<device::mojom::VRService>(
+      base::Bind(&IgnoreInterfaceRequest<device::mojom::VRService>));
 #endif
+
   if (base::FeatureList::IsEnabled(features::kGenericSensor)) {
     GetInterfaceRegistry()->AddInterface(
         base::Bind(&device::SensorProviderImpl::Create,
