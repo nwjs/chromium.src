@@ -203,7 +203,9 @@ appWindow.registerCustomHook(function(bindingsAPI) {
   apiFunctions.setHandleRequest('getAll', function() {
     var views = runtimeNatives.GetExtensionViews(-1, -1, 'APP_WINDOW');
     return $Array.map(views, function(win) {
-      try_nw(win).nw.Window.get(); //construct the window object for NWJS#5294
+      if (win.nw) {
+        try_nw(win).nw.Window.get(); //construct the window object for NWJS#5294
+      }
       return try_hidden(win).chrome.app.window.current();
     });
   });
