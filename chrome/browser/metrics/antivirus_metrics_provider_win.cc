@@ -10,6 +10,7 @@
 #include <windows.h>
 #include <wscapi.h>
 
+#include <algorithm>
 #include <string>
 
 #include "base/bind.h"
@@ -21,6 +22,7 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/path_service.h"
+#include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/task_runner_util.h"
@@ -56,6 +58,20 @@ struct PRODUCT_STATE {
 #pragma pack(pop)
 
 static_assert(sizeof(PRODUCT_STATE) == 4, "Wrong packing!");
+
+// Filter any part of a product string that looks like it might be a version
+// number. Returns true if the part should be removed from the product name.
+bool ShouldFilterPart(const std::string& str) {
+  // Special case for "360" (used by Norton), "365" (used by Kaspersky) and
+  // "NOD32" (used by ESET).
+  if (str == "365" || str == "360" || str == "NOD32")
+    return false;
+  for (const auto ch : str) {
+    if (isdigit(ch))
+      return true;
+  }
+  return false;
+}
 
 bool ShouldReportFullNames() {
   // The expectation is that this will be disabled for the majority of users,
@@ -185,6 +201,22 @@ AntiVirusMetricsProvider::GetAntiVirusProductsOnFileThread() {
   return av_products;
 }
 
+std::string AntiVirusMetricsProvider::TrimVersionOfAvProductName(
+    const std::string& av_product) {
+  auto av_product_parts = base::SplitString(
+      av_product, " ", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+
+  if (av_product_parts.size() >= 2) {
+    // Skipping first element, remove any that look like version numbers.
+    av_product_parts.erase(
+        std::remove_if(av_product_parts.begin() + 1, av_product_parts.end(),
+                       ShouldFilterPart),
+        av_product_parts.end());
+  }
+
+  return base::JoinString(av_product_parts, " ");
+}
+
 void AntiVirusMetricsProvider::GotAntiVirusProducts(
     const base::Closure& done_callback,
     const std::vector<AvProduct>& av_products) {
@@ -264,8 +296,8 @@ AntiVirusMetricsProvider::FillAntiVirusProductsFromWSC(
     result = product->get_ProductName(product_name.Receive());
     if (FAILED(result))
       return RESULT_FAILED_TO_GET_PRODUCT_NAME;
-    std::string name =
-        base::SysWideToUTF8(std::wstring(product_name, product_name.Length()));
+    std::string name = TrimVersionOfAvProductName(
+        base::SysWideToUTF8(std::wstring(product_name, product_name.Length())));
     product_name.Release();
     if (ShouldReportFullNames())
       av_product.set_product_name(name);
@@ -395,7 +427,7 @@ AntiVirusMetricsProvider::FillAntiVirusProductsFromWMI(
 
     // Owned by ScopedVariant.
     BSTR temp_bstr = V_BSTR(display_name.ptr());
-    std::string name(base::SysWideToUTF8(
+    std::string name = TrimVersionOfAvProductName(base::SysWideToUTF8(
         std::wstring(temp_bstr, ::SysStringLen(temp_bstr))));
 
     if (ShouldReportFullNames())
