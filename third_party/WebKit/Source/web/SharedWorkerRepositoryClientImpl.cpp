@@ -120,7 +120,8 @@ void SharedWorkerRepositoryClientImpl::connect(
     WebMessagePortChannelUniquePtr port,
     const KURL& url,
     const String& name,
-    ExceptionState& exceptionState) {
+    ExceptionState& exceptionState,
+    bool isNodeJS) {
   DCHECK(m_client);
 
   // No nested workers (for now) - connect() should only be called from document
@@ -148,7 +149,7 @@ void SharedWorkerRepositoryClientImpl::connect(
   bool isSecureContext =
       worker->getExecutionContext()->isSecureContext(unusedSecureContextError);
   std::unique_ptr<WebSharedWorkerConnector> webWorkerConnector =
-      wrapUnique(m_client->createSharedWorkerConnector(
+    wrapUnique(m_client->createSharedWorkerConnector(isNodeJS,
           url, name, getId(document), header, headerType,
           worker->getExecutionContext()->securityContext().addressSpace(),
           isSecureContext ? WebSharedWorkerCreationContextTypeSecure

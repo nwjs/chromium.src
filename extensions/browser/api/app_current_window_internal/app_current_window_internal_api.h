@@ -145,6 +145,16 @@ class AppCurrentWindowInternalSetSizeConstraintsFunction
   ResponseAction Run() override;
 };
 
+class AppCurrentWindowInternalSetResizableFunction
+    : public AppCurrentWindowInternalExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("app.currentWindowInternal.setResizable",
+                             UNKNOWN)
+ protected:
+  ~AppCurrentWindowInternalSetResizableFunction() override {}
+  ResponseAction Run() override;
+};
+
 class AppCurrentWindowInternalSetIconFunction
     : public AppCurrentWindowInternalExtensionFunction {
  public:

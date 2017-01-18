@@ -35,7 +35,7 @@
 #include <v8.h>
 
 namespace blink {
-
+class WebFrame;
 // Initialize the entire Blink (wtf, platform, core, modules and web).
 // If you just need wtf and platform, use Platform::initialize instead.
 //
@@ -58,6 +58,8 @@ BLINK_EXPORT void shutdown();
 BLINK_EXPORT void setLayoutTestMode(bool);
 BLINK_EXPORT bool layoutTestMode();
 
+BLINK_EXPORT void set_web_worker_hooks(void*);
+BLINK_EXPORT void fix_gamepad_nw(WebFrame*);
 // Enables or disables the use of the mock theme for layout tests. This function
 // must be called only if setLayoutTestMode(true).
 BLINK_EXPORT void setMockThemeEnabledForTest(bool);

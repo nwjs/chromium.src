@@ -102,6 +102,20 @@
             }
           },
           {
+            "name": "getListeners",
+            "nocompile": true,
+            "type": "function",
+            "parameters": [],
+            "returns": {
+              "type": "array",
+              "items": {
+                  "type": "object",
+                  "additionalProperties": { "type": "any" }
+              },
+              "description": "get all listeners"
+            }
+          },
+          {
             "name": "addRules",
             "type": "function",
             "description": "Registers rules to handle events.",

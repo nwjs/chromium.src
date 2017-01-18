@@ -46,7 +46,8 @@ DOMWindow* createWindow(const String& urlString,
 
 void createWindowForRequest(const FrameLoadRequest&,
                             LocalFrame& openerFrame,
-                            NavigationPolicy);
+                            NavigationPolicy,
+                            WebString& manifest);
 
 }  // namespace blink
 

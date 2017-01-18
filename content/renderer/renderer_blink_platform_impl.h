@@ -201,7 +201,7 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   void recordRapporURL(const char* metric, const blink::WebURL& url) override;
 
   blink::WebTrialTokenValidator* trialTokenValidator() override;
-  void workerContextCreated(const v8::Local<v8::Context>& worker) override;
+  void workerContextCreated(const v8::Local<v8::Context>& worker, bool, const std::string&) override;
 
   // Set the PlatformEventObserverBase in |platform_event_observers_| associated
   // with |type| to |observer|. If there was already an observer associated to
