@@ -56,10 +56,7 @@ InkDropHighlightTest::InkDropHighlightTest() {
       gfx::Size(10, 10), 3, gfx::PointF(), SK_ColorBLACK));
 }
 
-InkDropHighlightTest::~InkDropHighlightTest() {
-  // Destory highlight to make sure it is destroyed before the observer.
-  DestroyHighlight();
-}
+InkDropHighlightTest::~InkDropHighlightTest() {}
 
 void InkDropHighlightTest::InitHighlight(
     std::unique_ptr<InkDropHighlight> new_highlight) {
