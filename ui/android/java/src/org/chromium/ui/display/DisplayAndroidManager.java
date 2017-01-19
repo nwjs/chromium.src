@@ -214,7 +214,8 @@ import org.chromium.ui.gfx.DeviceDisplayInfo;
         return (DisplayManager) getContext().getSystemService(Context.DISPLAY_SERVICE);
     }
 
-    private static void updateDeviceDisplayInfo() {
+    private void updateDeviceDisplayInfo() {
+        if (mNativePointer == 0) return;
         DeviceDisplayInfo.create(getContext()).updateNativeSharedDisplayInfo();
     }
 
@@ -257,6 +258,7 @@ import org.chromium.ui.gfx.DeviceDisplayInfo;
         for (int i = 0; i < mIdMap.size(); ++i) {
             updateDisplayOnNativeSide(mIdMap.valueAt(i));
         }
+        updateDeviceDisplayInfo();
     }
 
     /* package */ DisplayAndroid getDisplayAndroid(Display display) {
