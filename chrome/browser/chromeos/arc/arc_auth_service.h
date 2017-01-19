@@ -208,6 +208,8 @@ class ArcAuthService : public ArcService,
                      bool is_backup_and_restore_enabled,
                      bool is_location_service_enabled) override;
   void OnAuthSucceeded(const std::string& auth_code) override;
+  void OnAuthFailed() override;
+
   void OnRetryClicked() override;
   void OnSendFeedbackClicked() override;
 

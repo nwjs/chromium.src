@@ -454,6 +454,7 @@ void ArcAuthService::OnContextPrepared(
   if (request_context_getter) {
     support_host_->ShowLso();
   } else {
+    UpdateOptInCancelUMA(OptInCancelReason::NETWORK_ERROR);
     support_host_->ShowError(ArcSupportHost::Error::SIGN_IN_NETWORK_ERROR,
                              false);
   }
@@ -1109,6 +1110,12 @@ void ArcAuthService::OnTermsAgreed(bool is_metrics_enabled,
 void ArcAuthService::OnAuthSucceeded(const std::string& auth_code) {
   DCHECK(support_host_);
   OnAuthCodeObtained(auth_code);
+}
+
+void ArcAuthService::OnAuthFailed() {
+  // Don't report via callback. Extension is already showing more detailed
+  // information. Update only UMA here.
+  UpdateOptInCancelUMA(OptInCancelReason::NETWORK_ERROR);
 }
 
 void ArcAuthService::OnRetryClicked() {
