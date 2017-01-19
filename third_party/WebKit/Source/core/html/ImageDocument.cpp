@@ -580,7 +580,7 @@ bool ImageDocument::shouldShrinkToFit() const {
   // loop as the contents then resize to match the window. To prevent this,
   // disallow images from shrinking to fit for WebViews.
   bool isWrapContentWebView =
-      page() ? page()->settings().getForceZeroLayoutHeight() : false;
+      page() ? page()->settings().forceZeroLayoutHeight() : false;
   return frame()->isMainFrame() && !isWrapContentWebView;
 }
 
