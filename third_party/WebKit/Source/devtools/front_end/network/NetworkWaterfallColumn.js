@@ -359,7 +359,7 @@ Network.NetworkWaterfallColumn = class extends UI.VBox {
     if (this._borderColorsForResourceTypeCache.has(resourceType))
       return this._borderColorsForResourceTypeCache.get(resourceType);
     var colorsForResourceType = Network.NetworkWaterfallColumn._colorsForResourceType;
-    var color = colorsForResourceType[resourceType] || colorsForResourceType.Other;
+    var color = colorsForResourceType[resourceType] || colorsForResourceType.other;
     var parsedColor = Common.Color.parse(color);
     var hsla = parsedColor.hsla();
     hsla[1] /= 2;
@@ -377,7 +377,7 @@ Network.NetworkWaterfallColumn = class extends UI.VBox {
   _colorForResourceType(context, request) {
     var colorsForResourceType = Network.NetworkWaterfallColumn._colorsForResourceType;
     var resourceType = request.resourceType();
-    var color = colorsForResourceType[resourceType] || colorsForResourceType.Other;
+    var color = colorsForResourceType[resourceType] || colorsForResourceType.other;
     if (request.cached())
       return color;
 
@@ -610,6 +610,7 @@ Network.NetworkWaterfallColumn = class extends UI.VBox {
  */
 Network.NetworkWaterfallColumn.RequestData;
 
+/** @enum {string} */
 Network.NetworkWaterfallColumn._colorsForResourceType = {
   document: 'hsl(215, 100%, 80%)',
   font: 'hsl(8, 100%, 80%)',
