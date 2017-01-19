@@ -505,6 +505,17 @@ void ArcAuthService::OnSignInFailed(mojom::ArcSignInFailureReason reason) {
 void ArcAuthService::OnProvisioningFinished(ProvisioningResult result) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
+  // If the Mojo message to notify finishing the provisioning is already sent
+  // from the container, it will be processed even after requesting to stop the
+  // container. Ignore all |result|s arriving while ARC is disabled, in order to
+  // avoid popping up an error message triggered below. This code intentionally
+  // does not support the case of reenabling.
+  if (!IsArcEnabled()) {
+    LOG(WARNING) << "Provisioning result received after Arc was disabled. "
+                 << "Ignoring result " << static_cast<int>(result) << ".";
+    return;
+  }
+
   // Due asynchronous nature of stopping Arc bridge, OnProvisioningFinished may
   // arrive after setting the |State::STOPPED| state and |State::Active| is not
   // guaranty set here. prefs::kArcDataRemoveRequested is also can be active
