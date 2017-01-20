@@ -21,7 +21,6 @@ class NotificationSurface;
 }
 
 namespace views {
-class FocusTraversable;
 class ImageButton;
 class Widget;
 }
@@ -43,7 +42,6 @@ class ArcCustomNotificationView
 
  private:
   class ContentViewDelegate;
-  class CloseButton;
   class EventForwarder;
   class SlideHelper;
 
@@ -66,7 +64,6 @@ class ArcCustomNotificationView
   void OnMouseExited(const ui::MouseEvent& event) override;
   void OnFocus() override;
   void OnBlur() override;
-  views::FocusTraversable* GetFocusTraversable() override;
 
   // views::ButtonListener
   void ButtonPressed(views::Button* sender, const ui::Event& event) override;
