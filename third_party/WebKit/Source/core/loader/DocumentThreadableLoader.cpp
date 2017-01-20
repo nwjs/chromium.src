@@ -397,16 +397,15 @@ void DocumentThreadableLoader::makeCrossOriginAccessRequest(
             effectiveAllowCredentials(), crossOriginRequest.httpMethod(),
             crossOriginRequest.httpHeaderFields());
     if (canSkipPreflight && !shouldForcePreflight) {
-      if (getSecurityOrigin())
-        crossOriginRequest.setHTTPOrigin(getSecurityOrigin());
-      if (m_overrideReferrer)
-        crossOriginRequest.setHTTPReferrer(m_referrerAfterRedirect);
-
       prepareCrossOriginRequest(crossOriginRequest);
       loadRequest(crossOriginRequest, crossOriginOptions);
     } else {
-      ResourceRequest preflightRequest = createAccessControlPreflightRequest(
-          crossOriginRequest, getSecurityOrigin());
+      ResourceRequest preflightRequest =
+          createAccessControlPreflightRequest(crossOriginRequest);
+      // TODO(tyoshino): Call prepareCrossOriginRequest(preflightRequest) to
+      // also set the referrer header.
+      if (getSecurityOrigin())
+        preflightRequest.setHTTPOrigin(getSecurityOrigin());
 
       // Create a ResourceLoaderOptions for preflight.
       ResourceLoaderOptions preflightOptions = crossOriginOptions;
@@ -415,7 +414,6 @@ void DocumentThreadableLoader::makeCrossOriginAccessRequest(
       m_actualRequest = crossOriginRequest;
       m_actualOptions = crossOriginOptions;
 
-      prepareCrossOriginRequest(crossOriginRequest);
       loadRequest(preflightRequest, preflightOptions);
     }
   }
