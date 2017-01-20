@@ -63,9 +63,7 @@ ResourceLoader::ResourceLoader(ResourceFetcher* fetcher, Resource* resource)
   m_resource->setLoader(this);
 }
 
-ResourceLoader::~ResourceLoader() {
-  DCHECK(!m_loader);
-}
+ResourceLoader::~ResourceLoader() {}
 
 DEFINE_TRACE(ResourceLoader) {
   visitor->trace(m_fetcher);
@@ -297,6 +295,10 @@ void ResourceLoader::requestSynchronously(const ResourceRequest& request) {
     m_resource->setResourceBuffer(dataOut);
   }
   didFinishLoading(0, monotonicallyIncreasingTime(), encodedDataLength);
+}
+
+void ResourceLoader::dispose() {
+  m_loader = nullptr;
 }
 
 void ResourceLoader::activateCacheAwareLoadingIfNeeded(
