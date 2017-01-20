@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">Stampa in corso di <ph name="PAGE_NUMBER" /> pagine con <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">Algoritmo di firma certificato</translation>
 <translation id="1221024147024329929">PKCS #1 MD2 con crittografia RSA</translation>
-<translation id="1221462285898798023">Avvia <ph name="PRODUCT_NAME" /> come utente normale. Per eseguirlo come root, devi specificare una directory dati utente alternativa per la memorizzazione delle informazioni sul profilo.</translation>
 <translation id="1221825588892235038">Solo selezione</translation>
 <translation id="1223853788495130632">L'amministratore consiglia un valore specifico per questa impostazione.</translation>
 <translation id="1225177025209879837">Elaborazione della richiesta in corso...</translation>
@@ -1001,6 +1000,7 @@ Dopo avere creato un nuovo utente supervisionato, puoi gestirne le impostazioni 
 <translation id="2286950485307333924">Hai eseguito l'accesso a Chrome</translation>
 <translation id="2287590536030307392">Disattiva tutte le connessioni wireless.</translation>
 <translation id="2291643155573394834">Scheda successiva</translation>
+<translation id="2292848386125228270">Avvia <ph name="PRODUCT_NAME" /> come utente normale. Per eseguirlo come root a fini di sviluppo, esegui di nuovo il flag --no-sandbox.</translation>
 <translation id="2294358108254308676">Installare <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">Metodo EAP:</translation>
 <translation id="2301382460326681002">Directory principale dell'estensione non valida.</translation>
@@ -1322,7 +1322,6 @@ Non credo che questo sito debba essere bloccato.</translation>
 <translation id="271033894570825754">Nuovo</translation>
 <translation id="2711605922826295419">Associazioni di file di app</translation>
 <translation id="2713008223070811050">Gestisci display</translation>
-<translation id="2714393097308983682">Google Play Store</translation>
 <translation id="2716448593772338513">Modalità di caricamento cros-regions</translation>
 <translation id="2718998670920917754">Il software antivirus ha rilevato un virus.</translation>
 <translation id="2721037002783622288">&amp;Cerca l'immagine su <ph name="SEARCH_ENGINE" /></translation>
@@ -3078,7 +3077,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="5000922062037820727">Bloccata (opzione consigliata)</translation>
 <translation id="5010043101506446253">Autorità di certificazione</translation>
 <translation id="501061130239511516">Prova del campo per il feedback sul controllo ortografico</translation>
-<translation id="5010929733229908807">Tutti i dati sono stati crittografati con la tua passphrase di sincronizzazione in data
+<translation id="5010929733229908807">Tutti i dati sono stati criptati con la tua passphrase di sincronizzazione in data
           <ph name="TIME" /></translation>
 <translation id="5011739343823725107">Avvio backend di sincronizzazione non riuscito</translation>
 <translation id="5015344424288992913">Risoluzione proxy in corso...</translation>
@@ -3305,7 +3304,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="5298219193514155779">Tema creato da</translation>
 <translation id="5298363578196989456">Impossibile importare l'estensione "<ph name="IMPORT_NAME" />" perché non è un modulo condiviso.</translation>
 <translation id="5299109548848736476">Non tenere traccia</translation>
-<translation id="5299682071747318445">Tutti i dati vengono crittografati con la tua passphrase di sincronizzazione</translation>
+<translation id="5299682071747318445">Tutti i dati vengono criptati con la tua passphrase di sincronizzazione</translation>
 <translation id="5300589172476337783">Mostra</translation>
 <translation id="5301751748813680278">Accesso come Ospite.</translation>
 <translation id="5301954838959518834">OK</translation>
@@ -4157,7 +4156,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="6426039856985689743">Disattiva dati mobili</translation>
 <translation id="642870617012116879">Questo sito ha tentato di scaricare automaticamente più file.</translation>
 <translation id="6430814529589430811">ASCII con codifica Base64, singolo certificato</translation>
-<translation id="6431217872648827691">Tutti i dati sono stati crittografati con la tua password Google in data
+<translation id="6431217872648827691">Tutti i dati sono stati criptati con la tua password Google in data
           <ph name="TIME" /></translation>
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> imposterà gli aggiornamenti automatici per tutti gli utenti di questo computer.</translation>
 <translation id="6433870913154270462">Info immagine</translation>
@@ -5152,7 +5151,7 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="779798319486679958">Scegli i tipi di carattere</translation>
 <translation id="7799329977874311193">Documento HTML</translation>
 <translation id="7800518121066352902">Ruota in senso anti&amp;orario</translation>
-<translation id="7801746894267596941">Solo un utente che dispone della tua passphrase può leggere i tuoi dati crittografati: la passphrase non viene inviata a Google o memorizzata da Google. Se dimentichi la passphrase, dovrai</translation>
+<translation id="7801746894267596941">Solo un utente che dispone della tua passphrase può leggere i tuoi dati criptati: la passphrase non viene inviata a Google o memorizzata da Google. Se dimentichi la passphrase, dovrai</translation>
 <translation id="780301667611848630">No grazie</translation>
 <translation id="7805768142964895445">Stato</translation>
 <translation id="7806513705704909664">Attiva la Compilazione automatica per compilare i moduli web con un singolo clic.</translation>

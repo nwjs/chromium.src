@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">يتم الآن طباعة <ph name="PAGE_NUMBER" /> من الصفحات على <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">خوارزمية التوقيع على الشهادة</translation>
 <translation id="1221024147024329929">‏PKCS #1 MD2 مع تشفير RSA</translation>
-<translation id="1221462285898798023">‏الرجاء بدء تشغيل <ph name="PRODUCT_NAME" /> كمستخدم عادي. للتشغيل كجذر، يجب تحديد بديل --user-data-dir لتخزين معلومات الملف الشخصي.</translation>
 <translation id="1221825588892235038">التحديد فقط</translation>
 <translation id="1223853788495130632">يوصي المشرف بقيمة محددة لهذا الإعداد.</translation>
 <translation id="1225177025209879837">جارٍ معالجة الطلب...</translation>
@@ -1002,6 +1001,7 @@
 <translation id="2286950485307333924">‏تم تسجيل دخولك الآن إلى Chrome</translation>
 <translation id="2287590536030307392">إيقاف جميع الاتصالات اللاسلكية.</translation>
 <translation id="2291643155573394834">علامة التبويب التالية</translation>
+<translation id="2292848386125228270">يُرجى بدء تشغيل <ph name="PRODUCT_NAME" /> كمستخدم عادي. إذا كنت بحاجة إلى إجراء تشغيل كجذر لأغراض متعلقة بالتطوير، يمكنك إعادة التشغيل باستخدام العلامة التي لا تتضمن وضع الحماية.</translation>
 <translation id="2294358108254308676">هل تريد تثبيت <ph name="PRODUCT_NAME" />؟</translation>
 <translation id="2296019197782308739">‏طريقة EAP:</translation>
 <translation id="2301382460326681002">دليل الجذر للإضافة غير صالح.</translation>
@@ -1323,7 +1323,6 @@
 <translation id="271033894570825754">جديدة</translation>
 <translation id="2711605922826295419">ارتباطات ملف التطبيقات</translation>
 <translation id="2713008223070811050">إدارة العروض</translation>
-<translation id="2714393097308983682">‏متجر Google Play</translation>
 <translation id="2716448593772338513">وضع التحميل عبر المناطق</translation>
 <translation id="2718998670920917754">اكتشف برنامج مكافحة الفيروسات فيروسًا.</translation>
 <translation id="2721037002783622288">&amp;بحث على <ph name="SEARCH_ENGINE" /> عن صورة</translation>

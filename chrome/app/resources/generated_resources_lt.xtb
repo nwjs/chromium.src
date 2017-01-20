@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">Puslapiai (<ph name="PAGE_NUMBER" />) dabar spausdinami spausdintuvu „<ph name="PRINTER_NAME" />“</translation>
 <translation id="122082903575839559">Sertifikato parašo algoritmas</translation>
 <translation id="1221024147024329929">PKCS Nr. 1 MD2 su RSA šifruote</translation>
-<translation id="1221462285898798023">Paleiskite „<ph name="PRODUCT_NAME" />“ kaip įprastas naudotojas. Jei norite paleisti kaip pagrindinis naudotojas, turite nurodyti alternatyvų profilio informacijos saugojimo naudotojo duomenų katalogą.</translation>
 <translation id="1221825588892235038">Tik pasirinkimas</translation>
 <translation id="1223853788495130632">Administratorius rekomenduoja naudoti konkrečią šio nustatymo vertę.</translation>
 <translation id="1225177025209879837">Užklausa apdorojama…</translation>
@@ -1002,6 +1001,7 @@ Sukūrę naują prižiūrimą naudotoją, bet kuriuo metu galite tvarkyti jo nus
 <translation id="2286950485307333924">Esate prisijungę prie „Chrome“</translation>
 <translation id="2287590536030307392">Išjungti visus belaidžius ryšius.</translation>
 <translation id="2291643155573394834">Kitas skirtukas</translation>
+<translation id="2292848386125228270">Paleiskite „<ph name="PRODUCT_NAME" />“ kaip įprastas naudotojas. Jei norite paleisti kaip pagrindinis naudotojas, kad galėtumėte kurti, iš naujo paleiskite naudodami žymą „--no-sandbox“.</translation>
 <translation id="2294358108254308676">Ar norite įdiegti „<ph name="PRODUCT_NAME" />“?</translation>
 <translation id="2296019197782308739">EAP metodas:</translation>
 <translation id="2301382460326681002">Plėtinio šakninis katalogas neteisingas.</translation>
@@ -1324,7 +1324,6 @@ Nemanau, kad ši svetainė turėtų būti užblokuota!</translation>
 <translation id="271033894570825754">Naujiena</translation>
 <translation id="2711605922826295419">Programų failų susiejimas</translation>
 <translation id="2713008223070811050">Valdyti pateiktis</translation>
-<translation id="2714393097308983682">„Google Play“ parduotuvė</translation>
 <translation id="2716448593772338513">Kelių regionų įkėlimo režimas</translation>
 <translation id="2718998670920917754">Antivirusinė programinė įranga aptiko virusą.</translation>
 <translation id="2721037002783622288">&amp;Ieškoti vaizdo sistemoje „<ph name="SEARCH_ENGINE" />“</translation>

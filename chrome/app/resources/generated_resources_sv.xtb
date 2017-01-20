@@ -176,7 +176,6 @@
 <translation id="1218323606465324064"><ph name="PAGE_NUMBER" /> sidor skrivs ut på <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">Certifikatets signaturalgoritm</translation>
 <translation id="1221024147024329929">PKCS #1 MD2 med RSA-kryptering</translation>
-<translation id="1221462285898798023">Starta <ph name="PRODUCT_NAME" /> som vanlig användare. För att köra som root måste du ange en annan -- user-data-dir för lagring av profilinformation.</translation>
 <translation id="1221825588892235038">Endast markering</translation>
 <translation id="1223853788495130632">Administratören rekommenderar ett specifikt värde för den här inställningen.</translation>
 <translation id="1225177025209879837">Begäran bearbetas ...</translation>
@@ -1001,6 +1000,7 @@ När du har skapat en ny kontrollerad användare kan du hantera inställningarna
 <translation id="2286950485307333924">Du är nu inloggad i Chrome</translation>
 <translation id="2287590536030307392">Inaktivera alla trådlösa anslutningar.</translation>
 <translation id="2291643155573394834">Nästa flik</translation>
+<translation id="2292848386125228270">Starta <ph name="PRODUCT_NAME" /> som vanlig användare. Om du behöver köra som systemadministratör startar du om med flaggan --no-sandbox.</translation>
 <translation id="2294358108254308676">Vill du installera <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">EAP-metod:</translation>
 <translation id="2301382460326681002">Tilläggets rotkatalog är ogiltig.</translation>
@@ -1323,7 +1323,6 @@ Jag tycker inte att den här webbplatsen ska blockeras!</translation>
 <translation id="271033894570825754">Ny</translation>
 <translation id="2711605922826295419">Filassociering för appar</translation>
 <translation id="2713008223070811050">Hantera skärmar</translation>
-<translation id="2714393097308983682">Google Play Butik</translation>
 <translation id="2716448593772338513">Läge för inläsning av flera regioner</translation>
 <translation id="2718998670920917754">Antivirusprogrammet har identifierat ett virus.</translation>
 <translation id="2721037002783622288">&amp;Sök på <ph name="SEARCH_ENGINE" /> efter bild</translation>

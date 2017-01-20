@@ -63,7 +63,7 @@
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
 <translation id="1077946062898560804">Skonfiguruj automatyczne aktualizacje dla wszystkich użytkowników</translation>
 <translation id="1079766198702302550">Zawsze blokuj dostęp do kamery</translation>
-<translation id="1082398631555931481"><ph name="THIRD_PARTY_TOOL_NAME" /> chce przywrócić ustawienia Chrome do wartości domyślnych. Spowoduje to zresetowanie strony startowej, strony nowej karty i wyszukiwarki oraz wyłączenie rozszerzeń i odpięcie wszystkich kart. Zostaną też wyczyszczone dane tymczasowe i znajdujące się w pamięci podręcznej – w tym pliki cookie oraz treści i dane stron.</translation>
+<translation id="1082398631555931481"><ph name="THIRD_PARTY_TOOL_NAME" /> chce przywrócić ustawienia Chrome do wartości domyślnych. Spowoduje to zresetowanie strony głównej, strony nowej karty i wyszukiwarki oraz wyłączenie rozszerzeń i odpięcie wszystkich kart. Zostaną też wyczyszczone dane tymczasowe i znajdujące się w pamięci podręcznej – w tym pliki cookie oraz treści i dane stron.</translation>
 <translation id="1082725763867769612">Pliki offline</translation>
 <translation id="1084824384139382525">Kopiuj adr&amp;es linku</translation>
 <translation id="1087119889335281750">&amp;Brak podpowiedzi dotyczących pisowni</translation>
@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">Trwa drukowanie <ph name="PAGE_NUMBER" /> str. na: <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">Algorytm podpisu certyfikatu</translation>
 <translation id="1221024147024329929">PKCS #1, MD2 z szyfrowaniem RSA</translation>
-<translation id="1221462285898798023">Uruchom aplikację <ph name="PRODUCT_NAME" /> jako zwykły użytkownik. Uruchamianie jako użytkownik root wymaga podania alternatywnego katalogu --user-data-dir do przechowywania danych profilu.</translation>
 <translation id="1221825588892235038">Tylko zaznaczenie</translation>
 <translation id="1223853788495130632">Administrator zaleca konkretną wartość dla tego ustawienia.</translation>
 <translation id="1225177025209879837">Przetwarzam żądanie...</translation>
@@ -1001,6 +1000,7 @@ Po utworzeniu nadzorowanego użytkownika możesz w dowolnym czasie i z dowolnego
 <translation id="2286950485307333924">Jesteś teraz zalogowany w Chrome</translation>
 <translation id="2287590536030307392">Wyłącz wszystkie połączenia bezprzewodowe.</translation>
 <translation id="2291643155573394834">Następna karta</translation>
+<translation id="2292848386125228270">Uruchom <ph name="PRODUCT_NAME" /> jako normalny użytkownik. Jeśli jesteś programistą i chcesz skorzystać z konta użytkownika root, uruchom program jeszcze raz z flagą --no-sandbox.</translation>
 <translation id="2294358108254308676">Czy chcesz zainstalować aplikację <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">Metoda EAP:</translation>
 <translation id="2301382460326681002">Główny katalog rozszerzenia jest nieprawidłowy.</translation>
@@ -1323,7 +1323,6 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="271033894570825754">Nowy</translation>
 <translation id="2711605922826295419">Powiązania plików aplikacji</translation>
 <translation id="2713008223070811050">Zarządzaj wyświetlaczami</translation>
-<translation id="2714393097308983682">Sklep Google Play</translation>
 <translation id="2716448593772338513">Tryb ładowania cros-regions</translation>
 <translation id="2718998670920917754">Oprogramowanie antywirusowe wykryło wirusa.</translation>
 <translation id="2721037002783622288">&amp;Szukaj obrazu w <ph name="SEARCH_ENGINE" /></translation>
@@ -2128,7 +2127,7 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="3687701603889589626">Włącza używanie adresów URL chrome:// do uruchamiania rozszerzeń, które bezpośrednio żądają takich uprawnień.</translation>
 <translation id="368789413795732264">Wystąpił błąd podczas próby zapisu pliku: <ph name="ERROR_TEXT" />.</translation>
 <translation id="3688507211863392146">Zapisywać dane w plikach i folderach otwieranych w aplikacji</translation>
-<translation id="3688526734140524629">Zmień wersję</translation>
+<translation id="3688526734140524629">Zmień kanał</translation>
 <translation id="3688578402379768763">Aktualne</translation>
 <translation id="3693415264595406141">Hasło:</translation>
 <translation id="3694027410380121301">Wybierz poprzednią kartę</translation>
@@ -2320,7 +2319,7 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="3930521966936686665">Odtwarzaj na</translation>
 <translation id="3932245045276584535">Nowe wpisy historii wymagają gestu użytkownika.</translation>
 <translation id="3936390757709632190">&amp;Otwórz plik audio w nowej karcie</translation>
-<translation id="3936768791051458634">Zmień wersję...</translation>
+<translation id="3936768791051458634">Zmień kanał...</translation>
 <translation id="3936925983113350642">Wybrane hasło będzie wymagane później do odtworzenia tego certyfikatu. Zapisz je w bezpiecznym miejscu.</translation>
 <translation id="3936999098172113189">Czekam na wydrukowanie <ph name="PAGE_NUMBER" /> stron na: <ph name="PRINTER_NAME" /></translation>
 <translation id="3937640725563832867">Alternatywna nazwa wystawcy certyfikatu</translation>
@@ -2556,7 +2555,7 @@ Aby kontynuować, wszyscy użytkownicy muszą się wylogować.</translation>
 <translation id="4267171000817377500">Wtyczki</translation>
 <translation id="4268025649754414643">Szyfrowanie klucza</translation>
 <translation id="4268574628540273656">Adres URL:</translation>
-<translation id="4269006336413657989">Zapamiętaj mój wybór dla linków <ph name="APPLICATION" /></translation>
+<translation id="4269006336413657989">Zapamiętaj mój wybór dla linków z aplikacji <ph name="APPLICATION" /></translation>
 <translation id="4270393598798225102">Wersja <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Brak zgodnych wyników</translation>
 <translation id="4275830172053184480">Zrestartuj urządzenie</translation>
@@ -2571,7 +2570,7 @@ Aby kontynuować, wszyscy użytkownicy muszą się wylogować.</translation>
 <translation id="4287167099933143704">Wprowadź klucz odblokowujący kod PIN</translation>
 <translation id="4287502004382794929">Nie masz wystarczającej liczby licencji na oprogramowanie, by zarejestrować to urządzenie. Aby dokupić licencje, skontaktuj się z działem sprzedaży. Jeśli uważasz, że widzisz tę wiadomość z powodu błędu, skontaktuj się z obsługą klienta.</translation>
 <translation id="4289300219472526559">Zacznij mówić</translation>
-<translation id="4289540628985791613">Omówienie</translation>
+<translation id="4289540628985791613">Przegląd</translation>
 <translation id="4291779358799919071">Pojemność</translation>
 <translation id="4295944351946828969">Bezpieczne przeglądanie Google ostatnio <ph name="BEGIN_LINK" />wykryło szkodliwe programy<ph name="END_LINK" /> na <ph name="SITE" />. <ph name="BEGIN_LEARN_MORE_LINK" />Dowiedz się więcej<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="4296575653627536209">Dodaj nadzorowanego użytkownika</translation>
@@ -3741,7 +3740,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5851063901794976166">Niczego tu nie ma...</translation>
 <translation id="5851868085455377790">Wystawca</translation>
 <translation id="5852112051279473187">Ups, coś się kompletnie nie udało podczas próby zarejestrowania tego urządzenia. Spróbuj ponownie lub skontaktuj się z przedstawicielem obsługi klienta.</translation>
-<translation id="5852137567692933493">Uruchom ponownie i użyj Powerwash</translation>
+<translation id="5852137567692933493">Uruchom ponownie i wykonaj Powerwash</translation>
 <translation id="5854409662653665676">Jeśli często natrafiasz na problemy, możesz spróbować następujących czynności w celu rozwiązania problemu z tym modułem:</translation>
 <translation id="5854912040170951372">Kawałek pizzy</translation>
 <translation id="5855119960719984315">przełącz okno</translation>
@@ -4143,7 +4142,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="6409731863280057959">Wyskakujące okienka</translation>
 <translation id="6410063390789552572">Nie można uzyskać dostępu do biblioteki sieciowej</translation>
 <translation id="6410257289063177456">Pliki graficzne</translation>
-<translation id="6410328738210026208">Zmień wersję i włącz Powerwash</translation>
+<translation id="6410328738210026208">Zmień kanał i wykonaj Powerwash</translation>
 <translation id="6410668567036790476">Dodaj wyszukiwarkę</translation>
 <translation id="641105183165925463">$1 MB</translation>
 <translation id="6412931879992742813">Nowe okno incognito</translation>
@@ -4870,7 +4869,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="7405422715075171617">Włącz skanowanie numeru nowej karty kredytowej podczas wypełniania formularza karty kredytowej.</translation>
 <translation id="740624631517654988">Zablokowano wyskakujące okienko</translation>
 <translation id="7406691462051376731">To urządzenie obecnie wysyła do Google dane diagnostyczne i informacje o użytkowaniu. To <ph name="BEGIN_LINK1" />ustawienie<ph name="END_LINK1" /> jest narzucone przez właściciela urządzenia. <ph name="BEGIN_LINK2" />Więcej informacji<ph name="END_LINK2" /></translation>
-<translation id="7409233648990234464">Uruchom ponownie i włącz Powerwash</translation>
+<translation id="7409233648990234464">Uruchom ponownie i wykonaj Powerwash</translation>
 <translation id="7409836189476010449">uruchomić Flasha</translation>
 <translation id="7410344089573941623">Pytaj, gdy witryna <ph name="HOST" /> chce mieć dostęp do kamery i mikrofonu</translation>
 <translation id="7412226954991670867">Pamięć GPU</translation>
@@ -5381,7 +5380,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="80974698889265265">Kody PIN są różne</translation>
 <translation id="8098975406164436557">Chcesz tym telefonem odblokowywać swoje urządzenie (<ph name="DEVICE_TYPE" />)?</translation>
 <translation id="810066391692572978">Plik korzysta z nieobsługiwanych funkcji.</translation>
-<translation id="8101987792947961127">Przy następnym uruchomieniu trzeba włączyć Powerwash</translation>
+<translation id="8101987792947961127">Przy następnym uruchomieniu trzeba wykonać Powerwash</translation>
 <translation id="8102535138653976669"><ph name="PRODUCT_NAME" /> bezpiecznie synchronizuje dane z Twoim kontem Google. Możesz synchronizować wszystkie lub tylko niektóre dane oraz dostosować ustawienia szyfrowania.</translation>
 <translation id="8104696615244072556">Wykonaj Powerwash na urządzeniu z <ph name="IDS_SHORT_PRODUCT_NAME" /> i przywróć poprzednią wersję.</translation>
 <translation id="8105368624971345109">Wyłącz</translation>

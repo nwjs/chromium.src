@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">Se están imprimiendo <ph name="PAGE_NUMBER" /> páginas en <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">Algoritmo de firma del certificado</translation>
 <translation id="1221024147024329929">PKCS N. º 1 MD2 con encriptación RSA</translation>
-<translation id="1221462285898798023">Inicia <ph name="PRODUCT_NAME" /> como un usuario normal. Para ejecutar como raíz, debes especificar un directorio de datos del usuario alternativo para almacenar la información de perfil.</translation>
 <translation id="1221825588892235038">Solo selección</translation>
 <translation id="1223853788495130632">El administrador recomienda un valor específico para esta configuración.</translation>
 <translation id="1225177025209879837">Procesando la solicitud...</translation>
@@ -998,6 +997,7 @@ Después de crear un usuario supervisado nuevo, puedes administrar las opciones 
 <translation id="2286950485307333924">Accediste a Chrome</translation>
 <translation id="2287590536030307392">Desactivar todas las conexiones inalámbricas</translation>
 <translation id="2291643155573394834">Siguiente pestaña</translation>
+<translation id="2292848386125228270">Inicia <ph name="PRODUCT_NAME" /> como usuario normal. Si necesitas ejecutarlo como administrador para su desarrollo, vuelve a ejecutarlo con la marca --no-sandbox.</translation>
 <translation id="2294358108254308676">¿Deseas instalar <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">Método EAP:</translation>
 <translation id="2301382460326681002">El directorio de raíz de la extensión no es válido.</translation>
@@ -1320,7 +1320,6 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="271033894570825754">Nuevo</translation>
 <translation id="2711605922826295419">Asociaciones de archivos de apps</translation>
 <translation id="2713008223070811050">Administrar pantallas</translation>
-<translation id="2714393097308983682">Google Play Store</translation>
 <translation id="2716448593772338513">Modo de carga interregional</translation>
 <translation id="2718998670920917754">El software antivirus detectó un virus.</translation>
 <translation id="2721037002783622288">Buscar imagen en <ph name="SEARCH_ENGINE" /></translation>

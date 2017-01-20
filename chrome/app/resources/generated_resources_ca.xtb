@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">S'estan imprimint <ph name="PAGE_NUMBER" /> pàgines a <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">Algoritme de signatura del certificat</translation>
 <translation id="1221024147024329929">PKCS #1 MD2 amb encriptació RSA</translation>
-<translation id="1221462285898798023">Inicieu <ph name="PRODUCT_NAME" /> com a usuari normal. Per executar-lo com a arrel, heu d'especificar un directori de dades d'usuari alternatiu per emmagatzemar la informació del perfil.</translation>
 <translation id="1221825588892235038">Només la selecció</translation>
 <translation id="1223853788495130632">L'administrador us recomana un valor específic per a aquesta configuració.</translation>
 <translation id="1225177025209879837">S'està processant la sol·licitud...</translation>
@@ -1002,6 +1001,7 @@ Quan hàgiu creat un usuari supervisat, podeu gestionar-ne la configuració en q
 <translation id="2286950485307333924">Heu iniciat la sessió a Chrome</translation>
 <translation id="2287590536030307392">Desactiva totes les connexions sense fil.</translation>
 <translation id="2291643155573394834">Pestanya següent</translation>
+<translation id="2292848386125228270">Inicia <ph name="PRODUCT_NAME" /> com un usuari normal. Si l'has d'executar com a arrel per fer-ne desenvolupament, torna a executar-lo amb la marca que indica que no és zona de proves.</translation>
 <translation id="2294358108254308676">Voleu instal·lar <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">Mètode EAP:</translation>
 <translation id="2301382460326681002">El directori arrel de l'extensió no és vàlid.</translation>
@@ -1323,7 +1323,6 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="271033894570825754">Nou</translation>
 <translation id="2711605922826295419">Associacions de fitxers per a les aplicacions</translation>
 <translation id="2713008223070811050">Gestió de pantalles</translation>
-<translation id="2714393097308983682">Google Play Store</translation>
 <translation id="2716448593772338513">Mode de càrrega multiregió</translation>
 <translation id="2718998670920917754">El programari antivirus ha detectat un virus.</translation>
 <translation id="2721037002783622288">&amp;Cerca la imatge a <ph name="SEARCH_ENGINE" /></translation>
@@ -1721,7 +1720,7 @@ Consulteu el vostre correu electrònic (<ph name="ACCOUNT_EMAIL" />) per obtenir
 <translation id="3177048931975664371">Feu clic per amagar la contrasenya</translation>
 <translation id="3177909033752230686">Idioma de la pàgina:</translation>
 <translation id="3180365125572747493">Introduïu una contrasenya per encriptar aquest fitxer de certificat.</translation>
-<translation id="3181110748548073003">Prem <ph name="SHORTCUT" /> per avançar</translation>
+<translation id="3181110748548073003">Prem |<ph name="SHORTCUT" />| per avançar</translation>
 <translation id="3182749001423093222">Corrector ortogràfic</translation>
 <translation id="3183139917765991655">Importador de perfils</translation>
 <translation id="3184560914950696195">No es pot desar a $1. Les imatges modificades es desaran a la carpeta Baixades.</translation>
@@ -3508,7 +3507,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="5542132724887566711">Perfil</translation>
 <translation id="5543983818738093899">S'està comprovant l'estat...</translation>
 <translation id="5544363333869861395">Desa les dades de l'analitzador V8 a la memòria cau.</translation>
-<translation id="5546477470896554111">Gestioneu la font d'alimentació…</translation>
+<translation id="5546477470896554111">Gestiona la font d'alimentació…</translation>
 <translation id="5546865291508181392">Cerca</translation>
 <translation id="5548207786079516019">Aquesta és una instal·lació secundària de <ph name="PRODUCT_NAME" /> i no pot definir-se com a navegador predeterminat.</translation>
 <translation id="5552766427357412199">Cert (quan no s'especifica)</translation>
@@ -3599,7 +3598,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="5676267133227121599">Accediu a totes les contrasenyes des de qualsevol dispositiu a <ph name="MANAGEMENT_LINK" />.</translation>
 <translation id="5677503058916217575">Idioma de la pàgina:</translation>
 <translation id="5677850799565527075">Bloqueja les galetes de tercers.</translation>
-<translation id="5677928146339483299">Bloquejat</translation>
+<translation id="5677928146339483299">Bloquejades</translation>
 <translation id="5678550637669481956">S'ha concedit accés de lectura i d'escriptura a <ph name="VOLUME_NAME" />.</translation>
 <translation id="567881659373499783">Versió <ph name="PRODUCT_VERSION" /></translation>
 <translation id="5678955352098267522">Llegir les dades del lloc <ph name="WEBSITE_1" /></translation>
@@ -3919,7 +3918,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="6110466548232134880"><ph name="ISSUER" /> ha verificat la identitat de l'organització <ph name="ORGANIZATION" /> a <ph name="LOCALITY" />. El servidor no ha proporcionat informació de Transparència de certificats.</translation>
 <translation id="6111770213269631447">Transliteració (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Edita la persona (<ph name="PROFILE_NAME" />, <ph name="USERNAME" />)</translation>
-<translation id="6115424132962100663">Prem <ph name="SHORTCUT" /> per tornar enrere</translation>
+<translation id="6115424132962100663">Prem |<ph name="SHORTCUT" />| per tornar enrere</translation>
 <translation id="6116921718742659598">Canvia la configuració d'idioma i d'introducció de text</translation>
 <translation id="6120205520491252677">Fixa aquesta pàgina a la pantalla d'inici...</translation>
 <translation id="6122081475643980456">La vostra connexió a Internet s'està controlant</translation>
@@ -4883,7 +4882,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="7420236214119624338">Força que les opcions de recàrrega de la interfície activin l'opció de tornar a carregar sense validació (quan la marca està desactivada, sol tornar a carregar de manera normal i validar la memòria cau).</translation>
 <translation id="7421925624202799674">&amp;Visualitza l'origen de la pàgina</translation>
 <translation id="7422192691352527311">Preferències...</translation>
-<translation id="7423098979219808738">Demana primer</translation>
+<translation id="7423098979219808738">Pregunta-m'ho abans</translation>
 <translation id="742576991347325436">Si s'activa, a la previsualització de la impressió hi haurà una opció per canviar l'escala dels documents.</translation>
 <translation id="7427315641433634153">MSCHAP</translation>
 <translation id="7427348830195639090">Pàgina en segon pla: <ph name="BACKGROUND_PAGE_URL" /></translation>

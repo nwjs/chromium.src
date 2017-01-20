@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">На принтері "<ph name="PRINTER_NAME" />" зараз друкується стільки сторінок: <ph name="PAGE_NUMBER" /></translation>
 <translation id="122082903575839559">Алгоритм підпису сертифіката</translation>
 <translation id="1221024147024329929">PKCS #1 MD2 із шифруванням RSA</translation>
-<translation id="1221462285898798023">Почніть роботу з <ph name="PRODUCT_NAME" /> як звичайний користувач. Щоб запустити програму з кореневого каталогу, потрібно вказати альтернативу (user-data-dir) для зберігання інформації профілю.</translation>
 <translation id="1221825588892235038">Лише виділений фрагмент</translation>
 <translation id="1223853788495130632">Адміністратор рекомендує конкретне значення для цього налаштування.</translation>
 <translation id="1225177025209879837">Обробка запиту…</translation>
@@ -1001,6 +1000,7 @@
 <translation id="2286950485307333924">Ви ввійшли в Chrome</translation>
 <translation id="2287590536030307392">Вимкнути всі бездротові з’єднання.</translation>
 <translation id="2291643155573394834">Наступна вкладка</translation>
+<translation id="2292848386125228270">Почніть роботу з <ph name="PRODUCT_NAME" /> як звичайний користувач. Щоб запустити програму для розробки з кореневого каталогу, перезапустіть її, поставивши прапорець біля опції "--не в ізольованому програмному середовищі".</translation>
 <translation id="2294358108254308676">Установити <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">Метод EAP:</translation>
 <translation id="2301382460326681002">Кореневий каталог розширення недійсний.</translation>
@@ -1323,7 +1323,6 @@
 <translation id="271033894570825754">Новий</translation>
 <translation id="2711605922826295419">Зв’язок файлів додатків</translation>
 <translation id="2713008223070811050">Керувати дисплеями</translation>
-<translation id="2714393097308983682">Магазин Google Play</translation>
 <translation id="2716448593772338513">Режим завантаження cross-regions</translation>
 <translation id="2718998670920917754">Антивірусне програмне забезпечення виявило вірус.</translation>
 <translation id="2721037002783622288">Шукати зображення в <ph name="SEARCH_ENGINE" /></translation>
@@ -3733,7 +3732,7 @@
 <translation id="5839277899276241121">Така ж, як платіжна адреса</translation>
 <translation id="5846929185714966548">Вкладка 4</translation>
 <translation id="5848611547125462673">Примусово вибирати "true" для всіх</translation>
-<translation id="5848934677402291689">Триває збереження у форматі PDF</translation>
+<translation id="5848934677402291689">Зберігання у форматі PDF</translation>
 <translation id="5849335628409778954">Введіть дані кредитної картки…</translation>
 <translation id="5849570051105887917">Код локального постачальника</translation>
 <translation id="5849626805825065073">Якщо вимкнено, під час прискореного компонування текст відображається за допомогою згладжування за шкалою відтінків сірого замість аналізу субпікселів LCD.</translation>

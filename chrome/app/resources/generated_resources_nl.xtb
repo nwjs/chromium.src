@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">Er worden <ph name="PAGE_NUMBER" /> pagina's afgedrukt met <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">Algoritme voor handtekening van certificaat</translation>
 <translation id="1221024147024329929">PKCS nr. 1 MD2 met RSA-encryptie</translation>
-<translation id="1221462285898798023">Voer <ph name="PRODUCT_NAME" /> uit als normale gebruiker. Als je deze als root wilt uitvoeren, moet je een alternatieve directory voor gebruikersgegevens opgeven voor de opslag van profielgegevens.</translation>
 <translation id="1221825588892235038">Alleen selectie</translation>
 <translation id="1223853788495130632">Je beheerder raadt een specifieke waarde aan voor deze instelling.</translation>
 <translation id="1225177025209879837">Je verzoek wordt verwerkt...</translation>
@@ -1002,6 +1001,7 @@ Nadat je een nieuwe gebruiker met beperkte rechten hebt gemaakt, kun je zijn ins
 <translation id="2286950485307333924">Je bent nu ingelogd bij Chrome</translation>
 <translation id="2287590536030307392">Schakel alle draadloze verbindingen uit.</translation>
 <translation id="2291643155573394834">Volgend tabblad</translation>
+<translation id="2292848386125228270">Start <ph name="PRODUCT_NAME" /> als een normale gebruiker. Als je voor ontwikkelingsdoeleinden moet uitvoeren als root, voer je opnieuw uit met de markering '--no-sandbox'.</translation>
 <translation id="2294358108254308676">Wil je <ph name="PRODUCT_NAME" /> installeren?</translation>
 <translation id="2296019197782308739">EAP-methode:</translation>
 <translation id="2301382460326681002">Hoofddirectory van extensie is ongeldig.</translation>
@@ -1230,7 +1230,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="2587102772237859721">Overschrijving voor passieve event-listener</translation>
 <translation id="2587203970400270934">Operatorcode:</translation>
 <translation id="2587922270115112871">Als je een gebruiker met beperkte rechten maakt, maak je geen Google-account. De instellingen
-    en gegevens worden niet gesynchroniseerd met andere apparaten met Chrome Sync. Een gebruiker met beperkte rechten is alleen van toepassing op dit apparaat.</translation>
+    en gegevens worden niet gesynchroniseerd met andere apparaten met Chrome-synchronisatie. Een gebruiker met beperkte rechten is alleen van toepassing op dit apparaat.</translation>
 <translation id="258932246702879617">Selecteer <ph name="BEGIN_BOLD" />Vastzetten op taakbalk<ph name="END_BOLD" /></translation>
 <translation id="25912682830130293">Gemelde instellingen bekijken</translation>
 <translation id="2594049137847833442">Belangrijke opties voor sites in het dialoogvenster 'Browsegegevens wissen'</translation>
@@ -1324,7 +1324,6 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="271033894570825754">Nieuw</translation>
 <translation id="2711605922826295419">Bestandskoppelingen voor apps</translation>
 <translation id="2713008223070811050">Beeldschermen beheren</translation>
-<translation id="2714393097308983682">Google Play Store</translation>
 <translation id="2716448593772338513">Laadmodus cros-regions</translation>
 <translation id="2718998670920917754">De antivirussoftware heeft een virus gedetecteerd.</translation>
 <translation id="2721037002783622288">Afbeelding &amp;zoeken in <ph name="SEARCH_ENGINE" /></translation>
@@ -2515,7 +2514,7 @@ Alle gebruikers moet uitloggen om door te gaan.</translation>
 <translation id="4208390505124702064">Zoeken op <ph name="SITE_NAME" /></translation>
 <translation id="4209092469652827314">Groot</translation>
 <translation id="4209267054566995313">Er is geen muis of touchpad gedetecteerd.</translation>
-<translation id="4209562316857013835">Schakelt synchronisatie van wifi-netwerkinstellingen op meerdere apparaten in. Wanneer deze optie is ingeschakeld, wordt het gegevenstype voor wifi-inloggegevens geregistreerd met Chrome Sync en worden wifi-inloggegevens gesynchroniseerd op basis van gebruikersvoorkeuren. (Zie ook chrome://settings/syncSetup.)</translation>
+<translation id="4209562316857013835">Schakelt synchronisatie van wifi-netwerkinstellingen op meerdere apparaten in. Wanneer deze optie is ingeschakeld, wordt het gegevenstype voor wifi-inloggegevens geregistreerd met Chrome-synchronisatie en worden wifi-inloggegevens gesynchroniseerd op basis van gebruikersvoorkeuren. (Zie ook chrome://settings/syncSetup.)</translation>
 <translation id="4209910116082737373">Material Design-extensies inschakelen</translation>
 <translation id="421017592316736757">Je moet online zijn om dit bestand te openen.</translation>
 <translation id="421182450098841253">&amp;Bladwijzerbalk weergeven</translation>
@@ -4794,7 +4793,7 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="7289225569524511578">De achtergrond-app openen</translation>
 <translation id="7290242001003353852">Deze inlogservice wordt gehost door <ph name="SAML_DOMAIN" /> en heeft toegang tot je camera.</translation>
 <translation id="7290594223351252791">Registratie bevestigen</translation>
-<translation id="7295019613773647480">Bewaakte gebruikers inschakelen</translation>
+<translation id="7295019613773647480">Gebruikers met beperkte rechten inschakelen</translation>
 <translation id="7296774163727375165">Voorwaarden voor <ph name="DOMAIN" /></translation>
 <translation id="7297319960855187184">XPS in Google Cloudprinter</translation>
 <translation id="7297443947353982503">Gebruikersnaam/wachtwoord onjuist of EAP-verificatie mislukt</translation>

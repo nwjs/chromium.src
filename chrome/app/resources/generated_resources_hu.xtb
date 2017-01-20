@@ -176,7 +176,6 @@
 <translation id="1218323606465324064"><ph name="PAGE_NUMBER" /> oldal nyomtatása a(z) <ph name="PRINTER_NAME" /> segítségével</translation>
 <translation id="122082903575839559">Tanúsítvány aláírási algoritmusa</translation>
 <translation id="1221024147024329929">PKCS #1 MD2 RSA titkosítással</translation>
-<translation id="1221462285898798023">Kérjük, indítsa el a <ph name="PRODUCT_NAME" /> böngészőt egyszerű felhasználóként. Ha rendszergazdaként szeretné futtatni, akkor a profiladatok tárolásához más --user-data-dir könyvtárat kell megadni.</translation>
 <translation id="1221825588892235038">Csak a kijelölt</translation>
 <translation id="1223853788495130632">Rendszergazdája egy meghatározott értéket javasol ehhez a beállításhoz.</translation>
 <translation id="1225177025209879837">A kérelem feldolgozása folyamatban van...</translation>
@@ -1001,6 +1000,7 @@ Miután létrehozott egy új felügyelt felhasználót, bármikor és bármilyen
 <translation id="2286950485307333924">Most már bejelentkezett a Chrome-ba</translation>
 <translation id="2287590536030307392">Az összes vezeték nélküli hálózat kikapcsolása.</translation>
 <translation id="2291643155573394834">Következő lap</translation>
+<translation id="2292848386125228270">Indítsa el a <ph name="PRODUCT_NAME" /> alkalmazást normál felhasználóként. Ha a fejlesztéshez rootként kell futtatnia, futtassa a --no-sandbox jelző használatával.</translation>
 <translation id="2294358108254308676">Biztosan telepíti a <ph name="PRODUCT_NAME" />-ot?</translation>
 <translation id="2296019197782308739">EAP-módszer:</translation>
 <translation id="2301382460326681002">A bővítmény gyökérkönyvtára érvénytelen.</translation>
@@ -1324,7 +1324,6 @@ Miután létrehozott egy új felügyelt felhasználót, bármikor és bármilyen
 <translation id="271033894570825754">Új</translation>
 <translation id="2711605922826295419">Alkalmazások fájltársításai</translation>
 <translation id="2713008223070811050">Megjelenítés kezelése</translation>
-<translation id="2714393097308983682">Google Play Áruház</translation>
 <translation id="2716448593772338513">Régiókon keresztül történő betöltési mód</translation>
 <translation id="2718998670920917754">A vírusirtó program vírust észlelt.</translation>
 <translation id="2721037002783622288">Képkere&amp;sés ezzel: <ph name="SEARCH_ENGINE" /></translation>

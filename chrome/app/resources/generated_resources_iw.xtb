@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">מדפיס עכשיו <ph name="PAGE_NUMBER" /> עמודים ב-<ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">אלגוריתם חתימה של אישור </translation>
 <translation id="1221024147024329929">‏PKCS #1 MD2 עם הצפנת RSA</translation>
-<translation id="1221462285898798023">‏הפעל את <ph name="PRODUCT_NAME" /> בתור משתמש רגיל. כדי להריץ בתור בסיס, עליך לציין ספריית user-data-dir חלופית לאחסון פרטי פרופיל.</translation>
 <translation id="1221825588892235038">בחירה בלבד</translation>
 <translation id="1223853788495130632">מנהל המערכת ממליץ על ערך מסוים עבור הגדרה זו.</translation>
 <translation id="1225177025209879837">מעבד את הבקשה...</translation>
@@ -996,6 +995,7 @@
 <translation id="2286950485307333924">‏אתה מחובר כעת ל-Chrome</translation>
 <translation id="2287590536030307392">כבה את כל החיבורים האלחוטיים.</translation>
 <translation id="2291643155573394834">הכרטיסייה הבאה</translation>
+<translation id="2292848386125228270">‏הפעל את <ph name="PRODUCT_NAME" /> כמשתמש רגיל. אם תצטרך להפעיל כבסיס לצורך פיתוח, הפעל מחדש עם הסימון ‎--no-sandbox.</translation>
 <translation id="2294358108254308676">האם ברצונך להתקין את <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">‏שיטת EAP:</translation>
 <translation id="2301382460326681002">ספריית הבסיס של ההרחבה אינה חוקית.</translation>
@@ -1318,7 +1318,6 @@
 <translation id="271033894570825754">חדש</translation>
 <translation id="2711605922826295419">שיוכי קבצים של יישומים</translation>
 <translation id="2713008223070811050">ניהול תצוגות</translation>
-<translation id="2714393097308983682">Google Play Store</translation>
 <translation id="2716448593772338513">‏מצב טעינה של אזורי Cros</translation>
 <translation id="2718998670920917754">תוכנת האנטי-וירוס זיהתה וירוס.</translation>
 <translation id="2721037002783622288">בצע &amp;חיפוש תמונה ב-<ph name="SEARCH_ENGINE" /></translation>
@@ -1452,7 +1451,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="2850541429955027218">הוסף את העיצוב</translation>
 <translation id="2853916256216444076">סרטון $1</translation>
 <translation id="2856903399071202337">חריגים בשביל המצלמה</translation>
-<translation id="2859369953631715804">בחר רשת לנייד</translation>
+<translation id="2859369953631715804">בחר רשת סלולרית</translation>
 <translation id="2859684393368940971">משמאל לימין</translation>
 <translation id="2860150991415616761">ארוכה מאוד (4 שניות)</translation>
 <translation id="2861301611394761800">עדכון המערכת הושלם. הפעל מחדש את המערכת.</translation>
@@ -1585,7 +1584,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3015992588037997514">‏האם קוד זה מופיע במסך ה-Chromebox שלך?</translation>
 <translation id="3016641847947582299">הרכיב עודכן</translation>
 <translation id="3016780570757425217">לדעת מה המיקום שלך</translation>
-<translation id="3018346972744622514">הוסף עוד רשת לנייד</translation>
+<translation id="3018346972744622514">הוסף עוד רשת סלולרית</translation>
 <translation id="302014277942214887">הזן מזהה יישום או כתובת אתר של חנות אינטרנט.</translation>
 <translation id="3020990233660977256">מספר סידורי: <ph name="SERIAL_NUMBER" /></translation>
 <translation id="3021678814754966447">&amp;הצג את מקור המסגרת</translation>

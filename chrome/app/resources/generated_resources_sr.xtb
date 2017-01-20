@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">Странице (<ph name="PAGE_NUMBER" />) се тренутно штампају на штампачу <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">Алгоритам потписа сертификата</translation>
 <translation id="1221024147024329929">PKCS #1 MD2 са RSA шифровањем</translation>
-<translation id="1221462285898798023">Покрените <ph name="PRODUCT_NAME" /> као нормални корисник. Да бисте га покренули као основни, треба да наведете алтернативни каталог корисничких података за чување информација о профилу.</translation>
 <translation id="1221825588892235038">Само изабрани садржај</translation>
 <translation id="1223853788495130632">Администратор препоручује одређену вредност за ово подешавање.</translation>
 <translation id="1225177025209879837">Обрада захтева...</translation>
@@ -1000,6 +999,7 @@
 <translation id="2286950485307333924">Сада сте пријављени у Chrome</translation>
 <translation id="2287590536030307392">Искључите све бежичне везе.</translation>
 <translation id="2291643155573394834">Следећа картица</translation>
+<translation id="2292848386125228270">Покрените <ph name="PRODUCT_NAME" /> као обичан корисник. Ако треба да га покренете као основни производ ради програмирања, покрените га поново помоћу ознаке --no-sandbox.</translation>
 <translation id="2294358108254308676">Желите ли да инсталирате <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">EAP метод:</translation>
 <translation id="2301382460326681002">Основни директоријум додатка је неважећи.</translation>
@@ -1321,7 +1321,6 @@
 <translation id="271033894570825754">Ново</translation>
 <translation id="2711605922826295419">Повезане датотеке апликација</translation>
 <translation id="2713008223070811050">Управљајте екранима</translation>
-<translation id="2714393097308983682">Google Play продавница</translation>
 <translation id="2716448593772338513">Режим учитавања између региона</translation>
 <translation id="2718998670920917754">Антивирусни софтвер је открио вирус.</translation>
 <translation id="2721037002783622288">&amp;Потражи слику у претраживачу <ph name="SEARCH_ENGINE" /></translation>
@@ -1942,7 +1941,7 @@
 <translation id="3460771772332290399">Режим аутоматског поновног учитавања офлајн</translation>
 <translation id="3462413494201477527">Желите ли да откажете подешавање налога?</translation>
 <translation id="346431825526753">Ово је налог за децу којим управља <ph name="CUSTODIAN_EMAIL" />.</translation>
-<translation id="3464726836683998962">Онемогући роминг за податке са мобилног уређаја</translation>
+<translation id="3464726836683998962">Онемогући роминг за мобилне податке</translation>
 <translation id="3465566417615315331">Кликните на своју слику</translation>
 <translation id="3466147780910026086">Медијски уређај се скенира...</translation>
 <translation id="3467267818798281173">Затражи предлоге од Google-а</translation>

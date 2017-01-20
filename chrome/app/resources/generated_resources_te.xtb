@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">ఇప్పుడు <ph name="PAGE_NUMBER" /> పేజీలను <ph name="PRINTER_NAME" />కి ముద్రిస్తోంది</translation>
 <translation id="122082903575839559">సర్టిఫికెట్ సంతకం అల్గారిథమ్</translation>
 <translation id="1221024147024329929">RSA గుప్తీకరణతో PKCS #1 MD2</translation>
-<translation id="1221462285898798023">దయచేసి <ph name="PRODUCT_NAME" />ను సాధారణ వినియోగదారుగా ఆరంభించండి. రూట్‌గా రన్ చెయ్యడానికి, మీరు ప్రొఫైల్ సమాచారాన్ని నిల్వ చెయ్యడం కోసం ప్రత్యామ్నాయ --వినియోగదారు-డేటా-డైరెక్టరిను ఖచ్చితంగా సూచించాలి.</translation>
 <translation id="1221825588892235038">ఎంపిక మాత్రమే</translation>
 <translation id="1223853788495130632">మీ నిర్వాహకుడు ఈ సెట్టింగ్‌కు ఒక ప్రత్యేక విలువను సిఫార్సు చేస్తున్నారు.</translation>
 <translation id="1225177025209879837">అభ్యర్థనను ప్రాసెస్ చేస్తోంది...</translation>
@@ -1001,6 +1000,7 @@
 <translation id="2286950485307333924">మీరు ఇప్పుడు Chromeకి సైన్ ఇన్ చేసారు</translation>
 <translation id="2287590536030307392">అన్ని వైర్‌లెస్ కనెక్షన్‌లను ఆపివేయండి.</translation>
 <translation id="2291643155573394834">తదుపరి ట్యాబ్</translation>
+<translation id="2292848386125228270">దయచేసి సాధారణ వినియోగదారుగా <ph name="PRODUCT_NAME" />ని ప్రారంభించండి. మీరు అభివృద్ధికి మూలమైన దాని వలె అమలు చేయాలనుకుంటే, నో-శాండ్ బాక్స్ ఫ్లాగ్‌తో మళ్లీ అమలు చేయండి.</translation>
 <translation id="2294358108254308676">మీరు <ph name="PRODUCT_NAME" />ను వ్యవస్థాపించాలనుకుంటున్నారా?</translation>
 <translation id="2296019197782308739">EAP విధానం:</translation>
 <translation id="2301382460326681002">పొడిగింపు మూలం డైరెక్టరీ చెల్లదు.</translation>
@@ -1323,7 +1323,6 @@
 <translation id="271033894570825754">కొత్తది</translation>
 <translation id="2711605922826295419">అనువర్తనాల ఫైల్ అనుబంధాలు</translation>
 <translation id="2713008223070811050">ప్రదర్శనలను నిర్వహించండి</translation>
-<translation id="2714393097308983682">Google Play స్టోర్</translation>
 <translation id="2716448593772338513">విరుద్ధ ప్రాంతాల లోడ్ మోడ్</translation>
 <translation id="2718998670920917754">యాంటీ-వైరస్ సాఫ్ట్‌వేర్ వైరస్‌ను కనుగొంది.</translation>
 <translation id="2721037002783622288">చిత్రం కోసం <ph name="SEARCH_ENGINE" />లో &amp;శోధించండి</translation>

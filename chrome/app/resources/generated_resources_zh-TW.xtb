@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">現正透過「<ph name="PRINTER_NAME" />」列印 <ph name="PAGE_NUMBER" /> 頁</translation>
 <translation id="122082903575839559">憑證簽章演算法</translation>
 <translation id="1221024147024329929">PKCS #1 MD2 (使用 RSA 加密)</translation>
-<translation id="1221462285898798023">請以一般使用者身分啟動 <ph name="PRODUCT_NAME" />。如要以 root 身分執行，您必須指定替代的 user-data-dir 來儲存設定檔資訊。</translation>
 <translation id="1221825588892235038">僅限選取的內容</translation>
 <translation id="1223853788495130632">管理員為這項設定推薦特定的值。</translation>
 <translation id="1225177025209879837">正在處理要求...</translation>
@@ -1001,6 +1000,7 @@
 <translation id="2286950485307333924">您現在已登入 Chrome</translation>
 <translation id="2287590536030307392">關閉所有無線連線。</translation>
 <translation id="2291643155573394834">下一個分頁</translation>
+<translation id="2292848386125228270">請以一般使用者身分啟用 <ph name="PRODUCT_NAME" />。開發時，如要以 root 身分執行，請使用 --no-sandbox 標記重新執行。</translation>
 <translation id="2294358108254308676">是否要安裝「<ph name="PRODUCT_NAME" />」？</translation>
 <translation id="2296019197782308739">EAP 方法：</translation>
 <translation id="2301382460326681002">擴充功能根目錄無效。</translation>
@@ -1323,7 +1323,6 @@
 <translation id="271033894570825754">新</translation>
 <translation id="2711605922826295419">應用程式檔案關聯</translation>
 <translation id="2713008223070811050">管理顯示設定</translation>
-<translation id="2714393097308983682">Google Play 商店</translation>
 <translation id="2716448593772338513">Cros-regions 載入模式</translation>
 <translation id="2718998670920917754">防毒軟體偵測到病毒。</translation>
 <translation id="2721037002783622288">透過 <ph name="SEARCH_ENGINE" /> 搜尋圖片(&amp;S)</translation>

@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">Печать <ph name="PAGE_NUMBER" /> стр. на принтере <ph name="PRINTER_NAME" />…</translation>
 <translation id="122082903575839559">Алгоритм подписи сертификатов</translation>
 <translation id="1221024147024329929">PKCS #1 MD2 с шифрованием RSA</translation>
-<translation id="1221462285898798023">Запустите <ph name="PRODUCT_NAME" /> от имени обычного пользователя. Чтобы запустить от имени суперпользователя, укажите другой каталог для сохранения данных профиля.</translation>
 <translation id="1221825588892235038">Только выбранные</translation>
 <translation id="1223853788495130632">Администратор рекомендует выбрать определенное значение для этого параметра.</translation>
 <translation id="1225177025209879837">Обработка запроса...</translation>
@@ -1001,6 +1000,7 @@
 <translation id="2286950485307333924">Вы вошли в Chrome</translation>
 <translation id="2287590536030307392">Отключить все беспроводные подключения.</translation>
 <translation id="2291643155573394834">Следующая вкладка</translation>
+<translation id="2292848386125228270">Запустите <ph name="PRODUCT_NAME" /> от имени обычного пользователя. Если вам нужно выполнить запуск от имени суперпользователя, перезапустите браузер, установив параметр "--no-sandbox".</translation>
 <translation id="2294358108254308676">Установить <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">Метод EAP:</translation>
 <translation id="2301382460326681002">Недействительный корневой каталог расширения.</translation>
@@ -1325,7 +1325,6 @@
 <translation id="271033894570825754">Новый</translation>
 <translation id="2711605922826295419">Связь типов файлов с приложениями</translation>
 <translation id="2713008223070811050">Управление экраном</translation>
-<translation id="2714393097308983682">Google Play Маркет</translation>
 <translation id="2716448593772338513">Режим загрузки cros-regions</translation>
 <translation id="2718998670920917754">Антивирусное ПО обнаружило вирус.</translation>
 <translation id="2721037002783622288">&amp;Найти картинку (<ph name="SEARCH_ENGINE" />)</translation>

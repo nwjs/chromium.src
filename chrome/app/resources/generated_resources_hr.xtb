@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">Ispisivanje <ph name="PAGE_NUMBER" /> str. na pisaču <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">Algoritam potpisa certifikata</translation>
 <translation id="1221024147024329929">PKCS br. 1 MD2 s RSA enkripcijom</translation>
-<translation id="1221462285898798023">Pokrenite <ph name="PRODUCT_NAME" /> kao normalni korisnik. Za korijensko pokretanje morate navesti alternativni parametar --user-data-dir za pohranu podataka profila.</translation>
 <translation id="1221825588892235038">Samo odabir</translation>
 <translation id="1223853788495130632">Administrator preporučuje određenu vrijednost za tu postavku.</translation>
 <translation id="1225177025209879837">Obrada zahtjeva...</translation>
@@ -1001,6 +1000,7 @@ Nakon izrade novog nadziranog korisnika možete upravljati njegovim postavkama u
 <translation id="2286950485307333924">Prijavljeni ste u Chrome</translation>
 <translation id="2287590536030307392">Isključite sve bežične veze.</translation>
 <translation id="2291643155573394834">Sljedeća kartica</translation>
+<translation id="2292848386125228270">Pokrenite <ph name="PRODUCT_NAME" /> kao običan korisnik. Ako ga trebate pokrenuti kao korijenski direktorij radi razvoja, pokrenite ga ponovo s oznakom --no-sandbox.</translation>
 <translation id="2294358108254308676">Želite li instalirati program <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">EAP metoda:</translation>
 <translation id="2301382460326681002">Korijenski direktorij proširenja nije važeći.</translation>
@@ -1323,7 +1323,6 @@ Mislim da ta web-lokacija ne bi trebala biti blokirana!</translation>
 <translation id="271033894570825754">Novo</translation>
 <translation id="2711605922826295419">Pridruživanja datoteka Aplikacija</translation>
 <translation id="2713008223070811050">Upravljanje zaslonima</translation>
-<translation id="2714393097308983682">Trgovina Google Play</translation>
 <translation id="2716448593772338513">Način učitavanja metaoznake cros-regions</translation>
 <translation id="2718998670920917754">Antivirusni softver otkrio je virus.</translation>
 <translation id="2721037002783622288">&amp;Traži sliku uz <ph name="SEARCH_ENGINE" /></translation>

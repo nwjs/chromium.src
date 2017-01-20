@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">Acum se printează <ph name="PAGE_NUMBER" /> pagini folosind <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">Algoritm de semnare a certificatului</translation>
 <translation id="1221024147024329929">PKCS #1 MD2 cu criptare RSA</translation>
-<translation id="1221462285898798023">Pornește <ph name="PRODUCT_NAME" /> ca utilizator normal. Pentru a rula cu privilegii de utilizator root, trebuie să specifici alt director --user-data-dir pentru stocarea informațiilor de profil.</translation>
 <translation id="1221825588892235038">Numai elementele selectate</translation>
 <translation id="1223853788495130632">Administratorul dvs. recomandă o valoare specifică pentru această setare.</translation>
 <translation id="1225177025209879837">Se procesează solicitarea...</translation>
@@ -381,7 +380,7 @@
 <translation id="1480041086352807611">Modul demonstrativ</translation>
 <translation id="1481244281142949601">Mediul de testare securizat este integrat corect.</translation>
 <translation id="1482124012545051544">Gata de backup pentru <ph name="FILE_COUNT" /> fotografii noi</translation>
-<translation id="1483493594462132177">Trimiteți</translation>
+<translation id="1483493594462132177">Trimite</translation>
 <translation id="148466539719134488">Elvețiană</translation>
 <translation id="1485015260175968628">Aceasta poate acum să:</translation>
 <translation id="1486096554574027028">Caută parole</translation>
@@ -1001,6 +1000,7 @@ După ce creezi un utilizator monitorizat, poți gestiona setările oricând și
 <translation id="2286950485307333924">Acum te-ai conectat la Chrome</translation>
 <translation id="2287590536030307392">Dezactivați toate conexiunile wireless.</translation>
 <translation id="2291643155573394834">Fila următoare</translation>
+<translation id="2292848386125228270">Pornește <ph name="PRODUCT_NAME" /> ca utilizator normal. Pentru a rula cu privilegii de utilizator root pentru dezvoltare, rulează-l din nou cu marcajul --no-sandbox.</translation>
 <translation id="2294358108254308676">Doriți să instalezi <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">Metodă EAP:</translation>
 <translation id="2301382460326681002">Directorul rădăcină pentru extensie este nevalid.</translation>
@@ -1323,7 +1323,6 @@ Nu cred că acest site ar trebui blocat!</translation>
 <translation id="271033894570825754">Nou</translation>
 <translation id="2711605922826295419">Asocierile de fișiere pentru aplicații</translation>
 <translation id="2713008223070811050">Gestionați ecranele</translation>
-<translation id="2714393097308983682">Magazinul Google Play</translation>
 <translation id="2716448593772338513">Modul de încărcare pentru mai multe regiuni</translation>
 <translation id="2718998670920917754">Software-ul antivirus a detectat un virus.</translation>
 <translation id="2721037002783622288">&amp;Caută imaginea cu <ph name="SEARCH_ENGINE" /></translation>

@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">Printer <ph name="PRINTER_NAME" /> prindib praegu <ph name="PAGE_NUMBER" /> lehte</translation>
 <translation id="122082903575839559">Sertifikaadi allkirjaalgoritm</translation>
 <translation id="1221024147024329929">PKCS 1 MD2 koos RSA krüpteerimisega</translation>
-<translation id="1221462285898798023">Käivitage <ph name="PRODUCT_NAME" /> tavakasutajana. Juurkasutajana käitamiseks tuleb teil määrata profiiliteabe talletamiseks alternatiivne kataloog --user-data-dir.</translation>
 <translation id="1221825588892235038">Ainult valitud</translation>
 <translation id="1223853788495130632">Teie administraator soovitab seade jaoks kindlat väärtust.</translation>
 <translation id="1225177025209879837">Päringu töötlemine ...</translation>
@@ -1002,6 +1001,7 @@ Kui olete loonud uue jälgitava kasutaja, saate tema seadeid mis tahes ajal ja s
 <translation id="2286950485307333924">Olete nüüd Chrome'i sisse logitud</translation>
 <translation id="2287590536030307392">Lülitab kõik traadita ühendused välja.</translation>
 <translation id="2291643155573394834">Järgmine vahekaart</translation>
+<translation id="2292848386125228270">Käivitage teenus <ph name="PRODUCT_NAME" /> tavakasutajana. Kui soovite arendamiseks käivitada juurversiooni, käivitage uuesti märgistusega --no-sandbox.</translation>
 <translation id="2294358108254308676">Kas soovite installida <ph name="PRODUCT_NAME" />'i?</translation>
 <translation id="2296019197782308739">EAP meetod:</translation>
 <translation id="2301382460326681002">Laienduse juurkaust on kehtetu.</translation>
@@ -1324,7 +1324,6 @@ Ma arvan, et see sait ei tohiks olla blokeeritud.</translation>
 <translation id="271033894570825754">Uus</translation>
 <translation id="2711605922826295419">Rakenduste failiseosed</translation>
 <translation id="2713008223070811050">Kuvade haldamine</translation>
-<translation id="2714393097308983682">Google Play pood</translation>
 <translation id="2716448593772338513">Crosi piirkondade laadimisreziim</translation>
 <translation id="2718998670920917754">Viirusetõrjetarkvara tuvastas viiruse.</translation>
 <translation id="2721037002783622288">&amp;Otsi teenusest <ph name="SEARCH_ENGINE" /> kujutist</translation>

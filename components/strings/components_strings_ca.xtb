@@ -431,7 +431,7 @@
 <translation id="5622887735448669177">Voleu sortir d'aquest lloc?</translation>
 <translation id="5629630648637658800">No s'ha pogut carregar la configuració de la política</translation>
 <translation id="5631439013527180824">Testimoni de gestió del dispositiu no vàlid</translation>
-<translation id="5677928146339483299">Bloquejat</translation>
+<translation id="5677928146339483299">Bloquejades</translation>
 <translation id="5694783966845939798">Has provat d'accedir a <ph name="DOMAIN" />, però el servidor ha proporcionat un certificat signat mitjançant un algoritme de signatura poc segur (com ara SHA-1). Això indica que les credencials de seguretat que ha proporcionat el servidor es podrien haver falsificat i que és possible que el servidor no sigui el que esperaves (sinó un atacant). <ph name="BEGIN_LEARN_MORE_LINK" />Obtén més informació<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="5710435578057952990">La identitat d'aquest lloc web no ha estat verificada.</translation>
 <translation id="5720705177508910913">Usuari actual</translation>

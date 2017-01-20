@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">Imprimindo <ph name="PAGE_NUMBER" /> páginas na <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">Algoritmo de assinatura do certificado</translation>
 <translation id="1221024147024329929">PKCS #1 MD2 com criptografia RSA</translation>
-<translation id="1221462285898798023">Inicie <ph name="PRODUCT_NAME" /> como um usuário normal. Para executar como root, é preciso especificar um --user-data-dir alternativo para o armazenamento de informações do perfil.</translation>
 <translation id="1221825588892235038">Apenas seleção</translation>
 <translation id="1223853788495130632">Seu administrador recomenda um valor específico para esta configuração.</translation>
 <translation id="1225177025209879837">Processando solicitação...</translation>
@@ -1001,6 +1000,7 @@ Depois que um novo usuário supervisionado é criado, é possível gerenciar as 
 <translation id="2286950485307333924">Você está conectado ao Chrome no momento</translation>
 <translation id="2287590536030307392">Desativar todas as conexões sem fio.</translation>
 <translation id="2291643155573394834">Próxima guia</translation>
+<translation id="2292848386125228270">Inicie o <ph name="PRODUCT_NAME" /> como um usuário normal. Se precisar executar como raiz para desenvolvimento, execute novamente com a sinalização --no-sandbox.</translation>
 <translation id="2294358108254308676">Deseja instalar o <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">Método EAP:</translation>
 <translation id="2301382460326681002">O diretório raiz da extensão é inválido.</translation>
@@ -1323,7 +1323,6 @@ Não acho que este site deva ser bloqueado.</translation>
 <translation id="271033894570825754">Novo</translation>
 <translation id="2711605922826295419">Associações de arquivos de aplicativos</translation>
 <translation id="2713008223070811050">Gerenciar monitores</translation>
-<translation id="2714393097308983682">Google Play Store</translation>
 <translation id="2716448593772338513">Modo de carregamento de regiões cruzadas</translation>
 <translation id="2718998670920917754">O software antivírus detectou um vírus.</translation>
 <translation id="2721037002783622288">&amp;Procurar imagem no <ph name="SEARCH_ENGINE" /></translation>

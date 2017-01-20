@@ -177,7 +177,6 @@
 <translation id="1218323606465324064">Τώρα εκτυπώνονται <ph name="PAGE_NUMBER" /> σελίδες στον εκτυπωτή <ph name="PRINTER_NAME" /></translation>
 <translation id="122082903575839559">Αλγόριθμος υπογραφής πιστοποιητικού</translation>
 <translation id="1221024147024329929">PKCS #1 MD2 με κρυπτογράφηση RSA</translation>
-<translation id="1221462285898798023">Ξεκινήστε το <ph name="PRODUCT_NAME" /> σαν κανονικός χρήστης. Για να το εκτελέσετε ως κεντρικός χρήστης, πρέπει να ορίσετε εναλλακτικό --κατάλογο με δεδομένα χρήστη για αποθήκευση των στοιχείων του προφίλ.</translation>
 <translation id="1221825588892235038">Μόνο επιλογή</translation>
 <translation id="1223853788495130632">Ο διαχειριστής σας προτείνει μια συγκεκριμένη τιμή για αυτήν τη ρύθμιση.</translation>
 <translation id="1225177025209879837">Επεξεργασία αιτήματος…</translation>
@@ -1005,6 +1004,7 @@
 <translation id="2286950485307333924">Έχετε συνδεθεί στο Chrome</translation>
 <translation id="2287590536030307392">Απενεργοποίηση όλων των ασύρματων συνδέσεων.</translation>
 <translation id="2291643155573394834">Επόμενη καρτέλα</translation>
+<translation id="2292848386125228270">Εκκινήστε το <ph name="PRODUCT_NAME" /> ως απλός χρήστης. Εάν απαιτείται εκτέλεση ως ρίζας για ανάπτυξη, εκτελέστε το ξανά με την ετικέτα --no-sandbox.</translation>
 <translation id="2294358108254308676">Θέλετε να εγκαταστήσετε το <ph name="PRODUCT_NAME" />;</translation>
 <translation id="2296019197782308739">Μέθοδος EAP:</translation>
 <translation id="2301382460326681002">Ο κατάλογος ρίζας επέκτασης δεν είναι έγκυρος.</translation>
@@ -1327,7 +1327,6 @@
 <translation id="271033894570825754">Νέο</translation>
 <translation id="2711605922826295419">Συσχετίσεις αρχείων εφαρμογών</translation>
 <translation id="2713008223070811050">Διαχείριση οθονών</translation>
-<translation id="2714393097308983682">Google Play Store</translation>
 <translation id="2716448593772338513">Κατάσταση φόρτωσης αρχείου cros-regions</translation>
 <translation id="2718998670920917754">Το λογισμικό προστασίας από ιούς εντόπισε έναν ιό.</translation>
 <translation id="2721037002783622288">&amp;Αναζήτηση <ph name="SEARCH_ENGINE" /> για εικόνα</translation>

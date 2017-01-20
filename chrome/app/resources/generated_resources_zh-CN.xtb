@@ -176,7 +176,6 @@
 <translation id="1218323606465324064">正在通过“<ph name="PRINTER_NAME" />”打印 <ph name="PAGE_NUMBER" /> 个页面</translation>
 <translation id="122082903575839559">证书签名算法</translation>
 <translation id="1221024147024329929">PKCS #1，带有 RSA 加密的 MD2</translation>
-<translation id="1221462285898798023">请以普通用户身份启动“<ph name="PRODUCT_NAME" />”。要以根用户身份运行，您必须为个人资料信息的存储指定其他的“--user-data-dir”。</translation>
 <translation id="1221825588892235038">仅限选定内容</translation>
 <translation id="1223853788495130632">您的管理员建议将此设置设为某个特定值。</translation>
 <translation id="1225177025209879837">正在处理请求…</translation>
@@ -998,6 +997,7 @@
 <translation id="2286950485307333924">现在您已登录到Chrome</translation>
 <translation id="2287590536030307392">停用所有无线连接。</translation>
 <translation id="2291643155573394834">下一标签页</translation>
+<translation id="2292848386125228270">请以普通用户的身份启动 <ph name="PRODUCT_NAME" />。如果您出于开发目的，需要以根用户的身份运行 Chrome，请使用 --no-sandbox 标记重新运行 Chrome。</translation>
 <translation id="2294358108254308676">要安装<ph name="PRODUCT_NAME" />吗？</translation>
 <translation id="2296019197782308739">EAP 方法：</translation>
 <translation id="2301382460326681002">扩展程序根目录无效。</translation>
@@ -1319,7 +1319,6 @@
 <translation id="271033894570825754">新建</translation>
 <translation id="2711605922826295419">应用文件关联</translation>
 <translation id="2713008223070811050">管理显示屏</translation>
-<translation id="2714393097308983682">Google Play 商店</translation>
 <translation id="2716448593772338513">cros-regions 加载模式</translation>
 <translation id="2718998670920917754">防病毒软件检测到病毒。</translation>
 <translation id="2721037002783622288">通过<ph name="SEARCH_ENGINE" />搜索图片(&amp;S)</translation>
