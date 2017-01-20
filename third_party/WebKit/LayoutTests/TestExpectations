@@ -1704,3 +1704,9 @@ crbug.com/595993 imported/wpt/service-workers/service-worker/request-end-to-end.
 
 crbug.com/664782 images/huge-image-viewport-scale.html [ NeedsRebaseline ]
 crbug.com/664782 virtual/gpu-rasterization/images/huge-image-viewport-scale.html [ NeedsRebaseline ]
+
+crbug.com/680745 paint/invalidation/shift-relative-positioned-container-with-image-addition.html [ NeedsRebaseline ]
+crbug.com/680745 paint/invalidation/window-resize-frameset.html [ NeedsRebaseline ]
+crbug.com/680745 paint/invalidation/window-resize-percent-html.html [ NeedsRebaseline ]
+crbug.com/680745 paint/invalidation/line-flow-with-floats-9.html [ NeedsRebaseline ]
+
