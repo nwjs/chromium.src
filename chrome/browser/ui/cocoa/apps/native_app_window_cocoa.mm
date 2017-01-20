@@ -159,6 +159,11 @@ std::vector<gfx::Rect> CalculateNonDraggableRegions(
     appWindow_->WindowDidEnterFullscreen();
 }
 
+- (void)windowWillExitFullScreen:(NSNotification*)notification {
+  if (appWindow_)
+    appWindow_->WindowWillExitFullscreen();
+}
+
 - (void)windowDidExitFullScreen:(NSNotification*)notification {
   if (appWindow_)
     appWindow_->WindowDidExitFullscreen();
@@ -825,6 +830,26 @@ void NativeAppWindowCocoa::WindowDidEnterFullscreen() {
   is_maximized_ = false;
   is_fullscreen_ = true;
   app_window_->OnNativeWindowChanged();
+
+  // #5651: show system buttons when entered fullscreen
+  if (!has_frame_) {
+    [[window() standardWindowButton:NSWindowZoomButton] setHidden:NO];
+    [[window() standardWindowButton:NSWindowMiniaturizeButton] setHidden:NO];
+    [[window() standardWindowButton:NSWindowCloseButton] setHidden:NO];
+    [[window() standardWindowButton:NSWindowZoomButton] setEnabled:YES];
+  }
+}
+
+void NativeAppWindowCocoa::WindowWillExitFullscreen() {
+  // #5651: and hide these buttons when about to exit fullscreen
+  // If doing this in WindowDidExitFullscreen, users will see the buttons
+  // disappear after restored to normal.
+  if (!has_frame_) {
+    [[window() standardWindowButton:NSWindowZoomButton] setHidden:YES];
+    [[window() standardWindowButton:NSWindowMiniaturizeButton] setHidden:YES];
+    [[window() standardWindowButton:NSWindowCloseButton] setHidden:YES];
+    [[window() standardWindowButton:NSWindowZoomButton] setEnabled:NO];
+  }
 }
 
 void NativeAppWindowCocoa::WindowDidExitFullscreen() {
