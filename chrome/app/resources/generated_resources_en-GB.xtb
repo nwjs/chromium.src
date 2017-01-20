@@ -1002,6 +1002,7 @@ After you create a new supervised user, you can manage their settings at any tim
 <translation id="2286950485307333924">You're now signed in to Chrome</translation>
 <translation id="2287590536030307392">Turn off all wireless connections.</translation>
 <translation id="2291643155573394834">Next tab</translation>
+<translation id="2292848386125228270">Please start <ph name="PRODUCT_NAME" /> as a normal user. If you need to run as root for development, re-run with the – no-sandbox flag.</translation>
 <translation id="2294358108254308676">Do you want to install <ph name="PRODUCT_NAME" />?</translation>
 <translation id="2296019197782308739">EAP method:</translation>
 <translation id="2301382460326681002">Extension root directory is invalid.</translation>
