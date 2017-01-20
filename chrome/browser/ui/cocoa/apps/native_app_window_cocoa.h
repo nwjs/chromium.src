@@ -113,6 +113,9 @@ class NativeAppWindowCocoa : public extensions::NativeAppWindow,
   // Called when the window enters fullscreen.
   void WindowDidEnterFullscreen();
 
+  // Called when the window is about exits fullscreen.
+  void WindowWillExitFullscreen();
+
   // Called when the window exits fullscreen.
   void WindowDidExitFullscreen();
 
