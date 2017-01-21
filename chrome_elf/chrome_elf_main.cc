@@ -28,13 +28,6 @@ void SignalChromeElf() {
   blacklist::ResetBeacon();
 }
 
-// Returns the payload for the ELF's InstallDetails instance. For use by
-// install_static::InstallDetails::InitializeFromPrimaryModule.
-extern "C" const install_static::InstallDetails::Payload*
-GetInstallDetailsPayload() {
-  return install_static::InstallDetails::Get().GetPayload();
-}
-
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
   if (reason == DLL_PROCESS_ATTACH) {
     install_static::InitializeProductDetailsForPrimaryModule();
