@@ -26,6 +26,7 @@ class SharedWorkerRepository : public RenderFrameObserver,
 
   // WebSharedWorkerRepositoryClient overrides.
   blink::WebSharedWorkerConnector* createSharedWorkerConnector(
+      bool isNodeJS,
       const blink::WebURL& url,
       const blink::WebString& name,
       DocumentID document_id,

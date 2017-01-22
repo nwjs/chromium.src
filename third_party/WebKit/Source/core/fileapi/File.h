@@ -58,6 +58,10 @@ class CORE_EXPORT File final : public Blob {
   enum UserVisibility { IsUserVisible, IsNotUserVisible };
 
   // Constructor in File.idl
+   static File* create(ExecutionContext*, const String& path, const String& name, ExceptionState&)
+   {
+     return createForUserProvidedFile(path, name);
+   }
   static File* create(
       ExecutionContext*,
       const HeapVector<ArrayBufferOrArrayBufferViewOrBlobOrUSVString>&,
