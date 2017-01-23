@@ -64,6 +64,8 @@ class Frame;
 class LocalDOMWindow;
 class LocalFrame;
 class NodeFilter;
+class WorkerGlobalScope;
+class WorkerOrWorkletGlobalScope;
 class XPathNSResolver;
 
 template <typename T>
@@ -202,7 +204,7 @@ inline void v8SetReturnValue(const CallbackInfo& callbackInfo, Node* impl) {
   v8SetReturnValue(callbackInfo, wrapper);
 }
 
-// Special versions for DOMWindow and EventTarget
+// Special versions for DOMWindow, WorkerGlobalScope and EventTarget
 
 template <typename CallbackInfo>
 inline void v8SetReturnValue(const CallbackInfo& callbackInfo,
@@ -216,6 +218,14 @@ inline void v8SetReturnValue(const CallbackInfo& callbackInfo,
                              EventTarget* impl) {
   v8SetReturnValue(callbackInfo, toV8(impl, callbackInfo.Holder(),
                                       callbackInfo.GetIsolate()));
+}
+
+template <typename CallbackInfo>
+inline void v8SetReturnValue(const CallbackInfo& callbackInfo,
+                             WorkerGlobalScope* impl) {
+  v8SetReturnValue(callbackInfo,
+                   toV8((WorkerOrWorkletGlobalScope*)impl,
+                        callbackInfo.Holder(), callbackInfo.GetIsolate()));
 }
 
 template <typename CallbackInfo, typename T>
@@ -264,7 +274,7 @@ inline void v8SetReturnValueForMainWorld(const CallbackInfo& callbackInfo,
   v8SetReturnValueForMainWorld(callbackInfo, ScriptWrappable::fromNode(impl));
 }
 
-// Special versions for DOMWindow and EventTarget
+// Special versions for DOMWindow, WorkerGlobalScope and EventTarget
 
 template <typename CallbackInfo>
 inline void v8SetReturnValueForMainWorld(const CallbackInfo& callbackInfo,
@@ -278,6 +288,14 @@ inline void v8SetReturnValueForMainWorld(const CallbackInfo& callbackInfo,
                                          EventTarget* impl) {
   v8SetReturnValue(callbackInfo, toV8(impl, callbackInfo.Holder(),
                                       callbackInfo.GetIsolate()));
+}
+
+template <typename CallbackInfo>
+inline void v8SetReturnValueForMainWorld(const CallbackInfo& callbackInfo,
+                                         WorkerGlobalScope* impl) {
+  v8SetReturnValue(callbackInfo,
+                   toV8((WorkerOrWorkletGlobalScope*)impl,
+                        callbackInfo.Holder(), callbackInfo.GetIsolate()));
 }
 
 template <typename CallbackInfo, typename T>
@@ -318,7 +336,7 @@ inline void v8SetReturnValueFast(const CallbackInfo& callbackInfo,
   v8SetReturnValue(callbackInfo, wrapper);
 }
 
-// Special versions for DOMWindow and EventTarget
+// Special versions for DOMWindow, WorkerGlobalScope and EventTarget
 
 template <typename CallbackInfo>
 inline void v8SetReturnValueFast(const CallbackInfo& callbackInfo,
@@ -334,6 +352,15 @@ inline void v8SetReturnValueFast(const CallbackInfo& callbackInfo,
                                  const ScriptWrappable*) {
   v8SetReturnValue(callbackInfo, toV8(impl, callbackInfo.Holder(),
                                       callbackInfo.GetIsolate()));
+}
+
+template <typename CallbackInfo>
+inline void v8SetReturnValueFast(const CallbackInfo& callbackInfo,
+                                 WorkerGlobalScope* impl,
+                                 const ScriptWrappable*) {
+  v8SetReturnValue(callbackInfo,
+                   toV8((WorkerOrWorkletGlobalScope*)impl,
+                        callbackInfo.Holder(), callbackInfo.GetIsolate()));
 }
 
 template <typename CallbackInfo, typename T, typename Wrappable>
