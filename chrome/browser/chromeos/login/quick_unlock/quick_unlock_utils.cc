@@ -48,6 +48,12 @@ bool IsPinUnlockEnabled(PrefService* pref_service) {
     return false;
   }
 
+  // PIN for enterprise is disabled in m56 as it is not fully implemented.
+  if (g_browser_process->platform_part()
+          ->browser_policy_connector_chromeos()
+          ->IsEnterpriseManaged())
+    return false;
+
   // TODO(jdufault): Disable PIN for supervised users until we allow the owner
   // to set the PIN. See crbug.com/632797.
   user_manager::User* user = user_manager::UserManager::Get()->GetActiveUser();
