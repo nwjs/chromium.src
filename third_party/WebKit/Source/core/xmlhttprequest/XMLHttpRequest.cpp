@@ -1086,6 +1086,13 @@ void XMLHttpRequest::abort() {
   m_state = kUnsent;
 }
 
+void XMLHttpRequest::dispose() {
+  if (m_loader) {
+    m_error = true;
+    m_loader->cancel();
+  }
+}
+
 void XMLHttpRequest::clearVariablesForLoading() {
   if (m_blobLoader) {
     m_blobLoader->cancel();
