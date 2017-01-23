@@ -66,6 +66,9 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
 
   base::CommandLine* cl = base::CommandLine::ForCurrentProcess();
 
+  // Temporarily disable async ondraw for M56.
+  cl->AppendSwitch(switches::kSyncOnDrawHardware);
+
   // WebView uses the Android system's scrollbars and overscroll glow.
   cl->AppendSwitch(switches::kDisableOverscrollEdgeEffect);
 
