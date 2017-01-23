@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var FLASH_DOWNLOAD_URL = 'https://get.adobe.com/flashplayer/';
-
 function triggerPrompt() {
   document.getElementById('flash-link').click();
   window.domAutomationController.send(true);
@@ -12,10 +10,6 @@ function triggerPrompt() {
 function triggerPromptViaNewWindow() {
   document.getElementById('flash-new-window-link').click();
   window.domAutomationController.send(true);
-}
-
-function triggerPromptWithMainFrameNavigation() {
-  window.location.href = FLASH_DOWNLOAD_URL;
 }
 
 function flashIsEnabledForPlugin(plugin) {
