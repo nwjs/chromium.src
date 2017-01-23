@@ -722,9 +722,8 @@ IN_PROC_BROWSER_TEST_F(WebViewAPITest, TestWebRequestAPIWithHeaders) {
 }
 
 IN_PROC_BROWSER_TEST_F(WebViewAPITest, TestLoadEventsSamePageNavigation) {
-  std::string app_location = "web_view/apitest";
-  StartTestServer(app_location);
-  RunTest("testLoadEventsSamePageNavigation", app_location);
+  StartTestServer();
+  RunTest("testLoadEventsSamePageNavigation", "web_view/apitest");
   StopTestServer();
 }
 
