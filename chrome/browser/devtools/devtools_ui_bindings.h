@@ -29,7 +29,7 @@ class Profile;
 class PortForwardingStatusSerializer;
 
 namespace content {
-struct FileChooserParams;
+class NavigationHandle;
 class WebContents;
 }
 
@@ -42,6 +42,9 @@ class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
  public:
   static DevToolsUIBindings* ForWebContents(
       content::WebContents* web_contents);
+
+  static GURL SanitizeFrontendURL(const GURL& url);
+  static bool IsValidFrontendURL(const GURL& url);
 
   class Delegate {
    public:
@@ -199,6 +202,7 @@ class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
   typedef base::Callback<void(bool)> InfoBarCallback;
   void ShowDevToolsConfirmInfoBar(const base::string16& message,
                                   const InfoBarCallback& callback);
+  void UpdateFrontendHost(content::NavigationHandle* navigation_handle);
 
   // Extensions support.
   void AddDevToolsExtensionsToClient();

@@ -907,7 +907,7 @@ GURL DevToolsWindow::GetDevToolsURL(Profile* profile,
   }
   if (can_dock)
     url_string += "&can_dock=true";
-  return DevToolsUI::SanitizeFrontendURL(GURL(url_string));
+  return DevToolsUIBindings::SanitizeFrontendURL(GURL(url_string));
 }
 
 // static
