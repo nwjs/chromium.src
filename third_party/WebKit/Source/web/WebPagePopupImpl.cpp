@@ -395,12 +395,7 @@ void WebPagePopupImpl::setIsAcceleratedCompositingActive(bool enter) {
       m_isAcceleratedCompositingActive = true;
       m_animationHost = WTF::makeUnique<CompositorAnimationHost>(
           m_layerTreeView->compositorAnimationHost());
-      m_page->layerTreeViewInitialized(*m_layerTreeView,
-                                       m_popupClient->ownerElement()
-                                           .document()
-                                           .frame()
-                                           ->localFrameRoot()
-                                           ->view());
+      m_page->layerTreeViewInitialized(*m_layerTreeView, nullptr);
     } else {
       m_isAcceleratedCompositingActive = false;
       m_animationHost = nullptr;
@@ -417,14 +412,8 @@ void WebPagePopupImpl::beginFrame(double lastFrameTimeMonotonic) {
 }
 
 void WebPagePopupImpl::willCloseLayerTreeView() {
-  if (m_page && m_layerTreeView) {
-    m_page->willCloseLayerTreeView(*m_layerTreeView,
-                                   m_popupClient->ownerElement()
-                                       .document()
-                                       .frame()
-                                       ->localFrameRoot()
-                                       ->view());
-  }
+  if (m_page && m_layerTreeView)
+    m_page->willCloseLayerTreeView(*m_layerTreeView, nullptr);
 
   setIsAcceleratedCompositingActive(false);
   m_layerTreeView = nullptr;
