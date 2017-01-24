@@ -2181,8 +2181,6 @@ bool WebMediaPlayerImpl::IsBackgroundOptimizationCandidate() const {
 }
 
 void WebMediaPlayerImpl::EnableVideoTrackIfNeeded() {
-  DCHECK(!IsHidden());
-
   // Don't change video track while the pipeline is resuming or seeking.
   if (is_pipeline_resuming_ || seeking_)
     return;
