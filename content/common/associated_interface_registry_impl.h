@@ -19,7 +19,6 @@ class AssociatedInterfaceRegistryImpl : public AssociatedInterfaceRegistry {
   AssociatedInterfaceRegistryImpl();
   ~AssociatedInterfaceRegistryImpl() override;
 
-  bool CanBindRequest(const std::string& interface_name) const;
   void BindRequest(const std::string& interface_name,
                    mojo::ScopedInterfaceEndpointHandle handle);
 

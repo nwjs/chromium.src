@@ -198,9 +198,6 @@ class CONTENT_EXPORT ChildThreadImpl
 
   // IPC::Listener implementation:
   bool OnMessageReceived(const IPC::Message& msg) override;
-  void OnAssociatedInterfaceRequest(
-      const std::string& interface_name,
-      mojo::ScopedInterfaceEndpointHandle handle) override;
   void OnChannelConnected(int32_t peer_pid) override;
   void OnChannelError() override;
 
@@ -237,6 +234,8 @@ class CONTENT_EXPORT ChildThreadImpl
 #endif
 
   void EnsureConnected();
+
+  void OnRouteProviderRequest(mojom::RouteProviderAssociatedRequest request);
 
   // mojom::RouteProvider:
   void GetRoute(
