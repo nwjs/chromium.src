@@ -416,6 +416,10 @@ void WindowSelectorItem::RestoreWindow() {
       OverviewAnimationType::OVERVIEW_ANIMATION_LAY_OUT_SELECTOR_ITEMS);
 }
 
+void WindowSelectorItem::EnsureVisible() {
+  transform_window_.EnsureVisible();
+}
+
 void WindowSelectorItem::Shutdown() {
   if (transform_window_.GetTopInset()) {
     // Activating a window (even when it is the window that was active before
@@ -529,7 +533,7 @@ void WindowSelectorItem::ButtonPressed(views::Button* sender,
     return;
   }
   CHECK(sender == window_label_button_view_);
-  window_selector_->SelectWindow(transform_window_.window());
+  window_selector_->SelectWindow(this);
 }
 
 void WindowSelectorItem::OnWindowDestroying(WmWindow* window) {
