@@ -48,6 +48,7 @@
 
 #include "SkFontMgr.h"
 
+class SkString;
 class SkTypeface;
 
 namespace base {
@@ -275,6 +276,8 @@ class PLATFORM_EXPORT FontCachePurgePreventer {
   FontCachePurgePreventer() { FontCache::fontCache()->disablePurging(); }
   ~FontCachePurgePreventer() { FontCache::fontCache()->enablePurging(); }
 };
+
+AtomicString toAtomicString(const SkString&);
 
 }  // namespace blink
 
