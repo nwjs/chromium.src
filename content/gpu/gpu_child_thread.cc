@@ -209,8 +209,6 @@ void GpuChildThread::Init(const base::Time& process_start_time) {
 
   if (GetContentClient()->gpu())  // NULL in tests.
     GetContentClient()->gpu()->Initialize(this);
-  channel()->AddAssociatedInterface(base::Bind(
-      &GpuChildThread::CreateGpuMainService, base::Unretained(this)));
 }
 
 void GpuChildThread::OnFieldTrialGroupFinalized(const std::string& trial_name,
