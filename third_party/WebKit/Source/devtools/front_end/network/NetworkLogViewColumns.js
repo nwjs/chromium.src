@@ -265,9 +265,9 @@ Network.NetworkLogViewColumns = class {
   _sortHandler() {
     var columnId = this._dataGrid.sortColumnId();
     this._networkLogView.removeAllNodeHighlights();
-    if (columnId === 'waterfall') {
-      this._waterfallColumnSortIcon.classList.remove('sort-ascending', 'sort-descending');
+    this._waterfallColumnSortIcon.classList.remove('sort-ascending', 'sort-descending');
 
+    if (columnId === 'waterfall') {
       if (this._dataGrid.sortOrder() === DataGrid.DataGrid.Order.Ascending)
         this._waterfallColumnSortIcon.classList.add('sort-ascending');
       else
