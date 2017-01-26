@@ -531,7 +531,7 @@ public class VrShellDelegate {
 
     private boolean createVrShell() {
         if (mVrClassesWrapper == null) return false;
-        mVrShell = mVrClassesWrapper.createVrShell();
+        mVrShell = mVrClassesWrapper.createVrShell(mActivity.getCompositorViewHolder());
         return mVrShell != null;
     }
 
