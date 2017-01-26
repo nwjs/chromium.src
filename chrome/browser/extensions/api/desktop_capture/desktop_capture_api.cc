@@ -87,9 +87,13 @@ bool DesktopCaptureChooseDesktopMediaFunction::RunAsync() {
     }
     DCHECK(web_contents);
   } else {
-    origin = extension()->url();
     target_name = base::UTF8ToUTF16(GetExtensionTargetName());
     web_contents = GetSenderWebContents();
+    // NWJS fix for nwjs/nw.js#4579
+    // NWJS app allows running on origins other than `chrome-extension://*/*`.
+    // The origin should then be from the senders URL, in order not to fail
+    // the origin checking in `DesktopStreamsRegistry::RequestMediaForStreamId`.
+    origin = extension()->is_nwjs_app() ? web_contents->GetURL().GetOrigin() : extension()->url();
     DCHECK(web_contents);
   }
 

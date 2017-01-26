@@ -118,6 +118,7 @@ class Dispatcher : public content::RenderThreadObserver,
 
   // This method is not allowed to run JavaScript code in the frame.
   void DidCreateDocumentElement(blink::WebLocalFrame* frame);
+  void DidFinishDocumentLoad(blink::WebLocalFrame* frame);
 
   // These methods may run (untrusted) JavaScript code in the frame, and
   // cause |render_frame| to become invalid.
@@ -229,7 +230,7 @@ class Dispatcher : public content::RenderThreadObserver,
 
   void UpdateBindingsForContext(ScriptContext* context);
 
-  void RegisterBinding(const std::string& api_name, ScriptContext* context);
+  void RegisterBinding(const std::string& api_name, ScriptContext* context, bool hidden = false);
 
   void RegisterNativeHandlers(ModuleSystem* module_system,
                               ScriptContext* context,
@@ -260,7 +261,9 @@ class Dispatcher : public content::RenderThreadObserver,
   static v8::Local<v8::Object> GetOrCreateBindObjectIfAvailable(
       const std::string& api_name,
       std::string* bind_name,
-      ScriptContext* context);
+      ScriptContext* context,
+      bool hidden = false
+                                                         );
 
   // Requires the GuestView modules in the module system of the ScriptContext
   // |context|.

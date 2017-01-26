@@ -49,7 +49,7 @@ class WebSharedWorkerRepositoryClient {
   typedef unsigned long long DocumentID;
 
   // Creates a new shared worker connector. This may return null.
-  virtual WebSharedWorkerConnector* createSharedWorkerConnector(
+  virtual WebSharedWorkerConnector* createSharedWorkerConnector(bool isNodeJS,
       const WebURL& url,
       const WebString& name,
       DocumentID id,
