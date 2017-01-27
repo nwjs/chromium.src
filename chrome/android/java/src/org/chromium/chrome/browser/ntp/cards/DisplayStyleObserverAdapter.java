@@ -24,7 +24,7 @@ public class DisplayStyleObserverAdapter
 
     /**
      * Latest value that we transmitted to the adapted observer. If we didn't transfer any yet,
-     * the value is null. @see UiConfig.DisplayStyle.
+     * the value is not a valid {@code DisplayStyle}
      */
     @UiConfig.DisplayStyle
     private Integer mNotifiedDisplayStyle;
