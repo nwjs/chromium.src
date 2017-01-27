@@ -29,6 +29,7 @@
 
 #include "core/CoreExport.h"
 #include "core/dom/ActiveDOMObject.h"
+#include "core/dom/TaskRunnerHelper.h"
 #include "platform/Timer.h"
 
 namespace blink {
