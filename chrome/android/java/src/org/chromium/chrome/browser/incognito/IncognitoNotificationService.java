@@ -23,15 +23,12 @@ import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.VisibleForTesting;
-import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.TabState;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.document.DocumentUtils;
-import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tabmodel.TabWindowManager;
 import org.chromium.chrome.browser.tabmodel.TabbedModeTabPersistencePolicy;
-import org.chromium.content.browser.BrowserStartupController;
 
 import java.io.File;
 import java.lang.ref.WeakReference;
@@ -75,18 +72,10 @@ public class IncognitoNotificationService extends IntentService {
             @Override
             public void run() {
                 int incognitoCount = TabWindowManager.getInstance().getIncognitoTabCount();
-                if (incognitoCount != 0) {
-                    assert false : "Not all incognito tabs closed as expected";
-                    return;
-                }
-                IncognitoNotificationManager.dismissIncognitoNotification();
+                assert incognitoCount == 0;
 
-                if (BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                        .isStartupSuccessfullyCompleted()) {
-                    if (Profile.getLastUsedProfile().hasOffTheRecordProfile()) {
-                        Profile.getLastUsedProfile().getOffTheRecordProfile()
-                                .destroyWhenAppropriate();
-                    }
+                if (incognitoCount == 0) {
+                    IncognitoNotificationManager.dismissIncognitoNotification();
                 }
             }
         });
