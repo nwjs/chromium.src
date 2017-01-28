@@ -231,7 +231,6 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="3321460131042519426">Attiva ritorno a capo automatico</translation>
 <translation id="3322936298410871309">Intestazione livello 1 precedente</translation>
 <translation id="3323447499041942178">Casella di testo</translation>
-<translation id="3329854757664111426">Per avanzare premi INVIO.</translation>
 <translation id="3353420241558113817">{"ar": "Arabo",
         "bg": "Bulgaro",
         "ca": "Catalano",
@@ -572,6 +571,7 @@ Per aprire il menu del browser Chrome premi ALT + F.</translation>
 <translation id="6132506484792346370">Una casella di riepilogo o combinata</translation>
 <translation id="6138576064440631958">Accordo $1</translation>
 <translation id="6142308968191113180">Intestazione 4</translation>
+<translation id="6164829606128959761">indicatore</translation>
 <translation id="6169420925157477918">Immagine con descrizione lunga</translation>
 <translation id="6186305613600865047">Vai alla fine della pagina</translation>
 <translation id="6193330012414963395">AM/PM</translation>
@@ -695,10 +695,8 @@ Per aprire il menu del browser Chrome premi ALT + F.</translation>
 <translation id="7492049978501397201">Finestra di dialogo compilata</translation>
 <translation id="7518543783849163354">Per interrompere temporaneamente le funzioni vocali di ChromeVox, premi il tasto CTRL.</translation>
 <translation id="7532613204005497612">Giugno</translation>
-<translation id="7540083713905917247"><ph name="VALUE" />, <ph name="NAME" />, dispositivo di scorrimento</translation>
 <translation id="7552432549459840808">Utili scorciatoie di Chrome</translation>
 <translation id="7579911500627256166">punto <ph name="DOT" /></translation>
-<translation id="7591126877589047423">Nessuno stato attivo. Premi Ctrl+N per aprire una nuova finestra.</translation>
 <translation id="7596919493010894443">selezione cancellata</translation>
 <translation id="7604026522577407655">Vai all'inizio della colonna corrente</translation>
 <translation id="7604451927827590395">hdng</translation>

@@ -23,7 +23,6 @@
 <translation id="2168039046890040389">ಪುಟ ಮೇಲೆ</translation>
 <translation id="2190355936436201913">(ಖಾಲಿ)</translation>
 <translation id="2297836609126180313"><ph name="QUANTITY" /> TB/s</translation>
-<translation id="2336922762358079423">Google Keep ನಲ್ಲಿ ಟಿಪ್ಪಣಿ ಮಾಡಿ</translation>
 <translation id="2482878487686419369">ಸೂಚನೆಗಳು</translation>
 <translation id="2497284189126895209">ಎಲ್ಲ ಫೈಲ್‌ಗಳು</translation>
 <translation id="2515586267016047495">Alt</translation>
@@ -74,7 +73,7 @@
 <translation id="5943826764092288734">{HOURS,plural, =1{1 ಗಂಟೆ}one{# ಗಂಟೆಗಳು}other{# ಗಂಟೆಗಳು}}</translation>
 <translation id="5948410903763073882">Alt+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="598033046487663418">ಎಲ್ಲಾ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು</translation>
-<translation id="6040143037577758943">ಮುಚ್ಚು</translation>
+<translation id="6040143037577758943">ಮುಚ್ಚಿರಿ</translation>
 <translation id="6119846243427417423">ಸಕ್ರಿಯಗೊಳಿಸು</translation>
 <translation id="6129953537138746214">ಸ್ಪೇಸ್</translation>
 <translation id="6135826906199951471">Del</translation>
@@ -130,10 +129,12 @@
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> ಫೈಲ್ (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" /> KB/s </translation>
 <translation id="8806053966018712535">ಫೋಲ್ಡರ್ <ph name="FOLDER_NAME" /></translation>
+<translation id="883911313571074303">ಚಿತ್ರವನ್ನು ಟಿಪ್ಪಣಿ ಮಾಡಿ</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> KB</translation>
 <translation id="9002566407876343676">ತೆರೆ</translation>
 <translation id="9038489124413477075">ಹೆಸರಿಸದ ಫೋಲ್ಡರ್</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{1 ಸೆಕೆಂಡ್}one{# ಸೆಕೆಂಡುಗಳು}other{# ಸೆಕೆಂಡುಗಳು}}</translation>
+<translation id="9150735707954472829">ಟ್ಯಾಬ್</translation>
 <translation id="9170848237812810038">&amp;ರದ್ದುಮಾಡು</translation>
 <translation id="932327136139879170">ಮುಖಪುಟ</translation>
 <translation id="945522503751344254">ಪ್ರತಿಕ್ರಿಯೆಯನ್ನು ಕಳುಹಿಸಿ</translation>

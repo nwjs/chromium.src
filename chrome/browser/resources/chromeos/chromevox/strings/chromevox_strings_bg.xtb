@@ -231,7 +231,6 @@
 <translation id="3321460131042519426">Активиране на пренасянето на думи</translation>
 <translation id="3322936298410871309">Предишното заглавие от първо ниво</translation>
 <translation id="3323447499041942178">Текстово поле</translation>
-<translation id="3329854757664111426">За да преминете напред, натиснете клавиша Enter.</translation>
 <translation id="3353420241558113817">{"en": "английски",
         "en_CA": "английски (Канада)",
         "en_GB": "английски (Обединено кралство)",
@@ -572,6 +571,7 @@
 <translation id="6132506484792346370">Списъчно поле или разгъващ се списък</translation>
 <translation id="6138576064440631958">комбинация от $1</translation>
 <translation id="6142308968191113180">Заглавие от четвърто ниво</translation>
+<translation id="6164829606128959761">индикатор</translation>
 <translation id="6169420925157477918">Изображение с дълго описание</translation>
 <translation id="6186305613600865047">Преминаване към края на страницата</translation>
 <translation id="6193330012414963395">AM/PM</translation>
@@ -695,10 +695,8 @@
 <translation id="7492049978501397201">Влязохте в диалогов прозорец</translation>
 <translation id="7518543783849163354">За да спрете временно говора на ChromeVox, натиснете клавиша Control.</translation>
 <translation id="7532613204005497612">юни</translation>
-<translation id="7540083713905917247"><ph name="VALUE" />, „<ph name="NAME" />“, плъзгач</translation>
 <translation id="7552432549459840808">Полезни клавишни комбинации в Chrome</translation>
 <translation id="7579911500627256166">точка <ph name="DOT" /></translation>
-<translation id="7591126877589047423">Няма откроен елемент. Натиснете Control + N, за да отворите нов прозорец.</translation>
 <translation id="7596919493010894443">открояването е изчистено</translation>
 <translation id="7604026522577407655">Към началото на текущата графа</translation>
 <translation id="7604451927827590395">hdng</translation>

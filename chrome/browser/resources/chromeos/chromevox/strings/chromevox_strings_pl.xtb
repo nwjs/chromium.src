@@ -231,7 +231,6 @@ Jeśli nie korzystasz już z samouczka, użyj czytnika ChromeVox, by przejść 
 <translation id="3321460131042519426">Włącz zawijanie wyrazów</translation>
 <translation id="3322936298410871309">Poprzedni nagłówek poziomu 1</translation>
 <translation id="3323447499041942178">Pole tekstowe</translation>
-<translation id="3329854757664111426">Aby kontynuować, naciśnij Enter.</translation>
 <translation id="3353420241558113817">{"ar": "arabski",
         "bg": "bułgarski",
         "ca": "kataloński",
@@ -365,7 +364,7 @@ Jeśli nie korzystasz już z samouczka, użyj czytnika ChromeVox, by przejść 
 <translation id="4271220233568730077">Następne wyrażenie matematyczne</translation>
 <translation id="4271521365602459209">Brak innych wyników.</translation>
 <translation id="4287520460805643128">Nie ma następnego artykułu.</translation>
-<translation id="4289540628985791613">Omówienie</translation>
+<translation id="4289540628985791613">Przegląd</translation>
 <translation id="4300318234632215983">Przeczytaj URL linku</translation>
 <translation id="4301352596632316575">ma menu podrzędne</translation>
 <translation id="4342180618051828363">{COUNT,plural, =1{kropka}=3{wielokropek}few{# kropki}many{# kropek}other{# dots}}</translation>
@@ -572,6 +571,7 @@ Aby otworzyć menu przeglądarki Chrome, naciśnij Alt + F.</translation>
 <translation id="6132506484792346370">Pole listy lub pole złożone</translation>
 <translation id="6138576064440631958">Akord: $1</translation>
 <translation id="6142308968191113180">Nagłówek 4</translation>
+<translation id="6164829606128959761">miernik</translation>
 <translation id="6169420925157477918">Obraz z długim opisem</translation>
 <translation id="6186305613600865047">Przejdź na dół strony</translation>
 <translation id="6193330012414963395">Do południa Po południu</translation>
@@ -695,10 +695,8 @@ Aby otworzyć menu przeglądarki Chrome, naciśnij Alt + F.</translation>
 <translation id="7492049978501397201">Otworzyłeś okno dialogowe</translation>
 <translation id="7518543783849163354">Aby tymczasowo wyłączyć komunikaty czytnika ChromeVox, naciśnij klawisz Ctrl.</translation>
 <translation id="7532613204005497612">czerwiec</translation>
-<translation id="7540083713905917247"><ph name="VALUE" />, <ph name="NAME" />, suwak</translation>
 <translation id="7552432549459840808">Przydatne skróty Chrome</translation>
 <translation id="7579911500627256166">punkt <ph name="DOT" /></translation>
-<translation id="7591126877589047423">Brak fokusu. Naciśnij control+N, by otworzyć nowe okno.</translation>
 <translation id="7596919493010894443">zaznaczenie zostało wyczyszczone</translation>
 <translation id="7604026522577407655">Przejdź na początek bieżącej kolumny</translation>
 <translation id="7604451927827590395">hdng</translation>

@@ -231,7 +231,6 @@ Kung tapos ka na sa tutorial, gamitin ang ChromeVox upang mag-navigate sa button
 <translation id="3321460131042519426">I-enable ang word wrap</translation>
 <translation id="3322936298410871309">Nakaraang heading sa antas 1</translation>
 <translation id="3323447499041942178">Text box</translation>
-<translation id="3329854757664111426">Upang pumunta sa susunod, pindutin ang Enter.</translation>
 <translation id="3353420241558113817">{"ar": "Arabic",
         "bg": "Bulgarian",
         "ca": "Catalan",
@@ -572,6 +571,7 @@ Upang buksan ang menu ng Chrome browser, pindutin ang Alt+F.</translation>
 <translation id="6132506484792346370">Isang listbox o combo box</translation>
 <translation id="6138576064440631958">$1 chord</translation>
 <translation id="6142308968191113180">Heading 4</translation>
+<translation id="6164829606128959761">metro</translation>
 <translation id="6169420925157477918">Larawang may mahabang paglalarawan</translation>
 <translation id="6186305613600865047">Pumunta sa ibaba ng page</translation>
 <translation id="6193330012414963395">AM PM</translation>
@@ -695,10 +695,8 @@ Upang buksan ang menu ng Chrome browser, pindutin ang Alt+F.</translation>
 <translation id="7492049978501397201">Naglagay ng dialog</translation>
 <translation id="7518543783849163354">Upang pansamantalang ihinto ang ChromeVox sa pagsasalita, pindutin ang Control key.</translation>
 <translation id="7532613204005497612">Hunyo</translation>
-<translation id="7540083713905917247"><ph name="VALUE" />, <ph name="NAME" />, slider</translation>
 <translation id="7552432549459840808">Mga Kapaki-pakinabang na Shortcut sa Chrome</translation>
 <translation id="7579911500627256166">dot <ph name="DOT" /></translation>
-<translation id="7591126877589047423">Walang focus. Pindutin ang Control N upang magbukas ng bagong window.</translation>
 <translation id="7596919493010894443">na-clear ang pagpili</translation>
 <translation id="7604026522577407655">Pumunta sa umpisa ng kasalukuyang column</translation>
 <translation id="7604451927827590395">hdng</translation>
