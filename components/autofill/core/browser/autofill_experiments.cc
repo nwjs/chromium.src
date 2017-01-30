@@ -146,6 +146,10 @@ void ModifyAutofillCreditCardSuggestion(Suggestion* suggestion) {
   }
 }
 
+unsigned int GetPopupMargin() {
+  return GetCreditCardPopupParameterUintValue(kAutofillPopupMarginKey);
+}
+
 bool OfferStoreUnmaskedCards() {
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
   // The checkbox can be forced on with a flag, but by default we don't store
