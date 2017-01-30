@@ -1444,6 +1444,11 @@ class CORE_EXPORT UseCounter {
     HTMLTableCellElementColspanGreaterThan1000 = 1784,
     HTMLTableCellElementColspanGreaterThan8190 = 1785,
     SelectionAddRangeIntersect = 1786,
+    V8MediaSession_Metadata_AttributeGetter = 1788,
+    V8MediaSession_Metadata_AttributeSetter = 1789,
+    V8MediaSession_PlaybackState_AttributeGetter = 1790,
+    V8MediaSession_PlaybackState_AttributeSetter = 1791,
+    V8MediaSession_SetActionHandler_Method = 1792,
 
     // Add new features immediately above this line. Don't change assigned
     // numbers of any item, and don't reuse removed slots.
