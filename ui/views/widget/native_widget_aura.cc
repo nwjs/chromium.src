@@ -535,6 +535,7 @@ void NativeWidgetAura::ShowWithWindowState(ui::WindowShowState state) {
   if (!window_)
     return;
 
+  // TODO(afakhry): Remove Docked Windows in M58.
   if (state == ui::SHOW_STATE_MAXIMIZED || state == ui::SHOW_STATE_FULLSCREEN ||
       state == ui::SHOW_STATE_DOCKED) {
     window_->SetProperty(aura::client::kShowStateKey, state);
@@ -1028,6 +1029,7 @@ NativeWidgetAura::~NativeWidgetAura() {
 ////////////////////////////////////////////////////////////////////////////////
 // NativeWidgetAura, private:
 
+// TODO(afakhry): Remove Docked Windows in M58.
 bool NativeWidgetAura::IsDocked() const {
   return window_ &&
          window_->GetProperty(aura::client::kShowStateKey) ==
