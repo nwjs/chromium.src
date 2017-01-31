@@ -757,8 +757,7 @@ void RendererSchedulerImpl::UpdateForInputEventOnCompositorThread(
 }
 
 void RendererSchedulerImpl::DidHandleInputEventOnMainThread(
-    const WebInputEvent& web_input_event,
-    WebInputEventResult result) {
+    const blink::WebInputEvent& web_input_event) {
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("renderer.scheduler"),
                "RendererSchedulerImpl::DidHandleInputEventOnMainThread");
   helper_.CheckOnValidThread();
@@ -766,17 +765,6 @@ void RendererSchedulerImpl::DidHandleInputEventOnMainThread(
     base::AutoLock lock(any_thread_lock_);
     AnyThread().user_model.DidFinishProcessingInputEvent(
         helper_.scheduler_tqm_delegate()->NowTicks());
-
-    // If we were waiting for a touchstart response and the main thread has
-    // prevented the default gesture, consider the gesture established. This
-    // ensures single-event gestures such as button presses are promptly
-    // detected.
-    if (AnyThread().awaiting_touch_start_response &&
-        result == WebInputEventResult::HandledApplication) {
-      AnyThread().awaiting_touch_start_response = false;
-      AnyThread().default_gesture_prevented = true;
-      UpdatePolicyLocked(UpdateType::MAY_EARLY_OUT_IF_POLICY_UNCHANGED);
-    }
   }
 }
 

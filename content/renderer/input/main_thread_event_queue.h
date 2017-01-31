@@ -129,7 +129,6 @@ class CONTENT_EXPORT MainThreadEventQueue
   // Call once the main thread has handled an outstanding |type| event
   // in flight.
   void EventHandled(blink::WebInputEvent::Type type,
-                    blink::WebInputEventResult result,
                     InputEventAckState ack_result);
 
  private:

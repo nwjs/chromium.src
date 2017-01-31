@@ -75,7 +75,6 @@ class CONTENT_EXPORT InputHandlerManager {
 
   void NotifyInputEventHandledOnMainThread(int routing_id,
                                            blink::WebInputEvent::Type,
-                                           blink::WebInputEventResult,
                                            InputEventAckState);
   void ProcessRafAlignedInputOnMainThread(int routing_id);
 

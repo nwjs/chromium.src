@@ -108,11 +108,9 @@ void InputEventFilter::DispatchNonBlockingEventToMainThread(
   }
 }
 
-void InputEventFilter::NotifyInputEventHandled(
-    int routing_id,
-    blink::WebInputEvent::Type type,
-    blink::WebInputEventResult result,
-    InputEventAckState ack_result) {
+void InputEventFilter::NotifyInputEventHandled(int routing_id,
+                                               blink::WebInputEvent::Type type,
+                                               InputEventAckState ack_result) {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   scoped_refptr<MainThreadEventQueue> queue;
   {
@@ -123,7 +121,7 @@ void InputEventFilter::NotifyInputEventHandled(
     queue = iter->second;
   }
 
-  queue->EventHandled(type, result, ack_result);
+  queue->EventHandled(type, ack_result);
 }
 
 void InputEventFilter::ProcessRafAlignedInput(int routing_id) {
