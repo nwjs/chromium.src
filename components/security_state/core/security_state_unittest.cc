@@ -34,8 +34,6 @@ class TestSecurityStateHelper {
  public:
   TestSecurityStateHelper()
       : url_(kHttpsUrl),
-        cert_(net::ImportCertFromFile(net::GetTestCertsDirectory(),
-                                      "sha1_2016.pem")),
         connection_status_(net::SSL_CONNECTION_VERSION_TLS1_2
                            << net::SSL_CONNECTION_VERSION_SHIFT),
         cert_status_(net::CERT_STATUS_SHA1_SIGNATURE_PRESENT),
@@ -43,7 +41,10 @@ class TestSecurityStateHelper {
         ran_mixed_content_(false),
         malicious_content_status_(MALICIOUS_CONTENT_STATUS_NONE),
         displayed_password_field_on_http_(false),
-        displayed_credit_card_field_on_http_(false) {}
+        displayed_credit_card_field_on_http_(false) {
+    cert_ =
+        net::ImportCertFromFile(net::GetTestCertsDirectory(), "sha1_2016.pem");
+  }
   virtual ~TestSecurityStateHelper() {}
 
   void set_connection_status(int connection_status) {
@@ -74,9 +75,9 @@ class TestSecurityStateHelper {
     displayed_credit_card_field_on_http_ = displayed_credit_card_field_on_http;
   }
 
-  void SetUrl(const GURL& url) { url_ = url; }
+  void UseHttpUrl() { url_ = GURL(kHttpUrl); }
 
-  std::unique_ptr<VisibleSecurityState> GetVisibleSecurityState() const {
+  std::unique_ptr<VisibleSecurityState> GetVisibleSecurityState() {
     auto state = base::MakeUnique<VisibleSecurityState>();
     state->connection_info_initialized = true;
     state->url = url_;
@@ -93,7 +94,7 @@ class TestSecurityStateHelper {
     return state;
   }
 
-  void GetSecurityInfo(SecurityInfo* security_info) const {
+  void GetSecurityInfo(SecurityInfo* security_info) {
     security_state::GetSecurityInfo(
         GetVisibleSecurityState(),
         false /* used policy installed certificate */,
@@ -102,7 +103,7 @@ class TestSecurityStateHelper {
 
  private:
   GURL url_;
-  const scoped_refptr<net::X509Certificate> cert_;
+  scoped_refptr<net::X509Certificate> cert_;
   int connection_status_;
   net::CertStatus cert_status_;
   bool displayed_mixed_content_;
@@ -245,27 +246,13 @@ TEST(SecurityStateTest, MalwareWithoutConnectionState) {
   EXPECT_EQ(DANGEROUS, security_info.security_level);
 }
 
-// Tests that pseudo URLs always cause an HTTP_SHOW_WARNING to be shown,
-// regardless of whether a password or credit card field was displayed.
-TEST(SecurityStateTest, AlwaysWarnOnDataUrls) {
-  TestSecurityStateHelper helper;
-  helper.SetUrl(GURL("data:text/html,<html>test</html>"));
-  helper.set_displayed_password_field_on_http(false);
-  helper.set_displayed_credit_card_field_on_http(false);
-  SecurityInfo security_info;
-  helper.GetSecurityInfo(&security_info);
-  EXPECT_FALSE(security_info.displayed_password_field_on_http);
-  EXPECT_FALSE(security_info.displayed_credit_card_field_on_http);
-  EXPECT_EQ(HTTP_SHOW_WARNING, security_info.security_level);
-}
-
 // Tests that password fields cause the security level to be downgraded
 // to HTTP_SHOW_WARNING when the command-line switch is set.
 TEST(SecurityStateTest, PasswordFieldWarning) {
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kMarkHttpAs, switches::kMarkHttpWithPasswordsOrCcWithChip);
   TestSecurityStateHelper helper;
-  helper.SetUrl(GURL(kHttpUrl));
+  helper.UseHttpUrl();
   helper.set_displayed_password_field_on_http(true);
   SecurityInfo security_info;
   helper.GetSecurityInfo(&security_info);
@@ -279,7 +266,7 @@ TEST(SecurityStateTest, CreditCardFieldWarning) {
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kMarkHttpAs, switches::kMarkHttpWithPasswordsOrCcWithChip);
   TestSecurityStateHelper helper;
-  helper.SetUrl(GURL(kHttpUrl));
+  helper.UseHttpUrl();
   helper.set_displayed_credit_card_field_on_http(true);
   SecurityInfo security_info;
   helper.GetSecurityInfo(&security_info);
@@ -310,7 +297,7 @@ TEST(SecurityStateTest, HttpWarningNotSetWithoutSwitch) {
 // VisibleSecurityState flags are not set.
 TEST(SecurityStateTest, PrivateUserDataNotSet) {
   TestSecurityStateHelper helper;
-  helper.SetUrl(GURL(kHttpUrl));
+  helper.UseHttpUrl();
   SecurityInfo security_info;
   helper.GetSecurityInfo(&security_info);
   EXPECT_FALSE(security_info.displayed_password_field_on_http);
@@ -326,7 +313,7 @@ TEST(SecurityStateTest, MarkHttpAsStatusHistogram) {
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kMarkHttpAs, switches::kMarkHttpWithPasswordsOrCcWithChip);
   TestSecurityStateHelper helper;
-  helper.SetUrl(GURL(kHttpUrl));
+  helper.UseHttpUrl();
 
   // Ensure histogram recorded correctly when a non-secure password input is
   // found on the page.
