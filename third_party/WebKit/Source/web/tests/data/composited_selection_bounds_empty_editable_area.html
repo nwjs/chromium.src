@@ -7,15 +7,13 @@
         font-family: ahem;
     }
 </style>
-<div contentEditable="true">
-    The quick brown fox jumped over the lazy dog.
-</div>
+<textarea id="text"/>
 <script>
     var textNode = document.getElementById("text");
     textNode.focus();
 
     var expectEditable = true;
-    var expectEmptyTextFormControl = false;
+    var expectEmptyTextFormControl = true;
     window.expectedResult = [document, 11, 11, 11, 25, document, 11, 11, 11, 25, expectEditable, expectEmptyTextFormControl];
 </script>
 

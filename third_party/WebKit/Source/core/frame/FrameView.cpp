@@ -1968,7 +1968,7 @@ bool FrameView::computeCompositedSelection(LocalFrame& frame,
     return false;
 
   const VisibleSelection& visibleSelection = frame.selection().selection();
-  if (visibleSelection.isNone() || !frame.selection().isHandleVisible())
+  if (visibleSelection.isNone())
     return false;
 
   // Non-editable caret selections lack any kind of UI affordance, and

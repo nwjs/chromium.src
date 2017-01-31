@@ -66,8 +66,6 @@ enum class SelectionDirectionalMode { NonDirectional, Directional };
 
 enum class CaretVisibility;
 
-enum class HandleVisibility { NotVisible, Visible };
-
 class CORE_EXPORT FrameSelection final
     : public GarbageCollectedFinalized<FrameSelection> {
   WTF_MAKE_NONCOPYABLE(FrameSelection);
@@ -87,7 +85,6 @@ class CORE_EXPORT FrameSelection final
     DoNotUpdateAppearance = 1 << 4,
     DoNotClearStrategy = 1 << 5,
     DoNotAdjustInFlatTree = 1 << 6,
-    HandleVisible = 1 << 7,
   };
   // Union of values in SetSelectionOption and EUserTriggered
   typedef unsigned SetSelectionOptions;
@@ -238,11 +235,6 @@ class CORE_EXPORT FrameSelection final
   void pageActivationChanged();
 
   void setUseSecureKeyboardEntryWhenActive(bool);
-
-  bool isHandleVisible() const {
-    return m_handleVisibility == HandleVisibility::Visible;
-  }
-
   void updateSecureKeyboardEntryIfActive();
 
   // Returns true if a word is selected.
@@ -346,8 +338,6 @@ class CORE_EXPORT FrameSelection final
   Member<EditingStyle> m_typingStyle;
 
   bool m_focused : 1;
-
-  HandleVisibility m_handleVisibility = HandleVisibility::NotVisible;
 
   // Controls text granularity used to adjust the selection's extent in
   // moveRangeSelectionExtent.

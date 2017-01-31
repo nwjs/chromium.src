@@ -29,7 +29,6 @@
 
 #include "core/CoreExport.h"
 #include "core/dom/SynchronousMutationObserver.h"
-#include "core/editing/FrameSelection.h"
 #include "core/editing/TextGranularity.h"
 #include "core/editing/VisibleSelection.h"
 #include "core/page/EventWithHitTestResults.h"
@@ -37,6 +36,7 @@
 
 namespace blink {
 
+class FrameSelection;
 class HitTestResult;
 class LocalFrame;
 
@@ -112,14 +112,12 @@ class CORE_EXPORT SelectionController final
       const MouseEventWithHitTestResults&);
   void setNonDirectionalSelectionIfNeeded(const VisibleSelectionInFlatTree&,
                                           TextGranularity,
-                                          EndPointsAdjustmentMode,
-                                          HandleVisibility);
+                                          EndPointsAdjustmentMode);
   void setCaretAtHitTestResult(const HitTestResult&);
   bool updateSelectionForMouseDownDispatchingSelectStart(
       Node*,
       const VisibleSelectionInFlatTree&,
-      TextGranularity,
-      HandleVisibility);
+      TextGranularity);
 
   FrameSelection& selection() const;
 

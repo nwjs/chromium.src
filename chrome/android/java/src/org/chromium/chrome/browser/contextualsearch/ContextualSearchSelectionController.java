@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.contextualsearch;
 
 import android.os.Handler;
-import android.text.TextUtils;
 
 import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.ChromeActivity;
@@ -70,6 +69,7 @@ public class ContextualSearchSelectionController {
     private ContextualSearchTapState mLastTapState;
     private TapSuppressionHeuristics mTapHeuristics;
     private boolean mIsWaitingForInvalidTapDetection;
+    private boolean mIsSelectionEstablished;
     private boolean mShouldHandleSelectionModification;
     private boolean mDidExpandSelection;
 
@@ -296,6 +296,12 @@ public class ContextualSearchSelectionController {
             case SelectionEventType.SELECTION_HANDLE_DRAG_STOPPED:
                 shouldHandleSelection = mShouldHandleSelectionModification;
                 break;
+            case SelectionEventType.SELECTION_ESTABLISHED:
+                mIsSelectionEstablished = true;
+                break;
+            case SelectionEventType.SELECTION_DISSOLVED:
+                mIsSelectionEstablished = false;
+                break;
             default:
         }
 
@@ -507,11 +513,11 @@ public class ContextualSearchSelectionController {
     }
 
     /**
-     * @return whether selection is empty, for testing.
+     * @return whether the selection has been established, for testing.
      */
     @VisibleForTesting
-    boolean isSelectionEmpty() {
-        return TextUtils.isEmpty(mSelectedText);
+    boolean isSelectionEstablished() {
+        return mIsSelectionEstablished;
     }
 
     /**

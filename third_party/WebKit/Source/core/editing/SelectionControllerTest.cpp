@@ -36,8 +36,7 @@ void SelectionControllerTest::setNonDirectionalSelectionIfNeeded(
       .eventHandler()
       .selectionController()
       .setNonDirectionalSelectionIfNeeded(
-          newSelection, granularity, SelectionController::DoNotAdjustEndpoints,
-          HandleVisibility::NotVisible);
+          newSelection, granularity, SelectionController::DoNotAdjustEndpoints);
 }
 
 TEST_F(SelectionControllerTest, setNonDirectionalSelectionIfNeeded) {

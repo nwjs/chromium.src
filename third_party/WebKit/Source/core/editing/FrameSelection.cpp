@@ -169,8 +169,7 @@ void FrameSelection::moveCaretSelection(const IntPoint& point) {
   builder.setIsDirectional(selection().isDirectional());
   if (position.isNotNull())
     builder.collapse(position.toPositionWithAffinity());
-  setSelection(builder.build(),
-               CloseTyping | ClearTypingStyle | UserTriggered | HandleVisible);
+  setSelection(builder.build(), CloseTyping | ClearTypingStyle | UserTriggered);
 }
 
 template <typename Strategy>
@@ -187,9 +186,6 @@ void FrameSelection::setSelectionAlgorithm(
     m_granularityStrategy->Clear();
   bool closeTyping = options & CloseTyping;
   bool shouldClearTypingStyle = options & ClearTypingStyle;
-  const HandleVisibility handleVisibility = options & HandleVisible
-                                                ? HandleVisibility::Visible
-                                                : HandleVisibility::NotVisible;
   EUserTriggered userTriggered = selectionOptionsToUserTriggered(options);
 
   // TODO(editing-dev): We should rename variable |s| to another name to avoid
@@ -208,8 +204,7 @@ void FrameSelection::setSelectionAlgorithm(
   if (shouldClearTypingStyle)
     clearTypingStyle();
 
-  if (m_selectionEditor->visibleSelection<Strategy>() == s &&
-      m_handleVisibility == handleVisibility) {
+  if (m_selectionEditor->visibleSelection<Strategy>() == s) {
     // Even if selection was not changed, selection offsets may have been
     // changed.
     m_frame->inputMethodController().cancelCompositionIfSelectionIsInvalid();
@@ -221,7 +216,6 @@ void FrameSelection::setSelectionAlgorithm(
       visibleSelection<Strategy>();
   const Position& oldSelectionStart = selection().start();
 
-  m_handleVisibility = handleVisibility;
   m_selectionEditor->setVisibleSelection(s, options);
   m_frameCaret->setCaretRectNeedsUpdate();
 
@@ -1353,8 +1347,7 @@ void FrameSelection::moveRangeSelectionExtent(const IntPoint& contentsPoint) {
       granularityStrategy()->updateExtent(contentsPoint, m_frame);
   setSelection(newSelection,
                FrameSelection::CloseTyping | FrameSelection::ClearTypingStyle |
-                   FrameSelection::DoNotClearStrategy | UserTriggered |
-                   FrameSelection::HandleVisible,
+                   FrameSelection::DoNotClearStrategy | UserTriggered,
                CursorAlignOnScroll::IfNeeded, CharacterGranularity);
 }
 
@@ -1375,11 +1368,8 @@ void FrameSelection::moveRangeSelection(const VisiblePosition& basePosition,
   if (newSelection.isNone())
     return;
 
-  SetSelectionOptions options = CloseTyping | ClearTypingStyle;
-  if (isHandleVisible())
-    options |= HandleVisible;
-  setSelection(newSelection, options, CursorAlignOnScroll::IfNeeded,
-               granularity);
+  setSelection(newSelection, CloseTyping | ClearTypingStyle,
+               CursorAlignOnScroll::IfNeeded, granularity);
 }
 
 void FrameSelection::updateIfNeeded() {

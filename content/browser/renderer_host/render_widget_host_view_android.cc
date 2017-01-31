@@ -1339,6 +1339,10 @@ void RenderWidgetHostViewAndroid::OnFrameMetadataUpdated(
     overscroll_controller_->OnFrameMetadataUpdated(frame_metadata);
 
   if (selection_controller_) {
+    selection_controller_->OnSelectionEditable(
+        frame_metadata.selection.is_editable);
+    selection_controller_->OnSelectionEmpty(
+        frame_metadata.selection.is_empty_text_form_control);
     selection_controller_->OnSelectionBoundsChanged(
         frame_metadata.selection.start, frame_metadata.selection.end);
 
@@ -1591,16 +1595,20 @@ InputEventAckState RenderWidgetHostViewAndroid::FilterInputEvent(
         static_cast<const blink::WebGestureEvent&>(input_event);
     switch (gesture_event.type()) {
       case blink::WebInputEvent::GestureLongPress:
-        selection_controller_->HandleLongPressEvent(
-            base::TimeTicks() +
-            base::TimeDelta::FromSecondsD(input_event.timeStampSeconds()),
-            gfx::PointF(gesture_event.x, gesture_event.y));
+        if (selection_controller_->WillHandleLongPressEvent(
+                base::TimeTicks() + base::TimeDelta::FromSecondsD(
+                                        input_event.timeStampSeconds()),
+                gfx::PointF(gesture_event.x, gesture_event.y))) {
+          return INPUT_EVENT_ACK_STATE_CONSUMED;
+        }
         break;
 
       case blink::WebInputEvent::GestureTap:
-        selection_controller_->HandleTapEvent(
-            gfx::PointF(gesture_event.x, gesture_event.y),
-            gesture_event.data.tap.tapCount);
+        if (selection_controller_->WillHandleTapEvent(
+                gfx::PointF(gesture_event.x, gesture_event.y),
+                gesture_event.data.tap.tapCount)) {
+          return INPUT_EVENT_ACK_STATE_CONSUMED;
+        }
         break;
 
       case blink::WebInputEvent::GestureScrollBegin:
@@ -1995,6 +2003,11 @@ void RenderWidgetHostViewAndroid::OnStylusSelectBegin(float x0,
 
 void RenderWidgetHostViewAndroid::OnStylusSelectUpdate(float x, float y) {
   MoveRangeSelectionExtent(gfx::PointF(x, y));
+}
+
+void RenderWidgetHostViewAndroid::OnStylusSelectEnd() {
+  if (selection_controller_)
+    selection_controller_->AllowShowingFromCurrentSelection();
 }
 
 void RenderWidgetHostViewAndroid::OnStylusSelectTap(base::TimeTicks time,
