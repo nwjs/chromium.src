@@ -1580,6 +1580,7 @@ LocalFrame* WebLocalFrameImpl::createChildFrame(
                                ? WebTreeScopeType::Document
                                : WebTreeScopeType::Shadow;
   WebFrameOwnerProperties ownerProperties(
+      ownerElement->browsingContextContainerName(),
       ownerElement->scrollingMode(), ownerElement->marginWidth(),
       ownerElement->marginHeight(), ownerElement->allowFullscreen(),
       ownerElement->allowPaymentRequest(), ownerElement->csp(),
