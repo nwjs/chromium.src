@@ -1011,7 +1011,7 @@ bool SelectorChecker::checkPseudoClass(const SelectorCheckingContext& context,
       if (isHTMLFrameElementBase(element) &&
           element.containsFullScreenElement())
         return true;
-      return Fullscreen::isFullscreenElement(element);
+      return Fullscreen::isCurrentFullScreenElement(element);
     case CSSSelector::PseudoFullScreenAncestor:
       return element.containsFullScreenElement();
     case CSSSelector::PseudoInRange:
