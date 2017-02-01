@@ -75,7 +75,9 @@ class MainThreadEventQueueTest : public testing::TestWithParam<unsigned>,
                                InputEventDispatchType type) override {
     EXPECT_EQ(kTestRoutingID, routing_id);
     handled_events_.push_back(ui::WebInputEventTraits::Clone(*event));
-    queue_->EventHandled(event->type(), INPUT_EVENT_ACK_STATE_NOT_CONSUMED);
+    queue_->EventHandled(event->type(),
+                         blink::WebInputEventResult::HandledApplication,
+                         INPUT_EVENT_ACK_STATE_NOT_CONSUMED);
   }
 
   void SendInputEventAck(int routing_id,
@@ -244,7 +246,8 @@ TEST_P(MainThreadEventQueueTest, BlockingTouch) {
   kEvents[3].PressPoint(10, 10);
   kEvents[3].MovePoint(0, 35, 35);
 
-  EXPECT_CALL(renderer_scheduler_, DidHandleInputEventOnMainThread(testing::_))
+  EXPECT_CALL(renderer_scheduler_,
+              DidHandleInputEventOnMainThread(testing::_, testing::_))
       .Times(2);
   // Ensure that coalescing takes place.
   HandleEvent(kEvents[0], INPUT_EVENT_ACK_STATE_SET_NON_BLOCKING);
