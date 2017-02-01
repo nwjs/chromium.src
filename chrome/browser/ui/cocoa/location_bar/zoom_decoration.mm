@@ -145,7 +145,7 @@ bool ZoomDecoration::OnMousePressed(NSRect frame, NSPoint location) {
   if (bubble_)
     CloseBubble();
   else
-    ShowBubble(NO);
+    ShowBubble(YES);
   return true;
 }
 
