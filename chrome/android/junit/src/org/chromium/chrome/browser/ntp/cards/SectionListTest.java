@@ -5,8 +5,12 @@
 package org.chromium.chrome.browser.ntp.cards;
 
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.ntp.cards.ContentSuggestionsTestUtils.bindViewHolders;
@@ -16,6 +20,7 @@ import static org.chromium.chrome.browser.ntp.cards.ContentSuggestionsTestUtils.
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.annotation.Config;
@@ -23,6 +28,7 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.util.Feature;
+import org.chromium.chrome.browser.ntp.NewTabPage.DestructionObserver;
 import org.chromium.chrome.browser.ntp.cards.ContentSuggestionsTestUtils.CategoryInfoBuilder;
 import org.chromium.chrome.browser.ntp.snippets.FakeSuggestionsSource;
 import org.chromium.chrome.browser.ntp.snippets.KnownCategories;
@@ -229,5 +235,31 @@ public class SectionListTest {
                            .getActionItem()
                            .getPerSectionRank(),
                 equalTo(3));
+    }
+
+    @Test
+    @Feature({"Ntp"})
+    public void testRemovesSectionsWhenUiDelegateDestroyed() {
+        registerCategory(mSuggestionSource, KnownCategories.ARTICLES, 1);
+        registerCategory(mSuggestionSource,
+                new CategoryInfoBuilder(KnownCategories.DOWNLOADS).withViewAllAction().build(), 3);
+        SectionList sectionList = new SectionList(mUiDelegate, mOfflinePageBridge);
+        bindViewHolders(sectionList);
+
+        ArgumentCaptor<DestructionObserver> argument =
+                ArgumentCaptor.forClass(DestructionObserver.class);
+        verify(mUiDelegate).addDestructionObserver(argument.capture());
+
+        assertFalse(sectionList.isEmpty());
+        SuggestionsSection section = sectionList.getSectionForTesting(KnownCategories.ARTICLES);
+        assertNotNull(section);
+
+        // Now destroy the UI and thus notify the SectionList.
+        argument.getValue().onDestroy();
+        // The section should be removed.
+        assertTrue(sectionList.isEmpty());
+        // Verify that the section has been detached by notifying its parent about changes. If not
+        // detached, it should crash.
+        section.notifyItemRangeChanged(0, 1);
     }
 }
