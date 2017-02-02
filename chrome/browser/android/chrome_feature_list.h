@@ -35,7 +35,6 @@ extern const base::Feature kSpecialLocaleWrapper;
 extern const base::Feature kTabReparenting;
 extern const base::Feature kUserMediaScreenCapturing;
 extern const base::Feature kWebPaymentsModifiers;
-extern const base::Feature kWebVRCardboardSupport;
 
 bool RegisterChromeFeatureListJni(JNIEnv* env);
 
