@@ -254,6 +254,11 @@ class CORE_EXPORT HTMLInputElement : public TextControlElement {
   void beginEditing();
   void endEditing();
 
+  const AtomicString& nwworkingdir() const;
+  void setNwworkingdir(const AtomicString& value);
+  String nwsaveas() const;
+  void setNwsaveas(const String& value);
+
   static Vector<FileChooserFileInfo> filesFromFileInputFormControlState(
       const FormControlState&);
 

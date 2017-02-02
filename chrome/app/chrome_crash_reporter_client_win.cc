@@ -254,7 +254,9 @@ void ChromeCrashReporterClient::InitializeCrashReportingForProcess() {
 
   std::string process_type = install_static::GetSwitchValueFromCommandLine(
       ::GetCommandLineA(), install_static::kProcessType);
-  if (process_type != install_static::kCrashpadHandler) {
+  std::string disable_crash_handler = install_static::GetSwitchValueFromCommandLine(
+    ::GetCommandLineA(), "disable-crash-handler");
+  if (process_type != install_static::kCrashpadHandler && disable_crash_handler != "true") {
     crash_reporter::SetCrashReporterClient(instance);
     crash_reporter::InitializeCrashpadWithEmbeddedHandler(process_type.empty(),
                                                           process_type);

@@ -91,7 +91,7 @@ class CORE_EXPORT FileInputType final : public InputType,
   void copyNonAttributeProperties(const HTMLInputElement&) override;
 
   // FileChooserClient implementation.
-  void filesChosen(const Vector<FileChooserFileInfo>&) override;
+  void filesChosen(const Vector<FileChooserFileInfo>&, bool canceled = false) override;
 
   void setFilesFromDirectory(const String&);
 
