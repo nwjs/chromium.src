@@ -992,9 +992,23 @@ public class CustomTabActivity extends ChromeActivity {
      */
     private String getUrlToLoad() {
         String url = IntentHandler.getUrlFromIntent(getIntent());
+
+        // Intents fired for media viewers have an additional file:// URI passed along so that the
+        // tab can display the actual filename to the user when it is loaded.
+        if (mIntentDataProvider.isMediaViewer()) {
+            String mediaViewerUrl = mIntentDataProvider.getMediaViewerUrl();
+            if (!TextUtils.isEmpty(mediaViewerUrl)) {
+                Uri mediaViewerUri = Uri.parse(mediaViewerUrl);
+                if ("file".equals(mediaViewerUri.getScheme())) {
+                    url = mediaViewerUrl;
+                }
+            }
+        }
+
         if (!TextUtils.isEmpty(url)) {
             url = DataReductionProxySettings.getInstance().maybeRewriteWebliteUrl(url);
         }
+
         return url;
     }
 
