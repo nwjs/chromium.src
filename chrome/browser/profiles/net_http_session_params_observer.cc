@@ -33,7 +33,7 @@ void DisableQuicOnIOThread(
 
   // Disable QUIC for globally-owned objects.
   io_thread->DisableQuic();
-  safe_browsing_service->DisableQuicOnIOThread();
+  //safe_browsing_service->DisableQuicOnIOThread();
 
   // Call profile's disable QUIC callback.
   disable_quic_callback.Run();

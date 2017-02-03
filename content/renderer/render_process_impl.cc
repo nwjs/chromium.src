@@ -191,8 +191,9 @@ RenderProcessImpl::RenderProcessImpl()
     v8::V8::SetFlagsFromString(flags.c_str(), static_cast<int>(flags.size()));
   }
 
-  SiteIsolationStatsGatherer::SetEnabled(
-      GetContentClient()->renderer()->ShouldGatherSiteIsolationStats());
+  SiteIsolationStatsGatherer::SetEnabled(false);
+  //GetContentClient()->renderer()->ShouldGatherSiteIsolationStats());
+
 }
 
 RenderProcessImpl::~RenderProcessImpl() {

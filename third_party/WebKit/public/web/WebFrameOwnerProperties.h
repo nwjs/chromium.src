@@ -22,6 +22,7 @@ struct WebFrameOwnerProperties {
   bool allowFullscreen;
   bool allowPaymentRequest;
   WebString requiredCsp;
+  bool nwFakeTop;
   WebVector<WebPermissionType> delegatedPermissions;
 
   WebFrameOwnerProperties()
@@ -29,7 +30,7 @@ struct WebFrameOwnerProperties {
         marginWidth(-1),
         marginHeight(-1),
         allowFullscreen(false),
-        allowPaymentRequest(false) {}
+        allowPaymentRequest(false), nwFakeTop(false) {}
 
 #if INSIDE_BLINK
   WebFrameOwnerProperties(
@@ -48,6 +49,7 @@ struct WebFrameOwnerProperties {
         allowFullscreen(allowFullscreen),
         allowPaymentRequest(allowPaymentRequest),
         requiredCsp(requiredCsp),
+        nwFakeTop(false),
         delegatedPermissions(delegatedPermissions) {}
 #endif
 };

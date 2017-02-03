@@ -1149,14 +1149,22 @@ void FrameLoader::load(const FrameLoadRequest& passedRequest,
   setReferrerForFrameRequest(request);
 
   if (!targetFrame && !request.frameName().isEmpty()) {
+    if (request.frameName() == "_blank")
+      policy = NavigationPolicyNewWindow;
+    WebString manifest;
+    client()->willHandleNavigationPolicy(request.resourceRequest(), &policy, &manifest);
+    if (policy == NavigationPolicyIgnore)
+      return;
+    if (policy != NavigationPolicyCurrentTab && !targetFrame && !request.frameName().isEmpty()) {
     if (policy == NavigationPolicyDownload) {
       client()->loadURLExternally(request.resourceRequest(),
                                   NavigationPolicyDownload, String(), false);
     } else {
       request.resourceRequest().setFrameType(WebURLRequest::FrameTypeAuxiliary);
-      createWindowForRequest(request, *m_frame, policy);
+      createWindowForRequest(request, *m_frame, policy, manifest);
     }
     return;
+    }
   }
 
   if (!m_frame->isNavigationAllowed())
@@ -1679,6 +1687,15 @@ void FrameLoader::startLoad(FrameLoadRequest& frameLoadRequest,
   resourceRequest.setFrameType(m_frame->isMainFrame()
                                    ? WebURLRequest::FrameTypeTopLevel
                                    : WebURLRequest::FrameTypeNested);
+
+  NavigationPolicy policy = navigationPolicyForRequest(frameLoadRequest);
+  WebURLRequest::RequestContext context = resourceRequest.requestContext();
+  if (context == WebURLRequest::RequestContextHyperlink ||
+      context == WebURLRequest::RequestContextForm) {
+    client()->willHandleNavigationPolicy(resourceRequest, &policy, NULL, false);
+    if (policy == NavigationPolicyIgnore)
+      return;
+  }
 
   // Record the latest requiredCSP value that will be used when sending this
   // request.
