@@ -54,6 +54,7 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/ssl_status.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/origin_util.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/base/url_util.h"
 #include "third_party/re2/src/re2/re2.h"
@@ -561,6 +562,10 @@ void ChromePasswordManagerClient::GenerationAvailableForForm(
 
 const GURL& ChromePasswordManagerClient::GetMainFrameURL() const {
   return web_contents()->GetVisibleURL();
+}
+
+bool ChromePasswordManagerClient::IsMainFrameSecure() const {
+  return content::IsOriginSecure(web_contents()->GetVisibleURL());
 }
 
 const GURL& ChromePasswordManagerClient::GetLastCommittedEntryURL() const {
