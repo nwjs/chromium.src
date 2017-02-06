@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" />, ఆన్‌లో ఉంది</translation>
 <translation id="1692077714702418899">ఆకృతీకరణ పంక్తి</translation>
 <translation id="1700517974991662022">సందర్శించబడింది</translation>
+<translation id="1714116687360794776">మీటర్</translation>
 <translation id="1722567105086139392">లింక్</translation>
 <translation id="1727806147743597030">ftr</translation>
 <translation id="174268867904053074">తదుపరి గ్రాఫిక్</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">తేదీ సమయ నియంత్రణ</translation>
 <translation id="2347456970887948350">లింక్</translation>
 <translation id="2359897517538099099">పట్టిక మోడ్‌లో లేదు.</translation>
+<translation id="2390264819538553347">ముందుకు వెళ్లడానికి, enter నొక్కండి; వెనుకకు వెళ్లడానికి, backspace నొక్కండి.</translation>
 <translation id="241124561063364910">దీని తర్వాత</translation>
 <translation id="2416512023405990736">ఎంచుకున్నట్లు గుర్తు పెట్టని ఎంపిక పెట్టె</translation>
 <translation id="2417569100218200841">కంటెంట్ సమాచారం</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">మునుపటి విభాగం లేదు.</translation>
 <translation id="3030432017085518523">మెను అంశం రేడియో బటన్</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{సంగ్రాహక గుర్తు}other{# సంగ్రాహక గుర్తులు}}</translation>
+<translation id="3040901448410802366">ప్రోగ్రెస్ సూచిక</translation>
 <translation id="3046838483509668188">ChromeVox ఎంపికలు</translation>
 <translation id="3047143736589213134">ప్రయోగాత్మక కీమ్యాప్</translation>
 <translation id="3060756054951570867"><ph name="TITLE" /> మెను తెరవబడింది</translation>
@@ -231,6 +234,7 @@
 <translation id="3321460131042519426">పదాల సర్దుబాటుని ప్రారంభించు</translation>
 <translation id="3322936298410871309">మునుపటి స్థాయి 1 శీర్షిక</translation>
 <translation id="3323447499041942178">టెక్స్ట్ బాక్స్</translation>
+<translation id="3338224621010291843"><ph name="VALUE" /> <ph name="NAME" /> స్లయిడర్</translation>
 <translation id="3353420241558113817">{"ar": "అరబిక్",
         "bg": "బల్గేరియన్",
         "ca": "క్యాటలాన్",

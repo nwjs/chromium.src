@@ -279,6 +279,7 @@
 <translation id="3655670868607891010">Om du ser detta ofta provar du <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Version</translation>
 <translation id="3678029195006412963">Begäran kunde inte signeras</translation>
+<translation id="3679803492151881375">Kraschrapporten gjordes den <ph name="CRASH_TIME" /> och laddades upp den <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Certifikatinformation</translation>
 <translation id="3690164694835360974">Osäker inloggning</translation>
 <translation id="3693415264595406141">Lösenord:</translation>
@@ -377,6 +378,7 @@
 <translation id="4764776831041365478">Webbsidan på <ph name="URL" /> kan ligga nere för tillfället eller kan ha flyttats permanent till en ny webbadress.</translation>
 <translation id="4771973620359291008">Ett okänt fel uppstod.</translation>
 <translation id="4800132727771399293">Kontrollera utgångsdatum och CVC-kod och försök igen</translation>
+<translation id="4803924862070940586"><ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
 <translation id="4813512666221746211">Nätverksfel</translation>
 <translation id="4816492930507672669">Anpassa till sida</translation>
 <translation id="4850886885716139402">Visa</translation>
@@ -451,6 +453,7 @@
 <translation id="5622887735448669177">Vill du lämna den här webbplatsen?</translation>
 <translation id="5629630648637658800">Det gick inte att läsa in policyinställningarna</translation>
 <translation id="5631439013527180824">Ogiltig enhetshanteringstoken</translation>
+<translation id="5669703222995421982">Få anpassat innehåll</translation>
 <translation id="5675650730144413517">Sidan fungerar inte</translation>
 <translation id="5677928146339483299">Blockerad</translation>
 <translation id="5694783966845939798">Du försökte öppna <ph name="DOMAIN" />, men servern angav ett certifikat som har signerats med en svag signaturalgoritm (till exempel SHA-1). Det innebär att säkerhetsuppgifterna som servern anger kan vara en förfalskning och att servern kanske inte är den server du tror (du kanske kommunicerar med en angripare). <ph name="BEGIN_LEARN_MORE_LINK" />Läs mer<ph name="END_LEARN_MORE_LINK" />.</translation>
@@ -551,6 +554,7 @@
 <translation id="6753269504797312559">Policyvärde</translation>
 <translation id="6757797048963528358">Enheten gick i viloläge.</translation>
 <translation id="6778737459546443941">Din förälder har inte godkänt den ännu</translation>
+<translation id="6810899417690483278">Anpassnings-id</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Webbsidan <ph name="URL" /> är inte tillgänglig just nu. Den kan vara överbelastad eller ligga nere för underhåll.</translation>
 <translation id="6831043979455480757">Översätt</translation>
@@ -710,6 +714,7 @@ Psst! Nästa gång kanske inkognitoläget <ph name="SHORTCUT_KEY" /> kan vara n�
 <translation id="8364627913115013041">Inte angiven.</translation>
 <translation id="8380941800586852976">Farlig</translation>
 <translation id="8382348898565613901">Dina senast besökta bokmärken visas här</translation>
+<translation id="8398259832188219207">Kraschrapporten laddades upp den <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Krascher (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Du måste ange samma lösenfras två gånger.</translation>
 <translation id="8428213095426709021">Inställningar</translation>

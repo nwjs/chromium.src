@@ -866,6 +866,17 @@ Jeśli nie podasz wartości albo wybierzesz ustawienie „Wyłącz”, stosowani
 <translation id="3547954654003013442">Ustawienia serwera proxy</translation>
 <translation id="3570008976476035109">Blokuj wtyczki w tych witrynach</translation>
 <translation id="3591584750136265240">Skonfiguruj sposób uwierzytelniania logowania</translation>
+<translation id="3601614035698083789">Konfiguruje listę zarządzanych zakładek.
+
+      Konfiguruje listę zarządzanych zakładek. Każda z nich to
+      słownik zawierający klucze <ph name="NAME" /> i adres <ph name="URL_LABEL" />, które określają nazwę i adres docelowy zakładki.
+      Można utworzyć podfolder, definiując zakładkę bez klucza <ph name="URL_LABEL" />, ale z dodatkowym kluczem <ph name="CHILDREN" />, który zawiera listę
+      zakładek, taką jak opisano powyżej (niektóre z nich same mogą być folderami). <ph name="PRODUCT_NAME" /> uzupełnia niekompletne adresy URL
+      tak samo jak po wpisaniu w omniboksie – np. <ph name="GOOGLE_COM" /> zamienia na <ph name="HTTPS_GOOGLE_COM" />.
+
+      Te zakładki są umieszczane w folderze „Zakładki zarządzane”, którego użytkownik nie może modyfikować, ale może go ukryć na pasku zakładek. Zakładki zarządzane nie synchronizują się z kontem użytkownika, a rozszerzenia nie mogą ich modyfikować.
+
+      Od wersji 51 nazwę folderu z zakładkami można zmienić, dodając element listy {"nazwa_najwyższego_poziomu": "dowolna nazwa"}.</translation>
 <translation id="3627678165642179114">Włącz lub wyłącz internetową usługę sprawdzania pisowni</translation>
 <translation id="3646859102161347133">Ustaw typ lupy</translation>
 <translation id="3653237928288822292">Ikona domyślnego dostawcy wyszukiwania</translation>
@@ -1658,6 +1669,49 @@ Jeśli ta zasada nie zostanie ustawiona, użytkownik może wyłączyć każdą w
 <translation id="6282799760374509080">Zezwól lub nie na przechwytywanie dźwięku</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Włącz autouzupełnianie nazw domen w czasie logowania użytkownika</translation>
+<translation id="6312861131491040487">
+          Określa listę aplikacji i rozszerzeń instalowanych dyskretnie,
+          bez udziału użytkownika, których nie może on odinstalować.
+          Wszystkie uprawnienia aplikacja lub rozszerzenie otrzymuje
+          domyślnie, bez interakcji z użytkownikiem. Dotyczy to też wszelkich
+          dodatkowych uprawnień, o które mogą prosić przyszłe wersje aplikacji lub rozszerzeń.
+          Uprawnienia otrzymują też interfejsy API rozszerzeń
+          enterprise.deviceAttributes oraz enterprise.platformKeys.
+          Te dwa interfejsy API nie są dostępne w przypadku aplikacji
+          lub rozszerzeń, których instalacja nie została wymuszona.
+
+          Ta zasada ma pierwszeństwo przed potencjalnie powodującą konflikt
+          zasadą ExtensionsInstallBlacklist. Jeśli z tej listy zostaną usunięte
+          aplikacja lub rozszerzenie, których instalacja została wymuszona
+          wcześniej, <ph name="PRODUCT_NAME" /> automatycznie je odinstaluje.
+
+          W przypadku systemów Windows niepodłączonych do domeny
+          Active Directory wymuszona instalacja jest ograniczona do rozszerzeń
+          wymienionych w Chrome Web Store.
+
+          Pamiętaj, że kod źródłowy każdego rozszerzenia można zmodyfikować
+          za pomocą narzędzi dla programistów (potencjalnie blokując jego
+          działanie). Jeśli jest to problemem, ustaw zasadę
+          DeveloperToolsDisabled.
+
+          Każdy element na liście tej zasady jest ciągiem zawierającym
+          identyfikator rozszerzenia i URL „aktualizacji” oddzielony
+          średnikiem (<ph name="SEMICOLON" />). Identyfikator rozszerzenia to 32-znakowy ciąg,
+          który znajdziesz np. na <ph name="CHROME_EXTENSIONS_LINK" /> w trybie programisty.
+          URL „aktualizacji” powinien wskazywać plik manifestu aktualizacji
+          w postaci dokumentu XML, zgodnie z opisem w dokumencie <ph name="LINK_TO_EXTENSION_DOC1" />.
+          Uwaga: URL „aktualizacji” ustawiony przez tę zasadę jest używany tylko
+          podczas pierwszej instalacji. Późniejsze aktualizacje rozszerzenia
+          korzystają z adresu URL aktualizacji wskazanego w pliku manifestu.
+
+          Na przykład <ph name="EXTENSION_POLICY_EXAMPLE" /> instaluje
+          aplikację <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> ze standardowego adresu URL „aktualizacji”
+          Chrome Web Store. Więcej informacji o hostowaniu rozszerzeń
+          znajdziesz na <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Jeśli ta zasada nie jest ustawiona, aplikacje ani rozszerzenia
+          nie są instalowane automatycznie, a użytkownik może odinstalować
+          dowolne z nich w <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome wyświetla stronę z ostrzeżeniem, gdy użytkownicy otworzą witrynę, w której występują błędy SSL. Domyślnie lub wtedy, gdy ta zasada jest włączona, użytkownicy mogą zignorować i zamknąć stronę z ostrzeżeniem.
       Po wyłączeniu tej zasady użytkownicy nie będą mogli zamknąć strony z ostrzeżeniem.</translation>
 <translation id="6353901068939575220">Określa parametry używane przy wyszukiwaniu URL-a z użyciem POST. Składa się z rozdzielonych przecinkami par nazwy i wartości. Jeśli wartość jest parametrem szablonu, tak jak w przykładzie powyżej {searchTerms}, zostanie ona zastąpiona rzeczywistymi danymi wyszukiwanych słów.

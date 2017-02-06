@@ -32,6 +32,7 @@
 <translation id="1407135791313364759">Otvori sve</translation>
 <translation id="1430915738399379752">Ispis</translation>
 <translation id="145015347812617860">Broj stavki: <ph name="COUNT" /></translation>
+<translation id="1491277525950327607">Dodirnite dvaput da biste promijenili postavku</translation>
 <translation id="1540800554400757039">1. adresni redak</translation>
 <translation id="1545749641540134597">Skeniranje QR koda</translation>
 <translation id="1580783302095112590">Poruka je poslana.</translation>
@@ -216,6 +217,7 @@ Vaši su podaci šifrirani vašom šifrom za sinkronizaciju. Unesite je da biste
 <translation id="5300589172476337783">Prikaži</translation>
 <translation id="5317780077021120954">Spremi</translation>
 <translation id="5327248766486351172">Naziv</translation>
+<translation id="5332219387342487447">Način otpreme</translation>
 <translation id="5388358297987318779">Otvori sliku</translation>
 <translation id="5409365236829784218">Nema instalirane aplikacije za otvaranje ove datoteke.</translation>
 <translation id="54401264925851789">Informacije o sigurnosti stranice</translation>
@@ -268,6 +270,7 @@ Handoff mora biti omogućen i u odjeljku Općenito u Postavkama, a vaši uređaj
 <translation id="6255097610484507482">Uredi kreditnu karticu</translation>
 <translation id="6308436439357671616">To vam omogućuje snimanje i prijenos fotografija.</translation>
 <translation id="6314335155547195432">Generiranje zaporke</translation>
+<translation id="6324528485781869530">Promjena računa za sink.</translation>
 <translation id="6324669097367352121">Postavke prijave</translation>
 <translation id="6337234675334993532">Enkripcija</translation>
 <translation id="633809752005859102">Dogodila se velika pogreška. Poradit ćemo na tome.</translation>

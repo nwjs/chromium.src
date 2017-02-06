@@ -870,6 +870,17 @@
 <translation id="3547954654003013442">Setări proxy</translation>
 <translation id="3570008976476035109">Blochează pluginurile pe aceste site-uri</translation>
 <translation id="3591584750136265240">Configurează comportamentul de autentificare la conectare</translation>
+<translation id="3601614035698083789">Configurează o listă de marcaje gestionate.
+
+      Politica este o listă de marcaje, iar fiecare marcaj este un
+      dicționar care conține cheile <ph name="NAME" /> și <ph name="URL_LABEL" />, care includ numele și ținta marcajului. Un
+      subdosar poate fi configurat definind un marcaj fără o cheie <ph name="URL_LABEL" />, dar cu o cheie <ph name="CHILDREN" /> suplimentară care la rândul ei include o listă de
+      marcaje așa cum au fost definite mai sus (este posibil ca unele dintre acestea să fie dosare). <ph name="PRODUCT_NAME" /> va modifica adresele URL
+      incomplete ca și cum ar fi trimise prin caseta polivalentă, de exemplu, <ph name="GOOGLE_COM" /> devine <ph name="HTTPS_GOOGLE_COM" />.
+
+      Aceste marcaje sunt plasate într-un dosar „Marcaje gestionate” care nu poate fi modificat de utilizator, dar acesta poate alege să îl ascundă din bara de marcaje. Marcajele gestionate nu sunt sincronizate cu contul utilizatorului și nu pot fi modificate de extensii.
+
+      Începând cu versiunea 51, numele dosarului pentru marcaje poate fi personalizat prin adăugarea unui element din listă {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Activați sau dezactivați serviciul web de verificare a ortografiei</translation>
 <translation id="3646859102161347133">Setați tipul lupei pentru ecran</translation>
 <translation id="3653237928288822292">Pictogramă pentru furnizorul de căutare prestabilit</translation>
@@ -1674,6 +1685,46 @@
 <translation id="6282799760374509080">Permiteți sau refuzați preluarea conținutului audio</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Activează completarea automată a numelui de domeniu la conectarea utilizatorului</translation>
+<translation id="6312861131491040487">
+          Specifică o listă de aplicații și extensii instalate în fundal,
+          fără intervenția utilizatorului și care nu pot fi instalate de către
+          acesta. Toate permisiunile solicitate de aplicații/extensii sunt acordate
+          implicit, fără intervenția utilizatorului, inclusiv orice permisiune
+          suplimentară solicitată de viitoarele versiuni ale aplicației/extensiei.
+          În plus, permisiunile sunt acordate pentru API-urile extensiei
+          enterprise.deviceAttributes și enterprise.platformKeys.
+          (Aceste două API-uri nu sunt disponibile pentru aplicațiile/extensiile care
+          nu sunt instalate forțat).
+
+          Această politică are prioritate față de o politică ExtensionsInstallBlacklist
+          care poate crea conflicte. Dacă o aplicație sau o extensie care
+          a fost instalată forțat anterior este eliminată din listă, aceasta
+          este dezinstalată automat de <ph name="PRODUCT_NAME" />.
+
+          Pentru instanțele Windows neasociate unui domeniu Active 
+          Directory, instalarea forțată se limitează la aplicațiile și extensiile afișate
+          în Magazinul web Chrome.
+
+          Reține că utilizatorii pot să modifice codul sursă al oricărei extensii folosind
+          Instrumentele pentru dezvoltatori (ceea ce poate face extensia
+          nefuncțională). Dacă acest aspect creează probleme, trebuie să se seteze politica
+          DeveloperToolsDisabled.
+
+           Fiecare element din lista politicii este un șir care include un ID al extensiei
+          și o adresă URL de „actualizare”, separate prin punct și virgulă (<ph name="SEMICOLON" />). ID-ul de extensie este un șir alcătuit din 32 de litere
+          găsit, de exemplu, la <ph name="CHROME_EXTENSIONS_LINK" />
+          în modul pentru dezvoltatori. Adresa URL de „actualizare” trebuie să trimită la un document XML
+          cu manifestul de actualizare, conform descrierii de la <ph name="LINK_TO_EXTENSION_DOC1" />. Reține
+          că adresa URL de actualizare setată în această politică este folosită numai la instalarea
+          inițială. Actualizările ulterioare ale extensiei vor utiliza adresa URL
+          de actualizare indicată în manifestul extensiei.
+
+          De exemplu, <ph name="EXTENSION_POLICY_EXAMPLE" />
+          instalează aplicația <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> folosind adresa URL standard de „actualizare” din 
+          Magazinul web Chrome. Pentru informații suplimentare despre găzduirea extensiilor, consultă: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Dacă politica nu este configurată, nicio aplicație sau extensie nu va fi instalată
+          automat, iar utilizatorul poate dezinstala orice aplicație sau extensie din <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome afișează o pagină de avertisment atunci când utilizatorii accesează site-uri care au erori SSL. În mod prestabilit sau atunci când această politică este activată, utilizatorii au permisiunea să-și continue navigarea dând clic pe aceste pagini de avertisment.
       Dacă această politică este dezactivată, utilizatorii nu mai au permisiunea să-și continue navigarea dând clic pe aceste pagini de avertisment.</translation>
 <translation id="6353901068939575220">Specifică parametrii utilizați la căutarea unei adrese URL cu POST. Politica este alcătuită din perechi nume/valoare separate prin virgulă. Dacă o valoare este un parametru șablon, precum {searchTerms} din exemplul de mai sus, acesta va fi înlocuit cu datele termenilor de căutare reali.

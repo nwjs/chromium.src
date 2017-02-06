@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" />, activar</translation>
 <translation id="1692077714702418899">línea estructural</translation>
 <translation id="1700517974991662022">Visitado</translation>
+<translation id="1714116687360794776">Medidor</translation>
 <translation id="1722567105086139392">Link</translation>
 <translation id="1727806147743597030">pie</translation>
 <translation id="174268867904053074">Siguiente gráfico</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">Control de hora y fecha</translation>
 <translation id="2347456970887948350">Un vínculo</translation>
 <translation id="2359897517538099099">No está en el modo de tabla.</translation>
+<translation id="2390264819538553347">Para avanzar, presiona Intro; para volver, presiona la tecla de retroceso.</translation>
 <translation id="241124561063364910">seguido de</translation>
 <translation id="2416512023405990736">Una casilla de verificación desmarcada</translation>
 <translation id="2417569100218200841">Información del contenido</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">No hay ninguna sección anterior.</translation>
 <translation id="3030432017085518523">Botón de selección del elemento de menú</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{apóstrofo}other{# apóstrofos}}</translation>
+<translation id="3040901448410802366">Indicador de progreso</translation>
 <translation id="3046838483509668188">Opciones de ChromeVox</translation>
 <translation id="3047143736589213134">Mapa de teclado experimental</translation>
 <translation id="3060756054951570867">menú <ph name="TITLE" /> abierto</translation>
@@ -231,6 +234,7 @@ Si completaste este instructivo, usa ChromeVox para navegar hasta el botón Cerr
 <translation id="3321460131042519426">Habilitar ajuste de línea</translation>
 <translation id="3322936298410871309">Encabezado anterior de nivel 1</translation>
 <translation id="3323447499041942178">Cuadro de texto</translation>
+<translation id="3338224621010291843">Control deslizante <ph name="VALUE" /> <ph name="NAME" /></translation>
 <translation id="3353420241558113817">{"ar": "árabe",
         "bg": "búlgaro",
         "ca": "catalán",

@@ -825,6 +825,13 @@
 <translation id="3547954654003013442">代理设置</translation>
 <translation id="3570008976476035109">在这些网站上阻止插件</translation>
 <translation id="3591584750136265240">配置登录身份验证行为</translation>
+<translation id="3601614035698083789">以列表形式配置受管理的书签。
+
+      此政策包含一系列书签，其中的每个书签都是一个包含 <ph name="NAME" /> 键和 <ph name="URL_LABEL" /> 键（这些键分别指定了书签的名称和目标网址）的字典条目。您也可配置一个子文件夹，方法是：定义一个不含 <ph name="URL_LABEL" /> 键但另含一个 <ph name="CHILDREN" /> 键的书签，并使后面这个键自含一个按上述方法指定的书签列表（其中的某些书签仍可以是文件夹）。<ph name="PRODUCT_NAME" /> 会自动修正不完整的网址（就像这些网址是通过多功能框进行提交一样）；例如，自动将 <ph name="GOOGLE_COM" /> 改为 <ph name="HTTPS_GOOGLE_COM" />。
+
+      这些书签均被放置在“受管理的书签”文件夹中。用户虽然无法修改该文件夹，但可以选择在书签栏中隐藏它。受管理的书签既不会同步到用户帐号中，也无法由扩展程序修改。
+
+      从版本 51 开始，用户只需添加列表项“{"toplevel_name": "some name"}”，即可自定义这些书签所属文件夹的名称。</translation>
 <translation id="3627678165642179114">启用或停用拼写检查网络服务</translation>
 <translation id="3646859102161347133">设置放大镜类型</translation>
 <translation id="3653237928288822292">默认搜索服务提供商图标</translation>
@@ -1591,6 +1598,21 @@
 <translation id="6282799760374509080">是否允许音频捕获</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">允许在用户登录期间自动填充域名</translation>
+<translation id="6312861131491040487">
+          以列表形式指定具有下述特征的应用或扩展程序：无需用户干预即会自动静默安装，且无法由用户卸载。此类应用/扩展程序所请求的所有权限（包括相应应用/扩展程序的后续版本所请求的任何其他权限）均由系统默认授予（无需用户干预）。
+          此外，系统还会向 enterprise.deviceAttributes 和 enterprise.platformKeys 扩展程序 API 授予相关权限。（这两个 API 不适用于非强制安装的应用/扩展程序。）
+
+          此政策优先于可能会与其相冲突的 ExtensionsInstallBlacklist 政策。如果从此列表中移除了之前强制安装的某个应用或扩展程序，<ph name="PRODUCT_NAME" /> 便会自动卸载该应用或扩展程序。
+
+          对于未加入 Active Directory 网域的 Windows 实例，强制安装仅限于 Chrome 网上应用店中所列的应用和扩展程序。
+
+          请注意，用户可通过开发者工具更改任何扩展程序的源代码（此类更改可能会导致相应扩展程序无法正常运行）。如果您不希望用户进行此类更改，则应设置 DeveloperToolsDisabled 政策。
+
+          此政策的每个列表项都是一个字符串，其中包含以分号 (<ph name="SEMICOLON" />) 分隔的一个扩展程序 ID 和一个“更新”网址。扩展程序 ID 是一个由 32 个字母构成的字符串；若想查看示例，请在开发者模式下前往 <ph name="CHROME_EXTENSIONS_LINK" />。“更新”网址应指向一个更新清单 XML 文档，如 <ph name="LINK_TO_EXTENSION_DOC1" /> 中所述。请注意，此政策中设置的“更新”网址仅用于初次安装；相应扩展程序的后续更新将会使用该扩展程序的清单中指定的更新网址。
+
+          例如，<ph name="EXTENSION_POLICY_EXAMPLE" /> 会从标准 Chrome 网上应用店“更新”网址安装“<ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" />”应用。若想详细了解如何托管扩展程序，请访问 <ph name="LINK_TO_EXTENSION_DOC2" />。
+
+          如果此政策未设置，系统便不会自动安装任何应用或扩展程序，而且用户可在 <ph name="PRODUCT_NAME" /> 中卸载任何应用或扩展程序。</translation>
 <translation id="6315673513957120120">当用户访问存在 SSL 错误的网站时，Chrome 将显示警告页面。默认情况下，或当此政策设为 true 时，用户可以在点击这些警告页面后继续操作。
       如果将此政策设为 false，用户将无法通过点击任何警告页面继续操作。</translation>
 <translation id="6353901068939575220">指定通过 POST 搜索网址时使用的参数。该参数由以英文逗号分隔的名称/值对组成。如果值为模板参数（例如上例中的 {searchTerms}），那么系统会将其替换成真正的搜索字词数据。

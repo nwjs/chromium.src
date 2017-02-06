@@ -900,6 +900,17 @@ vastama ühele printeritest, mida <ph name="PRODUCT_NAME" /> toetab.
 <translation id="3547954654003013442">Puhverserveri seaded</translation>
 <translation id="3570008976476035109">Blokeeri pistikprogrammid nendel saitidel</translation>
 <translation id="3591584750136265240">Sisselogimise autentimise käitumise seadistamine</translation>
+<translation id="3601614035698083789">Seadistab hallatud järjehoidjate loendi.
+
+      Reegel koosneb järjehoidjate loendist, kusjuures iga järjehoidja on sõnastik, mis
+      sisaldab võtmeid <ph name="NAME" /> ja <ph name="URL_LABEL" />, kus hoiustatakse järjehoidja nime ning selle sihtmärki.
+      Alamkausta saab seadistada, määrates järjehoidja ilma võtmeta <ph name="URL_LABEL" />, kuid lisavõtmega <ph name="CHILDREN" />, mis sisaldab ise järjehoidjate loendit,
+      nagu on ülal määratud (millest mõned võivad olla kaustad). Teenus <ph name="PRODUCT_NAME" /> täiendab poolikuid URL-e,
+      nagu need oleksid edastatud omnikastikese kaudu, nt aadressist <ph name="GOOGLE_COM" /> saab <ph name="HTTPS_GOOGLE_COM" />.
+
+      Need järjehoidjad asuvad kaustas „Hallatud järjehoidjad”, mida kasutaja muuta ei saa, kuid kasutaja saab selle kausta soovi korral järjehoidjaribalt peita. Hallatud järjehoidjad ei ole kasutajakontoga sünkroonitud ja laiendused ei saa neid muuta.
+
+      Alates versioonist 51 saab järjehoidjate kausta nime kohandada, lisades loendiüksuse {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Õigekirjakontrolli veebiteenuse lubamine või keelamine</translation>
 <translation id="3646859102161347133">Ekraaniluubi tüübi määramine</translation>
 <translation id="3653237928288822292">Vaikeotsingupakkuja ikoon</translation>
@@ -1755,6 +1766,45 @@ vastama ühele printeritest, mida <ph name="PRODUCT_NAME" /> toetab.
 <translation id="6282799760374509080">Heli jäädvustamise lubamine või keelamine</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Domeeni nime automaatse täitmise lubamine kasutaja sisselogimise ajal</translation>
+<translation id="6312861131491040487">
+          Määrab loendi rakendustest ja laiendustest, mis installitakse vaikimisi
+          ning kasutajaga suhtlemata ja mida kasutaja ei saa desinstallida.
+          Kõik rakenduste/laienduste taotletud load antakse vaikimisi
+          ning kasutajaga suhtlemata (sh kõik lisaload, mida rakenduse/laienduse
+          tulevased versioonid taotlevad). Load antakse ka laienduste API-dele
+          enterprise.deviceAttributes ja enterprise.platformKeys.
+          (Need kaks API-t pole saadaval rakendustele/laiendustele, mis pole
+          sundinstallitud.)
+
+          See reegel seatakse ettepoole potentsiaalselt konfliktsest
+          reeglist ExtensionsInstallBlacklist. Kui rakendus või laiendus, mis
+          varem sundinstalliti, sellest loendist eemaldatakse, siis
+          desinstallib teenus <ph name="PRODUCT_NAME" /> selle automaatselt.
+
+          Windowsi eksemplaride puhul, mis ei ole ühendatud Active Directory
+          domeeniga, saab sundinstallida vaid Chrome’i veebipoes
+          olevaid rakendusi ja laiendusi.
+
+          Pange tähele, et arendaja tööriistadega saavad kasutajad muuta iga
+          laienduse lähtekoodi (mis võib põhjustada laienduse väärtalitlust).
+          Kui see on probleem, tuleb määrata reegel DeveloperToolsDisabled.
+
+          Reegli iga loendiüksus on string, mis sisaldab laienduse ID-d
+          ja värskenduse URL-i, mis on eraldatud semikoolonitega (<ph name="SEMICOLON" />). Laienduse ID on 32-täheline string,
+          mis kuvatakse näiteks arendajarežiimis
+          teenuses <ph name="CHROME_EXTENSIONS_LINK" />. Värskenduse URL peab viitama XML-dokumendi
+          värskendusmanifestile, nagu on kirjeldatud jaotises <ph name="LINK_TO_EXTENSION_DOC1" />. Pange
+          tähele, et reeglis määratud värskenduse URL-i kasutatakse vaid
+          algsel installimisel ja laienduse tulevased värskendused kasutavad
+          laienduse manifestis märgitud värskenduse URL-i.
+
+          Näiteks reegel <ph name="EXTENSION_POLICY_EXAMPLE" />
+          installib laienduse <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> rakenduse standardselt Chrome’i veebipoe värskenduse
+          URL-ilt. Lisateavet hostimise laienduste kohta leiate siit: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Kui see reegel jäetakse määramata, ei installita automaatselt
+          mitte ühtegi rakendust ega laiendust ja kasutaja saab iga rakenduse või
+          laienduse desinstallida teenuses <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome kuvab hoiatuslehe, kui kasutajad liiguvad SSL-i vigadega saitidele. Vaikimisi või siis, kui selle reegli väärtuseks määratakse Tõene, lubatakse kasutajatel nendelt hoiatuslehtedelt kliki abil edasi liikuda.
       Kui selle reegli väärtuseks määratakse Väär, ei lubata kasutajatel hoiatuslehelt kliki abil edasi liikuda.</translation>
 <translation id="6353901068939575220">Määrab, mis parameetreid kasutatakse POST-meetodiga URL-i otsimisel. See koosneb komaga eraldatud nime/väärtuse paaridest. Kui väärtus on malliparameeter, nt {searchTerms} ülalolevas näites, siis asendatakse see otsingutermini andmetega.

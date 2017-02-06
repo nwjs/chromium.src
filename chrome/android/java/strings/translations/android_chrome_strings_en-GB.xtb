@@ -194,6 +194,7 @@ You can control the Physical Web in Chrome Settings.
 <translation id="2996291259634659425">Create passphrase</translation>
 <translation id="2996809686854298943">URL required</translation>
 <translation id="300526633675317032">This will clear all <ph name="SIZE_IN_KB" /> of website storage.</translation>
+<translation id="3029613699374795922">Downloaded <ph name="KBS" /> KB</translation>
 <translation id="3029704984691124060">Passphrases do not match</translation>
 <translation id="3036750288708366620"><ph name="BEGIN_LINK" />Get help<ph name="END_LINK" /></translation>
 <translation id="3089395242580810162">Open in incognito tab</translation>
@@ -261,6 +262,7 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="3739899004075612870">Bookmarked in <ph name="PRODUCT_NAME" /></translation>
 <translation id="3744111309925758534"><ph name="MEGABYTES" /> MB other apps</translation>
 <translation id="3744111561329211289">Background sync</translation>
+<translation id="3773755127849930740"><ph name="BEGIN_LINK" />Turn on Bluetooth<ph name="END_LINK" /> to allow pairing</translation>
 <translation id="3789841737615482174">Install</translation>
 <translation id="380076759404194828">{NUM_SELECTED,plural, =1{1 item selected}other{# items selected}}</translation>
 <translation id="3810838688059735925">Video</translation>
@@ -316,7 +318,6 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="4300272766492248925">Open app</translation>
 <translation id="4307992518367153382">Basics</translation>
 <translation id="4351244548802238354">Close dialogue</translation>
-<translation id="4376501731284077108">Uncontrolled</translation>
 <translation id="4378154925671717803">Phone</translation>
 <translation id="4384468725000734951">Using Sogou for search</translation>
 <translation id="4412992751769744546">Allow third-party cookies</translation>
@@ -388,7 +389,6 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="5131405117025179004">Edit saved account</translation>
 <translation id="5138299137310274655">This page is in <ph name="SOURCE_LANGUAGE" />. Translate it to <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="515227803646670480">Clear stored data</translation>
-<translation id="5156656584247937086">This is a kid’s account</translation>
 <translation id="5161254044473106830">Title required</translation>
 <translation id="5164482624172255778">Would you like Google Chrome to offer to translate <ph name="LANGUAGE" /> pages from this site next time?</translation>
 <translation id="5168917394043976756">Open navigation drawer</translation>
@@ -471,6 +471,7 @@ However, you aren't invisible. Going incognito doesn't hide your browsing from y
 <translation id="583281660410589416">Unknown</translation>
 <translation id="5832934273103296195">Expanded – Click to collapse</translation>
 <translation id="583891442612896534">Chrome is unable to reach Google servers for data compression. Your data savings may be limited.</translation>
+<translation id="5858741533101922242">Chrome is unable to turn on Bluetooth adaptor</translation>
 <translation id="5860033963881614850">Off</translation>
 <translation id="5867027562311576691">More articles will appear soon. Enjoy your morning.</translation>
 <translation id="5869522115854928033">Saved passwords</translation>
@@ -502,6 +503,7 @@ However, you aren't invisible. Going incognito doesn't hide your browsing from y
 <translation id="6140912465461743537">Country/Region</translation>
 <translation id="6159335304067198720"><ph name="PERCENT" /> data savings</translation>
 <translation id="6165508094623778733">Learn more</translation>
+<translation id="6177111841848151710">Blocked for current search engine</translation>
 <translation id="6177390657002841081">Turn on Data Saver</translation>
 <translation id="6181444274883918285">Add site exception</translation>
 <translation id="6192792657125177640">Exceptions</translation>
@@ -521,6 +523,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="6406506848690869874">Sync</translation>
 <translation id="6409731863280057959">Pop-ups</translation>
 <translation id="641643625718530986">Print…</translation>
+<translation id="6416782512398055893">Downloaded <ph name="MBS" /> MB</translation>
 <translation id="6433490469411711332">Edit contact info</translation>
 <translation id="6443118737398455446">Invalid expiry date</translation>
 <translation id="6446608382365791566">Add more information</translation>
@@ -531,6 +534,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="6477460825583319731">Invalid email address</translation>
 <translation id="6482749332252372425"><ph name="FILE_NAME" /> download failed due to lack of storage space.</translation>
 <translation id="6527303717912515753">Share</translation>
+<translation id="6538442820324228105">Downloaded <ph name="GBS" /> GB</translation>
 <translation id="654278619399546675">passwords.google.com</translation>
 <translation id="654446541061731451">Select a tab to beam</translation>
 <translation id="6545017243486555795">Clear All Data</translation>
@@ -586,6 +590,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="699220179437400583">Automatically report details of possible security incidents to Google</translation>
 <translation id="6992289844737586249">Ask first before allowing sites to use your microphone (recommended)</translation>
 <translation id="7001663382399377034">Add recipient</translation>
+<translation id="7016516562562142042">Allowed for current search engine</translation>
 <translation id="7021515813996758557"><ph name="FILE_NAME" /> downloaded</translation>
 <translation id="7022756207310403729">Open in browser</translation>
 <translation id="7029809446516969842">Passwords</translation>
@@ -712,7 +717,6 @@ Your Google account may have other forms of browsing history like searches and a
 <translation id="8372893542064058268">Allow Background Sync for a specific site.</translation>
 <translation id="8374821112118309944">You need to update TalkBack to a newer version.</translation>
 <translation id="8393700583063109961">Send message</translation>
-<translation id="8396312449826231789">Only approved sites</translation>
 <translation id="8413126021676339697">Show full history</translation>
 <translation id="8428213095426709021">Settings</translation>
 <translation id="8433057134996913067">This will sign you out of most websites.</translation>
@@ -738,7 +742,6 @@ Your Google account may have other forms of browsing history like searches and a
 <translation id="8660471606262461360">From Google Payments</translation>
 <translation id="8676374126336081632">Clear input</translation>
 <translation id="869891660844655955">Expiry date</translation>
-<translation id="8699799819461268362">Google SafeSites filter</translation>
 <translation id="8719023831149562936">Can’t beam current tab</translation>
 <translation id="8725066075913043281">Try again</translation>
 <translation id="8730621377337864115">Finished</translation>

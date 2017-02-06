@@ -908,6 +908,17 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
 <translation id="3547954654003013442">Proxy settings</translation>
 <translation id="3570008976476035109">Block plug-ins on these sites</translation>
 <translation id="3591584750136265240">Configure the login authentication behaviour</translation>
+<translation id="3601614035698083789">Configures a list of managed bookmarks.
+
+      The policy consists of a list of bookmarks whereas each bookmark is a
+      dictionary containing the keys <ph name="NAME" /> and <ph name="URL_LABEL" /> which hold the bookmark's name and its target. A
+      subfolder may be configured by defining a bookmark without an <ph name="URL_LABEL" /> key but with an additional <ph name="CHILDREN" /> key which itself contains a list of
+      bookmarks as defined above (some of which may be folders again). <ph name="PRODUCT_NAME" /> amends incomplete URLs
+      as if they were submitted via the Omnibox, for example <ph name="GOOGLE_COM" /> becomes <ph name="HTTPS_GOOGLE_COM" />.
+
+      These bookmarks are placed in a "Managed bookmarks" folder that can't be modified by the user, but the user can choose to hide it from the bookmark bar. Managed bookmarks are not synced to the user account and can't be modified by extensions.
+
+      Starting with release 51, the folder name for the bookmarks is customisable by adding a {"toplevel_name": "some name"} list item.</translation>
 <translation id="3627678165642179114">Enable or disable spell checking web service</translation>
 <translation id="3646859102161347133">Set screen magnifier type</translation>
 <translation id="3653237928288822292">Default search provider icon</translation>
@@ -1770,6 +1781,46 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 <translation id="6282799760374509080">Allow or deny audio capture</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Enable domain name autocomplete during user sign in</translation>
+<translation id="6312861131491040487">
+          Specifies a list of apps and extensions that are installed silently,
+          without user interaction and which cannot be uninstalled by the
+          user. All permissions requested by the apps/extensions are granted
+          implicitly, without user interaction, including any additional
+          permissions requested by future versions of the app/extension.
+          Furthermore, permissions are granted for the
+          enterprise.deviceAttributes and enterprise.platformKeys extension
+          APIs. (These two APIs are not available to apps/extensions that are
+          not force-installed.)
+
+          This policy takes precedence over a potentially conflicting
+          ExtensionsInstallBlacklist policy. If an app or extension that
+          previously had been force-installed is removed from this list, it is
+          automatically uninstalled by <ph name="PRODUCT_NAME" />.
+
+          For Windows instances that are not joined to an Active Directory
+          domain, forced installation is limited to apps and extensions listed
+          in the Chrome Web Store.
+
+          Note that the source code of any extension may be altered by users via
+          Developer Tools (potentially rendering the extension
+          dysfunctional). If this is a concern, the DeveloperToolsDisabled
+          policy should be set.
+
+          Each list item of the policy is a string that contains an extension ID
+          and an "update" URL separated by a semicolon (<ph name="SEMICOLON" />). The extension ID is the 32-letter string
+          found e.g. on <ph name="CHROME_EXTENSIONS_LINK" /> when in
+          developer mode. The "update" URL should point to an Update Manifest
+          XML document as described at <ph name="LINK_TO_EXTENSION_DOC1" />. Note
+          that the "update" URL set in this policy is only used for the initial
+          installation; subsequent updates of the extension employ the update
+          URL indicated in the extension's manifest.
+
+          For example, <ph name="EXTENSION_POLICY_EXAMPLE" />
+          installs the <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> app from the standard Chrome Web Store "update"
+          URL. For more information about hosting extensions, see: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          If this policy is left not set, no apps or extensions are installed
+          automatically and the user can uninstall any app or extension in <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome shows a warning page when users navigate to sites that have SSL errors. By default or when this policy is set to true, users are allowed to click through these warning pages.
       Setting this policy to false disallows users to click through any warning page.</translation>
 <translation id="6353901068939575220">Specifies the parameters used when searching a URL with POST. It consists of comma-separated name/value pairs. If a value is a template parameter, like {searchTerms} in above example, it will be replaced with real search terms data.

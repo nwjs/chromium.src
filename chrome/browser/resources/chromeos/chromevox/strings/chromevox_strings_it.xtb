@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" />, opzione attiva</translation>
 <translation id="1692077714702418899">linea strutturale</translation>
 <translation id="1700517974991662022">Visitato</translation>
+<translation id="1714116687360794776">Indicatore</translation>
 <translation id="1722567105086139392">Link</translation>
 <translation id="1727806147743597030">ftr</translation>
 <translation id="174268867904053074">Immagine successiva</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">Controllo data/ora</translation>
 <translation id="2347456970887948350">Un link</translation>
 <translation id="2359897517538099099">La modalità tabella non è attiva.</translation>
+<translation id="2390264819538553347">Per avanzare premi INVIO; per tornare indietro premi BACKSPACE.</translation>
 <translation id="241124561063364910">seguito da</translation>
 <translation id="2416512023405990736">Una casella di controllo deselezionata</translation>
 <translation id="2417569100218200841">Informazioni sui contenuti</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">Nessuna sezione precedente.</translation>
 <translation id="3030432017085518523">Pulsante di opzione voce di menu</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{apostrofo}other{# apostrofi}}</translation>
+<translation id="3040901448410802366">Indicatore avanzamento</translation>
 <translation id="3046838483509668188">Opzioni ChromeVox</translation>
 <translation id="3047143736589213134">Mappa di chiavi sperimentale</translation>
 <translation id="3060756054951570867">Menu <ph name="TITLE" /> aperto</translation>
@@ -231,6 +234,7 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="3321460131042519426">Attiva ritorno a capo automatico</translation>
 <translation id="3322936298410871309">Intestazione livello 1 precedente</translation>
 <translation id="3323447499041942178">Casella di testo</translation>
+<translation id="3338224621010291843">dispositivo di scorrimento <ph name="NAME" /> <ph name="VALUE" /></translation>
 <translation id="3353420241558113817">{"ar": "Arabo",
         "bg": "Bulgaro",
         "ca": "Catalano",

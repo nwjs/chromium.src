@@ -32,6 +32,7 @@
 <translation id="1407135791313364759">Abrir tudo</translation>
 <translation id="1430915738399379752">Imprimir</translation>
 <translation id="145015347812617860"><ph name="COUNT" /> itens</translation>
+<translation id="1491277525950327607">Toque duas vezes para ativar ou desativar a definição</translation>
 <translation id="1540800554400757039">Morada 1</translation>
 <translation id="1545749641540134597">Ler código QR</translation>
 <translation id="1580783302095112590">Correio enviado.</translation>
@@ -216,6 +217,7 @@ Os dados estão encriptados com a sua frase de acesso de sincronização. Introd
 <translation id="5300589172476337783">Mostrar</translation>
 <translation id="5317780077021120954">Guardar</translation>
 <translation id="5327248766486351172">Nome</translation>
+<translation id="5332219387342487447">Método de envio</translation>
 <translation id="5388358297987318779">Abrir Imagem</translation>
 <translation id="5409365236829784218">Não existem aplicações instaladas que possam abrir este ficheiro.</translation>
 <translation id="54401264925851789">Informações de Segurança da Página</translation>
@@ -268,6 +270,7 @@ A Entrega também tem de estar ativada na secção Geral das Definições e os s
 <translation id="6255097610484507482">Editar cartão de crédito</translation>
 <translation id="6308436439357671616">Isto permite-lhe tirar e carregar fotos.</translation>
 <translation id="6314335155547195432">Gerar palavra-passe</translation>
+<translation id="6324528485781869530">Mudar conta de sincronização</translation>
 <translation id="6324669097367352121">Definições de início de sessão</translation>
 <translation id="6337234675334993532">Encriptação</translation>
 <translation id="633809752005859102">Algo correu muito mal. Estamos a tratar do assunto.</translation>

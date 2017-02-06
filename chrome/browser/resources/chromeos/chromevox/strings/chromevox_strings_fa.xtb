@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" /> در حالت روشن است</translation>
 <translation id="1692077714702418899">خط ساختاری</translation>
 <translation id="1700517974991662022">بازدیدشده</translation>
+<translation id="1714116687360794776">متر</translation>
 <translation id="1722567105086139392">پیوند</translation>
 <translation id="1727806147743597030">ftr</translation>
 <translation id="174268867904053074">گرافیک بعدی</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">کنترل تاریخ زمان</translation>
 <translation id="2347456970887948350">پیوند</translation>
 <translation id="2359897517538099099">از حالت جدول استفاده نمی‌کنید.</translation>
+<translation id="2390264819538553347">‏برای ادامه، enter را فشار دهید، برای برگشتن به عقب، پس‌بر را فشار دهید.</translation>
 <translation id="241124561063364910">و پس از آن</translation>
 <translation id="2416512023405990736">کادر تأیید لغو انتخاب‌شده</translation>
 <translation id="2417569100218200841">اطلاعات محتوا</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">بخش قبلی وجود ندارد.</translation>
 <translation id="3030432017085518523">دکمه رادیویی مورد منو</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{آپاستروف}one{# آپاستروف}other{# آپاستروف}}</translation>
+<translation id="3040901448410802366">نشانگر پیشرفت</translation>
 <translation id="3046838483509668188">‏گزینه‌های ChromeVox</translation>
 <translation id="3047143736589213134">نقشه کلید آزمایشی</translation>
 <translation id="3060756054951570867">منوی <ph name="TITLE" /> باز شد</translation>
@@ -231,6 +234,7 @@
 <translation id="3321460131042519426">فعال کردن «قرارگیری متن در کادر»</translation>
 <translation id="3322936298410871309">عنوان قبلی سطح ۱</translation>
 <translation id="3323447499041942178">کادر متنی</translation>
+<translation id="3338224621010291843">لغزنده <ph name="VALUE" /> <ph name="NAME" /></translation>
 <translation id="3353420241558113817">‏{"ar": "عربی",
         "bg": "بلغاری",
         "ca": "کاتالان",

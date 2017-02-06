@@ -276,6 +276,7 @@
 <translation id="3655670868607891010">Se questo problema si verifica spesso, prova questi <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Revisione</translation>
 <translation id="3678029195006412963">Impossibile firmare la richiesta</translation>
+<translation id="3679803492151881375">Rapporto sugli arresti anomali generato in data <ph name="CRASH_TIME" />, caricato in data <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Informazioni certificato</translation>
 <translation id="3690164694835360974">Accesso non sicuro</translation>
 <translation id="3693415264595406141">Password:</translation>
@@ -374,6 +375,7 @@
 <translation id="4764776831041365478">La pagina web all'indirizzo <ph name="URL" /> potrebbe essere temporaneamente non disponibile oppure è stata permanentemente spostata a un nuovo indirizzo web.</translation>
 <translation id="4771973620359291008">Si è verificato un errore sconosciuto.</translation>
 <translation id="4800132727771399293">Controlla la data di scadenza e il codice CVC, poi riprova</translation>
+<translation id="4803924862070940586"><ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
 <translation id="4813512666221746211">Errore di rete</translation>
 <translation id="4816492930507672669">Adatta alla pagina</translation>
 <translation id="4850886885716139402">Visualizza</translation>
@@ -448,6 +450,7 @@
 <translation id="5622887735448669177">Vuoi uscire da questo sito?</translation>
 <translation id="5629630648637658800">Caricamento delle impostazioni criterio non riuscito</translation>
 <translation id="5631439013527180824">Token di gestione del dispositivo non valido</translation>
+<translation id="5669703222995421982">Ricevi contenuti suggeriti appositamente per te</translation>
 <translation id="5675650730144413517">La pagina non funziona</translation>
 <translation id="5677928146339483299">Bloccati</translation>
 <translation id="5694783966845939798">Hai tentato di accedere a <ph name="DOMAIN" />, tuttavia il server ha presentato un certificato firmato utilizzando un algoritmo di firma debole (ad esempio, SHA-1). Ciò significa che le credenziali di sicurezza presentate dal server potrebbero essere state falsificate e il server potrebbe non essere quello previsto (è possibile che tu stia comunicando con un malintenzionato). <ph name="BEGIN_LEARN_MORE_LINK" />Ulteriori informazioni<ph name="END_LEARN_MORE_LINK" />.</translation>
@@ -547,6 +550,7 @@
 <translation id="6753269504797312559">Valore norma</translation>
 <translation id="6757797048963528358">Il dispositivo è entrato in modalità sospensione.</translation>
 <translation id="6778737459546443941">Il tuo genitore non ha ancora approvato la richiesta</translation>
+<translation id="6810899417690483278">ID personalizzazione</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">La pagina web all'indirizzo <ph name="URL" /> non è al momento disponibile. Potrebbe essere sovraccarica o non disponibile per manutenzione.</translation>
 <translation id="6831043979455480757">Traduci</translation>
@@ -706,6 +710,7 @@ Psst! La prossima volta potrebbe esserti utile la modalità di navigazione in in
 <translation id="8364627913115013041">Non impostata.</translation>
 <translation id="8380941800586852976">Pericolosa</translation>
 <translation id="8382348898565613901">I preferiti visitati di recente vengono visualizzati qui</translation>
+<translation id="8398259832188219207">Rapporto sugli arresti anomali caricato in data <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Arresti anomali (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Devi inserire la stessa passphrase due volte.</translation>
 <translation id="8428213095426709021">Impostazioni</translation>

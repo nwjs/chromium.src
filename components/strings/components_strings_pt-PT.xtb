@@ -279,6 +279,7 @@
 <translation id="3655670868607891010">Se vê isto com frequência, experimente <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Revisão</translation>
 <translation id="3678029195006412963">Não foi possível assinar o pedido</translation>
+<translation id="3679803492151881375">Relatório de falhas capturado no(a) <ph name="CRASH_TIME" /> e carregado no(a) <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Informações do certificado</translation>
 <translation id="3690164694835360974">Início de sessão não seguro</translation>
 <translation id="3693415264595406141">Palavra-passe:</translation>
@@ -377,6 +378,7 @@
 <translation id="4764776831041365478">A página Web em <ph name="URL" /> poderá estar temporariamente inactiva ou poderá ter sido movida permanentemente para um novo endereço Web.</translation>
 <translation id="4771973620359291008">Ocorreu um erro desconhecido.</translation>
 <translation id="4800132727771399293">Verifique a data de validade e o Código de Segurança/CVC e tente novamente</translation>
+<translation id="4803924862070940586"><ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
 <translation id="4813512666221746211">Erro de rede</translation>
 <translation id="4816492930507672669">Ajustar à página</translation>
 <translation id="4850886885716139402">Ver</translation>
@@ -451,6 +453,7 @@
 <translation id="5622887735448669177">Pretende sair deste site?</translation>
 <translation id="5629630648637658800">Falha ao carregar as definições da política</translation>
 <translation id="5631439013527180824">Token de gestão do dispositivo inválido</translation>
+<translation id="5669703222995421982">Obter conteúdo personalizado</translation>
 <translation id="5675650730144413517">Esta página não está a funcionar</translation>
 <translation id="5677928146339483299">Bloqueado</translation>
 <translation id="5694783966845939798">Tentou aceder a <ph name="DOMAIN" />, mas o servidor apresentou um certificado assinado com um algoritmo de assinatura fraco (como SHA-1). Isto significa que as credenciais de segurança que o servidor apresentou podem ter sido falsificadas e que o servidor pode não ser o servidor esperado (pode estar a comunicar com um utilizador mal-intencionado). <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" />.</translation>
@@ -551,6 +554,7 @@
 <translation id="6753269504797312559">Valor da política</translation>
 <translation id="6757797048963528358">O dispositivo entrou em suspensão.</translation>
 <translation id="6778737459546443941">O teu pai/a tua mãe ainda não o aprovou</translation>
+<translation id="6810899417690483278">ID de personalização</translation>
 <translation id="6820686453637990663">Código de segurança</translation>
 <translation id="6830600606572693159">De momento, a página Web em <ph name="URL" /> está indisponível. Poderá estar sobrecarregada ou em manutenção.</translation>
 <translation id="6831043979455480757">Traduzir</translation>
@@ -710,6 +714,7 @@ O modo de navegação anónima <ph name="SHORTCUT_KEY" /> pode ser útil da pró
 <translation id="8364627913115013041">Não definida.</translation>
 <translation id="8380941800586852976">Perigosa</translation>
 <translation id="8382348898565613901">Os seus marcadores visitados recentemente são apresentados aqui.</translation>
+<translation id="8398259832188219207">Relatório de falhas carregado no(a) <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Falhas (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Tem de introduzir a mesma frase de acesso duas vezes.</translation>
 <translation id="8428213095426709021">Definições</translation>

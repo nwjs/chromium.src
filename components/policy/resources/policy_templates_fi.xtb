@@ -860,6 +860,17 @@ Käytännön arvot tulee määrittää millisekunteina. Arvoja voi valita välil
 <translation id="3547954654003013442">Välityspalvelimen asetukset</translation>
 <translation id="3570008976476035109">Estä laajennukset näissä sivustoissa</translation>
 <translation id="3591584750136265240">Määritä kirjautumistodennuksen käytös.</translation>
+<translation id="3601614035698083789">Määrittää hallinnoitujen kirjanmerkkien luettelon.
+
+      Käytäntö on kirjanmerkkiluettelo, ja jokainen kirjanmerkki on
+      sanakirja, joka sisältää kirjanmerkin nimen ja sen kohteen (<ph name="NAME" /> ja <ph name="URL_LABEL" />). 
+      Kirjanmerkkinä voidaan käyttää alikansiota jättämällä pois avain <ph name="URL_LABEL" /> mutta lisäämällä avain <ph name="CHILDREN" />, johon
+      kirjanmerkkilista määritellään yllä kuvatulla tavalla. Myös alikansion kirjanmerkit voivat olla alikansioita. <ph name="PRODUCT_NAME" /> täydentää listan URL-osoitteet
+      omniboxiin kirjoitettujen osoitteiden tavoin. Esimerkiksi osoite <ph name="GOOGLE_COM" /> täydennetään muotoon <ph name="HTTPS_GOOGLE_COM" />.
+
+      Nämä kirjanmerkit lisätään Hallinnoidut kirjanmerkit ‑kansioon. Käyttäjä ei voi muokata niitä, mutta hän voi piilottaa kansion kirjanmerkkipalkista. Hallinnoituja kirjanmerkkejä ei synkronoida käyttäjän tiliin, eivätkä laajennukset voi muokata niitä.
+
+      Julkaisusta 51 eteenpäin kirjanmerkkikansion nimiä voi muokata lisäämällä luettelokohteen {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Ota käyttöön tai poista käytöstä oikoluku-verkkopalvelu</translation>
 <translation id="3646859102161347133">Aseta näytön suurentajan tyyppi</translation>
 <translation id="3653237928288822292">Oletushakupalvelun kuvake</translation>
@@ -1655,6 +1666,46 @@ Jos tämä asetus ei ole käytössä tai jos sen arvo on false, tulostuskomento 
 <translation id="6282799760374509080">Salli tai estä äänen kaappaaminen</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Verkkotunnuksen automaattinen täydennys kirjautumisen yhteydessä</translation>
+<translation id="6312861131491040487">
+          Määrittää laajennukset, jotka asennetaan huomaamattomasti
+          ilman käyttäjän vuorovaikutusta ja joita käyttäjä ei voi poistaa.
+          Kaikki sovellusten/laajennusten pyytämät käyttöoikeudet myönnetään
+          implisiittisesti ilman käyttäjän vuorovaikutusta, mukaan lukien kaikki
+          sovelluksen/laajennuksen tulevien versioiden pyytämät käyttöoikeudet.
+          Tämän lisäksi käyttöoikeudet myönnetään
+          enterprise.deviceAttributes- ja enterprise.platformKeys-laajennusten 
+          sovellusliittymille. (Nämä kaksi sovellusliittymää eivät ole sellaisten
+          sovellusten/laajennusten käytettävissä, joita ei ole asennettu automaattisesti.)
+
+          Tämä käytäntö ohittaa sen kanssa mahdollisesti ristiriidassa olevan
+          ExtensionsInstallBlacklist-käytännön. Jos aiemmin automaattisesti
+          asennettu sovellus tai laajennus poistetaan tästä luettelosta, <ph name="PRODUCT_NAME" />
+          poistaa sen automaattisesti.
+
+          Jos kyseessä on Windowsin esiintymä, jota ei ole liitetty Active Directory 
+          ‑verkkotunnukseen, automaattiset asennukset on rajoitettu Chrome Web
+          Storesta saatavilla oleviin sovelluksiin ja laajennuksiin.
+
+          Huomaa, että kehittäjätyökaluilla on mahdollista muokata minkä tahansa
+          laajennuksen lähdekoodia, mikä voi mahdollisesti haitata laajennuksen  
+          toimintaa. Tämä voidaan tarvittaessa estää asettamalla käytäntö
+          DeveloperToolsDisabled.
+
+          Käytännön jokainen rivikohta on merkkijono, joka sisältää laajennustunnuksen
+          ja puolipisteellä (<ph name="SEMICOLON" />) erotetun päivitysosoitteen. Laajennustunnus on 
+          32-kirjaiminen merkkijono, jonka esim. <ph name="CHROME_EXTENSIONS_LINK" /> näyttää kehittäjätilassa.
+          Päivitysosoitteen tulee johtaa päivitysluettelotyyppiseen XML-asiakirjaan.  
+          Katso esimerkki: <ph name="LINK_TO_EXTENSION_DOC1" />. Huomaa, että tässä käytännössä määritettyä 
+          päivitysosoitetta käytetään vain ensimmäiseen asennukseen.
+          Laajennuksen myöhempiin päivityksiin käytetään laajennuksen luettelossa  
+          ilmoitettua URL-osoitetta.
+
+          Esimerkiksi <ph name="EXTENSION_POLICY_EXAMPLE" />
+          asentaa sovelluksen <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> Chrome Web Storen tavallisen päivitysosoitteen
+          kautta. Lisätietoja laajennusten isännöinnistä: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Jos tätä käytäntöä ei ole määritetty, mitään sovelluksia tai laajennuksia ei
+          asenneta automaattisesti ja käyttäjä voi poistaa minkä tahansa sovelluksen tai laajennuksen kohteessa <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome näyttää varoitussivun, jos käyttäjä avaa SSL-virheitä sisältävän sivuston. Jos käytännön arvo on Tosi, käyttäjä voi ohittaa varoitussivun. Tämä on myös oletusarvo.
       Käytännön arvo Epätosi estää varoitussivujen ohittamisen.</translation>
 <translation id="6353901068939575220">Määrittää parametrit, joita käytetään tehtäessä URL-osoitteiden hakuja POST-metodin avulla. Se koostuu pilkuilla erotetuista nimi/arvo-pareista. Jos arvo on malliparametri kuten yllä olevan esimerkin {searchTerms}, se korvataan oikeilla hakusanatiedoilla.

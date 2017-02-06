@@ -909,6 +909,17 @@ Contoh komponen seperti itu termasuk senarai pembatalan sijil dan data semakan i
 <translation id="3547954654003013442">Tetapan proksi</translation>
 <translation id="3570008976476035109">Sekat pemalam pada tapak ini</translation>
 <translation id="3591584750136265240">Konfigurasikan gelagat pengesahan log masuk</translation>
+<translation id="3601614035698083789">Mengkonfigurasi senarai penanda halaman terurus.
+
+      Dasar ini terdiri daripada satu senarai penanda halaman manakala setiap penanda halaman ialah
+      kamus yang mengandungi kunci <ph name="NAME" /> dan <ph name="URL_LABEL" /> yang menyimpan nama penanda halaman dan sasarannya.
+      Subfolder boleh dikonfigurasikan dengan menentukan penanda halaman tanpa kunci <ph name="URL_LABEL" /> tetapi dengan kunci <ph name="CHILDREN" /> tambahan yang mengandungi satu senarai
+      penanda halaman seperti yang ditentukan di atas (sesetengahnya mungkin folder semula). <ph name="PRODUCT_NAME" /> meminda URL yang tidak lengkap
+      seolah-olah diserahkan melalui Kotak Omni, contohnya <ph name="GOOGLE_COM" /> menjadi <ph name="HTTPS_GOOGLE_COM" />.
+
+      Penanda halaman ini diletakkan dalam folder "Penanda halaman terurus" yang tidak boleh diubah suai oleh pengguna, tetapi pengguna boleh memilih untuk menyembunyikannya daripada bar penanda halaman. Penanda halaman terurus tidak disegerakkan ke akaun pengguna dan tidak boleh diubah suai oleh sambungan.
+
+      Bermula keluaran 51, nama folder untuk penanda halaman boleh disesuaikan dengan menambahkan {"toplevel_name": "sesuatu nama"} item senarai.</translation>
 <translation id="3627678165642179114">Dayakan atau lumpuhkan perkhidmatan web penyemakan ejaan</translation>
 <translation id="3646859102161347133">Tetapkan jenis penggadang skrin</translation>
 <translation id="3653237928288822292">Ikon pembekal carian lalai</translation>
@@ -1772,6 +1783,46 @@ Contoh komponen seperti itu termasuk senarai pembatalan sijil dan data semakan i
 <translation id="6282799760374509080">Benarkan atau nafikan rakaman audio</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Dayakan autolengkap nama domain semasa log masuk pengguna</translation>
+<translation id="6312861131491040487">
+          Menentukan satu senarai apl dan sambungan yang dipasang secara senyap,
+          tanpa interaksi pengguna dan tidak boleh dinyahpasang oleh
+          pengguna. Semua kebenaran yang diminta oleh apl/sambungan diberikan
+          secara tersirat, tanpa interaksi pengguna, termasuk sebarang kebenaran
+          tambahan yang diminta oleh versi apl/sambungan yang akan datang.
+          Selain itu, kebenaran diberikan untuk
+          API sambungan enterprise.deviceAttributes dan enterprise.platformKeys.
+          (Kedua-dua API ini tidak tersedia kepada apl/sambungan yang
+          tidak dipaksa pasang.)
+
+          Dasar ini diberi keutamaan berbanding dasar ExtensionsInstallBlacklist
+          yang mungkin bercanggah. Jika apl atau sambungan yang
+          telah dipaksa pasang sebelum ini dialih keluar daripada senarai ini,
+          apl atau sambungan ini akan dinyahpasang secara automatik oleh <ph name="PRODUCT_NAME" />.
+
+          Untuk kejadian Windows yang tidak dihubungkan kepada domain Active
+          Directory, pemasangan paksa dihadkan kepada apl dan sambungan yang
+          disenaraikan dalam Gedung Web Chrome.
+
+          Harap maklum bahawa kod sumber mana-mana sambungan boleh diubah oleh pengguna melalui
+          Alatan Pembangun (mungkin menyebabkan sambungan tidak berfungsi).
+          Jika hal ini menimbulkan masalah, dasar DeveloperToolsDisabled
+          hendaklah ditetapkan.
+
+          Setiap item senarai dasar adalah rentetan yang mengandungi ID sambungan
+          dan URL "kemas kini" yang dipisahkan oleh koma bertitik (<ph name="SEMICOLON" />). ID sambungan adalah rentetan 32 huruf
+          yang ditemui, misalnya pada <ph name="CHROME_EXTENSIONS_LINK" /> semasa dalam
+          mod pembangun. URL "kemas kini" hendaklah membawa kepada dokumen
+          XML Manifes Kemas Kini seperti yang diterangkan di <ph name="LINK_TO_EXTENSION_DOC1" />. Ambil
+          perhatian bahawa URL "kemas kini" yang ditetapkan dalam dasar ini hanya digunakan
+          untuk pemasangan dalaman; kemas kini sambungan yang seterusnya menggunakan URL
+          kemas kini yang dinyatakan dalam manifes sambungan.
+
+          Contohnya, <ph name="EXTENSION_POLICY_EXAMPLE" />
+          memasang apl <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> daripada URL "kemas kini" Gedung Web Chrome
+          yang standard. Untuk mendapatkan maklumat lanjut tentang pengehosan sambungan, lihat: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Jika dasar ini dibiarkan tanpa ditetapkan, tiada apl atau sambungan dipasang
+          secara automatik dan pengguna boleh menyahpasang sebarang apl atau sambungan dalam <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome memaparkan halaman amaran apabila pengguna menavigasi ke tapak yang mempunyai ralat SSL. Secara lalai atau apabila dasar ini ditetapkan kepada benar, pengguna dibenarkan mengklik lalu halaman amaran ini.
       Pengguna tidak dibenarkan mengklik lalu sebarang halaman amaran apabila dasar ini ditetapkan kepada palsu.</translation>
 <translation id="6353901068939575220">Menentukan parameter yang digunakan apabila mencari URL dengan POST. Parameter ini mengandungi pasangan nama/nilai yang dipisahkan koma. Jika nilai merupakan parameter templat, seperti {searchTerms} dalam contoh di atas, nilai ini akan digantikan dengan data istilah carian sebenar.

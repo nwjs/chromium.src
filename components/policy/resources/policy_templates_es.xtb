@@ -907,6 +907,17 @@ Si se inhabilita o no se configura esta opción, los usuarios podrán decidir si
 <translation id="3547954654003013442">Configuración de proxy</translation>
 <translation id="3570008976476035109">Bloquear complementos en estos sitios</translation>
 <translation id="3591584750136265240">Configurar el comportamiento de la autenticación de inicio de sesión</translation>
+<translation id="3601614035698083789">Configura una lista de marcadores administrados.
+
+      La política consta de una lista de marcadores, mientras que cada marcador es un
+      diccionario que contiene las claves <ph name="NAME" /> y <ph name="URL_LABEL" />, que definen el nombre y la URL del marcador. Para
+      configurar una subcarpeta, puedes definir un marcador sin la clave <ph name="URL_LABEL" />, pero con una clave <ph name="CHILDREN" /> adicional que contenga una lista de
+      marcadores como los que se indican anteriormente (algunos pueden ser carpetas también). <ph name="PRODUCT_NAME" /> modifica las URL incompletas
+      como si se hubieran enviado a través del omnibox. Por ejemplo, <ph name="GOOGLE_COM" /> se cambiaría a <ph name="HTTPS_GOOGLE_COM" />.
+
+      Estos marcadores se guardan en la carpeta Marcadores administrados, que el usuario no puede modificar, pero sí ocultarla para que no se muestre en la barra de marcadores. Los marcadores administrados no se sincronizan con la cuenta del usuario y las extensiones no pueden modificarlos.
+
+      A partir de la versión 51, el nombre de la carpeta de marcadores se puede personalizar. Para ello, añade un elemento de la lista {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Habilitar o inhabilitar el servicio web de corrección ortográfica</translation>
 <translation id="3646859102161347133">Establecer el tipo de aumento de pantalla</translation>
 <translation id="3653237928288822292">Icono del proveedor de búsquedas predeterminadas</translation>
@@ -1761,6 +1772,46 @@ Si esta opción no está establecida o está establecida en True, los dispositiv
 <translation id="6282799760374509080">Permitir o denegar captura de audio</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Habilitar la opción de autocompletar nombre de dominio durante el inicio de sesión del usuario</translation>
+<translation id="6312861131491040487">
+          Especifica una lista de aplicaciones y extensiones que se instalan de forma automática,
+          sin la interacción del usuario, y que este no puede
+          desinstalar. Los permisos solicitados por las aplicaciones o extensiones se aceptan de forma
+          implícita sin la interacción del usuario, incluidos otros
+          permisos solicitados por próximas versiones de la aplicación o la extensión.
+          Además, se conceden permisos a las
+          API de extensión enterprise.deviceAttributes y enterprise.platformKeys.
+          Estas dos API no están disponibles para las aplicaciones o extensiones que
+          no se instalan de manera forzada.
+
+          Esta política prevalece frente a la política
+          ExtensionsInstallBlacklist, que puede entrar en conflicto. Si se quita de la lista una aplicación o extensión
+          instalada previamente de manera forzada, <ph name="PRODUCT_NAME" />
+          la desinstalará automáticamente.
+
+           En el caso de las instancias de Windows que no estén vinculadas a un dominio
+          de Active Directory, la instalación forzada se limita a las aplicaciones y extensiones incluidas
+          en Chrome Web Store.
+
+          Ten en cuenta que los usuarios pueden modificar el código fuente de cualquier extensión con las
+          herramientas para desarrolladores (lo que puede provocar problemas de
+          procesamiento de la extensión). Si te preocupa esta cuestión, configura la política 
+          DeveloperToolsDisabled.
+
+          Cada elemento de la lista de la política es una cadena que contiene un ID de extensión
+          y una URL de actualización separados por punto y coma (<ph name="SEMICOLON" />). El ID de extensión es la cadena de 32 letras
+          que aparece, por ejemplo, en <ph name="CHROME_EXTENSIONS_LINK" /> cuando está habilitado
+          el modo desarrollador. La URL de actualización debe dirigir a un documento XML
+          de un archivo de manifiesto de actualización, como se describe en <ph name="LINK_TO_EXTENSION_DOC1" />. Ten en cuenta
+          que la URL de actualización definida en esta política solo se usa en la instalación
+          inicial. Las actualizaciones posteriores de la extensión usarán la URL
+          de actualización indicada en el archivo de manifiesto de la extensión.
+
+          Por ejemplo, <ph name="EXTENSION_POLICY_EXAMPLE" />
+          instala la aplicación <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> desde la URL de actualización estándar de Chrome Web Store.
+          Para obtener más información sobre cómo alojar extensiones, consulta la página <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Si no se establece esta política, no se instalarán aplicaciones ni extensiones
+          automáticamente y el usuario podrá desinstalar cualquier aplicación o extensión de <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome muestra una página de advertencia cuando los usuarios intentan acceder a sitios web con errores SSL. De forma predeterminada o cuando se establezca el valor true en esta política, los usuarios podrán hacer clic para ignorar estas páginas de advertencia.
       Si se asigna el valor false, los usuarios no tendrán permiso para ignorar ninguna página de advertencia.</translation>
 <translation id="6353901068939575220">Especifica los parámetros utilizados al buscar una URL con POST. Se compone de pares de valor/nombre separados por comas. Si un valor es un parámetro de plantilla, como {searchTerms} en el ejemplo anterior, se sustituirá por datos de términos de búsqueda reales.

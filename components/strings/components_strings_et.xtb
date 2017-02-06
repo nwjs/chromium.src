@@ -279,6 +279,7 @@
 <translation id="3655670868607891010">Kui näete seda sageli, proovige järgmist: <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Redaktsioon</translation>
 <translation id="3678029195006412963">Taotlust ei saanud allkirjastada</translation>
+<translation id="3679803492151881375">Krahhiaruanne jäädvustati ajal <ph name="CRASH_TIME" />, see laaditi üles ajal <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Sertifikaadi andmed</translation>
 <translation id="3690164694835360974">Sisselogimine pole turvaline</translation>
 <translation id="3693415264595406141">Parool:</translation>
@@ -377,6 +378,7 @@
 <translation id="4764776831041365478">Veebileht aadressil <ph name="URL" /> võib olla ajutiselt maas või jäädavalt uuele veebiaadressile teisaldatud.</translation>
 <translation id="4771973620359291008">Tekkis tundmatu viga.</translation>
 <translation id="4800132727771399293">Kontrollige aegumiskuupäeva ja CVC-d ning proovige uuesti</translation>
+<translation id="4803924862070940586"><ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
 <translation id="4813512666221746211">Võrgu viga</translation>
 <translation id="4816492930507672669">Sobita lehele</translation>
 <translation id="4850886885716139402">Kuva</translation>
@@ -451,6 +453,7 @@
 <translation id="5622887735448669177">Kas soovite sellelt saidilt lahkuda?</translation>
 <translation id="5629630648637658800">Reegli seadete laadimine ebaõnnestus</translation>
 <translation id="5631439013527180824">Seadme halduse luba on kehtetu</translation>
+<translation id="5669703222995421982">Isikupärastatud sisu hankimine</translation>
 <translation id="5675650730144413517">See leht ei tööta</translation>
 <translation id="5677928146339483299">Blokeeritud</translation>
 <translation id="5694783966845939798">Püüdsite jõuda domeenile <ph name="DOMAIN" />, kuid server esitas sertifikaadi, mis on allkirjastatud nõrga allkirjaalgoritmiga (nt SHA-1). See tähendab, et serveri esitatud turvamandaadid võivad olla võltsitud ja tegemist ei pruugi olla õige serveriga (võimalik, et suhtlete ründajaga). <ph name="BEGIN_LEARN_MORE_LINK" />Vaadake lisateavet<ph name="END_LEARN_MORE_LINK" />.</translation>
@@ -551,6 +554,7 @@
 <translation id="6753269504797312559">Reegli väärtus</translation>
 <translation id="6757797048963528358">Teie seade lülitus unerežiimile.</translation>
 <translation id="6778737459546443941">Vanem ei ole seda veel kinnitanud</translation>
+<translation id="6810899417690483278">Kohandamise ID</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Veebileht pole aadressil <ph name="URL" /> praegu saadaval. See võib olla üle koormatud või hooldamiseks seisatud.</translation>
 <translation id="6831043979455480757">Tõlgi</translation>
@@ -710,6 +714,7 @@ Inkognito režiim <ph name="SHORTCUT_KEY" /> võib järgmisel korral kasulikuks 
 <translation id="8364627913115013041">Määramata.</translation>
 <translation id="8380941800586852976">Ohtlik</translation>
 <translation id="8382348898565613901">Teie hiljuti külastatud järjehoidjad kuvatakse siin</translation>
+<translation id="8398259832188219207">Krahhiaruanne laaditi üles ajal <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Krahhid (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Peate sisestama sama parooli kaks korda.</translation>
 <translation id="8428213095426709021">Seaded</translation>

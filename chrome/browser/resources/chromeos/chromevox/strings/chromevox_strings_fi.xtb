@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" />, ota käyttöön</translation>
 <translation id="1692077714702418899">rakenteellinen linja</translation>
 <translation id="1700517974991662022">Käyty</translation>
+<translation id="1714116687360794776">Mittari</translation>
 <translation id="1722567105086139392">Linkki</translation>
 <translation id="1727806147743597030">footer</translation>
 <translation id="174268867904053074">Seuraava grafiikka</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">Päivämäärän ja ajan valinta</translation>
 <translation id="2347456970887948350">Linkki</translation>
 <translation id="2359897517538099099">Ei taulukkotilassa.</translation>
+<translation id="2390264819538553347">Siirry eteenpäin painamalla Enter ja taaksepäin painamalla askelpalautinta.</translation>
 <translation id="241124561063364910">ja sitten</translation>
 <translation id="2416512023405990736">Valitsematon valintaruutu</translation>
 <translation id="2417569100218200841">Sisällön tiedot</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">Ei edeltävää osiota.</translation>
 <translation id="3030432017085518523">Valikkokohde radiopainike</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{heittomerkki}other{# heittomerkkiä}}</translation>
+<translation id="3040901448410802366">Edistymisen osoitin</translation>
 <translation id="3046838483509668188">ChromeVox-asetukset</translation>
 <translation id="3047143736589213134">Kokeellinen näppäinkartta</translation>
 <translation id="3060756054951570867"><ph name="TITLE" />-valikko avattu</translation>
@@ -231,6 +234,7 @@ Jos haluat poistua opetusohjelmasta, siirry ChromeVox-komennoilla Sulje-painikke
 <translation id="3321460131042519426">Ota sanojen rivitys käyttöön</translation>
 <translation id="3322936298410871309">Edellinen tason 1 otsikko</translation>
 <translation id="3323447499041942178">Tekstiruutu</translation>
+<translation id="3338224621010291843"><ph name="VALUE" /> <ph name="NAME" /> liukusäädin</translation>
 <translation id="3353420241558113817">{"ar": "arabia",
         "bg": "bulgaria",
         "ca": "katalaani",

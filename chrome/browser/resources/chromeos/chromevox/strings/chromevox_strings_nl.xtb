@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" />, inschakelen</translation>
 <translation id="1692077714702418899">structurele regel</translation>
 <translation id="1700517974991662022">Bezocht</translation>
+<translation id="1714116687360794776">Meter</translation>
 <translation id="1722567105086139392">Link</translation>
 <translation id="1727806147743597030">footer</translation>
 <translation id="174268867904053074">Volgende afbeelding</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">Bedieningselement voor datum/tijd</translation>
 <translation id="2347456970887948350">Een link</translation>
 <translation id="2359897517538099099">Niet in tabelmodus.</translation>
+<translation id="2390264819538553347">Druk op Enter om door te gaan. Druk op Backspace om terug te gaan.</translation>
 <translation id="241124561063364910">gevolgd door</translation>
 <translation id="2416512023405990736">Een niet-aangevinkt selectievakje</translation>
 <translation id="2417569100218200841">Informatie over content</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">Geen vorig gedeelte.</translation>
 <translation id="3030432017085518523">Keuzerondje voor menu-item</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{apostrof}other{# apostrofs}}</translation>
+<translation id="3040901448410802366">Voortgangsindicator</translation>
 <translation id="3046838483509668188">ChromeVox-opties</translation>
 <translation id="3047143736589213134">Experimentele toetsenbordindeling</translation>
 <translation id="3060756054951570867">menu <ph name="TITLE" /> geopend</translation>
@@ -231,6 +234,7 @@ Als je klaar bent met de handleiding, gebruik je ChromeVox om naar de knop Sluit
 <translation id="3321460131042519426">Tekstterugloop inschakelen</translation>
 <translation id="3322936298410871309">Vorige kop voor niveau 1</translation>
 <translation id="3323447499041942178">Tekstvak</translation>
+<translation id="3338224621010291843">Schuifregelaar <ph name="VALUE" /> <ph name="NAME" /></translation>
 <translation id="3353420241558113817">{"ar": "Arabisch",
         "bg": "Bulgaars",
         "ca": "Catalaans",

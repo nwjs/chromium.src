@@ -863,6 +863,13 @@ Pokud tuto zásadu aktivujete nebo ji nenastavíte, uživatelé budou ve správc
 <translation id="3547954654003013442">Nastavení proxy serveru</translation>
 <translation id="3570008976476035109">Blokovat pluginy na těchto stránkách</translation>
 <translation id="3591584750136265240">Konfigurace chování přihlašovacího ověření</translation>
+<translation id="3601614035698083789">Umožňuje nakonfigurovat seznam spravovaných záložek.
+
+Hodnotou této zásady je seznam záložek. Každá záložka je slovník, který obsahuje klíče <ph name="NAME" /> a <ph name="URL_LABEL" />. Ty obsahují název a cíl záložky. Podsložku lze nakonfigurovat definováním záložky bez klíče <ph name="URL_LABEL" />, ale s dodatečným klíčem <ph name="CHILDREN" />, který sám obsahuje seznam záložek podle výše uvedeného popisu (některé z nich mohou být opět složky). Neúplné adresy URL <ph name="PRODUCT_NAME" /> doplní stejně, jako kdybyste je odeslali pomocí omniboxu. Například adresa <ph name="GOOGLE_COM" /> bude doplněna na <ph name="HTTPS_GOOGLE_COM" />.
+
+Tyto záložky budou umístěny do složky Spravované záložky, kterou uživatel nemůže upravovat. Může ji však na liště záložek skrýt. Spravované záložky se nesynchronizují do uživatelského účtu a nelze je upravovat pomocí rozšíření.
+
+      Od verze 51 lze název složky se záložkami upravit přidáním položky {"toplevel_name": "požadovaný název"} do seznamu.</translation>
 <translation id="3627678165642179114">Povolit nebo zakázat webovou službu kontroly pravopisu</translation>
 <translation id="3646859102161347133">Nastavení typu lupy</translation>
 <translation id="3653237928288822292">Ikona výchozího poskytovatele vyhledávání</translation>
@@ -1700,6 +1707,20 @@ Není-li zásada nastavena, může se uživatelům zobrazit výzva, zda chtějí
 <translation id="6282799760374509080">Povolit nebo zakázat záznam zvuku</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Aktivovat automatické doplňování názvu domény při přihlášení uživatele</translation>
+<translation id="6312861131491040487">
+          Určuje seznam aplikací a rozšíření, které se instalují na pozadí bez zásahu uživatele a které uživatel nemůže odinstalovat. Všechna oprávnění požadovaná aplikacemi nebo rozšířeními jsou udělována implicitně bez zásahu uživatele, a to včetně všech dodatečných oprávnění požadovaných budoucími verzemi aplikace nebo rozšíření. Kromě toho jsou udělena oprávnění těchto rozhraní API rozšíření: enterprise.deviceAttributes a enterprise.platformKeys. (Aplikace/rozšíření, jejichž instalace není vynucena, tato rozhraní API k dispozici nemají.)
+
+Tato zásada má přednost před potenciálně konfliktní zásadou ExtensionsInstallBlacklist. Bude-li aplikace nebo rozšíření, které bylo dříve vynuceně nainstalováno, z tohoto seznamu odebráno, <ph name="PRODUCT_NAME" /> je automaticky odinstaluje.
+
+U instancí systému Windows, které nejsou propojeny s doménou Active Directory, je vynucená instalace omezena pouze na aplikace a rozšíření z Internetového obchodu Chrome.
+
+Zdrojový kód libovolného rozšíření mohou uživatelé pomocí Nástrojů pro vývojáře upravit (což může způsobit, že rozšíření nebude fungovat). Pokud je to problém, nastavte zásadu DeveloperToolsDisabled.
+
+Každá položka v seznamu zásady představuje řetězec, který obsahuje ID rozšíření a adresu URL pro aktualizaci oddělené středníkem (<ph name="SEMICOLON" />). ID rozšíření je řetězec o 32 znacích a naleznete jej například zde: <ph name="CHROME_EXTENSIONS_LINK" /> (v režimu pro vývojáře). Adresa URL pro aktualizaci by měla odkazovat na dokument XML manifestu aktualizace (viz <ph name="LINK_TO_EXTENSION_DOC1" />). Adresa URL pro aktualizaci nastavená v této zásadě slouží pouze k počáteční instalaci. Další aktualizace rozšíření budou používat adresu URL pro aktualizaci uvedenou v manifestu rozšíření.
+
+Například <ph name="EXTENSION_POLICY_EXAMPLE" /> nainstaluje aplikaci <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> ze standardní adresy URL pro aktualizaci z Internetového obchodu Chrome. Další informace o hostování rozšíření viz <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+Je-li tato zásada ponechána nenastavená, žádné aplikace ani rozšíření se automaticky neinstalují a uživatel v prohlížeči <ph name="PRODUCT_NAME" /> může kteroukoliv aplikaci nebo rozšíření odinstalovat.</translation>
 <translation id="6315673513957120120">Pokud uživatel přejde na web, který obsahuje chyby protokolu SSL, Chrome zobrazí stránku s upozorněním. Když je tato zásada nastavena na hodnotu True, mohou uživatelé stránky s upozorněním přeskočit a pokračovat. Platí to také ve výchozím nastavení.
 Nastavením této zásady na hodnotu False přeskočení stránky s upozorněním zakážete.</translation>
 <translation id="6353901068939575220">Udává parametry, které budou použity při vyhledávání adresy URL pomocí metody POST. Sestává z párů název–hodnota oddělených čárkou. Pokud je hodnotou parametr šablony (např. {searchTerms} v příkladu výše), bude nahrazen skutečnými údaji vyhledávacích dotazů.

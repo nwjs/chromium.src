@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" />, bekapcsolás</translation>
 <translation id="1692077714702418899">strukturális vonal</translation>
 <translation id="1700517974991662022">Felkeresett</translation>
+<translation id="1714116687360794776">Mérő</translation>
 <translation id="1722567105086139392">Link</translation>
 <translation id="1727806147743597030">lábl</translation>
 <translation id="174268867904053074">Következő grafika</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">Dátum és idő beállítása</translation>
 <translation id="2347456970887948350">Link</translation>
 <translation id="2359897517538099099">Nem táblázat módban van.</translation>
+<translation id="2390264819538553347">Továbblépéshez nyomja le az Enter, visszalépéshez a Backspace billentyűt.</translation>
 <translation id="241124561063364910">azután</translation>
 <translation id="2416512023405990736">Nem bejelölt négyzet</translation>
 <translation id="2417569100218200841">Tartalominformáció</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">Nincs előző panel.</translation>
 <translation id="3030432017085518523">Menüelem választógomb</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{aposztróf}other{# aposztróf}}</translation>
+<translation id="3040901448410802366">Folyamatjelző</translation>
 <translation id="3046838483509668188">ChromeVox-opciók</translation>
 <translation id="3047143736589213134">Kísérleti billentyűzetkiosztás</translation>
 <translation id="3060756054951570867"><ph name="TITLE" /> menü megnyitva</translation>
@@ -231,6 +234,7 @@ Ha végzett az útmutatóval, a ChromeVox segítségével navigáljon a Bezárá
 <translation id="3321460131042519426">Szavak egyben tartásának engedélyezése</translation>
 <translation id="3322936298410871309">Előző 1. szintű fejléc</translation>
 <translation id="3323447499041942178">Szövegmező</translation>
+<translation id="3338224621010291843"><ph name="VALUE" /> <ph name="NAME" /> csúszka</translation>
 <translation id="3353420241558113817">{"ar": "arab",
         "bg": "bolgár",
         "ca": "katalán",

@@ -861,6 +861,17 @@
 <translation id="3547954654003013442">Proxy postavke</translation>
 <translation id="3570008976476035109">Blokiraj dodatke na ovim web-lokacijama</translation>
 <translation id="3591584750136265240">Konfiguriraj ponašanje autentifikacije tijekom prijave</translation>
+<translation id="3601614035698083789">Konfigurira popis upravljanih oznaka.
+
+      Pravilo obuhvaća popis oznaka u kojem je svaka oznaka
+      rječnik s ključevima <ph name="NAME" /> i <ph name="URL_LABEL" /> koji nose naziv i cilj oznake. Moguće je
+      konfigurirati podmapu tako da se definira oznaka bez ključa <ph name="URL_LABEL" />, ali s dodatnim ključem <ph name="CHILDREN" /> koji i sam sadrži popis
+      oznaka kako je gore definirano (od kojih neke opet mogu biti mape). <ph name="PRODUCT_NAME" /> izmjenjuje i dopunjuje nepotpune URL-ove
+      kao da su poslani putem višenamjenskog okvira, npr. <ph name="GOOGLE_COM" /> postaje <ph name="HTTPS_GOOGLE_COM" />.
+
+      Te se oznake oznake spremaju u mapu "Upravljane oznake" koju korisnik ne može izmijeniti, ali je može sakriti s trake oznaka. Upravljane oznake ne sinkroniziraju se na korisnički račun i proširenja ih ne mogu mijenjati.
+
+      Od izdanja 51 naziv mape za oznake može se prilagoditi dodavanjem stavke {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Omogući ili onemogući web-uslugu provjere pravopisa</translation>
 <translation id="3646859102161347133">Postavljanje vrste povećala</translation>
 <translation id="3653237928288822292">Ikona zadanog davatelja usluga pretraživanja</translation>
@@ -1659,6 +1670,46 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
 <translation id="6282799760374509080">Omogući ili onemogući snimanje zvuka</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Omogući samodovršavanje naziva domene tijekom prijave korisnika</translation>
+<translation id="6312861131491040487">
+          Određuje popis aplikacija i proširenja koja se instaliraju u pozadini,
+          bez interakcije s korisnikom, i koje korisnik ne može deinstalirati.
+          Sva dopuštenja koja aplikacije/proširenja zahtijevaju dodjeljuju se
+          implicitno, bez interakcije s korisnikom, uključujući sva dodatna
+          dopuštenja koja bi buduće verzije aplikacije/proširenja mogli zahtijevati.
+          Osim toga, dopuštenja se dodjeljuju za API-je proširenja
+          enterprise.deviceAttributes i enterprise.platformKeys.
+          (Ta dva API-ja nisu dostupna aplikacijama/proširenjima koji nisu
+          prisilno instalirani.)
+
+          Ovo pravilo ima prednost pred potencijalno sukobljenim pravilom
+          ExtensionsInstallBlacklist. Ako se s popisa ukloni aplikacija ili
+          proširenje koji su prethodno bili prisilno instalirani,
+          <ph name="PRODUCT_NAME" /> automatski će ga deinstalirati.
+
+          Za instance Windowsa koje nisu pridružene domeni Active Directoryja
+          prisilna instalacija ograničena je na aplikacije i proširenja navedene
+          u Chrome web-trgovini.
+
+          Korisnici mogu izmijeniti izvorni kôd proširenja pomoću Alata
+          za razvojne programere (zbog čega proširenje može prestati
+          funkcionirati). Ako to predstavlja problem, postavite pravilo
+          DeveloperToolsDisabled.
+
+          Svaka stavka pravila niz je koji sadrži ID proširenja i URL za
+          "ažuriranje" odvojene točkom-zarezom (<ph name="SEMICOLON" />). ID proširenja niz je od
+          32 slova koji se primjerice može pronaći na <ph name="CHROME_EXTENSIONS_LINK" /> u načinu rada
+          razvojnog preogramera. URL za "ažuriranje" treba usmjeravati na
+          XML dokument manifesta ažuriranja kako je opisano u dokumentu <ph name="LINK_TO_EXTENSION_DOC1" />.
+          URL za "ažuriranje" postavljen u ovom pravilu upotrebljava se samo za
+          prvo instaliranje, dok će se za daljnja ažuriranja proširenja upotrebljavati
+          URL ažuriranja naveden u manifestu proširenja.
+
+          Na primjer, <ph name="EXTENSION_POLICY_EXAMPLE" />
+          instalira aplikaciju <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> sa standardnog URL-a za "ažuriranje"
+          Chrome web-trgovine. Više informacija o hostingu proširenja potražite ovdje: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Ako se to pravilo ne postavi, aplikacije ili proširenja neće se instalirati
+          automatski i korisnik može deinstalirati bilo koju aplikaciju ili proširenje u pregledniku <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome prikazuje stranicu upozorenja kada korisnici dođu do web-lokacija koje sadrže pogreške SSL-a. Prema zadanim postavkama ili kada se to pravilo postavi na "True", korisnicima je dopušteno klikanjem proći stranice upozorenja.
       Ako se pravilo postavi na "False", korisnici neće moći klikanjem proći stranice upozorenja.</translation>
 <translation id="6353901068939575220">Određuje parametre koji se upotrebljavaju prilikom pretraživanja URL-ova pomoću POST metode. Sastoji se od zarezom odvojenih parova naziv/vrijednost. Ako je vrijednost parametar predloška, primjerice {searchTerms} u gornjem primjeru, zamijenit će se podacima stvarnih pojmova za pretraživanje.

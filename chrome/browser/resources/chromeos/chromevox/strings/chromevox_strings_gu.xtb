@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" />, ચાલુ કરો</translation>
 <translation id="1692077714702418899">માળખાકીય રેખા</translation>
 <translation id="1700517974991662022">મુલાકાત લીધેલ</translation>
+<translation id="1714116687360794776">મીટર</translation>
 <translation id="1722567105086139392">લિંક</translation>
 <translation id="1727806147743597030">ftr</translation>
 <translation id="174268867904053074">આગલું ગ્રાફિક</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">તારીખ સમયનું નિયંત્રણ</translation>
 <translation id="2347456970887948350">લિંક</translation>
 <translation id="2359897517538099099">કોષ્ટક મોડમાં નથી.</translation>
+<translation id="2390264819538553347">આગળ જવા માટે, enter દબાવો, પાછળ જવા માટે backspace દબાવો.</translation>
 <translation id="241124561063364910">આના દ્વારા અનુસરાયેલ</translation>
 <translation id="2416512023405990736">અનચેક કરેલ ચેકબોક્સ</translation>
 <translation id="2417569100218200841">સામગ્રી માહિતી</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">કોઈ પહેલાંનો વિભાગ નથી.</translation>
 <translation id="3030432017085518523">મેનૂ આઇટમ રેડિયો બટન</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{અપૉસ્ટ્રફી}one{# અપૉસ્ટ્રોફી}other{# અપૉસ્ટ્રોફી}}</translation>
+<translation id="3040901448410802366">પ્રગતિ સૂચક</translation>
 <translation id="3046838483509668188">ChromeVox વિકલ્પો</translation>
 <translation id="3047143736589213134">પ્રાયોગિક કિમેપ</translation>
 <translation id="3060756054951570867"><ph name="TITLE" /> મેનૂ ખોલ્યું</translation>
@@ -231,6 +234,7 @@
 <translation id="3321460131042519426">શબ્દ વીંટો સક્ષમ કરો</translation>
 <translation id="3322936298410871309">આગલા સ્તર 1 નું મથાળું</translation>
 <translation id="3323447499041942178">ટેક્સ્ટ બૉક્સ</translation>
+<translation id="3338224621010291843"><ph name="VALUE" /> <ph name="NAME" /> સ્લાઇડર</translation>
 <translation id="3353420241558113817">{"ar": "અરબી",
         "bg": "બલ્ગેરિયન",
         "ca": "કતલાન",

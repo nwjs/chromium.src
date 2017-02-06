@@ -913,6 +913,17 @@
 <translation id="3547954654003013442">Proxyinställningar</translation>
 <translation id="3570008976476035109">Blockera plugin-program för dessa webbplatser</translation>
 <translation id="3591584750136265240">Konfigurera vad som ska göras vid inloggningsautentisering</translation>
+<translation id="3601614035698083789">Konfigurerar en lista med hanterade bokmärken.
+
+      Principen är en lista med bokmärken och varje bokmärke är en
+      ordlista som innehåller nycklarna <ph name="NAME" /> och <ph name="URL_LABEL" />, som har bokmärkets namn och mål som värden. Det går att konfigurera en
+      undermapp genom att ange ett bokmärke utan nyckeln <ph name="URL_LABEL" /> men med en extra nyckel, <ph name="CHILDREN" />, som i sig innehåller en lista med bokmärken
+      enligt definitionen ovan (varav några kan vara mappar, och så vidare). <ph name="PRODUCT_NAME" /> kompletterar ofullständiga webbadresser
+      som om de skickats via adressfältet – <ph name="GOOGLE_COM" /> blir till exempel <ph name="HTTPS_GOOGLE_COM" />.
+
+      Bokmärkena läggs i en mapp med hanterade bokmärken som användaren inte kan ändra. Användaren kan däremot välja att dölja mappen i bokmärkesfältet. Hanterade bokmärken synkroniseras inte till användarkontot och inga tillägg kan ändra dem.
+
+      Från och med version 51 kan mappnamn för bokmärken anpassas genom att lägga till posten {”toplevel_name”: ”valfritt namn”} i listan.</translation>
 <translation id="3627678165642179114">Aktivera eller inaktivera webbtjänsten för stavningskontroll</translation>
 <translation id="3646859102161347133">Ange typen av skärmförstorare</translation>
 <translation id="3653237928288822292">Ikon för standardsökleverantör</translation>
@@ -1778,6 +1789,46 @@
 <translation id="6282799760374509080">Tillåta eller neka ljudinspelning</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Aktivera autoslutförande av domännamn vid användarinloggning</translation>
+<translation id="6312861131491040487">
+          Anger en lista med appar och tillägg som installeras obemärkt,
+          utan att användaren gör något och som användaren inte kan
+          avinstallera. Alla behörigheter som begärs beviljas automatiskt,
+          utan att användaren behöver göra något. Det gäller även ytterligare
+          behörigheter som begärs i framtida versioner av appen/tillägget.
+          Behörigheter ges även för tilläggs-API:erna
+          enterprise.deviceAttributes och enterprise.platformKeys.
+          (Dessa två API:er är inte tillgängliga för appar/tillägg som
+          inte har installerats med en tvingande installation.)
+
+          Den här principen har företräde framför en eventuell
+          ExtensionsInstallBlacklist-princip i konflikt. Om en annan app som
+          tidigare har haft en tvingande installation tas bort från listan avinstalleras
+          den automatiskt av <ph name="PRODUCT_NAME" />.
+
+          För Windows-instanser som inte är kopplade till en Active Directory-
+          domän är den tvingande installation begränsad till appar och tillägg
+          som anges i Chrome Web Store.
+
+          Observera att användare kan ändra källkoden till ett tillägg
+          (och eventuellt rendera tillägget felaktigt) med utvecklarverktygen.
+          Om detta är ett problem ska principen DeveloperToolsDisabled
+          anges.
+
+          Varje post i principen är en sträng som innehåller ett tilläggs-id
+          och en uppdateringsadress avgränsade med semikolon (<ph name="SEMICOLON" />). Ett tilläggs-id är en sträng
+          med 32 bokstäver, till exempel den som finns på <ph name="CHROME_EXTENSIONS_LINK" />
+          i utvecklarläget. Uppdateringsadressen ska peka på ett XML-
+          manifestdokument för uppdatering enligt beskrivningen på <ph name="LINK_TO_EXTENSION_DOC1" />. Observera
+          att uppdateringsadressen som anges i den här principen bara används
+          för den ursprungliga installationen. För senare uppdateringar av tillägget
+          används den uppdateringsadress som anges i tilläggets manifest.
+
+          Exempel: <ph name="EXTENSION_POLICY_EXAMPLE" />
+          installerar appen <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> från standarduppdateringsadressen för Chrome Web Store.
+          Mer information om värdservrar för tillägg finns på <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Om den här principen inte anges installeras inga appar eller tillägg
+          automatiskt, och användaren kan avinstallera appar och tillägg i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome visar en varningssida när användare besöker webbplatser med SSL-fel. Som standardinställning eller om den här principen är inställd på sant ges användare möjligheten att klicka sig förbi dessa varningssidor.
       Om principen är inställd på falskt hindras användare från att klicka sig förbi varningssidor.</translation>
 <translation id="6353901068939575220">Anger parametrarna som används vid sökning efter en webbadress med POST. Den består av kommaavgränsade namn-/värdepar. Om ett värde är en mallparameter, t.ex. {searchTerms} i ovanstående exempel, ersätts det av riktiga söktermer.

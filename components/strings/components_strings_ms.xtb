@@ -280,6 +280,7 @@
 <translation id="3655670868607891010">Jika anda kerap melihatnya, cuba <ph name="HELP_LINK" /> ini.</translation>
 <translation id="3658742229777143148">Semakan</translation>
 <translation id="3678029195006412963">Permintaan tidak dapat ditandatangani</translation>
+<translation id="3679803492151881375">Laporan ranap sistem dirakam pada <ph name="CRASH_TIME" />, dimuat naik pada <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Maklumat sijil</translation>
 <translation id="3690164694835360974">Log masuk tidak selamat</translation>
 <translation id="3693415264595406141">Kata laluan:</translation>
@@ -378,6 +379,7 @@
 <translation id="4764776831041365478">Laman web di <ph name="URL" /> mungkin tergendala buat sementara waktu atau ia mungkin dpindahkan secara kekal ke alamat web baharu.</translation>
 <translation id="4771973620359291008">Ralat tidak diketahui telah berlaku.</translation>
 <translation id="4800132727771399293">Semak tarikh tamat tempoh serta CVC anda dan cuba lagi</translation>
+<translation id="4803924862070940586"><ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
 <translation id="4813512666221746211">Ralat rangkaian</translation>
 <translation id="4816492930507672669">Muat halaman</translation>
 <translation id="4850886885716139402">Lihat</translation>
@@ -452,6 +454,7 @@
 <translation id="5622887735448669177">Adakah anda ingin meninggalkan tapak ini?</translation>
 <translation id="5629630648637658800">Gagal memuatkan tetapan dasar</translation>
 <translation id="5631439013527180824">Token pengurusan peranti tidak sah</translation>
+<translation id="5669703222995421982">Dapatkan kandungan yang diperibadikan</translation>
 <translation id="5675650730144413517">Halaman ini tidak berfungsi</translation>
 <translation id="5677928146339483299">Disekat</translation>
 <translation id="5694783966845939798">Anda cuba mencapai <ph name="DOMAIN" />, tetapi pelayan memberikan sijil yang ditandatangani menggunakan algoritma tandatangan yang lemah (seperti SHA-1). Ini bermakna bukti kelayakan keselamatan yang diberikan oleh pelayan mungkin dipalsukan dan pelayan tersebut mungkin bukan pelayan yang anda jangkakan (anda mungkin berkomunikasi dengan penyerang). <ph name="BEGIN_LEARN_MORE_LINK" />Ketahui lebih lanjut<ph name="END_LEARN_MORE_LINK" />.</translation>
@@ -552,6 +555,7 @@
 <translation id="6753269504797312559">Nilai dasar</translation>
 <translation id="6757797048963528358">Peranti anda tidak aktif.</translation>
 <translation id="6778737459546443941">Ibu bapa anda belum meluluskannya</translation>
+<translation id="6810899417690483278">ID Penyesuaian</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Halaman web di <ph name="URL" /> kini tidak tersedia.  Ia mungkin terlebih muatan atau tergendala akibat penyelenggaraan.</translation>
 <translation id="6831043979455480757">Terjemah</translation>
@@ -711,6 +715,7 @@ Psst! <ph name="SHORTCUT_KEY" /> mod Inkognito mungkin akan berguna pada masa ak
 <translation id="8364627913115013041">Tidak ditetapkan.</translation>
 <translation id="8380941800586852976">Berbahaya</translation>
 <translation id="8382348898565613901">Penanda halaman anda yang terbaharu dilawati dipaparkan di sini</translation>
+<translation id="8398259832188219207">Laporan ranap sistem dimuat naik pada <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Nahas (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Anda mesti memasukkan frasa laluan yang sama dua kali.</translation>
 <translation id="8428213095426709021">Tetapan</translation>

@@ -278,6 +278,7 @@
 <translation id="3655670868607891010">Если эта проблема возникает часто, изучите <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Версия</translation>
 <translation id="3678029195006412963">Не удалось подписать запрос</translation>
+<translation id="3679803492151881375"><ph name="CRASH_TIME" />: отчет о сбоях сохранен. <ph name="UPLOAD_TIME" />: отчет о сбоях загружен.</translation>
 <translation id="3681007416295224113">Данные сертификата</translation>
 <translation id="3690164694835360974">Небезопасный вход</translation>
 <translation id="3693415264595406141">Пароль:</translation>
@@ -376,6 +377,7 @@
 <translation id="4764776831041365478">Веб-страница по адресу <ph name="URL" />, возможно, временно недоступна или постоянно перемещена по новому адресу.</translation>
 <translation id="4771973620359291008">Произошла неизвестная ошибка.</translation>
 <translation id="4800132727771399293">Проверьте срок действия и CVC-код, а затем повторите попытку</translation>
+<translation id="4803924862070940586"><ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
 <translation id="4813512666221746211">Ошибка сети</translation>
 <translation id="4816492930507672669">По размеру страницы</translation>
 <translation id="4850886885716139402">Посмотреть</translation>
@@ -450,6 +452,7 @@
 <translation id="5622887735448669177">Покинуть эту страницу?</translation>
 <translation id="5629630648637658800">Не удалось применить настройки политики</translation>
 <translation id="5631439013527180824">Токен устройства недействителен</translation>
+<translation id="5669703222995421982">Получение персонализированного контента</translation>
 <translation id="5675650730144413517">Страница недоступна</translation>
 <translation id="5677928146339483299">Заблокировано</translation>
 <translation id="5694783966845939798">Вы пытаетесь обратиться к серверу в домене <ph name="DOMAIN" />, но его сертификат подписан с помощью ненадежного алгоритма (например, SHA-1). Это означает, что учетные данные безопасности и сам сервер могут оказаться поддельными. Возможно, вы имеете дело со злоумышленниками. <ph name="BEGIN_LEARN_MORE_LINK" />Подробнее…<ph name="END_LEARN_MORE_LINK" /></translation>
@@ -550,6 +553,7 @@
 <translation id="6753269504797312559">Значение правила</translation>
 <translation id="6757797048963528358">Устройство находится в спящем режиме.</translation>
 <translation id="6778737459546443941">Ещё не одобрено родителем</translation>
+<translation id="6810899417690483278">Идентификатор персонализации</translation>
 <translation id="6820686453637990663">Код CVC</translation>
 <translation id="6830600606572693159">Веб-страница по адресу <ph name="URL" /> в настоящее время недоступна. Возможно, она перегружена запросами или отключена для обслуживания.</translation>
 <translation id="6831043979455480757">Перевести</translation>
@@ -709,6 +713,7 @@
 <translation id="8364627913115013041">Не задано</translation>
 <translation id="8380941800586852976">Опасно</translation>
 <translation id="8382348898565613901">Здесь появятся закладки, которые вы недавно открывали.</translation>
+<translation id="8398259832188219207"><ph name="UPLOAD_TIME" />: отчет о сбоях загружен.</translation>
 <translation id="8412145213513410671">Сбои (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Необходимо дважды ввести одну и ту же кодовую фразу.</translation>
 <translation id="8428213095426709021">Настройки</translation>

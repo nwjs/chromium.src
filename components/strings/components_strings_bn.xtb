@@ -280,6 +280,7 @@
 <translation id="3655670868607891010">আপনি যদি এটি প্রায়শই দেখতে পান, তাহলে <ph name="HELP_LINK" /> চেষ্টা করে দেখুন৷</translation>
 <translation id="3658742229777143148">পুনর্বিবেচনা</translation>
 <translation id="3678029195006412963">অনুরোধটি স্বাক্ষরিত করা যায়নি</translation>
+<translation id="3679803492151881375">ক্র্যাশ প্রতিবেদন <ph name="CRASH_TIME" /> এ ক্যাপচার করা হয়েছে, <ph name="UPLOAD_TIME" /> এ আপলোড করা হয়েছে</translation>
 <translation id="3681007416295224113">শংসাপত্র তথ্য</translation>
 <translation id="3690164694835360974">লগইন সুরক্ষিত নয়</translation>
 <translation id="3693415264595406141">পাসওয়ার্ড:</translation>
@@ -378,6 +379,7 @@
 <translation id="4764776831041365478"><ph name="URL" />-এ ওয়েবপৃষ্ঠাটি হতে পারে অস্থায়ীভাবে ডাউন আছে অথবা হতে পারে এটি স্থায়ীভাবে কোনো নতুন ওয়েব ঠিকানাতে সরানো হয়েছে৷</translation>
 <translation id="4771973620359291008">একটি অজানা ত্রুটি ঘটেছে৷</translation>
 <translation id="4800132727771399293">আপনার মেয়াদ শেষের তারিখ এবং CVC পরীক্ষা করুন এবং আবার চেষ্টা করুন</translation>
+<translation id="4803924862070940586"><ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
 <translation id="4813512666221746211">নেটওয়ার্ক  ত্রুটি</translation>
 <translation id="4816492930507672669">পৃষ্ঠাতে মানানসই</translation>
 <translation id="4850886885716139402">দেখুন</translation>
@@ -452,6 +454,7 @@
 <translation id="5622887735448669177">আপনি কি এই সাইটটি ছেড়ে যেতে চান?</translation>
 <translation id="5629630648637658800">নীতি সেটিংস লোড করতে ব্যর্থ হয়েছে</translation>
 <translation id="5631439013527180824">অবৈধ ডিভাইস পরিচালনা টোকেন</translation>
+<translation id="5669703222995421982">ব্যক্তিগতকৃত সামগ্রী পান</translation>
 <translation id="5675650730144413517">এই পৃষ্ঠাটি কাজ করছে না</translation>
 <translation id="5677928146339483299">অবরুদ্ধ</translation>
 <translation id="5694783966845939798">আপনি <ph name="DOMAIN" /> এ পৌঁছানোর চেষ্টা করেছেন, কিন্তু সার্ভারটি একটি দুর্বল স্বাক্ষর অ্যালগরিদম (যেমন SHA-1) ব্যবহার করে একটি স্বাক্ষরিত শংসাপত্র উপস্থাপন করেছে। এর অর্থ হ'ল সার্ভার যে সুরক্ষা শংসাপত্র উপস্থাপন করেছে তা জাল হতে পারে এবং সার্ভারটি আপনার প্রত্যাশিত সার্ভার নাও হতে পারে (হতে পারে আপনি একজন আক্রমণকারীর সাথে যোগাযোগ করছেন)। <ph name="BEGIN_LEARN_MORE_LINK" />আরো জানুন<ph name="END_LEARN_MORE_LINK" />।</translation>
@@ -551,6 +554,7 @@
 <translation id="6753269504797312559">নীতি মান</translation>
 <translation id="6757797048963528358">আপনার ডিভাইস নিদ্রা মোডে গিয়েছে।</translation>
 <translation id="6778737459546443941">আপনার পিতামাতা এখনও এটি অনুমোদন করেন নি</translation>
+<translation id="6810899417690483278">কাস্টমাইজেশন আইডি</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159"> <ph name="URL" />তে থাকা ওয়েবপৃষ্ঠাটি বর্তমানে অনুপলব্ধ৷  রক্ষণাবেক্ষণের জন্য এটি ওভারলোড বা ডাউন হয়ে থাকতে পারে৷</translation>
 <translation id="6831043979455480757">অনুবাদ</translation>
@@ -710,6 +714,7 @@
 <translation id="8364627913115013041">সেট করা নেই৷</translation>
 <translation id="8380941800586852976">বিপজ্জনক</translation>
 <translation id="8382348898565613901">আপনার সম্প্রতি ঘুরে দেখা বুকমার্কগুলি এখানে দেখা যাবে</translation>
+<translation id="8398259832188219207">ক্র্যাশ প্রতিবেদন <ph name="UPLOAD_TIME" /> এ আপলোড করা হয়েছে</translation>
 <translation id="8412145213513410671">ক্র্যাশ (<ph name="CRASH_COUNT" />টি)</translation>
 <translation id="8412392972487953978">আপনাকে একই পাসফ্রেজ অবশ্যই দু'বার প্রবেশ করাতে হবে৷</translation>
 <translation id="8428213095426709021">সেটিংস</translation>

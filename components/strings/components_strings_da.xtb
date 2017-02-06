@@ -279,6 +279,7 @@
 <translation id="3655670868607891010">Hvis du ser dette jævnligt, kan du prøve <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Revision</translation>
 <translation id="3678029195006412963">Anmodningen kunne ikke signeres</translation>
+<translation id="3679803492151881375">Nedbrud registreret <ph name="CRASH_TIME" />, uploadet <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Certifikatoplysninger</translation>
 <translation id="3690164694835360974">Login er ikke sikkert</translation>
 <translation id="3693415264595406141">Adgangskode:</translation>
@@ -377,6 +378,7 @@
 <translation id="4764776831041365478">Websiden på <ph name="URL" /> kan være midlertidigt nede, eller også er den permanent flyttet til en ny webadresse.</translation>
 <translation id="4771973620359291008">Der er opstået en ukendt fejl.</translation>
 <translation id="4800132727771399293">Kontrollér, om din kontrolkode og udløbsdato er korrekte, og prøv igen.</translation>
+<translation id="4803924862070940586"><ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
 <translation id="4813512666221746211">Netværksfejl</translation>
 <translation id="4816492930507672669">Tilpas til siden</translation>
 <translation id="4850886885716139402">Vis</translation>
@@ -451,6 +453,7 @@
 <translation id="5622887735448669177">Vil du forlade denne side?</translation>
 <translation id="5629630648637658800">Der kunne ikke indlæses indstillinger for politik</translation>
 <translation id="5631439013527180824">Ugyldigt token for enhedsadministration</translation>
+<translation id="5669703222995421982">Få tilpasset indhold</translation>
 <translation id="5675650730144413517">Denne side virker ikke</translation>
 <translation id="5677928146339483299">Blokeret</translation>
 <translation id="5694783966845939798">Du forsøgte at få forbindelse til <ph name="DOMAIN" />, men serveren har præsenteret et certifikat, der er signeret med en svag signaturalgoritme (f.eks. SHA-1). Det betyder, at sikkerhedsoplysningerne fra serveren kan være forfalskede, og at serveren muligvis ikke er den server, du forventede (du kommunikerer muligvis med en hacker). <ph name="BEGIN_LEARN_MORE_LINK" />Få flere oplysninger<ph name="END_LEARN_MORE_LINK" />.</translation>
@@ -551,6 +554,7 @@
 <translation id="6753269504797312559">Politikkens værdi</translation>
 <translation id="6757797048963528358">Din enhed gik i dvale.</translation>
 <translation id="6778737459546443941">Din forælder har ikke godkendt det endnu</translation>
+<translation id="6810899417690483278">Tilpasnings-id</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Websiden på <ph name="URL" /> er ikke tilgængelig lige nu. Den kan enten være overbelastet eller under vedligeholdelse.</translation>
 <translation id="6831043979455480757">Oversæt</translation>
@@ -710,6 +714,7 @@ Psst! Prøv at bruge Inkognitotilstand <ph name="SHORTCUT_KEY" /> næste gang.</
 <translation id="8364627913115013041">Ikke angivet.</translation>
 <translation id="8380941800586852976">Farlig</translation>
 <translation id="8382348898565613901">De bogmærker, du har besøgt for nylig, vises her</translation>
+<translation id="8398259832188219207">Nedbrudsrapporten blev uploadet <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Nedbrud (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Du skal angive den samme adgangssætning to gange.</translation>
 <translation id="8428213095426709021">Indstillinger</translation>

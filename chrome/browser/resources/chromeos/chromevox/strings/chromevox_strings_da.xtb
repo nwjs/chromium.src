@@ -74,6 +74,7 @@
 <translation id="1680732992526857724">Kontakten <ph name="NAME" /> er slået til</translation>
 <translation id="1692077714702418899">strukturel linje</translation>
 <translation id="1700517974991662022">Besøgt</translation>
+<translation id="1714116687360794776">Meter</translation>
 <translation id="1722567105086139392">Link</translation>
 <translation id="1727806147743597030">si.fo</translation>
 <translation id="174268867904053074">Næste grafik</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">Kontrol af dato og tid</translation>
 <translation id="2347456970887948350">Et link</translation>
 <translation id="2359897517538099099">Tabeltilstand er ikke aktiveret.</translation>
+<translation id="2390264819538553347">Tryk på Enter for at gå videre. Tryk på backspace for at gå tilbage.</translation>
 <translation id="241124561063364910">efterfulgt af</translation>
 <translation id="2416512023405990736">Et afkrydsningsfelt uden markering</translation>
 <translation id="2417569100218200841">Indholdsoplysninger</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">Der er ingen forrige afsnit.</translation>
 <translation id="3030432017085518523">Alternativknap til menupunkt</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{apostrof}one{# apostroffer}other{# apostroffer}}</translation>
+<translation id="3040901448410802366">Statusindikator</translation>
 <translation id="3046838483509668188">Indstillinger i ChromeVox</translation>
 <translation id="3047143736589213134">Eksperimentelt tastatur</translation>
 <translation id="3060756054951570867">Menuen <ph name="TITLE" /> åbnet</translation>
@@ -231,6 +234,7 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="3321460131042519426">Aktivér tekstombrydning</translation>
 <translation id="3322936298410871309">Forrige niveau 1-overskrift</translation>
 <translation id="3323447499041942178">Tekstfelt</translation>
+<translation id="3338224621010291843">Skyder for <ph name="VALUE" /> <ph name="NAME" /></translation>
 <translation id="3353420241558113817">{"ar": "arabisk",
         "bg": "bulgarsk",
         "ca": "catalansk",

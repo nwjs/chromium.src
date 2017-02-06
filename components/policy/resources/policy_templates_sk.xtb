@@ -890,6 +890,17 @@ Ak toto nastavenie zakážete, v okne správcu hesiel nebude možné zobraziť 
 <translation id="3547954654003013442">Nastavenia servera proxy</translation>
 <translation id="3570008976476035109">Blokovať doplnky na týchto stránkach</translation>
 <translation id="3591584750136265240">Konfigurácia správania pri overovaní prihlasovacích údajov</translation>
+<translation id="3601614035698083789">Umožňuje konfigurovať zoznam spravovaných záložiek.
+
+      Toto pravidlo tvorí zoznam záložiek, pričom každá záložka je
+      slovník s kľúčmi <ph name="NAME" /> a <ph name="URL_LABEL" />, v ktorých je názov záložky a jej cieľ.
+      Môžete nakonfigurovať podpriečinok definovaním záložky bez kľúča <ph name="URL_LABEL" />, ale uvedením dodatočného kľúča <ph name="CHILDREN" />, ktorý obsahuje zoznam
+      záložiek definovaných vyššie (znova platí, že niektoré môžu byť priečinky). <ph name="PRODUCT_NAME" /> doplní neúplné webové adresy,
+      ako keby boli odoslané prostredníctvom všeobecného poľa, napríklad adresu <ph name="GOOGLE_COM" /> zmení na <ph name="HTTPS_GOOGLE_COM" />.
+
+      Tieto záložky sú umiestnené do priečinka Spravované záložky, ktorý používateľ nemôže upravovať, ale môže ho na paneli so záložkami skryť. Spravované záložky nie sú synchronizované s účtom používateľa a rozšírenia ich nemôžu upravovať.
+
+      Počnúc vydaním 51 je možné prispôsobiť názov priečinka so záložkami. Stačí pridať položku zoznamu – {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Povoliť alebo zakázať webovú službu kontroly pravopisu</translation>
 <translation id="3646859102161347133">Nastavenie typu lupy obrazovky</translation>
 <translation id="3653237928288822292">Ikona predvoleného poskytovateľa vyhľadávania</translation>
@@ -1745,6 +1756,46 @@ Pozrite si tiež pravidlo RemoteAccessHostDomain.</translation>
 <translation id="6282799760374509080">Povoliť alebo zakázať zaznamenávanie zvuku</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Povolenie automatického dopĺňania názvu domény počas prihlasovania používateľa</translation>
+<translation id="6312861131491040487">
+          Umožňuje určiť zoznam aplikácií a rozšírení, ktoré sa inštalujú potichu,
+          bez interakcie s používateľom, a ktoré používateľ nemôže odinštalovať.
+          Všetky povolenia vyžadované aplikáciami/rozšíreniami sú bezpodmienečne
+          udelené bez interakcie s používateľom, a to vrátane všetkých ďalších
+          povolení vyžiadaných budúcimi verziami daných aplikácií/rozšírení.
+          Ďalej sa udeľujú povolenia pre rozhrania API rozšírení
+          enterprise.deviceAttributes a enterprise.platformKeys.
+          (Tieto dve rozhrania sú k dispozícii iba pre aplikácie/rozšírenia, ktorých
+          inštalácia bola vynútená.)
+
+          Toto pravidlo má prednosť v prípade potenciálneho konfliktu
+          s pravidlom ExtensionsInstallBlacklist. Ak je z tohto zoznamu odstránená
+          aplikácia alebo rozšírenie, ktorého inštalácia v minulosti bola vynútená,
+          <ph name="PRODUCT_NAME" /> ich automaticky odinštaluje.
+
+          V prípade inštancií systému Windows nepripojených k doméne Active 
+          Directory sa vynucuje inštalácia iba rozšírení uvedených
+          v Internetovom obchode Chrome.
+
+          Všimnite si, že zdrojový kód každého rozšírenia je možné pozmeniť
+          pomocou nástrojov pre vývojárov (t. j. potenciálne tým znefunkčniť
+          dané rozšírenie). Ak sa toho obávate, nastavte pravidlo
+          DeveloperToolsDisabled.
+
+          Všetky položky v zozname v rámci tohto pravidla sú reťazce obsahujúce
+          identifikátor rozšírenia a webovú adresu aktualizácie oddelené bodkočiarkou (<ph name="SEMICOLON" />). Identifikátor
+          rozšírenia je reťazec z 32 písmen, ktorý nájdete na stránke <ph name="CHROME_EXTENSIONS_LINK" />,
+          keď použijete režim pre vývojárov. Webová adresa aktualizácie by mala
+          odkazovať na dokument XML s manifestom aktualizácií, ktorého popis nájdete na adrese
+          <ph name="LINK_TO_EXTENSION_DOC1" />. Upozorňujeme, že webová adresa aktualizácie nastavená v tomto pravidle
+          sa použije iba pri prvotnej inštalácii. Ďalšie aktualizácie rozšírenia využívajú webovú adresu
+          uvedenú v jeho manifeste.
+
+          Príklad: <ph name="EXTENSION_POLICY_EXAMPLE" />
+          nainštaluje aplikáciu <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> zo štandardnej webovej adresy
+          na aktualizáciu z Internetového obchodu Chrome. Ďalšie informácie o hostiteľských rozšíreniach nájdete na adrese <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Ak toto pravidlo nenastavíte, nebudú sa automaticky inštalovať žiadne aplikácie
+          ani rozšírenia a používateľ môže odinštalovať ľubovoľnú aplikáciu alebo rozšírenie v prehliadači <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Keď používateľ prejde na weby, ktoré obsahujú chyby protokolu SSL, Chrome zobrazí stránku s upozornením. V predvolenom nastavení alebo vtedy, keď je toto pravidlo nastavené na možnosť True, môžu používatelia preskočiť tieto stránky s upozornením prostredníctvom kliknutia.
       Nastavením tohto pravidla na možnosť False zakážete používateľom, aby mohli stránku s upozornením preskočiť kliknutím.</translation>
 <translation id="6353901068939575220">Určuje parametre, ktoré sa použijú vyhľadávaní webovej adresy pomocou metódy POST. Pozostáva z párov názov/hodnota oddelených čiarkami. Ak je hodnota parameter šablóny, napr. hodnota {searchTerms} v príklade vyššie, bude nahradená údajmi skutočných vyhľadávaných výrazov.

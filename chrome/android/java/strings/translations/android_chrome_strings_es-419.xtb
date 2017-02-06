@@ -194,6 +194,7 @@ Puedes controlar la Web física desde la configuración de Chrome.
 <translation id="2996291259634659425">Crear frase de contraseña</translation>
 <translation id="2996809686854298943">URL obligatoria</translation>
 <translation id="300526633675317032">Esta acción borrará todos los <ph name="SIZE_IN_KB" /> del almacenamiento del sitio web.</translation>
+<translation id="3029613699374795922">Se descargaron <ph name="KBS" /> KB</translation>
 <translation id="3029704984691124060">Las frases de contraseña no coinciden.</translation>
 <translation id="3036750288708366620"><ph name="BEGIN_LINK" />Obtener ayuda<ph name="END_LINK" /></translation>
 <translation id="3089395242580810162">Abrir en pestaña de incógnito</translation>
@@ -261,6 +262,7 @@ Para ajustar el término de búsqueda, mantén presionado el texto y seleccióna
 <translation id="3739899004075612870">Agregado a favoritos en <ph name="PRODUCT_NAME" /></translation>
 <translation id="3744111309925758534">Otras apps: <ph name="MEGABYTES" /> megabytes</translation>
 <translation id="3744111561329211289">Sincronización en segundo plano</translation>
+<translation id="3773755127849930740"><ph name="BEGIN_LINK" />Activa Bluetooth<ph name="END_LINK" /> para permitir la sincronización</translation>
 <translation id="3789841737615482174">Instalar</translation>
 <translation id="380076759404194828">{NUM_SELECTED,plural, =1{Se seleccionó 1 elemento}other{Se seleccionaron # elementos}}</translation>
 <translation id="3810838688059735925">Video</translation>
@@ -316,7 +318,6 @@ Para ajustar el término de búsqueda, mantén presionado el texto y seleccióna
 <translation id="4300272766492248925">Abrir app</translation>
 <translation id="4307992518367153382">Básicas</translation>
 <translation id="4351244548802238354">Cerrar cuadro de diálogo</translation>
-<translation id="4376501731284077108">Sin controlar</translation>
 <translation id="4378154925671717803">Teléfono</translation>
 <translation id="4384468725000734951">Se usa Sogou para la búsqueda</translation>
 <translation id="4412992751769744546">Permitir cookies de terceros</translation>
@@ -388,7 +389,6 @@ Para ajustar el término de búsqueda, mantén presionado el texto y seleccióna
 <translation id="5131405117025179004">Editar cuenta guardada</translation>
 <translation id="5138299137310274655">Esta página está en <ph name="SOURCE_LANGUAGE" />. ¿Quieres traducirla al <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="515227803646670480">Borrar datos almacenados</translation>
-<translation id="5156656584247937086">Esta cuenta pertenece a un niño</translation>
 <translation id="5161254044473106830">Se requiere un título</translation>
 <translation id="5164482624172255778">¿Quieres que Google Chrome te ofrezca traducir las páginas de este sitio que estén en <ph name="LANGUAGE" /> la próxima vez?</translation>
 <translation id="5168917394043976756">Abrir panel lateral de navegación</translation>
@@ -471,6 +471,7 @@ Sin embargo, no vas a pasar completamente desapercibido. El modo de navegación 
 <translation id="583281660410589416">Desconocido</translation>
 <translation id="5832934273103296195">Expandido (hacer clic para contraer)</translation>
 <translation id="583891442612896534">Chrome no puede acceder a los servidores de Google para la compresión de datos. Es posible que el ahorro de datos esté reducido.</translation>
+<translation id="5858741533101922242">Chrome no puede activar el adaptador Bluetooth</translation>
 <translation id="5860033963881614850">Desactivado</translation>
 <translation id="5867027562311576691">Pronto se mostrarán más artículos. Disfruta tu mañana.</translation>
 <translation id="5869522115854928033">Contraseñas almacenadas</translation>
@@ -502,6 +503,7 @@ Sin embargo, no vas a pasar completamente desapercibido. El modo de navegación 
 <translation id="6140912465461743537">País o región</translation>
 <translation id="6159335304067198720"><ph name="PERCENT" /> de ahorro de datos</translation>
 <translation id="6165508094623778733">Más información</translation>
+<translation id="6177111841848151710">Se bloqueó para el motor de búsqueda actual</translation>
 <translation id="6177390657002841081">Activar la extensión Reducir datos</translation>
 <translation id="6181444274883918285">Agregar excepción del sitio</translation>
 <translation id="6192792657125177640">Excepciones</translation>
@@ -521,6 +523,7 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mediante anuncio
 <translation id="6406506848690869874">Sincronización</translation>
 <translation id="6409731863280057959">Ventanas emergentes</translation>
 <translation id="641643625718530986">Imprimir…</translation>
+<translation id="6416782512398055893">Se descargaron <ph name="MBS" /> MB</translation>
 <translation id="6433490469411711332">Editar la información de contacto</translation>
 <translation id="6443118737398455446">Fecha de caducidad no válida</translation>
 <translation id="6446608382365791566">Agregar más información</translation>
@@ -531,6 +534,7 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mediante anuncio
 <translation id="6477460825583319731">Dirección de correo electrónico no válida</translation>
 <translation id="6482749332252372425"><ph name="FILE_NAME" /> no se pudo descargar debido a la falta de espacio de almacenamiento.</translation>
 <translation id="6527303717912515753">Compartir</translation>
+<translation id="6538442820324228105">Se descargaron <ph name="GBS" /> GB</translation>
 <translation id="654278619399546675">passwords.google.com</translation>
 <translation id="654446541061731451">Elige una pestaña para transmitir.</translation>
 <translation id="6545017243486555795">Borrar todos los datos</translation>
@@ -586,6 +590,7 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mediante anuncio
 <translation id="699220179437400583">Informar automáticamente detalles de posibles incidentes de seguridad a Google</translation>
 <translation id="6992289844737586249">Preguntar primero antes de permitir que los sitios usen tu micrófono (recomendado)</translation>
 <translation id="7001663382399377034">Agregar un destinatario</translation>
+<translation id="7016516562562142042">Se habilitó para el motor de búsqueda actual</translation>
 <translation id="7021515813996758557">Se descargó <ph name="FILE_NAME" /></translation>
 <translation id="7022756207310403729">Abrir en el navegador</translation>
 <translation id="7029809446516969842">Contraseñas</translation>
@@ -712,7 +717,6 @@ Es posible que tu cuenta de Google tenga otros formularios del historial de nave
 <translation id="8372893542064058268">Permite la sincronización en segundo plano para un sitio específico.</translation>
 <translation id="8374821112118309944">Debes actualizar a una versión más reciente de TalkBack</translation>
 <translation id="8393700583063109961">Enviar mensaje</translation>
-<translation id="8396312449826231789">Solo sitios aprobados</translation>
 <translation id="8413126021676339697">Mostrar historial completo</translation>
 <translation id="8428213095426709021">Configuración</translation>
 <translation id="8433057134996913067">Si realizas esta acción, saldrás de la mayoría de los sitios web.</translation>
@@ -741,7 +745,6 @@ Conéctate a Internet y reproduce el contenido descargado para obtener licencias
 <translation id="8660471606262461360">De Google Payments</translation>
 <translation id="8676374126336081632">Borrar entrada</translation>
 <translation id="869891660844655955">Fecha de vencimiento</translation>
-<translation id="8699799819461268362">Filtro de Google SafeSites</translation>
 <translation id="8719023831149562936">Esta pestaña no se puede transmitir.</translation>
 <translation id="8725066075913043281">Intentar nuevamente</translation>
 <translation id="8730621377337864115">Listo</translation>

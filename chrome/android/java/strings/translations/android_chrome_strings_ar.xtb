@@ -194,6 +194,7 @@
 <translation id="2996291259634659425">إنشاء عبارة المرور</translation>
 <translation id="2996809686854298943">‏عنوان URL المطلوب</translation>
 <translation id="300526633675317032">سيؤدي هذا إلى مسح السعة التي تبلغ <ph name="SIZE_IN_KB" /> بأكملها من سعة تخزين موقع الويب.</translation>
+<translation id="3029613699374795922">تم التنزيل بحجم <ph name="KBS" /> كيلوبايت</translation>
 <translation id="3029704984691124060">عبارات المرور غير متطابقة</translation>
 <translation id="3036750288708366620"><ph name="BEGIN_LINK" />الحصول على مساعدة<ph name="END_LINK" /></translation>
 <translation id="3089395242580810162">فتح في علامة تبويب تصفح متخفي</translation>
@@ -261,6 +262,7 @@
 <translation id="3739899004075612870">تمت إضافة إشارة مرجعية في <ph name="PRODUCT_NAME" /></translation>
 <translation id="3744111309925758534">تطبيقات أخرى بحجم <ph name="MEGABYTES" /> ميغابايت</translation>
 <translation id="3744111561329211289">مزامنة الخلفية</translation>
+<translation id="3773755127849930740"><ph name="BEGIN_LINK" />تشغيل البلوتوث<ph name="END_LINK" /> للسماح بالإقران</translation>
 <translation id="3789841737615482174">تثبيت</translation>
 <translation id="380076759404194828">{NUM_SELECTED,plural, =1{تم تحديد عنصر واحد}zero{تم تحديد # عنصر}two{تم تحديد عنصرين (#)}few{تم تحديد # عناصر}many{تم تحديد # عنصرًا}other{تم تحديد # عنصر}}</translation>
 <translation id="3810838688059735925">فيديو</translation>
@@ -316,7 +318,6 @@
 <translation id="4300272766492248925">فتح التطبيق</translation>
 <translation id="4307992518367153382">أساسيّات</translation>
 <translation id="4351244548802238354">إغلاق مربع الحوار</translation>
-<translation id="4376501731284077108">غير مُتحكم فيه</translation>
 <translation id="4378154925671717803">الهاتف</translation>
 <translation id="4384468725000734951">‏استخدام محرك Sogou للبحث</translation>
 <translation id="4412992751769744546">السماح لملفات تعريف ارتباط الجهات الخارجية</translation>
@@ -389,7 +390,6 @@
 <translation id="5131405117025179004">تعديل حساب محفوظ</translation>
 <translation id="5138299137310274655">هذه الصفحة باللغة <ph name="SOURCE_LANGUAGE" /> هل تريد ترجمتها إلى اللغة <ph name="TARGET_LANGUAGE" />؟</translation>
 <translation id="515227803646670480">محو البيانات المخزنة</translation>
-<translation id="5156656584247937086">هذا حساب طفل</translation>
 <translation id="5161254044473106830">العنوان مطلوب</translation>
 <translation id="5164482624172255778">‏هل تريد أن يعرض Google Chrome ترجمة الصفحات باللغة <ph name="LANGUAGE" /> من هذا الموقع مرة أخرى؟</translation>
 <translation id="5168917394043976756">فتح لائحة التنقل</translation>
@@ -472,6 +472,7 @@
 <translation id="583281660410589416">غير معروف</translation>
 <translation id="5832934273103296195">تم التوسيع - انقر للتصغير</translation>
 <translation id="583891442612896534">‏لا يمكن لمتصفح Chrome الوصول إلى خوادم Google لضغط البيانات. قد تكون خيارات توفير البيانات محدودة.</translation>
+<translation id="5858741533101922242">‏يتعذر على Chrome تشغيل محوّل البلوتوث</translation>
 <translation id="5860033963881614850">إيقاف</translation>
 <translation id="5867027562311576691">ستظهر المزيد من المقالات قريبًا. استمتع بصباحك.</translation>
 <translation id="5869522115854928033">كلمات المرور المحفوظة</translation>
@@ -503,6 +504,7 @@
 <translation id="6140912465461743537">الدولة/الإقليم</translation>
 <translation id="6159335304067198720">توفير البيانات بنسبة <ph name="PERCENT" /></translation>
 <translation id="6165508094623778733">مزيد من المعلومات</translation>
+<translation id="6177111841848151710">تم حظره لمحرك البحث الحالي</translation>
 <translation id="6177390657002841081">تشغيل إضافة "توفير البيانات"</translation>
 <translation id="6181444274883918285">إضافة موقع ويب إلى قائمة الاستثناءات</translation>
 <translation id="6192792657125177640">الاستثناءات</translation>
@@ -522,6 +524,7 @@
 <translation id="6406506848690869874">المزامنة</translation>
 <translation id="6409731863280057959">النوافذ المنبثقة</translation>
 <translation id="641643625718530986">طباعة…</translation>
+<translation id="6416782512398055893">تم التنزيل بحجم <ph name="MBS" /> ميغابايت</translation>
 <translation id="6433490469411711332">تعديل معلومات الاتصال</translation>
 <translation id="6443118737398455446">تاريخ انتهاء الصلاحية غير صالح</translation>
 <translation id="6446608382365791566">إضافة مزيد من المعلومات</translation>
@@ -532,6 +535,7 @@
 <translation id="6477460825583319731">عنوان البريد الإلكتروني غير صالح</translation>
 <translation id="6482749332252372425">أخفق تنزيل الملف <ph name="FILE_NAME" /> لعدم توفر مساحة لتخزين.</translation>
 <translation id="6527303717912515753">مشاركة</translation>
+<translation id="6538442820324228105">تم التنزيل بحجم <ph name="GBS" /> غيغابايت</translation>
 <translation id="654278619399546675">passwords.google.com</translation>
 <translation id="654446541061731451">حدد علامة تبويب لإرسالها باستخدام الشعاع</translation>
 <translation id="6545017243486555795">مسح جميع البيانات</translation>
@@ -587,6 +591,7 @@
 <translation id="699220179437400583">‏إبلاغ Google تلقائيًا بتفاصيل أي مخاطر أمنية محتملة</translation>
 <translation id="6992289844737586249">السؤال أولاً قبل السماح للمواقع باستخدام الميكروفون (موصى به)</translation>
 <translation id="7001663382399377034">إضافة مستلم</translation>
+<translation id="7016516562562142042">تم السماح به لمحرك البحث الحالي</translation>
 <translation id="7021515813996758557">تم تنزيل <ph name="FILE_NAME" /></translation>
 <translation id="7022756207310403729">فتح في المتصفح</translation>
 <translation id="7029809446516969842">كلمات المرور</translation>
@@ -713,7 +718,6 @@
 <translation id="8372893542064058268">السماح بتشغيل "مزامنة الخلفية" لموقع ويب معين.</translation>
 <translation id="8374821112118309944">‏يلزمك تحديث TalkBack إلى إصدار جديد.</translation>
 <translation id="8393700583063109961">إرسال رسالة</translation>
-<translation id="8396312449826231789">المواقع المعتمدة فقط</translation>
 <translation id="8413126021676339697">عرض السجل بكامله</translation>
 <translation id="8428213095426709021">إعدادات</translation>
 <translation id="8433057134996913067">سيؤدي هذا إلى خروجك من معظم مواقع الويب.</translation>
@@ -742,7 +746,6 @@
 <translation id="8660471606262461360">‏من Google Payments</translation>
 <translation id="8676374126336081632">محو الإرسال</translation>
 <translation id="869891660844655955">تاريخ انتهاء الصلاحية</translation>
-<translation id="8699799819461268362">‏فلتر Google SafeSites</translation>
 <translation id="8719023831149562936">تعذر إرسال علامة التبويب الحالية باستخدام الشعاع</translation>
 <translation id="8725066075913043281">أعد المحاولة</translation>
 <translation id="8730621377337864115">تم</translation>

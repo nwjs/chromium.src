@@ -279,6 +279,7 @@
 <translation id="3655670868607891010">Якщо ви бачите це часто, спробуйте <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Редакція</translation>
 <translation id="3678029195006412963">Не вдалося підписати запит</translation>
+<translation id="3679803492151881375">Звіт про аварійне завершення роботи створено: <ph name="CRASH_TIME" />, завантажено: <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Інформація про сертифікат</translation>
 <translation id="3690164694835360974">Вхід не захищено</translation>
 <translation id="3693415264595406141">Пароль:</translation>
@@ -377,6 +378,7 @@
 <translation id="4764776831041365478">Веб-сторінка за адресою <ph name="URL" /> може бути тимчасово недоступною або її назавжди переміщено на нову веб-адресу.</translation>
 <translation id="4771973620359291008">Виникла невідома помилка.</translation>
 <translation id="4800132727771399293">Перевірте дату закінчення терміну дії та код CVC та повторіть спробу</translation>
+<translation id="4803924862070940586"><ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
 <translation id="4813512666221746211">Помилка мережі</translation>
 <translation id="4816492930507672669">За розміром сторінки</translation>
 <translation id="4850886885716139402">Перегляд</translation>
@@ -451,6 +453,7 @@
 <translation id="5622887735448669177">Покинути цей сайт?</translation>
 <translation id="5629630648637658800">Помилка завантаження налаштувань правила</translation>
 <translation id="5631439013527180824">Недійсний маркер керування пристрою</translation>
+<translation id="5669703222995421982">Отримувати персоналізовані пропозиції</translation>
 <translation id="5675650730144413517">Сторінка не працює</translation>
 <translation id="5677928146339483299">Заблоковано</translation>
 <translation id="5694783966845939798">Ви намагалися зв’язатися з доменом <ph name="DOMAIN" />, але сервер надав сертифікат, підписаний із використанням слабкого алгоритму підпису (як-от SHA-1). Це означає, що облікові дані безпеки, надані сервером, можуть бути сфальсифікованими, а сервер – не тим, який вам потрібен (ви можете передавати свої дані зловмиснику). <ph name="BEGIN_LEARN_MORE_LINK" />Докладніше<ph name="END_LEARN_MORE_LINK" />.</translation>
@@ -551,6 +554,7 @@
 <translation id="6753269504797312559">Значення правила</translation>
 <translation id="6757797048963528358">Ваш пристрій перейшов у режим сну.</translation>
 <translation id="6778737459546443941">Батьки ще не схвалили його</translation>
+<translation id="6810899417690483278">Ідентифікатор налаштування</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Веб-сторінка за адресою <ph name="URL" /> наразі недоступна. Можливо, вона перевантажена або перебуває на стадії технічного обслуговування.</translation>
 <translation id="6831043979455480757">Перекласти</translation>
@@ -710,6 +714,7 @@
 <translation id="8364627913115013041">Не встановлено.</translation>
 <translation id="8380941800586852976">Небезпечна</translation>
 <translation id="8382348898565613901">Тут відображатимуться нещодавно відкриті закладки</translation>
+<translation id="8398259832188219207">Дата завантаження звіту про аварійне завершення роботи: <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Аварійне завершення роботи (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Потрібно двічі ввести однакову парольну фразу.</translation>
 <translation id="8428213095426709021">Налаштування</translation>

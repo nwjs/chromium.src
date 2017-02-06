@@ -903,6 +903,13 @@
 <translation id="3547954654003013442">Proxyinstellingen</translation>
 <translation id="3570008976476035109">Plug-ins blokkeren op deze sites</translation>
 <translation id="3591584750136265240">Het verificatiegedrag voor inloggen configureren</translation>
+<translation id="3601614035698083789">Hiermee wordt een lijst met beheerde bladwijzers geconfigureerd.
+
+      Het beleid bestaat uit een lijst met bladwijzers waarbij elke bladwijzer een woordenboek is met daarin de sleutels <ph name="NAME" /> en <ph name="URL_LABEL" /> voor de naam en het doel van de bladwijzers. Er kan een submap worden geconfigureerd door een bladwijzer te definiëren zonder een <ph name="URL_LABEL" />-sleutel maar met een extra <ph name="CHILDREN" />-sleutel die zelf een lijst met bladwijzers bevat, zoals hierboven gedefinieerd (sommige hiervan kunnen ook weer mappen zijn). <ph name="PRODUCT_NAME" /> vult onvolledige URL's aan alsof ze via de omnibox zijn opgegeven. Voorbeeld: <ph name="GOOGLE_COM" /> wordt <ph name="HTTPS_GOOGLE_COM" />.
+
+      Deze bladwijzers worden in een map 'Beheerde bladwijzers' geplaatst die niet kan worden aangepast door de gebruiker. De gebruiker kan er wel voor kiezen de map te verbergen op de bladwijzerbalk. Beheerde bladwijzers worden niet gesynchroniseerd met het gebruikersaccount en kunnen niet worden aangepast door extensies.
+
+      Vanaf release 51 kan de mapnaam voor de bladwijzers worden aangepast door een lijstitem {"toplevel_name": "some name"} toe te voegen.</translation>
 <translation id="3627678165642179114">Webservice voor spellingcontrole in- of uitschakelen</translation>
 <translation id="3646859102161347133">Het type vergrootglas instellen</translation>
 <translation id="3653237928288822292">Pictogram voor standaardzoekprovider</translation>
@@ -1756,6 +1763,21 @@
 <translation id="6282799760374509080">Het opnemen van audio toestaan of weigeren</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Automatisch aanvullen van domeinnaam bij inloggen van gebruiker inschakelen</translation>
+<translation id="6312861131491040487">
+          Hiermee wordt een lijst gespecificeerd met apps en extensies die zonder gebruikersinteractie op de achtergrond worden geïnstalleerd en die niet kunnen worden verwijderd door de gebruiker. Alle rechten die worden aangevraagd dor de apps/extensies, worden impliciet zonder gebruikersinteractie verleend, inclusief aanvullende rechten die worden aangevraagd door toekomstige versies van de app/extensie.
+          Bovendien worden rechten verleend voor de API's van de enterprise.deviceAttributes- en enterprise.platformKeys-extensie. (Deze twee API's zijn niet beschikbaar voor apps/extensies die niet gedwongen zijn geïnstalleerd.)
+
+          Dit beleid krijgt voorrang boven een potentieel conflicterend ExtensionsInstallBlacklist-beleid. Als een app of extensie die eerder gedwongen is geïnstalleerd, wordt verwijderd uit deze lijst, wordt de app of extensie automatisch verwijderd door <ph name="PRODUCT_NAME" />.
+
+          Voor Windows-instanties die niet zijn gekoppeld aan een Active Directory-domein, is gedwongen installatie beperkt tot apps en extensies die worden vermeld in de Chrome Web Store.
+
+          Houd er rekening mee dat gebruikers de broncode van een extensie kunnen wijzigen via de ontwikkelaarstools (waardoor de extensie mogelijk niet meer functioneert). Als je je hierover zorgen maakt, moet het DeveloperToolsDisabled-beleid worden ingesteld.
+
+          Elk lijstitem van het beleid is een tekenreeks die een extensie-ID en een update-URL bevat, gescheiden door een puntkomma (<ph name="SEMICOLON" />). De extensie-ID is de tekenreeks van 32 letters die bijvoorbeeld kan worden gevonden op <ph name="CHROME_EXTENSIONS_LINK" /> wanneer de ontwikkelaarsmodus actief is. De update-URL moet verwijzen naar een XML-document voor het updaten van het manifest, zoals beschreven op <ph name="LINK_TO_EXTENSION_DOC1" />. Houd er rekening mee dat de update-URL die is ingesteld in dit beleid, alleen wordt gebruikt voor de eerste installatie. Daaropvolgende updates van de extensie gebruiken de update-URL die wordt aangegeven in het manifest van de extensie.
+
+          Met <ph name="EXTENSION_POLICY_EXAMPLE" /> wordt de app <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> bijvoorbeeld geïnstalleerd via de standaard update-URL van de Chrome Web Store. Ga voor meer informatie over het hosten van extensies naar <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Als dit beleid niet wordt ingesteld, worden apps en extensies net automatisch geïnstalleerd en kan de gebruiker elke app of extensie in <ph name="PRODUCT_NAME" /> verwijderen.</translation>
 <translation id="6315673513957120120">Chrome toont een waarschuwingspagina wanneer gebruikers naar sites met SSL-fouten navigeren. Gebruikers kunnen standaard, of wanneer dit beleid is ingesteld op 'waar', door deze waarschuwingspagina's klikken.
       Als dit beleid wordt ingesteld op 'onwaar', kunnen gebruikers niet door waarschuwingspagina's klikken.</translation>
 <translation id="6353901068939575220">Specificeert de parameters die worden gebruikt wanneer een URL wordt gezocht met POST. Het bestaat uit door komma's gescheiden naam/waarde-paren. Als een waarde een sjabloonparameter, zoals {searchTerms} in het bovenstaande voorbeeld, is, wordt de waarde vervangen door echte zoektermgegevens.

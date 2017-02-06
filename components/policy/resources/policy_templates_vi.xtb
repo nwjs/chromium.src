@@ -903,6 +903,17 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="3547954654003013442">Cài đặt proxy</translation>
 <translation id="3570008976476035109">Chặn plugin trên các trang web này</translation>
 <translation id="3591584750136265240">Định cấu hình hành vi xác thực thông tin đăng nhập</translation>
+<translation id="3601614035698083789">Định cấu hình danh sách dấu trang được quản lý.
+
+      Chính sách bao gồm danh sách các dấu trang trong đó mỗi dấu trang là
+      một từ điển chứa khóa <ph name="NAME" /> và <ph name="URL_LABEL" />. Các khóa này lưu giữ tên cũng như đích tên của dấu trang.
+      Có thể định cấu hình thư mục con bằng cách xác định dấu trang không có khóa <ph name="URL_LABEL" /> nhưng có khóa <ph name="CHILDREN" /> bổ sung có chứa danh sách
+      dấu trang được xác định ở trên (một số dấu trang trong đó có thể lại là thư mục). <ph name="PRODUCT_NAME" /> sửa đổi các URL chưa hoàn chỉnh
+      như thể các URL đó được gửi qua Omnibox, ví dụ: <ph name="GOOGLE_COM" /> trở thành <ph name="HTTPS_GOOGLE_COM" />.
+
+      Các dấu trang này được đặt trong thư mục "Dấu trang được quản lý" mà người dùng không thể sửa đổi, tuy nhiên, người dùng có thể chọn ẩn thư mục đó khỏi thanh dấu trang. Các dấu trang được quản lý không được đồng bộ hóa với tài khoản của người dùng cũng như không thể bị sửa đổi bằng tiện ích.
+
+      Bắt đầu với bản phát hành 51, tên thư mục cho dấu trang có thể được tùy chỉnh bằng cách thêm mục danh sách {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Bật hoặc tắt dịch vụ web kiểm tra lỗi chính tả</translation>
 <translation id="3646859102161347133">Đặt loại kính lúp màn hình</translation>
 <translation id="3653237928288822292">Biểu tượng nhà cung cấp dịch vụ tìm kiếm mặc định</translation>
@@ -1759,6 +1770,46 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="6282799760374509080">Cho phép hoặc từ chối ghi âm</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Bật tự động hoàn tất tên miền trong khi người dùng đăng nhập</translation>
+<translation id="6312861131491040487">
+          Chỉ định danh sách các ứng dụng và tiện ích được cài đặt tĩnh,
+          mà không có sự tương tác của người dùng và người dùng không thể
+          gỡ cài đặt. Tất cả các quyền do ứng dụng/tiện ích yêu cầu được cấp
+          hoàn toàn mà không có sự tương tác của người dùng, bao gồm mọi
+          quyền bổ sung do các phiên bản trong tương lai của ứng dụng/tiện ích
+          yêu cầu. Hơn nữa, các quyền sẽ được cấp cho các API tiện ích
+          enterprise.deviceAttributes và enterprise.platformKeys.
+          (Hai API này không khả dụng với ứng dụng/tiện ích
+          không bắt buộc cài đặt.)
+
+          Chính sách này được ưu tiên hơn chính sách
+          ExtensionsInstallBlacklist xung đột tiềm ẩn. Nếu một ứng dụng hoặc tiện
+          ích trước đây bị buộc cài đặt bị xóa khỏi danh sách này thì ứng
+          dụng/tiện ích đó sẽ tự động được <ph name="PRODUCT_NAME" /> gỡ cài đặt.
+
+          Đối với các phiên bản Windows không tham gia miền Active Directory
+          thì cài đặt bắt buộc sẽ bị giới hạn ở các ứng dụng và tiện ích được
+          liệt kê trong Cửa hàng Chrome trực tuyến.
+
+          Hãy lưu ý rằng người dùng có thể thay đổi mã nguồn của bất cứ tiện
+          ích nào qua Công cụ dành cho nhà phát triển (có thể hiển thị tiện ích
+          bất thường). Nếu đây là một mối quan ngại thì cần phải đặt chính sách
+          DeveloperToolsDisabled.
+
+          Mỗi mục danh sách của chính sách là một chuỗi có chứa ID
+          tiện ích và một URL "cập nhật" được phân tách bằng dấu chấm phẩy (<ph name="SEMICOLON" />). ID tiện ích là chuỗi gồm 32 chữ cái
+          được tìm thấy, chẳng hạn như trên <ph name="CHROME_EXTENSIONS_LINK" /> khi ở
+          chế độ nhà phát triển. URL "cập nhật" sẽ trỏ tới tài liệu XML của tệp
+          kê khai cập nhật như được mô tả tại <ph name="LINK_TO_EXTENSION_DOC1" />. Hãy lưu ý rằng
+          URL "cập nhật" được đặt trong chính sách này chỉ được sử dụng cho
+          cài đặt ban đầu; các lần cập nhật tiện ích tiếp theo sẽ sử dụng URL
+          cập nhật được chỉ ra trong tệp kê khai của tiện ích.
+
+          Ví dụ: <ph name="EXTENSION_POLICY_EXAMPLE" />
+          cài đặt ứng dụng <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> từ URL "cập nhật" của Cửa hàng Chrome trực
+          tuyến tiêu chuẩn. Để biết thêm thông tin về việc lưu trữ tiện ích, hãy xem: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Nếu chính sách này không được đặt thì sẽ không có ứng dụng hoặc
+          tiện ích nào được cài đặt tự động và người dùng có thể gỡ cài đặt mọi ứng dụng hoặc tiện ích trong <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome hiển thị trang cảnh báo khi người dùng truy cập các trang web gặp lỗi SSL. Theo mặc định hoặc khi chính sách này được đặt thành true, người dùng được phép nhấp qua các trang cảnh báo này.
       Đặt chính sách này thành false sẽ không cho phép người dùng nhấp qua bất kỳ trang cảnh báo nào.</translation>
 <translation id="6353901068939575220">Chỉ định tham số được dùng khi tìm kiếm URL với POST. Tham số này bao gồm các cặp tên/giá trị phân tách bằng dấu phẩy. Nếu một giá trị là tham số mẫu như {searchTerms} trong ví dụ trên, tham số đó sẽ được thay thế bằng dữ liệu cụm từ tìm kiếm thực.

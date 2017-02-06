@@ -862,6 +862,17 @@
 <translation id="3547954654003013442">Proxybeállítások</translation>
 <translation id="3570008976476035109">Bővítmények tiltása ezeken a webhelyeken</translation>
 <translation id="3591584750136265240">Bejelentkezési hitelesítési viselkedés konfigurálása</translation>
+<translation id="3601614035698083789">A kezelt könyvjelzők listáját konfigurálja.
+
+      A házirend könyvjelzők listájából áll, és mindegyik könyvjelző <ph name="NAME" /> és <ph name="URL_LABEL" />
+      kulcsot tartalmazó szótár; a kulcsok a könyvjelző nevét és URL-jét tárolják.
+      Almappát úgy konfigurálhat, hogy <ph name="URL_LABEL" /> kulcs nélküli könyvjelzőt határoz meg, amely azonban további, <ph name="CHILDREN" /> kulccsal rendelkezik.
+      Ez a kulcs maga tartalmazza a könyvjelzők (amelyek közül néhány mappa is lehet) fentiekben meghatározottak szerinti listáját.
+      A(z) <ph name="PRODUCT_NAME" /> úgy egészíti ki a nem teljes URL-eket, mintha azok a cím- és keresősávon keresztül lettek volna beküldve. Így például a <ph name="GOOGLE_COM" /> kiegészül a következőre: <ph name="HTTPS_GOOGLE_COM" />.
+
+      Ezeket a könyvjelzőket a rendszer a „Kezelt könyvjelzők” mappába helyezi, amelyet a felhasználó nem módosíthat, ám elrejthet a könyvjelzősávról. A kezelt könyvjelzőket a rendszer nem szinkronizálja a felhasználó fiókjával, és bővítmények sem módosíthatják őket.
+
+      Az 51-es verziótól kezdődően a könyvjelzőket tartalmazó mappa neve személyre szabható a {"toplevel_name": "some name"} listaelem hozzáadásával.</translation>
 <translation id="3627678165642179114">Engedélyezi vagy letiltja az internetes helyesírás-ellenőrző szolgáltatást</translation>
 <translation id="3646859102161347133">Nagyító típusának beállítása</translation>
 <translation id="3653237928288822292">Alapértelmezett keresési szolgáltató ikonja</translation>
@@ -1653,6 +1664,48 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 <translation id="6282799760374509080">Hangrögzítés engedélyezése vagy tiltása</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">A domainnév felhasználói bejelentkezés közbeni automatikus kiegészítésének engedélyezése</translation>
+<translation id="6312861131491040487">
+          Meghatározza azon alkalmazások és bővítmények listáját, amelyeket a rendszer háttérben,
+          felhasználói beavatkozás nélkül telepít, és amelyeket a felhasználó 
+          nem tud letörölni. A rendszer az alkalmazások/bővítmények által kért valamennyi engedélyt
+          implicit módon, felhasználói beavatkozás nélkül adja meg, ideértve az
+          alkalmazás/bővítmény jövőbeni verziói által kért engedélyeket is.
+          A rendszer engedélyt ad továbbá az enterprise.deviceAttributes
+          és az enterprise.platformKeys bővítmény API-k számára.
+          (Ez a két API nem hozzáférhető a nem kényszerített telepítésű
+          alkalmazások/bővítmények számára.)
+
+          Ez a házirend előnyt élvez a potenciálisan ellentétes
+          ExtensionsInstallBlacklist házirenddel szemben. Ha valamelyik
+          korábban kényszerítetten telepített alkalmazás vagy bővítmény
+          lekerül a listáról, akkor azt a(z) <ph name="PRODUCT_NAME" /> automatikusan eltávolítja.
+
+          Active Directory-domainhez nem tartozó Windows-példányokon a
+          kényszerített telepítés a Chrome Internetes áruházban megtalálható
+          alkalmazásokra és bővítményekre korlátozódik.
+
+          Jó, ha tudja, hogy a felhasználók a Fejlesztőeszközökkel bármelyik
+          bővítmény forráskódját módosíthatják (a bővítményt akár
+          működésképtelenné is tehetik). Ha ez problémát jelent, akkor
+          engedélyezni kell a DeveloperToolsDisabled házirendet.
+
+          A házirend mindegyik listaeleme olyan karakterlánc, amely pontosvesszővel
+          (<ph name="SEMICOLON" />) elválasztva tartalmazza a bővítményazonosítót és a „frissítési”
+          URL-t. A bővítményazonosító az a 32 betűs karakterlánc, amely pl. a
+          <ph name="CHROME_EXTENSIONS_LINK" /> linken található fejlesztői módban.
+          A „frissítési” URL-nek a következő linken ismertetett frissítési jegyzék XML-
+          dokumentumra kell mutatnia: <ph name="LINK_TO_EXTENSION_DOC1" />. Fontos:
+          Az ebben a házirendben megadott „frissítési” URL csak a kezdeti
+          telepítés céljára szolgál; a bővítmény későbbi frissítései a bővítmény
+          jegyzékfájljában megadott frissítési URL-t használják.
+
+          Például a(z) <ph name="EXTENSION_POLICY_EXAMPLE" /> a Chrome Internetes áruház normál „frissítési”
+          URL-jéről telepíti a(z) <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> alkalmazást.
+          A bővítmények tárolásával kapcsolatos további információt a következő linken talál: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Ha a házirend beállítatlanul marad, az alkalmazások és bővítmények
+          nem települnek automatikusan, a felhasználó bármelyik alkalmazást
+          vagy bővítményt letörölheti a(z) <ph name="PRODUCT_NAME" /> böngészőben.</translation>
 <translation id="6315673513957120120">A Chrome figyelmeztető oldalt jelenít meg, amikor a felhasználó SSL-hibával rendelkező webhelyre navigál. Alapértelmezés szerint, illetve a házirend igaz értékre állításakor a felhasználók továbbléphetnek az ilyen figyelmeztető oldalakról.
       Ha a házirend értéke hamis, akkor a felhasználók nem juthatnak tovább a figyelmeztető oldalon.</translation>
 <translation id="6353901068939575220">Megadja az URL-ek POST metódussal történő keresésekor használt paramétereket. Vesszővel elválasztott név–érték párokat tartalmaz. Ha az egyik érték egy sablonparaméter, ami a fenti példában a {searchTerms}, valódi keresési kifejezések kerülnek a helyére.

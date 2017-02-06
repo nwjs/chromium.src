@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" />、オン</translation>
 <translation id="1692077714702418899">構造化された行</translation>
 <translation id="1700517974991662022">アクセス済み</translation>
+<translation id="1714116687360794776">メーター</translation>
 <translation id="1722567105086139392">リンク</translation>
 <translation id="1727806147743597030">フッター</translation>
 <translation id="174268867904053074">次の図</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">日時の設定</translation>
 <translation id="2347456970887948350">リンク</translation>
 <translation id="2359897517538099099">表モードではありません。</translation>
+<translation id="2390264819538553347">次に進むには Enter キー、前に戻るには Backspace キーを押します。</translation>
 <translation id="241124561063364910">を押して、次のキーを押します:</translation>
 <translation id="2416512023405990736">チェックボックスがオフ</translation>
 <translation id="2417569100218200841">コンテンツ情報</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">前のセクションはありません。</translation>
 <translation id="3030432017085518523">メニュー項目のラジオボタン</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{アポストロフィ}other{# 個のアポストロフィ}}</translation>
+<translation id="3040901448410802366">進行状況インジケーター</translation>
 <translation id="3046838483509668188">ChromeVox のオプション</translation>
 <translation id="3047143736589213134">テスト用キーマップ</translation>
 <translation id="3060756054951570867"><ph name="TITLE" /> メニューを開きました</translation>
@@ -231,6 +234,7 @@
 <translation id="3321460131042519426">ワードラップを有効にする</translation>
 <translation id="3322936298410871309">前のレベル 1 見出し</translation>
 <translation id="3323447499041942178">テキスト ボックス</translation>
+<translation id="3338224621010291843"><ph name="VALUE" /> <ph name="NAME" /> スライダー</translation>
 <translation id="3353420241558113817">{"ar": "アラビア語",
         "bg": "ブルガリア語",
         "ca": "カタロニア語",

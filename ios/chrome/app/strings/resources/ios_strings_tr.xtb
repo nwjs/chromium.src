@@ -32,6 +32,7 @@
 <translation id="1407135791313364759">Tümünü aç</translation>
 <translation id="1430915738399379752">Yazdır</translation>
 <translation id="145015347812617860"><ph name="COUNT" /> öğe</translation>
+<translation id="1491277525950327607">Ayarı açıp kapatmak için iki kez dokunun</translation>
 <translation id="1540800554400757039">Adres 1</translation>
 <translation id="1545749641540134597">QR Kodunu Tara</translation>
 <translation id="1580783302095112590">Posta gönderildi.</translation>
@@ -216,6 +217,7 @@ Verileriniz senkronizasyon parolanızla şifrelendi. Senkronizasyonu başlatmak 
 <translation id="5300589172476337783">Göster</translation>
 <translation id="5317780077021120954">Kaydet</translation>
 <translation id="5327248766486351172">Ad</translation>
+<translation id="5332219387342487447">Gönderme Yöntemi</translation>
 <translation id="5388358297987318779">Resmi Aç</translation>
 <translation id="5409365236829784218">Bu dosyayı açabilecek yüklü uygulama yok.</translation>
 <translation id="54401264925851789">Sayfa Güvenlik Bilgileri</translation>
@@ -268,6 +270,7 @@ Handoff'un ayrıca, Ayarlar'ın Genel bölümünde de etkinleştirilmesi ve ciha
 <translation id="6255097610484507482">Kredi Kartını Düzenle</translation>
 <translation id="6308436439357671616">Böylece, fotoğraf çekebilir ve yükleyebilirsiniz.</translation>
 <translation id="6314335155547195432">Şifre Oluştur</translation>
+<translation id="6324528485781869530">Senkronizasyon Hesabını Değiştir</translation>
 <translation id="6324669097367352121">Oturum açma ayarları</translation>
 <translation id="6337234675334993532">Şifreleme</translation>
 <translation id="633809752005859102">Bir şeyler gerçekten ters gitti. Bu sorun üzerinde çalışacağız.</translation>

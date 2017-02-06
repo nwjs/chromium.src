@@ -280,6 +280,7 @@
 <translation id="3655670868607891010">Jei tai rodoma dažnai, išbandykite <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Peržiūrėtas ir pataisytas leidimas</translation>
 <translation id="3678029195006412963">Nepavyko pasirašyti užklausos</translation>
+<translation id="3679803492151881375">Strigčių ataskaita užfiksuota <ph name="CRASH_TIME" />, įkelta <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Sertifikato informacija</translation>
 <translation id="3690164694835360974">Prisijungimas nesaugus</translation>
 <translation id="3693415264595406141">Slaptažodis:</translation>
@@ -378,6 +379,7 @@
 <translation id="4764776831041365478">Tinklalapis šiuo adresu <ph name="URL" /> gali laikinai neveikti arba visam laikui būti perkeltas kitu žiniatinklio adresu.</translation>
 <translation id="4771973620359291008">Įvyko nežinoma klaida.</translation>
 <translation id="4800132727771399293">Patikrinkite kortelės galiojimo pabaigos datą bei saugos kodą (CVC) ir bandykite dar kart</translation>
+<translation id="4803924862070940586"><ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
 <translation id="4813512666221746211">Tinklo klaida</translation>
 <translation id="4816492930507672669">Pritaikyti pagal puslapį</translation>
 <translation id="4850886885716139402">Žiūrėti</translation>
@@ -452,6 +454,7 @@
 <translation id="5622887735448669177">Ar norite išeiti iš šios svetainės?</translation>
 <translation id="5629630648637658800">Įkeliant politikos nustatymus įvyko klaida</translation>
 <translation id="5631439013527180824">Netinkamas įrenginio tvarkymo prieigos raktas</translation>
+<translation id="5669703222995421982">Suasmeninto turinio gavimas</translation>
 <translation id="5675650730144413517">Šis puslapis neveikia</translation>
 <translation id="5677928146339483299">Užblokuota</translation>
 <translation id="5694783966845939798">Bandėte pasiekti <ph name="DOMAIN" />, bet serveris pateikė sertifikatą, kuris pasirašytas naudojant nesudėtingą parašo algoritmą (pvz., SHA-1). Tai reiškia, kad serverio pateikti saugos prisijungimo duomenys galėjo būti suklastoti ir serveris gali būti ne tas, kurio tikėjotės (gali būti, kad bendraujate su užpuoliku). <ph name="BEGIN_LEARN_MORE_LINK" />Sužinokite daugiau<ph name="END_LEARN_MORE_LINK" />.</translation>
@@ -552,6 +555,7 @@
 <translation id="6753269504797312559">Politikos vertė</translation>
 <translation id="6757797048963528358">Įjungta įrenginio miego būsena.</translation>
 <translation id="6778737459546443941">Jūsų tėtis ar mama dar jos nepatvirtino</translation>
+<translation id="6810899417690483278">Tinkinimo ID</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Šiuo metu <ph name="URL" /> tinklalapis negalimas. Jis gali būti per daug apkrautas arba neveikiantis dėl techninės priežiūros.</translation>
 <translation id="6831043979455480757">Vertėjas</translation>
@@ -711,6 +715,7 @@ Ei! Kitą kartą gali būti naudinga naudoti inkognito režimą (<ph name="SHORT
 <translation id="8364627913115013041">Nenustatyta.</translation>
 <translation id="8380941800586852976">Pavojingas</translation>
 <translation id="8382348898565613901">Čia rodomos žymės, kurias naudojote pastaruoju metu</translation>
+<translation id="8398259832188219207">Strigčių ataskaita įkelta <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Strigtys (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Reikia du kartus įvesti tą pačią slaptafrazę.</translation>
 <translation id="8428213095426709021">Nustatymai</translation>

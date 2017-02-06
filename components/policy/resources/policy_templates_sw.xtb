@@ -893,6 +893,19 @@ Sera hii inatumika tu kama sera ya 'DefaultSearchProviderEnabled' imewashwa.</tr
 <translation id="3547954654003013442">Mipangilio ya proksi</translation>
 <translation id="3570008976476035109">Zuia programu jalizi katika tovuti hizi</translation>
 <translation id="3591584750136265240">Weka mipangilio ya tabia ya kithibitishaji cha kuingia katika akaunti</translation>
+<translation id="3601614035698083789">Huweka mipangilio ya orodha ya alamisho zinazodhibitiwa.
+
+      Sera hii hujumuisha orodha ya alamisho ambapo kila alamisho ni
+      kamusi iliyo na funguo <ph name="NAME" /> na <ph name="URL_LABEL" /> ambazo huwa na jina la alamisho na lengo 
+     lake.
+      
+      Kijifolda kinaweza kuwekwa mipangilio kwa kubainisha alamisho bila ufunguo wa <ph name="URL_LABEL" /> lakini kikiwa na ufunguo wa ziada wa <ph name="CHILDREN" /> ambao una orodha ya
+      alamisho zilizobainishwa hapo juu (ambazo baadhi yazo huenda ziwe folda tena). <ph name="PRODUCT_NAME" /> hurekebisha URL ambazo hazijakamilika
+      kana kwamba ziliwasilishwa kupitia Omnibox, kwa mfano <ph name="GOOGLE_COM" /> huwa <ph name="HTTPS_GOOGLE_COM" />.
+
+      Alamisho hizi huwekwa katika folda ya "Alamisho zinazodhibitiwa" ambazo haziwezi kurekebishwa na mtumiaji, lakini mtumiaji anaweza kuchagua kuificha isionekane kwenye sehemu ya alamisho. Alamisho zilizodhibitiwa hazijasawazishwa kwenye akaunti ya mtumiaji na haziwezi kurekebishwa kwa viendelezi.
+
+      Kuanzia toleo la 51, jina la folda ya alamisho inaweza kubadilishwa kumfaa mtumiaji kwa kuongeza kipengee cha orodha {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Wezesha au lemaza huduma ya wavuti ya ukaguzi tahajia</translation>
 <translation id="3646859102161347133">Weka aina ya kikuza skrini</translation>
 <translation id="3653237928288822292">Ikoni ya mtoaji wa utafutaji chaguo-msingi</translation>
@@ -1743,6 +1756,43 @@ Thamani ya sera inapaswa kubainishwa katika milisekunde. Thamani huwekwa pamoja 
 <translation id="6282799760374509080">Ruhusu au upinge kurekodi sauti</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Washa kipengee cha jina la kikoa cha kukamilisha kiotomatiki wakati wa mtumiaji kuingia katika akaunti</translation>
+<translation id="6312861131491040487">
+          Hubainisha orodha ya programu na viendelezi vilivyosakinishwa kimya kimya,
+          bila kuhusika kwa mtumiaji, na ambavyo haviwezi kuondolewa na
+          mtumiaji. Ruhusa zote zilizoombwa na programu/viendelezi hutolewa
+          kimya kimya, bila kumhusisha mtumiaji, ikijumuisha ruhusa zozote za ziada
+          zinazoombwa na matoleo ya baadaye ya programu/kiendelezi hiki.
+          Isitoshe, ruhusa hutolewa kwa API za viendelezi vya
+          enterprise.deviceAttributes na enterprise.platformKeys.
+          (API hizi mbili hazipatikani kwa programu/viendelezi ambavyo havijasakinishwa      
+          kwa kulazimishwa.)
+
+          Sera hii huchukua nafasi ya kwanza dhidi ya sera ya
+          ExtensionsInstallBlacklist iliyo na uwezekano wa kukinzana. Ikiwa programu
+          au kiendelezi kilichosakinishwa awali kwa kulazimishwa kitaondolewa kwenye  
+          orodha hii, kitaondolewa kiotomatiki na <ph name="PRODUCT_NAME" />.
+
+          Kwa matukio ya Windows ambayo hayajaunganishwa kwenye kikoa cha
+          Saraka Inayotumika, kusakinisha kwa kulazimisha hufanyika tu kwa programu
+          zilizoorodheshwa kwenye Duka la Chrome kwenye Wavuti.
+
+          Kumbuka kwamba msimbo chanzo wa kiendelezi chochote unaweza 
+          kubadilishwa na watumiaji kupitia Zana za Wasanidi Programu (hatua inayoweza kuharibu
+          utendakazi wa kiendelezo hiki). Hitilafu hii ikitokea, sera ya
+           DeveloperToolsDisabled inapaswa kuwekwa.
+
+          Kila kipengee cha orodha cha sera ni mfuatano ulio na Kitambulisho cha kiendelezi na URL ya "sasisho" iliyotenganishwa kwa nukta-mkato (<ph name="SEMICOLON" />). Kitambulisho cha 
+          kiendelezi ni mfuatano wa herufi 32 kinachopatikana k.m. katika <ph name="CHROME_EXTENSIONS_LINK" />
+          katika hali ya wasanidi programu. URL ya "sasisho" inapaswa kuelekeza kwenye hati ya XML ya Faili ya Maelezo ya Sasisho kama ilivyoelezwa kwenye <ph name="LINK_TO_EXTENSION_DOC1" />. Kumbuka kwamba URL ya "sasisho" iliyowekwa kwenye sera hii hutumika tu kwa ajili ya usakinishaji wa kwanza; masasisho ya baadaye ya kiendelezi hutumia URL ya sasisho iliyobainishwa katika faili ya maelezo ya kiendelezi.
+
+          Kwa mfano, <ph name="EXTENSION_POLICY_EXAMPLE" />
+          husakinisha programu ya <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> kutoka kwenye URL ya "sasisho" ya kawaida ya 
+          Duka la Chrome kwenye Wavuti. Ili upate maelezo zaidi kuhusu kupangisha  
+          viendelezi, tembelea: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Sera hii isipowekwa, hakuna programu au viendelezi vitakavyosakinishwa
+          kiotomatiki na mtumiaji anaweza kuondoa programu au kiendelezi chochote  
+          katika <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome huonyesha ukurasa wa onyo watumiaji wanapoenda kwenye tovuti ambazo zina hitilafu za SSL. Kwa chaguo-msingi au sera hii ikiwekwa kuwa ndivyo, watumiaji wanaruhusiwa kubofya kwenye kurasa hizi za onyo.
       Kuweka sera kuwa sivyo hakuwaruhusu watumiaji kubofya ukurasa wowote wa onyo.</translation>
 <translation id="6353901068939575220">Hubainisha vigezo vinavyotumika wakati wa kutafuta URL kwa kutumia POST.  Ina vikundi vya jina/thamani vinavyotenganishwa na koma. Kama thamani ni kigezo cha kiolezo, kama {Hoja za utafutaji} katika mfano hapo juu, itabadilishwa na data ya hoja za utafutaji halisi.

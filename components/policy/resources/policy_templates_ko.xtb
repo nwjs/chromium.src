@@ -906,6 +906,17 @@
 <translation id="3547954654003013442">프록시 설정</translation>
 <translation id="3570008976476035109">이 사이트에서 플러그인 차단</translation>
 <translation id="3591584750136265240">로그인 인증 동작 설정</translation>
+<translation id="3601614035698083789">관리 북마크 목록을 설정합니다.
+
+      이 정책은 북마크의 목록으로 구성되어 있으며 각 북마크는
+       키 <ph name="NAME" /> 및 <ph name="URL_LABEL" />을(를) 포함하는 사전으로, 북마크의 이름과 대상이 포함되어 있습니다.
+      하위 폴더의 경우, <ph name="URL_LABEL" /> 키는 없으나 위에 설명된 북마크(이 북마크 중 일부는 폴더일 수 있음) 목록을 자체적으로 포함하는 추가 <ph name="CHILDREN" /> 키가 있는 북마크를
+      정의하는 방법으로 설정할 수 있습니다. <ph name="PRODUCT_NAME" />에서는 불완전한 URL이 있을 경우 
+      검색주소창에 입력했을 때처럼 URL을 수정합니다. 예를 들어, <ph name="GOOGLE_COM" />은 <ph name="HTTPS_GOOGLE_COM" />으로 수정됩니다.
+
+      이 북마크는 사용자가 수정할 수 없는 '관리 북마크' 폴더에 있지만, 사용자는 이 폴더가 북마크바에 표시되지 않도록 선택할 수 있습니다. 관리 북마크는 사용자 계정과 동기화되지 않으며 확장 프로그램으로 수정할 수 없습니다.
+
+      버전 51부터 {"상위수준_이름": "이름"} 목록 항목을 추가하여 북마크 폴더 이름을 맞춤설정할 수 있습니다.</translation>
 <translation id="3627678165642179114">맞춤법 검사 웹 서비스 사용 또는 사용 중지</translation>
 <translation id="3646859102161347133">화면 돋보기 유형 설정</translation>
 <translation id="3653237928288822292">기본 검색 공급자 아이콘</translation>
@@ -1763,6 +1774,46 @@
 <translation id="6282799760374509080">오디오 캡처 허용 또는 거부</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">사용자가 로그인할 때 도메인 이름 자동완성 기능을 사용합니다.</translation>
+<translation id="6312861131491040487">
+          사용자와의 상호작용 없이 자동으로 설치되며 사용자가 제거할 수 없는
+          앱 및 확장 프로그램의 목록을 지정합니다.
+          앱/확장 프로그램의 향후 버전에서 요청하는 추가 권한을 비롯하여
+          앱/확장 프로그램에서 요청하는 모든 권한은
+          사용자와의 상호작용 없이 암시적으로 허용됩니다.
+          또한 enterprise.deviceAttributes 및
+          enterprise.platformKeys 확장 프로그램 API에
+          권한이 부여됩니다. 이 두 API는 강제 설치되지 않는 앱/확장 프로그램에는
+          사용할 수 없습니다.
+
+          이 정책은 상충할 가능성이 있는 ExtensionsInstallBlacklist 정책보다
+          우선합니다. 이전에 강제 설치된 적 있는
+          앱 또는 확장 프로그램이 목록에서 삭제되는 경우
+          <ph name="PRODUCT_NAME" />에서 자동으로 제거합니다.
+
+          Active Directory 도메인에 가입하지 않은 Windows 인스턴스의 경우
+          강제 설치는 Chrome 웹 스토어에 등록된 앱 및 확장 프로그램
+          으로 제한됩니다.
+
+          모든 확장 프로그램의 소스 코드는 개발자 도구를 통해 사용자가
+          변경할 수 있습니다. 이 과정에서 확장 프로그램 오작동이 발생할 수도
+          있습니다. 이런 상황이 걱정된다면 DeveloperToolsDisabled 정책을
+          설정하시기 바랍니다.
+
+          정책의 각 목록 항목은 세미콜론(<ph name="SEMICOLON" />)으로 구분된 확장 프로그램 ID와
+          '업데이트' URL이 포함된 문자열입니다. 확장 프로그램 ID는
+          32자 문자열로, 예를 들어 개발자 모드일 때 <ph name="CHROME_EXTENSIONS_LINK" />에서 확인할 수 있습니다.
+          '업데이트' URL은 <ph name="LINK_TO_EXTENSION_DOC1" />에서 설명한 대로
+          업데이트 매니페스트 XML 문서로 연결되어야 합니다.
+          이 정책에 설정된 '업데이트' URL은 처음 설치할 때만 사용되며
+          이후의 확장 프로그램 업데이트에서는 확장 프로그램 매니페스트에 지정된
+          업데이트 URL이 사용됩니다.
+
+          예를 들어 <ph name="EXTENSION_POLICY_EXAMPLE" />은(는)
+          표준 Chrome 웹 스토어 '업데이트' URL에서 <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> 앱을 설치합니다.
+          확장 프로그램 호스팅에 관해 자세히 알아보려면 <ph name="LINK_TO_EXTENSION_DOC2" />을(를) 참조하세요.
+
+          이 정책이 설정되지 않은 경우 앱 또는 확장 프로그램이 자동으로 설치되지 않으며
+          사용자는 <ph name="PRODUCT_NAME" />에서 원하는 앱 또는 확장 프로그램을 제거할 수 있습니다.</translation>
 <translation id="6315673513957120120">사용자가 SSL 오류가 있는 사이트를 탐색하면 Chrome에서 경고 페이지를 표시합니다. 기본적으로 또는 이 정책이 'true'로 설정된 경우 사용자는 이 경고 페이지를 클릭하여 탐색할 수 있습니다.
       이 정책을 'false'로 설정하면 사용자가 경고 페이지를 클릭하여 탐색할 수 없습니다.</translation>
 <translation id="6353901068939575220">POST로 URL을 검색할 때 사용할 매개변수를 지정합니다. 쉼표로 구분된 이름/값 쌍으로 구성되어 있습니다. 값이 위의 예에 있는 {searchTerms}와 같은 템플릿 매개변수인 경우 실제 검색어 데이터로 대체됩니다.

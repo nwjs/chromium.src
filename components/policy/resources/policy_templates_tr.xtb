@@ -901,6 +901,21 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
 <translation id="3547954654003013442">Proxy ayarları</translation>
 <translation id="3570008976476035109">Bu sitelerde eklentileri engelle</translation>
 <translation id="3591584750136265240">Giriş için kimlik doğrulama yöntemini yapılandır</translation>
+<translation id="3601614035698083789">Yönetilen yer işaretleri listesini yapılandırır.
+
+      Politika, yer işaretleri listesinden oluşur; bu yer işaretlerinden her biri 
+      <ph name="NAME" /> ve <ph name="URL_LABEL" /> anahtarlarını içeren ve yer işaretinin adı ile hedefini barındıran bir sözlüktür.
+      Bir <ph name="URL_LABEL" /> anahtarı içermeyen, ancak yukarıda tanımlandığı gibi yer işareti listesini (bunlardan
+      bazıları yine klasör olabilir) barındıran ek bir <ph name="CHILDREN" /> anahtarına sahip yer işareti tanımlanarak
+      bir alt klasör yapılandırılabilir. <ph name="PRODUCT_NAME" />, eksik URL'leri, Çok Amaçlı Adres Çubuğu kullanılarak
+      gönderilmiş gibi düzeltir; örneğin <ph name="GOOGLE_COM" />, <ph name="HTTPS_GOOGLE_COM" /> olur.
+
+      Bu yer işaretleri, kullanıcı tarafından üzerinde değişiklik yapılamayan bir "Yönetilen yer işaretleri"
+      klasörüne konur, ancak kullanıcı bu klasörü yer işareti çubuğunda gizlemeyi seçebilir. Yönetilen yer işaretleri
+      kullanıcı hesabıyla senkronize edilmez ve uzantılar kullanılarak üzerinde değişiklik yapılamaz.
+
+      Sürüm 51'den itibaren, bir {"toplevel_name": "some name"} liste öğesi eklenerek yer işaretlerinin
+      klasör adı özelleştirilebilir.</translation>
 <translation id="3627678165642179114">Yazım denetimi Web hizmetini etkinleştir veya devre dışı bırak</translation>
 <translation id="3646859102161347133">Ekran büyüteci türünü ayarla</translation>
 <translation id="3653237928288822292">Varsayılan arama sağlayıcı simgesi</translation>
@@ -1754,6 +1769,48 @@ Bu politika ayarlanmadan bırakılırsa kullanıcı sistemde yüklü herhangi bi
 <translation id="6282799760374509080">Ses yakalamaya izin verme veya reddetme</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Kullanıcı oturum açarken alan adı otomatik doldurma özelliğini etkinleştir</translation>
+<translation id="6312861131491040487">
+          Kullanıcı müdahalesi olmadan, sessiz şekilde yüklenecek ve kullanıcı tarafından
+          kaldırılamayacak uygulamaların ve uzantıların listesini belirlemenize
+          olanak sağlar. Uygulamalar/uzantılar tarafından istenen tüm izinler ve
+          uygulamanın/uzantının gelecekteki sürümleri tarafından istenecek ek
+          izinler kullanıcı etkileşimi olmadan, örtülü olarak verilir.
+          Ayrıca, izinler enterprise.deviceAttributes ve enterprise.platformKeys
+          uzantı API'leri için verilir. (Bu iki API zorunlu olarak yüklenmemiş
+          uygulamalar/uzantılar tarafından kullanılamaz.)
+
+          Bu politika, çakışabilecek bir ExtensionsInstallBlacklist politikasına göre
+          önceliklidir. Daha önce zorunlu olarak yüklenmiş bir uygulama veya
+          uzantı bu listeden kaldırılırsa <ph name="PRODUCT_NAME" /> tarafından da yüklemesi
+          otomatik olarak kaldırılır.
+
+          Bir Active Directory alan adına katılmamış Windows örnekleri için 
+          zorunlu olarak yüklenen uygulamalar ve uzantılar yalnızca Chrome
+          Web Mağazası'nda listelenenlerle sınırlıdır.
+
+          Bir uzantının kaynak kodunun kullanıcılar tarafından Geliştirici Araçları
+          kullanılarak (uzantının işlevselliğini devre dışı bırakabilecek şekilde)
+          değiştirilebileceğini unutmayın. Böyle bir endişe olması durumunda,
+          DeveloperToolsDisabled politikası ayarlanmalıdır.
+
+          Politikaya ait her liste öğesi, noktalı virgülle (<ph name="SEMICOLON" />) ayrılmış bir
+          uzantı kimliği ve bir "güncelleme" URL'si içeren bir dizedir. Uzantı kimliği,
+          örneğin, geliştirici modundayken <ph name="CHROME_EXTENSIONS_LINK" /> bağlantısında
+          bulunabilen 32 harfli bir dizedir. "Güncelleme" URL'si, <ph name="LINK_TO_EXTENSION_DOC1" />
+          belgesinde açıklandığı gibi bir Güncelleme Manifest XML belgesine işaret
+          etmelidir. Bu politikada ayarlanmış "güncelleme" URL'sinin sadece ilk
+          yükleme için kullanıldığına, uzantının sonraki güncellemelerinde ise
+          uzantının manifest dosyasında belirtilen güncelleme URL'sinin kullanıldığına
+          dikkat edin.
+
+          Örneğin, <ph name="EXTENSION_POLICY_EXAMPLE" />, standart Chrome Web Mağazası
+          "güncelleme" URL'sinden <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" />
+          uygulamasını yükler. Uzantıların barındırılması ile ilgili daha fazla bilgi için
+          bkz. <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Bu politika ayarlanmadan bırakılırsa, hiçbir uygulama veya uzantı otomatik
+          olarak yüklenmez
+          ve kullanıcı <ph name="PRODUCT_NAME" /> ürünündeki uygulama veya uzantıları kaldırabilir.</translation>
 <translation id="6315673513957120120">Kullanıcılar SSL hatalarına neden olan sitelere gittiğinde Chrome bir uyarı iletisi görüntüler. Varsayılan olarak veya bu politika doğru seçeneğine ayarlandığında, kullanıcıların bu uyarı sayfalarını tıklamalarına izin verilir.
       Bu politika yanlış seçeneğine ayarlanırsa, kullanıcılar uyarı sayfalarını tıklayamazlar.</translation>
 <translation id="6353901068939575220">POST ile bir URL ararken kullanılacak parametreleri belirtir. Virgülle ayrılmış ad/değer çiftlerini içeren bir listeden oluşur. Bir değer, yukarıdaki örnekteki {searchTerms} gibi bir şablon parametresi ise, gerçek arama terimleri verisiyle değiştirilir.

@@ -854,6 +854,17 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="3547954654003013442">Configurações de proxy</translation>
 <translation id="3570008976476035109">Bloquear plug-ins nestes sites</translation>
 <translation id="3591584750136265240">Configura o comportamento de autenticação de login</translation>
+<translation id="3601614035698083789">Configura uma lista de favoritos gerenciados.
+
+      A política consiste em uma lista de favoritos. E cada favorito é um
+      dicionário contendo as chaves <ph name="NAME" /> e <ph name="URL_LABEL" />, que detêm o nome do favorito e o destino dele. É
+      possível configurar uma subpasta definindo um favorito sem uma chave <ph name="URL_LABEL" />, mas com uma chave <ph name="CHILDREN" /> adicional que, por si só, contenha uma lista de
+      favoritos, conforme definido acima (alguns deles podem ser pastas novamente). O <ph name="PRODUCT_NAME" /> altera URLs incompletos
+      como se eles fossem enviados pela Omnibox. Por exemplo, <ph name="GOOGLE_COM" /> torna-se <ph name="HTTPS_GOOGLE_COM" />.
+
+      Esses favoritos são colocados em uma pasta "Favoritos gerenciados" que não pode ser modificada pelo usuário, mas o usuário pode optar por ocultá-la da barra de favoritos. Favoritos gerenciados não são sincronizados com a conta do usuário e não podem ser modificados por extensões.
+
+      A partir da versão 51, é possível personalizar o nome da pasta dos favoritos adicionando um item de lista {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Ativar ou desativar serviço da web de verificação ortográfica</translation>
 <translation id="3646859102161347133">Definir tipo de lupa</translation>
 <translation id="3653237928288822292">Ícone do provedor de pesquisa padrão</translation>
@@ -1638,6 +1649,46 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="6282799760374509080">Permitir ou negar captura de áudio</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Ativar preenchimento automático do nome de domínio durante login do usuário</translation>
+<translation id="6312861131491040487">
+          Especifica uma lista de apps e extensões que são instalados silenciosamente,
+          sem a interação do usuário, e que não podem ser desinstalados pelo
+          usuário. Todas as permissões solicitadas por apps/extensões são concedidas
+          implicitamente, sem a interação do usuário, incluindo quaisquer permissões
+          adicionais solicitadas por versões futuras do app/extensão.
+          Além disso, são concedidas permissões para as APIs de extensão 
+          enterprise.deviceAttributes e enterprise.platformKeys. Essas duas APIs
+          não estão disponíveis para apps/extensões que não tenham sido
+          instalados forçadamente.
+
+          Esta política tem precedência sobre uma política ExtensionsInstallBlacklist
+          potencialmente conflitante. Se um app ou extensão anteriormente instalado
+          de modo forçado for removido dessa lista, será automaticamente
+          desinstalado pelo <ph name="PRODUCT_NAME" />.
+
+          Em instâncias do Windows não vinculadas a um domínio do
+          Active Directory, a instalação forçada limita-se a apps e extensões listados
+          na Chrome Web Store.
+
+          O código-fonte de qualquer extensão pode ser alterado pelos usuários por meio
+          das Ferramentas de desenvolvedor, possivelmente tornando a extensão
+          defeituosa. Se essa preocupação existir, será preciso definir a política
+          DeveloperToolsDisabled.
+
+          Cada item da lista da política é uma string que contém um código de extensão
+          e um URL de "atualização" separados por ponto e vírgula (<ph name="SEMICOLON" />). O código da
+          extensão é a string de 32 letras encontrada, por exemplo, em <ph name="CHROME_EXTENSIONS_LINK" />
+          no modo de desenvolvedor. O URL de "atualização" deve apontar para um
+          documento de atualização do Manifesto XML, conforme descrito em <ph name="LINK_TO_EXTENSION_DOC1" />.
+          O URL de "atualização" definido nesta política só é usado para a instalação
+          inicial. As atualizações subsequentes da extensão empregam o URL de
+          atualização indicado no manifesto da extensão.
+
+          Por exemplo, <ph name="EXTENSION_POLICY_EXAMPLE" />
+          instala o app <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> a partir do URL padrão de "atualização" da Chrome Web Store.
+          Para ver mais informações sobre extensões de hospedagem, consulte: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Se esta política não for definida, nenhum app ou extensão será instalado
+          automaticamente, e o usuário poderá desinstalar apps ou extensões no <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">O Chrome mostra uma página de aviso quando os usuários navegam para sites que têm erros de SSL. Por padrão ou quando esta política é definida como "true", os usuários têm permissão para clicar nessas páginas de aviso.
       A definição desta política como "false" não permite que os usuários cliquem em qualquer página de aviso.</translation>
 <translation id="6353901068939575220">Especifica os parâmetros usados ao pesquisar URL com POST. Consiste em pares de nomes/valores separados por vírgula. Se um valor for um parâmetro de modelos, como {searchTerms} no exemplo acima, será substituído por dados de termos de pesquisa reais.

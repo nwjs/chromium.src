@@ -908,6 +908,18 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 <translation id="3547954654003013442">Nastavitve proxyja</translation>
 <translation id="3570008976476035109">Blokiraj vtičnike na teh mestih</translation>
 <translation id="3591584750136265240">Konfiguriranje preverjanja pristnosti pri prijavi</translation>
+<translation id="3601614035698083789">Konfigurira seznam upravljanih zaznamkov.
+
+      Pravilnik sestavlja seznam zaznamkov, pri čemer je vsak zaznamek
+      slovar s ključema <ph name="NAME" /> in <ph name="URL_LABEL" />, v katerih sta shranjena ime in cilj zaznamka.
+      Mogoče je konfigurirati podmapo, tako da definirate zaznamek brez ključa <ph name="URL_LABEL" />, vendar z dodatnim ključem <ph name="CHILDREN" />, ki vsebuje seznam
+      zaznamkov, kot so opredeljeni zgoraj (nekateri so prav tako lahko mape). Brskalnik <ph name="PRODUCT_NAME" /> dopolni nepopolne URL-je,
+      kot bi bili poslani prek iskalne vrstice. <ph name="GOOGLE_COM" /> na primer postane <ph name="HTTPS_GOOGLE_COM" />.
+
+      Ti zaznamki so dani v mapo »Upravljani zaznamki«, ki je uporabnik ne more spreminjati, lahko pa izbere, da je na vrstici z zaznamki skrita. Upravljani zaznamki se ne sinhronizirajo z računom uporabnika in razširitve jih ne morejo spreminjati.
+
+      Od različice 51 naprej je mogoče ime mape za zaznamke prilagoditi z dodajanjem elementa na seznamu
+{"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Omogoči ali onemogoči spletno storitev preverjanja črkovanja</translation>
 <translation id="3646859102161347133">Nastavitev vrste lupe</translation>
 <translation id="3653237928288822292">Privzeta ikona iskalnika</translation>
@@ -1774,6 +1786,46 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 <translation id="6282799760374509080">Omogočanje ali onemogočanje snemanja zvoka</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Omogočanje samodokončanja imena domene med prijavo uporabnika</translation>
+<translation id="6312861131491040487">
+          Določa seznam aplikacij in razširitev, ki so nameščene brez obveščanja
+          in posegov uporabnika ter jih uporabnik ne more
+          odstraniti. Vsa dovoljenja, ki jih zahtevajo aplikacije/razširitve, so izrecno
+          odobrena brez posegov uporabnika, vključno z morebitnimi dodatnimi
+          dovoljenji, ki jih zahtevajo prihodnje različice aplikacije/razširitve.
+          Prav tako so odobrena dovoljenja za razširitvena API-ja
+          enterprise.deviceAttributes in enterprise.platformKeys.
+          (Ta API-ja nista na voljo aplikacijam/razširitvam,
+          ki niso vsiljeno nameščene.)
+
+          Ta pravilnik ima prednost pred pravilnikom
+          ExtensionsInstallBlacklist v primeru njunega spora. Če je aplikacija ali razširitev,
+          ki je bila vsiljeno nameščena, odstranjena s tega seznama, jo
+          brskalnik <ph name="PRODUCT_NAME" /> samodejno odstrani.
+
+          Za primerke sistema Windows, ki niso pridruženi v domeno Active Directory,
+          je vsiljeno nameščanje omejeno na aplikacije in razširitve, navedene
+          v Spletni trgovini Chrome.
+
+          Upoštevajte, da lahko uporabniki spremenijo izvorno kodo katere koli razširitve
+          z orodji za razvijalce (s čimer razširitev morda izgubi
+          funkcionalnost). Če imate glede tega pomisleke, nastavite pravilnik
+          DeveloperToolsDisabled.
+
+          Vsak element na seznamu pravilnika je niz, ki vsebuje ID razširitve
+          in URL za »posodobitev«, ločen s podpičjem (<ph name="SEMICOLON" />). ID razširitve je 32-mestni črkovni niz,
+          ki ga je mogoče v načinu za razvijalce
+          najti na primer na <ph name="CHROME_EXTENSIONS_LINK" />. URL za »posodobitev« mora kazati na dokument XML manifesta
+          za posodobitev, kot je opisano na <ph name="LINK_TO_EXTENSION_DOC1" />. Upoštevajte,
+          da se URL za »posodobitev«, nastavljen v tem pravilniku, uporabi samo pri začetni
+          namestitvi; pri vseh nadaljnjih posodobitvah razširitve je uporabljen
+          URL, naveden v manifestu razširitve.
+
+          <ph name="EXTENSION_POLICY_EXAMPLE" /> namesti na primer
+          aplikacijo <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> s standardnega URL-ja za »posodobitev« v Spletni trgovini Chrome.
+          Več informacij o gostovanju razširitev je na voljo tukaj: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Če ta pravilnik ni nastavljen, nobena aplikacija ali razširitev ni nameščena
+          samodejno in uporabnik lahko odstrani katero koli aplikacijo ali razširitev v brskalniku <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome prikaže opozorilno stran, ko uporabniki prikrmarijo na spletna mesta, na katerih so napake SSL. Uporabnikom je privzeto (ali če je ta pravilnik omogočen) dovoljeno, da s klikom opustijo te strani z opozorilom.
       Če onemogočite ta pravilnik, uporabnikom ni dovoljeno s klikom opustiti katere koli strani z opozorilom.</translation>
 <translation id="6353901068939575220">Določa parametre, uporabljene pri iskanju URL-ja z metodo POST. Sestavljena je iz parov ime/vrednost, ločenih z vejico. Če je vrednost parameter predloge, kot je v zgornjih primerih {searchTerms}, bo zamenjana s pravimi podatki iskalnih izrazov.

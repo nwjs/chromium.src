@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" />, vklopljeno</translation>
 <translation id="1692077714702418899">strukturna vrstica</translation>
 <translation id="1700517974991662022">Obiskano</translation>
+<translation id="1714116687360794776">Merilnik</translation>
 <translation id="1722567105086139392">Povezava</translation>
 <translation id="1727806147743597030">ng</translation>
 <translation id="174268867904053074">Naslednja grafika</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">Kontrolnik za datum in čas</translation>
 <translation id="2347456970887948350">Povezava</translation>
 <translation id="2359897517538099099">Ni v tabelarnem načinu.</translation>
+<translation id="2390264819538553347">Če želite nadaljevati, pritisnite tipko Enter, če se želite vrniti, pritisnite vračalko.</translation>
 <translation id="241124561063364910">in še</translation>
 <translation id="2416512023405990736">Neizbrano potrditveno polje</translation>
 <translation id="2417569100218200841">Informacije o vsebini</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">Ni prejšnjega razdelka.</translation>
 <translation id="3030432017085518523">Izbirni gumb menijskega elementa</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{opuščaj}one{# opuščaj}two{# opuščaja}few{# opuščaji}other{# opuščajev}}</translation>
+<translation id="3040901448410802366">Kazalnik poteka</translation>
 <translation id="3046838483509668188">Možnosti za ChromeVox</translation>
 <translation id="3047143736589213134">Poskusni zemljevid tipk</translation>
 <translation id="3060756054951570867">Meni <ph name="TITLE" /> je odprt</translation>
@@ -231,6 +234,7 @@
 <translation id="3321460131042519426">Omogočanje združevanja besed</translation>
 <translation id="3322936298410871309">Prejšnji naslov na ravni 1</translation>
 <translation id="3323447499041942178">Besedilno polje</translation>
+<translation id="3338224621010291843">Drsnik z vrednostjo <ph name="VALUE" /> in imenom <ph name="NAME" /></translation>
 <translation id="3353420241558113817">{"ar": "arabščina",
         "bg": "bolgarščina",
         "ca": "katalonščina",

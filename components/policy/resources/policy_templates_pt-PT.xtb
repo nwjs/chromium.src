@@ -867,6 +867,13 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
 <translation id="3547954654003013442">Definições de proxy</translation>
 <translation id="3570008976476035109">Bloquear plug-ins nestes sites</translation>
 <translation id="3591584750136265240">Configurar o comportamento de autenticação de início de sessão</translation>
+<translation id="3601614035698083789">Configura uma lista de marcadores geridos.
+      
+      A política consiste numa lista de marcadores, em que cada marcador é um dicionário que contém as chaves <ph name="NAME" /> e <ph name="URL_LABEL" /> que, por sua vez, contêm o nome e o destino do marcador. É possível configurar uma subpasta ao definir um marcador sem uma chave <ph name="URL_LABEL" />, mas com uma chave <ph name="CHILDREN" /> adicional que contém uma lista de marcadores conforme definido acima (alguns deles também podem ser pastas). O <ph name="PRODUCT_NAME" /> corrige os URLs incompletos como se tivessem sido enviados através da caixa geral, por exemplo, <ph name="GOOGLE_COM" /> fica <ph name="HTTPS_GOOGLE_COM" />.
+
+      Estes marcadores são colocados numa pasta "Marcadores geridos" que não pode ser modificada pelo utilizador, embora o utilizador possa optar por ocultá-la da barra de marcadores. Os marcadores geridos não são sincronizados com a conta do utilizador e não podem ser modificados por extensões.
+
+      A partir da versão 51, o nome da pasta para os marcadores é personalizável ao adicionar um item de lista {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Ativar ou desativar o serviço Web de verificação ortográfica</translation>
 <translation id="3646859102161347133">Definir tipo de lupa</translation>
 <translation id="3653237928288822292">Ícone do fornecedor de pesquisas predefinido</translation>
@@ -1664,6 +1671,50 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="6282799760374509080">Permitir ou impedir a captura de áudio</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Ativar o preenchimento automático do nome do domínio durante o início de sessão do utilizador</translation>
+<translation id="6312861131491040487">
+          Especifica uma lista de aplicações e de extensões que são instaladas em segundo plano,
+          sem a interação do utilizador, e que não podem ser desinstaladas pelo
+          utilizador. Todas as autorizações pedidas pelas aplicações/extensões são
+          concedidas implicitamente, sem a interação do utilizador, incluindo quaisquer  
+          autorizações adicionais pedidas pelas versões futuras da aplicação/extensão.
+          Além disso, as autorizações são concedidas para as APIs de extensões  
+          enterprise.deviceAttributes e enterprise.platformKeys. (Estas duas APIs não 
+          estão disponíveis para as aplicações/extensões que não sejam de instalação 
+          forçada.)
+
+          Esta política tem precedência sobre uma política ExtensionsInstallBlacklist 
+          que esteja potencialmente em conflito. Se uma aplicação ou um extensão de 
+          instalação forçada anterior for removida desta lista, é desinstalada 
+          automaticamente pelo <ph name="PRODUCT_NAME" />.
+
+          Para as instâncias do Windows que não estão associadas a um domínio do 
+          Active Directory, a instalação forçada está limitada às aplicações e às 
+          extensões indicadas na Web Store do Chrome.
+
+          Tenha em atenção que o código fonte de qualquer extensão pode ser 
+          alterado pelos utilizadores através das Ferramentas do programador (o 
+          que pode deixar a extensão disfuncional). Se isto for uma preocupação, deve 
+          definir a política DeveloperToolsDisabled.
+
+          
+          Cada item de lista da política é uma string que inclui um ID de extensão e um 
+          URL de "atualização", separados por ponto e vírgula (<ph name="SEMICOLON" />). 
+          O ID de extensão é uma string de 32 letras encontrada, por exemplo, em <ph name="CHROME_EXTENSIONS_LINK" /> 
+          quando está no modo de programador. O URL de "atualização" deve indicar 
+          um documento XML de manifesto de atualização, tal como descrito em <ph name="LINK_TO_EXTENSION_DOC1" />. 
+          Tenha em atenção que o URL de "atualização" definido nesta política apenas 
+          é utilizado para a instalação inicial, uma vez que as atualizações 
+          subsequentes da extensão utilizam o URL de atualização indicado no
+          manifesto da extensão.
+
+          Por exemplo, <ph name="EXTENSION_POLICY_EXAMPLE" />
+          instala a aplicação <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> 
+          a partir do URL de "atualização" padrão da Web Store do Chrome. Para obter  
+          mais informações acerca do alojamento de extensões, consulte: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Se deixar esta política por definir, não são instaladas automaticamente 
+          quaisquer aplicações ou extensões e o utilizador pode desinstalar qualquer 
+          aplicação ou extensão no <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">O Chrome mostra uma página de aviso quando os utilizadores navegam para sites com erros de SSL. Por predefinição ou quando esta política está definida como verdadeira, os utilizadores estão autorizados a clicar nestas páginas de aviso.
       Definir esta política como falsa desautoriza os utilizadores a clicar em qualquer página de aviso.</translation>
 <translation id="6353901068939575220">Especifica os parâmetros utilizados ao pesquisar um URL com POST. Consiste em pares de nome/valor separados por vírgulas. Se um valor for o parâmetro de um modelo, como {searchTerms} no exemplo acima, será substituído por dados dos termos de pesquisa reais.

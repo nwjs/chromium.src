@@ -861,6 +861,17 @@
 <translation id="3547954654003013442">Proxy 設定</translation>
 <translation id="3570008976476035109">封鎖這些網站的外掛程式</translation>
 <translation id="3591584750136265240">設定登入驗證行為</translation>
+<translation id="3601614035698083789">設定受管理的書籤清單。
+
+      這項政策包含書籤清單，每個書籤都是一個
+      內含 <ph name="NAME" /> 和 <ph name="URL_LABEL" /> 索引鍵的字典檔，這些索引鍵保存了書籤的名稱及目標。
+      設定子資料夾時，可直接定義書籤，不指定 <ph name="URL_LABEL" /> 索引鍵，但指定額外的 <ph name="CHILDREN" /> 索引鍵，其中含有
+      上述定義的書籤清單 (有些書籤可能又是資料夾)。<ph name="PRODUCT_NAME" /> 會比照網址列的提交方式，
+      將不完整的網址補足，例如將 <ph name="GOOGLE_COM" /> 變成 <ph name="HTTPS_GOOGLE_COM" />。
+
+      這些書籤會存放在「受管理的書籤」資料夾，使用者無法修改該資料夾，但可以選擇在書籤列中隱藏該資料夾。受管理的書籤不會同步到使用者帳戶，也無法透過擴充功能修改。
+
+      自版本 51 起，使用者只要新增 {"toplevel_name": "some name"} 清單項目，即可自訂書籤的資料夾名稱。</translation>
 <translation id="3627678165642179114">啟用或停用拼字檢查網路服務</translation>
 <translation id="3646859102161347133">設定螢幕放大鏡類型</translation>
 <translation id="3653237928288822292">預設搜尋引擎圖示</translation>
@@ -1653,6 +1664,46 @@
 <translation id="6282799760374509080">允許或拒絕擷取音訊</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">允許在使用者登入過程中以自動完成功能填入網域名稱</translation>
+<translation id="6312861131491040487">
+          指定以無訊息方式安裝 (使用者無需操作) 的應用程式和
+          擴充功能清單 (使用者無法解除安裝這些應用程式和擴充功能)。
+          系統會直接授予這些應用程式/擴充功能要求的所有權限
+          (使用者無需操作)，包括日後新版應用程式/擴充功能要求的
+          任何其他權限。
+          此外，系統已將權限授予
+          enterprise.deviceAttributes 和 enterprise.platformKeys 擴充功能
+          API (這兩個 API 不適用於非強制安裝的
+          應用程式/擴充功能)。
+
+          這項政策比可能發生衝突的 ExtensionsInstallBlacklist
+          政策具備更高的優先順序。如果從清單中移除先前
+          強制安裝的應用程式或擴充功能，
+          <ph name="PRODUCT_NAME" /> 會自動解除安裝該應用程式/擴充功能。
+
+          如果 Windows 執行個體未加入 Active Directory
+          網域，系統只能強制安裝 Chrome 線上應用程式商店
+          中的應用程式和擴充功能。
+
+          請注意，所有擴充功能的原始碼都可以使用開發人員
+          工具變更 (可能會造成擴充功能無法正常運作)。
+          如果你對此有所顧慮，建議你設定 DeveloperToolsDisabled
+          政策。
+
+          這項政策的每個清單項目都是一條字串，其中包含
+          以分號 (<ph name="SEMICOLON" />) 分隔的一個擴充功能 ID 和一個「更新」網址。擴充功能 ID 為 32 個字母的字串。
+          如需查看範例，請在開發人員模式下前往 <ph name="CHROME_EXTENSIONS_LINK" />。
+          「更新」網址應指向更新資訊清單
+          XML 文件 (如 <ph name="LINK_TO_EXTENSION_DOC1" /> 所述)。請注意，
+          這項政策中設定的「更新」網址僅適用於初次安裝，
+          後續的擴充功能更新將會使用
+          擴充功能資訊清單中指定的更新網址。
+
+          舉例來說，<ph name="EXTENSION_POLICY_EXAMPLE" />
+          會透過標準 Chrome 線上應用程式商店「更新」網址安裝「<ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" />」應用程式。
+          如需進一步瞭解如何代管擴充功能，請參閱 <ph name="LINK_TO_EXTENSION_DOC2" />。
+
+          如果未設定這項政策，則不會自動安裝任何應用程式或擴充功能，
+          且使用者可以在 <ph name="PRODUCT_NAME" /> 中解除安裝任何應用程式或擴充功能。</translation>
 <translation id="6315673513957120120">當使用者瀏覽出現 SSL 錯誤的網站，Chrome 會顯示警告網頁。在預設或政策設為 True 的情況下，使用者可以忽略這類警告網頁，繼續前往原先指定的頁面。
       這項政策設為 False 時，系統會禁止使用者忽略任何警告網頁。</translation>
 <translation id="6353901068939575220">指定使用 POST 搜尋網址時所用的參數，包含以逗號分隔的名稱/數值配對。如果數值為範本參數 (例如上例中的 {searchTerms})，系統將會以實際的搜尋字詞資料替代這個數值。

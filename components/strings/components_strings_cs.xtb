@@ -275,6 +275,7 @@
 <translation id="3655670868607891010">Pokud se vám tato stránka zobrazuje často, zkuste využít tyto <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Verze</translation>
 <translation id="3678029195006412963">Požadavek nebylo možné podepsat</translation>
+<translation id="3679803492151881375">Zpráva o selhání pořízená <ph name="CRASH_TIME" /> byla nahrána <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Informace o certifikátu</translation>
 <translation id="3690164694835360974">Přihlášení není zabezpečené</translation>
 <translation id="3693415264595406141">Heslo:</translation>
@@ -373,6 +374,7 @@
 <translation id="4764776831041365478">Webové stránky na adrese <ph name="URL" /> jsou možná dočasně nedostupné nebo mohly být přemístěny na novou webovou adresu.</translation>
 <translation id="4771973620359291008">Došlo k neznámé chybě.</translation>
 <translation id="4800132727771399293">Zkontrolujte datum vypršení platnosti a kód CVC a zkuste to znovu.</translation>
+<translation id="4803924862070940586"><ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
 <translation id="4813512666221746211">Chyba sítě</translation>
 <translation id="4816492930507672669">Přizpůsobit na stránku</translation>
 <translation id="4850886885716139402">Zobrazit</translation>
@@ -447,6 +449,7 @@ Kontaktujte administrátora systému.</translation>
 <translation id="5622887735448669177">Chcete tento web opustit?</translation>
 <translation id="5629630648637658800">Načítání nastavení zásady se nezdařilo</translation>
 <translation id="5631439013527180824">Neplatný token správy zařízení</translation>
+<translation id="5669703222995421982">Získejte personalizovaný obsah</translation>
 <translation id="5675650730144413517">Tato stránka nefunguje</translation>
 <translation id="5677928146339483299">Zablokováno</translation>
 <translation id="5694783966845939798">Pokusili jste se přejít na web <ph name="DOMAIN" />, server však předložil certifikát podepsaný slabým algoritmem (například SHA-1). To znamená, že bezpečnostní identifikační údaje předložené serverem mohou být falešné a může se jednat o úplně jiný server, než předpokládáte (můžete komunikovat s útočníkem). <ph name="BEGIN_LEARN_MORE_LINK" />Další informace<ph name="END_LEARN_MORE_LINK" /></translation>
@@ -546,6 +549,7 @@ Kontaktujte administrátora systému.</translation>
 <translation id="6753269504797312559">Hodnota zásady</translation>
 <translation id="6757797048963528358">Zařízení přešlo do režimu spánku.</translation>
 <translation id="6778737459546443941">Rodič ti přístup na web dosud neschválil.</translation>
+<translation id="6810899417690483278">ID přizpůsobení</translation>
 <translation id="6820686453637990663">Bezpečnostní kód platební karty (CVC)</translation>
 <translation id="6830600606572693159">Stránky na adrese <ph name="URL" /> nejsou v tuto chvíli k dispozici. Důvodem může být přetížení nebo provádění údržby.</translation>
 <translation id="6831043979455480757">Přeložit</translation>
@@ -705,6 +709,7 @@ Pssst! Příště by se vám mohl hodit anonymní režim (<ph name="SHORTCUT_KEY
 <translation id="8364627913115013041">Nenastaveno.</translation>
 <translation id="8380941800586852976">Nebezpečné</translation>
 <translation id="8382348898565613901">Zde se zobrazí nedávno navštívené záložky</translation>
+<translation id="8398259832188219207">Zpráva o selhání nahraná <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Selhání (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Stejnou heslovou frázi musíte zadat dvakrát.</translation>
 <translation id="8428213095426709021">Nastavení</translation>

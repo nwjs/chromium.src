@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" />, dihidupkan</translation>
 <translation id="1692077714702418899">garis struktur</translation>
 <translation id="1700517974991662022">Dilawati</translation>
+<translation id="1714116687360794776">Meter</translation>
 <translation id="1722567105086139392">Pautan</translation>
 <translation id="1727806147743597030">ftr</translation>
 <translation id="174268867904053074">Grafik seterusnya</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">Kawalan tarikh masa</translation>
 <translation id="2347456970887948350">Pautan</translation>
 <translation id="2359897517538099099">Bukan dalam mod jadual.</translation>
+<translation id="2390264819538553347">Untuk bergerak ke hadapan, tekan enter; untuk bergerak ke belakang, tekan backspace.</translation>
 <translation id="241124561063364910">diikuti oleh</translation>
 <translation id="2416512023405990736">Kotak pilihan tidak ditandai</translation>
 <translation id="2417569100218200841">Maklumat kandungan</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">Tiada bahagian sebelumnya.</translation>
 <translation id="3030432017085518523">Butang radio item menu</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{koma atas}other{# koma atas}}</translation>
+<translation id="3040901448410802366">Penunjuk kemajuan</translation>
 <translation id="3046838483509668188">Pilihan ChromeVox</translation>
 <translation id="3047143736589213134">Peta kekunci percubaan</translation>
 <translation id="3060756054951570867">Menu <ph name="TITLE" /> dibuka</translation>
@@ -231,6 +234,7 @@ Jika anda ingin keluar daripada tutorial, gunakan ChromeVox untuk menavigasi ke 
 <translation id="3321460131042519426">Dayakan balut kata</translation>
 <translation id="3322936298410871309">Tajuk tahap 1 sebelumnya</translation>
 <translation id="3323447499041942178">Kotak teks</translation>
+<translation id="3338224621010291843">Peluncur <ph name="VALUE" /> <ph name="NAME" /></translation>
 <translation id="3353420241558113817">{"ar": "Arab",
         "bg": "Bulgaria",
         "ca": "Catalonia",

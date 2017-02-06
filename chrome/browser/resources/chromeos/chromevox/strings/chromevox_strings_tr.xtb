@@ -74,6 +74,7 @@
 <translation id="1680732992526857724"><ph name="NAME" />, aç</translation>
 <translation id="1692077714702418899">yapısal satır</translation>
 <translation id="1700517974991662022">Ziyaret edildi</translation>
+<translation id="1714116687360794776">Ölçüm aracı</translation>
 <translation id="1722567105086139392">Bağlantı</translation>
 <translation id="1727806147743597030">ftr</translation>
 <translation id="174268867904053074">Sonraki grafik</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">Tarih/saat denetimi</translation>
 <translation id="2347456970887948350">Bağlantı</translation>
 <translation id="2359897517538099099">Tablo modunda değil.</translation>
+<translation id="2390264819538553347">İlerlemek için enter tuşuna, geri gitmek için geri tuşuna basın.</translation>
 <translation id="241124561063364910">ardından</translation>
 <translation id="2416512023405990736">İşaretlenmemiş onay kutusu</translation>
 <translation id="2417569100218200841">İçerik bilgileri</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">Önceki bölüm yok.</translation>
 <translation id="3030432017085518523">Menü öğesi radyo düğmesi</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{kesme işareti}other{# kesme işareti}}</translation>
+<translation id="3040901448410802366">İlerleme göstergesi</translation>
 <translation id="3046838483509668188">ChromeVox Seçenekleri</translation>
 <translation id="3047143736589213134">Deneysel tuş eşleme</translation>
 <translation id="3060756054951570867"><ph name="TITLE" /> menüsü açıldı</translation>
@@ -231,6 +234,7 @@ Eğiticiyle işiniz bittiğinde, ChromeVox'u kullanarak Kapat düğmesine gidin 
 <translation id="3321460131042519426">Kelime kaydırmayı etkinleştir</translation>
 <translation id="3322936298410871309">Önceki 1. düzey başlık</translation>
 <translation id="3323447499041942178">Metin kutusu</translation>
+<translation id="3338224621010291843"><ph name="VALUE" /> <ph name="NAME" /> kaydırma çubuğu</translation>
 <translation id="3353420241558113817">{"ar": "Arapça",
         "bg": "Bulgarca",
         "ca": "Katalanca",

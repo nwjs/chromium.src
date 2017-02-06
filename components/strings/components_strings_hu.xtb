@@ -277,6 +277,7 @@
 <translation id="3655670868607891010">Ha gyakran látja ezt, próbálja ki a következőt: <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Ellenőrzés</translation>
 <translation id="3678029195006412963">A kérést nem lehetett aláírni</translation>
+<translation id="3679803492151881375">A hibajelentés elkészítésének ideje: <ph name="CRASH_TIME" />; a feltöltés ideje: <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Tanúsítvány adatai</translation>
 <translation id="3690164694835360974">A bejelentkezés nem biztonságos</translation>
 <translation id="3693415264595406141">Jelszó:</translation>
@@ -375,6 +376,7 @@
 <translation id="4764776831041365478">A <ph name="URL" /> weboldal lehet, hogy ideiglenesen nem érhető el, vagy véglegesen új címre költözött.</translation>
 <translation id="4771973620359291008">Ismeretlen hiba történt.</translation>
 <translation id="4800132727771399293">Ellenőrizze a lejárati dátumot és a CVC-t, majd próbálja újra</translation>
+<translation id="4803924862070940586"><ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
 <translation id="4813512666221746211">Hálózati hiba</translation>
 <translation id="4816492930507672669">Igazítás az oldalmérethez</translation>
 <translation id="4850886885716139402">Nézet</translation>
@@ -449,6 +451,7 @@
 <translation id="5622887735448669177">Szeretné elhagyni ezt a webhelyet?</translation>
 <translation id="5629630648637658800">Az irányelv-beállítások betöltése sikertelen</translation>
 <translation id="5631439013527180824">Érvénytelen eszközkezelési token</translation>
+<translation id="5669703222995421982">Személyre szabott tartalmak fogadása</translation>
 <translation id="5675650730144413517">Az oldal nem működik</translation>
 <translation id="5677928146339483299">Letiltva</translation>
 <translation id="5694783966845939798">Megpróbálta elérni a(z) <ph name="DOMAIN" /> webhelyet, de a szerver gyenge aláírási algoritmust (pl. SHA-1-et) használó tanúsítványt mutatott be. Ez alapján elképzelhető, hogy a szerver által megadott biztonsági tanúsítványt hamisították, és a szerver nem az, amelyikre számított (lehet, hogy éppen a támadóval áll kapcsolatban). <ph name="BEGIN_LEARN_MORE_LINK" />További információ<ph name="END_LEARN_MORE_LINK" />.</translation>
@@ -549,6 +552,7 @@
 <translation id="6753269504797312559">Házirend értéke</translation>
 <translation id="6757797048963528358">Eszköze alvó üzemmódba váltott.</translation>
 <translation id="6778737459546443941">A szülő még nem hagyta jóvá</translation>
+<translation id="6810899417690483278">Testreszabás-azonosító</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">A(z) <ph name="URL" /> helyen lévő weboldal pillanatnyilag nem érhető el. Lehetséges, hogy túlterhelt, vagy karbantartás miatt nem működik.</translation>
 <translation id="6831043979455480757">Fordítás</translation>
@@ -708,6 +712,7 @@ Pszt! Az inkognitómód (<ph name="SHORTCUT_KEY" />) hasznos lehet a következő
 <translation id="8364627913115013041">Nincs beállítva.</translation>
 <translation id="8380941800586852976">Veszélyes</translation>
 <translation id="8382348898565613901">A közelmúltban megnyitott könyvjelzők helye</translation>
+<translation id="8398259832188219207">A hibajelentés feltöltésének ideje: <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Rendszerösszeomlások ( <ph name="CRASH_COUNT" /> )</translation>
 <translation id="8412392972487953978">Mindkét alkalommal ugyanazt az összetett jelszót kell megadnia.</translation>
 <translation id="8428213095426709021">Beállítások</translation>

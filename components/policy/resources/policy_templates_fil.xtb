@@ -902,6 +902,17 @@
 <translation id="3547954654003013442">Mga setting ng proxy</translation>
 <translation id="3570008976476035109">I-block ang mga plugin sa mga site na ito</translation>
 <translation id="3591584750136265240">I-configure ang gawi sa pagpapatotoo sa pag-log in</translation>
+<translation id="3601614035698083789">Kino-configure ang isang listahan ng mga pinamamahalaang bookmark.
+
+      Binubuo ang patakaran ng isang listahan ng mga bookmark kung saan ang bawat bookmark ay isang
+      diksyunaryong naglalaman ng mga key na <ph name="NAME" /> at <ph name="URL_LABEL" /> na naglalaman ng pangalan ng bookmark at ng mga target nito. Maaaring
+      i-configure ang isang subfolder sa pamamagitan ng pagtukoy ng bookmark na walang <ph name="URL_LABEL" /> key ngunit may karagdagang <ph name="CHILDREN" /> key na naglalaman mismo ng listahan ng
+      mga bookmark tulad ng nakasaad sa itaas (ang ilan sa mga ito ay maaaring mga folder muli). Binabago ng <ph name="PRODUCT_NAME" /> ang mga hindi kumpletong URL
+      na parang isinumite ang mga ito sa pamamagitan ng Omnibox, halimbawa, ang <ph name="GOOGLE_COM" /> ay magiging <ph name="HTTPS_GOOGLE_COM" />.
+
+      Inilalagay ang mga bookmark na ito sa isang "Mga pinamamahalaang bookmark" na folder na hindi mababago ng user, ngunit maaaring piliin ng user na itago ito mula sa bookmark bar. Hindi nasi-sync ang Mga pinamamahalaang bookmark sa user account at hindi mababago ng mga extension.
+
+      Simula sa release 51, maaaring i-customize ang pangalan ng folder para sa mga bookmark sa pamamagitan ng pagdaragdag ng item sa listahan na {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Paganahin o huwag paganahin ang spell checking na serbisyo sa web</translation>
 <translation id="3646859102161347133">Itakda ang uri ng magnifier sa screen</translation>
 <translation id="3653237928288822292">Default na icon ng provider ng paghahanap</translation>
@@ -1758,6 +1769,46 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 <translation id="6282799760374509080">Payagan o tanggihan ang pagkuha ng audio</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">I-enable ang pag-autocomplete ng domain name sa pag-sign in ng user</translation>
+<translation id="6312861131491040487">
+          Tinutukoy ang isang listahan ng mga app at extension na tahimik na ini-install,
+          nang walang pakikipag-ugnayan sa user at hindi maaaring ma-uninstall ng
+          user. Ang lahat ng pahintulot na hiniling ng mga app/extension ay ibinibigay nang
+          hindi tahasan, nang walang pakikipag-ugnayan sa user, kabilang ang anumang karagdagang
+          pahintulot na hihilingin ng mga bersyon sa hinaharap ng app/extension.
+          Bukod pa rito, ibinibigay ang mga pahintulot para sa mga
+          enterprise.deviceAttributes at enterprise.platformKeys extension
+          API. (Hindi available ang dalawang API na ito sa mga app/extension na hindi
+          puwersahang ini-install.)
+
+          Nangingibabaw ang patakarang ito sa isang potensyal na sumasalungat na
+          patakaran ng ExtensionsInstallBlacklist. Kung ang isang app o extension na
+          dating puwersahang na-install ay naalis sa listahang ito, awtomatiko itong
+          ina-uninstall ng <ph name="PRODUCT_NAME" />.
+
+          Para sa mga instance ng Windows na hindi nakasama sa isang Active Directory
+          domain, malilimitahan ang puwersahang pag-install sa mga app at extension na nakalista
+          sa Chrome Web Store.
+
+          Tandaan na ang source code ng anumang extension ay maaaring mabago ng mga user
+          sa pamamagitan ng Developer Tools (potensyal na maaaring hindi makapagpagana
+          sa extension). Kung nag-aalala ka tungkol dito, dapat na itakda ang
+          patakarang DeveloperToolsDisabled.
+
+          Ang bawat item ng listahan ng patakaran ay isang string na naglalaman ng extension ID
+          at isang "update" URL na hinihiwalay ng isang tutuldok-kuwit (<ph name="SEMICOLON" />). Ang extension ID ay ang 32 titik na string
+          na makikita hal. sa <ph name="CHROME_EXTENSIONS_LINK" /> kapag nasa
+          developer mode. Dapat na humantong ang "update" URL sa isang Update Manifest
+          XML document tulad ng nakalarawan sa <ph name="LINK_TO_EXTENSION_DOC1" />. Tandaan na
+          ang "update" URL na nakatakda sa patakarang ito ay ginagamit lang para sa paunang
+          pag-install; ginagamit ng mga kasunod na update sa extension ang update
+          URL na nakasaad sa manifest ng extension.
+
+          Halimbawa, ini-install ng <ph name="EXTENSION_POLICY_EXAMPLE" />
+          ang <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> app mula sa karaniwang "update"
+          URL ng Chrome Web Store. Para sa higit pang impormasyon tungkol sa pagho-host ng mga extension, tingnan ang: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Kung naiwang hindi nakatakda ang patakarang ito, walang app o extension ang awtomatikong
+          ii-install at magagawa ng user na i-uninstall ang anumang app o extension sa <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Nagpapakita ang Chrome ng page ng babala kapag nag-navigate ang mga user sa mga site na may mga SSL error. Bilang default o kapag itinakda ang patakarang ito sa true, maaaring mag-click ang mga user sa mga page ng babala na ito.
       Kapag itinakda ang patakarang ito sa false, hindi makakapag-click ang mga user sa anumang page ng babala.</translation>
 <translation id="6353901068939575220">Tinutukoy ang mga parameter na ginamit kapag naghahanap ng URL gamit ang POST. Binubuo ito ng mga pares ng pangalan/value na pinaghihiwalay ng kuwit. Kung isang parameter ng template ang isang value, tulad ng {searchTerms} sa halimbawa sa itaas, papalitan ito ng data ng tunay na mga termino para sa paghahanap.

@@ -909,6 +909,13 @@ Ja šim iestatījumam ir izvēlēta vērtība “Izslēgts” vai vērtība nav 
 <translation id="3547954654003013442">Starpniekservera iestatījumi</translation>
 <translation id="3570008976476035109">Bloķē spraudņus šajās vietnēs</translation>
 <translation id="3591584750136265240">Pieteikšanās autentifikācijas darbības konfigurēšana</translation>
+<translation id="3601614035698083789">Tiek konfigurēts pārvaldīto grāmatzīmju saraksts.
+
+      Politika sastāv no grāmatzīmju saraksta, kurā katra grāmatzīme ir vārdnīca ar atslēgām “<ph name="NAME" />” un “<ph name="URL_LABEL" />”, kas ietver grāmatzīmes nosaukumu un tās mērķi. Lai konfigurētu apakšmapi, var definēt grāmatzīmi bez atslēgas “<ph name="URL_LABEL" />”, bet ar papildu atslēgu “<ph name="CHILDREN" />”, kas ietver grāmatzīmju sarakstu, kā definēts iepriekš (dažas no tām arī var būt mapes). <ph name="PRODUCT_NAME" /> papildina nepilnīgus vietrāžus URL, it kā tie būtu ierakstīti universālajā lodziņā, piemēram, “<ph name="GOOGLE_COM" />” tiek pārveidots par “<ph name="HTTPS_GOOGLE_COM" />”.
+
+      Šīs grāmatzīmes tiek ievietotas mapē “Pārvaldītās grāmatzīmes”, ko lietotājs nevar mainīt, taču var paslēpt no grāmatzīmju joslas. Pārvaldītās grāmatzīmes netiek sinhronizētas ar lietotāja kontu, un paplašinājumi tās nevar mainīt.
+
+      Sākot ar laidienu 51, grāmatzīmju mapes nosaukumu var pielāgot, pievienojot saraksta vienumu {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Pareizrakstības pārbaudes tīmekļa pakalpojuma iespējošana vai atspējošana</translation>
 <translation id="3646859102161347133">Ekrāna lupas veida iestatīšana</translation>
 <translation id="3653237928288822292">Noklusējuma meklētājprogrammas ikona</translation>
@@ -1758,6 +1765,20 @@ Ja šī politika nav iestatīta, lietotājs var atspējot jebkuru sistēmā inst
 <translation id="6282799760374509080">Audio tveršanas ļaušana vai noraidīšana</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Domēna nosaukuma automātiskās pabeigšanas iespējošana lietotāja pierakstīšanās laikā</translation>
+<translation id="6312861131491040487">
+          Nosaka sarakstu ar lietotnēm un paplašinājumiem, kuri tiek instalēti klusajā režīmā bez lietotāja iejaukšanās un kurus lietotājs nevar atinstalēt. Visas lietotņu/paplašinājumu pieprasītās atļaujas, tostarp visas lietotnes/paplašinājuma turpmāko versiju pieprasītās atļaujas, tiek piešķirtas tieši bez lietotāja iejaukšanās. Turklāt atļaujas tiek piešķirtas paplašinājumu saskarnēm API enterprise.deviceAttributes un enterprise.platformKeys. (Šīs divas saskarnes API nav pieejamas lietotnēm/paplašinājumiem, kas nav instalēti piespiedu kārtā.)
+
+          Šī politika ir svarīgāka par iespējami konfliktējošo politiku ExtensionsInstallBlacklist. Ja lietotne vai paplašinājums, kas tika instalēts piespiedu kārtā, tiek noņemts no šī saraksta, <ph name="PRODUCT_NAME" /> to automātiski atinstalē.
+
+          Windows datoros, kas nav pievienoti Active Directory domēnam, piespiedu instalēšana attiecas tikai uz lietotnēm un paplašinājumiem, kas norādīti Chrome interneta veikalā.
+
+          Ņemiet vērā, ka jebkura paplašinājuma avota kods var tikt mainīts Izstrādātāja rīkos, potenciāli renderējot paplašinājumu kā nefunkcionējošu. Ja tas sagādā problēmas, ir jāiestata politika DeveloperToolsDisabled.
+
+          Katrs politikas saraksta vienums ir virkne, kas ietver paplašinājuma ID un atjaunināšanas URL, kuri atdalīti ar semikolu (<ph name="SEMICOLON" />). Paplašinājuma ID ir 32 burtu virkne, kas ir redzama, piemēram, lapā <ph name="CHROME_EXTENSIONS_LINK" /> izstrādātāja režīmā. Atjaunināšanas vietrādim URL ir jānovirza uz atjauninājuma manifesta XML dokumentu, kā norādīts šeit: <ph name="LINK_TO_EXTENSION_DOC1" />. Ņemiet vērā, ka šajā politikā iestatītais atjaunināšanas URL tiek izmantots tikai sākotnējai instalācijai; nākamajiem paplašinājuma atjauninājumiem tiek izmantots paplašinājuma manifestā norādītais atjaunināšanas URL.
+
+          Piemēram, <ph name="EXTENSION_POLICY_EXAMPLE" /> instalē lietotni <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" />, izmantojot Chrome interneta veikala standarta atjaunināšanas URL. Plašāku informāciju par paplašinājumu mitināšanu skatiet šeit: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Ja šī politika nav iestatīta, neviena lietotne un paplašinājums netiek instalēts automātiski un lietotājs var atinstalēt jebkuru pārlūkā <ph name="PRODUCT_NAME" /> esošu lietotni vai paplašinājumu.</translation>
 <translation id="6315673513957120120">Ja lietotāji atver vietnes, kurās ir SSL kļūdas, pārlūkā Chrome tiek parādīta brīdinājuma lapa. Pēc noklusējuma, kā arī tad, ja šai politikai ir iestatīta vērtība Patiesa, lietotājiem ir atļauts no brīdinājuma lapas pāriet uz vietni.
       Ja politikai ir iestatīta vērtība Nepatiesa, lietotājiem tiek liegts no brīdinājuma lapas pāriet uz vietni.</translation>
 <translation id="6353901068939575220">Norāda parametrus, kas tiek izmantoti, meklējot URL ar metodi POST. Izmantojot šo metodi, tiek meklēti ar komatu atdalītu vārdu/vērtību pāri. Ja vērtība ir veidnes parametrs, piemēram, {searchTerms} (iepriekšējā piemērā), tas tiks aizstāts ar īstiem meklēšanas vienumu datiem.

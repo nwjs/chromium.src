@@ -32,6 +32,7 @@
 <translation id="1407135791313364759">Abrir todas</translation>
 <translation id="1430915738399379752">Imprimir</translation>
 <translation id="145015347812617860"><ph name="COUNT" /> itens</translation>
+<translation id="1491277525950327607">Toque duas vezes para alternar a configuração</translation>
 <translation id="1540800554400757039">Endereço 1</translation>
 <translation id="1545749641540134597">Ler código QR</translation>
 <translation id="1580783302095112590">Mensagem enviada.</translation>
@@ -216,6 +217,7 @@ Seus dados são criptografados com sua senha longa de sincronização. Informe-a
 <translation id="5300589172476337783">Mostrar</translation>
 <translation id="5317780077021120954">Salvar</translation>
 <translation id="5327248766486351172">Nome</translation>
+<translation id="5332219387342487447">Método de envio</translation>
 <translation id="5388358297987318779">Abrir imagem</translation>
 <translation id="5409365236829784218">Nenhum aplicativo instalado pode abrir este arquivo.</translation>
 <translation id="54401264925851789">Informações de segurança</translation>
@@ -268,6 +270,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6255097610484507482">Editar cartão de crédito</translation>
 <translation id="6308436439357671616">Isso permite que você tire fotos e faça upload delas.</translation>
 <translation id="6314335155547195432">Gerar senha</translation>
+<translation id="6324528485781869530">Mudar conta de sincronização</translation>
 <translation id="6324669097367352121">Configurações de login</translation>
 <translation id="6337234675334993532">Criptografia</translation>
 <translation id="633809752005859102">Algo deu errado. Estamos trabalhando para resolver isso.</translation>

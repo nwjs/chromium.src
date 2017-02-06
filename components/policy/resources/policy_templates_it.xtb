@@ -831,6 +831,17 @@ Questa norma viene rispettata soltanto se viene attivata la norma "DefaultSearch
 <translation id="3547954654003013442">Impostazioni proxy</translation>
 <translation id="3570008976476035109">Blocca plug-in su questi siti</translation>
 <translation id="3591584750136265240">Configura il comportamento di autenticazione dell'accesso</translation>
+<translation id="3601614035698083789">Consente di configurare un elenco di preferiti gestiti.
+
+      La norma è costituita da un elenco di preferiti, in cui ogni preferito rappresenta un
+      dizionario contenente le chiavi <ph name="NAME" /> e <ph name="URL_LABEL" />, che indicano il nome e la destinazione del preferito. È
+      possibile configurare una sottocartella definendo un preferito senza chiave <ph name="URL_LABEL" />, ma con una chiave aggiuntiva <ph name="CHILDREN" /> contenente un elenco di
+      preferiti come definito in alto (alcuni preferiti potrebbero essere cartelle a loro volta). <ph name="PRODUCT_NAME" /> corregge gli URL incompleti
+      come se fossero stati inviati tramite la omnibox, ad esempio, <ph name="GOOGLE_COM" /> diventa <ph name="HTTPS_GOOGLE_COM" />.
+
+      Questi preferiti vengono inseriti in una cartella Preferiti gestiti che non può essere modificata dall'utente, ma che l'utente può decidere di nascondere nella barra dei Preferiti. I preferiti gestiti non vengono sincronizzati con l'account utente e non possono essere modificati dalle estensioni.
+
+      A partire dalla versione 51, il nome della cartella per i preferiti è personalizzabile tramite l'aggiunta di una voce di elenco {"toplevel_name": "some name"}.</translation>
 <translation id="3627678165642179114">Attiva o disattiva il servizio web di controllo ortografico</translation>
 <translation id="3646859102161347133">Impostazione tipo di ingrandimento dello schermo</translation>
 <translation id="3653237928288822292">Icona del provider di ricerca predefinito</translation>
@@ -1593,6 +1604,46 @@ Il valore della norma deve essere specificato in millisecondi. I valori devono e
 <translation id="6282799760374509080">Consenti o nega acquisizione audio</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Consente il completamento automatico del nome di dominio durante l'accesso dell'utente</translation>
+<translation id="6312861131491040487">
+          Consente di specificare un elenco di app ed estensioni che vengono installate automaticamente,,
+          senza dunque l'interazione dell'utente e che non possono essere disinstallate
+          dall'utente. Tutte le autorizzazioni richieste dalle app/estensioni vengono concesse
+          implicitamente, senza interazione dell'utente, comprese le eventuali autorizzazioni
+          aggiuntive richieste dalle future versioni delle app/estensioni.
+          Inoltre, le autorizzazioni sono concesse per
+          le API delle estensioni enterprise.deviceAttributes e enterprise.platformKeys.
+          (Queste due API non sono disponibili per le app/estensioni prive di
+          installazione imposta).
+
+          Questa norma ha precedenza su una norma
+          ExtensionsInstallBlacklist potenzialmente in contrasto. Se un'app o un'estensione con
+          installazione imposta viene rimossa da questo elenco,
+          tale app o estensione viene disisntallata automaticamente da <ph name="PRODUCT_NAME" />.
+
+          Per le istanze di Windows che non fanno parte di un dominio Active Directory,
+          l'installazione forzata è limitata alle estensioni elencate
+          nel Chrome Web Store.
+
+          Tieni presente che il codice sorgente delle estensioni potrebbe essere stato modificato dagli utenti tramite
+          gli strumenti per sviluppatori (rendendo potenzialmente problematico il rendering
+          dell'estensione). Se rappresenta un problema, deve essere impostata la norma
+          DeveloperToolsDisabled.
+
+          Ogni voce della norma è una stringa contenente un ID estensione
+          e un URL di "aggiornamento" separati da punto e virgola (<ph name="SEMICOLON" />). L'ID estensione è la stringa di 32 lettere
+          che si trova, ad esempio, all'indirizzo <ph name="CHROME_EXTENSIONS_LINK" /> in
+          modalità sviluppatore. L'URL di "aggiornamento" deve indirizzare a un documento
+          XML Manifest di aggiornamento, come descritto all'indirizzo <ph name="LINK_TO_EXTENSION_DOC1" />. L'URL di aggiornamento
+          impostato in questa norma viene utilizzato esclusivamente per l'installazione
+          iniziale; per i successivi aggiornamenti dell'estensione viene utilizzato
+          l'URL di aggiornamento indicato nel file manifest dell'estensione.
+
+          Ad esempio, <ph name="EXTENSION_POLICY_EXAMPLE" />
+          installa l'app <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> dall'URL di "aggiornamento" del Chrome Web Store
+          standard. Ulteriori informazioni sulle estensioni in hosting sono disponibili all'indirizzo: <ph name="LINK_TO_EXTENSION_DOC2" />.
+
+          Se questa norma non è impostata, nessuna app e nessuna estensione vengono installate
+          automaticamente e l'utente può disinstallate qualsiasi app o estrensione in <ph name="PRODUCT_NAME" />.</translation>
 <translation id="6315673513957120120">Chrome mostra una pagina di avviso quando gli utenti visitano siti che presentano errori SSL. Per impostazione predefinita, o se la norma viene impostata su true, gli utenti possono fare clic nelle pagine di avviso.
       Se questa norma viene impostata su false, gli utenti non possono fare clic nelle pagine di avviso.</translation>
 <translation id="6353901068939575220">Consente di specificare i parametri utilizzati durante la ricerca di un URL con POST. Si tratta di coppie di nome/valore separate da virgole. Se un valore è il parametro di un modello, come {searchTerms} nell'esempio precedente, verrà sostituito con i dati dei termini di ricerca reali.

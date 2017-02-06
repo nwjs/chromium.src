@@ -278,6 +278,7 @@
 <translation id="3655670868607891010">Ako se to često prikazuje, pokušajte <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Izmjena</translation>
 <translation id="3678029195006412963">Zahtjev nije bilo moguće potpisati</translation>
+<translation id="3679803492151881375">Izvješće o rušenju programa generirano u <ph name="CRASH_TIME" />, preneseno u <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Podaci o certifikatu</translation>
 <translation id="3690164694835360974">Prijava nije sigurna</translation>
 <translation id="3693415264595406141">Zaporka:</translation>
@@ -376,6 +377,7 @@
 <translation id="4764776831041365478">Web-stranica na adresi <ph name="URL" /> možda privremeno nije dostupna ili je trajno preseljena na novu web-adresu.</translation>
 <translation id="4771973620359291008">Došlo je do nepoznate pogreške.</translation>
 <translation id="4800132727771399293">Provjerite datum isteka i CVC pa pokušajte ponovo</translation>
+<translation id="4803924862070940586"><ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
 <translation id="4813512666221746211">Pogreška mreže</translation>
 <translation id="4816492930507672669">Prilagodi stranici</translation>
 <translation id="4850886885716139402">Prikaz</translation>
@@ -450,6 +452,7 @@
 <translation id="5622887735448669177">Želite li zatvoriti tu web-lokaciju?</translation>
 <translation id="5629630648637658800">Učitavanje postavki pravila nije uspjelo</translation>
 <translation id="5631439013527180824">Token za upravljanje uređajem nije važeći</translation>
+<translation id="5669703222995421982">Predlaganje sadržaja</translation>
 <translation id="5675650730144413517">Stranica ne funkcionira</translation>
 <translation id="5677928146339483299">Blokirano</translation>
 <translation id="5694783966845939798">Pokušali ste otvoriti <ph name="DOMAIN" />, ali je poslužitelj pružio certifikat potpisan slabim algoritmom potpisa (kao što je SHA-1). To znači da su sigurnosne vjerodajnice koje je poslužitelj pružio možda krivotvorene, a poslužitelj možda nije onaj koji očekujete (možda komunicirate s napadačem). <ph name="BEGIN_LEARN_MORE_LINK" />Saznajte više<ph name="END_LEARN_MORE_LINK" />.</translation>
@@ -550,6 +553,7 @@
 <translation id="6753269504797312559">Vrijednost pravila</translation>
 <translation id="6757797048963528358">Uređaj je u stanju mirovanja.</translation>
 <translation id="6778737459546443941">Roditelj je još nije odobrio</translation>
+<translation id="6810899417690483278">ID prilagođavanja</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6830600606572693159">Web-stranica na <ph name="URL" /> trenutno nije dostupna.  Možda je preopterećena ili isključena zbog održavanja.</translation>
 <translation id="6831043979455480757">Prevedi</translation>
@@ -709,6 +713,7 @@ Psst! Sljedeći bi vam put mogao koristiti anonimni način <ph name="SHORTCUT_KE
 <translation id="8364627913115013041">Nije postavljeno.</translation>
 <translation id="8380941800586852976">Opasno</translation>
 <translation id="8382348898565613901">Ovdje će se prikazivati oznake koje ste nedavno posjetili</translation>
+<translation id="8398259832188219207">Izvješće o rušenju programa prenesenu u <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Padovi (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Morate dvaput unijeti istu zaporku.</translation>
 <translation id="8428213095426709021">Postavke</translation>

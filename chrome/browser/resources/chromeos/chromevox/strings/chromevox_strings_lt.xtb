@@ -74,6 +74,7 @@
 <translation id="1680732992526857724">„<ph name="NAME" />“, įjungti</translation>
 <translation id="1692077714702418899">struktūrinė linija</translation>
 <translation id="1700517974991662022">Apsilankyta</translation>
+<translation id="1714116687360794776">Matuoklis</translation>
 <translation id="1722567105086139392">Nuoroda</translation>
 <translation id="1727806147743597030">ftr</translation>
 <translation id="174268867904053074">Kitas grafinis elementas</translation>
@@ -123,6 +124,7 @@
 <translation id="2344193891939537199">Datos ir laiko valdiklis</translation>
 <translation id="2347456970887948350">Nuoroda</translation>
 <translation id="2359897517538099099">Ne lentelės režimu.</translation>
+<translation id="2390264819538553347">Jei norite eiti pirmyn, paspauskite „Enter“; jei norite grįžti, paspauskite naikinimo klavišą.</translation>
 <translation id="241124561063364910">ir</translation>
 <translation id="2416512023405990736">Nepažymėtas žymimasis laukelis</translation>
 <translation id="2417569100218200841">Turinio informacija</translation>
@@ -189,6 +191,7 @@
 <translation id="3012414509011670858">Nėra ankstesnės skilties.</translation>
 <translation id="3030432017085518523">Meniu elemento akutė</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{apostrofas}one{# apostrofas}few{# apostrofai}many{# apostrophes}other{# apostrofų}}</translation>
+<translation id="3040901448410802366">Eigos indikatorius</translation>
 <translation id="3046838483509668188">„ChromeVox“ parinktys</translation>
 <translation id="3047143736589213134">Eksperimentinis klavišų žemėlapis</translation>
 <translation id="3060756054951570867">„<ph name="TITLE" />“, meniu atidarytas</translation>
@@ -231,6 +234,7 @@ Peržiūrėję visą mokymo programą, naudokite „ChromeVox“, kad pasiektum�
 <translation id="3321460131042519426">Įgalinti teksto skaidymą į eilutes</translation>
 <translation id="3322936298410871309">Ankstesnė 1 lygio antraštė</translation>
 <translation id="3323447499041942178">Teksto laukelis</translation>
+<translation id="3338224621010291843"><ph name="VALUE" /> <ph name="NAME" /> šliaužiklis</translation>
 <translation id="3353420241558113817">{"ar": "arabų k.",
         "bg": "bulgarų k.",
         "ca": "katalonų k.",
