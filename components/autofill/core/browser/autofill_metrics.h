@@ -663,6 +663,10 @@ class AutofillMetrics {
   // context.
   static void LogIsQueriedCreditCardFormSecure(bool is_secure);
 
+  // This should be called when the user selects the Form-Not-Secure warning
+  // suggestion to show an explanation of the warning.
+  static void LogShowedHttpNotSecureExplanation();
+
   // Utility to autofill form events in the relevant histograms depending on
   // the presence of server and/or local data.
   class FormEventLogger {
