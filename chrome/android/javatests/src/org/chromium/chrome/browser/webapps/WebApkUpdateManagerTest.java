@@ -122,7 +122,7 @@ public class WebApkUpdateManagerTest extends ChromeTabbedActivityTestBase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        RecordHistogram.setDisabledForTests(true);
+        RecordHistogram.disableForTests();
         Context context = getInstrumentation().getTargetContext();
         mTestServer = EmbeddedTestServer.createAndStartServer(context);
         mTab = getActivity().getActivityTab();
@@ -135,7 +135,6 @@ public class WebApkUpdateManagerTest extends ChromeTabbedActivityTestBase {
     @Override
     protected void tearDown() throws Exception {
         mTestServer.stopAndDestroyServer();
-        RecordHistogram.setDisabledForTests(false);
         super.tearDown();
     }
 
