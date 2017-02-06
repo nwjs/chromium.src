@@ -481,7 +481,7 @@ void PersonalDataManager::RecordUseOf(const AutofillDataModel& data_model) {
     if (credit_card->record_type() == CreditCard::LOCAL_CARD)
       database_->UpdateCreditCard(*credit_card);
     else
-      database_->UpdateServerCardMetadata(*credit_card);
+      database_->UpdateServerCardUsageStats(*credit_card);
 
     Refresh();
     return;
@@ -494,7 +494,7 @@ void PersonalDataManager::RecordUseOf(const AutofillDataModel& data_model) {
     if (profile->record_type() == AutofillProfile::LOCAL_PROFILE)
       database_->UpdateAutofillProfile(*profile);
     else if (profile->record_type() == AutofillProfile::SERVER_PROFILE)
-      database_->UpdateServerAddressMetadata(*profile);
+      database_->UpdateServerAddressUsageStats(*profile);
 
     Refresh();
   }
@@ -649,10 +649,25 @@ void PersonalDataManager::UpdateServerCardMetadata(
     const CreditCard& credit_card) {
   DCHECK_NE(CreditCard::LOCAL_CARD, credit_card.record_type());
 
-  if (is_off_the_record_ || !database_.get())
+  if (!database_.get())
     return;
 
-  database_->UpdateServerCardMetadata(credit_card);
+  CreditCard* existing_credit_card = nullptr;
+  for (auto& server_card : server_credit_cards_) {
+    if (credit_card.server_id() == server_card->server_id()) {
+      existing_credit_card = server_card.get();
+      break;
+    }
+  }
+  if (!existing_credit_card
+      || existing_credit_card->billing_address_id() ==
+          credit_card.billing_address_id()) {
+    return;
+  }
+
+  existing_credit_card->set_billing_address_id(
+      credit_card.billing_address_id());
+  database_->UpdateServerCardBillingAddress(*existing_credit_card);
 
   Refresh();
 }

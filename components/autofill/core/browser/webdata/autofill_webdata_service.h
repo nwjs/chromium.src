@@ -97,8 +97,9 @@ class AutofillWebDataService : public AutofillWebData,
 
   void ClearAllServerData();
 
-  void UpdateServerCardMetadata(const CreditCard& credit_card) override;
-  void UpdateServerAddressMetadata(const AutofillProfile& profile) override;
+  void UpdateServerCardUsageStats(const CreditCard& credit_card) override;
+  void UpdateServerAddressUsageStats(const AutofillProfile& profile) override;
+  void UpdateServerCardBillingAddress(const CreditCard& credit_card) override;
 
   void RemoveAutofillDataModifiedBetween(const base::Time& delete_begin,
                                          const base::Time& delete_end) override;

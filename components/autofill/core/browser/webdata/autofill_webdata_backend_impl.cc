@@ -370,11 +370,11 @@ WebDatabase::State
   return WebDatabase::COMMIT_NOT_NEEDED;
 }
 
-WebDatabase::State AutofillWebDataBackendImpl::UpdateServerCardMetadata(
+WebDatabase::State AutofillWebDataBackendImpl::UpdateServerCardUsageStats(
     const CreditCard& card,
     WebDatabase* db) {
   DCHECK(db_thread_->BelongsToCurrentThread());
-  if (!AutofillTable::FromWebDatabase(db)->UpdateServerCardMetadata(card))
+  if (!AutofillTable::FromWebDatabase(db)->UpdateServerCardUsageStats(card))
     return WebDatabase::COMMIT_NOT_NEEDED;
 
   for (auto& db_observer : db_observer_list_) {
@@ -385,11 +385,11 @@ WebDatabase::State AutofillWebDataBackendImpl::UpdateServerCardMetadata(
   return WebDatabase::COMMIT_NEEDED;
 }
 
-WebDatabase::State AutofillWebDataBackendImpl::UpdateServerAddressMetadata(
+WebDatabase::State AutofillWebDataBackendImpl::UpdateServerAddressUsageStats(
     const AutofillProfile& profile,
     WebDatabase* db) {
   DCHECK(db_thread_->BelongsToCurrentThread());
-  if (!AutofillTable::FromWebDatabase(db)->UpdateServerAddressMetadata(
+  if (!AutofillTable::FromWebDatabase(db)->UpdateServerAddressUsageStats(
           profile)) {
     return WebDatabase::COMMIT_NOT_NEEDED;
   }
@@ -397,6 +397,23 @@ WebDatabase::State AutofillWebDataBackendImpl::UpdateServerAddressMetadata(
   for (auto& db_observer : db_observer_list_) {
     db_observer.AutofillProfileChanged(AutofillProfileChange(
         AutofillProfileChange::UPDATE, profile.guid(), &profile));
+  }
+
+  return WebDatabase::COMMIT_NEEDED;
+}
+
+WebDatabase::State AutofillWebDataBackendImpl::UpdateServerCardBillingAddress(
+    const CreditCard& card,
+    WebDatabase* db) {
+  DCHECK(db_thread_->BelongsToCurrentThread());
+  if (!AutofillTable::FromWebDatabase(db)->UpdateServerCardBillingAddress(
+          card)) {
+    return WebDatabase::COMMIT_NOT_NEEDED;
+  }
+
+  for (auto& db_observer : db_observer_list_) {
+    db_observer.CreditCardChanged(
+        CreditCardChange(CreditCardChange::UPDATE, card.guid(), &card));
   }
 
   return WebDatabase::COMMIT_NEEDED;
