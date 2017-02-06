@@ -281,6 +281,8 @@ NetworkQualityEstimator::NetworkQualityEstimator(
               variation_params)),
       forced_effective_connection_type_(
           nqe::internal::forced_effective_connection_type(variation_params)),
+      persistent_cache_reading_enabled_(
+          nqe::internal::persistent_cache_reading_enabled(variation_params)),
       weak_ptr_factory_(this) {
   // None of the algorithms can have an empty name.
   DCHECK(algorithm_name_to_enum_.end() ==
@@ -1374,6 +1376,9 @@ nqe::internal::NetworkID NetworkQualityEstimator::GetCurrentNetworkID() const {
 bool NetworkQualityEstimator::ReadCachedNetworkQualityEstimate() {
   DCHECK(thread_checker_.CalledOnValidThread());
 
+  if (!persistent_cache_reading_enabled_)
+    return false;
+
   nqe::internal::CachedNetworkQuality cached_network_quality;
 
   const bool cached_estimate_available = network_quality_store_->GetById(
@@ -1663,6 +1668,9 @@ void NetworkQualityEstimator::MaybeUpdateNetworkQualityFromCache(
     const nqe::internal::NetworkID& network_id,
     const nqe::internal::CachedNetworkQuality& cached_network_quality) {
   DCHECK(thread_checker_.CalledOnValidThread());
+
+  if (!persistent_cache_reading_enabled_)
+    return;
   if (network_id != current_network_id_)
     return;
 
