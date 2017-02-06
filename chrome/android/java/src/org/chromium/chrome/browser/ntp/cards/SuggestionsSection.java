@@ -8,7 +8,6 @@ import android.support.annotation.CallSuper;
 
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
-import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.ntp.NewTabPageUma;
 import org.chromium.chrome.browser.ntp.snippets.CategoryInt;
 import org.chromium.chrome.browser.ntp.snippets.CategoryStatus.CategoryStatusEnum;
@@ -176,7 +175,7 @@ public class SuggestionsSection extends InnerNode {
             int itemCount = mSuggestions.size();
             if (itemCount > n) {
                 mSuggestions.subList(n, itemCount).clear();
-                notifyItemRangeRemoved(n, itemCount - 1);
+                notifyItemRangeRemoved(n, itemCount - n);
             }
         }
 
@@ -466,21 +465,11 @@ public class SuggestionsSection extends InnerNode {
         return mHeader.getHeaderText();
     }
 
-    /**
-     * @return The progress indicator.
-     */
-    @VisibleForTesting
     ProgressItem getProgressItemForTesting() {
         return mProgressIndicator;
     }
 
-    @VisibleForTesting
-    ActionItem getActionItem() {
+    ActionItem getActionItemForTesting() {
         return mMoreButton;
-    }
-
-    @VisibleForTesting
-    StatusItem getStatusItem() {
-        return mStatus;
     }
 }
