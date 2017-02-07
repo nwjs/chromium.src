@@ -10856,7 +10856,8 @@ TEST_F(WebFrameTest, MouseOverDifferntNodeClearsTooltip) {
 }
 
 // Makes sure that mouse hover over an overlay scrollbar doesn't activate
-// elements below unless the scrollbar is faded out.
+// elements below(except the Element that owns the scrollbar) unless the
+// scrollbar is faded out.
 TEST_F(WebFrameTest, MouseOverLinkAndOverlayScrollbar) {
   FrameTestHelpers::WebViewHelper webViewHelper;
   webViewHelper.initialize(true, nullptr, nullptr, nullptr,
