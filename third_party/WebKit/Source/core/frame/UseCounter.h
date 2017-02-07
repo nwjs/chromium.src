@@ -1449,6 +1449,7 @@ class CORE_EXPORT UseCounter {
     V8MediaSession_PlaybackState_AttributeGetter = 1790,
     V8MediaSession_PlaybackState_AttributeSetter = 1791,
     V8MediaSession_SetActionHandler_Method = 1792,
+    AudioParamCancelAndHoldAtTime = 1797,
 
     // Add new features immediately above this line. Don't change assigned
     // numbers of any item, and don't reuse removed slots.
