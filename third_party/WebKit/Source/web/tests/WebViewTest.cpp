@@ -2697,22 +2697,14 @@ TEST_P(WebViewTest, ShowPressOnTransformedLink) {
 class MockAutofillClient : public WebAutofillClient {
  public:
   MockAutofillClient()
-      : m_ignoreTextChanges(false),
+      : m_textChanges(0),
         m_textChangesFromUserGesture(0),
-        m_textChangesWhileIgnored(0),
-        m_textChangesWhileNotIgnored(0),
         m_userGestureNotificationsCount(0) {}
 
   ~MockAutofillClient() override {}
 
-  void setIgnoreTextChanges(bool ignore) override {
-    m_ignoreTextChanges = ignore;
-  }
   void textFieldDidChange(const WebFormControlElement&) override {
-    if (m_ignoreTextChanges)
-      ++m_textChangesWhileIgnored;
-    else
-      ++m_textChangesWhileNotIgnored;
+    ++m_textChanges;
 
     if (UserGestureIndicator::processingUserGesture())
       ++m_textChangesFromUserGesture;
@@ -2721,23 +2713,17 @@ class MockAutofillClient : public WebAutofillClient {
     ++m_userGestureNotificationsCount;
   }
 
-  void clearChangeCounts() {
-    m_textChangesWhileIgnored = 0;
-    m_textChangesWhileNotIgnored = 0;
-  }
+  void clearChangeCounts() { m_textChanges = 0; }
 
+  int textChanges() { return m_textChanges; }
   int textChangesFromUserGesture() { return m_textChangesFromUserGesture; }
-  int textChangesWhileIgnored() { return m_textChangesWhileIgnored; }
-  int textChangesWhileNotIgnored() { return m_textChangesWhileNotIgnored; }
   int getUserGestureNotificationsCount() {
     return m_userGestureNotificationsCount;
   }
 
  private:
-  bool m_ignoreTextChanges;
+  int m_textChanges;
   int m_textChangesFromUserGesture;
-  int m_textChangesWhileIgnored;
-  int m_textChangesWhileNotIgnored;
   int m_userGestureNotificationsCount;
 };
 
@@ -2766,7 +2752,7 @@ TEST_P(WebViewTest, LosingFocusDoesNotTriggerAutofillTextChange) {
   // trigger a text changed notification for autofill.
   client.clearChangeCounts();
   webView->setFocus(false);
-  EXPECT_EQ(0, client.textChangesWhileNotIgnored());
+  EXPECT_EQ(0, client.textChanges());
 
   frame->setAutofillClient(0);
 }
@@ -2833,7 +2819,7 @@ TEST_P(WebViewTest, CompositionNotCancelledByBackspace) {
   frame->setAutofillClient(0);
 }
 
-TEST_P(WebViewTest, FinishComposingTextTriggersAutofillTextChange) {
+TEST_P(WebViewTest, FinishComposingTextDoesntTriggerAutofillTextChange) {
   URLTestHelpers::registerMockedURLFromBaseURL(
       WebString::fromUTF8(m_baseURL.c_str()),
       WebString::fromUTF8("input_field_populated.html"));
@@ -2843,6 +2829,11 @@ TEST_P(WebViewTest, FinishComposingTextTriggersAutofillTextChange) {
   WebLocalFrameImpl* frame = webView->mainFrameImpl();
   frame->setAutofillClient(&client);
   webView->setInitialFocus(false);
+
+  WebDocument document = webView->mainFrame()->document();
+  HTMLFormControlElement* form =
+      toHTMLFormControlElement(document.getElementById("sample"));
+
   WebInputMethodController* activeInputMethodController =
       frame->frameWidget()->getActiveWebInputMethodController();
   // Set up a composition that needs to be committed.
@@ -2859,16 +2850,20 @@ TEST_P(WebViewTest, FinishComposingTextTriggersAutofillTextChange) {
   EXPECT_EQ(0, info.compositionStart);
   EXPECT_EQ((int)compositionText.length(), info.compositionEnd);
 
+  form->setAutofilled(true);
   client.clearChangeCounts();
+
   activeInputMethodController->finishComposingText(
       WebInputMethodController::KeepSelection);
-  EXPECT_EQ(0, client.textChangesWhileIgnored());
-  EXPECT_EQ(1, client.textChangesWhileNotIgnored());
+  EXPECT_EQ(0, client.textChanges());
+
+  EXPECT_TRUE(form->isAutofilled());
 
   frame->setAutofillClient(0);
 }
 
-TEST_P(WebViewTest, SetCompositionFromExistingTextTriggersAutofillTextChange) {
+TEST_P(WebViewTest,
+       SetCompositionFromExistingTextDoesntTriggerAutofillTextChange) {
   URLTestHelpers::registerMockedURLFromBaseURL(
       WebString::fromUTF8(m_baseURL.c_str()),
       WebString::fromUTF8("input_field_populated.html"));
@@ -2890,8 +2885,7 @@ TEST_P(WebViewTest, SetCompositionFromExistingTextTriggersAutofillTextChange) {
   EXPECT_EQ(8, info.compositionStart);
   EXPECT_EQ(12, info.compositionEnd);
 
-  EXPECT_EQ(0, client.textChangesWhileIgnored());
-  EXPECT_EQ(0, client.textChangesWhileNotIgnored());
+  EXPECT_EQ(0, client.textChanges());
 
   WebDocument document = webView->mainFrame()->document();
   EXPECT_EQ(WebString::fromUTF8("none"),
