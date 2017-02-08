@@ -4102,9 +4102,7 @@ class BrowserBookmarkModelBridge : public bookmarks::BookmarkModelObserver {
       [super chromeExecuteCommand:sender];
       break;
     case IDC_SHOW_QR_SCANNER:
-      if (experimental_flags::IsQRCodeReaderEnabled()) {
-        [self showQRScanner];
-      }
+      [self showQRScanner];
       break;
     default:
       // Unknown commands get sent up the responder chain.
