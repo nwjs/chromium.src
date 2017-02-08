@@ -141,8 +141,9 @@ void DOMWrapperWorld::markWrappersInAllWorlds(
   // Handle marking in per-worker wrapper worlds.
   if (!isMainThread()) {
     DCHECK(ThreadState::current()->isolate());
-    if (workerWorld()) {
-      DOMDataStore& dataStore = workerWorld()->domDataStore();
+    DOMWrapperWorld* worker = workerWorld();
+    if (worker) {
+      DOMDataStore& dataStore = worker->domDataStore();
       if (dataStore.containsWrapper(scriptWrappable)) {
         dataStore.markWrapper(scriptWrappable);
       }
@@ -187,10 +188,6 @@ DOMWrapperWorld::~DOMWrapperWorld() {
 
   dispose();
 
-  if (m_worldId == WorkerWorldId) {
-    workerWorld() = nullptr;
-  }
-
   if (!isIsolatedWorld())
     return;
 
@@ -209,6 +206,8 @@ DOMWrapperWorld::~DOMWrapperWorld() {
 void DOMWrapperWorld::dispose() {
   m_domObjectHolders.clear();
   m_domDataStore.reset();
+  if (isWorkerWorld())
+    workerWorld() = nullptr;
 }
 
 #if DCHECK_IS_ON()
