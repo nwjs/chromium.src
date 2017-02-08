@@ -643,6 +643,9 @@ static bool hoverMediaFeatureEval(const MediaQueryExpValue& value,
   if (!value.isID)
     return false;
 
+  if (value.id == CSSValueOnDemand)
+    UseCounter::count(mediaValues.document(), UseCounter::CSSValueOnDemand);
+
   return (hover == HoverTypeNone && value.id == CSSValueNone) ||
          (hover == HoverTypeOnDemand && value.id == CSSValueOnDemand) ||
          (hover == HoverTypeHover && value.id == CSSValueHover);
@@ -663,6 +666,7 @@ static bool anyHoverMediaFeatureEval(const MediaQueryExpValue& value,
     case CSSValueNone:
       return availableHoverTypes & HoverTypeNone;
     case CSSValueOnDemand:
+      UseCounter::count(mediaValues.document(), UseCounter::CSSValueOnDemand);
       return availableHoverTypes & HoverTypeOnDemand;
     case CSSValueHover:
       return availableHoverTypes & HoverTypeHover;
