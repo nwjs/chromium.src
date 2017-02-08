@@ -11,7 +11,6 @@ import android.util.JsonWriter;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.AutofillProfile;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
@@ -35,6 +34,7 @@ import javax.annotation.Nullable;
  */
 public class AutofillPaymentInstrument extends PaymentInstrument
         implements FullCardRequestDelegate, NormalizedAddressRequestDelegate {
+    private final Context mContext;
     private final WebContents mWebContents;
     private CreditCard mCard;
     private String mSecurityCode;
@@ -48,29 +48,26 @@ public class AutofillPaymentInstrument extends PaymentInstrument
     /**
      * Builds a payment instrument for the given credit card.
      *
+     * @param context        The application context.
      * @param webContents    The web contents where PaymentRequest was invoked.
      * @param card           The autofill card that can be used for payment.
      * @param billingAddress The billing address for the card.
      * @param methodName     The payment method name, e.g., "basic-card", "visa", amex", or null.
      */
-    public AutofillPaymentInstrument(WebContents webContents, CreditCard card,
+    public AutofillPaymentInstrument(Context context, WebContents webContents, CreditCard card,
             @Nullable AutofillProfile billingAddress, @Nullable String methodName) {
-        super(card.getGUID(), card.getObfuscatedNumber(), card.getName(), null);
+        super(card.getGUID(), card.getObfuscatedNumber(), card.getName(),
+                card.getIssuerIconDrawableId() == 0
+                ? null
+                : ApiCompatibilityUtils.getDrawable(
+                        context.getResources(), card.getIssuerIconDrawableId()));
+        mContext = context;
         mWebContents = webContents;
         mCard = card;
         mBillingAddress = billingAddress;
         mIsEditable = true;
         mMethodName = methodName;
-
-        Context context = ChromeActivity.fromWebContents(mWebContents);
-        if (context == null) return;
-
-        if (card.getIssuerIconDrawableId() != 0) {
-            updateDrawableIcon(ApiCompatibilityUtils.getDrawable(
-                    context.getResources(), card.getIssuerIconDrawableId()));
-        }
-
-        checkAndUpateCardCompleteness(context);
+        checkAndUpateCardCompleteness();
     }
 
     @Override
@@ -259,14 +256,10 @@ public class AutofillPaymentInstrument extends PaymentInstrument
         mCard = card;
         mMethodName = methodName;
         mBillingAddress = billingAddress;
-
-        Context context = ChromeActivity.fromWebContents(mWebContents);
-        if (context == null) return;
-
         updateIdentifierLabelsAndIcon(card.getGUID(), card.getObfuscatedNumber(), card.getName(),
                 null, ApiCompatibilityUtils.getDrawable(
-                        context.getResources(), card.getIssuerIconDrawableId()));
-        checkAndUpateCardCompleteness(context);
+                              mContext.getResources(), card.getIssuerIconDrawableId()));
+        checkAndUpateCardCompleteness();
         assert mIsComplete;
         assert mHasValidNumberAndName;
     }
@@ -287,7 +280,7 @@ public class AutofillPaymentInstrument extends PaymentInstrument
      * Does not check that the card type is accepted by the merchant. This is done elsewhere to
      * filter out such cards from view entirely.
      */
-    private void checkAndUpateCardCompleteness(Context context) {
+    private void checkAndUpateCardCompleteness() {
         int editMessageResId = 0; // Zero is the invalid resource Id.
         int editTitleResId = R.string.payments_edit_card;
         int invalidFieldsCount = 0;
@@ -322,8 +315,8 @@ public class AutofillPaymentInstrument extends PaymentInstrument
             editTitleResId = R.string.payments_add_more_information;
         }
 
-        mEditMessage = editMessageResId == 0 ? null : context.getString(editMessageResId);
-        mEditTitle = context.getString(editTitleResId);
+        mEditMessage = editMessageResId == 0 ? null : mContext.getString(editMessageResId);
+        mEditTitle = mContext.getString(editTitleResId);
         mIsComplete = mEditMessage == null;
     }
 

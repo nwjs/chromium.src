@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.payments;
 
+import android.content.Context;
+
 import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.content_public.browser.WebContents;
@@ -48,12 +50,13 @@ public class PaymentAppFactory {
         /**
          * Builds instances of payment apps.
          *
+         * @param context     The application context.
          * @param webContents The web contents that invoked PaymentRequest.
          * @param methods     The methods that the merchant supports.
          * @param callback    The callback to invoke when apps are created.
          */
-        void create(
-                WebContents webContents, Set<String> methods, PaymentAppCreatedCallback callback);
+        void create(Context context, WebContents webContents, Set<String> methods,
+                PaymentAppCreatedCallback callback);
     }
 
     private PaymentAppFactory() {
@@ -89,13 +92,14 @@ public class PaymentAppFactory {
     /**
      * Builds instances of payment apps.
      *
+     * @param context     The context.
      * @param webContents The web contents where PaymentRequest was invoked.
      * @param methods     The methods that the merchant supports.
      * @param callback    The callback to invoke when apps are created.
      */
-    public void create(WebContents webContents, Set<String> methods,
+    public void create(Context context, WebContents webContents, Set<String> methods,
             final PaymentAppCreatedCallback callback) {
-        callback.onPaymentAppCreated(new AutofillPaymentApp(webContents));
+        callback.onPaymentAppCreated(new AutofillPaymentApp(context, webContents));
 
         if (mAdditionalFactories.isEmpty()) {
             callback.onAllPaymentAppsCreated();
@@ -119,7 +123,7 @@ public class PaymentAppFactory {
                     if (mPendingTasks.isEmpty()) callback.onAllPaymentAppsCreated();
                 }
             };
-            additionalFactory.create(webContents, methods, cb);
+            additionalFactory.create(context, webContents, methods, cb);
         }
     }
 }

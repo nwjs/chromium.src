@@ -126,15 +126,6 @@ public class PaymentOption implements Completable {
     }
 
     /**
-     * Updates the label of this option.
-     *
-     * @param label The new label to use.
-     */
-    protected void updateLabel(String label) {
-        mLabels[0] = label;
-    }
-
-    /**
      * Updates the sublabel of this option.
      *
      * @param sublabel The new sublabel to use.
@@ -146,15 +137,10 @@ public class PaymentOption implements Completable {
     /**
      * Updates the tertiary label of this option.
      *
-     * @param tertiarylabel The new tertiary label to use.
+     * @param tetriarylabel The new tertiary label to use.
      */
     protected void updateTertiarylabel(@Nullable String tertiarylabel) {
         mLabels[2] = tertiarylabel;
-    }
-
-    /** @param icon The new icon to use. */
-    public void updateDrawableIcon(Drawable icon) {
-        mIcon = icon;
     }
 
     /** @return The drawable icon for this payment option. */
