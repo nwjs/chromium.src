@@ -2323,6 +2323,24 @@ static void countKeywordOnlyPropertyUsage(CSSPropertyID property,
       break;
     }
 
+    case CSSPropertyWebkitUserModify: {
+      switch (valueID) {
+        case CSSValueReadOnly:
+          context->useCounter()->count(UseCounter::CSSValueUserModifyReadOnly);
+          break;
+        case CSSValueReadWrite:
+          context->useCounter()->count(UseCounter::CSSValueUserModifyReadWrite);
+          break;
+        case CSSValueReadWritePlaintextOnly:
+          context->useCounter()->count(
+              UseCounter::CSSValueUserModifyReadWritePlaintextOnly);
+          break;
+        default:
+          NOTREACHED();
+      }
+      break;
+    }
+
     default:
       break;
   }
