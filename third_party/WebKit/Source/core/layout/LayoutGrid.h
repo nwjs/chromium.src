@@ -143,6 +143,8 @@ class LayoutGrid final : public LayoutBlock {
 
   size_t computeAutoRepeatTracksCount(GridTrackSizingDirection,
                                       SizingOperation) const;
+  size_t clampAutoRepeatTracks(GridTrackSizingDirection,
+                               size_t autoRepeatTracks) const;
 
   typedef ListHashSet<size_t> OrderedTrackIndexSet;
   std::unique_ptr<OrderedTrackIndexSet> computeEmptyTracksForAutoRepeat(
