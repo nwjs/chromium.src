@@ -4,6 +4,7 @@
 
 #include "core/frame/DOMWindow.h"
 
+#include <memory>
 #include "core/dom/Document.h"
 #include "core/dom/ExceptionCode.h"
 #include "core/dom/ExecutionContext.h"
@@ -20,6 +21,7 @@
 #include "core/frame/Settings.h"
 #include "core/frame/UseCounter.h"
 #include "core/input/EventHandler.h"
+#include "core/input/InputDeviceCapabilities.h"
 #include "core/inspector/ConsoleMessage.h"
 #include "core/inspector/InspectorInstrumentation.h"
 #include "core/loader/FrameLoaderClient.h"
@@ -30,7 +32,6 @@
 #include "platform/weborigin/KURL.h"
 #include "platform/weborigin/SecurityOrigin.h"
 #include "platform/weborigin/Suborigin.h"
-#include <memory>
 
 namespace blink {
 
@@ -437,8 +438,15 @@ void DOMWindow::focus(ExecutionContext* context) {
   page->focusController().focusDocumentView(frame(), true /* notifyEmbedder */);
 }
 
+InputDeviceCapabilitiesConstants* DOMWindow::getInputDeviceCapabilities() {
+  if (!m_inputCapabilities)
+    m_inputCapabilities = new InputDeviceCapabilitiesConstants;
+  return m_inputCapabilities;
+}
+
 DEFINE_TRACE(DOMWindow) {
   visitor->trace(m_frame);
+  visitor->trace(m_inputCapabilities);
   visitor->trace(m_location);
   visitor->trace(m_external);
   EventTargetWithInlineData::trace(visitor);

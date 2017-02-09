@@ -29,6 +29,7 @@
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalDOMWindow.h"
 #include "core/frame/LocalFrame.h"
+#include "core/input/InputDeviceCapabilities.h"
 #include "core/layout/LayoutObject.h"
 #include "core/paint/PaintLayer.h"
 #include "core/svg/SVGElement.h"
@@ -197,10 +198,10 @@ MouseEvent::MouseEvent(
           0,
           static_cast<PlatformEvent::Modifiers>(event.modifiers()),
           TimeTicks::FromSeconds(event.timeStampSeconds()),
-          syntheticEventType == PlatformMouseEvent::FromTouch
-              ? InputDeviceCapabilities::firesTouchEventsSourceCapabilities()
-              : InputDeviceCapabilities::
-                    doesntFireTouchEventsSourceCapabilities()),
+          abstractView
+              ? abstractView->getInputDeviceCapabilities()->firesTouchEvents(
+                    syntheticEventType == PlatformMouseEvent::FromTouch)
+              : nullptr),
       m_screenLocation(event.globalX, event.globalY),
       m_movementDelta(flooredIntPoint(event.movementInRootFrame())),
       m_positionType(syntheticEventType == PlatformMouseEvent::Positionless
@@ -243,10 +244,10 @@ MouseEvent::MouseEvent(
           detail,
           modifiers,
           platformTimeStamp,
-          syntheticEventType == PlatformMouseEvent::FromTouch
-              ? InputDeviceCapabilities::firesTouchEventsSourceCapabilities()
-              : InputDeviceCapabilities::
-                    doesntFireTouchEventsSourceCapabilities()),
+          abstractView
+              ? abstractView->getInputDeviceCapabilities()->firesTouchEvents(
+                    syntheticEventType == PlatformMouseEvent::FromTouch)
+              : nullptr),
       m_screenLocation(screenX, screenY),
       m_movementDelta(movementX, movementY),
       m_positionType(syntheticEventType == PlatformMouseEvent::Positionless

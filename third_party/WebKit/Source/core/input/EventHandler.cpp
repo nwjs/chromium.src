@@ -679,9 +679,13 @@ WebInputEventResult EventHandler::handleMousePressEvent(
   HitTestResult hitTestResult = EventHandlingUtil::hitTestResultInFrame(
       m_frame, documentPoint, HitTestRequest::ReadOnly);
   InputDeviceCapabilities* sourceCapabilities =
-      mouseEvent.getSyntheticEventType() == PlatformMouseEvent::FromTouch
-          ? InputDeviceCapabilities::firesTouchEventsSourceCapabilities()
-          : InputDeviceCapabilities::doesntFireTouchEventsSourceCapabilities();
+      m_frame->document()
+          ->domWindow()
+          ->getInputDeviceCapabilities()
+          ->firesTouchEvents(
+              mouseEvent.getSyntheticEventType() ==
+              PlatformMouseEvent::FromTouch);
+
   if (eventResult == WebInputEventResult::NotHandled) {
     eventResult = m_mouseEventManager->handleMouseFocus(hitTestResult,
                                                         sourceCapabilities);

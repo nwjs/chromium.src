@@ -31,6 +31,7 @@ class FrameRequestCallback;
 class History;
 class IdleRequestCallback;
 class IdleRequestOptions;
+class InputDeviceCapabilitiesConstants;
 class Location;
 class LocalDOMWindow;
 class MessageEvent;
@@ -256,6 +257,8 @@ class CORE_EXPORT DOMWindow : public EventTargetWithInlineData,
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(orientationchange);
 
+  InputDeviceCapabilitiesConstants* getInputDeviceCapabilities();
+
  protected:
   explicit DOMWindow(Frame&);
 
@@ -267,6 +270,7 @@ class CORE_EXPORT DOMWindow : public EventTargetWithInlineData,
 
  private:
   Member<Frame> m_frame;
+  Member<InputDeviceCapabilitiesConstants> m_inputCapabilities;
   mutable Member<Location> m_location;
   Member<External> m_external;
 

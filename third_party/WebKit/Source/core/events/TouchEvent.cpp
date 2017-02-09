@@ -33,6 +33,7 @@
 #include "core/frame/FrameView.h"
 #include "core/frame/LocalDOMWindow.h"
 #include "core/html/HTMLElement.h"
+#include "core/input/InputDeviceCapabilities.h"
 #include "core/inspector/ConsoleMessage.h"
 #include "platform/Histogram.h"
 
@@ -225,7 +226,8 @@ TouchEvent::TouchEvent(TouchList* touches,
           0,
           modifiers,
           platformTimeStamp,
-          InputDeviceCapabilities::firesTouchEventsSourceCapabilities()),
+          view ? view->getInputDeviceCapabilities()->firesTouchEvents(true)
+               : nullptr),
       m_touches(touches),
       m_targetTouches(targetTouches),
       m_changedTouches(changedTouches),
