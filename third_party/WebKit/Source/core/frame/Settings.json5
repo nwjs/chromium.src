@@ -566,6 +566,11 @@ data: [
   },
 
   {
+    name: "encryptedMediaEnabled",
+    initial: true,
+  },
+
+  {
     name: "dataSaverEnabled",
     initial: false,
   },
