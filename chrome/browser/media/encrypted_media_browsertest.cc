@@ -544,7 +544,7 @@ IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, EncryptedMediaDisabled) {
   RunEncryptedMediaTest(kDefaultEmePlayer, "bear-a_enc-a.webm",
                         kWebMVorbisAudioOnly, CurrentKeySystem(),
                         CurrentSourceType(), kNoSessionToLoad, false,
-                        PlayCount::ONCE, kEmeNotSupportedError);
+                        PlayTwice::NO, kEmeNotSupportedError);
 }
 
 #if defined(USE_PROPRIETARY_CODECS)
