@@ -28,10 +28,6 @@ namespace {
 // scrolling is active and possible.
 const double kAsyncTouchMoveIntervalSec = .2;
 
-// A sanity check on touches received to ensure that touch movement outside
-// the platform slop region will cause scrolling.
-const double kMaxConceivablePlatformSlopRegionLengthDipsSquared = 60. * 60.;
-
 TouchEventWithLatencyInfo ObtainCancelEventForTouchEvent(
     const TouchEventWithLatencyInfo& event_to_cancel) {
   TouchEventWithLatencyInfo event = event_to_cancel;
