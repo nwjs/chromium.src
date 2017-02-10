@@ -503,6 +503,8 @@ void DocumentLoader::responseReceived(
 
   DCHECK(!m_frame->page()->suspended());
 
+  if (response.didServiceWorkerNavigationPreload())
+    UseCounter::count(m_frame, UseCounter::ServiceWorkerNavigationPreload);
   m_response = response;
 
   if (isArchiveMIMEType(m_response.mimeType()) &&
