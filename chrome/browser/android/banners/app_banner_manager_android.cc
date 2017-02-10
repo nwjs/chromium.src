@@ -171,7 +171,7 @@ void AppBannerManagerAndroid::PerformInstallableCheck() {
     Stop();
   }
 
-  if (ChromeWebApkHost::AreWebApkEnabled()) {
+  if (ChromeWebApkHost::CanInstallWebApk()) {
     if (!AreWebManifestUrlsWebApkCompatible(manifest_)) {
       ReportStatus(web_contents(), URL_NOT_SUPPORTED_FOR_WEBAPK);
       Stop();
