@@ -626,4 +626,23 @@ TEST_P(PaintLayerTest, CompositingContainerFloatingIframe) {
   }
 }
 
+TEST_P(PaintLayerTest, CompositingContainerSelfPaintingNonStackedFloat) {
+  setBodyInnerHTML(
+      "<div id='container' style='position: relative'>"
+      "  <span id='span' style='opacity: 0.9'>"
+      "    <div id='target' style='columns: 1; float: left'></div>"
+      "  </span>"
+      "</div>");
+
+  // The target layer is self-painting, but not stacked.
+  PaintLayer* target =
+      toLayoutBoxModelObject(getLayoutObjectByElementId("target"))->layer();
+  EXPECT_TRUE(target->isSelfPaintingLayer());
+  EXPECT_FALSE(target->stackingNode()->isStacked());
+
+  PaintLayer* span =
+      toLayoutBoxModelObject(getLayoutObjectByElementId("span"))->layer();
+  EXPECT_EQ(span, target->compositingContainer());
+}
+
 }  // namespace blink

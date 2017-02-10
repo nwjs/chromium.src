@@ -921,7 +921,8 @@ PaintLayer* PaintLayer::compositingContainer() const {
   if (!stackingNode()->isStacked()) {
     // Floats have special painting order, which has complicated semantics.
     // See the comments around FloatObject::setShouldPaint.
-    if (m_layoutObject->isFloating() && m_layoutObject->parent() &&
+    if (!isSelfPaintingLayer() && m_layoutObject->isFloating() &&
+        m_layoutObject->parent() &&
         !m_layoutObject->parent()->isLayoutBlockFlow())
       return m_layoutObject->containingBlock()->enclosingLayer();
 
