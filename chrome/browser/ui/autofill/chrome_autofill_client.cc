@@ -343,7 +343,7 @@ void ChromeAutofillClient::OnFirstUserGestureObserved() {
   }
 }
 
-bool ChromeAutofillClient::IsContextSecure(const GURL& form_origin) {
+bool ChromeAutofillClient::IsContextSecure() {
   content::SSLStatus ssl_status;
   content::NavigationEntry* navigation_entry =
       web_contents()->GetController().GetLastCommittedEntry();

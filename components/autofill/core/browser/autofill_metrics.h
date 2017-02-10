@@ -681,6 +681,10 @@ class AutofillMetrics {
       is_local_data_available_ = is_local_data_available;
     }
 
+    inline void set_is_context_secure(bool is_context_secure) {
+      is_context_secure_ = is_context_secure;
+    }
+
     void OnDidInteractWithAutofillableForm();
 
     void OnDidPollSuggestions(const FormFieldData& field);
@@ -705,6 +709,7 @@ class AutofillMetrics {
     bool is_for_credit_card_;
     bool is_server_data_available_;
     bool is_local_data_available_;
+    bool is_context_secure_;
     bool has_logged_interacted_;
     bool has_logged_suggestions_shown_;
     bool has_logged_masked_server_card_suggestion_selected_;

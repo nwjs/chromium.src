@@ -566,7 +566,7 @@ void AutofillManager::OnQueryFormFieldAutofill(int query_id,
   std::vector<Suggestion> suggestions;
   const bool is_context_secure =
       !form_structure ||
-      (client_->IsContextSecure(form_structure->source_url()) &&
+      (client_->IsContextSecure() &&
        (!form_structure->target_url().is_valid() ||
         !form_structure->target_url().SchemeIs("http")));
   const bool is_http_warning_enabled =
@@ -1439,6 +1439,8 @@ bool AutofillManager::RefreshDataModels() {
         is_server_data_available);
     credit_card_form_event_logger_->set_is_local_data_available(
         is_local_data_available);
+    credit_card_form_event_logger_->set_is_context_secure(
+        client_->IsContextSecure());
   }
   {
     bool is_server_data_available = false;
