@@ -112,6 +112,7 @@ class SyntheticInspectorTouchEvent : public blink::PlatformTouchEvent {
     m_type = type;
     m_modifiers = modifiers;
     m_timestamp = timestamp;
+    m_causesScrollingIfUncanceled = true;
   }
 
   void append(const blink::PlatformTouchPoint& point) {
