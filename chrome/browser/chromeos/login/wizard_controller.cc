@@ -597,6 +597,12 @@ void WizardController::ShowSupervisedUserCreationScreen() {
   SetCurrentScreen(GetScreen(OobeScreen::SCREEN_CREATE_SUPERVISED_USER_FLOW));
 }
 
+void WizardController::ShowArcKioskSplashScreen() {
+  VLOG(1) << "Showing ARC kiosk splash screen.";
+  SetStatusAreaVisible(false);
+  SetCurrentScreen(GetScreen(OobeScreen::SCREEN_ARC_KIOSK_SPLASH));
+}
+
 void WizardController::ShowHIDDetectionScreen() {
   VLOG(1) << "Showing HID discovery screen.";
   SetStatusAreaVisible(true);
@@ -1044,6 +1050,8 @@ void WizardController::AdvanceToScreen(OobeScreen screen) {
     ShowSupervisedUserCreationScreen();
   } else if (screen == OobeScreen::SCREEN_APP_LAUNCH_SPLASH) {
     AutoLaunchKioskApp();
+  } else if (screen == OobeScreen::SCREEN_ARC_KIOSK_SPLASH) {
+    ShowArcKioskSplashScreen();
   } else if (screen == OobeScreen::SCREEN_OOBE_HID_DETECTION) {
     ShowHIDDetectionScreen();
   } else if (screen == OobeScreen::SCREEN_OOBE_CONTROLLER_PAIRING) {
