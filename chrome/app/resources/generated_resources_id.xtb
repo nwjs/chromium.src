@@ -432,7 +432,7 @@
 <translation id="1526560967942511387">Dokumen Tanpa Judul</translation>
 <translation id="1526925867532626635">Konfirmasi setelan sinkronisasi</translation>
 <translation id="1528372117901087631">Sambungan internet</translation>
-<translation id="1529891865407786369">Sumber daya</translation>
+<translation id="1529891865407786369">Sumber listrik</translation>
 <translation id="1529968269513889022">minggu lalu</translation>
 <translation id="1530838837447122178">Buka setelan perangkat touchpad dan mouse</translation>
 <translation id="1531004739673299060">Jendela Aplikasi</translation>
@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Belum disetel</translation>
 <translation id="1994173015038366702">URL situs</translation>
 <translation id="1997616988432401742">Sertifikat Anda</translation>
-<translation id="1999092554946563091">Aktifkan atau nonaktifkan pemfilteran SitusAman untuk akun anak.</translation>
 <translation id="1999115740519098545">Saat memulai</translation>
 <translation id="2007404777272201486">Laporkan Masalah...</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME" /></translation>
@@ -859,7 +858,7 @@
 <translation id="2115103655317273167">Kirim ke ponsel</translation>
 <translation id="2115291620696624944">Terjadi kesalahan saat mencetak <ph name="PAGE_NUMBER" /> halaman di <ph name="PRINTER_NAME" /></translation>
 <translation id="2115926821277323019">Harus merupakan URL yang valid</translation>
-<translation id="2115946962706216358">Gagal menggabungkan mesin ke domain. Hal ini mungkin disebabkan karena Anda telah melebihi jumlah mesin maksimum yang dapat bergabung untuk akun Anda di server.</translation>
+<translation id="2115946962706216358">Gagal menggabungkan mesin ke domain. Hal ini mungkin disebabkan karena jumlah mesin yang digabungkan untuk akun Anda di server telah melebihi maksimum.</translation>
 <translation id="2116673936380190819">jam terakhir</translation>
 <translation id="2121825465123208577">Ubah ukuran</translation>
 <translation id="2125314715136825419">Lanjutkan tanpa memutakhirkan Adobe Reader (sebaiknya jangan)</translation>
@@ -1029,7 +1028,7 @@ Setelah membuat pengguna yang dilindungi, Anda dapat mengelola setelannya kapan 
 <translation id="23030561267973084">"<ph name="EXTENSION_NAME" />" telah meminta izin tambahan.</translation>
 <translation id="2307462900900812319">Konfigurasi jaringan</translation>
 <translation id="230927227160767054">Laman ini ingin memasang penangan layanan.</translation>
-<translation id="230988369433510421">Maaf! Ada yang tidak beres saat mencoba bergabung dengan domain. Silakan coba lagi.</translation>
+<translation id="230988369433510421">Maaf! Terjadi masalah saat mencoba bergabung dengan domain. Silakan coba lagi.</translation>
 <translation id="2311496337038385958">Tahun Perekaman</translation>
 <translation id="2312980885338881851">Ups! Saat ini sepertinya tidak ada pengguna yang dilindungi yang dapat Anda impor. Buat satu atau beberapa pengguna dari perangkat lain, lalu impor ke perangkat ini.</translation>
 <translation id="231490303453288303">domContentLoaded main frame (iframes diabaikan).</translation>
@@ -2002,7 +2001,6 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> kesalahan.</translation>
 <translation id="3496213124478423963">Perkecil</translation>
 <translation id="3496381219560704722">Ganti nilai VPD.</translation>
-<translation id="3496520356073548867">Pemfilteran SitusAman akun anak</translation>
 <translation id="3502662168994969388">Batasi Debugging berbasis GDB Native Client berdasarkan URL file manifes. Debugging berbasis GDB Native Client harus diaktifkan agar opsi ini dapat bekerja.</translation>
 <translation id="3504135463003295723">Nama grup:</translation>
 <translation id="3505030558724226696">Mencabut akses perangkat</translation>
@@ -3277,7 +3275,6 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="5227679487546032910">Avatar biru kehijauan default</translation>
 <translation id="5227808808023563348">Cari teks sebelumnya</translation>
 <translation id="5228076606934445476">Ada yang salah dengan perangkat.  Untuk memperbaikinya, Anda harus memulai ulang perangkat dan mencoba lagi.</translation>
-<translation id="5228962187251412618">Khusus pemeriksaan online</translation>
 <translation id="5229189185761556138">Kelola metode masukan</translation>
 <translation id="5229622432348746578">Nonaktifkan Audio untuk Berbagi Desktop</translation>
 <translation id="5230516054153933099">Jendela</translation>
@@ -4311,7 +4308,6 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="6565108107088666812">Tindakan ini akan menghapus data yang disinkronkan dari semua perangkat.</translation>
 <translation id="6566142449942033617">Tidak dapat memuat '<ph name="PLUGIN_PATH" />' untuk plugin.</translation>
 <translation id="6567688344210276845">Tidak dapat memuat ikon '<ph name="ICON" />' untuk tindakan laman.</translation>
-<translation id="6569050677975271054">Hanya daftar hitam statis</translation>
 <translation id="6571070086367343653">Edit kartu kredit</translation>
 <translation id="657402800789773160">&amp;Muat Ulang Laman Ini</translation>
 <translation id="6575134580692778371">Tidak dikonfigurasi</translation>
@@ -4988,7 +4984,7 @@ Hanya gunakan fitur ini dengan akun yang Anda percayai.</translation>
 <translation id="7508545000531937079">Rangkai Slide</translation>
 <translation id="7511149348717996334">Aktifkan setelan Desain Material.</translation>
 <translation id="7511955381719512146">Wi-Fi yang digunakan mungkin mewajibkan Anda mengunjungi <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
-<translation id="7512768521598401899">Mengaktifkan halaman web untuk menggunakan kloning berstruktur WebAssembly.</translation>
+<translation id="7512768521598401899">Izinkan halaman web untuk menggunakan kloning berstruktur WebAssembly.</translation>
 <translation id="7514722502805496245">Mengaktifkan download laman di latar belakang jika laman belum dimuat di tab saat ini.</translation>
 <translation id="751507702149411736">Belarusian</translation>
 <translation id="7517569744831774757">Memulihkan setelan ke default aslinya.</translation>
@@ -5943,7 +5939,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8775404590947523323">Editan Anda disimpan secara otomatis.<ph name="BREAKS" />Untuk menyimpan salinan dari gambar asli, hapus centang "Timpa yang asli"</translation>
 <translation id="8777218413579204310">Deteksi konten</translation>
 <translation id="8777628254805677039">sandi akar</translation>
-<translation id="8777980041711299948">Menyetel perilaku bertukar sebagian.</translation>
+<translation id="8777980041711299948">Menyetel perilaku pertukaran sebagian.</translation>
 <translation id="8778590208284402708">Tidak ada situs yang telah diperbesar atau diperkecil.</translation>
 <translation id="878069093594050299">Sertifikat ini telah diverifikasikan untuk penggunaan berikut:</translation>
 <translation id="8782565991310229362">Peluncuran aplikasi kios dibatalkan.</translation>
@@ -5954,7 +5950,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8787254343425541995">Memungkinkan proxy untuk jaringan bersama</translation>
 <translation id="878763818693997570">Nama ini terlalu panjang</translation>
 <translation id="8789375980715484686">Kelola pengguna lainnya</translation>
-<translation id="8791534160414513928">Kirim permintaan "Jangan Lacak" dengan lalu lintas penjelajahan Anda</translation>
+<translation id="8791534160414513928">Kirim permintaan "Jangan Lacak" bersama dengan traffic akses internet</translation>
 <translation id="8794025342371547160">IP Terbatas</translation>
 <translation id="8795668016723474529">Tambahkan kartu kredit</translation>
 <translation id="8795916974678578410">Jendela Baru</translation>

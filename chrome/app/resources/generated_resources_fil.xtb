@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Hindi nakatakda</translation>
 <translation id="1994173015038366702">URL ng site</translation>
 <translation id="1997616988432401742">Iyong mga certificate</translation>
-<translation id="1999092554946563091">I-enable o i-disable ang pagfi-filter ng SafeSites para sa mga account ng bata</translation>
 <translation id="1999115740519098545">Sa startup</translation>
 <translation id="2007404777272201486">Mag-ulat ng Isyu...</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME" /></translation>
@@ -2004,7 +2003,6 @@ Mula Sa <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> (na) error.</translation>
 <translation id="3496213124478423963">Zoom Out</translation>
 <translation id="3496381219560704722">I-override ang mga value ng VPD.</translation>
-<translation id="3496520356073548867">Pagfi-filter ng SafeSites sa account ng bata</translation>
 <translation id="3502662168994969388">Pinaghihigpitan ang GDB-based na pag-debug ng Native Client application ayon sa URL ng manifest file. Dapat paganahin ang GDB-based na pag-debug ng Native Client upang gumana ang pagpipiliang ito.</translation>
 <translation id="3504135463003295723">Pangalan ng pangkat:</translation>
 <translation id="3505030558724226696">Bawiin ang access sa device</translation>
@@ -3280,7 +3278,6 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="5227679487546032910">Default na teal na avatar</translation>
 <translation id="5227808808023563348">Hanapin ang nakaraang teksto</translation>
 <translation id="5228076606934445476">Nagkaroon ng problema sa device. Upang makabawi mula sa error na ito kakailanganin mong i-reboot ang device at subukang muli.</translation>
-<translation id="5228962187251412618">Suriin lang online</translation>
 <translation id="5229189185761556138">Pamahalaan ang mga paraan ng pag-input</translation>
 <translation id="5229622432348746578">I-disable ang Pagbabahagi ng Audio Para Sa Desktop</translation>
 <translation id="5230516054153933099">Window</translation>
@@ -4314,7 +4311,6 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="6565108107088666812">Kini-clear nito ang naka-sync na data sa lahat ng device.</translation>
 <translation id="6566142449942033617">Maaaring hindi mai-load ang '<ph name="PLUGIN_PATH" />' para sa plugin.</translation>
 <translation id="6567688344210276845">Maaaring hindi mai-load ang icon '<ph name="ICON" />' para sa pagkilos sa pahina.</translation>
-<translation id="6569050677975271054">I-blacklist nang static lang</translation>
 <translation id="6571070086367343653">I-edit ang credit card</translation>
 <translation id="657402800789773160">&amp;I-reload ang Pahinang Ito</translation>
 <translation id="6575134580692778371">Hindi na-configure</translation>

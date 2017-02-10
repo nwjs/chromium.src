@@ -302,7 +302,7 @@
 <translation id="1395262318152388157">Ползунок воспроизведения</translation>
 <translation id="1395730723686586365">Программа обновлений запущена</translation>
 <translation id="139591007336427101">Проверка гиперссылок</translation>
-<translation id="1396963298126346194">Введено неправильное имя пользователя или пароль</translation>
+<translation id="1396963298126346194">Неправильное имя пользователя или пароль</translation>
 <translation id="1398853756734560583">Развернуть</translation>
 <translation id="1399648040768741453">Раскладка телугу (фонетическая)</translation>
 <translation id="140240131475089220">Фоновый режим отладки</translation>
@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Не задано</translation>
 <translation id="1994173015038366702">Адрес сайта</translation>
 <translation id="1997616988432401742">Ваши сертификаты</translation>
-<translation id="1999092554946563091">Включает или отключает Безопасный поиск в управляемых аккаунтах.</translation>
 <translation id="1999115740519098545">При запуске открывать</translation>
 <translation id="2007404777272201486">Сообщить о проблеме...</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME" /></translation>
@@ -2004,7 +2003,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3495304270784461826">Ошибок: <ph name="COUNT" />.</translation>
 <translation id="3496213124478423963">Уменьшить</translation>
 <translation id="3496381219560704722">Переопределять значения VPD</translation>
-<translation id="3496520356073548867">Безопасный поиск в управляемом аккаунте</translation>
 <translation id="3502662168994969388">Ограничивает отладку приложения Native Client с помощью GDB на основе URL файла манифеста. Чтобы использовать этот параметр, необходимо включить отладку.</translation>
 <translation id="3504135463003295723">Название группы:</translation>
 <translation id="3505030558724226696">Запретить доступ к устройствам</translation>
@@ -3279,7 +3277,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5227679487546032910">Аватар по умолчанию (сине-зеленый)</translation>
 <translation id="5227808808023563348">Найти предыдущий текст</translation>
 <translation id="5228076606934445476">Возникла проблема с устройством. Чтобы решить ее, перезагрузите устройство и повторите попытку.</translation>
-<translation id="5228962187251412618">Только онлайн-проверка</translation>
 <translation id="5229189185761556138">Управление методами ввода</translation>
 <translation id="5229622432348746578">Отключить общий доступ к аудио</translation>
 <translation id="5230516054153933099">Окно</translation>
@@ -4313,7 +4310,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6565108107088666812">Синхронизированные данные будут удалены со всех устройств.</translation>
 <translation id="6566142449942033617">Не удается загрузить "<ph name="PLUGIN_PATH" />" для плагина.</translation>
 <translation id="6567688344210276845">Не удалось загрузить значок "<ph name="ICON" />" для действия страницы.</translation>
-<translation id="6569050677975271054">Только статический черный список</translation>
 <translation id="6571070086367343653">Изменить данные карты</translation>
 <translation id="657402800789773160">&amp;Обновить страницу</translation>
 <translation id="6575134580692778371">Не настроено</translation>

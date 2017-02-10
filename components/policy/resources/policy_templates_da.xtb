@@ -1706,8 +1706,7 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
           Hvert listepunkt for politikken er en streng, som indeholder et udvidelses-id og en
           "opdateringswebadresse" adskilt af et semikolon (<ph name="SEMICOLON" />). Udvidelses-id'et er den streng på 32 bogstaver,
           som f.eks. kan findes i <ph name="CHROME_EXTENSIONS_LINK" />, når
-          udviklertilstanden bruges. "Opdateringswebadressen" skal pege på et Update Manifest
-          XML-dokument, som beskrevet på <ph name="LINK_TO_EXTENSION_DOC1" />. Bemærk,
+          udviklertilstanden bruges. "Opdateringswebadressen" skal pege på et           XML-dokument med manifest om opdatering, som beskrevet på <ph name="LINK_TO_EXTENSION_DOC1" />. Bemærk,
           at "opdateringswebadressen", der angives i denne politik, kun bruges til den første
           installation. Efterfølgende opdateringer af udvidelsen anvender den opdateringswebadresse,
           som er angivet i udvidelsens manifest.

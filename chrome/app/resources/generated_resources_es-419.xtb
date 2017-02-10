@@ -753,7 +753,7 @@
 <translation id="1957988341423158185">Etiqueta de seguimiento para el seguimiento de la navegación</translation>
 <translation id="1961376890474801922">Es altamente experimental, donde los invitados, como &amp;lt;webview&gt;, se implementan en la infraestructura iframe fuera del proceso.</translation>
 <translation id="1962233722219655970">Esta página usa una aplicación con tecnología Native Client que no funciona en tu computadora.</translation>
-<translation id="1962389111849429567">Capacidad de clonación estructurada de WebAssembly</translation>
+<translation id="1962389111849429567">Compatibilidad con la clonación estructurada de WebAssembly</translation>
 <translation id="1962969542251276847">Bloquear pantalla</translation>
 <translation id="1963227389609234879">Eliminar todo</translation>
 <translation id="1965328510789761112">Memoria privada</translation>
@@ -783,7 +783,6 @@
 <translation id="1992397118740194946">No está configurada</translation>
 <translation id="1994173015038366702">URL del sitio</translation>
 <translation id="1997616988432401742">Tus certificados</translation>
-<translation id="1999092554946563091">Permite habilitar o inhabilitar el filtro de SafeSites para las cuentas secundarias.</translation>
 <translation id="1999115740519098545">En inicio</translation>
 <translation id="2007404777272201486">Informar de un problema...</translation>
 <translation id="2011110593081822050">Trabajador web: <ph name="WORKER_NAME" /></translation>
@@ -856,7 +855,7 @@
 <translation id="2115103655317273167">Enviar al teléfono</translation>
 <translation id="2115291620696624944">Se produjo un error al imprimir <ph name="PAGE_NUMBER" /> páginas en <ph name="PRINTER_NAME" /></translation>
 <translation id="2115926821277323019">Debe ser una URL válida</translation>
-<translation id="2115946962706216358">La máquina no pudo unirse al dominio. Es posible que se haya superado la cantidad máxima de máquinas que pueden unirse para tu cuenta en el servidor.</translation>
+<translation id="2115946962706216358">La computadora no pudo unirse al dominio. Es posible que se haya superado la cantidad máxima de computadoras que pueden unirse para tu cuenta en el servidor.</translation>
 <translation id="2116673936380190819">la última hora</translation>
 <translation id="2121825465123208577">Ajustar tamaño</translation>
 <translation id="2125314715136825419">Continuar sin actualizar Adobe Reader (no recomendado)</translation>
@@ -873,7 +872,7 @@
 <translation id="213491463158799620">¿Quieres traducir esta página?</translation>
 <translation id="2134986351331412790">Este sitio no acepta esta marca de tarjeta de crédito.</translation>
 <translation id="2135787500304447609">&amp;Reanudar</translation>
-<translation id="2136372518715274136">Ingresa la nueva contraseña.</translation>
+<translation id="2136372518715274136">Ingresa la nueva contraseña</translation>
 <translation id="2136953289241069843">Transliteración (namaste → नमस्कार)</translation>
 <translation id="2137068468602026500">En Navegador web, haz clic en <ph name="BEGIN_BOLD" />Microsoft Edge<ph name="END_BOLD" /></translation>
 <translation id="2137808486242513288">Agregar un usuario</translation>
@@ -1497,7 +1496,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="288042212351694283">Accede a tus dispositivos U2F (Universal 2nd Factor).</translation>
 <translation id="2881966438216424900">Último acceso:</translation>
 <translation id="2882943222317434580"><ph name="IDS_SHORT_PRODUCT_NAME" /> se reiniciará y se restablecerá en un momento.</translation>
-<translation id="2884778725218524621">Habilitar o inhabilitar la configuración de MD para la calibración de la pantalla táctil</translation>
+<translation id="2884778725218524621">Habilitar o inhabilitar la configuración de material design para la calibración de la pantalla táctil</translation>
 <translation id="2885378588091291677">Administrador de tareas</translation>
 <translation id="2887525882758501333">Documento PDF</translation>
 <translation id="2888807692577297075">No hay elementos que coincidan con &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;.</translation>
@@ -1816,7 +1815,7 @@ Revisa tu correo electrónico <ph name="ACCOUNT_EMAIL" /> para consultar estas y
 <translation id="3270965368676314374">Leer, cambiar y eliminar fotos, música y otro contenido multimedia desde tu computadora</translation>
 <translation id="3271648667212143903"><ph name="ORIGIN" /> desea conectarse</translation>
 <translation id="3273410961255278341">Enviar para:</translation>
-<translation id="327444463633065042">Nombre de la máquina no válido</translation>
+<translation id="327444463633065042">Nombre de la computadora no válido</translation>
 <translation id="3274763671541996799">Has activado el modo de pantalla completa.</translation>
 <translation id="3275778913554317645">Abrir como ventana</translation>
 <translation id="3277710850168074473">Requisito de gesto del usuario para la reproducción de elementos multimedia. Si se inhabilita esta función, podrá funcionar la reproducción automática.</translation>
@@ -1999,7 +1998,6 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> errores</translation>
 <translation id="3496213124478423963">Alejar</translation>
 <translation id="3496381219560704722">Anula los valores de VPD.</translation>
-<translation id="3496520356073548867">Filtro de SafeSites para cuentas secundarias</translation>
 <translation id="3502662168994969388">Restringe la depuración con GDB de la aplicación Native Client por URL del archivo de manifiesto. La depuración con GDB de Native Client debe estar habilitada para que esta opción funcione.</translation>
 <translation id="3504135463003295723">Nombre del grupo:</translation>
 <translation id="3505030558724226696">Revocar el acceso al dispositivo</translation>
@@ -3274,7 +3272,6 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="5227679487546032910">Avatar verde azulado predeterminado</translation>
 <translation id="5227808808023563348">Buscar el texto anterior</translation>
 <translation id="5228076606934445476">Se produjo un error con el dispositivo. Para solucionar este error, deberás reiniciar el dispositivo y volver a intentarlo.</translation>
-<translation id="5228962187251412618">Verificación en línea únicamente</translation>
 <translation id="5229189185761556138">Administrar métodos de entrada</translation>
 <translation id="5229622432348746578">Inhabilitar el uso compartido de audio para escritorio</translation>
 <translation id="5230516054153933099">Ventana</translation>
@@ -4308,7 +4305,6 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="6565108107088666812">Esto borra los datos sincronizados de todos los dispositivos.</translation>
 <translation id="6566142449942033617">No se pudo cargar '<ph name="PLUGIN_PATH" />' para el complemento.</translation>
 <translation id="6567688344210276845">No se pudo cargar el ícono '<ph name="ICON" />' para las acciones de la página.</translation>
-<translation id="6569050677975271054">Lista negra estática únicamente</translation>
 <translation id="6571070086367343653">Editar tarjeta de crédito</translation>
 <translation id="657402800789773160">&amp;Volver a cargar esta página</translation>
 <translation id="6575134580692778371">No está configurado</translation>
@@ -5331,7 +5327,7 @@ Usa esta función solo con cuentas de confianza.</translation>
 <translation id="7986075254672229615">Habilita una implementación experimental de la API de Credential Manager. No habilites esta opción a menos que sepas exactamente qué estás haciendo.</translation>
 <translation id="7986295104073916105">Leer y cambiar la configuración guardada de la contraseña</translation>
 <translation id="7987485481246785146">Teclado kurdo sorani basado en el árabe</translation>
-<translation id="798749371774946697">El nombre de la máquina es demasiado largo</translation>
+<translation id="798749371774946697">El nombre de la computadora es demasiado largo</translation>
 <translation id="7988355189918024273">Habilitar funciones de accesibilidad</translation>
 <translation id="7988930390477596403">Se activará la próxima vez que desbloquees tu <ph name="DEVICE_TYPE" />. Con Smart Lock, el teléfono desbloqueará este dispositivo sin una contraseña. El Bluetooth se activará para habilitar Smart Lock.</translation>
 <translation id="7994370417837006925">Acceso múltiple</translation>
@@ -6259,7 +6255,7 @@ Es posible que las notificaciones, las ventanas y los diálogos posteriores se d
 <translation id="9184473426683023988">Importar y vincular con el dispositivo</translation>
 <translation id="9185358268467915502">Si se habilita esta opción, el usuario podrá calibrar las pantallas táctiles en chrome://md-settings/display.</translation>
 <translation id="9186729806195986201">Volver también a la versión de <ph name="IDS_SHORT_PRODUCT_NAME" /> instalada previamente</translation>
-<translation id="9187210477874601037">Se produjo un error al unir la máquina al dominio. Es posible que tu cuenta en el servidor no tenga los privilegios suficientes.</translation>
+<translation id="9187210477874601037">Se produjo un error al unir la computadora al dominio. Es posible que tu cuenta en el servidor no tenga los privilegios suficientes.</translation>
 <translation id="9187651461283037651">Habilitar Chrome VR</translation>
 <translation id="9188441292293901223">Actualiza el teléfono a una nueva versión de Android para desbloquear el dispositivo <ph name="DEVICE_TYPE" />.</translation>
 <translation id="9189690067274055051">Desbloquea el teléfono y acércalo a tu <ph name="DEVICE_TYPE" /> para acceder.</translation>

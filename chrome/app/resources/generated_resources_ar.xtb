@@ -787,7 +787,6 @@
 <translation id="1992397118740194946">لم يتم تعيينه</translation>
 <translation id="1994173015038366702">‏عنوان URL للموقع</translation>
 <translation id="1997616988432401742">شهاداتك</translation>
-<translation id="1999092554946563091">‏تمكين ميزة تصفية SafeSites أو تعطيلها للحسابات الفرعية.</translation>
 <translation id="1999115740519098545">عند بدء التشغيل</translation>
 <translation id="2007404777272201486">الإبلاغ عن مشكلة...</translation>
 <translation id="2011110593081822050">عامل الويب: <ph name="WORKER_NAME" /></translation>
@@ -2000,7 +1999,6 @@
 <translation id="3495304270784461826"><ph name="COUNT" /> من الأخطاء.</translation>
 <translation id="3496213124478423963">تصغير</translation>
 <translation id="3496381219560704722">‏تجاوز قيم VPD.</translation>
-<translation id="3496520356073548867">‏تصفية SafeSite للحسابات الفرعية</translation>
 <translation id="3502662168994969388">‏تقييد تصحيح الأخطاء المستند إلى GDB عبر تطبيق Native Client بواسطة عنوان URL لملف البيان. يجب تمكين تصحيح الأخطاء المستند إلى GDB عبر تطبيق Native Client حتى يعمل هذا الخيار.</translation>
 <translation id="3504135463003295723">اسم المجموعة:</translation>
 <translation id="3505030558724226696">إبطال الوصول إلى الجهاز</translation>
@@ -3271,7 +3269,6 @@
 <translation id="5227679487546032910">الصورة الرمزية الافتراضية الزرقاء المخضرة</translation>
 <translation id="5227808808023563348">العثور على النص السابق</translation>
 <translation id="5228076606934445476">هناك مشكلة ما في الجهاز. ولتلافي هذا الخطأ، ستحتاج إلى إعادة تشغيل الجهاز وإعادة المحاولة.</translation>
-<translation id="5228962187251412618">التحقق عبر الإنترنت فقط</translation>
 <translation id="5229189185761556138">إدارة طرق الإدخال</translation>
 <translation id="5229622432348746578">تعطيل مشاركة الصوت لسطح المكتب</translation>
 <translation id="5230516054153933099">نافذة</translation>
@@ -4306,7 +4303,6 @@
 <translation id="6565108107088666812">يعمل ذلك على محو البيانات التي تمت مزامنتها من جميع الأجهزة.</translation>
 <translation id="6566142449942033617">تعذر تحميل '<ph name="PLUGIN_PATH" />' للمكوّن الإضافي.</translation>
 <translation id="6567688344210276845">تعذر تحميل الرمز '<ph name="ICON" />' لإجراء المتصفح.</translation>
-<translation id="6569050677975271054">القائمة السوداء الثابتة فقط</translation>
 <translation id="6571070086367343653">تعديل بطاقة الائتمان</translation>
 <translation id="657402800789773160">إ&amp;عادة تحميل هذه الصفحة</translation>
 <translation id="6575134580692778371">غير مهيأ</translation>

@@ -420,6 +420,7 @@ Para selecionar o termo que quer pesquisar, toque no termo e mantenha-o pression
 <translation id="53553865750799677">Endereço de retirada não aceito. Selecione um endereço diferente.</translation>
 <translation id="5372829067651257087">URL copiado.</translation>
 <translation id="5400569084694353794">Ao usar este aplicativo, você concorda com os <ph name="BEGIN_LINK1" />Termos de Serviço<ph name="END_LINK1" /> e com o <ph name="BEGIN_LINK2" />Aviso de Privacidade<ph name="END_LINK2" />.</translation>
+<translation id="5403644198645076998">Permitir apenas determinados sites</translation>
 <translation id="5414836363063783498">Verificando...</translation>
 <translation id="5423934151118863508">Suas páginas mais visitadas aparecerão aqui</translation>
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> GB disponível(is)</translation>
@@ -445,6 +446,7 @@ Para selecionar o termo que quer pesquisar, toque no termo e mantenha-o pression
 <translation id="5596627076506792578">Mais opções</translation>
 <translation id="5610807607761827392">É possível gerenciar cartões e endereços em <ph name="BEGIN_LINK" />Configurações<ph name="END_LINK" />.</translation>
 <translation id="5626134646977739690">Nome:</translation>
+<translation id="5639724618331995626">Permitir todos os sites</translation>
 <translation id="5646376287012673985">Local</translation>
 <translation id="5659593005791499971">E-mail</translation>
 <translation id="5665379678064389456">Criar evento no <ph name="APP_NAME" /></translation>
@@ -739,6 +741,7 @@ Por exemplo, alguns websites podem reagir a esse pedido mostrando anúncios que 
 Para receber novas licenças, conecte-se à Internet e use seu conteúdo baixado.</translation>
 <translation id="8636825310635137004">Para ver as guias dos seus outros dispositivos, ative a sincronização.</translation>
 <translation id="8639651215196239211">Todos os downloads</translation>
+<translation id="8641930654639604085">Tentar bloquear sites com conteúdo para adultos</translation>
 <translation id="8660471606262461360">Do Google Payments</translation>
 <translation id="8676374126336081632">Limpar entrada</translation>
 <translation id="869891660844655955">Validade</translation>

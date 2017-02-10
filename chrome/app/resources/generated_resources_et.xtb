@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Pole määratud</translation>
 <translation id="1994173015038366702">Saidi URL</translation>
 <translation id="1997616988432401742">Teie sertifikaadid</translation>
-<translation id="1999092554946563091">Lubab või keelab SafeSitesi filtreerimise tütarkontodel.</translation>
 <translation id="1999115740519098545">Käivitamisel</translation>
 <translation id="2007404777272201486">Anna probleemist teada ...</translation>
 <translation id="2011110593081822050">Veebitööline: <ph name="WORKER_NAME" /></translation>
@@ -2003,7 +2002,6 @@ Asukohast <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> viga.</translation>
 <translation id="3496213124478423963">Vähenda</translation>
 <translation id="3496381219560704722">Alista VPD-väärtused.</translation>
-<translation id="3496520356073548867">Tütarkonto SafeSitesi filtreerimine</translation>
 <translation id="3502662168994969388">Piirab Native Clienti rakenduse GDB-põhise silumise manifesti faili URL-iga. Selle valiku töötamiseks peab Native Clienti GDB-põhine silumine olema lubatud.</translation>
 <translation id="3504135463003295723">Rühma nimi:</translation>
 <translation id="3505030558724226696">Tühista juurdepääs seadmele</translation>
@@ -3277,7 +3275,6 @@ Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="5227679487546032910">Sinakasroheline vaikeavatar</translation>
 <translation id="5227808808023563348">Eelmise teksti otsimine</translation>
 <translation id="5228076606934445476">Seadmega on midagi valesti. Vea kõrvaldamiseks peate seadme taaskäivitama ja uuesti proovima.</translation>
-<translation id="5228962187251412618">Ainult võrgus kontrollimine</translation>
 <translation id="5229189185761556138">Sisestusmeetodite haldamine</translation>
 <translation id="5229622432348746578">Heli keelamine töölaua jagamisel</translation>
 <translation id="5230516054153933099">Aken</translation>
@@ -4311,7 +4308,6 @@ Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="6565108107088666812">See kustutab sünkroonitud andmed kõikidest seadmetest.</translation>
 <translation id="6566142449942033617">Teed <ph name="PLUGIN_PATH" /> ei õnnestunud pistikprogrammi jaoks laadida.</translation>
 <translation id="6567688344210276845">Lehe toimingu jaoks ei õnnestunud laadida ikooni <ph name="ICON" />.</translation>
-<translation id="6569050677975271054">Ainult staatiline must nimekiri</translation>
 <translation id="6571070086367343653">Muuda krediitkaarti</translation>
 <translation id="657402800789773160">&amp;Laadi see leht uuesti</translation>
 <translation id="6575134580692778371">Ei ole konfigureeritud</translation>

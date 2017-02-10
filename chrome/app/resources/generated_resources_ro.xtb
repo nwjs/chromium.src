@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Nu este setat</translation>
 <translation id="1994173015038366702">Adresa URL a site-ului</translation>
 <translation id="1997616988432401742">Certificatele tale</translation>
-<translation id="1999092554946563091">Activează sau dezactivează filtrarea SafeSites pentru conturile de copii.</translation>
 <translation id="1999115740519098545">La pornire</translation>
 <translation id="2007404777272201486">Raportează o problemă...</translation>
 <translation id="2011110593081822050">Instrument web: <ph name="WORKER_NAME" /></translation>
@@ -1500,7 +1499,7 @@ Nu cred că acest site ar trebui blocat!</translation>
 <translation id="288042212351694283">Accesează dispozitivele Universal 2nd Factor</translation>
 <translation id="2881966438216424900">Ultima accesare:</translation>
 <translation id="2882943222317434580"><ph name="IDS_SHORT_PRODUCT_NAME" /> va reporni și se va reseta imediat</translation>
-<translation id="2884778725218524621">Activează/dezactivează opțiunea privind setările md de calibrare a ecranului tactil</translation>
+<translation id="2884778725218524621">Activează/dezactivează opțiunea privind setările designului material de calibrare a ecranului tactil</translation>
 <translation id="2885378588091291677">Manager de activități</translation>
 <translation id="2887525882758501333">Document PDF</translation>
 <translation id="2888807692577297075">Nu există elemente care să corespundă cu &lt;b&gt;„<ph name="SEARCH_STRING" />”&lt;/b&gt;</translation>
@@ -2002,7 +2001,6 @@ De la <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> erori.</translation>
 <translation id="3496213124478423963">Micșorează</translation>
 <translation id="3496381219560704722">Modifică valorile VPD.</translation>
-<translation id="3496520356073548867">Filtrul SafeSites pentru contul de copil</translation>
 <translation id="3502662168994969388">Restricționează depanarea bazată pe GDB a aplicației Client nativ în funcție de adresa URL a fișierului de manifest. Pentru ca această opțiune să funcționeze, trebuie să fie activată depanarea bazată pe GDB a Clientului nativ.</translation>
 <translation id="3504135463003295723">Numele grupului:</translation>
 <translation id="3505030558724226696">Revocă accesul la dispozitiv</translation>
@@ -3277,7 +3275,6 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="5227679487546032910">Avatar turcoaz prestabilit</translation>
 <translation id="5227808808023563348">Găsește textul anterior</translation>
 <translation id="5228076606934445476">A apărut o problemă legată de dispozitiv. Pentru recuperarea în urma acestei erori, reporniți dispozitivul și încercați din nou.</translation>
-<translation id="5228962187251412618">Numai verificare online</translation>
 <translation id="5229189185761556138">Gestionează metodele de introducere a textului</translation>
 <translation id="5229622432348746578">Dezactivează conținutul audio pentru permiterea accesului la desktop</translation>
 <translation id="5230516054153933099">Fereastră</translation>
@@ -4311,7 +4308,6 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="6565108107088666812">Astfel, datele sincronizate sunt șterse de pe toate dispozitivele.</translation>
 <translation id="6566142449942033617">Nu se poate încărca „<ph name="PLUGIN_PATH" />” pentru plugin.</translation>
 <translation id="6567688344210276845">Nu se poate încărca pictograma „<ph name="ICON" />” pentru acțiunea paginii.</translation>
-<translation id="6569050677975271054">Numai lista neagră statică</translation>
 <translation id="6571070086367343653">Editează cardul de credit</translation>
 <translation id="657402800789773160">&amp;Reîncarcă această pagină</translation>
 <translation id="6575134580692778371">Nu este configurată</translation>
@@ -6259,7 +6255,7 @@ Notificările, ferestrele și casetele de dialog ulterioare ar putea fi împăr�
 <translation id="9183836083779743117"><ph name="DOWNLOAD_RECEIVED" /> de la <ph name="DOWNLOAD_DOMAIN" />, <ph name="TIME_LEFT" /></translation>
 <translation id="9184146175870444618">Forțează instrumentele de monitorizare a evenimentelor privind pornirea prin atingere și prima mutare prin atingere per derulare în timpul glisării rapide să fie considerate pasive.</translation>
 <translation id="9184473426683023988">Importă și asociază la dispozitiv</translation>
-<translation id="9185358268467915502">Dacă este activat, utilizatorul poate calibra afișajele ecranului tactil în chrome://md-settings/display.</translation>
+<translation id="9185358268467915502">Dacă este activat, utilizatorul poate calibra afișajele cu ecran tactil în chrome://md-settings/display.</translation>
 <translation id="9186729806195986201">Revino la versiunea <ph name="IDS_SHORT_PRODUCT_NAME" /> instalată anterior.</translation>
 <translation id="9187210477874601037">Computerul nu a putut fi asociat domeniului. Poate fi din cauză că nu ai suficiente privilegii pe server pentru contul tău.</translation>
 <translation id="9187651461283037651">Activează Chrome VR.</translation>

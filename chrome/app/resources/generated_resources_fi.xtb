@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Ei asetettu</translation>
 <translation id="1994173015038366702">Sivuston URL-osoite</translation>
 <translation id="1997616988432401742">Omat varmenteet</translation>
-<translation id="1999092554946563091">Ota käyttöön SafeSites-suodatus lasten tileille tai poista suodatus käytöstä.</translation>
 <translation id="1999115740519098545">Käynnistyksessä</translation>
 <translation id="2007404777272201486">Ilmoita ongelmasta...</translation>
 <translation id="2011110593081822050">Verkkotyökalu: <ph name="WORKER_NAME" /></translation>
@@ -2003,7 +2002,6 @@ verkkotunnuksesta <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> virhettä.</translation>
 <translation id="3496213124478423963">Loitonna</translation>
 <translation id="3496381219560704722">Ohita VPD-arvot</translation>
-<translation id="3496520356073548867">Lapsen tilin SafeSites-suodatus</translation>
 <translation id="3502662168994969388">Rajoittaa Native Client -sovelluksen GDB-pohjaista vianetsintää luettelotiedoston URL-osoitteen mukaan. Native Clientin GDB-pohjaisen vianetsinnän täytyy olla käytössä, jotta tämä vaihtoehto toimii.</translation>
 <translation id="3504135463003295723">Ryhmän nimi:</translation>
 <translation id="3505030558724226696">Peruuta laitteen käyttöoikeus</translation>
@@ -3268,7 +3266,6 @@ Kaikkien käyttäjien täytyy kirjautua ulos jatkaakseen käyttöä.</translatio
 <translation id="5227679487546032910">Sinivihreä oletusavatar</translation>
 <translation id="5227808808023563348">Etsi aiempaa tekstiä</translation>
 <translation id="5228076606934445476">Tässä laitteessa on jotain vialla. Korjataksesi tämän virheen sinun on käynnistettävä laite uudelleen ja yritettävä sitten uudelleen.</translation>
-<translation id="5228962187251412618">Vain verkkotarkistus</translation>
 <translation id="5229189185761556138">Hallitse syöttötapoja</translation>
 <translation id="5229622432348746578">Poista äänen jakaminen käytöstä jaetun työpöydän tilassa</translation>
 <translation id="5230516054153933099">Ikkuna</translation>
@@ -4304,7 +4301,6 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="6565108107088666812">Tämä toiminto poistaa synkronoidut tiedot kaikilta laitteilta.</translation>
 <translation id="6566142449942033617">Polun <ph name="PLUGIN_PATH" /> lataaminen laajennukselle ei onnistunut.</translation>
 <translation id="6567688344210276845">Kuvakkeen <ph name="ICON" /> lataaminen sivun toimintoa varten epäonnistui.</translation>
-<translation id="6569050677975271054">Vain staattinen kiellettyjen luettelo</translation>
 <translation id="6571070086367343653">Luottokortin muokkaus</translation>
 <translation id="657402800789773160">&amp;Päivitä tämä sivu</translation>
 <translation id="6575134580692778371">Ei määritetty</translation>

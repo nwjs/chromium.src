@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Nincs beállítva</translation>
 <translation id="1994173015038366702">Webhely URL-je</translation>
 <translation id="1997616988432401742">Az Ön tanúsítványai</translation>
-<translation id="1999092554946563091">A Biztonságos webhelyek szűrő engedélyezése vagy letiltása az alfiókoknál.</translation>
 <translation id="1999115740519098545">Induláskor</translation>
 <translation id="2007404777272201486">Hibabejelentés...</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME" /></translation>
@@ -2003,7 +2002,6 @@ Innen: <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> hiba.</translation>
 <translation id="3496213124478423963">Kicsinyítés</translation>
 <translation id="3496381219560704722">VPD-értékek felülbírálása.</translation>
-<translation id="3496520356073548867">Az alfiók szűrése a Biztonságos webhelyek segítségével</translation>
 <translation id="3502662168994969388">Korlátozza a natív kliensalkalmazás GDB-alapú, jegyzékfájl-URL szerinti hibakeresését. Hogy a lehetőség működhessen, engedélyezni kell a natív kliens GDB-alapú hibakeresését.</translation>
 <translation id="3504135463003295723">Csoport neve:</translation>
 <translation id="3505030558724226696">Eszközhozzáférés visszavonása</translation>
@@ -3276,7 +3274,6 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="5227679487546032910">Alapértelmezett kékeszöld avatar</translation>
 <translation id="5227808808023563348">Előző szöveg keresése</translation>
 <translation id="5228076606934445476">Valami gond van az eszközzel. A hiba javításához indítsa újra az eszközt, majd próbálja újra.</translation>
-<translation id="5228962187251412618">Csak internetes ellenőrzés</translation>
 <translation id="5229189185761556138">Beviteli lehetőségek kezelése</translation>
 <translation id="5229622432348746578">Hang letiltása az asztal megosztásánál</translation>
 <translation id="5230516054153933099">Ablak</translation>
@@ -4311,7 +4308,6 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="6565108107088666812">Ez eltávolítja a szinkronizált adatokat az összes eszközről.</translation>
 <translation id="6566142449942033617">A(z) '<ph name="PLUGIN_PATH" />' nem tölthető be a bővítményhez.</translation>
 <translation id="6567688344210276845">Nem sikerült a(z) '<ph name="ICON" />' ikon betöltése az oldalművelethez.</translation>
-<translation id="6569050677975271054">Csak állandó tiltott lista</translation>
 <translation id="6571070086367343653">Hitelkártya szerkesztése</translation>
 <translation id="657402800789773160">Az oldal új&amp;ratöltése</translation>
 <translation id="6575134580692778371">Nincs konfigurálva</translation>

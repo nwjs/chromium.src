@@ -421,6 +421,7 @@
 <translation id="53553865750799677">Адрес выдачи не поддерживается. Выберите другой вариант.</translation>
 <translation id="5372829067651257087">URL скопирован.</translation>
 <translation id="5400569084694353794">Работая с приложением, вы принимаете <ph name="BEGIN_LINK1" />Условия использования<ph name="END_LINK1" /> и <ph name="BEGIN_LINK2" />Примечание о конфиденциальности<ph name="END_LINK2" /> Chrome.</translation>
+<translation id="5403644198645076998">Разрешить доступ только к определенным сайтам</translation>
 <translation id="5414836363063783498">Проверка…</translation>
 <translation id="5423934151118863508">Здесь появятся страницы, которые вы чаще всего просматриваете.</translation>
 <translation id="5424588387303617268">Доступно: <ph name="GIGABYTES" /> ГБ</translation>
@@ -446,6 +447,7 @@
 <translation id="5596627076506792578">Ещё</translation>
 <translation id="5610807607761827392">Сведения о картах и адресах можно изменить в <ph name="BEGIN_LINK" />настройках<ph name="END_LINK" />.</translation>
 <translation id="5626134646977739690">Имя:</translation>
+<translation id="5639724618331995626">Разрешить доступ ко всем сайтам</translation>
 <translation id="5646376287012673985">Местоположение</translation>
 <translation id="5659593005791499971">Электронная почта</translation>
 <translation id="5665379678064389456">Создать мероприятие в приложении "<ph name="APP_NAME" />"</translation>
@@ -741,6 +743,7 @@
 Чтобы получить новые лицензии, подключитесь к Интернету и воспроизведите скачанный контент.</translation>
 <translation id="8636825310635137004">Чтобы получить доступ к вкладкам на всех ваших устройствах, включите синхронизацию.</translation>
 <translation id="8639651215196239211">Все файлы</translation>
+<translation id="8641930654639604085">Блокировать сайты для взрослых</translation>
 <translation id="8660471606262461360">Из Google Payments</translation>
 <translation id="8676374126336081632">Очистить</translation>
 <translation id="869891660844655955">Срок действия</translation>

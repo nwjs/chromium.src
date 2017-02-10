@@ -421,6 +421,7 @@
 <translation id="53553865750799677">Μη υποστηριζόμενη διεύθυνση παραλαβής. Επιλέξτε διαφορετική διεύθυνση.</translation>
 <translation id="5372829067651257087">Έγινε αντιγραφή του URL.</translation>
 <translation id="5400569084694353794">Χρησιμοποιώντας αυτήν την εφαρμογή, αποδέχεστε τους <ph name="BEGIN_LINK1" />Όρους Παροχής Υπηρεσιών<ph name="END_LINK1" /> και τη <ph name="BEGIN_LINK2" />Σημείωση Απορρήτου<ph name="END_LINK2" /> του Chrome.</translation>
+<translation id="5403644198645076998">Να επιτρέπονται μόνο συγκεκριμένοι ιστότοποι</translation>
 <translation id="5414836363063783498">Γίνεται επαλήθευση…</translation>
 <translation id="5423934151118863508">Οι πιο δημοφιλείς σελίδες σας θα εμφανίζονται εδώ</translation>
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> GB διαθέσιμα</translation>
@@ -446,6 +447,7 @@
 <translation id="5596627076506792578">Περισσότερες επιλογές</translation>
 <translation id="5610807607761827392">Μπορείτε να διαχειριστείτε τις κάρτες και τις διευθύνσεις στις <ph name="BEGIN_LINK" />Ρυθμίσεις<ph name="END_LINK" />.</translation>
 <translation id="5626134646977739690">Όνομα:</translation>
+<translation id="5639724618331995626">Να επιτρέπονται όλοι οι ιστότοποι</translation>
 <translation id="5646376287012673985">Τοποθεσία</translation>
 <translation id="5659593005791499971">Διεύθυνση ηλεκτρονικού ταχυδρομείου</translation>
 <translation id="5665379678064389456">Δημιουργία συμβάντος στην εφαρμογή <ph name="APP_NAME" /></translation>
@@ -742,6 +744,7 @@
 Για απόκτηση νέων αδειών, συνδεθείτε στο διαδίκτυο και κάντε αναπαραγωγή των λήψεων περιεχομένου.</translation>
 <translation id="8636825310635137004">Για να εμφανίζονται οι καρτέλες από τις άλλες συσκευές σας, ενεργοποιήστε τον συγχρονισμό.</translation>
 <translation id="8639651215196239211">Όλες οι λήψεις</translation>
+<translation id="8641930654639604085">Δοκιμάστε να αποκλείσετε τους ιστοτόπους με περιεχόμενο για ενηλίκους</translation>
 <translation id="8660471606262461360">Από το Google Payments</translation>
 <translation id="8676374126336081632">Διαγραφή καταχώρισης</translation>
 <translation id="869891660844655955">Ημερομηνία λήξης</translation>

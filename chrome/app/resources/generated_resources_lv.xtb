@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Nav iestatīts</translation>
 <translation id="1994173015038366702">Vietnes URL</translation>
 <translation id="1997616988432401742">Jūsu sertifikāti</translation>
-<translation id="1999092554946563091">Iespējojiet vai atspējojiet SafeSites filtrēšanu pakārtotajiem kontiem.</translation>
 <translation id="1999115740519098545">Sākumlapā</translation>
 <translation id="2007404777272201486">Ziņot par problēmu...</translation>
 <translation id="2011110593081822050">Tīmekļa darbinieks: <ph name="WORKER_NAME" /></translation>
@@ -2004,7 +2003,6 @@ no <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> kļūdas.</translation>
 <translation id="3496213124478423963">Tālināt</translation>
 <translation id="3496381219560704722">VPD vērtību ignorēšana</translation>
-<translation id="3496520356073548867">Pakārtotā konta SafeSites filtrēšana</translation>
 <translation id="3502662168994969388">Tiek ierobežota Native Client lietojumprogrammu uz GDB balstīta atkļūdošana pēc manifesta failā norādītā URL. Lai šī opcija darbotos, ir jāiespējo Native Client uz GDB balstītā atkļūdošana.</translation>
 <translation id="3504135463003295723">Grupas nosaukums:</translation>
 <translation id="3505030558724226696">Atsaukt piekļuvi ierīcei</translation>
@@ -3279,7 +3277,6 @@ Lai turpinātu skatīšanu, nospiediet jebkuru taustiņu.</translation>
 <translation id="5227679487546032910">Noklusējuma iemiesojums zilganzaļā krāsā</translation>
 <translation id="5227808808023563348">Atrast iepriekšējo tekstu</translation>
 <translation id="5228076606934445476">Ierīcē radās kļūda. Lai to novērstu, jums ir atkārtoti jāpalaiž ierīce un jāmēģina vēlreiz.</translation>
-<translation id="5228962187251412618">Tikai tiešsaistes pārbaude</translation>
 <translation id="5229189185761556138">Pārvaldīt ievades metodes</translation>
 <translation id="5229622432348746578">Atspējot audio darbvirsmas kopīgošanai</translation>
 <translation id="5230516054153933099">Logs</translation>
@@ -4313,7 +4310,6 @@ Lai turpinātu skatīšanu, nospiediet jebkuru taustiņu.</translation>
 <translation id="6565108107088666812">Tādējādi no visām ierīcēm tiks dzēsti sinhronizētie dati.</translation>
 <translation id="6566142449942033617">Nevarēja ielādēt spraudņa ceļu “<ph name="PLUGIN_PATH" />”.</translation>
 <translation id="6567688344210276845">Nevarēja ielādēt lapas darbības ikonu “<ph name="ICON" />”.</translation>
-<translation id="6569050677975271054">Tikai statisks melnais saraksts</translation>
 <translation id="6571070086367343653">Rediģēt kredītkarti</translation>
 <translation id="657402800789773160">&amp;Atkārtoti ielādēt šo lapu</translation>
 <translation id="6575134580692778371">Nav konfigurēts</translation>

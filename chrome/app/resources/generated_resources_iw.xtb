@@ -751,7 +751,7 @@
 <translation id="1957988341423158185">תווית מעקב למעקב גלישה</translation>
 <translation id="1961376890474801922">‏ברמת ניסוי גבוהה, כאשר אורחים כדוגמת ‎&lt;webview&gt;‎ מיושמים בתשתית iframe מחוץ לתהליך.</translation>
 <translation id="1962233722219655970">‏דף זה משתמש ביישום Native Client שאינו פועל במחשב שלך.</translation>
-<translation id="1962389111849429567">‏תמיכה בשיבוט מובנה של WebAssembly.</translation>
+<translation id="1962389111849429567">‏תמיכה בהעתקה מובנית של WebAssembly.</translation>
 <translation id="1962969542251276847">נעל מסך</translation>
 <translation id="1963227389609234879">הסר הכל</translation>
 <translation id="1965328510789761112">זיכרון פרטי</translation>
@@ -781,7 +781,6 @@
 <translation id="1992397118740194946">לא מוגדר</translation>
 <translation id="1994173015038366702">כתובת אתר</translation>
 <translation id="1997616988432401742">האישורים שלך</translation>
-<translation id="1999092554946563091">‏הפעל או השבת את סינון SafeSites בשביל חשבונות של ילדים.</translation>
 <translation id="1999115740519098545">בעת ההפעלה</translation>
 <translation id="2007404777272201486">דווח על בעיה...</translation>
 <translation id="2011110593081822050">‏Web Worker:‏ <ph name="WORKER_NAME" /></translation>
@@ -1726,7 +1725,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3153177132960373163">התר לכל האתרים להשתמש בפלאגין כדי לגשת למחשב שלך</translation>
 <translation id="3154351730702813399">ייתכן שמנהל המכשיר עוקב אחרי פעילות הגלישה שלך.</translation>
 <translation id="3154429428035006212">לא מקוונת במשך יותר מחודש</translation>
-<translation id="3155068499722837620">הצגת חריגה לפי רכיבי קידוד צבעים על סמך שרטוט של רכיבים אחרים מתחתם.</translation>
+<translation id="3155068499722837620">הצגת חריגה לפי רכיבי קידוד צבעים על סמך שרטוט של רכיבים אחרים מתחתיהם.</translation>
 <translation id="3157931365184549694">שחזר</translation>
 <translation id="3158564748719736353">אם ההגדרה מופעלת, מוצגת הודעה כשהמכשיר מחובר לרשת המצריכה כניסה דרך פורטל חובה.</translation>
 <translation id="3159386328383139451">‏המיקום שלך משמש את Google לשיפור החוויה המקומית שלך. אפשר לשנות את ההגדרה הזו כאן: <ph name="SETTINGS_LINK" />.</translation>
@@ -1996,7 +1995,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3495304270784461826"><ph name="COUNT" /> שגיאות.</translation>
 <translation id="3496213124478423963">התרחק</translation>
 <translation id="3496381219560704722">‏בצע שינויים בערכי VPD.</translation>
-<translation id="3496520356073548867">‏סינון SafeSites בשביל חשבונות של ילדים</translation>
 <translation id="3502662168994969388">‏הגבלת ניפוי באגים מבוסס GDB של היישום Native Client לפי כתובת אתר של קובץ מניפסט. יש להפעיל ניפוי באגים מבוסס GDB של Native Client כדי שאפשרות זו תפעל.</translation>
 <translation id="3504135463003295723">שם קבוצה:</translation>
 <translation id="3505030558724226696">בטל גישה למכשירים</translation>
@@ -3271,7 +3269,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5227679487546032910">דמות ברירת מחדל כחלחלה</translation>
 <translation id="5227808808023563348">חפש את הטקסט הקודם</translation>
 <translation id="5228076606934445476">משהו השתבש במכשיר.  כדי להתאושש משגיאה זו יהיה עליך לאתחל את המכשיר ולנסות שוב.</translation>
-<translation id="5228962187251412618">בדיקה מקוונת בלבד</translation>
 <translation id="5229189185761556138">נהל שיטות קלט</translation>
 <translation id="5229622432348746578">השבתת אודיו לשיתוף שולחן עבודה</translation>
 <translation id="5230516054153933099">חלון</translation>
@@ -4306,7 +4303,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6565108107088666812">פעולה זו מנקה נתונים מסונכרנים מכל המכשירים.</translation>
 <translation id="6566142449942033617">לא היתה אפשרות לטעון את '<ph name="PLUGIN_PATH" />' עבור פלאג אין.</translation>
 <translation id="6567688344210276845">לא היתה אפשרות לטעון את האייקון '<ph name="ICON" />' עבור פעולת דף.</translation>
-<translation id="6569050677975271054">רשימה שחורה סטטית בלבד</translation>
 <translation id="6571070086367343653">ערוך כרטיס אשראי</translation>
 <translation id="657402800789773160">&amp;טען דף זה מחדש</translation>
 <translation id="6575134580692778371">לא הוגדר</translation>
@@ -4976,7 +4972,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7508545000531937079">מצגת שקופיות</translation>
 <translation id="7511149348717996334">הפעל הגדרות של עיצוב חדשני תלת-ממדי</translation>
 <translation id="7511955381719512146">‏ייתכן שתידרש להיכנס ל-<ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> עבור רשת ה-Wi-Fi שבה אתה משתמש.</translation>
-<translation id="7512768521598401899">‏עליך להפעיל דפי אינטרנט כדי שתוכל להשתמש בשיבוט מובנה של WebAssembly.</translation>
+<translation id="7512768521598401899">‏עליך להפעיל דפי אינטרנט כדי שתוכל להשתמש בהעתקה מובנית של WebAssembly.</translation>
 <translation id="7514722502805496245">מפעיל הורדת דפים ברקע במקרים שבהם הדף עדיין לא נטען בכרטיסייה הנוכחית.</translation>
 <translation id="751507702149411736">ביילורוסית</translation>
 <translation id="7517569744831774757">החזר את ההגדרות לברירות המחדל המקוריות שלהן.</translation>
@@ -5077,7 +5073,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7650701856438921772"><ph name="PRODUCT_NAME" /> מוצג בשפה זו</translation>
 <translation id="7652808307838961528">ערוך את המשתמש, <ph name="PROFILE_NAME" /></translation>
 <translation id="7654941827281939388">חשבון זה כבר נמצא בשימוש במחשב זה.</translation>
-<translation id="7657572357665431732">החלקה חלקית</translation>
+<translation id="7657572357665431732">החלפה חלקית</translation>
 <translation id="7658239707568436148">ביטול</translation>
 <translation id="7659584679870740384">אין לך אישור להשתמש במכשיר הזה. צור קשר עם מנהל המערכת כדי לקבל הרשאה לכניסה.</translation>
 <translation id="7661259717474717992">‏אפשר לאתרים לשמור ולקרוא נתונים של קובצי Cookie</translation>
@@ -5928,7 +5924,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8775404590947523323">שינויי העריכה שלך נשמרים אוטומטית.<ph name="BREAKS" />כדי לשמור עותק של התמונה המקורית, בטל את הסימון של "החלף קובץ מקורי"</translation>
 <translation id="8777218413579204310">זיהוי תוכן</translation>
 <translation id="8777628254805677039">‏סיסמת root</translation>
-<translation id="8777980041711299948">הגדרת התנהגות בהחלקה חלקית.</translation>
+<translation id="8777980041711299948">הגדרת התנהגות בהחלפה חלקית.</translation>
 <translation id="8778590208284402708">באף אתר לא השתנה המרחק מהתצוגה.</translation>
 <translation id="878069093594050299">אישור זה אומת לשימושים הבאים:</translation>
 <translation id="8782565991310229362">ההפעלה של יישום קיוסק בוטלה.</translation>

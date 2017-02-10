@@ -856,8 +856,8 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="3591584750136265240">Configura o comportamento de autenticação de login</translation>
 <translation id="3601614035698083789">Configura uma lista de favoritos gerenciados.
 
-      A política consiste em uma lista de favoritos. E cada favorito é um
-      dicionário contendo as chaves <ph name="NAME" /> e <ph name="URL_LABEL" />, que detêm o nome do favorito e o destino dele. É
+      A política consiste em uma lista de favoritos na qual cada favorito é um
+      dicionário contendo as chaves <ph name="NAME" /> e <ph name="URL_LABEL" />, com o nome do favorito e o destino dele. É
       possível configurar uma subpasta definindo um favorito sem uma chave <ph name="URL_LABEL" />, mas com uma chave <ph name="CHILDREN" /> adicional que, por si só, contenha uma lista de
       favoritos, conforme definido acima (alguns deles podem ser pastas novamente). O <ph name="PRODUCT_NAME" /> altera URLs incompletos
       como se eles fossem enviados pela Omnibox. Por exemplo, <ph name="GOOGLE_COM" /> torna-se <ph name="HTTPS_GOOGLE_COM" />.
@@ -2564,7 +2564,7 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
       em contato com o Servidor Quirks automaticamente e faz o download dos arquivos de configuração,
       se eles estão disponíveis, e os armazena no dispositivo. Esses arquivos podem ser usados,
       por exemplo, para melhorar a qualidade de exibição dos monitores acoplados.</translation>
-<translation id="8906768759089290519">Ativa o modo de visitante</translation>
+<translation id="8906768759089290519">Ativa o modo visitante</translation>
 <translation id="8908294717014659003">Permite definir se os sites podem ter acesso a dispositivos de captura de mídia. O acesso a dispositivos de captura de mídia pode ser permitido por padrão, ou uma pergunta será feita ao usuário cada vez que um site quiser ter acesso a dispositivos de captura de mídia.
 
       Se esta política não for definida, será usado "PromptOnAccess", e o usuário poderá  fazer alterações.</translation>

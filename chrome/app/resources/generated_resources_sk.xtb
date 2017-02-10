@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Nie je nastavené</translation>
 <translation id="1994173015038366702">Webová adresa stránok</translation>
 <translation id="1997616988432401742">Vaše certifikáty</translation>
-<translation id="1999092554946563091">Povoľte alebo zakážte filtrovanie SafeSites pre podriadené účty.</translation>
 <translation id="1999115740519098545">Pri spustení</translation>
 <translation id="2007404777272201486">Nahlásiť problém...</translation>
 <translation id="2011110593081822050">Webový pracovník: <ph name="WORKER_NAME" /></translation>
@@ -1502,7 +1501,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="288042212351694283">Prístup k vašim zariadeniam so štandardom Universal 2nd Factor</translation>
 <translation id="2881966438216424900">Dátum posledného prístupu:</translation>
 <translation id="2882943222317434580"><ph name="IDS_SHORT_PRODUCT_NAME" /> sa o chvíľu reštartuje a obnoví</translation>
-<translation id="2884778725218524621">Povoliť/zakázať možnosť na kalibráciu MD dotykovej obrazovky v nastaveniach</translation>
+<translation id="2884778725218524621">Povoliť/zakázať možnosť kalibrácie MD dotykovej obrazovky v nastaveniach</translation>
 <translation id="2885378588091291677">Správca úloh</translation>
 <translation id="2887525882758501333">Dokument PDF</translation>
 <translation id="2888807692577297075">Dopytu  &lt;b&gt;„<ph name="SEARCH_STRING" />“&lt;/b&gt; nezodpovedajú žiadne položky</translation>
@@ -2004,7 +2003,6 @@ z domény <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826">Počet chýb: <ph name="COUNT" />.</translation>
 <translation id="3496213124478423963">Oddialiť</translation>
 <translation id="3496381219560704722">Prepísanie hodnôt VPD</translation>
-<translation id="3496520356073548867">Filtrovanie SafeSites podriadeného účtu</translation>
 <translation id="3502662168994969388">Obmedzuje v aplikácii Native Client ladenie založené na nástroji GDB podľa webovej adresy súboru manifestu. Aby táto možnosť fungovala, musí byť povolené ladenie aplikácie Native Client založené na nástroji GDB.</translation>
 <translation id="3504135463003295723">Názov skupiny:</translation>
 <translation id="3505030558724226696">Odvolať prístup k zariadeniam</translation>
@@ -2266,7 +2264,7 @@ z domény <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3815571115159309122">Počet nájdených nových fotiek: <ph name="FILE_COUNT" />
     <ph name="LINE_BREAK1" />
     Zálohovanie na <ph name="BEGIN_LINK" />Disk Google<ph name="END_LINK" /> je pripravené</translation>
-<translation id="3816789583333631750">Ak chcete použiť túto funkciu, musíte povoliť doplnok Native Client</translation>
+<translation id="3816789583333631750">Ak chcete použiť túto funkciu, musíte povoliť doplnok Native Client.</translation>
 <translation id="3819007103695653773">Povoliť všetkým stránkam odosielať správy push na pozadí</translation>
 <translation id="3819752733757735746">Prístup s prepínačmi (ovládajte počítač len jedným či dvoma prepínačmi)</translation>
 <translation id="3819800052061700452">&amp;Celá obrazovka</translation>
@@ -3279,7 +3277,6 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="5227679487546032910">Predvolený modrozelený avatar</translation>
 <translation id="5227808808023563348">Nájsť predchádzajúci text</translation>
 <translation id="5228076606934445476">V zariadení sa vyskytol problém. Ak chcete opraviť túto chybu, musíte zariadenie reštartovať a skúsiť to znova.</translation>
-<translation id="5228962187251412618">Iba online kontrola</translation>
 <translation id="5229189185761556138">Spravovať metódy vstupu</translation>
 <translation id="5229622432348746578">Zakázať zdieľanie zvuku medzi počítačmi</translation>
 <translation id="5230516054153933099">Okno</translation>
@@ -4313,7 +4310,6 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="6565108107088666812">Táto akcia vymaže synchronizované dáta zo všetkých zariadení.</translation>
 <translation id="6566142449942033617">Cestu „<ph name="PLUGIN_PATH" />“ sa pre doplnok nepodarilo načítať.</translation>
 <translation id="6567688344210276845">Nepodarilo sa načítať ikonu „<ph name="ICON" />“ akcie stránky.</translation>
-<translation id="6569050677975271054">Iba statický zoznam zakázaných položiek</translation>
 <translation id="6571070086367343653">Upraviť kreditnú kartu</translation>
 <translation id="657402800789773160">&amp;Obnoviť túto stránku</translation>
 <translation id="6575134580692778371">Nenakonfigurované</translation>

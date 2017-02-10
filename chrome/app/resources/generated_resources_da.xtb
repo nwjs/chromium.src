@@ -783,7 +783,6 @@
 <translation id="1992397118740194946">Ikke angivet</translation>
 <translation id="1994173015038366702">Webadresse</translation>
 <translation id="1997616988432401742">Dine certifikater</translation>
-<translation id="1999092554946563091">Aktivér eller deaktiver SafeSites-filtrering til underkonti.</translation>
 <translation id="1999115740519098545">Ved opstart</translation>
 <translation id="2007404777272201486">Rapportér et problem...</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME" /></translation>
@@ -840,7 +839,7 @@
 <translation id="2099172618127234427">Du aktiverer Chrome OS-fejlfindingsfunktioner, som konfigurerer sshd daemon og aktiverer systemgenstart via USB-drev.</translation>
 <translation id="2099686503067610784">Slet servercertifikatet "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="2100273922101894616">Automatisk login</translation>
-<translation id="2100499704602262897">Aktivér V8 for at bruge den eksperimentelle tændingsfortolker og TurboFan-kompilatoren til udførelse af JavaScript.</translation>
+<translation id="2100499704602262897">Aktivér V8 for at bruge den eksperimentelle Ignition-fortolker og TurboFan-kompilering til udførelse af JavaScript.</translation>
 <translation id="2101225219012730419">Version:</translation>
 <translation id="2101797668776986011">Pepper 3D</translation>
 <translation id="2102945094304032244">Hjælp til ændring af adgangskode</translation>
@@ -2002,7 +2001,6 @@ Fra <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> fejl.</translation>
 <translation id="3496213124478423963">Zoom ud</translation>
 <translation id="3496381219560704722">Tilsidesæt VPD-værdier.</translation>
-<translation id="3496520356073548867">SafeSites-filtering på underkonto</translation>
 <translation id="3502662168994969388">Begrænser Native Client-applikationens GDB-baserede fejlretning ved hjælp af webadressen for manifestfilen. Native Client GDB-baseret fejlretning skal aktiveres, for at denne indstilling fungerer.</translation>
 <translation id="3504135463003295723">Gruppenavn:</translation>
 <translation id="3505030558724226696">Tilbagekald adgang til enhed</translation>
@@ -3275,7 +3273,6 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5227679487546032910">Grønblå standardavatar</translation>
 <translation id="5227808808023563348">Find tidligere tekst</translation>
 <translation id="5228076606934445476">Der er noget galt med enheden. Du skal genstarte enheden og prøve igen for at undgå denne fejl.</translation>
-<translation id="5228962187251412618">Kun onlinekontrol</translation>
 <translation id="5229189185761556138">Administrer indtastningsmetoder</translation>
 <translation id="5229622432348746578">Deaktiver lyd ved skrivebordsdeling</translation>
 <translation id="5230516054153933099">Vindue</translation>
@@ -4310,7 +4307,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6565108107088666812">Dette rydder synkroniserede data fra alle enheder.</translation>
 <translation id="6566142449942033617">'<ph name="PLUGIN_PATH" />' til plugin kunne ikke indlæses.</translation>
 <translation id="6567688344210276845">Ikonet '<ph name="ICON" />' for sidehandling kunne ikke indlæses.</translation>
-<translation id="6569050677975271054">Kun statisk spærreliste</translation>
 <translation id="6571070086367343653">Rediger kreditkort</translation>
 <translation id="657402800789773160">&amp;Genindlæs denne side</translation>
 <translation id="6575134580692778371">Ikke konfigureret</translation>

@@ -421,6 +421,7 @@
 <translation id="53553865750799677">Адресът за вземане не се поддържа. Изберете друг.</translation>
 <translation id="5372829067651257087">URL адресът е копиран.</translation>
 <translation id="5400569084694353794">С използването на това приложение приемате <ph name="BEGIN_LINK1" />Общите условия<ph name="END_LINK1" /> и <ph name="BEGIN_LINK2" />Съобщението за поверителност<ph name="END_LINK2" /> на Chrome.</translation>
+<translation id="5403644198645076998">Разрешаване само на конкретни сайтове</translation>
 <translation id="5414836363063783498">Потвърждава се…</translation>
 <translation id="5423934151118863508">Най-посещаваните от вас страници ще се показват тук</translation>
 <translation id="5424588387303617268">Налични: <ph name="GIGABYTES" /> ГБ</translation>
@@ -446,6 +447,7 @@
 <translation id="5596627076506792578">Още опции</translation>
 <translation id="5610807607761827392">Можете да управлявате картите и адресите от <ph name="BEGIN_LINK" />настройките<ph name="END_LINK" />.</translation>
 <translation id="5626134646977739690">Име:</translation>
+<translation id="5639724618331995626">Разрешаване на всички сайтове</translation>
 <translation id="5646376287012673985">Местоположение</translation>
 <translation id="5659593005791499971">Имейл</translation>
 <translation id="5665379678064389456">Създайте събитие в <ph name="APP_NAME" /></translation>
@@ -741,6 +743,7 @@
 За да получите нови лицензи, свържете се с интернет и пуснете изтегленото съдържание.</translation>
 <translation id="8636825310635137004">Включете синхронизирането, за да получите разделите си от другите си устройства.</translation>
 <translation id="8639651215196239211">Всички изтегляния</translation>
+<translation id="8641930654639604085">Опит за блокиране на сайтовете за пълнолетни</translation>
 <translation id="8660471606262461360">От Google Payments</translation>
 <translation id="8676374126336081632">Изчистване на въведеното</translation>
 <translation id="869891660844655955">Дата на валидност</translation>

@@ -787,7 +787,6 @@
 <translation id="1992397118740194946">Chưa đặt</translation>
 <translation id="1994173015038366702">URL trang web</translation>
 <translation id="1997616988432401742">Chứng chỉ của bạn</translation>
-<translation id="1999092554946563091">Bật hoặc tắt tính năng lọc Trang web an toàn cho tài khoản con.</translation>
 <translation id="1999115740519098545">Khi khởi động</translation>
 <translation id="2007404777272201486">Báo cáo sự cố...</translation>
 <translation id="2011110593081822050">Người làm việc trên Web: <ph name="WORKER_NAME" /></translation>
@@ -2004,7 +2003,6 @@ Từ <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> lỗi.</translation>
 <translation id="3496213124478423963">Thu Nhỏ</translation>
 <translation id="3496381219560704722">Ghi đè giá trị VPD.</translation>
-<translation id="3496520356073548867">Lọc Trang web an toàn cho tài khoản con</translation>
 <translation id="3502662168994969388">Hạn chế gỡ lỗi dựa trên ứng dụng Native Client GDB theo URL của tệp kê khai. Gỡ lỗi dựa trên Native Client GDB phải được bật để tùy chọn này hoạt động.</translation>
 <translation id="3504135463003295723">Tên nhóm:</translation>
 <translation id="3505030558724226696">Thu hồi quyền truy cập thiết bị</translation>
@@ -3279,7 +3277,6 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="5227679487546032910">Hình đại diện màu xanh két mặc định</translation>
 <translation id="5227808808023563348">Tìm văn bản trước đó</translation>
 <translation id="5228076606934445476">Đã xảy ra lỗi với thiết bị.  Để khắc phục lỗi này, bạn sẽ cần khởi động lại thiết bị và thử lại.</translation>
-<translation id="5228962187251412618">Chỉ kiểm tra trực tuyến</translation>
 <translation id="5229189185761556138">Quản lý phương thức nhập</translation>
 <translation id="5229622432348746578">Tắt âm thanh cho chia sẻ màn hình</translation>
 <translation id="5230516054153933099">Cửa sổ</translation>
@@ -4313,7 +4310,6 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="6565108107088666812">Thao tác này sẽ xóa dữ liệu được đồng bộ hóa khỏi tất cả các thiết bị.</translation>
 <translation id="6566142449942033617">Không thể tải '<ph name="PLUGIN_PATH" />' cho plugin.</translation>
 <translation id="6567688344210276845">Không thể tải biểu tượng '<ph name="ICON" />' cho tác vụ trang.</translation>
-<translation id="6569050677975271054">Chỉ danh sách cấm tĩnh</translation>
 <translation id="6571070086367343653">Chỉnh sửa thẻ tín dụng</translation>
 <translation id="657402800789773160">&amp;Tải lại trang này</translation>
 <translation id="6575134580692778371">Chưa được định cấu hình</translation>

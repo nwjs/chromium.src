@@ -421,6 +421,7 @@ Para ajustar o termo de pesquisa, prima continuamente para selecionar. Para refi
 <translation id="53553865750799677">Endereço de recolha não suportado. Selecione um endereço diferente.</translation>
 <translation id="5372829067651257087">URL copiado.</translation>
 <translation id="5400569084694353794">Ao utilizar esta aplicação, concorda com os <ph name="BEGIN_LINK1" />Termos de Utilização<ph name="END_LINK1" /> e o <ph name="BEGIN_LINK2" />Aviso de Privacidade<ph name="END_LINK2" /> do Chrome.</translation>
+<translation id="5403644198645076998">Permitir apenas determinados sites</translation>
 <translation id="5414836363063783498">A validar…</translation>
 <translation id="5423934151118863508">As páginas mais visitadas aparecem aqui</translation>
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> GB disponíveis</translation>
@@ -446,6 +447,7 @@ Para ajustar o termo de pesquisa, prima continuamente para selecionar. Para refi
 <translation id="5596627076506792578">Mais opções</translation>
 <translation id="5610807607761827392">Pode gerir cartões e endereços nas <ph name="BEGIN_LINK" />Definições<ph name="END_LINK" />.</translation>
 <translation id="5626134646977739690">Nome:</translation>
+<translation id="5639724618331995626">Permitir todos os sites</translation>
 <translation id="5646376287012673985">Localização</translation>
 <translation id="5659593005791499971">Email</translation>
 <translation id="5665379678064389456">Criar evento no <ph name="APP_NAME" /></translation>
@@ -742,6 +744,7 @@ A sua Conta Google pode ter outras formas do histórico de navegação, como pes
 Para obter licenças novas, ligue-se à Internet e reproduza o conteúdo transferido.</translation>
 <translation id="8636825310635137004">Para obter os separadores dos seus outros dispositivos, ative a sincronização.</translation>
 <translation id="8639651215196239211">Todas as transferências</translation>
+<translation id="8641930654639604085">Tentar bloquear sites para adultos</translation>
 <translation id="8660471606262461360">Do Google Payments</translation>
 <translation id="8676374126336081632">Limpar texto</translation>
 <translation id="869891660844655955">Data de expiração</translation>

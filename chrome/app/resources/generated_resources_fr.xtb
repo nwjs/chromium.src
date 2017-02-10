@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Non défini</translation>
 <translation id="1994173015038366702">URL du site</translation>
 <translation id="1997616988432401742">Vos certificats</translation>
-<translation id="1999092554946563091">Activer ou désactiver le filtrage SafeSites pour les comptes enfants</translation>
 <translation id="1999115740519098545">Au démarrage</translation>
 <translation id="2007404777272201486">Signaler un problème...</translation>
 <translation id="2011110593081822050">Processus de traitement Web : <ph name="WORKER_NAME" /></translation>
@@ -1500,7 +1499,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="288042212351694283">Accès aux appareils U2F</translation>
 <translation id="2881966438216424900">Dernier accès :</translation>
 <translation id="2882943222317434580">Dans un instant, <ph name="IDS_SHORT_PRODUCT_NAME" /> va redémarrer et être réinitialisé.</translation>
-<translation id="2884778725218524621">Activer/Désactiver l'option relative aux paramètres md d'étalonnage de l'écran tactile</translation>
+<translation id="2884778725218524621">Activer/Désactiver l'option relative aux paramètres MD de calibrage de l'écran tactile</translation>
 <translation id="2885378588091291677">Gestionnaire de tâches</translation>
 <translation id="2887525882758501333">Document PDF</translation>
 <translation id="2888807692577297075">Aucun élément ne correspond à votre recherche ("<ph name="SEARCH_STRING" />").</translation>
@@ -2002,7 +2001,6 @@ Domaine d'origine : <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> erreurs</translation>
 <translation id="3496213124478423963">Zoom arrière</translation>
 <translation id="3496381219560704722">Ignorer les valeurs VPD</translation>
-<translation id="3496520356073548867">Filtrage SafeSites pour les comptes enfants</translation>
 <translation id="3502662168994969388">Restreint le débogage GDB de l'application Native Client en fonction de l'URL du fichier manifeste. Le débogage GDB de l'application Native Client doit être activé pour que cette option fonctionne.</translation>
 <translation id="3504135463003295723">Nom du groupe :</translation>
 <translation id="3505030558724226696">Retirer les droits d'accès aux appareils</translation>
@@ -3276,7 +3274,6 @@ Pour poursuivre l'exploration, appuyez sur n'importe quelle touche.</translation
 <translation id="5227679487546032910">Avatar turquoise par défaut</translation>
 <translation id="5227808808023563348">Retrouver le texte précédent</translation>
 <translation id="5228076606934445476">Une erreur s'est produite sur cet appareil. Pour résoudre ce problème, veuillez redémarrer votre appareil, puis réessayer.</translation>
-<translation id="5228962187251412618">Vérification en ligne uniquement</translation>
 <translation id="5229189185761556138">Gérer les modes de saisie</translation>
 <translation id="5229622432348746578">Désactiver l'audio lors du partage du Bureau</translation>
 <translation id="5230516054153933099">Fenêtre</translation>
@@ -4311,7 +4308,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6565108107088666812">Les données synchronisées seront effacées de tous les appareils.</translation>
 <translation id="6566142449942033617">Impossible de charger "<ph name="PLUGIN_PATH" />" pour le plug-in.</translation>
 <translation id="6567688344210276845">Impossible de charger l'icône "<ph name="ICON" />" d'action de page.</translation>
-<translation id="6569050677975271054">Uniquement la liste noire statique</translation>
 <translation id="6571070086367343653">Modifier la carte de paiement</translation>
 <translation id="657402800789773160">&amp;Rafraîchir cette page</translation>
 <translation id="6575134580692778371">Non configuré</translation>
@@ -6262,7 +6258,7 @@ Suite à cette opération, les notifications, les fenêtres et les boîtes de di
 <translation id="9183836083779743117"><ph name="DOWNLOAD_RECEIVED" /> depuis <ph name="DOWNLOAD_DOMAIN" />, <ph name="TIME_LEFT" /></translation>
 <translation id="9184146175870444618">Force le traitement en tant qu'écouteurs passifs des écouteurs des événements "touchstart" et du premier événement "touchmove" par défilement lors des balayages rapides de l'écran.</translation>
 <translation id="9184473426683023988">Importer et associer à l'appareil</translation>
-<translation id="9185358268467915502">Si l'option est activée, l'utilisateur peut étalonner l'écran tactile à l'adresse chrome://md-settings/display.</translation>
+<translation id="9185358268467915502">Si l'option est activée, l'utilisateur peut calibrer l'écran tactile à l'adresse chrome://md-settings/display.</translation>
 <translation id="9186729806195986201">Retournez également à la version précédemment installée de <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
 <translation id="9187210477874601037">Échec de l'association de la machine au domaine. Votre compte ne dispose peut-être pas des autorisations suffisantes sur le serveur.</translation>
 <translation id="9187651461283037651">Activer Chrome VR.</translation>

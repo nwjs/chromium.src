@@ -787,7 +787,6 @@
 <translation id="1992397118740194946">Not set</translation>
 <translation id="1994173015038366702">Site URL</translation>
 <translation id="1997616988432401742">Your certificates</translation>
-<translation id="1999092554946563091">Enable or disable SafeSites filtering for child accounts.</translation>
 <translation id="1999115740519098545">On start-up</translation>
 <translation id="2007404777272201486">Report an Issue...</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME" /></translation>
@@ -884,7 +883,7 @@
 <translation id="214169863967063661">Open appearance settings</translation>
 <translation id="2142328300403846845">Open Link as</translation>
 <translation id="214353449635805613">Screenshot region</translation>
-<translation id="2143765403545170146">Always show Toolbar in full screen</translation>
+<translation id="2143765403545170146">Always show toolbar in full screen</translation>
 <translation id="2143778271340628265">Manual proxy configuration</translation>
 <translation id="2143915448548023856">Display settings</translation>
 <translation id="2144536955299248197">Certificate Viewer: <ph name="CERTIFICATE_NAME" /></translation>
@@ -2003,7 +2002,6 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> errors.</translation>
 <translation id="3496213124478423963">Zoom Out</translation>
 <translation id="3496381219560704722">Override VPD values.</translation>
-<translation id="3496520356073548867">Child account SafeSites filtering</translation>
 <translation id="3502662168994969388">Restricts Native Client application GDB-based debugging by URL of manifest file. Native Client GDB-based debugging must be enabled for this option to work.</translation>
 <translation id="3504135463003295723">Group name:</translation>
 <translation id="3505030558724226696">Revoke device access</translation>
@@ -3278,7 +3276,6 @@ Press any key to continue exploring.</translation>
 <translation id="5227679487546032910">Default teal avatar</translation>
 <translation id="5227808808023563348">Find previous text</translation>
 <translation id="5228076606934445476">Something is wrong with the device. To recover from this error you will need to reboot the device and try again.</translation>
-<translation id="5228962187251412618">Online check only</translation>
 <translation id="5229189185761556138">Manage input methods</translation>
 <translation id="5229622432348746578">Disable Audio For Desktop Sharing</translation>
 <translation id="5230516054153933099">Window</translation>
@@ -4311,7 +4308,6 @@ Press any key to continue exploring.</translation>
 <translation id="6565108107088666812">This clears synced data from all devices.</translation>
 <translation id="6566142449942033617">Could not load '<ph name="PLUGIN_PATH" />' for plug-in.</translation>
 <translation id="6567688344210276845">Could not load icon '<ph name="ICON" />' for page action.</translation>
-<translation id="6569050677975271054">Static blacklist only</translation>
 <translation id="6571070086367343653">Edit credit card</translation>
 <translation id="657402800789773160">&amp;Reload This Page</translation>
 <translation id="6575134580692778371">Not configured</translation>

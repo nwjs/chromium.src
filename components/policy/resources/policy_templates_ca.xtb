@@ -860,7 +860,7 @@ El valor de la política s'ha d'especificar en mil·lisegons. Els valors s'estab
 
       Aquestes adreces d'interès se situen en una carpeta d'adreces d'interès gestionades que l'usuari no pot modificar, però sí que pot treure-la de la barra d'adreces d'interès. Les adreces d'interès gestionades no se sincronitzen amb el compte de l'usuari i no es poden modificar amb extensions.
 
-      A partir de la versió 51, el nom de la carpeta d'adreces d'interès es pot personalitzar afegint-hi un element de llista {"toplevel_name": "some name"}.</translation>
+      A partir de la versió 51, el nom de la carpeta d'adreces d'interès es pot personalitzar afegint-hi un element de llista {"nom_del_nivell_superior": "qualsevol nom"}.</translation>
 <translation id="3627678165642179114">Activació o desactivació del servei web de correcció ortogràfica</translation>
 <translation id="3646859102161347133">Defineix el tipus de lupa</translation>
 <translation id="3653237928288822292">Icona del proveïdor de cerca predeterminat</translation>

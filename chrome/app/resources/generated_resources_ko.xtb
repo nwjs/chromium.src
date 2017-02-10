@@ -390,7 +390,7 @@
 <translation id="1493263392339817010">글꼴 맞춤설정...</translation>
 <translation id="1493492096534259649">맞춤법 검사를 사용할 수 없는 언어입니다.</translation>
 <translation id="1493892686965953381"><ph name="LOAD_STATE_PARAMETER" />을(를) 기다리는 중...</translation>
-<translation id="1493963535825567047">죄송합니다. 시스템에서 DM 토큰을 기기에 저장하지 못했습니다.</translation>
+<translation id="1493963535825567047">시스템에서 DM 토큰을 기기에 저장하지 못했습니다.</translation>
 <translation id="1495486559005647033">사용 가능한 다른 기기가 <ph name="NUM_PRINTERS" />개 있습니다.</translation>
 <translation id="1497296278783728207">TSYNC를 지원하는 Seccomp-BPF 샌드박스</translation>
 <translation id="1497522201463361063">'<ph name="FILE_NAME" />'의 이름을 변경할 수 없습니다. <ph name="ERROR_MESSAGE" /></translation>
@@ -787,7 +787,6 @@
 <translation id="1992397118740194946">설정 안됨</translation>
 <translation id="1994173015038366702">사이트 URL</translation>
 <translation id="1997616988432401742">내 인증서</translation>
-<translation id="1999092554946563091">하위 계정에서 SafeSites 필터링을 사용 또는 사용 중지합니다.</translation>
 <translation id="1999115740519098545">시작 그룹</translation>
 <translation id="2007404777272201486">문제 신고...</translation>
 <translation id="2011110593081822050">웹 작업자: <ph name="WORKER_NAME" /></translation>
@@ -1031,7 +1030,7 @@
 <translation id="23030561267973084">'<ph name="EXTENSION_NAME" />'이(가) 추가 승인을 요청했습니다.</translation>
 <translation id="2307462900900812319">네트워크 설정</translation>
 <translation id="230927227160767054">이 페이지에서 서비스 핸들러를 설치하려 합니다.</translation>
-<translation id="230988369433510421">죄송합니다. 도메인에 가입하는 중에 문제가 발생했습니다. 다시 시도해 주세요.</translation>
+<translation id="230988369433510421">도메인에 가입하는 중에 문제가 발생했습니다. 다시 시도해 주세요.</translation>
 <translation id="2311496337038385958">녹음 연도</translation>
 <translation id="2312980885338881851">가져올 기존 관리 대상 사용자가 없습니다. 다른 기기에서 한 명 이상의 관리 대상 사용자를 만든 후 여기로 가져올 수 있습니다.</translation>
 <translation id="231490303453288303">메인 프레임의 domContentLoaded(iframe 무시됨)</translation>
@@ -1733,7 +1732,7 @@
 <translation id="3153177132960373163">모든 사이트에서 플러그인을 사용하여 내 컴퓨터에 액세스하도록 허용</translation>
 <translation id="3154351730702813399">기기 관리자가 탐색 활동을 모니터링할 수 있습니다.</translation>
 <translation id="3154429428035006212">1달 이상 오프라인 상태</translation>
-<translation id="3155068499722837620">아래에 다른 요소가 있는지에 따라 요소에 색을 지정하여 오버드로를 시각화합니다.</translation>
+<translation id="3155068499722837620">아래에 다른 요소가 있는지에 따라 요소를 컬러 코딩하여 오버드로를 시각화합니다.</translation>
 <translation id="3157931365184549694">복구</translation>
 <translation id="3158564748719736353">사용하도록 설정하면 기기가 웹포털 인증의 보호를 받는 네트워크에 연결될 때 알림이 표시됩니다.</translation>
 <translation id="3159386328383139451">Google에서 사용자 위치를 사용하여 더 나은 지역 정보를 제공합니다. <ph name="SETTINGS_LINK" />에서 이 설정을 변경할 수 있습니다.</translation>
@@ -2004,7 +2003,6 @@
 <translation id="3495304270784461826">오류가 <ph name="COUNT" />개 있습니다.</translation>
 <translation id="3496213124478423963">축소</translation>
 <translation id="3496381219560704722">VPD 값을 재정의합니다.</translation>
-<translation id="3496520356073548867">하위 계정 SafeSites 필터링</translation>
 <translation id="3502662168994969388">매니페스트 파일의 URL별로 Native Client GDB 기반 디버깅을 제한합니다. 이 옵션이 작동하려면 Native Client GDB 기반 디버깅을 사용하도록 설정해야 합니다.</translation>
 <translation id="3504135463003295723">그룹 이름:</translation>
 <translation id="3505030558724226696">기기 액세스 취소</translation>
@@ -3278,7 +3276,6 @@
 <translation id="5227679487546032910">기본 청록색 아바타</translation>
 <translation id="5227808808023563348">이전 텍스트 찾기</translation>
 <translation id="5228076606934445476">기기에 문제가 발생했습니다.  이 오류를 해결하려면 기기를 재부팅하고 다시 시도하세요.</translation>
-<translation id="5228962187251412618">온라인 확인 전용</translation>
 <translation id="5229189185761556138">입력 방법 관리</translation>
 <translation id="5229622432348746578">데스크톱 공유에 오디오 사용 중지</translation>
 <translation id="5230516054153933099">창</translation>
@@ -4312,7 +4309,6 @@
 <translation id="6565108107088666812">모든 기기에서 동기화된 데이터가 삭제됩니다.</translation>
 <translation id="6566142449942033617">플러그인('<ph name="PLUGIN_PATH" />')을 로드하지 못했습니다.</translation>
 <translation id="6567688344210276845">페이지 작업의 아이콘('<ph name="ICON" />')을 로드하지 못했습니다.</translation>
-<translation id="6569050677975271054">고정 블랙리스트만</translation>
 <translation id="6571070086367343653">신용카드 수정</translation>
 <translation id="657402800789773160">페이지 새로고침(&amp;R)</translation>
 <translation id="6575134580692778371">설정되지 않음</translation>
@@ -6266,7 +6262,7 @@
 <translation id="9184473426683023988">가져와서 기기에 연결</translation>
 <translation id="9185358268467915502">사용 설정하면 사용자가 chrome://md-settings/display에서 터치스크린 디스플레이를 보정할 수 있습니다.</translation>
 <translation id="9186729806195986201">또한 <ph name="IDS_SHORT_PRODUCT_NAME" />의 이전 설치 버전으로 되돌아갑니다.</translation>
-<translation id="9187210477874601037">컴퓨터가 도메인에 가입하지 못했습니다. 이는 서버의 계정에 충분한 권한이 없기 때문일 수도 있습니다.</translation>
+<translation id="9187210477874601037">컴퓨터가 도메인에 가입하지 못했습니다. 이는 귀하의 계정에 서버에 대한 충분한 권한이 없기 때문일 수도 있습니다.</translation>
 <translation id="9187651461283037651">Chrome VR 사용</translation>
 <translation id="9188441292293901223"><ph name="DEVICE_TYPE" />을(를) 잠금 해제하려면 휴대전화의 Android를 최신 버전으로 업데이트하세요.</translation>
 <translation id="9189690067274055051">휴대전화를 잠금 해제하고 <ph name="DEVICE_TYPE" />에 가까이 가져와서 사용을 시작합니다.</translation>

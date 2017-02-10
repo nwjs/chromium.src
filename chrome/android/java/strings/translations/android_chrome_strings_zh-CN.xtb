@@ -421,6 +421,7 @@
 <translation id="53553865750799677">不支持此取货地址。请选择一个不同的地址。</translation>
 <translation id="5372829067651257087">已复制网址。</translation>
 <translation id="5400569084694353794">使用此应用即表示您同意遵守 Chrome 的<ph name="BEGIN_LINK1" />服务条款<ph name="END_LINK1" />和<ph name="BEGIN_LINK2" />隐私权声明<ph name="END_LINK2" />。</translation>
+<translation id="5403644198645076998">只允许访问某些网站</translation>
 <translation id="5414836363063783498">正在验证…</translation>
 <translation id="5423934151118863508">您最常访问的网页将列在此处</translation>
 <translation id="5424588387303617268">可用存储空间：<ph name="GIGABYTES" /> GB</translation>
@@ -446,6 +447,7 @@
 <translation id="5596627076506792578">更多选项</translation>
 <translation id="5610807607761827392">您可以在<ph name="BEGIN_LINK" />设置<ph name="END_LINK" />中管理信用卡和地址信息。</translation>
 <translation id="5626134646977739690">名字：</translation>
+<translation id="5639724618331995626">允许访问所有网站</translation>
 <translation id="5646376287012673985">位置</translation>
 <translation id="5659593005791499971">电子邮件</translation>
 <translation id="5665379678064389456">在<ph name="APP_NAME" />中创建活动</translation>
@@ -742,6 +744,7 @@
 要获得新的许可，请连接到互联网并播放您下载的内容。</translation>
 <translation id="8636825310635137004">要在您的其他设备上访问您的标签页，请开启同步功能。</translation>
 <translation id="8639651215196239211">所有下载内容</translation>
+<translation id="8641930654639604085">尽量屏蔽成人网站</translation>
 <translation id="8660471606262461360">来自 Google Payments</translation>
 <translation id="8676374126336081632">清除输入的内容</translation>
 <translation id="869891660844655955">截止日期</translation>

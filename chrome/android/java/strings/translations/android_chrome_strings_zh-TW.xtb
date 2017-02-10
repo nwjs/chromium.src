@@ -421,6 +421,7 @@
 <translation id="53553865750799677">目前選取的是不支援的取件地址，請改用其他地址。</translation>
 <translation id="5372829067651257087">已複製網址。</translation>
 <translation id="5400569084694353794">使用這個應用程式即表示您同意接受 Chrome 的《<ph name="BEGIN_LINK1" />服務條款<ph name="END_LINK1" />》和《<ph name="BEGIN_LINK2" />隱私權聲明<ph name="END_LINK2" />》。</translation>
+<translation id="5403644198645076998">只允許特定網站</translation>
 <translation id="5414836363063783498">驗證中…</translation>
 <translation id="5423934151118863508">這裡會顯示您最常造訪的網頁</translation>
 <translation id="5424588387303617268">可用空間：<ph name="GIGABYTES" /> GB</translation>
@@ -446,6 +447,7 @@
 <translation id="5596627076506792578">更多選項</translation>
 <translation id="5610807607761827392">你可以在<ph name="BEGIN_LINK" />設定<ph name="END_LINK" />中管理信用卡和地址資訊。</translation>
 <translation id="5626134646977739690">名稱：</translation>
+<translation id="5639724618331995626">允許所有網站</translation>
 <translation id="5646376287012673985">位置</translation>
 <translation id="5659593005791499971">電子郵件</translation>
 <translation id="5665379678064389456">在「<ph name="APP_NAME" />」中建立活動</translation>
@@ -741,6 +743,7 @@
 如要取得新授權，請先連線至網際網路，然後再播放您已下載的內容。</translation>
 <translation id="8636825310635137004">如要存取您在其他裝置上開啟的分頁，請開啟同步處理功能。</translation>
 <translation id="8639651215196239211">所有下載內容</translation>
+<translation id="8641930654639604085">嘗試封鎖成人網站</translation>
 <translation id="8660471606262461360">來自 Google Payments</translation>
 <translation id="8676374126336081632">清除輸入</translation>
 <translation id="869891660844655955">到期日</translation>

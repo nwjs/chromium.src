@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Не налаштовано</translation>
 <translation id="1994173015038366702">URL-адреса сайту</translation>
 <translation id="1997616988432401742">Ваші сертифікати</translation>
-<translation id="1999092554946563091">Увімкнути або вимкнути фільтрування SafeSites для облікових записів дітей.</translation>
 <translation id="1999115740519098545">Після запуску</translation>
 <translation id="2007404777272201486">Повідомити про проблему...</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME" /></translation>
@@ -2002,7 +2001,6 @@
 <translation id="3495304270784461826">Помилок: <ph name="COUNT" />.</translation>
 <translation id="3496213124478423963">Зменшити</translation>
 <translation id="3496381219560704722">Замінити значення VPD.</translation>
-<translation id="3496520356073548867">Фільтрування SafeSites для облікових записів дітей</translation>
 <translation id="3502662168994969388">Обмежує налагодження програми Native Client на основі GDB за допомогою URL-адреси файлу маніфесту. Щоб ця опція працювала, потрібно ввімкнути налагодження Native Client на основі GDB.</translation>
 <translation id="3504135463003295723">Назва групи:</translation>
 <translation id="3505030558724226696">Скасувати доступ до пристрою</translation>
@@ -3277,7 +3275,6 @@
 <translation id="5227679487546032910">Стандартний бірюзовий аватар</translation>
 <translation id="5227808808023563348">Знайти попередній текст</translation>
 <translation id="5228076606934445476">Виникла проблема з пристроєм. Щоб виправити цю помилку, перезавантажте пристрій і повторіть спробу.</translation>
-<translation id="5228962187251412618">Лише онлайн-перевірка</translation>
 <translation id="5229189185761556138">Керувати способами введення</translation>
 <translation id="5229622432348746578">Вимкнути трансляцію аудіо на комп’ютери</translation>
 <translation id="5230516054153933099">Вікно</translation>
@@ -4263,7 +4260,7 @@
 <translation id="6505918941256367791">Тамільська клавіатура (індійські шрифти)</translation>
 <translation id="6506374932220792071">Алгоритм ECDSA X9.62 з підписом SHA-256</translation>
 <translation id="6507969014813375884">Китайська (спрощене письмо)</translation>
-<translation id="6508261954199872201">Програма: <ph name="APP_NAME" /></translation>
+<translation id="6508261954199872201">Додаток: <ph name="APP_NAME" /></translation>
 <translation id="6509122719576673235">Норвезька</translation>
 <translation id="6509136331261459454">Керувати іншими користувачами...</translation>
 <translation id="6509207748479174212">Ліцензія на медіафайли</translation>
@@ -4311,7 +4308,6 @@
 <translation id="6565108107088666812">Синхронізовані дані буде видалено з усіх пристроїв.</translation>
 <translation id="6566142449942033617">Не вдалося завантажити "<ph name="PLUGIN_PATH" />" для плагіна.</translation>
 <translation id="6567688344210276845">Не вдалося завантажити піктограму "<ph name="ICON" />" для роботи сторінки.</translation>
-<translation id="6569050677975271054">Лише статичний чорний список</translation>
 <translation id="6571070086367343653">Редагувати дані кредитної картки</translation>
 <translation id="657402800789773160">&amp;Перезавантажити цю сторінку</translation>
 <translation id="6575134580692778371">Не налаштовано</translation>
@@ -6261,7 +6257,7 @@
 <translation id="9183836083779743117"><ph name="DOWNLOAD_RECEIVED" /> з домену <ph name="DOWNLOAD_DOMAIN" />, залишилось: <ph name="TIME_LEFT" /></translation>
 <translation id="9184146175870444618">Під час гортання примусово робити пасивними такі обробники подій: запуск дотиком і переміщення дотиком.</translation>
 <translation id="9184473426683023988">Імпортувати та зв’язати з пристроєм</translation>
-<translation id="9185358268467915502">Якщо цю опцію ввімкнено, користувач може калібрувати показ сенсорного екрана на сторінці chrome://md-settings/display.</translation>
+<translation id="9185358268467915502">Якщо цю опцію ввімкнено, користувач може калібрувати сенсорні екрани на сторінці chrome://md-settings/display.</translation>
 <translation id="9186729806195986201">Також повернутися до попередньої встановленої версії <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
 <translation id="9187210477874601037">Не вдалося приєднати пристрій до домену. Можливо, права вашого облікового запису на сервері обмежено.</translation>
 <translation id="9187651461283037651">Увімкнути Chrome VR.</translation>

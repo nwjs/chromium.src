@@ -781,7 +781,6 @@
 <translation id="1992397118740194946">સેટ નથી</translation>
 <translation id="1994173015038366702">સાઈટ URL</translation>
 <translation id="1997616988432401742">તમારા પ્રમાણપત્રો</translation>
-<translation id="1999092554946563091">ચાઇલ્ડ એકાઉન્ટ્સ માટે SafeSites ફિલ્ટરિંગ સક્ષમ અથવા અક્ષમ કરો.</translation>
 <translation id="1999115740519098545">સ્ટાર્ટઅપ પર</translation>
 <translation id="2007404777272201486">સમસ્યાની જાણ કરો...</translation>
 <translation id="2011110593081822050">વેબ કાર્યકર્તા: <ph name="WORKER_NAME" /></translation>
@@ -1998,7 +1997,6 @@
 <translation id="3495304270784461826"><ph name="COUNT" /> ભૂલો.</translation>
 <translation id="3496213124478423963">ઝૂમ ઘટાડો</translation>
 <translation id="3496381219560704722">VPD મૂલ્યો ઓવરરાઇડ કરો.</translation>
-<translation id="3496520356073548867">બાળ એકાઉન્ટ SafeSites ફિલ્ટરિંગ</translation>
 <translation id="3502662168994969388">મેનિફેસ્ટ ફાઇલના URL દ્વારા નેટિવ ક્લાયન્ટ ઍપ્લિકેશન GDB-આધારિત ડિબગીંગ નિયંત્રિત કરે છે.નેટિવ ક્લાયન્ટ GDB-આધારિત ડિબગીંગ, આ વિકલ્પના કામ કરવા માટે સક્ષમ હોવું આવશ્યક છે.</translation>
 <translation id="3504135463003295723">જૂથ નામ:</translation>
 <translation id="3505030558724226696">ઉપકરણ ઍક્સેસ રદબાતલ કરો</translation>
@@ -3271,7 +3269,6 @@
 <translation id="5227679487546032910">ડિફોલ્ટ મોરપીચ્છ અવતાર</translation>
 <translation id="5227808808023563348">પાછલો ટેક્સ્ટ શોધો</translation>
 <translation id="5228076606934445476">ઉપકરણમાં કંઈક ખોટું થયું છે. આ ભૂલથી પુનઃપ્રાપ્ત કરવા માટે તમારે ઉપકરણને રીબૂટ કરી અને ફરી પ્રયાસ કરવાની જરૂર પડશે.</translation>
-<translation id="5228962187251412618">માત્ર ઓનલાઇન તપાસ</translation>
 <translation id="5229189185761556138">ઇનપુટ પદ્ધતિઓને સંચાલિત કરો</translation>
 <translation id="5229622432348746578">ડેસ્કટૉપ શેર માટે ઑડિઓ અક્ષમ કરો</translation>
 <translation id="5230516054153933099">વિંડો</translation>
@@ -4307,7 +4304,6 @@
 <translation id="6565108107088666812">આ તમામ ઉપકરણો પરથી સમન્વયિત ડેટાને સાફ કરે છે.</translation>
 <translation id="6566142449942033617">પ્લગઇન માટે '<ph name="PLUGIN_PATH" />' લોડ કરી શકાયું નહીં.</translation>
 <translation id="6567688344210276845">પૃષ્ઠ ક્રિયા માટે આયકન '<ph name="ICON" />' લોડ કરી શકાયું નથી.</translation>
-<translation id="6569050677975271054">માત્ર સ્થિર બ્લેકલિસ્ટ</translation>
 <translation id="6571070086367343653">ક્રેડિટ કાર્ડ સંપાદિત કરો </translation>
 <translation id="657402800789773160">&amp;Reload This Page</translation>
 <translation id="6575134580692778371">ગોઠવેલું નથી</translation>

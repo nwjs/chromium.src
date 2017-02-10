@@ -785,7 +785,6 @@
 <translation id="1992397118740194946">Inte angett</translation>
 <translation id="1994173015038366702">Webbadress</translation>
 <translation id="1997616988432401742">Dina certifikat</translation>
-<translation id="1999092554946563091">Aktivera eller inaktivera SafeSites-filtrering för barnkonton.</translation>
 <translation id="1999115740519098545">Vid start</translation>
 <translation id="2007404777272201486">Rapportera ett problem...</translation>
 <translation id="2011110593081822050">Webbtråd: <ph name="WORKER_NAME" /></translation>
@@ -1731,7 +1730,7 @@ Läs din e-post på <ph name="ACCOUNT_EMAIL" />. Där finns dessa och andra anvi
 <translation id="3153177132960373163">Tillåt alla webbplatser att använda en plugin för att få åtkomst till datorn</translation>
 <translation id="3154351730702813399">Enhetsadministratören kan övervaka din webbaktivitet.</translation>
 <translation id="3154429428035006212">Offline i mer än en månad</translation>
-<translation id="3155068499722837620">Visualisera överskridning med hjälp av färgkodade element utifrån om de har andra element under.</translation>
+<translation id="3155068499722837620">Visualisera flerlagerrendering med hjälp av färgkodade element utifrån om de har andra element under.</translation>
 <translation id="3157931365184549694">Återställ</translation>
 <translation id="3158564748719736353">Om alternativet är aktiverat visas ett meddelande när enheten är ansluten till ett nätverk som finns bakom en infångstportal.</translation>
 <translation id="3159386328383139451">Google använder din plats för att ge en bättre lokal upplevelse. Detta går att ändra i <ph name="SETTINGS_LINK" />.</translation>
@@ -2002,7 +2001,6 @@ Från <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> fel.</translation>
 <translation id="3496213124478423963">Zooma ut</translation>
 <translation id="3496381219560704722">Åsidosätt VPD-värden</translation>
-<translation id="3496520356073548867">SafeSites-filter för barnkonto</translation>
 <translation id="3502662168994969388">Begränsa Native Client-programmets GDB-baserade felsökning efter webbadressen till manifestfilen. Native Clients GDB-baserade felsökning måste vara aktiverad för att det här alternativet ska fungera.</translation>
 <translation id="3504135463003295723">Gruppnamn:</translation>
 <translation id="3505030558724226696">Återkalla enhetsåtkomst</translation>
@@ -3277,7 +3275,6 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="5227679487546032910">Blågrön standardavatar</translation>
 <translation id="5227808808023563348">Hitta föregående text</translation>
 <translation id="5228076606934445476">Det är något fel på enheten. Du måste starta om den och försöka igen.</translation>
-<translation id="5228962187251412618">Endast onlinekontroll</translation>
 <translation id="5229189185761556138">Hantera inmatningsmetoder</translation>
 <translation id="5229622432348746578">Inaktivera ljud för delat skrivbord</translation>
 <translation id="5230516054153933099">Fönster</translation>
@@ -4277,7 +4274,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="6519437681804756269">[<ph name="TIMESTAMP" />]
         <ph name="FILE_INFO" />
         <ph name="EVENT_NAME" /></translation>
-<translation id="652030171967109828">Visa feedback som överskrider gränsen</translation>
+<translation id="652030171967109828">Visa information om flerlagerrendering</translation>
 <translation id="6526654154229718724">Ett experimentellt helskärmsläge med tangentbordslås som kräver att användare trycker länge på Esc om de vill avsluta läget.</translation>
 <translation id="6527303717912515753">Dela</translation>
 <translation id="6528546217685656218">Det här klientcertifikatets privata nyckel saknas eller är tom.</translation>
@@ -4311,7 +4308,6 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="6565108107088666812">Synkroniserad data tas bort från alla enheter.</translation>
 <translation id="6566142449942033617">Det gick inte att läsa in <ph name="PLUGIN_PATH" /> för pluginprogrammet.</translation>
 <translation id="6567688344210276845">Det gick inte att läsa in ikonen <ph name="ICON" /> för sidåtgärden.</translation>
-<translation id="6569050677975271054">Endast statisk svartlista</translation>
 <translation id="6571070086367343653">Redigera kreditkort</translation>
 <translation id="657402800789773160">&amp;Hämta sidan igen</translation>
 <translation id="6575134580692778371">Inte konfigurerat</translation>
@@ -5942,7 +5938,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8775404590947523323">Dina redigeringar sparas automatiskt.<ph name="BREAKS" />Om du vill spara en kopia av originalbilden avmarkerar du Ersätt original</translation>
 <translation id="8777218413579204310">Upptäck innehåll</translation>
 <translation id="8777628254805677039">rotlösenord</translation>
-<translation id="8777980041711299948">Ange beteende för delbyte.</translation>
+<translation id="8777980041711299948">Ange beteende för partiell växling.</translation>
 <translation id="8778590208284402708">Inga webbplatser har zoomats in eller ut.</translation>
 <translation id="878069093594050299">Certifikatet har verifierats för följande användningsområden:</translation>
 <translation id="8782565991310229362">Starten av kioskappen avbröts.</translation>

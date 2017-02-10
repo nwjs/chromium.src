@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">尚未設定</translation>
 <translation id="1994173015038366702">網站網址</translation>
 <translation id="1997616988432401742">您的憑證</translation>
-<translation id="1999092554946563091">為兒童帳戶啟用或停用安全網站篩選功能。</translation>
 <translation id="1999115740519098545">起始畫面</translation>
 <translation id="2007404777272201486">回報問題...</translation>
 <translation id="2011110593081822050">網路工作處理序：<ph name="WORKER_NAME" /></translation>
@@ -2002,7 +2001,6 @@
 <translation id="3495304270784461826">發生 <ph name="COUNT" /> 個錯誤。</translation>
 <translation id="3496213124478423963">縮小</translation>
 <translation id="3496381219560704722">覆寫 VPD 值。</translation>
-<translation id="3496520356073548867">兒童帳戶安全網站篩選功能</translation>
 <translation id="3502662168994969388">根據資訊清單網址檔案，限制 Native Client 應用程式 GDB 偵錯。您必須啟用 Native Client GDB 偵錯，才能使用這個選項。</translation>
 <translation id="3504135463003295723">群組名稱：</translation>
 <translation id="3505030558724226696">撤銷裝置存取權</translation>
@@ -3272,7 +3270,6 @@
 <translation id="5227679487546032910">預設的藍綠色顯示圖片</translation>
 <translation id="5227808808023563348">尋找前一段文字</translation>
 <translation id="5228076606934445476">裝置發生錯誤。如要從這個錯誤中恢復，您必須重新啟動裝置，然後再試一次。</translation>
-<translation id="5228962187251412618">僅限線上檢查</translation>
 <translation id="5229189185761556138">管理輸入法</translation>
 <translation id="5229622432348746578">禁止桌面分享功能一併分享音訊</translation>
 <translation id="5230516054153933099">視窗</translation>
@@ -4305,7 +4302,6 @@
 <translation id="6565108107088666812">這會清除所有裝置上已同步處理的資料。</translation>
 <translation id="6566142449942033617">無法載入外掛程式的「<ph name="PLUGIN_PATH" />」。</translation>
 <translation id="6567688344210276845">無法載入網頁動作的圖示「<ph name="ICON" />」。</translation>
-<translation id="6569050677975271054">僅限靜態黑名單</translation>
 <translation id="6571070086367343653">編輯信用卡</translation>
 <translation id="657402800789773160">重新載入這個網頁(&amp;R)</translation>
 <translation id="6575134580692778371">未設定</translation>

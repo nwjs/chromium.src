@@ -783,7 +783,6 @@
 <translation id="1992397118740194946">Няма зададен</translation>
 <translation id="1994173015038366702">URL адрес на сайт</translation>
 <translation id="1997616988432401742">Вашите сертификати</translation>
-<translation id="1999092554946563091">Активирайте или деактивирайте филтрирането със SafeSites за профилите за деца.</translation>
 <translation id="1999115740519098545">При стартиране</translation>
 <translation id="2007404777272201486">Подаване на сигнал за проблем...</translation>
 <translation id="2011110593081822050">Уеб работник: <ph name="WORKER_NAME" /></translation>
@@ -1999,7 +1998,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3495304270784461826"><ph name="COUNT" /> грешки.</translation>
 <translation id="3496213124478423963">Намаляване</translation>
 <translation id="3496381219560704722">Замяна на стойностите на VPD.</translation>
-<translation id="3496520356073548867">Филтриране със SafeSites за профилите на деца</translation>
 <translation id="3502662168994969388">Ограничава по URL адрес на файла на манифеста функциите за отстраняването на грешки чрез GDB за клиентски приложения с директно изпълнение. То трябва да е активирано, за да работи тази опция.</translation>
 <translation id="3504135463003295723">Име на групата:</translation>
 <translation id="3505030558724226696">Отмяна на достъпа до устройството</translation>
@@ -3273,7 +3271,6 @@ PDF файл или в Google Диск.</translation>
 <translation id="5227679487546032910">Стандартен синьо-зелен аватар</translation>
 <translation id="5227808808023563348">Търсене на предишния текст</translation>
 <translation id="5228076606934445476">Нещо не е наред с устройството. За възстановяване от тази грешка ще трябва да рестартирате устройството и да опитате отново.</translation>
-<translation id="5228962187251412618">Само онлайн проверка</translation>
 <translation id="5229189185761556138">Управление на методите на въвеждане</translation>
 <translation id="5229622432348746578">Деактивиране на споделянето на звука за работния плот</translation>
 <translation id="5230516054153933099">Прозорец</translation>
@@ -4308,7 +4305,6 @@ PDF файл или в Google Диск.</translation>
 <translation id="6565108107088666812">Така ще се изчистят синхронизираните данни от всички устройства.</translation>
 <translation id="6566142449942033617">Не можа да се зареди „<ph name="PLUGIN_PATH" />“ за приставката.</translation>
 <translation id="6567688344210276845">Не можа да се зареди иконата „<ph name="ICON" />“ за действието на страницата.</translation>
-<translation id="6569050677975271054">Само статичния черен списък</translation>
 <translation id="6571070086367343653">Редактиране на кредитната карта</translation>
 <translation id="657402800789773160">&amp;Презареждане на тази страница</translation>
 <translation id="6575134580692778371">Не е конфигурирано</translation>

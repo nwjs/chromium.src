@@ -279,7 +279,7 @@
 <translation id="3655670868607891010">Caso veja esta página com frequência, tente <ph name="HELP_LINK" />.</translation>
 <translation id="3658742229777143148">Revisão</translation>
 <translation id="3678029195006412963">Não foi possível assinar a solicitação</translation>
-<translation id="3679803492151881375">Relatório de erros registrado <ph name="CRASH_TIME" />, enviado <ph name="UPLOAD_TIME" /></translation>
+<translation id="3679803492151881375">Relatório de erros registrado em <ph name="CRASH_TIME" />, enviado em <ph name="UPLOAD_TIME" /></translation>
 <translation id="3681007416295224113">Informações do certificado</translation>
 <translation id="3690164694835360974">Login não seguro</translation>
 <translation id="3693415264595406141">Senha:</translation>
@@ -714,7 +714,7 @@ Dica: o modo de navegação anônimo <ph name="SHORTCUT_KEY" /> pode ser útil d
 <translation id="8364627913115013041">Não definida.</translation>
 <translation id="8380941800586852976">Perigoso</translation>
 <translation id="8382348898565613901">Os favoritos visitados recentemente aparecerão aqui</translation>
-<translation id="8398259832188219207">Relatório de erros enviado <ph name="UPLOAD_TIME" /></translation>
+<translation id="8398259832188219207">Relatório de erros enviado em <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">Falhas (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">Você deve inserir a mesma senha duas vezes.</translation>
 <translation id="8428213095426709021">Configurações</translation>

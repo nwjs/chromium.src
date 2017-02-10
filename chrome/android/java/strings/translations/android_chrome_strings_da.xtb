@@ -84,7 +84,7 @@ Du skal aktivere Bluetooth og Placering for at kunne bruge Fysisk web.</translat
 <translation id="1807246157184219062">Lys</translation>
 <translation id="1825719650605518411">Førstegangsoplevelse</translation>
 <translation id="1826516787628120939">Kontrollerer</translation>
-<translation id="1829244130665387512">Find på side</translation>
+<translation id="1829244130665387512">Find på siden</translation>
 <translation id="1832521218263067499">Sikkerhedshændelser</translation>
 <translation id="1842969606798536927">Betal</translation>
 <translation id="1853692000353488670">Ny inkognitofane</translation>
@@ -421,6 +421,7 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 <translation id="53553865750799677">Afhentningsadressen understøttes ikke. Vælg en anden adresse.</translation>
 <translation id="5372829067651257087">Webadressen blev kopieret.</translation>
 <translation id="5400569084694353794">Ved at bruge denne applikation accepterer du Chromes <ph name="BEGIN_LINK1" />servicevilkår<ph name="END_LINK1" /> og <ph name="BEGIN_LINK2" />erklæring om privatliv<ph name="END_LINK2" />.</translation>
+<translation id="5403644198645076998">Tillad kun bestemte websites</translation>
 <translation id="5414836363063783498">Bekræfter...</translation>
 <translation id="5423934151118863508">Dine mest besøgte sider vises her</translation>
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> GB ledig plads</translation>
@@ -446,6 +447,7 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 <translation id="5596627076506792578">Flere valgmuligheder</translation>
 <translation id="5610807607761827392">Du kan administrere kort og adresser i <ph name="BEGIN_LINK" />Indstillinger<ph name="END_LINK" />.</translation>
 <translation id="5626134646977739690">Navn:</translation>
+<translation id="5639724618331995626">Tillad alle websites</translation>
 <translation id="5646376287012673985">Placering</translation>
 <translation id="5659593005791499971">E-mail</translation>
 <translation id="5665379678064389456">Opret begivenhed i <ph name="APP_NAME" /></translation>
@@ -742,6 +744,7 @@ Din Google-konto kan have andre former for browserhistorik, f.eks. søgninger og
 Du kan få nye licenser ved at oprette forbindelse til internettet og afspille det indhold, du har downloadet.</translation>
 <translation id="8636825310635137004">Aktivér synkronisering for at få adgang til dine faner på dine andre enheder.</translation>
 <translation id="8639651215196239211">Alle downloads</translation>
+<translation id="8641930654639604085">Prøv at blokere websites med voksenindhold</translation>
 <translation id="8660471606262461360">Fra Google Payments</translation>
 <translation id="8676374126336081632">Ryd indtastning</translation>
 <translation id="869891660844655955">Udløbsdato</translation>

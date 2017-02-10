@@ -389,7 +389,7 @@
 <translation id="1493263392339817010">Yazı tiplerini özelleştir...</translation>
 <translation id="1493492096534259649">Bu dil yazım denetimi için kullanılamaz</translation>
 <translation id="1493892686965953381"><ph name="LOAD_STATE_PARAMETER" /> bekleniyor...</translation>
-<translation id="1493963535825567047">Hay aksi! Sistem DM jetonunu cihaza depolayamadı.</translation>
+<translation id="1493963535825567047">Hay aksi! Sistem cihaz yapılandırmasını cihaza depolayamadı.</translation>
 <translation id="1495486559005647033">Kullanılabilir <ph name="NUM_PRINTERS" /> cihaz daha var.</translation>
 <translation id="1497296278783728207">TSYNC'yi destekleyen Seccomp-BPF korumalı alanı</translation>
 <translation id="1497522201463361063">"<ph name="FILE_NAME" />" yeniden adlandırılamıyor. <ph name="ERROR_MESSAGE" /></translation>
@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Ayarlanmadı</translation>
 <translation id="1994173015038366702">Site URL'si</translation>
 <translation id="1997616988432401742">Sertifikalarınız</translation>
-<translation id="1999092554946563091">Alt hesaplar için SafeSites filtreleme özelliğini etkinleştirin veya devre dışı bırakın.</translation>
 <translation id="1999115740519098545">Başlangıçta</translation>
 <translation id="2007404777272201486">Sorun Bildirin...</translation>
 <translation id="2011110593081822050">Ağ Yapıcı: <ph name="WORKER_NAME" /></translation>
@@ -859,7 +858,7 @@
 <translation id="2115103655317273167">Telefona gönder</translation>
 <translation id="2115291620696624944"><ph name="PRINTER_NAME" /> adlı yazıcıda <ph name="PAGE_NUMBER" /> sayfa yazdırma hatası</translation>
 <translation id="2115926821277323019">Geçerli bir URL olmalıdır</translation>
-<translation id="2115946962706216358">Makine alan adına eklenemedi. Bunun nedeni, sunucuda hesabınız için eklenmesine izin verilen maksimum makine sayısının aşılması olabilir.</translation>
+<translation id="2115946962706216358">Bilgisayar alan adına eklenemedi. Bunun nedeni, sunucuda hesabınız için eklenmesine izin verilen maksimum bilgisayar sayısının aşılması olabilir.</translation>
 <translation id="2116673936380190819">son 1 saat</translation>
 <translation id="2121825465123208577">Yeniden Boyutlandır</translation>
 <translation id="2125314715136825419">Adobe Reader'ı güncellemeden devam et (önerilmez)</translation>
@@ -1501,7 +1500,7 @@ Bu sitenin engellenmesi gerektiğini düşünmüyorum!</translation>
 <translation id="288042212351694283">Evrensel 2. Faktör cihazlarınıza erişim</translation>
 <translation id="2881966438216424900">Son erişim zamanı:</translation>
 <translation id="2882943222317434580"><ph name="IDS_SHORT_PRODUCT_NAME" /> geçici olarak yeniden başlatılacak ve sıfırlanacaktır.</translation>
-<translation id="2884778725218524621">Dokunmatik ekran kalibrasyonu md ayarları seçeneğini etkinleştir/devre dışı bırak</translation>
+<translation id="2884778725218524621">Dokunmatik ekran kalibrasyonu Materyal Tasarım ayarları seçeneğini etkinleştir/devre dışı bırak</translation>
 <translation id="2885378588091291677">Görev Yöneticisi</translation>
 <translation id="2887525882758501333">PDF dokümanı</translation>
 <translation id="2888807692577297075">&lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; ile eşleşen öğe yok</translation>
@@ -1820,7 +1819,7 @@ Bunlar ve diğer talimatlar için lütfen <ph name="ACCOUNT_EMAIL" /> e-postanı
 <translation id="3270965368676314374">Bilgisayarınızdan fotoğrafları, müzikleri ve başka medyayı okuma, değiştirme ve silme</translation>
 <translation id="3271648667212143903"><ph name="ORIGIN" /> bağlanmak istiyor</translation>
 <translation id="3273410961255278341">Gönder:</translation>
-<translation id="327444463633065042">Geçersiz makine adı</translation>
+<translation id="327444463633065042">Geçersiz bilgisayar adı</translation>
 <translation id="3274763671541996799">Tam ekrana geçtiniz.</translation>
 <translation id="3275778913554317645">Pencere olarak aç</translation>
 <translation id="3277710850168074473">Medya öğelerini oynatmak için kullanıcı hareketi zorunluluğu. Bunu devre dışı bırakmak, otomatik oynatmanın çalışmasını sağlar.</translation>
@@ -2003,7 +2002,6 @@ Bunlar ve diğer talimatlar için lütfen <ph name="ACCOUNT_EMAIL" /> e-postanı
 <translation id="3495304270784461826"><ph name="COUNT" /> hata.</translation>
 <translation id="3496213124478423963">Uzaklaştır</translation>
 <translation id="3496381219560704722">VPD değerlerini geçersiz kıl.</translation>
-<translation id="3496520356073548867">Alt hesap SafeSites filtresi</translation>
 <translation id="3502662168994969388">Bildiri dosyasının URL'sine göre Native İstemci uygulaması GDB tabanlı hata ayıklama işlemini kısıtlar. Bu seçeneğin çalışması için Native Client GDB tabanlı hata ayıklama etkinleştirilmelidir.</translation>
 <translation id="3504135463003295723">Grup adı:</translation>
 <translation id="3505030558724226696">Cihaz erişimini iptal et</translation>
@@ -3063,7 +3061,7 @@ Keşfetmeye devam etmek için herhangi bir tuşa basın.</translation>
 <translation id="4925542575807923399">Bu hesabın yöneticisi hesabın bir çoklu oturumda ilk oturum açan hesap olmasını gerektiriyor.</translation>
 <translation id="4927301649992043040">Uzantıyı Paketle</translation>
 <translation id="4927753642311223124">Burada görülecek bir şey yok, devam edin.</translation>
-<translation id="4927846293686536410">Tüm cihazlarınızdaki sekmeleri, geçmişi, şifreleri ve diğer ayarları almak için oturum açın. Ayrıca Google hizmetlerinizde de otomatik olarak oturum açarsınız.</translation>
+<translation id="4927846293686536410">Tüm cihazlarınızdaki yer işaretlerini, geçmişi, şifreleri ve diğer ayarları almak için oturum açın. Ayrıca Google hizmetlerinizde de otomatik olarak oturum açarsınız.</translation>
 <translation id="4929925845384605079">Kullanıcıdan kendi rafına bir web uygulaması veya platforma özgü başka bir eşdeğerini eklemesini isteyen rafa ekleme banner'larının görüntülenmesini etkinleştirir.</translation>
 <translation id="4933484234309072027"><ph name="URL" /> adresinde yerleşik</translation>
 <translation id="493571969993549666">Denetlenen kullanıcı ekle</translation>
@@ -3278,7 +3276,6 @@ Keşfetmeye devam etmek için herhangi bir tuşa basın.</translation>
 <translation id="5227679487546032910">Varsayılan koyu camgöbeği avatar</translation>
 <translation id="5227808808023563348">Önceki metni bul</translation>
 <translation id="5228076606934445476">Cihazda bir sorun var. Bu hatadan kurtulmak için cihazı yeniden başlatıp tekrar denemeniz gerekir.</translation>
-<translation id="5228962187251412618">Yalnızca çevrimiçi kontrol</translation>
 <translation id="5229189185761556138">Giriş yöntemlerini yönet</translation>
 <translation id="5229622432348746578">Masaüstü Paylaşımı için Sesi Devre Dışı Bırak</translation>
 <translation id="5230516054153933099">Pencere</translation>
@@ -4313,7 +4310,6 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6565108107088666812">Bu işlem senkronize edilen verileri tüm cihazlardan siler.</translation>
 <translation id="6566142449942033617">Eklentiye ilişkin '<ph name="PLUGIN_PATH" />' yolu yüklenemedi.</translation>
 <translation id="6567688344210276845">Sayfa işlemine ilişkin '<ph name="ICON" />' simgesi yüklenemedi.</translation>
-<translation id="6569050677975271054">Yalnızca statik kara liste</translation>
 <translation id="6571070086367343653">Kredi kartını düzenle</translation>
 <translation id="657402800789773160">Bu &amp;Sayfayı Tekrar Yükle</translation>
 <translation id="6575134580692778371">Yapılandırılmadı</translation>
@@ -5336,7 +5332,7 @@ Bu özelliği sadece güvendiğiniz hesaplarda kullanın.</translation>
 <translation id="7986075254672229615">Kimlik Yöneticisi API'sının deneysel bir uygulamasını etkinleştirir. Ne yaptığınızı bilmiyorsanız bunu etkinleştirmeyin.</translation>
 <translation id="7986295104073916105">Kaydedilmiş şifre ayarlarını okuma ve değiştirme</translation>
 <translation id="7987485481246785146">Sorani Kürtçe Arapça temelli klavye</translation>
-<translation id="798749371774946697">Makine adı çok uzun</translation>
+<translation id="798749371774946697">Bilgisayar adı çok uzun</translation>
 <translation id="7988355189918024273">Erişilebilirlik özelliklerini etkinleştir</translation>
 <translation id="7988930390477596403">Bu özellik <ph name="DEVICE_TYPE" /> cihazının kilidini bir sonraki açışınızda etkin hale gelir. Smart Lock sayesinde telefonunuz bu cihazın kilidini şifre gerekmeksizin açar. Smart Lock'u etkinleştirmek için Bluetooth açılır.</translation>
 <translation id="7994370417837006925">Çoklu oturum açma</translation>
@@ -6267,7 +6263,7 @@ Pencereler taşındıktan sonra gelen bildirimler, pencereler ve iletişim kutul
 <translation id="9184473426683023988">İçe Aktar ve Cihaza Bağla</translation>
 <translation id="9185358268467915502">Etkinleştirildiğinde, kullanıcı dokunmatik ekranları chrome://md-settings/display adresinden kalibre edebilir.</translation>
 <translation id="9186729806195986201">Ayrıca daha önce yüklü <ph name="IDS_SHORT_PRODUCT_NAME" /> sürümüne de geri döndür.</translation>
-<translation id="9187210477874601037">Makine alan adına eklenemedi. Bu durum, sunucuda hesabınızın yeterli ayrıcalığa sahip olmamasından kaynaklanabilir.</translation>
+<translation id="9187210477874601037">Bilgisayar, alan adına eklenemedi. Bu durum, sunucuda hesabınızın yeterli ayrıcalığa sahip olmamasından kaynaklanabilir.</translation>
 <translation id="9187651461283037651">Chrome VR'yi etkinleştir.</translation>
 <translation id="9188441292293901223">Bu <ph name="DEVICE_TYPE" /> cihazın kilidini açmak için lütfen telefonunuzu daha yeni bir Android sürümüne güncelleyin.</translation>
 <translation id="9189690067274055051">Giriş yapmak için telefonunuzun kilidini açın ve <ph name="DEVICE_TYPE" /> cihazınıza yaklaştırın.</translation>

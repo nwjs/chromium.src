@@ -783,7 +783,6 @@
 <translation id="1992397118740194946">Ikke angitt</translation>
 <translation id="1994173015038366702">Nettadressen til nettstedet</translation>
 <translation id="1997616988432401742">Dine sertifikater</translation>
-<translation id="1999092554946563091">Slå av eller på SafeSites-filtrering for underkontoer.</translation>
 <translation id="1999115740519098545">Ved oppstart</translation>
 <translation id="2007404777272201486">Rapportér et problem</translation>
 <translation id="2011110593081822050">Nettarbeider: <ph name="WORKER_NAME" /></translation>
@@ -1997,7 +1996,6 @@ Fra <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> feil.</translation>
 <translation id="3496213124478423963">Zoom ut</translation>
 <translation id="3496381219560704722">Overstyr VPD-verdiene.</translation>
-<translation id="3496520356073548867">SafeSites-filtrering for underkonto</translation>
 <translation id="3502662168994969388">Begrenser Native Client GDB-basert feilsøking etter nettadresser til manifestfiler. Native Client GDB-basert feilsøking må være aktivert for at dette skal virke.</translation>
 <translation id="3504135463003295723">Gruppenavn:</translation>
 <translation id="3505030558724226696">Opphev enhetstilgangen</translation>
@@ -3267,7 +3265,6 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="5227679487546032910">Blågrønt standardbrukerbilde</translation>
 <translation id="5227808808023563348">Finn forrige tekst</translation>
 <translation id="5228076606934445476">Noe er galt med enheten. For å rette opp i denne feilen må du starte enheten på nytt og prøve igjen.</translation>
-<translation id="5228962187251412618">Sjekker bare på nettet</translation>
 <translation id="5229189185761556138">Administrer inndatametoder</translation>
 <translation id="5229622432348746578">Slå av muligheten for å dele lyd ved deling av skrivebord</translation>
 <translation id="5230516054153933099">Vindu</translation>
@@ -4300,7 +4297,6 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="6565108107088666812">Dette fjerner synkroniserte data fra alle enheter.</translation>
 <translation id="6566142449942033617">Kan ikke laste inn «<ph name="PLUGIN_PATH" />» for programtillegg.</translation>
 <translation id="6567688344210276845">Kan ikke laste inn ikonet «<ph name="ICON" />» for sidehandling.</translation>
-<translation id="6569050677975271054">Bare statisk svarteliste</translation>
 <translation id="6571070086367343653">Rediger kredittkort</translation>
 <translation id="657402800789773160">&amp;Last inn denne siden på nytt</translation>
 <translation id="6575134580692778371">Ikke konfigurert</translation>
@@ -4493,7 +4489,7 @@ Du bør bare bruke denne funksjonen med kontoer du stoler på.</translation>
 <translation id="6844537474943985871">Denne utvidelsen kan være skadet. Prøv å avinstallere den og installere den på nytt.</translation>
 <translation id="6845038076637626672">Maksimer ved åpning</translation>
 <translation id="6847758263950452722">Lagre siden som MHTML</translation>
-<translation id="6851261092040379723">Eksperimentell kompilasjonsprosess for JavaScript</translation>
+<translation id="6851261092040379723">Eksperimentell kompileringsprosess for JavaScript</translation>
 <translation id="6853388645642883916">Oppdatereringsprogrammet er i hvilemodus</translation>
 <translation id="68541483639528434">Lukk andre faner</translation>
 <translation id="6856701878604560493">Slå på bokmerker for bruk utenfor Internett</translation>
@@ -5923,7 +5919,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8775404590947523323">Endringene dine lagres automatisk.<ph name="BREAKS" />For å beholde en kopi av originalbildet, må du fjerne avmerkingen for «Overskriv originalen»</translation>
 <translation id="8777218413579204310">Oppdag innhold</translation>
 <translation id="8777628254805677039">rotpassord</translation>
-<translation id="8777980041711299948">Angir atferd for delvis bytte.</translation>
+<translation id="8777980041711299948">Angir funksjonalitet ved delvis bytte.</translation>
 <translation id="8778590208284402708">Ingen nettsteder har blitt zoomet inn eller ut.</translation>
 <translation id="878069093594050299">Dette sertifikatet er verifisert for følgende bruksområder:</translation>
 <translation id="8782565991310229362">Oppstart av kiosk-appen er avbrutt.</translation>
@@ -6241,7 +6237,7 @@ Følgende varsler, vinduer og dialogbokser kan bli delt mellom skrivebordene.</t
 <translation id="9183836083779743117"><ph name="DOWNLOAD_RECEIVED" /> fra <ph name="DOWNLOAD_DOMAIN" />, <ph name="TIME_LEFT" /></translation>
 <translation id="9184146175870444618">Tvinger aktivitetslytterne for touchstart og touchmove for rulling ved «fling» (raskt sveip) til å bli behandlet som passive.</translation>
 <translation id="9184473426683023988">Importér og bind til enheten</translation>
-<translation id="9185358268467915502">Hvis dette er slått på, kan brukeren kalibrere berøringsskjermer på Chrome://md-settings/display.</translation>
+<translation id="9185358268467915502">Hvis dette er slått på, kan brukeren kalibrere berøringsskjermer på chrome://md-settings/display.</translation>
 <translation id="9186729806195986201">Gå tilbake til den forrige installerte versjonen av <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
 <translation id="9187210477874601037">Kunne ikke knytte maskinen til domenet. Dette kan skyldes at kontoen din ikke har tilstrekkelige rettigheter på tjeneren.</translation>
 <translation id="9187651461283037651">Slå på Chrome VR.</translation>

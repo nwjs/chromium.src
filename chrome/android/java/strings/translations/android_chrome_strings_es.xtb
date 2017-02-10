@@ -421,6 +421,7 @@ Para ajustar el término de búsqueda, mantén pulsado el texto para seleccionar
 <translation id="53553865750799677">Dirección de recogida no admitida. Selecciona otra dirección.</translation>
 <translation id="5372829067651257087">Se ha copiado la URL.</translation>
 <translation id="5400569084694353794">Al utilizar esta aplicación, aceptas las <ph name="BEGIN_LINK1" />Condiciones de Servicio<ph name="END_LINK1" /> y el <ph name="BEGIN_LINK2" />Aviso de Privacidad<ph name="END_LINK2" /> de Chrome.</translation>
+<translation id="5403644198645076998">Permitir solo determinados sitios web</translation>
 <translation id="5414836363063783498">Verificando…</translation>
 <translation id="5423934151118863508">Aquí aparecerán las páginas a las que accedes con más frecuencia</translation>
 <translation id="5424588387303617268">Disponibilidad: <ph name="GIGABYTES" /> GB</translation>
@@ -446,6 +447,7 @@ Para ajustar el término de búsqueda, mantén pulsado el texto para seleccionar
 <translation id="5596627076506792578">Más opciones</translation>
 <translation id="5610807607761827392">Puedes gestionar las tarjetas y las direcciones en <ph name="BEGIN_LINK" />Configuración<ph name="END_LINK" />.</translation>
 <translation id="5626134646977739690">Nombre:</translation>
+<translation id="5639724618331995626">Permitir todos los sitios web</translation>
 <translation id="5646376287012673985">Ubicación</translation>
 <translation id="5659593005791499971">Correo electrónico</translation>
 <translation id="5665379678064389456">Crear evento en <ph name="APP_NAME" /></translation>
@@ -741,6 +743,7 @@ Es posible que tu cuenta de Google tenga otras formas del historial de navegaci�
 Para obtener nuevas licencias, conéctate a Internet y reproduce el contenido descargado.</translation>
 <translation id="8636825310635137004">Activa la sincronización para ver las pestañas de tus otros dispositivos.</translation>
 <translation id="8639651215196239211">Todas las descargas</translation>
+<translation id="8641930654639604085">Intentar bloquear sitios web para adultos</translation>
 <translation id="8660471606262461360">De Google Payments</translation>
 <translation id="8676374126336081632">Borrar entrada</translation>
 <translation id="869891660844655955">Fecha de caducidad</translation>

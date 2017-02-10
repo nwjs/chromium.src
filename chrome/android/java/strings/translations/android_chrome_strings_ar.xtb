@@ -422,6 +422,7 @@
 <translation id="53553865750799677">عنوان الاستلام غير مدعوم. حدّد عنوانًا آخر.</translation>
 <translation id="5372829067651257087">‏تمّ نسح عنوان URL.</translation>
 <translation id="5400569084694353794">باستخدام هذا التطبيق، فإنك توافق على <ph name="BEGIN_LINK1" />شروط الخدمة<ph name="END_LINK1" /> و<ph name="BEGIN_LINK2" />إشعار الخصوصية<ph name="END_LINK2" />.</translation>
+<translation id="5403644198645076998">السماح بمواقع ويب معيّنة فقط</translation>
 <translation id="5414836363063783498">جارٍ التحقق...</translation>
 <translation id="5423934151118863508">ستظهر صفحاتك الأكثر زيارة هنا</translation>
 <translation id="5424588387303617268">يتوفر <ph name="GIGABYTES" /> غيغابايت</translation>
@@ -447,6 +448,7 @@
 <translation id="5596627076506792578">خيارات إضافية</translation>
 <translation id="5610807607761827392">يمكنك إدارة البطاقات والعناوين في <ph name="BEGIN_LINK" />الإعدادات<ph name="END_LINK" />.</translation>
 <translation id="5626134646977739690">الاسم:</translation>
+<translation id="5639724618331995626">السماح بجميع المواقع</translation>
 <translation id="5646376287012673985">الموقع</translation>
 <translation id="5659593005791499971">البريد الإلكتروني</translation>
 <translation id="5665379678064389456">إنشاء حدث في <ph name="APP_NAME" /></translation>
@@ -743,6 +745,7 @@
 للحصول على تراخيص جديدة، عليك الاتصال بالإنترنت ثم تشغيل المحتوى الذي تم تنزيله.</translation>
 <translation id="8636825310635137004">للحصول على علامات التبويب من أجهزتك الأخرى، شغِّل المزامنة.</translation>
 <translation id="8639651215196239211">جميع التنزيلات</translation>
+<translation id="8641930654639604085">محاولة حظر مواقع الويب التي تتضمن محتوى للبالغين</translation>
 <translation id="8660471606262461360">‏من Google Payments</translation>
 <translation id="8676374126336081632">محو الإرسال</translation>
 <translation id="869891660844655955">تاريخ انتهاء الصلاحية</translation>

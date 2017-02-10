@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">সেট করা নেই</translation>
 <translation id="1994173015038366702">সাইট URL</translation>
 <translation id="1997616988432401742">আপনার সংশাপত্রসমূহ</translation>
-<translation id="1999092554946563091">শিশু অ্যাকাউন্টের জন্য SafeSites ফিল্টারিং সক্ষম অথবা অক্ষম করুন৷</translation>
 <translation id="1999115740519098545">প্রারম্ভে</translation>
 <translation id="2007404777272201486">কোনও সমস্যা অভিযোগ করুন...</translation>
 <translation id="2011110593081822050">ওয়েব ওয়ার্কার: <ph name="WORKER_NAME" /></translation>
@@ -1998,7 +1997,6 @@
 <translation id="3495304270784461826"><ph name="COUNT" />টি ত্রুটি৷</translation>
 <translation id="3496213124478423963">জুম কমান</translation>
 <translation id="3496381219560704722">VPD মান ওভাররাইড করুন।</translation>
-<translation id="3496520356073548867">শিশু অ্যাকাউন্ট SafeSites ফিল্টারিং</translation>
 <translation id="3502662168994969388">নেটিভ ক্লায়েন্ট GDB-ভিত্তিক ডিবাগ করাকে ম্যানিফেস্ট ফাইলের URL দ্বারা সীমাবদ্ধ করে৷ এই বিকল্পটিকে কাজ করতে হলে নেটিভ ক্লায়েন্ট GDB-ভিত্তিক ডিবাগ করাকে অবশ্যই সক্ষম হতে হবে৷</translation>
 <translation id="3504135463003295723">গোষ্ঠী নাম:</translation>
 <translation id="3505030558724226696">ডিভাইসের অ্যাক্সেস প্রত্যাহার করুন</translation>
@@ -3269,7 +3267,6 @@
 <translation id="5227679487546032910">ডিফল্ট টিল রঙের অবতার</translation>
 <translation id="5227808808023563348">পূর্ববর্তী পাঠ খুঁজুন</translation>
 <translation id="5228076606934445476">ডিভাইসের সাথে কিছু ত্রুটি হয়েছে৷ এই ত্রুটি থেকে পুনরুদ্ধার করার জন্য আপনাকে আপনার ডিভাইস রিবুট করতে হবে এবং আবার চেষ্টা করুন৷</translation>
-<translation id="5228962187251412618">শুধুমাত্র অনলাইন চেক</translation>
 <translation id="5229189185761556138">ইনপুট পদ্ধতিগুলি পরিচালনা করুন</translation>
 <translation id="5229622432348746578">ডেস্কটপ শেয়ারের জন্য অডিও অক্ষম করে</translation>
 <translation id="5230516054153933099">উইন্ডো</translation>
@@ -4303,7 +4300,6 @@
 <translation id="6565108107088666812">এটি সকল ডিভাইস থেকে সিঙ্ক করা ডেটা মুছে ফেলবে।</translation>
 <translation id="6566142449942033617">প্লাগইনের জন্য '<ph name="PLUGIN_PATH" />' লোড করা যায়নি৷</translation>
 <translation id="6567688344210276845">পৃষ্ঠা ক্রিয়ার জন্য '<ph name="ICON" />' আইকন লোড করা যায়নি৷</translation>
-<translation id="6569050677975271054">শুধুমাত্র স্ট্যাটিক কালোতালিকা</translation>
 <translation id="6571070086367343653">ক্রেডিট কার্ড সম্পাদনা করুন</translation>
 <translation id="657402800789773160">&amp;Reload This Page</translation>
 <translation id="6575134580692778371">কনফিগার হয়নি</translation>

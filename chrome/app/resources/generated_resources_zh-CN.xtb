@@ -783,7 +783,6 @@
 <translation id="1992397118740194946">未设置</translation>
 <translation id="1994173015038366702">网站网址</translation>
 <translation id="1997616988432401742">您的证书</translation>
-<translation id="1999092554946563091">启用或停用未成年人帐号的 SafeSites 过滤功能。</translation>
 <translation id="1999115740519098545">启动时</translation>
 <translation id="2007404777272201486">报告问题...</translation>
 <translation id="2011110593081822050">Web Worker：<ph name="WORKER_NAME" /></translation>
@@ -1996,7 +1995,6 @@
 <translation id="3495304270784461826"><ph name="COUNT" />个错误。</translation>
 <translation id="3496213124478423963">缩小</translation>
 <translation id="3496381219560704722">覆盖 VPD 值。</translation>
-<translation id="3496520356073548867">未成年人帐号的 SafeSites 过滤功能</translation>
 <translation id="3502662168994969388">根据清单文件网址限制 Native Client 应用基于 GDB 的调试。要使此选项生效，您必须启用 Native Client 基于 GDB 的调试。</translation>
 <translation id="3504135463003295723">群组名称：</translation>
 <translation id="3505030558724226696">撤消对设备的访问权限</translation>
@@ -3264,7 +3262,6 @@
 <translation id="5227679487546032910">默认的水鸭头像</translation>
 <translation id="5227808808023563348">查找上一文字</translation>
 <translation id="5228076606934445476">设备出现问题。要从此错误下恢复，您需要重启设备，然后重试。</translation>
-<translation id="5228962187251412618">只能在线检查</translation>
 <translation id="5229189185761556138">管理输入法</translation>
 <translation id="5229622432348746578">禁止桌面共享功能共享音频</translation>
 <translation id="5230516054153933099">窗口</translation>
@@ -3658,7 +3655,7 @@
 <translation id="5731247495086897348">粘贴并转到(&amp;S)</translation>
 <translation id="5732790216998904518">将 Google 文档、表格和幻灯片的 Office 编辑扩展程序用于测试目的。</translation>
 <translation id="5734362860645681824">通讯</translation>
-<translation id="5736796278325406685">请输入一个有效的用户名</translation>
+<translation id="5736796278325406685">请输入有效的用户名</translation>
 <translation id="5739458112391494395">特大</translation>
 <translation id="5740331643563157105"><ph name="LANGUAGE_1" />、<ph name="LANGUAGE_2" />和另外 <ph name="NUM_ADDITIONAL_LANGUAGES" /> 种语言</translation>
 <translation id="5741245087700236983"><ph name="PROFILE_NAME" />：选择以进行修改</translation>
@@ -4291,7 +4288,6 @@
 <translation id="6565108107088666812">这会清除所有设备上的已同步数据。</translation>
 <translation id="6566142449942033617">无法加载插件的路径“<ph name="PLUGIN_PATH" />”。</translation>
 <translation id="6567688344210276845">无法加载网页操作的“<ph name="ICON" />”图标。</translation>
-<translation id="6569050677975271054">仅限静态黑名单</translation>
 <translation id="6571070086367343653">修改信用卡</translation>
 <translation id="657402800789773160">重新加载此页(&amp;R)</translation>
 <translation id="6575134580692778371">未配置</translation>

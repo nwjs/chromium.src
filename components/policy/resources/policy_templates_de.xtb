@@ -848,9 +848,9 @@ Wenn diese Einstellung auf "Aus" oder kein Wert festgelegt wird, wird der einges
 <translation id="3591584750136265240">Verhalten der Log-in-Authentifizierung konfigurieren</translation>
 <translation id="3601614035698083789">Konfiguriert eine Liste verwalteter Lesezeichen.
 
-Die Richtlinie besteht aus einer Lesezeichenliste, bei der jedes Lesezeichen ein Wörterbuch mit den Schlüsseln <ph name="NAME" /> und <ph name="URL_LABEL" /> ist, die den Namen und das Ziel des Lesezeichens enthalten. Ein Unterordner kann konfiguriert werden, indem ein Lesezeichen ohne den Schlüssel <ph name="URL_LABEL" />, aber mit einem zusätzlichen Schlüssel <ph name="CHILDREN" /> festgelegt wird, der selbst eine Liste von Lesezeichen enthält, wie zuvor festgelegt. Einige davon können wiederum Ordner sein. <ph name="PRODUCT_NAME" /> bearbeitet unvollständige Links, wie wenn sie über Omnibox gesendet werden. Beispielsweise wird aus <ph name="GOOGLE_COM" /> dann <ph name="HTTPS_GOOGLE_COM" />.
+Die Richtlinie besteht aus einer Lesezeichenliste, bei der jedes Lesezeichen ein Wörterbuch mit den Schlüsseln <ph name="NAME" /> und <ph name="URL_LABEL" /> ist, die den Namen und das Ziel des Lesezeichens enthalten. Ein Unterordner kann konfiguriert werden, indem ein Lesezeichen ohne den Schlüssel <ph name="URL_LABEL" />, aber mit einem zusätzlichen Schlüssel <ph name="CHILDREN" /> festgelegt wird, der selbst eine Liste von Lesezeichen enthält, die wie oben beschrieben definiert sind. Einige davon können wiederum Ordner sein. <ph name="PRODUCT_NAME" /> ergänzt unvollständige URLs automatisch so wie in der Omnibox. Beispielsweise wird aus <ph name="GOOGLE_COM" /> dann <ph name="HTTPS_GOOGLE_COM" />.
 
-Diese Lesezeichen werden in einem Ordner für verwaltete Lesezeichen abgelegt, der vom Nutzer nicht bearbeitet werden kann. Der Nutzer kann aber festlegen, dass der Ordner nicht in der Lesezeichenleiste eingeblendet wird. Verwaltete Lesezeichen werden nicht mit anderen Nutzerkonten synchronisiert und können durch Erweiterungen nicht bearbeitet werden.
+Diese Lesezeichen werden in einem Ordner für verwaltete Lesezeichen abgelegt, der vom Nutzer nicht bearbeitet werden kann. Der Nutzer kann aber festlegen, dass der Ordner nicht in der Lesezeichenleiste eingeblendet wird. Verwaltete Lesezeichen werden nicht mit anderen Nutzerkonten synchronisiert und können nicht von Erweiterungen geändert werden.
 
 Ab Version 51 lässt sich der Ordnername für die Lesezeichen anpassen, indem ein Listenelement {"toplevel_name": "some name"} hinzugefügt wird.</translation>
 <translation id="3627678165642179114">Webdienst für die Rechtschreibprüfung aktivieren oder deaktivieren</translation>
@@ -1645,7 +1645,7 @@ Ist diese Richtlinie aktiviert oder deaktiviert, können Nutzer sie in <ph name=
 <translation id="6284362063448764300">TLS 1.1</translation>
 <translation id="6310223829319187614">Automatische Vervollständigung des Domainnamens während der Nutzeranmeldung aktivieren</translation>
 <translation id="6312861131491040487">
-          Gibt eine Liste von Apps und Erweiterungen an, die automatisch, ohne Eingriff des Nutzers installiert werden und die nicht von ihm deinstalliert werden können. Alle von den Apps/Erweiterungen angeforderten Berechtigungen werden implizit ohne den Eingriff des Nutzers gewährt. Dazu gehören auch alle weiteren Berechtigungen, die von künftigen Versionen der App/Erweiterung angefordert werden. Außerdem werden den Erweiterungs-APIs "enterprise.deviceAttributes" und "enterprise.platformKeys" Berechtigungen erteilt. Diese beiden APIs stehen bei Apps/Erweiterungen, die nicht erzwungenermaßen installiert werden, nicht zur Verfügung.
+          Gibt eine Liste von Apps und Erweiterungen an, die automatisch, ohne Zutun des Nutzers installiert werden und die nicht von ihm deinstalliert werden können. Alle von den Apps/Erweiterungen angeforderten Berechtigungen werden implizit ohne das Zutun des Nutzers gewährt. Dazu gehören auch alle weiteren Berechtigungen, die von künftigen Versionen der App/Erweiterung angefordert werden. Außerdem werden den Erweiterungs-APIs "enterprise.deviceAttributes" und "enterprise.platformKeys" Berechtigungen erteilt. Diese beiden APIs stehen bei Apps/Erweiterungen, die nicht erzwungenermaßen installiert werden, nicht zur Verfügung.
 
 
 
@@ -1657,15 +1657,15 @@ Bei Windows-Instanzen, die keiner Active Directory-Domain beigetreten sind, blei
 
 
 
-Beachten Sie, dass der Source-Code jeder Erweiterung von den Nutzern geändert werden darf. Verwenden Sie dazu die Entwicklertools und beachten Sie, dass die Erweiterung nach erfolgten Änderungen eventuell nicht mehr funktioniert. Präventiv können Sie hierbei die Richtlinie "DeveloperToolsDisabled" festlegen.
+Beachten Sie, dass der Source-Code jeder Erweiterung mithilfe der Entwicklertools von den Nutzern geändert werden kann und die Erweiterung nach erfolgten Änderungen eventuell nicht mehr funktioniert. Präventiv können Sie hierbei die Richtlinie "DeveloperToolsDisabled" festlegen.
 
 
 
-Jedes Listenelement der Richtlinie ist ein String mit einer Erweiterungs-ID und einem Update-Link, der durch einen Strichpunkt getrennt ist, z. B <ph name="SEMICOLON" />. Die Erweiterungs-ID ist der String mit 32 Buchstaben, den Sie u. a. in <ph name="CHROME_EXTENSIONS_LINK" /> im Entwicklermodus sehen. Der Update-Link sollte auf ein Update Manifest-Dokument verweisen, wie in <ph name="LINK_TO_EXTENSION_DOC1" /> beschrieben. Beachten Sie, dass der in dieser Richtlinie festgelegte Update-Link nur für die erste Installation verwendet wird. Alle folgenden Updates der Erweiterung verwenden den Update-Link, der im Manifest der Erweiterung angegeben wurde.
+Jedes Listenelement der Richtlinie ist ein String mit einer Erweiterungs-ID und einer Update-URL, der durch einen Strichpunkt getrennt ist, z. B <ph name="SEMICOLON" />. Die Erweiterungs-ID ist der String mit 32 Buchstaben, den Sie u. a. in <ph name="CHROME_EXTENSIONS_LINK" /> im Entwicklermodus sehen. Die Update-URL sollte auf ein Update Manifest-XML-Dokument verweisen, wie in <ph name="LINK_TO_EXTENSION_DOC1" /> beschrieben. Beachten Sie, dass die in dieser Richtlinie festgelegte Update-URL nur für die erste Installation verwendet wird. Alle folgenden Updates der Erweiterung verwenden die Update-URL, die im Manifest der Erweiterung angegeben wurde.
 
 
 
-Beispiel: <ph name="EXTENSION_POLICY_EXAMPLE" /> installiert die <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" />-App über den standardmäßigen Update-Link aus dem Chrome Web Store. Weitere Informationen zum Hosting von Erweiterungen finden Sie unter: <ph name="LINK_TO_EXTENSION_DOC2" />.
+Beispiel: <ph name="EXTENSION_POLICY_EXAMPLE" /> installiert die <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" />-App über die standardmäßige Update-URL aus dem Chrome Web Store. Weitere Informationen zum Hosting von Erweiterungen finden Sie unter: <ph name="LINK_TO_EXTENSION_DOC2" />.
 
 
 

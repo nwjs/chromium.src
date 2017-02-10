@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Tidak ditetapkan</translation>
 <translation id="1994173015038366702">URL tapak</translation>
 <translation id="1997616988432401742">Sijil anda</translation>
-<translation id="1999092554946563091">Dayakan atau lumpuhkan penapisan SafeSites untuk akaun kanak-kanak.</translation>
 <translation id="1999115740519098545">Pada permulaan</translation>
 <translation id="2007404777272201486">Laporkan Isu...</translation>
 <translation id="2011110593081822050">Pekerja Web: <ph name="WORKER_NAME" /></translation>
@@ -2003,7 +2002,6 @@ Daripada <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> ralat.</translation>
 <translation id="3496213124478423963">Zum Keluar</translation>
 <translation id="3496381219560704722">Atasi nilai VPD.</translation>
-<translation id="3496520356073548867">Penapisan SafeSites akaun kanak-kanak</translation>
 <translation id="3502662168994969388">Mengehadkan penyahpepijatan aplikasi Native Client berasaskan GDB mengikut URL fail manifest. Penyahpepijatan Native Client berasaskan GDB mesti didayakan supaya pilihan ini boleh berfungsi.</translation>
 <translation id="3504135463003295723">Nama kumpulan:</translation>
 <translation id="3505030558724226696">Batalkan akses peranti</translation>
@@ -3278,7 +3276,6 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="5227679487546032910">Avatar teal lalai</translation>
 <translation id="5227808808023563348">Cari teks sebelumnya</translation>
 <translation id="5228076606934445476">Ada sesuatu yang tidak kena dengan peranti.  Untuk pulih daripada ralat ini, anda perlu but semula peranti dan cuba lagi.</translation>
-<translation id="5228962187251412618">Pemeriksaan dalam talian sahaja</translation>
 <translation id="5229189185761556138">Urus kaedah input</translation>
 <translation id="5229622432348746578">Lumpuhkan Audio Untuk Perkongsian Desktop</translation>
 <translation id="5230516054153933099">Tetingkap</translation>
@@ -4312,7 +4309,6 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="6565108107088666812">Tindakan ini akan mengosongkan data yang disegerakkan daripada semua peranti.</translation>
 <translation id="6566142449942033617">Tidak dapat memuatkan '<ph name="PLUGIN_PATH" />' untuk pemalam.</translation>
 <translation id="6567688344210276845">Tidak dapat memuatkan ikon '<ph name="ICON" />' untuk tindakan halaman.</translation>
-<translation id="6569050677975271054">Senarai hitam statik sahaja</translation>
 <translation id="6571070086367343653">Edit kad kredit</translation>
 <translation id="657402800789773160">&amp;Muatkan Semula Halaman Ini</translation>
 <translation id="6575134580692778371">Tidak dikonfigurasi</translation>

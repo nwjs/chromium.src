@@ -421,6 +421,7 @@ Fizični splet lahko nadzirate v Chromovih nastavitvah.
 <translation id="53553865750799677">Nepodprt naslov za dostavo. Izberite drug naslov.</translation>
 <translation id="5372829067651257087">URL je kopiran.</translation>
 <translation id="5400569084694353794">Če uporabljate to aplikacijo, se strinjate s <ph name="BEGIN_LINK1" />pogoji storitve<ph name="END_LINK1" /> in <ph name="BEGIN_LINK2" />pravilnikom o zasebnosti<ph name="END_LINK2" /> za Chrome.</translation>
+<translation id="5403644198645076998">Dovoli samo nekatera spletna mesta</translation>
 <translation id="5414836363063783498">Preverjanje …</translation>
 <translation id="5423934151118863508">Tu bodo prikazane strani, ki jih obiskujete najpogosteje</translation>
 <translation id="5424588387303617268">Na voljo: <ph name="GIGABYTES" /> GB</translation>
@@ -446,6 +447,7 @@ Fizični splet lahko nadzirate v Chromovih nastavitvah.
 <translation id="5596627076506792578">Več možnosti</translation>
 <translation id="5610807607761827392">Kartice in naslove je mogoče upravljati v <ph name="BEGIN_LINK" />nastavitvah<ph name="END_LINK" />.</translation>
 <translation id="5626134646977739690">Ime:</translation>
+<translation id="5639724618331995626">Dovoli vsa spletna mesta</translation>
 <translation id="5646376287012673985">Lokacija</translation>
 <translation id="5659593005791499971">E-pošta</translation>
 <translation id="5665379678064389456">Ustvarite dogodek v aplikaciji <ph name="APP_NAME" /></translation>
@@ -741,6 +743,7 @@ V Google Računu so morda druge vrste zgodovine brskanja, kot so iskanja in deja
 Nove licence dobite tako, da se povežete v internet in predvajate preneseno vsebino.</translation>
 <translation id="8636825310635137004">Če želite dostopati do zavihkov iz drugih naprav, vklopite sinhronizacijo.</translation>
 <translation id="8639651215196239211">Vsi prenosi</translation>
+<translation id="8641930654639604085">Poskusi blokirati spletna mesta za odrasle</translation>
 <translation id="8660471606262461360">Iz storitve Google Payments</translation>
 <translation id="8676374126336081632">Izbriši vnos</translation>
 <translation id="869891660844655955">Datum izteka</translation>

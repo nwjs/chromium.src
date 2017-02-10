@@ -787,7 +787,6 @@ SharedArrayBuffer.</translation>
 <translation id="1992397118740194946">No establerta</translation>
 <translation id="1994173015038366702">URL del lloc</translation>
 <translation id="1997616988432401742">Els meus certificats</translation>
-<translation id="1999092554946563091">Activa o desactiva el filtre SafeSites per a comptes secundaris.</translation>
 <translation id="1999115740519098545">A l'inici</translation>
 <translation id="2007404777272201486">Informeu d'un problema...</translation>
 <translation id="2011110593081822050">Treballador web: <ph name="WORKER_NAME" /></translation>
@@ -860,7 +859,7 @@ SharedArrayBuffer.</translation>
 <translation id="2115103655317273167">Envia al telèfon</translation>
 <translation id="2115291620696624944">S'ha produït un error en imprimir <ph name="PAGE_NUMBER" /> pàgines a <ph name="PRINTER_NAME" /></translation>
 <translation id="2115926821277323019">Ha de ser un URL vàlid</translation>
-<translation id="2115946962706216358">No s'ha pogut connectar la màquina al domini. El motiu pot ser que el teu compte hagi superat el nombre màxim de connexions de màquines permeses al servidor.</translation>
+<translation id="2115946962706216358">No s'ha pogut connectar l'ordinador al domini. El motiu pot ser que el teu compte hagi superat el nombre màxim de connexions d'ordinadors permeses al servidor.</translation>
 <translation id="2116673936380190819">fa una hora</translation>
 <translation id="2121825465123208577">Canvia la mida</translation>
 <translation id="2125314715136825419">Continua sense actualitzar Adobe Reader (no recomanat)</translation>
@@ -1030,7 +1029,7 @@ Quan hàgiu creat un usuari supervisat, podeu gestionar-ne la configuració en q
 <translation id="23030561267973084">"<ph name="EXTENSION_NAME" />" ha sol·licitat permisos addicionals.</translation>
 <translation id="2307462900900812319">Configura la xarxa</translation>
 <translation id="230927227160767054">Aquesta pàgina vol instal·lar un gestor de serveis.</translation>
-<translation id="230988369433510421">S'ha produït un problema en connectar la màquina al domini. Torna-ho a provar.</translation>
+<translation id="230988369433510421">S'ha produït un problema en connectar l'ordinador al domini. Torna-ho a provar.</translation>
 <translation id="2311496337038385958">Any d'enregistrament</translation>
 <translation id="2312980885338881851">Sembla que no teniu cap usuari supervisat per importar. Creeu-ne almenys un des d'un altre dispositiu per poder importar-lo aquí.</translation>
 <translation id="231490303453288303">domContentLoaded del marc principal (iframes ignorats).</translation>
@@ -1500,7 +1499,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="288042212351694283">Accés als dispositius Universal 2nd Factor</translation>
 <translation id="2881966438216424900">Darrer accés:</translation>
 <translation id="2882943222317434580"><ph name="IDS_SHORT_PRODUCT_NAME" /> es reiniciarà i es restablirà temporalment.</translation>
-<translation id="2884778725218524621">Activa/desactiva l'opció de configuració md per calibrar la pantalla tàctil</translation>
+<translation id="2884778725218524621">Activa/desactiva l'opció de configuració MD per calibrar la pantalla tàctil</translation>
 <translation id="2885378588091291677">Gestor de tasques</translation>
 <translation id="2887525882758501333">Document PDF</translation>
 <translation id="2888807692577297075">Cap fitxer coincideix amb &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
@@ -1819,7 +1818,7 @@ Consulteu el vostre correu electrònic (<ph name="ACCOUNT_EMAIL" />) per obtenir
 <translation id="3270965368676314374">Llegeix, modifica i suprimeix fotos, música i altres elements multimèdia de l'ordinador</translation>
 <translation id="3271648667212143903"><ph name="ORIGIN" /> es vol connectar</translation>
 <translation id="3273410961255278341">Envia a:</translation>
-<translation id="327444463633065042">El nom de la màquina no és vàlid</translation>
+<translation id="327444463633065042">El nom de l'ordinador no és vàlid</translation>
 <translation id="3274763671541996799">Heu activat el mode de pantalla completa.</translation>
 <translation id="3275778913554317645">Obre com a finestra</translation>
 <translation id="3277710850168074473">Requisit de gestos de l'usuari per reproduir elements multimèdia. Si es desactiva aquesta opció, la reproducció automàtica funcionarà.</translation>
@@ -2001,7 +2000,6 @@ Del domini <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> errors.</translation>
 <translation id="3496213124478423963">Redueix</translation>
 <translation id="3496381219560704722">Substitueix els valors de VPD.</translation>
-<translation id="3496520356073548867">Filtre SafeSites al compte secundari</translation>
 <translation id="3502662168994969388">Restringeix la depuració basada en GDB de l'aplicació de Native Client per URL o fitxer de manifest. La depuració basada en GDB de Native Client ha d'estar activada perquè aquesta opció funcioni.</translation>
 <translation id="3504135463003295723">Nom del grup:</translation>
 <translation id="3505030558724226696">Revoca l'accés als dispositius</translation>
@@ -3272,7 +3270,6 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="5227679487546032910">Avatar turquesa predeterminat</translation>
 <translation id="5227808808023563348">Cerca el text anterior</translation>
 <translation id="5228076606934445476">S'ha produït algun error amb el dispositiu. Per recuperar-vos d'aquest error, cal que reinicieu el dispositiu i ho torneu a provar.</translation>
-<translation id="5228962187251412618">Només comprovació en línia</translation>
 <translation id="5229189185761556138">Gestiona els mètodes d'introducció</translation>
 <translation id="5229622432348746578">Desactiva l'àudio compartit a l'escriptori</translation>
 <translation id="5230516054153933099">Finestra</translation>
@@ -4272,7 +4269,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="6519437681804756269">[<ph name="TIMESTAMP" />]
         <ph name="FILE_INFO" />
         <ph name="EVENT_NAME" /></translation>
-<translation id="652030171967109828">Mostra els suggeriments superposats</translation>
+<translation id="652030171967109828">Mostra els suggeriments de superposicions</translation>
 <translation id="6526654154229718724">Pantalla completa experimental amb mode de bloqueig de teclat en què els usuaris han de mantenir premuda la tecla Esc per sortir-ne.</translation>
 <translation id="6527303717912515753">Comparteix</translation>
 <translation id="6528546217685656218">Falta la clau privada d'aquest certificat del client o no és vàlida.</translation>
@@ -4306,7 +4303,6 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="6565108107088666812">S'esborraran les dades sincronitzades de tots els dispositius.</translation>
 <translation id="6566142449942033617">No s'ha pogut carregar "<ph name="PLUGIN_PATH" />" per al connector.</translation>
 <translation id="6567688344210276845">No s'ha pogut carregar la icona "<ph name="ICON" />" per a l'acció de la pàgina.</translation>
-<translation id="6569050677975271054">Només llista negra estàtica</translation>
 <translation id="6571070086367343653">Edita la targeta de crèdit</translation>
 <translation id="657402800789773160">&amp;Torna a carregar aquesta pàgina</translation>
 <translation id="6575134580692778371">No configurat</translation>
@@ -5322,7 +5318,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="7986075254672229615">Permet realitzar una implementació experimental de l'API de Gestor de credencials. No activeu aquesta opció tret que sapigueu el que feu.</translation>
 <translation id="7986295104073916105">Llegiu i canvieu la configuració de les contrasenyes desades</translation>
 <translation id="7987485481246785146">Teclat de kurd sorani basat en l'àrab</translation>
-<translation id="798749371774946697">El nom de la màquina és massa llarg</translation>
+<translation id="798749371774946697">El nom de l'ordinador és massa llarg</translation>
 <translation id="7988355189918024273">Activa les funcions d'accessibilitat</translation>
 <translation id="7988930390477596403">S'activarà la propera vegada que desbloquegeu aquest <ph name="DEVICE_TYPE" />. Amb Smart Lock, el vostre telèfon desbloquejarà aquest dispositiu sense necessitat de contrasenya. El Bluetooth es connectarà per activar Smart Lock.</translation>
 <translation id="7994370417837006925">Inici de sessió múltiple</translation>
@@ -6250,7 +6246,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="9184473426683023988">Importa i vincula amb el dispositiu</translation>
 <translation id="9185358268467915502">Si s'activa, l'usuari pot calibrar la pantalla tàctil a chrome://md-settings/display.</translation>
 <translation id="9186729806195986201">Torna també a la versió instal·lada anteriorment de <ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
-<translation id="9187210477874601037">No s'ha pogut connectar la màquina al domini. El motiu pot ser que el compte no tingui prou permisos al servidor.</translation>
+<translation id="9187210477874601037">No s'ha pogut connectar l'ordinador al domini. El motiu pot ser que el compte no tingui prou permisos al servidor.</translation>
 <translation id="9187651461283037651">Activa l'RV de Chrome.</translation>
 <translation id="9188441292293901223">Feu l'actualització del telèfon a una versió més recent d'Android per desbloquejar aquest dispositiu <ph name="DEVICE_TYPE" /></translation>
 <translation id="9189690067274055051">Desbloquegeu el telèfon i acosteu-lo a <ph name="DEVICE_TYPE" /> per entrar</translation>

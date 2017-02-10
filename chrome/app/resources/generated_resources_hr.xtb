@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Nije postavljeno</translation>
 <translation id="1994173015038366702">URL web-lokacije</translation>
 <translation id="1997616988432401742">Vaši certifikati</translation>
-<translation id="1999092554946563091">Omogućivanje ili onemogućivanje SafeSites filtriranja za podređene račune.</translation>
 <translation id="1999115740519098545">Prilikom pokretanja</translation>
 <translation id="2007404777272201486">Prijavljivanje problema...</translation>
 <translation id="2011110593081822050">Web-djelatnik: <ph name="WORKER_NAME" /></translation>
@@ -2002,7 +2001,6 @@ s <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826">Broj pogrešaka: <ph name="COUNT" />.</translation>
 <translation id="3496213124478423963">Smanji</translation>
 <translation id="3496381219560704722">Nadjačaj VPD vrijednosti.</translation>
-<translation id="3496520356073548867">SafeSites filtriranje za podređeni račun</translation>
 <translation id="3502662168994969388">Ograničava otklanjanje pogrešaka na lokalnom klijentu na temelju GDB-a po URL-u u datoteci manifesta. Otklanjanje pogrešaka na lokalnom klijentu na temelju GDB-a mora biti omogućeno da bi ova opcija funkcionirala.</translation>
 <translation id="3504135463003295723">Naziv grupe:</translation>
 <translation id="3505030558724226696">Opoziv pristupa uređaju</translation>
@@ -3277,7 +3275,6 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="5227679487546032910">Zadani tirkiznoplavi avatar</translation>
 <translation id="5227808808023563348">Nađi prethodni tekst</translation>
 <translation id="5228076606934445476">Nešto nije u redu s uređajem. Da biste uklonili tu pogrešku, morat ćete ponovo pokrenuti uređaj i pokušati još jednom.</translation>
-<translation id="5228962187251412618">Samo provjera na mreži</translation>
 <translation id="5229189185761556138">Upravljaj načinima unosa</translation>
 <translation id="5229622432348746578">Onemogući audio za dijeljenje radne površine</translation>
 <translation id="5230516054153933099">Prozor</translation>
@@ -4311,7 +4308,6 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="6565108107088666812">Time se brišu sinkronizirani podaci sa svih uređaja.</translation>
 <translation id="6566142449942033617">Nije uspjelo učitavanje putanje "<ph name="PLUGIN_PATH" />" za dodatak.</translation>
 <translation id="6567688344210276845">Nije uspjelo učitavanje ikone "<ph name="ICON" />" za radnju stranice.</translation>
-<translation id="6569050677975271054">Samo statički popis zabranjenih</translation>
 <translation id="6571070086367343653">Uređivanje kreditne kartice</translation>
 <translation id="657402800789773160">&amp;Reload This Page (Ponovo učitaj ovu stranicu)</translation>
 <translation id="6575134580692778371">Nije konfigurirano</translation>

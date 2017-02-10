@@ -756,7 +756,7 @@
 <translation id="1957988341423158185">ป้ายกำกับการติดตามสำหรับการติดตามการนำทาง</translation>
 <translation id="1961376890474801922">ยังอยู่ในช่วงทดสอบโดยมีการติดตั้งใช้งานผู้มาเยือน เช่น &amp;lt;webview&gt; ในโครงสร้างพื้นฐาน iframe นอกกระบวนการ</translation>
 <translation id="1962233722219655970">หน้าเว็บนี้ใช้แอปพลิเคชัน Native Client ซึ่งไม่สามารถทำงานบนคอมพิวเตอร์ของคุณ</translation>
-<translation id="1962389111849429567">การรองรับการจำลองที่มีโครงสร้างของ WebAssembly</translation>
+<translation id="1962389111849429567">การรองรับการโคลนที่มีโครงสร้างของ WebAssembly</translation>
 <translation id="1962969542251276847">ล็อกหน้าจอ</translation>
 <translation id="1963227389609234879">นำออกทั้งหมด</translation>
 <translation id="1965328510789761112">หน่วยความจำส่วนตัว</translation>
@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">ไม่ได้ตั้งค่า</translation>
 <translation id="1994173015038366702">URL ของเว็บไซต์</translation>
 <translation id="1997616988432401742">ใบรับรองของคุณ</translation>
-<translation id="1999092554946563091">เปิดหรือปิดใช้การกรอง SafeSites สำหรับบัญชีย่อย</translation>
 <translation id="1999115740519098545">เริ่มต้น</translation>
 <translation id="2007404777272201486">รายงานปัญหา...</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME" /></translation>
@@ -2002,7 +2001,6 @@
 <translation id="3495304270784461826">ข้อผิดพลาด <ph name="COUNT" /> รายการ</translation>
 <translation id="3496213124478423963">ย่อ</translation>
 <translation id="3496381219560704722">ลบล้างค่า VPD</translation>
-<translation id="3496520356073548867">การกรอง SafeSites สำหรับบัญชีย่อย</translation>
 <translation id="3502662168994969388">จำกัด GDB แอปพลิเคชัน Native Client - การซ่อมแซมพื้นฐานตาม URL ของไฟล์ Manifest Native Client GDB - ต้องเปิดใช้งานการซ่อมแซมพื้นฐานเพื่อให้ตัวเลือกนี้ทำงาน</translation>
 <translation id="3504135463003295723">ชื่อกลุ่ม:</translation>
 <translation id="3505030558724226696">เพิกถอนสิทธิ์การเข้าถึงอุปกรณ์</translation>
@@ -3277,7 +3275,6 @@
 <translation id="5227679487546032910">อวาตาร์เริ่มต้นสีน้ำเงินอมเขียว</translation>
 <translation id="5227808808023563348">ค้นหาข้อความก่อนหน้า</translation>
 <translation id="5228076606934445476">มีบางอย่างผิดปกติกับอุปกรณ์  ในการกู้คืนจากข้อผิดพลาดนี้ คุณจะต้องรีบูตเครื่องและลองอีกครั้ง</translation>
-<translation id="5228962187251412618">ตรวจสอบทางออนไลน์เท่านั้น</translation>
 <translation id="5229189185761556138">จัดการวิธีป้อนข้อมูล</translation>
 <translation id="5229622432348746578">ปิดเสียงสำหรับการแชร์เดสก์ท็อป</translation>
 <translation id="5230516054153933099">หน้าต่าง</translation>
@@ -4311,7 +4308,6 @@
 <translation id="6565108107088666812">การดำเนินการนี้จะล้างข้อมูลที่ซิงค์จากอุปกรณ์ทั้งหมด</translation>
 <translation id="6566142449942033617">ไม่สามารถโหลดปลั๊กอินจาก "<ph name="PLUGIN_PATH" />"</translation>
 <translation id="6567688344210276845">ไม่สามารถโหลดไอคอน "<ph name="ICON" />" เพื่อให้เกิดการทำงานบนหน้าเว็บ</translation>
-<translation id="6569050677975271054">บัญชีดำแบบคงที่เท่านั้น</translation>
 <translation id="6571070086367343653">แก้ไขบัตรเครดิต</translation>
 <translation id="657402800789773160">&amp;โหลดหน้านี้ใหม่</translation>
 <translation id="6575134580692778371">ไม่ได้กำหนดค่า</translation>

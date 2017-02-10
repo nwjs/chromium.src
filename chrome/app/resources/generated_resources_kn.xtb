@@ -787,7 +787,6 @@
 <translation id="1992397118740194946">ಹೊಂದಿಸಿಲ್ಲ</translation>
 <translation id="1994173015038366702">ಸೈಟ್ URL</translation>
 <translation id="1997616988432401742">ನಿಮ್ಮ ಪ್ರಮಾಣಪತ್ರಗಳು</translation>
-<translation id="1999092554946563091">ಮಕ್ಕಳ ಖಾತೆಗಳಿಗೆ ಸುರಕ್ಷಿತಸೈಟ್‌ಗಳನ್ನು ಫಿಲ್ಟರ್ ಮಾಡುವುದನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ ಅಥವಾ ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ.</translation>
 <translation id="1999115740519098545">ಸ್ಟಾರ್ಟ್‌ಅಪ್‌ನಲ್ಲಿ</translation>
 <translation id="2007404777272201486">ಸಮಸ್ಯೆ ವರದಿಮಾಡಿ...</translation>
 <translation id="2011110593081822050">ವೆಬ್‌ ಕೆಲಸಗಾರ: <ph name="WORKER_NAME" /></translation>
@@ -2002,7 +2001,6 @@
 <translation id="3495304270784461826"><ph name="COUNT" /> ದೋಷಗಳು.</translation>
 <translation id="3496213124478423963">ಝೂಮ್ ಔಟ್</translation>
 <translation id="3496381219560704722">VPD ಮೌಲ್ಯಗಳನ್ನು ಅತಿಕ್ರಮಿಸು.</translation>
-<translation id="3496520356073548867">ಮಕ್ಕಳ ಖಾತೆಯ ಸುರಕ್ಷಿತಸೈಟ್‌ಗಳ ಫಿಲ್ಟರ್ ಮಾಡುವಿಕೆ</translation>
 <translation id="3502662168994969388">ಮ್ಯಾನಿಫೆಸ್ಟ್ ಫೈಲ್‌ನ URL ನಿಂದ ಸ್ಥಳೀಯ ಕ್ಲೈಂಟ್ ಅಪ್ಲಿಕೇಶನ್ GDB ಆಧಾರಿತ ಡೀಬಗ್ ಮಾಡುವುದನ್ನು ನಿರ್ಬಂಧಿಸುತ್ತದೆ. ಸ್ಥಳೀಯ ಕ್ಲೈಂಟ್ GDB ಆಧಾರಿತ ಕಾರ್ಯನಿರ್ವಹಿಸಲು ಈ ಆಯ್ಕೆಗಾಗಿ ಡೀಬಗ್ ಮಾಡುವುದನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಬೇಕು.</translation>
 <translation id="3504135463003295723">ಗುಂಪು ಹೆಸರು:</translation>
 <translation id="3505030558724226696">ಸಾಧನ ಪ್ರವೇಶವನ್ನು ಹಿಂತೆಗೆದುಕೊಳ್ಳಿ</translation>
@@ -2716,7 +2714,7 @@
 <translation id="445923051607553918">ವೈ-ಫೈ ನೆಟ್‌ವರ್ಕ್‌ಗೆ ಸೇರಿ</translation>
 <translation id="4462159676511157176">ಕಸ್ಟಮ್ ಹೆಸರು ಸರ್ವರ್‌ಗಳು</translation>
 <translation id="4465830120256509958">ಬ್ರೆಜಿಲಿಯನ್ ಕೀಬೋರ್ಡ್</translation>
-<translation id="4467100756425880649">Chrome ವೆಬ್ ಅಂಗಡಿ ಗ್ಯಾಲರಿ</translation>
+<translation id="4467100756425880649">Chrome ವೆಬ್‌ ಸ್ಟೋರ್‌ ಗ್ಯಾಲರಿ</translation>
 <translation id="4470564870223067757">ಹಂಗುಲ್ 2 ಸೆಟ್</translation>
 <translation id="4474155171896946103">ಎಲ್ಲಾ ಟ್ಯಾಬ್‌ಗಳನ್ನು ಬುಕ್‌ಮಾರ್ಕ್ ಮಾಡು...</translation>
 <translation id="4475552974751346499">ಡೌನ್‌ಲೋಡ್‌ಗಳು ಹುಡುಕಿ</translation>
@@ -3280,7 +3278,6 @@
 <translation id="5227679487546032910">ಡಿಫಾಲ್ಟ್ ಕೆನ್ನೀಲಿ ಅವತಾರ್</translation>
 <translation id="5227808808023563348">ಹಿಂದಿನ ಪಠ್ಯವನ್ನು ಹುಡುಕಿರಿ</translation>
 <translation id="5228076606934445476">ಸಾಧನದಲ್ಲಿ ಏನೋ ತಪ್ಪಾಗಿದೆ. ಈ ದೋಷದಿಂದ ಚೇತರಿಸಿಕೊಳ್ಳಲು ನೀವು ಸಾಧನವನ್ನು ರೀಬೂಟ್ ಮಾಡಬೇಕು ಹಾಗೂ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬೇಕಾಗುತ್ತದೆ.</translation>
-<translation id="5228962187251412618">ಆನ್‌ಲೈನ್ ಪರಿಶೀಲನೆ ಮಾತ್ರ</translation>
 <translation id="5229189185761556138">ಇನ್‌ಪುಟ್ ವಿಧಾನಗಳನ್ನು ನಿರ್ವಹಿಸು</translation>
 <translation id="5229622432348746578">ಡೆಸ್ಕ್‌ಟಾಪ್ ಹಂಚಿಕೆಗೆ ಆಡಿಯೋ ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ</translation>
 <translation id="5230516054153933099">ವಿಂಡೋ</translation>
@@ -4315,7 +4312,6 @@
 <translation id="6565108107088666812">ಇದು ಸಿಂಕ್ ಮಾಡಲಾದ ಡೇಟಾವನ್ನು ಎಲ್ಲಾ ಸಾಧನಗಳಿಂದ ತೆರವುಗೊಳಿಸುತ್ತದೆ.</translation>
 <translation id="6566142449942033617">'<ph name="PLUGIN_PATH" />' ಗಾಗಿ ಪ್ಲಗಿನ್ ಮಾಡಲು ಲೋಡ್ ಮಾಡಿಲ್ಲ.</translation>
 <translation id="6567688344210276845">ಪುಟದ ಕ್ರಿಯೆಗಾಗಿ ಐಕಾನ್ '<ph name="ICON" />'  ಅನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಿಲ್ಲ.</translation>
-<translation id="6569050677975271054">ಸ್ಥಿರ ಕಪ್ಪುಪಟ್ಟಿ ಮಾತ್ರ</translation>
 <translation id="6571070086367343653">ಕ್ರೆಡಿಟ್ ಕಾರ್ಡ್ ಎಡಿಟ್ ಮಾಡಿ</translation>
 <translation id="657402800789773160">ಈ ಪುಟವನ್ನು &amp;ರೀಲೋಡ್ ಮಾಡಿ</translation>
 <translation id="6575134580692778371">ಕಾನ್ಫಿಗರ್ ಮಾಡಲಾಗಿಲ್ಲ</translation>
@@ -5127,7 +5123,7 @@
 <translation id="7704521324619958564">Play ಸ್ಟೋರ್ ತೆರೆಯಿರಿ</translation>
 <translation id="7705276765467986571">ಬುಕ್‌ಮಾರ್ಕ್ ಮಾದರಿಯನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಿಲ್ಲ.</translation>
 <translation id="7705524343798198388">VPN</translation>
-<translation id="7705600705238488017">ಬದಲಾಗಿ <ph name="BEGIN_LINK" />Chrome ವೆಬ್ ಅಂಗಡಿ ಬ್ರೌಸ್ ಮಾಡಲು<ph name="END_LINK" /> ಬಯಸುವಿರಾ?</translation>
+<translation id="7705600705238488017">ಬದಲಾಗಿ <ph name="BEGIN_LINK" />Chrome ವೆಬ್‌ ಸ್ಟೋರ್‌ ಬ್ರೌಸ್ ಮಾಡಲು<ph name="END_LINK" /> ಬಯಸುವಿರಾ?</translation>
 <translation id="7706319470528945664">ಪೋರ್ಚುಗೀಸ್ ಕೀಬೋರ್ಡ್</translation>
 <translation id="7709152031285164251">ವಿಫಲವಾಗಿದೆ - <ph name="INTERRUPT_REASON" /></translation>
 <translation id="7709980197120276510">ಮುಂದುವರಿಸು ಕ್ಲಿಕ್ ಮಾಡುವ ಮೂಲಕ ನೀವು <ph name="LEGAL_DOC_LINK_TEXT_1" />, <ph name="LEGAL_DOC_LINK_TEXT_2" />, <ph name="LEGAL_DOC_LINK_TEXT_3" />, <ph name="LEGAL_DOC_LINK_TEXT_4" />, ಮತ್ತು <ph name="LEGAL_DOC_LINK_TEXT_5" /> ಗೆ ಸಮ್ಮತಿಸುತ್ತೀರಿ.</translation>
@@ -5530,7 +5526,7 @@
 <translation id="8226742006292257240">ನಿಮ್ಮ ಕಂಪ್ಯೂಟರ್‌ಗೆ ಹೊಂದಿಸಲಾದ, ರ‍್ಯಾಂಡಮ್‌‌ ಆಗಿ ರಚಿಸಲಾದ TPM ಪಾಸ್‌ವರ್ಡ್ ಕೆಳಗಿದೆ:</translation>
 <translation id="8227119283605456246">ಫೈಲ್‌‎ ಲಗತ್ತಿಸಿ</translation>
 <translation id="8233254008506535819">ಬ್ರೌಸಿಂಗ್ ಡೇಟಾ ತೆರವುಗೊಳಿಸು ಸಂವಾದದಲ್ಲಿರುವ ಪ್ರಮುಖ ಸೈಟ್‌ಗಳನ್ನು ಶ್ವೇತಪಟ್ಟಿ ಆಯ್ಕೆಗೆ ಸೇರಿಸಿ.</translation>
-<translation id="8236231079192337250">ಪ್ರಿಂಟರ್ ಡ್ರೈವರ್‌ಗಳಿಗೆ Chrome ವೆಬ್ ಅಂಗಡಿ ಗ್ಯಾಲರಿ ಅಪ್ಲಿಕೇಶನ್</translation>
+<translation id="8236231079192337250">ಪ್ರಿಂಟರ್ ಡ್ರೈವರ್‌ಗಳಿಗೆ Chrome ವೆಬ್‌ ಸ್ಟೋರ್‌ ಗ್ಯಾಲರಿ ಅಪ್ಲಿಕೇಶನ್</translation>
 <translation id="8238649969398088015">ಸಹಾಯ ಸಲಹೆ</translation>
 <translation id="8240697550402899963">ಕ್ಲಾಸಿಕ್ ಥೀಮ್ ಬಳಸಿ</translation>
 <translation id="8241040075392580210">ಶಾಡಿ</translation>
@@ -5976,7 +5972,7 @@
 <translation id="8804398419035066391">ಸಹಕಾರಿ ವೆಬ್‌ಸೈಟ್‌ಗಳೊಂದಿಗೆ ಸಂವಹಿಸಿ</translation>
 <translation id="8807208382546568628">ಸಾಧನದ ಅಳತೆಯ ಅಂಶಕ್ಕೆ Blink ನ ಝೂಮ್ ಬಳಸಿ.</translation>
 <translation id="8807632654848257479">ಸ್ಥಿರ</translation>
-<translation id="8808478386290700967">ವೆಬ್‌ ಅಂಗಡಿ</translation>
+<translation id="8808478386290700967">ವೆಬ್‌ ಸ್ಟೋರ್‌</translation>
 <translation id="8808686172382650546">ಬೆಕ್ಕು</translation>
 <translation id="8813698869395535039"><ph name="USERNAME" /> ಗೆ ಸೈನ್ ಇನ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ</translation>
 <translation id="8813811964357448561">ಕಾಗದದ ಹಾಳೆ</translation>
@@ -6083,7 +6079,7 @@
 <translation id="8946284507644756416">ನಿಮ್ಮ Android ಫೋನ್ ಬಳಸಿಕೊಂಡು ನಿಮ್ಮ <ph name="DEVICE_TYPE" /> ಅನ್‌ಲಾಕ್ ಮಾಡಬಹುದು.</translation>
 <translation id="8946359700442089734">ದೋಷ ನಿವಾರಣೆಯಾಗುತ್ತಿರುವ ವೈಶಿಷ್ಟ್ಯಗಳು ಈ ಸಾಧನದಲ್ಲಿ <ph name="IDS_SHORT_PRODUCT_NAME" /> ಇನ್ನೂ  ಸಂಫೂರ್ಣವಾಗಿ ಸಕ್ರಿಯವಾಗಿಲ್ಲ.</translation>
 <translation id="8946784827990177241">WebUSB ಬೆಂಬಲವನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ.</translation>
-<translation id="89515141420106838">ಪ್ರಿಂಟರ್ ಡ್ರೈವರ್‌ಗಳಿಗೆ Chrome ವೆಬ್ ಅಂಗಡಿ ಗ್ಯಾಲರಿ ಅಪ್ಲಿಕೇಶನ್ ಸಕ್ರಿಯಗೊಳಿಸುತ್ತದೆ. ನಿರ್ದಿಷ್ಟ USB ID ಮೂಲಕ ಪ್ರಿಂಟ್ ಮಾಡಲು USB ಪ್ರಿಂಟರ್‌ಗೆ ಬೆಂಬಲಿಸುವ ವಿಸ್ತರಣೆಗಳಿಗೆ Chrome ವೆಬ್ ಅಂಗಡಿಯಲ್ಲಿ ಹುಡುಕಾಟ ನಡೆಸುತ್ತದೆ.</translation>
+<translation id="89515141420106838">ಪ್ರಿಂಟರ್ ಡ್ರೈವರ್‌ಗಳಿಗೆ Chrome ವೆಬ್‌ ಸ್ಟೋರ್‌ ಗ್ಯಾಲರಿ ಅಪ್ಲಿಕೇಶನ್ ಸಕ್ರಿಯಗೊಳಿಸುತ್ತದೆ. ನಿರ್ದಿಷ್ಟ USB ID ಮೂಲಕ ಪ್ರಿಂಟ್ ಮಾಡಲು USB ಪ್ರಿಂಟರ್‌ಗೆ ಬೆಂಬಲಿಸುವ ವಿಸ್ತರಣೆಗಳಿಗೆ Chrome ವೆಬ್‌ ಸ್ಟೋರ್‌ಯಲ್ಲಿ ಹುಡುಕಾಟ ನಡೆಸುತ್ತದೆ.</translation>
 <translation id="895347679606913382">ಪ್ರಾರಂಭಗೊಳ್ಳುತ್ತಿದೆ...</translation>
 <translation id="8954952943849489823">ಸರಿಸುವುದು ವಿಫಲವಾಗಿದೆ, ಅನಿರೀಕ್ಷಿತ ದೋಷ: $1</translation>
 <translation id="895586998699996576">$1 ಚಿತ್ರ</translation>

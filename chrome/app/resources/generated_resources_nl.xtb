@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Niet ingesteld</translation>
 <translation id="1994173015038366702">Site-URL</translation>
 <translation id="1997616988432401742">Je certificaten</translation>
-<translation id="1999092554946563091">SafeSites-filtering voor subaccounts in- of uitschakelen.</translation>
 <translation id="1999115740519098545">Bij opstarten</translation>
 <translation id="2007404777272201486">Een probleem melden...</translation>
 <translation id="2011110593081822050">Webwerker: <ph name="WORKER_NAME" /></translation>
@@ -1501,7 +1500,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="288042212351694283">Toegang tot je Universal 2nd Factor-apparaten</translation>
 <translation id="2881966438216424900">Laatst geopend:</translation>
 <translation id="2882943222317434580"><ph name="IDS_SHORT_PRODUCT_NAME" /> wordt zo meteen opnieuw gestart en opnieuw ingesteld.</translation>
-<translation id="2884778725218524621">De optie voor MD-instellingen voor touchscreenkalibratie in-/uitschakelen</translation>
+<translation id="2884778725218524621">De optie voor touchscreenkalibratie in-/uitschakelen in de Material Design-instellingen</translation>
 <translation id="2885378588091291677">Taakbeheer</translation>
 <translation id="2887525882758501333">Pdf-document</translation>
 <translation id="2888807692577297075">Er komen geen items overeen met &lt;b&gt;'<ph name="SEARCH_STRING" />'&lt;/b&gt;</translation>
@@ -1732,7 +1731,7 @@ Controleer je e-mail op <ph name="ACCOUNT_EMAIL" /> voor deze en verdere instruc
 <translation id="3153177132960373163">Alle sites toestaan een plug-in te gebruiken om toegang te krijgen tot je computer</translation>
 <translation id="3154351730702813399">De apparaatbeheerder kan je browse-activiteit controleren.</translation>
 <translation id="3154429428035006212">Langer dan een maand offline</translation>
-<translation id="3155068499722837620">Overtekening visualiseren door kleurcodes aan elementen toe te voegen op basis van of er andere elementen onder de elementen zijn getekend.</translation>
+<translation id="3155068499722837620">Overdraw visualiseren door kleurcodes aan elementen toe te voegen op basis van of er andere elementen onder de elementen aanwezig zijn.</translation>
 <translation id="3157931365184549694">Herstellen</translation>
 <translation id="3158564748719736353">Indien ingeschakeld, wordt een melding weergegeven wanneer een apparaat verbinding maakt met een netwerk achter een captive portal.</translation>
 <translation id="3159386328383139451">Google gebruikt je locatie om een betere lokale functionaliteit te leveren. Je kunt dit wijzigen in <ph name="SETTINGS_LINK" />.</translation>
@@ -2003,7 +2002,6 @@ van <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> fouten.</translation>
 <translation id="3496213124478423963">Kleiner</translation>
 <translation id="3496381219560704722">VPD-waarden overschrijven.</translation>
-<translation id="3496520356073548867">SafeSites-filter voor subaccount</translation>
 <translation id="3502662168994969388">Hiermee wordt foutopsporing op basis van GDB voor de Native Client-app beperkt op URL of manifestbestand. Foutopsporing op basis van GDB moet zijn ingeschakeld; anders werkt deze optie niet.</translation>
 <translation id="3504135463003295723">Groepsnaam:</translation>
 <translation id="3505030558724226696">Apparaattoegang intrekken</translation>
@@ -3277,7 +3275,6 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5227679487546032910">Standaard blauwgroene avatar</translation>
 <translation id="5227808808023563348">Vorige tekst vinden</translation>
 <translation id="5228076606934445476">Er is iets fout met dit apparaat. Als je deze fout wilt verhelpen, moet je het apparaat opnieuw opstarten en het opnieuw proberen.</translation>
-<translation id="5228962187251412618">Alleen online controle</translation>
 <translation id="5229189185761556138">Invoermethoden beheren</translation>
 <translation id="5229622432348746578">Audio uitschakelen voor bureaublad delen</translation>
 <translation id="5230516054153933099">Venster</translation>
@@ -3433,7 +3430,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5403346645236247882">Videocodering voor Cast Streaming-hardware</translation>
 <translation id="5408750356094797285">Zoom: <ph name="PERCENT" /></translation>
 <translation id="5409029099497331039">Verras me</translation>
-<translation id="5410638099347106978">Het toevoegen van verbindingen is uitgeschakeld door je beheerder.</translation>
+<translation id="5410638099347106978">'Verbinding toevoegen' is uitgeschakeld door je beheerder.</translation>
 <translation id="5411472733320185105">De proxyinstellingen niet gebruiken voor deze hosts en domeinen:</translation>
 <translation id="5412637665001827670">Bulgaars toetsenbord</translation>
 <translation id="5414566801737831689">De pictogrammen lezen van websites die je bezoekt</translation>
@@ -4276,7 +4273,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="6519437681804756269">[<ph name="TIMESTAMP" />]
         <ph name="FILE_INFO" />
         <ph name="EVENT_NAME" /></translation>
-<translation id="652030171967109828">Feedback met betrekking tot overtekening weergeven</translation>
+<translation id="652030171967109828">Feedback over overdraw weergeven</translation>
 <translation id="6526654154229718724">Een experimentele modus voor volledig scherm met toetsenbordvergrendeling, waarbij gebruikers Esc ingedrukt moeten houden om de modus af te sluiten.</translation>
 <translation id="6527303717912515753">Delen</translation>
 <translation id="6528546217685656218">De privésleutel voor dit clientcertificaat ontbreekt of is ongeldig.</translation>
@@ -4310,7 +4307,6 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="6565108107088666812">Hiermee worden gesynchroniseerde gegevens verwijderd van alle apparaten.</translation>
 <translation id="6566142449942033617">Kan '<ph name="PLUGIN_PATH" />' niet laden voor plugin.</translation>
 <translation id="6567688344210276845">Kan pictogram '<ph name="ICON" />' voor pagina-actie niet laden.</translation>
-<translation id="6569050677975271054">Alleen statische blacklist</translation>
 <translation id="6571070086367343653">Creditcard bewerken</translation>
 <translation id="657402800789773160">&amp;Laad pagina opnieuw</translation>
 <translation id="6575134580692778371">Niet geconfigureerd</translation>

@@ -432,7 +432,7 @@
 <translation id="1526560967942511387">Documento sem título</translation>
 <translation id="1526925867532626635">Confirmar configurações de sincronização</translation>
 <translation id="1528372117901087631">Conexão com a Internet</translation>
-<translation id="1529891865407786369">Fonte de alimentação</translation>
+<translation id="1529891865407786369">Fonte de energia</translation>
 <translation id="1529968269513889022">a última semana</translation>
 <translation id="1530838837447122178">Abrir configurações do mouse e touchpad do dispositivo</translation>
 <translation id="1531004739673299060">Janela do aplicativo</translation>
@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Não definido</translation>
 <translation id="1994173015038366702">URL do site</translation>
 <translation id="1997616988432401742">Seus certificados</translation>
-<translation id="1999092554946563091">Ativar ou desativar filtro SafeSites para contas filhas.</translation>
 <translation id="1999115740519098545">Inicialização</translation>
 <translation id="2007404777272201486">Informar um problema...</translation>
 <translation id="2011110593081822050">Operador da web: <ph name="WORKER_NAME" /></translation>
@@ -843,7 +842,7 @@
 <translation id="2099172618127234427">Você está ativando recursos de depuração do Chrome OS que definirão sshd daemon e permitirão a inicialização a partir de drives USB.</translation>
 <translation id="2099686503067610784">Tem certeza de que deseja excluir o certificado do servidor "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="2100273922101894616">Login automático</translation>
-<translation id="2100499704602262897">Ativar o V8 para usar o intérprete Ignition experimental e o compilador TurboFan para execução de JavaScript.</translation>
+<translation id="2100499704602262897">Ativar o V8 para usar o intérprete experimental Ignition e o compilador para execução de JavaScript TurboFan.</translation>
 <translation id="2101225219012730419">Versão:</translation>
 <translation id="2101797668776986011">Pepper 3D</translation>
 <translation id="2102945094304032244">Suporte para alteração de senha</translation>
@@ -859,7 +858,7 @@
 <translation id="2115103655317273167">Enviar para o smartphone</translation>
 <translation id="2115291620696624944">Erro ao imprimir <ph name="PAGE_NUMBER" /> páginas na <ph name="PRINTER_NAME" /></translation>
 <translation id="2115926821277323019">Deve ser um URL válido</translation>
-<translation id="2115946962706216358">Falha ao vincular a máquina ao domínio. Isso pode ter ocorrido porque o número máximo de junções de máquina permitidos para sua conta no servidor foi excedido.</translation>
+<translation id="2115946962706216358">Falha ao vincular a máquina ao domínio. Isso pode ter ocorrido porque o número máximo de vinculações permitidas para sua conta no servidor foi excedido.</translation>
 <translation id="2116673936380190819">a última hora</translation>
 <translation id="2121825465123208577">Redimensionar</translation>
 <translation id="2125314715136825419">Proceder sem atualizar o Adobe Reader (não recomendado)</translation>
@@ -1731,7 +1730,7 @@ Para ver mais informações, visite nossa <ph name="BEGIN_LINK" />Central de Aju
 <translation id="3153177132960373163">Permitir que todos os sites usem um plug-in para acessar seu computador</translation>
 <translation id="3154351730702813399">O administrador do dispositivo pode monitorar sua atividade de navegação.</translation>
 <translation id="3154429428035006212">Off-line há mais de um mês</translation>
-<translation id="3155068499722837620">Ver o overdraw codificando os elementos por cor com base na existência ou não de outros elementos desenhados embaixo deles.</translation>
+<translation id="3155068499722837620">Ver o overdraw codificando os elementos por cor com base na existência ou não de outros elementos embaixo deles.</translation>
 <translation id="3157931365184549694">Restaurar</translation>
 <translation id="3158564748719736353">Se ativada, uma notificação é exibida quando o dispositivo é conectado a uma rede do portal cativo.</translation>
 <translation id="3159386328383139451">O Google usa seu local para fornecer uma experiência de localização melhor. É possível alterar essa configuração em <ph name="SETTINGS_LINK" />.</translation>
@@ -2002,7 +2001,6 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> erros.</translation>
 <translation id="3496213124478423963">Afastar</translation>
 <translation id="3496381219560704722">Substituir valores VPD.</translation>
-<translation id="3496520356073548867">Filtro SafeSites de conta filha</translation>
 <translation id="3502662168994969388">Restringe a depuração baseada em GDB de aplicativo de cliente nativo por URL de arquivo de manifesto. A depuração baseada em GDB de cliente nativo deve estar ativada para que esta opção funcione.</translation>
 <translation id="3504135463003295723">Nome do grupo:</translation>
 <translation id="3505030558724226696">Revogar acesso ao dispositivo</translation>
@@ -3274,7 +3272,6 @@ Todos os usuários devem sair para continuar.</translation>
 <translation id="5227679487546032910">Avatar verde-azulado padrão</translation>
 <translation id="5227808808023563348">Busca texto anterior</translation>
 <translation id="5228076606934445476">Algo está errado com o dispositivo. Para se recuperar desse erro, será preciso reiniciar o dispositivo e tentar novamente.</translation>
-<translation id="5228962187251412618">Apenas verificação on-line</translation>
 <translation id="5229189185761556138">Gerenciar os métodos de entrada</translation>
 <translation id="5229622432348746578">Desativar o compartilhamento de áudio para área de trabalho</translation>
 <translation id="5230516054153933099">Janela</translation>
@@ -4310,7 +4307,6 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6565108107088666812">Isso apaga os dados sincronizados de todos os dispositivos.</translation>
 <translation id="6566142449942033617">Não foi possível carregar "<ph name="PLUGIN_PATH" />" para o plug-in.</translation>
 <translation id="6567688344210276845">Não foi possível carregar o ícone "<ph name="ICON" />" para a ação da página.</translation>
-<translation id="6569050677975271054">Apenas lista negra estática</translation>
 <translation id="6571070086367343653">Editar cartão de crédito</translation>
 <translation id="657402800789773160">&amp;Recarregar esta página</translation>
 <translation id="6575134580692778371">Não configurado</translation>
@@ -4504,7 +4500,7 @@ Use esse recurso somente com contas nas quais você confia.</translation>
 <translation id="6844537474943985871">É possível que essa extensão tenha sido corrompida. Tente efetuar a desinstalação e a reinstalação.</translation>
 <translation id="6845038076637626672">Abrir maximizado</translation>
 <translation id="6847758263950452722">Salvar página como MHTML</translation>
-<translation id="6851261092040379723">Pipeline de compilação de JavaScript experimental</translation>
+<translation id="6851261092040379723">Pipeline de compilação experimental JavaScript</translation>
 <translation id="6853388645642883916">Atualizador em modo de espera</translation>
 <translation id="68541483639528434">Fechar outras guias</translation>
 <translation id="6856701878604560493">Ativar favoritos off-line</translation>

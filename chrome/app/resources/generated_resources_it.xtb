@@ -756,7 +756,7 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="1957988341423158185">Etichetta delle tracce per il monitoraggio della navigazione</translation>
 <translation id="1961376890474801922">Altamente sperimentale in cui gli ospiti come &amp;lt;webview&gt; sono implementati nell'infrastruttura dell'iframe out-of-process.</translation>
 <translation id="1962233722219655970">Questa pagina utilizza un'app Native Client che non funziona sul tuo computer.</translation>
-<translation id="1962389111849429567">Supporto della clonazione strutturata WebAssembly.</translation>
+<translation id="1962389111849429567">Supporto della clonazione strutturata di WebAssembly.</translation>
 <translation id="1962969542251276847">Blocco schermo</translation>
 <translation id="1963227389609234879">Rimuovi tutto</translation>
 <translation id="1965328510789761112">Memoria privata</translation>
@@ -786,7 +786,6 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="1992397118740194946">Non impostata</translation>
 <translation id="1994173015038366702">URL sito</translation>
 <translation id="1997616988432401742">I tuoi certificati</translation>
-<translation id="1999092554946563091">Consente di attivare o disattivare il filtro SafeSites per gli account dei minori.</translation>
 <translation id="1999115740519098545">All'avvio</translation>
 <translation id="2007404777272201486">Segnala un problema...</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME" /></translation>
@@ -859,7 +858,7 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="2115103655317273167">Invia al telefono</translation>
 <translation id="2115291620696624944">Errore durante la stampa di <ph name="PAGE_NUMBER" /> pagine con <ph name="PRINTER_NAME" /></translation>
 <translation id="2115926821277323019">Specificare un URL valido</translation>
-<translation id="2115946962706216358">Unione della macchina al dominio non riuscita. Ciò potrebbe essere dovuto al superamento del numero massimo di collegamenti alle macchine consentito per il tuo account sul server.</translation>
+<translation id="2115946962706216358">Aggiunta della macchina al dominio non riuscita. Ciò potrebbe essere dovuto al superamento del numero massimo di aggiunte delle macchine consentito per il tuo account sul server.</translation>
 <translation id="2116673936380190819">ultima ora</translation>
 <translation id="2121825465123208577">Ridimensiona</translation>
 <translation id="2125314715136825419">Procedi senza aggiornare Adobe Reader (non consigliato)</translation>
@@ -1029,7 +1028,7 @@ Dopo avere creato un nuovo utente supervisionato, puoi gestirne le impostazioni 
 <translation id="23030561267973084">"<ph name="EXTENSION_NAME" />" ha richiesto altre autorizzazioni.</translation>
 <translation id="2307462900900812319">Configura rete</translation>
 <translation id="230927227160767054">Questa pagina vuole installare un gestore di servizi.</translation>
-<translation id="230988369433510421">Spiacenti. Si è verificato un problema durante il tentativo di collegamento al dominio. Riprova.</translation>
+<translation id="230988369433510421">Spiacenti. Si è verificato un problema durante il tentativo di aggiunta al dominio. Riprova.</translation>
 <translation id="2311496337038385958">Anno di registrazione</translation>
 <translation id="2312980885338881851">Spiacenti. Sembra che non esistano utenti controllati da importare. Creane uno o più da un altro dispositivo e poi importali qui.</translation>
 <translation id="231490303453288303">domContentLoaded del frame principale (iframe ignorati).</translation>
@@ -1730,7 +1729,7 @@ Per queste e per ulteriori istruzioni, controlla le tue email all'indirizzo <ph 
 <translation id="3153177132960373163">Consenti a tutti i siti di utilizzare un plug-in per accedere al tuo computer</translation>
 <translation id="3154351730702813399">L'amministratore del dispositivo potrebbe monitorare l'attività di navigazione.</translation>
 <translation id="3154429428035006212">Offline per più di un mese</translation>
-<translation id="3155068499722837620">Visualizza overdraw per elementi di codifica del colore sulla base della presenza di altri elementi sottostanti</translation>
+<translation id="3155068499722837620">Visualizza overdraw per elementi di codifica del colore sulla base della presenza di altri elementi sottostanti.</translation>
 <translation id="3157931365184549694">Ripristina</translation>
 <translation id="3158564748719736353">Se attivata, la notifica viene visualizzata quando il dispositivo è connesso a una rete con captive portal sottostante.</translation>
 <translation id="3159386328383139451">Google utilizza la tua posizione per offrirti una migliore esperienza locale. Puoi modificare questa preferenza nella <ph name="SETTINGS_LINK" />.</translation>
@@ -1999,7 +1998,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="3495304270784461826"><ph name="COUNT" /> errori.</translation>
 <translation id="3496213124478423963">Riduci</translation>
 <translation id="3496381219560704722">Esegui l'override dei valori VPD.</translation>
-<translation id="3496520356073548867">Filtro SafeSites per gli account dei minori</translation>
 <translation id="3502662168994969388">Limita il debugging basato su GDB dell'applicazione client nativa per URL del file manifest. Affinché questa opzione funzioni, il debugging basato su GDB del client nativo deve essere abilitato.</translation>
 <translation id="3504135463003295723">Nome gruppo:</translation>
 <translation id="3505030558724226696">Revoca accesso ai dispositivi</translation>
@@ -3271,7 +3269,6 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="5227679487546032910">Avatar verde acqua predefinito</translation>
 <translation id="5227808808023563348">Trova testo precedente</translation>
 <translation id="5228076606934445476">Si è verificato un problema con il dispositivo. Per risolvere il problema dovuto a questo errore dovrai riavviare il dispositivo e riprovare.</translation>
-<translation id="5228962187251412618">Solo controllo online</translation>
 <translation id="5229189185761556138">Gestisci metodi di immissione</translation>
 <translation id="5229622432348746578">Disattiva audio per condivisione desktop</translation>
 <translation id="5230516054153933099">Finestra</translation>
@@ -4304,7 +4301,6 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="6565108107088666812">I dati sincronizzati verranno cancellati da tutti i dispositivi.</translation>
 <translation id="6566142449942033617">Impossibile caricare "<ph name="PLUGIN_PATH" />" per il plug-in.</translation>
 <translation id="6567688344210276845">Impossibile caricare l'icona "<ph name="ICON" />" per l'azione della pagina.</translation>
-<translation id="6569050677975271054">Solo lista nera statica</translation>
 <translation id="6571070086367343653">Modifica carta di credito</translation>
 <translation id="657402800789773160">&amp;Ricarica questa pagina</translation>
 <translation id="6575134580692778371">Non configurata</translation>
@@ -4444,7 +4440,7 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="6773575010135450071">Altre azioni...</translation>
 <translation id="677965093459947883">Molto piccole</translation>
 <translation id="6780439250949340171">gestire altre impostazioni</translation>
-<translation id="6782111308708962316">Impedisci ai siti web di terze parti di salvare e leggere i dati dei cookie.</translation>
+<translation id="6782111308708962316">Impedisci ai siti web di terze parti di salvare e leggere i dati dei cookie</translation>
 <translation id="6786747875388722282">Estensioni</translation>
 <translation id="6787839852456839824">Scorciatoie da tastiera</translation>
 <translation id="6788210894632713004">Estensione non pacchettizzata</translation>
@@ -4498,7 +4494,7 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="6844537474943985871">Questa estensione potrebbe essere stata danneggiata. Prova a disinstallarla e reinstallarla.</translation>
 <translation id="6845038076637626672">Apri ingrandita</translation>
 <translation id="6847758263950452722">Salva pagina in MHTML</translation>
-<translation id="6851261092040379723">Compilation Pipeline JavaScript sperimentale</translation>
+<translation id="6851261092040379723">Pipeline di compilazione JavaScript sperimentale</translation>
 <translation id="6853388645642883916">Programma di aggiornamento in sospensione</translation>
 <translation id="68541483639528434">Chiudi le altre schede</translation>
 <translation id="6856701878604560493">Attiva preferiti offline</translation>
@@ -4531,7 +4527,7 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="6898440773573063262">Ora è possibile configurare l'avvio automatico delle applicazioni kiosk su questo dispositivo.</translation>
 <translation id="6898699227549475383">Organizzazione (O)</translation>
 <translation id="6900284862687837908">App in background: <ph name="BACKGROUND_APP_URL" /></translation>
-<translation id="6902837902700739466">Collega dispositivo al dominio</translation>
+<translation id="6902837902700739466">Aggiungi il dispositivo al dominio</translation>
 <translation id="6904344821472985372">Revoca accesso a file</translation>
 <translation id="6904713658985136356"><ph name="HOST" /> vuole condividere il tuo schermo.</translation>
 <translation id="6906268095242253962">Effettua la connessione a Internet per procedere.</translation>
@@ -4975,7 +4971,7 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="7508545000531937079">Slideshow</translation>
 <translation id="7511149348717996334">Attiva impostazioni di Material Design</translation>
 <translation id="7511955381719512146">La rete Wi-Fi in uso potrebbe richiedere la visita della pagina <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
-<translation id="7512768521598401899">Consenti alle pagine web di utilizzare la clonazione strutturata WebAssembly.</translation>
+<translation id="7512768521598401899">Consenti alle pagine web di utilizzare la clonazione strutturata di WebAssembly.</translation>
 <translation id="7514722502805496245">Consente il download in background delle pagine se la pagina non è stata ancora caricata nella scheda corrente.</translation>
 <translation id="751507702149411736">Bielorusso</translation>
 <translation id="7517569744831774757">Ripristina le impostazioni con i valori originali predefiniti.</translation>
@@ -5928,7 +5924,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8775404590947523323">Le modifiche vengono salvate automaticamente.<ph name="BREAKS" />Per conservare una copia dell'immagine originale, deseleziona l'opzione "Sovrascrivi originale".</translation>
 <translation id="8777218413579204310">Rileva contenuti</translation>
 <translation id="8777628254805677039">password root</translation>
-<translation id="8777980041711299948">Imposta comportamenti di scambio parziale.</translation>
+<translation id="8777980041711299948">Imposta comportamento di scambio parziale.</translation>
 <translation id="8778590208284402708">Non è stato aumentato o diminuito lo zoom di alcun sito.</translation>
 <translation id="878069093594050299">Questo certificato è stato verificato per i seguenti utilizzi:</translation>
 <translation id="8782565991310229362">Avvio dell'applicazione kiosk annullato.</translation>
@@ -6247,7 +6243,7 @@ Le finestre, le notifiche e le finestre di dialogo successive potrebbero essere 
 <translation id="9184473426683023988">Importa e associa a dispositivo</translation>
 <translation id="9185358268467915502">Se attivata, l'utente può calibrare i display touchscreen alla pagina chrome://md-settings/display.</translation>
 <translation id="9186729806195986201">Ripristina anche la versione precedente installata di <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
-<translation id="9187210477874601037">Unione della macchina al dominio non riuscita. Ciò potrebbe essere dovuto a privilegi dell'account sul server non sufficienti.</translation>
+<translation id="9187210477874601037">Aggiunta della macchina al dominio non riuscita. Ciò potrebbe essere dovuto a privilegi dell'account sul server non sufficienti.</translation>
 <translation id="9187651461283037651">Attiva la realtà virtuale di Chrome.</translation>
 <translation id="9188441292293901223">Aggiorna il telefono a una versione più recente di Android per sbloccare questo dispositivo <ph name="DEVICE_TYPE" />.</translation>
 <translation id="9189690067274055051">Per accedere, sblocca il telefono e avvicinalo al dispositivo <ph name="DEVICE_TYPE" />.</translation>

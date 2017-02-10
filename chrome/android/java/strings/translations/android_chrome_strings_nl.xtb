@@ -421,6 +421,7 @@ Als je de zoekterm wilt aanpassen, houd je deze aangeraakt om de term te selecte
 <translation id="53553865750799677">Niet-ondersteund ophaaladres. Selecteer een ander adres.</translation>
 <translation id="5372829067651257087">URL gekopieerd.</translation>
 <translation id="5400569084694353794">Als je deze app gebruikt, ga je akkoord met de <ph name="BEGIN_LINK1" />Servicevoorwaarden<ph name="END_LINK1" /> en het <ph name="BEGIN_LINK2" />Privacybeleid<ph name="END_LINK2" /> van Chrome.</translation>
+<translation id="5403644198645076998">Alleen bepaalde sites toestaan</translation>
 <translation id="5414836363063783498">Verifiëren…</translation>
 <translation id="5423934151118863508">Je meest bezochte pagina's worden hier weergegeven</translation>
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> GB beschikbaar</translation>
@@ -446,6 +447,7 @@ Als je de zoekterm wilt aanpassen, houd je deze aangeraakt om de term te selecte
 <translation id="5596627076506792578">Meer opties</translation>
 <translation id="5610807607761827392">Je kunt kaarten en adressen beheren in <ph name="BEGIN_LINK" />Instellingen<ph name="END_LINK" />.</translation>
 <translation id="5626134646977739690">Naam:</translation>
+<translation id="5639724618331995626">Alle sites toestaan</translation>
 <translation id="5646376287012673985">Locatie</translation>
 <translation id="5659593005791499971">E-mailadres</translation>
 <translation id="5665379678064389456">Afspraak maken in <ph name="APP_NAME" /></translation>
@@ -741,6 +743,7 @@ Voor je Google-account kunnen andere vormen van browsegeschiedenis (zoals zoekop
 Maak verbinding met internet en speel je gedownloade content af om nieuwe licenties te krijgen.</translation>
 <translation id="8636825310635137004">Schakel synchronisatie in om de tabbladen op je andere apparaten te bekijken</translation>
 <translation id="8639651215196239211">Alle downloads</translation>
+<translation id="8641930654639604085">Sites met inhoud voor volwassenen proberen te blokkeren</translation>
 <translation id="8660471606262461360">Van Google Payments</translation>
 <translation id="8676374126336081632">Invoer wissen</translation>
 <translation id="869891660844655955">Vervaldatum</translation>

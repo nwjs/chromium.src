@@ -787,7 +787,6 @@
 <translation id="1992397118740194946">Ni nastavljeno</translation>
 <translation id="1994173015038366702">URL spletnega mesta</translation>
 <translation id="1997616988432401742">Vaša potrdila</translation>
-<translation id="1999092554946563091">Omogoči ali onemogoči filtriranje s funkcijo »SafeSites« za otroške račune.</translation>
 <translation id="1999115740519098545">Ob zagonu</translation>
 <translation id="2007404777272201486">Prijavi težavo ...</translation>
 <translation id="2011110593081822050">Web Worker: <ph name="WORKER_NAME" /></translation>
@@ -2004,7 +2003,6 @@ Iz <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826">Št. napak: <ph name="COUNT" />.</translation>
 <translation id="3496213124478423963">Pomanjšaj</translation>
 <translation id="3496381219560704722">Preglasitev vrednosti VPD.</translation>
-<translation id="3496520356073548867">Filtri »SafeSites« za otroški račun</translation>
 <translation id="3502662168994969388">Omeji odpravljanje napak s tehnologijo Native Client na podlagi iskalnika napak GDB po URL-ju ali datoteki manifesta. Za delovanje te možnosti mora biti omogočeno odpravljanje napak s tehnologijo Native Client na podlagi iskalnika napak GDB.</translation>
 <translation id="3504135463003295723">Ime skupine:</translation>
 <translation id="3505030558724226696">Umakni dostop do naprav</translation>
@@ -3279,7 +3277,6 @@ Pritisnite katero koli tipko, če želite še naprej raziskovati.</translation>
 <translation id="5227679487546032910">Privzeti modrozeleni avatar</translation>
 <translation id="5227808808023563348">Iskanje prejšnjega besedila</translation>
 <translation id="5228076606934445476">Z napravo je nekaj narobe. Napako poskušajte odpraviti tako, da napravo znova zaženete in poskusite še enkrat.</translation>
-<translation id="5228962187251412618">Samo spletno preverjanje</translation>
 <translation id="5229189185761556138">Upravljanje načinov vnosa</translation>
 <translation id="5229622432348746578">Onemogočanje zvoka za skupno rabo namizja</translation>
 <translation id="5230516054153933099">Okno</translation>
@@ -4313,7 +4310,6 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="6565108107088666812">S tem se izbrišejo sinhronizirani podatki iz vseh naprav.</translation>
 <translation id="6566142449942033617">Ni mogoče naložiti »<ph name="PLUGIN_PATH" />« za vtičnik.</translation>
 <translation id="6567688344210276845">Ikone »<ph name="ICON" />« za dejanje strani ni bilo mogoče naložiti.</translation>
-<translation id="6569050677975271054">Samo statični seznam nedovoljenih</translation>
 <translation id="6571070086367343653">Urejanje kreditne kartice</translation>
 <translation id="657402800789773160">Znov&amp;a naloži to stran</translation>
 <translation id="6575134580692778371">Naprava ni konfigurirana</translation>

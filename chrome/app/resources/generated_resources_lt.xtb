@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Nenustatyta</translation>
 <translation id="1994173015038366702">Svetainės URL</translation>
 <translation id="1997616988432401742">Jūsų sertifikatai</translation>
-<translation id="1999092554946563091">Įgalinamas arba išjungiamas antrinių paskyrų „SafeSites“ filtravimas.</translation>
 <translation id="1999115740519098545">Paleidžiant</translation>
 <translation id="2007404777272201486">Pranešti apie problemą...</translation>
 <translation id="2011110593081822050">Žiniatinklio elementas: <ph name="WORKER_NAME" /></translation>
@@ -2003,7 +2002,6 @@ Iš <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3495304270784461826">Klaidų: <ph name="COUNT" />.</translation>
 <translation id="3496213124478423963">Tolinti</translation>
 <translation id="3496381219560704722">Nepaisyti VPD verčių.</translation>
-<translation id="3496520356073548867">Antrinės paskyros „SafeSites“ filtravimas</translation>
 <translation id="3502662168994969388">Apribojamas programos „Native Client“ GDB derinimas pagal aprašo failo URL. „Native Client“ GDB derinimas turi būti įgalintas, kad ši funkcija veiktų.</translation>
 <translation id="3504135463003295723">Grupės pavadinimas</translation>
 <translation id="3505030558724226696">Panaikinti įrenginio prieigą</translation>
@@ -3278,7 +3276,6 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="5227679487546032910">Numatytasis tamsiai žydras pseudoportretas</translation>
 <translation id="5227808808023563348">Rasti ankstesnį tekstą</translation>
 <translation id="5228076606934445476">Kažkas negerai su įrenginiu. Kad išspręstumėte šią problemą, reikės įkelti operacinę sistemą iš naujo ir bandyti dar kartą.</translation>
-<translation id="5228962187251412618">Tik patikra internetu</translation>
 <translation id="5229189185761556138">Tvarkyti įvesties metodus</translation>
 <translation id="5229622432348746578">Išjungti darbalaukio bendrinimo garsą</translation>
 <translation id="5230516054153933099">Langas</translation>
@@ -4313,7 +4310,6 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="6565108107088666812">Taip bus išvalyti sinchronizuoti duomenys iš visų įrenginių.</translation>
 <translation id="6566142449942033617">Papildiniui nepavyko įkelti „<ph name="PLUGIN_PATH" />“.</translation>
 <translation id="6567688344210276845">Puslapio veiksmui „<ph name="ICON" />“ piktogramos įkelti nepavyko.</translation>
-<translation id="6569050677975271054">Tik statinis juodasis sąrašas</translation>
 <translation id="6571070086367343653">Kredito kortelės redagavimas</translation>
 <translation id="657402800789773160">&amp;Iš naujo įkelti šį puslapį</translation>
 <translation id="6575134580692778371">Nesukonfigūruota</translation>

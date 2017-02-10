@@ -384,7 +384,7 @@
 <translation id="1485015260175968628">Może teraz:</translation>
 <translation id="1485141095922496924">Wersja <ph name="PRODUCT_VERSION" /> (<ph name="PRODUCT_CHANNEL" />) <ph name="PRODUCT_MODIFIER" /> <ph name="PRODUCT_VERSION_BITS" /></translation>
 <translation id="1486096554574027028">Szukaj haseł</translation>
-<translation id="1487335504823219454">Wł. – ustawienia niestandardowe</translation>
+<translation id="1487335504823219454">Włączone – ustawienia niestandardowe</translation>
 <translation id="149054319867505275">Sprawdź poprawność Asm.js, gdy występuje polecenie „use asm”, a następnie przekonwertuj do WebAssembly.</translation>
 <translation id="1493263392339817010">Dostosuj czcionki...</translation>
 <translation id="1493492096534259649">Nie można użyć tego języka do sprawdzania pisowni</translation>
@@ -786,7 +786,6 @@
 <translation id="1992397118740194946">Nie ustawiono</translation>
 <translation id="1994173015038366702">URL strony</translation>
 <translation id="1997616988432401742">Twoje certyfikaty</translation>
-<translation id="1999092554946563091">Włącza lub wyłącza filtrowanie SafeSites na kontach dzieci.</translation>
 <translation id="1999115740519098545">Po uruchomieniu</translation>
 <translation id="2007404777272201486">Zgłaszanie problemu...</translation>
 <translation id="2011110593081822050">Proces internetowy: <ph name="WORKER_NAME" /></translation>
@@ -1500,7 +1499,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="288042212351694283">Dostęp do urządzeń Universal 2nd Factor</translation>
 <translation id="2881966438216424900">Ostatni dostęp:</translation>
 <translation id="2882943222317434580"><ph name="IDS_SHORT_PRODUCT_NAME" /> za chwilę uruchomi się ponownie i zresetuje.</translation>
-<translation id="2884778725218524621">Włącz/wyłącz opcję ustawień stylu Material Design dla kalibracji ekranu dotykowego</translation>
+<translation id="2884778725218524621">Włącz/wyłącz ustawienia kalibracji ekranu dotykowego dla stylu Material Design</translation>
 <translation id="2885378588091291677">Menedżer zadań</translation>
 <translation id="2887525882758501333">Dokument PDF</translation>
 <translation id="2888807692577297075">Żadne elementy nie pasują do zapytania &lt;b&gt;„<ph name="SEARCH_STRING" />”&lt;/b&gt;</translation>
@@ -2002,7 +2001,6 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="3495304270784461826">Błędy: <ph name="COUNT" />.</translation>
 <translation id="3496213124478423963">Pomniejsz</translation>
 <translation id="3496381219560704722">Zastąp wartości VPD.</translation>
-<translation id="3496520356073548867">Filtrowanie SafeSites na kontach dzieci</translation>
 <translation id="3502662168994969388">Ogranicza debugowanie aplikacji klienta natywnego oparte na GDB zgodnie z URL-em pliku manifestu. Aby ta opcja działała, debugowanie klienta natywnego oparte na GDB musi być włączone.</translation>
 <translation id="3504135463003295723">Nazwa grupy:</translation>
 <translation id="3505030558724226696">Anuluj dostęp do urządzeń</translation>
@@ -3275,7 +3273,6 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5227679487546032910">Domyślny turkusowy awatar</translation>
 <translation id="5227808808023563348">Znajdź poprzedni tekst</translation>
 <translation id="5228076606934445476">Coś jest nie tak z urządzeniem. Aby usunąć skutki tego błędu, musisz ponownie uruchomić urządzenie i spróbować jeszcze raz.</translation>
-<translation id="5228962187251412618">Tylko kontrola online</translation>
 <translation id="5229189185761556138">Zarządzaj metodami wprowadzania</translation>
 <translation id="5229622432348746578">Wyłącz dźwięk przy udostępnianiu pulpitu</translation>
 <translation id="5230516054153933099">Okno</translation>
@@ -4309,7 +4306,6 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="6565108107088666812">Powoduje to usunięcie zsynchronizowanych danych ze wszystkich urządzeń.</translation>
 <translation id="6566142449942033617">Nie można wczytać ścieżki „<ph name="PLUGIN_PATH" />” dla wtyczki.</translation>
 <translation id="6567688344210276845">Nie można wczytać ikony „<ph name="ICON" />” dla czynności wykonywanej na stronie.</translation>
-<translation id="6569050677975271054">Tylko statyczna czarna lista</translation>
 <translation id="6571070086367343653">Edytuj kartę kredytową</translation>
 <translation id="657402800789773160">&amp;Załaduj ponownie tę stronę</translation>
 <translation id="6575134580692778371">Nie skonfigurowano</translation>
@@ -5692,7 +5688,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="84613761564611563">Wywołano interfejs użytkownika do konfigurowania sieci. Zaczekaj...</translation>
 <translation id="8461914792118322307">Serwer proxy</translation>
 <translation id="8463215747450521436">Ten użytkownik nadzorowany mógł zostać usunięty lub wyłączony przez menedżera. Jeśli do logowania nadal chcesz używać tych danych, skontaktuj się z nim.</translation>
-<translation id="8463955938112983119"><ph name="PLUGIN_NAME" /> – wył.</translation>
+<translation id="8463955938112983119"><ph name="PLUGIN_NAME" /> – wyłączono</translation>
 <translation id="8464132254133862871">To konto użytkownika nie kwalifikuje się do korzystania z tej usługi.</translation>
 <translation id="8465252176946159372">Nieważne</translation>
 <translation id="8465444703385715657">Uruchomienie wtyczki <ph name="PLUGIN_NAME" /> wymaga Twojej zgody</translation>
@@ -6250,7 +6246,7 @@ Kolejne powiadomienia, okna i okna dialogowe mogą być dzielone między pulpita
 <translation id="9183836083779743117"><ph name="DOWNLOAD_RECEIVED" /> z <ph name="DOWNLOAD_DOMAIN" />, <ph name="TIME_LEFT" /></translation>
 <translation id="9184146175870444618">Wymusza traktowanie detektorów zdarzeń uruchamiania dotknięciem i przewijania przez przesuwanie po pierwszym dotknięciu jako pasywnych podczas przesunięcia.</translation>
 <translation id="9184473426683023988">Zaimportuj i powiąż z urządzeniem</translation>
-<translation id="9185358268467915502">Po włączeniu użytkownik może kalibrować ekran dotykowy na stronie chrome://md-settings/display.</translation>
+<translation id="9185358268467915502">Po włączeniu tej opcji użytkownik może kalibrować ekran dotykowy na stronie chrome://md-settings/display.</translation>
 <translation id="9186729806195986201">Przywróć też poprzednio zainstalowaną wersję <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
 <translation id="9187210477874601037">Nie udało się dołączyć komputera do domeny. Powodem może być brak uprawnień Twojego konta na serwerze.</translation>
 <translation id="9187651461283037651">Włącz Chrome VR.</translation>
