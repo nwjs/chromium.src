@@ -174,7 +174,7 @@ Background = function() {
   }.bind(this));
 
   // Record a metric with the mode we're in on startup.
-  var useNext = localStorage['useNext'] !== 'false';
+  var useNext = localStorage['useClassic'] != 'true';
   chrome.metricsPrivate.recordValue(
       { metricName: 'Accessibility.CrosChromeVoxNext',
         type: chrome.metricsPrivate.MetricTypeType.HISTOGRAM_LINEAR,
@@ -231,7 +231,7 @@ Background.prototype = {
    * @override
    */
   getMode: function() {
-    var useNext = localStorage['useNext'] !== 'false';
+    var useNext = localStorage['useClassic'] !== 'true';
 
     var target;
     if (!this.getCurrentRange()) {
@@ -356,7 +356,7 @@ Background.prototype = {
     if (opt_setValue !== undefined)
       useNext = opt_setValue;
     else
-      useNext = localStorage['useNext'] !== 'true';
+      useNext = localStorage['useClassic'] == 'true';
 
     if (useNext) {
       chrome.metricsPrivate.recordUserAction(
@@ -366,7 +366,7 @@ Background.prototype = {
           'Accessibility.ChromeVox.ToggleNextOff');
     }
 
-    localStorage['useNext'] = useNext;
+    localStorage['useClassic'] = !useNext;
     if (useNext)
       this.setCurrentRangeToFocus_();
     else
