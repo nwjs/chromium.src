@@ -21,9 +21,9 @@ bool ChromeWebApkHost::Register(JNIEnv* env) {
 }
 
 // static
-bool ChromeWebApkHost::CanInstallWebApk() {
+bool ChromeWebApkHost::AreWebApkEnabled() {
   JNIEnv* env = base::android::AttachCurrentThread();
-  return Java_ChromeWebApkHost_canInstallWebApk(env);
+  return Java_ChromeWebApkHost_areWebApkEnabled(env);
 }
 
 // static
@@ -32,13 +32,4 @@ jboolean CanUseGooglePlayToInstallWebApk(
     const base::android::JavaParamRef<jclass>& clazz) {
   return variations::GetVariationParamValueByFeature(
              chrome::android::kImprovedA2HS, kPlayInstall) == "true";
-}
-
-// static
-jboolean CanInstallFromUnknownSources(
-    JNIEnv* env,
-    const base::android::JavaParamRef<jclass>& clazz) {
-  return base::FeatureList::GetInstance()->IsFeatureOverriddenFromCommandLine(
-             chrome::android::kImprovedA2HS.name,
-             base::FeatureList::OVERRIDE_ENABLE_FEATURE);
 }

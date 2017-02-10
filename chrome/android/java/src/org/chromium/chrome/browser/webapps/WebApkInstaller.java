@@ -20,6 +20,8 @@ import org.chromium.base.annotations.CalledByNative;
 import org.chromium.chrome.browser.ChromeApplication;
 import org.chromium.chrome.browser.ShortcutHelper;
 import org.chromium.chrome.browser.banners.InstallerDelegate;
+import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
+import org.chromium.chrome.browser.externalauth.UserRecoverableErrorHandler;
 import org.chromium.chrome.browser.util.IntentUtils;
 
 import java.io.File;
@@ -63,7 +65,10 @@ public class WebApkInstaller {
 
     @CalledByNative
     private boolean canUseGooglePlayInstallService() {
-        return ChromeWebApkHost.canUseGooglePlayToInstallWebApk();
+        return mGooglePlayWebApkInstallDelegate != null
+                && ExternalAuthUtils.getInstance().canUseGooglePlayServices(
+                        ContextUtils.getApplicationContext(),
+                        new UserRecoverableErrorHandler.Silent());
     }
 
     @CalledByNative
@@ -113,25 +118,18 @@ public class WebApkInstaller {
     @CalledByNative
     private boolean installWebApkFromGooglePlayAsync(String packageName, int version, String title,
             String token, String url) {
-        if (mGooglePlayWebApkInstallDelegate == null) {
-            notify(false);
-            return false;
-        }
+        if (mGooglePlayWebApkInstallDelegate == null) return false;
 
         Callback<Boolean> callback = new Callback<Boolean>() {
             @Override
             public void onResult(Boolean success) {
-                WebApkInstaller.this.notify(success);
+                if (mNativePointer != 0) {
+                    nativeOnInstallFinished(mNativePointer, success);
+                }
             }
         };
         return mGooglePlayWebApkInstallDelegate.installAsync(packageName, version, title, token,
                 url, callback);
-    }
-
-    private void notify(boolean success) {
-        if (mNativePointer != 0) {
-            nativeOnInstallFinished(mNativePointer, success);
-        }
     }
 
     /**
