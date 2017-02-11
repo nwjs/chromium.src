@@ -22,29 +22,17 @@
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
-#include "ui/events/devices/input_device_manager.h"
 
 namespace chromeos {
-
-// static
-std::unique_ptr<PaletteDelegateChromeOS> PaletteDelegateChromeOS::Create() {
-  if (!ash::IsPaletteFeatureEnabled())
-    return nullptr;
-  return base::WrapUnique(new PaletteDelegateChromeOS());
-}
 
 PaletteDelegateChromeOS::PaletteDelegateChromeOS() : weak_factory_(this) {
   registrar_.Add(this, chrome::NOTIFICATION_SESSION_STARTED,
                  content::NotificationService::AllSources());
   registrar_.Add(this, chrome::NOTIFICATION_PROFILE_DESTROYED,
                  content::NotificationService::AllSources());
-
-  ui::InputDeviceManager::GetInstance()->AddObserver(this);
 }
 
-PaletteDelegateChromeOS::~PaletteDelegateChromeOS() {
-  ui::InputDeviceManager::GetInstance()->RemoveObserver(this);
-}
+PaletteDelegateChromeOS::~PaletteDelegateChromeOS() {}
 
 std::unique_ptr<PaletteDelegateChromeOS::EnableListenerSubscription>
 PaletteDelegateChromeOS::AddPaletteEnableListener(
@@ -138,11 +126,6 @@ void PaletteDelegateChromeOS::SetPartialMagnifierState(bool enabled) {
   controller->SetEnabled(enabled);
 }
 
-void PaletteDelegateChromeOS::SetStylusStateChangedCallback(
-    const OnStylusStateChangedCallback& on_stylus_state_changed) {
-  on_stylus_state_changed_ = on_stylus_state_changed;
-}
-
 bool PaletteDelegateChromeOS::ShouldAutoOpenPalette() {
   if (!profile_)
     return false;
@@ -183,7 +166,4 @@ void PaletteDelegateChromeOS::CancelPartialScreenshot() {
   ash::Shell::GetInstance()->screenshot_controller()->CancelScreenshotSession();
 }
 
-void PaletteDelegateChromeOS::OnStylusStateChanged(ui::StylusState state) {
-  on_stylus_state_changed_.Run(state);
-}
 }  // namespace chromeos

@@ -281,7 +281,7 @@ void PartialMagnificationController::OnLocatedEvent(
 
   // If the stylus is pressed on the palette icon or widget, do not activate.
   if (event->type() == ui::ET_TOUCH_PRESSED &&
-      !PaletteContainsPointInScreen(screen_point)) {
+      !palette_utils::PaletteContainsPointInScreen(screen_point)) {
     SetActive(true);
   }
 
@@ -309,7 +309,7 @@ void PartialMagnificationController::OnLocatedEvent(
   host_widget_->SetBounds(GetBounds(point));
 
   // If the stylus is over the palette icon or widget, do not consume the event.
-  if (!PaletteContainsPointInScreen(screen_point))
+  if (!palette_utils::PaletteContainsPointInScreen(screen_point))
     event->StopPropagation();
 }
 

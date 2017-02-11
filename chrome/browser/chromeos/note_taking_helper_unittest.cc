@@ -178,7 +178,7 @@ class NoteTakingHelperTest : public BrowserWithTestWindowTest {
 
     if (flags & ENABLE_PALETTE) {
       base::CommandLine::ForCurrentProcess()->AppendSwitch(
-          ash::switches::kAshEnablePalette);
+          ash::switches::kAshForceEnablePalette);
     }
 
     // TODO(derat): Sigh, something in ArcAppTest appears to be re-enabling ARC.

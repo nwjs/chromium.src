@@ -51,9 +51,6 @@ const char kAshEnableFullscreenAppList[] = "ash-enable-fullscreen-app-list";
 const char kAshEnableMagnifierKeyScroller[] =
     "ash-enable-magnifier-key-scroller";
 
-// Enables the palette next to the status area.
-const char kAshEnablePalette[] = "ash-enable-palette";
-
 // Enables the palette on every display, instead of only the internal one.
 const char kAshEnablePaletteOnAllDisplays[] =
     "ash-enable-palette-on-all-displays";
@@ -72,6 +69,9 @@ const char kAshEnableMirroredScreen[] = "ash-enable-mirrored-screen";
 // TODO(skuhne): Remove DEBUG_TOGGLE_TOUCH_VIEW accelerator once this flag is
 // removed.
 const char kAshEnableTouchViewTesting[] = "ash-enable-touch-view-testing";
+
+// Enables the palette next to the status area.
+const char kAshForceEnablePalette[] = "ash-force-enable-palette";
 
 // Hides notifications that are irrelevant to Chrome OS device factory testing,
 // such as battery level updates.
