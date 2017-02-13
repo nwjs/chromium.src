@@ -104,7 +104,10 @@
                                  NSWidth([windowView bounds]), paintHeight)]);
     [tabStripBackgroundView_
         setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
-    [self insertTabStripBackgroundViewIntoWindow:window titleBar:hasTitleBar];
+
+    //fix warning when opening devtools: #4312
+    if (hasTabStrip)
+      [self insertTabStripBackgroundViewIntoWindow:window titleBar:hasTitleBar];
 
     tabStripView_.reset([[TabStripView alloc]
         initWithFrame:NSMakeRect(

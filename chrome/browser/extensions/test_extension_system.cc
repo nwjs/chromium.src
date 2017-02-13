@@ -63,7 +63,7 @@ ExtensionService* TestExtensionSystem::CreateExtensionService(
                                                 command_line,
                                                 install_directory,
                                                 ExtensionPrefs::Get(profile_),
-                                                Blacklist::Get(profile_),
+                                                nullptr,
                                                 autoupdate_enabled,
                                                 true,
                                                 &ready_));

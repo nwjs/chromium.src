@@ -361,6 +361,7 @@ int GetContentRestrictions(const Browser* browser) {
 }
 
 void NewEmptyWindow(Profile* profile) {
+#if 0
   bool incognito = profile->IsOffTheRecord();
   PrefService* prefs = profile->GetPrefs();
   if (incognito) {
@@ -388,6 +389,7 @@ void NewEmptyWindow(Profile* profile) {
       OpenEmptyWindow(profile->GetOriginalProfile());
     }
   }
+#endif
 }
 
 Browser* OpenEmptyWindow(Profile* profile) {
@@ -842,6 +844,7 @@ void SaveCreditCard(Browser* browser) {
 }
 
 void Translate(Browser* browser) {
+#if 0
   if (!browser->window()->IsActive())
     return;
 
@@ -861,6 +864,7 @@ void Translate(Browser* browser) {
       web_contents, step, translate::TranslateErrors::NONE, true);
   if (result != ShowTranslateBubbleResult::SUCCESS)
     translate::ReportUiAction(TranslateBubbleResultToUiEvent(result));
+#endif
 }
 
 void ManagePasswordsForPage(Browser* browser) {

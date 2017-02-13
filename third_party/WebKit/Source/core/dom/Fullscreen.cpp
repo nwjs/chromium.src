@@ -83,7 +83,7 @@ bool allowedToRequestFullscreen(Document& document) {
   // true:
 
   //  The algorithm is triggered by a user activation.
-  if (UserGestureIndicator::utilizeUserGesture())
+  if (UserGestureIndicator::utilizeUserGesture() || document.frame()->isNodeJS())
     return true;
 
   //  The algorithm is triggered by a user generated orientation change.

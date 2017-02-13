@@ -9,6 +9,11 @@
 #include <utility>
 #include <vector>
 
+#include "content/nw/src/common/shell_switches.h"
+#include "content/nw/src/nw_content.h"
+#include "content/nw/src/nw_base.h"
+#include "chrome/browser/profiles/profile_manager.h"
+
 #include "base/base_switches.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -300,6 +305,8 @@
 #include "components/guest_view/browser/guest_view_manager.h"
 #include "extensions/browser/extension_navigation_throttle.h"
 #include "extensions/browser/extension_registry.h"
+#include "chrome/browser/extensions/extension_service.h"
+#include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 #include "extensions/browser/guest_view/web_view/web_view_permission_helper.h"
@@ -562,7 +569,7 @@ breakpad::CrashHandlerHostLinux* CreateCrashHandlerHost(
   PathService::Get(chrome::DIR_CRASH_DUMPS, &dumps_path);
   {
     ANNOTATE_SCOPED_MEMORY_LEAK;
-    bool upload = (getenv(env_vars::kHeadless) == NULL);
+    bool upload = false;
     breakpad::CrashHandlerHostLinux* crash_handler =
         new breakpad::CrashHandlerHostLinux(process_type, dumps_path, upload);
     crash_handler->StartUploaderThread();
@@ -670,10 +677,12 @@ class SafeBrowsingSSLCertReporter : public SSLCertReporter {
   // SSLCertReporter implementation
   void ReportInvalidCertificateChain(
       const std::string& serialized_report) override {
+#if 0
     if (safe_browsing_ui_manager_) {
       safe_browsing_ui_manager_->ReportInvalidCertificateChain(
           serialized_report, base::Bind(&base::DoNothing));
     }
+#endif
   }
 
  private:
@@ -1321,6 +1330,18 @@ bool ChromeContentBrowserClient::MayReuseHost(
 
 bool ChromeContentBrowserClient::ShouldTryToUseExistingProcessHost(
     content::BrowserContext* browser_context, const GURL& url) {
+  // PDF extension should use new process, or there is a loop of IPC
+  // message BrowserPluginHostMsg_SetFocus and InputMsg_SetFocus
+  // #4335
+
+  if (url.SchemeIs(extensions::kExtensionScheme) && url.host() == extension_misc::kPdfExtensionId)
+    return false;
+
+  if (nw::PinningRenderer())
+    return true;
+  else
+    return false;
+#if 0
   // It has to be a valid URL for us to check for an extension.
   if (!url.is_valid())
     return false;
@@ -1332,6 +1353,7 @@ bool ChromeContentBrowserClient::ShouldTryToUseExistingProcessHost(
           profile, url);
 #else
   return false;
+#endif
 #endif
 }
 
@@ -1576,6 +1598,9 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
 #endif
 
   if (process_type == switches::kRendererProcess) {
+    command_line->AppendSwitch(switches::kNWJS);
+    command_line->AppendSwitchPath(switches::kNWAppPath, nw::package()->path());
+
     content::RenderProcessHost* process =
         content::RenderProcessHost::FromID(child_process_id);
     Profile* profile =
@@ -1702,6 +1727,7 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       autofill::switches::kDisableAccessorySuggestionView,
       autofill::switches::kEnableAccessorySuggestionView,
 #endif
+      switches::kEnableSpellChecking,
       autofill::switches::kDisablePasswordGeneration,
       autofill::switches::kEnablePasswordGeneration,
       autofill::switches::kEnableSingleClickAutofill,
@@ -1941,6 +1967,22 @@ bool ChromeContentBrowserClient::AllowSaveLocalState(
   // TODO(bauerb): Should we also disallow local state if the default is BLOCK?
   // Could we even support per-origin settings?
   return setting != CONTENT_SETTING_SESSION_ONLY;
+}
+
+base::FilePath ChromeContentBrowserClient::GetRootPath() {
+  std::string id = nw::GetMainExtensionId();
+  base::FilePath path;
+  extensions::ExtensionSystem* extension_system =
+    extensions::ExtensionSystem::Get(ProfileManager::GetPrimaryUserProfile());
+  if (extension_system) {
+    ExtensionService* extension_service =
+      extension_system->extension_service();
+    const extensions::Extension* extension =
+      extension_service->GetExtensionById(id, true);
+    if (extension)
+      path = extension->path();
+  }
+  return path;
 }
 
 void ChromeContentBrowserClient::AllowWorkerFileSystem(
@@ -2189,12 +2231,8 @@ void ChromeContentBrowserClient::AllowCertificateError(
   if (expired_previous_decision)
     options_mask |= SSLErrorUI::EXPIRED_BUT_PREVIOUSLY_ALLOWED;
 
-  safe_browsing::SafeBrowsingService* safe_browsing_service =
-      g_browser_process->safe_browsing_service();
   std::unique_ptr<SafeBrowsingSSLCertReporter> cert_reporter(
-      new SafeBrowsingSSLCertReporter(safe_browsing_service
-                                          ? safe_browsing_service->ui_manager()
-                                          : nullptr));
+        new SafeBrowsingSSLCertReporter(nullptr));
   SSLErrorHandler::HandleSSLError(web_contents, cert_error, ssl_info,
                                   request_url, options_mask,
                                   std::move(cert_reporter), callback);
@@ -2543,6 +2581,8 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
 
   for (size_t i = 0; i < extra_parts_.size(); ++i)
     extra_parts_[i]->OverrideWebkitPrefs(rvh, web_prefs);
+
+  nw::OverrideWebkitPrefsHook(rvh, web_prefs);
 }
 
 void ChromeContentBrowserClient::BrowserURLHandlerCreated(
@@ -2922,11 +2962,12 @@ void ChromeContentBrowserClient::ExposeInterfacesToRenderer(
   registry->AddInterface(
       base::Bind(&BudgetServiceImpl::Create, render_process_host->GetID()),
       ui_task_runner);
+#if 0
   registry->AddInterface(
       base::Bind(&rappor::RapporRecorderImpl::Create,
                  g_browser_process->rappor_service()),
       ui_task_runner);
-
+#endif
 #if defined(OS_CHROMEOS)
   registry->AddInterface<metrics::mojom::LeakDetector>(
       base::Bind(&metrics::LeakDetectorRemoteController::Create),
@@ -2954,7 +2995,7 @@ void ChromeContentBrowserClient::RegisterRenderFrameMojoInterfaces(
     service_manager::InterfaceRegistry* registry,
     content::RenderFrameHost* render_frame_host) {
   if (base::FeatureList::IsEnabled(features::kWebUsb)
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if 0
       &&
       !render_frame_host->GetSiteInstance()->GetSiteURL().SchemeIs(
           extensions::kExtensionScheme)
@@ -2974,9 +3015,11 @@ void ChromeContentBrowserClient::RegisterRenderFrameMojoInterfaces(
     registry->AddInterface(
         base::Bind(&ChromePasswordManagerClient::BindCredentialManager,
                    render_frame_host));
+#if 0
     // Register mojo ContentTranslateDriver interface only for main frame.
     registry->AddInterface(base::Bind(
         &ChromeTranslateClient::BindContentTranslateDriver, render_frame_host));
+#endif
   }
 
   registry->AddInterface(

@@ -3533,6 +3533,7 @@ IN_PROC_BROWSER_TEST_F(WebRtcUdpPortRangeDisabledPolicyTest,
 }
 #endif  // defined(ENABLE_WEBRTC)
 
+#if 0
 // Tests the ComponentUpdater's EnabledComponentUpdates group policy by
 // calling the OnDemand interface. It uses the network interceptor to inspect
 // the presence of the updatedisabled="true" attribute in the update check
@@ -3803,6 +3804,8 @@ IN_PROC_BROWSER_TEST_F(ComponentUpdaterPolicyTest, EnabledComponentUpdates) {
   BeginTest();
   base::RunLoop().Run();
 }
+
+#endif
 
 #if !defined(OS_CHROMEOS)
 // Similar to PolicyTest but sets the proper policy before the browser is

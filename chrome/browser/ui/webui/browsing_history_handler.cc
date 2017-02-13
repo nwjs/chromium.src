@@ -796,7 +796,7 @@ void BrowsingHistoryHandler::ReturnResultsToFrontEnd() {
   }
 
   bool is_md = false;
-#if !defined(OS_ANDROID)
+#if 0
   is_md = MdHistoryUI::IsEnabled(profile);
 #endif
 

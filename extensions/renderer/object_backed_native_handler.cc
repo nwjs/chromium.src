@@ -73,7 +73,11 @@ void ObjectBackedNativeHandler::Router(
     std::string feature_name = *v8::String::Utf8Value(feature_name_string);
     // TODO(devlin): Eventually, we should fail if either script_context is null
     // or feature_name is empty.
-    if (script_context && !feature_name.empty()) {
+
+    // remote pages need to call
+    // renderFrameObserverNatives.OnDocumentElementCreated() in
+    // the end of api_nw_window.js NWJS#5312
+    if (script_context && !feature_name.empty() && feature_name != "app.window") {
       Feature::Availability availability =
           script_context->GetAvailability(feature_name);
       if (!availability.is_available()) {
