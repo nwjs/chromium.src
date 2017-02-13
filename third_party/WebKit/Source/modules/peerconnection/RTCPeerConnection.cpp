@@ -520,6 +520,9 @@ RTCPeerConnection::RTCPeerConnection(ExecutionContext* context,
         NotSupportedError, "Failed to initialize native PeerConnection.");
     return;
   }
+
+  m_connectionHandleForScheduler =
+      document->frame()->frameScheduler()->onActiveConnectionCreated();
 }
 
 RTCPeerConnection::~RTCPeerConnection() {
@@ -1341,6 +1344,8 @@ void RTCPeerConnection::releasePeerConnectionHandler() {
   m_dispatchScheduledEventRunner->stop();
 
   m_peerHandler.reset();
+
+  m_connectionHandleForScheduler.reset();
 }
 
 void RTCPeerConnection::closePeerConnection() {
@@ -1415,6 +1420,8 @@ void RTCPeerConnection::closeInternal() {
   Document* document = toDocument(getExecutionContext());
   HostsUsingFeatures::countAnyWorld(
       *document, HostsUsingFeatures::Feature::RTCPeerConnectionUsed);
+
+  m_connectionHandleForScheduler.reset();
 }
 
 void RTCPeerConnection::scheduleDispatchEvent(Event* event) {
