@@ -21,6 +21,7 @@
 #include "components/prefs/pref_service.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test_utils.h"
+#include "media/base/key_system_names.h"
 #include "media/base/media_switches.h"
 #include "ppapi/features/features.h"
 #include "testing/gtest/include/gtest/gtest-spi.h"
@@ -541,10 +542,15 @@ IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, FrameSizeChangeVideo) {
 
 IN_PROC_BROWSER_TEST_P(EncryptedMediaTest, EncryptedMediaDisabled) {
   DisableEncryptedMedia();
+
+  // Clear Key key system is always supported.
+  std::string expected_title =
+      media::IsClearKey(CurrentKeySystem()) ? kEnded : kEmeNotSupportedError;
+
   RunEncryptedMediaTest(kDefaultEmePlayer, "bear-a_enc-a.webm",
                         kWebMVorbisAudioOnly, CurrentKeySystem(),
                         CurrentSourceType(), kNoSessionToLoad, false,
-                        PlayTwice::NO, kEmeNotSupportedError);
+                        PlayTwice::NO, expected_title);
 }
 
 #if defined(USE_PROPRIETARY_CODECS)
