@@ -5,6 +5,7 @@
 #ifndef MEDIA_REMOTING_REMOTING_INTERSTITIAL_UI_H_
 #define MEDIA_REMOTING_REMOTING_INTERSTITIAL_UI_H_
 
+#include "base/memory/ref_counted.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
 namespace gfx {
@@ -13,7 +14,7 @@ class Size;
 
 namespace media {
 
-class VideoRendererSink;
+class VideoFrame;
 
 enum RemotingInterstitialType {
   BETWEEN_SESSIONS,             // Show background image only.
@@ -21,16 +22,20 @@ enum RemotingInterstitialType {
   ENCRYPTED_MEDIA_FATAL_ERROR,  // Show MEDIA_REMOTING_CAST_ERROR_TEXT.
 };
 
-// Paint an interstitial frame and send it to the given VideoRendererSink.
-// |background_image| will be scaled to fit in |canvas_size|, but keep its
-// aspect ratio. When has different aspect ratio with |canvas_size|, scaled
-// |background_image| will be centered in the canvas. When |background_image|
-// is empty, interstitial will be drawn on a blank and black background. When
-// |interstial_type| is BETWEEN_SESSIONS, show background image only.
-void PaintRemotingInterstitial(const SkBitmap& background_image,
-                               const gfx::Size& canvas_size,
-                               RemotingInterstitialType interstitial_type,
-                               VideoRendererSink* video_renderer_sink);
+// Render an interstitial frame--a combination of |image| in the background
+// along with a text message describing what is going on--and return it in a
+// VideoFrame. |image| may be scaled accordingly without changing its aspect
+// ratio. When it has a different aspect ratio than |natural_size|, a scaled
+// |background_image| will be centered in the frame. When |image| is empty, a
+// blank black background will be used.
+//
+// Threading note: This *must* be called on the main thread, because it uses
+// Skia's font rendering facility, which loads/caches fonts on the main thread.
+// http://crbug.com/687473.
+scoped_refptr<VideoFrame> RenderInterstitialFrame(
+    const SkBitmap& image,
+    const gfx::Size& natural_size,
+    RemotingInterstitialType type);
 
 }  // namespace media
 

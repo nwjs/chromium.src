@@ -51,10 +51,8 @@ class RemotingRendererController final : public RemotingSourceImpl::Client,
   void SetRemoteSinkAvailableChangedCallback(
       const base::Callback<void(bool)>& cb);
 
-  using ShowInterstitialCallback =
-      base::Callback<void(const base::Optional<SkBitmap>&,
-                          const gfx::Size&,
-                          RemotingInterstitialType type)>;
+  using ShowInterstitialCallback = base::Callback<
+      void(const SkBitmap&, const gfx::Size&, RemotingInterstitialType type)>;
   // Called by RemoteRendererImpl constructor to set the callback to draw and
   // show remoting interstial.
   void SetShowInterstitialCallback(const ShowInterstitialCallback& cb);
@@ -201,6 +199,14 @@ class RemotingRendererController final : public RemotingSourceImpl::Client,
   // remoting mode (RemotingRendererImpl is constructed) by calling
   // SetShowInterstitialCallback(), and is reset when leaving the remoting mode.
   ShowInterstitialCallback show_interstitial_cb_;
+
+  // The arguments passed in the last call to the interstitial callback. On each
+  // call to UpdateInterstitial(), one or more of these may be changed. If any
+  // change, the callback will be run.
+  SkBitmap interstitial_background_;
+  gfx::Size interstitial_natural_size_;
+  RemotingInterstitialType interstitial_type_ =
+      RemotingInterstitialType::BETWEEN_SESSIONS;
 
   // Current poster URL, whose image will feed into the local UI.
   GURL poster_url_;

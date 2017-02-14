@@ -18,6 +18,7 @@
 #include "base/time/time.h"
 #include "media/base/bind_to_current_loop.h"
 #include "media/base/demuxer_stream_provider.h"
+#include "media/base/video_renderer_sink.h"
 #include "media/remoting/remote_demuxer_stream_adapter.h"
 #include "media/remoting/remoting_renderer_controller.h"
 #include "media/remoting/rpc/proto_enum_utils.h"
@@ -74,7 +75,7 @@ RemoteRendererImpl::RemoteRendererImpl(
   // The constructor is running on the main thread.
   DCHECK(remoting_renderer_controller_);
   remoting_renderer_controller_->SetShowInterstitialCallback(
-      base::Bind(&RemoteRendererImpl::RequestUpdateInterstitialOnMainThread,
+      base::Bind(&RemoteRendererImpl::RenderInterstitialAndShow,
                  media_task_runner_, weak_factory_.GetWeakPtr()));
 
   const remoting::RpcBroker::ReceiveMessageCallback receive_callback =
@@ -86,9 +87,6 @@ RemoteRendererImpl::RemoteRendererImpl(
 RemoteRendererImpl::~RemoteRendererImpl() {
   VLOG(2) << __func__;
   DCHECK(media_task_runner_->BelongsToCurrentThread());
-
-  UpdateInterstitial(interstitial_background_, canvas_size_,
-                     RemotingInterstitialType::BETWEEN_SESSIONS);
 
   // Post task on main thread to unset the interstial callback.
   main_task_runner_->PostTask(
@@ -102,6 +100,14 @@ RemoteRendererImpl::~RemoteRendererImpl() {
       FROM_HERE,
       base::Bind(&remoting::RpcBroker::UnregisterMessageReceiverCallback,
                  rpc_broker_, rpc_handle_));
+
+  // If the "between sessions" interstitial is not the one currently showing,
+  // paint a blank black frame to clear remoting messaging.
+  if (interstitial_type_ != RemotingInterstitialType::BETWEEN_SESSIONS) {
+    scoped_refptr<VideoFrame> frame =
+        VideoFrame::CreateBlackFrame(gfx::Size(1280, 720));
+    PaintInterstitial(frame, RemotingInterstitialType::BETWEEN_SESSIONS);
+  }
 }
 
 void RemoteRendererImpl::Initialize(
@@ -699,28 +705,32 @@ void RemoteRendererImpl::OnFatalError(remoting::StopTrigger stop_trigger) {
 }
 
 // static
-void RemoteRendererImpl::RequestUpdateInterstitialOnMainThread(
+void RemoteRendererImpl::RenderInterstitialAndShow(
     scoped_refptr<base::SingleThreadTaskRunner> media_task_runner,
-    base::WeakPtr<RemoteRendererImpl> remote_renderer_impl,
-    const base::Optional<SkBitmap>& background_image,
-    const gfx::Size& canvas_size,
-    RemotingInterstitialType interstitial_type) {
+    base::WeakPtr<RemoteRendererImpl> self,
+    const SkBitmap& background,
+    const gfx::Size& natural_size,
+    RemotingInterstitialType type) {
+  // Note: This is running on the main thread. |self| must only be dereferenced
+  // on the media thread.
+  scoped_refptr<VideoFrame> frame =
+      RenderInterstitialFrame(background, natural_size, type);
+  if (!frame) {
+    NOTREACHED();
+    return;
+  }
   media_task_runner->PostTask(
-      FROM_HERE,
-      base::Bind(&RemoteRendererImpl::UpdateInterstitial, remote_renderer_impl,
-                 background_image, canvas_size, interstitial_type));
+      FROM_HERE, base::Bind(&RemoteRendererImpl::PaintInterstitial, self,
+                            std::move(frame), type));
 }
 
-void RemoteRendererImpl::UpdateInterstitial(
-    const base::Optional<SkBitmap>& background_image,
-    const gfx::Size& canvas_size,
-    RemotingInterstitialType interstitial_type) {
+void RemoteRendererImpl::PaintInterstitial(scoped_refptr<VideoFrame> frame,
+                                           RemotingInterstitialType type) {
   DCHECK(media_task_runner_->BelongsToCurrentThread());
-  if (background_image.has_value())
-    interstitial_background_ = background_image.value();
-  canvas_size_ = canvas_size;
-  PaintRemotingInterstitial(interstitial_background_, canvas_size_,
-                            interstitial_type, video_renderer_sink_);
+  interstitial_type_ = type;
+  if (!video_renderer_sink_)
+    return;
+  video_renderer_sink_->PaintSingleFrame(frame);
 }
 
 void RemoteRendererImpl::OnMediaTimeUpdated() {

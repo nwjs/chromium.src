@@ -392,6 +392,9 @@ void RemotingRendererController::UpdateAndMaybeSwitch(
     DCHECK(!is_encrypted_);
     DCHECK_NE(stop_trigger, remoting::UNKNOWN_STOP_TRIGGER);
     metrics_recorder_.WillStopSession(stop_trigger);
+    // Update the interstitial one last time before switching back to the local
+    // Renderer.
+    UpdateInterstitial(base::nullopt);
     switch_renderer_cb_.Run();
     remoting_source_->StopRemoting(this);
   }
@@ -418,12 +421,12 @@ void RemotingRendererController::SetDownloadPosterCallback(
 void RemotingRendererController::UpdateInterstitial(
     const base::Optional<SkBitmap>& image) {
   DCHECK(thread_checker_.CalledOnValidThread());
-  if (show_interstitial_cb_.is_null() ||
-      pipeline_metadata_.natural_size.IsEmpty())
+  if (show_interstitial_cb_.is_null())
     return;
 
   RemotingInterstitialType type = RemotingInterstitialType::BETWEEN_SESSIONS;
-  switch (remoting_source_->state()) {
+  switch (remote_rendering_started_ ? remoting_source_->state()
+                                    : SESSION_STOPPING) {
     case SESSION_STARTED:
       type = RemotingInterstitialType::IN_SESSION;
       break;
@@ -437,7 +440,24 @@ void RemotingRendererController::UpdateInterstitial(
       break;
   }
 
-  show_interstitial_cb_.Run(image, pipeline_metadata_.natural_size, type);
+  bool needs_update = false;
+  if (image.has_value()) {
+    interstitial_background_ = image.value();
+    needs_update = true;
+  }
+  if (interstitial_natural_size_ != pipeline_metadata_.natural_size) {
+    interstitial_natural_size_ = pipeline_metadata_.natural_size;
+    needs_update = true;
+  }
+  if (interstitial_type_ != type) {
+    interstitial_type_ = type;
+    needs_update = true;
+  }
+  if (!needs_update)
+    return;
+
+  show_interstitial_cb_.Run(interstitial_background_,
+                            interstitial_natural_size_, interstitial_type_);
 }
 
 void RemotingRendererController::DownloadPosterImage() {
