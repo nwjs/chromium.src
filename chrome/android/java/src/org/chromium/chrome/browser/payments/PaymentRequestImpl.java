@@ -268,6 +268,9 @@ public class PaymentRequestImpl
     private boolean mQueriedCanMakePayment;
     private CurrencyFormatter mCurrencyFormatter;
 
+    /** Aborts should only be recorded if the Payment Request was shown to the user. */
+    private boolean mShouldRecordAbortReason;
+
     /** True if any of the requested payment methods are supported. */
     private boolean mArePaymentMethodsSupported;
 
@@ -478,8 +481,6 @@ public class PaymentRequestImpl
         mContext.getCurrentTabModel().addObserver(mTabModelObserver);
 
         mUI.show();
-        recordSuccessFunnelHistograms("Shown");
-        mJourneyLogger.setShowCalled();
     }
 
     private static Map<String, PaymentMethodData> getValidatedMethodData(
@@ -750,6 +751,10 @@ public class PaymentRequestImpl
                 new PaymentInformation(mUiShoppingCart, mShippingAddressesSection,
                         mUiShippingOptions, mContactSection, mPaymentMethodsSection));
         mPaymentInformationCallback = null;
+
+        recordSuccessFunnelHistograms("Shown");
+        mShouldRecordAbortReason = true;
+        mJourneyLogger.setShowCalled();
     }
 
     @Override
@@ -1296,9 +1301,9 @@ public class PaymentRequestImpl
             // must be rejected.
             disconnectFromClientWithDebugMessage("Requested payment methods have no instruments",
                     PaymentErrorReason.NOT_SUPPORTED);
-            recordAbortReasonHistogram(mArePaymentMethodsSupported
-                    ? PaymentRequestMetrics.ABORT_REASON_NO_MATCHING_PAYMENT_METHOD
-                    : PaymentRequestMetrics.ABORT_REASON_NO_SUPPORTED_PAYMENT_METHOD);
+            recordNoShowReasonHistogram(mArePaymentMethodsSupported
+                            ? PaymentRequestMetrics.NO_SHOW_NO_MATCHING_PAYMENT_METHOD
+                            : PaymentRequestMetrics.NO_SHOW_NO_SUPPORTED_PAYMENT_METHOD);
             if (sObserverForTest != null) sObserverForTest.onPaymentRequestServiceShowFailed();
             return true;
         }
@@ -1465,7 +1470,7 @@ public class PaymentRequestImpl
      */
     private void recordAbortReasonHistogram(int abortReason) {
         assert abortReason < PaymentRequestMetrics.ABORT_REASON_MAX;
-        if (mHasRecordedAbortReason) return;
+        if (mHasRecordedAbortReason || !mShouldRecordAbortReason) return;
 
         mHasRecordedAbortReason = true;
         RecordHistogram.recordEnumeratedHistogram(
@@ -1477,5 +1482,16 @@ public class PaymentRequestImpl
         } else {
             mJourneyLogger.recordJourneyStatsHistograms("OtherAborted");
         }
+    }
+    
+    /**
+     * Adds an entry to the NoShow Payment Request histogram in the bucket corresponding to the
+     * reason for not showing the Payment Request.
+     */
+    private void recordNoShowReasonHistogram(int reason) {
+        assert reason < PaymentRequestMetrics.NO_SHOW_REASON_MAX;
+
+        RecordHistogram.recordEnumeratedHistogram("PaymentRequest.CheckoutFunnel.NoShow", reason,
+                PaymentRequestMetrics.NO_SHOW_REASON_MAX);
     }
 }
