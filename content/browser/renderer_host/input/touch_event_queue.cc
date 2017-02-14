@@ -288,8 +288,32 @@ class TouchEventQueue::TouchMoveSlopSuppressor {
   TouchMoveSlopSuppressor() : suppressing_touchmoves_(false) {}
 
   bool FilterEvent(const WebTouchEvent& event) {
-    suppressing_touchmoves_ = false;
-    return false;
+    if (WebTouchEventTraits::IsTouchSequenceStart(event)) {
+      suppressing_touchmoves_ = true;
+      touch_start_location_ = gfx::PointF(event.touches[0].position);
+    }
+
+    if (event.type() == WebInputEvent::TouchEnd ||
+        event.type() == WebInputEvent::TouchCancel)
+      suppressing_touchmoves_ = false;
+
+    if (event.type() != WebInputEvent::TouchMove)
+      return false;
+
+    if (suppressing_touchmoves_) {
+      if (event.touchesLength > 1) {
+        suppressing_touchmoves_ = false;
+      } else if (event.movedBeyondSlopRegion) {
+        suppressing_touchmoves_ = false;
+      } else {
+        // No sane slop region should be larger than 60 DIPs.
+        DCHECK_LT((gfx::PointF(event.touches[0].position) -
+                   touch_start_location_).LengthSquared(),
+                  kMaxConceivablePlatformSlopRegionLengthDipsSquared);
+      }
+    }
+
+    return suppressing_touchmoves_;
   }
 
   void ConfirmTouchEvent(InputEventAckState ack_result) {
