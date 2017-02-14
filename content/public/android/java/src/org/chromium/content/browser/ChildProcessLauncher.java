@@ -133,11 +133,6 @@ public class ChildProcessLauncher {
         int allocatedConnectionsCountForTesting() {
             return mChildProcessConnections.length - mFreeConnectionIndices.size();
         }
-
-        @VisibleForTesting
-        ChildProcessConnection[] connectionArrayForTesting() {
-            return mChildProcessConnections;
-        }
     }
 
     private static class PendingSpawnData {
@@ -951,12 +946,11 @@ public class ChildProcessLauncher {
     }
 
     /**
-     * @return gets the service connection array for a specific package name.
+     * @return the service map of connected services
      */
     @VisibleForTesting
-    static ChildProcessConnection[] getSandboxedConnectionArrayForTesting(
-            String packageName) {
-        return sSandboxedChildConnectionAllocatorMap.get(packageName).connectionArrayForTesting();
+    static Map<Integer, ChildProcessConnection> getServiceMapForTesting() {
+        return sServiceMap;
     }
 
     /** @return the count of services set up and working */

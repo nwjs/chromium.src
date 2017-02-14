@@ -42,9 +42,6 @@ public class ChildProcessConnectionImpl implements ChildProcessConnection {
     // into the class are synchronized on the lock to protect access to these members.
     private final Object mLock = new Object();
     private IChildProcessService mService;
-    // Set to true when the service connection callback runs. This differs from
-    // mServiceConnectComplete, which tracks that the connection completed successfully.
-    private boolean mDidOnServiceConnected;
     // Set to true when the service connected successfully.
     private boolean mServiceConnectComplete;
     // Set to true when the service disconnects, as opposed to being properly closed. This happens
@@ -166,41 +163,28 @@ public class ChildProcessConnectionImpl implements ChildProcessConnection {
             synchronized (mLock) {
                 // A flag from the parent class ensures we run the post-connection logic only once
                 // (instead of once per each ChildServiceConnection).
-                if (mDidOnServiceConnected) {
+                if (mServiceConnectComplete) {
                     return;
                 }
                 try {
                     TraceEvent.begin(
                             "ChildProcessConnectionImpl.ChildServiceConnection.onServiceConnected");
-                    mDidOnServiceConnected = true;
+                    mServiceConnectComplete = true;
                     mService = IChildProcessService.Stub.asInterface(service);
-
-                    StartCallback startCallback = mStartCallback;
-                    mStartCallback = null;
 
                     boolean boundToUs = false;
                     try {
                         boundToUs = mService.bindToCaller();
                     } catch (RemoteException ex) {
-                        // Do not trigger the StartCallback here, since the service is already
-                        // dead and the DeathCallback will run from onServiceDisconnected().
-                        Log.e(TAG, "Failed to bind service to connection.", ex);
-                        return;
                     }
-
-                    if (startCallback != null) {
-                        if (boundToUs) {
-                            startCallback.onChildStarted();
-                        } else {
-                            startCallback.onChildStartFailed();
-                        }
-                    }
-
                     if (!boundToUs) {
+                        if (mStartCallback != null) {
+                            mStartCallback.onChildStartFailed();
+                        }
                         return;
+                    } else if (mStartCallback != null) {
+                        mStartCallback.onChildStarted();
                     }
-
-                    mServiceConnectComplete = true;
 
                     // Run the setup if the connection parameters have already been provided. If
                     // not, doConnectionSetupLocked() will be called from setupConnection().

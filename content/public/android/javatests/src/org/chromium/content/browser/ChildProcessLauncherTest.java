@@ -27,6 +27,7 @@ import org.chromium.content.browser.test.util.CriteriaHelper;
 import org.chromium.content.common.FileDescriptorInfo;
 import org.chromium.content_shell_apk.ChildProcessLauncherTestHelperService;
 
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 /**
@@ -399,49 +400,47 @@ public class ChildProcessLauncherTest extends InstrumentationTestCase {
                 });
 
         assertEquals(0, conn.getServiceNumber());
+        assertEquals(-1, conn.getPid());  // PID gets set to -1 if service is already bound.
 
-        final ChildProcessConnection[] sandboxedConnections =
-                ChildProcessLauncher.getSandboxedConnectionArrayForTesting(
-                        context.getPackageName());
+        final Map<Integer, ChildProcessConnection> serviceMap =
+                ChildProcessLauncher.getServiceMapForTesting();
 
         // Wait for the retry to succeed.
         CriteriaHelper.pollInstrumentationThread(
                 new Criteria("Failed waiting for both child process services") {
                     @Override
                     public boolean isSatisfied() {
-                        boolean allChildrenConnected = true;
-                        for (int i = 0; i <= 1; ++i) {
-                            ChildProcessConnection conn = sandboxedConnections[i];
-                            allChildrenConnected &= conn != null && conn.getService() != null;
+                        boolean allChildrenConnected = serviceMap.size() == 2;
+                        for (ChildProcessConnection conn : serviceMap.values()) {
+                            allChildrenConnected &= conn.getService() != null;
                         }
                         return allChildrenConnected;
                     }
                 });
 
-        // Check that only two connections are created.
-        for (int i = 0; i < sandboxedConnections.length; ++i) {
-            ChildProcessConnection sandboxedConn = sandboxedConnections[i];
-            if (i <= 1) {
-                assertNotNull(sandboxedConn);
-                assertNotNull(sandboxedConn.getService());
+        assertEquals(2, serviceMap.size());
+
+        boolean testedSlot0 = false, testedSlot1 = false;
+
+        for (ChildProcessConnection childProcess : serviceMap.values()) {
+            if (childProcess == conn) {
+                assertFalse(testedSlot0);
+                assertEquals(0, childProcess.getServiceNumber());
+                assertEquals(-1, childProcess.getPid());
+                assertFalse(childProcess.getService().bindToCaller());
+                testedSlot0 = true;
             } else {
-                assertNull(sandboxedConn);
+                assertFalse(testedSlot1);
+                assertEquals(1, childProcess.getServiceNumber());
+                assertTrue(childProcess.getPid() > 0);
+                assertTrue(childProcess.getPid() != helperConnPid);
+                assertTrue(childProcess.getService().bindToCaller());
+                testedSlot1 = true;
             }
         }
 
-        assertTrue(conn == sandboxedConnections[0]);
-        final ChildProcessConnection retryConn = sandboxedConnections[1];
-
-        assertFalse(conn == retryConn);
-
-        assertEquals(0, conn.getServiceNumber());
-        assertEquals(0, conn.getPid());
-        assertFalse(conn.getService().bindToCaller());
-
-        assertEquals(1, retryConn.getServiceNumber());
-        assertTrue(retryConn.getPid() > 0);
-        assertTrue(retryConn.getPid() != helperConnPid);
-        assertTrue(retryConn.getService().bindToCaller());
+        assertTrue(testedSlot0);
+        assertTrue(testedSlot1);
     }
 
     private ChildProcessConnectionImpl startConnection() {
