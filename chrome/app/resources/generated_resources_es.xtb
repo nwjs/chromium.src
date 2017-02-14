@@ -330,7 +330,7 @@
 <translation id="1425734930786274278">Se han bloqueado las siguientes cookies (las cookies de terceros se bloquean sin excepción):</translation>
 <translation id="1426410128494586442">Sí</translation>
 <translation id="1427049173708736891">Mantén tu <ph name="DEVICE_TYPE" /> desbloqueado mientras tu teléfono Android esté desbloqueado y se encuentre cerca, sin necesidad de tener que introducir la contraseña.</translation>
-<translation id="142758023928848008">Habilitar StickyKeys (para utilizar combinaciones de teclas sin tocarlas simultáneamente)</translation>
+<translation id="142758023928848008">Habilitar teclas persistentes (para utilizar combinaciones de teclas sin tocarlas simultáneamente)</translation>
 <translation id="1429740407920618615">Intensidad de la señal:</translation>
 <translation id="143027896309062157">Leer y modificar todos tus datos en tu ordenador y en los sitios web que visites</translation>
 <translation id="1430915738399379752">Imprimir</translation>
@@ -2378,6 +2378,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="3952219531609536133">Algunas páginas web usan extensiones JavaScript no estándar o heredadas que pueden entrar en conflicto con las funciones JavaScript más recientes. Esta marca permite inhabilitar estas funciones para poder visualizar correctamente estas páginas.</translation>
 <translation id="3954354850384043518">En curso</translation>
 <translation id="3954582159466790312">Activar &amp;sonido</translation>
+<translation id="3955193568934677022">Permitir que los sitios web reproduzcan contenido protegido (recomendado)</translation>
 <translation id="3958088479270651626">Importar marcadores y configuración</translation>
 <translation id="3959660191855946280">Añade o quita impresoras</translation>
 <translation id="3960566196862329469">ONC</translation>

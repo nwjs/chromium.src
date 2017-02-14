@@ -67,7 +67,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" />PB</translation>
 <translation id="528468243742722775">End</translation>
 <translation id="5329858601952122676">삭제(&amp;D)</translation>
-<translation id="5476505524087279545">선택취소</translation>
+<translation id="5476505524087279545">선택 해제</translation>
 <translation id="5583640892426849032">Backspace</translation>
 <translation id="5613020302032141669">왼쪽 화살표</translation>
 <translation id="5754277640426581776">{MINUTES,plural, =1{1분}other{#분}}</translation>

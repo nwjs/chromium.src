@@ -2376,6 +2376,7 @@ verkkotunnuksesta <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3952219531609536133">Jotkin verkkosivut käyttävät vanhoja tai epästandardinmukaisia JavaScript-laajennuksia, jotka voivat olla ristiriidassa uusimpien JavaScript-ominaisuuksien kanssa. Tämä merkintä poistaa käytöstä tällaisten ominaisuuksien tuen, jotta yhteensopivuus tällaisten sivujen kanssa säilyy.</translation>
 <translation id="3954354850384043518">Käynnissä</translation>
 <translation id="3954582159466790312">Palauta &amp;äänet</translation>
+<translation id="3955193568934677022">Salli sivustojen toistaa suojattua sisältöä (suositus)</translation>
 <translation id="3958088479270651626">Kirjanmerkkien ja asetusten tuominen</translation>
 <translation id="3959660191855946280">Lisää tai poista tulostimia</translation>
 <translation id="3960566196862329469">ONC</translation>

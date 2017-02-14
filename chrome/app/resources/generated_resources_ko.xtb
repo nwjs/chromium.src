@@ -4548,7 +4548,7 @@
 <translation id="6920569915859786172">항상 WebFonts 로딩을 위해 사용자 에이전트 개입 실행</translation>
 <translation id="6920989436227028121">일반 탭으로 열기</translation>
 <translation id="6922128026973287222">Google 데이터 절약 모드를 사용하여 더 빠르게 데이터를 저장하고 탐색하세요. 자세히 알아보려면 클릭하세요.</translation>
-<translation id="6928156602870961453">메인 스크린에 개선된 기능 추가 사용</translation>
+<translation id="6928156602870961453">홈 화면에 개선된 기능 추가 사용</translation>
 <translation id="6929555043669117778">팝업 계속 차단</translation>
 <translation id="6930242544192836755">기간</translation>
 <translation id="6934265752871836553">최첨단 코드를 사용하여 Chrome에서 더욱 빨리 콘텐츠를 가져오도록 합니다. 이 경로
@@ -5939,7 +5939,7 @@
 <translation id="8770406935328356739">확장 프로그램 루트 디렉토리</translation>
 <translation id="8770507190024617908">사용자 관리</translation>
 <translation id="8774934320277480003">상단 여백</translation>
-<translation id="8775404590947523323">수정 사항이 자동으로 저장됩니다.<ph name="BREAKS" />원본 이미지의 사본을 보관하려면 '원본 덮어쓰기'를 선택 취소합니다.</translation>
+<translation id="8775404590947523323">수정 사항이 자동으로 저장됩니다.<ph name="BREAKS" />원본 이미지의 사본을 보관하려면 '원본 덮어쓰기'를 선택 해제합니다.</translation>
 <translation id="8777218413579204310">콘텐츠 감지</translation>
 <translation id="8777628254805677039">루트 비밀번호</translation>
 <translation id="8777980041711299948">부분 전환 동작을 설정합니다.</translation>

@@ -2379,6 +2379,7 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3952219531609536133">Some web pages use legacy or non-standard JavaScript extensions that may conflict with the latest JavaScript features. This flag allows disabling support of those features for compatibility with such pages.</translation>
 <translation id="3954354850384043518">In progress</translation>
 <translation id="3954582159466790312">Un&amp;mute</translation>
+<translation id="3955193568934677022">Allow sites to play protected content (recommended)</translation>
 <translation id="3958088479270651626">Import bookmarks and settings</translation>
 <translation id="3959660191855946280">Add or remove printers</translation>
 <translation id="3960566196862329469">ONC</translation>

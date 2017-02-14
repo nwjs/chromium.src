@@ -1229,7 +1229,7 @@ Sidhani ikiwa tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="2572032849266859634">Idhini ya kufikia kusoma tu kwenye <ph name="VOLUME_NAME" /> imeruhusiwa.</translation>
 <translation id="2573269395582837871">Chagua picha na jina</translation>
 <translation id="2574102660421949343">Vidakuzi kutoka <ph name="DOMAIN" /> vinaruhusiwa.</translation>
-<translation id="2575247648642144396">Ikoni hii itaonekana wakati kiendelezi kitakapoweza kufanya kazi kwenye ukurasa wa sasa. Tumia kiendelezi hiki kwa kubofya kwenye ikoni au kwa kubonyeza <ph name="EXTENSION_SHORTCUT" />.</translation>
+<translation id="2575247648642144396">Ikoni hii itaonekana wakati kiendelezi kitakapoweza kufanya kazi kwenye ukurasa wa sasa. Tumia kiendelezi hiki kwa kubofya ikoni au kwa kubonyeza <ph name="EXTENSION_SHORTCUT" />.</translation>
 <translation id="2576518848199776640">Usanifu Bora katika Kiolesura chote asili cha kivinjari</translation>
 <translation id="2576842806987913196">Tayari kuna faili ya CRX iliyo na jina hili.</translation>
 <translation id="2579575372772932244">Inaunda wasifu upya, tafadhali subiri...</translation>
@@ -2373,6 +2373,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="3952219531609536133">Baadhi ya kurasa za wavuti hutumia viendelezi vya JavaScript vilivyopitwa na wakati au visivyo vya viwango vinavyohitajika vinavyoweza kuhitilafiana na vipengele vipya vya JavaScript. Ripoti hii huruhusu kuzima matumizi ya vipengele hivyo kwa ajili ya upatanifu wa kurasa kama hizo.</translation>
 <translation id="3954354850384043518">Unaendelea</translation>
 <translation id="3954582159466790312">Rejesha &amp;sauti</translation>
+<translation id="3955193568934677022">Ruhusu tovuti zicheze maudhui yaliyolindwa (inapendekezwa)</translation>
 <translation id="3958088479270651626">Ingiza alamisho na mipangilio</translation>
 <translation id="3959660191855946280">Ongeza au ondoa printa</translation>
 <translation id="3960566196862329469">ONC</translation>
@@ -2723,8 +2724,8 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="4500640003956162905">Usiwahi kucharaza nenosiri hili tena. Tuma kiungo ili kusakinisha Chrome kwenye simu yako.</translation>
 <translation id="450099669180426158">Ikoni ya alama hisi</translation>
 <translation id="4501530680793980440">Thibitisha Uondoaji</translation>
-<translation id="4504792225946223627">Huambatisha Kiolesura cha onyo wakati wowote nenosiri au kadi za mikopo zinapogunduliwa wakati ukurasa wa kiwango cha juu si wa HTTPS</translation>
-<translation id="4504940961672722399">Tumia kiendelezi hiki kwa kubofya kwenye ikoni hii au kwa kubonyeza <ph name="EXTENSION_SHORTCUT" />.</translation>
+<translation id="4504792225946223627">Huambatisha Kiolesura cha onyo wakati wowote nenosiri au maelezo ya kadi za mikopo yanapogunduliwa wakati ukurasa wa kiwango cha juu si wa HTTPS</translation>
+<translation id="4504940961672722399">Tumia kiendelezi hiki kwa kubofya ikoni hii au kwa kubonyeza <ph name="EXTENSION_SHORTCUT" />.</translation>
 <translation id="4505051713979988367"><ph name="DEVICE_TYPE" /> chako kitafunguliwa simu yako ya Android ikiwa imefunguliwa na iko karibu.</translation>
 <translation id="4508265954913339219">Uamilisho umeshindikana</translation>
 <translation id="4508345242223896011">Utembezaji Mweroro</translation>
@@ -5899,7 +5900,7 @@ Inakokotoa muda wa kujaa</translation>
 <translation id="8726888928275282477">Onyesha chaguo za kiendelezi kama kipengee kilichopachikwa katika viendelezi vya chrome://badala ya kufungua kichupo kipya.</translation>
 <translation id="8727142376512517020">Usionyeshe hii tena</translation>
 <translation id="8730621377337864115">Nimemaliza</translation>
-<translation id="8732030010853991079">Tumia kiendelezi hiki kwa kubofya kwenye ikoni hii.</translation>
+<translation id="8732030010853991079">Tumia kiendelezi hiki kwa kubofya ikoni hii.</translation>
 <translation id="8732212173949624846">Kusoma na kurekebisha historia yako ya kuvinjari kwenye vifaa vyako vyote ambavyo umetumia kuingia katika akaunti</translation>
 <translation id="8734073480934656039">Kuwasha mpangilio huu huruhusu programu ya skrini nzima kuzindua kiotomatiki kifaa kinapowashwa.</translation>
 <translation id="873545264931343897"><ph name="PLUGIN_NAME" /> ikikamilisha kusasisha, pakia upya ukurasa ili kuiwasha</translation>
@@ -6271,7 +6272,7 @@ Arifa, madirisha na vidirisha vya baadaye vitagawanywa baina ya maeneo-kazi.</tr
 <translation id="9214695392875603905">Keki dogo</translation>
 <translation id="9215293857209265904">"<ph name="EXTENSION_NAME" />" limeongezwa</translation>
 <translation id="9215934040295798075">Weka mandhari</translation>
-<translation id="9218430445555521422">Weka kama chaguo-msingi</translation>
+<translation id="9218430445555521422">Weka iwe chaguo-msingi</translation>
 <translation id="9219103736887031265">Picha</translation>
 <translation id="9220525904950070496">Ondoa akaunti</translation>
 <translation id="923467487918828349">Onyesha Yote</translation>

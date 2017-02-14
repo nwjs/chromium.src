@@ -166,7 +166,7 @@
 <translation id="2653659639078652383">Isumite</translation>
 <translation id="2674170444375937751">Sigurado ka bang nais mong tanggalin ang mga pahinang ito mula sa iyong history?</translation>
 <translation id="2677748264148917807">Umalis</translation>
-<translation id="269990154133806163">Nagpakita ang server ng certificate na hindi ibinunyag sa publiko gamit ang patakaran sa Transparency ng Certificate. Kinakailangan ito para sa ilang certificate, upang siguraduhing mapagkakatiwalaan ang mga ito at upang maprotektahan laban sa mga nang-aatake. <ph name="BEGIN_LEARN_MORE_LINK" />Matuto nang higit pa<ph name="END_LEARN_MORE_LINK" />.</translation>
+<translation id="269990154133806163">Nagpakita ang server ng certificate na hindi inihayag sa publiko gamit ang patakaran sa Transparency ng Certificate. Kinakailangan ito para sa ilang certificate, upang siguraduhing mapagkakatiwalaan ang mga ito at upang maprotektahan laban sa mga nang-aatake. <ph name="BEGIN_LEARN_MORE_LINK" />Matuto nang higit pa<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="2702801445560668637">Listahan ng Babasahin</translation>
 <translation id="2704283930420550640">Hindi tumutugma ang format sa halaga.</translation>
 <translation id="2704951214193499422">Hindi nakumpirma ng Chromium ang iyong card sa pagkakataong ito. Pakisubukang muli sa ibang pagkakataon.</translation>
@@ -599,7 +599,7 @@
 <translation id="7298195798382681320">Inirerekomenda</translation>
 <translation id="7309308571273880165">Ulat ng pag-crash na nakuha noong <ph name="CRASH_TIME" /> (humiling ng pag-upload ang user, hindi pa naa-upload)</translation>
 <translation id="7334320624316649418">&amp;Gawing muli ang pagbabago sa ayos</translation>
-<translation id="733923710415886693">Ang certificate ng server ay hindi ibinunyag sa pamamagitan ng Transparency ng Certificate.</translation>
+<translation id="733923710415886693">Ang certificate ng server ay hindi inihayag sa pamamagitan ng Transparency ng Certificate.</translation>
 <translation id="7351800657706554155">Hindi mo maaaring bisitahin ang <ph name="SITE" /> sa ngayon dahil binawi na ang certificate nito. Karaniwang pansamantala lang ang mga error at atake sa network, kaya malamang na gagana ang page na ito sa ibang pagkakataon. <ph name="BEGIN_LEARN_MORE_LINK" />Matuto nang higit pa<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="7353601530677266744">Command Line</translation>
 <translation id="7372973238305370288">resulta ng paghahanap</translation>
