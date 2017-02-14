@@ -13,20 +13,18 @@ import android.app.Application;
 import android.os.Bundle;
 import android.util.Pair;
 
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import org.robolectric.Robolectric;
-import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowLooper;
-
 import org.chromium.base.test.util.Feature;
 import org.chromium.content.common.FileDescriptorInfo;
 import org.chromium.content.common.IChildProcessCallback;
 import org.chromium.content.common.IChildProcessService;
 import org.chromium.testing.local.LocalRobolectricTestRunner;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
+import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowLooper;
 
 import java.util.ArrayList;
 
@@ -120,7 +118,7 @@ public class BindingManagerImplTest {
         }
 
         @Override
-        public void start(String[] commandLine, StartCallback startCallback) {
+        public void start(String[] commandLine) {
             throw new UnsupportedOperationException();
         }
 
