@@ -82,10 +82,22 @@ ImageDataFetcher::~ImageDataFetcher() {
     delete pair.first;
   }
 }
-
 void ImageDataFetcher::StartDownload(
     const GURL& url,
     ImageFetchedCallback callback,
+    const std::string& referrer,
+    net::URLRequest::ReferrerPolicy referrer_policy) {
+  StartDownloadWithMime(url,
+                        ^(const GURL& url, int http_response_code,
+                          const std::string& mime_type, NSData* data) {
+                          callback(url, http_response_code, data);
+                        },
+                        referrer, referrer_policy);
+}
+
+void ImageDataFetcher::StartDownloadWithMime(
+    const GURL& url,
+    ImageFetchedCallbackWithMime callback,
     const std::string& referrer,
     net::URLRequest::ReferrerPolicy referrer_policy) {
   DCHECK(request_context_getter_.get());
@@ -121,7 +133,7 @@ void ImageDataFetcher::OnURLFetchComplete(const net::URLFetcher* fetcher) {
 
   // Retrieves the callback and ensures that it will be deleted in the event
   // of early return.
-  base::mac::ScopedBlock<ImageFetchedCallback> callback(
+  base::mac::ScopedBlock<ImageFetchedCallbackWithMime> callback(
       downloads_in_progress_[fetcher]);
 
   // Remove |fetcher| from the map.
@@ -134,13 +146,13 @@ void ImageDataFetcher::OnURLFetchComplete(const net::URLFetcher* fetcher) {
   const int http_response_code =
       original_url.SchemeIs("data") ? 200 : fetcher->GetResponseCode();
   if (http_response_code != 200) {
-    (callback.get())(original_url, http_response_code, nil);
+    (callback.get())(original_url, http_response_code, std::string(), nil);
     return;
   }
 
   std::string response;
   if (!fetcher->GetResponseAsString(&response)) {
-    (callback.get())(original_url, http_response_code, nil);
+    (callback.get())(original_url, http_response_code, std::string(), nil);
     return;
   }
 
@@ -149,26 +161,27 @@ void ImageDataFetcher::OnURLFetchComplete(const net::URLFetcher* fetcher) {
       initWithBytes:reinterpret_cast<const unsigned char*>(response.data())
              length:response.size()]);
 
+  std::string mime_type;
   if (fetcher->GetResponseHeaders()) {
-    std::string mime_type;
     fetcher->GetResponseHeaders()->GetMimeType(&mime_type);
     if (mime_type == kWEBPMimeType) {
       base::PostTaskAndReplyWithResult(
           task_runner_.get(), FROM_HERE, base::Bind(&DecodeWebpImage, data),
           base::Bind(&ImageDataFetcher::RunCallback, weak_factory_.GetWeakPtr(),
-                     callback, original_url, http_response_code));
+                     callback, original_url, http_response_code, mime_type));
       return;
     }
   }
-  (callback.get())(original_url, http_response_code, data);
+  (callback.get())(original_url, http_response_code, mime_type, data);
 }
 
 void ImageDataFetcher::RunCallback(
-    const base::mac::ScopedBlock<ImageFetchedCallback>& callback,
+    const base::mac::ScopedBlock<ImageFetchedCallbackWithMime>& callback,
     const GURL& url,
     int http_response_code,
+    const std::string& mime_type,
     NSData* data) {
-  (callback.get())(url, http_response_code, data);
+  (callback.get())(url, http_response_code, mime_type, data);
 }
 
 void ImageDataFetcher::SetRequestContextGetter(

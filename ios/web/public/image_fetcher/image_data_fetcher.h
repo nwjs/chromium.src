@@ -33,6 +33,14 @@ using ImageFetchedCallback = void (^)(const GURL& url,
                                       int http_response_code,
                                       NSData* data);
 
+// Callback that informs of the download of an image encoded in |data|,
+// downloaded from |url|, and with the http status |http_response_code|. If the
+// url is a data URL, |http_response_code| is always 200.
+using ImageFetchedCallbackWithMime = void (^)(const GURL& url,
+                                              int http_response_code,
+                                              const std::string& mime_type,
+                                              NSData* data);
+
 // Utility class that will retrieve an image from an URL. The image is returned
 // as NSData which can be used with +[UIImage imageWithData:]. This class
 // usually returns the raw bytes retrieved from the network without any
@@ -44,6 +52,18 @@ class ImageDataFetcher : public net::URLFetcherDelegate {
   // The TaskRunner is used to eventually decode the image.
   explicit ImageDataFetcher(const scoped_refptr<base::TaskRunner>& task_runner);
   ~ImageDataFetcher() override;
+
+  // Start downloading the image at the given |url|. The |callback| will be
+  // called with the downloaded image, or nil if any error happened. The
+  // |referrer| and |referrer_policy| will be passed on to the underlying
+  // URLFetcher.
+  // This method assumes the request context getter has been set.
+  // (virtual for testing)
+  virtual void StartDownloadWithMime(
+      const GURL& url,
+      ImageFetchedCallbackWithMime callback,
+      const std::string& referrer,
+      net::URLRequest::ReferrerPolicy referrer_policy);
 
   // Start downloading the image at the given |url|. The |callback| will be
   // called with the downloaded image, or nil if any error happened. The
@@ -71,16 +91,19 @@ class ImageDataFetcher : public net::URLFetcherDelegate {
 
  private:
   // Runs the callback with the given arguments.
-  void RunCallback(const base::mac::ScopedBlock<ImageFetchedCallback>& callback,
-                   const GURL& url,
-                   const int http_response_code,
-                   NSData* data);
+  void RunCallback(
+      const base::mac::ScopedBlock<ImageFetchedCallbackWithMime>& callback,
+      const GURL& url,
+      const int http_response_code,
+      const std::string& mime_type,
+      NSData* data);
 
   // Tracks open download requests.  The key is the URLFetcher object doing the
   // fetch; the value is the callback to use when the download request
   // completes. When a download request completes, the URLFetcher must be
   // deleted and the callback called and released.
-  std::map<const net::URLFetcher*, ImageFetchedCallback> downloads_in_progress_;
+  std::map<const net::URLFetcher*, ImageFetchedCallbackWithMime>
+      downloads_in_progress_;
   scoped_refptr<net::URLRequestContextGetter> request_context_getter_;
 
   // The task runner used to decode images if necessary.

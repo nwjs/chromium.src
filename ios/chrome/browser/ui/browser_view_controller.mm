@@ -16,6 +16,7 @@
 
 #include "base/base64.h"
 #include "base/command_line.h"
+#include "base/files/file_path.h"
 #include "base/format_macros.h"
 #include "base/i18n/rtl.h"
 #include "base/ios/block_types.h"
@@ -182,6 +183,7 @@
 #include "ios/web/public/web_thread.h"
 #import "ios/web/web_state/ui/crw_web_controller.h"
 #import "net/base/mac/url_conversions.h"
+#include "net/base/mime_util.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/ssl/ssl_info.h"
 #include "net/url_request/url_request_context_getter.h"
@@ -688,11 +690,12 @@ NSString* const kNativeControllerTemporaryKey = @"NativeControllerTemporaryKey";
 // Returns Tab that corresponds to the given |webState|.
 - (Tab*)tabForWebState:(web::WebState*)webState;
 // Saves the image or display error message, based on privacy settings.
-- (void)managePermissionAndSaveImage:(NSData*)data;
+- (void)managePermissionAndSaveImage:(NSData*)data
+                   withFileExtension:(NSString*)fileExtension;
 // Saves the image. In order to keep the metadata of the image, the image is
 // saved as a temporary file on disk then saved in photos.
 // This should be called on FILE thread.
-- (void)saveImage:(NSData*)data;
+- (void)saveImage:(NSData*)data withFileExtension:(NSString*)fileExtension;
 // Called when Chrome has been denied access to the photos or videos and the
 // user can change it.
 // Shows a privacy alert on the main queue, allowing the user to go to Chrome's
@@ -3100,18 +3103,29 @@ class BrowserBookmarkModelBridge : public bookmarks::BookmarkModelObserver {
               referrer:(const web::Referrer&)referrer {
   DCHECK(url.is_valid());
 
-  web::ImageFetchedCallback callback =
-      ^(const GURL& original_url, int response_code, NSData* data) {
-        DCHECK(data);
+  web::ImageFetchedCallbackWithMime callback = ^(
+      const GURL& original_url, int response_code, const std::string& mime_type,
+      NSData* data) {
+    DCHECK(data);
 
-        [self managePermissionAndSaveImage:data];
-      };
-  _imageFetcher->StartDownload(
+    base::FilePath::StringType extension;
+
+    bool extensionSuccess =
+        net::GetPreferredExtensionForMimeType(mime_type, &extension);
+    if (!extensionSuccess || extension.length() == 0) {
+      extension = "png";
+    }
+    NSString* fileExtension =
+        [@"." stringByAppendingString:base::SysUTF8ToNSString(extension)];
+    [self managePermissionAndSaveImage:data withFileExtension:fileExtension];
+  };
+  _imageFetcher->StartDownloadWithMime(
       url, callback, web::ReferrerHeaderValueForNavigation(url, referrer),
       web::PolicyForNavigation(url, referrer));
 }
 
-- (void)managePermissionAndSaveImage:(NSData*)data {
+- (void)managePermissionAndSaveImage:(NSData*)data
+                   withFileExtension:(NSString*)fileExtension {
   switch ([PHPhotoLibrary authorizationStatus]) {
     // User was never asked for permission to access photos.
     case PHAuthorizationStatusNotDetermined:
@@ -3119,7 +3133,8 @@ class BrowserBookmarkModelBridge : public bookmarks::BookmarkModelObserver {
         // Call -saveImage again to check if chrome needs to display an error or
         // saves the image.
         if (status != PHAuthorizationStatusNotDetermined)
-          [self managePermissionAndSaveImage:data];
+          [self managePermissionAndSaveImage:data
+                           withFileExtension:fileExtension];
       }];
       break;
 
@@ -3139,18 +3154,18 @@ class BrowserBookmarkModelBridge : public bookmarks::BookmarkModelObserver {
 
     // The application has permission to access the photos.
     default: {
-      web::WebThread::PostTask(web::WebThread::FILE, FROM_HERE,
-                               base::BindBlock(^{
-                                 [self saveImage:data];
-                               }));
+      web::WebThread::PostTask(
+          web::WebThread::FILE, FROM_HERE, base::BindBlock(^{
+            [self saveImage:data withFileExtension:fileExtension];
+          }));
       break;
     }
   }
 }
 
-- (void)saveImage:(NSData*)data {
+- (void)saveImage:(NSData*)data withFileExtension:(NSString*)fileExtension {
   NSString* fileName = [[[NSProcessInfo processInfo] globallyUniqueString]
-      stringByAppendingString:@".png"];
+      stringByAppendingString:fileExtension];
   NSURL* fileURL =
       [NSURL fileURLWithPath:[NSTemporaryDirectory()
                                  stringByAppendingPathComponent:fileName]];
