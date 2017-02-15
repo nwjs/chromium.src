@@ -1402,6 +1402,10 @@ void WebMediaPlayerImpl::OnVideoOpacityChange(bool opaque) {
     video_weblayer_->layer()->SetContentsOpaque(opaque_);
 }
 
+void WebMediaPlayerImpl::OnVideoAverageKeyframeDistanceUpdate() {
+  UpdateBackgroundVideoOptimizationState();
+}
+
 void WebMediaPlayerImpl::OnFrameHidden() {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
 
