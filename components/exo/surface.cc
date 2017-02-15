@@ -140,30 +140,6 @@ class CustomWindowTargeter : public aura::WindowTargeter {
   DISALLOW_COPY_AND_ASSIGN(CustomWindowTargeter);
 };
 
-class CustomSurfaceReferenceFactory
-    : public cc::SequenceSurfaceReferenceFactory {
- public:
-  explicit CustomSurfaceReferenceFactory(CompositorFrameSinkHolder* sink_holder)
-      : sink_holder_(sink_holder) {}
-
- private:
-  ~CustomSurfaceReferenceFactory() override = default;
-
-  // Overridden from cc::SequenceSurfaceReferenceFactory:
-  void SatisfySequence(const cc::SurfaceSequence& sequence) const override {
-    sink_holder_->Satisfy(sequence);
-  }
-
-  void RequireSequence(const cc::SurfaceId& surface_id,
-                       const cc::SurfaceSequence& sequence) const override {
-    sink_holder_->Require(surface_id, sequence);
-  }
-
-  scoped_refptr<CompositorFrameSinkHolder> sink_holder_;
-
-  DISALLOW_COPY_AND_ASSIGN(CustomSurfaceReferenceFactory);
-};
-
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -181,8 +157,12 @@ Surface::Surface()
   compositor_frame_sink_holder_ = new CompositorFrameSinkHolder(
       this, frame_sink_id_,
       aura::Env::GetInstance()->context_factory_private()->GetSurfaceManager());
-  surface_reference_factory_ =
-      new CustomSurfaceReferenceFactory(compositor_frame_sink_holder_.get());
+  // TODO(samans): exo::Surface should not be using
+  // DirectSurfaceReferenceFactory (crbug.com/688573).
+  surface_reference_factory_ = aura::Env::GetInstance()
+                                   ->context_factory_private()
+                                   ->GetSurfaceManager()
+                                   ->reference_factory();
   window_->SetType(ui::wm::WINDOW_TYPE_CONTROL);
   window_->SetName("ExoSurface");
   window_->SetProperty(kSurfaceKey, this);
