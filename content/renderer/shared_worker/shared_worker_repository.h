@@ -26,6 +26,7 @@ class SharedWorkerRepository final
 
   // WebSharedWorkerRepositoryClient overrides.
   void connect(
+      bool isNodeJS,
       const blink::WebURL& url,
       const blink::WebString& name,
       DocumentID document_id,

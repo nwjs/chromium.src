@@ -365,6 +365,9 @@ bool InterstitialPageImpl::OnMessageReceived(
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
+  if (!handled) {
+    handled = static_cast<WebContentsImpl*>(web_contents_)->OnMessageReceived(render_frame_host, message);
+  }
   return handled;
 }
 

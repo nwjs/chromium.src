@@ -433,8 +433,10 @@ void MediaStreamCaptureIndicator::UpdateNotificationUserInterface() {
     return;
   }
 
+#if 0 //NWJS fix issue #4852
   // The icon will take the ownership of the passed context menu.
   MaybeCreateStatusTrayIcon(audio, video);
+#endif
   if (status_icon_) {
     status_icon_->SetContextMenu(std::move(menu));
   }

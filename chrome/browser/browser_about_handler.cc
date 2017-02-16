@@ -94,7 +94,7 @@ bool WillHandleBrowserAboutURL(GURL* url,
       // uber page is unsupported.
       host = chrome::kChromeUIHistoryFrameHost;
     }
-#else
+#elif 0
     // Material design history is handled on the top-level chrome://history
     // host.
     if (MdHistoryUI::IsEnabled(Profile::FromBrowserContext(browser_context))) {

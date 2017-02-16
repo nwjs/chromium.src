@@ -57,7 +57,7 @@ class SharedWorkerRepositoryClientImpl final
   void connect(SharedWorker*,
                WebMessagePortChannelUniquePtr,
                const KURL&,
-               const String& name) override;
+               const String& name, bool) override;
   void documentDetached(Document*) override;
 
  private:

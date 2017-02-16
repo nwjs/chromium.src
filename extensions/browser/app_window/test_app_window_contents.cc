@@ -17,7 +17,8 @@ TestAppWindowContents::~TestAppWindowContents() {
 
 void TestAppWindowContents::Initialize(content::BrowserContext* context,
                                        content::RenderFrameHost* creator_frame,
-                                       const GURL& url) {}
+                                       const GURL& url,
+                                       const Extension* extension) {}
 
 void TestAppWindowContents::LoadContents(int32_t creator_process_id) {}
 
