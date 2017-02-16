@@ -14,6 +14,7 @@
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/trace_event_argument.h"
 #include "cc/output/begin_frame_args.h"
+#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/scheduler/base/real_time_domain.h"
 #include "platform/scheduler/base/task_queue_impl.h"
 #include "platform/scheduler/base/task_queue_selector.h"
@@ -52,6 +53,9 @@ constexpr base::TimeDelta kMainThreadResponsivenessThreshold =
     base::TimeDelta::FromMilliseconds(200);
 
 void ReportForegroundRendererTaskLoad(base::TimeTicks time, double load) {
+  if (!blink::RuntimeEnabledFeatures::timerThrottlingForBackgroundTabsEnabled())
+    return;
+
   int load_percentage = static_cast<int>(load * 100);
   UMA_HISTOGRAM_PERCENTAGE("RendererScheduler.ForegroundRendererMainThreadLoad",
                            load_percentage);
@@ -60,6 +64,9 @@ void ReportForegroundRendererTaskLoad(base::TimeTicks time, double load) {
 }
 
 void ReportBackgroundRendererTaskLoad(base::TimeTicks time, double load) {
+  if (!blink::RuntimeEnabledFeatures::timerThrottlingForBackgroundTabsEnabled())
+    return;
+
   int load_percentage = static_cast<int>(load * 100);
   UMA_HISTOGRAM_PERCENTAGE("RendererScheduler.BackgroundRendererMainThreadLoad",
                            load_percentage);
