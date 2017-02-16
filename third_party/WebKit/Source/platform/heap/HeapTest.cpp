@@ -295,6 +295,7 @@ class TestGCScope {
     // and we need to resume the other threads.
     if (LIKELY(m_parkedAllThreads)) {
       m_state->heap().postGC(BlinkGC::GCWithSweep);
+      m_state->heap().preSweep(BlinkGC::GCWithSweep);
       m_state->heap().resume();
     }
   }

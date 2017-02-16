@@ -431,6 +431,7 @@ class PLATFORM_EXPORT ThreadHeap {
 
   void preGC();
   void postGC(BlinkGC::GCType);
+  void preSweep(BlinkGC::GCType);
 
   // Conservatively checks whether an address is a pointer in any of the
   // thread heaps.  If so marks the object pointed to as live.
