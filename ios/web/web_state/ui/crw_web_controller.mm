@@ -2211,9 +2211,9 @@ const NSTimeInterval kSnapshotOverlayTransition = 0.5;
   if (![userDefaults boolForKey:@"PendingIndexNavigationDisabled"]) {
     [self clearTransientContentView];
 
-    BOOL sameDocumentNavigation = [sessionController
-        isSameDocumentNavigationBetweenItem:fromEntry.navigationItem
-                                    andItem:toEntry.navigationItem];
+    BOOL sameDocumentNavigation =
+        [sessionController isSameDocumentNavigationBetweenEntry:fromEntry
+                                                       andEntry:entries[index]];
     if (sameDocumentNavigation) {
       [self.sessionController goToEntryAtIndex:index];
 
