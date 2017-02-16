@@ -1457,6 +1457,7 @@ class CORE_EXPORT UseCounter {
     ServiceWorkerNavigationPreload = 1803,
     HTMLIFrameElementAllowfullscreenAttributeSetAfterContentLoad = 1805,
     V8FileReaderSync_Constructor = 1812,
+    FileReaderSyncInServiceWorker = 1818,
 
     // Add new features immediately above this line. Don't change assigned
     // numbers of any item, and don't reuse removed slots.
