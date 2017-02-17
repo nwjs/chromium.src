@@ -434,6 +434,12 @@ String Deprecation::deprecationMessage(UseCounter::Feature feature) {
       return willBeRemoved("FileReaderSync in service workers", M59,
                            "5739144722513920");
 
+    case UseCounter::SelectionAddRangeIntersect:
+      return willBeRemoved(
+          "The behavior that Selection.addRange() merges existing Range and "
+          "the specified Range",
+          M58, "6680566019653632");
+
     // Features that aren't deprecated don't have a deprecation message.
     default:
       return String();
