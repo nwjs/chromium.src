@@ -27,6 +27,10 @@
 
 namespace net {
 
+// The maximum time to wait for the alternate job to complete before resuming
+// the main job.
+const int kMaxDelayTimeForMainJobSecs = 3;
+
 // Returns parameters associated with the delay of the HTTP stream job.
 std::unique_ptr<base::Value> NetLogHttpStreamJobDelayCallback(
     base::TimeDelta delay,
@@ -638,8 +642,10 @@ const NetLogWithSource* HttpStreamFactoryImpl::JobController::GetNetLog(
 
 void HttpStreamFactoryImpl::JobController::MaybeSetWaitTimeForMainJob(
     const base::TimeDelta& delay) {
-  if (main_job_is_blocked_)
-    main_job_wait_time_ = delay;
+  if (main_job_is_blocked_) {
+    main_job_wait_time_ = std::min(
+        delay, base::TimeDelta::FromSeconds(kMaxDelayTimeForMainJobSecs));
+  }
 }
 
 WebSocketHandshakeStreamBase::CreateHelper* HttpStreamFactoryImpl::
