@@ -5,15 +5,15 @@
 #include <memory>
 #include <string>
 
-#include "apps/test/app_window_waiter.h"
 #include "base/base64.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/app_mode/fake_cws.h"
+#include "chrome/browser/chromeos/app_mode/kiosk_app_launch_error.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
-#include "chrome/browser/chromeos/net/network_portal_detector_test_impl.h"
 #include "chrome/browser/chromeos/ownership/owner_settings_service_chromeos_factory.h"
 #include "chrome/browser/chromeos/policy/device_local_account.h"
 #include "chrome/browser/chromeos/policy/device_policy_builder.h"
@@ -26,11 +26,10 @@
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/fake_session_manager_client.h"
-#include "chromeos/dbus/fake_shill_manager_client.h"
 #include "components/ownership/mock_owner_key_util.h"
-#include "extensions/browser/app_window/app_window.h"
-#include "extensions/browser/app_window/app_window_registry.h"
-#include "extensions/browser/app_window/native_app_window.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_registrar.h"
+#include "content/public/browser/notification_service.h"
 #include "extensions/common/value_builder.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "net/dns/mock_host_resolver.h"
@@ -42,6 +41,33 @@ namespace chromeos {
 namespace {
 
 const char kTestKioskApp[] = "ggbflgnkafappblpkiflbgpmkfdpnhhe";
+
+// Used to listen for app termination notification.
+class TerminationObserver : public content::NotificationObserver {
+ public:
+  TerminationObserver() {
+    registrar_.Add(this, chrome::NOTIFICATION_APP_TERMINATING,
+                   content::NotificationService::AllSources());
+  }
+  ~TerminationObserver() override = default;
+
+  // Whether app has been terminated - i.e. whether app termination notification
+  // has been observed.
+  bool terminated() const { return notification_seen_; }
+
+ private:
+  void Observe(int type,
+               const content::NotificationSource& source,
+               const content::NotificationDetails& details) override {
+    ASSERT_EQ(chrome::NOTIFICATION_APP_TERMINATING, type);
+    notification_seen_ = true;
+  }
+
+  bool notification_seen_ = false;
+  content::NotificationRegistrar registrar_;
+
+  DISALLOW_COPY_AND_ASSIGN(TerminationObserver);
+};
 
 }  // namespace
 
@@ -64,7 +90,6 @@ class KioskCrashRestoreTest : public InProcessBrowserTest {
 
   void SetUpInProcessBrowserTestFixture() override {
     host_resolver()->AddRule("*", "127.0.0.1");
-    SimulateNetworkOnline();
 
     OverrideDevicePolicy();
   }
@@ -82,6 +107,12 @@ class KioskCrashRestoreTest : public InProcessBrowserTest {
     fake_cws_->SetUpdateCrx(test_app_id_, test_app_id_ + ".crx", "1.0.0");
   }
 
+  void RunTestOnMainThreadLoop() override {
+    termination_observer_.reset(new TerminationObserver());
+
+    InProcessBrowserTest::RunTestOnMainThreadLoop();
+  }
+
   void SetUpOnMainThread() override {
     extensions::browsertest_util::CreateAndInitializeLocalCache();
 
@@ -94,6 +125,9 @@ class KioskCrashRestoreTest : public InProcessBrowserTest {
   }
 
   const std::string& test_app_id() const { return test_app_id_; }
+
+ protected:
+  std::unique_ptr<TerminationObserver> termination_observer_;
 
  private:
   void SetUpExistingKioskApp() {
@@ -132,21 +166,6 @@ class KioskCrashRestoreTest : public InProcessBrowserTest {
                     local_state_json.size());
   }
 
-  void SimulateNetworkOnline() {
-    NetworkPortalDetectorTestImpl* const network_portal_detector =
-        new NetworkPortalDetectorTestImpl();
-    // Takes ownership of |network_portal_detector|.
-    network_portal_detector::InitializeForTesting(network_portal_detector);
-    network_portal_detector->SetDefaultNetworkForTesting(
-        FakeShillManagerClient::kFakeEthernetNetworkGuid);
-
-    NetworkPortalDetector::CaptivePortalState online_state;
-    online_state.status = NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_ONLINE;
-    online_state.response_code = 204;
-    network_portal_detector->SetDetectionResultsForTesting(
-        FakeShillManagerClient::kFakeEthernetNetworkGuid, online_state);
-  }
-
   void OverrideDevicePolicy() {
     OwnerSettingsServiceChromeOSFactory::GetInstance()
         ->SetOwnerKeyUtilForTesting(owner_key_util_);
@@ -170,25 +189,12 @@ class KioskCrashRestoreTest : public InProcessBrowserTest {
   DISALLOW_COPY_AND_ASSIGN(KioskCrashRestoreTest);
 };
 
-IN_PROC_BROWSER_TEST_F(KioskCrashRestoreTest, Basic) {
-  ExtensionTestMessageListener launch_data_check_listener(
-      "launchData.isKioskSession = true", false);
-
-  Profile* const app_profile = ProfileManager::GetPrimaryUserProfile();
-  ASSERT_TRUE(app_profile);
-  extensions::AppWindowRegistry* const app_window_registry =
-      extensions::AppWindowRegistry::Get(app_profile);
-  extensions::AppWindow* const window =
-      apps::AppWindowWaiter(app_window_registry, test_app_id()).Wait();
-  ASSERT_TRUE(window);
-
-  window->GetBaseWindow()->Close();
-
-  // Wait until the app terminates if it is still running.
-  if (!app_window_registry->GetAppWindowsForApp(test_app_id()).empty())
-    base::RunLoop().Run();
-
-  EXPECT_TRUE(launch_data_check_listener.was_satisfied());
+IN_PROC_BROWSER_TEST_F(KioskCrashRestoreTest, AppNotInstalled) {
+  // If app is not installed when restoring from crash, the kiosk launch is
+  // expected to fail, as in that case the crash occured during the app
+  // initialization - before the app was actually launched.
+  EXPECT_TRUE(termination_observer_->terminated());
+  EXPECT_EQ(KioskAppLaunchError::UNABLE_TO_LAUNCH, KioskAppLaunchError::Get());
 }
 
 }  // namespace chromeos
