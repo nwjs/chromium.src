@@ -113,6 +113,8 @@ void AddToHomescreenDataFetcher::OnDidGetWebApplicationInfo(
   if (web_app_info.mobile_capable == WebApplicationInfo::MOBILE_CAPABLE ||
       web_app_info.mobile_capable == WebApplicationInfo::MOBILE_CAPABLE_APPLE) {
     shortcut_info_.display = blink::WebDisplayModeStandalone;
+    shortcut_info_.UpdateSource(
+        ShortcutInfo::SOURCE_ADD_TO_HOMESCREEN_STANDALONE);
   }
 
   // Record what type of shortcut was added by the user.
@@ -192,10 +194,10 @@ void AddToHomescreenDataFetcher::OnDidPerformInstallableCheck(
 
   is_installable_check_complete_ = true;
 
+  bool webapk_compatible = false;
   if (check_webapk_compatibility_) {
-    bool webapk_compatible =
-        (data.error_code == NO_ERROR_DETECTED &&
-         AreWebManifestUrlsWebApkCompatible(data.manifest));
+    webapk_compatible = (data.error_code == NO_ERROR_DETECTED &&
+                         AreWebManifestUrlsWebApkCompatible(data.manifest));
     weak_observer_->OnDidDetermineWebApkCompatibility(webapk_compatible);
 
     // WebAPKs are wholly defined by the Web Manifest. Ignore the <meta> tag
@@ -209,6 +211,9 @@ void AddToHomescreenDataFetcher::OnDidPerformInstallableCheck(
         base::UserMetricsAction("webapps.AddShortcut.Manifest"));
     shortcut_info_.UpdateFromManifest(data.manifest);
     shortcut_info_.manifest_url = data.manifest_url;
+
+    if (webapk_compatible)
+      shortcut_info_.UpdateSource(ShortcutInfo::SOURCE_ADD_TO_HOMESCREEN_PWA);
   }
 
   // Save the splash screen URL for the later download.
