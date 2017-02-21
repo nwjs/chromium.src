@@ -393,33 +393,16 @@ void NetworkQualityEstimator::NotifyStartTransaction(
   if (!RequestSchemeIsHTTPOrHTTPS(request))
     return;
 
-  throughput_analyzer_->NotifyStartTransaction(request);
-}
-
-void NetworkQualityEstimator::NotifyHeadersReceived(const URLRequest& request) {
-  TRACE_EVENT0(kNetTracingCategory,
-               "NetworkQualityEstimator::NotifyHeadersReceived");
-  DCHECK(thread_checker_.CalledOnValidThread());
-
-  if (!RequestSchemeIsHTTPOrHTTPS(request) ||
-      !RequestProvidesRTTObservation(request)) {
-    return;
-  }
-
-  const base::TimeTicks now = tick_clock_->NowTicks();
-
   // Update |estimated_quality_at_last_main_frame_| if this is a main frame
   // request.
   // TODO(tbansal): Refactor this to a separate method.
   if (request.load_flags() & LOAD_MAIN_FRAME_DEPRECATED) {
+    base::TimeTicks now = tick_clock_->NowTicks();
     last_main_frame_request_ = now;
 
-    ComputeEffectiveConnectionType();
+    MaybeComputeEffectiveConnectionType();
     effective_connection_type_at_last_main_frame_ = effective_connection_type_;
     estimated_quality_at_last_main_frame_ = network_quality_;
-
-    RecordMetricsOnMainFrameRequest();
-    MaybeQueryExternalEstimateProvider();
 
     // Post the tasks which will run in the future and record the estimation
     // accuracy based on the observations received between now and the time of
@@ -435,6 +418,24 @@ void NetworkQualityEstimator::NotifyHeadersReceived(const URLRequest& request) {
           measuring_delay);
     }
     UpdateSignalStrength();
+  }
+  throughput_analyzer_->NotifyStartTransaction(request);
+}
+
+void NetworkQualityEstimator::NotifyHeadersReceived(const URLRequest& request) {
+  TRACE_EVENT0(kNetTracingCategory,
+               "NetworkQualityEstimator::NotifyHeadersReceived");
+  DCHECK(thread_checker_.CalledOnValidThread());
+
+  if (!RequestSchemeIsHTTPOrHTTPS(request) ||
+      !RequestProvidesRTTObservation(request)) {
+    return;
+  }
+
+  if (request.load_flags() & LOAD_MAIN_FRAME_DEPRECATED) {
+    ComputeEffectiveConnectionType();
+    RecordMetricsOnMainFrameRequest();
+    MaybeQueryExternalEstimateProvider();
   }
 
   LoadTimingInfo load_timing_info;
@@ -460,9 +461,9 @@ void NetworkQualityEstimator::NotifyHeadersReceived(const URLRequest& request) {
         peak_network_quality_.downstream_throughput_kbps());
   }
 
-  RttObservation http_rtt_observation(observed_http_rtt, now,
-                                      signal_strength_dbm_,
-                                      NETWORK_QUALITY_OBSERVATION_SOURCE_HTTP);
+  RttObservation http_rtt_observation(
+      observed_http_rtt, tick_clock_->NowTicks(), signal_strength_dbm_,
+      NETWORK_QUALITY_OBSERVATION_SOURCE_HTTP);
   rtt_observations_.AddObservation(http_rtt_observation);
   NotifyObserversOfRTT(http_rtt_observation);
 }
