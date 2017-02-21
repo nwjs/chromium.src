@@ -92,9 +92,6 @@
       Si la política no se configura o se configura en false, los conjuntos de cifrado de RC4 en TLS no se habilitarán. De lo contrario, se puede configurar en true para mantener la compatibilidad con un servidor obsoleto. Esta medida es provisional y el servidor se debería volver a configurar.</translation>
 <translation id="1297182715641689552">Usar un script para proxy .pac</translation>
 <translation id="1304973015437969093">ID de extensiones/apps y direcciones URL de actualización para instalar en silencio</translation>
-<translation id="1310333396104446007">Si esta configuración se establece como falsa, los usuarios no podrán establecer los PIN que se consideran inseguros. Entre estos, se incluyen los PIN que contienen la misma secuencia de dígitos, aquellos cuyos dígitos aumentan o disminuyen en 1, o los que son demasiado comunes.
-
-          Si esta configuración se establece como verdadera o no se configura, los usuarios podrán ingresar estos PIN y solo recibirán un mensaje de advertencia.</translation>
 <translation id="1313457536529613143">Especifica el porcentaje de ajuste del tiempo de espera de inactividad de la pantalla cuando se observa la actividad del usuario con la pantalla oscurecida o poco después de que esta se haya desactivado.
 
           Si se establece esta política, se especificará el porcentaje de ajuste del tiempo de espera de inactividad de la pantalla cuando se observe la actividad del usuario con la pantalla oscurecida o poco después de que esta se haya desactivado. Cuando se ajusta el tiempo de espera de inactividad de la pantalla, se ajustan las demoras de desconexión, bloqueo y desactivación de la pantalla para mantener las mismas distancias del tiempo de espera de inactividad de la pantalla que la configuración original.
@@ -524,13 +521,6 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 <translation id="2587719089023392205">Establecer <ph name="PRODUCT_NAME" /> como navegador predeterminado</translation>
 <translation id="2592091433672667839">Duración de la inactividad antes de que se muestre el protector de pantalla en el modo de venta</translation>
 <translation id="2623014935069176671">Esperar actividad inicial del usuario</translation>
-<translation id="2625512435194873786">Esta configuración determina la longitud máxima del PIN.
-
-          Si esta configuración se establece en 0 o menos, no habrá longitud máxima, por lo que el usuario podrá establecer un PIN con la longitud que desee.
-
-          Si esta configuración es menor que PinUnlockMinimumLength, pero mayor que 0, la longitud máxima será la misma que la longitud mínima.
-
-          Si esta configuración no se establece, no habrá longitud máxima y el usuario podrá establecer un PIN de la longitud que desee.</translation>
 <translation id="262740370354162807">Habilitar el envío de documentos a <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Habilitar los comentarios de voz</translation>
 <translation id="2646290749315461919">Te permite establecer si los sitios web pueden rastrear la ubicación física de los usuarios. El rastreo de la ubicación física de los usuarios puede autorizarse en forma predeterminada, puede denegarse en forma predeterminada o se le puede preguntar al usuario cada vez que un sitio web solicita la ubicación física. Si esta política no se configura, se usará "AskGeolocation" y el usuario podrá cambiarla.</translation>
@@ -2054,18 +2044,7 @@ desactivarlo).</translation>
       Si esta política no se establece, la limpieza automática utilizará la estrategia integrada predeterminada, que actualmente es "RemoveLRUIfDormant".</translation>
 <translation id="7336878834592315572">Guardar las cookies durante la sesión</translation>
 <translation id="7340034977315324840">Notificar tiempo de actividad del dispositivo</translation>
-<translation id="7340934985429121460">Esta configuración determina la longitud mínima del PIN.
-
-          Si esta configuración se establece en menos de 1, la longitud mínima del PIN será 1.
-
-          Si esta configuración no se establece, la longitud mínima del PIN será 4.</translation>
 <translation id="7384999953864505698">Permite el protocolo QUIC</translation>
-<translation id="7406716912696538245">Controla los modos de desbloqueo rápido que se pueden configurar y usar.
-      Esta configuración enumera los modos de desbloqueo rápido permitidos que se pueden configurar y usar para desbloquear la pantalla bloqueada. El valor es una lista de secuencias de comandos, cada una con el siguiente valor: "todos" o "PIN". Si se selecciona "todos", estarán disponibles todos los modos rápidos compatibles; de lo contrario, solo estarán disponibles los modos en esta lista.
-
-      Si se establece esta configuración, los modos de desbloqueo rápido con un tipo que no está en esta lista no se pueden configurar ni usar.
-
-      Si no se establece esta configuración, se habilitará el modo "PIN" y se inhabilitarán todos los otros modos.</translation>
 <translation id="7417972229667085380">Indica el porcentaje en el que debe ajustarse la demora de inactividad en el modo de presentación (en desuso).</translation>
 <translation id="7421483919690710988">Establecer tamaño de caché de disco de medios en bytes</translation>
 <translation id="7424751532654212117">Lista de excepciones para la lista de complementos inhabilitados</translation>
@@ -2388,6 +2367,7 @@ desactivarlo).</translation>
 
       La intención es quitar esta anulación en el futuro.</translation>
 <translation id="8285435910062771358">La lupa de pantalla completa está habilitada.</translation>
+<translation id="8288199156259560552">Habilita el servicio de ubicación de Google para Android</translation>
 <translation id="8294750666104911727">Normalmente, las páginas con X-UA-Compatible establecido en chrome=1 se mostrarán en <ph name="PRODUCT_FRAME_NAME" />, independientemente de la política "ChromeFrameRendererSettings".
 
           Si habilitas esta opción, las páginas no se explorarán para buscar metaetiquetas.
@@ -2467,6 +2447,17 @@ desactivarlo).</translation>
       La forma recomendada de configurar una política en Windows es a través del GPO, aunque todavía se permite el aprovisionamiento de la política a través del registro para instancias de Windows que están unidas a un dominio de Active Directory.</translation>
 <translation id="8566842294717252664">Ocultar ícono de Web Store en la página Nueva pestaña y el Selector de aplicaciones</translation>
 <translation id="8587229956764455752">Permitir la creación de nuevas cuentas de usuario</translation>
+<translation id="8613640727149655305">Si esta política se establece como verdadera, se habilitará el servicio de ubicación de Google para Android. Por consiguiente, las apps de Android podrán usar sus datos para buscar la ubicación del dispositivo. Además, se podrán enviar a Google datos de ubicación anónimos.
+
+      Si la política se establece como falsa, se inhabilitará el servicio de ubicación de Google para Android.
+
+      Si se establece esta configuración, los usuarios no podrán cambiarla.
+
+      Si no se establece esta configuración, los usuarios podrán activar o desactivar el servicio de ubicación de Google en la app de Configuración de Android.
+
+      Se debe tener en cuenta que la política <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" /> puede anular el valor de esta política cuando la primera se establezca como <ph name="BLOCK_GEOLOCATION_SETTING" />.
+
+      Esta política solo se aplica a los usuarios que pueden ejecutar apps de Android.</translation>
 <translation id="8614804915612153606">Desactiva la actualización automática.</translation>
 <translation id="8631434304112909927">hasta la versión <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Para las apps de Android, esta política solo afecta el uso de la cámara incorporada. Cuando esta política se establece como verdadera, la cámara queda inhabilitada para todas las apps de Android, sin excepciones.</translation>

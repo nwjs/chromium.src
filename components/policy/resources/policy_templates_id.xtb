@@ -92,9 +92,6 @@
       Jika kebijakan tidak disetel, atau disetel ke False, maka cipher suite RC4 di TLS tidak akan diaktifkan. Jika kebijakan disetel ke True, kebijakan akan tetap berlaku untuk mempertahankan kompatibilitas dengan server yang sudah usang. Tindakan ini hanya untuk sementara dan server sebaiknya dikonfigurasi ulang.</translation>
 <translation id="1297182715641689552">Gunakan skrip proxy .pac</translation>
 <translation id="1304973015437969093">ID Ekstensi/Aplikasi dan URL pembaruan akan dipasang di latar belakang</translation>
-<translation id="1310333396104446007">Jika setelan dikonfigurasi ke false, pengguna tidak diperbolehkan menyetel PIN yang dianggap lemah. PIN tersebut termasuk PIN yang seluruhnya berisi digit yang sama, digitnya berurutan, digitnya berurutan terbalik, dan yang umum digunakan.
-
-          Jika setelan ini dikonfigurasi ke true, atau tidak dikonfigurasi, pengguna dapat memasukkan PIN tersebut dan hanya akan mendapatkan peringatan.</translation>
 <translation id="1313457536529613143">Menentukan persentase yang digunakan untuk menskalakan penundaan layar redup saat mengamati aktivitas pengguna selagi layar diredupkan atau tak lama setelah layar dimatikan.
 
           Jika kebijakan ini disetel, kebijakan ini menentukan persentase yang digunakan untuk menskalakan penundaan layar redup saat mengamati aktivitas pengguna selagi layar diredupkan atau tak lama setelah layar dimatikan. Saat penundaan redup diskalakan, penundaan status menganggur, layar kunci, layar mati juga disesuaikan agar jarak waktu dari penundaan layar redup sesuai konfigurasi asli.
@@ -534,13 +531,6 @@
 <translation id="2587719089023392205">Setel <ph name="PRODUCT_NAME" /> sebagai Browser Default</translation>
 <translation id="2592091433672667839">Durasi keadaan tidak aktif sebelum tirai layar ditampilkan di layar masuk dalam mode eceran</translation>
 <translation id="2623014935069176671">Tunggu aktivitas pengguna awal</translation>
-<translation id="2625512435194873786">Setelan ini mengontrol panjang PIN maksimum yang dapat disetel.
-
-          Jika setelan ini dikonfigurasi ke 0 atau lebih kecil, panjang maksimum tidak ditetapkan dan pengguna dapat menyetel panjang PIN sesuai keinginan.
-
-          Jika setelan ini lebih kecil dari PinUnlockMinimumLength tetapi lebih besar dari 0, panjang maksimumnya sama dengan panjang minimum.
-
-          Jika setelan ini tidak dikonfigurasi, panjang maksimum tidak ditetapkan dan pengguna dapat menyetel panjang PIN sesuai keinginan.</translation>
 <translation id="262740370354162807">Aktifkan penyerahan dokumen ke <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Aktifkan masukan lisan</translation>
 <translation id="2646290749315461919">Memungkinkan Anda mengatur apakah situs web diizinkan untuk melacak lokasi fisik pengguna. Melacak lokasi fisik pengguna dapat diizinkan secara default, ditolak secara default, atau pengguna dapat ditanya setiap kali sebuah situs web meminta lokasi fisik. Jika kebijakan ini dibiarkan tidak disetel, 'AskGeolocation' akan digunakan dan pengguna dapat mengubahnya.</translation>
@@ -2066,18 +2056,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
       Jika kebijakan ini tidak disetel, pembersihan otomatis menggunakan strategi yang tertanam secara default. Saat ini, itu adalah strategi 'RemoveLRUIfDormant'.</translation>
 <translation id="7336878834592315572">Menyimpan cookie selama durasi sesi</translation>
 <translation id="7340034977315324840">Laporkan waktu aktivitas perangkat</translation>
-<translation id="7340934985429121460">Setelan ini mengontrol panjang minimum PIN yang dapat disetel.
-
-          Jika setelan ini dikonfigurasi ke lebih kecil dari 1, panjang minimum PIN yang dapat disetel adalah 1.
-
-          Jika setelan ini tidak dikonfigurasi, panjang minimum PIN yang dapat disetel adalah 4.</translation>
 <translation id="7384999953864505698">Memungkinkan protokol QUIC</translation>
-<translation id="7406716912696538245">Mengontrol mode buka kunci cepat mana yang diizinkan untuk disetel dan digunakan.
-      Setelan ini membuat daftar putih untuk mode buka kunci cepat yang diizinkan yang dapat disiapkan dan digunakan untuk membuka layar kunci. Nilai tersebut adalah daftar string, setiap nilai harus berupa salah satu dari hal berikut: "semua", "PIN". Jika "semua" dipilih, semua mode cepat yang didukung akan tersedia. Jika tidak, mode dalam daftar akan menjadi mode yang tersedia.
-
-      Jika setelan ini dikonfigurasi, jenis mode buka kunci cepat yang tidak ada dalam daftar ini tidak dapat disiapkan atau digunakan.
-
-      Jika setelan tidak dikonfigurasi, mode "PIN" akan diaktifkan dan semua mode lainnya akan dinonaktifkan.</translation>
 <translation id="7417972229667085380">Persentase yang digunakan untuk menskalakan penundaan status menganggur dalam mode presentasi (tidak digunakan lagi)</translation>
 <translation id="7421483919690710988">Setel ukuran cache disk media dalam bita</translation>
 <translation id="7424751532654212117">Daftar pengecualian untuk daftar plugin yang dinonaktifkan</translation>
@@ -2397,6 +2376,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
       Diharapkan untuk menghapus penggantian ini di masa mendatang.</translation>
 <translation id="8285435910062771358">Lup layar penuh diaktifkan</translation>
+<translation id="8288199156259560552">Mengaktifkan Layanan Lokasi Google Android</translation>
 <translation id="8294750666104911727">Umumnya laman dengan X-UA-Compatible yang disetel ke chrome=1 akan dirender di <ph name="PRODUCT_FRAME_NAME" /> terlepas dari kebijakan 'ChromeFrameRendererSettings'.
 
           Jika Anda mengaktifkan setelan ini, meta tag laman tidak akan dipindai.
@@ -2487,6 +2467,17 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
       yang bergabung dalam domain Active Directory.</translation>
 <translation id="8566842294717252664">Menyembunyikan toko web dari Laman Tab Baru dan peluncur aplikasi</translation>
 <translation id="8587229956764455752">Mengizinkan pembuatan akun pengguna baru</translation>
+<translation id="8613640727149655305">Jika kebijakan ini disetel ke true, Layanan Lokasi Google Android akan diaktifkan. Fitur ini mengizinkan aplikasi Android menggunakan datanya guna menemukan lokasi perangkat, dan mengaktifkan pengiriman data lokasi anonim ke Google.
+
+      Jika kebijakan ini disetel ke false, Layanan Lokasi Google Android akan dinonaktifkan.
+
+      Jika setelan ini dikonfigurasi, pengguna tidak dapat mengubahnya.
+
+      Jika setelan ini tidak dikonfigurasi, pengguna dapat mengaktifkan/menonaktifkan Layanan Lokasi Google di aplikasi Setelan Android.
+
+      Perlu diketahui bahwa nilai kebijakan ini dapat diganti dengan kebijakan <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" />, jika yang terakhir disetel ke <ph name="BLOCK_GEOLOCATION_SETTING" />.
+
+      Kebijakan ini hanya berlaku untuk pengguna yang dapat menjalankan aplikasi Android.</translation>
 <translation id="8614804915612153606">Nonaktifkan Pembaruan Otomatis</translation>
 <translation id="8631434304112909927">sampai versi <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Untuk aplikasi Android, kebijakan ini hanya memengaruhi kamera bawaan. Jika kebijakan ini disetel ke true, kamera akan dinonaktifkan untuk semua aplikasi Android, tanpa pengecualian.</translation>

@@ -41,6 +41,7 @@
 <translation id="1938872420421548906">Shift + Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965">Спиране на предаването на „<ph name="TAB_NAME" />“ към „<ph name="RECEIVER_NAME" />“</translation>
 <translation id="2127372758936585790">Зарядно устройство с малка мощност</translation>
 <translation id="2204305834655267233">Информация за мрежата</translation>
 <translation id="2208323208084708176">Режим на обединен работен плот</translation>
@@ -252,8 +253,10 @@
 <translation id="8000066093800657092">Няма мрежа</translation>
 <translation id="8054466585765276473">Издръжливостта на батерията се изчислява.</translation>
 <translation id="8077816382010018681">Място за заглавието на известието за функцията за бързо отключване</translation>
+<translation id="8098591350844501178">Спиране на предаването на екрана към „<ph name="RECEIVER_NAME" />“</translation>
 <translation id="8103386449138765447">SMS съобщения: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">Установена е връзка с/ъс <ph name="NAME" /></translation>
+<translation id="8180896103888046100">Спиране на предаването към неизвестен приемник</translation>
 <translation id="8185286464235484130">Уведомете ни как се справяме, като отговорите на няколко въпроса.</translation>
 <translation id="8190698733819146287">Персонализиране на езиците и въвеждането...</translation>
 <translation id="8206859287963243715">Клетъчно</translation>

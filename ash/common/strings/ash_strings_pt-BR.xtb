@@ -41,6 +41,7 @@ Pressione Shift + Alt para alternar.</translation>
 <translation id="1938872420421548906">Shift+Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965">Parar de transmitir <ph name="TAB_NAME" /> para <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Carregador de baixa potência</translation>
 <translation id="2204305834655267233">Informações de rede</translation>
 <translation id="2208323208084708176">Modo de área de trabalho unificada.</translation>
@@ -251,8 +252,10 @@ Pressione Ctrl+Alt+Z para desativar.</translation>
 <translation id="8000066093800657092">Sem rede</translation>
 <translation id="8054466585765276473">Calculando duração da bateria.</translation>
 <translation id="8077816382010018681">Título da notificação do recurso QU aqui</translation>
+<translation id="8098591350844501178">Parar de transmitir tela para <ph name="RECEIVER_NAME" /></translation>
 <translation id="8103386449138765447">Mensagens SMS: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">Conectado à <ph name="NAME" /></translation>
+<translation id="8180896103888046100">Parar de transmitir para um destinatário desconhecido</translation>
 <translation id="8185286464235484130">Responda a algumas perguntas para que possamos saber como estamos nos saindo.</translation>
 <translation id="8190698733819146287">Personalizar idiomas e entrada...</translation>
 <translation id="8206859287963243715">Celular</translation>

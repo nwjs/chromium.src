@@ -41,6 +41,7 @@ Drücken Sie zum Wechseln Shift+Alt.</translation>
 <translation id="1938872420421548906">Shift + Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965">Streamen von <ph name="TAB_NAME" /> an <ph name="RECEIVER_NAME" /> beenden</translation>
 <translation id="2127372758936585790">Schwachstrom-Ladegerät</translation>
 <translation id="2204305834655267233">Netzwerkinformationen</translation>
 <translation id="2208323208084708176">Unified Desktop-Modus</translation>
@@ -252,8 +253,10 @@ Drücken Sie Alt+Suchen oder Shift, um die Aktivierung aufzuheben.</translation>
 <translation id="8000066093800657092">Nicht verbunden</translation>
 <translation id="8054466585765276473">Akku-Laufzeit wird berechnet.</translation>
 <translation id="8077816382010018681">Titel der Benachrichtigung für schnelles Entsperren hier einfügen</translation>
+<translation id="8098591350844501178">Streamen von Bildschirm an <ph name="RECEIVER_NAME" /> beenden</translation>
 <translation id="8103386449138765447">SMS: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">Verbunden mit <ph name="NAME" /></translation>
+<translation id="8180896103888046100">Streamen an unbekannten Empfänger beenden</translation>
 <translation id="8185286464235484130">Bitte geben Sie uns Feedback, indem Sie ein paar Fragen beantworten.</translation>
 <translation id="8190698733819146287">Sprache und Eingabe anpassen...</translation>
 <translation id="8206859287963243715">Mobil</translation>

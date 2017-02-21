@@ -40,6 +40,7 @@
 <translation id="1938872420421548906">Shift+Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965">Ukončit odesílání karty <ph name="TAB_NAME" /> do přijímače <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Nabíječka má příliš nízký výkon</translation>
 <translation id="2204305834655267233">Informace o síti</translation>
 <translation id="2208323208084708176">Jednotný režim klasické plochy</translation>
@@ -249,8 +250,10 @@ Vypnete jej stisknutím kombinace kláves Alt + Vyhledávání nebo Shift.</tran
 <translation id="8000066093800657092">Žádná síť</translation>
 <translation id="8054466585765276473">Výpočet doby výdrže baterie.</translation>
 <translation id="8077816382010018681">Sem patří nadpis oznámení funkce rychlého odemknutí</translation>
+<translation id="8098591350844501178">Ukončit odesílání obrazovky do přijímače <ph name="RECEIVER_NAME" /></translation>
 <translation id="8103386449138765447">Zprávy SMS: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">Připojeno k síti <ph name="NAME" /></translation>
+<translation id="8180896103888046100">Ukončit odesílání do neznámého přijímače</translation>
 <translation id="8185286464235484130">Odpovězte prosím na pár dotazů, abychom věděli, jak si vedeme.</translation>
 <translation id="8190698733819146287">Personalizovat jazyky a zadávání...</translation>
 <translation id="8206859287963243715">Mobil</translation>

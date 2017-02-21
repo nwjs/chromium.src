@@ -41,6 +41,7 @@ Appuyez sur Maj + Alt pour en utiliser un autre.</translation>
 <translation id="1938872420421548906">Maj+Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965">Arrêter de diffuser <ph name="TAB_NAME" /> sur "<ph name="RECEIVER_NAME" />"</translation>
 <translation id="2127372758936585790">Chargeur de faible puissance</translation>
 <translation id="2204305834655267233">Informations réseau</translation>
 <translation id="2208323208084708176">Mode bureau unifié</translation>
@@ -252,8 +253,10 @@ Appuyez sur Alt + Recherche ou Maj pour le désactiver.</translation>
 <translation id="8000066093800657092">Aucun réseau détecté</translation>
 <translation id="8054466585765276473">Calcul de l'autonomie de la batterie en cours…</translation>
 <translation id="8077816382010018681">QU Feature notification title here</translation>
+<translation id="8098591350844501178">Arrêter de diffuser l'écran sur "<ph name="RECEIVER_NAME" />"</translation>
 <translation id="8103386449138765447">Messages SMS : <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">Connecté à <ph name="NAME" /></translation>
+<translation id="8180896103888046100">Arrêter la diffusion sur un destinataire inconnu</translation>
 <translation id="8185286464235484130">Donnez-nous votre avis sur nos services en répondant à quelques questions.</translation>
 <translation id="8190698733819146287">Personnaliser les langues et la saisie...</translation>
 <translation id="8206859287963243715">Mobile</translation>

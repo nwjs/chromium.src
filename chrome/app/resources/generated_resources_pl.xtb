@@ -223,7 +223,7 @@
 <translation id="1303101771013849280">Plik HTML z zakładkami</translation>
 <translation id="1303319084542230573">Dodaj drukarkę</translation>
 <translation id="1303671224831497365">Nie znaleziono urządzeń Bluetooth</translation>
-<translation id="1307559529304613120">Ups. System nie może zapisać długoterminowego tokenu dostępu API dla tego urządzenia.</translation>
+<translation id="1307559529304613120">Ups. System nie może zapisać długoterminowego tokena dostępu API dla tego urządzenia.</translation>
 <translation id="1309006783626795715">Agresywna strategia zwalniania kart i pamięci podręcznej</translation>
 <translation id="1309804047705294744">Włącz stronę pobierania w stylu Material Design</translation>
 <translation id="1310751437842832374">Transliteracja (mausam → ନମସ୍ତେ)</translation>
@@ -389,7 +389,7 @@
 <translation id="1493263392339817010">Dostosuj czcionki...</translation>
 <translation id="1493492096534259649">Nie można użyć tego języka do sprawdzania pisowni</translation>
 <translation id="1493892686965953381">Czekam na <ph name="LOAD_STATE_PARAMETER" />...</translation>
-<translation id="1493963535825567047">Ups. Systemowi nie udało się zapisać tokenu DM na urządzeniu.</translation>
+<translation id="1493963535825567047">Ups. Systemowi nie udało się zapisać tokena DM na urządzeniu.</translation>
 <translation id="1495486559005647033">Inne dostępne urządzenia (<ph name="NUM_PRINTERS" />).</translation>
 <translation id="1497296278783728207">Piaskownica Seccomp-BPF obsługuje TSYNC</translation>
 <translation id="1497522201463361063">Nie można zmienić nazwy pliku „<ph name="FILE_NAME" />”. <ph name="ERROR_MESSAGE" /></translation>
@@ -542,7 +542,7 @@
 <translation id="1650709179466243265">Dodaj www. i .com, po czym otwórz adres</translation>
 <translation id="1652965563555864525">&amp;Wycisz</translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Dodaj drukarkę do Google Cloud Print, by móc drukować z dowolnego miejsca.}few{Dodaj # drukarki do Google Cloud Print, by móc drukować z dowolnego miejsca.}many{Dodaj # drukarek do Google Cloud Print, by móc drukować z dowolnego miejsca.}other{Dodaj # drukarki do Google Cloud Print, by móc drukować z dowolnego miejsca.}}</translation>
-<translation id="1657406563541664238">Pomóż ulepszyć <ph name="PRODUCT_NAME" /> przesyłając statystyki użytkowania i raporty o awariach do Google</translation>
+<translation id="1657406563541664238">Pomóż ulepszyć <ph name="PRODUCT_NAME" />, przesyłając do Google statystyki użytkowania i raporty o awariach</translation>
 <translation id="1658424621194652532">Ta strona ma dostęp do mikrofonu.</translation>
 <translation id="1661245713600520330">Na tej stronie wyświetlane są wszystkie moduły załadowane do procesu głównego oraz moduły zarejestrowane do późniejszego załadowania.</translation>
 <translation id="166179487779922818">Hasło jest zbyt krótkie.</translation>
@@ -2321,7 +2321,7 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="3893630138897523026">ChromeVox (potwierdzenia głosowe)</translation>
 <translation id="389589731200570180">Udostępnij gościom</translation>
 <translation id="3897092660631435901">Menu</translation>
-<translation id="3898521660513055167">Stan tokenu</translation>
+<translation id="3898521660513055167">Stan tokena</translation>
 <translation id="3899879303189199559">Offline od ponad roku</translation>
 <translation id="3899968422636198696"><ph name="ORGNAME" />, <ph name="HOSTNAME" /></translation>
 <translation id="3901991538546252627">Łączę z: <ph name="NAME" /></translation>
@@ -3921,7 +3921,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="6071181508177083058">potwierdź hasło</translation>
 <translation id="6073903501322152803">Dodaj ułatwienia dostępu</translation>
 <translation id="6074825444536523002">Formularz Google</translation>
-<translation id="6075731018162044558">Ups. System nie może uzyskać długoterminowego tokenu dostępu API dla tego urządzenia.</translation>
+<translation id="6075731018162044558">Ups. System nie może uzyskać długoterminowego tokena dostępu API dla tego urządzenia.</translation>
 <translation id="6075907793831890935">Wymiana danych z urządzeniem o nazwie <ph name="HOSTNAME" /></translation>
 <translation id="6076448957780543068">Dołącz ten zrzut ekranu</translation>
 <translation id="6080100832288487452">Pisanie gestami na klawiaturze wirtualnej.</translation>
@@ -4930,7 +4930,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="7455133967321480974">Użyj globalnej wartości domyślnej (Blokuj)</translation>
 <translation id="7456142309650173560">deweloperska</translation>
 <translation id="7456847797759667638">Otwórz lokalizację...</translation>
-<translation id="7457232995997878302">Dopasuj podpowiedzi autouzupełniania na podstawie podłańcuchów (przedrostków tokenu), a nie samych przedrostków.</translation>
+<translation id="7457232995997878302">Dopasuj podpowiedzi autouzupełniania na podstawie podłańcuchów (przedrostków tokena), a nie samych przedrostków.</translation>
 <translation id="7460898608667578234">Ukraiński</translation>
 <translation id="7461924472993315131">Przypnij</translation>
 <translation id="7463006580194749499">Dodaj osobę</translation>
@@ -6088,7 +6088,7 @@ Kolejne powiadomienia, okna i okna dialogowe mogą być dzielone między pulpita
 <translation id="8982248110486356984">Przełącz użytkownika</translation>
 <translation id="8986267729801483565">Zapisuj pobrane pliki w:</translation>
 <translation id="8986362086234534611">Zapomnij</translation>
-<translation id="8986494364107987395">Automatycznie przesyłaj statystyki użytkowania i raporty o awariach do Google</translation>
+<translation id="8986494364107987395">Automatycznie przesyłaj do Google statystyki użytkowania i raporty o awariach</translation>
 <translation id="8987927404178983737">Miesiąc</translation>
 <translation id="899403249577094719">Podstawowy adres URL certyfikatu firmy Netscape</translation>
 <translation id="8994845581478641365">Kreator pamięci podręcznej czcionek DirectWrite</translation>

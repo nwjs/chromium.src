@@ -2374,6 +2374,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3952219531609536133">Някои уеб страници използват наследени или нестандартни разширения с JavaScript, които може да са несъвместими с най-новите функции на JavaScript. Този флаг позволява да се деактивира поддръжката на тези функции с цел съвместимост с такива страници.</translation>
 <translation id="3954354850384043518">В ход</translation>
 <translation id="3954582159466790312">Със &amp;звук</translation>
+<translation id="3955193568934677022">Разрешаване на сайтовете да възпроизвеждат защитено съдържание (препоръчително)</translation>
 <translation id="3958088479270651626">Импортиране на отметки и настройки</translation>
 <translation id="3959660191855946280">Добавяне или премахване на принтери</translation>
 <translation id="3960566196862329469">ONC</translation>

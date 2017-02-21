@@ -255,7 +255,7 @@
 <translation id="1343517687228689568">Anulați fixarea acestei pagini pe ecranul de pornire...</translation>
 <translation id="1346748346194534595">Dreapta</translation>
 <translation id="1348500571932807753">Tradu limba în funcție de profilul ULP</translation>
-<translation id="1351692861129622852">Se importă <ph name="FILE_COUNT" /> (de) fișiere...</translation>
+<translation id="1351692861129622852">Se importă <ph name="FILE_COUNT" /> fișiere...</translation>
 <translation id="1352103415082130575">Tastatură thailandeză (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
 <translation id="1353966721814789986">Pagini de pornire</translation>
@@ -1071,7 +1071,7 @@ După ce creezi un utilizator monitorizat, poți gestiona setările oricând și
 <translation id="2367972762794486313">Afișați aplicații</translation>
 <translation id="2371076942591664043">Deschide când s-a &amp;descărcat</translation>
 <translation id="2372036074421194686">Chrome a găsit un program nedorit (<ph name="UWS_NAME" />) instalat pe computerul tău. Este posibil să îl elimini folosind Chrome Cleanup Tool.</translation>
-<translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> (de) fișiere selectate</translation>
+<translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> fișiere selectate</translation>
 <translation id="2378982052244864789">Selectează directorul extensiei.</translation>
 <translation id="2379281330731083556">Printați utilizând caseta de dialog a sistemului... <ph name="SHORTCUT_KEY" /></translation>
 <translation id="2381756643783702095">Solicită permisiunea înainte de trimitere (recomandat)</translation>
@@ -1960,7 +1960,7 @@ De la <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="344630545793878684">Citește datele de pe un număr de site-uri</translation>
 <translation id="3449839693241009168">Apasă pe <ph name="SEARCH_KEY" /> pentru a trimite comenzi la <ph name="EXTENSION_NAME" /></translation>
 <translation id="3450157232394774192">Procentaj de ocupare în starea inactivă</translation>
-<translation id="3450505713373650336">Se face backup pentru <ph name="FILE_COUNT" /> (de) fotografii</translation>
+<translation id="3450505713373650336">Se face backup pentru <ph name="FILE_COUNT" /> fotografii</translation>
 <translation id="3451859089869683931">Numărul de telefon nu este valid. Verificați-l și încercați din nou.</translation>
 <translation id="3453612417627951340">Necesită autorizare</translation>
 <translation id="3454157711543303649">Activarea a fost finalizată</translation>
@@ -1976,7 +1976,7 @@ De la <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3465566417615315331">Dă clic pe fotografia ta</translation>
 <translation id="3466147780910026086">Se scanează dispozitivul media...</translation>
 <translation id="3467267818798281173">Solicitați sugestii de la Google</translation>
-<translation id="3468522857997926824"><ph name="FILE_COUNT" /> (de) fotografii cu backup pe <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" /></translation>
+<translation id="3468522857997926824"><ph name="FILE_COUNT" /> fotografii cu backup pe <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" /></translation>
 <translation id="3468745736289470383">Permite accesul la ecran</translation>
 <translation id="3470442499439619530">Eliminați acest utilizator</translation>
 <translation id="3470502288861289375">Se copiază...</translation>
@@ -2124,7 +2124,7 @@ De la <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3640006360782160348">Anulează configurarea imprimantei</translation>
 <translation id="3640214691812501263">Adaugi „<ph name="EXTENSION_NAME" />” pentru <ph name="USER_NAME" />?</translation>
 <translation id="3643210514497458508">„Preluarea în avans fără stare” descarcă în avans resurse pentru a îmbunătăți duratele de încărcare. „Programul de redare în avans” redă în avans pagina completă pentru a îmbunătăți și mai mult duratele de încărcare. „Încărcarea simplă” nu face nimic și este similară cu dezactivarea acestei funcții, dar culege mai multe valori cu scopul de a le compara.</translation>
-<translation id="3643454140968246241">Se sincronizează <ph name="COUNT" /> (de) fișiere...</translation>
+<translation id="3643454140968246241">Se sincronizează <ph name="COUNT" /> fișiere...</translation>
 <translation id="3644896802912593514">Lățime</translation>
 <translation id="3646789916214779970">Resetează la tema prestabilită</translation>
 <translation id="3647563953638326454">Importul în cloud</translation>
@@ -2378,6 +2378,7 @@ De la <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3952219531609536133">Anumite pagini web folosesc extensii JavaScript vechi sau non-standard care pot intra în conflict cu cele mai recente funcții JavaScript. Pentru compatibilitatea cu astfel de pagini, acest semnalizator permite dezactivarea acceptării acelor funcții.</translation>
 <translation id="3954354850384043518">În desfășurare</translation>
 <translation id="3954582159466790312">Activează su&amp;netul</translation>
+<translation id="3955193568934677022">Permite site-urilor să redea conținutul protejat (recomandat)</translation>
 <translation id="3958088479270651626">Importați marcaje și setări</translation>
 <translation id="3959660191855946280">Adaugă sau elimină imprimante</translation>
 <translation id="3960566196862329469">ONC</translation>
@@ -2888,7 +2889,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="4722920479021006856">Aplicația <ph name="APP_NAME" /> are acces la ecran.</translation>
 <translation id="472349245089439925">Plata</translation>
 <translation id="4724450788351008910">Afilierea a fost schimbată</translation>
-<translation id="4724850507808590449">S-a făcut backup pentru <ph name="FILE_COUNT" /> (de) fotografii</translation>
+<translation id="4724850507808590449">S-a făcut backup pentru <ph name="FILE_COUNT" /> fotografii</translation>
 <translation id="4726710629007580002">Au existat avertismente la încercarea de instalare a acestei extensii:</translation>
 <translation id="4728558894243024398">Platformă</translation>
 <translation id="4731351517694976331">Permiteți serviciilor Google să vă acceseze locația</translation>
@@ -2930,7 +2931,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="4780374166989101364">Activează API-uri cu extensii experimentale. Reține că galeria de extensii nu îți permite să încarci extensii care utilizează API-uri experimentale.</translation>
 <translation id="4781787911582943401">Mărește ecranul</translation>
 <translation id="4784330909746505604">Prezentare PowerPoint</translation>
-<translation id="4785040501822872973">Acest computer se va reseta în <ph name="LOGOUT_TIME_LEFT" /> (de) secunde.
+<translation id="4785040501822872973">Acest computer se va reseta în <ph name="LOGOUT_TIME_LEFT" /> secunde.
 Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="4790972063719531840">Trimite automat la Google date de diagnosticare și de utilizare</translation>
 <translation id="4791148004876134991">Modifică comportamentul Cmd+` când o aplicație Chrome devine activă. Când este activat, aplicațiile Chrome nu vor fi focalizate când se apasă Cmd+` dintr-o fereastră de browser, iar ferestrele de browser nu vor fi focalizate când este activă o aplicație Chrome.</translation>
@@ -2977,7 +2978,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="4839122884004914586">Suprascrie lista de redare software</translation>
 <translation id="4839303808932127586">Sal&amp;vează videoclipul ca...</translation>
 <translation id="4839550772477464452">Funcții de securitate care pot fi deranjante</translation>
-<translation id="4839847978919684242"><ph name="SELCTED_FILES_COUNT" /> (de) elemente selectate</translation>
+<translation id="4839847978919684242"><ph name="SELCTED_FILES_COUNT" /> elemente selectate</translation>
 <translation id="4842976633412754305">Pagina încearcă să încarce scripturi din surse neautentificate.</translation>
 <translation id="4844333629810439236">Alte tastaturi</translation>
 <translation id="4846680374085650406">Urmați recomandarea administratorului pentru această setare.</translation>
@@ -4689,7 +4690,7 @@ Folosește funcția numai pentru conturile în care ai încredere.</translation>
 <translation id="7096082900368329802">Doriți să descoperiți mai multe funcții extraordinare?</translation>
 <translation id="7096108453481049031">Utilizatorul monitorizat nu a putut fi importat. Verifică conexiunea la rețea și încearcă din nou mai târziu.</translation>
 <translation id="7096300814046272886">Dezactivează decodarea video când videoclipul este redat în fundal pentru a optimiza performanța.</translation>
-<translation id="7100897339030255923"><ph name="COUNT" /> (de) elemente selectate</translation>
+<translation id="7100897339030255923"><ph name="COUNT" /> elemente selectate</translation>
 <translation id="710227449793100220">Token Binding.</translation>
 <translation id="7105578512429498960">Instalează pluginul <ph name="PLUGIN_NAME" /> ca să afișezi acest conținut</translation>
 <translation id="7106346894903675391">Cumpărați mai mult spațiu de stocare...</translation>
@@ -4893,7 +4894,7 @@ Folosește funcția numai pentru conturile în care ai încredere.</translation>
 <translation id="7389722738210761877">Tastatură thailandeză (TIS 820-2531)</translation>
 <translation id="7392118418926456391">Scanarea antivirus nu a reușit</translation>
 <translation id="7392915005464253525">R&amp;edeschide fereastra închisă</translation>
-<translation id="7393449708074241536">Astfel, vor fi șterse definitiv <ph name="TOTAL_COUNT" /> (de) elemente de pe acest dispozitiv.</translation>
+<translation id="7393449708074241536">Astfel, vor fi șterse definitiv <ph name="TOTAL_COUNT" /> elemente de pe acest dispozitiv.</translation>
 <translation id="7396845648024431313"><ph name="APP_NAME" /> se va lansa la pornirea sistemului și va continua să ruleze în fundal, chiar după ce ai închis toate celelalte ferestre ale <ph name="PRODUCT_NAME" />.</translation>
 <translation id="7400418766976504921">Adresă URL</translation>
 <translation id="740083207982962331">Așteaptă până când Chromebox repornește...</translation>
@@ -5553,7 +5554,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8261490674758214762">Acestea pot să:</translation>
 <translation id="8261506727792406068">Șterge</translation>
 <translation id="8261580862248730866">Excepții pentru microfon</translation>
-<translation id="8261673729476082470">Se face backup pentru <ph name="FILE_COUNT" /> (de) fotografii pe <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" /></translation>
+<translation id="8261673729476082470">Se face backup pentru <ph name="FILE_COUNT" /> fotografii pe <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" /></translation>
 <translation id="8263231521757761563">Handlere active pentru protocoale</translation>
 <translation id="8263744495942430914"><ph name="FULLSCREEN_ORIGIN" /> a dezactivat cursorul mouse-ului.</translation>
 <translation id="8264718194193514834">„<ph name="EXTENSION_NAME" />” a activat modul Ecran complet.</translation>
@@ -5777,7 +5778,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8572981282494768930">Nu permite site-urilor să acceseze camera și microfonul</translation>
 <translation id="8574234089711453001">Permite afișarea unui buton de descărcare când deschizi o pagină cu o adresă URL media.</translation>
 <translation id="857779305329188634">Activați compatibilitatea cu protocolul experimental QUIC.</translation>
-<translation id="8579285237314169903">Se sincronizează <ph name="NUMBER_OF_FILES" /> (de) elemente...</translation>
+<translation id="8579285237314169903">Se sincronizează <ph name="NUMBER_OF_FILES" /> elemente...</translation>
 <translation id="857943718398505171">Acordată (recomandat)</translation>
 <translation id="8581690024797204327">256</translation>
 <translation id="8581809080475256101">Apasă pentru a naviga înainte sau folosește meniul contextual pentru a vedea istoricul</translation>

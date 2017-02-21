@@ -93,9 +93,6 @@ Contoh komponen seperti itu termasuk senarai pembatalan sijil dan data semakan i
       Jika dasar ini tidak ditetapkan atau ditetapkan kepada palsu, maka suit sifer RC4 dalam TLS tidak akan didayakan. Jika tidak, dasar mungkin ditetapkan kepada benar untuk mengekalkan keserasian dengan pelayan yang sudah lapuk. Ini adalah langkah sementara dan pelayan harus dikonfigurasi semula.</translation>
 <translation id="1297182715641689552">Gunakan skrip proksi .pac</translation>
 <translation id="1304973015437969093">ID Sambungan/Apl dan URL kemas kini untuk dipasang secara senyap</translation>
-<translation id="1310333396104446007">Jika tetapan ini dikonfigurasikan sebagai palsu, pengguna akan dihalang daripada menetapkan PIN yang dianggap lemah. PIN sedemikian termasuk PIN yang mengandungi semua nombor yang sama, PIN dengan nombor yang ditokok 1, PIN dengan nombor yang ditolak 1 dan PIN yang terlalu biasa.
-
-          Jika tetapan ini dikonfigurasikan sebagai benar atau tidak dikonfigurasikan, pengguna boleh memasukkan PIN ini dan hanya akan menerima paparan amaran.</translation>
 <translation id="1313457536529613143">Menentukan peratusan yang akan digunakan untuk menskala kelewatan pemalapan skrin apabila aktiviti pengguna diperhatikan semasa skrin dimalapkan atau tidak lama selepas skrin telah dimatikan. 
 
           Jika dasar ini ditetapkan, dasar ini menetapkan peratusan yang akan menskalakan kelewatan pemalapan skrin apabila aktiviti pengguna diperhatikan semasa skrin dimalapkan atau tidak lama selepas skrin telah dimatikan. Apabila kelewatan pemalapan diskalakan, kelewatan matikan skrin, kunci skrin dan melahu akan dilaraskan untuk mengekalkan jarak yang sama dari kelewatan pemalapan skrin seperti konfigurasi asal.
@@ -565,13 +562,6 @@ Contoh komponen seperti itu termasuk senarai pembatalan sijil dan data semakan i
 <translation id="2587719089023392205">Tetapkan <ph name="PRODUCT_NAME" /> sebagai Penyemak Imbas Lalai</translation>
 <translation id="2592091433672667839">Tempoh tidak aktif sebelum penyelamat skrin dipaparkan pada skrin log masuk dalam mod runcit</translation>
 <translation id="2623014935069176671">Tunggu aktiviti pengguna awal</translation>
-<translation id="2625512435194873786">Tetapan ini mengawal had panjang maksimum PIN.
-
-          Jika tetapan ini dikonfigurasikan kepada 0 ke bawah, maka tiada had panjang maksimum ditetapkan dan pengguna boleh menetapkan panjang PIN pilihan mereka.
-
-          Jika tetapan ini kurang daripada PinUnlockMinimumLength tetapi lebih besar daripada 0, panjang maksimum adalah sama dengan panjang minimum.
-
-          Jika tetapan ini tidak dikonfigurasikan, maka tiada had panjang maksimum ditetapkan dan pengguna boleh menetapkan panjang PIN pilihan mereka.</translation>
 <translation id="262740370354162807">Dayakan penyerahan dokumen pada <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Dayakan maklum balas yang dituturkan</translation>
 <translation id="2646290749315461919">Membenarkan anda menetapkan sama ada tapak web dibenarkan untuk mengesan lokasi fizikal pengguna. Penjejakan lokasi fizikal pengguna boleh dibenarkan secara lalai, dinafikan secara lalai atau pengguna boleh ditanya setiap kali tapak web meminta lokasi fizikal. Jika dasar ini tidak ditetapkan, 'AskGeolocation' akan digunakan dan pengguna akan dapat mengubah.</translation>
@@ -2204,18 +2194,7 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
       Jika dasar ini tidak ditetapkan, pembersihan autimatik menggunakan strategi terbina dalam lalai. Pada masa ini, itu adalah strategi 'RemoveLRUIfDormant'.</translation>
 <translation id="7336878834592315572">Simpan kuki sepanjang tempoh sesi</translation>
 <translation id="7340034977315324840">Laporkan masa aktiviti peranti</translation>
-<translation id="7340934985429121460">Tetapan ini mengawal had panjang minimum PIN.
-
-          Jika tetapan ini dikonfigurasikan kepada kurang daripada 1, maka had panjang minumum PIN ialah 1.
-
-          Jika tetapan ini tidak dikonfigurasikan, had panjang minimum PIN ialah 4.</translation>
 <translation id="7384999953864505698">Membenarkan protokol QUIC</translation>
-<translation id="7406716912696538245">Mengawal mod buka kunci pantas yang dibenarkan untuk disediakan dan digunakan.
-      Tetapan ini menyenaraiputihkan mod buka kunci pantas yang dibenarkan. Mod ini boleh disediakan dan digunakan untuk membuka kunci skrin. Nilainya ialah senarai rentetan, setiap satunya hendaklah terdiri daripada satu nilai berikut: "semua", "PIN". Jika "semua" dipilih, maka semua mod pantas yang disokong akan tersedia, jika tidak, mod yang terdapat dalam senarai akan tersedia.
-
-      Jika tetapan ini dikonfigurasikan, mod buka kunci pantas yang mempunyai jenis yang tiada dalam senarai ini tidak boleh disediakan atau digunakan.
-
-      Jika tetapan ini dibiarkan tanpa dikonfigurasikan, mod "PIN" akan didayakan dan semua mod lain akan dilumpuhkan.</translation>
 <translation id="7417972229667085380">Peratusan yang digunakan untuk skala kelewatan melahu dalam mod penyampaian (tidak akan digunakan lagi)</translation>
 <translation id="7421483919690710988">Tetapkan saiz cache cakera media dalam bait</translation>
 <translation id="7424751532654212117">Senarai pengecualian kepada senarai pemalam dilumpuhkan</translation>
@@ -2560,6 +2539,7 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
 
      Hasrat kami adalah untuk mengalih keluar pembatalan ini pada masa hadapan.</translation>
 <translation id="8285435910062771358">Penggadang skrin penuh didayakan</translation>
+<translation id="8288199156259560552">Dayakan Perkhidmatan Lokasi Google Android</translation>
 <translation id="8294750666104911727">Biasanya, halaman dengan X-UA-Compatible ditetapkan kepada chrome=1 akan dipaparkan dalam <ph name="PRODUCT_FRAME_NAME" /> tanpa mengambil kira dasar 'ChromeFrameRendererSettings'.
 
           Jika anda mendayakan tetapan ini, halaman tidak akan diimbas untuk mengesan teg meta.
@@ -2650,6 +2630,17 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
       Windows yang bersambung kepada domain Direktori Aktif.</translation>
 <translation id="8566842294717252664">Sembunyikan gedung web daripada Halaman Tab Baharu dan pelancar apl</translation>
 <translation id="8587229956764455752">Benarkan ciptaan akaun pengguna baharu</translation>
+<translation id="8613640727149655305">Apabila dasar ini ditetapkan kepada benar, Perkhidmatan Lokasi Google Android didayakan. Tetapan ini membolehkan apl Android menggunakan data untuk mencari lokasi peranti dan juga akan mendayakan penyerahan data lokasi awanama kepada Google.
+
+      Apabila dasar ini ditetapkan kepada palsu, Perkhidmatan Lokasi Google Android akan dimatikan.
+
+      Jika tetapan ini dikonfigurasikan, maka pengguna tidak dapat menukar sendiri tetapan ini.
+
+      Jika tetapan ini tidak dikonfigurasikan, maka pengguna dapat menghidupkan atau mematikan Lokasi Perkhidmatan Google dalam apl Tetapan Android.
+
+      Sila ambil perhatian bahawa nilai dasar ini mungkin diatasi oleh dasar <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" />, apabila dasar yang disebut kemudian itu ditetapkan kepada <ph name="BLOCK_GEOLOCATION_SETTING" />.
+
+      Dasar ini hanya terpakai kepada pengguna yang dapat menjalankan apl Android.</translation>
 <translation id="8614804915612153606">Lumpuhkan Kemas Kini Auto</translation>
 <translation id="8631434304112909927">sehingga versi <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Untuk apl Android, dasar ini memberi kesan terhadap kamera terbina dalam sahaja. Apabila dasar ini ditetapkan kepada benar, kamera dilumpuhkan untuk semua apl Android tanpa pengecualian.</translation>

@@ -81,9 +81,6 @@ Není-li tato zásada nastavena, výchozí frekvence je 3 hodiny. Minimální po
       Pokud tato zásada není nastavena nebo je nastavena na hodnotu false, v protokolu TLS nebudou povoleny šifrovací sady RC4. Nastavením této zásady na hodnotu true je možné zajistit kompatibilitu se zastaralým serverem. Toto nastavení by však mělo být použito pouze jako dočasné nouzové opatření a server by měl být překonfigurován.</translation>
 <translation id="1297182715641689552">Použít skript proxy serveru ve formátu PAC</translation>
 <translation id="1304973015437969093">ID aplikací/rozšíření a adresy URL aktualizací, které se mají nainstalovat na pozadí</translation>
-<translation id="1310333396104446007">Pokud je toto nastavení nakonfigurováno na hodnotu false, uživatelé nebudou moci nastavit kódy PIN, které jsou považovány za slabé. Mezi takové kódy PIN patří kódy tvořené pouze jednou opakující se číslicí nebo vzestupnou či sestupnou řadou číslic a kódy, které jsou příliš běžné.
-
-          Pokud je toto nastavení nakonfigurováno na hodnotu true nebo není nakonfigurováno, uživatelé takové kódy PIN mohou zadat. Zobrazí se jim pouze upozornění.</translation>
 <translation id="1313457536529613143">Určuje, o kolik procent bude prodloužena prodleva ztmavení obrazovky, když je v případě ztmavené obrazovky nebo záhy po vypnutí obrazovky zaznamenána aktivita uživatele.
 
 Pokud je tato zásada nastavena, udává procento, o které bude prodloužena prodleva ztmavení obrazovky, když je v případě ztmavené obrazovky nebo záhy po vypnutí obrazovky zaznamenána aktivita uživatele. Při prodloužení prodlevy ztmavení budou prodlouženy i prodlevy vypnutí, uzamčení obrazovky a nečinnosti tak, aby mezi nimi a prodlevou ztmavení zůstala stejná doba.
@@ -520,13 +517,6 @@ Z prohlížeče <ph name="PRODUCT_NAME" /> verze 29 a novějších verzí bylo t
 <translation id="2587719089023392205">Nastavit <ph name="PRODUCT_NAME" /> jako výchozí prohlížeč</translation>
 <translation id="2592091433672667839">Doba nečinnosti před zobrazením spořiče obrazovky na přihlašovací obrazovce v režimu prodeje</translation>
 <translation id="2623014935069176671">Počkat na první aktivitu uživatele</translation>
-<translation id="2625512435194873786">Toto nastavení udává maximální dovolenou délku kódu PIN.
-
-          Pokud je toto nastavení nakonfigurováno na hodnotu 0 nebo menší, maximální délka není stanovena a uživatel může nastavit libovolně dlouhý PIN.
-
-          Pokud je toto nastavení menší než PinUnlockMinimumLength, ale větší než 0, maximální délka je stejná jako minimální délka.
-
-          Pokud toto nastavení není nakonfigurováno, maximální délka není stanovena a uživatel může nastavit libovolně dlouhý PIN.</translation>
 <translation id="262740370354162807">Povolí odesílání dokumentů do služby <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Aktivovat hlasovou odezvu</translation>
 <translation id="2646290749315461919">Umožňuje nastavit, zda mohou webové stránky sledovat fyzickou polohu uživatele. Sledování fyzické polohy uživatelů lze nakonfigurovat tak, že bude ve výchozím nastavení povoleno nebo zakázáno. Také lze nastavit, že se při každém pokusu webových stránek o sledování fyzické polohy uživateli zobrazí výzva.
@@ -2093,18 +2083,7 @@ Pokud nezadáte žádné nastavení, ověření protokolu <ph name="HTTP_NEGOTIA
       Pokud tato zásada nastavena není, bude při automatickém čištění použita výchozí integrovaná strategie. Aktuálně je to strategie RemoveLRUIfDormant.</translation>
 <translation id="7336878834592315572">Uchovat soubory cookie po dobu trvání relace</translation>
 <translation id="7340034977315324840">Hlásit časy aktivity zařízení</translation>
-<translation id="7340934985429121460">Toto nastavení udává minimální dovolenou délku kódu PIN.
-
-          Pokud je toto nastavení nakonfigurováno na hodnotu menší než 1, PIN musí mít alespoň jeden znak.
-
-          Pokud toto nastavení není nakonfigurováno, PIN musí mít alespoň čtyři znaky.</translation>
 <translation id="7384999953864505698">Povoluje protokol QUIC</translation>
-<translation id="7406716912696538245">Udává, které režimy rychlého odemknutí je povoleno nastavit a používat.
-          Toto nastavení vytvoří seznam povolených režimů rychlého odemknutí, které lze nastavit a používat k odemykání obrazovky uzamčení. Hodnota představuje seznam řetězců. Musí se jednat o řetězce z následujícího výčtu: „all“ a „PIN“. Je-li vybrána možnost „all“, budou k dispozici všechny podporované rychlé režimy. Jinak budou k dispozici pouze režimy uvedené v seznamu.
-
-          Je-li toto nastavení nakonfigurováno, nelze nastavit ani použít režimy rychlého odemknutí, jejichž typ není uveden v tomto seznamu.
-
-          Je-li toto nastavení ponecháno nenakonfigurované, bude povolen režim „PIN“ a všechny ostatní režimy budou zakázány.</translation>
 <translation id="7417972229667085380">Procento prodloužení prodlevy režimu nečinnosti v režimu prezentace (podpora ukončena)</translation>
 <translation id="7421483919690710988">Nastavit velikost diskové mezipaměti médií v bajtech</translation>
 <translation id="7424751532654212117">Seznam výjimek ze seznamu deaktivovaných pluginů</translation>
@@ -2433,6 +2412,7 @@ Tato zásada je určena k internímu použití prohlížečem <ph name="PRODUCT_
 
       Do budoucna bychom možnost vypnutí této bezpečnostní funkce rádi odstranili.</translation>
 <translation id="8285435910062771358">Aktivace lupy pro celou obrazovku</translation>
+<translation id="8288199156259560552">Zapnout službu určování polohy Google systému Android</translation>
 <translation id="8294750666104911727">Stránky s vlastností X-UA-Compatible nastavenou na hodnotu chrome=1 budou v běžném provozu vykresleny ve službě <ph name="PRODUCT_FRAME_NAME" /> bez ohledu na zásadu ChromeFrameRendererSettings.
 
          Pokud toto nastavení aktivujete, na stránkách nebudou hledány metaznačky.
@@ -2511,6 +2491,17 @@ Tato nastavení není potřeba konfigurovat ručně. Na adrese <ph name="POLICY_
 Doporučený způsob nastavení zásad ve Windows je prostřednictvím objektu zásad skupiny (GPO). V instancích Windows připojených k doméně Active Directory je však stále podporováno spravování zásad prostřednictvím registrů.</translation>
 <translation id="8566842294717252664">Skrýt internetový obchod z karty Nová stránka a ze spouštěče aplikací</translation>
 <translation id="8587229956764455752">Povolit vytváření nových uživatelských účtů</translation>
+<translation id="8613640727149655305">Pokud je tato zásada nastavena na hodnotu true, je zapnuta služba určování polohy Google systému Android. Aplikace Android tak budou moci používat svá data k vyhledání polohy zařízení a také bude možné odesílat anonymní údaje o poloze do Googlu.
+
+      Pokud je tato zásada nastavena na hodnotu false, služba určování polohy Google systému Android bude vypnuta.
+
+      Pokud je toto nastavení nakonfigurováno, uživatelé ho sami nemohou změnit.
+
+      Pokud toto nastavení není nakonfigurováno, uživatelé službu určování polohy Google mohou zapnout nebo vypnout v aplikaci Nastavení Android.
+
+      Hodnota této zásahy může být přepsána zásadou <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" /> (pokud je nastavena na hodnotu <ph name="BLOCK_GEOLOCATION_SETTING" />).
+
+      Tato zásada má vliv pouze na uživatele, kteří mohou spouštět aplikace pro Android.</translation>
 <translation id="8614804915612153606">Zakáže automatické aktualizace</translation>
 <translation id="8631434304112909927">naposledy ve verzi <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">U aplikací Android má tato zásada vliv pouze na vestavěný fotoaparát. Když je tato zásada nastavena na hodnotu True, je fotoaparát pro všechny aplikace Android bez výjimky zakázán.</translation>

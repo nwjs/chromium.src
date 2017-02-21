@@ -41,6 +41,7 @@ Tryk på Shift+Alt for at ændre den.</translation>
 <translation id="1938872420421548906">Shift+Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965">Stop med at caste <ph name="TAB_NAME" /> til <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Oplader ved lav kraft</translation>
 <translation id="2204305834655267233">Netværksoplysninger</translation>
 <translation id="2208323208084708176">Samlet skrivebordstilstand</translation>
@@ -252,8 +253,10 @@ Tryk på Alt+Søg eller Shift for at annullere.</translation>
 <translation id="8000066093800657092">Intet netværk</translation>
 <translation id="8054466585765276473">Beregner batteritid.</translation>
 <translation id="8077816382010018681">Underretningstitlen for QU-funktionen angives her</translation>
+<translation id="8098591350844501178">Stop med at caste skærmen til <ph name="RECEIVER_NAME" /></translation>
 <translation id="8103386449138765447">sms-beskeder: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">Forbundet til <ph name="NAME" /></translation>
+<translation id="8180896103888046100">Stop med at caste til en ukendt modtager</translation>
 <translation id="8185286464235484130">Fortæl os, hvordan vi klarer os, ved at svare på et par spørgsmål.</translation>
 <translation id="8190698733819146287">Tilpas sprog og indtastning...</translation>
 <translation id="8206859287963243715">Mobil</translation>

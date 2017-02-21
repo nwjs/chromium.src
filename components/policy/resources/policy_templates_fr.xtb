@@ -93,9 +93,6 @@
       Si cette règle n'est pas configurée, ou si elle est définie sur "False", les suites de chiffrement RC4 dans TLS ne seront pas activées. La règle peut être définie sur "True" pour assurer la compatibilité avec un serveur obsolète. Il s'agit là d'une solution provisoire, et le serveur devrait être reconfiguré.</translation>
 <translation id="1297182715641689552">Utiliser un script de proxy .pac</translation>
 <translation id="1304973015437969093">Identifiants d'extension ou d'application et URL de mise à jour à installer en arrière-plan</translation>
-<translation id="1310333396104446007">Si ce paramètre est configuré pour être défini sur "false", les utilisateurs ne peuvent pas créer de codes dont le niveau de sécurité est considéré comme faible. Il s'agit, entre autres, des codes composés d'une série de chiffres identiques, ceux contenant une suite de chiffres qui augmentent ou diminuent de 1, et des codes trop courants.
-
-          Si ce paramètre est configuré pour être défini sur "true", ou s'il n'est pas configuré, les utilisateurs sont autorisés à saisir ces codes et seul un message d'avertissement s'affiche.</translation>
 <translation id="1313457536529613143">Indique le pourcentage d'adaptation du délai d'assombrissement de l'écran en cas d'activité de l'utilisateur lors de la réduction de la luminosité ou peu de temps après la désactivation de l'écran.
 
           Si vous définissez cette règle, elle indique le pourcentage d'adaptation du délai de réduction de la luminosité de l'écran en cas d'activité de l'utilisateur lors de la réduction de la luminosité ou peu de temps après la désactivation de l'écran. En cas d'adaptation de ce délai, les délais de désactivation, de verrouillage et d'inactivité de l'écran sont ajustés pour maintenir le même décalage par rapport au délai d'assombrissement de l'écran initialement configuré.
@@ -571,13 +568,6 @@ Cette règle n'est respectée que si la règle "DefaultSearchProviderEnabled" es
 <translation id="2587719089023392205">Définir <ph name="PRODUCT_NAME" /> comme navigateur par défaut</translation>
 <translation id="2592091433672667839">Durée d'inactivité préalable à l'affichage de l'économiseur d'écran sur l'écran de connexion en mode Point de vente</translation>
 <translation id="2623014935069176671">Attendre l'activité utilisateur initiale</translation>
-<translation id="2625512435194873786">Ce paramètre permet de contrôler le nombre maximal de caractères d'un code.
-
-          Si ce paramètre est configuré pour être défini sur 0 ou une valeur inférieure, aucune limite maximale de caractères n'est appliquée. Les utilisateurs peuvent donc créer un code contenant le nombre de caractères qu'il souhaite.
-
-          Si le nombre indiqué pour ce paramètre est inférieur à la valeur PinUnlockMinimumLength, mais supérieur à 0, la limite maximale est identique à la limite minimale.
-
-          Si ce paramètre n'est pas configuré, aucune limite maximale n'est appliquée. Les utilisateurs peuvent donc créer un code contenant le nombre de caractères qu'ils souhaitent.</translation>
 <translation id="262740370354162807">Activer l'envoi de documents à <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Activer les commentaires audio</translation>
 <translation id="2646290749315461919">Permet de définir si les sites Web sont autorisés à suivre la position géographique des utilisateurs. Ce suivi peut être autorisé par défaut, refusée par défaut, ou l'utilisateur peut recevoir un message chaque fois qu'un site Web demande sa position géographique. 
@@ -2220,18 +2210,7 @@ Si elle est définie sur "False" ou si elle n'est pas configurée, ces publicit�
       Si cette règle n'est pas définie, le nettoyage automatique utilise la stratégie intégrée par défaut. Actuellement, il s'agit de la stratégie "RemoveLRUIfDormant".</translation>
 <translation id="7336878834592315572">Conserver les cookies pendant toute la durée de la session</translation>
 <translation id="7340034977315324840">Indiquer les périodes d'activité de l'appareil</translation>
-<translation id="7340934985429121460">Ce paramètre permet de contrôler le nombre minimal de caractères d'un code.
-
-          Si ce paramètre est configuré pour être défini sur une valeur inférieure à 1, le nombre minimal de caractères d'un code est de 1.
-
-          Si ce paramètre n'est pas configuré, le nombre minimal de caractères d'un code est de 4.</translation>
 <translation id="7384999953864505698">Permet d'utiliser le protocole QUIC</translation>
-<translation id="7406716912696538245">Définit les modes de déverrouillage rapide que l'utilisateur est autorisé à configurer et à utiliser.
-         Ce paramètre ajoute à la liste blanche les modes de déverrouillage rapide qui peuvent être configurés et utilisés pour déverrouiller l'écran de verrouillage. Il s'agit d'une liste de chaînes qui peuvent prendre les valeurs suivantes : "all", "PIN". Si "all" est sélectionné, tous les modes compatibles sont disponibles. Autrement, seuls les modes figurant dans la liste sont disponibles.
-
-         Si ce paramètre est configuré, les modes de déverrouillage rapide dont le type ne figure pas dans cette liste ne peuvent pas être configurés ni utilisés.
-
-      Si ce paramètre n'est pas configuré, le mode "PIN" est activé, tandis que tous les autres sont désactivés.</translation>
 <translation id="7417972229667085380">Pourcentage d'adaptation du délai d'inactivité en mode Présentation (abandonné)</translation>
 <translation id="7421483919690710988">Définir la taille du cache du disque de support en octets</translation>
 <translation id="7424751532654212117">Liste des exceptions à la liste des plug-ins désactivés</translation>
@@ -2577,6 +2556,7 @@ Si ce paramètre n'est pas défini, l'utilisateur peut décider d'utiliser cette
 
       Nous prévoyons à l'avenir de ne plus proposer la valeur "false" pour cette règle.</translation>
 <translation id="8285435910062771358">Loupe plein écran activée</translation>
+<translation id="8288199156259560552">Activer le service de localisation Google pour Android</translation>
 <translation id="8294750666104911727">Généralement, les pages dont la balise "X-UA-Compatible" est définie sur "chrome=1" sont rendues dans <ph name="PRODUCT_FRAME_NAME" /> indépendamment de la règle "ChromeFrameRendererSettings".
 
           Si vous activez ce paramètre, les pages ne sont pas analysées pour détecter les balises Meta.
@@ -2667,6 +2647,17 @@ Si ce paramètre n'est pas défini, l'utilisateur peut décider d'utiliser cette
       de Windows associées à un domaine Active Directory.</translation>
 <translation id="8566842294717252664">Masquer le Chrome Web Store sur la page Nouvel onglet et dans le lanceur d'applications</translation>
 <translation id="8587229956764455752">Autoriser la création de comptes utilisateur</translation>
+<translation id="8613640727149655305">Quand cette règle est définie sur "true", le service de localisation Google pour Android est activé. Les applications Android peuvent alors utiliser les données de ce service pour localiser l'appareil. Cette règle active également l'envoi de données de localisation anonymes à Google.
+
+      Quand cette règle est définie sur "false", le service de localisation Google pour Android est désactivé.
+
+      Lorsque cette règle est configurée, les utilisateurs ne peuvent pas modifier eux-mêmes la définition de cette règle.
+
+      Quand cette règle n'est pas configurée, les utilisateurs peuvent activer ou désactiver le service de localisation Google dans l'application Paramètres de leur appareil Android.
+
+      Sachez que si la règle <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" /> est définie sur <ph name="BLOCK_GEOLOCATION_SETTING" />, elle aura priorité sur la valeur attribuée à la présente règle.
+
+      Cette règle ne s'applique qu'aux utilisateurs en mesure d'exécuter des applications Android.</translation>
 <translation id="8614804915612153606">Désactive les mises à jour automatiques</translation>
 <translation id="8631434304112909927">jusqu'à la version <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Cette règle ne s'applique qu'à l'appareil photo intégré pour les applications Android. Lorsqu'elle est définie sur "True", l'appareil photo est désactivé pour toutes les applications Android sans exception.</translation>

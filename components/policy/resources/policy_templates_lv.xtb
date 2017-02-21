@@ -94,9 +94,6 @@
       Ja politika nav iestatīta vai ir iestatīta vērtība Nepatiesa, RC4 šifra komplekti standartā TLS netiks iespējoti. Politikai var iestatīt vērtību Patiesa, lai saglabātu saderību ar novecojušu serveri. Tas ir pagaidu risinājums, un serveris ir jākonfigurē atkārtoti.</translation>
 <translation id="1297182715641689552">Izmantot .pac starpniekservera skriptu</translation>
 <translation id="1304973015437969093">Paplašinājumu/lietotņu ID un atjauninājumu vietrāži URL instalēšanai klusajā režīmā</translation>
-<translation id="1310333396104446007">Ja šim iestatījumam ir konfigurēta vērtība “false”, tiks novērsta nedrošu PIN iestatīšana. Nedrošs PIN ir tāds PIN, kurā četras reizes tiek atkārtots viens cipars, kurā ir četri cipari pēc kārtas augošā secībā, četri cipari pēc kārtas dilstošā secībā vai kurā ir pārāk izplatīta ciparu kombinācija.
-
-          Ja šim iestatījumam ir konfigurēta vērtība “true” vai tā nav konfigurēta, lietotāji var ievadīt nedrošus PIN, un tiek parādīts tikai brīdinājums.</translation>
 <translation id="1313457536529613143">Norāda aizkavi (procentos) līdz ekrāna aptumšošanai, kad tiek novērota lietotāja darbība, kamēr ekrāns ir aptumšots vai drīz pēc ekrāna izslēgšanas.
 
           Ja šī politika ir iestatīta, tā norāda aizkavi (procentos) līdz ekrāna aptumšošanai, kad tiek novērota lietotāja darbība, kamēr ekrāns ir aptumšots vai drīz pēc ekrāna izslēgšanas. Ja aptumšošanas aizkave ir mainīta, ekrāna izslēgšanas, ekrāna bloķēšanas un gaidstāves aizkaves tiek pielāgotas, lai nodrošinātu tādu pašu starplaiku no ekrāna aptumšošanas aizkaves, kāds bija sākotnēji konfigurēts.
@@ -565,13 +562,6 @@
 <translation id="2587719089023392205">Iestatīt <ph name="PRODUCT_NAME" /> kā noklusējuma pārlūku</translation>
 <translation id="2592091433672667839">Neaktivitātes ilgums, pirms ekrānsaudzētājs tiek parādīts mazumtirdzniecības režīma pierakstīšanās ekrānā</translation>
 <translation id="2623014935069176671">Gaidīt sākotnējo lietotāja darbību</translation>
-<translation id="2625512435194873786">Ar šo iestatījumu tiek kontrolēts PIN maksimālais garums.
-
-          Ja šim iestatījumam ir konfigurēta vērtība 0 vai mazāka, nav maksimālā garuma un lietotājs var iestatīt jebkāda garuma PIN.
-
-          Ja šī iestatījuma vērtība ir mazāka nekā vērtība PinUnlockMinimumLength, taču lielāka nekā 0, maksimālais garums ir tāds pats kā minimālais garums.
-
-          Ja šis iestatījums nav konfigurēts, nav maksimālā garuma un lietotājs var iestatīt jebkāda garuma PIN.</translation>
 <translation id="262740370354162807">Iespējo dokumentu iesniegšanu pakalpojumā <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Iespējot izrunu</translation>
 <translation id="2646290749315461919">Ļauj iestatīt, vai vietnēm ir atļauts izsekot lietotāju fizisko atrašanās vietu. Lietotāju fiziskās atrašanās vietas izsekošana var tikt atļauta pēc noklusējuma, noraidīta pēc noklusējuma vai lietotājam var tikt vaicāts katru reizi, kad vietne pieprasa datus par fizisko atrašanās vietu.
@@ -2160,18 +2150,7 @@ Ja šī politika nav iestatīta, lietotājs var atspējot jebkuru sistēmā inst
       Ja šī politika nav iestatīta, automātiskajai tīrīšanai tiks izmantota noklusējuma tīrīšanas stratēģija. Pašlaik tā ir stratēģija “RemoveLRUIfDormant”.</translation>
 <translation id="7336878834592315572">Sīkfailu saglabāšana sesijas laikā</translation>
 <translation id="7340034977315324840">Ziņot par ierīces darbības laikiem</translation>
-<translation id="7340934985429121460">Ar šo iestatījumu tiek kontrolēts PIN minimālais garums.
-
-          Ja šim iestatījumam ir konfigurēta vērtība 1 vai mazāka, PIN minimālais garums ir 1.
-
-          Ja šis iestatījums nav konfigurēts, PIN minimālais garums ir 4.</translation>
 <translation id="7384999953864505698">Atļauja lietot QUIC protokolu</translation>
-<translation id="7406716912696538245">Ar šo iestatījumu tiek kontrolēts, kurus ātrās atbloķēšanas režīmus var iestatīt un izmantot.
-      Šis iestatījums iekļauj baltajā sarakstā atļautos ātrās atbloķēšanas režīmus, kurus var iestatīt un izmantot bloķēšanas ekrāna atbloķēšanai. Vērtība ir virkņu saraksts, un pieļaujamās virkņu vērtības ir “visi” vai “PIN”. Ja ir atlasīta vērtība “visi”, ir pieejami visi atbalstītie ātrās atbloķēšanas režīmi; pretējā gadījumā ir pieejami sarakstā norādītie režīmi.
-
-      Ja šis iestatījums ir konfigurēts, ātrās atbloķēšanas režīmus, kuru veids nav norādīts sarakstā, nevar iestatīt vai izmantot.
-
-      Ja šis iestatījums netiek konfigurēts, tiek iespējots režīms “PIN” un visi pārējie režīmi tiek atspējoti.</translation>
 <translation id="7417972229667085380">Aizkaves līdz dīkstāvei norādīšana procentos (prezentācijas režīmā; pārtraukta)</translation>
 <translation id="7421483919690710988">Iestatīt datu nesēja kešatmiņas lielumu baitos</translation>
 <translation id="7424751532654212117">Atspējoto spraudņu saraksta izņēmumu saraksts</translation>
@@ -2516,6 +2495,7 @@ Ja šī politika nav iestatīta, lietotājs var atspējot jebkuru sistēmā inst
 
       Ir paredzams nākotnē noņemt šo ignorēšanas iestatījumu.</translation>
 <translation id="8285435910062771358">Pilnekrāna režīma lupa ir iespējota</translation>
+<translation id="8288199156259560552">Google atrašanās vietas pakalpojuma iespējošana operētājsistēmai Android</translation>
 <translation id="8294750666104911727">Lapas, kurās X-UA-Compatible iestatījums ir chrome=1, parasti tiek renderētas spraudnī <ph name="PRODUCT_FRAME_NAME" /> neatkarīgi no politikas ChromeFrameRendererSettings iestatījuma.
 
           Ja iespējosiet šo iestatījumu, lapās netiks meklēti metatagi.
@@ -2606,6 +2586,17 @@ Ja šī politika nav iestatīta, lietotājs var atspējot jebkuru sistēmā inst
       politiku izvietošanai var izmantot arī reģistru.</translation>
 <translation id="8566842294717252664">Interneta veikala ikonas nerādīšana jaunas cilnes lapā un lietotņu palaidējā</translation>
 <translation id="8587229956764455752">Atļaut jaunu lietotāju kontu izveidi</translation>
+<translation id="8613640727149655305">Ja šai politikai tiks iestatīta vērtība “True”, tiks iespējots Google atrašanās vietas pakalpojums operētājsistēmai Android. Tādējādi Android lietotnes varēs izmantot datus, lai atrastu ierīces atrašanās vietu, kā arī uzņēmumam Google var tikt iesniegti anonīmi dati par atrašanās vietu.
+
+      Ja politikai tiks iestatīta vērtība “False”, tiks atspējots Google atrašanās vietas pakalpojums operētājsistēmai Android.
+
+      Ja šis iestatījums ir konfigurēts, lietotāji to nevar patstāvīgi mainīt.
+
+      Ja šis iestatījums nav konfigurēts, lietotāji var iespējot/atspējot Google atrašanās vietas pakalpojumu Android lietotnes iestatījumos.
+
+      Ņemiet vērā, ka politikas vērtību nevar pārrakstīt ar <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" /> politiku, ja politikai ir iestatīta vērtība <ph name="BLOCK_GEOLOCATION_SETTING" />.
+
+      Šī politika ir piemērojama tikai tiem lietotājiem, kuri var palaist Android lietotnes.</translation>
 <translation id="8614804915612153606">Atspējot automātisko atjaunināšanu</translation>
 <translation id="8631434304112909927">līdz <ph name="UNTIL_VERSION" /> versijai</translation>
 <translation id="863319402127182273">Android lietotnēs šī politika ietekmē tikai iebūvēto kameru. Kad šī politika ir iestatīta kā patiesa, kamera tiek atspējota visās Android lietotnēs bez izņēmuma.</translation>

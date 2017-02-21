@@ -41,6 +41,7 @@ Selle muutmiseks vajutage klahve Tõstuklahv + Alt.</translation>
 <translation id="1938872420421548906">Tõstuklahv + Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965">Peata vahekaardi <ph name="TAB_NAME" /> ülekandmine vastuvõtjasse <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Väikese energiakuluga laadija</translation>
 <translation id="2204305834655267233">Võrguteave</translation>
 <translation id="2208323208084708176">Ühendatud töölaua režiim</translation>
@@ -252,8 +253,10 @@ Tühistamiseks vajutage klahvikombinatsiooni Alt + otsinguklahv või tõstuklahv
 <translation id="8000066093800657092">Võrku pole</translation>
 <translation id="8054466585765276473">Aku tööaja arvutamine.</translation>
 <translation id="8077816382010018681">Siia läheb funktsiooni QU märguande pealkiri</translation>
+<translation id="8098591350844501178">Peata ekraani ülekandmine vastuvõtjasse <ph name="RECEIVER_NAME" /></translation>
 <translation id="8103386449138765447">SMS-id: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">Ühendus <ph name="NAME" />iga</translation>
+<translation id="8180896103888046100">Peata ülekandmine tundmatusse vastuvõtjasse</translation>
 <translation id="8185286464235484130">Andke teada, kuidas meil läheb, vastates mõnele küsimusele.</translation>
 <translation id="8190698733819146287">Keelte ja sisendi kohandamine...</translation>
 <translation id="8206859287963243715">Mobiil</translation>

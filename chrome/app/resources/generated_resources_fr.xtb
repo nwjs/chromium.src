@@ -2378,6 +2378,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="3952219531609536133">Certaines pages Web utilisent des extensions JavaScript anciennes ou non standards qui peuvent entrer en conflit avec les fonctionnalités JavaScript les plus récentes. Cette option permet de désactiver la compatibilité avec ces fonctionnalités afin que ces pages soient acceptées.</translation>
 <translation id="3954354850384043518">En cours</translation>
 <translation id="3954582159466790312">Ré&amp;activer le son</translation>
+<translation id="3955193568934677022">Autoriser les sites à lire les contenus protégés (recommandé)</translation>
 <translation id="3958088479270651626">Importer les favoris et les paramètres</translation>
 <translation id="3959660191855946280">Ajouter ou supprimer des imprimantes</translation>
 <translation id="3960566196862329469">ONC</translation>

@@ -91,9 +91,6 @@
       Als het beleid niet is ingesteld of is ingesteld op 'onwaar', worden de RC4-coderingssuites in TLS niet ingeschakeld. Anders kan het worden ingesteld op 'waar' om compatibiliteit met een verouderde server te behouden. Dit is een tijdelijke oplossing en de server moet opnieuw worden geconfigureerd.</translation>
 <translation id="1297182715641689552">Een PAC-script voor de proxy gebruiken</translation>
 <translation id="1304973015437969093">ID's voor extensies/apps en URL's voor updates die op de achtergrond moeten worden geïnstalleerd</translation>
-<translation id="1310333396104446007">Als deze instelling is ingesteld op 'false', kunnen gebruikers geen pincodes instellen die als zwak worden beschouwd. Dergelijke pincodes omvatten pincodes waarin hetzelfde cijfer steeds wordt herhaald, pincodes met een oplopende cijferreeks, pincodes met een aflopende cijferreeks en pincodes die te algemeen zijn.
-
-          Als deze instelling is ingesteld op 'true' of niet is geconfigureerd, kunnen gebruikers deze zwakke pincodes wel gebruiken en krijgen ze alleen een waarschuwing te zien.</translation>
 <translation id="1313457536529613143">Bepaalt het percentage waarmee de dimvertraging van het scherm wordt geschaald wanneer er activiteit van de gebruiker wordt waargenomen terwijl het scherm is gedimd of kort nadat het scherm is uitgeschakeld.
 
           Als dit beleid is ingeschakeld, bepaalt het het percentage waarmee de dimvertraging van het scherm wordt geschaald wanneer er activiteit van de gebruiker wordt waargenomen terwijl het scherm is gedimd of kort nadat het scherm is uitgeschakeld. Wanneer de dimvertraging is geschaald, worden de vertragingen 'Scherm uit', 'Schermvergrendeling' en 'Inactief' aangepast om dezelfde afstand van de dimvertraging van het scherm te behouden zoals oorspronkelijk was geconfigureerd.
@@ -557,13 +554,6 @@
 <translation id="2587719089023392205"><ph name="PRODUCT_NAME" /> instellen als standaardbrowser</translation>
 <translation id="2592091433672667839">Duur van inactiviteit voordat de schermbeveiliging wordt weergegeven in het inlogvenster in de winkelmodus</translation>
 <translation id="2623014935069176671">Wachten op initiële gebruikersactiviteit</translation>
-<translation id="2625512435194873786">Met deze instelling wordt de maximumlengte van pincodes bepaald.
-
-          Als deze instelling is ingesteld op 0 of lager, is er geen maximumlengte en kan de gebruiker een pincode met elke gewenste lengte instellen.
-
-          Als deze instelling lager is dan PinUnlockMinimumLength maar hoger dan 0, is de maximumlengte gelijk aan de minimumlengte.
-
-          Als deze instelling niet is geconfigureerd, is er geen maximumlengte en kan een gebruiker een pincode met elke gewenste lengte instellen.</translation>
 <translation id="262740370354162807">Verzenden van documenten naar <ph name="CLOUD_PRINT_NAME" /> inschakelen</translation>
 <translation id="2633084400146331575">Gesproken feedback inschakelen</translation>
 <translation id="2646290749315461919">Hiermee kun je instellen of websites de fysieke locatie van gebruikers mogen bijhouden. Het bijhouden van de fysieke locatie van gebruikers kan standaard worden toegestaan, standaard worden geweigerd of het kan de gebruiker telkens worden gevraagd wanneer een website zijn fysieke locatie opvraagt.
@@ -2155,18 +2145,7 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       Als dit beleid niet wordt ingesteld, gebruikt de automatische opschoonfunctie de standaard ingebouwde strategie. Momenteel is dit de strategie'RemoveLRUIfDormant'.</translation>
 <translation id="7336878834592315572">Cookies bewaren voor de duur van de sessie</translation>
 <translation id="7340034977315324840">Tijdsduur van apparaatgebruik melden</translation>
-<translation id="7340934985429121460">Met deze instelling wordt de minimumlengte van pincodes bepaald.
-
-          Als deze instelling is ingesteld op lager dan 1, moet een pincode minimaal één cijfer lang zijn.
-
-          Als deze instelling niet is geconfigureerd, moet een pincode minimaal vier cijfers lang zijn.</translation>
 <translation id="7384999953864505698">QUIC-protocol toestaan</translation>
-<translation id="7406716912696538245">Hiermee wordt bepaald welke modi voor snel ontgrendelen mogen worden ingesteld en gebruikt.
-          Met deze instelling worden de toegestane modi voor snel ontgrendelen die kunnen worden ingesteld en gebruikt om het vergrendelingsscherm te ontgrendelen, op de witte lijst gezet. De waarde is een lijst met tekenreeksen waarbij elke tekenreeks een van de volgende zou moeten zijn: 'alle' of 'Pincode'. Als 'alle' is geselecteerd, zijn alle ondersteunde snelle modi beschikbaar. In andere gevallen zijn alleen de modi in de lijst beschikbaar.
-
-          Als deze instelling is geconfigureerd, kunnen de typen modi voor snel ontgrendelen die niet op de witte lijst zijn gezet, niet worden gebruikt of ingesteld.
-
-          Als deze instelling niet is geconfigureerd, wordt de modus Pincode ingeschakeld en worden alle andere modi uitgeschakeld.</translation>
 <translation id="7417972229667085380">Het percentage waarmee je de inactieve vertraging in presentatiemodus kunt schalen (verouderd)</translation>
 <translation id="7421483919690710988">Grootte van mediaschijfcache in bytes instellen</translation>
 <translation id="7424751532654212117">Lijst van uitzonderingen op de lijst met uitgeschakelde plug-ins</translation>
@@ -2511,6 +2490,7 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 
       We hopen deze overschrijving in de toekomst te verwijderen.</translation>
 <translation id="8285435910062771358">Vergrootglas van volledig scherm ingeschakeld</translation>
+<translation id="8288199156259560552">Google-locatieservice voor Android inschakelen</translation>
 <translation id="8294750666104911727">Normaal worden pagina's waarvoor X-UA-Compatible is ingesteld op chrome=1, weergegeven in <ph name="PRODUCT_FRAME_NAME" /> ongeacht het beleid 'ChromeFrameRendererSettings'.
 
           Als je deze instelling inschakelt, worden pagina's niet gescand op metatags.
@@ -2600,6 +2580,17 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
       steeds ondersteund voor Windows-instanties die zijn gekoppeld aan een Active Directory-domein.</translation>
 <translation id="8566842294717252664">De Web Store verbergen op de pagina 'Nieuw tabblad' en in de App Launcher</translation>
 <translation id="8587229956764455752">Het maken van nieuwe gebruikersaccounts toestaan</translation>
+<translation id="8613640727149655305">Wanneer dit beleid is ingesteld op 'waar' (true), is de Google-locatieservice voor Android ingeschakeld. Android-apps kunnen de gegevens van deze service gebruiken om de apparaatlocatie te vinden. Ook wordt het verzenden van anonieme locatiegegevens naar Google ingeschakeld.
+
+      Wanneer dit beleid is ingesteld op 'onwaar' (false), is de Google-locatieservice voor Android uitgeschakeld.
+
+      Als deze instelling is geconfigureerd, kunnen gebruikers deze niet zelf wijzigen.
+
+      Als deze instelling niet is geconfigureerd, kunnen gebruikers de Google-locatieservice in- en uitschakelen via de app Instellingen voor Android.
+
+      Houd er rekening mee dat dit beleid kan worden overschreven door het beleid <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" /> wanneer dat is ingesteld op <ph name="BLOCK_GEOLOCATION_SETTING" />.
+
+      Dit beleid is alleen van toepassing op gebruikers die Android-apps kunnen uitvoeren.</translation>
 <translation id="8614804915612153606">Schakelt 'Automatisch updaten' uit</translation>
 <translation id="8631434304112909927">tot versie <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Voor Android-apps is dit beleid alleen van invloed op de ingebouwde camera. Wanneer dit beleid is ingesteld op true (waar), wordt voor alle Android-apps, zonder uitzondering, de camera uitgeschakeld.</translation>

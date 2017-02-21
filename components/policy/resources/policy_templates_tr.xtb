@@ -83,9 +83,6 @@
       Politika ayarlanmamışsa veya yanlış seçeneğine ayarlanmışsa, TLS'deki RC4 şifre paketleri etkinleştirilmez. Aksi takdirde, eski bir sunucuyla uyumluluğun korunması için doğru seçeneğine ayarlanabilir. Bu geçici bir tedbirdir ve sunucu yeniden yapılandırılmalıdır.</translation>
 <translation id="1297182715641689552">.pac proxy komut dosyası kullan</translation>
 <translation id="1304973015437969093">Uzantı/Uygulama kimlikleri ve güncelleme URL'leri sessizce yüklenir</translation>
-<translation id="1310333396104446007">Bu ayar false (yanlış) değerinde yapılandırılırsa kullanıcıların aynı rakamdan oluşan, rakamları ardışık olarak artan veya azalan ve sık rastlanılan PIN'ler gibi zayıf olduğu düşünülen PIN'leri ayarlaması engellenir.
-
-Bu ayar true (doğru) değerinde yapılandırılırsa veya hiç yapılandırılmazsa kullanıcılar bu PIN'leri girebilir ve sadece bir uyarı ekranı görürler.</translation>
 <translation id="1313457536529613143">Ekran kararmış durumdayken veya kapandıktan hemen sonra bir kullanıcı etkinliği algılandığında, ekranın kararmasındaki gecikmenin ölçekleneceği yüzdeyi belirtir.
 
           Bu politika ayarlanırsa, ekran karardığında veya ekran kapandıktan hemen sonra bir kullanıcı etkinliği algılandığında, ekranın kararmasındaki gecikmenin ölçekleneceği yüzdeyi belirtir. Ekran kararma gecikmesi ölçeklendiğinde, ekran kapanması, ekran kilidi ve boşta bekleme gecikmeleriyle ilgili süreler, orijinal olarak yapılandırılan ekran kararma gecikmesine göre aynı oran korunacak biçimde ayarlanır.
@@ -557,13 +554,6 @@ Bu ayar true (doğru) değerinde yapılandırılırsa veya hiç yapılandırılm
 <translation id="2587719089023392205"><ph name="PRODUCT_NAME" /> ürününü varsayılan tarayıcım olarak ayarla</translation>
 <translation id="2592091433672667839">Perakende modunda oturum açma ekranında ekran koruyucunun devreye girmesi için geçecek boşta kalma süresi</translation>
 <translation id="2623014935069176671">İlk kullanıcı etkinliğini bekle</translation>
-<translation id="2625512435194873786">Bu ayar PIN'in olabileceği maksimum uzunluğu kontrol eder.
-
-          Bu ayar 0 veya daha az olacak şekilde yapılandırılırsa, maksimum uzunluk olmaz ve kullanıcılar PIN'i istedikleri uzunlukta ayarlayabilir.
-
-          Bu ayar PinUnlockMinimumLength'ten daha küçük ancak 0'dan büyükse, maksimum uzunluk minimum uzunlukla aynı olur.
-
-          Bu ayar yapılandırılmazsa, maksimum uzunluk olmaz ve kullanıcılar PIN'i istedikleri uzunlukta ayarlayabilir.</translation>
 <translation id="262740370354162807">Dokümanların <ph name="CLOUD_PRINT_NAME" /> için gönderilmesini etkinleştir</translation>
 <translation id="2633084400146331575">Sözlü geribildirimi etkinleştir</translation>
 <translation id="2646290749315461919">Web sitelerinin kullanıcının fiziksel konumunu izlemelerine izin verilip verilmeyeceğini ayarlamanıza olanak tanır. Kullanıcıların fiziksel konumunun izlenmesine varsayılan olarak izin verilebilir, bu varsayılan olarak reddedilebilir veya bir web sitesi her fiziksel konum isteğinde bulunduğunda kullanıcıya sorulabilir.
@@ -2190,18 +2180,7 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
       Bu politika ayarlanmazsa, otomatik temizleme varsayılan yerleşik stratejiyi kullanır. Şu an bu "RemoveLRUIfDormant" stratejisidir.</translation>
 <translation id="7336878834592315572">Oturum süresince çerezleri tutma</translation>
 <translation id="7340034977315324840">Cihaz etkinlik zamanlarını rapor et</translation>
-<translation id="7340934985429121460">Bu ayar PIN'in olabileceği minimum uzunluğu kontrol eder.
-
-          Bu ayar 1'den küçük olacak şekilde yapılandırılırsa PIN'in olabileceği minimum uzunluk 1'dir.
-
-          Bu ayar yapılandırılmazsa PIN'in olabileceği minimum uzunluk 4'tür.</translation>
 <translation id="7384999953864505698">QUIC protokolüne izin verir</translation>
-<translation id="7406716912696538245">Kurulabilecek ve kullanılabilecek hızlı kilit açma modlarını kontrol eder
-          Bu ayar, kilit ekranının kilidinin açılması için kurulmasına ve kullanılmasına izin verilen hızlı kilit açma modlarını beyaz listeye alır. Bu ayar için belirtilebilecek değerler "tümü" veya "PIN" seçeneklerinden biri olan bir dize listesidir. "Tümü" seçilirse desteklenen tüm hızlı modlar kullanılabilir. Aksi halde sadece listedeki modlar kullanılabilir.
-
-     Bu ayar yapılandırılırsa, bu listede olmayan bir türe sahip hızlı kilit açma modları kurulamaz veya kullanılamaz.
-
-     Bu ayar yapılandırılmadan bırakılırsa, "PIN" modu etkinleştirilir ve diğer tüm modlar devre dışı bırakılır.</translation>
 <translation id="7417972229667085380">Sunum modundayken boşta gecikme süresini ölçekleme yüzdesi (kullanımdan kaldırıldı)</translation>
 <translation id="7421483919690710988">Medya disk önbelleği boyutunu bayt olarak ayarla</translation>
 <translation id="7424751532654212117">Devre dışı bırakılmış eklentiler listesinin istisnalar listesi</translation>
@@ -2546,6 +2525,7 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
 
      İleride bu geçersiz kılmanın kaldırılması istenmektedir.</translation>
 <translation id="8285435910062771358">Tam ekran büyüteci etkin</translation>
+<translation id="8288199156259560552">Android Google Konum Hizmetini Etkinleştir</translation>
 <translation id="8294750666104911727">Normalde, "ChromeFrameRendererSettings" politikası ne olursa olsun, chrome=1 olarak ayarlanmış X-UA Uyumlu sayfalar <ph name="PRODUCT_FRAME_NAME" /> ile oluşturulur.
 
           Bu ayarı etkinleştirirseniz sayfalarda meta etiketler taranmaz.
@@ -2638,6 +2618,17 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
       politikanın temel hazırlığının kayıt defteri kullanılarak yapılması da desteklenir.</translation>
 <translation id="8566842294717252664">Yeni sekme sayfasında ve uygulama başlatıcıda web mağazasını gizle</translation>
 <translation id="8587229956764455752">Yeni kullanıcı hesapları oluşturulmasına izin ver</translation>
+<translation id="8613640727149655305">Bu politika doğru değerine ayarlandığında, Android Google Konum Hizmeti etkinleştirilir. Bu, Android uygulamalarının cihaz konumunu bulmak için hizmetin verilerini kullanmasına olanak tanır ve aynı zamanda, Google'a anonim konum verilerinin gönderilebilmesini sağlar.
+
+      Bu politika yanlış değerine ayarlandığında Android Google Konum Hizmeti kapatılır.
+
+      Bu ayar yapılandırılırsa kullanıcılar ayarı kendileri değiştiremez.
+
+      Bu ayar yapılandırılmazsa kullanıcılar, Google Konum Hizmeti'ni Android Ayarları uygulamasından açıp kapatabilir.
+
+      Bu politika değerinin, <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" /> politikası <ph name="BLOCK_GEOLOCATION_SETTING" /> değerine ayarlandığında geçersiz kılınabileceğini unutmayın.
+
+      Bu politika yalnızca Android uygulamalarını çalıştırabilen kullanıcılar için geçerlidir.</translation>
 <translation id="8614804915612153606">Otomatik Güncellemeyi devre dışı bırakır</translation>
 <translation id="8631434304112909927"><ph name="UNTIL_VERSION" /> sürümüne kadar</translation>
 <translation id="863319402127182273">Bu politika, Android uygulamalarında sadece dahili kamerayı etkiler. Politika doğru (true) seçeneğine ayarlandığında, kamera kullanımı istisnasız olarak tüm Android uygulamalarında devre dışı bırakılır.</translation>

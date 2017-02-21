@@ -91,9 +91,6 @@
       Dacă această politică nu este configurată sau dacă este dezactivată, suitele de codificare RC4 din TLS nu vor fi activate. În caz contrar, politica poate fi activată pentru a se menține compatibilitatea cu un server învechit. Aceasta este o măsură temporară, iar serverul trebuie să fie reconfigurat.</translation>
 <translation id="1297182715641689552">Utilizează un script .pac pentru proxy</translation>
 <translation id="1304973015437969093">ID-uri pentru extensii/aplicații și adrese URL pentru actualizări de instalat în fundal</translation>
-<translation id="1310333396104446007">Dacă setarea este dezactivată, utilizatorii nu vor putea să configureze coduri PIN care sunt considerate slabe. Exemple: coduri PIN formate din aceeași cifră, ale căror cifre sunt în ordine crescătoare/descrescătoare sau care sunt prea frecvente.
-
-          Dacă setarea este activată sau nu este configurată, utilizatorii pot introduce aceste coduri PIN și li se va afișa doar un avertisment.</translation>
 <translation id="1313457536529613143">Specifică procentul de ajustare a intervalului până la reducerea luminozității ecranului atunci când se înregistrează activități ale utilizatorului în timp ce luminozitatea ecranului este redusă sau la scurt timp după ce ecranul a fost oprit.
 
           Dacă această politică este configurată, ea specifică procentul cu care este ajustat intervalul până la reducerea luminozității ecranului când se înregistrează activități ale utilizatorului în timp ce luminozitatea ecranului este redusă sau la scurt timp după ce ecranul a fost oprit. Dacă intervalul până la reducerea luminozității este ajustat, intervalele până la oprirea ecranului, blocarea ecranului sau trecerea la modul inactiv sunt modificate pentru a se păstra aceleași distanțe configurate inițial față de intervalul până la reducerea luminozității ecranului.
@@ -540,13 +537,6 @@
 <translation id="2587719089023392205">Setează <ph name="PRODUCT_NAME" /> ca browser prestabilit</translation>
 <translation id="2592091433672667839">Durata de inactivitate înainte ca screen saverul să fie afișat pe ecranul de conectare în modul Vânzare</translation>
 <translation id="2623014935069176671">Se așteaptă prima activitate a utilizatorului</translation>
-<translation id="2625512435194873786">Această setare stabilește lungimea maximă a codului PIN.
-
-          Dacă setarea este configurată să aibă valoarea 0 sau mai puțin, nu există o lungime maximă, iar utilizatorul poate seta un cod PIN, oricât de lung dorește.
-
-          Dacă setarea este configurată la o valoare mai mică decât PinUnlockMinimumLength, dar mai mare decât 0, lungimea maximă este aceeași cu cea minimă.
-
-          Dacă setarea nu este configurată, nu există o lungime maximă, iar utilizatorul poate seta un cod PIN, oricât de lung dorește.</translation>
 <translation id="262740370354162807">Activează trimiterea documentelor la <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Activați feedbackul vocal</translation>
 <translation id="2646290749315461919">Vă permite să setați dacă site-urile web au permisiunea să urmărească locația fizică a utilizatorilor. Urmărirea locației fizice a utilizatorilor poate fi permisă în mod prestabilit, refuzată în mod prestabilit sau utilizatorul poate fi întrebat de fiecare dată când un site web solicită locația fizică. Dacă politica este lăsată nesetată, va fi utilizată politica „AskGeolocation”, dar utilizatorul va putea să o schimbe.</translation>
@@ -2081,18 +2071,7 @@ nu poate fi stabilit de utilizator din setările browserului.
       Dacă politica nu este setată, curățarea automată utilizează strategia încorporată în mod prestabilit. În prezent, aceasta este strategia „RemoveLRUIfDormant”.</translation>
 <translation id="7336878834592315572">Păstrați cookie-urile pe durata sesiunii</translation>
 <translation id="7340034977315324840">Raportați perioadele de activitate ale dispozitivului</translation>
-<translation id="7340934985429121460">Această setare stabilește lungimea minimă a codului PIN.
-
-          Dacă setarea este configurată să aibă o valoare mai mică de 1, lungimea minimă a codului PIN este de 1 caracter.
-
-          Dacă setarea nu este configurată, lungimea minimă a codului PIN este de 4 caractere.</translation>
 <translation id="7384999953864505698">Permite protocolul QUIC</translation>
-<translation id="7406716912696538245">Controlează ce moduri pentru deblocare rapidă pot fi configurate și folosite.
-          Această setare adaugă pe lista albă modurile pentru deblocare rapidă permise care pot fi configurate și folosite pentru a debloca ecranul. Valoarea este o listă de șiruri, iar fiecare dintre acestea trebuie să fie unul dintre următoarele: „toate”, „PIN”. Dacă opțiunea „toate” este selectată, vor fi disponibile toate modurile rapide acceptate. În caz contrar, vor fi disponibile doar modurile din listă.
-
-          Dacă setarea este configurată, modurile pentru deblocare rapidă de tipuri neincluse în listă nu pot fi configurate sau folosite.
-
-          Dacă setarea nu este configurată, modul „PIN” va fi activat, iar toate celelalte moduri vor fi dezactivate.</translation>
 <translation id="7417972229667085380">Procentul cu care se ajustează intervalul de inactivitate în modul de prezentare (politică învechită)</translation>
 <translation id="7421483919690710988">Setați dimensiunea în octeți a memoriei cache pe disc pentru conținut media</translation>
 <translation id="7424751532654212117">Lista de excepții de la lista cu pluginuri dezactivate</translation>
@@ -2413,6 +2392,7 @@ nu poate fi stabilit de utilizator din setările browserului.
 
       Se dorește eliminarea acestei modificări în viitor.</translation>
 <translation id="8285435910062771358">Lupă ecran complet activată</translation>
+<translation id="8288199156259560552">Activează Serviciul de localizare Google pentru Android</translation>
 <translation id="8294750666104911727">În mod normal, paginile cu X-UA-Compatible setate la chrome=1 vor fi redate în <ph name="PRODUCT_FRAME_NAME" />, indiferent de politica „ChromeFrameRendererSettings”.
 
           Dacă activați această setare, nu vor fi căutate metaetichete în pagini.
@@ -2502,6 +2482,17 @@ nu poate fi stabilit de utilizator din setările browserului.
       care sunt asociate unui domeniu Active Directory.</translation>
 <translation id="8566842294717252664">Ascunde magazinul web în pagina Filă nouă și în lansatorul de aplicații</translation>
 <translation id="8587229956764455752">Permite crearea de noi conturi de utilizator</translation>
+<translation id="8613640727149655305">Când politica este activată, se activează Serviciul de localizare Google pentru Android. Astfel, aplicațiile Android pot folosi datele serviciului pentru a găsi locația dispozitivului și se va permite trimiterea de date anonime privind locația la Google.
+
+      Când politica este dezactivată, Serviciul de localizare Google pentru Android va fi dezactivat.
+
+      Dacă setarea este configurată, utilizatorii nu o vor putea modifica.
+
+      Dacă setarea nu este configurată, utilizatorii pot să activeze și să dezactiveze Serviciul de localizare Google pentru Android din aplicația Android Setări.
+
+      Reține că este posibil ca valoarea acestei politici să fie înlocuită de politica <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" />, dacă cea din urmă este setată la <ph name="BLOCK_GEOLOCATION_SETTING" />.
+
+      Această politică se aplică numai utilizatorilor care pot rula aplicații Android.</translation>
 <translation id="8614804915612153606">Dezactivează actualizarea automată</translation>
 <translation id="8631434304112909927">până la versiunea <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">În cazul aplicațiilor Android, această politică afectează numai camera foto încorporată. Când politica este activată, camera foto este dezactivată pentru toate aplicațiile Android, fără excepții.</translation>

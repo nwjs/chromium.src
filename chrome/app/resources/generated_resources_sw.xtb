@@ -934,7 +934,7 @@ Imebakisha <ph name="HOUR" />:<ph name="MINUTE" /> ijae</translation>
 <translation id="2207422655384253556">ZIP unpacker mpya</translation>
 <translation id="2208158072373999562">Kumbukumbu ya Zip</translation>
 <translation id="2208323208084708176">Hali ya eneo-kazi iliyounganishwa</translation>
-<translation id="220858061631308971">Tafadhali ingiza msimbo huu wa PIN kwenye "<ph name="DEVICE_NAME" />":</translation>
+<translation id="220858061631308971">Tafadhali weka nambari hii ya PIN kwenye "<ph name="DEVICE_NAME" />":</translation>
 <translation id="2209593327042758816">Kipengee cha kabati 2 cha kabati</translation>
 <translation id="2213819743710253654">Kitendo cha Ukurasa</translation>
 <translation id="2215277870964745766">Karibu! Weka lugha yako na mtandao</translation>
@@ -2373,7 +2373,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="3952219531609536133">Baadhi ya kurasa za wavuti hutumia viendelezi vya JavaScript vilivyopitwa na wakati au visivyo vya viwango vinavyohitajika vinavyoweza kuhitilafiana na vipengele vipya vya JavaScript. Ripoti hii huruhusu kuzima matumizi ya vipengele hivyo kwa ajili ya upatanifu wa kurasa kama hizo.</translation>
 <translation id="3954354850384043518">Unaendelea</translation>
 <translation id="3954582159466790312">Rejesha &amp;sauti</translation>
-<translation id="3955193568934677022">Ruhusu tovuti zicheze maudhui yaliyolindwa (inapendekezwa)</translation>
+<translation id="3955193568934677022">Ruhusu tovuti zicheze maudhui yanayolindwa (inapendekezwa)</translation>
 <translation id="3958088479270651626">Ingiza alamisho na mipangilio</translation>
 <translation id="3959660191855946280">Ongeza au ondoa printa</translation>
 <translation id="3960566196862329469">ONC</translation>

@@ -41,6 +41,7 @@
 <translation id="1938872420421548906">Shift+Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965"><ph name="RECEIVER_NAME" /> को <ph name="TAB_NAME" /> कास्ट करना बंद करें</translation>
 <translation id="2127372758936585790">कम-शक्ति वाला चार्जर</translation>
 <translation id="2204305834655267233">नेटवर्क जानकारी</translation>
 <translation id="2208323208084708176">संयुक्त डेस्कटॉप मोड</translation>
@@ -251,8 +252,10 @@
 <translation id="8000066093800657092">नेटवर्क नहीं है</translation>
 <translation id="8054466585765276473">बैटरी समय की गणना की जा रही है.</translation>
 <translation id="8077816382010018681">QU सुविधा नोटिफ़िकेशन का शीर्षक यहां आएगा</translation>
+<translation id="8098591350844501178"><ph name="RECEIVER_NAME" /> को स्‍क्रीन कास्‍ट करना बंद करें</translation>
 <translation id="8103386449138765447">SMS संदेश: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517"><ph name="NAME" /> से कनेक्ट है</translation>
+<translation id="8180896103888046100">अज्ञात प्राप्तकर्ता को कास्‍ट करना बंद करें</translation>
 <translation id="8185286464235484130">कुछ प्रश्नों के उत्तर देकर हमें बताएं कि हमारा प्रदर्शन कैसा है.</translation>
 <translation id="8190698733819146287">भाषाएं और इनपुट कस्टमाइज़ करें...</translation>
 <translation id="8206859287963243715">सेलुलर</translation>

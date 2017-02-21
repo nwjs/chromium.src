@@ -92,9 +92,6 @@
       Om principen inte har ställts in eller är inställd på falskt kommer RC4-krypteringssviter inte att aktiveras. Principen kan ställas in som sant om kompatibilitet med en föråldrad server önskas bibehållas. Detta är en nödlösning, och servern bör omkonfigureras.</translation>
 <translation id="1297182715641689552">Använd en PAC-proxyskript</translation>
 <translation id="1304973015437969093">Tilläggs-/app-id:n och uppdateringsadresser som ska installeras obemärkt</translation>
-<translation id="1310333396104446007">Om den här inställningen konfigureras som falsk kan användare inte ange pinkoder som anses vara osäkra. Sådana pinkoder är till exempel pinkoder som genomgående innehåller samma siffra, pinkoder med sifferföljder i stigande eller fallande ordning och pinkoder som är för vanliga.
-
-          Om den här inställningen konfigureras som sann, eller inte konfigureras alls, kan användare ange dessa pinkoder och får bara ett varningsmeddelande.</translation>
 <translation id="1313457536529613143">Anger den procentsats med vilken fördröjningen av skärmdämpningen skalanpassas när användaren gör något då skärmen är dämpad eller strax efter det att skärmen har stängts av.
 
           Om den här principen är inställd anges den procentsats med vilken fördröjningen av skärmdämpningen skalanpassas när användaren gör något eller strax efter det att skärmen har stängts av. När dämpningsfördröjningen skalanpassas anpassas fördröjningen av avstängningen av skärmen, skärmlåset och dödtiden så att samma avstånd från den ursprungligen angivna fördröjningen av skärmdämpningen bibehålls.
@@ -567,13 +564,6 @@
 <translation id="2587719089023392205">Gör <ph name="PRODUCT_NAME" /> till min standardwebbläsare</translation>
 <translation id="2592091433672667839">Inaktivitetstid innan skärmsläckaren visas på inloggningsskärmen i återförsäljarläge</translation>
 <translation id="2623014935069176671">Vänta på inledande användaraktivitet</translation>
-<translation id="2625512435194873786">Denna inställning styr hur lång en pinkod får vara.
-
-          Om noll eller lägre konfigureras för den här inställningen finns det ingen maxlängd och användare kan ange hur långa pinkoder som helst.
-
-          Om lägre än PinUnlockMinimumLength men högre än noll anges för inställningen är maxlängden samma som minimilängden.
-
-          Om inställningen inte konfigureras finns det ingen maxlängd och användaren kan ange hur långa pinkoder som helst.</translation>
 <translation id="262740370354162807">Aktivera sändning av dokument till <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Aktivera talad feedback.</translation>
 <translation id="2646290749315461919">Policyn gör att du kan ställa in om webbplatser får spåra användarnas fysiska plats. Att spåra användarnas fysiska plats kan vara tillåtet som standard, inte tillåtet som standard eller användaren kan bli tillfrågad varje gång en webbplats efterfrågar den fysiska platsen.
@@ -2209,18 +2199,7 @@
       Om policyn inte har angetts används den inbyggda strategin av den automatiska rensningen. För närvarande är det strategin RemoveLRUIfDormant.</translation>
 <translation id="7336878834592315572">Behåll cookies under hela sessionen</translation>
 <translation id="7340034977315324840">Rapportera aktivitetstider för enhet</translation>
-<translation id="7340934985429121460">Denna inställning styr minimilängden för pinkoder.
-
-          Om lägre än ett anges för den här inställningen måste pinkoder vara minst en siffra.
-
-          Om inställningen inte konfigureras måste pinkoder vara minst fyra siffror.</translation>
 <translation id="7384999953864505698">Tillåter QUIC-protokoll</translation>
-<translation id="7406716912696538245">Styr vilka snabbupplåsningslägen som får konfigureras och användas.
-          Med den här inställningen anges vilka snabbupplåsningslägen som får konfigureras och användas för att låsa upp låsskärmen. Värdet är en lista över strängar som ska vara antingen Alla eller Pinkod. Om Alla väljs blir alla snabbupplåsningslägen som stöds tillgängliga, annars blir lägena i listan tillgängliga.
-
-          Om inställningen konfigureras kan inte snabbupplåsningslägen med typer som inte finns i listan konfigureras eller användas.
-
-          Om inställningen inte konfigureras aktiveras läget Pinkod och övriga lägen inaktiveras.</translation>
 <translation id="7417972229667085380">Procentsatsen med vilken fördröjningen vid dödtid skalanpassas i presentationsläge (föråldrad)</translation>
 <translation id="7421483919690710988">Ange medieenhetens cachestorlek i byte</translation>
 <translation id="7424751532654212117">Lista med undantag till listan med inaktiverade plugin-program</translation>
@@ -2565,6 +2544,7 @@
 
       Vi har för avsikt att ta bort åsidosättningsmöjligheten senare.</translation>
 <translation id="8285435910062771358">Helskärmsförstoraren är aktiverad</translation>
+<translation id="8288199156259560552">Aktivera Googles platstjänst för Android</translation>
 <translation id="8294750666104911727">Normalt kommer sidor med X-UA-Compatible som är inställda på chrome=1 att renderas i <ph name="PRODUCT_FRAME_NAME" /> trots policyn ChromeFrameRendererSettings.
 
           Om du aktiverar inställningen kommer sidorna inte att kunna genomsökas efter metataggar.
@@ -2656,6 +2636,17 @@
       som är kopplade till en Active Directory-domän.</translation>
 <translation id="8566842294717252664">Dölj webbutiken från sidan ny flik och startprogrammet för appar</translation>
 <translation id="8587229956764455752">Tillåt att nya användarkonton skapas</translation>
+<translation id="8613640727149655305">När sant anges för den här principen aktiveras Googles platstjänst för Android och enhetsplatsen kan då hittas av Android-appar med hjälp av tjänstens data. Dessutom kan anonyma platsuppgifter skickas till Google.
+
+      När falskt anges för den här principen inaktiveras Googles platstjänst för Android.
+
+      Om den här inställningen konfigureras kan inte användarna ändra den.
+
+      Om den här inställningen inte konfigureras kan användarna aktivera och inaktivera Googles platstjänst i appen Inställningar i Android.
+
+      Observera att principens värde kan åsidosättas av principen <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" /> när den senare har angetts som <ph name="BLOCK_GEOLOCATION_SETTING" />.
+
+      Denna princip gäller endast för användare som kan köra Android-appar.</translation>
 <translation id="8614804915612153606">Inaktiverar automatisk uppdatering</translation>
 <translation id="8631434304112909927">till och med version <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">För Android-appar påverkar den här principen endast den inbyggda kameran. När principen är inställd på sant är kameran avstängd i alla Android-appar utan undantag.</translation>

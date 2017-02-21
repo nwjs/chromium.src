@@ -41,6 +41,7 @@ Prima Shift + Alt para mudar.</translation>
 <translation id="1938872420421548906">Shift+Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965">Parar a transmissão de <ph name="TAB_NAME" /> para <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Carregador de baixo consumo</translation>
 <translation id="2204305834655267233">Informações da rede</translation>
 <translation id="2208323208084708176">Modo de ambiente de trabalho unificado</translation>
@@ -252,8 +253,10 @@ Prima Alt + Pesquisar ou Shift para cancelar.</translation>
 <translation id="8000066093800657092">Sem rede</translation>
 <translation id="8054466585765276473">A calcular tempo da bateria.</translation>
 <translation id="8077816382010018681">Titulo da notificação da funcionalidade de Desbloqueio rápido aqui</translation>
+<translation id="8098591350844501178">Parar a transmissão do ecrã para <ph name="RECEIVER_NAME" /></translation>
 <translation id="8103386449138765447">Mensagens SMS: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">Ligado a <ph name="NAME" /></translation>
+<translation id="8180896103888046100">Parar a transmissão para um recetor desconhecido</translation>
 <translation id="8185286464235484130">Dê-nos a sua opinião acerca do nosso desempenho ao responder a algumas questões.</translation>
 <translation id="8190698733819146287">Personalizar idiomas e introdução...</translation>
 <translation id="8206859287963243715">Telemóvel</translation>

@@ -92,9 +92,6 @@
       Jei politika nenustatyta arba nustatyta į „false“, TLS RC4 šifruotieji programų komplektai nebus įgalinti. Priešingu atveju ją galima nustatyti į „true“, kad būtų išsaugotas suderinamumas su pasenusiu serveriu. Tai laikina priemonė; serverį reikia iš naujo sukonfigūruoti.</translation>
 <translation id="1297182715641689552">Naudoti .pac tarpinio serverio scenarijų</translation>
 <translation id="1304973015437969093">Automatiškai diegiami plėtinių / programų ID ir atnaujinimo URL</translation>
-<translation id="1310333396104446007">Jei šis nustatymas sukonfigūruotas kaip negaliojantis, naudotojai negalės nustatyti PIN kodų, kurie yra nesudėtingi. Tai apima iš vieno skaitmens sudarytus PIN kodus, PIN kodus, kurių skaitmenys didėja arba mažėja 1, ir dažnai naudojamus PIN kodus.
-
-          Jei šis nustatymas sukonfigūruotas kaip galiojantis ar nėra sukonfigūruotas, naudotojai galės įvesti šiuos PIN kodus, bet jiems bus pateikiamas įspėjimas.</translation>
 <translation id="1313457536529613143">Nurodomas ekrano užtemdymo delsos mastelio keitimo procentas, kai aptinkama naudotojo veikla ekranui esant užtemdytam ar iškart po to, kai ekranas išjungiamas.
 
          Jei ši politika nustatyta, ji nurodo ekrano užtemdymo delsos mastelio keitimo procentą, kai aptinkama naudotojo veikla ekranui esant užtemdytam ar iškart po to, kai ekranas išjungiamas. Kai užtemdymo delsa nustatyta, ekrano išjungimo, užrakinimo ir neveikos būsenos delsos koreguojamos siekiant išlaikyti vienodą laiką nuo pirminės sukonfigūruotos užtemdymo delsos.
@@ -562,13 +559,6 @@
 <translation id="2587719089023392205">Nustatyti „<ph name="PRODUCT_NAME" />“ kaip numatytąją naršyklę</translation>
 <translation id="2592091433672667839">Neveikos iki parodant ekrano užsklandą prisijungimo ekrane, dirbant mažmeninės prekybos režimu, trukmė</translation>
 <translation id="2623014935069176671">Laukti pradinės naudotojo veiklos</translation>
-<translation id="2625512435194873786">Šiuo nustatymu valdomas maksimalus PIN kodo ilgis.
-
-          Jei šis nustatymas nustatytas į 0 ar mažesnį skaičių, netaikomas joks maksimalaus ilgio apribojimas ir naudotojas gali nustatyti bet kokio ilgio PIN kodą.
-
-          Jei šis nustatymas yra mažesnis nei „PinUnlockMinimumLength“, bet didesnis nei 0, maksimalus ilgis yra toks pat kaip minimalus ilgis.
-
-          Jei šis nustatymas nesukonfigūruotas, netaikomas joks maksimalaus ilgio apribojimas ir naudotojas gali nustatyti bet kokio ilgio PIN kodą.</translation>
 <translation id="262740370354162807">Įgalinti dokumentų pateikimą „<ph name="CLOUD_PRINT_NAME" />“</translation>
 <translation id="2633084400146331575">Įgalinti ekrano skaitymą balsu</translation>
 <translation id="2646290749315461919">Leidžiama nustatyti, ar svetainėse galima stebėti naudotojų fizinę vietą. Naudotojų fizinės vietos stebėjimas gali būti leidžiamas, draudžiamas pagal numatytuosius nustatymus arba naudotojo (-os) gali būti klausiama kiekvieną kartą, kai svetainėje pateikiama fizinės vietos užklausa.
@@ -2203,18 +2193,7 @@
       Jei ši politika nenustatyta, automatinis išvalymas naudos numatytąją įdiegtą strategiją. Šiuo metu tai strategija „RemoveLRUIfDormant“.</translation>
 <translation id="7336878834592315572">Išsaugoti slapukus vykstant sesijai</translation>
 <translation id="7340034977315324840">Pranešti įrenginio veiklos laiką</translation>
-<translation id="7340934985429121460">Šiuo nustatymu valdomas minimalus PIN kodo ilgis.
-
-          Jei šis nustatymas nustatytas į 1, minimalus PIN kodo ilgis yra 1.
-
-          Jei šis nustatymas nesukonfigūruotas, minimalus PIN kodo ilgis gali būti 4.</translation>
 <translation id="7384999953864505698">Leidžiamas protokolas QUIC</translation>
-<translation id="7406716912696538245">Valdoma, kuriuos sparčiojo atrakinimo režimus galima nustatyti ir naudoti.
-      Taikant šį nustatymą į baltąjį sąrašą įtraukiami leidžiami sparčiojo atrakinimo režimai, kuriuos galima nustatyti ir naudoti užrakinimo ekranui atrakinti. Vertė yra sąrašas eilučių, kurių kiekviena turėtų būti viena iš nurodytų: „all“ (visi), „PIN“ (PIN kodas). Jei pasirenkama „all“, pasiekiami visi palaikomi spartieji režimai. Priešingu atveju režimai sąraše bus tie, kurie pasiekiami.
-
-      Jei šis nustatymas sukonfigūruotas, galima nustatyti arba naudoti sparčiojo atrakinimo režimus, kurių tipas neįtrauktas į šį sąrašą.
-
-      Jei šis nustatymas nesukonfigūruotas, bus įgalintas režimas „PIN“ ir bus išjungti visi kiti režimai.</translation>
 <translation id="7417972229667085380">Procentas, pagal kurį bus keičiamas neveikos delsos mastelis dirbant pristatymo režimu (nebenaudojama)</translation>
 <translation id="7421483919690710988">Nustatyti medijos disko talpyklos dydį baitais</translation>
 <translation id="7424751532654212117">Neleidžiamų papildinių sąrašo išimčių sąrašas</translation>
@@ -2558,6 +2537,7 @@
 
       Ateityje ketinama pašalinti šią nepaisymo parinktį.</translation>
 <translation id="8285435910062771358">Viso ekrano didinimas įgalintas</translation>
+<translation id="8288199156259560552">„Android“ skirtos „Google“ vietovių paslaugos įgalinimas</translation>
 <translation id="8294750666104911727">Paprastai puslapiai, kuriuose „X-UA-Compatible“ nustatyta į „chrome=1“ bus pateikti „<ph name="PRODUCT_FRAME_NAME" />“, neatsižvelgiant į politiką „ChromeFrameRendererSettings“.
 
           Jei įgalinsite šį nustatymą, puslapiai nebus nuskaitomi ieškant metažymų.
@@ -2648,6 +2628,17 @@
       kurie susieti su aktyvaus katalogo domenu.</translation>
 <translation id="8566842294717252664">Internetinės parduotuvės slėpimas Naujo skirtuko puslapyje ir programų paleidimo priemonėje</translation>
 <translation id="8587229956764455752">Leisti kurti naujų naudotojų paskyras</translation>
+<translation id="8613640727149655305">Kai ši politika nustatyta į „true“, įgalinama „Android“ skirta „Google“ vietovių paslauga. Tada „Android“ programoms leidžiama naudoti paslaugos duomenis įrenginio vietovei surasti bei įgalinamas anoniminių vietovių duomenų teikimas „Google“.
+
+      Kai ši politika nustatyta į „false“ (netiesa), „Android“ skirta „Google“ vietovių paslauga išjungiama.
+
+      Jei šis nustatymas sukonfigūruotas, naudotojai patys negali jo keisti.
+
+      Jei šis nustatymas nesukonfigūruotas, naudotojai gali įjungti ir išjungti „Google“ vietovių paslaugą „Android“ nustatymų programoje.
+
+      Atminkite, kad šios politikos vertė bus pakeista taikant politiką „<ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" />“, kai pastaroji bus nustatyta į „<ph name="BLOCK_GEOLOCATION_SETTING" />“.
+
+      Ši politika taikoma tik naudotojams, kurie gali vykdyti „Android“ programas.</translation>
 <translation id="8614804915612153606">Neleidžiamas automatinis naujinys</translation>
 <translation id="8631434304112909927">iki <ph name="UNTIL_VERSION" /> versijos</translation>
 <translation id="863319402127182273">„Android“ programose ši politika turi įtakos tik integruotam fotoaparatui. Kai ši politika nustatyta į „Tiesa“, fotoaparatas išjungiamas visose „Android“ programose be išimčių.</translation>

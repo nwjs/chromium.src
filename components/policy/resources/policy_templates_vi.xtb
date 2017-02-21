@@ -92,9 +92,6 @@
       Nếu chính sách này không được đặt hoặc được đặt thành false thì bộ mã hóa RC4 trong TLS sẽ không được bật. Ngoài ra, chính sách có thể được đặt thành true để duy trì khả năng tương thích với máy chủ lỗi thời. Đây là một biện pháp tạm thời và cần phải định cấu hình lại máy chủ.</translation>
 <translation id="1297182715641689552">Sử dụng tập lệnh proxy .pac</translation>
 <translation id="1304973015437969093">Cần ID tiện ích/ứng dụng và URL cập nhật để tự động cài đặt</translation>
-<translation id="1310333396104446007">Nếu cài đặt này được định cấu hình là false, người dùng sẽ bị ngăn đặt mã PIN bị coi là yếu. Mã PIN như vậy bao gồm các mã PIN chứa cùng một chữ số từ đầu đến cuối, mã PIN có các chữ số tăng 1 đơn vị, mã PIN có các chữ số giảm 1 đơn vị và mã PIN quá phổ biến.
-
-          Nếu cài đặt này được định cấu hình là true hoặc chưa được định cấu hình, người dùng có thể nhập các mã PIN này và sẽ chỉ nhận hiển thị cảnh báo.</translation>
 <translation id="1313457536529613143">Chỉ định tỷ lệ phần trăm theo đó độ trễ mờ màn hình được xác định khi hoạt động của người dùng được quan sát thấy lúc màn hình bị làm mờ hoặc ngay sau khi màn hình tắt.
 
           Nếu chính sách này được đặt, chính sách chỉ định tỷ lệ phần trăm theo đó độ trễ mờ màn hình được xác định khi hoạt động của người dùng được quan sát thấy lúc màn hình bị làm mờ hoặc ngay sau khi màn hình tắt. Khi độ trễ mờ màn hình được xác định tỷ lệ, độ trễ tắt màn hình, độ trễ khóa màn hình và độ trễ khi không hoạt động được điều chỉnh để duy trì cùng khoảng cách với độ trễ mờ màn hình như được định cấu hình ban đầu.
@@ -557,13 +554,6 @@
 <translation id="2587719089023392205">Đặt <ph name="PRODUCT_NAME" /> làm trình duyệt mặc định</translation>
 <translation id="2592091433672667839">Khoảng thời gian không hoạt động trước khi trình bảo vệ màn hình hiển thị trên màn hình đăng nhập ở chế độ bán lẻ</translation>
 <translation id="2623014935069176671">Đợi hoạt động người dùng đầu tiên</translation>
-<translation id="2625512435194873786">Cài đặt này kiểm soát độ dài tối đa có thể được của mã PIN.
-
-          Nếu cài đặt này được định cấu hình là 0 trở xuống thì không có độ dài tối đa và người dùng có thể đặt mã PIN với độ dài mà họ muốn.
-
-          Nếu cài đặt này nhỏ hơn PinUnlockMinimumLength nhưng lớn hơn 0, độ dài tối đa bằng độ dài tối thiểu.
-
-          Nếu cài đặt này chưa được định cấu hình thì không có độ dài tối đa và người dùng có thể đặt mã PIN với độ dài mà họ muốn.</translation>
 <translation id="262740370354162807">Cho phép gửi tài liệu tới <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Bật tính năng phản hồi bằng giọng nói</translation>
 <translation id="2646290749315461919">Cho phép bạn đặt liệu các trang web có được phép theo dõi vị trí thực của người dùng hay không. Theo dõi vị trí thực của người dùng có thể được cho phép theo mặc định, từ chối theo mặc định hoặc người dùng có thể được hỏi mỗi lần trang web yêu cầu cung cấp vị trí thực.
@@ -2182,18 +2172,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Nếu chính sách này không được đặt, tính năng dọn sạch tự động sẽ sử dụng chiến lược tích hợp sẵn mặc định. Hiện tại đó là chiến lược 'RemoveLRUIfDormant'.</translation>
 <translation id="7336878834592315572">Lưu giữ cookie trong thời hạn phiên</translation>
 <translation id="7340034977315324840">Báo cáo thời gian hoạt động của thiết bị</translation>
-<translation id="7340934985429121460">Cài đặt này kiểm soát độ dài tối thiểu có thể được của mã PIN.
-
-          Nếu cài đặt này được định cấu hình nhỏ hơn 1, độ dài tối thiểu của mã PIN có thể là 1.
-
-          Nếu cài đặt này chưa được định cấu hình, độ dài tối thiểu có thể được của mã PIN là 4.</translation>
 <translation id="7384999953864505698">Cho phép giao thức QUIC</translation>
-<translation id="7406716912696538245">Kiểm soát chế độ mở khóa nhanh nào được phép thiết lập và sử dụng.
-          Cài đặt này đưa vào danh sách cho phép các chế độ mở khóa nhanh được phép có thể được thiết lập và sử dụng để mở khóa màn hình khóa. Giá trị là một danh sách chuỗi, mỗi chuỗi sẽ là một trong các tùy chọn sau: "tất cả", "PIN". Nếu "tất cả" được chọn thì tất cả chế độ nhanh được hỗ trợ đều khả dụng, nếu không thì các chế độ trong danh sách này sẽ là các chế độ khả dụng.
-
-          Nếu cài đặt này được định cấu hình, thì sẽ không thể thiết lập hoặc sử dụng chế độ mở khóa nhanh thuộc loại không có trong danh sách này.
-
-          Nếu cài đặt này không được định cấu hình, chế độ " mã PIN" sẽ được bật và tất cả chế độ khác sẽ bị tắt.</translation>
 <translation id="7417972229667085380">Tỷ lệ phần trăm theo đó xác định độ trễ khi không hoạt động trong chế độ bản trình bày (không dùng nữa)</translation>
 <translation id="7421483919690710988">Đặt kích thước bộ nhớ cache của đĩa phương tiện theo byte</translation>
 <translation id="7424751532654212117">Danh sách các trường hợp ngoại lệ của danh sách plugin bị vô hiệu hóa</translation>
@@ -2529,6 +2508,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
       Chúng tôi mong muốn xóa ghi đè này trong tương lai.</translation>
 <translation id="8285435910062771358">Đã bật kính lúp toàn màn hình</translation>
+<translation id="8288199156259560552">Bật Dịch vụ vị trí của Google trên thiết bị Android</translation>
 <translation id="8294750666104911727">Thông thường các trang có Tương thích với X-UA được đặt thành chrome=1 sẽ được hiển thị trong <ph name="PRODUCT_FRAME_NAME" /> bất kể chính sách 'ChromeFrameRendererSettings'.
 
           Nếu bạn bật cài đặt này, trang sẽ không được quét tìm thẻ meta.
@@ -2619,6 +2599,17 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Windows tham gia miền Active Directory.</translation>
 <translation id="8566842294717252664">Ẩn cửa hàng trực tuyến khỏi trang tab mới và trình chạy ứng dụng</translation>
 <translation id="8587229956764455752">Cho phép tạo tài khoản người dùng mới</translation>
+<translation id="8613640727149655305">Khi chính sách này được đặt thành true thì Dịch vụ vị trí của Google trên thiết bị Android sẽ được bật. Điều này sẽ cho phép ứng dụng Android sử dụng dữ liệu của mình để tìm vị trí thiết bị. Đồng thời, điều này cũng cho phép gửi dữ liệu vị trí ẩn danh tới Google.
+
+      Khi chính sách này được đặt thành false thì Dịch vụ vị trí của Google trên thiết bị Android sẽ bị tắt.
+
+      Nếu cài đặt này được định cấu hình thì người dùng không thể tự thay đổi.
+
+      Nếu cài đặt này không được định cấu hình thì người dùng có thể bật và tắt Dịch vụ vị trí của Google trong ứng dụng Cài đặt Android.
+
+      Lưu ý rằng giá trị của chính sách này có thể bị chính sách <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" /> ghi đè khi chính sách đó được đặt thành <ph name="BLOCK_GEOLOCATION_SETTING" />.
+
+      Chính sách này chỉ áp dụng cho người dùng có thể chạy các ứng dụng Android.</translation>
 <translation id="8614804915612153606">Tắt cập nhật tự động</translation>
 <translation id="8631434304112909927">cho đến phiên bản <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Đối với các ứng dụng Android, chính sách này chỉ ảnh hưởng đến máy ảnh được tích hợp sẵn. Khi chính sách này được đặt thành true thì máy ảnh sẽ bị tắt cho tất cả ứng dụng Android mà không có ngoại lệ nào.</translation>

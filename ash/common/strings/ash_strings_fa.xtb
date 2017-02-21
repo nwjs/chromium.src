@@ -40,6 +40,7 @@
 <translation id="1938872420421548906">Shift+Alt</translation>
 <translation id="1957803754585243749">۰ درجه</translation>
 <translation id="1969011864782743497">‏<ph name="DEVICE_NAME" /> (‏USB)</translation>
+<translation id="2122028596993374965">شروع ارسال محتوای <ph name="TAB_NAME" /> به <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">شارژر برق ضعیف</translation>
 <translation id="2204305834655267233">اطلاعات شبکه</translation>
 <translation id="2208323208084708176">حالت میزکار یکپارچه</translation>
@@ -250,8 +251,10 @@ Alt+جستجو یا Shift را برای لغو فشار دهید.</translation>
 <translation id="8000066093800657092">بدون شبکه</translation>
 <translation id="8054466585765276473">درحال محاسبه زمان شارژ باتری.</translation>
 <translation id="8077816382010018681">‏عنوان اعلان QU Feature اینجا می‌آید</translation>
+<translation id="8098591350844501178">توقف ارسال محتوای صفحه به <ph name="RECEIVER_NAME" /></translation>
 <translation id="8103386449138765447">پیامک‌ها: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">متصل به <ph name="NAME" /></translation>
+<translation id="8180896103888046100">توقف ارسال محتوا به گیرنده ناشناس</translation>
 <translation id="8185286464235484130">با پاسخ به چند سؤال، درمورد کیفیت عملکردمان را به ما نشان دهید.</translation>
 <translation id="8190698733819146287">سفارشی کردن زبان‌ها و ورودی...</translation>
 <translation id="8206859287963243715">سلولی</translation>

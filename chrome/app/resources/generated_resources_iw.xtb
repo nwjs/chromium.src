@@ -2372,6 +2372,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3952219531609536133">‏חלק מדפי האינטרנט משתמשים בתוספי JavaScript מדור קודם או בתוספים לא סטנדרטיים, שעלולים להתנגש עם תכונות ה-JavaScript האחרונות. סימון זה מאפשר להשבית את התמיכה בתכונות אלה לצורך תאימות עם דפים כאלה.</translation>
 <translation id="3954354850384043518">מתבצע</translation>
 <translation id="3954582159466790312">בטל הש&amp;תקה</translation>
+<translation id="3955193568934677022">התר לאתרים להפעיל תוכן מוגן (מומלץ)</translation>
 <translation id="3958088479270651626">יבא סימניות והגדרות</translation>
 <translation id="3959660191855946280">הוסף או הסר מדפסות</translation>
 <translation id="3960566196862329469">ONC</translation>
@@ -5792,7 +5793,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8620617069779373398">סטטוס נדידה</translation>
 <translation id="8620765578342452535">הגדרת חיבורי רשת</translation>
 <translation id="8623004009673949077">‏יש להתקין יישומים עם מאפיין המניפסט 'kiosk_only' במצב קיוסק של מערכת ההפעלה של Chrome.</translation>
-<translation id="862542460444371744">&amp;הרחבות</translation>
+<translation id="862542460444371744">&amp;תוספים</translation>
 <translation id="8627151598708688654">בחירת מקור</translation>
 <translation id="862727964348362408">מושעה</translation>
 <translation id="862750493060684461">‏מטמון של CSS</translation>

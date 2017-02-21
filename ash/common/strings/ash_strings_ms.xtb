@@ -41,6 +41,7 @@ Tekan Shift + Alt untuk menukar.</translation>
 <translation id="1938872420421548906">Shift+Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965">Berhenti menghantar <ph name="TAB_NAME" /> ke <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Pengecas berkuasa rendah</translation>
 <translation id="2204305834655267233">Maklumat Rangkaian</translation>
 <translation id="2208323208084708176">Mod desktop bersatu</translation>
@@ -251,8 +252,10 @@ Tekan Alt+Search atau Shift untuk membatalkan.</translation>
 <translation id="8000066093800657092">Tiada rangkaian</translation>
 <translation id="8054466585765276473">Mengira tempoh bateri.</translation>
 <translation id="8077816382010018681">Tajuk pemberitahuan Ciri QU di sini</translation>
+<translation id="8098591350844501178">Berhenti menghantar skrin ke <ph name="RECEIVER_NAME" /></translation>
 <translation id="8103386449138765447">Mesej SMS: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">Disambungkan ke <ph name="NAME" /></translation>
+<translation id="8180896103888046100">Berhenti menghantar ke penerima yang tidak diketahui</translation>
 <translation id="8185286464235484130">Beritahu kami tentang prestasi kami dengan menjawab beberapa soalan.</translation>
 <translation id="8190698733819146287">Sesuaikan bahasa dan input...</translation>
 <translation id="8206859287963243715">Selular</translation>

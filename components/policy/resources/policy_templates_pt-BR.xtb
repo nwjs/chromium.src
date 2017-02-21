@@ -88,9 +88,6 @@
       Se a política ainda não estiver configurada ou estiver configurada como "false", os pacotes de criptografia RC4 em TLS não serão ativados. Caso contrário, ela poderá ser configurada como "true" para manter a compatibilidade com um servidor desatualizado. Esta é uma medida temporária, e o servidor deve ser reconfigurado.</translation>
 <translation id="1297182715641689552">Usar um script de proxy .pac</translation>
 <translation id="1304973015437969093">IDs de extensões//aplicativos e URLs de atualização deverão ser instalados silenciosamente</translation>
-<translation id="1310333396104446007">Se esta configuração for definida como false, os usuários não poderão definir PINs considerados fracos. Por exemplo, PINs que contenham um único dígito repetido várias vezes, PINs alterados em um dígito em ordem crescente ou decrescente e PINs muito comuns.
-
-          Se esta configuração for definida como true ou não for definida, os usuários poderão digitar esse tipo de PIN e receberão apenas uma mensagem de aviso.</translation>
 <translation id="1313457536529613143">Especifica o percentual pelo qual calcular o intervalo de escurecimento da tela quando é observada atividade do usuário enquanto a tela está esmaecida ou logo após a tela ser desligada.
 
           Se esta política for definida, especificará o percentual pelo qual calcular o intervalo de escurecimento da tela quando é observada atividade do usuário enquanto a tela está esmaecida ou logo após a tela ser desligada. Quando o intervalo de escurecimento é calculado, o desligamento, o bloqueio da tela e os intervalos de inatividade são ajustados para manter as mesmas distâncias do intervalo de escurecimento da configuração original.
@@ -526,13 +523,6 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="2587719089023392205">Definir o <ph name="PRODUCT_NAME" /> como meu navegador padrão</translation>
 <translation id="2592091433672667839">Duração da inatividade antes do protetor de tela ser mostrado na tela de login no modo de varejo</translation>
 <translation id="2623014935069176671">Aguardar atividade inicial do usuário</translation>
-<translation id="2625512435194873786">Esta configuração controla o comprimento máximo de um PIN.
-
-          Se esta configuração for definida como 0 ou menos, não haverá comprimento máximo, e o usuário poderá definir um PIN do comprimento que desejar.
-
-          Se esta configuração for menor que PinUnlockMinimumLength e maior que 0, os comprimentos máximo e mínimo serão iguais.
-
-          Se esta configuração não for definida, não haverá comprimento máximo, e o usuário poderá definir um PIN do comprimento que quiser.</translation>
 <translation id="262740370354162807">Ativar o envio de documentos para <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Ativar feedback falado</translation>
 <translation id="2646290749315461919">Permite que você defina se os websites são autorizados a rastrear a localização física dos usuários. O rastreamento da localização física dos usuários pode ser permitido ou bloqueado por padrão ou o usuário será solicitado cada vez a dar sua localização física. Se esta política for deixada sem definição, a política "AskGeolocation" será utilizada e o usuário será capaz de modificá-la.</translation>
@@ -2043,18 +2033,7 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
       Se esta política não for configurada, a limpeza automática usa a estratégia integrada padrão, que atualmente é a estratégia "RemoveLRUIfDormant".</translation>
 <translation id="7336878834592315572">Manter cookies enquanto durar a sessão</translation>
 <translation id="7340034977315324840">Informar horário das atividades do dispositivo</translation>
-<translation id="7340934985429121460">Esta configuração controla o comprimento mínimo de um PIN.
-
-          Se esta configuração for definida como menor que 1, o comprimento mínimo de um PIN será 1.
-
-          Se esta configuração não for definida, o comprimento mínimo de um PIN será 4.</translation>
 <translation id="7384999953864505698">Permite o protocolo QUIC</translation>
-<translation id="7406716912696538245">Controla quais modos de desbloqueio rápido têm permissão para serem configurados e utilizados.
-          Esta configuração autoriza os modos de desbloqueio rápido que podem ser configurados e usados para desbloquear a tela do dispositivo. O valor é uma lista de strings, e cada uma delas precisa ser um dos seguintes tipos: "todos" ou "PIN". Se a opção "todos" for selecionada, todos os modos rápidos compatíveis estarão disponíveis. Caso contrário, os modos exibidos na lista serão os disponibilizados.
-
-          Se esta configuração for definida, não será possível configurar ou usar os modos de desbloqueio rápido com um tipo que não esteja nessa lista.
-
-          Se esta configuração não for definida, o modo "PIN" ficará ativado, e todos os outros modos serão desativados.</translation>
 <translation id="7417972229667085380">Percentual pelo qual calcular o intervalo de inatividade no modo de apresentação (uso suspenso)</translation>
 <translation id="7421483919690710988">Define o tamanho do cache de disco de mídia em bytes</translation>
 <translation id="7424751532654212117">Lista de exceções à lista de plug-ins desativados</translation>
@@ -2374,6 +2353,7 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 
       Queremos remover essa substituição no futuro.</translation>
 <translation id="8285435910062771358">Lupa de tela inteira ativada</translation>
+<translation id="8288199156259560552">Ativar o Serviço de Localização do Google para Android</translation>
 <translation id="8294750666104911727">Normalmente as páginas com X-UA-Compatible configuradas para chrome=1 são renderizadas no <ph name="PRODUCT_FRAME_NAME" /> independentemente da política "ChromeFrameRendererSettings".
 
           Se você ativar essa configuração, não haverá a busca de metatags nas páginas.
@@ -2459,6 +2439,17 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
       que estejam vinculadas a um domínio Active Directory.</translation>
 <translation id="8566842294717252664">Ocultar a loja on-line da página "Nova guia" e do Acesso rápido aos apps</translation>
 <translation id="8587229956764455752">Permite a criação de novas contas de usuários</translation>
+<translation id="8613640727149655305">Quando esta política é definida como true, o Serviço de Localização do Google para Android é ativado. Isso permite que os apps para Android usem os dados dele para encontrar a localização do dispositivo e também ativa o envio de dados de localização anônimos ao Google.
+
+      Quando esta política é definida como false, o Serviço de Localização do Google para Android é desativado.
+
+      Se esta política for configurada, os usuários não poderão alterá-la por conta própria.
+
+      Se esta política não for configurada, os usuários poderão ativar e desativar o Serviço de Localização do Google no app Config. do Android.
+
+      Observe que o valor desta política pode ser substituído pela política <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" /> quando essa última estiver definida como <ph name="BLOCK_GEOLOCATION_SETTING" />.
+
+      Esta política é válida somente para os usuários que conseguem executar apps para Android.</translation>
 <translation id="8614804915612153606">Desativa a atualização automática</translation>
 <translation id="8631434304112909927">até a versão <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Em apps Android, esta política afeta somente a câmera integrada. Quando esta política é definida como true, a câmera é desativada para todos os apps Android, sem exceções.</translation>

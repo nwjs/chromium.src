@@ -41,6 +41,7 @@ Geçiş yapmak için ÜstKrktr + Alt tuşlarına basın.</translation>
 <translation id="1938872420421548906">Üst Karakter+Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965"><ph name="TAB_NAME" /> sekmesinin <ph name="RECEIVER_NAME" /> cihazına yayınını durdur</translation>
 <translation id="2127372758936585790">Düşük güçlü şarj cihazı</translation>
 <translation id="2204305834655267233">Ağ Bilgisi</translation>
 <translation id="2208323208084708176">Birleştirilmiş masaüstü modu</translation>
@@ -253,8 +254,10 @@ Devre dışı bırakmak için Ctrl+Alt+Z tuşlarına basın.</translation>
 <translation id="8000066093800657092">Ağ yok</translation>
 <translation id="8054466585765276473">Pilin süresi hesaplanıyor.</translation>
 <translation id="8077816382010018681">QU Özelliği ile ilgili bildirimin başlığı burada gösterilir</translation>
+<translation id="8098591350844501178">Ekranın <ph name="RECEIVER_NAME" /> cihazına yayınını durdur</translation>
 <translation id="8103386449138765447">SMS mesajları: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517"><ph name="NAME" /> ağına bağlanıldı</translation>
+<translation id="8180896103888046100">Bilinmeyen bir alıcıya yayını durdur</translation>
 <translation id="8185286464235484130">Birkaç soruyu yanıtlayarak bizimle ilgili görüşünüzü bildirin.</translation>
 <translation id="8190698733819146287">Dilleri ve girişi özelleştir...</translation>
 <translation id="8206859287963243715">Cep telefonu</translation>

@@ -41,6 +41,7 @@
 <translation id="1938872420421548906">Shift+Alt</translation>
 <translation id="1957803754585243749">‎0°‎</translation>
 <translation id="1969011864782743497">‏<ph name="DEVICE_NAME" />‏ (USB)</translation>
+<translation id="2122028596993374965">הפסק להעביר את <ph name="TAB_NAME" /> אל <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">מטען בעל מתח נמוך</translation>
 <translation id="2204305834655267233">פרטי רשת</translation>
 <translation id="2208323208084708176">מצב שולחן עבודה מאוחד</translation>
@@ -251,8 +252,10 @@
 <translation id="8000066093800657092">אין רשת</translation>
 <translation id="8054466585765276473">מחשב זמן סוללה</translation>
 <translation id="8077816382010018681">‏כותרת ההודעה של תכונת QU תופיע כאן</translation>
+<translation id="8098591350844501178">הפסק להעביר את המסך אל <ph name="RECEIVER_NAME" /></translation>
 <translation id="8103386449138765447">‏הודעות SMS‏: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">מחובר ל<ph name="NAME" /></translation>
+<translation id="8180896103888046100">הפסק להעביר למקלט לא ידוע</translation>
 <translation id="8185286464235484130">ענה על כמה שאלות כדי לתת לנו משוב.</translation>
 <translation id="8190698733819146287">התאם אישית שפה וקלט...</translation>
 <translation id="8206859287963243715">סלולארי</translation>

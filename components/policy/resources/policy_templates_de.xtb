@@ -86,9 +86,6 @@ Wenn diese Richtlinie nicht konfiguriert wird, so wird das standardmäßige Cach
       Wenn die Richtlinie nicht konfiguriert oder auf "false" festgelegt ist, werden RC4-Verschlüsselungssammlungen in TLS nicht aktiviert. Sie kann auf "true" gestellt werden, um die Kompatibilität mit veralteten Servern zu gewährleisten. Hierbei handelt es sich jedoch um eine provisorische Maßnahme. Der Server sollte neu konfiguriert werden.</translation>
 <translation id="1297182715641689552">PAC-Proxy-Skript verwenden</translation>
 <translation id="1304973015437969093">Ohne Nutzereingriff zu installierende Erweiterungs-/App-IDs und Aktualisierungs-URLs</translation>
-<translation id="1310333396104446007">Wenn diese Einstellung als "false" konfiguriert ist, werden Nutzer davon abgehalten, schwache PINs einzurichten. Dazu gehören PINs, die nur mehrmals dieselbe Ziffer enthalten, die eine Zahlenfolge enthalten, bei der die Zahlen stets um 1 erhöht werden, die eine Zahlenfolge enthalten, bei der die Zahlen stets um 1 verringert werden sowie häufig auftretende PINs.
-
-          Ist diese Einstellung als "true" konfiguriert oder gar nicht konfiguriert, können Nutzer diese PINs eingeben und erhalten nur eine Warnmeldung.</translation>
 <translation id="1313457536529613143">Hiermit wird der Prozentsatz angegeben, um den die Spanne für die Bildschirmabdunkelung skaliert wird, wenn während der Bildschirmabdunkelung oder kurz nach der Bildschirmabschaltung Nutzeraktivität festgestellt wird.
 
           Wenn diese Richtlinie konfiguriert ist, wird damit der Prozentsatz für die Skalierung der Spanne für die Bildschirmabdunkelung angegeben, wenn während der Bildschirmabdunkelung oder kurz nach der Bildschirmabschaltung Nutzeraktivität festgestellt wird. Sollte die Abdunkelungsspanne skaliert werden, wird die Spanne für die Abschaltung und Sperre des Bildschirms sowie die Inaktivität so angepasst, dass die Abstände der ursprünglichen Konfiguration proportional beibehalten werden.
@@ -519,13 +516,6 @@ Falls die Richtlinie auf "false" gesetzt wird, kann eine verzögerungsfreie auto
 <translation id="2587719089023392205"><ph name="PRODUCT_NAME" /> als Standardbrowser festlegen</translation>
 <translation id="2592091433672667839">Dauer der Inaktivität, bevor im Händlermodus der Bildschirmschoner auf der Anmeldeseite erscheint</translation>
 <translation id="2623014935069176671">Auf erste Nutzeraktivität warten</translation>
-<translation id="2625512435194873786">Mit dieser Einstellung wird die maximale Länge einer PIN festgelegt.
-
-          Wenn für diese Einstellung "0" oder weniger festgelegt wurde, gibt es keine maximale Länge und Nutzer können die Länge der PIN beliebig wählen.
-
-          Wenn für diese Einstellung ein Wert weniger als "PinUnlockMinimumLength", jedoch größer als "0" festgelegt ist, stimmt die maximale Länge mit der minimalen Länge überein.
-
-          Ist diese Einstellung nicht konfiguriert, gibt es keine maximale Länge, und Nutzer können die Länge der PIN beliebig wählen.</translation>
 <translation id="262740370354162807">Senden von Dokumenten an <ph name="CLOUD_PRINT_NAME" /> aktivieren</translation>
 <translation id="2633084400146331575">Gesprochenes Feedback aktivieren</translation>
 <translation id="2646290749315461919">Ermöglicht Ihnen festzulegen, ob Websites den Standort des Nutzers mitverfolgen dürfen. Die Mitverfolgung des Standorts kann standardmäßig gestattet oder nicht gestattet sein oder auf Anfrage beim Nutzer erfolgen. Wenn diese Richtlinie nicht konfiguriert ist, so kommt "AskGeolocation" zum Einsatz, wobei der Nutzer dies ändern kann.</translation>
@@ -2023,18 +2013,7 @@ Wird diese Richtlinie nicht konfiguriert, wird der standardmäßige Profilpfad v
       Ist die Richtlinie nicht konfiguriert, erfolgt die automatische Bereinigung auf Grundlage der integrierten Standardstrategie. Zurzeit handelt es sich dabei um die "RemoveLRUIfDormant"-Strategie.</translation>
 <translation id="7336878834592315572">Cookies für die Dauer der Sitzung beibehalten</translation>
 <translation id="7340034977315324840">Aktivitätszeit von Geräten melden</translation>
-<translation id="7340934985429121460">Mit dieser Einstellung wird die minimale Länge einer PIN festgelegt.
-
-          Wenn für diese Einstellung weniger als "1" festgelegt wurde, ist "1" die minimale Länge einer PIN.
-
-          Ist diese Einstellung nicht konfiguriert, beträgt die minimale Länge einer PIN "4".</translation>
 <translation id="7384999953864505698">Lässt das QUIC-Protokoll zu</translation>
-<translation id="7406716912696538245">Legt fest, welche Modi für das schnelle Entsperren eingerichtet und verwendet werden können.
-      Diese Einstellung erstellt eine weiße Liste der zulässigen Modi für das schnelle Entsperren, die zum Entsperren des Sperrbildschirms eingerichtet und verwendet werden können. Bei dem Wert handelt es sich um eine Liste mit Strings, bei denen jeweils eine der folgenden Optionen festgelegt sein sollte: "alle", "PIN". Wenn "alle" ausgewählt ist, sind alle unterstützten Schnellmodi verfügbar. Ansonsten sind alle verfügbaren Modi in der Liste aufgeführt.
-
-      Ist diese Einstellung konfiguriert, können keine Typen von Modi für das schnelle Entsperren eingerichtet oder verwendet werden, die nicht in dieser Liste aufgeführt sind.
-
-      Ist diese Einstellung nicht konfiguriert, wird der Modus "PIN" aktiviert, und alle anderen Modi werden deaktiviert.</translation>
 <translation id="7417972229667085380">Prozentsatz für die Skalierung der Inaktivitätsspanne im Präsentationsmodus (veraltet)</translation>
 <translation id="7421483919690710988">Cache-Größe für Mediendatenträger in Byte festlegen</translation>
 <translation id="7424751532654212117">Liste der Ausnahmen von der Liste der deaktivierten Plug-ins</translation>
@@ -2345,6 +2324,7 @@ Es wird empfohlen, diese Richtlinie auf "true" einzustellen. Der einzige Grund, 
 
 Diese Außerkraftsetzung soll in Zukunft beseitigt werden.</translation>
 <translation id="8285435910062771358">Vollbildlupe aktiviert</translation>
+<translation id="8288199156259560552">Google-Standortdienst für Android-Geräte aktivieren</translation>
 <translation id="8294750666104911727">Normalerweise werden Seiten, bei denen das Metatag "X-UA-Compatible" auf "chrome=1" gesetzt ist, unabhängig von der Richtlinie "ChromeFrameRendererSettings" in <ph name="PRODUCT_FRAME_NAME" /> gerendert.
 
           Bei aktivierter Einstellung werden die Seiten nicht nach Metatags durchsucht.
@@ -2434,6 +2414,17 @@ Diese Außerkraftsetzung soll in Zukunft beseitigt werden.</translation>
       von Windows-Instanzen unterstützt, die Teil einer Active Directory-Domain sind.</translation>
 <translation id="8566842294717252664">Web Store auf der "Neuer Tab"-Seite und im App Launcher ausblenden</translation>
 <translation id="8587229956764455752">Erstellung neuer Nutzerkonten erlauben</translation>
+<translation id="8613640727149655305">Wenn diese Richtlinie auf "true" gesetzt wird, ist der Google-Standortdienst für Android-Geräte aktiviert. Damit können Android-Apps die Daten des Diensts nutzen, um den Gerätestandort zu ermitteln. Darüber hinaus ermöglicht er die Übermittlung anonymer Standortdaten an Google.
+
+      Wenn diese Richtlinie auf "false" gesetzt wird, ist der Google-Standortdienst für Android-Geräte deaktiviert.
+
+      Wenn diese Einstellung konfiguriert ist, können sie Nutzer nicht selbst ändern.
+
+      Wenn diese Einstellung nicht konfiguriert ist, können Nutzer den Google-Standortdienst in der Einstellungen App unter Android aktivieren und deaktivieren.
+
+      Beachten Sie, dass dieser Richtlinienwert von der Richtlinie "<ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" />" überschrieben werden kann, wenn diese auf "<ph name="BLOCK_GEOLOCATION_SETTING" />" festgelegt ist.
+
+      Diese Richtlinie ist nur für Nutzer relevant, die Android-Apps ausführen können.</translation>
 <translation id="8614804915612153606">Automatische Updates deaktivieren</translation>
 <translation id="8631434304112909927">Bis Version <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Bei Android-Apps betrifft diese Richtlinie nur die eingebaute Kamera. Wenn die Richtlinie auf "true" gesetzt ist, wird die Kamera ohne Ausnahme für alle Android-Apps deaktiviert.</translation>

@@ -41,6 +41,7 @@
 <translation id="1938872420421548906">Shift+Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" />(USB)</translation>
+<translation id="2122028596993374965"><ph name="RECEIVER_NAME" />에 <ph name="TAB_NAME" /> 전송 중지</translation>
 <translation id="2127372758936585790">저출력 충전기</translation>
 <translation id="2204305834655267233">네트워크 정보</translation>
 <translation id="2208323208084708176">통합 바탕화면 모드</translation>
@@ -252,8 +253,10 @@
 <translation id="8000066093800657092">네트워크 없음</translation>
 <translation id="8054466585765276473">배터리 시간 계산 중</translation>
 <translation id="8077816382010018681">QU 기능 알림 제목이 여기 표시됨</translation>
+<translation id="8098591350844501178"><ph name="RECEIVER_NAME" />에 화면 전송 중지</translation>
 <translation id="8103386449138765447">SMS 메시지: <ph name="MESSAGE_COUNT" />개</translation>
 <translation id="8132793192354020517"><ph name="NAME" />에 연결됨</translation>
+<translation id="8180896103888046100">알 수 없는 수신자로 전송 중지</translation>
 <translation id="8185286464235484130">몇 가지 질문에 답하여 개선할 점이나 격려하고 싶은 점을 알려주세요.</translation>
 <translation id="8190698733819146287">언어 및 입력 설정...</translation>
 <translation id="8206859287963243715">휴대전화</translation>

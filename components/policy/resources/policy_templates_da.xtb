@@ -92,9 +92,6 @@
       Hvis politikken ikke er angivet eller er angivet til Falsk, aktiveres RC4-krypteringsprogrammer i TLS ikke. Alternativt kan den angives til Sandt for at bevare kompatibiliteten med en forældet server. Dette er en midlertidig løsning, og serveren bør rekonfigureres.</translation>
 <translation id="1297182715641689552">Brug et .pac-proxyscript</translation>
 <translation id="1304973015437969093">Udvidelses-/app-id'er og opdateringswebadresser skal installeres ubemærket</translation>
-<translation id="1310333396104446007">Hvis denne indstilling er konfigureret til falsk, kan brugerne ikke indstille en svag pinkode. Svage pinkoder omfatter pinkoder, der kun indeholder det samme tal, pinkoder, der stiger med 1 ad gangen, pinkoder, der falder med 1 ad gangen og pinkoder, der hyppigt bruges.
-
-          Hvis denne indstilling er konfigureret til sand eller ikke er konfigureret, kan brugerne indtaste denne type pinkoder og vil kun få vist en advarsel.</translation>
 <translation id="1313457536529613143">Angiver den procentdel, som nedtoningsforsinkelsen på skærmen skaleres, når der observeres brugeraktivitet, mens skærmen er nedtonet, eller umiddelbart efter skærmen slukkes.
 
           Hvis denne politik indstilles, angiver den den procentdel, som nedtoningsforsinkelsen på skærmen skaleres, når der observeres brugeraktivitet, mens skærmen er nedtonet, eller umiddelbart efter skærmen slukkes. Når nedtoningsforsinkelsen skaleres, tilpasses forsinkelsen for skærmsluk, skærmlås og inaktivitet for at bibeholde samme afstande fra nedtoningsforsinkelsen på skærmen som i den oprindelige konfiguration.
@@ -534,13 +531,6 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 <translation id="2587719089023392205">Angiv <ph name="PRODUCT_NAME" /> som standardbrowser</translation>
 <translation id="2592091433672667839">Varighed af inaktivitet, før pauseskærmen vises på loginskærmen i detailtilstand</translation>
 <translation id="2623014935069176671">Vent på første aktivitet fra brugeren</translation>
-<translation id="2625512435194873786">Denne indstilling styrer, hvor lang en pinkode kan være.
-
-          Hvis indstillingen er konfigureret til 0 eller derunder, er der ingen maksimal længde, og brugeren kan indstille en pinkode, der er så lang som ønsket.
-
-          Hvis indstillingen er mindre end værdien af PinUnlockMinimumLength, men større end 0, er den maksimale længde den samme som minimumslængden.
-
-          Hvis indstillingen ikke er konfigureret, er der ikke nogen maksimal længde, og brugeren kan indstille en pinkode, der er så lang som ønsket.</translation>
 <translation id="262740370354162807">Aktiver indsendelse af dokumenter til <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Aktivér talefeedback</translation>
 <translation id="2646290749315461919">Giver dig mulighed for at angive, om websites skal have tilladelse til at spore brugernes fysiske placering. Sporing af brugernes fysiske placering kan tillades som standard, nægtes som standard, eller brugeren kan blive spurgt, hver gang et website anmoder om den fysiske placering. Hvis denne politik ikke angives, anvendes "AskGeolocation", og brugeren vil kunne ændre den.</translation>
@@ -2074,18 +2064,7 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
       Hvis denne politik ikke er indstillet, anvender den automatiske oprydningsfunktion standardstrategien. Denne strategi er i øjeblikket "RemoveLRUIfDormant".</translation>
 <translation id="7336878834592315572">Behold cookies under sessionen</translation>
 <translation id="7340034977315324840">Rapportér tidspunkter for aktiviteter på enheden</translation>
-<translation id="7340934985429121460">Denne indstilling styrer minimumslængden for pinkoder.
-
-          Hvis indstillingen er konfigureret til mindre end 1, er minimumslængden for pinkoder 1.
-
-          Hvis indstillingen ikke er konfigureret, er minimumslængden for pinkoder 4.</translation>
 <translation id="7384999953864505698">Tillader QUIC-protokol</translation>
-<translation id="7406716912696538245">Styrer, hvilke indstillinger for hurtig oplåsning der kan konfigureres og benyttes.
-      Denne indstilling hvidlister de tilladte indstillinger for hurtig oplåsning, der kan konfigureres og bruges til at låse låseskærmen op. Værdien er en liste med strenge, som hver især skal være en af følgende: "all", "PIN". Hvis "all" vælges, er alle understøttede hurtigindstillinger tilgængelige, og ellers vil de tilgængelige indstillinger være dem, der vises på listen.
-
-      Hvis denne indstilling konfigureres, kan tilstandene for hurtig oplåsning af en type, som ikke findes på listen, ikke konfigureres eller benyttes.
-
-      Hvis denne indstilling ikke konfigureres, aktiveres tilstanden "PIN", og alle andre tilstande deaktiveres.</translation>
 <translation id="7417972229667085380">Den procentdel, som inaktivitetsforsinkelsen i præsentationstilstand skaleres efter (udfases)</translation>
 <translation id="7421483919690710988">Angiv størrelsen på mediediskcache i bytes</translation>
 <translation id="7424751532654212117">Liste over undtagelser for listen over ​​deaktiverede plugins</translation>
@@ -2402,6 +2381,7 @@ Dynamisk opdatering af denne politik understøttes i M56 og nyere versioner.</tr
 
       Planen er at fjerne denne tilsidesættelse på et senere tidspunkt.</translation>
 <translation id="8285435910062771358">Lup i fuld skærm er aktiveret</translation>
+<translation id="8288199156259560552">Aktivér Googles placeringstjeneste til Android</translation>
 <translation id="8294750666104911727">Normalt vil sider, der er angivet med X-UAchrome=1, blive gengivet i <ph name="PRODUCT_FRAME_NAME" />, uanset politikken for 'ChromeFrameRendererSettings'.
 
           Hvis du aktiverer denne indstilling, vil sider ikke blive scannet for metatags.
@@ -2493,6 +2473,17 @@ Dynamisk opdatering af denne politik understøttes i M56 og nyere versioner.</tr
       Active Directory-domæne.</translation>
 <translation id="8566842294717252664">Skjul webshoppen fra siden Ny fane og applisten</translation>
 <translation id="8587229956764455752">Tillad oprettelse af nye brugerkonti</translation>
+<translation id="8613640727149655305">Hvis denne politik angives som Sand, aktiveres Googles placeringstjeneste til Android. Dette giver Android-apps mulighed for at bruge tjenestens data til at finde enhedens placering, og det vil også aktivere indsendelse af anonyme placeringsdata til Google.
+
+      Hvis denne politik angives som Falsk, deaktiveres Googles placeringstjeneste til Android.
+
+      Hvis denne indstilling konfigureres, kan brugerne ikke ændre den selv.
+
+      Hvis denne indstilling ikke konfigureres, kan brugerne slå Googles placeringstjeneste til og fra i Android-appen Indstillinger
+
+      Bemærk, at denne politik kan overskrives af politikken <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" />, når sidstnævnte angives til <ph name="BLOCK_GEOLOCATION_SETTING" />.
+
+      Denne politik gælder kun for brugere, der kan køre Android-apps.</translation>
 <translation id="8614804915612153606">Deaktiverer Automatisk opdatering</translation>
 <translation id="8631434304112909927">indtil version <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">I Android-apps påvirker denne politik kun det indbyggede kamera. Når denne politik er angivet som Sand, deaktiveres kameraet i alle Android-apps uden undtagelser.</translation>

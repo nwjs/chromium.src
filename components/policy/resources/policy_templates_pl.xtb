@@ -92,9 +92,6 @@
       Jeśli ta zasada nie jest ustawiona lub jest wyłączona, to mechanizmy szyfrowania RC4 w TLS będą wyłączone. Można ją włączyć dla zachowania zgodności z przestarzałym serwerem. Jest to rozwiązanie tymczasowe i konieczna jest zmiana konfiguracji serwera.</translation>
 <translation id="1297182715641689552">Używaj skryptu PAC serwera proxy</translation>
 <translation id="1304973015437969093">Identyfikatory rozszerzeń/aplikacji i adresy URL aktualizacji, które mają być instalowane dyskretnie</translation>
-<translation id="1310333396104446007">Jeśli to ustawienie jest wyłączone, użytkownicy nie mogą ustawiać słabych kodów PIN, czyli na przykład złożonych z takich samych cyfr, z kolejnych cyfr w porządku rosnącym lub malejącym ani takich, które są zbyt typowe.
-
-          Jeśli to ustawienie jest włączone lub nie jest skonfigurowane, użytkownicy mogą wprowadzać takie kody PIN i otrzymają jedynie ostrzeżenie.</translation>
 <translation id="1313457536529613143">Określa wartość procentową skalowania opóźnienia przyciemnienia ekranu, gdy aktywność użytkownika zostanie wykryta po przyciemnieniu lub wkrótce po wyłączeniu ekranu.
 
           Ustawienie tej zasady pozwala określić wartość procentową skalowania opóźnienia przyciemnienia ekranu, gdy aktywność użytkownika zostanie wykryta po przyciemnieniu lub wkrótce po wyłączeniu ekranu. Skalowanie opóźnienia przyciemnienia powoduje, że opóźnienia wyłączenia i zablokowania ekranu oraz opóźnienie bezczynności są tak dostosowywane, by zachować pierwotnie ustawione odstępy od opóźnienia przyciemnienia ekranu.
@@ -538,13 +535,6 @@
 <translation id="2587719089023392205">Ustaw <ph name="PRODUCT_NAME" /> jako przeglądarkę domyślną</translation>
 <translation id="2592091433672667839">Czas bezczynności, po upływie którego w trybie sklepu na ekranie logowania jest wyświetlany wygaszacz ekranu</translation>
 <translation id="2623014935069176671">Poczekaj na początkową aktywność użytkownika</translation>
-<translation id="2625512435194873786">To ustawienie określa maksymalną długość kodu PIN.
-
-          Jeśli to ustawienie ma wartość 0 lub mniejszą, nie ma limitu i użytkownik może ustawić kod PIN dowolnej długości.
-
-          Jeśli to ustawienie ma wartość mniejszą niż wartość parametru PinUnlockMinimumLength, ale większą niż 0, maksymalna długość jest równa długości minimalnej.
-
-          Jeśli to ustawienie nie jest skonfigurowane, nie ma limitu i użytkownik może ustawić kod PIN dowolnej długości.</translation>
 <translation id="262740370354162807">Włącz wysyłanie dokumentów do <ph name="CLOUD_PRINT_NAME" />.</translation>
 <translation id="2633084400146331575">Włącz potwierdzenia głosowe</translation>
 <translation id="2646290749315461919">Umożliwia określenie, czy witryny mogą śledzić fizyczną lokalizację użytkownika. Śledzenie fizycznej lokalizacji użytkownika może być domyślnie dozwolone lub zabronione bądź użytkownik może być o to pytany za każdym razem, gdy witryna żąda informacji o lokalizacji. W przypadku nieskonfigurowania tej zasady używane będzie ustawienie „AskGeolocation”, a użytkownik będzie mógł je zmienić.</translation>
@@ -2057,18 +2047,7 @@ Jeśli ta zasada nie zostanie ustawiona, użytkownik może wyłączyć każdą w
       Jeśli nie ustawisz tej zasady, funkcja automatycznego czyszczenia korzysta z domyślnej wbudowanej strategii. Obecnie to „RemoveLRUIfDormant”.</translation>
 <translation id="7336878834592315572">Zachowaj pliki cookie na czas trwania sesji</translation>
 <translation id="7340034977315324840">Zgłoś godziny aktywności urządzenia</translation>
-<translation id="7340934985429121460">To ustawienie określa minimalną długość kodu PIN.
-
-          Jeśli to ustawienie ma wartość mniejszą niż 1, minimalna długość kodu PIN wynosi 1.
-
-          Jeśli to ustawienie nie jest skonfigurowane, minimalna długość kodu PIN wynosi 4.</translation>
 <translation id="7384999953864505698">Zezwala na protokół QUIC</translation>
-<translation id="7406716912696538245">Określa, które tryby szybkiego odblokowania mogą być skonfigurowane i używane.
-          To ustawienie zawiera białą listę dozwolonych trybów szybkiego odblokowania, które mogą być skonfigurowane i używane na ekranie blokady. Jego wartością jest lista ciągów znaków. Dozwolone ciągi to: „wszystkie”, „PIN”. Opcja „wszystkie” powoduje, że dostępne są wszystkie obsługiwane tryby. W przeciwnym razie dostępne są tryby wymienione na liście.
-
-          Jeśli to ustawienie jest skonfigurowane, tryby szybkiego odblokowania, których nie ma na tej liście, nie mogą być skonfigurowane ani używane.
-
-          Jeśli to ustawienie pozostanie nieskonfigurowane, włączony będzie tryb „PIN”, a wszystkie inne tryby będą wyłączone.</translation>
 <translation id="7417972229667085380">Wartość procentowa skalowania opóźnienia bezczynności w trybie prezentacji (wycofana)</translation>
 <translation id="7421483919690710988">Ustaw rozmiar dyskowej pamięci podręcznej multimediów w bajtach</translation>
 <translation id="7424751532654212117">Lista wyjątków od listy wyłączonych wtyczek</translation>
@@ -2392,6 +2371,7 @@ Więcej opcji i szczegółowych przykładów znajdziesz na:
 
       Planujemy usunąć ten problem w przyszłości.</translation>
 <translation id="8285435910062771358">Pełnoekranowa lupa włączona</translation>
+<translation id="8288199156259560552">Włącz usługę lokalizacyjną Google na Androida</translation>
 <translation id="8294750666104911727">Normalnie strony, które w tagu X-UA-Compatible mają wartość chrome=1, będą renderowane w <ph name="PRODUCT_FRAME_NAME" /> niezależnie od ustawienia zasady „ChromeFrameRendererSettings”.
 
           Jeśli włączysz to ustawienie, strony nie będą skanowane w poszukiwaniu metatagów.
@@ -2485,6 +2465,17 @@ Więcej opcji i szczegółowych przykładów znajdziesz na:
       połączonych z domeną Active Directory.</translation>
 <translation id="8566842294717252664">Ukryj Chrome Web Store na stronie Nowa karta i w menu z aplikacjami</translation>
 <translation id="8587229956764455752">Pozwól na tworzenie nowych kont użytkowników</translation>
+<translation id="8613640727149655305">Gdy ta zasada ma wartość prawda, usługa lokalizacyjna Google na Androida jest włączona. To pozwala aplikacjom na Androida korzystać z jej danych, by określać lokalizację urządzenia, a także powoduje przesyłanie anonimowych danych o lokalizacji do Google.
+
+      Gdy zasada ma wartość fałsz, usługa lokalizacyjna Google na Androida jest wyłączona.
+
+      Użytkownicy nie mogą zmienić skonfigurowanego ustawienia.
+
+      Jeśli go nie skonfigurujesz, użytkownicy mogą włączać i wyłączać usługę lokalizacyjną Google w aplikacji Ustawienia w Androidzie.
+
+      Pamiętaj, że jeśli zasada <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" /> ma wartość <ph name="BLOCK_GEOLOCATION_SETTING" />, zastępuje ona tę zasadę.
+
+      Ta zasada obowiązuje tylko tych użytkowników, którzy mogą uruchamiać aplikacje na Androida.</translation>
 <translation id="8614804915612153606">Wyłącza automatyczne aktualizacje</translation>
 <translation id="8631434304112909927">do wersji <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">W przypadku aplikacji na Androida ta zasada dotyczy tylko wbudowanego aparatu. Gdy zasada jest włączona, aparat jest wyłączony dla wszystkich aplikacji na Androida bez wyjątków.</translation>

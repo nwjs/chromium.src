@@ -41,6 +41,7 @@
 <translation id="1938872420421548906">Shift + Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965">Nu mai proiecta <ph name="TAB_NAME" /> pe dispozitivul <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Încărcător de putere joasă</translation>
 <translation id="2204305834655267233">Informații despre rețea</translation>
 <translation id="2208323208084708176">Modul Desktop unificat</translation>
@@ -252,8 +253,10 @@ Apăsați Alt+Căutare sau Shift pentru a anula.</translation>
 <translation id="8000066093800657092">Nicio rețea</translation>
 <translation id="8054466585765276473">Se calculează durata bateriei.</translation>
 <translation id="8077816382010018681">Titlul notificării privind funcția Deblocare rapidă trebuie să apară aici</translation>
+<translation id="8098591350844501178">Nu mai proiecta ecranul pe dispozitivul <ph name="RECEIVER_NAME" /></translation>
 <translation id="8103386449138765447">Mesaje SMS: <ph name="MESSAGE_COUNT" /></translation>
 <translation id="8132793192354020517">Conectat la <ph name="NAME" /></translation>
+<translation id="8180896103888046100">Nu mai proiecta pe un receiver necunoscut</translation>
 <translation id="8185286464235484130">Spune-ne cum ne descurcăm răspunzând la câteva întrebări.</translation>
 <translation id="8190698733819146287">Personalizează limbile și modul de introducere...</translation>
 <translation id="8206859287963243715">Celular</translation>

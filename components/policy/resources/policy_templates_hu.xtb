@@ -92,9 +92,6 @@
       Ha a házirend nincs beállítva, illetve értéke hamis, akkor a TLS protokoll RC4 rejtjelezési csomagjai nem lesznek engedélyezve. Igaz értékre állítva megmarad a kompatibilitás az elavult szerverekkel. Ez átmeneti intézkedés, a szervert újra kell konfigurálni.</translation>
 <translation id="1297182715641689552">Használjon .pac proxyszkriptet</translation>
 <translation id="1304973015437969093">Bővítmény- és alkalmazásazonosítók és frissítési URL-ek csendes telepítése</translation>
-<translation id="1310333396104446007">Ha ez a beállítás hamisra van állítva, a felhasználók nem állíthatnak be gyengének minősülő PIN-kódot. Gyengének minősülnek azok a PIN-kódok, amelyek végig ugyanabból a számból állnak, amelyek számai egyesével növekednek vagy csökkennek, illetve a túl gyakori PIN-kódok.
-
-          Ha a beállítás igazra van állítva, vagy ha nincs konfigurálva, a felhasználók megadhatnak ilyen PIN-kódokat, csak figyelmeztető üzenet jelenik meg számukra.</translation>
 <translation id="1313457536529613143">Azt a százalékot adja meg, amelynek alapján a képernyő-elsötétítési késleltetés skálázódik, ha az elsötétedés során, vagy röviddel a képernyő kikapcsolódása után felhasználói tevékenység történik.
 
           Ha a házirend be van állítva, megadja azt a százalékos értéket, amelynek alapján a képernyő-elsötétítési késleltetés skálázódik, ha az elsötétedés során, vagy röviddel a képernyő kikapcsolódása után felhasználói tevékenység történik. Az elsötétedési késleltetés skálázása esetén a képernyő-kikapcsolási, képernyő-zárolási és tétlenségi késleltetések is módosulnak, hogy ugyanannyi idő teljen el köztük a képernyő-elsötétítési késleltetéstől számítva, mint ami eredetileg be lett állítva.
@@ -534,13 +531,6 @@
 <translation id="2587719089023392205">A <ph name="PRODUCT_NAME" /> legyen az alapértelmezett böngészőm</translation>
 <translation id="2592091433672667839">Inaktivitás időtartama, mielőtt megjelenne a képernyőkímélő a bejelentkezési képernyőn kiállító módban</translation>
 <translation id="2623014935069176671">Várakozás a kezdeti felhasználói tevékenységre</translation>
-<translation id="2625512435194873786">Ez a beállítás szabályozza a PIN-kód maximális hosszát.
-
-          Ha nullára vagy annál kisebb értékre van állítva, nincs maximális hossz. A felhasználó olyan hosszú PIN-kódot állíthat be, amilyet szeretne.
-
-          Ha kisebb értékre van állítva, mint a PinUnlockMinimumLength (PIN-kóddal való feloldás minimális hossza), de nagyobbra, mint nulla, a maximális hossz megegyezik a minimális hosszal.
-
-          Ha nincs konfigurálva, nincs maximális hossz, a felhasználó olyan hosszú PIN-kódot állíthat be, amilyet szeretne.</translation>
 <translation id="262740370354162807">A dokumentumok <ph name="CLOUD_PRINT_NAME" /> szolgáltatás részére való benyújtásának engedélyezése</translation>
 <translation id="2633084400146331575">Hangos visszajelzések engedélyezése</translation>
 <translation id="2646290749315461919">Lehetővé teszi, hogy megadja azon weboldalak listáját, amelyek követhetik a felhasználók tartózkodási helyét. A felhasználók tartózkodási helyének követése lehet alapértelmezetten engedélyezett, alapértelmezetten tiltott, vagy megkérdezheti a felhasználót minden alkalommal, amikor egy webhely a tartózkodási helyét szeretné tudni. Ha a házirend konfigurálatlanul marad, a rendszer az "AskGeolocation" értéket használja, amelyet a felhasználó módosíthat.</translation>
@@ -2061,18 +2051,7 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
       Ha a házirend nincs beállítva, akkor az automatikus tisztítás az alapértelmezett stratégiát használja. Ez jelenleg a „RemoveLRUIfDormant” stratégia.</translation>
 <translation id="7336878834592315572">Cookie-k megtartása a munkamenet idejére</translation>
 <translation id="7340034977315324840">Az eszköz aktív idejének jelentése</translation>
-<translation id="7340934985429121460">Ez a beállítás szabályozza a PIN-kód minimális hosszát.
-
-          Ha ez a beállítás 1-nél kisebbre van állítva, a PIN-kód minimális hossza 1.
-
-          Ha ez a beállítás nincs konfigurálva, a PIN-kód minimális hossza 4.</translation>
 <translation id="7384999953864505698">Engedélyezi a QUIC-protokollt</translation>
-<translation id="7406716912696538245">Azt irányítja, hogy mely gyorsfeloldási módok beállítása és használata engedélyezett.
-      A beállítás engedélyezőlistára teszi a beállítható és a lezárási képernyő feloldásához használható, engedélyezett gyorsfeloldási módokat. Az érték karakterláncok sorozata, amelyek mindegyikének a következők valamelyikének kell lennie: „mind”, „PIN-kód”. Ha a „mind” lehetőséget választotta, valamennyi támogatott gyorsfeloldási mód rendelkezésre áll, máskülönben a listában található módok állnak rendelkezésre.
-
-      Ha konfigurálta ezt a beállítást, akkor a listában nem szereplő gyorsfeloldási módok nem állíthatók be és nem használhatók.
-
-      Ha nem konfigurálta ezt a beállítást, akkor a „PIN-kód” mód lesz beállítva, az összes többi mód le lesz tiltva.</translation>
 <translation id="7417972229667085380">Az a százalék, amelynek alapján a tétlenségi késleltetés skálázódik prezentációs módban (megszűnt)</translation>
 <translation id="7421483919690710988">A médialemez gyorsítótárméretének beállítása bájtban</translation>
 <translation id="7424751532654212117">A tiltott bővítmények listájának kivétellistája</translation>
@@ -2392,6 +2371,7 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 
       A jövőre nézve a cél ennek a felülbírálási lehetőségnek az eltávolítása.</translation>
 <translation id="8285435910062771358">Teljes képernyős nagyító bekapcsolása</translation>
+<translation id="8288199156259560552">Engedélyezi az androidos Google Helyszolgáltatásokat</translation>
 <translation id="8294750666104911727">Általában a chrome=1 értékre állított X-UA-Compatible metacímkével rendelkező oldalak a(z) <ph name="PRODUCT_FRAME_NAME" /> környezetben lesznek megjelenítve a „ChromeFrameRendererSettings” szabálytól függetlenül.
 
           Ha engedélyezi ezt a beállítást, a rendszer nem fog metacímkéket keresni az egyes oldalakon.
@@ -2482,6 +2462,17 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
       a konfigurálás a beállításjegyzéken keresztül is végrehajtható.</translation>
 <translation id="8566842294717252664">Az Internetes áruház elrejtése az Új lap oldalon és az alkalmazásindítón</translation>
 <translation id="8587229956764455752">Új felhasználói fiókok létrehozásának engedélyezése</translation>
+<translation id="8613640727149655305">Ha a házirend igaz értékre van állítva, akkor a rendszer engedélyezi az androidos Google Helyszolgáltatásokat. Ez lehetővé teszi az androidos alkalmazások számára, hogy a Helyszolgáltatások adatainak segítségével megtalálják az eszköz helyét, továbbá lehetőség nyílik névtelen helyadatok küldésére is a Google-nak.
+
+      Ha a házirend hamis értékre van állítva, akkor a rendszer kikapcsolja az androidos Google Helyszolgáltatásokat.
+
+      Ha ez a beállítás már konfigurálva van, akkor a felhasználók nem tudnak módosítani rajta.
+
+      Ha ez a beállítás nincs konfigurálva, akkor a felhasználók az androidos Beállítások alkalmazásban kapcsolhatják be és ki a Google Helyszolgáltatásokat.
+
+      Ne feledje, hogy a házirend értékét felülírhatja a(z) <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" /> házirend, ha ez utóbbi <ph name="BLOCK_GEOLOCATION_SETTING" /> értékre van állítva.
+
+      A házirend csak azokra a felhasználókra vonatkozik, akik androidos alkalmazásokat tudnak futtatni.</translation>
 <translation id="8614804915612153606">Letiltja az automatikus frissítést</translation>
 <translation id="8631434304112909927">a(z) <ph name="UNTIL_VERSION" /> verzióig</translation>
 <translation id="863319402127182273">Az Android-alkalmazások esetében ez a házirend csak a beépített kamerára vonatkozik. Ha a házirend beállítása igaz, akkor a kamera használata kivétel nélkül le van tiltva valamennyi Android-alkalmazás számára.</translation>

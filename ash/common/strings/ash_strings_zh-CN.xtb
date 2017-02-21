@@ -41,6 +41,7 @@
 <translation id="1938872420421548906">Shift+Alt</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2122028596993374965">停止将<ph name="TAB_NAME" />投射到“<ph name="RECEIVER_NAME" />”</translation>
 <translation id="2127372758936585790">低功率充电器</translation>
 <translation id="2204305834655267233">网络信息</translation>
 <translation id="2208323208084708176">统一桌面模式</translation>
@@ -252,8 +253,10 @@
 <translation id="8000066093800657092">未连接任何网络</translation>
 <translation id="8054466585765276473">正在计算续航时间。</translation>
 <translation id="8077816382010018681">此处为快速解锁功能通知标题</translation>
+<translation id="8098591350844501178">停止将屏幕投射到“<ph name="RECEIVER_NAME" />”</translation>
 <translation id="8103386449138765447">短信数：<ph name="MESSAGE_COUNT" /> 条</translation>
 <translation id="8132793192354020517">已连接到 <ph name="NAME" /></translation>
+<translation id="8180896103888046100">停止投射到未知接收器</translation>
 <translation id="8185286464235484130">请回答几个问题，让我们了解您的满意度。</translation>
 <translation id="8190698733819146287">自定义语言和输入法...</translation>
 <translation id="8206859287963243715">蜂窝网络设备</translation>

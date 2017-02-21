@@ -92,9 +92,6 @@
       Hvis regelen ikke er angitt eller er satt til false (usann), er ikke RC4-chifferserier i TLS slått på. Ellers kan den settes til true (sann) for å sikre kompatibilitet med en utdatert tjener. Dette er en midlertidig løsning, og tjeneren bør konfigureres på nytt.</translation>
 <translation id="1297182715641689552">Bruk et .pac-skript for mellomtjener</translation>
 <translation id="1304973015437969093">ID-er for utvidelser/apper og oppdateringsnettadresser som skal installeres stille</translation>
-<translation id="1310333396104446007">Hvis denne innstillingen er konfigurert som «false» (usann), kan ikke brukere angi PIN-koder som anses som svake. Eksempler på svake PIN-koder er koder som bare består av det samme tallet, som består av tall i rekkefølge (enten stigende eller synkende), eller som inneholder for vanlige kombinasjoner.
-
-          Hvis denne innstillingen er konfigurert som «true» (sann) eller ikke er konfigurert, kan brukerne legge inn slike PIN-koder og får bare se en advarsel.</translation>
 <translation id="1313457536529613143">Angir hvordan prosentandelen for forsinkelse av skjermdemping skaleres når brukeraktiviteten observeres mens skjermen er dempet, eller kort tid etter skjermen er slått av.
 
           Hvis denne innstillingen angis, spesifiserer den hvordan prosentandelen for forsinkelse av skjermdemping skaleres når brukeraktiviteten observeres mens skjermen dempes, eller kort tid etter skjermen er slått av. Når dempingsforsinkelsen er skalert, blir forsinkelsen for avslått, låst og inaktiv skjerm justert slik at de har samme lengde fra skjermdempingsforsinkelsen som i den opprinnelige konfigurasjonen.
@@ -551,13 +548,6 @@
 <translation id="2587719089023392205">Angi <ph name="PRODUCT_NAME" /> som standard nettleser</translation>
 <translation id="2592091433672667839">Varighet av inaktivitet før skjermspareren vises på påloggingssiden i detaljistmodus</translation>
 <translation id="2623014935069176671">Vent på første brukeraktivitet</translation>
-<translation id="2625512435194873786">Med denne innstillingen kontrollerer du maksimumslengden for PIN-koder.
-
-          Hvis innstillingen er konfigurert til å være 0 eller mindre, finnes det ingen maksimumslengde, og brukerne kan angi så lange PIN-koder de vil.
-
-          Hvis innstillingen er lavere enn PinUnlockMinimumLength, men større enn 0, er maksimumslengden den samme som minimumslengden.
-
-          Hvis innstillingen ikke er konfigurert, finnes det ingen maksimumslengde, og brukerne kan angi så lange PIN-koder de vil.</translation>
 <translation id="262740370354162807">Aktiver sending av dokumenter til <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="2633084400146331575">Aktiverer talerespons</translation>
 <translation id="2646290749315461919">Gjør at du kan angi om nettsteder tillates å spore brukernes fysiske posisjon. Sporing av brukernes fysiske posisjon kan tillates som standard, nektes som standard, eller brukeren kan blir spurt hver gang et nettsted ber om den fysiske posisjonen. Hvis denne retningslinjen ikke angis, brukes AskGeolocation, og brukeren kan endre på dette.</translation>
@@ -2151,18 +2141,7 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
       Hvis denne innstillingen ikke angis, tar automatisk opprydding i bruk den innebygde standardstrategien. For øyeblikket er det «RemoveLRUIfDormant»-strategien.</translation>
 <translation id="7336878834592315572">Behold informasjonskapsler så lenge økten varer</translation>
 <translation id="7340034977315324840">Rapportering av aktivitetstider for enhet</translation>
-<translation id="7340934985429121460">Med denne innstillingen kan du kontrollere minimumslengden på PIN-koder.
-
-          Hvis denne innstillingen er konfigurert til en verdi under 1, er minimumslengden for PIN-koder 1.
-
-          Hvis denne innstillingen ikke er konfigurert, er minimumslengden for PIN-koder 4.</translation>
 <translation id="7384999953864505698">Tillater QUIC-protokollen</translation>
-<translation id="7406716912696538245">Kontrollerer hvilke moduser for hurtigopplåsing som kan konfigureres og brukes.
-      Denne innstillingen legger de tillatte modusene for hurtigopplåsing som kan konfigureres og brukes til å låse opp låseskjermen, inn på en godkjenningsliste. Verdien er en liste over strenger der hver må være en av disse: «all» (alle), «PIN». Hvis «all» (alle) er valgt, er alle hurtigmoduser tilgjengelige. Hvis ikke er bare modusene på listen tilgjengelige.
-
-      Hvis denne innstillingen er konfigurert, kan ikke opplåsingsmoduser av en type som ikke er på denne listen, konfigureres eller brukes.
-
-      Hvis denne innstillingen ikke konfigureres, blir «PIN»-modus slått på og alle andre moduser slått av.</translation>
 <translation id="7417972229667085380">Prosentandelen for skalering av inaktivitetsforsinkelsen i presentasjonsmodus (avviklet)</translation>
 <translation id="7421483919690710988">Angi størrelse på mediediskbuffer i byte</translation>
 <translation id="7424751532654212117">Liste over unntak fra listen over deaktiverte programtillegg</translation>
@@ -2502,6 +2481,7 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 
       Det er ønskelig å fjerne denne overstyringen i fremtiden.</translation>
 <translation id="8285435910062771358">Fullskjermsforstørrelse aktivert</translation>
+<translation id="8288199156259560552">Slå på Googles posisjonstjeneste for Android</translation>
 <translation id="8294750666104911727">Vanligvis blir sider angitt med X-UA-Compatible til chrome=1 gjengitt i <ph name="PRODUCT_FRAME_NAME" /> uavhengig av innstillingen «ChromeFrameRendererSettings».
 
           Hvis du aktiverer denne innstillingen, skannes ikke sider for metatagger.
@@ -2593,6 +2573,17 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
       Active Directory-domener.</translation>
 <translation id="8566842294717252664">Skjul nettbutikken fra nye faner og appvelgeren</translation>
 <translation id="8587229956764455752">Tillat oppretting av nye brukerkontoer</translation>
+<translation id="8613640727149655305">Når denne regelen angis som «true» (sann), slås Googles posisjonstjeneste for Android på. Dette gir Android-apper tillatelse til å bruke dataene fra denne tjenesten til å finne enhetens posisjon, og det slår også på innsending av anonyme posisjonsdata til Google.
+
+      Når denne regelen angis som «false» (usann), slås Googles posisjonstjeneste for Android av.
+
+      Hvis denne innstillingen konfigureres, kan ikke brukere endre den selv.
+
+      Hvis denne innstillingen ikke konfigureres, kan brukere slå Googles posisjonstjeneste av og på i Innstillinger-appen for Android.
+
+      Vær oppmerksom på at verdien for denne regelen kan overstyres av <ph name="DEFAULTGEOLOCATIONSETTING_POLICY_NAME" />-regelen, når sistnevnte er angitt som <ph name="BLOCK_GEOLOCATION_SETTING" />.
+
+      Denne regelen gjelder bare for brukere som kan kjøre Android-apper.</translation>
 <translation id="8614804915612153606">Deaktiverer automatiske oppdateringer</translation>
 <translation id="8631434304112909927">frem til versjon <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">For Android-apper blir bare det innebygde kameraet påvirket av denne regelen. Når denne regelen er angitt som «true» (sann), slås kameraet av for alle Android-apper – uten unntak.</translation>
