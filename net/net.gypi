@@ -1852,6 +1852,7 @@
       'nqe/network_quality_estimator_unittest.cc',
       'nqe/network_quality_store_unittest.cc',
       'nqe/observation_buffer_unittest.cc',
+      'nqe/socket_watcher_unittest.cc',
       'nqe/throughput_analyzer_unittest.cc',
       'proxy/dhcp_proxy_script_adapter_fetcher_win_unittest.cc',
       'proxy/dhcp_proxy_script_fetcher_factory_unittest.cc',
