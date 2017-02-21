@@ -15,7 +15,7 @@ namespace cookie_config {
 // this platform. The object returned is a LazyInstance. Ownership is not
 // transferred.
 net::CookieCryptoDelegate* GetCookieCryptoDelegate();
-
+void SetEnableCookieCrypto(bool enable);
 }  // namespace cookie_config
 
 #endif  // COMPONENTS_COOKIE_CONFIG_COOKIE_STORE_UTIL_H_

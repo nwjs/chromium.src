@@ -5,7 +5,7 @@
 import("//build/config/ui.gni")
 
 declare_args() {
-  enable_remoting = !is_ios && !is_chromecast
+  enable_remoting = false
 }
 
 enable_remoting_host = false

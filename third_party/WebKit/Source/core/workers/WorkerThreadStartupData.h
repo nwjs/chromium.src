@@ -55,6 +55,7 @@ class CORE_EXPORT WorkerThreadStartupData final {
 
  public:
   static std::unique_ptr<WorkerThreadStartupData> create(
+      bool isNodeJS, const std::string& main_script,
       const KURL& scriptURL,
       const String& userAgent,
       const String& sourceCode,
@@ -68,7 +69,7 @@ class CORE_EXPORT WorkerThreadStartupData final {
       const Vector<String>* originTrialTokens,
       std::unique_ptr<WorkerSettings> workerSettings,
       V8CacheOptions v8CacheOptions = V8CacheOptionsDefault) {
-    return wrapUnique(new WorkerThreadStartupData(
+    return wrapUnique(new WorkerThreadStartupData(isNodeJS, main_script,
         scriptURL, userAgent, sourceCode, std::move(cachedMetaData), startMode,
         contentSecurityPolicyHeaders, referrerPolicy, starterOrigin,
         workerClients, addressSpace, originTrialTokens,
@@ -78,6 +79,8 @@ class CORE_EXPORT WorkerThreadStartupData final {
   ~WorkerThreadStartupData();
 
   KURL m_scriptURL;
+  bool m_isNodeJS;
+  std::string m_mainScript;
   String m_userAgent;
   String m_sourceCode;
   std::unique_ptr<Vector<char>> m_cachedMetaData;
@@ -115,6 +118,7 @@ class CORE_EXPORT WorkerThreadStartupData final {
 
  private:
   WorkerThreadStartupData(
+      bool isNodeJS, const std::string& main_script,
       const KURL& scriptURL,
       const String& userAgent,
       const String& sourceCode,

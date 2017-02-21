@@ -1290,6 +1290,7 @@ test("browser_tests") {
     enable_multidex = true
   } else {
     sources += [
+      "../../content/nw/src/nwjs_browsertest.cc",
       # The list of sources which is only used by chrome browser tests on
       # desktop platforms.
       "../../apps/app_restore_service_browsertest.cc",
@@ -1361,7 +1362,7 @@ test("browser_tests") {
       "../browser/dom_distiller/tab_utils_browsertest.cc",
       "../browser/download/download_browsertest.cc",
       "../browser/download/download_browsertest.h",
-      "../browser/download/download_danger_prompt_browsertest.cc",
+      #"../browser/download/download_danger_prompt_browsertest.cc",
       "../browser/download/download_started_animation_browsertest.cc",
       "../browser/download/save_page_browsertest.cc",
       "../browser/extensions/active_tab_apitest.cc",
@@ -1551,7 +1552,7 @@ test("browser_tests") {
       "../browser/geolocation/access_token_store_browsertest.cc",
       "../browser/geolocation/geolocation_browsertest.cc",
       "../browser/global_keyboard_shortcuts_mac_browsertest.mm",
-      "../browser/history/history_browsertest.cc",
+      #"../browser/history/history_browsertest.cc",
       "../browser/history/redirect_browsertest.cc",
       "../browser/iframe_browsertest.cc",
       "../browser/image_decoder_browsertest.cc",
@@ -1640,7 +1641,7 @@ test("browser_tests") {
       "../browser/policy/cloud/device_management_service_browsertest.cc",
       "../browser/policy/cloud/test_request_interceptor.cc",
       "../browser/policy/cloud/test_request_interceptor.h",
-      "../browser/policy/policy_browsertest.cc",
+      #"../browser/policy/policy_browsertest.cc",
       "../browser/policy/policy_network_browsertest.cc",
       "../browser/policy/policy_prefs_browsertest.cc",
       "../browser/policy/policy_startup_browsertest.cc",
@@ -1652,9 +1653,9 @@ test("browser_tests") {
       "../browser/prefs/pref_service_browsertest.cc",
       "../browser/prefs/synced_pref_change_registrar_browsertest.cc",
       "../browser/prefs/tracked/pref_hash_browsertest.cc",
-      "../browser/prerender/prerender_browsertest.cc",
-      "../browser/prerender/prerender_nostate_prefetch_browsertest.cc",
-      "../browser/prerender/prerender_test_utils.cc",
+      #"../browser/prerender/prerender_browsertest.cc",
+      #"../browser/prerender/prerender_nostate_prefetch_browsertest.cc",
+      #"../browser/prerender/prerender_test_utils.cc",
       "../browser/previews/previews_service_browser_test.cc",
       "../browser/printing/cloud_print/test/cloud_print_policy_browsertest.cc",
       "../browser/printing/cloud_print/test/cloud_print_proxy_process_browsertest.cc",
@@ -1687,21 +1688,21 @@ test("browser_tests") {
       "../browser/service_process/service_process_control_browsertest.cc",
       "../browser/services/gcm/fake_gcm_profile_service.cc",
       "../browser/services/gcm/fake_gcm_profile_service.h",
-      "../browser/sessions/better_session_restore_browsertest.cc",
+      #"../browser/sessions/better_session_restore_browsertest.cc",
       "../browser/sessions/persistent_tab_restore_service_browsertest.cc",
       "../browser/sessions/session_restore_browsertest.cc",
       "../browser/sessions/session_restore_browsertest_chromeos.cc",
       "../browser/sessions/tab_restore_browsertest.cc",
       "../browser/site_details_browsertest.cc",
       "../browser/spellchecker/spellcheck_service_browsertest.cc",
-      "../browser/ssl/captive_portal_blocking_page_browsertest.cc",
+      #"../browser/ssl/captive_portal_blocking_page_browsertest.cc",
       "../browser/ssl/cert_verifier_browser_test.cc",
       "../browser/ssl/cert_verifier_browser_test.h",
-      "../browser/ssl/certificate_reporting_test_utils.cc",
+      #"../browser/ssl/certificate_reporting_test_utils.cc",
       "../browser/ssl/certificate_reporting_test_utils.h",
       "../browser/ssl/chrome_ssl_host_state_delegate_test.cc",
       "../browser/ssl/security_state_tab_helper_browser_tests.cc",
-      "../browser/ssl/ssl_browser_tests.cc",
+      #"../browser/ssl/ssl_browser_tests.cc",
       "../browser/ssl/ssl_client_certificate_selector_test.cc",
       "../browser/ssl/ssl_client_certificate_selector_test.h",
       "../browser/storage/durable_storage_browsertest.cc",
@@ -1726,8 +1727,8 @@ test("browser_tests") {
       "../browser/task_manager/task_manager_tester.h",
       "../browser/themes/theme_service_browsertest.cc",
       "../browser/tracing/chrome_tracing_delegate_browsertest.cc",
-      "../browser/translate/translate_browsertest.cc",
-      "../browser/translate/translate_manager_browsertest.cc",
+      #"../browser/translate/translate_browsertest.cc",
+      #"../browser/translate/translate_manager_browsertest.cc",
       "../browser/ui/autofill/card_unmask_prompt_view_browsertest.cc",
       "../browser/ui/autofill/card_unmask_prompt_view_tester.h",
       "../browser/ui/autofill/password_generation_popup_view_browsertest.cc",
@@ -1746,7 +1747,7 @@ test("browser_tests") {
       "../browser/ui/extensions/extension_message_bubble_browsertest.cc",
       "../browser/ui/extensions/extension_message_bubble_browsertest.h",
       "../browser/ui/extensions/hosted_app_browsertest.cc",
-      "../browser/ui/find_bar/find_bar_host_browsertest.cc",
+      #"../browser/ui/find_bar/find_bar_host_browsertest.cc",
       "../browser/ui/javascript_dialogs/javascript_dialog_browsertest.cc",
       "../browser/ui/location_bar/location_bar_browsertest.cc",
       "../browser/ui/login/login_handler_browsertest.cc",
@@ -1787,18 +1788,18 @@ test("browser_tests") {
       "../browser/ui/webui/identity_internals_ui_browsertest.h",
       "../browser/ui/webui/inspect_ui_browsertest.cc",
       "../browser/ui/webui/interstitials/interstitial_ui_browsertest.cc",
-      "../browser/ui/webui/log_web_ui_url_browsertest.cc",
+      #"../browser/ui/webui/log_web_ui_url_browsertest.cc",
       "../browser/ui/webui/net_internals/net_internals_ui_browsertest.cc",
       "../browser/ui/webui/net_internals/net_internals_ui_browsertest.h",
       "../browser/ui/webui/ntp/new_tab_ui_browsertest.cc",
       "../browser/ui/webui/options/certificate_manager_browsertest.cc",
-      "../browser/ui/webui/options/clear_browser_data_browsertest.cc",
-      "../browser/ui/webui/options/content_settings_exception_area_browsertest.cc",
+      #"../browser/ui/webui/options/clear_browser_data_browsertest.cc",
+      #"../browser/ui/webui/options/content_settings_exception_area_browsertest.cc",
       "../browser/ui/webui/options/multilanguage_options_browsertest.cc",
       "../browser/ui/webui/options/multilanguage_options_browsertest.h",
       "../browser/ui/webui/options/options_browsertest.cc",
-      "../browser/ui/webui/options/options_ui_browsertest.cc",
-      "../browser/ui/webui/options/options_ui_browsertest.h",
+      #"../browser/ui/webui/options/options_ui_browsertest.cc",
+      #"../browser/ui/webui/options/options_ui_browsertest.h",
       "../browser/ui/webui/options/preferences_browsertest.cc",
       "../browser/ui/webui/options/preferences_browsertest.h",
       "../browser/ui/webui/password_manager_internals/password_manager_internals_ui_browsertest.cc",
@@ -1809,7 +1810,7 @@ test("browser_tests") {
       "../browser/ui/webui/signin/inline_login_ui_browsertest.cc",
       "../browser/ui/webui/signin/user_manager_ui_browsertest.cc",
       "../browser/ui/webui/task_scheduler_internals/task_scheduler_internals_ui_browsertest.cc",
-      "../browser/ui/webui/uber/uber_ui_browsertest.cc",
+      #"../browser/ui/webui/uber/uber_ui_browsertest.cc",
       "../browser/ui/webui/web_ui_test_handler.cc",
       "../browser/ui/webui/web_ui_test_handler.h",
       "../browser/ui/webui/webui_browsertest.cc",
@@ -1838,8 +1839,8 @@ test("browser_tests") {
       "../renderer/chrome_render_frame_observer_browsertest.cc",
       "../renderer/content_settings_observer_browsertest.cc",
       "../renderer/media/cast_session_browsertest.cc",
-      "../renderer/translate/translate_helper_browsertest.cc",
-      "../renderer/translate/translate_script_browsertest.cc",
+      #"../renderer/translate/translate_helper_browsertest.cc",
+      #"../renderer/translate/translate_script_browsertest.cc",
       "base/chrome_render_view_test.cc",
       "base/chrome_render_view_test.h",
       "base/in_process_browser_test_browsertest.cc",
@@ -2126,11 +2127,11 @@ test("browser_tests") {
           "../browser/ui/views/frame/browser_non_client_frame_view_browsertest.cc",
           "../browser/ui/views/frame/browser_view_browsertest.cc",
           "../browser/ui/views/location_bar/zoom_bubble_view_browsertest.cc",
-          "../browser/ui/views/media_router/media_router_ui_browsertest.cc",
+          #"../browser/ui/views/media_router/media_router_ui_browsertest.cc",
           "../browser/ui/views/passwords/password_dialog_view_browsertest.cc",
           "../browser/ui/views/task_manager_view_browsertest.cc",
           "../browser/ui/views/toolbar/browser_actions_container_browsertest.cc",
-          "../browser/ui/views/translate/translate_bubble_view_browsertest.cc",
+          #"../browser/ui/views/translate/translate_bubble_view_browsertest.cc",
           "../browser/ui/views/web_dialog_view_browsertest.cc",
         ]
       }
@@ -2407,7 +2408,7 @@ test("browser_tests") {
         "../browser/media/webrtc/webrtc_webcam_browsertest.cc",
       ]
     }
-    if (enable_media_router) {
+    if (false) {
       sources += [ "../browser/ui/webui/media_router/media_router_dialog_controller_impl_browsertest.cc" ]
       deps += [ "//chrome/test/media_router:media_router_browsertests" ]
     }
@@ -3333,7 +3334,7 @@ test("unit_tests") {
     "../browser/ui/webui/browsing_history_handler_unittest.cc",
     "../browser/ui/webui/fileicon_source_unittest.cc",
     "../browser/ui/webui/local_state/local_state_ui_unittest.cc",
-    "../browser/ui/webui/log_web_ui_url_unittest.cc",
+    #"../browser/ui/webui/log_web_ui_url_unittest.cc",
     "../browser/update_client/chrome_update_query_params_delegate_unittest.cc",
     "../browser/win/chrome_elf_init_unittest.cc",
     "../browser/win/enumerate_modules_model_unittest.cc",
@@ -4328,7 +4329,7 @@ test("unit_tests") {
     ]
   }
 
-  if (enable_media_router) {
+  if (false) {
     sources += [
       "../browser/media/cast_remoting_connector_unittest.cc",
       "../browser/media/router/create_presentation_connection_request_unittest.cc",

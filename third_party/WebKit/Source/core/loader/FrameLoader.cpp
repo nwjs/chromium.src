@@ -228,12 +228,25 @@ void FrameLoader::init() {
   m_frame->document()->cancelParsing();
   m_stateMachine.advanceTo(
       FrameLoaderStateMachine::DisplayingInitialEmptyDocument);
+  if (HTMLFrameOwnerElement* ownerElement = m_frame->deprecatedLocalOwner()) {
+    setUserAgentOverride(ownerElement->fastGetAttribute(nwuseragentAttr));
+  }
   // Self-suspend if created in an already suspended Page. Note that both
   // startLoadingMainResource() and cancelParsing() may have already detached
   // the frame, since they both fire JS events.
   if (m_frame->page() && m_frame->page()->suspended())
     setDefersLoading(true);
   takeObjectSnapshot();
+}
+
+void FrameLoader::setUserAgentOverride(const String& agent)
+{
+  m_userAgentOverride = agent;
+}
+ 
+String FrameLoader::userAgentOverride() const
+{
+  return m_userAgentOverride;
 }
 
 FrameLoaderClient* FrameLoader::client() const {
@@ -1140,14 +1153,22 @@ void FrameLoader::load(const FrameLoadRequest& passedRequest,
   setReferrerForFrameRequest(request);
 
   if (!targetFrame && !request.frameName().isEmpty()) {
+    if (request.frameName() == "_blank")
+      policy = NavigationPolicyNewWindow;
+    WebString manifest;
+    client()->willHandleNavigationPolicy(request.resourceRequest(), &policy, &manifest);
+    if (policy == NavigationPolicyIgnore)
+      return;
+    if (policy != NavigationPolicyCurrentTab && !targetFrame && !request.frameName().isEmpty()) {
     if (policy == NavigationPolicyDownload) {
       client()->loadURLExternally(request.resourceRequest(),
                                   NavigationPolicyDownload, String(), false);
     } else {
       request.resourceRequest().setFrameType(WebURLRequest::FrameTypeAuxiliary);
-      createWindowForRequest(request, *m_frame, policy);
+      createWindowForRequest(request, *m_frame, policy, manifest);
     }
     return;
+    }
   }
 
   if (!m_frame->isNavigationAllowed())
@@ -1440,6 +1461,11 @@ void FrameLoader::restoreScrollPositionAndViewState() {
 }
 
 String FrameLoader::userAgent() const {
+  LocalFrame* frame = m_frame;
+  for (; frame; frame = toLocalFrame(frame->tree().parent())) {
+    if (!frame->loader().m_userAgentOverride.isEmpty())
+      return frame->loader().m_userAgentOverride;
+  }
   String userAgent = client()->userAgent();
   InspectorInstrumentation::applyUserAgentOverride(m_frame, &userAgent);
   return userAgent;
@@ -1670,6 +1696,15 @@ void FrameLoader::startLoad(FrameLoadRequest& frameLoadRequest,
                                    ? WebURLRequest::FrameTypeTopLevel
                                    : WebURLRequest::FrameTypeNested);
 
+  NavigationPolicy policy = navigationPolicyForRequest(frameLoadRequest);
+  WebURLRequest::RequestContext context = resourceRequest.requestContext();
+  if (context == WebURLRequest::RequestContextHyperlink ||
+      context == WebURLRequest::RequestContextForm) {
+    client()->willHandleNavigationPolicy(resourceRequest, &policy, NULL, false);
+    if (policy == NavigationPolicyIgnore)
+      return;
+  }
+
   // Record the latest requiredCSP value that will be used when sending this
   // request.
   recordLatestRequiredCSP();
@@ -1734,6 +1769,9 @@ bool FrameLoader::shouldInterruptLoadForXFrameOptions(
 
   Frame* topFrame = m_frame->tree().top();
   if (m_frame == topFrame)
+    return false;
+
+  if (topFrame->isNodeJS())
     return false;
 
   XFrameOptionsDisposition disposition = parseXFrameOptionsHeader(content);

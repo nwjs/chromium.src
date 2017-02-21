@@ -68,6 +68,10 @@ enum class UserGestureStatus { Active, None };
 class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
  public:
   virtual ~Frame();
+  void setNodeJS(bool node) { m_nodejs = node; }
+  bool isNodeJS() const { return m_nodejs; }
+  bool isNwDisabledChildFrame() const;
+  bool isNwFakeTop() const;
 
   DECLARE_VIRTUAL_TRACE();
 
@@ -76,6 +80,9 @@ class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
 
   virtual DOMWindow* domWindow() const = 0;
   virtual WindowProxy* windowProxy(DOMWrapperWorld&) = 0;
+
+  void setDevtoolsJail(Frame* iframe);
+  Frame* getDevtoolsJail() { return m_devtoolsJail; }
 
   virtual void navigate(Document& originDocument,
                         const KURL&,
@@ -162,6 +169,9 @@ class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
   bool canNavigateWithoutFramebusting(const Frame&, String& errorReason);
 
   Member<FrameClient> m_client;
+  Member<Frame> m_devtoolsJail;
+  Member<Frame> m_devJailOwner;
+  bool m_nodejs;
   bool m_isLoading;
 };
 
