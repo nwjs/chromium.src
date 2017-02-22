@@ -57,6 +57,7 @@ HttpStreamFactoryImpl::JobController::JobController(
       main_job_is_resumed_(false),
       bound_job_(nullptr),
       can_start_alternative_proxy_job_(false),
+      privacy_mode_(PRIVACY_MODE_DISABLED),
       ptr_factory_(this) {
   DCHECK(factory);
 }
@@ -84,6 +85,8 @@ HttpStreamFactoryImpl::Request* HttpStreamFactoryImpl::JobController::Start(
   DCHECK(factory_);
   DCHECK(!request_);
 
+  privacy_mode_ = request_info.privacy_mode;
+
   request_ = new Request(request_info.url, this, delegate,
                          websocket_handshake_stream_create_helper, net_log,
                          stream_type);
@@ -101,6 +104,8 @@ void HttpStreamFactoryImpl::JobController::Preconnect(
     const SSLConfig& proxy_ssl_config) {
   DCHECK(!main_job_);
   DCHECK(!alternative_job_);
+
+  privacy_mode_ = request_info.privacy_mode;
 
   is_preconnect_ = true;
   HostPortPair destination(HostPortPair::FromURL(request_info.url));
@@ -184,7 +189,7 @@ void HttpStreamFactoryImpl::JobController::OnStreamReady(
     const SSLConfig& used_ssl_config) {
   DCHECK(job);
 
-  factory_->OnStreamReady(job->proxy_info());
+  factory_->OnStreamReady(job->proxy_info(), privacy_mode_);
 
   if (IsJobOrphaned(job)) {
     // We have bound a job to the associated Request, |job| has been orphaned.
@@ -380,7 +385,7 @@ void HttpStreamFactoryImpl::JobController::OnNeedsProxyAuth(
 
 bool HttpStreamFactoryImpl::JobController::OnInitConnection(
     const ProxyInfo& proxy_info) {
-  return factory_->OnInitConnection(*this, proxy_info);
+  return factory_->OnInitConnection(*this, proxy_info, privacy_mode_);
 }
 
 void HttpStreamFactoryImpl::JobController::OnResolveProxyComplete(
