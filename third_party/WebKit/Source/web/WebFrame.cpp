@@ -291,16 +291,6 @@ WebFrame::~WebFrame() {
   m_openedFrameTracker.reset(0);
 }
 
-ALWAYS_INLINE bool WebFrame::isFrameAlive(const WebFrame* frame) {
-  if (!frame)
-    return true;
-
-  if (frame->isWebLocalFrame())
-    return ThreadHeap::isHeapObjectAlive(toWebLocalFrameImpl(frame));
-
-  return ThreadHeap::isHeapObjectAlive(toWebRemoteFrameImpl(frame));
-}
-
 template <typename VisitorDispatcher>
 ALWAYS_INLINE void WebFrame::traceFrameImpl(VisitorDispatcher visitor,
                                             WebFrame* frame) {
@@ -321,14 +311,10 @@ ALWAYS_INLINE void WebFrame::traceFramesImpl(VisitorDispatcher visitor,
   for (WebFrame* child = frame->firstChild(); child;
        child = child->nextSibling())
     traceFrame(visitor, child);
-  // m_opener is a weak reference.
-  frame->m_openedFrameTracker->traceFrames(visitor);
 }
 
-template <typename VisitorDispatcher>
-ALWAYS_INLINE void WebFrame::clearWeakFramesImpl(VisitorDispatcher visitor) {
-  if (!isFrameAlive(m_opener))
-    m_opener = nullptr;
+void WebFrame::close() {
+  m_openedFrameTracker->dispose();
 }
 
 #define DEFINE_VISITOR_METHOD(VisitorDispatcher)                           \
@@ -338,9 +324,6 @@ ALWAYS_INLINE void WebFrame::clearWeakFramesImpl(VisitorDispatcher visitor) {
   void WebFrame::traceFrames(VisitorDispatcher visitor, WebFrame* frame) { \
     traceFramesImpl(visitor, frame);                                       \
   }                                                                        \
-  void WebFrame::clearWeakFrames(VisitorDispatcher visitor) {              \
-    clearWeakFramesImpl(visitor);                                          \
-  }
 
 DEFINE_VISITOR_METHOD(Visitor*)
 DEFINE_VISITOR_METHOD(InlinedGlobalMarkingVisitor)

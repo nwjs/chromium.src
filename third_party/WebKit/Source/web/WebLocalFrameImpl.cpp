@@ -530,6 +530,8 @@ WebRemoteFrame* WebLocalFrameImpl::toWebRemoteFrame() {
 }
 
 void WebLocalFrameImpl::close() {
+  WebLocalFrame::close();
+
   m_client = nullptr;
 
   if (m_devToolsAgent)
@@ -1529,8 +1531,6 @@ DEFINE_TRACE(WebLocalFrameImpl) {
   visitor->trace(m_textFinder);
   visitor->trace(m_printContext);
   visitor->trace(m_contextMenuNode);
-  visitor->template registerWeakMembers<WebFrame, &WebFrame::clearWeakFrames>(
-      this);
   WebFrame::traceFrames(visitor, this);
   WebFrameImplBase::trace(visitor);
 }

@@ -112,7 +112,7 @@ class WebFrame {
   // This method closes and deletes the WebFrame. This is typically called by
   // the embedder in response to a frame detached callback to the WebFrame
   // client.
-  virtual void close() = 0;
+  virtual void close();
 
   // Called by the embedder when it needs to detach the subtree rooted at this
   // frame.
@@ -440,8 +440,6 @@ class WebFrame {
 
   static void traceFrames(Visitor*, WebFrame*);
   static void traceFrames(InlinedGlobalMarkingVisitor, WebFrame*);
-  void clearWeakFrames(Visitor*);
-  void clearWeakFrames(InlinedGlobalMarkingVisitor);
 #endif
 
  protected:
@@ -461,12 +459,9 @@ class WebFrame {
 
   static void traceFrame(Visitor*, WebFrame*);
   static void traceFrame(InlinedGlobalMarkingVisitor, WebFrame*);
-  static bool isFrameAlive(const WebFrame*);
 
   template <typename VisitorDispatcher>
   static void traceFramesImpl(VisitorDispatcher, WebFrame*);
-  template <typename VisitorDispatcher>
-  void clearWeakFramesImpl(VisitorDispatcher);
   template <typename VisitorDispatcher>
   static void traceFrameImpl(VisitorDispatcher, WebFrame*);
 #endif
