@@ -73,6 +73,8 @@ class SearchGeolocationService
   void Shutdown() override;
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(GeolocationPermissionContextTests,
+                           SearchGeolocationInIncognito);
   struct PrefValue;
 
   ~SearchGeolocationService() override;
