@@ -646,7 +646,7 @@ public class AwContents implements SmartClipProvider, PostMessageSender.PostMess
 
         @Override
         public void onScaleLimitsChanged(float minPageScaleFactor, float maxPageScaleFactor) {
-            mZoomControls.invokeZoomPicker();
+            mZoomControls.updateZoomControls();
         }
 
         @Override
