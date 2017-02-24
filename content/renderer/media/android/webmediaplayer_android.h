@@ -423,6 +423,10 @@ class WebMediaPlayerAndroid
   double volume_;
   double volume_multiplier_;
 
+  // Whether the video requires a user gesture to resume after it was paused in
+  // the background.
+  bool video_locked_when_paused_when_hidden_;
+
   // NOTE: Weak pointers must be invalidated before all other member variables.
   base::WeakPtrFactory<WebMediaPlayerAndroid> weak_factory_;
 

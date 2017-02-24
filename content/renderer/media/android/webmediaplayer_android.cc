@@ -61,6 +61,7 @@
 #include "third_party/WebKit/public/platform/WebURL.h"
 #include "third_party/WebKit/public/web/WebDocument.h"
 #include "third_party/WebKit/public/web/WebFrame.h"
+#include "third_party/WebKit/public/web/WebUserGestureIndicator.h"
 #include "third_party/WebKit/public/web/WebView.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkImage.h"
@@ -177,6 +178,7 @@ WebMediaPlayerAndroid::WebMediaPlayerAndroid(
       playback_completed_(false),
       volume_(1.0),
       volume_multiplier_(1.0),
+      video_locked_when_paused_when_hidden_(false),
       weak_factory_(this) {
   DCHECK(player_manager_);
 
@@ -293,12 +295,15 @@ bool WebMediaPlayerAndroid::IsLocalResource() {
 void WebMediaPlayerAndroid::play() {
   DCHECK(main_thread_checker_.CalledOnValidThread());
 
+  if (blink::WebUserGestureIndicator::isProcessingUserGesture())
+    video_locked_when_paused_when_hidden_ = false;
+
   if (hasVideo() && player_manager_->render_frame()->IsHidden()) {
     bool can_video_play_in_background =
         base::CommandLine::ForCurrentProcess()->HasSwitch(
             switches::kDisableMediaSuspend) ||
-        (IsBackgroundVideoCandidate() && delegate_ &&
-         delegate_->IsBackgroundVideoPlaybackUnlocked());
+        (IsBackgroundVideoCandidate() &&
+         !video_locked_when_paused_when_hidden_);
     if (!can_video_play_in_background) {
       is_play_pending_ = true;
       return;
@@ -326,6 +331,12 @@ void WebMediaPlayerAndroid::play() {
 
 void WebMediaPlayerAndroid::pause() {
   DCHECK(main_thread_checker_.CalledOnValidThread());
+
+  if (blink::WebUserGestureIndicator::isProcessingUserGesture()) {
+    video_locked_when_paused_when_hidden_ = true;
+    is_play_pending_ = false;
+  }
+
   Pause(true);
 }
 
@@ -1230,6 +1241,8 @@ void WebMediaPlayerAndroid::UpdatePlayingState(bool is_playing) {
 }
 
 void WebMediaPlayerAndroid::OnFrameHidden() {
+  video_locked_when_paused_when_hidden_ = true;
+
   // Pause audible video preserving its session.
   if (hasVideo() && IsBackgroundVideoCandidate() && !paused()) {
     Pause(false);
@@ -1245,6 +1258,7 @@ void WebMediaPlayerAndroid::OnFrameClosed() {
 }
 
 void WebMediaPlayerAndroid::OnFrameShown() {
+  video_locked_when_paused_when_hidden_ = false;
   if (is_play_pending_)
     play();
 }
