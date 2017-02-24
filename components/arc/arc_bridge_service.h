@@ -58,6 +58,12 @@ class ArcBridgeService {
   // Returns true if ARC has been enabled through a commandline switch.
   static bool GetEnabled(const base::CommandLine* command_line);
 
+  // Returns true if ARC Kiosk has been enabled through a commandline switch.
+  static bool GetKioskEnabled(const base::CommandLine* command_line);
+
+  // Returns true if ARC Kiosk session is started.
+  static bool GetKioskStarted(const base::CommandLine* command_line);
+
   // Returns true if ARC is available on the current board.
   static bool GetAvailable(const base::CommandLine* command_line);
 

@@ -148,7 +148,12 @@ void ArcSessionManager::EnableCheckAndroidManagementForTesting() {
 
 // static
 bool ArcSessionManager::IsAllowedForProfile(const Profile* profile) {
-  if (!ArcBridgeService::GetEnabled(base::CommandLine::ForCurrentProcess())) {
+  // ARC Kiosk can be enabled even if ARC is not yet supported on the device.
+  // In that case GetKioskStarted() should return true as profile is already
+  // created.
+    if (!ArcBridgeService::GetEnabled(base::CommandLine::ForCurrentProcess()) &&
+      !ArcBridgeService::GetKioskStarted(
+          base::CommandLine::ForCurrentProcess())) {
     VLOG(1) << "Arc is not enabled.";
     return false;
   }

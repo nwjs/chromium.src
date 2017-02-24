@@ -214,6 +214,9 @@ const char kEnableAndroidWallpapersApp[] = "enable-android-wallpapers-app";
 // Enables starting the ARC instance upon session start.
 const char kEnableArc[] = "enable-arc";
 
+// Enables ARC kiosk mode even if ARC is not enabled.
+const char kEnableArcKiosk[] = "enable-arc-kiosk";
+
 // Enables ARC OptIn flow in OOBE.
 const char kEnableArcOOBEOptIn[] = "enable-arc-oobe-optin";
 

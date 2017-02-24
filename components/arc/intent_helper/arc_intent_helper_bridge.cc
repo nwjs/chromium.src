@@ -133,7 +133,9 @@ ArcIntentHelperBridge::FilterOutIntentHelper(
 bool ArcIntentHelperBridge::IsIntentHelperAvailable(GetResult* out_error_code) {
   auto* arc_service_manager = ArcServiceManager::Get();
   if (!arc_service_manager) {
-    if (!ArcBridgeService::GetEnabled(base::CommandLine::ForCurrentProcess())) {
+    if (!ArcBridgeService::GetEnabled(base::CommandLine::ForCurrentProcess()) &&
+        !ArcBridgeService::GetKioskStarted(
+            base::CommandLine::ForCurrentProcess())) {
       VLOG(2) << "ARC bridge is not supported.";
       if (out_error_code)
         *out_error_code = GetResult::FAILED_ARC_NOT_SUPPORTED;

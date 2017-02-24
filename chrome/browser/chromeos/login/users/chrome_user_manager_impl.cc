@@ -872,7 +872,6 @@ void ChromeUserManagerImpl::ArcKioskAppLoggedIn(user_manager::User* user) {
       user_manager::User::USER_IMAGE_INVALID, false);
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  command_line->AppendSwitch(chromeos::switches::kEnableArc);
   command_line->AppendSwitch(::switches::kForceAndroidAppMode);
   command_line->AppendSwitch(::switches::kSilentLaunch);
 

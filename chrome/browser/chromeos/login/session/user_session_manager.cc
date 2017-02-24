@@ -1187,6 +1187,8 @@ void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
     InitializeCertificateTransparencyComponents(user);
 
     if (arc::ArcBridgeService::GetEnabled(
+            base::CommandLine::ForCurrentProcess()) ||
+        arc::ArcBridgeService::GetKioskStarted(
             base::CommandLine::ForCurrentProcess())) {
       arc::ArcServiceLauncher::Get()->OnPrimaryUserProfilePrepared(profile);
     }

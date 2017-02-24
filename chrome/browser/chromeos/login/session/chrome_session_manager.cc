@@ -107,6 +107,8 @@ void StartRestoreAfterCrashSession(Profile* user_profile,
     user_session_mgr->InitializeCertificateTransparencyComponents(user);
 
     if (arc::ArcBridgeService::GetEnabled(
+            base::CommandLine::ForCurrentProcess()) ||
+        arc::ArcBridgeService::GetKioskStarted(
             base::CommandLine::ForCurrentProcess())) {
       arc::ArcServiceLauncher::Get()->OnPrimaryUserProfilePrepared(
           user_profile);

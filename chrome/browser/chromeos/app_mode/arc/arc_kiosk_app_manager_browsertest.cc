@@ -83,7 +83,7 @@ class ArcKioskAppManagerTest : public InProcessBrowserTest {
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
     InProcessBrowserTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitch(chromeos::switches::kEnableArc);
+    command_line->AppendSwitch(chromeos::switches::kEnableArcKiosk);
   }
 
   void SetUpOnMainThread() override {

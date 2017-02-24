@@ -58,6 +58,8 @@ TaskManagerImpl::TaskManagerImpl()
   task_providers_.emplace_back(new WebContentsTaskProvider());
 #if defined(OS_CHROMEOS)
   if (arc::ArcBridgeService::GetEnabled(
+          base::CommandLine::ForCurrentProcess()) ||
+      arc::ArcBridgeService::GetKioskStarted(
           base::CommandLine::ForCurrentProcess())) {
     task_providers_.emplace_back(new ArcProcessTaskProvider());
   }
