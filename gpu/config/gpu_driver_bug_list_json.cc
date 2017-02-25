@@ -2221,7 +2221,7 @@ LONG_STRING_CONST(
         "type": "android",
         "version": {
           "op": "=",
-          "value": "7.1"
+          "value": "7.1.0"
         }
       },
       "gl_renderer": "Adreno \\(TM\\) 5.*",
