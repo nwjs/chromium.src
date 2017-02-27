@@ -145,7 +145,7 @@
 <translation id="1189418886587279221">आपले डिव्हाइस वापरण्यास सुलभ करण्यासाठी प्रवेशयोग्यता वैशिष्ट्ये सक्षम करा.</translation>
 <translation id="1190144681599273207">ही फाइल प्राप्त करताना अंदाजे <ph name="FILE_SIZE" /> मोबाइल डेटा वापरला जाईल.</translation>
 <translation id="11901918071949011">{NUM_FILES,plural, =1{आपल्या संगणकावर संचयित केलेल्या फाईलवर प्रवेश करा}one{आपल्या संगणकावर संचयित केलेल्या # फाईलवर प्रवेश करा}other{आपल्या संगणकावर संचयित केलेल्या # फायलींवर प्रवेश करा}}</translation>
-<translation id="1190596385362128063">मापन करा</translation>
+<translation id="1190596385362128063">कॅलिब्रेट करा</translation>
 <translation id="1190855992966397019">AppContainer लॉकडाउन सक्षम करा.</translation>
 <translation id="1195447618553298278">अज्ञात त्रुटी.</translation>
 <translation id="1196338895211115272">खासगी की निर्यात करण्यात अयशस्वी.</translation>
@@ -1498,7 +1498,7 @@
 <translation id="288042212351694283">आपल्या सर्वंकष 2 रा घटक डिव्हाइसेसवर प्रवेश करा</translation>
 <translation id="2881966438216424900"> अखेरचा प्रवेशः</translation>
 <translation id="2882943222317434580"><ph name="IDS_SHORT_PRODUCT_NAME" /> रीस्टार्ट होईल आणि क्षणभरात रीसेट होईल</translation>
-<translation id="2884778725218524621">टचस्क्रीन मापन md सेटिंग्ज पर्याय सक्षम करा/अक्षम करा</translation>
+<translation id="2884778725218524621">टचस्क्रीन कॅलिब्रेशन md सेटिंग्ज पर्याय सक्षम करा/अक्षम करा</translation>
 <translation id="2885378588091291677">कार्य व्यवस्थापक</translation>
 <translation id="2887525882758501333">PDF दस्तऐवज</translation>
 <translation id="2888807692577297075">कोणतेही आयटम &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; शी जुळत नाहीत</translation>
@@ -3502,7 +3502,7 @@
 <translation id="5495466433285976480">आपल्या पुढील रीस्टार्टनंतर हे सर्व स्थानिक वापरकर्ते, फायली, डेटा आणि अन्य सेटिंग्ज काढेल. सर्व वापरकर्त्यांना पुन्हा साइन इन करण्याची आवश्यकता असेल.</translation>
 <translation id="5496587651328244253">संयोजित करा</translation>
 <translation id="549673810209994709">हे पृष्‍ठ भाषांतरित केले जाऊ शकले नाही.</translation>
-<translation id="5499313591153584299">ही फाईल आपल्या संगणकासाठी हानीकारक ठरू शकते.</translation>
+<translation id="5499313591153584299">ही फाईल आपल्या संगणकासाठी हानिकारक ठरू शकते.</translation>
 <translation id="5500122897333236901">आइसलँडिक</translation>
 <translation id="5502500733115278303">Firefox कडून आयातीत</translation>
 <translation id="5507756662695126555">अस्वीकार नसलेले</translation>
@@ -6249,7 +6249,7 @@
 <translation id="9183836083779743117"><ph name="DOWNLOAD_DOMAIN" /> वरून <ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="9184146175870444618">फ्लिंग दरम्यान स्पर्श करून प्रारंभ करणारे आणि प्रथम स्पर्श करून हलवणारे प्रति स्क्रोल इव्हेंट ऐकणार्‍यांना निष्क्रिय म्हणून हाताळण्यासाठी सक्ती करते.</translation>
 <translation id="9184473426683023988">डिव्हाइसमध्ये आयात करा आणि प्रतिबद्ध करा</translation>
-<translation id="9185358268467915502">सक्षम केले असल्यास, वापरकर्ता chrome://md-settings/display मध्ये प्रदर्शित होणार्‍या टचस्क्रीनचे मापन करू शकतो.</translation>
+<translation id="9185358268467915502">सक्षम केले असल्यास, वापरकर्ता chrome://md-settings/display मध्ये प्रदर्शित होणारी टचस्क्रीन कॅलिब्रेट करू शकतो.</translation>
 <translation id="9186729806195986201">पूर्वी स्‍थापित केलेल्या <ph name="IDS_SHORT_PRODUCT_NAME" /> च्या आवृत्तीवर परत देखील या.</translation>
 <translation id="9187210477874601037">डोमेनशी मशीन जोडण्‍यात अयशस्वी झाले. हे कदाचित सर्व्हर वरील आपल्या खात्यासाठी असलेल्या अपुर्‍या विशेषाधिकारांमुळे असू शकते.</translation>
 <translation id="9187651461283037651">Chrome VR सक्षम करा.</translation>

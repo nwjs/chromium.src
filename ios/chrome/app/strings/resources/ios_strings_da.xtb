@@ -220,9 +220,9 @@ Dine data er krypteret med din adgangssætning til synkronisering. Indtast den f
 <translation id="54401264925851789">Oplysninger om sidesikkerhed</translation>
 <translation id="5525269841082836315">Opret adgangssætning</translation>
 <translation id="5531274207066050939">Google Payments</translation>
-<translation id="5548760955356983418">Med Videregivelse kan du begynde at se på et website på denne enhed og derefter nemt fortsætte på din Mac. Det website, du har åbent, vises i docken på din Mac.
+<translation id="5548760955356983418">Med Handoff kan du begynde at se på et website på denne enhed og derefter nemt fortsætte på din Mac. Det website, du har åbent, vises i docken på din Mac.
 
-Videregivelse skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enheder skal benytte den samme iCloud-konto.</translation>
+Handoff skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enheder skal benytte den samme iCloud-konto.</translation>
 <translation id="5556459405103347317">Genindlæs</translation>
 <translation id="5626245204502895507">Filen kunne ikke downloades på nuværende tidspunkt.</translation>
 <translation id="5659593005791499971">E-mail</translation>
@@ -411,7 +411,7 @@ Dine data blev krypteret med din adgangssætning til synkronisering d. <ph name=
 <translation id="9148126808321036104">Log ind igen</translation>
 <translation id="9157836665414082580">Skjul dialogbokse</translation>
 <translation id="9188680907066685419">Log ud af den administrerede konto</translation>
-<translation id="9203116392574189331">Videregivelse</translation>
+<translation id="9203116392574189331">Handoff</translation>
 <translation id="9223358826628549784">Der er sendt en nedbrudsrapport.</translation>
 <translation id="935490618240037774">Dine bogmærker, din historik, dine adgangskoder og andre indstillinger synkroniseres med din Google-konto, så du kan bruge dem på alle dine enheder.</translation>
 <translation id="939598580284253335">Angiv adgangssætning</translation>

@@ -446,6 +446,7 @@
 <translation id="5544037170328430102"><ph name="SITE" /> web sitesindeki yerleşik bir sayfanın mesajı:</translation>
 <translation id="5556459405103347317">Yeniden Yükle</translation>
 <translation id="5565735124758917034">Etkin</translation>
+<translation id="5572851009514199876">Chrome'un bu siteye erişmenize izin verilip verilmediğini kontrol edebilmesi için lütfen Chrome'u başlatıp oturum açın.</translation>
 <translation id="5580958916614886209">Son kullanma tarihinin ayını kontrol edip tekrar deneyin</translation>
 <translation id="560412284261940334">Yönetim desteklenmiyor</translation>
 <translation id="5610142619324316209">Bağlantınızı kontrol etme</translation>
@@ -778,6 +779,7 @@ Hatırlatma! Bir dahaki sefere Gizli mod <ph name="SHORTCUT_KEY" /> kullanışl�
 <translation id="9076283476770535406">Yetişkin içeriği bulunabilir</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> normalde bilgilerinizi korumak için şifreleme kullanmaktadır. Chromium bu sefer <ph name="SITE" /> sitesine bağlanmayı denediğinde, web sitesi sıra dışı ve yanlış kimlik bilgileri döndürdü. Bir saldırgan <ph name="SITE" /> gibi davranmaya çalışıyor olabilir ya da bir Kablosuz oturum açma ekranı bağlantıyı kesmiştir. Chromium herhangi bir veri alışverişinden önce bağlantıyı durdurduğu için bilgileriniz hâlâ güvendedir.</translation>
 <translation id="9137013805542155359">Orijinali göster</translation>
+<translation id="9137248913990643158">Lütfen bu uygulamayı kullanmadan önce Chrome'u başlatıp oturum açın.</translation>
 <translation id="9148507642005240123">Düzenlemeyi &amp;geri al</translation>
 <translation id="9157595877708044936">Ayarlanıyor...</translation>
 <translation id="9170848237812810038">&amp;Geri al</translation>

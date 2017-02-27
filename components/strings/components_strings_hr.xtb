@@ -445,6 +445,7 @@
 <translation id="5544037170328430102">Ugrađena stranica na web-lokaciji <ph name="SITE" /> navodi sljedeće:</translation>
 <translation id="5556459405103347317">Ponovno učitaj</translation>
 <translation id="5565735124758917034">Aktivno</translation>
+<translation id="5572851009514199876">Pokrenite Chrome i prijavite se na njega kako bi mogao provjeriti imate li dopuštenje za pristup toj web-lokaciji.</translation>
 <translation id="5580958916614886209">Provjerite mjesec isteka, pa pokušajte ponovo</translation>
 <translation id="560412284261940334">Upravljanje nije podržano</translation>
 <translation id="5610142619324316209">provjerite vezu</translation>
@@ -778,6 +779,7 @@ Psst! Sljedeći bi vam put mogao koristiti anonimni način <ph name="SHORTCUT_KE
 <translation id="9103872766612412690"><ph name="SITE" /> obično upotrebljava enkripciju radi zaštite vaših podataka. Prilikom ovog pokušaja povezivanja Chromiuma s web-lokacijom <ph name="SITE" /> ta je web-lokacija vratila neuobičajene
 i netočne vjerodajnice. To može značiti da se neki napadač pokušava predstaviti kao <ph name="SITE" /> ili je zaslon za prijavu na Wi-Fi prekinuo vezu. Vaši su podaci još uvijek sigurni jer je Chromium zaustavio povezivanje prije razmjene podataka.</translation>
 <translation id="9137013805542155359">Prikaži original</translation>
+<translation id="9137248913990643158">Pokrenite Chrome i prijavite se na njega da biste mogli upotrebljavati tu aplikaciju.</translation>
 <translation id="9148507642005240123">&amp;Poništi uređivanje</translation>
 <translation id="9157595877708044936">Postavljanje...</translation>
 <translation id="9170848237812810038">&amp;Poništi</translation>

@@ -447,6 +447,7 @@
 <translation id="5544037170328430102">Viesti upotetulta sivulta osoitteessa <ph name="SITE" />:</translation>
 <translation id="5556459405103347317">Lataa uudelleen</translation>
 <translation id="5565735124758917034">Aktiivinen</translation>
+<translation id="5572851009514199876">Aloita ja kirjaudu sisään, jotta Chrome voi tarkistaa, onko sinulla oikeus käyttää tätä sivustoa.</translation>
 <translation id="5580958916614886209">Tarkista vanhentumiskuukausi ja yritä uudelleen.</translation>
 <translation id="560412284261940334">Hallintaa ei tueta</translation>
 <translation id="5610142619324316209">Tarkista yhteys.</translation>
@@ -779,6 +780,7 @@ Psst! Suosittelemme käyttämään ensi kerralla incognito-tilaa <ph name="SHORT
 <translation id="9076283476770535406">Se saattaa sisältää vain aikuisille tarkoitettua sisältöä.</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> suojaa tietosi normaalisti salauksen avulla. Kun Chromium yritti tällä kertaa yhdistää sivustoon <ph name="SITE" />, sivusto palautti epätavalliset ja virheelliset kirjautumistiedot. Hyökkääjä saattaa yrittää esiintyä sivustona <ph name="SITE" />, tai Wi-Fi-kirjautumisruutu on keskeyttänyt yhteyden. Tietosi ovat edelleen turvassa, sillä Chromium katkaisi yhteyden, ennen kuin mitään tietoja vaihdettiin.</translation>
 <translation id="9137013805542155359">Näytä alkuperäinen</translation>
+<translation id="9137248913990643158">Aloita ja kirjaudu sisään Chromeen ennen tämän sovelluksen käyttämistä.</translation>
 <translation id="9148507642005240123">K&amp;umoa muokkaus</translation>
 <translation id="9157595877708044936">Valmistellaan...</translation>
 <translation id="9170848237812810038">K&amp;umoa</translation>

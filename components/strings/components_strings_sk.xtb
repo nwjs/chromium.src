@@ -442,6 +442,7 @@
 <translation id="5544037170328430102">Vložená stránka na webe <ph name="SITE" /> hovorí:</translation>
 <translation id="5556459405103347317">Obnoviť</translation>
 <translation id="5565735124758917034">Aktívne</translation>
+<translation id="5572851009514199876">Začnite a prihláste sa do Chromu, aby skontroloval, či môžete navštíviť tento web.</translation>
 <translation id="5580958916614886209">Skontrolujte mesiac vypršania platnosti a skúste to znova</translation>
 <translation id="560412284261940334">Správa nie je podporovaná</translation>
 <translation id="5610142619324316209">Skontrolovať pripojenie</translation>
@@ -773,6 +774,7 @@ Nabudúce by sa vám mohol hodiť režim inkognito (<ph name="SHORTCUT_KEY" />).
 <translation id="9076283476770535406">Môže zahŕňať obsah pre dospelých</translation>
 <translation id="9103872766612412690">Web <ph name="SITE" /> zvyčajne chráni vaše informácie pomocou šifrovania. Keď sa prehliadač Chromium tentokrát pokúsil pripojiť k webu <ph name="SITE" />, odoslal späť nezvyčajné a nesprávne poverenia. Môže sa to stať vtedy, keď sa za web <ph name="SITE" /> snaží vydávať útočník alebo keď pripojenie preruší prihlasovacia obrazovka siete Wi-Fi. Vaše informácie sú stále zabezpečené, pretože prehliadač Chromium zastavil pripojenie ešte pred výmenou dát.</translation>
 <translation id="9137013805542155359">Zobraziť originál</translation>
+<translation id="9137248913990643158">Začnite a prihláste sa do Chromu ešte predtým, ako použijete túto aplikáciu.</translation>
 <translation id="9148507642005240123">&amp;Vrátiť späť úpravu</translation>
 <translation id="9157595877708044936">Prebieha nastavenie...</translation>
 <translation id="9170848237812810038">&amp;Naspäť</translation>

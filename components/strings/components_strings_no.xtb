@@ -446,6 +446,7 @@
 <translation id="5544037170328430102">En innebygd side på <ph name="SITE" /> sier:</translation>
 <translation id="5556459405103347317">Last inn på nytt</translation>
 <translation id="5565735124758917034">Aktiv</translation>
+<translation id="5572851009514199876">Start og logg på Chrome, så Chrome kan sjekke om du har tillatelse til å gå til dette nettstedet.</translation>
 <translation id="5580958916614886209">Kontrollér utløpsmåneden, og prøv igjen</translation>
 <translation id="560412284261940334">Administrering støttes ikke</translation>
 <translation id="5610142619324316209">Sjekk tilkoblingen</translation>
@@ -778,6 +779,7 @@ Forresten: Inkognitomodus (<ph name="SHORTCUT_KEY" />) kan være kjekt neste gan
 <translation id="9076283476770535406">Det kan ha voksent innhold</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> bruker vanligvis kryptering for å beskytte informasjonen din. Da Chromium prøvde å koble til <ph name="SITE" /> denne gangen, sendte nettstedet tilbake uvanlig og feil legitimasjon. Dette kan skje hvis en angriper prøver å utgi seg for å være <ph name="SITE" />, eller hvis en Wi-Fi-påloggingsskjerm har avbrutt tilkoblingen. Informasjonen din er likevel sikker fordi Chromium stoppet tilkoblingen før det ble utvekslet noen data.</translation>
 <translation id="9137013805542155359">Vis original</translation>
+<translation id="9137248913990643158">Du må starte og logge på Chrome før du bruker denne appen.</translation>
 <translation id="9148507642005240123">&amp;Angre endringen</translation>
 <translation id="9157595877708044936">Konfigurerer ...</translation>
 <translation id="9170848237812810038">&amp;Angre</translation>

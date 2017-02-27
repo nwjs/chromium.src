@@ -1211,6 +1211,11 @@
            Pentru exemple de șabloane, accesează https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Deschide o listă de adrese URL</translation>
 <translation id="4680961954980851756">Activează completarea automată</translation>
+<translation id="4722399051042571387">Dacă este dezactivată, utilizatorii nu vor putea configura coduri PIN slabe sau ușor de ghicit.
+
+          Exemple de coduri PIN slabe: coduri PIN formate din aceeași cifră (1111), ale căror cifre sunt în ordine crescătoare (1234)/descrescătoare (4321) sau care sunt folosite frecvent.
+
+          În mod prestabilit, utilizatorii vor primi un avertisment, nu o eroare, dacă codul PIN este considerat slab.</translation>
 <translation id="4723829699367336876">Activează trecerea prin firewall de la clientul cu acces la distanță</translation>
 <translation id="4725528134735324213">Activează Android Backup Service</translation>
 <translation id="4733471537137819387">Politici referitoare la autentificarea integrată HTTP.</translation>
@@ -1745,6 +1750,13 @@
           Dacă alegi opțiunea „detectează automat serverul proxy”, adresa URL pentru scripturi „http://wpad/wpad.dat” este oferită aplicațiilor Android. Nu este folosită nicio altă parte a protocolului pentru detectarea automată a proxy-ului.
 
           Dacă alegi opțiunea „script .pac pentru proxy”, adresa URL pentru scripturi este oferită aplicațiilor Android.</translation>
+<translation id="6435127182262044446">Această setare stabilește lungimea maximă a codului PIN.
+
+          Dacă setarea este configurată să aibă valoarea 0 sau mai puțin, nu există o lungime maximă, iar utilizatorul poate seta un cod PIN oricât de lung.
+
+          Dacă setarea este configurată la o valoare mai mică decât PinUnlockMinimumLength, dar mai mare decât 0, lungimea maximă este aceeași cu cea minimă.
+
+          Valoarea prestabilită a acestei setări este „fără lungime maximă”.</translation>
 <translation id="6467433935902485842">Vă permite să setați o listă cu modele pentru adresele URL ce specifică site-urile care nu au permisiunea de a rula pluginuri. Dacă această politică este lăsată nesetată, valoarea prestabilită la nivel global va fi folosită pentru toate site-urile, fie din politica „DefaultPluginsSetting”, în cazul în care aceasta este setată, fie din configurația personală a utilizatorului, în caz contrar.</translation>
 <translation id="6473334971332473690">Permite ca funcția Smart Lock să fie folosită pe dispozitivele <ph name="PRODUCT_OS_NAME" />.
 
@@ -2654,6 +2666,13 @@ nu poate fi stabilit de utilizator din setările browserului.
           Handlerele de protocol înregistrate de politică sunt combinate cu cele înregistrate de utilizator și ambele sunt disponibile pentru a fi utilizate. Utilizatorul poate înlocui handlerele de protocol instalate de politică instalând un nou handler prestabilit, dar nu poate elimina un handler de protocol înregistrat de politică.</translation>
 <translation id="913195841488580904">Blocați accesul la o listă de adrese URL</translation>
 <translation id="9135033364005346124">Activează proxy-ul <ph name="CLOUD_PRINT_NAME" /></translation>
+<translation id="9136253551939494882">O listă albă care stabilește ce moduri de deblocare rapidă pot să configureze și să folosească utilizatorii pentru a debloca ecranul de blocare.
+
+          Această valoare este o listă de șiruri. Intrările valide din listă sunt: „toate”, „PIN”. Dacă adaugi „toate” în listă, toate modurile de deblocare rapidă sunt disponibile utilizatorului, inclusiv cele implementate pe viitor. În caz contrar, vor fi disponibile numai modurile de deblocare rapidă prezente în listă.
+
+          De exemplu, pentru a permite toate modurile de deblocare rapidă, folosește [„toate”]. Pentru a permite numai deblocarea prin codul PIN, folosește [„PIN”]. Pentru a dezactiva toate modurile de deblocare rapidă, folosește [].
+
+          În mod prestabilit, nu sunt disponibile moduri de deblocare rapidă pentru dispozitivele gestionate.</translation>
 <translation id="9147029539363974059">Trimite jurnalele de sistem pe serverul de gestionare, pentru ca administratorii
       să poată gestiona jurnalele de sistem.
 
@@ -2662,6 +2681,11 @@ nu poate fi stabilit de utilizator din setările browserului.
 <translation id="9150416707757015439">Această politică este învechită. Puteți să utilizați IncognitoModeAvailability. Activați modul incognito în <ph name="PRODUCT_NAME" />. Dacă această setare este activată sau nu este configurată, utilizatorii pot deschide pagini web în modul incognito. Dacă această setare este dezactivată, utilizatorii nu pot deschide pagini web în modul incognito. Dacă această politică rămâne nesetată, setarea va fi activată, dar utilizatorul va putea folosi modul incognito.</translation>
 <translation id="915194831143859291">Dacă această politică este dezactivată sau nu este configurată, <ph name="PRODUCT_OS_NAME" /> îi va permite utilizatorului să oprească dispozitivul.
       Dacă această politică este activată, <ph name="PRODUCT_OS_NAME" /> va declanșa o repornire când utilizatorul închide dispozitivul. <ph name="PRODUCT_OS_NAME" /> înlocuiește toate aparițiile butoanelor de închidere din interfața de utilizare cu butoane de repornire. Dacă utilizatorul închide dispozitivul folosind butonul de pornire, acesta nu va reporni automat, chiar dacă politica este activată.</translation>
+<translation id="917887642534332939">Setarea stabilește lungimea minimă a codului PIN.
+
+          Lungimea minimă absolută a codului PIN este 1. Valorile mai mici de 1 sunt tratate ca fiind 1.
+
+          Lungimea minimă a codului PIN prestabilită și recomandată este de 6 cifre.</translation>
 <translation id="9187743794267626640">Dezactivați conectarea dispozitivelor de stocare externe</translation>
 <translation id="9197740283131855199">Procentul cu care se va ajusta intervalul de reducere a luminozității ecranului dacă utilizatorul devine activ după reducerea luminozității</translation>
 <translation id="9200828125069750521">Parametrii pentru adresa URL a imaginii care utilizează POST</translation>

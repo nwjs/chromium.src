@@ -443,6 +443,7 @@
 <translation id="5544037170328430102"><ph name="SITE" /> 上的嵌入式页面显示：</translation>
 <translation id="5556459405103347317">重新加载</translation>
 <translation id="5565735124758917034">主动</translation>
+<translation id="5572851009514199876">请启动并登录 Chrome，以便 Chrome 能够检查您是否可以访问此网站。</translation>
 <translation id="5580958916614886209">请检查您的信用卡到期月份，然后重试</translation>
 <translation id="560412284261940334">不支持管理</translation>
 <translation id="5610142619324316209">检查网络连接</translation>
@@ -774,6 +775,7 @@
 <translation id="9076283476770535406">此网站可能包含成人内容</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> 通常会使用加密技术来保护您的信息。Chromium 此次尝试连接到 <ph name="SITE" /> 时，此网站发回了异常的错误凭据。这可能是因为有攻击者在试图冒充 <ph name="SITE" />，或 Wi-Fi 登录屏幕中断了此次连接。请放心，您的信息仍然是安全的，因为 Chromium 尚未进行任何数据交换便停止了连接。</translation>
 <translation id="9137013805542155359">显示原始网页</translation>
+<translation id="9137248913990643158">在使用此应用前，请先启动并登录 Chrome。</translation>
 <translation id="9148507642005240123">撤消修改(&amp;U)</translation>
 <translation id="9157595877708044936">正在设置...</translation>
 <translation id="9170848237812810038">撤消(&amp;U)</translation>

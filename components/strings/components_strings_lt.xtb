@@ -447,6 +447,7 @@
 <translation id="5544037170328430102"><ph name="SITE" /> įterptame puslapyje sakoma:</translation>
 <translation id="5556459405103347317">Įkelti iš naujo</translation>
 <translation id="5565735124758917034">Aktyvus</translation>
+<translation id="5572851009514199876">Pirmiausia prisijunkite prie „Chrome“, kad „Chrome“ galėtų patikrinti, ar jums leidžiama pasiekti šią svetainę.</translation>
 <translation id="5580958916614886209">Patikrinkite galiojimo pabaigos mėnesį ir bandykite dar kartą</translation>
 <translation id="560412284261940334">Tvarkymas nepalaikomas</translation>
 <translation id="5610142619324316209">Patikrinti ryšį</translation>
@@ -779,6 +780,7 @@ Ei! Kitą kartą gali būti naudinga naudoti inkognito režimą (<ph name="SHORT
 <translation id="9076283476770535406">Joje gali būti suaugusiesiems skirto turinio</translation>
 <translation id="9103872766612412690">Svetainėje <ph name="SITE" /> įprastai naudojama šifruotė informacijai apsaugoti. Šį kartą „Chromium“ bandant prisijungti prie <ph name="SITE" />, ji pateikė neįprastus ir netinkamus prisijungimo duomenis. Gali būti, kad užpuolėjas bando apsimesti svetaine <ph name="SITE" /> arba „Wi-Fi“ prisijungimo ekrane nutrūko ryšys. Jūsų informacija vis tiek liko apsaugota, nes „Chromium“ sustabdė prisijungimą prieš apsikeitimą bet kokiais duomenimis.</translation>
 <translation id="9137013805542155359">Rodyti originalą</translation>
+<translation id="9137248913990643158">Prieš naudodami šią programą prisijunkite prie „Chrome“.</translation>
 <translation id="9148507642005240123">&amp;Anuliuoti redagavimą</translation>
 <translation id="9157595877708044936">Nustatoma...</translation>
 <translation id="9170848237812810038">&amp;Atšaukti</translation>

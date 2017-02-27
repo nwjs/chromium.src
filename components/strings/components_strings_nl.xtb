@@ -442,6 +442,7 @@
 <translation id="5544037170328430102">Een ingesloten pagina op <ph name="SITE" /> meldt het volgende:</translation>
 <translation id="5556459405103347317">Opnieuw laden</translation>
 <translation id="5565735124758917034">Actief</translation>
+<translation id="5572851009514199876">Start Chrome en log in zodat Chrome kan controleren of je deze site mag openen.</translation>
 <translation id="5580958916614886209">Controleer de vervalmaand en probeer het opnieuw</translation>
 <translation id="560412284261940334">Beheer wordt niet ondersteund</translation>
 <translation id="5610142619324316209">Controleer de verbinding</translation>
@@ -773,6 +774,7 @@ De volgende keer kan het handig zijn de incognitomodus <ph name="SHORTCUT_KEY" /
 <translation id="9076283476770535406">De site kan content voor volwassenen bevatten</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> gebruikt gewoonlijk versleuteling om je gegevens te beschermen. Toen Chromium deze keer probeerde verbinding te maken met <ph name="SITE" />, retourneerde de website ongewone en onjuiste inloggegevens. Dit gebeurt wanneer een aanvaller probeert zich als <ph name="SITE" /> voor te doen of wanneer een wifi-inlogscherm de verbinding heeft verbroken. Je gegevens zijn nog steeds veilig omdat Chromium de verbinding heeft beëindigd voordat er gegevens konden worden uitgewisseld.</translation>
 <translation id="9137013805542155359">Origineel weergeven</translation>
+<translation id="9137248913990643158">Start Chrome en log in voordat je deze app gebruikt.</translation>
 <translation id="9148507642005240123">&amp;Bewerken ongedaan maken</translation>
 <translation id="9157595877708044936">Bezig met instellen...</translation>
 <translation id="9170848237812810038">&amp;Ongedaan maken</translation>

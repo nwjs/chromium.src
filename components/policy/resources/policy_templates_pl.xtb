@@ -1200,6 +1200,7 @@ Jeśli ta zasada nie zostanie ustawiona, użytkownik będzie mógł korzystać z
           Przykładowe wzorce znajdziesz na https://www.chromium.org/developers/how-tos/chrome-frame-getting-started</translation>
 <translation id="467449052039111439">Otwórz adresy URL z listy</translation>
 <translation id="4680961954980851756">Włącz autouzupełnianie</translation>
+<translation id="4722399051042571387">Jeśli to ustawienie jest wyłączone, użytkownicy nie mogą ustawiać kodów PIN, które są słabe i łatwe do odgadnięcia. Słabe kody PIN to na przykład ciągi takich samych cyfr (1111), kolejnych cyfr w porządku rosnącym (1234) lub malejącym (4321) i ciągi często używane. Domyślnie po wpisaniu słabego kodu PIN nie pojawia się komunikat o błędzie, a tylko ostrzeżenie.</translation>
 <translation id="4723829699367336876">Włącz omijanie zapory sieciowej przez klienta dostępu zdalnego</translation>
 <translation id="4725528134735324213">Włącz Android Backup Service</translation>
 <translation id="4733471537137819387">Zasady dotyczące zintegrowanego uwierzytelniania HTTP.</translation>
@@ -1732,6 +1733,7 @@ Jeśli ta zasada nie zostanie ustawiona, użytkownik może wyłączyć każdą w
           Jeśli wybierzesz automatyczne wykrywanie serwera proxy, aplikacje na Androida otrzymają URL skryptu „http://wpad/wpad.dat”. Nie jest używana żadna inna część protokołu automatycznego wykrywania serwera proxy.
 
           Jeśli wybierzesz używanie skryptu .pac serwera proxy, aplikacje na Androida otrzymają URL skryptu.</translation>
+<translation id="6435127182262044446">To ustawienie określa maksymalną długość kodu PIN. Jeśli to ustawienie ma wartość 0 lub mniejszą, nie ma limitu i użytkownik może ustawić kod PIN dowolnej długości. Jeśli to ustawienie ma wartość mniejszą niż wartość parametru PinUnlockMinimumLength, ale większą niż 0, maksymalna długość jest równa długości minimalnej. Domyślnie to ustawienie nie ogranicza długości kodu.</translation>
 <translation id="6467433935902485842">Umożliwia skonfigurowanie listy wzorcowych URL-i określających witryny, w których nie mogą być uruchamiane wtyczki. Jeśli ta zasada nie zostanie skonfigurowana, dla wszystkich witryn będzie używana globalna wartość domyślna pochodząca z zasady „DefaultPluginsSetting” (jeśli została skonfigurowana) lub z osobistej konfiguracji użytkownika.</translation>
 <translation id="6473334971332473690">Pozwala korzystać z funkcji Smart Lock na urządzeniach z <ph name="PRODUCT_OS_NAME" />.
 
@@ -2625,12 +2627,14 @@ Więcej opcji i szczegółowych przykładów znajdziesz na:
           Moduły obsługi protokołów zarejestrowane przez zasadę są łączone z modułami zarejestrowanymi przez użytkownika i oba te typy są dostępne do użycia. Użytkownik może zastąpić moduły obsługi protokołów zainstalowane przez zasadę, instalując nowy moduł domyślny, ale nie może usunąć modułów zarejestrowanych przez zasadę.</translation>
 <translation id="913195841488580904">Blokuj dostęp do listy adresów URL</translation>
 <translation id="9135033364005346124">Włącz serwer proxy usługi <ph name="CLOUD_PRINT_NAME" /></translation>
+<translation id="9136253551939494882">Biała lista trybów szybkiego odblokowania, które użytkownik może skonfigurować i których może używać do odblokowywania ekranu blokady. Ta wartość to lista ciągów znaków. Poprawne opcje to: "all" (wszystkie) i "PIN" (kod PIN). Opcja "all" oznacza, że użytkownik może korzystać ze wszystkich trybów odblokowania ekranu, także tych, które zostaną wdrożone w przyszłości. W przeciwnym razie dostępne są tylko tryby szybkiego odblokowania znajdujące się na liście. Na przykład aby zezwolić na wszystkie tryby szybkiego odblokowania, użyj ciągu ["all"]. Aby zezwolić tylko na odblokowywanie przy użyciu kodu PIN, użyj ciągu ["PIN"]. Aby wyłączyć wszystkie tryby szybkiego odblokowania, użyj ciągu []. Domyślnie tryby szybkiego odblokowania nie są dostępne na urządzeniach zarządzanych.</translation>
 <translation id="9147029539363974059">Wysyła dzienniki systemowe na serwer zarządzania, by umożliwić monitorowanie ich przez administratorów.
 
       Jeśli włączysz tę zasadę, dzienniki systemowe będą wysyłane, a jeśli ją wyłączysz lub jej nie ustawisz, nie będą.</translation>
 <translation id="9150416707757015439">Ta zasada została wycofana z użycia. Zamiast niej użyj IncognitoModeAvailability. Włącza ona tryb incognito w <ph name="PRODUCT_NAME" />. Jeśli ustawienie jest włączone lub nieskonfigurowane, użytkownicy mogą otwierać strony internetowe w trybie incognito. Wyłączenie ustawienia uniemożliwia użytkownikom otwieranie stron internetowych w tym trybie. W przypadku nieskonfigurowania tej zasady ustawienie zostanie włączone, a użytkownicy będą mogli używać trybu incognito.</translation>
 <translation id="915194831143859291">Jeśli wyłączysz tę zasadę lub jej nie skonfigurujesz, <ph name="PRODUCT_OS_NAME" /> pozwoli użytkownikowi wyłączyć urządzenie.
       Jeśli zasada będzie włączona, <ph name="PRODUCT_OS_NAME" /> wymusi ponowne uruchomienie urządzenia, gdy użytkownik spróbuje je wyłączyć. <ph name="PRODUCT_OS_NAME" /> zastąpi wszystkie wystąpienia przycisku wyłączania w interfejsie użytkownika przyciskami ponownego uruchomienia. Urządzenie nie uruchomi się ponownie niezależnie od ustawienia tej zasady, jeśli użytkownik wyłączy je za pomocą przycisku zasilania.</translation>
+<translation id="917887642534332939">To ustawienie określa minimalną długość kodu PIN. Bezwzględne minimum długości kodu PIN to 1. Wartości mniejsze niż 1 są uznawane za 1. Domyślną i zalecaną długością kodu PIN jest 6 cyfr.</translation>
 <translation id="9187743794267626640">Wyłącz podłączanie pamięci zewnętrznych</translation>
 <translation id="9197740283131855199">Wartość procentowa skalowania opóźnienia przyciemnienia ekranu, jeśli użytkownik stanie się aktywny po przyciemnieniu</translation>
 <translation id="9200828125069750521">Parametry dla adresów URL obrazów używających POST</translation>

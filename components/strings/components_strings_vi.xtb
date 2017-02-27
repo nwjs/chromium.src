@@ -446,6 +446,7 @@
 <translation id="5544037170328430102">Trang được nhúng tại <ph name="SITE" /> cho biết:</translation>
 <translation id="5556459405103347317">Tải lại</translation>
 <translation id="5565735124758917034">Đang hoạt động</translation>
+<translation id="5572851009514199876">Vui lòng khởi động và đăng nhập vào Chrome để Chrome có thể kiểm tra xem bạn có được phép truy cập trang web này không.</translation>
 <translation id="5580958916614886209">Kiểm tra tháng hết hạn của bạn và thử lại</translation>
 <translation id="560412284261940334">Không hỗ trợ quản lý</translation>
 <translation id="5610142619324316209">Kiểm tra kết nối</translation>
@@ -778,6 +779,7 @@ Lưu ý! Chế độ ẩn danh <ph name="SHORTCUT_KEY" /> có thể hữu ích v
 <translation id="9076283476770535406">Trang web có thể có nội dung người lớn</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> thường sử dụng mã hóa để bảo vệ thông tin của bạn. Khi Chromium cố gắng kết nối với <ph name="SITE" /> tại thời điểm này, trang web đã gửi lại thông tin đăng nhập không chính xác và bất thường. Điều này có thể xảy ra khi kẻ tấn công đang cố gắng giả mạo là <ph name="SITE" /> hoặc màn hình đăng nhập Wi-Fi đã làm gián đoạn kết nối. Thông tin của bạn vẫn an toàn do Chromium đã ngừng kết nối trước khi bất kỳ dữ liệu nào được trao đổi.</translation>
 <translation id="9137013805542155359">Hiển thị văn bản gốc</translation>
+<translation id="9137248913990643158">Vui lòng khởi động và đăng nhập vào Chrome trước khi sử dụng ứng dụng này.</translation>
 <translation id="9148507642005240123">&amp;Hoàn tác chỉnh sửa</translation>
 <translation id="9157595877708044936">Đang thiết lập...</translation>
 <translation id="9170848237812810038">H&amp;oàn tác</translation>

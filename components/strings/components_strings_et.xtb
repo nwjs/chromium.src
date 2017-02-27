@@ -446,6 +446,7 @@
 <translation id="5544037170328430102">Manustatud leht saidil <ph name="SITE" /> ütleb:</translation>
 <translation id="5556459405103347317">Laadi uuesti</translation>
 <translation id="5565735124758917034">Aktiivne</translation>
+<translation id="5572851009514199876">Alustage ja logige Chrome'i sisse, et Chrome saaks kontrollida, kas teil on luba sellele saidile juurdepääsemiseks.</translation>
 <translation id="5580958916614886209">Kontrollige aegumiskuud ja proovige uuesti</translation>
 <translation id="560412284261940334">Haldust ei toetata</translation>
 <translation id="5610142619324316209">Kontrollige ühendust</translation>
@@ -778,6 +779,7 @@ Inkognito režiim <ph name="SHORTCUT_KEY" /> võib järgmisel korral kasulikuks 
 <translation id="9076283476770535406">See võib sisaldada täiskasvanutele mõeldud sisu</translation>
 <translation id="9103872766612412690">Sait <ph name="SITE" /> kasutab teie teabe kaitsmiseks tavaliselt krüpteerimist. Kui Chromium püüdis seekord saidiga <ph name="SITE" /> ühendust luua, tagastas veebisait ebatavalised ja valed mandaadid. See võib juhtuda siis, kui ründaja proovib teeselda, et on sait <ph name="SITE" />, või WiFi sisselogimisekraan on ühenduse katkestanud. Teie teave on endiselt kaitstud, sest Chromium peatas ühenduse enne andmevahetust.</translation>
 <translation id="9137013805542155359">Kuva originaal</translation>
+<translation id="9137248913990643158">Enne selle rakenduse kasutamist alustage ja logige Chrome'i sisse.</translation>
 <translation id="9148507642005240123">&amp;Võta muudatus tagasi</translation>
 <translation id="9157595877708044936">Seadistamine...</translation>
 <translation id="9170848237812810038">&amp;Võta tagasi</translation>

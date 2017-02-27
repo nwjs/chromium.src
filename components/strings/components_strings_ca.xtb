@@ -365,7 +365,7 @@
 <translation id="4594403342090139922">&amp;Desfés la supressió</translation>
 <translation id="4619615317237390068">Pestanyes d'altres dispositius</translation>
 <translation id="4668929960204016307">,</translation>
-<translation id="4670097147947922288">Esteu consultant una pàgina d'extensions.</translation>
+<translation id="4670097147947922288">Estàs consultant la pàgina d'una extensió.</translation>
 <translation id="4701488924964507374"><ph name="SENTENCE1" /> <ph name="SENTENCE2" /></translation>
 <translation id="4708268264240856090">La connexió s'ha interromput</translation>
 <translation id="4722547256916164131"><ph name="BEGIN_LINK" />Executar el Diagnòstic de xarxa de Windows<ph name="END_LINK" /></translation>
@@ -446,6 +446,7 @@
 <translation id="5544037170328430102">Una pàgina inserida a <ph name="SITE" /> diu:</translation>
 <translation id="5556459405103347317">Torna a carregar</translation>
 <translation id="5565735124758917034">Actiu</translation>
+<translation id="5572851009514199876">Obre Chrome i inicia-hi la sessió perquè Chrome pugui comprovar si tens permís per accedir a aquest lloc.</translation>
 <translation id="5580958916614886209">Comprova el mes de caducitat i torna-ho a provar</translation>
 <translation id="560412284261940334">Gestió no compatible</translation>
 <translation id="5610142619324316209">Comproveu la connexió</translation>
@@ -778,6 +779,7 @@ El mode d'incògnit, <ph name="SHORTCUT_KEY" />, us pot resultar pràctic la pro
 <translation id="9076283476770535406">Pot incloure contingut per a adults</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> utilitza normalment l'encriptació per protegir la vostra informació. En aquesta ocasió, quan Chromium ha provat de connectar-se a <ph name="SITE" />, el lloc web ha enviat credencials poc comunes i incorrectes. Pot ser que un atacant estigui provant de fer-se passar per <ph name="SITE" /> o que una pantalla d'inici de sessió a la xarxa Wi-Fi hagi interromput la connexió. En qualsevol cas, la vostra informació continua estant segura, perquè Chromium ha aturat la connexió abans no s'intercanviés cap dada.</translation>
 <translation id="9137013805542155359">Mostra l'original</translation>
+<translation id="9137248913990643158">Obre Chrome i inicia-hi la sessió abans d'utilitzar aquesta aplicació.</translation>
 <translation id="9148507642005240123">&amp;Desfés la modificació</translation>
 <translation id="9157595877708044936">S'està configurant...</translation>
 <translation id="9170848237812810038">&amp;Desfés</translation>

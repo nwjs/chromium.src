@@ -443,6 +443,7 @@
 <translation id="5544037170328430102">Una pagina incorporata in <ph name="SITE" /> dice:</translation>
 <translation id="5556459405103347317">Ricarica</translation>
 <translation id="5565735124758917034">Attivo</translation>
+<translation id="5572851009514199876">Accedi a Chrome per consentire al browser di verificare che tu sia autorizzato ad accedere a questo sito.</translation>
 <translation id="5580958916614886209">Controlla il mese di scadenza e riprova</translation>
 <translation id="560412284261940334">Gestione non supportata</translation>
 <translation id="5610142619324316209">Verificare la connessione</translation>
@@ -774,6 +775,7 @@ Psst! La prossima volta potrebbe esserti utile la modalità di navigazione in in
 <translation id="9076283476770535406">Può includere contenuti per adulti</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> in genere utilizza la crittografia per proteggere le tue informazioni. Questa volta, quando Chromium ha provato a connettersi a <ph name="SITE" />, il sito web ha restituito credenziali insolite e sbagliate. È possibile che un malintenzionato stia cercando di spacciarsi per il sito <ph name="SITE" /> oppure che una schermata di accesso alla rete Wi-Fi abbia interrotto la connessione. Le tue informazioni sono ancora al sicuro perché Chromium ha interrotto la connessione prima che avvenissero scambi di dati.</translation>
 <translation id="9137013805542155359">Mostra originale</translation>
+<translation id="9137248913990643158">Accedi a Chrome prima di usare questa app.</translation>
 <translation id="9148507642005240123">&amp;Annulla modifica</translation>
 <translation id="9157595877708044936">Configurazione in corso...</translation>
 <translation id="9170848237812810038">&amp;Annulla</translation>

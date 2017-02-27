@@ -1142,6 +1142,11 @@
           要查看示例格式，请访问 https://www.chromium.org/developers/how-tos/chrome-frame-getting-started。</translation>
 <translation id="467449052039111439">打开网址列表</translation>
 <translation id="4680961954980851756">启用自动填充</translation>
+<translation id="4722399051042571387">如果设为 false，用户将无法设置安全系数低且易于猜中的 PIN 码。
+
+          一些安全系数低的 PIN 码示例：仅由同一个数字构成的 PIN 码 (1111)、所含数字以 1 为单位递增的 PIN 码 (1234)、所含数字以 1 为单位递减的 PIN 码 (4321)，以及常用的 PIN 码。
+
+          默认情况下，如果系统认为 PIN 码的安全系数偏低，就会向用户显示警告（而不是错误消息）。</translation>
 <translation id="4723829699367336876">支持通过远程访问客户端穿越防火墙</translation>
 <translation id="4725528134735324213">启用 Android Backup Service</translation>
 <translation id="4733471537137819387">与集成 HTTP 身份验证相关的政策。</translation>
@@ -1633,6 +1638,13 @@
           如果您选择自动检测代理服务器，则系统会向 Android 应用提供脚本网址“http://wpad/wpad.dat”，但不会使用代理自动检测协议的任何其他部分。
 
           如果您选择使用 .pac 代理脚本，则系统会向 Android 应用提供相应的脚本网址。</translation>
+<translation id="6435127182262044446">此项设置用于控制 PIN 码的长度上限。
+
+          如果此项设置不大于 0，即表示没有长度上限，因此用户可以随意设置任何长度的 PIN 码。
+
+          如果此项设置小于 PinUnlockMinimumLength 但大于 0，则表示长度上限与下限相同。
+
+          此项设置默认没有长度上限。</translation>
 <translation id="6467433935902485842">可让您设置网址格式的列表，这些网址格式用于指定不允许运行插件的网站。在未设置此政策的情况下，如果设置了“DefaultPluginsSetting”政策，那么将对该政策中的所有网站使用全局默认值，否则将对用户个人配置中的所有网站使用全局默认值。</translation>
 <translation id="6473334971332473690">允许在 <ph name="PRODUCT_OS_NAME" />设备上使用 Smart Lock。
 
@@ -2479,12 +2491,24 @@
           通过政策注册的协议处理程序会与用户注册的协议处理程序合并到一起，两种处理程序都可使用。用户可以通过安装新的默认处理程序来覆盖通过政策安装的协议处理程序，但无法卸载通过政策注册的协议处理程序。</translation>
 <translation id="913195841488580904">阻止访问网址列表</translation>
 <translation id="9135033364005346124">启用“<ph name="CLOUD_PRINT_NAME" />”代理</translation>
+<translation id="9136253551939494882">一种白名单，用于控制用户可以配置和使用哪些快速解锁模式来解锁屏幕。
+
+          该值是一个字符串列表；有效的列表项包括：“all”、“PIN”。如果向此列表中添加了“all”，即意味着用户可以使用所有快速解锁模式（包括日后会实施的快速解锁模式）。如果未向此列表中添加“all”，则仅能使用此列表中指定的快速解锁模式。
+
+          例如，要想允许每一个快速解锁模式，请使用 ["all"]。要想仅允许 PIN 码解锁模式，请使用 ["PIN"]。要想停用所有快速解锁模式，请使用 []。
+
+          默认情况下，用户无法在托管设备上使用任何快速解锁模式。</translation>
 <translation id="9147029539363974059">将系统日志发送到管理服务器，以便管理员监测系统日志。
 
       如果此政策设为 true，将发送系统日志。如果此政策设为 false 或未设置，将不发送任何系统日志。</translation>
 <translation id="9150416707757015439">此政策已弃用，请改用 IncognitoModeAvailability。在 <ph name="PRODUCT_NAME" />中启用隐身模式。如果已启用或未配置此设置，用户就可以在隐身模式下打开网页。如果停用此设置，用户就无法在隐身模式下打开网页。如果未设置此政策，将会启用此设置，用户便能使用隐身模式。</translation>
 <translation id="915194831143859291">如果此政策设为 false 或未配置，<ph name="PRODUCT_OS_NAME" />将允许用户关闭设备。
       如果此政策设为 true，<ph name="PRODUCT_OS_NAME" />会在用户关闭设备时触发重新启动操作。<ph name="PRODUCT_OS_NAME" />会将界面中的所有关机按钮替换为重新启动按钮。如果用户通过电源按钮关闭设备，设备将不会自动重新启动，即使启用了此政策也是如此。</translation>
+<translation id="917887642534332939">此项设置用于控制 PIN 码的长度下限。
+
+          PIN 码的绝对长度下限是 1；所有小于 1 的值均会被视作 1。
+
+          默认和建议的 PIN 码长度下限都是 6 位数。</translation>
 <translation id="9187743794267626640">禁止装载外部存储设备</translation>
 <translation id="9197740283131855199">系统在屏幕变暗后察觉到用户活动时，屏幕变暗延迟时间的调整幅度（百分比）</translation>
 <translation id="9200828125069750521">在使用 POST 的图片网址中所需的参数</translation>

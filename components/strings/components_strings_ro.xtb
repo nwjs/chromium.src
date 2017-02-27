@@ -446,6 +446,7 @@
 <translation id="5544037170328430102">O pagină încorporată de pe <ph name="SITE" /> afișează mesajul:</translation>
 <translation id="5556459405103347317">Reîncarcă</translation>
 <translation id="5565735124758917034">Activ</translation>
+<translation id="5572851009514199876">Pornește și conectează-te la Chrome, ca acesta să verifice dacă ai permisiunea să accesezi site-ul.</translation>
 <translation id="5580958916614886209">Verifică luna în care expiră și încearcă din nou</translation>
 <translation id="560412284261940334">Gestionarea nu este acceptată</translation>
 <translation id="5610142619324316209">să verifici conexiunea;</translation>
@@ -778,6 +779,7 @@ Data viitoare ați putea utiliza combinația <ph name="SHORTCUT_KEY" /> pentru a
 <translation id="9076283476770535406">Poate include conținut destinat adulților</translation>
 <translation id="9103872766612412690">Site-ul <ph name="SITE" /> folosește în mod obișnuit criptarea pentru a-ți proteja informațiile. Când Chromium a încercat să se conecteze la <ph name="SITE" /> de această dată, site-ul a returnat date de conectare neobișnuite și incorecte. Acest lucru s-a întâmplat fie pentru că un atacator încearcă să falsifice site-ul <ph name="SITE" />, fie pentru că un ecran de conectare Wi-Fi a întrerupt conexiunea. Securitatea informațiilor tale nu a fost afectată, deoarece Chromium a oprit conexiunea înainte ca datele să fie transferate.</translation>
 <translation id="9137013805542155359">Afișează originalul</translation>
+<translation id="9137248913990643158">Pornește și conectează-te la Chrome înainte de a folosi această aplicație.</translation>
 <translation id="9148507642005240123">&amp;Anulați editarea</translation>
 <translation id="9157595877708044936">Se configurează...</translation>
 <translation id="9170848237812810038">&amp;Anulează</translation>

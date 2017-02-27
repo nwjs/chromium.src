@@ -46,7 +46,7 @@
 <translation id="1375198122581997741">वर्शन के बारे में</translation>
 <translation id="139305205187523129"><ph name="HOST_NAME" /> ने कोई डेटा नहीं भेजा.</translation>
 <translation id="1407135791313364759">सभी खोलें</translation>
-<translation id="1413809658975081374">निजता त्रुटि</translation>
+<translation id="1413809658975081374">निजता गड़बड़ी</translation>
 <translation id="1426410128494586442">हां</translation>
 <translation id="1430915738399379752">प्रिंट करें</translation>
 <translation id="1442912890475371290"><ph name="BEGIN_LINK" /><ph name="DOMAIN" /> के किसी पेज पर जाने का <ph name="END_LINK" /> प्रयास अवरोधित किया गया.</translation>
@@ -92,7 +92,7 @@
 <translation id="1898423065542865115">फ़िल्टर किया जा रहा है</translation>
 <translation id="194030505837763158"><ph name="LINK" /> पर जाएं</translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> बुकमार्क</translation>
-<translation id="1973335181906896915">क्रमबद्ध करने में त्रुटि</translation>
+<translation id="1973335181906896915">क्रमबद्ध करने में गड़बड़ी</translation>
 <translation id="1974060860693918893">उन्नत</translation>
 <translation id="2001146170449793414">{COUNT,plural, =1{और 1 अधिक}one{और # अधिक}other{और # अधिक}}</translation>
 <translation id="2025186561304664664">प्रॉक्‍सी स्‍वत: कॉन्‍फ़‍िगर पर सेट है.</translation>
@@ -122,7 +122,7 @@
 <translation id="2230458221926704099"><ph name="BEGIN_LINK" />निदान ऐप्लिकेशन<ph name="END_LINK" /> का उपयोग करके अपने कनेक्शन को ठीक करें</translation>
 <translation id="2239100178324503013">अभी भेजें</translation>
 <translation id="225207911366869382">यह मान इस नीति के लिए हटा दिया गया है.</translation>
-<translation id="2262243747453050782">HTTP त्रुटि</translation>
+<translation id="2262243747453050782">HTTP गड़बड़ी</translation>
 <translation id="2282872951544483773">अनुपलब्ध प्रयोग</translation>
 <translation id="2292556288342944218">आपका इंटरनेट कनेक्शन अवरुद्ध है</translation>
 <translation id="229702904922032456">किसी रूट या मध्यवर्ती प्रमाणपत्र की अवधि समाप्त हो गई है.</translation>
@@ -213,7 +213,7 @@
 <translation id="3109728660330352905">आपके पास इस पेज को देखने के लिए प्राधिकरण नहीं है.</translation>
 <translation id="31207688938192855"><ph name="BEGIN_LINK" />कनेक्टिविटी निदान चलाकर देखें<ph name="END_LINK" />.</translation>
 <translation id="3145945101586104090">उत्तर डीकोड करने में विफल</translation>
-<translation id="3150653042067488994">अस्थायी सर्वर त्रुटि</translation>
+<translation id="3150653042067488994">अस्थायी सर्वर गड़बड़ी</translation>
 <translation id="3157931365184549694">पुनर्स्थापित करें</translation>
 <translation id="3167968892399408617">आपके द्वारा गुप्त टैब में देखे जाने वाले पेज, आपके द्वारा अपने सभी गुप्त टैब बंद कर देने के बाद आपके ब्राउज़र के इतिहास, कुकी संग्रह, या खोज इतिहास में नहीं रहेंगे. आपके द्वारा डाउनलोड की गईं सभी फ़ाइलें या बनाए गए बुकमार्क रख लिए जाएंगे.</translation>
 <translation id="3169472444629675720">तलाश करें</translation>
@@ -238,10 +238,10 @@
 <translation id="3340978935015468852">सेटिंग</translation>
 <translation id="3345135638360864351">इस साइट को ऐक्‍सेस करने का आपका अनुरोध <ph name="NAME" /> को नहीं भेजा जा सका. कृपया पुन: प्रयास करें.</translation>
 <translation id="3355823806454867987">प्रॉक्सी सेटिंग बदलें...</translation>
-<translation id="3369192424181595722">घड़ी त्रुटि</translation>
+<translation id="3369192424181595722">घड़ी गड़बड़ी</translation>
 <translation id="337363190475750230">प्रावधान रद्द</translation>
-<translation id="3377188786107721145">नीति पार्स त्रुटि</translation>
-<translation id="3380365263193509176">अज्ञात त्रुटि</translation>
+<translation id="3377188786107721145">नीति पार्स गड़बड़ी</translation>
+<translation id="3380365263193509176">अज्ञात गड़बड़ी</translation>
 <translation id="3380864720620200369">क्लाइंट आईडी:</translation>
 <translation id="340013220407300675">हो सकता है हमलावर <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> से आपकी जानकारी चुराने का प्रयास कर रहे हों (उदाहरण के लिए पासवर्ड, संदेश या क्रेडिट कार्ड).</translation>
 <translation id="3422472998109090673"><ph name="HOST_NAME" /> वर्तमान में पहुंच योग्य नहीं है.</translation>
@@ -291,7 +291,7 @@
 <translation id="3717027428350673159"><ph name="BEGIN_LINK" />प्रॉक्सी, फायरवॉल और DNS कॉन्फ़िगरेशन की जांच करें<ph name="END_LINK" /></translation>
 <translation id="3736520371357197498">यदि आप अपनी सुरक्षा में होने वाले जोखिमों को समझते हैं, तो आप खतरनाक प्रोग्राम निकाले जाने से पहले <ph name="BEGIN_LINK" />इस असुरक्षित साइट पर विज़िट<ph name="END_LINK" /> कर सकते हैं.</translation>
 <translation id="3739623965217189342">काॅपी किया गया लिंक</translation>
-<translation id="375403751935624634">सर्वर त्रुटि के कारण अनुवाद विफल.</translation>
+<translation id="375403751935624634">सर्वर गड़बड़ी के कारण अनुवाद विफल.</translation>
 <translation id="3759461132968374835">आपके पास हाल ही में रिपोर्ट किए गए क्रैश नहीं हैं.  क्रैश रिपोर्टिंग अक्षम होने के दौरान होने वाले क्रैश यहां दिखाई नहीं देंगे.</translation>
 <translation id="382518646247711829">यदि आप प्रॉक्सी सर्वर का उपयोग करते हैं...</translation>
 <translation id="3828924085048779000">खाली पासफ़्रेज़ की अनुमति नहीं है.</translation>
@@ -354,7 +354,7 @@
 <translation id="4432688616882109544"><ph name="HOST_NAME" /> ने आपका लॉगिन प्रमाणपत्र स्वीकार नहीं किया है या हो सकता है कि प्रमाणपत्र उपलब्ध नहीं कराया गया हो.</translation>
 <translation id="443673843213245140">प्रॉक्‍सी का उपयोग अक्षम है लेकिन कोई स्‍पष्ट प्रॉक्‍सी कॉन्फ़िगरेशन निर्दिष्ट किया गया है.</translation>
 <translation id="4492190037599258964">'<ph name="SEARCH_STRING" />' के खोज परिणाम</translation>
-<translation id="4506176782989081258">सत्‍यापन त्रुटि: <ph name="VALIDATION_ERROR" /></translation>
+<translation id="4506176782989081258">सत्‍यापन गड़बड़ी: <ph name="VALIDATION_ERROR" /></translation>
 <translation id="4506599922270137252">सिस्टम व्यवस्थापक से संपर्क करें</translation>
 <translation id="450710068430902550">व्यवस्थापक के साथ साझा करना</translation>
 <translation id="4522570452068850558">विवरण</translation>
@@ -376,10 +376,10 @@
 <translation id="4756388243121344051">&amp;इतिहास</translation>
 <translation id="4759118997339041434">भुगतान का ऑटोमैटिक भरना अक्षम</translation>
 <translation id="4764776831041365478"><ph name="URL" /> पर मौजूद वेबपेज संभवतः अस्थायी रूप से बंद है या उसे स्थायी रूप से किसी नए वेब पते पर ले जाया गया है.</translation>
-<translation id="4771973620359291008">अज्ञात त्रुटि आई.</translation>
+<translation id="4771973620359291008">अज्ञात गड़बड़ी आई.</translation>
 <translation id="4800132727771399293">अपना अवधि समाप्‍ति दिनांक और CVC जांचें और पुन: प्रयास करें</translation>
 <translation id="4803924862070940586"><ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
-<translation id="4813512666221746211">नेटवर्क त्रुटि</translation>
+<translation id="4813512666221746211">नेटवर्क गड़बड़ी</translation>
 <translation id="4816492930507672669">पेज में फ़िट करें</translation>
 <translation id="4850886885716139402">देखें</translation>
 <translation id="4858792381671956233">आपने अपने अभिभावकों से पूछा था कि इस साइट पर जाना ठीक है या नहीं</translation>
@@ -408,16 +408,16 @@
 <translation id="5095208057601539847">प्रांत</translation>
 <translation id="5115563688576182185">(64-बिट)</translation>
 <translation id="5141240743006678641">समन्वयित पासवर्ड अपने Google प्रमाणिकता के साथ एन्क्रिप्ट करें</translation>
-<translation id="5145883236150621069">नीति प्रतिसाद में त्रुटि कोड मौजूद है</translation>
+<translation id="5145883236150621069">नीति प्रतिसाद में गड़बड़ी कोड मौजूद है</translation>
 <translation id="5171045022955879922">URL खोजें या लिखें</translation>
 <translation id="5172758083709347301">मशीन</translation>
-<translation id="5179510805599951267"><ph name="ORIGINAL_LANGUAGE" /> में नहीं है? इस त्रुटि की रिपोर्ट करें</translation>
+<translation id="5179510805599951267"><ph name="ORIGINAL_LANGUAGE" /> में नहीं है? इस गड़बड़ी की रिपोर्ट करें</translation>
 <translation id="5181140330217080051">डाउनलोड हो रहा है</translation>
 <translation id="5190835502935405962">बुकमार्क बार</translation>
 <translation id="5199729219167945352">प्रयोग</translation>
 <translation id="5251803541071282808">क्लाउड</translation>
 <translation id="5277279256032773186">कार्यस्थल पर Chrome का उपयोग कर रहे हैं? कंपनियां अपने कर्मचारियों के लिए Chrome सेटिंग प्रबंधित कर सकती हैं. और जानें</translation>
-<translation id="5299298092464848405">नीति पार्स करने में त्रुटि</translation>
+<translation id="5299298092464848405">नीति पार्स करने में गड़बड़ी</translation>
 <translation id="5300589172476337783">दिखाएं</translation>
 <translation id="5308689395849655368">क्रैश की रिपोर्ट करना अक्षम कर दिया गया है.</translation>
 <translation id="5317780077021120954">सहेजें</translation>
@@ -430,7 +430,7 @@
 <translation id="5430298929874300616">बुकमार्क निकालें</translation>
 <translation id="5431657950005405462">आपकी फ़ाइल नहीं मिली</translation>
 <translation id="5435775191620395718">इस डिवाइस का इतिहास दिखाया जा रहा है. <ph name="BEGIN_LINK" />अधिक जानें<ph name="END_LINK" />.</translation>
-<translation id="5439770059721715174">"<ph name="ERROR_PATH" />" पर स्कीमा सत्यापन त्रुटि: <ph name="ERROR" /></translation>
+<translation id="5439770059721715174">"<ph name="ERROR_PATH" />" पर स्कीमा सत्यापन गड़बड़ी: <ph name="ERROR" /></translation>
 <translation id="5452270690849572955">यह <ph name="HOST_NAME" /> पेज प्राप्त नहीं किया जा सकता</translation>
 <translation id="5455374756549232013">खराब नीति टाइमस्टैम्प</translation>
 <translation id="5455790498993699893"><ph name="TOTAL_MATCHCOUNT" /> में से <ph name="ACTIVE_MATCH" /></translation>
@@ -446,6 +446,7 @@
 <translation id="5544037170328430102"><ph name="SITE" /> पर एम्‍बेड किए गए पृष्‍ठ का कहना है:</translation>
 <translation id="5556459405103347317">पुन: लोड करें</translation>
 <translation id="5565735124758917034">सक्रिय</translation>
+<translation id="5572851009514199876">कृपया Chrome शुरू करके उसमें प्रवेश करें ताकि Chrome देख सके कि क्या आपके पास यह साइट एक्सेस करने की अनुमति है.</translation>
 <translation id="5580958916614886209">अपना समाप्ति माह जांचें और फिर से कोशिश करें</translation>
 <translation id="560412284261940334">प्रबंधन समर्थित नहीं</translation>
 <translation id="5610142619324316209">कनेक्शन की जांच करें</translation>
@@ -550,7 +551,7 @@
 <translation id="6711464428925977395">प्रॉक्सी सर्वर के साथ कुछ गलत है या पता गलत है.</translation>
 <translation id="6727102863431372879">सेट करें</translation>
 <translation id="6731320287533051140">{COUNT,plural, =0{कोई नहीं}=1{1 आइटम}one{# आइटम}other{# आइटम}}</translation>
-<translation id="674375294223700098">अज्ञात सर्वर प्रमाणपत्र त्रुटि.</translation>
+<translation id="674375294223700098">अज्ञात सर्वर प्रमाणपत्र गड़बड़ी.</translation>
 <translation id="6753269504797312559">नीति मान</translation>
 <translation id="6757797048963528358">आपका डिवाइस निष्क्रिय हो गया है.</translation>
 <translation id="6778737459546443941">आपके अभिभावक ने अभी तक इसकी स्वीकृति नहीं दी है</translation>
@@ -747,7 +748,7 @@
 <translation id="884264119367021077">शिपिंग पता</translation>
 <translation id="884923133447025588">कोई निरस्तीकरण प्रक्रिया प्राप्त नहीं हुई.</translation>
 <translation id="885730110891505394">Google के साथ साझा करना</translation>
-<translation id="8866481888320382733">नीति सेटिंग पार्स करने में त्रुटि</translation>
+<translation id="8866481888320382733">नीति सेटिंग पार्स करने में गड़बड़ी</translation>
 <translation id="8866959479196209191">इस पृष्‍ठ का कहना है:</translation>
 <translation id="8870413625673593573">हाल ही में बंद किए गए</translation>
 <translation id="8876793034577346603">नेटवर्क कॉन्फ़िगरेशन पार्स होने में विफल रहा.</translation>
@@ -776,6 +777,7 @@
 <translation id="9076283476770535406">इसमें वयस्क सामग्री हो सकती है</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> आपकी जानकारी की सुरक्षा करने के लिए आमतौर पर एन्क्रिप्शन का उपयोग करती है. जब क्रोमियम ने इस बार <ph name="SITE" /> से कनेक्ट करने का प्रयास किया, तो वेबसाइट ने असामान्य और गलत क्रेडेंशियल वापस भेजे. ऐसा तब हो सकता है जब कोई हमलावर <ph name="SITE" /> होने का दावा करने का प्रयास कर रहा हो या किसी वाई-फ़ाई प्रवेश स्क्रीन ने कनेक्शन को बाधित कर दिया हो. आपकी जानकारी अभी भी सुरक्षित है क्योंकि किसी भी डेटा के आदान-प्रदान से पहले ही क्रोमियम ने कनेक्शन को रोक दिया था.</translation>
 <translation id="9137013805542155359">मूल दिखाएं</translation>
+<translation id="9137248913990643158">इस ऐप्लिकेशन का उपयोग करने से पहले कृपया Chrome शुरू करके उसमें प्रवेश करें.</translation>
 <translation id="9148507642005240123">&amp;संपादन वापस लाएं</translation>
 <translation id="9157595877708044936">सेट अप कर रहा है...</translation>
 <translation id="9170848237812810038">&amp;पूर्ववत् करें</translation>

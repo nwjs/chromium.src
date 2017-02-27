@@ -1262,6 +1262,11 @@ politikayı geçersiz kılamaz.
           Örnek kalıplar için https://www.chromium.org/developers/how-tos/chrome-frame-getting-started adresine bakın.</translation>
 <translation id="467449052039111439">URL listesi aç</translation>
 <translation id="4680961954980851756">Otomatik Doldurmayı etkinleştir</translation>
+<translation id="4722399051042571387">False (yanlış) değerinde, kullanıcılar zayıf ve kolayca tahmin edilebilecek PIN'ler ayarlayamaz.
+
+          Zayıf PIN'lere ilişkin bazı örnekler: Yalnızca bir rakam içeren PIN'ler (1111), değerleri 1 artan rakamlardan oluşan PIN'ler (1234), değerleri 1 azalan rakamlardan oluşan PIN'ler (4321) ve yaygın şekilde kullanılan PIN'ler.
+
+          Varsayılan olarak, PIN'in zayıf olduğu düşünülürse kullanıcılar hata değil, bir uyarı alırlar.</translation>
 <translation id="4723829699367336876">Uzaktan erişim istemcisinden güvenlik duvarı geçişini etkinleştir</translation>
 <translation id="4725528134735324213">Android Backup Service'ı etkinleştir</translation>
 <translation id="4733471537137819387">Entegre HTTP kimlik doğrulaması ile ilgili politikalar.</translation>
@@ -1837,6 +1842,13 @@ Bu politika ayarlanmadan bırakılırsa kullanıcı sistemde yüklü herhangi bi
           Proxy sunucuyu otomatik olarak algılamayı seçerseniz Android uygulamaları, komut dosyası URL'si "http://wpad/wpad.dat" bilgisini alır. Otomatik proxy algılama protokolünün başka hiçbir bölümü kullanılmaz.
 
           Bir .pac proxy komut dosyası kullanmayı seçerseniz Android uygulamalarına komut dosyası URL'si iletilir.</translation>
+<translation id="6435127182262044446">Bu ayar maksimum PIN uzunluğunu kontrol eder.
+
+          Bu ayar 0 veya daha küçükse maksimum uzunluk olmaz; kullanıcı istediği uzunlukta bir PIN ayarlayabilir.
+
+          Bu ayar PinUnlockMinimumLength değerinden daha küçük ancak 0'dan büyükse maksimum uzunluk minimum uzunlukla aynı olur.
+
+          Bu ayarın varsayılan değeri maksimum uzunluk olmamasıdır.</translation>
 <translation id="6467433935902485842">Eklentileri çalıştırmalarına izin verilmeyen sitelerin belirtildiği bir URL kalıpları listesi ayarlamanıza olanak tanır.
 
           Bu politika ayarlanmadan bırakılırsa, 'DefaultPluginsSetting' politikası ayarlandıysa buradaki değer, aksi takdirde kullanıcının kişisel yapılandırması genel varsayılan değer olarak kullanılır.</translation>
@@ -2786,6 +2798,13 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
           Politika tarafından kaydedilen protokol işleyicileri, kullanıcı tarafından kaydedilenlerle birleştirilir ve her ikisi de kullanılabilir. Kullanıcı, yeni bir varsayılan işleyici yükleyerek politika tarafından yüklenen politika işleyicilerini geçersiz kılabilir, ancak politika tarafından kaydedilen bir protokol işleyicisini kaldıramaz.</translation>
 <translation id="913195841488580904">URL listesine erişimi engelle</translation>
 <translation id="9135033364005346124"><ph name="CLOUD_PRINT_NAME" /> proxy'sini etkinleştir</translation>
+<translation id="9136253551939494882">Kullanıcının yapılandırabileceği ve kilit ekranının kilidini açmak için kullanabileceği hızlı kilit açma modlarını kontrol eden beyaz liste.
+
+          Bu değer, bir dize listesidir; geçerli liste girişleri şöyledir: "all", "PIN". Listeye "all" (tümü) girişinin eklenmesi, kullanıcının ileride uygulanacak olanlar da dahil olmak üzere her hızlı kilit açma modunu kullanabileceği anlamına gelir. Aksi takdirde, yalnızca listedeki mevcut hızlı kilit açma modları kullanılabilir.
+
+          Örneğin, hızlı kilit açma modlarının hepsine izin vermek için ["all"] (tümü) girişini kullanın. Yalnızca PIN kilit açma yöntemine izin vermek için ["PIN"] girişini kullanın. Tüm hızlı kilit açma modlarını devre dışı bırakmak için [] girişini kullanın.
+
+          Varsayılan olarak, yönetilen cihazlarda hiçbir hızlı kilit açma moduna izin verilmez.</translation>
 <translation id="9147029539363974059">Yöneticilerin sistem günlüklerini izlemesine olanak vermek için
       sistem günlüklerini yönetim sunucusuna gönderin.
 
@@ -2802,6 +2821,11 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
       Bu politika ayarlanmadan bırakılırsa, bu özellik etkinleştirilir ve kullanıcı gizli modu kullanabilir.</translation>
 <translation id="915194831143859291">Bu politika yanlış seçeneğine ayarlanırsa veya hiç yapılandırılmazsa <ph name="PRODUCT_OS_NAME" />, kullanıcının cihazı kapatmasına izin verir.
       Bu politika doğru seçeneğine ayarlanırsa, kullanıcı cihazı kapattığında <ph name="PRODUCT_OS_NAME" />, yeniden başlatma işlemi tetikler. <ph name="PRODUCT_OS_NAME" />, kullanıcı arayüzündeki tüm kapatma düğmelerini yeniden başlatma düğmeleriyle değiştirir. Kullanıcı güç düğmesini kullanarak cihazı kapatırsa, politika etkinleştirilmiş olsa dahi cihaz otomatik olarak yeniden başlatılmaz.</translation>
+<translation id="917887642534332939">Bu ayar, minimum PIN uzunluğunu kontrol eder.
+
+          Mutlak minimum PIN uzunluğu 1'dir; 1'den küçük değerler 1 olarak işlenir.
+
+          Varsayılan ve önerilen minimum PIN uzunluğu 6 basamaklıdır.</translation>
 <translation id="9187743794267626640">Harici depolama birimi eklemeyi devre dışı bırak</translation>
 <translation id="9197740283131855199">Kullanıcı, ekran kararmasından sonra etkin duruma gelirse ekranın kararma gecikmesinin ölçekleneceği yüzde</translation>
 <translation id="9200828125069750521">POST kullanan resim URL'si için parametreler</translation>
