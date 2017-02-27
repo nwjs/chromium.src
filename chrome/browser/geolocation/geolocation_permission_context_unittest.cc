@@ -1051,14 +1051,14 @@ TEST_F(GeolocationPermissionContextTests, SearchGeolocationInIncognito) {
   geo_service->SetDSEGeolocationSetting(true);
   ASSERT_EQ(blink::mojom::PermissionStatus::ASK,
             PermissionManager::Get(otr_profile)
-                ->GetPermissionStatus(CONTENT_SETTINGS_TYPE_GEOLOCATION,
+                ->GetPermissionStatus(content::PermissionType::GEOLOCATION,
                                       requesting_frame, requesting_frame));
 
   // Changing the setting to BLOCK should flow through to incognito.
   geo_service->SetDSEGeolocationSetting(false);
   ASSERT_EQ(blink::mojom::PermissionStatus::DENIED,
             PermissionManager::Get(otr_profile)
-                ->GetPermissionStatus(CONTENT_SETTINGS_TYPE_GEOLOCATION,
+                ->GetPermissionStatus(content::PermissionType::GEOLOCATION,
                                       requesting_frame, requesting_frame));
 }
 #endif  // defined(OS_ANDROID)
