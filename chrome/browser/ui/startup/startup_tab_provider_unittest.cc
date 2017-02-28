@@ -197,12 +197,12 @@ TEST(StartupTabProviderTest, CheckPinnedTabPolicy) {
   SessionStartupPref pref_urls(SessionStartupPref::Type::URLS);
 
   StartupTabs output =
-      StartupTabProviderImpl::CheckPinnedTabPolicy(pref_default, pinned);
+      StartupTabProviderImpl::CheckPinnedTabPolicy(pref_default, pinned, false);
 
   ASSERT_EQ(1U, output.size());
   EXPECT_EQ("www.google.com", output[0].url.host());
 
-  output = StartupTabProviderImpl::CheckPinnedTabPolicy(pref_urls, pinned);
+  output = StartupTabProviderImpl::CheckPinnedTabPolicy(pref_urls, pinned, false);
 
   ASSERT_EQ(1U, output.size());
   EXPECT_EQ("www.google.com", output[0].url.host());
@@ -211,9 +211,18 @@ TEST(StartupTabProviderTest, CheckPinnedTabPolicy) {
 TEST(StartupTabProviderTest, CheckPinnedTabPolicy_Negative) {
   StartupTabs pinned = {StartupTab(GURL("https://www.google.com"), true)};
   SessionStartupPref pref_last(SessionStartupPref::Type::LAST);
+  SessionStartupPref pref_default(SessionStartupPref::Type::DEFAULT);
 
+  // Session restore preference should block reading pinned tabs.
   StartupTabs output =
-      StartupTabProviderImpl::CheckPinnedTabPolicy(pref_last, pinned);
+      StartupTabProviderImpl::CheckPinnedTabPolicy(pref_last, pinned, false);
+
+  ASSERT_TRUE(output.empty());
+
+  // Pinned tabs are not added when this profile already has a nonempty tabbed
+  // browser open.
+  output =
+      StartupTabProviderImpl::CheckPinnedTabPolicy(pref_default, pinned, true);
 
   ASSERT_TRUE(output.empty());
 }
