@@ -853,6 +853,12 @@ void RenderViewContextMenu::InitMenu() {
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_PASSWORD)) {
     AppendPasswordItems();
+
+  // Remove any redundant trailing separator.
+  if (menu_model_.GetItemCount() > 0 &&
+      menu_model_.GetTypeAt(menu_model_.GetItemCount() - 1) ==
+          ui::MenuModel::TYPE_SEPARATOR) {
+    menu_model_.RemoveItemAt(menu_model_.GetItemCount() - 1);
   }
 }
 
