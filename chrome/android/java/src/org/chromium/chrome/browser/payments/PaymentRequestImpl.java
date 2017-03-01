@@ -387,7 +387,7 @@ public class PaymentRequestImpl
             mContactSection = new ContactDetailsSection(
                     mContext, Collections.unmodifiableList(profiles), mContactEditor);
         }
-
+        
         mUI = new PaymentRequestUI(mContext, this, requestShipping,
                 requestPayerName || requestPayerPhone || requestPayerEmail,
                 mMerchantSupportsAutofillPaymentInstruments, !isPaymentCompleteOnce(),
@@ -741,7 +741,7 @@ public class PaymentRequestImpl
         mHandler.post(new Runnable() {
             @Override
             public void run() {
-                providePaymentInformation();
+                if (mUI != null) providePaymentInformation();
             }
         });
     }
