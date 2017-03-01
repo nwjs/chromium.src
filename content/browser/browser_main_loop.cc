@@ -1262,6 +1262,10 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
   device_monitor_mac_.reset();
 #endif
 
+  if (BrowserGpuChannelHostFactory::instance()) {
+    BrowserGpuChannelHostFactory::instance()->CloseChannel();
+  }
+
   // Shutdown the Service Manager and IPC.
   service_manager_context_.reset();
   mojo_ipc_support_.reset();
