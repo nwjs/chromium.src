@@ -107,7 +107,8 @@ public class VideoFullscreenOrientationLockChromeTest extends ChromeTabbedActivi
         DOMUtils.waitForMediaPlay(getWebContents(), VIDEO_ID);
 
         // Trigger requestFullscreen() via a click on a button.
-        assertTrue(DOMUtils.clickNode(getActivity().getCurrentContentViewCore(), "fullscreen"));
+        assertTrue(
+                DOMUtils.clickNode(this, getActivity().getCurrentContentViewCore(), "fullscreen"));
         waitForContentsFullscreenState(true);
 
         // Should be locked to landscape now, `waitUntilLockedToLandscape` will throw otherwise.
