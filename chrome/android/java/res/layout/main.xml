@@ -29,6 +29,12 @@
                 android:inflatedId="@+id/bottombar"
                 android:layout="@layout/custom_tabs_bottombar" />
 
+            <FrameLayout
+                android:id="@+id/bottom_container"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="start|bottom" />
+
             <ViewStub
                 android:id="@+id/omnibox_results_container_stub"
                 android:layout_width="match_parent"
@@ -36,12 +42,6 @@
                 android:layout_marginTop="@dimen/tab_strip_height"
                 android:inflatedId="@+id/omnibox_results_container"
                 android:layout="@layout/omnibox_results_container" />
-
-            <FrameLayout
-                android:id="@+id/bottom_container"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_gravity="start|bottom" />
 
             <!-- Toolbar size area painted black to avoid the action bar showing the window background -->
             <View
