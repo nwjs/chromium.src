@@ -351,9 +351,16 @@ bool HistoryAddUrlFunction::RunAsync() {
   if (!ValidateUrl(params->details.url, &url))
     return false;
 
+  base::string16 title;
+  if (params->details.title.get())
+    title = base::UTF8ToUTF16(*params->details.title);
+
   history::HistoryService* hs = HistoryServiceFactory::GetForProfile(
       GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
   hs->AddPage(url, base::Time::Now(), history::SOURCE_EXTENSION);
+
+  if (!title.empty())
+    hs->SetPageTitle(url, title);
 
   SendResponse(true);
   return true;

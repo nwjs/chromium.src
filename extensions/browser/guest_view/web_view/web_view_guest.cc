@@ -26,6 +26,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_security_policy.h"
+#include "content/public/browser/favicon_status.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_details.h"
@@ -842,6 +843,16 @@ void WebViewGuest::DidCommitProvisionalLoadForFrame(
                    web_contents()->GetController().GetCurrentEntryIndex());
   args->SetInteger(webview::kInternalEntryCount,
                    web_contents()->GetController().GetEntryCount());
+
+  base::ListValue *history = new base::ListValue();
+  for (int i = 0; i < web_contents()->GetController().GetEntryCount(); i++) {
+    base::DictionaryValue* dict = new base::DictionaryValue;
+    dict->SetString("url", web_contents()->GetController().GetEntryAtIndex(i)->GetURL().spec());
+    dict->SetString("title", web_contents()->GetController().GetEntryAtIndex(i)->GetTitle());
+    dict->SetString("favicon", web_contents()->GetController().GetEntryAtIndex(i)->GetFavicon().url.spec());
+    history->Append(dict);
+  }
+  args->Set("pagesHistory", history);
   args->SetInteger(webview::kInternalProcessId,
                    web_contents()->GetRenderProcessHost()->GetID());
   DispatchEventToView(base::MakeUnique<GuestViewEvent>(
