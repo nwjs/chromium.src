@@ -19,6 +19,7 @@ enum Milestone {
   M57,
   M58,
   M59,
+  M60,
 };
 
 const char* milestoneString(Milestone milestone) {
@@ -34,6 +35,8 @@ const char* milestoneString(Milestone milestone) {
       return "M58, around April 2017";
     case M59:
       return "M59, around June 2017";
+    case M60:
+      return "M60, around August 2017";
   }
 
   ASSERT_NOT_REACHED();
