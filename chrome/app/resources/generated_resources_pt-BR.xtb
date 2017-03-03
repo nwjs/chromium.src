@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">Dados em estado de inatividade</translation>
 <translation id="2058632120927660550">Ocorreu um erro. Verifique sua impressora e tente novamente.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">O Chrome está sendo controlado por um software de teste automatizado.</translation>
 <translation id="2068054174185416762">Frame rate</translation>
 <translation id="2070909990982335904">Nomes começando com um ponto estão reservados para o sistema. Favor escolher outro nome.</translation>
 <translation id="2071393345806050157">Nenhum arquivo de log local.</translation>
@@ -2725,6 +2726,7 @@ Todos os usuários devem sair para continuar.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Teclado americano Dvorak</translation>
 <translation id="4481249487722541506">Carregar extensão expandida...</translation>
+<translation id="4482194545587547824">O Google pode usar seu histórico de navegação para personalizar a Pesquisa e outros serviços Google</translation>
 <translation id="4487088045714738411">Teclado belga</translation>
 <translation id="4492190037599258964">Resultados de pesquisa para "<ph name="SEARCH_STRING" />"</translation>
 <translation id="4495419450179050807">Não mostrar esta página</translation>

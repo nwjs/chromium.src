@@ -819,6 +819,7 @@
 <translation id="2053312383184521053">بيانات حالة الخمول</translation>
 <translation id="2058632120927660550">لقد حدث خطأ ما. الرجاء التحقق من الطابعة وإعادة المحاولة.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">‏يتم التحكم في Chrome من خلال برامج اختبار تلقائية.</translation>
 <translation id="2068054174185416762">معدل عرض الإطارات</translation>
 <translation id="2070909990982335904">الأسماء البادئة بنقطة محجوزة للنظام. يرجى اختيار اسم آخر.</translation>
 <translation id="2071393345806050157">ليس هناك ملف سجل محلي.</translation>
@@ -2721,6 +2722,7 @@
 <translation id="4479639480957787382">إيثرنت</translation>
 <translation id="4479812471636796472">‏لوحة المفاتيح الأمريكية Dvorak</translation>
 <translation id="4481249487722541506">تحميل إضافة تم فك حزمتها...</translation>
+<translation id="4482194545587547824">‏قد يستخدم Google سجل التصفح لتخصيص البحث وخدمات Google الأخرى.</translation>
 <translation id="4487088045714738411">لوحة المفاتيح البلجيكية</translation>
 <translation id="4492190037599258964">نتائج البحث عن '<ph name="SEARCH_STRING" />'</translation>
 <translation id="4495419450179050807">عدم الظهور في هذه الصفحة</translation>

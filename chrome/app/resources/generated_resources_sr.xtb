@@ -816,6 +816,7 @@
 <translation id="2053312383184521053">Подаци о стању мировања</translation>
 <translation id="2058632120927660550">Дошло је до грешке. Проверите штампач и покушајте поново.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Софтвер за аутоматизовано тестирање контролише Chrome.</translation>
 <translation id="2068054174185416762">Брзина кадрова</translation>
 <translation id="2070909990982335904">Називи који почињу тачком резервисани су за систем. Изаберите други назив.</translation>
 <translation id="2071393345806050157">Нема локалне датотеке евиденције.</translation>
@@ -2724,6 +2725,7 @@
 <translation id="4479639480957787382">Етернет</translation>
 <translation id="4479812471636796472">Језик тастатуре: енглески (САД дворак)</translation>
 <translation id="4481249487722541506">Учитај отпаковани додатак...</translation>
+<translation id="4482194545587547824">Google може да користи историју прегледања за персонализацију Претраге и других Google услуга</translation>
 <translation id="4487088045714738411">Језик тастатуре: белгијски</translation>
 <translation id="4492190037599258964">Резултати претраге за „<ph name="SEARCH_STRING" />“</translation>
 <translation id="4495419450179050807">Не приказуј на овој страници</translation>

@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">閒置狀態資料</translation>
 <translation id="2058632120927660550">發生錯誤。請檢查您的印表機，然後再試一次。</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome 目前受到自動測試軟體控制。</translation>
 <translation id="2068054174185416762">影格速率</translation>
 <translation id="2070909990982335904">以點號開頭的名稱僅供系統使用，請選擇其他名稱。</translation>
 <translation id="2071393345806050157">沒有本機紀錄檔案。</translation>
@@ -2725,6 +2726,7 @@
 <translation id="4479639480957787382">乙太網路</translation>
 <translation id="4479812471636796472">美式 Dvorak 鍵盤</translation>
 <translation id="4481249487722541506">載入未封裝擴充功能</translation>
+<translation id="4482194545587547824">Google 可能會使用您的瀏覽紀錄，為您提供個人化的搜尋服務和其他各項 Google 服務。</translation>
 <translation id="4487088045714738411">比利時文鍵盤</translation>
 <translation id="4492190037599258964">「<ph name="SEARCH_STRING" />」的搜尋結果</translation>
 <translation id="4495419450179050807">不要顯示這個網頁</translation>

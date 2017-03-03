@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">Údaje stavu nečinnosti</translation>
 <translation id="2058632120927660550">Vyskytla sa chyba. Skontrolujte tlačiareň a skúste to znova.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome je ovládaný automatizovaným testovacím softvérom.</translation>
 <translation id="2068054174185416762">Snímková frekvencia</translation>
 <translation id="2070909990982335904">Názvy začínajúce bodkou sú vyhradené pre systém. Vyberte iný názov.</translation>
 <translation id="2071393345806050157">Žiadny miestny súbor denníka nie je k dispozícii.</translation>
@@ -2728,6 +2729,7 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">americká klávesnica s rozložením klávesov Dvorak</translation>
 <translation id="4481249487722541506">Načítať rozbalené rozšírenie...</translation>
+<translation id="4482194545587547824">Google môže používať vašu históriu prehliadania na prispôsobenie Vyhľadávania a ďalších služieb Google</translation>
 <translation id="4487088045714738411">belgická klávesnica</translation>
 <translation id="4492190037599258964">Výsledky vyhľadávania pre dopyt „<ph name="SEARCH_STRING" />“</translation>
 <translation id="4495419450179050807">Nezobrazovať na tejto stránke</translation>

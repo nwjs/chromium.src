@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">Tétlen állapot adatai</translation>
 <translation id="2058632120927660550">Hiba történt. Ellenőrizze a nyomtatót, majd próbálja újra.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">A Chrome-ot automatizált tesztszoftverek irányítják.</translation>
 <translation id="2068054174185416762">Képkockasebesség</translation>
 <translation id="2070909990982335904">A ponttal kezdődő nevek a rendszer számára vannak fenntartva. Kérjük, válasszon másik nevet.</translation>
 <translation id="2071393345806050157">Nincs helyi naplófájl.</translation>
@@ -2725,6 +2726,7 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Amerikai Dvorak billentyűzet</translation>
 <translation id="4481249487722541506">Kicsomagolt bővítmények betöltése...</translation>
+<translation id="4482194545587547824">A Google felhasználhatja a böngészési előzményeket a Keresés és más Google-szolgáltatások személyre szabására.</translation>
 <translation id="4487088045714738411">Belga billentyűzet</translation>
 <translation id="4492190037599258964">Találatok a(z) „<ph name="SEARCH_STRING" />” kifejezésre</translation>
 <translation id="4495419450179050807">Ne jelenjen meg ezen az oldalon</translation>

@@ -817,6 +817,7 @@
 <translation id="2053312383184521053">Data om läget inaktiv</translation>
 <translation id="2058632120927660550">Ett fel har inträffat. Kontrollera skrivaren och försök igen.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome kontrolleras av automatisk testprogramvara.</translation>
 <translation id="2068054174185416762">Bildfrekvens</translation>
 <translation id="2070909990982335904">Namn som börjar med en punkt är reserverade för systemet. Välj ett annat namn.</translation>
 <translation id="2071393345806050157">Det finns ingen lokal loggfil.</translation>
@@ -2726,6 +2727,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Dvorak-tangentbord för USA</translation>
 <translation id="4481249487722541506">Hämta okomprimerat tillägg...</translation>
+<translation id="4482194545587547824">Google kan använda webbhistoriken för att anpassa Sök och andra tjänster från Google.</translation>
 <translation id="4487088045714738411">Belgiskt tangentbord</translation>
 <translation id="4492190037599258964">Sökresultat för "<ph name="SEARCH_STRING" />"</translation>
 <translation id="4495419450179050807">Visa inte den här sidan</translation>

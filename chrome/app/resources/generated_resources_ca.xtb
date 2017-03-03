@@ -819,6 +819,7 @@ SharedArrayBuffer.</translation>
 <translation id="2053312383184521053">Dades de l'estat d'inactivitat</translation>
 <translation id="2058632120927660550">S'ha produït un error. Comproveu la impressora i torneu-ho a provar.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Un programari de prova automatitzat està controlant Chrome.</translation>
 <translation id="2068054174185416762">Fotogrames per segon</translation>
 <translation id="2070909990982335904">Els noms que comencen amb punt estan reservats per al sistema. Trieu un altre nom.</translation>
 <translation id="2071393345806050157">No hi ha cap fitxer de registre local.</translation>
@@ -2724,6 +2725,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Teclat Dvorak nord-americà</translation>
 <translation id="4481249487722541506">Carrega l'extensió desempaquetada...</translation>
+<translation id="4482194545587547824">És possible que Google utilitzi el vostre historial de navegació per personalitzar la Cerca i altres serveis de Google</translation>
 <translation id="4487088045714738411">Teclat belga</translation>
 <translation id="4492190037599258964">Resultats de la cerca per a "<ph name="SEARCH_STRING" />"</translation>
 <translation id="4495419450179050807">No la mostris en aquesta pàgina</translation>

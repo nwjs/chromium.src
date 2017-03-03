@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">Данные о состоянии бездействия</translation>
 <translation id="2058632120927660550">Произошла ошибка. Проверьте принтер и повторите попытку.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Браузером Chrome управляет автоматизированное тестовое ПО.</translation>
 <translation id="2068054174185416762">Частота кадров</translation>
 <translation id="2070909990982335904">Названия, начинающиеся с точки, зарезервированы для системных файлов. Выберите другое название.</translation>
 <translation id="2071393345806050157">Нет локального файла журнала.</translation>
@@ -2728,6 +2729,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Американская раскладка (Дворак)</translation>
 <translation id="4481249487722541506">Загрузить распакованное расширение...</translation>
+<translation id="4482194545587547824">Google может использовать историю просмотров для персонализации Поиска и других сервисов.</translation>
 <translation id="4487088045714738411">Бельгийская раскладка</translation>
 <translation id="4492190037599258964">Результаты поиска по запросу "<ph name="SEARCH_STRING" />"</translation>
 <translation id="4495419450179050807">Не показывать на этой странице</translation>

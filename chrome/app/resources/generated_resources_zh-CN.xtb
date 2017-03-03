@@ -815,6 +815,7 @@
 <translation id="2053312383184521053">闲置状态数据</translation>
 <translation id="2058632120927660550">出错了。请检查您的打印机，然后重试。</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome 正受到自动测试软件的控制。</translation>
 <translation id="2068054174185416762">帧速率</translation>
 <translation id="2070909990982335904">以点开头的名称仅适用于系统文件，请选择其他名称。</translation>
 <translation id="2071393345806050157">没有本地日志文件。</translation>
@@ -2719,6 +2720,7 @@
 <translation id="4479639480957787382">以太网</translation>
 <translation id="4479812471636796472">英语（美国）德沃夏克键盘</translation>
 <translation id="4481249487722541506">加载已解压的扩展程序...</translation>
+<translation id="4482194545587547824">Google 可能会使用您的浏览记录对 Google 搜索和其他 Google 服务进行个性化设置</translation>
 <translation id="4487088045714738411">比利时键盘</translation>
 <translation id="4492190037599258964">“<ph name="SEARCH_STRING" />”的搜索结果</translation>
 <translation id="4495419450179050807">不要在本页上显示</translation>

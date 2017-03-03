@@ -815,6 +815,7 @@
 <translation id="2053312383184521053">Datos de estado de inactividad</translation>
 <translation id="2058632120927660550">Se produjo un error. Revisa la impresora y vuelve a intentarlo.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Un software de prueba automatizado está controlando Chrome.</translation>
 <translation id="2068054174185416762">Velocidad de fotogramas</translation>
 <translation id="2070909990982335904">Los nombres que comienzan con un punto se reservan para el sistema. Elige otro nombre.</translation>
 <translation id="2071393345806050157">No hay ningún archivo de registro local.</translation>
@@ -2723,6 +2724,7 @@ Presiona cualquier tecla para seguir navegando.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Teclado Dvorak en inglés de EE.UU.</translation>
 <translation id="4481249487722541506">Cargar extensión sin empaquetar...</translation>
+<translation id="4482194545587547824">Es posible que Google use tu historial de navegación para personalizar Búsqueda y otros servicios de Google</translation>
 <translation id="4487088045714738411">Teclado belga</translation>
 <translation id="4492190037599258964">Resultados de búsqueda de '<ph name="SEARCH_STRING" />'</translation>
 <translation id="4495419450179050807">No mostrar en esta página</translation>

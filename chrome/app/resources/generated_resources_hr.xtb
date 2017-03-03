@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">Podaci o stanju mirovanja</translation>
 <translation id="2058632120927660550">Dogodila se pogreška. Provjerite pisač i pokušajte ponovo.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chromeom upravlja automatizirani testni softver.</translation>
 <translation id="2068054174185416762">Broj sličica u sekundi</translation>
 <translation id="2070909990982335904">Imena koja na početku imaju točku rezervirana su za sustav. Odaberite drugo ime.</translation>
 <translation id="2071393345806050157">Nema lokalne datoteke zapisnika.</translation>
@@ -2726,6 +2727,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="4479639480957787382">Eternet</translation>
 <translation id="4479812471636796472">SAD Dvorak tipkovnica</translation>
 <translation id="4481249487722541506">Učitaj otpakirano proširenje...</translation>
+<translation id="4482194545587547824">Google može upotrebljavati vašu povijest pregledavanja za prilagodbu Pretraživanja i drugih Googleovih usluga.</translation>
 <translation id="4487088045714738411">Belgijska tipkovnica</translation>
 <translation id="4492190037599258964">Rezultati pretraživanja za upit '<ph name="SEARCH_STRING" />'</translation>
 <translation id="4495419450179050807">Ne prikazuj na ovoj stranici</translation>

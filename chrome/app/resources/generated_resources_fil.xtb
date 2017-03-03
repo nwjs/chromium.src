@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">Data sa Idle na Estado</translation>
 <translation id="2058632120927660550">May naganap na error. Mangyaring suriin ang iyong printer at subukang muli.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Kinokontrol ang Chrome ng naka-automate na pansubok na software.</translation>
 <translation id="2068054174185416762">Frame Rate</translation>
 <translation id="2070909990982335904">Nakalaan para sa system ang mga pangalang nagsisimula sa tuldok. Mangyaring pumili ng isa pang pangalan.</translation>
 <translation id="2071393345806050157">Walang lokal na log file.</translation>
@@ -2729,6 +2730,7 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">US Dvorak na keyboard</translation>
 <translation id="4481249487722541506">I-load ang na-unpack na extension...</translation>
+<translation id="4482194545587547824">Maaaring gamitin ng Google ang iyong history ng pagba-browse upang ma-personalize ang Search at iba pang mga serbisyo ng Google</translation>
 <translation id="4487088045714738411">Belgian na keyboard</translation>
 <translation id="4492190037599258964">Mga resulta ng paghahanap para sa '<ph name="SEARCH_STRING" />'</translation>
 <translation id="4495419450179050807">Huwag ipakita sa pahinang ito</translation>

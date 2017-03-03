@@ -819,6 +819,7 @@
 <translation id="2053312383184521053">Dados do estado inativo</translation>
 <translation id="2058632120927660550">Ocorreu um erro. Verifique a impressora e tente novamente.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">O Chrome está a ser controlado pelo software de teste automatizado.</translation>
 <translation id="2068054174185416762">Velocidade de fotogramas</translation>
 <translation id="2070909990982335904">Os nomes que começam por ponto estão reservados para o sistema. Escolha outro nome.</translation>
 <translation id="2071393345806050157">Nenhum ficheiro de registo local.</translation>
@@ -2728,6 +2729,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Teclado americano (Dvorak)</translation>
 <translation id="4481249487722541506">Carregar extensão descomprimida...</translation>
+<translation id="4482194545587547824">A Google pode utilizar o seu histórico de navegação para personalizar a Pesquisa Google e outros serviços Google</translation>
 <translation id="4487088045714738411">Teclado belga</translation>
 <translation id="4492190037599258964">Resultados da pesquisa para "<ph name="SEARCH_STRING" />"</translation>
 <translation id="4495419450179050807">Não mostrar nesta página</translation>
@@ -3088,7 +3090,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="4971412780836297815">Abrir quando estiver concluído</translation>
 <translation id="497244430928947428">Teclado malaialo (fonético)</translation>
 <translation id="4973307593867026061">Adicionar impressoras</translation>
-<translation id="4973698491777102067">Limpe os seguintes itens de:</translation>
+<translation id="4973698491777102067">Limpar os seguintes itens de:</translation>
 <translation id="497421865427891073">Avançar</translation>
 <translation id="4974590756084640048">Reativar avisos</translation>
 <translation id="4974733135013075877">Sair e bloqueio para crianças</translation>

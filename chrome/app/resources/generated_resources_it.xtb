@@ -818,6 +818,7 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="2053312383184521053">Dati sullo stato di inattività</translation>
 <translation id="2058632120927660550">Si è verificato un errore. Controlla la tua stampante e riprova.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome è controllato da software di test automatizzato.</translation>
 <translation id="2068054174185416762">Frequenza fotogrammi</translation>
 <translation id="2070909990982335904">I nomi che iniziano con il punto sono riservati al sistema. Scegli un altro nome.</translation>
 <translation id="2071393345806050157">Nessun file di log locale.</translation>
@@ -2723,6 +2724,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Tastiera Dvorak USA</translation>
 <translation id="4481249487722541506">Carica estensione non pacchettizzata...</translation>
+<translation id="4482194545587547824">Google può utilizzare la tua cronologia di navigazione per personalizzare la Ricerca e altri servizi Google</translation>
 <translation id="4487088045714738411">Tastiera belga</translation>
 <translation id="4492190037599258964">Risultati di ricerca per "<ph name="SEARCH_STRING" />"</translation>
 <translation id="4495419450179050807">Non visualizzare in questa pagina</translation>
@@ -4677,7 +4679,7 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="7088418943933034707">Gestisci certificati...</translation>
 <translation id="7088434364990739311">Impossibile iniziare controllo disponibilità aggiornamenti (codice di errore <ph name="ERROR" />).</translation>
 <translation id="708856090370082727">Attiva il supporto dello scorrimento orizzontale per OSK. Se questo flag è selezionato, l'OSK ridimensionerà solo l'area visibile generale.</translation>
-<translation id="7088674813905715446">L'amministratore ha attivato lo stato Non predisposto per questo dispositivo. Per poter registrare il dispositivo, chiedi all'amministratore di attivare uno stato in sospeso.</translation>
+<translation id="7088674813905715446">L'amministratore ha attivato lo stato Deprovisioning effettuato per questo dispositivo. Per poter registrare il dispositivo, chiedi all'amministratore di attivare lo stato In attesa.</translation>
 <translation id="708969677220991657">Consente le richieste a localhost tramite HTTPS anche quando viene presentato un certificato non valido.</translation>
 <translation id="7092106376816104">Eccezioni popup</translation>
 <translation id="7093434536568905704">GTK+</translation>

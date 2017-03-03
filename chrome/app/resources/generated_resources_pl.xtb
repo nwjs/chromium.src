@@ -726,7 +726,7 @@
 <translation id="1903219944620007795">Wybierz język, aby zobaczyć dostępne sposoby wprowadzania tekstu.</translation>
 <translation id="1905710495812624430">Przekroczono maksymalną liczbę prób.</translation>
 <translation id="1909880997794698664">Czy na pewno chcesz trwale utrzymywać to urządzenie w trybie kiosku?</translation>
-<translation id="1910572251697014317">Na ten telefon zostało wysłane powiadomienie z Google. Pamiętaj, że gdy korzystasz z Bluetooth, Twój telefon może utrzymywać odblokowanie urządzenia <ph name="DEVICE_TYPE" /> nawet z odległości większej niż 30 metrów. Gdy sprawia to problem, możesz &lt;a&gt;tymczasowo wyłączyć tę funkcję&lt;/a&gt;.</translation>
+<translation id="1910572251697014317">Na ten telefon zostało wysłane powiadomienie z Google. Pamiętaj, że gdy korzystasz z Bluetootha, Twój telefon może utrzymywać odblokowanie urządzenia <ph name="DEVICE_TYPE" /> nawet z odległości większej niż 30 metrów. Gdy sprawia to problem, możesz &lt;a&gt;tymczasowo wyłączyć tę funkcję&lt;/a&gt;.</translation>
 <translation id="1910721550319506122">Witamy!</translation>
 <translation id="1916502483199172559">Domyślny czerwony awatar</translation>
 <translation id="191688485499383649">Podczas próby połączenia z urządzeniem „<ph name="DEVICE_NAME" />” wystąpił nieznany błąd.</translation>
@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">Dane o stanie bezczynności</translation>
 <translation id="2058632120927660550">Wystąpił błąd. Sprawdź drukarkę i spróbuj ponownie.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Przeglądarką Chrome steruje zautomatyzowane oprogramowanie testowe.</translation>
 <translation id="2068054174185416762">Liczba klatek</translation>
 <translation id="2070909990982335904">Nazwy zaczynające się od kropki są zarezerwowane dla systemu. Wybierz inną nazwę.</translation>
 <translation id="2071393345806050157">Nie ma lokalnego pliku dziennika.</translation>
@@ -2726,6 +2727,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Klawiatura amerykańska (Dvorak)</translation>
 <translation id="4481249487722541506">Wczytaj rozszerzenie bez pakietu...</translation>
+<translation id="4482194545587547824">Google może korzystać z Twojej historii przeglądania, by dostosowywać wyniki wyszukiwania i działanie innych usług</translation>
 <translation id="4487088045714738411">Klawiatura belgijska</translation>
 <translation id="4492190037599258964">Wyniki wyszukiwania dla „<ph name="SEARCH_STRING" />”</translation>
 <translation id="4495419450179050807">Nie pokazuj na tej stronie</translation>
@@ -5234,7 +5236,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="7874357055309047713">Zawsze uruchamiaj na wszystkich stronach</translation>
 <translation id="7876243839304621966">Usuń wszystkie</translation>
 <translation id="7877451762676714207">Nieznany błąd serwera. Spróbuj ponownie lub skontaktuj się z administratorem serwera.</translation>
-<translation id="7878999881405658917">Na ten telefon zostało wysłane powiadomienie z Google. Pamiętaj, że gdy korzystasz z Bluetooth, Twój telefon może utrzymywać odblokowanie urządzenia <ph name="DEVICE_TYPE" /> nawet z odległości większej niż 9 metrów. Gdy sprawia to problem, możesz &lt;a&gt;tymczasowo wyłączyć tę funkcję&lt;/a&gt;.</translation>
+<translation id="7878999881405658917">Na ten telefon zostało wysłane powiadomienie z Google. Pamiętaj, że gdy korzystasz z Bluetootha, Twój telefon może utrzymywać odblokowanie urządzenia <ph name="DEVICE_TYPE" /> nawet z odległości większej niż 9 metrów. Gdy sprawia to problem, możesz &lt;a&gt;tymczasowo wyłączyć tę funkcję&lt;/a&gt;.</translation>
 <translation id="7880836220014399562">„<ph name="BUNDLE_NAME" />” dodaje te aplikacje i rozszerzenia:</translation>
 <translation id="7881483672146086348">Wyświetl konto</translation>
 <translation id="7881969471599061635">Wyłącz napisy</translation>

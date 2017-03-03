@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">Jõudeoleku andmed</translation>
 <translation id="2058632120927660550">Ilmnes viga. Kontrollige printerit ja proovige uuesti.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome'i juhib automatiseeritud testtarkvara.</translation>
 <translation id="2068054174185416762">Kaadrisagedus</translation>
 <translation id="2070909990982335904">Punktiga algavad nimed on reserveeritud süsteemile. Valige teine nimi.</translation>
 <translation id="2071393345806050157">Kohalikku logifaili pole.</translation>
@@ -2726,6 +2727,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">USA Dvoraki klaviatuur</translation>
 <translation id="4481249487722541506">Laadi pakkimata laiendus...</translation>
+<translation id="4482194545587547824">Google võib kasutada teie sirvimisajalugu otsingu ja teiste Google'i teenuste isikupärastamiseks</translation>
 <translation id="4487088045714738411">Belgia klaviatuur</translation>
 <translation id="4492190037599258964">Otsingutulemused „<ph name="SEARCH_STRING" />“ kohta</translation>
 <translation id="4495419450179050807">Ära sellel lehel kuva</translation>

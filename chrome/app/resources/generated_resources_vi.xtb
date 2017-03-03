@@ -819,6 +819,7 @@
 <translation id="2053312383184521053">Dữ liệu ở trạng thái không hoạt động</translation>
 <translation id="2058632120927660550">Đã xảy ra lỗi. Vui lòng kiểm tra máy in của bạn và thử lại.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome đang được phần mềm kiểm tra tự động kiểm soát.</translation>
 <translation id="2068054174185416762">Tốc độ khung hình</translation>
 <translation id="2070909990982335904">Các tên bắt đầu với dấu chấm được dành riêng cho hệ thống. Vui lòng chọn tên khác.</translation>
 <translation id="2071393345806050157">Không có tệp nhật ký cục bộ.</translation>
@@ -2728,6 +2729,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Bàn phím Dvorak Hoa Kỳ</translation>
 <translation id="4481249487722541506">Tải tiện ích đã bung...</translation>
+<translation id="4482194545587547824">Google có thể sử dụng lịch sử duyệt web của bạn để cá nhân hóa Tìm kiếm và các dịch vụ khác của Google.</translation>
 <translation id="4487088045714738411">Bàn phím tiếng Bỉ</translation>
 <translation id="4492190037599258964">Kết quả tìm kiếm cho '<ph name="SEARCH_STRING" />'</translation>
 <translation id="4495419450179050807">Không hiển thị trên trang này</translation>

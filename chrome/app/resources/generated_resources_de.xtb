@@ -815,6 +815,7 @@
 <translation id="2053312383184521053">Daten für inaktiven Zustand</translation>
 <translation id="2058632120927660550">Ein Fehler ist aufgetreten. Bitte überprüfen Sie Ihren Drucker und versuchen Sie es erneut.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome wird von automatisierter Testsoftware gesteuert.</translation>
 <translation id="2068054174185416762">Framerate</translation>
 <translation id="2070909990982335904">Namen, die mit einem Punkt beginnen, sind für das System reserviert. Wählen Sie einen anderen Namen aus.</translation>
 <translation id="2071393345806050157">Keine lokale Protokolldatei vorhanden</translation>
@@ -2722,6 +2723,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">US-amerikanische Dvorak-Tastatur</translation>
 <translation id="4481249487722541506">Entpackte Erweiterung laden...</translation>
+<translation id="4482194545587547824">Google kann die Suche und andere Google-Dienste anhand Ihres Browserverlaufs für Sie personalisieren.</translation>
 <translation id="4487088045714738411">Belgische Tastatur</translation>
 <translation id="4492190037599258964">Suchergebnisse für "<ph name="SEARCH_STRING" />"</translation>
 <translation id="4495419450179050807">Nicht auf dieser Seite anzeigen</translation>

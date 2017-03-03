@@ -819,6 +819,7 @@
 <translation id="2053312383184521053">Idle State Data</translation>
 <translation id="2058632120927660550">An error has occurred. Please check your printer and try again.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome is being controlled by automated test software.</translation>
 <translation id="2068054174185416762">Frame Rate</translation>
 <translation id="2070909990982335904">Names starting with dot are reserved for the system. Please choose another name.</translation>
 <translation id="2071393345806050157">No local log file.</translation>
@@ -2727,6 +2728,7 @@ Press any key to continue exploring.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">US Dvorak keyboard</translation>
 <translation id="4481249487722541506">Load unpacked extension...</translation>
+<translation id="4482194545587547824">Google may use your browsing history to personalise Search and other Google services</translation>
 <translation id="4487088045714738411">Belgian keyboard</translation>
 <translation id="4492190037599258964">Search results for '<ph name="SEARCH_STRING" />'</translation>
 <translation id="4495419450179050807">Don't show on this page</translation>

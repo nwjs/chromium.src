@@ -815,6 +815,7 @@
 <translation id="2053312383184521053">Данни за състоянието на неактивност</translation>
 <translation id="2058632120927660550">Възникна грешка. Моля, проверете принтера си и опитайте отново.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome се контролира от автоматизиран софтуер за тестване.</translation>
 <translation id="2068054174185416762">Скорост на кадрите</translation>
 <translation id="2070909990982335904">Имената, започващи с точка, са запазени за системата. Моля, изберете друго име.</translation>
 <translation id="2071393345806050157">Няма локален регистрационен файл.</translation>
@@ -2722,6 +2723,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Американска (Дворак) клавиатура</translation>
 <translation id="4481249487722541506">Зареждане на разпакетирано разширение...</translation>
+<translation id="4482194545587547824">Възможно е да използваме историята ви на сърфиране, за да персонализираме търсенето и други услуги на Google</translation>
 <translation id="4487088045714738411">Белгийска клавиатура</translation>
 <translation id="4492190037599258964">Резултати от търсенето на „<ph name="SEARCH_STRING" />“</translation>
 <translation id="4495419450179050807">Да не се показва на тази страница</translation>

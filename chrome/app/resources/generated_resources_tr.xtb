@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">Boşta Kalma Durumu Verileri</translation>
 <translation id="2058632120927660550">Bir hata oluştu. Lütfen yazıcınızı kontrol edin ve tekrar deneyin.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome otomatik test yazılımı tarafından kontrol ediliyor.</translation>
 <translation id="2068054174185416762">Kare Hızı</translation>
 <translation id="2070909990982335904">Nokta ile başlayan adlar sistem için ayrılmıştır. Lütfen başka bir ad seçin.</translation>
 <translation id="2071393345806050157">Yerel günlük dosyası yok.</translation>
@@ -2727,6 +2728,7 @@ Keşfetmeye devam etmek için herhangi bir tuşa basın.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">ABD Dvorak klavye</translation>
 <translation id="4481249487722541506">Paketi açılmış uzantı yükle...</translation>
+<translation id="4482194545587547824">Google, Arama ve diğer Google hizmetlerini kişiselleştirmek için tarama geçmişinizi kullanabilir</translation>
 <translation id="4487088045714738411">Belçika dilinde klavye</translation>
 <translation id="4492190037599258964">'<ph name="SEARCH_STRING" />' için arama sonuçları</translation>
 <translation id="4495419450179050807">Bu sayfada gösterme</translation>

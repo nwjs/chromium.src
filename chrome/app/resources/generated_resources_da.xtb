@@ -180,7 +180,7 @@
 <translation id="1225211345201532184">Hyldeelement 5</translation>
 <translation id="1225404570112441414">Føj dette website til din hylde for at bruge det når som helst.</translation>
 <translation id="1227507814927581609">Godkendelsen mislykkedes under oprettelse af forbindelse til "<ph name="DEVICE_NAME" />".</translation>
-<translation id="1232569758102978740">Ikke-navngivet</translation>
+<translation id="1232569758102978740">Unavngivet</translation>
 <translation id="1233721473400465416">Landestandard</translation>
 <translation id="1234808891666923653">Servicearbejdere</translation>
 <translation id="1235458158152011030">Kendte netværk</translation>
@@ -429,7 +429,7 @@
 <translation id="1524152555482653726">Film</translation>
 <translation id="1524430321211440688">Tastatur</translation>
 <translation id="1525835343380843286">Serverkommunikationsfejl</translation>
-<translation id="1526560967942511387">Ikke-navngivet dokument</translation>
+<translation id="1526560967942511387">Unavngivet dokument</translation>
 <translation id="1526925867532626635">Bekræft indstillinger for synkronisering</translation>
 <translation id="1528372117901087631">Internetforbindelse</translation>
 <translation id="1529891865407786369">Strømkilde</translation>
@@ -815,6 +815,7 @@
 <translation id="2053312383184521053">Data for inaktiv tilstand</translation>
 <translation id="2058632120927660550">Der er opstået en fejl. Kontrollér din printer for fejl, og prøv igen.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome kontrolleres af automatiseret testsoftware.</translation>
 <translation id="2068054174185416762">Billedfrekvens</translation>
 <translation id="2070909990982335904">Navne, der begynder med punktum, må kun bruges af systemet. Vælg et andet navn.</translation>
 <translation id="2071393345806050157">Ingen lokal logfil.</translation>
@@ -2725,6 +2726,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Amerikansk (Dvorak) tastatur</translation>
 <translation id="4481249487722541506">Indlæs upakket udvidelse...</translation>
+<translation id="4482194545587547824">Google bruger muligvis din browserhistorik til at personliggøre Søgning og andre Google-tjenester</translation>
 <translation id="4487088045714738411">Belgisk tastatur</translation>
 <translation id="4492190037599258964">Søgeresultater for '<ph name="SEARCH_STRING" />'</translation>
 <translation id="4495419450179050807">Vis ikke på denne side</translation>

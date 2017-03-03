@@ -95,6 +95,7 @@ Debes activar la ubicación y el Bluetooth para utilizar la Web física.</transl
 <translation id="194341124344773587">Activa el permiso para Chrome en los <ph name="BEGIN_LINK" />ajustes de Android<ph name="END_LINK" />.</translation>
 <translation id="1943432128510653496">Guardar contraseñas</translation>
 <translation id="1944384637046898011">Cifrar todo con una contraseña de Google a partir del <ph name="TIME" /></translation>
+<translation id="1946005195648379376">Controla cómo utiliza Google tu historial de navegación para personalizar la Búsqueda y otros servicios de Google.</translation>
 <translation id="1946821392246652573">Tarjetas aceptadas</translation>
 <translation id="1966710179511230534">Actualiza tus datos de inicio de sesión.</translation>
 <translation id="1974060860693918893">Opciones avanzadas</translation>
@@ -311,7 +312,7 @@ Para ajustar el término de búsqueda, mantén pulsado el texto para seleccionar
 <translation id="4256782883801055595">Licencias de código abierto</translation>
 <translation id="4259722352634471385">Se ha bloqueado la navegación: <ph name="URL" /></translation>
 <translation id="4262028915562328938">Se ha producido un error de sincronización. Toca para ver los detalles.</translation>
-<translation id="4269820728363426813">Copiar dirección de enlace</translation>
+<translation id="4269820728363426813">Copiar la dirección del enlace</translation>
 <translation id="4271185234001491831">No traducir nunca del <ph name="LANGUAGE" /></translation>
 <translation id="4275663329226226506">Multimedia</translation>
 <translation id="4278390842282768270">Permitido</translation>

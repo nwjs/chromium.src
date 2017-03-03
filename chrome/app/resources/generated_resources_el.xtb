@@ -821,6 +821,7 @@
 <translation id="2053312383184521053">Δεδομένα κατάστασης αδράνειας</translation>
 <translation id="2058632120927660550">Προέκυψε σφάλμα. Ελέγξτε τον εκτυπωτή σας και δοκιμάστε ξανά.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Το Chrome ελέγχεται από λογισμικό αυτοματοποιημένου ελέγχου.</translation>
 <translation id="2068054174185416762">Ρυθμός πλαισίων</translation>
 <translation id="2070909990982335904">Τα ονόματα που αρχίζουν με τελεία προορίζονται για το σύστημα. Επιλέξτε ένα άλλο όνομα.</translation>
 <translation id="2071393345806050157">Δεν υπάρχει τοπικό αρχείο καταγραφής.</translation>
@@ -2736,6 +2737,7 @@
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Πληκτρολόγιο Dvorak (ΗΠΑ)</translation>
 <translation id="4481249487722541506">Φόρτωση ανεπτυγμένης επέκτασης...</translation>
+<translation id="4482194545587547824">Η Google μπορεί να χρησιμοποιεί το ιστορικό περιήγησής σας για να εξατομικεύει την Αναζήτηση και άλλες υπηρεσίες Google</translation>
 <translation id="4487088045714738411">Πληκτρολόγιο με βελγικούς χαρακτήρες</translation>
 <translation id="4492190037599258964">Αποτελέσματα αναζήτησης για "<ph name="SEARCH_STRING" />"</translation>
 <translation id="4495419450179050807">Να μην γίνεται εμφάνιση σε αυτήν τη σελίδα</translation>

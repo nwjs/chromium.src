@@ -819,6 +819,7 @@
 <translation id="2053312383184521053">アイドル状態のデータ</translation>
 <translation id="2058632120927660550">エラーが発生しました。プリンタを確認してもう一度お試しください。</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome は自動テスト ソフトウェアによって制御されています。</translation>
 <translation id="2068054174185416762">フレームレート</translation>
 <translation id="2070909990982335904">ドットで始まる名前はシステム専用です。別の名前を指定してください。</translation>
 <translation id="2071393345806050157">ローカルのログ ファイルがありません。</translation>
@@ -2727,6 +2728,7 @@
 <translation id="4479639480957787382">イーサネット</translation>
 <translation id="4479812471636796472">Dvorak 配列キーボード（米国）</translation>
 <translation id="4481249487722541506">パッケージ化されていない拡張機能を読み込む...</translation>
+<translation id="4482194545587547824">検索やその他の Google サービスをカスタマイズする目的で、Google が閲覧履歴を使用することがあります</translation>
 <translation id="4487088045714738411">ベルギーのキーボード</translation>
 <translation id="4492190037599258964">「<ph name="SEARCH_STRING" />」の検索結果</translation>
 <translation id="4495419450179050807">このページに表示しない</translation>

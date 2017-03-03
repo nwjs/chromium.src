@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">ข้อมูลของสถานะไม่มีการใช้งาน</translation>
 <translation id="2058632120927660550">เกิดข้อผิดพลาด โปรดตรวจสอบเครื่องพิมพ์และลองอีกครั้ง</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">ซอฟต์แวร์ทดสอบอัตโนมัติกำลังควบคุม Chrome อยู่</translation>
 <translation id="2068054174185416762">อัตราเฟรม</translation>
 <translation id="2070909990982335904">ชื่อที่ขึ้นต้นด้วยจุดสงวนไว้สำหรับระบบ โปรดเลือกชื่ออื่น</translation>
 <translation id="2071393345806050157">ไม่มีไฟล์บันทึกในเครื่อง</translation>
@@ -2726,6 +2727,7 @@
 <translation id="4479639480957787382">อีเทอร์เน็ต</translation>
 <translation id="4479812471636796472">แป้นพิมพ์ภาษาดีโวรักสหรัฐอเมริกา</translation>
 <translation id="4481249487722541506">โหลดส่วนขยายที่คลายการแพคแล้ว...</translation>
+<translation id="4482194545587547824">Google อาจใช้ประวัติการท่องเว็บของคุณเพื่อปรับเปลี่ยน Search และบริการอื่นๆ ของ Google ในแบบของคุณ</translation>
 <translation id="4487088045714738411">แป้นพิมพ์ภาษาเบลเยียม</translation>
 <translation id="4492190037599258964">ผลการค้นหาคำว่า "<ph name="SEARCH_STRING" />"</translation>
 <translation id="4495419450179050807">ไม่แสดงในหน้านี้อีก</translation>

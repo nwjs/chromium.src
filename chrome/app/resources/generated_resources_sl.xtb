@@ -819,6 +819,7 @@
 <translation id="2053312383184521053">Podatki o stanju nedejavnosti</translation>
 <translation id="2058632120927660550">Prišlo je do napake. Preverite tiskalnik in poskusite znova.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome upravlja avtomatizirana preskusna programska oprema.</translation>
 <translation id="2068054174185416762">Število sličic v sekundi</translation>
 <translation id="2070909990982335904">Imena, ki se začnejo s piko, so rezervirana za sistem. Izberite drugo ime.</translation>
 <translation id="2071393345806050157">Ni lokalne dnevniške datoteke.</translation>
@@ -2728,6 +2729,7 @@ Pritisnite katero koli tipko, če želite še naprej raziskovati.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Angleška tipkovnica Dvorak (ZDA)</translation>
 <translation id="4481249487722541506">Naloži odpakirano razširitev ...</translation>
+<translation id="4482194545587547824">Google lahko vašo zgodovino brskanja uporabi za prilagajanje Iskanja Google in drugih Googlovih storitev</translation>
 <translation id="4487088045714738411">Belgijska tipkovnica</translation>
 <translation id="4492190037599258964">Rezultati iskanja za »<ph name="SEARCH_STRING" />«</translation>
 <translation id="4495419450179050807">Ne pokaži na tej strani</translation>

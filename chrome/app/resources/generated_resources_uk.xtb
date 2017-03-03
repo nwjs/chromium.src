@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">Дані про неактивний стан</translation>
 <translation id="2058632120927660550">Сталася помилка. Перевірте свій принтер і повторіть спробу.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Веб-переглядачем Chrome керує автоматична пробна програма.</translation>
 <translation id="2068054174185416762">Частота кадрів</translation>
 <translation id="2070909990982335904">Імена, які починаються з крапки, зарезервовані для системи. Виберіть інше ім’я.</translation>
 <translation id="2071393345806050157">Немає локального файлу журналу.</translation>
@@ -2726,6 +2727,7 @@
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Розкладка Дворака (США)</translation>
 <translation id="4481249487722541506">Завантажити розпаковане розширення...</translation>
+<translation id="4482194545587547824">Google може використовувати вашу історію веб-перегляду, щоб персоналізувати Пошук та інші служби Google</translation>
 <translation id="4487088045714738411">Бельгійська розкладка</translation>
 <translation id="4492190037599258964">Результати пошуку для запиту "<ph name="SEARCH_STRING" />"</translation>
 <translation id="4495419450179050807">Не показувати на цій сторінці</translation>

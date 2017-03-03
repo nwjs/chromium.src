@@ -813,6 +813,7 @@
 <translation id="2053312383184521053">נתוני מצב של חוסר פעילות</translation>
 <translation id="2058632120927660550">אירעה שגיאה. בדוק את המדפסת ונסה שוב.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">‏Chrome נשלט על-ידי תוכנת בדיקה אוטומטית.</translation>
 <translation id="2068054174185416762">קצב פריימים</translation>
 <translation id="2070909990982335904">שמות המתחילים בנקודה שמורים עבור המערכת. בחר שם אחר.</translation>
 <translation id="2071393345806050157">אין קובץ יומן מקומי.</translation>
@@ -2720,6 +2721,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4479639480957787382">אתרנט</translation>
 <translation id="4479812471636796472">‏מקלדת Dvorak אנגלית (ארה"ב)</translation>
 <translation id="4481249487722541506">טען תוסף שלא נארז...</translation>
+<translation id="4482194545587547824">‏Google עשויה להשתמש בהיסטוריית הגלישה שלך כדי להתאים אישית את החיפוש ושירותים אחרים של Google</translation>
 <translation id="4487088045714738411">מקלדת בלגית</translation>
 <translation id="4492190037599258964">תוצאות החיפוש עבור '<ph name="SEARCH_STRING" />'</translation>
 <translation id="4495419450179050807">אל תציג בדף זה</translation>

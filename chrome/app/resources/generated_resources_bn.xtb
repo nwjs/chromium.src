@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">নিষ্ক্রিয় অবস্থার ডেটা</translation>
 <translation id="2058632120927660550">একটি ত্রুটি ঘটেছে৷ দয়া করে আপনার মুদ্রকটি পরীক্ষা করুন এবং আবার চেষ্টা করুন৷</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">স্বয়ংক্রিয় পরীক্ষার সফ্টওয়্যার দ্বারা Chrome নিয়ন্ত্রিত হচ্ছে।</translation>
 <translation id="2068054174185416762">ফ্রেম রেট</translation>
 <translation id="2070909990982335904">ডট দিয়ে শুরু নমাগুলি সিস্টেমের জন্য সংরক্ষিত৷ দয়া করে অন্য নাম চয়ন করুন৷</translation>
 <translation id="2071393345806050157">কোনো স্থানীয় লগ ফাইল নেই।</translation>
@@ -2720,6 +2721,7 @@
 <translation id="4479639480957787382">ইথারনেট</translation>
 <translation id="4479812471636796472">ইউএস দভোরাক কীবোর্ড</translation>
 <translation id="4481249487722541506">প্যাক না করা এক্সটেনশন লোড করুন...</translation>
+<translation id="4482194545587547824">অনুসন্ধান এবং অন্যান্য Google পরিষেবাগুলি ব্যক্তিগতকৃত করতে Google আপনার ব্রাউজিং ইতিহাস ব্যবহার করতে পারে</translation>
 <translation id="4487088045714738411">বেলজিয়ান কীবোর্ড</translation>
 <translation id="4492190037599258964">'<ph name="SEARCH_STRING" />'-এর অনুসন্ধান ফলাফল</translation>
 <translation id="4495419450179050807">এই পৃষ্ঠাতে দেখাবেন না</translation>

@@ -817,6 +817,7 @@
 <translation id="2053312383184521053">निष्क्रिय स्थिती डेटा</translation>
 <translation id="2058632120927660550">एक त्रुटी आली आहे. कृपया आपला प्रिंटर तपासा आणि पुन्हा प्रयत्न करा.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">स्वयंचलित चाचणी सॉफ्टवेअरने Chrome नियंत्रित केले जात आहे.</translation>
 <translation id="2068054174185416762">फ्रेम दर</translation>
 <translation id="2070909990982335904">डॉटने प्रारंभ होणारी नावे सिस्टमसाठी आरक्षित आहेत. कृपया दुसरे नाव निवडा.</translation>
 <translation id="2071393345806050157">स्थानिक लॉग फाईल नाही.</translation>
@@ -2719,6 +2720,7 @@
 <translation id="4479639480957787382">इथरनेट</translation>
 <translation id="4479812471636796472">यूएस दवोराक कीबोर्ड</translation>
 <translation id="4481249487722541506">अनपॅक केलेला विस्तार लोड करा...</translation>
+<translation id="4482194545587547824">शोध आणि इतर Google सेवा वैयक्तीकृत करण्यासाठी Google आपल्या ब्राउझिंग इतिहासाचा वापर करू शकते</translation>
 <translation id="4487088045714738411">बेल्जिअन कीबोर्ड</translation>
 <translation id="4492190037599258964">'<ph name="SEARCH_STRING" />' साठी शोध परिणाम</translation>
 <translation id="4495419450179050807">या पृष्ठावर दर्शवू नका</translation>

@@ -819,6 +819,7 @@ UPOZORNĚNÍ: Když toto pravidlo povolíte, Chrome bude zaznamenávat data o v
 <translation id="2053312383184521053">Údaje o stavu nečinnosti</translation>
 <translation id="2058632120927660550">Došlo k chybě. Zkontrolujte tiskárnu a zkuste to znovu.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome je právě kontrolován pomocí automatického testovacího softwaru.</translation>
 <translation id="2068054174185416762">Snímková frekvence</translation>
 <translation id="2070909990982335904">Názvy začínající tečkou jsou vyhrazeny pro systém. Zvolte prosím jiný název.</translation>
 <translation id="2071393345806050157">Žádný místní soubor protokolu není k dispozici.</translation>
@@ -2724,6 +2725,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4479812471636796472">Americká klávesnice s rozložením Dvorak</translation>
 <translation id="4481249487722541506">Načíst rozbalené rozšíření...</translation>
+<translation id="4482194545587547824">Google vaši historii procházení může používat k přizpůsobení Vyhledávání a dalších služeb Google.</translation>
 <translation id="4487088045714738411">Belgická klávesnice</translation>
 <translation id="4492190037599258964">Výsledky vyhledávání pro výraz „<ph name="SEARCH_STRING" />“</translation>
 <translation id="4495419450179050807">Nezobrazovat na této stránce</translation>

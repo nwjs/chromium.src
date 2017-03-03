@@ -818,6 +818,7 @@
 <translation id="2053312383184521053">Données sur l'état de veille</translation>
 <translation id="2058632120927660550">Une erreur s'est produite. Veuillez vérifier l'imprimante, puis réessayer.</translation>
 <translation id="2061855250933714566"><ph name="ENCODING_CATEGORY" /> (<ph name="ENCODING_NAME" />)</translation>
+<translation id="2065405795449409761">Chrome est contrôlé par un logiciel de test automatisé.</translation>
 <translation id="2068054174185416762">Fréquence d'images</translation>
 <translation id="2070909990982335904">Les noms commençant par un point sont réservés au système. Veuillez sélectionner un autre nom.</translation>
 <translation id="2071393345806050157">Aucun fichier journal local.</translation>
@@ -2726,6 +2727,7 @@ Pour poursuivre l'exploration, veuillez appuyer sur n'importe quelle touche.</tr
 <translation id="4479639480957787382">Ethernet </translation>
 <translation id="4479812471636796472">Clavier Dvorak américain</translation>
 <translation id="4481249487722541506">Charger l'extension non empaquetée...</translation>
+<translation id="4482194545587547824">Google peut utiliser votre historique de navigation pour personnaliser la recherche et d'autres services Google.</translation>
 <translation id="4487088045714738411">Clavier belge</translation>
 <translation id="4492190037599258964">Résultats de recherche pour "<ph name="SEARCH_STRING" />"</translation>
 <translation id="4495419450179050807">Ne pas afficher sur cette page</translation>
@@ -4683,7 +4685,7 @@ N'utilisez cette fonctionnalité qu'avec des comptes fiables.</translation>
 <translation id="7088418943933034707">Gérer les certificats...</translation>
 <translation id="7088434364990739311">Échec du lancement de la vérification des mises à jour (code d'erreur <ph name="ERROR" />).</translation>
 <translation id="708856090370082727">Activer la compatibilité avec le défilement tactile OSK. Lorsque cet indicateur est activé, l'OSK ne redimensionnera que la fenêtre d'affichage.</translation>
-<translation id="7088674813905715446">Cet appareil a été mis en état "déprovisionné" par l'administrateur. Pour activer son inscription, veuillez demander à l'administrateur d'activer l'état "en attente" pour cet appareil.</translation>
+<translation id="7088674813905715446">L'administrateur a associé l'état "Non géré" à cet appareil. Pour activer son inscription, veuillez demander à l'administrateur d'activer l'état "En attente" pour cet appareil.</translation>
 <translation id="708969677220991657">Autorise les demandes auprès de l'hôte local via HTTPS même sur présentation d'un certificat non valide.</translation>
 <translation id="7092106376816104">Exceptions liées aux fenêtres pop-up</translation>
 <translation id="7093434536568905704">GTK+</translation>
