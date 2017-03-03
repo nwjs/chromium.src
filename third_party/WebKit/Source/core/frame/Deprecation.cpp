@@ -440,6 +440,14 @@ String Deprecation::deprecationMessage(UseCounter::Feature feature) {
           "the specified Range",
           M58, "6680566019653632");
 
+    case UseCounter::RtcpMuxPolicyNegotiate:
+      return String::format(
+          "The rtcpMuxPolicy option is being considered for "
+          "removal and may be removed no earlier than %s. If you depend on it, "
+          "please see https://www.chromestatus.com/features/5654810086866944 "
+          "for more details.",
+          milestoneString(M60));
+
     // Features that aren't deprecated don't have a deprecation message.
     default:
       return String();
