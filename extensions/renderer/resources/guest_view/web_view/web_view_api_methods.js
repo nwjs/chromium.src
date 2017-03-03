@@ -43,6 +43,18 @@ var WEB_VIEW_API_METHODS = [
   // Clears browsing data for the WebView partition.
   'clearData',
 
+  // Retrieves information about a single cookie.
+  'cookiesGet',
+
+  // Retrieves all cookies from a single cookie store that match given webview.
+  'cookiesGetAll',
+
+  // Sets a cookie with the given cookie data; may overwrite equivalent cookies if they exist.
+  'cookiesSet',
+
+  // Deletes a cookie by name.
+  'cookiesRemove',
+
   // Injects JavaScript code into the guest page.
   'executeScript',
 
