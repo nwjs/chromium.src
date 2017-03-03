@@ -2421,8 +2421,8 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
       rvh->GetProcess()->GetBrowserContext());
   PrefService* prefs = profile->GetPrefs();
 
-  // Fill per-script font preferences. These are not registered on Android
-  // - http://crbug.com/308033.
+// Fill font preferences. These are not registered on Android
+// - http://crbug.com/308033, http://crbug.com/696364.
 #if !defined(OS_ANDROID)
   FontFamilyCache::FillFontFamilyMap(profile,
                                      prefs::kWebKitStandardFontFamilyMap,
@@ -2445,7 +2445,6 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
   FontFamilyCache::FillFontFamilyMap(profile,
                                      prefs::kWebKitPictographFontFamilyMap,
                                      &web_prefs->pictograph_font_family_map);
-#endif
 
   web_prefs->default_font_size =
       prefs->GetInteger(prefs::kWebKitDefaultFontSize);
@@ -2455,6 +2454,7 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
       prefs->GetInteger(prefs::kWebKitMinimumFontSize);
   web_prefs->minimum_logical_font_size =
       prefs->GetInteger(prefs::kWebKitMinimumLogicalFontSize);
+#endif
 
   web_prefs->default_encoding = prefs->GetString(prefs::kDefaultCharset);
 
