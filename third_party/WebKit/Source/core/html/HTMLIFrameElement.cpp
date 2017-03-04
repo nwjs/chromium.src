@@ -23,6 +23,7 @@
  */
 
 #include "core/html/HTMLIFrameElement.h"
+#include "core/frame/LocalFrame.h"
 
 #include "core/CSSPropertyNames.h"
 #include "core/HTMLNames.h"
@@ -110,6 +111,9 @@ void HTMLIFrameElement::parseAttribute(const QualifiedName& name,
   } else if (name == sandboxAttr) {
     m_sandbox->setValue(value);
     UseCounter::count(document(), UseCounter::SandboxViaIFrame);
+  } else if (name == nwuseragentAttr) {
+    if (contentFrame() && contentFrame()->isLocalFrame())
+      toLocalFrame(contentFrame())->loader().setUserAgentOverride(value);
   } else if (name == referrerpolicyAttr) {
     m_referrerPolicy = ReferrerPolicyDefault;
     if (!value.isNull())

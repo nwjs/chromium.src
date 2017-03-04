@@ -314,6 +314,7 @@ net_log::ChromeNetLog* TestingBrowserProcess::net_log() {
   return nullptr;
 }
 
+#if 0
 component_updater::ComponentUpdateService*
 TestingBrowserProcess::component_updater() {
   return nullptr;
@@ -332,6 +333,7 @@ component_updater::SupervisedUserWhitelistInstaller*
 TestingBrowserProcess::supervised_user_whitelist_installer() {
   return nullptr;
 }
+#endif
 
 MediaFileSystemRegistry* TestingBrowserProcess::media_file_system_registry() {
 #if defined(OS_ANDROID)

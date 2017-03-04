@@ -17,6 +17,12 @@ class ScopedAllowWaitForLegacyWebViewApi;
 namespace blimp {
 class BlimpBrowserTest;
 }
+
+namespace extensions {
+class NwAppSetProxyConfigFunction;
+class ContentVerifier;
+}
+
 namespace cc {
 class CompletionEvent;
 class SingleThreadTaskGraphRunner;
@@ -214,6 +220,9 @@ class BASE_EXPORT ThreadRestrictions {
   friend class ui::CommandBufferClientImpl;
   friend class ui::CommandBufferLocal;
   friend class ui::GpuState;
+
+  friend class extensions::NwAppSetProxyConfigFunction;
+  friend class extensions::ContentVerifier;
 
   // END ALLOWED USAGE.
   // BEGIN USAGE THAT NEEDS TO BE FIXED.

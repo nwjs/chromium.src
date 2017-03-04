@@ -158,4 +158,9 @@ void WebSecurityOrigin::grantLoadLocalResources() const {
   get()->grantLoadLocalResources();
 }
 
-}  // namespace blink
+void WebSecurityOrigin::grantUniversalAccess() const
+{
+    get()->grantUniversalAccess();
+}
+
+} // namespace blink

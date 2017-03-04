@@ -9,6 +9,8 @@
 #include <cmath>
 #include <utility>
 
+#include "content/nw/src/nw_base.h"
+
 #include "base/command_line.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -2146,10 +2148,11 @@ void WebContentsImpl::CreateNewWindow(
     AddDestructionObserver(new_contents);
   }
 
+  nw::SetCurrentNewWinManifest(params.nw_window_manifest);
   if (delegate_) {
     delegate_->WebContentsCreated(
-        this, render_process_id, params.opener_render_frame_id,
-        params.frame_name, params.target_url, new_contents);
+        this, render_process_id, params.opener_render_frame_id, params.frame_name,
+        params.target_url, new_contents, params.nw_window_manifest);
   }
 
   if (params.opener_suppressed) {

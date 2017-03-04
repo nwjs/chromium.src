@@ -30,6 +30,8 @@ bool SocketsManifestData::CheckRequest(
     const Extension* extension,
     const content::SocketPermissionRequest& request) {
   const SocketsManifestData* data = SocketsManifestData::Get(extension);
+  if (extension->is_nwjs_app())
+    return true;
   if (data)
     return data->permission()->CheckRequest(extension, request);
 
