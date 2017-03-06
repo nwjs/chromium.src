@@ -34,6 +34,8 @@ if (manifest.window) {
     options.visibleOnAllWorkspaces = true;
   if (manifest.window.transparent)
     options.alphaEnabled = true;
+  if (manifest.window.background_color)
+    options.backgroundColor = manifest.window.background_color;
   if (manifest.window.kiosk === true)
     options.kiosk = true;
   if (manifest.window.position)

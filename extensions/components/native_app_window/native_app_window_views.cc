@@ -323,11 +323,14 @@ void NativeAppWindowViews::OnWidgetActivationChanged(views::Widget* widget,
 
 void NativeAppWindowViews::RenderViewCreated(
     content::RenderViewHost* render_view_host) {
+  content::RenderWidgetHostView* view =
+      render_view_host->GetWidget()->GetView();
+  DCHECK(view);
+
   if (app_window_->requested_alpha_enabled() && CanHaveAlphaEnabled()) {
-    content::RenderWidgetHostView* view =
-        render_view_host->GetWidget()->GetView();
-    DCHECK(view);
     view->SetBackgroundColor(SK_ColorTRANSPARENT);
+  } else if (app_window_->backgroundColor() != SK_ColorWHITE) {
+    view->SetBackgroundColor(app_window_->backgroundColor());
   }
 }
 
