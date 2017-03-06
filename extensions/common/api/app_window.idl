@@ -257,6 +257,9 @@ namespace app.window {
     // permission.
     [nodoc] boolean? alphaEnabled;
 
+    // Set window background color.
+    [nodoc] DOMString? backgroundColor;
+
     // The initial state of the window, allowing it to be created already
     // fullscreen, maximized, or minimized. Defaults to 'normal'.
     State? state;

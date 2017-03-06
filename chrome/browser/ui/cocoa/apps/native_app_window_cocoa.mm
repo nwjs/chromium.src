@@ -690,11 +690,14 @@ bool NativeAppWindowCocoa::IsAlwaysOnTop() const {
 void NativeAppWindowCocoa::RenderViewCreated(content::RenderViewHost* rvh) {
   if (IsActive())
     WebContents()->RestoreFocus();
+
+  content::RenderWidgetHostView* view = rvh->GetWidget()->GetView();
+  DCHECK(view);
   if (content::g_support_transparency &&
       app_window_->requested_alpha_enabled() && CanHaveAlphaEnabled()) {
-    content::RenderWidgetHostView* view = rvh->GetWidget()->GetView();
-    DCHECK(view);
     view->SetBackgroundColor(SK_ColorTRANSPARENT);
+  } else if (app_window_->backgroundColor() != SK_ColorWHITE) {
+    view->SetBackgroundColor(app_window_->backgroundColor());
   }
 }
 

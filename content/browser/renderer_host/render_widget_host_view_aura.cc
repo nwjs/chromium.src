@@ -753,6 +753,8 @@ void RenderWidgetHostViewAura::SetBackgroundColor(SkColor color) {
   host_->SetBackgroundOpaque(opaque);
   window_->layer()->SetFillsBoundsOpaquely(opaque);
   window_->layer()->SetColor(color);
+  if (opaque && color != SK_ColorWHITE)
+    host_->SetBaseBackgroundColor(color);
 }
 
 bool RenderWidgetHostViewAura::IsMouseLocked() {

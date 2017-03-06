@@ -1650,6 +1650,9 @@ void RenderWidgetHostViewMac::SetBackgroundColor(SkColor color) {
   if (render_widget_host_)
     render_widget_host_->SetBackgroundOpaque(opaque);
 
+  if (opaque && color != SK_ColorWHITE)
+    render_widget_host_->SetBaseBackgroundColor(color);
+
   [cocoa_view_ setOpaque:opaque];
 
   browser_compositor_->SetHasTransparentBackground(!opaque);

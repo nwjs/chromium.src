@@ -437,6 +437,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl : public RenderWidgetHost,
   // Set the RenderView background transparency.
   void SetBackgroundOpaque(bool opaque);
 
+  // Set background color.
+  void SetBaseBackgroundColor(SkColor);
+
   // Notifies the renderer that the next key event is bound to one or more
   // pre-defined edit commands
   void SetEditCommandsForNextKeyEvent(

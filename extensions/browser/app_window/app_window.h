@@ -165,6 +165,7 @@ class AppWindow : public content::WebContentsDelegate,
     SkColor active_frame_color;
     SkColor inactive_frame_color;
     bool alpha_enabled;
+    SkColor background_color;
     bool is_ime_window;
 
     // The initial content/inner bounds specification (excluding any window
@@ -394,6 +395,9 @@ class AppWindow : public content::WebContentsDelegate,
   // Whether the app window wants to be alpha enabled.
   bool requested_alpha_enabled() const { return requested_alpha_enabled_; }
 
+  // Set background color
+  SkColor backgroundColor() const { return background_color_; }
+
   // Whether the app window is created by IME extensions.
   // TODO(bshe): rename to hide_app_window_in_launcher if it is not used
   // anywhere other than app_window_launcher_controller after M45. Otherwise,
@@ -598,6 +602,9 @@ class AppWindow : public content::WebContentsDelegate,
 
   // Whether |alpha_enabled| was set in the CreateParams.
   bool requested_alpha_enabled_;
+
+  // Set background color
+  SkColor background_color_;
 
   // Whether |is_ime_window| was set in the CreateParams.
   bool is_ime_window_;

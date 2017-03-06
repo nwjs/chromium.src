@@ -1222,6 +1222,7 @@ bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_ClosePage, OnClosePage)
     IPC_MESSAGE_HANDLER(ViewMsg_MoveOrResizeStarted, OnMoveOrResizeStarted)
     IPC_MESSAGE_HANDLER(ViewMsg_SetBackgroundOpaque, OnSetBackgroundOpaque)
+    IPC_MESSAGE_HANDLER(ViewMsg_SetBaseBackgroundColor, OnSetBaseBackgroundColor)
     IPC_MESSAGE_HANDLER(ViewMsg_EnablePreferredSizeChangedMode,
                         OnEnablePreferredSizeChangedMode)
     IPC_MESSAGE_HANDLER(ViewMsg_EnableAutoResize, OnEnableAutoResize)
@@ -2280,6 +2281,11 @@ void RenderViewImpl::OnSetBackgroundOpaque(bool opaque) {
     frame_widget_->setIsTransparent(!opaque);
   if (compositor_)
     compositor_->setHasTransparentBackground(!opaque);
+}
+
+void RenderViewImpl::OnSetBaseBackgroundColor(SkColor color) {
+  if (frame_widget_)
+    frame_widget_->setBaseBackgroundColor(color);
 }
 
 void RenderViewImpl::OnSetActive(bool active) {

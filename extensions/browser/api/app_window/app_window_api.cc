@@ -324,6 +324,15 @@ bool AppWindowCreateFunction::RunAsync() {
 #endif
     }
 
+    if (options->background_color.get()) {
+      if (!image_util::ParseHexColorString(
+              *options->background_color,
+              &create_params.background_color)) {
+        error_ = app_window_constants::kInvalidColorSpecification;
+        return false;
+      }
+    }
+
     if (options->hidden.get())
       create_params.hidden = *options->hidden;
 

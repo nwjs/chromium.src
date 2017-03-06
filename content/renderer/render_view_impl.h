@@ -550,6 +550,7 @@ class CONTENT_EXPORT RenderViewImpl
   void OnReleaseDisambiguationPopupBitmap(const cc::SharedBitmapId& id);
   void OnSetActive(bool active);
   void OnSetBackgroundOpaque(bool opaque);
+  void OnSetBaseBackgroundColor(SkColor color);
   void OnExitFullscreen();
   void OnSetHistoryOffsetAndLength(int history_offset, int history_length);
   void OnSetInitialFocus(bool reverse);

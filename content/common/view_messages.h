@@ -520,6 +520,9 @@ IPC_MESSAGE_ROUTED1(ViewMsg_SetTextDirection,
 // Make the RenderView background transparent or opaque.
 IPC_MESSAGE_ROUTED1(ViewMsg_SetBackgroundOpaque, bool /* opaque */)
 
+// Set the RenderView background color.
+IPC_MESSAGE_ROUTED1(ViewMsg_SetBaseBackgroundColor, SkColor /* color */)
+
 // Used to tell the renderer not to add scrollbars with height and
 // width below a threshold.
 IPC_MESSAGE_ROUTED1(ViewMsg_DisableScrollbarsForSmallWindows,

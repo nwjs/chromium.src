@@ -183,6 +183,7 @@ AppWindow::CreateParams::CreateParams()
       active_frame_color(SK_ColorBLACK),
       inactive_frame_color(SK_ColorBLACK),
       alpha_enabled(false),
+      background_color(SK_ColorWHITE),
       is_ime_window(false),
       creator_process_id(0),
       state(ui::SHOW_STATE_DEFAULT),
@@ -271,6 +272,7 @@ AppWindow::AppWindow(BrowserContext* context,
       is_hidden_(false),
       cached_always_on_top_(false),
       requested_alpha_enabled_(false),
+      background_color_(SK_ColorWHITE),
       is_ime_window_(false),
       last_to_different_document_(false),
       show_in_shelf_(false),
@@ -360,6 +362,7 @@ void AppWindow::Init(const GURL& url,
   }
 
   requested_alpha_enabled_ = new_params.alpha_enabled;
+  background_color_ = new_params.background_color;
   is_ime_window_ = params.is_ime_window;
   show_in_shelf_ = params.show_in_shelf;
   window_icon_url_ = params.window_icon_url;
