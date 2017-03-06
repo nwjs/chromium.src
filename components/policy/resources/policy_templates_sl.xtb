@@ -2081,11 +2081,6 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
 <translation id="7027785306666625591">Konfigurira upravljanje porabe za <ph name="PRODUCT_OS_NAME" />.
 
       S temi pravilniki lahko nastavite, kaj naj <ph name="PRODUCT_OS_NAME" /> izvede, ko je uporabnik nedejaven nekaj časa.</translation>
-<translation id="703078280527762319">Opozorilo: pravilnik za najvišjo različico protokola TLS bo v celoti odstranjen iz izdelka <ph name="PRODUCT_NAME" /> okoli različice 66 (okoli februarja 2018).
-
-      Če ta pravilnik ni konfiguriran, <ph name="PRODUCT_NAME" /> uporabljata privzeto najvišjo različico, ki je TLSv1.3.
-
-      Sicer bo nastavljen na eno od teh vrednosti: »tls1.2« ali »tls1.3«. Če je nastavljen, izdelek <ph name="PRODUCT_NAME" /> ne bo uporabljal različic protokolov SSL/TLS, višjih od navedene različice. Neprepoznane vrednosti bodo prezrte.</translation>
 <translation id="7040229947030068419">Vzorčna vrednost:</translation>
 <translation id="7049373494483449255">Omogoča programu <ph name="PRODUCT_NAME" /> pošiljanje dokumentov v storitev <ph name="CLOUD_PRINT_NAME" /> za tiskanje. OPOMBA: To vpliva le na podporo storitve <ph name="CLOUD_PRINT_NAME" /> v programu <ph name="PRODUCT_NAME" />. Uporabnikom ne preprečuje pošiljanja tiskalniških poslov na spletna mesta.
 

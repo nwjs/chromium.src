@@ -1956,11 +1956,6 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
 <translation id="7027785306666625591">Konfigurer strømstyring i <ph name="PRODUCT_OS_NAME" />.
 
       Med disse politikker kan du konfigurere, hvad <ph name="PRODUCT_OS_NAME" /> udfører, når brugeren er inaktiv i et givet tidsrum.</translation>
-<translation id="703078280527762319">Advarsel! Politikken for den maksimale TLS-version fjernes fuldstændig fra <ph name="PRODUCT_NAME" /> omkring version 66 (omtrent februar 2018).
-
-      Hvis denne politik ikke konfigureres, anvender <ph name="PRODUCT_NAME" /> en standardmaksimumversion, som er TLSv1.3.
-
-      Den kan også angives til en af følgende værdier: "tls1.2" eller "tls1.3". Når der er angivet en værdi, vil <ph name="PRODUCT_NAME" /> ikke anvende SSL/TLS-versioner, der er højere end den angivne version. Ukendte værdier ignoreres.</translation>
 <translation id="7040229947030068419">Eksempelværdi:</translation>
 <translation id="7049373494483449255">Gør det muligt for <ph name="PRODUCT_NAME" /> at sende dokumenter til <ph name="CLOUD_PRINT_NAME" /> til udskrivning. BEMÆRK! Dette påvirker kun understøttelse af <ph name="CLOUD_PRINT_NAME" /> i <ph name="PRODUCT_NAME" />. Det forhindrer ikke brugerne i at sende udskriftsjob på websites. Hvis denne indstilling er aktiveret eller ikke er konfigureret, kan brugerne udskrive til <ph name="CLOUD_PRINT_NAME" /> via dialogboksen for udskrivning i <ph name="PRODUCT_NAME" />. Hvis denne indstilling er deaktiveret, kan brugerne ikke udskrive til <ph name="CLOUD_PRINT_NAME" /> via dialogboksen for udskrivning i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="7053678646221257043">Denne politik påtvinger import af bogmærker fra den nuværende standardbrowser, hvis det er aktiveret. Hvis det er aktiveret, påvirker denne politik også importdialogboksen. Hvis det er deaktiveret, importeres der ingen bogmærker. Hvis den ikke er angivet, kan brugeren blive bedt om at importere, eller importen kan ske automatisk.</translation>

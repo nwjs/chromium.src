@@ -2064,11 +2064,6 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 <translation id="7027785306666625591">I-configure ang pamamahala ng power sa <ph name="PRODUCT_OS_NAME" />.
 
       Nagbibigay-daan sa iyo ang mga patakarang ito na i-configure ang gawi ng <ph name="PRODUCT_OS_NAME" /> kapag ang user ay nananatiling idle sa ilang sandali.</translation>
-<translation id="703078280527762319">Babala: Ganap nang aalisin ang patakaran sa max na bersyon ng TLS mula sa <ph name="PRODUCT_NAME" /> hanggang sa bersyon 66 (bandang Pebrero 2018).
-
-      Kung hindi na-configure ang patakarang ito, gagamit ang <ph name="PRODUCT_NAME" /> ng default na maximum na bersyon na TLSv1.3.
-
-      Kung hindi, maaari itong itakda sa isa sa mga sumusunod na value: "tls1.2" o "tls1.3". Kapag nakatakda, hindi gagamit ng mga bersyon ng SSL/TLS ang <ph name="PRODUCT_NAME" /> na mas bago kaysa sa tinukoy na bersyon. Babalewalain ang hindi kilalang value.</translation>
 <translation id="7040229947030068419">Halimbawang halaga:</translation>
 <translation id="7049373494483449255">Binibigyang-daan ang <ph name="PRODUCT_NAME" /> na magsumite ng mga dokumento sa <ph name="CLOUD_PRINT_NAME" /> para sa pag-print.  TANDAAN: Naaapektuhan lamang nito ang suporta ng <ph name="CLOUD_PRINT_NAME" /> sa <ph name="PRODUCT_NAME" />.  Hindi nito pinipigilan ang mga user sa pagsusumite ng mga gawain sa pag-print sa mga web site.
 

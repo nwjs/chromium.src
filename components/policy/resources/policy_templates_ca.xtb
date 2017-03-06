@@ -1924,11 +1924,6 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 <translation id="7027785306666625591">Configureu la gestió de l'alimentació de <ph name="PRODUCT_OS_NAME" />.
 
       Aquestes polítiques us permeten configurar el comportament de <ph name="PRODUCT_OS_NAME" /> quan l'usuari està inactiu durant un temps determinat.</translation>
-<translation id="703078280527762319">Advertiment: la política de la versió TLS màxima se suprimirà completament de <ph name="PRODUCT_NAME" /> aproximadament a la versió 66 (cap al febrer de 2018).
-
-      Si aquesta política no es configura, <ph name="PRODUCT_NAME" /> utilitzarà com a versió màxima predeterminada TLSv1.3.
-
-      També es pot definir a un dels valors següents: tls1.2 o tls1.3. Quan s'hagi definit, <ph name="PRODUCT_NAME" /> no utilitzarà versions SSL/TLS superiors a la versió especificada. Els valors que no es reconeguin s'ignoraran.</translation>
 <translation id="7040229947030068419">Valor d'exemple:</translation>
 <translation id="7049373494483449255">Permet que <ph name="PRODUCT_NAME" /> enviï documents a <ph name="CLOUD_PRINT_NAME" /> per imprimir. NOTA: Això només afecta a l'assistència de <ph name="CLOUD_PRINT_NAME" /> a <ph name="PRODUCT_NAME" />. No impedeix que els usuaris enviïn treballs d'impressió als llocs web. Si aquest paràmetre està activat o no està configurat, els usuaris podran imprimir a <ph name="CLOUD_PRINT_NAME" /> des del diàleg d'impressió <ph name="PRODUCT_NAME" />. Si aquest paràmetre està desactivat, els usuaris no podran imprimir a <ph name="CLOUD_PRINT_NAME" /> des del diàleg d'impressió <ph name="PRODUCT_NAME" />.</translation>
 <translation id="7053678646221257043">Si està activada, aquesta política fa que s'importin les adreces d'interès des del navegador predeterminat actual. Si està activada, aquesta política també afecta el diàleg d'importació. Si està desactivada, no s'importaran les adreces d'interès. Si no s'ha definit, es demanarà a l'usuari si vol importar o la importació es pot produir de forma automàtica.</translation>

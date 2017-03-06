@@ -2032,11 +2032,6 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 <translation id="7027785306666625591">Konfigurer strømstyring i <ph name="PRODUCT_OS_NAME" />.
 
       Disse innstillingene lar deg konfigurere hvordan <ph name="PRODUCT_OS_NAME" /> oppfører seg når brukeren er inaktiv i en periode.</translation>
-<translation id="703078280527762319">Advarsel: Regelen for høyeste TLS-versjon blir fullstendig fjernet fra <ph name="PRODUCT_NAME" /> omkring versjon 66 (rundt februar 2018).
-
-      Hvis denne regelen ikke konfigureres, bruker <ph name="PRODUCT_NAME" /> TLSv1.3 som standard for maksimumsversjon.
-
-      Ellers kan den angis som en av de følgende verdiene: «tls1.2» eller «tls1.3». Når den er angitt, kommer ikke <ph name="PRODUCT_NAME" /> til å bruke høyere SSL/TLS-versjoner enn den spesifiserte versjonen. Ukjente verdier blir ignorert.</translation>
 <translation id="7040229947030068419">Eksempelverdi:</translation>
 <translation id="7049373494483449255">Gjør at <ph name="PRODUCT_NAME" /> kan sende dokumenter til <ph name="CLOUD_PRINT_NAME" /> for utskrift.  MERK: Dette påvirker bare støtte av <ph name="CLOUD_PRINT_NAME" /> i <ph name="PRODUCT_NAME" />. Det hindrer ikke brukeren i å sende utskriftsjobber på nettsteder.
 

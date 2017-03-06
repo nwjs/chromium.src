@@ -2069,11 +2069,6 @@
 <translation id="7027785306666625591"><ph name="PRODUCT_OS_NAME" />에서 전원 관리를 설정합니다.
 
       이 정책으로 사용자가 일정 시간 동안 유휴 상태일 때 <ph name="PRODUCT_OS_NAME" />에서 수행할 동작을 설정할 수 있습니다.</translation>
-<translation id="703078280527762319">경고: 최대 TLS 버전 정책이 <ph name="PRODUCT_NAME" /> 버전 66쯤에서 완전히 삭제됩니다(2018년 2월경).
-
-      이 정책을 구성하지 않으면 <ph name="PRODUCT_NAME" />에서 기본 최대 버전인 TLSv1.3이 사용됩니다.
-
-      정책을 구성하는 경우 'tls1.2'나 'tls1.3' 중 하나로 설정될 수 있습니다. 설정되면 <ph name="PRODUCT_NAME" />에서 지정된 버전보다 높은 SSL/TLS 버전이 사용되지 않습니다. 인식할 수 없는 값은 무시됩니다.</translation>
 <translation id="7040229947030068419">예시:</translation>
 <translation id="7049373494483449255">문서를 <ph name="CLOUD_PRINT_NAME" />에 제출하여 인쇄하기 위해 <ph name="PRODUCT_NAME" />을(를) 사용하도록 설정합니다. 참고: 이 설정은 <ph name="PRODUCT_NAME" />의 <ph name="CLOUD_PRINT_NAME" /> 지원에만 영향을 미치며, 사용자는 웹사이트에서 인쇄 작업을 제출할 수 있습니다.
 
