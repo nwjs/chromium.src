@@ -66,6 +66,10 @@ void SimpleMenuModel::Delegate::CommandIdHighlighted(int command_id) {
 void SimpleMenuModel::Delegate::MenuWillShow(SimpleMenuModel* /*source*/) {
 }
 
+bool SimpleMenuModel::Delegate::HasIcon(int command_id) {
+  return false;
+}
+
 void SimpleMenuModel::Delegate::MenuClosed(SimpleMenuModel* /*source*/) {
 }
 
@@ -267,7 +271,7 @@ int SimpleMenuModel::GetIndexOfCommandId(int command_id) {
 
 bool SimpleMenuModel::HasIcons() const {
   for (ItemVector::const_iterator i = items_.begin(); i != items_.end(); ++i) {
-    if (!i->icon.IsEmpty())
+    if (delegate_->HasIcon(i->command_id))
       return true;
   }
 

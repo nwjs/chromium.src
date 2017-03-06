@@ -206,9 +206,9 @@ const char kGoogleUpdateIsMachineEnvVar[] = "GoogleUpdateIsMachine";
 // Active Setup.
 const wchar_t kActiveSetupExe[] = L"chrmstp.exe";
 const wchar_t kAppLauncherGuid[] = L"{FDA71E6F-AC4C-4a00-8B70-9958A68906BF}";
-const wchar_t kChromeDll[] = L"chrome.dll";
-const wchar_t kChromeChildDll[] = L"chrome_child.dll";
-const wchar_t kChromeExe[] = L"chrome.exe";
+const wchar_t kChromeDll[] = L"nw.dll";
+const wchar_t kChromeChildDll[] = L"nw_child.dll";
+const wchar_t kChromeExe[] = L"nw.exe";
 const wchar_t kChromeFrameDll[] = L"npchrome_frame.dll";
 const wchar_t kChromeFrameHelperDll[] = L"chrome_frame_helper.dll";
 const wchar_t kChromeFrameHelperExe[] = L"chrome_frame_helper.exe";

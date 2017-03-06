@@ -15,6 +15,8 @@
 #include "sandbox/linux/services/credentials.h"
 #include "sandbox/linux/suid/common/sandbox.h"
 
+#include "content/nw/src/common/shell_switches.h"
+
 namespace content {
 
 // static
@@ -47,6 +49,7 @@ void ZygoteHostImpl::Init(const std::string& sandbox_cmd) {
     should_use_namespace_sandbox_ = false;
   }
 
+#if 0
   const bool using_namespace_sandbox = ShouldUseNamespaceSandbox();
   // A non empty sandbox_cmd means we want a SUID sandbox.
   const bool using_suid_sandbox =
@@ -56,7 +59,7 @@ void ZygoteHostImpl::Init(const std::string& sandbox_cmd) {
   // sandbox. This is needed beacuse the processes are non-dumpable, so
   // /proc/pid/oom_score_adj can only be written by root.
   use_suid_sandbox_for_adj_oom_score_ = using_suid_sandbox;
-
+#endif
 #if defined(OS_CHROMEOS)
   // Chrome OS has a kernel patch that restricts oom_score_adj. See
   // crbug.com/576409 for details.

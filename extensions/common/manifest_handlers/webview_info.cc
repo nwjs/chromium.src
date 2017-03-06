@@ -86,6 +86,34 @@ bool WebviewInfo::IsResourceWebviewAccessible(
   return false;
 }
 
+bool WebviewInfo::IsURLWebviewAccessible(const Extension* extension,
+                                         const std::string& partition_id,
+                                         const GURL& url,
+                                         bool* file_scheme) {
+  if (!extension)
+    return false;
+
+  const WebviewInfo* webview_info = static_cast<const WebviewInfo*>(
+      extension->GetManifestData(keys::kWebviewAccessibleResources));
+  if (!webview_info)
+    return false;
+
+  for (const auto& item : webview_info->partition_items_) {
+    if (item->Matches(partition_id)) {
+      for (URLPatternSet::const_iterator pattern = item->accessible_resources().begin();
+           pattern != item->accessible_resources().end(); ++pattern) {
+        if (pattern->MatchesURL(url)) {
+          if (pattern->MatchesScheme("file") && file_scheme)
+            *file_scheme = true;
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 void WebviewInfo::AddPartitionItem(scoped_ptr<PartitionItem> item) {
   partition_items_.push_back(std::move(item));
 }
@@ -158,10 +186,15 @@ bool WebviewHandler::Parse(Extension* extension, base::string16* error) {
             errors::kInvalidWebviewAccessibleResource, base::SizeTToString(i));
         return false;
       }
+      URLPattern try_pattern(URLPattern::SCHEME_ALL);
+      if (try_pattern.Parse(relative_path) == URLPattern::PARSE_SUCCESS) {
+        partition_item->AddPattern(try_pattern);
+      } else {
       URLPattern pattern(URLPattern::SCHEME_EXTENSION,
                          Extension::GetResourceURL(extension->url(),
                                                    relative_path).spec());
       partition_item->AddPattern(pattern);
+      }
     }
     info->AddPartitionItem(std::move(partition_item));
   }

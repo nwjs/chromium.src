@@ -226,6 +226,11 @@ public:
 
     String defaultToolTip() const override;
 
+    const AtomicString& nwworkingdir() const;
+    void setNwworkingdir(const AtomicString& value);
+    String nwsaveas() const;
+    void setNwsaveas(const String& value);
+
     static const int maximumLength;
 
     unsigned height() const;

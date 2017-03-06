@@ -25,8 +25,7 @@
 // resident memory.
 // TODO(crbug.com/542671): COUNT_RESIDENT_BYTES_SUPPORTED is disabled on iOS
 // as it cause memory corruption on iOS 9.0+ devices.
-#if (defined(OS_POSIX) && !defined(OS_NACL) && !defined(OS_IOS)) || \
-    defined(OS_WIN)
+#if (defined(OS_POSIX) && !defined(OS_NACL) && !defined(OS_IOS))
 #define COUNT_RESIDENT_BYTES_SUPPORTED
 #endif
 

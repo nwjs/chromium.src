@@ -4,6 +4,9 @@
 
 #include "chrome/browser/profiles/profile_impl_io_data.h"
 
+#include "content/nw/src/nw_base.h"
+#include "extensions/common/manifest_constants.h"
+
 #include <set>
 #include <string>
 #include <utility>
@@ -584,6 +587,10 @@ void ProfileImplIOData::
 
   extensions_context->set_net_log(io_thread->net_log());
 
+  std::string domain;
+  if (nw::package()->root()->GetString(extensions::manifest_keys::kNWJSDomain, &domain)) {
+    extensions_context->set_cookie_store(main_request_context()->cookie_store());
+  } else {
   content::CookieStoreConfig cookie_config(
       lazy_params_->extensions_cookie_path,
       lazy_params_->session_cookie_mode,
@@ -594,7 +601,7 @@ void ProfileImplIOData::
   net::CookieStore* extensions_cookie_store =
       content::CreateCookieStore(cookie_config);
   extensions_context->set_cookie_store(extensions_cookie_store);
-
+  }
   scoped_ptr<net::URLRequestJobFactoryImpl> extensions_job_factory(
       new net::URLRequestJobFactoryImpl());
   // TODO(shalev): The extensions_job_factory has a NULL NetworkDelegate.

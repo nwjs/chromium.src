@@ -319,7 +319,7 @@
 	<key>LSHasLocalizedDisplayName</key>
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>10.9.0</string>
+	<string>${MACOSX_DEPLOYMENT_TARGET}.0</string>
 	<key>NSPrincipalClass</key>
 	<string>BrowserCrApplication</string>
 	<key>NSSupportsAutomaticGraphicsSwitching</key>
@@ -336,7 +336,7 @@
 				<string>public.data</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>Chromium Extra</string>
+			<string>NWJS Extra</string>
 			<key>UTTypeIdentifier</key>
 			<string>org.chromium.extension</string>
 			<key>UTTypeTagSpecification</key>

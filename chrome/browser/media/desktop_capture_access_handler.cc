@@ -117,6 +117,7 @@ scoped_ptr<content::MediaStreamUI> GetDevicesForDesktopCapture(
     }
   }
 
+#if 0
   // If required, register to display the notification for stream capture.
   if (display_notification) {
     if (application_title == registered_extension_name) {
@@ -128,6 +129,7 @@ scoped_ptr<content::MediaStreamUI> GetDevicesForDesktopCapture(
           registered_extension_name, application_title));
     }
   }
+#endif
 
   return ui;
 }

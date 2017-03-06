@@ -74,11 +74,12 @@ class WebServiceWorkerProvider;
 class WebSocketHandle;
 class Widget;
 
-class CORE_EXPORT FrameLoaderClient : public FrameClient {
-public:
-    ~FrameLoaderClient() override {}
+    class CORE_EXPORT FrameLoaderClient : public FrameClient {
+    public:
+        ~FrameLoaderClient() override {}
+        virtual void willHandleNavigationPolicy(const ResourceRequest& request, NavigationPolicy* policy, WebString* manifest = NULL, bool new_win = true) {}
 
-    virtual bool hasWebView() const = 0; // mainly for assertions
+        virtual bool hasWebView() const = 0; // mainly for assertions
 
     virtual void dispatchWillSendRequest(DocumentLoader*, unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse) = 0;
     virtual void dispatchDidReceiveResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&) = 0;
