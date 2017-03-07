@@ -35,7 +35,7 @@ bool ArcBridgeService::GetEnabled(const base::CommandLine* command_line) {
 
 bool ArcBridgeService::GetKioskEnabled(const base::CommandLine* command_line) {
   return GetEnabled(command_line) ||
-         command_line->HasSwitch(chromeos::switches::kEnableArcKiosk);
+         command_line->HasSwitch(chromeos::switches::kArcAvailable);
 }
 
 bool ArcBridgeService::GetKioskStarted(const base::CommandLine* command_line) {
