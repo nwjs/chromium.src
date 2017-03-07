@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chromeos/arc/arc_optin_uma.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 
 namespace arc {
@@ -47,6 +48,18 @@ void UpdateProvisioningTiming(const base::TimeDelta& elapsed_time,
       base::TimeDelta::FromMinutes(6), 50,
       base::HistogramBase::kUmaTargetedHistogramFlag)
       ->AddTime(elapsed_time);
+}
+
+void UpdateAuthTiming(const char* histogram_name,
+                      base::TimeDelta elapsed_time) {
+  base::UmaHistogramCustomTimes(histogram_name, elapsed_time,
+                                base::TimeDelta::FromSeconds(1) /* minimum */,
+                                base::TimeDelta::FromMinutes(3) /* maximum */,
+                                50 /* bucket_count */);
+}
+
+void UpdateAuthCheckinAttempts(int32_t num_attempts) {
+  UMA_HISTOGRAM_SPARSE_SLOWLY("ArcAuth.CheckinAttempts", num_attempts);
 }
 
 void UpdateSilentAuthCodeUMA(OptInSilentAuthCode state) {

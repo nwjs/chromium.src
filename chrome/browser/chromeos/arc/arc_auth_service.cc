@@ -9,6 +9,7 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/time/time.h"
 #include "chrome/browser/chromeos/arc/arc_optin_uma.h"
 #include "chrome/browser/chromeos/arc/arc_session_manager.h"
 #include "chrome/browser/chromeos/arc/auth/arc_auth_code_fetcher.h"
@@ -168,6 +169,27 @@ void ArcAuthService::RequestAccountInfo() {
       base::MakeUnique<ArcAuthService::AccountInfoNotifier>(
           base::Bind(&ArcAuthService::OnAccountInfoReady,
                      weak_ptr_factory_.GetWeakPtr())));
+}
+
+void ArcAuthService::ReportMetrics(mojom::MetricsType metrics_type,
+                                   int32_t value) {
+  switch (metrics_type) {
+    case mojom::MetricsType::NETWORK_WAITING_TIME_MILLISECONDS:
+      UpdateAuthTiming("ArcAuth.NetworkWaitTime",
+                       base::TimeDelta::FromMilliseconds(value));
+      break;
+    case mojom::MetricsType::CHECKIN_ATTEMPTS:
+      UpdateAuthCheckinAttempts(value);
+      break;
+    case mojom::MetricsType::CHECKIN_TIME_MILLISECONDS:
+      UpdateAuthTiming("ArcAuth.CheckinTime",
+                       base::TimeDelta::FromMilliseconds(value));
+      break;
+    case mojom::MetricsType::SIGNIN_TIME_MILLISECONDS:
+      UpdateAuthTiming("ArcAuth.SignInTime",
+                       base::TimeDelta::FromMilliseconds(value));
+      break;
+  }
 }
 
 void ArcAuthService::OnAccountInfoReady(mojom::AccountInfoPtr account_info) {
