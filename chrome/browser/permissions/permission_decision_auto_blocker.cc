@@ -245,7 +245,7 @@ void PermissionDecisionAutoBlocker::UpdateEmbargoedStatus(
     callback.Run(true /* permission_blocked */);
     return;
   }
-
+#if 0
   if (base::FeatureList::IsEnabled(features::kPermissionsBlacklist) &&
       db_manager) {
     PermissionBlacklistClient::CheckSafeBrowsingBlacklist(
@@ -255,7 +255,7 @@ void PermissionDecisionAutoBlocker::UpdateEmbargoedStatus(
                    callback));
     return;
   }
-
+#endif
   callback.Run(false /* permission blocked */);
 }
 

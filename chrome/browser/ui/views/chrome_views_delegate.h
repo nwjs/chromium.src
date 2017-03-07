@@ -60,7 +60,7 @@ class ChromeViewsDelegate : public views::ViewsDelegate {
   int GetAppbarAutohideEdges(HMONITOR monitor,
                              const base::Closure& callback) override;
 #endif
-  scoped_refptr<base::TaskRunner> GetBlockingPoolTaskRunner() override;
+  scoped_refptr<base::TaskRunner> GetBlockingPoolTaskRunner(bool continue_on_shutdown = false) override;
 
   gfx::Insets GetDialogButtonInsets() override;
   int GetDialogRelatedButtonHorizontalSpacing() override;

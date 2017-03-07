@@ -995,6 +995,7 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->setExpensiveBackgroundThrottlingMaxDelay(
       prefs.expensive_background_throttling_max_delay);
 
+  settings->setDoubleTapToZoomEnabled(prefs.double_tap_to_zoom_enabled);
 #if defined(OS_ANDROID)
   settings->setAllowCustomScrollbarInMainFrame(false);
   settings->setTextAutosizingEnabled(prefs.text_autosizing_enabled);
@@ -1003,7 +1004,6 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->setFullscreenSupported(prefs.fullscreen_supported);
   web_view->setIgnoreViewportTagScaleLimits(prefs.force_enable_zoom);
   settings->setAutoZoomFocusedNodeToLegibleScale(true);
-  settings->setDoubleTapToZoomEnabled(prefs.double_tap_to_zoom_enabled);
   settings->setMediaControlsOverlayPlayButtonEnabled(true);
   settings->setMediaPlaybackRequiresUserGesture(
       prefs.user_gesture_required_for_media_playback);
@@ -1079,7 +1079,7 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->setPresentationReceiver(prefs.presentation_receiver);
 
 #if defined(OS_MACOSX)
-  settings->setDoubleTapToZoomEnabled(true);
+  //settings->setDoubleTapToZoomEnabled(true);
   web_view->setMaximumLegibleScale(prefs.default_maximum_page_scale_factor);
 #endif
 
@@ -1408,7 +1408,8 @@ WebView* RenderViewImpl::createView(WebLocalFrame* creator,
                                     const WebWindowFeatures& features,
                                     const WebString& frame_name,
                                     WebNavigationPolicy policy,
-                                    bool suppress_opener) {
+                                    bool suppress_opener,
+                                    WebString* manifest) {
   RenderFrameImpl* creator_frame = RenderFrameImpl::FromWebFrame(creator);
   mojom::CreateNewWindowParamsPtr params = mojom::CreateNewWindowParams::New();
   params->opener_render_frame_id = creator_frame->GetRoutingID();
@@ -1449,6 +1450,7 @@ WebView* RenderViewImpl::createView(WebLocalFrame* creator,
     params->referrer = GetReferrerFromRequest(creator, request);
   }
   params->features = features;
+  params->nw_window_manifest = *manifest;
 
   // We preserve this information before sending the message since |params| is
   // moved on send.

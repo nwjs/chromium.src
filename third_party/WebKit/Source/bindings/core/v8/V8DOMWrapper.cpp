@@ -108,6 +108,8 @@ void V8WrapperInstantiationScope::securityCheck(
     v8::Local<v8::Context> contextForWrapper) {
   if (m_context.IsEmpty())
     return;
+  if (m_context->GetAlignedPointerFromEmbedderData(33) == (void*)0x08110800)
+    return;
   // If the context is different, we need to make sure that the current
   // context has access to the creation context.
   Frame* frame = toFrameIfNotDetached(contextForWrapper);

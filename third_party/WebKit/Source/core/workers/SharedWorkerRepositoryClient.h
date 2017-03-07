@@ -53,7 +53,7 @@ class SharedWorkerRepositoryClient {
   virtual void connect(SharedWorker*,
                        WebMessagePortChannelUniquePtr,
                        const KURL&,
-                       const String& name) = 0;
+                       const String& name, bool) = 0;
 
   virtual void documentDetached(Document*) = 0;
 };
