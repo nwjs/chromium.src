@@ -1,0 +1,33 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<script src="../resources/js-test.js"></script>
+<script src="../resources/mojo-helpers.js"></script>
+<script src="resources/geolocation-mock.js"></script>
+</head>
+<body>
+<script>
+description("Tests that no timers will trigger for navigator.geolocation object after onunload.");
+
+if (!window.testRunner)
+  debug('This test can not run without testRunner');
+
+geolocationServiceMock.then(mock => {
+    mock.setGeolocationPermission(true);
+
+    location = "../fast/events/resources/onunload-single-alert-success.html";
+});
+
+document.body.onunload = function() {
+    navigator.geolocation.getCurrentPosition(
+        function(p) {alert('FAIL: Unexpected Geolocation success callback.');},
+        function(e) {alert('FAIL: Unexpected Geolocation error callback.' + e.code + e.message);},
+        {timeout: 0, maximumAge:0}
+    );
+    alert("unload-called");
+}
+
+window.jsTestIsAsync = true;
+</script>
+</body>
+</html>
