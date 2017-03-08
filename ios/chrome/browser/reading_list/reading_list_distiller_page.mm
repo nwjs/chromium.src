@@ -6,6 +6,7 @@
 
 #include "base/bind.h"
 #include "base/mac/foundation_util.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "components/favicon/ios/web_favicon_driver.h"
@@ -25,7 +26,24 @@ namespace {
 const int64_t kPageLoadDelayInSeconds = 2;
 
 const char* kGetIframeURLJavaScript =
-    "document.getElementsByTagName('iframe')[0].src;";
+    "(() => {"
+    "  var link = document.evaluate('//link[@rel=\"amphtml\"]',"
+    "                               document,"
+    "                               null,"
+    "                               XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,"
+    "                               null ).snapshotItem(0);"
+    "  if (link !== null) {"
+    "    return link.getAttribute('href');"
+    "  }"
+    "  return document.getElementsByTagName('iframe')[0].src;"
+    "})()";
+
+const char* kWikipediaWorkaround =
+    "(() => {"
+    "  var s = document.createElement('style');"
+    "  s.innerHTML='.client-js .collapsible-block { display: block }';"
+    "  document.head.appendChild(s);"
+    "})()";
 }  // namespace
 
 namespace reading_list {
@@ -139,9 +157,16 @@ void ReadingListDistillerPage::DelayedOnLoadURLDone(int delayed_task_id) {
   if (IsGoogleCachedAMPPage()) {
     // Workaround for Google AMP pages.
     HandleGoogleCachedAMPPage();
-  } else {
-    ContinuePageDistillation();
+    return;
   }
+  if (IsWikipediaPage()) {
+    // Workaround for Wikipedia pages.
+    // TODO(crbug.com/647667): remove workaround once DOM distiller handle this
+    // case.
+    HandleWikipediaPage();
+    return;
+  }
+  ContinuePageDistillation();
 }
 
 void ReadingListDistillerPage::ContinuePageDistillation() {
@@ -225,6 +250,28 @@ bool ReadingListDistillerPage::HandleGoogleCachedAMPPageJavaScriptResult(
   web::NavigationManager::WebLoadParams params(new_gurl);
   CurrentWebState()->GetNavigationManager()->LoadURLWithParams(params);
   return true;
+}
+
+bool ReadingListDistillerPage::IsWikipediaPage() {
+  // All wikipedia pages are in the form "https://xxx.m.wikipedia.org/..."
+  const GURL& url = CurrentWebState()->GetLastCommittedURL();
+  if (!url.is_valid() || !url.SchemeIs(url::kHttpsScheme)) {
+    return false;
+  }
+  return (base::EndsWith(url.host(), ".m.wikipedia.org",
+                         base::CompareCase::SENSITIVE));
+}
+
+void ReadingListDistillerPage::HandleWikipediaPage() {
+  base::WeakPtr<ReadingListDistillerPage> weak_this =
+      weak_ptr_factory_.GetWeakPtr();
+  [CurrentWebState()->GetJSInjectionReceiver()
+      executeJavaScript:@(kWikipediaWorkaround)
+      completionHandler:^(id result, NSError* error) {
+        if (weak_this) {
+          weak_this->ContinuePageDistillation();
+        }
+      }];
 }
 
 }  // namespace reading_list
