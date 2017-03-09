@@ -73,7 +73,7 @@ class CONTENT_EXPORT RenderWidgetInputHandlerDelegate {
   virtual void UpdateTextInputState() = 0;
 
   // Clear the text input state.
-  virtual void ClearTextInputState() = 0;
+  virtual void ClearTextInputState() {}
 
   // Notifies that a gesture event is about to be handled.
   // Returns true if no further handling is needed. In that case, the event
