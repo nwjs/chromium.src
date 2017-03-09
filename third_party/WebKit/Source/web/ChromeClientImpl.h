@@ -197,7 +197,6 @@ class WEB_EXPORT ChromeClientImpl final : public ChromeClient {
   void ajaxSucceeded(LocalFrame*) override;
 
   void didCancelCompositionOnSelectionChange() override;
-  void resetInputMethod() override;
   void showVirtualKeyboard() override;
 
   void registerViewportLayers() const override;

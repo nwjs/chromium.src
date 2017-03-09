@@ -1080,9 +1080,7 @@ WebTextInputType InputMethodController::textInputType() const {
 }
 
 void InputMethodController::willChangeFocus() {
-  if (!finishComposingText(KeepSelection))
-    return;
-  frame().chromeClient().resetInputMethod();
+  finishComposingText(KeepSelection);
 }
 
 DEFINE_TRACE(InputMethodController) {

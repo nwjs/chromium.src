@@ -1885,10 +1885,6 @@ void RenderViewImpl::hasTouchEventHandlers(bool has_handlers) {
   RenderWidget::hasTouchEventHandlers(has_handlers);
 }
 
-void RenderViewImpl::resetInputMethod() {
-  RenderWidget::resetInputMethod();
-}
-
 blink::WebRect RenderViewImpl::rootWindowRect() {
   return RenderWidget::windowRect();
 }
