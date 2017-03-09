@@ -52,6 +52,9 @@ var WEB_VIEW_API_METHODS = [
   // Navigates to the subsequent history entry.
   'forward',
 
+  // Return storeId which can be used in chrome.cookies API
+  'getCookieStoreId',
+
   // Returns Chrome's internal process ID for the guest web page's current
   // process.
   'getProcessId',
@@ -137,6 +140,10 @@ WebViewImpl.prototype.executeScript = function(var_args) {
 
 WebViewImpl.prototype.forward = function(callback) {
   return this.go(1, callback);
+};
+
+WebViewImpl.prototype.getCookieStoreId = function() {
+    return this.processId + "," + this.guest.getId();
 };
 
 WebViewImpl.prototype.getProcessId = function() {
