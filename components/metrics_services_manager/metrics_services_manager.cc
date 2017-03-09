@@ -35,11 +35,13 @@ metrics::MetricsService* MetricsServicesManager::GetMetricsService() {
 }
 
 rappor::RapporServiceImpl* MetricsServicesManager::GetRapporServiceImpl() {
+#if 0
   DCHECK(thread_checker_.CalledOnValidThread());
   if (!rappor_service_) {
     rappor_service_ = client_->CreateRapporServiceImpl();
     rappor_service_->Initialize(client_->GetURLRequestContext());
   }
+#endif
   return rappor_service_.get();
 }
 
@@ -85,8 +87,8 @@ void MetricsServicesManager::UpdateRunningServices() {
 
   if (client_->OnlyDoMetricsRecording()) {
     metrics->StartRecordingForTests();
-    GetRapporServiceImpl()->Update(
-        rappor::UMA_RAPPOR_GROUP | rappor::SAFEBROWSING_RAPPOR_GROUP, false);
+          //GetRapporServiceImpl()->Update(
+          //        rappor::UMA_RAPPOR_GROUP | rappor::SAFEBROWSING_RAPPOR_GROUP, false);
     return;
   }
 
@@ -104,8 +106,8 @@ void MetricsServicesManager::UpdateRunningServices() {
     metrics->Stop();
   }
 
-  int recording_groups = 0;
 #if defined(GOOGLE_CHROME_BUILD)
+  int recording_groups = 0;
   if (may_record_)
     recording_groups |= rappor::UMA_RAPPOR_GROUP;
 
@@ -119,7 +121,7 @@ void MetricsServicesManager::UpdateRunningServices() {
   if (client_->IsSafeBrowsingEnabled(on_safe_browsing_update_callback))
     recording_groups |= rappor::SAFEBROWSING_RAPPOR_GROUP;
 #endif  // defined(GOOGLE_CHROME_BUILD)
-  GetRapporServiceImpl()->Update(recording_groups, may_upload_);
+  //GetRapporServiceImpl()->Update(recording_groups, may_upload_);
 }
 
 void MetricsServicesManager::UpdateUploadPermissions(bool may_upload) {
