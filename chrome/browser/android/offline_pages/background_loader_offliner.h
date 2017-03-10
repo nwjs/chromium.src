@@ -36,7 +36,8 @@ class BackgroundLoaderOffliner : public Offliner,
 
   // Offliner implementation.
   bool LoadAndSave(const SavePageRequest& request,
-                   const CompletionCallback& callback) override;
+                   const CompletionCallback& completion_callback,
+                   const ProgressCallback& progress_callback) override;
   void Cancel() override;
   bool HandleTimeout(const SavePageRequest& request) override;
 

@@ -168,8 +168,12 @@ class PrerenderingOfflinerTest : public testing::Test {
 
   Profile* profile() { return &profile_; }
   PrerenderingOffliner* offliner() const { return offliner_.get(); }
-  Offliner::CompletionCallback const callback() {
+  Offliner::CompletionCallback const completion_callback() {
     return base::Bind(&PrerenderingOfflinerTest::OnCompletion,
+                      base::Unretained(this));
+  }
+  Offliner::ProgressCallback const progress_callback() {
+    return base::Bind(&PrerenderingOfflinerTest::OnProgress,
                       base::Unretained(this));
   }
 
@@ -183,6 +187,7 @@ class PrerenderingOfflinerTest : public testing::Test {
  private:
   void OnCompletion(const SavePageRequest& request,
                     Offliner::RequestStatus status);
+  void OnProgress(const SavePageRequest& request, int64_t bytes);
 
   content::TestBrowserThreadBundle thread_bundle_;
   TestingProfile profile_;
@@ -221,11 +226,15 @@ void PrerenderingOfflinerTest::OnCompletion(const SavePageRequest& request,
   request_status_ = status;
 }
 
+void PrerenderingOfflinerTest::OnProgress(const SavePageRequest& request,
+                                          int64_t bytes) {}
+
 TEST_F(PrerenderingOfflinerTest, LoadAndSaveBadUrl) {
   base::Time creation_time = base::Time::Now();
   SavePageRequest request(
       kRequestId, kFileUrl, kClientId, creation_time, kUserRequested);
-  EXPECT_FALSE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_FALSE(offliner()->LoadAndSave(request, completion_callback(),
+                                       progress_callback()));
   EXPECT_TRUE(loader()->IsIdle());
 }
 
@@ -234,7 +243,8 @@ TEST_F(PrerenderingOfflinerTest, LoadAndSavePrerenderingDisabled) {
   SavePageRequest request(
       kRequestId, kHttpUrl, kClientId, creation_time, kUserRequested);
   loader()->DisablePrerendering();
-  EXPECT_FALSE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_FALSE(offliner()->LoadAndSave(request, completion_callback(),
+                                       progress_callback()));
   EXPECT_TRUE(loader()->IsIdle());
 }
 
@@ -245,7 +255,8 @@ TEST_F(PrerenderingOfflinerTest,
   SavePageRequest request(kRequestId, kHttpUrl, custom_tabs_client_id,
                           creation_time, kUserRequested);
   profile()->GetPrefs()->SetBoolean(prefs::kBlockThirdPartyCookies, true);
-  EXPECT_FALSE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_FALSE(offliner()->LoadAndSave(request, completion_callback(),
+                                       progress_callback()));
   EXPECT_TRUE(loader()->IsIdle());
 }
 
@@ -258,7 +269,8 @@ TEST_F(PrerenderingOfflinerTest,
   profile()->GetPrefs()->SetInteger(
       prefs::kNetworkPredictionOptions,
       chrome_browser_net::NETWORK_PREDICTION_NEVER);
-  EXPECT_FALSE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_FALSE(offliner()->LoadAndSave(request, completion_callback(),
+                                       progress_callback()));
   EXPECT_TRUE(loader()->IsIdle());
 }
 
@@ -266,7 +278,8 @@ TEST_F(PrerenderingOfflinerTest, LoadAndSaveLoadStartedButFails) {
   base::Time creation_time = base::Time::Now();
   SavePageRequest request(
       kRequestId, kHttpUrl, kClientId, creation_time, kUserRequested);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   EXPECT_FALSE(loader()->IsIdle());
   EXPECT_EQ(Offliner::RequestStatus::UNKNOWN, request_status());
 
@@ -282,7 +295,8 @@ TEST_F(PrerenderingOfflinerTest, CancelWhenLoading) {
   base::Time creation_time = base::Time::Now();
   SavePageRequest request(
       kRequestId, kHttpUrl, kClientId, creation_time, kUserRequested);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   EXPECT_FALSE(loader()->IsIdle());
 
   offliner()->Cancel();
@@ -293,7 +307,8 @@ TEST_F(PrerenderingOfflinerTest, CancelWhenLoaded) {
   base::Time creation_time = base::Time::Now();
   SavePageRequest request(
       kRequestId, kHttpUrl, kClientId, creation_time, kUserRequested);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   EXPECT_FALSE(loader()->IsIdle());
   EXPECT_EQ(Offliner::RequestStatus::UNKNOWN, request_status());
 
@@ -322,7 +337,8 @@ TEST_F(PrerenderingOfflinerTest, LoadAndSaveLoadedButSaveFails) {
   base::Time creation_time = base::Time::Now();
   SavePageRequest request(
       kRequestId, kHttpUrl, kClientId, creation_time, kUserRequested);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   EXPECT_FALSE(loader()->IsIdle());
   EXPECT_EQ(Offliner::RequestStatus::UNKNOWN, request_status());
 
@@ -344,7 +360,8 @@ TEST_F(PrerenderingOfflinerTest, LoadAndSaveSuccessful) {
   base::Time creation_time = base::Time::Now();
   SavePageRequest request(
       kRequestId, kHttpUrl, kClientId, creation_time, kUserRequested);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   EXPECT_FALSE(loader()->IsIdle());
   EXPECT_EQ(Offliner::RequestStatus::UNKNOWN, request_status());
 
@@ -366,7 +383,8 @@ TEST_F(PrerenderingOfflinerTest, LoadAndSaveLoadedButThenCanceledFromLoader) {
   base::Time creation_time = base::Time::Now();
   SavePageRequest request(
       kRequestId, kHttpUrl, kClientId, creation_time, kUserRequested);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   EXPECT_FALSE(loader()->IsIdle());
   EXPECT_EQ(Offliner::RequestStatus::UNKNOWN, request_status());
 
@@ -391,7 +409,8 @@ TEST_F(PrerenderingOfflinerTest, ForegroundTransitionCancelsOnLowEndDevice) {
   base::Time creation_time = base::Time::Now();
   SavePageRequest request(
       kRequestId, kHttpUrl, kClientId, creation_time, kUserRequested);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   EXPECT_FALSE(loader()->IsIdle());
 
   offliner()->SetApplicationStateForTesting(
@@ -408,7 +427,8 @@ TEST_F(PrerenderingOfflinerTest, ForegroundTransitionIgnoredOnHighEndDevice) {
   base::Time creation_time = base::Time::Now();
   SavePageRequest request(
       kRequestId, kHttpUrl, kClientId, creation_time, kUserRequested);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   EXPECT_FALSE(loader()->IsIdle());
 
   offliner()->SetApplicationStateForTesting(
@@ -425,7 +445,8 @@ TEST_F(PrerenderingOfflinerTest, HandleTimeoutWithLowbarAndCompletedTriesMet) {
   SavePageRequest request(kRequestId, kHttpUrl, kClientId, creation_time,
                           kUserRequested);
   request.set_completed_attempt_count(policy()->GetMaxCompletedTries() - 1);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   loader()->set_is_lowbar_met(true);
   EXPECT_TRUE(offliner()->HandleTimeout(request));
   EXPECT_TRUE(loader()->start_snapshot_called());
@@ -439,7 +460,8 @@ TEST_F(PrerenderingOfflinerTest,
   SavePageRequest request(kRequestId, kHttpUrl, kClientId, creation_time,
                           kUserRequested);
   request.set_completed_attempt_count(policy()->GetMaxCompletedTries() - 1);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   loader()->set_is_lowbar_met(true);
   EXPECT_TRUE(offliner()->HandleTimeout(request));
   EXPECT_TRUE(loader()->start_snapshot_called());
@@ -453,7 +475,8 @@ TEST_F(PrerenderingOfflinerTest,
   SavePageRequest request(kRequestId, kHttpUrl, kClientId, creation_time,
                           kUserRequested);
   request.set_completed_attempt_count(policy()->GetMaxCompletedTries() - 1);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   loader()->set_is_lowbar_met(false);
   EXPECT_FALSE(offliner()->HandleTimeout(request));
   EXPECT_FALSE(loader()->start_snapshot_called());
@@ -466,7 +489,8 @@ TEST_F(PrerenderingOfflinerTest, HandleTimeoutWithLowbarAndStartedTriesMet) {
   SavePageRequest request(kRequestId, kHttpUrl, kClientId, creation_time,
                           kUserRequested);
   request.set_started_attempt_count(policy()->GetMaxStartedTries() - 1);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   loader()->set_is_lowbar_met(true);
   EXPECT_TRUE(offliner()->HandleTimeout(request));
   EXPECT_TRUE(loader()->start_snapshot_called());
@@ -478,7 +502,8 @@ TEST_F(PrerenderingOfflinerTest, HandleTimeoutWithOnlyLowbarMet) {
   base::Time creation_time = base::Time::Now();
   SavePageRequest request(kRequestId, kHttpUrl, kClientId, creation_time,
                           kUserRequested);
-  EXPECT_TRUE(offliner()->LoadAndSave(request, callback()));
+  EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
+                                      progress_callback()));
   loader()->set_is_lowbar_met(true);
   EXPECT_FALSE(offliner()->HandleTimeout(request));
   EXPECT_FALSE(loader()->start_snapshot_called());
