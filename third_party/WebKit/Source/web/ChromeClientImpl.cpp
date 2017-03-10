@@ -1018,6 +1018,11 @@ void ChromeClientImpl::didCancelCompositionOnSelectionChange() {
     m_webView->client()->didCancelCompositionOnSelectionChange();
 }
 
+void ChromeClientImpl::resetInputMethod() {
+  if (m_webView->client())
+    m_webView->client()->resetInputMethod();
+}
+
 void ChromeClientImpl::showVirtualKeyboard() {
   if (m_webView->client())
     m_webView->client()->showVirtualKeyboard();

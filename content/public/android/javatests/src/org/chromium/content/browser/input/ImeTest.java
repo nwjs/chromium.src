@@ -437,45 +437,16 @@ public class ImeTest extends ContentShellTestBase {
         focusElement("input_text");
         // showSoftInput() on input_text. restartInput() on input_number1 due to focus change,
         // and restartInput() on input_text later.
-        waitForKeyboardStates(3, 1, 4,
-                new Integer[] {TextInputType.NUMBER, TextInputType.NUMBER, TextInputType.TEXT});
-
-        resetUpdateSelectionList();
-        setComposingText("a", 1);
-        waitAndVerifyUpdateSelection(0, 1, 1, 0, 1);
-        resetUpdateSelectionList();
-
-        // JavaScript changes focus.
-        String code = "(function() { "
-                + "var textarea = document.getElementById('textarea');"
-                + "textarea.focus();"
-                + "})();";
-        JavaScriptUtils.executeJavaScriptAndWaitForResult(
-                getContentViewCore().getWebContents(), code);
-        waitAndVerifyUpdateSelection(0, 0, 0, -1, -1);
-        resetUpdateSelectionList();
-
-        waitForKeyboardStates(4, 1, 5, new Integer[] {
-                TextInputType.NUMBER, TextInputType.NUMBER, TextInputType.TEXT,
-                TextInputType.TEXT_AREA});
-        assertEquals(0, mConnectionFactory.getOutAttrs().initialSelStart);
-        assertEquals(0, mConnectionFactory.getOutAttrs().initialSelEnd);
-
-        setComposingText("aa", 1);
-        waitAndVerifyUpdateSelection(0, 2, 2, 0, 2);
-
-        focusElement("input_text");
-        waitForKeyboardStates(5, 1, 6, new Integer[] {
-                TextInputType.NUMBER, TextInputType.NUMBER, TextInputType.TEXT,
-                TextInputType.TEXT_AREA, TextInputType.TEXT});
-        assertEquals(1, mConnectionFactory.getOutAttrs().initialSelStart);
-        assertEquals(1, mConnectionFactory.getOutAttrs().initialSelEnd);
+        // TODO(changwan): reduce unnecessary restart input.
+        waitForKeyboardStates(3, 1, 5, new Integer[] {
+                TextInputType.NUMBER, TextInputType.NUMBER, TextInputType.NUMBER,
+                TextInputType.TEXT});
 
         focusElement("input_radio", false);
         // hideSoftInput(), restartInput()
-        waitForKeyboardStates(5, 2, 7, new Integer[] {
-                TextInputType.NUMBER, TextInputType.NUMBER, TextInputType.TEXT,
-                TextInputType.TEXT_AREA, TextInputType.TEXT});
+        waitForKeyboardStates(3, 2, 6, new Integer[] {
+                TextInputType.NUMBER, TextInputType.NUMBER, TextInputType.NUMBER,
+                TextInputType.TEXT});
     }
 
     private void assertTextsAroundCursor(
@@ -1758,7 +1729,6 @@ public class ImeTest extends ContentShellTestBase {
      */
     private void focusElementAndWaitForStateUpdate(String id)
             throws InterruptedException, TimeoutException {
-        resetUpdateSelectionList();
         focusElement(id);
         waitAndVerifyUpdateSelection(0, 0, 0, -1, -1);
         resetUpdateSelectionList();
