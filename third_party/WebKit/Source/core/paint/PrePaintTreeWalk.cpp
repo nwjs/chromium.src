@@ -44,6 +44,9 @@ void PrePaintTreeWalk::walk(FrameView& rootFrame) {
   PrePaintTreeWalkContext initialContext;
   initialContext.treeBuilderContext =
       m_propertyTreeBuilder.setupInitialContext();
+  initialContext.ancestorTransformedOrRootPaintLayer =
+      rootFrame.layoutView()->layer();
+
   walk(rootFrame, initialContext);
   m_paintInvalidator.processPendingDelayedPaintInvalidations();
 }
@@ -58,7 +61,6 @@ void PrePaintTreeWalk::walk(FrameView& frameView,
   PrePaintTreeWalkContext context(parentContext);
   // ancestorOverflowLayer does not cross frame boundaries.
   context.ancestorOverflowPaintLayer = nullptr;
-  context.ancestorTransformedOrRootPaintLayer = frameView.layoutView()->layer();
   m_propertyTreeBuilder.updateProperties(frameView, context.treeBuilderContext);
   m_paintInvalidator.invalidatePaintIfNeeded(frameView,
                                              context.paintInvalidatorContext);
