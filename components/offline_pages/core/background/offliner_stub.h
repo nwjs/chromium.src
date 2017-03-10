@@ -20,7 +20,7 @@ class OfflinerStub : public Offliner {
                    const CompletionCallback& completion_callback,
                    const ProgressCallback& progress_callback) override;
 
-  void Cancel() override;
+  void Cancel(const CancelCallback& callback) override;
 
   void disable_loading() { disable_loading_ = true; }
 

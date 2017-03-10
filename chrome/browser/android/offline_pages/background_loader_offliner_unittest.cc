@@ -134,9 +134,14 @@ class BackgroundLoaderOfflinerTest : public testing::Test {
     return base::Bind(&BackgroundLoaderOfflinerTest::OnProgress,
                       base::Unretained(this));
   }
+  Offliner::CancelCallback const cancel_callback() {
+    return base::Bind(&BackgroundLoaderOfflinerTest::OnCancel,
+                      base::Unretained(this));
+  }
   Profile* profile() { return &profile_; }
   bool completion_callback_called() { return completion_callback_called_; }
   Offliner::RequestStatus request_status() { return request_status_; }
+  bool cancel_callback_called() { return cancel_callback_called_; }
   bool SaveInProgress() const { return model_->mock_saving(); }
   MockOfflinePageModel* model() const { return model_; }
   const base::HistogramTester& histograms() const { return histogram_tester_; }
@@ -153,11 +158,13 @@ class BackgroundLoaderOfflinerTest : public testing::Test {
   void OnCompletion(const SavePageRequest& request,
                     Offliner::RequestStatus status);
   void OnProgress(const SavePageRequest& request, int64_t bytes);
+  void OnCancel(int64_t offline_id);
   content::TestBrowserThreadBundle thread_bundle_;
   TestingProfile profile_;
   std::unique_ptr<TestBackgroundLoaderOffliner> offliner_;
   MockOfflinePageModel* model_;
   bool completion_callback_called_;
+  bool cancel_callback_called_;
   Offliner::RequestStatus request_status_;
   base::HistogramTester histogram_tester_;
 
@@ -167,6 +174,7 @@ class BackgroundLoaderOfflinerTest : public testing::Test {
 BackgroundLoaderOfflinerTest::BackgroundLoaderOfflinerTest()
     : thread_bundle_(content::TestBrowserThreadBundle::IO_MAINLOOP),
       completion_callback_called_(false),
+      cancel_callback_called_(false),
       request_status_(Offliner::RequestStatus::UNKNOWN) {}
 
 BackgroundLoaderOfflinerTest::~BackgroundLoaderOfflinerTest() {}
@@ -187,6 +195,10 @@ void BackgroundLoaderOfflinerTest::OnCompletion(
 
 void BackgroundLoaderOfflinerTest::OnProgress(const SavePageRequest& request,
                                               int64_t bytes) {}
+void BackgroundLoaderOfflinerTest::OnCancel(int64_t offline_id) {
+  DCHECK(!cancel_callback_called_);
+  cancel_callback_called_ = true;
+}
 
 TEST_F(BackgroundLoaderOfflinerTest,
        LoadAndSaveBlockThirdPartyCookiesForCustomTabs) {
@@ -262,7 +274,9 @@ TEST_F(BackgroundLoaderOfflinerTest, CancelWhenLoading) {
                           kUserRequested);
   EXPECT_TRUE(offliner()->LoadAndSave(request, completion_callback(),
                                       progress_callback()));
-  offliner()->Cancel();
+  offliner()->Cancel(cancel_callback());
+  PumpLoop();
+  EXPECT_TRUE(cancel_callback_called());
   EXPECT_FALSE(offliner()->is_loading());  // Offliner reset.
 }
 
@@ -274,11 +288,13 @@ TEST_F(BackgroundLoaderOfflinerTest, CancelWhenLoaded) {
                                       progress_callback()));
   CompleteLoading();
   PumpLoop();
-  offliner()->Cancel();
+  offliner()->Cancel(cancel_callback());
+  PumpLoop();
 
   // Subsequent save callback cause no crash.
   model()->CompleteSavingAsArchiveCreationFailed();
   PumpLoop();
+  EXPECT_TRUE(cancel_callback_called());
   EXPECT_FALSE(completion_callback_called());
   EXPECT_FALSE(SaveInProgress());
   EXPECT_FALSE(offliner()->is_loading());  // Offliner reset.

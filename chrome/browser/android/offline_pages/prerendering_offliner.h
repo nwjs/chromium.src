@@ -37,7 +37,7 @@ class PrerenderingOffliner : public Offliner {
   bool LoadAndSave(const SavePageRequest& request,
                    const CompletionCallback& completion_callback,
                    const ProgressCallback& progress_callback) override;
-  void Cancel() override;
+  void Cancel(const CancelCallback& callback) override;
   bool HandleTimeout(const SavePageRequest& request) override;
 
   // Allows a loader to be injected for testing. This may only be done once
@@ -77,6 +77,8 @@ class PrerenderingOffliner : public Offliner {
   // Listener function for changes to application background/foreground state.
   void OnApplicationStateChange(
       base::android::ApplicationState application_state);
+  void HandleApplicationStateChangeCancel(const SavePageRequest& request,
+                                          int64_t offline_id);
 
   // Not owned.
   content::BrowserContext* browser_context_;
