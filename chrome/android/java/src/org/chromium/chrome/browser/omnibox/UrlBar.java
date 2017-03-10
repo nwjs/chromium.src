@@ -1129,7 +1129,7 @@ public class UrlBar extends VerticallyFixedEditText {
     }
 
     /**
-     * Emphasize the TLD and second domain of the URL.
+     * Emphasize components of the URL for readability.
      */
     public void emphasizeUrl() {
         Editable url = getText();
@@ -1141,8 +1141,6 @@ public class UrlBar extends VerticallyFixedEditText {
             return;
         }
 
-        // We retrieve the domain and registry from the full URL (the url bar shows a simplified
-        // version of the URL).
         Tab currentTab = mUrlBarDelegate.getCurrentTab();
         if (currentTab == null || currentTab.getProfile() == null) return;
 
@@ -1160,7 +1158,7 @@ public class UrlBar extends VerticallyFixedEditText {
     }
 
     /**
-     * Reset the modifications done to emphasize the TLD and second domain of the URL.
+     * Reset the modifications done to emphasize components of the URL.
      */
     public void deEmphasizeUrl() {
         OmniboxUrlEmphasizer.deEmphasizeUrl(getText());
