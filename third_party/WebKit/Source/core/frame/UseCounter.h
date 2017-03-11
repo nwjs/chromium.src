@@ -1470,6 +1470,20 @@ class CORE_EXPORT UseCounter {
     HTMLEmbedElementGetter = 1840,
     HTMLEmbedElementSetter = 1841,
     TransformUsesBoxSizeOnSVG = 1842,
+    ScrollByKeyboardArrowKeys = 1843,
+    ScrollByKeyboardPageUpDownKeys = 1844,
+    ScrollByKeyboardHomeEndKeys = 1845,
+    ScrollByKeyboardSpacebarKey = 1846,
+    ScrollByTouch = 1847,
+    ScrollByWheel = 1848,
+    ScheduledActionIgnored = 1849,
+    GetCanvas2DContextAttributes = 1850,
+    V8HTMLInputElement_Capture_AttributeGetter = 1851,
+    V8HTMLInputElement_Capture_AttributeSetter = 1852,
+    HTMLMediaElementControlsListAttribute = 1853,
+    HTMLMediaElementControlsListNoDownload = 1854,
+    HTMLMediaElementControlsListNoFullscreen = 1855,
+    HTMLMediaElementControlsListNoRemotePlayback = 1856,
 
     // Add new features immediately above this line. Don't change assigned
     // numbers of any item, and don't reuse removed slots.

@@ -45,6 +45,7 @@ class CORE_EXPORT MediaControls final : public HTMLDivElement {
   HTMLMediaElement& mediaElement() const { return *m_mediaElement; }
 
   void reset();
+  void onControlsListUpdated();
 
   void show();
   void hide();
