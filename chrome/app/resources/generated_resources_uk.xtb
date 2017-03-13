@@ -91,6 +91,7 @@
 <translation id="1122242684574577509">Помилка автентифікації. Натисніть, щоб перейти на сторінку входу вашої мережі Wi-Fi (<ph name="NETWORK_ID" />).</translation>
 <translation id="1122960773616686544">Назва закладки</translation>
 <translation id="1123316951456119629">Після від’єднання облікового запису Google від <ph name="PRODUCT_NAME" /> дані залишаться на цьому  комп’ютері, але зміни не синхронізуватимуться з обліковим записом Google. Дані, збережені в обліковому записі Google, залишатимуться там, поки ви не видалите їх за допомогою  <ph name="BEGIN_LINK" />інформаційної панелі Google<ph name="END_LINK" />.</translation>
+<translation id="1123726616645361044">Насичена темна</translation>
 <translation id="1124772482545689468">Користувач</translation>
 <translation id="1128109161498068552">Заборонити всім сайтам використовувати виняткові повідомлення системи, щоб отримувати доступ до пристроїв MIDI</translation>
 <translation id="1128128132059598906">EAP – TTLS</translation>
@@ -256,6 +257,7 @@
 <translation id="1358735829858566124">Файл або каталог не можна використовувати.</translation>
 <translation id="1358741672408003399">Правопис і граматика</translation>
 <translation id="1359381790106966506">Оновити дозволи</translation>
+<translation id="1360943814180810746">Пароль збережено. Ви можете переглянути свої паролі з будь-якого пристрою на сторінці <ph name="SAVED_PASSWORDS_LINK" />.</translation>
 <translation id="1361164813881551742">Додати вручну</translation>
 <translation id="1361655923249334273">Не використаний</translation>
 <translation id="136180453919764941">Акумулятор – <ph name="STATUS" /></translation>
@@ -298,6 +300,7 @@
 <translation id="1406500794671479665">Перевірка...</translation>
 <translation id="1407050882688520094">У вас записано сертифікати, які ідентифікують такі центри сертифікації:</translation>
 <translation id="1407489512183974736">Обрізати по центру</translation>
+<translation id="1408401193050207503">Колір полиці в інтерфейсі ОС Chrome</translation>
 <translation id="1408504635543854729">Перегляньте вміст пристрою в додатку Файли. Вміст не можна змінювати, доступ до нього обмежено адміністратором.</translation>
 <translation id="1408789165795197664">Розширені...</translation>
 <translation id="1409390508152595145">Створити користувача, яким керує адміністратор</translation>
@@ -451,7 +454,9 @@
 <translation id="1567723158593978621">Якщо ввімкнути цю опцію, у веб-переглядачі діятиме нова процедура входу GAIA з окремими паролями.</translation>
 <translation id="1567993339577891801">Консоль JavaScript</translation>
 <translation id="1568323446248056064">Відкрити налаштування дисплея</translation>
+<translation id="1568595224147524689">Знайдіть на пристрої сканер відбитків пальців і торкніться його.</translation>
 <translation id="1568822834048182062">Ваші закладки, історія, паролі й інші налаштування синхронізуватимуться з обліковим записом Google.</translation>
+<translation id="1572266655485775982">Увімкнути Wi-Fi</translation>
 <translation id="1572876035008611720">Електронна адреса</translation>
 <translation id="1576594961618857597">Стандартний білий аватар</translation>
 <translation id="1580652505892042215">Контекст:</translation>
@@ -597,6 +602,7 @@
 <translation id="175772926354468439">Увімкнути тему</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="1758831820837444715">Налаштувати мережу Ethernet</translation>
+<translation id="1760367484402714517">Редагувати виняток</translation>
 <translation id="1763046204212875858">Створити ярлики програми</translation>
 <translation id="1763108912552529023">Продовжити</translation>
 <translation id="1764226536771329714">бета-версія</translation>
@@ -774,6 +780,7 @@
 <translation id="2022210855907492480">Координатор пам’яті</translation>
 <translation id="2023167225947895179">PIN-код легко вгадати</translation>
 <translation id="202352106777823113">Завантаження тривало задовго, тому було припинене мережею.</translation>
+<translation id="2024963864046738479">Переглянути звіт</translation>
 <translation id="2025632980034333559">Відбулося аварійне завершення роботи розширення <ph name="APP_NAME" />. Натисніть цю спливаючу підказку, щоб перезавантажити розширення.</translation>
 <translation id="2028531481946156667">Не вдалося розпочати процес форматування.</translation>
 <translation id="2028997212275086731">Архів у форматі RAR</translation>

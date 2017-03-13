@@ -91,6 +91,7 @@
 <translation id="1122242684574577509">Falha na autenticação. Clique para visitar a página de login da rede Wi-Fi que você está usando (<ph name="NETWORK_ID" />).</translation>
 <translation id="1122960773616686544">Nome do favorito</translation>
 <translation id="1123316951456119629">Ao desconectar sua Conta do Google do <ph name="PRODUCT_NAME" />, seus dados permanecerão neste computador, mas as alterações não serão mais sincronizadas com sua conta. Os dados já armazenados em sua Conta do Google permanecerão lá até você removê-los usando o <ph name="BEGIN_LINK" />Painel de Controle do Google<ph name="END_LINK" />.</translation>
+<translation id="1123726616645361044">Escuro e vibrante</translation>
 <translation id="1124772482545689468">Usuário</translation>
 <translation id="1128109161498068552">Não permitir que nenhum site use mensagens exclusivas do sistema para acessar dispositivos MIDI</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
@@ -256,6 +257,7 @@
 <translation id="1358735829858566124">O arquivo ou o diretório não é utilizável.</translation>
 <translation id="1358741672408003399">Ortografia e gramática</translation>
 <translation id="1359381790106966506">Atualizar permissões</translation>
+<translation id="1360943814180810746">Senha salva. Acesse suas senhas em qualquer dispositivo em <ph name="SAVED_PASSWORDS_LINK" />.</translation>
 <translation id="1361164813881551742">Adicionar manualmente</translation>
 <translation id="1361655923249334273">Não utilizado</translation>
 <translation id="136180453919764941">Bateria - <ph name="STATUS" /></translation>
@@ -298,6 +300,7 @@
 <translation id="1406500794671479665">Verificando...</translation>
 <translation id="1407050882688520094">Você tem certificados no arquivo que identificam estas autoridades de certificação:</translation>
 <translation id="1407489512183974736">Cortar para centralizar</translation>
+<translation id="1408401193050207503">Cor da estante na IU do sistema Chrome OS</translation>
 <translation id="1408504635543854729">Explore o conteúdo do dispositivo no app Arquivos. O conteúdo é restrito por um administrador e não pode ser modificado.</translation>
 <translation id="1408789165795197664">Avançado...</translation>
 <translation id="1409390508152595145">Criar usuário supervisionado</translation>
@@ -451,7 +454,9 @@
 <translation id="1567723158593978621">Quando ativado, o login no navegador usará um novo fluxo de login GAIA separado por senha.</translation>
 <translation id="1567993339577891801">Console JavaScript</translation>
 <translation id="1568323446248056064">Abrir configurações de exibição do dispositivo</translation>
+<translation id="1568595224147524689">Encontre o sensor de impressão digital no seu dispositivo e toque nele com seu dedo.</translation>
 <translation id="1568822834048182062">Seus favoritos, histórico, senhas e outras configurações serão sincronizados com sua Conta do Google.</translation>
+<translation id="1572266655485775982">Ativar Wi-Fi</translation>
 <translation id="1572876035008611720">Digite seu e-mail</translation>
 <translation id="1576594961618857597">Avatar branco padrão</translation>
 <translation id="1580652505892042215">Contexto:</translation>
@@ -597,6 +602,7 @@
 <translation id="175772926354468439">Ativar tema</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="1758831820837444715">Configurar rede Ethernet</translation>
+<translation id="1760367484402714517">Editar exceção</translation>
 <translation id="1763046204212875858">Criar atalhos para aplicativos</translation>
 <translation id="1763108912552529023">Continuar explorando</translation>
 <translation id="1764226536771329714">beta</translation>
@@ -774,6 +780,7 @@
 <translation id="2022210855907492480">Coordenador de memória</translation>
 <translation id="2023167225947895179">O PIN pode ser facilmente descoberto</translation>
 <translation id="202352106777823113">O download estava demorando muito e foi interrompido pela rede.</translation>
+<translation id="2024963864046738479">Visualizar relatório</translation>
 <translation id="2025632980034333559"><ph name="APP_NAME" /> travou. Clique neste balão para recarregar a extensão.</translation>
 <translation id="2028531481946156667">Não foi possível iniciar o processo de formatação.</translation>
 <translation id="2028997212275086731">Arquivo RAR</translation>

@@ -27,6 +27,7 @@ Anda harus mengaktifkan Bluetooth dan Lokasi agar dapat menggunakan Web Fisik.</
 <translation id="124678866338384709">Menutup tab aktif</translation>
 <translation id="1258753120186372309">Google doodle: <ph name="DOODLE_DESCRIPTION" /></translation>
 <translation id="1272079795634619415">Berhenti</translation>
+<translation id="1283039547216852943">Tap untuk meluaskan</translation>
 <translation id="1285320974508926690">Jangan pernah terjemahkan situs ini</translation>
 <translation id="1291207594882862231">Menghapus riwayat, cookie, data situs, cache...</translation>
 <translation id="129553762522093515">Barusan ditutup</translation>
@@ -82,6 +83,7 @@ Anda harus mengaktifkan Bluetooth dan Lokasi agar dapat menggunakan Web Fisik.</
 <translation id="1825719650605518411">Pengalaman Saat Pertama Kali Dijalankan</translation>
 <translation id="1829244130665387512">Cari di halaman</translation>
 <translation id="1832521218263067499">Insiden keamanan</translation>
+<translation id="1841591888176896630">%1$s saran Chrome</translation>
 <translation id="1853692000353488670">Tab penyamaran baru</translation>
 <translation id="189172778771606813">Tutup panel samping navigasi</translation>
 <translation id="1933845786846280168">Tab yang Dipilih</translation>
@@ -145,7 +147,6 @@ Anda harus mengaktifkan Bluetooth dan Lokasi agar dapat menggunakan Web Fisik.</
 <translation id="2587052924345400782">Versi baru telah tersedia</translation>
 <translation id="2593272815202181319">Monospace</translation>
 <translation id="2621115761605608342">Izinkan JavaScript untuk situs tertentu.</translation>
-<translation id="2646820313617290661">Orang tua Anda membantu mengelola setelan ini.</translation>
 <translation id="2653659639078652383">Kirim</translation>
 <translation id="2677748264148917807">Keluar</translation>
 <translation id="2704606927547763573">Disalin</translation>
@@ -256,6 +257,7 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="393697183122708255">Tidak ada penelusuran suara yang aktif</translation>
 <translation id="3946611741043634542">Dengan melanjutkan, Anda menyetujui <ph name="BEGIN_LINK1" />Persyaratan Layanan<ph name="END_LINK1" /> dan <ph name="BEGIN_LINK2" />Pemberitahuan Privasi<ph name="END_LINK2" /> Chrome.</translation>
 <translation id="3950820424414687140">Masuk</translation>
+<translation id="395922942268463099">Halaman diupdate secara berkala</translation>
 <translation id="3967822245660637423">Download selesai</translation>
 <translation id="397583555483684758">Sinkronisasi berhenti berfungsi</translation>
 <translation id="3985215325736559418">Ingin mendownload <ph name="FILE_NAME" /> lagi?</translation>
@@ -337,6 +339,7 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="4862624982077154323">Di beberapa situs, Anda dapat membayar dengan aplikasi pembayaran yang didukung. Pilih aplikasi mana yang akan digunakan di Chrome.</translation>
 <translation id="4881695831933465202">Buka</translation>
 <translation id="4885273946141277891">Jumlah kemunculan Chrome tidak didukung.</translation>
+<translation id="490442468485962363">Buka di tab penyamaran Chrome</translation>
 <translation id="4910889077668685004">Aplikasi pembayaran</translation>
 <translation id="4915549754973153784"><ph name="BEGIN_LINK" />Dapatkan bantuan<ph name="END_LINK" /> saat memindai perangkat…</translation>
 <translation id="4943872375798546930">Tidak ada hasil</translation>
@@ -448,6 +451,7 @@ Namun demikian, bukan berarti Anda sama sekali tidak terlihat. Menggunakan mode 
 <translation id="5939518447894949180">Setel ulang</translation>
 <translation id="5942872142862698679">Menggunakan Google untuk penelusuran</translation>
 <translation id="5956665950594638604">Membuka Pusat Bantuan Chrome di tab baru</translation>
+<translation id="5962718611393537961">Tap untuk menciutkan</translation>
 <translation id="6000066717592683814">Tetap menggunakan Google</translation>
 <translation id="6010869025736512584">Mengakses masukan video</translation>
 <translation id="6012342843556706400">Chrome memerlukan akses lokasi untuk berbagi dengan situs ini.</translation>
@@ -486,7 +490,7 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="6388207532828177975">Hapus &amp; setel ulang</translation>
 <translation id="6404511346730675251">Edit bookmark</translation>
 <translation id="6406506848690869874">Sinkronisasi</translation>
-<translation id="6409731863280057959">Munculan</translation>
+<translation id="6409731863280057959">Pop-up</translation>
 <translation id="641643625718530986">Cetak...</translation>
 <translation id="6416782512398055893">Terdownload <ph name="MBS" /> MB</translation>
 <translation id="6447842834002726250">Cookie</translation>
@@ -638,6 +642,7 @@ Akun Google Anda mungkin memiliki bentuk riwayat penjelajahan lain seperti penel
 <translation id="8035133914807600019">Folder baru…</translation>
 <translation id="8037750541064988519"><ph name="DAYS" /> hari lagi</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> MB tersedia</translation>
+<translation id="8058746566562539958">Buka di tab Chrome baru</translation>
 <translation id="8063895661287329888">Gagal menambahkan bookmark.</translation>
 <translation id="806745655614357130">Tetap pisahkan data saya</translation>
 <translation id="8068648041423924542">Tidak dapat memilih sertifikat.</translation>

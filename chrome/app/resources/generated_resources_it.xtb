@@ -91,6 +91,7 @@
 <translation id="1122242684574577509">Autenticazione non riuscita. Fai clic per visitare la pagina di accesso della rete Wi-Fi in uso (<ph name="NETWORK_ID" />).</translation>
 <translation id="1122960773616686544">Aggiungi il nome ai segnalibri</translation>
 <translation id="1123316951456119629">Se scolleghi il tuo account Google da <ph name="PRODUCT_NAME" />, i tuoi dati rimarranno su questo computer ma le modifiche apportate non verranno più sincronizzate con il tuo account Google. I dati già memorizzati nel tuo account Google rimarranno lì fino a quando non li rimuoverai tramite <ph name="BEGIN_LINK" />Google Dashboard<ph name="END_LINK" />.</translation>
+<translation id="1123726616645361044">Colori scuri e vivaci</translation>
 <translation id="1124772482545689468">Utente</translation>
 <translation id="1128109161498068552">Non consentire ai siti di utilizzare messaggi esclusivi di sistema per accedere a dispositivi MIDI</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
@@ -256,6 +257,7 @@
 <translation id="1358735829858566124">Il file o la directory non è utilizzabile.</translation>
 <translation id="1358741672408003399">Ortografia e grammatica</translation>
 <translation id="1359381790106966506">Aggiorna autorizzazioni</translation>
+<translation id="1360943814180810746">Password salvata. Accedi alle tue password da qualsiasi dispositivo all'indirizzo <ph name="SAVED_PASSWORDS_LINK" />.</translation>
 <translation id="1361164813881551742">Aggiungi manualmente</translation>
 <translation id="1361655923249334273">Inutilizzato</translation>
 <translation id="136180453919764941">Batteria - <ph name="STATUS" /></translation>
@@ -298,6 +300,7 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="1406500794671479665">Verifica in corso...</translation>
 <translation id="1407050882688520094">Hai dei certificati su file che identificano queste autorità di certificazione:</translation>
 <translation id="1407489512183974736">Ritagliato al centro</translation>
+<translation id="1408401193050207503">Colore dello shelf nell'interfaccia utente del sistema Chrome OS</translation>
 <translation id="1408504635543854729">Esplora i contenuti del dispositivo nell'app File. I contenuti sono limitati da un amministratore e non possono essere modificati.</translation>
 <translation id="1408789165795197664">Avanzate...</translation>
 <translation id="1409390508152595145">Crea utente supervisionato</translation>
@@ -451,7 +454,9 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="1567723158593978621">Se l'opzione viene attivata, per accedere al browser viene utilizzato il nuovo flusso di accesso Gaia separato da password.</translation>
 <translation id="1567993339577891801">Console JavaScript</translation>
 <translation id="1568323446248056064">Apri le impostazioni dello schermo</translation>
+<translation id="1568595224147524689">Individua il sensore di impronte digitali sul dispositivo e toccalo con il dito.</translation>
 <translation id="1568822834048182062">I Preferiti, la cronologia, le password e altre impostazioni verranno sincronizzate con il tuo account Google.</translation>
+<translation id="1572266655485775982">Attiva Wi-Fi</translation>
 <translation id="1572876035008611720">Inserisci il tuo indirizzo email</translation>
 <translation id="1576594961618857597">Avatar bianco predefinito</translation>
 <translation id="1580652505892042215">Contesto:</translation>
@@ -597,6 +602,7 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="175772926354468439">Attiva tema</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="1758831820837444715">Configura rete Ethernet</translation>
+<translation id="1760367484402714517">Modifica eccezione</translation>
 <translation id="1763046204212875858">Creazione di scorciatoie applicazione</translation>
 <translation id="1763108912552529023">Continua a esplorare</translation>
 <translation id="1764226536771329714">beta</translation>
@@ -774,6 +780,7 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="2022210855907492480">Coordinatore della memoria</translation>
 <translation id="2023167225947895179">Il PIN potrebbe essere facile da scoprire</translation>
 <translation id="202352106777823113">Il download stava richiedendo troppo tempo ed è stato interrotto dalla rete.</translation>
+<translation id="2024963864046738479">Visualizza rapporto</translation>
 <translation id="2025632980034333559">Arresto anomalo di <ph name="APP_NAME" />. Fai clic su questo fumetto per riavviare l'estensione.</translation>
 <translation id="2028531481946156667">Impossibile avviare la procedura di formattazione.</translation>
 <translation id="2028997212275086731">Archivio RAR</translation>
@@ -2185,7 +2192,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="3812034401428455285"><ph name="UWS_NAME" /> e <ph name="UWS_NAME" /></translation>
 <translation id="3812525830114410218">Certificato non valido</translation>
 <translation id="3813296892522778813">Visita la <ph name="BEGIN_LINK_CHROMIUM" />guida di Google Chrome<ph name="END_LINK_CHROMIUM" /> se non riesci a trovare quello che cerchi</translation>
-<translation id="3813984289128269159">OK Google</translation>
+<translation id="3813984289128269159">Ok Google</translation>
 <translation id="3815016854028376614">Metodo di immissione Zhuyin</translation>
 <translation id="3815571115159309122"><ph name="FILE_COUNT" /> nuove foto trovate
     <ph name="LINE_BREAK1" />
@@ -2889,7 +2896,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="4839303808932127586">Sal&amp;va video come...</translation>
 <translation id="4839550772477464452">Funzioni di sicurezza potenzialmente indesiderate</translation>
 <translation id="4839847978919684242"><ph name="SELCTED_FILES_COUNT" /> elementi selezionati</translation>
-<translation id="4842976633412754305">Questa pagina sta provando a caricare script di fonti non autenticate.</translation>
+<translation id="4842976633412754305">Questa pagina sta tentando di caricare script da fonti non autenticate.</translation>
 <translation id="4844333629810439236">Altre tastiere</translation>
 <translation id="4846680374085650406">Stai seguendo il consiglio dell'amministratore per questa impostazione.</translation>
 <translation id="4848167023574541189">Nessuna password trovata</translation>

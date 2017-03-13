@@ -91,6 +91,7 @@
 <translation id="1122242684574577509">Falha na autenticação. Clique para aceder à página de início de sessão da rede Wi-Fi que está a utilizar (<ph name="NETWORK_ID" />).</translation>
 <translation id="1122960773616686544">Nome do marcador</translation>
 <translation id="1123316951456119629">Ao desligar a sua Conta do Google do <ph name="PRODUCT_NAME" />, os dados permanecerão no computador, mas as alterações já não serão sincronizadas com a sua Conta do Google. Os dados já armazenados na Conta do Google permanecerão lá até que os remova através do <ph name="BEGIN_LINK" />Painel de Controlo Google<ph name="END_LINK" />.</translation>
+<translation id="1123726616645361044">Escuro e vibrante</translation>
 <translation id="1124772482545689468">Utilizador</translation>
 <translation id="1128109161498068552">Não permitir que os sites utilizem mensagens exclusivas do sistema para aceder a dispositivos MIDI</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
@@ -256,6 +257,7 @@
 <translation id="1358735829858566124">O ficheiro ou o diretório não pode ser utilizado.</translation>
 <translation id="1358741672408003399">Ortografia e gramática</translation>
 <translation id="1359381790106966506">Atualizar autorizações</translation>
+<translation id="1360943814180810746">Palavra-passe guardada. Aceda às suas palavras-passe a partir de qualquer dispositivo em <ph name="SAVED_PASSWORDS_LINK" />.</translation>
 <translation id="1361164813881551742">Adicionar manualmente</translation>
 <translation id="1361655923249334273">Não utilizado</translation>
 <translation id="136180453919764941">Bateria – <ph name="STATUS" /></translation>
@@ -298,6 +300,7 @@
 <translation id="1406500794671479665">A confirmar...</translation>
 <translation id="1407050882688520094">Tem certificados em arquivo que identificam estas autoridades de certificação:</translation>
 <translation id="1407489512183974736">Cortado no centro</translation>
+<translation id="1408401193050207503">Cor da prateleira na IU do sistema do SO Chrome</translation>
 <translation id="1408504635543854729">Explore o conteúdo do dispositivo na aplicação Ficheiros. O conteúdo é restringido por um administrador e não é possível modificá-lo.</translation>
 <translation id="1408789165795197664">Avançadas...</translation>
 <translation id="1409390508152595145">Criar utilizador supervisionado.</translation>
@@ -452,7 +455,9 @@
 <translation id="1567723158593978621">Quando ativado, o início de sessão no navegador utiliza um fluxo de início de sessão separado por palavra-passe GAIA.</translation>
 <translation id="1567993339577891801">Consola de JavaScript</translation>
 <translation id="1568323446248056064">Abrir definições do dispositivo de visualização</translation>
+<translation id="1568595224147524689">Localize o sensor de impressões digitais no dispositivo e toque nele com o dedo.</translation>
 <translation id="1568822834048182062">Os marcadores, o histórico, as palavras-passe e outras definições são sincronizados com a sua Conta Google.</translation>
+<translation id="1572266655485775982">Ativar Wi-Fi</translation>
 <translation id="1572876035008611720">Introduza o seu email</translation>
 <translation id="1576594961618857597">Avatar branco predefinido</translation>
 <translation id="1580652505892042215">Contexto:</translation>
@@ -598,6 +603,7 @@
 <translation id="175772926354468439">Ativar tema</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="1758831820837444715">Configurar rede Ethernet</translation>
+<translation id="1760367484402714517">Editar exceção</translation>
 <translation id="1763046204212875858">Criar atalhos da aplicação</translation>
 <translation id="1763108912552529023">Continuar a explorar</translation>
 <translation id="1764226536771329714">beta</translation>
@@ -775,6 +781,7 @@
 <translation id="2022210855907492480">Coordenador de memória</translation>
 <translation id="2023167225947895179">O PIN pode ser fácil de adivinhar</translation>
 <translation id="202352106777823113">A transferência estava a demorar demasiado tempo e foi interrompida pela rede.</translation>
+<translation id="2024963864046738479">Ver relatório</translation>
 <translation id="2025632980034333559"><ph name="APP_NAME" /> falhou. Clique neste balão para recarregar a extensão.</translation>
 <translation id="2028531481946156667">Não foi possível iniciar o processo de formatação.</translation>
 <translation id="2028997212275086731">Arquivo RAR</translation>

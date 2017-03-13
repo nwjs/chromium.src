@@ -91,6 +91,7 @@
 <translation id="1122242684574577509">‏‫فشلت المصادقة‬. انقر للانتقال إلى صفحة تسجيل الدخول لشبكة Wi-Fi التي تستخدمها (<ph name="NETWORK_ID" />).</translation>
 <translation id="1122960773616686544">اسم الإشارة</translation>
 <translation id="1123316951456119629">‏بعد قطع اتصال حسابك في Google عن <ph name="PRODUCT_NAME" />، لن تتم مزامنة التغييرات في بياناتك على هذا الكمبيوتر مع حسابك في Google مرة أخرى. ستظل البيانات المخزنة فعلاً على حسابك في Google مكانها حتى تزيلها باستخدام <ph name="BEGIN_LINK" />لوحة تحكم Google<ph name="END_LINK" />.</translation>
+<translation id="1123726616645361044">المعتم والمتألق</translation>
 <translation id="1124772482545689468">المستخدم</translation>
 <translation id="1128109161498068552">‏عدم السماح لأي موقع باستخدام الرسائل الحصرية في النظام للدخول إلى أجهزة MIDI</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
@@ -256,6 +257,7 @@
 <translation id="1358735829858566124">الملف أو الدليل غير قابل للاستخدام.</translation>
 <translation id="1358741672408003399">التدقيق الإملائي والتدقيق النحوي</translation>
 <translation id="1359381790106966506">تحديث الأذونات</translation>
+<translation id="1360943814180810746">تم حفظ كلمة المرور. يمكنك الوصول إلى كلمات مرورك من أي جهاز على <ph name="SAVED_PASSWORDS_LINK" />.</translation>
 <translation id="1361164813881551742">الإضافة يدويًا</translation>
 <translation id="1361655923249334273">غير مستخدم</translation>
 <translation id="136180453919764941">البطارية - <ph name="STATUS" /></translation>
@@ -298,6 +300,7 @@
 <translation id="1406500794671479665">جارٍ التحقق...</translation>
 <translation id="1407050882688520094">لديك شهادات في الملف تحدد صلاحيات الشهادة هذه:</translation>
 <translation id="1407489512183974736">اقتصاص الوسط</translation>
+<translation id="1408401193050207503">‏لون الرف في واجهة مستخدم نظام التشغيل Chrome</translation>
 <translation id="1408504635543854729">يمكنك استكشاف محتوى الجهاز في تطبيق الملفات. ويعد هذا المحتوى مقيدًا من قبل المشرف، ولا يمكن تعديله.</translation>
 <translation id="1408789165795197664">متقدم...</translation>
 <translation id="1409390508152595145">إنشاء مستخدم يخضع للإدارة</translation>
@@ -452,7 +455,9 @@
 <translation id="1567723158593978621">‏في حالة التمكين، سيستخدم تسجيل الدخول إلى المتصفح تدفق تسجيل الدخول الجديد المفصول بكلمة مرور GAIA.</translation>
 <translation id="1567993339577891801">وحدة تحكم جافا سكريبت</translation>
 <translation id="1568323446248056064">فتح إعدادات الجهاز للعرض</translation>
+<translation id="1568595224147524689">ابحث عن مستشعر بصمات الإصبع على جهازك والمسه بإصبعك.</translation>
 <translation id="1568822834048182062">‏ستتم مزامنة الإشارات المرجعية والسجل وكلمات المرور وغير ذلك من الإعدادات مع حسابك على Google.</translation>
+<translation id="1572266655485775982">‏تمكين شبكة Wi-Fi</translation>
 <translation id="1572876035008611720">أدخل بريدك الإلكتروني</translation>
 <translation id="1576594961618857597">الصورة الرمزية الافتراضية البيضاء</translation>
 <translation id="1580652505892042215">السياق:</translation>
@@ -598,6 +603,7 @@
 <translation id="175772926354468439">تمكين المظهر</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="1758831820837444715">‏تهيئة شبكة Ethernet</translation>
+<translation id="1760367484402714517">تعديل الاستثناء</translation>
 <translation id="1763046204212875858">إنشاء اختصارات للتطبيق</translation>
 <translation id="1763108912552529023">متابعة الاستكشاف</translation>
 <translation id="1764226536771329714">تجريبي</translation>
@@ -775,6 +781,7 @@
 <translation id="2022210855907492480">منسق الذاكرة</translation>
 <translation id="2023167225947895179">قد يكون رقم التعريف الشخصي سهل التخمين</translation>
 <translation id="202352106777823113">استغرق التنزيل وقتًا طويلاً للغاية وتم إيقافه بواسطة الشبكة.</translation>
+<translation id="2024963864046738479">عرض التقرير</translation>
 <translation id="2025632980034333559">لقد تعطل <ph name="APP_NAME" />. انقر على هذا البالون لإعادة تحميل الإضافة.</translation>
 <translation id="2028531481946156667">يتعذر بدء عملية التنسيق.</translation>
 <translation id="2028997212275086731">‏أرشيف RAR</translation>

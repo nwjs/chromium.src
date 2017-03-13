@@ -27,6 +27,7 @@
 <translation id="124678866338384709">סגור את הכרטיסייה הנוכחית</translation>
 <translation id="1258753120186372309">‏דודל של Google‏: <ph name="DOODLE_DESCRIPTION" /></translation>
 <translation id="1272079795634619415">הפסק</translation>
+<translation id="1283039547216852943">הקש כדי להרחיב</translation>
 <translation id="1285320974508926690">לעולם אל תתרגם אתר זה</translation>
 <translation id="1291207594882862231">‏נקה את ההיסטוריה, קובצי ה-Cookie, נתוני האתרים, המטמון…</translation>
 <translation id="129553762522093515">נסגרו לאחרונה</translation>
@@ -82,6 +83,7 @@
 <translation id="1825719650605518411">חוויית הפעלה ראשונה</translation>
 <translation id="1829244130665387512">חפש בדף</translation>
 <translation id="1832521218263067499">תקריות אבטחה</translation>
+<translation id="1841591888176896630">‏%1$s הצעות של Chrome</translation>
 <translation id="1853692000353488670">כרטיסייה חדשה לגלישה בסתר</translation>
 <translation id="189172778771606813">סגור את חלונית ההזזה לניווט</translation>
 <translation id="1933845786846280168">הכרטיסייה שנבחרה</translation>
@@ -145,7 +147,6 @@
 <translation id="2587052924345400782">יש גרסה חדשה יותר</translation>
 <translation id="2593272815202181319">רוחב אחיד</translation>
 <translation id="2621115761605608342">‏אפשר JavaScript לאתר ספציפי.</translation>
-<translation id="2646820313617290661">ההורים שלך עוזרים בניהול ההגדרות האלה.</translation>
 <translation id="2653659639078652383">שלח</translation>
 <translation id="2677748264148917807">צא</translation>
 <translation id="2704606927547763573">הועתק</translation>
@@ -256,6 +257,7 @@
 <translation id="393697183122708255">חיפוש קולי מופעל לא זמין</translation>
 <translation id="3946611741043634542">‏אם תמשיך, משמעות הדבר היא שאתה מסכים <ph name="BEGIN_LINK1" />לתנאים ולהגבלות<ph name="END_LINK1" /> ול<ph name="BEGIN_LINK2" />הודעת הפרטיות<ph name="END_LINK2" /> של Chrome.</translation>
 <translation id="3950820424414687140">כניסה</translation>
+<translation id="395922942268463099">דפים המעודכנים על בסיס קבוע</translation>
 <translation id="3967822245660637423">ההורדה הושלמה</translation>
 <translation id="397583555483684758">הסנכרון הפסיק לפעול</translation>
 <translation id="3985215325736559418">האם להוריד שוב את <ph name="FILE_NAME" />?</translation>
@@ -337,6 +339,7 @@
 <translation id="4862624982077154323">‏בחלק מהאתרים אפשר לשלם באמצעות אפליקציות תשלום נתמכות. בחר את האפליקציות שבהן תשתמש ב-Chrome.</translation>
 <translation id="4881695831933465202">פתח</translation>
 <translation id="4885273946141277891">‏מספר בלתי נתמך של מופעי Chrome.</translation>
+<translation id="490442468485962363">‏פתח בכרטיסיית גלישה בסתר של Chrome</translation>
 <translation id="4910889077668685004">אפליקציות תשלום</translation>
 <translation id="4915549754973153784"><ph name="BEGIN_LINK" />קבל עזרה<ph name="END_LINK" /> בזמן חיפוש התקנים…</translation>
 <translation id="4943872375798546930">אין תוצאות</translation>
@@ -448,6 +451,7 @@
 <translation id="5939518447894949180">אפס</translation>
 <translation id="5942872142862698679">‏שימוש ב-Google לחיפוש</translation>
 <translation id="5956665950594638604">‏פתח את מרכז העזרה של Chrome בכרטיסייה חדשה</translation>
+<translation id="5962718611393537961">הקש כדי לכווץ</translation>
 <translation id="6000066717592683814">‏המשך להשתמש ב-Google</translation>
 <translation id="6010869025736512584">גישה לפלט אודיו</translation>
 <translation id="6012342843556706400">‏Chrome זקוק לגישה אל המיקום כדי לשתף אותו עם האתר הזה.</translation>
@@ -638,6 +642,7 @@
 <translation id="8035133914807600019">תיקייה חדשה…</translation>
 <translation id="8037750541064988519">נותרו <ph name="DAYS" /> ימים</translation>
 <translation id="8051695050440594747">‏‎<ph name="MEGABYTES" /> MB זמינים</translation>
+<translation id="8058746566562539958">‏פתח בכרטיסייה חדשה של Chrome</translation>
 <translation id="8063895661287329888">הוספת הסימנייה נכשלה.</translation>
 <translation id="806745655614357130">שמור בנפרד את הנתונים שלי</translation>
 <translation id="8068648041423924542">אין אפשרות לבחור אישור.</translation>
