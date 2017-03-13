@@ -46,6 +46,8 @@ public class NewTabPageAdapter extends Adapter<NewTabPageViewHolder> implements 
 
     @Nullable
     private final AboveTheFoldItem mAboveTheFold;
+    @Nullable
+    private final TileGrid mTileGrid;
     private final SectionList mSections;
     private final SignInPromo mSigninPromo;
     private final AllDismissedItem mAllDismissed;
@@ -84,9 +86,12 @@ public class NewTabPageAdapter extends Adapter<NewTabPageViewHolder> implements 
             mAboveTheFold = new AboveTheFoldItem();
             mRoot.addChild(mAboveTheFold);
         }
-        if (tileGroupDelegate != null) {
-            mRoot.addChild(new TileGrid(
-                    uiDelegate, mContextMenuManager, tileGroupDelegate, offlinePageBridge));
+        if (tileGroupDelegate == null) {
+            mTileGrid = null;
+        } else {
+            mTileGrid = new TileGrid(
+                    uiDelegate, mContextMenuManager, tileGroupDelegate, offlinePageBridge);
+            mRoot.addChild(mTileGrid);
         }
         mRoot.addChildren(mSections, mSigninPromo, mAllDismissed, mFooter);
         if (mAboveTheFoldView == null
@@ -180,6 +185,7 @@ public class NewTabPageAdapter extends Adapter<NewTabPageViewHolder> implements 
         // The NTP Tiles already update when changes occurs, they don't need to be explicitly reset,
         // unlike the cards.
         mSections.refreshSuggestions();
+        if (mTileGrid != null) mTileGrid.getTileGroup().onSwitchToForeground();
     }
 
     public int getAboveTheFoldPosition() {

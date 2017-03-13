@@ -8,7 +8,10 @@ import static junit.framework.TestCase.assertNotNull;
 
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.content.res.Resources;
 import android.support.annotation.ColorRes;
@@ -98,6 +101,46 @@ public class TileGroupTest {
         inOrder.verify(mTileGroupObserver).onLoadTaskCompleted();
         inOrder.verify(mTileGroupObserver).onTileDataChanged();
         inOrder.verifyNoMoreInteractions();
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.NTP_OFFLINE_PAGES_FEATURE_NAME})
+    public void testTileLoadingWhenVisibleNotBlockedForInit() {
+        SuggestionsUiDelegate uiDelegate = mock(SuggestionsUiDelegate.class);
+        when(uiDelegate.isVisible()).thenReturn(true);
+        TileGroup tileGroup = new TileGroup(RuntimeEnvironment.application, uiDelegate,
+                mock(ContextMenuManager.class), mTileGroupDelegate, mTileGroupObserver,
+                mock(OfflinePageBridge.class), TILE_TITLE_LINES);
+        tileGroup.startObserving(MAX_TILES_TO_FETCH);
+
+        notifyTileUrlsAvailable(URLS);
+
+        // Because it's the first load, we accept the incoming tiles and refresh the view.
+        verify(mTileGroupObserver).onTileDataChanged();
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.NTP_OFFLINE_PAGES_FEATURE_NAME})
+    public void testTileLoadingWhenVisibleBlocked() {
+        SuggestionsUiDelegate uiDelegate = mock(SuggestionsUiDelegate.class);
+        when(uiDelegate.isVisible()).thenReturn(true);
+        TileGroup tileGroup = new TileGroup(RuntimeEnvironment.application, uiDelegate,
+                mock(ContextMenuManager.class), mTileGroupDelegate, mTileGroupObserver,
+                mock(OfflinePageBridge.class), TILE_TITLE_LINES);
+        tileGroup.startObserving(MAX_TILES_TO_FETCH);
+
+        notifyTileUrlsAvailable(URLS);
+        reset(mTileGroupObserver);
+        notifyTileUrlsAvailable(URLS[0]);
+
+        // Even though the data changed, the notification should not happen because we want to not
+        // show changes to UI elements currently visible
+        verify(mTileGroupObserver, never()).onTileDataChanged();
+
+        // Simulating a switch from background to foreground should force the tilegrid to load the
+        // new data.
+        tileGroup.onSwitchToForeground();
+        verify(mTileGroupObserver).onTileDataChanged();
     }
 
     private void notifyTileUrlsAvailable(String... urls) {
