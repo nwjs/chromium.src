@@ -659,12 +659,6 @@ void UserView::ToggleAddUserMenuOption() {
     // Show the content.
     add_menu_option_->SetAlwaysOnTop(true);
     add_menu_option_->Show();
-
-    // We activate the entry automatically if invoked with focus.
-    if (add_user_enabled_ && user_card_view_->HasFocus()) {
-      add_user_view->GetFocusManager()->SetFocusedView(add_user_view);
-      user_card_view_->GetFocusManager()->SetFocusedView(add_user_view);
-    }
   } else {
     AddUserView* add_user_view =
         new AddUserView(static_cast<ButtonFromView*>(user_card_view_));
@@ -687,13 +681,7 @@ void UserView::ToggleAddUserMenuOption() {
     add_menu_option_->SetAlwaysOnTop(true);
     add_menu_option_->Show();
 
-    if (add_user_enabled_) {
-      // We activate the entry automatically if invoked with focus.
-      if (user_card_view_->HasFocus()) {
-        button->GetFocusManager()->SetFocusedView(button);
-        user_card_view_->GetFocusManager()->SetFocusedView(button);
-      }
-    } else {
+    if (!add_user_enabled_) {
       ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
       int message_id = 0;
       switch (add_user_policy) {
