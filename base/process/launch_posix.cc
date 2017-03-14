@@ -480,6 +480,7 @@ Process LaunchProcess(const std::vector<std::string>& argv,
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
 #endif
+#if 0
     if (!options.allow_new_privs) {
       if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) && errno != EINVAL) {
         // Only log if the error is not EINVAL (i.e. not supported).
@@ -493,6 +494,7 @@ Process LaunchProcess(const std::vector<std::string>& argv,
         _exit(127);
       }
     }
+#endif
 #endif
 
     if (current_directory != nullptr) {

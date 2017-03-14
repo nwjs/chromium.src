@@ -87,6 +87,7 @@ class Widget;
 class CORE_EXPORT FrameLoaderClient : public FrameClient {
  public:
   ~FrameLoaderClient() override {}
+  virtual void willHandleNavigationPolicy(const ResourceRequest& request, NavigationPolicy* policy, WebString* manifest = NULL, bool new_win = true) {}
 
   virtual bool hasWebView() const = 0;  // mainly for assertions
 
