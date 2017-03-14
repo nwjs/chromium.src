@@ -91,7 +91,6 @@
 <translation id="1122242684574577509">‏האימות נכשל. לחץ כדי לעבור אל דף ההתחברות של רשת ה-Wi-Fi שבה אתה משתמש (<ph name="NETWORK_ID" />).</translation>
 <translation id="1122960773616686544">שם סימניה</translation>
 <translation id="1123316951456119629">‏לאחר ניתוק חשבון Google שלך מ-<ph name="PRODUCT_NAME" />, הנתונים שלך יישארו במחשב זה, אך השינויים לא יסתנכרנו עוד עם חשבון Google שלך. נתונים שכבר מאוחסנים בחשבון Google שלך יישארו בו עד שתסיר אותם באמצעות <ph name="BEGIN_LINK" />לוח הבקרה של Google‏<ph name="END_LINK" />.</translation>
-<translation id="1123726616645361044">כהה ועז</translation>
 <translation id="1124772482545689468">משתמש</translation>
 <translation id="1128109161498068552">‏אל תאפשר לאף אתר להשתמש בהודעות בלעדיות של המערכת כדי לגשת למכשירי MIDI.</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
@@ -257,7 +256,6 @@
 <translation id="1358735829858566124">לא ניתן להשתמש בקובץ או בספרייה.</translation>
 <translation id="1358741672408003399">איות ודקדוק</translation>
 <translation id="1359381790106966506">עדכן הרשאות</translation>
-<translation id="1360943814180810746">הסיסמה נשמרה. תוכל לגשת אל הסיסמאות מכל מכשיר בכתובת <ph name="SAVED_PASSWORDS_LINK" />.</translation>
 <translation id="1361164813881551742">הוסף ידנית</translation>
 <translation id="1361655923249334273">לא בשימוש</translation>
 <translation id="136180453919764941">סוללה - <ph name="STATUS" /></translation>
@@ -299,7 +297,6 @@
 <translation id="1406500794671479665">מאמת...</translation>
 <translation id="1407050882688520094">יש לך אישורים בקובץ המזהים רשויות אישורים אלה:</translation>
 <translation id="1407489512183974736">חתוך במרכז</translation>
-<translation id="1408401193050207503">‏צבע המדף בממשק המשתמש של מערכת Chrome OS</translation>
 <translation id="1408504635543854729">עיין בתוכן של המכשיר באמצעות האפליקציה 'קבצים'. התוכן מוגבל על-ידי מנהל מערכת, ואי אפשר לשנות אותו.</translation>
 <translation id="1408789165795197664">מתקדם...</translation>
 <translation id="1409390508152595145">צור משתמש בפיקוח</translation>
@@ -450,9 +447,7 @@
 <translation id="1567723158593978621">‏לאחר ההפעלה, בכניסה לדפדפן נעשה שימוש בתהליך כניסה חדש ל-GAIA, המופרד מסיסמה.</translation>
 <translation id="1567993339577891801">‏קונסולת JavaScript</translation>
 <translation id="1568323446248056064">פתח את הגדרות המכשיר של התצוגה</translation>
-<translation id="1568595224147524689">מצא את חיישן טביעות האצבע במכשיר וגע בו עם האצבע.</translation>
 <translation id="1568822834048182062">‏הסימניות, ההיסטוריה, הסיסמאות והגדרות נוספות יסונכרנו עם חשבון Google שלך.</translation>
-<translation id="1572266655485775982">‏הפעלת Wi-Fi</translation>
 <translation id="1572876035008611720">הזן את כתובת האימייל</translation>
 <translation id="1576594961618857597">דמות ברירת מחדל לבנה</translation>
 <translation id="1580652505892042215">הקשר:</translation>
@@ -598,7 +593,6 @@
 <translation id="175772926354468439">הפעל עיצוב</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="1758831820837444715">הגדרת רשת אתרנט</translation>
-<translation id="1760367484402714517">עריכת חריג</translation>
 <translation id="1763046204212875858">צור קיצורי דרך ליישום</translation>
 <translation id="1763108912552529023">המשך לחקור</translation>
 <translation id="1764226536771329714">ביטא</translation>
@@ -775,7 +769,6 @@
 <translation id="2022210855907492480">מתאם זיכרון</translation>
 <translation id="2023167225947895179">‏ייתכן שיהיה קל לנחש את ה-PIN</translation>
 <translation id="202352106777823113">ההורדה נמשכה זמן רב מדי, והיא נעצרה על ידי הרשת.</translation>
-<translation id="2024963864046738479">הצג דוח</translation>
 <translation id="2025632980034333559"><ph name="APP_NAME" /> קרס. לחץ על בלון זה כדי לטעון מחדש את התוסף.</translation>
 <translation id="2028531481946156667">לא ניתן להתחיל את תהליך הפרמוט.</translation>
 <translation id="2028997212275086731">‏ארכיון RAR</translation>

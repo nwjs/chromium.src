@@ -27,7 +27,6 @@ Tem de ter a Localização e o Bluetooth ativados para poder utilizar a Web fís
 <translation id="124678866338384709">Fechar o separador atual</translation>
 <translation id="1258753120186372309">Doodle da Google: <ph name="DOODLE_DESCRIPTION" /></translation>
 <translation id="1272079795634619415">Parar</translation>
-<translation id="1283039547216852943">Toque para expandir</translation>
 <translation id="1285320974508926690">Nunca traduzir este site</translation>
 <translation id="1291207594882862231">Limpar histórico, cookies, dados de sites, cache…</translation>
 <translation id="129553762522093515">Fechados recentemente</translation>
@@ -83,7 +82,6 @@ Tem de ter a Localização e o Bluetooth ativados para poder utilizar a Web fís
 <translation id="1825719650605518411">Experiência de primeira execução</translation>
 <translation id="1829244130665387512">Localizar na página</translation>
 <translation id="1832521218263067499">Incidentes de segurança</translation>
-<translation id="1841591888176896630">%1$s sugestões do Chrome</translation>
 <translation id="1853692000353488670">Novo separador de navegação anónima</translation>
 <translation id="189172778771606813">Fechar a gaveta de navegação</translation>
 <translation id="1933845786846280168">Separador selecionado</translation>
@@ -147,6 +145,7 @@ Tem de ter a Localização e o Bluetooth ativados para poder utilizar a Web fís
 <translation id="2587052924345400782">Versão mais recente dispon.</translation>
 <translation id="2593272815202181319">Monoespaço</translation>
 <translation id="2621115761605608342">Permitir JavaScript num site específico.</translation>
+<translation id="2646820313617290661">Os teus pais ajudam a gerir estas definições.</translation>
 <translation id="2653659639078652383">Submeter</translation>
 <translation id="2677748264148917807">Sair</translation>
 <translation id="2704606927547763573">Copiado</translation>
@@ -257,7 +256,6 @@ Para ajustar o termo de pesquisa, prima continuamente para selecionar. Para refi
 <translation id="393697183122708255">Nenhuma pesq. por voz ativada disponível</translation>
 <translation id="3946611741043634542">Ao continuar, aceita os <ph name="BEGIN_LINK1" />Termos de Utilização<ph name="END_LINK1" /> e o <ph name="BEGIN_LINK2" />Aviso de Privacidade<ph name="END_LINK2" /> do Chrome.</translation>
 <translation id="3950820424414687140">Iniciar sessão</translation>
-<translation id="395922942268463099">Páginas atualizadas regularmente</translation>
 <translation id="3967822245660637423">Transferência concluída</translation>
 <translation id="397583555483684758">A sincronização deixou de funcionar</translation>
 <translation id="3985215325736559418">Pretende transferir <ph name="FILE_NAME" /> novamente?</translation>
@@ -339,7 +337,6 @@ Para ajustar o termo de pesquisa, prima continuamente para selecionar. Para refi
 <translation id="4862624982077154323">Nalguns Websites, é possível pagar com aplicações de pagamento compatíveis. Escolha as aplicações que pretende utilizar no Chrome.</translation>
 <translation id="4881695831933465202">Abrir</translation>
 <translation id="4885273946141277891">Número não suportado de instâncias do Chrome.</translation>
-<translation id="490442468485962363">Abrir em sep. anón. do Chrome</translation>
 <translation id="4910889077668685004">Aplicações de pagamento</translation>
 <translation id="4915549754973153784"><ph name="BEGIN_LINK" />Obter ajuda<ph name="END_LINK" /> enquanto procura dispositivos…</translation>
 <translation id="4943872375798546930">Nenhum resultado</translation>
@@ -451,7 +448,6 @@ No entanto, a navegação não é invisível. Passar para o modo de navegação 
 <translation id="5939518447894949180">Repor</translation>
 <translation id="5942872142862698679">A utilizar o Google para pesquisa</translation>
 <translation id="5956665950594638604">Abrir Centro de Ajuda do Chrome num novo separador</translation>
-<translation id="5962718611393537961">Toque para reduzir</translation>
 <translation id="6000066717592683814">Manter o Google</translation>
 <translation id="6010869025736512584">A aceder à entrada de vídeo</translation>
 <translation id="6012342843556706400">O Chrome necessita de acesso à localização para a partilhar com este site.</translation>
@@ -642,7 +638,6 @@ A sua Conta Google pode ter outras formas do histórico de navegação, como pes
 <translation id="8035133914807600019">Nova pasta…</translation>
 <translation id="8037750541064988519">Faltam <ph name="DAYS" /> dias</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> MB disponíveis</translation>
-<translation id="8058746566562539958">Abrir num novo sep. do Chrome</translation>
 <translation id="8063895661287329888">Falha ao adicionar marcador.</translation>
 <translation id="806745655614357130">Manter os meus dados separados</translation>
 <translation id="8068648041423924542">Não é possível selecionar o certificado.</translation>

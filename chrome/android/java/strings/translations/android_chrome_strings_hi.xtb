@@ -27,7 +27,6 @@
 <translation id="124678866338384709">वर्तमान टैब को बंद करें</translation>
 <translation id="1258753120186372309">Google doodle: <ph name="DOODLE_DESCRIPTION" /></translation>
 <translation id="1272079795634619415">रोकें</translation>
-<translation id="1283039547216852943">विस्तृत करने के लिए टैप करें</translation>
 <translation id="1285320974508926690">कभी भी इस साइट का अनुवाद न करें</translation>
 <translation id="1291207594882862231">इतिहास, कुकी, साइट डेटा, संचय साफ़ करें…</translation>
 <translation id="129553762522093515">हाल ही में बंद किए गए</translation>
@@ -83,7 +82,6 @@
 <translation id="1825719650605518411">पहली बार चलाने का अनुभव</translation>
 <translation id="1829244130665387512">पेज में ढूंढें</translation>
 <translation id="1832521218263067499">सुरक्षा संबंधी घटनाएं</translation>
-<translation id="1841591888176896630">%1$s Chrome सुझाव</translation>
 <translation id="1853692000353488670">नया गुप्त टैब</translation>
 <translation id="189172778771606813">मार्गदर्शक ड्रॉवर बंद करें</translation>
 <translation id="1933845786846280168">चयनित टैब</translation>
@@ -147,6 +145,7 @@
 <translation id="2587052924345400782">अधिक नया वर्शन उपलब्ध है</translation>
 <translation id="2593272815202181319">मोनोस्पेस</translation>
 <translation id="2621115761605608342">विशिष्ट साइट के लिए JavaScript की अनुमति दें.</translation>
+<translation id="2646820313617290661">आपके अभिभावक इन सेटिंग को प्रबंधित करने में आपकी सहायता करते हैं.</translation>
 <translation id="2653659639078652383">सबमिट करें</translation>
 <translation id="2677748264148917807">छोड़ें</translation>
 <translation id="2704606927547763573">कॉपी किया गया</translation>
@@ -257,7 +256,6 @@
 <translation id="393697183122708255">कोई सक्षम बोलकर खोजें उपलब्‍ध नहीं</translation>
 <translation id="3946611741043634542">जारी रखकर, आप Chrome की <ph name="BEGIN_LINK1" />सेवा की शर्तों<ph name="END_LINK1" /> और <ph name="BEGIN_LINK2" />निजता सूचना<ph name="END_LINK2" /> से सहमत होते हैं.</translation>
 <translation id="3950820424414687140">प्रवेश करें</translation>
-<translation id="395922942268463099">पेज नियमित रूप से अपडेट होता है</translation>
 <translation id="3967822245660637423">डाउनलोड पूर्ण</translation>
 <translation id="397583555483684758">समन्‍वयन ने कार्य करना बंद कर दिया है</translation>
 <translation id="3985215325736559418">क्या आप <ph name="FILE_NAME" /> को फिर से डाउनलोड करना चाहते हैं?</translation>
@@ -339,7 +337,6 @@
 <translation id="4862624982077154323">कुछ वेबसाइटों पर, आप समर्थित भुगतान ऐप्लिकेशन से भुगतान कर सकते हैं. Chrome में उपयोग किए जाने वाले ऐप्लिकेशन चुनें.</translation>
 <translation id="4881695831933465202">खोलें</translation>
 <translation id="4885273946141277891">Chrome इंस्टेंस की असमर्थित संख्या.</translation>
-<translation id="490442468485962363">Chrome गुप्त टैब में खोलें</translation>
 <translation id="4910889077668685004">भुगतान ऐप्लिकेशन</translation>
 <translation id="4915549754973153784">डिवाइस स्कैन करने में <ph name="BEGIN_LINK" />सहायता पाएं<ph name="END_LINK" />...</translation>
 <translation id="4943872375798546930">कोई परिणाम नहीं</translation>
@@ -451,7 +448,6 @@
 <translation id="5939518447894949180">रीसेट करें</translation>
 <translation id="5942872142862698679">खोजने के लिए Google का उपयोग करना</translation>
 <translation id="5956665950594638604">Chrome सहायता केंद्र को नए टैब में खोलें</translation>
-<translation id="5962718611393537961">संक्षिप्त करने के लिए टैप करें</translation>
 <translation id="6000066717592683814">Google को डिफ़ॉल्ट बनाए रखें</translation>
 <translation id="6010869025736512584">वीडियो इनपुट ऐक्सेस हो रहा है</translation>
 <translation id="6012342843556706400">Chrome को स्थान ऐक्सेस की आवश्यकता है ताकि स्थान को इस साइट के साथ साझा किया जा सके.</translation>
@@ -642,7 +638,6 @@
 <translation id="8035133914807600019">नया फ़ोल्‍डर…</translation>
 <translation id="8037750541064988519"><ph name="DAYS" /> दिन शेष</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> MB उपलब्ध</translation>
-<translation id="8058746566562539958">नए Chrome टैब में खोलें</translation>
 <translation id="8063895661287329888">बुकमार्क जोड़ने में विफल रहा.</translation>
 <translation id="806745655614357130">मेरा डेटा अलग रखें</translation>
 <translation id="8068648041423924542">प्रमाणपत्र चुनने में असमर्थ.</translation>

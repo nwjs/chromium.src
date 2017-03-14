@@ -91,7 +91,6 @@
 <translation id="1122242684574577509">‏احراز هویت انجام نشد. کلیک کنید تا به صفحه ورود به سیستم شبکه Wi-Fi مورد استفاده‌تان بروید (<ph name="NETWORK_ID" />).</translation>
 <translation id="1122960773616686544">نام نشانک</translation>
 <translation id="1123316951456119629">‏با قطع حساب Google خود از <ph name="PRODUCT_NAME" />، داده‌های شما در این رایانه باقی خواهد ماند اما تغییرات دیگر با حساب Google شما همگام‌سازی نخواهد شد. داده‌هایی که از قبل در حساب Google شما ذخیره شده در آنجا باقی خواهد ماند تا زمانی که آن‌ها را با استفاده از <ph name="BEGIN_LINK" />داشبورد Google<ph name="END_LINK" /> حذف کنید.</translation>
-<translation id="1123726616645361044">تیره و درخشان</translation>
 <translation id="1124772482545689468">کاربر</translation>
 <translation id="1128109161498068552">‏به هیچ سایتی اجازه داده نشود برای دسترسی به دستگاه‌های MIDI از پیام‌های انحصاری سیستم استفاده کند</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
@@ -257,7 +256,6 @@
 <translation id="1358735829858566124">فایل یا فهرست راهنما قابل استفاده نیست.</translation>
 <translation id="1358741672408003399">املا و گرامر</translation>
 <translation id="1359381790106966506">مجوزهای به‌روزرسانی</translation>
-<translation id="1360943814180810746">گذرواژه ذخیره شد. در <ph name="SAVED_PASSWORDS_LINK" />، از هر دستگاهی به گذرواژه‌هایتان دسترسی داشته باشید.</translation>
 <translation id="1361164813881551742">افزودن دستی</translation>
 <translation id="1361655923249334273">استفاده نشده</translation>
 <translation id="136180453919764941">باتری - <ph name="STATUS" /></translation>
@@ -301,7 +299,6 @@
 <translation id="1406500794671479665">در حال تأیید...</translation>
 <translation id="1407050882688520094">شما گواهی هایی برای فایل دارید که اعتبارهای این گواهی را شناسایی می‌کنند:</translation>
 <translation id="1407489512183974736">برش خورده در مرکز</translation>
-<translation id="1408401193050207503">‏رنگ قفسه در رابط کاربری سیستم عامل Chrome</translation>
 <translation id="1408504635543854729">‏محتوای دستگاه را در برنامه Files کاوش کنید. محتوا توسط سرپرست محدود شده است و قابل ویرایش نیست.</translation>
 <translation id="1408789165795197664">پیشرفته...</translation>
 <translation id="1409390508152595145">ایجاد کاربر نظارت شده</translation>
@@ -452,9 +449,7 @@
 <translation id="1567723158593978621">‏وقتی فعال است، ورود به سیستم مرورگر از یک جریان جدید ورود به سیستم gaia جداشده با گذرواژه استفاده می‌کند.</translation>
 <translation id="1567993339577891801">کنسول جاوا اسکریپت</translation>
 <translation id="1568323446248056064">باز کردن تنظیمات نمایشگر دستگاه</translation>
-<translation id="1568595224147524689">حسگر اثر انگشت را در دستگاهتان بیابید و آن را با انگشتتان لمس کنید.</translation>
 <translation id="1568822834048182062">‏نشانک‌ها، سابقه، گذرواژه‌ها و سایر تنظیماتتان در حساب Google شما همگام‌سازی می‌شوند.</translation>
-<translation id="1572266655485775982">‏فعال کردن Wi-Fi</translation>
 <translation id="1572876035008611720">ایمیل‌تان را وارد کنید</translation>
 <translation id="1576594961618857597">چهره‌نمای پیش‌فرض سفید</translation>
 <translation id="1580652505892042215">زمینه:</translation>
@@ -600,7 +595,6 @@
 <translation id="175772926354468439">فعال کردن طرح زمینه</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="1758831820837444715">پیکربندی شبکه اترنت</translation>
-<translation id="1760367484402714517">ویرایش استثنا</translation>
 <translation id="1763046204212875858">ایجاد میان‌برهای برنامه</translation>
 <translation id="1763108912552529023">به کاوش ادامه دهید</translation>
 <translation id="1764226536771329714">بتا</translation>
@@ -779,7 +773,6 @@
 <translation id="2022210855907492480">هماهنگ‌کننده حافظه</translation>
 <translation id="2023167225947895179">حدس زدن این پین آسان است</translation>
 <translation id="202352106777823113">بارگیری خیلی طول کشید و توسط شبکه متوقف شد.</translation>
-<translation id="2024963864046738479">مشاهده گزارش</translation>
 <translation id="2025632980034333559"><ph name="APP_NAME" /> خراب شده است. برای تازه‌سازی پسوند بر روی این بالون کلیک کنید.</translation>
 <translation id="2028531481946156667">فرآیند قالب‌بندی شروع نمی‌شود.</translation>
 <translation id="2028997212275086731">‏بایگانی RAR</translation>

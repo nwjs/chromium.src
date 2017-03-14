@@ -91,7 +91,6 @@
 <translation id="1122242684574577509">Xác thực bị lỗi. Nhấp để truy cập trang đăng nhập của mạng Wi-Fi mà bạn đang sử dụng (<ph name="NETWORK_ID" />).</translation>
 <translation id="1122960773616686544">Tên dấu trang</translation>
 <translation id="1123316951456119629">Bằng cách ngắt kết nối tài khoản Google khỏi <ph name="PRODUCT_NAME" />, dữ liệu của bạn sẽ vẫn còn trên máy tính này nhưng các thay đổi sẽ không còn được đồng bộ hóa với tài khoản Google của bạn. Dữ liệu đã được lưu trữ trong tài khoản Google của bạn sẽ vẫn ở đó cho tới khi bạn xóa dữ liệu bằng <ph name="BEGIN_LINK" />Trang tổng quan của Google<ph name="END_LINK" />.</translation>
-<translation id="1123726616645361044">Tối và sống động</translation>
 <translation id="1124772482545689468">Người dùng</translation>
 <translation id="1128109161498068552">Không cho phép bất cứ trang web nào sử dụng thông báo dành riêng cho hệ thống để truy cập thiết bị MIDI</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
@@ -257,7 +256,6 @@
 <translation id="1358735829858566124">Không thể sử dụng được tệp hoặc thư mục.</translation>
 <translation id="1358741672408003399">Chính tả và Ngữ pháp</translation>
 <translation id="1359381790106966506">Cập nhật quyền</translation>
-<translation id="1360943814180810746">Đã lưu mật khẩu. Truy cập mật khẩu của bạn từ thiết bị bất kỳ tại <ph name="SAVED_PASSWORDS_LINK" />.</translation>
 <translation id="1361164813881551742">Thêm thủ công</translation>
 <translation id="1361655923249334273">Không sử dụng</translation>
 <translation id="136180453919764941">Pin - <ph name="STATUS" /></translation>
@@ -300,7 +298,6 @@
 <translation id="1406500794671479665">Đang xác minh...</translation>
 <translation id="1407050882688520094">Bạn có các chứng chỉ trên tệp có thể nhận dạng các tổ chức cấp chứng chỉ này:</translation>
 <translation id="1407489512183974736">Cắt giữa</translation>
-<translation id="1408401193050207503">Màu giá trong giao diện người dùng hệ thống của Chrome OS</translation>
 <translation id="1408504635543854729">Khám phá nội dung của thiết bị trong ứng dụng Tệp. Quản trị viên đã hạn chế nội dung và bạn không thể sửa đổi nội dung này.</translation>
 <translation id="1408789165795197664">Nâng cao...</translation>
 <translation id="1409390508152595145">Tạo người dùng được giám sát</translation>
@@ -455,9 +452,7 @@
 <translation id="1567723158593978621">Khi được bật, quá trình đăng nhập vào trình duyệt sẽ sử dụng luồng đăng nhập phân cách bằng mật khẩu gaia mới.</translation>
 <translation id="1567993339577891801">Bảng điều khiển JavaScript</translation>
 <translation id="1568323446248056064">Mở cài đặt thiết bị hiển thị</translation>
-<translation id="1568595224147524689">Tìm cảm biến vân tay trên thiết bị của bạn và chạm vào bằng ngón tay.</translation>
 <translation id="1568822834048182062">Dấu trang, lịch sử, mật khẩu và các cài đặt khác sẽ được đồng bộ hóa với Tài khoản Google của bạn.</translation>
-<translation id="1572266655485775982">Bật Wi-Fi</translation>
 <translation id="1572876035008611720">Nhập email của bạn</translation>
 <translation id="1576594961618857597">Hình đại diện màu trắng mặc định</translation>
 <translation id="1580652505892042215">Ngữ cảnh:</translation>
@@ -603,7 +598,6 @@
 <translation id="175772926354468439">Bật chủ đề</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="1758831820837444715">Định cấu hình mạng Ethernet</translation>
-<translation id="1760367484402714517">Chỉnh sửa ngoại lệ</translation>
 <translation id="1763046204212875858">Tạo các lối tắt cho ứng dụng</translation>
 <translation id="1763108912552529023">Tiếp tục khám phá</translation>
 <translation id="1764226536771329714">beta</translation>
@@ -781,7 +775,6 @@
 <translation id="2022210855907492480">Trình điều phối bộ nhớ</translation>
 <translation id="2023167225947895179">Mã PIN có thể dễ đoán</translation>
 <translation id="202352106777823113">Quá trình tải xuống mất quá nhiều thời gian và đã bị ngừng bởi mạng.</translation>
-<translation id="2024963864046738479">Xem báo cáo</translation>
 <translation id="2025632980034333559"><ph name="APP_NAME" /> đã xảy ra lỗi. Nhấp vào bong bóng này để tải lại tiện ích.</translation>
 <translation id="2028531481946156667">Không thể bắt đầu quá trình định dạng.</translation>
 <translation id="2028997212275086731">Lưu trữ RAR</translation>
