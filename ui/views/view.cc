@@ -169,6 +169,9 @@ View::~View() {
   // reference-counted on some platforms, so it may not be deleted right away.
   if (native_view_accessibility_)
     native_view_accessibility_->Destroy();
+
+  for (ViewObserver& observer : observers_)
+    observer.OnViewIsDeleting(this);
 }
 
 // Tree operations -------------------------------------------------------------
