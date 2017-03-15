@@ -455,7 +455,12 @@ bool Textfield::GetCursorEnabled() const {
 }
 
 void Textfield::SetCursorEnabled(bool enabled) {
+  if (GetRenderText()->cursor_enabled() == enabled)
+    return;
+
   GetRenderText()->SetCursorEnabled(enabled);
+  UpdateCursorViewPosition();
+  UpdateCursorVisibility();
 }
 
 const gfx::FontList& Textfield::GetFontList() const {
@@ -981,7 +986,7 @@ void Textfield::OnPaint(gfx::Canvas* canvas) {
 void Textfield::OnFocus() {
   GetRenderText()->set_focused(true);
   if (ShouldShowCursor()) {
-    UpdateCursorView();
+    UpdateCursorViewPosition();
     cursor_view_.SetVisible(true);
   }
   if (GetInputMethod())
@@ -1909,12 +1914,8 @@ void Textfield::UpdateAfterChange(bool text_changed, bool cursor_changed) {
     NotifyAccessibilityEvent(ui::AX_EVENT_TEXT_CHANGED, true);
   }
   if (cursor_changed) {
-    UpdateCursorView();
-    cursor_view_.SetVisible(ShouldShowCursor());
-    if (ShouldBlinkCursor())
-      StartBlinkingCursor();
-    else
-      StopBlinkingCursor();
+    UpdateCursorViewPosition();
+    UpdateCursorVisibility();
     NotifyAccessibilityEvent(ui::AX_EVENT_TEXT_SELECTION_CHANGED, true);
   }
   if (text_changed || cursor_changed) {
@@ -1923,7 +1924,15 @@ void Textfield::UpdateAfterChange(bool text_changed, bool cursor_changed) {
   }
 }
 
-void Textfield::UpdateCursorView() {
+void Textfield::UpdateCursorVisibility() {
+  cursor_view_.SetVisible(ShouldShowCursor());
+  if (ShouldBlinkCursor())
+    StartBlinkingCursor();
+  else
+    StopBlinkingCursor();
+}
+
+void Textfield::UpdateCursorViewPosition() {
   gfx::Rect location(GetRenderText()->GetUpdatedCursorBounds());
   location.set_x(GetMirroredXForRect(location));
   cursor_view_.SetBoundsRect(location);
@@ -2088,7 +2097,7 @@ void Textfield::StopBlinkingCursor() {
 void Textfield::OnCursorBlinkTimerFired() {
   DCHECK(ShouldBlinkCursor());
   cursor_view_.SetVisible(!cursor_view_.visible());
-  UpdateCursorView();
+  UpdateCursorViewPosition();
 }
 
 }  // namespace views
