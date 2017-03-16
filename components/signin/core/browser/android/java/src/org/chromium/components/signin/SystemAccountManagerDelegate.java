@@ -17,6 +17,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Process;
 import android.os.SystemClock;
@@ -177,13 +178,15 @@ public class SystemAccountManagerDelegate implements AccountManagerDelegate {
     public void updateCredentials(
             Account account, Activity activity, final Callback<Boolean> callback) {
         ThreadUtils.assertOnUiThread();
-        if (!hasGetAccountsPermission()) {
-            ThreadUtils.postOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    callback.onResult(false);
-                }
-            });
+        if (!hasManageAccountsPermission()) {
+            if (callback != null) {
+                ThreadUtils.postOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        callback.onResult(false);
+                    }
+                });
+            }
             return;
         }
 
@@ -214,6 +217,15 @@ public class SystemAccountManagerDelegate implements AccountManagerDelegate {
     protected boolean hasGetAccountsPermission() {
         return ApiCompatibilityUtils.checkPermission(mApplicationContext,
                        Manifest.permission.GET_ACCOUNTS, Process.myPid(), Process.myUid())
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    protected boolean hasManageAccountsPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return true;
+        }
+        return ApiCompatibilityUtils.checkPermission(mApplicationContext,
+                       "android.permission.MANAGE_ACCOUNTS", Process.myPid(), Process.myUid())
                 == PackageManager.PERMISSION_GRANTED;
     }
 }
