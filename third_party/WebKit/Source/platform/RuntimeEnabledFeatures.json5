@@ -1025,6 +1025,9 @@
     {
       name: "BlockLegacySubresources",
       status: "experimental",
+    },
+    {
+      name: "VideoFullscreenDetection",
     }
   ],
 }

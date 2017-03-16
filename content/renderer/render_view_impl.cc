@@ -1073,6 +1073,8 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
 
   WebRuntimeFeatures::enableVideoFullscreenOrientationLock(
       prefs.video_fullscreen_orientation_lock_enabled);
+  WebRuntimeFeatures::enableVideoFullscreenDetection(
+      prefs.video_fullscreen_detection_enabled);
   settings->setEmbeddedMediaExperienceEnabled(
       prefs.embedded_media_experience_enabled);
 #else   // defined(OS_ANDROID)
