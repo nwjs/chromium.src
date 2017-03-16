@@ -46,8 +46,8 @@ class MODULES_EXPORT NavigatorVR final
   // Queues up event to be fired soon.
   void enqueueVREvent(VRDisplayEvent*);
 
-  // Dispatches an event immediately.
-  void dispatchVREvent(VRDisplayEvent*);
+  // Dispatches a user gesture event immediately.
+  void dispatchVRGestureEvent(VRDisplayEvent*);
 
   // Inherited from FocusChangedObserver.
   void focusedFrameChanged() override;
