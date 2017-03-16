@@ -88,6 +88,10 @@ class GFX_EXPORT IconUtil {
   // needed by calling ::DestroyIcon().
   static base::win::ScopedHICON CreateHICONFromSkBitmap(const SkBitmap& bitmap);
 
+  static base::win::ScopedHICON CreateHICONFromSkBitmapSizedTo(const SkBitmap& bitmap,
+    int width,
+    int height);
+
   // Given a valid HICON handle representing an icon, this function converts
   // the icon into an SkBitmap object containing an ARGB bitmap using the
   // dimensions specified in |s|. |s| must specify valid dimensions (both
