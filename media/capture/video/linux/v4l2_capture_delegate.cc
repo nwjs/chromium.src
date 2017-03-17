@@ -172,6 +172,32 @@ static bool IsSpecialControl(int control_id) {
   return false;
 }
 
+// Determines if |control_id| should be skipped, https://crbug.com/697885.
+#if !defined(V4L2_CID_PAN_SPEED)
+#define V4L2_CID_PAN_SPEED (V4L2_CID_CAMERA_CLASS_BASE + 32)
+#endif
+#if !defined(V4L2_CID_TILT_SPEED)
+#define V4L2_CID_TILT_SPEED (V4L2_CID_CAMERA_CLASS_BASE + 33)
+#endif
+#if !defined(V4L2_CID_PANTILT_CMD)
+#define V4L2_CID_PANTILT_CMD (V4L2_CID_CAMERA_CLASS_BASE + 34)
+#endif
+static bool IsBlacklistedControl(int control_id) {
+  switch (control_id) {
+    case V4L2_CID_PAN_RELATIVE:
+    case V4L2_CID_TILT_RELATIVE:
+    case V4L2_CID_PAN_RESET:
+    case V4L2_CID_TILT_RESET:
+    case V4L2_CID_PAN_ABSOLUTE:
+    case V4L2_CID_TILT_ABSOLUTE:
+    case V4L2_CID_PAN_SPEED:
+    case V4L2_CID_TILT_SPEED:
+    case V4L2_CID_PANTILT_CMD:
+      return true;
+  }
+  return false;
+}
+
 // Sets all user control to their default. Some controls are enabled by another
 // flag, usually having the word "auto" in the name, see IsSpecialControl().
 // These flags are preset beforehand, then set to their defaults individually
@@ -220,6 +246,8 @@ static void ResetUserAndCameraControlsToDefault(int device_fd) {
       range.id |= V4L2_CTRL_FLAG_NEXT_CTRL;
 
       if (IsSpecialControl(range.id & ~V4L2_CTRL_FLAG_NEXT_CTRL))
+        continue;
+      if (IsBlacklistedControl(range.id & ~V4L2_CTRL_FLAG_NEXT_CTRL))
         continue;
 
       struct v4l2_ext_control ext_control = {};
