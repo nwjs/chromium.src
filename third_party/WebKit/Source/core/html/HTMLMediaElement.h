@@ -400,6 +400,7 @@ class CORE_EXPORT HTMLMediaElement
   void disconnectedFromRemoteDevice() final;
   void cancelledRemotePlaybackRequest() final;
   void remotePlaybackStarted() final;
+  void onBecamePersistentVideo(bool) final;
   bool hasSelectedVideoTrack() final;
   WebMediaPlayer::TrackId getSelectedVideoTrackId() final;
   bool isAutoplayingMuted() final;
@@ -739,6 +740,7 @@ class CORE_EXPORT HTMLMediaElement
   friend class MediaControlsTest;
   friend class HTMLMediaElementTest;
   friend class HTMLMediaElementEventListenersTest;
+  friend class HTMLMediaElementPersistentVideoTest;
   friend class HTMLVideoElement;
   friend class HTMLVideoElementTest;
   friend class MediaControlsOrientationLockDelegateTest;
@@ -754,6 +756,8 @@ class CORE_EXPORT HTMLMediaElement
 
   Member<MediaControls> m_mediaControls;
   Member<HTMLMediaElementControlsList> m_controlsList;
+
+  bool m_isPersistentVideo;
 
   static URLRegistry* s_mediaStreamRegistry;
 };

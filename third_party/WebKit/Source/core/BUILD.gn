@@ -1235,6 +1235,7 @@ source_set("unit_tests") {
     "html/HTMLLinkElementSizesAttributeTest.cpp",
     "html/HTMLLinkElementTest.cpp",
     "html/HTMLMediaElementEventListenersTest.cpp",
+    "html/HTMLMediaElementPersistentVideoTest.cpp",
     "html/HTMLMediaElementTest.cpp",
     "html/HTMLOutputElementTest.cpp",
     "html/HTMLSelectElementTest.cpp",

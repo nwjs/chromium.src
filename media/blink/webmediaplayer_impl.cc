@@ -1528,6 +1528,10 @@ void WebMediaPlayerImpl::OnVolumeMultiplierUpdate(double multiplier) {
   setVolume(volume_);
 }
 
+void WebMediaPlayerImpl::OnBecamePersistentVideo(bool value) {
+  client_->onBecamePersistentVideo(value);
+}
+
 void WebMediaPlayerImpl::ScheduleRestart() {
   // TODO(watk): All restart logic should be moved into PipelineController.
   if (pipeline_controller_.IsPipelineRunning() &&
