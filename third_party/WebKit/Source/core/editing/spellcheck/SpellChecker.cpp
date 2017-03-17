@@ -1179,6 +1179,9 @@ std::pair<String, int> SpellChecker::findFirstMisspelling(const Position& start,
       break;
     VisiblePosition newParagraphStart =
         startOfNextParagraph(createVisiblePosition(paragraphEnd));
+    if (newParagraphStart.isNull())
+      break;
+
     paragraphStart = newParagraphStart.toParentAnchoredPosition();
     paragraphEnd = endOfParagraph(newParagraphStart).toParentAnchoredPosition();
     firstIteration = false;
