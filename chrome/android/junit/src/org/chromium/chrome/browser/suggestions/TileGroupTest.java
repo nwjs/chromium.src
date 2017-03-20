@@ -30,6 +30,7 @@ import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
 import org.robolectric.shadows.ShadowResources;
 
+import org.chromium.base.Callback;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.EnableFeatures;
@@ -158,7 +159,7 @@ public class TileGroupTest {
         public MostVisitedSites.Observer mObserver;
 
         @Override
-        public void removeMostVisitedItem(Tile tile) {}
+        public void removeMostVisitedItem(Tile tile, Callback<String> removalUndoneCallback) {}
 
         @Override
         public void openMostVisitedItem(int windowDisposition, Tile tile) {}
