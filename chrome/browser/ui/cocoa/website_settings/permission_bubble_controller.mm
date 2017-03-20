@@ -21,6 +21,7 @@
 #import "chrome/browser/ui/cocoa/hover_close_button.h"
 #import "chrome/browser/ui/cocoa/info_bubble_view.h"
 #import "chrome/browser/ui/cocoa/info_bubble_window.h"
+#import "chrome/browser/ui/cocoa/location_bar/location_bar_decoration.h"
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
 #include "chrome/browser/ui/cocoa/website_settings/permission_bubble_cocoa.h"
 #include "chrome/browser/ui/cocoa/website_settings/permission_selector_button.h"
@@ -232,15 +233,6 @@ const NSInteger kFullscreenLeftOffset = 40;
   return self;
 }
 
-- (LocationBarDecoration*)decorationForBubble {
-  if (![self hasVisibleLocationBar])
-    return nullptr;
-
-  LocationBarViewMac* location_bar =
-      [[self.parentWindow windowController] locationBarBridge];
-  return location_bar->GetPageInfoDecoration();
-}
-
 + (NSPoint)getAnchorPointForBrowser:(Browser*)browser {
   NSPoint anchor;
   NSWindow* parentWindow = browser->window()->GetNativeWindow();
@@ -288,6 +280,25 @@ const NSInteger kFullscreenLeftOffset = 40;
               object:nil];
   bridge_->OnBubbleClosing();
   [super windowWillClose:notification];
+}
+
+- (void)showWindow:(id)sender {
+  if ([self hasVisibleLocationBar]) {
+    decoration_ = [[self.parentWindow windowController] locationBarBridge]
+                      ->GetPageInfoDecoration();
+    decoration_->SetActive(true);
+  }
+
+  [super showWindow:sender];
+}
+
+- (void)close {
+  if (decoration_) {
+    decoration_->SetActive(false);
+    decoration_ = nullptr;
+  }
+
+  [super close];
 }
 
 - (void)parentWindowWillToggleFullScreen:(NSNotification*)notification {
