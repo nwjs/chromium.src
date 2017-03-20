@@ -315,9 +315,6 @@ public class DownloadNotificationService extends Service {
      * @return        a {@link Notification} that represents the summary icon for all downloads.
      */
     private static Notification buildSummaryNotificationWithIcon(Context context, int iconId) {
-        String title =
-                context.getResources().getString(R.string.download_notification_summary_title);
-
         ChromeNotificationBuilder builder =
                 AppHooks.get()
                         .createChromeNotificationBuilder(true /* preferCompat */,
@@ -325,7 +322,9 @@ public class DownloadNotificationService extends Service {
                                 context.getString(R.string.notification_category_browser),
                                 NotificationConstants.CATEGORY_GROUP_ID_GENERAL,
                                 context.getString(R.string.notification_category_group_general))
-                        .setContentTitle(title)
+                        .setContentTitle(
+                                context.getString(R.string.download_notification_summary_title))
+                        .setSubText(context.getString(R.string.menu_downloads))
                         .setSmallIcon(iconId)
                         .setLocalOnly(true)
                         .setGroup(NotificationConstants.GROUP_DOWNLOADS)
