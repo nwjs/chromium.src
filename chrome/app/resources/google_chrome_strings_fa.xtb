@@ -33,6 +33,7 @@
 <translation id="1759301979429102118">‏جزئیات مخاطبین شما می‌تواند به شما کمک کند فرم‌ها را سریع‌تر در Chrome تکمیل کنید.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">‏دریافت راهنمایی برای استفاده از سیستم عامل Chrome </translation>
+<translation id="1795405610103747296">‏Chrome را در تلفنتان نصب کنید. پیامکی به تلفنتان ارسال خواهیم کرد: <ph name="PHONE_NUMBER" /></translation>
 <translation id="1818142563254268765">‏Chrome به‌طور خودکار به جدیدترین نسخه به‌روزرسانی نشد، بنابراین ویژگی‌های جدید فوق‌العاده و اشکال‌زدایی‌های امنیتی را از دست خواهید داد. باید Chrome را به‌روزرسانی کنید.</translation>
 <translation id="1877026089748256423">‏نسخه Chrome قدیمی است</translation>
 <translation id="2063848847527508675">‏برای اعمال به‌روزرسانی، سیستم‌عامل Chrome باید راه‌اندازی مجدد شود.</translation>
@@ -40,6 +41,7 @@
 <translation id="2084710999043359739">‏افزودن به Chrome</translation>
 <translation id="2120620239521071941">‏این کار <ph name="ITEMS_COUNT" /> مورد را از این دستگاه حذف می‌کند. برای بازیابی داده‌هایتان در فرصتی دیگر، با <ph name="USER_EMAIL" /> وارد سیستم Chrome شوید.</translation>
 <translation id="2147651015520127414">‏Chrome تأیید می‌کند که <ph name="ISSUER" /> گواهی‌نامه این وب‌سایت را صادر کرده است.</translation>
+<translation id="216054706567564023">‏Chrome را در تلفنتان نصب کنید. پیامکی به شماره تلفن بازیابی حساب شما ارسال خواهیم کرد.</translation>
 <translation id="2246246234298806438">‏زمانی که نمایش دهنده داخلی PDF وجود نداشته باشد، Google Chrome نمی‌تواند پیش‌نمایش چاپ را نشان دهد.</translation>
 <translation id="2252923619938421629">‏با گزارش تنظیمات کنونی، به بهتر شدن Google Chrome کمک کنید.</translation>
 <translation id="2286950485307333924">‏اکنون در سیستم Chrome هستید</translation>
@@ -243,6 +245,7 @@
 <translation id="8030318113982266900">درحال به روزرسانی دستگاه شما به کانال <ph name="CHANNEL_NAME" />...</translation>
 <translation id="8032142183999901390">‏پس از حذف حسابتان از Chrome، ممکن است لازم باشد برای اعمال تغییرات، برگه‌های بازتان را تازه‌سازی کنید.</translation>
 <translation id="8129812357326543296">‏درباره &amp;Google Chrome</translation>
+<translation id="8179874765710681175">‏Chrome را روی تلفنتان نصب کنید. پیامکی به تلفن شما خواهیم فرستاد.</translation>
 <translation id="8183957050892517584">‏Chrome به‌طور امن جزئیات شخصی‌تان را ذخیره خواهد کرد تا نیازی نباشد دوباره آن‌ها را تایپ کنید.</translation>
 <translation id="8211929904040702368">‏این کار حداقل <ph name="TOTAL_COUNT" /> مورد را برای همیشه از این دستگاه حذف می‌کند. برای بازیابی داده‌هایتان در فرصتی دیگر، با نام $2 وارد سیستم Chrome شوید.</translation>
 <translation id="8255190535488645436">‏Google Chrome درحال استفاده از دوربین و میکروفون شما است.</translation>
@@ -251,6 +254,7 @@
 <translation id="8342675569599923794">‏این فایل خطرناک است، بنابراین Chrome آن را مسدود کرده است.</translation>
 <translation id="8406086379114794905">‏به بهبود Chrome کمک کنید</translation>
 <translation id="8455999171311319804">‏اختیاری: با ارسال خودکار داده‌های تشخیصی و میزان استفاده به Google، به بهبود سیستم عامل Chrome کمک کنید.</translation>
+<translation id="8478823064122749032">‏Chrome را در تلفنتان نصب کنید. پیامکی به شماره تلفن بازیابی حساب شما ارسال خواهیم کرد: <ph name="PHONE_NUMBER" /></translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8547799825197623713">Chrome App Launcher Canary</translation>
 <translation id="8556340503434111824">‏نسخه جدیدی از Google Chrome وجود دارد که سریعتر از همیشه است.</translation>

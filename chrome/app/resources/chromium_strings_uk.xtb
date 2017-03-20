@@ -3,6 +3,7 @@
 <translationbundle lang="uk">
 <translation id="1065672644894730302">Не вдається розпізнати налаштування. Деякі функції можуть бути не доступні, а зміни в налаштуваннях не зберігатимуться.</translation>
 <translation id="1115445892567829615">Chromium не вдалося синхронізувати ваші дані. Оновіть свою парольну фразу для синхронізації.</translation>
+<translation id="1170115874949214249">Установіть Chromium на телефоні. Ми надішлемо SMS на номер телефону для відновлення облікового запису.</translation>
 <translation id="1174473354587728743">Користуєтеся комп’ютером спільно з іншими? Тепер ви можете налаштувати Chromium на свій смак.</translation>
 <translation id="1185134272377778587">Про Chromium</translation>
 <translation id="1298199220304005244">Отримати довідку щодо користування ОС Chromium</translation>
@@ -57,6 +58,7 @@
 <translation id="2799223571221894425">Перезапустити</translation>
 <translation id="2847479871509788944">Видалити з Chromium…</translation>
 <translation id="2886012850691518054">Додатково: допоможіть покращити Chromium,  автоматично надсилаючи статистику використання та звіти про аварійне завершення роботи в Google.</translation>
+<translation id="2898082584336937987">Установіть Chromium на телефоні. Ми надішлемо SMS на ваш телефон: <ph name="PHONE_NUMBER" /></translation>
 <translation id="2905536371227304018">Для ОС Chromium вибрано цю мову.</translation>
 <translation id="2910007522516064972">Про &amp;Chromium</translation>
 <translation id="3032787606318309379">Додавання в Chromium...</translation>
@@ -203,6 +205,7 @@
 <translation id="7318036098707714271">Ваш файл налаштувань пошкоджений або недійсний.
 
 Chromium не може відновити ваші налаштування.</translation>
+<translation id="7331920710658926971">Установіть Chromium на телефоні. Ми надішлемо SMS на ваш телефон.</translation>
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7339898014177206373">Нове вікно</translation>
 <translation id="734373864078049451">Тут містяться ваші веб-сторінки, закладки та інші дані Chromium.</translation>
@@ -232,6 +235,7 @@ Chromium не може відновити ваші налаштування.</tr
 <translation id="8033665941300843262">Chromium потрібен доступ до дозволів, щоб використовувати їх на цьому сайті.</translation>
 <translation id="8134284582177628525">Якщо ви користуєтеся цим комп’ютером спільно з користувачем <ph name="PROFILE_NAME" />, додайте себе в Chromium, щоб переглядати веб-сайти окремо. Також можна від’єднати обліковий запис Google цього користувача.</translation>
 <translation id="81770708095080097">Цей файл небезпечний, тому Chromium заблокував його.</translation>
+<translation id="8222496066431494154">Установіть Chromium на телефоні. Ми надішлемо SMS на номер телефону для відновлення облікового запису: <ph name="PHONE_NUMBER" /></translation>
 <translation id="8269379391216269538">Допоможіть покращити Chromium</translation>
 <translation id="8290862415967981663">Цей файл може бути небезпечним, тому Chromium заблокував його.</translation>
 <translation id="8340674089072921962">Раніше ви входили в обліковий запис <ph name="USER_EMAIL_ADDRESS" /> у Chromium</translation>

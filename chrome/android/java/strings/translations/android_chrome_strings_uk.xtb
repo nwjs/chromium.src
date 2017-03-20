@@ -27,6 +27,7 @@
 <translation id="124678866338384709">Закрити поточну вкладку</translation>
 <translation id="1258753120186372309">Дудл Google: <ph name="DOODLE_DESCRIPTION" /></translation>
 <translation id="1272079795634619415">Зупинити</translation>
+<translation id="1283039547216852943">Торкніться, щоб розгорнути</translation>
 <translation id="1285320974508926690">Ніколи не перекладати цей сайт</translation>
 <translation id="1291207594882862231">Очистити історію, файли cookie, дані сайтів, кеш…</translation>
 <translation id="129553762522093515">Нещодавно закриті</translation>
@@ -82,6 +83,7 @@
 <translation id="1825719650605518411">Перший запуск</translation>
 <translation id="1829244130665387512">Знайти на сторінці</translation>
 <translation id="1832521218263067499">Випадки порушення безпеки</translation>
+<translation id="1841591888176896630">Пропозицій Chrome: %1$s</translation>
 <translation id="1853692000353488670">Нова анонімна вкладка</translation>
 <translation id="189172778771606813">Закрити панель навігації</translation>
 <translation id="1933845786846280168">Вибрана вкладка</translation>
@@ -145,7 +147,6 @@
 <translation id="2587052924345400782">Доступна новіша версія</translation>
 <translation id="2593272815202181319">Однакової ширини</translation>
 <translation id="2621115761605608342">Увімкнути Javascript на певному сайті.</translation>
-<translation id="2646820313617290661">Цими налаштуваннями керують ваші батьки.</translation>
 <translation id="2653659639078652383">Надіслати</translation>
 <translation id="2677748264148917807">Вийти</translation>
 <translation id="2704606927547763573">Скопійов.</translation>
@@ -221,6 +222,7 @@
 <translation id="3549644494707163724">Шифрувати всі синхронізовані дані за допомогою власної парольної фрази для синхронізації</translation>
 <translation id="3549657413697417275">Пошук в історії</translation>
 <translation id="3557336313807607643">Додати до контактів</translation>
+<translation id="3583454905526475291">Не вдалося відкрити додаток</translation>
 <translation id="3590487821116122040">Дані сайтів, які Chrome визначив як неважливі, зокрема сайтів із незбереженими налаштуваннями або тих, які ви рідко відвідуєте</translation>
 <translation id="360480449234699036">Дізнавайтеся більше про теми на веб-сайтах, не залишаючи сторінку. Функція пошуку дотиком надсилає слово та його контекст у Пошук Google і повертає визначення, зображення, результати пошуку й інші дані.
 
@@ -256,6 +258,7 @@
 <translation id="393697183122708255">Голосовий пошук вимкнено</translation>
 <translation id="3946611741043634542">Продовжуючи, ви приймаєте <ph name="BEGIN_LINK1" />Умови використання<ph name="END_LINK1" /> та <ph name="BEGIN_LINK2" />Примітку про конфіденційність<ph name="END_LINK2" /> Chrome.</translation>
 <translation id="3950820424414687140">Увійти</translation>
+<translation id="395922942268463099">Сторінки регулярно оновлюються</translation>
 <translation id="3967822245660637423">Завантажено</translation>
 <translation id="397583555483684758">Синхронізація перестала працювати</translation>
 <translation id="3985215325736559418">Завантажити файл "<ph name="FILE_NAME" />" повторно?</translation>
@@ -308,7 +311,9 @@
 <translation id="4572422548854449519">Увійдіть у керований обліковий запис</translation>
 <translation id="4581964774250883625">Ви вибрали режим анонімного перегляду.</translation>
 <translation id="4583164079174244168">{MINUTES,plural, =1{# хвилину тому}one{# хвилину тому}few{# хвилини тому}many{# хвилин тому}other{# хвилини тому}}</translation>
+<translation id="4587589328781138893">Сайти</translation>
 <translation id="4605958867780575332">Елемент "<ph name="ITEM_TITLE" />" вилучено</translation>
+<translation id="4616150815774728855">Відкрити файл <ph name="WEBAPK_NAME" /></translation>
 <translation id="4645575059429386691">Керується одним із батьків</translation>
 <translation id="4663756553811254707">Видалено закладок: <ph name="NUMBER_OF_BOOKMARKS" /></translation>
 <translation id="4665282149850138822">Веб-сайт <ph name="NAME" /> додано на головний екран</translation>
@@ -337,6 +342,7 @@
 <translation id="4862624982077154323">На деяких веб-сайтах можна оплачувати за допомогою підтримуваних додатків для платежів. Виберіть додатки, якими користуватиметесь у Chrome.</translation>
 <translation id="4881695831933465202">Відкрити</translation>
 <translation id="4885273946141277891">Забагато копій Chrome.</translation>
+<translation id="490442468485962363">Відкрити в анонімній вкладці Chrome</translation>
 <translation id="4910889077668685004">Додатки для платежів</translation>
 <translation id="4915549754973153784"><ph name="BEGIN_LINK" />Довідка<ph name="END_LINK" /> під час пошуку пристроїв…</translation>
 <translation id="4943872375798546930">Не знайдено жодного результату</translation>
@@ -448,6 +454,7 @@
 <translation id="5939518447894949180">Скинути</translation>
 <translation id="5942872142862698679">Пошук за допомогою Google</translation>
 <translation id="5956665950594638604">Відкрити Довідковий центр Chrome у новій вкладці</translation>
+<translation id="5962718611393537961">Торкніться, щоб згорнути</translation>
 <translation id="6000066717592683814">Залишити Google</translation>
 <translation id="6010869025736512584">Отримання доступу до відеовходу</translation>
 <translation id="6012342843556706400">Chrome потрібен доступ до геоданих, щоб дозволити цьому сайту використовувати їх.</translation>
@@ -638,6 +645,7 @@
 <translation id="8035133914807600019">Нова папка…</translation>
 <translation id="8037750541064988519">Залишилося <ph name="DAYS" /> дн.</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> Мб доступно</translation>
+<translation id="8058746566562539958">Відкрити в новій вкладці Chrome</translation>
 <translation id="8063895661287329888">Не вдалося додати закладку.</translation>
 <translation id="806745655614357130">Зберігати мої дані окремо</translation>
 <translation id="8068648041423924542">Не вдалося вибрати сертифікат.</translation>

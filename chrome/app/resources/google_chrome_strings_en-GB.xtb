@@ -37,6 +37,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="1759301979429102118">Details from your contacts can help you fill out forms more quickly in Chrome.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Get help with using Chrome OS</translation>
+<translation id="1795405610103747296">Install Chrome on your phone. We’ll send an SMS to your phone: <ph name="PHONE_NUMBER" /></translation>
 <translation id="1818142563254268765">Chrome could not update itself to the latest version, so you are missing out on amazing new features and security fixes. You need to update Chrome.</translation>
 <translation id="1877026089748256423">Chrome is out of date</translation>
 <translation id="2063848847527508675">Chrome OS needs to be restarted to apply the update.</translation>
@@ -44,6 +45,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2084710999043359739">Add to Chrome</translation>
 <translation id="2120620239521071941">This will delete <ph name="ITEMS_COUNT" /> items from this device. To retrieve your data later, sign in to Chrome as <ph name="USER_EMAIL" />.</translation>
 <translation id="2147651015520127414">Chrome verified that <ph name="ISSUER" /> issued this website's certificate.</translation>
+<translation id="216054706567564023">Install Chrome on your phone. We’ll send an SMS to your account recovery phone number.</translation>
 <translation id="2246246234298806438">Google Chrome cannot show the print preview when the built-in PDF viewer is missing.</translation>
 <translation id="2252923619938421629">Help make Google Chrome better by reporting the current settings</translation>
 <translation id="2286950485307333924">You're now signed in to Chrome</translation>
@@ -250,6 +252,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="8030318113982266900">Updating your device to <ph name="CHANNEL_NAME" /> channel...</translation>
 <translation id="8032142183999901390">After removing your account from Chrome, you may need to reload your open tabs to take effect.</translation>
 <translation id="8129812357326543296">About &amp;Google Chrome</translation>
+<translation id="8179874765710681175">Install Chrome on your phone. We’ll send an SMS to your phone.</translation>
 <translation id="8183957050892517584">Chrome will securely store your personal details so that you don't need to type them again.</translation>
 <translation id="8211929904040702368">This will permanently delete at least <ph name="TOTAL_COUNT" /> items from this device. To retrieve your data later, sign in to Chrome as $2.</translation>
 <translation id="8255190535488645436">Google Chrome is using your camera and microphone.</translation>
@@ -258,6 +261,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="8342675569599923794">This file is dangerous, so Chrome has blocked it.</translation>
 <translation id="8406086379114794905">Help make Chrome better</translation>
 <translation id="8455999171311319804">Optional: Help make Chrome OS better by automatically sending diagnostic and usage data to Google.</translation>
+<translation id="8478823064122749032">Install Chrome on your phone. We’ll send an SMS to your account recovery phone number: <ph name="PHONE_NUMBER" /></translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8547799825197623713">Chrome App Launcher Canary</translation>
 <translation id="8556340503434111824">There's a new version of Google Chrome available and it's faster than ever.</translation>
