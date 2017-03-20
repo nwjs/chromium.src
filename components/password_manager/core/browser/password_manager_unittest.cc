@@ -619,7 +619,7 @@ TEST_F(PasswordManagerTest, ReportFormLoginSuccessAndShouldSaveCalled) {
       .WillRepeatedly(Return(true));
   EXPECT_CALL(client_, GetPrefs()).WillRepeatedly(Return(nullptr));
 
-  manager()->ProvisionallySavePassword(observed_form);
+  manager()->ProvisionallySavePassword(observed_form, nullptr);
 
   // Chrome should recognise the successful login and call
   // ReportFormLoginSuccess.
@@ -653,7 +653,7 @@ TEST_F(PasswordManagerTest, SyncCredentialsNotDroppedIfUpToDate) {
   EXPECT_CALL(client_, IsSavingAndFillingEnabledForCurrentPage())
       .WillRepeatedly(Return(true));
   EXPECT_CALL(client_, GetPrefs()).WillRepeatedly(Return(nullptr));
-  manager()->ProvisionallySavePassword(form);
+  manager()->ProvisionallySavePassword(form, nullptr);
 
   // Chrome should not remove the sync credential, because it was successfully
   // used as stored, and therefore is up to date.
@@ -686,7 +686,7 @@ TEST_F(PasswordManagerTest, SyncCredentialsDroppedWhenObsolete) {
   EXPECT_CALL(client_, IsSavingAndFillingEnabledForCurrentPage())
       .WillRepeatedly(Return(true));
   EXPECT_CALL(client_, GetPrefs()).WillRepeatedly(Return(nullptr));
-  manager()->ProvisionallySavePassword(updated_form);
+  manager()->ProvisionallySavePassword(updated_form, nullptr);
 
   client_.FilterAllResultsForSaving();
 
