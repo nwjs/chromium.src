@@ -2376,6 +2376,9 @@ const char kOriginTrialPublicKey[] = "origin_trials.public_key";
 // A list of origin trial features to disable by policy.
 const char kOriginTrialDisabledFeatures[] = "origin_trials.disabled_features";
 
+// A list of origin trial tokens to disable by policy.
+const char kOriginTrialDisabledTokens[] = "origin_trials.disabled_tokens";
+
 // Policy that indicates the state of updates for the binary components.
 const char kComponentUpdatesEnabled[] =
     "component_updates.component_updates_enabled";
