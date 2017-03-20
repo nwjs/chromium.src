@@ -1654,9 +1654,7 @@ BrowserAccessibilityManager*
     RenderWidgetHostViewMac::CreateBrowserAccessibilityManager(
         BrowserAccessibilityDelegate* delegate, bool for_root_frame) {
   return new BrowserAccessibilityManagerMac(
-      cocoa_view_,
-      BrowserAccessibilityManagerMac::GetEmptyDocument(),
-      delegate);
+      BrowserAccessibilityManagerMac::GetEmptyDocument(), delegate);
 }
 
 gfx::Point RenderWidgetHostViewMac::AccessibilityOriginInScreen(
