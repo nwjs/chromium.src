@@ -59,11 +59,7 @@ public class JniInterface {
     @CalledByNative
     private static void fetchAuthToken() {
         if (sAccount == null) {
-            // It is safe to ignore this request since setAccountForLogging() will be called later
-            // and will request the auth token. Logs will be queued up and sent once the auth token
-            // is set.
-            Log.w(TAG, "Account is not set before fetching the auth token.");
-            return;
+            throw new IllegalStateException("Account is not set before fetching the auth token.");
         }
         sLoggerTokenConsumer.consume(sAccount, new OAuthTokenFetcher.Callback() {
             @Override
