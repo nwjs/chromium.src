@@ -101,7 +101,6 @@
 <translation id="2871695793448672541">非表示のパスワード</translation>
 <translation id="2898963176829412617">新しいフォルダ...</translation>
 <translation id="2903493209154104877">住所</translation>
-<translation id="291754862089661335">QR コードまたはバーコードをこの枠に合わせてください</translation>
 <translation id="2921219216347069551">ページを共有できない</translation>
 <translation id="292639812446257861">未読にする</translation>
 <translation id="2933759065870693102">照明</translation>
@@ -244,7 +243,7 @@
 <translation id="6021332621416007159">次で開く...</translation>
 <translation id="6039694632319341016"><ph name="PASSWORD_MANAGER_BRAND" /> に保存されているこのサイトの <ph name="USERNAME" /> のパスワードを更新しますか？</translation>
 <translation id="6040143037577758943">閉じる</translation>
-<translation id="6042308850641462728">もっと見る</translation>
+<translation id="6042308850641462728">詳細表示</translation>
 <translation id="605721222689873409">YY</translation>
 <translation id="6066301408025741299">タップしてキャンセルします。</translation>
 <translation id="60851516108411750">リーディング リストをオフラインで利用できます。リーディング リストにページを追加するには、<ph name="SHARE_OPENING_ICON" /> をタップします。</translation>

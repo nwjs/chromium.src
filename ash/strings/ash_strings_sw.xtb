@@ -24,16 +24,12 @@
 <translation id="1525508553941733066">ONDOA</translation>
 <translation id="15373452373711364">Kishale kikubwa cha kipanya</translation>
 <translation id="1550523713251050646">Bofya ili upate chaguo zaidi</translation>
-<translation id="1571442141242456645">Mbinu yako ya kuingiza data imebadilika kuwa <ph name="INPUT_METHOD_ID" />.
-    Bonyeza Shift + Alt ubadilishe.</translation>
 <translation id="1602076796624386989">Wezesha data ya simu</translation>
 <translation id="1621499497873603021">Muda unaosalia mpaka betri inapoisha, <ph name="TIME_LEFT" /></translation>
 <translation id="164969095109328410">Kifaa cha Chrome</translation>
 <translation id="1677472565718498478">Zimesalia <ph name="TIME" /></translation>
 <translation id="1747827819627189109">Kibodi ya skrini imewashwa</translation>
 <translation id="1850504506766569011">Wi-Fi imezimwa.</translation>
-<translation id="1854357586517521894">Kipengele cha CAPS LOCK kimewashwa. 
-     Bonyeza kitufe cha Utafutaji au Shift ughairi.</translation>
 <translation id="1864454756846565995">Kifaa cha USB-C (mlango wa nyuma)</translation>
 <translation id="1882897271359938046">Inaakisi kwenye <ph name="DISPLAY_NAME" /></translation>
 <translation id="1919743966458266018">Njia ya mkato ya kufungua kidhibiti cha shughuli kwenye Chrome imebadilika. Tafadhali tumia <ph name="NEW_SHORTCUT" /> badala ya <ph name="OLD_SHORTCUT" />.</translation>
@@ -66,8 +62,6 @@
 <translation id="2857608528410806398">Maudhui ya arifa ya Kipengele cha QU huenda hapa. Maudhui ya arifa ya Kipengele cha QU huenda hapa. Maudhui ya arifa ya Kipengele cha QU huenda hapa. Maudhui ya arifa ya Kipengele cha QU huenda hapa. Maudhui ya arifa ya Kipengee cha QU huenda hapa.</translation>
 <translation id="2865888419503095837">Maelezo ya mtandao</translation>
 <translation id="2872961005593481000">Zima</translation>
-<translation id="291653379653113090">Mbinu yako ya kuingiza data imebadilika kuwa <ph name="INPUT_METHOD_ID" />*(<ph name="BEGIN_LINK" />mtu mwingine<ph name="END_LINK" />).
-    Bonyeza Shift + Alt ubadilishe.</translation>
 <translation id="2942516765047364088">Nafasi ya rafu</translation>
 <translation id="2946119680249604491">Ongeza muunganisho</translation>
 <translation id="2963773877003373896">mod3</translation>
@@ -78,8 +72,6 @@
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Chini</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
-<translation id="3109220592788908353">Kipengele cha CAPS LOCK kimewashwa. 
-   Bonyeza Alt+Search au Shift ughairi.</translation>
 <translation id="3126069444801937830">Anzisha upya ili kusasisha</translation>
 <translation id="3147142846278915599">Kifungua programu (inasawazisha programu...)</translation>
 <translation id="315116470104423982">Data ya simu</translation>
@@ -148,7 +140,6 @@
 <translation id="5313326810920013265">Mipangilio ya Bluetooth</translation>
 <translation id="532063867737390965">Msimamizi amezima mipangilio ya mtandao huu.</translation>
 <translation id="5331975486040154427">Kifaa cha USB-C (mlango wa upande wa kushoto nyuma)</translation>
-<translation id="5430931332414098647">Mtandao wa Kusambazwa Papo Hapo</translation>
 <translation id="5431825016875453137">OpenVPN / L2TP</translation>
 <translation id="544691375626129091">Tayari watumiaji wanaopatikana wameongezwa kwenye kikao hiki.</translation>
 <translation id="5507786745520522457">Sanidi data ya simu ya mkononi.</translation>
