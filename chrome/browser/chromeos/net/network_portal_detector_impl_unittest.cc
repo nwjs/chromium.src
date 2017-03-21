@@ -336,7 +336,7 @@ TEST_F(NetworkPortalDetectorImplTest, Portal) {
 
   CompleteURLFetch(net::OK, 200, NULL);
 
-  ASSERT_FALSE(is_state_idle());
+  ASSERT_TRUE(is_state_idle());
   CheckPortalState(
       NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PORTAL, 200, kStubWireless1);
 
@@ -427,7 +427,7 @@ TEST_F(NetworkPortalDetectorImplTest, TwoNetworks) {
 
   // WiFi is in portal state.
   CompleteURLFetch(net::OK, 200, NULL);
-  ASSERT_FALSE(is_state_idle());
+  ASSERT_TRUE(is_state_idle());
 
   SetConnected(kStubEthernet);
   ASSERT_TRUE(is_state_checking_for_portal());
@@ -510,7 +510,7 @@ TEST_F(NetworkPortalDetectorImplTest, NetworkStateChanged) {
 
   CompleteURLFetch(net::OK, 200, NULL);
 
-  ASSERT_FALSE(is_state_idle());
+  ASSERT_TRUE(is_state_idle());
   CheckPortalState(
       NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PORTAL, 200, kStubWireless1);
 
@@ -528,7 +528,7 @@ TEST_F(NetworkPortalDetectorImplTest, NetworkStateChanged) {
 
   CompleteURLFetch(net::OK, 200, NULL);
 
-  ASSERT_FALSE(is_state_idle());
+  ASSERT_TRUE(is_state_idle());
   CheckPortalState(
       NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PORTAL, 200, kStubWireless1);
 
@@ -827,7 +827,7 @@ TEST_F(NetworkPortalDetectorImplTest, ErrorScreenStrategyForPortalNetwork) {
 
   CompleteURLFetch(net::OK, 200, NULL);
   ASSERT_EQ(0, no_response_result_count());
-  ASSERT_TRUE(is_state_portal_detection_pending());
+  ASSERT_TRUE(is_state_idle());
   CheckPortalState(
       NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PORTAL, 200, kStubWireless1);
 
@@ -836,6 +836,7 @@ TEST_F(NetworkPortalDetectorImplTest, ErrorScreenStrategyForPortalNetwork) {
 
   disable_error_screen_strategy();
 
+  // Set a different strategy will Start detection if idle.
   ASSERT_TRUE(is_state_portal_detection_pending());
   CheckPortalState(
       NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PORTAL, 200, kStubWireless1);
@@ -889,7 +890,7 @@ TEST_F(NetworkPortalDetectorImplTest, TestDetectionRestart) {
 
   CheckPortalState(
       NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PORTAL, 200, kStubWireless1);
-  ASSERT_FALSE(is_state_idle());
+  ASSERT_TRUE(is_state_idle());
 
   ASSERT_TRUE(
       MakeResultHistogramChecker()
