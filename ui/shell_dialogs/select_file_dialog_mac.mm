@@ -219,7 +219,7 @@ void SelectFileDialogImpl::SelectFileImpl(
       [open_dialog setCanChooseFiles:NO];
       [open_dialog setCanChooseDirectories:YES];
       [open_dialog setCanCreateDirectories:YES];
-      NSString *prompt = (type == SELECT_UPLOAD_FOLDER)
+      NSString *prompt = (false && type == SELECT_UPLOAD_FOLDER)
           ? l10n_util::GetNSString(IDS_SELECT_UPLOAD_FOLDER_BUTTON_TITLE)
           : l10n_util::GetNSString(IDS_SELECT_FOLDER_BUTTON_TITLE);
       [open_dialog setPrompt:prompt];

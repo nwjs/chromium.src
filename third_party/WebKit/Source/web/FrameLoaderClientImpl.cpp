@@ -124,6 +124,14 @@ Frame* toCoreFrame(WebFrame* frame) {
 
 }  // namespace
 
+void FrameLoaderClientImpl::willHandleNavigationPolicy(const ResourceRequest& request, NavigationPolicy* policy, WebString* manifest, bool new_win)
+{
+    if (m_webFrame->client()) {
+        WrappedResourceRequest webreq(request);
+        m_webFrame->client()->willHandleNavigationPolicy(m_webFrame, webreq, (WebNavigationPolicy*)policy, manifest, new_win);
+    }
+}
+
 FrameLoaderClientImpl::FrameLoaderClientImpl(WebLocalFrameImpl* frame)
     : m_webFrame(frame) {}
 
@@ -888,14 +896,15 @@ void FrameLoaderClientImpl::didChangeFrameOwnerProperties(
   if (!m_webFrame->client())
     return;
 
-  m_webFrame->client()->didChangeFrameOwnerProperties(
-      WebFrame::fromFrame(frameElement->contentFrame()),
-      WebFrameOwnerProperties(
+  WebFrameOwnerProperties ownerProperties(
           frameElement->browsingContextContainerName(),
           frameElement->scrollingMode(), frameElement->marginWidth(),
           frameElement->marginHeight(), frameElement->allowFullscreen(),
           frameElement->allowPaymentRequest(), frameElement->csp(),
-          frameElement->delegatedPermissions()));
+          frameElement->delegatedPermissions());
+  ownerProperties.nwFakeTop = frameElement->fastHasAttribute(HTMLNames::nwfaketopAttr);
+  m_webFrame->client()->didChangeFrameOwnerProperties(
+       WebFrame::fromFrame(frameElement->contentFrame()), ownerProperties);
 }
 
 void FrameLoaderClientImpl::dispatchWillStartUsingPeerConnectionHandler(
