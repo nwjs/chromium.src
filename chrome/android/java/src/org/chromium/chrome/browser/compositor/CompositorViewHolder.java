@@ -1077,6 +1077,7 @@ public class CompositorViewHolder extends FrameLayout
                 int virtualViewId, int action, Bundle arguments) {
             switch (action) {
                 case AccessibilityNodeInfoCompat.ACTION_CLICK:
+                    mVirtualViews.get(virtualViewId).handleClick(LayoutManager.time());
                     return true;
             }
 
