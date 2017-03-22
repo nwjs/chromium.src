@@ -1421,18 +1421,29 @@ static inline const PaintLayer* accumulateOffsetTowardsAncestor(
   }
 
   PaintLayer* parentLayer = nullptr;
-  if (position == AbsolutePosition || position == FixedPosition ||
-      (layoutObject->isFloating() && layoutObject->parent() &&
-       !layoutObject->parent()->isLayoutBlockFlow())) {
+  bool isOutOfFlowPositioned =
+      position == AbsolutePosition || position == FixedPosition;
+  if (isOutOfFlowPositioned ||
+      // If the parent layer is not a block, there might be floating objects
+      // between this layer (included) and parent layer which need to escape the
+      // inline parent to find the actual containing layer through the
+      // containing block chain.
+      (layer->parent() && !layer->parent()->layoutObject()->isLayoutBlock())) {
     bool foundAncestorFirst = false;
-    if (layoutObject->isFloating()) {
+    if (!isOutOfFlowPositioned) {
       Optional<LayoutObject::AncestorSkipInfo> skipInfo;
       if (ancestorLayer)
         skipInfo.emplace(ancestorLayer->layoutObject());
-      if (auto* containingBlock = layoutObject->containingBlock(
-              ancestorLayer ? &*skipInfo : nullptr)) {
-        parentLayer = containingBlock->enclosingLayer();
-        foundAncestorFirst = ancestorLayer && skipInfo->ancestorSkipped();
+
+      const LayoutObject* object = layoutObject;
+      while (auto* container =
+                 object->container(ancestorLayer ? &*skipInfo : nullptr)) {
+        foundAncestorFirst |= ancestorLayer && skipInfo->ancestorSkipped();
+        if (container->hasLayer()) {
+          parentLayer = toLayoutBoxModelObject(container)->layer();
+          break;
+        }
+        object = container;
       }
     } else {
       parentLayer = layer->containingLayerForOutOfFlowPositioned(
