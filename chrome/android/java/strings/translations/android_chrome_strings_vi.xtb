@@ -27,6 +27,7 @@ Bạn phải bật Bluetooth và Vị trí để sử dụng Web trong cuộc s�
 <translation id="124678866338384709">Đóng tab hiện tại</translation>
 <translation id="1258753120186372309">Hình tượng trưng của Google: <ph name="DOODLE_DESCRIPTION" /></translation>
 <translation id="1272079795634619415">Dừng</translation>
+<translation id="1283039547216852943">Nhấn để mở rộng</translation>
 <translation id="1285320974508926690">Không bao giờ dịch trang web này</translation>
 <translation id="1291207594882862231">Xóa lịch sử, cookie, dữ liệu trang web, bộ nhớ cache…</translation>
 <translation id="129553762522093515">Các tab đã đóng gần đây</translation>
@@ -82,6 +83,7 @@ Bạn phải bật Bluetooth và Vị trí để sử dụng Web trong cuộc s�
 <translation id="1825719650605518411">Trải nghiệm lần chạy đầu tiên</translation>
 <translation id="1829244130665387512">Tìm trong trang</translation>
 <translation id="1832521218263067499">Sự cố bảo mật</translation>
+<translation id="1841591888176896630">%1$s đề xuất của Chrome</translation>
 <translation id="1853692000353488670">Tab ẩn danh mới</translation>
 <translation id="189172778771606813">Đóng ngăn điều hướng</translation>
 <translation id="1933845786846280168">Tab được chọn</translation>
@@ -145,7 +147,6 @@ Bạn phải bật Bluetooth và Vị trí để sử dụng Web trong cuộc s�
 <translation id="2587052924345400782">Đã có phiên bản mới hơn</translation>
 <translation id="2593272815202181319">Monospace</translation>
 <translation id="2621115761605608342">Cho phép JavaScript cho trang web cụ thể.</translation>
-<translation id="2646820313617290661">Cha mẹ của bạn giúp quản lý những cài đặt này.</translation>
 <translation id="2653659639078652383">Gửi</translation>
 <translation id="2677748264148917807">Rời khỏi</translation>
 <translation id="2704606927547763573">Đã sao chép</translation>
@@ -221,6 +222,7 @@ Bạn phải bật Bluetooth và Vị trí để sử dụng Web trong cuộc s�
 <translation id="3549644494707163724">Mã hóa tất cả dữ liệu đã đồng bộ hóa bằng cụm mật khẩu đồng bộ hóa của riêng bạn</translation>
 <translation id="3549657413697417275">Tìm kiếm lịch sử của bạn</translation>
 <translation id="3557336313807607643">Thêm vào danh bạ</translation>
+<translation id="3583454905526475291">Không thể khởi chạy ứng dụng</translation>
 <translation id="3590487821116122040">Bộ nhớ trang web mà Chrome cho rằng không quan trọng (ví dụ: những trang web không có cài đặt đã lưu nào hoặc trang web mà bạn không truy cập thường xuyên)</translation>
 <translation id="360480449234699036">Tìm hiểu về các chủ đề trên trang web mà không rời khỏi trang. Chạm để Tìm kiếm gửi một từ và ngữ cảnh xung quanh từ đó tới Google Tìm kiếm, trả về định nghĩa, hình ảnh, kết quả tìm kiếm và các chi tiết khác.
 
@@ -256,6 +258,7 @@ Bạn phải bật Bluetooth và Vị trí để sử dụng Web trong cuộc s�
 <translation id="393697183122708255">Không có tìm kiếm bằng giọng nói đã bật</translation>
 <translation id="3946611741043634542">Bằng cách tiếp tục, bạn đồng ý với <ph name="BEGIN_LINK1" />Điều khoản dịch vụ<ph name="END_LINK1" /> và <ph name="BEGIN_LINK2" />Thông báo bảo mật<ph name="END_LINK2" /> của Chrome.</translation>
 <translation id="3950820424414687140">Đăng nhập</translation>
+<translation id="395922942268463099">Trang được cập nhật thường xuyên</translation>
 <translation id="3967822245660637423">Tải xuống hoàn tất</translation>
 <translation id="397583555483684758">Đồng bộ hóa đã ngừng hoạt động</translation>
 <translation id="3985215325736559418">Bạn có muốn tải lại <ph name="FILE_NAME" /> xuống không?</translation>
@@ -308,7 +311,9 @@ Bạn phải bật Bluetooth và Vị trí để sử dụng Web trong cuộc s�
 <translation id="4572422548854449519">Đăng nhập vào tài khoản được quản lý</translation>
 <translation id="4581964774250883625">Bạn đã chuyển sang chế độ ẩn danh.</translation>
 <translation id="4583164079174244168">{MINUTES,plural, =1{# phút trước}other{# phút trước}}</translation>
+<translation id="4587589328781138893">Trang web</translation>
 <translation id="4605958867780575332">Đã xóa mục: <ph name="ITEM_TITLE" /></translation>
+<translation id="4616150815774728855">Mở <ph name="WEBAPK_NAME" /></translation>
 <translation id="4645575059429386691">Do cha mẹ của bạn quản lý</translation>
 <translation id="4663756553811254707">Đã xóa <ph name="NUMBER_OF_BOOKMARKS" /> dấu trang</translation>
 <translation id="4665282149850138822">Đã thêm <ph name="NAME" /> vào Màn hình chính của bạn</translation>
@@ -337,6 +342,7 @@ Bạn phải bật Bluetooth và Vị trí để sử dụng Web trong cuộc s�
 <translation id="4862624982077154323">Trên một số trang web, bạn có thể thanh toán bằng các ứng dụng thanh toán được hỗ trợ. Hãy chọn ứng dụng mà bạn muốn sử dụng trong Chrome.</translation>
 <translation id="4881695831933465202">Mở</translation>
 <translation id="4885273946141277891">Số phiên bản Chrome không được hỗ trợ.</translation>
+<translation id="490442468485962363">Mở trong tab ẩn danh của Chrome</translation>
 <translation id="4910889077668685004">Ứng dụng thanh toán</translation>
 <translation id="4915549754973153784"><ph name="BEGIN_LINK" />Nhận trợ giúp<ph name="END_LINK" /> trong khi quét tìm thiết bị…</translation>
 <translation id="4943872375798546930">Không tìm thấy kết quả nào</translation>
@@ -426,6 +432,7 @@ Tuy nhiên, bạn vẫn hiển thị. Truy cập ẩn danh sẽ không ẩn 
 <translation id="572328651809341494">Các tab gần đây</translation>
 <translation id="572392919096807438">Ghi nhớ quyết định của tôi</translation>
 <translation id="5726692708398506830">Phóng to mọi nội dung trên trang</translation>
+<translation id="5738816946784116349">Lượt tải xuống Chrome</translation>
 <translation id="5748802427693696783">Đã chuyển sang tab chuẩn</translation>
 <translation id="5749068826913805084">Chrome cần quyền truy cập bộ nhớ để tải xuống tệp.</translation>
 <translation id="5763382633136178763">Tab ẩn danh</translation>
@@ -448,6 +455,7 @@ Tuy nhiên, bạn vẫn hiển thị. Truy cập ẩn danh sẽ không ẩn 
 <translation id="5939518447894949180">Đặt lại</translation>
 <translation id="5942872142862698679">Sử dụng Google để tìm kiếm</translation>
 <translation id="5956665950594638604">Mở Trung tâm trợ giúp Chrome trong tab mới</translation>
+<translation id="5962718611393537961">Nhấn để thu gọn</translation>
 <translation id="6000066717592683814">Giữ Google làm công cụ tìm kiếm mặc định</translation>
 <translation id="6010869025736512584">Đang truy cập thiết bị đầu vào video</translation>
 <translation id="6012342843556706400">Chrome cần quyền truy cập vị trí để chia sẻ vị trí với trang web này.</translation>
@@ -638,6 +646,7 @@ Tài khoản Google của bạn có thể có các dạng lịch sử duyệt we
 <translation id="8035133914807600019">Thư mục mới...</translation>
 <translation id="8037750541064988519">Còn <ph name="DAYS" /> ngày</translation>
 <translation id="8051695050440594747">Còn <ph name="MEGABYTES" /> MB</translation>
+<translation id="8058746566562539958">Mở trong tab Chrome mới</translation>
 <translation id="8063895661287329888">Không thêm được dấu trang.</translation>
 <translation id="806745655614357130">Giữ dữ liệu của tôi riêng biệt</translation>
 <translation id="8068648041423924542">Không thể chọn chứng chỉ.</translation>
@@ -684,6 +693,7 @@ Tài khoản Google của bạn có thể có các dạng lịch sử duyệt we
 <translation id="856481929701340285">Yêu cầu trang web cho máy tính</translation>
 <translation id="857943718398505171">Được phép (được đề xuất)</translation>
 <translation id="8583805026567836021">Xóa dữ liệu tài khoản</translation>
+<translation id="85969253066007694">Bạn và cha mẹ của bạn có thể kiểm soát cách thức hoạt động của ứng dụng này trong <ph name="BEGIN_LINK1" />Cài đặt<ph name="END_LINK1" /></translation>
 <translation id="8617240290563765734">Mở URL đề xuất được chỉ định trong nội dung được tải xuống?</translation>
 <translation id="862875433388403934">Nội dung (phim, nhạc, v.v.) được tải xuống trong các ứng dụng khác có thể không còn phát được cho tới khi ứng dụng đó nhận lại giấy phép dựa theo thông tin đăng nhập thiết bị mới.
 

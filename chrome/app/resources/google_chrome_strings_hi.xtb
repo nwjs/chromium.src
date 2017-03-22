@@ -33,6 +33,7 @@
 <translation id="1759301979429102118">आपके संपर्कों के विवरण Chrome में अधिक तेज़ी से फ़ॉर्म भरने में आपकी सहायता कर सकते हैं.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Chrome OS का उपयोग करने के बारे में सहायता प्राप्त करें</translation>
+<translation id="1795405610103747296">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके फ़ोन पर एक SMS भेजेंगे: <ph name="PHONE_NUMBER" /></translation>
 <translation id="1818142563254268765">Chrome स्वयं को नवीनतम वर्शन में अपडेट नहीं कर सका, इसलिए आप शानदार नई सुविधाओं और सुरक्षा समाधानों का लाभ नहीं ले पा रहे हैं. आपको Chrome को अपडेट करना होगा.</translation>
 <translation id="1877026089748256423">Chrome पुराना हो गया है</translation>
 <translation id="2063848847527508675">अपडेट लागू करने के लिए Chrome OS को फिर से चालू करने की आवश्यकता होती है.</translation>
@@ -40,6 +41,7 @@
 <translation id="2084710999043359739">Chrome में जोड़ें</translation>
 <translation id="2120620239521071941">ऐसा करने से इस डिवाइस से <ph name="ITEMS_COUNT" /> आइटम हट जाएंगे. बाद में अपना डेटा पाने के लिए, Chrome में <ph name="USER_EMAIL" /> के रूप में प्रवेश करें.</translation>
 <translation id="2147651015520127414">Chrome ने सत्‍यापित किया है कि वेबसाइट का यह प्रमाणपत्र <ph name="ISSUER" /> ने जारी किया है.</translation>
+<translation id="216054706567564023">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके खाता पुनर्प्राप्ति फ़ोन नंबर पर एक SMS भेजेंगे.</translation>
 <translation id="2246246234298806438">अंतर्निहित PDF दिखाने का साधन गुम होने पर Google Chrome प्रिंट पूर्वावलोकन नहीं दिखा सकता.</translation>
 <translation id="2252923619938421629">वर्तमान सेटिंग की रिपोर्ट करके Google Chrome को बेहतर बनाने में सहायता करें</translation>
 <translation id="2286950485307333924">अब आपने Chrome में प्रवेश कर लिया है</translation>
@@ -244,6 +246,7 @@
 <translation id="8030318113982266900">आपके डिवाइस को <ph name="CHANNEL_NAME" /> चैनल पर अपडेट किया जा रहा है...</translation>
 <translation id="8032142183999901390">Chrome से अपना खाता निकालने के बाद, आपको अपने खुले टैब पुन: लोड करने की आवश्‍यकता हो सकती है, ताकि वे प्रभावी हो सकें.</translation>
 <translation id="8129812357326543296">&amp;Google Chrome के बारे में</translation>
+<translation id="8179874765710681175">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके फ़ोन पर एक SMS भेजेंगे.</translation>
 <translation id="8183957050892517584">Chrome आपके व्यक्तिगत विवरण को सुरक्षित रूप से संग्रहित करेगा, इसलिए आपको इन्हें पुनः लिखने की आवश्यकता नहीं है.</translation>
 <translation id="8211929904040702368">इससे इस डिवाइस से कम से कम <ph name="TOTAL_COUNT" /> आइटम स्थायी रूप से हट जाएंगे. बाद में अपना डेटा प्राप्त करने के लिए, Chrome में $2 के रूप में प्रवेश करें.</translation>
 <translation id="8255190535488645436">Google Chrome आपके कैमरे और माइक्रोफ़ोन का उपयोग कर रहा है.</translation>
@@ -252,6 +255,7 @@
 <translation id="8342675569599923794">यह फ़ाइल खतरनाक है, इसलिए Chrome ने इसे अवरुद्ध कर दिया है.</translation>
 <translation id="8406086379114794905">Chrome को बेहतर बनाने में सहायता करें</translation>
 <translation id="8455999171311319804">वैकल्पिक: Google को निदान और उपयोग डेटा अपने आप भेजकर Chrome OS को बेहतर बनाने में सहायता करें.</translation>
+<translation id="8478823064122749032">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके खाता पुनर्प्राप्ति फ़ोन नंबर पर एक SMS भेजेंगे: <ph name="PHONE_NUMBER" /></translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8547799825197623713">Chrome में ऐप चलाने का साधन Canary</translation>
 <translation id="8556340503434111824">Google Chrome का एक नया वर्शन उपलब्‍ध है, और यह अब तक का सबसे तेज़ है.</translation>

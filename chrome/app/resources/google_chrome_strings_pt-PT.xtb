@@ -33,6 +33,7 @@
 <translation id="1759301979429102118">Os detalhes dos seus contactos podem ajudar a preencher formulários mais rapidamente no Chrome.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Obter ajuda para utilizar o SO Chrome</translation>
+<translation id="1795405610103747296">Instale o Chrome no telemóvel. Vamos enviar uma SMS para o seu telemóvel: <ph name="PHONE_NUMBER" /></translation>
 <translation id="1818142563254268765">Não foi possível atualizar automaticamente o Chrome para a versão mais recente, pelo que está a perder novas funcionalidades e correções de segurança fantásticas. Tem de atualizar o Chrome.</translation>
 <translation id="1877026089748256423">O Chrome está desatualizado</translation>
 <translation id="2063848847527508675">O SO Chrome tem de ser reiniciado para aplicar a atualização.</translation>
@@ -40,6 +41,7 @@
 <translation id="2084710999043359739">Adicionar ao Chrome</translation>
 <translation id="2120620239521071941">Esta ação elimina <ph name="ITEMS_COUNT" /> itens deste dispositivo. Para recuperar os seus dados mais tarde, inicie sessão no Chrome como <ph name="USER_EMAIL" />.</translation>
 <translation id="2147651015520127414">O Chrome confirmou que <ph name="ISSUER" /> emitiu o certificado deste Website.</translation>
+<translation id="216054706567564023">Instale o Chrome no telemóvel. Vamos enviar uma SMS para o seu número de telefone de recuperação de conta.</translation>
 <translation id="2246246234298806438">O Google Chrome não pode mostrar a pré-visualização de impressão quando o visualizador de PDF incorporado está em falta.</translation>
 <translation id="2252923619938421629">Ajude a melhorar o Google Chrome, comunicando as definições atuais</translation>
 <translation id="2286950485307333924">Tem agora sessão iniciada no Chrome</translation>
@@ -242,6 +244,7 @@ Para obter mais instruções, verifique o seu email em <ph name="ACCOUNT_EMAIL" 
 <translation id="8030318113982266900">A atualizar o dispositivo para o canal <ph name="CHANNEL_NAME" />...</translation>
 <translation id="8032142183999901390">Depois de remover a sua conta do Chrome, poderá ter de recarregar os separadores abertos para que a alteração tenha efeito.</translation>
 <translation id="8129812357326543296">Acerca do &amp;Google Chrome</translation>
+<translation id="8179874765710681175">Instale o Chrome no telemóvel. Vamos enviar uma SMS para o seu telemóvel.</translation>
 <translation id="8183957050892517584">O Chrome armazena os seus detalhes pessoais em segurança para que não tenha de os introduzir novamente.</translation>
 <translation id="8211929904040702368">Esta ação elimina permanentemente, no mínimo, <ph name="TOTAL_COUNT" /> itens deste dispositivo. Para recuperar os seus dados mais tarde, inicie sessão no Chrome como $2.</translation>
 <translation id="8255190535488645436">O Google Chrome está a utilizar a câmara e o microfone.</translation>
@@ -250,6 +253,7 @@ Para obter mais instruções, verifique o seu email em <ph name="ACCOUNT_EMAIL" 
 <translation id="8342675569599923794">Este ficheiro é perigoso. Como tal, o Chrome bloqueou-o.</translation>
 <translation id="8406086379114794905">Ajude a melhorar o Chrome</translation>
 <translation id="8455999171311319804">Opcional: ajude a melhorar o SO Chrome ao enviar automaticamente dados de diagnóstico e de utilização para a Google.</translation>
+<translation id="8478823064122749032">Instale o Chrome no telemóvel. Vamos enviar uma SMS para o seu número de telefone de recuperação de conta: <ph name="PHONE_NUMBER" /></translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8547799825197623713">Iniciador de Aplicações do Chrome para o Canary</translation>
 <translation id="8556340503434111824">Está disponível uma nova versão do Google Chrome, mais rápida do que nunca.</translation>

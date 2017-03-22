@@ -33,6 +33,7 @@
 <translation id="1759301979429102118">Informasjon fra kontaktene dine kan hjelpe deg med å fylle ut skjemaer raskere i Chrome.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Få hjelp med å bruke Chrome OS</translation>
+<translation id="1795405610103747296">Installer Chrome på telefonen din. Vi sender deg en SMS på <ph name="PHONE_NUMBER" /></translation>
 <translation id="1818142563254268765">Chrome kan ikke oppdatere seg selv til den nyeste versjonen, så du går glipp av fantastiske nye funksjoner og sikkerhetsforbedringer. Du må oppdatere Chrome.</translation>
 <translation id="1877026089748256423">Chrome er utdatert</translation>
 <translation id="2063848847527508675">Chrome OS må startes på nytt for at oppdateringen skal tas i bruk.</translation>
@@ -40,6 +41,7 @@
 <translation id="2084710999043359739">Legg til i Chrome</translation>
 <translation id="2120620239521071941">Dette sletter <ph name="ITEMS_COUNT" /> elementer fra denne enheten. For å hente dataene dine igjen senere må du logge på Chrome som <ph name="USER_EMAIL" />.</translation>
 <translation id="2147651015520127414">Chrome bekreftet at sertifikatet for dette nettstedet er utstedt av <ph name="ISSUER" />.</translation>
+<translation id="216054706567564023">Installer Chrome på telefonen din. Vi sender en SMS til telefonnummeret ditt for kontogjenoppretting.</translation>
 <translation id="2246246234298806438">Google Chrome kan ikke vise forhåndsvisningen av utskrift når det innebygde PDF-visningsprogrammet mangler.</translation>
 <translation id="2252923619938421629">Bidra til å gjøre Google Chrome bedre ved å rapportere gjeldende innstillinger</translation>
 <translation id="2286950485307333924">Nå er du logget på Chrome</translation>
@@ -242,6 +244,7 @@ Vi har sendt deg (<ph name="ACCOUNT_EMAIL" />) en e-post med nærmere instruksjo
 <translation id="8030318113982266900">Oppdaterer enheten din til <ph name="CHANNEL_NAME" />-kanalen ...</translation>
 <translation id="8032142183999901390">Når du har fjernet kontoen din fra Chrome, kan det hende at du må laste inn de åpne fanene på nytt før endringene trer i kraft.</translation>
 <translation id="8129812357326543296">Om &amp;Google Chrome</translation>
+<translation id="8179874765710681175">Installer Chrome på telefonen din. Vi sender deg en SMS.</translation>
 <translation id="8183957050892517584">Chrome lagrer personopplysningene dine sikkert, slik at du slipper å skrive dem inn på nytt.</translation>
 <translation id="8211929904040702368">Dette fører til at minst <ph name="TOTAL_COUNT" /> elementer slettes permanent fra denne enheten. For å hente dataene dine igjen, logg på Chrome som $2.</translation>
 <translation id="8255190535488645436">Google Chrome bruker kameraet og mikrofonen din.</translation>
@@ -250,6 +253,7 @@ Vi har sendt deg (<ph name="ACCOUNT_EMAIL" />) en e-post med nærmere instruksjo
 <translation id="8342675569599923794">Denne filen er farlig, så Chrome har blokkert den.</translation>
 <translation id="8406086379114794905">Bidra til å gjøre Chrome bedre</translation>
 <translation id="8455999171311319804">Valgfritt: Bidra til å gjøre Chrome OS bedre ved å sende diagnostikk og brukerdata automatisk til Google.</translation>
+<translation id="8478823064122749032">Installer Chrome på telefonen din. Vi sender en SMS til telefonnummeret ditt for kontogjenoppretting (<ph name="PHONE_NUMBER" />)</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8547799825197623713">Chrome-appvelger – Canary</translation>
 <translation id="8556340503434111824">En ny versjon av Google Chrome er tilgjengelig, og den er nå raskere en noen sinne.</translation>

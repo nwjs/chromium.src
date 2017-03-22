@@ -33,6 +33,7 @@
 <translation id="1759301979429102118">Detail dari kontak dapat membantu Anda mengisi formulir lebih cepat di Chrome.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Dapatkan bantuan tentang penggunaan Chrome OS</translation>
+<translation id="1795405610103747296">Instal Chrome di ponsel. Kami akan mengirimkan SMS ke ponsel Anda: <ph name="PHONE_NUMBER" /></translation>
 <translation id="1818142563254268765">Chrome tidak dapat memperbarui dirinya sendiri ke versi terbaru, jadi Anda ketinggalan perbaikan keamanan dan fitur baru yang keren. Anda perlu memperbarui Chrome.</translation>
 <translation id="1877026089748256423">Chrome terlalu lawas</translation>
 <translation id="2063848847527508675">Chrome OS harus dimulai ulang untuk menerapkan pembaruan.</translation>
@@ -40,6 +41,7 @@
 <translation id="2084710999043359739">Tambah ke Chrome</translation>
 <translation id="2120620239521071941">Tindakan ini akan menghapus <ph name="ITEMS_COUNT" /> item dari perangkat ini. Untuk mengambil data nanti, login ke Chrome sebagai <ph name="USER_EMAIL" />.</translation>
 <translation id="2147651015520127414">Chrome memverifikasi bahwa <ph name="ISSUER" /> menerbitkan sertifikat situs web ini.</translation>
+<translation id="216054706567564023">Instal Chrome di ponsel. Kami akan mengirimkan SMS ke nomor telepon pemulihan akun Anda.</translation>
 <translation id="2246246234298806438">Google Chrome tidak dapat menampilkan pratinjau cetak jika penampil PDF default hilang.</translation>
 <translation id="2252923619938421629">Bantu menjadikan Google Chrome lebih baik dengan melaporkan setelan saat ini</translation>
 <translation id="2286950485307333924">Anda sudah masuk ke Chrome</translation>
@@ -242,6 +244,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL" /> untuk petunjuk lebih lanjut.</
 <translation id="8030318113982266900">Memperbarui perangkat Anda ke saluran <ph name="CHANNEL_NAME" />...</translation>
 <translation id="8032142183999901390">Setelah membuang akun dari Chrome, Anda mungkin perlu memuat ulang tab terbuka untuk menerapkannya.</translation>
 <translation id="8129812357326543296">Tentang &amp;Google Chrome</translation>
+<translation id="8179874765710681175">Instal Chrome di ponsel. Kami akan mengirimkan SMS ke ponsel Anda.</translation>
 <translation id="8183957050892517584">Chrome akan meyimpan informasi pribadi Anda dengan aman sehingga Anda tidak perlu mengetiknya lagi.</translation>
 <translation id="8211929904040702368">Tindakan ini akan menghapus setidaknya <ph name="TOTAL_COUNT" /> item dari perangkat ini secara permanen. Untuk mengambil data Anda nanti, masuk ke Chrome sebagai $2.</translation>
 <translation id="8255190535488645436">Google Chrome menggunakan kamera dan mikrofon Anda.</translation>
@@ -250,6 +253,7 @@ Periksa email Anda di <ph name="ACCOUNT_EMAIL" /> untuk petunjuk lebih lanjut.</
 <translation id="8342675569599923794">File ini berbahaya, jadi Chrome telah memblokirnya.</translation>
 <translation id="8406086379114794905">Bantu kami membuat Chrome jadi lebih baik</translation>
 <translation id="8455999171311319804">Opsional: Bantu Chrome OS menjadi lebih baik dengan mengirimkan data diagnostik dan penggunaan secara otomatis ke Google.</translation>
+<translation id="8478823064122749032">Instal Chrome di ponsel. Kami akan mengirimkan SMS ke nomor telepon pemulihan akun Anda: <ph name="PHONE_NUMBER" /></translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8547799825197623713">Peluncur Aplikasi Chrome Canary</translation>
 <translation id="8556340503434111824">Tersedia versi Google Chrome yang baru, dan versi ini lebih cepat dari sebelumnya.</translation>

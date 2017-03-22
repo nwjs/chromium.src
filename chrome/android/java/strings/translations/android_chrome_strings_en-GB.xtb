@@ -27,6 +27,7 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="124678866338384709">Close current tab</translation>
 <translation id="1258753120186372309">Google doodle: <ph name="DOODLE_DESCRIPTION" /></translation>
 <translation id="1272079795634619415">Stop</translation>
+<translation id="1283039547216852943">Tap to expand</translation>
 <translation id="1285320974508926690">Never translate this site</translation>
 <translation id="1291207594882862231">Clear history, cookies, site data, cache…</translation>
 <translation id="129553762522093515">Recently closed</translation>
@@ -82,6 +83,7 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="1825719650605518411">First Run Experience</translation>
 <translation id="1829244130665387512">Find in page</translation>
 <translation id="1832521218263067499">Security incidents</translation>
+<translation id="1841591888176896630">%1$s Chrome suggestions</translation>
 <translation id="1853692000353488670">New incognito tab</translation>
 <translation id="189172778771606813">Close navigation drawer</translation>
 <translation id="1933845786846280168">Selected Tab</translation>
@@ -145,7 +147,6 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="2587052924345400782">Newer version is available</translation>
 <translation id="2593272815202181319">Monospace</translation>
 <translation id="2621115761605608342">Allow JavaScript for a specific site.</translation>
-<translation id="2646820313617290661">Your parents help manage these settings.</translation>
 <translation id="2653659639078652383">Submit</translation>
 <translation id="2677748264148917807">Leave</translation>
 <translation id="2704606927547763573">Copied</translation>
@@ -221,6 +222,7 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="3549644494707163724">Encrypt all synced data with your own sync passphrase</translation>
 <translation id="3549657413697417275">Search your history</translation>
 <translation id="3557336313807607643">Add to contacts</translation>
+<translation id="3583454905526475291">Could not launch app</translation>
 <translation id="3590487821116122040">Site storage Chrome doesn't think is important (e.g. sites with no saved settings or that you don't visit often)</translation>
 <translation id="360480449234699036">Learn about topics on websites without leaving the page. Touch to Search sends a word and its surrounding context to Google Search, returning definitions, pictures, search results and other details.
 
@@ -256,6 +258,7 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="393697183122708255">No enabled voice search available</translation>
 <translation id="3946611741043634542">By continuing, you agree to Chrome’s <ph name="BEGIN_LINK1" />Terms of Service<ph name="END_LINK1" /> and <ph name="BEGIN_LINK2" />Privacy Notice<ph name="END_LINK2" />.</translation>
 <translation id="3950820424414687140">Sign in</translation>
+<translation id="395922942268463099">Pages updated regularly</translation>
 <translation id="3967822245660637423">Download complete</translation>
 <translation id="397583555483684758">Sync has stopped working</translation>
 <translation id="3985215325736559418">Do you want to download <ph name="FILE_NAME" /> again?</translation>
@@ -308,7 +311,9 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="4572422548854449519">Sign in to managed account</translation>
 <translation id="4581964774250883625">You’ve gone incognito.</translation>
 <translation id="4583164079174244168">{MINUTES,plural, =1{# minute ago}other{# minutes ago}}</translation>
+<translation id="4587589328781138893">Sites</translation>
 <translation id="4605958867780575332">Item removed: <ph name="ITEM_TITLE" /></translation>
+<translation id="4616150815774728855">Open <ph name="WEBAPK_NAME" /></translation>
 <translation id="4645575059429386691">Managed by your parent</translation>
 <translation id="4663756553811254707"><ph name="NUMBER_OF_BOOKMARKS" /> bookmarks deleted</translation>
 <translation id="4665282149850138822"><ph name="NAME" /> was added to your Home screen</translation>
@@ -337,6 +342,7 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="4862624982077154323">On some websites, you can pay with supported payment apps. Choose which apps to use in Chrome.</translation>
 <translation id="4881695831933465202">Open</translation>
 <translation id="4885273946141277891">Unsupported number of Chrome instances.</translation>
+<translation id="490442468485962363">Open in Chrome incognito tab</translation>
 <translation id="4910889077668685004">Payment apps</translation>
 <translation id="4915549754973153784"><ph name="BEGIN_LINK" />Get help<ph name="END_LINK" /> while scanning for devices…</translation>
 <translation id="4943872375798546930">No results</translation>
@@ -426,6 +432,7 @@ However, you aren't invisible. Going incognito doesn't hide your browsing from y
 <translation id="572328651809341494">Recent tabs</translation>
 <translation id="572392919096807438">Remember my decision</translation>
 <translation id="5726692708398506830">Make everything on the page bigger</translation>
+<translation id="5738816946784116349">Chrome Downloads</translation>
 <translation id="5748802427693696783">Switched to standard tabs</translation>
 <translation id="5749068826913805084">Chrome needs storage access to download files.</translation>
 <translation id="5763382633136178763">Incognito tabs</translation>
@@ -448,6 +455,7 @@ However, you aren't invisible. Going incognito doesn't hide your browsing from y
 <translation id="5939518447894949180">Reset</translation>
 <translation id="5942872142862698679">Using Google for search</translation>
 <translation id="5956665950594638604">Open the Chrome Help Centre in a new tab</translation>
+<translation id="5962718611393537961">Tap to collapse</translation>
 <translation id="6000066717592683814">Keep Google</translation>
 <translation id="6010869025736512584">Accessing video input</translation>
 <translation id="6012342843556706400">Chrome needs location access to share it with this site.</translation>
@@ -638,6 +646,7 @@ Your Google account may have other forms of browsing history like searches and a
 <translation id="8035133914807600019">New folder…</translation>
 <translation id="8037750541064988519"><ph name="DAYS" /> days left</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> MB available</translation>
+<translation id="8058746566562539958">Open in new Chrome tab</translation>
 <translation id="8063895661287329888">Failed to add bookmark.</translation>
 <translation id="806745655614357130">Keep my data separate</translation>
 <translation id="8068648041423924542">Unable to select certificate.</translation>
@@ -684,6 +693,7 @@ Your Google account may have other forms of browsing history like searches and a
 <translation id="856481929701340285">Request desktop site</translation>
 <translation id="857943718398505171">Allowed (recommended)</translation>
 <translation id="8583805026567836021">Clearing account data</translation>
+<translation id="85969253066007694">You and your parents can control how this works in <ph name="BEGIN_LINK1" />Settings<ph name="END_LINK1" /></translation>
 <translation id="8617240290563765734">Open the suggested URL specified in the downloaded content?</translation>
 <translation id="862875433388403934">Content (films, music, etc.) downloaded in other applications may no longer be playable until those applications re-acquire licences based on a new device credential. To obtain new licences, connect to the Internet and play your downloaded content.</translation>
 <translation id="8636825310635137004">To get your tabs from your other devices, turn on sync.</translation>
