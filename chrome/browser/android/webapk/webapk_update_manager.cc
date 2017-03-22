@@ -29,20 +29,14 @@ bool WebApkUpdateManager::Register(JNIEnv* env) {
 
 // static
 void WebApkUpdateManager::OnBuiltWebApk(const std::string& id,
-                                        bool success,
+                                        WebApkInstallResult result,
                                         const std::string& webapk_package) {
   JNIEnv* env = base::android::AttachCurrentThread();
 
-  if (success) {
-    DVLOG(1)
-        << "Sent request to update WebAPK to server. Seems to have worked.";
-  } else {
-    LOG(WARNING) << "Server request to update WebAPK failed.";
-  }
-
   base::android::ScopedJavaLocalRef<jstring> java_id =
       base::android::ConvertUTF8ToJavaString(env, id);
-  Java_WebApkUpdateManager_onBuiltWebApk(env, java_id.obj(), success);
+  Java_WebApkUpdateManager_onBuiltWebApk(env, java_id.obj(),
+                                         static_cast<int>(result));
 }
 
 // static JNI method.
@@ -116,7 +110,8 @@ static void UpdateAsync(
   if (install_service->IsInstallInProgress(info.manifest_url)) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE,
-        base::Bind(&WebApkUpdateManager::OnBuiltWebApk, id, false, ""));
+        base::Bind(&WebApkUpdateManager::OnBuiltWebApk, id,
+                   WebApkInstallResult::FAILURE, "" /* webapk_package */));
     return;
   }
   install_service->UpdateAsync(

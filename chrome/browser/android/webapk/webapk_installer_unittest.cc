@@ -19,6 +19,7 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/android/shortcut_info.h"
 #include "chrome/browser/android/webapk/webapk.pb.h"
+#include "chrome/browser/android/webapk/webapk_install_service.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/browser_thread.h"
@@ -93,7 +94,8 @@ class TestWebApkInstaller : public WebApkInstaller {
   void PostTaskToRunSuccessCallback() {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE,
-        base::Bind(&TestWebApkInstaller::OnSuccess, base::Unretained(this)));
+        base::Bind(&TestWebApkInstaller::OnResult, base::Unretained(this),
+                   WebApkInstallResult::SUCCESS));
   }
 
  private:
@@ -159,11 +161,12 @@ class WebApkInstallerRunner {
     run_loop.Run();
   }
 
-  bool success() { return success_; }
+  WebApkInstallResult result() { return result_; }
 
  private:
-  void OnCompleted(bool success, const std::string& webapk_package) {
-    success_ = success;
+  void OnCompleted(WebApkInstallResult result,
+                   const std::string& webapk_package) {
+    result_ = result;
     on_completed_callback_.Run();
   }
 
@@ -175,8 +178,8 @@ class WebApkInstallerRunner {
   // Called after the installation process has succeeded or failed.
   base::Closure on_completed_callback_;
 
-  // Whether the installation process succeeded.
-  bool success_;
+  // The result of the installation process.
+  WebApkInstallResult result_;
 
   // Whether Google Play Service can be used and the install delegate is
   // available.
@@ -344,7 +347,7 @@ class WebApkInstallerTest : public ::testing::Test {
 TEST_F(WebApkInstallerTest, Success) {
   std::unique_ptr<WebApkInstallerRunner> runner = CreateWebApkInstallerRunner();
   runner->RunInstallWebApk();
-  EXPECT_TRUE(runner->success());
+  EXPECT_EQ(WebApkInstallResult::SUCCESS, runner->result());
 }
 
 // Test that installation fails if fetching the bitmap at the best primary icon
@@ -356,7 +359,7 @@ TEST_F(WebApkInstallerTest, BestPrimaryIconUrlDownloadTimesOut) {
 
   std::unique_ptr<WebApkInstallerRunner> runner = CreateWebApkInstallerRunner();
   runner->RunInstallWebApk();
-  EXPECT_FALSE(runner->success());
+  EXPECT_EQ(WebApkInstallResult::FAILURE, runner->result());
 }
 
 // Test that installation fails if the WebAPK creation request times out.
@@ -366,7 +369,7 @@ TEST_F(WebApkInstallerTest, CreateWebApkRequestTimesOut) {
 
   std::unique_ptr<WebApkInstallerRunner> runner = CreateWebApkInstallerRunner();
   runner->RunInstallWebApk();
-  EXPECT_FALSE(runner->success());
+  EXPECT_EQ(WebApkInstallResult::FAILURE, runner->result());
 }
 
 // Test that installation fails if the WebAPK download times out.
@@ -376,7 +379,7 @@ TEST_F(WebApkInstallerTest, WebApkDownloadTimesOut) {
 
   std::unique_ptr<WebApkInstallerRunner> runner = CreateWebApkInstallerRunner();
   runner->RunInstallWebApk();
-  EXPECT_FALSE(runner->success());
+  EXPECT_EQ(WebApkInstallResult::FAILURE, runner->result());
 }
 
 // Test that installation fails if the WebAPK download fails.
@@ -386,7 +389,7 @@ TEST_F(WebApkInstallerTest, WebApkDownloadFails) {
 
   std::unique_ptr<WebApkInstallerRunner> runner = CreateWebApkInstallerRunner();
   runner->RunInstallWebApk();
-  EXPECT_FALSE(runner->success());
+  EXPECT_EQ(WebApkInstallResult::FAILURE, runner->result());
 }
 
 namespace {
@@ -410,14 +413,14 @@ TEST_F(WebApkInstallerTest, UnparsableCreateWebApkResponse) {
 
   std::unique_ptr<WebApkInstallerRunner> runner = CreateWebApkInstallerRunner();
   runner->RunInstallWebApk();
-  EXPECT_FALSE(runner->success());
+  EXPECT_EQ(WebApkInstallResult::FAILURE, runner->result());
 }
 
 // Test update succeeding.
 TEST_F(WebApkInstallerTest, UpdateSuccess) {
   std::unique_ptr<WebApkInstallerRunner> runner = CreateWebApkInstallerRunner();
   runner->RunUpdateWebApk();
-  EXPECT_TRUE(runner->success());
+  EXPECT_EQ(WebApkInstallResult::SUCCESS, runner->result());
 }
 
 // Test that an update suceeds if the WebAPK server returns a HTTP response with
@@ -432,7 +435,7 @@ TEST_F(WebApkInstallerTest, UpdateSuccessWithEmptyDownloadUrlInResponse) {
 
   std::unique_ptr<WebApkInstallerRunner> runner = CreateWebApkInstallerRunner();
   runner->RunUpdateWebApk();
-  EXPECT_TRUE(runner->success());
+  EXPECT_EQ(WebApkInstallResult::SUCCESS, runner->result());
 }
 
 // Test installation succeeds using Google Play.
@@ -440,7 +443,7 @@ TEST_F(WebApkInstallerTest, InstallFromGooglePlaySuccess) {
   std::unique_ptr<WebApkInstallerRunner> runner = CreateWebApkInstallerRunner();
   runner->SetCanUseGooglePlayInstallService(true);
   runner->RunInstallWebApk();
-  EXPECT_TRUE(runner->success());
+  EXPECT_EQ(WebApkInstallResult::SUCCESS, runner->result());
 }
 
 // When there is no Web Manifest available for a site, an empty

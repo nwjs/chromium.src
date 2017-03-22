@@ -22,6 +22,7 @@
 #include "chrome/browser/android/shortcut_helper.h"
 #include "chrome/browser/android/webapk/webapk.pb.h"
 #include "chrome/browser/android/webapk/webapk_icon_hasher.h"
+#include "chrome/browser/android/webapk/webapk_install_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/version_info/version_info.h"
@@ -273,11 +274,8 @@ void WebApkInstaller::SetTimeoutMs(int timeout_ms) {
 void WebApkInstaller::OnInstallFinished(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& obj,
-    jboolean success) {
-  if (success)
-    OnSuccess();
-  else
-    OnFailure();
+    jint result) {
+  OnResult(static_cast<WebApkInstallResult>(result));
 }
 
 void WebApkInstaller::BuildWebApkProtoInBackgroundForTesting(
@@ -343,6 +341,12 @@ void WebApkInstaller::InstallOrUpdateWebApkFromGooglePlay(
   }
 }
 
+void WebApkInstaller::OnResult(WebApkInstallResult result) {
+  weak_ptr_factory_.InvalidateWeakPtrs();
+  finish_callback_.Run(result, webapk_package_);
+  delete this;
+}
+
 WebApkInstaller::WebApkInstaller(content::BrowserContext* browser_context,
                                  const ShortcutInfo& shortcut_info,
                                  const SkBitmap& shortcut_icon)
@@ -405,7 +409,7 @@ void WebApkInstaller::OnURLFetchComplete(const net::URLFetcher* source) {
       source->GetResponseCode() != net::HTTP_OK) {
     LOG(WARNING) << base::StringPrintf(
         "WebAPK server returned response code %d.", source->GetResponseCode());
-    OnFailure();
+    OnResult(WebApkInstallResult::FAILURE);
     return;
   }
 
@@ -415,7 +419,7 @@ void WebApkInstaller::OnURLFetchComplete(const net::URLFetcher* source) {
   std::unique_ptr<webapk::WebApkResponse> response(new webapk::WebApkResponse);
   if (!response->ParseFromString(response_string)) {
     LOG(WARNING) << "WebAPK server did not return proto.";
-    OnFailure();
+    OnResult(WebApkInstallResult::FAILURE);
     return;
   }
 
@@ -423,13 +427,13 @@ void WebApkInstaller::OnURLFetchComplete(const net::URLFetcher* source) {
   // https://crbug.com/680131. The server sends an empty URL if the server does
   // not have a newer WebAPK to update to.
   if (task_type_ == UPDATE && signed_download_url.is_empty()) {
-    OnSuccess();
+    OnResult(WebApkInstallResult::SUCCESS);
     return;
   }
 
   if (!signed_download_url.is_valid() || response->package_name().empty()) {
     LOG(WARNING) << "WebAPK server returned incomplete proto.";
-    OnFailure();
+    OnResult(WebApkInstallResult::FAILURE);
     return;
   }
 
@@ -447,13 +451,14 @@ void WebApkInstaller::OnURLFetchComplete(const net::URLFetcher* source) {
 void WebApkInstaller::DownloadAppIconAndComputeMurmur2Hash() {
   // Safeguard. WebApkIconHasher crashes if asked to fetch an invalid URL.
   if (!shortcut_info_.best_primary_icon_url.is_valid()) {
-    OnFailure();
+    OnResult(WebApkInstallResult::FAILURE);
     return;
   }
 
   timer_.Start(
       FROM_HERE, base::TimeDelta::FromMilliseconds(download_timeout_ms_),
-      base::Bind(&WebApkInstaller::OnTimeout, weak_ptr_factory_.GetWeakPtr()));
+      base::Bind(&WebApkInstaller::OnResult, weak_ptr_factory_.GetWeakPtr(),
+                 WebApkInstallResult::FAILURE));
 
   icon_hasher_.reset(new WebApkIconHasher());
   icon_hasher_->DownloadAndComputeMurmur2Hash(
@@ -469,7 +474,7 @@ void WebApkInstaller::OnGotIconMurmur2Hash(
 
   // An empty hash indicates that |icon_hasher_| encountered an error.
   if (icon_murmur2_hash.empty()) {
-    OnFailure();
+    OnResult(WebApkInstallResult::FAILURE);
     return;
   }
 
@@ -507,7 +512,8 @@ void WebApkInstaller::SendRequest(std::unique_ptr<webapk::WebApk> request_proto,
   timer_.Start(
       FROM_HERE,
       base::TimeDelta::FromMilliseconds(webapk_download_url_timeout_ms_),
-      base::Bind(&WebApkInstaller::OnTimeout, weak_ptr_factory_.GetWeakPtr()));
+      base::Bind(&WebApkInstaller::OnResult, weak_ptr_factory_.GetWeakPtr(),
+                 WebApkInstallResult::FAILURE));
 
   url_fetcher_ =
       net::URLFetcher::Create(server_url, net::URLFetcher::POST, this);
@@ -538,7 +544,7 @@ void WebApkInstaller::OnCreatedSubDirAndSetPermissions(
     const GURL& download_url,
     const base::FilePath& output_dir) {
   if (output_dir.empty()) {
-    OnFailure();
+    OnResult(WebApkInstallResult::FAILURE);
     return;
   }
 
@@ -551,7 +557,8 @@ void WebApkInstaller::DownloadWebApk(const base::FilePath& output_path,
                                      bool retry_if_fails) {
   timer_.Start(
       FROM_HERE, base::TimeDelta::FromMilliseconds(download_timeout_ms_),
-      base::Bind(&WebApkInstaller::OnTimeout, weak_ptr_factory_.GetWeakPtr()));
+      base::Bind(&WebApkInstaller::OnResult, weak_ptr_factory_.GetWeakPtr(),
+                 WebApkInstallResult::FAILURE));
 
   downloader_.reset(new FileDownloader(
       download_url, output_path, true, request_context_getter_,
@@ -569,7 +576,7 @@ void WebApkInstaller::OnWebApkDownloaded(const base::FilePath& file_path,
 
   if (result != FileDownloader::DOWNLOADED) {
     if (!retry_if_fails) {
-      OnFailure();
+      OnResult(WebApkInstallResult::FAILURE);
       return;
     }
 
@@ -596,7 +603,7 @@ void WebApkInstaller::OnWebApkMadeWorldReadable(
     const base::FilePath& file_path,
     bool change_permission_success) {
   if (!change_permission_success) {
-    OnFailure();
+    OnResult(WebApkInstallResult::FAILURE);
     return;
   }
 
@@ -614,24 +621,10 @@ void WebApkInstaller::OnWebApkMadeWorldReadable(
     if (success) {
       // Since WebApkInstaller doesn't listen to WebAPKs' update events
       // we call OnSuccess() as long as the update started successfully.
-      OnSuccess();
+      OnResult(WebApkInstallResult::SUCCESS);
       return;
     }
   }
   if (!success)
-    OnFailure();
-}
-
-void WebApkInstaller::OnTimeout() {
-  OnFailure();
-}
-
-void WebApkInstaller::OnSuccess() {
-  finish_callback_.Run(true, webapk_package_);
-  delete this;
-}
-
-void WebApkInstaller::OnFailure() {
-  finish_callback_.Run(false, webapk_package_);
-  delete this;
+    OnResult(WebApkInstallResult::FAILURE);
 }

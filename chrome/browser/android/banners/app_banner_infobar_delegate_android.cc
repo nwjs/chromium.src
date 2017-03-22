@@ -373,10 +373,10 @@ void AppBannerInfoBarDelegateAndroid::SendBannerAccepted() {
 }
 
 void AppBannerInfoBarDelegateAndroid::OnWebApkInstallFinished(
-    bool success,
+    WebApkInstallResult result,
     const std::string& webapk_package_name) {
-  if (!success) {
-    OnWebApkInstallFailed();
+  if (result != WebApkInstallResult::SUCCESS) {
+    OnWebApkInstallFailed(result);
     return;
   }
   UpdateStateForInstalledWebAPK(webapk_package_name);
@@ -385,22 +385,24 @@ void AppBannerInfoBarDelegateAndroid::OnWebApkInstallFinished(
   webapk::TrackInstallEvent(webapk::INSTALL_COMPLETED);
 }
 
-void AppBannerInfoBarDelegateAndroid::OnWebApkInstallFailed() {
+void AppBannerInfoBarDelegateAndroid::OnWebApkInstallFailed(
+    WebApkInstallResult result) {
   DVLOG(1) << "The WebAPK installation failed.";
   webapk::TrackInstallEvent(webapk::INSTALL_FAILED);
 
   if (!infobar())
     return;
 
-  content::WebContents* web_contents =
-      InfoBarService::WebContentsFromInfoBar(infobar());
-  // Add webapp shortcut to the homescreen.
-  // TODO(pkotwicz): Only add webapp shortcut to the homescreen if
-  // WebAPK install did not timeout. If the WebAPK install timed out
-  // it is possible that Google Play is taking a long time and will
-  // eventually installs the WebAPK.
-  ShortcutHelper::AddToLauncherWithSkBitmap(web_contents, *shortcut_info_,
-                                            *icon_.get());
+  // If the install didn't definitely fail, we don't add a shortcut. This could
+  // happen if Play was busy with another install and this one is still queued
+  // (and hence might succeed in the future).
+  if (result == WebApkInstallResult::FAILURE) {
+    content::WebContents* web_contents =
+        InfoBarService::WebContentsFromInfoBar(infobar());
+    // Add webapp shortcut to the homescreen.
+    ShortcutHelper::AddToLauncherWithSkBitmap(web_contents, *shortcut_info_,
+                                              *icon_.get());
+  }
 
   infobar()->RemoveSelf();
 }

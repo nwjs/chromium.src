@@ -111,7 +111,7 @@ public class WebApkInstaller {
     private void installWebApkFromGooglePlayAsync(
             String packageName, int version, String title, String token, String url) {
         if (mGooglePlayWebApkInstallDelegate == null) {
-            notify(false);
+            notify(WebApkInstallResult.FAILURE);
             return;
         }
 
@@ -119,23 +119,26 @@ public class WebApkInstaller {
         // by another Chrome version (e.g. Chrome Dev). We have to do this check because the Play
         // install API fails silently if the package is already installed.
         if (isWebApkInstalled(packageName)) {
-            notify(true);
+            notify(WebApkInstallResult.SUCCESS);
             return;
         }
 
         Callback<Boolean> callback = new Callback<Boolean>() {
             @Override
             public void onResult(Boolean success) {
-                WebApkInstaller.this.notify(success);
+                // TODO(pkotwicz): Send WebApkInstallResult.PROBABLE_FAILURE result if
+                // install timed out.
+                WebApkInstaller.this.notify(
+                        success ? WebApkInstallResult.SUCCESS : WebApkInstallResult.FAILURE);
             }
         };
         mGooglePlayWebApkInstallDelegate.installAsync(
                 packageName, version, title, token, url, callback);
     }
 
-    private void notify(boolean success) {
+    private void notify(@WebApkInstallResult.WebApkInstallResultEnum int result) {
         if (mNativePointer != 0) {
-            nativeOnInstallFinished(mNativePointer, success);
+            nativeOnInstallFinished(mNativePointer, result);
         }
     }
 
@@ -163,14 +166,17 @@ public class WebApkInstaller {
     private void updateAsyncFromGooglePlay(
             String packageName, int version, String title, String token, String url) {
         if (mGooglePlayWebApkInstallDelegate == null) {
-            notify(false);
+            notify(WebApkInstallResult.FAILURE);
             return;
         }
 
         Callback<Boolean> callback = new Callback<Boolean>() {
             @Override
             public void onResult(Boolean success) {
-                WebApkInstaller.this.notify(success);
+                // TODO(pkotwicz): Send WebApkInstallResult.PROBABLE_FAILURE result if
+                // update timed out.
+                WebApkInstaller.this.notify(
+                        success ? WebApkInstallResult.SUCCESS : WebApkInstallResult.FAILURE);
             }
         };
         mGooglePlayWebApkInstallDelegate.installAsync(
@@ -216,7 +222,8 @@ public class WebApkInstaller {
         ApplicationStatus.unregisterApplicationStateListener(mListener);
         mInstallTask = null;
         if (mNativePointer != 0) {
-            nativeOnInstallFinished(mNativePointer, success);
+            nativeOnInstallFinished(mNativePointer,
+                    success ? WebApkInstallResult.SUCCESS : WebApkInstallResult.FAILURE);
         }
         if (success && mIsInstall) {
             ShortcutHelper.addWebApkShortcut(ContextUtils.getApplicationContext(),
@@ -250,5 +257,6 @@ public class WebApkInstaller {
         return InstallerDelegate.isInstalled(packageManager, packageName);
     }
 
-    private native void nativeOnInstallFinished(long nativeWebApkInstaller, boolean success);
+    private native void nativeOnInstallFinished(
+            long nativeWebApkInstaller, @WebApkInstallResult.WebApkInstallResultEnum int result);
 }
