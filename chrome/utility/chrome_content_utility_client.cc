@@ -66,6 +66,10 @@
 #include "chrome/utility/safe_browsing/mac/dmg_analyzer.h"
 #endif
 
+#if defined(OS_WIN)
+#pragma warning(disable:4065)
+#endif
+
 namespace {
 
 class FilePatcherImpl : public chrome::mojom::FilePatcher {

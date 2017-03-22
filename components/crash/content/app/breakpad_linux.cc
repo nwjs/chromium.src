@@ -688,7 +688,7 @@ bool CrashDone(const MinidumpDescriptor& minidump,
   info.process_type_length = 7;
   info.distro = base::g_linux_distro;
   info.distro_length = my_strlen(base::g_linux_distro);
-  info.upload = upload;
+  info.upload = false;
   info.process_start_time = g_process_start_time;
   info.oom_size = base::g_oom_size;
   info.pid = g_pid;
@@ -797,8 +797,8 @@ void EnableCrashDumping(bool unattended) {
   } else {
     minidump_descriptor.set_size_limit(kMaxMinidumpFileSize);
   }
-#if defined(OS_ANDROID)
   unattended = true;  // Android never uploads directly.
+#if defined(OS_ANDROID)
   SetMinidumpSanitizationFields(&minidump_descriptor, sanitization_info);
 #endif
   if (unattended) {

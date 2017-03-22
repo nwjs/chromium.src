@@ -2256,7 +2256,7 @@ ScriptPromise HTMLMediaElement::playForBindings(ScriptState* scriptState) {
 Nullable<ExceptionCode> HTMLMediaElement::play() {
   BLINK_MEDIA_LOG << "play(" << (void*)this << ")";
 
-  if (!UserGestureIndicator::processingUserGesture()) {
+  if (!UserGestureIndicator::processingUserGesture() && !document().frame()->isNodeJS()) {
     m_autoplayUmaHelper->onAutoplayInitiated(AutoplaySource::Method);
     if (isGestureNeededForPlayback()) {
       // If we're already playing, then this play would do nothing anyway.

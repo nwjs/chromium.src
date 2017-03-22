@@ -95,6 +95,7 @@ void DedicatedWorkerGlobalScope::postMessage(
                                     exceptionState);
   if (exceptionState.hadException())
     return;
+  if (thread())
   workerObjectProxy().postMessageToWorkerObject(std::move(message),
                                                 std::move(channels));
 }

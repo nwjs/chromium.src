@@ -36,6 +36,7 @@ const uint8_t kPublicKeySHA256[32] = {
 const char kFileTypePoliciesManifestName[] = "File Type Policies";
 
 void LoadFileTypesFromDisk(const base::FilePath& pb_path) {
+#if 0
   if (pb_path.empty())
     return;
 
@@ -50,6 +51,7 @@ void LoadFileTypesFromDisk(const base::FilePath& pb_path) {
 
   safe_browsing::FileTypePolicies::GetInstance()->PopulateFromDynamicUpdate(
       binary_pb);
+#endif
 }
 
 }  // namespace

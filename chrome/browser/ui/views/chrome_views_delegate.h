@@ -56,7 +56,7 @@ class ChromeViewsDelegate : public views::ViewsDelegate {
   ui::ContextFactory* GetContextFactory() override;
   ui::ContextFactoryPrivate* GetContextFactoryPrivate() override;
   std::string GetApplicationName() override;
-  scoped_refptr<base::TaskRunner> GetBlockingPoolTaskRunner() override;
+  scoped_refptr<base::TaskRunner> GetBlockingPoolTaskRunner(bool continue_on_shutdown = false) override;
 
   gfx::Insets GetDialogButtonInsets() const override;
   int GetDialogCloseButtonMargin() const override;
