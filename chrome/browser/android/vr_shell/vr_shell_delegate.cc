@@ -182,7 +182,10 @@ base::WeakPtr<VrShellDelegate> VrShellDelegate::GetWeakPtr() {
 
 void VrShellDelegate::OnVRVsyncProviderRequest(
     device::mojom::VRVSyncProviderRequest request) {
-  GetDelegate()->OnVRVsyncProviderRequest(std::move(request));
+  device::GvrDelegate* delegate = GetDelegate();
+  if (!delegate)
+    return;
+  delegate->OnVRVsyncProviderRequest(std::move(request));
 }
 
 void VrShellDelegate::CreateNonPresentingDelegate() {
