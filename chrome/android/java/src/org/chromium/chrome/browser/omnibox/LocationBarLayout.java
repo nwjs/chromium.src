@@ -58,7 +58,6 @@ import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.NativePage;
 import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.WindowDelegate;
-import org.chromium.chrome.browser.appmenu.AppMenuButtonHelper;
 import org.chromium.chrome.browser.ntp.NativePageFactory;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.ntp.NewTabPage.FakeboxDelegate;
@@ -1167,14 +1166,6 @@ public class LocationBarLayout extends FrameLayout
     @Override
     public void setBottomSheet(BottomSheet sheet) {
         mBottomSheet = sheet;
-    }
-
-    @Override
-    public void setMenuButtonHelper(AppMenuButtonHelper helper) { }
-
-    @Override
-    public View getMenuAnchor() {
-        return null;
     }
 
     /**
