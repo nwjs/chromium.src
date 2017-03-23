@@ -52,6 +52,11 @@ ash::ShelfAction ArcAppWindowLauncherItemController::ItemSelected(
   return ash::SHELF_ACTION_NEW_WINDOW_CREATED;
 }
 
+void ArcAppWindowLauncherItemController::ExecuteCommand(uint32_t command_id,
+                                                        int32_t event_flags) {
+  ActivateIndexedApp(command_id);
+}
+
 ash::ShelfAppMenuItemList ArcAppWindowLauncherItemController::GetAppMenuItems(
     int event_flags) {
   ash::ShelfAppMenuItemList items;

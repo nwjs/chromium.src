@@ -28,6 +28,7 @@ class ArcAppWindowLauncherItemController
                                 int64_t display_id,
                                 ash::ShelfLaunchSource source) override;
   ash::ShelfAppMenuItemList GetAppMenuItems(int event_flags) override;
+  void ExecuteCommand(uint32_t command_id, int32_t event_flags) override;
 
   void AddTaskId(int task_id);
   void RemoveTaskId(int task_id);
