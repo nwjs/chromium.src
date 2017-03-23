@@ -1547,6 +1547,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="2972581237482394796">&amp;Dopredu</translation>
 <translation id="297870353673992530">Server DNS:</translation>
 <translation id="2981113813906970160">Zobraziť veľký kurzor myši</translation>
+<translation id="2982970937345031">Nahlásiť anonymne</translation>
 <translation id="2984337792991268709">Dnes o <ph name="TODAY_DAYTIME" /></translation>
 <translation id="2986010903908656993">Tejto stránke bola zablokovaná úplná kontrola nad zariadeniami MIDI.</translation>
 <translation id="2987541950816315774">Spravovať predvoľby Androidu</translation>
@@ -3976,7 +3977,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="6247802389331535091">Systém: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="624789221780392884">Aktualizácia je pripravená</translation>
 <translation id="6248400709929739064">Povoliť titulky</translation>
-<translation id="6248988683584659830">Nastavenia vyhľadávania</translation>
+<translation id="6248988683584659830">Hľadať v nastaveniach</translation>
 <translation id="6251870443722440887">GDI – popisovače</translation>
 <translation id="6251889282623539337"><ph name="DOMAIN" /> – Zmluvné podmienky</translation>
 <translation id="6254503684448816922">Ohrozenie zabezpečenia kľúča</translation>

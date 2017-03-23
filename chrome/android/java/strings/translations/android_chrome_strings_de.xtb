@@ -83,7 +83,6 @@ Zur Verwendung von Physical Web müssen Bluetooth und der Standortdienst aktivie
 <translation id="1825719650605518411">First Run Experience</translation>
 <translation id="1829244130665387512">Seite durchsuchen</translation>
 <translation id="1832521218263067499">Sicherheitsrelevante Zwischenfälle</translation>
-<translation id="1841591888176896630">%1$s Chrome-Vorschläge</translation>
 <translation id="1853692000353488670">Neuer Inkognito-Tab</translation>
 <translation id="189172778771606813">Navigationsleiste schließen</translation>
 <translation id="1933845786846280168">Ausgewählter Tab</translation>
@@ -693,7 +692,7 @@ Eventuell finden Sie unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="856481929701340285">Desktopversion anfordern</translation>
 <translation id="857943718398505171">Zugelassen (empfohlen)</translation>
 <translation id="8583805026567836021">Kontodaten werden gelöscht</translation>
-<translation id="85969253066007694">Du und deine Eltern könnt die Chrome-Synchronisierung sowie Google-Dienste in den <ph name="BEGIN_LINK1" />Einstellungen<ph name="END_LINK1" /> verwalten</translation>
+<translation id="85969253066007694">Du und deine Eltern könnt diese Funktionen in den <ph name="BEGIN_LINK1" />Einstellungen<ph name="END_LINK1" /> verwalten</translation>
 <translation id="8617240290563765734">Soll die im heruntergeladenen Inhalt angegebene URL geöffnet werden?</translation>
 <translation id="862875433388403934">In anderen Anwendungen heruntergeladene Inhalte wie Filme und Musik können möglicherweise erst wieder abgespielt werden, nachdem Lizenzen basierend auf neuen Anmeldedaten für die betreffenden Anwendungen erworben wurden.
 

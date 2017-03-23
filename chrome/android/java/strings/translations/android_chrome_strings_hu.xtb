@@ -83,7 +83,6 @@ A Fizikai web használatához be kell kapcsolnia a Bluetooth funkciót és a hel
 <translation id="1825719650605518411">Első indítás tapasztalata</translation>
 <translation id="1829244130665387512">Keresés ezen az oldalon</translation>
 <translation id="1832521218263067499">Biztonsággal kapcsolatos események</translation>
-<translation id="1841591888176896630">%1$s Chrome-javaslat</translation>
 <translation id="1853692000353488670">Új inkognitólap</translation>
 <translation id="189172778771606813">Navigációs fiók bezárása</translation>
 <translation id="1933845786846280168">Kiválasztott lap</translation>
@@ -693,7 +692,7 @@ Előfordulhat, hogy Google-fiókjában (a <ph name="BEGIN_LINK" />history.google
 <translation id="856481929701340285">Asztali webhely kérése</translation>
 <translation id="857943718398505171">Engedélyezve (ajánlott)</translation>
 <translation id="8583805026567836021">Fiókadatok törlése</translation>
-<translation id="85969253066007694">Ön és szülei is kezelhetik ennek a működését a <ph name="BEGIN_LINK1" />Beállításokban<ph name="END_LINK1" /></translation>
+<translation id="85969253066007694">Te és szüleid is kezelhetik ennek a működését a <ph name="BEGIN_LINK1" />Beállításokban<ph name="END_LINK1" /></translation>
 <translation id="8617240290563765734">Megnyitja a letöltött tartalomban szereplő javasolt URL-t?</translation>
 <translation id="862875433388403934">Az egyéb alkalmazásokban letöltött tartalmakat (filmek, zene stb.) valószínűleg nem lehet majd lejátszani, amíg az egyes alkalmazások új engedélyeket nem kapnak új eszközhitelesítési adatok alapján.
 

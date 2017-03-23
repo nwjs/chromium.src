@@ -83,7 +83,6 @@
 <translation id="1825719650605518411">첫 실행</translation>
 <translation id="1829244130665387512">페이지에서 찾기</translation>
 <translation id="1832521218263067499">보안 사고</translation>
-<translation id="1841591888176896630">Chrome 추천 페이지 %1$s개</translation>
 <translation id="1853692000353488670">새 시크릿 탭</translation>
 <translation id="189172778771606813">탐색 창 닫기</translation>
 <translation id="1933845786846280168">선택된 탭</translation>
@@ -750,7 +749,7 @@
 <translation id="9206873250291191720">A</translation>
 <translation id="9219103736887031265">이미지</translation>
 <translation id="932327136139879170">홈</translation>
-<translation id="932599481871055447">데이터를 절약하고 빠르게 탐색</translation>
+<translation id="932599481871055447">데이터 절약 모드</translation>
 <translation id="938850635132480979">오류: <ph name="ERROR_CODE" /></translation>
 <translation id="945632385593298557">마이크에 액세스</translation>
 <translation id="951339005376969845">기존 데이터를 삭제합니다. <ph name="FROM_ACCOUNT" />(으)로 전환하여 기존 데이터를 가져올 수 있습니다.</translation>

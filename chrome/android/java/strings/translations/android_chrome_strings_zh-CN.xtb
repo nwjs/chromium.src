@@ -83,7 +83,6 @@
 <translation id="1825719650605518411">首次运行体验</translation>
 <translation id="1829244130665387512">在网页中查找</translation>
 <translation id="1832521218263067499">安全事件</translation>
-<translation id="1841591888176896630">%1$s 条 Chrome 建议</translation>
 <translation id="1853692000353488670">新的隐身标签页</translation>
 <translation id="189172778771606813">关闭抽屉式导航栏</translation>
 <translation id="1933845786846280168">所选的标签页</translation>
@@ -693,7 +692,7 @@
 <translation id="856481929701340285">请求切换到桌面版网站</translation>
 <translation id="857943718398505171">已允许（推荐）</translation>
 <translation id="8583805026567836021">清除帐号数据</translation>
-<translation id="85969253066007694">您和您的父母可以在<ph name="BEGIN_LINK1" />设置<ph name="END_LINK1" />中控制该帐号的运作方式</translation>
+<translation id="85969253066007694">您和您的父母可以在<ph name="BEGIN_LINK1" />设置<ph name="END_LINK1" />中控制这项功能的运作方式</translation>
 <translation id="8617240290563765734">要打开下载的内容中指定的建议网址吗？</translation>
 <translation id="862875433388403934">其他应用中下载的内容（例如电影、音乐等）将无法再播放，除非这些应用根据新的设备凭据重新获得许可。
 

@@ -83,7 +83,6 @@ Du må ha slått på Bluetooth og Posisjon for å bruke det fysiske nettet.</tra
 <translation id="1825719650605518411">Førsteinntrykk</translation>
 <translation id="1829244130665387512">Finn på side</translation>
 <translation id="1832521218263067499">Sikkerhetshendelser</translation>
-<translation id="1841591888176896630">%1$s Chrome-forslag</translation>
 <translation id="1853692000353488670">Ny inkognitofane</translation>
 <translation id="189172778771606813">Lukk uttrekksmenyen</translation>
 <translation id="1933845786846280168">Valgt fane</translation>
@@ -432,6 +431,7 @@ Du er imidlertid ikke usynlig. Inkognito-modusen skjuler ikke surfingen din for 
 <translation id="572328651809341494">Nylige faner</translation>
 <translation id="572392919096807438">Husk avgjørelsen</translation>
 <translation id="5726692708398506830">Gjør alt på siden større</translation>
+<translation id="5738816946784116349">Chrome-nedlastinger</translation>
 <translation id="5748802427693696783">Byttet til standardfaner</translation>
 <translation id="5749068826913805084">Chrome må ha lagringstilgang for å laste ned filer.</translation>
 <translation id="5763382633136178763">Inkognitofaner</translation>
@@ -692,6 +692,7 @@ Det kan hende Google-kontoen din har andre typer nettlesingslogger, for eksempel
 <translation id="856481929701340285">Bruk skrivebordsversjon</translation>
 <translation id="857943718398505171">Tillatt (anbefales)</translation>
 <translation id="8583805026567836021">Fjerner kontodata …</translation>
+<translation id="85969253066007694">Du og foreldrene dine kan kontrollere hvordan dette fungerer, i <ph name="BEGIN_LINK1" />Innstillinger<ph name="END_LINK1" /></translation>
 <translation id="8617240290563765734">Vil du åpne den foreslåtte nettadressen som er spesifisert i det nedlastede innholdet?</translation>
 <translation id="862875433388403934">Innhold (filmer, musikk osv.) som er lastet ned i andre apper, kan kanskje ikke spilles av lenger, før appene får nye lisenser basert på ny enhetslegitimasjon.
 
