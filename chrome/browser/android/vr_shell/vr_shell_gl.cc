@@ -359,6 +359,7 @@ void VrShellGl::InitializeRenderer() {
   // For kFramePrimaryBuffer (primary VrShell and WebVR content)
   specs.push_back(gvr_api_->CreateBufferSpec());
   render_size_primary_ = specs[kFramePrimaryBuffer].GetSize();
+  render_size_primary_vrshell_ = render_size_primary_;
 
   // For kFrameHeadlockedBuffer (for WebVR insecure content warning).
   // Set this up at fixed resolution, the (smaller) FOV gets set below.
@@ -637,6 +638,27 @@ void VrShellGl::DrawFrame() {
   // primary buffer each frame. Head-locked viewports get added by
   // DrawVrShell if needed.
   buffer_viewport_list_->SetToRecommendedBufferViewports();
+
+  // Resize render buffers to match desired resolution when switching
+  // modes between WebVR and VrShell mode.
+  if (web_vr_mode_) {
+    // If needed, resize the primary buffer for use with WebVR so that
+    // it matches the canvas size used for WebGL rendering.
+    if (render_size_primary_ != render_size_primary_webvr_) {
+      if (!render_size_primary_webvr_.width) {
+        DVLOG(2) << "WebVR rendering size not known yet, dropping frame";
+        return;
+      }
+      render_size_primary_ = render_size_primary_webvr_;
+      swap_chain_->ResizeBuffer(kFramePrimaryBuffer, render_size_primary_);
+    }
+  } else {
+    // Restore high resolution for VrShell mode.
+    if (render_size_primary_ != render_size_primary_vrshell_) {
+      render_size_primary_ = render_size_primary_vrshell_;
+      swap_chain_->ResizeBuffer(kFramePrimaryBuffer, render_size_primary_);
+    }
+  }
 
   gvr::Frame frame = swap_chain_->AcquireFrame();
   if (!frame.is_valid()) {
@@ -1049,6 +1071,8 @@ void VrShellGl::ContentPhysicalBoundsChanged(int width, int height) {
     content_surface_texture_->SetDefaultBufferSize(width, height);
   content_tex_physical_size_.width = width;
   content_tex_physical_size_.height = height;
+  render_size_primary_webvr_.width = width;
+  render_size_primary_webvr_.height = height;
 }
 
 void VrShellGl::UIBoundsChanged(int width, int height) {

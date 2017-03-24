@@ -160,6 +160,8 @@ class VrShellGl : public device::mojom::VRVSyncProvider {
   // Current sizes for the render buffers.
   gvr::Sizei render_size_primary_;
   gvr::Sizei render_size_headlocked_;
+  gvr::Sizei render_size_primary_vrshell_ = {0, 0};
+  gvr::Sizei render_size_primary_webvr_ = {0, 0};
 
   std::unique_ptr<VrShellRenderer> vr_shell_renderer_;
 
