@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <utility>
+#include <vector>
 
 #include "base/base_switches.h"
 #include "base/callback.h"
@@ -21,6 +22,7 @@
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/task_scheduler/scheduler_worker_pool_params.h"
 #include "base/task_scheduler/task_scheduler.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -162,12 +164,20 @@ bool ServiceProcess::Initialize(base::MessageLoopForUI* message_loop,
 
   // Initialize TaskScheduler and redirect SequencedWorkerPool tasks to it.
   constexpr int kMaxTaskSchedulerThreads = 3;
-  base::TaskScheduler::CreateAndSetSimpleTaskScheduler(
-      kMaxTaskSchedulerThreads);
+  std::vector<base::SchedulerWorkerPoolParams> worker_pool_params_vector;
+  worker_pool_params_vector.emplace_back(
+      "CloudPrintServiceProcess", base::ThreadPriority::NORMAL,
+      base::SchedulerWorkerPoolParams::StandbyThreadPolicy::LAZY,
+      kMaxTaskSchedulerThreads, base::TimeDelta::FromSeconds(30),
+      base::SchedulerBackwardCompatibility::INIT_COM_STA);
+  base::TaskScheduler::CreateAndSetDefaultTaskScheduler(
+      worker_pool_params_vector,
+      base::Bind([](const base::TaskTraits&) -> size_t { return 0; }));
   base::SequencedWorkerPool::EnableWithRedirectionToTaskSchedulerForProcess();
 
-  blocking_pool_ = new base::SequencedWorkerPool(
-      3, "ServiceBlocking", base::TaskPriority::USER_VISIBLE);
+  blocking_pool_ =
+      new base::SequencedWorkerPool(kMaxTaskSchedulerThreads, "ServiceBlocking",
+                                    base::TaskPriority::USER_VISIBLE);
 
   // Initialize Mojo early so things can use it.
   mojo::edk::Init();
