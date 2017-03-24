@@ -21,14 +21,12 @@
 
 #include "core/layout/svg/LayoutSVGBlock.h"
 
-#include "core/layout/LayoutGeometryMap.h"
 #include "core/layout/LayoutView.h"
 #include "core/layout/svg/LayoutSVGRoot.h"
 #include "core/layout/svg/SVGLayoutSupport.h"
 #include "core/layout/svg/SVGResourcesCache.h"
 #include "core/style/ShadowList.h"
 #include "core/svg/SVGElement.h"
-#include "platform/geometry/TransformState.h"
 
 namespace blink {
 
@@ -99,9 +97,6 @@ void LayoutSVGBlock::styleDidChange(StyleDifference diff,
 void LayoutSVGBlock::mapLocalToAncestor(const LayoutBoxModelObject* ancestor,
                                         TransformState& transformState,
                                         MapCoordinatesFlags flags) const {
-  // Convert from local HTML coordinates to local SVG coordinates.
-  transformState.move(locationOffset());
-  // Apply other mappings on local SVG coordinates.
   SVGLayoutSupport::mapLocalToAncestor(this, ancestor, transformState, flags);
 }
 
@@ -110,19 +105,12 @@ void LayoutSVGBlock::mapAncestorToLocal(const LayoutBoxModelObject* ancestor,
                                         MapCoordinatesFlags flags) const {
   if (this == ancestor)
     return;
-
-  // Map to local SVG coordinates.
   SVGLayoutSupport::mapAncestorToLocal(*this, ancestor, transformState, flags);
-  // Convert from local SVG coordinates to local HTML coordinates.
-  transformState.move(-locationOffset());
 }
 
 const LayoutObject* LayoutSVGBlock::pushMappingToContainer(
     const LayoutBoxModelObject* ancestorToStopAt,
     LayoutGeometryMap& geometryMap) const {
-  // Convert from local HTML coordinates to local SVG coordinates.
-  geometryMap.push(this, locationOffset());
-  // Apply other mappings on local SVG coordinates.
   return SVGLayoutSupport::pushMappingToContainer(this, ancestorToStopAt,
                                                   geometryMap);
 }
@@ -135,9 +123,6 @@ bool LayoutSVGBlock::mapToVisualRectInAncestorSpace(
     const LayoutBoxModelObject* ancestor,
     LayoutRect& rect,
     VisualRectFlags) const {
-  // Convert from local HTML coordinates to local SVG coordinates.
-  rect.moveBy(location());
-  // Apply other mappings on local SVG coordinates.
   return SVGLayoutSupport::mapToVisualRectInAncestorSpace(
       *this, ancestor, FloatRect(rect), rect);
 }
