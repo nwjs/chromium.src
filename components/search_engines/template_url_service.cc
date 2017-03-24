@@ -1436,9 +1436,12 @@ TemplateURL* TemplateURLService::BestEngineForKeyword(TemplateURL* engine1,
   DCHECK(engine1);
   DCHECK(engine2);
   DCHECK_EQ(engine1->keyword(), engine2->keyword());
-  // We should only have overlapping keywords when at least one comes from
-  // an extension.
-  DCHECK(IsCreatedByExtension(engine1) || IsCreatedByExtension(engine2));
+
+  // TODO(a-v-y) Remove following code for non extension engines when reasons
+  // for crash https://bugs.chromium.org/p/chromium/issues/detail?id=697745
+  // become clear.
+  if (!IsCreatedByExtension(engine1) && !IsCreatedByExtension(engine2))
+    return CanReplace(engine1) ? engine2 : engine1;
 
   if (engine2->type() == engine1->type()) {
     return engine1->extension_info_->install_time >
