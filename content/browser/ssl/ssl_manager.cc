@@ -41,6 +41,7 @@ void OnAllowCertificate(SSLErrorHandler* handler,
                         SSLHostStateDelegate* state_delegate,
                         CertificateRequestResultType decision) {
   DCHECK(handler->ssl_info().is_valid());
+  SSLErrorHandler::EraseInstance(handler);
   switch (decision) {
     case CERTIFICATE_REQUEST_RESULT_TYPE_CONTINUE:
       // Note that we should not call SetMaxSecurityStyle here, because
@@ -114,6 +115,66 @@ void HandleSSLErrorOnUI(
 }
 
 }  // namespace
+
+static base::ListValue *ListValue_FromStringArray(const std::vector<std::string> &arr) {
+  base::ListValue *v = new base::ListValue();
+  for (std::vector<std::string>::const_iterator iter = arr.begin(); iter != arr.end(); ++iter) {
+    v->AppendString(*iter);
+  }
+  return v;
+}
+
+void SSLManager::OnCertificateError(std::unique_ptr<SSLErrorHandler> handler)
+{
+  WebContents* webContents = handler->web_contents();
+  bool isMainFrame = handler->resource_type() == content::RESOURCE_TYPE_MAIN_FRAME;
+
+  if (isMainFrame) {
+    // remove potential pending instances
+    for (SSLErrorHandler* handler : SSLErrorHandler::GetInstances()) {
+      WebContents* tab = handler->web_contents();;
+      if (tab == webContents) {
+        SSLErrorHandler::EraseInstance(handler);
+        break;
+      }
+    }
+  }
+
+  SSLErrorHandler::InsertInstance(handler.get());
+
+  base::DictionaryValue* dict = new base::DictionaryValue;
+  dict->SetString("url", handler->request_url().spec());
+  dict->SetInteger("status", handler->ssl_info().cert_status);
+  dict->SetString("issuer.common_name", handler->ssl_info().cert->issuer().common_name);
+  dict->SetString("issuer.country_name", handler->ssl_info().cert->issuer().country_name);
+  dict->SetString("issuer.locality_name", handler->ssl_info().cert->issuer().locality_name);
+  dict->Set("issuer.street_addresses", ListValue_FromStringArray(handler->ssl_info().cert->issuer().street_addresses));
+  dict->Set("issuer.domain_components", ListValue_FromStringArray(handler->ssl_info().cert->issuer().domain_components));
+  dict->Set("issuer.organization_names", ListValue_FromStringArray(handler->ssl_info().cert->issuer().organization_names));
+  dict->Set("issuer.organization_unit_names", ListValue_FromStringArray(handler->ssl_info().cert->issuer().organization_unit_names));
+  dict->SetString("subject.common_name", handler->ssl_info().cert->subject().common_name);
+  dict->SetString("subject.country_name", handler->ssl_info().cert->subject().country_name);
+  dict->SetString("subject.locality_name", handler->ssl_info().cert->subject().locality_name);
+  dict->Set("subject.street_addresses", ListValue_FromStringArray(handler->ssl_info().cert->subject().street_addresses));
+  dict->Set("subject.domain_components", ListValue_FromStringArray(handler->ssl_info().cert->subject().domain_components));
+  dict->Set("subject.organization_names", ListValue_FromStringArray(handler->ssl_info().cert->subject().organization_names));
+  dict->Set("subject.organization_unit_names", ListValue_FromStringArray(handler->ssl_info().cert->subject().organization_unit_names));
+  dict->SetString("fingerprint", base::HexEncode(handler->ssl_info().cert->CalculateFingerprint256(handler->ssl_info().cert->os_cert_handle()).data, sizeof(net::SHA1HashValue)));
+
+  std::unique_ptr<base::ListValue> certificateInfo(new base::ListValue());
+  certificateInfo->Append(dict);
+
+  if (isMainFrame) {
+    handler.release();
+    webContents->OnCertificateError(std::move(certificateInfo));
+    webContents->SetCertificateErrorCallback(base::Bind(static_cast<void (SSLManager::*)
+      (WebContents*, bool)>(&SSLManager::OnAllowCertificate),
+      base::Unretained(this)));
+  } else {
+    handler->DenyRequest();
+    webContents->OnSubFrameCertificateError(std::move(certificateInfo));
+  }
+}
 
 // static
 void SSLManager::OnSSLCertificateError(
@@ -289,7 +350,10 @@ void SSLManager::OnCertError(std::unique_ptr<SSLErrorHandler> handler) {
         options_mask |= STRICT_ENFORCEMENT;
       if (expired_previous_decision)
         options_mask |= EXPIRED_PREVIOUS_DECISION;
-      OnCertErrorInternal(std::move(handler), options_mask);
+      if (handler->web_contents()->GetAutomaticCertHandling())
+        OnCertificateError(std::move(handler));
+      else
+        OnCertErrorInternal(std::move(handler), options_mask);
       break;
     case net::ERR_CERT_NO_REVOCATION_MECHANISM:
       // Ignore this error.
@@ -309,6 +373,9 @@ void SSLManager::OnCertError(std::unique_ptr<SSLErrorHandler> handler) {
         options_mask |= STRICT_ENFORCEMENT;
       if (expired_previous_decision)
         options_mask |= EXPIRED_PREVIOUS_DECISION;
+      if (handler->web_contents()->GetAutomaticCertHandling())
+        OnCertificateError(std::move(handler));
+      else
       OnCertErrorInternal(std::move(handler), options_mask);
       break;
     default:
@@ -344,6 +411,23 @@ void SSLManager::DidStartResourceResponse(const GURL& url,
   }
 }
 
+void SSLManager::OnAllowCertificate(WebContents* webContents, bool allow)
+{
+  for (SSLErrorHandler* handler : SSLErrorHandler::GetInstances())
+  {
+    WebContents* tab = handler->web_contents();
+
+    if (tab == webContents)
+    {
+      if (allow)
+        ::content::OnAllowCertificate(handler, ssl_host_state_delegate_, CertificateRequestResultType::CERTIFICATE_REQUEST_RESULT_TYPE_CONTINUE);
+      else
+        ::content::OnAllowCertificate(handler, ssl_host_state_delegate_, CertificateRequestResultType::CERTIFICATE_REQUEST_RESULT_TYPE_DENY);
+      return;
+    }
+  }
+}
+
 void SSLManager::OnCertErrorInternal(std::unique_ptr<SSLErrorHandler> handler,
                                      int options_mask) {
   bool overridable = (options_mask & OVERRIDABLE) != 0;
@@ -359,7 +443,7 @@ void SSLManager::OnCertErrorInternal(std::unique_ptr<SSLErrorHandler> handler,
   GetContentClient()->browser()->AllowCertificateError(
       web_contents, cert_error, ssl_info, request_url, resource_type,
       overridable, strict_enforcement, expired_previous_decision,
-      base::Bind(&OnAllowCertificate, base::Owned(handler.release()),
+      base::Bind(&content::OnAllowCertificate, base::Owned(handler.release()),
                  ssl_host_state_delegate_));
 }
 

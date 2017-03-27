@@ -17,7 +17,7 @@ extern const char kAttributeAllowScaling[];
 extern const char kAttributeName[];
 extern const char kAttributeSrc[];
 extern const char kAttributeAllowNW[];
-
+extern const char kAttributeUseAutomaticCertHandling[];
 // API namespace.
 // TODO(kalman): Consolidate this with the other API constants.
 extern const char kAPINamespace[];
@@ -28,6 +28,7 @@ extern const char kAPILoadDataInvalidBaseURL[];
 extern const char kAPILoadDataInvalidVirtualURL[];
 
 // Events.
+extern const char kEventCertificateError[];
 extern const char kEventClose[];
 extern const char kEventConsoleMessage[];
 extern const char kEventContentLoad[];
@@ -51,6 +52,7 @@ extern const char kEventPermissionRequest[];
 extern const char kEventResponseStarted[];
 extern const char kEventResponsive[];
 extern const char kEventSizeChanged[];
+extern const char kEventSubFrameCertificateError[];
 extern const char kEventUnresponsive[];
 extern const char kEventZoomChange[];
 
@@ -67,6 +69,7 @@ extern const char kEventSendHeaders[];
 extern const char kWebViewEventPrefix[];
 
 // Parameters/properties on events.
+extern const char kCertificate[];
 extern const char kContextMenuItems[];
 extern const char kDefaultPromptText[];
 extern const char kFindSearchText[];

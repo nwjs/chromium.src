@@ -18,6 +18,8 @@ using net::SSLInfo;
 
 namespace content {
 
+std::set<SSLErrorHandler*>* instances = nullptr;
+
 namespace {
 
 void CompleteCancelRequest(
@@ -55,7 +57,9 @@ SSLErrorHandler::SSLErrorHandler(WebContents* web_contents,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 }
 
-SSLErrorHandler::~SSLErrorHandler() {}
+SSLErrorHandler::~SSLErrorHandler() {
+  EraseInstance(this);
+}
 
 void SSLErrorHandler::CancelRequest() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -75,6 +79,32 @@ void SSLErrorHandler::ContinueRequest() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   BrowserThread::PostTask(BrowserThread::IO, FROM_HERE,
                           base::Bind(&CompleteContinueRequest, delegate_));
+}
+
+void SSLErrorHandler::InsertInstance(SSLErrorHandler* instance) {
+  if (!instances)
+    instances = new std::set<SSLErrorHandler*>();
+
+  instances->insert(instance);
+}
+
+void SSLErrorHandler::EraseInstance(SSLErrorHandler* instance) {
+  if (!instances)
+    return;
+
+  instances->erase(instance);
+
+  if (instances->size() == 0) {
+    delete instances;
+    instances = nullptr;
+  }
+}
+
+std::set<SSLErrorHandler*> SSLErrorHandler::GetInstances() {
+  if (!instances)
+    return std::set<SSLErrorHandler*>();
+  else
+    return *instances;
 }
 
 }  // namespace content

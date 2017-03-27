@@ -432,6 +432,22 @@ class WebViewInternalStopFunction : public WebViewInternalExtensionFunction {
   DISALLOW_COPY_AND_ASSIGN(WebViewInternalStopFunction);
 };
 
+class WebViewInternalAllowCertificateFunction : public LegacyWebViewInternalExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("webViewInternal.allowCertificate", WEBVIEWINTERNAL_ALLOWCERTIFICATE);
+
+  WebViewInternalAllowCertificateFunction();
+
+protected:
+  ~WebViewInternalAllowCertificateFunction() override;
+
+private:
+  // WebViewInternalExtensionFunction implementation.
+  bool RunAsyncSafe(WebViewGuest* guest) override;
+
+  DISALLOW_COPY_AND_ASSIGN(WebViewInternalAllowCertificateFunction);
+};
+
 class WebViewInternalTerminateFunction
     : public WebViewInternalExtensionFunction {
  public:

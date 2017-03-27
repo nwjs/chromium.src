@@ -560,6 +560,12 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Requests the app banner. This method is called from the DevTools.
   virtual void RequestAppBannerFromDevTools(content::WebContents* web_contents);
 
+  // Called when CertificateError occurs
+  virtual void OnCertificateError(base::ListValue* certificate) {}
+
+  // Called when CertificateError in sub-frame occurs
+  virtual void OnSubFrameCertificateError(base::ListValue* certificate) {}
+
   // Reports that passive mixed content was found at the specified url.
   virtual void PassiveInsecureContentFound(const GURL& resource_url) {}
 

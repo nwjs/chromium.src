@@ -262,7 +262,18 @@ SrcAttribute.prototype.parse = function() {
 };
 
 // -----------------------------------------------------------------------------
+// Attribute that specifies whether certificate will be handled automaticaly:
+// If true events will be send to allow automatic handling
+function UseAutomaticCertHandling(view) {
+    GuestViewAttributes.BooleanAttribute.call(
+        this, WebViewConstants.ATTRIBUTE_USEAUTOMATICCERTHANDLING, view);
+}
 
+UseAutomaticCertHandling.prototype.__proto__ =
+    GuestViewAttributes.BooleanAttribute.prototype;
+
+UseAutomaticCertHandling.prototype.handleMutation =
+    UseAutomaticCertHandling.prototype.handleMutation;
 // Sets up all of the webview attributes.
 WebViewImpl.prototype.setupAttributes = function() {
   this.attributes[WebViewConstants.ATTRIBUTE_ALLOWSCALING] =
@@ -279,7 +290,8 @@ WebViewImpl.prototype.setupAttributes = function() {
       new SrcAttribute(this);
   this.attributes[WebViewConstants.ATTRIBUTE_ALLOWNW] =
       new AllowNWAttribute(this);
-
+  this.attributes[WebViewConstants.ATTRIBUTE_USEAUTOMATICCERTHANDLING] =
+      new UseAutomaticCertHandling(this);
   var autosizeAttributes = [WebViewConstants.ATTRIBUTE_MAXHEIGHT,
                             WebViewConstants.ATTRIBUTE_MAXWIDTH,
                             WebViewConstants.ATTRIBUTE_MINHEIGHT,

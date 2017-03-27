@@ -367,6 +367,12 @@ class CONTENT_EXPORT WebContentsImpl
   void FocusThroughTabTraversal(bool reverse) override;
   bool ShowingInterstitialPage() const override;
   InterstitialPage* GetInterstitialPage() const override;
+  void OnCertificateError(std::unique_ptr<base::ListValue> certificate) const override;
+  void SetCertificateErrorCallback(base::Callback<void(WebContents*, bool)> callback) override;
+  void OnSubFrameCertificateError(std::unique_ptr<base::ListValue> certificate) const override;
+  base::Callback<void(WebContents*, bool)> GetCertificateErrorCallback() const override;
+  bool GetAutomaticCertHandling() const override;
+  void SetAutomaticCertHandling(bool automaticCertHandling) override;
   bool IsSavable() override;
   void OnSavePage() override;
   bool SavePage(const base::FilePath& main_file,
@@ -1273,6 +1279,11 @@ class CONTENT_EXPORT WebContentsImpl
   bool is_resume_pending_;
 
   // Data for current page -----------------------------------------------------
+
+  // Webview callback for certificate error
+  base::Callback<void(WebContents*, bool)> certErrorCallback_;
+
+  bool useAutomaticCertHandling_ = false;
 
   // When a title cannot be taken from any entry, this title will be used.
   base::string16 page_title_when_no_navigation_entry_;

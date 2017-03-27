@@ -17,6 +17,7 @@ var WebViewConstants = {
   ATTRIBUTE_NAME: 'name',
   ATTRIBUTE_PARTITION: 'partition',
   ATTRIBUTE_SRC: 'src',
+  ATTRIBUTE_USEAUTOMATICCERTHANDLING: 'useautomaticcerthandling',
   ATTRIBUTE_ALLOWNW:  'allownw',
 
   // Error/warning messages.

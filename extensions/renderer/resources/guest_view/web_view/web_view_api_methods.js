@@ -28,6 +28,9 @@ var WEB_VIEW_API_METHODS = [
   // Add content scripts for the guest page.
   'addContentScripts',
 
+  // Allow Certificate
+  'allowCertificate',
+
   // Navigates to the previous history entry.
   'back',
 

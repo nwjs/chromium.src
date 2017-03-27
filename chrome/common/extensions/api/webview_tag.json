@@ -717,6 +717,18 @@
         ]
       },
       {
+        "name": "allowCertificate",
+        "type": "function",
+        "description": "Allow Certificate in Webview.",
+        "parameters": [
+          {
+            "type": "boolean",
+            "name": "allow",
+            "description": "Allow certificate"
+          }
+        ]
+      },
+      {
         "name": "back",
         "type": "function",
         "description": "Navigates backward one history entry if possible. Equivalent to <code>go(-1)</code>.",

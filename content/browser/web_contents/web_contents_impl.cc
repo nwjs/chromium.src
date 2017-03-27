@@ -2902,6 +2902,32 @@ InterstitialPage* WebContentsImpl::GetInterstitialPage() const {
   return GetRenderManager()->interstitial_page();
 }
 
+void WebContentsImpl::OnCertificateError(std::unique_ptr<base::ListValue> certificate) const {
+  if (delegate_)
+    delegate_->OnCertificateError(certificate.release());
+}
+
+void WebContentsImpl::OnSubFrameCertificateError(std::unique_ptr<base::ListValue> certificate) const {
+  if (delegate_)
+    delegate_->OnSubFrameCertificateError(certificate.release());
+}
+
+void WebContentsImpl::SetCertificateErrorCallback(base::Callback<void(WebContents*, bool)> callback) {
+  certErrorCallback_ = callback;
+}
+
+base::Callback<void(WebContents*, bool)> WebContentsImpl::GetCertificateErrorCallback() const {
+  return certErrorCallback_;
+}
+
+bool WebContentsImpl::GetAutomaticCertHandling() const {
+  return useAutomaticCertHandling_;
+}
+
+void WebContentsImpl::SetAutomaticCertHandling(bool automaticCertHandling) {
+  useAutomaticCertHandling_ = automaticCertHandling;
+}
+
 bool WebContentsImpl::IsSavable() {
   // WebKit creates Document object when MIME type is application/xhtml+xml,
   // so we also support this MIME type.
