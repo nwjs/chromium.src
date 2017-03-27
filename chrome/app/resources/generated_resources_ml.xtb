@@ -1536,7 +1536,7 @@
 <translation id="2964193600955408481">Wi-Fi അപ്രാപ്‌തമാക്കുക</translation>
 <translation id="2966449113954629791">നിങ്ങളുടെ മൊബൈൽ ഡാറ്റ അലവൻസ് പരമാവധി ഉപയോഗിച്ചിരിക്കാനിടയുണ്ട്. കൂടുതൽ ഡാറ്റ വാങ്ങാൻ <ph name="NAME" /> സജീവമാക്കൽ പോർട്ടൽ സന്ദർശിക്കുക.</translation>
 <translation id="2966459079597787514">സ്വീഡിഷ് കീബോര്‍ഡ്</translation>
-<translation id="2966598748518102999">"ശരി Google" എന്നതിലേക്കും കുറച്ചുനിമിഷം മുമ്പ് Google-ലേക്കും ശബ്‌ദം അയച്ചുകൊണ്ട് ശബ്ദ തിരയൽ മെച്ചപ്പെടുത്തുക.</translation>
+<translation id="2966598748518102999">"Ok Google" എന്നതിലേക്കും കുറച്ചുനിമിഷം മുമ്പ് Google-ലേക്കും ശബ്‌ദം അയച്ചുകൊണ്ട് ശബ്ദ തിരയൽ മെച്ചപ്പെടുത്തുക.</translation>
 <translation id="2967544384642772068">ഇല്ലാതാക്കുക</translation>
 <translation id="2971033837577180453">&lt;span&gt;ഐഡി:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">തെളിച്ചം കുറയ്‌ക്കുക</translation>
@@ -1753,14 +1753,14 @@
 <translation id="3241720467332021590">ഐറിഷ്</translation>
 <translation id="3242118113727675434">സ്‌പർശന ഇടങ്ങൾക്കായുള്ള HUD കാണിക്കുക</translation>
 <translation id="3242765319725186192">മുമ്പേ പങ്കുവച്ച കീ:</translation>
-<translation id="3244621381664913240">ഒരു വോയിസ് തിരയൽ ആരംഭിക്കുന്നതിന് "ശരി Google" പ്രവർത്തനക്ഷമമാക്കുക.</translation>
+<translation id="3244621381664913240">ഒരു വോയിസ് തിരയൽ ആരംഭിക്കുന്നതിന് "Ok Google" പ്രവർത്തനക്ഷമമാക്കുക.</translation>
 <translation id="3245321423178950146">അറിയപ്പെടാത്ത കലാകാരൻ</translation>
 <translation id="324533084080637716">ഘടനാപരമായ ലേഖന മാർക്കപ്പോടുകൂടി</translation>
 <translation id="324849028894344899"><ph name="WINDOW_TITLE" /> - നെറ്റ്‌വർക്ക് പിശക്</translation>
 <translation id="3251759466064201842">&lt;സര്‍‌ട്ടിഫിക്കറ്റിന്‍റെ ഭാഗമല്ല&gt;</translation>
 <translation id="3252266817569339921">ഫ്രഞ്ച്</translation>
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> ഫയലുകൾക്കായി സ്ഥിരസ്ഥിതി അപ്ലിക്കേഷൻ തിരഞ്ഞെടുക്കുക:</translation>
-<translation id="3255228561559750854">തിരയുക, അല്ലെങ്കിൽ "ശരി Google" എന്നു പറയുക</translation>
+<translation id="3255228561559750854">തിരയുക, അല്ലെങ്കിൽ "Ok Google" എന്നു പറയുക</translation>
 <translation id="3257011895468050906">ടോക്കൺ ബൈൻഡിംഗ് പിന്തുണ പ്രവർത്തനക്ഷമമാക്കുക.</translation>
 <translation id="3260892921936048802">&amp;ഡൗൺലോഡുചെയ്യുക...</translation>
 <translation id="326356299252142602">Windows Runtime MIDI API ഉപയോഗിക്കുക</translation>
@@ -2207,7 +2207,7 @@
 <translation id="3812525830114410218">മോശം സർട്ടിഫിക്കറ്റ്</translation>
 <translation id="3812568885510197014">സ്വയമേവ പൂരിപ്പിച്ച ഒപ്പുകളുള്ള വെബ് ഫോമുകളെ HTML ആട്രിബ്യൂട്ടുകളായി വ്യാഖ്യാനിക്കുന്നു.</translation>
 <translation id="3813296892522778813">നിങ്ങൾ തിരയുന്നത് കണ്ടില്ലെങ്കിൽ, <ph name="BEGIN_LINK_CHROMIUM" />Google Chrome സഹായത്തിൽ<ph name="END_LINK_CHROMIUM" /> പോകുക</translation>
-<translation id="3813984289128269159">ശരി Google</translation>
+<translation id="3813984289128269159">Ok Google</translation>
 <translation id="3815016854028376614">സുയിൻ ടൈപ്പുചെയ്യൽ രീതി</translation>
 <translation id="3815571115159309122"><ph name="FILE_COUNT" /> പുതിയ ഫോട്ടോകൾ കണ്ടെത്തി
     <ph name="LINE_BREAK1" />
@@ -5620,7 +5620,7 @@
 <translation id="8487700953926739672">ഓഫ്‌ലൈനില്‍ ലഭ്യമാണ്</translation>
 <translation id="8490896350101740396">ഇനിപ്പറയുന്ന കിയോ‌സ്‌ക് അപ്ലിക്കേഷനുകൾ "<ph name="UPDATED_APPS" />" അപ്‌ഡേറ്റുചെയ്‌തു. അപ്‌ഡേറ്റുചെയ്യൽ പ്രോസസ്സ് പൂർത്തിയാക്കുന്നതിന് ഉപകരണം റീബൂട്ടുചെയ്യുക.</translation>
 <translation id="8493236660459102203">മൈക്രോഫോണ്‍:</translation>
-<translation id="8495193314787127784">"ശരി Google" എന്നത് പ്രവർത്തനക്ഷമമാക്കുക</translation>
+<translation id="8495193314787127784">"Ok Google" എന്നത് പ്രവർത്തനക്ഷമമാക്കുക</translation>
 <translation id="8496717697661868878">ഈ പ്ലഗിന്‍ പ്രവര്‍ത്തിപ്പിക്കുക</translation>
 <translation id="8497392509610708671">ഇത് നിങ്ങൾക്ക് ഏതുസമയത്തും <ph name="BEGIN_LINK" />Chrome ക്രമീകരണത്തിൽ<ph name="END_LINK" /> മാറ്റാനാകും.</translation>
 <translation id="8498716162437226120">Bluetooth ഉപകരണം ചേർക്കുക</translation>
@@ -5669,7 +5669,7 @@
 <translation id="8565650234829130278">അപ്ലിക്കേഷൻ ഡൗൺഗ്രേഡ് ചെയ്യാൻ ശ്രമിച്ചു.</translation>
 <translation id="8569682776816196752">ലക്ഷ്യസ്ഥാനങ്ങൾ ഒന്നും കണ്ടെത്തിയില്ല</translation>
 <translation id="8569764466147087991">തുറക്കുന്നതിന് ഒരു ഫയല്‍ തിരഞ്ഞെടുക്കുക</translation>
-<translation id="8571032220281885258">നിങ്ങൾ "ശരി Google" എന്നുപറയുമ്പോൾ, നിങ്ങൾ അടുത്തതായി പറയുന്നത് Chrome തിരയും.</translation>
+<translation id="8571032220281885258">നിങ്ങൾ "Ok Google" എന്നുപറയുമ്പോൾ, നിങ്ങൾ അടുത്തതായി പറയുന്നത് Chrome തിരയും.</translation>
 <translation id="8571108619753148184">സെർവർ 4</translation>
 <translation id="8574234089711453001">മീഡിയ url ഉപയോഗിച്ച് പേജ് തുറക്കുമ്പോൾ ഒരു ഡൗൺലോഡ് ബട്ടൺ ദൃശ്യമാക്കാൻ അനുവദിക്കുക.</translation>
 <translation id="857779305329188634">പരീക്ഷണാത്മക QUIC പ്രോട്ടോക്കോൾ പിന്തുണ പ്രവർത്തനക്ഷമമാക്കുക.</translation>

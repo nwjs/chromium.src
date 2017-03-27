@@ -424,7 +424,7 @@
 <translation id="1529968269513889022">la semana pasada</translation>
 <translation id="1530838837447122178">Abrir la configuración del ratón y del touchpad</translation>
 <translation id="1531004739673299060">Ventana de la aplicación</translation>
-<translation id="1531865825384516080">Enviar informes de URLs a SafeSearch.</translation>
+<translation id="1531865825384516080">Enviar informes de URLs a Búsqueda Segura.</translation>
 <translation id="1532697124104874386">Habilita o inhabilita el desarrollo inteligente del teclado virtual.</translation>
 <translation id="1533897085022183721">Menos de <ph name="MINUTES" /></translation>
 <translation id="1533920822694388968">Alineación de TV</translation>
@@ -4588,7 +4588,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="7065534935986314333">Acerca del sistema</translation>
 <translation id="7066944511817949584">Error al conectar con "<ph name="DEVICE_NAME" />"</translation>
 <translation id="7067725467529581407">No volver a mostrar.</translation>
-<translation id="7068609958927777019">Si está habilitada, esta opción permite el envío de informes sobre URL inadecuadas a SafeSearch.</translation>
+<translation id="7068609958927777019">Si está habilitada, esta opción permite el envío de informes sobre URL inadecuadas a Búsqueda Segura.</translation>
 <translation id="7072010813301522126">Nombre del acceso directo</translation>
 <translation id="7073555242265688099">Si tienes otros dispositivos Chrome, estos se sincronizarán automáticamente, por lo que también podrás desbloquearlos con tu teléfono.</translation>
 <translation id="707392107419594760">Selecciona el teclado:</translation>

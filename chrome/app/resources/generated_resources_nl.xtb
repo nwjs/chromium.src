@@ -1537,7 +1537,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="2964193600955408481">Wifi uitschakelen</translation>
 <translation id="2966449113954629791">Je hebt misschien je mobiele gegevensquotum verbruikt. Ga naar de activeringsportal van <ph name="NAME" /> om meer gegevens te kopen.</translation>
 <translation id="2966459079597787514">Zweeds toetsenbord</translation>
-<translation id="2966598748518102999">Verbeter Gesproken zoekopdracht door het geluid van 'OK Google', voorafgegaan door enkele seconden, naar Google te verzenden.</translation>
+<translation id="2966598748518102999">Verbeter Gesproken zoekopdracht door het geluid van 'Ok Google', voorafgegaan door enkele seconden, naar Google te verzenden.</translation>
 <translation id="2967544384642772068">Sluiten</translation>
 <translation id="2971033837577180453">&lt;span&gt;ID:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">helderheid lager</translation>
@@ -1761,7 +1761,7 @@ Controleer je e-mail op <ph name="ACCOUNT_EMAIL" /> voor deze en verdere instruc
 <translation id="3251759466064201842">&lt;Geen onderdeel van certificaat&gt;</translation>
 <translation id="3252266817569339921">Frans</translation>
 <translation id="3254434849914415189">Kies de standaardapp voor <ph name="FILE_TYPE" />-bestanden:</translation>
-<translation id="3255228561559750854">Zoek of zeg 'OK Google'</translation>
+<translation id="3255228561559750854">Zoek of zeg 'Ok Google'</translation>
 <translation id="3257011895468050906">Ondersteuning voor Token Binding inschakelen.</translation>
 <translation id="3260892921936048802">&amp;Downloaden...</translation>
 <translation id="326356299252142602">Windows Runtime MIDI API gebruiken</translation>
@@ -2208,7 +2208,7 @@ van <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3812525830114410218">Verkeerd certificaat</translation>
 <translation id="3812568885510197014">Annoteert webformulieren met automatisch aangevulde handtekeningen als HTML-kenmerken.</translation>
 <translation id="3813296892522778813">Ga naar de <ph name="BEGIN_LINK_CHROMIUM" />Help van Google Chrome<ph name="END_LINK_CHROMIUM" /> als je niet kunt vinden wat je zoekt</translation>
-<translation id="3813984289128269159">OK Google</translation>
+<translation id="3813984289128269159">Ok Google</translation>
 <translation id="3815016854028376614">Zhuyin-invoermethode</translation>
 <translation id="3815571115159309122"><ph name="FILE_COUNT" /> nieuwe foto's gevonden
     <ph name="LINE_BREAK1" />
@@ -5620,7 +5620,7 @@ Tijd berekenen tot vol</translation>
 <translation id="8487700953926739672">Offline beschikbaar</translation>
 <translation id="8490896350101740396">De volgende kiosk-apps '<ph name="UPDATED_APPS" />' zijn geüpdatet. Start het apparaat opnieuw op om het updateproces te voltooien.</translation>
 <translation id="8493236660459102203">Microfoon:</translation>
-<translation id="8495193314787127784">'OK Google' inschakelen</translation>
+<translation id="8495193314787127784">'Ok Google' inschakelen</translation>
 <translation id="8496717697661868878">Deze plugin uitvoeren</translation>
 <translation id="8497392509610708671">Je kunt dit op elk gewenst moment wijzigen via de <ph name="BEGIN_LINK" />Chrome-instellingen<ph name="END_LINK" />.</translation>
 <translation id="8498716162437226120">Bluetooth-apparaat toevoegen</translation>
@@ -5669,7 +5669,7 @@ Tijd berekenen tot vol</translation>
 <translation id="8565650234829130278">Je probeert een oudere versie van de app te installeren.</translation>
 <translation id="8569682776816196752">Geen bestemmingen gevonden</translation>
 <translation id="8569764466147087991">Selecteer een bestand om te openen</translation>
-<translation id="8571032220281885258">Wanneer je 'OK Google' zegt, zoekt Chrome naar het volgende dat je zegt.</translation>
+<translation id="8571032220281885258">Wanneer je 'Ok Google' zegt, zoekt Chrome naar het volgende dat je zegt.</translation>
 <translation id="8571108619753148184">Server 4</translation>
 <translation id="8574234089711453001">Toestaan dat een downloadknop wordt weergegeven wanneer een pagina met een media-URL wordt geopend.</translation>
 <translation id="857779305329188634">Experimentele QUIC-protocolondersteuning inschakelen.</translation>

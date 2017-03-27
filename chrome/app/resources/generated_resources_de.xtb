@@ -3207,7 +3207,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5229189185761556138">Eingabemethoden verwalten</translation>
 <translation id="5229622432348746578">Audio für Desktopfreigabe deaktivieren</translation>
 <translation id="5230516054153933099">Fenster</translation>
-<translation id="5232178406098309195">Wenn Sie Befehle zur Aktivierung der Sprachbedienung verwenden, also z. B. wenn Sie "OK Google" sagen oder auf ein Mikrofonsymbol tippen, werden in Ihrem Konto in Ihren privaten Sprach- &amp; Audioaktivitäten einige Sprachdaten und sonstige Audiodaten gespeichert. Konkret werden eine Aufnahme Ihrer darauffolgenden Sprach- bzw. Audioeingabe sowie einige Sekunden davor aufgezeichnet.</translation>
+<translation id="5232178406098309195">Wenn Sie Befehle zur Aktivierung der Sprachbedienung verwenden, also z. B. wenn Sie "Ok Google" sagen oder auf ein Mikrofonsymbol tippen, werden in Ihrem Konto in Ihren privaten Sprach- &amp; Audioaktivitäten einige Sprachdaten und sonstige Audiodaten gespeichert. Konkret werden eine Aufnahme Ihrer darauffolgenden Sprach- bzw. Audioeingabe sowie einige Sekunden davor aufgezeichnet.</translation>
 <translation id="523299859570409035">Ausnahmen für Benachrichtigungen</translation>
 <translation id="5233019165164992427">NaCl-Debug-Port</translation>
 <translation id="5233231016133573565">Vorgangs-ID</translation>
@@ -5612,7 +5612,7 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="8487700953926739672">Offline verfügbar</translation>
 <translation id="8490896350101740396">Die folgenden Kiosk-Apps wurden aktualisiert: <ph name="UPDATED_APPS" />. Starten Sie das Gerät neu, um die Aktualisierung abzuschließen.</translation>
 <translation id="8493236660459102203">Mikrofon:</translation>
-<translation id="8495193314787127784">"OK Google" aktivieren</translation>
+<translation id="8495193314787127784">"Ok Google" aktivieren</translation>
 <translation id="8496717697661868878">Dieses Plug-in ausführen</translation>
 <translation id="8497392509610708671">Sie können dies jederzeit in den <ph name="BEGIN_LINK" />Chrome-Einstellungen<ph name="END_LINK" /> ändern.</translation>
 <translation id="8498716162437226120">Bluetooth-Gerät hinzufügen</translation>
