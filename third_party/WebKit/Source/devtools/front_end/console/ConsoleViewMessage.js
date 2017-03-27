@@ -474,9 +474,9 @@ Console.ConsoleViewMessage = class {
         element = this._formatParameterAsError(output);
         break;
       case 'function':
-      case 'generator':
         element = this._formatParameterAsFunction(output, includePreview);
         break;
+      case 'generator':
       case 'iterator':
       case 'map':
       case 'object':
