@@ -252,6 +252,8 @@ TEST_F(TrayRotationLockTest, InternalDisplayNotAvailableAtCreation) {
   WmShell::Get()->maximize_mode_controller()->EnableMaximizeModeWindowManager(
       true);
   EXPECT_TRUE(default_view->visible());
+  WmShell::Get()->maximize_mode_controller()->EnableMaximizeModeWindowManager(
+      false);
 }
 
 // Tests that when the tray view is deleted, while TrayRotationLock has not been
