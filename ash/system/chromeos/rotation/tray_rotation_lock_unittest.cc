@@ -133,8 +133,9 @@ TEST_F(TrayRotationLockTest, CreateTrayViewDuringMaximizeModeAndRotationLock) {
   TearDownViews();
   WmShell::Get()->maximize_mode_controller()->EnableMaximizeModeWindowManager(
       true);
-  Shell::GetInstance()->screen_orientation_controller()->SetRotationLocked(
-      true);
+  Shell::GetInstance()
+      ->screen_orientation_controller()
+      ->ToggleUserRotationLock();
   SetUpForStatusAreaWidget(StatusAreaWidgetTestHelper::GetStatusAreaWidget());
   EXPECT_TRUE(tray_view()->visible());
   WmShell::Get()->maximize_mode_controller()->EnableMaximizeModeWindowManager(
@@ -148,8 +149,9 @@ TEST_F(TrayRotationLockTest, TrayViewVisibilityChangesDuringMaximizeMode) {
   ASSERT_FALSE(tray_view()->visible());
   WmShell::Get()->maximize_mode_controller()->EnableMaximizeModeWindowManager(
       true);
-  Shell::GetInstance()->screen_orientation_controller()->SetRotationLocked(
-      true);
+  Shell::GetInstance()
+      ->screen_orientation_controller()
+      ->ToggleUserRotationLock();
   EXPECT_TRUE(tray_view()->visible());
   WmShell::Get()->maximize_mode_controller()->EnableMaximizeModeWindowManager(
       false);
@@ -258,8 +260,9 @@ TEST_F(TrayRotationLockTest, LockUpdatedDuringDesctruction) {
   WmShell::Get()->maximize_mode_controller()->EnableMaximizeModeWindowManager(
       true);
   DestroyTrayView();
-  Shell::GetInstance()->screen_orientation_controller()->SetRotationLocked(
-      true);
+  Shell::GetInstance()
+      ->screen_orientation_controller()
+      ->ToggleUserRotationLock();
   WmShell::Get()->maximize_mode_controller()->EnableMaximizeModeWindowManager(
       false);
 }

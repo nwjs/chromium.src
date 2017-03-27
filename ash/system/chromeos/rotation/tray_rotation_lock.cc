@@ -34,10 +34,10 @@ bool IsMaximizeModeWindowManagerEnabled() {
       ->IsMaximizeModeWindowManagerEnabled();
 }
 
-bool IsRotationLocked() {
+bool IsUserRotationLocked() {
   return Shell::GetInstance()
       ->screen_orientation_controller()
-      ->rotation_locked();
+      ->user_rotation_locked();
 }
 
 }  // namespace
@@ -67,7 +67,7 @@ class RotationLockDefaultView : public ActionableView,
   void OnMaximizeModeEnded() override;
 
   // ScreenOrientationController::Obsever:
-  void OnRotationLockChanged(bool rotation_locked) override;
+  void OnUserRotationLockChanged() override;
 
   views::ImageView* icon_;
   views::Label* label_;
@@ -105,14 +105,14 @@ RotationLockDefaultView::~RotationLockDefaultView() {
 
 void RotationLockDefaultView::Update() {
   TrayPopupItemStyle style(TrayPopupItemStyle::FontStyle::DEFAULT_VIEW_LABEL);
-  icon_->SetImage(gfx::CreateVectorIcon(IsRotationLocked()
+  icon_->SetImage(gfx::CreateVectorIcon(IsUserRotationLocked()
                                             ? kSystemMenuRotationLockLockedIcon
                                             : kSystemMenuRotationLockAutoIcon,
                                         kMenuIconSize, style.GetIconColor()));
 
   base::string16 label = l10n_util::GetStringUTF16(
-      IsRotationLocked() ? IDS_ASH_STATUS_TRAY_ROTATION_LOCK_LOCKED
-                         : IDS_ASH_STATUS_TRAY_ROTATION_LOCK_AUTO);
+      IsUserRotationLocked() ? IDS_ASH_STATUS_TRAY_ROTATION_LOCK_LOCKED
+                             : IDS_ASH_STATUS_TRAY_ROTATION_LOCK_AUTO);
   label_->SetText(label);
   style.SetupLabel(label_);
 
@@ -134,8 +134,9 @@ void RotationLockDefaultView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
 }
 
 bool RotationLockDefaultView::PerformAction(const ui::Event& event) {
-  Shell::GetInstance()->screen_orientation_controller()->SetRotationLocked(
-      !IsRotationLocked());
+  Shell::GetInstance()
+      ->screen_orientation_controller()
+      ->ToggleUserRotationLock();
   return true;
 }
 
@@ -150,7 +151,7 @@ void RotationLockDefaultView::OnMaximizeModeEnded() {
   StopObservingRotation();
 }
 
-void RotationLockDefaultView::OnRotationLockChanged(bool rotation_locked) {
+void RotationLockDefaultView::OnUserRotationLockChanged() {
   Update();
 }
 
@@ -167,7 +168,7 @@ TrayRotationLock::~TrayRotationLock() {
   WmShell::Get()->RemoveShellObserver(this);
 }
 
-void TrayRotationLock::OnRotationLockChanged(bool rotation_locked) {
+void TrayRotationLock::OnUserRotationLockChanged() {
   tray_view()->SetVisible(ShouldBeVisible());
 }
 
@@ -178,7 +179,7 @@ views::View* TrayRotationLock::CreateDefaultView(LoginStatus status) {
 }
 
 void TrayRotationLock::OnMaximizeModeStarted() {
-  tray_view()->SetVisible(IsRotationLocked());
+  tray_view()->SetVisible(IsUserRotationLocked());
   Shell::GetInstance()->screen_orientation_controller()->AddObserver(this);
 }
 
@@ -199,7 +200,7 @@ bool TrayRotationLock::GetInitialVisibility() {
 
 bool TrayRotationLock::ShouldBeVisible() {
   return OnPrimaryDisplay() && IsMaximizeModeWindowManagerEnabled() &&
-         IsRotationLocked();
+         IsUserRotationLocked();
 }
 
 bool TrayRotationLock::OnPrimaryDisplay() const {
