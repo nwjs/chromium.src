@@ -2802,6 +2802,21 @@
             ]
         }
     ],
+    "UploadCrashReportsUsingJobScheduler": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "UploadCrashReportsUsingJobScheduler"
+                    ]
+                }
+            ]
+        }
+    ],
     "UseConsolidatedStartupFlow": [
         {
             "platforms": [
