@@ -1495,6 +1495,17 @@ LONG_STRING_CONST(
       "features": [
         "gpu_rasterization"
       ]
+    },
+    {
+      // Corresponds to GPU driver bug #214.
+      "id": 140,
+      "description": "Some old Qualcomm scissor bug workaround needs disabling MSAA to work, which is a core part of WebGL 2.",
+      "cr_bugs": [670607, 696627, 698197],
+      "gl_vendor": "Qualcomm.*",
+      "machine_model_name": ["Nexus 7", "KFTHWI", "KFSAWI", "KFAPWI", "KFTHWA", "KFSAWA", "KFAPWA"],
+      "features": [
+        "webgl2"
+      ]
     }
   ]
 }
