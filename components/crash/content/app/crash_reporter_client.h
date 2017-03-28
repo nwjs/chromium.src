@@ -38,7 +38,7 @@ class CrashReporterClient;
 // runtime.
 void SetCrashReporterClient(CrashReporterClient* client);
 
-#if defined(CRASH_IMPLEMENTATION)
+#if 1
 // The components's embedder API should only be used by the component.
 CrashReporterClient* GetCrashReporterClient();
 #endif

@@ -15,6 +15,10 @@ namespace views {
 class View;
 }
 
+namespace extensions {
+  class AppWindow;
+}
+
 class Browser;
 class ChooserController;
 class ChooserBubbleUiViewDelegate;
@@ -26,7 +30,7 @@ class ChooserBubbleUiViewDelegate;
 // BubbleManager.
 class ChooserBubbleUiView : public BubbleUi {
  public:
-  ChooserBubbleUiView(Browser* browser,
+  ChooserBubbleUiView(Browser* browser, void* app_window,
                       std::unique_ptr<ChooserController> chooser_controller);
   ~ChooserBubbleUiView() override;
 
@@ -40,6 +44,7 @@ class ChooserBubbleUiView : public BubbleUi {
   views::BubbleBorder::Arrow GetAnchorArrow();
 
   Browser* browser_;  // Weak.
+  extensions::AppWindow* app_window_;
   // Weak. Owned by its parent view.
   ChooserBubbleUiViewDelegate* chooser_bubble_ui_view_delegate_;
 
