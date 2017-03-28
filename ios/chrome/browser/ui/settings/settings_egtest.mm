@@ -99,6 +99,10 @@ id<GREYMatcher> ClearSavedPasswordsButton() {
 id<GREYMatcher> ClearBrowsingDataButton() {
   return ButtonWithAccessibilityLabelId(IDS_IOS_CLEAR_BUTTON);
 }
+// Matcher for the clear browsing data action sheet item.
+id<GREYMatcher> ConfirmClearBrowsingDataButton() {
+  return ButtonWithAccessibilityLabelId(IDS_IOS_CONFIRM_CLEAR_BUTTON);
+}
 // Matcher for the done button in the navigation bar.
 id<GREYMatcher> NavigationDoneButton() {
   return ButtonWithAccessibilityLabelId(IDS_IOS_NAVIGATION_BAR_DONE_BUTTON);
@@ -317,15 +321,8 @@ bool IsCertificateCleared() {
 - (void)clearBrowsingData {
   [[EarlGrey selectElementWithMatcher:ClearBrowsingDataButton()]
       performAction:grey_tap()];
-
-  // There is not currently a matcher for accessibilityElementIsFocused or
-  // userInteractionEnabled which could be used here instead of checking that
-  // the button is not a MDCCollectionViewTextCell. Use when available.
-  // TODO(crbug.com/638674): Evaluate if this can move to shared code.
-  id<GREYMatcher> confirmClear = grey_allOf(
-      ClearBrowsingDataButton(),
-      grey_not(grey_kindOfClass([MDCCollectionViewTextCell class])), nil);
-  [[EarlGrey selectElementWithMatcher:confirmClear] performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:ConfirmClearBrowsingDataButton()]
+      performAction:grey_tap()];
 }
 
 // Exits Settings by clicking on the Done button.
@@ -728,7 +725,6 @@ bool IsCertificateCleared() {
 // Verifies that logging into a form on a web page allows the user to save and
 // then clear a password.
 - (void)testClearPasswords {
-
   ios::ChromeBrowserState* browserState =
       chrome_test_util::GetOriginalBrowserState();
   PrefService* preferences = browserState->GetPrefs();
