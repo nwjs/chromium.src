@@ -296,7 +296,7 @@ class ArcAppListPrefs
 
   void StartPrefs();
 
-  void UpdateDefaultAppsHiddenState();
+  void SetDefaultAppsFilterLevel();
   void RegisterDefaultApps();
 
   // Returns list of packages from prefs. If |installed| is set to true then
