@@ -161,6 +161,8 @@ const char kHistogramPageTimingForegroundDuration[] =
     "PageLoad.PageTiming.ForegroundDuration";
 const char kHistogramPageTimingForegroundDurationAfterPaint[] =
     "PageLoad.PageTiming.ForegroundDuration.AfterPaint";
+const char kHistogramPageTimingForegroundDurationNoCommit[] =
+    "PageLoad.PageTiming.ForegroundDuration.NoCommit";
 
 const char kHistogramLoadTypeParseStartReload[] =
     "PageLoad.ParseTiming.NavigationToParseStart.LoadType.Reload";
@@ -549,9 +551,10 @@ void CorePageLoadMetricsObserver::OnParseStop(
 void CorePageLoadMetricsObserver::OnComplete(
     const page_load_metrics::PageLoadTiming& timing,
     const page_load_metrics::PageLoadExtraInfo& info) {
-  RecordTimingHistograms(timing, info, base::TimeTicks());
+  RecordTimingHistograms(timing, info);
   RecordByteAndResourceHistograms(timing, info);
   RecordRappor(timing, info);
+  RecordForegroundDurationHistograms(timing, info, base::TimeTicks());
 }
 
 page_load_metrics::PageLoadMetricsObserver::ObservePolicy
@@ -563,9 +566,10 @@ CorePageLoadMetricsObserver::FlushMetricsOnAppEnterBackground(
   // flow. After this method is invoked, Chrome may be killed without further
   // notification, so we record final metrics collected up to this point.
   if (info.did_commit) {
-    RecordTimingHistograms(timing, info, base::TimeTicks::Now());
+    RecordTimingHistograms(timing, info);
     RecordByteAndResourceHistograms(timing, info);
   }
+  RecordForegroundDurationHistograms(timing, info, base::TimeTicks::Now());
   return STOP_OBSERVING;
 }
 
@@ -583,6 +587,10 @@ void CorePageLoadMetricsObserver::OnFailedProvisionalLoad(
                           failed_load_info.time_to_failed_provisional_load);
     }
   }
+  // Provide an empty PageLoadTiming, since we don't have any timing metrics
+  // for failed provisional loads.
+  RecordForegroundDurationHistograms(page_load_metrics::PageLoadTiming(),
+                                     extra_info, base::TimeTicks());
 }
 
 void CorePageLoadMetricsObserver::OnUserInput(
@@ -633,8 +641,7 @@ void CorePageLoadMetricsObserver::OnLoadedResource(
 
 void CorePageLoadMetricsObserver::RecordTimingHistograms(
     const page_load_metrics::PageLoadTiming& timing,
-    const page_load_metrics::PageLoadExtraInfo& info,
-    base::TimeTicks app_background_time) {
+    const page_load_metrics::PageLoadExtraInfo& info) {
   // Log time to first foreground / time to first background. Log counts that we
   // started a relevant page load in the foreground / background.
   if (!info.started_in_foreground && info.first_foreground_time) {
@@ -672,10 +679,18 @@ void CorePageLoadMetricsObserver::RecordTimingHistograms(
                           timing.first_meaningful_paint.value());
     }
   }
+}
 
+void CorePageLoadMetricsObserver::RecordForegroundDurationHistograms(
+    const page_load_metrics::PageLoadTiming& timing,
+    const page_load_metrics::PageLoadExtraInfo& info,
+    base::TimeTicks app_background_time) {
   base::Optional<base::TimeDelta> foreground_duration =
       GetInitialForegroundDuration(info, app_background_time);
-  if (foreground_duration) {
+  if (!foreground_duration)
+    return;
+
+  if (info.did_commit) {
     PAGE_LOAD_LONG_HISTOGRAM(internal::kHistogramPageTimingForegroundDuration,
                              foreground_duration.value());
     if (timing.first_paint && timing.first_paint < foreground_duration) {
@@ -683,6 +698,10 @@ void CorePageLoadMetricsObserver::RecordTimingHistograms(
           internal::kHistogramPageTimingForegroundDurationAfterPaint,
           foreground_duration.value() - timing.first_paint.value());
     }
+  } else {
+    PAGE_LOAD_LONG_HISTOGRAM(
+        internal::kHistogramPageTimingForegroundDurationNoCommit,
+        foreground_duration.value());
   }
 }
 
