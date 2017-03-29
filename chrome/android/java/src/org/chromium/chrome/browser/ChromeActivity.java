@@ -816,6 +816,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                 MultiWindowUtils.getInstance().isInMultiWindowMode(this));
 
         VideoPersister.getInstance().cleanup(this);
+        VrShellDelegate.maybeRegisterVREntryHook(this);
     }
 
     @Override
@@ -831,7 +832,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         if (tab != null) {
             getTabContentManager().cacheTabThumbnail(tab);
         }
-        VrShellDelegate.maybePauseVR(this);
+        VrShellDelegate.maybeUnregisterVREntryHook(this);
         markSessionEnd();
         super.onPauseWithNative();
     }

@@ -446,6 +446,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
     @SuppressLint("NewApi")
     private boolean shouldDestroyIncognitoProfile() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return false;
+        if (VrShellDelegate.isInVR()) return false; // VR uses an incognito profile for rendering.
 
         Context context = ContextUtils.getApplicationContext();
         ActivityManager manager =
@@ -510,9 +511,6 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
             }
             mMergeTabsOnResume = false;
         }
-
-        // TODO(mthiesse): Move this call into ChromeActivity. crbug.com/697694
-        VrShellDelegate.maybeResumeVR(this);
 
         mLocaleManager.setSnackbarManager(getSnackbarManager());
         mLocaleManager.startObservingPhoneChanges();
@@ -1894,6 +1892,12 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
     public void onExitVR() {
         super.onExitVR();
         mControlContainer.setVisibility(View.VISIBLE);
+
+        // We prevent the incognito profile from being destroyed while in VR, so upon exiting VR we
+        // should destroy it if necessary.
+        if (shouldDestroyIncognitoProfile()) {
+            Profile.getLastUsedProfile().getOffTheRecordProfile().destroyWhenAppropriate();
+        }
     }
 
     /**
