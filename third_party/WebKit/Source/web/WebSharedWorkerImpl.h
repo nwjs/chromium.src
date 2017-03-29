@@ -109,7 +109,7 @@ class WebSharedWorkerImpl final : public WorkerReportingProxy,
       override;
 
   // WebSharedWorker methods:
-  void startWorkerContext(const WebURL&,
+  void startWorkerContext(bool, const base::FilePath&, const WebURL&,
                           const WebString& name,
                           const WebString& contentSecurityPolicy,
                           WebContentSecurityPolicyType,
@@ -183,6 +183,8 @@ class WebSharedWorkerImpl final : public WorkerReportingProxy,
 
   RefPtr<WorkerLoaderProxy> m_loaderProxy;
 
+  bool m_nodejs;
+  base::FilePath m_root_path;
   WebURL m_url;
   WebString m_name;
   WebAddressSpace m_creationAddressSpace;
