@@ -69,6 +69,9 @@ public class ChromeBackgroundServiceTest extends InstrumentationTestCase {
         @Override
         protected void reschedulePrecacheTasksOnUpgrade() {}
 
+        @Override
+        protected void rescheduleOfflinePagesTasksOnUpgrade() {}
+
         // Posts an assertion task to the UI thread. Since this is only called after the call
         // to onRunTask, it will be enqueued after any possible call to launchBrowser, and we
         // can reliably check whether launchBrowser was called.
