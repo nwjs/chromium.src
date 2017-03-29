@@ -26,9 +26,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 /**
  * Unittests for {@link LogcatExtractionRunnable}.
@@ -77,7 +77,7 @@ public class LogcatExtractionRunnableTest extends CrashTestCase {
             assertEquals(TaskIds.CHROME_MINIDUMP_UPLOADING_JOB_ID, job.getId());
             assertEquals(ChromeMinidumpUploadJobService.class.getName(),
                     job.getService().getClassName());
-            return 0;
+            return JobScheduler.RESULT_SUCCESS;
         }
     };
 
@@ -125,7 +125,7 @@ public class LogcatExtractionRunnableTest extends CrashTestCase {
 
     @Override
     protected void tearDown() throws Exception {
-        ChromeFeatureList.setTestFeatures(null);
+        ChromeFeatureList.setTestEnabledFeatures(null);
         super.tearDown();
     }
 
@@ -135,9 +135,11 @@ public class LogcatExtractionRunnableTest extends CrashTestCase {
      * @param enable Whether to enable the JobScheduler API.
      */
     private void setJobSchedulerEnabled(boolean enable) {
-        Map<String, Boolean> features = new HashMap<>();
-        features.put(ChromeFeatureList.UPLOAD_CRASH_REPORTS_USING_JOB_SCHEDULER, enable);
-        ChromeFeatureList.setTestFeatures(features);
+        Set<String> features = new HashSet<>();
+        if (enable) {
+            features.add(ChromeFeatureList.UPLOAD_CRASH_REPORTS_USING_JOB_SCHEDULER);
+        }
+        ChromeFeatureList.setTestEnabledFeatures(features);
     }
 
     /**
