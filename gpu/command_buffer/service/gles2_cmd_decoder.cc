@@ -4938,7 +4938,10 @@ void GLES2DecoderImpl::ReturnFrontBuffer(const Mailbox& mailbox, bool is_lost) {
       continue;
 
     if (is_lost || it->back_texture->size() != offscreen_size_) {
-      it->back_texture->Invalidate();
+      if (is_lost)
+        it->back_texture->Invalidate();
+      else
+        it->back_texture->Destroy();
       saved_back_textures_.erase(it);
       return;
     }
