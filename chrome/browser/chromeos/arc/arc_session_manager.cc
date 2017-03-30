@@ -66,6 +66,62 @@ constexpr base::TimeDelta kArcSignInTimeout = base::TimeDelta::FromMinutes(5);
 
 }  // namespace
 
+// This class is used to track statuses on OptIn flow. It is created in case ARC
+// is activated, and it needs to OptIn. Once started OptInFlowResult::STARTED is
+// recorded via UMA. If it finishes successfully OptInFlowResult::SUCCEEDED is
+// recorded. Optional OptInFlowResult::SUCCEEDED_AFTER_RETRY is recorded in this
+// case if an error occurred during OptIn flow, and user pressed Retry. In case
+// the user cancels OptIn flow before it was completed then
+// OptInFlowResult::CANCELED is recorded and if an error occurred optional
+// OptInFlowResult::CANCELED_AFTER_ERROR. If a shutdown happens during the OptIn
+// nothing is recorded, except initial OptInFlowResult::STARTED.
+// OptInFlowResult::STARTED = OptInFlowResult::SUCCEEDED +
+// OptInFlowResult::CANCELED + cases happened during the shutdown.
+class ArcSessionManager::ScopedOptInFlowTracker {
+ public:
+  ScopedOptInFlowTracker() {
+    UpdateOptInFlowResultUMA(OptInFlowResult::STARTED);
+  }
+
+  ~ScopedOptInFlowTracker() {
+    if (shutdown_)
+      return;
+
+    UpdateOptInFlowResultUMA(success_ ? OptInFlowResult::SUCCEEDED
+                                      : OptInFlowResult::CANCELED);
+    if (error_) {
+      UpdateOptInFlowResultUMA(success_
+                                   ? OptInFlowResult::SUCCEEDED_AFTER_RETRY
+                                   : OptInFlowResult::CANCELED_AFTER_ERROR);
+    }
+  }
+
+  // Tracks error occurred during the OptIn flow.
+  void TrackError() {
+    DCHECK(!success_ && !shutdown_);
+    error_ = true;
+  }
+
+  // Tracks that OptIn finished successfully.
+  void TrackSuccess() {
+    DCHECK(!success_ && !shutdown_);
+    success_ = true;
+  }
+
+  // Tracks that OptIn was not completed before shutdown.
+  void TrackShutdown() {
+    DCHECK(!success_ && !shutdown_);
+    shutdown_ = true;
+  }
+
+ private:
+  bool error_ = false;
+  bool success_ = false;
+  bool shutdown_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedOptInFlowTracker);
+};
+
 ArcSessionManager::ArcSessionManager(
     std::unique_ptr<ArcSessionRunner> arc_session_runner)
     : arc_session_runner_(std::move(arc_session_runner)),
@@ -257,6 +313,8 @@ void ArcSessionManager::OnProvisioningFinished(ProvisioningResult result) {
     return;
   }
   provisioning_reported_ = true;
+  if (scoped_opt_in_tracker_ && result != ProvisioningResult::SUCCESS)
+    scoped_opt_in_tracker_->TrackError();
 
   if (result == ProvisioningResult::CHROME_SERVER_COMMUNICATION_ERROR) {
     if (IsArcKioskMode()) {
@@ -285,6 +343,11 @@ void ArcSessionManager::OnProvisioningFinished(ProvisioningResult result) {
   if (result == ProvisioningResult::SUCCESS) {
     if (support_host_)
       support_host_->Close();
+
+    if (scoped_opt_in_tracker_) {
+      scoped_opt_in_tracker_->TrackSuccess();
+      scoped_opt_in_tracker_.reset();
+    }
 
     if (profile_->GetPrefs()->GetBoolean(prefs::kArcSignedIn))
       return;
@@ -442,6 +505,10 @@ void ArcSessionManager::Shutdown() {
   context_.reset();
   profile_ = nullptr;
   SetState(State::NOT_INITIALIZED);
+  if (scoped_opt_in_tracker_) {
+    scoped_opt_in_tracker_->TrackShutdown();
+    scoped_opt_in_tracker_.reset();
+  }
 }
 
 
@@ -620,6 +687,11 @@ void ArcSessionManager::RequestEnableImpl() {
   // 2) User accepted the Terms of service on Opt-in flow, but logged out
   //   before ARC sign in procedure was done. Then, logs in again.
   if (prefs->GetBoolean(prefs::kArcTermsAccepted)) {
+    if (!scoped_opt_in_tracker_ &&
+        !profile_->GetPrefs()->GetBoolean(prefs::kArcSignedIn)) {
+      scoped_opt_in_tracker_ = base::MakeUnique<ScopedOptInFlowTracker>();
+    }
+
     // Don't show UI for this progress if it was not shown.
     if (support_host_ &&
         support_host_->ui_page() != ArcSupportHost::UIPage::NO_PAGE) {
@@ -641,6 +713,7 @@ void ArcSessionManager::RequestDisable() {
     return;
   }
   enable_requested_ = false;
+  scoped_opt_in_tracker_.reset();
 
   // Reset any pending request to re-enable ARC.
   VLOG(1) << "ARC opt-out. Removing user data.";
@@ -661,10 +734,17 @@ void ArcSessionManager::StartTermsOfServiceNegotiation() {
       support_host_->ShowError(
           ArcSupportHost::Error::SIGN_IN_SERVICE_UNAVAILABLE_ERROR, false);
     }
+    UpdateOptInCancelUMA(OptInCancelReason::SESSION_BUSY);
     return;
   }
 
   SetState(State::SHOWING_TERMS_OF_SERVICE);
+
+  if (!scoped_opt_in_tracker_ &&
+      !profile_->GetPrefs()->GetBoolean(prefs::kArcSignedIn)) {
+    scoped_opt_in_tracker_ = base::MakeUnique<ScopedOptInFlowTracker>();
+  }
+
   if (IsOobeOptInActive()) {
     VLOG(1) << "Use OOBE negotiator.";
     terms_of_service_negotiator_ =
