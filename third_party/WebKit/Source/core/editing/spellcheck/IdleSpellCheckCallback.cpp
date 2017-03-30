@@ -151,6 +151,7 @@ bool IdleSpellCheckCallback::coldModeFinishesFullDocument() const {
 }
 
 void IdleSpellCheckCallback::handleEvent(IdleDeadline* deadline) {
+  DCHECK(RuntimeEnabledFeatures::idleTimeSpellCheckingEnabled());
   DCHECK(frame().document());
   DCHECK(frame().document()->isActive());
   DCHECK_NE(m_idleCallbackHandle, kInvalidHandle);
