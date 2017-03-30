@@ -400,8 +400,8 @@ void NoteTakingHelper::Observe(int type,
 
   // TODO(derat): Remove this once OnArcPlayStoreEnabledChanged() is always
   // called after an ARC-enabled user logs in: http://b/36655474
-  if (!play_store_enabled_ && arc::IsArcPlayStoreEnabledForProfile(profile)) {
-    play_store_enabled_ = true;
+  if (!android_enabled_ && arc::IsArcPlayStoreEnabledForProfile(profile)) {
+    android_enabled_ = true;
     for (auto& observer : observers_)
       observer.OnAvailableNoteTakingAppsUpdated();
   }
