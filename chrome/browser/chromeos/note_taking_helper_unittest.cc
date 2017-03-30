@@ -491,7 +491,7 @@ TEST_F(NoteTakingHelperTest, ArcInitiallyDisabled) {
 
 TEST_F(NoteTakingHelperTest, AddProfileWithPlayStoreEnabled) {
   Init(ENABLE_PALETTE);
-  EXPECT_FALSE(helper()->play_store_enabled());
+  EXPECT_FALSE(helper()->android_enabled());
   EXPECT_FALSE(helper()->android_apps_received());
 
   TestObserver observer;
@@ -509,7 +509,7 @@ TEST_F(NoteTakingHelperTest, AddProfileWithPlayStoreEnabled) {
       kSecondProfileName, std::move(prefs), base::ASCIIToUTF16("Second User"),
       1 /* avatar_id */, std::string() /* supervised_user_id */,
       TestingProfile::TestingFactories());
-  EXPECT_TRUE(helper()->play_store_enabled());
+  EXPECT_TRUE(helper()->android_enabled());
   EXPECT_FALSE(helper()->android_apps_received());
   EXPECT_EQ(1, observer.num_updates());
 
@@ -517,14 +517,14 @@ TEST_F(NoteTakingHelperTest, AddProfileWithPlayStoreEnabled) {
   // refreshed.
   helper()->OnIntentFiltersUpdated();
   base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(helper()->play_store_enabled());
+  EXPECT_TRUE(helper()->android_enabled());
   EXPECT_TRUE(helper()->android_apps_received());
   EXPECT_EQ(2, observer.num_updates());
 
   profile_manager_->DeleteTestingProfile(kSecondProfileName);
 }
 
-TEST_P(NoteTakingHelperTest, ListAndroidApps) {
+TEST_F(NoteTakingHelperTest, ListAndroidApps) {
   // Add two Android apps.
   std::vector<IntentHandlerInfoPtr> handlers;
   const std::string kName1 = "App 1";
