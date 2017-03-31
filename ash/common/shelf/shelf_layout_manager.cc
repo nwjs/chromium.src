@@ -25,6 +25,8 @@
 #include "ash/common/wm_window.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/root_window_controller.h"
+#include "ash/shell.h"
+#include "ash/wm/window_state_aura.h"
 #include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/i18n/rtl.h"
@@ -246,9 +248,12 @@ void ShelfLayoutManager::UpdateVisibilityState() {
     // when we are in SHELF_AUTO_HIDE_ALWAYS_HIDDEN.
     wm::WorkspaceWindowState window_state(
         shelf_window->GetRootWindowController()->GetWorkspaceWindowState());
+
     switch (window_state) {
       case wm::WORKSPACE_WINDOW_STATE_FULL_SCREEN: {
-        if (IsShelfHiddenForFullscreen()) {
+        if (IsShelfAutoHideForFullscreenMaximized()) {
+          SetState(SHELF_AUTO_HIDE);
+        } else if (IsShelfHiddenForFullscreen()) {
           SetState(SHELF_HIDDEN);
         } else {
           // The shelf is sometimes not hidden when in immersive fullscreen.
@@ -258,7 +263,11 @@ void ShelfLayoutManager::UpdateVisibilityState() {
         break;
       }
       case wm::WORKSPACE_WINDOW_STATE_MAXIMIZED:
-        SetState(CalculateShelfVisibility());
+        if (IsShelfAutoHideForFullscreenMaximized()) {
+          SetState(SHELF_AUTO_HIDE);
+        } else {
+          SetState(CalculateShelfVisibility());
+        }
         break;
 
       case wm::WORKSPACE_WINDOW_STATE_WINDOW_OVERLAPS_SHELF:
@@ -1045,6 +1054,12 @@ bool ShelfLayoutManager::IsShelfHiddenForFullscreen() const {
       WmLookup::Get()->GetWindowForWidget(shelf_widget_));
   return fullscreen_window &&
          fullscreen_window->GetWindowState()->hide_shelf_when_fullscreen();
+}
+
+bool ShelfLayoutManager::IsShelfAutoHideForFullscreenMaximized() const {
+  wm::WindowState* active_window = wm::GetActiveWindowState();
+  return active_window &&
+         active_window->autohide_shelf_when_maximized_or_fullscreen();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
