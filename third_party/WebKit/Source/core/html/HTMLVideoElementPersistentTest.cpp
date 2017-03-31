@@ -195,10 +195,14 @@ TEST_F(HTMLVideoElementPersistentTest, internalPseudoClassOnlyUAStyleSheet) {
   EXPECT_CALL(mockChromeClient(), enterFullscreen(_)).Times(1);
   EXPECT_CALL(mockChromeClient(), exitFullscreen(_)).Times(0);
 
-  EXPECT_FALSE(divElement()->matches(":-webkit-full-screen"));
-  EXPECT_FALSE(divElement()->matches(":-internal-video-persistent-ancestor"));
-  EXPECT_FALSE(videoElement()->matches(":-internal-video-persistent"));
-  EXPECT_FALSE(videoElement()->matches(":-internal-video-persistent-ancestor"));
+  EXPECT_FALSE(
+      divElement()->matches(":-webkit-full-screen", ASSERT_NO_EXCEPTION));
+  EXPECT_FALSE(divElement()->matches(":-internal-video-persistent-ancestor",
+                                     ASSERT_NO_EXCEPTION));
+  EXPECT_FALSE(videoElement()->matches(":-internal-video-persistent",
+                                       ASSERT_NO_EXCEPTION));
+  EXPECT_FALSE(videoElement()->matches(":-internal-video-persistent-ancestor",
+                                       ASSERT_NO_EXCEPTION));
 
   UserGestureIndicator gestureIndicator(
       DocumentUserGestureToken::create(&document()));
@@ -212,10 +216,14 @@ TEST_F(HTMLVideoElementPersistentTest, internalPseudoClassOnlyUAStyleSheet) {
   EXPECT_TRUE(videoElement()->containsPersistentVideo());
 
   // The :internal-* rules apply only from the UA stylesheet.
-  EXPECT_TRUE(divElement()->matches(":-webkit-full-screen"));
-  EXPECT_FALSE(divElement()->matches(":-internal-video-persistent-ancestor"));
-  EXPECT_FALSE(videoElement()->matches(":-internal-video-persistent"));
-  EXPECT_FALSE(videoElement()->matches(":-internal-video-persistent-ancestor"));
+  EXPECT_TRUE(
+      divElement()->matches(":-webkit-full-screen", ASSERT_NO_EXCEPTION));
+  EXPECT_FALSE(divElement()->matches(":-internal-video-persistent-ancestor",
+                                     ASSERT_NO_EXCEPTION));
+  EXPECT_FALSE(videoElement()->matches(":-internal-video-persistent",
+                                       ASSERT_NO_EXCEPTION));
+  EXPECT_FALSE(videoElement()->matches(":-internal-video-persistent-ancestor",
+                                       ASSERT_NO_EXCEPTION));
 }
 
 TEST_F(HTMLVideoElementPersistentTest, removeContainerWhilePersisting) {
