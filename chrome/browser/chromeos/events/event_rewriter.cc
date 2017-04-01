@@ -138,6 +138,7 @@ const ModifierRemapping* GetRemappedKey(const std::string& pref_name,
   // If we're at the login screen, try to get the pref from the global prefs
   // dictionary.
   if (!LoginDisplayHost::default_host() ||
+      !LoginDisplayHost::default_host()->GetOobeUI() ||
       !LoginDisplayHost::default_host()
            ->GetOobeUI()
            ->signin_screen_handler()
