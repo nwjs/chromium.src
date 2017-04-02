@@ -113,11 +113,6 @@ public class SystemDownloadNotifier implements DownloadNotifier, Observer {
     void handlePendingNotifications() {
         if (mPendingNotifications.isEmpty()) return;
         for (int i = 0; i < mPendingNotifications.size(); i++) {
-            // If we lose the service mid-loop retrigger the service load and quit.
-            if (mBoundService == null) {
-                startAndBindToServiceIfNeeded();
-                return;
-            }
             updateDownloadNotification(
                     mPendingNotifications.get(i), i == mPendingNotifications.size() - 1);
         }
@@ -155,11 +150,6 @@ public class SystemDownloadNotifier implements DownloadNotifier, Observer {
     @VisibleForTesting
     void unbindService() {
         mApplicationContext.unbindService(mConnection);
-    }
-
-    @Override
-    public void onServiceShutdownRequested() {
-        unbindServiceIfNeeded();
     }
 
     @Override
