@@ -302,6 +302,14 @@ public class DownloadNotificationServiceTest extends
         service.notifyDownloadCanceled(guid3);
         assertEquals(2, getService().getNotificationIds().size());
         assertFalse(getService().getNotificationIds().contains(lastNotificationId));
+
+        String guid4 = UUID.randomUUID().toString();
+        service.notifyDownloadSuccessful(guid4, "/path/to/success", "success", 100L, false, false);
+        assertEquals(3, getService().getNotificationIds().size());
+        int nextNotificationId = getService().getLastAddedNotificationId();
+        service.cancelNotification(nextNotificationId, guid4);
+        assertEquals(2, getService().getNotificationIds().size());
+        assertFalse(getService().getNotificationIds().contains(nextNotificationId));
     }
 
     /**

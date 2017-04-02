@@ -796,12 +796,14 @@ public class DownloadNotificationService extends Service {
     }
 
     /**
-     * Cancel a download notification.
+     * Removes a download notification and all associated tracking.  This method relies on the
+     * caller to provide the notification id, which is useful in the case where the internal
+     * tracking doesn't exist (e.g. in the case of a successful download, where we show the download
+     * completed notification and remove our internal state tracking).
      * @param notificationId Notification ID of the download
      * @param downloadGuid GUID of the download.
      */
-    @VisibleForTesting
-    void cancelNotification(int notificationId, String downloadGuid) {
+    public void cancelNotification(int notificationId, String downloadGuid) {
         mNotificationManager.cancel(NOTIFICATION_NAMESPACE, notificationId);
         mDownloadSharedPreferenceHelper.removeSharedPreferenceEntry(downloadGuid);
 
@@ -816,7 +818,8 @@ public class DownloadNotificationService extends Service {
     }
 
     /**
-     * Called when a download is canceled.
+     * Called when a download is canceled.  This method uses internal tracking to try to find the
+     * notification id to cancel.
      * @param downloadGuid GUID of the download.
      */
     @VisibleForTesting
