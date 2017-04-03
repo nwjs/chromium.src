@@ -1197,7 +1197,7 @@ Não acho que este site deva ser bloqueado.</translation>
 <translation id="2565670301826831948">Velocidade do touchpad:</translation>
 <translation id="2566124945717127842">Use a função "Powerwash" para redefinir seu dispositivo <ph name="IDS_SHORT_PRODUCT_NAME" /> para as condições de fábrica.</translation>
 <translation id="2568774940984945469">Recipiente da barra de informações</translation>
-<translation id="2570000010887652771">Dados salvos.</translation>
+<translation id="2570000010887652771">Economia de dados.</translation>
 <translation id="2570648609346224037">Ocorreu um problema durante o download da imagem de recuperação.</translation>
 <translation id="257088987046510401">Temas</translation>
 <translation id="2572032849266859634">Foi concedido acesso apenas de leitura a <ph name="VOLUME_NAME" />.</translation>
@@ -4706,7 +4706,7 @@ Use esse recurso somente com contas nas quais você confia.</translation>
 <translation id="7238585580608191973">Assinatura digital SHA-256</translation>
 <translation id="7240120331469437312">Nome alternativo do requerente do certificado</translation>
 <translation id="7241389281993241388">Faça login no <ph name="TOKEN_NAME" /> para importar o certificado do cliente.</translation>
-<translation id="7243055093079293866">Diga "OK Google" em uma nova guia e no google.com</translation>
+<translation id="7243055093079293866">Diga "Ok Google" em uma nova guia e no google.com</translation>
 <translation id="7243632151880336635">Limpar e sair</translation>
 <translation id="7245628041916450754"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (Melhor)</translation>
 <translation id="7246947237293279874">Proxy FTP</translation>

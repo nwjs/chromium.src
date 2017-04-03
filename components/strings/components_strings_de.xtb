@@ -35,7 +35,7 @@
 <translation id="1227633850867390598">Wert ausblenden</translation>
 <translation id="1228893227497259893">Falsche Entitätskennung</translation>
 <translation id="1232569758102978740">Unbenannt</translation>
-<translation id="1264126396475825575">Absturzbericht erfasst um <ph name="CRASH_TIME" />, wurde noch nicht hochgeladen oder wurde ignoriert</translation>
+<translation id="1264126396475825575">Absturzbericht erfasst am <ph name="CRASH_TIME" />, wurde noch nicht hochgeladen oder wurde ignoriert</translation>
 <translation id="1285320974508926690">Diese Website nie übersetzen</translation>
 <translation id="129553762522093515">Kürzlich geschlossen</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Löschen Sie Ihre Cookies<ph name="END_LINK" /></translation>
@@ -149,7 +149,7 @@
 <translation id="2354001756790975382">Weitere Lesezeichen</translation>
 <translation id="2355395290879513365">Angreifer können unter Umständen die Bilder sehen, die Sie sich auf dieser Website ansehen, und könnten dann versuchen, Sie durch Ändern der Bilder zu täuschen.</translation>
 <translation id="2359808026110333948">Weiter</translation>
-<translation id="2365563543831475020">Absturzbericht erfasst um <ph name="CRASH_TIME" />, wurde nicht hochgeladen</translation>
+<translation id="2365563543831475020">Absturzbericht erfasst am <ph name="CRASH_TIME" />, wurde nicht hochgeladen</translation>
 <translation id="2367567093518048410">Ebene</translation>
 <translation id="2371153335857947666">{1,plural, =1{Dieser Server konnte nicht beweisen, dass er <ph name="DOMAIN" /> ist. Sein Sicherheitszertifikat ist gestern abgelaufen. Mögliche Gründe sind eine fehlerhafte Konfiguration oder ein Angreifer, der Ihre Verbindung abfängt. Die Uhr Ihres Computers ist derzeit auf <ph name="CURRENT_DATE" /> eingestellt. Ist das korrekt? Falls nicht, stellen Sie die Uhr Ihres Systems richtig ein und aktualisieren Sie anschließend diese Seite. <ph name="BEGIN_LEARN_MORE_LINK" />Weitere Informationen<ph name="END_LEARN_MORE_LINK" />}other{Dieser Server konnte nicht beweisen, dass er <ph name="DOMAIN" /> ist. Sein Sicherheitszertifikat ist vor # Tagen abgelaufen. Mögliche Gründe sind eine fehlerhafte Konfiguration oder ein Angreifer, der Ihre Verbindung abfängt. Die Uhr Ihres Computers ist derzeit auf <ph name="CURRENT_DATE" /> eingestellt. Ist das korrekt? Falls nicht, stellen Sie die Uhr Ihres Systems richtig ein und aktualisieren Sie anschließend diese Seite. <ph name="BEGIN_LEARN_MORE_LINK" />Weitere Informationen<ph name="END_LEARN_MORE_LINK" />}}</translation>
 <translation id="237718015863234333">Keine Alternativen für die Benutzeroberfläche verfügbar</translation>

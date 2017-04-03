@@ -608,7 +608,7 @@
 <translation id="1763108912552529023">Настави са истраживањем</translation>
 <translation id="1764226536771329714">бета</translation>
 <translation id="176587472219019965">&amp;Нови прозор</translation>
-<translation id="1766352429832934452">Омогућено (неопходно за коришћење функције „ОК Google“)</translation>
+<translation id="1766352429832934452">Омогућено (неопходно за коришћење функције „Ок Google“)</translation>
 <translation id="1769104665586091481">Отвори везу у новом &amp;прозору</translation>
 <translation id="1772267994638363865">Да бисте ово остварили, мораћете да омогућите гласовне и аудио активности и обучите <ph name="DEVICE_TYPE" /> у следећим корацима.</translation>
 <translation id="1773212559869067373">Сертификат за потврду аутентичности је одбијен локално</translation>
@@ -733,7 +733,7 @@
 <translation id="1934636348456381428">Омогућите примену експерименталних трака за померање постављеног елемента. Морате да омогућите и компоновање са нитима да би траке за померање биле анимиране.</translation>
 <translation id="1936157145127842922">Прикажи у директоријуму</translation>
 <translation id="1936717151811561466">фински</translation>
-<translation id="1937256809970138538">Реците „ОК Google“ када је екран укључен и откључан</translation>
+<translation id="1937256809970138538">Реците „Ок Google“ када је екран укључен и откључан</translation>
 <translation id="1942765061641586207">Резолуција слике</translation>
 <translation id="1944921356641260203">Ажурирање је пронађено</translation>
 <translation id="1947424002851288782">Језик тастатуре: немачки</translation>
@@ -1474,7 +1474,7 @@
 <translation id="2890678560483811744">Превелика референца за странице</translation>
 <translation id="2893168226686371498">Подразумевани прегледач</translation>
 <translation id="289426338439836048">Друга мобилна мрежа...</translation>
-<translation id="2894745200702272315">Омогућава експерименталну верзију функција за откривање актуелне речи „ОК Google“ које су зависне од хардвера.</translation>
+<translation id="2894745200702272315">Омогућава експерименталну верзију функција за откривање актуелне речи „Ок Google“ које су зависне од хардвера.</translation>
 <translation id="289644616180464099">SIM картица је закључана</translation>
 <translation id="289695669188700754">ИД кључа: <ph name="KEY_ID" /></translation>
 <translation id="2897878306272793870">Желите ли стварно да отворите <ph name="TAB_COUNT" /> картицa?</translation>
@@ -3214,7 +3214,7 @@
 <translation id="5229189185761556138">Управљање методима уноса</translation>
 <translation id="5229622432348746578">Онемогући звук за дељење радне површине</translation>
 <translation id="5230516054153933099">Прозор</translation>
-<translation id="5232178406098309195">Када користите команде за аудио активацију, попут „ОК Google“ или додирнете икону микрофона, приватне Гласовне и аудио активности чувају неке гласовне и друге аудио податке на налог. Биће сачуван снимак говора/звука који следи и неколико секунди пре тога.</translation>
+<translation id="5232178406098309195">Када користите команде за аудио активацију, попут „Ок Google“ или додирнете икону микрофона, приватне Гласовне и аудио активности чувају неке гласовне и друге аудио податке на налог. Биће сачуван снимак говора/звука који следи и неколико секунди пре тога.</translation>
 <translation id="523299859570409035">Изузеци за обавештења</translation>
 <translation id="5233019165164992427">NaCl порт за отклањање грешака</translation>
 <translation id="5233231016133573565">ИД процеса</translation>
@@ -3233,7 +3233,7 @@
 <translation id="5249624017678798539">Прегледач је отказао пре него што је преузимање довршено.</translation>
 <translation id="5252456968953390977">Роминг</translation>
 <translation id="5252653240322147470">PIN мора да има мање од <ph name="MAXIMUM" /> цифре(ара)</translation>
-<translation id="5253753933804516447">Омогућите „ОК Google“ да бисте обављали гласовну претрагу када је екран укључен и откључан</translation>
+<translation id="5253753933804516447">Омогућите „Ок Google“ да бисте обављали гласовну претрагу када је екран укључен и откључан</translation>
 <translation id="52550593576409946">Није могуће покренути киоск апликацију.</translation>
 <translation id="5255315797444241226">Приступна фраза коју сте унели је нетачна.</translation>
 <translation id="5260508466980570042">Жао нам је, нисмо успели да верификујемо имејл или лозинку. Пробајте поново.</translation>
@@ -3811,7 +3811,7 @@
 <translation id="6011449291337289699">Обришите податке сајта</translation>
 <translation id="6015796118275082299">Година</translation>
 <translation id="6016551720757758985">Потврђивање Powerwash-а уз враћање на претходну верзију</translation>
-<translation id="6016809788585079594">Реците „ОК Google“ још само једном</translation>
+<translation id="6016809788585079594">Реците „Ок Google“ још само једном</translation>
 <translation id="6016972670657536680">Дугме за избор језика и тастатуре. Тренутно изабрани језик је <ph name="LANGUAGE" />.</translation>
 <translation id="6017225534417889107">Промени...</translation>
 <translation id="6017981840202692187">Додајте у Апликације</translation>
@@ -3879,7 +3879,7 @@
 <translation id="6105158702728922449">користи камеру и микрофон</translation>
 <translation id="6105877918873366097">Последњи приступ</translation>
 <translation id="6107012941649240045">Издато за</translation>
-<translation id="6107079717483424262">Препознавање гласа када кажете „ОК Google“</translation>
+<translation id="6107079717483424262">Препознавање гласа када кажете „Ок Google“</translation>
 <translation id="6109228527970300988">Емоџији, рукопис и гласовни унос у менију за омогућавање IME-ја</translation>
 <translation id="6111770213269631447">Транслитерација (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Измени особу, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
@@ -4549,7 +4549,7 @@
 <translation id="7012372675181957985">Google налог има друге облике историје прегледања на <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /></translation>
 <translation id="7013485839273047434">Набави још додатака</translation>
 <translation id="7014174261166285193">Инсталација није успела.</translation>
-<translation id="7017004637493394352">Кажите поново „ОК Google“</translation>
+<translation id="7017004637493394352">Кажите поново „Ок Google“</translation>
 <translation id="7017219178341817193">Додајте нову страницу</translation>
 <translation id="7017354871202642555">Није могуће подесити режим након подешавања прозора.</translation>
 <translation id="7017480957358237747">да дозволите или забраните одређене веб-сајтове,</translation>
@@ -4706,7 +4706,7 @@
 <translation id="7238585580608191973">SHA-256 Fingerprint</translation>
 <translation id="7240120331469437312">Алтернативно име субјекта сертификата</translation>
 <translation id="7241389281993241388">Пријавите се на <ph name="TOKEN_NAME" /> да бисте увезли сертификат клијента.</translation>
-<translation id="7243055093079293866">Реците „ОК Google“ на новој картици и на сајту google.com</translation>
+<translation id="7243055093079293866">Реците „Ок Google“ на новој картици и на сајту google.com</translation>
 <translation id="7243632151880336635">Обриши и одјави ме</translation>
 <translation id="7245628041916450754"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (Најбоље)</translation>
 <translation id="7246947237293279874">FTP прокси</translation>
@@ -4905,10 +4905,10 @@
 <translation id="7517569744831774757">Вратите подешавања на првобитне подразумеване вредности.</translation>
 <translation id="7517786267097410259">Прављење лозинке –</translation>
 <translation id="7518150891539970662">WebRTC евиденције (<ph name="WEBRTC_LOG_COUNT" />)</translation>
-<translation id="7518657099163789435">За коришћење функције „ОК Google“ потребне су Гласовне и аудио активности</translation>
+<translation id="7518657099163789435">За коришћење функције „Ок Google“ потребне су Гласовне и аудио активности</translation>
 <translation id="7520821146909122639">Ова страница се преводи…</translation>
 <translation id="7521387064766892559">JavaScript</translation>
-<translation id="7522255036471229694">Реците „ОК Google“</translation>
+<translation id="7522255036471229694">Реците „Ок Google“</translation>
 <translation id="7525067979554623046">Направи</translation>
 <translation id="7529471622666797993"><ph name="BEGIN_LINK" />Напредна подешавања фонта<ph name="END_LINK" /> (захтева додатак)</translation>
 <translation id="7530016656428373557">Ниво потрошње у ватима</translation>
@@ -5155,7 +5155,7 @@
 <translation id="7881969471599061635">Онемогући титлове</translation>
 <translation id="7882358943899516840">Тип добављача</translation>
 <translation id="7885253890047913815">Недавна одредишта</translation>
-<translation id="7887192723714330082">Реагуј на „ОК Google“ када је екран укључен и откључан</translation>
+<translation id="7887192723714330082">Реагуј на „Ок Google“ када је екран укључен и откључан</translation>
 <translation id="7887334752153342268">Направи дупликат</translation>
 <translation id="7887864092952184874">Bluetooth миш је упарен</translation>
 <translation id="7892100671754994880">Следећи корисник</translation>
@@ -5305,7 +5305,7 @@
 <translation id="806812017500012252">Поређај према наслову</translation>
 <translation id="8069615408251337349">Google Cloud штампање</translation>
 <translation id="8071432093239591881">Одштампај као слику</translation>
-<translation id="8071942001314758122">Само реците „ОК Google“ три пута</translation>
+<translation id="8071942001314758122">Само реците „Ок Google“ три пута</translation>
 <translation id="8072988827236813198">Закачи картице</translation>
 <translation id="8074127646604999664">Дозволи да недавно затворени сајтови заврше слање и пријем података</translation>
 <translation id="8075191520954018715">Статус меморије</translation>

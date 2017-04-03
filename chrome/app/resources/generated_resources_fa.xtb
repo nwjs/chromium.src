@@ -406,7 +406,7 @@
 <translation id="1515163294334130951">راه‌اندازی</translation>
 <translation id="1519008742749884982">نماهای ورودی</translation>
 <translation id="151922265591345427">۱۰۲۴</translation>
-<translation id="1519759545815312682">فعالیت گفتاری و شنیداری برای <ph name="USER_EMAIL" /> فعال شده است.</translation>
+<translation id="1519759545815312682">فعالیت صوتی و گفتاری برای <ph name="USER_EMAIL" /> فعال شده است.</translation>
 <translation id="1520505881707245707">از این پرچم می‌توان برای روشن کردن تأیید این موضوع که محتواهای فایل‌های موجود در دیسک برنامه‌های افزودنی وب‌سایت با آنچه که انتظار می‌رفت مطابقت دارد، استفاده کرد. از این پرچم می‌توان برای روشن کردن این قابلیت درصورتی‌که روشن نشده باشد، استفاده کرد اما نمی‌توان برای خاموش کردن آن استفاده کرد (زیرا این تنظیم ممکن است توسط بدافزار دستکاری شود).</translation>
 <translation id="1520635877184409083">تنظیم...</translation>
 <translation id="1521442365706402292">مدیریت گواهی‌ها</translation>
@@ -610,7 +610,7 @@
 <translation id="176587472219019965">پنجره &amp;جدید</translation>
 <translation id="1766352429832934452">‏فعال (برای استفاده از «Ok Google» لازم است)</translation>
 <translation id="1769104665586091481">باز کردن پیوند در &amp;پنجره جدید</translation>
-<translation id="1772267994638363865">برای تنظیم این مورد، باید «فعالیت گفتاری و شنیداری» را فعال کنید و با پیروی از مراحل زیر به <ph name="DEVICE_TYPE" /> خود آموزش دهید.</translation>
+<translation id="1772267994638363865">برای تنظیم این مورد، باید «فعالیت صوتی و گفتاری» را فعال کنید و با پیروی از مراحل زیر به <ph name="DEVICE_TYPE" /> خود آموزش دهید.</translation>
 <translation id="1773212559869067373">گواهینامه راستی‌آزمایی به صورت محلی رد شد</translation>
 <translation id="177336675152937177">داده های برنامه میزبانی شده</translation>
 <translation id="1774367687019337077">به کاربر اجازه می‌دهد سایت رایانه لوحی را درخواست کند. وقتی این گزینه انتخاب می‌شود، رشته نماینده کاربر به گونه‌ای تغییر می‌کند که نماینگر یک دستگاه رایانه لوحی باشد. پس از آن، محتوای وب بهینه شده ویژه رایانه‌های لوحی برای برگه کنونی دریافت می‌شود.</translation>
@@ -1189,7 +1189,7 @@
 <translation id="2557899542277210112">برای دسترسی سریع، نشانک‌هایتان را در این قسمت روی نوار نشانک قرار دهید.</translation>
 <translation id="2558578666171469771">‏فروشگاه Google Play اکنون در <ph name="DEVICE_TYPE" /> شما</translation>
 <translation id="255937426064304553">بین‌المللی آمریکایی</translation>
-<translation id="2560633531288539217">مدیریت فعالیت گفتاری و شنیداری</translation>
+<translation id="2560633531288539217">مدیریت فعالیت صوتی و گفتاری</translation>
 <translation id="2562685439590298522">اسناد</translation>
 <translation id="2562743677925229011">به سیستم <ph name="SHORT_PRODUCT_NAME" /> وارد نشدید</translation>
 <translation id="2563856802393254086">تبریک می‌گوییم! خدمات داده «<ph name="NAME" />» شما فعال شده است و آماده استفاده است.</translation>
@@ -1702,7 +1702,7 @@
 <translation id="3162559335345991374">‏شبکه Wi-Fi مورد استفاده‌تان احتمالاً نیاز دارد که به یک صفحه ورود به سیستم بروید.</translation>
 <translation id="316307797510303346">وب‌سایت‌هایی را که این شخص بازدید می‌کند از <ph name="CUSTODIAN_EMAIL" /> کنترل و مشاهده کنید.
   جزئیات ورود به سیستم حسابتان قدیمی است.</translation>
-<translation id="3166571619128686629">‏برای شروع جستجوی صوتی، کلیک کنید یا بگویید «Ok Google»</translation>
+<translation id="3166571619128686629">‏برای شروع جستجوی گفتاری، کلیک کنید یا بگویید «Ok Google»</translation>
 <translation id="3170072451822350649">همچنین می‌توانید از ورود به سیستم صرف‌نظر کرده، <ph name="LINK_START" />به عنوان مهمان مرور کنید<ph name="LINK_END" />.</translation>
 <translation id="3170544058711792988">حفظ تمرکز ذره‌بین در مرکز صفحه</translation>
 <translation id="317583078218509884">تنظیمات مجوزهای جدید سایت پس از بارگیری مجدد صفحه اعمال می‌شوند.</translation>
@@ -1751,7 +1751,7 @@
 <translation id="3241720467332021590">ایرلندی</translation>
 <translation id="3242118113727675434">نمایش اخطار اولیه برای نقاط لمس</translation>
 <translation id="3242765319725186192">کلید از قبل مشترک شده:</translation>
-<translation id="3244621381664913240">‏فعال کردن «Ok Google» برای جستجوی صوتی.</translation>
+<translation id="3244621381664913240">‏فعال کردن «Ok Google» برای جستجوی گفتاری.</translation>
 <translation id="3245321423178950146">هنرمند ناشناس</translation>
 <translation id="324533084080637716">با نشانه‌گذاری دارای ساختار مقاله‌ای</translation>
 <translation id="324849028894344899"><ph name="WINDOW_TITLE" /> - خطای شبکه</translation>
@@ -2641,7 +2641,7 @@
 <translation id="4441548209689510310">نمایش گزینه‌های غلط‌گیر املا</translation>
 <translation id="4442424173763614572">‏جستجوی DNS انجام نشد</translation>
 <translation id="444267095790823769">استثنائات محتوای محافظت‌شده</translation>
-<translation id="4442732038333431189">فعالیت گفتاری و شنیداری <ph name="USER_EMAIL" />.</translation>
+<translation id="4442732038333431189">فعالیت صوتی و گفتاری <ph name="USER_EMAIL" />.</translation>
 <translation id="4443536555189480885">&amp;راهنما</translation>
 <translation id="4444304522807523469">‏دسترسی به اسکنرهای سند متصل شده از طریق USB یا در شبکه محلی</translation>
 <translation id="4444512841222467874">اگر فضای کافی در دسترس قرار نگیرد، ممکن است کاربران و داده‌ها به‌طور خودکار حذف شوند.</translation>
@@ -3213,7 +3213,7 @@
 <translation id="5229189185761556138">مدیریت روش‌های ورودی</translation>
 <translation id="5229622432348746578">غیرفعال کردن صوت برای اشتراک‌گذاری میزکار</translation>
 <translation id="5230516054153933099">پنجره</translation>
-<translation id="5232178406098309195">‏وقتی از فرمان‌های فعال‌سازی صوتی مانند «Ok Google» یا لمس نماد میکروفون استفاده می‌کنید، فعالیت گفتاری و شنیداری خصوصی شما برخی از گفتارها و شنیدارهای دیگر را در حسابتان ذخیره می‌کند. مورد ضبط شده‌ای از گفتار/صدای بعد از آن به علاوه چند ثانیه قبل از آن، ذخیره می‌شود.</translation>
+<translation id="5232178406098309195">‏وقتی از فرمان‌های فعال‌سازی صوتی مانند «Ok Google» یا لمس نماد میکروفون استفاده می‌کنید، فعالیت صوتی و گفتاری خصوصی شما برخی از گفتارها و شنیدارهای دیگر را در حسابتان ذخیره می‌کند. مورد ضبط شده‌ای از گفتار/صدای بعد از آن به علاوه چند ثانیه قبل از آن، ذخیره می‌شود.</translation>
 <translation id="523299859570409035">موارد استثنای اعلام</translation>
 <translation id="5233019165164992427">‏درگاه اشکال‌زدایی NaCl</translation>
 <translation id="5233231016133573565">شناسه فرایند</translation>
@@ -3232,7 +3232,7 @@
 <translation id="5249624017678798539">مرورگر پیش از تکمیل بارگیری ناگهان خارج شد.</translation>
 <translation id="5252456968953390977">رومینگ</translation>
 <translation id="5252653240322147470">کد پین باید کمتر از <ph name="MAXIMUM" /> رقم باشد</translation>
-<translation id="5253753933804516447">‏فعال کردن «Ok Google» برای جستجوی شفاهی وقتی صفحه قفل نیست و روشن است</translation>
+<translation id="5253753933804516447">‏فعال کردن «Ok Google» برای جستجوی گفتاری وقتی صفحه قفل نیست و روشن است</translation>
 <translation id="52550593576409946">برنامه کیوسک راه‌اندازی نشد.</translation>
 <translation id="5255315797444241226">عبارت عبوری که وارد کردید نادرست است.</translation>
 <translation id="5260508466980570042">متأسفانه رایانامه یا گذرواژه شما تأیید نشد. لطفاً دوباره سعی کنید.</translation>
@@ -3281,7 +3281,7 @@
 <translation id="5311260548612583999">فایل کلید خصوصی (اختیاری):</translation>
 <translation id="5314487751552222713">‏فقط اجرا و شناسایی محتوای مهم Flash (توصیه می‌شود)</translation>
 <translation id="5315873049536339193">هویت</translation>
-<translation id="5316588172263354223">جستجوی شفاهی در زمان دلخواه</translation>
+<translation id="5316588172263354223">جستجوی گفتاری در زمان دلخواه</translation>
 <translation id="5316716239522500219">بازتاب مانیتورها</translation>
 <translation id="5317780077021120954">ذخیره</translation>
 <translation id="5319782540886810524">صفحه‌کلید لتونیایی</translation>
@@ -3620,7 +3620,7 @@
 <translation id="5749861707650047230">{NUM_DOWNLOAD,plural, =1{لغو بارگیری}one{لغو بارگیری}other{لغو بارگیری}}</translation>
 <translation id="5750288053043553775">۰</translation>
 <translation id="5751545372099101699">مورد ۴ قفسه</translation>
-<translation id="5752162773804266219">‏برای کمک به <ph name="DEVICE_TYPE" /> در پاسخ‌گویی به شما و برای دسترسی قابل اعتماد و آسان به جستجوی گفتاری، باید صدایتان را به Google آموزش دهید.</translation>
+<translation id="5752162773804266219">‏برای کمک به <ph name="DEVICE_TYPE" /> در پاسخگویی به شما و برای دسترسی آسان و مطمئن به جستجوی گفتاری، باید صدایتان را به Google آموزش دهید.</translation>
 <translation id="5752453871435543420">‏نسخه پشتیبان Chrome OS Cloud</translation>
 <translation id="5754903485544371559">افزودن به برنامه‌ها...</translation>
 <translation id="5756163054456765343">مرکز را&amp;هنمایی</translation>
@@ -4219,7 +4219,7 @@
 <translation id="6547354035488017500">اگر حداقل ۵۱۲ مگابایت از حافظه دستگاه را خالی نکنید، پاسخ‌گویی دستگاه متوقف خواهد شد. برای آزاد کردن فضا، فایل‌ها را از حافظه دستگاه حذف کنید.</translation>
 <translation id="6549689063733911810">اخیر</translation>
 <translation id="6550675742724504774">گزینه‌ها</translation>
-<translation id="6551034508248154663">در حال فعال کردن فعالیت گفتاری و شنیداری ...</translation>
+<translation id="6551034508248154663">در حال فعال کردن فعالیت صوتی و گفتاری…</translation>
 <translation id="6551508934388063976">‏فرمان در دسترس نیست. برای باز کردن پنجره‌ای جدید، Control-N را فشار دهید.</translation>
 <translation id="655384502888039633"><ph name="USER_COUNT" /> کاربر</translation>
 <translation id="6555432686520421228">همه حساب‌های کاربر حذف شود و دستگاه <ph name="IDS_SHORT_PRODUCT_NAME" /> شما بازنشانی شود تا جدید شود.</translation>
@@ -4910,7 +4910,7 @@
 <translation id="7517569744831774757">بازنشانی تنظیمات به پیش‌فرض‌های اولیه آن‌ها.</translation>
 <translation id="7517786267097410259">ایجاد گذرواژه -</translation>
 <translation id="7518150891539970662">‏گزارش‌های WebRTC ‏(<ph name="WEBRTC_LOG_COUNT" />)</translation>
-<translation id="7518657099163789435">‏فعالیت گفتاری و شنیداری برای استفاده از «Ok Google» لازم است</translation>
+<translation id="7518657099163789435">‏فعالیت صوتی و گفتاری برای استفاده از «Ok Google» لازم است</translation>
 <translation id="7520821146909122639">این صفحه درحال ترجمه شدن است...</translation>
 <translation id="7521387064766892559">جاوا اسکریپت</translation>
 <translation id="7522255036471229694">‏بگویید «Ok Google»</translation>
@@ -5574,7 +5574,7 @@
 <translation id="8437209419043462667">آمریکایی</translation>
 <translation id="8437331208797669910">دسترسی به صفحه</translation>
 <translation id="843760761634048214">ذخیره کارت اعتباری</translation>
-<translation id="8438601631816548197">درباره جستجوی شفاهی</translation>
+<translation id="8438601631816548197">درباره جستجوی گفتاری</translation>
 <translation id="8439506636278576865">ترجمه صفحات نوشته شده به این زبان پیشنهاد داده شود</translation>
 <translation id="8441209996841212096">درحال ارسال ویدیو…</translation>
 <translation id="8442145116400417142">محتوا مسدود‌ شد</translation>
@@ -5658,7 +5658,7 @@
 <translation id="855773602626431402">از اجرای یک افزایه آزمایشی نشده در این صفحه جلوگیری شد.</translation>
 <translation id="8557930019681227453">مانیفست</translation>
 <translation id="8559694214572302298">کدگشای تصویر</translation>
-<translation id="8559748832541950395">هر وقت خواستید، می‌توانید این تنظیم را تغییر دهید یا <ph name="BEGIN_LINK" />داده‌های خصوصی خودتان را مدیریت کنید<ph name="END_LINK" />. لطفاً به یاد داشته باشید وقتی «فعالیت گفتاری و شنیداری» روشن است، شاید این داده‌ها از هر دستگاه وارد شده به سیستم ذخیره شود.</translation>
+<translation id="8559748832541950395">هر وقت خواستید، می‌توانید این تنظیم را تغییر دهید یا <ph name="BEGIN_LINK" />داده‌های خصوصی خودتان را مدیریت کنید<ph name="END_LINK" />. لطفاً به یاد داشته باشید وقتی «فعالیت صوتی و گفتاری» روشن است، شاید این داده‌ها از هر دستگاه وارد شده به سیستم ذخیره شود.</translation>
 <translation id="8561853412914299728"><ph name="TAB_TITLE" /> <ph name="EMOJI_PLAYING" /></translation>
 <translation id="8562413501751825163">‏بستن Firefox قبل از وارد کردن</translation>
 <translation id="8562442412584451930">مدیریت قفل صفحه</translation>
@@ -5763,7 +5763,7 @@
 <translation id="8698464937041809063">‏طراحی Google </translation>
 <translation id="869884720829132584">منوی برنامه</translation>
 <translation id="869891660844655955">تاریخ انقضا</translation>
-<translation id="8700934097952626751">برای شروع جستجوی شفاهی کلیک کنید</translation>
+<translation id="8700934097952626751">برای شروع جستجوی گفتاری کلیک کنید</translation>
 <translation id="870112442358620996">‏پیشنهاد ذخیره گذرواژه‌ها با «Google Smart Lock برای گذرواژه‌ها»</translation>
 <translation id="8704458368793604611">به کاربر اجازه داده می‌شود به‌صورت دستی گذرواژه را در فیلد گذرواژه تولید کند.</translation>
 <translation id="8704521619148782536">این کار بیشتر از زمان معمول طول کشیده است. می‌توانید منتظر بمانید یا آن را لغو کرده و بعداً دوباره امتحان کنید.</translation>
@@ -6178,7 +6178,7 @@
 <translation id="965490406356730238">‏رمزگشای mjpeg شتاب‌داده شده برای سخت‌افزار را برای قاب ضبط شده (در صورت وجود) فعال می‌کند.</translation>
 <translation id="968174221497644223">حافظه پنهان برنامه</translation>
 <translation id="970047733946999531">{NUM_TABS,plural, =1{‏۱ برگه}one{‏# برگه}other{‏# برگه}}</translation>
-<translation id="970794034573172516">فعال کردن فعالیت گفتاری و شنیداری</translation>
+<translation id="970794034573172516">فعال کردن فعالیت صوتی و گفتاری</translation>
 <translation id="971774202801778802">نشانی وب نشانک</translation>
 <translation id="973473557718930265">خروج</translation>
 <translation id="974555521953189084">برای شروع همگام‌سازی، عبارت عبورتان را وارد کنید</translation>

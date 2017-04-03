@@ -4068,7 +4068,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6362853299801475928">&amp;Notificar un error...</translation>
 <translation id="636343209757971102">Dirección IPv6:</translation>
 <translation id="6365411474437319296">Añadir familiares y amigos</translation>
-<translation id="636850387210749493">Inscripción corporativa</translation>
+<translation id="636850387210749493">Inscripción de empresa</translation>
 <translation id="6370021412472292592">No se ha podido cargar el archivo de manifiesto.</translation>
 <translation id="637062427944097960">Este archivo se ha abierto en un escritorio diferente. Ve a <ph name="USER_NAME" /> (<ph name="MAIL_ADDRESS" />) para verlo.</translation>
 <translation id="6374077068638737855">Iceweasel</translation>
@@ -4584,7 +4584,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="7062222374113411376">Permitir que los sitios web cerrados recientemente terminen de enviar y recibir datos (recomendado)</translation>
 <translation id="7063129466199351735">Procesando accesos directos...</translation>
 <translation id="7063957500469387217">Establecer o administrar impresoras en Google Cloud Print.</translation>
-<translation id="7065223852455347715">Este dispositivo está bloqueado en un modo que evita la inscripción corporativa. Si quieres registrar el dispositivo, primero debes pasar por el proceso de recuperación del dispositivo.</translation>
+<translation id="7065223852455347715">Este dispositivo está bloqueado en un modo que evita la inscripción de empresa. Si quieres registrar el dispositivo, primero debes pasar por el proceso de recuperación del dispositivo.</translation>
 <translation id="7065534935986314333">Acerca del sistema</translation>
 <translation id="7066944511817949584">Error al conectar con "<ph name="DEVICE_NAME" />"</translation>
 <translation id="7067725467529581407">No volver a mostrar.</translation>

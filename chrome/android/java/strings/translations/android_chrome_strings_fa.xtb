@@ -41,6 +41,7 @@
 <translation id="1383876407941801731">جستجو</translation>
 <translation id="1384959399684842514">بارگیری موقتاً متوقف شد</translation>
 <translation id="1389974829397082527">نشانکی در اینجا وجود ندارد</translation>
+<translation id="1402229579576898974">‏<ph name="NUMBER_OF_SUGGESTIONS" /> پیشنهاد Chrome</translation>
 <translation id="1404122904123200417">جاسازی شده در <ph name="WEBSITE_URL" /></translation>
 <translation id="1406000523432664303">«ردیابی نشود»</translation>
 <translation id="1407135791313364759">باز کردن همه</translation>
@@ -254,7 +255,7 @@
 <translation id="3927692899758076493">Sans Serif</translation>
 <translation id="3928666092801078803">ادغام کردن داده‌های من</translation>
 <translation id="3931947361983910192">۴ هفته گذشته</translation>
-<translation id="393697183122708255">هیچ جستجوی فعال صوتی در دسترس نیست</translation>
+<translation id="393697183122708255">هیچ جستجوی گفتاری فعالی در دسترس نیست</translation>
 <translation id="3946611741043634542">‏با ادامه دادن، با <ph name="BEGIN_LINK1" />شرایط و ضوابط<ph name="END_LINK1" /> و <ph name="BEGIN_LINK2" />اعلان حریم خصوصی<ph name="END_LINK2" /> Chrome موافقت می‌کنید.</translation>
 <translation id="3950820424414687140">ورود به سیستم</translation>
 <translation id="395922942268463099">صفحه‌هایی که به‌طور منظم به‌روزرسانی می‌شوند</translation>
@@ -732,7 +733,7 @@
 <translation id="9060538597317784206">‏مشاهده برنامه <ph name="APP_NAME" /> در فروشگاه Play.  رتبه‌بندی: <ph name="APP_RATING" /></translation>
 <translation id="9063523880881406963">خاموش کردن درخواست سایت رایانه‌ای</translation>
 <translation id="9065203028668620118">ویرایش</translation>
-<translation id="9070377983101773829">شروع جستجوی صوتی</translation>
+<translation id="9070377983101773829">شروع جستجوی گفتاری</translation>
 <translation id="9071742570345586758">‏برای مشاهده محتوای واقعیت مجازی، «سرویس‌های Google VR» را نصب کنید</translation>
 <translation id="9086455579313502267">دسترسی به شبکه امکان‌پذیر نیست</translation>
 <translation id="9099018167121903954"><ph name="KILOBYTES" /> کیلوبایت بارگیری شد</translation>

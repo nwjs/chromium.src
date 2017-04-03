@@ -41,6 +41,7 @@ Bluetooothin ja sijaintipalvelun on oltava päällä, jotta Fyysistä webiä voi
 <translation id="1383876407941801731">Haku</translation>
 <translation id="1384959399684842514">Lataus keskeytettiin.</translation>
 <translation id="1389974829397082527">Ei kirjanmerkkejä</translation>
+<translation id="1402229579576898974"><ph name="NUMBER_OF_SUGGESTIONS" /> Chrome-ehdotusta</translation>
 <translation id="1404122904123200417">Upotettu osoitteeseen <ph name="WEBSITE_URL" /></translation>
 <translation id="1406000523432664303">Do Not Track</translation>
 <translation id="1407135791313364759">Avaa kaikki</translation>

@@ -1393,7 +1393,7 @@
       <ph name="LIST_ITEM" />إعادة كلمة مرور تسجيل الدخول لكل من جذر النظام والجهاز من خلال قيمة مخصصة حتى يُمكنك إضافة SSH يدويًا إلى الجهاز
     <ph name="END_LIST" />
     <ph name="BR" />
-    بعد حدوث التمكين، ستبقى معظم ميزات التصحيح ممكّنة حتى بعد إجراء powerwash أو محو البيانات على جهاز مُدار من قبل المؤسسات.  لتعطيل ميزات التصحيح بالكامل، أكمل عملية استرداد تشغيل نظام Chrome (https://support.google.com/chromebook/answer/1080595).
+    بعد حدوث التمكين، ستبقى معظم ميزات التصحيح مفعّلة حتى بعد إجراء powerwash أو محو البيانات على جهاز مُدار من قبل المؤسسات.  لتعطيل ميزات التصحيح بالكامل، أكمل عملية استرداد تشغيل نظام Chrome (https://support.google.com/chromebook/answer/1080595).
     <ph name="BR" />
     <ph name="BR" />
     لمزيد من المعلومات حول ميزات التصحيح، راجع:<ph name="BR" />
@@ -2900,7 +2900,7 @@
 <translation id="4819699768051694728">عادي وباهت</translation>
 <translation id="4820334425169212497">لا، أنا لا أراه.</translation>
 <translation id="4821086771593057290">تم تغيير كلمة المرور. الرجاء المحاولة مرة أخرى باستخدام كلمة مرورك الجديدة.</translation>
-<translation id="4821935166599369261">&amp;التوصيف ممكّن</translation>
+<translation id="4821935166599369261">&amp;التوصيف مفعّل</translation>
 <translation id="4823484602432206655">قراءة إعدادات المستخدم والجهاز وتغييرها</translation>
 <translation id="4823651846660089135">الجهاز للقراءة فقط</translation>
 <translation id="4827948050554950725">إضافة بطاقة ائتمان</translation>
@@ -6138,7 +6138,7 @@
 <translation id="9189690067274055051">ألغ قفل هاتفك وقرِّبه من جهاز <ph name="DEVICE_TYPE" /> للدخول.</translation>
 <translation id="9190063653747922532">‏L2TP/IPSec + المفتاح المشترك مسبقًا</translation>
 <translation id="9201305942933582053">‏Google Now لـ Chrome!</translation>
-<translation id="9203398526606335860">&amp;التوصيف ممكّن</translation>
+<translation id="9203398526606335860">&amp;التوصيف مفعّل</translation>
 <translation id="9203478404496196495">إلغاء تجاهل علامة التبويب</translation>
 <translation id="9203962528777363226">عطل مشرف هذا الجهاز إمكانية إضافة مستخدمين جدد.</translation>
 <translation id="9205160891051296441">‏دعم سياسة SystemTimezoneAutomaticDetection</translation>

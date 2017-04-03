@@ -1197,7 +1197,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2565670301826831948">Vitesse du pavé tactile :</translation>
 <translation id="2566124945717127842">Effectuez un Powerwash pour rétablir la configuration d'usine de votre appareil <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
 <translation id="2568774940984945469">Conteneur de barres d'infos</translation>
-<translation id="2570000010887652771">Données enregistrées.</translation>
+<translation id="2570000010887652771">Données sauvegardées.</translation>
 <translation id="2570648609346224037">Un problème est survenu lors du téléchargement de l'image de récupération.</translation>
 <translation id="257088987046510401">Thèmes</translation>
 <translation id="2572032849266859634">L'accès en lecture seule à "<ph name="VOLUME_NAME" />" a été accordé.</translation>
@@ -2598,7 +2598,7 @@ Pour poursuivre l'exploration, veuillez appuyer sur n'importe quelle touche.</tr
 <translation id="4370975561335139969">L'adresse e-mail et le mot de passe saisis ne correspondent pas.</translation>
 <translation id="437184764829821926">Paramètres de police avancés</translation>
 <translation id="4372884569765913867">1 x 1</translation>
-<translation id="437400062942083160">Votre appareil doit être identifié dans <ph name="URL" /> pour que la lecture du contenu premium soit autorisée.</translation>
+<translation id="437400062942083160"><ph name="URL" /> doit identifier votre appareil pour vous autoriser à lire du contenu protégé par des droits d'auteur.</translation>
 <translation id="4375035964737468845">Ouvrir les fichiers téléchargés</translation>
 <translation id="4376834176777555209">Charger l'extension du composant Routeur multimédia</translation>
 <translation id="4377039040362059580">Thèmes et fonds d'écran</translation>
