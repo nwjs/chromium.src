@@ -79,6 +79,9 @@ class ASH_EXPORT ScreenOrientationController
   // user rotation lock.
   void ToggleUserRotationLock();
 
+  // Set locked to the given |rotation| and save it.
+  void SetLockToRotation(display::Display::Rotation rotation);
+
   // WmActivationObserver:
   void OnWindowActivated(WmWindow* gained_active,
                          WmWindow* lost_active) override;
@@ -108,6 +111,9 @@ class ASH_EXPORT ScreenOrientationController
                           display::Display::RotationSource source);
 
   void SetRotationLockedInternal(bool rotation_locked);
+
+  // A helper method that set locked to the given |orientation| and save it.
+  void SetLockToOrientation(blink::WebScreenOrientationLockType orientation);
 
   // Sets the display rotation to |rotation|. Future accelerometer updates
   // should not be used to change the rotation. SetRotationLocked(false) removes
