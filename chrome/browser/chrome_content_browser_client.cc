@@ -359,6 +359,10 @@
 #include "components/spellcheck/browser/spellcheck_message_filter_platform.h"
 #endif
 
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+#include "chrome/browser/supervised_user/supervised_user_google_auth_navigation_throttle.h"
+#endif
+
 #if BUILDFLAG(ENABLE_WEBRTC)
 #include "chrome/browser/media/audio_debug_recordings_handler.h"
 #include "chrome/browser/media/webrtc/webrtc_logging_handler_host.h"
@@ -3426,6 +3430,13 @@ ChromeContentBrowserClient::CreateThrottlesForNavigation(
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   throttles.push_back(
       base::MakeUnique<extensions::ExtensionNavigationThrottle>(handle));
+#endif
+
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+  std::unique_ptr<content::NavigationThrottle> supervised_user_nav_throttle =
+      SupervisedUserGoogleAuthNavigationThrottle::MaybeCreate(handle);
+  if (supervised_user_nav_throttle)
+    throttles.push_back(std::move(supervised_user_nav_throttle));
 #endif
 
   return throttles;
