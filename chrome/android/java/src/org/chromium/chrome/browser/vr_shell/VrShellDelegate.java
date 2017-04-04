@@ -368,6 +368,7 @@ public class VrShellDelegate implements ApplicationStatus.ActivityStateListener,
     private boolean enterVRFromIntent() {
         // Vr Intent is only used on Daydream devices.
         if (mVrSupportLevel != VR_DAYDREAM) return false;
+        if (mNativeVrShellDelegate == 0) return false;
         if (mListeningForWebVrActivateBeforePause && !mRequestedWebVR) {
             nativeDisplayActivate(mNativeVrShellDelegate);
             return false;
@@ -462,7 +463,9 @@ public class VrShellDelegate implements ApplicationStatus.ActivityStateListener,
     }
 
     private void setEnterVRResult(boolean success) {
-        if (mRequestedWebVR) nativeSetPresentResult(mNativeVrShellDelegate, success);
+        if (mRequestedWebVR && mNativeVrShellDelegate != 0) {
+            nativeSetPresentResult(mNativeVrShellDelegate, success);
+        }
         if (!success && !mVrDaydreamApi.exitFromVr(EXIT_VR_RESULT, new Intent())) {
             mVrClassesWrapper.setVrModeEnabled(mActivity, false);
         }
@@ -504,17 +507,23 @@ public class VrShellDelegate implements ApplicationStatus.ActivityStateListener,
         switch (enterVRInternal()) {
             case ENTER_VR_NOT_NECESSARY:
                 mVrShell.setWebVrModeEnabled(true);
-                nativeSetPresentResult(mNativeVrShellDelegate, true);
+                if (mNativeVrShellDelegate != 0) {
+                    nativeSetPresentResult(mNativeVrShellDelegate, true);
+                }
                 mRequestedWebVR = false;
                 break;
             case ENTER_VR_CANCELLED:
-                nativeSetPresentResult(mNativeVrShellDelegate, false);
+                if (mNativeVrShellDelegate != 0) {
+                    nativeSetPresentResult(mNativeVrShellDelegate, false);
+                }
                 mRequestedWebVR = false;
                 break;
             case ENTER_VR_REQUESTED:
                 break;
             case ENTER_VR_SUCCEEDED:
-                nativeSetPresentResult(mNativeVrShellDelegate, true);
+                if (mNativeVrShellDelegate != 0) {
+                    nativeSetPresentResult(mNativeVrShellDelegate, true);
+                }
                 mRequestedWebVR = false;
                 break;
             default:
@@ -581,14 +590,14 @@ public class VrShellDelegate implements ApplicationStatus.ActivityStateListener,
         } else if (mRequestedWebVR) {
             // If this is still set, it means the user backed out of the DON flow, and we won't be
             // receiving an intent from daydream.
-            nativeSetPresentResult(mNativeVrShellDelegate, false);
+            if (mNativeVrShellDelegate != 0) nativeSetPresentResult(mNativeVrShellDelegate, false);
             restoreWindowMode();
             mRequestedWebVR = false;
         }
 
         StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskWrites();
         try {
-            nativeOnResume(mNativeVrShellDelegate);
+            if (mNativeVrShellDelegate != 0) nativeOnResume(mNativeVrShellDelegate);
         } finally {
             StrictMode.setThreadPolicy(oldPolicy);
         }
@@ -625,7 +634,7 @@ public class VrShellDelegate implements ApplicationStatus.ActivityStateListener,
             // vrdisplayactivate event should be dispatched in enterVRFromIntent.
             mListeningForWebVrActivateBeforePause = mListeningForWebVrActivate;
         }
-        nativeOnPause(mNativeVrShellDelegate);
+        if (mNativeVrShellDelegate != 0) nativeOnPause(mNativeVrShellDelegate);
 
         // TODO(mthiesse): When VR Shell lives in its own activity, and integrates with Daydream
         // home, pause instead of exiting VR here. For now, because VR Apps shouldn't show up in the
@@ -751,6 +760,7 @@ public class VrShellDelegate implements ApplicationStatus.ActivityStateListener,
 
     private boolean createVrShell() {
         if (mVrClassesWrapper == null) return false;
+        if (mActivity.getCompositorViewHolder() == null) return false;
         mTabModelSelector = mActivity.getCompositorViewHolder().detachForVR();
         if (mTabModelSelector == null) return false;
         mVrShell = mVrClassesWrapper.createVrShell(mActivity, this, mTabModelSelector);
@@ -840,6 +850,7 @@ public class VrShellDelegate implements ApplicationStatus.ActivityStateListener,
     private void destroy() {
         if (sInstance == null) return;
         if (mNativeVrShellDelegate != 0) nativeDestroy(mNativeVrShellDelegate);
+        mNativeVrShellDelegate = 0;
         ApplicationStatus.unregisterActivityStateListener(this);
         sInstance = null;
     }

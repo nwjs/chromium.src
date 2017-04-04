@@ -360,7 +360,7 @@ by a child template that "extends" this file.
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
             android:launchMode="singleTask"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize|uiMode"
             android:hardwareAccelerated="false"
             {# We can only use blocks once in Jinja, for future substitutions we use
             self.supports_video_persistence(). #}
@@ -408,7 +408,7 @@ by a child template that "extends" this file.
              android:windowSoftInputMode="adjustResize"
              android:taskAffinity="{{ manifest_package }}.ChromeTabbedActivity2"
              android:launchMode="singleTask"
-             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
+             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize|uiMode"
              android:hardwareAccelerated="false"
              {{ self.supports_video_persistence() }}
              >
@@ -417,7 +417,7 @@ by a child template that "extends" this file.
             android:theme="@style/TabbedModeTheme"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize|uiMode"
             android:hardwareAccelerated="false">
         </activity>
 
