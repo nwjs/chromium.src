@@ -223,22 +223,22 @@ void ScreenOrientationController::ToggleUserRotationLock() {
     return;
 
   if (user_rotation_locked()) {
-    SetLockToOrientation(blink::WebScreenOrientationLockAny);
+    user_locked_orientation_ = blink::WebScreenOrientationLockAny;
   } else {
     display::Display::Rotation current_rotation =
         WmShell::Get()
             ->GetDisplayInfo(display::Display::InternalDisplayId())
             .GetActiveRotation();
-    SetLockToRotation(current_rotation);
+    user_locked_orientation_ = RotationToOrientation(current_rotation);
   }
-}
+  base::AutoReset<bool> auto_ignore_display_configuration_updates(
+      &ignore_display_configuration_updates_, true);
+  Shell::GetInstance()->display_manager()->RegisterDisplayRotationProperties(
+      user_rotation_locked(), OrientationToRotation(user_locked_orientation_));
 
-void ScreenOrientationController::SetLockToRotation(
-    display::Display::Rotation rotation) {
-  if (!display::Display::HasInternalDisplay())
-    return;
-
-  SetLockToOrientation(RotationToOrientation(rotation));
+  ApplyLockForActiveWindow();
+  for (auto& observer : observers_)
+    observer.OnUserRotationLockChanged();
 }
 
 void ScreenOrientationController::OnWindowActivated(WmWindow* gained_active,
@@ -353,19 +353,6 @@ void ScreenOrientationController::SetRotationLockedInternal(
   rotation_locked_ = rotation_locked;
   if (!rotation_locked_)
     rotation_locked_orientation_ = blink::WebScreenOrientationLockAny;
-}
-
-void ScreenOrientationController::SetLockToOrientation(
-    blink::WebScreenOrientationLockType orientation) {
-  user_locked_orientation_ = orientation;
-  base::AutoReset<bool> auto_ignore_display_configuration_updates(
-      &ignore_display_configuration_updates_, true);
-  Shell::GetInstance()->display_manager()->RegisterDisplayRotationProperties(
-      user_rotation_locked(), OrientationToRotation(user_locked_orientation_));
-
-  ApplyLockForActiveWindow();
-  for (auto& observer : observers_)
-    observer.OnUserRotationLockChanged();
 }
 
 void ScreenOrientationController::LockRotation(
