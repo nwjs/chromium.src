@@ -145,6 +145,7 @@ public abstract class ChromeFeatureList {
     public static final String TAB_REPARENTING = "TabReparenting";
     public static final String UPLOAD_CRASH_REPORTS_USING_JOB_SCHEDULER =
             "UploadCrashReportsUsingJobScheduler";
+    public static final String VIDEO_PERSISTENCE = "VideoPersistence";
     public static final String VR_SHELL = "VrShell";
     public static final String WEB_PAYMENTS = "WebPayments";
     public static final String WEB_PAYMENTS_MODIFIERS = "WebPaymentsModifiers";
