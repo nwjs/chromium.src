@@ -195,7 +195,7 @@ public class DownloadManagerServiceTest extends NativeLibraryTestBase {
         @Override
         public void onDownloadSucceeded(
                 DownloadInfo downloadInfo, int notificationId, long downloadId,
-                boolean canBeResolved) {
+                boolean canBeResolved, boolean usesAndroidDownloadManager) {
             mSucceeded = true;
         }
 
