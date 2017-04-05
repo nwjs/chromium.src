@@ -192,7 +192,7 @@ public class MediaNotificationManager {
 
             if (intent.getAction() == null) {
                 // The intent comes from {@link startService()} or
-                // {@link startServiceWithNotification}.
+                // {@link startForegroundService}.
                 manager.onServiceStarted(this);
             } else {
                 // The intent comes from the notification. In this case, {@link onServiceStarted()}
@@ -672,8 +672,7 @@ public class MediaNotificationManager {
         if (mService == null) {
             updateMediaSession();
             updateNotificationBuilder();
-            AppHooks.get().startServiceWithNotification(createIntent(mContext),
-                    mMediaNotificationInfo.id, mNotificationBuilder.build());
+            AppHooks.get().startForegroundService(createIntent(mContext));
         } else {
             mService.startService(createIntent(mContext));
         }
