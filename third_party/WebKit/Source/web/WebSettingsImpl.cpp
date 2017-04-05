@@ -732,4 +732,9 @@ void WebSettingsImpl::setMediaControlsEnabled(bool enabled) {
   m_settings->setMediaControlsEnabled(enabled);
 }
 
+void WebSettingsImpl::setDoNotUpdateSelectionOnMutatingSelectionRange(
+    bool enabled) {
+  m_settings->setDoNotUpdateSelectionOnMutatingSelectionRange(enabled);
+}
+
 }  // namespace blink
