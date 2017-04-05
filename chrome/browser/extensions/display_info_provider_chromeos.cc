@@ -6,8 +6,11 @@
 
 #include <stdint.h>
 
+#include "ash/common/wm/maximize_mode/maximize_mode_controller.h"
+#include "ash/common/wm_shell.h"
 #include "ash/display/display_configuration_controller.h"
 #include "ash/display/resolution_notification_controller.h"
+#include "ash/display/screen_orientation_controller_chromeos.h"
 #include "ash/shell.h"
 #include "ash/touch/ash_touch_transform_controller.h"
 #include "base/strings/string_number_conversions.h"
@@ -408,6 +411,12 @@ bool ValidateParamsForTouchCalibration(
   return true;
 }
 
+bool IsMaximizeModeWindowManagerEnabled() {
+  return ash::WmShell::Get()
+      ->maximize_mode_controller()
+      ->IsMaximizeModeWindowManagerEnabled();
+}
+
 }  // namespace
 
 // static
@@ -494,9 +503,16 @@ bool DisplayInfoProviderChromeOS::SetInfo(
 
   // Process 'rotation' parameter.
   if (info.rotation) {
-    display_configuration_controller->SetDisplayRotation(
-        display_id, DegreesToRotation(*info.rotation),
-        display::Display::ROTATION_SOURCE_ACTIVE);
+    if (IsMaximizeModeWindowManagerEnabled() &&
+        display_id == display::Display::InternalDisplayId()) {
+      ash::Shell::GetInstance()
+          ->screen_orientation_controller()
+          ->SetLockToRotation(DegreesToRotation(*info.rotation));
+    } else {
+      display_configuration_controller->SetDisplayRotation(
+          display_id, DegreesToRotation(*info.rotation),
+          display::Display::ROTATION_SOURCE_ACTIVE);
+    }
   }
 
   // Process new display origin parameters.
