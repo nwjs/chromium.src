@@ -19,7 +19,7 @@ const char kGpuDriverBugListJson[] = LONG_STRING_CONST(
 {
   "name": "gpu driver bug list",
   // Please update the version number whenever you change this file.
-  "version": "9.35",
+  "version": "9.36",
   "entries": [
     {
       "id": 1,
@@ -85,14 +85,7 @@ const char kGpuDriverBugListJson[] = LONG_STRING_CONST(
       "id": 19,
       "description": "Disable depth textures on Android with Qualcomm GPUs",
       "cr_bugs": [682075],
-      "os": {
-        "type": "android",
-        "version": {
-          "op": "<",
-          "value": "6.0"
-        }
-      },
-      "gl_vendor": "Qualcomm.*",
+      "gl_renderer": "Adreno \\(TM\\) [23].*",
       "features": [
         "disable_depth_texture"
       ],
@@ -433,7 +426,7 @@ const char kGpuDriverBugListJson[] = LONG_STRING_CONST(
           "value": "6.0"
         }
       },
-      "gl_vendor": "Qualcomm.*",
+      "gl_renderer": "Adreno \\(TM\\) 4.*",
       "features": [
         "disable_chromium_framebuffer_multisample"
       ]
@@ -2325,8 +2318,7 @@ LONG_STRING_CONST(
       "id": 214,
       "description": "Certain versions of Qualcomm driver don't setup scissor state correctly when FBO0 is bound.",
       "cr_bugs": [670607, 696627, 698197],
-      "gl_vendor": "Qualcomm.*",
-      "machine_model_name": ["Nexus 7", "KFTHWI", "KFSAWI", "KFAPWI", "KFTHWA", "KFSAWA", "KFAPWA"],
+      "gl_renderer": "Adreno \\(TM\\) 3.*",
       "features": [
         "force_update_scissor_state_when_binding_fbo0",
         // Somehow the main workaround above won't work without the one below.
