@@ -59,7 +59,8 @@ public class ChildProcessServiceImpl {
     // Lock that protects the following members.
     private final Object mBinderLock = new Object();
     private IChildProcessCallback mCallback;
-    // PID of the client of this service, set in bindToCaller().
+    private boolean mBindToCallerCheck;
+    // PID of the client of this service, set in bindToCaller(), if mBindToCallerCheck is true.
     private int mBoundCallingPid;
 
     // This is the native "Main" thread for the renderer / utility process.
@@ -110,6 +111,7 @@ public class ChildProcessServiceImpl {
         // NOTE: Implement any IChildProcessService methods here.
         @Override
         public boolean bindToCaller() {
+            assert mBindToCallerCheck;
             synchronized (mBinderLock) {
                 int callingPid = Binder.getCallingPid();
                 if (mBoundCallingPid == 0) {
@@ -127,7 +129,7 @@ public class ChildProcessServiceImpl {
         public int setupConnection(Bundle args, IChildProcessCallback callback) {
             int callingPid = Binder.getCallingPid();
             synchronized (mBinderLock) {
-                if (mBoundCallingPid != callingPid) {
+                if (mBindToCallerCheck && mBoundCallingPid != callingPid) {
                     if (mBoundCallingPid == 0) {
                         Log.e(TAG, "Service has not been bound with bindToCaller()");
                     } else {
@@ -136,11 +138,10 @@ public class ChildProcessServiceImpl {
                     }
                     return -1;
                 }
-
-                mCallback = callback;
-                getServiceInfo(args);
-                return Process.myPid();
             }
+            mCallback = callback;
+            getServiceInfo(args);
+            return Process.myPid();
         }
 
         @Override
@@ -339,6 +340,10 @@ public class ChildProcessServiceImpl {
                     ChildProcessConstants.EXTRA_LINKER_PARAMS);
             mLibraryProcessType = ChildProcessCreationParams.getLibraryProcessType(intent);
             mMainThread.notifyAll();
+        }
+        synchronized (mBinderLock) {
+            mBindToCallerCheck =
+                    intent.getBooleanExtra(ChildProcessConstants.EXTRA_BIND_TO_CALLER, false);
         }
     }
 

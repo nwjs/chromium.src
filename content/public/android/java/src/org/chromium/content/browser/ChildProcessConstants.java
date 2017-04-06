@@ -36,4 +36,6 @@ public interface ChildProcessConstants {
     // Key for the CPU features mask.
     public static final String EXTRA_CPU_FEATURES =
             "com.google.android.apps.chrome.extra.cpu_features";
+    public static final String EXTRA_BIND_TO_CALLER =
+            "com.google.android.apps.chrome.extra.bind_to_caller";
 }
