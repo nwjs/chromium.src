@@ -586,10 +586,8 @@ void ArcAppListPrefs::SetLastLaunchTime(const std::string& app_id,
 void ArcAppListPrefs::DisableAllApps() {
   std::unordered_set<std::string> old_ready_apps;
   old_ready_apps.swap(ready_apps_);
-  for (auto& app_id : old_ready_apps) {
-    for (auto& observer : observer_list_)
-      observer.OnAppReadyChanged(app_id, false);
-  }
+  for (auto& app_id : old_ready_apps)
+    NotifyAppReadyChanged(app_id, false);
 }
 
 void ArcAppListPrefs::NotifyRegisteredApps() {
@@ -623,8 +621,7 @@ void ArcAppListPrefs::RemoveAllApps() {
     } else {
       if (ready_apps_.count(app_id)) {
         ready_apps_.erase(app_id);
-        for (auto& observer : observer_list_)
-          observer.OnAppReadyChanged(app_id, false);
+        NotifyAppReadyChanged(app_id, false);
       }
     }
   }
@@ -822,10 +819,8 @@ void ArcAppListPrefs::AddAppAndShortcut(
     ready_apps_.insert(app_id);
 
   if (was_tracked) {
-    if (was_disabled && app_ready) {
-      for (auto& observer : observer_list_)
-        observer.OnAppReadyChanged(app_id, true);
-    }
+    if (was_disabled && app_ready)
+      NotifyAppReadyChanged(app_id, true);
   } else {
     AppInfo app_info(updated_name, package_name, activity, intent_uri,
                      icon_resource_id, base::Time(), GetInstallTime(app_id),
@@ -960,6 +955,7 @@ void ArcAppListPrefs::OnAppListRefreshed(
     if (IsShortcut(app_id)) {
       // If this is a shortcut, we just mark it as ready.
       ready_apps_.insert(app_id);
+      NotifyAppReadyChanged(app_id, true);
     } else {
       // Default apps may not be installed yet at this moment.
       if (!default_apps_.HasApp(app_id))
@@ -1369,6 +1365,12 @@ void ArcAppListPrefs::OnInstallationFinished(
     return;
   }
   --installing_packages_count_;
+}
+
+void ArcAppListPrefs::NotifyAppReadyChanged(const std::string& app_id,
+                                            bool ready) {
+  for (auto& observer : observer_list_)
+    observer.OnAppReadyChanged(app_id, ready);
 }
 
 ArcAppListPrefs::AppInfo::AppInfo(const std::string& name,
