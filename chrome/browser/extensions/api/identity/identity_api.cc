@@ -221,7 +221,11 @@ void IdentityAPI::SetAccountStateForTest(gaia::AccountIds ids,
 template <>
 void BrowserContextKeyedAPIFactory<IdentityAPI>::DeclareFactoryDependencies() {
   DependsOn(ExtensionsBrowserClient::Get()->GetExtensionSystemFactory());
+
+  DependsOn(ChromeSigninClientFactory::GetInstance());
+  DependsOn(LoginUIServiceFactory::GetInstance());
   DependsOn(ProfileOAuth2TokenServiceFactory::GetInstance());
+  DependsOn(SigninManagerFactory::GetInstance());
 }
 
 }  // namespace extensions
