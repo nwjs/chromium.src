@@ -24,8 +24,7 @@ windows_manifest("chrome_exe_manifest") {
   sources = [
     as_invoker_manifest,
     common_controls_manifest,
-    default_compatibility_manifest,
-    version_assembly_output_file,
+    default_compatibility_manifest
   ]
 
   type = "exe"

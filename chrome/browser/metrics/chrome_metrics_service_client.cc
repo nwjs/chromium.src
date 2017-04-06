@@ -692,10 +692,11 @@ void ChromeMetricsServiceClient::Initialize() {
   metrics_service_->RegisterMetricsProvider(
       std::unique_ptr<metrics::MetricsProvider>(
           new HttpsEngagementMetricsProvider()));
-
+#if 0
   metrics_service_->RegisterMetricsProvider(
       std::unique_ptr<metrics::MetricsProvider>(
           new CertificateReportingMetricsProvider()));
+#endif
 }
 
 bool ChromeMetricsServiceClient::ShouldIncludeProfilerDataInLog() {

@@ -129,14 +129,14 @@ void PermissionContextBase::RequestPermission(
                         false /* persist */, content_setting);
     return;
   }
-
+#if 0
   if (!db_manager_) {
     safe_browsing::SafeBrowsingService* sb_service =
         g_browser_process->safe_browsing_service();
     if (sb_service)
       db_manager_ = sb_service->database_manager();
   }
-
+#endif
   // Asynchronously check whether the origin should be blocked from making this
   // permission request. It may be on the Safe Browsing API blacklist, or it may
   // have been dismissed too many times in a row. If the origin is allowed to
