@@ -45,7 +45,6 @@ import org.chromium.chrome.browser.suggestions.SuggestionsUiDelegate;
 import org.chromium.chrome.browser.suggestions.Tile;
 import org.chromium.chrome.browser.suggestions.TileGridLayout;
 import org.chromium.chrome.browser.suggestions.TileGroup;
-import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.util.MathUtils;
@@ -269,12 +268,6 @@ public class NewTabPageView extends FrameLayout implements TileGroup.Observer {
         initializeLayoutChangeListeners();
         setSearchProviderHasLogo(searchProviderHasLogo);
 
-        tab.addObserver(new EmptyTabObserver() {
-            @Override
-            public void onShown(Tab tab) {
-                mTileGroup.onSwitchToForeground();
-            }
-        });
         mTileGroup.startObserving(getMaxTileRows(searchProviderHasLogo) * getMaxTileColumns());
 
         // Set up snippets
