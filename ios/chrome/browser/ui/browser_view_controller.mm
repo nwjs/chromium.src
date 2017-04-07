@@ -4479,6 +4479,8 @@ class BrowserBookmarkModelBridge : public bookmarks::BookmarkModelObserver {
     didReplaceTab:(Tab*)oldTab
           withTab:(Tab*)newTab
           atIndex:(NSUInteger)index {
+  [self installDelegatesForTab:newTab];
+
   // Add |newTab|'s view to the hierarchy if it's the current Tab.
   if (self.active && model.currentTab == newTab)
     [self displayTab:newTab isNewSelection:NO];
