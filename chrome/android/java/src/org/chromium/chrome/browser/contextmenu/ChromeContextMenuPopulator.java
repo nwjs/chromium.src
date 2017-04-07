@@ -25,6 +25,8 @@ import org.chromium.chrome.browser.util.UrlUtilities;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -340,11 +342,23 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         }
 
         if (mMode == CUSTOM_TAB_MODE) {
-            if (ChromePreferenceManager.getInstance().getCachedChromeDefaultBrowser()) {
-                disabledOptions.add(R.id.contextmenu_open_in_browser_id);
-            } else {
-                disabledOptions.add(R.id.contextmenu_open_in_new_chrome_tab);
-                disabledOptions.add(R.id.contextmenu_open_in_chrome_incognito_tab);
+            try {
+                URI uri = new URI(getUrl(params));
+                if (UrlUtilities.isInternalScheme(uri)) {
+                    disabledOptions.add(R.id.contextmenu_open_in_new_chrome_tab);
+                    disabledOptions.add(R.id.contextmenu_open_in_chrome_incognito_tab);
+                    disabledOptions.add(R.id.contextmenu_open_in_browser_id);
+                } else if (ChromePreferenceManager.getInstance().getCachedChromeDefaultBrowser()) {
+                    disabledOptions.add(R.id.contextmenu_open_in_browser_id);
+                    if (!mDelegate.isIncognitoSupported()) {
+                        disabledOptions.add(R.id.contextmenu_open_in_chrome_incognito_tab);
+                    }
+                } else {
+                    disabledOptions.add(R.id.contextmenu_open_in_new_chrome_tab);
+                    disabledOptions.add(R.id.contextmenu_open_in_chrome_incognito_tab);
+                }
+            } catch (URISyntaxException e) {
+                return disabledOptions;
             }
         }
 
