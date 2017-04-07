@@ -20,7 +20,7 @@ const base::Feature kAllowAutoplayUnmutedInWebappManifestScope{
 #if defined(OS_MACOSX)
 // Enables Javascript execution via AppleScript.
 const base::Feature kAppleScriptExecuteJavaScript{
-    "AppleScriptExecuteJavaScript", base::FEATURE_DISABLED_BY_DEFAULT};
+    "AppleScriptExecuteJavaScript", base::FEATURE_ENABLED_BY_DEFAULT};
 #endif  // defined(OS_MACOSX)
 
 #if defined(OS_CHROMEOS)
