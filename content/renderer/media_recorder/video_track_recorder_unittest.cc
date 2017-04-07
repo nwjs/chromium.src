@@ -112,6 +112,12 @@ class VideoTrackRecorderTest
     video_track_recorder_->OnVideoFrameForTesting(frame, capture_time);
   }
 
+  void OnError() { video_track_recorder_->OnError(); }
+
+  bool HasEncoderInstance() {
+    return video_track_recorder_->encoder_.get() != nullptr;
+  }
+
   // A ChildProcess and a MessageLoopForUI are both needed to fool the Tracks
   // and Sources below into believing they are on the right threads.
   const base::MessageLoopForUI message_loop_;
@@ -199,6 +205,31 @@ TEST_P(VideoTrackRecorderTest, EncodeFrameWithPaddedCodedSize) {
           gfx::Size(frame_size.width() + kCodedSizePadding,
                     frame_size.height()),
           gfx::Rect(frame_size), frame_size, base::TimeDelta());
+
+  base::RunLoop run_loop;
+  base::Closure quit_closure = run_loop.QuitClosure();
+  EXPECT_CALL(*this, DoOnEncodedVideo(_, _, _, true))
+      .Times(1)
+      .WillOnce(RunClosure(quit_closure));
+  Encode(video_frame, base::TimeTicks::Now());
+  run_loop.Run();
+
+  Mock::VerifyAndClearExpectations(this);
+}
+
+// Inserts an OnError() call between sent frames.
+TEST_P(VideoTrackRecorderTest, HandlesOnError) {
+  const gfx::Size& frame_size = kTrackRecorderTestSize[0];
+  const scoped_refptr<VideoFrame> video_frame =
+      VideoFrame::CreateBlackFrame(frame_size);
+
+  InSequence s;
+  EXPECT_CALL(*this, DoOnEncodedVideo(_, _, _, true)).Times(1);
+  Encode(video_frame, base::TimeTicks::Now());
+
+  EXPECT_TRUE(HasEncoderInstance());
+  OnError();
+  EXPECT_FALSE(HasEncoderInstance());
 
   base::RunLoop run_loop;
   base::Closure quit_closure = run_loop.QuitClosure();
