@@ -624,7 +624,7 @@
 <translation id="1779766957982586368">إغلاق النافذة</translation>
 <translation id="1781502536226964113">فتح صفحة علامة التبويب الجديدة</translation>
 <translation id="1782196717298160133">العثور على هاتفك</translation>
-<translation id="1782924894173027610">خادم المزامنة مشغول، الرجاء إعادة المحاولة لاحقًا.</translation>
+<translation id="1782924894173027610">خادم المزامنة مشغول، يُرجى إعادة المحاولة لاحقًا.</translation>
 <translation id="1784849162047402014">مساحة القرص الموجودة على الجهاز منخفضة.</translation>
 <translation id="1788636309517085411">استخدام الموقع الافتراضي</translation>
 <translation id="1789575671122666129">النوافذ المنبثقة</translation>
@@ -1244,7 +1244,7 @@
 <translation id="2620436844016719705">النظام</translation>
 <translation id="26224892172169984">عدم السماح لأي موقع ويب بمعالجة البروتوكولات</translation>
 <translation id="2624142942574147739">هذه الصفحة تدخل إلى الكاميرا والميكروفون التابعين لك.</translation>
-<translation id="2626799779920242286">الرجاء إعادة المحاولة لاحقًا.</translation>
+<translation id="2626799779920242286">يُرجى إعادة المحاولة لاحقًا.</translation>
 <translation id="2630681426381349926">‏الاتصال بشبكة Wi-Fi للبدء</translation>
 <translation id="2631006050119455616">تم الحفظ</translation>
 <translation id="2631498379019108537">إظهار خيارات الإدخال في الرف</translation>
@@ -3696,7 +3696,7 @@
     <ph name="BEGIN_LINK_HELP" />مزيد من المعلومات<ph name="END_LINK_HELP" /></translation>
 <translation id="5851063901794976166">لا يوجد شئ هنا...</translation>
 <translation id="5851868085455377790">جهة الإصدار</translation>
-<translation id="5852112051279473187">عفوًا، حدث خطأ جسيم أثناء تسجيل هذه الخدمة. الرجاء إعادة المحاولة أو الاتصال بممثل الدعم.</translation>
+<translation id="5852112051279473187">عفوًا، حدث خطأ جسيم أثناء تسجيل هذه الخدمة. يُرجى إعادة المحاولة أو الاتصال بممثل الدعم.</translation>
 <translation id="5852137567692933493">‏إعادة التشغيل وإجراء Powerwash</translation>
 <translation id="5854409662653665676">إذا كنت تواجه مشكلات متكررة، يمكنك تجربة ما يلي لحل المشكلة في هذه الوحدة:</translation>
 <translation id="5854912040170951372">الشريحة</translation>
@@ -3956,7 +3956,7 @@
 <translation id="6226777517901268232">ملف مفتاح خاص (اختياري)</translation>
 <translation id="6227235786875481728">يتعذر تشغيل هذا الملف.</translation>
 <translation id="6228691855869374890">‏يتضمن هذا الموقع إمكانية تحكم شامل في أجهزة MIDI.</translation>
-<translation id="6229890768313448549">‏لا يمكن تحميل بنود خدمة Google Play. الرجاء إعادة المحاولة.</translation>
+<translation id="6229890768313448549">‏لا يمكن تحميل بنود خدمة Google Play. يُرجى إعادة المحاولة.</translation>
 <translation id="6231881193380278751">‏أضف معلمة طلب بحث في عنوان URL لإجراء تحديث تلقائي لصفحة: chrome://device-log/?refresh=&lt;sec&gt;</translation>
 <translation id="6232017090690406397">البطارية</translation>
 <translation id="6232116551750539448">انقطع الاتصال بـ <ph name="NAME" /></translation>
@@ -4987,7 +4987,7 @@
 <translation id="7629827748548208700">علامة التبويب: <ph name="TAB_NAME" /></translation>
 <translation id="7631887513477658702">فت&amp;ح هذا النوع من الملفات دومًا</translation>
 <translation id="7632948528260659758">‏فشل تحديث تطبيقات kiosk التالية:</translation>
-<translation id="7634566076839829401">حدث خطأ ما. الرجاء إعادة المحاولة.</translation>
+<translation id="7634566076839829401">حدث خطأ ما. يُرجى إعادة المحاولة.</translation>
 <translation id="7639178625568735185">تم إنشاء الحساب!</translation>
 <translation id="764017888128728">يعمل <ph name="PASSWORD_MANAGER_BRAND" /> على تسجيل دخولك تلقائيًا إلى المواقع المؤهلة باستخدام كلمات المرور التي حفظتها.</translation>
 <translation id="7644029910725868934">تمكين مجلد الإشارات المرجعية المُدارة للمستخدمين تحت الإشراف</translation>
@@ -5152,7 +5152,7 @@
 <translation id="7870790288828963061">‏لا توجد إصدارات أحدث لتطبيق Kiosk. لا يوجد شيء لتحديثه. يُرجى إزالة جهاز USB.</translation>
 <translation id="7874357055309047713">تشغيل على جميع المواقع دائمًا</translation>
 <translation id="7876243839304621966">إزالة الكل</translation>
-<translation id="7877451762676714207">خطأ غير معروف في الخادم. الرجاء إعادة المحاولة أو الاتصال بمشرف الخادم.</translation>
+<translation id="7877451762676714207">خطأ غير معروف في الخادم. يُرجى إعادة المحاولة أو الاتصال بمشرف الخادم.</translation>
 <translation id="7881483672146086348">عرض حساب</translation>
 <translation id="7881969471599061635">تعطيل الترجمات المصاحبة</translation>
 <translation id="7882358943899516840">نوع مقدم الخدمة</translation>

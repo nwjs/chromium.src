@@ -1538,7 +1538,7 @@ Pretende pará-lo?</translation>
 <translation id="2964193600955408481">Desativar Wi-Fi</translation>
 <translation id="2966449113954629791">Poderá ter atingido o limite de utilização dos dados móveis. Visite o portal de ativação <ph name="NAME" /> para comprar mais dados.</translation>
 <translation id="2966459079597787514">Teclado sueco</translation>
-<translation id="2966598748518102999">Melhore a pesquisa por voz através do envio do som de "OK Google" precedido por alguns segundos para o Google.</translation>
+<translation id="2966598748518102999">Melhore a pesquisa por voz através do envio do som de "Ok Google" precedido por alguns segundos para o Google.</translation>
 <translation id="2967544384642772068">Desativar</translation>
 <translation id="2971033837577180453">&lt;span&gt;ID:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">diminuir brilho</translation>
@@ -1762,7 +1762,7 @@ Verifique o seu email em <ph name="ACCOUNT_EMAIL" /> para obter estas e outras i
 <translation id="3251759466064201842">&lt;Não faz parte do certificado&gt;</translation>
 <translation id="3252266817569339921">Francês</translation>
 <translation id="3254434849914415189">Escolha a aplicação predefinida para ficheiros <ph name="FILE_TYPE" />:</translation>
-<translation id="3255228561559750854">Pesquise ou diga "OK Google"</translation>
+<translation id="3255228561559750854">Pesquise ou diga "Ok Google"</translation>
 <translation id="3257011895468050906">Ativar suporte para Token Binding.</translation>
 <translation id="3260892921936048802">&amp;Transferir...</translation>
 <translation id="326356299252142602">Utilizar a API Windows Runtime MIDI</translation>
@@ -2209,7 +2209,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3812525830114410218">Certificado incorreto</translation>
 <translation id="3812568885510197014">Anota formulários Web com assinaturas de preenchimento automático como atributos HTML.</translation>
 <translation id="3813296892522778813">Aceda à <ph name="BEGIN_LINK_CHROMIUM" />ajuda do Google Chrome<ph name="END_LINK_CHROMIUM" /> se não conseguir encontrar aquilo que procura.</translation>
-<translation id="3813984289128269159">OK Google</translation>
+<translation id="3813984289128269159">Ok Google</translation>
 <translation id="3815016854028376614">Método de introdução zhuyin</translation>
 <translation id="3815571115159309122"><ph name="FILE_COUNT" /> novas fotos encontradas
     <ph name="LINE_BREAK1" />
@@ -5622,7 +5622,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8487700953926739672">Disponível off-line</translation>
 <translation id="8490896350101740396">As seguintes aplicações de quiosque "<ph name="UPDATED_APPS" />" foram atualizadas. Reinicie o dispositivo para concluir o processo de atualização.</translation>
 <translation id="8493236660459102203">Microfone:</translation>
-<translation id="8495193314787127784">Ativar "OK Google"</translation>
+<translation id="8495193314787127784">Ativar "Ok Google"</translation>
 <translation id="8496717697661868878">Executar este plug-in</translation>
 <translation id="8497392509610708671">Pode alterar esta definição a qualquer momento nas <ph name="BEGIN_LINK" />Definições do Chrome<ph name="END_LINK" />.</translation>
 <translation id="8498716162437226120">Adicionar dispositivo Bluetooth</translation>
@@ -5671,7 +5671,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8565650234829130278">Tentativa de alterar a aplicação para a versão anterior</translation>
 <translation id="8569682776816196752">Não foram encontrados destinos</translation>
 <translation id="8569764466147087991">Selecione um ficheiro para abrir</translation>
-<translation id="8571032220281885258">Quando disser "OK Google", o Chrome pesquisará o que disser a seguir.</translation>
+<translation id="8571032220281885258">Quando disser "Ok Google", o Chrome pesquisará o que disser a seguir.</translation>
 <translation id="8571108619753148184">Servidor 4</translation>
 <translation id="8574234089711453001">Permitir a apresentação de um botão de transferência ao abrir uma página com um URL de multimédia.</translation>
 <translation id="857779305329188634">Ativar suporte de protocolo QUIC experimental.</translation>

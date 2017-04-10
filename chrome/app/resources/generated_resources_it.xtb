@@ -1535,7 +1535,7 @@ Non credo che questo sito debba essere bloccato.</translation>
 <translation id="2964193600955408481">Disattiva Wi-Fi</translation>
 <translation id="2966449113954629791">Potresti avere esaurito la tua quota di dati mobili. Visita il portale di attivazione <ph name="NAME" /> per acquistare altri dati.</translation>
 <translation id="2966459079597787514">Tastiera svedese</translation>
-<translation id="2966598748518102999">Migliora la ricerca vocale inviando a Google l'audio di "OK Google" e di alcuni secondi precedenti.</translation>
+<translation id="2966598748518102999">Migliora la ricerca vocale inviando a Google l'audio di "Ok Google" e di alcuni secondi precedenti.</translation>
 <translation id="2967544384642772068">Termina</translation>
 <translation id="2971033837577180453">&lt;span&gt;ID:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">riduci luminosità</translation>
@@ -1759,7 +1759,7 @@ I dati di accesso del tuo account sono obsoleti.</translation>
 <translation id="3251759466064201842">&lt;Non parte del certificato&gt;</translation>
 <translation id="3252266817569339921">Francese</translation>
 <translation id="3254434849914415189">Seleziona l'applicazione predefinita per i file <ph name="FILE_TYPE" />:</translation>
-<translation id="3255228561559750854">Effettua una ricerca o dì "OK Google"</translation>
+<translation id="3255228561559750854">Effettua una ricerca o dì "Ok Google"</translation>
 <translation id="3257011895468050906">Consente di attivare il supporto di Token Binding.</translation>
 <translation id="3260892921936048802">&amp;Scarica...</translation>
 <translation id="326356299252142602">Utilizza API Windows Runtime MIDI</translation>
@@ -3872,7 +3872,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="6105158702728922449">Utilizzare la videocamera e il microfono</translation>
 <translation id="6105877918873366097">Ultimo accesso</translation>
 <translation id="6107012941649240045">Rilasciato a</translation>
-<translation id="6107079717483424262">Riconoscere la tua voce quando pronunci "Ok Google"</translation>
+<translation id="6107079717483424262">Riconoscere la tua voce quando dici "Ok Google"</translation>
 <translation id="6109228527970300988">Emoji, scrittura a mano libera e input vocale nel menu IME</translation>
 <translation id="6111770213269631447">Traslitterazione (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Modifica persona, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
@@ -4895,7 +4895,7 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="7512768521598401899">Consenti alle pagine web di utilizzare la clonazione strutturata di WebAssembly.</translation>
 <translation id="7514722502805496245">Consente il download in background delle pagine se la pagina non è stata ancora caricata nella scheda corrente.</translation>
 <translation id="751507702149411736">Bielorusso</translation>
-<translation id="7517569744831774757">Ripristina le impostazioni con i valori originali predefiniti.</translation>
+<translation id="7517569744831774757">Ripristina le impostazioni predefinite originali.</translation>
 <translation id="7517786267097410259">Crea una password -</translation>
 <translation id="7518150891539970662">Log WebRTC (<ph name="WEBRTC_LOG_COUNT" />)</translation>
 <translation id="7518657099163789435">Per poter utilizzare "Ok Google" è necessario attivare l'Attività vocale e audio</translation>
@@ -5604,7 +5604,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8487700953926739672">Disponibile offline</translation>
 <translation id="8490896350101740396">Le seguenti app kiosk "<ph name="UPDATED_APPS" />" sono state aggiornate. Riavvia il dispositivo per completare la procedura di aggiornamento.</translation>
 <translation id="8493236660459102203">Microfono:</translation>
-<translation id="8495193314787127784">Attiva "OK Google"</translation>
+<translation id="8495193314787127784">Attiva "Ok Google"</translation>
 <translation id="8496717697661868878">Esegui questo plug-in</translation>
 <translation id="8497392509610708671">Puoi modificare questa impostazione in qualsiasi momento nelle <ph name="BEGIN_LINK" />Impostazioni Chrome<ph name="END_LINK" />.</translation>
 <translation id="8498716162437226120">Aggiungi dispositivo Bluetooth</translation>
@@ -5653,7 +5653,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8565650234829130278">Hai tentato di eseguire il downgrade dell'applicazione.</translation>
 <translation id="8569682776816196752">Nessuna destinazione trovata</translation>
 <translation id="8569764466147087991">Seleziona un file da aprire</translation>
-<translation id="8571032220281885258">Quando pronunci "OK Google", Chrome cercherà le parole che pronunci subito dopo.</translation>
+<translation id="8571032220281885258">Quando dici "Ok Google", Chrome cercherà le parole che dici subito dopo.</translation>
 <translation id="8571108619753148184">Server 4</translation>
 <translation id="8574234089711453001">Consenti la visualizzazione di un pulsante Scarica all'apertura di una pagina con URL file multimediale.</translation>
 <translation id="857779305329188634">Consente di attivare il supporto del protocollo sperimentale QUIC.</translation>

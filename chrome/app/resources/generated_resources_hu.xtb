@@ -610,7 +610,7 @@
 <translation id="1763108912552529023">A felfedezés folytatása</translation>
 <translation id="1764226536771329714">béta</translation>
 <translation id="176587472219019965">Új &amp;ablak</translation>
-<translation id="1766352429832934452">Engedélyezve (szükséges az „OK Google” használatához)</translation>
+<translation id="1766352429832934452">Engedélyezve (szükséges az „Ok Google” használatához)</translation>
 <translation id="1769104665586091481">Link megnyitása új &amp;ablakban</translation>
 <translation id="1772267994638363865">Ennek eléréséhez a következő lépésekben be kell kapcsolnia a Hang- és audiotevékenységeket, valamint be kell tanítania <ph name="DEVICE_TYPE" /> eszközét.</translation>
 <translation id="1773212559869067373">A hitelesítési tanúsítvány helyileg elutasítva</translation>
@@ -1537,7 +1537,7 @@ Miután létrehozott egy új felügyelt felhasználót, bármikor és bármilyen
 <translation id="2964193600955408481">Wi-Fi letiltása</translation>
 <translation id="2966449113954629791">Valószínűleg elérte a mobiladat-használatra vonatkozó korlátozást. További adatforgalom vásárlásához keresse fel a(z) <ph name="NAME" /> aktiválási portált.</translation>
 <translation id="2966459079597787514">Svéd billentyűzet</translation>
-<translation id="2966598748518102999">A Hangalapú keresés javítása azáltal, hogy elküldi az „OK Google” kifejezést néhány megelőző másodperccel együtt a Google számára.</translation>
+<translation id="2966598748518102999">A Hangalapú keresés javítása azáltal, hogy elküldi az „Ok Google” kifejezést néhány megelőző másodperccel együtt a Google számára.</translation>
 <translation id="2967544384642772068">Bezárás</translation>
 <translation id="2971033837577180453">&lt;span&gt;Azonosító:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">sötétítés</translation>
@@ -1761,7 +1761,7 @@ Ha további információt szeretne, látogasson el a <ph name="BEGIN_LINK" />Sú
 <translation id="3251759466064201842">&lt;Nem része a tanúsítványnak&gt;</translation>
 <translation id="3252266817569339921">francia</translation>
 <translation id="3254434849914415189">Válassza ki az alapértelmezett alkalmazást <ph name="FILE_TYPE" />-fájlokhoz:</translation>
-<translation id="3255228561559750854">Végezzen keresést, vagy mondja azt, hogy „Oké, Google!”</translation>
+<translation id="3255228561559750854">Végezzen keresést, vagy mondja azt, hogy „Ok Google!”</translation>
 <translation id="3257011895468050906">A Token Binding támogatásának engedélyezése.</translation>
 <translation id="3260892921936048802">&amp;Letöltés…</translation>
 <translation id="326356299252142602">A Windows Runtime MIDI API használata</translation>
@@ -2208,7 +2208,7 @@ Innen: <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3812525830114410218">Helytelen tanúsítvány</translation>
 <translation id="3812568885510197014">Az internetes űrlapokat automatikus kitöltési aláírásokkal mint HTML-attribútumokkal látja el.</translation>
 <translation id="3813296892522778813">Ha nem találja, amit keres, próbálkozzon a <ph name="BEGIN_LINK_CHROMIUM" />Google Chrome súgójában<ph name="END_LINK_CHROMIUM" /></translation>
-<translation id="3813984289128269159">OK Google</translation>
+<translation id="3813984289128269159">Ok Google</translation>
 <translation id="3815016854028376614">Zujin beviteli mód</translation>
 <translation id="3815571115159309122"><ph name="FILE_COUNT" /> új fotó észlelve
     <ph name="LINE_BREAK1" />
@@ -5669,7 +5669,7 @@ letiltásához nyomja le a Ctrl+Alt+Z billentyűkombinációt.</translation>
 <translation id="8565650234829130278">Megpróbálta alacsonyabb verzióra váltani az alkalmazást.</translation>
 <translation id="8569682776816196752">Nem található célhely</translation>
 <translation id="8569764466147087991">Válassza ki a megnyitni kívánt fájlt</translation>
-<translation id="8571032220281885258">Amikor kimondja azt, hogy „OK Google”, a Chrome elindítja az Ön által ezt követően kimondott szavak keresését.</translation>
+<translation id="8571032220281885258">Amikor kimondja azt, hogy „Ok Google”, a Chrome elindítja az Ön által ezt követően kimondott szavak keresését.</translation>
 <translation id="8571108619753148184">4. szerver</translation>
 <translation id="8574234089711453001">Letöltés gomb megjelenésének engedélyezése média URL-lel rendelkező oldal megnyitása esetén.</translation>
 <translation id="857779305329188634">A kísérleti QUIC protokolltámogatás engedélyezése.</translation>

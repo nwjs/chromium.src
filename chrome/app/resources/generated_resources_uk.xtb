@@ -1760,7 +1760,7 @@
 <translation id="3251759466064201842">&lt;Не є частиною сертифіката&gt;</translation>
 <translation id="3252266817569339921">Французька</translation>
 <translation id="3254434849914415189">Вибрати програму за умовчанням для файлів <ph name="FILE_TYPE" />:</translation>
-<translation id="3255228561559750854">Виконайте пошук або скажіть "OK Google"</translation>
+<translation id="3255228561559750854">Введіть запит або скажіть "Ok Google"</translation>
 <translation id="3257011895468050906">Увімкнути підтримку Token Binding.</translation>
 <translation id="3260892921936048802">Завантажити…</translation>
 <translation id="326356299252142602">Використовувати API Windows Runtime MIDI</translation>
@@ -4550,7 +4550,7 @@
 <translation id="7012372675181957985">Історія веб-перегляду також може зберігатися у вашому обліковому записі Google на сторінці <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /></translation>
 <translation id="7013485839273047434">Інші розширення</translation>
 <translation id="7014174261166285193">Помилка встановлення.</translation>
-<translation id="7017004637493394352">Ще раз скажіть "OK Google"</translation>
+<translation id="7017004637493394352">Ще раз скажіть "Ok Google"</translation>
 <translation id="7017219178341817193">Додати нову сторінку</translation>
 <translation id="7017354871202642555">Неможливо вибрати режим після налаштування вікна.</translation>
 <translation id="7017480957358237747">дозволяти чи забороняти певні веб-сайти;</translation>
@@ -5620,7 +5620,7 @@
 <translation id="8487700953926739672">Доступ у режимі офлайн</translation>
 <translation id="8490896350101740396">Оновлено такі додатки-термінали: <ph name="UPDATED_APPS" />. Перезавантажте пристрій, щоб завершити оновлення.</translation>
 <translation id="8493236660459102203">Мікрофон:</translation>
-<translation id="8495193314787127784">Увімкнути "OK Google"</translation>
+<translation id="8495193314787127784">Увімкнути команду "Ok Google"</translation>
 <translation id="8496717697661868878">Запустити цей плагін</translation>
 <translation id="8497392509610708671">Це можна будь-коли змінити в <ph name="BEGIN_LINK" />налаштуваннях Chrome<ph name="END_LINK" />.</translation>
 <translation id="8498716162437226120">Додати пристрій Bluetooth</translation>
@@ -5669,7 +5669,7 @@
 <translation id="8565650234829130278">Спроба встановити програму нижчої версії.</translation>
 <translation id="8569682776816196752">Не знайдено жодного місця призначення</translation>
 <translation id="8569764466147087991">Виберіть файл, який потрібно відкрити</translation>
-<translation id="8571032220281885258">Коли ви скажете "OK Google", Chrome шукатиме те, що ви скажете далі.</translation>
+<translation id="8571032220281885258">Коли ви кажете "Ok Google", Chrome виконує пошук за фразою, яку ви кажете після цього.</translation>
 <translation id="8571108619753148184">Сервер 4</translation>
 <translation id="8574234089711453001">Показувати кнопку "Завантажити", коли відкривається сторінка з URL-адресою медіафайлу.</translation>
 <translation id="857779305329188634">Увімкнути підтримку експериментального протоколу QUIC.</translation>

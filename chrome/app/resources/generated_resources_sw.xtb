@@ -1534,7 +1534,7 @@ Sidhani ikiwa tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="2964193600955408481">Lemaza Wi-Fi</translation>
 <translation id="2966449113954629791">Huenda ulitumia kiwango chako chote cha data. Tembelea <ph name="NAME" /> kituo cha uwezeshaji ili ununue data zaidi.</translation>
 <translation id="2966459079597787514">Kibodi ya Kiswidi</translation>
-<translation id="2966598748518102999">Boresha kutafuta kwa kutamka kwa kutuma sauti ya "Ok Google," pamoja na sekunde chache kabla ya tamko hilo, kwa Google.</translation>
+<translation id="2966598748518102999">Tuma sauti ya "Ok Google," na ulichosema sekunde chache kabla, kwa Google, ili kuboresha utafutaji kwa kutamka.</translation>
 <translation id="2967544384642772068">Angamiza</translation>
 <translation id="2971033837577180453">&lt;span&gt;Kitambulisho:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">elekeza mwangaza chini</translation>
@@ -3870,7 +3870,7 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="6105158702728922449">Kutumia kamera na maikrofoni yako</translation>
 <translation id="6105877918873366097">Ilifikiwa mwisho</translation>
 <translation id="6107012941649240045">Kimetolewa Kwa</translation>
-<translation id="6107079717483424262">Tambua sauti yako unaposema "Ok Google"</translation>
+<translation id="6107079717483424262">Kutambua sauti yako unaposema "Ok Google"</translation>
 <translation id="6109228527970300988">Emoji, mwandiko na kuweka data kwa kutamka kwenye menyu ya IME ya kuchagua kuingia</translation>
 <translation id="6111770213269631447">Unukuzi wa mfumo wa kuandika (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Badilisha wasifu, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
@@ -3913,7 +3913,7 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="6165508094623778733">Pata maelezo zaidi</translation>
 <translation id="6166185671393271715">Leta Manenosiri Kwenye Chrome</translation>
 <translation id="6169666352732958425">Imeshindwa kutuma eneo-kazi.</translation>
-<translation id="6171550060231646388">Vipengele vya maunzi vilivyobuniwa vya 'OK Google'</translation>
+<translation id="6171550060231646388">Vipengele vya maunzi vilivyobuniwa vya 'Ok Google'</translation>
 <translation id="6171948306033499786">Sitisha kuchapisha</translation>
 <translation id="6175314957787328458">GUID ya Vikoa kutoka Microsoft</translation>
 <translation id="6178664161104547336">Chagua cheti</translation>
@@ -5663,7 +5663,7 @@ Inakokotoa muda wa kujaa</translation>
 <translation id="8565650234829130278">Ulijaribu kushusha programu kiwango</translation>
 <translation id="8569682776816196752">Hakuna hatima zilizopatikana</translation>
 <translation id="8569764466147087991">Chagua faili ya kufungua</translation>
-<translation id="8571032220281885258">Unaposema "Ok Google," Chrome itatafuta unachosema baada ya hapo.</translation>
+<translation id="8571032220281885258">Unaposema "Ok Google," Chrome itatafuta unachosema baada ya maneno hayo.</translation>
 <translation id="8571108619753148184">Seva 4</translation>
 <translation id="8574234089711453001">Ruhusu kitufe cha kupakua kionekane unapofungua ukurasa wenye url ya maudhui.</translation>
 <translation id="857779305329188634">Washa matumizi ya itifaki ya majaribio ya QUIC.</translation>

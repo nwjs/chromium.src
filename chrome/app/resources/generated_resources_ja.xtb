@@ -736,7 +736,7 @@
 <translation id="1934636348456381428">試験運用版オーバーレイ スクロールバーの実装を有効にします。スクロールバーをアニメーション化するにはスレッド合成も有効にする必要があります。</translation>
 <translation id="1936157145127842922">フォルダで表示</translation>
 <translation id="1936717151811561466">フィンランド語</translation>
-<translation id="1937256809970138538">画面がオンでロック解除された状態で「OK Google」と話します</translation>
+<translation id="1937256809970138538">画面がオンでロック解除された状態で「OK Google」と言います</translation>
 <translation id="1942765061641586207">画像解像度</translation>
 <translation id="1944921356641260203">アップデートが見つかりました</translation>
 <translation id="1947424002851288782">ドイツ語のキーボード</translation>
@@ -1705,7 +1705,7 @@
 <translation id="3162559335345991374">ご利用の Wi-Fi ネットワークでは、ログインページへのアクセスが必要な可能性があります。</translation>
 <translation id="316307797510303346">このユーザーが <ph name="CUSTODIAN_EMAIL" /> からアクセスするウェブサイトを制御、閲覧する。
     アカウントのログイン情報が古くなっています。</translation>
-<translation id="3166571619128686629">クリックするか「OK Google」と発声して、音声検索を開始します</translation>
+<translation id="3166571619128686629">クリックするか「OK Google」と言って、音声検索を開始します</translation>
 <translation id="3170072451822350649">ログインせずに<ph name="LINK_START" />ゲストとしてブラウジング<ph name="LINK_END" />することもできます。</translation>
 <translation id="3170544058711792988">拡大鏡のフォーカスを画面中央に固定</translation>
 <translation id="317583078218509884">サイトの新しい権限設定はページの再読み込み後に有効になります。</translation>
@@ -1761,7 +1761,7 @@
 <translation id="3251759466064201842">&lt;証明書に含まれていません&gt;</translation>
 <translation id="3252266817569339921">フランス語</translation>
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> ファイルのデフォルト アプリを選択:</translation>
-<translation id="3255228561559750854">検索するかOK Googleと発声</translation>
+<translation id="3255228561559750854">検索するか OK Google と発声</translation>
 <translation id="3257011895468050906">Token Binding のサポートを有効にする。</translation>
 <translation id="3260892921936048802">ダウンロード(&amp;D)...</translation>
 <translation id="326356299252142602">Windows Runtime MIDI API を使用する</translation>
@@ -2697,7 +2697,7 @@
 <translation id="4533259260976001693">折りたたむ/展開する</translation>
 <translation id="4533985347672295764">CPU 時間</translation>
 <translation id="4534166495582787863">タッチパッドの 3 本指タップをミドル ボタン（ホイール クリック）として認識する機能を有効にします。</translation>
-<translation id="4534799089889278411">新しいタブ、google.co.jp、アプリ ランチャーで「OK Google」と発声します。</translation>
+<translation id="4534799089889278411">新しいタブ、google.co.jp、アプリ ランチャーで「OK Google」と言います。</translation>
 <translation id="4535127706710932914">デフォルトのプロフィール</translation>
 <translation id="4538417792467843292">1 語削除する</translation>
 <translation id="4538684596480161368"><ph name="HOST" /> でサンドボックスの無効化プラグインを常にブロックする</translation>
@@ -2881,7 +2881,7 @@
 <translation id="4791148004876134991">Chrome アプリがアクティブになったときに Cmd+` の動作を変更します。有効な場合、ブラウザ ウィンドウから Cmd+` を押したときに Chrome アプリは切り替えられず、Chrome アプリがアクティブなときにブラウザ ウィンドウは切り替えられません。</translation>
 <translation id="4792711294155034829">問題の報告(&amp;R)...</translation>
 <translation id="479280082949089240">このページで設定した Cookie</translation>
-<translation id="4793866834012505469">音声モデルを再トレーニング</translation>
+<translation id="4793866834012505469">音声モデルを再認識</translation>
 <translation id="479536056609751218">ウェブページ、HTML のみ</translation>
 <translation id="479989351350248267">検索</translation>
 <translation id="480036413855787547">どの端末からでも <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> でパスワードにアクセスできます。Mac では、パスワードをキーチェーンに保存して、この OS X アカウントを共有する別の Chrome ユーザーがアクセスしたり同期したりできます。</translation>
@@ -3236,7 +3236,7 @@
 <translation id="5249624017678798539">ダウンロードの完了前にブラウザで問題が発生しました。</translation>
 <translation id="5252456968953390977">ローミング</translation>
 <translation id="5252653240322147470">PIN は <ph name="MAXIMUM" /> 桁未満で指定してください</translation>
-<translation id="5253753933804516447">画面がオンでロック解除された状態のときに、「OK Google」と話して音声検索ができるようにします</translation>
+<translation id="5253753933804516447">画面がオンでロック解除された状態のときに、「OK Google」と言って音声検索ができるようにします</translation>
 <translation id="52550593576409946">キオスク アプリケーションを起動できませんでした。</translation>
 <translation id="5255315797444241226">入力したパスフレーズが正しくありません。</translation>
 <translation id="5260508466980570042">メールまたはパスワードを確認できませんでした。もう一度お試しください。</translation>
@@ -3812,7 +3812,7 @@
 <translation id="6011449291337289699">サイトデータの削除</translation>
 <translation id="6015796118275082299">年</translation>
 <translation id="6016551720757758985">Powerwash を実行して以前のバージョンに戻すことを確認</translation>
-<translation id="6016809788585079594">最後にもう一度「OK Google」とお話しください</translation>
+<translation id="6016809788585079594">最後にもう一度「OK Google」と言ってください</translation>
 <translation id="6016972670657536680">言語とキーボードのボタンを選択します。現在選択している言語は <ph name="LANGUAGE" /> です。</translation>
 <translation id="6017225534417889107">変更...</translation>
 <translation id="6017981840202692187">アプリケーションに追加</translation>
@@ -3880,7 +3880,7 @@
 <translation id="6105158702728922449">カメラとマイクを使用する</translation>
 <translation id="6105877918873366097">最終アクセス日</translation>
 <translation id="6107012941649240045">発行先</translation>
-<translation id="6107079717483424262">「OK Google」と話したときにユーザーの声が認識されるようになりました</translation>
+<translation id="6107079717483424262">「OK Google」と言ったときにユーザーの声が認識されるようになりました</translation>
 <translation id="6109228527970300988">IME メニューで絵文字、手書き、音声による入力を選択できるようにする</translation>
 <translation id="6111770213269631447">文字変換（namaskar → নমস্কার）</translation>
 <translation id="6112952769866305444">ユーザー（<ph name="PROFILE_NAME" />、<ph name="USERNAME" />）を編集</translation>
@@ -4551,7 +4551,7 @@
 <translation id="7012372675181957985">Google アカウントでの他の形式の閲覧履歴が <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> に残ることがあります</translation>
 <translation id="7013485839273047434">他の拡張機能を見る</translation>
 <translation id="7014174261166285193">インストールできませんでした。</translation>
-<translation id="7017004637493394352">もう一度「OK Google」とお話しください</translation>
+<translation id="7017004637493394352">もう一度「OK Google」と言ってください</translation>
 <translation id="7017219178341817193">新しいページを追加</translation>
 <translation id="7017354871202642555">ウィンドウが設定されている場合はモードを設定できません。</translation>
 <translation id="7017480957358237747">特定のウェブサイトへのアクセスを許可または禁止する</translation>
@@ -4708,7 +4708,7 @@
 <translation id="7238585580608191973">SHA-256 指紋</translation>
 <translation id="7240120331469437312">証明書のサブジェクトの代替名</translation>
 <translation id="7241389281993241388">クライアント証明書をインポートするには <ph name="TOKEN_NAME" /> にログインしてください。</translation>
-<translation id="7243055093079293866">新しいタブで google.com を開き、「OK Google」と発声します</translation>
+<translation id="7243055093079293866">新しいタブで google.com を開き、「OK Google」と言います</translation>
 <translation id="7243632151880336635">削除してログアウト</translation>
 <translation id="7245628041916450754"><ph name="WIDTH" />x<ph name="HEIGHT" />（最適）</translation>
 <translation id="7246947237293279874">FTP プロキシ</translation>
@@ -4789,7 +4789,7 @@
 <translation id="7361824946268431273">速く、シンプルで、安全なパソコン</translation>
 <translation id="7364796246159120393">ファイルを選択</translation>
 <translation id="736515969993332243">ネットワークをスキャンしています。</translation>
-<translation id="7366762109661450129">画面がオンでロック解除されている状態で、「OK Google」と発声します。</translation>
+<translation id="7366762109661450129">画面がオンでロック解除されている状態で、「OK Google」と言います。</translation>
 <translation id="7366909168761621528">閲覧履歴データ</translation>
 <translation id="7369521049655330548">このページの次のプラグインがブロックされました。</translation>
 <translation id="7371490661692457119">デフォルトのタイル幅</translation>
@@ -4918,7 +4918,7 @@
 <translation id="7518657099163789435">「OK Google」を使用するには音声アクティビティを有効にする必要があります</translation>
 <translation id="7520821146909122639">このページを翻訳しています...</translation>
 <translation id="7521387064766892559">Javascript</translation>
-<translation id="7522255036471229694">「OK Google」とお話しください</translation>
+<translation id="7522255036471229694">「OK Google」と言ってください</translation>
 <translation id="7525067979554623046">作成</translation>
 <translation id="7529471622666797993"><ph name="BEGIN_LINK" />フォントの詳細設定<ph name="END_LINK" />（拡張機能が必要です）</translation>
 <translation id="7530016656428373557">放電率（ワット）</translation>
@@ -5315,7 +5315,7 @@
 <translation id="806812017500012252">タイトルで並べ替え</translation>
 <translation id="8069615408251337349">Google クラウド プリント</translation>
 <translation id="8071432093239591881">画像として印刷する</translation>
-<translation id="8071942001314758122">「OK Google」と 3 回話すだけです</translation>
+<translation id="8071942001314758122">「OK Google」と 3 回言うだけです</translation>
 <translation id="8072988827236813198">複数のタブを固定</translation>
 <translation id="8074127646604999664">最近閉じたサイトがデータの送受信を完了できるようにする</translation>
 <translation id="8075191520954018715">メモリの状態</translation>
@@ -5672,7 +5672,7 @@
 <translation id="8565650234829130278">アプリのダウングレードが試行されました。</translation>
 <translation id="8569682776816196752">送信先が見つかりません</translation>
 <translation id="8569764466147087991">ファイルを選択して開く</translation>
-<translation id="8571032220281885258">「OK Google」と話しかけると、その後に話す内容が Chrome で検索されます。</translation>
+<translation id="8571032220281885258">「OK Google」と言うと、その後に話す内容が Chrome で検索されます。</translation>
 <translation id="8571108619753148184">サーバー 4</translation>
 <translation id="8574234089711453001">メディア URL のページを開くときにダウンロード ボタンが表示されるようにします。</translation>
 <translation id="857779305329188634">QUIC プロトコルのサポート（試験運用中）を有効にします。</translation>

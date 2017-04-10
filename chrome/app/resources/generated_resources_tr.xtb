@@ -1537,7 +1537,7 @@ Sunucunun mesajı: <ph name="SERVER_MSG" /></translation>
 <translation id="2964193600955408481">Kablosuz bağlantıyı devre dışı bırak</translation>
 <translation id="2966449113954629791">Mobil veri kullanım hakkınızı doldurmuş olabilirsiniz. Daha fazla veri satın almak için <ph name="NAME" /> etkinleştirme portalını ziyaret edin.</translation>
 <translation id="2966459079597787514">İsveççe klavye</translation>
-<translation id="2966598748518102999">Öncesinde birkaç saniye boşlukla "OK Google" sesini Google'a göndererek sesli arama özelliğini iyileştirin.</translation>
+<translation id="2966598748518102999">Öncesinde birkaç saniye boşlukla "Ok Google" sesini Google'a göndererek sesli arama özelliğini iyileştirin.</translation>
 <translation id="2967544384642772068">Sonlandır</translation>
 <translation id="2971033837577180453">&lt;span&gt;Kimlik:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">parlaklığı azalt</translation>
@@ -1761,7 +1761,7 @@ Bunlar ve diğer talimatlar için lütfen <ph name="ACCOUNT_EMAIL" /> e-postanı
 <translation id="3251759466064201842">&lt;Sertifikanın Parçası Değil&gt;</translation>
 <translation id="3252266817569339921">Fransızca</translation>
 <translation id="3254434849914415189"><ph name="FILE_TYPE" /> dosyaları için varsayılan uygulamayı seç:</translation>
-<translation id="3255228561559750854">Arama yapın veya "OK Google" deyin</translation>
+<translation id="3255228561559750854">Arama yapın veya "Ok Google" deyin</translation>
 <translation id="3257011895468050906">Token Binding desteğini etkinleştirin.</translation>
 <translation id="3260892921936048802">&amp;İndir...</translation>
 <translation id="326356299252142602">Windows Runtime MIDI API'yi kullan</translation>
@@ -2208,7 +2208,7 @@ Bunlar ve diğer talimatlar için lütfen <ph name="ACCOUNT_EMAIL" /> e-postanı
 <translation id="3812525830114410218">Bozuk sertifika</translation>
 <translation id="3812568885510197014">Otomatik Doldurma imzaları olan web formlarına HTML özelliği olarak ek açıklama koyar</translation>
 <translation id="3813296892522778813">Aradığınız bilgiyi bulamazsanız <ph name="BEGIN_LINK_CHROMIUM" />Google Chrome yardımına<ph name="END_LINK_CHROMIUM" /> gidin</translation>
-<translation id="3813984289128269159">OK Google</translation>
+<translation id="3813984289128269159">Ok Google</translation>
 <translation id="3815016854028376614">Zhuyin giriş yöntemi</translation>
 <translation id="3815571115159309122"><ph name="FILE_COUNT" /> yeni fotoğraf bulundu
     <ph name="LINE_BREAK1" />
@@ -5623,7 +5623,7 @@ Dolana kadar geçecek süre hesaplanıyor</translation>
 <translation id="8487700953926739672">Çevrimdışı kullanılabilir</translation>
 <translation id="8490896350101740396">Takip eden kiosk uygulamaları "<ph name="UPDATED_APPS" />" güncellendi. Lütfen güncelleme işlemini tamamlamak için cihazınızı yeniden başlatın.</translation>
 <translation id="8493236660459102203">Mikrofon:</translation>
-<translation id="8495193314787127784">"OK Google" özelliğini etkinleştir</translation>
+<translation id="8495193314787127784">"Ok Google" özelliğini etkinleştir</translation>
 <translation id="8496717697661868878">Bu Eklentiyi Çalıştır</translation>
 <translation id="8497392509610708671">Bu ayarı istediğiniz zaman <ph name="BEGIN_LINK" />Chrome Ayarları<ph name="END_LINK" />'ndan değiştirebilirsiniz.</translation>
 <translation id="8498716162437226120">Bluetooth cihazı ekle</translation>
@@ -5672,7 +5672,7 @@ Dolana kadar geçecek süre hesaplanıyor</translation>
 <translation id="8565650234829130278">Uygulamanın eski sürümüne geçilmeye çalışıldı.</translation>
 <translation id="8569682776816196752">Hiçbir hedef bulunamadı</translation>
 <translation id="8569764466147087991">Açılacak dosyayı seçin</translation>
-<translation id="8571032220281885258">"OK Google" dediğinizde, Chrome söyleyeceğiniz bir sonraki ifadeyi arar.</translation>
+<translation id="8571032220281885258">"Ok Google" dediğinizde, Chrome söyleyeceğiniz bir sonraki ifadeyi arar.</translation>
 <translation id="8571108619753148184">Sunucu 4</translation>
 <translation id="8574234089711453001">Bir sayfayı medya URL'si ile açarken indir düğmesinin gösterilmesine izin verin.</translation>
 <translation id="857779305329188634">Deneysel QUIC protokol desteğini etkinleştir.</translation>

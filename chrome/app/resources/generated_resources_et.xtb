@@ -1537,7 +1537,7 @@ Ma arvan, et see sait ei tohiks olla blokeeritud.</translation>
 <translation id="2964193600955408481">Keela WiFi</translation>
 <translation id="2966449113954629791">Võimalik, et olete oma mobiilse andmeside ära kasutanud. Andmesidet saate juurde osta aktiveerimisportaalis <ph name="NAME" />.</translation>
 <translation id="2966459079597787514">Rootsi klaviatuur</translation>
-<translation id="2966598748518102999">Paranda häälotsingut, saates Google'ile otsetee sõna „OK Google” ja sellele eelneva mõne sekundi heli.</translation>
+<translation id="2966598748518102999">Paranda häälotsingut, saates Google'ile otsetee sõna „Ok Google” ja sellele eelneva mõne sekundi heli.</translation>
 <translation id="2967544384642772068">Peata</translation>
 <translation id="2971033837577180453">&lt;span&gt;ID:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">vähenda heledust</translation>
@@ -1754,14 +1754,14 @@ Nende ja edasiste juhiste nägemiseks vaadake meile aadressil <ph name="ACCOUNT_
 <translation id="3241720467332021590">iiri keel</translation>
 <translation id="3242118113727675434">Näita puutepunktide pseudokuvarit</translation>
 <translation id="3242765319725186192">Eeljagatud võti:</translation>
-<translation id="3244621381664913240">Luba otsetee sõna „OK Google” häälotsingu alustamiseks.</translation>
+<translation id="3244621381664913240">Luba otsetee sõna „Ok Google” häälotsingu alustamiseks.</translation>
 <translation id="3245321423178950146">Tundmatu esitaja</translation>
 <translation id="324533084080637716">Artiklite märgistus on struktureeritud</translation>
 <translation id="324849028894344899"><ph name="WINDOW_TITLE" /> – võrguviga</translation>
 <translation id="3251759466064201842">&lt;Ei sisaldu sertifikaadis&gt;</translation>
 <translation id="3252266817569339921">prantsuse keel</translation>
 <translation id="3254434849914415189">Valige vaikerakendus <ph name="FILE_TYPE" />-failide jaoks:</translation>
-<translation id="3255228561559750854">Otsige või öelge otsetee sõna „OK Google”</translation>
+<translation id="3255228561559750854">Otsige või öelge otsetee sõna „Ok Google”</translation>
 <translation id="3257011895468050906">Märgi sidumise toe lubamine.</translation>
 <translation id="3260892921936048802">&amp;Laadi alla …</translation>
 <translation id="326356299252142602">Windows Runtime MIDI API kasutamine</translation>
@@ -2208,7 +2208,7 @@ Asukohast <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3812525830114410218">Halb sertifikaat</translation>
 <translation id="3812568885510197014">Märgib automaattäitega allkirjadega veebivormid HTML-atribuutidena.</translation>
 <translation id="3813296892522778813">Kui te ei leia otsitavat, avage <ph name="BEGIN_LINK_CHROMIUM" />Google Chrome'i abi<ph name="END_LINK_CHROMIUM" /></translation>
-<translation id="3813984289128269159">OK Google</translation>
+<translation id="3813984289128269159">Ok Google</translation>
 <translation id="3815016854028376614">Zhuyini sisestusmeetod</translation>
 <translation id="3815571115159309122">Leiti <ph name="FILE_COUNT" /> uut fotot
     <ph name="LINE_BREAK1" />
@@ -2696,7 +2696,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="4533259260976001693">Ahendamine/laiendamine</translation>
 <translation id="4533985347672295764">Protsessoriaeg</translation>
 <translation id="4534166495582787863">Lubab puuteplaadil kolme sõrmega klõpsamise, mis toimib kui hiire keskmine nupp.</translation>
-<translation id="4534799089889278411">Öelge uuel vahelehel, saidil google.ee ja rakenduste käivitajas „Ok Google”</translation>
+<translation id="4534799089889278411">Öelge uuel vahelehel, saidil google.com ja rakenduste käivitajas „Ok Google”</translation>
 <translation id="4535127706710932914">Vaikeprofiil</translation>
 <translation id="4538417792467843292">Kustutab sõna</translation>
 <translation id="4538684596480161368">Blokeeri alati saidil <ph name="HOST" /> pistikprogrammid, mis ei ole liivakastirežiimis</translation>

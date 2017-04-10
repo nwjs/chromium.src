@@ -1198,7 +1198,7 @@ No creo que este sitio deba bloquearse</translation>
 <translation id="2565670301826831948">Velocidad del panel táctil:</translation>
 <translation id="2566124945717127842">Haz un Powerwash y restablece los datos de fábrica de tu dispositivo <ph name="IDS_SHORT_PRODUCT_NAME" /> para que quede como nuevo.</translation>
 <translation id="2568774940984945469">Contenedor de barra de información</translation>
-<translation id="2570000010887652771">Se han guardado los datos.</translation>
+<translation id="2570000010887652771">Consumo de datos reducido.</translation>
 <translation id="2570648609346224037">Se ha producido un error durante la descarga de la imagen de recuperación.</translation>
 <translation id="257088987046510401">Temas</translation>
 <translation id="2572032849266859634">Se ha concedido acceso de solo lectura a <ph name="VOLUME_NAME" />.</translation>
@@ -1360,7 +1360,7 @@ y su configuración no se sincronizan en otros dispositivos con la función de s
 <translation id="2776441542064982094">Parece que no hay dispositivos disponibles para registrarse en la red. Si tu dispositivo está activado y conectado a Internet, prueba a registrarlo siguiendo las instrucciones que se incluyen en su manual.</translation>
 <translation id="2778459533137481732">Lista negra de permisos</translation>
 <translation id="2781645665747935084">Belga</translation>
-<translation id="2782459523842525953">Habilita los informes sobre las acciones de los permisos en los servidores de navegación segura para los usuarios que hayan habilitado esta opción.</translation>
+<translation id="2782459523842525953">Habilita los informes sobre las acciones de los permisos en los servidores de Navegación Segura para los usuarios que hayan habilitado esta opción.</translation>
 <translation id="2782688068604007519">Iframes de proceso insuficiente</translation>
 <translation id="2783298271312924866">Descargado</translation>
 <translation id="2783321960289401138">Crear acceso directo...</translation>
@@ -1580,7 +1580,7 @@ sistema operativo desde una unidad USB
 <translation id="3015992588037997514">¿Aparece este código en la pantalla de Chromebox?</translation>
 <translation id="3016641847947582299">Componente actualizado</translation>
 <translation id="3016780570757425217">Conocer tu ubicación</translation>
-<translation id="3018346972744622514">Añadir otra red de telefonía móvil</translation>
+<translation id="3018346972744622514">Añadir otra red móvil</translation>
 <translation id="302014277942214887">Introduce el identificador de la aplicación o la URL de Chrome Web Store.</translation>
 <translation id="3020990233660977256">Número de serie: <ph name="SERIAL_NUMBER" /></translation>
 <translation id="3021678814754966447">&amp;Ver fuente del marco</translation>
@@ -1911,7 +1911,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="3436038974659740746">Ortografía personalizada</translation>
 <translation id="3438633801274389918">Ninja</translation>
 <translation id="3439153939049640737">Permitir siempre que <ph name="HOST" /> acceda al micrófono</translation>
-<translation id="3439282137581679399">Habilita la lista negra de permisos que bloquea los permisos de sitios incluidos en lista negra para usuarios del servicio de navegación segura.</translation>
+<translation id="3439282137581679399">Habilita la lista negra de permisos que bloquea los permisos de sitios incluidos en lista negra para usuarios del servicio de Navegación Segura.</translation>
 <translation id="3439970425423980614">Abriendo archivo PDF en la vista previa</translation>
 <translation id="3440761377721825626">Preguntar cuando un sitio web quiera utilizar un complemento para acceder a tu ordenador</translation>
 <translation id="3441653493275994384">Pantalla</translation>
@@ -2880,7 +2880,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4791148004876134991">Cambia el comportamiento de Cmd+ cuando se activa una aplicación de Chrome. Cuando se habilita, las aplicaciones de Chrome no rotan cuando se pulsa Cmd+ desde una ventana del navegador y las ventanas del navegador no rotan cuando una aplicación de Chrome está activa.</translation>
 <translation id="4792711294155034829">&amp;Notificar un error...</translation>
 <translation id="479280082949089240">Cookies almacenadas por esta página</translation>
-<translation id="4793866834012505469">Volver a entrenar el modelo de voz</translation>
+<translation id="4793866834012505469">Volver a configurar el modelo de voz</translation>
 <translation id="479536056609751218">Página web (solo HTML)</translation>
 <translation id="479989351350248267">buscar</translation>
 <translation id="480036413855787547">Accede a tus contraseñas en la página <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> con cualquier dispositivo. En los ordenadores Mac, se pueden guardar las contraseñas en el llavero y otros usuarios de Chrome que compartan esta cuenta de OS X pueden acceder a ellas o sincronizarlas.</translation>
@@ -6107,7 +6107,7 @@ Puede que las notificaciones, las ventanas y los cuadros de diálogo que aparezc
 <translation id="9148126808321036104">Volver a iniciar sesión</translation>
 <translation id="9149866541089851383">Editar...</translation>
 <translation id="9150045010208374699">Utilizar la cámara</translation>
-<translation id="9152722471788855605">Analizador de archivos .zip para la navegación segura</translation>
+<translation id="9152722471788855605">Analizador de archivos .zip para la Navegación Segura</translation>
 <translation id="9153341767479566106">Otras extensiones que no se han podido cargar:</translation>
 <translation id="9153744823707037316">Método de entrada de conjunto</translation>
 <translation id="9153934054460603056">Guardar la identidad y la contraseña</translation>

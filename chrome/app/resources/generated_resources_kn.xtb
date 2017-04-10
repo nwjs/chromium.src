@@ -1537,7 +1537,7 @@
 <translation id="2964193600955408481">ವೈ-ಫೈ ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ</translation>
 <translation id="2966449113954629791">ನಿಮ್ಮ ಮೊಬೈಲ್ ಡೇಟಾ ಭತ್ಯೆಯನ್ನು ನೀವು ಬಳಸಿರಬಹುದು. ಹೆಚ್ಚಿನ ಡೇಟಾವನ್ನು ಖರೀದಿಸಲು <ph name="NAME" /> ಸಕ್ರಿಯೀಕರಣ ಪೋರ್ಟಲ್‌ಗೆ ಭೇಟಿ ನೀಡಿ.</translation>
 <translation id="2966459079597787514">ಸ್ವೀಡಿಶ್ ಕೀಬೋರ್ಡ್</translation>
-<translation id="2966598748518102999">Google ಗೆ "ಸರಿ Google" ಎಂಬ ಶಬ್ದ ಕಳುಹಿಸಿ, ಆ ಮೂಲಕ ಕೆಲವು ನಿಮಿಷಗಳ ನಂತರ ಧ್ವನಿ ಹುಡುಕಾಟವನ್ನು ಸುಧಾರಿಸಿ.</translation>
+<translation id="2966598748518102999">Google ಗೆ "Ok Google," ಎಂಬ ಶಬ್ದ ಕಳುಹಿಸಿ. ಆ ಮೂಲಕ ಕೆಲವು ನಿಮಿಷಗಳ ನಂತರ ಧ್ವನಿ ಹುಡುಕಾಟವನ್ನು ಸುಧಾರಿಸಿ.</translation>
 <translation id="2967544384642772068">ಸ್ಥಗಿತಗೊಳಿಸು</translation>
 <translation id="2971033837577180453">&lt;span&gt;ID:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">ಪ್ರಖರತೆ ಕಡಿಮೆ ಮಾಡಿ</translation>
@@ -2206,7 +2206,7 @@
 <translation id="3812525830114410218">ತಪ್ಪು ಪ್ರಮಾಣಪತ್ರ</translation>
 <translation id="3812568885510197014">ಸ್ವಯಂತುಂಬುವಿಕೆಯ ಸಹಿಗಳನ್ನು HTML ಆಟ್ರಿಬ್ಯೂಟ್‌ಗಳಂತೆ ವೆಬ್‌ ಫಾರ್ಮ್‌ಗಳನ್ನು ಟಿಪ್ಪಣಿಮಾಡುತ್ತದೆ.</translation>
 <translation id="3813296892522778813">ನೀವು ಹುಡುಕುತ್ತಿರುವುದು ದೊರೆಯದೇ ಇದ್ದರೆ <ph name="BEGIN_LINK_CHROMIUM" />Google Chrome ಸಹಾಯ<ph name="END_LINK_CHROMIUM" />ಕ್ಕೆ ಹೋಗಿ</translation>
-<translation id="3813984289128269159">ಸರಿ Google</translation>
+<translation id="3813984289128269159">Ok Google</translation>
 <translation id="3815016854028376614">ಝುಯಿನ್ ಇನ್‌ಪುಟ್ ವಿಧಾನ</translation>
 <translation id="3815571115159309122"><ph name="FILE_COUNT" /> ಹೊಸ ಫೋಟೋಗಳು ಕಂಡುಬಂದಿವೆ
     <ph name="LINE_BREAK1" />
@@ -5675,7 +5675,7 @@
 <translation id="8565650234829130278">ಅಪ್ಲಿಕೇಶನ್ ಕೆಳಮಟ್ಟಗೊಳಿಸಲು ಪ್ರಯತ್ನಿಸಲಾಗಿದೆ.</translation>
 <translation id="8569682776816196752">ಯಾವುದೇ ಗಮ್ಯಸ್ಥಾನಗಳು ಕಂಡುಬಂದಿಲ್ಲ</translation>
 <translation id="8569764466147087991">ತೆರೆಯಲು ಫೈಲ್‌ವೊಂದನ್ನು ಆಯ್ಕೆ ಮಾಡಿ</translation>
-<translation id="8571032220281885258">ನೀವು "ಸರಿ Google" ಎಂದು ಹೇಳಿದಾಗ, ನೀವು ನಂತರ ಹೇಳಬಹುದಾದ್ದನ್ನು Chrome ಹುಡುಕುತ್ತದೆ.</translation>
+<translation id="8571032220281885258">ನೀವು "Ok Google" ಎಂದು ಹೇಳಿದರೆ ಸಾಕು, ಮುಂದೆ ನೀವು ಹೇಳುವುದನ್ನು Chrome ತಾನಾಗಿಯೇ ಹುಡುಕಿಕೊಳ್ಳುತ್ತದೆ.</translation>
 <translation id="8571108619753148184">ಸರ್ವರ್ 4</translation>
 <translation id="8574234089711453001">ಮಾಧ್ಯಮ url ಜೊತೆಗೆ ಪುಟ ತೆರೆಯುವಾಗ ಡೌನ್‌ಲೋಡ್ ಬಟನ್ ಕಾಣಿಸಿಕೊಳ್ಳಲು ಅನುಮತಿಸಿ.</translation>
 <translation id="857779305329188634">ಪ್ರಾಯೋಗಿಕ QUIC ಪ್ರೋಟೋಕಾಲ್ ಬೆಂಬಲವನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ.</translation>

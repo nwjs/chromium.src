@@ -1533,7 +1533,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="2964193600955408481">Деактивиране на Wi-Fi</translation>
 <translation id="2966449113954629791">Възможно е да сте изразходвали отпуснатите ви мобилни данни. Посетете портала за активиране „<ph name="NAME" />“, за да купите още данни.</translation>
 <translation id="2966459079597787514">Шведска клавиатура</translation>
-<translation id="2966598748518102999">Подобряване на гласовото търсене чрез изпращане до Google на запис на произнасянето на „OK Google“ и няколко секунди от предхождащия звук.</translation>
+<translation id="2966598748518102999">Подобряване на гласовото търсене чрез изпращане до Google на запис на произнасянето на „Ok Google“ и няколко секунди от предхождащия звук.</translation>
 <translation id="2967544384642772068">Затваряне</translation>
 <translation id="2971033837577180453">&lt;span&gt;Идент. №:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">намаляване на яркостта</translation>
@@ -1757,7 +1757,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3251759466064201842">&lt;Не е част от сертификата&gt;</translation>
 <translation id="3252266817569339921">френски</translation>
 <translation id="3254434849914415189">Избиране на приложението по подразбиране за файлове от тип <ph name="FILE_TYPE" />:</translation>
-<translation id="3255228561559750854">Потърсете нещо или кажете „OK Google“</translation>
+<translation id="3255228561559750854">Потърсете нещо или кажете „Ok Google“</translation>
 <translation id="3257011895468050906">Активиране на поддръжката за Token Binding.</translation>
 <translation id="3260892921936048802">&amp;Изтегляне...</translation>
 <translation id="326356299252142602">Използване на приложния програмен интерфейс (API) за MIDI по време на изпълнение за Windows</translation>
@@ -2203,7 +2203,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3812525830114410218">Невалиден сертификат</translation>
 <translation id="3812568885510197014">Добавя към уеб формулярите пояснения за подписите за автоматично попълване под формата на HTML атрибути.</translation>
 <translation id="3813296892522778813">Прегледайте <ph name="BEGIN_LINK_CHROMIUM" />помощното съдържание за Google Chrome<ph name="END_LINK_CHROMIUM" />, ако не можете да намерите търсеното</translation>
-<translation id="3813984289128269159">OK Google</translation>
+<translation id="3813984289128269159">Ok Google</translation>
 <translation id="3815016854028376614">Метод на въвеждане за джуин</translation>
 <translation id="3815571115159309122">Намерени са <ph name="FILE_COUNT" /> нови снимки
 <ph name="LINE_BREAK1" />
@@ -5617,7 +5617,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="8487700953926739672">Налице офлайн</translation>
 <translation id="8490896350101740396">Следните павилионни приложения са актуализирани: <ph name="UPDATED_APPS" />. Моля, рестартирайте устройството, за да завършите процеса.</translation>
 <translation id="8493236660459102203">Микрофон:</translation>
-<translation id="8495193314787127784">Активиране на „OK Google“</translation>
+<translation id="8495193314787127784">Активиране на „Ok Google“</translation>
 <translation id="8496717697661868878">Стартиране на тази приставка</translation>
 <translation id="8497392509610708671">Можете да промените това по всяко време от <ph name="BEGIN_LINK" />настройките на Chrome<ph name="END_LINK" />.</translation>
 <translation id="8498716162437226120">Добавяне на устройство с Bluetooth</translation>
@@ -5666,7 +5666,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="8565650234829130278">Бе направен опит за понижаване на приложението.</translation>
 <translation id="8569682776816196752">Няма намерени местоназначения</translation>
 <translation id="8569764466147087991">Изберете файл за отваряне</translation>
-<translation id="8571032220281885258">Когато кажете „OK Google“, Chrome ще потърси следващото нещо, което произнесете.</translation>
+<translation id="8571032220281885258">Когато кажете „Ok Google“, Chrome ще потърси следващото нещо, което произнесете.</translation>
 <translation id="8571108619753148184">Сървър 4</translation>
 <translation id="8574234089711453001">Разрешете показването на бутон за изтегляне при отваряне на страница с URL адрес на мултимедийно съдържание.</translation>
 <translation id="857779305329188634">Активиране на експериментална поддръжка на протокола QUIC.</translation>

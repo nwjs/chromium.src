@@ -2213,7 +2213,7 @@ Del domini <ph name="DOWNLOAD_DOMAIN" /></translation>
     Ja es pot crear la còpia de seguretat a <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" /></translation>
 <translation id="3816789583333631750">Per utilitzar aquesta funció, s'ha d'activar el connector Native Client.</translation>
 <translation id="3819007103695653773">Permet que tots els llocs enviïn missatges de tramesa automàtica en segon pla</translation>
-<translation id="3819752733757735746">Accés amb commutador (controleu l'ordinador amb només un o dos commutadors)</translation>
+<translation id="3819752733757735746">Accés amb interruptors (controleu l'ordinador amb només un o dos interruptors)</translation>
 <translation id="3819800052061700452">&amp;Pantalla completa</translation>
 <translation id="3820172043799983114">El PIN no és vàlid.</translation>
 <translation id="3820749202859700794">Corba el·líptica secp521r1 d'SECG (també coneguda com a NIST P-521)</translation>
@@ -4142,7 +4142,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="645705751491738698">Continua bloquejant JavaScript</translation>
 <translation id="6458308652667395253">Gestiona el bloqueig de JavaScript...</translation>
 <translation id="6459488832681039634">Utilitza la selecció per a la cerca</translation>
-<translation id="6460082740058890133">Activa una IU de comentaris personalitzats en enviar comentaris amb Google Feedback. Funciona amb la versió 10.2 dels Serveis de Google Play i amb versions posteriors</translation>
+<translation id="6460082740058890133">Activa una IU de comentaris personalitzats en enviar comentaris amb Google Feedback. Funciona amb la versió 10.2 de Serveis de Google Play i amb versions posteriors</translation>
 <translation id="6460423884798879930">Activa l'opció per enviar informació d'autenticació addicional al paquet SYN inicial per a un client ja connectat, de manera que permet que s'iniciï l'enviament de dades més ràpidament.</translation>
 <translation id="6460474910028274178">Millora de la lògica d'activació i de l'aspecte a la interfície d'usuari per al quadre del Traductor</translation>
 <translation id="6460601847208524483">Cerca el següent</translation>

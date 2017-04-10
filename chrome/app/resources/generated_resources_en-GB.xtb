@@ -611,7 +611,7 @@
 <translation id="1763108912552529023">Keep exploring</translation>
 <translation id="1764226536771329714">beta</translation>
 <translation id="176587472219019965">&amp;New Window</translation>
-<translation id="1766352429832934452">Enabled (required to use "OK Google")</translation>
+<translation id="1766352429832934452">Enabled (required to use 'Ok Google')</translation>
 <translation id="1769104665586091481">Open Link in New &amp;Window</translation>
 <translation id="1772267994638363865">To make this happen, you'll need to enable Voice &amp; Audio Activity and train your <ph name="DEVICE_TYPE" /> in the following steps.</translation>
 <translation id="1773212559869067373">Authentication certificate rejected locally</translation>
@@ -736,7 +736,7 @@
 <translation id="1934636348456381428">Enable the experimental overlay scrollbars implementation. You must also enable threaded compositing to have the scrollbars animate.</translation>
 <translation id="1936157145127842922">Show in Folder</translation>
 <translation id="1936717151811561466">Finnish</translation>
-<translation id="1937256809970138538">Say "OK Google" when your screen is on and unlocked</translation>
+<translation id="1937256809970138538">Say 'Ok Google' when your screen is on and unlocked</translation>
 <translation id="1942765061641586207">Image resolution</translation>
 <translation id="1944921356641260203">Update found</translation>
 <translation id="1947424002851288782">German keyboard</translation>
@@ -1477,7 +1477,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2890678560483811744">Out of bounds page reference</translation>
 <translation id="2893168226686371498">Default browser</translation>
 <translation id="289426338439836048">Other mobile network...</translation>
-<translation id="2894745200702272315">Enables an experimental version of 'OK Google' hotword detection features that have a hardware dependency.</translation>
+<translation id="2894745200702272315">Enables an experimental version of 'Ok Google' hotword detection features that have a hardware dependency.</translation>
 <translation id="289644616180464099">SIM Card is locked</translation>
 <translation id="289695669188700754">Key ID: <ph name="KEY_ID" /></translation>
 <translation id="2897878306272793870">Are you sure that you want to open <ph name="TAB_COUNT" /> tabs?</translation>
@@ -1537,7 +1537,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2964193600955408481">Disable Wi-Fi</translation>
 <translation id="2966449113954629791">You may have used up your mobile data allowance. Visit the <ph name="NAME" /> activation portal to buy more data.</translation>
 <translation id="2966459079597787514">Swedish keyboard</translation>
-<translation id="2966598748518102999">Improve voice search by sending the sound of "Ok Google", and a few seconds before, to Google.</translation>
+<translation id="2966598748518102999">Improve voice search by sending the sound of 'Ok Google', and a few seconds before, to Google.</translation>
 <translation id="2967544384642772068">Kill</translation>
 <translation id="2971033837577180453">&lt;span&gt;ID:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">bright down</translation>
@@ -1705,7 +1705,7 @@ Please check your email at <ph name="ACCOUNT_EMAIL" /> for these and further ins
 <translation id="3162559335345991374">The Wi-Fi that you are using may require you to visit its login page.</translation>
 <translation id="316307797510303346">Control and view the websites which this person visits from <ph name="CUSTODIAN_EMAIL" />.
     Your account sign-in details are out of date.</translation>
-<translation id="3166571619128686629">Click, or say "OK Google" to start voice search</translation>
+<translation id="3166571619128686629">Click, or say 'Ok Google' to start voice search</translation>
 <translation id="3170072451822350649">You may also skip signing in and <ph name="LINK_START" />browse as Guest<ph name="LINK_END" />.</translation>
 <translation id="3170544058711792988">Keep magnifier focus centred on screen</translation>
 <translation id="317583078218509884">New site permissions settings will take effect after reloading the page.</translation>
@@ -1754,14 +1754,14 @@ Please check your email at <ph name="ACCOUNT_EMAIL" /> for these and further ins
 <translation id="3241720467332021590">Irish Gaelic</translation>
 <translation id="3242118113727675434">Show HUD for touch points</translation>
 <translation id="3242765319725186192">Preshared key:</translation>
-<translation id="3244621381664913240">Enable "OK Google" to start a voice search.</translation>
+<translation id="3244621381664913240">Enable 'Ok Google' to start a voice search.</translation>
 <translation id="3245321423178950146">Unknown Artist</translation>
 <translation id="324533084080637716">With article structured mark-up</translation>
 <translation id="324849028894344899"><ph name="WINDOW_TITLE" /> – Network error</translation>
 <translation id="3251759466064201842">&lt;Not Part Of Certificate&gt;</translation>
 <translation id="3252266817569339921">French</translation>
 <translation id="3254434849914415189">Choose the default app for <ph name="FILE_TYPE" /> files:</translation>
-<translation id="3255228561559750854">Search, or say "OK Google"</translation>
+<translation id="3255228561559750854">Search, or say 'Ok Google'</translation>
 <translation id="3257011895468050906">Enable Token Binding support.</translation>
 <translation id="3260892921936048802">&amp;Download...</translation>
 <translation id="326356299252142602">Use Windows Runtime MIDI API</translation>
@@ -2697,7 +2697,7 @@ Press any key to continue exploring.</translation>
 <translation id="4533259260976001693">Shrink/Expand</translation>
 <translation id="4533985347672295764">CPU Time</translation>
 <translation id="4534166495582787863">Enables touchpad three-finger-click as middle button.</translation>
-<translation id="4534799089889278411">Say "OK Google" in a new tab, google.com and the App Launcher</translation>
+<translation id="4534799089889278411">Say 'Ok Google' in a new tab, google.com and the App Launcher</translation>
 <translation id="4535127706710932914">Default Profile</translation>
 <translation id="4538417792467843292">Delete word</translation>
 <translation id="4538684596480161368">Always block unsandboxed plug-ins on <ph name="HOST" /></translation>
@@ -3217,7 +3217,7 @@ Press any key to continue exploring.</translation>
 <translation id="5229189185761556138">Manage input methods</translation>
 <translation id="5229622432348746578">Disable Audio For Desktop Sharing</translation>
 <translation id="5230516054153933099">Window</translation>
-<translation id="5232178406098309195">When you use audio activation commands, such as "OK Google" or touching a microphone icon, your private Voice &amp; Audio Activity stores some voice and other audio to your account. A recording of the following speech/audio, plus a few seconds before, will be stored.</translation>
+<translation id="5232178406098309195">When you use audio activation commands, such as 'Ok Google' or touching a microphone icon, your private Voice &amp; Audio Activity stores some voice and other audio to your account. A recording of the following speech/audio, plus a few seconds before, will be stored.</translation>
 <translation id="523299859570409035">Notifications exceptions</translation>
 <translation id="5233019165164992427">NaCl debug port</translation>
 <translation id="5233231016133573565">Process ID</translation>
@@ -3236,7 +3236,7 @@ Press any key to continue exploring.</translation>
 <translation id="5249624017678798539">The browser crashed before the download completed.</translation>
 <translation id="5252456968953390977">Roaming</translation>
 <translation id="5252653240322147470">PIN must be less than <ph name="MAXIMUM" /> digits</translation>
-<translation id="5253753933804516447">Enable "OK Google" to voice search when your screen is on and unlocked</translation>
+<translation id="5253753933804516447">Enable 'Ok Google' to voice search when your screen is on and unlocked</translation>
 <translation id="52550593576409946">Kiosk application could not be launched.</translation>
 <translation id="5255315797444241226">The passphrase that you've entered is incorrect.</translation>
 <translation id="5260508466980570042">Sorry, your email or password could not be verified. Please try again.</translation>
@@ -3811,7 +3811,7 @@ Press any key to continue exploring.</translation>
 <translation id="6011449291337289699">Clear site data</translation>
 <translation id="6015796118275082299">Year</translation>
 <translation id="6016551720757758985">Confirm Powerwash with return to previous version</translation>
-<translation id="6016809788585079594">Say "OK Google" one last time</translation>
+<translation id="6016809788585079594">Say 'Ok Google' one last time</translation>
 <translation id="6016972670657536680">Select language and keyboard button. Currently selected language is <ph name="LANGUAGE" />.</translation>
 <translation id="6017225534417889107">Change...</translation>
 <translation id="6017981840202692187">Add to Applications</translation>
@@ -3879,7 +3879,7 @@ Press any key to continue exploring.</translation>
 <translation id="6105158702728922449">Use your camera and microphone</translation>
 <translation id="6105877918873366097">Last accessed</translation>
 <translation id="6107012941649240045">Issued To</translation>
-<translation id="6107079717483424262">Recognize your voice when you say "OK Google"</translation>
+<translation id="6107079717483424262">Recognise your voice when you say 'Ok Google'</translation>
 <translation id="6109228527970300988">Emoji, handwriting and voice input on opt-in IME menu</translation>
 <translation id="6111770213269631447">Transliteration (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Edit person, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
@@ -3922,7 +3922,7 @@ Press any key to continue exploring.</translation>
 <translation id="6165508094623778733">Learn more</translation>
 <translation id="6166185671393271715">Import Passwords To Chrome</translation>
 <translation id="6169666352732958425">Unable to cast desktop.</translation>
-<translation id="6171550060231646388">Simulated hardware 'OK Google' features</translation>
+<translation id="6171550060231646388">Simulated hardware 'Ok Google' features</translation>
 <translation id="6171948306033499786">Pause printing</translation>
 <translation id="6175314957787328458">Microsoft Domain GUID</translation>
 <translation id="6178664161104547336">Select a certificate</translation>
@@ -4550,7 +4550,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7012372675181957985">Your Google account may have other forms of browsing history at <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /></translation>
 <translation id="7013485839273047434">Get more extensions</translation>
 <translation id="7014174261166285193">Installation failed.</translation>
-<translation id="7017004637493394352">Say "OK Google" again</translation>
+<translation id="7017004637493394352">Say 'Ok Google' again</translation>
 <translation id="7017219178341817193">Add a new page</translation>
 <translation id="7017354871202642555">Cannot set mode after window is set.</translation>
 <translation id="7017480957358237747">allow or prohibit certain websites,</translation>
@@ -4707,7 +4707,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7238585580608191973">SHA-256 Fingerprint</translation>
 <translation id="7240120331469437312">Certificate Subject Alternative Name</translation>
 <translation id="7241389281993241388">Please sign in to <ph name="TOKEN_NAME" /> to import the client certificate.</translation>
-<translation id="7243055093079293866">Say "OK Google" in a new tab and google.com</translation>
+<translation id="7243055093079293866">Say 'Ok Google' in a new tab and google.com</translation>
 <translation id="7243632151880336635">Clear and Sign Out</translation>
 <translation id="7245628041916450754"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (Best)</translation>
 <translation id="7246947237293279874">FTP Proxy</translation>
@@ -4788,7 +4788,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7361824946268431273">The faster, simpler and more secure computer</translation>
 <translation id="7364796246159120393">Choose file</translation>
 <translation id="736515969993332243">Scanning for networks.</translation>
-<translation id="7366762109661450129">Say "OK Google" when the screen is on and unlocked.</translation>
+<translation id="7366762109661450129">Say 'Ok Google' when the screen is on and unlocked.</translation>
 <translation id="7366909168761621528">Browsing data</translation>
 <translation id="7369521049655330548">The following plug-ins were blocked on this page:</translation>
 <translation id="7371490661692457119">Default tile width</translation>
@@ -4912,10 +4912,10 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7517569744831774757">Restore settings to their original defaults.</translation>
 <translation id="7517786267097410259">Create a password -</translation>
 <translation id="7518150891539970662">WebRTC logs (<ph name="WEBRTC_LOG_COUNT" />)</translation>
-<translation id="7518657099163789435">Voice &amp; Audio Activity is required to use "OK Google"</translation>
+<translation id="7518657099163789435">Voice &amp; Audio Activity is required to use 'Ok Google'</translation>
 <translation id="7520821146909122639">This Page Is Being Translated...</translation>
 <translation id="7521387064766892559">JavaScript</translation>
-<translation id="7522255036471229694">Say “OK Google”</translation>
+<translation id="7522255036471229694">Say 'Ok Google'</translation>
 <translation id="7525067979554623046">Create</translation>
 <translation id="7529471622666797993"><ph name="BEGIN_LINK" />Advanced font settings<ph name="END_LINK" /> (requires extension)</translation>
 <translation id="7530016656428373557">Discharge Rate in Watts</translation>
@@ -5162,7 +5162,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7881969471599061635">Disable subtitles</translation>
 <translation id="7882358943899516840">Provider type</translation>
 <translation id="7885253890047913815">Recent destinations</translation>
-<translation id="7887192723714330082">Respond to "OK Google" when the screen is on and unlocked</translation>
+<translation id="7887192723714330082">Respond to 'Ok Google' when the screen is on and unlocked</translation>
 <translation id="7887334752153342268">Duplicate</translation>
 <translation id="7887864092952184874">Bluetooth mouse paired</translation>
 <translation id="7892100671754994880">Next user</translation>
@@ -5312,7 +5312,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="806812017500012252">Reorder by title</translation>
 <translation id="8069615408251337349">Google Cloud Print</translation>
 <translation id="8071432093239591881">Print as image</translation>
-<translation id="8071942001314758122">Just say "OK Google" three times</translation>
+<translation id="8071942001314758122">Just say 'Ok Google' three times</translation>
 <translation id="8072988827236813198">Pin Tabs</translation>
 <translation id="8074127646604999664">Allow recently closed sites to finish sending and receiving data</translation>
 <translation id="8075191520954018715">Memory state</translation>
@@ -5622,7 +5622,7 @@ Calculating time until full</translation>
 <translation id="8487700953926739672">Available offline</translation>
 <translation id="8490896350101740396">The following kiosk apps "<ph name="UPDATED_APPS" />" have been updated. Please reboot the device to complete the update process.</translation>
 <translation id="8493236660459102203">Microphone:</translation>
-<translation id="8495193314787127784">Enable "OK Google"</translation>
+<translation id="8495193314787127784">Enable 'Ok Google'</translation>
 <translation id="8496717697661868878">Run This Plug-in</translation>
 <translation id="8497392509610708671">You can change this at any time in <ph name="BEGIN_LINK" />Chrome Settings<ph name="END_LINK" />.</translation>
 <translation id="8498716162437226120">Add a Bluetooth device</translation>
@@ -5671,7 +5671,7 @@ Calculating time until full</translation>
 <translation id="8565650234829130278">Attempted to downgrade app.</translation>
 <translation id="8569682776816196752">No destinations found</translation>
 <translation id="8569764466147087991">Select a file to open</translation>
-<translation id="8571032220281885258">When you say "Ok Google", Chrome will search for what you say next.</translation>
+<translation id="8571032220281885258">When you say 'Ok Google', Chrome will search for what you say next.</translation>
 <translation id="8571108619753148184">Server 4</translation>
 <translation id="8574234089711453001">Allow a download button to show up when opening a page with media URL.</translation>
 <translation id="857779305329188634">Enable experimental QUIC protocol support.</translation>

@@ -610,7 +610,7 @@
 <translation id="1763108912552529023">Nastavi istraživati</translation>
 <translation id="1764226536771329714">beta</translation>
 <translation id="176587472219019965">&amp;Novi prozor</translation>
-<translation id="1766352429832934452">Omogućeno (potrebno za upotrebu značajke "OK Google")</translation>
+<translation id="1766352429832934452">Omogućeno (potrebno za upotrebu značajke "Ok Google")</translation>
 <translation id="1769104665586091481">Otvori vezu u novom &amp;prozoru</translation>
 <translation id="1772267994638363865">Da biste to postigli, morat ćete omogućiti Glasovnu i audioaktivnost i obučiti svoj uređaj <ph name="DEVICE_TYPE" /> na sljedeći način.</translation>
 <translation id="1773212559869067373">Certifikat za autentifikaciju odbijen je lokalno</translation>
@@ -735,7 +735,7 @@
 <translation id="1934636348456381428">Omogućuje se primjena eksperimentalnih klizača preklapanja. Također morate omogućiti slaganje nitima kako bi se klizači animirali.</translation>
 <translation id="1936157145127842922">Prikaži u mapi</translation>
 <translation id="1936717151811561466">Finski</translation>
-<translation id="1937256809970138538">Recite "OK Google" kada zaslon bude uključen i otključan</translation>
+<translation id="1937256809970138538">Recite "Ok Google" kada zaslon bude uključen i otključan</translation>
 <translation id="1942765061641586207">Razlučivost slike</translation>
 <translation id="1944921356641260203">Pronađeno je ažuriranje</translation>
 <translation id="1947424002851288782">Njemačka tipkovnica</translation>
@@ -1476,7 +1476,7 @@ Mislim da ta web-lokacija ne bi trebala biti blokirana!</translation>
 <translation id="2890678560483811744">Referenca na stranicu izvan je granica</translation>
 <translation id="2893168226686371498">Zadani preglednik</translation>
 <translation id="289426338439836048">Druga mobilna mreža...</translation>
-<translation id="2894745200702272315">Omogućuje eksperimentalnu verziju značajki otkrivanja pokretača značajke "OK Google" ovisnih o hardveru.</translation>
+<translation id="2894745200702272315">Omogućuje eksperimentalnu verziju značajki otkrivanja pokretača značajke "Ok Google" ovisnih o hardveru.</translation>
 <translation id="289644616180464099">SIM kartica je zaključana</translation>
 <translation id="289695669188700754">ID ključa: <ph name="KEY_ID" /></translation>
 <translation id="2897878306272793870">Jeste li sigurni da želite otvoriti <ph name="TAB_COUNT" /> kartica?</translation>
@@ -1704,7 +1704,7 @@ Više informacija potražite u našem <ph name="BEGIN_LINK" />centru za pomoć<p
 <translation id="3162559335345991374">Za Wi-Fi koji upotrebljavate možda ćete morati posjetiti stranicu za prijavu.</translation>
 <translation id="316307797510303346">Upravljajte web-lokacijama koje ova osoba posjeti i prikazujte ih putem računa <ph name="CUSTODIAN_EMAIL" />.
   Vaši su podaci za prijavu zastarjeli.</translation>
-<translation id="3166571619128686629">Kliknite ili recite "OK Google" da biste pokrenuli glasovno pretraživanje</translation>
+<translation id="3166571619128686629">Kliknite ili recite "Ok Google" da biste pokrenuli glasovno pretraživanje</translation>
 <translation id="3170072451822350649">Možete također preskočiti prijavu i <ph name="LINK_START" />pregledavati kao gost<ph name="LINK_END" />.</translation>
 <translation id="3170544058711792988">Zadrži fokus povećala na sredini zaslona</translation>
 <translation id="317583078218509884">Nove postavke dozvola za web-lokacije postat će aktivne nakon ponovnog učitavanja stranice.</translation>
@@ -1753,7 +1753,7 @@ Više informacija potražite u našem <ph name="BEGIN_LINK" />centru za pomoć<p
 <translation id="3241720467332021590">Irski</translation>
 <translation id="3242118113727675434">Prikaži naglavni zaslon za dodirne točke</translation>
 <translation id="3242765319725186192">Unaprijed podijeljen ključ:</translation>
-<translation id="3244621381664913240">Omogući "OK Google" za pokretanje glasovnog pretraživanja</translation>
+<translation id="3244621381664913240">Omogući "Ok Google" za pokretanje glasovnog pretraživanja</translation>
 <translation id="3245321423178950146">Nepoznati izvođač</translation>
 <translation id="324533084080637716">S oznakama strukturiranim kao članak</translation>
 <translation id="324849028894344899"><ph name="WINDOW_TITLE" /> – mrežna pogreška</translation>
@@ -2696,7 +2696,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="4533259260976001693">Smanji/proširi</translation>
 <translation id="4533985347672295764">Vrijeme CPU-a</translation>
 <translation id="4534166495582787863">Omogućuje klik s tri prsta na dodirnoj podlozi kao srednji gumb.</translation>
-<translation id="4534799089889278411">Recite "OK Google" na novoj kartici, web-lokaciji google.com i u Pokretaču aplikacija</translation>
+<translation id="4534799089889278411">Recite "Ok Google" na novoj kartici, web-lokaciji google.com i u Pokretaču aplikacija</translation>
 <translation id="4535127706710932914">Zadani profil</translation>
 <translation id="4538417792467843292">Izbriši riječ</translation>
 <translation id="4538684596480161368">Uvijek blokiraj dodatke izvan testnog okruženja na <ph name="HOST" /></translation>
@@ -3216,7 +3216,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="5229189185761556138">Upravljaj načinima unosa</translation>
 <translation id="5229622432348746578">Onemogući audio za dijeljenje radne površine</translation>
 <translation id="5230516054153933099">Prozor</translation>
-<translation id="5232178406098309195">Kada upotrebljavate zvučne aktivacijske naredbe kao što je "OK Google" ili dodirivanje ikone mikrofona, vaša privatna Glasovna i audioaktivnost pohranjuje neke glasovne i ostale zvučne podatke na vaš račun. Pohranit će se snimka govora i zvuka koji će uslijediti i nekoliko sekundi prije toga.</translation>
+<translation id="5232178406098309195">Kada upotrebljavate zvučne aktivacijske naredbe kao što je "Ok Google" ili dodirivanje ikone mikrofona, vaša privatna Glasovna i audioaktivnost pohranjuje neke glasovne i ostale zvučne podatke na vaš račun. Pohranit će se snimka govora i zvuka koji će uslijediti i nekoliko sekundi prije toga.</translation>
 <translation id="523299859570409035">Iznimke za obavijesti</translation>
 <translation id="5233019165164992427">Priključak za otklanjanje pogrešaka lokalnog klijenta</translation>
 <translation id="5233231016133573565">ID procesa</translation>
@@ -3235,7 +3235,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="5249624017678798539">Preglednik se srušio prije nego što je preuzimanje dovršeno.</translation>
 <translation id="5252456968953390977">Roaming</translation>
 <translation id="5252653240322147470">Broj znamenki u PIN-u mora biti manji od <ph name="MAXIMUM" /></translation>
-<translation id="5253753933804516447">Omogući "OK Google" za glasovno pretraživanje kada je zaslon uključen i otključan</translation>
+<translation id="5253753933804516447">Omogući "Ok Google" za glasovno pretraživanje kada je zaslon uključen i otključan</translation>
 <translation id="52550593576409946">Aplikacija kioska nije pokrenuta.</translation>
 <translation id="5255315797444241226">Zaporka koju ste unijeli nije točna.</translation>
 <translation id="5260508466980570042">Žao nam je, nije bilo moguće potvrditi e-adresu ili zaporku. Pokušajte ponovo.</translation>
@@ -3811,7 +3811,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="6011449291337289699">Brisanje podataka web-lokacija</translation>
 <translation id="6015796118275082299">Godina</translation>
 <translation id="6016551720757758985">Potvrda Powerwasha uz povratak na prethodnu verziju</translation>
-<translation id="6016809788585079594">Recite "OK Google" još samo jedanput</translation>
+<translation id="6016809788585079594">Recite "Ok Google" još samo jedanput</translation>
 <translation id="6016972670657536680">Gumb za odabir jezika i tipkovnice. Trenutačno je odabran <ph name="LANGUAGE" />.</translation>
 <translation id="6017225534417889107">Promijeni...</translation>
 <translation id="6017981840202692187">Dodavanje u Aplikacije</translation>
@@ -3879,7 +3879,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="6105158702728922449">upotrijebiti vašu kameru i mikrofon</translation>
 <translation id="6105877918873366097">Zadnji pristup</translation>
 <translation id="6107012941649240045">Izdano za</translation>
-<translation id="6107079717483424262">prepoznati vaš glas kada kažete "OK Google"</translation>
+<translation id="6107079717483424262">prepoznati vaš glas kada kažete "Ok Google"</translation>
 <translation id="6109228527970300988">Emojiji, unos rukopisom i glasovni unos na dodatnom IME izborniku</translation>
 <translation id="6111770213269631447">transliteracija (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Uređivanje osobe, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
@@ -3922,7 +3922,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="6165508094623778733">Saznajte više</translation>
 <translation id="6166185671393271715">Uvoz zaporki u Chrome</translation>
 <translation id="6169666352732958425">Emitiranje radne površine nije moguće.</translation>
-<translation id="6171550060231646388">Simulirane hardverske značajke za "OK Google"</translation>
+<translation id="6171550060231646388">Simulirane hardverske značajke za "Ok Google"</translation>
 <translation id="6171948306033499786">Pauziraj ispis</translation>
 <translation id="6175314957787328458">Microsoft Domain GUID</translation>
 <translation id="6178664161104547336">Odabir certifikata</translation>
@@ -4549,7 +4549,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="7012372675181957985">Na Google računu možda postoje drugi oblici povijesti pregledavanja na stranici <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /></translation>
 <translation id="7013485839273047434">Nabavi više proširenja</translation>
 <translation id="7014174261166285193">Instalacija nije uspjela.</translation>
-<translation id="7017004637493394352">Ponovo recite "OK Google"</translation>
+<translation id="7017004637493394352">Ponovo recite "Ok Google"</translation>
 <translation id="7017219178341817193">Dodaj novu stranicu</translation>
 <translation id="7017354871202642555">Nakon postavljanja prozora nije moguće postaviti način.</translation>
 <translation id="7017480957358237747">dopustiti ili zabraniti određene web-lokacije</translation>
@@ -4706,7 +4706,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="7238585580608191973">SHA-256 otisak prsta</translation>
 <translation id="7240120331469437312">Zamjenski naziv predmeta certifikata</translation>
 <translation id="7241389281993241388">Prijavite se na uređaj <ph name="TOKEN_NAME" /> kako biste uvezli certifikat klijenta.</translation>
-<translation id="7243055093079293866">Recite "OK Google" u novoj kartici i na google.com</translation>
+<translation id="7243055093079293866">Recite "Ok Google" u novoj kartici i na google.com</translation>
 <translation id="7243632151880336635">Izbriši i odjavi se</translation>
 <translation id="7245628041916450754"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (najbolje)</translation>
 <translation id="7246947237293279874">FTP proxy</translation>
@@ -4787,7 +4787,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="7361824946268431273">Brže, jednostavnije i sigurnije računalo</translation>
 <translation id="7364796246159120393">Odaberi datoteku</translation>
 <translation id="736515969993332243">Skeniranje mreža.</translation>
-<translation id="7366762109661450129">Recite "OK Google" kad je zaslon uključen i otključan.</translation>
+<translation id="7366762109661450129">Recite "Ok Google" kad je zaslon uključen i otključan.</translation>
 <translation id="7366909168761621528">Podaci o pregledavanju</translation>
 <translation id="7369521049655330548">Na toj su stranici blokirani sljedeći dodaci:</translation>
 <translation id="7371490661692457119">Zadana širina razlomljenog elementa</translation>
@@ -4910,10 +4910,10 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="7517569744831774757">Vraćanje postavki na njihove izvorne zadane vrijednosti.</translation>
 <translation id="7517786267097410259">Izrada zaporke –</translation>
 <translation id="7518150891539970662">WebRTC zapisnici (<ph name="WEBRTC_LOG_COUNT" />)</translation>
-<translation id="7518657099163789435">Za upotrebu značajke "OK Google" potrebna je Glasovna i audioaktivnost</translation>
+<translation id="7518657099163789435">Za upotrebu značajke "Ok Google" potrebna je Glasovna i audioaktivnost</translation>
 <translation id="7520821146909122639">Stranica se prevodi...</translation>
 <translation id="7521387064766892559">JavaScript</translation>
-<translation id="7522255036471229694">Recite "OK Google"</translation>
+<translation id="7522255036471229694">Recite "Ok Google"</translation>
 <translation id="7525067979554623046">Stvori</translation>
 <translation id="7529471622666797993"><ph name="BEGIN_LINK" />Napredne postavke fonta<ph name="END_LINK" /> (potrebno je proširenje)</translation>
 <translation id="7530016656428373557">Stopa pražnjenja u vatima</translation>
@@ -5160,7 +5160,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="7881969471599061635">Onemogući titlove</translation>
 <translation id="7882358943899516840">Vrsta davatelja usluge</translation>
 <translation id="7885253890047913815">Nedavna odredišta</translation>
-<translation id="7887192723714330082">Odgovoriti na "OK Google" kada je zaslon uključen i otključan</translation>
+<translation id="7887192723714330082">Odgovoriti na "Ok Google" kada je zaslon uključen i otključan</translation>
 <translation id="7887334752153342268">Udvostruči</translation>
 <translation id="7887864092952184874">Bluetooth miš uparen</translation>
 <translation id="7892100671754994880">Sljedeći korisnik</translation>
@@ -5310,7 +5310,7 @@ Ključnu datoteku čuvajte na sigurnom mjestu. Trebat će vam za stvaranje novih
 <translation id="806812017500012252">Poredaj po naslovu</translation>
 <translation id="8069615408251337349">Google Cloud Print</translation>
 <translation id="8071432093239591881">Ispiši kao sliku</translation>
-<translation id="8071942001314758122">Samo recite "OK Google" tri puta</translation>
+<translation id="8071942001314758122">Samo recite "Ok Google" tri puta</translation>
 <translation id="8072988827236813198">Prikvači kartice</translation>
 <translation id="8074127646604999664">Dopusti nedavno zatvorenim web-lokacijama dovršetak slanja i primanja podataka</translation>
 <translation id="8075191520954018715">Stanje memorije</translation>

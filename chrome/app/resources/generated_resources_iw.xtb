@@ -1471,7 +1471,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="2890678560483811744">התייחסות לדף מחוץ לטווח</translation>
 <translation id="2893168226686371498">דפדפן ברירת מחדל</translation>
 <translation id="289426338439836048">רשת אחרת לנייד...</translation>
-<translation id="2894745200702272315">‏מאפשר גרסה ניסיונית של תכונות זיהוי מילות הפעלה ב-Ok Google בהתאם לחומרה.</translation>
+<translation id="2894745200702272315">‏מאפשר גרסה ניסיונית של תכונות זיהוי מילות הפעלה ב-"Ok Google" בהתאם לחומרה.</translation>
 <translation id="289644616180464099">‏כרטיס ה-SIM נעול</translation>
 <translation id="289695669188700754">מזהה מפתח: <ph name="KEY_ID" /></translation>
 <translation id="2897878306272793870">האם אתה בטוח שברצונך לפתוח כרטיסיות <ph name="TAB_COUNT" />?</translation>
@@ -1531,7 +1531,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="2964193600955408481">‏השבת Wi-Fi</translation>
 <translation id="2966449113954629791">ייתכן שהשתמשת בכל מכסת הנתונים לנייד שלך. בקר בפורטל ההפעלה של <ph name="NAME" /> לרכישת נתונים נוספים.</translation>
 <translation id="2966459079597787514">מקלדת שוודית</translation>
-<translation id="2966598748518102999">‏שפר את החיפוש הקולי על ידי שליחת הצליל "Ok Google," והקלטה של מספר שניות לפני כן, אל Google.</translation>
+<translation id="2966598748518102999">‏שפר את החיפוש הקולי על ידי שליחת הצליל "Ok Google" והקלטה של מספר שניות לפני כן, אל Google.</translation>
 <translation id="2967544384642772068">חסל</translation>
 <translation id="2971033837577180453">‏&lt;span&gt;מזהה:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">הפחתת בהירות</translation>
@@ -1754,7 +1754,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3251759466064201842">&lt;לא חלק מהאישור&gt;</translation>
 <translation id="3252266817569339921">צרפתית</translation>
 <translation id="3254434849914415189">בחר את יישום ברירת המחדל עבור קובצי <ph name="FILE_TYPE" />:</translation>
-<translation id="3255228561559750854">‏חפש, או אמור "Ok, Google"</translation>
+<translation id="3255228561559750854">‏חפש, או אמור "Ok Google"</translation>
 <translation id="3257011895468050906">‏אפשר תמיכת Token Binding.</translation>
 <translation id="3260892921936048802">&amp;הורד...</translation>
 <translation id="326356299252142602">‏שימוש ב-Windows Runtime MIDI API</translation>
@@ -3917,7 +3917,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6165508094623778733">למידע נוסף</translation>
 <translation id="6166185671393271715">‏ייבוא סיסמאות אל Chrome</translation>
 <translation id="6169666352732958425">לא ניתן להעביר מהמחשב השולחני.</translation>
-<translation id="6171550060231646388">‏הדמיית תכונות החומרה של Ok Google</translation>
+<translation id="6171550060231646388">‏הדמיית תכונות החומרה של "Ok Google"</translation>
 <translation id="6171948306033499786">השהה הדפסה</translation>
 <translation id="6175314957787328458">Microsoft Domain GUID</translation>
 <translation id="6178664161104547336">בחר אישור</translation>
@@ -5654,7 +5654,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8565650234829130278">בוצע ניסיון לשדרג יישום לאחור.</translation>
 <translation id="8569682776816196752">לא נמצאו יעדים</translation>
 <translation id="8569764466147087991">בחר קובץ לפתיחה</translation>
-<translation id="8571032220281885258">‏כשתאמר "Ok Google," דפדפן Chrome יחפש את מה שתאמר לאחר מכן.</translation>
+<translation id="8571032220281885258">‏כשתאמר ",Ok Google" דפדפן Chrome יחפש את מה שתאמר לאחר מכן.</translation>
 <translation id="8571108619753148184">שרת 4</translation>
 <translation id="8574234089711453001">התר הצגה של לחצן הורדה בפתיחת דף עם כתובת אתר של מדיה.</translation>
 <translation id="857779305329188634">‏הפעל תמיכה בפרוטוקול QUIC ניסיוני.</translation>

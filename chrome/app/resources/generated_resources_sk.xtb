@@ -610,7 +610,7 @@
 <translation id="1763108912552529023">Skúmať</translation>
 <translation id="1764226536771329714">beta</translation>
 <translation id="176587472219019965">&amp;Nové okno</translation>
-<translation id="1766352429832934452">Povolené (vyžaduje sa na používanie funkcie „Ok Google“)</translation>
+<translation id="1766352429832934452">Zapnuté (nutné na používanie príkazu „Ok Google“)</translation>
 <translation id="1769104665586091481">Otvoriť odkaz v novom &amp;okne</translation>
 <translation id="1772267994638363865">Ak chcete používať túto funkciu, musíte povoliť Hlasovú a zvukovú aktivitu a natrénovať svoje zariadenie <ph name="DEVICE_TYPE" /> v nasledujúcich krokoch.</translation>
 <translation id="1773212559869067373">Certifikát na overenie totožnosti bol zamietnutý miestne</translation>
@@ -735,7 +735,7 @@
 <translation id="1934636348456381428">Povoliť implementáciu experimentálnych prekryvných posúvačov. Aby sa dali posúvače animovať, musíte tiež povoliť vláknovú kompozíciu.</translation>
 <translation id="1936157145127842922">Zobraziť v priečinku</translation>
 <translation id="1936717151811561466">Fínčina</translation>
-<translation id="1937256809970138538">Vyslovte „Ok Google“, keď je obrazovka zapnutá a odomknutá</translation>
+<translation id="1937256809970138538">Povedzte „Ok Google“, keď je obrazovka zapnutá a odomknutá</translation>
 <translation id="1942765061641586207">Rozlíšenie obrázka</translation>
 <translation id="1944921356641260203">Je k dispozícii aktualizácia</translation>
 <translation id="1947424002851288782">nemecká klávesnica</translation>
@@ -1538,7 +1538,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="2964193600955408481">Zakázať sieť Wi-Fi</translation>
 <translation id="2966449113954629791">Možno ste dosiahli povolený limit mobilných dát. Ďalšie údaje si môžete zakúpiť na aktivačnom portáli <ph name="NAME" />.</translation>
 <translation id="2966459079597787514">švédska klávesnica</translation>
-<translation id="2966598748518102999">Zlepšite hlasové vyhľadávanie odoslaním záznamu vyslovenia slov „Ok Google“ a niekoľkých sekúnd predtým spoločnosti Google.</translation>
+<translation id="2966598748518102999">Zlepšiť hlasové vyhľadávanie odoslaním záznamu „Ok Google“ a niekoľkých predošlých sekúnd do Googlu</translation>
 <translation id="2967544384642772068">Ukončiť</translation>
 <translation id="2971033837577180453">&lt;span&gt;ID:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">znížiť jas</translation>
@@ -1706,7 +1706,7 @@ Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeh
 <translation id="3162559335345991374">Sieť Wi-Fi, ktorú používate, môže vyžadovať, aby ste navštívili jej prihlasovaciu stránku</translation>
 <translation id="316307797510303346">Ovládať a zobrazovať stránky, ktoré táto osoba navštevuje v rámci účtu <ph name="CUSTODIAN_EMAIL" />.
     Vaše prihlasovacie údaje do účtu sú zastarané.</translation>
-<translation id="3166571619128686629">Hlasové vyhľadávanie spustíte kliknutím alebo vyslovením kľúčového výrazu „Ok Google“</translation>
+<translation id="3166571619128686629">Hlasové vyhľadávanie spustíte kliknutím alebo vyslovením príkazu „Ok Google“</translation>
 <translation id="3170072451822350649">Môžete tiež preskočiť prihlásenie a <ph name="LINK_START" />prehliadať ako hosť<ph name="LINK_END" />.</translation>
 <translation id="3170544058711792988">Ponechať zameranie lupy v strede obrazovky</translation>
 <translation id="317583078218509884">Nové nastavenia povolení webových stránok sa prejavia po opätovnom načítaní stránky.</translation>
@@ -1755,14 +1755,14 @@ Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeh
 <translation id="3241720467332021590">Írčina</translation>
 <translation id="3242118113727675434">Zobraziť zobrazenie HUD pre dotykové body</translation>
 <translation id="3242765319725186192">Predzdieľaný kľúč:</translation>
-<translation id="3244621381664913240">Umožňovať aktiváciu hlasového vyhľadávania vyslovením frázy „Ok Google“</translation>
+<translation id="3244621381664913240">Povoliť aktiváciu hlasového vyhľadávania príkazom „Ok Google“</translation>
 <translation id="3245321423178950146">Neznámy interpret</translation>
 <translation id="324533084080637716">So značkovaním vyjadrujúcim prítomnosť štruktúrovaných článkov</translation>
 <translation id="324849028894344899"><ph name="WINDOW_TITLE" /> – Chyba siete</translation>
 <translation id="3251759466064201842">&lt;Nie je súčasťou certifikátu&gt;</translation>
 <translation id="3252266817569339921">Francúzština</translation>
 <translation id="3254434849914415189">Zvoľte pre súbory <ph name="FILE_TYPE" /> predvolenú aplikáciu:</translation>
-<translation id="3255228561559750854">Vyhľadávajte alebo vyslovte „Ok Google“</translation>
+<translation id="3255228561559750854">Vyhľadávajte alebo povedzte „Ok Google“</translation>
 <translation id="3257011895468050906">Povolenie podpory viazania tokenov.</translation>
 <translation id="3260892921936048802">&amp;Stiahnuť…</translation>
 <translation id="326356299252142602">Použitie rozhrania Windows Runtime MIDI API</translation>
@@ -2698,7 +2698,7 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="4533259260976001693">Zmenšiť/zväčšiť</translation>
 <translation id="4533985347672295764">Čas využitia procesora</translation>
 <translation id="4534166495582787863">Povolí klepnutie na touchpad troma prstami namiesto prostredného tlačidla.</translation>
-<translation id="4534799089889278411">Vyslovte výraz „Ok Google“ na novej karte, stránke google.com a v Spúšťači aplikácií</translation>
+<translation id="4534799089889278411">Povedzte „Ok Google“ na novej karte, na webe google.com alebo v Spúšťači aplikácií</translation>
 <translation id="4535127706710932914">Predvolený profil</translation>
 <translation id="4538417792467843292">Odstrániť slovo</translation>
 <translation id="4538684596480161368">Na stránkach <ph name="HOST" /> vždy blokovať doplnky, ktoré nie sú v karanténe</translation>
@@ -3237,7 +3237,7 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="5249624017678798539">Prehliadač zlyhal pred dokončením sťahovania.</translation>
 <translation id="5252456968953390977">Roaming</translation>
 <translation id="5252653240322147470">Maximálny počet číslic kódu PIN: <ph name="MAXIMUM" /></translation>
-<translation id="5253753933804516447">Aktivovať hlasové vyhľadávanie pomocou kľúčového slova „Ok Google“, keď je zapnutá a odomknutá obrazovka.</translation>
+<translation id="5253753933804516447">Aktivovať hlasové vyhľadávanie príkazom „Ok Google“, keď je zapnutá a odomknutá obrazovka.</translation>
 <translation id="52550593576409946">Aplikáciu Kiosk sa nepodarilo spustiť</translation>
 <translation id="5255315797444241226">Zadaná prístupová fráza je nesprávna.</translation>
 <translation id="5260508466980570042">Vašu e-mailovú adresu alebo vaše heslo sa nepodarilo overiť. Skúste to znova.</translation>
@@ -3813,7 +3813,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="6011449291337289699">Vymazanie dát webu</translation>
 <translation id="6015796118275082299">Rok</translation>
 <translation id="6016551720757758985">Potvrdenie obnovenia Powerwash s návratom k predchádzajúcej verzii</translation>
-<translation id="6016809788585079594">Ešte raz a naposledy vyslovte „Ok Google“</translation>
+<translation id="6016809788585079594">Ešte raz a naposledy povedzte „Ok Google“</translation>
 <translation id="6016972670657536680">Tlačidlo pre výber jazyka a klávesnice. Aktuálne je vybratý jazyk <ph name="LANGUAGE" />.</translation>
 <translation id="6017225534417889107">Zmeniť...</translation>
 <translation id="6017981840202692187">Pridať do priečinka Aplikácie</translation>
@@ -3881,7 +3881,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="6105158702728922449">Používať fotoaparát a mikrofón</translation>
 <translation id="6105877918873366097">Dátum posledného prístupu</translation>
 <translation id="6107012941649240045">Vydané pre</translation>
-<translation id="6107079717483424262">Rozpoznať hlas, keď vyslovíte „Ok Google“</translation>
+<translation id="6107079717483424262">Rozpoznať váš hlas, keď poviete „Ok Google“</translation>
 <translation id="6109228527970300988">Emodži, ručné písanie a hlasový vstup v aktivačnej ponuke editora metód vstupu</translation>
 <translation id="6111770213269631447">Prepis (namaskar → নমস্কার)</translation>
 <translation id="6112952769866305444">Upraviť osobu <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
@@ -3924,7 +3924,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="6165508094623778733">Viac informácií</translation>
 <translation id="6166185671393271715">Import hesiel do Chromu</translation>
 <translation id="6169666352732958425">Plochu sa nepodarilo prenášať.</translation>
-<translation id="6171550060231646388">Simulované hardvérové funkcie Ok Google</translation>
+<translation id="6171550060231646388">Simulované hardvérové funkcie „Ok Google“</translation>
 <translation id="6171948306033499786">Pozastaviť tlač</translation>
 <translation id="6175314957787328458">Identifikátor GUID domény spoločnosti Microsoft</translation>
 <translation id="6178664161104547336">Vybrať certifikát</translation>
@@ -4551,7 +4551,7 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="7012372675181957985">Váš účet Google môže mať ďalšie formy histórie prehliadania na adrese <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /></translation>
 <translation id="7013485839273047434">Získať ďalšie rozšírenia</translation>
 <translation id="7014174261166285193">Inštalácia zlyhala.</translation>
-<translation id="7017004637493394352">Vyslovte „Ok Google“ ešte raz</translation>
+<translation id="7017004637493394352">Povedzte „Ok Google“ ešte raz</translation>
 <translation id="7017219178341817193">Pridať novú stránku</translation>
 <translation id="7017354871202642555">Po nastavení okna nie je možné nastaviť režim.</translation>
 <translation id="7017480957358237747">povoliť alebo zakázať konkrétne webové stránky,</translation>
@@ -4708,7 +4708,7 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="7238585580608191973">Odtlačok SHA-256</translation>
 <translation id="7240120331469437312">Alternatívny názov subjektu certifikátu</translation>
 <translation id="7241389281993241388">Ak chcete importovať certifikát klienta, prihláste sa do <ph name="TOKEN_NAME" />.</translation>
-<translation id="7243055093079293866">Vyslovte na novej karte alebo webe google.com výraz „Ok Google“</translation>
+<translation id="7243055093079293866">Povedzte na novej karte alebo webe google.com príkaz „Ok Google“</translation>
 <translation id="7243632151880336635">Vymazať a odhlásiť sa</translation>
 <translation id="7245628041916450754"><ph name="WIDTH" /> x <ph name="HEIGHT" /></translation>
 <translation id="7246947237293279874">Proxy server FTP</translation>
@@ -4789,7 +4789,7 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="7361824946268431273">Rýchlejší, jednoduchší a bezpečnejší počítač</translation>
 <translation id="7364796246159120393">Vybrať súbor</translation>
 <translation id="736515969993332243">Hľadanie sietí.</translation>
-<translation id="7366762109661450129">Vyslovte výraz „Ok Google“, keď je obrazovka zapnutá a odomknutá.</translation>
+<translation id="7366762109661450129">Povedzte „Ok Google“, keď je obrazovka zapnutá a odomknutá.</translation>
 <translation id="7366909168761621528">Údaje prehliadania</translation>
 <translation id="7369521049655330548">Na tejto stránke boli zablokované nasledujúce doplnky:</translation>
 <translation id="7371490661692457119">Predvolená hodnota šírky dlaždice</translation>
@@ -4916,7 +4916,7 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="7518657099163789435">Na používanie kľúčového slova „Ok Google“ je potrebná Hlasová a zvuková aktivita.</translation>
 <translation id="7520821146909122639">Prebieha preklad tejto stránky…</translation>
 <translation id="7521387064766892559">JavaScript</translation>
-<translation id="7522255036471229694">Vyslovte „Ok Google“</translation>
+<translation id="7522255036471229694">Povedzte „Ok Google“</translation>
 <translation id="7525067979554623046">Vytvoriť</translation>
 <translation id="7529471622666797993"><ph name="BEGIN_LINK" />Rozšírené nastavenia písma<ph name="END_LINK" /> (vyžaduje sa rozšírenie)</translation>
 <translation id="7530016656428373557">Vybíjanie batérie (W)</translation>
@@ -5313,7 +5313,7 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="806812017500012252">Zoradiť podľa názvu</translation>
 <translation id="8069615408251337349">Google Cloud Print</translation>
 <translation id="8071432093239591881">Vytlačiť ako obrázok</translation>
-<translation id="8071942001314758122">Stačí trikrát vysloviť výraz „Ok Google“</translation>
+<translation id="8071942001314758122">Stačí trikrát povedať „Ok Google“</translation>
 <translation id="8072988827236813198">Pripnúť karty</translation>
 <translation id="8074127646604999664">Povoliť nedávno zatvoreným webom dokončiť posielanie a prijímanie údajov</translation>
 <translation id="8075191520954018715">Stav pamäte</translation>

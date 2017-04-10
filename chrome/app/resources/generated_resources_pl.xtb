@@ -220,7 +220,7 @@
 <translation id="1313405956111467313">Automatyczna konfiguracja serwera proxy</translation>
 <translation id="131364520783682672">Caps Lock</translation>
 <translation id="1313705515580255288">Zakładki, historia i ustawienia są synchronizowane z Twoim kontem Google.</translation>
-<translation id="1313832887664610176">Połączenie z Chromeboksem zostało utracone</translation>
+<translation id="1313832887664610176">Połączenie z Chromeboxem zostało utracone</translation>
 <translation id="131461803491198646">Sieć macierzysta, nie w roamingu</translation>
 <translation id="1316136264406804862">Trwa wyszukiwanie...</translation>
 <translation id="1317502925920562130">Czy to oczekiwana strona startowa?</translation>
@@ -1574,7 +1574,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="3012917896646559015">Jak najszybciej skontaktuj się z producentem sprzętu, aby wysłać komputer do serwisu.</translation>
 <translation id="3013291976881901233">Urządzenia MIDI</translation>
 <translation id="3014095112974898292">Oczekuję na ukończenie innych żądań…</translation>
-<translation id="3015992588037997514">Widzisz ten kod na ekranie Chromeboksa?</translation>
+<translation id="3015992588037997514">Widzisz ten kod na ekranie Chromeboxa?</translation>
 <translation id="3016641847947582299">Składnik został zaktualizowany</translation>
 <translation id="3016780570757425217">Sprawdzać Twoją lokalizację</translation>
 <translation id="3018346972744622514">Dodaj inną sieć komórkową</translation>
@@ -1765,7 +1765,7 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="3260892921936048802">&amp;Pobierz…</translation>
 <translation id="326356299252142602">Używaj interfejsu Windows Runtime MIDI API</translation>
 <translation id="3264544094376351444">Czcionka bezszeryfowa</translation>
-<translation id="3264547943200567728">Nie udało się skonfigurować sieci Chromeboksa</translation>
+<translation id="3264547943200567728">Nie udało się skonfigurować sieci na Chromeboxie</translation>
 <translation id="3265459715026181080">Zamknij okno</translation>
 <translation id="3267726687589094446">Dalej zezwalaj na automatyczne pobieranie wielu plików</translation>
 <translation id="3267998849713137817">Czas modyfikacji</translation>
@@ -2235,7 +2235,7 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="383652340667548381">Serbski</translation>
 <translation id="3838486795898716504">Więcej o <ph name="PAGE_TITLE" /></translation>
 <translation id="3838543471119263078">Pliki cookie oraz inne dane stron i wtyczek</translation>
-<translation id="3840053866656739575">Połączenie z Chromeboksem zostało utracone. Przysuń się bliżej lub sprawdź urządzenie – spróbujemy połączyć się ponownie.</translation>
+<translation id="3840053866656739575">Połączenie z Chromeboxem zostało utracone. Przysuń się bliżej lub sprawdź urządzenie – spróbujemy połączyć się ponownie.</translation>
 <translation id="3840055807562919428">Nie pozwala na pobieranie skryptów firm zewnętrznych do blokowania parserów umieszczonych w głównej ramce przez instrukcję document.write.</translation>
 <translation id="3842552989725514455">Czcionka szeryfowa</translation>
 <translation id="3846593650622216128">Te ustawienia są wymuszone przez rozszerzenie.</translation>
@@ -2480,7 +2480,7 @@ Aby kontynuować, wszyscy użytkownicy muszą się wylogować.</translation>
 <translation id="4195643157523330669">Otwórz w nowej karcie</translation>
 <translation id="4195814663415092787">Kontynuuj tam, gdzie skończyłem</translation>
 <translation id="4197674956721858839">Spakuj wybrane do pliku ZIP</translation>
-<translation id="4200689466366162458">Własne słowa</translation>
+<translation id="4200689466366162458">Słowa niestandardowe</translation>
 <translation id="4200983522494130825">Nowa &amp;karta</translation>
 <translation id="4206144641569145248">Kosmita</translation>
 <translation id="4206323443866416204">Przesyłanie opinii</translation>
@@ -2953,7 +2953,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="4874539263382920044">Tytuł musi zawierać co najmniej jeden znak</translation>
 <translation id="4875622588773761625">Czy <ph name="PASSWORD_MANAGER_BRAND" /> ma zaktualizować hasło do tej strony?</translation>
 <translation id="4876895919560854374">Blokowanie i odblokowywanie ekranu</translation>
-<translation id="4877017884043316611">Sparuj z Chromeboksem</translation>
+<translation id="4877017884043316611">Sparuj z Chromeboxem</translation>
 <translation id="4880214202172289027">Suwak głośności</translation>
 <translation id="4880328057631981605">Nazwa punktu dostępu</translation>
 <translation id="4880520557730313061">Autokorekta</translation>
@@ -4673,7 +4673,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="7191454237977785534">Zapisz plik jako</translation>
 <translation id="7193047015510747410">Autouzupełnianie danych uwierzytelniających synchronizacji</translation>
 <translation id="7195103043027893114">Animacja podczas rozruchu</translation>
-<translation id="7196835305346730603">Szukam Chromeboksów w pobliżu...</translation>
+<translation id="7196835305346730603">Szukam Chromeboxów w pobliżu...</translation>
 <translation id="7198197644913728186">Bluetooth jest wyłączony na urządzeniu <ph name="DEVICE_TYPE" />. Wpisz hasło, by je odblokować, a następnie włącz Bluetooth.</translation>
 <translation id="7199158086730159431">Uzyskaj p&amp;omoc</translation>
 <translation id="7201354769043018523">Prawy nawias</translation>
@@ -5219,7 +5219,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="7974566588408714340">Ponów za pomocą rozszerzenia <ph name="EXTENSIONNAME" /></translation>
 <translation id="7974936243149753750">Nadmiarowość obrazu</translation>
 <translation id="797610151583999923">Włącz mus, mash itp.</translation>
-<translation id="7977551819349545646">Aktualizuję Chromeboksa...</translation>
+<translation id="7977551819349545646">Aktualizuję Chromeboxa...</translation>
 <translation id="7978412674231730200">Klucz prywatny</translation>
 <translation id="7979036127916589816">Błąd synchronizacji</translation>
 <translation id="7980084013673500153">Identyfikator zasobu: <ph name="ASSET_ID" /></translation>
@@ -5354,7 +5354,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8141725884565838206">Zarządzaj hasłami</translation>
 <translation id="8142699993796781067">Sieć prywatna</translation>
 <translation id="8142732521333266922">OK, synchronizuj wszystko</translation>
-<translation id="8144022414479088182">Na pewno chcesz skonfigurować to urządzenie jako Chromeboksa wideokonferencje?</translation>
+<translation id="8144022414479088182">Na pewno chcesz skonfigurować to urządzenie jako Chromeboxa wideokonferencje?</translation>
 <translation id="8145409227593688472">Metoda wprowadzania Wubi</translation>
 <translation id="8146177459103116374">Jeśli zarejestrowałeś się już na tym urządzeniu, możesz <ph name="LINK2_START" />zalogować się jako istniejący użytkownik<ph name="LINK2_END" />.</translation>
 <translation id="8146793085009540321">Nie udało się zalogować. Skontaktuj się z administratorem lub spróbuj ponownie.</translation>
@@ -5804,7 +5804,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8755376271068075440">&amp;Większy</translation>
 <translation id="8757090071857742562">Nie udało się przesłać pulpitu. Sprawdź, czy potwierdzono prośbę o rozpoczęcie udostępniania ekranu.</translation>
 <translation id="8757640015637159332">Rozpocznij sesję publiczną</translation>
-<translation id="8757742102600829832">Wybierz Chromeboksa, z którym chcesz się połączyć</translation>
+<translation id="8757742102600829832">Wybierz Chromeboxa, z którym chcesz się połączyć</translation>
 <translation id="8757803915342932642">Urządzenie w chmurze Google</translation>
 <translation id="8758895886513993540">Ta flaga określa, czy użytkownicy mogą wybrać kartę przy udostępnianiu pulpitu.</translation>
 <translation id="8759408218731716181">Nie można skonfigurować wielokrotnego logowania</translation>
@@ -6026,7 +6026,7 @@ Kolejne powiadomienia, okna i okna dialogowe mogą być dzielone między pulpita
 <translation id="9050666287014529139">Hasło</translation>
 <translation id="9052208328806230490">Zarejestrowano drukarki w usłudze <ph name="CLOUD_PRINT_NAME" /> przy użyciu konta <ph name="EMAIL" /></translation>
 <translation id="9052234664411715138">Pomoc przy wypełnianiu danych karty kredytowej</translation>
-<translation id="9056034633062863292">Aktualizuję Chromeboksa</translation>
+<translation id="9056034633062863292">Aktualizuję Chromeboxa</translation>
 <translation id="9056810968620647706">Nie znaleziono żadnych dopasowań.</translation>
 <translation id="9057119625587205566">Brak drukarek w pobliżu</translation>
 <translation id="9059868303873565140">Menu stanu</translation>
