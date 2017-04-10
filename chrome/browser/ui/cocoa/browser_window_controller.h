@@ -516,9 +516,6 @@ class Command;
 // |bubbleType|.
 - (void)updateFullscreenExitBubble;
 
-// Returns YES if the browser window is in or entering any fullscreen mode.
-- (BOOL)isInAnyFullscreenMode;
-
 // Returns YES if the browser window is currently in or entering fullscreen via
 // the built-in immersive mechanism.
 - (BOOL)isInImmersiveFullscreen;
