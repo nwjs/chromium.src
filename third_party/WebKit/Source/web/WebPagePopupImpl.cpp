@@ -406,6 +406,13 @@ void WebPagePopupImpl::setIsAcceleratedCompositingActive(bool enter) {
   }
 }
 
+void WebPagePopupImpl::setSuppressFrameRequestsWorkaroundFor704763Only(
+    bool suppressFrameRequests) {
+  if (!m_page)
+    return;
+  m_page->animator().setSuppressFrameRequestsWorkaroundFor704763Only(
+      suppressFrameRequests);
+}
 void WebPagePopupImpl::beginFrame(double lastFrameTimeMonotonic) {
   if (!m_page)
     return;
