@@ -52,6 +52,21 @@
             ]
         }
     ],
+    "AppleScriptExecuteJavaScript": [
+        {
+            "platforms": [
+                "mac"
+            ],
+            "experiments": [
+                {
+                    "name": "Disabled",
+                    "disable_features": [
+                        "AppleScriptExecuteJavaScript"
+                    ]
+                }
+            ]
+        }
+    ],
     "AsyncDNS": [
         {
             "platforms": [
