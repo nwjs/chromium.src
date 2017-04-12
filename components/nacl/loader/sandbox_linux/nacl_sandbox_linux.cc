@@ -179,7 +179,7 @@ void NaClSandbox::InitializeLayerTwoSandbox(bool uses_nonsfi_mode) {
   // have a single thread running here.
   DCHECK(!layer_one_sealed_);
   CHECK(IsSingleThreaded());
-  CheckForExpectedNumberOfOpenFds();
+  //CheckForExpectedNumberOfOpenFds();
 
   RestrictAddressSpaceUsage();
 

@@ -4,6 +4,7 @@
 
 #include "chrome_elf/chrome_elf_main.h"
 
+#include "components/crash/content/app/crash_reporter_client.h"
 #include <assert.h>
 #include <windows.h>
 
@@ -14,10 +15,13 @@
 #include "chrome_elf/blacklist/blacklist.h"
 #include "chrome_elf/crash/crash_helper.h"
 
+extern std::wstring g_nwjs_prod_name, g_nwjs_prod_version;
 // This function is a temporary workaround for https://crbug.com/655788. We
 // need to come up with a better way to initialize crash reporting that can
 // happen inside DllMain().
-void SignalInitializeCrashReporting() {
+void SignalInitializeCrashReporting(void* prod_name, void* prod_version) {
+  if (prod_name) g_nwjs_prod_name = *(std::wstring*)prod_name;
+  if (prod_version) g_nwjs_prod_version = *(std::wstring*)prod_version;
   if (!elf_crash::InitializeCrashReporting()) {
 #ifdef _DEBUG
     assert(false);
@@ -29,6 +33,9 @@ void SignalChromeElf() {
   blacklist::ResetBeacon();
 }
 
+void* ElfGetReporterClient() {
+  return crash_reporter::GetCrashReporterClient();
+}
 extern "C" void GetUserDataDirectoryThunk(wchar_t* user_data_dir,
                                           size_t user_data_dir_length,
                                           wchar_t* invalid_user_data_dir,
@@ -50,8 +57,9 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
 
     // CRT on initialization installs an exception filter which calls
     // TerminateProcess. We need to hook CRT's attempt to set an exception.
+#if 0 ////disable this or NW will fail with Enigma VB
     elf_crash::DisableSetUnhandledExceptionFilter();
-
+#endif
     install_static::InitializeProcessType();
 
     __try {
