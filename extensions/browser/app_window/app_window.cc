@@ -460,6 +460,7 @@ void AppWindow::AddNewContents(WebContents* source,
   new_contents->GetRenderViewHost()->SyncRendererPrefs();
 
   params.skip_load = true;
+  params.content_spec.bounds = initial_rect; //NWJS#5517
   app_window->Init(new_contents->GetURL(),
                    new extensions::AppWindowContentsImpl(app_window, new_contents),
                    web_contents()->GetMainFrame(),
