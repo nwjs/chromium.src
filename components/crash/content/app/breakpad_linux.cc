@@ -87,7 +87,7 @@ namespace breakpad {
 
 namespace {
 
-#if !defined(OS_CHROMEOS)
+#if 0
 const char kUploadURL[] = "https://clients2.google.com/cr/report";
 #endif
 
@@ -785,7 +785,7 @@ void EnableCrashDumping(bool unattended) {
   } else {
     minidump_descriptor.set_size_limit(kMaxMinidumpFileSize);
   }
-#if defined(OS_ANDROID)
+#if 0
   unattended = true;  // Android never uploads directly.
 #endif
   if (unattended) {
@@ -1294,12 +1294,26 @@ void ExecUploadProcessOrTerminate(const BreakpadInfo& info,
   my_strlcat(post_file, dumpfile, post_file_size);
 
   static const char kWgetBinary[] = "/usr/bin/wget";
+  char* const upload_url = reinterpret_cast<char*>(allocator->Alloc(crash_keys::kLargeSize));
+  *upload_url='\0';
+  int i = 1;
+  do {
+    char key_name[16];
+    my_strlcpy(key_name, "url-nwjs-", sizeof(key_name));
+    my_uitos(key_name + 9, i, my_uint_len(i));
+    key_name[9 + my_uint_len(i)] = '\0';
+    const char* chunk = g_crash_keys->GetValueForKey(key_name);
+    if (!chunk)
+      break;
+    my_strlcat(upload_url, chunk, crash_keys::kLargeSize);
+    i++;
+  } while(true);
   const char* args[] = {
     kWgetBinary,
     header_content_encoding,
     header_content_type,
     post_file,
-    kUploadURL,
+    upload_url,
     "--timeout=10",  // Set a timeout so we don't hang forever.
     "--tries=1",     // Don't retry if the upload fails.
     "-O",  // output reply to fd 3

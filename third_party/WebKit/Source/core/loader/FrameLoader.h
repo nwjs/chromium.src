@@ -203,6 +203,8 @@ class CORE_EXPORT FrameLoader final {
   void saveScrollState();
 
   void restoreScrollPositionAndViewState();
+  void setUserAgentOverride(const String& agent);
+  String userAgentOverride() const;
 
   bool shouldContinueForNavigationPolicy(const ResourceRequest&,
                                          const SubstituteData&,
@@ -320,6 +322,7 @@ class CORE_EXPORT FrameLoader final {
   TaskRunnerTimer<FrameLoader> m_checkTimer;
 
   SandboxFlags m_forcedSandboxFlags;
+  String m_userAgentOverride;
 
   bool m_dispatchingDidClearWindowObjectInMainWorld;
   bool m_protectProvisionalLoader;
