@@ -708,6 +708,8 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   // the background. Affects the value of ShouldPauseVideoWhenHidden().
   bool video_locked_when_paused_when_hidden_ = false;
 
+  base::CancelableCallback<void(base::TimeTicks)> frame_time_report_cb_;
+
   DISALLOW_COPY_AND_ASSIGN(WebMediaPlayerImpl);
 };
 
