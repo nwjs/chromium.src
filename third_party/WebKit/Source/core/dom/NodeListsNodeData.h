@@ -96,6 +96,7 @@ class NodeListsNodeData final : public GarbageCollected<NodeListsNodeData> {
     }
 
     T* list = T::create(node, collectionType, name);
+    ScriptWrappableVisitor::writeBarrier(this, list);
     result.storedValue->value = list;
     return list;
   }
@@ -111,6 +112,7 @@ class NodeListsNodeData final : public GarbageCollected<NodeListsNodeData> {
 
     T* list = T::create(node, collectionType);
     result.storedValue->value = list;
+    ScriptWrappableVisitor::writeBarrier(this, list);
     return list;
   }
 
@@ -132,6 +134,7 @@ class NodeListsNodeData final : public GarbageCollected<NodeListsNodeData> {
 
     TagCollection* list = TagCollection::create(node, namespaceURI, localName);
     result.storedValue->value = list;
+    ScriptWrappableVisitor::writeBarrier(this, list);
     return list;
   }
 

@@ -6626,21 +6626,13 @@ void Document::recordDeferredLoadReason(WouldLoadReason reason) {
 }
 
 DEFINE_TRACE_WRAPPERS(Document) {
+  // m_nodeLists are traced in their corresponding NodeListsNodeData, keeping
+  // them only alive for live nodes. Otherwise we would keep lists of dead
+  // nodes alive that have not yet been invalidated.
   visitor->traceWrappers(m_importsController);
   visitor->traceWrappers(m_implementation);
   visitor->traceWrappers(m_styleSheetList);
   visitor->traceWrappers(m_styleEngine);
-  for (int i = 0; i < numNodeListInvalidationTypes; ++i) {
-    for (auto list : m_nodeLists[i]) {
-      if (isHTMLCollectionType(list->type())) {
-        visitor->traceWrappersWithManualWriteBarrier(
-            static_cast<const HTMLCollection*>(list.get()));
-      } else {
-        visitor->traceWrappersWithManualWriteBarrier(
-            static_cast<const LiveNodeList*>(list.get()));
-      }
-    }
-  }
   // Cannot trace in Supplementable<Document> as it is part of platform/ and
   // thus cannot refer to ScriptWrappableVisitor.
   visitor->traceWrappers(
