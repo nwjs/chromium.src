@@ -76,6 +76,16 @@ public class DownloadNotificationServiceTest extends
     }
 
     @Override
+    protected void shutdownService() {
+        ThreadUtils.runOnUiThreadBlocking(new Runnable() {
+            @Override
+            public void run() {
+                DownloadNotificationServiceTest.super.shutdownService();
+            }
+        });
+    }
+
+    @Override
     protected void tearDown() throws Exception {
         SharedPreferences sharedPrefs = ContextUtils.getAppSharedPreferences();
         SharedPreferences.Editor editor = sharedPrefs.edit();
@@ -400,7 +410,14 @@ public class DownloadNotificationServiceTest extends
                 DownloadSharedPreferenceHelper.KEY_PENDING_DOWNLOAD_NOTIFICATIONS, notifications);
         editor.apply();
         startNotificationService();
-        getService().onTaskRemoved(new Intent());
+
+        ThreadUtils.runOnUiThreadBlocking(new Runnable() {
+            @Override
+            public void run() {
+                getService().onTaskRemoved(new Intent());
+            }
+        });
+
         assertTrue(getService().isPaused());
         assertFalse(sharedPrefs.contains(
                 DownloadSharedPreferenceHelper.KEY_PENDING_DOWNLOAD_NOTIFICATIONS));
