@@ -57,7 +57,8 @@ class CORE_EXPORT MouseEventManager final
       const WebMouseEvent&);
 
   WebInputEventResult dispatchMouseClickIfNeeded(
-      const MouseEventWithHitTestResults&);
+      const MouseEventWithHitTestResults&,
+      Node* releaseNode);
 
   WebInputEventResult dispatchDragSrcEvent(const AtomicString& eventType,
                                            const WebMouseEvent&);

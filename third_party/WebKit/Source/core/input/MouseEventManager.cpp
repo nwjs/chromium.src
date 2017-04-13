@@ -230,7 +230,8 @@ WebInputEventResult MouseEventManager::setMousePositionAndDispatchMouseEvent(
 }
 
 WebInputEventResult MouseEventManager::dispatchMouseClickIfNeeded(
-    const MouseEventWithHitTestResults& mev) {
+    const MouseEventWithHitTestResults& mev,
+    Node* releaseNode) {
   // We only prevent click event when the click may cause contextmenu to popup.
   // However, we always send auxclick.
   bool contextMenuEvent =
@@ -247,23 +248,22 @@ WebInputEventResult MouseEventManager::dispatchMouseClickIfNeeded(
 
   WebInputEventResult clickEventResult = WebInputEventResult::NotHandled;
   const bool shouldDispatchClickEvent =
-      m_clickCount > 0 && !contextMenuEvent && mev.innerNode() && m_clickNode &&
-      mev.innerNode()->canParticipateInFlatTree() &&
+      m_clickCount > 0 && !contextMenuEvent && releaseNode && m_clickNode &&
+      releaseNode->canParticipateInFlatTree() &&
       m_clickNode->canParticipateInFlatTree() &&
       !(m_frame->eventHandler().selectionController().hasExtendedSelection() &&
         isLinkSelection(mev));
   if (shouldDispatchClickEvent) {
     Node* clickTargetNode = nullptr;
-    // Updates distribution because a 'mouseup' event listener can make the
-    // tree dirty at dispatchMouseEvent() invocation above.
-    // Unless distribution is updated, commonAncestor would hit ASSERT.
-    if (m_clickNode == mev.innerNode()) {
+    if (m_clickNode == releaseNode) {
       clickTargetNode = m_clickNode;
-      clickTargetNode->updateDistribution();
     } else if (m_clickNode->document() == mev.innerNode()->document()) {
+      // Updates distribution because a 'mouseup' event listener can make the
+      // tree dirty at dispatchMouseEvent() invocation above.
+      // Unless distribution is updated, commonAncestor would hit ASSERT.
       m_clickNode->updateDistribution();
       mev.innerNode()->updateDistribution();
-      clickTargetNode = mev.innerNode()->commonAncestor(
+      clickTargetNode = releaseNode->commonAncestor(
           *m_clickNode, EventHandlingUtil::parentForClickEvent);
     }
     if (clickTargetNode) {
