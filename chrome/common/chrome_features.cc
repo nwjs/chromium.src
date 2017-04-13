@@ -73,7 +73,7 @@ const base::Feature kBrowserHangFixesExperiment{
 #if defined(OS_MACOSX)
 // Enables or disables the browser's touch bar.
 const base::Feature kBrowserTouchBar{"BrowserTouchBar",
-                                     base::FEATURE_ENABLED_BY_DEFAULT};
+                                     base::FEATURE_DISABLED_BY_DEFAULT};
 #endif  // defined(OS_MACOSX)
 
 #if defined(OS_ANDROID)
