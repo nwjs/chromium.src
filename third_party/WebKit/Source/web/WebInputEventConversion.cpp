@@ -201,9 +201,17 @@ WebMouseEventBuilder::WebMouseEventBuilder(const FrameViewBase* frameViewBase,
   if (event.nativeEvent()) {
     *static_cast<WebMouseEvent*>(this) =
         event.nativeEvent()->flattenTransform();
-    WebFloatPoint absoluteRootFrameLocation = positionInRootFrame();
+    WebFloatPoint absoluteLocation = positionInRootFrame();
+
+    FrameView* view = frameViewBase ? toFrameView(frameViewBase->parent()) : 0;
+
+    // Translate the root frame position to content coordinates.
+    if (view) {
+      absoluteLocation = view->rootFrameToContents(absoluteLocation);
+    }
+
     IntPoint localPoint = roundedIntPoint(
-        layoutItem.absoluteToLocal(absoluteRootFrameLocation, UseTransforms));
+        layoutItem.absoluteToLocal(absoluteLocation, UseTransforms));
     x = localPoint.x();
     y = localPoint.y();
     return;

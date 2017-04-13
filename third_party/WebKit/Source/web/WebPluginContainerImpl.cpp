@@ -761,11 +761,16 @@ void WebPluginContainerImpl::handleDragEvent(MouseEvent* event) {
 }
 
 void WebPluginContainerImpl::handleWheelEvent(WheelEvent* event) {
-  WebFloatPoint absoluteRootFrameLocation =
-      event->nativeEvent().positionInRootFrame();
+  WebFloatPoint absoluteLocation = event->nativeEvent().positionInRootFrame();
+  FrameView* view = toFrameView(parent());
+  // Translate the root frame position to content coordinates.
+  if (view) {
+    absoluteLocation = view->rootFrameToContents(absoluteLocation);
+  }
+
   IntPoint localPoint =
       roundedIntPoint(m_element->layoutObject()->absoluteToLocal(
-          absoluteRootFrameLocation, UseTransforms));
+          absoluteLocation, UseTransforms));
   WebMouseWheelEvent translatedEvent = event->nativeEvent().flattenTransform();
   translatedEvent.x = localPoint.x();
   translatedEvent.y = localPoint.y();
@@ -826,12 +831,17 @@ void WebPluginContainerImpl::handleTouchEvent(TouchEvent* event) {
 
       WebTouchEvent transformedEvent = event->nativeEvent()->flattenTransform();
 
+      FrameView* view = toFrameView(parent());
+
       for (unsigned i = 0; i < transformedEvent.touchesLength; ++i) {
-        WebFloatPoint absoluteRootFrameLocation =
-            transformedEvent.touches[i].position;
+        WebFloatPoint absoluteLocation = transformedEvent.touches[i].position;
+        // Translate the root frame position to content coordinates.
+        if (view) {
+          absoluteLocation = view->rootFrameToContents(absoluteLocation);
+        }
         IntPoint localPoint =
             roundedIntPoint(m_element->layoutObject()->absoluteToLocal(
-                absoluteRootFrameLocation, UseTransforms));
+                absoluteLocation, UseTransforms));
         transformedEvent.touches[i].position.x = localPoint.x();
         transformedEvent.touches[i].position.y = localPoint.y();
       }

@@ -52,6 +52,7 @@
 #include "public/platform/WebLayer.h"
 #include "public/platform/WebMouseWheelEvent.h"
 #include "public/platform/WebThread.h"
+#include "public/platform/WebTouchEvent.h"
 #include "public/platform/WebURLLoaderMockFactory.h"
 #include "public/web/WebDocument.h"
 #include "public/web/WebElement.h"
@@ -449,18 +450,29 @@ class EventTestPlugin : public FakeWebPlugin {
         event.type() == WebInputEvent::MouseWheel) {
       const WebMouseEvent& mouseEvent =
           static_cast<const WebMouseEvent&>(event);
-      m_lastMouseEventLocation = IntPoint(mouseEvent.x, mouseEvent.y);
+      m_lastEventLocation = IntPoint(mouseEvent.x, mouseEvent.y);
+    } else if (WebInputEvent::isTouchEventType(event.type())) {
+      const WebTouchEvent& touchEvent =
+          static_cast<const WebTouchEvent&>(event);
+      if (touchEvent.touchesLength == 1) {
+        m_lastEventLocation = IntPoint(touchEvent.touches[0].position.x,
+                                       touchEvent.touches[0].position.y);
+      } else {
+        m_lastEventLocation = IntPoint();
+      }
     }
 
     return WebInputEventResult::HandledSystem;
   }
   WebInputEvent::Type getLastInputEventType() { return m_lastEventType; }
 
-  IntPoint getLastMouseEventLocation() { return m_lastMouseEventLocation; }
+  IntPoint getLastEventLocation() { return m_lastEventLocation; }
+
+  void ClearLastEventType() { m_lastEventType = WebInputEvent::Undefined; }
 
  private:
   WebInputEvent::Type m_lastEventType;
-  IntPoint m_lastMouseEventLocation;
+  IntPoint m_lastEventLocation;
 };
 
 TEST_F(WebPluginContainerTest, GestureLongPressReachesPlugin) {
@@ -545,8 +557,262 @@ TEST_F(WebPluginContainerTest, MouseWheelEventTranslated) {
   runPendingTasks();
 
   EXPECT_EQ(WebInputEvent::MouseWheel, testPlugin->getLastInputEventType());
-  EXPECT_EQ(rect.width / 2, testPlugin->getLastMouseEventLocation().x());
-  EXPECT_EQ(rect.height / 2, testPlugin->getLastMouseEventLocation().y());
+  EXPECT_EQ(rect.width / 2, testPlugin->getLastEventLocation().x());
+  EXPECT_EQ(rect.height / 2, testPlugin->getLastEventLocation().y());
+}
+
+TEST_F(WebPluginContainerTest, TouchEventScrolled) {
+  registerMockedURL("plugin_scroll.html");
+  CustomPluginWebFrameClient<EventTestPlugin>
+      plugin_web_frame_client;  // Must outlive webViewHelper.
+  FrameTestHelpers::WebViewHelper web_view_helper;
+  WebView* web_view = web_view_helper.initializeAndLoad(
+      m_baseURL + "plugin_scroll.html", true, &plugin_web_frame_client);
+  DCHECK(web_view);
+  web_view->settings()->setPluginsEnabled(true);
+  web_view->resize(WebSize(300, 300));
+  web_view->updateAllLifecyclePhases();
+  runPendingTasks();
+  web_view->smoothScroll(0, 200, 0);
+  web_view->updateAllLifecyclePhases();
+  runPendingTasks();
+
+  WebElement plugin_container_one_element =
+      web_view->mainFrame()->document().getElementById(
+          WebString::fromUTF8("scrolled-plugin"));
+  plugin_container_one_element.pluginContainer()->requestTouchEventType(
+      WebPluginContainer::TouchEventRequestTypeRaw);
+  WebPlugin* plugin = static_cast<WebPluginContainerImpl*>(
+                          plugin_container_one_element.pluginContainer())
+                          ->plugin();
+  EventTestPlugin* test_plugin = static_cast<EventTestPlugin*>(plugin);
+
+  WebTouchEvent event(WebInputEvent::TouchStart, WebInputEvent::NoModifiers,
+                      WebInputEvent::TimeStampForTesting);
+  event.touchesLength = 1;
+  WebRect rect = plugin_container_one_element.boundsInViewport();
+  event.touches[0].state = WebTouchPoint::StatePressed;
+  event.touches[0].position =
+      WebFloatPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+
+  web_view->handleInputEvent(WebCoalescedInputEvent(event));
+  runPendingTasks();
+
+  EXPECT_EQ(WebInputEvent::TouchStart, test_plugin->getLastInputEventType());
+  EXPECT_EQ(rect.width / 2, test_plugin->getLastEventLocation().x());
+  EXPECT_EQ(rect.height / 2, test_plugin->getLastEventLocation().y());
+}
+
+TEST_F(WebPluginContainerTest, MouseWheelEventScrolled) {
+  registerMockedURL("plugin_scroll.html");
+  CustomPluginWebFrameClient<EventTestPlugin>
+      plugin_web_frame_client;  // Must outlive webViewHelper.
+  FrameTestHelpers::WebViewHelper web_view_helper;
+  WebView* web_view = web_view_helper.initializeAndLoad(
+      m_baseURL + "plugin_scroll.html", true, &plugin_web_frame_client);
+  DCHECK(web_view);
+  web_view->settings()->setPluginsEnabled(true);
+  web_view->resize(WebSize(300, 300));
+  web_view->updateAllLifecyclePhases();
+  runPendingTasks();
+  web_view->smoothScroll(0, 200, 0);
+  web_view->updateAllLifecyclePhases();
+  runPendingTasks();
+
+  WebElement plugin_container_one_element =
+      web_view->mainFrame()->document().getElementById(
+          WebString::fromUTF8("scrolled-plugin"));
+  plugin_container_one_element.pluginContainer()->requestTouchEventType(
+      WebPluginContainer::TouchEventRequestTypeRaw);
+  WebPlugin* plugin = static_cast<WebPluginContainerImpl*>(
+                          plugin_container_one_element.pluginContainer())
+                          ->plugin();
+  EventTestPlugin* test_plugin = static_cast<EventTestPlugin*>(plugin);
+
+  WebMouseWheelEvent event(WebInputEvent::MouseWheel,
+                           WebInputEvent::NoModifiers,
+                           WebInputEvent::TimeStampForTesting);
+
+  WebRect rect = plugin_container_one_element.boundsInViewport();
+  event.x = rect.x + rect.width / 2;
+  event.y = rect.y + rect.height / 2;
+
+  web_view->handleInputEvent(WebCoalescedInputEvent(event));
+  runPendingTasks();
+
+  EXPECT_EQ(WebInputEvent::MouseWheel, test_plugin->getLastInputEventType());
+  EXPECT_EQ(rect.width / 2, test_plugin->getLastEventLocation().x());
+  EXPECT_EQ(rect.height / 2, test_plugin->getLastEventLocation().y());
+}
+
+TEST_F(WebPluginContainerTest, MouseEventScrolled) {
+  registerMockedURL("plugin_scroll.html");
+  CustomPluginWebFrameClient<EventTestPlugin>
+      plugin_web_frame_client;  // Must outlive webViewHelper.
+  FrameTestHelpers::WebViewHelper web_view_helper;
+  WebView* web_view = web_view_helper.initializeAndLoad(
+      m_baseURL + "plugin_scroll.html", true, &plugin_web_frame_client);
+  DCHECK(web_view);
+  web_view->settings()->setPluginsEnabled(true);
+  web_view->resize(WebSize(300, 300));
+  web_view->updateAllLifecyclePhases();
+  runPendingTasks();
+  web_view->smoothScroll(0, 200, 0);
+  web_view->updateAllLifecyclePhases();
+  runPendingTasks();
+
+  WebElement plugin_container_one_element =
+      web_view->mainFrame()->document().getElementById(
+          WebString::fromUTF8("scrolled-plugin"));
+  plugin_container_one_element.pluginContainer()->requestTouchEventType(
+      WebPluginContainer::TouchEventRequestTypeRaw);
+  WebPlugin* plugin = static_cast<WebPluginContainerImpl*>(
+                          plugin_container_one_element.pluginContainer())
+                          ->plugin();
+  EventTestPlugin* test_plugin = static_cast<EventTestPlugin*>(plugin);
+
+  WebMouseEvent event(WebInputEvent::MouseMove, WebInputEvent::NoModifiers,
+                      WebInputEvent::TimeStampForTesting);
+
+  WebRect rect = plugin_container_one_element.boundsInViewport();
+  event.x = rect.x + rect.width / 2;
+  event.y = rect.y + rect.height / 2;
+
+  web_view->handleInputEvent(WebCoalescedInputEvent(event));
+  runPendingTasks();
+
+  EXPECT_EQ(WebInputEvent::MouseMove, test_plugin->getLastInputEventType());
+  EXPECT_EQ(rect.width / 2, test_plugin->getLastEventLocation().x());
+  EXPECT_EQ(rect.height / 2, test_plugin->getLastEventLocation().y());
+}
+
+TEST_F(WebPluginContainerTest, MouseEventZoomed) {
+  registerMockedURL("plugin_scroll.html");
+  CustomPluginWebFrameClient<EventTestPlugin>
+      plugin_web_frame_client;  // Must outlive webViewHelper.
+  FrameTestHelpers::WebViewHelper web_view_helper;
+  WebView* web_view = web_view_helper.initializeAndLoad(
+      m_baseURL + "plugin_scroll.html", true, &plugin_web_frame_client);
+  DCHECK(web_view);
+  web_view->settings()->setPluginsEnabled(true);
+  web_view->resize(WebSize(300, 300));
+  web_view->setPageScaleFactor(2);
+  web_view->smoothScroll(0, 300, 0);
+  web_view->updateAllLifecyclePhases();
+  runPendingTasks();
+
+  WebElement plugin_container_one_element =
+      web_view->mainFrame()->document().getElementById(
+          WebString::fromUTF8("scrolled-plugin"));
+  plugin_container_one_element.pluginContainer()->requestTouchEventType(
+      WebPluginContainer::TouchEventRequestTypeRaw);
+  WebPlugin* plugin = static_cast<WebPluginContainerImpl*>(
+                          plugin_container_one_element.pluginContainer())
+                          ->plugin();
+  EventTestPlugin* test_plugin = static_cast<EventTestPlugin*>(plugin);
+
+  WebMouseEvent event(WebInputEvent::MouseMove, WebInputEvent::NoModifiers,
+                      WebInputEvent::TimeStampForTesting);
+
+  WebRect rect = plugin_container_one_element.boundsInViewport();
+  event.x = rect.x + rect.width / 2;
+  event.y = rect.y + rect.height / 2;
+
+  web_view->handleInputEvent(WebCoalescedInputEvent(event));
+  runPendingTasks();
+
+  // rect.width/height divided by 4 because the rect is in viewport bounds and
+  // there is a scale of 2 set.
+  EXPECT_EQ(WebInputEvent::MouseMove, test_plugin->getLastInputEventType());
+  EXPECT_EQ(rect.width / 4, test_plugin->getLastEventLocation().x());
+  EXPECT_EQ(rect.height / 4, test_plugin->getLastEventLocation().y());
+}
+
+TEST_F(WebPluginContainerTest, MouseWheelEventZoomed) {
+  registerMockedURL("plugin_scroll.html");
+  CustomPluginWebFrameClient<EventTestPlugin>
+      plugin_web_frame_client;  // Must outlive webViewHelper.
+  FrameTestHelpers::WebViewHelper web_view_helper;
+  WebView* web_view = web_view_helper.initializeAndLoad(
+      m_baseURL + "plugin_scroll.html", true, &plugin_web_frame_client);
+  DCHECK(web_view);
+  web_view->settings()->setPluginsEnabled(true);
+  web_view->resize(WebSize(300, 300));
+  web_view->setPageScaleFactor(2);
+  web_view->smoothScroll(0, 300, 0);
+  web_view->updateAllLifecyclePhases();
+  runPendingTasks();
+
+  WebElement plugin_container_one_element =
+      web_view->mainFrame()->document().getElementById(
+          WebString::fromUTF8("scrolled-plugin"));
+  plugin_container_one_element.pluginContainer()->requestTouchEventType(
+      WebPluginContainer::TouchEventRequestTypeRaw);
+  WebPlugin* plugin = static_cast<WebPluginContainerImpl*>(
+                          plugin_container_one_element.pluginContainer())
+                          ->plugin();
+  EventTestPlugin* test_plugin = static_cast<EventTestPlugin*>(plugin);
+
+  WebMouseWheelEvent event(WebInputEvent::MouseWheel,
+                           WebInputEvent::NoModifiers,
+                           WebInputEvent::TimeStampForTesting);
+
+  WebRect rect = plugin_container_one_element.boundsInViewport();
+  event.x = rect.x + rect.width / 2;
+  event.y = rect.y + rect.height / 2;
+
+  web_view->handleInputEvent(WebCoalescedInputEvent(event));
+  runPendingTasks();
+
+  // rect.width/height divided by 4 because the rect is in viewport bounds and
+  // there is a scale of 2 set.
+  EXPECT_EQ(WebInputEvent::MouseWheel, test_plugin->getLastInputEventType());
+  EXPECT_EQ(rect.width / 4, test_plugin->getLastEventLocation().x());
+  EXPECT_EQ(rect.height / 4, test_plugin->getLastEventLocation().y());
+}
+
+TEST_F(WebPluginContainerTest, TouchEventZoomed) {
+  registerMockedURL("plugin_scroll.html");
+  CustomPluginWebFrameClient<EventTestPlugin>
+      plugin_web_frame_client;  // Must outlive webViewHelper.
+  FrameTestHelpers::WebViewHelper web_view_helper;
+  WebView* web_view = web_view_helper.initializeAndLoad(
+      m_baseURL + "plugin_scroll.html", true, &plugin_web_frame_client);
+  DCHECK(web_view);
+  web_view->settings()->setPluginsEnabled(true);
+  web_view->resize(WebSize(300, 300));
+  web_view->setPageScaleFactor(2);
+  web_view->smoothScroll(0, 300, 0);
+  web_view->updateAllLifecyclePhases();
+  runPendingTasks();
+
+  WebElement plugin_container_one_element =
+      web_view->mainFrame()->document().getElementById(
+          WebString::fromUTF8("scrolled-plugin"));
+  plugin_container_one_element.pluginContainer()->requestTouchEventType(
+      WebPluginContainer::TouchEventRequestTypeRaw);
+  WebPlugin* plugin = static_cast<WebPluginContainerImpl*>(
+                          plugin_container_one_element.pluginContainer())
+                          ->plugin();
+  EventTestPlugin* test_plugin = static_cast<EventTestPlugin*>(plugin);
+
+  WebTouchEvent event(WebInputEvent::TouchStart, WebInputEvent::NoModifiers,
+                      WebInputEvent::TimeStampForTesting);
+  event.touchesLength = 1;
+  WebRect rect = plugin_container_one_element.boundsInViewport();
+
+  event.touches[0].state = WebTouchPoint::StatePressed;
+  event.touches[0].position =
+      WebFloatPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+
+  web_view->handleInputEvent(WebCoalescedInputEvent(event));
+  runPendingTasks();
+
+  // rect.width/height divided by 4 because the rect is in viewport bounds and
+  // there is a scale of 2 set.
+  EXPECT_EQ(WebInputEvent::TouchStart, test_plugin->getLastInputEventType());
+  EXPECT_EQ(rect.width / 4, test_plugin->getLastEventLocation().x());
+  EXPECT_EQ(rect.height / 4, test_plugin->getLastEventLocation().y());
 }
 
 // Verify that isRectTopmost returns false when the document is detached.
