@@ -72,6 +72,14 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   typedef base::Callback<void(const IPC::ChannelHandle&, const gpu::GPUInfo&)>
       EstablishChannelCallback;
 
+  struct EstablishChannelRequest {
+    EstablishChannelRequest();
+    EstablishChannelRequest(const EstablishChannelRequest& other);
+    ~EstablishChannelRequest();
+    int32_t client_id;
+    EstablishChannelCallback callback;
+  };
+
   typedef base::Callback<void(const gfx::GpuMemoryBufferHandle& handle)>
       CreateGpuMemoryBufferCallback;
 
@@ -197,14 +205,11 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
                          const std::string& key,
                          const std::string& shader) override;
 
-  void OnChannelEstablished(int client_id,
-                            const EstablishChannelCallback& callback,
-                            mojo::ScopedMessagePipeHandle channel_handle);
-
   // Message handlers.
   void OnInitialized(bool result,
                      const gpu::GPUInfo& gpu_info,
                      const gpu::GpuFeatureInfo& gpu_feature_info);
+  void OnChannelEstablished(const IPC::ChannelHandle& channel_handle);
   void OnGpuMemoryBufferCreated(const gfx::GpuMemoryBufferHandle& handle);
 #if defined(OS_ANDROID)
   void OnDestroyingVideoSurfaceAck(int surface_id);
@@ -229,7 +234,7 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
 
   // These are the channel requests that we have already sent to
   // the GPU process, but haven't heard back about yet.
-  std::queue<EstablishChannelCallback> channel_requests_;
+  std::queue<EstablishChannelRequest> channel_requests_;
 
   // The pending create gpu memory buffer requests we need to reply to.
   std::queue<CreateGpuMemoryBufferCallback> create_gpu_memory_buffer_requests_;
@@ -295,8 +300,6 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   ui::mojom::GpuMainAssociatedPtr gpu_main_ptr_;
   ui::mojom::GpuServicePtr gpu_service_ptr_;
   mojo::Binding<ui::mojom::GpuHost> gpu_host_binding_;
-
-  base::WeakPtrFactory<GpuProcessHost> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(GpuProcessHost);
 };

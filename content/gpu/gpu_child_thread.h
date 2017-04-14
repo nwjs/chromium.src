@@ -46,6 +46,7 @@ class TargetServices;
 
 namespace content {
 class GpuServiceFactory;
+struct EstablishChannelParams;
 
 // The main thread of the GPU child process. There will only ever be one of
 // these per process. It does process initialization and shutdown. It forwards
@@ -122,6 +123,7 @@ class GpuChildThread : public ChildThreadImpl,
 #endif
   void OnGpuSwitched();
 
+  void OnEstablishChannel(const EstablishChannelParams& params);
   void OnCloseChannel(int32_t client_id);
   void OnLoadedShader(const std::string& shader);
   void OnDestroyGpuMemoryBuffer(gfx::GpuMemoryBufferId id,
