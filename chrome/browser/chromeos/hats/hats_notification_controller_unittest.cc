@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/strings/string_split.h"
 #include "chrome/browser/chromeos/hats/hats_notification_controller.h"
+
+#include "base/run_loop.h"
+#include "base/strings/string_split.h"
 #include "chrome/browser/notifications/message_center_notification_manager.h"
 #include "chrome/browser/notifications/notification.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
@@ -108,6 +110,9 @@ class HatsNotificationControllerTest : public BrowserWithTestWindowTest {
 
   void TearDown() override {
     g_browser_process->notification_ui_manager()->CancelAll();
+    // The notifications may be deleted async.
+    base::RunLoop loop;
+    loop.RunUntilIdle();
     profile_manager_.reset();
     network_portal_detector::InitializeForTesting(nullptr);
     BrowserWithTestWindowTest::TearDown();
