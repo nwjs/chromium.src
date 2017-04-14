@@ -452,6 +452,7 @@ bool DefaultState::ProcessWorkspaceEvents(WindowState* window_state,
       // If a window is opened as maximized or fullscreen, its bounds may be
       // empty, so update the bounds now before checking empty.
       if (window_state->is_dragged() ||
+          window_state->allow_set_bounds_direct() ||
           SetMaximizedOrFullscreenBounds(window_state)) {
         return true;
       }
@@ -487,6 +488,7 @@ bool DefaultState::ProcessWorkspaceEvents(WindowState* window_state,
     }
     case WM_EVENT_DISPLAY_BOUNDS_CHANGED: {
       if (window_state->is_dragged() ||
+          window_state->allow_set_bounds_direct() ||
           SetMaximizedOrFullscreenBounds(window_state)) {
         return true;
       }
@@ -512,6 +514,7 @@ bool DefaultState::ProcessWorkspaceEvents(WindowState* window_state,
         return true;
 
       if (window_state->is_dragged() ||
+          window_state->allow_set_bounds_direct() ||
           SetMaximizedOrFullscreenBounds(window_state)) {
         return true;
       }
@@ -554,6 +557,7 @@ bool DefaultState::ProcessWorkspaceEvents(WindowState* window_state,
 // static
 bool DefaultState::SetMaximizedOrFullscreenBounds(WindowState* window_state) {
   DCHECK(!window_state->is_dragged());
+  DCHECK(!window_state->allow_set_bounds_direct());
   if (window_state->IsMaximized()) {
     window_state->SetBoundsDirect(
         GetMaximizedWindowBoundsInParent(window_state->window()));
@@ -570,7 +574,7 @@ bool DefaultState::SetMaximizedOrFullscreenBounds(WindowState* window_state) {
 // static
 void DefaultState::SetBounds(WindowState* window_state,
                              const SetBoundsEvent* event) {
-  if (window_state->is_dragged()) {
+  if (window_state->is_dragged() || window_state->allow_set_bounds_direct()) {
     // TODO(oshima|varkha): This may be no longer needed, as the dragging
     // happens in docked window container. crbug.com/485612.
     window_state->SetBoundsDirect(event->requested_bounds());
@@ -581,8 +585,7 @@ void DefaultState::SetBounds(WindowState* window_state,
     wm::AdjustBoundsSmallerThan(work_area_in_parent.size(), &child_bounds);
     window_state->AdjustSnappedBounds(&child_bounds);
     window_state->SetBoundsDirect(child_bounds);
-  } else if (!SetMaximizedOrFullscreenBounds(window_state) ||
-             window_state->allow_set_bounds_in_maximized()) {
+  } else if (!SetMaximizedOrFullscreenBounds(window_state)) {
     window_state->SetBoundsConstrained(event->requested_bounds());
   }
 }
