@@ -795,13 +795,10 @@ void MessageCenterImpl::ClickOnNotificationButton(const std::string& id,
 void MessageCenterImpl::ClickOnSettingsButton(const std::string& id) {
   scoped_refptr<NotificationDelegate> delegate =
       notification_list_->GetNotificationDelegate(id);
-
-  bool handled_by_delegate = false;
   if (delegate.get())
-    handled_by_delegate = delegate->SettingsClick();
-
+    delegate->SettingsClick();
   for (auto& observer : observer_list_)
-    observer.OnNotificationSettingsClicked(handled_by_delegate);
+    observer.OnNotificationSettingsClicked();
 }
 
 void MessageCenterImpl::MarkSinglePopupAsShown(const std::string& id,

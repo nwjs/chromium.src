@@ -42,13 +42,8 @@ std::string WebNotificationDelegate::id() const {
   return notification_id_;
 }
 
-bool WebNotificationDelegate::SettingsClick() {
-#if !defined(OS_CHROMEOS)
+void WebNotificationDelegate::SettingsClick() {
   NotificationCommon::OpenNotificationSettings(browser_context_);
-  return true;
-#else
-  return false;
-#endif
 }
 
 bool WebNotificationDelegate::ShouldDisplaySettingsButton() {

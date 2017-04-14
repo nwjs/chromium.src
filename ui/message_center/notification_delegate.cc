@@ -25,9 +25,7 @@ void NotificationDelegate::ButtonClickWithReply(int button_index,
   NOTIMPLEMENTED();
 }
 
-bool NotificationDelegate::SettingsClick() {
-  return false;
-}
+void NotificationDelegate::SettingsClick() {}
 
 bool NotificationDelegate::ShouldDisplaySettingsButton() {
   return false;

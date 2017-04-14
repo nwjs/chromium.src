@@ -235,11 +235,6 @@ void MessageCenterTray::OnNotificationButtonClicked(
     OnMessageCenterChanged();
 }
 
-void MessageCenterTray::OnNotificationSettingsClicked(bool handled) {
-  if (!handled)
-    ShowNotifierSettingsBubble();
-}
-
 void MessageCenterTray::OnNotificationDisplayed(
     const std::string& notification_id,
     const DisplaySource source) {
