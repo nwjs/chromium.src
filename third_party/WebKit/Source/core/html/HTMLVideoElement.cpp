@@ -310,13 +310,17 @@ void HTMLVideoElement::paintCurrentFrame(PaintCanvas* canvas,
 bool HTMLVideoElement::copyVideoTextureToPlatformTexture(
     gpu::gles2::GLES2Interface* gl,
     GLuint texture,
+    GLenum internalFormat,
+    GLenum type,
     bool premultiplyAlpha,
     bool flipY) {
   if (!webMediaPlayer())
     return false;
 
+  DCHECK(Extensions3DUtil::canUseCopyTextureCHROMIUM(GL_TEXTURE_2D,
+                                                     internalFormat, type, 0));
   return webMediaPlayer()->copyVideoTextureToPlatformTexture(
-      gl, texture, premultiplyAlpha, flipY);
+      gl, texture, internalFormat, type, premultiplyAlpha, flipY);
 }
 
 bool HTMLVideoElement::texImageImpl(

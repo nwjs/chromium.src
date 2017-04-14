@@ -5277,17 +5277,9 @@ void WebGLRenderingContextBase::texImageHelperHTMLVideoElement(
     // Go through the fast path doing a GPU-GPU textures copy without a readback
     // to system memory if possible.  Otherwise, it will fall back to the normal
     // SW path.
-
-    // Note that neither
-    // HTMLVideoElement::copyVideoTextureToPlatformTexture nor
-    // ImageBuffer::copyToPlatformTexture allocate the destination texture
-    // any more.
-    texImage2DBase(target, level, internalformat, video->videoWidth(),
-                   video->videoHeight(), 0, format, type, nullptr);
-
-    if (video->copyVideoTextureToPlatformTexture(contextGL(), texture->object(),
-                                                 m_unpackPremultiplyAlpha,
-                                                 m_unpackFlipY)) {
+    if (video->copyVideoTextureToPlatformTexture(
+            contextGL(), texture->object(), internalformat, type,
+            m_unpackPremultiplyAlpha, m_unpackFlipY)) {
       return;
     }
 
@@ -5310,6 +5302,11 @@ void WebGLRenderingContextBase::texImageHelperHTMLVideoElement(
 
         // This is a straight GPU-GPU copy, any necessary color space conversion
         // was handled in the paintCurrentFrameInContext() call.
+
+        // Note that copyToPlatformTexture no longer allocates the destination
+        // texture.
+        texImage2DBase(target, level, internalformat, video->videoWidth(),
+                       video->videoHeight(), 0, format, type, nullptr);
 
         if (imageBuffer->copyToPlatformTexture(
                 functionIDToSnapshotReason(functionID), contextGL(),

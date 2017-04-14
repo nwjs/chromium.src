@@ -577,6 +577,8 @@ void WebMediaPlayerMS::OnBecamePersistentVideo(bool value) {
 bool WebMediaPlayerMS::copyVideoTextureToPlatformTexture(
     gpu::gles2::GLES2Interface* gl,
     unsigned int texture,
+    unsigned int internal_format,
+    unsigned int type,
     bool premultiply_alpha,
     bool flip_y) {
   TRACE_EVENT0("media", "WebMediaPlayerMS:copyVideoTextureToPlatformTexture");
@@ -597,7 +599,8 @@ bool WebMediaPlayerMS::copyVideoTextureToPlatformTexture(
   context_3d = media::Context3D(provider->ContextGL(), provider->GrContext());
   DCHECK(context_3d.gl);
   return video_renderer_.CopyVideoFrameTexturesToGLTexture(
-      context_3d, gl, video_frame.get(), texture, premultiply_alpha, flip_y);
+      context_3d, gl, video_frame.get(), texture, internal_format, type,
+      premultiply_alpha, flip_y);
 }
 
 bool WebMediaPlayerMS::texImageImpl(TexImageFunctionID functionID,

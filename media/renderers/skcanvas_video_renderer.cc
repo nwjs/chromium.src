@@ -186,12 +186,9 @@ sk_sp<SkImage> NewSkImageFromVideoFrameNative(VideoFrame* video_frame,
     gl->GenTextures(1, &source_texture);
     DCHECK(source_texture);
     gl->BindTexture(GL_TEXTURE_2D, source_texture);
-    const gfx::Size& natural_size = video_frame->natural_size();
-    gl->TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, natural_size.width(),
-                   natural_size.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE,
-                   nullptr);
     SkCanvasVideoRenderer::CopyVideoFrameSingleTextureToGLTexture(
-        gl, video_frame, source_texture, true, false);
+        gl, video_frame, source_texture, GL_RGBA, GL_UNSIGNED_BYTE, true,
+        false);
   } else {
     gl->WaitSyncTokenCHROMIUM(mailbox_holder.sync_token.GetConstData());
     source_texture = gl->CreateAndConsumeTextureCHROMIUM(
@@ -756,6 +753,8 @@ void SkCanvasVideoRenderer::CopyVideoFrameSingleTextureToGLTexture(
     gpu::gles2::GLES2Interface* gl,
     VideoFrame* video_frame,
     unsigned int texture,
+    unsigned int internal_format,
+    unsigned int type,
     bool premultiply_alpha,
     bool flip_y) {
   DCHECK(video_frame);
@@ -777,15 +776,9 @@ void SkCanvasVideoRenderer::CopyVideoFrameSingleTextureToGLTexture(
   // value down to get the expected result.
   // "flip_y == true" means to reverse the video orientation while
   // "flip_y == false" means to keep the intrinsic orientation.
-
-  // The video's texture might be larger than the natural size because
-  // the encoder might have had to round up to the size of a macroblock.
-  // Make sure to only copy the natural size to avoid putting garbage
-  // into the bottom of the destination texture.
-  const gfx::Size& natural_size = video_frame->natural_size();
-  gl->CopySubTextureCHROMIUM(source_texture, 0, GL_TEXTURE_2D, texture, 0, 0, 0,
-                             0, 0, natural_size.width(), natural_size.height(),
-                             flip_y, premultiply_alpha, false);
+  gl->CopyTextureCHROMIUM(source_texture, 0, GL_TEXTURE_2D, texture, 0,
+                          internal_format, type, flip_y, premultiply_alpha,
+                          false);
   gl->DeleteTextures(1, &source_texture);
   gl->Flush();
 
@@ -798,6 +791,8 @@ bool SkCanvasVideoRenderer::CopyVideoFrameTexturesToGLTexture(
     gpu::gles2::GLES2Interface* destination_gl,
     const scoped_refptr<VideoFrame>& video_frame,
     unsigned int texture,
+    unsigned int internal_format,
+    unsigned int type,
     bool premultiply_alpha,
     bool flip_y) {
   DCHECK(thread_checker_.CalledOnValidThread());
@@ -834,15 +829,9 @@ bool SkCanvasVideoRenderer::CopyVideoFrameTexturesToGLTexture(
         destination_gl->CreateAndConsumeTextureCHROMIUM(
             mailbox_holder.texture_target, mailbox_holder.mailbox.name);
 
-    // The video's texture might be larger than the natural size because
-    // the encoder might have had to round up to the size of a macroblock.
-    // Make sure to only copy the natural size to avoid putting garbage
-    // into the bottom of the destination texture.
-    const gfx::Size& natural_size = video_frame->natural_size();
-    destination_gl->CopySubTextureCHROMIUM(
-        intermediate_texture, 0, GL_TEXTURE_2D, texture, 0, 0, 0, 0, 0,
-        natural_size.width(), natural_size.height(), flip_y, premultiply_alpha,
-        false);
+    destination_gl->CopyTextureCHROMIUM(intermediate_texture, 0, GL_TEXTURE_2D,
+                                        texture, 0, internal_format, type,
+                                        flip_y, premultiply_alpha, false);
     destination_gl->DeleteTextures(1, &intermediate_texture);
 
     // Wait for destination context to consume mailbox before deleting it in
@@ -858,7 +847,8 @@ bool SkCanvasVideoRenderer::CopyVideoFrameTexturesToGLTexture(
     video_frame->UpdateReleaseSyncToken(&client);
   } else {
     CopyVideoFrameSingleTextureToGLTexture(destination_gl, video_frame.get(),
-                                           texture, premultiply_alpha, flip_y);
+                                           texture, internal_format, type,
+                                           premultiply_alpha, flip_y);
   }
 
   return true;
