@@ -126,7 +126,7 @@
 <translation id="1175364870820465910">Im&amp;primir...</translation>
 <translation id="117624967391683467">Copiando <ph name="FILE_NAME" />...</translation>
 <translation id="1177863135347784049">Personalizado</translation>
-<translation id="1178581264944972037">Detener</translation>
+<translation id="1178581264944972037">Pausar</translation>
 <translation id="1179803038870941185"><ph name="URL" /> quiere obtener un control absoluto de tus dispositivos MIDI.</translation>
 <translation id="1181037720776840403">Eliminar</translation>
 <translation id="1183237619868651138">No se puede instalar <ph name="EXTERNAL_CRX_FILE" /> en la memoria caché local.</translation>
@@ -4878,7 +4878,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="7484964289312150019">Abrir todos los marcadores en una &amp;ventana nueva</translation>
 <translation id="7485236722522518129">F4</translation>
 <translation id="7487067081878637334">Tecnología</translation>
-<translation id="7487099628810939106">Retraso antes del clic:</translation>
+<translation id="7487099628810939106">Pausa antes del clic:</translation>
 <translation id="7487969577036436319">No hay componentes instalados</translation>
 <translation id="7489605380874780575">Comprobar elegibilidad</translation>
 <translation id="749028671485790643">Persona <ph name="VALUE" /></translation>

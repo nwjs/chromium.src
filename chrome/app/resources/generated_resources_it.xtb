@@ -121,7 +121,7 @@
 <translation id="1166212789817575481">Chiudi schede a destra</translation>
 <translation id="1168020859489941584"><ph name="TIME_REMAINING" /> all'apertura del file...</translation>
 <translation id="1171000732235946541">Questo metodo di immissione potrebbe essere in grado di memorizzare tutto il testo digitato, inclusi dati personali quali password e numeri di carte di credito. Proviene dall'estensione "<ph name="EXTENSION_NAME" />". Utilizzare questo metodo di immissione?</translation>
-<translation id="1171135284592304528">Evidenzia l'oggetto con l'elemento attivo della tastiera quando cambia</translation>
+<translation id="1171135284592304528">Evidenzia l'oggetto con lo stato attivo della tastiera quando cambia</translation>
 <translation id="1173894706177603556">Rinomina</translation>
 <translation id="1175364870820465910">&amp;Stampa...</translation>
 <translation id="117624967391683467">Copia di <ph name="FILE_NAME" />...</translation>

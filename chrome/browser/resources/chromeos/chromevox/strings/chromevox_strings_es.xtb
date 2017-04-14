@@ -357,7 +357,7 @@ Si has completado el tutorial, utiliza ChromeVox para desplazarte hasta el botó
 <translation id="4202186506458631436">Se desplaza a la derecha</translation>
 <translation id="4206289001967551965">Dentro de la tabla</translation>
 <translation id="4215733775853809057">Siguiente control deslizante</translation>
-<translation id="4218529045364428769">{COUNT,plural, =1{guión}other{# guiones}}</translation>
+<translation id="4218529045364428769">{COUNT,plural, =1{guion}other{# guiones}}</translation>
 <translation id="421884353938374759">selector de color</translation>
 <translation id="4229646983878045487">fecha y hora</translation>
 <translation id="423334822609210999">No hay ninguna celda a la izquierda.</translation>
@@ -751,7 +751,7 @@ Para abrir el menú del navegador Chrome, pulsa Alt+F.</translation>
 <translation id="8104178626892949749">Pulsa las teclas O y N en ChromeVox para obtener más información sobre ChromeVox Next.</translation>
 <translation id="8110647606445335195">No hay puntos de referencia de ARIA.</translation>
 <translation id="8153880621934657047">No está dentro de la tabla.</translation>
-<translation id="817440585505441544">{COUNT,plural, =1{guión bajo}other{# guiones bajos}}</translation>
+<translation id="817440585505441544">{COUNT,plural, =1{guion bajo}other{# guiones bajos}}</translation>
 <translation id="8179976553408161302">Intro</translation>
 <translation id="8184828902145951186">fila</translation>
 <translation id="8186185314313222077">activar pantalla completa</translation>
