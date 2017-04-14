@@ -4479,6 +4479,11 @@ class BrowserBookmarkModelBridge : public bookmarks::BookmarkModelObserver {
     didReplaceTab:(Tab*)oldTab
           withTab:(Tab*)newTab
           atIndex:(NSUInteger)index {
+  if (_infoBarContainer.get()) {
+    infobars::InfoBarManager* infoBarManager = [newTab infoBarManager];
+    _infoBarContainer->ChangeInfoBarManager(infoBarManager);
+  }
+
   [self installDelegatesForTab:newTab];
 
   // Add |newTab|'s view to the hierarchy if it's the current Tab.
