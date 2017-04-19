@@ -12,7 +12,6 @@
 
 #include "base/callback_forward.h"
 #include "content/common/content_export.h"
-#include "net/base/request_priority.h"
 
 namespace net {
 class URLRequest;
@@ -84,11 +83,6 @@ class CONTENT_EXPORT ResourceDispatcherHost {
   virtual void RegisterInterceptor(const std::string& http_header,
                                    const std::string& starts_with,
                                    const InterceptorCallback& interceptor) = 0;
-
-  // Updates the priority for |request|. Modifies request->priority(), and may
-  // start the request loading if it wasn't already started.
-  virtual void ReprioritizeRequest(net::URLRequest* request,
-                                   net::RequestPriority priority) = 0;
 
  protected:
   virtual ~ResourceDispatcherHost() {}

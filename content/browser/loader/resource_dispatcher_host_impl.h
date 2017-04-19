@@ -108,8 +108,6 @@ class CONTENT_EXPORT ResourceDispatcherHostImpl
   void RegisterInterceptor(const std::string& http_header,
                            const std::string& starts_with,
                            const InterceptorCallback& interceptor) override;
-  void ReprioritizeRequest(net::URLRequest* request,
-                           net::RequestPriority priority) override;
 
   // Puts the resource dispatcher host in an inactive state (unable to begin
   // new requests).  Cancels all pending requests.
