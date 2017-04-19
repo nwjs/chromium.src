@@ -40,7 +40,7 @@ const int kMaxPossibleTimeTValue = std::numeric_limits<int>::max();
 
 namespace {
 
-const char kGnomeKeyringAppString[] = "chrome";
+const char kGnomeKeyringAppString[] = "nwjs";
 
 // Convert the attributes of a given keyring entry into a new PasswordForm.
 // Note: does *not* get the actual password, as that is not a key attribute!

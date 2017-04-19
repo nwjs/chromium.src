@@ -41,6 +41,8 @@ ScriptState::ScriptState(v8::Local<v8::Context> context,
   DCHECK(m_world);
   m_context.setWeak(this, &contextCollectedCallback);
   context->SetAlignedPointerInEmbedderData(v8ContextPerContextDataIndex, this);
+  context->SetAlignedPointerInEmbedderData(33, nullptr);
+  context->SetAlignedPointerInEmbedderData(32, nullptr);
 }
 
 ScriptState::~ScriptState() {

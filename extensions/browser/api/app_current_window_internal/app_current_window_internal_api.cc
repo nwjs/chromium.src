@@ -26,6 +26,7 @@ namespace app_current_window_internal =
 namespace Show = app_current_window_internal::Show;
 namespace SetBounds = app_current_window_internal::SetBounds;
 namespace SetSizeConstraints = app_current_window_internal::SetSizeConstraints;
+namespace SetResizable = app_current_window_internal::SetResizable;
 namespace SetIcon = app_current_window_internal::SetIcon;
 namespace SetShape = app_current_window_internal::SetShape;
 namespace SetAlwaysOnTop = app_current_window_internal::SetAlwaysOnTop;
@@ -258,6 +259,16 @@ AppCurrentWindowInternalSetBoundsFunction::Run() {
     window()->GetBaseWindow()->SetBounds(window_bounds);
   }
 
+  return RespondNow(NoArguments());
+}
+
+ExtensionFunction::ResponseAction
+AppCurrentWindowInternalSetResizableFunction::Run() {
+  std::unique_ptr<SetResizable::Params> params(
+      SetResizable::Params::Create(*args_));
+  CHECK(params.get());
+  window()->GetBaseWindow()->SetResizable(params->flag);
+  window()->OnNativeWindowChanged();
   return RespondNow(NoArguments());
 }
 
