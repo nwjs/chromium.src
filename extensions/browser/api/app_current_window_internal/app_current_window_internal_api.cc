@@ -366,8 +366,10 @@ AppCurrentWindowInternalSetShapeFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AppCurrentWindowInternalSetAlwaysOnTopFunction::Run() {
+
   // TODO(devlin): Can't this be done with the feature files?
-  if (!extension()->permissions_data()->HasAPIPermission(
+  if (extension() != nullptr && // NWJS#5738
+      !extension()->permissions_data()->HasAPIPermission(
           extensions::APIPermission::kAlwaysOnTopWindows)) {
     return RespondNow(Error(kAlwaysOnTopPermission));
   }
