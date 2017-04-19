@@ -8,6 +8,7 @@
 #include "core/paint/ObjectPaintProperties.h"
 #include "core/paint/PaintLayer.h"
 #include "core/paint/PaintPropertyTreePrinter.h"
+#include "core/paint/PrePaintTreeWalk.h"
 #include "platform/graphics/paint/GeometryMapper.h"
 #include "platform/graphics/paint/ScrollPaintPropertyNode.h"
 #include "platform/graphics/paint/TransformPaintPropertyNode.h"
@@ -20,16 +21,18 @@
 
 namespace blink {
 
-typedef bool TestParamRootLayerScrolling;
+typedef std::pair<bool, bool> SlimmingPaintAndRootLayerScrolling;
 class PrePaintTreeWalkTest
-    : public ::testing::WithParamInterface<TestParamRootLayerScrolling>,
+    : public ::testing::WithParamInterface<SlimmingPaintAndRootLayerScrolling>,
       private ScopedSlimmingPaintV2ForTest,
+      private ScopedSlimmingPaintInvalidationForTest,
       private ScopedRootLayerScrollingForTest,
       public RenderingTest {
  public:
   PrePaintTreeWalkTest()
-      : ScopedSlimmingPaintV2ForTest(true),
-        ScopedRootLayerScrollingForTest(GetParam()),
+      : ScopedSlimmingPaintV2ForTest(GetParam().second),
+        ScopedSlimmingPaintInvalidationForTest(true),
+        ScopedRootLayerScrollingForTest(GetParam().first),
         RenderingTest(EmptyLocalFrameClient::Create()) {}
 
   const TransformPaintPropertyNode* FramePreTranslation() {
@@ -52,6 +55,11 @@ class PrePaintTreeWalkTest
     return frame_view->ScrollTranslation();
   }
 
+ protected:
+  PaintLayer* GetPaintLayerByElementId(const char* id) {
+    return ToLayoutBoxModelObject(GetLayoutObjectByElementId(id))->Layer();
+  }
+
  private:
   void SetUp() override {
     Settings::SetMockScrollbarsEnabled(true);
@@ -67,7 +75,15 @@ class PrePaintTreeWalkTest
   }
 };
 
-INSTANTIATE_TEST_CASE_P(All, PrePaintTreeWalkTest, ::testing::Bool());
+SlimmingPaintAndRootLayerScrolling g_prepaint_foo[] = {
+    SlimmingPaintAndRootLayerScrolling(false, false),
+    SlimmingPaintAndRootLayerScrolling(true, false),
+    SlimmingPaintAndRootLayerScrolling(false, true),
+    SlimmingPaintAndRootLayerScrolling(true, true)};
+
+INSTANTIATE_TEST_CASE_P(All,
+                        PrePaintTreeWalkTest,
+                        ::testing::ValuesIn(g_prepaint_foo));
 
 TEST_P(PrePaintTreeWalkTest, PropertyTreesRebuiltWithBorderInvalidation) {
   SetBodyInnerHTML(
@@ -135,6 +151,9 @@ TEST_P(PrePaintTreeWalkTest, PropertyTreesRebuiltWithCSSTransformInvalidation) {
 }
 
 TEST_P(PrePaintTreeWalkTest, PropertyTreesRebuiltWithOpacityInvalidation) {
+  // In SPv1 mode, we don't need or store property tree nodes for effects.
+  if (!RuntimeEnabledFeatures::slimmingPaintV2Enabled())
+    return;
   SetBodyInnerHTML(
       "<style>"
       "  .opacityA { opacity: 0.9; }"
@@ -212,8 +231,8 @@ TEST_P(PrePaintTreeWalkTest, ClearSubsequenceCachingClipChangePosAbs) {
       "</style>"
       "<div id='parent' style='transform: translateZ(0); width: 100px;"
       "  height: 100px; position: absolute'>"
-      "  <div id='child' style='overflow: hidden; z-index: 0; width: 50px;"
-      "      height: 50px'>"
+      "  <div id='child' style='overflow: hidden; position: relative;"
+      "      z-index: 0; width: 50px; height: 50px'>"
       "    content"
       "  </div>"
       "</div>");
@@ -259,28 +278,6 @@ TEST_P(PrePaintTreeWalkTest, ClearSubsequenceCachingClipChangePosFixed) {
   GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
 
   EXPECT_TRUE(child_paint_layer->NeedsRepaint());
-}
-
-TEST_P(PrePaintTreeWalkTest, ClipChangeHasRadius) {
-  SetBodyInnerHTML(
-      "<style>"
-      "  #target {"
-      "    position: absolute;"
-      "    z-index: 0;"
-      "    overflow: hidden;"
-      "    width: 50px;"
-      "    height: 50px;"
-      "  }"
-      "</style>"
-      "<div id='target'></div>");
-
-  auto* target = GetDocument().GetElementById("target");
-  auto* target_object = ToLayoutBoxModelObject(target->GetLayoutObject());
-  target->setAttribute(HTMLNames::styleAttr, "border-radius: 5px");
-  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
-  EXPECT_TRUE(target_object->Layer()->NeedsRepaint());
-  // And should not trigger any assert failure.
-  GetDocument().View()->UpdateAllLifecyclePhases();
 }
 
 }  // namespace blink
