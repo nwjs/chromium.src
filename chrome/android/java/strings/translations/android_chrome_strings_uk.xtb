@@ -2,10 +2,12 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="uk">
 <translation id="1006017844123154345">Відкрити в режимі онлайн</translation>
+<translation id="1049743911850919806">Анонімний перегляд</translation>
 <translation id="10614374240317010">Ніколи не зберігалося</translation>
 <translation id="1061441684050139317">Chrome потрібен доступ до мікрофона, щоб дозволити цьому сайту використовувати його.</translation>
 <translation id="1080790410959514870">Ви виходите з облікового запису, яким керує домен <ph name="DOMAIN_NAME" />. Дані Chrome, які зберігаються на цьому пристрої, буде видалено, але вони залишаться у вашому обліковому записі Google.</translation>
 <translation id="1111673857033749125">Тут відображатимуться закладки, збережені на інших ваших пристроях.</translation>
+<translation id="1117638547758781293">Фільтр субресурсів</translation>
 <translation id="1121094540300013208">Звіти про використання й аварійне завершення роботи</translation>
 <translation id="1137305377394488060">останню годину</translation>
 <translation id="1145536944570833626">Видалити наявні дані.</translation>
@@ -61,6 +63,7 @@
 <translation id="1549000191223877751">Відкрити в іншому вікні</translation>
 <translation id="1553358976309200471">Оновити Chrome</translation>
 <translation id="1571304935088121812">Копіювати ім’я користувача</translation>
+<translation id="1594030484168838125">Вибрати</translation>
 <translation id="1612196535745283361">Щоб шукати пристрої, Chrome потрібен доступ до геоданих. Доступ до геоданих <ph name="BEGIN_LINK" />вимкнено на цьому пристрої<ph name="END_LINK" />.</translation>
 <translation id="1620510694547887537">Камера</translation>
 <translation id="1623104350909869708">Заборонити цій сторінці створювати додаткові діалогові вікна</translation>
@@ -148,6 +151,7 @@
 <translation id="2587052924345400782">Доступна новіша версія</translation>
 <translation id="2593272815202181319">Однакової ширини</translation>
 <translation id="2621115761605608342">Увімкнути Javascript на певному сайті.</translation>
+<translation id="2631006050119455616">Збережено</translation>
 <translation id="2653659639078652383">Надіслати</translation>
 <translation id="2677748264148917807">Вийти</translation>
 <translation id="2704606927547763573">Скопійов.</translation>
@@ -329,7 +333,6 @@
 <translation id="473775607612524610">Оновити</translation>
 <translation id="4738836084190194332">Востаннє синхронізовано: <ph name="WHEN" /></translation>
 <translation id="4749960740855309258">Відкрити нову вкладку</translation>
-<translation id="4750394297954878236">Пропозиції</translation>
 <translation id="4759238208242260848">Завантаження</translation>
 <translation id="4766369052440583386">Заощадження трафіку ввімкнено</translation>
 <translation id="4797039098279997504">Торкніться, щоб повернутися на сторінку <ph name="URL_OF_THE_CURRENT_TAB" /></translation>
@@ -394,6 +397,7 @@
 <translation id="5345083863238459644">Доступ до геоданих також <ph name="BEGIN_LINK" />вимкнено на цьому пристрої<ph name="END_LINK" />.</translation>
 <translation id="5349103022427743704">Експеримент "Покращене додавання на головний екран"</translation>
 <translation id="5372829067651257087">URL-адресу скопійовано.</translation>
+<translation id="5384883051496921101">Цей сайт збирається надіслати інформацію в додаток, у якому вимкнено режим анонімного перегляду.</translation>
 <translation id="5400569084694353794">Користуючись цим додатком, ви приймаєте <ph name="BEGIN_LINK1" />Умови використання<ph name="END_LINK1" /> та <ph name="BEGIN_LINK2" />Примітку про конфіденційність<ph name="END_LINK2" /> Chrome.</translation>
 <translation id="5403644198645076998">Дозволити лише певні сайти</translation>
 <translation id="5414836363063783498">Підтвердження…</translation>
@@ -504,6 +508,7 @@
 <translation id="6482749332252372425">Не вдалося завантажити файл <ph name="FILE_NAME" />. Замало місця.</translation>
 <translation id="6508332297647760142">Доступ до даних Інтернету навколо нас</translation>
 <translation id="6527303717912515753">Надіслати</translation>
+<translation id="6534565668554028783">Google довго не відповідає</translation>
 <translation id="6538442820324228105">Завантажено <ph name="GBS" /> Гб</translation>
 <translation id="654278619399546675">passwords.google.com</translation>
 <translation id="654446541061731451">Виберіть вкладку для передавання даних</translation>
@@ -577,6 +582,7 @@
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> використовує ваші геодані, щоб показувати результати місцевого пошуку</translation>
 <translation id="7253272406652746122">Додайте обліковий запис Google зі сторінки "Облікові записи" в додатку Налаштування на пристрої.</translation>
 <translation id="7274013316676448362">Заблокований сайт</translation>
+<translation id="7307288900373049735">З’єднання з Google… Це може зайняти хвилину</translation>
 <translation id="7333031090786104871">Попередній сайт ще додається</translation>
 <translation id="7352939065658542140">ВІДЕО</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Поділитись 1 вибраним елементом}one{Поділитися # вибраним елементом}few{Поділитися # вибраними елементами}many{Поділитися # вибраними елементами}other{Поділитися # вибраного елемента}}</translation>
@@ -728,6 +734,7 @@
 <translation id="8920114477895755567">Очікування даних батьків.</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">Відкрити в іншому вікні</translation>
+<translation id="894871326938397531">Завершити анонімний перегляд?</translation>
 <translation id="8951232171465285730">Chrome заощадив <ph name="MEGABYTES" /> Мб</translation>
 <translation id="8959122750345127698">Веб-сторінка <ph name="URL" /> недоступна</translation>
 <translation id="8979340629087822094">останній день</translation>

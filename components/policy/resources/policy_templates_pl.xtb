@@ -5,6 +5,30 @@
 
       Jeśli zasada ma wartość fałsz, aktualizacje komponentów są wyłączone. Nie obejmuje to jednak niektórych komponentów: nie są wyłączane aktualizacje żadnych komponentów, które nie zawierają kodu wykonywalnego, nie mają znacznego wpływu na działanie przeglądarki lub mają kluczowe znaczenie dla bezpieczeństwa.
       Przykładami takich komponentów są listy odwołanych certyfikatów i dane bezpiecznego przeglądania. </translation>
+<translation id="1010564225363223332">Konfiguruje listę drukarek.
+
+      Ta zasada umożliwia administratorom przekazanie konfiguracji
+      drukarek użytkownikom.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> i <ph name="PRINTER_DESCRIPTION" /> to dowolny tekst, który ma ułatwić wybranie drukarki.
+      <ph name="PRINTER_MANUFACTURER" /> i <ph name="PRINTER_MODEL" /> ułatwiają użytkownikom identyfikację
+      drukarki. Oznaczają producenta i model drukarki. <ph name="PRINTER_URI" /> to adres, który powinien być dostępny
+      z komputera klienckiego, z tymi składnikami: <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> i <ph name="URI_QUEUE" />. Opcjonalny składnik to <ph name="PRINTER_UUID" />. Jeśli jest podany, umożliwia
+      deduplikację drukarek <ph name="ZEROCONF_DISCOVERY" />.
+
+      Ciąg znaków <ph name="PRINTER_EFFECTIVE_MODEL" /> musi być zgodny z jednym
+      z ciągów oznaczających obsługiwaną drukarkę <ph name="PRODUCT_NAME" />. Zostanie on użyty do zidentyfikowania oraz
+      zainstalowania pliku PPD odpowiedniego dla drukarki. Więcej informacji
+      znajdziesz na https://support.google.com/chrome?p=noncloudprint
+
+      Konfiguracja drukarki jest wykonywana przy jej pierwszym użyciu. Pliki PPD nie są
+      pobierane przed użyciem drukarki. Później często używane pliki PPD
+      są przechowywane w pamięci podręcznej.
+
+      Ta zasada nie wpływa na to, czy użytkownicy mogą konfigurować drukarki
+      na poszczególnych urządzeniach. Jest ona uzupełnieniem konfiguracji
+      drukarek, którą tworzą poszczególni użytkownicy.</translation>
 <translation id="101438888985615157">Obróć ekran o 180 stopni</translation>
 <translation id="1017967144265860778">Zarządzanie energią na ekranie logowania</translation>
 <translation id="1019101089073227242">Ustaw katalog danych użytkownika</translation>
@@ -159,7 +183,6 @@
 <translation id="1583248206450240930">Używaj domyślnie wtyczki <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="1608755754295374538">Adresy URL, które bez pytania otrzymają dostęp do urządzeń do nagrywania dźwięku</translation>
 <translation id="1617235075406854669">Włącz usuwanie historii przeglądarki i pobierania</translation>
-<translation id="1617384279878333801">Włącz dodawanie osób w menedżerze profili</translation>
 <translation id="163200210584085447">Wzorce na tej liście są dopasowywane do źródła zabezpieczeń adresu URL,
       z którego pochodzi żądanie. Po znalezieniu odpowiednika dostęp do urządzeń
       rejestrujących wideo jest udzielany na stronach logowania SAML. Jeśli
@@ -891,15 +914,6 @@ Jeśli nie podasz wartości albo wybierzesz ustawienie „Wyłącz”, stosowani
       Pozostawienie tej zasady nieskonfigurowanej pozwoli użytkownikom samodzielnie wybrać ustawienia serwera proxy.</translation>
 <translation id="3758249152301468420">Wyłącz narzędzia dla programistów</translation>
 <translation id="3765260570442823273">Czas wyświetlania ostrzeżenia o wylogowaniu z powodu bezczynności</translation>
-<translation id="3768412594120638208">Określa typy aplikacji lub rozszerzeń, które można instalować.
-
-          To ustawienie tworzy białą listę typów rozszerzeń lub aplikacji, których instalacja jest dozwolona w <ph name="PRODUCT_NAME" />. Wartość jest listą ciągów znaków z tego zestawu: „extension”, „theme”, „user_script”, „hosted_app”, „legacy_packaged_app”, „platform_app”. Więcej informacji o tych typach znajdziesz w dokumentacji rozszerzeń <ph name="PRODUCT_NAME" />.
-
-          Zasada wpływa też na rozszerzenia i aplikacje, których instalacja jest wymuszana przez ExtensionInstallForcelist.
-
-          Jeśli skonfigurujesz to ustawienie, rozszerzenia lub aplikacje o typie innym niż wymienione na liście nie są instalowane.
-
-          W przeciwnym razie nie obowiązują żadne ograniczenia dozwolonych typów rozszerzeń lub aplikacji.</translation>
 <translation id="3780152581321609624">Umieść port niestandardowy w nazwie SPN w protokole Kerberos</translation>
 <translation id="3780319008680229708">Jeśli ta zasada ma wartość prawda, ikona Cast jest zawsze widoczna na pasku narzędzi lub w rozszerzonym menu, a użytkownicy nie mogą jej usunąć.
 
@@ -1326,6 +1340,11 @@ Jeśli ta zasada nie zostanie ustawiona, użytkownik będzie mógł korzystać z
 <translation id="5148753489738115745">Pozwala określić dodatkowe parametry używane, gdy <ph name="PRODUCT_FRAME_NAME" /> uruchamia <ph name="PRODUCT_NAME" />.
 
           Jeśli ta zasada nie jest ustawiona, używany jest domyślny wiersz polecenia.</translation>
+<translation id="5159469559091666409">Częstotliwość wysyłania pakietów sieciowych monitorowania (w milisekundach).
+
+      Jeśli ta zasada nie jest skonfigurowana, domyślny odstęp czasu wynosi trzy minuty.
+      Minimalny odstęp czasu to 30 s, a maksymalny – 24 godz.
+      Wartości spoza tego zakresu zostaną zmienione na wartości graniczne.</translation>
 <translation id="5182055907976889880">Skonfiguruj Dysk Google w <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Umożliwia określenie rozszerzeń, których nie obejmuje czarna lista. Wartość * na czarnej liście oznacza dodanie do niej wszystkich rozszerzeń i zezwolenie użytkownikom na instalowanie wyłącznie rozszerzeń wymienionych na białej liście. Domyślnie wszystkie rozszerzenia znajdują się na białej liście, jeśli jednak za pomocą zasady wszystkie rozszerzenia dodano do czarnej listy, białej listy można użyć do zmodyfikowania tej zasady.</translation>
 <translation id="5192837635164433517">Włącza alternatywne strony błędów wbudowane w przeglądarkę <ph name="PRODUCT_NAME" /> (np. dotyczące nieznalezienia strony) i uniemożliwia użytkownikom zmianę tego ustawienia. Jeśli włączysz ustawienie, alternatywne strony błędów będą używane. W przypadku wyłączenia ustawienia alternatywne strony błędów nigdy nie są używane. Jeśli ustawienie jest włączone lub wyłączone, użytkownicy nie mogą go zmienić ani zastąpić w przeglądarce <ph name="PRODUCT_NAME" />. W przypadku nieskonfigurowania zasady ustawienie zostanie włączone, ale użytkownik będzie mógł je zmienić.</translation>
@@ -1883,9 +1902,6 @@ Jeśli ta zasada nie zostanie ustawiona, użytkownik może wyłączyć każdą w
 <translation id="6786967369487349613">Ustaw katalog profilu przenośnego</translation>
 <translation id="6810445994095397827">Blokuj kod JavaScript w tych witrynach</translation>
 <translation id="681446116407619279">Obsługiwane schematy uwierzytelniania</translation>
-<translation id="6828905844648501476">Jeśli ta zasada jest włączona lub nieskonfigurowana, <ph name="PRODUCT_NAME" /> będzie zezwalać na dodawanie osób w menedżerze użytkowników.
-
-      Jeśli zasada jest wyłączona, <ph name="PRODUCT_NAME" /> nie będzie zezwalać na tworzenie nowych profili w menedżerze profili.</translation>
 <translation id="685769593149966548">Wymuszaj ścisły tryb ograniczonego dostępu w YouTube</translation>
 <translation id="687046793986382807">Począwszy od wersji 35 usługi <ph name="PRODUCT_NAME" />, te zasady są wycofane.
 

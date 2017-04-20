@@ -5,6 +5,25 @@
 
       Ikiwekwa kuwa Sivyo, masasisho ya vipengele yatazimwa. Hata hivyo, baadhi ya vipengele havizingatii sera hii: masasisho kwenye kipengele chochote ambacho hakina msimbo unaotekelezeka, au ambacho hakibadilishi sana tabia ya kivinjari, au ni muhimu kwa usalama wake hakitazimwa.
       Mifano ya vipengele hivyo ni pamoja na orodha za vyeti vilivyobatilishwa na data ya kuvinjari salama. </translation>
+<translation id="1010564225363223332">Huweka mipangilio ya orodha ya printa.
+
+      Sera hii huruhusu wasimamizi kutoa mipangilio ya printa kwa watumiaji wake.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> na <ph name="PRINTER_DESCRIPTION" /> ziko katika mifuatano wazi ambayo inaweza kuboreshwa zaidi ili kurahisisha kuchagua printa. <ph name="PRINTER_MANUFACTURER" /> na <ph name="PRINTER_MODEL" /> hutumika kurahisisha utambulisho wa printa na watumiaji wa hatima. Zinawakilisha mtengenezaji na muundo wa printa. <ph name="PRINTER_URI" /> inapaswa kuwa mahali ambapo panafikika
+      kutoka kwenye kompyuta ya seva teja ikiwemo <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> na <ph name="URI_QUEUE" />.  <ph name="PRINTER_UUID" /> ni ya hiari.  Ikiwa inapatikana, inatumiwa kuondoa kurudufu printa <ph name="ZEROCONF_DISCOVERY" />.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> lazima ifanane na mojawapo ya
+      mfuatano unaowakilisha printa inayotumika ya <ph name="PRODUCT_NAME" />. Mfuatano utatumiwa kutambua na
+      kusakinisha PPD inayofaa kwa printa. Maelezo zaidi yanaweza
+      kupatikana https://support.google.com/chrome?p=noncloudprint.
+
+      Kuweka mipangilio ya printa hukamilika baada ya kutumia printa mara ya kwanza.
+      PPD hazipakuliwi mpaka printa itumike. Baada ya hapo, PDD zinazotumiwa sana huwekwa katika akib.
+
+      Sera hii haiathiri iwapo watumiaji wanaweza kuweka mipangilio
+      kwenye vifaa vya binafsi.  Inakusudiwa kuchukua nafasi ya kuweka
+      mipangilio ya printa na watumiaji binafsi.</translation>
 <translation id="101438888985615157">Zungusha skrini kwa digrii 180</translation>
 <translation id="1017967144265860778">Udhibiti wa nishati kwenye skrini ya kuingia</translation>
 <translation id="1019101089073227242">Weka saraka ya data ya mtumiaji</translation>
@@ -156,7 +175,6 @@ Iwapo sera hii haijawekwa, hali ya juu ya utoafautishaji huzimwa wakati skrini y
 <translation id="1583248206450240930">Tumia <ph name="PRODUCT_FRAME_NAME" /> kwa chaguo-msingi</translation>
 <translation id="1608755754295374538">URL ambazo zitapewa ufikiaji wa vifaa vya kunasa sauti bila ushawishi</translation>
 <translation id="1617235075406854669">Washa ufutaji wa historia ya upakuaji na kivinjari</translation>
-<translation id="1617384279878333801">Washa kipengee cha kuongeza mtu katika kidhibiti cha wasifu</translation>
 <translation id="163200210584085447">Michoro katika orodha hii italinganishwa na asili ya
       usalama wa ombi la URL. Zikilingana, idhini ya kufikia vifaa vya
       kurekodi video itatolewa kwenye kurasa za kuingia katika SAML. Ikiwa hazilingani,
@@ -924,15 +942,6 @@ Sera hii inatumika tu kama sera ya 'DefaultSearchProviderEnabled' imewashwa.</tr
       Usipoweka sera hizi, utawaruhusu watumiaji kuchagua mipangilio ya seva mbadala wenyewe.</translation>
 <translation id="3758249152301468420">Lemaza Zana za Wasanidi Programu</translation>
 <translation id="3765260570442823273">Muda wa ujumbe wa tahadhari wa kuondoka tulivu</translation>
-<translation id="3768412594120638208">Hudhibiti ni aina zipi za programu au viendelezi zinazoruhusiwa kusakinishwa.
-
-          Mipangilio hii inatoa idhini kwa aina za viendelezi au programu zinazokubaliwa zinazoweza kusakinishwa katika <ph name="PRODUCT_NAME" />. Thamani ni orodha ya mifuatano, ambapo kila kimoja kinafaa kuwa mojawapo ya vinavyofuata: "extension", "theme", "user_script", "hosted_app", "legacy_packaged_app", "platform_app". Angalia hati ya viendelezi vya <ph name="PRODUCT_NAME" /> kwa maelezo zaidi kuhusu aina hizi.
-
-          Fahamu kuwa sera hii pia inaathiri viendelezi na programu za kusakinishwa kwa lazima kupitia ExtensionInstallForcelist.
-
-          Ikiwa mipangilio hii itasanidiwa, viendelezi/programu zilizo na aina ambayo haiko kwenye orodha havitasakinishwa.
-
-          Ikiwa mipangilio hii itaachwa bila kusanidiwa, hakuna vikwazo vitakavyotekelezwa kwenye aina za viendelezi/programu zinazokubaliwa.</translation>
 <translation id="3780152581321609624">Jumuisha lango lisiyo wastani katika Kerberos SPN</translation>
 <translation id="3780319008680229708">Sera hii ikiwekwa kuwa ndivyo, aikoni ya upau wa vidhibiti vya Google Cast itaonyeshwa kila wakati kwenye upau wa vidhibiti au menyu ya vipengee vya ziada, na watumiaji hawataweza kuiondoa. 
 
@@ -1386,6 +1395,10 @@ Sera hii huathiri aina zote za vifaa vya kuingiza video na si tu kamera iliyojen
 <translation id="5148753489738115745">Inakuruhusu kubainisha kigezo za ziada ambazo ziinatumika wakati <ph name="PRODUCT_FRAME_NAME" /> inazindua <ph name="PRODUCT_NAME" />.
 
           Ikiwa sera hii haijawekwa mpangilio wa amri chaguo-msingi  utatumika.</translation>
+<translation id="5159469559091666409">Mara ambazo vifurushi vya mtandao vya ufuatiliaji hutumwa, katika milisekunde.
+
+     Sera hii isipowekwa, muda chaguo-msingi ni dakika 3. Muda wa chini
+      ni sekunde 30 na muda wa juu ni saa 24 - thamani nje ya masafa haya itaunganishwa kwenye masafa haya.</translation>
 <translation id="5182055907976889880">Sanidi Hifadhi ya Google kwenye <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Inakuruhusu kubainisha ni viendelezi gani havihusuiani na orodha kuondoa idhini.
 
@@ -1981,9 +1994,6 @@ Iwapo sera hii haitawekwa au orodha ni tupu miradi yote itapatikana katika <ph n
 <translation id="6786967369487349613">Weka saraka ya wasifu isiyo ya kawaida</translation>
 <translation id="6810445994095397827">Zuia JavaScript kwenye tovuti hizi</translation>
 <translation id="681446116407619279">Mipango inayohimiliwa ya uthibitishaji</translation>
-<translation id="6828905844648501476">Sera hii ikiwekwa kuwa ndivyo au isisanidiwe <ph name="PRODUCT_NAME" /> itaruhusu kipengee cha Ongeza Mtu kutoka kwa msimamizi wa mtumiaji.
-
-     Sera hii ikiwekwa kuwa sivyo, <ph name="PRODUCT_NAME" /> haitaruhusu kuunda wasifu mpya kutoka kwa msimamizi wa wasifu.</translation>
 <translation id="685769593149966548">Tekeleza Hali yenye Mipaka ya Lazima kwa YouTube</translation>
 <translation id="687046793986382807">Sera hii imeondolewa kuanzia toleo la 35 la <ph name="PRODUCT_NAME" />. 
 
@@ -2684,9 +2694,9 @@ Kuchelewa kwa mwangaza wa skrini kunapopimwa, kuzimwa kwa skrini, kufungua kwa s
 Mfumo wa kipimo  lazima uwe 100% au zaidi. Thamani zitakazofupisha kuchelewa kwa mwangaza wa skrini  katika hali ya wasilisho kuliko kuchelewa kwa mwangaza wa skrini ya kawaida hazitaruhusiwa.</translation>
 <translation id="8789506358653607371">Ruhusu hali ya skrini nzima.
 
-    Sera hii inadhibiti upatikanaji wa hali ya skrini nzima ambayo UI yote ya <ph name="PRODUCT_NAME" />  imefichwa na ni maudhui ya wavuti tu yanayoonekana. 
+    Sera hii inadhibiti upatikanaji wa hali ya skrini nzima ambayo kiolesura chote cha <ph name="PRODUCT_NAME" /> kimefichwa na ni maudhui ya wavuti tu yanayoonekana. 
 
-    Sera hii ikiwekwa kuwa ndivyo ama isisanidiwe, mtumiaji, programu na viendelezi vyenye ruhusa inayofaa vinaweza kuingia katika hali ya skrini nzima.
+    Sera hii ikiwekwa kuwa ndivyo ama isisanidiwe, mtumiaji, programu na viendelezi vyenye ruhusa vinaweza kuingia katika hali ya skrini nzima.
 
     Sera hii ikiwekwa kuwa sivyo, mtumiaji ama programu haziwezi kuingia katika hali ya skrini nzima. 
 

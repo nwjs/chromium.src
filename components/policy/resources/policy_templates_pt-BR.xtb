@@ -5,6 +5,30 @@
 
       Se a política é definida como False, as atualizações dos componentes são desativadas. Entretanto, alguns componentes são isentos desta política: atualizações para quaisquer componentes que não contenham código executável ou não alterem significativamente o comportamento do navegador, ou que sejam essenciais para a segurança, não serão desativadas.
       Entre os exemplos desses componentes estão as listas de revogação de certificado e os dados de navegação segura. </translation>
+<translation id="1010564225363223332">Configura uma lista de impressoras.
+
+      Esta política permite aos administradores fornecer configurações de impressora para
+      os usuários deles.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> e <ph name="PRINTER_DESCRIPTION" /> são strings de forma livre que
+      podem ser personalizadas para facilitar a seleção da impressora. <ph name="PRINTER_MANUFACTURER" /> e <ph name="PRINTER_MODEL" /> servem para facilitar a identificação da impressora por parte de
+      usuários finais. Eles representam o fabricante e o modelo da impressora. <ph name="PRINTER_URI" /> deve ser um endereço acessível
+      a partir do computador de um cliente, incluindo <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> e <ph name="URI_QUEUE" />.  <ph name="PRINTER_UUID" /> é opcional. Caso seja fornecido, será usado para
+      ajudar a eliminar a duplicação de impressoras <ph name="ZEROCONF_DISCOVERY" />.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> deve corresponder a uma das
+      strings que representam uma impressora <ph name="PRODUCT_NAME" /> compatível. A string será usada para identificar e
+      instalar o PPD apropriado para a impressora. Veja outras informações
+      em https://support.google.com/chrome?p=noncloudprint.
+
+      A configuração da impressora é concluída após o primeiro uso dela. O download de PPDs
+      não será feito enquanto a impressora não for usada. Depois disso, os PPDs usados com frequência
+      são colocados em cache.
+
+      Esta política não afeta a possibilidade de os usuários configurarem impressoras em
+      dispositivos individuais. Ela visa complementar a
+      configuração de impressoras feita por usuários individuais.</translation>
 <translation id="101438888985615157">Girar a tela em 180 graus</translation>
 <translation id="1017967144265860778">Gerenciamento de energia na tela de login</translation>
 <translation id="1019101089073227242">Definir diretório de dados do usuário</translation>
@@ -157,7 +181,6 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="1583248206450240930">Usar o <ph name="PRODUCT_FRAME_NAME" /> por padrão</translation>
 <translation id="1608755754295374538">URLs que terão acesso a dispositivos de captura de áudio sem solicitação</translation>
 <translation id="1617235075406854669">Ativar exclusão do histórico do navegador e de downloads</translation>
-<translation id="1617384279878333801">Ativar a adição de pessoa no gerenciador de perfil</translation>
 <translation id="163200210584085447">Os padrões nesta lista serão comparados com a origem
       de segurança do URL solicitante. Se for encontrada uma correspondência, o acesso a dispositivos de captura
       de vídeo será concedido em páginas de login SAML. Se nenhuma correspondência for
@@ -881,15 +904,6 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
       Deixar estas políticas se definição permitirá que os usuários escolham as configurações de proxy por conta própria.</translation>
 <translation id="3758249152301468420">Desativar Ferramentas de desenvolvedor</translation>
 <translation id="3765260570442823273">Duração da mensagem de aviso de saída de usuário ocioso</translation>
-<translation id="3768412594120638208">Controla os tipos de aplicativos/extensões que podem ser instalados.
-
-          Esta configuração autoriza os tipos permitidos de extensão/aplicativo que podem ser instalados no <ph name="PRODUCT_NAME" />. O valor é uma lista de strings, sendo que cada uma delas deve ter um dos seguintes tipos: "extensão", "tema", "user_script", "hosted_app", "legacy_packaged_app" e "platform_app". Consulte a documentação das extensões do <ph name="PRODUCT_NAME" /> para obter mais informações sobre esses tipos.
-
-          Esta política também afeta extensões e aplicativos de modo que tenham a instalação forçada via ExtensionInstallForcelist.
-
-          Se esta configuração é definida, as extensões e os aplicativos que têm um tipo que não está presente na lista não são instalados.
-
-          Se estas configurações não são definidas, nenhuma restrição é aplicada aos tipos aceitos de extensão/aplicativo.</translation>
 <translation id="3780152581321609624">Incluir porta não padrão no SPN Kerberos</translation>
 <translation id="3780319008680229708">Se esta política for definida como true, o ícone do Google Cast sempre será exibido na barra de ferramentas ou no menu flutuante, e os usuários não poderão removê-lo.
 
@@ -1315,6 +1329,11 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="5141670636904227950">Definir o tipo de lupa padrão ativada na tela de login</translation>
 <translation id="5142301680741828703">Sempre renderizar os seguintes padrões de URL no <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5148753489738115745">Permite especificar os parâmetros adicionais que são usados quando o <ph name="PRODUCT_FRAME_NAME" /> inicia o <ph name="PRODUCT_NAME" />. Se essa política não for configurada, será usada a linha de comando padrão.</translation>
+<translation id="5159469559091666409">Frequência com que pacotes de monitoramento de rede são enviados, em milésimos de segundo.
+
+      Se esta política não for definida, o intervalo padrão será de três minutos. O intervalo
+      mínimo é de 30 segundos, e o intervalo máximo é de 24 horas. Valores
+      fora desse intervalo serão fixados nessa faixa.</translation>
 <translation id="5182055907976889880">Configura o Google Drive no <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Permite especificar quais extensões não estão sujeitas à lista negra. Um valor da lista negra de * significa que todas as extensões estão na lista negra, e que os usuários só podem instalar extensões listadas na lista branca. Por padrão, todas as extensões estão na lista branca, mas se todas as extensões forem incluídas na lista negra pela política, a lista branca poderá ser usada para substituir a política.</translation>
 <translation id="5192837635164433517">Permite o uso de páginas de erro alternativas, incorporadas a <ph name="PRODUCT_NAME" /> (por exemplo, "página não encontrada") e impede que usuários alterem esta configuração. Se ativar esta configuração, páginas de erro alternativas serão utilizadas. Se você desativar esta configuração, páginas de erro alternativas nunca são utilizadas. Se ativar ou desativar esta configuração, os usuários não podem alterar ou substituir essa configuração em <ph name="PRODUCT_NAME" />. Se esta política for deixada sem definição, ela será ativada, mas o usuário será capaz de modificá-la.</translation>
@@ -1872,9 +1891,6 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="6786967369487349613">Configurar o diretório do perfil de roaming</translation>
 <translation id="6810445994095397827">Bloquear o JavaScript nestes sites</translation>
 <translation id="681446116407619279">Esquemas de autenticação compatíveis</translation>
-<translation id="6828905844648501476">Se esta política é definida como "true" ou não é configurada, o <ph name="PRODUCT_NAME" /> permite o recurso "Adicionar pessoa" a partir do gerenciador de usuários.
-
-      Se esta política é definida como "false", o <ph name="PRODUCT_NAME" /> não permite a criação de novos perfis a partir do gerenciador de perfis.</translation>
 <translation id="685769593149966548">Aplicar Modo restrito rigoroso para o YouTube</translation>
 <translation id="687046793986382807">Esta política foi desativada a partir da versão 35 do <ph name="PRODUCT_NAME" />.
 

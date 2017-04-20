@@ -5,6 +5,30 @@
 
       If set to False, updates to components are disabled. However, some components are exempt from this policy: updates to any component that does not contain executable code, or does not significantly alter the behaviour of the browser, or is critical for its security will not be disabled.
       Examples of such components include the certificate revocation lists and safe browsing data. </translation>
+<translation id="1010564225363223332">Configures a list of printers.
+
+      This policy allows administrators to provide printer configurations for
+      their users.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> and <ph name="PRINTER_DESCRIPTION" /> are free form strings that
+      can be customised for ease of printer selection. <ph name="PRINTER_MANUFACTURER" /> and <ph name="PRINTER_MODEL" /> serve to ease printer identification by
+      end users. They represent the manufacturer and model of the printer. <ph name="PRINTER_URI" /> should be an address reachable
+      from a client computer including the <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> and <ph name="URI_QUEUE" />.  <ph name="PRINTER_UUID" /> is optional.  If provided, it is used to
+      help deduplicate <ph name="ZEROCONF_DISCOVERY" /> printers.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> must match one of
+      the strings which represent a <ph name="PRODUCT_NAME" /> supported printer. The string will be used to identify and
+      install the appropriate PPD for the printer. More information can be
+      found at https://support.google.com/chrome?p=noncloudprint.
+
+      Printer setup is completed upon the first use of a printer.  PPDs are not
+      downloaded until the printer is used.  After that time, frequently used
+      PPDs are cached.
+
+      This policy has no effect on whether users can configure printers on
+      individual devices.  It is intended to be supplementary to the
+      configuration of printers by individual users.</translation>
 <translation id="101438888985615157">Rotate screen by 180 degrees</translation>
 <translation id="1017967144265860778">Power management on the login screen</translation>
 <translation id="1019101089073227242">Set user data directory</translation>
@@ -163,7 +187,6 @@
 <translation id="1583248206450240930">Use <ph name="PRODUCT_FRAME_NAME" /> by default</translation>
 <translation id="1608755754295374538">URLs that will be granted access to audio capture devices without prompt</translation>
 <translation id="1617235075406854669">Enable deleting browser and download history</translation>
-<translation id="1617384279878333801">Enable add person in profile manager</translation>
 <translation id="163200210584085447">Patterns in this list will be matched against the security
       origin of the requesting URL.  If a match is found, access to video
       capture devices will be granted on SAML login pages.  If no match is
@@ -935,15 +958,6 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
       Leaving these policies unset will allow the users to choose the proxy settings on their own.</translation>
 <translation id="3758249152301468420">Disable Developer Tools</translation>
 <translation id="3765260570442823273">Duration of the idle log-out warning message</translation>
-<translation id="3768412594120638208">Controls which app/extension types are allowed to be installed.
-
-          This setting white-lists the allowed types of extension/apps that can be installed in <ph name="PRODUCT_NAME" />. The value is a list of strings, each of which should be one of the following: "extension", "theme", "user_script", "hosted_app", "legacy_packaged_app", "platform_app". See the <ph name="PRODUCT_NAME" /> extensions documentation for more information on these types.
-
-          Note that this policy also affects extensions and apps to be force-installed via ExtensionInstallForcelist.
-
-          If this setting is configured, extensions/apps which have a type that is not on the list will not be installed.
-
-          If this setting is left not-configured, no restrictions on the acceptable extension/app types are enforced.</translation>
 <translation id="3780152581321609624">Include non-standard port in Kerberos SPN</translation>
 <translation id="3780319008680229708">If this policy is set to true, the Cast toolbar icon will always be shown on the toolbar or the overflow menu and users will not be able to remove it.
 
@@ -1409,6 +1423,11 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 <translation id="5148753489738115745">Allows you to specify additional parameters that are used when <ph name="PRODUCT_FRAME_NAME" /> launches <ph name="PRODUCT_NAME" />.
 
           If this policy is not set the default command line will be used.</translation>
+<translation id="5159469559091666409">How frequently monitoring network packets are sent, in milliseconds.
+
+      If this policy is unset, the default interval is 3 minutes. The minimum
+      interval is 30 seconds and the maximum interval is 24 hours – values
+      outside of this range will be clamped to this range.</translation>
 <translation id="5182055907976889880">Configure Google Drive in <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Allows you to specify which extensions are not subject to the blacklist.
 
@@ -2014,9 +2033,6 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 <translation id="6786967369487349613">Set the roaming profile directory</translation>
 <translation id="6810445994095397827">Block JavaScript on these sites</translation>
 <translation id="681446116407619279">Supported authentication schemes</translation>
-<translation id="6828905844648501476">If this policy is set to true or not configured, <ph name="PRODUCT_NAME" /> will allow Add Person from the user manager.
-
-      If this policy is set to false, <ph name="PRODUCT_NAME" /> will not allow creation of new profiles from the profile manager.</translation>
 <translation id="685769593149966548">Enforce Strict Restricted Mode for YouTube</translation>
 <translation id="687046793986382807">This policy has been retired as of <ph name="PRODUCT_NAME" /> version 35.
 

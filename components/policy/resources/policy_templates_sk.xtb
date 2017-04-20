@@ -5,6 +5,30 @@
 
       Ak ho nastavíte na možnosť False, aktualizácie komponentov budú zakázané. Na niektoré komponenty sa však toto pravidlo nevzťahuje: aktualizácie komponentov, ktoré neobsahujú spustiteľný kód, podstatne nemenia správanie prehliadača alebo ktoré sú nevyhnutné z hľadiska zabezpečenia, nebudú zakázané.
       Medzi príklady takýchto komponentov patria zoznamy zrušených certifikátov a údaje bezpečného prehliadania. </translation>
+<translation id="1010564225363223332">Umožňuje nakonfigurovať zoznam tlačiarní.
+
+      Toto pravidlo umožňuje správcom poskytnúť používateľom konfigurácie
+      tlačiarní.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> a <ph name="PRINTER_DESCRIPTION" /> sú textové reťazce, pomocou
+      ktorých je možné zjednodušiť výber tlačiarne. Hodnoty <ph name="PRINTER_MANUFACTURER" /> a <ph name="PRINTER_MODEL" /> slúžia na zjednodušenie identifikácie tlačiarní
+      koncovými používateľmi. Predstavujú výrobcu a model tlačiarne. Hodnota <ph name="PRINTER_URI" /> by mala byť adresa dostupná
+      z klientskeho počítača vrátane údajov <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> a <ph name="URI_QUEUE" />.  Hodnota <ph name="PRINTER_UUID" /> je voliteľná. Ak je zadaná, používa sa na
+      odoberanie duplicitných tlačiarní <ph name="ZEROCONF_DISCOVERY" />.
+
+      Hodnota <ph name="PRINTER_EFFECTIVE_MODEL" /> sa musí zhodovať s niektorým reťazcom,
+      ktorý predstavuje podporovanú tlačiareň <ph name="PRODUCT_NAME" />. Daný reťazec sa použije na identifikáciu a
+      inštaláciu vhodného súboru PPD pre tlačiareň. Ďalšie informácie
+      nájdete na adrese https://support.google.com/chrome?p=noncloudprint.
+
+      Nastavenie tlačiarne sa dokončí pri prvom použití. Súbory PPD sa stiahnu
+      až pri použití tlačiarne.  Často používané súbory PPD sa následne 
+      uložia do vyrovnávacej pamäte.
+
+      Toto pravidlo nemá vplyv na to, či používatelia môžu konfigurovať
+       tlačiarne na jednotlivých zariadeniach. Je určené ako doplnok konfigurácie
+      tlačiarní jednotlivými používateľmi.</translation>
 <translation id="101438888985615157">Otočiť obrazovku o 180 stupňov</translation>
 <translation id="1017967144265860778">Správa možností napájania na prihlasovacej obrazovke</translation>
 <translation id="1019101089073227242">Nastaviť adresár používateľských údajov</translation>
@@ -158,7 +182,6 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 <translation id="1583248206450240930">Používať v predvolenom nastavení doplnok <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="1608755754295374538">Webové adresy, ktorým bude udelený prístup k zariadeniam na zachytávanie zvuku bez zobrazenia výzvy</translation>
 <translation id="1617235075406854669">Povoliť odstránenie histórie prehliadača a sťahovania</translation>
-<translation id="1617384279878333801">Povoliť pridanie osoby pomocou správcu profilov</translation>
 <translation id="163200210584085447">Vzory v tomto zozname sa porovnajú s pôvodom zabezpečenia webovej adresy, ktorá odoslala žiadosť. Ak sa nájde zhoda, prístup k zariadeniam na zaznamenávanie videa sa udelí na prihlasovacích stránkach SAML. Ak sa zhoda nenájde, prístup bude automaticky odmietnutý. Vzory zástupných znakov nie sú povolené.</translation>
 <translation id="1655229863189977773">Nastaviť veľkosť vyrovnávacej pamäte disku v bajtoch</translation>
 <translation id="166427968280387991">Server proxy</translation>
@@ -927,15 +950,6 @@ Ak toto nastavenie zakážete, v okne správcu hesiel nebude možné zobraziť 
       Ak toto pravidlo nenastavíte, používateľom umožníte zvoliť vlastné nastavenia proxy servera.</translation>
 <translation id="3758249152301468420">Zakázať Nástroje pre vývojárov</translation>
 <translation id="3765260570442823273">Doba zobrazenia správy s upozornením na odhlásenie  z dôvodu nečinnosti</translation>
-<translation id="3768412594120638208">Kontroluje, ktoré typy inštalácií aplikácií alebo rozšírení sú povolené.
-
-          Toto nastavenie pridáva na zoznam povolených položiek typy aplikácií alebo rozšírení, ktorých inštalácia je v prehliadači <ph name="PRODUCT_NAME" /> povolená. Hodnota predstavuje zoznam reťazcov, pričom by malo ísť o niektoré z týchto reťazcov: extension, theme, user_script, hosted_app, legacy_packaged_app, platform_app. Viac informácií o týchto typoch nájdete v dokumentácii k rozšíreniam prehliadača <ph name="PRODUCT_NAME" />.
-
-          Upozorňujeme, že toto pravidlo má vplyv aj na rozšírenia a aplikácie, ktorých inštalácia bude vynútená prostredníctvom príkazu ExtensionInstallForcelist.
-
-          Ak je toto nastavenie nakonfigurované, typy rozšírení alebo aplikácií, ktoré nie sú na zozname, sa nenainštalujú.
-
-          Ak je toto nastavenie ponechané nenakonfigurované, nebudú sa vynucovať žiadne obmedzenia týkajúce sa prijateľných typov rozšírení alebo aplikácií.</translation>
 <translation id="3780152581321609624">Do hlavného názvu služby protokolu Kerberos zahrnúť neštandardný port</translation>
 <translation id="3780319008680229708">Ak je toto pravidlo nastavené na hodnotu True, bude sa ikona Cast stále zobrazovať na paneli s nástrojmi a používatelia ju nebudú môcť odobrať.
 
@@ -1400,6 +1414,10 @@ Ak toto pravidlo nie je nastavené alebo je prázdne, akýkoľvek používateľ 
 <translation id="5148753489738115745">Umožňuje nastaviť dodatočné parametre, ktoré doplnok <ph name="PRODUCT_FRAME_NAME" /> pri spúšťaní aplikácie <ph name="PRODUCT_NAME" /> použije.
 
           Ak toto pravidlo nie je nastavené, použije sa predvolený príkazový riadok.</translation>
+<translation id="5159469559091666409">Ako často sa odosielajú sledovacie sieťové pakety (v milisekundách).
+
+      Ak toto pravidlo nie je nastavené, použije sa predvolená frekvencia tri minúty. Minimálna
+       frekvencia je 30 sekúnd a maximálna 24 hodín – hodnoty mimo tohto rozsahu budú prispôsobené na príslušnú hranicu.</translation>
 <translation id="5182055907976889880">Konfigurácia služby Disk Google v systéme <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Umožňuje určiť rozšírenia, ktorých sa netýka zoznam zakázaných rozšírení. Ak je v zozname uvedená hodnota *, znamená to, že sa v ňom nachádzajú všetky rozšírenia a používatelia môžu inštalovať len tie, ktoré sú uvedené v zozname povolených rozšírení. V predvolenom nastavení sú všetky rozšírenia povolené. Ak však boli všetky rozšírenia pridané do zoznamu zakázaných rozšírení pomocou pravidla, je možné toto pravidlo nahradiť pomocou zoznamu povolených rozšírení.</translation>
 <translation id="5192837635164433517">Povoľuje využívať alternatívne chybové stránky vopred definované v prehliadači <ph name="PRODUCT_NAME" /> (napr. webová stránka sa nenašla) a bráni používateľom toto nastavenie zmeniť.
@@ -2003,9 +2021,6 @@ Pozrite si tiež pravidlo RemoteAccessHostDomain.</translation>
 <translation id="6786967369487349613">Nastaviť adresár roamingového profilu</translation>
 <translation id="6810445994095397827">Blokovať jazyk JavaScript na týchto webových stránkach</translation>
 <translation id="681446116407619279">Podporované schémy overenia</translation>
-<translation id="6828905844648501476">Ak je toto pravidlo nastavené na možnosť True alebo nie je nakonfigurované, prehliadač <ph name="PRODUCT_NAME" /> povolí pridanie osoby prostredníctvom správcu používateľov.
-
-      Ak je toto pravidlo nastavené na možnosť False, prehliadač <ph name="PRODUCT_NAME" /> nepovolí vytvorenie nového profilu prostredníctvom správcu profilov.</translation>
 <translation id="685769593149966548">Vynútiť prísny obmedzený režim v službe YouTube</translation>
 <translation id="687046793986382807">Toto pravidlo sa prestalo používať v prehliadači <ph name="PRODUCT_NAME" /> verzie 35.
 

@@ -29,8 +29,6 @@
 <translation id="1747827819627189109">Tipkovnica na zaslonu omogućena je</translation>
 <translation id="1823873187264960516">Ethernet: <ph name="ADDRESS" /></translation>
 <translation id="1850504506766569011">Wi-Fi je isključen.</translation>
-<translation id="1854357586517521894">Uključena je opcija CAPS LOCK.
-    Pritisnite Pretraživanje ili Shift da biste je isključili.</translation>
 <translation id="1864454756846565995">USB-C uređaj (stražnji priključak)</translation>
 <translation id="1882897271359938046">Zrcaljenje na zaslon <ph name="DISPLAY_NAME" /></translation>
 <translation id="1919743966458266018">Promijenio se prečac za otvaranje upravitelja zadataka. Upotrijebite <ph name="NEW_SHORTCUT" /> umjesto <ph name="OLD_SHORTCUT" />.</translation>
@@ -67,13 +65,14 @@
 <translation id="2946119680249604491">Dodaj vezu</translation>
 <translation id="2963773877003373896">mod3</translation>
 <translation id="2999742336789313416"><ph name="DISPLAY_NAME" /> predstavlja javnu sesiju kojom upravlja domena <ph name="DOMAIN" /></translation>
+<translation id="3000461861112256445">Monoaudio</translation>
 <translation id="3009178788565917040">Izlaz</translation>
 <translation id="3019353588588144572">Baterija će se napuniti za <ph name="TIME_REMAINING" /></translation>
+<translation id="3050422059534974565">Uključena je opcija CAPS LOCK.
+Pritisnite tipke Pretraživanje ili Shift da biste ju isključili.</translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Donji</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
-<translation id="3109220592788908353">Uključena je opcija CAPS LOCK.
-    Pritisnite Alt + Pretraživanje ili Shift da biste je isključili.</translation>
 <translation id="3126069444801937830">Ponovo pokrenite za ažuriranje</translation>
 <translation id="3147142846278915599">Pokretač (sinkronizacija aplikacija...)</translation>
 <translation id="315116470104423982">Mobilni podaci</translation>
@@ -84,8 +83,10 @@
 <translation id="3364721542077212959">Alati pisaljke</translation>
 <translation id="3368922792935385530">Spojeno</translation>
 <translation id="3371140690572404006">USB-C uređaj (prednji desni priključak)</translation>
+<translation id="3400357268283240774">Dodatne postavke</translation>
 <translation id="3445925074670675829">USB-C uređaj</translation>
 <translation id="3473479545200714844">Povećalo</translation>
+<translation id="3510164367642747937">Istakni pokazivač miša</translation>
 <translation id="3547954654003013442">Proxy postavke</translation>
 <translation id="3573179567135747900">Vratite na "<ph name="FROM_LOCALE" />" (zahtijeva ponovno pokretanje)</translation>
 <translation id="3595596368722241419">Baterija je puna</translation>
@@ -124,6 +125,7 @@
 <translation id="4544944664594876241">Promijenio se prečac za zaključavanje zaslona. Upotrijebite <ph name="NEW_SHORTCUT" /> umjesto <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Prekini vezu</translation>
+<translation id="4849058404725798627">Istakni objekt fokusom na tipkovnici</translation>
 <translation id="4872237917498892622">Alt + Pretraživanje ili Shift</translation>
 <translation id="4895488851634969361">Baterija je puna.</translation>
 <translation id="4918086044614829423">Prihvati</translation>
@@ -131,6 +133,7 @@
 <translation id="5011233892417813670">Chromebook</translation>
 <translation id="5168181903108465623">Dostupni su uređaji za emitiranje</translation>
 <translation id="5170568018924773124">Pokaži u mapi</translation>
+<translation id="5207949376430453814">Istakni znak za umetanje teksta</translation>
 <translation id="5222676887888702881">Odjava</translation>
 <translation id="523505283826916779">Postavke pristupačnosti</translation>
 <translation id="5313326810920013265">Postavke Bluetootha</translation>
@@ -179,6 +182,7 @@
 <translation id="6521655319214113338">Unos rukopisom</translation>
 <translation id="6537270692134705506">Snimi zaslon</translation>
 <translation id="6585808820553845416">Sesija će završiti za <ph name="SESSION_TIME_REMAINING" />.</translation>
+<translation id="6627638273713273709">Pretraži + Shift + K</translation>
 <translation id="6650933572246256093">Bluetooth uređaj "<ph name="DEVICE_NAME" />" traži dopuštenje za uparivanje. Unesite ovaj pristupni ključ na tom uređaju: <ph name="PASSKEY" /></translation>
 <translation id="6700713906295497288">Gumb izbornika IME-a</translation>
 <translation id="6713285437468012787">Bluetooth uređaj "<ph name="DEVICE_NAME" />" sada je uparen i dostupan svim korisnicima. To uparivanje možete ukloniti u Postavkama.</translation>
@@ -198,11 +202,12 @@ Pritisnite Ctrl+Alt+Z da biste ga onemogućili.</translation>
 <translation id="7098389117866926363">USB-C uređaj (lijevi priključak sa stražnje strane)</translation>
 <translation id="7129360219436193655">Način laserskog pokazivača</translation>
 <translation id="714034171374937760">Chromebase</translation>
+<translation id="7165278925115064263">Alt + Shift + K</translation>
 <translation id="7168224885072002358">Vraćanje na staru razlučivost za <ph name="TIMEOUT_SECONDS" /></translation>
+<translation id="7209101170223508707">Uključena je opcija CAPS LOCK.
+Pritisnite tipke Alt + Pretraživanje ili Shift da biste ju isključili.</translation>
 <translation id="7246339268451149667">Želite li omogućiti otključavanje otiskom prsta?</translation>
 <translation id="7256634071279256947">Stražnji mikrofon</translation>
-<translation id="7337799137043490957">Preskočite zaključan zaslon tako što ćete dodirnuti senzor otiska prsta. Kliknite
-   da biste konfigurirali.</translation>
 <translation id="7348093485538360975">Tipkovnica na zaslonu</translation>
 <translation id="735745346212279324">Veza s VPN-om prekinuta</translation>
 <translation id="742594950370306541">Fotoaparat je aktivan.</translation>
@@ -233,6 +238,7 @@ Pritisnite Ctrl+Alt+Z da biste ga onemogućili.</translation>
 <translation id="8308637677604853869">Prethodni izbornik</translation>
 <translation id="8428213095426709021">Postavke</translation>
 <translation id="8433186206711564395">Postavke mreže</translation>
+<translation id="8433977262951327081">Promijenio se prečac za prikazivanje oblačića izbornika s opcijama unosa na polici. Upotrijebite <ph name="NEW_SHORTCUT" /> umjesto <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8454013096329229812">Wi-Fi je uključen.</translation>
 <translation id="8484916590211895857"><ph name="NAME" />: ponovno povezivanje...</translation>
 <translation id="8517041960877371778">Uređaj <ph name="DEVICE_TYPE" /> možda se neće puniti dok je uključen.</translation>
