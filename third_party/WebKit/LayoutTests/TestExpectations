@@ -2620,3 +2620,13 @@ crbug.com/710850 virtual/feature-policy/http/tests/feature-policy/vibrate-disabl
 crbug.com/710850 virtual/mojo-loading/http/tests/feature-policy/vibrate-enabledforall.php [ Skip ]
 crbug.com/710850 virtual/mojo-loading/http/tests/feature-policy/vibrate-enabledforself.php [ Skip ]
 crbug.com/710850 virtual/mojo-loading/http/tests/feature-policy/vibrate-disabled.php [ Skip ]
+
+# WritableStream test timeouts due to out-of-date tests. Only applies to the M-59 branch.
+crbug.com/713664 external/wpt/streams/writable-streams/aborting.dedicatedworker.html [ Timeout ]
+crbug.com/713664 external/wpt/streams/writable-streams/aborting.html [ Timeout ]
+crbug.com/713664 external/wpt/streams/writable-streams/aborting.serviceworker.https.html [ Timeout ]
+crbug.com/713664 external/wpt/streams/writable-streams/aborting.sharedworker.html [ Timeout ]
+crbug.com/713664 external/wpt/streams/writable-streams/start.dedicatedworker.html [ Timeout ]
+crbug.com/713664 external/wpt/streams/writable-streams/start.html [ Timeout ]
+crbug.com/713664 external/wpt/streams/writable-streams/start.serviceworker.https.html [ Timeout ]
+crbug.com/713664 external/wpt/streams/writable-streams/start.sharedworker.html [ Timeout ]

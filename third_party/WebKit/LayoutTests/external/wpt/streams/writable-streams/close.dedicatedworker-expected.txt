@@ -1,0 +1,21 @@
+This is a testharness.js-based test.
+Harness Error. harness_status.status = 1 , harness_status.message = assert_array_equals: close must always be called with the controller lengths differ, expected 1 got 0
+PASS fulfillment value of ws.close() call must be undefined even if the underlying sink returns a non-undefined value 
+FAIL when sink calls error asynchronously while closing, the stream should become errored promise_test: Unhandled rejection with value: object "TypeError: Cannot read property 'error' of undefined"
+FAIL when sink calls error synchronously while closing, the stream should become errored promise_test: Unhandled rejection with value: object "TypeError: Cannot read property 'error' of undefined"
+PASS when the sink throws during close, and the close is requested while a write is still in-flight, the stream should become errored during the close 
+PASS releaseLock on a stream with a pending write in which the stream has been errored 
+PASS releaseLock on a stream with a pending close in which the stream has been errored 
+FAIL when close is called on a WritableStream in writable state, ready should return a fulfilled promise assert_array_equals: write and abort should not be called lengths differ, expected 1 got 0
+PASS when close is called on a WritableStream in waiting state, ready promise should be fulfilled 
+FAIL when close is called on a WritableStream in waiting state, ready should be fulfilled immediately even if close takes a long time assert_array_equals: sink abort() should not be called lengths differ, expected 3 got 2
+PASS returning a thenable from close() should work 
+PASS releaseLock() should not change the result of sync close() 
+PASS releaseLock() should not change the result of async close() 
+PASS close() should set state to CLOSED even if writer has detached 
+PASS the promise returned by async abort during close should resolve 
+PASS promises must fulfill/reject in the expected order on closure 
+FAIL promises must fulfill/reject in the expected order on aborted closure assert_array_equals: promises must fulfill/reject in the expected order property 1, expected "closed" but got "abortPromise"
+FAIL promises must fulfill/reject in the expected order on aborted and errored closure assert_throws: writer.closed must reject with the error returned from the sink's close method function "function () { throw e }" threw object "TypeError: The stream is in the process of being aborted" ("TypeError") expected object "error1: error1" ("error1")
+Harness: the test ran to completion.
+

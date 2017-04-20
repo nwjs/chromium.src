@@ -1,0 +1,8 @@
+This is a testharness.js-based test.
+PASS Piping from a non-empty ReadableStream into a WritableStream that does not desire chunks 
+FAIL Piping from a non-empty ReadableStream into a WritableStream that does not desire chunks, but then does assert_array_equals: close must always be called with the controller lengths differ, expected 1 got 0
+FAIL Piping from an empty ReadableStream into a WritableStream that does not desire chunks, but then the readable stream becomes non-empty and the writable stream starts desiring chunks assert_array_equals: close must always be called with the controller lengths differ, expected 1 got 0
+FAIL Piping from a ReadableStream to a WritableStream that desires more chunks before finishing with previous ones assert_array_equals: close must always be called with the controller lengths differ, expected 1 got 0
+FAIL Piping to a WritableStream that does not consume the writes fast enough exerts backpressure on the ReadableStream assert_array_equals: close must always be called with the controller lengths differ, expected 1 got 0
+Harness: the test ran to completion.
+

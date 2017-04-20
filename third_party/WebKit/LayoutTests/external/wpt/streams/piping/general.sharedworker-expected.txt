@@ -1,0 +1,15 @@
+This is a testharness.js-based test.
+PASS Piping must lock both the ReadableStream and WritableStream 
+PASS Piping finishing must unlock both the ReadableStream and WritableStream 
+PASS pipeTo must check the brand of its ReadableStream this value 
+PASS pipeTo must check the brand of its WritableStream argument 
+PASS pipeTo must fail if the ReadableStream is locked, and not lock the WritableStream 
+PASS pipeTo must fail if the WritableStream is locked, and not lock the ReadableStream 
+PASS Piping from a ReadableStream from which lots of chunks are synchronously readable 
+FAIL Piping from a ReadableStream for which a chunk becomes asynchronously readable after the pipeTo assert_array_equals: close must always be called with the controller lengths differ, expected 1 got 0
+PASS an undefined rejection from pull should cause pipeTo() to reject when preventAbort is true 
+PASS an undefined rejection from pull should cause pipeTo() to reject when preventAbort is false 
+PASS an undefined rejection from write should cause pipeTo() to reject when preventCancel is true 
+PASS an undefined rejection from write should cause pipeTo() to reject when preventCancel is false 
+Harness: the test ran to completion.
+
