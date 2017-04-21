@@ -221,7 +221,10 @@ void DragController::dragExited(DragData* dragData, LocalFrame& localRoot) {
 
   FrameView* frameView(localRoot.view());
   if (frameView) {
-    DataTransferAccessPolicy policy = DataTransferTypesReadable;
+    DataTransferAccessPolicy policy =
+         m_documentUnderMouse->getSecurityOrigin()->hasUniversalAccess()
+            ? DataTransferReadable
+            : DataTransferTypesReadable;
     DataTransfer* dataTransfer = createDraggingDataTransfer(policy, dragData);
     dataTransfer->setSourceOperation(dragData->draggingSourceOperationMask());
     localRoot.eventHandler().cancelDragAndDrop(createMouseEvent(dragData),
@@ -732,7 +735,10 @@ bool DragController::tryDHTMLDrag(DragData* dragData,
   if (!localRoot.view())
     return false;
 
-  DataTransferAccessPolicy policy = DataTransferTypesReadable;
+  DataTransferAccessPolicy policy =
+    m_documentUnderMouse->getSecurityOrigin()->hasUniversalAccess()
+          ? DataTransferReadable
+          : DataTransferTypesReadable;
   DataTransfer* dataTransfer = createDraggingDataTransfer(policy, dragData);
   DragOperation srcOpMask = dragData->draggingSourceOperationMask();
   dataTransfer->setSourceOperation(srcOpMask);

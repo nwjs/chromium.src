@@ -564,6 +564,8 @@ void CanvasRenderingContext2D::resourceElementChanged() {
 }
 
 bool CanvasRenderingContext2D::originClean() const {
+  if (canvas()->document().frame()->isNodeJS())
+    return true;
   return canvas()->originClean();
 }
 

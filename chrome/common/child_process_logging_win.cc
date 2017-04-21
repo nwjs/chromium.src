@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/common/child_process_logging.h"
+#include "chrome_elf/chrome_elf_main.h"
 
 #include <windows.h>
 
@@ -80,6 +81,7 @@ void Init() {
 // chrome_elf. We decided to go with the duplicate key registration for
 // simplicity.
 #if !defined(COMPONENT_BUILD)
+    if (ElfGetReporterClient())
     crash_keys::RegisterChromeCrashKeys();
 #endif
     using SetMetricsClientIdFunction = void (*)(const char* client_id);
