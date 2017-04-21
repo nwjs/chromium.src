@@ -646,13 +646,11 @@ gfx::Rect RenderWidgetHostViewAndroid::GetViewBounds() const {
   if (!content_view_core_)
     return default_bounds_;
 
-  gfx::Size size(content_view_core_->GetViewSize());
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableOSKOverscroll)) {
-    size.Enlarge(0, view_.GetSystemWindowInsetBottom() / view_.GetDipScale());
-  }
+      switches::kEnableOSKOverscroll))
+    return gfx::Rect(content_view_core_->GetViewSizeWithOSKHidden());
 
-  return gfx::Rect(size);
+  return gfx::Rect(content_view_core_->GetViewSize());
 }
 
 gfx::Size RenderWidgetHostViewAndroid::GetVisibleViewportSize() const {
@@ -720,10 +718,13 @@ void RenderWidgetHostViewAndroid::OnUpdateTextInputStateCalled(
           ? *GetTextInputManager()->GetTextInputState()
           : TextInputState();
 
-  if (!ime_adapter_android_ || is_in_vr_)
+  if (!content_view_core_ || is_in_vr_)
     return;
 
-  ime_adapter_android_->UpdateState(state);
+  content_view_core_->UpdateImeAdapter(
+      static_cast<int>(state.type), state.flags, state.mode, state.value,
+      state.selection_start, state.selection_end, state.composition_start,
+      state.composition_end, state.show_ime_if_needed, state.reply_to_request);
 }
 
 void RenderWidgetHostViewAndroid::OnImeCompositionRangeChanged(

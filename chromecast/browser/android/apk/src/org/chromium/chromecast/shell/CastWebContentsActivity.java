@@ -27,6 +27,7 @@ import org.chromium.base.annotations.JNINamespace;
 import org.chromium.content.browser.ActivityContentVideoViewEmbedder;
 import org.chromium.content.browser.ContentVideoViewEmbedder;
 import org.chromium.content.browser.ContentView;
+import org.chromium.content.browser.ContentViewClient;
 import org.chromium.content.browser.ContentViewCore;
 import org.chromium.content.browser.ContentViewRenderView;
 import org.chromium.content_public.browser.WebContents;
@@ -52,6 +53,7 @@ public class CastWebContentsActivity extends Activity {
     private IntentFilter mWindowDestroyedIntentFilter;
     private FrameLayout mCastWebContentsLayout;
     private AudioManager mAudioManager;
+    private ContentViewClient mContentViewClient;
     private ContentViewRenderView mContentViewRenderView;
     private WindowAndroid mWindow;
     private ContentViewCore mContentViewCore;
@@ -339,6 +341,8 @@ public class CastWebContentsActivity extends Activity {
         mContentView = ContentView.createContentView(this, mContentViewCore);
         mContentViewCore.initialize(ViewAndroidDelegate.createBasicDelegate(mContentView),
                 mContentView, webContents, mWindow);
+        mContentViewClient = new ContentViewClient();
+        mContentViewCore.setContentViewClient(mContentViewClient);
         // Enable display of current webContents.
         if (getParent() != null) mContentViewCore.onShow();
         mCastWebContentsLayout.addView(

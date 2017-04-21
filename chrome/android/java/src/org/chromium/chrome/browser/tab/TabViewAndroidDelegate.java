@@ -39,11 +39,6 @@ class TabViewAndroidDelegate extends ViewAndroidDelegate {
     }
 
     @Override
-    public int getSystemWindowInsetBottom() {
-        return mTab.getSystemWindowInsetBottom();
-    }
-
-    @Override
     public ViewGroup getContainerView() {
         return mContainerView;
     }

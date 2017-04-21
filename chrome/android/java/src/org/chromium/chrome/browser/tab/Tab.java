@@ -90,10 +90,10 @@ import org.chromium.components.navigation_interception.InterceptNavigationDelega
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.content.browser.ChildProcessLauncher;
 import org.chromium.content.browser.ContentView;
+import org.chromium.content.browser.ContentViewClient;
 import org.chromium.content.browser.ContentViewCore;
 import org.chromium.content.browser.crypto.CipherFactory;
 import org.chromium.content_public.browser.GestureStateListener;
-import org.chromium.content_public.browser.ImeEventObserver;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.BrowserControlsState;
@@ -191,6 +191,7 @@ public class Tab
     private final ObserverList<TabObserver> mObservers = new ObserverList<>();
 
     // Content layer Observers and Delegates
+    private ContentViewClient mContentViewClient;
     private TabWebContentsObserver mWebContentsObserver;
     private TabWebContentsDelegateAndroid mWebContentsDelegate;
 
@@ -370,6 +371,31 @@ public class Tab
     /** Whether or not the tab closing the tab can send the user back to the app that opened it. */
     private boolean mIsAllowedToReturnToExternalApp;
 
+    private class TabContentViewClient extends ContentViewClient {
+        @Override
+        public void onImeEvent() {
+            // Some text was set in the page. Don't reuse it if a tab is
+            // open from the same external application, we might lose some
+            // user data.
+            mAppAssociatedWith = null;
+        }
+
+        @Override
+        public void onFocusedNodeEditabilityChanged(boolean editable) {
+            if (getFullscreenManager() == null) return;
+            updateFullscreenEnabledState();
+        }
+
+        @Override
+        public int getSystemWindowInsetBottom() {
+            ChromeActivity activity = getActivity();
+            if (activity != null && activity.getInsetObserverView() != null) {
+                return activity.getInsetObserverView().getSystemWindowInsetsBottom();
+            }
+            return 0;
+        }
+    }
+
     private GestureStateListener createGestureStateListener() {
         return new GestureStateListener() {
             @Override
@@ -495,6 +521,8 @@ public class Tab
             assert type == TabLaunchType.FROM_RESTORE;
             restoreFieldsFromState(frozenState);
         }
+
+        setContentViewClient(new TabContentViewClient());
 
         mTabRedirectHandler = new TabRedirectHandler(mThemedApplicationContext);
         addObserver(mTabObserver);
@@ -1070,6 +1098,26 @@ public class Tab
     }
 
     /**
+     * @param client The {@link ContentViewClient} to be bound to any current or new
+     *               {@link ContentViewCore}s associated with this {@link Tab}.
+     */
+    private void setContentViewClient(ContentViewClient client) {
+        if (mContentViewClient == client) return;
+
+        ContentViewClient oldClient = mContentViewClient;
+        mContentViewClient = client;
+
+        if (mContentViewCore == null) return;
+
+        if (mContentViewClient != null) {
+            mContentViewCore.setContentViewClient(mContentViewClient);
+        } else if (oldClient != null) {
+            // We can't set a null client, but we should clear references to the last one.
+            mContentViewCore.setContentViewClient(new ContentViewClient());
+        }
+    }
+
+    /**
      * Called on the foreground tab when the Activity showing the Tab gets started. This is called
      * on both cold and warm starts.
      */
@@ -1277,22 +1325,6 @@ public class Tab
             } else {
                 setContentViewCore(contentViewCore);
             }
-
-            mContentViewCore.addImeEventObserver(new ImeEventObserver() {
-                @Override
-                public void onImeEvent() {
-                    // Some text was set in the page. Don't reuse it if a tab is
-                    // open from the same external application, we might lose some
-                    // user data.
-                    mAppAssociatedWith = null;
-                }
-
-                @Override
-                public void onNodeAttributeUpdated(boolean editable, boolean password) {
-                    if (getFullscreenManager() == null) return;
-                    updateFullscreenEnabledState();
-                }
-            });
 
             if (!creatingWebContents && webContents.isLoadingToDifferentDocument()) {
                 didStartPageLoad(webContents.getUrl(), false);
@@ -1601,6 +1633,10 @@ public class Tab
             mWebContentsDelegate = mDelegateFactory.createWebContentsDelegate(this);
             mWebContentsObserver =
                     new TabWebContentsObserver(mContentViewCore.getWebContents(), this);
+
+            if (mContentViewClient != null) {
+                mContentViewCore.setContentViewClient(mContentViewClient);
+            }
 
             mDownloadDelegate = new ChromeDownloadDelegate(mThemedApplicationContext, this);
 
@@ -2792,15 +2828,6 @@ public class Tab
     @VisibleForTesting
     public boolean hasPrerenderedUrl(String url) {
         return nativeHasPrerenderedUrl(mNativeTabAndroid, url);
-    }
-
-    @VisibleForTesting
-    public int getSystemWindowInsetBottom() {
-        ChromeActivity activity = getActivity();
-        if (activity != null && activity.getInsetObserverView() != null) {
-            return activity.getInsetObserverView().getSystemWindowInsetsBottom();
-        }
-        return 0;
     }
 
     /**

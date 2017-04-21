@@ -687,6 +687,22 @@ ScopedJavaLocalRef<jobject> ContentViewCoreImpl::GetContext() const {
   return Java_ContentViewCore_getContext(env, obj);
 }
 
+gfx::Size ContentViewCoreImpl::GetViewSizeWithOSKHidden() const {
+  gfx::Size size_pix;
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> j_obj = java_ref_.get(env);
+  if (j_obj.is_null())
+    return size_pix = gfx::Size();
+  size_pix = gfx::Size(
+      Java_ContentViewCore_getViewportWidthPix(env, j_obj),
+      Java_ContentViewCore_getViewportHeightWithOSKHiddenPix(env, j_obj));
+
+  gfx::Size size_dip = gfx::ScaleToCeiledSize(size_pix, 1.0f / dpi_scale());
+  if (DoBrowserControlsShrinkBlinkSize())
+    size_dip.Enlarge(0, -GetTopControlsHeightDip());
+  return size_dip;
+}
+
 gfx::Size ContentViewCoreImpl::GetViewSize() const {
   gfx::Size size = GetViewportSizeDip();
   if (DoBrowserControlsShrinkBlinkSize())
@@ -1074,6 +1090,28 @@ void ContentViewCoreImpl::WasResized(JNIEnv* env,
   GetViewAndroid()->GetLayer()->SetBounds(physical_size);
 
   SendScreenRectsAndResizeWidget();
+}
+
+void ContentViewCoreImpl::UpdateImeAdapter(int text_input_type,
+                                           int text_input_flags,
+                                           int text_input_mode,
+                                           const std::string& text,
+                                           int selection_start,
+                                           int selection_end,
+                                           int composition_start,
+                                           int composition_end,
+                                           bool show_ime_if_needed,
+                                           bool reply_to_request) {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (obj.is_null())
+    return;
+
+  ScopedJavaLocalRef<jstring> jstring_text = ConvertUTF8ToJavaString(env, text);
+  Java_ContentViewCore_updateImeAdapter(
+      env, obj, text_input_type, text_input_flags, text_input_mode,
+      jstring_text, selection_start, selection_end, composition_start,
+      composition_end, show_ime_if_needed, reply_to_request);
 }
 
 void ContentViewCoreImpl::SetAccessibilityEnabled(
