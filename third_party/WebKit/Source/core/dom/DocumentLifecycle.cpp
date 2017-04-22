@@ -250,7 +250,7 @@ bool DocumentLifecycle::CanAdvanceTo(LifecycleState next_state) const {
       if (!RuntimeEnabledFeatures::slimmingPaintV2Enabled() &&
           next_state == kInCompositingUpdate)
         return true;
-      if (RuntimeEnabledFeatures::slimmingPaintV2Enabled() &&
+      if (RuntimeEnabledFeatures::slimmingPaintInvalidationEnabled() &&
           next_state == kInPrePaint)
         return true;
       break;
@@ -266,7 +266,7 @@ bool DocumentLifecycle::CanAdvanceTo(LifecycleState next_state) const {
       if (!RuntimeEnabledFeatures::slimmingPaintV2Enabled() &&
           next_state == kInCompositingUpdate)
         return true;
-      if (RuntimeEnabledFeatures::slimmingPaintV2Enabled() &&
+      if (RuntimeEnabledFeatures::slimmingPaintInvalidationEnabled() &&
           next_state == kInPrePaint)
         return true;
       break;
