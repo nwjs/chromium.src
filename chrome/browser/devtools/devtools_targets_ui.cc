@@ -18,7 +18,6 @@
 #include "base/values.h"
 #include "base/version.h"
 #include "chrome/browser/devtools/device/devtools_android_bridge.h"
-#include "chrome/browser/devtools/serialize_host_descriptions.h"
 #include "content/public/browser/browser_child_process_observer.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_data.h"
@@ -234,18 +233,35 @@ void LocalTargetsUIHandler::UpdateTargets() {
 
 void LocalTargetsUIHandler::SendTargets(
     const content::DevToolsAgentHost::List& targets) {
-  std::vector<HostDescriptionNode> hosts;
-  hosts.reserve(targets.size());
+  base::ListValue list_value;
+  std::map<std::string, base::DictionaryValue*> id_to_descriptor;
 
   targets_.clear();
-  for (const scoped_refptr<DevToolsAgentHost>& host : targets) {
+  for (scoped_refptr<DevToolsAgentHost> host : targets) {
     targets_[host->GetId()] = host;
-    hosts.push_back(
-        {host->GetId(), host->GetParentId(), *Serialize(host.get())});
+    id_to_descriptor[host->GetId()] = Serialize(host).release();
   }
 
-  SendSerializedTargets(
-      SerializeHostDescriptions(std::move(hosts), kGuestList));
+  for (auto& it : targets_) {
+    scoped_refptr<DevToolsAgentHost> host = it.second;
+    base::DictionaryValue* descriptor = id_to_descriptor[host->GetId()];
+    DCHECK(descriptor);
+    std::string parent_id = host->GetParentId();
+    if (parent_id.empty() || id_to_descriptor.count(parent_id) == 0) {
+      list_value.Append(base::WrapUnique(descriptor));
+    } else {
+      base::DictionaryValue* parent = id_to_descriptor[parent_id];
+      base::ListValue* guests_weak = NULL;
+      if (!parent->GetList(kGuestList, &guests_weak)) {
+        auto guests = base::MakeUnique<base::ListValue>();
+        guests_weak = guests.get();
+        parent->Set(kGuestList, std::move(guests));
+      }
+      guests_weak->Append(base::WrapUnique(descriptor));
+    }
+  }
+
+  SendSerializedTargets(list_value);
 }
 
 // AdbTargetsUIHandler --------------------------------------------------------
@@ -353,8 +369,7 @@ void AdbTargetsUIHandler::DeviceListChanged(
       remote_browsers_[browser_id] = browser;
       for (const auto& page : browser->pages()) {
         scoped_refptr<DevToolsAgentHost> host = page->CreateTarget();
-        std::unique_ptr<base::DictionaryValue> target_data =
-            Serialize(host.get());
+        std::unique_ptr<base::DictionaryValue> target_data = Serialize(host);
         // Pass the screen size in the target object to make sure that
         // the caching logic does not prevent the target item from updating
         // when the screen size changes.
@@ -423,7 +438,7 @@ DevToolsTargetsUIHandler::GetBrowserAgentHost(const std::string& browser_id) {
 }
 
 std::unique_ptr<base::DictionaryValue> DevToolsTargetsUIHandler::Serialize(
-    DevToolsAgentHost* host) {
+    scoped_refptr<DevToolsAgentHost> host) {
   auto target_data = base::MakeUnique<base::DictionaryValue>();
   target_data->SetString(kTargetSourceField, source_id_);
   target_data->SetString(kTargetIdField, host->GetId());
