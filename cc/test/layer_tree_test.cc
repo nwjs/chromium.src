@@ -358,6 +358,8 @@ class LayerTreeHostClientForTesting : public LayerTreeHostClient,
     test_hooks_->BeginMainFrameNotExpectedSoon();
   }
 
+  bool IsForSubframe() override { return false; }
+
  private:
   explicit LayerTreeHostClientForTesting(TestHooks* test_hooks)
       : test_hooks_(test_hooks) {}
