@@ -451,7 +451,7 @@ class CORE_EXPORT HTMLMediaElement
   void ClearMediaPlayer();
   void ClearMediaPlayerAndAudioSourceProviderClientWithoutLocking();
   bool HavePotentialSourceChild();
-  void NoneSupported();
+  void NoneSupported(const String&);
   void MediaEngineError(MediaError*);
   void CancelPendingEventsAndCallbacks();
   void WaitForSourceChange();
@@ -459,7 +459,7 @@ class CORE_EXPORT HTMLMediaElement
 
   KURL SelectNextSourceChild(String* content_type, InvalidURLAction);
 
-  void MediaLoadingFailed(WebMediaPlayer::NetworkState);
+  void MediaLoadingFailed(WebMediaPlayer::NetworkState, const String&);
 
   // deferred loading (preload=none)
   bool LoadIsDeferred() const;

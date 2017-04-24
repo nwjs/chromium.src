@@ -221,6 +221,19 @@ void RemoveElementFromDocumentMap(HTMLMediaElement* element,
     map.erase(it);
 }
 
+String BuildElementErrorMessage(const String& error) {
+  // Prepend a UA-specific-error code before the first ':', to enable better
+  // collection and aggregation of UA-specific-error codes from
+  // MediaError.message by web apps. WebMediaPlayer::GetErrorMessage() should
+  // similarly conform to this format.
+  DEFINE_STATIC_LOCAL(const String, element_error_prefix,
+                      ("MEDIA_ELEMENT_ERROR: "));
+  StringBuilder builder;
+  builder.Append(element_error_prefix);
+  builder.Append(error);
+  return builder.ToString();
+}
+
 class AudioSourceProviderClientLockScope {
   STACK_ALLOCATED();
 
@@ -1115,15 +1128,18 @@ void HTMLMediaElement::LoadSourceFromAttribute() {
   // If the src attribute's value is the empty string ... jump down to the
   // failed step below
   if (src_value.IsEmpty()) {
-    MediaLoadingFailed(WebMediaPlayer::kNetworkStateFormatError);
-    BLINK_MEDIA_LOG << "loadSourceFromAttribute(" << (void*)this
+    BLINK_MEDIA_LOG << "LoadSourceFromAttribute(" << (void*)this
                     << "), empty 'src'";
+    MediaLoadingFailed(WebMediaPlayer::kNetworkStateFormatError,
+                       BuildElementErrorMessage("Empty src attribute"));
     return;
   }
 
   KURL media_url = GetDocument().CompleteURL(src_value);
   if (!IsSafeToLoadURL(media_url, kComplain)) {
-    MediaLoadingFailed(WebMediaPlayer::kNetworkStateFormatError);
+    MediaLoadingFailed(
+        WebMediaPlayer::kNetworkStateFormatError,
+        BuildElementErrorMessage("Media load rejected by URL safety check"));
     return;
   }
 
@@ -1160,7 +1176,9 @@ void HTMLMediaElement::LoadResource(const WebMediaPlayerSource& source,
 
   LocalFrame* frame = GetDocument().GetFrame();
   if (!frame) {
-    MediaLoadingFailed(WebMediaPlayer::kNetworkStateFormatError);
+    MediaLoadingFailed(WebMediaPlayer::kNetworkStateFormatError,
+                       BuildElementErrorMessage(
+                           "Resource load failure: document has no frame"));
     return;
   }
 
@@ -1218,7 +1236,11 @@ void HTMLMediaElement::LoadResource(const WebMediaPlayerSource& source,
       StartPlayerLoad();
     }
   } else {
-    MediaLoadingFailed(WebMediaPlayer::kNetworkStateFormatError);
+    MediaLoadingFailed(
+        WebMediaPlayer::kNetworkStateFormatError,
+        BuildElementErrorMessage(attempt_load
+                                     ? "Unable to load URL due to content type"
+                                     : "Unable to attach MediaSource"));
   }
 
   // If there is no poster to display, allow the media engine to render video
@@ -1264,14 +1286,18 @@ void HTMLMediaElement::StartPlayerLoad(const KURL& player_provided_url) {
   // TODO(srirama.m): Figure out how frame can be null when
   // coming from executeDeferredLoad()
   if (!frame) {
-    MediaLoadingFailed(WebMediaPlayer::kNetworkStateFormatError);
+    MediaLoadingFailed(
+        WebMediaPlayer::kNetworkStateFormatError,
+        BuildElementErrorMessage("Player load failure: document has no frame"));
     return;
   }
 
   web_media_player_ =
       frame->Loader().Client()->CreateWebMediaPlayer(*this, source, this);
   if (!web_media_player_) {
-    MediaLoadingFailed(WebMediaPlayer::kNetworkStateFormatError);
+    MediaLoadingFailed(WebMediaPlayer::kNetworkStateFormatError,
+                       BuildElementErrorMessage(
+                           "Player load failure: error creating media player"));
     return;
   }
 
@@ -1514,8 +1540,9 @@ void HTMLMediaElement::WaitForSourceChange() {
     GetLayoutObject()->UpdateFromElement();
 }
 
-void HTMLMediaElement::NoneSupported() {
-  BLINK_MEDIA_LOG << "noneSupported(" << (void*)this << ")";
+void HTMLMediaElement::NoneSupported(const String& message) {
+  BLINK_MEDIA_LOG << "NoneSupported(" << (void*)this << ", message='" << message
+                  << "')";
 
   StopPeriodicTimers();
   load_state_ = kWaitingForSource;
@@ -1526,7 +1553,7 @@ void HTMLMediaElement::NoneSupported() {
 
   // 1 - Set the error attribute to a new MediaError object whose code attribute
   // is set to MEDIA_ERR_SRC_NOT_SUPPORTED.
-  error_ = MediaError::Create(MediaError::kMediaErrSrcNotSupported);
+  error_ = MediaError::Create(MediaError::kMediaErrSrcNotSupported, message);
 
   // 2 - Forget the media element's media-resource-specific text tracks.
   ForgetResourceSpecificTracks();
@@ -1595,7 +1622,12 @@ void HTMLMediaElement::NetworkStateChanged() {
   SetNetworkState(GetWebMediaPlayer()->GetNetworkState());
 }
 
-void HTMLMediaElement::MediaLoadingFailed(WebMediaPlayer::NetworkState error) {
+void HTMLMediaElement::MediaLoadingFailed(WebMediaPlayer::NetworkState error,
+                                          const String& message) {
+  BLINK_MEDIA_LOG << "MediaLoadingFailed(" << (void*)this << ", "
+                  << static_cast<int>(error) << ", message='" << message
+                  << "')";
+
   StopPeriodicTimers();
 
   // If we failed while trying to load a <source> element, the movie was never
@@ -1635,13 +1667,21 @@ void HTMLMediaElement::MediaLoadingFailed(WebMediaPlayer::NetworkState error) {
 
   if (error == WebMediaPlayer::kNetworkStateNetworkError &&
       ready_state_ >= kHaveMetadata) {
-    MediaEngineError(MediaError::Create(MediaError::kMediaErrNetwork));
+    MediaEngineError(MediaError::Create(MediaError::kMediaErrNetwork, message));
   } else if (error == WebMediaPlayer::kNetworkStateDecodeError) {
-    MediaEngineError(MediaError::Create(MediaError::kMediaErrDecode));
+    MediaEngineError(MediaError::Create(MediaError::kMediaErrDecode, message));
   } else if ((error == WebMediaPlayer::kNetworkStateFormatError ||
               error == WebMediaPlayer::kNetworkStateNetworkError) &&
              load_state_ == kLoadingFromSrcAttr) {
-    NoneSupported();
+    if (message.IsEmpty()) {
+      // Generate a more meaningful error message to differentiate the two types
+      // of MEDIA_SRC_ERR_NOT_SUPPORTED.
+      NoneSupported(BuildElementErrorMessage(
+          error == WebMediaPlayer::kNetworkStateFormatError ? "Format error"
+                                                            : "Network error"));
+    } else {
+      NoneSupported(message);
+    }
   }
 
   UpdateDisplayState();
@@ -1661,7 +1701,7 @@ void HTMLMediaElement::SetNetworkState(WebMediaPlayer::NetworkState state) {
   if (state == WebMediaPlayer::kNetworkStateFormatError ||
       state == WebMediaPlayer::kNetworkStateNetworkError ||
       state == WebMediaPlayer::kNetworkStateDecodeError) {
-    MediaLoadingFailed(state);
+    MediaLoadingFailed(state, web_media_player_->GetErrorMessage());
     return;
   }
 
