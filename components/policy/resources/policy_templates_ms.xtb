@@ -6,6 +6,30 @@
       Jika ditetapkan kepada Palsu, kemas kini kepada komponen akan dilumpuhkan. Walau bagaimanapun, sesetengah komponen dikecualikan daripada dasar ini: kemas kini kepada mana-mana komponen yang tidak mengandungi kod boleh laksana atau tidak mengubah gelagat penyemak imbas dengan ketara atau yang penting untuk keselamatannya tidak akan dilumpuhkan.
 
 Contoh komponen seperti itu termasuk senarai pembatalan sijil dan data semakan imbas selamat. </translation>
+<translation id="1010564225363223332">Mengkonfigurasi senarai pencetak.
+
+      Dasar ini membolehkan pentadbir menyediakan konfigurasi pencetak untuk
+      pengguna mereka.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> dan <ph name="PRINTER_DESCRIPTION" /> ialah rentetan berbentuk bebas yang
+      boleh disesuaikan untuk memudahkan pemilihan pencetak. <ph name="PRINTER_MANUFACTURER" /> dan <ph name="PRINTER_MODEL" /> berfungsi untuk memudahkan pengenalan pencetak oleh
+      pengguna akhir. Maklumat ini mewakili pengeluar dan model pencetak. <ph name="PRINTER_URI" /> ialah alamat yang boleh dicapai
+      daripada komputer pelanggan termasuk <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> dan <ph name="URI_QUEUE" />.  <ph name="PRINTER_UUID" /> diberi sebagai pilihan.  Jika diberikan, maklumat ini digunakan untuk
+      membantu dalam menyahgandaduaan pencetak <ph name="ZEROCONF_DISCOVERY" />.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> mesti sepadan dengan satu daripada
+      rentetan yang mewakili pencetak yang disokong <ph name="PRODUCT_NAME" />. Rentetan akan digunakan untuk mengenal pasti dan
+      memasang PPD yang sesuai untuk pencetak. Maklumat lanjut boleh 
+      didapati di https://support.google.com/chrome?p=noncloudprint.
+
+      Penyediaan pencetak selesai apabila pencetak digunakan untuk kali pertama.  PPD tidak
+      dimuat turun sehingga pencetak digunakan.  Selepas itu, PPD yang kerap
+      digunakan akan dicache.
+
+      Dasar ini tidak memberi kesan terhadap sama ada pengguna boleh mengkonfigurasi pencetak pada
+      peranti berasingan.  Dasar ini bertujuan sebagai konfigurasi
+      tambahan pencetak mengikut pengguna individu.</translation>
 <translation id="101438888985615157">Putar skrin 180 darjah</translation>
 <translation id="1017967144265860778">Pengurusan kuasa pada skrin log masuk</translation>
 <translation id="1019101089073227242">Tetapkan direktori data pengguna</translation>
@@ -1400,6 +1424,10 @@ Contoh komponen seperti itu termasuk senarai pembatalan sijil dan data semakan i
 <translation id="5148753489738115745">Membolehkan anda menentukan parameter tambahan yang digunakan apabila  <ph name="PRODUCT_FRAME_NAME" /> melancarkan <ph name="PRODUCT_NAME" />.
 
           Jika dasar ini tidak ditetapkan, baris perintah lalai akan digunakan.</translation>
+<translation id="5159469559091666409">Kekerapan bingkisan rangkaian pemantauan dihantar dalam milisaat.
+
+      Jika dasar ini tidak ditetapkan, selang masa lalai ialah 3 minit.. Selang masa      minimum ialah 30 saat dan selang masa maksimum ialah 24 jam - nilai
+      di luar daripada julat ini akan dikekalkan kepada julat ini.</translation>
 <translation id="5182055907976889880">Konfigurasi Google Drive dalam <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Membenarkan anda untuk menentukan sambungan yang tidak tertakluk dengan senarai hitam. Nilai senarai hitam bagi * bermakna semua sambungan disenaraihitamkan dan pengguna hanya boleh memasang sambungan yang disenaraikan dalam senarai putih. Secara lalai, semua sambungan adalah disenaraiputihkan, tetapi jika semua sambungan disenaraihitamkan oleh dasar, senarai putih boleh digunakan untuk membatalkan dasar tersebut.</translation>
 <translation id="5192837635164433517">Membolehkan penggunaan halaman ralat ganti yang terbina dalam <ph name="PRODUCT_NAME" /> (seperti 'halaman tidak dijumpai') dan menghalang pengguna daripada mengubah tetapan ini.

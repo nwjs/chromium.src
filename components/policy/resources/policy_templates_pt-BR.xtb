@@ -17,7 +17,7 @@
       <ph name="URI_PORT" /> e <ph name="URI_QUEUE" />.  <ph name="PRINTER_UUID" /> é opcional. Caso seja fornecido, será usado para
       ajudar a eliminar a duplicação de impressoras <ph name="ZEROCONF_DISCOVERY" />.
 
-      <ph name="PRINTER_EFFECTIVE_MODEL" /> deve corresponder a uma das
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> precisa corresponder a uma das
       strings que representam uma impressora <ph name="PRODUCT_NAME" /> compatível. A string será usada para identificar e
       instalar o PPD apropriado para a impressora. Veja outras informações
       em https://support.google.com/chrome?p=noncloudprint.

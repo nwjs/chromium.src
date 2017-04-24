@@ -27,6 +27,7 @@
 フィジカル ウェブを使用するには、Bluetooth と現在地機能をオンにする必要があります。</translation>
 <translation id="124678866338384709">現在のタブを閉じる</translation>
 <translation id="1258753120186372309">Google Doodle: <ph name="DOODLE_DESCRIPTION" /></translation>
+<translation id="1265597927250775944">履歴とアドレスバーの候補を削除します。</translation>
 <translation id="1272079795634619415">中止</translation>
 <translation id="1283039547216852943">タップして展開</translation>
 <translation id="1285320974508926690">このサイトは翻訳しない</translation>
@@ -35,6 +36,7 @@
 <translation id="1303671224831497365">Bluetooth デバイスが見つかりませんでした</translation>
 <translation id="1326317727527857210">他の端末と同じタブを使用するには、Chrome にログインします。</translation>
 <translation id="1332501820983677155">Google Chrome 機能のショートカット</translation>
+<translation id="1339917386316755344">ほとんどのサイトからログアウトします。Google アカウントへのログイン状態は維持されます。</translation>
 <translation id="1369915414381695676">サイト <ph name="SITE_NAME" /> を追加しました</translation>
 <translation id="1373696734384179344">選択したコンテンツをダウンロードするにはメモリが不足しています。</translation>
 <translation id="1376578503827013741">計算中...</translation>
@@ -255,6 +257,7 @@
 <translation id="3859306556332390985">前方にシーク再生</translation>
 <translation id="3894427358181296146">フォルダの追加</translation>
 <translation id="3895926599014793903">強制的にズームを有効にする</translation>
+<translation id="3915590178385207649">ログイン中のすべての端末から履歴を削除します。その他のアクティビティは Google アカウント（<ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />）で確認できます。</translation>
 <translation id="3917783807003067648">位置情報はブロック</translation>
 <translation id="3927692899758076493">Sans Serif</translation>
 <translation id="3928666092801078803">データを統合する</translation>
@@ -265,6 +268,7 @@
 <translation id="395922942268463099">ページは定期的に更新されます</translation>
 <translation id="3967822245660637423">ダウンロード完了</translation>
 <translation id="397583555483684758">同期は停止されました</translation>
+<translation id="3976396876660209797">このショートカットを削除して再度作成します</translation>
 <translation id="3985215325736559418"><ph name="FILE_NAME" /> をもう一度ダウンロードしますか？</translation>
 <translation id="3987993985790029246">リンクのコピー</translation>
 <translation id="3988213473815854515">位置情報は許可</translation>
@@ -423,6 +427,7 @@
 <translation id="5626134646977739690">名前:</translation>
 <translation id="5639724618331995626">すべてのサイトを許可</translation>
 <translation id="5646376287012673985">現在地</translation>
+<translation id="5648166631817621825">過去 7 日間</translation>
 <translation id="5655963694829536461">ダウンロードしたアイテムを検索</translation>
 <translation id="5659593005791499971">メール</translation>
 <translation id="5665379678064389456"><ph name="APP_NAME" /> で予定を作成</translation>
@@ -558,6 +563,7 @@
 <translation id="6965382102122355670">OK</translation>
 <translation id="6973630695168034713">フォルダ</translation>
 <translation id="6978479750597523876">翻訳設定をリセット</translation>
+<translation id="6979737339423435258">全期間</translation>
 <translation id="6981982820502123353">ユーザー補助機能</translation>
 <translation id="6985347914332179298">ここにダウンロードしたアイテムはありません</translation>
 <translation id="6990079615885386641">Google Play ストアからアプリを入手: <ph name="APP_ACTION" /></translation>
@@ -575,6 +581,7 @@
 <translation id="7128222689758636196">現在の検索エンジンを許可する</translation>
 <translation id="7138678301420049075">その他</translation>
 <translation id="7144878232160441200">再読み込み</translation>
+<translation id="7149893636342594995">過去 24 時間</translation>
 <translation id="7180611975245234373">更新</translation>
 <translation id="7189372733857464326">Google Play 開発者サービスの更新完了を待機しています</translation>
 <translation id="7191430249889272776">バックグラウンドでタブを開きました。</translation>
@@ -593,6 +600,7 @@
 <translation id="7423098979219808738">最初に確認する</translation>
 <translation id="7437998757836447326">Chromeからログアウト</translation>
 <translation id="7445411102860286510">ミュートされた動画の自動再生をサイトに許可する（推奨）</translation>
+<translation id="7449574997654022410">履歴とアドレスバーの候補を削除します。その他のアクティビティは Google アカウント（<ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />）で確認できます。</translation>
 <translation id="7464701184726199289">すべての端末から同期データを消去します。保存済みのサイト設定は削除されず、普段の閲覧行動を反映した設定などが残る場合があります。<ph name="BEGIN_LINK" />詳細<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">スキップ</translation>
 <translation id="7475192538862203634">このメッセージが繰り返し表示される場合は、こちらの<ph name="BEGIN_LINK" />ヒント<ph name="END_LINK" />をお試しください。</translation>
@@ -634,6 +642,7 @@
 <translation id="7829298379596169484">音声入力にアクセスしています</translation>
 <translation id="7837721118676387834">特定のサイトに対し、ミュートされた動画の自動再生を許可します。</translation>
 <translation id="7846076177841592234">選択解除</translation>
+<translation id="784934925303690534">期間</translation>
 <translation id="7851858861565204677">その他のデバイス</translation>
 <translation id="7875915731392087153">メールを作成</translation>
 <translation id="7876243839304621966">すべて削除</translation>
@@ -713,6 +722,7 @@
 <translation id="8639651215196239211">すべてのダウンロード</translation>
 <translation id="8641930654639604085">成人向けのサイトを可能な限りブロックする</translation>
 <translation id="8660471606262461360">Google ペイメントから取得</translation>
+<translation id="8662811608048051533">ほとんどのサイトからログアウトします。</translation>
 <translation id="8676374126336081632">入力内容を消去</translation>
 <translation id="869891660844655955">有効期限</translation>
 <translation id="8719023831149562936">現在のタブはビームできません</translation>

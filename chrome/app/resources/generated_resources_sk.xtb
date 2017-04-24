@@ -868,7 +868,7 @@ Do úplného nabitia zostáva: <ph name="HOUR" />:<ph name="MINUTE" /></translat
 <translation id="2241634353105152135">Iba raz</translation>
 <translation id="2242603986093373032">Žiadne zariadenia</translation>
 <translation id="2242687258748107519">Informácie o súbore</translation>
-<translation id="2245240762616536227">Ovládajte, ako história prehliadania prispôsobuje Vyhľadávanie, reklamy a ďalšie služby Google</translation>
+<translation id="2245240762616536227">Ovládajte, ako história prehliadania prispôsobuje vyhľadávanie, reklamy a ďalšie služby Google</translation>
 <translation id="2246340272688122454">Sťahuje sa obraz na obnovenie...</translation>
 <translation id="2249499294612408921">Kontrolovaný používateľ môže skúmať web pod vaším dohľadom. Ako správca kontrolovaného používateľa v prehliadači Chrome môžete
 
@@ -5506,7 +5506,7 @@ Nasledujúce upozornenia, okná a dialógové okná sa môžu zobraziť rozdele
 <translation id="9188441292293901223">Ak chcete odomknúť toto zariadenie <ph name="DEVICE_TYPE" />, aktualizujte svoj telefón na novšiu verziu Androidu.</translation>
 <translation id="9189690067274055051">Ak chcete získať prístup do zariadenia <ph name="DEVICE_TYPE" />, odomknite svoj telefón a priblížte ho k nemu.</translation>
 <translation id="9190063653747922532">L2TP/IPSec + predzdieľaný kľúč</translation>
-<translation id="920045321358709304">Hľadať vo vyhľadávači <ph name="SEARCH_ENGINE" /></translation>
+<translation id="920045321358709304">Hľadať vyhľadávačom <ph name="SEARCH_ENGINE" /></translation>
 <translation id="9201305942933582053">Google Now pre prehliadač Chrome!</translation>
 <translation id="9203398526606335860">&amp;Profilovanie povolené</translation>
 <translation id="9203478404496196495">Obnoviť zvuk karty</translation>

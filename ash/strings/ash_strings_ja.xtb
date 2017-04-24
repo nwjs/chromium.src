@@ -48,6 +48,7 @@
 <translation id="2391579633712104609">180°</translation>
 <translation id="2429753432712299108">Bluetooth デバイス「<ph name="DEVICE_NAME" />」がペア設定の権限をリクエストしています。許可するにあたっては、このデバイスで次のパスキーが表示されることを確認してください: <ph name="PASSKEY" /></translation>
 <translation id="2475982808118771221">エラーが発生しました</translation>
+<translation id="2501920221385095727">固定キー</translation>
 <translation id="2509468283778169019">Caps Lock がオンになっています</translation>
 <translation id="2532589005999780174">ハイコントラスト モード</translation>
 <translation id="2700058918926273959">セッション終了まであと <ph name="SESSION_TIME_REMAINING" />です。終了するとログアウトします。</translation>
@@ -146,6 +147,7 @@
 <translation id="5571066253365925590">Bluetooth オン</translation>
 <translation id="5597451508971090205"><ph name="DATE" /> (<ph name="SHORT_WEEKDAY" />)</translation>
 <translation id="5648021990716966815">マイク差込口</translation>
+<translation id="5744083938413354016">タップによるドラッグ</translation>
 <translation id="5777841717266010279">画面の共有を解除しますか？</translation>
 <translation id="57838592816432529">ミュート</translation>
 <translation id="5895138241574237353">再起動</translation>

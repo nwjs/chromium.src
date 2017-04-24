@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">Откривена је промена на мрежи.</translation>
 <translation id="2916038427272391327">Затворите друге програме</translation>
 <translation id="2922350208395188000">Није могуће проверити сертификат сервера.</translation>
+<translation id="2928905813689894207">Адреса за обрачун</translation>
 <translation id="2948083400971632585">На страници Подешавања можете да онемогућите све проксије конфигурисане за везу.</translation>
 <translation id="2955913368246107853">Затворите траку за проналажење</translation>
 <translation id="2958431318199492670">Конфигурација мреже није у складу са ONC стандардом. Делови конфигурације не могу да се увезу.</translation>
@@ -529,6 +530,7 @@
 <translation id="6151417162996330722">Сертификат сервера има предугачак период важења.</translation>
 <translation id="6165508094623778733">Сазнајте више</translation>
 <translation id="6177128806592000436">Веза са овим сајтом није безбедна</translation>
+<translation id="6184817833369986695">(кохорта: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">Проверите интернет везу</translation>
 <translation id="6218753634732582820">Желите ли да уклоните адресу из Chromium-а?</translation>
 <translation id="6251924700383757765">Политика приватности</translation>
@@ -626,6 +628,7 @@
 <translation id="7180611975245234373">Освежи</translation>
 <translation id="7182878459783632708">Нису подешене никакве смернице</translation>
 <translation id="7186367841673660872">Ова страница је преведена са језика:<ph name="ORIGINAL_LANGUAGE" />на<ph name="LANGUAGE_LANGUAGE" /></translation>
+<translation id="7192203810768312527">Ослободиће се <ph name="SIZE" />. Неки сајтови ће се спорије учитавати при следећој посети.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423">Хост <ph name="HOST_NAME" /> не поштује безбедносне стандарде.</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />Сазнајте више<ph name="END_LINK" /> о овом проблему.</translation>

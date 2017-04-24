@@ -5,6 +5,30 @@
 
       Kui see on seatud väärtusele Väär, keelatakse komponentide värskendused. Reegel ei kehti aga teatud komponentide puhul: see ei keela komponendi värskendamist, kui see ei sisalda käivitatavat koodi, ei muuda brauseri käitumist märkimisväärselt või on turvalisuse seisukohalt kriitiline.
       Need komponendid on näiteks sertifikaaditühistusloendid ja ohutu sirvimise andmed. </translation>
+<translation id="1010564225363223332">Seadistab printerite loendi.
+
+      See reegel võimaldab administraatoritel kasutajatele printerite seadistusi
+      pakkuda.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> ja <ph name="PRINTER_DESCRIPTION" /> on vabas vormis stringid, mida saab
+      printeri valimise hõlbustamiseks kohandada. <ph name="PRINTER_MANUFACTURER" /> ja <ph name="PRINTER_MODEL" /> lihtsustavad printeri tuvastamist
+      lõppkasutajatele. Need näitavad printeri tootjat ja mudelit. URI <ph name="PRINTER_URI" /> peab olema aadress, mida saab
+      külastada klientarvutist (sh <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> ja <ph name="URI_QUEUE" />). <ph name="PRINTER_UUID" /> on valikuline. Selle olemasolul aitab see seadistus
+      <ph name="ZEROCONF_DISCOVERY" /> printerite duplikaate eemaldada.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> peab ühtima mõne stringiga,
+      mis esindab teenuses <ph name="PRODUCT_NAME" /> toetatud printerit. Stringi kasutatakse printeri vastava
+      PPD tuvastamiseks ja installimiseks. Lisateavet leiate
+      aadressilt https://support.google.com/chrome?p=noncloudprint.
+
+      Printeri seadistus viiakse lõpule printeri esimesel kasutuskorral. PPD-sid ei laadita
+      alla enne, kui printerit kasutatakse. Pärast seda salvestatakse sageli kasutatud
+      PPD-d vahemällu.
+
+      Reegel ei mõjuta seda, kas kasutajad saavad individuaalsetes seadmetes
+      printereid seadistada. See on mõeldud individuaalsete kasutajate
+      printerite seadistusi täiendama.</translation>
 <translation id="101438888985615157">Ekraani pööramine 180 kraadi</translation>
 <translation id="1017967144265860778">Toitehaldus sisselogimiskuval</translation>
 <translation id="1019101089073227242">Kasutaja andmete kataloogi määramine</translation>
@@ -1384,6 +1408,11 @@
 <translation id="5148753489738115745">Võimaldab teil määrata täiendavad parameetrid, mida kasutatakse siis, kui <ph name="PRODUCT_FRAME_NAME" /> käivitab rakenduse <ph name="PRODUCT_NAME" />.
 
           Kui jätate eeskirjad määramata, siis kasutatakse vaikekäsurida.</translation>
+<translation id="5159469559091666409">Jälgitavate võrgupakettide saatmise sagedus (millisekundites).
+
+      Kui see reegel on määramata, on vaikeintervall kolm minutit. Minimaalne
+      intervall on 30 sekundit ja maksimaalne intervall on 24 tundi – vahemikust
+      väljapoole jäävad väärtused surutakse sellesse vahemikku.</translation>
 <translation id="5182055907976889880">Google Drive'i seadistamine teenuses <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Võimaldab määrata, millised laiendused ei kuulu musta nimekirja. Musta nimekirja väärtus * tähendab, et kõik laiendused on mustas nimekirjas ja kasutajad saavad installida vaid lubatud nimekirjas olevaid laiendusi. Vaikimisi on kõik laiendused lubatud nimekirjas, kuid kui kõik laiendused on reegliga musta nimekirja kantud, saab lubatud nimekirjaga seda reeglit alistada.</translation>
 <translation id="5192837635164433517">Lubab alternatiivsed vealehed, mis on rakendusse <ph name="PRODUCT_NAME" /> sisse ehitatud (näiteks teade „lehte ei leitud”), ja takistab kasutajatel seade muutmist.

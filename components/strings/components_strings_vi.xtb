@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">Đã phát hiện thấy thay đổi mạng.</translation>
 <translation id="2916038427272391327">Đóng các chương trình khác</translation>
 <translation id="2922350208395188000">Không thể kiểm tra chứng chỉ của máy chủ.</translation>
+<translation id="2928905813689894207">Ðịa chỉ thanh toán</translation>
 <translation id="2948083400971632585">Bạn có thể tắt mọi proxy được định cấu hình cho kết nối từ trang cài đặt.</translation>
 <translation id="2955913368246107853">Đóng thanh tìm</translation>
 <translation id="2958431318199492670">Cấu hình mạng không tuân thủ tiêu chuẩn ONC. Các bộ phận của cấu hình có thể không được nhập.</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">Chứng chỉ máy chủ có thời gian hiệu lực quá dài.</translation>
 <translation id="6165508094623778733">Tìm hiểu thêm</translation>
 <translation id="6177128806592000436">Kết nối của bạn tới trang web này không an toàn</translation>
+<translation id="6184817833369986695">(nhóm thuần tập: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">Kiểm tra kết nối Internet của bạn</translation>
 <translation id="6218753634732582820">Bạn muốn xóa địa chỉ khỏi Chromium?</translation>
 <translation id="6251924700383757765">Chính sách bảo mật</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">Làm mới</translation>
 <translation id="7182878459783632708">Không có chính sách nào được đặt</translation>
 <translation id="7186367841673660872">Trang này đã được dịch từ<ph name="ORIGINAL_LANGUAGE" />sang<ph name="LANGUAGE_LANGUAGE" /></translation>
+<translation id="7192203810768312527">Giải phóng <ph name="SIZE" />. Một số trang web có thể tải chậm hơn trong lần tiếp theo bạn truy cập.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423"><ph name="HOST_NAME" /> không tuân thủ các tiêu chuẩn bảo mật.</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />Tìm hiểu thêm<ph name="END_LINK" /> về sự cố này.</translation>

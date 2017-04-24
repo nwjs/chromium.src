@@ -5,6 +5,30 @@
 
       Kung nakatakda sa False, idi-disable ang mga pag-update sa mga bahagi. Gayunpaman, nakabukod mula sa patakarang ito ang ilang bahagi: ang mga pag-update sa anumang bahagi na hindi naglalaman ng executable code, o hindi binabago ang pagkilos ng browser, o mahalaga para sa seguridad nito ay hindi idi-disable.
       Kabilang sa mga halimbawa ng naturang mga bahagi ang mga listahan ng pagpapawalang-bisa ng certification at data ng ligtas na pagba-browse. </translation>
+<translation id="1010564225363223332">Nagko-configure ng listahan ng mga printer.
+
+      Nagbibigay-daan ang patakarang ito sa mga administrator na magbigay ng
+      mga configuration ng printer para sa kanilang mga user.
+
+      Ang <ph name="PRINTER_DISPLAY_NAME" /> at <ph name="PRINTER_DESCRIPTION" /> ay mga free form string na maaaring i-customize upang mapadali
+      ang pagpili ng printer. Pinapadali ng <ph name="PRINTER_MANUFACTURER" /> at <ph name="PRINTER_MODEL" /> ang pagtukoy ng printer
+      ng mga end user. Kinakatawan ng mga ito ang manufacturer at modelo ng printer.
+      Ang <ph name="PRINTER_URI" /> ay dapat isang address na maaabot mula sa computer ng isang
+      client kabilang ang <ph name="URI_SCHEME" />, <ph name="URI_PORT" />, at <ph name="URI_QUEUE" />. Opsyonal ang <ph name="PRINTER_UUID" />. Kung ibinigay, ginagamit
+      ito upang makatulong sa pag-deduplicate ng mga <ph name="ZEROCONF_DISCOVERY" /> printer.
+
+      Dapat tumugma ang <ph name="PRINTER_EFFECTIVE_MODEL" /> sa isa
+      sa mga string na kumakatawan sa printer na sinusuportahan ng <ph name="PRODUCT_NAME" />. Gagamitin
+      ang string upang tukuyin at i-install ang naaangkop na PPD para sa printer.
+      Maaaring makakita ng higit pang impormasyon sa https://support.google.com/chrome?p=noncloudprint.
+
+      Natatapos ang pag-setup ng printer sa unang paggamit ng isang printer. Hindi
+      dina-download ang mga PPD hanggang sa gamitin ang printer. Pagkatapos nito,
+      kina-cache ang mga PPD na madalas gamitin.
+
+      Ang patakaran na ito ay walang epekto sa kung magagawa ng mga user na
+      mag-configure ng mga printer sa mga indibidwal na device. Layunin nito na
+      makatulong sa pag-configure ng mga printer ng mga indibidwal na user.</translation>
 <translation id="101438888985615157">I-rotate ang screen nang 180 degrees</translation>
 <translation id="1017967144265860778">Pamamahala ng power sa screen sa pag-log in</translation>
 <translation id="1019101089073227242">Itakda ang direktoryo ng data ng user</translation>
@@ -1388,6 +1412,11 @@
 <translation id="5148753489738115745">Binibigyang-daan kang tukuyin ang mga karagdagang parameter na ginagamit kapag nilunsad ng <ph name="PRODUCT_FRAME_NAME" /> ang <ph name="PRODUCT_NAME" />.
 
           Kung hindi naitakda ang patakarang ito, ang default na command line ang gagamitin.</translation>
+<translation id="5159469559091666409">Gaano kadalas ipinapadala ang mga sinusubaybayang network packet, sa millisecond.
+
+      Kung hindi nakatakda ang patakarang ito, ang default na pagitan ay 3 minuto.
+      Ang minimum na pagitan ay 30 segundo at 24 na oras ang maximum na pagitan -
+      ang mga value sa labas ng saklaw na ito ay maka-clamp sa saklaw na ito.</translation>
 <translation id="5182055907976889880">I-configure ang Google Drive sa <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Pinapayagan kang tukuyin kung aling mga extension ang hindi sumasailalim sa blacklist. Nangangahulugan ang halaga ng blacklist ng* na naka-blacklist ang lahat ng mga extension at mai-install lamang ng mga user ang mga extension na nakalista sa whitelist. Bilang default, naka-whitelist ang lahat ng mga extension, ngunit kung na-blacklist ang lahat ng mga extension ng patakaran, magagamit ang whitelist upang i-override ang patakarang iyon.</translation>
 <translation id="5192837635164433517">Binibigyang-daan ang paggamit ng mga kahaliling pahina ng mga error na built in sa <ph name="PRODUCT_NAME" /> (gaya ng 'hindi natagpuan ang pahina') at pinipigilan ang mga user na baguhin ang setting na ito.

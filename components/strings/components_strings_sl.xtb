@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">Zaznana je bila sprememba omrežja.</translation>
 <translation id="2916038427272391327">Zaprite druge programe</translation>
 <translation id="2922350208395188000">Potrdila strežnika ni mogoče preveriti.</translation>
+<translation id="2928905813689894207">Naslov za izstavitev računa</translation>
 <translation id="2948083400971632585">Namestniške strežnike, konfigurirane za povezavo, lahko onemogočite na strani z nastavitvami.</translation>
 <translation id="2955913368246107853">Zapri vrstico za iskanje</translation>
 <translation id="2958431318199492670">Omrežna konfiguracija ne ustreza standardu ONC. Deli konfiguracije morda niso bili uvoženi.</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">Potrdilo strežnika ima predolgo obdobje veljavnosti.</translation>
 <translation id="6165508094623778733">Več o tem</translation>
 <translation id="6177128806592000436">Povezava s tem spletnim mestom ni zasebna</translation>
+<translation id="6184817833369986695">(kohorta: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">Preverite internetno povezavo</translation>
 <translation id="6218753634732582820">Želite naslov odstraniti iz Chromiuma?</translation>
 <translation id="6251924700383757765">Pravilnik o zasebnosti</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">Osveži</translation>
 <translation id="7182878459783632708">Ni nastavljenih pravilnikov</translation>
 <translation id="7186367841673660872">Ta stran je bila prevedena iz jezika<ph name="ORIGINAL_LANGUAGE" />v jezik<ph name="LANGUAGE_LANGUAGE" /></translation>
+<translation id="7192203810768312527">Sprosti <ph name="SIZE" />. Nekatera spletna mesta se bodo ob naslednjem obisku morda počasneje naložila.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423">Spletno mesto <ph name="HOST_NAME" /> ne upošteva varnostnih standardov.</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />Več o<ph name="END_LINK" /> tej težavi.</translation>

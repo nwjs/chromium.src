@@ -5,6 +5,30 @@
 
       False (Yanlış) seçeneğine ayarlanırsa bileşen güncellemeleri devre dışı bırakılır. Ancak, bazı bileşenler bu politikadan muaf tutulur: Yürütülebilir kod içermeyen bileşenlerde yapılan, tarayıcının davranışını önemli ölçüde değiştirmeyen ya da güvenliğinin devre dışı kalmaması için kritik öneme sahip olan güncellemeler.
       Bu tür bileşenlere örnek olarak sertifika iptal listeleri ve güvenli tarama verileri gösterilebilir. </translation>
+<translation id="1010564225363223332">Yazıcı listesini yapılandırır.
+
+      Bu politika, yöneticilerin kendi kullanıcıları için yazıcı yapılandırmaları sunmasına
+      izin verir.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> ve <ph name="PRINTER_DESCRIPTION" />, yazıcı seçimini kolaylaştıracak şekilde özelleştirilebilen
+      serbest biçimli dizelerdir. <ph name="PRINTER_MANUFACTURER" /> ve <ph name="PRINTER_MODEL" />, son kullanıcıların yazıcıyı tanımasını
+      kolaylaştırmayı amaçlar. Bu ibareler yazıcının üreticisini ve modelini temsil eder. 
+      <ph name="PRINTER_URI" />; <ph name="URI_SCHEME" />, <ph name="URI_PORT" /> ve <ph name="URI_QUEUE" /> bilgilerini içeren bir istemci bilgisayardan ulaşılabilen bir
+      adres olmalıdır. <ph name="PRINTER_UUID" /> isteğe bağlıdır. Sağlandığı takdirde, <ph name="ZEROCONF_DISCOVERY" /> yazıcıların
+      tekilleştirilmesine yardımcı olmak üzere kullanılabilir.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" />, <ph name="PRODUCT_NAME" /> tarafından desteklenen bir yazıcıyı temsil eden
+      dizelerden biriyle eşleşmelidir. Dize, yazıcı için uygun PPD'yi tanımlamak ve
+      yüklemek için kullanılır. Daha fazla bilgiye
+      https://support.google.com/chrome?p=noncloudprint adresinden ulaşabilirsiniz.
+
+      Yazıcı ilk kez kullanıldığında kurulum tamamlanmış olur. Yazıcı kullanılana
+      kadar PPD'ler indirilmez. Bundan sonra, sık kullanılan PPD'ler
+      önbelleğe alınır.
+
+      Bu politika, kullanıcıların yazıcıları ayrı ayrı cihazlarda yapılandırıp
+      yapılandıramayacağı konusunu etkilemez. Ayrı ayrı kullanıcılar tarafından
+      yazıcıların yapılandırılması konusunda tamamlayıcı olacak şekilde tasarlanmıştır.</translation>
 <translation id="101438888985615157">Ekranı 180 derece döndür</translation>
 <translation id="1017967144265860778">Giriş ekranında güç yönetimi</translation>
 <translation id="1019101089073227242">Kullanıcı veri dizinini ayarla</translation>
@@ -1399,6 +1423,11 @@ politikayı geçersiz kılamaz.
 <translation id="5148753489738115745"><ph name="PRODUCT_FRAME_NAME" /> tarafından <ph name="PRODUCT_NAME" /> başlatıldığında kullanılan ek parametreleri belirtmenize olanak verir.
 
           Bu politika ayarlanmazsa varsayılan komut satırı kullanılır.</translation>
+<translation id="5159469559091666409">İzleme amaçlı ağ paketlerinin ne sıklıkla gönderileceğini (milisaniye olarak) belirtir.
+
+      Bu politika ayarlanmazsa varsayılan sıklık 3 dakikadır. Minimum
+      sıklık 30 saniye, maksimum sıklık ise 24 saattir. Bu aralığın
+      dışındaki değerler aralık içine kaydırılır.</translation>
 <translation id="5182055907976889880"><ph name="PRODUCT_OS_NAME" /> ürününde Google Drive'ı yapılandırın.</translation>
 <translation id="5183383917553127163">Kara listeye alınmayacak uzantıları belirlemenize olanak sağlar. Kara liste değerinin * olması, tüm uzantıların kara listede bulunduğunu ve kullanıcıların yalnızca beyaz listede belirtilen uzantıları yükleyebileceklerini gösterir. Varsayılan olarak tüm uzantılar beyaz listede bulunur, ancak politika gereği tüm uzantılar kara listeye alınmışsa bu politikayı geçersiz kılmak için beyaz liste kullanılabilir.</translation>
 <translation id="5192837635164433517"><ph name="PRODUCT_NAME" /> ürününde bulunan alternatif hata sayfalarını ('sayfa bulunamadı' gibi) etkinleştirir ve kullanıcıların bu ayarı değiştirmesini önler.

@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">네트워크 변경이 감지되었습니다.</translation>
 <translation id="2916038427272391327">다른 프로그램 닫기</translation>
 <translation id="2922350208395188000">서버 인증서를 확인할 수 없습니다.</translation>
+<translation id="2928905813689894207">청구서 수신 주소</translation>
 <translation id="2948083400971632585">설정 페이지의 연결을 구성하는 프록시를 사용 중지할 수 있습니다.</translation>
 <translation id="2955913368246107853">검색 바 닫기</translation>
 <translation id="2958431318199492670">네트워크 설정이 ONC 표준을 준수하지 않습니다. 일부 설정을 가져올 수 없습니다.</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">서버 인증서의 유효 기간이 너무 깁니다.</translation>
 <translation id="6165508094623778733">자세히 알아보기</translation>
 <translation id="6177128806592000436">이 사이트에 대한 연결은 안전하지 않습니다.</translation>
+<translation id="6184817833369986695">(집단: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">인터넷 연결을 확인하세요.</translation>
 <translation id="6218753634732582820">Chromium에서 주소를 삭제하시겠습니까?</translation>
 <translation id="6251924700383757765">개인정보처리방침</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">새로고침</translation>
 <translation id="7182878459783632708">설정된 정책 없음</translation>
 <translation id="7186367841673660872">이 페이지는<ph name="ORIGINAL_LANGUAGE" />에서<ph name="LANGUAGE_LANGUAGE" />로 번역되었습니다.</translation>
+<translation id="7192203810768312527"><ph name="SIZE" />의 저장용량을 확보합니다. 일부 사이트는 다음에 방문할 때 로드 속도가 느려질 수도 있습니다.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423"><ph name="HOST_NAME" />에서 보안 기준을 준수하지 않습니다.</translation>
 <translation id="721197778055552897">이 문제에 대해 <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>

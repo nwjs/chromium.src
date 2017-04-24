@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">系統偵測到網路變更。</translation>
 <translation id="2916038427272391327">關閉其他程式</translation>
 <translation id="2922350208395188000">無法檢查伺服器憑證。</translation>
+<translation id="2928905813689894207">帳單地址</translation>
 <translation id="2948083400971632585">您可以在設定頁面停用任何為連線設置的 Proxy。</translation>
 <translation id="2955913368246107853">關閉搜尋列</translation>
 <translation id="2958431318199492670">網路設定未遵循 ONC 標準，系統可能無法匯入部分設定。</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">伺服器憑證的有效期限太長。</translation>
 <translation id="6165508094623778733">瞭解詳情</translation>
 <translation id="6177128806592000436">你與這個網站的連線不安全</translation>
+<translation id="6184817833369986695">(發佈版本：<ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">檢查網際網路連線</translation>
 <translation id="6218753634732582820">要從 Chromium 中移除地址嗎？</translation>
 <translation id="6251924700383757765">隱私權政策</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">重新整理</translation>
 <translation id="7182878459783632708">沒有設定任何政策</translation>
 <translation id="7186367841673660872">此網頁內容已由<ph name="ORIGINAL_LANGUAGE" />翻譯成<ph name="LANGUAGE_LANGUAGE" /></translation>
+<translation id="7192203810768312527">釋出 <ph name="SIZE" />。下次造訪部分網站時，載入速度可能會變慢。</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423"><ph name="HOST_NAME" /> 不符合安全性標準。</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />進一步瞭解<ph name="END_LINK" />這個問題。</translation>

@@ -5,6 +5,32 @@
 
       Dacă este dezactivată, actualizările componentelor sunt dezactivate. Totuși, anumite componente nu se supun acestei politici: nu vor fi dezactivate actualizările oricărei componente care nu conține un cod executabil sau care nu schimbă semnificativ comportamentul browserului ori care este critică pentru securitatea sa.
       Exemplele de asemenea componente includ listele de revocare a certificatelor și datele de navigare sigură. </translation>
+<translation id="1010564225363223332">Configurează o listă de imprimante.
+
+      Această politică permite administratorilor să ofere utilizatorilor configurații ale
+      imprimantelor.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> și <ph name="PRINTER_DESCRIPTION" /> sunt șiruri fără formă care
+      pot fi personalizate pentru a selecta mai ușor o imprimantă. <ph name="PRINTER_MANUFACTURER" /> și <ph name="PRINTER_MODEL" />,
+      care reprezintă producătorul și modelul imprimantei, sunt folosite pentru
+      a simplifica identificarea imprimantei de către
+      utilizatorii finali. <ph name="PRINTER_URI" /> trebuie să fie o adresă care poate fi accesată
+      de pe computerul unui client, inclusiv <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> și <ph name="URI_QUEUE" />. <ph name="PRINTER_UUID" /> este opțional. Dacă este specificat, acesta
+      este folosit pentru a elimina imprimantele dublură <ph name="ZEROCONF_DISCOVERY" />.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> trebuie să corespundă cu unul dintre
+      șirurile care reprezintă o imprimantă <ph name="PRODUCT_NAME" /> compatibilă. Șirul va fi folosit pentru a identifica și
+      instala PPD-ul corespunzător pentru imprimantă. Mai multe informații pot fi
+      găsite la https://support.google.com/chrome?p=noncloudprint.
+
+      Configurarea imprimantei este finalizată odată cu prima folosire a unei imprimante.
+      PPD-urile nu sunt descărcate înainte de folosirea imprimantei. După aceea,
+      PPD-urile folosite des sunt stocate în memoria cache.
+
+      Această politică nu afectează opțiunea utilizatorilor de a configura
+      imprimantele pe dispozitive individuale. Este menită să fie suplimentară
+      pentru configurarea imprimantelor de către utilizatori individuali.</translation>
 <translation id="101438888985615157">Rotește ecranul la 180 de grade</translation>
 <translation id="1017967144265860778">Gestionarea consumului de energie pe ecranul de conectare</translation>
 <translation id="1019101089073227242">Setează directorul pentru datele utilizatorului</translation>
@@ -1334,6 +1360,11 @@
 <translation id="5148753489738115745">Vă permite să specificați parametri suplimentari, care vor fi utilizați atunci când <ph name="PRODUCT_FRAME_NAME" /> lansează <ph name="PRODUCT_NAME" />.
 
           Dacă această politică nu este setată, va fi utilizată linia de comandă prestabilită.</translation>
+<translation id="5159469559091666409">Frecvența de trimitere a pachetelor de monitorizare din rețea, în milisecunde.
+
+      Dacă această politică nu este configurată, intervalul prestabilit este de 3 minute.
+      Intervalul minim este de 30 de secunde, iar cel maxim este de 24 de ore.
+      Valorile care nu se află în acest interval vor fi fixate în acesta.</translation>
 <translation id="5182055907976889880">Configurați Google Drive în <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Îți permite să specifici ce extensii nu sunt pasibile să apară pe lista neagră.
 

@@ -27,6 +27,7 @@
 Chcete-li fyzický web používat, je třeba aktivovat Bluetooth a určování polohy.</translation>
 <translation id="124678866338384709">Zavřít aktuální kartu</translation>
 <translation id="1258753120186372309">Sváteční logo Google: <ph name="DOODLE_DESCRIPTION" /></translation>
+<translation id="1265597927250775944">Vymaže historii a návrhy v adresním řádku.</translation>
 <translation id="1272079795634619415">Zastavit</translation>
 <translation id="1283039547216852943">Klepnutím rozbalíte</translation>
 <translation id="1285320974508926690">Tento web nikdy nepřekládat</translation>
@@ -35,6 +36,7 @@ Chcete-li fyzický web používat, je třeba aktivovat Bluetooth a určování 
 <translation id="1303671224831497365">Nebyla nalezena žádná zařízení Bluetooth</translation>
 <translation id="1326317727527857210">Chcete-li získat přístup ke kartám ze svých ostatních zařízení, přihlaste se do Chromu.</translation>
 <translation id="1332501820983677155">Zkratky funkcí prohlížeče Google Chrome</translation>
+<translation id="1339917386316755344">Odhlásí vás z většiny webů. Z účtu Google odhlášeni nebudete.</translation>
 <translation id="1369915414381695676">Byl přidán web <ph name="SITE_NAME" /></translation>
 <translation id="1373696734384179344">Ke stažení vybraného obsahu není k dispozici dostatek paměti.</translation>
 <translation id="1376578503827013741">Probíhá výpočet…</translation>
@@ -255,6 +257,7 @@ Chcete-li vyhledávací dotaz upravit, proveďte výběr dlouhým stisknutím. C
 <translation id="3859306556332390985">Přetočit dopředu</translation>
 <translation id="3894427358181296146">Přidat složku</translation>
 <translation id="3895926599014793903">Vynutit aktivaci přiblížení</translation>
+<translation id="3915590178385207649">Vymaže historii ze všech zařízení, na kterých jste přihlášeni. Další aktivitu provedenou z vašeho účtu Google si můžete prohlédnout na webu <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="3917783807003067648">Přístup k poloze je blokován</translation>
 <translation id="3927692899758076493">Bezpatková</translation>
 <translation id="3928666092801078803">Sloučit má data</translation>
@@ -265,6 +268,7 @@ Chcete-li vyhledávací dotaz upravit, proveďte výběr dlouhým stisknutím. C
 <translation id="395922942268463099">Stránky se pravidelně aktualizují</translation>
 <translation id="3967822245660637423">Stahování bylo dokončeno</translation>
 <translation id="397583555483684758">Synchronizace přestala fungovat</translation>
+<translation id="3976396876660209797">Odstraňte tuto zkratku a znovu ji vytvořte</translation>
 <translation id="3985215325736559418">Opravdu soubor <ph name="FILE_NAME" /> chcete stáhnout znovu?</translation>
 <translation id="3987993985790029246">Kopírovat odkaz</translation>
 <translation id="3988213473815854515">Přístup k poloze je povolen</translation>
@@ -423,6 +427,7 @@ Chcete-li vyhledávací dotaz upravit, proveďte výběr dlouhým stisknutím. C
 <translation id="5626134646977739690">Jméno:</translation>
 <translation id="5639724618331995626">Povolit všechny weby</translation>
 <translation id="5646376287012673985">Poloha</translation>
+<translation id="5648166631817621825">Posledních 7 dní</translation>
 <translation id="5655963694829536461">Hledat ve stažených souborech</translation>
 <translation id="5659593005791499971">E-mail</translation>
 <translation id="5665379678064389456">Vytvořit událost v aplikaci <ph name="APP_NAME" /></translation>
@@ -558,6 +563,7 @@ Některé weby mohou například na tento požadavek reagovat tak, že vám zobr
 <translation id="6965382102122355670">OK</translation>
 <translation id="6973630695168034713">Složky</translation>
 <translation id="6978479750597523876">Obnovit nastavení překladače</translation>
+<translation id="6979737339423435258">Od počátku věků</translation>
 <translation id="6981982820502123353">Usnadnění</translation>
 <translation id="6985347914332179298">Nejsou k dispozici žádné stažené soubory</translation>
 <translation id="6990079615885386641">Získat aplikaci z Obchodu Google Play: <ph name="APP_ACTION" /></translation>
@@ -575,6 +581,7 @@ Některé weby mohou například na tento požadavek reagovat tak, že vám zobr
 <translation id="7128222689758636196">Povolit pro aktuální vyhledávač</translation>
 <translation id="7138678301420049075">Ostatní</translation>
 <translation id="7144878232160441200">Opakovat</translation>
+<translation id="7149893636342594995">Posledních 24 hodin</translation>
 <translation id="7180611975245234373">Obnovit</translation>
 <translation id="7189372733857464326">Počkejte prosím, než služby Google Play dokončí aktualizaci</translation>
 <translation id="7191430249889272776">Karta je otevřena na pozadí.</translation>
@@ -593,6 +600,7 @@ Některé weby mohou například na tento požadavek reagovat tak, že vám zobr
 <translation id="7423098979219808738">Nejprve se dotázat</translation>
 <translation id="7437998757836447326">Odhlášení z Chromu</translation>
 <translation id="7445411102860286510">Povolit webům automaticky přehrávat ztlumená videa (doporučeno)</translation>
+<translation id="7449574997654022410">Vymaže historii a návrhy v adresním řádku. Další aktivitu provedenou z vašeho účtu Google si můžete prohlédnout na webu <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7464701184726199289">Tímto vymažete synchronizovaná data ze všech zařízení. Uložená nastavení webů nebudou smazána a mohou vypovídat o vašich zvycích při prohlížení. <ph name="BEGIN_LINK" />Další informace<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">Ne, děkuji</translation>
 <translation id="7475192538862203634">Pokud se vám tato stránka zobrazuje často, vyzkoušejte tyto <ph name="BEGIN_LINK" />návrhy<ph name="END_LINK" />.</translation>
@@ -634,6 +642,7 @@ Na stránce <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> moh
 <translation id="7829298379596169484">Přístup ke zvukovému vstupu</translation>
 <translation id="7837721118676387834">Povolit automatické přehrávání ztlumených videí na konkrétním webu.</translation>
 <translation id="7846076177841592234">Zrušit výběr</translation>
+<translation id="784934925303690534">Časové období</translation>
 <translation id="7851858861565204677">Jiná zařízení</translation>
 <translation id="7875915731392087153">Vytvořit e-mail</translation>
 <translation id="7876243839304621966">Odstranit vše</translation>
@@ -713,6 +722,7 @@ Chcete-li získat nové licence, připojte se k internetu a přehrajte stažen
 <translation id="8639651215196239211">Všechny stažené soubory</translation>
 <translation id="8641930654639604085">Pokusit se blokovat weby pouze pro dospělé</translation>
 <translation id="8660471606262461360">Od služby Google Payments</translation>
+<translation id="8662811608048051533">Odhlásí vás z většiny webů.</translation>
 <translation id="8676374126336081632">Vymazat vstup</translation>
 <translation id="869891660844655955">Datum vypršení platnosti</translation>
 <translation id="8719023831149562936">Aktuální kartu nelze přenést</translation>

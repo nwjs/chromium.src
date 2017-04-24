@@ -631,6 +631,7 @@
 <translation id="1882130480443819387">タイトルで並べ替え</translation>
 <translation id="1886996562706621347">サイトからのプロトコルのデフォルト ハンドラとしての登録要求を許可する（推奨）</translation>
 <translation id="1887850431809612466">ハードウェア リビジョン</translation>
+<translation id="1889984860246851556">プロキシ設定を開く</translation>
 <translation id="1891668193654680795">ソフトウェア メーカーの身元を特定するこの証明書を信頼します。</translation>
 <translation id="189210018541388520">全画面表示</translation>
 <translation id="1893406696975231168">クラウドのプロビジョニング フローが失敗しました</translation>
@@ -866,6 +867,7 @@
 <translation id="2241634353105152135">一回限り</translation>
 <translation id="2242603986093373032">デバイスがありません</translation>
 <translation id="2242687258748107519">ファイル情報</translation>
+<translation id="2245240762616536227">閲覧履歴を基に検索、広告、その他の Google サービスをカスタマイズする方法を設定します</translation>
 <translation id="2246340272688122454">リカバリ イメージをダウンロードしています...</translation>
 <translation id="2249499294612408921">監視対象ユーザーは、管理者の指示のもとでウェブを利用できます。監視対象ユーザーの管理者は Chrome で以下を行うことができます。
 
@@ -1293,6 +1295,7 @@
 <translation id="2822634587701817431">拡大または縮小</translation>
 <translation id="2825758591930162672">サブジェクトの公開鍵</translation>
 <translation id="2828650939514476812">Wi-Fi ネットワークへの接続</translation>
+<translation id="2829300463733926362">拡張機能によって制御</translation>
 <translation id="283278805979278081">写真を撮影します</translation>
 <translation id="2833791489321462313">スリープから復帰する際にパスワードを入力する</translation>
 <translation id="2836269494620652131">クラッシュ</translation>
@@ -1392,6 +1395,7 @@
 <translation id="2966449113954629791">モバイル データの割り当て量をすべて使用している可能性があります。データを追加購入するには、<ph name="NAME" /> の有効化ポータルにアクセスしてください。</translation>
 <translation id="2966459079597787514">スウェーデン語のキーボード</translation>
 <translation id="2966598748518102999">「OK Google」（とその前の数秒間）の音声を Google に送信して音声検索を向上する</translation>
+<translation id="2966937470348689686">Android 設定を管理</translation>
 <translation id="2967544384642772068">強制終了</translation>
 <translation id="2971033837577180453">&lt;span&gt;ID:&lt;/span&gt; <ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">暗くする</translation>
@@ -1424,6 +1428,7 @@
 <translation id="3012917896646559015">すぐにハードウェアの製造元に連絡し、パソコンを修理センターに送るよう手配してください。</translation>
 <translation id="3013291976881901233">MIDI デバイス</translation>
 <translation id="3014095112974898292">他のリクエストが完了するのを待っています...</translation>
+<translation id="301521992641321250">自動ブロックされました</translation>
 <translation id="3015992588037997514">このコードが Chromebox の画面に表示されていますか？</translation>
 <translation id="3016641847947582299">コンポーネント更新完了</translation>
 <translation id="3016780570757425217">ユーザーの現在地の認識</translation>
@@ -2158,6 +2163,7 @@
 <translation id="4087089424473531098">拡張機能を作成しました:
 
 <ph name="EXTENSION_FILE" /></translation>
+<translation id="4087470595660267445">Google Play のアプリとゲームを Chromebook にインストールします。&lt;a target="_blank" href="<ph name="URL" />"&gt;詳細&lt;/a&gt;</translation>
 <translation id="4088095054444612037">グループとの共有を許可する</translation>
 <translation id="4089521618207933045">サブメニューあり</translation>
 <translation id="4090103403438682346">確認済みのアクセスを有効にする</translation>
@@ -2424,6 +2430,7 @@
 <translation id="4538684596480161368"><ph name="HOST" /> でサンドボックスの無効化プラグインを常にブロックする</translation>
 <translation id="4538792345715658285">会社のポリシーによってインストール済み。</translation>
 <translation id="4542520061254486227"><ph name="WEBSITE_1" /> と <ph name="WEBSITE_2" /> でのユーザーデータの読み取り</translation>
+<translation id="4543303791257854900">会社のポリシーによって制御</translation>
 <translation id="4543733025292526486">Esc</translation>
 <translation id="4543778593405494224">証明書マネージャー</translation>
 <translation id="4544174279960331769">デフォルトの青のアバター</translation>
@@ -2965,6 +2972,7 @@
 <translation id="5329858601952122676">削除(&amp;D)</translation>
 <translation id="5330145655348521461">これらのファイルは別のデスクトップで開かれます。表示するには <ph name="USER_NAME" />（<ph name="MAIL_ADDRESS" />）に移動してください。</translation>
 <translation id="5330512191124428349">情報を見る</translation>
+<translation id="5331069282670671859">このカテゴリの証明書はありません</translation>
 <translation id="5331425616433531170">「<ph name="CHROME_EXTENSION_NAME" />」がペア設定を要求しています</translation>
 <translation id="5332624210073556029">タイムゾーン:</translation>
 <translation id="5334142896108694079">スクリプト キャッシュ</translation>
@@ -3014,6 +3022,7 @@
 <translation id="5399158067281117682">PIN が一致しません。</translation>
 <translation id="5400640815024374115">Trusted Platform Module（TPM）チップは、無効であるか、存在しません。</translation>
 <translation id="5402367795255837559">点字</translation>
+<translation id="5402815541704507626">モバイルデータでのアップデートのダウンロード</translation>
 <translation id="540296380408672091"><ph name="HOST" /> の Cookie を常にブロックする</translation>
 <translation id="5408750356094797285">ズーム: <ph name="PERCENT" /></translation>
 <translation id="5409029099497331039">おまかせ</translation>
@@ -3152,6 +3161,7 @@
 <translation id="558918721941304263">アプリを読み込んでいます...</translation>
 <translation id="5592595402373377407">利用可能なデータがまだ十分にありません。</translation>
 <translation id="5595485650161345191">住所の編集</translation>
+<translation id="5600706100022181951">アップデートをダウンロードすると、<ph name="UPDATE_SIZE_MB" /> MB のモバイルデータを使用することになります。続行してもよろしいですか？</translation>
 <translation id="5601503069213153581">PIN</translation>
 <translation id="5604324414379907186">ブックマーク バーを常に表示する</translation>
 <translation id="5605623530403479164">その他の検索エンジン</translation>
@@ -3258,6 +3268,7 @@
 <translation id="5778550464785688721">MIDI デバイスのフル コントロール</translation>
 <translation id="5780066559993805332">（最良）</translation>
 <translation id="5780973441651030252">プロセスの優先値</translation>
+<translation id="5781865261247219930">コマンドを <ph name="EXTENSION_NAME" /> に送信します</translation>
 <translation id="5783221160790377646">エラーが発生したため、監視対象ユーザーは作成されませんでした。しばらくしてからもう一度お試しください。</translation>
 <translation id="5783602409389152506">デバイスのスキャン中...</translation>
 <translation id="57838592816432529">ミュート</translation>
@@ -3300,6 +3311,7 @@
 <translation id="5838825566232597749">US Workman インターナショナル</translation>
 <translation id="5842497610951477805">Bluetooth 有効</translation>
 <translation id="5846929185714966548">タブ 4</translation>
+<translation id="5848924408752252705">タップして前に戻ります。</translation>
 <translation id="5848934677402291689">PDF に保存中です</translation>
 <translation id="5849570051105887917">ホーム プロバイダのコード</translation>
 <translation id="5849869942539715694">拡張機能のパッケージ化...</translation>
@@ -3317,6 +3329,7 @@
 <translation id="5859272821192576954">すべての設定が完了しました。ハングアウトに進むことができます</translation>
 <translation id="5860033963881614850">オフ</translation>
 <translation id="5860209693144823476">タブ 3</translation>
+<translation id="5860491529813859533">オンにする</translation>
 <translation id="5860494867054883682">端末を <ph name="CHANNEL_NAME" /> チャンネルに更新しています（<ph name="PROGRESS_PERCENT" />）</translation>
 <translation id="5862109781435984885">シェルフにタッチペン ツールを表示</translation>
 <translation id="58625595078799656"><ph name="PRODUCT_NAME" /> では、Google パスワードまたは任意のパスフレーズを使ってデータを暗号化する必要があります。</translation>
@@ -3649,6 +3662,7 @@
 <translation id="6395423953133416962"><ph name="BEGIN_LINK1" />システム情報<ph name="END_LINK1" />と<ph name="BEGIN_LINK2" />指標データ<ph name="END_LINK2" />を送信する</translation>
 <translation id="6397363302884558537">読み上げを停止</translation>
 <translation id="6397592254427394018">すべてのブックマークをシークレット ウィンドウで開く(&amp;I)</translation>
+<translation id="6398715114293939307">Google Play ストアを削除</translation>
 <translation id="6398765197997659313">全画面表示を終了</translation>
 <translation id="6399774419735315745">スパイ</translation>
 <translation id="6401445054534215853">シェルフ アイテム 1</translation>
@@ -5338,6 +5352,7 @@
 <translation id="8960999352790021682">ベンガル語キーボード（表音）</translation>
 <translation id="8962083179518285172">詳細を非表示</translation>
 <translation id="8962198349065195967">このネットワークは管理者によって設定されています。</translation>
+<translation id="8963572037665351978">プレゼンテーションを終了</translation>
 <translation id="8965037249707889821">古いパスワードを入力</translation>
 <translation id="8965697826696209160">空き容量が不足しています。</translation>
 <translation id="8968527460726243404">ChromeOS システム イメージ ライター</translation>
@@ -5492,6 +5507,7 @@
 <translation id="9188441292293901223">この <ph name="DEVICE_TYPE" /> のロックを解除するには、スマートフォンを新しいバージョンの Android に更新してください。</translation>
 <translation id="9189690067274055051">ログインするには、スマートフォンのロックを解除して <ph name="DEVICE_TYPE" /> に近づけます。</translation>
 <translation id="9190063653747922532">L2TP/IPSec + 事前共有鍵</translation>
+<translation id="920045321358709304"><ph name="SEARCH_ENGINE" /> で検索</translation>
 <translation id="9201305942933582053">Chrome 版 Google Now</translation>
 <translation id="9203398526606335860">プロファイル記録の開始(&amp;P)</translation>
 <translation id="9203478404496196495">タブのミュートを解除</translation>
@@ -5524,6 +5540,7 @@
 <translation id="946810925362320585">推奨設定を使用する</translation>
 <translation id="951981865514037445"><ph name="URL" /> ではデバイスの現在地情報が必要となります。</translation>
 <translation id="952992212772159698">無効</translation>
+<translation id="958515377357646513">タップして次に進みます。</translation>
 <translation id="960719561871045870">事業者コード</translation>
 <translation id="960987915827980018">あと約 1 時間</translation>
 <translation id="96421021576709873">Wi-Fi ネットワーク</translation>

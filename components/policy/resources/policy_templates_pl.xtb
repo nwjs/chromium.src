@@ -13,9 +13,9 @@
       <ph name="PRINTER_DISPLAY_NAME" /> i <ph name="PRINTER_DESCRIPTION" /> to dowolny tekst, który ma ułatwić wybranie drukarki.
       <ph name="PRINTER_MANUFACTURER" /> i <ph name="PRINTER_MODEL" /> ułatwiają użytkownikom identyfikację
       drukarki. Oznaczają producenta i model drukarki. <ph name="PRINTER_URI" /> to adres, który powinien być dostępny
-      z komputera klienckiego, z tymi składnikami: <ph name="URI_SCHEME" />,
+      z komputera klienckiego, zawierający te składniki: <ph name="URI_SCHEME" />,
       <ph name="URI_PORT" /> i <ph name="URI_QUEUE" />. Opcjonalny składnik to <ph name="PRINTER_UUID" />. Jeśli jest podany, umożliwia
-      deduplikację drukarek <ph name="ZEROCONF_DISCOVERY" />.
+      usunięcie duplikatów drukarek <ph name="ZEROCONF_DISCOVERY" />.
 
       Ciąg znaków <ph name="PRINTER_EFFECTIVE_MODEL" /> musi być zgodny z jednym
       z ciągów oznaczających obsługiwaną drukarkę <ph name="PRODUCT_NAME" />. Zostanie on użyty do zidentyfikowania oraz

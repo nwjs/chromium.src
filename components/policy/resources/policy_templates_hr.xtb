@@ -5,6 +5,30 @@
 
       Ako se postavi na False, ažuriranje komponenti je onemogućeno. No neke su komponente izuzete od tog pravila i dalje će se ažurirati, a to su komponente koje ne sadrže izvršni kôd, koje bitno ne mijenjaju ponašanje preglednika ili koje su važne za sigurnost.
       Primjeri takvih komponenti uključuju popise opozvanih certifikata i podatke sigurnog pregledavanja. </translation>
+<translation id="1010564225363223332">Konfigurira popis pisača.
+
+      To pravilo omogućuje administratorima da korisnicima pruže konfiguracije
+      pisača.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> i <ph name="PRINTER_DESCRIPTION" /> nizovi su proizvoljnog oblika koji se mogu prilagoditi
+      radi lakšeg odabira pisača. <ph name="PRINTER_MANUFACTURER" /> i <ph name="PRINTER_MODEL" /> služe tome da krajnji
+      korisnici lakše prepoznaju pisač. Predstavljaju proizvođača i model pisača.
+      <ph name="PRINTER_URI" /> treba biti adresa koju je moguće dosegnuti s klijentskog računala,
+      uključujući <ph name="URI_SCHEME" />, <ph name="URI_PORT" /> i <ph name="URI_QUEUE" />. <ph name="PRINTER_UUID" /> nije obavezan. Ako se navede, upotrebljava
+      se za lakše uklanjanje duplikata <ph name="ZEROCONF_DISCOVERY" /> pisača.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> mora se podudarati s jednim od nizova koji
+      predstavljaju pisač koji podržava <ph name="PRODUCT_NAME" />. Niz će služiti za prepoznavanje
+      i instaliranje odgovarajućeg PPD-a za pisač. Više informacija dostupno je
+      na https://support.google.com/chrome?p=noncloudprint.
+
+      Postavljanje pisača dovršeno je nakon njegove prve upotrebe. PPD-ovi
+      se ne preuzimaju dok se pisač ne upotrijebi. Nakon toga često korišteni
+      PPD-ovi spremaju se u predmemoriju.
+
+      To pravilo ne utječe na mogućnost da korisnici konfiguriraju pisače na
+      pojedinačnim uređajima. Trebalo bi biti dodatno pravilo za konfiguraciju
+      pisača koju vrše pojedinačni korisnici.</translation>
 <translation id="101438888985615157">Zakreni zaslon 180 stupnjeva</translation>
 <translation id="1017967144265860778">Upravljanje napajanjem na zaslonu za prijavu</translation>
 <translation id="1019101089073227242">Postavi imenik korisničkih podataka</translation>
@@ -1319,6 +1343,11 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
 <translation id="5148753489738115745">Omogućuje vam da odredite dodatne parametre koji se upotrebljavaju kada <ph name="PRODUCT_FRAME_NAME" /> pokreće uslugu <ph name="PRODUCT_NAME" />.
 
           Ako se to pravilo ne postavi, upotrebljavat će se zadani naredbeni redak.</translation>
+<translation id="5159469559091666409">Učestalost slanja mrežnih paketa za praćenje u milisekundama.
+
+      Ako se to pravilo ne postavi, zadani interval iznosi 3 minute. Minimalni
+      je interval 30 sekundi, a maksimalni 24 sata, a vrijednosti izvan raspona
+      svest će se na taj raspon.</translation>
 <translation id="5182055907976889880">Konfiguracija Google diska u proizvodu <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Omogućuje određivanje proširenja koja ne podliježu crnoj listi.
 

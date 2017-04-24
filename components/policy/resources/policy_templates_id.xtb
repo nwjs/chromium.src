@@ -11,7 +11,7 @@
       bagi penggunanya.
 
       <ph name="PRINTER_DISPLAY_NAME" /> dan <ph name="PRINTER_DESCRIPTION" /> tidak memiliki string yang dapat
-      disesuaikan agar pemilihan printer jadi mudah. <ph name="PRINTER_MANUFACTURER" /> dan <ph name="PRINTER_MODEL" /> diberikan agar pengguna akhir mudah
+      disesuaikan agar pemilihan printer jadi mudah. Info <ph name="PRINTER_MANUFACTURER" /> dan <ph name="PRINTER_MODEL" /> diberikan agar pengguna akhir mudah
       mengidentifikasi printer. Keduanya mewakili produsen dan model printer. <ph name="PRINTER_URI" /> harus berupa alamat yang dapat dijangkau
       dari komputer klien, termasuk <ph name="URI_SCHEME" />,
       <ph name="URI_PORT" />, dan <ph name="URI_QUEUE" />.  <ph name="PRINTER_UUID" /> bersifat opsional.  Jika tersedia, akan digunakan untuk
@@ -207,7 +207,7 @@
 <translation id="1689963000958717134">Memungkinkan konfigurasi jaringan dorong untuk diterapkan pada semua pengguna perangkat <ph name="PRODUCT_OS_NAME" />. Konfigurasi jaringan adalah string berformat JSON seperti yang didefinisikan oleh format Konfigurasi Jaringan Terbuka yang dideskripsikan di <ph name="ONC_SPEC_URL" /></translation>
 <translation id="1708496595873025510">Setel batasan pada pengambilan bibit Varietas</translation>
 <translation id="172374442286684480">Izinkan semua situs menyetel data lokal</translation>
-<translation id="1727394138581151779">Cekal semua plugin</translation>
+<translation id="1727394138581151779">Blokir semua plugin</translation>
 <translation id="1734716591049455502">Mengonfigurasi opsi akses jarak jauh</translation>
 <translation id="1736269219679256369">Memungkinkan melanjutkan dari laman peringatan SSL</translation>
 <translation id="1749815929501097806">Menyetel Persyaratan Layanan yang harus diterima oleh pengguna sebelum sebelum memulai sesi akun lokal perangkat.

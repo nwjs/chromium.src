@@ -27,6 +27,7 @@
 Fiziksel Web'i kullanabilmeniz için Bluetooth ve Konum özelliklerinin açık olması gerekir.</translation>
 <translation id="124678866338384709">Geçerli sekmeyi kapatır</translation>
 <translation id="1258753120186372309">Google doodle'ı: <ph name="DOODLE_DESCRIPTION" /></translation>
+<translation id="1265597927250775944">Geçmişi ve adres çubuğu önerilerini temizler.</translation>
 <translation id="1272079795634619415">Durdur</translation>
 <translation id="1283039547216852943">Genişletmek için dokunun</translation>
 <translation id="1285320974508926690">Bu siteyi hiçbir zaman çevirme</translation>
@@ -35,6 +36,7 @@ Fiziksel Web'i kullanabilmeniz için Bluetooth ve Konum özelliklerinin açık o
 <translation id="1303671224831497365">Bluetooth cihazı bulunamadı</translation>
 <translation id="1326317727527857210">Diğer cihazlarınızdaki sekmelerinize ulaşmak için Chrome'da oturum açın.</translation>
 <translation id="1332501820983677155">Google Chrome'un özellik kısayolları</translation>
+<translation id="1339917386316755344">Çoğu sitedeki oturumunuz kapatılır. Google Hesabınızdaki oturumunuz kapatılmaz.</translation>
 <translation id="1369915414381695676"><ph name="SITE_NAME" /> sitesi eklendi</translation>
 <translation id="1373696734384179344">Seçilen içeriği indirmek için bellek yetersiz.</translation>
 <translation id="1376578503827013741">Hesaplanıyor…</translation>
@@ -255,6 +257,7 @@ Arama teriminizi düzeltmek için uzun basarak terimi seçin. Aramanızı ayrın
 <translation id="3859306556332390985">İleriye doğru git</translation>
 <translation id="3894427358181296146">Klasör ekleyin</translation>
 <translation id="3895926599014793903">Yakınlaştırmayı etkinleştirmeye zorla</translation>
+<translation id="3915590178385207649">Oturum açmış tüm cihazlarda geçmişi temizler. Google Hesabınıza ait diğer etkinlikleri <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> adresinden görüntüleyebilirsiniz.</translation>
 <translation id="3917783807003067648">Konum engellendi</translation>
 <translation id="3927692899758076493">Sans Serif</translation>
 <translation id="3928666092801078803">Verilerimi birleştir</translation>
@@ -265,6 +268,7 @@ Arama teriminizi düzeltmek için uzun basarak terimi seçin. Aramanızı ayrın
 <translation id="395922942268463099">Düzenli olarak güncellenen sayfalar</translation>
 <translation id="3967822245660637423">İndirme tamamlandı</translation>
 <translation id="397583555483684758">Senkronizasyonun çalışması durdu</translation>
+<translation id="3976396876660209797">Bu kısayolu kaldırıp yeniden oluşturun</translation>
 <translation id="3985215325736559418"><ph name="FILE_NAME" /> dosyasını tekrar indirmek istiyor musunuz?</translation>
 <translation id="3987993985790029246">Bağlantıyı kopyala</translation>
 <translation id="3988213473815854515">Konuma izin veriliyor</translation>
@@ -423,6 +427,7 @@ Arama teriminizi düzeltmek için uzun basarak terimi seçin. Aramanızı ayrın
 <translation id="5626134646977739690">Adı:</translation>
 <translation id="5639724618331995626">Tüm sitelere izin ver</translation>
 <translation id="5646376287012673985">Konum</translation>
+<translation id="5648166631817621825">Son 7 gün</translation>
 <translation id="5655963694829536461">İndirdiklerinizde arama yapın</translation>
 <translation id="5659593005791499971">E-posta</translation>
 <translation id="5665379678064389456"><ph name="APP_NAME" /> adlı uygulamada etkinlik oluştur</translation>
@@ -558,6 +563,7 @@ Yine de, görünmez olmazsınız. Gizli moda geçmeniz web'de yaptıklarınızı
 <translation id="6965382102122355670">Tamam</translation>
 <translation id="6973630695168034713">Klasörler</translation>
 <translation id="6978479750597523876">Çeviri ayarlarını sıfırla</translation>
+<translation id="6979737339423435258">Tüm zamanlar</translation>
 <translation id="6981982820502123353">Erişilebilirlik</translation>
 <translation id="6985347914332179298">Burada indirilen herhangi bir şey bulunmadı</translation>
 <translation id="6990079615885386641">Uygulamayı Google Play Store'dan edinin: <ph name="APP_ACTION" /></translation>
@@ -575,6 +581,7 @@ Yine de, görünmez olmazsınız. Gizli moda geçmeniz web'de yaptıklarınızı
 <translation id="7128222689758636196">Geçerli arama motoruna izin verin</translation>
 <translation id="7138678301420049075">Diğer</translation>
 <translation id="7144878232160441200">Yeniden Dene</translation>
+<translation id="7149893636342594995">Son 24 saat</translation>
 <translation id="7180611975245234373">Yenile</translation>
 <translation id="7189372733857464326">Güncellemenin tamamlanması için Google Play Hizmetleri bekleniyor</translation>
 <translation id="7191430249889272776">Sekme arka planda açıldı.</translation>
@@ -593,6 +600,7 @@ Yine de, görünmez olmazsınız. Gizli moda geçmeniz web'de yaptıklarınızı
 <translation id="7423098979219808738">Önce sor</translation>
 <translation id="7437998757836447326">Chrome oturumunu kapatma</translation>
 <translation id="7445411102860286510">Sitelerin, sesi kapatılmış videoları otomatik olarak oynatmasına izin ver (önerilen)</translation>
+<translation id="7449574997654022410">Geçmişi ve adres çubuğu önerilerini temizler. Google Hesabınıza ait diğer etkinlikleri <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> adresinden görüntüleyebilirsiniz.</translation>
 <translation id="7464701184726199289">Bu işlem, senkronize edilen verileri tüm cihazlardan siler. Kayıtlı site ayarları silinmez ve web'e göz atma alışkanlıklarınızı yansıtabilir. <ph name="BEGIN_LINK" />Daha fazla bilgi edinin<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">Hayır, Teşekkürler</translation>
 <translation id="7475192538862203634">Bunu çok sık görüyorsanız bu <ph name="BEGIN_LINK" />önerileri<ph name="END_LINK" /> deneyin.</translation>
@@ -634,6 +642,7 @@ Diğer Google hizmetlerinden yapılan aramalar ve etkinlikler gibi Google hesab�
 <translation id="7829298379596169484">Ses girişine erişiliyor</translation>
 <translation id="7837721118676387834">Belirli bir sitenin, sesi kapatılmış videoları otomatik olarak oynatmasına izin verin.</translation>
 <translation id="7846076177841592234">Seçimi iptal et</translation>
+<translation id="784934925303690534">Zaman aralığı</translation>
 <translation id="7851858861565204677">Diğer cihazlar</translation>
 <translation id="7875915731392087153">E-posta oluşturun</translation>
 <translation id="7876243839304621966">Tümünü kaldır</translation>
@@ -713,6 +722,7 @@ Yeni lisansları edinmek için İnternet'e bağlanın ve indirdiğiniz içeriği
 <translation id="8639651215196239211">Tüm indirilenler</translation>
 <translation id="8641930654639604085">Yetişkinlere yönelik siteleri engellemeyi dene</translation>
 <translation id="8660471606262461360">Google Payments'tan</translation>
+<translation id="8662811608048051533">Çoğu sitedeki oturumunuz kapatılır.</translation>
 <translation id="8676374126336081632">Girişi temizle</translation>
 <translation id="869891660844655955">Son kullanma tarihi</translation>
 <translation id="8719023831149562936">Geçerli sekme ışınlanamıyor</translation>

@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">नेटवर्क में बदलाव का पता चला.</translation>
 <translation id="2916038427272391327">दूसरे प्रोग्राम बंद करें</translation>
 <translation id="2922350208395188000">सर्वर प्रमाणपत्र की जांच नहीं की जा सकती.</translation>
+<translation id="2928905813689894207">बिलिंग पता</translation>
 <translation id="2948083400971632585">आप किसी कनेक्शन के लिए कॉन्फ़िगर की गई किसी भी प्रॉक्सी को सेटिंग पेज से अक्षम कर सकते हैं.</translation>
 <translation id="2955913368246107853">खोज बार बंद करें</translation>
 <translation id="2958431318199492670">नेटवर्क कॉन्फ़िगरेशन ONC मानक का पालन नहीं करता. कॉन्फ़िगरेशन के कुछ भाग आयात नहीं किए जा सकते हैं.</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">सर्वर प्रमाणपत्र की मान्‍यता अवधि बहुत लंबी है.</translation>
 <translation id="6165508094623778733">अधिक जानें</translation>
 <translation id="6177128806592000436">इस साइट से आपका कनेक्‍शन सुरक्षित नहीं है</translation>
+<translation id="6184817833369986695">(समानता रखने वाले लोग: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">अपना इंटरनेट कनेक्शन जांचें</translation>
 <translation id="6218753634732582820">क्रोमियम से पता निकालें?</translation>
 <translation id="6251924700383757765">निजता नीति</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">रीफ्रेश करें</translation>
 <translation id="7182878459783632708">कोई नीति सेट नहीं की गई है</translation>
 <translation id="7186367841673660872">इस पेज का <ph name="ORIGINAL_LANGUAGE" />से<ph name="LANGUAGE_LANGUAGE" /> में अनुवाद कर दिया गया है</translation>
+<translation id="7192203810768312527"><ph name="SIZE" /> की जगह बनाता है. कुछ साइटें आपकी अगली विज़िट पर ज़्यादा धीमे लोड हो सकती हैं.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423"><ph name="HOST_NAME" /> सुरक्षा मानकों का पालन नहीं करता.</translation>
 <translation id="721197778055552897">इस समस्या के बारे में <ph name="BEGIN_LINK" />अधिक जानें<ph name="END_LINK" />.</translation>

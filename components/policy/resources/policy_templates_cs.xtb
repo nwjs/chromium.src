@@ -5,6 +5,17 @@
 
       Pokud je nastavena na hodnotu False, jsou aktualizace komponent zakázány. Na některé komponenty se však tato zásada nevztahuje: aktualizace komponent, které neobsahují spustitelný kód, nemění významně chování prohlížeče nebo jsou nezbytně nutné z důvodu bezpečnosti zakázány nebudou.
       Mezi takové komponenty patří například seznamy zneplatněných certifikátů a údaje Bezpečného prohlížení. </translation>
+<translation id="1010564225363223332">Konfiguruje seznam tiskáren.
+
+      Tato zásada administrátorům umožňuje poskytnout uživatelům konfigurace tiskáren.
+
+      Hodnoty <ph name="PRINTER_DISPLAY_NAME" /> a <ph name="PRINTER_DESCRIPTION" /> jsou volně upravitelné textové řetězce, pomocí kterých lze usnadnit výběr tiskárny. Hodnoty <ph name="PRINTER_MANUFACTURER" /> a <ph name="PRINTER_MODEL" /> koncovým uživatelům umožní snáze tiskárnu rozpoznat. Představují výrobce a model tiskárny. Hodnota <ph name="PRINTER_URI" /> by měla být adresa přístupná z klientského počítače, včetně údajů <ph name="URI_SCHEME" />, <ph name="URI_PORT" /> a <ph name="URI_QUEUE" />. Hodnota <ph name="PRINTER_UUID" /> je volitelná. Pokud je zadána, slouží k odebrání duplicitních tiskáren <ph name="ZEROCONF_DISCOVERY" />.
+
+      Hodnota <ph name="PRINTER_EFFECTIVE_MODEL" /> musí odpovídat jednomu z řetězců, které představují tiskárny podporované systémem <ph name="PRODUCT_NAME" />. Řetězec se použije k identifikaci a instalaci vhodného souboru PPD pro tiskárnu. Další informace naleznete na stránce https://support.google.com/chrome?p=noncloudprint.
+
+      Nastavení tiskárny se dokončí při jejím prvním použití. Soubory PPD se stáhnou až při použití tiskárny. Často používané soubory PPD budou následně uloženy do mezipaměti.
+
+      Tato zásada nemá vliv na to, zda uživatelé mohou konfigurovat tiskárny na jednotlivých zařízeních. Je zamýšlena jako doplněk ke konfiguraci tiskáren ze strany jednotlivých uživatelů.</translation>
 <translation id="101438888985615157">Otočit obrazovku o 180 stupňů</translation>
 <translation id="1017967144265860778">Správa možností napájení na přihlašovací obrazovce</translation>
 <translation id="1019101089073227242">Nastavit adresář uživatelských dat</translation>
@@ -1342,6 +1353,9 @@ Tato zásada ovlivňuje kromě integrované webové kamery i všechny ostatní v
 <translation id="5148753489738115745">Umožňuje nastavit dodatečné parametry, které plugin <ph name="PRODUCT_FRAME_NAME" /> při spouštění aplikace <ph name="PRODUCT_NAME" /> použije.
 
           Když tato zásada není nastavena, bude použit výchozí příkazový řádek.</translation>
+<translation id="5159469559091666409">Udává, jak často se odesílají sledovací síťové pakety (v milisekundách).
+
+      Je-li tato zásada ponechána nenastavená, použije se výchozí interval tři minuty. Minimální interval je 30 sekund a maximální 24 hodin – hodnoty mimo tento rozsah budou přizpůsobeny příslušné hranici.</translation>
 <translation id="5182055907976889880">Konfigurace Disku Google v systému <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="5183383917553127163">Umožňuje určit rozšíření, kterých se netýká seznam zakázaných rozšíření.
 

@@ -531,7 +531,7 @@
 <translation id="6151417162996330722">ใบรับรองเซิร์ฟเวอร์มีระยะเวลาที่สามารถใช้ได้นานเกินไป</translation>
 <translation id="6165508094623778733">เรียนรู้เพิ่มเติม</translation>
 <translation id="6177128806592000436">การเชื่อมต่อกับเว็บไซต์นี้ไม่ปลอดภัย</translation>
-<translation id="6184817833369986695">(กลุ่มประชากรตามรุ่น: <ph name="UPDATE_COHORT_NAME" />)</translation>
+<translation id="6184817833369986695">(รุ่น: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต</translation>
 <translation id="6218753634732582820">ต้องการนำที่อยู่ออกจาก Chromium ใช่ไหม</translation>
 <translation id="6251924700383757765">นโยบายความเป็นส่วนตัว</translation>

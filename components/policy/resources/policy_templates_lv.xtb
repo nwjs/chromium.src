@@ -5,6 +5,30 @@
 
       Ja šīs politikas iestatījums ir “Nepatiesa”, komponentu atjauninājumi ir atspējoti. Tomēr uz dažiem komponentiem šī politika neattiecas: netiks atspējoti atjauninājumi jebkuram komponentam, kas nesatur izpildāmu kodu, būtiski nemaina pārlūka darbību vai ir kritiski nepieciešams.
       Šādu komponentu piemēri: sertifikātu atsaukšanas saraksti un drošas pārlūkošanas dati. </translation>
+<translation id="1010564225363223332">Konfigurē printeru sarakstu.
+
+      Šī politika ļauj administratoriem nodrošināt printeru konfigurāciju
+      lietotājiem.
+
+      Parametri “<ph name="PRINTER_DISPLAY_NAME" />” un “<ph name="PRINTER_DESCRIPTION" />” ir brīvas formas virknes, ko
+      var pielāgot, lai atvieglotu printeru atlasi. “<ph name="PRINTER_MANUFACTURER" />” un “<ph name="PRINTER_MODEL" />” ļauj galalietotājiem
+      identificēt printeri. Tie apzīmē printera ražotāju un modeli. Parametram “<ph name="PRINTER_URI" />” ir jābūt adresei, ko var sasniegt
+      no klienta datora, un tajā jābūt iekļautiem parametriem “<ph name="URI_SCHEME" />”,
+      “<ph name="URI_PORT" />” un “<ph name="URI_QUEUE" />”. “<ph name="PRINTER_UUID" />” nav jānorāda obligāti. Ja tas ir norādīts, tas tiek izmantots,
+      lai novērstu “<ph name="ZEROCONF_DISCOVERY" />” printeru dublēšanu.
+
+      Parametram “<ph name="PRINTER_EFFECTIVE_MODEL" />” ir jāatbilst vienai no
+      virknēm, kas apzīmē pārlūkā <ph name="PRODUCT_NAME" /> atbalstītu printeri. Šī virkne tiks izmantota, lai identificētu un
+      instalētu printerim atbilstošo PPD failu. Plašāku informāciju skatiet
+      vietnē https://support.google.com/chrome?p=noncloudprint.
+
+      Printera iestatīšana tiek pabeigta, kad printeris tiek izmantots pirmo reizi. PPD faili netiek
+      lejupielādēti, kamēr printeris netiek izmantots. Pēc tam bieži izmantoti
+      PPD faili tiek saglabāti kešatmiņā.
+
+      Šī politika neietekmē to, vai lietotāji var konfigurēt printerus
+      atsevišķās ierīcēs. Tās mērķis ir papildināt
+      printeru konfigurāciju, ko veic individuāli lietotāji.</translation>
 <translation id="101438888985615157">Pagriezt ekrānu par 180 grādiem</translation>
 <translation id="1017967144265860778">Barošanas pārvaldība pieteikšanās ekrānā</translation>
 <translation id="1019101089073227242">Iestata lietotāja datu direktoriju</translation>
@@ -1384,6 +1408,11 @@ Ja šī politika nav iestatīta, lietotājs var izmantot jebkuru sistēmā insta
 <translation id="5148753489738115745">Ļauj noteikt papildu parametrus, kas tiek lietoti, kad spraudnis <ph name="PRODUCT_FRAME_NAME" /> palaiž pārlūkprogrammu <ph name="PRODUCT_NAME" />.
 
           Ja šī politika nav iestatīta, tiks izmantota noklusējuma komandrinda.</translation>
+<translation id="5159469559091666409">Pārraudzības tīkla pakešu sūtīšanas biežums (milisekundēs).
+
+      Ja šī politika netiek iestatīta, noklusējuma intervāls ir 3 minūtes. Minimālais
+      intervāls ir 30 sekundes, maksimālais — 24 stundas. Vērtības
+      ārpus šī diapazona tiks pieskaņotas diapazonam.</translation>
 <translation id="5182055907976889880">Tiek konfigurēta pakalpojuma Google disks lietošana operētājsistēmā <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Ļauj norādīt, kurus paplašinājumus nevar ietvert melnajā sarakstā.
 

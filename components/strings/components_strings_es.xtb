@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">Se ha detectado un cambio de red.</translation>
 <translation id="2916038427272391327">Cierra otros programas</translation>
 <translation id="2922350208395188000">No es posible comprobar el certificado del servidor.</translation>
+<translation id="2928905813689894207">Dirección de facturación</translation>
 <translation id="2948083400971632585">Puedes inhabilitar los servidores proxy configurados para una conexión en la página de configuración.</translation>
 <translation id="2955913368246107853">Cerrar la barra de búsqueda</translation>
 <translation id="2958431318199492670">La configuración de red no cumple el estándar ONC. Es posible que no se importen partes de la configuración.</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">El certificado del servidor tiene un período de validez demasiado largo.</translation>
 <translation id="6165508094623778733">Más información</translation>
 <translation id="6177128806592000436">Tu conexión con este sitio web no es segura</translation>
+<translation id="6184817833369986695">(cohorte: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">Comprueba tu conexión a Internet</translation>
 <translation id="6218753634732582820">¿Quitar dirección de Chromium?</translation>
 <translation id="6251924700383757765">Política de Privacidad</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">Actualizar</translation>
 <translation id="7182878459783632708">No hay políticas establecidas.</translation>
 <translation id="7186367841673660872">Esta página se ha traducido del<ph name="ORIGINAL_LANGUAGE" />al<ph name="LANGUAGE_LANGUAGE" />.</translation>
+<translation id="7192203810768312527">Libera <ph name="SIZE" />. Algunos sitios web pueden tardar más en cargarse la próxima vez que accedas a ellos.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423">La página <ph name="HOST_NAME" /> no cumple los estándares de seguridad.</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /> sobre este problema.</translation>

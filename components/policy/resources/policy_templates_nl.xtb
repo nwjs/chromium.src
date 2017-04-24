@@ -5,6 +5,17 @@
 
       Als deze optie is ingesteld op Onwaar (False), zijn de updates voor onderdelen uitgeschakeld. Bepaalde onderdelen worden echter uitgesloten van dit beleid: updates voor onderdelen worden niet uitgeschakeld als deze geen uitvoerbare code bevatten, het gedrag van de browser niet aanzienlijk veranderen of essentieel zijn voor de beveiliging.
       Voorbeelden van dergelijk onderdelen zijn Certificate Revocation Lists en de Safe Browsing-gegevens. </translation>
+<translation id="1010564225363223332">Hiermee configureer je een lijst met printers.
+
+      Met dit beleid kunnen beheerders hun gebruikers voorzien van printerconfiguraties.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> en <ph name="PRINTER_DESCRIPTION" /> zijn vrije tekenreeksen die kunnen worden aangepast om de printerselectie te vereenvoudigen. <ph name="PRINTER_MANUFACTURER" /> en <ph name="PRINTER_MODEL" /> zijn bedoeld om de printeridentificatie door eindgebruikers te vereenvoudigen. Ze staan voor de fabrikant en het model van de printer. <ph name="PRINTER_URI" /> moet een adres zijn dat bereikbaar is vanaf een clientcomputer, inclusief <ph name="URI_SCHEME" />, <ph name="URI_PORT" /> en <ph name="URI_QUEUE" />. <ph name="PRINTER_UUID" /> is optioneel. Indien opgegeven, wordt deze gebruikt om <ph name="ZEROCONF_DISCOVERY" />-printers te dedupliceren.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> moet overeenkomen met een van de tekenreeksen die een door <ph name="PRODUCT_NAME" /> ondersteunde printer vertegenwoordigen. De tekenreeks wordt gebruikt om de juiste PPD voor de printer te identificeren en te installeren. Je kunt meer informatie bekijken op https://support.google.com/chrome?p=noncloudprint.
+
+      Het instellen van de printer wordt voltooid wanneer de printer voor het eerst wordt gebruikt. PPD's worden pas gedownload wanneer de printer wordt gebruikt. Daarna worden veelgebruikte PPD's opgeslagen in het cachegeheugen.
+
+      Dit beleid is niet van invloed op de mogelijkheid van gebruikers om printers op afzonderlijke apparaten te configureren. Het is bedoeld als aanvulling op de configuratie van printers door individuele gebruikers.</translation>
 <translation id="101438888985615157">Scherm 180 graden draaien</translation>
 <translation id="1017967144265860778">Energiebeheer op het inlogscherm</translation>
 <translation id="1019101089073227242">Gegevensdirectory voor gebruiker instellen</translation>
@@ -1384,6 +1395,9 @@
 <translation id="5148753489738115745">Hiermee kun je extra parameters opgeven die worden gebruikt wanneer <ph name="PRODUCT_FRAME_NAME" /> <ph name="PRODUCT_NAME" /> start.
 
           Als dit beleid niet is ingesteld, wordt de standaardopdrachtregel gebruikt.</translation>
+<translation id="5159469559091666409">Hoe vaak netwerkpakketten voor controle worden verzonden, in milliseconden.
+
+      Als dit beleid niet is ingesteld, is het standaardinterval 3 minuten. Het minimuminterval is 30 seconden en het maximuminterval is 24 uur. Waarden die buiten dit bereik vallen, worden afgerond tot dit bereik.</translation>
 <translation id="5182055907976889880">Google Drive in <ph name="PRODUCT_OS_NAME" /> configureren.</translation>
 <translation id="5183383917553127163">Hiermee kun je opgeven welke extensies niet op de zwarte lijst staan.
 

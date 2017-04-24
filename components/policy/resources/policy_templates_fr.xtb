@@ -5,6 +5,30 @@
 
       En cas de réglage sur "False", la mise à jour des composants est désactivée. Toutefois, certains composants échappent à cette règle : les mises à jour des composants sans code exécutable, qui n'affectent pas de façon significative le comportement du navigateur ou qui sont essentiels à la sécurité du navigateur ne seront pas désactivées.
       Ces composants peuvent inclure les listes de révocation de certificats et les données de navigation sécurisée. </translation>
+<translation id="1010564225363223332">Configure une liste d'imprimantes.
+
+      Cette règle permet aux administrateurs de fournir des configurations
+      d'imprimante pour leurs utilisateurs.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> et <ph name="PRINTER_DESCRIPTION" /> sont des champs de formulaire libres
+      que vous pouvez personnaliser pour sélectionner facilement l'imprimante. <ph name="PRINTER_MANUFACTURER" /> et <ph name="PRINTER_MODEL" /> facilitent l'identification de l'imprimante
+      par les utilisateurs. Ils désignent le fabricant et le modèle de l'imprimante. <ph name="PRINTER_URI" /> doit être une adresse accessible
+      à partir d'un ordinateur client, et contenir le <ph name="URI_SCHEME" />,
+      le <ph name="URI_PORT" /> et la <ph name="URI_QUEUE" />. <ph name="PRINTER_UUID" /> est facultatif. S'il est indiqué, il est utilisé
+      pour supprimer les imprimantes <ph name="ZEROCONF_DISCOVERY" /> en double.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> doit correspondre à l'une
+      des chaînes qui représentent une imprimante <ph name="PRODUCT_NAME" /> compatible. La chaîne est utilisée pour identifier et
+      installer le fichier PPD approprié pour l'imprimante. Pour plus d'informations,
+      consultez la page https://support.google.com/chrome?p=noncloudprint.
+
+       La première utilisation d'une imprimante finalise sa configuration. 
+      Les fichiers PPD ne sont pas téléchargés tant que l'imprimante n'a pas été
+      utilisée. Par la suite, les fichiers PPD fréquemment utilisés sont mis en cache.
+
+      Cette règle n'a aucun effet sur la capacité des utilisateurs à configurer
+      des imprimantes sur différents appareils. Elle vise à compléter
+      la configuration des imprimantes effectuée par les différents utilisateurs.</translation>
 <translation id="101438888985615157">Faire pivoter l'écran de 180 degrés</translation>
 <translation id="1017967144265860778">Gestion de l'alimentation sur l'écran de connexion</translation>
 <translation id="1019101089073227242">Définir le répertoire de données utilisateur</translation>
@@ -1412,6 +1436,11 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
 <translation id="5148753489738115745">Permet de spécifier les paramètres supplémentaires utilisés lorsque <ph name="PRODUCT_FRAME_NAME" /> lance <ph name="PRODUCT_NAME" />.
 
           Si cette règle n'est pas configurée, la ligne de commande par défaut est utilisée.</translation>
+<translation id="5159469559091666409">Indiquer la fréquence d'envoi de paquets réseau de contrôle, en millisecondes.
+
+      Si cette règle n'est pas définie, l'intervalle par défaut est de 3 minutes.
+      L'intervalle minimal est de 30 secondes, et l'intervalle maximal de
+      24 heures. Les valeurs situées en dehors de cette plage seront remplacées      par la valeur limite la plus proche.</translation>
 <translation id="5182055907976889880">Configurer Google Drive dans <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="5183383917553127163">Permet de définir les extensions non régies par la liste noire.
 

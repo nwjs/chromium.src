@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">பிணைய மாற்றம் கண்டறியப்பட்டது.</translation>
 <translation id="2916038427272391327">பிற நிரல்களை மூடவும்</translation>
 <translation id="2922350208395188000">சேவையகச் சான்றிதழை சோதிக்க முடியவில்லை.</translation>
+<translation id="2928905813689894207">பில்லிங் முகவரி</translation>
 <translation id="2948083400971632585">இணைப்பிற்காக உள்ளமைத்த எந்த பிராக்சிகளையும் நீங்கள் அமைப்புகள் பக்கத்திலிருந்து முடக்கலாம்.</translation>
 <translation id="2955913368246107853">தேடல் பெட்டியை மூடுக</translation>
 <translation id="2958431318199492670">பிணைய உள்ளமைப்பானது ONC தரத்துடன் இணங்கவில்லை. உள்ளமைவின் பகுதிகள் இறக்குமதியாகாமல் போகக்கூடும்.</translation>
@@ -526,6 +527,7 @@
 <translation id="6151417162996330722">சேவை சான்றிதழ் நீண்ட செல்லுபடிக் காலத்தைக் கொண்டுள்ளது.</translation>
 <translation id="6165508094623778733">மேலும் அறிக</translation>
 <translation id="6177128806592000436">இந்தத் தளத்திற்கான உங்கள் இணைப்பு, பாதுகாப்பாக இல்லை</translation>
+<translation id="6184817833369986695">(குழு: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">உங்கள் இணைய இணைப்பைச் சரிபார்க்கவும்</translation>
 <translation id="6218753634732582820">Chromium இலிருந்து முகவரியை அகற்றவா?</translation>
 <translation id="6251924700383757765">தனியுரிமைக் கொள்கை</translation>
@@ -623,6 +625,7 @@
 <translation id="7180611975245234373">புதுப்பி</translation>
 <translation id="7182878459783632708">கொள்கைகள் அமைக்கப்படவில்லை</translation>
 <translation id="7186367841673660872">இந்தப் பக்கமானது<ph name="ORIGINAL_LANGUAGE" />இலிருந்து<ph name="LANGUAGE_LANGUAGE" />க்கு மொழிபெயர்க்கப்பட்டது</translation>
+<translation id="7192203810768312527"><ph name="SIZE" /> அளவைக் காலியாக்கும். நீங்கள் அடுத்த முறை பார்வையிடும் போது, சில தளங்கள் மிகவும் மெதுவாக ஏற்றப்படலாம்.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423"><ph name="HOST_NAME" /> பாதுகாப்புத் தரநிலைகளுக்கு உட்படவில்லை.</translation>
 <translation id="721197778055552897">இந்த சிக்கல் குறித்து <ph name="BEGIN_LINK" />மேலும் அறிக<ph name="END_LINK" />.</translation>

@@ -27,6 +27,7 @@
 Vous devez activer le Bluetooth et les services de localisation pour utiliser le Web physique.</translation>
 <translation id="124678866338384709">Fermer l'onglet actuel</translation>
 <translation id="1258753120186372309">Doodle : <ph name="DOODLE_DESCRIPTION" /></translation>
+<translation id="1265597927250775944">Efface l'historique et les suggestions de la barre d'adresse.</translation>
 <translation id="1272079795634619415">Arrêter</translation>
 <translation id="1283039547216852943">Appuyer pour développer</translation>
 <translation id="1285320974508926690">Ne jamais traduire ce site</translation>
@@ -35,6 +36,7 @@ Vous devez activer le Bluetooth et les services de localisation pour utiliser le
 <translation id="1303671224831497365">Aucun appareil Bluetooth détecté</translation>
 <translation id="1326317727527857210">Connectez-vous à Chrome pour accéder à vos onglets sur vos autres appareils.</translation>
 <translation id="1332501820983677155">Raccourcis liés aux fonctionnalités de Google Chrome</translation>
+<translation id="1339917386316755344">Vous déconnecte de pratiquement tous les sites. Vous ne serez pas déconnecté de votre compte Google.</translation>
 <translation id="1369915414381695676">Site "<ph name="SITE_NAME" />" ajouté</translation>
 <translation id="1373696734384179344">Mémoire insuffisante pour télécharger le contenu sélectionné.</translation>
 <translation id="1376578503827013741">Calcul…</translation>
@@ -255,6 +257,7 @@ Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée
 <translation id="3859306556332390985">Avance rapide</translation>
 <translation id="3894427358181296146">Ajouter un dossier</translation>
 <translation id="3895926599014793903">Forcer l'activation du zoom</translation>
+<translation id="3915590178385207649">Efface l'historique de tous les appareils connectés. Consultez les autres activités effectuées depuis votre compte Google sur le site <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="3917783807003067648">Position bloquée</translation>
 <translation id="3927692899758076493">Sans Serif</translation>
 <translation id="3928666092801078803">Combiner mes données</translation>
@@ -265,6 +268,7 @@ Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée
 <translation id="395922942268463099">Pages mises à jour régulièrement</translation>
 <translation id="3967822245660637423">Téléchargement terminé</translation>
 <translation id="397583555483684758">La synchronisation s'est arrêtée.</translation>
+<translation id="3976396876660209797">Supprimez et recréez ce raccourci</translation>
 <translation id="3985215325736559418">Voulez-vous télécharger <ph name="FILE_NAME" /> de nouveau ?</translation>
 <translation id="3987993985790029246">Copier lien</translation>
 <translation id="3988213473815854515">Position autorisée</translation>
@@ -423,6 +427,7 @@ Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée
 <translation id="5626134646977739690">Nom :</translation>
 <translation id="5639724618331995626">Autoriser tous les sites</translation>
 <translation id="5646376287012673985">Localisation</translation>
+<translation id="5648166631817621825">7 derniers jours</translation>
 <translation id="5655963694829536461">Rechercher dans les téléchargements</translation>
 <translation id="5659593005791499971">E-mail</translation>
 <translation id="5665379678064389456">Créer un événement dans <ph name="APP_NAME" /></translation>
@@ -558,6 +563,7 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="6965382102122355670">OK</translation>
 <translation id="6973630695168034713">Dossiers</translation>
 <translation id="6978479750597523876">Réinitialiser les paramètres de Google Traduction</translation>
+<translation id="6979737339423435258">Toutes les périodes</translation>
 <translation id="6981982820502123353">Accessibilité</translation>
 <translation id="6985347914332179298">Aucun téléchargement ici</translation>
 <translation id="6990079615885386641">Télécharger l'application sur le Google Play Store : <ph name="APP_ACTION" /></translation>
@@ -575,6 +581,7 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="7128222689758636196">Autoriser l'accès pour le moteur de recherche actuel</translation>
 <translation id="7138678301420049075">Autre</translation>
 <translation id="7144878232160441200">Réessayer</translation>
+<translation id="7149893636342594995">Dernières 24 heures</translation>
 <translation id="7180611975245234373">Actualiser</translation>
 <translation id="7189372733857464326">En attente de la fin de la mise à jour des services Google Play</translation>
 <translation id="7191430249889272776">L'onglet a été ouvert en arrière-plan.</translation>
@@ -593,6 +600,7 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="7423098979219808738">Demander d'abord</translation>
 <translation id="7437998757836447326">Se déconnecter de Chrome</translation>
 <translation id="7445411102860286510">Autoriser les sites à lire automatiquement des vidéos dont le son est coupé (recommandé)</translation>
+<translation id="7449574997654022410">Efface l'historique et les suggestions de la barre d'adresse. Consultez les autres activités effectuées depuis votre compte Google sur le site <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7464701184726199289">Les données synchronisées seront effacées de tous les appareils. Les paramètres de site enregistrés ne seront pas supprimés et peuvent donner des indications sur vos habitudes de navigation. <ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">Non, merci</translation>
 <translation id="7475192538862203634">Si vous rencontrez souvent ce problème, essayez les <ph name="BEGIN_LINK" />suggestions<ph name="END_LINK" /> suivantes.</translation>
@@ -634,6 +642,7 @@ Votre compte Google conserve peut-être d'autres formes d'historique de navigati
 <translation id="7829298379596169484">Accès à l'entrée audio en cours…</translation>
 <translation id="7837721118676387834">Autoriser la lecture automatique des vidéos dont le son est coupé pour un site spécifique</translation>
 <translation id="7846076177841592234">Annuler la sélection</translation>
+<translation id="784934925303690534">Période</translation>
 <translation id="7851858861565204677">Autres appareils</translation>
 <translation id="7875915731392087153">Créer un e-mail</translation>
 <translation id="7876243839304621966">Tout supprimer</translation>
@@ -713,6 +722,7 @@ Pour obtenir de nouvelles licences, connectez-vous à Internet et lisez le conte
 <translation id="8639651215196239211">Tous les téléchargements</translation>
 <translation id="8641930654639604085">Essayer de bloquer les sites réservés aux adultes</translation>
 <translation id="8660471606262461360">Informations issues de Google Payments</translation>
+<translation id="8662811608048051533">Vous déconnecte de la plupart des sites.</translation>
 <translation id="8676374126336081632">Effacer la saisie</translation>
 <translation id="869891660844655955">Date d'expiration</translation>
 <translation id="8719023831149562936">Impossible de partager l'onglet actuel.</translation>

@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">Tuvastati võrgumuudatus.</translation>
 <translation id="2916038427272391327">Sulgege muud programmid</translation>
 <translation id="2922350208395188000">Serveri sertifikaati ei saa kontrollida.</translation>
+<translation id="2928905813689894207">Arveldusaadress</translation>
 <translation id="2948083400971632585">Seadete lehel saate keelata kõik ühenduse jaoks konfigureeritud puhverserverid.</translation>
 <translation id="2955913368246107853">Sule leiuriba</translation>
 <translation id="2958431318199492670">Võrgu seadistus ei vasta ONC standardile. On võimalik, et seadistuse mõnd osa ei saa importida.</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">Serveri sertifikaadi kehtivusaeg on liiga pikk.</translation>
 <translation id="6165508094623778733">Lisateave</translation>
 <translation id="6177128806592000436">Teie ühendus selle saidiga pole turvaline</translation>
+<translation id="6184817833369986695">(rühm: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">Kontrollige Interneti-ühendust</translation>
 <translation id="6218753634732582820">Kas eemaldada Chromiumist aadress?</translation>
 <translation id="6251924700383757765">Privaatsuseeskirjad</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">Värskenda</translation>
 <translation id="7182878459783632708">Reegleid pole määratud</translation>
 <translation id="7186367841673660872">See leht on tõlgitud keelest<ph name="ORIGINAL_LANGUAGE" />keelde<ph name="LANGUAGE_LANGUAGE" /></translation>
+<translation id="7192203810768312527">Vabastab <ph name="SIZE" />. Mõne saidi laadimine võib järgmisel külastusel rohkem aega võtta.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423">Host <ph name="HOST_NAME" /> ei pea turvastandarditest kinni.</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />Lisateave<ph name="END_LINK" /> selle probleemi kohta.</translation>

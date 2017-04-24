@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">ネットワークの変更が検出されました。</translation>
 <translation id="2916038427272391327">他のプログラムを終了する</translation>
 <translation id="2922350208395188000">サーバーの証明書を確認できません。</translation>
+<translation id="2928905813689894207">請求先住所</translation>
 <translation id="2948083400971632585">接続用に設定されたプロキシは、設定ページで無効にできます。</translation>
 <translation id="2955913368246107853">検索バーを閉じる</translation>
 <translation id="2958431318199492670">ネットワーク設定が ONC 標準に準拠していません。設定の一部がインポートされない可能性があります。</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">サーバー証明書の有効期限が長すぎます。</translation>
 <translation id="6165508094623778733">詳しく見る</translation>
 <translation id="6177128806592000436">このサイトへの接続は保護されていません</translation>
+<translation id="6184817833369986695">（コホート: <ph name="UPDATE_COHORT_NAME" />）</translation>
 <translation id="6203231073485539293">インターネット接続を確認してください</translation>
 <translation id="6218753634732582820">Chromium からアドレスを削除してもよろしいですか？</translation>
 <translation id="6251924700383757765">プライバシー ポリシー</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">更新</translation>
 <translation id="7182878459783632708">ポリシーが設定されていません</translation>
 <translation id="7186367841673660872">このページは<ph name="ORIGINAL_LANGUAGE" />から<ph name="LANGUAGE_LANGUAGE" />に翻訳されました</translation>
+<translation id="7192203810768312527"><ph name="SIZE" /> を解放します。サイトによっては、次回アクセスする際に読み込みがこれまでより遅くなる可能性があります。</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423"><ph name="HOST_NAME" /> ではセキュリティ規格が遵守されていません。</translation>
 <translation id="721197778055552897">この問題の詳細については、<ph name="BEGIN_LINK" />こちら<ph name="END_LINK" />をご覧ください。</translation>

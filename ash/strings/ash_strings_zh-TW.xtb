@@ -48,6 +48,7 @@
 <translation id="2391579633712104609">180 度</translation>
 <translation id="2429753432712299108">藍牙裝置「<ph name="DEVICE_NAME" />」要求配對權限。接受要求前，請確認裝置顯示以下密碼金鑰：<ph name="PASSKEY" /></translation>
 <translation id="2475982808118771221">發生錯誤</translation>
+<translation id="2501920221385095727">相黏鍵</translation>
 <translation id="2509468283778169019">大寫鍵已啟用</translation>
 <translation id="2532589005999780174">高反差模式</translation>
 <translation id="2700058918926273959">這個工作階段將在 <ph name="SESSION_TIME_REMAINING" />後結束，屆時系統會將您登出。</translation>
@@ -146,6 +147,7 @@
 <translation id="5571066253365925590">藍牙已啟用</translation>
 <translation id="5597451508971090205"><ph name="DATE" /><ph name="SHORT_WEEKDAY" /></translation>
 <translation id="5648021990716966815">麥克風插孔</translation>
+<translation id="5744083938413354016">輕觸拖曳</translation>
 <translation id="5777841717266010279">停止共用螢幕？</translation>
 <translation id="57838592816432529">靜音</translation>
 <translation id="5895138241574237353">重新啟動</translation>

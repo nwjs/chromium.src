@@ -5,6 +5,34 @@
 
       Če pravilnik ni vklopljen, so posodobitve komponent onemogočene. Vendar pa so nekatere komponente izvzete iz tega pravilnika: onemogočene niso posodobitve komponent, ki ne vsebujejo izvedljive kode, ki bistveno ne spreminjajo delovanja brskalnika ali ki so pomembne za varnost brskalnika.
       Primera takih komponent so na primer seznami ukinjenih potrdil in podatki o varnem brskanju. </translation>
+<translation id="1010564225363223332">Konfigurira seznam tiskalnikov.
+
+      Skrbniki lahko s tem pravilnikom uporabnikom zagotovijo 
+      konfiguracije tiskalnikov.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> in <ph name="PRINTER_DESCRIPTION" /> sta poljubno oblikovana niza, ki ju je
+      mogoče prilagoditi za preprostejše izbiranje tiskalnika. <ph name="PRINTER_MANUFACTURER" /> in <ph name="PRINTER_MODEL" /> končnim uporabnikom olajšata
+      prepoznavo tiskalnika, saj predstavljata proizvajalca in model tiskalnika. <ph name="PRINTER_URI" /> mora biti naslov, do katerega je mogoče dostopati
+      iz odjemalskega računalnika, vključno s temi  podatki:
+      <ph name="URI_SCHEME" />,<ph name="URI_PORT" /> in <ph name="URI_QUEUE" />. Identifikator <ph name="PRINTER_UUID" /> ni obvezen. Če je
+      naveden, se uporablja za odstranjevanje
+      podvojenih tiskalnikov <ph name="ZEROCONF_DISCOVERY" />.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> se mora ujemati z enim od nizov,
+      ki predstavljajo tiskalnik s podporo za <ph name="PRODUCT_NAME" />. Niz se
+      uporabi za odkrivanje in namestitev ustrezne datoteke
+      PPD za tiskalnik. Več informacij je na voljo na
+      https://support.google.com/chrome?p=noncloudprint.
+
+      Nastavitev tiskalnika se dokonča po njegovi prvi uporabi.
+      Datoteke PPD se prenesejo,ko se začne tiskalnik
+      uporabljati. Nato so pogosto uporabljene datoteke
+      PPD predpomnjene.
+
+      Ta pravilnik ne vpliva na to, ali lahko uporabniki
+      konfigurirajo tiskalnike v posameznih napravah.
+      Namenjen je kot dodatek konfiguracijam tiskalnikov,
+      ki jih opravijo posamezni uporabniki.</translation>
 <translation id="101438888985615157">Sukanje zaslona za 180 stopinj</translation>
 <translation id="1017967144265860778">Upravljanje porabe na zaslonu za prijavo</translation>
 <translation id="1019101089073227242">Nastavitev imenika za uporabniške podatke</translation>
@@ -1400,6 +1428,11 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 <translation id="5148753489738115745">Določite lahko dodatne parametre, ki so uporabljeni, ko <ph name="PRODUCT_FRAME_NAME" /> zažene <ph name="PRODUCT_NAME" />.
 
           Če ta pravilnik ni nastavljen, je uporabljena privzeta ukazna vrstica.</translation>
+<translation id="5159469559091666409">Kako pogosto se pošiljajo omrežni paketi za spremljanje (v milisekundah).
+
+      Če ta pravilnik ni nastavljen, je privzeti interval 3 minute.
+      Najmanjši interval je 30 sekund, največji pa 24 ur –
+      vrednosti zunaj tega obsega bodo omejene na ta obseg.</translation>
 <translation id="5182055907976889880">Konfigurira Google Drive v brskalniku <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Omogoča, da določite, za katere razširitve ne velja seznam prepovedanih.
 

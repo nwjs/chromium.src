@@ -5,6 +5,17 @@
 
       Si s'estableix en "false", les actualitzacions dels components es desactiven. Tanmateix, aquesta política no afecta tots els components, com ara els que no contenen codi executable, els que no afecten de manera considerable el funcionament del navegador o els que són essencials per protegir-se.
       Aquests components inclouen, entre d'altres, les llistes de revocació de certificats i les dades de navegació segura. </translation>
+<translation id="1010564225363223332">Configura una llista d'impressores.
+
+      Aquesta política permet als administradors proporcionar configuracions d'impressora als usuaris.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> i <ph name="PRINTER_DESCRIPTION" /> són cadenes de format lliure que es poden personalitzar per facilitar la selecció de la impressora. Les cadenes <ph name="PRINTER_MANUFACTURER" /> i <ph name="PRINTER_MODEL" /> representen el fabricant i el model de la impressora, i serveixen perquè els usuaris finals puguin identificar la impressora més fàcilment. <ph name="PRINTER_URI" /> ha de ser una adreça accessible des d'un ordinador de client, com ara <ph name="URI_SCHEME" />, <ph name="URI_PORT" /> i <ph name="URI_QUEUE" />. <ph name="PRINTER_UUID" /> és opcional. Si s'indica, s'utilitza per eliminar la duplicació d'impressores <ph name="ZEROCONF_DISCOVERY" />.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> ha de coincidir amb una de les cadenes que representa una impressora <ph name="PRODUCT_NAME" /> compatible. La cadena s'utilitzarà per identificar i instal·lar el fitxer PPD adequat per a la impressora. Pots trobar-ne més informació a https://support.google.com/chrome?p=noncloudprint.
+
+      La configuració d'una impressora es completa quan s'utilitza per primera vegada. Els fitxers PPD no es baixen fins que no s'utilitza la impressora. Després, els que s'utilitzen sovint es desen a la memòria cau.
+
+      Aquesta política no té cap efecte en si els usuaris poden configurar impressores en dispositius concrets, sinó que s'ha creat per complementar la configuració d'impressores per part dels usuaris.</translation>
 <translation id="101438888985615157">Gira la pantalla 180 graus</translation>
 <translation id="1017967144265860778">Gestió de l'alimentació a la pantalla d'inici de sessió</translation>
 <translation id="1019101089073227242">Estableix el directori de dades de l'usuari</translation>
@@ -1312,6 +1323,9 @@ El valor de la política s'ha d'especificar en mil·lisegons. Els valors s'estab
 <translation id="5148753489738115745">Us permet especificar els paràmetres especials que s'utilitzen quan <ph name="PRODUCT_FRAME_NAME" /> inicia <ph name="PRODUCT_NAME" />.
 
           Si no definiu aquesta política, s'utilitzarà la línia d'ordres predeterminada.</translation>
+<translation id="5159469559091666409">La freqüència, en mil·lisegons, amb què s'envien paquets de xarxa de supervisió.
+
+      Si aquesta política no s'estableix, l'interval predeterminat és de 3 minuts. L'interval mínim és de 30 segons i l'interval màxim és de 24 hores. Tots els valors que no es trobin dins d'aquest interval es restringiran al límit respectiu.</translation>
 <translation id="5182055907976889880">Configura Google Drive a <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Us permet especificar les extensions que no estan subjectes a la llista negra. Un valor de * a la llista negra significa que s'hi inclouen totes les extensions i que els usuaris només podran instal·lar les que apareixen a la llista blanca. De manera predeterminada, totes les aplicacions apareixen a la llista blanca, però si una política provoca que totes es moguin a la llista negra, pot fer-se servir la llista blanca per substituir aquesta política.</translation>
 <translation id="5192837635164433517">Activa l'ús de les pàgines d'error alternatives que es creen a <ph name="PRODUCT_NAME" /> (per exemple, "pàgina no trobada") i impedeix que els usuaris puguin canviar aquesta configuració. Si activeu aquest paràmetre, s'utilitzaran aquestes pàgines d'error alternatives. Si desactiveu aquest paràmetre, les pàgines d'error alternatives no s'utilitzaran mai. Si activeu o desactiveu aquest paràmetre, els usuaris no podran canviar ni substituir aquesta configuració a <ph name="PRODUCT_NAME" />. Si no es defineix aquesta política, s'activarà aquest paràmetre però l'usuari podrà canviar-lo.</translation>

@@ -5,6 +5,28 @@
 
       Om den är inställd på Falskt är komponentuppdateringar inaktiverade. Vissa komponenter undantas dock från principen: uppdateringar för komponenter som inte innehåller körbar kod eller inte märkbart förändrar webbläsarens funktion eller är viktiga för dess säkerhet inaktiveras inte.
       Exempel på sådana komponenter är uppgifter om listor över återkallade certifikat och uppgifter i säker webbsökning. </translation>
+<translation id="1010564225363223332">Konfigurerar en lista över skrivare.
+
+      Med hjälp av den här principen kan administratören tillhandahålla skrivarkonfigurationer åt användarna.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> och <ph name="PRINTER_DESCRIPTION" /> är strängar i fritt format som
+      kan anpassas så att det blir enkelt att välja skrivare. <ph name="PRINTER_MANUFACTURER" /> och <ph name="PRINTER_MODEL" /> gör det enklare för användarna att
+      identifiera skrivaren och står för tillverkare och märke. <ph name="PRINTER_URI" /> ska vara en adress som går att nå från en
+      klientdator, inklusive <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> och <ph name="URI_QUEUE" />. <ph name="PRINTER_UUID" /> är valfritt. Om det anges används det för
+      att deduplicera <ph name="ZEROCONF_DISCOVERY" />-skrivare.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> måste matcha någon av
+      strängarna som står för en skrivare som stöds i <ph name="PRODUCT_NAME" />. Strängen används för att identifiera
+      och installera rätt PPD-fil för skrivaren. Mer information finns
+      på https://support.google.com/chrome?p=noncloudprint.
+
+      Skrivarkonfigureringen slutförs första gången en skrivare används. Inga PPD-filer
+      laddas ned förrän skrivaren används. Därefter cachelagras PPD-filer som används ofta.
+
+      Principen påverkar inte om användarna kan konfigurera skrivare på enskilda
+      enheter eller inte. Den är tänkt att vara ett supplement till de enskilda
+      användarnas skrivarkonfiguration.</translation>
 <translation id="101438888985615157">Rotera skärmen 180 grader</translation>
 <translation id="1017967144265860778">Energibesparing på inloggningssidan</translation>
 <translation id="1019101089073227242">Ange katalog för användardata</translation>
@@ -1404,6 +1426,11 @@
 <translation id="5148753489738115745">Innebär att du kan ange ytterligare parametrar som används när <ph name="PRODUCT_FRAME_NAME" /> startar <ph name="PRODUCT_NAME" />.
 
           Om policyn inte anges används standardkommandoraden.</translation>
+<translation id="5159469559091666409">Hur ofta nätverkspaket för övervakning skickas, i millisekunder.
+
+      Om principen inte har angetts är standardintervallet 3 minuter. Det lägsta
+      värdet är 30 sekunder och det högsta 24 timmar. Värden som är
+      högre eller lägre än så ändras till det högsta eller lägsta tillåtna värdet.</translation>
 <translation id="5182055907976889880">Konfigurera Google Drive i <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Innebär att du kan ange vilka tillägg som inte omfattas av svartlistan.
 

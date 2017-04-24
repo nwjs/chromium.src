@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">Un changement de réseau a été détecté.</translation>
 <translation id="2916038427272391327">Fermez les autres programmes</translation>
 <translation id="2922350208395188000">Impossible de vérifier le certificat du serveur.</translation>
+<translation id="2928905813689894207">Adresse de facturation</translation>
 <translation id="2948083400971632585">Vous pouvez désactiver tout proxy configuré pour une connexion à partir de la page des paramètres.</translation>
 <translation id="2955913368246107853">Fermer la barre de recherche</translation>
 <translation id="2958431318199492670">La configuration du réseau ne respecte pas les normes de l'ONC. Il est possible que des parties de la configuration ne soient pas importées.</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">La durée de validité du certificat du serveur est trop longue.</translation>
 <translation id="6165508094623778733">En savoir plus</translation>
 <translation id="6177128806592000436">Votre connexion à ce site n'est pas sécurisée.</translation>
+<translation id="6184817833369986695">(cohorte : <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">Vérifiez votre connexion Internet</translation>
 <translation id="6218753634732582820">Supprimer l'adresse de Chromium ?</translation>
 <translation id="6251924700383757765">Règles de confidentialité</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">Actualiser</translation>
 <translation id="7182878459783632708">Aucune règle n'est définie</translation>
 <translation id="7186367841673660872">Cette page en<ph name="ORIGINAL_LANGUAGE" />a été traduite en<ph name="LANGUAGE_LANGUAGE" /></translation>
+<translation id="7192203810768312527">Libère <ph name="SIZE" />. Le chargement de certains sites est susceptible d'être plus lent lors de votre visite suivante.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423"><ph name="HOST_NAME" /> ne respecte pas les normes de sécurité.</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /> sur ce problème.</translation>

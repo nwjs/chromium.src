@@ -7,7 +7,7 @@
       Mifano ya vipengele hivyo ni pamoja na orodha za vyeti vilivyobatilishwa na data ya kuvinjari salama. </translation>
 <translation id="1010564225363223332">Huweka mipangilio ya orodha ya printa.
 
-      Sera hii huruhusu wasimamizi kutoa mipangilio ya printa kwa watumiaji wake.
+      Sera hii huruhusu wasimamizi kutoa mipangilio ya printa kwa watumiaji.
 
       <ph name="PRINTER_DISPLAY_NAME" /> na <ph name="PRINTER_DESCRIPTION" /> ziko katika mifuatano wazi ambayo inaweza kuboreshwa zaidi ili kurahisisha kuchagua printa. <ph name="PRINTER_MANUFACTURER" /> na <ph name="PRINTER_MODEL" /> hutumika kurahisisha utambulisho wa printa na watumiaji wa hatima. Zinawakilisha mtengenezaji na muundo wa printa. <ph name="PRINTER_URI" /> inapaswa kuwa mahali ambapo panafikika
       kutoka kwenye kompyuta ya seva teja ikiwemo <ph name="URI_SCHEME" />,

@@ -27,6 +27,7 @@
 Pentru a folosi Webul material, trebuie să activezi Bluetooth și Locația.</translation>
 <translation id="124678866338384709">Închide fila actuală</translation>
 <translation id="1258753120186372309">Doodle Google: <ph name="DOODLE_DESCRIPTION" /></translation>
+<translation id="1265597927250775944">Șterge istoricul și sugestiile din bara de adrese.</translation>
 <translation id="1272079795634619415">Oprește</translation>
 <translation id="1283039547216852943">Atinge pentru a extinde</translation>
 <translation id="1285320974508926690">Nu traduce niciodată acest site</translation>
@@ -35,6 +36,7 @@ Pentru a folosi Webul material, trebuie să activezi Bluetooth și Locația.</tr
 <translation id="1303671224831497365">Nu s-a găsit niciun dispozitiv Bluetooth</translation>
 <translation id="1326317727527857210">Pentru a accesa filele de pe alte dispozitive, conectează-te la Chrome.</translation>
 <translation id="1332501820983677155">Comenzi rapide pentru funcțiile Google Chrome</translation>
+<translation id="1339917386316755344">Te deconectează de pe majoritatea site-urilor. Nu te va deconecta de la Contul Google.</translation>
 <translation id="1369915414381695676">Site-ul <ph name="SITE_NAME" /> a fost adăugat</translation>
 <translation id="1373696734384179344">Memorie insuficientă pentru descărcarea conținutului selectat.</translation>
 <translation id="1376578503827013741">Se calculează…</translation>
@@ -255,6 +257,7 @@ Pentru a ajusta termenii căutării, apasă lung pentru a selecta. Pentru a rafi
 <translation id="3859306556332390985">Derulează înainte</translation>
 <translation id="3894427358181296146">Adaugă un dosar</translation>
 <translation id="3895926599014793903">Forțează activarea zoomului</translation>
+<translation id="3915590178385207649">Șterge istoricul de pe toate dispozitivele conectate. Vezi alte activități din Contul Google la <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="3917783807003067648">Accesul la locație este blocat</translation>
 <translation id="3927692899758076493">Sans Serif</translation>
 <translation id="3928666092801078803">Combină datele</translation>
@@ -265,6 +268,7 @@ Pentru a ajusta termenii căutării, apasă lung pentru a selecta. Pentru a rafi
 <translation id="395922942268463099">Pagini actualizate în mod regulat</translation>
 <translation id="3967822245660637423">Descărcare finalizată</translation>
 <translation id="397583555483684758">Sincronizarea nu mai funcționează</translation>
+<translation id="3976396876660209797">Elimină și recreează această comandă rapidă</translation>
 <translation id="3985215325736559418">Dorești să descarci <ph name="FILE_NAME" /> din nou?</translation>
 <translation id="3987993985790029246">Copiază linkul</translation>
 <translation id="3988213473815854515">Accesul la locație este permis</translation>
@@ -423,6 +427,7 @@ Pentru a ajusta termenii căutării, apasă lung pentru a selecta. Pentru a rafi
 <translation id="5626134646977739690">Nume:</translation>
 <translation id="5639724618331995626">Permite toate site-urile</translation>
 <translation id="5646376287012673985">Locație</translation>
+<translation id="5648166631817621825">Ultimele 7 zile</translation>
 <translation id="5655963694829536461">Caută în descărcări</translation>
 <translation id="5659593005791499971">Adresă de e-mail</translation>
 <translation id="5665379678064389456">Creează un eveniment în <ph name="APP_NAME" /></translation>
@@ -558,6 +563,7 @@ De exemplu, unele site-uri pot răspunde la această solicitare afișând anunț
 <translation id="6965382102122355670">OK</translation>
 <translation id="6973630695168034713">Dosare</translation>
 <translation id="6978479750597523876">Resetează setările pentru traducere</translation>
+<translation id="6979737339423435258">Dintotdeauna</translation>
 <translation id="6981982820502123353">Accesibilitate</translation>
 <translation id="6985347914332179298">Nu există descărcări aici</translation>
 <translation id="6990079615885386641">Descarcă aplicația din Magazinul Google Play: <ph name="APP_ACTION" /></translation>
@@ -575,6 +581,7 @@ De exemplu, unele site-uri pot răspunde la această solicitare afișând anunț
 <translation id="7128222689758636196">Permite pentru motorul de căutare actual</translation>
 <translation id="7138678301420049075">Altele</translation>
 <translation id="7144878232160441200">Reîncearcă</translation>
+<translation id="7149893636342594995">Ultimele 24 de ore</translation>
 <translation id="7180611975245234373">Actualizați</translation>
 <translation id="7189372733857464326">Se așteaptă finalizarea actualizării pentru serviciile Google Play</translation>
 <translation id="7191430249889272776">A fost deschisă o filă în fundal.</translation>
@@ -593,6 +600,7 @@ De exemplu, unele site-uri pot răspunde la această solicitare afișând anunț
 <translation id="7423098979219808738">Mai întâi întreabă</translation>
 <translation id="7437998757836447326">Deconectează-te de la Chrome</translation>
 <translation id="7445411102860286510">Permite site-urilor să redea automat videoclipuri cu sunetul dezactivat (recomandat)</translation>
+<translation id="7449574997654022410">Șterge istoricul și sugestiile din bara de adrese. Vezi alte activități din Contul Google la <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7464701184726199289">Astfel, datele sincronizate vor fi șterse de pe toate dispozitivele. Setările salvate pentru site-uri nu vor fi șterse și pot reflecta obiceiurile de navigare. <ph name="BEGIN_LINK" />Află mai multe<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">Nu, mulțumesc</translation>
 <translation id="7475192538862203634">Dacă acest mesaj apare frecvent, încearcă următoarele <ph name="BEGIN_LINK" />sugestii<ph name="END_LINK" />.</translation>
@@ -634,6 +642,7 @@ Contul Google poate să ofere alte forme ale istoricului de navigare, cum ar fi 
 <translation id="7829298379596169484">Se accesează intrarea audio</translation>
 <translation id="7837721118676387834">Permite unui anumit site să redea automat videoclipuri cu sunetul dezactivat.</translation>
 <translation id="7846076177841592234">Anulează selecția</translation>
+<translation id="784934925303690534">Interval de timp</translation>
 <translation id="7851858861565204677">Alte dispozitive</translation>
 <translation id="7875915731392087153">Creează un e-mail</translation>
 <translation id="7876243839304621966">Elimină tot</translation>
@@ -713,6 +722,7 @@ Pentru licențe noi, conectează-te la internet și redă conținutul descărcat
 <translation id="8639651215196239211">Toate descărcările</translation>
 <translation id="8641930654639604085">Încearcă să blochezi site-urile destinate adulților</translation>
 <translation id="8660471606262461360">Din Google Payments</translation>
+<translation id="8662811608048051533">Te deconectează de pe majoritatea site-urilor.</translation>
 <translation id="8676374126336081632">Șterge textul introdus</translation>
 <translation id="869891660844655955">Dată de expirare</translation>
 <translation id="8719023831149562936">Fila actuală nu poate fi transmisă</translation>

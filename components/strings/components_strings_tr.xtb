@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">Bir ağ değişikliği algılandı.</translation>
 <translation id="2916038427272391327">Diğer programları kapatın</translation>
 <translation id="2922350208395188000">Sunucunun sertifikası kontrol edilemiyor.</translation>
+<translation id="2928905813689894207">Fatura Adresi</translation>
 <translation id="2948083400971632585">Ayarlar sayfasından, bir bağlantı için yapılandırılmış proxy'leri devre dışı bırakabilirsiniz.</translation>
 <translation id="2955913368246107853">Bulma çubuğunu kapat</translation>
 <translation id="2958431318199492670">Ağ yapılandırması ONC standardıyla uyumlu değil. Yapılandırmanın bazı bölümleri içe aktarılamaz.</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">Sunucu sertifikasının geçerlilik dönemi çok uzun.</translation>
 <translation id="6165508094623778733">Daha fazla bilgi edinin</translation>
 <translation id="6177128806592000436">Bu siteye bağlantınız güvenli değil</translation>
+<translation id="6184817833369986695">(kohort: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">İnternet bağlantınızı kontrol edin</translation>
 <translation id="6218753634732582820">Adres Chromium'dan kaldırılsın mı?</translation>
 <translation id="6251924700383757765">Gizlilik politikası</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">Yenile</translation>
 <translation id="7182878459783632708">Hiçbir politika ayarlanmamış</translation>
 <translation id="7186367841673660872">Bu sayfa,<ph name="ORIGINAL_LANGUAGE" />dilinden<ph name="LANGUAGE_LANGUAGE" />diline çevrilmiştir</translation>
+<translation id="7192203810768312527"><ph name="SIZE" /> yer açar. Bir sonraki ziyaretinizde bazı siteler daha yavaş yüklenebilir.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423"><ph name="HOST_NAME" /> güvenlik standartlarına uymuyor.</translation>
 <translation id="721197778055552897">Bu sorun hakkında <ph name="BEGIN_LINK" />daha fazla<ph name="END_LINK" /> bilgi edinin.</translation>

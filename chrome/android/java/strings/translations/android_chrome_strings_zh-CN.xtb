@@ -36,7 +36,7 @@
 <translation id="1303671224831497365">未找到任何蓝牙设备</translation>
 <translation id="1326317727527857210">要在您的其他设备上访问您的标签页，请登录 Chrome。</translation>
 <translation id="1332501820983677155">Google Chrome 功能快捷键</translation>
-<translation id="1339917386316755344">删除 Cookie 和网站数据会使您退出大多数网站，但不会使您退出自己的 Google 帐号。</translation>
+<translation id="1339917386316755344">您会从大多数网站退出，但不会因此退出自己的 Google 帐号。</translation>
 <translation id="1369915414381695676">网站 <ph name="SITE_NAME" /> 已添加</translation>
 <translation id="1373696734384179344">内存不足，无法下载所选内容。</translation>
 <translation id="1376578503827013741">正在计算…</translation>
@@ -722,7 +722,7 @@
 <translation id="8639651215196239211">所有下载内容</translation>
 <translation id="8641930654639604085">尽量屏蔽成人网站</translation>
 <translation id="8660471606262461360">来自 Google Payments</translation>
-<translation id="8662811608048051533">删除 Cookie 和网站数据会使您退出大多数网站。</translation>
+<translation id="8662811608048051533">您会从大多数网站退出。</translation>
 <translation id="8676374126336081632">清除输入的内容</translation>
 <translation id="869891660844655955">截止日期</translation>
 <translation id="8719023831149562936">无法传输当前的标签页</translation>

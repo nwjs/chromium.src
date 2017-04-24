@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">Der blev registreret en netværksændring.</translation>
 <translation id="2916038427272391327">Luk andre programmer</translation>
 <translation id="2922350208395188000">Serverens certifikat kan ikke kontrolleres.</translation>
+<translation id="2928905813689894207">Faktureringsadresse</translation>
 <translation id="2948083400971632585">Du kan deaktivere alle proxyer, der er konfigureret for en forbindelse, fra siden Indstillinger.</translation>
 <translation id="2955913368246107853">Luk søgefeltet</translation>
 <translation id="2958431318199492670">Netværkskonfigurationen overholder ikke ONC-standarden. Dele af konfiguration kan muligvis ikke importeres.</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">Servercertifikatet har en gyldighedsperiode, der er for lang.</translation>
 <translation id="6165508094623778733">Flere oplysninger</translation>
 <translation id="6177128806592000436">Din forbindelse til dette website er ikke sikker.</translation>
+<translation id="6184817833369986695">(kohorte: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">Kontrollér din internetforbindelse</translation>
 <translation id="6218753634732582820">Vil du fjerne adressen fra Chromium?</translation>
 <translation id="6251924700383757765">Privatlivspolitik</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">Opdater</translation>
 <translation id="7182878459783632708">Ingen politikker er indstillet</translation>
 <translation id="7186367841673660872">Denne side er oversat fra<ph name="ORIGINAL_LANGUAGE" />til<ph name="LANGUAGE_LANGUAGE" /></translation>
+<translation id="7192203810768312527">Frigør <ph name="SIZE" />. Nogle websites indlæses muligvis langsommere, næste gang du går til websitet.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423"><ph name="HOST_NAME" /> overholder ikke sikkerhedsstandarderne.</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /> om dette problem.</translation>

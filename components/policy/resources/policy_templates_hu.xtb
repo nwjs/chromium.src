@@ -5,6 +5,30 @@
 
       Ha a beállítás Hamis, a komponensek frissítése ki van kapcsolva. Egyes komponensek azonban mentesülnek a házirend alól: az olyan komponensek frissítései, amelyek nem tartalmaznak végrehajtható kódot, nem változtatják meg jelentősen a böngésző viselkedését, vagy kiemelkedően fontosak a komponens biztonsága érdekében, nem lesznek kikapcsolva.
       Ilyen komponensek például a tanúsítványok visszavonási listái és a biztonságos böngészési adatok. </translation>
+<translation id="1010564225363223332">Konfigurálja a nyomtatók listáját.
+
+      Ez a házirend lehetővé teszi a rendszergazdák számára, hogy nyomtatóbeállításokat biztosítsanak
+      felhasználóiknak.
+
+      A(z) <ph name="PRINTER_DISPLAY_NAME" /> és <ph name="PRINTER_DESCRIPTION" /> szabad formájú karakterláncok, amelyek
+      személyre szabhatók a nyomtatóválasztás megkönnyítése érdekében. A(z) <ph name="PRINTER_MANUFACTURER" /> és <ph name="PRINTER_MODEL" /> a nyomtató
+      végfelhasználó általi azonosításának megkönnyítésére szolgálnak. A nyomtató gyártóját és modelljét jelölik. A(z) <ph name="PRINTER_URI" /> linknek olyan
+      címnek kell lennie, amelyhez hozzáfér az ügyfélszámítógép, és amely tartalmazza a következőket: <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> és <ph name="URI_QUEUE" />. A(z) <ph name="PRINTER_UUID" /> megadása nem kötelező. Ha meg van adva, segít 
+      elkerülni a(z) <ph name="ZEROCONF_DISCOVERY" /> nyomtatók ismétlődését.
+
+     A(z) <ph name="PRINTER_EFFECTIVE_MODEL" /> karakterláncnak meg kell egyeznie a(z) <ph name="PRODUCT_NAME" /> támogatott
+     nyomtatóinak egyikét képviselő karakterlánccal. A karakterlánc a nyomtatóhoz tartozó megfelelő
+     PPD azonosításához és telepítéséhez szükséges. További információ a
+     következő linken található: https://support.google.com/chrome?p=noncloudprint.
+
+      A nyomtató beállítása a nyomtató első használatakor történik. A PPD-k csak a
+      nyomtató használatát követően töltődnek le. Ezután a gyakran használt
+      PPD-k a gyorsítótárba kerülnek.
+
+      A házirend nem befolyásolja, hogy a felhasználók beállíthatják-e a nyomtatókat
+      saját eszközeiken. A házirend célja, hogy kiegészítse
+      az egyéni felhasználók nyomtatóbeállításait.</translation>
 <translation id="101438888985615157">Képernyő elforgatása 180 fokkal</translation>
 <translation id="1017967144265860778">Energiagazdálkodás a bejelentkezési képernyőn</translation>
 <translation id="1019101089073227242">Felhasználói adatok könyvtárának beállítása</translation>
@@ -1316,6 +1340,11 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 <translation id="5148753489738115745">Lehetővé teszi további paraméterek megadását, amelyeket a(z) <ph name="PRODUCT_FRAME_NAME" /> használ a(z) <ph name="PRODUCT_NAME" /> indításakor.
 
           Ha nincs beállítva ez a házirend, akkor a rendszer az alapértelmezett parancssort használja.</translation>
+<translation id="5159469559091666409">Az ellenőrző hálózati csomagok küldésének gyakorisága (ezredmásodpercben).
+
+      Ha nem állítja be a házirendet, az alapértelmezett időtartam három perc.
+      A minimális időtartam 30 másodperc, a maximális 24 óra. A
+      tartományon kívüli értékek ebbe a tartományba lesznek beszorítva.</translation>
 <translation id="5182055907976889880">A Google Drive konfigurálása a következőben: <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Lehetővé teszi, hogy meghatározza, mely kiterjesztések nem kerülhetnek a feketelistára. A feketelista * értéke azt jelenti, hogy az összes kiterjesztés feketelistás, és a felhasználók csak az engedélyezett listán felsorolt kiterjesztéseket telepíthetik. Alapértelmezés szerint az összes kiterjesztés engedélyezett, de ha a szabályok miatt minden kiterjesztés feketelistára kerül, az engedélyezett listával felül lehet bírálni a szabályokat.</translation>
 <translation id="5192837635164433517">A(z) <ph name="PRODUCT_NAME" /> beépített, alternatív hibaoldalainak (például "az oldal nem található" hibaoldalnak) a használatát teszi lehetővé, és megakadályozza, hogy a felhasználók megváltoztassák ezt a beállítást. Ha engedélyezi ezt a beállítást, az alternatív hibaoldalak használatba kerülnek. Ha letiltja a beállítást, a rendszer soha nem használ alternatív hibaoldalt. Ha engedélyezi vagy letiltja ezt a beállítást, a felhasználók nem módosíthatják és nem írhatják felül ezt a beállítást a következőben: <ph name="PRODUCT_NAME" />. Ha a házirend konfigurálatlanul marad, akkor a rendszer engedélyezi, de ezt a felhasználó módosíthatja.</translation>

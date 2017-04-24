@@ -865,7 +865,7 @@ Imebakisha <ph name="HOUR" />:<ph name="MINUTE" /> ijae</translation>
 <translation id="2241634353105152135">Mara moja tu</translation>
 <translation id="2242603986093373032">Hakuna vifaa</translation>
 <translation id="2242687258748107519">Maelezo ya Faili</translation>
-<translation id="2245240762616536227">Dhibiti namna historia yako ya kuvinjari inavyoboresha zaidi huduma za Tafuta na Google, matangazo na huduma nyingine za Google</translation>
+<translation id="2245240762616536227">Dhibiti namna historia yako ya kuvinjari inavyoweka mapendeleo kwenye huduma zako za Tafuta na Google, matangazo na huduma nyingine za Google</translation>
 <translation id="2246340272688122454">Inapakua picha ya ufufuzi...</translation>
 <translation id="2249499294612408921">Mtumiaji anayesimamiwa anaweza kuvinjari wavuti kwa uongozi wako. Ukiwa msimamizi wa mtumiaji anayesimamiwa katika Chrome, unaweza
 
@@ -1091,7 +1091,7 @@ Sidhani ikiwa tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="2565670301826831948">Kasi ya padimguso:</translation>
 <translation id="2566124945717127842">Tumia Powerwash ili uweke upya kifaa chako cha <ph name="IDS_SHORT_PRODUCT_NAME" /> kiwe kama kipya.</translation>
 <translation id="2568774940984945469">Hifadhi ya Upau wa Maelezo</translation>
-<translation id="2570000010887652771">Data iliyohifadhiwa.</translation>
+<translation id="2570000010887652771">Data iliyookolewa.</translation>
 <translation id="2570648609346224037">Kulikuwa na tatizo wakati wa kupakua picha ya ufufuzi.</translation>
 <translation id="257088987046510401">Mandhari</translation>
 <translation id="2572032849266859634">Idhini ya kufikia kusoma tu kwenye <ph name="VOLUME_NAME" /> imeruhusiwa.</translation>
@@ -2421,7 +2421,7 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="4538684596480161368">Zuia programu-jalizi zisizo kwenye sanbox kwenye <ph name="HOST" /> wakati wowote</translation>
 <translation id="4538792345715658285">Imesanidiwa na sera ya biashara.</translation>
 <translation id="4542520061254486227">Soma data yako kwenye <ph name="WEBSITE_1" /> na <ph name="WEBSITE_2" /></translation>
-<translation id="4543303791257854900">Inadhibitiwa kwa sera ya biashara</translation>
+<translation id="4543303791257854900">Inadhibitiwa na sera ya biashara</translation>
 <translation id="4543733025292526486">esc</translation>
 <translation id="4543778593405494224">Kidhibiti cha cheti</translation>
 <translation id="4544174279960331769">Ishara chaguo-msingi ya samawati</translation>

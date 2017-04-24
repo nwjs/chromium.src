@@ -204,6 +204,7 @@
 <translation id="2909946352844186028">S'ha detectat un canvi a la xarxa.</translation>
 <translation id="2916038427272391327">Tanca altres programes</translation>
 <translation id="2922350208395188000">No es pot comprovar el certificat del servidor.</translation>
+<translation id="2928905813689894207">Adreça de facturació</translation>
 <translation id="2948083400971632585">Podeu desactivar qualsevol servidor intermediari configurat per a una connexió des de la pàgina de configuració.</translation>
 <translation id="2955913368246107853">Tanca la barra de cerca</translation>
 <translation id="2958431318199492670">La configuració de la xarxa no compleix l'estàndard ONC. Pot ser que algunes opcions de configuració no s'hagin importat.</translation>
@@ -530,6 +531,7 @@
 <translation id="6151417162996330722">El període de validesa del certificat del servidor és massa gran.</translation>
 <translation id="6165508094623778733">Més informació</translation>
 <translation id="6177128806592000436">La teva connexió amb aquest lloc no és segura</translation>
+<translation id="6184817833369986695">(cohort: <ph name="UPDATE_COHORT_NAME" />)</translation>
 <translation id="6203231073485539293">Comprovació de la connexió a Internet</translation>
 <translation id="6218753634732582820">Voleu suprimir l'adreça de Chromium?</translation>
 <translation id="6251924700383757765">Política de privadesa</translation>
@@ -627,6 +629,7 @@
 <translation id="7180611975245234373">Actualitza</translation>
 <translation id="7182878459783632708">Cap política definida</translation>
 <translation id="7186367841673660872">Aquesta pàgina s'ha traduït de:<ph name="ORIGINAL_LANGUAGE" />a:<ph name="LANGUAGE_LANGUAGE" /></translation>
+<translation id="7192203810768312527">Allibera <ph name="SIZE" />. És possible que alguns llocs es carreguin més a poc a poc la propera vegada que els visitis.</translation>
 <translation id="719464814642662924">Visa</translation>
 <translation id="7210863904660874423"><ph name="HOST_NAME" /> no compleix la normativa de seguretat.</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />Més informació<ph name="END_LINK" /> sobre aquest problema.</translation>

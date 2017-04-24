@@ -27,6 +27,7 @@
 برای استفاده از «وب فیزیکی»، باید بلوتوث و «مکان» شما روشن باشد.</translation>
 <translation id="124678866338384709">بستن برگه کنونی</translation>
 <translation id="1258753120186372309">‏Google doodle: ‏<ph name="DOODLE_DESCRIPTION" /></translation>
+<translation id="1265597927250775944">سابقه و پیشنهادهای نوار نشانی را پاک می‌کند.</translation>
 <translation id="1272079795634619415">توقف</translation>
 <translation id="1283039547216852943">برای بزرگ کردن ضربه بزنید</translation>
 <translation id="1285320974508926690">این سایت هرگز ترجمه نشود</translation>
@@ -35,6 +36,7 @@
 <translation id="1303671224831497365">هیچ دستگاه بلوتوثی یافت نشد</translation>
 <translation id="1326317727527857210">‏برای دسترسی به برگه‌هایتان در دستگاه‌های دیگر، به سیستم Chrome وارد شوید.</translation>
 <translation id="1332501820983677155">‏میان‌برهای ویژه Google Chrome</translation>
+<translation id="1339917386316755344">‏شما را از سیستم اکثر سایت‌ها خارج می‌‌کند. از سیستم حساب Google خارج نمی‌شوید.</translation>
 <translation id="1369915414381695676">سایت <ph name="SITE_NAME" /> اضافه شد</translation>
 <translation id="1373696734384179344">حافظه برای بارگیری محتوای انتخابی کافی نیست.</translation>
 <translation id="1376578503827013741">درحال محاسبه…</translation>
@@ -255,6 +257,7 @@
 <translation id="3859306556332390985">جستجو به جلو</translation>
 <translation id="3894427358181296146">افزودن پوشه</translation>
 <translation id="3895926599014793903">فعال کردن اجباری بزرگ‌نمایی</translation>
+<translation id="3915590178385207649">‏سابقه را از همه دستگاه‌های واردشده به سیستم پاک می‌کند. سایر فعالیت‌ها از حساب Google خود را در <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> مشاهده کنید.</translation>
 <translation id="3917783807003067648">مکان مسدود است</translation>
 <translation id="3927692899758076493">Sans Serif</translation>
 <translation id="3928666092801078803">ادغام کردن داده‌های من</translation>
@@ -265,6 +268,7 @@
 <translation id="395922942268463099">صفحه‌هایی که به‌طور منظم به‌روزرسانی می‌شوند</translation>
 <translation id="3967822245660637423">بارگیری کامل شد</translation>
 <translation id="397583555483684758">همگام‌سازی متوقف شده است</translation>
+<translation id="3976396876660209797">این میان‌بر را بردارید و دوباره ایجاد کنید</translation>
 <translation id="3985215325736559418">می‌خواهید دوباره <ph name="FILE_NAME" /> را بارگیری کنید؟</translation>
 <translation id="3987993985790029246">کپی پیوند</translation>
 <translation id="3988213473815854515">مکان مجاز است</translation>
@@ -423,6 +427,7 @@
 <translation id="5626134646977739690">نام:</translation>
 <translation id="5639724618331995626">همه سایت‌ها مجاز هستند</translation>
 <translation id="5646376287012673985">مکان</translation>
+<translation id="5648166631817621825">۷ روز گذشته</translation>
 <translation id="5655963694829536461">بارگیری‌هایتان را جستجو کنید</translation>
 <translation id="5659593005791499971">رایانامه</translation>
 <translation id="5665379678064389456">ایجاد رویداد در <ph name="APP_NAME" /></translation>
@@ -557,6 +562,7 @@
 <translation id="6965382102122355670">قبول</translation>
 <translation id="6973630695168034713">پوشه‌ها</translation>
 <translation id="6978479750597523876">بازنشانی تنظیمات ترجمه</translation>
+<translation id="6979737339423435258">همه زمان‌ها</translation>
 <translation id="6981982820502123353">قابلیت دسترسی</translation>
 <translation id="6985347914332179298">بارگیری‌هایی اینجا وجود ندارد</translation>
 <translation id="6990079615885386641">‏دریافت برنامه از فروشگاه Google Play: ‏<ph name="APP_ACTION" /></translation>
@@ -574,6 +580,7 @@
 <translation id="7128222689758636196">مجاز کردن موتور جستجوی کنونی</translation>
 <translation id="7138678301420049075">دیگر</translation>
 <translation id="7144878232160441200">سعی مجدد</translation>
+<translation id="7149893636342594995">۲۴ ساعت گذشته</translation>
 <translation id="7180611975245234373">بازخوانی</translation>
 <translation id="7189372733857464326">‏در انتظار «سرویس‌های Google Play» برای اتمام به‌روزرسانی است</translation>
 <translation id="7191430249889272776">برگه در پس‌زمینه باز شد.</translation>
@@ -592,6 +599,7 @@
 <translation id="7423098979219808738">ابتدا سؤال شود</translation>
 <translation id="7437998757836447326">‏خروج از سیستم Chrome</translation>
 <translation id="7445411102860286510">اجازه به سایت‌ها برای پخش خودکار ویدیوهای صامت‌شده (توصیه می‌شود)</translation>
+<translation id="7449574997654022410">‏سابقه و پیشنهادهای نوار نشانی را پاک می‌کند. سایر فعالیت‌های حساب Google خود را در <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> مشاهده کنید.</translation>
 <translation id="7464701184726199289">با این کار داده‌های همگام‌سازی‌شده در همه دستگاه‌ها پاک می‌شوند. تنظیمات ذخیره‌شده سایت حذف نمی‌شوند و احتمالاً عادات مرور شما را نشان می‌دهند. <ph name="BEGIN_LINK" />بیشتر بدانید<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">نه متشکرم</translation>
 <translation id="7475192538862203634">درصورتی‌که این مورد را مکرراً مشاهده می‌کنید، این <ph name="BEGIN_LINK" />پیشنهادات<ph name="END_LINK" /> را امتحان کنید.</translation>
@@ -633,6 +641,7 @@
 <translation id="7829298379596169484">در حال دسترسی به ورودی صوتی</translation>
 <translation id="7837721118676387834">به پخش‌خودکار ویدیو‌های صامت‌شده برای سایتی خاص امکان دهید.</translation>
 <translation id="7846076177841592234">لغو انتخاب</translation>
+<translation id="784934925303690534">محدوده زمانی</translation>
 <translation id="7851858861565204677">دستگاه‌های دیگر</translation>
 <translation id="7875915731392087153">ایجاد رایانامه</translation>
 <translation id="7876243839304621966">حذف همه</translation>
@@ -699,7 +708,7 @@
 <translation id="854522910157234410">باز کردن این صفحه</translation>
 <translation id="8562452229998620586">گذرواژه‌های ذخیره شده در اینجا ظاهر می‌شود.</translation>
 <translation id="856481929701340285">درخواست نمای رایانه</translation>
-<translation id="8571213806525832805">۴ هفته پیش</translation>
+<translation id="8571213806525832805">۴ هفته گذشته</translation>
 <translation id="857509777403223202">مقاله‌های بیشتر به‌زودی نشان داده می‌شوند. از غروبتان لذت ببرید!</translation>
 <translation id="857943718398505171">مجاز (توصیه می‌شود)</translation>
 <translation id="8583805026567836021">پاک‌سازی داده‌های حساب</translation>
@@ -712,6 +721,7 @@
 <translation id="8639651215196239211">همه اسناد</translation>
 <translation id="8641930654639604085">سایت‌های مخصوص بزرگ‌سالان مسدود شوند</translation>
 <translation id="8660471606262461360">‏از Google Payments</translation>
+<translation id="8662811608048051533">شما را از سیستم اکثر سایت‌ها خارج می‌کند.</translation>
 <translation id="8676374126336081632">پاک کردن ورودی</translation>
 <translation id="869891660844655955">تاریخ انقضا</translation>
 <translation id="8719023831149562936">انتقال برگه کنونی با پرتو ممکن نیست</translation>

@@ -5,6 +5,30 @@
 
       如果設為 False，則禁止更新元件。不過，部分元件不受這項政策規範：只要元件更新不含可執行的程式碼、不大幅變更瀏覽器的行為，或是對元件安全性至關重要，就不會遭到禁止。
       這類元件的範例包括憑證撤銷清單和安全瀏覽資料。 </translation>
+<translation id="1010564225363223332">設定印表機清單。
+
+      這項政策可讓管理員為每位使用者提供
+      印表機設定。
+
+      「<ph name="PRINTER_DISPLAY_NAME" />」和「<ph name="PRINTER_DESCRIPTION" />」是形式不拘的字串，
+      可加以自訂方便選擇印表機。「<ph name="PRINTER_MANUFACTURER" />」和「<ph name="PRINTER_MODEL" />」則可讓使用者輕鬆識別
+      印表機，兩者分別代表印表機的製造商和型號。「<ph name="PRINTER_URI" />」必須是
+      可透過用戶端電腦連上的位址 (包括「<ph name="URI_SCHEME" />」、
+      「<ph name="URI_PORT" />」和「<ph name="URI_QUEUE" />」)。「<ph name="PRINTER_UUID" />」可選用。如有提供，則會用於
+      協助複製「<ph name="ZEROCONF_DISCOVERY" />」印表機。
+
+      「<ph name="PRINTER_EFFECTIVE_MODEL" />」必須是其中一個
+      代表 <ph name="PRODUCT_NAME" /> 支援印表機的字串。系統會利用這個字串
+      找出印表機適用的 PPD 並加以安裝。詳情請參閱
+      https://support.google.com/chrome?p=noncloudprint。
+
+      首次使用印表機時，會完成印表機設定程序。PPD 則會
+      在使用該印表機時才下載，之後系統會快取
+      常用的 PPD。
+
+      這項政策旨在補足個別使用者的印表機設定，
+      對使用者能否在個別裝置上設定印表機
+      沒有影響。</translation>
 <translation id="101438888985615157">將畫面旋轉 180 度</translation>
 <translation id="1017967144265860778">位於登入畫面中的電源管理設定</translation>
 <translation id="1019101089073227242">設定使用者資料目錄</translation>
@@ -1317,6 +1341,11 @@
 <translation id="5148753489738115745">允許您指定 <ph name="PRODUCT_FRAME_NAME" /> 啟動 <ph name="PRODUCT_NAME" /> 時使用的其他參數。
 
           如果未設定這項政策，系統會使用預設命令列。</translation>
+<translation id="5159469559091666409">監控網路封包的傳送頻率 (以毫秒為單位)。
+
+      如果未設定這項政策，預設間隔為 3 分鐘。
+      最短間隔為 30 秒，最長間隔為 24 小時。
+      超過範圍的間隔值會被限制在範圍內。</translation>
 <translation id="5182055907976889880">設定在 <ph name="PRODUCT_OS_NAME" /> 中使用 Google 雲端硬碟。</translation>
 <translation id="5183383917553127163">允許您指定不應列入黑名單的擴充功能。星號 (*) 代表排除所有的擴充功能，而使用者只能安裝許可清單所列的擴充功能。根據預設，所有擴充功能都會列入許可清單，但如果因為政策而導致所有擴充功能都進入黑名單，則您可以使用許可清單覆寫該政策。</translation>
 <translation id="5192837635164433517">啟用「 <ph name="PRODUCT_NAME" />」內建的替代錯誤網頁 (例如「找不到網頁」)，並且禁止使用者變更設定。如果啟用這項設定，系統會使用替代錯誤網頁。如果停用這項設定，系統就不會使用替代錯誤網頁。不論您啟用或停用這項設定，使用者都無法變更或覆寫「<ph name="PRODUCT_NAME" />」中的這項設定。如果未設定這項政策，系統就會啟用這項設定，不過使用者可以變更設定。</translation>

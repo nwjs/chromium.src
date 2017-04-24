@@ -5,6 +5,30 @@
 
       Si se establece como falsa, se inhabilitan las actualizaciones de los componentes. Sin embargo, algunos componentes no están contemplados en esta política: no se inhabilitarán las actualizaciones de cualquier componente que no contenga un código ejecutable, no modifique el comportamiento del navegador de forma significativa o sea fundamental para la seguridad.
       Entre estos componentes, se incluyen las listas de revocación de certificados y los datos de navegación segura. </translation>
+<translation id="1010564225363223332">Configura una lista de impresoras.
+
+      Esta política permite que los administradores proporcionen configuraciones de impresoras para
+      sus usuarios.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> y <ph name="PRINTER_DESCRIPTION" /> son strings de formularios gratuitos que
+      pueden personalizarse para facilitar la selección de impresoras. <ph name="PRINTER_MANUFACTURER" /> y <ph name="PRINTER_MODEL" /> sirven para que los usuarios finales
+      puedan identificar las impresoras fácilmente. Representan el fabricante y el modelo de la impresora. <ph name="PRINTER_URI" /> debe ser una dirección que se pueda contactar desde la computadora de un
+      cliente, que incluya <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> y <ph name="URI_QUEUE" />. <ph name="PRINTER_UUID" /> es opcional. Si se proporciona, se usa
+      para ayudar a deduplicar las impresoras <ph name="ZEROCONF_DISCOVERY" />.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> debe coincidir con uno de los
+      strings que representan una impresora compatible con <ph name="PRODUCT_NAME" />. El string se usará para identificar e
+      instalar el PPD correspondiente para la impresora. Para obtener más información,
+      visite https://support.google.com/chrome?p=noncloudprint.
+
+      La configuración de la impresora se completa cuando se usa por primera vez. Los PPD no se descargan hasta que se
+      usa la impresora. Luego, los PPD que se usan con
+      mayor frecuencia se almacenan en caché.
+
+      Esta política no tiene efecto en la decisión si los
+      usuarios pueden configurar las impresoras en
+      dispositivos individuales. El objetivo es que complemente la configuración de las impresoras que realicen usuarios individuales.</translation>
 <translation id="101438888985615157">Rotar la pantalla 180 grados</translation>
 <translation id="1017967144265860778">Administración de energía en la pantalla de acceso</translation>
 <translation id="1019101089073227242">Configurar directorio de datos de usuarios</translation>
@@ -1313,6 +1337,11 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 <translation id="5148753489738115745">Te permite especificar los parámetros adicionales que se utilizan cuando <ph name="PRODUCT_FRAME_NAME" /> inicia <ph name="PRODUCT_NAME" />.
 
           Si no se configura esta política, se utilizará la línea de comandos predeterminada.</translation>
+<translation id="5159469559091666409">La frecuencia de envío de paquetes de red de control, en milisegundos.
+
+      Si esta política no se configura, el intervalo predeterminado es 3 minutos. El intervalo
+      mínimo es 30 segundos y el máximo es 24 horas; los
+      valores fuera de estos límites se establecerán dentro del rango.</translation>
 <translation id="5182055907976889880">Configura Google Drive en <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Te permite especificar las extensiones que no están sujetas a la lista negra. El valor de lista negra de * significa que todas las extensiones están en la lista negra y los usuarios sólo pueden instalar extensiones que figuran en la lista blanca. De manera predeterminada, todas las extensiones se encuentran en la lista blanca. Sin embargo, si todas las extensiones se han agregado a la lista negra mediante una política, la lista blanca se puede utilizar para anular dicha política.</translation>
 <translation id="5192837635164433517">Permite el uso de páginas alternativas de error integradas en <ph name="PRODUCT_NAME" /> (por ejemplo, "página no encontrada") y evita que los usuarios cambien esta configuración. Si se habilita esta configuración, se usarán páginas alternativas de error. Si se inhabilita esta configuración, no se usarán páginas alternativas de error. Si se habilita o inhabilita esta configuración, los usuarios no podrán cambiar ni anular esta configuración en <ph name="PRODUCT_NAME" />. Si esta política no se configura, se habilitará esta opción, pero el usuario podrá cambiarla.</translation>

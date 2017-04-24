@@ -866,7 +866,7 @@
 <translation id="2241634353105152135">Hanya sekali</translation>
 <translation id="2242603986093373032">Tidak ada perangkat</translation>
 <translation id="2242687258748107519">Info File</translation>
-<translation id="2245240762616536227">Mengontrol cara riwayat akses mempersonalisasi Penelusuran, iklan, dan layanan Google lainnya</translation>
+<translation id="2245240762616536227">Mengontrol cara riwayat browsing mempersonalisasi Penelusuran, iklan, dan layanan Google lainnya</translation>
 <translation id="2246340272688122454">Mendownload citra pemulihan...</translation>
 <translation id="2249499294612408921">Pengguna yang dilindungi dapat menjelajahi web dengan panduan Anda. Sebagai pengelola pengguna yang dilindungi di Chrome, Anda dapat
 
@@ -1848,7 +1848,7 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3613134908380545408">Tampilkan <ph name="FOLDER_NAME" /></translation>
 <translation id="3613422051106148727">&amp;Buka di tab baru</translation>
 <translation id="3616113530831147358">Audio</translation>
-<translation id="3616741288025931835">&amp;Hapus Data Penjelajahan...</translation>
+<translation id="3616741288025931835">&amp;Hapus Data browsing...</translation>
 <translation id="3618849550573277856">Cari "<ph name="LOOKUP_STRING" />"</translation>
 <translation id="3620292326130836921">Semua dicadangkan!</translation>
 <translation id="3623574769078102674">Pengguna yang diawasi ini akan dikelola oleh <ph name="MANAGER_EMAIL" />.</translation>
@@ -3441,7 +3441,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="6051028581720248124">Dengan mencetak ke Kantor FedEx, Anda menyetujui <ph name="START_LINK" />persyaratan penggunaan<ph name="END_LINK" /> mereka.</translation>
 <translation id="6051354611314852653">Ups!  Sistem gagal memberi otorisasi akses API untuk perangkat ini.</translation>
 <translation id="6052976518993719690">Otoritas Sertifikasi SSL</translation>
-<translation id="6053401458108962351">Hapus data penjelajahan...</translation>
+<translation id="6053401458108962351">Hapus data browsing...</translation>
 <translation id="6054173164583630569">Keyboard untuk bahasa Prancis</translation>
 <translation id="6055171183283175969">Sandi yang Anda masukkan salah.</translation>
 <translation id="6055392876709372977">PKCS #1 SHA-256 Dengan Enkripsi RSA</translation>
@@ -4290,7 +4290,7 @@ Hanya gunakan fitur ini dengan akun yang Anda percayai.</translation>
 <translation id="736515969993332243">Memindai jaringan.</translation>
 <translation id="7366415735885268578">Tambahkan situs</translation>
 <translation id="7366762109661450129">Ucapkan "Ok Google" saat layar aktif atau tidak terkunci.</translation>
-<translation id="7366909168761621528">Data penjelajahan</translation>
+<translation id="7366909168761621528">Data browsing</translation>
 <translation id="7369521049655330548">Plugin berikut diblokir di laman ini:</translation>
 <translation id="7373789336584437724">Untuk saat ini perangkat mengirimkan data diagnostik dan penggunaan ke Google. Anda dapat mengubah setelan ini di <ph name="BEGIN_LINK1" />setelan<ph name="END_LINK1" /> perangkat kapan saja. <ph name="BEGIN_LINK2" />Pelajari Lebih Lanjut<ph name="END_LINK2" /></translation>
 <translation id="7374461526650987610">Penangan protokol</translation>

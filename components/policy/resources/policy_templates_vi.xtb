@@ -5,6 +5,30 @@
 
       Nếu được đặt thành False, tùy chọn cập nhật thành phần bị tắt. Tuy nhiên, một số thành phần được loại trừ khỏi chính sách này: các bản cập nhật cho bất kỳ thành phần nào không chứa mã thực thi hoặc không làm thay đổi đáng kể hoạt động của trình duyệt hay có ý nghĩa quan trọng đối với tính bảo mật của trình duyệt sẽ không bị tắt.
       Ví dụ về các thành phần như vậy gồm có danh sách thu hồi chứng chỉ và dữ liệu duyệt web an toàn. </translation>
+<translation id="1010564225363223332">Định cấu hình danh sách máy in.
+
+      Chính sách này cho phép quản trị viên cung cấp cấu hình máy in cho
+      người dùng của họ.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> và <ph name="PRINTER_DESCRIPTION" /> là các chuỗi biểu mẫu miễn phí
+      có thể được tùy chỉnh để dễ chọn máy in. <ph name="PRINTER_MANUFACTURER" /> và <ph name="PRINTER_MODEL" /> giúp người dùng cuối dễ dàng nhận diện
+      máy in, biểu thị nhà sản xuất và kiểu máy in. <ph name="PRINTER_URI" /> phải là địa chỉ có thể truy cập
+      từ một máy khách bao gồm <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> và <ph name="URI_QUEUE" />.  <ph name="PRINTER_UUID" /> là tùy chọn.  Nếu được cung cấp, tùy chọn này sẽ được sử dụng để
+      giúp loại bỏ trùng lặp máy in <ph name="ZEROCONF_DISCOVERY" />.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> phải khớp với một trong
+      các chuỗi đại diện cho một máy in được hỗ trợ <ph name="PRODUCT_NAME" />. Chuỗi này sẽ được sử dụng để nhận diện và
+      cài đặt PPD thích hợp cho máy in. Bạn có thể tìm thêm
+      thông tin tại https://support.google.com/chrome?p=noncloudprint.
+
+      Thiết lập máy in được hoàn tất trong lần đầu tiên sử dụng máy in.  PPD sẽ không được
+      tải xuống cho đến khi máy in được sử dụng.  Sau lần đó, các PPD thường xuyên sử dụng
+      sẽ được lưu vào bộ nhớ cache.
+
+      Chính sách này không ảnh hưởng đến việc người dùng có thể định cấu hình máy in trên
+      các thiết bị cá nhân hay không.  Chính sách này nhằm bổ sung cho
+      quá trình định cấu hình máy in của người dùng cá nhân.</translation>
 <translation id="101438888985615157">Xoay màn hình 180 độ</translation>
 <translation id="1017967144265860778">Quản lý nguồn trên màn hình đăng nhập</translation>
 <translation id="1019101089073227242">Thiết lập thư mục dữ liệu người dùng</translation>
@@ -1385,6 +1409,11 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="5148753489738115745">Cho phép bạn chỉ định tham số bổ sung được sử dụng khi <ph name="PRODUCT_FRAME_NAME" /> chạy <ph name="PRODUCT_NAME" />.
 
           Nếu chính sách này không được đặt, dòng lệnh mặc định sẽ được sử dụng.</translation>
+<translation id="5159469559091666409">Tần suất gửi gói mạng theo dõi, tính bằng mili giây.
+
+      Nếu chính sách này không được đặt thì khoảng nghỉ mặc định là 3 phút. Khoảng nghỉ
+      tối thiểu là 30 giây và khoảng nghỉ tối đa là 24 giờ - các giá trị
+      nằm ngoài phạm vi này sẽ được giới hạn trong phạm vi này.</translation>
 <translation id="5182055907976889880">Định cấu hình Google Drive trong <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Cho phép bạn chỉ định các tiện ích không thuộc danh sách đen. Giá trị danh sách đen là * có nghĩa là tất cả tiện ích đều được đưa vào danh sách đen và người dùng chỉ có thể cài đặt các tiện ích trong danh sách trắng. Theo mặc định, tất cả tiện ích đều được đưa vào danh sách trắng nhưng nếu tất cả tiện ích đều đã được đưa vào danh sách đen theo chính sách thì có thể sử dụng danh sách trắng để ghi đè chính sách đó.</translation>
 <translation id="5192837635164433517">Cho phép sử dụng các trang lỗi thay thế được tích hợp vào  <ph name="PRODUCT_NAME" /> (chẳng hạn như 'không tìm thấy trang') và ngăn người dùng thay đổi cài đặt này.

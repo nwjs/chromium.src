@@ -8,26 +8,26 @@
 <translation id="1010564225363223332">Configura uma lista de impressoras.
 
       Esta política permite que os administradores facultem configurações de
-      impressoras para os utilizadores.
+      impressoras aos utilizadores.
 
       <ph name="PRINTER_DISPLAY_NAME" /> e <ph name="PRINTER_DESCRIPTION" /> são strings de forma livre que
       podem ser personalizadas para facilitar a seleção da impressora. <ph name="PRINTER_MANUFACTURER" /> e <ph name="PRINTER_MODEL" /> servem para facilitar a identificação da impressora por parte dos
       utilizadores finais. Representam o fabricante e o modelo da impressora. <ph name="PRINTER_URI" /> deve ser um endereço acessível
-      a partir do computador do cliente, incluindo o <ph name="URI_SCHEME" />,
+      a partir do computador do cliente, incluindo <ph name="URI_SCHEME" />,
       <ph name="URI_PORT" /> e <ph name="URI_QUEUE" />. <ph name="PRINTER_UUID" /> é opcional. Se fornecido, é utilizado para
-      ajudar a deduplicar impressoras <ph name="ZEROCONF_DISCOVERY" />.
+      ajudar a remover duplicados de impressoras <ph name="ZEROCONF_DISCOVERY" />.
 
       <ph name="PRINTER_EFFECTIVE_MODEL" /> tem de corresponder a uma das
       strings que representam uma impressora compatível com <ph name="PRODUCT_NAME" />. A string será utilizada para identificar e
-      instalar os PPDs adequados à impressora. Mais informações disponíveis
+      instalar os PPDs adequados à impressora. Pode encontrar mais informações
       em https://support.google.com/chrome?p=noncloudprint.
 
       A configuração das impressoras fica concluída com a primeira utilização de uma impressora. Os PPDs não são transferidos enquanto a
       impressora não for utilizada. Posteriormente, os PPDs utilizados com frequência
       são colocados em cache.
 
-      Esta política não influencia se os utilizadores podem configurar impressoras
-      em dispositivos individuais. Destina-se a complementar a configuração
+      Esta política não influencia a possibilidade de os utilizadores poderem configurar impressoras
+      em dispositivos individuais, destina-se a complementar a configuração
       das impressoras por parte de utilizadores individuais.</translation>
 <translation id="101438888985615157">Rodar o ecrã 180 graus</translation>
 <translation id="1017967144265860778">Gestão de energia no ecrã de início de sessão</translation>
@@ -1341,7 +1341,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="5148753489738115745">Permite especificar parâmetros adicionais utilizados quando o <ph name="PRODUCT_FRAME_NAME" /> iniciar o <ph name="PRODUCT_NAME" />.
 
           Se esta política não estiver definida, será utilizada a linha de comandos predefinida.</translation>
-<translation id="5159469559091666409">Com que frequência são enviados os pacotes de monitorização de rede, em milissegundos.
+<translation id="5159469559091666409">Frequência, em milissegundos, com que são enviados os pacotes de monitorização de rede.
 
       Se esta política não for definida, o intervalo predefinido é de 3 minutos. O
       intervalo mínimo é de 30 segundos e o intervalo máximo é de 24 horas. Os

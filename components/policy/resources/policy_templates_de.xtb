@@ -5,6 +5,30 @@
 
       Wurde "false" festgelegt, sind Komponentenupdates deaktiviert. Für einige Komponenten gelten diese Richtlinien jedoch nicht: Updates von Komponenten, die keinen ausführbaren Code enthalten bzw. das Browserverhalten nicht maßgeblich verändern und die Sicherheit nicht gefährden, werden nicht deaktiviert.
       Beispiele für solche Komponenten sind die "Certificate Revocation Lists" sowie sichere Browser-Daten. </translation>
+<translation id="1010564225363223332">Eine Liste der Drucker wird konfiguriert.
+
+      Mit dieser Richtlinie können Administratoren den Nutzern
+      Druckerkonfigurationen bereitstellen.
+
+      Bei <ph name="PRINTER_DISPLAY_NAME" /> und <ph name="PRINTER_DESCRIPTION" /> handelt es sich um Freiform-Strings,
+      die für eine nutzerfreundliche Druckerauswahl angepasst werden können. <ph name="PRINTER_MANUFACTURER" /> und <ph name="PRINTER_MODEL" /> dienen der vereinfachten Druckererkennung
+      durch die Nutzer. Damit werden Hersteller und Modell des Druckers angegeben. <ph name="PRINTER_URI" /> muss eine Adresse sein,
+      die von einem Client-Computer erreichbar ist, einschließlich <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> und <ph name="URI_QUEUE" />.  <ph name="PRINTER_UUID" /> ist optional.  Bei Angabe wird sie
+      zum Entfernen von Duplikaten bei <ph name="ZEROCONF_DISCOVERY" />-Druckern verwendet.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> muss mit einem der Strings übereinstimmen,
+      die einen von <ph name="PRODUCT_NAME" /> unterstützten Drucker angeben. Der String wird zur Ermittlung und
+      Installation der korrekten PPD für den Drucker verwendet. Weitere Informationen
+      finden Sie unter https://support.google.com/chrome?p=noncloudprint.
+
+      Die Druckereinrichtung wird bei der ersten Verwendung des Druckers abgeschlossen.
+      PPDs werden erst dann heruntergeladen, wenn der Drucker genutzt wird.
+      Anschließend werden häufig verwendete PPDs im Cache gespeichert.
+
+      Diese Richtlinie hat keine Auswirkung darauf, ob Nutzer Drucker
+      auf ihren individuellen Geräten konfigurieren können.  Sie ist
+      als Ergänzung zu den Druckerkonfigurationen der einzelnen Nutzer gedacht.</translation>
 <translation id="101438888985615157">Bildschirm um 180 Grad drehen</translation>
 <translation id="1017967144265860778">Energieverwaltung auf dem Anmeldebildschirm</translation>
 <translation id="1019101089073227242">Verzeichnis für Nutzerdaten festlegen</translation>
@@ -1300,6 +1324,11 @@ Falls die Richtlinie auf "false" gesetzt wird, werden Anfragen für Bildschirm-W
 <translation id="5148753489738115745">Ermöglicht die Verwendung zusätzlicher Parameter, die beim Start von <ph name="PRODUCT_NAME" /> durch <ph name="PRODUCT_FRAME_NAME" /> eingesetzt werden.
 
           Wenn diese Richtlinie nicht festgelegt wird, wird die Standardbefehlszeile verwendet.</translation>
+<translation id="5159469559091666409">Durch diese Richtlinie wird festgelegt, wie oft Kontrollnetzwerkpakete gesendet werden (in Millisekunden).
+
+      Wenn die Richtlinie nicht konfiguriert ist, beträgt das Standardintervall 3 Minuten.
+      Der Mindestwert beträgt 30 Sekunden und der Höchstwert 24 Stunden.
+      Werte außerhalb dieses Bereichs werden auf den jeweiligen Mindest- oder Maximalwert angepasst.</translation>
 <translation id="5182055907976889880">Google Drive in <ph name="PRODUCT_OS_NAME" /> konfigurieren</translation>
 <translation id="5183383917553127163">Mit dieser Richtlinie können Sie festlegen, welche Erweiterungen nicht auf die schwarze Liste gesetzt werden. Der Wert "*" in der schwarzen Liste gibt an, dass alle Erweiterungen ausgeschlossen sind und dass Nutzer nur Erweiterungen installieren können, die in der Whitelist enthalten sind. Standardmäßig können alle Erweiterungen installiert werden. Wurden jedoch alle Erweiterungen durch eine Richtlinie auf die schwarze Liste gesetzt, kann diese Richtlinie mithilfe der Whitelist außer Kraft gesetzt werden.</translation>
 <translation id="5192837635164433517">Aktiviert die Verwendung alternativer Fehlerseiten, die in <ph name="PRODUCT_NAME" /> integriert sind, etwa "Seite nicht gefunden", und verhindert, dass die Einstellung durch Nutzer geändert wird. Wenn Sie diese Einstellung aktivieren, kommen alternative Fehlerseiten zum Einsatz. Sollten Sie sie deaktivieren, werden alternative Fehlerseiten grundsätzlich nicht verwendet. Ist diese Einstellung aktiviert oder deaktiviert, können Nutzer sie in <ph name="PRODUCT_NAME" /> nicht ändern oder außer Kraft setzen. Wird die Richtlinie nicht konfiguriert, so ist die Funktion aktiv, aber der Nutzer kann dies ändern.</translation>

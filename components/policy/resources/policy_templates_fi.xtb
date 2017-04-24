@@ -5,6 +5,30 @@
 
       Jos tämän käytännön arvo on Epätosi, osien päivittäminen poistetaan käytöstä. Tämä käytäntö ei kuitenkaan koske kaikkia osia: päivitys sallitaan, jos osa ei sisällä suoritettavaa koodia, muuta selaimen toimintaa merkittävästi tai jos osa on selaimen suojauksen kannalta kriittinen.
       Tällaisia osia ovat esimerkiksi varmenteiden peruutusluettelot ja selaussuojan tiedot. </translation>
+<translation id="1010564225363223332">Määrittää tulostinluettelon.
+
+      Tämä käytäntö sallii järjestelmänvalvojien antaa tulostinkokoonpanon
+      tiedot käyttäjille.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> ja <ph name="PRINTER_DESCRIPTION" /> ovat vapaamuotoisia merkkijonoja, joita
+      voidaan muokata tulostimen valinnan helpottamiseksi. <ph name="PRINTER_MANUFACTURER" /> ja <ph name="PRINTER_MODEL" /> auttavat käyttäjiä
+      tunnistamaan tulostimen. Ne edustavat tulostimen valmistajaa ja mallia. <ph name="PRINTER_URI" /> pitäisi
+      olla osoite, jota voidaan käyttää asiakkaan tietokoneelta, mukaan lukien <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> ja <ph name="URI_QUEUE" />. <ph name="PRINTER_UUID" /> on vapaaehtoinen. Jos tämä tieto on annettu, sen avulla
+      voidaan poistaa <ph name="ZEROCONF_DISCOVERY" />-tulostimien kaksoiskappaleita.
+
+      Kohteen <ph name="PRINTER_EFFECTIVE_MODEL" /> on vastattava yhtä
+      merkkijonoista, jotka edustavat tuotteen <ph name="PRODUCT_NAME" /> tukemaa tulostinta. Merkkijonon 
+      avulla tunnistetaan ja asennetaan tulostimelle oikea PPD. Lisätietoja on
+      osoitteessa https://support.google.com/chrome?p=noncloudprint.
+
+      Tulostimen määritys on valmis, kun sitä käytetään ensimmäisen kerran. PPD:itä
+      ei ladata, ennen kuin tulostinta on käytetty. Sen jälkeen usein käytetyt PPD:t
+      tallennetaan välimuistiin.
+
+      Tällä käytännöllä ei ole vaikutusta siihen, voivatko käyttäjät määrittää tulostimia
+      yksittäisille laitteille. Se on tarkoitettu käytettäväksi yksittäisten käyttäjien
+      tulostinmääritysten lisäksi.</translation>
 <translation id="101438888985615157">Kierrä näyttöä 180 astetta.</translation>
 <translation id="1017967144265860778">Virran hallinta kirjautumisruudulla</translation>
 <translation id="1019101089073227242">Aseta käyttäjätietojen hakemisto</translation>
@@ -1318,6 +1342,11 @@ Käytännön arvot tulee määrittää millisekunteina. Arvoja voi valita välil
 <translation id="5148753489738115745">Voit määrittää muita parametreja, joita käytetään, kun <ph name="PRODUCT_FRAME_NAME" /> käynnistää tuotteen <ph name="PRODUCT_NAME" />.
 
           Jos käytäntöä ei ole määritetty, käytetään oletuskomentoriviä.</translation>
+<translation id="5159469559091666409">Valvontapakettien lähetystiheys millisekunteina.
+
+      Jos tätä käytäntöä ei ole määritetty, oletusaikaväli on 3 minuuttia. Pienin
+      sallittu aikaväli on 30 sekuntia ja suurin sallittu aikaväli on 24 tuntia. Tämän välin
+      ulkopuolella olevat arvot pyöristetään lähimpään sallittuun arvoon.</translation>
 <translation id="5182055907976889880">Määritä Google Driven asetukset tuotteessa <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Voit määrittää, mitkä laajennukset eivät kuulu kieltoluetteloon. Kieltoluettelon arvo * tarkoittaa, että kaikki laajennukset ovat kiellettyjä, ja käyttäjät voivat asentaa vain sallittujen luetteloon lisättyjä laajennuksia. Kaikki laajennukset ovat oletuksena sallittuja, mutta jos kaikki laajennukset on kielletty käytännön perusteella, käytäntö voidaan ohittaa sallittujen luettelon avulla.</translation>
 <translation id="5192837635164433517">Ottaa käyttöön tuotteen <ph name="PRODUCT_NAME" /> vaihtoehtoiset virhesivut (kuten "sivua ei löydy") ja estää käyttäjiä vaihtamasta asetusta. Jos otat tämän asetuksen käyttöön, vaihtoehtoisia virhesivuja käytetään. Jos poistat asetuksen käytöstä, vaihtoehtoisia virhesivuja ei käytetä. Valittuasi asetuksen käyttäjät eivät voi muuttaa tai ohittaa sitä tuotteessa <ph name="PRODUCT_NAME" />. Jos käytäntöä ei ole määritetty, vaihtoehtoisia virhesivuja käytetään, mutta käyttäjät voivat muuttaa asetusta.</translation>

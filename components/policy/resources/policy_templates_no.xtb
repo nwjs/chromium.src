@@ -5,6 +5,30 @@
 
       Hvis regelen er angitt som «False» (usann), slås komponentoppdateringene av. Enkelte komponenter er imidlertid unntatt fra denne regelen og slås ikke av. Dette gjelder oppdateringer av komponenter som er avgjørende for sikkerheten, eller som ikke inneholder kjørbar kode eller endrer nettleserens atferd betydelig.
       Slike komponenter kan for eksempel være Safe Browsing-data og lister over tilbaketrekking av sertifikater. </translation>
+<translation id="1010564225363223332">Konfigurerer en liste over skrivere.
+
+      Med denne regelen kan administratorer dele skriverkonfigurasjoner med
+      brukerne sine.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> og <ph name="PRINTER_DESCRIPTION" /> er strenger i et fritt format som
+      kan tilpasses for å gjøre det enkelt å velge skriver. <ph name="PRINTER_MANUFACTURER" /> og <ph name="PRINTER_MODEL" /> brukes til å gjøre det lettere for
+      brukerne å identifisere skrivere. De representerer skrivermodellen og -produsenten. <ph name="PRINTER_URI" /> er en adresse som kan nås
+      fra klientdatamaskiner, inkludert <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> og <ph name="URI_QUEUE" />. <ph name="PRINTER_UUID" /> er valgfritt. Hvis den oppgis, brukes den til å deduplisere 
+      <ph name="ZEROCONF_DISCOVERY" />-skrivere.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> må samsvare med en av
+      strengene som representerer en <ph name="PRODUCT_NAME" />-støttet skriver. Strengen blir brukt til å identifisere og 
+      installere den riktige PPD-en for skriveren. Du finner mer informasjon
+      på https://support.google.com/chrome?p=noncloudprint.
+
+      Skriverkonfigureringen fullføres første gang en skriver brukes. PDD-er
+      lastes ikke ned før skriveren brukes. Etter det blir 
+      PPD-er som brukes ofte, bufret.
+
+      Denne regelen påvirker ikke hvorvidt brukere kan konfigurere skrivere på
+      ulike enheter. Den er ment å være et tillegg til
+      konfigurering av skrivere som gjøres av individuelle brukere.</translation>
 <translation id="101438888985615157">Rotér skjermen 180 grader</translation>
 <translation id="1017967144265860778">Strømstyring på påloggingssiden</translation>
 <translation id="1019101089073227242">Angi katalog for brukerdata</translation>
@@ -1360,6 +1384,11 @@
 <translation id="5148753489738115745">Lar deg spesifisere ytterligere parametere som brukes når <ph name="PRODUCT_FRAME_NAME" /> kjører <ph name="PRODUCT_NAME" />.
 
           Hvis denne tillatelsen ikke er angitt, blir standardkommandolinjen brukt.</translation>
+<translation id="5159469559091666409">Hvor ofte (i millisekunder) nettverkspakker for overvåking sendes.
+
+      Hvis denne regelen ikke er spesifisert, er standardintervallet 3 minutter.
+      Minimumsintervallet er 30 sekunder, og maksimumsintervallet er 24 timer. Verdier
+      utenfor dette området blir begrenset til dette området.</translation>
 <translation id="5182055907976889880">Konfigurer Google Disk i <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Lar deg angi hvilke utvidelser som ikke omfattes av sperrelisten. En sperrelisteverdi på * betyr at alle utvidelser settes på sperrelisten, og at brukere kun kan installere utvidelser som står oppført på godkjenningslisten. Alle utvidelser står på godkjenningslisten som standard. Men hvis alle utvidelser har blitt oppført på sperrelisten, kan godkjenningslisten overstyre dette.</translation>
 <translation id="5192837635164433517">Aktiverer bruken av alternative sider for feilmeldinger som er innebygd i <ph name="PRODUCT_NAME" /> (for eksempel «Siden ble ikke funnet»), og hindrer brukerne i å endre denne innstillingen. 

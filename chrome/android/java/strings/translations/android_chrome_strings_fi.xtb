@@ -27,6 +27,7 @@
 Bluetooothin ja sijaintipalvelun on oltava päällä, jotta Fyysistä webiä voidaan käyttää.</translation>
 <translation id="124678866338384709">Sulje nykyinen välilehti</translation>
 <translation id="1258753120186372309">Google-piirros: <ph name="DOODLE_DESCRIPTION" /></translation>
+<translation id="1265597927250775944">Tyhjentää historian ja osoitepalkin ehdotukset.</translation>
 <translation id="1272079795634619415">Pysäytä</translation>
 <translation id="1283039547216852943">Laajenna napauttamalla.</translation>
 <translation id="1285320974508926690">Älä käännä tätä sivustoa</translation>
@@ -35,6 +36,7 @@ Bluetooothin ja sijaintipalvelun on oltava päällä, jotta Fyysistä webiä voi
 <translation id="1303671224831497365">Bluetooth-laitteita ei löytynyt</translation>
 <translation id="1326317727527857210">Käytä välilehtiä muilta laitteiltasi kirjautumalla Chromeen.</translation>
 <translation id="1332501820983677155">Google Chromen ominaisuuksien pikanäppäimet</translation>
+<translation id="1339917386316755344">Kirjaa sinut ulos useimmilta sivustoilta. Sinua ei kirjata ulos Google-tililtäsi.</translation>
 <translation id="1369915414381695676">Sivusto <ph name="SITE_NAME" /> lisättiin.</translation>
 <translation id="1373696734384179344">Liian vähän muistia valitun sisällön lataamiseen.</translation>
 <translation id="1376578503827013741">Lasketaan…</translation>
@@ -255,6 +257,7 @@ Muokkaa hakutermiä valitsemalla se pitkällä painalluksella. Tarkenna hakua li
 <translation id="3859306556332390985">Kelaa eteenpäin</translation>
 <translation id="3894427358181296146">Lisää kansio</translation>
 <translation id="3895926599014793903">Ota zoomaus käyttöön</translation>
+<translation id="3915590178385207649">Tyhjentää kaikkien sisäänkirjautuneiden laitteiden historian. Voit tarkastella muuta Google-tilisi toimintaa osoitteessa <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="3917783807003067648">Sijainnin käyttö on estetty.</translation>
 <translation id="3927692899758076493">Sans Serif</translation>
 <translation id="3928666092801078803">Yhdistä tiedot</translation>
@@ -265,6 +268,7 @@ Muokkaa hakutermiä valitsemalla se pitkällä painalluksella. Tarkenna hakua li
 <translation id="395922942268463099">Säännöllisesti päivitettävät sivut</translation>
 <translation id="3967822245660637423">Lataus on valmis</translation>
 <translation id="397583555483684758">Synkronointi on lakannut toimimasta.</translation>
+<translation id="3976396876660209797">Poista tämä pikakuvake ja luo se uudelleen.</translation>
 <translation id="3985215325736559418">Haluatko ladata tiedoston <ph name="FILE_NAME" /> uudelleen?</translation>
 <translation id="3987993985790029246">Kopioi linkki</translation>
 <translation id="3988213473815854515">Sijainnin käyttö on sallittu.</translation>
@@ -423,6 +427,7 @@ Muokkaa hakutermiä valitsemalla se pitkällä painalluksella. Tarkenna hakua li
 <translation id="5626134646977739690">Nimi:</translation>
 <translation id="5639724618331995626">Salli kaikki sivustot</translation>
 <translation id="5646376287012673985">Sijainti</translation>
+<translation id="5648166631817621825">Viimeiset seitsemän päivää</translation>
 <translation id="5655963694829536461">Hae omista latauksistasi</translation>
 <translation id="5659593005791499971">Sähköposti</translation>
 <translation id="5665379678064389456">Luo tapahtuma sovelluksessa <ph name="APP_NAME" /></translation>
@@ -558,6 +563,7 @@ Jotkin verkkosivustot voivat vastata tähän pyyntöön esimerkiksi näyttämäl
 <translation id="6965382102122355670">OK</translation>
 <translation id="6973630695168034713">Kansiot</translation>
 <translation id="6978479750597523876">Nollaa käännösasetukset</translation>
+<translation id="6979737339423435258">Kaikki</translation>
 <translation id="6981982820502123353">Esteettömyys</translation>
 <translation id="6985347914332179298">Ei ladattuja kohteita</translation>
 <translation id="6990079615885386641">Hanki sovellus Google Play Kaupasta: <ph name="APP_ACTION" /></translation>
@@ -575,6 +581,7 @@ Jotkin verkkosivustot voivat vastata tähän pyyntöön esimerkiksi näyttämäl
 <translation id="7128222689758636196">Salli nykyiselle hakukoneelle</translation>
 <translation id="7138678301420049075">Muu</translation>
 <translation id="7144878232160441200">Yritä uudelleen</translation>
+<translation id="7149893636342594995">Viimeiset 24 tuntia</translation>
 <translation id="7180611975245234373">Päivitä</translation>
 <translation id="7189372733857464326">Odotetaan Google Play Palveluiden päivittymistä</translation>
 <translation id="7191430249889272776">Välilehti avattiin taustalla.</translation>
@@ -593,6 +600,7 @@ Jotkin verkkosivustot voivat vastata tähän pyyntöön esimerkiksi näyttämäl
 <translation id="7423098979219808738">Kysy ensin</translation>
 <translation id="7437998757836447326">Uloskirjautuminen Chromesta</translation>
 <translation id="7445411102860286510">Salli sivustoille mykistettyjen videoiden automaattinen toisto (suositus)</translation>
+<translation id="7449574997654022410">Tyhjentää historian ja osoitepalkin ehdotukset. Voit tarkastella muuta Google-tilisi toimintaa osoitteessa <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7464701184726199289">Synkronoidut tiedot poistetaan kaikilta laitteilta. Tallennettuja sivustoasetuksia ei poisteta, ja ne saattavat sisältää tietoa selaustavoistasi. <ph name="BEGIN_LINK" />Lisätietoja<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">Ei kiitos</translation>
 <translation id="7475192538862203634">Jos näet tämän ilmoituksen usein, kokeile näitä <ph name="BEGIN_LINK" />ehdotuksia<ph name="END_LINK" />.</translation>
@@ -634,6 +642,7 @@ Google-tililläsi voi olla muita selaushistoriatietoja, kuten hakuja ja toiminta
 <translation id="7829298379596169484">Äänituloa käytetään</translation>
 <translation id="7837721118676387834">Sallii tietylle sivustolle mykistettyjen videoiden automaattisen toiston.</translation>
 <translation id="7846076177841592234">Peruuta valinta</translation>
+<translation id="784934925303690534">Aikaväli</translation>
 <translation id="7851858861565204677">Muut laitteet</translation>
 <translation id="7875915731392087153">Luo sähköposti</translation>
 <translation id="7876243839304621966">Poista kaikki</translation>
@@ -713,6 +722,7 @@ Hanki uudet käyttöoik. muodostam. verkkoyhteys ja toistamalla ladattu sisält�
 <translation id="8639651215196239211">Kaikki lataukset</translation>
 <translation id="8641930654639604085">Pyri estämään aikuisille tarkoitetut sivustot</translation>
 <translation id="8660471606262461360">Google Paymentsista</translation>
+<translation id="8662811608048051533">Kirjaa sinut ulos useimmilta sivustoilta.</translation>
 <translation id="8676374126336081632">Tyhjennä teksti</translation>
 <translation id="869891660844655955">Vanhenemispäivämäärä</translation>
 <translation id="8719023831149562936">Nykyistä välilehteä ei voi jakaa</translation>

@@ -5,6 +5,29 @@
 
       Si se le asigna el valor False, las actualizaciones de los componentes se inhabilitarán. Sin embargo, algunos componentes quedan exentos de esta política: no se inhabilitarán las actualizaciones de cualquier componente que no contenga ningún código ejecutable, que no influya en el funcionamiento del navegador de forma significativa o que sea esencial para garantizar su seguridad.
       Entre los ejemplos de estos componentes se incluyen las listas de revocación de certificados y los datos de navegación seguros. </translation>
+<translation id="1010564225363223332">Configura una lista de impresoras.
+
+      Esta política permite que los administradores proporcionen opciones de configuración de impresoras a
+      sus usuarios.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> y <ph name="PRINTER_DESCRIPTION" /> son cadenas de formato libre
+      que se pueden personalizar para que la selección de impresoras sea sencilla. <ph name="PRINTER_MANUFACTURER" /> y <ph name="PRINTER_MODEL" /> permiten que la identificación de la impresora sea sencilla para
+      los usuarios finales. Representan el fabricante y el modelo de la impresora. <ph name="PRINTER_URI" /> debería ser una dirección que esté disponible
+      desde un ordenador cliente (incluidos <ph name="URI_SCHEME" />,
+      <ph name="URI_PORT" /> y <ph name="URI_QUEUE" />).  <ph name="PRINTER_UUID" /> es opcional.  Si se especifica, se utiliza para anular
+      el duplicado de impresoras <ph name="ZEROCONF_DISCOVERY" />.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> debe coincidir con una de
+      las cadenas que representan una impresora compatible <ph name="PRODUCT_NAME" />. La cadena se usará para identificar e
+      instalar los archivos PPD adecuados para la impresora. Consulta más información
+      en la página https://support.google.com/chrome?p=noncloudprint.
+
+      La configuración de la impresora se completa la primera vez que se utiliza. Los archivos PPD
+      no se descargan hasta que la impresora se usa. Después de ese momento, los archivos PPD que se utilizan con frecuencia
+      se almacenan en caché.
+
+      Esta política no afecta a la capacidad de los usuarios para configurar impresoras en
+      determinados dispositivos. La política se ha diseñado con el objetivo de ser complementaria a la configuración de impresoras por parte de los usuarios.</translation>
 <translation id="101438888985615157">Girar la pantalla 180 grados</translation>
 <translation id="1017967144265860778">Administración de energía en la pantalla de inicio de sesión</translation>
 <translation id="1019101089073227242">Establecer directorio de datos de usuarios</translation>
@@ -1395,6 +1418,11 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
 <translation id="5148753489738115745">Te permite especificar los parámetros adicionales que se utilizan cuando <ph name="PRODUCT_FRAME_NAME" /> inicia <ph name="PRODUCT_NAME" />.
 
           Si no se establece esta política, se utilizará la línea de comandos predeterminada.</translation>
+<translation id="5159469559091666409">Frecuencia con la que se envían los paquetes de red de supervisión (en milisegundos).
+
+      Si esta política no se configura, la frecuencia predeterminada es de 3 minutos. La frecuencia mínima
+      es de 30 segundos y la máxima de 24 horas (los valores
+      que no se encuentren en este intervalo se redondearán a este).</translation>
 <translation id="5182055907976889880">Configura Google Drive en <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5183383917553127163">Permite especificar las extensiones que no se incluyen en la lista negra.
 
