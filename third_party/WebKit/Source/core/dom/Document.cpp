@@ -6341,7 +6341,7 @@ Document& Document::EnsureTemplateDocument() {
 }
 
 void Document::DidAssociateFormControl(Element* element) {
-  if (!GetFrame() || !GetFrame()->GetPage() || !LoadEventFinished())
+  if (!GetFrame() || !GetFrame()->GetPage() || !HasFinishedParsing())
     return;
 
   // We add a slight delay because this could be called rapidly.
