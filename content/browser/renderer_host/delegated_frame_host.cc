@@ -90,6 +90,9 @@ void DelegatedFrameHost::MaybeCreateResizeLock() {
           switches::kDisableResizeLock))
     return;
 
+  if (!has_frame_)
+    return;
+
   if (!client_->DelegatedFrameCanCreateResizeLock())
     return;
 
@@ -525,6 +528,7 @@ void DelegatedFrameHost::EvictDelegatedFrame() {
   client_->DelegatedFrameHostGetLayer()->SetShowSolidColorContent();
   support_->EvictFrame();
   has_frame_ = false;
+  resize_lock_.reset();
   delegated_frame_evictor_->DiscardedFrame();
   UpdateGutters();
 }
