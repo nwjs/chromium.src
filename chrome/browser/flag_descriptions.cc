@@ -3015,4 +3015,15 @@ const char kEnableCopylessPasteDescription[] =
 
 #endif  // defined(OS_ANDROID)
 
+#if defined(OS_ANDROID)
+
+const char kEnableOmniboxClipboardProviderName[] =
+    "Omnibox clipboard URL suggestions";
+
+const char kEnableOmniboxClipboardProviderDescription[] =
+    "Provide a suggestion of the URL stored in the clipboard (if any) upon "
+    "focus in the omnibox.";
+
+#endif  // defined(OS_ANDROID)
+
 }  // namespace flag_descriptions
