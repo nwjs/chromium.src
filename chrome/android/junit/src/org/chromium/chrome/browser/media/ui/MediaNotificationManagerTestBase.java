@@ -35,6 +35,7 @@ import org.chromium.base.ContextUtils;
 import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.AppHooksImpl;
 import org.chromium.chrome.browser.media.ui.MediaNotificationManager.ListenerService;
+import org.chromium.chrome.browser.notifications.NotificationUmaTracker;
 import org.chromium.content_public.common.MediaMetadata;
 
 /**
@@ -47,12 +48,13 @@ public class MediaNotificationManagerTestBase {
     MockListenerService mService;
     MediaNotificationListener mListener;
     AppHooksImpl mMockAppHooks;
+    NotificationUmaTracker mMockUmaTracker;
 
     MediaNotificationInfo.Builder mMediaNotificationInfoBuilder;
 
     static class MockMediaNotificationManager extends MediaNotificationManager {
-        public MockMediaNotificationManager() {
-            super(NOTIFICATION_ID);
+        public MockMediaNotificationManager(NotificationUmaTracker umaTracker) {
+            super(umaTracker, NOTIFICATION_ID);
         }
     }
 
@@ -91,8 +93,9 @@ public class MediaNotificationManagerTestBase {
                 new MediaNotificationManager.NotificationOptions(MockListenerService.class,
                         MockMediaButtonReceiver.class, NOTIFICATION_GROUP_NAME));
 
-        MediaNotificationManager.setManagerForTesting(
-                NOTIFICATION_ID, spy(new MockMediaNotificationManager()));
+        mMockUmaTracker = mock(NotificationUmaTracker.class);
+        MediaNotificationManager.setManagerForTesting(NOTIFICATION_ID,
+                spy(new MockMediaNotificationManager(mMockUmaTracker)));
 
         mMediaNotificationInfoBuilder =
                 new MediaNotificationInfo.Builder()
@@ -146,6 +149,7 @@ public class MediaNotificationManagerTestBase {
         clearInvocations(getManager());
         clearInvocations(mService);
         clearInvocations(mMockContext);
+        clearInvocations(mMockUmaTracker);
     }
 
     void setUpService() {

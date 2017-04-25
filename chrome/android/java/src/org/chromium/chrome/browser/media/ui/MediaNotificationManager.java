@@ -42,6 +42,7 @@ import org.chromium.chrome.browser.notifications.ChannelDefinitions;
 import org.chromium.chrome.browser.notifications.ChromeNotificationBuilder;
 import org.chromium.chrome.browser.notifications.NotificationBuilderFactory;
 import org.chromium.chrome.browser.notifications.NotificationConstants;
+import org.chromium.chrome.browser.notifications.NotificationUmaTracker;
 import org.chromium.content_public.common.MediaMetadata;
 
 import java.util.ArrayList;
@@ -107,6 +108,8 @@ public class MediaNotificationManager {
                 new NotificationOptions(CastListenerService.class, CastMediaButtonReceiver.class,
                         NotificationConstants.GROUP_MEDIA_REMOTE));
     }
+
+    private final NotificationUmaTracker mNotificationUmaTracker;
 
     private int mNotificationId;
 
@@ -464,7 +467,8 @@ public class MediaNotificationManager {
     public static void show(MediaNotificationInfo notificationInfo) {
         MediaNotificationManager manager = sManagers.get(notificationInfo.id);
         if (manager == null) {
-            manager = new MediaNotificationManager(notificationInfo.id);
+            manager = new MediaNotificationManager(
+                    NotificationUmaTracker.getInstance(), notificationInfo.id);
             sManagers.put(notificationInfo.id, manager);
         }
 
@@ -634,7 +638,8 @@ public class MediaNotificationManager {
     }
 
     @VisibleForTesting
-    MediaNotificationManager(int notificationId) {
+    MediaNotificationManager(NotificationUmaTracker umaTracker, int notificationId) {
+        mNotificationUmaTracker = umaTracker;
         mNotificationId = notificationId;
 
         mActionToButtonInfo = new SparseArray<>();
@@ -675,6 +680,8 @@ public class MediaNotificationManager {
 
         mService = service;
         updateNotification();
+        mNotificationUmaTracker.onNotificationShown(
+                NotificationUmaTracker.MEDIA, ChannelDefinitions.CHANNEL_ID_MEDIA);
     }
 
     /**
