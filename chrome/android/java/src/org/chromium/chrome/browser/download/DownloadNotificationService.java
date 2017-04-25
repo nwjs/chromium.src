@@ -1311,7 +1311,8 @@ public class DownloadNotificationService extends Service {
         if (mDownloadSharedPreferenceHelper.hasEntry(id)) return;
         NotificationUmaTracker.getInstance().onNotificationShown(
                 LegacyHelpers.isLegacyOfflinePage(id) ? NotificationUmaTracker.DOWNLOAD_PAGES
-                                                      : NotificationUmaTracker.DOWNLOAD_FILES);
+                                                      : NotificationUmaTracker.DOWNLOAD_FILES,
+                ChannelDefinitions.CHANNEL_ID_DOWNLOADS);
     }
 
     /**
