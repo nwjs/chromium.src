@@ -4,7 +4,6 @@
 
 #include "core/layout/GridTrackSizingAlgorithm.h"
 
-#include "core/frame/FrameView.h"
 #include "core/layout/Grid.h"
 #include "core/layout/LayoutGrid.h"
 #include "platform/LengthFunctions.h"
@@ -278,7 +277,7 @@ LayoutUnit GridTrackSizingAlgorithmStrategy::LogicalHeightForChild(
   if (ShouldClearOverrideContainingBlockContentSizeForChild(child, kForRows)) {
     SetOverrideContainingBlockContentSizeForChild(child, child_block_direction,
                                                   LayoutUnit(-1));
-    SetGridItemNeedsLayout(child);
+    child.SetNeedsLayout(LayoutInvalidationReason::kGridChanged, kMarkOnlyThis);
   }
 
   // We need to clear the stretched height to properly compute logical height
@@ -337,7 +336,7 @@ LayoutUnit GridTrackSizingAlgorithmStrategy::MinContentForChild(
 
   if (UpdateOverrideContainingBlockContentSizeForChild(child,
                                                        child_inline_direction))
-    SetGridItemNeedsLayout(child);
+    child.SetNeedsLayout(LayoutInvalidationReason::kGridChanged, kMarkOnlyThis);
   return LogicalHeightForChild(child);
 }
 
@@ -368,7 +367,7 @@ LayoutUnit GridTrackSizingAlgorithmStrategy::MaxContentForChild(
 
   if (UpdateOverrideContainingBlockContentSizeForChild(child,
                                                        child_inline_direction))
-    SetGridItemNeedsLayout(child);
+    child.SetNeedsLayout(LayoutInvalidationReason::kGridChanged, kMarkOnlyThis);
   return LogicalHeightForChild(child);
 }
 
@@ -431,17 +430,6 @@ void GridTrackSizingAlgorithmStrategy::DistributeSpaceToTracks(
                                                       available_logical_space);
 }
 
-void GridTrackSizingAlgorithmStrategy::SetGridItemNeedsLayout(
-    LayoutBox& grid_item) const {
-  // Mac code can call computIntrinsicLogicalWidths() after the layout in
-  // content::RenderViewImpl::didUpdateLayout().
-  if (!GetLayoutGrid()->GetDocument().View()->IsInPerformLayout())
-    return;
-
-  grid_item.SetNeedsLayout(LayoutInvalidationReason::kGridChanged,
-                           kMarkOnlyThis);
-}
-
 LayoutUnit DefiniteSizeStrategy::MinLogicalWidthForChild(
     LayoutBox& child,
     Length child_min_size,
@@ -460,7 +448,7 @@ void DefiniteSizeStrategy::LayoutGridItemForMinSizeComputation(
     LayoutBox& child,
     bool override_size_has_changed) const {
   if (override_size_has_changed)
-    SetGridItemNeedsLayout(child);
+    child.SetNeedsLayout(LayoutInvalidationReason::kGridChanged, kMarkOnlyThis);
   child.LayoutIfNeeded();
 }
 
@@ -511,7 +499,7 @@ void IndefiniteSizeStrategy::LayoutGridItemForMinSizeComputation(
     LayoutBox& child,
     bool override_size_has_changed) const {
   if (override_size_has_changed && Direction() != kForColumns)
-    SetGridItemNeedsLayout(child);
+    child.SetNeedsLayout(LayoutInvalidationReason::kGridChanged, kMarkOnlyThis);
   child.LayoutIfNeeded();
 }
 
