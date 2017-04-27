@@ -289,7 +289,7 @@ bool ProcessMetrics::GetCommittedAndWorkingSetKBytes(
 }
 
 size_t ProcessMetrics::GetPhysicalFootprint() const {
-  if (mac::IsAtMostOS10_10())
+  if (mac::IsAtMostOS10_11())
     return 0;
 
   ChromeTaskVMInfo task_vm_info;
