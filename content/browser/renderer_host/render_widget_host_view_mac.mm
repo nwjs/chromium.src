@@ -1112,7 +1112,7 @@ void RenderWidgetHostViewMac::SpeakSelection() {
     return;
   }
 
-  SpeakText(selected_text_);
+  SpeakText(base::UTF16ToUTF8(selection->selected_text()));
 }
 
 bool RenderWidgetHostViewMac::IsSpeaking() const {
