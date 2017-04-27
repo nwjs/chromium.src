@@ -167,6 +167,9 @@ struct GPU_EXPORT Capabilities {
   // work around this. See https://crbug.com/449150 for an example.
   bool emulate_rgb_buffer_with_rgba = false;
 
+  // When true, non-empty post sub buffer calls are unsupported.
+  bool disable_non_empty_post_sub_buffers = false;
+
   int major_version = 2;
   int minor_version = 0;
 };

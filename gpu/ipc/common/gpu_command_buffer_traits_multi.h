@@ -128,6 +128,7 @@ IPC_STRUCT_TRAITS_BEGIN(gpu::Capabilities)
   IPC_STRUCT_TRAITS_MEMBER(chromium_image_rgb_emulation)
   IPC_STRUCT_TRAITS_MEMBER(emulate_rgb_buffer_with_rgba)
   IPC_STRUCT_TRAITS_MEMBER(set_draw_rectangle)
+  IPC_STRUCT_TRAITS_MEMBER(disable_non_empty_post_sub_buffers)
 
   IPC_STRUCT_TRAITS_MEMBER(major_version)
   IPC_STRUCT_TRAITS_MEMBER(minor_version)

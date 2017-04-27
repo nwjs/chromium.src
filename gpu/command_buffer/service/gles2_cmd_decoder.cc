@@ -3780,6 +3780,10 @@ Capabilities GLES2DecoderImpl::GetCapabilities() {
       workarounds().disable_webgl_rgb_multisampling_usage;
   caps.emulate_rgb_buffer_with_rgba =
       workarounds().disable_gl_rgb_format;
+  if (workarounds().disable_non_empty_post_sub_buffers_for_onscreen_surfaces &&
+      !surface_->IsOffscreen()) {
+    caps.disable_non_empty_post_sub_buffers = true;
+  }
 
   return caps;
 }

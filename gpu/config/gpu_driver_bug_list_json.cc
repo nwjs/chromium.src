@@ -518,7 +518,7 @@ const char kGpuDriverBugListJson[] = LONG_STRING_CONST(
       "gl_type": "gl",
       "gl_renderer": ".*Mesa.*",
       "features": [
-        "disable_post_sub_buffers_for_onscreen_surfaces"
+        "disable_non_empty_post_sub_buffers_for_onscreen_surfaces"
       ]
     },
     {
