@@ -1202,8 +1202,6 @@ class CORE_EXPORT UseCounter {
     kPresentationConnectionListConnectionAvailableEventListener = 1555,
     kWebAudioAutoplayCrossOriginIframe = 1556,
     kVRGetDisplays = 1558,
-    kCSSZoomReset = 1578,
-    kCSSZoomDocument = 1579,
     kXSSAuditorBlockedScript = 1581,
     kXSSAuditorBlockedEntirePage = 1582,
     kXSSAuditorDisabled = 1583,
