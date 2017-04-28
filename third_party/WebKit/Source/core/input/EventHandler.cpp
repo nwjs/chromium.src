@@ -735,7 +735,7 @@ WebInputEventResult EventHandler::HandleMousePressEvent(
     DCHECK_EQ(WebInputEvent::kMouseDown, mouse_event.GetType());
     HitTestResult result = mev.GetHitTestResult();
     result.SetToShadowHostIfInRestrictedShadowRoot();
-    frame_->GetChromeClient().OnMouseDown(result.InnerNode());
+    frame_->GetChromeClient().OnMouseDown(*result.InnerNode());
   }
 
   return event_result;

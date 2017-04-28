@@ -322,7 +322,7 @@ class CORE_EXPORT ChromeClient : public HostWindow {
 
   virtual void ShowUnhandledTapUIIfNeeded(IntPoint, Node*, bool) {}
 
-  virtual void OnMouseDown(Node*) {}
+  virtual void OnMouseDown(Node&) {}
 
   virtual void DidUpdateBrowserControls() const {}
 
