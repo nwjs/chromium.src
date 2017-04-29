@@ -251,8 +251,10 @@ bool BackgroundApplicationListModel::IsBackgroundApp(
   //    manifest.
 
   // Not a background app if we don't have the background permission.
+  // NWJS: nwjs_default_app is listed as background app and prevents
+  // quit so we need to disable it here
   if (!extension.permissions_data()->HasAPIPermission(
-          APIPermission::kBackground)) {
+       APIPermission::kBackground, true)) {
     return false;
   }
 

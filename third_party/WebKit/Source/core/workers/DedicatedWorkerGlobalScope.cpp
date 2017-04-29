@@ -96,6 +96,7 @@ void DedicatedWorkerGlobalScope::postMessage(
       ExecutionContext::From(script_state), ports, exception_state);
   if (exception_state.HadException())
     return;
+  if (GetThread())
   WorkerObjectProxy().PostMessageToWorkerObject(std::move(message),
                                                 std::move(channels));
 }

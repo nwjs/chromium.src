@@ -115,6 +115,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
                         bool is_for_guests_only);
   ~RenderProcessHostImpl() override;
 
+  void set_main_host();
+  static RenderProcessHostImpl* main_host();
   // RenderProcessHost implementation (public portion).
   bool Init() override;
   void EnableSendQueue() override;

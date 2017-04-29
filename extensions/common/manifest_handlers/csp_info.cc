@@ -32,6 +32,7 @@ const char kDefaultContentSecurityPolicy[] =
 #define PLATFORM_APP_LOCAL_CSP_SOURCES \
     "'self' blob: filesystem: data: chrome-extension-resource:"
 
+const char kDefaultNWAppContentSecurityPolicy[] = "unsafe-inline; default-src *;";
 const char kDefaultPlatformAppContentSecurityPolicy[] =
     // Platform apps can only use local resources by default.
     "default-src 'self' blob: filesystem: chrome-extension-resource:;"
@@ -112,6 +113,9 @@ bool CSPHandler::Parse(Extension* extension, base::string16* error) {
       std::string content_security_policy = is_platform_app_ ?
           kDefaultPlatformAppContentSecurityPolicy :
           kDefaultContentSecurityPolicy;
+
+      if (extension->manifest()->type() == Manifest::TYPE_NWJS_APP)
+        content_security_policy = kDefaultNWAppContentSecurityPolicy;
 
       CHECK_EQ(content_security_policy,
                SanitizeContentSecurityPolicy(content_security_policy,

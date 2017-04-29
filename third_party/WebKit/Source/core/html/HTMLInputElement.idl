@@ -107,6 +107,9 @@ interface HTMLInputElement : HTMLElement {
     // https://crbug.com/698853
     [Measure, RuntimeEnabled=MediaCapture, Reflect] attribute boolean capture;
 
+    attribute DOMString nwworkingdir;
+    [Reflect] attribute boolean nwdirectory;
+    attribute DOMString nwsaveas;
     // Non-standard APIs
     [Reflect, MeasureAs=PrefixedDirectoryAttribute] attribute boolean webkitdirectory;
     [Reflect, MeasureAs=IncrementalAttribute] attribute boolean incremental;

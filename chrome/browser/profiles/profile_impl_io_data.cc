@@ -5,6 +5,10 @@
 #include "chrome/browser/profiles/profile_impl_io_data.h"
 
 #include <memory>
+
+#include "content/nw/src/nw_base.h"
+#include "extensions/common/manifest_constants.h"
+
 #include <set>
 #include <string>
 #include <utility>
@@ -497,6 +501,11 @@ void ProfileImplIOData::InitializeInternal(
       lazy_params_->special_storage_policy.get(),
       profile_params->cookie_monster_delegate.get());
   cookie_config.crypto_delegate = cookie_config::GetCookieCryptoDelegate();
+  const base::CommandLine& command_line =
+      *base::CommandLine::ForCurrentProcess();
+  if (command_line.HasSwitch("disable-cookie-encryption")) {
+    cookie_config::SetEnableCookieCrypto(false);
+  }
   main_context_storage->set_cookie_store(
       content::CreateCookieStore(cookie_config));
 
@@ -574,6 +583,10 @@ void ProfileImplIOData::
 
   extensions_context->set_net_log(io_thread->net_log());
 
+  std::string domain;
+  if (nw::package()->root()->GetString(extensions::manifest_keys::kNWJSDomain, &domain)) {
+    extensions_context->set_cookie_store(main_request_context()->cookie_store());
+  } else {
   content::CookieStoreConfig cookie_config(
       lazy_params_->extensions_cookie_path,
       lazy_params_->session_cookie_mode,
@@ -586,6 +599,7 @@ void ProfileImplIOData::
   if (extensions_context->channel_id_service()) {
     extensions_cookie_store_->SetChannelIDServiceID(
         extensions_context->channel_id_service()->GetUniqueID());
+  }
   }
 
   std::unique_ptr<net::URLRequestJobFactoryImpl> extensions_job_factory(

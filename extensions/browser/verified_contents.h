@@ -47,7 +47,7 @@ class VerifiedContents {
  private:
   // Returns the base64url-decoded "payload" field from the json at |path|, if
   // the signature was valid.
-  bool GetPayload(const base::FilePath& path, std::string* payload);
+  bool GetPayload(const base::FilePath& path, std::string* payload, const char* manifest = nullptr);
 
   // The |protected_value| and |payload| arguments should be base64url encoded
   // strings, and |signature_bytes| should be a byte array. See comments in the

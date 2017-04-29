@@ -676,7 +676,8 @@ cr.define('print_preview', function() {
       this.destinationStore_.init(
           settings.isInAppKioskMode,
           settings.systemDefaultDestinationId,
-          settings.serializedDefaultDestinationSelectionRulesStr);
+          settings.serializedDefaultDestinationSelectionRulesStr,
+          settings.isInNWPrintMode);
       this.appState_.setInitialized();
 
       $('document-title').innerText = settings.documentTitle;

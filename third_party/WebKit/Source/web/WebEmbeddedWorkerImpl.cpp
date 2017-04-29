@@ -31,6 +31,20 @@
 #include "web/WebEmbeddedWorkerImpl.h"
 
 #include <memory>
+
+#include "third_party/node-nw/src/node_webkit.h"
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
+#include "base/command_line.h"
+
 #include "bindings/core/v8/SourceLocation.h"
 #include "core/dom/Document.h"
 #include "core/dom/SecurityContext.h"
@@ -416,6 +430,8 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
   DCHECK(!asked_to_terminate_);
 
   Document* document = main_frame_->GetFrame()->GetDocument();
+  const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
+  bool isNodeJS = document->GetFrame() && document->GetFrame()->isNodeJS() && command_line.HasSwitch("enable-node-worker");
 
   // FIXME: this document's origin is pristine and without any extra privileges.
   // (crbug.com/254993)
@@ -452,8 +468,12 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
   worker_v8_settings.v8_cache_options_ =
       static_cast<V8CacheOptions>(worker_start_data_.v8_cache_options);
 
+  std::string main_script;
+  if (g_web_worker_start_thread_fn) {
+    (*g_web_worker_start_thread_fn)(main_frame_->GetFrame(), (void*)script_url.GetPath().Utf8().Data(), &main_script, &isNodeJS);
+  }
   std::unique_ptr<WorkerThreadStartupData> startup_data =
-      WorkerThreadStartupData::Create(
+      WorkerThreadStartupData::Create(isNodeJS, main_script,
           script_url, worker_start_data_.user_agent,
           main_script_loader_->SourceText(),
           main_script_loader_->ReleaseCachedMetadata(), start_mode,

@@ -993,6 +993,7 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->SetExpensiveBackgroundThrottlingMaxDelay(
       prefs.expensive_background_throttling_max_delay);
 
+  settings->SetDoubleTapToZoomEnabled(prefs.double_tap_to_zoom_enabled);
 #if defined(OS_ANDROID)
   settings->SetAllowCustomScrollbarInMainFrame(false);
   settings->SetTextAutosizingEnabled(prefs.text_autosizing_enabled);
@@ -1001,7 +1002,6 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->SetFullscreenSupported(prefs.fullscreen_supported);
   web_view->SetIgnoreViewportTagScaleLimits(prefs.force_enable_zoom);
   settings->SetAutoZoomFocusedNodeToLegibleScale(true);
-  settings->SetDoubleTapToZoomEnabled(prefs.double_tap_to_zoom_enabled);
   settings->SetMediaPlaybackRequiresUserGesture(
       prefs.user_gesture_required_for_media_playback);
   settings->SetMediaPlaybackGestureWhitelistScope(
@@ -1086,7 +1086,7 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->SetMediaControlsEnabled(prefs.media_controls_enabled);
 
 #if defined(OS_MACOSX)
-  settings->SetDoubleTapToZoomEnabled(true);
+  //settings->SetDoubleTapToZoomEnabled(true);
   web_view->SetMaximumLegibleScale(prefs.default_maximum_page_scale_factor);
 #endif
 
@@ -1400,7 +1400,8 @@ WebView* RenderViewImpl::CreateView(WebLocalFrame* creator,
                                     const WebWindowFeatures& features,
                                     const WebString& frame_name,
                                     WebNavigationPolicy policy,
-                                    bool suppress_opener) {
+                                    bool suppress_opener,
+                                    WebString* manifest) {
   RenderFrameImpl* creator_frame = RenderFrameImpl::FromWebFrame(creator);
   mojom::CreateNewWindowParamsPtr params = mojom::CreateNewWindowParams::New();
   params->opener_render_frame_id = creator_frame->GetRoutingID();
@@ -1442,6 +1443,7 @@ WebView* RenderViewImpl::CreateView(WebLocalFrame* creator,
     params->referrer = GetReferrerFromRequest(creator, request);
   }
   params->features = ConvertWebWindowFeaturesToMojoWindowFeatures(features);
+  params->nw_window_manifest = manifest->Utf16();
 
   // We preserve this information before sending the message since |params| is
   // moved on send.

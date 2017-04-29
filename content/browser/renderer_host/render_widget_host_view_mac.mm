@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "content/browser/renderer_host/render_widget_host_view_mac.h"
+#include "content/public/common/content_switches.h"
 
 #import <Carbon/Carbon.h>
 #import <objc/runtime.h>
@@ -110,6 +111,11 @@ using blink::WebInputEvent;
 using blink::WebMouseEvent;
 using blink::WebMouseWheelEvent;
 using blink::WebGestureEvent;
+
+namespace content {
+  extern bool g_support_transparency;
+  extern bool g_force_cpu_draw;
+}
 
 namespace {
 
@@ -455,9 +461,11 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget,
   background_layer_.reset([[CALayer alloc] init]);
   // Set the default color to be white. This is the wrong thing to do, but many
   // UI components expect this view to be opaque.
-  [background_layer_ setBackgroundColor:CGColorGetConstantColor(kCGColorWhite)];
+  bool isOpaque = [cocoa_view_ isOpaque];
+  [background_layer_ setBackgroundColor: (isOpaque || !content::g_support_transparency) ?
+    CGColorGetConstantColor(kCGColorWhite) : CGColorGetConstantColor(kCGColorClear)];
   [cocoa_view_ setLayer:background_layer_];
-  [cocoa_view_ setWantsLayer:YES];
+  [cocoa_view_ setWantsLayer:!content::g_force_cpu_draw];
 
   cc::FrameSinkId frame_sink_id =
       render_widget_host_->AllocateFrameSinkId(is_guest_view_hack_);
@@ -761,6 +769,7 @@ void RenderWidgetHostViewMac::Hide() {
   [cocoa_view_ setHidden:YES];
 
   render_widget_host_->WasHidden();
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableRAFThrottling))
   browser_compositor_->SetRenderWidgetHostIsHidden(true);
 }
 
@@ -780,6 +789,7 @@ void RenderWidgetHostViewMac::WasOccluded() {
   }
 
   render_widget_host_->WasHidden();
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableRAFThrottling))
   browser_compositor_->SetRenderWidgetHostIsHidden(true);
 }
 
@@ -1842,6 +1852,16 @@ void RenderWidgetHostViewMac::OnDisplayMetricsChanged(
     return responderDelegate_.get();
 
   return [super forwardingTargetForSelector:selector];
+}
+
+- (void)drawRect:(NSRect)dirty {
+  if (content::g_force_cpu_draw) {
+    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+    CGContextClipToRect(ctx, NSRectToCGRect(dirty));
+    [[self layer] renderInContext:ctx];
+  } else {
+    [super drawRect:dirty];
+  }
 }
 
 - (void)setCanBeKeyView:(BOOL)can {
@@ -3512,7 +3532,7 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
 }
 
 - (BOOL)isOpaque {
-  return opaque_;
+  return content::g_support_transparency ? [super isOpaque] : opaque_;
 }
 
 // "-webkit-app-region: drag | no-drag" is implemented on Mac by excluding
