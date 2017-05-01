@@ -52,3 +52,6 @@ class PixelExpectations(GpuTestExpectations):
 
     # TODO(jbauman): Re-enable when references images created.
     self.Fail('Pixel_DirectComposition_Video_*', ['win'], bug=704389)
+
+    # TODO(zakerinasab): check / generate reference images.
+    self.Fail('Pixel_Canvas2DUntagged', bug=713632)
