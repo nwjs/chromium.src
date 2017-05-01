@@ -30,7 +30,9 @@
 #include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
+#include "chrome/browser/chromeos/arc/arc_migration_guide_notification.h"
 #include "chrome/browser/chromeos/arc/arc_service_launcher.h"
+#include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/base/locale_util.h"
 #include "chrome/browser/chromeos/boot_times_recorder.h"
 #include "chrome/browser/chromeos/first_run/first_run.h"
@@ -512,7 +514,10 @@ void UserSessionManager::StartSession(
                                           user_context.GetDeviceId());
   }
 
-  PrepareProfile();
+  arc::UpdateArcFileSystemCompatibilityPrefIfNeeded(
+      user_context_.GetAccountId(),
+      ProfileHelper::GetProfilePathByUserIdHash(user_context_.GetUserIDHash()),
+      base::Bind(&UserSessionManager::PrepareProfile, AsWeakPtr()));
 }
 
 void UserSessionManager::DelegateDeleted(UserSessionManagerDelegate* delegate) {
@@ -1806,6 +1811,10 @@ void UserSessionManager::DoBrowserLaunchInternal(Profile* profile,
   // the message accordingly.
   if (ShouldShowEolNotification(profile))
     CheckEolStatus(profile);
+
+  // Show the one-time notification and update the relevant pref about the
+  // completion of the file system migration necessary for ARC, when needed.
+  arc::ShowArcMigrationSuccessNotificationIfNeeded(profile);
 }
 
 void UserSessionManager::RespectLocalePreferenceWrapper(

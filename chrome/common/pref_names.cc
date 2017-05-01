@@ -42,6 +42,10 @@ const char kArcSetNotificationsEnabledDeferred[] =
     "arc.set_notifications_enabled_deferred";
 // A preference that indicates status of Android sign-in.
 const char kArcSignedIn[] = "arc.signedin";
+// A preference that indicates an ARC comaptible filesystem was chosen for
+// the user directory (i.e., the user finished required migration.)
+const char kArcCompatibleFilesystemChosen[] =
+    "arc.compatible_filesystem.chosen";
 #endif
 
 // A bool pref that keeps whether the child status for this profile was already
