@@ -446,6 +446,8 @@ public class SelectionPopupController extends ActionModeCallbackHelper {
         mActionMenuDescriptor = createActionMenuDescriptor();
         mActionMenuDescriptor.apply(menu);
 
+        if (isInsertion() || isSelectionPassword()) return;
+
         initializeTextProcessingMenu(menu);
     }
 
