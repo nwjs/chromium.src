@@ -399,7 +399,7 @@ bool ContentSettingsObserver::allowWriteToClipboard(bool default_value) {
 }
 
 bool ContentSettingsObserver::allowMutationEvents(bool default_value) {
-  return IsPlatformApp() ? false : default_value;
+  return default_value;
 }
 
 bool ContentSettingsObserver::allowRunningInsecureContent(

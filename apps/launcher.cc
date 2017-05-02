@@ -101,7 +101,10 @@ class PlatformAppPathLauncher
         extension_id(app->id()),
         entry_paths_(entry_paths),
         mime_type_collector_(profile),
-        is_directory_collector_(profile) {}
+        is_directory_collector_(profile) {
+    if (app->is_nwjs_app()) //NWJS#5097
+      entry_paths_.clear();
+  }
 
   PlatformAppPathLauncher(Profile* profile,
                           const Extension* app,
@@ -110,7 +113,7 @@ class PlatformAppPathLauncher
         extension_id(app->id()),
         mime_type_collector_(profile),
         is_directory_collector_(profile) {
-    if (!file_path.empty())
+    if (!file_path.empty() && !app->is_nwjs_app()) //NWJS#5097
       entry_paths_.push_back(file_path);
   }
 

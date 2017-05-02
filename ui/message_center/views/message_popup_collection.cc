@@ -196,7 +196,7 @@ void MessagePopupCollection::UpdateWidgets() {
       view = MessageViewFactory::Create(NULL, *(*iter), true);
     }
 
-    view->set_context_menu_controller(context_menu_controller_.get());
+    //view->set_context_menu_controller(context_menu_controller_.get());
     int view_height = ToastContentsView::GetToastSizeForView(view).height();
     int height_available =
         top_down ? alignment_delegate_->GetWorkArea().bottom() - base

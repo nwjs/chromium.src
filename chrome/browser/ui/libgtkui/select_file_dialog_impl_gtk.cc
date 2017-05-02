@@ -325,12 +325,12 @@ GtkWidget* SelectFileDialogImplGTK::CreateSelectFolderDialog(
   std::string title_string = title;
   if (title_string.empty()) {
     title_string =
-        (type == SELECT_UPLOAD_FOLDER)
+      (false)
             ? l10n_util::GetStringUTF8(IDS_SELECT_UPLOAD_FOLDER_DIALOG_TITLE)
             : l10n_util::GetStringUTF8(IDS_SELECT_FOLDER_DIALOG_TITLE);
   }
   std::string accept_button_label =
-      (type == SELECT_UPLOAD_FOLDER)
+    (false)
           ? l10n_util::GetStringUTF8(
                 IDS_SELECT_UPLOAD_FOLDER_DIALOG_UPLOAD_BUTTON)
           : "_Open";
