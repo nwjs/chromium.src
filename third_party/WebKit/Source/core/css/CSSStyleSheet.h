@@ -100,8 +100,8 @@ class CORE_EXPORT CSSStyleSheet final : public StyleSheet {
 
   void ClearOwnerRule() { owner_rule_ = nullptr; }
   Document* OwnerDocument() const;
-  const MediaQuerySet* MediaQueries() const { return media_queries_.Get(); }
-  void SetMediaQueries(RefPtr<MediaQuerySet>);
+  const MediaQuerySet* MediaQueries() const { return media_queries_; }
+  void SetMediaQueries(MediaQuerySet*);
   bool MatchesMediaQueries(const MediaQueryEvaluator&);
   const MediaQueryResultList& ViewportDependentMediaQueryResults() const {
     return viewport_dependent_media_query_results_;
@@ -164,7 +164,7 @@ class CORE_EXPORT CSSStyleSheet final : public StyleSheet {
   bool is_disabled_ = false;
   bool load_completed_ = false;
   String title_;
-  RefPtr<MediaQuerySet> media_queries_;
+  Member<MediaQuerySet> media_queries_;
   MediaQueryResultList viewport_dependent_media_query_results_;
   MediaQueryResultList device_dependent_media_query_results_;
 

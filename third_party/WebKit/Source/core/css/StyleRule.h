@@ -239,7 +239,7 @@ class CORE_EXPORT StyleRuleCondition : public StyleRuleGroup {
 class CORE_EXPORT StyleRuleMedia : public StyleRuleCondition {
  public:
   static StyleRuleMedia* Create(
-      RefPtr<MediaQuerySet> media,
+      MediaQuerySet* media,
       HeapVector<Member<StyleRuleBase>>& adopt_rules) {
     return new StyleRuleMedia(media, adopt_rules);
   }
@@ -251,11 +251,11 @@ class CORE_EXPORT StyleRuleMedia : public StyleRuleCondition {
   DECLARE_TRACE_AFTER_DISPATCH();
 
  private:
-  StyleRuleMedia(RefPtr<MediaQuerySet>,
+  StyleRuleMedia(MediaQuerySet*,
                  HeapVector<Member<StyleRuleBase>>& adopt_rules);
   StyleRuleMedia(const StyleRuleMedia&);
 
-  RefPtr<MediaQuerySet> media_queries_;
+  Member<MediaQuerySet> media_queries_;
 };
 
 class StyleRuleSupports : public StyleRuleCondition {
