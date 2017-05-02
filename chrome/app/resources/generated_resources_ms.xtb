@@ -888,6 +888,7 @@ Selepas anda membuat pengguna di bawah seliaan yang baharu, anda boleh mengurus 
 <translation id="2260567344816042527">Google Chrome akan menggunakan data selular jika anda tidak bersambung ke rangkaian lain.</translation>
 <translation id="2262477216570151239">Lengah sebelum mengulang</translation>
 <translation id="226269835214688456">Jika anda matikan Smart Lock untuk Chromebook, anda tidak dapat membuka kunci peranti Chrome menggunakan telefon lagi. Anda perlu menaip kata laluan anda.</translation>
+<translation id="2263189956353037928">Log keluar &amp; log masuk semula</translation>
 <translation id="2263497240924215535">(Dilumpuhkan)</translation>
 <translation id="2266168284394154563">Tetapkan semula zum skrin</translation>
 <translation id="2266763207955011525">Sediakan atau urus pencetak setempat.</translation>
@@ -924,6 +925,7 @@ Selepas anda membuat pengguna di bawah seliaan yang baharu, anda boleh mengurus 
 <translation id="2316129865977710310">Tidak, terima kasih</translation>
 <translation id="2317031807364506312">BATAL</translation>
 <translation id="2318143611928805047">Saiz kertas</translation>
+<translation id="2318817390901984578">Untuk menggunakan apl Android, cas &amp; kemas kini <ph name="DEVICE_TYPE" /> anda.</translation>
 <translation id="2318923050469484167">Sesi inkognito semasa (<ph name="EMBEDDING" />)</translation>
 <translation id="2322193970951063277">Pengepala dan pengaki</translation>
 <translation id="2325650632570794183">Jenis fail ini tidak disokong. Sila lawati Kedai Web Chrome untuk mendapatkan apl yang boleh membuka jenis fail ini.</translation>
@@ -1214,6 +1216,7 @@ Saya tidak fikir tapak web ini perlu disekat!</translation>
 <translation id="2733275712367076659">Anda mempunyai sijil daripada organisasi ini yang mengenal pasti anda:</translation>
 <translation id="2733364097704495499">Adakah anda ingin mendaftarkan pencetak <ph name="PRINTER_NAME" /> dengan Google Cloud Print?</translation>
 <translation id="2735698359135166290">Papan kekunci standard Romania</translation>
+<translation id="2736434052592900364">Urus Penyegerakan Chrome dan pemperibadian dalam Tetapan</translation>
 <translation id="2737363922397526254">Runtuhkan...</translation>
 <translation id="2738771556149464852">Bukan Selepas</translation>
 <translation id="2739191690716947896">Nyahpepijat</translation>
@@ -1614,6 +1617,7 @@ Sila semak e-mel anda di <ph name="ACCOUNT_EMAIL" /> untuk mendapatkannya dan me
 <translation id="3274763671541996799">Anda telah menggunakan skrin penuh.</translation>
 <translation id="3275778913554317645">Buka sebagai tetingkap</translation>
 <translation id="3280237271814976245">Simpan &amp;sebagai...</translation>
+<translation id="3280243678470289153">Kekal dalam Chrome</translation>
 <translation id="3280431534455935878">Menyediakan</translation>
 <translation id="3282568296779691940">Log masuk ke Chrome</translation>
 <translation id="3285322247471302225">&amp;Tab Baharu</translation>
@@ -3096,6 +3100,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="5499313591153584299">Fail ini mungkin berbahaya bagi komputer anda.</translation>
 <translation id="5500122897333236901">Bahasa Iceland</translation>
 <translation id="5502500733115278303">Diimport Daripada Firefox</translation>
+<translation id="5506868365569362143">Sentuh pertukaran mod HUD</translation>
 <translation id="5507756662695126555">Bukan penolakan</translation>
 <translation id="5509693895992845810">Simpan &amp;Sebagai...</translation>
 <translation id="5509914365760201064">Pengeluar: <ph name="CERTIFICATE_AUTHORITY" /></translation>
@@ -3122,6 +3127,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="5534520101572674276">Mengira saiz</translation>
 <translation id="5535941515421698170">Turut mengalih keluar data sedia ada anda daripada peranti ini</translation>
 <translation id="5537725057119320332">Cast</translation>
+<translation id="5541687815721799001">Gunakan apl</translation>
 <translation id="5542132724887566711">Profil</translation>
 <translation id="5543983818738093899">Memeriksa status...</translation>
 <translation id="5546477470896554111">Urus sumber kuasa...</translation>
@@ -3235,6 +3241,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="5729996640881880439">Maaf, kami tidak dapat menunjukkan kod bagi ralat ini.</translation>
 <translation id="5731247495086897348">Ta&amp;mpal dan Pergi</translation>
 <translation id="5734362860645681824">Komunikasi</translation>
+<translation id="5735973442555172575">Untuk menggunakan apl Android, log masuk semula dan kemas kini.</translation>
 <translation id="5736796278325406685">Sila masukkan nama pengguna yang sah</translation>
 <translation id="5739458112391494395">Sangat besar</translation>
 <translation id="5740331643563157105"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /> dan <ph name="NUM_ADDITIONAL_LANGUAGES" /> yang lain</translation>
@@ -3369,6 +3376,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="59174027418879706">Didayakan</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 sedang digunakan}other{# sedang digunakan}}</translation>
 <translation id="5920543303088087579">Penyambungan kepada rangkaian ini dilumpuhkan oleh pentadbir anda</translation>
+<translation id="5921745308587794300">Putar tetingkap</translation>
 <translation id="5924047253200400718">Dapatkan bantuan<ph name="SCANNING_STATUS" /></translation>
 <translation id="5925147183566400388">Penuding Pernyataan Amalan Pensijilan</translation>
 <translation id="5931146425219109062">Baca dan ubah semua data anda pada tapak web yang anda lawati</translation>
@@ -3682,6 +3690,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="6412931879992742813">Tetingkap incognito baharu</translation>
 <translation id="6418160186546245112">Berbalik kepada versi <ph name="IDS_SHORT_PRODUCT_NAME" /> yang dipasang sebelum ini</translation>
 <translation id="6418481728190846787">Mengalih keluar akses bagi semua apl secara kekal</translation>
+<translation id="6418511932144861495">Pasang kemas kini genting</translation>
 <translation id="6419288379019356534">Peranti ini diurus oleh <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />.
     <ph name="LINE_BREAK" />
     Sila klik "Seterusnya" untuk terus mengelog masuk ke akaun <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> anda.</translation>
@@ -3728,6 +3737,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="646727171725540434">Proksi HTTP</translation>
 <translation id="6468485451923838994">Fon</translation>
 <translation id="6472893788822429178">Paparkan butang Laman Utama</translation>
+<translation id="6473842110411557830">Ilustrasi Powerwash</translation>
 <translation id="6474706907372204693">Kaedah input sebelumnya</translation>
 <translation id="6474884162850599008">Putuskan sambungan akaun Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> mahu berkongsi kandungan skrin anda. Pilih perkara yang ingin dikongsi.</translation>
@@ -3873,6 +3883,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="6690565918367819723"><ph name="PROFILE_NAME" /> Tukar orang</translation>
 <translation id="6690659332373509948">Tidak dapat menghuraikan fail: <ph name="FILE_NAME" /></translation>
 <translation id="6690751852586194791">Pilih pengguna diselia untuk ditambahkan pada peranti ini.</translation>
+<translation id="6691331417640343772">Urus data disegerak pada Papan Pemuka Google</translation>
 <translation id="6691936601825168937">&amp;Majukan</translation>
 <translation id="6698381487523150993">Dicipta:</translation>
 <translation id="6698810901424468597">Baca dan tukar data anda di <ph name="WEBSITE_1" /> dan <ph name="WEBSITE_2" /></translation>
@@ -4025,6 +4036,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="6945221475159498467">Pilih</translation>
 <translation id="6949306908218145636">Tandakan Halaman Terbuka...</translation>
 <translation id="6955446738988643816">Semak Pop Timbul</translation>
+<translation id="6957519909849772545">Anda telah menerima kemas kini genting baharu. Log masuk untuk bermula.</translation>
 <translation id="695755122858488207">Butang radio tidak dipilih</translation>
 <translation id="696203921837389374">Dayakan penyegerakan melalui data mudah alih</translation>
 <translation id="6964390816189577014">Wira</translation>
@@ -4530,6 +4542,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="7719421816612904796">Latihan tamat masa</translation>
 <translation id="771953673318695590">S&amp;J</translation>
 <translation id="7720375555307821262">Untuk menyelia orang ini, <ph name="BEGIN_LINK" />log masuk ke Chrome<ph name="END_LINK" />.</translation>
+<translation id="7721179060400456005">Benarkan tetingkap mengembangkan paparan</translation>
 <translation id="7724603315864178912">Potong</translation>
 <translation id="7728668285692163452">Perubahan saluran akan dilaksanakan kemudian</translation>
 <translation id="7730449930968088409">Abadikan kandungan skrin anda</translation>
@@ -4628,6 +4641,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="7874357055309047713">Sentiasa jalankan pada semua tapak</translation>
 <translation id="7876243839304621966">Buangkan semua</translation>
 <translation id="7877451762676714207">Ralat pelayan tidak diketahui. Sila cuba lagi atau hubungi pentadbir pelayan.</translation>
+<translation id="7877680364634660272">Lawatan</translation>
 <translation id="7881483672146086348">Paparkan Akaun</translation>
 <translation id="7881969471599061635">Lumpuhkan sari kata</translation>
 <translation id="7882358943899516840">Jenis penyedia</translation>
@@ -5339,6 +5353,7 @@ Pemberitahuan, tetingkap dan dialog seterusnya mungkin dipisahkan antara desktop
 <translation id="8944964446326379280"><ph name="APP_NAME" /> berkongsi tetingkap dengan <ph name="TAB_NAME" />.</translation>
 <translation id="8946284507644756416"><ph name="DEVICE_TYPE" /> anda boleh dibuka kunci dengan telefon Android anda.</translation>
 <translation id="8946359700442089734">Ciri penyahpepijatan tidak didayakan sepenuhnya pada peranti ini <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
+<translation id="8948677146203372548">Berjaya mengemas kini. Kini anda boleh menggunakan apl Android.</translation>
 <translation id="895347679606913382">Memulakan...</translation>
 <translation id="8954952943849489823">Pemindahan gagal, ralat tidak dijangkakan: $1</translation>
 <translation id="895586998699996576">Imej $1</translation>
@@ -5416,6 +5431,7 @@ Pemberitahuan, tetingkap dan dialog seterusnya mungkin dipisahkan antara desktop
 <translation id="9046895021617826162">Gagal disambungkan</translation>
 <translation id="9050666287014529139">Frasa laluan</translation>
 <translation id="9052208328806230490">Anda telah mendaftarkan pencetak anda dengan <ph name="CLOUD_PRINT_NAME" /> menggunakan akaun <ph name="EMAIL" /></translation>
+<translation id="9053893665344928494">Ingat pilihan saya</translation>
 <translation id="9056034633062863292">Mengemas kini Chromebox</translation>
 <translation id="9056810968620647706">Tiada padanan dijumpai.</translation>
 <translation id="9057119625587205566">Tiada pencetak berdekatan</translation>

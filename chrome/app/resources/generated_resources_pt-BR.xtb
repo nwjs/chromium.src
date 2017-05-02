@@ -888,6 +888,7 @@ Depois que um novo usuário supervisionado é criado, é possível gerenciar as 
 <translation id="2260567344816042527">O Google Chrome usará dados da rede celular se você não estiver conectado a outra rede.</translation>
 <translation id="2262477216570151239">Atraso antes da repetição</translation>
 <translation id="226269835214688456">Se você desativar o Smart Lock para Chromebook, não será possível desbloquear dispositivos Chrome usando seu smartphone. Será necessário digitar sua senha.</translation>
+<translation id="2263189956353037928">Sair e fazer login novamente</translation>
 <translation id="2263497240924215535">(Desativada)</translation>
 <translation id="2266168284394154563">Redefinir zoom da tela</translation>
 <translation id="2266763207955011525">Configurar ou gerenciar impressoras locais.</translation>
@@ -924,6 +925,7 @@ Depois que um novo usuário supervisionado é criado, é possível gerenciar as 
 <translation id="2316129865977710310">Não.</translation>
 <translation id="2317031807364506312">CANCELAR</translation>
 <translation id="2318143611928805047">Tamanho do papel</translation>
+<translation id="2318817390901984578">Para usar apps Android, carregue e atualize seu <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Sessão anônima atual (<ph name="EMBEDDING" />)</translation>
 <translation id="2322193970951063277">Cabeçalhos e rodapés</translation>
 <translation id="2325650632570794183">Este tipo de arquivo não é suportado. Visite a Chrome Web Store para encontrar um aplicativo que possa abrir este tipo de arquivo.</translation>
@@ -1213,6 +1215,7 @@ Não acho que este site deva ser bloqueado.</translation>
 <translation id="2733275712367076659">Você tem certificados destas empresas que identificam você:</translation>
 <translation id="2733364097704495499">Você deseja registrar a impressora <ph name="PRINTER_NAME" /> no Google Cloud Print?</translation>
 <translation id="2735698359135166290">Teclado romeno padrão</translation>
+<translation id="2736434052592900364">Gerenciar a sincronização e a personalização do Chrome em Configurações</translation>
 <translation id="2737363922397526254">Recolher...</translation>
 <translation id="2738771556149464852">Não depois</translation>
 <translation id="2739191690716947896">Depurar</translation>
@@ -1613,6 +1616,7 @@ Para ver mais informações, visite nossa <ph name="BEGIN_LINK" />Central de Aju
 <translation id="3274763671541996799">Você está no modo de tela inteira.</translation>
 <translation id="3275778913554317645">Abrir como janela</translation>
 <translation id="3280237271814976245">Salvar &amp;como...</translation>
+<translation id="3280243678470289153">Ficar no Chrome</translation>
 <translation id="3280431534455935878">Preparando</translation>
 <translation id="3282568296779691940">Fazer login no Google Chrome</translation>
 <translation id="3285322247471302225">Nova &amp;guia</translation>
@@ -3092,6 +3096,7 @@ Todos os usuários devem sair para continuar.</translation>
 <translation id="5499313591153584299">Este arquivo pode ser prejudicial para seu computador.</translation>
 <translation id="5500122897333236901">Islandês</translation>
 <translation id="5502500733115278303">Importado do Firefox</translation>
+<translation id="5506868365569362143">Mude o modo de toque HUB</translation>
 <translation id="5507756662695126555">Não repúdio</translation>
 <translation id="5509693895992845810">Salvar &amp;como...</translation>
 <translation id="5509914365760201064">Emissor: <ph name="CERTIFICATE_AUTHORITY" /></translation>
@@ -3118,6 +3123,7 @@ Todos os usuários devem sair para continuar.</translation>
 <translation id="5534520101572674276">Calculando tamanho...</translation>
 <translation id="5535941515421698170">Remover também deste dispositivo os dados já existentes</translation>
 <translation id="5537725057119320332">Transmitir</translation>
+<translation id="5541687815721799001">Usar o app</translation>
 <translation id="5542132724887566711">Perfil</translation>
 <translation id="5543983818738093899">Verificando status...</translation>
 <translation id="5546477470896554111">Gerenciar fonte de alimentação...</translation>
@@ -3232,6 +3238,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="5729996640881880439">Não é possível exibir o código desse erro.</translation>
 <translation id="5731247495086897348">&amp;Colar e ir</translation>
 <translation id="5734362860645681824">Comunicações</translation>
+<translation id="5735973442555172575">Para usar apps Android, faça login novamente e atualize.</translation>
 <translation id="5736796278325406685">Insira um nome de usuário válido</translation>
 <translation id="5739458112391494395">Muito grande</translation>
 <translation id="5740331643563157105"><ph name="LANGUAGE_1" />, <ph name="LANGUAGE_2" /> e outros <ph name="NUM_ADDITIONAL_LANGUAGES" /> idiomas</translation>
@@ -3366,6 +3373,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="59174027418879706">Ativada</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 em uso}one{# em uso}other{# em uso}}</translation>
 <translation id="5920543303088087579">A conexão a esta rede foi desativada pelo seu administrador</translation>
+<translation id="5921745308587794300">Girar janela</translation>
 <translation id="5924047253200400718">Receber ajuda<ph name="SCANNING_STATUS" /></translation>
 <translation id="5925147183566400388">Indicador de Declaração de Práticas de Certificação</translation>
 <translation id="5931146425219109062">Ler e modificar todos os seus dados nos websites que você visitar</translation>
@@ -3680,6 +3688,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6412931879992742813">Nova janela anônima</translation>
 <translation id="6418160186546245112">Revertendo para a versão anteriormente instalada de <ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
 <translation id="6418481728190846787">Remover permanentemente o acesso a todos os aplicativos</translation>
+<translation id="6418511932144861495">Instalar atualização crítica</translation>
 <translation id="6419288379019356534">Este dispositivo é gerenciado por <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />.
     <ph name="LINE_BREAK" />
     Clique em "Próxima" para continuar e fazer login na sua conta <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />.</translation>
@@ -3726,6 +3735,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="646727171725540434">Proxy HTTP</translation>
 <translation id="6468485451923838994">Fontes</translation>
 <translation id="6472893788822429178">Mostrar botão "Página inicial"</translation>
+<translation id="6473842110411557830">Executar Powerwash na ilustração</translation>
 <translation id="6474706907372204693">Método de entrada anterior</translation>
 <translation id="6474884162850599008">Desconectar a conta do Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> quer compartilhar o conteúdo da sua tela. Escolha o que você gostaria de compartilhar.</translation>
@@ -3871,6 +3881,7 @@ Use esse recurso somente com contas nas quais você confia.</translation>
 <translation id="6690565918367819723"><ph name="PROFILE_NAME" /> Alterar pessoa</translation>
 <translation id="6690659332373509948">Não é possível analisar arquivo: <ph name="FILE_NAME" /></translation>
 <translation id="6690751852586194791">Escolha um usuário supervisionado para adicionar a este dispositivo.</translation>
+<translation id="6691331417640343772">Gerenciar dados sincronizados no Painel de controle do Google</translation>
 <translation id="6691936601825168937">&amp;Avançar</translation>
 <translation id="6698381487523150993">Criado em:</translation>
 <translation id="6698810901424468597">Ler e alterar seus dados em <ph name="WEBSITE_1" /> e <ph name="WEBSITE_2" /></translation>
@@ -4023,6 +4034,7 @@ Use esse recurso somente com contas nas quais você confia.</translation>
 <translation id="6945221475159498467">Selecionar</translation>
 <translation id="6949306908218145636">Adicionar páginas abertas aos favoritos...</translation>
 <translation id="6955446738988643816">Inspecionar pop-up</translation>
+<translation id="6957519909849772545">Você tem uma nova atualização crítica. Faça login para começar.</translation>
 <translation id="695755122858488207">Botão de opção desmarcado</translation>
 <translation id="696203921837389374">Ativar a sincronização de dados móveis</translation>
 <translation id="6964390816189577014">Hero</translation>
@@ -4530,6 +4542,7 @@ Use esse recurso somente com contas nas quais você confia.</translation>
 <translation id="7719421816612904796">O tempo de treinamento expirou.</translation>
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">Para supervisionar essa pessoa, <ph name="BEGIN_LINK" />faça login no Chrome<ph name="END_LINK" />.</translation>
+<translation id="7721179060400456005">Permitir que as janelas estendam as telas</translation>
 <translation id="7724603315864178912">Recortar</translation>
 <translation id="7728668285692163452">A mudança de canal será aplicada mais tarde</translation>
 <translation id="7730449930968088409">Capturar o conteúdo da sua tela</translation>
@@ -4628,6 +4641,7 @@ Use esse recurso somente com contas nas quais você confia.</translation>
 <translation id="7874357055309047713">Sempre executar em todos os sites</translation>
 <translation id="7876243839304621966">Remover tudo</translation>
 <translation id="7877451762676714207">Erro de servidor desconhecido. Tente novamente ou entre em contato com o administrador do servidor.</translation>
+<translation id="7877680364634660272">Tour</translation>
 <translation id="7881483672146086348">Visualizar conta</translation>
 <translation id="7881969471599061635">Desativar legendas</translation>
 <translation id="7882358943899516840">Tipo de provedor</translation>
@@ -5337,6 +5351,7 @@ Notificações posteriores, janelas e caixas de diálogo podem ser divididas ent
 <translation id="8944964446326379280">O app <ph name="APP_NAME" /> está compartilhando uma janela com <ph name="TAB_NAME" />.</translation>
 <translation id="8946284507644756416">Seu <ph name="DEVICE_TYPE" /> pode ser desbloqueado com seu smartphone Android.</translation>
 <translation id="8946359700442089734">Os recursos de depuração não foram completamente ativados neste dispositivo <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
+<translation id="8948677146203372548">Atualização concluída. Agora você pode usar apps Android.</translation>
 <translation id="895347679606913382">Iniciando...</translation>
 <translation id="8954952943849489823">Falha na transferência, erro inesperado: $1</translation>
 <translation id="895586998699996576">Imagem $1</translation>
@@ -5414,6 +5429,7 @@ Notificações posteriores, janelas e caixas de diálogo podem ser divididas ent
 <translation id="9046895021617826162">Falha na conexão</translation>
 <translation id="9050666287014529139">Senha</translation>
 <translation id="9052208328806230490">Você registrou suas impressoras com <ph name="CLOUD_PRINT_NAME" /> utilizando a conta <ph name="EMAIL" /></translation>
+<translation id="9053893665344928494">Lembrar minha escolha</translation>
 <translation id="9056034633062863292">Atualizando o Chromebox</translation>
 <translation id="9056810968620647706">Nenhuma correspondência foi encontrada.</translation>
 <translation id="9057119625587205566">Nenhuma impressora nas proximidades</translation>
