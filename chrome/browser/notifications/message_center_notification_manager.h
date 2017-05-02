@@ -60,6 +60,7 @@ class MessageCenterNotificationManager
   bool CancelAllBySourceOrigin(const GURL& source_origin) override;
   bool CancelAllByProfile(ProfileID profile_id) override;
   void CancelAll() override;
+  void StartShutdown() override;
 
   // MessageCenterObserver
   void OnNotificationRemoved(const std::string& notification_id,
@@ -111,6 +112,9 @@ class MessageCenterNotificationManager
 
   // Keeps track of notifications specific to Google Now for UMA purposes.
   GoogleNowNotificationStatsCollector google_now_stats_collector_;
+
+  // Tracks if shutdown has started.
+  bool is_shutdown_started_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(MessageCenterNotificationManager);
 };
