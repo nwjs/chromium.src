@@ -77,25 +77,16 @@ struct MediaQueryExpValue {
   }
 };
 
-class CORE_EXPORT MediaQueryExp {
-  DISALLOW_NEW_EXCEPT_PLACEMENT_NEW();
-
+class CORE_EXPORT MediaQueryExp
+    : public GarbageCollectedFinalized<MediaQueryExp> {
  public:
-  // Returns an invalid MediaQueryExp if the arguments are invalid.
-  static MediaQueryExp Create(const String& media_feature,
-                              const Vector<CSSParserToken, 4>&);
-  static MediaQueryExp Invalid() {
-    return MediaQueryExp(String(), MediaQueryExpValue());
-  }
-
-  MediaQueryExp(const MediaQueryExp& other);
+  static MediaQueryExp* CreateIfValid(const String& media_feature,
+                                      const Vector<CSSParserToken, 4>&);
   ~MediaQueryExp();
 
   const String& MediaFeature() const { return media_feature_; }
 
   MediaQueryExpValue ExpValue() const { return exp_value_; }
-
-  bool IsValid() const { return !media_feature_.IsNull(); }
 
   bool operator==(const MediaQueryExp& other) const;
 
@@ -104,6 +95,12 @@ class CORE_EXPORT MediaQueryExp {
   bool IsDeviceDependent() const;
 
   String Serialize() const;
+
+  MediaQueryExp* Copy() const { return new MediaQueryExp(*this); }
+
+  MediaQueryExp(const MediaQueryExp& other);
+
+  DEFINE_INLINE_TRACE() {}
 
  private:
   MediaQueryExp(const String&, const MediaQueryExpValue&);

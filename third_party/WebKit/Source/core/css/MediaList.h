@@ -24,7 +24,6 @@
 
 #include "bindings/core/v8/ScriptWrappable.h"
 #include "core/CoreExport.h"
-#include "core/css/MediaQuery.h"
 #include "core/dom/ExceptionCode.h"
 #include "platform/heap/Handle.h"
 #include "platform/wtf/Forward.h"
@@ -39,49 +38,44 @@ class ExceptionState;
 class MediaList;
 class MediaQuery;
 
-class CORE_EXPORT MediaQuerySet : public RefCounted<MediaQuerySet> {
+class CORE_EXPORT MediaQuerySet : public GarbageCollected<MediaQuerySet> {
  public:
-  static RefPtr<MediaQuerySet> Create() {
-    return AdoptRef(new MediaQuerySet());
-  }
-  static RefPtr<MediaQuerySet> Create(const String& media_string);
+  static MediaQuerySet* Create() { return new MediaQuerySet(); }
+  static MediaQuerySet* Create(const String& media_string);
 
   bool Set(const String&);
   bool Add(const String&);
   bool Remove(const String&);
 
-  void AddMediaQuery(std::unique_ptr<MediaQuery>);
+  void AddMediaQuery(MediaQuery*);
 
-  const Vector<std::unique_ptr<MediaQuery>>& QueryVector() const {
-    return queries_;
-  }
+  const HeapVector<Member<MediaQuery>>& QueryVector() const { return queries_; }
 
   String MediaText() const;
 
-  RefPtr<MediaQuerySet> Copy() const {
-    return AdoptRef(new MediaQuerySet(*this));
-  }
+  MediaQuerySet* Copy() const { return new MediaQuerySet(*this); }
+
+  DECLARE_TRACE();
 
  private:
   MediaQuerySet();
   MediaQuerySet(const MediaQuerySet&);
 
-  Vector<std::unique_ptr<MediaQuery>> queries_;
+  HeapVector<Member<MediaQuery>> queries_;
 };
 
-class MediaList final : public GarbageCollectedFinalized<MediaList>,
+class MediaList final : public GarbageCollected<MediaList>,
                         public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
-  static MediaList* Create(RefPtr<MediaQuerySet> media_queries,
+  static MediaList* Create(MediaQuerySet* media_queries,
                            CSSStyleSheet* parent_sheet) {
-    return new MediaList(std::move(media_queries), parent_sheet);
+    return new MediaList(media_queries, parent_sheet);
   }
 
-  static MediaList* Create(RefPtr<MediaQuerySet> media_queries,
-                           CSSRule* parent_rule) {
-    return new MediaList(std::move(media_queries), parent_rule);
+  static MediaList* Create(MediaQuerySet* media_queries, CSSRule* parent_rule) {
+    return new MediaList(media_queries, parent_rule);
   }
 
   unsigned length() const { return media_queries_->QueryVector().size(); }
@@ -98,16 +92,19 @@ class MediaList final : public GarbageCollectedFinalized<MediaList>,
 
   const MediaQuerySet* Queries() const { return media_queries_.Get(); }
 
-  void Reattach(RefPtr<MediaQuerySet>);
+  void Reattach(MediaQuerySet*);
 
   DECLARE_TRACE();
 
  private:
-  MediaList(RefPtr<MediaQuerySet>, CSSStyleSheet* parent_sheet);
-  MediaList(RefPtr<MediaQuerySet>, CSSRule* parent_rule);
+  MediaList(MediaQuerySet*, CSSStyleSheet* parent_sheet);
+  MediaList(MediaQuerySet*, CSSRule* parent_rule);
 
-  RefPtr<MediaQuerySet> media_queries_;
+  Member<MediaQuerySet> media_queries_;
+  // Cleared in ~CSSStyleSheet destructor when oilpan is not enabled.
   Member<CSSStyleSheet> parent_style_sheet_;
+  // Cleared in the ~CSSMediaRule and ~CSSImportRule destructors when oilpan is
+  // not enabled.
   Member<CSSRule> parent_rule_;
 };
 

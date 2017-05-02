@@ -66,7 +66,7 @@ bool MediaQueryMatcher::Evaluate(const MediaQuerySet* media) {
     evaluator_ = CreateEvaluator();
 
   if (evaluator_)
-    return evaluator_->Eval(*media);
+    return evaluator_->Eval(media);
 
   return false;
 }
@@ -75,7 +75,7 @@ MediaQueryList* MediaQueryMatcher::MatchMedia(const String& query) {
   if (!document_)
     return nullptr;
 
-  RefPtr<MediaQuerySet> media = MediaQuerySet::Create(query);
+  MediaQuerySet* media = MediaQuerySet::Create(query);
   return MediaQueryList::Create(document_, this, media);
 }
 

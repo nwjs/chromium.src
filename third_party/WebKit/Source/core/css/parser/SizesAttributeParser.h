@@ -26,10 +26,10 @@ class CORE_EXPORT SizesAttributeParser {
   bool Parse(CSSParserTokenRange);
   float EffectiveSize();
   bool CalculateLengthInPixels(CSSParserTokenRange, float& result);
-  bool MediaConditionMatches(const MediaQuerySet& media_condition);
+  bool MediaConditionMatches(MediaQuerySet* media_condition);
   float EffectiveSizeDefaultValue();
 
-  RefPtr<MediaQuerySet> media_condition_;
+  Member<MediaQuerySet> media_condition_;
   Member<MediaValues> media_values_;
   float length_;
   bool length_was_set_;

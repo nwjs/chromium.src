@@ -139,10 +139,11 @@ TestCase g_print_test_cases[] = {
 
 void TestMQEvaluator(TestCase* test_cases,
                      const MediaQueryEvaluator& media_query_evaluator) {
-  RefPtr<MediaQuerySet> query_set = nullptr;
+  Persistent<MediaQuerySet> query_set = nullptr;
   for (unsigned i = 0; test_cases[i].input; ++i) {
     query_set = MediaQuerySet::Create(test_cases[i].input);
-    EXPECT_EQ(test_cases[i].output, media_query_evaluator.Eval(*query_set));
+    EXPECT_EQ(test_cases[i].output,
+              media_query_evaluator.Eval(query_set.Get()));
   }
 }
 
@@ -193,8 +194,8 @@ TEST(MediaQueryEvaluatorTest, DynamicNoView) {
   page_holder.reset();
   ASSERT_EQ(nullptr, frame->View());
   MediaQueryEvaluator media_query_evaluator(frame);
-  RefPtr<MediaQuerySet> query_set = MediaQuerySet::Create("foobar");
-  EXPECT_FALSE(media_query_evaluator.Eval(*query_set));
+  MediaQuerySet* query_set = MediaQuerySet::Create("foobar");
+  EXPECT_FALSE(media_query_evaluator.Eval(query_set));
 }
 
 TEST(MediaQueryEvaluatorTest, CachedFloatViewport) {
