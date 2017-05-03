@@ -21,8 +21,6 @@
 namespace offline_pages {
 
 namespace {
-const long kOfflinePageDelayMs = 2000;
-const long kOfflineDomContentLoadedMs = 25000;
 
 class OfflinerData : public content::WebContentsUserData<OfflinerData> {
  public:
@@ -74,7 +72,6 @@ BackgroundLoaderOffliner::BackgroundLoaderOffliner(
       is_low_end_device_(base::SysInfo::IsLowEndDevice()),
       save_state_(NONE),
       page_load_state_(SUCCESS),
-      page_delay_ms_(kOfflinePageDelayMs),
       network_bytes_(0LL),
       weak_ptr_factory_(this) {
   DCHECK(offline_page_model_);
@@ -168,9 +165,8 @@ bool BackgroundLoaderOffliner::LoadAndSave(
   // Load page attempt.
   loader_.get()->LoadPage(request.url());
 
-  snapshot_controller_.reset(
-      new SnapshotController(base::ThreadTaskRunnerHandle::Get(), this,
-                             kOfflineDomContentLoadedMs, page_delay_ms_));
+  snapshot_controller_ = SnapshotController::CreateForBackgroundOfflining(
+      base::ThreadTaskRunnerHandle::Get(), this);
 
   return true;
 }
@@ -261,8 +257,9 @@ void BackgroundLoaderOffliner::DidFinishNavigation(
   }
 }
 
-void BackgroundLoaderOffliner::SetPageDelayForTest(long delay_ms) {
-  page_delay_ms_ = delay_ms;
+void BackgroundLoaderOffliner::SetSnapshotControllerForTest(
+    std::unique_ptr<SnapshotController> controller) {
+  snapshot_controller_ = std::move(controller);
 }
 
 void BackgroundLoaderOffliner::OnNetworkBytesChanged(int64_t bytes) {

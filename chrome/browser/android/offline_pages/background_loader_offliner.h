@@ -57,7 +57,8 @@ class BackgroundLoaderOffliner : public Offliner,
   // SnapshotController::Client implementation.
   void StartSnapshot() override;
 
-  void SetPageDelayForTest(long delay_ms);
+  void SetSnapshotControllerForTest(
+      std::unique_ptr<SnapshotController> controller);
   void OnNetworkBytesChanged(int64_t bytes);
 
  protected:
@@ -101,8 +102,6 @@ class BackgroundLoaderOffliner : public Offliner,
   SaveState save_state_;
   // Page load state.
   PageLoadState page_load_state_;
-  // Seconds to delay before taking snapshot.
-  long page_delay_ms_;
   // Network bytes loaded.
   int64_t network_bytes_;
 
