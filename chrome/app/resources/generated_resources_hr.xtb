@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Napravite sigurnosnu kopiju medija s uređaja pomoću aplikacije Datoteke.</translation>
 <translation id="1341988552785875222">Trenutačnu je pozadinu postavila aplikacija "<ph name="APP_NAME" />". Možda ćete trebati deinstalirati aplikaciju "<ph name="APP_NAME" />" da biste mogli odabrati neku drugu pozadinu.</translation>
 <translation id="1346748346194534595">Udesno</translation>
+<translation id="1347975661240122359">Ažuriranje će započeti kada baterija dosegne <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Uvoz datoteka (<ph name="FILE_COUNT" />)...</translation>
 <translation id="1352103415082130575">tajska tipkovnica (pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -924,6 +925,7 @@ Nakon izrade novog nadziranog korisnika možete upravljati njegovim postavkama u
 <translation id="2312980885338881851">Ups! Izgleda da nemate zaštićenih korisnika za uvoz. Izradite jednog ili više na nekom drugom uređaju pa ih možete uvesti ovdje.</translation>
 <translation id="2316129865977710310">Ne, hvala</translation>
 <translation id="2317031807364506312">ODUSTANI</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% dovršeno</translation>
 <translation id="2318143611928805047">Veličina papira</translation>
 <translation id="2318817390901984578">Da biste upotrebljavali Android aplikacije, napunite i ažurirajte svoj <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Trenutačna anonimna sesija (<ph name="EMBEDDING" />)</translation>
@@ -1856,6 +1858,7 @@ s <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Potraži "<ph name="LOOKUP_STRING" />"</translation>
 <translation id="3620292326130836921">Sve je sigurnosno kopirano!</translation>
 <translation id="3623574769078102674">Tim nadziranim korisnikom upravljat će <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Baterija nije dovoljno napunjena za ažuriranje (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Poništavanje zumiranja</translation>
 <translation id="3626281679859535460">Svjetlina</translation>
 <translation id="3627052133907344175">Minimalna verzija za "<ph name="IMPORT_NAME" />" koju proširenje zahtijeva jest "<ph name="IMPORT_VERSION" />", ali je instalirana samo verzija "<ph name="INSTALLED_VERSION" />".</translation>
@@ -2319,6 +2322,7 @@ Svi se korisnici moraju prijaviti za nastavak.</translation>
 Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="4336032328163998280">Kopiranje nije uspjelo. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Za mrežne zapisnike pogledajte: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Da biste preuzeli i upotrebljavali Androidove aplikacije, najprije morate instalirati ažuriranje. Dok se uređaj ažurira, ne možete ga upotrebljavati. Uređaj <ph name="DEVICE_TYPE" /> ponovo će se pokrenuti kada instaliranje završi.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> želi komunicirati s aplikacijom "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">Blokiraj postavljanje podataka s bilo koje web-lokacije</translation>
 <translation id="4342311272543222243">Ups, TPM pogreška.</translation>
@@ -2814,6 +2818,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="5111692334209731439">&amp;Upravitelj oznaka</translation>
 <translation id="5112577000029535889">&amp;Alati za razvojne programere</translation>
 <translation id="5113739826273394829">Ako kliknete tu ikonu, ručno ćete zaključati ovaj uređaj <ph name="DEVICE_TYPE" />. Sljedeći ćete put morati unijeti zaporku da biste mu pristupili.</translation>
+<translation id="5115309401544567011">Priključite uređaj <ph name="DEVICE_TYPE" /> u izvor napajanja.</translation>
 <translation id="5116300307302421503">Nije moguće analizirati datoteku.</translation>
 <translation id="5116628073786783676">Sp&amp;remi zvučni zapis kao...</translation>
 <translation id="5117427536932535467">Teme i pozadinske slike</translation>
@@ -3262,6 +3267,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="5759728514498647443">Dokumente koje šaljete za ispis putem aplikacije <ph name="APP_NAME" /> može čitati aplikacija <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">Sp&amp;remi zvučni zapis kao...</translation>
 <translation id="57646104491463491">Datum izmjene</translation>
+<translation id="5764797882307050727">Oslobodite dio prostora na uređaju.</translation>
 <translation id="5765491088802881382">Nema dostupnih mreža</translation>
 <translation id="5765780083710877561">Opis:</translation>
 <translation id="5771585441665576801">transliteracija (geia → γεια)</translation>
@@ -3493,6 +3499,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="6122081475643980456">Internetskom vezom upravlja proširenje</translation>
 <translation id="6122875415561139701">Operacija zapisivanja nije dopuštena na uređaju: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">O tom proširenju ovise sljedeća proširenja:</translation>
+<translation id="6125479973208104919">Nažalost, morat ćete ponovo dodati svoj račun na ovaj uređaj <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Komentar Netscape certifikata</translation>
 <translation id="6129953537138746214">Razmak</translation>
 <translation id="6132383530370527946">Sitna slova</translation>
@@ -3873,6 +3880,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="6677037229676347494">Očekivan je ID "<ph name="EXPECTED_ID" />", ali je ID bio "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">URL upita</translation>
 <translation id="6680028776254050810">Promjena korisnika</translation>
+<translation id="6680442031740878064">Dostupno: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Snimite fotografiju</translation>
 <translation id="668171684555832681">Ostalo...</translation>
 <translation id="6681964764822470072">Aplikacija "<ph name="APP_NAME" />" deinstalirat će se.</translation>
@@ -4291,6 +4299,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="7348093485538360975">Tipkovnica na zaslonu</translation>
 <translation id="7348749398828259943">Američka međunarodna Workman tipkovnica</translation>
 <translation id="7352651011704765696">Nešto nije u redu</translation>
+<translation id="73534262421337222">Instaliranje kritičnog ažuriranja</translation>
 <translation id="7353651168734309780">Proširenje <ph name="EXTENSION_NAME" /> zahtijeva nove dozvole</translation>
 <translation id="735745346212279324">Veza s VPN-om prekinuta</translation>
 <translation id="7360183604634508679">Izbornik oznaka</translation>
@@ -4451,6 +4460,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chromeovi su podaci izbrisani</translation>
 <translation id="7568790562536448087">Ažuriranje stavke</translation>
+<translation id="7571643774869182231">Nema dovoljno pohrane za ažuriranje</translation>
 <translation id="7573172247376861652">Punjenje baterije</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Spari</translation>
@@ -4541,6 +4551,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="771953673318695590">Osiguranje kvalitete</translation>
 <translation id="7720375555307821262">Da biste nadzirali tu osobu, <ph name="BEGIN_LINK" />prijavite se na Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Dopusti da prozori obuhvaćaju više zaslona</translation>
+<translation id="7722040605881499779">Potrebno za ažuriranje: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Izreži</translation>
 <translation id="7728668285692163452">Promjena kanala primijenit će se kasnije</translation>
 <translation id="7730449930968088409">snimiti sadržaj vašeg zaslona</translation>

@@ -14,7 +14,6 @@
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
 <translation id="1293264513303784526">USB-C डिव्‍हाइस (डावे पोर्ट)</translation>
 <translation id="1346748346194534595">उजवे</translation>
-<translation id="137180024469554212">फिरविणे लॉक करा अक्षम करा</translation>
 <translation id="1383876407941801731">शोधा</translation>
 <translation id="1467432559032391204">डावे</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
@@ -36,6 +35,7 @@
 <translation id="1942830294380034169">ओव्हरफ्लो बटण</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2050339315714019657">पोर्ट्रेट</translation>
 <translation id="2122028596993374965"><ph name="RECEIVER_NAME" /> वर <ph name="TAB_NAME" /> कास्ट करणे थांबवा</translation>
 <translation id="2127372758936585790">निम्न-उर्जेचे चार्जर</translation>
 <translation id="2208323208084708176">एकीकृत डेस्कटॉप मोड</translation>
@@ -76,7 +76,6 @@
 <translation id="3126069444801937830">अद्यतनासाठी पुनर्प्रारंभ करा</translation>
 <translation id="3147142846278915599">लाँचर (संकालन अॅप्स...)</translation>
 <translation id="315116470104423982">मोबाइल डेटा</translation>
-<translation id="3157169093162779309">फिरविणे लॉक करा सक्षम करा</translation>
 <translation id="3236488194889173876">कोणतेही मोबाइल नेटवर्क उपलब्ध नाही</translation>
 <translation id="3294437725009624529">अतिथी</translation>
 <translation id="3335772982573114336">नवीन टीप</translation>
@@ -197,6 +196,7 @@
 <translation id="7034339000180558234"><ph name="RECEIVER_NAME" /> वर <ph name="TAB_NAME" /> कास्ट करीत आहे</translation>
 <translation id="7052914147756339792">वॉलपेपर सेट करा...</translation>
 <translation id="7066646422045619941">हे नेटवर्क आपल्या प्रशासकाने अक्षम केले आहे.</translation>
+<translation id="7067196344162293536">स्वयं फिरवा</translation>
 <translation id="7097613348211027502">ChromeVox (बोललेला अभिप्राय) सक्षम केलेला आहे. अक्षम करण्यासाठी Ctrl+Alt+Z दाबा.</translation>
 <translation id="7098389117866926363">USB-C डिव्‍हाइस (मागील बाजूचे डावे पोर्ट)</translation>
 <translation id="7129360219436193655">लेजर पॉईंटर मोड</translation>
@@ -263,4 +263,5 @@
 <translation id="923686485342484400">दोनदा साइन आउट करण्यासाठी Control Shift Q दोनदा दाबा.</translation>
 <translation id="939252827960237676">स्क्रीनशॉट जतन करण्यात अयशस्वी</translation>
 <translation id="945522503751344254">अभिप्राय पाठवा</translation>
+<translation id="98515147261107953">लँडस्केप</translation>
 </translationbundle>

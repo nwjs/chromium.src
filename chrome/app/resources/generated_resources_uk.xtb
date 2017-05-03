@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Створити резервну копію медіа-вмісту з пристрою за допомогою додатка Файли.</translation>
 <translation id="1341988552785875222">Поточний фоновий малюнок установив додаток <ph name="APP_NAME" />. Щоб змінити фоновий малюнок, можливо, потрібно видалити додаток <ph name="APP_NAME" />.</translation>
 <translation id="1346748346194534595">Праворуч</translation>
+<translation id="1347975661240122359">Оновлення почнеться, коли рівень заряду акумулятора сягне <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Імпортування файлів (<ph name="FILE_COUNT" />)…</translation>
 <translation id="1352103415082130575">Тайська клавіатура (паттачоте)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -924,6 +925,7 @@
 <translation id="2312980885338881851">Схоже, у вас немає контрольованих користувачів, яких можна імпортувати. Створіть одного або декількох користувачів на іншому пристрої, щоб імпортувати їх сюди.</translation>
 <translation id="2316129865977710310">Ні, дякую</translation>
 <translation id="2317031807364506312">СКАСУВАТИ</translation>
+<translation id="2317842250900878657">Перенесено <ph name="PROGRESS_PERCENT" />%</translation>
 <translation id="2318143611928805047">Розмір паперу</translation>
 <translation id="2318817390901984578">Щоб користуватися додатками Android, зарядіть і оновіть пристрій <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Поточний сеанс анонімного перегляду (<ph name="EMBEDDING" />)</translation>
@@ -1856,6 +1858,7 @@
 <translation id="3618849550573277856">Шукати "<ph name="LOOKUP_STRING" />"</translation>
 <translation id="3620292326130836921">Усі файли імпортовано!</translation>
 <translation id="3623574769078102674">Цим контрольованим користувачем буде керувати користувач <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Акумулятор недостатньо заряджений, щоб оновити дані (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Скинути масштабування</translation>
 <translation id="3626281679859535460">Яскравість</translation>
 <translation id="3627052133907344175">Для розширення потрібний "<ph name="IMPORT_NAME" />" з мінімальною версією "<ph name="IMPORT_VERSION" />", але встановлено лише версію "<ph name="INSTALLED_VERSION" />".</translation>
@@ -2319,6 +2322,7 @@
 Натисніть будь-яку клавішу, щоб продовжити перегляд.</translation>
 <translation id="4336032328163998280">Помилка операції копіювання. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Журнали мережі можна переглянути на сторінці <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Щоб завантажувати та використовувати додатки Android, спершу потрібно встановити оновлення. Пристроєм не можна користуватися, доки він оновлюється. Коли встановляться оновлення, пристрій <ph name="DEVICE_TYPE" /> перезавантажиться.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> хоче обмінюватися даними з додатком <ph name="EXTENSION_NAME" /></translation>
 <translation id="4341977339441987045">Не дозволяти сайтам зберігати дані</translation>
 <translation id="4342311272543222243">Помилка TPM.</translation>
@@ -2814,6 +2818,7 @@
 <translation id="5111692334209731439">&amp;Диспетчер закладок</translation>
 <translation id="5112577000029535889">&amp;Інструменти розробника</translation>
 <translation id="5113739826273394829">Натиснувши цей значок, ви вручну заблокуєте цей пристрій <ph name="DEVICE_TYPE" />. Під час наступного входу потрібно буде ввести пароль.</translation>
+<translation id="5115309401544567011">Підключіть пристрій <ph name="DEVICE_TYPE" /> до джерела живлення.</translation>
 <translation id="5116300307302421503">Неможливо виконати синтаксичний аналіз файлу.</translation>
 <translation id="5116628073786783676">Збере&amp;гти аудіо як...</translation>
 <translation id="5117427536932535467">Теми та фонові зображення</translation>
@@ -3262,6 +3267,7 @@
 <translation id="5759728514498647443">Документи, які ви друкуєте через додаток <ph name="APP_NAME" />, може переглядати додаток <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">Збере&amp;гти аудіо як...</translation>
 <translation id="57646104491463491">Дата змінення</translation>
+<translation id="5764797882307050727">Звільніть місце на пристрої.</translation>
 <translation id="5765491088802881382">Недоступна жодна мережа</translation>
 <translation id="5765780083710877561">Опис:</translation>
 <translation id="5771585441665576801">Транслітерація (geia → γεια)</translation>
@@ -3493,6 +3499,7 @@
 <translation id="6122081475643980456">Ваше з’єднання з Інтернетом контролюється</translation>
 <translation id="6122875415561139701">Операцію внесення змін заборонено на пристрої <ph name="DEVICE_NAME" />.</translation>
 <translation id="6124650939968185064">Від цього розширення залежать такі розширення:</translation>
+<translation id="6125479973208104919">На жаль, потрібно ще раз додати обліковий запис на пристрої <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Коментар сертифіката Netscape</translation>
 <translation id="6129953537138746214">Пробіл</translation>
 <translation id="6132383530370527946">Малий шрифт</translation>
@@ -3873,6 +3880,7 @@
 <translation id="6677037229676347494">Очікуваний ідентифікатор – "<ph name="EXPECTED_ID" />". Використаний ідентифікатор – "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">URL-адреса пошукового запиту</translation>
 <translation id="6680028776254050810">Змінити користувача</translation>
+<translation id="6680442031740878064">Доступно: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Зробити фото</translation>
 <translation id="668171684555832681">Інший...</translation>
 <translation id="6681964764822470072"><ph name="APP_NAME" /> буде видалено.</translation>
@@ -4292,6 +4300,7 @@
 <translation id="7348093485538360975">Екранна клавіатура</translation>
 <translation id="7348749398828259943">Міжнародна клавіатура US Workman</translation>
 <translation id="7352651011704765696">Виникли проблеми</translation>
+<translation id="73534262421337222">Установлюються важливі оновлення</translation>
 <translation id="7353651168734309780">Розширення <ph name="EXTENSION_NAME" /> потребує нових дозволів</translation>
 <translation id="735745346212279324">VPN від’єднано</translation>
 <translation id="7360183604634508679">Меню закладок</translation>
@@ -4453,6 +4462,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Дані Chrome видалено</translation>
 <translation id="7568790562536448087">Оновлення</translation>
+<translation id="7571643774869182231">Замало пам’яті для оновлення</translation>
 <translation id="7573172247376861652">Заряджання акумулятора</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Сортувати за копіями</translation>
@@ -4543,6 +4553,7 @@
 <translation id="771953673318695590">Перевірка якості</translation>
 <translation id="7720375555307821262">Щоб контролювати активність цього користувача, <ph name="BEGIN_LINK" />увійдіть в обліковий запис Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Дозволити вікнам відображатися на екранах</translation>
+<translation id="7722040605881499779">Потрібно для оновлення: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Вирізати</translation>
 <translation id="7728668285692163452">Канал буде змінено пізніше</translation>
 <translation id="7730449930968088409">Робити знімки вмісту екрана</translation>

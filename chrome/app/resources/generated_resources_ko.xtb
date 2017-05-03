@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">파일 앱을 사용하여 기기의 미디어를 백업합니다.</translation>
 <translation id="1341988552785875222">현재 배경화면은 '<ph name="APP_NAME" />'에서 설정했습니다. 다른 배경화면을 선택하려면 '<ph name="APP_NAME" />'을(를) 제거해야 할 수도 있습니다.</translation>
 <translation id="1346748346194534595">오른쪽</translation>
+<translation id="1347975661240122359">배터리 잔량이 <ph name="BATTERY_LEVEL" />%가 되면 업데이트가 시작됩니다.</translation>
 <translation id="1351692861129622852">파일 <ph name="FILE_COUNT" />개를 가져오는 중...</translation>
 <translation id="1352103415082130575">태국어 키보드(Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -926,6 +927,7 @@
 <translation id="2312980885338881851">가져올 기존 관리 대상 사용자가 없습니다. 다른 기기에서 한 명 이상의 관리 대상 사용자를 만든 후 여기로 가져올 수 있습니다.</translation>
 <translation id="2316129865977710310">아니요, 괜찮습니다.</translation>
 <translation id="2317031807364506312">취소</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% 완료</translation>
 <translation id="2318143611928805047">용지 크기</translation>
 <translation id="2318817390901984578">Android 앱을 사용하려면 <ph name="DEVICE_TYPE" />을(를) 충전하고 업데이트하세요.</translation>
 <translation id="2318923050469484167">현재 시크릿 세션(<ph name="EMBEDDING" />)</translation>
@@ -1858,6 +1860,7 @@
 <translation id="3618849550573277856">'<ph name="LOOKUP_STRING" />' 찾기</translation>
 <translation id="3620292326130836921">백업되지 않은 파일이 없습니다.</translation>
 <translation id="3623574769078102674">이 관리 대상 사용자는 <ph name="MANAGER_EMAIL" />에서 관리합니다.</translation>
+<translation id="3624814222765772771">배터리 잔량(<ph name="PROGRESS_PERCENT" />%)이 부족하여 업데이트할 수 없음</translation>
 <translation id="3625870480639975468">확대/축소 재설정</translation>
 <translation id="3626281679859535460">밝기</translation>
 <translation id="3627052133907344175">확장 프로그램은 최소 버전 "<ph name="IMPORT_VERSION" />"의 "<ph name="IMPORT_NAME" />"을(를) 요구하지만 "<ph name="INSTALLED_VERSION" />" 버전만 설치되었습니다.</translation>
@@ -2320,6 +2323,7 @@
 계속하려면 아무 키나 누르세요.</translation>
 <translation id="4336032328163998280">복사 작업에 실패했습니다. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">네트워크 로그를 확인하려면 다음 페이지를 참조하세요. <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Android 앱을 다운로드하고 사용하려면 우선 업데이트를 설치해야 합니다. 기기가 업데이트되는 동안에는 앱을 사용할 수 없습니다. 설치가 완료되면 <ph name="DEVICE_TYPE" />이(가) 다시 시작됩니다.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" />에서 '<ph name="EXTENSION_NAME" />' 앱과 통신하려고 합니다.</translation>
 <translation id="4341977339441987045">사이트에서 데이터를 설정하지 못하도록 차단</translation>
 <translation id="4342311272543222243">TPM 오류가 발생했습니다.</translation>
@@ -2815,6 +2819,7 @@
 <translation id="5111692334209731439">북마크 관리자(&amp;B)</translation>
 <translation id="5112577000029535889">개발자 도구(&amp;D)</translation>
 <translation id="5113739826273394829">이 아이콘을 클릭하면 이 <ph name="DEVICE_TYPE" />이(가) 수동으로 잠깁니다. 다음 번에 기기를 잠금 해제하려면 비밀번호를 입력해야 합니다.</translation>
+<translation id="5115309401544567011"><ph name="DEVICE_TYPE" />을(를) 전원에 연결하세요.</translation>
 <translation id="5116300307302421503">파일을 구문분석할 수 없습니다.</translation>
 <translation id="5116628073786783676">오디오를 다른 이름으로 저장(&amp;V)...</translation>
 <translation id="5117427536932535467">테마와 배경화면</translation>
@@ -3263,6 +3268,7 @@
 <translation id="5759728514498647443"><ph name="APP_NAME" />을(를) 통해 인쇄하려고 전송한 문서를 <ph name="APP_NAME" />에서 읽을 수 있습니다.</translation>
 <translation id="5764483294734785780">오디오를 다른 이름으로 저장...(&amp;V)</translation>
 <translation id="57646104491463491">수정된 날짜</translation>
+<translation id="5764797882307050727">기기의 저장용량을 확보하세요.</translation>
 <translation id="5765491088802881382">사용할 수 있는 네트워크가 없습니다.</translation>
 <translation id="5765780083710877561">설명:</translation>
 <translation id="5771585441665576801">음역(geia → γεια)</translation>
@@ -3494,6 +3500,7 @@
 <translation id="6122081475643980456">인터넷 연결이 제어되고 있습니다.</translation>
 <translation id="6122875415561139701">기기(<ph name="DEVICE_NAME" />)에서 쓰기 작업이 허용되지 않습니다.</translation>
 <translation id="6124650939968185064">이 확장 프로그램에 종속되는 확장 프로그램:</translation>
+<translation id="6125479973208104919">이 <ph name="DEVICE_TYPE" />에 계정을 다시 추가해야 합니다.</translation>
 <translation id="6129938384427316298">Netscape Certificate Comment</translation>
 <translation id="6129953537138746214">공백</translation>
 <translation id="6132383530370527946">이용약관</translation>
@@ -3874,6 +3881,7 @@
 <translation id="6677037229676347494">ID로 '<ph name="EXPECTED_ID" />'을(를) 예상했으나 '<ph name="NEW_ID" />'이(가) 표시되었습니다.</translation>
 <translation id="6678717876183468697">쿼리 URL</translation>
 <translation id="6680028776254050810">사용자 전환</translation>
+<translation id="6680442031740878064">사용 가능한 저장용량: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">사진 찍기</translation>
 <translation id="668171684555832681">기타...</translation>
 <translation id="6681964764822470072">'<ph name="APP_NAME" />'이(가) 제거됩니다.</translation>
@@ -4292,6 +4300,7 @@
 <translation id="7348093485538360975">터치 키보드</translation>
 <translation id="7348749398828259943">미국 워크맨(국제) 키보드</translation>
 <translation id="7352651011704765696">문제가 발생한 경우</translation>
+<translation id="73534262421337222">중요한 업데이트 설치</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" />은(는) 새로운 권한이 필요합니다.</translation>
 <translation id="735745346212279324">VPN 연결 끊김</translation>
 <translation id="7360183604634508679">북마크 메뉴</translation>
@@ -4453,6 +4462,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome 데이터 삭제됨</translation>
 <translation id="7568790562536448087">업데이트</translation>
+<translation id="7571643774869182231">저장용량이 부족하여 업데이트할 수 없음</translation>
 <translation id="7573172247376861652">배터리 충전</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">한 부씩 인쇄</translation>
@@ -4543,6 +4553,7 @@
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">이 사용자를 관리하려면 <ph name="BEGIN_LINK" />Chrome에 로그인<ph name="END_LINK" />하세요.</translation>
 <translation id="7721179060400456005">창으로 디스플레이 채우기 허용</translation>
+<translation id="7722040605881499779">업데이트에 필요한 저장용량: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">잘라내기</translation>
 <translation id="7728668285692163452">채널 변경 추후 적용</translation>
 <translation id="7730449930968088409">화면의 콘텐츠 캡쳐</translation>

@@ -112,6 +112,7 @@
 <translation id="1973335181906896915">خطأ أثناء التسلسل</translation>
 <translation id="1974060860693918893">إعدادات متقدمة</translation>
 <translation id="1978555033938440688">إصدار البرامج الثابتة</translation>
+<translation id="1995859865337580572">‏يُرجى التحقق من رمز التحقق من البطاقة (CVC)</translation>
 <translation id="2001146170449793414">{COUNT,plural, =1{وتطبيق آخر}zero{و# تطبيق آخر}two{وتطبيقان (#) آخران}few{و# تطبيقات أخرى}many{و# تطبيقًا آخر}other{و# تطبيق آخر}}</translation>
 <translation id="2025186561304664664">تم تعيين الخادم الوكيل على التهيئة التلقائية.</translation>
 <translation id="2030481566774242610">هل تقصد <ph name="LINK" />؟</translation>

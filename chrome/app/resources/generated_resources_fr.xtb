@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Sauvegardez du contenu multimédia en provenance de l'appareil à l'aide de l'application Fichiers.</translation>
 <translation id="1341988552785875222">Le fond d'écran actuel a été défini par <ph name="APP_NAME" />. Vous devrez peut-être désinstaller <ph name="APP_NAME" /> avant de choisir un fond d'écran différent.</translation>
 <translation id="1346748346194534595">Vers la droite</translation>
+<translation id="1347975661240122359">La mise à jour débutera lorsque la batterie atteindra <ph name="BATTERY_LEVEL" /> %.</translation>
 <translation id="1351692861129622852">Importation de <ph name="FILE_COUNT" /> fichiers en cours…</translation>
 <translation id="1352103415082130575">Clavier thaï (pattachote)</translation>
 <translation id="1353686479385938207">"<ph name="PROVIDER_NAME" />" : "<ph name="NETWORK_NAME" />"</translation>
@@ -924,6 +925,7 @@ Une fois que vous avez créé un compte utilisateur supervisé, vous pouvez gér
 <translation id="2312980885338881851">Petit problème… Il semblerait que vous n'ayez aucun utilisateur supervisé à importer. Veuillez en créer un ou plusieurs depuis un autre appareil, puis les importer sur cet appareil.</translation>
 <translation id="2316129865977710310">Non merci</translation>
 <translation id="2317031807364506312">ANNULER</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" /> % terminés</translation>
 <translation id="2318143611928805047">Taille du papier</translation>
 <translation id="2318817390901984578">Pour utiliser des applications Android, rechargez et mettez à jour votre <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Session de navigation privée actuelle (<ph name="EMBEDDING" />)</translation>
@@ -1856,6 +1858,7 @@ Domaine d'origine : <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Rechercher "<ph name="LOOKUP_STRING" />"</translation>
 <translation id="3620292326130836921">Tout le contenu a été sauvegardé</translation>
 <translation id="3623574769078102674">Cet utilisateur supervisé va être géré par <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Batterie trop faible pour la mise à jour (<ph name="PROGRESS_PERCENT" /> %)</translation>
 <translation id="3625870480639975468">Réinitialiser le zoom</translation>
 <translation id="3626281679859535460">Luminosité</translation>
 <translation id="3627052133907344175">L'extension nécessite au minimum "<ph name="IMPORT_NAME" />" version <ph name="IMPORT_VERSION" />, mais la version installée est la <ph name="INSTALLED_VERSION" />.</translation>
@@ -2319,6 +2322,7 @@ Tous les utilisateurs doivent se déconnecter pour continuer.</translation>
 Pour poursuivre l'exploration, veuillez appuyer sur n'importe quelle touche.</translation>
 <translation id="4336032328163998280">Échec de l'opération de copie. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Pour les journaux réseau, consultez la page suivante : <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Pour télécharger et utiliser des applications Android, vous devez d'abord installer une mise à jour. Vous ne pouvez pas utiliser votre appareil pendant la mise à jour. Votre <ph name="DEVICE_TYPE" /> redémarrera une fois l'installation terminée.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> souhaite communiquer avec l'application "<ph name="EXTENSION_NAME" />".</translation>
 <translation id="4341977339441987045">Interdire à tous les sites de stocker des données</translation>
 <translation id="4342311272543222243">Une erreur liée au module de plate-forme sécurisée s'est produite</translation>
@@ -2813,6 +2817,7 @@ Pour poursuivre l'exploration, appuyez sur n'importe quelle touche.</translation
 <translation id="5111692334209731439">&amp;Gestionnaire de favoris</translation>
 <translation id="5112577000029535889">Outils de &amp;développement</translation>
 <translation id="5113739826273394829">Si vous cliquez sur cette icône, ce <ph name="DEVICE_TYPE" /> sera verrouillé manuellement. La prochaine fois, l'accès à l'appareil sera soumis à la saisie de votre mot de passe.</translation>
+<translation id="5115309401544567011">Veuillez brancher votre appareil <ph name="DEVICE_TYPE" /> à une source d'alimentation.</translation>
 <translation id="5116300307302421503">Impossible d'analyser le fichier.</translation>
 <translation id="5116628073786783676">En&amp;registrer le fichier audio sous...</translation>
 <translation id="5117427536932535467">Thèmes et fonds d'écran</translation>
@@ -3262,6 +3267,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="5759728514498647443">Les documents envoyés pour impression via "<ph name="APP_NAME" />" sont lisibles avec "<ph name="APP_NAME" />"</translation>
 <translation id="5764483294734785780">En&amp;registrer le fichier audio sous...</translation>
 <translation id="57646104491463491">Date de modification</translation>
+<translation id="5764797882307050727">Veuillez libérer de l'espace sur votre appareil.</translation>
 <translation id="5765491088802881382">Aucun réseau disponible</translation>
 <translation id="5765780083710877561">Description :</translation>
 <translation id="5771585441665576801">Translittération (geia → γεια)</translation>
@@ -3493,6 +3499,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6122081475643980456">Une extension a pris le contrôle de votre connexion Internet</translation>
 <translation id="6122875415561139701">L'opération d'écriture n'est pas autorisée sur l'appareil <ph name="DEVICE_NAME" />.</translation>
 <translation id="6124650939968185064">Les extensions suivantes dépendent de cette extension :</translation>
+<translation id="6125479973208104919">Malheureusement, vous devrez ajouter à nouveau votre compte sur cet appareil <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Commentaire du certificat Netscape</translation>
 <translation id="6129953537138746214">Espace</translation>
 <translation id="6132383530370527946">Conditions générales</translation>
@@ -3873,6 +3880,7 @@ N'utilisez cette fonctionnalité qu'avec des comptes fiables.</translation>
 <translation id="6677037229676347494">Identifiant "<ph name="NEW_ID" />" reçu au lieu de l'identifiant "<ph name="EXPECTED_ID" />" attendu.</translation>
 <translation id="6678717876183468697">URL de requête</translation>
 <translation id="6680028776254050810">Changer d'utilisateur</translation>
+<translation id="6680442031740878064">Espace disponible : <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Prendre une photo</translation>
 <translation id="668171684555832681">Autre...</translation>
 <translation id="6681964764822470072">L'application "<ph name="APP_NAME" />" va être désinstallée.</translation>
@@ -4292,6 +4300,7 @@ N'utilisez cette fonctionnalité qu'avec des comptes fiables.</translation>
 <translation id="7348093485538360975">Clavier virtuel</translation>
 <translation id="7348749398828259943">Clavier Workman international américain</translation>
 <translation id="7352651011704765696">Un problème est survenu</translation>
+<translation id="73534262421337222">Installation d'une mise à jour critique</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> requiert de nouvelles autorisations</translation>
 <translation id="735745346212279324">VPN déconnecté</translation>
 <translation id="7360183604634508679">Menu "Favoris"</translation>
@@ -4453,6 +4462,7 @@ N'utilisez cette fonctionnalité qu'avec des comptes fiables.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Données de Chrome effacées</translation>
 <translation id="7568790562536448087">Mise à jour en cours</translation>
+<translation id="7571643774869182231">Stockage insuffisant pour la mise à jour</translation>
 <translation id="7573172247376861652">Charge de la batterie</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Assembler</translation>
@@ -4543,6 +4553,7 @@ N'utilisez cette fonctionnalité qu'avec des comptes fiables.</translation>
 <translation id="771953673318695590">Contrôle qualité</translation>
 <translation id="7720375555307821262">Pour superviser cette personne, <ph name="BEGIN_LINK" />connectez-vous à Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Autoriser les fenêtres à occuper plusieurs écrans</translation>
+<translation id="7722040605881499779">Espace nécessaire pour la mise à jour : <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Couper</translation>
 <translation id="7728668285692163452">Le changement de version sera appliqué ultérieurement</translation>
 <translation id="7730449930968088409">Effectuer une capture d'écran</translation>

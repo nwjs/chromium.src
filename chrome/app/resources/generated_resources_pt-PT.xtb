@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Fazer cópia de segurança de multimédia a partir do dispositivo com a aplicação Ficheiros.</translation>
 <translation id="1341988552785875222">A imagem de fundo atual é definida por "<ph name="APP_NAME" />". Pode ser necessário desinstalar "<ph name="APP_NAME" />" antes de selecionar uma imagem de fundo diferente.</translation>
 <translation id="1346748346194534595">Direita</translation>
+<translation id="1347975661240122359">A atualização é iniciada quando a bateria chegar a <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">A importar <ph name="FILE_COUNT" /> ficheiros...</translation>
 <translation id="1352103415082130575">Teclado tailandês (pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -925,6 +926,7 @@ Depois de criar um novo utilizador supervisionado, pode gerir as respetivas defi
 <translation id="2312980885338881851">Parece que já não existem utilizadores supervisionados para importar. Crie um ou mais a partir de outro dispositivo para poder importá-los para aqui.</translation>
 <translation id="2316129865977710310">Não, obrigado</translation>
 <translation id="2317031807364506312">CANCELAR</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% concluída</translation>
 <translation id="2318143611928805047">Tamanho do papel</translation>
 <translation id="2318817390901984578">Para utilizar aplicações Android, carregue e atualize o seu <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Sessão no modo de navegação anónima atual (<ph name="EMBEDDING" />)</translation>
@@ -1858,6 +1860,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Procurar "<ph name="LOOKUP_STRING" />"</translation>
 <translation id="3620292326130836921">Foi feita uma cópia de segurança de todos os ficheiros!</translation>
 <translation id="3623574769078102674">Este utilizador supervisionado será gerido por <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Bateria demasiado fraca para atualizar (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Repor zoom</translation>
 <translation id="3626281679859535460">Brilho</translation>
 <translation id="3627052133907344175">A extensão requer "<ph name="IMPORT_NAME" />" com a versão mínima "<ph name="IMPORT_VERSION" />", mas apenas está instalada a versão "<ph name="INSTALLED_VERSION" />".</translation>
@@ -2321,6 +2324,7 @@ Todos os utilizadores têm de terminar sessão para continuar.</translation>
 Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="4336032328163998280">Falha na operação de cópia. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Para aceder aos registos da rede, consulte <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Para transferir e utilizar aplicações Android, tem de instalar primeiro uma atualização. Enquanto o dispositivo estiver a ser atualizado, não o pode utilizar. O seu <ph name="DEVICE_TYPE" /> será reiniciado quando a instalação estiver concluída.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> pretende comunicar com a aplicação "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">Bloquear definição dos dados por parte dos sites</translation>
 <translation id="4342311272543222243">Ups! Erro TPM.</translation>
@@ -2816,6 +2820,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="5111692334209731439">&amp;Gestor de Marcadores</translation>
 <translation id="5112577000029535889">Ferramentas &amp;do programador</translation>
 <translation id="5113739826273394829">Se clicar neste ícone, bloqueia manualmente este <ph name="DEVICE_TYPE" />. Da próxima vez, tem de introduzir a palavra-passe para aceder.</translation>
+<translation id="5115309401544567011">Ligue o seu <ph name="DEVICE_TYPE" /> a uma fonte de alimentação.</translation>
 <translation id="5116300307302421503">Não é possível analisar o ficheiro.</translation>
 <translation id="5116628073786783676">Gua&amp;rdar Áudio Como...</translation>
 <translation id="5117427536932535467">Temas e imagens de fundo</translation>
@@ -3265,6 +3270,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="5759728514498647443">Os documentos enviados para impressão através de <ph name="APP_NAME" /> podem ser lidos por <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">Gua&amp;rdar áudio como...</translation>
 <translation id="57646104491463491">Data modificada</translation>
+<translation id="5764797882307050727">Liberte algum espaço no dispositivo.</translation>
 <translation id="5765491088802881382">Não existe nenhuma rede disponível</translation>
 <translation id="5765780083710877561">Descrição:</translation>
 <translation id="5771585441665576801">Transliteração (geia → γεια)</translation>
@@ -3496,6 +3502,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6122081475643980456">A sua ligação à Internet está a ser controlada</translation>
 <translation id="6122875415561139701">A operação de escrita não é permitida em: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">As seguintes extensões dependem desta extensão:</translation>
+<translation id="6125479973208104919">Infelizmente, tem de adicionar novamente a sua conta a este <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Comentário do certificado Netscape</translation>
 <translation id="6129953537138746214">Espaço</translation>
 <translation id="6132383530370527946">As letras pequenas</translation>
@@ -3876,6 +3883,7 @@ Utilize esta funcionalidade apenas com contas fidedignas.</translation>
 <translation id="6677037229676347494">O ID esperado era "<ph name="EXPECTED_ID" />", mas o ID foi "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">URL de consulta</translation>
 <translation id="6680028776254050810">Mudar Utilizadores</translation>
+<translation id="6680442031740878064">Disponível: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Tirar fotografia</translation>
 <translation id="668171684555832681">Outros...</translation>
 <translation id="6681964764822470072">O "<ph name="APP_NAME" />" será desinstalado.</translation>
@@ -4295,6 +4303,7 @@ Utilize esta funcionalidade apenas com contas fidedignas.</translation>
 <translation id="7348093485538360975">Teclado no ecrã</translation>
 <translation id="7348749398828259943">Teclado Workman internacional dos EUA</translation>
 <translation id="7352651011704765696">Algo correu mal</translation>
+<translation id="73534262421337222">A instalar uma atualização crítica…</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> necessita de novas permissões</translation>
 <translation id="735745346212279324">VPN desligado</translation>
 <translation id="7360183604634508679">Menu marcadores</translation>
@@ -4456,6 +4465,7 @@ Utilize esta funcionalidade apenas com contas fidedignas.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Dados do Chrome limpos</translation>
 <translation id="7568790562536448087">A atualizar</translation>
+<translation id="7571643774869182231">Sem armazenamento suficiente para atualizar</translation>
 <translation id="7573172247376861652">Carga da bateria</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Agrupar</translation>
@@ -4546,6 +4556,7 @@ Utilize esta funcionalidade apenas com contas fidedignas.</translation>
 <translation id="771953673318695590">Controlo de Qualidade</translation>
 <translation id="7720375555307821262">Para supervisionar esta pessoa, <ph name="BEGIN_LINK" />inicie sessão no Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Permitir que a área de janela corresponda à dos ecrãs</translation>
+<translation id="7722040605881499779">Necessário para atualizar: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Cortar</translation>
 <translation id="7728668285692163452">A alteração do canal será aplicada mais tarde</translation>
 <translation id="7730449930968088409">Capturar o conteúdo do ecrã</translation>

@@ -328,7 +328,7 @@
 <translation id="4535858793016067060">您必须在 Android 安全设置中开启“未知来源”，才能试用“经过改进的‘添加到主屏幕’功能”实验。在试用完该实验后，请务必停用此设置。</translation>
 <translation id="4558311620361989323">网页快捷键</translation>
 <translation id="4572422548854449519">请登录受管理的帐号</translation>
-<translation id="4581964774250883625">您已进入隐身模式。</translation>
+<translation id="4581964774250883625">您已进入无痕模式。</translation>
 <translation id="4583164079174244168">{MINUTES,plural, =1{# 分钟前}other{# 分钟前}}</translation>
 <translation id="4587589328781138893">网站</translation>
 <translation id="4605958867780575332">以下项已移除：<ph name="ITEM_TITLE" /></translation>

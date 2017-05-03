@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Fă backup conținutului media de pe dispozitiv folosind aplicația Fișiere.</translation>
 <translation id="1341988552785875222">Imaginea de fundal actuală este setată de „<ph name="APP_NAME" />”. Poate fi necesar să dezinstalezi „<ph name="APP_NAME" />” înainte să selectezi altă imagine de fundal.</translation>
 <translation id="1346748346194534595">Dreapta</translation>
+<translation id="1347975661240122359">Actualizarea va începe când bateria va ajunge la <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Se importă <ph name="FILE_COUNT" /> fișiere...</translation>
 <translation id="1352103415082130575">Tastatură thailandeză (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -924,6 +925,7 @@ După ce creezi un utilizator monitorizat, poți gestiona setările oricând și
 <translation id="2312980885338881851">Hopa! Se pare că nu aveți utilizatori monitorizați existenți, pe care să îi importați. Creați unul sau mai mulți utilizatori monitorizați de pe alt dispozitiv, pe care îi puteți importa apoi pe acesta.</translation>
 <translation id="2316129865977710310">Nu, mulțumesc</translation>
 <translation id="2317031807364506312">ANULEAZĂ</translation>
+<translation id="2317842250900878657">Finalizat: <ph name="PROGRESS_PERCENT" />%</translation>
 <translation id="2318143611928805047">Dimensiunea hârtiei</translation>
 <translation id="2318817390901984578">Ca să folosești aplicații Android, încarcă și actualizează dispozitivul <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Sesiunea incognito actuală (<ph name="EMBEDDING" />)</translation>
@@ -1856,6 +1858,7 @@ De la <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Caută „<ph name="LOOKUP_STRING" />”</translation>
 <translation id="3620292326130836921">S-a făcut backup pentru tot!</translation>
 <translation id="3623574769078102674">Acest utilizator va fi monitorizat de <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Bateria este prea descărcată pentru actualizare (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Resetează zoomul</translation>
 <translation id="3626281679859535460">Luminozitate</translation>
 <translation id="3627052133907344175">Extensia necesită „<ph name="IMPORT_NAME" />” cu versiunea minimă „<ph name="IMPORT_VERSION" />”, dar numai versiunea „<ph name="INSTALLED_VERSION" />” este instalată.</translation>
@@ -2319,6 +2322,7 @@ Toți utilizatorii trebuie să se deconecteze pentru a continua.</translation>
 Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="4336032328163998280">Operația de copiere nu a reușit. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Pentru jurnalele de rețea, consultă: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Ca să descarci și să folosești aplicații Android, mai întâi trebuie să instalezi o actualizare. În timp ce dispozitivul se actualizează, nu îl poți folosi. Dispozitivul <ph name="DEVICE_TYPE" /> va reporni după ce se finalizează instalarea.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> dorește să comunice cu aplicația „<ph name="EXTENSION_NAME" />”</translation>
 <translation id="4341977339441987045">Blochează stocarea datelor de către site-uri</translation>
 <translation id="4342311272543222243">Hopa! A apărut o eroare TPM.</translation>
@@ -2814,6 +2818,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="5111692334209731439">&amp;Manager de marcaje</translation>
 <translation id="5112577000029535889">&amp;Instrumente pentru dezvoltatori</translation>
 <translation id="5113739826273394829">Dacă dai clic pe această pictogramă, vei bloca manual acest <ph name="DEVICE_TYPE" />. Pentru acces, data viitoare va trebui să introduci parola.</translation>
+<translation id="5115309401544567011">Conectează dispozitivul <ph name="DEVICE_TYPE" /> la o sursă de alimentare.</translation>
 <translation id="5116300307302421503">Fișierul nu poate fi analizat.</translation>
 <translation id="5116628073786783676">Sal&amp;vează conținutul audio ca...</translation>
 <translation id="5117427536932535467">Teme și imagini de fundal</translation>
@@ -3262,6 +3267,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="5759728514498647443">Documentele pe care le trimiți prin <ph name="APP_NAME" /> pentru a fi printate pot fi citite de <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">Sal&amp;vează conținutul audio ca...</translation>
 <translation id="57646104491463491">Data modificării</translation>
+<translation id="5764797882307050727">Eliberează spațiu pe dispozitiv.</translation>
 <translation id="5765491088802881382">Nu există rețele disponibile</translation>
 <translation id="5765780083710877561">Descriere:</translation>
 <translation id="5771585441665576801">Transliterație (geia → γεια)</translation>
@@ -3493,6 +3499,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="6122081475643980456">Conexiunea la internet este controlată</translation>
 <translation id="6122875415561139701">Operațiunea de scriere nu este permisă pe: „<ph name="DEVICE_NAME" />”.</translation>
 <translation id="6124650939968185064">De această extensie depind următoarele extensii:</translation>
+<translation id="6125479973208104919">Din păcate, va trebui să îți adaugi din nou contul pe acest dispozitiv <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Comentariu certificat Netscape</translation>
 <translation id="6129953537138746214">Spațiu</translation>
 <translation id="6132383530370527946">Textul cu caractere mici</translation>
@@ -3872,6 +3879,7 @@ Folosește funcția numai pentru conturile în care ai încredere.</translation>
 <translation id="6677037229676347494">ID-ul așteptat era „<ph name="EXPECTED_ID" />”, dar ID-ul a fost „<ph name="NEW_ID" />”.</translation>
 <translation id="6678717876183468697">Adresa URL a interogării</translation>
 <translation id="6680028776254050810">Comutați la alt utilizator</translation>
+<translation id="6680442031740878064">Spațiu disponibil: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Fotografiază</translation>
 <translation id="668171684555832681">Altele...</translation>
 <translation id="6681964764822470072">Aplicația „<ph name="APP_NAME" />” va fi dezinstalată.</translation>
@@ -4290,6 +4298,7 @@ Folosește funcția numai pentru conturile în care ai încredere.</translation>
 <translation id="7348093485538360975">Tastatură pe ecran</translation>
 <translation id="7348749398828259943">Tastatură S.U.A. Workman internațională</translation>
 <translation id="7352651011704765696">A apărut o eroare</translation>
+<translation id="73534262421337222">Se instalează o actualizare importantă</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> necesită permisiuni noi</translation>
 <translation id="735745346212279324">Rețea VPN deconectată</translation>
 <translation id="7360183604634508679">Meniul Marcaje</translation>
@@ -4451,6 +4460,7 @@ Folosește funcția numai pentru conturile în care ai încredere.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Datele Chrome au fost șterse</translation>
 <translation id="7568790562536448087">Se actualizează</translation>
+<translation id="7571643774869182231">Nu există suficient spațiu de stocare pentru actualizare</translation>
 <translation id="7573172247376861652">Încărcarea bateriei</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Colaționează</translation>
@@ -4541,6 +4551,7 @@ Folosește funcția numai pentru conturile în care ai încredere.</translation>
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">Pentru a monitoriza această persoană, <ph name="BEGIN_LINK" />conectează-te la Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Permite ca ferestrele să se afișeze pe mai multe ecrane</translation>
+<translation id="7722040605881499779">Spațiul necesar pentru actualizare: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Decupează</translation>
 <translation id="7728668285692163452">Modificarea canalului va fi aplicată mai târziu</translation>
 <translation id="7730449930968088409">Capturează conținutul ecranului</translation>

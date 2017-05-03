@@ -14,7 +14,6 @@
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
 <translation id="1293264513303784526">USB-C įrenginys (prievadas kairėje)</translation>
 <translation id="1346748346194534595">Dešinė</translation>
-<translation id="137180024469554212">Išjungti pasukimo užrakinimą</translation>
 <translation id="1383876407941801731">Ieškoti</translation>
 <translation id="1467432559032391204">Kairė</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI / DP)</translation>
@@ -36,6 +35,7 @@
 <translation id="1942830294380034169">Perpildymo mygtukas</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2050339315714019657">Stačias</translation>
 <translation id="2122028596993374965">Sustabdyti „<ph name="TAB_NAME" />“ perdavimą į: <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Mažos galios įkroviklis</translation>
 <translation id="2208323208084708176">Vieno darbalaukio režimas</translation>
@@ -77,7 +77,6 @@ Jei norite atšaukti, paspauskite paieškos arba antrojo lygio klavišą.</trans
 <translation id="3126069444801937830">Paleisti iš naujo, kad būtų atnaujinta</translation>
 <translation id="3147142846278915599">Paleidimo priemonė (sinchronizuojamos programos...)</translation>
 <translation id="315116470104423982">Duomenys mobiliesiems</translation>
-<translation id="3157169093162779309">Įgalinti pasukimo užrakinimą</translation>
 <translation id="3236488194889173876">Nėra jokių pasiekiamų mobiliojo ryšio tinklų</translation>
 <translation id="3294437725009624529">Svečias</translation>
 <translation id="3335772982573114336">Naujas užrašas</translation>
@@ -199,6 +198,7 @@ Jei norite atšaukti, paspauskite paieškos arba antrojo lygio klavišą.</trans
 <translation id="7034339000180558234">Perduodama „<ph name="TAB_NAME" />“ į „<ph name="RECEIVER_NAME" />“</translation>
 <translation id="7052914147756339792">Nustatyti darbalaukio foną...</translation>
 <translation id="7066646422045619941">Šį tinklą išjungė jūsų administratorius.</translation>
+<translation id="7067196344162293536">Automatinis kaitaliojimas</translation>
 <translation id="7097613348211027502">„ChromeVox“ (ekrano skaitymas balsu) įgalinta.
 Jei norite išjungti, paspauskite „Ctrl“ + „Alt“ + Z.</translation>
 <translation id="7098389117866926363">USB-C įrenginys (prievadas kairėje, užpakalinėje dalyje)</translation>
@@ -266,4 +266,5 @@ Jei norite atšaukti, paspauskite „Alt“ + paieškos klavišas arba „Alt“
 <translation id="923686485342484400">Jei norite atsijungti, du kartus paspauskite „Control“ + „Shift“ + Q.</translation>
 <translation id="939252827960237676">Išsaugant ekrano kopiją įvyko klaida</translation>
 <translation id="945522503751344254">Siųsti atsiliepimą</translation>
+<translation id="98515147261107953">Gulsčias</translation>
 </translationbundle>

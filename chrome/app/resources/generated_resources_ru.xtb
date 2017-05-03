@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Создайте резервную копию медиафайлов, размещенных на устройстве, с помощью приложения "Файлы".</translation>
 <translation id="1341988552785875222">Эти обои установлены приложением "<ph name="APP_NAME" />". Возможно, чтобы выбрать другие обои, вам потребуется удалить приложение "<ph name="APP_NAME" />".</translation>
 <translation id="1346748346194534595">Справа</translation>
+<translation id="1347975661240122359">Обновление начнется, когда заряд батареи достигнет <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Импорт файлов (<ph name="FILE_COUNT" />)...</translation>
 <translation id="1352103415082130575">Тайская раскладка (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="NETWORK_NAME" /> (<ph name="PROVIDER_NAME" />)</translation>
@@ -923,6 +924,7 @@
 <translation id="2312980885338881851">Скорее всего, у вас нет контролируемого профиля, который можно импортировать. Создайте один или несколько профилей на другом устройстве, а затем импортируйте их на это устройство.</translation>
 <translation id="2316129865977710310">Спасибо, не надо</translation>
 <translation id="2317031807364506312">ОТМЕНА</translation>
+<translation id="2317842250900878657">Выполнено: <ph name="PROGRESS_PERCENT" />%</translation>
 <translation id="2318143611928805047">Размер бумаги</translation>
 <translation id="2318817390901984578">Чтобы пользоваться приложениями Android, зарядите и обновите устройство <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Текущий сеанс в режиме инкогнито (<ph name="EMBEDDING" />)</translation>
@@ -1857,6 +1859,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3618849550573277856">Найти "<ph name="LOOKUP_STRING" />"</translation>
 <translation id="3620292326130836921">Данные сохранены!</translation>
 <translation id="3623574769078102674">Менеджер этого контролируемого профиля: <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Слишком низкий заряд батареи (<ph name="PROGRESS_PERCENT" />%). Обновление невозможно.</translation>
 <translation id="3625870480639975468">Исходный масштаб</translation>
 <translation id="3626281679859535460">Яркость</translation>
 <translation id="3627052133907344175">Для расширения требуется <ph name="IMPORT_NAME" /> с версией не ниже <ph name="IMPORT_VERSION" />. Сейчас установлена версия <ph name="INSTALLED_VERSION" />.</translation>
@@ -2320,6 +2323,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 Чтобы продолжить работу, нажмите любую клавишу.</translation>
 <translation id="4336032328163998280">Не удалось выполнить копирование. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Просмотреть сетевые журналы можно на странице <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Чтобы скачивать и использовать приложения Android, необходимо установить обновление. Во время установки пользоваться устройством нельзя. После обновления <ph name="DEVICE_TYPE" /> перезагрузится автоматически.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> запрашивает доступ к приложению "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">Не разрешать сайтам сохранять данные</translation>
 <translation id="4342311272543222243">Ошибка доверенного платформенного модуля.</translation>
@@ -2815,6 +2819,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5111692334209731439">Диспетчер закладок</translation>
 <translation id="5112577000029535889">Инструменты разработчика</translation>
 <translation id="5113739826273394829">Нажав на этот значок, вы можете заблокировать устройство <ph name="DEVICE_TYPE" />. Чтобы разблокировать его, вам придется ввести пароль.</translation>
+<translation id="5115309401544567011">Подключите <ph name="DEVICE_TYPE" /> к источнику питания.</translation>
 <translation id="5116300307302421503">Невозможно выполнить синтаксический анализ файла.</translation>
 <translation id="5116628073786783676">Сохранить аудио как...</translation>
 <translation id="5117427536932535467">Темы и обои</translation>
@@ -3263,6 +3268,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5759728514498647443">"<ph name="APP_NAME" />" может читать документы, отправленные на печать через приложение "<ph name="APP_NAME" />".</translation>
 <translation id="5764483294734785780">Со&amp;хранить аудио как...</translation>
 <translation id="57646104491463491">Последнее изменение</translation>
+<translation id="5764797882307050727">Освободите место в памяти устройства.</translation>
 <translation id="5765491088802881382">Нет доступных сетей</translation>
 <translation id="5765780083710877561">Описание:</translation>
 <translation id="5771585441665576801">Транслитерация (geia → γεια)</translation>
@@ -3494,6 +3500,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6122081475643980456">С вашим интернет-соединением все не так просто</translation>
 <translation id="6122875415561139701">Запись данных на устройстве <ph name="DEVICE_NAME" /> запрещена.</translation>
 <translation id="6124650939968185064">От этих расширений зависят следующие:</translation>
+<translation id="6125479973208104919">Необходимо заново добавить аккаунт на <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Комментарий к сертификату Netscape</translation>
 <translation id="6129953537138746214">Пробел</translation>
 <translation id="6132383530370527946">Лицензионное соглашение</translation>
@@ -3874,6 +3881,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6677037229676347494">Ожидаемый идентификатор: "<ph name="EXPECTED_ID" />", полученный идентификатор: "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">URL запроса</translation>
 <translation id="6680028776254050810">Смена пользователя</translation>
+<translation id="6680442031740878064">Доступно: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Сфотографировать</translation>
 <translation id="668171684555832681">Другой...</translation>
 <translation id="6681964764822470072">Приложение "<ph name="APP_NAME" />" будет удалено.</translation>
@@ -4293,6 +4301,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7348093485538360975">Экранная клавиатура</translation>
 <translation id="7348749398828259943">Раскладка США (Workman, международная)</translation>
 <translation id="7352651011704765696">Ошибка</translation>
+<translation id="73534262421337222">Установка критического обновления…</translation>
 <translation id="7353651168734309780">Для расширения "<ph name="EXTENSION_NAME" />" требуется повторная проверка разрешений</translation>
 <translation id="735745346212279324">VPN-соединение прервано</translation>
 <translation id="7360183604634508679">Меню закладок</translation>
@@ -4454,6 +4463,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Данные Chrome удалены</translation>
 <translation id="7568790562536448087">Обновление</translation>
+<translation id="7571643774869182231">Недостаточно места для обновления.</translation>
 <translation id="7573172247376861652">Заряд батареи</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Разобрать по копиям</translation>
@@ -4544,6 +4554,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">Чтобы контролировать профиль этого пользователя, <ph name="BEGIN_LINK" />войдите в Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Разрешить показывать окно на нескольких устройствах</translation>
+<translation id="7722040605881499779">Для обновления необходимо <ph name="NECESSARY_SPACE" />.</translation>
 <translation id="7724603315864178912">Вырезать</translation>
 <translation id="7728668285692163452">Изменение вступит в силу позже</translation>
 <translation id="7730449930968088409">Снимок содержания экрана</translation>

@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Sandarkan media dari peranti menggunakan apl Fail.</translation>
 <translation id="1341988552785875222">Kertas dinding semasa ditetapkan oleh '<ph name="APP_NAME" />'. Anda mungkin perlu menyahpasang '<ph name="APP_NAME" />' sebelum memilih kertas dinding lain.</translation>
 <translation id="1346748346194534595">Kanan</translation>
+<translation id="1347975661240122359">Kemas kini akan bermula apabila bateri mencapai <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Mengimport fail <ph name="FILE_COUNT" />...</translation>
 <translation id="1352103415082130575">Papan kekunci bahasa Thai (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -924,6 +925,7 @@ Selepas anda membuat pengguna di bawah seliaan yang baharu, anda boleh mengurus 
 <translation id="2312980885338881851">Op! Nampaknya anda tiada pengguna diselia yang sedia ada untuk diimport. Sila buat satu atau lebih dari peranti lain, kemudian anda boleh mengimportnya di sini.</translation>
 <translation id="2316129865977710310">Tidak, terima kasih</translation>
 <translation id="2317031807364506312">BATAL</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% selesai</translation>
 <translation id="2318143611928805047">Saiz kertas</translation>
 <translation id="2318817390901984578">Untuk menggunakan apl Android, cas &amp; kemas kini <ph name="DEVICE_TYPE" /> anda.</translation>
 <translation id="2318923050469484167">Sesi inkognito semasa (<ph name="EMBEDDING" />)</translation>
@@ -1857,6 +1859,7 @@ Daripada <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Cari “<ph name="LOOKUP_STRING" />”</translation>
 <translation id="3620292326130836921">Semua disandarkan!</translation>
 <translation id="3623574769078102674">Pengguna diselia ini akan diuruskan oleh <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Bateri terlalu lemah untuk mengemas kini (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Tetapkan semula zum</translation>
 <translation id="3626281679859535460">Kecerahan</translation>
 <translation id="3627052133907344175">Sambungan memerlukan "<ph name="IMPORT_NAME" />" dengan versi minimum "<ph name="IMPORT_VERSION" />", tetapi hanya versi "<ph name="INSTALLED_VERSION" />" yang ada dipasang.</translation>
@@ -2320,6 +2323,7 @@ Semua pengguna mesti melog keluar untuk meneruskan.</translation>
 Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="4336032328163998280">Operasi menyalin gagal. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Untuk log rangkaian, lihat: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Untuk memuat turun dan menggunakan apl Android, anda perlu memasang kemas kini dahulu. Semasa peranti anda sedang dikemas kini, anda tidak boleh menggunakannya. <ph name="DEVICE_TYPE" /> anda akan dimulakan semula selepas pemasangan selasai.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> ingin berkomunikasi dengan apl "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">Sekat tapak daripada menetapkan sebarang data</translation>
 <translation id="4342311272543222243">Op, ralat TPM.</translation>
@@ -2815,6 +2819,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="5111692334209731439">&amp;Pengurus Penanda Halaman</translation>
 <translation id="5112577000029535889">&amp;Alat Pembangun</translation>
 <translation id="5113739826273394829">Jika anda mengklik ikon ini, anda akan mengunci <ph name="DEVICE_TYPE" /> ini secara manual. Lain kali, anda perlu menaip kata laluan untuk masuk.</translation>
+<translation id="5115309401544567011">Sila palamkan <ph name="DEVICE_TYPE" /> anda pada sumber kuasa.</translation>
 <translation id="5116300307302421503">Tidak dapat menghurai fail.</translation>
 <translation id="5116628073786783676">Si&amp;mpan Audio Sebagai...</translation>
 <translation id="5117427536932535467">Tema &amp; Kertas Dinding</translation>
@@ -3263,6 +3268,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="5759728514498647443">Dokumen yang anda hantar untuk dicetak melalui <ph name="APP_NAME" /> boleh dibaca oleh <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">Si&amp;mpan audio sebagai...</translation>
 <translation id="57646104491463491">Tarikh Diubah Suai</translation>
+<translation id="5764797882307050727">Sila kosongkan sedikit ruang pada peranti anda.</translation>
 <translation id="5765491088802881382">Tiada rangkaian tersedia</translation>
 <translation id="5765780083710877561">Huraian:</translation>
 <translation id="5771585441665576801">Pengalihan huruf (geia → γεια)</translation>
@@ -3494,6 +3500,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="6122081475643980456">Sambungan Internet anda sedang dikawal</translation>
 <translation id="6122875415561139701">Pengendalian tulis tidak dibenarkan pada: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">Sambungan berikut bergantung kepada sambungan ini:</translation>
+<translation id="6125479973208104919">Malangnya, anda perlu menambahkan akaun pada <ph name="DEVICE_TYPE" /> ini sekali lagi.</translation>
 <translation id="6129938384427316298">Komen Sijil Netscape</translation>
 <translation id="6129953537138746214">Ruang</translation>
 <translation id="6132383530370527946">Cetak kecil</translation>
@@ -3874,6 +3881,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="6677037229676347494">ID dijangkakan "<ph name="EXPECTED_ID" />", tetapi ID sebenar ialah "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">URL Pertanyaan</translation>
 <translation id="6680028776254050810">Tukar Pengguna</translation>
+<translation id="6680442031740878064">Tersedia: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Ambil foto</translation>
 <translation id="668171684555832681">Lain-lain...</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" akan dinyahpasang.</translation>
@@ -4293,6 +4301,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="7348093485538360975">Papan kekunci pada skrin</translation>
 <translation id="7348749398828259943">Papan kekunci US Workman international</translation>
 <translation id="7352651011704765696">Kesilapan telah berlaku</translation>
+<translation id="73534262421337222">Memasang kemas kini kritikal</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> memerlukan kebenaran baharu</translation>
 <translation id="735745346212279324">VPN diputuskan sambungan</translation>
 <translation id="7360183604634508679">Menu penanda halaman</translation>
@@ -4453,6 +4462,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Data Chrome dikosongkan</translation>
 <translation id="7568790562536448087">Mengemas kini</translation>
+<translation id="7571643774869182231">Storan tidak mencukupi untuk kemas kini</translation>
 <translation id="7573172247376861652">Cas Bateri</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Kumpul semak</translation>
@@ -4543,6 +4553,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="771953673318695590">S&amp;J</translation>
 <translation id="7720375555307821262">Untuk menyelia orang ini, <ph name="BEGIN_LINK" />log masuk ke Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Benarkan tetingkap mengembangkan paparan</translation>
+<translation id="7722040605881499779">Diperlukan untuk mengemas kini: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Potong</translation>
 <translation id="7728668285692163452">Perubahan saluran akan dilaksanakan kemudian</translation>
 <translation id="7730449930968088409">Abadikan kandungan skrin anda</translation>

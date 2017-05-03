@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Back-ups van media op het apparaat maken via de app Bestanden.</translation>
 <translation id="1341988552785875222">De huidige achtergrond is ingesteld door '<ph name="APP_NAME" />'. Je moet '<ph name="APP_NAME" />' mogelijk verwijderen voordat je een andere achtergrond selecteert.</translation>
 <translation id="1346748346194534595">Rechts</translation>
+<translation id="1347975661240122359">De update wordt gestart wanneer de batterij <ph name="BATTERY_LEVEL" />% vol is.</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> bestanden importeren...</translation>
 <translation id="1352103415082130575">Thais toetsenbord (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -925,6 +926,7 @@ Nadat je een nieuwe gebruiker met beperkte rechten hebt gemaakt, kun je zijn ins
 <translation id="2312980885338881851">Het lijkt erop dat je geen bestaande bewaakte gebruikers hebt om te importeren. Maak een of meer gebruikers op een ander apparaat. Vervolgens kun je hen hier importeren.</translation>
 <translation id="2316129865977710310">Nee, bedankt</translation>
 <translation id="2317031807364506312">ANNULEREN</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% gereed</translation>
 <translation id="2318143611928805047">Papierformaat</translation>
 <translation id="2318817390901984578">Je moet je <ph name="DEVICE_TYPE" /> opladen en updaten om Android-apps te gebruiken.</translation>
 <translation id="2318923050469484167">Huidige incognitosessie (<ph name="EMBEDDING" />)</translation>
@@ -1857,6 +1859,7 @@ van <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">'<ph name="LOOKUP_STRING" />' opzoeken</translation>
 <translation id="3620292326130836921">Er is een back-up van alles gemaakt</translation>
 <translation id="3623574769078102674">Deze gebruiker met beperkte rechten wordt beheerd door <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Batterij niet voldoende opgeladen voor update (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Zoom opnieuw instellen</translation>
 <translation id="3626281679859535460">Helderheid</translation>
 <translation id="3627052133907344175">Voor deze extensie is minimaal versie '<ph name="IMPORT_VERSION" />' van '<ph name="IMPORT_NAME" />' vereist, maar alleen versie '<ph name="INSTALLED_VERSION" />' is geïnstalleerd.</translation>
@@ -2320,6 +2323,7 @@ Alle gebruikers moet uitloggen om door te gaan.</translation>
 Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="4336032328163998280">Kopiëren mislukt. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Zie voor netwerklogboeken: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Als je Android-apps wilt downloaden en gebruiken, moet je eerst een update installeren. Wanneer je apparaat wordt geüpdatet, kun je het niet gebruiken. Je <ph name="DEVICE_TYPE" /> wordt opnieuw opgestart nadat de installatie is voltooid.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> wil communiceren met de app '<ph name="EXTENSION_NAME" />'</translation>
 <translation id="4341977339441987045">Sites niet toestaan gegevens in te stellen</translation>
 <translation id="4342311272543222243">TPM-fout.</translation>
@@ -2815,6 +2819,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5111692334209731439">&amp;Bladwijzermanager</translation>
 <translation id="5112577000029535889">&amp;Hulpprogramma's voor ontwikkelaars</translation>
 <translation id="5113739826273394829">Als je op dit pictogram klikt, vergrendel je deze <ph name="DEVICE_TYPE" /> handmatig. De volgende keer moet je je wachtwoord typen om deze te ontgrendelen.</translation>
+<translation id="5115309401544567011">Sluit je <ph name="DEVICE_TYPE" /> aan op een voedingsbron.</translation>
 <translation id="5116300307302421503">Kan bestand niet parseren.</translation>
 <translation id="5116628073786783676">Audio op&amp;slaan als...</translation>
 <translation id="5117427536932535467">Thema's en achtergronden</translation>
@@ -3262,6 +3267,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5759728514498647443">Documenten die je via <ph name="APP_NAME" /> verzendt om af te drukken, kunnen door <ph name="APP_NAME" /> worden gelezen.</translation>
 <translation id="5764483294734785780">Audio op&amp;slaan als...</translation>
 <translation id="57646104491463491">Bijgewerkt op</translation>
+<translation id="5764797882307050727">Maak ruimte vrij op je apparaat.</translation>
 <translation id="5765491088802881382">Er zijn geen netwerken beschikbaar</translation>
 <translation id="5765780083710877561">Beschrijving:</translation>
 <translation id="5771585441665576801">Transliteratie (geia → γεια)</translation>
@@ -3493,6 +3499,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="6122081475643980456">Je internetverbinding wordt beheerd</translation>
 <translation id="6122875415561139701">Schrijfbewerking is niet toegestaan op: <ph name="DEVICE_NAME" />.</translation>
 <translation id="6124650939968185064">De volgende extensies zijn afhankelijk van deze extensie:</translation>
+<translation id="6125479973208104919">Je moet je account opnieuw toevoegen aan deze <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Opmerking van Netscape-certificaat</translation>
 <translation id="6129953537138746214">Spatie</translation>
 <translation id="6132383530370527946">De kleine lettertjes</translation>
@@ -3873,6 +3880,7 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="6677037229676347494">Verwachte ID '<ph name="EXPECTED_ID" />', maar ID is '<ph name="NEW_ID" />'.</translation>
 <translation id="6678717876183468697">Query-URL</translation>
 <translation id="6680028776254050810">Gebruiker wijzigen</translation>
+<translation id="6680442031740878064">Beschikbaar: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Foto nemen</translation>
 <translation id="668171684555832681">Anders...</translation>
 <translation id="6681964764822470072"><ph name="APP_NAME" /> wordt verwijderd</translation>
@@ -4292,6 +4300,7 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="7348093485538360975">Schermtoetsenbord</translation>
 <translation id="7348749398828259943">Amerikaans Workman-toetsenbord (internationaal)</translation>
 <translation id="7352651011704765696">Er is iets misgegaan</translation>
+<translation id="73534262421337222">Essentiële update installeren</translation>
 <translation id="7353651168734309780">Voor <ph name="EXTENSION_NAME" /> zijn nieuwe rechten vereist</translation>
 <translation id="735745346212279324">Verbinding met VPN verbroken</translation>
 <translation id="7360183604634508679">Bladwijzermenu</translation>
@@ -4453,6 +4462,7 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome-gegevens gewist</translation>
 <translation id="7568790562536448087">Bijwerken</translation>
+<translation id="7571643774869182231">Onvoldoende opslagruimte voor update</translation>
 <translation id="7573172247376861652">Acculading</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Sorteren</translation>
@@ -4543,6 +4553,7 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262"><ph name="BEGIN_LINK" />Log in bij Chrome<ph name="END_LINK" /> om toezicht te houden op deze persoon.</translation>
 <translation id="7721179060400456005">Toestaan dat vensters meerdere beeldschermen bedekken</translation>
+<translation id="7722040605881499779">Nodig voor update: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Knip</translation>
 <translation id="7728668285692163452">Wijziging van kanaal wordt later toegepast</translation>
 <translation id="7730449930968088409">De content van je scherm vastleggen</translation>

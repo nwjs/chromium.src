@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">फ़ाइलें ऐप का उपयोग करके डिवाइस से मीडिया का बैक अप लें.</translation>
 <translation id="1341988552785875222">वर्तमान वॉलपेपर '<ph name="APP_NAME" />' द्वारा सेट किया गया है. भिन्न वॉलपेपर चुनने से पहले आपको '<ph name="APP_NAME" />' को अनइंस्टॉल करने की आवश्यकता हो सकती है.</translation>
 <translation id="1346748346194534595">दाएं</translation>
+<translation id="1347975661240122359">बैटरी का स्तर <ph name="BATTERY_LEVEL" />% पर पहुंचते ही अपडेट शुरू हो जाएगा.</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> फ़ाइलें आयात की जा रही हैं...</translation>
 <translation id="1352103415082130575">थाई कीबोर्ड (पैट्टाशोटे)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -924,6 +925,7 @@
 <translation id="2312980885338881851">ओह! ऐसा लगता है कि आपके पास आयात करने के लिए कोई मौजूदा पर्यवेक्षित उपयोगकर्ता नहीं हैं. कृपया किसी अन्य डिवाइस से एक या अधिक बनाएं फिर आप उन्हें यहां आयात कर सकते हैं.</translation>
 <translation id="2316129865977710310">जी रहने दें</translation>
 <translation id="2317031807364506312">अभी नहीं</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% हो गया</translation>
 <translation id="2318143611928805047">कागज़ का आकार</translation>
 <translation id="2318817390901984578">Android ऐप्लिकेशन का उपयोग करने के लिए, अपना <ph name="DEVICE_TYPE" /> चार्ज करें और उसे अपडेट करें.</translation>
 <translation id="2318923050469484167">वर्तमान गुप्त सत्र (<ph name="EMBEDDING" />)</translation>
@@ -1856,6 +1858,7 @@
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” को खोजें</translation>
 <translation id="3620292326130836921">सभी का बैक अप लिया गया!</translation>
 <translation id="3623574769078102674">यह निगरानी में रखा गया उपयोगकर्ता <ph name="MANAGER_EMAIL" /> द्वारा प्रबंधित किया जाएगा.</translation>
+<translation id="3624814222765772771">अपडेट करने के लिए बैटरी बहुत कम है (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">ज़ूम रीसेट करें</translation>
 <translation id="3626281679859535460">स्क्रीन की रोशनी</translation>
 <translation id="3627052133907344175">एक्‍सटेंशन के लिए "<ph name="IMPORT_NAME" />" को न्‍यूनतम "<ph name="IMPORT_VERSION" />" वर्ज़न का होना चाहिए, लेकिन केवल "<ph name="INSTALLED_VERSION" />" वर्ज़न ही इंस्‍टॉल किया गया है.</translation>
@@ -2318,6 +2321,7 @@
 अन्वेषण जारी रखने के लिए कोई भी कुंजी दबाएं.</translation>
 <translation id="4336032328163998280">प्रतिलिपि बनाने का कार्य विफल रहा. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">नेटवर्क लॉग के लिए, देखें: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Android ऐप्लिकेशन डाउनलोड करने और उनका उपयोग करने के लिए, आपको सबसे पहले एक अपडेट इंस्टॉल करना होगा. जब आपका डिवाइस अपडेट हो रहा हो, तब आप उसका उपयोग नहीं कर सकते हैं. इंस्टॉलेशन पूरा हो जाने के बाद आपका <ph name="DEVICE_TYPE" /> फिर से चालू होगा.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> "<ph name="EXTENSION_NAME" />" से संचार करना चाहती है</translation>
 <translation id="4341977339441987045">साइट को किसी भी डेटा को सेट करने से अवरोधित करें</translation>
 <translation id="4342311272543222243">ओह, TPM गड़बड़ी.</translation>
@@ -2813,6 +2817,7 @@
 <translation id="5111692334209731439">&amp;बुकमार्क प्रबंधक</translation>
 <translation id="5112577000029535889">&amp;डेवलपर टूल</translation>
 <translation id="5113739826273394829">यदि आप इस आइकन पर क्‍लिक करते हैं, तो आप इस <ph name="DEVICE_TYPE" /> को मैन्‍युअल रूप से अनलॉक कर लेंगे. अगली बार, प्रवेश करने के लिए आपको अपना पासवर्ड लिखना होगा.</translation>
+<translation id="5115309401544567011">कृपया अपने <ph name="DEVICE_TYPE" /> को पावर स्रोत में प्लग करें.</translation>
 <translation id="5116300307302421503">फ़ाइल को पार्स करने में असमर्थ.</translation>
 <translation id="5116628073786783676">इस रूप में ऑडियो स&amp;हेजें...</translation>
 <translation id="5117427536932535467">थीम और वॉलपेपर</translation>
@@ -3261,6 +3266,7 @@
 <translation id="5759728514498647443">आपके द्वारा <ph name="APP_NAME" /> के माध्‍यम से प्रिंट करने के लिए भेजे जाने वाले दस्‍तावेज़ <ph name="APP_NAME" /> द्वारा पढ़े जा सकते हैं.</translation>
 <translation id="5764483294734785780">इस रूप में ऑडियो स&amp;हेजें...</translation>
 <translation id="57646104491463491">संशोधन की तिथि</translation>
+<translation id="5764797882307050727">कृपया अपने डिवाइस पर कुछ जगह खाली करें.</translation>
 <translation id="5765491088802881382">कोई नेटवर्क उपलब्ध नहीं हैं</translation>
 <translation id="5765780083710877561">वर्णन:</translation>
 <translation id="5771585441665576801">लिप्यंतरण (geia → γεια)</translation>
@@ -3492,6 +3498,7 @@
 <translation id="6122081475643980456">आपका इंटरनेट कनेक्शन नियंत्रित किया जा रहा है</translation>
 <translation id="6122875415561139701">लिखें कार्रवाई की इस पर अनुमति नहीं है: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">निम्न एक्सटेंशन इस एक्सटेंशन पर निर्भर हैं:</translation>
+<translation id="6125479973208104919">दुर्भाग्यवश, आपको इस <ph name="DEVICE_TYPE" /> में अपना खाता फिर से जोड़ना होगा.</translation>
 <translation id="6129938384427316298">Netscape प्रमाणपत्र टिप्पणी</translation>
 <translation id="6129953537138746214">Space</translation>
 <translation id="6132383530370527946">लघु प्रिंट</translation>
@@ -3872,6 +3879,7 @@
 <translation id="6677037229676347494">अपेक्षित आईडी "<ph name="EXPECTED_ID" />" है, लेकिन आईडी "<ph name="NEW_ID" />" थी.</translation>
 <translation id="6678717876183468697">क्वेरी URL</translation>
 <translation id="6680028776254050810">उपयोगकर्ताओं को स्विच करें</translation>
+<translation id="6680442031740878064">उपलब्ध: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">फ़ोटो लें</translation>
 <translation id="668171684555832681">अन्य...</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" अनइंस्टॉल कर दिया जाएगा.</translation>
@@ -4291,6 +4299,7 @@
 <translation id="7348093485538360975">ऑन-स्‍क्रीन कीबोर्ड</translation>
 <translation id="7348749398828259943">यूएस वर्कमैन अंतर्राष्‍ट्रीय कीबोर्ड</translation>
 <translation id="7352651011704765696">कुछ गलत हुआ</translation>
+<translation id="73534262421337222">महत्वपूर्ण अपडेट इंस्टॉल किया जा रहा है</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> को नई अनुमतियों की आवश्‍यकता है</translation>
 <translation id="735745346212279324">VPN डिसकनेक्ट है</translation>
 <translation id="7360183604634508679">बुकमार्क मेनू</translation>
@@ -4452,6 +4461,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">साफ़ किया गया Chrome डेटा</translation>
 <translation id="7568790562536448087">अपडेट कर रहा है</translation>
+<translation id="7571643774869182231">अपडेट करने के लिए पर्याप्त जगह नहीं है</translation>
 <translation id="7573172247376861652">बैटरी चार्ज</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">क्रम अनुसार सजाना</translation>
@@ -4542,6 +4552,7 @@
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">इस व्यक्ति का निरीक्षण करने के लिए, <ph name="BEGIN_LINK" />Chrome में प्रवेश करें<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">विंडो को प्रदर्शन फैलाने दें</translation>
+<translation id="7722040605881499779">अपडेट करना ज़रूरी है: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">काटें</translation>
 <translation id="7728668285692163452">चैनल बदलाव बाद में लागू किया जाएगा</translation>
 <translation id="7730449930968088409">अपनी स्क्रीन की सामग्री कैप्चर करें</translation>

@@ -14,7 +14,6 @@
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
 <translation id="1293264513303784526">USB-C ઉપકરણ (ડાબું પોર્ટ)</translation>
 <translation id="1346748346194534595">જમણે</translation>
-<translation id="137180024469554212">પરિભ્રમણ લૉક અક્ષમ કરો</translation>
 <translation id="1383876407941801731">શોધો</translation>
 <translation id="1467432559032391204">ડાબું</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
@@ -36,6 +35,7 @@
 <translation id="1942830294380034169">ઓવરફ્લો બટન</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2050339315714019657">પોર્ટ્રેટ</translation>
 <translation id="2122028596993374965"><ph name="RECEIVER_NAME" /> પર <ph name="TAB_NAME" /> ને કાસ્ટ કરવાનું રોકો</translation>
 <translation id="2127372758936585790">નિમ્ન-પાવર ચાર્જર</translation>
 <translation id="2208323208084708176">એકીકૃત ડેસ્કટૉપ મોડ</translation>
@@ -76,7 +76,6 @@
 <translation id="3126069444801937830">અપડેટ કરવા માટે પુનઃપ્રારંભ કરો</translation>
 <translation id="3147142846278915599">લોન્ચર (એપ્લિકેશન્સને સમન્વયિત કરી રહ્યું છે..)</translation>
 <translation id="315116470104423982">મોબાઇલ ડેટા</translation>
-<translation id="3157169093162779309">પરિભ્રમણ લૉક સક્ષમ કરો</translation>
 <translation id="3236488194889173876">કોઈ મોબાઇલ નેટવર્ક ઉપલબ્ધ નથી</translation>
 <translation id="3294437725009624529">અતિથિ</translation>
 <translation id="3335772982573114336">નવી નોંધ</translation>
@@ -197,6 +196,7 @@
 <translation id="7034339000180558234"><ph name="RECEIVER_NAME" /> પર <ph name="TAB_NAME" /> ને કાસ્ટ કરી રહ્યાં છીએ</translation>
 <translation id="7052914147756339792">વૉલપેપર સેટ કરો...</translation>
 <translation id="7066646422045619941">આ નેટવર્ક તમારા વ્યવસ્થાપક દ્વારા અક્ષમ કરેલ છે.</translation>
+<translation id="7067196344162293536">સ્વતઃ ફેરવો</translation>
 <translation id="7097613348211027502">ChromeVox (બોલાયેલ પ્રતિસાદ) સક્ષમ છે. અક્ષમ કરવા માટે Ctrl+Alt+Z દબાવો.</translation>
 <translation id="7098389117866926363">USB-C ઉપકરણ (પાછળની બાજુએ ડાબું પોર્ટ)</translation>
 <translation id="7129360219436193655">લેઝર પૉઇન્ટર મોડ</translation>
@@ -263,4 +263,5 @@
 <translation id="923686485342484400">સાઇન આઉટ કરવા માટે બે વાર Control Shift Q દબાવો.</translation>
 <translation id="939252827960237676">સ્ક્રીનશૉટ સાચવવામાં નિષ્ફળ રહ્યું</translation>
 <translation id="945522503751344254">પ્રતિસાદ મોકલો</translation>
+<translation id="98515147261107953">લેન્ડસ્કૅપ</translation>
 </translationbundle>

@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">கோப்புகள் பயன்பாட்டைப் பயன்படுத்தி, சாதனத்திலிருந்து மீடியாவைக் காப்புப்பிரதி எடுக்கவும்.</translation>
 <translation id="1341988552785875222">தற்போதைய வால்பேப்பர் '<ph name="APP_NAME" />' ஆல் அமைக்கப்பட்டது. வேறு வால்பேப்பரைத் தேர்ந்தெடுப்பதற்கு முன் நீங்கள் '<ph name="APP_NAME" />'ஐ நிறுவல் நீக்க வேண்டிய தேவை ஏற்படலாம்.</translation>
 <translation id="1346748346194534595">வலது</translation>
+<translation id="1347975661240122359">பேட்டரி <ph name="BATTERY_LEVEL" />%ஐ அடையும் போது, புதுப்பிக்கத் தொடங்கும்.</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> கோப்புகளைப் பதிவிறக்குகிறது...</translation>
 <translation id="1352103415082130575">தாய் விசைப்பலகை (பட்டாசொட்டே)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -924,6 +925,7 @@
 <translation id="2312980885338881851">அச்சச்சோ! இறக்குமதி செய்வதற்கு உங்களிடம் நடப்பு கண்காணிக்கப்படும் பயனர்கள் யாரும் இல்லை என்பதுபோல் தெரிகிறது. வேறொரு சாதனத்திலிருந்து ஒன்று அல்லது ஒன்றுக்கு மேற்பட்டவர்களை உருவாக்கியப் பிறகு அவர்களை இங்கே பதிவிறக்கலாம்.</translation>
 <translation id="2316129865977710310">வேண்டாம், நன்றி</translation>
 <translation id="2317031807364506312">ரத்துசெய்</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% முடிந்தது</translation>
 <translation id="2318143611928805047">தாளின் அளவு</translation>
 <translation id="2318817390901984578">Android பயன்பாடுகளைப் பயன்படுத்த, <ph name="DEVICE_TYPE" />ஐச் சார்ஜ் செய்து, புதுப்பிக்கவும்.</translation>
 <translation id="2318923050469484167">தற்போதைய மறைநிலை அமர்வு (<ph name="EMBEDDING" />)</translation>
@@ -1856,6 +1858,7 @@
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” எனத் தேடு</translation>
 <translation id="3620292326130836921">எல்லாம் காப்புப் பிரதி எடுக்கப்பட்டன!</translation>
 <translation id="3623574769078102674">இந்தக் கண்காணிக்கப்படும் பயனர் <ph name="MANAGER_EMAIL" /> ஆல் நிர்வகிக்கப்படுவார்.</translation>
+<translation id="3624814222765772771">பேட்டரி மிகவும் குறைவாக இருப்பதால், புதுப்பிக்க முடியவில்லை (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">பெரிதாக்குவதை மீட்டமை</translation>
 <translation id="3626281679859535460">ஒளிர்வு</translation>
 <translation id="3627052133907344175">நீட்டிப்பிற்கு "<ph name="IMPORT_VERSION" />" குறைந்தபட்ச பதிப்புடன் கூடிய "<ph name="IMPORT_NAME" />" தேவை, ஆனால் "<ph name="INSTALLED_VERSION" />" பதிப்பு மட்டும் நிறுவப்பட்டுள்ளது.</translation>
@@ -2319,6 +2322,7 @@
 ஆய்வுகளைத் தொடர எந்த விசையையாவது அழுத்தவும்.</translation>
 <translation id="4336032328163998280">நகலெடுக்கும் செயல்பாடு தோல்வி. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">நெட்வொர்க் பதிவுகளுக்கு, இதைப் பார்க்கவும்: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Android பயன்பாடுகளைப் பதிவிறக்கிப் பயன்படுத்த, முதலில் புதுப்பிப்பை நிறுவ வேண்டும். சாதனத்தில் புதுப்பிப்பை நிறுவும் போது, அதைப் பயன்படுத்த முடியாது. நிறுவியதும், <ph name="DEVICE_TYPE" /> மீண்டும் தொடங்கும்.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" />, "<ph name="EXTENSION_NAME" />" பயன்பாட்டுடன் தொடர்புகொள்ள விழைகிறது</translation>
 <translation id="4341977339441987045">எந்த தரவையும் அமைப்பதிலிருந்து தளங்களைத் தடு</translation>
 <translation id="4342311272543222243">அச்சச்சோ, TPM பிழை.</translation>
@@ -2811,6 +2815,7 @@
 <translation id="5111692334209731439">&amp;புக்மார்க் மேனேஜர்</translation>
 <translation id="5112577000029535889">&amp;டெவலப்பர் கருவிகள்</translation>
 <translation id="5113739826273394829">இந்த ஐகானைக் கிளிக் செய்தால், இந்த <ph name="DEVICE_TYPE" />ஐக் கைமுறையாகப் பூட்ட வேண்டும். அடுத்த முறை, திறப்பதற்கு உங்கள் கடவுச்சொல்லை உள்ளிட வேண்டும்.</translation>
+<translation id="5115309401544567011"><ph name="DEVICE_TYPE" /> சாதனத்தைச் சார்ஜ் செய்யவும்.</translation>
 <translation id="5116300307302421503">கோப்பை அலச முடியவில்லை.</translation>
 <translation id="5116628073786783676">ஆடியோவை இவ்வாறு சே&amp;மி...</translation>
 <translation id="5117427536932535467">தீம்கள் மற்றும் வால்பேப்பர்கள்</translation>
@@ -3258,6 +3263,7 @@
 <translation id="5759728514498647443"><ph name="APP_NAME" /> மூலமாக அச்சிட அனுப்பிய ஆவணங்களை, <ph name="APP_NAME" /> படிக்க முடியும்.</translation>
 <translation id="5764483294734785780">ஆடியோவை இவ்வாறு சே&amp;மி...</translation>
 <translation id="57646104491463491">மாற்றிய தேதி</translation>
+<translation id="5764797882307050727">சாதனத்தில் சிறிது இடத்தைக் காலி செய்யவும்.</translation>
 <translation id="5765491088802881382">நெட்வொர்க்குகள் எதுவும் கிடைக்கவில்லை</translation>
 <translation id="5765780083710877561">விவரம்:</translation>
 <translation id="5771585441665576801">ஒலிபெயர்ப்பு (geia → γεια)</translation>
@@ -3489,6 +3495,7 @@
 <translation id="6122081475643980456">உங்கள் இணைய இணைப்பு கட்டுப்படுத்தப்படுகிறது</translation>
 <translation id="6122875415561139701">எழுதுதல் செயல்பாடு இந்தச் சாதனத்தில் அனுமதிக்கப்படவில்லை: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">பின்வரும் நீட்டிப்புகள் இந்த நீட்டிப்பைச் சார்ந்தவை:</translation>
+<translation id="6125479973208104919">எதிர்பாராதவிதமாக, <ph name="DEVICE_TYPE" /> இல் உங்கள் கணக்கை மீண்டும் சேர்க்க வேண்டும்.</translation>
 <translation id="6129938384427316298">Netscape சான்றிதழ் கருத்துரை</translation>
 <translation id="6129953537138746214">இடைவெளி</translation>
 <translation id="6132383530370527946">சிறு அச்சு</translation>
@@ -3869,6 +3876,7 @@
 <translation id="6677037229676347494">எதிர்பார்க்கப்பட்ட ID "<ph name="EXPECTED_ID" />", ஆனால் ID "<ph name="NEW_ID" />" ஆகும்.</translation>
 <translation id="6678717876183468697">வினவல் URL</translation>
 <translation id="6680028776254050810">பயனர்களை மாற்று</translation>
+<translation id="6680442031740878064">இருக்கும் இடம்: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">புகைப்படம் எடு</translation>
 <translation id="668171684555832681">மற்றவை…</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" நிறுவல் நீக்கப்படும்.</translation>
@@ -4287,6 +4295,7 @@
 <translation id="7348093485538360975">ஆன்-ஸ்கிரீன் விசைப்பலகை</translation>
 <translation id="7348749398828259943">யுஎஸ் ஒர்க்மேன் இன்டர்நேஷனல் விசைப்பலகை</translation>
 <translation id="7352651011704765696">ஏதோ தவறு ஏற்பட்டது</translation>
+<translation id="73534262421337222">முக்கியப் புதுப்பிப்பை நிறுவுகிறது</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> க்குப் புதிய அனுமதிகள் தேவைப்படுகிறது</translation>
 <translation id="735745346212279324">VPN துண்டிக்கப்பட்டது</translation>
 <translation id="7360183604634508679">புத்தகக்குறிகள் மெனு</translation>
@@ -4440,6 +4449,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome தரவு அழிக்கப்பட்டது</translation>
 <translation id="7568790562536448087">புதுப்பிக்கிறது</translation>
+<translation id="7571643774869182231">புதுப்பிப்பதற்குப் போதுமான சேமிப்பிடம் இல்லை</translation>
 <translation id="7573172247376861652">பேட்டரி மின்னேற்றம்</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">ஒப்பீடு</translation>
@@ -4529,7 +4539,8 @@
 <translation id="7719421816612904796">பயிற்சி காலாவதியானது</translation>
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">இவரைக் கண்காணிக்க, <ph name="BEGIN_LINK" />Chrome இல் உள்நுழையவும்<ph name="END_LINK" />.</translation>
-<translation id="7721179060400456005">காட்சிகளைப் பிரித்துக் காட்ட சாளரங்களை அனுமதி</translation>
+<translation id="7721179060400456005">ஒன்றுக்கும் மேற்பட்ட திரைகளில் சாளரங்களைக் காட்ட அனுமதி</translation>
+<translation id="7722040605881499779">புதுப்பிப்பதற்குத் தேவைப்படும் இடம்: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">வெட்டு</translation>
 <translation id="7728668285692163452">சேனல் மாற்றம் பின்னர் பயன்படுத்தப்படும்</translation>
 <translation id="7730449930968088409">உங்கள் திரையின் உள்ளடக்கத்தைப் பதிவுசெய்யலாம்</translation>

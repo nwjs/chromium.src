@@ -14,7 +14,6 @@
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
 <translation id="1293264513303784526">USB-C ഉപകരണം (ഇടത് പോർട്ട്)</translation>
 <translation id="1346748346194534595">ശരി</translation>
-<translation id="137180024469554212">റൊട്ടേഷൻ ലോക്ക് പ്രവർത്തനരഹിതമാക്കുക</translation>
 <translation id="1383876407941801731">തിരയൂ</translation>
 <translation id="1467432559032391204">ഇടത്</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
@@ -36,6 +35,7 @@
 <translation id="1942830294380034169">ഓവർഫ്ലോ ബട്ടൺ</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2050339315714019657">ഛായാചിത്രം</translation>
 <translation id="2122028596993374965"><ph name="TAB_NAME" />, <ph name="RECEIVER_NAME" /> എന്നതിലേക്ക് കാസ്‌റ്റുചെയ്യുന്നത് നിർത്തുക</translation>
 <translation id="2127372758936585790">കുറഞ്ഞ തോതിൽ വൈദ്യുതി പ്രവഹിക്കുന്ന ചാർജർ</translation>
 <translation id="2208323208084708176">ഏകീകൃത ഡെസ്‌ക്‌ടോപ്പ് മോഡ്</translation>
@@ -76,7 +76,6 @@
 <translation id="3126069444801937830">അപ്‌ഡേറ്റുചെയ്യുന്നതിന് പുനരാരംഭിക്കുക</translation>
 <translation id="3147142846278915599">ലോഞ്ചർ (അപ്ലിക്കേഷൻ സമന്വയിപ്പിക്കുന്നു...)</translation>
 <translation id="315116470104423982">മൊബൈല്‍ ഡാറ്റ</translation>
-<translation id="3157169093162779309">റൊട്ടേഷൻ ലോക്ക് പ്രവർത്തനക്ഷമമാക്കുക</translation>
 <translation id="3236488194889173876">മൊബൈൽ നെറ്റ്‌വർക്ക് ലഭ്യമല്ല</translation>
 <translation id="3294437725009624529">അതിഥി</translation>
 <translation id="3335772982573114336">പുതിയ കുറിപ്പ്</translation>
@@ -197,6 +196,7 @@
 <translation id="7034339000180558234"><ph name="RECEIVER_NAME" /> എന്നതിലേക്ക് <ph name="TAB_NAME" /> കാസ്‌റ്റുചെയ്യുന്നു</translation>
 <translation id="7052914147756339792">വാൾപേപ്പർ സജ്ജമാക്കുക...</translation>
 <translation id="7066646422045619941">നിങ്ങളുടെ അഡ്‌മിനിസ്‌ട്രേറ്റർ ഈ നെറ്റ്‌വർക്ക് പ്രവർത്തനരഹിതമാക്കി.</translation>
+<translation id="7067196344162293536">സ്വയമേവ തിരിക്കുക</translation>
 <translation id="7097613348211027502">ChromeVox (സ്‌പോക്കൺ ഫീഡ്‌ബാക്ക്) പ്രവർത്തനക്ഷമമാണ്. പ്രവർത്തനരഹിതമാക്കാൻ Ctrl+Alt+Z അമർത്തുക.</translation>
 <translation id="7098389117866926363">USB-C ഉപകരണം (പുറകിൽ ഇടതുവശത്തെ പോർട്ട്)</translation>
 <translation id="7129360219436193655">ലേസർ പോയിന്റർ മോഡ്</translation>
@@ -263,4 +263,5 @@
 <translation id="923686485342484400">സൈൻ ഔട്ട് ചെയ്യുന്നതിന് രണ്ടു‌തവണ Control Shift Q അമർത്തുക.</translation>
 <translation id="939252827960237676">സ്‌ക്രീൻഷോട്ട് സംരക്ഷിക്കുന്നതിൽ പരാജയപ്പെട്ടു</translation>
 <translation id="945522503751344254">ഫീഡ്ബാക്ക് അയയ്ക്കുക</translation>
+<translation id="98515147261107953">ലാന്‍ഡ്സ്കേപ്പ്</translation>
 </translationbundle>

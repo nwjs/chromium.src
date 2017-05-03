@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Wykonaj kopię zapasową multimediów zapisanych na urządzeniu, używając aplikacji Pliki.</translation>
 <translation id="1341988552785875222">Aktualna tapeta została ustawiona przez aplikacje lub rozszerzenie „<ph name="APP_NAME" />”. Przed wybraniem innej tapety konieczne może być odinstalowanie aplikacja lub rozszerzenia „<ph name="APP_NAME" />”.</translation>
 <translation id="1346748346194534595">W prawo</translation>
+<translation id="1347975661240122359">Aktualizacja się uruchomi, gdy bateria naładuje się do <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Importuję <ph name="FILE_COUNT" /> pliki(ów)...</translation>
 <translation id="1352103415082130575">Klawiatura tajska (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -899,7 +900,7 @@ Po utworzeniu nadzorowanego użytkownika możesz w dowolnym czasie i z dowolnego
 <translation id="2272570998639520080">Kieliszek do martini</translation>
 <translation id="2273562597641264981">Operator:</translation>
 <translation id="2276503375879033601">Dodaj więcej aplikacji</translation>
-<translation id="2277255602909579701">Wszystkie pliki cookie i dane witryn</translation>
+<translation id="2277255602909579701">Wszystkie pliki cookie i dane stron</translation>
 <translation id="2278562042389100163">Otwórz okno przeglądarki</translation>
 <translation id="2278988676849463018">Klawiatura kannada (fonetyczna)</translation>
 <translation id="2279874276457403668">Można utworzyć tylko jedną sesję na raz.</translation>
@@ -924,6 +925,7 @@ Po utworzeniu nadzorowanego użytkownika możesz w dowolnym czasie i z dowolnego
 <translation id="2312980885338881851">Ups! Wygląda na to, że nie masz żadnych użytkowników nadzorowanych do zaimportowania. Utwórz co najmniej jednego takiego użytkownika na innym urządzeniu, by można go było zaimportować tutaj.</translation>
 <translation id="2316129865977710310">Nie, dziękuję</translation>
 <translation id="2317031807364506312">ANULUJ</translation>
+<translation id="2317842250900878657">Gotowe: <ph name="PROGRESS_PERCENT" />%</translation>
 <translation id="2318143611928805047">Rozmiar papieru</translation>
 <translation id="2318817390901984578">Aby korzystać z aplikacji na Androida, naładuj i zaktualizuj urządzenie <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Bieżąca sesja incognito (<ph name="EMBEDDING" />)</translation>
@@ -1856,6 +1858,7 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="3618849550573277856">Sprawdź słowo „<ph name="LOOKUP_STRING" />”</translation>
 <translation id="3620292326130836921">Wszystko ma już kopię zapasową.</translation>
 <translation id="3623574769078102674">Tym użytkownikiem nadzorowanym będzie zarządzać <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Poziom naładowania baterii jest za niski, by zainstalować aktualizację (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Resetuj powiększenie</translation>
 <translation id="3626281679859535460">Jasność</translation>
 <translation id="3627052133907344175">Rozszerzenie wymaga „<ph name="IMPORT_NAME" />” – minimalnie wersji „<ph name="IMPORT_VERSION" />”, ale zainstalowana jest tylko wersja „<ph name="INSTALLED_VERSION" />”.</translation>
@@ -2319,6 +2322,7 @@ Aby kontynuować, wszyscy użytkownicy muszą się wylogować.</translation>
 Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="4336032328163998280">Kopiowanie nie powiodło się: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Dzienniki sieciowe są dostępne tutaj: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Aby pobrać aplikacje na Androida i ich używać, najpierw musisz zainstalować aktualizację. Podczas aktualizowania urządzenia nie można z niego korzystać. Po zakończeniu instalacji <ph name="DEVICE_TYPE" /> ponownie się uruchomi.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> chce nawiązać połączenie z aplikacją „<ph name="EXTENSION_NAME" />”</translation>
 <translation id="4341977339441987045">Blokuj próby umieszczenia na komputerze danych z witryn</translation>
 <translation id="4342311272543222243">Ups, błąd TPM.</translation>
@@ -2811,6 +2815,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5111692334209731439">&amp;Menedżer zakładek</translation>
 <translation id="5112577000029535889">&amp;Narzędzia dla programistów</translation>
 <translation id="5113739826273394829">Jeśli klikniesz tę ikonę, <ph name="DEVICE_TYPE" /> zostanie zablokowany ręcznie. Następnym razem trzeba będzie wpisać hasło, by go odblokować.</translation>
+<translation id="5115309401544567011">Podłącz urządzenie <ph name="DEVICE_TYPE" /> do źródła zasilania.</translation>
 <translation id="5116300307302421503">Nie można przeanalizować pliku.</translation>
 <translation id="5116628073786783676">Za&amp;pisz dźwięk jako...</translation>
 <translation id="5117427536932535467">Motywy i tapety</translation>
@@ -3260,6 +3265,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5759728514498647443">Dokumenty wysłane do drukowania z aplikacji <ph name="APP_NAME" /> można odczytać w aplikacji <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">Za&amp;pisz element audio jako...</translation>
 <translation id="57646104491463491">Data modyfikacji</translation>
+<translation id="5764797882307050727">Zwolnij trochę miejsca na urządzeniu.</translation>
 <translation id="5765491088802881382">Nie są dostępne żadne sieci</translation>
 <translation id="5765780083710877561">Opis:</translation>
 <translation id="5771585441665576801">Transliteracja (geia → γεια)</translation>
@@ -3491,6 +3497,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="6122081475643980456">Twoje połączenie internetowe jest kontrolowane</translation>
 <translation id="6122875415561139701">Nie jest dozwolona operacja zapisu na: „<ph name="DEVICE_NAME" />”.</translation>
 <translation id="6124650939968185064">To rozszerzenie jest wymagane przez następujące rozszerzenia:</translation>
+<translation id="6125479973208104919">Musisz jeszcze raz dodać swoje konto do tego urządzenia <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Komentarz do certyfikatu firmy Netscape</translation>
 <translation id="6129953537138746214">Spacja</translation>
 <translation id="6132383530370527946">Przeczytaj umowę</translation>
@@ -3832,7 +3839,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="6606070663386660533">Karta 8</translation>
 <translation id="6607272825297743757">Informacje o pliku</translation>
 <translation id="6607831829715835317">Więcej narzę&amp;dzi</translation>
-<translation id="6608140561353073361">Wszystkie pliki cookie i dane witryn...</translation>
+<translation id="6608140561353073361">Wszystkie pliki cookie i dane stron...</translation>
 <translation id="6610183966322615106">Błąd podczas dodawania drukarki</translation>
 <translation id="6610610633807698299">Wpisz URL...</translation>
 <translation id="6612358246767739896">Treść chroniona</translation>
@@ -3871,6 +3878,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="6677037229676347494">Oczekiwano identyfikatora „<ph name="EXPECTED_ID" />”, identyfikator: „<ph name="NEW_ID" />”.</translation>
 <translation id="6678717876183468697">URL zapytania</translation>
 <translation id="6680028776254050810">Przełącz użytkowników</translation>
+<translation id="6680442031740878064">Dostępne: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Zrób zdjęcie</translation>
 <translation id="668171684555832681">Inny...</translation>
 <translation id="6681964764822470072">Aplikacja „<ph name="APP_NAME" />” zostanie odinstalowana.</translation>
@@ -4289,6 +4297,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="7348093485538360975">Klawiatura ekranowa</translation>
 <translation id="7348749398828259943">Amerykańska klawiatura międzynarodowa Workman</translation>
 <translation id="7352651011704765696">Coś poszło nie tak</translation>
+<translation id="73534262421337222">Instaluję aktualizację krytyczną</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> żąda nowych uprawnień</translation>
 <translation id="735745346212279324">VPN odłączona</translation>
 <translation id="7360183604634508679">Menu Zakładki</translation>
@@ -4443,6 +4452,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Wyczyszczono dane Chrome</translation>
 <translation id="7568790562536448087">Aktualizowanie</translation>
+<translation id="7571643774869182231">Za mało miejsca na aktualizację</translation>
 <translation id="7573172247376861652">Poziom naładowania akumulatora</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Sortuj</translation>
@@ -4533,6 +4543,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">Aby nadzorować tę osobę, <ph name="BEGIN_LINK" />zaloguj się w Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Zezwól na rozciąganie okien na wiele wyświetlaczy</translation>
+<translation id="7722040605881499779">Aktualizacja potrzebuje: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Wytnij</translation>
 <translation id="7728668285692163452">Zmiana wersji nastąpi później</translation>
 <translation id="7730449930968088409">Przechwytywanie zawartości ekranu</translation>

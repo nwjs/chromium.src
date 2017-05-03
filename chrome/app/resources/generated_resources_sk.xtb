@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Zálohovať médiá zo zariadenia pomocou aplikácie Súbory</translation>
 <translation id="1341988552785875222">Aktuálnu tapetu nastavila aplikácia <ph name="APP_NAME" />. Je možné, že pred výberom inej tapety bude nutné aplikáciu <ph name="APP_NAME" /> odinštalovať.</translation>
 <translation id="1346748346194534595">Doprava</translation>
+<translation id="1347975661240122359">Aktualizácia sa začne, keď sa batéria dobije na <ph name="BATTERY_LEVEL" /> %.</translation>
 <translation id="1351692861129622852">Importujú sa súbory (počet: <ph name="FILE_COUNT" />)...</translation>
 <translation id="1352103415082130575">Thajská klávesnica (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -926,6 +927,7 @@ Po vytvorení nového kontrolovaného používateľa môžete kedykoľvek spravo
 <translation id="2312980885338881851">Ojoj! Zdá sa, že nemáte žiadnych existujúcich kontrolovaných používateľov na importovanie. Vytvorte si jedného alebo viacerých takýchto používateľov na inom zariadení a následne ich tu budete môcť importovať.</translation>
 <translation id="2316129865977710310">Nie, ďakujem</translation>
 <translation id="2317031807364506312">ZRUŠIŤ</translation>
+<translation id="2317842250900878657">Dokončené: <ph name="PROGRESS_PERCENT" /> %</translation>
 <translation id="2318143611928805047">Veľkosť papiera</translation>
 <translation id="2318817390901984578">Ak chcete používať aplikácie pre Android, nabite a aktualizujte zariadenie <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Aktuálna relácia inkognito (<ph name="EMBEDDING" />)</translation>
@@ -1858,6 +1860,7 @@ z domény <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Vyhľadať „<ph name="LOOKUP_STRING" />“</translation>
 <translation id="3620292326130836921">Všetko je zálohované!</translation>
 <translation id="3623574769078102674">Tento kontrolovaný používateľ bude spravovaný účtom <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Batéria je príliš slabá na aktualizáciu (<ph name="PROGRESS_PERCENT" /> %)</translation>
 <translation id="3625870480639975468">Obnoviť nastavenie priblíženia</translation>
 <translation id="3626281679859535460">Jas</translation>
 <translation id="3627052133907344175">Rozšírenie vyžaduje rozšírenie <ph name="IMPORT_NAME" /> minimálne vo verzii <ph name="IMPORT_VERSION" />, ale nainštalovaná je iba verzia <ph name="INSTALLED_VERSION" />.</translation>
@@ -2321,6 +2324,7 @@ Všetci používatelia sa musia odhlásiť a až potom môžu pokračovať.</tra
 Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="4336032328163998280">Kopírovanie zlyhalo. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Denníky siete nájdete na stránke <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Ak chcete stiahnuť a používať aplikácie pre Android, najprv musíte nainštalovať aktualizáciu. Zariadenie nemôžete používať počas aktualizácie. Po jej dokončení sa zariadenie <ph name="DEVICE_TYPE" /> reštartuje.</translation>
 <translation id="4340515029017875942">Web <ph name="ORIGIN" /> chce komunikovať s aplikáciou <ph name="EXTENSION_NAME" /></translation>
 <translation id="4341977339441987045">Blokovať webovým stránkam nastavenie akýchkoľvek údajov</translation>
 <translation id="4342311272543222243">Hops, vyskytla sa chyba modulu TPM.</translation>
@@ -2816,6 +2820,7 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="5111692334209731439">&amp;Správca záložiek</translation>
 <translation id="5112577000029535889">&amp;Nástroje pre vývojárov</translation>
 <translation id="5113739826273394829">Kliknutím na túto ikonu ručne uzamknete toto zariadenie <ph name="DEVICE_TYPE" />. Pri budúcom prístupe budete musieť zadať heslo.</translation>
+<translation id="5115309401544567011">Pripojte zariadenie <ph name="DEVICE_TYPE" /> k zdroju napájania.</translation>
 <translation id="5116300307302421503">Súbor nie je možné analyzovať.</translation>
 <translation id="5116628073786783676">Uložiť &amp;zvuk ako...</translation>
 <translation id="5117427536932535467">Motívy a tapety</translation>
@@ -3264,6 +3269,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="5759728514498647443">Dokumenty odoslané na tlač prostredníctvom aplikácie <ph name="APP_NAME" /> môžete čítať pomocou aplikácie <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">Uložiť &amp;audio ako...</translation>
 <translation id="57646104491463491">Dátum úpravy</translation>
+<translation id="5764797882307050727">Uvoľnite miesto na zariadení.</translation>
 <translation id="5765491088802881382">Žiadne siete nie sú k dispozícii</translation>
 <translation id="5765780083710877561">Popis:</translation>
 <translation id="5771585441665576801">Prepis (geia → γεια)</translation>
@@ -3495,6 +3501,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="6122081475643980456">Vaše internetové pripojenie je ovládané</translation>
 <translation id="6122875415561139701">Operácia zápisu je na zariadení <ph name="DEVICE_NAME" /> zakázaná.</translation>
 <translation id="6124650939968185064">Od tohto rozšírenia závisia nasledujúce rozšírenia:</translation>
+<translation id="6125479973208104919">Do tohto zariadenia <ph name="DEVICE_TYPE" /> si žiaľ budete musieť znova pridať účet.</translation>
 <translation id="6129938384427316298">Netscape – komentár certifikátu</translation>
 <translation id="6129953537138746214">Medzera</translation>
 <translation id="6132383530370527946">Zmluvné podmienky</translation>
@@ -3875,6 +3882,7 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="6677037229676347494">Očakávané ID bolo „<ph name="EXPECTED_ID" />“. Skutočné ID bolo „<ph name="NEW_ID" />“.</translation>
 <translation id="6678717876183468697">Webová adresa dopytu</translation>
 <translation id="6680028776254050810">Prepnutie používateľov</translation>
+<translation id="6680442031740878064">K dispozícii: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Zaznamenať fotografiu</translation>
 <translation id="668171684555832681">Iný...</translation>
 <translation id="6681964764822470072">Aplikácia <ph name="APP_NAME" /> bude odinštalovaná.</translation>
@@ -4293,6 +4301,7 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="7348093485538360975">Klávesnica na obrazovke</translation>
 <translation id="7348749398828259943">Medzinárodná klávesnica US Workman</translation>
 <translation id="7352651011704765696">Vyskytla sa chyba</translation>
+<translation id="73534262421337222">Inštaluje sa závažná aktualizácia</translation>
 <translation id="7353651168734309780">Rozšírenie <ph name="EXTENSION_NAME" /> vyžaduje nové povolenia</translation>
 <translation id="735745346212279324">Sieť VPN je odpojená</translation>
 <translation id="7360183604634508679">Ponuka záložiek</translation>
@@ -4454,6 +4463,7 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Údaje Chromu boli vymazané</translation>
 <translation id="7568790562536448087">Prebieha aktualizácia</translation>
+<translation id="7571643774869182231">V úložisku nie je dostatok miesta na aktualizáciu</translation>
 <translation id="7573172247376861652">Nabíjanie batérie</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Kompletovať</translation>
@@ -4544,6 +4554,7 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="771953673318695590">Kontrola kvality</translation>
 <translation id="7720375555307821262">Ak chcete kontrolovať túto osobu, <ph name="BEGIN_LINK" />prihláste sa do Chromu<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Povoliť oknám zobrazenie cez viacero obrazoviek</translation>
+<translation id="7722040605881499779">Potrebné miesto na aktualizáciu: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Vystrihnúť</translation>
 <translation id="7728668285692163452">Zmena kanála sa použije neskôr</translation>
 <translation id="7730449930968088409">Zachytiť obsah obrazovky</translation>

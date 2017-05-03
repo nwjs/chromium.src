@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Sikkerhedskopiér medier fra enheden ved hjælp af appen Filer.</translation>
 <translation id="1341988552785875222">Den nuværende baggrund er konfigureret af "<ph name="APP_NAME" />". Det kan være nødvendigt at afinstallere "<ph name="APP_NAME" />", inden du vælger en anden baggrund.</translation>
 <translation id="1346748346194534595">Højre</translation>
+<translation id="1347975661240122359">Opdateringen starter, når batteriniveauet er på <ph name="BATTERY_LEVEL" /> %.</translation>
 <translation id="1351692861129622852">Importerer <ph name="FILE_COUNT" /> filer...</translation>
 <translation id="1352103415082130575">Thailandsk tastatur (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -921,6 +922,7 @@ Når du har oprettet en ny administreret bruger, kan du til enhver tid administr
 <translation id="2312980885338881851">Hov! Det ser ud til, at du ikke har nogen eksisterende administrerede bruger, der kan importeres. Opret en eller flere fra en anden enhed, så du kan importere dem her.</translation>
 <translation id="2316129865977710310">Nej tak</translation>
 <translation id="2317031807364506312">ANNULLER</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" /> % udført</translation>
 <translation id="2318143611928805047">Papirstørrelse</translation>
 <translation id="2318817390901984578">Hvis du vil bruge Android-apps, skal du oplade og opdatere din <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Aktuel inkognitosession (<ph name="EMBEDDING" />)</translation>
@@ -1856,6 +1858,7 @@ Fra <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Slå "<ph name="LOOKUP_STRING" />" op</translation>
 <translation id="3620292326130836921">Alt er sikkerhedskopieret.</translation>
 <translation id="3623574769078102674">Denne administrerede bruger administreres af <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Batteriniveauet er for lavt til at opdatere (<ph name="PROGRESS_PERCENT" /> %)</translation>
 <translation id="3625870480639975468">Nulstil zoom</translation>
 <translation id="3626281679859535460">Lysstyrke</translation>
 <translation id="3627052133907344175">Udvidelsen skal bruge "<ph name="IMPORT_NAME" />" med minimumversionen "<ph name="IMPORT_VERSION" />", men kun versionen "<ph name="INSTALLED_VERSION" />" er installeret.</translation>
@@ -2318,6 +2321,7 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="4336032328163998280">Kopieringen mislykkedes. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">I forbindelse med netværkslogfiler kan du se: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Hvis du vil downloade og bruge Android-apps, skal du først installere en opdatering. Du kan ikke bruge din enhed, mens den opdaterer. Din <ph name="DEVICE_TYPE" /> genstarter, når installationen er gennemført.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> ønsker at kommunikere med appen "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">Bloker altid websites fra at lagre data</translation>
 <translation id="4342311272543222243">Hov! Der opstod en TPM-fejl.</translation>
@@ -2813,6 +2817,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5111692334209731439">&amp;Bogmærkeadministrator</translation>
 <translation id="5112577000029535889">&amp;Udviklerværktøjer</translation>
 <translation id="5113739826273394829">Hvis du klikker på dette ikon, låses denne <ph name="DEVICE_TYPE" /> manuelt. Næste gang skal du indtaster adgangskoden for at få adgang.</translation>
+<translation id="5115309401544567011">Slut din <ph name="DEVICE_TYPE" /> til en strømkilde.</translation>
 <translation id="5116300307302421503">Filen kan ikke parses.</translation>
 <translation id="5116628073786783676">Ge&amp;m lyd som...</translation>
 <translation id="5117427536932535467">Temaer og baggrunde</translation>
@@ -3260,6 +3265,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5759728514498647443">De dokumenter, du sender til udskrift via <ph name="APP_NAME" />, kan læses af <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">&amp;Gem lyd som...</translation>
 <translation id="57646104491463491">Dato for ændring</translation>
+<translation id="5764797882307050727">Frigør plads på din enhed.</translation>
 <translation id="5765491088802881382">Der er ingen tilgængelige netværk</translation>
 <translation id="5765780083710877561">Beskrivelse:</translation>
 <translation id="5771585441665576801">Translitteration (geia → γεια)</translation>
@@ -3491,6 +3497,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="6122081475643980456">Din internetforbindelse bliver kontrolleret</translation>
 <translation id="6122875415561139701">Skrivehandlingen er ikke tilladt på: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">Følgende udvidelser er afhængige af denne udvidelse:</translation>
+<translation id="6125479973208104919">Du skal desværre føje din konto til denne <ph name="DEVICE_TYPE" /> igen.</translation>
 <translation id="6129938384427316298">Kommentar til Netscape-certifikat</translation>
 <translation id="6129953537138746214">Mellemrum</translation>
 <translation id="6132383530370527946">Det med småt</translation>
@@ -3872,6 +3879,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="6677037229676347494">Det forventede id er "<ph name="EXPECTED_ID" />", men id'et var "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">Webadresse for søgeforespørgsler</translation>
 <translation id="6680028776254050810">Skift bruger</translation>
+<translation id="6680442031740878064">Tilgængelig: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Tag billede</translation>
 <translation id="668171684555832681">Andre...</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" afinstalleres.</translation>
@@ -4290,6 +4298,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7348093485538360975">Skærmtastatur</translation>
 <translation id="7348749398828259943">Internationalt amerikansk Workman-tastatur</translation>
 <translation id="7352651011704765696">Der opstod en fejl</translation>
+<translation id="73534262421337222">Installerer vigtig opdatering</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> kræver nye tilladelser</translation>
 <translation id="735745346212279324">VPN afbrudt</translation>
 <translation id="7360183604634508679">Menuen Bogmærker</translation>
@@ -4451,6 +4460,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome-dataene blev ryddet</translation>
 <translation id="7568790562536448087">Opdatering</translation>
+<translation id="7571643774869182231">Der er ikke nok lagerplads til opdateringen</translation>
 <translation id="7573172247376861652">Batteriopladning</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Saml</translation>
@@ -4541,6 +4551,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262"><ph name="BEGIN_LINK" />Log ind på Chrome<ph name="END_LINK" /> for at administrere denne person.</translation>
 <translation id="7721179060400456005">Tillad, at vinduer kan dække flere skærme</translation>
+<translation id="7722040605881499779">Opdateringen kræver: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Klip</translation>
 <translation id="7728668285692163452">Ændringerne af kanalen træder i kraft senere</translation>
 <translation id="7730449930968088409">Tage et screenshot af dit indhold</translation>

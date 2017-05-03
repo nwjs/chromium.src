@@ -14,7 +14,6 @@
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
 <translation id="1293264513303784526">USB-C ডিভাইস (বাঁ পোর্ট)</translation>
 <translation id="1346748346194534595">ডানে</translation>
-<translation id="137180024469554212">আবর্তন লক অক্ষম করুন</translation>
 <translation id="1383876407941801731">অনুসন্ধান</translation>
 <translation id="1467432559032391204">বামে</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
@@ -36,6 +35,7 @@
 <translation id="1942830294380034169">ওভারফ্লো বোতাম</translation>
 <translation id="1957803754585243749">০°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2050339315714019657">প্রতিকৃতি</translation>
 <translation id="2122028596993374965"><ph name="TAB_NAME" /> কে <ph name="RECEIVER_NAME" /> এ কাস্ট করা বন্ধ করুন</translation>
 <translation id="2127372758936585790">নিম্ন শক্তির চার্জার</translation>
 <translation id="2208323208084708176">একীভূত ডেস্কটপ মোড</translation>
@@ -76,7 +76,6 @@ Search অথবা বাতিল করতে Shift টিপুন৷</trans
 <translation id="3126069444801937830">আপডেট করার জন্য পুনরারম্ভ করুন</translation>
 <translation id="3147142846278915599">লঞ্চার (অ্যাপ সিঙ্ক করা হচ্ছে...)</translation>
 <translation id="315116470104423982">মোবাইল ডেটা</translation>
-<translation id="3157169093162779309">আবর্তন লক সক্ষম করুন</translation>
 <translation id="3236488194889173876">কোনো মোবাইল নেটওয়ার্ক উপলব্ধ নেই</translation>
 <translation id="3294437725009624529">অতিথি</translation>
 <translation id="3335772982573114336">নতুন টীকা</translation>
@@ -197,6 +196,7 @@ Search অথবা বাতিল করতে Shift টিপুন৷</trans
 <translation id="7034339000180558234"><ph name="TAB_NAME" /> কে <ph name="RECEIVER_NAME" /> এ কাস্ট করা হচ্ছে</translation>
 <translation id="7052914147756339792">ওয়ালপেপার সেট করুন...</translation>
 <translation id="7066646422045619941">এই নেটওয়ার্কটি আপনার প্রশাসকের দ্বারা অক্ষম করা হয়েছে৷</translation>
+<translation id="7067196344162293536">স্বতঃ ঘূর্ণন</translation>
 <translation id="7097613348211027502">ChromeVox (কথ্য প্রতিক্রিয়া) সক্ষম রয়েছে৷ অক্ষম করার জন্য Ctrl+Alt+Z টিপুন৷</translation>
 <translation id="7098389117866926363">USB-C ডিভাইস (পিছনের বাঁ পোর্ট)</translation>
 <translation id="7129360219436193655">লেজার পয়েন্টার মোড</translation>
@@ -263,4 +263,5 @@ Alt+Search অথবা বাতিল করতে Shift টিপুন৷</t
 <translation id="923686485342484400">প্রস্থান করার জন্য দুবার Control Shift Q টিপুন৷</translation>
 <translation id="939252827960237676">স্ক্রীনশট সংরক্ষণ করতে ব্যর্থ হয়েছে</translation>
 <translation id="945522503751344254">প্রতিক্রিয়া পাঠান</translation>
+<translation id="98515147261107953">ল্যান্ডস্কেপ</translation>
 </translationbundle>

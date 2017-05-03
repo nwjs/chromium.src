@@ -14,7 +14,6 @@
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
 <translation id="1293264513303784526">Perangkat USB-C (port sebelah kiri)</translation>
 <translation id="1346748346194534595">Kanan</translation>
-<translation id="137180024469554212">Nonaktifkan penguncian rotasi</translation>
 <translation id="1383876407941801731">Telusuri</translation>
 <translation id="1467432559032391204">Kiri</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
@@ -29,6 +28,7 @@
 <translation id="1747827819627189109">Keyboard di layar diaktifkan</translation>
 <translation id="1823873187264960516">Ethernet: <ph name="ADDRESS" /></translation>
 <translation id="1850504506766569011">Wi-Fi dinonaktifkan.</translation>
+<translation id="1856813161013948396">Lewati layar kunci dengan hanya menge-tap sensor sidik jari. Klik untuk mengonfigurasi.</translation>
 <translation id="1864454756846565995">Perangkat USB-C (port belakang)</translation>
 <translation id="1882897271359938046">Mencerminkan ke <ph name="DISPLAY_NAME" /></translation>
 <translation id="1919743966458266018">Pintasan untuk membuka pengelola tugas telah berubah. Gunakan <ph name="NEW_SHORTCUT" /> sebagai ganti <ph name="OLD_SHORTCUT" />.</translation>
@@ -36,6 +36,7 @@
 <translation id="1942830294380034169">Tombol luapan</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2050339315714019657">Potret</translation>
 <translation id="2122028596993374965">Hentikan casting <ph name="TAB_NAME" /> ke <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Pengisi daya rendah</translation>
 <translation id="2208323208084708176">Mode desktop terpadu</translation>
@@ -77,7 +78,6 @@ Tekan Telusuri atau Shift untuk membatalkan.</translation>
 <translation id="3126069444801937830">Mulai ulang untuk memperbarui</translation>
 <translation id="3147142846278915599">Peluncur (menyinkronkan aplikasi...)</translation>
 <translation id="315116470104423982">Data seluler</translation>
-<translation id="3157169093162779309">Aktifkan penguncian rotasi</translation>
 <translation id="3236488194889173876">Jaringan seluler tidak tersedia</translation>
 <translation id="3294437725009624529">Tamu</translation>
 <translation id="3335772982573114336">Catatan baru</translation>
@@ -199,6 +199,7 @@ Tekan Telusuri atau Shift untuk membatalkan.</translation>
 <translation id="7034339000180558234">Mentransmisi <ph name="TAB_NAME" /> ke <ph name="RECEIVER_NAME" /></translation>
 <translation id="7052914147756339792">Setel wallpaper...</translation>
 <translation id="7066646422045619941">Jaringan ini dinonaktifkan oleh administrator Anda.</translation>
+<translation id="7067196344162293536">Putar otomatis</translation>
 <translation id="7097613348211027502">ChromeVox (masukan lisan) diaktifkan.
 Tekan Ctrl+Alt+Z untuk menonaktifkan.</translation>
 <translation id="7098389117866926363">Perangkat USB-C (port belakang sebelah kiri)</translation>
@@ -266,4 +267,5 @@ Tekan Alt+Telusuri atau Shift untuk membatalkan.</translation>
 <translation id="923686485342484400">Tekan Control Shift Q dua kali untuk keluar.</translation>
 <translation id="939252827960237676">Gagal menyimpan tangkapan layar</translation>
 <translation id="945522503751344254">Kirim masukan</translation>
+<translation id="98515147261107953">Lanskap</translation>
 </translationbundle>

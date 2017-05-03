@@ -14,7 +14,6 @@
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
 <translation id="1293264513303784526">USB-C device (port sa kaliwa)</translation>
 <translation id="1346748346194534595">Kanan</translation>
-<translation id="137180024469554212">I-disable ang lock sa pag-rotate</translation>
 <translation id="1383876407941801731">Hanapin</translation>
 <translation id="1467432559032391204">Kaliwa</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
@@ -36,6 +35,7 @@
 <translation id="1942830294380034169">Button na overflow</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2050339315714019657">Portrait</translation>
 <translation id="2122028596993374965">Ihinto ang pag-cast ng <ph name="TAB_NAME" /> sa <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Low-power charger</translation>
 <translation id="2208323208084708176">Unified desktop mode</translation>
@@ -77,7 +77,6 @@ Pindutin ang Search o Shift upang kanselahin.</translation>
 <translation id="3126069444801937830">I-restart upang mag-update</translation>
 <translation id="3147142846278915599">Launcher (nagsi-sync ng mga app...)</translation>
 <translation id="315116470104423982">Data sa mobile</translation>
-<translation id="3157169093162779309">I-enable ang lock sa pag-rotate</translation>
 <translation id="3236488194889173876">Walang available na mobile network</translation>
 <translation id="3294437725009624529">Bisita</translation>
 <translation id="3335772982573114336">Bagong tala</translation>
@@ -199,6 +198,7 @@ Pindutin ang Search o Shift upang kanselahin.</translation>
 <translation id="7034339000180558234">Kina-cast ang <ph name="TAB_NAME" /> sa <ph name="RECEIVER_NAME" /></translation>
 <translation id="7052914147756339792">Magtakda ng wallpaper...</translation>
 <translation id="7066646422045619941">Na-disable ng iyong administrator ang network na ito.</translation>
+<translation id="7067196344162293536">Awtomatikong pag-rotate</translation>
 <translation id="7097613348211027502">Naka-enable ang ChromeVox (pasalitang feedback).
 Pindutin ang Ctrl+Alt+Z upang i-disable.</translation>
 <translation id="7098389117866926363">USB-C device (kaliwang port sa likod)</translation>
@@ -266,4 +266,5 @@ Pindutin ang Alt+Search o Shift upang kanselahin.</translation>
 <translation id="923686485342484400">Pindutin ang Control Shift Q nang dalawang beses upang mag-sign out.</translation>
 <translation id="939252827960237676">Nabigong i-save ang screenshot</translation>
 <translation id="945522503751344254">Magpadala ng feedback...</translation>
+<translation id="98515147261107953">Landscape</translation>
 </translationbundle>

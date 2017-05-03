@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Back up media from the device using the Files app.</translation>
 <translation id="1341988552785875222">The current wallpaper is set by '<ph name="APP_NAME" />'. You may need to uninstall '<ph name="APP_NAME" />' before selecting a different wallpaper.</translation>
 <translation id="1346748346194534595">Right</translation>
+<translation id="1347975661240122359">Update will begin when battery reaches <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Importing <ph name="FILE_COUNT" /> files...</translation>
 <translation id="1352103415082130575">Thai keyboard (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -926,6 +927,7 @@ After you create a new supervised user, you can manage their settings at any tim
 <translation id="2312980885338881851">Oops! Looks like you have no existing supervised users to import. Please create one or more from another device then you can import them here.</translation>
 <translation id="2316129865977710310">No, thank you</translation>
 <translation id="2317031807364506312">CANCEL</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% done</translation>
 <translation id="2318143611928805047">Paper size</translation>
 <translation id="2318817390901984578">To use Android apps, charge &amp; update your <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Current incognito session (<ph name="EMBEDDING" />)</translation>
@@ -1857,6 +1859,7 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Look Up “<ph name="LOOKUP_STRING" />”</translation>
 <translation id="3620292326130836921">All backed up!</translation>
 <translation id="3623574769078102674">This supervised user will be managed by <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Battery too low for update (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Reset zoom</translation>
 <translation id="3626281679859535460">Brightness</translation>
 <translation id="3627052133907344175">Extension requires "<ph name="IMPORT_NAME" />" with a minimum version "<ph name="IMPORT_VERSION" />", but only version "<ph name="INSTALLED_VERSION" />" is installed.</translation>
@@ -2320,6 +2323,7 @@ All users must sign out to continue.</translation>
 Press any key to continue exploring.</translation>
 <translation id="4336032328163998280">Copy operation failed. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">For network logs, see: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">To download and use Android apps, first you need to install an update. While your device is updating, you can’t use it. Your <ph name="DEVICE_TYPE" /> will restart after installation completes.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> wants to communicate with the app "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">Block sites from setting any data</translation>
 <translation id="4342311272543222243">Oops, TPM error.</translation>
@@ -2815,6 +2819,7 @@ Press any key to continue exploring.</translation>
 <translation id="5111692334209731439">&amp;Bookmark Manager</translation>
 <translation id="5112577000029535889">&amp;Developer Tools</translation>
 <translation id="5113739826273394829">If you click this icon, you will manually lock this <ph name="DEVICE_TYPE" />. Next time, you’ll need to type your password to enter.</translation>
+<translation id="5115309401544567011">Please plug your <ph name="DEVICE_TYPE" /> into a power source.</translation>
 <translation id="5116300307302421503">Unable to parse file.</translation>
 <translation id="5116628073786783676">Sa&amp;ve Audio As...</translation>
 <translation id="5117427536932535467">Themes &amp; Wallpapers</translation>
@@ -3263,6 +3268,7 @@ Press any key to continue exploring.</translation>
 <translation id="5759728514498647443">Documents that you send to print via <ph name="APP_NAME" /> can be read by <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">Sa&amp;ve audio as...</translation>
 <translation id="57646104491463491">Date Modified</translation>
+<translation id="5764797882307050727">Please free up some space on your device.</translation>
 <translation id="5765491088802881382">No networks are available</translation>
 <translation id="5765780083710877561">Description:</translation>
 <translation id="5771585441665576801">Transliteration (geia → γεια)</translation>
@@ -3494,6 +3500,7 @@ Press any key to continue exploring.</translation>
 <translation id="6122081475643980456">Your Internet connection is being controlled</translation>
 <translation id="6122875415561139701">Write operation is not permitted on: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">The following extensions depend on this extension:</translation>
+<translation id="6125479973208104919">Unfortunately, you'll need to add your account to this <ph name="DEVICE_TYPE" /> again.</translation>
 <translation id="6129938384427316298">Netscape Certificate Comment</translation>
 <translation id="6129953537138746214">Space</translation>
 <translation id="6132383530370527946">The small print</translation>
@@ -3874,6 +3881,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="6677037229676347494">Expected ID "<ph name="EXPECTED_ID" />", but ID was "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">Query URL</translation>
 <translation id="6680028776254050810">Change Users</translation>
+<translation id="6680442031740878064">Available: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Take photo</translation>
 <translation id="668171684555832681">Other...</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" will be uninstalled.</translation>
@@ -4293,6 +4301,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7348093485538360975">On-Screen Keyboard</translation>
 <translation id="7348749398828259943">US Workman international keyboard</translation>
 <translation id="7352651011704765696">Something went wrong</translation>
+<translation id="73534262421337222">Installing critical update</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> requires new permissions</translation>
 <translation id="735745346212279324">VPN disconnected</translation>
 <translation id="7360183604634508679">Bookmarks menu</translation>
@@ -4454,6 +4463,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Cleared Chrome data</translation>
 <translation id="7568790562536448087">Updating</translation>
+<translation id="7571643774869182231">Not enough storage for update</translation>
 <translation id="7573172247376861652">Battery Charge</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Collate</translation>
@@ -4544,6 +4554,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">To supervise this person, <ph name="BEGIN_LINK" />sign in to Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Allow windows to span displays</translation>
+<translation id="7722040605881499779">Needed to update: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Cut</translation>
 <translation id="7728668285692163452">Channel change will be applied later</translation>
 <translation id="7730449930968088409">Capture content of your screen</translation>

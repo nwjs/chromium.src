@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">‏احتفظ بنسخة احتياطية للوسائط من الجهاز باستخدام تطبيق Files.</translation>
 <translation id="1341988552785875222">يتم تعيين الخلفية الحالية من قبل '<ph name="APP_NAME" />'. قد يلزمك إلغاء تثبيت '<ph name="APP_NAME" />' قبل تحديد خلفية مختلفة.</translation>
 <translation id="1346748346194534595">يمين</translation>
+<translation id="1347975661240122359">سيبدأ التحديث عندما يصل مستوى البطارية إلى <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">جار استيراد ملفات <ph name="FILE_COUNT" /> ...</translation>
 <translation id="1352103415082130575">‏لوحة المفاتيح التايلاندية (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -925,6 +926,7 @@
 <translation id="2312980885338881851">عفوًا، يبدو أنه لا يوجد لديك مستخدمون يخضعون للإشراف حتى يتم استيرادهم. يُرجى إنشاء مستخدم أو أكثر من جهاز آخر، ومن ثمّ يُمكنك استيرادهم هنا.</translation>
 <translation id="2316129865977710310">لا، شكرًا</translation>
 <translation id="2317031807364506312">إلغاء</translation>
+<translation id="2317842250900878657">تم إكمال <ph name="PROGRESS_PERCENT" />%</translation>
 <translation id="2318143611928805047">حجم الورق</translation>
 <translation id="2318817390901984578">‏لاستخدام تطبيقات Android، اشحن جهاز <ph name="DEVICE_TYPE" /> وحدِّثه.</translation>
 <translation id="2318923050469484167">جلسة التصفح المتخفي الحالية (<ph name="EMBEDDING" />)</translation>
@@ -1854,6 +1856,7 @@
 <translation id="3618849550573277856">البحث عن "<ph name="LOOKUP_STRING" />"</translation>
 <translation id="3620292326130836921">تم نسخ جميع العناصر احتياطيًا</translation>
 <translation id="3623574769078102674">هذا المستخدم الذي يخضع للإشراف ستتم إدارته عن طريق <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">مستوى البطارية ضعيف جدًا لإجراء التحديث (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">إعادة تعيين التكبير/التصغير</translation>
 <translation id="3626281679859535460">السطوع</translation>
 <translation id="3627052133907344175">تتطلب الإضافة "<ph name="IMPORT_NAME" />" مع إصدار أدنى "<ph name="IMPORT_VERSION" />"، ولكن لا يتم تثبيت سوى "<ph name="INSTALLED_VERSION" />".</translation>
@@ -2314,6 +2317,7 @@
 اضغط على أي مفتاح لمتابعة الاستكشاف.</translation>
 <translation id="4336032328163998280">أخفقت عملية النسخ. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">لسجلات الشبكة، راجع: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">‏لتنزيل تطبيقات Android واستخدامها، تحتاج أولاً إلى تثبت التحديث. وأثناء تحديث الجهاز، لا يمكنك استخدامه. ستتم إعادة تشغيل جهاز <ph name="DEVICE_TYPE" /> بعد إكمال التحديث.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> يريد التواصل مع التطبيق "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">منع المواقع من تخزين أية بيانات</translation>
 <translation id="4342311272543222243">‏عفوا، حدث خطأ TPM.</translation>
@@ -2808,6 +2812,7 @@
 <translation id="5111692334209731439">&amp;مدير الإشارات</translation>
 <translation id="5112577000029535889">&amp;أدوات المطورين</translation>
 <translation id="5113739826273394829">إذا نقرت على هذا الرمز، فستقوم بقفل جهاز <ph name="DEVICE_TYPE" /> هذا يدويًا. في المرة القادمة، ستحتاج إلى كتابة كلمة مرورك للدخول.</translation>
+<translation id="5115309401544567011">يُرجى توصيل جهاز <ph name="DEVICE_TYPE" /> بمصدر طاقة.</translation>
 <translation id="5116300307302421503">تعذر تحليل الملف.</translation>
 <translation id="5116628073786783676">حف&amp;ظ ملف الصوت باسم...</translation>
 <translation id="5117427536932535467">المظاهر والخلفيات</translation>
@@ -3256,6 +3261,7 @@
 <translation id="5759728514498647443">يمكن قراءة المستندات التي ترسلها إلى الطباعة عبر <ph name="APP_NAME" /> بواسطة <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">حف&amp;ظ ملف الصوت باسم...</translation>
 <translation id="57646104491463491">تاريخ التعديل</translation>
+<translation id="5764797882307050727">يُرجى إخلاء بعض المساحة على جهازك.</translation>
 <translation id="5765491088802881382">لا تتوفر أية شبكات</translation>
 <translation id="5765780083710877561">الوصف:</translation>
 <translation id="5771585441665576801">‏التحويل الصوتي (جيا ← γεια)</translation>
@@ -3487,6 +3493,7 @@
 <translation id="6122081475643980456">يتم التحكم في اتصال الإنترنت التابع لك</translation>
 <translation id="6122875415561139701">لا يُسمح بعملية الكتابة على: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">تعتمد الإضافات التالية على هذه الإضافة:</translation>
+<translation id="6125479973208104919">عذرًا، ستحتاج إلى إضافة حسابك إلى جهاز <ph name="DEVICE_TYPE" /> هذا مرة أخرى.</translation>
 <translation id="6129938384427316298">‏التعليق على شهادة Netscape</translation>
 <translation id="6129953537138746214">مسافة</translation>
 <translation id="6132383530370527946">اتفاقية المستخدم</translation>
@@ -3868,6 +3875,7 @@
 <translation id="6677037229676347494">المعرف المتوقع "<ph name="EXPECTED_ID" />"، ولكن المعرف كان "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">‏عنوان URL للاستعلام</translation>
 <translation id="6680028776254050810">التبديل بين المستخدمين</translation>
+<translation id="6680442031740878064">المساحة المتاحة: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">التقاط صورة</translation>
 <translation id="668171684555832681">ملف تعريف آخر...</translation>
 <translation id="6681964764822470072">سيتم إلغاء تثبيت "<ph name="APP_NAME" />".</translation>
@@ -4287,6 +4295,7 @@
 <translation id="7348093485538360975">لوحة المفاتيح على الشاشة</translation>
 <translation id="7348749398828259943">‏لوحة مفاتيح US Workman الدولية</translation>
 <translation id="7352651011704765696">حدث خطأ ما</translation>
+<translation id="73534262421337222">جارٍ تثبيت تحديث مهم</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> تتطلب أذونات جديدة</translation>
 <translation id="735745346212279324">تم قطع اتصال الشبكة الظاهرية الخاصة</translation>
 <translation id="7360183604634508679">قائمة الإشارات</translation>
@@ -4448,6 +4457,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">‏بيانات Chrome التي تم محوها</translation>
 <translation id="7568790562536448087">تحديث</translation>
+<translation id="7571643774869182231">لا تتوفر سعة تخزين كافية لإجراء التحديث</translation>
 <translation id="7573172247376861652">شحن البطارية</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">تجميع</translation>
@@ -4538,6 +4548,7 @@
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">‏للإشراف على هذا الشخص، <ph name="BEGIN_LINK" />سجّل الدخول إلى Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">السماح للنوافذ بتوحيد العروض</translation>
+<translation id="7722040605881499779">المساحة اللازمة لإجراء التحديث: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">قص</translation>
 <translation id="7728668285692163452">سيتم تطبيق تغييرات القناة في وقت لاحق</translation>
 <translation id="7730449930968088409">التقاط محتوى الشاشة</translation>

@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Feu una còpia de seguretat dels fitxers multimèdia del dispositiu mitjançant l'aplicació Fitxers.</translation>
 <translation id="1341988552785875222"><ph name="APP_NAME" /> ha definit el fons de pantalla actual. És possible que hàgiu de desinstal·lar <ph name="APP_NAME" /> per poder seleccionar-ne un altre.</translation>
 <translation id="1346748346194534595">A la dreta</translation>
+<translation id="1347975661240122359">L'actualització començarà quan hi hagi un <ph name="BATTERY_LEVEL" />% de bateria.</translation>
 <translation id="1351692861129622852">S'estan important <ph name="FILE_COUNT" /> fitxers...</translation>
 <translation id="1352103415082130575">Teclat tailandès (pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -924,6 +925,7 @@ Quan hàgiu creat un usuari supervisat, podeu gestionar-ne la configuració en q
 <translation id="2312980885338881851">Sembla que no teniu cap usuari supervisat per importar. Creeu-ne almenys un des d'un altre dispositiu per poder importar-lo aquí.</translation>
 <translation id="2316129865977710310">No, gràcies</translation>
 <translation id="2317031807364506312">CANCEL·LA</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% complet</translation>
 <translation id="2318143611928805047">Mida del paper</translation>
 <translation id="2318817390901984578">Per utilitzar les aplicacions d'Android, canvia i actualitza el dispositiu <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Sessió d'incògnit actual (<ph name="EMBEDDING" />)</translation>
@@ -1854,6 +1856,7 @@ Del domini <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Cerca "<ph name="LOOKUP_STRING" />"</translation>
 <translation id="3620292326130836921">Tots els elements tenen una còpia de seguretat.</translation>
 <translation id="3623574769078102674"><ph name="MANAGER_EMAIL" /> gestionarà aquest usuari supervisat.</translation>
+<translation id="3624814222765772771">No hi ha prou bateria per fer l'actualització (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Restableix el zoom</translation>
 <translation id="3626281679859535460">Brillantor</translation>
 <translation id="3627052133907344175">L'extensió requereix "<ph name="IMPORT_NAME" />" amb "<ph name="IMPORT_VERSION" />" com a versió mínima, però només hi ha instal·lada la versió "<ph name="INSTALLED_VERSION" />".</translation>
@@ -2316,6 +2319,7 @@ Tots els usuaris han de tancar la sessió per continuar.</translation>
 Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="4336032328163998280">L'operació de còpia ha fallat. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Si voleu veure els registres de xarxa, consulteu: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Per baixar i utilitzar les aplicacions d'Android, primer has d'instal·lar una actualització. Mentre el dispositiu s'estigui actualitzant, no el podràs utilitzar. El dispositiu <ph name="DEVICE_TYPE" /> es reiniciarà un cop finalitzi la instal·lació.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> es vol comunicar amb l'aplicació "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">No permetis que s'emmagatzemin dades dels llocs</translation>
 <translation id="4342311272543222243">S'ha produït un error de TPM.</translation>
@@ -2809,6 +2813,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="5111692334209731439">&amp;Gestor d'adreces d'interès</translation>
 <translation id="5112577000029535889">&amp;Eines per a desenvolupadors</translation>
 <translation id="5113739826273394829">Si feu clic en aquesta icona, bloquejareu aquest dispositiu <ph name="DEVICE_TYPE" />. La propera vegada, haureu d'escriure la contrasenya per accedir-hi.</translation>
+<translation id="5115309401544567011">Endolla el dispositiu <ph name="DEVICE_TYPE" /> a una font d'alimentació.</translation>
 <translation id="5116300307302421503">No es pot analitzar el fitxer.</translation>
 <translation id="5116628073786783676">De&amp;sa l'àudio com a...</translation>
 <translation id="5117427536932535467">Temes i fons de pantalla</translation>
@@ -3257,6 +3262,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="5759728514498647443"><ph name="APP_NAME" /> pot llegir els documents que envieu a la impressora mitjançant <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">De&amp;sa l'àudio com a...</translation>
 <translation id="57646104491463491">Data de modificació</translation>
+<translation id="5764797882307050727">Allibera espai al dispositiu.</translation>
 <translation id="5765491088802881382">No hi ha cap xarxa disponible</translation>
 <translation id="5765780083710877561">Descripció:</translation>
 <translation id="5771585441665576801">Transliteració (geia → γεια)</translation>
@@ -3488,6 +3494,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="6122081475643980456">La vostra connexió a Internet s'està controlant</translation>
 <translation id="6122875415561139701">L'operació d'escriptura no es permet a <ph name="DEVICE_NAME" />.</translation>
 <translation id="6124650939968185064">D'aquesta extensió en depenen les extensions següents:</translation>
+<translation id="6125479973208104919">Cal que tornis a afegir el teu compte en aquest <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Comentari de certificat de Netscape</translation>
 <translation id="6129953537138746214">Espai</translation>
 <translation id="6132383530370527946">La imatge petita</translation>
@@ -3867,6 +3874,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="6677037229676347494">L'ID esperat era "<ph name="EXPECTED_ID" />", però el real era "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">URL de la consulta</translation>
 <translation id="6680028776254050810">Canvia els usuaris</translation>
+<translation id="6680442031740878064">Disponible: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Fes una foto</translation>
 <translation id="668171684555832681">Altres...</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" es desinstal·larà.</translation>
@@ -4286,6 +4294,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="7348093485538360975">Teclat en pantalla</translation>
 <translation id="7348749398828259943">Teclat Workman nord-americà internacional</translation>
 <translation id="7352651011704765696">S'ha produït un error</translation>
+<translation id="73534262421337222">S'està instal·lant una actualització molt important</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> necessita permisos nous</translation>
 <translation id="735745346212279324">VPN desconnectada</translation>
 <translation id="7360183604634508679">Menú d'adreces d'interès</translation>
@@ -4439,6 +4448,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">S'han esborrat les dades de Chrome</translation>
 <translation id="7568790562536448087">Actualització</translation>
+<translation id="7571643774869182231">No hi ha prou espai d'emmagatzematge per fer l'actualització</translation>
 <translation id="7573172247376861652">Càrrega de la bateria</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Intercala</translation>
@@ -4529,6 +4539,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="771953673318695590">Control de qualitat</translation>
 <translation id="7720375555307821262"><ph name="BEGIN_LINK" />Inicieu la sessió a Chrome<ph name="END_LINK" /> per supervisar aquesta persona.</translation>
 <translation id="7721179060400456005">Permet que les finestres ocupin diverses pantalles</translation>
+<translation id="7722040605881499779">Espai necessari per fer l'actualització: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Retalla</translation>
 <translation id="7728668285692163452">El canvi de canal s'aplicarà més tard</translation>
 <translation id="7730449930968088409">Captura del contingut de la pantalla</translation>

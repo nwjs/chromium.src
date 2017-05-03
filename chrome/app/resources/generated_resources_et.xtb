@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Seadme meediumi varundamine rakendusega Failid.</translation>
 <translation id="1341988552785875222">Praeguse taustapildi määras rakendus „<ph name="APP_NAME" />”. Enne teise taustapildi valimist peate rakenduse „<ph name="APP_NAME" />” võib-olla desinstallima.</translation>
 <translation id="1346748346194534595">Paremale</translation>
+<translation id="1347975661240122359">Värskendamine algab, kui akutase jõuab <ph name="BATTERY_LEVEL" />%-ni.</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> faili importimine ...</translation>
 <translation id="1352103415082130575">Tai klaviatuur (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -925,6 +926,7 @@ Kui olete loonud uue jälgitava kasutaja, saate tema seadeid mis tahes ajal ja s
 <translation id="2312980885338881851">Vabandust! Tundub, et teil pole ühtegi jälgitavat kasutajat, keda importida. Looge teises seadmes üks või rohkem kasutajat ja saate nad siia importida.</translation>
 <translation id="2316129865977710310">Ei, aitäh</translation>
 <translation id="2317031807364506312">TÜHISTA</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% on valmis</translation>
 <translation id="2318143611928805047">Paberi suurus</translation>
 <translation id="2318817390901984578">Androidi rakenduste kasutamiseks laadige ja värskendage oma seadet <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Praegune inkognito seanss (<ph name="EMBEDDING" />)</translation>
@@ -1857,6 +1859,7 @@ Asukohast <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Otsi terminit „<ph name="LOOKUP_STRING" />”</translation>
 <translation id="3620292326130836921">Kõik on varundatud.</translation>
 <translation id="3623574769078102674">Seda valvatavat kasutajat haldab <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Aku on värskendamiseks liiga tühi (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Lähtestab suumimise</translation>
 <translation id="3626281679859535460">Eredus</translation>
 <translation id="3627052133907344175">Laiendus nõuab üksust „<ph name="IMPORT_NAME" />” minimaalse versiooniga „<ph name="IMPORT_VERSION" />”, kuid installitud on ainult versioon „<ph name="INSTALLED_VERSION" />”.</translation>
@@ -2319,6 +2322,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="4335713051520279344">Arvuti taaskäivitub 1 sekundi pärast. Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="4336032328163998280">Kopeerimine ebaõnnestus. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Võrgulogisid vaadake: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Androidi rakenduste allalaadimiseks ja kasutamiseks peate esmalt installima värskenduse. Seadme värskendamise ajal ei saa te seda kasutada. Seade <ph name="DEVICE_TYPE" /> taaskäivitatakse pärast installimise lõpetamist.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> tahab suhelda rakendusega „<ph name="EXTENSION_NAME" />”</translation>
 <translation id="4341977339441987045">Blokeeri saidid mis tahes andmete seadistamisest</translation>
 <translation id="4342311272543222243">Vabandust! Ilmnes TPM-i viga.</translation>
@@ -2814,6 +2818,7 @@ Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="5111692334209731439">&amp;Järjehoidjate haldur</translation>
 <translation id="5112577000029535889">Arenda&amp;ja tööriistad</translation>
 <translation id="5113739826273394829">Kui klõpsate ikoonil, siis lukustate seadme <ph name="DEVICE_TYPE" /> käsitsi. Jätmine kord peate sellisel juhul sisestama avamiseks parooli.</translation>
+<translation id="5115309401544567011">Ühendage seade <ph name="DEVICE_TYPE" /> toiteallikaga.</translation>
 <translation id="5116300307302421503">Faili ei saa sõeluda.</translation>
 <translation id="5116628073786783676">Sa&amp;lvesta heli nimega...</translation>
 <translation id="5117427536932535467">Teemad ja taustapildid</translation>
@@ -3262,6 +3267,7 @@ Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="5759728514498647443">Rakenduse <ph name="APP_NAME" /> kaudu printimiseks saadetud dokumente saab lugeda rakenduse <ph name="APP_NAME" /> järgi.</translation>
 <translation id="5764483294734785780">Sa&amp;lvesta heli nimega ...</translation>
 <translation id="57646104491463491">Muutmise kuupäev</translation>
+<translation id="5764797882307050727">Vabastage seadmes ruumi.</translation>
 <translation id="5765491088802881382">Ühtki võrku pole saadaval</translation>
 <translation id="5765780083710877561">Kirjeldus:</translation>
 <translation id="5771585441665576801">Transliteratsioon (geia → γεια)</translation>
@@ -3493,6 +3499,7 @@ Uurimise jätkamiseks vajutage mis tahes klahvi.</translation>
 <translation id="6122081475643980456">Teie Interneti-ühendust juhitakse</translation>
 <translation id="6122875415561139701">Kirjutamistoiming pole seadmes „<ph name="DEVICE_NAME" />” lubatud.</translation>
 <translation id="6124650939968185064">Sellest laiendusest sõltuvad järgmised laiendused:</translation>
+<translation id="6125479973208104919">Kahjuks peate oma konto seadmesse <ph name="DEVICE_TYPE" /> uuesti lisama.</translation>
 <translation id="6129938384427316298">Netscape'i sertifikaadi kommentaar</translation>
 <translation id="6129953537138746214">Tühik</translation>
 <translation id="6132383530370527946">Väikses kirjas</translation>
@@ -3873,6 +3880,7 @@ Kasutage seda funktsiooni vaid kontode puhul, mida usaldate.</translation>
 <translation id="6677037229676347494">Eeldatav ID oli „<ph name="EXPECTED_ID" />”, kuid ID oli „<ph name="NEW_ID" />”.</translation>
 <translation id="6678717876183468697">Päringu URL</translation>
 <translation id="6680028776254050810">Kasutaja vahetamine</translation>
+<translation id="6680442031740878064">Saadaval: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Tee foto</translation>
 <translation id="668171684555832681">Muu...</translation>
 <translation id="6681964764822470072">Rakendus „<ph name="APP_NAME" />” desinstallitakse.</translation>
@@ -4291,6 +4299,7 @@ Kasutage seda funktsiooni vaid kontode puhul, mida usaldate.</translation>
 <translation id="7348093485538360975">Ekraanil kuvatav klaviatuur</translation>
 <translation id="7348749398828259943">USA Workmani rahvusvaheline klaviatuur</translation>
 <translation id="7352651011704765696">Midagi läks valesti</translation>
+<translation id="73534262421337222">Kriitilise värskenduse installimine</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> nõuab uusi lubasid</translation>
 <translation id="735745346212279324">VPN-i ühendus on katkestatud</translation>
 <translation id="7360183604634508679">Järjehoidjate menüü</translation>
@@ -4452,6 +4461,7 @@ Kasutage seda funktsiooni vaid kontode puhul, mida usaldate.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome'i andmed kustutati</translation>
 <translation id="7568790562536448087">Värskendamine</translation>
+<translation id="7571643774869182231">Värskendamiseks pole piisavalt salvestusruumi</translation>
 <translation id="7573172247376861652">Aku laadimine</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Eksemplarhaaval</translation>
@@ -4542,6 +4552,7 @@ Kasutage seda funktsiooni vaid kontode puhul, mida usaldate.</translation>
 <translation id="771953673318695590">Kvaliteedikontroll</translation>
 <translation id="7720375555307821262">Selle inimese jälgimiseks <ph name="BEGIN_LINK" />logige Chrome'i sisse<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Luba kuva laiendada üle mitme ekraani</translation>
+<translation id="7722040605881499779">Värskendamiseks vajalik: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Lõika</translation>
 <translation id="7728668285692163452">Kanali muudatus rakendatakse hiljem</translation>
 <translation id="7730449930968088409">Ekraanil oleva sisu jäädvustamine</translation>

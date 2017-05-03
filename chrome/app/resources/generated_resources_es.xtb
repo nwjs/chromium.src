@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Realiza una copia de seguridad de los archivos multimedia desde el dispositivo con la aplicación Archivos.</translation>
 <translation id="1341988552785875222">'<ph name="APP_NAME" />' ha establecido el fondo de pantalla actual. Es posible que tengas que desinstalar '<ph name="APP_NAME" />' para seleccionar otro fondo de pantalla.</translation>
 <translation id="1346748346194534595">Derecha</translation>
+<translation id="1347975661240122359">La actualización comenzará cuando tengas un <ph name="BATTERY_LEVEL" />% de batería.</translation>
 <translation id="1351692861129622852">Importando <ph name="FILE_COUNT" /> archivos...</translation>
 <translation id="1352103415082130575">Teclado tailandés (pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -925,6 +926,7 @@ Una vez que hayas creado un nuevo usuario supervisado, podrás administrar su co
 <translation id="2312980885338881851">¡Vaya! Parece que no hay usuarios supervisados para importar. Crea uno o varios usuarios supervisados desde otro dispositivo y, a continuación, impórtalos aquí.</translation>
 <translation id="2316129865977710310">No, gracias</translation>
 <translation id="2317031807364506312">CANCELAR</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% listo</translation>
 <translation id="2318143611928805047">Tamaño del papel</translation>
 <translation id="2318817390901984578">Para usar aplicaciones de Android, carga y actualiza tu <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Sesión de incógnito actual (<ph name="EMBEDDING" />)</translation>
@@ -1857,6 +1859,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="3618849550573277856">Buscar <ph name="LOOKUP_STRING" /></translation>
 <translation id="3620292326130836921">Se ha realizado la copia de seguridad de todos los archivos</translation>
 <translation id="3623574769078102674">Este usuario supervisado será administrado por <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">No tienes suficiente batería para instalar la actualización (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Restablecer zoom</translation>
 <translation id="3626281679859535460">Brillo</translation>
 <translation id="3627052133907344175">La extensión necesita <ph name="IMPORT_NAME" /> con la versión <ph name="IMPORT_VERSION" /> como mínimo, pero solo está instalada la versión <ph name="INSTALLED_VERSION" />.</translation>
@@ -2319,6 +2322,7 @@ Todos los usuarios deben cerrar sesión para continuar.</translation>
 Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4336032328163998280">No se ha podido realizar la operación de copia (<ph name="ERROR_MESSAGE" />).</translation>
 <translation id="4336979451636460645">Puedes consultar los registros de red en la página <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Para descargar y utilizar aplicaciones de Android, debes instalar una actualización. No puedes utilizar el dispositivo mientras se actualiza. Tu <ph name="DEVICE_TYPE" /> se reiniciará cuando se complete la instalación.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> quiere comunicarse con la aplicación <ph name="EXTENSION_NAME" /></translation>
 <translation id="4341977339441987045">No permitir que se guarden datos de los sitios</translation>
 <translation id="4342311272543222243">¡Vaya! Se ha producido un error de TPM</translation>
@@ -2813,6 +2817,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="5111692334209731439">&amp;Administrador de marcadores</translation>
 <translation id="5112577000029535889">&amp;Herramientas para desarrolladores</translation>
 <translation id="5113739826273394829">Si haces clic en este icono, bloquearás manualmente este <ph name="DEVICE_TYPE" />. La próxima vez, deberás introducir la contraseña para poder acceder.</translation>
+<translation id="5115309401544567011">Enchufa tu <ph name="DEVICE_TYPE" /> a una fuente de alimentación.</translation>
 <translation id="5116300307302421503">No se ha podido analizar el archivo.</translation>
 <translation id="5116628073786783676">G&amp;uardar audio como...</translation>
 <translation id="5117427536932535467">Temas y fondos de pantalla</translation>
@@ -3259,6 +3264,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="5759728514498647443"><ph name="APP_NAME" /> puede leer los documentos que envías para imprimirse a través de <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">G&amp;uardar audio como...</translation>
 <translation id="57646104491463491">Fecha de modificación</translation>
+<translation id="5764797882307050727">Libera espacio en el dispositivo.</translation>
 <translation id="5765491088802881382">No hay redes disponibles</translation>
 <translation id="5765780083710877561">Descripción:</translation>
 <translation id="5771585441665576801">Transliteración (geia → γεια)</translation>
@@ -3490,6 +3496,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6122081475643980456">Tu conexión a Internet está siendo controlada</translation>
 <translation id="6122875415561139701">No se permite la operación de escritura en "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">Las siguientes extensiones dependen de esta extensión:</translation>
+<translation id="6125479973208104919">Debes volver a añadir una cuenta a este <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Comentario del certificado de Netscape</translation>
 <translation id="6129953537138746214">Espacio</translation>
 <translation id="6132383530370527946">Letra pequeña</translation>
@@ -3869,6 +3876,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="6677037229676347494">Se esperaba un ID "<ph name="EXPECTED_ID" />", pero el ID fue "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">URL de la consulta</translation>
 <translation id="6680028776254050810">Cambiar usuario</translation>
+<translation id="6680442031740878064">Disponible: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Sacar foto</translation>
 <translation id="668171684555832681">Otros...</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" se desinstalará.</translation>
@@ -4287,6 +4295,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="7348093485538360975">Teclado en pantalla</translation>
 <translation id="7348749398828259943">Teclado internacional estilo Workman (EE. UU.)</translation>
 <translation id="7352651011704765696">Se ha producido un problema</translation>
+<translation id="73534262421337222">Se está instalando una actualización importante</translation>
 <translation id="7353651168734309780">Se necesitan nuevos permisos para <ph name="EXTENSION_NAME" /></translation>
 <translation id="735745346212279324">VPN desconectada</translation>
 <translation id="7360183604634508679">Menú de marcadores</translation>
@@ -4424,7 +4433,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="7544853251252956727">Reproducir aleatoriamente</translation>
 <translation id="7545415673537747415">Controla cómo utiliza Google tu historial de navegación para personalizar la Búsqueda, los anuncios y otros servicios en la página <ph name="BEGIN_LINK" />Controles de la actividad de tu cuenta de Google<ph name="END_LINK" />.</translation>
 <translation id="7547317915858803630">Advertencia: la configuración de <ph name="PRODUCT_NAME" /> se almacena en una unidad de red, lo que puede provocar ralentizaciones, fallos e incluso pérdidas de datos.</translation>
-<translation id="7547811415869834682">Holandés</translation>
+<translation id="7547811415869834682">neerlandés</translation>
 <translation id="7548856833046333824">Cóctel</translation>
 <translation id="7549053541268690807">Buscar en el diccionario</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
@@ -4447,6 +4456,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Datos de Chrome borrados</translation>
 <translation id="7568790562536448087">Actualización</translation>
+<translation id="7571643774869182231">No hay espacio suficiente para instalar la actualización</translation>
 <translation id="7573172247376861652">Carga de batería</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Intercalar</translation>
@@ -4537,6 +4547,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="771953673318695590">Control de calidad</translation>
 <translation id="7720375555307821262"><ph name="BEGIN_LINK" />Inicia sesión en Chrome<ph name="END_LINK" /> para supervisar a este usuario.</translation>
 <translation id="7721179060400456005">Permitir que las ventanas ocupen pantallas</translation>
+<translation id="7722040605881499779">Espacio necesario para la actualización: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Cortar</translation>
 <translation id="7728668285692163452">El cambio del canal se aplicará más tarde</translation>
 <translation id="7730449930968088409">Captura contenido de la pantalla</translation>

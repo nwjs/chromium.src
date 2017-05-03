@@ -112,6 +112,7 @@
 <translation id="1973335181906896915">Грешка при серијализацији</translation>
 <translation id="1974060860693918893">Напредне опције</translation>
 <translation id="1978555033938440688">Верзија фирмвера</translation>
+<translation id="1995859865337580572">Верификујте CVC</translation>
 <translation id="2001146170449793414">{COUNT,plural, =1{ и још 1}one{и још #}few{и још #}other{и још #}}</translation>
 <translation id="2025186561304664664">Прокси је подешен да буде аутоматски конфигурисан.</translation>
 <translation id="2030481566774242610">Да ли сте мислили <ph name="LINK" />?</translation>
