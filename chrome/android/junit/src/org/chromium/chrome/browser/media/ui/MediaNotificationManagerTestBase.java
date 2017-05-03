@@ -60,8 +60,8 @@ public class MediaNotificationManagerTestBase {
 
     static class MockListenerService extends ListenerService {
         @Override
-        protected MediaNotificationManager getManager() {
-            return MediaNotificationManager.getManager(NOTIFICATION_ID);
+        protected int getNotificationId() {
+            return NOTIFICATION_ID;
         }
 
         @Override
