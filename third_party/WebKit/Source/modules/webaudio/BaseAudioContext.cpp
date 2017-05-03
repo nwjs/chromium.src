@@ -285,8 +285,19 @@ ScriptPromise BaseAudioContext::decodeAudioData(
 
   DCHECK_GT(rate, 0);
 
-  if (audio_data->IsNeutered()) {
-    // If audioData is detached (neutered) we need to reject the
+  v8::Isolate* isolate = script_state->GetIsolate();
+  WTF::ArrayBufferContents buffer_contents;
+  // Detach the audio array buffer from the main thread and start
+  // async decoding of the data.
+  if (audio_data->IsNeuterable(isolate) &&
+      audio_data->Transfer(isolate, buffer_contents)) {
+    DOMArrayBuffer* audio = DOMArrayBuffer::Create(buffer_contents);
+
+    decode_audio_resolvers_.insert(resolver);
+    audio_decoder_.DecodeAsync(audio, rate, success_callback, error_callback,
+                               resolver, this);
+  } else {
+    // If audioData is already detached (neutered) we need to reject the
     // promise with an error.
     DOMException* error = DOMException::Create(
         kDataCloneError, "Cannot decode detached ArrayBuffer");
@@ -294,16 +305,6 @@ ScriptPromise BaseAudioContext::decodeAudioData(
     if (error_callback) {
       error_callback->handleEvent(error);
     }
-  } else {
-    // Detach the audio array buffer from the main thread and start
-    // async decoding of the data.
-    WTF::ArrayBufferContents buffer_contents;
-    audio_data->Transfer(buffer_contents);
-    DOMArrayBuffer* audio = DOMArrayBuffer::Create(buffer_contents);
-
-    decode_audio_resolvers_.insert(resolver);
-    audio_decoder_.DecodeAsync(audio, rate, success_callback, error_callback,
-                               resolver, this);
   }
 
   return promise;
