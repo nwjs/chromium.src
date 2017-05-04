@@ -916,17 +916,6 @@ Polymer({
   },
 
   /**
-   * @param {!CrOnc.NetworkProperties} networkProperties
-   * @return {boolean}
-   * @private
-   */
-  showIpConfig_: function(networkProperties) {
-    if (!this.isRememberedOrConnected_(networkProperties))
-      return false;
-    return !!networkProperties.IPAddressConfigType;
-  },
-
-  /**
    * @param {!Object} curValue
    * @param {!Object} newValue
    * @return {boolean} True if all properties set in |newValue| are equal to
