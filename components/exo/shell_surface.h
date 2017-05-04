@@ -273,8 +273,8 @@ class ShellSurface : public SurfaceDelegate,
   // Overridden from ui::AcceleratorTarget:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
 
-  aura::Window* shadow_overlay() { return shadow_overlay_; }
-  aura::Window* shadow_underlay() { return shadow_underlay_; }
+  aura::Window* shadow_overlay() { return shadow_overlay_.get(); }
+  aura::Window* shadow_underlay() { return shadow_underlay_.get(); }
 
   Surface* surface_for_testing() { return surface_; }
 
@@ -362,8 +362,8 @@ class ShellSurface : public SurfaceDelegate,
   gfx::Vector2d pending_origin_offset_accumulator_;
   int resize_component_ = HTCAPTION;  // HT constant (see ui/base/hit_test.h)
   int pending_resize_component_ = HTCAPTION;
-  aura::Window* shadow_overlay_ = nullptr;
-  aura::Window* shadow_underlay_ = nullptr;
+  std::unique_ptr<aura::Window> shadow_overlay_;
+  std::unique_ptr<aura::Window> shadow_underlay_;
   std::unique_ptr<ui::EventHandler> shadow_underlay_event_handler_;
   gfx::Rect shadow_content_bounds_;
   float shadow_background_opacity_ = 1.0;
@@ -373,6 +373,7 @@ class ShellSurface : public SurfaceDelegate,
   int top_inset_height_ = 0;
   int pending_top_inset_height_ = 0;
   bool shadow_underlay_in_surface_ = true;
+  bool pending_shadow_underlay_in_surface_ = true;
   bool system_modal_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(ShellSurface);
