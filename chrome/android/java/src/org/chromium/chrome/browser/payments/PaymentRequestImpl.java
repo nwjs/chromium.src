@@ -183,6 +183,7 @@ public class PaymentRequestImpl
 
     private static final String TAG = "cr_PaymentRequest";
     private static final String ANDROID_PAY_METHOD_NAME = "https://android.com/pay";
+    private static final String PAY_WITH_GOOGLE_METHOD_NAME = "https://google.com/pay";
     private static final Comparator<Completable> COMPLETENESS_COMPARATOR =
             new Comparator<Completable>() {
                 @Override
@@ -1500,7 +1501,8 @@ public class PaymentRequestImpl
             }
             PaymentRequestMetrics.recordSelectedPaymentMethodHistogram(
                     PaymentRequestMetrics.SELECTED_METHOD_CREDIT_CARD);
-        } else if (methodName.equals(ANDROID_PAY_METHOD_NAME)) {
+        } else if (methodName.equals(ANDROID_PAY_METHOD_NAME)
+                || methodName.equals(PAY_WITH_GOOGLE_METHOD_NAME)) {
             PaymentRequestMetrics.recordSelectedPaymentMethodHistogram(
                     PaymentRequestMetrics.SELECTED_METHOD_ANDROID_PAY);
         } else {
