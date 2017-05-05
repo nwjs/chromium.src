@@ -97,7 +97,8 @@
             "name": "details",
             "type": "object",
             "properties": {
-              "url": {"type": "string", "description": "The URL to add."}
+              "url": {"type": "string", "description": "The URL to add."},
+              "title": {"type": "string", "optional": true, "description": "The title of URL to add."}
             }
           },
           {
