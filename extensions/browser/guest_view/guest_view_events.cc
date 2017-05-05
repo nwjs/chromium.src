@@ -81,6 +81,8 @@ class EventMap {
         {webview::kEventErrorOccurred,
          events::WEB_VIEW_INTERNAL_ON_ERROR_OCCURRED},
         {webview::kEventSendHeaders, events::WEB_VIEW_INTERNAL_ON_SEND_HEADERS},
+        {webview::kEventFaviconChange, events::WEB_VIEW_INTERNAL_ON_FAVICON_CHANGE},
+        {webview::kEventTitleChange, events::WEB_VIEW_INTERNAL_ON_TITLE_CHANGE},
     };
     for (const auto& name_and_value : names_and_values) {
       values_[name_and_value.name] = name_and_value.value;

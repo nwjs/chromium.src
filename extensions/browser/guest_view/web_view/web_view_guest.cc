@@ -26,6 +26,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_security_policy.h"
+#include "content/public/browser/favicon_status.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
@@ -44,6 +45,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/browser_side_navigation_policy.h"
+#include "content/public/common/favicon_url.h"
 #include "content/public/common/media_stream_request.h"
 #include "content/public/common/page_zoom.h"
 #include "content/public/common/result_codes.h"
@@ -876,6 +878,12 @@ void WebViewGuest::DidFinishNavigation(
       SetZoom(pending_zoom_factor_);
       pending_zoom_factor_ = 0.0;
     }
+
+    if ((int)navigation_handle->GetPageTransition() == (int)ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL ||
+      (int)navigation_handle->GetPageTransition() & (int)ui::PageTransition::PAGE_TRANSITION_FORWARD_BACK) {
+      FaviconEvent(web_contents()->GetController().GetEntryAtIndex(web_contents()->GetController().GetCurrentEntryIndex())->GetFavicon().url.spec());
+      TitleWasSet(web_contents()->GetController().GetEntryAtIndex(web_contents()->GetController().GetCurrentEntryIndex()), true);
+    }
   }
   std::unique_ptr<base::DictionaryValue> args(new base::DictionaryValue());
   args->SetString(guest_view::kUrl, src_.spec());
@@ -1444,6 +1452,31 @@ void WebViewGuest::RequestToLockMouse(WebContents* web_contents,
       base::Bind(
           base::IgnoreResult(&WebContents::GotResponseToLockMouseRequest),
           base::Unretained(web_contents)));
+}
+
+void WebViewGuest::FaviconEvent(const std::string& faviconUrl)
+{
+  std::unique_ptr<base::DictionaryValue> args(new base::DictionaryValue());
+  args->SetString(webview::kFaviconUrl, faviconUrl);
+  DispatchEventToView(base::MakeUnique<GuestViewEvent>(webview::kEventFaviconChange,
+    std::move(args)));
+}
+
+void WebViewGuest::DidUpdateFaviconURL(const std::vector<content::FaviconURL>& candidates) {
+  if (!candidates.empty())
+    FaviconEvent(candidates[0].icon_url.spec());
+  else
+    FaviconEvent("");
+}
+
+void WebViewGuest::TitleWasSet(content::NavigationEntry* entry, bool explicit_set) {
+  if (!entry)
+    return;
+
+  std::unique_ptr<base::DictionaryValue> args(new base::DictionaryValue());
+  args->SetString(webview::kTitle, entry->GetTitleForDisplay());
+  DispatchEventToView(base::MakeUnique<GuestViewEvent>(webview::kEventTitleChange,
+    std::move(args)));
 }
 
 void WebViewGuest::LoadURLWithParams(
