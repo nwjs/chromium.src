@@ -911,6 +911,33 @@ ExtensionFunction::ResponseAction WebViewInternalStopFunction::Run() {
   return RespondNow(NoArguments());
 }
 
+WebViewInternalSetAudioMutedFunction::WebViewInternalSetAudioMutedFunction() {
+}
+
+WebViewInternalSetAudioMutedFunction::~WebViewInternalSetAudioMutedFunction() {
+}
+
+bool WebViewInternalSetAudioMutedFunction::RunAsyncSafe(WebViewGuest* guest) {
+  bool mute;
+  EXTENSION_FUNCTION_VALIDATE(args_->GetBoolean(1, &mute));
+  guest->web_contents()->SetAudioMuted(mute);
+
+  return true;
+}
+
+WebViewInternalIsAudioMutedFunction::WebViewInternalIsAudioMutedFunction() {
+}
+
+WebViewInternalIsAudioMutedFunction::~WebViewInternalIsAudioMutedFunction() {
+}
+
+bool WebViewInternalIsAudioMutedFunction::RunAsyncSafe(WebViewGuest* guest) {
+  content::WebContents* web_contents = guest->web_contents();
+  SetResult(base::MakeUnique<base::Value>(web_contents->IsAudioMuted()));
+  SendResponse(true);
+  return true;
+}
+
 WebViewInternalTerminateFunction::WebViewInternalTerminateFunction() {
 }
 

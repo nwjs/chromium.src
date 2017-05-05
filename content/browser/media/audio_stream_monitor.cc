@@ -199,6 +199,7 @@ void AudioStreamMonitor::MaybeToggle() {
 
   if (should_indicator_be_on != indicator_was_on) {
     was_recently_audible_ = should_indicator_be_on;
+    web_contents_->OnAudibleChange(was_recently_audible_);
     web_contents_->NotifyNavigationStateChanged(INVALIDATE_TYPE_TAB);
   }
 

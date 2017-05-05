@@ -2902,6 +2902,11 @@ InterstitialPage* WebContentsImpl::GetInterstitialPage() const {
   return GetRenderManager()->interstitial_page();
 }
 
+void WebContentsImpl::OnAudibleChange(bool audible) const {
+  if (delegate_)
+    delegate_->OnAudibleChange(audible);
+}
+
 bool WebContentsImpl::IsSavable() {
   // WebKit creates Document object when MIME type is application/xhtml+xml,
   // so we also support this MIME type.

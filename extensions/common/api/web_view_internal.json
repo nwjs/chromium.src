@@ -185,6 +185,45 @@
     ],
     "functions": [
       {
+        "name": "setAudioMuted",
+        "type": "function",
+        "description": "Set audio mute.",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "instanceId",
+            "description": "The instance ID of the guest <webview> process."
+          },
+          {
+            "type": "boolean",
+            "name": "mute",
+            "description": "Mute Audio."
+          }
+        ]
+      },
+      {
+        "name": "isAudioMuted",
+        "type": "function",
+        "description": "Callback returns whether audio is muted.",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "instanceId",
+            "description": "The instance ID of the guest <webview> process."
+          },
+          {
+            "type": "function",
+            "name": "callback",
+            "parameters": [
+              {
+                "name": "muted",
+                "type": "boolean"
+              }
+            ]
+          }
+        ]
+      },
+      {
         "name": "executeScript",
         "type": "function",
         "description": "Injects JavaScript code into a <webview> page.",

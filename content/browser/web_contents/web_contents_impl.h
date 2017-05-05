@@ -367,6 +367,7 @@ class CONTENT_EXPORT WebContentsImpl
   void FocusThroughTabTraversal(bool reverse) override;
   bool ShowingInterstitialPage() const override;
   InterstitialPage* GetInterstitialPage() const override;
+  void OnAudibleChange(bool audible) const override;
   bool IsSavable() override;
   void OnSavePage() override;
   bool SavePage(const base::FilePath& main_file,

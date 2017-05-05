@@ -75,6 +75,9 @@ var WEB_VIEW_API_METHODS = [
   // Injects CSS into the guest page.
   'insertCSS',
 
+  // Returns whether audio is muted.
+  'isAudioMuted',
+
   // Indicates whether or not the webview's user agent string has been
   // overridden.
   'isUserAgentOverridden',
@@ -93,6 +96,9 @@ var WEB_VIEW_API_METHODS = [
 
   // Reloads the current top-level page.
   'reload',
+
+  // Set audio mute.
+  'setAudioMuted',
 
   // Override the user agent string used by the webview for guest page requests.
   'setUserAgentOverride',

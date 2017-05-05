@@ -541,6 +541,9 @@ class WebContents : public PageNavigator,
 
   // Misc state & callbacks ----------------------------------------------------
 
+  // Webview callback for audible change
+  virtual void OnAudibleChange(bool audible) const = 0;
+
   // Check whether we can do the saving page operation this page given its MIME
   // type.
   virtual bool IsSavable() = 0;
