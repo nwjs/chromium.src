@@ -573,6 +573,7 @@ public class MinidumpUploadServiceTest extends CrashTestCase {
         }
     }
 
+    // TODO(crbug/716236): Refer to this crbug for compilation error after the O SDK is rolled.
     /**
      * A JobScheduler wrapper that verifies that the expected properties are set correctly.
      */
