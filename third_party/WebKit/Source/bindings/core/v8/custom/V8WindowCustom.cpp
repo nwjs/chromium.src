@@ -64,6 +64,9 @@
 #include "platform/LayoutTestSupport.h"
 #include "wtf/Assertions.h"
 
+
+#include "bindings/core/v8/V8HTMLFrameElement.h"
+
 namespace blink {
 
 void V8Window::locationAttributeGetterCustom(
@@ -144,10 +147,39 @@ void V8Window::eventAttributeGetterCustom(
   v8SetReturnValue(info, jsEvent);
 }
 
+void V8Window::parentAttributeGetterCustom(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+  LocalDOMWindow* imp = toLocalDOMWindow(V8Window::toImpl(info.Holder()));
+  LocalFrame* frame = imp->frame();
+  if (frame && frame->isNwFakeTop()) {
+    v8SetReturnValue(info, ToV8(imp, info.Holder(), info.GetIsolate()));
+    return;
+  }
+  v8SetReturnValue(info, ToV8(imp->parent(), info.Holder(), info.GetIsolate()));
+}
+
+void V8Window::topAttributeGetterCustom(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+  LocalDOMWindow* imp = toLocalDOMWindow(V8Window::toImpl(info.Holder()));
+  LocalFrame* frame = imp->frame();
+  if (frame) {
+    for (LocalFrame* f = frame; f; f = toLocalFrame(f->tree().parent())) {
+      if (f->isNwFakeTop()) {
+        v8SetReturnValue(info, ToV8(f->document()->domWindow(), info.Holder(), info.GetIsolate()));
+        return;
+      }
+    }
+  }
+  v8SetReturnValue(info, ToV8(imp->top(), info.Holder(), info.GetIsolate()));
+}
+
 void V8Window::eventAttributeSetterCustom(
     v8::Local<v8::Value> value,
     const v8::FunctionCallbackInfo<v8::Value>& info) {
   LocalDOMWindow* impl = toLocalDOMWindow(V8Window::toImpl(info.Holder()));
+  LocalFrame* frame = impl->frame();
+  if (frame && frame->isNwFakeTop())
+    return;
   ExceptionState exceptionState(
       info.GetIsolate(), ExceptionState::SetterContext, "Window", "event");
   if (!BindingSecurity::shouldAllowAccessTo(currentDOMWindow(info.GetIsolate()),
@@ -155,7 +187,6 @@ void V8Window::eventAttributeSetterCustom(
     return;
   }
 
-  LocalFrame* frame = impl->frame();
   ASSERT(frame);
   // This is a fast path to retrieve info.Holder()->CreationContext().
   v8::Local<v8::Context> context =
@@ -171,6 +202,12 @@ void V8Window::eventAttributeSetterCustom(
 void V8Window::frameElementAttributeGetterCustom(
     const v8::FunctionCallbackInfo<v8::Value>& info) {
   LocalDOMWindow* impl = toLocalDOMWindow(V8Window::toImpl(info.Holder()));
+
+  LocalFrame* frame = impl->frame();
+  if (frame && frame->isNwFakeTop()) {
+    v8SetReturnValueNull(info);
+    return;
+  }
 
   if (!BindingSecurity::shouldAllowAccessTo(
           currentDOMWindow(info.GetIsolate()), impl->frameElement(),
