@@ -678,6 +678,36 @@
     ],
     "functions": [
       {
+        "name": "setAudioMuted",
+        "type": "function",
+        "description": "Set audio mute.",
+        "parameters": [
+          {
+            "type": "boolean",
+            "name": "mute",
+            "description": "Mute Audio."
+          }
+        ]
+      },
+      {
+        "name": "isAudioMuted",
+        "type": "function",
+        "returns": { "type": "boolean" },
+        "description": "Returns whether audio is muted.",
+        "parameters": [
+          {
+            "type": "function",
+            "name": "callback",
+            "parameters": [
+              {
+                "name": "muted",
+                "type": "boolean",
+              }
+            ]
+          }
+        ]
+      },
+      {
         "name": "captureVisibleRegion",
         "type": "function",
         "description": "Captures the visible region of the webview.",

@@ -22,6 +22,7 @@ const char kAPILoadDataInvalidBaseURL[] = "Invalid base URL \"%s\".";
 const char kAPILoadDataInvalidVirtualURL[] = "Invalid virtual URL \"%s\".";
 
 // Events.
+const char kEventAudibleChange[] = "webViewInternal.onAudibleChange";
 const char kEventClose[] = "webViewInternal.onClose";
 const char kEventConsoleMessage[] = "webViewInternal.onConsoleMessage";
 const char kEventContentLoad[] = "webViewInternal.onContentLoad";
@@ -61,6 +62,7 @@ const char kEventSendHeaders[] = "webViewInternal.onSendHeaders";
 const char kWebViewEventPrefix[] = "webViewInternal.";
 
 // Parameters/properties on events.
+const char kAudible[] = "audible";
 const char kContextMenuItems[] = "items";
 const char kDefaultPromptText[] = "defaultPromptText";
 const char kFindSearchText[] = "searchText";

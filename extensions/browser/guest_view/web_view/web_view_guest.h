@@ -259,6 +259,8 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest>,
                           bool user_gesture,
                           bool last_unlocked_by_target) override;
 
+  void OnAudibleChange(bool audible) final;
+
   // WebContentsObserver implementation.
   void DidStartNavigation(content::NavigationHandle* navigation_handle) final;
   void DidFinishNavigation(content::NavigationHandle* navigation_handle) final;

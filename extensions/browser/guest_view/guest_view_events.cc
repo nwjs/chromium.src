@@ -37,6 +37,8 @@ class EventMap {
         {extensionview::kEventLoadCommit,
          events::EXTENSION_VIEW_INTERNAL_ON_LOAD_COMMIT},
         {guest_view::kEventResize, events::GUEST_VIEW_INTERNAL_ON_RESIZE},
+        {webview::kEventAudibleChange,
+         events::WEB_VIEW_INTERNAL_ON_AUDIBLE_CHANGE},
         {webview::kEventBeforeRequest,
          events::WEB_VIEW_INTERNAL_ON_BEFORE_REQUEST},
         {webview::kEventBeforeSendHeaders,
