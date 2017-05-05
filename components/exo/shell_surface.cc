@@ -1445,7 +1445,7 @@ void ShellSurface::UpdateWidgetBounds() {
   DCHECK(!ignore_window_bounds_changes_);
   ignore_window_bounds_changes_ = true;
   if (widget_->GetWindowBoundsInScreen() != new_widget_bounds)
-    widget_->SetBounds(new_widget_bounds);
+    widget_->GetNativeWindow()->SetBounds(new_widget_bounds);
   ignore_window_bounds_changes_ = false;
 }
 
