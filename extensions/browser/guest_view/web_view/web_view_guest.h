@@ -26,6 +26,11 @@ namespace blink {
 struct WebFindOptions;
 }  // namespace blink
 
+namespace content {
+class NavigationEntry;
+struct FaviconURL;
+}
+
 namespace extensions {
 
 class WebViewInternalFindFunction;
@@ -258,6 +263,10 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest>,
   void RequestToLockMouse(content::WebContents* web_contents,
                           bool user_gesture,
                           bool last_unlocked_by_target) override;
+
+  void FaviconEvent(const std::string& faviconUrl);
+  void DidUpdateFaviconURL(const std::vector<content::FaviconURL>& candidates) final;
+  void TitleWasSet(content::NavigationEntry* entry, bool explicit_set) final;
 
   // WebContentsObserver implementation.
   void DidStartNavigation(content::NavigationHandle* navigation_handle) final;
