@@ -380,9 +380,9 @@ void TaskQueueImpl::ReloadImmediateWorkQueueIfEmpty() {
   main_thread_only().immediate_work_queue->ReloadEmptyImmediateQueue();
 }
 
-WTF::Deque<TaskQueueImpl::Task> TaskQueueImpl::TakeImmediateIncomingQueue() {
+TaskQueueImpl::TaskDeque TaskQueueImpl::TakeImmediateIncomingQueue() {
   base::AutoLock immediate_incoming_queue_lock(immediate_incoming_queue_lock_);
-  WTF::Deque<TaskQueueImpl::Task> queue;
+  TaskQueueImpl::TaskDeque queue;
   queue.Swap(immediate_incoming_queue());
   return queue;
 }
@@ -711,7 +711,7 @@ EnqueueOrder TaskQueueImpl::GetFenceForTest() const {
 }
 
 // static
-void TaskQueueImpl::QueueAsValueInto(const WTF::Deque<Task>& queue,
+void TaskQueueImpl::QueueAsValueInto(const TaskDeque& queue,
                                      base::trace_event::TracedValue* state) {
   for (const Task& task : queue) {
     TaskAsValueInto(task, state);
