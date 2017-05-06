@@ -924,6 +924,11 @@ void ShellSurface::OnPreWindowStateTypeChange(
     ash::wm::WindowState* window_state,
     ash::wm::WindowStateType old_type) {
   ash::wm::WindowStateType new_type = window_state->GetStateType();
+  if (old_type == ash::wm::WINDOW_STATE_TYPE_MINIMIZED ||
+      new_type == ash::wm::WINDOW_STATE_TYPE_MINIMIZED) {
+    return;
+  }
+
   if (ash::wm::IsMaximizedOrFullscreenOrPinnedWindowStateType(old_type) ||
       ash::wm::IsMaximizedOrFullscreenOrPinnedWindowStateType(new_type)) {
     // When transitioning in/out of maximized or fullscreen mode we need to
