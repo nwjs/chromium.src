@@ -84,7 +84,6 @@ cr.define('cr.ui.Oobe', function() {
     setOemEulaUrl: function(oemEulaUrl) {},
     setTpmPassword: function(password) {},
     refreshA11yInfo: function(data) {},
-    reloadEulaContent: function(data) {},
 
     /**
      * Reloads content of the page.

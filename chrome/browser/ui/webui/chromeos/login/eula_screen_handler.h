@@ -11,7 +11,6 @@
 #include "chrome/browser/chromeos/login/screens/eula_view.h"
 #include "chrome/browser/ui/webui/chromeos/login/base_screen_handler.h"
 #include "chromeos/tpm/tpm_password_fetcher.h"
-#include "components/login/secure_module_util_chromeos.h"
 #include "content/public/browser/web_ui.h"
 
 namespace base {
@@ -53,8 +52,6 @@ class EulaScreenHandler : public EulaView,
   void HandleOnChromeOSCredits();
   void HandleOnInstallationSettingsPopupOpened();
 
-  void UpdateLocalizedValues(::login::SecureModuleUsed secure_module_used);
-
   EulaScreen* screen_ = nullptr;
   CoreOobeView* core_oobe_view_ = nullptr;
 
@@ -63,8 +60,6 @@ class EulaScreenHandler : public EulaView,
 
   // Keeps whether screen should be shown right after initialization.
   bool show_on_init_ = false;
-
-  base::WeakPtrFactory<EulaScreenHandler> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(EulaScreenHandler);
 };

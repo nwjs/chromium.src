@@ -255,11 +255,6 @@ void CoreOobeHandler::ReloadContent(const base::DictionaryValue& dictionary) {
   CallJSOrDefer("reloadContent", dictionary);
 }
 
-void CoreOobeHandler::ReloadEulaContent(
-    const base::DictionaryValue& dictionary) {
-  CallJSOrDefer("reloadEulaContent", dictionary);
-}
-
 void CoreOobeHandler::ShowControlBar(bool show) {
   CallJSOrDefer("showControlBar", show);
 }
