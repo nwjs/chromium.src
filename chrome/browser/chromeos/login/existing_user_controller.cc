@@ -181,7 +181,7 @@ void RecordPasswordChangeFlow(LoginPasswordChangeFlow flow) {
 bool ShouldForceDircrypto() {
   return !base::CommandLine::ForCurrentProcess()->HasSwitch(
              chromeos::switches::kDisableEncryptionMigration) &&
-         (arc::IsArcAvailable() || arc::IsArcKioskAvailable());
+         arc::IsArcAvailable();
 }
 
 }  // namespace
