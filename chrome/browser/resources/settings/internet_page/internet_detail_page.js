@@ -145,6 +145,13 @@ Polymer({
   networksChangedListener_: null,
 
   /**
+   * Set to true to once the initial properties have been received. This
+   * prevents setProperties from being called when setting default properties.
+   * @private {boolean}
+   */
+  networkPropertiesReceived_: false,
+
+  /**
    * settings.RouteObserverBehavior
    * @param {!settings.Route} route
    * @protected
@@ -170,6 +177,7 @@ Polymer({
       this.close_();
     }
     // Set basic networkProperties until they are loaded.
+    this.networkPropertiesReceived_ = false;
     var type = /** @type {!chrome.networkingPrivate.NetworkType} */ (
                    queryParams.get('type')) ||
         CrOnc.Type.WI_FI;
@@ -285,6 +293,7 @@ Polymer({
       return;
     }
     this.networkProperties = properties;
+    this.networkPropertiesReceived_ = true;
   },
 
   /**
@@ -305,6 +314,7 @@ Polymer({
       Connectable: state.Connectable,
       ConnectionState: state.ConnectionState,
     };
+    this.networkPropertiesReceived_ = true;
   },
 
   /**
@@ -313,6 +323,9 @@ Polymer({
    * @private
    */
   setNetworkProperties_: function(onc) {
+    if (!this.networkPropertiesReceived_)
+      return;
+
     assert(!!this.guid);
     this.networkingPrivate.setProperties(this.guid, onc, function() {
       if (chrome.runtime.lastError) {
