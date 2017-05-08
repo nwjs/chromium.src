@@ -98,6 +98,7 @@ class CoreOobeHandler : public BaseScreenHandler,
   void SetTpmPassword(const std::string& tmp_password) override;
   void ClearErrors() override;
   void ReloadContent(const base::DictionaryValue& dictionary) override;
+  void ReloadEulaContent(const base::DictionaryValue& dictionary) override;
   void ShowControlBar(bool show) override;
   void ShowPinKeyboard(bool show) override;
   void SetClientAreaSize(int width, int height) override;
