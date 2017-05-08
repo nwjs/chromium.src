@@ -373,6 +373,9 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
                                                 false);
   }
 
+  WebRuntimeFeatures::EnableLocationHardReload(
+      base::FeatureList::IsEnabled(features::kLocationHardReload));
+
   // Enable explicitly enabled features, and then disable explicitly disabled
   // ones.
   if (command_line.HasSwitch(switches::kEnableBlinkFeatures)) {

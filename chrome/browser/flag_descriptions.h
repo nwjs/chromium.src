@@ -3278,6 +3278,14 @@ extern const char kEnableOmniboxClipboardProviderDescription[];
 
 #endif  // defined(OS_ANDROID)
 
+// Name of the about: flag for experimental location.reload() to trigger a
+// hard-reload.
+extern const char kLocationHardReloadName[];
+
+// Description of the about: flag for experimental location.reload() to trigger
+// a hard-reload.
+extern const char kLocationHardReloadDescription[];
+
 }  // namespace flag_descriptions
 
 #endif  // CHROME_BROWSER_FLAG_DESCRIPTIONS_H_

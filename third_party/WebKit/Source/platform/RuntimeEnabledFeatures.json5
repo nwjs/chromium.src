@@ -549,6 +549,9 @@
       name: "LoadingWithMojo",
     },
     {
+      name: "LocationHardReload",
+    },
+    {
       name: "LongTaskObserver",
       status: "stable",
     },

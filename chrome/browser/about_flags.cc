@@ -2721,9 +2721,13 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_VALUE_TYPE(omnibox::kEnableClipboardProvider)},
 #endif
 
+    {"enable-location-hard-reload", flag_descriptions::kLocationHardReloadName,
+     flag_descriptions::kLocationHardReloadDescription, kOsAll,
+     FEATURE_VALUE_TYPE(features::kLocationHardReload)},
+
     // NOTE: Adding new command-line switches requires adding corresponding
-    // entries to enum "LoginCustomFlags" in histograms.xml. See note in
-    // histograms.xml and don't forget to run AboutFlagsHistogramTest unit test.
+    // entries to enum "LoginCustomFlags" in histograms/enums.xml. See note in
+    // enums.xml and don't forget to run AboutFlagsHistogramTest unit test.
 };
 
 class FlagsStateSingleton {

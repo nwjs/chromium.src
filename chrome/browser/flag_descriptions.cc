@@ -3020,4 +3020,11 @@ const char kEnableOmniboxClipboardProviderDescription[] =
 
 #endif  // defined(OS_ANDROID)
 
+const char kLocationHardReloadName[] =
+    "Experimental change for Location.reload() to trigger a hard-reload.";
+
+const char kLocationHardReloadDescription[] =
+    "Enable an experimental change for Location.reload() to trigger a "
+    "hard-reload.";
+
 }  // namespace flag_descriptions
