@@ -2784,6 +2784,12 @@ const char kEnableCustomFeedbackUiDescription[] =
 
 #endif  // defined(OS_ANDROID)
 
+const char kEnableAdjustableLargeCursorName[] =
+    "Enable adjustable large cursor";
+
+const char kEnableAdjustableLargeCursorDescription[] =
+    "Make size of accessibility large cursor adjustable.";
+
 #if defined(OS_CHROMEOS) || defined(OS_LINUX) || defined(OS_MACOSX) || \
     defined(OS_WIN)
 

@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "ash/ash_constants.h"
+#include "ash/ash_switches.h"
 #include "ash/autoclick/autoclick_controller.h"
 #include "ash/autoclick/mus/public/interfaces/autoclick.mojom.h"
 #include "ash/high_contrast/high_contrast_controller.h"
@@ -1338,7 +1339,9 @@ void AccessibilityManager::UpdateChromeOSAccessibilityHistograms() {
         prefs->GetBoolean(prefs::kAccessibilityLargeCursorEnabled);
     UMA_HISTOGRAM_BOOLEAN("Accessibility.CrosLargeCursor",
                           large_cursor_enabled);
-    if (large_cursor_enabled) {
+    if (large_cursor_enabled &&
+        base::CommandLine::ForCurrentProcess()->HasSwitch(
+            ash::switches::kAshAdjustableLargeCursor)) {
       UMA_HISTOGRAM_COUNTS_100(
           "Accessibility.CrosLargeCursorSize",
           prefs->GetInteger(prefs::kAccessibilityLargeCursorDipSize));
