@@ -29,9 +29,6 @@ namespace arc {
 
 namespace {
 
-constexpr char kLsbReleaseArcVersionKey[] = "CHROMEOS_ARC_ANDROID_SDK_VERSION";
-constexpr char kAndroidMSdkVersion[] = "23";
-
 // Let IsAllowedForProfile() return "false" for any profile.
 bool g_disallow_for_testing = false;
 
