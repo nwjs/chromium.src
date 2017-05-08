@@ -17,11 +17,11 @@ TEST(MediaQueryMatcherTest, LostFrame) {
       DummyPageHolder::create(IntSize(500, 500));
   MediaQueryMatcher* matcher =
       MediaQueryMatcher::create(pageHolder->document());
-  RefPtr<MediaQuerySet> querySet = MediaQuerySet::create(MediaTypeNames::all);
-  ASSERT_TRUE(matcher->evaluate(querySet.get()));
+  MediaQuerySet* querySet = MediaQuerySet::create(MediaTypeNames::all);
+  ASSERT_TRUE(matcher->evaluate(querySet));
 
   matcher->documentDetached();
-  ASSERT_FALSE(matcher->evaluate(querySet.get()));
+  ASSERT_FALSE(matcher->evaluate(querySet));
 }
 
 }  // namespace blink

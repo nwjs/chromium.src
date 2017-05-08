@@ -1580,8 +1580,7 @@ std::unique_ptr<protocol::CSS::CSSMedia> InspectorCSSAgent::buildMediaObject(
   }
 
   const MediaQuerySet* queries = media->queries();
-  const Vector<std::unique_ptr<MediaQuery>>& queryVector =
-      queries->queryVector();
+  const HeapVector<Member<MediaQuery>>& queryVector = queries->queryVector();
   LocalFrame* frame = nullptr;
   if (parentStyleSheet) {
     if (Document* document = parentStyleSheet->ownerDocument())
@@ -1598,15 +1597,15 @@ std::unique_ptr<protocol::CSS::CSSMedia> InspectorCSSAgent::buildMediaObject(
   MediaValues* mediaValues = MediaValues::createDynamicIfFrameExists(frame);
   bool hasMediaQueryItems = false;
   for (size_t i = 0; i < queryVector.size(); ++i) {
-    MediaQuery& query = *queryVector.at(i);
-    const ExpressionHeapVector& expressions = query.expressions();
+    MediaQuery* query = queryVector.at(i).get();
+    const ExpressionHeapVector& expressions = query->expressions();
     std::unique_ptr<protocol::Array<protocol::CSS::MediaQueryExpression>>
         expressionArray =
             protocol::Array<protocol::CSS::MediaQueryExpression>::create();
     bool hasExpressionItems = false;
     for (size_t j = 0; j < expressions.size(); ++j) {
-      const MediaQueryExp& mediaQueryExp = expressions.at(j);
-      MediaQueryExpValue expValue = mediaQueryExp.expValue();
+      MediaQueryExp* mediaQueryExp = expressions.at(j).get();
+      MediaQueryExpValue expValue = mediaQueryExp->expValue();
       if (!expValue.isValue)
         continue;
       const char* valueName =
@@ -1615,7 +1614,7 @@ std::unique_ptr<protocol::CSS::CSSMedia> InspectorCSSAgent::buildMediaObject(
           mediaQueryExpression = protocol::CSS::MediaQueryExpression::create()
                                      .setValue(expValue.value)
                                      .setUnit(String(valueName))
-                                     .setFeature(mediaQueryExp.mediaFeature())
+                                     .setFeature(mediaQueryExp->mediaFeature())
                                      .build();
 
       if (inspectorStyleSheet && media->parentRule())

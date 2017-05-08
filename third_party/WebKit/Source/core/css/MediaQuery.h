@@ -39,19 +39,17 @@
 namespace blink {
 class MediaQueryExp;
 
-using ExpressionHeapVector = Vector<MediaQueryExp>;
+using ExpressionHeapVector = HeapVector<Member<MediaQueryExp>>;
 
-class CORE_EXPORT MediaQuery {
+class CORE_EXPORT MediaQuery : public GarbageCollectedFinalized<MediaQuery> {
  public:
   enum RestrictorType { Only, Not, None };
 
-  static std::unique_ptr<MediaQuery> create(RestrictorType,
-                                            String mediaType,
-                                            ExpressionHeapVector);
-  static std::unique_ptr<MediaQuery> createNotAll();
+  static MediaQuery* create(RestrictorType,
+                            String mediaType,
+                            ExpressionHeapVector);
+  static MediaQuery* createNotAll();
 
-  MediaQuery(RestrictorType, String media_type, ExpressionHeapVector);
-  MediaQuery(const MediaQuery&);
   ~MediaQuery();
 
   RestrictorType restrictor() const { return m_restrictor; }
@@ -60,13 +58,14 @@ class CORE_EXPORT MediaQuery {
   bool operator==(const MediaQuery& other) const;
   String cssText() const;
 
-  std::unique_ptr<MediaQuery> copy() const {
-    return WTF::makeUnique<MediaQuery>(*this);
-  }
+  MediaQuery* copy() const { return new MediaQuery(*this); }
 
   DECLARE_TRACE();
 
  private:
+  MediaQuery(RestrictorType, String mediaType, ExpressionHeapVector);
+  MediaQuery(const MediaQuery&);
+
   MediaQuery& operator=(const MediaQuery&) = delete;
 
   RestrictorType m_restrictor;

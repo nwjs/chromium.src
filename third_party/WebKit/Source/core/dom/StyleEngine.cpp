@@ -1110,7 +1110,7 @@ bool StyleEngine::mediaQueryAffectedByViewportChange() {
   const auto& results =
       m_globalRuleSet.ruleFeatureSet().viewportDependentMediaQueryResults();
   for (unsigned i = 0; i < results.size(); ++i) {
-    if (evaluator.eval(results[i].expression()) != results[i].result())
+    if (evaluator.eval(results[i]->expression()) != results[i]->result())
       return true;
   }
   return false;
@@ -1121,7 +1121,7 @@ bool StyleEngine::mediaQueryAffectedByDeviceChange() {
   const auto& results =
       m_globalRuleSet.ruleFeatureSet().deviceDependentMediaQueryResults();
   for (unsigned i = 0; i < results.size(); ++i) {
-    if (evaluator.eval(results[i].expression()) != results[i].result())
+    if (evaluator.eval(results[i]->expression()) != results[i]->result())
       return true;
   }
   return false;

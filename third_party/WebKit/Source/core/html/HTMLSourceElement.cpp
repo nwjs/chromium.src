@@ -75,7 +75,7 @@ void HTMLSourceElement::createMediaQueryList(const AtomicString& media) {
     return;
   }
 
-  RefPtr<MediaQuerySet> set = MediaQuerySet::create(media);
+  MediaQuerySet* set = MediaQuerySet::create(media);
   m_mediaQueryList =
       MediaQueryList::create(&document(), &document().mediaQueryMatcher(), set);
   addMediaQueryListListener();

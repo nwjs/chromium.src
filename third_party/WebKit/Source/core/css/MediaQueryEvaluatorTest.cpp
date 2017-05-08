@@ -139,10 +139,10 @@ TestCase printTestCases[] = {
 
 void testMQEvaluator(TestCase* testCases,
                      const MediaQueryEvaluator& mediaQueryEvaluator) {
-  RefPtr<MediaQuerySet> querySet = nullptr;
+  Persistent<MediaQuerySet> querySet = nullptr;
   for (unsigned i = 0; testCases[i].input; ++i) {
     querySet = MediaQuerySet::create(testCases[i].input);
-    EXPECT_EQ(testCases[i].output, mediaQueryEvaluator.eval(*querySet));
+    EXPECT_EQ(testCases[i].output, mediaQueryEvaluator.eval(querySet.get()));
   }
 }
 
@@ -193,8 +193,8 @@ TEST(MediaQueryEvaluatorTest, DynamicNoView) {
   pageHolder.reset();
   ASSERT_EQ(nullptr, frame->view());
   MediaQueryEvaluator mediaQueryEvaluator(frame);
-  RefPtr<MediaQuerySet> querySet = MediaQuerySet::create("foobar");
-  EXPECT_FALSE(mediaQueryEvaluator.eval(*querySet));
+  MediaQuerySet* querySet = MediaQuerySet::create("foobar");
+  EXPECT_FALSE(mediaQueryEvaluator.eval(querySet));
 }
 
 TEST(MediaQueryEvaluatorTest, CachedFloatViewport) {

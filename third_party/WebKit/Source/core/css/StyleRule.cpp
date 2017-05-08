@@ -352,7 +352,7 @@ StyleRuleCondition::StyleRuleCondition(const StyleRuleCondition& conditionRule)
     : StyleRuleGroup(conditionRule),
       m_conditionText(conditionRule.m_conditionText) {}
 
-StyleRuleMedia::StyleRuleMedia(RefPtr<MediaQuerySet> media,
+StyleRuleMedia::StyleRuleMedia(MediaQuerySet* media,
                                HeapVector<Member<StyleRuleBase>>& adoptRules)
     : StyleRuleCondition(Media, adoptRules), m_mediaQueries(media) {}
 
@@ -363,6 +363,7 @@ StyleRuleMedia::StyleRuleMedia(const StyleRuleMedia& mediaRule)
 }
 
 DEFINE_TRACE_AFTER_DISPATCH(StyleRuleMedia) {
+  visitor->trace(m_mediaQueries);
   StyleRuleCondition::traceAfterDispatch(visitor);
 }
 

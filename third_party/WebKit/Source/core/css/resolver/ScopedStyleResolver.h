@@ -43,8 +43,7 @@ class StyleSheetContents;
 
 // This class selects a ComputedStyle for a given element based on a collection
 // of stylesheets.
-class ScopedStyleResolver final
-    : public GarbageCollectedFinalized<ScopedStyleResolver> {
+class ScopedStyleResolver final : public GarbageCollected<ScopedStyleResolver> {
   WTF_MAKE_NONCOPYABLE(ScopedStyleResolver);
 
  public:

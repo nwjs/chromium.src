@@ -1206,6 +1206,8 @@ void RuleFeatureSet::addFeaturesToUniversalSiblingInvalidationSet(
 DEFINE_TRACE(RuleFeatureSet) {
   visitor->trace(m_siblingRules);
   visitor->trace(m_uncommonAttributeRules);
+  visitor->trace(m_viewportDependentMediaQueryResults);
+  visitor->trace(m_deviceDependentMediaQueryResults);
 }
 
 void RuleFeatureSet::InvalidationSetFeatures::add(

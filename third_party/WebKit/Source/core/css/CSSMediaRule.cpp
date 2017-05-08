@@ -32,7 +32,7 @@ CSSMediaRule::CSSMediaRule(StyleRuleMedia* mediaRule, CSSStyleSheet* parent)
 
 CSSMediaRule::~CSSMediaRule() {}
 
-RefPtr<MediaQuerySet> CSSMediaRule::mediaQueries() const {
+MediaQuerySet* CSSMediaRule::mediaQueries() const {
   return toStyleRuleMedia(m_groupRule.get())->mediaQueries();
 }
 

@@ -182,7 +182,7 @@ TEST(MediaQuerySetTest, Basic) {
   };
 
   for (unsigned i = 0; testCases[i].input; ++i) {
-    RefPtr<MediaQuerySet> querySet = MediaQuerySet::create(testCases[i].input);
+    MediaQuerySet* querySet = MediaQuerySet::create(testCases[i].input);
     testMediaQuery(testCases[i], *querySet);
   }
 }

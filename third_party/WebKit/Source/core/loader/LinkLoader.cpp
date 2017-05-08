@@ -294,9 +294,9 @@ static Resource* preloadIfNeeded(const LinkRelAttribute& relAttribute,
     }
 
     // Preload only if media matches
-    RefPtr<MediaQuerySet> mediaQueries = MediaQuerySet::create(media);
+    MediaQuerySet* mediaQueries = MediaQuerySet::create(media);
     MediaQueryEvaluator evaluator(*mediaValues);
-    if (!evaluator.eval(*mediaQueries))
+    if (!evaluator.eval(mediaQueries))
       return nullptr;
   }
   if (caller == LinkCalledFromHeader)
