@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Sukurkite atsarginę įrenginio medijos kopiją naudodami programą „Failai“.</translation>
 <translation id="1341988552785875222">Dabartinį ekrano foną nustatė „<ph name="APP_NAME" />“. Kad galėtumėte pasirinkti kitą ekrano foną, gali reikėti pašalinti „<ph name="APP_NAME" />“.</translation>
 <translation id="1346748346194534595">Dešinė</translation>
+<translation id="1347975661240122359">Atnaujinimo procesas prasidės, kai akumuliatoriaus įkrovos lygis bus <ph name="BATTERY_LEVEL" /> %.</translation>
 <translation id="1351692861129622852">Importuojami failai (<ph name="FILE_COUNT" />)...</translation>
 <translation id="1352103415082130575">Tailandietiška klaviatūra („Pattachote“)</translation>
 <translation id="1353686479385938207">„<ph name="PROVIDER_NAME" />“: „<ph name="NETWORK_NAME" />“</translation>
@@ -925,6 +926,7 @@ Sukūrę naują prižiūrimą naudotoją, bet kuriuo metu galite tvarkyti jo nus
 <translation id="2312980885338881851">Oi, atrodo, kad neturite esamų prižiūrimų naudotojų, kuriuos galėtumėte importuoti. Sukurkite vieną ar daugiau jų kitame įrenginyje, kad galėtumėte juos importuoti ten.</translation>
 <translation id="2316129865977710310">Ačiū, ne</translation>
 <translation id="2317031807364506312">ATŠAUKTI</translation>
+<translation id="2317842250900878657">Atlikta: <ph name="PROGRESS_PERCENT" /> %</translation>
 <translation id="2318143611928805047">Popieriaus lapo dydis</translation>
 <translation id="2318817390901984578">Jei norite naudoti „Android“ programas, įkraukite ir atnaujinkite savo „<ph name="DEVICE_TYPE" />“.</translation>
 <translation id="2318923050469484167">Dabartinė inkognito režimo sesija (<ph name="EMBEDDING" />)</translation>
@@ -1857,6 +1859,7 @@ Iš <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Ieškoti „<ph name="LOOKUP_STRING" />“</translation>
 <translation id="3620292326130836921">Atsarginis kopijavimas baigtas!</translation>
 <translation id="3623574769078102674">Šį prižiūrimą naudotoją tvarkys <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Akumuliatorius per daug išsikrovęs, kad būtų galima atnaujinti (<ph name="PROGRESS_PERCENT" /> %)</translation>
 <translation id="3625870480639975468">Iš naujo nustatyti mastelį</translation>
 <translation id="3626281679859535460">Šviesumas</translation>
 <translation id="3627052133907344175">Norint naudoti plėtinį reikalinga bent <ph name="IMPORT_VERSION" /> versijos „<ph name="IMPORT_NAME" />“, bet įdiegta tik <ph name="INSTALLED_VERSION" /> versija.</translation>
@@ -2320,6 +2323,7 @@ Norint tęsti, visi naudotojai turi atsijungti.</translation>
 Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="4336032328163998280">Nepavyko įvykdyti kopijavimo operacijos. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Tinklo žurnalus rasite adresu <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Jei norite atsisiųsti ir naudoti „Android“ programas, pirmiausia turite įdiegti naujinį. Kol įrenginys atnaujinamas, jo naudoti negalima. Kai diegimo procesas baigsis, „<ph name="DEVICE_TYPE" />“ bus paleistas iš naujo.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> nori užmegzti ryšį su programa „<ph name="EXTENSION_NAME" />“</translation>
 <translation id="4341977339441987045">Blokuoti svetaines, kad nebūtų galima nustatyti jokių duomenų</translation>
 <translation id="4342311272543222243">Oi, TPM klaida.</translation>
@@ -2600,7 +2604,6 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="4793866834012505469">Pakeisti balso modelį</translation>
 <translation id="479536056609751218">Tinklalapis, tik HTML</translation>
 <translation id="479989351350248267">ieškoti</translation>
-<translation id="480036413855787547">Pasiekite slaptažodžius naudodami bet kurį įrenginį apsilankę adresu <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. Naudojant „Mac“ slaptažodžius galima išsaugoti programoje „Keychain“. Juos gali pasiekti arba sinchronizuoti kiti „Chrome“ naudotojai, bendrai naudojantys šią „OS X“ paskyrą.</translation>
 <translation id="4801257000660565496">Kurti programos nuorodas</translation>
 <translation id="4801448226354548035">Slėpti paskyras</translation>
 <translation id="4801512016965057443">Leisti mobiliųjų duomenų tarptinklinį ryšį</translation>
@@ -2815,6 +2818,7 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="5111692334209731439">&amp;Žymių tvarkytuvė</translation>
 <translation id="5112577000029535889">&amp;Kūrėjo įrankiai</translation>
 <translation id="5113739826273394829">Spustelėję šią piktogramą, neautomatiškai užrakinsite šį „<ph name="DEVICE_TYPE" />“. Kitą kartą norėdami įeiti turėsite įvesti slaptažodį.</translation>
+<translation id="5115309401544567011">Prijunkite „<ph name="DEVICE_TYPE" />“ prie maitinimo šaltinio.</translation>
 <translation id="5116300307302421503">Nepavyksta išanalizuoti failo.</translation>
 <translation id="5116628073786783676">Iš&amp;saugoti garso įrašą kaip...</translation>
 <translation id="5117427536932535467">Temos ir ekrano fonai</translation>
@@ -3264,6 +3268,7 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="5759728514498647443">Dokumentus, kuriuos siunčiate spausdinti naudodami „<ph name="APP_NAME" />“, gali skaityti „<ph name="APP_NAME" />“.</translation>
 <translation id="5764483294734785780">Iš&amp;saugoti garso įrašą kaip...</translation>
 <translation id="57646104491463491">Koregavimo data</translation>
+<translation id="5764797882307050727">Atlaisvinkite vietos įrenginyje.</translation>
 <translation id="5765491088802881382">Nėra pasiekiamų tinklų</translation>
 <translation id="5765780083710877561">Aprašas:</translation>
 <translation id="5771585441665576801">Transliteracija (geia → γεια)</translation>
@@ -3495,6 +3500,7 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="6122081475643980456">Jūsų interneto ryšys yra kontroliuojamas</translation>
 <translation id="6122875415561139701">Rašymo operacija neleidžiama įrenginyje „<ph name="DEVICE_NAME" />“.</translation>
 <translation id="6124650939968185064">Toliau pateikti plėtiniai priklauso nuo šio plėtinio:</translation>
+<translation id="6125479973208104919">Deja, reikės vėl pridėti paskyrą šiame „<ph name="DEVICE_TYPE" />“.</translation>
 <translation id="6129938384427316298">„Netscape“ sertifikato komentaras</translation>
 <translation id="6129953537138746214">Tarpas</translation>
 <translation id="6132383530370527946">Smulkus šriftas</translation>
@@ -3875,6 +3881,7 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="6677037229676347494">ID turėjo būti <ph name="EXPECTED_ID" />, o buvo pateiktas – <ph name="NEW_ID" />.</translation>
 <translation id="6678717876183468697">Užklausos URL</translation>
 <translation id="6680028776254050810">Perjungti naudotojus</translation>
+<translation id="6680442031740878064">Pasiekiama: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Fotografuoti</translation>
 <translation id="668171684555832681">Kita...</translation>
 <translation id="6681964764822470072">„<ph name="APP_NAME" />“ bus pašalinta.</translation>
@@ -4295,6 +4302,7 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="7348093485538360975">Ekraninė klaviatūra</translation>
 <translation id="7348749398828259943">JAV „Workman“ tarptautinė klaviatūra</translation>
 <translation id="7352651011704765696">Kažkas negerai</translation>
+<translation id="73534262421337222">Įdiegiamas svarbus naujinys</translation>
 <translation id="7353651168734309780">„<ph name="EXTENSION_NAME" />“ reikalingi nauji leidimai</translation>
 <translation id="735745346212279324">VPN atjungtas</translation>
 <translation id="7360183604634508679">Žymių meniu</translation>
@@ -4456,6 +4464,7 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Išvalyti „Chrome“ duomenys</translation>
 <translation id="7568790562536448087">Atnaujinama</translation>
+<translation id="7571643774869182231">Saugykloje nepakanka vietos, kad būtų galima atnaujinti</translation>
 <translation id="7573172247376861652">Akumuliatoriaus įkrovimas</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Gretinti</translation>
@@ -4546,6 +4555,7 @@ Jei norite toliau naršyti, paspauskite bet kurį klavišą.</translation>
 <translation id="771953673318695590">KU</translation>
 <translation id="7720375555307821262">Jei norite prižiūrėti šį asmenį, <ph name="BEGIN_LINK" />prisijunkite prie „Chrome“<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Leisti langams perdengti vaizdus</translation>
+<translation id="7722040605881499779">Kad būtų galima atnaujinti, reikia laisvos vietos: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Iškirpti</translation>
 <translation id="7728668285692163452">Kanalo pakeitimas bus pritaikytas vėliau</translation>
 <translation id="7730449930968088409">Fiksuokite savo ekrano turinį</translation>

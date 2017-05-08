@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Sikkerhetskopiér medier fra enheten ved hjelp av Filer-appen.</translation>
 <translation id="1341988552785875222">Den gjeldende bakgrunnen er stilt inn av «<ph name="APP_NAME" />». Det kan hende du må avinstallere «<ph name="APP_NAME" />» før du kan velge en annen bakgrunn.</translation>
 <translation id="1346748346194534595">Høyre</translation>
+<translation id="1347975661240122359">Oppdateringen starter når batteriet når <ph name="BATTERY_LEVEL" /> %.</translation>
 <translation id="1351692861129622852">Importerer <ph name="FILE_COUNT" /> filer ...</translation>
 <translation id="1352103415082130575">Thai-tastatur (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -921,6 +922,7 @@ Når du har opprettet en ny administrert bruker, kan du når som helst – og fr
 <translation id="2312980885338881851">Ojsann! Det ser ut til at du ikke har noen eksisterende overvåkende brukere å importere. Opprett én eller flere fra en annen enhet, og så kan du importere dem hit etterpå.</translation>
 <translation id="2316129865977710310">Nei takk</translation>
 <translation id="2317031807364506312">AVBRYT</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" /> % ferdig</translation>
 <translation id="2318143611928805047">Papirstørrelse</translation>
 <translation id="2318817390901984578">For å bruke Android-apper, lad og oppdater <ph name="DEVICE_TYPE" />-enheten din.</translation>
 <translation id="2318923050469484167">Denne inkognitoøkten (<ph name="EMBEDDING" />)</translation>
@@ -1851,6 +1853,7 @@ Fra <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Slå opp «<ph name="LOOKUP_STRING" />»</translation>
 <translation id="3620292326130836921">Alt er sikkerhetskopiert!</translation>
 <translation id="3623574769078102674">Denne administrerte brukeren blir administrert av <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Det er for lite batteri igjen til å starte oppdateringen (<ph name="PROGRESS_PERCENT" /> %)</translation>
 <translation id="3625870480639975468">Tilbakestill zoom</translation>
 <translation id="3626281679859535460">Lysstyrke</translation>
 <translation id="3627052133907344175">Utvidelsen krever «<ph name="IMPORT_NAME" />» med «<ph name="IMPORT_VERSION" />» som minimumsversjon, men bare versjon «<ph name="INSTALLED_VERSION" />» er installert for øyeblikket.</translation>
@@ -2312,6 +2315,7 @@ Alle brukere må logge av for å fortsette.</translation>
 Trykk på en tast for å fortsette økten.</translation>
 <translation id="4336032328163998280">Kopieringshandlingen mislyktes. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">For nettverkslogger, se: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Du må installere en oppdatering før du kan laste ned og bruke Android-apper. Du kan ikke bruke enheten mens den oppdateres. <ph name="DEVICE_TYPE" />-enheten din starter på nytt når installasjonen er ferdig.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> ønsker å kommunisere med «<ph name="EXTENSION_NAME" />»-appen</translation>
 <translation id="4341977339441987045">Blokkér nettsteder fra å lagre data på maskinen</translation>
 <translation id="4342311272543222243">Beklager, det oppsto en TPM-feil.</translation>
@@ -2592,7 +2596,6 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="4793866834012505469">Lær opp talemodellen på nytt</translation>
 <translation id="479536056609751218">Nettside, bare HTML</translation>
 <translation id="479989351350248267">søk</translation>
-<translation id="480036413855787547">Få tilgang til passordene dine fra en hvilken som helst enhet på <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. På Mac kan passordene lagres i nøkkelringen og åpnes eller synkroniseres med andre Chrome-brukere som deler denne OS X-kontoen.</translation>
 <translation id="4801257000660565496">Opprett snarveier</translation>
 <translation id="4801448226354548035">Skjul kontoer</translation>
 <translation id="4801512016965057443">Tillat mobildatabruk på andre nettverk</translation>
@@ -2806,6 +2809,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="5111692334209731439">&amp;Bokmerkebehandling</translation>
 <translation id="5112577000029535889">&amp;Utviklerverktøy</translation>
 <translation id="5113739826273394829">Hvis du klikker på dette ikonet, låser du <ph name="DEVICE_TYPE" />-enheten manuelt. Neste gang må du skrive inn passordet ditt for å komme inn.</translation>
+<translation id="5115309401544567011">Koble <ph name="DEVICE_TYPE" />-enheten til en strømkilde.</translation>
 <translation id="5116300307302421503">Kan ikke analysere filen.</translation>
 <translation id="5116628073786783676">La&amp;gre lyd som</translation>
 <translation id="5117427536932535467">Temaer og bakgrunner</translation>
@@ -3252,6 +3256,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="5759728514498647443">Dokumenter du sender til utskrift via <ph name="APP_NAME" />, kan leses av <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">La&amp;gre lyd som</translation>
 <translation id="57646104491463491">Dato endret</translation>
+<translation id="5764797882307050727">Du må frigjøre plass på enheten.</translation>
 <translation id="5765491088802881382">Ingen nettverk er tilgjengelige</translation>
 <translation id="5765780083710877561">Beskrivelse:</translation>
 <translation id="5771585441665576801">Translitterasjon (geia → γεια)</translation>
@@ -3483,6 +3488,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="6122081475643980456">Internett-tilkoblingen din kontrolleres</translation>
 <translation id="6122875415561139701">Skriveoperasjonen er ikke tillatt på: «<ph name="DEVICE_NAME" />».</translation>
 <translation id="6124650939968185064">Disse utvidelsene er avhengige av denne utvidelsen:</translation>
+<translation id="6125479973208104919">Du må dessverre legge til kontoen din på denne <ph name="DEVICE_TYPE" />-enheten på nytt.</translation>
 <translation id="6129938384427316298">Kommentar til Netscape-sertifikat</translation>
 <translation id="6129953537138746214">Mellomrom</translation>
 <translation id="6132383530370527946">Med liten skrift</translation>
@@ -3862,6 +3868,7 @@ Du bør bare bruke denne funksjonen med kontoer du stoler på.</translation>
 <translation id="6677037229676347494">Den forventede ID-en var «<ph name="EXPECTED_ID" />», men den faktiske ID-en var «<ph name="NEW_ID" />».</translation>
 <translation id="6678717876183468697">Nettadresse for søk</translation>
 <translation id="6680028776254050810">Bytt bruker</translation>
+<translation id="6680442031740878064">Tilgjengelig: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Ta et bilde</translation>
 <translation id="668171684555832681">Annen</translation>
 <translation id="6681964764822470072">«<ph name="APP_NAME" />» blir avinstallert.</translation>
@@ -4280,6 +4287,7 @@ Du bør bare bruke denne funksjonen med kontoer du stoler på.</translation>
 <translation id="7348093485538360975">Skjermtastatur</translation>
 <translation id="7348749398828259943">Internasjonalt Workman-tastatur (USA)</translation>
 <translation id="7352651011704765696">Noe gikk galt</translation>
+<translation id="73534262421337222">Installerer en kritisk oppdatering</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> krever nye tillatelser</translation>
 <translation id="735745346212279324">VPN frakoblet</translation>
 <translation id="7360183604634508679">Bokmerkemeny</translation>
@@ -4433,6 +4441,7 @@ Du bør bare bruke denne funksjonen med kontoer du stoler på.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome-dataene er slettet</translation>
 <translation id="7568790562536448087">Oppdaterer</translation>
+<translation id="7571643774869182231">For lite lagringsplass til å oppdatere</translation>
 <translation id="7573172247376861652">Batterilading</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">I rekkefølge</translation>
@@ -4523,6 +4532,7 @@ Du bør bare bruke denne funksjonen med kontoer du stoler på.</translation>
 <translation id="771953673318695590">Kvalitetssikring</translation>
 <translation id="7720375555307821262">For å administrere denne personen, <ph name="BEGIN_LINK" />logg på Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Tillat at vinduer vises over flere skjermer</translation>
+<translation id="7722040605881499779">Trengs for å oppdatere: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Klipp ut</translation>
 <translation id="7728668285692163452">Kanalendringen blir tatt i bruk senere.</translation>
 <translation id="7730449930968088409">ta bilde av innhold på skjermen din</translation>

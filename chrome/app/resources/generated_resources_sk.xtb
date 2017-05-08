@@ -2605,7 +2605,6 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="4793866834012505469">Zmeniť model hlasu</translation>
 <translation id="479536056609751218">Webová stránka, len kód HTML</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">Heslá môžete zobraziť v ľubovoľnom zariadení na stránke <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. Na počítačoch Mac sa heslá môžu ukladať do aplikácie Keychain. Ostatní používatelia Chromu, ktorí zdieľajú tento účet systému OS X, k nim môžu pristupovať a môžu ich synchronizovať.</translation>
 <translation id="4801257000660565496">Vytvoriť odkazy na aplikáciu</translation>
 <translation id="4801448226354548035">Skryť účty</translation>
 <translation id="4801512016965057443">Povoliť roaming pre mobilné dáta</translation>
@@ -4301,7 +4300,7 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="7348093485538360975">Klávesnica na obrazovke</translation>
 <translation id="7348749398828259943">Medzinárodná klávesnica US Workman</translation>
 <translation id="7352651011704765696">Vyskytla sa chyba</translation>
-<translation id="73534262421337222">Inštaluje sa závažná aktualizácia</translation>
+<translation id="73534262421337222">Inštaluje sa kritická aktualizácia</translation>
 <translation id="7353651168734309780">Rozšírenie <ph name="EXTENSION_NAME" /> vyžaduje nové povolenia</translation>
 <translation id="735745346212279324">Sieť VPN je odpojená</translation>
 <translation id="7360183604634508679">Ponuka záložiek</translation>

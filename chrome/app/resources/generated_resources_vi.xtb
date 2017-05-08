@@ -1678,7 +1678,7 @@ Từ <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3348459612390503954">Xin chúc mừng</translation>
 <translation id="3348643303702027858">Đã hủy việc tạo Phương tiện khôi phục hệ điều hành</translation>
 <translation id="3353984535370177728">Chọn thư mục để tải lên</translation>
-<translation id="335581015389089642">Tiếng nói</translation>
+<translation id="335581015389089642">Giọng nói</translation>
 <translation id="3355936511340229503">Lỗi kết nối</translation>
 <translation id="3356580349448036450">Hoàn tất</translation>
 <translation id="3359256513598016054">Giới hạn Chính sách của Chứng chỉ</translation>
@@ -2605,7 +2605,6 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="4793866834012505469">Đào tạo lại mẫu giọng nói</translation>
 <translation id="479536056609751218">Trang web, chỉ HTML</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">Truy cập mật khẩu của bạn từ mọi thiết bị tại <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. Trên máy Mac, mật khẩu có thể được lưu vào Keychain cũng như có thể được truy cập hoặc đồng bộ hóa bởi những người dùng Chrome khác dùng chung tài khoản OS X này.</translation>
 <translation id="4801257000660565496">Tạo Phím tắt cho Ứng dụng</translation>
 <translation id="4801448226354548035">Ẩn tài khoản</translation>
 <translation id="4801512016965057443">Cho phép chuyển vùng dữ liệu di động</translation>

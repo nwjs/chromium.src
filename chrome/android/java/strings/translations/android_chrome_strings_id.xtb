@@ -54,10 +54,10 @@ Anda harus mengaktifkan Bluetooth dan Lokasi agar dapat menggunakan Web Fisik.</
 <translation id="1416550906796893042">Versi aplikasi</translation>
 <translation id="1423209968422390786">Akses lokasi <ph name="BEGIN_LINK" />dinonaktifkan untuk perangkat ini<ph name="END_LINK" />.</translation>
 <translation id="1430915738399379752">Cetak</translation>
-<translation id="1445680696957526815">Komponen Chrome tidak kompatibel dengan satu sama lain. Chrome mungkin ditingkatkan versinya, coba lagi dalam beberapa menit. Jika masalah terus berlanjut, coba copot pemasangan dan pasang ulang.</translation>
+<translation id="1445680696957526815">Komponen Chrome tidak kompatibel dengan satu sama lain. Chrome mungkin ditingkatkan versinya, coba lagi dalam beberapa menit. Jika masalah terus berlanjut, coba copot pemasangan dan instal ulang.</translation>
 <translation id="1446450296470737166">Izinkan kontrol penuh perangkat MIDI</translation>
 <translation id="145097072038377568">Dinonaktifkan di Setelan Android</translation>
-<translation id="1455941322673536744">Isiotomatis dan pembayaran</translation>
+<translation id="1455941322673536744">IsiOtomatis dan pembayaran</translation>
 <translation id="147006957810816598">Anda tidak akan dikeluarkan dari Akun Google.</translation>
 <translation id="1477626028522505441">Download <ph name="FILE_NAME" /> gagal karena masalah server.</translation>
 <translation id="1506061864768559482">Mesin telusur</translation>
@@ -255,7 +255,7 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="3744111309925758534"><ph name="MEGABYTES" /> MB aplikasi lain</translation>
 <translation id="3744111561329211289">Sinkronisasi latar belakang</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />Aktifkan Bluetooth<ph name="END_LINK" /> untuk mengizinkan penyandingan</translation>
-<translation id="3789841737615482174">Pasang</translation>
+<translation id="3789841737615482174">Instal</translation>
 <translation id="380076759404194828">{NUM_SELECTED,plural, =1{1 item dipilih}other{# item dipilih}}</translation>
 <translation id="3810838688059735925">Video</translation>
 <translation id="3810973564298564668">Kelola</translation>
@@ -379,7 +379,7 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="5100237604440890931">Diciutkan - klik untuk memperluas.</translation>
 <translation id="510275257476243843">1 jam lagi</translation>
 <translation id="5127805178023152808">Sinkronisasi nonaktif</translation>
-<translation id="5129038482087801250">Pasang aplikasi web</translation>
+<translation id="5129038482087801250">Instal aplikasi web</translation>
 <translation id="5131405117025179004">Edit akun tersimpan</translation>
 <translation id="5138299137310274655">Laman ini berbahasa <ph name="SOURCE_LANGUAGE" />. Terjemahkan ke <ph name="TARGET_LANGUAGE" />?</translation>
 <translation id="515227803646670480">Hapus data tersimpan</translation>
@@ -393,7 +393,7 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="5209320130288484488">Perangkat tidak ditemukan</translation>
 <translation id="5210286577605176222">Beralih ke tab sebelumnya</translation>
 <translation id="5210365745912300556">Tutup tab</translation>
-<translation id="5222676887888702881">Keluar</translation>
+<translation id="5222676887888702881">Logout</translation>
 <translation id="5233638681132016545">Tab baru</translation>
 <translation id="5271967389191913893">Perangkat tidak dapat membuka konten untuk didownload.</translation>
 <translation id="528192093759286357">Seret dari atas dan ketuk tombol kembali untuk keluar dari mode layar penuh.</translation>

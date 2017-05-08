@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">גבה את המדיה מהמכשיר באמצעות אפליקציית 'קבצים'.</translation>
 <translation id="1341988552785875222">הטפט הנוכחי נקבע על ידי '<ph name="APP_NAME" />'. ייתכן שיהיה עליך להסיר את התקנת '<ph name="APP_NAME" />' כדי לבחור טפט אחר.</translation>
 <translation id="1346748346194534595">ימינה</translation>
+<translation id="1347975661240122359">העדכון יתחיל כשהסוללה תיטען ל-%<ph name="BATTERY_LEVEL" />.</translation>
 <translation id="1351692861129622852">מייבא <ph name="FILE_COUNT" /> קבצים...</translation>
 <translation id="1352103415082130575">‏מקלדת תאילנדית (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -920,6 +921,7 @@
 <translation id="2312980885338881851">אופס! נראה שאין לך משתמשים בפיקוח לייבוא. עליך ליצור לפחות משתמש בפיקוח אחד ממכשיר אחר כדי שתוכל לייבא אותם לכאן.</translation>
 <translation id="2316129865977710310">לא, תודה</translation>
 <translation id="2317031807364506312">ביטול</translation>
+<translation id="2317842250900878657">%<ph name="PROGRESS_PERCENT" /> הושלמו</translation>
 <translation id="2318143611928805047">גודל נייר</translation>
 <translation id="2318817390901984578">‏כדי להשתמש באפליקציות Android עליך לטעון את ה-<ph name="DEVICE_TYPE" /> ולעדכן אותו.</translation>
 <translation id="2318923050469484167">הפעלה נוכחית במצב גלישה בסתר (<ph name="EMBEDDING" />)</translation>
@@ -1851,6 +1853,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3618849550573277856">חפש “<ph name="LOOKUP_STRING" />”</translation>
 <translation id="3620292326130836921">הכל מגובה!</translation>
 <translation id="3623574769078102674">משתמש בפיקוח זה ינוהל על ידי <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">הסוללה חלשה מדי להתקנת העדכון (%<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="3625870480639975468">אפס מרחק מתצוגה</translation>
 <translation id="3626281679859535460">בהירות</translation>
 <translation id="3627052133907344175">כדי להשתמש בתוסף יש צורך ב-"<ph name="IMPORT_NAME" />" בגרסה "<ph name="IMPORT_VERSION" />" לכל הפחות, אך רק גרסה "<ph name="INSTALLED_VERSION" />" מותקנת.</translation>
@@ -2314,6 +2317,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 הקש על מקש כלשהו כדי להמשיך בסיור.</translation>
 <translation id="4336032328163998280">פעולת ההעתקה נכשלה. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">ליומני רשת, ראה: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">‏עליך להתקין את העדכון כדי להוריד אפליקציות Android ולהשתמש בהן. לא תוכל להשתמש במכשיר בזמן ההתקנה. כשההתקנה תסתיים, מחשב <ph name="DEVICE_TYPE" /> יופעל מחדש.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> רוצה לתקשר עם האפליקציה "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">חסום אתרים מהגדרת נתונים כלשהם</translation>
 <translation id="4342311272543222243">‏אופס, טעות של TPM.</translation>
@@ -2594,7 +2598,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4793866834012505469">אימון מחדש של תבנית הקול</translation>
 <translation id="479536056609751218">‏דף אינטרנט, HTML בלבד</translation>
 <translation id="479989351350248267">Search</translation>
-<translation id="480036413855787547">‏תוכל לגשת לסיסמאות שלך מכל מכשיר דרך <ph name="BEGIN_LINK" />‏passwords.google.com‏<ph name="END_LINK" />. ב-Mac, ניתן לשמור סיסמאות ב-Keychain שלך ומשתמשי Chrome אחרים המשתפים חשבון OS X זה יכולים לגשת אליהן או לסנכרן אותן.</translation>
 <translation id="4801257000660565496">צור קיצורי דרך ליישום</translation>
 <translation id="4801448226354548035">הסתר חשבונות</translation>
 <translation id="4801512016965057443">אפשר נדידת נתונים לנייד </translation>
@@ -2809,6 +2812,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5111692334209731439">&amp;מנהל הסימניות</translation>
 <translation id="5112577000029535889">&amp;כלים עבור מפתחים</translation>
 <translation id="5113739826273394829">אם תלחץ על סמל זה, תנעל ידנית את <ph name="DEVICE_TYPE" /> זה. בפעם הבאה, תצטרך להקליד את הסיסמה כדי להיכנס.</translation>
+<translation id="5115309401544567011">חבר את ה-<ph name="DEVICE_TYPE" /> למקור חשמל.</translation>
 <translation id="5116300307302421503">לא ניתן לנתח את הקובץ.</translation>
 <translation id="5116628073786783676">&amp;שמור שמע כ...</translation>
 <translation id="5117427536932535467">עיצובים וטפטים</translation>
@@ -3258,6 +3262,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5759728514498647443">תוכל להשתמש ב-<ph name="APP_NAME" /> כדי לקרוא מסמכים שתשלח להדפסה באמצעות <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">ש&amp;מור שמע כ...</translation>
 <translation id="57646104491463491">תארך השינוי</translation>
+<translation id="5764797882307050727">פנה שטח אחסון במכשיר.</translation>
 <translation id="5765491088802881382">אין רשת זמינה</translation>
 <translation id="5765780083710877561">תיאור:</translation>
 <translation id="5771585441665576801">‏תעתוק (geia → γεια)</translation>
@@ -3489,6 +3494,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6122081475643980456">החיבור שלך לאינטרנט נשלט על ידי גורם כלשהו</translation>
 <translation id="6122875415561139701">פעולת כתיבה אסורה במכשיר: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">התוספים הבאים תלויים בתוסף הזה:</translation>
+<translation id="6125479973208104919">תצטרך להוסיף את החשבון שלך ב-<ph name="DEVICE_TYPE" /> פעם נוספת.</translation>
 <translation id="6129938384427316298">‏הערה לאישור Netscape</translation>
 <translation id="6129953537138746214">רווח</translation>
 <translation id="6132383530370527946">האותיות הקטנות</translation>
@@ -3869,6 +3875,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6677037229676347494">המזהה הצפוי הוא "<ph name="EXPECTED_ID" />", אך המזהה היה "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">כתובת אתר של שאילתה</translation>
 <translation id="6680028776254050810">החלף משתמשים</translation>
+<translation id="6680442031740878064">השטח הזמין: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">צלם תמונה</translation>
 <translation id="668171684555832681">אחר...</translation>
 <translation id="6681964764822470072">ההתקנה של "<ph name="APP_NAME" />" תוסר.</translation>
@@ -4287,6 +4294,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7348093485538360975">מקלדת על המסך</translation>
 <translation id="7348749398828259943">‏מקלדת US Workman בינלאומית</translation>
 <translation id="7352651011704765696">משהו השתבש</translation>
+<translation id="73534262421337222">מתקין עדכון קריטי</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> דורש הרשאות חדשות</translation>
 <translation id="735745346212279324">‏VPN מנותק</translation>
 <translation id="7360183604634508679">תפריט הסימניות</translation>
@@ -4440,6 +4448,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">‏נתוני Chrome נוקו</translation>
 <translation id="7568790562536448087">מעדכן</translation>
+<translation id="7571643774869182231">אין מספיק שטח אחסון לעדכון</translation>
 <translation id="7573172247376861652">טעינת סוללה</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">אסוף</translation>
@@ -4530,6 +4539,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">‏כדי לפקח על אדם זה, <ph name="BEGIN_LINK" />היכנס ל-Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">חלונות יכולים לסובב את התצוגות</translation>
+<translation id="7722040605881499779">השטח שנדרש כדי לעדכן: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">חתוך</translation>
 <translation id="7728668285692163452">שינוי הערוץ ייכנס לתוקף מאוחר יותר</translation>
 <translation id="7730449930968088409">צילום של תוכן המסך</translation>

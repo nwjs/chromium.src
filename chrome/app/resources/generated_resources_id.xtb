@@ -132,7 +132,7 @@
 <translation id="1195447618553298278">Kesalahan tak dikenal.</translation>
 <translation id="1196338895211115272">Gagal mengekspor kunci pribadi.</translation>
 <translation id="1197199342062592414">Mari mulai</translation>
-<translation id="119738088725604856">Jendela tangkapan layar</translation>
+<translation id="119738088725604856">Jendela screenshot</translation>
 <translation id="1197979282329025000">Kesalahan terjadi selagi mengambil informasi kemampuan printer untuk printer <ph name="PRINTER_NAME" />. Printer ini tidak dapat didaftarkan ke <ph name="CLOUD_PRINT_NAME" />.</translation>
 <translation id="1198271701881992799">Mari memulai</translation>
 <translation id="1199232041627643649">Tekan <ph name="KEY_EQUIVALENT" /> untuk Berhenti.</translation>
@@ -314,7 +314,7 @@
 <translation id="144518587530125858">Tidak dapat memuat '<ph name="IMAGE_PATH" />' untuk tema.</translation>
 <translation id="1451375123200651445">Laman web, File Tunggal</translation>
 <translation id="1451917004835509682">Tambahkan Orang yang Dilindungi</translation>
-<translation id="1454223536435069390">Ambil tangkapan layar</translation>
+<translation id="1454223536435069390">Ambil screenshot</translation>
 <translation id="1455548678241328678">Keyboard untuk bahasa Norsk</translation>
 <translation id="1459967076783105826">Mesin telusur ditambahkan oleh ekstensi</translation>
 <translation id="146000042969587795">Bingkai ini diblokir karena berisi sejumlah konten tidak aman.</translation>
@@ -788,7 +788,7 @@
 <translation id="2138398485845393913">Sambungan ke "<ph name="DEVICE_NAME" />" sedang dalam proses</translation>
 <translation id="214169863967063661">Buka setelan tampilan</translation>
 <translation id="2142328300403846845">Buka Tautan sebagai</translation>
-<translation id="214353449635805613">Wilayah tangkapan layar</translation>
+<translation id="214353449635805613">Wilayah screenshot</translation>
 <translation id="2143765403545170146">Selalu Tampilkan Bilah Alat di Layar Penuh</translation>
 <translation id="2143778271340628265">Konfigurasi proxy manual</translation>
 <translation id="2143915448548023856">Setelan layar</translation>
@@ -1972,7 +1972,7 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3785852283863272759">Email Lokasi Laman</translation>
 <translation id="3786301125658655746">Anda sedang offline</translation>
 <translation id="3788401245189148511">Aplikasi/ekstensi dapat:</translation>
-<translation id="3789841737615482174">Pasang</translation>
+<translation id="3789841737615482174">Instal</translation>
 <translation id="3790146417033334899"><ph name="PLUGIN_NAME" /> hanya bekerja di desktop.</translation>
 <translation id="3790358761803015466">Tidak dapat menjangkau Google Play. Coba lagi sekarang.</translation>
 <translation id="3790909017043401679">Masukkan PIN kartu SIM</translation>
@@ -2264,7 +2264,7 @@ Semua pengguna harus keluar untuk melanjutkan.</translation>
 <translation id="424726838611654458">Selalu buka di Adobe Reader</translation>
 <translation id="4249248555939881673">Menunggu sambungan jaringan...</translation>
 <translation id="4249373718504745892">Laman ini telah diblokir agar tidak dapat mengakses kamera dan mikrofon Anda.</translation>
-<translation id="4250229828105606438">Tangkapan layar</translation>
+<translation id="4250229828105606438">Screenshot</translation>
 <translation id="4250680216510889253">Tidak</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" /> - Konten tab dibagikan</translation>
 <translation id="4254813446494774748">Bahasa Terjemahan:</translation>
@@ -2322,7 +2322,7 @@ Semua pengguna harus keluar untuk melanjutkan.</translation>
 Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="4336032328163998280">Operasi penyalinan gagal. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Untuk log jaringan, lihat: <ph name="DEVICE_LOG_LINK" /></translation>
-<translation id="4337028641069424358">Untuk mendownload dan menggunakan aplikasi Android, Anda harus menginstal update terlebih dahulu. Saat perangkat sedang diupdate, Anda tidak dapat menggunakannya. Perangkat <ph name="DEVICE_TYPE" /> akan dimuat ulang setelah proses instal selesai.</translation>
+<translation id="4337028641069424358">Untuk mendownload dan menggunakan aplikasi Android, Anda harus menginstal update terlebih dahulu. Saat perangkat sedang diupdate, Anda tidak dapat menggunakannya. Perangkat <ph name="DEVICE_TYPE" /> akan dinyalakan ulang setelah proses instal selesai.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> ingin berkomunikasi dengan aplikasi "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">Blokir situs agar tidak menyetel data apa pun</translation>
 <translation id="4342311272543222243">Ups, kesalahan TPM.</translation>
@@ -2603,7 +2603,6 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="4793866834012505469">Melatih kembali model suara</translation>
 <translation id="479536056609751218">Laman Web, HTML Saja</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">Akses sandi Anda dari perangkat apa pun di <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. Di Mac, sandi mungkin disimpan pada Keychain dan dapat diakses atau disinkronkan oleh pengguna Chrome lain yang berbagi akun OS X ini.</translation>
 <translation id="4801257000660565496">Buat Pintasan Aplikasi</translation>
 <translation id="4801448226354548035">Sembunyikan akun</translation>
 <translation id="4801512016965057443">Izinkan roaming data seluler</translation>
@@ -2818,7 +2817,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="5111692334209731439">Pengelola &amp;Bookmark</translation>
 <translation id="5112577000029535889">Alat &amp;Pengembang</translation>
 <translation id="5113739826273394829">Jika mengeklik ikon ini, <ph name="DEVICE_TYPE" /> akan dikunci secara manual. Selanjutnya, Anda perlu mengetikkan sandi untuk masuk.</translation>
-<translation id="5115309401544567011">Harap colokkan perangkat <ph name="DEVICE_TYPE" /> ke sumber daya.</translation>
+<translation id="5115309401544567011">Harap colokkan perangkat <ph name="DEVICE_TYPE" /> ke sumber listrik.</translation>
 <translation id="5116300307302421503">Tidak dapat mengurai file.</translation>
 <translation id="5116628073786783676">Sim&amp;pan Audio Sebagai...</translation>
 <translation id="5117427536932535467">Tema &amp; Wallpaper</translation>
@@ -2891,7 +2890,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="5213891612754844763">Tampilkan setelan proxy</translation>
 <translation id="521582610500777512">Foto dibuang</translation>
 <translation id="5218183485292899140">Prancis Swiss</translation>
-<translation id="5222676887888702881">Keluar</translation>
+<translation id="5222676887888702881">Logout</translation>
 <translation id="5222738340020399230">&amp;Download gambar...</translation>
 <translation id="5225324770654022472">Tampilkan pintasan aplikasi</translation>
 <translation id="5227536357203429560">Tambahkan jaringan pribadi...</translation>
@@ -3470,7 +3469,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="6074825444536523002">Google Formulir</translation>
 <translation id="6075731018162044558">Ups!  Sistem gagal mencapai token akses API jangka panjang untuk perangkat ini.</translation>
 <translation id="6075907793831890935">Menukar data dengan perangkat yang bernama <ph name="HOSTNAME" /></translation>
-<translation id="6076448957780543068">Sertakan tangkapan layar ini</translation>
+<translation id="6076448957780543068">Sertakan screenshot ini</translation>
 <translation id="6077131872140550515">Hapus dari pilihan</translation>
 <translation id="6080689532560039067">Periksa waktu sistem Anda</translation>
 <translation id="6080696365213338172">Anda telah mengakses konten menggunakan sertifikat yang diberikan oleh administrator. Data yang diberikan ke <ph name="DOMAIN" /> dapat dicegat oleh administrator Anda.</translation>
@@ -3596,7 +3595,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="62751439899495218">Ubah Foto</translation>
 <translation id="6276301056778294989">Pastikan perangkat menunjukkan kode yang sama.</translation>
 <translation id="6277105963844135994">Waktu tunggu jaringan habis</translation>
-<translation id="6277518330158259200">Ambil Tangkapan Layar</translation>
+<translation id="6277518330158259200">Ambil Screenshot</translation>
 <translation id="6278057325678116358">Gunakan GTK+</translation>
 <translation id="6279183038361895380">Tekan |<ph name="ACCELERATOR" />| untuk menampilkan kursor</translation>
 <translation id="6280215091796946657">Masuk dengan akun lain</translation>
@@ -3753,7 +3752,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="6485352695865682479">Status sambungan:</translation>
 <translation id="6488384360522318064">Pilih bahasa</translation>
 <translation id="648927581764831596">Tidak ada yang tersedia</translation>
-<translation id="6490936204492416398">Pasang ekstensi baru dari toko web</translation>
+<translation id="6490936204492416398">Instal ekstensi baru dari toko web</translation>
 <translation id="6491376743066338510">Otorisasi gagal</translation>
 <translation id="6492313032770352219">Ukuran pada disk:</translation>
 <translation id="6494445798847293442">Bukan Otoritas Sertifikasi</translation>
@@ -5551,7 +5550,7 @@ Notifikasi, jendela, dan dialog berikutnya dapat terpisah antar-desktop.</transl
 <translation id="93393615658292258">Sandi saja</translation>
 <translation id="936801553271523408">Data diagnosis sistem</translation>
 <translation id="93766956588638423">Perbaiki ekstensi</translation>
-<translation id="938470336146445890">Pasang sertifikat pengguna.</translation>
+<translation id="938470336146445890">Instal sertifikat pengguna.</translation>
 <translation id="938582441709398163">Hamparan Keyboard</translation>
 <translation id="939598580284253335">Masukkan frasa sandi</translation>
 <translation id="939736085109172342">Folder baru</translation>

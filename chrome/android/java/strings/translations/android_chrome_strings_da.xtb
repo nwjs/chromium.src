@@ -328,7 +328,7 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 <translation id="4535858793016067060">Slå "Ukendte kilder" til i sikkerhedsindstillingerne i Android for at afprøve eksperimentet "Forbedring af funktionen Føj til startskærm". Sørg for at deaktivere denne indstilling, når du er færdig med at teste den.</translation>
 <translation id="4558311620361989323">Genveje på websider</translation>
 <translation id="4572422548854449519">Log ind på administreret konto</translation>
-<translation id="4581964774250883625">Du er inkognito.</translation>
+<translation id="4581964774250883625">Du er nu i inkognito.</translation>
 <translation id="4583164079174244168">{MINUTES,plural, =1{For # minut siden}one{For # minut siden}other{For # minutter siden}}</translation>
 <translation id="4587589328781138893">Websites</translation>
 <translation id="4605958867780575332">Element fjernet: <ph name="ITEM_TITLE" /></translation>
@@ -734,7 +734,7 @@ Din Google-konto kan have andre former for browserhistorik, f.eks. søgninger og
 Du kan få nye licenser ved at oprette forbindelse til internettet og afspille det indhold, du har downloadet.</translation>
 <translation id="8636825310635137004">Aktivér synkronisering for at få adgang til dine faner på dine andre enheder.</translation>
 <translation id="8639651215196239211">Alle downloads</translation>
-<translation id="8641930654639604085">Prøv at blokere websites med voksenindhold</translation>
+<translation id="8641930654639604085">Prøv at blokere websites med indhold for voksne</translation>
 <translation id="8660471606262461360">Fra Google Payments</translation>
 <translation id="8662811608048051533">Logger dig ud af de fleste websites.</translation>
 <translation id="8676374126336081632">Ryd indtastning</translation>

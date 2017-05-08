@@ -228,7 +228,7 @@
 <translation id="1340527397989195812">Back-ups van media op het apparaat maken via de app Bestanden.</translation>
 <translation id="1341988552785875222">De huidige achtergrond is ingesteld door '<ph name="APP_NAME" />'. Je moet '<ph name="APP_NAME" />' mogelijk verwijderen voordat je een andere achtergrond selecteert.</translation>
 <translation id="1346748346194534595">Rechts</translation>
-<translation id="1347975661240122359">De update wordt gestart wanneer de batterij <ph name="BATTERY_LEVEL" />% vol is.</translation>
+<translation id="1347975661240122359">De update wordt gestart wanneer de batterij voor <ph name="BATTERY_LEVEL" />% vol is.</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> bestanden importeren...</translation>
 <translation id="1352103415082130575">Thais toetsenbord (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -2604,7 +2604,6 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="4793866834012505469">Spraakmodel opnieuw trainen</translation>
 <translation id="479536056609751218">Webpagina, alleen HTML</translation>
 <translation id="479989351350248267">zoeken</translation>
-<translation id="480036413855787547">Via <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> kun je op elk apparaat toegang krijgen tot je wachtwoorden. Op Mac kunnen wachtwoorden worden opgeslagen in je Sleutelhanger en worden geopend of gesynchroniseerd door andere Chrome-gebruikers die dit OS X-account delen.</translation>
 <translation id="4801257000660565496">Applicatiesnelkoppelingen</translation>
 <translation id="4801448226354548035">Accounts verbergen</translation>
 <translation id="4801512016965057443">Mobiele dataroaming toestaan</translation>

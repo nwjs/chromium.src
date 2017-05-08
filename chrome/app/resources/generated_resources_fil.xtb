@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Mag-back up ng media mula sa device gamit ang Files app.</translation>
 <translation id="1341988552785875222">Itinakda ng '<ph name="APP_NAME" />' ang wallpaper sa kasalukuyan. Maaaring kailanganin mong i-uninstall ang '<ph name="APP_NAME" />' bago ka pumili ng ibang wallpaper.</translation>
 <translation id="1346748346194534595">Kanan</translation>
+<translation id="1347975661240122359">Magsisimula ang pag-update kapag umabot na ang baterya sa <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Nag-i-import ng <ph name="FILE_COUNT" /> (na) file...</translation>
 <translation id="1352103415082130575">Thai keyboard (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -926,6 +927,7 @@ Pagkatapos mong gumawa ng bagong pinangangasiwaang user, maaari mong pamahalaan 
 <translation id="2312980885338881851">Oops! Mukhang wala kang umiiral na pinangangasiwaang user na ii-import. Mangyaring gumawa ng isa o higit pa mula sa ibang device pagkatapos ay maaari mo silang i-import dito.</translation>
 <translation id="2316129865977710310">Hindi, salamat</translation>
 <translation id="2317031807364506312">KANSELAHIN</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% ang natapos</translation>
 <translation id="2318143611928805047">Sukat ng papel</translation>
 <translation id="2318817390901984578">Upang gamitin ang mga Android app, i-charge at i-update ang iyong <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Kasalukuyang incognito na session (<ph name="EMBEDDING" />)</translation>
@@ -1858,6 +1860,7 @@ Mula Sa <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Hanapin ang “<ph name="LOOKUP_STRING" />”</translation>
 <translation id="3620292326130836921">Naka-back up na ang lahat!</translation>
 <translation id="3623574769078102674">Pamamahalaan ang pinangangasiwaang user na ito ng <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Masyadong kaunti ang baterya para sa pag-update (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">I-reset ang zoom</translation>
 <translation id="3626281679859535460">Tingkad</translation>
 <translation id="3627052133907344175">Kinakailangan ng extension ang "<ph name="IMPORT_NAME" />" na mayroong minimum na bersyon na "<ph name="IMPORT_VERSION" />", ngunit ang bersyon na "<ph name="INSTALLED_VERSION" />" lang ang naka-install.</translation>
@@ -2322,6 +2325,7 @@ Dapat mag-sign out ang lahat ng user upang magpatuloy.</translation>
 Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="4336032328163998280">Nabigo ang pagkopya. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Para sa mga log ng network, tingnan ang: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Upang i-download at gamitin ang mga Android app, kailangan mo munang mag-install ng update. Habang nag-a-update ang iyong device, hindi mo ito magagamit. Magre-restart ang iyong <ph name="DEVICE_TYPE" /> pagkatapos ng pag-install.</translation>
 <translation id="4340515029017875942">Gustong makipag-ugnayan ng <ph name="ORIGIN" /> sa app na "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">Harangan ang mga site mula sa pagtatakda ng anumang data</translation>
 <translation id="4342311272543222243">Oops, nagkaroon ng TPM error.</translation>
@@ -2602,7 +2606,6 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="4793866834012505469">Sanaying muli ang modelo ng boses</translation>
 <translation id="479536056609751218">Webpage, HTML Lamang</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">I-access ang iyong mga password mula sa anumang device sa <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. Sa Mac, maaaring i-save ang mga password sa iyong Keychain, at i-access o i-sync ng iba pang mga user ng Chrome na nakikigamit sa OS X account na ito.</translation>
 <translation id="4801257000660565496">Lumikha ng Mga Shortcut ng Application</translation>
 <translation id="4801448226354548035">Itago ang mga account</translation>
 <translation id="4801512016965057443">Payagan ang pag-roam ng mobile data</translation>
@@ -2817,6 +2820,7 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="5111692334209731439">&amp;Bookmark Manager</translation>
 <translation id="5112577000029535889">&amp;Mga Tool ng Nag-develop</translation>
 <translation id="5113739826273394829">Kung iki-click mo ang icon na ito, manu-mano mong ila-lock ang <ph name="DEVICE_TYPE" /> na ito. Sa susunod, kakailanganin mong i-type ang iyong password upang makapasok.</translation>
+<translation id="5115309401544567011">Isaksak ang iyong <ph name="DEVICE_TYPE" /> sa isang pinagmumulan ng kuryente.</translation>
 <translation id="5116300307302421503">Hindi nagawang ma-parse ang file.</translation>
 <translation id="5116628073786783676">I-Sa&amp;ve ang Audio Bilang...</translation>
 <translation id="5117427536932535467">Mga Tema at Wallpaper</translation>
@@ -3265,6 +3269,7 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="5759728514498647443">Ang mga dokumentong ipinadadala mo upang i-print sa pamamagitan ng <ph name="APP_NAME" /> ay maaaring buksan ng <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">I-sa&amp;ve ang audio bilang...</translation>
 <translation id="57646104491463491">Binagong Petsa</translation>
+<translation id="5764797882307050727">Magbakante ng ilang espasyo sa iyong device.</translation>
 <translation id="5765491088802881382">Walang magagamit na network</translation>
 <translation id="5765780083710877561">Paglalarawan:</translation>
 <translation id="5771585441665576801">Transliteration (geia → γεια)</translation>
@@ -3496,6 +3501,7 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="6122081475643980456">Kinokontrol ang iyong koneksyon sa Internet</translation>
 <translation id="6122875415561139701">Hindi pinapahintulutan ang write na operation sa: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">Nakadepende ang mga sumusunod na extension sa extension na ito:</translation>
+<translation id="6125479973208104919">Sa kasamaang-palad, kakailanganin mong idagdag muli ang iyong account sa <ph name="DEVICE_TYPE" /> na ito.</translation>
 <translation id="6129938384427316298">Komento sa Netscape Certificate</translation>
 <translation id="6129953537138746214">Puwang</translation>
 <translation id="6132383530370527946">Ang maliit na naka-print</translation>
@@ -3876,6 +3882,7 @@ Gamitin lang ang feature na ito sa mga account na iyong pinagkakatiwalaan.</tran
 <translation id="6677037229676347494">"<ph name="EXPECTED_ID" />" ang inaasahang ID, ngunit "<ph name="NEW_ID" />" ang ID.</translation>
 <translation id="6678717876183468697">URL ng Query</translation>
 <translation id="6680028776254050810">Magpalit ng mga User</translation>
+<translation id="6680442031740878064">Available: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Kumuha ng larawan</translation>
 <translation id="668171684555832681">Iba pa...</translation>
 <translation id="6681964764822470072">Ia-uninstall ang "<ph name="APP_NAME" />."</translation>
@@ -4296,6 +4303,7 @@ Gamitin lang ang feature na ito sa mga account na iyong pinagkakatiwalaan.</tran
 <translation id="7348093485538360975">Nasa screen na keyboard</translation>
 <translation id="7348749398828259943">US Workman international na keyboard</translation>
 <translation id="7352651011704765696">Nagkaroon ng problema</translation>
+<translation id="73534262421337222">Ini-install ang mahalagang update</translation>
 <translation id="7353651168734309780">Nangangailangan ang <ph name="EXTENSION_NAME" /> ng mga bagong pahintulot</translation>
 <translation id="735745346212279324">Nakadiskonekta ang VPN</translation>
 <translation id="7360183604634508679">Menu ng mga bookmark</translation>
@@ -4457,6 +4465,7 @@ Gamitin lang ang feature na ito sa mga account na iyong pinagkakatiwalaan.</tran
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Na-clear ang data ng Chrome</translation>
 <translation id="7568790562536448087">Ina-update</translation>
+<translation id="7571643774869182231">Hindi sapat ang storage para sa update</translation>
 <translation id="7573172247376861652">Charge ng Baterya</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Tipunin</translation>
@@ -4547,6 +4556,7 @@ Gamitin lang ang feature na ito sa mga account na iyong pinagkakatiwalaan.</tran
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">Upang pangasiwaan ang taong ito, <ph name="BEGIN_LINK" />mag-sign in sa Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Payagan ang mga window na gumamit ng maraming display</translation>
+<translation id="7722040605881499779">Kinakailangan upang mag-update: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">I-cut</translation>
 <translation id="7728668285692163452">Malalapat ang pagbabago sa channel sa ibang pagkakataon</translation>
 <translation id="7730449930968088409">Kunan ang nilalaman ng iyong screen</translation>

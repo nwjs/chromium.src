@@ -1853,7 +1853,7 @@ Kutoka <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">Angalia “<ph name="LOOKUP_STRING" />”</translation>
 <translation id="3620292326130836921">Zote zimehifadhiwa nakala!</translation>
 <translation id="3623574769078102674">Mtumiaji huyu anayesimamiwa atadhibitiwa na <ph name="MANAGER_EMAIL" /> .</translation>
-<translation id="3624814222765772771">Betri haina chaji ya kutosha kwa ajili ya sasisho (<ph name="PROGRESS_PERCENT" />%)</translation>
+<translation id="3624814222765772771">Betri haina chaji ya kutosha ili kuweza kusasisha (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Weka upya ukuzaji</translation>
 <translation id="3626281679859535460">Ung'aavu</translation>
 <translation id="3627052133907344175">Kiendelezi kinahitaji "<ph name="IMPORT_NAME" />" kwa toleo la chini zaidi la "<ph name="IMPORT_VERSION" />", lakini toleo "<ph name="INSTALLED_VERSION" />" ndilo limesakinishwa pekee.</translation>
@@ -2594,7 +2594,6 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="4793866834012505469">Toa mafunzo mapya ya muundo wa sauti</translation>
 <translation id="479536056609751218">Ukurasa wavuti, HTML Pekee</translation>
 <translation id="479989351350248267">tafuta</translation>
-<translation id="480036413855787547">Fikia manenosiri yako kutoka kwenye kifaa chochote katika <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. Kwenye Mac, manenosiri yanahifadhiwa kwenye msururu wako wa Ufunguo na kufikiwa au kusawazishwa na watumiaji wengine wa Chrome wanaoshiriki akaunti hii ya OS X.</translation>
 <translation id="4801257000660565496">Unda Mikato ya Programu</translation>
 <translation id="4801448226354548035">Ficha akaunti</translation>
 <translation id="4801512016965057443">Ruhusu matumizi ya data nje ya mtandao wa kawaida</translation>
@@ -4453,7 +4452,7 @@ Tumia kipengele hiki kwa akaunti unazoamini pekee.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Data ya Chrome imefutwa</translation>
 <translation id="7568790562536448087">Inasasisha</translation>
-<translation id="7571643774869182231">Hakuna hifadhi ya kutosha kwa ajili ya sasisho</translation>
+<translation id="7571643774869182231">Hakuna nafasi ya kutosha kufanya sasisho</translation>
 <translation id="7573172247376861652">Chaji ya Betri</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Kusanya</translation>

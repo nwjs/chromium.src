@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">ഫയലുകളുടെ അപ്ലിക്കേഷൻ ഉപയോഗിച്ച് ഉപകരണത്തിൽ നിന്നും മീഡിയ ബാക്കപ്പുചെയ്യുക.</translation>
 <translation id="1341988552785875222">നിലവിലുള്ള വാൾപേപ്പർ സജ്ജീകരിച്ചത് '<ph name="APP_NAME" />' ആണ്. മറ്റൊരു വാൾപേപ്പർ തിരഞ്ഞെടുക്കുന്നതിന് മുമ്പ് നിങ്ങൾ '<ph name="APP_NAME" />' അൺഇൻസ്‌റ്റാൾ ചെയ്യേണ്ടിവന്നേക്കാം.</translation>
 <translation id="1346748346194534595">ശരി</translation>
+<translation id="1347975661240122359">ബാറ്ററി ചാർജ് <ph name="BATTERY_LEVEL" /> ശതമാനമാകുമ്പോൾ അപ്‌ഡേറ്റ് ആരംഭിക്കും.</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> ഫയലുകൾ ഇമ്പോർട്ടുചെയ്യുന്നു...</translation>
 <translation id="1352103415082130575">തായ് കീബോർഡ് (പറ്റച്ചോട്ടെ)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -921,6 +922,7 @@
 <translation id="2312980885338881851">ക്ഷമിക്കണം! ഇമ്പോർട്ടുചെയ്യാൻ നിങ്ങൾക്ക് നിലവിൽ സൂപ്പർവൈസുചെയ്‌ത ഉപയോക്താക്കളില്ലാത്തതുപോലെ തോന്നുന്നു. മറ്റൊരു ഉപകരണത്തിൽ നിന്ന് ഒന്നോ അതിലധികമോ സൃഷ്‌ടിക്കുക, തുടർന്ന് നിങ്ങൾക്ക് അവയെ ഇവിടെ ഇമ്പോർട്ടുചെയ്യാനാകും.</translation>
 <translation id="2316129865977710310">വേണ്ട, നന്ദി</translation>
 <translation id="2317031807364506312">റദ്ദാക്കുക</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" /> ശതമാനം പൂർത്തിയായി</translation>
 <translation id="2318143611928805047">പേപ്പർ വലുപ്പം</translation>
 <translation id="2318817390901984578">Android ആപ്പുകൾ ഉപയോഗിക്കുന്നതിന്, നിങ്ങളുടെ <ph name="DEVICE_TYPE" /> ചാർജുചെയ്‌തശേഷം അപ്‌ഡേറ്റുചെയ്യുക.</translation>
 <translation id="2318923050469484167">നിലവിലെ അദൃശ്യ സെഷൻ (<ph name="EMBEDDING" />)</translation>
@@ -1850,6 +1852,7 @@
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” തിരയുക</translation>
 <translation id="3620292326130836921">എല്ലാം ബാക്കപ്പുചെയ്‌തു!</translation>
 <translation id="3623574769078102674">സൂപ്പർവൈസ് ചെയ്‌ത ഈ ഉപയോക്താവിനെ <ph name="MANAGER_EMAIL" /> നിയന്ത്രിക്കും.</translation>
+<translation id="3624814222765772771">ബാറ്ററി ചാർജ്, സിസ്‌റ്റം അപ്‌ഡേറ്റ് ചെയ്യുന്നതിനാവശ്യമായതിലും വളരെ കുറവാണ് (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">സൂം പുനഃസജ്ജമാക്കുക</translation>
 <translation id="3626281679859535460">മിഴിവ്</translation>
 <translation id="3627052133907344175">വിപുലീകരണത്തിന് "<ph name="IMPORT_VERSION" />" എന്ന പതിപ്പെങ്കിലുമുള്ള "<ph name="IMPORT_NAME" />" ആവശ്യമാണെങ്കിലും "<ph name="INSTALLED_VERSION" />" പതിപ്പ് മാത്രം ഇൻസ്‌റ്റാളുചെയ്‌തിരിക്കുന്നു.</translation>
@@ -2310,6 +2313,7 @@
 പര്യവേക്ഷണം തുടരുന്നതിനായി ഏതെങ്കിലും കീ അമർത്തുക.</translation>
 <translation id="4336032328163998280">പകർത്തൽ പ്രവർത്തനം പരാജയപ്പെട്ടു. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">നെറ്റ്‌വർക്ക് ലോഗുകൾക്കായി ഇത് കാണുക: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Android ആപ്പുകൾ ഡൗൺലോഡുചെയ്‌ത് ഉപയോഗിക്കുന്നതിന് ആദ്യം നിങ്ങൾ ഒരു അപ്‌ഡേറ്റ് ഇൻസ്‌റ്റാൾ ചെയ്യേണ്ടതുണ്ട്. അപ്‌ഡേറ്റ് ചെയ്യുമ്പോൾ നിങ്ങൾക്ക് ഉപകരണം ഉപയോഗിക്കാനാവില്ല. ഇൻസ്‌റ്റാൾ ചെയ്യൽ പൂർത്തിയായ ശേഷം നിങ്ങളുടെ <ph name="DEVICE_TYPE" /> പുനരാരംഭിക്കും.</translation>
 <translation id="4340515029017875942">"<ph name="EXTENSION_NAME" />" അപ്ലിക്കേഷൻ ഉപയോഗിച്ച് <ph name="ORIGIN" /> എന്നത് ആശയവിനിമയം നടത്താൻ താൽപ്പര്യപ്പെടുന്നു</translation>
 <translation id="4341977339441987045">ഏതെങ്കിലും ഡാറ്റ ക്രമീകരിക്കുന്നതില്‍‌ നിന്നും സൈറ്റുകളെ തടയുക</translation>
 <translation id="4342311272543222243">ക്ഷമിക്കണം, TPM പിശക്.</translation>
@@ -2589,7 +2593,6 @@
 <translation id="4793866834012505469">വോയ്‌സ് മോഡൽ വീണ്ടും പരിശീലിക്കുക</translation>
 <translation id="479536056609751218">വെബ്‌പേജുകൾ, HTML മാത്രം</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">ഏത് ഉപകരണത്തിൽ നിന്നും <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> എന്നതിൽ നിങ്ങളുടെ പാസ്‌വേഡുകൾ ആക്‌സസ് ചെയ്യുക. Mac-ൽ, പാസ്‌വേഡുകൾ നിങ്ങളുടെ കീചെയിനിൽ സംരക്ഷിച്ചേക്കാം ഒപ്പം ഈ OS X അക്കൗണ്ട് പങ്കിടുന്ന മറ്റ് Chrome ഉപയോക്താക്കൾക്ക് ആക്‌സസ് ചെയ്യാനോ സമന്വയിപ്പിക്കാനോ കഴിഞ്ഞേക്കാം.</translation>
 <translation id="4801257000660565496">അപ്ലിക്കേഷന്‍ കുറുക്കുവഴികള്‍ സൃഷ്‌ടിക്കുക</translation>
 <translation id="4801448226354548035">അക്കൗണ്ടുകൾ മറയ്‌ക്കുക</translation>
 <translation id="4801512016965057443">മൊബൈല്‍ ഡാറ്റ റോമിംഗ് അനുവദിക്കുക</translation>
@@ -2804,6 +2807,7 @@
 <translation id="5111692334209731439">&amp;ബുക്ക്മാര്‍ക്ക് മാനേജര്‍</translation>
 <translation id="5112577000029535889">&amp;ഡെവലപ്പര്‍‌ ഉപകരണങ്ങള്‍‌</translation>
 <translation id="5113739826273394829">ഈ ഐക്കൺ ക്ലിക്കുചെയ്‌തുവെങ്കിൽ, നിങ്ങൾ <ph name="DEVICE_TYPE" /> ഇത് സ്വയമേവ ലോക്കുചെയ്യും.  അടുത്തതവണ, പ്രവേശിക്കാൻ നിങ്ങളുടെ പാസ്‌വേഡ് ടൈപ്പുചെയ്യേണ്ടതുണ്ട്.</translation>
+<translation id="5115309401544567011">നിങ്ങളുടെ <ph name="DEVICE_TYPE" /> പവർ ഉറവിടത്തിൽ പ്ലഗ് ചെയ്യുക.</translation>
 <translation id="5116300307302421503">ഫയല്‍ വ്യാകരിക്കാന്‍ കഴിയില്ല.</translation>
 <translation id="5116628073786783676">ഓഡിയോ ഇതായി സംരക്ഷി&amp;ക്കുക...</translation>
 <translation id="5117427536932535467">തീമുകളും വാൾപേപ്പറുകളും</translation>
@@ -3249,6 +3253,7 @@
 <translation id="5759728514498647443"><ph name="APP_NAME" /> വഴി പ്രിന്റുചെയ്യാൻ നിങ്ങൾ അയയ്‌ക്കുന്ന പ്രമാണങ്ങളെ <ph name="APP_NAME" /> എന്നതിന് വായിക്കാനാകുന്നു.</translation>
 <translation id="5764483294734785780">ഓഡിയോ ഇതുപോലെ സം&amp;രക്ഷിക്കുക...</translation>
 <translation id="57646104491463491">തീയതി പരിഷ്കരിച്ചു</translation>
+<translation id="5764797882307050727">നിങ്ങളുടെ ഉപകരണത്തിൽ കുറച്ച് ഇടം സൃഷ്‌ടിക്കുക.</translation>
 <translation id="5765491088802881382">നെറ്റ്‌വര്‍ക്കുകളോന്നും ലഭ്യമല്ല</translation>
 <translation id="5765780083710877561">വിവരണം:</translation>
 <translation id="5771585441665576801">ലിപ്യന്തരണം (geia → γεια)</translation>
@@ -3477,6 +3482,7 @@
 <translation id="6122081475643980456">നിങ്ങളുടെ ഇന്റർനെറ്റ് കണക്ഷൻ നിയന്ത്രിക്കുന്നു</translation>
 <translation id="6122875415561139701">ഇനി പറയുന്നതിൽ എഴുതാൻ അനുമതിയില്ല: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">ഇനിപ്പറയുന്ന വിപുലീകരണങ്ങൾ ഈ വിപുലീകരണത്തെ ആശ്രയിച്ചിരിക്കുന്നു:</translation>
+<translation id="6125479973208104919">നിർഭാഗ്യവശാൽ ഈ <ph name="DEVICE_TYPE" /> ഉപകരണത്തിൽ വീണ്ടും നിങ്ങളുടെ അക്കൗണ്ട് ചേർക്കേണ്ടതുണ്ട്.</translation>
 <translation id="6129938384427316298">നെറ്റ്‌സ്‌കേപ്പ് സര്‍‌ട്ടിഫിക്കറ്റ് അഭിപ്രായം</translation>
 <translation id="6129953537138746214">സ്പെയ്സ്</translation>
 <translation id="6132383530370527946">ചെറിയ പ്രിന്റ്</translation>
@@ -3856,6 +3862,7 @@
 <translation id="6677037229676347494">പ്രതീക്ഷിച്ച ID "<ph name="EXPECTED_ID" />" ആണ്, എന്നാൽ ലഭിച്ച ID "<ph name="NEW_ID" />" ആണ്.</translation>
 <translation id="6678717876183468697">ചോദ്യ URL</translation>
 <translation id="6680028776254050810">ഉപയോക്താക്കളെ സ്വിച്ചുചെയ്യുക</translation>
+<translation id="6680442031740878064">ലഭ്യമായ ഇടം: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">ഫോട്ടോ എടുക്കുക</translation>
 <translation id="668171684555832681">മറ്റുള്ളവ...</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" അൺഇൻസ്‌റ്റാൾ ചെയ്യുന്നതാണ്.</translation>
@@ -4275,6 +4282,7 @@
 <translation id="7348093485538360975">ഓൺ-സ്‌ക്രീൻ കീബോർഡ്</translation>
 <translation id="7348749398828259943">യുഎസ് വർക്ക്മാൻ ഇന്റർനാഷണൽ കീബോർഡ്</translation>
 <translation id="7352651011704765696">എന്തോ കുഴപ്പം സംഭവിച്ചു</translation>
+<translation id="73534262421337222">സുപ്രധാന അപ്‌ഡേറ്റുകൾ ഇൻസ്‌റ്റാൾ ചെയ്യുന്നു</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" />-ന് പുതിയ അനുമതികൾ ആവശ്യമുണ്ട്</translation>
 <translation id="735745346212279324">VPN വിച്ഛേദിച്ചു</translation>
 <translation id="7360183604634508679">ബുക്ക്‌മാർക്കുകളുടെ മെനു</translation>
@@ -4436,6 +4444,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome ഡാറ്റ മായ്‌ച്ചു</translation>
 <translation id="7568790562536448087">അപ്‌ഡേറ്റുചെയ്യുന്നു</translation>
+<translation id="7571643774869182231">അപ്‌ഡേറ്റിന് ആവശ്യമായ സ്‌റ്റോറേജില്ല</translation>
 <translation id="7573172247376861652">ബാറ്ററി ചാർജ്ജ്</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">ഒത്തുനോക്കുക</translation>
@@ -4526,6 +4535,7 @@
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">ഈ വ്യക്തിയെ സൂപ്പർവൈസുചെയ്യാൻ, <ph name="BEGIN_LINK" />Chrome-ലേക്ക് സൈൻ ഇൻ ചെയ്യുക<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">ഡിസ്‌പ്ലേകൾ സ്‌പാൻ ചെയ്യാൻ വിൻഡോകളെ അനുവദിക്കുക</translation>
+<translation id="7722040605881499779">അപ്‌ഡേറ്റിന് ആവശ്യമായ ഇടം: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">മുറിക്കുക</translation>
 <translation id="7728668285692163452">ചാനൽ മാറ്റം പിന്നീട് ബാധകമാക്കും</translation>
 <translation id="7730449930968088409">നിങ്ങളുടെ സ്‌ക്രീനിന്റെ ഉള്ളടക്കം ക്യാപ്‌ചർ ചെയ്യുക</translation>

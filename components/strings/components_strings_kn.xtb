@@ -112,6 +112,7 @@
 <translation id="1973335181906896915">ಅನುಕ್ರಮಗೊಳಿಸುವಿಕೆಯ ದೋಷ</translation>
 <translation id="1974060860693918893">ಸುಧಾರಿತ</translation>
 <translation id="1978555033938440688">ಫರ್ಮ್‌ವೇರ್ ಆವೃತ್ತಿ</translation>
+<translation id="1995859865337580572">ನಿಮ್ಮ CVC ಪರಿಶೀಲಿಸಿ</translation>
 <translation id="2001146170449793414">{COUNT,plural, =1{ಮತ್ತು 1 ಇನ್ನಷ್ಟು}one{ಮತ್ತು # ಇನ್ನಷ್ಟು}other{ಮತ್ತು # ಇನ್ನಷ್ಟು}}</translation>
 <translation id="2025186561304664664">ಪ್ರಾಕ್ಸಿಯನ್ನು ಸ್ವಯಂ ಕಾನ್ಫಿಗರ್ ಆಗಿ ಹೊಂದಿಸಲಾಗಿದೆ.</translation>
 <translation id="2030481566774242610">ನಿಮ್ಮ ಮಾತಿನ ಅರ್ಥ <ph name="LINK" />?</translation>
@@ -808,7 +809,7 @@
 <translation id="8703575177326907206"><ph name="DOMAIN" /> ಗೆ ನಿಮ್ಮ ಸಂಪರ್ಕವು ಎನ್‌ಕ್ರಿಪ್ಟ್ ಆಗಿಲ್ಲ.</translation>
 <translation id="8718314106902482036">ಪಾವತಿ ಪೂರ್ಣಗೊಂಡಿಲ್ಲ</translation>
 <translation id="8725066075913043281">ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ</translation>
-<translation id="8728672262656704056">ನೀವು ಅಜ್ಞಾತಕ್ಕೆ ಹೋಗಿರುವಿರಿ</translation>
+<translation id="8728672262656704056">ನೀವು ಅದೃಶ್ಯರಾಗಿರುವಿರಿ</translation>
 <translation id="8730621377337864115">ಮುಗಿದಿದೆ</translation>
 <translation id="8738058698779197622">ಸುರಕ್ಷಿತ ಸಂಪರ್ಕವನ್ನು ಸ್ಥಾಪಿಸಲು, ನಿಮ್ಮ ಗಡಿಯಾರವನ್ನು ಸರಿಯಾಗಿ ಹೊಂದಿಸುವ ಅಗತ್ಯವಿದೆ. ವೆಬ್‌ಸೈಟ್‌ಗಳು ತಮ್ಮನ್ನು ಗುರುತಿಸಲು ಬಳಸುವ ಪ್ರಮಾಣಪತ್ರಗಳು ಸಮಯದ ನಿರ್ದಿಷ್ಟ ಅವಧಿಗಳಲ್ಲಿ ಮಾತ್ರ ಮಾನ್ಯವಾಗಿರುವ ಕಾರಣ ಹೀಗಾಗುತ್ತದೆ. ನಿಮ್ಮ ಸಾಧನದ ಗಡಿಯಾರವು ತಪ್ಪಾಗಿರುವ ಕಾರಣ, Chromium ಗೆ ಈ ಪ್ರಮಾಣಪತ್ರಗಳನ್ನು ಪರಿಶೀಲಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ.</translation>
 <translation id="8740359287975076522"><ph name="HOST_NAME" /> ನ &lt;abbr id="dnsDefinition"&gt;DNS ವಿಳಾಸ&lt;/abbr&gt; ಕಂಡುಬರಲಿಲ್ಲ. ಸಮಸ್ಯೆಯನ್ನು ಪತ್ತೆಹಚ್ಚಲಾಗುತ್ತಿದೆ.</translation>

@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">फायली अॅप वापरून डिव्हाइसवरील मीडियाचा बॅकअप घ्या.</translation>
 <translation id="1341988552785875222">वर्तमान वॉलपेपर <ph name="APP_NAME" /> नी सेट केला आहे'. भिन्न वॉलपेपर निवडण्यापूर्वी आपल्याला <ph name="APP_NAME" /> विस्थापित करण्‍याची आवश्‍यकता असेल.</translation>
 <translation id="1346748346194534595">उजवे</translation>
+<translation id="1347975661240122359">बॅटरी <ph name="BATTERY_LEVEL" />% पर्यंत पोहोचल्यावर अपडेट सुरू होईल.</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> फायली आयात करीत आहे...</translation>
 <translation id="1352103415082130575">थाई कीबोर्ड (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -921,6 +922,7 @@
 <translation id="2312980885338881851">अरेरे! आयात करण्यासाठी आपल्याकडे कोणतेही विद्यमान पर्यवेक्षी वापरकर्ते नाहीत असे दिसते. कृपया आपण ते येथे आयात करण्यापेक्षा दुसर्‍या डिव्हाइसवरून एक किंवा अधिक तयार करा.</translation>
 <translation id="2316129865977710310">नाही, धन्यवाद</translation>
 <translation id="2317031807364506312">रद्द करा</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% पूर्ण झाले</translation>
 <translation id="2318143611928805047">कागदाचा आकार</translation>
 <translation id="2318817390901984578">Android अॅप्स वापरण्यासाठी, आपले <ph name="DEVICE_TYPE" /> चार्ज करा आणि अद्यतनित करा.</translation>
 <translation id="2318923050469484167">वर्तमान गुप्त सत्र (<ph name="EMBEDDING" />)</translation>
@@ -1846,6 +1848,7 @@
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” पहा</translation>
 <translation id="3620292326130836921">सर्व बॅकअप घेतला!</translation>
 <translation id="3623574769078102674">हा पर्यवेक्षी वापरकर्ता <ph name="MANAGER_EMAIL" /> द्वारे व्यवस्थापित केला जाईल.</translation>
+<translation id="3624814222765772771">अपडेटसाठी (<ph name="PROGRESS_PERCENT" />%) बॅटरी खूप कमी आहे</translation>
 <translation id="3625870480639975468">झूम रीसेट करा</translation>
 <translation id="3626281679859535460">ब्राइटनेस</translation>
 <translation id="3627052133907344175">"<ph name="IMPORT_VERSION" />" किमान आवृत्तीसह विस्तारास "<ph name="IMPORT_NAME" />" आवश्यक आहे, परंतु केवळ "<ph name="INSTALLED_VERSION" />" आवृत्ती स्थापित केली आहे.</translation>
@@ -2306,6 +2309,7 @@
 एक्सप्लोर करणे सुरू ठेवण्यासाठी कोणतीही की दाबा.</translation>
 <translation id="4336032328163998280">कॉपी ऑपरेशन अयशस्वी. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">नेटवर्क लॉगसाठी, हे पहा: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Android अॅप्स डाउनलोड करण्यासाठी आणि वापरण्यासाठी, अगोदर तुम्ही अपडेट इंस्टॉल करणे आवश्यक आहे. तुमचा डिव्हाइस अपडेट होत असताना, तुम्ही तो वापरू शकत नाही. इंस्टॉल झाल्यानंतर तुमचा <ph name="DEVICE_TYPE" /> पुन्हा सुरू होईल.</translation>
 <translation id="4340515029017875942">"<ph name="EXTENSION_NAME" />" अ‍ॅपसह <ph name="ORIGIN" /> संप्रेषण करू इच्छितो</translation>
 <translation id="4341977339441987045">कोणताही डेटा सेट करण्यापासून साइट अवरोधित करा</translation>
 <translation id="4342311272543222243">अरेरे, TPM त्रुटी.</translation>
@@ -2584,7 +2588,6 @@
 <translation id="4793866834012505469">व्हॉइस मॉडेलला पुनर्प्रशिक्षित करा</translation>
 <translation id="479536056609751218">वेबपृष्‍ठ, केवळ HTML</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">कोणत्याही डिव्हाइसवरून <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> वर आपल्या संकेतशब्दांमध्ये प्रवेश करा. Mac वर, संकेतशब्द हे आपल्या किचेनवर जतन केले जाऊ शकतात आणि हे OS X खाते सामायिक करून त्यामध्ये अन्य Chrome वापरकर्ते प्रवेश करू शकतात किंवा ते संकालित करू शकतात.</translation>
 <translation id="4801257000660565496">अनुप्रयोग शॉर्टकट तयार करा</translation>
 <translation id="4801448226354548035">खाती लपवा</translation>
 <translation id="4801512016965057443">मोबाइल डेटा रोमिंगची अनुमती द्या</translation>
@@ -2800,6 +2803,7 @@
 <translation id="5111692334209731439">&amp;बुकमार्क व्यवस्थापक</translation>
 <translation id="5112577000029535889">&amp;विकसक साधने</translation>
 <translation id="5113739826273394829">आपण हे चिन्ह क्लिक केल्‍यास, आपण हे <ph name="DEVICE_TYPE" /> व्यक्तीचलितरित्या लॉक कराल. पुढील वेळी, प्रविष्‍ट करण्‍यासाठी आपल्‍याला आपला संकेतशब्द टाइप करण्‍याची आवश्यकता असेल.</translation>
+<translation id="5115309401544567011">कृपया तुमचा <ph name="DEVICE_TYPE" /> उर्जा स्रोताशी जोडा.</translation>
 <translation id="5116300307302421503">फाइल विश्लेषित करण्यात अक्षम. </translation>
 <translation id="5116628073786783676">म्हणून ऑडिओ ज&amp;तन करा...</translation>
 <translation id="5117427536932535467">थीम आणि वॉलपेपर</translation>
@@ -3245,6 +3249,7 @@
 <translation id="5759728514498647443">आपण <ph name="APP_NAME" /> द्वारे मुद्रण करण्यासाठी पाठविलेले दस्तऐवज <ph name="APP_NAME" /> द्वारे वाचले जाऊ शकतात.</translation>
 <translation id="5764483294734785780">म्हणून ऑडिओ ज&amp;तन करा...</translation>
 <translation id="57646104491463491">सुधारणा तारीख</translation>
+<translation id="5764797882307050727">कृपया तुमच्या डिव्हाइसवर काही जागा मोकळी करा.</translation>
 <translation id="5765491088802881382">कोणतीही नेटवर्क उपलब्ध नाहीत</translation>
 <translation id="5765780083710877561">वर्णन:</translation>
 <translation id="5771585441665576801">लिप्यंतरण (geia → γεια)</translation>
@@ -3473,6 +3478,7 @@
 <translation id="6122081475643980456">आपले इंटरनेट कनेक्शन नियंत्रित केले जात आहे</translation>
 <translation id="6122875415561139701">लिहा ऑपरेशनला यावर परवानगी नाही: " <ph name="DEVICE_NAME" /> ".</translation>
 <translation id="6124650939968185064">या विस्तारावर अवलंबून असलेले खालील विस्तार:</translation>
+<translation id="6125479973208104919">दुर्दैवाने, तुम्हाला या <ph name="DEVICE_TYPE" /> वर तुमचे खाते पुन्हा जोडावे लागेल.</translation>
 <translation id="6129938384427316298">Netscape प्रमाणपत्र टिप्पणी</translation>
 <translation id="6129953537138746214">जागा</translation>
 <translation id="6132383530370527946">लहान प्रिंट</translation>
@@ -3853,6 +3859,7 @@
 <translation id="6677037229676347494">अपेक्षित आयडी "<ph name="EXPECTED_ID" />",परंतु आयडी "<ph name="NEW_ID" />" होता.</translation>
 <translation id="6678717876183468697">क्वेरी URL</translation>
 <translation id="6680028776254050810">वापरकर्ते स्‍वीच करा</translation>
+<translation id="6680442031740878064">उपलब्ध: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">फोटो घ्या</translation>
 <translation id="668171684555832681">अन्य...</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" विस्थापित केला जाईल.</translation>
@@ -4271,6 +4278,7 @@
 <translation id="7348093485538360975">ऑन-स्क्रीन कीबोर्ड</translation>
 <translation id="7348749398828259943">यूएस कामगार आंतरराष्ट्रीय कीबोर्ड</translation>
 <translation id="7352651011704765696">काहीतरी चूक झाली</translation>
+<translation id="73534262421337222">महत्त्वाचे अपडेट इंस्टॉल करत आहे</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> ला नवीन परवानग्या आवश्‍यक आहेत</translation>
 <translation id="735745346212279324">VPN डिस्कनेक्ट केले</translation>
 <translation id="7360183604634508679">बुकमार्क मेनू</translation>
@@ -4432,6 +4440,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome डेटा साफ केला</translation>
 <translation id="7568790562536448087">अद्यतनित करीत आहे</translation>
+<translation id="7571643774869182231">अपडेटसाठी पुरेसे स्टोरेज उपलब्ध नाही</translation>
 <translation id="7573172247376861652">बॅटरी चार्ज</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">तुलनात्मक</translation>
@@ -4522,6 +4531,7 @@
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">या व्यक्तीचे पर्यवेक्षण करण्‍यासाठी, <ph name="BEGIN_LINK" />Chrome मध्ये साइन इन करा<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">विंडोला दृश्ये स्पॅन करण्याची अनुमती द्या</translation>
+<translation id="7722040605881499779">अपडेटसाठी आवश्यक: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">कट करा</translation>
 <translation id="7728668285692163452">चॅनेल बदल नंतर लागू होईल</translation>
 <translation id="7730449930968088409">आपल्या स्क्रीनची सामग्री कॅप्चर करा</translation>

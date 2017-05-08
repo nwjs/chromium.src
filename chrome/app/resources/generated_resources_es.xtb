@@ -683,7 +683,7 @@
 <translation id="1966968872533224402">&amp;Descargar página...</translation>
 <translation id="197288927597451399">Descargar</translation>
 <translation id="1974043046396539880">Puntos de distribución de listas de revocación de certificados</translation>
-<translation id="1974060860693918893">Opciones avanzadas</translation>
+<translation id="1974060860693918893">Configuración avanzada</translation>
 <translation id="1974821797477522211">Conectarse a la red</translation>
 <translation id="197560921582345123">Puede editar</translation>
 <translation id="1975841812214822307">Eliminar...</translation>
@@ -926,7 +926,7 @@ Una vez que hayas creado un nuevo usuario supervisado, podrás administrar su co
 <translation id="2312980885338881851">¡Vaya! Parece que no hay usuarios supervisados para importar. Crea uno o varios usuarios supervisados desde otro dispositivo y, a continuación, impórtalos aquí.</translation>
 <translation id="2316129865977710310">No, gracias</translation>
 <translation id="2317031807364506312">CANCELAR</translation>
-<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% listo</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% completado</translation>
 <translation id="2318143611928805047">Tamaño del papel</translation>
 <translation id="2318817390901984578">Para usar aplicaciones de Android, carga y actualiza tu <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Sesión de incógnito actual (<ph name="EMBEDDING" />)</translation>
@@ -2603,7 +2603,6 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4793866834012505469">Volver a configurar el modelo de voz</translation>
 <translation id="479536056609751218">Página web (solo HTML)</translation>
 <translation id="479989351350248267">buscar</translation>
-<translation id="480036413855787547">Accede a tus contraseñas en la página <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> con cualquier dispositivo. En los ordenadores Mac, se pueden guardar las contraseñas en el llavero y otros usuarios de Chrome que compartan esta cuenta de OS X pueden acceder a ellas o sincronizarlas.</translation>
 <translation id="4801257000660565496">Crear accesos directos a aplicaciones</translation>
 <translation id="4801448226354548035">Ocultar cuentas</translation>
 <translation id="4801512016965057443">Permitir la itinerancia de datos móviles</translation>
@@ -4842,7 +4841,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8145409227593688472">Método de entrada de wubi</translation>
 <translation id="8146177459103116374">Si ya te has registrado en este dispositivo, puedes <ph name="LINK2_START" />iniciar sesión con tu nombre de usuario<ph name="LINK2_END" />.</translation>
 <translation id="8146793085009540321">Se ha producido un error al iniciar sesión. Ponte en contacto con el administrador o vuelve a intentarlo.</translation>
-<translation id="8148264977957212129">Método de entrada de pinyin</translation>
+<translation id="8148264977957212129">Método de introducción de pinyin</translation>
 <translation id="8148913456785123871">Mostrar tarjetas de Google Now en el menú de aplicaciones</translation>
 <translation id="8151185429379586178">Herramientas para desarrolladores</translation>
 <translation id="8151638057146502721">Configurar</translation>
@@ -5048,7 +5047,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8465252176946159372">No válido</translation>
 <translation id="8465444703385715657"><ph name="PLUGIN_NAME" /> necesita tu permiso para ejecutarse</translation>
 <translation id="8466234950814670489">Archivo tar</translation>
-<translation id="8467473010914675605">Método de entrada de coreano</translation>
+<translation id="8467473010914675605">Método de introducción de coreano</translation>
 <translation id="8468750959626135884">Desbloquea tu <ph name="DEVICE_TYPE" /> con tu teléfono Android.</translation>
 <translation id="8472623782143987204">respaldado por hardware</translation>
 <translation id="8475313423285172237">Otro programa de tu ordenador ha añadido una extensión que puede cambiar el funcionamiento de Chrome.</translation>
@@ -5224,7 +5223,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8737354914281742249">Shell Handler</translation>
 <translation id="8737685506611670901">Abrir enlaces de <ph name="PROTOCOL" /> en lugar de <ph name="REPLACED_HANDLER_TITLE" /></translation>
 <translation id="8737709691285775803">Shill</translation>
-<translation id="874420130893181774">Método de entrada de pinyin tradicional</translation>
+<translation id="874420130893181774">Método de introducción de pinyin tradicional</translation>
 <translation id="8744525654891896746">Seleccionar un avatar para este usuario supervisado</translation>
 <translation id="8749863574775030885">Acceder a dispositivos USB desde un proveedor desconocido</translation>
 <translation id="8754200782896249056">&lt;p&gt;Al ejecutar <ph name="PRODUCT_NAME" /> en un entorno de escritorio compatible, se utilizará la configuración de proxy del sistema. Sin embargo, tu sistema no es compatible o ha habido algún problema al iniciar la configuración del sistema.&lt;/p&gt;

@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">ಫೈಲ್‌ಗಳ ಅಪ್ಲಿಕೇಶನ್ ಬಳಸಿಕೊಂಡು ಸಾಧನದಿಂದ ಮಾಧ್ಯಮವನ್ನು ಬ್ಯಾಕಪ್ ಮಾಡಿ.</translation>
 <translation id="1341988552785875222">ಪ್ರಸ್ತುತ ವಾಲ್‌ಪೇಪರ್ ಅನ್ನು '<ph name="APP_NAME" />' ಹೊಂದಿಸಿದೆ. ಬೇರೊಂದು ವಾಲ್‌ಪೇಪರ್ ಆಯ್ಕಮಾಡುವ ಮೊದಲು ನೀವು '<ph name="APP_NAME" />' ಅಸ್ಥಾಪಿಸಬೇಕಾಗಬಹುದು.</translation>
 <translation id="1346748346194534595">ಬಲಕ್ಕೆ</translation>
+<translation id="1347975661240122359">ಬ್ಯಾಟರಿ <ph name="BATTERY_LEVEL" />% ಪ್ರಮಾಣ ತಲುಪಿದಾಗ ಅಪ್‌ಡೇಟ್ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ.</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> ಫೈಲ್‌ಗಳನ್ನು ಆಮದು ಮಾಡಲಾಗುತ್ತಿದೆ...</translation>
 <translation id="1352103415082130575">ಥಾಯ್ ಕೀಬೋರ್ಡ್ (ಪ್ಯಾಟಾಚೊಟ್)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -923,6 +924,7 @@
 <translation id="2312980885338881851">ಓಹ್! ನೀವು ಆಮದು ಮಾಡಿಕೊಳ್ಳಲು ಯಾವುದೇ ಅಸ್ತಿತ್ವದಲ್ಲಿರುವ ಮೇಲ್ವಿಚಾರಣೆ ಬಳಕೆದಾರರನ್ನು ಹೊಂದಿಲ್ಲವೆಂದು ತೋರುತ್ತಿದೆ. ದಯವಿಟ್ಟು ಇನ್ನೊಂದು ಸಾಧನದಿಂದ ಒಂದು ಅಥವಾ ಹೆಚ್ಚಿನವುಗಳನ್ನು ರಚಿಸಿ, ನಂತರ ಅವುಗಳನ್ನು ನೀವು ಇಲ್ಲಿಗೆ ಆಮದು ಮಾಡಿಕೊಳ್ಳಬಹುದು.</translation>
 <translation id="2316129865977710310">ಬೇಡ, ಧನ್ಯವಾದಗಳು</translation>
 <translation id="2317031807364506312">ರದ್ದುಮಾಡಿ</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% ಮುಗಿದಿದೆ</translation>
 <translation id="2318143611928805047">ಪೇಪರ್ ಗಾತ್ರ</translation>
 <translation id="2318817390901984578">Android ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಬಳಸಲು, ನಿಮ್ಮ <ph name="DEVICE_TYPE" /> ಅನ್ನು ಚಾರ್ಜ್ ಮಾಡಿ, ಅಪ್‌ಡೇಟ್ ಮಾಡಿ.</translation>
 <translation id="2318923050469484167">ಪ್ರಸ್ತುತ ಅದೃಶ್ಯ ಸೆಶನ್ (<ph name="EMBEDDING" />)</translation>
@@ -1851,6 +1853,7 @@
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” ನೋಡಿ</translation>
 <translation id="3620292326130836921">ಎಲ್ಲವನ್ನೂ ಬ್ಯಾಕಪ್ ಮಾಡಲಾಗಿದೆ!</translation>
 <translation id="3623574769078102674">ಈ ಮೇಲ್ವಿಚಾರಣೆ ಬಳಕೆದಾರರನ್ನು <ph name="MANAGER_EMAIL" /> ಮೂಲಕ ನಿರ್ವಹಿಸಲಾಗುತ್ತದೆ.</translation>
+<translation id="3624814222765772771">ಅಪ್‌ಡೇಟ್ ಮಾಡಲು ಬ್ಯಾಟರಿ ತುಂಬಾ ಕಡಿಮೆ ಇದೆ (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">ಝೂಮ್ ಅನ್ನು ಮರುಹೊಂದಿಸು</translation>
 <translation id="3626281679859535460">ಪ್ರಕಾಶಮಾನ</translation>
 <translation id="3627052133907344175">ವಿಸ್ತರಣೆಗೆ "<ph name="IMPORT_VERSION" />" ಕನಿಷ್ಠ ಆವೃತ್ತಿಯೊಂದಿಗೆ "<ph name="IMPORT_NAME" />" ಅಗತ್ಯವಿದೆ, ಆದರೆ "<ph name="INSTALLED_VERSION" />" ಆವೃತ್ತಿಯನ್ನು ಮಾತ್ರ ಸ್ಥಾಪಿಸಲಾಗಿದೆ.</translation>
@@ -2312,6 +2315,7 @@
 ಅನ್ವೇಷಿಸುವುದನ್ನು ಮುಂದುವರಿಸಲು ಯಾವುದೇ ಕೀ ಅನ್ನು ಒತ್ತಿರಿ.</translation>
 <translation id="4336032328163998280">ನಕಲು ಕಾರ್ಯಾಚರಣೆ ವಿಫಲವಾಗಿದೆ. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">ನೆಟ್‌ವರ್ಕ್ ಲಾಗ್‌ಗಳಿಗೆ, ಇದನ್ನು ವೀಕ್ಷಿಸಿ: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">ಡೌನ್‌ಲೋಡ್ ಮಾಡಲು ಮತ್ತು Android ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಬಳಸಲು, ಮೊದಲು ನೀವು ಅಪ್‌ಡೇಟ್ ಸ್ಥಾಪಿಸುವ ಅಗತ್ಯವಿದೆ. ನಿಮ್ಮ ಸಾಧನವು ಅಪ್‌ಡೇಟ್ ಆಗುತ್ತಿರುವಾಗ, ನೀವು ಅದನ್ನು ಬಳಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ಸ್ಥಾಪನಾ ಪ್ರಕ್ರಿಯೆ ಪೂರ್ಣಗೊಂಡ ನಂತರ ನಿಮ್ಮ <ph name="DEVICE_TYPE" /> ಮರುಪ್ರಾರಂಭವಾಗುತ್ತದೆ.</translation>
 <translation id="4340515029017875942">"<ph name="EXTENSION_NAME" />" ಅಪ್ಲಿಕೇಶನ್ ನೊಂದಿಗೆ <ph name="ORIGIN" /> ಸಂಪರ್ಕಿಸಲು ಬಯಸುತ್ತದೆ</translation>
 <translation id="4341977339441987045">ಯಾವುದೇ ಡೇಟಾವನ್ನು ಹೊಂದಿಸದಂತೆ ಸೈಟ್‌ಗಳನ್ನು ನಿರ್ಬಂಧಿಸಿ</translation>
 <translation id="4342311272543222243">ಓಹ್, TPM ದೋಷ.</translation>
@@ -2592,7 +2596,6 @@
 <translation id="4793866834012505469">ಧ್ವನಿ ಮಾದರಿಗೆ ಮರುತರಬೇತಿ ನೀಡಿ</translation>
 <translation id="479536056609751218">ವೆಬ್‌ಪುಟ, HTML ಮಾತ್ರ</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547"><ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> ನಲ್ಲಿ ಯಾವುದೇ ಸಾಧನದಿಂದ ನಿಮ್ಮ ಪಾಸ್‌ವರ್ಡ್‌ಗಳನ್ನು ಪ್ರವೇಶಿಸಿ. Mac ನಲ್ಲಿ, ಪಾಸ್‌ವರ್ಡ್‌‌ಗಳನ್ನು ನಿಮ್ಮ ಕೀಚೈನ್‌ನಲ್ಲಿ ಉಳಿಸಲಾಗಬಹುದು ಹಾಗೂ ಈ OS X ಖಾತೆಯನ್ನು ಹಂಚಿಕೊಂಡಿರುವ ಇತರ Chrome ಬಳಕೆದಾರರು ಇದನ್ನು ಪ್ರವೇಶಿಸಬಹುದು ಅಥವಾ ಅದನ್ನು ಸಿಂಕ್‌ ಕೂಡ ಮಾಡಬಹುದು.</translation>
 <translation id="4801257000660565496">ಅಪ್ಲಿಕೇಶನ್ ಶಾರ್ಟ್‌ಕಟ್‌ಗಳನ್ನು ರಚಿಸಿ</translation>
 <translation id="4801448226354548035">ಖಾತೆಗಳನ್ನು ಮರೆಮಾಡು</translation>
 <translation id="4801512016965057443">ಮೊಬೈಲ್ ಡೇಟಾ ರೋಮಿಂಗ್ ಅನ್ನು ಅನುಮತಿಸಿ</translation>
@@ -2807,6 +2810,7 @@
 <translation id="5111692334209731439">&amp;ಬುಕ್‌ಮಾರ್ಕ್ ವ್ಯವಸ್ಥಾಪಕ</translation>
 <translation id="5112577000029535889">&amp;ಡೆವಲಪರ್ ಟೂಲ್ಸ್</translation>
 <translation id="5113739826273394829">ಈ ಐಕಾನ್ ಅನ್ನು ನೀವು ಕ್ಲಿಕ್ ಮಾಡಿದರೆ, ನೀವು ಹಸ್ತಚಾಲಿತವಾಗಿ ಈ <ph name="DEVICE_TYPE" /> ಸಾಧನವನ್ನು ಲಾಕ್ ಮಾಡುತ್ತೀರಿ. ಮುಂದಿನ ಬಾರಿ, ಪ್ರವೇಶಿಸಲು ನೀವು ನಿಮ್ಮ ಪಾಸ್‌ವರ್ಡ್ ಟೈಪ್ ಮಾಡಬೇಕಾಗುತ್ತದೆ.</translation>
+<translation id="5115309401544567011">ನಿಮ್ಮ <ph name="DEVICE_TYPE" /> ಅನ್ನು ವಿದ್ಯುತ್ ಸಂಪರ್ಕಕ್ಕೆ ಪ್ಲಗ್ ಮಾಡಿ.</translation>
 <translation id="5116300307302421503">ಫೈಲ್ ಅನ್ನು ಪಾರ್ಸ್ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ.</translation>
 <translation id="5116628073786783676">ಇದರಂತೆ ಆಡಿಯೋ ಉ&amp;ಳಿಸಿ...</translation>
 <translation id="5117427536932535467">ಥೀಮ್‌ಗಳು ಮತ್ತು ವಾಲ್‌ಪೇಪರ್‌ಗಳು</translation>
@@ -3258,6 +3262,7 @@
 <translation id="5759728514498647443">ನೀವು <ph name="APP_NAME" /> ಮೂಲಕ ಪ್ರಿಂಟ್ ಮಾಡಲು ಕಳುಹಿಸುವ ಡಾಕ್ಯುಮೆಂಟ್‌ಗಳನ್ನು <ph name="APP_NAME" /> ಮೂಲಕ ಓದಬಹುದಾಗಿದೆ.</translation>
 <translation id="5764483294734785780">ಇದರಂತೆ ಆಡಿಯೋ ಉ&amp;ಳಿಸಿ...</translation>
 <translation id="57646104491463491">ದಿನಾಂಕ ಮಾರ್ಪಡಿಸಿದೆ</translation>
+<translation id="5764797882307050727">ನಿಮ್ಮ ಸಾಧನದಲ್ಲಿ ಸ್ವಲ್ಪ ಸ್ಥಳಾವಕಾಶ ಮಾಡಿ.</translation>
 <translation id="5765491088802881382">ಯಾವುದೇ ನೆಟ್‌ವರ್ಕ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ</translation>
 <translation id="5765780083710877561">ವಿವರಣೆ:</translation>
 <translation id="5771585441665576801">ಲಿಪ್ಯಂತರಣ (geia → γεια)</translation>
@@ -3485,6 +3490,7 @@
 <translation id="6122081475643980456">ನಿಮ್ಮ ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕವನ್ನು ನಿಯಂತ್ರಿಸಲಾಗುತ್ತಿದೆ</translation>
 <translation id="6122875415561139701">ಈ ಸಾಧನದಲ್ಲಿ ಬರೆಯುವಿಕೆ ಕಾರ್ಯಾಚರಣೆಯನ್ನು ಅನುಮತಿಸಲಾಗಿಲ್ಲ: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">ಕೆಳಗಿನ ವಿಸ್ತರಣೆಗಳು ಈ ವಿಸ್ತರಣೆಯ ಮೇಲೆ ಅವಲಂಬಿತವಾಗಿವೆ:</translation>
+<translation id="6125479973208104919">ದುರದೃಷ್ಟವಶಾತ್, ನಿಮ್ಮ ಖಾತೆಯನ್ನು ನೀವು ಮತ್ತೆ ಈ <ph name="DEVICE_TYPE" /> ಗೆ ಸೇರಿಸುವ ಅಗತ್ಯವಿದೆ.</translation>
 <translation id="6129938384427316298">Netscape ಪ್ರಮಾಣಪತ್ರ ಕಾಮೆಂಟ್</translation>
 <translation id="6129953537138746214">ಸ್ಪೇಸ್</translation>
 <translation id="6132383530370527946">ಚಿಕ್ಕ ಮುದ್ರಣ</translation>
@@ -3862,6 +3868,7 @@
 <translation id="6677037229676347494">ನಿರೀಕ್ಷಿಸಲಾದ ID "<ph name="EXPECTED_ID" />", ಆದರೆ ID ಯು "<ph name="NEW_ID" />" ಆಗಿದೆ.</translation>
 <translation id="6678717876183468697">ಕ್ವೆರಿ URL</translation>
 <translation id="6680028776254050810">ಬಳಕೆದಾರರನ್ನು ಬದಲಿಸಿ</translation>
+<translation id="6680442031740878064">ಲಭ್ಯವಿದೆ: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">ಫೋಟೋ ತೆಗೆಯಿರಿ</translation>
 <translation id="668171684555832681">ಇತರೆ...</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" ಅಸ್ಥಾಪಿಸಲಾಗುವುದು.</translation>
@@ -4283,6 +4290,7 @@
 <translation id="7348093485538360975">ಆನ್ ಸ್ಕ್ರೀನ್ ಕೀಬೋರ್ಡ್</translation>
 <translation id="7348749398828259943">US ವರ್ಕ್‌ಮ್ಯಾನ್ ಅಂತರರಾಷ್ಟ್ರೀಯ ಕೀಬೋರ್ಡ್</translation>
 <translation id="7352651011704765696">ಯಾವುದೋ ತಪ್ಪು ಸಂಭವಿಸಿದೆ</translation>
+<translation id="73534262421337222">ಮಹತ್ವದ ಅಪ್‌ಡೇಟ್ ಅನ್ನು ಸ್ಥಾಪಿಸಲಾಗುತ್ತಿದೆ</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> ಗೆ ಹೊಸ ಅನುಮತಿಗಳ ಅಗತ್ಯವಿದೆ</translation>
 <translation id="735745346212279324">VPN ಸಂಪರ್ಕ ಕಡಿತಗೊಳಿಸಲಾಗಿದೆ</translation>
 <translation id="7360183604634508679">ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳ ಮೆನು</translation>
@@ -4444,6 +4452,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome ಡೇಟಾ ತೆರವುಗೊಳಿಸಲಾಗಿದೆ</translation>
 <translation id="7568790562536448087">ನವೀಕರಿಸಲಾಗುತ್ತಿದೆ</translation>
+<translation id="7571643774869182231">ಅಪ್‌ಡೇಟ್ ಮಾಡಲು ಸಾಕಷ್ಟು ಸ್ಥಳಾವಕಾಶವಿಲ್ಲ</translation>
 <translation id="7573172247376861652">ಬ್ಯಾಟರಿ ಚಾರ್ಜ್</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">ಹೋಲಿಸಿ ನೋಡು</translation>
@@ -4534,6 +4543,7 @@
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">ಈ ವ್ಯಕ್ತಿಯನ್ನು ಮೇಲ್ವಿಚಾರಿಸಲು, <ph name="BEGIN_LINK" />Chromeಗೆ ಸೈನ್‌ ಇನ್ ಮಾಡಿ<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">ಪ್ರದರ್ಶನಗಳಾದ್ಯಂತ ವ್ಯಾಪಿಸಲು ವಿಂಡೋಗಳಿಗೆ ಅನುಮತಿ ನೀಡಿ</translation>
+<translation id="7722040605881499779">ಅಪ್‌ಡೇಟ್ ಮಾಡಲು ಇಷ್ಟು ಅಗತ್ಯವಿದೆ: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">ಕತ್ತರಿಸು</translation>
 <translation id="7728668285692163452">ಚಾನಲ್ ಬದಲಾವಣೆಯನ್ನು ನಂತರ ಅನ್ವಯಿಸಲಾಗುತ್ತದೆ</translation>
 <translation id="7730449930968088409">ನಿಮ್ಮ ಪರದೆಯ ವಿಷಯವನ್ನು ಸೆರೆಹಿಡಿಯಿರಿ</translation>

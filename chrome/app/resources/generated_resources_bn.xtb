@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">ফাইল অ্যাপ্লিকেশান ব্যবহার করে ডিভাইস থেকে মিডিয়া ব্যাক আপ নিন৷</translation>
 <translation id="1341988552785875222">বর্তমান ওয়ালপেপারটি '<ph name="APP_NAME" />' এর দ্বারা সেট করা। একটি ভিন্ন ওয়ালপেপার নির্বাচনের আগে আপনাকে '<ph name="APP_NAME" />' আনইনস্টল করার প্রয়োজন হতে পারে।</translation>
 <translation id="1346748346194534595">ডানে</translation>
+<translation id="1347975661240122359">ব্যাটারি <ph name="BATTERY_LEVEL" />% চার্জ হলে আপডেট শুরু হবে।</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" />টি ফাইল আমদানি করা হচ্ছে...</translation>
 <translation id="1352103415082130575">থাই কীবোর্ড (পাট্টাচোটে)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" /> : <ph name="NETWORK_NAME" /></translation>
@@ -922,6 +923,7 @@
 <translation id="2312980885338881851">ওহো! দেখে মনে হচ্ছে আমদানি করার মতো আপনার কাছে আর কোনো তত্ত্বাবধানে থাকা ব্যবহারকারী নেই৷ দয়া করে অন্য একটি ডিভাইস থেকে একটি বা অনেকগুলি তৈরি করুন তারপরে সেগুলিকে আপনি এখানে আমদানি করতে পারবেন৷</translation>
 <translation id="2316129865977710310">না, ধন্যবাদ</translation>
 <translation id="2317031807364506312">বাতিল করুন</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% হয়েছে</translation>
 <translation id="2318143611928805047">কাগজের আকার</translation>
 <translation id="2318817390901984578">Android অ্যাপ ব্যবহার করতে, আপনার <ph name="DEVICE_TYPE" /> চার্জ ও আপডেট করতে।</translation>
 <translation id="2318923050469484167">বর্তমান ছদ্মবেশী সেশন (<ph name="EMBEDDING" />)</translation>
@@ -1847,6 +1849,7 @@
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” খুঁজে দেখুন</translation>
 <translation id="3620292326130836921">সব ব্যাকআপ নেওয়া হয়ে গেছে!</translation>
 <translation id="3623574769078102674">তত্ত্বাবধানে থাকা এই ব্যবহারকারী <ph name="MANAGER_EMAIL" /> এর দ্বারা পরিচালিত হবে৷</translation>
+<translation id="3624814222765772771">চার্জ খুব কম (<ph name="PROGRESS_PERCENT" />%), আপডেট করা যাবে না</translation>
 <translation id="3625870480639975468">জুম পুনরায় সেট করুন</translation>
 <translation id="3626281679859535460">উজ্জ্বলতা</translation>
 <translation id="3627052133907344175">এক্সটেনশানের ন্যূনতম "<ph name="IMPORT_VERSION" />" সংস্করণের "<ph name="IMPORT_NAME" />" প্রয়োজন, কিন্তু কেবল "<ph name="INSTALLED_VERSION" />" সংস্করণ ইন্সটল করা আছে।</translation>
@@ -2307,6 +2310,7 @@
 <translation id="4335713051520279344">এই কম্পিউটার 1 সেকেন্ডে পুনঃসেট হবে৷ অনুসন্ধান চালাতে যে কোনো একটি কী টিপুন৷</translation>
 <translation id="4336032328163998280">অনুলিপি ক্রিয়াকলাপ ব্যর্থ হয়েছে৷ <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">নেটওয়ার্ক লগগুলির জন্য: <ph name="DEVICE_LOG_LINK" /> দেখুন</translation>
+<translation id="4337028641069424358">Android অ্যাপ ডাউনলোড এবং ব্যবহারের জন্য প্রথমে আপনাকে একটি আপডেট ইনস্টল করতে হবে। সেই সময় আপনার ডিভাইসটি ব্যবহার করা যাবে না। আপডেটটি ইনস্টল হয়ে গেলে আপনার <ph name="DEVICE_TYPE" /> আবার চালু হবে।</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> "<ph name="EXTENSION_NAME" />" অ্যাপ্লিকেশানটির সাথে যোগাযোগ করতে চায়</translation>
 <translation id="4341977339441987045">যেকোন ডেটা সেট করা থেকে সাইটগুলিকে ব্লক করুন</translation>
 <translation id="4342311272543222243">ওহো, TPM ত্রুটি৷</translation>
@@ -2585,7 +2589,6 @@
 <translation id="4793866834012505469">ভয়েস মডেল আবার ট্রেইন করুন৷</translation>
 <translation id="479536056609751218">ওয়েবপৃষ্ঠা, কেবলমাত্রHTML </translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">যেকোনো ডিভাইস থেকে <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> এ গিয়ে আপনার পাসওয়ার্ডগুলি অ্যাক্সেস করুন। Mac এ, পাসওয়ার্ডগুলি আপনার কীচেনে সংরক্ষিত হতে পারে এবং এই OS X অ্যাকাউন্টটি শেয়ার করে এমন অন্য Chrome ব্যবহারকারীরা এটি অ্যাক্সেস বা সিঙ্ক করতে পারবে।</translation>
 <translation id="4801257000660565496">অ্যাপ্লিকেশন &amp;শর্টকাট তৈরি করুন</translation>
 <translation id="4801448226354548035">অ্যাকাউন্টগুলি লুকান</translation>
 <translation id="4801512016965057443">মোবাইল ডেটা রোমিংয়ের অনুমতি দিন</translation>
@@ -2799,6 +2802,7 @@
 <translation id="5111692334209731439">&amp;বুকমার্ক পরিচালক</translation>
 <translation id="5112577000029535889">&amp;বিকাশকারী সরঞ্জামসমূহ</translation>
 <translation id="5113739826273394829">আপনি এই প্রতিকৃতিতে ক্লিক করুন, আপনি এই <ph name="DEVICE_TYPE" />টি ম্যানুয়ালি লক করবেন৷ পরবর্তী সময়ে, আপনাকে প্রবেশ করার জন্য আপনার পাসওয়ার্ড টাইপ করতে হবে৷</translation>
+<translation id="5115309401544567011">অনুগ্রহ করে আপনার <ph name="DEVICE_TYPE" /> এ চার্জ দিন।</translation>
 <translation id="5116300307302421503">ফাইল বিশ্লেষণ করতে অক্ষম৷</translation>
 <translation id="5116628073786783676">এইরূপে অডিও সংর&amp;ক্ষণ করুন...</translation>
 <translation id="5117427536932535467">থিম ও ওয়ালপেপার</translation>
@@ -3244,6 +3248,7 @@
 <translation id="5759728514498647443"><ph name="APP_NAME" />-এর দ্বারা প্রিন্ট করার জন্য আপনার পাঠানো দস্তাবেজগুলি <ph name="APP_NAME" />-এর মাধ্যমে পঠন করা যায়৷</translation>
 <translation id="5764483294734785780">এইরূপে অডিও সংর&amp;ক্ষণ করুন...</translation>
 <translation id="57646104491463491">পরিবর্তনের তারিখ</translation>
+<translation id="5764797882307050727">অনুগ্রহ করে আপনার ডিভাইসে জায়গা খালি করুন।</translation>
 <translation id="5765491088802881382">কোন নেটওয়ার্ক উপলব্ধ নয়</translation>
 <translation id="5765780083710877561">বর্ণনা:</translation>
 <translation id="5771585441665576801">লিপ্যন্তরকরণ (geia → γεια)</translation>
@@ -3472,6 +3477,7 @@
 <translation id="6122081475643980456">আপনার ইন্টারনেট সংযোগ নিয়ন্ত্রিত হচ্ছে</translation>
 <translation id="6122875415561139701">"<ph name="DEVICE_NAME" />" এ লেখার ক্রিয়াকলাপ অনুমোদিত নয়।</translation>
 <translation id="6124650939968185064">নিম্নলিখিত এক্সটেনশানগুলি এই এক্সটেনশানটির উপর নির্ভর করে:</translation>
+<translation id="6125479973208104919">দুর্ভাগ্যবশত, আপনাকে এই <ph name="DEVICE_TYPE" /> এ আবার অ্যাকাউন্ট তৈরি করতে হবে।</translation>
 <translation id="6129938384427316298">Netscape শংসাপত্র মন্তব্য</translation>
 <translation id="6129953537138746214">ব্যবধান</translation>
 <translation id="6132383530370527946">ছোট প্রিন্ট</translation>
@@ -3851,6 +3857,7 @@
 <translation id="6677037229676347494">প্রত্যাশিত ID "<ph name="EXPECTED_ID" />", কিন্তু ID হল "<ph name="NEW_ID" />"৷</translation>
 <translation id="6678717876183468697">কুয়েরি URL</translation>
 <translation id="6680028776254050810">ব্যবহারকারী স্যুইচ করুন</translation>
+<translation id="6680442031740878064">খালি জায়গা: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">ফটো তুলুন</translation>
 <translation id="668171684555832681">অন্যান্য...</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" আনইনস্টল করা হবে।</translation>
@@ -4272,6 +4279,7 @@
 <translation id="7348093485538360975">অন-স্ক্রীণ কীবোর্ড</translation>
 <translation id="7348749398828259943">মার্কিন ওয়ার্কম্যান আন্তর্জাতিক কীবোর্ড</translation>
 <translation id="7352651011704765696">কিছু সমস্যা হয়েছে</translation>
+<translation id="73534262421337222">জরুরী আপডেট ইনস্টল করা হচ্ছে</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" />-এর নতুন অনুমতি প্রয়োজন</translation>
 <translation id="735745346212279324">VPN সংযোগ বিচ্ছিন্ন করা হয়েছে</translation>
 <translation id="7360183604634508679">Bookmarks মেনু</translation>
@@ -4432,6 +4440,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome ডেটা সাফ হয়েছে</translation>
 <translation id="7568790562536448087">আপডেট হচ্ছে</translation>
+<translation id="7571643774869182231">আপডেটের জন্য যথেষ্ট জায়গা নেই</translation>
 <translation id="7573172247376861652">ব্যাটারি চার্জ</translation>
 <translation id="7576032389798113292">৬x৪</translation>
 <translation id="7576690715254076113">ক্রমসজ্জিত</translation>
@@ -4522,6 +4531,7 @@
 <translation id="771953673318695590">প্রশ্ন-উত্তর</translation>
 <translation id="7720375555307821262">এই ব্যক্তিকে তত্ত্বাবধান করার জন্য, <ph name="BEGIN_LINK" />Chrome এ প্রবেশ করুন<ph name="END_LINK" />।</translation>
 <translation id="7721179060400456005">উইন্ডোগুলিকে স্ক্রিন জুড়ে দেখানোর অনুমতি দিন।</translation>
+<translation id="7722040605881499779">আপডেটের জন্য প্রয়োজন: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">কাটুন</translation>
 <translation id="7728668285692163452">চ্যানেলের পরিবর্তন পরে প্রয়োগ করা হবে</translation>
 <translation id="7730449930968088409">আপনার স্ক্রীনের সামগ্রী ক্যাপচার করতে চায়</translation>

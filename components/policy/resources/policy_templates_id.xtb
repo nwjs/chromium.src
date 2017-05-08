@@ -1198,7 +1198,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="4480694116501920047">Paksakan TelusurAman</translation>
 <translation id="4482640907922304445">Menampilkan tombol Beranda di bilah alat <ph name="PRODUCT_NAME" />. Jika Anda mengaktifkan setelan ini, tombol Beranda akan selalu ditampilkan. Jika Anda menonaktifkan setelan ini, tombol Beranda tidak akan pernah ditampilkan. Jika Anda mengaktifkan atau menonaktifkan setelan ini, pengguna tidak dapat mengubah atau menimpa setelan ini di <ph name="PRODUCT_NAME" />. Membiarkan kebijakan ini tidak disetel akan memungkinkan pengguna memilih apakah akan menampilkan tombol beranda.</translation>
 <translation id="4485425108474077672">Mengonfigurasi URL halaman Tab Baru</translation>
-<translation id="4492287494009043413">Menonaktifkan pengambilan tangkapan layar</translation>
+<translation id="4492287494009043413">Menonaktifkan pengambilan screenshot</translation>
 <translation id="450537894712826981">Mengonfigurasi ukuran cache yang akan digunakan <ph name="PRODUCT_NAME" /> untuk menyimpan file media di disk.
 
       Jika Anda menyetel kebijakan ini, <ph name="PRODUCT_NAME" /> akan menggunakan ukuran cache yang disediakan terlepas dari apakah pengguna menentukan tanda '--media-cache-size' atau tidak. Nilai yang ditentukan dalam kebijakan ini bukan merupakan batas mutlak namun merupakan saran terhadap sistem penyimpanan dalam cache, nilai apa pun di bawah beberapa megabyte dianggap terlalu kecil dan akan dibulatkan ke nilai minimum yang lebih wajar.
@@ -1439,7 +1439,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="5447306928176905178">Aktifkan pelaporan info memori (JS heap size) ke laman (dipensiunkan)</translation>
 <translation id="5457065417344056871">Mengaktifkan mode tamu dalam browser</translation>
 <translation id="5457924070961220141">Memungkinkan Anda mengonfigurasi perender HTML default saat <ph name="PRODUCT_FRAME_NAME" /> dipasang. Setelan default yang digunakan ketika kebijakan ini tidak disetel adalah mengizinkan browser host melakukan perenderan, tetapi Anda dapat menimpanya secara opsional dan membiarkan <ph name="PRODUCT_FRAME_NAME" /> merender laman HTML secara default.</translation>
-<translation id="5461308170340925511">Mengonfigurasi kebijakan terkait ekstensi. Pengguna tidak diizinkan untuk memasang ekstensi dalam daftar hitam kecuali tercantum dalam daftar putih, Selain itu, Anda juga dapat memaksa <ph name="PRODUCT_NAME" /> agar otomatis memasang ekstensi dengan menentukannya dalam <ph name="EXTENSIONINSTALLFORCELIST_POLICY_NAME" />. Ekstensi pasang paksa akan dipasang meskipun ada dalam daftar hitam.</translation>
+<translation id="5461308170340925511">Mengonfigurasi kebijakan terkait ekstensi. Pengguna tidak diizinkan untuk memasang ekstensi dalam daftar hitam kecuali tercantum dalam daftar putih, Selain itu, Anda juga dapat memaksa <ph name="PRODUCT_NAME" /> agar otomatis memasang ekstensi dengan menentukannya dalam <ph name="EXTENSIONINSTALLFORCELIST_POLICY_NAME" />. Ekstensi instal paksa akan diinstal meskipun ada dalam daftar hitam.</translation>
 <translation id="5464816904705580310">Mengonfigurasi setelan untuk pengguna yang dikelola.</translation>
 <translation id="5465776916241336961">Memungkinkan alur masuk berbasis web lama.
 
@@ -2670,7 +2670,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
       CATATAN: Hingga versi 45, kebijakan ini hanya didukung dalam mode Kios.</translation>
 <translation id="8970205333161758602">Tindas permintaan penghentian <ph name="PRODUCT_FRAME_NAME" /></translation>
-<translation id="8971221018777092728">Pewaktu masuk otomatis sesi publik</translation>
+<translation id="8971221018777092728">Timer masuk otomatis sesi publik</translation>
 <translation id="8976248126101463034">Izinkan autentikasi gnubby untuk host akses jarak jauh</translation>
 <translation id="8992176907758534924">Jangan izinkan situs apa pun menampilkan gambar</translation>
 <translation id="9035964157729712237">ID Ekstensi yang dikeluarkan dari daftar hitam</translation>
@@ -2717,11 +2717,11 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="9187743794267626640">Menonaktifkan pemasangan penyimpanan eksternal</translation>
 <translation id="9197740283131855199">Persentase yang digunakan untuk menskalakan penundaan layar redup jika pengguna aktif setelah peredupan</translation>
 <translation id="9200828125069750521">Parameter untuk URL gambar yang menggunakan POST</translation>
-<translation id="9203071022800375458">Menonaktifkan pengambilan tangkapan layar.
+<translation id="9203071022800375458">Menonaktifkan pengambilan screenshot.
 
-      Jika diaktifkan, tangkapan layar tidak akan dapat dilakukan dengan menggunakan pintasan keyboard atau API ekstensi.
+      Jika diaktifkan, screenshot tidak akan dapat dilakukan dengan menggunakan pintasan keyboard atau API ekstensi.
 
-      Jika dinonaktifkan atau tidak ditentukan, pengambilan tangkapan layar akan diizinkan.</translation>
+      Jika dinonaktifkan atau tidak ditentukan, pengambilan screenshot akan diizinkan.</translation>
 <translation id="9212233969680267790">Peringatan: Kebijakan versi TLS maksimum akan sepenuhnya dihapus dari <ph name="PRODUCT_NAME" /> sekitar versi 66 (sekitar bulan Februari 2018).
 
       Jika kebijakan ini tidak dikonfigurasi, <ph name="PRODUCT_NAME" /> akan menggunakan versi maksimum default.

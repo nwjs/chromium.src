@@ -1972,7 +1972,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3783640748446814672">alt</translation>
 <translation id="3785308913036335955">Mostrar Atalho das Aplicações</translation>
 <translation id="3785852283863272759">Localização da página de email</translation>
-<translation id="3786301125658655746">Está off-line</translation>
+<translation id="3786301125658655746">Está offline</translation>
 <translation id="3788401245189148511">Esta poderia:</translation>
 <translation id="3789841737615482174">Instalar</translation>
 <translation id="3790146417033334899">O <ph name="PLUGIN_NAME" /> só funciona no computador.</translation>
@@ -2605,7 +2605,6 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="4793866834012505469">Reutilizar o modelo de voz</translation>
 <translation id="479536056609751218">Página Web, Apenas HTML</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">Aceda às suas palavras-passe a partir de qualquer dispositivo em <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. No Mac, as palavras-passe podem ser guardadas no Keychain e podem ser acedidas ou sincronizadas por outros utilizadores do Chrome que partilhem esta conta do OS X.</translation>
 <translation id="4801257000660565496">Criar atalhos da aplicação</translation>
 <translation id="4801448226354548035">Ocultar contas</translation>
 <translation id="4801512016965057443">Permitir roaming de dados móveis</translation>
@@ -4973,7 +4972,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8335971947739877923">Exportar...</translation>
 <translation id="8336153091935557858">Ontem <ph name="YESTERDAY_DAYTIME" /></translation>
 <translation id="8336579025507394412">Teclado islandês</translation>
-<translation id="8337399713761067085">De momento, está off-line</translation>
+<translation id="8337399713761067085">De momento, está offline</translation>
 <translation id="8338952601723052325">Website para programadores</translation>
 <translation id="8339012082103782726">Não permitir aos sites aceder ao seu microfone</translation>
 <translation id="8339059274628563283">Dados de <ph name="SITE" /> armazenados localmente</translation>
@@ -5069,7 +5068,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8483248364096924578">Endereço IP</translation>
 <translation id="8487678622945914333">Ampliar</translation>
 <translation id="8487693399751278191">Importar marcadores agora...</translation>
-<translation id="8487700953926739672">Disponível off-line</translation>
+<translation id="8487700953926739672">Disponível offline</translation>
 <translation id="8490896350101740396">As seguintes aplicações de quiosque "<ph name="UPDATED_APPS" />" foram atualizadas. Reinicie o dispositivo para concluir o processo de atualização.</translation>
 <translation id="8493236660459102203">Microfone:</translation>
 <translation id="8495193314787127784">Ativar "Ok Google"</translation>

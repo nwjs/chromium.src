@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">สำรองสื่อจากอุปกรณ์โดยใช้แอป Files</translation>
 <translation id="1341988552785875222">วอลเปเปอร์ปัจจุบันตั้งค่าโดย "<ph name="APP_NAME" />" คุณอาจต้องถอนการติดตั้ง "<ph name="APP_NAME" />" ก่อนที่จะเลือกวอลเปเปอร์อื่น</translation>
 <translation id="1346748346194534595">ขวา</translation>
+<translation id="1347975661240122359">อัปเดตจะเริ่มขึ้นเมื่อแบตเตอรี่ถึง <ph name="BATTERY_LEVEL" />%</translation>
 <translation id="1351692861129622852">กำลังนำเข้า <ph name="FILE_COUNT" /> ไฟล์...</translation>
 <translation id="1352103415082130575">แป้นพิมพ์ภาษาไทย (ปัตตะโชติ)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -924,6 +925,7 @@
 <translation id="2312980885338881851">อ๊ะ! ดูเหมือนว่าคุณไม่มีผู้ใช้ภายใต้การดูแลที่จะนำเข้า โปรดสร้างผู้ใช้หนึ่งรายขึ้นไปจากอุปกรณ์อื่น จากนั้นคุณจึงจะสามารถนำเข้าพวกเขามาไว้ที่นี่</translation>
 <translation id="2316129865977710310">ไม่ ขอบคุณ</translation>
 <translation id="2317031807364506312">ยกเลิก</translation>
+<translation id="2317842250900878657">เสร็จแล้ว <ph name="PROGRESS_PERCENT" />%</translation>
 <translation id="2318143611928805047">ขนาดกระดาษ</translation>
 <translation id="2318817390901984578">หากต้องการใช้แอป Android ให้ชาร์จและอัปเดต <ph name="DEVICE_TYPE" /></translation>
 <translation id="2318923050469484167">เซสชันไม่ระบุตัวตนปัจจุบัน (<ph name="EMBEDDING" />)</translation>
@@ -1856,6 +1858,7 @@
 <translation id="3618849550573277856">ค้นหา “<ph name="LOOKUP_STRING" />”</translation>
 <translation id="3620292326130836921">สำรองข้อมูลทั้งหมดแล้ว!</translation>
 <translation id="3623574769078102674">ผู้ใช้ภายใต้การดูแลนี้จะถูกจัดการโดย <ph name="MANAGER_EMAIL" /></translation>
+<translation id="3624814222765772771">แบตเตอรี่เหลือน้อยเกินไปสำหรับอัปเดต (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">รีเซ็ตการซูม</translation>
 <translation id="3626281679859535460">ความสว่าง</translation>
 <translation id="3627052133907344175">ส่วนขยายต้องใช้ "<ph name="IMPORT_NAME" />" เวอร์ชัน "<ph name="IMPORT_VERSION" />" เป็นอย่างน้อย แต่ที่ติดตั้งอยู่เป็นเวอร์ชัน "<ph name="INSTALLED_VERSION" />"</translation>
@@ -2319,6 +2322,7 @@
 กดแป้นใดก็ได้เพื่อสำรวจต่อ</translation>
 <translation id="4336032328163998280">การคัดลอกล้มเหลว <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">สำหรับบันทึกของเครือข่าย โปรดดูที่ <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">หากต้องการดาวน์โหลดและใช้แอป Android ก่อนอื่นคุณต้องติดตั้งอัปเดต ขณะอุปกรณ์กำลังอัปเดต คุณจะไม่สามารถใช้อุปกรณ์ได้ <ph name="DEVICE_TYPE" /> จะรีสตาร์ทหลังการติดตั้งเสร็จสมบูรณ์</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> ต้องการสื่อสารกับแอป "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">บล็อกไซต์จากการวางข้อมูลใดๆ</translation>
 <translation id="4342311272543222243">อ๊ะ เกิดข้อผิดพลาด TPM</translation>
@@ -2599,7 +2603,6 @@
 <translation id="4793866834012505469">ฝึกโมเดลเสียงใหม่</translation>
 <translation id="479536056609751218">หน้าเว็บ HTML เท่านั้น</translation>
 <translation id="479989351350248267">ค้นหา</translation>
-<translation id="480036413855787547">เข้าถึงรหัสผ่านของคุณจากอุปกรณ์ใดก็ได้ที่ <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> สำหรับ Mac รหัสผ่านอาจบันทึกไว้ใน Keychain และผู้ใช้ Chrome คนอื่นๆ ที่แชร์บัญชี OS X นี้อาจสามารถเข้าถึงหรือซิงค์รหัสผ่านนี้ได้</translation>
 <translation id="4801257000660565496">สร้างทางลัดไปยังแอปพลิเคชัน</translation>
 <translation id="4801448226354548035">ซ่อนบัญชี</translation>
 <translation id="4801512016965057443">อนุญาตการโรมมิ่งข้อมูลมือถือ</translation>
@@ -2814,6 +2817,7 @@
 <translation id="5111692334209731439">&amp;ตัวจัดการบุ๊กมาร์ก</translation>
 <translation id="5112577000029535889">&amp;เครื่องมือสำหรับนักพัฒนาซอฟต์แวร์</translation>
 <translation id="5113739826273394829">หากคุณคลิกไอคอนนี้ จะเป็นการล็อก <ph name="DEVICE_TYPE" /> นี้ด้วยตนเอง คุณจะต้องพิมพ์รหัสผ่านเพื่อเข้าใช้งานในครั้งถัดไป</translation>
+<translation id="5115309401544567011">โปรดเสียบ <ph name="DEVICE_TYPE" /> เข้ากับแหล่งจ่ายไฟ</translation>
 <translation id="5116300307302421503">ไม่สามารถแยกวิเคราะห์ไฟล์</translation>
 <translation id="5116628073786783676">บั&amp;นทึกเสียงเป็น...</translation>
 <translation id="5117427536932535467">ธีมและวอลเปเปอร์</translation>
@@ -3262,6 +3266,7 @@
 <translation id="5759728514498647443"><ph name="APP_NAME" /> สามารถอ่านเอกสารที่คุณส่งไปพิมพ์ผ่าน <ph name="APP_NAME" /> ได้</translation>
 <translation id="5764483294734785780">บั&amp;นทึกวิดีโอเป็น...</translation>
 <translation id="57646104491463491">วันที่แก้ไข</translation>
+<translation id="5764797882307050727">โปรดเพิ่มพื้นที่ว่างบางส่วนในอุปกรณ์</translation>
 <translation id="5765491088802881382">ไม่พบเครือข่ายใด</translation>
 <translation id="5765780083710877561">คำอธิบาย:</translation>
 <translation id="5771585441665576801">การทับศัพท์ (geia → γεια)</translation>
@@ -3493,6 +3498,7 @@
 <translation id="6122081475643980456">กำลังมีการควบคุมการเชื่อมต่ออินเทอร์เน็ตของคุณ</translation>
 <translation id="6122875415561139701">ไม่อนุญาตให้เขียนใน "<ph name="DEVICE_NAME" />"</translation>
 <translation id="6124650939968185064">ส่วนขยายต่อไปนี้ต้องพึ่งพาส่วนขยายนี้:</translation>
+<translation id="6125479973208104919">ขออภัย คุณจะต้องเพิ่มบัญชีของคุณลงใน <ph name="DEVICE_TYPE" /> นี้อีกครั้ง</translation>
 <translation id="6129938384427316298">ความคิดเห็นเกี่ยวกับใบรับรองของ Netscape</translation>
 <translation id="6129953537138746214">ช่องว่าง</translation>
 <translation id="6132383530370527946">The Small Print</translation>
@@ -3873,6 +3879,7 @@
 <translation id="6677037229676347494">คาดการณ์ ID "<ph name="EXPECTED_ID" />" แต่ ID ที่แจ้งคือ "<ph name="NEW_ID" />"</translation>
 <translation id="6678717876183468697">URL ของคำค้นหา</translation>
 <translation id="6680028776254050810">สลับผู้ใช้</translation>
+<translation id="6680442031740878064">พร้อมใช้งาน: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">ถ่ายภาพ</translation>
 <translation id="668171684555832681">อื่นๆ...</translation>
 <translation id="6681964764822470072">ระบบจะถอนการติดตั้ง "<ph name="APP_NAME" />"</translation>
@@ -4291,6 +4298,7 @@
 <translation id="7348093485538360975">แป้นพิมพ์บนหน้าจอ</translation>
 <translation id="7348749398828259943">แป้นพิมพ์ Workman สหรัฐฯ แบบสากล</translation>
 <translation id="7352651011704765696">มีข้อผิดพลาดเกิดขึ้น</translation>
+<translation id="73534262421337222">กำลังติดตั้งอัปเดตที่สำคัญ</translation>
 <translation id="7353651168734309780">ต้องมีการอนุญาตใหม่สำหรับ <ph name="EXTENSION_NAME" /></translation>
 <translation id="735745346212279324">ยกเลิกการเชื่อมต่อ VPN แล้ว</translation>
 <translation id="7360183604634508679">เมนูบุ๊กมาร์ก</translation>
@@ -4452,6 +4460,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">ล้างข้อมูล Chrome แล้ว</translation>
 <translation id="7568790562536448087">การอัปเดต</translation>
+<translation id="7571643774869182231">มีพื้นที่เก็บข้อมูลไม่เพียงพอสำหรับอัปเดต</translation>
 <translation id="7573172247376861652">ชาร์จแบตเตอรี่</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">เรียง</translation>
@@ -4542,6 +4551,7 @@
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262"><ph name="BEGIN_LINK" />ลงชื่อเข้าใช้ Chrome<ph name="END_LINK" /> เพื่อดูแลบุคคลนี้</translation>
 <translation id="7721179060400456005">อนุญาตให้ขยายการแสดงหน้าต่างไปยังหลายหน้าจอ</translation>
+<translation id="7722040605881499779">จำเป็นสำหรับอัปเดต: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">ตัด</translation>
 <translation id="7728668285692163452">ระบบจะนำการเปลี่ยนช่องไปใช้ในภายหลัง</translation>
 <translation id="7730449930968088409">จับภาพเนื้อหาบนหน้าจอ</translation>

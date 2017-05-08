@@ -100,7 +100,7 @@ Debes activar la ubicación y el Bluetooth para utilizar la Web física.</transl
 <translation id="1944384637046898011">Cifrar todo con una contraseña de Google a partir del <ph name="TIME" /></translation>
 <translation id="1946005195648379376">Controla cómo utiliza Google tu historial de navegación para personalizar la Búsqueda y otros servicios de Google.</translation>
 <translation id="1966710179511230534">Actualiza tus datos de inicio de sesión.</translation>
-<translation id="1974060860693918893">Opciones avanzadas</translation>
+<translation id="1974060860693918893">Configuración avanzada</translation>
 <translation id="1984937141057606926">Permitidas (excepto cookies de terceros)</translation>
 <translation id="1993768208584545658"><ph name="SITE" /> quiere vincularse</translation>
 <translation id="1994173015038366702">URL del sitio</translation>
@@ -328,7 +328,7 @@ Para ajustar el término de búsqueda, mantén pulsado el texto para seleccionar
 <translation id="4535858793016067060">Activa Orígenes desconocidos en los ajustes de seguridad de Android para probar el experimento mejorado Añadir a la pantalla de inicio. No olvides inhabilitar esta opción cuando hayas finalizado.</translation>
 <translation id="4558311620361989323">Combinaciones de teclas en páginas web</translation>
 <translation id="4572422548854449519">Inicia sesión en la cuenta administrada</translation>
-<translation id="4581964774250883625">Has entrado en el modo incógnito.</translation>
+<translation id="4581964774250883625">Has iniciado una sesión de incógnito.</translation>
 <translation id="4583164079174244168">{MINUTES,plural, =1{Hace # minuto}other{Hace # minutos}}</translation>
 <translation id="4587589328781138893">Sitios web</translation>
 <translation id="4605958867780575332">Elemento retirado: <ph name="ITEM_TITLE" /></translation>

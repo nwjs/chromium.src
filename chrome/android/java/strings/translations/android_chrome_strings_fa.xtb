@@ -328,7 +328,7 @@
 <translation id="4535858793016067060">‏با روشن کردن «منابع ناشناخته» در تنظیمات امنیت Android، آزمایش «افزودن بهبودیافته به صفحه اصلی» را امتحان کنید. حتماً بعد از امتحان آن، این تنظیم را غیرفعال کنید.</translation>
 <translation id="4558311620361989323">میان‌برهای صفحه وب</translation>
 <translation id="4572422548854449519">به حساب مدیریت‌شده وارد شوید</translation>
-<translation id="4581964774250883625">به حالت ناشناس وارد شدید.</translation>
+<translation id="4581964774250883625">اکنون در حالت ناشناس هستید.</translation>
 <translation id="4583164079174244168">{MINUTES,plural, =1{# دقیقه قبل}one{# دقیقه قبل}other{# دقیقه قبل}}</translation>
 <translation id="4587589328781138893">سایت‌ها</translation>
 <translation id="4605958867780575332">مورد حذف شد: <ph name="ITEM_TITLE" /></translation>
@@ -363,7 +363,7 @@
 <translation id="4910889077668685004">برنامه‌های پرداخت</translation>
 <translation id="4915549754973153784"><ph name="BEGIN_LINK" />دریافت راهنمایی<ph name="END_LINK" /> درحین اسکن دستگاه‌ها…</translation>
 <translation id="4943872375798546930">نتیجه‌ای پیدا نشد</translation>
-<translation id="4958708863221495346"><ph name="URL_OF_THE_CURRENT_TAB" /> درحال اشتراک‌گذاری صفحه‌نمایش شماست</translation>
+<translation id="4958708863221495346"><ph name="URL_OF_THE_CURRENT_TAB" /> درحال اشتراک‌گذاری صفحه شما است</translation>
 <translation id="4961700429721424617">‏هم‌اکنون از حسابی که توسط <ph name="MANAGED_DOMAIN" /> مدیریت می‌شود، خارج می‌شوید. با این کار داده‌های Chrome شما از این دستگاه حذف می‌شود اما همچنان در حساب Google شما باقی می‌ماند.</translation>
 <translation id="497421865427891073">جلو رفتن</translation>
 <translation id="4988526792673242964">صفحات</translation>

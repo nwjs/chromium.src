@@ -2603,7 +2603,6 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="4793866834012505469">Ponovno uvježbavanje glasovnog modela</translation>
 <translation id="479536056609751218">Web-stranica, samo HTML</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">Na stranici <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> možete pristupati svojim zaporkama na bilo kojem uređaju. Na Mac računalima zaporke se mogu spremati u Keychain, a drugi korisnici preglednika Chrome koji dijele taj OS X račun mogu im pristupiti ili ih sinkronizirati.</translation>
 <translation id="4801257000660565496">Stvori prečace aplikacije</translation>
 <translation id="4801448226354548035">Sakrij račune</translation>
 <translation id="4801512016965057443">Omogući roaming mobilnih podataka</translation>
@@ -4460,7 +4459,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chromeovi su podaci izbrisani</translation>
 <translation id="7568790562536448087">Ažuriranje stavke</translation>
-<translation id="7571643774869182231">Nema dovoljno pohrane za ažuriranje</translation>
+<translation id="7571643774869182231">Nema dovoljno prostora za pohranu za ažuriranje</translation>
 <translation id="7573172247376861652">Punjenje baterije</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Spari</translation>

@@ -229,6 +229,7 @@
 <translation id="1340527397989195812">Δημιουργία αντιγράφων ασφαλείας μέσων από τη συσκευή με χρήση της εφαρμογής "Αρχεία".</translation>
 <translation id="1341988552785875222">Η τρέχουσα ταπετσαρία έχει οριστεί από το '<ph name="APP_NAME" />'. Ενδεχομένως να χρειαστεί να απεγκαταστήσετε το '<ph name="APP_NAME" />' πριν επιλέξετε μια διαφορετική ταπετσαρία.</translation>
 <translation id="1346748346194534595">Δεξιά</translation>
+<translation id="1347975661240122359">Η ενημέρωση θα ξεκινήσει μόλις το επίπεδο της μπαταρίας φτάσει στο <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Εισαγωγή <ph name="FILE_COUNT" /> αρχείων…</translation>
 <translation id="1352103415082130575">Πληκτρολόγιο Ταϊλανδικών (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -928,6 +929,7 @@
 <translation id="2312980885338881851">Ωχ! Φαίνεται πως δεν υπάρχουν χρήστες υπό επίβλεψη για εισαγωγή. Δημιουργήστε έναν ή περισσότερους χρήστες σε κάποια άλλη συσκευή και, στη συνέχεια, θα μπορέσετε να τους εισαγάγετε εδώ.</translation>
 <translation id="2316129865977710310">Όχι, ευχαριστώ</translation>
 <translation id="2317031807364506312">ΑΚΥΡΩΣΗ</translation>
+<translation id="2317842250900878657">Ολοκληρώθηκε <ph name="PROGRESS_PERCENT" />%</translation>
 <translation id="2318143611928805047">Μέγεθος χαρτιού</translation>
 <translation id="2318817390901984578">Για να χρησιμοποιήσετε εφαρμογές Android, φορτίστε και ενημερώστε τη συσκευή <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Για την τρέχουσα περίοδο λειτουργίας σε κατάσταση ανώνυμης περιήγησης ( <ph name="EMBEDDING" /> )</translation>
@@ -1865,6 +1867,7 @@
 <translation id="3618849550573277856">Αναζήτηση "<ph name="LOOKUP_STRING" />"</translation>
 <translation id="3620292326130836921">Δημιουργήθηκαν αντίγραφα ασφαλείας για όλα τα αρχεία!</translation>
 <translation id="3623574769078102674">Η διαχείριση αυτού του εποπτευόμενου χρήστη θα γίνεται από το χρήστη <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Η ισχύς της μπαταρίας είναι πολύ χαμηλή για ενημέρωση (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Επαναφορά εστίασης</translation>
 <translation id="3626281679859535460">Φωτεινότητα</translation>
 <translation id="3627052133907344175">Η επέκταση απαιτεί "<ph name="IMPORT_NAME" />" με ελάχιστη έκδοση "<ph name="IMPORT_VERSION" />", αλλά είναι εγκατεστημένη μόνο η έκδοση "<ph name="INSTALLED_VERSION" />".</translation>
@@ -2329,6 +2332,7 @@
 Πατήστε οποιοδήποτε πλήκτρο για να συνεχίσετε την εξερεύνηση.</translation>
 <translation id="4336032328163998280">Αποτυχία λειτουργίας αντιγραφής. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Για τα αρχεία καταγραφής δικτύου, δείτε: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Για να κατεβάσετε και να χρησιμοποιήσετε εφαρμογές Android, θα πρέπει πρώτα να εγκαταστήσετε μια ενημέρωση. Δεν είναι δυνατή η χρήση της συσκευής σας όσο η ενημέρωση είναι σε εξέλιξη. Θα γίνει επανεκκίνηση της συσκευής <ph name="DEVICE_TYPE" /> μετά την ολοκλήρωση της εγκατάστασης.</translation>
 <translation id="4340515029017875942">Το <ph name="ORIGIN" /> θέλει να επικοινωνήσει με την εφαρμογή "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4341977339441987045">Αποκλεισμός ιστότοπων από τη ρύθμιση δεδομένων</translation>
 <translation id="4342311272543222243">Ωχ, παρουσιάστηκε σφάλμα TPM.</translation>
@@ -2610,7 +2614,6 @@
 <translation id="4793866834012505469">Επανεκπαίδευση μοντέλου φωνής</translation>
 <translation id="479536056609751218">Ιστοσελίδα, μόνο HTML</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">Αποκτήστε πρόσβαση στους κωδικούς πρόσβασης από οποιαδήποτε συσκευή στη διεύθυνση <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. Σε Mac, οι κωδικοί πρόσβασης μπορεί να αποθηκευτούν στο Keychain και ενδέχεται άλλοι χρήστες του Chrome, οι οποίοι μοιράζονται αυτόν τον λογαριασμό OS X, να αποκτήσουν πρόσβαση σε αυτούς ή να τους συγχρονίσουν.</translation>
 <translation id="4801257000660565496">Δημιουργία συντομεύσεων εφαρμογής</translation>
 <translation id="4801448226354548035">Απόκρυψη λογαριασμών</translation>
 <translation id="4801512016965057443">Να επιτρέπεται η περιαγωγή δεδομένων κινητών συσκευών</translation>
@@ -2827,6 +2830,7 @@
 <translation id="5111692334209731439">&amp;Διαχείριση Σελιδοδεικτών</translation>
 <translation id="5112577000029535889">&amp;Εργαλεία για Προγραμματιστές</translation>
 <translation id="5113739826273394829">Κάνοντας κλικ σε αυτό το εικονίδιο, θα κλειδώσετε με μη αυτόματο τρόπο αυτήν τη συσκευή <ph name="DEVICE_TYPE" />. Την επόμενη φορά, θα χρειαστεί να πληκτρολογήσετε τον κωδικό πρόσβασής σας για να εισέλθετε.</translation>
+<translation id="5115309401544567011">Συνδέστε τη συσκευή <ph name="DEVICE_TYPE" /> σε τροφοδοσία ρεύματος.</translation>
 <translation id="5116300307302421503">Δεν είναι δυνατή η ανάλυση του αρχείου.</translation>
 <translation id="5116628073786783676">Απο&amp;θήκευση ήχου ως...</translation>
 <translation id="5117427536932535467">Θέματα και ταπετσαρίες</translation>
@@ -3278,6 +3282,7 @@
 <translation id="5759728514498647443">Είναι δυνατή η ανάγνωση των εγγράφων που στέλνετε για εκτύπωση μέσω <ph name="APP_NAME" /> με την εφαρμογή <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">Αποθή&amp;κευση ήχου ως...</translation>
 <translation id="57646104491463491">Ημερομηνία τροποποίησης</translation>
+<translation id="5764797882307050727">Απελευθερώστε χώρο στη συσκευή σας.</translation>
 <translation id="5765491088802881382">Δεν υπάρχουν διαθέσιμα δίκτυα</translation>
 <translation id="5765780083710877561">Περιγραφή:</translation>
 <translation id="5771585441665576801">Μεταγραφή (geia → γεια)</translation>
@@ -3509,6 +3514,7 @@
 <translation id="6122081475643980456">Η σύνδεσή σας στο διαδίκτυο παρακολουθείται</translation>
 <translation id="6122875415561139701">Η λειτουργία εγγραφής δεν επιτρέπεται στη συσκευή: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">Οι ακόλουθες επεκτάσεις εξαρτώνται από αυτήν την επέκταση:</translation>
+<translation id="6125479973208104919">Δυστυχώς, θα πρέπει να προσθέσετε ξανά τον λογαριασμό σας σε αυτήν τη συσκευή <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Σχόλιο πιστοποιητικού Netscape</translation>
 <translation id="6129953537138746214">Κενό</translation>
 <translation id="6132383530370527946">Τα "ψιλά γράμματα"</translation>
@@ -3889,6 +3895,7 @@
 <translation id="6677037229676347494">Αναμενόταν το αναγνωριστικό "<ph name="EXPECTED_ID" />", ωστόσο το αναγνωριστικό ήταν το "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">URL ερωτήματος</translation>
 <translation id="6680028776254050810">Εναλλαγή χρηστών</translation>
+<translation id="6680442031740878064">Διαθέσιμος χώρος: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Λήψη φωτογραφίας</translation>
 <translation id="668171684555832681">Άλλο...</translation>
 <translation id="6681964764822470072">Η εγκατάσταση της εφαρμογής "<ph name="APP_NAME" />" θα καταργηθεί.</translation>
@@ -4309,6 +4316,7 @@
 <translation id="7348093485538360975">Πληκτρολόγιο οθόνης</translation>
 <translation id="7348749398828259943">Διεθνές πληκτρολόγιο ΗΠΑ Workman</translation>
 <translation id="7352651011704765696">Παρουσιάστηκε κάποιο πρόβλημα</translation>
+<translation id="73534262421337222">Εγκατάσταση σημαντικής ενημέρωσης</translation>
 <translation id="7353651168734309780">Η επέκταση <ph name="EXTENSION_NAME" /> απαιτεί νέες άδειες</translation>
 <translation id="735745346212279324">Το VPN αποσυνδέθηκε</translation>
 <translation id="7360183604634508679">Μενού σελιδοδεικτών</translation>
@@ -4473,6 +4481,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Τα δεδομένα του Chrome διαγράφηκαν</translation>
 <translation id="7568790562536448087">Ενημέρωση</translation>
+<translation id="7571643774869182231">Δεν υπάρχει αρκετός αποθηκευτικός χώρος για την ενημέρωση</translation>
 <translation id="7573172247376861652">Φόρτιση μπαταρίας</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Συρραφή</translation>
@@ -4563,6 +4572,7 @@
 <translation id="771953673318695590">Εγγύηση Ποιότητας</translation>
 <translation id="7720375555307821262">Για να επιβλέπετε αυτό το άτομο, <ph name="BEGIN_LINK" />συνδεθείτε στο Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Να επιτρέπεται να εκτείνονται τα παράθυρα σε οθόνες</translation>
+<translation id="7722040605881499779">Απαιτείται για την ενημέρωση: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Αποκοπή</translation>
 <translation id="7728668285692163452">Η αλλαγή καναλιού θα εφαρμοστεί αργότερα</translation>
 <translation id="7730449930968088409">Εγγραφή του περιεχομένου της οθόνης σας</translation>

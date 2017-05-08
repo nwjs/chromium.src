@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Създаване на резервно копие на носителя от устройството с помощта на приложението Файлове.</translation>
 <translation id="1341988552785875222">Текущият тапет е зададен от „<ph name="APP_NAME" />“. Може да е необходимо да деинсталирате „<ph name="APP_NAME" />“, преди да изберете друг тапет.</translation>
 <translation id="1346748346194534595">Надясно</translation>
+<translation id="1347975661240122359">Актуализацията ще започне, когато нивото на батерията достигне <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Импортират се <ph name="FILE_COUNT" /> файла...</translation>
 <translation id="1352103415082130575">Тайландска клавиатура (паташот)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: „<ph name="NETWORK_NAME" />“</translation>
@@ -921,6 +922,7 @@
 <translation id="2312980885338881851">Ами сега! Изглежда, че няма съществуващи контролирани потребители, които да се импортират. Моля, създайте един или повече на друго устройство. След това можете да ги импортирате тук.</translation>
 <translation id="2316129865977710310">Не, благодаря</translation>
 <translation id="2317031807364506312">ОТКАЗ</translation>
+<translation id="2317842250900878657">Завършено: <ph name="PROGRESS_PERCENT" />%</translation>
 <translation id="2318143611928805047">Размер на хартията</translation>
 <translation id="2318817390901984578">За да използвате приложения за Android, заредете и актуализирайте своя <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Текущата сесия в режим „инкогнито“ (<ph name="EMBEDDING" />)</translation>
@@ -1853,6 +1855,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3618849550573277856">Търсене на „<ph name="LOOKUP_STRING" />“</translation>
 <translation id="3620292326130836921">На всичко бе създадено резервно копие!</translation>
 <translation id="3623574769078102674">Този контролиран потребител ще се управлява от <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Батерията е твърде изтощена (<ph name="PROGRESS_PERCENT" />%) за инсталиране на актуализацията</translation>
 <translation id="3625870480639975468">Повторно задаване на мащаба</translation>
 <translation id="3626281679859535460">Яркост</translation>
 <translation id="3627052133907344175">Разширението изисква <ph name="IMPORT_VERSION" /> или по-нова версия на <ph name="IMPORT_NAME" />, но само <ph name="INSTALLED_VERSION" /> е инсталирана.</translation>
@@ -2316,6 +2319,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 Натиснете който и да е клавиш, за да продължите да разглеждате.</translation>
 <translation id="4336032328163998280">Копирането не бе успешно. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">За регистрационни файлове за мрежата вижте <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">За да изтеглите и използвате приложения за Android, трябва първо да инсталирате актуализация на устройството си. Няма да можете да го ползвате, докато процесът не приключи. <ph name="DEVICE_TYPE" /> ще се рестартира след завършване на инсталирането.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> иска да комуникира с приложението „<ph name="EXTENSION_NAME" />“</translation>
 <translation id="4341977339441987045">Пълно блокиране на задаването на данни от сайтове</translation>
 <translation id="4342311272543222243">Ами сега! Грешка в TPM.</translation>
@@ -2596,7 +2600,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4793866834012505469">Повторно обучение на гласовия модел</translation>
 <translation id="479536056609751218">Уеб страница, само HTML</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">Паролите ви са достъпни на адрес <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> от всяко устройство. На Mac те може да се запазват в Keychain и да се използват или синхронизират от други потребители на Chrome, ползващи този профил в OS X.</translation>
 <translation id="4801257000660565496">Създаване на преки пътища към приложението</translation>
 <translation id="4801448226354548035">Скриване на профилите</translation>
 <translation id="4801512016965057443">Разрешаване на роуминг за данни</translation>
@@ -2811,6 +2814,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5111692334209731439">&amp;Диспечер на отметките</translation>
 <translation id="5112577000029535889">&amp;Инструменти за програмисти</translation>
 <translation id="5113739826273394829">Ако кликнете върху тази икона, ще заключите ръчно този <ph name="DEVICE_TYPE" />. За да влезете след това, ще трябва да въведете паролата си.</translation>
+<translation id="5115309401544567011">Моля, включете устройството си <ph name="DEVICE_TYPE" /> в източник на захранване.</translation>
 <translation id="5116300307302421503">Файлът не може да се анализира синтактично.</translation>
 <translation id="5116628073786783676">&amp;Запазване на аудиоклипа като...</translation>
 <translation id="5117427536932535467">Теми и тапети</translation>
@@ -3260,6 +3264,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="5759728514498647443"><ph name="APP_NAME" /> може да чете документите, които изпращате за отпечатване чрез <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">&amp;Запазване на аудиоклипа като...</translation>
 <translation id="57646104491463491">Дата на промяна</translation>
+<translation id="5764797882307050727">Моля, освободете място на устройството си.</translation>
 <translation id="5765491088802881382">Няма налични мрежи</translation>
 <translation id="5765780083710877561">Описание:</translation>
 <translation id="5771585441665576801">Транслитерация (geia → γεια)</translation>
@@ -3491,6 +3496,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="6122081475643980456">Връзката ви с интернет се контролира</translation>
 <translation id="6122875415561139701">Операцията за запис не е разрешена на: <ph name="DEVICE_NAME" />.</translation>
 <translation id="6124650939968185064">От това разширение зависят следните разширения:</translation>
+<translation id="6125479973208104919">За съжаление, трябва отново да добавите профила си към това устройство <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6129938384427316298">Коментар на сертификат на Netscape</translation>
 <translation id="6129953537138746214">Интервал</translation>
 <translation id="6132383530370527946">Дребният шрифт</translation>
@@ -3871,6 +3877,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="6677037229676347494">Очакваният идентификационен номер е „<ph name="EXPECTED_ID" />“, но той бе „<ph name="NEW_ID" />“.</translation>
 <translation id="6678717876183468697">URL адрес на заявката</translation>
 <translation id="6680028776254050810">Превключване на потребителите</translation>
+<translation id="6680442031740878064">Свободно място: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Снимане</translation>
 <translation id="668171684555832681">Друг...</translation>
 <translation id="6681964764822470072"><ph name="APP_NAME" /> ще се деинсталира.</translation>
@@ -4289,6 +4296,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="7348093485538360975">Екранна клавиатура</translation>
 <translation id="7348749398828259943">Американска (Уъркман) международна клавиатура</translation>
 <translation id="7352651011704765696">Нещо се обърка</translation>
+<translation id="73534262421337222">Инсталира се критична актуализация</translation>
 <translation id="7353651168734309780">„<ph name="EXTENSION_NAME" />“ изисква нови разрешения</translation>
 <translation id="735745346212279324">Връзката с виртуалната частна мрежа (VPN) е прекъсната</translation>
 <translation id="7360183604634508679">Меню „Отметки“</translation>
@@ -4450,6 +4458,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Данните в Chrome са изчистени</translation>
 <translation id="7568790562536448087">Актуализира се</translation>
+<translation id="7571643774869182231">Мястото в хранилището не е достатъчно за актуализацията</translation>
 <translation id="7573172247376861652">Заряд на батерията</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Комплектуване</translation>
@@ -4540,6 +4549,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="771953673318695590">КК</translation>
 <translation id="7720375555307821262"><ph name="BEGIN_LINK" />Влезте в Chrome<ph name="END_LINK" />, за да контролирате сърфирането на този човек.</translation>
 <translation id="7721179060400456005">Разрешаване на прозорците да се простират на няколко екрана</translation>
+<translation id="7722040605881499779">Необходимо място за актуализацията: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Изрязване</translation>
 <translation id="7728668285692163452">Промяната на канала ще бъде приложена по-късно</translation>
 <translation id="7730449930968088409">Заснемане на съдържанието на екрана ви</translation>

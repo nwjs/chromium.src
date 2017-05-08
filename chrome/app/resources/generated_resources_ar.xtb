@@ -814,7 +814,7 @@
 <translation id="2165722503303595908">البُعد</translation>
 <translation id="2166369534954157698">أبجد هوز حطي كلمن سعفص قرشت ثخذ ضظغ</translation>
 <translation id="2168214441502403371">لوحة المفاتيح الفارسية</translation>
-<translation id="2169062631698640254">تسجيل الدخول على أية حال</translation>
+<translation id="2169062631698640254">تسجيل الدخول على أيّ حال</translation>
 <translation id="2175042898143291048">أجرِ ذلك دائمًا</translation>
 <translation id="2175607476662778685">شريط التشغيل السريع</translation>
 <translation id="2177950615300672361">علامة تبويب التصفح المتخفي: <ph name="TAB_NAME" /></translation>
@@ -2067,7 +2067,7 @@
 <translation id="3911824782900911339">صفحة "علامة تبويب جديدة"</translation>
 <translation id="391445228316373457">لوحة مفاتيح لغة نيبالية (صوتي)</translation>
 <translation id="3915280005470252504">البحث الصوتي</translation>
-<translation id="3916445069167113093">هذا النوع من الملفات قد يلحق الضرر بالكمبيوتر. هل تريد الاحتفاظ بـ <ph name="FILE_NAME" /> على أية حال؟</translation>
+<translation id="3916445069167113093">هذا النوع من الملفات قد يلحق الضرر بالكمبيوتر. هل تريد الاحتفاظ بـ <ph name="FILE_NAME" /> على أيّ حال؟</translation>
 <translation id="3920504717067627103">سياسات الشهادة</translation>
 <translation id="392089482157167418">‏تمكين ChromeVox (التعليقات المنطوقة)</translation>
 <translation id="3924145049010392604">Meta</translation>
@@ -2598,7 +2598,6 @@
 <translation id="4793866834012505469">إعادة تشكيل نموذج الصوت</translation>
 <translation id="479536056609751218">‏صفحة الويب، HTML فقط</translation>
 <translation id="479989351350248267">بحث</translation>
-<translation id="480036413855787547">‏يمكنك الوصول إلى كلمات المرور من أي جهاز على <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. في نظام التشغيل Mac، قد يتم حفظ كلمات المرور في تطبيق Keychain ويمكن الدخول إليها أو مزامنتها من قبل مستخدمي Chrome الآخرين الذين يشاركون حساب نظام التشغيل X هذا.</translation>
 <translation id="4801257000660565496">إنشاء اختصارات للتطبيق</translation>
 <translation id="4801448226354548035">إخفاء الحسابات</translation>
 <translation id="4801512016965057443">السماح بتجوال بيانات الجوال</translation>
@@ -4295,7 +4294,7 @@
 <translation id="7348093485538360975">لوحة المفاتيح على الشاشة</translation>
 <translation id="7348749398828259943">‏لوحة مفاتيح US Workman الدولية</translation>
 <translation id="7352651011704765696">حدث خطأ ما</translation>
-<translation id="73534262421337222">جارٍ تثبيت تحديث مهم</translation>
+<translation id="73534262421337222">جارٍ تثبيت تحديث مهمّ</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> تتطلب أذونات جديدة</translation>
 <translation id="735745346212279324">تم قطع اتصال الشبكة الظاهرية الخاصة</translation>
 <translation id="7360183604634508679">قائمة الإشارات</translation>
@@ -4685,7 +4684,7 @@
 <translation id="7928710562641958568">إخراج الجهاز</translation>
 <translation id="79312157130859720">يشارك <ph name="APP_NAME" /> الشاشة والصوت.</translation>
 <translation id="7938594894617528435">في وضع عدم الاتصال حاليًا</translation>
-<translation id="7939412583708276221">المتابعة على أية حال</translation>
+<translation id="7939412583708276221">المتابعة على أيّ حال</translation>
 <translation id="7939997691108949385">سيتمكن المشرف من تهيئة القيود والإعدادات لهذا المستخدم الذي يخضع للإشراف على <ph name="MANAGEMENT_URL" />.</translation>
 <translation id="7943385054491506837">‏الأمريكية Colemak</translation>
 <translation id="7943837619101191061">إضافة موقع...</translation>
@@ -4779,7 +4778,7 @@
 <translation id="8050038245906040378">‏التوقيع بالرمز التجاري لـ Microsoft</translation>
 <translation id="8053278772142718589">‏ملفات PKCS #12</translation>
 <translation id="8053390638574070785">إعادة تحميل هذه الصفحة</translation>
-<translation id="8054517699425078995">قد يُلحق هذا النوع من الملفات الضرر بجهازك. هل تريد الاحتفاظ بـ <ph name="FILE_NAME" /> على أية حال؟</translation>
+<translation id="8054517699425078995">قد يُلحق هذا النوع من الملفات الضرر بجهازك. هل تريد الاحتفاظ بـ <ph name="FILE_NAME" /> على أيّ حال؟</translation>
 <translation id="8054563304616131773">الرجاء إدخال عنوان بريد إلكتروني صالح</translation>
 <translation id="8054921503121346576">‏لوحة مفاتيح USB متصلة</translation>
 <translation id="8056430285089645882">أعي ذلك، عدم إظهار هذا لي مرة أخرى.</translation>

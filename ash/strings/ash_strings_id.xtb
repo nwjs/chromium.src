@@ -93,12 +93,12 @@ Tekan Telusuri atau Shift untuk membatalkan.</translation>
 <translation id="3595596368722241419">Baterai penuh</translation>
 <translation id="3606978283550408104">Layar Braille tersambung.</translation>
 <translation id="3621202678540785336">Masukan</translation>
-<translation id="3625258641415618104">Tangkapan layar dinonaktifkan</translation>
+<translation id="3625258641415618104">Screenshot dinonaktifkan</translation>
 <translation id="3626281679859535460">Kecerahan</translation>
 <translation id="3683428399328702079"><ph name="DISPLAY_NAME" /> resolusi diubah menjadi <ph name="RESOLUTION" /></translation>
 <translation id="3712407551474845318">Tangkap wilayah</translation>
 <translation id="371370241367527062">Mikrofon depan</translation>
-<translation id="3742055079367172538">Tangkapan layar telah diambil</translation>
+<translation id="3742055079367172538">Screenshot telah diambil</translation>
 <translation id="3775358506042162758">Anda hanya dapat memiliki paling banyak tiga akun dalam fitur masuk multipel.</translation>
 <translation id="3783640748446814672">alt</translation>
 <translation id="3784455785234192852">Kunci</translation>
@@ -109,7 +109,7 @@ Tekan Telusuri atau Shift untuk membatalkan.</translation>
 <translation id="3899995891769452915">Masukan suara</translation>
 <translation id="3901991538546252627">Menyambung ke <ph name="NAME" /></translation>
 <translation id="394485226368336402">Setelan audio</translation>
-<translation id="3967919079500697218">Kemampuan untuk membuat tangkapan layar telah dinonaktifkan oleh administrator Anda.</translation>
+<translation id="3967919079500697218">Kemampuan untuk membuat screenshot telah dinonaktifkan oleh administrator Anda.</translation>
 <translation id="397105322502079400">Menghitung...</translation>
 <translation id="3995138139523574647">Perangkat USB-C (port belakang sebelah kanan)</translation>
 <translation id="4279490309300973883">Mencerminkan</translation>
@@ -135,7 +135,7 @@ Tekan Telusuri atau Shift untuk membatalkan.</translation>
 <translation id="5168181903108465623">Perangkat transmisi tersedia</translation>
 <translation id="5170568018924773124">Tampilkan dalam folder</translation>
 <translation id="5207949376430453814">Sorot tempat penyisipan teks</translation>
-<translation id="5222676887888702881">Keluar</translation>
+<translation id="5222676887888702881">Logout</translation>
 <translation id="523505283826916779">Setelan aksesibilitas</translation>
 <translation id="5313326810920013265">Setelan bluetooth</translation>
 <translation id="5331975486040154427">Perangkat USB-C (port belakang sebelah kiri)</translation>
@@ -265,7 +265,7 @@ Tekan Alt+Telusuri atau Shift untuk membatalkan.</translation>
 <translation id="9201131092683066720">Baterai terisi <ph name="PERCENTAGE" />%.</translation>
 <translation id="9210037371811586452">Keluar dari mode desktop terpadu</translation>
 <translation id="923686485342484400">Tekan Control Shift Q dua kali untuk keluar.</translation>
-<translation id="939252827960237676">Gagal menyimpan tangkapan layar</translation>
+<translation id="939252827960237676">Gagal menyimpan screenshot</translation>
 <translation id="945522503751344254">Kirim masukan</translation>
 <translation id="98515147261107953">Lanskap</translation>
 </translationbundle>

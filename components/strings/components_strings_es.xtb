@@ -110,7 +110,7 @@
 <translation id="194030505837763158">Ir a <ph name="LINK" /></translation>
 <translation id="1962204205936693436">Marcadores de <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Error de serialización</translation>
-<translation id="1974060860693918893">Opciones avanzadas</translation>
+<translation id="1974060860693918893">Configuración avanzada</translation>
 <translation id="1978555033938440688">Versión de firmware</translation>
 <translation id="1995859865337580572">Verifica el CVC</translation>
 <translation id="2001146170449793414">{COUNT,plural, =1{y una más}other{y # más}}</translation>
@@ -287,7 +287,7 @@
 <translation id="3447661539832366887">El propietario de este dispositivo ha desactivado el juego del dinosaurio.</translation>
 <translation id="3450660100078934250">MasterCard</translation>
 <translation id="3452404311384756672">Intervalo de comprobación:</translation>
-<translation id="3462200631372590220">Ocultar opciones avanzadas</translation>
+<translation id="3462200631372590220">Ocultar configuración avanzada</translation>
 <translation id="3467763166455606212">El nombre del titular de la tarjeta es obligatorio</translation>
 <translation id="3478058380795961209">Mes de caducidad</translation>
 <translation id="3479539252931486093">¿No te lo esperabas? <ph name="BEGIN_LINK" />Notifícanoslo<ph name="END_LINK" /></translation>

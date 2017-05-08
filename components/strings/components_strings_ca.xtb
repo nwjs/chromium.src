@@ -427,7 +427,7 @@
 <translation id="4813512666221746211">Error de xarxa</translation>
 <translation id="4816492930507672669">Ajusta a la mida de la pàgina</translation>
 <translation id="483020001682031208">No es pot mostrar cap pàgina del Web físic</translation>
-<translation id="4850886885716139402">Visualització</translation>
+<translation id="4850886885716139402">Mostra</translation>
 <translation id="4854362297993841467">Aquest mètode d'entrega no està disponible. Prova'n un altre.</translation>
 <translation id="4858792381671956233">Has demanat permís als teus pares per visitar aquest lloc</translation>
 <translation id="4880827082731008257">Cerca a l'historial</translation>
@@ -815,7 +815,7 @@ El mode d'incògnit, <ph name="SHORTCUT_KEY" />, us pot resultar pràctic la pro
 <translation id="8703575177326907206">La teva connexió a <ph name="DOMAIN" /> no està xifrada.</translation>
 <translation id="8718314106902482036">No s'ha completat el pagament</translation>
 <translation id="8725066075913043281">Torna-ho a provar</translation>
-<translation id="8728672262656704056">Heu passat al mode d'incògnit.</translation>
+<translation id="8728672262656704056">Has passat al mode d'incògnit</translation>
 <translation id="8730621377337864115">Fet</translation>
 <translation id="8738058698779197622">Per establir una connexió segura, el rellotge ha d'estar ben ajustat, perquè els certificats que els llocs web fan servir per identificar-se només són vàlids per a períodes de temps concrets. Com que el rellotge del dispositiu no està ben ajustat, Chromium no pot verificar aquests certificats.</translation>
 <translation id="8740359287975076522">No s'ha trobat l'&lt;abbr id="dnsDefinition"&gt;adreça DNS&lt;/abbr&gt; de <ph name="HOST_NAME" />. S'està diagnosticant el problema.</translation>

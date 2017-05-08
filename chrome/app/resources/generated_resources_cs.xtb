@@ -228,6 +228,7 @@ Na následující obrazovce prosím zadejte zpětnou vazbu, která nám problém
 <translation id="1340527397989195812">Zálohujte média ze zařízení pomocí aplikace Soubory.</translation>
 <translation id="1341988552785875222">Aktuální tapetu nastavila aplikace <ph name="APP_NAME" />. Je možné, že před výběrem jiné tapety bude nutné aplikaci <ph name="APP_NAME" /> odinstalovat.</translation>
 <translation id="1346748346194534595">Doprava</translation>
+<translation id="1347975661240122359">Aktualizace bude zahájena, až baterie dosáhne <ph name="BATTERY_LEVEL" /> %.</translation>
 <translation id="1351692861129622852">Importování <ph name="FILE_COUNT" /> souborů...</translation>
 <translation id="1352103415082130575">Thajská klávesnice (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -925,6 +926,7 @@ Po vytvoření nového dozorovaného uživatele můžete jeho nastavení spravov
 <translation id="2312980885338881851">Jejda, zřejmě nemáte žádné dozorované uživatele, které byste mohli importovat. V jiném zařízení vytvořte nejméně jednoho dozorovaného uživatele, kterého poté importujete sem.</translation>
 <translation id="2316129865977710310">Ne, děkuji</translation>
 <translation id="2317031807364506312">ZRUŠIT</translation>
+<translation id="2317842250900878657">Dokončeno <ph name="PROGRESS_PERCENT" /> %</translation>
 <translation id="2318143611928805047">Velikost papíru</translation>
 <translation id="2318817390901984578">Chcete-li používat aplikace Android, nabijte a aktualizujte své zařízení typu <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Aktuální anonymní relace (<ph name="EMBEDDING" />)</translation>
@@ -1855,6 +1857,7 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="3618849550573277856">Vyhledat „<ph name="LOOKUP_STRING" />“</translation>
 <translation id="3620292326130836921">Vše je zálohováno</translation>
 <translation id="3623574769078102674">Tento dozorovaný uživatel bude spravován uživatelem <ph name="MANAGER_EMAIL" />.</translation>
+<translation id="3624814222765772771">Aktualizaci nelze zahájit z důvodu slabé baterie (<ph name="PROGRESS_PERCENT" /> %)</translation>
 <translation id="3625870480639975468">Resetovat lupu</translation>
 <translation id="3626281679859535460">Jas</translation>
 <translation id="3627052133907344175">Rozšíření vyžaduje rozhraní <ph name="IMPORT_NAME" /> s minimální verzí <ph name="IMPORT_VERSION" />, máte však nainstalovanou pouze verzi <ph name="INSTALLED_VERSION" />.</translation>
@@ -2317,6 +2320,7 @@ Všichni uživatelé se před pokračováním musejí odhlásit.</translation>
 Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="4336032328163998280">Kopírování se nezdařilo. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Protokoly sítě naleznete na stránce <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Chcete-li stahovat a používat aplikace pro Android, je třeba nejprve nainstalovat aktualizaci. Zařízení při aktualizaci nelze používat. Po dokončení instalace se <ph name="DEVICE_TYPE" /> restartuje.</translation>
 <translation id="4340515029017875942">Web <ph name="ORIGIN" /> chce komunikovat s aplikací <ph name="EXTENSION_NAME" /></translation>
 <translation id="4341977339441987045">Bránit webům v nastavení jakýchkoli dat</translation>
 <translation id="4342311272543222243">Jejda, došlo k chybě TPM.</translation>
@@ -2596,7 +2600,6 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="4793866834012505469">Obnovit hlasový model</translation>
 <translation id="479536056609751218">Webová stránka, pouze HTML</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">Hesla můžete zobrazit v libovolném zařízení na stránce <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. Na Macu se mohou hesla ukládat do Klíčenky a mohou k nim přistupovat nebo je synchronizovat i další uživatelé aplikace Chrome, kteří sdílejí tento účet systému OS X.</translation>
 <translation id="4801257000660565496">Vytvořit zástupce aplikací</translation>
 <translation id="4801448226354548035">Skrýt účty</translation>
 <translation id="4801512016965057443">Povolit roaming pro mobilní data</translation>
@@ -2811,6 +2814,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="5111692334209731439">&amp;Správce záložek</translation>
 <translation id="5112577000029535889">&amp;Nástroje pro vývojáře</translation>
 <translation id="5113739826273394829">Pokud kliknete na tuto ikonu, ručně toto zařízení <ph name="DEVICE_TYPE" /> zamknete. Při příštím přístupu budete muset zadat heslo.</translation>
+<translation id="5115309401544567011">Zapojte <ph name="DEVICE_TYPE" /> do zdroje napájení.</translation>
 <translation id="5116300307302421503">Soubor nelze analyzovat.</translation>
 <translation id="5116628073786783676">Uložit &amp;zvuk jako...</translation>
 <translation id="5117427536932535467">Motivy a tapety</translation>
@@ -3256,6 +3260,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="5759728514498647443">Dokumenty odeslané k tisku prostřednictvím aplikace <ph name="APP_NAME" /> lze číst v aplikaci <ph name="APP_NAME" />.</translation>
 <translation id="5764483294734785780">Uložit &amp;zvuk jako...</translation>
 <translation id="57646104491463491">Datum úpravy</translation>
+<translation id="5764797882307050727">Uvolněte v zařízení místo.</translation>
 <translation id="5765491088802881382">K dispozici nejsou žádné sítě</translation>
 <translation id="5765780083710877561">Popis:</translation>
 <translation id="5771585441665576801">Přepis (geia → γεια)</translation>
@@ -3317,7 +3322,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="5849869942539715694">Zabalit rozšíření...</translation>
 <translation id="5850516540536751549">Tento typ souboru není podporován. Aplikaci, pomocí které lze tento typ souboru otevřít, naleznete v <ph name="BEGIN_LINK" />Internetovém obchodu Chrome<ph name="END_LINK" />.
     <ph name="BEGIN_LINK_HELP" />Další informace<ph name="END_LINK_HELP" /></translation>
-<translation id="5851063901794976166">Zde není nic k vidění...</translation>
+<translation id="5851063901794976166">Tady není nic k vidění...</translation>
 <translation id="5851868085455377790">Vydavatel</translation>
 <translation id="5852112051279473187">Při registraci zařízení došlo k závažnému problému. Zkuste to prosím znovu nebo kontaktujte zástupce podpory.</translation>
 <translation id="5852137567692933493">Restartovat a použít funkci Powerwash</translation>
@@ -3487,6 +3492,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="6122081475643980456">Vaše připojení k internetu je ovládáno</translation>
 <translation id="6122875415561139701">Operace zápisu v zařízení <ph name="DEVICE_NAME" /> není povolena.</translation>
 <translation id="6124650939968185064">Na tomto rozšíření závisejí následující rozšíření:</translation>
+<translation id="6125479973208104919">Do zařízení <ph name="DEVICE_TYPE" /> je nutné znovu přidat účet.</translation>
 <translation id="6129938384427316298">Komentář certifikátu Netscape</translation>
 <translation id="6129953537138746214">Mezera</translation>
 <translation id="6132383530370527946">Smluvní podmínky</translation>
@@ -3867,6 +3873,7 @@ Tuto funkci používejte pouze s účty, kterým důvěřujete.</translation>
 <translation id="6677037229676347494">Očekávané ID bylo <ph name="EXPECTED_ID" />. Skutečné ID bylo <ph name="NEW_ID" />.</translation>
 <translation id="6678717876183468697">Adresa URL dotazu</translation>
 <translation id="6680028776254050810">Přepnout uživatele</translation>
+<translation id="6680442031740878064">Volné místo: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Vyfotit</translation>
 <translation id="668171684555832681">Další...</translation>
 <translation id="6681964764822470072">Aplikace <ph name="APP_NAME" /> bude odinstalována.</translation>
@@ -4286,6 +4293,7 @@ Tuto funkci používejte pouze s účty, kterým důvěřujete.</translation>
 <translation id="7348093485538360975">Softwarová klávesnice</translation>
 <translation id="7348749398828259943">Americká mezinárodní klávesnice s rozložením Workman</translation>
 <translation id="7352651011704765696">Něco se pokazilo</translation>
+<translation id="73534262421337222">Instalace kritické aktualizace</translation>
 <translation id="7353651168734309780">Rozšíření <ph name="EXTENSION_NAME" /> vyžaduje nová oprávnění</translation>
 <translation id="735745346212279324">Síť VPN je odpojena</translation>
 <translation id="7360183604634508679">Nabídka Záložky</translation>
@@ -4443,6 +4451,7 @@ Tuto funkci používejte pouze s účty, kterým důvěřujete.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Vymazání údajů Chromu</translation>
 <translation id="7568790562536448087">Aktualizace</translation>
+<translation id="7571643774869182231">Na aktualizaci nemáte dostatek místa</translation>
 <translation id="7573172247376861652">Nabití baterie</translation>
 <translation id="7576032389798113292">6:4</translation>
 <translation id="7576690715254076113">Kompletovat</translation>
@@ -4533,6 +4542,7 @@ Tuto funkci používejte pouze s účty, kterým důvěřujete.</translation>
 <translation id="771953673318695590">Kontrola kvality</translation>
 <translation id="7720375555307821262">Chcete-li tohoto uživatele dozorovat, <ph name="BEGIN_LINK" />přihlaste se do Chromu<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Povolit rozložení oken na více obrazovek</translation>
+<translation id="7722040605881499779">Místo potřebné pro aktualizaci: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Vyjmout</translation>
 <translation id="7728668285692163452">Změna kanálu bude použita později</translation>
 <translation id="7730449930968088409">Zachycení obsahu obrazovky</translation>

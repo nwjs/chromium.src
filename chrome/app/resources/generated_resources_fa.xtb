@@ -2319,7 +2319,7 @@
 کلید دلخواهی را فشار دهید تا کاوش ادامه پیدا کند.</translation>
 <translation id="4336032328163998280">فرایند رونوشت‌برداری انجام نشد. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">برای گزارش‌های شبکه، به این قسمت رجوع کنید: <ph name="DEVICE_LOG_LINK" /></translation>
-<translation id="4337028641069424358">‏برای بارگیری و استفاده از برنامه‌های Android، ابتدا باید به‌روزرسانی نصب کنید. <ph name="DEVICE_TYPE" /> شما پس از تکمیل نصب، راه‌اندازی مجدد می‌شود.</translation>
+<translation id="4337028641069424358">‏برای بارگیری و استفاده از برنامه‌های Android، ابتدا باید به‌روزرسانی نصب کنید. وقتی دستگاهتان درحال به‌روزرسانی است، نمی‌توانید از آن استفاده کنید. <ph name="DEVICE_TYPE" /> شما پس از تکمیل نصب، راه‌اندازی مجدد می‌شود.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> می‌خواهد با برنامه «<ph name="EXTENSION_NAME" />» ارتباط برقرار کند</translation>
 <translation id="4341977339441987045">تنظیم داده‌ها توسط سایت‌ها مسدود شود</translation>
 <translation id="4342311272543222243">‏متأسفانه خطای TPM رخ داد.</translation>
@@ -2598,7 +2598,6 @@
 <translation id="4793866834012505469">آموزش مجدد مدل صوتی</translation>
 <translation id="479536056609751218">‏صفحهٔ وب، فقط HTML</translation>
 <translation id="479989351350248267">جستجو</translation>
-<translation id="480036413855787547">‏از هر دستگاهی در <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> به گذرواژه‌تان دسترسی داشته باشید. در Mac، ممکن است گذرواژه‌ها در Keychain شما ذخیره شوند و سایر کاربران Chrome که این حساب OS X را دارند به آن دسترسی داشته باشند یا بتوانند همگام‌سازی کنند.</translation>
 <translation id="4801257000660565496">ایجاد میان‌برهای برنامه</translation>
 <translation id="4801448226354548035">پنهان‌سازی حساب‌ها</translation>
 <translation id="4801512016965057443">اجازه دادن رومینگ داده تلفن همراه</translation>
@@ -3263,7 +3262,7 @@
 <translation id="5759728514498647443">اسنادی که از طریق <ph name="APP_NAME" /> برای چاپ ارسال می‌کنید، می‌توانند توسط <ph name="APP_NAME" /> خوانده شوند.</translation>
 <translation id="5764483294734785780">ذ&amp;خیره فایل صوتی به‌عنوان...</translation>
 <translation id="57646104491463491">تاریخ تغییر</translation>
-<translation id="5764797882307050727">لطفاً مقداری فضا در دستگاه خالی کنید.</translation>
+<translation id="5764797882307050727">لطفاً کمی از فضای دستگاهتان را آزاد کنید.</translation>
 <translation id="5765491088802881382">شبکه‌ای در دسترس نیست</translation>
 <translation id="5765780083710877561">توضیح:</translation>
 <translation id="5771585441665576801">‏نویسه‌گردانی (geia ← ‏γεια)</translation>
@@ -3561,7 +3560,7 @@
 <translation id="6231881193380278751">‏افزودن پارامتر جستار در نشانی وب برای بازخوانی خودکار صفحه: chrome://device-log/?refresh=&lt;sec&gt;</translation>
 <translation id="6232017090690406397">باتری</translation>
 <translation id="6232116551750539448">اتصال به <ph name="NAME" /> قطع شده است</translation>
-<translation id="6237816943013845465">به شما امکان می‌دهد وضوح صفحه‌نمایش را تنظیم کنید</translation>
+<translation id="6237816943013845465">به شما امکان می‌دهد وضوح صفحه را تنظیم کنید</translation>
 <translation id="6239558157302047471">تازه‌سازی قاب</translation>
 <translation id="6241530762627360640">دسترسی به اطلاعات دستگاه‌های بلوتوث مرتبط شده با سیستم شما و کشف دستگاه‌های بلوتوث در این نزدیکی.</translation>
 <translation id="6243774244933267674">سرور در دسترس نیست</translation>
@@ -4014,7 +4013,7 @@
 <translation id="6900284862687837908">برنامه پس‌زمینه: <ph name="BACKGROUND_APP_URL" /></translation>
 <translation id="6902837902700739466">اتصال دستگاه به دامنه</translation>
 <translation id="6904344821472985372">ابطال دسترسی به فایل</translation>
-<translation id="6904713658985136356"><ph name="HOST" /> می‌خواهد صفحه‌نمایش شما را به اشتراک بگذارد.</translation>
+<translation id="6904713658985136356"><ph name="HOST" /> می‌خواهد صفحه شما را به اشتراک بگذارد.</translation>
 <translation id="6906268095242253962">لطفاً برای ادامه به اینترنت وصل شوید.</translation>
 <translation id="6909461304779452601">برنامه‌ها، افزونه‌ها و اسکریپت‌های کاربر را نمی‌توان از این وب‌سایت اضافه کرد.</translation>
 <translation id="6910211073230771657">حذف شد</translation>
@@ -4219,7 +4218,7 @@
 <translation id="7222232353993864120">آدرس رایانامه</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7222624196722476520">صفحه‌کلید آوایی بلغاری</translation>
-<translation id="722363467515709460">فعال کردن بزرگ کننده صفحه‌نمایش</translation>
+<translation id="722363467515709460">فعال کردن بزرگ‌کننده صفحه</translation>
 <translation id="7223775956298141902">اوه... برنامهٔ افزودنی ندارید :-(</translation>
 <translation id="7224023051066864079">ماسک زیر شبکه:</translation>
 <translation id="722454870747268814">برگه ناشناس جدید</translation>
@@ -4295,7 +4294,7 @@
 <translation id="7348093485538360975">صفحه‌کلید روی صفحه</translation>
 <translation id="7348749398828259943">‏صفحه‌کلید بین‌المللی US Workman</translation>
 <translation id="7352651011704765696">مشکلی پیش آمد</translation>
-<translation id="73534262421337222">نصب به‌روزرسانی ضروری</translation>
+<translation id="73534262421337222">درحال نصب به‌روزرسانی ضروری</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> به مجوزهای جدید نیاز دارد</translation>
 <translation id="735745346212279324">‏VPN قطع است</translation>
 <translation id="7360183604634508679">منوی نشانک‌ها</translation>
@@ -4459,7 +4458,7 @@
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">‏داده‌های Chrome پاک شد</translation>
 <translation id="7568790562536448087">در حال به‌روزرسانی</translation>
-<translation id="7571643774869182231">فضای ذخیره‌سازی کافی برای به‌روزرسانی وجود ندارد</translation>
+<translation id="7571643774869182231">فضای ذخیره‌سازی برای به‌روزرسانی کافی نیست</translation>
 <translation id="7573172247376861652">شارژ باتری</translation>
 <translation id="7576032389798113292">۶x۴</translation>
 <translation id="7576690715254076113">تلفیق کردن</translation>
@@ -4684,7 +4683,7 @@
 <translation id="7925686952655276919">از داده‌های تلفن همراه برای همگام‌سازی استفاده نشود</translation>
 <translation id="7926423016278357561">من نبودم.</translation>
 <translation id="7928710562641958568">خارج کردن دستگاه</translation>
-<translation id="79312157130859720"><ph name="APP_NAME" /> درحال اشتراک‌گذاری صفحه‌نمایش و صوت شماست.</translation>
+<translation id="79312157130859720"><ph name="APP_NAME" /> درحال اشتراک‌گذاری صفحه و صوت شماست.</translation>
 <translation id="7938594894617528435">در حال حاضر آفلاین</translation>
 <translation id="7939412583708276221">درهر حال حفظ شود</translation>
 <translation id="7939997691108949385">مدیر قادر خواهد بود محدودیت‌ها و تنظیمات این کاربر نظارت‌شده را در <ph name="MANAGEMENT_URL" /> پیکربندی کند.</translation>
@@ -5160,7 +5159,7 @@
 <translation id="8655972064210167941">ورود به سیستم ناموفق بود زیرا گذرواژه شما تأیید نشد. لطفاً با سرپرستتان تماس بگیرید یا دوباره امتحان کنید.</translation>
 <translation id="8656768832129462377">بررسی نکنید</translation>
 <translation id="8658595122208653918">تغییر گزینه‌های چاپگر...</translation>
-<translation id="8658645149275195032"><ph name="APP_NAME" /> درحال اشتراک‌گذاری صفحه‌نمایش و صوت شما با <ph name="TAB_NAME" /> است.</translation>
+<translation id="8658645149275195032"><ph name="APP_NAME" /> درحال اشتراک‌گذاری صفحه و صوت شما با <ph name="TAB_NAME" /> است.</translation>
 <translation id="8659716501582523573">‏آدرس IP:</translation>
 <translation id="8661290697478713397">باز کردن پیوند در پنجره حالت &amp;ناشناس</translation>
 <translation id="8662795692588422978">افراد</translation>

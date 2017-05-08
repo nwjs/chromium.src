@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Sichern Sie Medien von diesem Gerät mit der App "Dateien".</translation>
 <translation id="1341988552785875222">Der aktuelle Hintergrund wurde von <ph name="APP_NAME" /> festgelegt. Sie müssen <ph name="APP_NAME" /> möglicherweise deinstallieren, bevor Sie einen anderen Hintergrund auswählen.</translation>
 <translation id="1346748346194534595">Rechts</translation>
+<translation id="1347975661240122359">Das Update wird ausgeführt, sobald der Akkustand <ph name="BATTERY_LEVEL" /> % erreicht.</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> Dateien werden importiert...</translation>
 <translation id="1352103415082130575">Thailändische Tastatur (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -921,6 +922,7 @@ Nach der Erstellung eines neuen betreuten Nutzers können Sie die Einstellungen 
 <translation id="2312980885338881851">Es sind keine betreuten Nutzer zum Importieren vorhanden. Erstellen Sie einen oder mehrere Nutzer auf einem anderen Gerät. Anschließend können Sie die Nutzer hier importieren.</translation>
 <translation id="2316129865977710310">Kein Interesse</translation>
 <translation id="2317031807364506312">Abbrechen</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" /> % abgeschlossen</translation>
 <translation id="2318143611928805047">Papierformat</translation>
 <translation id="2318817390901984578">Um Android-Apps zu nutzen, müssen Sie Ihr <ph name="DEVICE_TYPE" /> aufladen und aktualisieren.</translation>
 <translation id="2318923050469484167">Aktuelle Inkognitositzung (<ph name="EMBEDDING" />)</translation>
@@ -1852,6 +1854,7 @@ von <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">"<ph name="LOOKUP_STRING" />" nachschlagen</translation>
 <translation id="3620292326130836921">Alle Daten gesichert</translation>
 <translation id="3623574769078102674">Dieser betreute Nutzer wird von <ph name="MANAGER_EMAIL" /> verwaltet.</translation>
+<translation id="3624814222765772771">Der Akku ist für ein Update zu schwach (<ph name="PROGRESS_PERCENT" /> %)</translation>
 <translation id="3625870480639975468">Zoom zurücksetzen</translation>
 <translation id="3626281679859535460">Helligkeit</translation>
 <translation id="3627052133907344175">Die Erweiterung erfordert "<ph name="IMPORT_NAME" />" mit der Mindestversion "<ph name="IMPORT_VERSION" />", es ist jedoch nur Version "<ph name="INSTALLED_VERSION" />" installiert.</translation>
@@ -2315,6 +2318,7 @@ Alle Nutzer müssen sich abmelden, um fortfahren zu können.</translation>
 Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="4336032328163998280">Fehler beim Kopieren. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Netzwerkprotokolle sind hier abrufbar: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Um Android-Apps herunterladen und verwenden zu können, müssen Sie zuerst ein Update installieren. Sie können Ihr Gerät während des Updates nicht nutzen. Ihr <ph name="DEVICE_TYPE" /> wird nach Abschluss der Installation neu gestartet.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> möchte mit der App "<ph name="EXTENSION_NAME" />" kommunizieren.</translation>
 <translation id="4341977339441987045">Speicherung von Daten für alle Websites blockieren</translation>
 <translation id="4342311272543222243">TPM-Fehler</translation>
@@ -2592,7 +2596,6 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="4793866834012505469">Sprachmodell neu trainieren</translation>
 <translation id="479536056609751218">Webseite, nur HTML</translation>
 <translation id="479989351350248267">Suchen</translation>
-<translation id="480036413855787547">Greifen Sie auf jedem Gerät über <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> auf alle Ihre Passwörter zu. Auf einem Mac werden die Passwörter möglicherweise in Ihrem Schlüsselbund gespeichert und können von anderen Chromium-Nutzern über dieses OS X-Konto abgerufen oder synchronisiert werden.</translation>
 <translation id="4801257000660565496">App-Verknüpfungen erstellen</translation>
 <translation id="4801448226354548035">Konten ausblenden</translation>
 <translation id="4801512016965057443">Mobilfunk-Roaming zulassen</translation>
@@ -2807,6 +2810,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5111692334209731439">&amp;Lesezeichen-Manager</translation>
 <translation id="5112577000029535889">E&amp;ntwicklertools</translation>
 <translation id="5113739826273394829">Wenn Sie auf dieses Symbol klicken, wird Ihr <ph name="DEVICE_TYPE" /> manuell gesperrt. Beim nächsten Mal müssen Sie dann Ihr Passwort eingeben, um das Gerät zu verwenden.</translation>
+<translation id="5115309401544567011">Bitte schließen Sie Ihr <ph name="DEVICE_TYPE" /> an eine Stromquelle an.</translation>
 <translation id="5116300307302421503">Datei kann nicht geparst werden.</translation>
 <translation id="5116628073786783676">Audio &amp;speichern unter...</translation>
 <translation id="5117427536932535467">Designs &amp; Hintergründe</translation>
@@ -3253,6 +3257,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5759728514498647443">Dokumente, die Sie über <ph name="APP_NAME" /> zum Druck senden, können von <ph name="APP_NAME" /> gelesen werden.</translation>
 <translation id="5764483294734785780">Audio &amp;speichern unter...</translation>
 <translation id="57646104491463491">Änderungsdatum</translation>
+<translation id="5764797882307050727">Bitte geben Sie Speicherplatz auf Ihrem Gerät frei.</translation>
 <translation id="5765491088802881382">Keine Netzwerke verfügbar</translation>
 <translation id="5765780083710877561">Beschreibung:</translation>
 <translation id="5771585441665576801">Transliteration (geia → γεια)</translation>
@@ -3484,6 +3489,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="6122081475643980456">Internetverbindung wird kontrolliert</translation>
 <translation id="6122875415561139701">Der Schreibvorgang ist auf folgendem Gerät nicht erlaubt: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">Die folgenden Erweiterungen hängen von dieser Erweiterung ab:</translation>
+<translation id="6125479973208104919">Sie müssen Ihr Konto dem <ph name="DEVICE_TYPE" /> erneut hinzufügen.</translation>
 <translation id="6129938384427316298">Kommentar zu Netscape-Zertifikaten</translation>
 <translation id="6129953537138746214">Leerzeichen</translation>
 <translation id="6132383530370527946">Das Kleingedruckte</translation>
@@ -3864,6 +3870,7 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="6677037229676347494">Erwartete ID: "<ph name="EXPECTED_ID" />", tatsächliche ID: "<ph name="NEW_ID" />"</translation>
 <translation id="6678717876183468697">Abfrage-URL</translation>
 <translation id="6680028776254050810">Nutzer wechseln</translation>
+<translation id="6680442031740878064">Verfügbar: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Foto machen</translation>
 <translation id="668171684555832681">Andere...</translation>
 <translation id="6681964764822470072"><ph name="APP_NAME" /> wird deinstalliert.</translation>
@@ -4282,6 +4289,7 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="7348093485538360975">Bildschirmtastatur</translation>
 <translation id="7348749398828259943">Internationale US-amerikanische Workman-Tastatur</translation>
 <translation id="7352651011704765696">Ein Problem ist aufgetreten.</translation>
+<translation id="73534262421337222">Wichtiges Update wird installiert</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> erfordert neue Berechtigungen</translation>
 <translation id="735745346212279324">VPN-Verbindung getrennt</translation>
 <translation id="7360183604634508679">Lesezeichenmenü</translation>
@@ -4446,6 +4454,7 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Gelöschte Chrome-Daten</translation>
 <translation id="7568790562536448087">Aktualisierung läuft</translation>
+<translation id="7571643774869182231">Nicht genug Speicherplatz, um Update auszuführen</translation>
 <translation id="7573172247376861652">Akkustand</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Zuordnen</translation>
@@ -4536,6 +4545,7 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">Zum Überwachen dieses Nutzers <ph name="BEGIN_LINK" />melden Sie sich bei Chrome an<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Fenster können sich über mehrere Bildschirme erstrecken</translation>
+<translation id="7722040605881499779">Für Update benötigt: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Ausschneiden</translation>
 <translation id="7728668285692163452">Die Versionsänderung erfolgt später</translation>
 <translation id="7730449930968088409">Inhalt Ihres Bildschirms erfassen</translation>

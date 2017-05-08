@@ -2601,7 +2601,6 @@
 <translation id="4793866834012505469">Поново обучите модел за глас</translation>
 <translation id="479536056609751218">Веб-страница, само HTML</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">Приступите својим лозинкама са било ког уређаја на <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. Лозинке се на Mac-у чувају у Keychain-у и други корисници Chrome-а који деле овај OS X налог могу да им приступе или да их синхронизују.</translation>
 <translation id="4801257000660565496">Прављење пречица за апликације</translation>
 <translation id="4801448226354548035">Сакриј налоге</translation>
 <translation id="4801512016965057443">Дозволи роминг за податке са мобилног уређаја</translation>
@@ -4546,7 +4545,7 @@
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">Да бисте надгледали овог корисника, <ph name="BEGIN_LINK" />пријавите се у Chrome<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Дозволи да се прозори простиру на више екрана</translation>
-<translation id="7722040605881499779">Потребно за ажурирање: <ph name="NECESSARY_SPACE" /></translation>
+<translation id="7722040605881499779">За ажурирање је потребно: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Исеци</translation>
 <translation id="7728668285692163452">Промена канала ће бити примењена касније</translation>
 <translation id="7730449930968088409">Снимање садржаја екрана</translation>

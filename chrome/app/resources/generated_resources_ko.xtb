@@ -1860,7 +1860,7 @@
 <translation id="3618849550573277856">'<ph name="LOOKUP_STRING" />' 찾기</translation>
 <translation id="3620292326130836921">백업되지 않은 파일이 없습니다.</translation>
 <translation id="3623574769078102674">이 관리 대상 사용자는 <ph name="MANAGER_EMAIL" />에서 관리합니다.</translation>
-<translation id="3624814222765772771">배터리 잔량(<ph name="PROGRESS_PERCENT" />%)이 부족하여 업데이트할 수 없음</translation>
+<translation id="3624814222765772771">배터리 잔량이 부족하여 업데이트(<ph name="PROGRESS_PERCENT" />%)할 수 없음</translation>
 <translation id="3625870480639975468">확대/축소 재설정</translation>
 <translation id="3626281679859535460">밝기</translation>
 <translation id="3627052133907344175">확장 프로그램은 최소 버전 "<ph name="IMPORT_VERSION" />"의 "<ph name="IMPORT_NAME" />"을(를) 요구하지만 "<ph name="INSTALLED_VERSION" />" 버전만 설치되었습니다.</translation>
@@ -2323,7 +2323,7 @@
 계속하려면 아무 키나 누르세요.</translation>
 <translation id="4336032328163998280">복사 작업에 실패했습니다. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">네트워크 로그를 확인하려면 다음 페이지를 참조하세요. <ph name="DEVICE_LOG_LINK" /></translation>
-<translation id="4337028641069424358">Android 앱을 다운로드하고 사용하려면 우선 업데이트를 설치해야 합니다. 기기가 업데이트되는 동안에는 앱을 사용할 수 없습니다. 설치가 완료되면 <ph name="DEVICE_TYPE" />이(가) 다시 시작됩니다.</translation>
+<translation id="4337028641069424358">Android 앱을 다운로드하고 사용하려면 우선 업데이트를 설치해야 합니다. 기기가 업데이트되는 동안에는 사용할 수 없습니다. 설치가 완료되면 <ph name="DEVICE_TYPE" />이(가) 다시 시작됩니다.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" />에서 '<ph name="EXTENSION_NAME" />' 앱과 통신하려고 합니다.</translation>
 <translation id="4341977339441987045">사이트에서 데이터를 설정하지 못하도록 차단</translation>
 <translation id="4342311272543222243">TPM 오류가 발생했습니다.</translation>
@@ -2604,7 +2604,6 @@
 <translation id="4793866834012505469">음성 모델 재교육</translation>
 <translation id="479536056609751218">웹페이지, HTML만</translation>
 <translation id="479989351350248267">검색</translation>
-<translation id="480036413855787547">어떤 기기에서든 <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />에서 비밀번호에 액세스하세요. Mac을 사용하는 경우 비밀번호가 키체인에 저장될 수 있으며 이 OS X 계정을 공유하는 다른 Chrome 사용자가 비밀번호에 액세스하거나 다른 사용자에게 비밀번호가 동기화될 수 있습니다.</translation>
 <translation id="4801257000660565496">애플리케이션 바로가기 만들기</translation>
 <translation id="4801448226354548035">계정 숨기기</translation>
 <translation id="4801512016965057443">모바일 데이터 로밍 허용</translation>

@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Az eszközön található médiafájlok biztonsági mentése a Fájlok alkalmazással.</translation>
 <translation id="1341988552785875222">Az aktuális háttérképet a(z) „<ph name="APP_NAME" />” állította be. Lehet, hogy el kell távolítania a(z) „<ph name="APP_NAME" />” alkalmazást, hogy másik háttérképet tudjon beállítani.</translation>
 <translation id="1346748346194534595">Jobbra</translation>
+<translation id="1347975661240122359">A frissítés akkor kezdődik, amikor az akkumulátor töltöttsége legalább <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> fájl importálása folyamatban…</translation>
 <translation id="1352103415082130575">Thai billentyűzet (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -924,6 +925,7 @@ Miután létrehozott egy új felügyelt felhasználót, bármikor és bármilyen
 <translation id="2312980885338881851">Hoppá! Úgy tűnik, nincs olyan meglévő felügyelt felhasználó, akit importálni lehetne. Kérjük, hozzon létre legalább egyet egy másik eszközről; ezt követően itt importálhatja őket.</translation>
 <translation id="2316129865977710310">Köszönöm, nem</translation>
 <translation id="2317031807364506312">MÉGSEM</translation>
+<translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% kész</translation>
 <translation id="2318143611928805047">Papírméret</translation>
 <translation id="2318817390901984578">Android-alkalmazások használatához előbb töltse fel és frissítse a(z) <ph name="DEVICE_TYPE" /> eszközt.</translation>
 <translation id="2318923050469484167">Jelenlegi inkognitó munkamenet (<ph name="EMBEDDING" />)</translation>
@@ -1857,6 +1859,7 @@ Innen: <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3618849550573277856">A(z) „<ph name="LOOKUP_STRING" />” keresése</translation>
 <translation id="3620292326130836921">Mindenről készült biztonsági másolat!</translation>
 <translation id="3623574769078102674">A felügyelt felhasználó felettese <ph name="MANAGER_EMAIL" /> lesz.</translation>
+<translation id="3624814222765772771">Az akkumulátor töltöttségi szintje túl alacsony a frissítéshez (<ph name="PROGRESS_PERCENT" />%)</translation>
 <translation id="3625870480639975468">Nagyítás alaphelyzetbe állítása</translation>
 <translation id="3626281679859535460">Fényerő</translation>
 <translation id="3627052133907344175">A bővítmény a(z) „<ph name="IMPORT_NAME" />” legalább „<ph name="IMPORT_VERSION" />” verzióját igényli, ám csak a(z) „<ph name="INSTALLED_VERSION" />” verzió van telepítve.</translation>
@@ -2318,6 +2321,7 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="4335713051520279344">Ez a számítógép 1 másodperc múlva újraindul. Bármely gomb lenyomásával folytathatja a felfedezését.</translation>
 <translation id="4336032328163998280">A másolási művelet sikertelen. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">A hálózati naplók a következő helyen találhatók: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Az Android-alkalmazások letöltéséhez és használatához először telepítenie kell a frissítést. A frissítési folyamat során az eszköz nem használható. <ph name="DEVICE_TYPE" /> eszköze a telepítés befejezése után újraindul.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> kommunikálni szeretne a(z) „<ph name="EXTENSION_NAME" />” alkalmazással.</translation>
 <translation id="4341977339441987045">Adatmentés tiltása a webhelyeken</translation>
 <translation id="4342311272543222243">Hoppá! TPM-hiba.</translation>
@@ -2598,7 +2602,6 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="4793866834012505469">Hangmodell újratanítása</translation>
 <translation id="479536056609751218">Weboldal -- csak HTML</translation>
 <translation id="479989351350248267">search</translation>
-<translation id="480036413855787547">Az összes eszköz jelszavaihoz hozzáférhet a <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> webhelyen. Mac számítógépen a rendszer a Keychain alkalmazásba mentheti a jelszavakat, amelyek hozzáférhetők vagy szinkronizálhatók lesznek azon Chrome-felhasználók számára, akik ugyanezzel az OS X-fiókkal rendelkeznek.</translation>
 <translation id="4801257000660565496">Parancsikon létrehozása az alkalmazáshoz</translation>
 <translation id="4801448226354548035">Fiókok elrejtése</translation>
 <translation id="4801512016965057443">Mobil adatbarangolás engedélyezése</translation>
@@ -2813,6 +2816,7 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="5111692334209731439">&amp;Könyvjelzőkezelő</translation>
 <translation id="5112577000029535889">Fejlesz&amp;tői eszközök</translation>
 <translation id="5113739826273394829">Ha rákattint erre az ikonra, akkor manuálisan zárolja ezt a(z) <ph name="DEVICE_TYPE" /> eszközt. Legközelebb be kell írnia a jelszót a belépéshez.</translation>
+<translation id="5115309401544567011">Csatlakoztassa <ph name="DEVICE_TYPE" /> eszközét áramforráshoz.</translation>
 <translation id="5116300307302421503">Fájl szintaktikai elemzése sikertelen.</translation>
 <translation id="5116628073786783676">H&amp;ang mentése másként...</translation>
 <translation id="5117427536932535467">Témák és háttérképek</translation>
@@ -3263,6 +3267,7 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="5759728514498647443">A(z) <ph name="APP_NAME" /> alkalmazáson keresztül nyomtatásra küldött dokumentumait a(z) <ph name="APP_NAME" /> is elolvashatja.</translation>
 <translation id="5764483294734785780">Ha&amp;ng mentése másként...</translation>
 <translation id="57646104491463491">Módosítás dátuma</translation>
+<translation id="5764797882307050727">Szabadítson fel tárhelyet eszközén.</translation>
 <translation id="5765491088802881382">Nincs elérhető hálózat</translation>
 <translation id="5765780083710877561">Leírás:</translation>
 <translation id="5771585441665576801">Átírás (geia → γεια)</translation>
@@ -3494,6 +3499,7 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="6122081475643980456">Internetkapcsolata felett más vette át az irányítást</translation>
 <translation id="6122875415561139701">Az írási művelet nem engedélyezett a következőn: „<ph name="DEVICE_NAME" />”.</translation>
 <translation id="6124650939968185064">Ettől a bővítménytől a következő bővítmények függnek:</translation>
+<translation id="6125479973208104919">Sajnos ismét hozzá kell adnia fiókját a(z) <ph name="DEVICE_TYPE" /> eszközhöz.</translation>
 <translation id="6129938384427316298">Netscape tanúsítvány - megjegyzés</translation>
 <translation id="6129953537138746214">Szóköz</translation>
 <translation id="6132383530370527946">Az apró betűs</translation>
@@ -3874,6 +3880,7 @@ Kizárólag olyan fiókok esetében használja a funkciót, amelyekben megbízik
 <translation id="6677037229676347494">A várt azonosító "<ph name="EXPECTED_ID" />", de a kapott azonosító "<ph name="NEW_ID" />".</translation>
 <translation id="6678717876183468697">Lekérdezés URL-je</translation>
 <translation id="6680028776254050810">Felhasználóváltás</translation>
+<translation id="6680442031740878064">Rendelkezésre álló tárhely: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Fényképkészítés</translation>
 <translation id="668171684555832681">Egyéb...</translation>
 <translation id="6681964764822470072">A(z) „<ph name="APP_NAME" />” el lesz távolítva.</translation>
@@ -4292,6 +4299,7 @@ Kizárólag olyan fiókok esetében használja a funkciót, amelyekben megbízik
 <translation id="7348093485538360975">Képernyő-billentyűzet</translation>
 <translation id="7348749398828259943">USA „Workman” nemzetközi billentyűzet</translation>
 <translation id="7352651011704765696">Valami nem működik</translation>
+<translation id="73534262421337222">Fontos frissítés telepítése</translation>
 <translation id="7353651168734309780">A(z) <ph name="EXTENSION_NAME" /> bővítményhez új engedélyek szükségesek</translation>
 <translation id="735745346212279324">A VPN nincs csatlakoztatva</translation>
 <translation id="7360183604634508679">Könyvjelzők menü</translation>
@@ -4453,6 +4461,7 @@ Kizárólag olyan fiókok esetében használja a funkciót, amelyekben megbízik
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome-adatok törölve</translation>
 <translation id="7568790562536448087"> frissítése</translation>
+<translation id="7571643774869182231">A frissítés telepítéséhez nincs elegendő tárhely</translation>
 <translation id="7573172247376861652">Akkumulátor töltése</translation>
 <translation id="7576032389798113292">6×4</translation>
 <translation id="7576690715254076113">Szétválogatás</translation>
@@ -4543,6 +4552,7 @@ Kizárólag olyan fiókok esetében használja a funkciót, amelyekben megbízik
 <translation id="771953673318695590">QA</translation>
 <translation id="7720375555307821262">A személy felügyeletéhez <ph name="BEGIN_LINK" />jelentkezzen be a Chrome-ba<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Engedélyezi az ablakok több kijelzőre való kiterjesztését</translation>
+<translation id="7722040605881499779">A frissítéshez szükséges tárhely: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Kivágás</translation>
 <translation id="7728668285692163452">A csatornamódosítás alkalmazása csak később történik meg</translation>
 <translation id="7730449930968088409">Képernyőtartalom rögzítése</translation>

@@ -259,7 +259,7 @@
 <translation id="8974095189086268230">‏أصبح نظام التشغيل Chromium متاحًا من خلال المزيد من <ph name="BEGIN_LINK_CROS_OSS" />البرامج مفتوحة المصدر<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="8985587603644336029">‏سجّل شخص ما الدخول من قبل إلى Chromium على هذا الكمبيوتر باعتباره <ph name="ACCOUNT_EMAIL_LAST" />. فإذا لم يكن هذا هو حسابك، فأنشئ حساب مستخدم Chromium جديدًا للإبقاء على معلوماتك بشكل منفصل.
 
-سيؤدي تسجيل الدخول على أية حال إلى دمج معلومات Chromium مثل الإشارات المرجعية والسجل والإعدادات الأخرى مع <ph name="ACCOUNT_EMAIL_NEW" />.</translation>
+سيؤدي تسجيل الدخول على أيّ حال إلى دمج معلومات Chromium مثل الإشارات المرجعية والسجل والإعدادات الأخرى مع <ph name="ACCOUNT_EMAIL_NEW" />.</translation>
 <translation id="9013087743919948559">‏إضافة إلى Chromium</translation>
 <translation id="9019929317751753759">‏لجعل Chromium أكثر أمنًا، عطلنا الإضافة التالية التي لم تُدرج في <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> وربما تكون قد أضيفت دون علمك.</translation>
 <translation id="9022552996538154597">‏تسجيل الدخول إلى Chromium</translation>

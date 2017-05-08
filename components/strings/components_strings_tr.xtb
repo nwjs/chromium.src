@@ -112,6 +112,7 @@
 <translation id="1973335181906896915">Serileştirme hatası</translation>
 <translation id="1974060860693918893">Gelişmiş</translation>
 <translation id="1978555033938440688">Donanım Yazılımı Sürümü</translation>
+<translation id="1995859865337580572">Lütfen CVC'nizi doğrulayın</translation>
 <translation id="2001146170449793414">{COUNT,plural, =1{ve 1 uygulama daha}other{ve # uygulama daha}}</translation>
 <translation id="2025186561304664664">Proxy, otomatik yapılandırıldı değerine ayarlandı.</translation>
 <translation id="2030481566774242610">Şunu mu demek istediniz?: <ph name="LINK" /></translation>

@@ -228,6 +228,7 @@
 <translation id="1340527397989195812">Dosyalar uygulamasını kullanarak cihazdaki medyayı yedekleyin.</translation>
 <translation id="1341988552785875222">Geçerli duvar kağıdı "<ph name="APP_NAME" />" tarafından ayarlandı. Farklı bir duvar kağıdı seçmeden önce "<ph name="APP_NAME" />" uygulamasının yüklemesini kaldırmanız gerekebilir.</translation>
 <translation id="1346748346194534595">Sağa</translation>
+<translation id="1347975661240122359">Güncelleme işlemi, pil gücü %<ph name="BATTERY_LEVEL" /> düzeyine ulaştığında başlayacak.</translation>
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> dosya içe aktarılıyor...</translation>
 <translation id="1352103415082130575">Tayca klavye (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -925,6 +926,7 @@ Yeni bir denetlenen kullanıcı oluşturduktan sonra, istediğiniz zaman herhang
 <translation id="2312980885338881851">Hata! İçe aktarılacak hiç denetlenen kullanıcınızın bulunmadığı görülüyor. Lütfen başka bir cihazdan bir veya daha fazla denetlenen kullanıcı oluşturun, Ardından onları buradan içe aktarabilirsiniz.</translation>
 <translation id="2316129865977710310">Hayır, teşekkürler</translation>
 <translation id="2317031807364506312">İPTAL</translation>
+<translation id="2317842250900878657">%<ph name="PROGRESS_PERCENT" /> tamamlandı</translation>
 <translation id="2318143611928805047">Kağıt boyutu</translation>
 <translation id="2318817390901984578">Android uygulamalarını kullanmak için <ph name="DEVICE_TYPE" /> cihazınızı şarj edin ve güncelleyin.</translation>
 <translation id="2318923050469484167">Geçerli gizli oturum (<ph name="EMBEDDING" />)</translation>
@@ -1857,6 +1859,7 @@ Bunlar ve diğer talimatlar için lütfen <ph name="ACCOUNT_EMAIL" /> e-postanı
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” Araması Yap</translation>
 <translation id="3620292326130836921">Tümü yedeklendi!</translation>
 <translation id="3623574769078102674">Denetlenen bu kullanıcı <ph name="MANAGER_EMAIL" /> tarafından yönetilecek.</translation>
+<translation id="3624814222765772771">Pil gücü güncelleme için yeterli değil (%<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="3625870480639975468">Yakınlaştırma özelliğini sıfırla</translation>
 <translation id="3626281679859535460">Parlaklık</translation>
 <translation id="3627052133907344175">Uzantı en az "<ph name="IMPORT_NAME" />" "<ph name="IMPORT_VERSION" />" sürümünü gerektiriyor ancak sadece "<ph name="INSTALLED_VERSION" />" sürümü yüklü.</translation>
@@ -2320,6 +2323,7 @@ Tüm kullanıcılar devam etmek için çıkış yapmalıdır.</translation>
 Keşfetmeye devam etmek için herhangi bir tuşa basın.</translation>
 <translation id="4336032328163998280">Kopyalama işlemi başarısız oldu. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Ağ günlükleri için bkz: <ph name="DEVICE_LOG_LINK" /></translation>
+<translation id="4337028641069424358">Android uygulamalarını indirmek ve kullanmak için öncelikle bir güncelleme yüklemeniz gerekiyor. Güncelleme işlemi sırasında cihazınızı kullanamazsınız. <ph name="DEVICE_TYPE" /> cihazınız kurulum tamamlandıktan sonra yeniden başlatılacaktır.</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" />, "<ph name="EXTENSION_NAME" />" uygulamasıyla iletişim kurmak istiyor</translation>
 <translation id="4341977339441987045">Sitelerin veri ayarlamasını engelle</translation>
 <translation id="4342311272543222243">Hata! TPM hatası.</translation>
@@ -2600,7 +2604,6 @@ Keşfetmeye devam etmek için herhangi bir tuşa basın.</translation>
 <translation id="4793866834012505469">Ses modelini yeniden eğitin</translation>
 <translation id="479536056609751218">Web sayfası, Sadece HTML</translation>
 <translation id="479989351350248267">ara</translation>
-<translation id="480036413855787547">Şifrelerinize herhangi bir cihazdan <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /> adresini ziyaret ederek erişebilirsiniz. Mac bilgisayarlarda şifreler Keychain uygulamanızda saklanabilir ve bu OS X hesabını paylaşan diğer Chrome kullanıcıları bu şifrelere erişilebilir veya şifreleri senkronize edilebilir.</translation>
 <translation id="4801257000660565496">Uygulama Kısayolları Oluştur</translation>
 <translation id="4801448226354548035">Hesapları gizle</translation>
 <translation id="4801512016965057443">Mobil veri dolaşımına izin ver</translation>
@@ -2815,6 +2818,7 @@ Keşfetmeye devam etmek için herhangi bir tuşa basın.</translation>
 <translation id="5111692334209731439">&amp;Yer İşareti Yöneticisi</translation>
 <translation id="5112577000029535889">&amp;Geliştirici Araçları</translation>
 <translation id="5113739826273394829">Bu simgeyi tıklarsanız bu <ph name="DEVICE_TYPE" /> cihazı manuel olarak kilitlersiniz. Bir dahaki sefere, giriş yapmak için şifrenizi girmeniz gerekir.</translation>
+<translation id="5115309401544567011">Lütfen <ph name="DEVICE_TYPE" /> cihazınızı bir güç kaynağına takın.</translation>
 <translation id="5116300307302421503">Dosya ayrıştırılamıyor.</translation>
 <translation id="5116628073786783676">Sesi Farklı Kay&amp;det...</translation>
 <translation id="5117427536932535467">Temalar ve Duvar Kağıtları</translation>
@@ -3264,6 +3268,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="5759728514498647443"><ph name="APP_NAME" /> aracılığıyla yazdırılmaları için gönderdiğiniz dokümanlar <ph name="APP_NAME" /> tarafından okunabilir.</translation>
 <translation id="5764483294734785780">Sesi farklı kay&amp;det...</translation>
 <translation id="57646104491463491">Değiştirilme Tarihi</translation>
+<translation id="5764797882307050727">Lütfen cihazınızda biraz yer açın.</translation>
 <translation id="5765491088802881382">Ağ kullanılamıyor</translation>
 <translation id="5765780083710877561">Açıklama:</translation>
 <translation id="5771585441665576801">Harf çevirisi (geia → γεια)</translation>
@@ -3495,6 +3500,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6122081475643980456">İnternet bağlantınız kontrol ediliyor</translation>
 <translation id="6122875415561139701">Şu cihazda yazma işlemine izin verilmiyor: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">Aşağıdaki uzantılar bu uzantıya bağımlıdır:</translation>
+<translation id="6125479973208104919">Ne yazık ki hesabınızı bu <ph name="DEVICE_TYPE" /> cihaza tekrar eklemeniz gerekecek.</translation>
 <translation id="6129938384427316298">Netscape Sertifikası Yorumu</translation>
 <translation id="6129953537138746214">Boşluk</translation>
 <translation id="6132383530370527946">Sözleşme</translation>
@@ -3875,6 +3881,7 @@ Bu özelliği sadece güvendiğiniz hesaplarda kullanın.</translation>
 <translation id="6677037229676347494">Beklenen Kimlik "<ph name="EXPECTED_ID" />" idi, ancak "<ph name="NEW_ID" />" kimliği belirlendi.</translation>
 <translation id="6678717876183468697">Sorgu URL'si</translation>
 <translation id="6680028776254050810">Kullanıcı Değiştir</translation>
+<translation id="6680442031740878064">Kullanılabilir alan: <ph name="AVAILABLE_SPACE" /></translation>
 <translation id="6681668084120808868">Fotoğraf çek</translation>
 <translation id="668171684555832681">Diğer...</translation>
 <translation id="6681964764822470072">"<ph name="APP_NAME" />" uygulaması kaldırılacak.</translation>
@@ -4293,6 +4300,7 @@ Bu özelliği sadece güvendiğiniz hesaplarda kullanın.</translation>
 <translation id="7348093485538360975">Ekran klavyesi</translation>
 <translation id="7348749398828259943">ABD Workman uluslararası klavye</translation>
 <translation id="7352651011704765696">Bir şeyler ters gitti</translation>
+<translation id="73534262421337222">Kritik güncelleme yükleniyor</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> yeni izinler gerektiriyor</translation>
 <translation id="735745346212279324">VPN bağlantısı kesildi</translation>
 <translation id="7360183604634508679">Yer İşaretleri menüsü</translation>
@@ -4454,6 +4462,7 @@ Bu özelliği sadece güvendiğiniz hesaplarda kullanın.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome verileri temizlendi</translation>
 <translation id="7568790562536448087">Güncelleniyor</translation>
+<translation id="7571643774869182231">Depolama alanı güncelleme için yeterli değil</translation>
 <translation id="7573172247376861652">Pil Şarjı</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Harmanla</translation>
@@ -4544,6 +4553,7 @@ Bu özelliği sadece güvendiğiniz hesaplarda kullanın.</translation>
 <translation id="771953673318695590">KG</translation>
 <translation id="7720375555307821262">Bu kişiyi denetlemek için <ph name="BEGIN_LINK" />Chrome'da oturum açın<ph name="END_LINK" />.</translation>
 <translation id="7721179060400456005">Pencerelerin birden fazla ekrana genişlemesine izin ver</translation>
+<translation id="7722040605881499779">Güncelleme için gereken: <ph name="NECESSARY_SPACE" /></translation>
 <translation id="7724603315864178912">Kes</translation>
 <translation id="7728668285692163452">Kanal değişikliği daha sonra uygulanacak</translation>
 <translation id="7730449930968088409">Ekranınızın içeriğini yakalama</translation>

@@ -228,7 +228,7 @@
 <translation id="1340527397989195812">Importa elementi multimediali dal dispositivo utilizzando l'app File.</translation>
 <translation id="1341988552785875222">Lo sfondo attuale è stato impostato da "<ph name="APP_NAME" />". Prima di selezionare uno sfondo diverso, potrebbe essere necessario disinstallare "<ph name="APP_NAME" />".</translation>
 <translation id="1346748346194534595">Destra</translation>
-<translation id="1347975661240122359">L'aggiornamento inizierà quando la batteria raggiungerà la percentuale di caricamento <ph name="BATTERY_LEVEL" />%.</translation>
+<translation id="1347975661240122359">L'aggiornamento inizierà quando la carica della batteria raggiunge il <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Importazione di <ph name="FILE_COUNT" /> file...</translation>
 <translation id="1352103415082130575">Tastiera Thailandese (Pattachote)</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -2597,7 +2597,6 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="4793866834012505469">Reimposta modello vocale</translation>
 <translation id="479536056609751218">Pagina web, solo HTML</translation>
 <translation id="479989351350248267">ricerca</translation>
-<translation id="480036413855787547">Accedi alle tue password da qualsiasi dispositivo all'indirizzo <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" />. Su Mac, le password possono essere salvate in Accesso Portachiavi e sono accessibili o sincronizzate da parte di altri utenti Chrome che utilizzano lo stesso account OS X.</translation>
 <translation id="4801257000660565496">Crea scorciatoie applicazione</translation>
 <translation id="4801448226354548035">Nascondi account</translation>
 <translation id="4801512016965057443">Consenti roaming dati mobile</translation>
@@ -2812,7 +2811,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="5111692334209731439">&amp;Gestione Preferiti</translation>
 <translation id="5112577000029535889">&amp;Strumenti per sviluppatori</translation>
 <translation id="5113739826273394829">Se fai clic su questa icona, blocchi manualmente questo dispositivo <ph name="DEVICE_TYPE" />. La prossima volta dovrai digitare la password per accedere.</translation>
-<translation id="5115309401544567011">Collega il dispositivo<ph name="DEVICE_TYPE" /> a una fonte di alimentazione.</translation>
+<translation id="5115309401544567011">Collega il dispositivo <ph name="DEVICE_TYPE" /> a una fonte di alimentazione.</translation>
 <translation id="5116300307302421503">Impossibile analizzare il file.</translation>
 <translation id="5116628073786783676">Sal&amp;va audio come...</translation>
 <translation id="5117427536932535467">Temi e sfondi</translation>
@@ -4293,7 +4292,7 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="7348093485538360975">Tastiera sullo schermo</translation>
 <translation id="7348749398828259943">Tastiera internazionale Workman USA</translation>
 <translation id="7352651011704765696">Si è verificato un problema</translation>
-<translation id="73534262421337222">Installazione di aggiornamenti critici</translation>
+<translation id="73534262421337222">Installazione di un aggiornamento critico</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> richiede nuove autorizzazioni</translation>
 <translation id="735745346212279324">VPN scollegata</translation>
 <translation id="7360183604634508679">Menu Preferiti</translation>
@@ -4824,7 +4823,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8137331602592933310">Il file "<ph name="FILENAME" />" è stato condiviso con te. Non puoi eliminarlo perché non ne sei il proprietario.</translation>
 <translation id="8137559199583651773">Gestisci estensioni</translation>
 <translation id="8138082791834443598">Facoltativo. Inserisci nuove informazioni o aggiorna informazioni esistenti da associare a questo dispositivo.</translation>
-<translation id="8140778357236808512">Importa un utente controllato esistente</translation>
+<translation id="8140778357236808512">Importa un utente supervisionato esistente</translation>
 <translation id="8141725884565838206">Gestisci le tue password</translation>
 <translation id="8142699993796781067">Rete privata</translation>
 <translation id="8142732521333266922">OK, sincronizza tutto</translation>

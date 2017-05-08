@@ -816,7 +816,7 @@ Psst! Nästa gång kanske inkognitoläget <ph name="SHORTCUT_KEY" /> kan vara n�
 <translation id="8703575177326907206">Din anslutning till <ph name="DOMAIN" /> är inte krypterad.</translation>
 <translation id="8718314106902482036">Betalningen slutfördes inte</translation>
 <translation id="8725066075913043281">Försök igen</translation>
-<translation id="8728672262656704056">Du surfar inkognito.</translation>
+<translation id="8728672262656704056">Du surfar inkognito</translation>
 <translation id="8730621377337864115">Klart</translation>
 <translation id="8738058698779197622">Om du vill upprätta en säker anslutning måste klockan vara rätt inställd. Det beror på att certifikaten som webbplatserna använder för att identifiera sig endast är giltiga under vissa tidsperioder. Chromium kan inte verifiera certifikaten eftersom klockan på enheten inte stämmer.</translation>
 <translation id="8740359287975076522">Det gick inte att hitta <ph name="HOST_NAME" />s &lt;abbr id="dnsDefinition"&gt;DNS-adress&lt;/abbr&gt;. Diagnostiserar problemet.</translation>
