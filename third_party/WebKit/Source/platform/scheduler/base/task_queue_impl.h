@@ -244,10 +244,6 @@ class BLINK_PLATFORM_EXPORT TaskQueueImpl final : public TaskQueue {
     NON_NESTABLE,
   };
 
-  // We reserve an inline capacity of 8 tasks to try and reduce the load on
-  // PartitionAlloc.
-  using TaskDeque = WTF::Deque<Task, 8>;
-
   struct AnyThread {
     AnyThread(TaskQueueManager* task_queue_manager, TimeDomain* time_domain);
     ~AnyThread();
@@ -258,7 +254,7 @@ class BLINK_PLATFORM_EXPORT TaskQueueImpl final : public TaskQueue {
     TaskQueueManager* task_queue_manager;
     TimeDomain* time_domain;
 
-    TaskDeque immediate_incoming_queue;
+    WTF::Deque<Task> immediate_incoming_queue;
   };
 
   struct MainThreadOnly {
@@ -320,10 +316,10 @@ class BLINK_PLATFORM_EXPORT TaskQueueImpl final : public TaskQueue {
 
   // Extracts all the tasks from the immediate incoming queue and clears it.
   // Can be called from any thread.
-  TaskDeque TakeImmediateIncomingQueue();
+  WTF::Deque<TaskQueueImpl::Task> TakeImmediateIncomingQueue();
 
   void TraceQueueSize(bool is_locked) const;
-  static void QueueAsValueInto(const TaskDeque& queue,
+  static void QueueAsValueInto(const WTF::Deque<Task>& queue,
                                base::trace_event::TracedValue* state);
   static void QueueAsValueInto(const std::priority_queue<Task>& queue,
                                base::trace_event::TracedValue* state);
