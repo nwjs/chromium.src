@@ -216,7 +216,7 @@ MediaQueryExp::MediaQueryExp(const String& mediaFeature,
                              const MediaQueryExpValue& expValue)
     : m_mediaFeature(mediaFeature), m_expValue(expValue) {}
 
-MediaQueryExp* MediaQueryExp::createIfValid(
+MediaQueryExp MediaQueryExp::create(
     const String& mediaFeature,
     const Vector<CSSParserToken, 4>& tokenList) {
   ASSERT(!mediaFeature.isNull());
@@ -233,7 +233,7 @@ MediaQueryExp* MediaQueryExp::createIfValid(
     if (token.type() == IdentToken) {
       CSSValueID ident = token.id();
       if (!featureWithValidIdent(lowerMediaFeature, ident))
-        return nullptr;
+        return invalid();
       expValue.id = ident;
       expValue.isID = true;
     } else if (token.type() == NumberToken || token.type() == PercentageToken ||
@@ -258,10 +258,10 @@ MediaQueryExp* MediaQueryExp::createIfValid(
         expValue.unit = CSSPrimitiveValue::UnitType::Number;
         expValue.isValue = true;
       } else {
-        return nullptr;
+        return invalid();
       }
     } else {
-      return nullptr;
+      return invalid();
     }
   } else if (tokenList.size() == 3 &&
              featureWithAspectRatio(lowerMediaFeature)) {
@@ -271,22 +271,22 @@ MediaQueryExp* MediaQueryExp::createIfValid(
     const CSSParserToken& delimiter = tokenList[1];
     const CSSParserToken& denominator = tokenList[2];
     if (delimiter.type() != DelimiterToken || delimiter.delimiter() != '/')
-      return nullptr;
+      return invalid();
     if (numerator.type() != NumberToken || numerator.numericValue() <= 0 ||
         numerator.numericValueType() != IntegerValueType)
-      return nullptr;
+      return invalid();
     if (denominator.type() != NumberToken || denominator.numericValue() <= 0 ||
         denominator.numericValueType() != IntegerValueType)
-      return nullptr;
+      return invalid();
 
     expValue.numerator = (unsigned)numerator.numericValue();
     expValue.denominator = (unsigned)denominator.numericValue();
     expValue.isRatio = true;
   } else {
-    return nullptr;
+    return invalid();
   }
 
-  return new MediaQueryExp(lowerMediaFeature, expValue);
+  return MediaQueryExp(lowerMediaFeature, expValue);
 }
 
 MediaQueryExp::~MediaQueryExp() {}

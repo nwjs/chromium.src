@@ -127,9 +127,9 @@ static String initiatorFor(const StringImpl* tagImpl) {
 
 static bool mediaAttributeMatches(const MediaValuesCached& mediaValues,
                                   const String& attributeValue) {
-  MediaQuerySet* mediaQueries = MediaQuerySet::create(attributeValue);
+  RefPtr<MediaQuerySet> mediaQueries = MediaQuerySet::create(attributeValue);
   MediaQueryEvaluator mediaQueryEvaluator(mediaValues);
-  return mediaQueryEvaluator.eval(mediaQueries);
+  return mediaQueryEvaluator.eval(*mediaQueries);
 }
 
 class TokenPreloadScanner::StartTagScanner {
