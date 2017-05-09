@@ -11,6 +11,7 @@
 #include "wtf/Assertions.h"
 #include "wtf/text/StringBuilder.h"
 #include "wtf/text/StringHash.h"
+#include "wtf/text/StringToNumber.h"
 #include "wtf/text/StringView.h"
 #include "wtf/text/WTFString.h"
 
@@ -44,6 +45,9 @@ class CORE_EXPORT StringUtil {
   static String fromInteger(int number) { return String::Number(number); }
   static String fromDouble(double number) {
     return Decimal::FromDouble(number).ToString();
+  }
+  static double toDouble(const char* s, size_t len, bool* ok) {
+    return WTF::CharactersToDouble(reinterpret_cast<const LChar*>(s), len, ok);
   }
   static size_t find(const String& s, const char* needle) {
     return s.Find(needle);
