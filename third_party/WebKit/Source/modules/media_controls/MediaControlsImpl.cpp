@@ -443,7 +443,10 @@ void MediaControlsImpl::RemovedFrom(ContainerNode*) {
   if (orientation_lock_delegate_)
     orientation_lock_delegate_->Detach();
 
-  resize_observer_.Clear();
+  if (resize_observer_) {
+    resize_observer_->disconnect();
+    resize_observer_.Clear();
+  }
 }
 
 void MediaControlsImpl::Reset() {
