@@ -174,6 +174,12 @@ static IMP g_original_callstacksymbols_implementation;
   }
 }
 
++ (BOOL)setDisableSymbolication:(BOOL)sym {
+  BOOL old = g_disable_callstacksymbols;
+  g_disable_callstacksymbols = sym;
+  return old;
+}
+
 #pragma mark - Private Methods
 
 + (BOOL)shouldUseFullSizeContentViewForStyle:(NSUInteger)windowStyle {

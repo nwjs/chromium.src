@@ -39,6 +39,9 @@ bool CrossesExtensionProcessBoundary(
       extensions,
       new_url);
 
+  if (old_url_extension && old_url_extension->is_nwjs_app())
+    return false;
+
   // TODO(creis): Temporary workaround for crbug.com/59285: Do not swap process
   // to navigate from a hosted app to a normal page or another hosted app
   // (unless either is the web store).  This is because some OAuth providers
@@ -76,11 +79,15 @@ bool IsIsolateExtensionsEnabled() {
     return true;
   }
 
+#if 1
+  return false;
+#else
   const std::string group_name =
       base::FieldTrialList::FindFullName("SiteIsolationExtensions");
   // Use StartsWith() for more flexibility (e.g. multiple Enabled groups).
   return !base::StartsWith(group_name, "Control",
                            base::CompareCase::INSENSITIVE_ASCII);
+#endif
 }
 
 }  // namespace extensions

@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include "content/nw/src/policy_cert_verifier.h"
+
 #include "base/base64.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -581,7 +583,9 @@ void IOThread::Init() {
       base::MakeUnique<net::MultiThreadedCertVerifier>(
           new chromeos::CertVerifyProcChromeOS()));
 #else
-  globals_->cert_verifier = net::CertVerifier::CreateDefault();
+  nw::PolicyCertVerifier* cert_verifier = new nw::PolicyCertVerifier(base::Closure());
+  globals_->cert_verifier.reset(cert_verifier);
+  cert_verifier->InitializeOnIOThread(net::CertVerifyProc::CreateDefault());
 #endif
 
   globals_->transport_security_state.reset(new net::TransportSecurityState());

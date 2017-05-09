@@ -100,7 +100,10 @@ DOMStringList* Location::ancestorOrigins() const {
   for (Frame* frame = m_domWindow->frame()->tree().parent(); frame;
        frame = frame->tree().parent()) {
     origins->append(frame->securityContext()->getSecurityOrigin()->toString());
+    if (frame->isNwFakeTop())
+      break;
   }
+
   return origins;
 }
 
