@@ -817,7 +817,11 @@ bool DirectCompositionSurfaceWin::AreOverlaysSupported() {
 
   base::win::ScopedComPtr<ID3D11Device> d3d11_device =
       gl::QueryD3D11DeviceObjectFromANGLE();
-  DCHECK(d3d11_device);
+  if (!d3d11_device) {
+    DLOG(ERROR) << "Failing to create overlay swapchain because couldn't "
+                   "retrieve D3D11 device from ANGLE.";
+    return false;
+  }
 
   base::win::ScopedComPtr<IDXGIDevice> dxgi_device;
   d3d11_device.QueryInterface(dxgi_device.Receive());
