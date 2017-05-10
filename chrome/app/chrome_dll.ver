@@ -1,2 +1,2 @@
-INTERNAL_NAME=chrome_dll
-ORIGINAL_FILENAME=chrome.dll
+INTERNAL_NAME=nw_dll
+ORIGINAL_FILENAME=nw.dll

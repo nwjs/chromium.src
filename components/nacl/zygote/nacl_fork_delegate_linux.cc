@@ -410,7 +410,7 @@ bool NaClForkDelegate::GetTerminationStatus(pid_t pid, bool known_dead,
   write_pickle.WriteInt(pid);
   write_pickle.WriteBool(known_dead);
 
-  const std::vector<int> empty_fds;
+  const std::vector<int> empty_fds = std::vector<int>();
   char reply_buf[kNaClMaxIPCMessageLength];
   ssize_t reply_size = 0;
   bool got_reply =

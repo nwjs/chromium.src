@@ -105,12 +105,43 @@ using content::BrowserThread;
 
 namespace {
 
+// XXX:
+class SanitizedSocketPath {
+ public:
+  explicit SanitizedSocketPath(const base::FilePath& socket_path)
+      : socket_path_(socket_path) {
+    if (socket_path.value().length() >= arraysize(sockaddr_un::sun_path)) {
+      bool found_current_dir = GetCurrentDirectory(&old_path_);
+      CHECK(found_current_dir) << "Failed to determine the current directory.";
+      changed_directory_ = SetCurrentDirectory(socket_path.DirName());
+      CHECK(changed_directory_) << "Failed to change directory: " <<
+          socket_path.DirName().value();
+    }
+  }
+
+  ~SanitizedSocketPath() {
+    if (changed_directory_)
+      SetCurrentDirectory(old_path_);
+  }
+
+  base::FilePath SocketPath() const {
+    return changed_directory_ ? socket_path_.BaseName() : socket_path_;
+  }
+
+ private:
+  bool changed_directory_ = false;
+  base::FilePath socket_path_;
+  base::FilePath old_path_;
+
+  DISALLOW_COPY_AND_ASSIGN(SanitizedSocketPath);
+};
+
 // Timeout for the current browser process to respond. 20 seconds should be
 // enough.
-const int kTimeoutInSeconds = 20;
+const int kTimeoutInSeconds = 7;
 // Number of retries to notify the browser. 20 retries over 20 seconds = 1 try
 // per second.
-const int kRetryAttempts = 20;
+const int kRetryAttempts = 7;
 static bool g_disable_prompt;
 const char kStartToken[] = "START";
 const char kACKToken[] = "ACK";
@@ -386,8 +417,10 @@ bool ConnectSocket(ScopedSocket* socket,
       return false;
     // Now we know the directory was (at that point) created by the profile
     // owner. Try to connect.
+    {
+    SanitizedSocketPath sanitized_socket_target(socket_target);
     sockaddr_un addr;
-    if (!SetupSockAddr(socket_target.value(), &addr)) {
+    if (!SetupSockAddr(sanitized_socket_target.SocketPath().value(), &addr)) {
       // If a sockaddr couldn't be initialized due to too long of a socket
       // path, we can be sure there isn't already a Chrome running with this
       // socket path, since it would have hit the CHECK() on the path length.
@@ -398,6 +431,7 @@ bool ConnectSocket(ScopedSocket* socket,
                                    sizeof(addr)));
     if (ret != 0)
       return false;
+    }
     // Check the cookie again. We only link in /tmp, which is sticky, so, if the
     // directory is still correct, it must have been correct in-between when we
     // connected. POSIX, sadly, lacks a connectat().
@@ -410,8 +444,9 @@ bool ConnectSocket(ScopedSocket* socket,
   } else if (errno == EINVAL) {
     // It exists, but is not a symlink (or some other error we detect
     // later). Just connect to it directly; this is an older version of Chrome.
+    SanitizedSocketPath sanitized_socket_path(socket_path);
     sockaddr_un addr;
-    if (!SetupSockAddr(socket_path.value(), &addr)) {
+    if (!SetupSockAddr(sanitized_socket_path.SocketPath().value(), &addr)) {
       // If a sockaddr couldn't be initialized due to too long of a socket
       // path, we can be sure there isn't already a Chrome running with this
       // socket path, since it would have hit the CHECK() on the path length.
@@ -998,7 +1033,9 @@ bool ProcessSingleton::Create() {
   // leaving a dangling symlink.
   base::FilePath socket_target_path =
       socket_dir_.GetPath().Append(chrome::kSingletonSocketFilename);
-  SetupSocket(socket_target_path.value(), &sock, &addr);
+  {
+  SanitizedSocketPath sanitized_socket_target(socket_target_path);
+  SetupSocket(sanitized_socket_target.SocketPath().value(), &sock, &addr);
 
   // Setup the socket symlink and the two cookies.
   base::FilePath cookie(GenerateCookie());
@@ -1021,6 +1058,7 @@ bool ProcessSingleton::Create() {
     PLOG(ERROR) << "Failed to bind() " << socket_target_path.value();
     CloseSocket(sock);
     return false;
+  }
   }
 
   if (listen(sock, 5) < 0)

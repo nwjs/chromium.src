@@ -20,6 +20,8 @@
 #include "chrome/install_static/user_data_dir.h"
 #include "chrome_elf/nt_registry/nt_registry.h"
 
+std::wstring g_nwjs_prod_name, g_nwjs_prod_version;
+
 namespace install_static {
 
 ProcessType g_process_type = ProcessType::UNINITIALIZED;
@@ -379,7 +381,10 @@ std::wstring& AppendChromeInstallSubDirectory(const InstallConstants& mode,
     path->append(kCompanyPathName);
     path->push_back(L'\\');
   }
-  path->append(kProductPathName, kProductPathNameLength);
+  if (!g_nwjs_prod_name.empty())
+    path->append(g_nwjs_prod_name);
+  else
+    path->append(kProductPathName, kProductPathNameLength);
   if (!include_suffix)
     return *path;
   return path->append(mode.install_suffix);
@@ -494,10 +499,10 @@ void GetExecutableVersionDetails(const std::wstring& exe_path,
   assert(channel_name);
 
   // Default values in case we don't find a version resource.
-  *product_name = L"Chrome";
-  *version = L"0.0.0.0-devel";
+  *product_name = g_nwjs_prod_name;
+  *version = g_nwjs_prod_version;
   special_build->clear();
-
+#if 0
   DWORD dummy = 0;
   DWORD length = ::GetFileVersionInfoSize(exe_path.c_str(), &dummy);
   if (length) {
@@ -516,6 +521,7 @@ void GetExecutableVersionDetails(const std::wstring& exe_path,
     }
   }
   *channel_name = GetChromeChannelName();
+#endif
 }
 
 std::wstring GetChromeChannelName() {
