@@ -87,8 +87,10 @@ void AXWindowObjWrapper::OnWindowBoundsChanged(aura::Window* window,
                                                const gfx::Rect& new_bounds) {
   Widget* widget = Widget::GetWidgetForNativeView(window);
   if (widget) {
-    widget->GetRootView()->NotifyAccessibilityEvent(
-        ui::AX_EVENT_LOCATION_CHANGED, true);
+    views::View* view = widget->GetRootView();
+    if (view) {
+      view->NotifyAccessibilityEvent(ui::AX_EVENT_LOCATION_CHANGED, true);
+    }
   }
 }
 
