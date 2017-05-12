@@ -607,17 +607,14 @@ void TabManagerDelegate::LowMemoryKillImpl(
   // The list is sorted by descending importance, so we go through the list
   // backwards.
   for (auto it = candidates.rbegin(); it != candidates.rend(); ++it) {
-    MEMORY_LOG(ERROR) << "Target memory to free: " << target_memory_to_free_kb
-                      << " KB";
-    if (target_memory_to_free_kb <= 0)
-      break;
+    VLOG(3) << "Target memory to free: " << target_memory_to_free_kb << " KB";
     // Never kill selected tab or Android foreground app, regardless whether
     // they're in the active window. Since the user experience would be bad.
     ProcessType process_type = it->process_type();
     if (process_type == ProcessType::VISIBLE_APP ||
         process_type == ProcessType::FOCUSED_APP ||
         process_type == ProcessType::FOCUSED_TAB) {
-      MEMORY_LOG(ERROR) << "Skipped killing " << *it;
+      VLOG(2) << "Skipped killing " << *it;
       continue;
     }
     if (it->app()) {
@@ -633,8 +630,7 @@ void TabManagerDelegate::LowMemoryKillImpl(
         MemoryKillsMonitor::LogLowMemoryKill("APP", estimated_memory_freed_kb);
         MEMORY_LOG(ERROR) << "Killed " << *it << ", estimated "
                           << estimated_memory_freed_kb << " KB freed";
-      } else {
-        MEMORY_LOG(ERROR) << "Failed to kill " << *it;
+        killed_candidate = true;
       }
     } else {
       int64_t tab_id = it->tab()->tab_contents_id;
@@ -648,14 +644,16 @@ void TabManagerDelegate::LowMemoryKillImpl(
         MemoryKillsMonitor::LogLowMemoryKill("TAB", estimated_memory_freed_kb);
         MEMORY_LOG(ERROR) << "Killed " << *it << ", estimated "
                           << estimated_memory_freed_kb << " KB freed";
-      } else {
-        MEMORY_LOG(ERROR) << "Failed to kill " << *it;
+        killed_candidate = true;
       }
     }
+    if (target_memory_to_free_kb < 0)
+      break;
   }
-  if (target_memory_to_free_kb > 0) {
-    MEMORY_LOG(ERROR)
-        << "Unable to kill enough candidates to meet target_memory_to_free_kb ";
+  if (!killed_candidate) {
+    MEMORY_LOG(ERROR) << "Low memory: Unable to kill any candidates. "
+                      << "Attempted to free " << target_memory_to_free_kb
+                      << " KB";
   }
 }
 
