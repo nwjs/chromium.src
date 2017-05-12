@@ -43,6 +43,9 @@ MEDIA_EXPORT extern const char kWaveOutBuffers[];
 MEDIA_EXPORT extern const char kUseCras[];
 #endif
 
+MEDIA_EXPORT extern const char
+    kUnsafelyAllowProtectedMediaIdentifierForDomain[];
+
 #if !defined(OS_ANDROID) || BUILDFLAG(ENABLE_PLUGINS)
 MEDIA_EXPORT extern const char kEnableDefaultMediaSession[];
 #endif  // !defined(OS_ANDROID) || BUILDFLAG(ENABLE_PLUGINS)
