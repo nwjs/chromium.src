@@ -319,7 +319,7 @@
 
           Bu politika ayarlanmadan bırakılırsa dört şema da kullanılır.</translation>
 <translation id="2067011586099792101">İçerik paketlerinin dışındaki sitelere erişimi engelle</translation>
-<translation id="2077129598763517140">Kullanılabilir olduğunda donanım ivmesini kullan</translation>
+<translation id="2077129598763517140">Kullanılabilir olduğunda donanım hızlandırmayı kullan</translation>
 <translation id="2077273864382355561">Pil gücüyle çalışırken ekran kapatma gecikmesi</translation>
 <translation id="209586405398070749">Mevcut ürün kanalı</translation>
 <translation id="2098658257603918882">Kullanım ve kilitlenme ile ilgili verilerin raporlanmasını etkinleştir</translation>
@@ -1742,7 +1742,7 @@ Bu politika ayarlanmadan bırakılırsa "DisabledPlugins" içindeki kalıplarla 
 <translation id="6029664378608427609">Kullanıcıların kilit ekranı PIN'i için zayıf PIN'ler ayarlamasına izin verir.</translation>
 <translation id="603410445099326293">POST kullanan öneri URL'si parametreleri</translation>
 <translation id="6036523166753287175">Uzaktan erişim ana makinesinden güvenlik duvarı geçişini etkinleştir</translation>
-<translation id="6059543311891422586">Mümkün olduğunda donanım hızlandırmayı kullanın.
+<translation id="6059543311891422586">Kullanılabilir olduğunda donanım hızlandırmayı kullan.
 
       Bu politika doğru seçeneğine ayarlanırsa veya ayarlanmadan bırakılırsa, belirli bir GPU özelliği kara listeye alınmadığı sürece donanım hızlandırma özelliği etkinleştirilir.
 

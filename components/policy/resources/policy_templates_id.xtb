@@ -44,7 +44,7 @@
 
       Kebijakan ini memengaruhi pengguna yang domainnya cocok dengan domain pendaftaran perangkat saja. Untuk pengguna lainnya, cookie yang ditetapkan oleh IdP akan ditransfer ke profil pengguna selama proses masuk pertamanya hanya di perangkat.</translation>
 <translation id="1040446814317236570">Aktifkan penyembunyian URL PAC (untuk https://)</translation>
-<translation id="1044878202534415707">Melaporkan statistik perangkat keras, seperti penggunaan CPU/RAM.
+<translation id="1044878202534415707">Melaporkan statistik hardware, seperti penggunaan CPU/RAM.
 
       Jika kebijakan ini disetel ke False, statistik tidak akan dilaporkan.
       Jika disetel ke True atau tidak disetel, statistik akan dilaporkan.</translation>
@@ -116,7 +116,7 @@
 <translation id="1359553908012294236">Jika kebijakan ini disetel ke True atau tidak dikonfigurasi, <ph name="PRODUCT_NAME" /> akan mengaktifkan proses masuk tamu. Proses masuk tamu adalah profil <ph name="PRODUCT_NAME" /> dengan semua jendela dalam mode penyamaran.
 
       Jika kebijakan ini disetel ke False, <ph name="PRODUCT_NAME" /> tidak akan mengizinkan profil tamu dimulai.</translation>
-<translation id="1363275621236827384">Mengaktifkan kueri ke Quirks Server untuk profil perangkat keras</translation>
+<translation id="1363275621236827384">Mengaktifkan kueri ke Quirks Server untuk profil hardware</translation>
 <translation id="1397855852561539316">URL saran penyedia penelusuran default</translation>
 <translation id="1398889361882383850">Memungkinkan Anda untuk menyetel apakah situs web diizinkan untuk menjalankan plugin secara otomatis. Plugin yang berjalan secara otomatis dapat diizinkan untuk semua situs web atau ditolak untuk semua situs web.
 
@@ -600,7 +600,7 @@
 
       Jika Anda menonaktifkan setelan ini, Penjelajahan Aman tidak akan pernah aktif.
 
-      Jika Anda mengaktifkan atau menonaktifkan setelan ini, pengguna tidak dapat mengubah atau menimpa setelan "Aktifkan perlindungan phishing dan perangkat lunak perusak" di <ph name="PRODUCT_NAME" />.
+      Jika Anda mengaktifkan atau menonaktifkan setelan ini, pengguna tidak dapat mengubah atau menimpa setelan "Aktifkan perlindungan phishing dan software perusak" di <ph name="PRODUCT_NAME" />.
 
       Jika kebijakan ini tidak disetel, kebijakan akan diaktifkan namun pengguna dapat mengubahnya.</translation>
 <translation id="2787173078141616821">Informasi laporan tentang status Android</translation>
@@ -1642,14 +1642,14 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="6029664378608427609">Memungkinkan pengguna untuk menyetel PIN lemah untuk PIN layar kunci.</translation>
 <translation id="603410445099326293">Parameter untuk URL yang disarankan yang menggunakan POST</translation>
 <translation id="6036523166753287175">Mengaktifkan firewall traversal dari host akses jarak jauh</translation>
-<translation id="6059543311891422586">Menggunakan akselerasi perangkat keras jika tersedia.
+<translation id="6059543311891422586">Menggunakan akselerasi hardware jika tersedia.
 
-      Jika kebijakan ini disetel ke True atau tidak disetel, akselerasi perangkat keras akan diaktifkan kecuali fitur GPU tertentu masuk dalam daftar hitam.
+      Jika kebijakan ini disetel ke True atau tidak disetel, akselerasi hardware akan diaktifkan kecuali fitur GPU tertentu masuk dalam daftar hitam.
 
-      Jika kebijakan ini disetel ke False, akselerasi perangkat keras akan dinonaktifkan.</translation>
+      Jika kebijakan ini disetel ke False, akselerasi hardware akan dinonaktifkan.</translation>
 <translation id="6070667616071269965">Tata letak keyboard layar login perangkat</translation>
 <translation id="6074963268421707432">Jangan izinkan situs apa pun menampilkan pemberitahuan desktop</translation>
-<translation id="6076099373507468537">Menjelaskan daftar perangkat USB yang diizinkan untuk dilepas dari driver kernelnya, agar dapat langsung digunakan melalui API chrome.usb dalam aplikasi web. Entri berupa pasangan Pengenal Vendor USB dan Pengenal Produk untuk mengidentifikasi perangkat keras tertentu.
+<translation id="6076099373507468537">Menjelaskan daftar perangkat USB yang diizinkan untuk dilepas dari driver kernelnya, agar dapat langsung digunakan melalui API chrome.usb dalam aplikasi web. Entri berupa pasangan Pengenal Vendor USB dan Pengenal Produk untuk mengidentifikasi hardware tertentu.
 
       Jika kebijakan ini tidak dikonfigurasi, daftar perangkat USB yang dapat dilepas akan kosong.</translation>
 <translation id="608377055310226486">Kebijakan ini tidak berlaku lagi. Gunakan kebijakan <ph name="DEFAULT_PLUGINS_SETTING_POLICY" /> untuk mengontrol ketersediaan plugin Flash dan kebijakan <ph name="ALWAYS_OPEN_PDF_EXTERNALLY_POLICY" /> untuk mengontrol apakah penampil PDF yang diintegrasikan harus digunakan untuk membuka file PDF.
@@ -1893,7 +1893,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 
       Jika kebijakan ini tidak disetel, prediksi jaringan akan diaktifkan namun pengguna dapat mengubahnya.</translation>
 <translation id="6658245400435704251">Menentukan jumlah waktu (dalam detik) sebuah perangkat dapat menunda download pembaruannya secara acak dari saat pembaruan tersebut pertama kali didorong ke server. Perangkat dapat menunggu dengan sebagian dari waktu ini dari segi prediksi waktu penyelesaian tugas dan sisa waktunya dari segi jumlah pemeriksaan pembaruan. Dalam keadaan apa pun, penyebaran dibatasi dengan jumlah waktu yang konstan sehingga perangkat tidak akan terus menunggu download pembaruan selamanya.</translation>
-<translation id="6689792153960219308">Melaporkan status perangkat keras</translation>
+<translation id="6689792153960219308">Melaporkan status hardware</translation>
 <translation id="6693751878507293182">Jika Anda menyetel setelan ini untuk mengaktifkan penelusuran otomatis, pemasangan plugin yang hilang akan dinonaktifkan dalam <ph name="PRODUCT_NAME" />. Menyetel opsi ini menjadi nonaktif atau membiarkannya tidak disetel akan mengaktifkan pencari plugin.</translation>
 <translation id="6697474194550078937">Membatasi waktu yang dapat digunakan pengguna yang diautentikasi melalui SAML masuk saat offline.
 
@@ -2368,7 +2368,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
           Saat kebijakan ini tidak disetel, panjang waktu default akan digunakan.
 
           Nilai kebijakan ini harus ditentukan dalam milidetik. Nilai dijepit menjadi lebih sedikit dari penundaan waktu menganggur.</translation>
-<translation id="8140204717286305802">Laporkan daftar antarmuka jaringan dengan alamat perangkat keras dan jenisnya ke server.
+<translation id="8140204717286305802">Laporkan daftar antarmuka jaringan dengan alamat hardware dan jenisnya ke server.
 
       Jika kebijakan disetel ke false, daftar antarmuka tidak akan dilaporkan.</translation>
 <translation id="8141795997560411818">Kebijakan ini tidak mencegah pengguna menggunakan aplikasi Google Drive Android. Jika ingin mencegah akses ke Google Drive, sebaiknya Anda tidak mengizinkan pemasangan aplikasi Google Drive Android.</translation>
@@ -2511,15 +2511,15 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="8549772397068118889">Memperingatkan saat mengunjungi situs di luar paket konten</translation>
 <translation id="855339549837475534">Chromium dan Google Chrome mendukung rangkaian kebijakan
       yang sama. Harap diperhatikan bahwa dokumen ini dapat berisi kebijakan yang
-      ditargetkan untuk versi perangkat lunak yang belum dirilis (entri 'Didukung di'
+      ditargetkan untuk versi software yang belum dirilis (entri 'Didukung di'
       merujuk ke versi yang belum dirilis) dan oleh karena itu, kebijakan semacam ini dapat
       berubah atau dihapus tanpa pemberitahuan sebelumnya.
 
       Kebijakan ini hanya khusus ditujukan untuk mengonfigurasi contoh
       internal <ph name="PRODUCT_NAME" /> ke
       organisasi Anda. Bila kebijakan ini digunakan di luar organisasi (misalnya
-      dalam program yang didistribusikan secara publik) akan dianggap sebagai perangkat lunak perusak dan mungkin
-      akan diberi label sebagai perangkat lunak perusak oleh Google dan vendor antivirus.
+      dalam program yang didistribusikan secara publik) akan dianggap sebagai software perusak dan mungkin
+      akan diberi label sebagai software perusak oleh Google dan vendor antivirus.
 
       Setelan ini tidak perlu dikonfigurasi secara manual!  Template
       yang mudah digunakan untuk Windows, Mac, dan Linux dapat didownload dari <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" />.
@@ -2543,7 +2543,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
 <translation id="8614804915612153606">Nonaktifkan Pembaruan Otomatis</translation>
 <translation id="8631434304112909927">sampai versi <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Untuk aplikasi Android, kebijakan ini hanya memengaruhi kamera bawaan. Jika kebijakan ini disetel ke true, kamera akan dinonaktifkan untuk semua aplikasi Android, tanpa pengecualian.</translation>
-<translation id="8649763579836720255">Perangkat Chrome OS dapat menggunakan atestasi jarak jauh (Akses Terverifikasi) untuk mendapatkan sertifikat yang diberikan oleh Chrome OS CA yang menyatakan bahwa perangkat tersebut memenuhi syarat untuk memutar konten yang dilindungi. Proses ini mencakup pengiriman informasi dukungan perangkat keras ke Chrome OS CA yang mengidentifikasi perangkat tersebut secara unik.
+<translation id="8649763579836720255">Perangkat Chrome OS dapat menggunakan atestasi jarak jauh (Akses Terverifikasi) untuk mendapatkan sertifikat yang diberikan oleh Chrome OS CA yang menyatakan bahwa perangkat tersebut memenuhi syarat untuk memutar konten yang dilindungi. Proses ini mencakup pengiriman informasi dukungan hardware ke Chrome OS CA yang mengidentifikasi perangkat tersebut secara unik.
 
           Jika disetel ke false, perangkat tidak akan menggunakan atestasi perlindungan konten jarak jauh dan tidak dapat memutar konten yang dilindungi.
 
@@ -2634,7 +2634,7 @@ Pengguna dapat memasang item dari URL apa pun yang cocok dengan item dalam dafta
       memasang aplikasi <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME" /> dari URL "perbarui"
       Toko Web Chrome standar. Untuk informasi selengkapnya tentang ekstensi host,
       lihat: <ph name="LINK_TO_EXTENSION_DOC2" />.</translation>
-<translation id="8889588091638298603">Quirks Server menyediakan file konfigurasi khusus perangkat keras, seperti
+<translation id="8889588091638298603">Quirks Server menyediakan file konfigurasi khusus hardware, seperti
       profil tampilan ICC untuk menyesuaikan kalibrasi monitor.
 
       Jika kebijakan ini disetel ke False, perangkat tidak akan mencoba

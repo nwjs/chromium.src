@@ -3578,7 +3578,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6251870443722440887">Handles GDI</translation>
 <translation id="6251889282623539337">Conditions d'utilisation du domaine "<ph name="DOMAIN" />"</translation>
 <translation id="6254503684448816922">Clé compromise</translation>
-<translation id="6256079118265363670">Activez Google Play Store sur votre Chromebook.</translation>
+<translation id="6256079118265363670">Activer Google Play Store sur le Chromebook</translation>
 <translation id="6259104249628300056">Découvrir les appareils sur votre réseau local</translation>
 <translation id="6263082573641595914">Version de l'autorité de certification Microsoft</translation>
 <translation id="6263284346895336537">Non essentielle</translation>
@@ -4299,7 +4299,7 @@ N'utilisez cette fonctionnalité qu'avec des comptes fiables.</translation>
 <translation id="7348093485538360975">Clavier virtuel</translation>
 <translation id="7348749398828259943">Clavier Workman international américain</translation>
 <translation id="7352651011704765696">Un problème est survenu</translation>
-<translation id="73534262421337222">Installation d'une mise à jour critique</translation>
+<translation id="73534262421337222">Installation d'une mise à jour essentielle</translation>
 <translation id="7353651168734309780"><ph name="EXTENSION_NAME" /> requiert de nouvelles autorisations</translation>
 <translation id="735745346212279324">VPN déconnecté</translation>
 <translation id="7360183604634508679">Menu "Favoris"</translation>
@@ -4461,7 +4461,7 @@ N'utilisez cette fonctionnalité qu'avec des comptes fiables.</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Données de Chrome effacées</translation>
 <translation id="7568790562536448087">Mise à jour en cours</translation>
-<translation id="7571643774869182231">Stockage insuffisant pour la mise à jour</translation>
+<translation id="7571643774869182231">Espace de stockage insuffisant pour la mise à jour</translation>
 <translation id="7573172247376861652">Charge de la batterie</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Assembler</translation>
