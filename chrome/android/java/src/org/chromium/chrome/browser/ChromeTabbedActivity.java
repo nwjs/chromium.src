@@ -571,7 +571,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
             TraceEvent.begin("ChromeTabbedActivity.onNewIntentWithNative");
 
             super.onNewIntentWithNative(intent);
-            if (isMainIntent(intent)) {
+            if (isMainIntentFromLauncher(intent)) {
                 if (IntentHandler.getUrlFromIntent(intent) == null) {
                     maybeLaunchNtpFromMainIntent(intent);
                 }
@@ -698,16 +698,23 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
         }
     }
 
-    private boolean isMainIntent(Intent intent) {
-        return intent != null && TextUtils.equals(intent.getAction(), Intent.ACTION_MAIN);
+    private boolean isMainIntentFromLauncher(Intent intent) {
+        return intent != null && TextUtils.equals(intent.getAction(), Intent.ACTION_MAIN)
+                && intent.hasCategory(Intent.CATEGORY_LAUNCHER);
     }
 
     private void logMainIntentBehavior(Intent intent) {
-        assert isMainIntent(intent);
+        assert isMainIntentFromLauncher(intent);
         long currentTime = System.currentTimeMillis();
         long lastBackgroundedTimeMs = ContextUtils.getAppSharedPreferences().getLong(
                 LAST_BACKGROUNDED_TIME_MS_PREF, currentTime);
         mMainIntentMetrics.onMainIntentWithNative(currentTime - lastBackgroundedTimeMs);
+    }
+
+    /** Access the main intent metrics for test validation. */
+    @VisibleForTesting
+    public MainIntentBehaviorMetrics getMainIntentBehaviorMetricsForTesting() {
+        return mMainIntentMetrics;
     }
 
     /**
@@ -717,7 +724,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
      * @return Whether an NTP was triggered as a result of this intent.
      */
     private boolean maybeLaunchNtpFromMainIntent(Intent intent) {
-        assert isMainIntent(intent);
+        assert isMainIntentFromLauncher(intent);
 
         if (!mIntentHandler.isIntentUserVisible()) return false;
         if (FeatureUtilities.isChromeHomeEnabled()) return false;
@@ -821,7 +828,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements OverviewMode
                     mIntentWithEffect = mIntentHandler.onNewIntent(intent);
                 }
 
-                if (isMainIntent(intent)) {
+                if (isMainIntentFromLauncher(intent)) {
                     if (IntentHandler.getUrlFromIntent(intent) == null) {
                         assert !mIntentWithEffect
                                 : "ACTION_MAIN should not have triggered any prior action";
