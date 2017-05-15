@@ -420,6 +420,12 @@ public class ImeTest extends ContentShellTestBase {
         // Without previous composition.
         commitText("", -1);
         waitAndVerifyUpdateSelection(4, 2, 2, -1, -1);
+
+        // Although it is not documented in the spec, commitText() also removes existing selection.
+        setSelection(2, 5);
+        commitText("", 1);
+        waitAndVerifyUpdateSelection(5, 2, 5, -1, -1);
+        waitAndVerifyUpdateSelection(6, 2, 2, -1, -1);
     }
 
     @SmallTest
