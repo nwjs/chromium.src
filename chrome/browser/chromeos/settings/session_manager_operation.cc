@@ -23,8 +23,6 @@
 #include "crypto/rsa_private_key.h"
 #include "crypto/signature_creator.h"
 
-using RetrievePolicyResponseType =
-    chromeos::SessionManagerClient::RetrievePolicyResponseType;
 using ownership::OwnerKeyUtil;
 using ownership::PublicKey;
 
@@ -140,15 +138,12 @@ void SessionManagerOperation::RetrieveDeviceSettings() {
 }
 
 void SessionManagerOperation::BlockingRetrieveDeviceSettings() {
-  std::string policy_blob;
-  RetrievePolicyResponseType response =
-      session_manager_client()->BlockingRetrieveDevicePolicy(&policy_blob);
-  ValidateDeviceSettings(policy_blob, response);
+  ValidateDeviceSettings(
+      session_manager_client()->BlockingRetrieveDevicePolicy());
 }
 
 void SessionManagerOperation::ValidateDeviceSettings(
-    const std::string& policy_blob,
-    RetrievePolicyResponseType response_type) {
+    const std::string& policy_blob) {
   std::unique_ptr<em::PolicyFetchResponse> policy(
       new em::PolicyFetchResponse());
   if (policy_blob.empty()) {
@@ -156,7 +151,8 @@ void SessionManagerOperation::ValidateDeviceSettings(
     return;
   }
 
-  if (!policy->ParseFromString(policy_blob) || !policy->IsInitialized()) {
+  if (!policy->ParseFromString(policy_blob) ||
+      !policy->IsInitialized()) {
     ReportResult(DeviceSettingsService::STORE_INVALID_POLICY);
     return;
   }

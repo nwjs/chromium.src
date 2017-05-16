@@ -28,24 +28,6 @@ namespace chromeos {
 // SessionManagerClient is used to communicate with the session manager.
 class CHROMEOS_EXPORT SessionManagerClient : public DBusClient {
  public:
-  // The result type received from session manager on request to retrieve the
-  // policy. Used to define the buckets for an enumerated UMA histogram.
-  // Hence,
-  //   (a) existing enumerated constants should never be deleted or reordered.
-  //   (b) new constants should be inserted immediately before COUNT.
-  enum class RetrievePolicyResponseType {
-    // Other type of error while retrieving policy data (e.g. D-Bus timeout).
-    OTHER_ERROR = 0,
-    // The policy was retrieved successfully.
-    SUCCESS = 1,
-    // Retrieve policy request issued before session started.
-    SESSION_DOES_NOT_EXIST = 2,
-    // Session manager failed to encode the policy data.
-    POLICY_ENCODE_ERROR = 3,
-    // Has to be the last value of enumeration. Used for UMA.
-    COUNT
-  };
-
   // Interface for observing changes from the session manager.
   class Observer {
    public:
@@ -161,26 +143,23 @@ class CHROMEOS_EXPORT SessionManagerClient : public DBusClient {
 
   // Used for RetrieveDevicePolicy, RetrievePolicyForUser and
   // RetrieveDeviceLocalAccountPolicy. Takes a serialized protocol buffer as
-  // string.  Upon success, we will pass a protobuf and SUCCESS |response_type|
-  // to the callback. On failure, we will pass "" and the details of error type
-  // in |response_type|.
+  // string.  Upon success, we will pass a protobuf to the callback.  On
+  // failure, we will pass "".
   using RetrievePolicyCallback =
-      base::Callback<void(const std::string& protobuf,
-                          RetrievePolicyResponseType response_type)>;
+      base::Callback<void(const std::string& protobuf)>;
 
   // Fetches the device policy blob stored by the session manager.  Upon
   // completion of the retrieve attempt, we will call the provided callback.
   virtual void RetrieveDevicePolicy(const RetrievePolicyCallback& callback) = 0;
 
   // Same as RetrieveDevicePolicy() but blocks until a reply is received, and
-  // populates the policy synchronously. Returns SUCCESS when successful, or
-  // the corresponding error from enum in case of a failure.
+  // returns the policy synchronously. Returns an empty string if the method
+  // call fails.
   // This may only be called in situations where blocking the UI thread is
   // considered acceptable (e.g. restarting the browser after a crash or after
   // a flag change).
   // TODO: Get rid of blocking calls (crbug.com/160522).
-  virtual RetrievePolicyResponseType BlockingRetrieveDevicePolicy(
-      std::string* policy_out) = 0;
+  virtual std::string BlockingRetrieveDevicePolicy() = 0;
 
   // Fetches the user policy blob stored by the session manager for the given
   // |cryptohome_id|. Upon completion of the retrieve attempt, we will call the
@@ -190,15 +169,14 @@ class CHROMEOS_EXPORT SessionManagerClient : public DBusClient {
       const RetrievePolicyCallback& callback) = 0;
 
   // Same as RetrievePolicyForUser() but blocks until a reply is received, and
-  // populates the policy synchronously. Returns SUCCESS when successful, or
-  // the corresponding error from enum in case of a failure.
+  // returns the policy synchronously. Returns an empty string if the method
+  // call fails.
   // This may only be called in situations where blocking the UI thread is
   // considered acceptable (e.g. restarting the browser after a crash or after
   // a flag change).
   // TODO: Get rid of blocking calls (crbug.com/160522).
-  virtual RetrievePolicyResponseType BlockingRetrievePolicyForUser(
-      const cryptohome::Identification& cryptohome_id,
-      std::string* policy_out) = 0;
+  virtual std::string BlockingRetrievePolicyForUser(
+      const cryptohome::Identification& cryptohome_id) = 0;
 
   // Fetches the policy blob associated with the specified device-local account
   // from session manager.  |callback| is invoked up on completion.
@@ -207,15 +185,14 @@ class CHROMEOS_EXPORT SessionManagerClient : public DBusClient {
       const RetrievePolicyCallback& callback) = 0;
 
   // Same as RetrieveDeviceLocalAccountPolicy() but blocks until a reply is
-  // received, and populates the policy synchronously. Returns SUCCESS when
-  // successful, or the corresponding error from enum in case of a failure.
+  // received, and returns the policy synchronously.
+  // Returns an empty string if the method call fails.
   // This may only be called in situations where blocking the UI thread is
   // considered acceptable (e.g. restarting the browser after a crash or after
   // a flag change).
   // TODO: Get rid of blocking calls (crbug.com/160522).
-  virtual RetrievePolicyResponseType BlockingRetrieveDeviceLocalAccountPolicy(
-      const std::string& account_id,
-      std::string* policy_out) = 0;
+  virtual std::string BlockingRetrieveDeviceLocalAccountPolicy(
+      const std::string& account_id) = 0;
 
   // Used for StoreDevicePolicy, StorePolicyForUser and
   // StoreDeviceLocalAccountPolicy. Takes a boolean indicating whether the

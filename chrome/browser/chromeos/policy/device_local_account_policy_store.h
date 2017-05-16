@@ -14,12 +14,15 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
-#include "chromeos/dbus/session_manager_client.h"
 #include "components/policy/core/common/cloud/cloud_policy_validator.h"
 #include "components/policy/core/common/cloud/user_cloud_policy_store_base.h"
 
 namespace base {
 class SequencedTaskRunner;
+}
+
+namespace chromeos {
+class SessionManagerClient;
 }
 
 namespace enterprise_management {
@@ -56,10 +59,8 @@ class DeviceLocalAccountPolicyStore : public UserCloudPolicyStoreBase {
 
   // Called back by |session_manager_client_| after policy retrieval. Checks for
   // success and triggers policy validation.
-  void ValidateLoadedPolicyBlob(
-      bool validate_in_background,
-      const std::string& policy_blob,
-      chromeos::SessionManagerClient::RetrievePolicyResponseType response_type);
+  void ValidateLoadedPolicyBlob(bool validate_in_background,
+                                const std::string& policy_blob);
 
   // Updates state after validation and notifies observers.
   void UpdatePolicy(const std::string& signature_validation_public_key,

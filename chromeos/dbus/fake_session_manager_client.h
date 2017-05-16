@@ -45,19 +45,16 @@ class FakeSessionManagerClient : public SessionManagerClient {
   void NotifyLockScreenDismissed() override;
   void RetrieveActiveSessions(const ActiveSessionsCallback& callback) override;
   void RetrieveDevicePolicy(const RetrievePolicyCallback& callback) override;
-  RetrievePolicyResponseType BlockingRetrieveDevicePolicy(
-      std::string* policy_out) override;
+  std::string BlockingRetrieveDevicePolicy() override;
   void RetrievePolicyForUser(const cryptohome::Identification& cryptohome_id,
                              const RetrievePolicyCallback& callback) override;
-  RetrievePolicyResponseType BlockingRetrievePolicyForUser(
-      const cryptohome::Identification& cryptohome_id,
-      std::string* policy_out) override;
+  std::string BlockingRetrievePolicyForUser(
+      const cryptohome::Identification& cryptohome_id) override;
   void RetrieveDeviceLocalAccountPolicy(
       const std::string& account_id,
       const RetrievePolicyCallback& callback) override;
-  RetrievePolicyResponseType BlockingRetrieveDeviceLocalAccountPolicy(
-      const std::string& account_id,
-      std::string* policy_out) override;
+  std::string BlockingRetrieveDeviceLocalAccountPolicy(
+      const std::string& account_id) override;
   void StoreDevicePolicy(const std::string& policy_blob,
                          const StorePolicyCallback& callback) override;
   void StorePolicyForUser(const cryptohome::Identification& cryptohome_id,

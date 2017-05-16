@@ -11,7 +11,6 @@
 #include "base/threading/thread_restrictions.h"
 #include "dbus/bus.h"
 #include "dbus/object_proxy.h"
-#include "dbus/scoped_dbus_error.h"
 
 namespace chromeos {
 
@@ -21,10 +20,9 @@ namespace {
 void CallMethodAndBlockInternal(std::unique_ptr<dbus::Response>* response,
                                 base::ScopedClosureRunner* signaler,
                                 dbus::ObjectProxy* proxy,
-                                dbus::MethodCall* method_call,
-                                dbus::ScopedDBusError* error_out) {
-  *response = proxy->CallMethodAndBlockWithErrorDetails(
-      method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT, error_out);
+                                dbus::MethodCall* method_call) {
+  *response = proxy->CallMethodAndBlock(
+      method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT);
 }
 
 }  // namespace
@@ -42,14 +40,6 @@ BlockingMethodCaller::~BlockingMethodCaller() {
 
 std::unique_ptr<dbus::Response> BlockingMethodCaller::CallMethodAndBlock(
     dbus::MethodCall* method_call) {
-  dbus::ScopedDBusError error;
-  return CallMethodAndBlockWithError(method_call, &error);
-}
-
-std::unique_ptr<dbus::Response>
-BlockingMethodCaller::CallMethodAndBlockWithError(
-    dbus::MethodCall* method_call,
-    dbus::ScopedDBusError* error_out) {
   // on_blocking_method_call_->Signal() will be called when |signaler| is
   // destroyed.
   base::Closure signal_task(
@@ -61,8 +51,11 @@ BlockingMethodCaller::CallMethodAndBlockWithError(
   std::unique_ptr<dbus::Response> response;
   bus_->GetDBusTaskRunner()->PostTask(
       FROM_HERE,
-      base::Bind(&CallMethodAndBlockInternal, &response, base::Owned(signaler),
-                 base::Unretained(proxy_), method_call, error_out));
+      base::Bind(&CallMethodAndBlockInternal,
+                 &response,
+                 base::Owned(signaler),
+                 base::Unretained(proxy_),
+                 method_call));
   // http://crbug.com/125360
   base::ThreadRestrictions::ScopedAllowWait allow_wait;
   on_blocking_method_call_.Wait();

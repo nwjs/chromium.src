@@ -82,14 +82,12 @@ class DeviceSettingsTestHelper : public MockSessionManagerClient {
 
   // SessionManagerClient:
   void RetrieveDevicePolicy(const RetrievePolicyCallback& callback) override;
-  RetrievePolicyResponseType BlockingRetrieveDevicePolicy(
-      std::string* policy_out) override;
+  std::string BlockingRetrieveDevicePolicy() override;
   void RetrieveDeviceLocalAccountPolicy(
       const std::string& account_id,
       const RetrievePolicyCallback& callback) override;
-  RetrievePolicyResponseType BlockingRetrieveDeviceLocalAccountPolicy(
-      const std::string& account_id,
-      std::string* policy_out) override;
+  std::string BlockingRetrieveDeviceLocalAccountPolicy(
+      const std::string& account_id) override;
   void StoreDevicePolicy(const std::string& policy_blob,
                          const StorePolicyCallback& callback) override;
   void StoreDeviceLocalAccountPolicy(
