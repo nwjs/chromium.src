@@ -17,6 +17,7 @@
 #include "base/trace_event/trace_event.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
+#include "gpu/command_buffer/service/feature_info.h"
 #include "gpu/ipc/service/gpu_channel_manager.h"
 #include "gpu/ipc/service/gpu_channel_manager_delegate.h"
 #include "gpu/ipc/service/switches.h"
@@ -104,6 +105,71 @@ class PresentationHistory {
   DISALLOW_COPY_AND_ASSIGN(PresentationHistory);
 };
 
+gfx::Size g_overlay_monitor_size;
+
+// This is the raw support info, which shouldn't depend on field trial state.
+bool HardwareSupportsOverlays() {
+  if (!gl::GLSurfaceEGL::IsDirectCompositionSupported())
+    return false;
+
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kEnableDirectCompositionLayers))
+    return true;
+  if (command_line->HasSwitch(switches::kDisableDirectCompositionLayers))
+    return false;
+
+  // Before Windows 10 Anniversary Update (Redstone 1), overlay planes
+  // wouldn't be assigned to non-UWP apps.
+  if (base::win::GetVersion() < base::win::VERSION_WIN10_R1)
+    return false;
+
+  base::win::ScopedComPtr<ID3D11Device> d3d11_device =
+      gl::QueryD3D11DeviceObjectFromANGLE();
+  if (!d3d11_device) {
+    DLOG(ERROR) << "Failing to create overlay swapchain because couldn't "
+                   "retrieve D3D11 device from ANGLE.";
+    return false;
+  }
+
+  base::win::ScopedComPtr<IDXGIDevice> dxgi_device;
+  d3d11_device.QueryInterface(dxgi_device.Receive());
+  base::win::ScopedComPtr<IDXGIAdapter> dxgi_adapter;
+  dxgi_device->GetAdapter(dxgi_adapter.Receive());
+
+  unsigned int i = 0;
+  while (true) {
+    base::win::ScopedComPtr<IDXGIOutput> output;
+    if (FAILED(dxgi_adapter->EnumOutputs(i++, output.Receive())))
+      break;
+    base::win::ScopedComPtr<IDXGIOutput3> output3;
+    if (FAILED(output.QueryInterface(output3.Receive())))
+      continue;
+
+    UINT flags = 0;
+    if (FAILED(output3->CheckOverlaySupport(DXGI_FORMAT_YUY2,
+                                            d3d11_device.get(), &flags)))
+      continue;
+
+    UMA_HISTOGRAM_SPARSE_SLOWLY("GPU.DirectComposition.OverlaySupportFlags",
+                                flags);
+
+    // Some new Intel drivers only claim to support unscaled overlays, but
+    // scaled overlays still work. Even when scaled overlays aren't actually
+    // supported, presentation using the overlay path should be relatively
+    // efficient.
+    if (flags & (DXGI_OVERLAY_SUPPORT_FLAG_SCALING |
+                 DXGI_OVERLAY_SUPPORT_FLAG_DIRECT)) {
+      DXGI_OUTPUT_DESC monitor_desc = {};
+      if (FAILED(output3->GetDesc(&monitor_desc)))
+        continue;
+      g_overlay_monitor_size =
+          gfx::Rect(monitor_desc.DesktopCoordinates).size();
+      return true;
+    }
+  }
+  return false;
+}
+
 // Only one DirectComposition surface can be rendered into at a time. Track
 // here which IDCompositionSurface is being rendered into. If another context
 // is made current, then this surface will be suspended.
@@ -135,6 +201,10 @@ class DCLayerTree {
   }
   base::win::ScopedComPtr<IDXGISwapChain1> GetLayerSwapChainForTesting(
       size_t index) const;
+
+  const GpuDriverBugWorkarounds& workarounds() const {
+    return surface_->workarounds();
+  }
 
  private:
   class SwapChainPresenter;
@@ -470,6 +540,33 @@ void DCLayerTree::SwapChainPresenter::PresentToSwapChain(
     CHECK(SUCCEEDED(hr));
   }
 
+  if (surface_->workarounds().disable_larger_than_screen_overlays) {
+    // Because of the rounding when converting between pixels and DIPs, a
+    // fullscreen video can become slightly larger than the monitor - e.g. on
+    // a 3000x2000 monitor with a scale factor of 1.75 a 1920x1079 video can
+    // become 3002x1689.
+    // On older Intel drivers, swapchains that are bigger than the monitor
+    // won't be put into overlays, which will hurt power usage a lot. On those
+    // systems, the scaling can be adjusted very slightly so that it's less
+    // than the monitor size. This should be close to imperceptible.
+    // TODO(jbauman): Remove when http://crbug.com/668278 is fixed.
+    const int kOversizeMargin = 3;
+
+    if ((bounds_rect.x() >= 0) &&
+        (bounds_rect.width() > g_overlay_monitor_size.width()) &&
+        (bounds_rect.width() <=
+         g_overlay_monitor_size.width() + kOversizeMargin)) {
+      bounds_rect.set_width(g_overlay_monitor_size.width());
+    }
+
+    if ((bounds_rect.y() >= 0) &&
+        (bounds_rect.height() > g_overlay_monitor_size.height()) &&
+        (bounds_rect.height() <=
+         g_overlay_monitor_size.height() + kOversizeMargin)) {
+      bounds_rect.set_height(g_overlay_monitor_size.height());
+    }
+  }
+
   swap_chain_scale_x_ = bounds_rect.width() * 1.0f / swap_chain_size.width();
   swap_chain_scale_y_ = bounds_rect.height() * 1.0f / swap_chain_size.height();
 
@@ -790,6 +887,7 @@ DirectCompositionSurfaceWin::DirectCompositionSurfaceWin(
     HWND parent_window)
     : gl::GLSurfaceEGL(),
       child_window_(delegate, parent_window),
+      workarounds_(delegate->GetFeatureInfo()->workarounds()),
       vsync_provider_(std::move(vsync_provider)) {}
 
 DirectCompositionSurfaceWin::~DirectCompositionSurfaceWin() {
@@ -798,49 +896,10 @@ DirectCompositionSurfaceWin::~DirectCompositionSurfaceWin() {
 
 // static
 bool DirectCompositionSurfaceWin::AreOverlaysSupported() {
-  if (!base::FeatureList::IsEnabled(switches::kDirectCompositionOverlays))
+  if (!HardwareSupportsOverlays())
     return false;
 
-  if (!gl::GLSurfaceEGL::IsDirectCompositionSupported())
-    return false;
-
-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(switches::kEnableDirectCompositionLayers))
-    return true;
-  if (command_line->HasSwitch(switches::kDisableDirectCompositionLayers))
-    return false;
-
-  // Before Windows 10 Anniversary Update (Redstone 1), overlay planes
-  // wouldn't be assigned to non-UWP apps.
-  if (base::win::GetVersion() < base::win::VERSION_WIN10_R1)
-    return false;
-
-  base::win::ScopedComPtr<ID3D11Device> d3d11_device =
-      gl::QueryD3D11DeviceObjectFromANGLE();
-  if (!d3d11_device) {
-    DLOG(ERROR) << "Failing to create overlay swapchain because couldn't "
-                   "retrieve D3D11 device from ANGLE.";
-    return false;
-  }
-
-  base::win::ScopedComPtr<IDXGIDevice> dxgi_device;
-  d3d11_device.QueryInterface(dxgi_device.Receive());
-  base::win::ScopedComPtr<IDXGIAdapter> dxgi_adapter;
-  dxgi_device->GetAdapter(dxgi_adapter.Receive());
-
-  unsigned int i = 0;
-  while (true) {
-    base::win::ScopedComPtr<IDXGIOutput> output;
-    if (FAILED(dxgi_adapter->EnumOutputs(i++, output.Receive())))
-      break;
-    base::win::ScopedComPtr<IDXGIOutput2> output2;
-    if (FAILED(output.QueryInterface(output2.Receive())))
-      return false;
-
-    if (output2->SupportsOverlays())
-      return true;
-  }
-  return false;
+  return base::FeatureList::IsEnabled(switches::kDirectCompositionOverlays);
 }
 
 bool DirectCompositionSurfaceWin::InitializeNativeWindow() {

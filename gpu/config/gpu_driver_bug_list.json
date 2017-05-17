@@ -1,6 +1,6 @@
 {
   "name": "gpu driver bug list",
-  "version": "10.7",
+  "version": "10.9",
   "entries": [
     {
       "id": 1,
@@ -2381,6 +2381,22 @@
                     "0x1626", "0x162b", "0x1622"],
       "features": [
         "avoid_stencil_buffers"
+      ]
+    },
+    {
+      "id": 229,
+      "description": "Overlay sizes bigger than screen aren't accelerated on some Intel drivers",
+      "cr_bugs": [720059],
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x8086",
+      "driver_version": {
+        "op": "<",
+        "value": "21.20.16.4542"
+      },
+      "features": [
+        "disable_larger_than_screen_overlays"
       ]
     }
   ],
