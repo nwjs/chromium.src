@@ -174,7 +174,7 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui, const GURL& url)
   AddSettingsPageUIHandler(
       base::MakeUnique<chromeos::settings::StylusHandler>());
   html_source->AddBoolean(
-      "pinUnlockEnabled",
+      "quickUnlockEnabled",
       chromeos::quick_unlock::IsPinEnabled(profile->GetPrefs()));
   html_source->AddBoolean("fingerprintUnlockEnabled",
                           chromeos::quick_unlock::IsFingerprintEnabled());
