@@ -805,13 +805,6 @@ void GpuDataManagerImplPrivate::AppendGpuCommandLine(
     command_line->AppendSwitch(switches::kEnableDrmAtomic);
   }
 #endif
-#if defined(OS_WIN)
-  if (IsFeatureBlacklisted(gpu::GPU_FEATURE_TYPE_ACCELERATED_VPX_DECODE) &&
-      gpu_preferences) {
-    gpu_preferences->enable_accelerated_vpx_decode =
-        gpu::GpuPreferences::VPX_VENDOR_NONE;
-  }
-#endif
 
 #if BUILDFLAG(ENABLE_WEBRTC)
 if (IsFeatureBlacklisted(gpu::GPU_FEATURE_TYPE_ACCELERATED_VIDEO_ENCODE)) {
