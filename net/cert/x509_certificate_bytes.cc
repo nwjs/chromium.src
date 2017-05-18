@@ -42,6 +42,12 @@ bool GeneralizedTimeToBaseTime(const der::GeneralizedTime& generalized,
   return base::Time::FromUTCExploded(exploded, result);
 }
 
+ParseCertificateOptions DefaultParseCertificateOptions() {
+  ParseCertificateOptions options;
+  options.allow_invalid_serial_numbers = true;
+  return options;
+}
+
 // Sets |value| to the Value from a DER Sequence Tag-Length-Value and return
 // true, or return false if the TLV was not a valid DER Sequence.
 WARN_UNUSED_RESULT bool GetSequenceValue(const der::Input& tlv,
@@ -64,7 +70,8 @@ bool GetNormalizedCertIssuer(CRYPTO_BUFFER* cert,
     return false;
   }
   ParsedTbsCertificate tbs;
-  if (!ParseTbsCertificate(tbs_certificate_tlv, {}, &tbs, nullptr))
+  if (!ParseTbsCertificate(tbs_certificate_tlv,
+                           DefaultParseCertificateOptions(), &tbs, nullptr))
     return false;
 
   der::Input issuer_value;
@@ -168,7 +175,8 @@ bool X509Certificate::Initialize() {
   }
 
   ParsedTbsCertificate tbs;
-  if (!ParseTbsCertificate(tbs_certificate_tlv, {}, &tbs, nullptr))
+  if (!ParseTbsCertificate(tbs_certificate_tlv,
+                           DefaultParseCertificateOptions(), &tbs, nullptr))
     return false;
 
   if (!ParsePrincipal(tbs.subject_tlv, &subject_) ||
@@ -203,7 +211,8 @@ bool X509Certificate::GetSubjectAltName(
   }
 
   ParsedTbsCertificate tbs;
-  if (!ParseTbsCertificate(tbs_certificate_tlv, {}, &tbs, nullptr))
+  if (!ParseTbsCertificate(tbs_certificate_tlv,
+                           DefaultParseCertificateOptions(), &tbs, nullptr))
     return false;
   if (!tbs.has_extensions)
     return false;
@@ -427,7 +436,8 @@ bool X509Certificate::IsSelfSigned(OSCertHandle cert_handle) {
     return false;
   }
   ParsedTbsCertificate tbs;
-  if (!ParseTbsCertificate(tbs_certificate_tlv, {}, &tbs, nullptr)) {
+  if (!ParseTbsCertificate(tbs_certificate_tlv,
+                           DefaultParseCertificateOptions(), &tbs, nullptr)) {
     return false;
   }
 
