@@ -938,7 +938,7 @@ Una vez que hayas creado un nuevo usuario supervisado, podrás administrar su co
 <translation id="2328054044222305089">Esta acción eliminará los datos que <ph name="SITE" /> ha almacenado en tu dispositivo y cambiará los permisos que hayas concedido. ¿Quieres continuar?</translation>
 <translation id="2329597144923131178">Accede para ver marcadores, historial, contraseñas y otros en dispos.</translation>
 <translation id="2332131598580221120">Ver en Chrome Web Store</translation>
-<translation id="2332742915001411729">Restablecer nivel de zoom predeterminado</translation>
+<translation id="2332742915001411729">Restablecer predeterminado</translation>
 <translation id="2335122562899522968">Esta página almacena cookies</translation>
 <translation id="2336228925368920074">Añadir todas las pestañas a marcadores...</translation>
 <translation id="2336381494582898602">Powerwash</translation>
@@ -1152,7 +1152,7 @@ y su configuración no se sincronizan en otros dispositivos con la función de s
 <translation id="2638942478653899953">No se ha podido acceder a Google Drive. <ph name="BEGIN_LINK" />Cierra la sesión<ph name="END_LINK" /> y vuelve a iniciarla.</translation>
 <translation id="2642111877055905627">Balón de fútbol</translation>
 <translation id="2643698698624765890">Para administrar tus extensiones, haz clic en la opción Extensiones del menú Ventana.</translation>
-<translation id="2647142853114880570">recargar</translation>
+<translation id="2647142853114880570">volver a cargar</translation>
 <translation id="2647434099613338025">Añadir idioma</translation>
 <translation id="2648831393319960979">El dispositivo se está añadiendo a tu cuenta. Esta acción puede tardar unos minutos...</translation>
 <translation id="2649045351178520408">ASCII codificado en Base64, cadena de certificados</translation>
@@ -1706,7 +1706,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="3399597614303179694">Teclado macedonio</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="340485819826776184">Utilizar un servicio de predicciones para completar búsquedas y URL escritas en la barra de direcciones</translation>
-<translation id="3405664148539009465">Fuentes personalizadas</translation>
+<translation id="3405664148539009465">Personalizar fuentes</translation>
 <translation id="3405763860805964263">...</translation>
 <translation id="3406605057700382950">&amp;Mostrar barra de marcadores</translation>
 <translation id="3407139303484213329">&amp;Descargar página...</translation>
@@ -2181,6 +2181,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="4095507791297118304">Pantalla principal</translation>
 <translation id="409579654357498729">Añadir a Cloud Print</translation>
 <translation id="4096508467498758490">Inhabilitar extensiones en modo de desarrollador</translation>
+<translation id="4096824249111507322">Se está preparando el módulo seguro. Este proceso tardar unos minutos...</translation>
 <translation id="4099060993766194518">¿Restaurar el motor de búsqueda predeterminado?</translation>
 <translation id="4100733287846229632">Queda muy poco espacio en el dispositivo</translation>
 <translation id="410351446219883937">Reproducción automática</translation>
@@ -2517,6 +2518,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4657031070957997341">Permitir siempre complementos en <ph name="HOST" /></translation>
 <translation id="4662788913887017617">Compartir este marcador con tu iPhone</translation>
 <translation id="4664482161435122549">Error de exportación de archivos PKCS #12</translation>
+<translation id="466481852929361583">Se está configurando el módulo seguro. Ten paciencia, este proceso puede tardar unos minutos.</translation>
 <translation id="4665014895760275686">Fabricante</translation>
 <translation id="4667176955651319626">Bloquear cookies y datos de sitios de terceros</translation>
 <translation id="4668721319092543482">Haz clic para habilitar <ph name="PLUGIN_NAME" /></translation>
@@ -3140,7 +3142,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="5554573843028719904">Otra red Wi-Fi...</translation>
 <translation id="5554720593229208774">Entidad emisora de certificados de correo electrónico</translation>
 <translation id="5556206011531515970">Haz clic en Siguiente para seleccionar el navegador predeterminado.</translation>
-<translation id="5556459405103347317">Cargar de nuevo</translation>
+<translation id="5556459405103347317">Volver a cargar</translation>
 <translation id="555746285996217175">Bloqueo/encendido</translation>
 <translation id="5557991081552967863">Mantener Wi-Fi encendida en suspensión</translation>
 <translation id="5558129378926964177">Ampliar &amp;zoom</translation>
@@ -3274,6 +3276,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="5774515636230743468">Manifiesto:</translation>
 <translation id="577624874850706961">Buscar cookies</translation>
 <translation id="5778550464785688721">Control total de dispositivos MIDI</translation>
+<translation id="5778747455497889540">Esta es la contraseña del módulo seguro generada aleatoriamente que se ha asignado a tu ordenador:</translation>
 <translation id="5780066559993805332">(Mejor)</translation>
 <translation id="5780973441651030252">Prioridad del proceso</translation>
 <translation id="5781865261247219930">Enviar comandos a <ph name="EXTENSION_NAME" /></translation>
@@ -3332,6 +3335,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="5854409662653665676">Si tienes dificultades con frecuencia, puedes probar a realizar las siguientes acciones para resolver el error de este módulo:</translation>
 <translation id="5854912040170951372">Pizza</translation>
 <translation id="5855119960719984315">cambiar ventana</translation>
+<translation id="5855773610748894548">Vaya, se ha producido un error en el módulo de seguridad.</translation>
 <translation id="5856721540245522153">Habilitar funciones de depuración</translation>
 <translation id="5857090052475505287">Nueva carpeta</translation>
 <translation id="5859272821192576954">Todo listo para utilizar Hangouts</translation>
@@ -3852,6 +3856,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="6629841649550503054">Se ha realizado la copia de seguridad de todos los archivos en <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" /></translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" /> desea acceder de forma permanente a un certificado parar autenticarse en tu nombre.</translation>
 <translation id="6639554308659482635">Memoria de SQLite</translation>
+<translation id="6641138807883536517">La contraseña del modulo de seguridad generada de forma aleatoria no está disponible (suele ocurrir después de un Powerwash).</translation>
 <translation id="6643016212128521049">Eliminar</translation>
 <translation id="6644846457769259194">Actualizando el dispositivo (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">URL de revocación de la entidad emisora de certificados de Netscape</translation>
@@ -4073,6 +4078,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="6991128190741664836">Más tarde</translation>
 <translation id="6991665348624301627">Seleccionar un destino</translation>
 <translation id="699220179437400583">Enviar a Google automáticamente información sobre posibles incidentes de seguridad</translation>
+<translation id="6996946928646015361">Falta el módulo de seguridad o está inhabilitado.</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> carpetas seleccionadas</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{La página siguiente no responde. Puedes cerrarla o esperar a que responda.}other{Las páginas siguientes no responden. Puedes cerrarlas o esperar a que respondan.}}</translation>
 <translation id="7002055706763150362">Para configurar Smart Lock para Chromebook, Google necesita asegurarse de que eres el usuario legítimo. Escribe tu contraseña para empezar.</translation>
@@ -5143,6 +5149,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8631032106121706562">Pétalos</translation>
 <translation id="8631271110654520730">Copiando imagen de recuperación...</translation>
 <translation id="8632275030377321303">El usuario no puede modificar el proxy.</translation>
+<translation id="8637542770513281060">Tu ordenador contiene un módulo de seguridad, que se utiliza para implementar un gran número de funciones importantes de seguridad en Chrome OS. Accede al Centro de Ayuda de los Chromebooks (https://support.google.com/chromebook/?p=sm) para obtener más información.</translation>
 <translation id="8637688295594795546">Hay disponible una actualización del sistema. Preparando para descargar…</translation>
 <translation id="8639963783467694461">Configuración de Autocompletar</translation>
 <translation id="8642171459927087831">Token de acceso</translation>

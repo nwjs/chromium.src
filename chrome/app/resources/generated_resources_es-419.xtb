@@ -2178,6 +2178,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4095507791297118304">Pantalla principal</translation>
 <translation id="409579654357498729">Agregar a Google Cloud Print</translation>
 <translation id="4096508467498758490">Inhabilitar extensiones en modo de programador</translation>
+<translation id="4096824249111507322">Se está preparando el módulo de seguridad. Espera (esta acción tardará algunos minutos)…</translation>
 <translation id="4099060993766194518">¿Deseas restaurar el motor de búsqueda predeterminado?</translation>
 <translation id="4100733287846229632">Hay muy poco espacio en el dispositivo</translation>
 <translation id="410351446219883937">Reproducción automática</translation>
@@ -2514,6 +2515,7 @@ Presiona cualquier tecla para seguir navegando.</translation>
 <translation id="4657031070957997341">Siempre permitir complementos en <ph name="HOST" /></translation>
 <translation id="4662788913887017617">Compartir este favorito con tu iPhone</translation>
 <translation id="4664482161435122549">Error en la exportación de PKCS #12</translation>
+<translation id="466481852929361583">Se está configurando el módulo de seguridad. No te impacientes; esta acción puede tardar unos minutos.</translation>
 <translation id="4665014895760275686">Fabricante</translation>
 <translation id="4667176955651319626">Bloquear los datos de sitio y las cookies de terceros</translation>
 <translation id="4668721319092543482">Hacer clic para habilitar <ph name="PLUGIN_NAME" /></translation>
@@ -3274,6 +3276,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="5774515636230743468">Manifiesto:</translation>
 <translation id="577624874850706961">Buscar cookies</translation>
 <translation id="5778550464785688721">Control total de dispositivos MIDI</translation>
+<translation id="5778747455497889540">A continuación, encontrarás la contraseña del módulo de seguridad generada de manera aleatoria que se le asigna a tu computadora:</translation>
 <translation id="5780066559993805332">(Superior)</translation>
 <translation id="5780973441651030252">Prioridad del proceso</translation>
 <translation id="5781865261247219930">Enviar comandos a <ph name="EXTENSION_NAME" /></translation>
@@ -3332,6 +3335,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="5854409662653665676">Si estás experimentando problemas frecuentes, podrías intentar lo siguiente para resolver este problema con este módulo.</translation>
 <translation id="5854912040170951372">Porción</translation>
 <translation id="5855119960719984315">cambiar de ventana</translation>
+<translation id="5855773610748894548">Se produjo un error en el módulo de seguridad.</translation>
 <translation id="5856721540245522153">Habilitar funciones de depuración</translation>
 <translation id="5857090052475505287">Nueva carpeta</translation>
 <translation id="5859272821192576954">Todo listo para utilizar Hangouts</translation>
@@ -3853,6 +3857,7 @@ Usa esta función solo con cuentas de confianza.</translation>
 <translation id="6629841649550503054">Todos los archivos están guardados en una copia de seguridad en <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" />.</translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" /> solicita acceso permanente a un certificado para autenticarse en tu nombre.</translation>
 <translation id="6639554308659482635">Memoria SQLite</translation>
+<translation id="6641138807883536517">La contraseña del módulo de seguridad generada de manera aleatoria no está disponible. Esto es normal después de un Powerwash.</translation>
 <translation id="6643016212128521049">Borrar</translation>
 <translation id="6644846457769259194">Actualizando tu dispositivo (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">URL de revocación de entidad de certificación de Netscape</translation>
@@ -4074,6 +4079,7 @@ Usa esta función solo con cuentas de confianza.</translation>
 <translation id="6991128190741664836">Más adelante</translation>
 <translation id="6991665348624301627">Seleccionar un destino</translation>
 <translation id="699220179437400583">Informar automáticamente detalles de posibles incidentes de seguridad a Google</translation>
+<translation id="6996946928646015361">El módulo de seguridad está inhabilitado o no está disponible.</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> carpetas seleccionadas</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{La página siguiente dejó de responder. Puedes esperar que responda o cerrarla.}other{Las páginas siguientes dejaron de responder. Puedes esperar que respondan o cerrarlas.}}</translation>
 <translation id="7002055706763150362">Google debe estar seguro de que se trata de ti si deseas configurar Smart Lock para Chromebook: escribe tu contraseña para comenzar.</translation>
@@ -5143,6 +5149,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8631032106121706562">Pétalos</translation>
 <translation id="8631271110654520730">Copiando imagen de recuperación...</translation>
 <translation id="8632275030377321303">El usuario no puede modificar el proxy.</translation>
+<translation id="8637542770513281060">Tu computadora cuenta con un módulo de seguridad que se usa para implementar varias funciones clave de seguridad en Sistema operativo Chrome. Para obtener más información, visita el Centro de ayuda de Chromebook: https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">Actualización del sistema disponible. Preparando para descargar...</translation>
 <translation id="8639963783467694461">Configuración de Autocompletar</translation>
 <translation id="8642171459927087831">Token de acceso</translation>

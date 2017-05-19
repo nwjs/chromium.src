@@ -2184,6 +2184,7 @@ Mula Sa <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4095507791297118304">Pangunahing display</translation>
 <translation id="409579654357498729">Idagdag sa Cloud Print</translation>
 <translation id="4096508467498758490">I-disable ang mga extension ng developer mode</translation>
+<translation id="4096824249111507322">Inihahanda ang secure na module, pakihintay (maaari itong abutin nang ilang minuto)...</translation>
 <translation id="4099060993766194518">I-restore ang default na search engine?</translation>
 <translation id="4100733287846229632">Sobrang kaunti na lang ang espasyo ng device</translation>
 <translation id="410351446219883937">I-autoplay</translation>
@@ -2520,6 +2521,7 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="4657031070957997341">Palaging pahintulutan ang mga plugin sa <ph name="HOST" /></translation>
 <translation id="4662788913887017617">Ibahagi ang bookmark na ito sa iyong iPhone</translation>
 <translation id="4664482161435122549">Error sa Pag-export ng PKCS #12</translation>
+<translation id="466481852929361583">Sine-set up na ang secure na module. Maging matiyaga; maaari itong abutin nang ilang minuto.</translation>
 <translation id="4665014895760275686">Manufacturer</translation>
 <translation id="4667176955651319626">Mag-block ng cookies ng third-party at data ng site</translation>
 <translation id="4668721319092543482">I-click upang i-enable ang <ph name="PLUGIN_NAME" /></translation>
@@ -3280,6 +3282,7 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="5774515636230743468">Manifest:</translation>
 <translation id="577624874850706961">Maghanap ng cookies</translation>
 <translation id="5778550464785688721">Ganap na pagkontrol sa mga MIDI device</translation>
+<translation id="5778747455497889540">Nasa ibaba ang random na ginawang password ng secure na module na naitalaga sa iyong computer:</translation>
 <translation id="5780066559993805332">(Pinakamahusay)</translation>
 <translation id="5780973441651030252">Priority ng proseso</translation>
 <translation id="5781865261247219930">Magpadala ng mga command sa <ph name="EXTENSION_NAME" /></translation>
@@ -3338,6 +3341,7 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="5854409662653665676">Kung nakakaranas ka ng madadalas na problema, maaari mong subukan ang sumusunod upang malutas ang isyu sa mobile na ito:</translation>
 <translation id="5854912040170951372">Pizza</translation>
 <translation id="5855119960719984315">lumipat ng window</translation>
+<translation id="5855773610748894548">Oops, nagkaroon ng error sa secure na module.</translation>
 <translation id="5856721540245522153">I-enable ang mga feature para sa pagde-debug</translation>
 <translation id="5857090052475505287">Bagong Folder</translation>
 <translation id="5859272821192576954">Handa ka nang magpatuloy sa Hangouts</translation>
@@ -3859,6 +3863,7 @@ Gamitin lang ang feature na ito sa mga account na iyong pinagkakatiwalaan.</tran
 <translation id="6629841649550503054">Naka-back up na ang lahat sa <ph name="BEGIN_LINK" />Google Drive!<ph name="END_LINK" /></translation>
 <translation id="6630752851777525409">Gusto ng <ph name="EXTENSION_NAME" /> ng permanenteng access sa isang certificate upang patunayan ang sarili nito sa iyong ngalan.</translation>
 <translation id="6639554308659482635">Memorya sa SQLite</translation>
+<translation id="6641138807883536517">Hindi available ang random na ginawang password ng secure na module. Normal lang ito pagkatapos ng Powerwash.</translation>
 <translation id="6643016212128521049">I-clear</translation>
 <translation id="6644846457769259194">Ina-update ang iyong device (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">Netscape Certification Authority Revocation URL</translation>
@@ -4082,6 +4087,7 @@ Gamitin lang ang feature na ito sa mga account na iyong pinagkakatiwalaan.</tran
 <translation id="6991128190741664836">Sa ibang pagkakataon</translation>
 <translation id="6991665348624301627">Pumili ng patutunguhan</translation>
 <translation id="699220179437400583">Awtomatikong iulat sa Google ang mga detalye ng mga posibleng isyu sa seguridad</translation>
+<translation id="6996946928646015361">Na-disable o wala ang secure na module.</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> (na) folder ang napili</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{Hindi tumutugon ang sumusunod na page. Maaari mong hintaying tumugon ito o isara ito.}one{Hindi tumutugon ang mga sumusunod na page. Maaari mong hintayin na tumugon ang mga ito o isara ang mga ito.}other{Hindi tumutugon ang mga sumusunod na page. Maaari mong hintayin na tumugon ang mga ito o isara ang mga ito.}}</translation>
 <translation id="7002055706763150362">Upang i-set up ang Smart Lock para sa Chromebook, kailangang matiyak ng Google na ikaw ito—i-type ang iyong password upang makapagsimula.</translation>
@@ -5155,6 +5161,7 @@ Kinakalkula ang oras hanggang sa mapuno</translation>
 <translation id="8631032106121706562">Bulaklak</translation>
 <translation id="8631271110654520730">Kinokopya ang larawan sa pagbawi...</translation>
 <translation id="8632275030377321303">Hindi mababago ng user ang proxy.</translation>
+<translation id="8637542770513281060">Naglalaman ng secure na module ang iyong computer, na ginagamit upang magpatupad ng maraming mahalagang feature ng seguridad sa Chrome OS. Bisitahin ang Help Center ng Chromebook upang matuto pa: https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">Available ang update sa system. Hinahandang i-download…</translation>
 <translation id="8639963783467694461">Mga setting ng autofill</translation>
 <translation id="8642171459927087831">Token ng Access</translation>

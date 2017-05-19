@@ -2182,6 +2182,7 @@ Daripada <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4095507791297118304">Paparan utama</translation>
 <translation id="409579654357498729">Tambahkan pada Cetakan Awan</translation>
 <translation id="4096508467498758490">Lumpuhkan sambungan mod pembangun</translation>
+<translation id="4096824249111507322">Modul selamat sedang disediakan, sila tunggu (proses ini mungkin mengambil masa beberapa minit)...</translation>
 <translation id="4099060993766194518">Pulihkan enjin carian lalai?</translation>
 <translation id="4100733287846229632">Ruang peranti terlalu rendah</translation>
 <translation id="410351446219883937">Automain</translation>
@@ -2518,6 +2519,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="4657031070957997341">Sentiasa benarkan pemalam pada <ph name="HOST" /></translation>
 <translation id="4662788913887017617">Kongsi penanda halaman ini dengan iPhone anda</translation>
 <translation id="4664482161435122549">PKCS #12 Eksport Ralat</translation>
+<translation id="466481852929361583">Modul selamat sedang disediakan. Sila bersabar; proses ini mungkin mengambil masa beberapa minit.</translation>
 <translation id="4665014895760275686">Pengeluar</translation>
 <translation id="4667176955651319626">Sekat kuki dan data tapak pihak ketiga</translation>
 <translation id="4668721319092543482">Klik untuk mendayakan <ph name="PLUGIN_NAME" /></translation>
@@ -3278,6 +3280,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="5774515636230743468">Ketara:</translation>
 <translation id="577624874850706961">Cari kuki</translation>
 <translation id="5778550464785688721">Kawalan penuh peranti MIDI</translation>
+<translation id="5778747455497889540">Di bawah ini ialah kata laluan modul selamat yang dijana secara rawak yang telah diperuntukkan kepada komputer anda:</translation>
 <translation id="5780066559993805332">(Terbaik)</translation>
 <translation id="5780973441651030252">Keutamaan proses</translation>
 <translation id="5781865261247219930">Hantar perintah kepada <ph name="EXTENSION_NAME" /></translation>
@@ -3336,6 +3339,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="5854409662653665676">Jika anda kerap mengalami masalah, anda boleh mencuba yang berikut untuk menyelesaikan isu dengan modul ini:</translation>
 <translation id="5854912040170951372">Kepingan</translation>
 <translation id="5855119960719984315">tukar tetingkap</translation>
+<translation id="5855773610748894548">Oops, ralat modul selamat.</translation>
 <translation id="5856721540245522153">Dayakan ciri penyahpepijatan</translation>
 <translation id="5857090052475505287">Folder Baharu</translation>
 <translation id="5859272821192576954">Anda telah sedia untuk terus ke Hangout</translation>
@@ -3857,6 +3861,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="6629841649550503054">Semua telah disandarkan pada <ph name="BEGIN_LINK" />Google Drive!<ph name="END_LINK" /></translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" /> inginkan akses tetap kepada sijil untuk mengesahkan dirinya sendiri bagi pihak anda.</translation>
 <translation id="6639554308659482635">Memori SQLite</translation>
+<translation id="6641138807883536517">Kata laluan modul selamat yang dijana secara rawak tidak tersedia. Perkara ini biasa berlaku selepas Powerwash.</translation>
 <translation id="6643016212128521049">Kosongkan</translation>
 <translation id="6644846457769259194">Mengemas kini peranti anda (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">URL Pembatalan Pihak Berkuasa Pensijilan Netscape</translation>
@@ -4079,6 +4084,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="6991128190741664836">Kemudian</translation>
 <translation id="6991665348624301627">Pilih destinasi</translation>
 <translation id="699220179437400583">Laporkan butiran kemungkinan insiden keselamatan kepada Google secara automatik</translation>
+<translation id="6996946928646015361">Modul selamat dilumpuhkan atau tiada.</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> folder dipilih</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{Halaman berikut telah menjadi tidak responsif. Anda boleh menunggu halaman menjadi responsif atau tutup halaman itu.}other{Halaman berikut telah menjadi tidak responsif. Anda boleh menunggu halaman menjadi responsif atau tutup halaman itu.}}</translation>
 <translation id="7002055706763150362">Untuk menyediakan Smart Lock untuk Chromebook, Google perlu memastikan ini ialah anda—taip kata laluan anda untuk bermula.</translation>
@@ -5149,6 +5155,7 @@ perubahan ini berlaku, anda mungkin tidak mahukannya.</translation>
 <translation id="8631032106121706562">Kelopak</translation>
 <translation id="8631271110654520730">Menyalin imej pemulihan...</translation>
 <translation id="8632275030377321303">Proksi tidak boleh diubah suai oleh pengguna.</translation>
+<translation id="8637542770513281060">Komputer anda mengandungi modul selamat, yang digunakan untuk melaksanakan banyak ciri keselamatan penting dalam OS Chrome. Lawati Pusat Bantuan Chromebook untuk mengetahui lebih lanjut: https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">Kemas kini sistem tersedia. Bersedia untuk  muat turun…</translation>
 <translation id="8639963783467694461">Tetapan auto isi</translation>
 <translation id="8642171459927087831">Token Akses</translation>

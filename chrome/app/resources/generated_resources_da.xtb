@@ -415,7 +415,7 @@
 <translation id="1568323446248056064">Åbn enhedens skærmindstillinger</translation>
 <translation id="1568822834048182062">Dine bogmærker, din historik og dine andre indstillinger synkroniseres med din Google-konto.</translation>
 <translation id="1572266655485775982">Aktivér Wi-Fi</translation>
-<translation id="1572876035008611720">Angiv din e-mailadresse</translation>
+<translation id="1572876035008611720">Angiv din mailadresse</translation>
 <translation id="1576594961618857597">Hvid standardavatar</translation>
 <translation id="1580652505892042215">Kontekst:</translation>
 <translation id="1581962803218266616">Vis i Finder</translation>
@@ -1908,7 +1908,7 @@ Fra <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3694027410380121301">Vælg forrige fane</translation>
 <translation id="3695919544155087829">Angiv den adgangskode, der blev brugt til at kryptere denne certifikatfil.</translation>
 <translation id="3697100740575341996">Din it-administrator har deaktiveret Chrome Goodies for din enhed. <ph name="MORE_INFO_LINK" /></translation>
-<translation id="3699624789011381381">E-mailadresse</translation>
+<translation id="3699624789011381381">Mailadresse</translation>
 <translation id="3702500414347826004"><ph name="URL" /> blev inkluderet i dine opstartssider.</translation>
 <translation id="3704162925118123524">Det netværk, du bruger, kan kræve, at du går til netværkets loginside.</translation>
 <translation id="3704331259350077894">Standsning af handling</translation>
@@ -2181,6 +2181,7 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4095507791297118304">Primær skærm</translation>
 <translation id="409579654357498729">Føj til Cloudprinter</translation>
 <translation id="4096508467498758490">Deaktiver udvidelser, der kører i udviklertilstand</translation>
+<translation id="4096824249111507322">Sikkerhedsmodulet forberedes. Vent lidt (dette kan tage et par minutter)...</translation>
 <translation id="4099060993766194518">Vil du gendanne standardsøgemaskinen?</translation>
 <translation id="4100733287846229632">Der er næsten ikke mere plads på enheden</translation>
 <translation id="410351446219883937">Autoplay</translation>
@@ -2509,13 +2510,14 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="4647697156028544508">Indtast pinkoden for "<ph name="DEVICE_NAME" />":</translation>
 <translation id="4648491805942548247">Utilstrækkelige tilladelser</translation>
 <translation id="4648499713050786492">Lås din profil op, før du kan tilføje en person.</translation>
-<translation id="4653235815000740718">Der opstod et problem under oprettelsen af genoprettelsesmediet til operativsystemet. Den brugte lagerenhed blev ikke fundet.</translation>
+<translation id="4653235815000740718">Der opstod et problem under oprettelsen af genoprettelsesmediet til operativsystemet. Den anvendte lagerenhed blev ikke fundet.</translation>
 <translation id="4654488276758583406">Meget lille</translation>
 <translation id="465499440663162826">Der kunne ikke oprettes forbindelse til Chrome Webshop.</translation>
 <translation id="4656293982926141856">Denne computer</translation>
 <translation id="4657031070957997341">Tillad altid plugins på <ph name="HOST" /></translation>
 <translation id="4662788913887017617">Del dette bogmærke med din iPhone</translation>
 <translation id="4664482161435122549">PKCS #12-eksportfejl</translation>
+<translation id="466481852929361583">Sikkerhedsmodulet konfigureres. Vær tålmodig, det kan tage et par minutter.</translation>
 <translation id="4665014895760275686">Producent</translation>
 <translation id="4667176955651319626">Bloker tredjepartscookies og websitedata</translation>
 <translation id="4668721319092543482">Klik for at aktivere <ph name="PLUGIN_NAME" /></translation>
@@ -3275,6 +3277,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5774515636230743468">Manifest:</translation>
 <translation id="577624874850706961">Søg i cookies</translation>
 <translation id="5778550464785688721">Fuld kontrol over MIDI</translation>
+<translation id="5778747455497889540">Nedenfor ses den tilfældigt genererede adgangskode til sikkerhedsmodulet, der er tilknyttet din computer:</translation>
 <translation id="5780066559993805332">(Bedst)</translation>
 <translation id="5780973441651030252">Procesprioritet</translation>
 <translation id="5781865261247219930">Send kommandoer til <ph name="EXTENSION_NAME" /></translation>
@@ -3333,6 +3336,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5854409662653665676">Hvis du ofte oplever problemer, kan du prøve følgende for at løse problemet med dette modul:</translation>
 <translation id="5854912040170951372">Pepperoni</translation>
 <translation id="5855119960719984315">skift vindue</translation>
+<translation id="5855773610748894548">Ups, der er en fejl i forbindelse med sikkerhedsmodulet.</translation>
 <translation id="5856721540245522153">Aktivér fejlfindingsfunktioner</translation>
 <translation id="5857090052475505287">Ny mappe</translation>
 <translation id="5859272821192576954">Du er klar til at fortsætte til Hangouts</translation>
@@ -3855,6 +3859,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="6629841649550503054">Alt er sikkerhedskopieret til <ph name="BEGIN_LINK" />Google Drev<ph name="END_LINK" />.</translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" /> ønsker permanent adgang til et certifikat for at godkende sig selv på dine vegne.</translation>
 <translation id="6639554308659482635">SQLite-hukommelse</translation>
+<translation id="6641138807883536517">Den tilfældigt genererede adgangskode til sikkerhedsmodulet er ikke tilgængelig. Dette er normalt efter en Powerwash.</translation>
 <translation id="6643016212128521049">Ryd</translation>
 <translation id="6644846457769259194">Opdaterer din enhed (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">Webadresse for tilbagekaldelse af Netscape-certifikatautoritet</translation>
@@ -4076,6 +4081,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="6991128190741664836">Senere</translation>
 <translation id="6991665348624301627">Vælg en destination</translation>
 <translation id="699220179437400583">Rapportér automatisk oplysninger om mulige sikkerhedshændelser til Google.</translation>
+<translation id="6996946928646015361">Sikkerhedsmodulet er deaktiveret eller mangler.</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> filer er valgt</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{Den følgende side svarer ikke. Du kan afvente svar fra den eller lukke den.}one{De følgende sider svarer ikke. Du kan afvente svar fra dem eller lukke dem.}other{De følgende sider svarer ikke. Du kan afvente svar fra dem eller lukke dem.}}</translation>
 <translation id="7002055706763150362">For at konfigurere Smart Lock til Chromebook skal Google først kontrollere, at du er den, du udgiver dig for at være. Indtast din adgangskode for at komme i gang.</translation>
@@ -4158,7 +4164,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7106346894903675391">Køb mere lagerplads...</translation>
 <translation id="7108338896283013870">Skjul</translation>
 <translation id="7108668606237948702">enter</translation>
-<translation id="7113502843173351041">Kende din e-mailadresse</translation>
+<translation id="7113502843173351041">Kende din mailadresse</translation>
 <translation id="7114054701490058191">Adgangskoderne matcher ikke</translation>
 <translation id="7115051913071512405">Prøv det</translation>
 <translation id="7117247127439884114">Log ind igen...</translation>
@@ -4218,7 +4224,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7221155467930685510">$1 GB</translation>
 <translation id="7221855153210829124">Vise underretninger</translation>
 <translation id="7221869452894271364">Genindlæs denne side</translation>
-<translation id="7222232353993864120">E-mailadresse</translation>
+<translation id="7222232353993864120">Mailadresse</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7222624196722476520">Bulgarsk tastatur (fonetisk)</translation>
 <translation id="722363467515709460">Aktivér skærmforstørrer</translation>
@@ -4323,7 +4329,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7384292194278095697">Denne enhed understøttes ikke længere</translation>
 <translation id="7385854874724088939">Der gik noget galt, da du prøvede at udskrive. Tjek din printer, og prøv igen.</translation>
 <translation id="7386824183915085801">Versionsnummeret på din Chrome-browser og dit operativsystem sendes sammen med
-          eventuelle oplysninger, du vælger at medtage herover. Hvis du medtager din e-mailadresse,
+          eventuelle oplysninger, du vælger at medtage herover. Hvis du medtager din mailadresse,
           kan Google kontakte dig vedrørende din feedbackrapport. Denne feedback
           anvendes til at diagnosticere problemer og forbedre Chrome. Eventuelle personlige oplysninger,
           som du måtte indsende, hvad enten dette sker hændeligt eller bevidst, beskyttes i
@@ -4781,7 +4787,7 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 <translation id="8053278772142718589">PKCS #12-filer</translation>
 <translation id="8053390638574070785">Genindlæs denne side</translation>
 <translation id="8054517699425078995">Denne type fil kan beskadige din enhed. Vil du beholde <ph name="FILE_NAME" /> alligevel?</translation>
-<translation id="8054563304616131773">Angiv en gyldig e-mailadresse</translation>
+<translation id="8054563304616131773">Angiv en gyldig mailadresse</translation>
 <translation id="8054921503121346576">USB-tastatur er tilsluttet</translation>
 <translation id="8056430285089645882">Det er forstået. Vis det ikke igen.</translation>
 <translation id="8058655154417507695">Udløbsår</translation>
@@ -5145,6 +5151,7 @@ Beregner resterende tid</translation>
 <translation id="8631032106121706562">Marguerit</translation>
 <translation id="8631271110654520730">Kopierer genoprettelsesbilledet...</translation>
 <translation id="8632275030377321303">Proxyen kan ikke ændres af brugeren.</translation>
+<translation id="8637542770513281060">Computeren indeholder et sikkerhedsmodul, som bruges til at implementere flere vigtige sikkerhedsfunktioner i Chrome OS. Du kan få flere oplysninger i Hjælp til Chromebook: https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">Der findes en tilgængelig opdatering til systemet. Forbereder download...</translation>
 <translation id="8639963783467694461">Indstillinger for AutoFyld</translation>
 <translation id="8642171459927087831">Adgangstoken</translation>

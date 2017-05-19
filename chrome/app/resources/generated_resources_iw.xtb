@@ -2176,6 +2176,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4095507791297118304">צג ראשי</translation>
 <translation id="409579654357498729">‏הוסף ל-Google Cloud Print</translation>
 <translation id="4096508467498758490">השבתת תוספים של מצב מפתח</translation>
+<translation id="4096824249111507322">המערכת מכינה את המודול המאובטח (פעולה זו עשויה להימשך מספר דקות), אנא המתן...</translation>
 <translation id="4099060993766194518">לשחזר את מנוע החיפוש שהוגדר כברירת המחדל?</translation>
 <translation id="4100733287846229632">שטח האחסון במכשיר כמעט נגמר</translation>
 <translation id="410351446219883937">הפעלה אוטומטית</translation>
@@ -2512,6 +2513,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4657031070957997341">התר תמיד יישומי פלאגין ב-<ph name="HOST" /></translation>
 <translation id="4662788913887017617">‏שיתוף הסימניה באמצעות ה-iPhone</translation>
 <translation id="4664482161435122549">‏שגיאת ייצוא של PKCS #12</translation>
+<translation id="466481852929361583">המערכת מכינה את המודול המאובטח. אנא המתן; הפעולה עשויה להימשך מספר דקות.</translation>
 <translation id="4665014895760275686">יצרן</translation>
 <translation id="4667176955651319626">‏חסום נתוני אתר וקובצי Cookie של צד שלישי</translation>
 <translation id="4668721319092543482">לחץ כדי להפעיל את <ph name="PLUGIN_NAME" /></translation>
@@ -3273,6 +3275,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5774515636230743468">מניפסט:</translation>
 <translation id="577624874850706961">‏חפש קובצי Cookie</translation>
 <translation id="5778550464785688721">‏שליטה מלאה במכשירי MIDI</translation>
+<translation id="5778747455497889540">סיסמת המודול המאובטח שנוצרה באופן אקראי והוקצתה למחשב שלך:</translation>
 <translation id="5780066559993805332">(מומלץ ביותר)</translation>
 <translation id="5780973441651030252">עדיפות תהליך</translation>
 <translation id="5781865261247219930">שלח תגובות אל <ph name="EXTENSION_NAME" /></translation>
@@ -3331,6 +3334,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5854409662653665676">אם אתה נתקל בבעיות לעתים קרובות, תוכל לנסות את הפעולות הבאות לפתירת הבעיה במודול זה:</translation>
 <translation id="5854912040170951372">משולש</translation>
 <translation id="5855119960719984315">החלפת חלון</translation>
+<translation id="5855773610748894548">אופס, שגיאה במודול המאובטח.</translation>
 <translation id="5856721540245522153">הפעל תכונות לניפוי באגים</translation>
 <translation id="5857090052475505287">תיקייה חדשה</translation>
 <translation id="5859272821192576954">‏הכל מוכן ואתה יכול להמשיך ל-Hangouts</translation>
@@ -3852,6 +3856,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6629841649550503054">‏הכל מגובה ב-<ph name="BEGIN_LINK" />Google Drive!<ph name="END_LINK" /></translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" /> מעוניין בגישה קבועה לאישור כדי לאמת את עצמו בשמך.</translation>
 <translation id="6639554308659482635">‏זיכרון SQLite </translation>
+<translation id="6641138807883536517">‏סיסמת המודול המאובטח הנוצרת באופן אקראי אינה זמינה. זהו מצב רגיל לאחר ביצוע Powerwash.</translation>
 <translation id="6643016212128521049">נקה</translation>
 <translation id="6644846457769259194">מעדכן את המכשיר שלך (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">‏כתובת אתר לביטול של רשות אישורי Netscape</translation>
@@ -4073,6 +4078,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6991128190741664836">מאוחר יותר</translation>
 <translation id="6991665348624301627">בחר יעד</translation>
 <translation id="699220179437400583">‏דווח אוטומטית ל-Google על פרטים של בעיות אבטחה אפשריות</translation>
+<translation id="6996946928646015361">המודול המאובטח מושבת או חסר.</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> תיקיות נבחרו</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{הדף הבא הפסיק להגיב. תוכל להמתין עד שיגיב, או להסיר אותו.}two{הדפים הבאים הפסיקו להגיב. תוכל להמתין עד שיגיבו, או להסירם.}many{הדפים הבאים הפסיקו להגיב. תוכל להמתין עד שיגיבו, או להסירם.}other{הדפים הבאים הפסיקו להגיב. תוכל להמתין עד שיגיבו, או להסירם.}}</translation>
 <translation id="7002055706763150362">‏כדי להגדיר את ‏Smart Lock for Chromebook‏, Google צריכה לאמת את הזהות שלך - כדי להתחיל הזן את הסיסמה.</translation>
@@ -5133,6 +5139,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8631032106121706562">עלי כותרת</translation>
 <translation id="8631271110654520730">מעתיק תמונת שחזור...</translation>
 <translation id="8632275030377321303">‏המשתמש לא יכול לשנות את שרת ה-proxy.</translation>
+<translation id="8637542770513281060">‏המחשב שלך מכיל מודול מאובטח המשמש ליישום תכונות אבטחה קריטיות רבות ב-Chrome OS. היכנס למרכז העזרה של Chromebook כדי לקבל מידע נוסף: https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">עדכון מערכת זמין. מתכונן להוריד…</translation>
 <translation id="8639963783467694461">הגדרות מילוי אוטומטי</translation>
 <translation id="8642171459927087831">אסימון גישה</translation>

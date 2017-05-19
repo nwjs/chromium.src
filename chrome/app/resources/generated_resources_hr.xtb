@@ -2181,6 +2181,7 @@ s <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4095507791297118304">Primarni zaslon</translation>
 <translation id="409579654357498729">Dodaj na Cloud Print</translation>
 <translation id="4096508467498758490">Onemogućivanje proširenja u načinu rada razvojnog programera</translation>
+<translation id="4096824249111507322">Sigurni se modul priprema, pričekajte (to može potrajati nekoliko minuta)...</translation>
 <translation id="4099060993766194518">Želite li vratiti zadanu tražilicu?</translation>
 <translation id="4100733287846229632">Količina prostora na uređaju kritično je mala</translation>
 <translation id="410351446219883937">Automatska reprodukcija</translation>
@@ -2517,6 +2518,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="4657031070957997341">Uvijek dopusti dodatke na <ph name="HOST" /></translation>
 <translation id="4662788913887017617">Dijelite ovu oznaku sa svojim iPhoneom</translation>
 <translation id="4664482161435122549">Pogreška pri izvozu PKCS #12</translation>
+<translation id="466481852929361583">Sigurni se modul postavlja. Strpite se jer to može potrajati nekoliko minuta.</translation>
 <translation id="4665014895760275686">Proizvođač</translation>
 <translation id="4667176955651319626">Blokiraj kolačiće trećih strana i podatke web-lokacije</translation>
 <translation id="4668721319092543482">Kliknite da biste omogućili <ph name="PLUGIN_NAME" /></translation>
@@ -3277,6 +3279,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="5774515636230743468">Manifest:</translation>
 <translation id="577624874850706961">Pretraživanje kolačića</translation>
 <translation id="5778550464785688721">Potpuni nadzor nad MIDI uređajima</translation>
+<translation id="5778747455497889540">U nastavku se nalazi nasumično generirana zaporka sigurnog modula dodijeljena vašem računalu:</translation>
 <translation id="5780066559993805332">(Najbolje)</translation>
 <translation id="5780973441651030252">Prioritet obrade</translation>
 <translation id="5781865261247219930">Pošalji naredbe proširenju <ph name="EXTENSION_NAME" /></translation>
@@ -3335,6 +3338,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="5854409662653665676">Ako često imate problema, pokušajte na sljedeći način riješiti poteškoće s ovim modulom:</translation>
 <translation id="5854912040170951372">Kriška</translation>
 <translation id="5855119960719984315">promjena prozora</translation>
+<translation id="5855773610748894548">Ups, pogreška sigurnog modula.</translation>
 <translation id="5856721540245522153">Omogućivanje značajki za otklanjanje pogrešaka</translation>
 <translation id="5857090052475505287">Nova mapa</translation>
 <translation id="5859272821192576954">Spremni ste za nastavak na Hangoutse</translation>
@@ -3856,6 +3860,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="6629841649550503054">Sve je sigurnosno spremljeno na <ph name="BEGIN_LINK" />Google disk!<ph name="END_LINK" /></translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" /> traži trajan pristup certifikatu za samostalnu autentifikaciju u vaše ime.</translation>
 <translation id="6639554308659482635">SQLite memorija</translation>
+<translation id="6641138807883536517">Nasumično generirana zaporka sigurnog modula nije dostupna. To je uobičajeno nakon primjene funkcije Powerwash.</translation>
 <translation id="6643016212128521049">Izbriši</translation>
 <translation id="6644846457769259194">Ažuriranje uređaja (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">URL za opoziv tijela za izdavanje Netscape certifikata</translation>
@@ -4077,6 +4082,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="6991128190741664836">Kasnije</translation>
 <translation id="6991665348624301627">Odaberite odredište</translation>
 <translation id="699220179437400583">Automatski prijavi Googleu pojedinosti o mogućim sigurnosnim incidentima</translation>
+<translation id="6996946928646015361">Sigurni je modul onemogućen ili ga nema.</translation>
 <translation id="6998711733709403587">Broj odabranih mapa: <ph name="SELCTED_FOLDERS_COUNT" /></translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{Sljedeća stranica ne reagira. Možete pričekati da počne reagirati ili je zatvoriti.}one{Sljedeće stranice ne reagiraju. Možete pričekati da počnu reagirati ili ih zatvoriti.}few{Sljedeće stranice ne reagiraju. Možete pričekati da počnu reagirati ili ih zatvoriti.}other{Sljedeće stranice ne reagiraju. Možete pričekati da počnu reagirati ili ih zatvoriti.}}</translation>
 <translation id="7002055706763150362">Za postavljanje Smart Locka za Chromebook Google treba provjeriti jeste li to zaista vi. Upišite zaporku da biste započeli.</translation>
@@ -5145,6 +5151,7 @@ Ključnu datoteku čuvajte na sigurnom mjestu. Trebat će vam za stvaranje novih
 <translation id="8631032106121706562">Latica</translation>
 <translation id="8631271110654520730">Kopiranje slike za oporavak...</translation>
 <translation id="8632275030377321303">Korisnik ne može mijenjati proxy.</translation>
+<translation id="8637542770513281060">Vaše računalo sadrži sigurni modul koji se upotrebljava za primjenu mnogih važnih sigurnosnih značajki u OS-u Chrome. Posjetite Chromebookov centar za pomoć da biste saznali više: https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">Dostupno ažuriranje sustava. Priprema za preuzimanje…</translation>
 <translation id="8639963783467694461">Postavke automatske ispune</translation>
 <translation id="8642171459927087831">Token pristupa</translation>

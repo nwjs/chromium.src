@@ -2183,6 +2183,7 @@ Iz <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4095507791297118304">Glavni zaslon</translation>
 <translation id="409579654357498729">Dodaj v Google Tiskanje v oblaku</translation>
 <translation id="4096508467498758490">Onemogočanje razširitev za razvijalski način</translation>
+<translation id="4096824249111507322">Varni modul se pripravlja, počakajte (to bo morda trajalo nekaj minut) ...</translation>
 <translation id="4099060993766194518">Želite obnoviti privzeti iskalnik?</translation>
 <translation id="4100733287846229632">V napravi kritično primanjkuje prostora</translation>
 <translation id="410351446219883937">Samodejno predvajanje</translation>
@@ -2519,6 +2520,7 @@ Pritisnite katero koli tipko, če želite še naprej raziskovati.</translation>
 <translation id="4657031070957997341">Vedno dovoli vtičnike na mestu <ph name="HOST" /></translation>
 <translation id="4662788913887017617">Deljenje tega zaznamka z iPhonom</translation>
 <translation id="4664482161435122549">Napaka pri izvozu PKCS #12</translation>
+<translation id="466481852929361583">Poteka nastavljanje varnega modula. Bodite potrpežljivi, to bo morda trajalo nekaj minut.</translation>
 <translation id="4665014895760275686">Proizvajalec</translation>
 <translation id="4667176955651319626">Blokiraj piškotke in podatke drugih spletnih mest</translation>
 <translation id="4668721319092543482">Kliknite, če želite omogočiti <ph name="PLUGIN_NAME" /></translation>
@@ -3280,6 +3282,7 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="5774515636230743468">Manifest:</translation>
 <translation id="577624874850706961">Preišči piškotke</translation>
 <translation id="5778550464785688721">Popolni nadzor naprav MIDI</translation>
+<translation id="5778747455497889540">Spodaj je prikazano naključno ustvarjeno geslo za varni modul, dodeljeno vašemu računalniku:</translation>
 <translation id="5780066559993805332">(Najboljša)</translation>
 <translation id="5780973441651030252">Prednost postopkov</translation>
 <translation id="5781865261247219930">Pošlji ukaze razširitvi <ph name="EXTENSION_NAME" /></translation>
@@ -3338,6 +3341,7 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="5854409662653665676">Če pogosto doživljate težave, jih poskusite razrešiti s tem modulom:</translation>
 <translation id="5854912040170951372">Kos</translation>
 <translation id="5855119960719984315">preklop okna</translation>
+<translation id="5855773610748894548">Napaka varnega modula.</translation>
 <translation id="5856721540245522153">Omogočanje funkcij za odpravljanje napak</translation>
 <translation id="5857090052475505287">Nova mapa</translation>
 <translation id="5859272821192576954">Pripravljeni ste za nadaljevanje v Hangouts</translation>
@@ -3858,6 +3862,7 @@ Uporabljajte to funkcijo samo z računi, ki jim zaupate.</translation>
 <translation id="6629841649550503054">Vse varnostno kopirano v <ph name="BEGIN_LINK" />Google Drive!<ph name="END_LINK" /></translation>
 <translation id="6630752851777525409">Razširitev <ph name="EXTENSION_NAME" /> želi trajen dostop do potrdila za preverjanje svoje pristnosti v vašem imenu.</translation>
 <translation id="6639554308659482635">Pomnilnik SQLite</translation>
+<translation id="6641138807883536517">Naključno ustvarjeno geslo za varni modul ni na voljo. To je običajno po izvedbi funkcije Powerwash.</translation>
 <translation id="6643016212128521049">Počisti</translation>
 <translation id="6644846457769259194">Posodabljanje naprave (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">Spletni naslov preklica overitelja Netscapeovega potrdila</translation>
@@ -4079,6 +4084,7 @@ Uporabljajte to funkcijo samo z računi, ki jim zaupate.</translation>
 <translation id="6991128190741664836">Pozneje</translation>
 <translation id="6991665348624301627">Izberite cilj</translation>
 <translation id="699220179437400583">Samodejno poročanje podrobnosti morebitnih varnostnih dogodkov Googlu</translation>
+<translation id="6996946928646015361">Varni modul je onemogočen ali ni nameščen.</translation>
 <translation id="6998711733709403587">Izbranih toliko map: <ph name="SELCTED_FOLDERS_COUNT" /></translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{Ta stran se je nehala odzivati. Lahko počakate, da se začne odzivati, ali pa jo zaprete.}one{Te strani so se nehale odzivati. Lahko počakate, da se začnejo odzivati ali pa jih zaprete.}two{Te strani so se nehale odzivati. Lahko počakate, da se začnejo odzivati ali pa jih zaprete.}few{Te strani so se nehale odzivati. Lahko počakate, da se začnejo odzivati ali pa jih zaprete.}other{Te strani so se nehale odzivati. Lahko počakate, da se začnejo odzivati ali pa jih zaprete.}}</translation>
 <translation id="7002055706763150362">Če želite nastaviti Smart Lock za Chromebook, se mora Google prepričati, da ste to res vi – vnesite geslo, če želite začeti.</translation>
@@ -5150,6 +5156,7 @@ izračun časa do napolnjenosti</translation>
 <translation id="8631032106121706562">Rožica</translation>
 <translation id="8631271110654520730">Kopiranje posnetka za obnovitev ...</translation>
 <translation id="8632275030377321303">Strežnika proxy ne more spreminjati uporabnik.</translation>
+<translation id="8637542770513281060">V računalnik je vgrajen varni modul, potreben za številne nujne varnostne funkcije v sistemu OS Chrome. Več o njem lahko preberete v centru za pomoč za Chromebook: https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="8637688295594795546">Na voljo je sistemska posodobitev. Priprava za prenos ...</translation>
 <translation id="8639963783467694461">Nastavitve samodejnega izpolnjevanja</translation>
 <translation id="8642171459927087831">Žeton za dostop</translation>

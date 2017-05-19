@@ -2182,6 +2182,7 @@
 <translation id="4095507791297118304">기본 디스플레이</translation>
 <translation id="409579654357498729">클라우드 프린트에 추가</translation>
 <translation id="4096508467498758490">개발자 모드 확장 프로그램 사용 중지</translation>
+<translation id="4096824249111507322">보안 모듈을 준비 중입니다. 잠시 기다려 주세요. 몇 분 정도 걸릴 수 있습니다...</translation>
 <translation id="4099060993766194518">기본 검색 엔진을 복원하시겠습니까?</translation>
 <translation id="4100733287846229632">기기 저장 공간 매우 부족</translation>
 <translation id="410351446219883937">자동재생</translation>
@@ -2518,6 +2519,7 @@
 <translation id="4657031070957997341"><ph name="HOST" />에서 플러그인 항상 허용</translation>
 <translation id="4662788913887017617">이 북마크를 내 iPhone과 공유</translation>
 <translation id="4664482161435122549">PKCS #12 내보내기 오류</translation>
+<translation id="466481852929361583">보안 모듈을 설정 중입니다. 잠시만 기다려 주세요. 몇 분 정도 걸릴 수 있습니다.</translation>
 <translation id="4665014895760275686">제조업체</translation>
 <translation id="4667176955651319626">타사 쿠키 및 사이트 데이터 차단</translation>
 <translation id="4668721319092543482"><ph name="PLUGIN_NAME" />을(를) 사용하려면 클릭하세요.</translation>
@@ -3278,6 +3280,7 @@
 <translation id="5774515636230743468">매니페스트:</translation>
 <translation id="577624874850706961">쿠키 검색</translation>
 <translation id="5778550464785688721">MIDI 기기 전체 제어</translation>
+<translation id="5778747455497889540">다음은 임의로 생성된 후 내 컴퓨터에 할당된 보안 모듈 비밀번호입니다.</translation>
 <translation id="5780066559993805332">(최고 해상도)</translation>
 <translation id="5780973441651030252">프로세스 우선순위</translation>
 <translation id="5781865261247219930"><ph name="EXTENSION_NAME" />에 명령어 보내기</translation>
@@ -3336,6 +3339,7 @@
 <translation id="5854409662653665676">문제가 자주 발생할 경우 다음 단계에 따라 모듈 문제를 해결할 수 있습니다.</translation>
 <translation id="5854912040170951372">피자왕</translation>
 <translation id="5855119960719984315">창 전환</translation>
+<translation id="5855773610748894548">보안 모듈 오류입니다.</translation>
 <translation id="5856721540245522153">디버깅 기능 사용</translation>
 <translation id="5857090052475505287">새 폴더</translation>
 <translation id="5859272821192576954">계속해서 행아웃을 사용할 준비가 되었습니다.</translation>
@@ -3857,6 +3861,7 @@
 <translation id="6629841649550503054">모두 <ph name="BEGIN_LINK" />Google 드라이브<ph name="END_LINK" />에 백업했습니다.</translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" />에서 사용자를 대신하여 인증하기 위해 인증서에 대한 영구적인 액세스 권한을 요청합니다.</translation>
 <translation id="6639554308659482635">SQLite 메모리</translation>
+<translation id="6641138807883536517">임의로 생성된 보안 모듈 비밀번호는 사용할 수 없습니다. 이는 파워워시 후에는 정상적으로 나타나는 현상입니다.</translation>
 <translation id="6643016212128521049">삭제</translation>
 <translation id="6644846457769259194">기기 업데이트 중(<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">Netscape 인증 기관 취소 URL</translation>
@@ -4078,6 +4083,7 @@
 <translation id="6991128190741664836">나중에</translation>
 <translation id="6991665348624301627">대상 선택</translation>
 <translation id="699220179437400583">발생 가능성이 있는 보안 문제의 세부정보를 자동으로 Google에 신고합니다.</translation>
+<translation id="6996946928646015361">보안 모듈이 사용 중지되었거나 없습니다.</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" />개의 폴더가 선택됨</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{다음 페이지가 응답하지 않습니다. 페이지가 응답할 때까지 기다리거나 종료할 수 있습니다.}other{다음 페이지가 응답하지 않습니다. 페이지가 응답할 때까지 기다리거나 종료할 수 있습니다.}}</translation>
 <translation id="7002055706763150362">Chromebook용 Smart Lock을 설정하려면 본인 확인이 필요합니다. 시작하려면 비밀번호를 입력하세요.</translation>
@@ -5149,6 +5155,7 @@
 <translation id="8631032106121706562">꽃잎</translation>
 <translation id="8631271110654520730">복구 이미지를 복사 중...</translation>
 <translation id="8632275030377321303">프록시는 사용자가 수정할 수 없습니다.</translation>
+<translation id="8637542770513281060">컴퓨터에 보안 모듈이 있습니다. 보안 모듈은 Chrome OS에서 여러 중요한 보안 기능을 구현하는 데 사용됩니다. 자세히 알아보려면 Chromebook 고객센터의 다음 페이지를 방문하세요. https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">시스템 업데이트 사용가능. 다운로드 준비 중…</translation>
 <translation id="8639963783467694461">자동완성 설정</translation>
 <translation id="8642171459927087831">액세스 토큰</translation>

@@ -2182,6 +2182,7 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4095507791297118304">Primary display</translation>
 <translation id="409579654357498729">Add to Cloud Print</translation>
 <translation id="4096508467498758490">Disable developer mode extensions</translation>
+<translation id="4096824249111507322">Secure module is being prepared, please wait (this may take a few minutes)...</translation>
 <translation id="4099060993766194518">Restore default search engine?</translation>
 <translation id="4100733287846229632">Device space critically low</translation>
 <translation id="410351446219883937">Autoplay</translation>
@@ -2518,6 +2519,7 @@ Press any key to continue exploring.</translation>
 <translation id="4657031070957997341">Always allow plug-ins on <ph name="HOST" /></translation>
 <translation id="4662788913887017617">Share this bookmark with your iPhone</translation>
 <translation id="4664482161435122549">PKCS No.12 Export Error</translation>
+<translation id="466481852929361583">The secure module is being set up. Please be patient; this may take a few minutes.</translation>
 <translation id="4665014895760275686">Manufacturer</translation>
 <translation id="4667176955651319626">Block third-party cookies and site data</translation>
 <translation id="4668721319092543482">Click to enable <ph name="PLUGIN_NAME" /></translation>
@@ -3278,6 +3280,7 @@ Press any key to continue exploring.</translation>
 <translation id="5774515636230743468">Manifest:</translation>
 <translation id="577624874850706961">Search cookies</translation>
 <translation id="5778550464785688721">MIDI devices full control</translation>
+<translation id="5778747455497889540">Below is the randomly generated secure module password that has been assigned to your computer:</translation>
 <translation id="5780066559993805332">(Best)</translation>
 <translation id="5780973441651030252">Process priority</translation>
 <translation id="5781865261247219930">Send commands to <ph name="EXTENSION_NAME" /></translation>
@@ -3336,6 +3339,7 @@ Press any key to continue exploring.</translation>
 <translation id="5854409662653665676">If you are experiencing frequent problems, you could try the following to resolve the issue with this module:</translation>
 <translation id="5854912040170951372">Pizza</translation>
 <translation id="5855119960719984315">switch window</translation>
+<translation id="5855773610748894548">Oops, secure module error.</translation>
 <translation id="5856721540245522153">Enable debugging features</translation>
 <translation id="5857090052475505287">New Folder</translation>
 <translation id="5859272821192576954">You're all set to continue on to Hangouts</translation>
@@ -3857,6 +3861,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="6629841649550503054">All backed up to <ph name="BEGIN_LINK" />Google Drive!<ph name="END_LINK" /></translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" /> wants permanent access to a certificate to authenticate itself on your behalf.</translation>
 <translation id="6639554308659482635">SQLite memory</translation>
+<translation id="6641138807883536517">The randomly generated secure module password is not available. This is normal after a Powerwash.</translation>
 <translation id="6643016212128521049">Clear</translation>
 <translation id="6644846457769259194">Updating your device (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">Netscape Certification Authority Revocation URL</translation>
@@ -4079,6 +4084,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="6991128190741664836">Later</translation>
 <translation id="6991665348624301627">Select a destination</translation>
 <translation id="699220179437400583">Automatically report details of possible security incidents to Google</translation>
+<translation id="6996946928646015361">Secure module is disabled or absent.</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> folders selected</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{The following page has become unresponsive. You can wait for it to become responsive or kill it.}other{The following pages have become unresponsive. You can wait for them to become responsive or kill them.}}</translation>
 <translation id="7002055706763150362">To set up Smart Lock for Chromebook, Google needs to make sure that it’s you – type your password to get started.</translation>
@@ -5150,6 +5156,7 @@ Calculating time until full</translation>
 <translation id="8631032106121706562">Petals</translation>
 <translation id="8631271110654520730">Copying recovery image...</translation>
 <translation id="8632275030377321303">The proxy cannot be modified by the user.</translation>
+<translation id="8637542770513281060">Your computer contains a secure module, which is used to implement many critical security features in Chrome OS. Visit the Chromebook Help Centre to learn more: https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">System update available. Preparing to download…</translation>
 <translation id="8639963783467694461">Auto-fill settings</translation>
 <translation id="8642171459927087831">Access Token</translation>

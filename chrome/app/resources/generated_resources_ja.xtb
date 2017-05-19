@@ -2182,6 +2182,7 @@
 <translation id="4095507791297118304">メイン ディスプレイ</translation>
 <translation id="409579654357498729">クラウド プリントに追加</translation>
 <translation id="4096508467498758490">デベロッパー モードの拡張機能を無効にする</translation>
+<translation id="4096824249111507322">セキュア モジュールを準備しています。しばらくお待ちください。これには数分かかることがあります。</translation>
 <translation id="4099060993766194518">既定の検索エンジンに戻しますか？</translation>
 <translation id="4100733287846229632">端末の空き領域が非常に少なくなっています</translation>
 <translation id="410351446219883937">自動再生</translation>
@@ -2518,6 +2519,7 @@
 <translation id="4657031070957997341"><ph name="HOST" /> のプラグインを常に許可する</translation>
 <translation id="4662788913887017617">このブックマークは iPhone と共有できます</translation>
 <translation id="4664482161435122549">PKCS #12 エクスポート エラー</translation>
+<translation id="466481852929361583">セキュア モジュールをセットアップしています。しばらくお待ちください。これには数分かかることがあります。</translation>
 <translation id="4665014895760275686">メーカー</translation>
 <translation id="4667176955651319626">サードパーティの Cookie とサイト データをブロックする</translation>
 <translation id="4668721319092543482">クリックして <ph name="PLUGIN_NAME" /> を有効にします</translation>
@@ -3278,6 +3280,7 @@
 <translation id="5774515636230743468">マニフェスト:</translation>
 <translation id="577624874850706961">Cookie を検索</translation>
 <translation id="5778550464785688721">MIDI デバイスのフル コントロール</translation>
+<translation id="5778747455497889540">ご使用のパソコンに割り当てられたランダム生成のセキュア モジュール パスワードは以下のとおりです。</translation>
 <translation id="5780066559993805332">（最良）</translation>
 <translation id="5780973441651030252">プロセスの優先値</translation>
 <translation id="5781865261247219930">コマンドを <ph name="EXTENSION_NAME" /> に送信します</translation>
@@ -3336,6 +3339,7 @@
 <translation id="5854409662653665676">このモジュールで頻繁に問題が発生する場合は、次の手順に従って問題を解決してください:</translation>
 <translation id="5854912040170951372">スライス</translation>
 <translation id="5855119960719984315">ウィンドウを切り替える</translation>
+<translation id="5855773610748894548">セキュア モジュール エラー。</translation>
 <translation id="5856721540245522153">デバッグ機能を有効にする</translation>
 <translation id="5857090052475505287">新しいフォルダ</translation>
 <translation id="5859272821192576954">すべての設定が完了しました。ハングアウトに進むことができます</translation>
@@ -3857,6 +3861,7 @@
 <translation id="6629841649550503054">すべて <ph name="BEGIN_LINK" />Google ドライブ<ph name="END_LINK" />にバックアップ済みです</translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" /> が、自身を自動的に認証できるよう、証明書への恒久的なアクセス許可を求めています。</translation>
 <translation id="6639554308659482635">SQLite メモリ</translation>
+<translation id="6641138807883536517">ランダム生成のセキュア モジュール パスワードが使用できなくなっています。これは Powerwash の実行後に通常起こることです。</translation>
 <translation id="6643016212128521049">クリア</translation>
 <translation id="6644846457769259194">端末を更新しています（<ph name="PROGRESS_PERCENT" />）</translation>
 <translation id="6647228709620733774">Netscape 認証局取り消し URL</translation>
@@ -4079,6 +4084,7 @@
 <translation id="6991128190741664836">後で確認</translation>
 <translation id="6991665348624301627">送信先の選択</translation>
 <translation id="699220179437400583">セキュリティに関する事象についての詳細を Google に自動送信する</translation>
+<translation id="6996946928646015361">セキュア モジュールが無効であるか、存在しません。</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> 個のフォルダを選択しました</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{次のページは応答していません。応答があるまで待つか、強制終了することができます。}other{次のページは応答していません。応答があるまで待つか、強制終了することができます。}}</translation>
 <translation id="7002055706763150362">Smart Lock for Chromebook を設定するには、Google に対する本人確認が必要です。開始するにはパスワードを入力してください。</translation>
@@ -5150,6 +5156,7 @@
 <translation id="8631032106121706562">デイジー</translation>
 <translation id="8631271110654520730">リカバリ イメージをコピーしています...</translation>
 <translation id="8632275030377321303">このユーザーはプロキシを変更できません。</translation>
+<translation id="8637542770513281060">ご使用のパソコンにはセキュア モジュールが組み込まれています。これは Chrome OS の多くの重要なセキュリティ機能を実装するために使用されます。詳しくは Chromebook ヘルプセンター（https://support.google.com/chromebook/?p=sm）をご覧ください。</translation>
 <translation id="8637688295594795546">システムのアップデートが見つかりました。ダウンロードの準備をしています...</translation>
 <translation id="8639963783467694461">自動入力の設定</translation>
 <translation id="8642171459927087831">アクセス トークン</translation>

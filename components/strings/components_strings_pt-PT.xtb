@@ -113,12 +113,12 @@
 <translation id="1974060860693918893">Avançadas</translation>
 <translation id="1978555033938440688">Versão do firmware</translation>
 <translation id="1995859865337580572">Valide o seu CVC</translation>
-<translation id="2001146170449793414">{COUNT,plural, =1{e mais 1}other{e mais #}}</translation>
+<translation id="2001146170449793414">{COUNT,plural, =1{e mais 1}one{and # more}other{e mais #}}</translation>
 <translation id="2025186561304664664">O proxy está definido para configuração automática.</translation>
 <translation id="2030481566774242610">Será que quis dizer <ph name="LINK" />?</translation>
 <translation id="2032962459168915086"><ph name="BEGIN_LINK" />Verificar o proxy e a firewall<ph name="END_LINK" /></translation>
 <translation id="2053553514270667976">Código postal</translation>
-<translation id="2064691555167957331">{COUNT,plural, =1{1 sugestão}other{# sugestões}}</translation>
+<translation id="2064691555167957331">{COUNT,plural, =1{1 sugestão}one{# suggestions}other{# sugestões}}</translation>
 <translation id="2065985942032347596">Autenticação necessária</translation>
 <translation id="2079545284768500474">Anular</translation>
 <translation id="20817612488360358">As definições de proxy do sistema estão definidas para serem utilizadas, mas também está especificada uma configuração de proxy explícita.</translation>
@@ -136,7 +136,7 @@
 <translation id="2166049586286450108">Acesso de administrador total</translation>
 <translation id="2166378884831602661">Este site não consegue fornecer uma ligação segura</translation>
 <translation id="2181821976797666341">Políticas</translation>
-<translation id="2184405333245229118">{COUNT,plural, =1{1 endereço}other{# endereços}}</translation>
+<translation id="2184405333245229118">{COUNT,plural, =1{1 endereço}one{# addresses}other{# endereços}}</translation>
 <translation id="2202020181578195191">Introduza um ano de expiração válido</translation>
 <translation id="2212735316055980242">Política não encontrada</translation>
 <translation id="2213606439339815911">A obter entradas...</translation>
@@ -155,7 +155,7 @@
 <translation id="2359808026110333948">Continuar</translation>
 <translation id="2365563543831475020">O relatório de falhas capturado <ph name="CRASH_TIME" /> não foi carregado</translation>
 <translation id="2367567093518048410">Nível</translation>
-<translation id="2371153335857947666">{1,plural, =1{Este servidor não conseguiu provar que é <ph name="DOMAIN" />; o respetivo certificado de segurança expirou ontem. Isto pode ser o resultado de uma configuração incorreta ou de um utilizador mal-intencionado que intercetou a sua ligação. O relógio do seu computador está atualmente definido para <ph name="CURRENT_DATE" />. Esta definição parece-lhe correta? Caso contrário, deve corrigir o relógio do seu sistema e, em seguida, atualizar esta página. <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" />.}other{Este servidor não conseguiu provar que é <ph name="DOMAIN" />; o respetivo certificado de segurança expirou há # dias. Isto pode ser o resultado de uma configuração incorreta ou de um utilizador mal-intencionado que intercetou a sua ligação. O relógio do seu computador está atualmente definido para <ph name="CURRENT_DATE" />. Esta definição parece-lhe correta? Caso contrário, deve corrigir o relógio do seu sistema e, em seguida, atualizar esta página. <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" />.}}</translation>
+<translation id="2371153335857947666">{1,plural, =1{Este servidor não conseguiu provar que é <ph name="DOMAIN" />; o respetivo certificado de segurança expirou ontem. Isto pode ser o resultado de uma configuração incorreta ou de um utilizador mal-intencionado que intercetou a sua ligação. O relógio do seu computador está atualmente definido para <ph name="CURRENT_DATE" />. Esta definição parece-lhe correta? Caso contrário, deve corrigir o relógio do seu sistema e, em seguida, atualizar esta página. <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" />.}one{This server could not prove that it is <ph name="DOMAIN" />; its security certificate expired # days ago. This may be caused by a misconfiguration or an attacker intercepting your connection. Your computer's clock is currently set to <ph name="CURRENT_DATE" />. Does that look right? If not, you should correct your system's clock and then refresh this page. <ph name="BEGIN_LEARN_MORE_LINK" />Learn more<ph name="END_LEARN_MORE_LINK" />.}other{Este servidor não conseguiu provar que é <ph name="DOMAIN" />; o respetivo certificado de segurança expirou há # dias. Isto pode ser o resultado de uma configuração incorreta ou de um utilizador mal-intencionado que intercetou a sua ligação. O relógio do seu computador está atualmente definido para <ph name="CURRENT_DATE" />. Esta definição parece-lhe correta? Caso contrário, deve corrigir o relógio do seu sistema e, em seguida, atualizar esta página. <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" />.}}</translation>
 <translation id="237718015863234333">Nenhuma alternativa da interface disponível</translation>
 <translation id="2384307209577226199">Predefinição empresarial</translation>
 <translation id="2386255080630008482">O certificado do servidor foi revogado.</translation>
@@ -232,7 +232,7 @@
 <translation id="3024663005179499861">Tipo de política incorreto</translation>
 <translation id="3032412215588512954">Pretende atualizar este site?</translation>
 <translation id="3037605927509011580">Ah, bolas!!</translation>
-<translation id="3040955737384246924">{COUNT,plural, =0{pelo menos 1 item em dispositivos sincronizados}=1{1 item (e mais em dispositivos sincronizados)}other{# itens (e mais em dispositivos sincronizados)}}</translation>
+<translation id="3040955737384246924">{COUNT,plural, =0{pelo menos 1 item em dispositivos sincronizados}=1{1 item (e mais em dispositivos sincronizados)}one{# items (and more on synced devices)}other{# itens (e mais em dispositivos sincronizados)}}</translation>
 <translation id="3041612393474885105">Informações do certificado</translation>
 <translation id="3063697135517575841">O Chrome não conseguiu confirmar o seu cartão neste momento. Tente novamente mais tarde.</translation>
 <translation id="3064966200440839136">Está a sair do modo de navegação anónima para pagar através de uma aplicação externa. Pretende continuar?</translation>
@@ -343,12 +343,12 @@
 <translation id="3886446263141354045">O seu pedido para aceder a este site foi enviado para <ph name="NAME" />.</translation>
 <translation id="3890664840433101773">Adicionar email</translation>
 <translation id="3901925938762663762">O cartão expirou</translation>
-<translation id="3933571093587347751">{1,plural, =1{Este servidor não conseguiu provar que é <ph name="DOMAIN" />; o respetivo certificado de segurança é supostamente de amanhã. Isto pode ser o resultado de uma configuração incorreta ou de um utilizador mal-intencionado que intercetou a sua ligação. <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" />.}other{Este servidor não conseguiu provar que é <ph name="DOMAIN" />; o respetivo certificado de segurança é supostamente de daqui a # dias. Isto pode ser o resultado de uma configuração incorreta ou de um utilizador mal-intencionado que intercetou a sua ligação. <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" />.}}</translation>
+<translation id="3933571093587347751">{1,plural, =1{Este servidor não conseguiu provar que é <ph name="DOMAIN" />; o respetivo certificado de segurança é supostamente de amanhã. Isto pode ser o resultado de uma configuração incorreta ou de um utilizador mal-intencionado que intercetou a sua ligação. <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" />.}one{This server could not prove that it is <ph name="DOMAIN" />; its security certificate is supposedly from # days in the future. This may be caused by a misconfiguration or an attacker intercepting your connection. <ph name="BEGIN_LEARN_MORE_LINK" />Learn more<ph name="END_LEARN_MORE_LINK" />.}other{Este servidor não conseguiu provar que é <ph name="DOMAIN" />; o respetivo certificado de segurança é supostamente de daqui a # dias. Isto pode ser o resultado de uma configuração incorreta ou de um utilizador mal-intencionado que intercetou a sua ligação. <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" />.}}</translation>
 <translation id="3934680773876859118">Falha ao carregar o documento em PDF</translation>
 <translation id="3963721102035795474">Modo de leitor</translation>
 <translation id="397105322502079400">A calcular...</translation>
 <translation id="3973234410852337861"><ph name="HOST_NAME" /> está bloqueado</translation>
-<translation id="40103911065039147">{URL_count,plural, =1{1 página Web próxima}other{# páginas Web próximas}}</translation>
+<translation id="40103911065039147">{URL_count,plural, =1{1 página Web próxima}one{# web pages nearby}other{# páginas Web próximas}}</translation>
 <translation id="4021036232240155012">O DNS é o serviço de rede que converte o nome de um Website no respetivo endereço de Internet.</translation>
 <translation id="4030383055268325496">&amp;Anular adição</translation>
 <translation id="404928562651467259">AVISO</translation>
@@ -363,14 +363,14 @@
 <translation id="4115378294792113321">Magenta</translation>
 <translation id="4117700440116928470">O âmbito da política não é suportado.</translation>
 <translation id="4118212371799607889">Este servidor não conseguiu provar que é <ph name="DOMAIN" />; o Chromium não confia no respetivo certificado de segurança. Isto pode ser o resultado de uma configuração incorreta ou de um utilizador mal-intencionado que intercetou a sua ligação. <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" />.</translation>
-<translation id="4129401438321186435">{COUNT,plural, =1{1 outro}other{# outros}}</translation>
+<translation id="4129401438321186435">{COUNT,plural, =1{1 outro}one{# others}other{# outros}}</translation>
 <translation id="4130226655945681476">Verificar os cabos de rede, o modem e o router</translation>
 <translation id="4148925816941278100">American Express</translation>
 <translation id="4169947484918424451">Pretende que o Chromium guarde este cartão?</translation>
 <translation id="4171400957073367226">Assinatura de verificação incorreta</translation>
 <translation id="4196861286325780578">&amp;Refazer movimentação</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />Verificar as configurações da firewall e de antivírus<ph name="END_LINK" /></translation>
-<translation id="4206349416402437184">{COUNT,plural, =0{nenhuma}=1{1 aplicação ($1)}=2{2 aplicações ($1, $2)}other{# aplicações ($1, $2, $3)}}</translation>
+<translation id="4206349416402437184">{COUNT,plural, =0{nenhuma}=1{1 aplicação ($1)}=2{2 aplicações ($1, $2)}one{# apps ($1, $2, $3)}other{# aplicações ($1, $2, $3)}}</translation>
 <translation id="4220128509585149162">Erros</translation>
 <translation id="4226937834893929579"><ph name="BEGIN_LINK" />Experimente executar o Diagnóstico de rede<ph name="END_LINK" />.</translation>
 <translation id="4250431568374086873">A ligação a este site não é totalmente segura</translation>
@@ -432,7 +432,7 @@
 <translation id="4858792381671956233">Perguntaste aos teus pais se podes aceder a este site.</translation>
 <translation id="4880827082731008257">Pesquisar histórico</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /></translation>
-<translation id="4914479371620770914">{URL_count,plural, =1{e mais 1 página Web}other{e mais # páginas Web}}</translation>
+<translation id="4914479371620770914">{URL_count,plural, =1{e mais 1 página Web}one{and # more web pages}other{e mais # páginas Web}}</translation>
 <translation id="4923417429809017348">Esta página foi traduzida de um idioma desconhecido para <ph name="LANGUAGE_LANGUAGE" /></translation>
 <translation id="4923459931733593730">Pagamento</translation>
 <translation id="4926049483395192435">Tem de ser especificado.</translation>
@@ -450,7 +450,7 @@
 <translation id="5045550434625856497">Palavra-passe incorrecta</translation>
 <translation id="5056549851600133418">Artigos para si</translation>
 <translation id="5070335125961472645"><ph name="BEGIN_LINK" />Verificar o endereço proxy<ph name="END_LINK" /></translation>
-<translation id="5076731569460970710">{COUNT,plural, =0{Sem cookies}=1{1 site utiliza cookies. }other{# sites utilizam cookies. }}</translation>
+<translation id="5076731569460970710">{COUNT,plural, =0{Sem cookies}=1{1 site utiliza cookies. }one{# sites use cookies. }other{# sites utilizam cookies. }}</translation>
 <translation id="5087286274860437796">De momento, o certificado do servidor não é válido.</translation>
 <translation id="5087580092889165836">Adicionar cartão</translation>
 <translation id="5089810972385038852">Estado</translation>
@@ -541,13 +541,13 @@
 <translation id="5989320800837274978">Não foram especificados servidores proxy fixos nem um URL de script .pac.</translation>
 <translation id="5990559369517809815">Os pedidos para o servidor foram bloqueados por uma extensão.</translation>
 <translation id="6008256403891681546">JCB</translation>
-<translation id="6016158022840135739">{COUNT,plural, =1{Página 1}other{Página #}}</translation>
+<translation id="6016158022840135739">{COUNT,plural, =1{Página 1}one{Page #}other{Página #}}</translation>
 <translation id="6017514345406065928">Verde</translation>
 <translation id="6027201098523975773">Introduza um nome</translation>
 <translation id="6040143037577758943">Fechar</translation>
 <translation id="6042308850641462728">Mais</translation>
 <translation id="6060685159320643512">Tenha cuidado, estas experiências podem morder</translation>
-<translation id="6108835911243775197">{COUNT,plural, =0{nenhuma}=1{1}other{#}}</translation>
+<translation id="6108835911243775197">{COUNT,plural, =0{nenhuma}=1{1}one{#}other{#}}</translation>
 <translation id="6146055958333702838">Verifique os cabos e reinicie todos os routers, modems ou outros
     dispositivos de rede que possa estar a utilizar.</translation>
 <translation id="614940544461990577">Experimente:</translation>
@@ -577,7 +577,7 @@
 <translation id="6342069812937806050">Mesmo agora</translation>
 <translation id="6355080345576803305">Substituição da sessão pública</translation>
 <translation id="6358450015545214790">O que significam?</translation>
-<translation id="6386120369904791316">{COUNT,plural, =1{1 outra sugestão}other{# outras sugestões}}</translation>
+<translation id="6386120369904791316">{COUNT,plural, =1{1 outra sugestão}one{# other suggestions}other{# outras sugestões}}</translation>
 <translation id="6387478394221739770">Está interessado nas novas e fantásticas funcionalidades do Chrome? Experimente o nosso canal beta em chrome.com/beta.</translation>
 <translation id="6389758589412724634">O Chromium ficou sem memória ao tentar apresentar esta página Web.</translation>
 <translation id="6404511346730675251">Editar marcador</translation>
@@ -616,7 +616,7 @@
 <translation id="6710594484020273272">&lt;Introduzir termo de pesquisa&gt;</translation>
 <translation id="6711464428925977395">Existe um problema com o servidor proxy ou o endereço está incorreto.</translation>
 <translation id="6727102863431372879">Definir</translation>
-<translation id="6731320287533051140">{COUNT,plural, =0{nenhuma}=1{1 item}other{# itens}}</translation>
+<translation id="6731320287533051140">{COUNT,plural, =0{nenhuma}=1{1 item}one{# items}other{# itens}}</translation>
 <translation id="674375294223700098">Erro de certificado de servidor desconhecido.</translation>
 <translation id="6753269504797312559">Valor da política</translation>
 <translation id="6757797048963528358">O dispositivo entrou em suspensão.</translation>
@@ -798,7 +798,7 @@ O modo de navegação anónima <ph name="SHORTCUT_KEY" /> pode ser útil da pró
 <translation id="8428213095426709021">Definições</translation>
 <translation id="8433057134996913067">Esta opção termina a sessão na maioria dos Websites.</translation>
 <translation id="8437238597147034694">&amp;Anular movimentação</translation>
-<translation id="8466379296835108687">{COUNT,plural, =1{1 cartão de crédito}other{# cartões de crédito}}</translation>
+<translation id="8466379296835108687">{COUNT,plural, =1{1 cartão de crédito}one{# credit cards}other{# cartões de crédito}}</translation>
 <translation id="8483780878231876732">Para utilizar cartões da sua Conta Google, inicie sessão no Chrome.</translation>
 <translation id="8488350697529856933">Aplica-se a</translation>
 <translation id="8498891568109133222"><ph name="HOST_NAME" /> demorou demasiado tempo a responder.</translation>

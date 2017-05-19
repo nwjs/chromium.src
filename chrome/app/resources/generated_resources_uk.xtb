@@ -2181,6 +2181,7 @@
 <translation id="4095507791297118304">Основний дисплей</translation>
 <translation id="409579654357498729">Додати в Cloud Print</translation>
 <translation id="4096508467498758490">Вимкнути розширення в режимі розробника</translation>
+<translation id="4096824249111507322">Готується модуль безпеки. Зачекайте (це може зайняти кілька хвилин)…</translation>
 <translation id="4099060993766194518">Відновити пошукову систему за умовчанням?</translation>
 <translation id="4100733287846229632">На пристрої дуже мало вільного місця</translation>
 <translation id="410351446219883937">Автовідтворення</translation>
@@ -2517,6 +2518,7 @@
 <translation id="4657031070957997341">Завжди дозволяти плагіни на хості <ph name="HOST" /></translation>
 <translation id="4662788913887017617">Надішліть цю закладку на iPhone</translation>
 <translation id="4664482161435122549">Помилка експортування PKCS #12</translation>
+<translation id="466481852929361583">Налаштовується модуль безпеки. Зачекайте (це може зайняти кілька хвилин).</translation>
 <translation id="4665014895760275686">Виробник</translation>
 <translation id="4667176955651319626">Блокувати файли cookie та дані із сайтів третіх сторін</translation>
 <translation id="4668721319092543482">Натисніть, щоб увімкнути плагін <ph name="PLUGIN_NAME" /></translation>
@@ -3277,6 +3279,7 @@
 <translation id="5774515636230743468">Маніфест:</translation>
 <translation id="577624874850706961">Пошук файлів cookie</translation>
 <translation id="5778550464785688721">Повний контроль пристроїв MIDI</translation>
+<translation id="5778747455497889540">Ось навмання згенерований пароль для модуля безпеки, присвоєний вашому комп’ютеру:</translation>
 <translation id="5780066559993805332">(Найкраща)</translation>
 <translation id="5780973441651030252">Пріоритет обробки</translation>
 <translation id="5781865261247219930">Надіслати команди в розширення "<ph name="EXTENSION_NAME" />"</translation>
@@ -3335,6 +3338,7 @@
 <translation id="5854409662653665676">Якщо у вас часто виникають проблеми, спробуйте виконати вказані нижче дії, щоб вирішити проблему з цим модулем.</translation>
 <translation id="5854912040170951372">Піца</translation>
 <translation id="5855119960719984315">переключення вікон</translation>
+<translation id="5855773610748894548">Помилка модуля безпеки.</translation>
 <translation id="5856721540245522153">Увімкнути функції налагодження</translation>
 <translation id="5857090052475505287">Нова папка</translation>
 <translation id="5859272821192576954">Готово. Можете перейти в Hangouts</translation>
@@ -3856,6 +3860,7 @@
 <translation id="6629841649550503054">Усі файли імпортовано на <ph name="BEGIN_LINK" />Google Диск.<ph name="END_LINK" /></translation>
 <translation id="6630752851777525409">Розширенню <ph name="EXTENSION_NAME" /> потрібен постійний доступ до сертифіката, щоб проходити автентифікацію від вашого імені.</translation>
 <translation id="6639554308659482635">Пам'ять SQLite</translation>
+<translation id="6641138807883536517">Немає навмання згенерованого пароля для модуля безпеки. Це нормально після використання функції Powerwash.</translation>
 <translation id="6643016212128521049">Очистити</translation>
 <translation id="6644846457769259194">Пристрій оновлюється (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">URL-адреса відкликання Центру сертифікації Netscape</translation>
@@ -4078,6 +4083,7 @@
 <translation id="6991128190741664836">Пізніше</translation>
 <translation id="6991665348624301627">Вибрати місце призначення</translation>
 <translation id="699220179437400583">Автоматично повідомляти Google деталі щодо можливих порушень безпеки</translation>
+<translation id="6996946928646015361">Модуль безпеки вимкнено або його немає.</translation>
 <translation id="6998711733709403587">Вибрано папок: <ph name="SELCTED_FOLDERS_COUNT" /></translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{Указана нижче сторінка перестала відповідати. Можна зачекати або закрити сторінку.}one{Указані нижче сторінки перестали відповідати. Можна зачекати або закрити сторінки.}few{Указані нижче сторінки перестали відповідати. Можна зачекати або закрити сторінки.}many{Указані нижче сторінки перестали відповідати. Можна зачекати або закрити сторінки.}other{Указані нижче сторінки перестали відповідати. Можна зачекати або закрити сторінки.}}</translation>
 <translation id="7002055706763150362">Перш ніж налаштувати Smart Lock для Chromebook, введіть пароль – Google має переконатися, що це ви.</translation>
@@ -5147,6 +5153,7 @@
 <translation id="8631032106121706562">Ромашка</translation>
 <translation id="8631271110654520730">Копіювання образу для відновлення...</translation>
 <translation id="8632275030377321303">Користувач не може змінювати налаштування проксі.</translation>
+<translation id="8637542770513281060">Ваш комп’ютер містить модуль безпеки, який виконує багато важливих функцій захисту в ОС Chrome. Щоб дізнатися більше, відвідайте Довідковий центр Chromebook: https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">Доступне оновлення системи. Підготовка до завантаження…</translation>
 <translation id="8639963783467694461">Налаштування автозаповнення</translation>
 <translation id="8642171459927087831">Маркер доступу</translation>

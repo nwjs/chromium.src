@@ -2178,6 +2178,7 @@ Del domini <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4095507791297118304">Pantalla principal</translation>
 <translation id="409579654357498729">Afegeix a Cloud Print</translation>
 <translation id="4096508467498758490">Desactivació de les extensions del mode desenvolupador</translation>
+<translation id="4096824249111507322">S'està preparant el mòdul de seguretat; espera (el procés pot tardar una estona)...</translation>
 <translation id="4099060993766194518">Vols restablir el motor de cerca predeterminat?</translation>
 <translation id="4100733287846229632">Queda molt poc espai al dispositiu</translation>
 <translation id="410351446219883937">Reproducció automàtica</translation>
@@ -2514,6 +2515,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="4657031070957997341">Permet sempre els connectors a <ph name="HOST" /></translation>
 <translation id="4662788913887017617">Comparteix aquesta adreça d'interès amb el teu iPhone</translation>
 <translation id="4664482161435122549">Error d'exportació PKCS #12</translation>
+<translation id="466481852929361583">S'està instal·lant el mòdul de seguretat. Tingues paciència; el procés pot tardar una estona.</translation>
 <translation id="4665014895760275686">Fabricant</translation>
 <translation id="4667176955651319626">Bloqueja les galetes de tercers i les dades de llocs</translation>
 <translation id="4668721319092543482">Fes clic per activar <ph name="PLUGIN_NAME" /></translation>
@@ -3272,6 +3274,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="5774515636230743468">Manifest:</translation>
 <translation id="577624874850706961">Cerca galetes</translation>
 <translation id="5778550464785688721">Control total dels dispositius MIDI</translation>
+<translation id="5778747455497889540">A continuació trobaràs la contrasenya del mòdul de seguretat generada aleatòriament que s'ha assignat al teu ordinador:</translation>
 <translation id="5780066559993805332">(La millor)</translation>
 <translation id="5780973441651030252">Prioritat del procés</translation>
 <translation id="5781865261247219930">Envia les ordres a <ph name="EXTENSION_NAME" /></translation>
@@ -3330,6 +3333,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="5854409662653665676">Si teniu problemes sovint, proveu el següent per resoldre la incidència amb aquest mòdul:</translation>
 <translation id="5854912040170951372">Pizza</translation>
 <translation id="5855119960719984315">canvia de finestra</translation>
+<translation id="5855773610748894548">S'ha produït un error en el mòdul de seguretat.</translation>
 <translation id="5856721540245522153">Activar les funcions de depuració</translation>
 <translation id="5857090052475505287">Carpeta nova</translation>
 <translation id="5859272821192576954">Ja esteu a punt per accedir a Hangouts</translation>
@@ -3850,6 +3854,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="6629841649550503054">Tots els elements tenen una còpia de seguretat a <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" />.</translation>
 <translation id="6630752851777525409">L'extensió <ph name="EXTENSION_NAME" /> vol tenir accés permanent a un certificat per autenticar-se en nom vostre.</translation>
 <translation id="6639554308659482635">Memòria SQLite</translation>
+<translation id="6641138807883536517">La contrasenya del mòdul de seguretat generada aleatòriament no està disponible. Això és normal després d'executar la funció Powerwash.</translation>
 <translation id="6643016212128521049">Esborra</translation>
 <translation id="6644846457769259194">S'està actualitzant el dispositiu (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">URL de revocació de l'entitat emissora de certificats de Netscape</translation>
@@ -4072,6 +4077,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="6991128190741664836">Més tard</translation>
 <translation id="6991665348624301627">Selecció d'una destinació</translation>
 <translation id="699220179437400583">Informa automàticament Google dels detalls sobre possibles incidències de seguretat</translation>
+<translation id="6996946928646015361">El mòdul de seguretat està desactivat o bé no és present.</translation>
 <translation id="6998711733709403587">S'han seleccionat <ph name="SELCTED_FOLDERS_COUNT" /> carpetes</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{La pàgina que es mostra a continuació no respon. Podeu esperar que respongui o finalitzar-la.}other{Les pàgines que es mostren a continuació no responen. Podeu esperar que responguin o finalitzar-les.}}</translation>
 <translation id="7002055706763150362">Per configurar Smart Lock per a Chromebook, Google ha de comprovar la vostra identitat. Escriviu la contrasenya per començar.</translation>
@@ -5133,6 +5139,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8631032106121706562">Flor</translation>
 <translation id="8631271110654520730">S'està copiant la imatge de recuperació...</translation>
 <translation id="8632275030377321303">L'usuari no pot modificar el servidor intermediari.</translation>
+<translation id="8637542770513281060">L'ordinador conté un mòdul de seguretat que s'utilitza per implementar un gran nombre de funcions de seguretat clau a Chrome OS. Visita el Centre d'ajuda de Chromebook per obtenir més informació: https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">Actualització del sistema disponible. S'està preparant la baixada…</translation>
 <translation id="8639963783467694461">Configuració d'Emplenament automàtic</translation>
 <translation id="8642171459927087831">Testimoni d'accés</translation>

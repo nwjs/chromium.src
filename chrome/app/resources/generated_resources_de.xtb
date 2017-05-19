@@ -1213,7 +1213,7 @@ Ich glaube nicht, dass diese Website blockiert werden sollte.</translation>
 <translation id="2733275712367076659">Ihr Name ist in den Zertifikaten folgender Organisationen angegeben:</translation>
 <translation id="2733364097704495499">Möchten Sie den Drucker <ph name="PRINTER_NAME" /> für Google Cloud Print registrieren?</translation>
 <translation id="2735698359135166290">Rumänische Standardtastatur</translation>
-<translation id="2736434052592900364">Chrome-Synchronisierung und Personalisierung in den Einstellungen verwalten</translation>
+<translation id="2736434052592900364">Chrome-Synchronisierung und -Personalisierung in den Einstellungen verwalten</translation>
 <translation id="2737363922397526254">Minimieren...</translation>
 <translation id="2738771556149464852">Nicht nach</translation>
 <translation id="2739191690716947896">Fehlerbehebung</translation>
@@ -2177,6 +2177,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="4095507791297118304">Hauptbildschirm</translation>
 <translation id="409579654357498729">Zu Cloud Print hinzufügen</translation>
 <translation id="4096508467498758490">Erweiterungen im Entwicklermodus deaktivieren</translation>
+<translation id="4096824249111507322">Das Sicherheitsmodul wird vorbereitet, bitte warten (dies kann einige Minuten dauern)...</translation>
 <translation id="4099060993766194518">Standardsuchmaschine wiederherstellen?</translation>
 <translation id="4100733287846229632">Speicherplatz auf Gerät äußerst niedrig</translation>
 <translation id="410351446219883937">Autoplay</translation>
@@ -2513,6 +2514,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="4657031070957997341">Plug-ins auf <ph name="HOST" /> immer zulassen</translation>
 <translation id="4662788913887017617">Dieses Lesezeichen für mein iPhone freigeben</translation>
 <translation id="4664482161435122549">PKCS #12 - Fehler beim Export</translation>
+<translation id="466481852929361583">Das Sicherheitsmodul wird eingerichtet. Bitte haben Sie einen Moment Geduld. Dies kann einige Minuten dauern.</translation>
 <translation id="4665014895760275686">Hersteller</translation>
 <translation id="4667176955651319626">Drittanbieter-Cookies und Websitedaten blockieren</translation>
 <translation id="4668721319092543482">Zum Aktivieren von <ph name="PLUGIN_NAME" /> klicken</translation>
@@ -3268,6 +3270,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5774515636230743468">Manifest:</translation>
 <translation id="577624874850706961">Cookies suchen</translation>
 <translation id="5778550464785688721">MIDI-Geräte: volle Kontrolle</translation>
+<translation id="5778747455497889540">Hier ist das zufällig generierte Passwort für das Sicherheitsmodul, das Ihrem Computer zugewiesen wurde:</translation>
 <translation id="5780066559993805332">(beste)</translation>
 <translation id="5780973441651030252">Prozesspriorität</translation>
 <translation id="5781865261247219930">Befehle an <ph name="EXTENSION_NAME" /> senden</translation>
@@ -3326,6 +3329,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5854409662653665676">Wenn Sie häufig Schwierigkeiten haben, können Sie versuchen, das Problem mit diesem Modul zu beheben:</translation>
 <translation id="5854912040170951372">Pizza</translation>
 <translation id="5855119960719984315">Fenster wechseln</translation>
+<translation id="5855773610748894548">Hoppla! Fehler mit dem Sicherheitsmodul.</translation>
 <translation id="5856721540245522153">Debugging-Funktionen aktivieren</translation>
 <translation id="5857090052475505287">Neuer Ordner</translation>
 <translation id="5859272821192576954">Die Einrichtung ist abgeschlossen. Sie können nun Hangouts durchführen.</translation>
@@ -3847,6 +3851,7 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="6629841649550503054">Alle Daten wurden in <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" /> gesichert.</translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" /> fordert ständigen Zugriff auf ein Zertifikat an, um sich in Ihrem Namen zu authentifizieren.</translation>
 <translation id="6639554308659482635">SQLite-Speicher</translation>
+<translation id="6641138807883536517">Das zufällig generierte Passwort für das Sicherheitsmodul ist nicht verfügbar. Dies ist nach einem Powerwash normal.</translation>
 <translation id="6643016212128521049">Löschen</translation>
 <translation id="6644846457769259194">Gerät wird aktualisiert (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">URL zum Zurückrufen der Zertifizierungsstelle von Netscape-Zertifikaten</translation>
@@ -4032,7 +4037,7 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="6945221475159498467">Auswählen</translation>
 <translation id="6949306908218145636">Offene Seiten als Lesezeichen speichern...</translation>
 <translation id="6955446738988643816">Pop-up prüfen</translation>
-<translation id="6957519909849772545">Ein wichtiges Update ist verfügbar. Melden Sie sich an.</translation>
+<translation id="6957519909849772545">Ein wichtiges Update ist verfügbar. Bitte melden Sie sich an und installieren Sie es.</translation>
 <translation id="695755122858488207">Deaktiviertes Optionsfeld</translation>
 <translation id="696203921837389374">Synchronisierung über mobile Daten aktivieren</translation>
 <translation id="6964390816189577014">Held</translation>
@@ -4068,6 +4073,7 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="6991128190741664836">Später</translation>
 <translation id="6991665348624301627">Ziel auswählen</translation>
 <translation id="699220179437400583">Details zu möglichen sicherheitsrelevanten Zwischenfällen automatisch an Google senden</translation>
+<translation id="6996946928646015361">Das Sicherheitsmodul wurde deaktiviert oder fehlt.</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> Ordner ausgewählt</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{Die folgende Seite reagiert nicht mehr. Sie können warten, bis die Seite wieder reagiert, oder sie schließen.}other{Die folgenden Seiten reagieren nicht mehr. Sie können warten, bis die Seiten wieder reagieren, oder sie schließen.}}</translation>
 <translation id="7002055706763150362">Zum Einrichten von Smart Lock für Chromebooks müssen wir Sie authentifizieren. Geben Sie bitte Ihr Passwort ein.</translation>
@@ -5140,6 +5146,7 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="8631032106121706562">Margerite</translation>
 <translation id="8631271110654520730">Wiederherstellungsabbild wird kopiert...</translation>
 <translation id="8632275030377321303">Der Proxy kann nicht vom Nutzer geändert werden.</translation>
+<translation id="8637542770513281060">Ihr Computer enthält ein Sicherheitsmodul, über das viele wichtige Sicherheitsfunktionen in Chrome OS implementiert werden. Weitere Informationen dazu finden Sie in der Chromebook-Hilfe unter https://support.google.com/chromebook/?p=sm.</translation>
 <translation id="8637688295594795546">Systemupdate verfügbar. Download wird vorbereitet...</translation>
 <translation id="8639963783467694461">AutoFill-Einstellungen</translation>
 <translation id="8642171459927087831">Zugriffs-Token</translation>
@@ -5354,7 +5361,7 @@ Nachfolgende Benachrichtigungen, Fenster und Dialogfenster werden unter Umständ
 <translation id="8944964446326379280"><ph name="APP_NAME" /> teilt ein Fenster mit <ph name="TAB_NAME" />.</translation>
 <translation id="8946284507644756416">Ihr <ph name="DEVICE_TYPE" /> kann mir Ihrem Android-Smartphone entsperrt werden.</translation>
 <translation id="8946359700442089734">Die Debugging-Funktionen wurden auf diesem <ph name="IDS_SHORT_PRODUCT_NAME" />-Gerät nicht vollständig aktiviert.</translation>
-<translation id="8948677146203372548">Die Aktualisierung war erfolgreich. Sie können Android-Apps nun nutzen.</translation>
+<translation id="8948677146203372548">Das Update war erfolgreich. Sie können Android-Apps nun nutzen.</translation>
 <translation id="895347679606913382">Wird gestartet...</translation>
 <translation id="8954952943849489823">Unerwarteter Fehler beim Verschieben: $1</translation>
 <translation id="895586998699996576">$1-Bild</translation>

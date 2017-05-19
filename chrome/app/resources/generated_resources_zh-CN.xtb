@@ -2174,6 +2174,7 @@
 <translation id="4095507791297118304">主显示屏</translation>
 <translation id="409579654357498729">添加到云打印</translation>
 <translation id="4096508467498758490">请停用以开发者模式运行的扩展程序</translation>
+<translation id="4096824249111507322">正在准备安全模块，请稍候（这可能需要几分钟的时间）…</translation>
 <translation id="4099060993766194518">要恢复默认搜索引擎吗？</translation>
 <translation id="4100733287846229632">设备存储空间严重不足</translation>
 <translation id="410351446219883937">自动播放</translation>
@@ -2510,6 +2511,7 @@
 <translation id="4657031070957997341">始终允许 <ph name="HOST" /> 使用插件</translation>
 <translation id="4662788913887017617">将此书签共享给您的 iPhone</translation>
 <translation id="4664482161435122549">PKCS #12 导出错误</translation>
+<translation id="466481852929361583">正在设置安全模块。这可能需要几分钟的时间，请耐心等待。</translation>
 <translation id="4665014895760275686">制造商</translation>
 <translation id="4667176955651319626">阻止第三方 Cookie 和网站数据</translation>
 <translation id="4668721319092543482">点击即可启用 <ph name="PLUGIN_NAME" /></translation>
@@ -3259,6 +3261,7 @@
 <translation id="5774515636230743468">网址：</translation>
 <translation id="577624874850706961">搜索 Cookie</translation>
 <translation id="5778550464785688721">完全控制 MIDI 设备</translation>
+<translation id="5778747455497889540">以下是系统向您计算机分配的随机生成的安全模块密码：</translation>
 <translation id="5780066559993805332">（最佳）</translation>
 <translation id="5780973441651030252">进程优先级</translation>
 <translation id="5781865261247219930">向“<ph name="EXTENSION_NAME" />”发送命令</translation>
@@ -3317,6 +3320,7 @@
 <translation id="5854409662653665676">如果您经常遇到问题，可以试着用以下方法解决此模块存在的问题：</translation>
 <translation id="5854912040170951372">比萨</translation>
 <translation id="5855119960719984315">切换窗口</translation>
+<translation id="5855773610748894548">糟糕，安全模块出错了。</translation>
 <translation id="5856721540245522153">启用调试功能</translation>
 <translation id="5857090052475505287">新文件夹</translation>
 <translation id="5859272821192576954">搞定了！接下来即可开始使用环聊</translation>
@@ -3837,6 +3841,7 @@
 <translation id="6629841649550503054">所有文件都已备份到 <ph name="BEGIN_LINK" />Google 云端硬盘<ph name="END_LINK" />！</translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" />希望获得某个证书的永久访问权限，以便代表您进行自我身份验证。</translation>
 <translation id="6639554308659482635">SQLite 使用的内存</translation>
+<translation id="6641138807883536517">无法提供随机生成的安全模块密码。这是执行 Powerwash 之后的正常现象。</translation>
 <translation id="6643016212128521049">清除</translation>
 <translation id="6644846457769259194">正在更新您的设备 (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">Netscape 证书授权中心吊销网址</translation>
@@ -4059,6 +4064,7 @@
 <translation id="6991128190741664836">以后再说</translation>
 <translation id="6991665348624301627">选择目标打印机</translation>
 <translation id="699220179437400583">自动向 Google 报告可能出现的安全事件详情</translation>
+<translation id="6996946928646015361">安全模块缺失或已被停用。</translation>
 <translation id="6998711733709403587">已选择 <ph name="SELCTED_FOLDERS_COUNT" /> 个文件夹</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{以下页面已停止响应。您可以等待该页面恢复响应，也可以将其关闭。}other{以下页面已停止响应。您可以等待这些页面恢复响应，也可以将其关闭。}}</translation>
 <translation id="7002055706763150362">要设置 Smart Lock（Chromebook 版），您需要先输入密码，因为 Google 需要确认是您本人在操作。</translation>
@@ -5119,6 +5125,7 @@
 <translation id="8631032106121706562">花朵</translation>
 <translation id="8631271110654520730">正在复制恢复映像...</translation>
 <translation id="8632275030377321303">该用户无法修改代理。</translation>
+<translation id="8637542770513281060">您的计算机包含一个安全模块，该模块可用于在 Chrome 操作系统中实施许多关键的安全功能。要了解详情，请访问 Chromebook 帮助中心：https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">有系统更新，开始下载...</translation>
 <translation id="8639963783467694461">自动填充设置</translation>
 <translation id="8642171459927087831">访问令牌</translation>

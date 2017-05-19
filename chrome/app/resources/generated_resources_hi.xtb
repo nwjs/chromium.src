@@ -2180,6 +2180,7 @@
 <translation id="4095507791297118304">प्राथमिक प्रदर्शन</translation>
 <translation id="409579654357498729">क्लाउड प्रिंट में जोड़ें</translation>
 <translation id="4096508467498758490">डेवलपर मोड एक्सटेंशन अक्षम करें</translation>
+<translation id="4096824249111507322">सुरक्षित मॉड्यूल तैयार हो रहा है, कृपया इंतज़ार करें (इसमें कुछ मिनट लग सकते हैं)...</translation>
 <translation id="4099060993766194518">डिफ़ॉल्ट खोज इंजन को बहाल करना चाहते हैं?</translation>
 <translation id="4100733287846229632">डिवाइस में बहुत ही कम स्थान बचा है</translation>
 <translation id="410351446219883937">स्वतः चलाएं</translation>
@@ -2516,6 +2517,7 @@
 <translation id="4657031070957997341"><ph name="HOST" /> पर प्‍लग इन को हमेशा अनुमति दें</translation>
 <translation id="4662788913887017617">इस बुकमार्क को अपने iPhone से साझा करें</translation>
 <translation id="4664482161435122549">PKCS #12 निर्यात गड़बड़ी</translation>
+<translation id="466481852929361583">सुरक्षित मॉड्यूल सेट अप हो रहा है. कृपया धैर्य रखें; इसमें कुछ मिनट लग सकते हैं.</translation>
 <translation id="4665014895760275686">निर्माता</translation>
 <translation id="4667176955651319626">तृतीय-पक्ष कुकी और साइट डेटा अवरुद्ध करें</translation>
 <translation id="4668721319092543482"><ph name="PLUGIN_NAME" /> को सक्षम करने के लिए क्लिक करें</translation>
@@ -3276,6 +3278,7 @@
 <translation id="5774515636230743468">मालसूची:</translation>
 <translation id="577624874850706961">कुकी खोजें</translation>
 <translation id="5778550464785688721">MIDI डिवाइस पूर्ण नियंत्रण</translation>
+<translation id="5778747455497889540">नीचे, बिना किसी क्रम से जेनरेट किया गया सुरक्षित मॉड्यूल पासवर्ड दिया गया है जिसे आपके कंप्यूटर को असाइन किया गया है:</translation>
 <translation id="5780066559993805332">(सर्वश्रेष्ठ)</translation>
 <translation id="5780973441651030252">प्राथमिकता संसाधित करें</translation>
 <translation id="5781865261247219930"><ph name="EXTENSION_NAME" /> को आदेश भेजें</translation>
@@ -3334,6 +3337,7 @@
 <translation id="5854409662653665676">यदि आपको बार-बार समस्‍या आ रही है, तो आप इस मॉड्यूल के साथ समस्‍या का समाधान करने के लिए निम्‍न को आज़मा सकते हैं:</translation>
 <translation id="5854912040170951372">स्‍लाइस</translation>
 <translation id="5855119960719984315">विंडो स्‍विच करें</translation>
+<translation id="5855773610748894548">ओह, सुरक्षित मॉड्यूल में गड़बड़ी.</translation>
 <translation id="5856721540245522153">डीबग करने वाली सुविधाएं सक्षम करें</translation>
 <translation id="5857090052475505287">नया फ़ोल्डर</translation>
 <translation id="5859272821192576954">Hangouts पर जारी रखने के लिए आप बिल्कुल तैयार हैं</translation>
@@ -3855,6 +3859,7 @@
 <translation id="6629841649550503054">सभी का <ph name="BEGIN_LINK" />Google डिस्‍क<ph name="END_LINK" /> में बैक अप लिया गया!</translation>
 <translation id="6630752851777525409"><ph name="EXTENSION_NAME" /> को आपकी ओर से स्वयं को प्रमाणीकृत करने के लिए प्रमाणपत्र की स्थायी ऐक्सेस चाहिए.</translation>
 <translation id="6639554308659482635">SQLite मेमोरी</translation>
+<translation id="6641138807883536517">बिना किसी क्रम से जेनरेट किया गया सुरक्षित मॉड्यूल पासवर्ड उपलब्ध नहीं है. Powerwash के बाद आमतौर पर ऐसा होता है.</translation>
 <translation id="6643016212128521049">साफ़ करें</translation>
 <translation id="6644846457769259194">आपका डिवाइस अपडेट हो रहा है (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6647228709620733774">Netscape प्रमाणन प्राधिकरण खण्डन URL</translation>
@@ -4077,6 +4082,7 @@
 <translation id="6991128190741664836">बाद में</translation>
 <translation id="6991665348624301627">गंतव्य को चुनें</translation>
 <translation id="699220179437400583">Google को संभावित सुरक्षा घटनाओं के विवरणों की अपने आप रिपोर्ट करें</translation>
+<translation id="6996946928646015361">सुरक्षित मॉड्यूल अक्षम है या मौजूद नहीं है.</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> फ़ोल्‍डर चयनित</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{निम्नलिखित पेज प्रतिसाद नहीं दे रहा है. आप इसके प्रतिसाद देने की प्रतीक्षा कर सकते हैं या इसे बंद कर सकते हैं.}one{निम्नलिखित पेज प्रतिसाद नहीं दे रहे हैं. आप इनके प्रतिसाद देने की प्रतीक्षा कर सकते हैं या इन्हें बंद कर सकते हैं.}other{निम्नलिखित पेज प्रतिसाद नहीं दे रहे हैं. आप इनके प्रतिसाद देने की प्रतीक्षा कर सकते हैं या इन्हें बंद कर सकते हैं.}}</translation>
 <translation id="7002055706763150362">Chromebook के लिए Smart Lock सेट करने हेतु, Google यह सुनिश्‍चित करना चाहता है कि यह आप ही हैं—प्रारंभ करने के लिए अपना पासवर्ड लिखें.</translation>
@@ -5146,6 +5152,7 @@
 <translation id="8631032106121706562">पेटल्स</translation>
 <translation id="8631271110654520730">पुनर्प्राप्ति चित्र की प्रति बना रहा है...</translation>
 <translation id="8632275030377321303">उपयोगकर्ता द्वारा प्रॉक्सी में बदलाव नहीं किया जा सकता.</translation>
+<translation id="8637542770513281060">आपके कंप्यूटर में ऐसा सुरक्षित मॉड्यूल है, जिसका उपयोग Chrome OS की कई महत्वपूर्ण सुरक्षा सुविधाओं का क्रियान्वयन करने के लिए किया जाता है. अधिक जानने के लिए Chromebook सहायता केंद्र पर जाएं: https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">सिस्टम अपडेट उपलब्ध है. डाउनलोड करने के लिए तैयार हो रहा है...</translation>
 <translation id="8639963783467694461">ऑटोमैटिक भरना की सेटिंग...</translation>
 <translation id="8642171459927087831">पहुंच टोकन</translation>
