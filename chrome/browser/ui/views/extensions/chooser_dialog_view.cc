@@ -83,7 +83,7 @@ views::ClientView* ChooserDialogView::CreateClientView(views::Widget* widget) {
     min_width = kMinWidth;
   client->set_minimum_size(gfx::Size(min_width, kMinHeight));
 
-  client->set_button_row_insets(gfx::Insets(
+  client->SetButtonRowInsets(gfx::Insets(
       provider->GetDistanceMetric(DISTANCE_UNRELATED_CONTROL_VERTICAL), 0, 0,
       0));
   return client;
