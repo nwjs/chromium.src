@@ -73,6 +73,7 @@ class MESSAGE_CENTER_EXPORT MessageView
 
   // views::SlideOutController::Delegate
   ui::Layer* GetSlideOutLayer() override;
+  void OnSlideChanged() override;
   void OnSlideOut() override;
 
   void set_scroller(views::ScrollView* scroller) { scroller_ = scroller; }
