@@ -2712,4 +2712,15 @@ TEST_F(PasswordAutofillAgentTest, InPageNavigationSubmissionUsernameIsEmpty) {
             fake_driver_.password_form_inpage_navigation()->password_value);
 }
 
+// Tests that username/password are autofilled when JavaScript is changing url
+// between discovering a form and receving credentials from the browser process.
+TEST_F(PasswordAutofillAgentTest, AutocompleteWhenPageUrlIsChanged) {
+  // Simulate that JavaScript changes url.
+  fill_data_.origin = GURL(fill_data_.origin.possibly_invalid_spec() + "/path");
+
+  SimulateOnFillPasswordForm(fill_data_);
+
+  // The username and password should have been autocompleted.
+  CheckTextFieldsState(kAliceUsername, true, kAlicePassword, true);
+}
 }  // namespace autofill
