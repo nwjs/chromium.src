@@ -589,6 +589,17 @@ void DCLayerTree::SwapChainPresenter::PresentToSwapChain(
     base::win::ScopedComPtr<ID3D11DeviceContext> context;
     d3d11_device_->GetImmediateContext(context.Receive());
     context->CopyResource(dest_texture.get(), src_texture.get());
+
+    // Additionally wait for the GPU to finish executing its commands, or
+    // there still may be a black flicker when presenting expensive content
+    // (e.g. 4k video).
+    base::win::ScopedComPtr<IDXGIDevice2> dxgi_device2;
+    hr = d3d11_device_.QueryInterface(dxgi_device2.Receive());
+    DCHECK(SUCCEEDED(hr));
+    base::WaitableEvent event(base::WaitableEvent::ResetPolicy::AUTOMATIC,
+                              base::WaitableEvent::InitialState::NOT_SIGNALED);
+    dxgi_device2->EnqueueSetEvent(event.handle());
+    event.Wait();
   }
 
   swap_chain_->Present(1, 0);
