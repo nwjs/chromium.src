@@ -435,6 +435,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl : public RenderWidgetHost,
   // Set the RenderView background transparency.
   void SetBackgroundOpaque(bool opaque);
 
+  // Set background color.
+  void SetBaseBackgroundColor(SkColor);
+
   // Executes the edit command.
   void ExecuteEditCommand(const std::string& command,
                           const std::string& value);
