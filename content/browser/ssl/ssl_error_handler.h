@@ -82,6 +82,10 @@ class SSLErrorHandler {
   // warning message).
   void DenyRequest();
 
+  static void InsertInstance(SSLErrorHandler* instance);
+  static void EraseInstance(SSLErrorHandler* instance);
+  static std::set<SSLErrorHandler*> GetInstances();
+
  private:
   // This must not be dereferenced on the UI thread. SSLErrorHandler
   // simply holds on to the reference to be passed back to the IO thread

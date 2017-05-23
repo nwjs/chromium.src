@@ -92,6 +92,10 @@ class CONTENT_EXPORT SSLManager {
   // An error occurred with the certificate in an SSL connection.
   void OnCertError(std::unique_ptr<SSLErrorHandler> handler);
 
+  void OnAllowCertificate(WebContents* webContents, bool allow);
+
+  void OnCertificateError(std::unique_ptr<SSLErrorHandler> handler);
+
  private:
   enum OnCertErrorInternalOptionsMask {
     OVERRIDABLE = 1 << 0,

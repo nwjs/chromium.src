@@ -598,6 +598,21 @@ void WebViewGuest::FindReply(WebContents* source,
                          active_match_ordinal, final_update);
 }
 
+void WebViewGuest::OnCertificateError(base::ListValue* certificate)
+{
+  std::unique_ptr<base::DictionaryValue> args(new base::DictionaryValue());
+  args->Set(webview::kCertificate, certificate);
+  DispatchEventToView(base::MakeUnique<GuestViewEvent>(
+    webview::kEventCertificateError, std::move(args)));
+}
+
+void WebViewGuest::OnSubFrameCertificateError(base::ListValue* certificate) {
+  std::unique_ptr<base::DictionaryValue> args(new base::DictionaryValue());
+  args->Set(webview::kCertificate, certificate);
+  DispatchEventToView(base::MakeUnique<GuestViewEvent>(
+    webview::kEventSubFrameCertificateError, std::move(args)));
+}
+
 double WebViewGuest::GetZoom() const {
   double zoom_level =
       ZoomController::FromWebContents(web_contents())->GetZoomLevel();
@@ -1186,6 +1201,10 @@ void WebViewGuest::ApplyAttributes(const base::DictionaryValue& params) {
   bool allow_scaling = false;
   if (params.GetBoolean(webview::kAttributeAllowScaling, &allow_scaling))
     SetAllowScaling(allow_scaling);
+
+  bool use_automatic_cert_handling = false;
+  if (params.GetBoolean(webview::kAttributeUseAutomaticCertHandling, &use_automatic_cert_handling))
+    web_contents()->SetAutomaticCertHandling(use_automatic_cert_handling);
 
   // Check for a pending zoom from before the first navigation.
   params.GetDouble(webview::kInitialZoomFactor, &pending_zoom_factor_);

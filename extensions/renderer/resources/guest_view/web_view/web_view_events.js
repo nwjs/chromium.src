@@ -32,6 +32,10 @@ WebViewEvents.prototype.__proto__ = GuestViewEvents.prototype;
 // dictionary augments |GuestViewEvents.EVENTS| in guest_view_events.js. See the
 // documentation there for details.
 WebViewEvents.EVENTS = {
+  'certificateerror': {
+    evt: CreateEvent('webViewInternal.onCertificateError'),
+    fields: ['certificate']
+  },
   'close': {
     evt: CreateEvent('webViewInternal.onClose')
   },
@@ -138,6 +142,10 @@ WebViewEvents.EVENTS = {
     evt: CreateEvent('webViewInternal.onSizeChanged'),
     fields: ['oldHeight', 'oldWidth', 'newHeight', 'newWidth'],
     handler: 'handleSizeChangedEvent'
+  },
+  'subframecertificateerror': {
+    evt: CreateEvent('webViewInternal.onSubFrameCertificateError'),
+    fields: ['certificate']
   },
   'unresponsive': {
     evt: CreateEvent('webViewInternal.onUnresponsive'),
