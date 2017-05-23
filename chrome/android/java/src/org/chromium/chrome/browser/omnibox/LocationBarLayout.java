@@ -1205,6 +1205,8 @@ public class LocationBarLayout extends FrameLayout
     public void setToolbarDataProvider(ToolbarDataProvider toolbarDataProvider) {
         mToolbarDataProvider = toolbarDataProvider;
 
+        updateButtonVisibility();
+
         mUrlBar.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View v, final boolean hasFocus) {
