@@ -2035,7 +2035,7 @@
 <translation id="6698424063018171973">Begränsar UDP-portintervallet som används av värden för fjärråtkomst i den här datorn.
 
           Om policyn inte har angetts, eller om den har angetts som en tom sträng, får värden för fjärråtkomst använda vilken port som helst som är tillgänglig, såvida inte <ph name="REMOTEACCESSHOSTFIREWALLTRAVERSAL_POLICY_NAME" />-policyn har inaktiverats. I så fall används UDP-portar inom intervallet 12400–12409 av värden för fjärråtkomst.</translation>
-<translation id="6699880231565102694">Aktivera tvåstegsverifiering för fjärråtkomstvärdar</translation>
+<translation id="6699880231565102694">Aktivera tvåfaktorsautentisering för fjärråtkomstvärdar</translation>
 <translation id="6757375960964186754">Visa tillgänglighetsalternativ för <ph name="PRODUCT_OS_NAME" /> i systemmenyn.
 
           Om policyn är inställd på sant visas alltid tillgänglighetsalternativ i systemfältsmenyn.
@@ -2376,11 +2376,11 @@
       Principen är avsedd att ge företag möjlighet att migrera befintliga servrar från HTTP/0.9. Principen tas bort framöver.
 
       Om principen inte har angetts, inaktiveras HTTP/0.9 på portar som inte har angetts som standard.</translation>
-<translation id="7749402620209366169">Aktiverar tvåstegsverifiering för värdar för fjärråtkomst istället för en användarangiven PIN-kod.
+<translation id="7749402620209366169">Aktiverar tvåfaktorsautentisering för värdar för fjärråtkomst istället för en användarangiven PIN-kod.
 
-          Om inställningen aktiveras måste användaren ange en giltig tvåstegskod för att komma åt värden.
+          Om inställningen aktiveras måste användaren ange en giltig tvåfaktorskod för att komma åt värden.
 
-          Om inställningen inaktiveras eller inte anges så kommer tvåstegsverifiering inte att aktiveras och standardfunktionen med en användardefinierad PIN-kod kommer att användas.</translation>
+          Om inställningen inaktiveras eller inte anges så kommer tvåfaktorsautentisering inte att aktiveras och standardfunktionen med en användardefinierad PIN-kod kommer att användas.</translation>
 <translation id="7750991880413385988">Öppna sidan Ny flik</translation>
 <translation id="7761446981238915769">Konfigurera listan över installerade appar på inloggningsskärmen</translation>
 <translation id="7761526206824804472">Anger en eller flera rekommenderade språkkoder för en offentlig session så att användare enkelt kan använda någon av dessa språkkoder.

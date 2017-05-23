@@ -467,7 +467,7 @@ Tieni presente che il Bluetooth verrà attivato per tutti i dispositivi compatib
 <translation id="1645228020260124617"><ph name="PRECENTAGE" />%</translation>
 <translation id="1646102270785326155">Tutti i file e i dati locali associati all'utente verranno eliminati definitivamente in seguito alla rimozione dell'utente. $1 potrà ancora accedere in un secondo momento.</translation>
 <translation id="1646136617204068573">Tastiera ungherese</translation>
-<translation id="1646982517418478057">Inserisci una password per crittografare il certificato</translation>
+<translation id="1646982517418478057">Inserisci una password per criptare il certificato</translation>
 <translation id="164729547906544836">Tastiera Tamil (itrans)</translation>
 <translation id="164814987133974965">Un utente supervisionato può navigare sul Web sotto la tua guida. In qualità di gestore di un utente supervisionato puoi
     <ph name="BEGIN_BOLD" />consentire o vietare<ph name="END_BOLD" /> siti web specifici,
@@ -1553,7 +1553,7 @@ I dati di accesso del tuo account sono obsoleti.</translation>
 <translation id="317583078218509884">Le nuove impostazioni delle autorizzazioni per i siti avranno effetto una volta ricaricata la pagina.</translation>
 <translation id="3177048931975664371">Fai clic per nascondere la password</translation>
 <translation id="3177909033752230686">Lingua della pagina:</translation>
-<translation id="3180365125572747493">Inserisci una password per crittografare il file del certificato.</translation>
+<translation id="3180365125572747493">Inserisci una password per criptare il file del certificato.</translation>
 <translation id="3181110748548073003">Premi |<ph name="SHORTCUT" />| per andare avanti</translation>
 <translation id="3182749001423093222">Controllo ortografico</translation>
 <translation id="3183139917765991655">Profile Importer</translation>
@@ -1903,7 +1903,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="3688578402379768763">Aggiornato</translation>
 <translation id="3693415264595406141">Password:</translation>
 <translation id="3694027410380121301">Seleziona scheda precedente</translation>
-<translation id="3695919544155087829">Inserisci la password utilizzata per crittografare il file del certificato.</translation>
+<translation id="3695919544155087829">Inserisci la password utilizzata per criptare il file del certificato.</translation>
 <translation id="3697100740575341996">Il tuo amministratore IT ha disattivato gli extra di Chrome per il tuo dispositivo. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="3699624789011381381">Indirizzo email</translation>
 <translation id="3702500414347826004">Le pagine iniziali sono state modificate per includere <ph name="URL" />.</translation>
@@ -3340,7 +3340,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="5860491529813859533">Attiva</translation>
 <translation id="5860494867054883682">Aggiornamento del dispositivo al canale <ph name="CHANNEL_NAME" /> in corso (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="5862109781435984885">Mostra gli strumenti per stilo sullo scaffale</translation>
-<translation id="58625595078799656"><ph name="PRODUCT_NAME" /> richiede di crittografare i tuoi dati utilizzando la tua passphrase o password Google.</translation>
+<translation id="58625595078799656"><ph name="PRODUCT_NAME" /> richiede di criptare i tuoi dati utilizzando la tua passphrase o password Google.</translation>
 <translation id="5863445608433396414">Attiva funzioni di debug</translation>
 <translation id="5864471791310927901">Ricerca DHCP non riuscita</translation>
 <translation id="5865597920301323962">I cookie di <ph name="DOMAIN" /> verranno cancellati all'uscita.</translation>
@@ -4714,7 +4714,7 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="7982083145464587921">Riavvia il dispositivo per correggere questo errore.</translation>
 <translation id="7982283708762922719">Altezza</translation>
 <translation id="7982789257301363584">Rete</translation>
-<translation id="7984180109798553540">Per maggiore sicurezza, <ph name="PRODUCT_NAME" /> crittograferà i tuoi dati.</translation>
+<translation id="7984180109798553540">Per maggiore sicurezza, <ph name="PRODUCT_NAME" /> cripterà i tuoi dati.</translation>
 <translation id="7986295104073916105">Lettura e modifica delle impostazioni relative alle password salvate</translation>
 <translation id="7987485481246785146">Tastiera basata su arabo curdo sorani</translation>
 <translation id="798749371774946697">Nome della macchina troppo lungo</translation>
