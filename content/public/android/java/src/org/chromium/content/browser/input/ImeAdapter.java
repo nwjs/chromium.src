@@ -58,6 +58,7 @@ public class ImeAdapter {
     private static final boolean DEBUG_LOGS = false;
 
     public static final int COMPOSITION_KEY_CODE = 229;
+    private static final int IME_FLAG_NO_PERSONALIZED_LEARNING = 0x1000000;
 
     /**
      * Interface for the delegate that needs to be notified of IME changes.
@@ -88,9 +89,6 @@ public class ImeAdapter {
          */
         ResultReceiver getNewShowKeyboardReceiver();
     }
-
-    static char[] sSingleCharArray = new char[1];
-    static KeyCharacterMap sKeyCharacterMap;
 
     private long mNativeImeAdapterAndroid;
     private InputMethodManagerWrapper mInputMethodManagerWrapper;
@@ -166,11 +164,18 @@ public class ImeAdapter {
 
     /**
      * @see View#onCreateInputConnection(EditorInfo)
+     * @param allowKeyboardLearning Whether to allow keyboard (IME) app to do personalized learning.
      */
-    public ChromiumBaseInputConnection onCreateInputConnection(EditorInfo outAttrs) {
+    public ChromiumBaseInputConnection onCreateInputConnection(
+            EditorInfo outAttrs, boolean allowKeyboardLearning) {
         // InputMethodService evaluates fullscreen mode even when the new input connection is
         // null. This makes sure IME doesn't enter fullscreen mode or open custom UI.
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
+
+        // TODO(changwan): Replace with EditorInfoCompat#IME_FLAG_NO_PERSONALIZED_LEARNING or
+        //                 EditorInfo#IME_FLAG_NO_PERSONALIZED_LEARNING as soon as either is
+        //                 available in all build config types.
+        if (!allowKeyboardLearning) outAttrs.imeOptions |= IME_FLAG_NO_PERSONALIZED_LEARNING;
         // Without this line, some third-party IMEs will try to compose text even when
         // not on an editable node. Even when we return null here, key events can still go
         // through ImeAdapter#dispatchKeyEvent().

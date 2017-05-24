@@ -1227,7 +1227,8 @@ public class ContentViewCore
      * @see View#onCreateInputConnection(EditorInfo)
      */
     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-        return mImeAdapter.onCreateInputConnection(outAttrs);
+        boolean allowKeyboardLearning = getWebContents() != null && !getWebContents().isIncognito();
+        return mImeAdapter.onCreateInputConnection(outAttrs, allowKeyboardLearning);
     }
 
     /**
