@@ -61,6 +61,11 @@ public class UrlBar extends VerticallyFixedEditText {
 
     private static final boolean DEBUG = false;
 
+    // TODO(tedchoc): Replace with EditorInfoCompat#IME_FLAG_NO_PERSONALIZED_LEARNING or
+    //                EditorInfo#IME_FLAG_NO_PERSONALIZED_LEARNING as soon as either is available in
+    //                all build config types.
+    private static final int IME_FLAG_NO_PERSONALIZED_LEARNING = 0x1000000;
+
     // TextView becomes very slow on long strings, so we limit maximum length
     // of what is displayed to the user, see limitDisplayableLength().
     private static final int MAX_DISPLAYABLE_LENGTH = 4000;
@@ -162,6 +167,11 @@ public class UrlBar extends VerticallyFixedEditText {
          * @return The current active {@link Tab}.
          */
         Tab getCurrentTab();
+
+        /**
+         * @return Whether the keyboard should be allowed to learn from the user input.
+         */
+        boolean allowKeyboardLearning();
 
         /**
          * Called when the text state has changed and the autocomplete suggestions should be
@@ -1132,6 +1142,9 @@ public class UrlBar extends VerticallyFixedEditText {
     @Override
     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
         mInputConnection.setTarget(super.onCreateInputConnection(outAttrs));
+        if (mUrlBarDelegate == null || !mUrlBarDelegate.allowKeyboardLearning()) {
+            outAttrs.imeOptions |= IME_FLAG_NO_PERSONALIZED_LEARNING;
+        }
         return mInputConnection;
     }
 
