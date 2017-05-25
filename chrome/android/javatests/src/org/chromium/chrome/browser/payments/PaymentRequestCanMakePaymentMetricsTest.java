@@ -135,16 +135,9 @@ public class PaymentRequestCanMakePaymentMetricsTest extends PaymentRequestTestB
         // Initiate a payment request.
         triggerUIAndWait("queryShow", mReadyForInput);
 
-        // Press the back button.
-        int callCount = mDismissed.getCallCount();
-        ThreadUtils.runOnUiThreadBlocking(new Runnable() {
-            @Override
-            public void run() {
-                mUI.getDialogForTest().onBackPressed();
-            }
-        });
-        mDismissed.waitForCallback(callCount);
-        expectResultContains(new String[] {"Request cancelled"});
+        // Simulate an abort by the merchant.
+        clickNodeAndWait("abort", mDismissed);
+        expectResultContains(new String[] {"Abort"});
 
         // CanMakePayment was queried.
         assertEquals(1,
@@ -164,7 +157,7 @@ public class PaymentRequestCanMakePaymentMetricsTest extends PaymentRequestTestB
         assertEquals(1,
                 RecordHistogram.getHistogramValueCountForTesting(
                         "PaymentRequest.CanMakePayment.Used.TrueWithShowEffectOnCompletion",
-                        JourneyLogger.COMPLETION_STATUS_USER_ABORTED));
+                        JourneyLogger.COMPLETION_STATUS_OTHER_ABORTED));
     }
 
     /**
