@@ -1801,7 +1801,7 @@ Si esta política está habilitada o inhabilitada, los usuarios no pueden cambia
 <translation id="6190022522129724693">Configuración de pop-ups predeterminada</translation>
 <translation id="6197453924249895891">Concede acceso a claves corporativas de extensiones.
 
-      Las claves están designadas para un uso corporativo si se generan con la API chrome.enterprise.platformKeys en una cuenta administrada. Las claves importadas o generadas de otra forma no están designadas para este uso.
+      Las claves están designadas para un uso corporativo si se generan con la API chrome.enterprise.platformKeys en una cuenta gestionada. Las claves importadas o generadas de otra forma no están designadas para este uso.
 
       El acceso a las claves designadas para uso corporativo se controla únicamente a través de esta política. El usuario no puede conceder acceso a extensiones mediante claves corporativas ni retirarlo.
 
@@ -2520,7 +2520,7 @@ Si la política está establecida en False, no se informará sobre la lista de i
           Si estableces esta política, los usuarios no podrán modificarla o anularla.
 
           Si no se establece esta política, el modo de contraste alto se inhabilitará de forma inicial, pero el usuario podrá habilitarlo en cualquier momento.</translation>
-<translation id="815061180603915310">Si se habilita, esta política fuerza el cambio del perfil al modo efímero. Si se especifica como política del sistema operativo (p. ej., GPO en Windows), se aplicará a todos los perfiles del sistema; si se establece como política de la nube, solo se aplicará a un perfil en el que se inicie sesión con una cuenta administrada.
+<translation id="815061180603915310">Si se habilita, esta política fuerza el cambio del perfil al modo efímero. Si se especifica como política del sistema operativo (p. ej., GPO en Windows), se aplicará a todos los perfiles del sistema; si se establece como política de la nube, solo se aplicará a un perfil en el que se inicie sesión con una cuenta gestionada.
 
       En este modo, los datos de perfil solo se mantienen en el disco mientras dura la sesión del usuario. Una vez que se cierra el navegador, no se conservan ciertas funciones, como las extensiones y sus datos o el historial web, datos de Internet como las cookies ni las bases de datos web. Sin embargo, esto no impide que el usuario pueda descargar datos en el disco manualmente, guardar páginas o imprimirlas.
 

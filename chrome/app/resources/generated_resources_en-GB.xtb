@@ -3270,6 +3270,7 @@ Press any key to continue exploring.</translation>
 <translation id="5764483294734785780">Sa&amp;ve audio as...</translation>
 <translation id="57646104491463491">Date Modified</translation>
 <translation id="5764797882307050727">Please free up some space on your device.</translation>
+<translation id="5765425701854290211">Sorry, some files were damaged and the update wasn’t successful. Your synced files are safe.</translation>
 <translation id="5765491088802881382">No networks are available</translation>
 <translation id="5765780083710877561">Description:</translation>
 <translation id="5771585441665576801">Transliteration (geia → γεια)</translation>
@@ -4497,6 +4498,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7615910377284548269">Manage unsandboxed plug-in blocking...</translation>
 <translation id="7617366389578322136">Connecting to '<ph name="DEVICE_NAME" />'</translation>
 <translation id="761779991806306006">No passwords saved.</translation>
+<translation id="7622114377921274169">Charging.</translation>
 <translation id="7624154074265342755">Wireless networks</translation>
 <translation id="7624337243375417909">caps lock off</translation>
 <translation id="7627790789328695202">Whoops, <ph name="FILE_NAME" /> already exists. Rename it and try again.</translation>
@@ -4943,6 +4945,7 @@ Calculating remaining time</translation>
 <translation id="8270242299912238708">PDF documents</translation>
 <translation id="827097179112817503">Show Home button</translation>
 <translation id="8272443605911821513">Manage your extensions by clicking Extensions in the "More tools" menu.</translation>
+<translation id="8274924778568117936">Don’t turn off or close your <ph name="DEVICE_TYPE" /> until the update finishes. Your <ph name="DEVICE_TYPE" /> will restart after installation completes.</translation>
 <translation id="8275038454117074363">Import</translation>
 <translation id="8276560076771292512">Empty Cache and Hard Reload</translation>
 <translation id="8279388322240498158">Sorani Kurdish English-based keyboard</translation>

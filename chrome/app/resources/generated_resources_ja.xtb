@@ -3270,6 +3270,7 @@
 <translation id="5764483294734785780">名前を付けてオーディオを保存(&amp;V)...</translation>
 <translation id="57646104491463491">更新日</translation>
 <translation id="5764797882307050727">端末の空き容量を確保してください。</translation>
+<translation id="5765425701854290211">一部のファイルが破損しており、正常にアップデートできませんでした。同期ファイルは安全です。</translation>
 <translation id="5765491088802881382">ネットワークが利用できません</translation>
 <translation id="5765780083710877561">説明:</translation>
 <translation id="5771585441665576801">文字変換（geia → γεια）</translation>
@@ -4499,6 +4500,7 @@
 <translation id="7615910377284548269">サンドボックスの無効化プラグインのブロックを管理する...　</translation>
 <translation id="7617366389578322136">「<ph name="DEVICE_NAME" />」に接続しています</translation>
 <translation id="761779991806306006">パスワードが保存されていません。</translation>
+<translation id="7622114377921274169">充電しています。</translation>
 <translation id="7624154074265342755">無線ネットワーク</translation>
 <translation id="7624337243375417909">CapsLock オフ</translation>
 <translation id="7627790789328695202"><ph name="FILE_NAME" /> は既に存在しています。名前を変更してもう一度お試しください。</translation>
@@ -4944,6 +4946,7 @@
 <translation id="8270242299912238708">PDF ドキュメント</translation>
 <translation id="827097179112817503">ホームボタンを表示する</translation>
 <translation id="8272443605911821513">拡張機能を管理するには、[その他のツール] メニューの [拡張機能] をクリックします。</translation>
+<translation id="8274924778568117936">アップデートが完了するまでは、<ph name="DEVICE_TYPE" /> の電源を切ったり蓋を閉じたりしないでください。インストールが完了すると、<ph name="DEVICE_TYPE" /> は再起動します。</translation>
 <translation id="8275038454117074363">インポート</translation>
 <translation id="8276560076771292512">キャッシュの消去とハード再読み込み</translation>
 <translation id="8279388322240498158">ソラニークルド語キーボード（英語ベース）</translation>

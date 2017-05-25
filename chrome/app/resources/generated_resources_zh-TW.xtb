@@ -3264,6 +3264,7 @@
 <translation id="5764483294734785780">將音訊另存為(&amp;V)...</translation>
 <translation id="57646104491463491">已修改日期</translation>
 <translation id="5764797882307050727">請在裝置上釋出一些空間。</translation>
+<translation id="5765425701854290211">很抱歉，部分檔案已損毀，因此無法更新。已同步的檔案則未受影響。</translation>
 <translation id="5765491088802881382">沒有可用的網路</translation>
 <translation id="5765780083710877561">說明：</translation>
 <translation id="5771585441665576801">音譯 (geia → γεια)</translation>
@@ -4487,6 +4488,7 @@
 <translation id="7615910377284548269">管理無沙箱防護的外掛程式封鎖設定...</translation>
 <translation id="7617366389578322136">正在連線至「<ph name="DEVICE_NAME" />」</translation>
 <translation id="761779991806306006">沒有儲存任何密碼。</translation>
+<translation id="7622114377921274169">充電中。</translation>
 <translation id="7624154074265342755">無線網路</translation>
 <translation id="7624337243375417909">大寫鎖定模式已關閉</translation>
 <translation id="7627790789328695202">糟糕！已存在名為 <ph name="FILE_NAME" /> 的檔案。請重新命名檔案並再試一次。</translation>
@@ -4932,6 +4934,7 @@
 <translation id="8270242299912238708">PDF 文件</translation>
 <translation id="827097179112817503">顯示 [首頁] 按鈕</translation>
 <translation id="8272443605911821513">如要管理擴充功能，只需按一下 [其他工具] 選單裡的 [擴充功能] 即可。</translation>
+<translation id="8274924778568117936">完成更新前，請勿將 <ph name="DEVICE_TYPE" /> 關機。<ph name="DEVICE_TYPE" /> 會在安裝完成後重新啟動。</translation>
 <translation id="8275038454117074363">匯入</translation>
 <translation id="8276560076771292512">清除快取並強制重新載入</translation>
 <translation id="8279388322240498158">索拉尼庫爾德式英文鍵盤</translation>

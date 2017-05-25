@@ -3269,6 +3269,7 @@
 <translation id="5764483294734785780">Збере&amp;гти аудіо як...</translation>
 <translation id="57646104491463491">Дата змінення</translation>
 <translation id="5764797882307050727">Звільніть місце на пристрої.</translation>
+<translation id="5765425701854290211">Деякі файли пошкоджено, тому їх не вдалось оновити. Синхронізовані файли надійно зберігаються.</translation>
 <translation id="5765491088802881382">Недоступна жодна мережа</translation>
 <translation id="5765780083710877561">Опис:</translation>
 <translation id="5771585441665576801">Транслітерація (geia → γεια)</translation>
@@ -4496,6 +4497,7 @@
 <translation id="7615910377284548269">Керувати блокуванням плагінів із неізольованим програмним середовищем…</translation>
 <translation id="7617366389578322136">Під’єднання до пристрою <ph name="DEVICE_NAME" /></translation>
 <translation id="761779991806306006">Немає збережених паролів.</translation>
+<translation id="7622114377921274169">Заряджається.</translation>
 <translation id="7624154074265342755">Бездротові мережі</translation>
 <translation id="7624337243375417909">Caps Lock вимкнено</translation>
 <translation id="7627790789328695202">Файл "<ph name="FILE_NAME" />" вже існує. Перейменуйте його та повторіть спробу.</translation>
@@ -4941,6 +4943,7 @@
 <translation id="8270242299912238708">Документи PDF</translation>
 <translation id="827097179112817503">Показати кнопку "Домашня сторінка"</translation>
 <translation id="8272443605911821513">Керуйте своїми розширеннями, натиснувши "Розширення" в меню "Інші інструменти".</translation>
+<translation id="8274924778568117936">Не вимикайте та не закривайте пристрій <ph name="DEVICE_TYPE" />, поки не завершиться оновлення. Коли встановляться оновлення, пристрій <ph name="DEVICE_TYPE" /> перезавантажиться.</translation>
 <translation id="8275038454117074363">Імпорт</translation>
 <translation id="8276560076771292512">Очищення кеш-пам’яті й жорстке перезавантаження</translation>
 <translation id="8279388322240498158">Курдська клавіатура сорані на основі англійської мови</translation>

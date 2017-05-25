@@ -3251,6 +3251,7 @@
 <translation id="5764483294734785780">音频另存为(&amp;V)...</translation>
 <translation id="57646104491463491">修改日期</translation>
 <translation id="5764797882307050727">请释放部分设备空间。</translation>
+<translation id="5765425701854290211">抱歉，由于某些文件已损坏，系统未能成功完成更新。但请放心，您的已同步文件不会受到影响。</translation>
 <translation id="5765491088802881382">没有可用网络</translation>
 <translation id="5765780083710877561">说明：</translation>
 <translation id="5771585441665576801">音译(geia → γεια)</translation>
@@ -4468,6 +4469,7 @@
 <translation id="7615910377284548269">管理未经过沙盒屏蔽的插件拦截…</translation>
 <translation id="7617366389578322136">正在连接“<ph name="DEVICE_NAME" />”</translation>
 <translation id="761779991806306006">未保存任何密码。</translation>
+<translation id="7622114377921274169">正在充电。</translation>
 <translation id="7624154074265342755">无线网络</translation>
 <translation id="7624337243375417909">已关闭大写锁定模式</translation>
 <translation id="7627790789328695202">糟糕，<ph name="FILE_NAME" />已存在。请改用其他名称并重试。</translation>
@@ -4913,6 +4915,7 @@
 <translation id="8270242299912238708">PDF 文档</translation>
 <translation id="827097179112817503">显示“主页”按钮</translation>
 <translation id="8272443605911821513">点击“更多工具”菜单中的“扩展程序”，可以管理您的扩展程序。</translation>
+<translation id="8274924778568117936">在完成更新之前，请勿关闭您的 <ph name="DEVICE_TYPE" />。您的 <ph name="DEVICE_TYPE" /> 将会于安装完毕后重启。</translation>
 <translation id="8275038454117074363">导入</translation>
 <translation id="8276560076771292512">清空缓存并硬性重新加载</translation>
 <translation id="8279388322240498158">索拉尼库尔德语（英文字母）键盘</translation>

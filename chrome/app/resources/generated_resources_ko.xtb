@@ -3270,6 +3270,7 @@
 <translation id="5764483294734785780">오디오를 다른 이름으로 저장...(&amp;V)</translation>
 <translation id="57646104491463491">수정된 날짜</translation>
 <translation id="5764797882307050727">기기의 저장용량을 확보하세요.</translation>
+<translation id="5765425701854290211">죄송합니다. 일부 파일이 손상되어 업데이트에 실패했습니다. 동기화된 파일은 안전하게 유지됩니다.</translation>
 <translation id="5765491088802881382">사용할 수 있는 네트워크가 없습니다.</translation>
 <translation id="5765780083710877561">설명:</translation>
 <translation id="5771585441665576801">음역(geia → γεια)</translation>
@@ -4496,6 +4497,7 @@
 <translation id="7615910377284548269">샌드박스 처리되지 않은 플러그인 차단 관리...</translation>
 <translation id="7617366389578322136">'<ph name="DEVICE_NAME" />'에 연결 중입니다.</translation>
 <translation id="761779991806306006">저장된 비밀번호가 없습니다.</translation>
+<translation id="7622114377921274169">충전 중</translation>
 <translation id="7624154074265342755">무선 네트워크</translation>
 <translation id="7624337243375417909">Caps Lock 사용 안함</translation>
 <translation id="7627790789328695202"><ph name="FILE_NAME" />이(가) 이미 있습니다. 이름을 변경한 후 다시 시도해 주세요.</translation>
@@ -4942,6 +4944,7 @@
 <translation id="8270242299912238708">PDF 문서</translation>
 <translation id="827097179112817503">홈 버튼 표시</translation>
 <translation id="8272443605911821513">'추가 도구' 메뉴에서 확장 프로그램을 클릭하여 확장 프로그램을 관리할 수 있습니다.</translation>
+<translation id="8274924778568117936">업데이트가 완료될 때까지 <ph name="DEVICE_TYPE" />을(를) 끄거나 닫지 마세요. 설치가 완료되면 <ph name="DEVICE_TYPE" />이(가) 다시 시작됩니다.</translation>
 <translation id="8275038454117074363">가져오기</translation>
 <translation id="8276560076771292512">캐시 비우기 및 강력 새로고침</translation>
 <translation id="8279388322240498158">소라니 쿠르드어 영어 기반 키보드</translation>
