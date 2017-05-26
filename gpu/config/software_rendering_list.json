@@ -1,6 +1,6 @@
 {
   "name": "software rendering list",
-  "version": "13.5",
+  "version": "13.8",
   "entries": [
     {
       "id": 1,
@@ -1454,25 +1454,6 @@
           "value": "7.0.0",
           "value2": "7.0.99",
           "comment": "Only initial version of N."
-        }
-      },
-      "gl_renderer": "Adreno \\(TM\\) 4.*",
-      "features": [
-        "webgl2"
-      ]
-    },
-    {
-      "id": 148,
-      "description": "Explicit multisample resolve is broken on Adreno 4xx on Android 8.0",
-      "comment": "Corresponds to GPU driver bug #230",
-      "cr_bugs": [722962],
-      "os": {
-        "type": "android",
-        "version": {
-          "op": "between",
-          "value": "8.0.0",
-          "value2": "8.0.99",
-          "comment": "Only initial version of O."
         }
       },
       "gl_renderer": "Adreno \\(TM\\) 4.*",
