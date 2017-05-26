@@ -558,7 +558,7 @@ public class SelectionPopupController extends ActionModeCallbackHelper {
         int id = item.getItemId();
         int groupId = item.getGroupId();
 
-        if (id == mAssistMenuItemId) {
+        if (BuildInfo.isAtLeastO() && id == mAssistMenuItemId) {
             doAssistAction();
             mode.finish();
         } else if (id == R.id.select_action_menu_select_all) {
