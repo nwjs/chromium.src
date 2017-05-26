@@ -269,6 +269,7 @@ NS_INLINE void AnimateInViews(NSArray* views,
       break;
     case web::UserAgentType::DESKTOP:
       [self setItemEnabled:YES withTag:IDC_REQUEST_MOBILE_SITE];
+      [self setItemEnabled:NO withTag:IDC_REQUEST_DESKTOP_SITE];
       break;
   }
 

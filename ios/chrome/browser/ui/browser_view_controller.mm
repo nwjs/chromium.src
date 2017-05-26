@@ -4067,7 +4067,7 @@ class BrowserBookmarkModelBridge : public bookmarks::BookmarkModelObserver {
       [[_model currentTab] reloadWithUserAgentType:web::UserAgentType::DESKTOP];
       break;
     case IDC_REQUEST_MOBILE_SITE:
-      [[_model currentTab] reloadWithUserAgentType:web::UserAgentType::MOBILE];
+      NOTREACHED();
       break;
     case IDC_SHOW_TOOLS_MENU: {
       [self showToolsMenuPopup];
