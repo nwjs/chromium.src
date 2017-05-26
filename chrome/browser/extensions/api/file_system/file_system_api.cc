@@ -1328,6 +1328,12 @@ void FileSystemRequestFileSystemFunction::OnConsentReceived(
   using file_manager::VolumeManager;
   using file_manager::Volume;
 
+  // Render frame host can be gone before this callback method is executed.
+  if (!render_frame_host()) {
+    Respond(Error(""));
+    return;
+  }
+
   switch (result) {
     case ConsentProvider::CONSENT_REJECTED:
       Respond(Error(kSecurityError));
