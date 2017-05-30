@@ -2038,6 +2038,7 @@ registerLoadRequestForURL:(const GURL&)requestURL
         registerLoadRequestForURL:url
                          referrer:self.currentNavItemReferrer
                        transition:ui::PageTransition::PAGE_TRANSITION_RELOAD];
+    [self didStartLoadingURL:url];
     [self.nativeController reload];
     _webStateImpl->OnNavigationFinished(navigationContext.get());
     [self loadCompleteWithSuccess:YES forNavigation:nil];
@@ -2139,8 +2140,6 @@ registerLoadRequestForURL:(const GURL&)requestURL
   // safe and do nothing if that's happened.
   if (_loadPhase != web::PAGE_LOADING)
     return;
-
-  DCHECK(_webView);
 
   const GURL currentURL([self currentURL]);
 
