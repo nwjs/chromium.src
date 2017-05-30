@@ -1531,7 +1531,7 @@ Gå til din e-mail, <ph name="ACCOUNT_EMAIL" />, for at se denne og flere vejled
 <translation id="3144135466825225871">Crx-filen kunne ikke erstattes. Tjek, om filen er i brug.</translation>
 <translation id="3144647712221361880">Åbn linket som</translation>
 <translation id="3149510190863420837">Chrome-apps</translation>
-<translation id="3150927491400159470">Intensiv genindlæsning</translation>
+<translation id="3150927491400159470">Genindlæs fuldstændig</translation>
 <translation id="315116470104423982">Mobildata</translation>
 <translation id="3151539355209957474">Starttidspunkt</translation>
 <translation id="3151562827395986343">Ryd historik, cookies, cache m.m.</translation>
@@ -3461,7 +3461,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="6054173164583630569">Fransk tastatur</translation>
 <translation id="6055171183283175969">Den indtastede adgangskode er forkert.</translation>
 <translation id="6055392876709372977">PKCS #1 SHA-256 med RSA-kryptering</translation>
-<translation id="6056710589053485679">Almindelig genindlæsning</translation>
+<translation id="6056710589053485679">Genindlæs som normalt</translation>
 <translation id="6059232451013891645">Mappe:</translation>
 <translation id="6059652578941944813">Certifikathierarki</translation>
 <translation id="6059925163896151826">USB-enheder</translation>
@@ -4943,7 +4943,7 @@ Beregner resterende tid</translation>
 <translation id="8272443605911821513">Administrer dine udvidelser ved at klikke på Udvidelser i menuen "Flere værktøjer".</translation>
 <translation id="8274924778568117936">Undgå at slukke eller lukke din <ph name="DEVICE_TYPE" />, før opdateringen er færdig. Din <ph name="DEVICE_TYPE" /> genstarter, når installationen er gennemført.</translation>
 <translation id="8275038454117074363">Importer</translation>
-<translation id="8276560076771292512">Tom cache og intensiv genindlæsning</translation>
+<translation id="8276560076771292512">Tøm cache og genindlæs fuldstændig</translation>
 <translation id="8279388322240498158">Sorani-kurdisk tastatur (engelskbaseret)</translation>
 <translation id="8280151743281770066">Armensk (fonetisk)</translation>
 <translation id="8281886186245836920">Spring over</translation>
