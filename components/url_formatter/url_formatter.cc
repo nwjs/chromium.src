@@ -430,7 +430,8 @@ bool IDNSpoofChecker::Check(base::StringPiece16 label, bool is_tld_ascii) {
             "[a-z][\\u0585\\u0581]+[a-z]|"
             "^[og]+[\\p{scx=armn}]|[\\p{scx=armn}][og]+$|"
             "[\\p{scx=armn}][og]+[\\p{scx=armn}]|"
-            "[\\p{sc=cans}].*[a-z]|[a-z].*[\\p{sc=cans}]",
+            "[\\p{sc=cans}].*[a-z]|[a-z].*[\\p{sc=cans}]|"
+            "[\\p{sc=tfng}].*[a-z]|[a-z].*[\\p{sc=tfng}]",
             -1, US_INV),
         0, status);
     tls_index.Set(dangerous_pattern);
