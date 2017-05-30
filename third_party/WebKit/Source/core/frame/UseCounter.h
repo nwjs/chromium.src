@@ -1616,6 +1616,9 @@ class CORE_EXPORT UseCounter {
     kHTMLOListElementStartGetterReversedWithoutStartAttribute = 2011,
     kCredentialManagerPreventSilentAccess = 2012,
     kNetInfoEffectiveType = 2013,
+    kTableRowDirectionDifferentFromTable = 2015,
+    kTableSectionDirectionDifferentFromTable = 2016,
+    // The above items are available in M60 branch.
 
     // Add new features immediately above this line. Don't change assigned
     // numbers of any item, and don't reuse removed slots.
