@@ -20,6 +20,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 
+import org.chromium.base.BuildInfo;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
@@ -93,7 +94,13 @@ public class CompositorView
 
         mCompositorSurfaceManager = new CompositorSurfaceManager(this, this);
 
-        setVisibility(View.INVISIBLE);
+        if (BuildInfo.isAtLeastO()) {
+            setBackgroundColor(Color.WHITE);
+            super.setVisibility(View.VISIBLE);
+            mCompositorSurfaceManager.setVisibility(View.INVISIBLE);
+        } else {
+            setVisibility(View.INVISIBLE);
+        }
 
         // Request the opaque surface.  We might need the translucent one, but
         // we don't know yet.  We'll switch back later if we discover that
