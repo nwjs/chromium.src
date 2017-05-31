@@ -334,7 +334,7 @@ public class ChildProcessLauncher {
                 ChildProcessCreationParams creationParams = ChildProcessCreationParams.getDefault();
                 final boolean sandboxed = true;
                 boolean bindToCallerCheck =
-                        isServiceExternalFromCreationParams(creationParams, sandboxed);
+                        creationParams == null ? false : creationParams.getBindToCallerCheck();
                 sSpareSandboxedConnection =
                         new SpareChildConnection(context, SANDBOXED_SPARE_CONNECTION_FATORY,
                                 ChildProcessLauncherHelper.createServiceBundle(bindToCallerCheck),
