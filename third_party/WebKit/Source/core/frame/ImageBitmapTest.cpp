@@ -222,7 +222,17 @@ static ImageBitmapOptions PrepareBitmapOptionsAndSetRuntimeFlags(
   return options;
 }
 
-TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionHTMLImageElement) {
+// This test is failing on Android Arm 64 Official Test Bot.
+// See <http://crbug.com/721819>.
+#if OS(ANDROID)
+#define MAYBE_ImageBitmapColorSpaceConversionHTMLImageElement \
+  DISABLED_ImageBitmapColorSpaceConversionHTMLImageElement
+#else
+#define MAYBE_ImageBitmapColorSpaceConversionHTMLImageElement \
+  ImageBitmapColorSpaceConversionHTMLImageElement
+#endif
+
+TEST_F(ImageBitmapTest, MAYBE_ImageBitmapColorSpaceConversionHTMLImageElement) {
   HTMLImageElement* image_element =
       HTMLImageElement::Create(*Document::Create());
 
@@ -334,6 +344,16 @@ TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionHTMLImageElement) {
   }
 }
 
+// This test is failing on Android Arm 64 Official Test Bot.
+// See <http://crbug.com/721819>.
+#if OS(ANDROID)
+#define MAYBE_ImageBitmapColorSpaceConversionImageBitmap \
+  DISABLED_ImageBitmapColorSpaceConversionImageBitmap
+#else
+#define MAYBE_ImageBitmapColorSpaceConversionImageBitmap \
+  ImageBitmapColorSpaceConversionImageBitmap
+#endif
+
 TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionImageBitmap) {
   HTMLImageElement* image_element =
       HTMLImageElement::Create(*Document::Create());
@@ -442,6 +462,16 @@ TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionImageBitmap) {
     ASSERT_EQ(compare, 0);
   }
 }
+
+// This test is failing on Android Arm 64 Official Test Bot.
+// See <http://crbug.com/721819>.
+#if OS(ANDROID)
+#define MAYBE_ImageBitmapColorSpaceConversionStaticBitmapImage \
+  DISABLED_ImageBitmapColorSpaceConversionStaticBitmapImage
+#else
+#define MAYBE_ImageBitmapColorSpaceConversionStaticBitmapImage \
+  ImageBitmapColorSpaceConversionStaticBitmapImage
+#endif
 
 TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionStaticBitmapImage) {
   SkPaint p;
