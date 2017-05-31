@@ -581,10 +581,8 @@ class SuggestionView extends ViewGroup {
             mContentsView.mAnswerImageMaxSize = imageSize;
 
             String url = "https:" + secondLine.getImage().replace("\\/", "/");
-            AnswersImage.requestAnswersImage(
-                    mLocationBar.getCurrentTab().getProfile(),
-                    url,
-                    new AnswersImage.AnswersImageObserver() {
+            AnswersImage.requestAnswersImage(mLocationBar.getToolbarDataProvider().getProfile(),
+                    url, new AnswersImage.AnswersImageObserver() {
                         @Override
                         public void onAnswersImageChanged(Bitmap bitmap) {
                             mContentsView.mAnswerImage.setImageBitmap(bitmap);
