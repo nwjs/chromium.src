@@ -90,7 +90,7 @@ public class NotificationUmaTracker {
             recordHistogram("Mobile.SystemNotification.Blocked", type);
             return;
         }
-        if (BuildInfo.isAtLeastO() && isChannelBlocked(channelId)) {
+        if (BuildInfo.isAtLeastO() && channelId != null && isChannelBlocked(channelId)) {
             recordHistogram("Mobile.SystemNotification.ChannelBlocked", type);
             return;
         }

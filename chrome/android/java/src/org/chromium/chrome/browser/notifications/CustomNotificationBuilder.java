@@ -79,8 +79,9 @@ public class CustomNotificationBuilder extends NotificationBuilderBase {
 
     private final Context mContext;
 
-    public CustomNotificationBuilder(Context context) {
-        super(context.getResources());
+    public CustomNotificationBuilder(
+            Context context, @ChannelDefinitions.ChannelId String channelId) {
+        super(context.getResources(), channelId);
         mContext = context;
     }
 
@@ -142,7 +143,7 @@ public class CustomNotificationBuilder extends NotificationBuilderBase {
         // TODO(crbug.com/697104) We should probably use a Compat builder.
         ChromeNotificationBuilder builder =
                 NotificationBuilderFactory.createChromeNotificationBuilder(
-                        false /* preferCompat */, ChannelDefinitions.CHANNEL_ID_SITES);
+                        false /* preferCompat */, mChannelId);
         builder.setTicker(mTickerText);
         builder.setContentIntent(mContentIntent);
         builder.setDeleteIntent(mDeleteIntent);

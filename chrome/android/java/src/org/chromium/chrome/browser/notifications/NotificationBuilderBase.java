@@ -108,6 +108,8 @@ public abstract class NotificationBuilderBase {
     private final int mLargeIconHeightPx;
     private final RoundedIconGenerator mIconGenerator;
 
+    protected final String mChannelId;
+
     protected CharSequence mTitle;
     protected CharSequence mBody;
     protected CharSequence mOrigin;
@@ -126,12 +128,14 @@ public abstract class NotificationBuilderBase {
 
     private Bitmap mLargeIcon;
 
-    public NotificationBuilderBase(Resources resources) {
+    public NotificationBuilderBase(
+            Resources resources, @ChannelDefinitions.ChannelId String channelId) {
         mLargeIconWidthPx =
                 resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_width);
         mLargeIconHeightPx =
                 resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_height);
         mIconGenerator = createIconGenerator(resources);
+        mChannelId = channelId;
     }
 
     /**

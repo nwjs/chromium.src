@@ -16,8 +16,9 @@ import org.chromium.chrome.browser.notifications.channels.ChannelDefinitions;
 public class StandardNotificationBuilder extends NotificationBuilderBase {
     private final Context mContext;
 
-    public StandardNotificationBuilder(Context context) {
-        super(context.getResources());
+    public StandardNotificationBuilder(
+            Context context, @ChannelDefinitions.ChannelId String channelId) {
+        super(context.getResources(), channelId);
         mContext = context;
     }
 
@@ -28,7 +29,7 @@ public class StandardNotificationBuilder extends NotificationBuilderBase {
         // TODO(crbug.com/697104) We should probably use a Compat builder.
         ChromeNotificationBuilder builder =
                 NotificationBuilderFactory.createChromeNotificationBuilder(
-                        false /* preferCompat */, ChannelDefinitions.CHANNEL_ID_SITES);
+                        false /* preferCompat */, mChannelId);
 
         builder.setContentTitle(mTitle);
         builder.setContentText(mBody);
