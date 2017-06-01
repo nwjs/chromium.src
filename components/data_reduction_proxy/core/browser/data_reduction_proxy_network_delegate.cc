@@ -214,6 +214,9 @@ int64_t EstimateOriginalReceivedBytes(const net::URLRequest& request,
 // Saver proxy.
 void VerifyHttpRequestHeaders(bool via_chrome_proxy,
                               const net::HttpRequestHeaders& headers) {
+  // If holdback is enabled, then |via_chrome_proxy| should be false.
+  DCHECK(!params::IsIncludedInHoldbackFieldTrial() || !via_chrome_proxy);
+
   if (via_chrome_proxy) {
     DCHECK(headers.HasHeader(chrome_proxy_ect_header()));
     std::string chrome_proxy_header_value;
@@ -342,16 +345,17 @@ void DataReductionProxyNetworkDelegate::OnBeforeSendHeadersInternal(
   DataReductionProxyData::ClearData(request);
 
   if (params::IsIncludedInHoldbackFieldTrial()) {
-    if (!WasEligibleWithoutHoldback(*request, proxy_info, proxy_retry_info))
-      return;
-    // For the holdback field trial, still log UMA as if the proxy was used.
-    data = DataReductionProxyData::GetDataAndCreateIfNecessary(request);
-    if (data)
-      data->set_used_data_reduction_proxy(true);
-
-    headers->RemoveHeader(chrome_proxy_header());
-    VerifyHttpRequestHeaders(false, *headers);
-    return;
+    if (WasEligibleWithoutHoldback(*request, proxy_info, proxy_retry_info)) {
+      // For the holdback field trial, still log UMA as if the proxy was used.
+      data = DataReductionProxyData::GetDataAndCreateIfNecessary(request);
+      if (data)
+        data->set_used_data_reduction_proxy(true);
+    }
+    // If holdback is enabled, |proxy_info| must not contain a data reduction
+    // proxy.
+    DCHECK(proxy_info.is_empty() ||
+           !data_reduction_proxy_config_->IsDataReductionProxy(
+               proxy_info.proxy_server(), nullptr));
   }
 
   bool using_data_reduction_proxy = true;
@@ -365,6 +369,9 @@ void DataReductionProxyNetworkDelegate::OnBeforeSendHeadersInternal(
                  proxy_info.proxy_server(), nullptr)) {
     using_data_reduction_proxy = false;
   }
+  // If holdback is enabled, |using_data_reduction_proxy| must be false.
+  DCHECK(!params::IsIncludedInHoldbackFieldTrial() ||
+         !using_data_reduction_proxy);
 
   LoFiDecider* lofi_decider = nullptr;
   if (data_reduction_proxy_io_data_)
