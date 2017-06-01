@@ -1974,10 +1974,10 @@ const char kChromeHomeExpandButtonDescription[] =
 
 #if defined(OS_ANDROID)
 
-const char kEnableIphDemoModeName[] = "In-Product Help Demo Mode";
+const char kIphDemoModeChoiceName[] = "In-Product Help Demo Mode";
 
-const char kEnableIphDemoModeDescription[] =
-    "Enables In-Product Help demo mode on Android.";
+const char kIphDemoModeChoiceDescription[] =
+    "Selects the In-Product Help demo mode.";
 
 #endif  // defined(OS_ANDROID)
 
