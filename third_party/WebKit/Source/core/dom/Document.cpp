@@ -1703,7 +1703,7 @@ bool Document::NeedsLayoutTreeUpdate() const {
     return true;
   if (ChildNeedsStyleInvalidation())
     return true;
-  if (GetLayoutViewItem().WasNotifiedOfSubtreeChange())
+  if (GetLayoutView() && GetLayoutView()->WasNotifiedOfSubtreeChange())
     return true;
   return false;
 }
