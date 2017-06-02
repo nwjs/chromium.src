@@ -5282,16 +5282,8 @@ String FrameView::MainThreadScrollingReasonsAsText() const {
   return result;
 }
 
-void FrameView::SetViewportIntersectionFromParent(
-    const IntRect& viewport_intersection) {
-  if (remote_viewport_intersection_ != viewport_intersection) {
-    remote_viewport_intersection_ = viewport_intersection;
-    ScheduleAnimation();
-  }
-}
-
 IntRect FrameView::RemoteViewportIntersection() {
-  IntRect intersection(remote_viewport_intersection_);
+  IntRect intersection(GetFrame().RemoteViewportIntersection());
   intersection.Move(ScrollOffsetInt());
   return intersection;
 }

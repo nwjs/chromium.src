@@ -53,6 +53,8 @@ class MockRenderWidgetHostDelegate : public RenderWidgetHostDelegate {
   void SelectAll() override {}
 };
 
+}  // namespace
+
 class MockCrossProcessFrameConnector : public CrossProcessFrameConnector {
  public:
   MockCrossProcessFrameConnector() : CrossProcessFrameConnector(nullptr) {}
@@ -63,14 +65,16 @@ class MockCrossProcessFrameConnector : public CrossProcessFrameConnector {
     last_surface_info_ = surface_info;
   }
 
+  void SetViewportIntersection(const gfx::Rect& intersection) {
+    viewport_intersection_rect_ = intersection;
+  }
+
   RenderWidgetHostViewBase* GetParentRenderWidgetHostView() override {
     return nullptr;
   }
 
   cc::SurfaceInfo last_surface_info_;
 };
-
-}  // namespace
 
 class RenderWidgetHostViewChildFrameTest : public testing::Test {
  public:
@@ -287,6 +291,27 @@ TEST_F(RenderWidgetHostViewChildFrameTest, ForwardsBeginFrameAcks) {
   }
 
   view_->SetNeedsBeginFrames(false);
+}
+
+// Tests that the viewport intersection rect is dispatched to the RenderWidget
+// whenever screen rects are updated.
+TEST_F(RenderWidgetHostViewChildFrameTest, ViewportIntersectionUpdated) {
+  gfx::Rect intersection_rect(5, 5, 100, 80);
+  test_frame_connector_->SetViewportIntersection(intersection_rect);
+
+  MockRenderProcessHost* process =
+      static_cast<MockRenderProcessHost*>(widget_host_->GetProcess());
+  process->Init();
+
+  widget_host_->Init();
+
+  const IPC::Message* intersection_update =
+      process->sink().GetUniqueMessageMatching(
+          ViewMsg_SetViewportIntersection::ID);
+  ASSERT_TRUE(intersection_update);
+  std::tuple<gfx::Rect> sent_rect;
+  ViewMsg_SetViewportIntersection::Read(intersection_update, &sent_rect);
+  EXPECT_EQ(intersection_rect, std::get<0>(sent_rect));
 }
 
 }  // namespace content
