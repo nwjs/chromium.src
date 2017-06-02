@@ -95,6 +95,9 @@ class UiSceneManager {
   bool fullscreen_ = false;
   bool incognito_ = false;
   bool is_exiting_ = false;
+  bool audio_capturing_ = false;
+  bool video_capturing_ = false;
+  bool screen_capturing_ = false;
 
   int next_available_id_ = 1;
 
