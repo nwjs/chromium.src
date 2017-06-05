@@ -837,6 +837,7 @@ Hvis denne indstilling ikke er angivet, vil <ph name="PRODUCT_NAME" /> tillade b
 <translation id="4027608872760987929">Aktiver standardsøgemaskine</translation>
 <translation id="4039085364173654945">Kontrollerer, om underlæggende tredjepartsindhold på en side har tilladelse til at vise et pop op-vindue med dialogboksen HTTP Basic Auth. Den er typisk deaktiveret som et phishingforsvar. Hvis denne politik ikke er angivet, deaktiveres den og underlæggende tredjepartsindhold har ikke tilladelse til at vise et pop op-vindue med dialogboksen HTTP Basic Auth.</translation>
 <translation id="4056910949759281379">Deaktiver SPDY-protokol</translation>
+<translation id="408029843066770167">Tillad forespørgsler til en Google-tidstjeneste</translation>
 <translation id="4088589230932595924">Inkognitotilstand er gennemtvunget</translation>
 <translation id="4088983553732356374">Giver dig mulighed for at angive, om websites må angive lokale data. Angivelse af lokale data kan enten være tilladt for alle websites eller forbudt for alle websites.
 
@@ -905,6 +906,7 @@ Hvis denne indstilling ikke er angivet, vil <ph name="PRODUCT_NAME" /> tillade b
 <translation id="4377599627073874279">Tillad alle websites at vise alle billeder</translation>
 <translation id="4389091865841123886">Konfigurer fjernattestering med TPM-mekanismen</translation>
 <translation id="4397469093966511008">Hvis denne politik angives som Falsk, forhindres brugerne i at sende visse former for systemoplysninger og sideindhold til Googles servere. Hvis denne indstilling er angivet som Sand eller ikke er konfigureret, kan brugerne sende visse former for systemoplysninger og sideindhold til Beskyttet browsing som en hjælp til at registrere skadelige apps og websites.</translation>
+<translation id="4418726081189202489">Hvis du angiver denne politik til Falsk, stopper <ph name="PRODUCT_NAME" /> med af og til at sende forespørgsler til en Google-server for at hente et nøjagtigt tidsstempel. Forespørgslerne aktiveres, hvis denne politik angives til Sand eller ikke angives.</translation>
 <translation id="4423597592074154136">Angiv proxyindstillingerne manuelt</translation>
 <translation id="4429220551923452215">Aktiverer eller deaktiverer genvejen til apps i bogmærkelinjen.
 

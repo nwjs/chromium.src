@@ -702,6 +702,7 @@
 <translation id="2028531481946156667">فرآیند قالب‌بندی شروع نمی‌شود.</translation>
 <translation id="2028997212275086731">‏بایگانی RAR</translation>
 <translation id="2034346955588403444">‏افزودن شبکه WiFi دیگر</translation>
+<translation id="203574396658008164">فعال کردن یادداشت‌برداری از صفحه درحالت قفل</translation>
 <translation id="2039623879703305659">حرکت انگشت خیلی سریع بود</translation>
 <translation id="2040460856718599782">وای! هنگام احراز هویت شما مشکلی پیش آمد. لطفاً اطلاعات کاربری ورود به سیستمتان را دوباره بررسی کرده و دوباره امتحان نمایید.</translation>
 <translation id="204497730941176055">‏نام الگوی گواهی Microsoft</translation>
@@ -973,6 +974,7 @@
 <translation id="2423578206845792524">ذ&amp;خیره فایل تصویری به‌عنوان...</translation>
 <translation id="2424091190911472304">همیشه در <ph name="ORIGIN" /> اجرا شود</translation>
 <translation id="2425665904502185219">حجم کل فایل</translation>
+<translation id="2428510569851653187">توضیح دهید وقتی برگه خراب شد مشغول انجام چه کاری بودید</translation>
 <translation id="2433452467737464329">‏برای بازخوانی خودکار صفحه، یک پارامتر جستجو به نشانی وب اضافه کنید: chrome://network/?refresh=&lt;sec&gt;‎</translation>
 <translation id="2433507940547922241">شکل ظاهری</translation>
 <translation id="2435248616906486374">شبکه قطع شد</translation>
@@ -1193,6 +1195,7 @@
 <translation id="2733275712367076659">شما گواهی هایی از این سازمان‌ها دارید که هویت شما را شناسایی می‌کنند:</translation>
 <translation id="2733364097704495499">‏آیا می‌خواهید چاپگر <ph name="PRINTER_NAME" /> را در Google Cloud Print ثبت کنید؟</translation>
 <translation id="2735698359135166290">صفحه‌کلید استاندارد رومانیایی</translation>
+<translation id="2735712963799620190">زمان‌بندی</translation>
 <translation id="2736434052592900364">‏مدیریت همگام‌سازی Chrome و شخصی‌سازی در تنظیمات</translation>
 <translation id="2737363922397526254">کوچک کردن...</translation>
 <translation id="2738771556149464852">نه بعد از</translation>
@@ -1362,6 +1365,7 @@
 <translation id="2946640296642327832">فعال کردن بلوتوث</translation>
 <translation id="2948300991547862301">رفتن به <ph name="PAGE_TITLE" /></translation>
 <translation id="29488703364906173">مرورگر وب سریع، ساده و ایمن که برای وب مدرن طراحی شده است.</translation>
+<translation id="2949037475046662832">با این کار کوکی‌ها و داده‌های سایت برای همه سایت‌ها پاک می‌شود، ازجمله</translation>
 <translation id="2951247061394563839">پنجره مرکزی</translation>
 <translation id="2951721188322348056">اطلاعات ویدئو</translation>
 <translation id="2956763290572484660">کوکی‌های <ph name="COOKIES" /></translation>
@@ -1454,6 +1458,7 @@
 <translation id="3077734595579995578">تبدیل</translation>
 <translation id="3078461028045006476">اشتراک‌گذاری با <ph name="EXTENSION_NAME" /></translation>
 <translation id="3081104028562135154">افزایش</translation>
+<translation id="3081564097391116951">‏به‌روزرسانی‌های خودکار فقط ازطریق اترنت یا Wi-Fi انجام می‌شود.</translation>
 <translation id="3082374807674020857"><ph name="PAGE_TITLE" /> - <ph name="PAGE_URL" /></translation>
 <translation id="3082520371031013475">تنظیمات موشواره و پد لمسی</translation>
 <translation id="308268297242056490">URI</translation>
@@ -1686,6 +1691,7 @@
 <translation id="3421387094817716717">کلید عمومی منحنی بیضوی</translation>
 <translation id="342383653005737728">‏ممکن است مالک سیستم شما انتخاب کند داده‌های تشخیصی و استفاده برای این دستگاه به Google ارسال شود. می‌توانید این <ph name="BEGIN_LINK1" />تنظیم<ph name="END_LINK1" /> را در اینجا ببینید. <ph name="BEGIN_LINK2" />بیشتر بدانید<ph name="END_LINK2" /></translation>
 <translation id="3423858849633684918">لطفاً <ph name="PRODUCT_NAME" /> را مجدداً راه‌اندازی کنید</translation>
+<translation id="3424969259347320884">توضیح دهید وقتی برگه خراب شد مشغول انجام چه کاری بودید</translation>
 <translation id="3429599832623003132">$1 مورد</translation>
 <translation id="3432227430032737297">حذف همه موارد نشان‌ داده‌شده</translation>
 <translation id="3432757130254800023">ارسال صوت و تصویر برای نمایش در شبکه محلی</translation>
@@ -2093,6 +2099,7 @@
 <translation id="39964277676607559">بارگیری جاوا اسکریپت "<ph name="RELATIVE_PATH" />" برای اسکریپت محتوا ممکن نیست.</translation>
 <translation id="4002066346123236978">عنوان</translation>
 <translation id="40027638859996362">انتقال کلمه</translation>
+<translation id="4010917659463429001">برای اینکه نشانک‌هایتان را در دستگاه همراهتان داشته باشید، <ph name="GET_IOS_APP_LINK" />.</translation>
 <translation id="4012550234655138030">چاپگرها را در <ph name="CLOUD_PRINT_NAME" /> تنظیم و مدیریت کنید.</translation>
 <translation id="4014432863917027322">«<ph name="EXTENSION_NAME" />» را اصلاح می‌کنید؟</translation>
 <translation id="4018133169783460046">نمایش <ph name="PRODUCT_NAME" /> به این زبان</translation>
@@ -2617,6 +2624,7 @@
 <translation id="4873312501243535625">بررسی‌کننده فایل رسانه‌ای</translation>
 <translation id="4874539263382920044">عنوان باید حداقل یک نویسه داشته باشد</translation>
 <translation id="4875622588773761625">می‌خواهید <ph name="PASSWORD_MANAGER_BRAND" /> گذرواژه‌تان را برای این سایت به‌روزرسانی کند؟</translation>
+<translation id="4876273079589074638">به مهندسان ما کمک کنید این خرابی را بررسی و برطرف کنند. در صورت امکان مراحل را دقیق فهرست کنید. هیچ جزئیاتی بی‌اهمیت نیست!</translation>
 <translation id="4876895919560854374">قفل و باز کردن قفل صفحه</translation>
 <translation id="4877017884043316611">‏مرتبط‌سازی با Chromebox</translation>
 <translation id="4880214202172289027">اسلایدر میزان صدا</translation>
@@ -2778,6 +2786,7 @@
 <translation id="512903556749061217">متصل</translation>
 <translation id="5129662217315786329">لهستانی</translation>
 <translation id="5131347545782851480">‏اسناد PDF</translation>
+<translation id="5133483819862530305">غروب تا طلوع</translation>
 <translation id="5135533361271311778">ایجاد مورد نشانک ممکن نیست.</translation>
 <translation id="5136529877787728692">F7</translation>
 <translation id="5137501176474113045">حذف این مورد</translation>
@@ -3321,6 +3330,7 @@
 <translation id="5916664084637901428">روشن</translation>
 <translation id="59174027418879706">فعال شد</translation>
 <translation id="5920543303088087579">سرپرستتان اتصال به این شبکه را غیرفعال کرده است</translation>
+<translation id="5920835625712313205">‏ایجادکننده تصویر سیستمی سیستم‌عامل Chrome</translation>
 <translation id="5921745308587794300">چرخاندن پنجره</translation>
 <translation id="5924047253200400718">دریافت راهنمایی<ph name="SCANNING_STATUS" /></translation>
 <translation id="5925147183566400388">‏اشاره‌گر Certification Practice Statement</translation>
@@ -3361,6 +3371,7 @@
     <ph name="BEGIN_PARAGRAPH2" /> می‌توانید این قابلیت را در هر زمانی در «تنظیمات» برنامه‌های Android روشن یا خاموش کنید. این کار بر توانایی دستگاه در ارسال اطلاعاتی که برای دریافت سرویس‌های ضروری (مانند به‌روزرسانی‌های سیستم و امنیت) نیاز دارد، تأثیری نمی‌گذارد.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5991049340509704927">بزرگ‌نمایی</translation>
 <translation id="5993332328670040093">داده‌های شما دیگر اندازه‌گیری نمی‌شود</translation>
+<translation id="5999030009544436279">به ما بگویید درست قبل از اینکه پیام خطای نمایه را دریافت کنید چه اتفاقی افتاد:</translation>
 <translation id="6003177993629630467"><ph name="PRODUCT_NAME" /> ممکن است نتواند خود را به روز نگه دارد.</translation>
 <translation id="600424552813877586">برنامه کاربردی نامعتبر است.</translation>
 <translation id="6005282720244019462">صفحه‌کلید لاتین آمریکایی</translation>
@@ -3504,6 +3515,7 @@
 <translation id="6232017090690406397">باتری</translation>
 <translation id="6232116551750539448">اتصال به <ph name="NAME" /> قطع شده است</translation>
 <translation id="6237816943013845465">به شما امکان می‌دهد وضوح صفحه را تنظیم کنید</translation>
+<translation id="6238730967087877808">سفارشی کردن زمان‌بندی</translation>
 <translation id="6239558157302047471">تازه‌سازی قاب</translation>
 <translation id="6241530762627360640">دسترسی به اطلاعات دستگاه‌های بلوتوث مرتبط شده با سیستم شما و کشف دستگاه‌های بلوتوث در این نزدیکی.</translation>
 <translation id="6243774244933267674">سرور در دسترس نیست</translation>
@@ -3721,6 +3733,7 @@
         <ph name="EVENT_NAME" /></translation>
 <translation id="6521494105510930048">اشتراک‌گذاری از طریق</translation>
 <translation id="6527303717912515753">اشتراک‌گذاری</translation>
+<translation id="6528513914570774834">به سایر کاربران این دستگاه اجازه داده شود از این شبکه استفاده کنند</translation>
 <translation id="6528546217685656218">کلید خصوصی برای این گواهی کلاینت مفقود شده یا نامعتبر است.</translation>
 <translation id="652948702951888897">‏سابقه Chrome</translation>
 <translation id="653019979737152879">در حال همگام‌سازی <ph name="FILE_NAME" />...</translation>
@@ -4090,6 +4103,7 @@
 <translation id="7093866338626856921">تبادل داده با دستگاه‌هایی با نام‌های: <ph name="HOSTNAMES" /></translation>
 <translation id="7096082900368329802">می‌خواهید قابلیت‌های عالی‌تری را کشف کنید؟</translation>
 <translation id="7096108453481049031">کاربر تحت‌نظارت وارد نشد. لطفاً اتصال شبکه‌تان را بررسی کرده، بعداً دوباره امتحان کنید.</translation>
+<translation id="7097411490633210585">‏Smart Lock لازم می‌داند حداقل هر ۲۰ ساعت یک‌بار گذرواژه‌تان را تایپ کنید.</translation>
 <translation id="7098447629416471489">سایر موتورهای جستجوی ذخیره‌شده در اینجا نشان داده خواهند شد</translation>
 <translation id="7100897339030255923"><ph name="COUNT" /> مورد انتخاب شدند</translation>
 <translation id="7102687220333134671">به‌روزرسانی‌های خودکار روشن هستند</translation>
@@ -4249,6 +4263,7 @@
 <translation id="7369521049655330548">افزایه‌های زیر در این صفحه مسدود شده‌اند:</translation>
 <translation id="7373789336584437724">‏این دستگاه درحال‌حاضر داده‌های تشخیصی و استفاده به Google ارسال خواهد کرد. در هر زمانی می‌توانید این تنظیم را در <ph name="BEGIN_LINK1" />تنظیمات<ph name="END_LINK1" /> دستگاه تغییر دهید. <ph name="BEGIN_LINK2" />بیشتر بدانید<ph name="END_LINK2" /></translation>
 <translation id="7374461526650987610">کنترل‌کننده‌های پروتکل</translation>
+<translation id="7375053625150546623">EAP</translation>
 <translation id="7376553024552204454">برجسته کردن نشانگر موشواره هنگامی که حرکت می‌کند</translation>
 <translation id="7377169924702866686">‏Caps Lock روشن است.</translation>
 <translation id="7378627244592794276">نه</translation>
@@ -4867,6 +4882,7 @@
 <translation id="8275038454117074363">وارد کردن</translation>
 <translation id="8276560076771292512">خالی کردن حافظه پنهان و تازه‌سازی سخت</translation>
 <translation id="8279388322240498158">صفحه‌کلید کردی سورانی مبتنی بر انگلیسی</translation>
+<translation id="8279986815001244679">‏Smart Lock لازم می‌داند در اولین ورود به سیستم، گذرواژه‌تان را تایپ کنید. بعد از آن، می‌توانید از تلفنتان برای باز کردن قفل <ph name="DEVICE_TYPE" /> خود استفاده کنید.</translation>
 <translation id="8280151743281770066">آوایی ارمنی</translation>
 <translation id="8281886186245836920">رد شدن</translation>
 <translation id="8282947398454257691">شناسه یکتای دستگاهتان را بداند</translation>
@@ -4989,6 +5005,7 @@
 <translation id="8480082892550707549">حتی اگر قبلاً از این سایت فایل‌هایی را بارگیری کرده باشید، این سایت ممکن است به‌طور موقت غیرایمن باشد (هک شده باشد). این فایل را بعداً بارگیری کنید.</translation>
 <translation id="8480417584335382321">بزرگ‌نمایی صفحه:</translation>
 <translation id="8480869669560681089">دستگاه نامشخص از <ph name="VENDOR_NAME" /></translation>
+<translation id="848292461057474014">****لطفاً زیر این خط را تغییر ندهید****</translation>
 <translation id="8483248364096924578">‏نشانی IP</translation>
 <translation id="8487678622945914333">بزرگ‌نمایی</translation>
 <translation id="8487693399751278191">اکنون نشانک‌ها وارد شوند...</translation>
@@ -5341,6 +5358,7 @@
 <translation id="9019062154811256702">خواندن و تغییر تنظیمات تکمیل خودکار</translation>
 <translation id="9021662811137657072">ویروس شناسایی شد</translation>
 <translation id="9022847679183471841">این حساب درحال‌حاضر در این رایانه توسط <ph name="AVATAR_NAME" /> درحال استفاده است.</translation>
+<translation id="9023009238991294202">سایر کاربران این دستگاه می‌توانند از این شبکه استفاده کنند.</translation>
 <translation id="9024127637873500333">باز کردن در &amp;برگه جدید</translation>
 <translation id="9024331582947483881">تمام‌صفحه</translation>
 <translation id="9025098623496448965">بسیار خوب، به صفحه ورود به سیستم بازگردانده شوم</translation>

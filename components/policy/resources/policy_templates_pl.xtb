@@ -823,6 +823,7 @@ Jeśli ta zasada jest wyłączona, informacje o sesji nie będą przesyłane. Je
 
 Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku nieskonfigurowania zasady ustawienie jest wyłączone i treść dodatkowa innej firmy nie może wyświetlać okna dialogowego z podstawowym uwierzytelnianiem HTTP.</translation>
 <translation id="4056910949759281379">Wyłącz protokół SPDY</translation>
+<translation id="408029843066770167">Zezwalaj na wysyłanie zapytań do usługi czasu Google</translation>
 <translation id="4088589230932595924">Tryb incognito wymuszany</translation>
 <translation id="4088983553732356374">Pozwala określić, czy witryny mogą tworzyć dane lokalne. Może to być dozwolone lub zabronione dla wszystkich witryn.
 
@@ -891,6 +892,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="4377599627073874279">Zezwalaj na wyświetlanie wszelkich grafik we wszystkich witrynach</translation>
 <translation id="4389091865841123886">Konfiguruje zdalne poświadczanie przy użyciu mechanizmu TPM</translation>
 <translation id="4397469093966511008">Wyłączenie tej zasady spowoduje, że użytkownicy nie będą mogli wysyłać na serwery Google pewnych informacji o systemie ani zawartości stron. Jeśli ta zasada jest włączona lub nieskonfigurowana, użytkownicy będą mogli wysyłać te dane do usługi Bezpieczne przeglądanie, by pomóc w wykrywaniu niebezpiecznych aplikacji i stron.</translation>
+<translation id="4418726081189202489">Wyłączenie tej zasady spowoduje, że <ph name="PRODUCT_NAME" /> nie będzie okresowo wysyłać zapytań do serwera Google w celu pobrania dokładnej sygnatury czasowej. Zapytania zostaną włączone, jeśli włączysz tę zasadę lub nie skonfigurujesz jej wcale.</translation>
 <translation id="4423597592074154136">Ręcznie określ ustawienia serwera proxy</translation>
 <translation id="4429220551923452215">Włącza lub wyłącza skróty aplikacji na pasku zakładek.
 

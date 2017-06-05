@@ -826,6 +826,7 @@
 <translation id="4027608872760987929">啟用預設搜尋引擎</translation>
 <translation id="4039085364173654945">控制是否允許網頁上的第三方附屬內容彈出「HTTP 基本驗證」對話方塊。為了防止網路釣魚，這項功能通常會停用。如果未設定這項政策，系統會停用這項功能，並且不允許第三方附屬內容彈出「HTTP 基本驗證」對話方塊。</translation>
 <translation id="4056910949759281379">停用 SPDY 通訊協定</translation>
+<translation id="408029843066770167">允許向 Google 時間服務傳送查詢</translation>
 <translation id="4088589230932595924">強制使用無痕模式</translation>
 <translation id="4088983553732356374">可讓您設定是否允許網站設定本機資料。您可以允許所有網站都能設定本機資料，也可以禁止所有網站設定本機資料。
 
@@ -894,6 +895,7 @@
 <translation id="4377599627073874279">允許所有網站顯示所有圖片</translation>
 <translation id="4389091865841123886">使用 TPM 機制設定遠端證明。</translation>
 <translation id="4397469093966511008">將這項政策設為 false 會禁止使用者選擇傳送部分系統資訊和網頁內容給 Google 伺服器。如果這項設定為 true 或未設定，使用者即可傳送部分系統資訊和網頁內容給「安全搜尋」，協助我們偵測危險的應用程式和網站。</translation>
+<translation id="4418726081189202489">將這項政策設為 False 後，<ph name="PRODUCT_NAME" /> 就無法為了擷取精確時間戳記而不定期傳送查詢給 Google 伺服器。如果將這項政策設為 True 或不予設定，則會允許傳送這類查詢。</translation>
 <translation id="4423597592074154136">手動指定 Proxy 設定</translation>
 <translation id="4429220551923452215">啟用或停用書籤列中的應用程式捷徑。
 

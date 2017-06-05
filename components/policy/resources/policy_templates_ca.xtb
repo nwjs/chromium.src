@@ -820,6 +820,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 <translation id="4027608872760987929">Activa el proveïdor de cerca predeterminat</translation>
 <translation id="4039085364173654945">Controla si el contingut secundari de tercers en una pàgina pot fer aparèixer un quadre de diàleg d'autenticació bàsica HTTP. Normalment es desactiva com a defensa de pesca (suplantació d'identitat). Si no es defineix aquesta política, aquest paràmetre es desactivarà i el contingut secundari de tercers no podrà fer aparèixer un quadre de diàleg d'autenticació bàsica HTTP.</translation>
 <translation id="4056910949759281379">Desactiva el protocol SPDY</translation>
+<translation id="408029843066770167">Permet fer consultes a un servei de temps de Google</translation>
 <translation id="4088589230932595924">S'ha forçat el mode d'incògnit</translation>
 <translation id="4088983553732356374">Us permet establir si els llocs web estan autoritzats per establir les dades locals. L'ajust de les dades locals es pot autoritzar o denegar per a tots els llocs web.
 
@@ -889,6 +890,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 <translation id="4377599627073874279">Permet que tots els llocs mostrin totes les imatges</translation>
 <translation id="4389091865841123886">Configura el testimoni remot amb el mecanisme TPM.</translation>
 <translation id="4397469093966511008">Si s'estableix aquesta política en "false", els usuaris no poden decidir que s'enviïn als servidors de Google algunes dades del sistema i contingut de les pàgines. Si aquesta opció de configuració s'estableix en "true" o no es configura, els usuaris poden enviar aquestes dades al servei Navegació segura per ajudar a detectar les aplicacions i els llocs perillosos.</translation>
+<translation id="4418726081189202489">Si aquesta política es defineix en "false", impedeix que <ph name="PRODUCT_NAME" /> enviï de tant en tant consultes a un servidor de Google per recuperar una marca de temps precisa. Aquestes consultes s'activaran si la política es defineix en "true" o si no es defineix.</translation>
 <translation id="4423597592074154136">Especifica manualment la configuració del servidor intermediari</translation>
 <translation id="4429220551923452215">Activa o desactiva la drecera de les aplicacions a la barra d'adreces d'interès.
 
@@ -1687,7 +1689,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 
       Si aquesta política s'estableix, les configuracions regionals recomanades es passaran a dalt de tot de la llista i es diferenciaran visualment de la resta. Les configuracions regionals recomanades s'enumeraran en l'ordre en què es mostren a la política. La primera recomanació es preseleccionarà.
 
-      Si hi ha més d'una recomanació, es dóna per fet que els usuaris voldran seleccionar una d'aquestes opcions. La selecció de configuració regional i de disposició de teclat s'oferirà clarament quan s'iniciï una sessió pública. Si només hi ha una recomanació, es dóna per fet que la majoria d'usuaris voldran utilitzar la configuració regional preseleccionada. La selecció de configuració regional i de disposició de teclat no s'oferirà tan clarament quan s'iniciï una sessió pública.
+      Si hi ha més d'una recomanació, es dona per fet que els usuaris voldran seleccionar una d'aquestes opcions. La selecció de configuració regional i de disposició de teclat s'oferirà clarament quan s'iniciï una sessió pública. Si només hi ha una recomanació, es dona per fet que la majoria d'usuaris voldran utilitzar la configuració regional preseleccionada. La selecció de configuració regional i de disposició de teclat no s'oferirà tan clarament quan s'iniciï una sessió pública.
 
       Quan aquesta política estigui establerta i l'inici de sessió automàtic estigui activat (consulteu les polítiques |DeviceLocalAccountAutoLoginId| i |DeviceLocalAccountAutoLoginDelay|), a la sessió pública que s'hagi iniciat automàticament s'utilitzarà la primera configuració regional recomanada i la disposició de teclat més popular que hi concordi.
 

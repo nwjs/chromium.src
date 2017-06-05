@@ -874,6 +874,7 @@
 
           Policyn är normalt inaktiverad som skydd mot lösenordsfiske. Om policyn inte anges är inställningen inaktiverad och underordnat innehåll från tredje part får inte öppna en dialogruta för HTTP Basic Auth.</translation>
 <translation id="4056910949759281379">Inaktivera SPDY-protokoll</translation>
+<translation id="408029843066770167">Tillåt sökfrågor till en tidstjänst från Google</translation>
 <translation id="4088589230932595924">Tvingat inkognitoläge</translation>
 <translation id="4088983553732356374">Innebär att du kan ange om webbplatser ska få ange lokal data. Att ange lokal data kan tillåtas för alla webbplatser eller nekas för alla webbplatser.
 
@@ -942,6 +943,7 @@
 <translation id="4377599627073874279">Tillåt att alla bilder visas på alla webbplatser</translation>
 <translation id="4389091865841123886">Konfigurera fjärrattesteringen med TPM-mekanism.</translation>
 <translation id="4397469093966511008">Om den här principen är inställd på falskt kan inte användare skicka systeminformation eller innehåll på sidan till Googles servrar. Om inställningen är inställd på sant eller inte har konfigurerats kan användare skicka systeminformation och innehåll på sidan till Säker webbsökning och bidra till att skadliga appar och webbplatser identifieras.</translation>
+<translation id="4418726081189202489">Om principen är inställd på falskt förhindras att sökfrågor skickas från <ph name="PRODUCT_NAME" /> till en Google-server för att hämta en korrekt tidsstämpel. Dessa sökfrågor aktiveras om principen är inställd på sant eller inte inställd alls.</translation>
 <translation id="4423597592074154136">Ange proxyinställningar manuellt</translation>
 <translation id="4429220551923452215">Aktiverar eller inaktiverar genvägen Appar i bokmärkesfältet.
 

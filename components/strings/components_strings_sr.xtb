@@ -110,12 +110,14 @@
 <translation id="1821930232296380041">Неважећи захтев или параметри захтева</translation>
 <translation id="1826516787628120939">Провера</translation>
 <translation id="1834321415901700177">Овај сајт садржи штетне програме</translation>
+<translation id="1840414022444569775">Овај број картице се већ користи</translation>
 <translation id="1842969606798536927">Плаћање</translation>
 <translation id="1871208020102129563">Прокси је подешен да користи фиксне прокси сервере, а не URL адресу .pac скрипте.</translation>
 <translation id="1871284979644508959">Обавезно поље</translation>
 <translation id="187918866476621466">Отвори почетне странице</translation>
 <translation id="1883255238294161206">Скупи листу</translation>
 <translation id="1898423065542865115">Филтрирање</translation>
+<translation id="192020519938775529">{COUNT,plural, =0{None}=1{1 сајт}one{# сајт}few{# сајта}other{# сајтова}}</translation>
 <translation id="194030505837763158">Идите на <ph name="LINK" /></translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> – обележивачи</translation>
 <translation id="1973335181906896915">Грешка при серијализацији</translation>
@@ -190,6 +192,7 @@
 <translation id="2587841377698384444">ИД API-ја за директоријуме:</translation>
 <translation id="2597378329261239068">Овај документ је заштићен лозинком. Унесите лозинку.</translation>
 <translation id="2609632851001447353">Варијације</translation>
+<translation id="262424810616849754">{COUNT,plural, =0{None}=1{1 апликација ($1)}=2{2 апликације ($1, $2)}one{# апликација ($1, $2, $3)}few{# апликације ($1, $2, $3)}other{# апликација ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Сат вам жури</translation>
 <translation id="2639739919103226564">Статус:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
@@ -243,10 +246,10 @@
 <translation id="3024663005179499861">Погрешан тип смерница</translation>
 <translation id="3032412215588512954">Желите ли поново да учитате овај сат?</translation>
 <translation id="3037605927509011580">О, не!</translation>
-<translation id="3040955737384246924">{COUNT,plural, =0{најмање 1 ставка на синхронизованим уређајима}=1{1 ставка (и још ставки на синхронизованим уређајима)}one{# ставка (и још ставки на синхронизованим уређајима)}few{# ставке (и још ставки на синхронизованим уређајима)}other{# ставки (и још ставки на синхронизованим уређајима)}}</translation>
 <translation id="3041612393474885105">Информације о сертификату</translation>
 <translation id="3063697135517575841">Chrome није успео да потврди картицу. Пробајте поново касније.</translation>
 <translation id="3064966200440839136">Напустићете режим без архивирања да бисте платили у спољној апликацији. Желите ли да наставите?</translation>
+<translation id="3083099961703215236">{COUNT,plural, =0{None}=1{1 лозинка}one{# лозинка}few{# лозинке}other{# лозинки}}</translation>
 <translation id="3093245981617870298">Офлајн сте.</translation>
 <translation id="3105172416063519923">ИД елемента:</translation>
 <translation id="3109728660330352905">Немате овлашћење да прегледате ову страницу.</translation>
@@ -312,6 +315,7 @@
 <translation id="3479552764303398839">Не сада</translation>
 <translation id="3498215018399854026">Тренутно не можемо да контактирамо родитеља. Пробај поново.</translation>
 <translation id="3528171143076753409">Сертификат сервера није поуздан.</translation>
+<translation id="3530944546672790857">{COUNT,plural, =0{Најмање 1 ставка на синхронизованим уређајима}=1{1 ставка (и још ставки на синхронизованим уређајима)}one{# ставка (и још ставки на синхронизованим уређајима)}few{# ставке (и још ставки на синхронизованим уређајима)}other{# ставки (и још ставки на синхронизованим уређајима)}}</translation>
 <translation id="3539171420378717834">Задржи копију ове картице на овом уређају</translation>
 <translation id="3542684924769048008">Користи лозинку за:</translation>
 <translation id="3549644494707163724">Шифруј све синхронизоване податке помоћу моје приступне фразе за синхронизацију</translation>
@@ -337,7 +341,6 @@
 <translation id="3681007416295224113">Информације о сертификату</translation>
 <translation id="3690164694835360974">Пријављивање није безбедно</translation>
 <translation id="3693415264595406141">Лозинка:</translation>
-<translation id="3696411085566228381">ништа</translation>
 <translation id="3704609568417268905"><ph name="TIME" /> <ph name="BOOKMARKED" /> <ph name="TITLE" /> <ph name="DOMAIN" /></translation>
 <translation id="370665806235115550">Учитава се...</translation>
 <translation id="3712624925041724820">Нема више лиценци</translation>
@@ -348,6 +351,7 @@
 <translation id="3744899669254331632">Тренутно не можете да посетите <ph name="SITE" /> јер је веб-сајт послао кодиране акредитиве које Chromium не може да обради. Грешке на мрежи и напади су углавном привремени, па ће страница вероватно прорадити касније.</translation>
 <translation id="375403751935624634">Превођење није успело због грешке сервера.</translation>
 <translation id="3759461132968374835">Немате ниједно недавно пријављено отказивање. Отказивања која су се десила док је пријављивање отказивања било онемогућено неће се овде приказати.</translation>
+<translation id="3778403066972421603">Да ли желите да сачувате ову картицу на Google налогу и на овом уређају?</translation>
 <translation id="3787705759683870569">Истиче <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="382518646247711829">Ако користите прокси сервер...</translation>
 <translation id="3828924085048779000">Није дозвољено да поље за приступну фразу буде празно.</translation>
@@ -359,8 +363,10 @@
 <translation id="3890664840433101773">Додајте имејл</translation>
 <translation id="3901925938762663762">Картица је истекла</translation>
 <translation id="3963721102035795474">Режим читаоца</translation>
+<translation id="3964661563329879394">{COUNT,plural, =0{None}=1{Са 1 сајта }one{Са # сајта }few{Са # сајта }other{Са # сајтова }}</translation>
 <translation id="397105322502079400">Израчунавање...</translation>
 <translation id="3973234410852337861">Хост <ph name="HOST_NAME" /> је блокиран</translation>
+<translation id="3987940399970879459">Мање од 1 MB</translation>
 <translation id="40103911065039147">{URL_count,plural, =1{1 веб-страница у околини}one{# веб-страница у околини}few{# веб-странице у околини}other{# веб-страница у околини}}</translation>
 <translation id="4021036232240155012">DNS је мрежна услуга која преводи назив веб-сајта у његову интернет адресу.</translation>
 <translation id="4030383055268325496">&amp;Опозови додавање</translation>
@@ -385,7 +391,6 @@
 <translation id="4171400957073367226">Неисправан потпис за верификацију</translation>
 <translation id="4196861286325780578">&amp;Понови премештање</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />да проверите конфигурацију заштитног зида и антивируса<ph name="END_LINK" /></translation>
-<translation id="4206349416402437184">{COUNT,plural, =0{ниједна}=1{1 апликација ($1)}=2{2 апликације ($1, $2)}one{# апликација ($1, $2, $3)}few{# апликације ($1, $2, $3)}other{# апликација ($1, $2, $3)}}</translation>
 <translation id="4220128509585149162">Отказивања</translation>
 <translation id="4226937834893929579"><ph name="BEGIN_LINK" />Покушајте да покренете дијагностику мреже<ph name="END_LINK" />.</translation>
 <translation id="4250431568374086873">Веза са овим сајтом није потпуно безбедна</translation>
@@ -469,7 +474,6 @@
 <translation id="5045550434625856497">Неисправна лозинка</translation>
 <translation id="5056549851600133418">Чланци за вас</translation>
 <translation id="5070335125961472645"><ph name="BEGIN_LINK" />да проверите адресу проксија<ph name="END_LINK" /></translation>
-<translation id="5076731569460970710">{COUNT,plural, =0{Нема колачића}=1{1 сајт користи колачиће. }one{# сајт користи колачиће. }few{# сајта користе колачиће. }other{# сајтова користи колачиће. }}</translation>
 <translation id="5087286274860437796">Сертификат сервера тренутно није важећи.</translation>
 <translation id="5087580092889165836">Додај картицу</translation>
 <translation id="5089810972385038852">Држава</translation>
@@ -568,6 +572,7 @@
 <translation id="6042308850641462728">Више</translation>
 <translation id="6060685159320643512">Пазите, ови експерименти могу бити опасни</translation>
 <translation id="6080696365213338172">Приступали сте садржају помоћу сертификата који је обезбедио администратор. Администратор може да пресретне податке које обезбедите домену <ph name="DOMAIN" />.</translation>
+<translation id="6144381551823904650">{COUNT,plural, =0{None}=1{1 лозинка (синхронизована)}one{# лозинка (синхронизована)}few{# лозинке (синхронизоване)}other{# лозинки (синхронизованих)}}</translation>
 <translation id="6146055958333702838">Проверите све каблове и рестартујте све рутере, модеме или друге мрежне уређаје које можда користите.</translation>
 <translation id="614940544461990577">Покушајте:</translation>
 <translation id="6151417162996330722">Сертификат сервера има предугачак период важења.</translation>
@@ -623,7 +628,6 @@
 <translation id="6556915248009097796">Истиче: <ph name="EXPIRATION_DATE_ABBR" />, последњи пут коришћено: <ph name="LAST_USED_DATE_NO_DETAIL" /></translation>
 <translation id="6563469144985748109">Менаџер га још увек није одобрио</translation>
 <translation id="6569060085658103619">Прегледате страницу додатка.</translation>
-<translation id="6593753688552673085">мање од <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="6596325263575161958">Опције шифровања</translation>
 <translation id="662080504995468778">Не затварај</translation>
 <translation id="6626291197371920147">Додајте важећи број картице</translation>
@@ -635,7 +639,6 @@
 <translation id="6710594484020273272">&lt;Унесите термин за претрагу&gt;</translation>
 <translation id="6711464428925977395">Нешто није у реду са прокси сервером или је адреса нетачна.</translation>
 <translation id="6727102863431372879">Постави</translation>
-<translation id="6731320287533051140">{COUNT,plural, =0{ниједна}=1{1 ставка}one{# ставка}few{# ставке}other{# ставки}}</translation>
 <translation id="674375294223700098">Непозната грешка сертификата сервера.</translation>
 <translation id="6753269504797312559">Вредност смерница</translation>
 <translation id="6757797048963528358">Уређај је прешао у режим спавања.</translation>
@@ -728,6 +731,7 @@
 <translation id="7578104083680115302">Плаћајте брзо на сајтовима и у апликацијама на свим уређајима помоћу картица које сте сачували на Google-у.</translation>
 <translation id="7588950540487816470">Интернет око нас</translation>
 <translation id="7592362899630581445">Сертификат сервера крши ограничења за име.</translation>
+<translation id="7598391785903975535">Мање од <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="759889825892636187">Хост <ph name="HOST_NAME" /> тренутно не може да обради овај захтев.</translation>
 <translation id="7600965453749440009">Никад не преводи <ph name="LANGUAGE" /></translation>
 <translation id="7610193165460212391">Вредност је изван опсега <ph name="VALUE" />.</translation>
@@ -741,6 +745,7 @@
 <translation id="7669271284792375604">Нападачи на овом сајту могу да покушају да вас преваре да бисте инсталирали програме који штете доживљају прегледања (на пример, тако што мењају почетну страницу или приказују додатне огласе на сајтовима које посећујете).</translation>
 <translation id="7674629440242451245">Интересују вас нове занимљиве Chrome функције? Испробајте програмерски канал на chrome.com/dev.</translation>
 <translation id="7682287625158474539">Испорука</translation>
+<translation id="7701040980221191251">Ниједна</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Настави на <ph name="SITE" /> (није безбедно)<ph name="END_LINK" /></translation>
 <translation id="7714464543167945231">Сертификат</translation>
 <translation id="7716424297397655342">Није могуће учитати овај сајт из кеша</translation>
@@ -780,7 +785,6 @@
 <translation id="8041089156583427627">Пошаљи повратне информације</translation>
 <translation id="8041940743680923270">Користи глобалну подразумевану вредност (Питај)</translation>
 <translation id="8088680233425245692">Прегледање чланка није успело.</translation>
-<translation id="8089520772729574115">мање од 1 MB</translation>
 <translation id="8091372947890762290">Активација је на чекању на серверу</translation>
 <translation id="8118489163946903409">Начин плаћања</translation>
 <translation id="8131740175452115882">Потврди</translation>
@@ -893,5 +897,6 @@
 <translation id="939736085109172342">Нови директоријум</translation>
 <translation id="941721044073577244">Изгледа да немате дозволу да посетите овај сајт</translation>
 <translation id="969892804517981540">Званична верзија</translation>
+<translation id="975560348586398090">{COUNT,plural, =0{None}=1{1 ставка}one{# ставка}few{# ставке}other{# ставки}}</translation>
 <translation id="988159990683914416">Верзија за програмере</translation>
 </translationbundle>

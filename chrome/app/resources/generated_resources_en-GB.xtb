@@ -705,6 +705,7 @@
 <translation id="2028531481946156667">Could not start the formatting process.</translation>
 <translation id="2028997212275086731">RAR archive</translation>
 <translation id="2034346955588403444">Add other Wi-Fi network</translation>
+<translation id="203574396658008164">Enable note taking from lock screen</translation>
 <translation id="2039623879703305659">Finger moved too quickly</translation>
 <translation id="2040460856718599782">Oops!  Something went wrong when trying to authenticate you. Please double-check your sign-in credentials and try again.</translation>
 <translation id="204497730941176055">Microsoft Certificate Template Name</translation>
@@ -977,6 +978,7 @@ After you create a new supervised user, you can manage their settings at any tim
 <translation id="2423578206845792524">Sa&amp;ve image as...</translation>
 <translation id="2424091190911472304">Always Run on <ph name="ORIGIN" /></translation>
 <translation id="2425665904502185219">Total file size</translation>
+<translation id="2428510569851653187">Describe what you were doing when the tab crashed</translation>
 <translation id="2433452467737464329">Add a query param in URL to auto-refresh the page: chrome://network/?refresh=&lt;sec&gt;</translation>
 <translation id="2433507940547922241">Appearance</translation>
 <translation id="2435248616906486374">Network disconnected</translation>
@@ -1197,6 +1199,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2733275712367076659">You have certificates from these organisations that identify you:</translation>
 <translation id="2733364097704495499">Do you wish to register the printer <ph name="PRINTER_NAME" /> to Google Cloud Print?</translation>
 <translation id="2735698359135166290">Romanian standard keyboard</translation>
+<translation id="2735712963799620190">Schedule</translation>
 <translation id="2736434052592900364">Manage Chrome Sync and personalisation in Settings</translation>
 <translation id="2737363922397526254">Collapse...</translation>
 <translation id="2738771556149464852">Not After</translation>
@@ -1366,6 +1369,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2946640296642327832">Enable Bluetooth</translation>
 <translation id="2948300991547862301">Go to <ph name="PAGE_TITLE" /></translation>
 <translation id="29488703364906173">A fast, simple and secure web browser, built for the modern web.</translation>
+<translation id="2949037475046662832">This will clear cookies and site data for all sites, including</translation>
 <translation id="2951247061394563839">Centre window</translation>
 <translation id="2951721188322348056">Video Info</translation>
 <translation id="2956763290572484660"><ph name="COOKIES" /> cookies</translation>
@@ -1458,6 +1462,7 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="3077734595579995578">shift</translation>
 <translation id="3078461028045006476">Share with <ph name="EXTENSION_NAME" /></translation>
 <translation id="3081104028562135154">Increase</translation>
+<translation id="3081564097391116951">Automatic updates only happen over Ethernet or Wi-Fi.</translation>
 <translation id="3082374807674020857"><ph name="PAGE_TITLE" /> - <ph name="PAGE_URL" /></translation>
 <translation id="3082520371031013475">Touchpad and mouse settings</translation>
 <translation id="308268297242056490">URI</translation>
@@ -1690,6 +1695,7 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3421387094817716717">Elliptic Curve Public Key</translation>
 <translation id="342383653005737728">The owner may choose to send diagnostic and usage data for this device to Google. You may view this <ph name="BEGIN_LINK1" />setting<ph name="END_LINK1" /> here. <ph name="BEGIN_LINK2" />Find out More<ph name="END_LINK2" /></translation>
 <translation id="3423858849633684918">Please Relaunch <ph name="PRODUCT_NAME" /></translation>
+<translation id="3424969259347320884">Describe What you Were Doing When the Tab Crashed</translation>
 <translation id="3429599832623003132">$1 items</translation>
 <translation id="3432227430032737297">Remove all shown</translation>
 <translation id="3432757130254800023">Send audio and video to displays on the local network</translation>
@@ -2097,6 +2103,7 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="39964277676607559">Could not load JavaScript '<ph name="RELATIVE_PATH" />' for content script.</translation>
 <translation id="4002066346123236978">Title</translation>
 <translation id="40027638859996362">Word move</translation>
+<translation id="4010917659463429001">To get your bookmarks on your mobile device, <ph name="GET_IOS_APP_LINK" />.</translation>
 <translation id="4012550234655138030">Set up or manage printers in <ph name="CLOUD_PRINT_NAME" />.</translation>
 <translation id="4014432863917027322">Repair "<ph name="EXTENSION_NAME" />"?</translation>
 <translation id="4018133169783460046">Display <ph name="PRODUCT_NAME" /> in this language</translation>
@@ -2623,6 +2630,7 @@ Press any key to continue exploring.</translation>
 <translation id="4873312501243535625">Media File Checker</translation>
 <translation id="4874539263382920044">Title must contain at least one character</translation>
 <translation id="4875622588773761625">Do you want <ph name="PASSWORD_MANAGER_BRAND" /> to update your password for this site?</translation>
+<translation id="4876273079589074638">Help our engineers investigate and fix this crash. List exact steps if you can. No detail is too small!</translation>
 <translation id="4876895919560854374">Lock and unlock the screen</translation>
 <translation id="4877017884043316611">Pair with Chromebox</translation>
 <translation id="4880214202172289027">Volume slider</translation>
@@ -2784,6 +2792,7 @@ Press any key to continue exploring.</translation>
 <translation id="512903556749061217">attached</translation>
 <translation id="5129662217315786329">Polish</translation>
 <translation id="5131347545782851480">PDF Documents</translation>
+<translation id="5133483819862530305">Sunset to Sunrise</translation>
 <translation id="5135533361271311778">Could not create bookmark item.</translation>
 <translation id="5136529877787728692">F7</translation>
 <translation id="5137501176474113045">Delete this item</translation>
@@ -3326,6 +3335,7 @@ Press any key to continue exploring.</translation>
 <translation id="5916664084637901428">On</translation>
 <translation id="59174027418879706">Enabled</translation>
 <translation id="5920543303088087579">Connecting to this network is disabled by your administrator</translation>
+<translation id="5920835625712313205">Chrome OS System Image Writer</translation>
 <translation id="5921745308587794300">Rotate window</translation>
 <translation id="5924047253200400718">Get help<ph name="SCANNING_STATUS" /></translation>
 <translation id="5925147183566400388">Certification Practice Statement Pointer</translation>
@@ -3366,6 +3376,7 @@ Press any key to continue exploring.</translation>
     <ph name="BEGIN_PARAGRAPH2" />You can turn this on or off at any time in the Android apps Settings. This doesn’t affect your device’s ability to send the information it needs to receive essential services such as system updates and security.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5991049340509704927">Magnify</translation>
 <translation id="5993332328670040093">Your data use will no longer be measured.</translation>
+<translation id="5999030009544436279">Tell us what happened exactly before you got the profile error message:</translation>
 <translation id="6003177993629630467"><ph name="PRODUCT_NAME" /> may not be able to keep itself updated.</translation>
 <translation id="600424552813877586">Invalid application.</translation>
 <translation id="6005282720244019462">Latin American keyboard</translation>
@@ -3509,6 +3520,7 @@ Press any key to continue exploring.</translation>
 <translation id="6232017090690406397">Battery</translation>
 <translation id="6232116551750539448">Connection to <ph name="NAME" /> has been lost</translation>
 <translation id="6237816943013845465">Allows you to adjust your screen resolution</translation>
+<translation id="6238730967087877808">Custom Schedule</translation>
 <translation id="6239558157302047471">Reload &amp;frame</translation>
 <translation id="6241530762627360640">Access information about Bluetooth devices paired with your system and discover nearby Bluetooth devices.</translation>
 <translation id="6243774244933267674">Server unavailable</translation>
@@ -3726,6 +3738,7 @@ Press any key to continue exploring.</translation>
         <ph name="EVENT_NAME" /></translation>
 <translation id="6521494105510930048">Share Via</translation>
 <translation id="6527303717912515753">Share</translation>
+<translation id="6528513914570774834">Allow other users of this device to use this network</translation>
 <translation id="6528546217685656218">The private key for this client certificate is missing or invalid.</translation>
 <translation id="652948702951888897">Chrome history</translation>
 <translation id="653019979737152879">Syncing <ph name="FILE_NAME" />...</translation>
@@ -4096,6 +4109,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7093866338626856921">Exchange data with the devices named: <ph name="HOSTNAMES" /></translation>
 <translation id="7096082900368329802">Want to discover more awesome features?</translation>
 <translation id="7096108453481049031">The supervised user couldn't be imported. Please check your network connection and try again later.</translation>
+<translation id="7097411490633210585">Smart Lock requires you to type your password at least once every 20 hours.</translation>
 <translation id="7098447629416471489">Other saved search engines will appear here</translation>
 <translation id="7100897339030255923"><ph name="COUNT" /> items selected</translation>
 <translation id="7102687220333134671">Automatic updates are turned on</translation>
@@ -4255,6 +4269,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7369521049655330548">The following plug-ins were blocked on this page:</translation>
 <translation id="7373789336584437724">This device currently sends diagnostic and usage data to Google. You can change this at any time in your device <ph name="BEGIN_LINK1" />settings<ph name="END_LINK1" />. <ph name="BEGIN_LINK2" />Find out More<ph name="END_LINK2" /></translation>
 <translation id="7374461526650987610">Protocol Handlers</translation>
+<translation id="7375053625150546623">EAP</translation>
 <translation id="7376553024552204454">Highlight the mouse cursor when it's moving</translation>
 <translation id="7377169924702866686">Caps Lock is on.</translation>
 <translation id="7378627244592794276">Nope</translation>
@@ -4873,6 +4888,7 @@ Calculating remaining time</translation>
 <translation id="8275038454117074363">Import</translation>
 <translation id="8276560076771292512">Empty Cache and Hard Reload</translation>
 <translation id="8279388322240498158">Sorani Kurdish English-based keyboard</translation>
+<translation id="8279986815001244679">Smart Lock requires you to type your password for your initial sign in. Afterwards, you will be able to use your phone to unlock your <ph name="DEVICE_TYPE" />.</translation>
 <translation id="8280151743281770066">Armenian Phonetic</translation>
 <translation id="8281886186245836920">Skip</translation>
 <translation id="8282947398454257691">Know your unique device identifier</translation>
@@ -4996,6 +5012,7 @@ Calculating time until full</translation>
 <translation id="8480082892550707549">Even if you have downloaded files from this site before, the site may be temporarily unsafe (hacked). Try downloading this file later.</translation>
 <translation id="8480417584335382321">Page zoom:</translation>
 <translation id="8480869669560681089">Unknown device from <ph name="VENDOR_NAME" /></translation>
+<translation id="848292461057474014">****Please do not change below this line****</translation>
 <translation id="8483248364096924578">IP address</translation>
 <translation id="8487678622945914333">Zoom In</translation>
 <translation id="8487693399751278191">Import bookmarks now...</translation>
@@ -5348,6 +5365,7 @@ Subsequent notifications, windows and dialogues may be split between desktops.</
 <translation id="9019062154811256702">Read and change auto-fill settings</translation>
 <translation id="9021662811137657072">Virus detected</translation>
 <translation id="9022847679183471841">This account is already being used on this computer by <ph name="AVATAR_NAME" />.</translation>
+<translation id="9023009238991294202">Other users of this device can use this network.</translation>
 <translation id="9024127637873500333">&amp;Open in New Tab</translation>
 <translation id="9024331582947483881">full screen</translation>
 <translation id="9025098623496448965">OK, Take me back to sign-in screen</translation>

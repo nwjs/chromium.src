@@ -110,12 +110,14 @@
 <translation id="1821930232296380041">Недопустимый запрос или неверные параметры запроса</translation>
 <translation id="1826516787628120939">Проверка</translation>
 <translation id="1834321415901700177">Сайт содержит вредоносное ПО</translation>
+<translation id="1840414022444569775">Карта с таким номером уже используется</translation>
 <translation id="1842969606798536927">Оплатить</translation>
 <translation id="1871208020102129563">Выбрано использование фиксированных прокси-серверов, а не URL PAC-скрипта.</translation>
 <translation id="1871284979644508959">Поле, обязательное для заполнения</translation>
 <translation id="187918866476621466">Открыть стартовые страницы</translation>
 <translation id="1883255238294161206">Свернуть список</translation>
 <translation id="1898423065542865115">Фильтры</translation>
+<translation id="192020519938775529">{COUNT,plural, =0{Нет}=1{1 сайт}one{# сайт}few{# сайта}many{# сайтов}other{# сайта}}</translation>
 <translation id="194030505837763158">Перейдите по ссылке: <ph name="LINK" /></translation>
 <translation id="1962204205936693436">Закладки <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Не удалось выполнить сериализацию</translation>
@@ -190,6 +192,7 @@
 <translation id="2587841377698384444">Идентификатор Directory API:</translation>
 <translation id="2597378329261239068">Документ защищен паролем. Введите пароль.</translation>
 <translation id="2609632851001447353">Варианты</translation>
+<translation id="262424810616849754">{COUNT,plural, =0{Нет}=1{1 приложение ($1)}=2{2 приложения ($1 и $2)}one{# приложение ($1, $2 $3)}few{# приложения ($1, $2 $3)}many{# приложений ($1, $2 $3)}other{# приложения ($1, $2 $3)}}</translation>
 <translation id="2625385379895617796">Часы спешат</translation>
 <translation id="2639739919103226564">Состояние:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
@@ -243,10 +246,10 @@
 <translation id="3024663005179499861">Неверный тип политики</translation>
 <translation id="3032412215588512954">Обновить эту страницу?</translation>
 <translation id="3037605927509011580">Опаньки...</translation>
-<translation id="3040955737384246924">{COUNT,plural, =0{по меньшей мере 1 запись на синхронизируемых устройствах}=1{1 запись (не считая данных на синхронизируемых устройствах)}one{# запись (не считая данных на синхронизируемых устройствах)}few{# записи (не считая данных на синхронизируемых устройствах)}many{# записей (не считая данных на синхронизируемых устройствах)}other{# записей (не считая данных на синхронизируемых устройствах)}}</translation>
 <translation id="3041612393474885105">Данные сертификата</translation>
 <translation id="3063697135517575841">Не удалось подтвердить данные карты. Повторите попытку позже.</translation>
 <translation id="3064966200440839136">Вы выйдете из режима инкогнито, чтобы произвести оплату во внешнем приложении. Продолжить?</translation>
+<translation id="3083099961703215236">{COUNT,plural, =0{Нет}=1{1 пароль}one{# пароль}few{# пароля}many{# паролей}other{# пароля}}</translation>
 <translation id="3093245981617870298">Нет подключения к сети</translation>
 <translation id="3105172416063519923">Идентификатор объекта:</translation>
 <translation id="3109728660330352905">У вас нет прав для просмотра этой страницы.</translation>
@@ -311,6 +314,7 @@
 <translation id="3479552764303398839">Не сейчас</translation>
 <translation id="3498215018399854026">Не удалось связаться с вашими родителями. Повторите попытку.</translation>
 <translation id="3528171143076753409">Сертификат сервера не является доверенным.</translation>
+<translation id="3530944546672790857">{COUNT,plural, =0{Как минимум 1 запись на синхронизируемых устройствах}=1{1 запись (не считая данных на синхронизируемых устройствах)}one{# запись (не считая данных на синхронизируемых устройствах)}few{# записи (не считая данных на синхронизируемых устройствах)}many{# записей (не считая данных на синхронизируемых устройствах)}other{# записей (не считая данных на синхронизируемых устройствах)}}</translation>
 <translation id="3539171420378717834">Хранить данные карты на этом устройстве</translation>
 <translation id="3542684924769048008">Использовать пароль для:</translation>
 <translation id="3549644494707163724">Шифровать все синхронизированные данные с помощью кодовой фразы</translation>
@@ -336,7 +340,6 @@
 <translation id="3681007416295224113">Данные сертификата</translation>
 <translation id="3690164694835360974">Небезопасный вход</translation>
 <translation id="3693415264595406141">Пароль:</translation>
-<translation id="3696411085566228381">нет</translation>
 <translation id="3704609568417268905"><ph name="TIME" /> <ph name="BOOKMARKED" /> <ph name="TITLE" /> <ph name="DOMAIN" /></translation>
 <translation id="370665806235115550">Загрузка...</translation>
 <translation id="3712624925041724820">Недостаточно лицензий</translation>
@@ -347,6 +350,7 @@
 <translation id="3744899669254331632">Перейти на сайт <ph name="SITE" /> невозможно, так как его идентификационные данные зашифрованы, и Chrome не может их обработать. Это могло произойти из-за ошибки сети или атаки на сайт. Скорее всего, он заработает через некоторое время.</translation>
 <translation id="375403751935624634">Сбой при переводе вследствие ошибки сервера.</translation>
 <translation id="3759461132968374835">Нет записей о недавних сбоях. Сбои, которые произошли при отключенной функции записи сбоев, здесь не отображаются.</translation>
+<translation id="3778403066972421603">Хотите сохранить карту в аккаунте Google и на этом устройстве?</translation>
 <translation id="3787705759683870569">Срок действия: до <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="382518646247711829">Если вы используете прокси-сервер...</translation>
 <translation id="3828924085048779000">Пустые кодовые фразы запрещены.</translation>
@@ -358,8 +362,10 @@
 <translation id="3890664840433101773">Добавление адреса электронной почты</translation>
 <translation id="3901925938762663762">Срок действия карты истек</translation>
 <translation id="3963721102035795474">Режим чтения</translation>
+<translation id="3964661563329879394">{COUNT,plural, =0{Нет}=1{С 1 сайта }one{С # сайта }few{С # сайтов }many{С # сайтов }other{С # сайта }}</translation>
 <translation id="397105322502079400">Вычисление…</translation>
 <translation id="3973234410852337861">Сайт <ph name="HOST_NAME" /> заблокирован</translation>
+<translation id="3987940399970879459">Менее 1 МБ</translation>
 <translation id="40103911065039147">{URL_count,plural, =1{1 веб-страница поблизости}one{# веб-страница поблизости}few{# веб-страницы поблизости}many{# веб-страниц поблизости}other{# веб-страницы поблизости}}</translation>
 <translation id="4021036232240155012">DNS – это сетевая служба, преобразующая название сайта в IP-адрес.</translation>
 <translation id="4030383055268325496">&amp;Отменить добавление</translation>
@@ -384,7 +390,6 @@
 <translation id="4171400957073367226">Подтверждающая подпись недействительна</translation>
 <translation id="4196861286325780578">&amp;Повторить перемещение</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />Проверьте настройки брандмауэра и антивирусного ПО<ph name="END_LINK" />.</translation>
-<translation id="4206349416402437184">{COUNT,plural, =0{нет}=1{1 приложение ($1)}=2{2 приложения ($1 и $2)}one{# приложение ($1, $2, $3)}few{# приложения ($1, $2, $3)}many{# приложений ($1, $2, $3)}other{# приложения ($1, $2, $3)}}</translation>
 <translation id="4220128509585149162">Завершение работы программы</translation>
 <translation id="4226937834893929579"><ph name="BEGIN_LINK" />Выполните диагностику сети<ph name="END_LINK" />.</translation>
 <translation id="4250431568374086873">Подключение к сайту защищено не полностью</translation>
@@ -468,7 +473,6 @@
 <translation id="5045550434625856497">Неправильный пароль</translation>
 <translation id="5056549851600133418">Статьи для вас</translation>
 <translation id="5070335125961472645"><ph name="BEGIN_LINK" />Проверьте адрес прокси-сервера<ph name="END_LINK" />.</translation>
-<translation id="5076731569460970710">{COUNT,plural, =0{Нет файлов cookie.}=1{1 сайт использует файлы cookie. }one{# сайт использует файлы cookie. }few{# сайта используют файлы cookie. }many{# сайтов используют файлы cookie. }other{# сайта используют файлы cookie. }}</translation>
 <translation id="5087286274860437796">Сертификат сервера не действителен в настоящее время.</translation>
 <translation id="5087580092889165836">Добавить карту</translation>
 <translation id="5089810972385038852">Штат</translation>
@@ -567,6 +571,7 @@
 <translation id="6042308850641462728">Подробнее...</translation>
 <translation id="6060685159320643512">Будьте осторожны при работе с экспериментальной версией</translation>
 <translation id="6080696365213338172">Вы используете сертификат, предоставленный администратором, поэтому он может заблокировать передачу данных на сайт <ph name="DOMAIN" />.</translation>
+<translation id="6144381551823904650">{COUNT,plural, =0{Нет}=1{1 синхронизированный пароль}one{# синхронизированный пароль}few{# синхронизированных пароля}many{# синхронизированных паролей}other{# синхронизированного пароля}}</translation>
 <translation id="6146055958333702838">Проверьте соединение кабелей, перезагрузите маршрутизаторы, модемы и другие
     сетевые устройства.</translation>
 <translation id="614940544461990577">Попробуйте сделать следующее:</translation>
@@ -623,7 +628,6 @@
 <translation id="6556915248009097796">Срок действия: <ph name="EXPIRATION_DATE_ABBR" />, последний раз использовалась <ph name="LAST_USED_DATE_NO_DETAIL" /></translation>
 <translation id="6563469144985748109">Ещё не одобрено администратором</translation>
 <translation id="6569060085658103619">Вы просматриваете страницу расширения</translation>
-<translation id="6593753688552673085">менее <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="6596325263575161958">Параметры шифрования</translation>
 <translation id="662080504995468778">Остаться</translation>
 <translation id="6626291197371920147">Введите номер действующей карты</translation>
@@ -635,7 +639,6 @@
 <translation id="6710594484020273272">&lt;Введите поисковый запрос&gt;</translation>
 <translation id="6711464428925977395">На прокси-сервере возникла проблема или адрес указан неверно.</translation>
 <translation id="6727102863431372879">Установить</translation>
-<translation id="6731320287533051140">{COUNT,plural, =0{нет}=1{1 запись}one{# запись}few{# записи}many{# записей}other{# записи}}</translation>
 <translation id="674375294223700098">Неизвестная ошибка сертификата сервера.</translation>
 <translation id="6753269504797312559">Значение правила</translation>
 <translation id="6757797048963528358">Устройство находится в спящем режиме.</translation>
@@ -728,6 +731,7 @@
 <translation id="7578104083680115302">Быстро оплачивайте покупки на сайтах и в приложениях с помощью карт, сохраненных в Google Payments. Настройка будет действовать на всех ваших устройствах.</translation>
 <translation id="7588950540487816470">Интернет вокруг нас</translation>
 <translation id="7592362899630581445">Сертификат сервера не соответствует ограничениям в отношении имен.</translation>
+<translation id="7598391785903975535">Менее <ph name="UPPER_ESTIMATE" /></translation>
 <translation id="759889825892636187">Сайт <ph name="HOST_NAME" /> пока не может обработать этот запрос.</translation>
 <translation id="7600965453749440009">Никогда не переводить <ph name="LANGUAGE" /></translation>
 <translation id="7610193165460212391">Значение <ph name="VALUE" /> лежит за пределами разрешенного диапазона.</translation>
@@ -741,6 +745,7 @@
 <translation id="7669271284792375604">Посещение этого сайта может привести к установке вредоносного ПО, которое будет мешать работе браузера (например, меняя стартовую страницу или показывая дополнительную рекламу на сайтах).</translation>
 <translation id="7674629440242451245">Хотите быть в курсе новинок Chrome? Выберите канал обновления для разработчиков на странице "chrome.com/dev".</translation>
 <translation id="7682287625158474539">Адрес доставки</translation>
+<translation id="7701040980221191251">Нет</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Перейти на сайт <ph name="SITE" /> (небезопасно)<ph name="END_LINK" /></translation>
 <translation id="7714464543167945231">Сертификат</translation>
 <translation id="7716424297397655342">Не удалось загрузить сайт из кеша</translation>
@@ -780,7 +785,6 @@
 <translation id="8041089156583427627">Отправить отзыв</translation>
 <translation id="8041940743680923270">Использовать глобальный параметр по умолчанию (спрашивать)</translation>
 <translation id="8088680233425245692">Не удалось показать статью</translation>
-<translation id="8089520772729574115">менее 1 МБ</translation>
 <translation id="8091372947890762290">Активация управления устройствами не завершена</translation>
 <translation id="8118489163946903409">Способ оплаты</translation>
 <translation id="8131740175452115882">Подтвердить</translation>
@@ -892,5 +896,6 @@
 <translation id="939736085109172342">Новая папка</translation>
 <translation id="941721044073577244">Для доступа к этому сайту требуется разрешение</translation>
 <translation id="969892804517981540">Официальная сборка</translation>
+<translation id="975560348586398090">{COUNT,plural, =0{Нет}=1{1 запись}one{# запись}few{# записи}many{# записей}other{# записи}}</translation>
 <translation id="988159990683914416">Сборка для разработчиков</translation>
 </translationbundle>

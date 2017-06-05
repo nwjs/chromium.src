@@ -707,6 +707,7 @@
 <translation id="2028531481946156667">Δεν ήταν δυνατή η εκκίνηση της διαδικασίας μορφοποίησης.</translation>
 <translation id="2028997212275086731">Αρχείο RAR</translation>
 <translation id="2034346955588403444">Προσθήκη άλλου δικτύου WiFi</translation>
+<translation id="203574396658008164">Ενεργοποίηση λήψης σημειώσεων από την οθόνη κλειδώματος</translation>
 <translation id="2039623879703305659">Το δάχτυλο μετακινήθηκε πάρα πολύ γρήγορα</translation>
 <translation id="2040460856718599782">Ωχ! Κάτι πήγε στραβά κατά την προσπάθειά μας να ελέγξουμε την ταυτότητά σας. Ελέγξτε πάλι τα διαπιστευτήρια σύνδεσής σας και δοκιμάστε ξανά.</translation>
 <translation id="204497730941176055">Microsoft Certificate Template Name</translation>
@@ -979,6 +980,7 @@
 <translation id="2423578206845792524">Αποθήκευση εικόνας &amp;ως...</translation>
 <translation id="2424091190911472304">Να εκτελείται πάντα στο <ph name="ORIGIN" /></translation>
 <translation id="2425665904502185219">Συνολικό μέγεθος αρχείου</translation>
+<translation id="2428510569851653187">Περιγράψτε τι κάνατε όταν παρουσιάστηκε το σφάλμα στην καρτέλα</translation>
 <translation id="2433452467737464329">Προσθήκη μιας παραμέτρου ερωτήματος στη διεύθυνση URL για την αυτόματη ανανέωση της σελίδας: chrome://network/?refresh=&lt;sec&gt;</translation>
 <translation id="2433507940547922241">Εμφάνιση</translation>
 <translation id="2435248616906486374">Η σύνδεση δικτύου διακόπηκε</translation>
@@ -1200,6 +1202,7 @@
 <translation id="2733275712367076659">Διαθέτετε πιστοποιητικά από αυτούς τους οργανισμούς που σας προσδιορίζουν:</translation>
 <translation id="2733364097704495499">Θέλετε να καταχωρίσετε τον εκτυπωτή <ph name="PRINTER_NAME" /> στο Google Cloud Print;</translation>
 <translation id="2735698359135166290">Τυπικό πληκτρολόγιο Ρουμανικών</translation>
+<translation id="2735712963799620190">Χρονοδιάγραμμα</translation>
 <translation id="2736434052592900364">Διαχείριση του Συγχρονισμού Chrome και εξατομίκευση στις Ρυθμίσεις</translation>
 <translation id="2737363922397526254">Σύμπτυξη...</translation>
 <translation id="2738771556149464852">Όχι αργότερα από</translation>
@@ -1371,6 +1374,7 @@
 <translation id="2946640296642327832">Ενεργοποίηση Bluetooth</translation>
 <translation id="2948300991547862301">Μετάβαση στη σελίδα <ph name="PAGE_TITLE" /></translation>
 <translation id="29488703364906173">Ένα γρήγορο, απλό και ασφαλές πρόγραμμα περιήγησης ιστού, το οποίο δημιουργήθηκε για τον σύγχρονο ιστό.</translation>
+<translation id="2949037475046662832">Αυτή η επιλογή θα διαγράψει τα cookie και τα δεδομένα για όλους τους ιστοτόπους, συμπεριλαμβανομένων</translation>
 <translation id="2951247061394563839">Κέντρο παραθύρου</translation>
 <translation id="2951721188322348056">Πληροφορίες βίντεο</translation>
 <translation id="2956763290572484660"><ph name="COOKIES" /> cookie</translation>
@@ -1463,6 +1467,7 @@
 <translation id="3077734595579995578">shift</translation>
 <translation id="3078461028045006476">Κοινή χρήση με την επέκταση <ph name="EXTENSION_NAME" /></translation>
 <translation id="3081104028562135154">Αύξηση</translation>
+<translation id="3081564097391116951">Οι αυτόματες ενημερώσεις πραγματοποιούνται μόνο μέσω Ethernet ή Wi-Fi.</translation>
 <translation id="3082374807674020857"><ph name="PAGE_TITLE" /> - <ph name="PAGE_URL" /></translation>
 <translation id="3082520371031013475">Ρυθμίσεις επιφάνειας αφής και ποντικιού</translation>
 <translation id="308268297242056490">URI</translation>
@@ -1697,6 +1702,7 @@
 <translation id="3421387094817716717">Δημόσιο κλειδί ελλειπτικής καμπύλης</translation>
 <translation id="342383653005737728">Ο ιδιοκτήτης μπορεί να επιλέξει να αποστείλει διαγνωστικά στοιχεία και δεδομένα χρήσης για αυτήν τη συσκευή στην Google. Μπορείτε να δείτε αυτήν τη <ph name="BEGIN_LINK1" />ρύθμιση<ph name="END_LINK1" /> εδώ. <ph name="BEGIN_LINK2" />Μάθετε περισσότερα<ph name="END_LINK2" /></translation>
 <translation id="3423858849633684918">Επανεκκινήστε το <ph name="PRODUCT_NAME" /></translation>
+<translation id="3424969259347320884">Περιγράψτε τι κάνατε όταν παρουσιάστηκε το σφάλμα στην καρτέλα</translation>
 <translation id="3429599832623003132">$1 στοιχεία</translation>
 <translation id="3432227430032737297">Κατάργηση όλων όσων εμφανίζονται</translation>
 <translation id="3432757130254800023">Αποστολή ήχου και βίντεο σε οθόνες στο τοπικό δίκτυο</translation>
@@ -2106,6 +2112,7 @@
 <translation id="39964277676607559">Δεν ήταν δυνατή η φόρτωση του javascript "<ph name="RELATIVE_PATH" />" για το σενάριο περιεχομένου.</translation>
 <translation id="4002066346123236978">Τίτλος</translation>
 <translation id="40027638859996362">Μετακίνηση λέξης</translation>
+<translation id="4010917659463429001">Για να μεταφέρετε τους σελιδοδείκτες σας στην κινητή συσκευή σας, <ph name="GET_IOS_APP_LINK" />.</translation>
 <translation id="4012550234655138030">Ρύθμιση ή διαχείριση εκτυπωτών στο <ph name="CLOUD_PRINT_NAME" />.</translation>
 <translation id="4014432863917027322">Να γίνει επισκευή του "<ph name="EXTENSION_NAME" />";</translation>
 <translation id="4018133169783460046">Να εμφανίζεται το <ph name="PRODUCT_NAME" /> σε αυτήν τη γλώσσα</translation>
@@ -2634,6 +2641,7 @@
 <translation id="4873312501243535625">Εργαλείο ελέγχου αρχείων πολυμέσων</translation>
 <translation id="4874539263382920044">Ο τίτλος πρέπει να περιέχει τουλάχιστον έναν χαρακτήρα</translation>
 <translation id="4875622588773761625">Θέλετε το <ph name="PASSWORD_MANAGER_BRAND" /> να ενημερώσει τον κωδικό πρόσβασής σας για αυτόν τον ιστότοπο;</translation>
+<translation id="4876273079589074638">Βοηθήστε τους τεχνικούς μας να ερευνήσουν και να διορθώσουν αυτό το σφάλμα. Παραθέστε με ακρίβεια τα βήματα που ακολουθήσατε, αν αυτό είναι δυνατόν. Όλες οι λεπτομέρειες είναι σημαντικές!</translation>
 <translation id="4876895919560854374">Κλείδωμα και ξεκλείδωμα της οθόνης</translation>
 <translation id="4877017884043316611">Σύζευξη με Chromebox</translation>
 <translation id="4880214202172289027">Ρυθμιστικό έντασης ήχου</translation>
@@ -2797,6 +2805,7 @@
 <translation id="5129662217315786329">Πολωνικά
 </translation>
 <translation id="5131347545782851480">Έγγραφα PDF</translation>
+<translation id="5133483819862530305">Από ηλιοβασίλεμα σε ανατολή</translation>
 <translation id="5135533361271311778">Δεν ήταν δυνατή η δημιουργία αντικειμένου σελιδοδείκτη.</translation>
 <translation id="5136529877787728692">F7</translation>
 <translation id="5137501176474113045">Διαγραφή αυτού του στοιχείο</translation>
@@ -3341,6 +3350,7 @@
 <translation id="5916664084637901428">Ενεργό</translation>
 <translation id="59174027418879706">Ενεργή</translation>
 <translation id="5920543303088087579">Η σύνδεση σε αυτό το δίκτυο έχει απενεργοποιηθεί από τον διαχειριστή σας</translation>
+<translation id="5920835625712313205">Εργαλείο εγγραφής εικόνων συστήματος Chrome OS</translation>
 <translation id="5921745308587794300">Περιστροφή παραθύρου</translation>
 <translation id="5924047253200400718">Λήψη βοήθειας<ph name="SCANNING_STATUS" /></translation>
 <translation id="5925147183566400388">Δείκτης για τη Δήλωση πρακτικής πιστοποίησης</translation>
@@ -3381,6 +3391,7 @@
     <ph name="BEGIN_PARAGRAPH2" />Μπορείτε να ενεργοποιήσετε ή να απενεργοποιήσετε αυτήν την επιλογή ανά πάσα στιγμή από τις ρυθμίσεις εφαρμογών Android. Αυτό δεν επηρεάζει τη δυνατότητα της συσκευής να αποστέλλει τις πληροφορίες που χρειάζεται για τη λήψη σημαντικών υπηρεσιών όπως οι ενημερώσεις συστήματος και ασφαλείας.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5991049340509704927">Μεγέθυνση</translation>
 <translation id="5993332328670040093">Δεν θα εκτελείται πλέον μέτρηση της χρήσης δεδομένων σας.</translation>
+<translation id="5999030009544436279">Πείτε μας τι συνέβη ακριβώς πριν από τη λήψη του μηνύματος σφάλματος προφίλ:</translation>
 <translation id="6003177993629630467">Ενδέχεται να μην είναι δυνατή η αυτόματη ενημέρωση του <ph name="PRODUCT_NAME" />.</translation>
 <translation id="600424552813877586">Μη έγκυρη εφαρμογή.</translation>
 <translation id="6005282720244019462">Πληκτρολόγιο με χαρακτήρες Λατινικής Αμερικής</translation>
@@ -3524,6 +3535,7 @@
 <translation id="6232017090690406397">Μπαταρία</translation>
 <translation id="6232116551750539448">Η σύνδεση με το <ph name="NAME" /> χάθηκε</translation>
 <translation id="6237816943013845465">Σας επιτρέπει να προσαρμόσετε την ανάλυση της οθόνης σας</translation>
+<translation id="6238730967087877808">Προσαρμοσμένο χρονοδιάγραμμα</translation>
 <translation id="6239558157302047471">Επαναφόρτωση &amp;πλαισίου</translation>
 <translation id="6241530762627360640">Πρόσβαση σε πληροφορίες σχετικά με τις συσκευές Bluetooth που βρίσκονται σε ζεύξη με το σύστημά σας και εντοπισμός κοντινών συσκευών Bluetooth.</translation>
 <translation id="6243774244933267674">Ο διακομιστής δεν είναι διαθέσιμος</translation>
@@ -3741,6 +3753,7 @@
         <ph name="EVENT_NAME" /></translation>
 <translation id="6521494105510930048">Μοιραστείτε μέσω</translation>
 <translation id="6527303717912515753">Κοινή χρήση</translation>
+<translation id="6528513914570774834">Επιτρέψτε σε άλλους χρήστες της συσκευής να χρησιμοποιούν αυτό το δίκτυο</translation>
 <translation id="6528546217685656218">Το Ιδιωτικό κλειδί για αυτό το Πιστοποιητικό πελάτη λείπει ή δεν είναι έγκυρο.</translation>
 <translation id="652948702951888897">Ιστορικό Chrome</translation>
 <translation id="653019979737152879">Συγχρονισμός <ph name="FILE_NAME" />…</translation>
@@ -4112,6 +4125,7 @@
 <translation id="7093866338626856921">Ανταλλαγή δεδομένων με συσκευές με την ονομασία: <ph name="HOSTNAMES" /></translation>
 <translation id="7096082900368329802">Θέλετε να ανακαλύψετε περισσότερες καταπληκτικές λειτουργίες;</translation>
 <translation id="7096108453481049031">Δεν ήταν δυνατή η εισαγωγή του εποπτευόμενου χρήστη. Ελέγξτε τη σύνδεση δικτύου σας και δοκιμάστε ξανά αργότερα.</translation>
+<translation id="7097411490633210585">Το Smart Lock απαιτεί την πληκτρολόγηση του κωδικού πρόσβασης τουλάχιστον μία φορά κάθε 20 ώρες.</translation>
 <translation id="7098447629416471489">Οι άλλες αποθηκευμένες μηχανές αναζήτησης θα εμφανίζονται εδώ.</translation>
 <translation id="7100897339030255923">Έχουν επιλεγεί <ph name="COUNT" /> στοιχεία</translation>
 <translation id="7102687220333134671">Οι αυτόματες ενημερώσεις είναι ενεργοποιημένες</translation>
@@ -4271,6 +4285,7 @@
 <translation id="7369521049655330548">Έγινε αποκλεισμός των ακόλουθων προσθηκών σε αυτήν τη σελίδα:</translation>
 <translation id="7373789336584437724">Επί του παρόντος, αυτή η συσκευή στέλνει διαγνωστικά στοιχεία και δεδομένα χρήσης στην Google. Μπορείτε να αλλάξετε αυτήν την επιλογή ανά πάσα στιγμή στις <ph name="BEGIN_LINK1" />ρυθμίσεις<ph name="END_LINK1" /> της συσκευής σας. <ph name="BEGIN_LINK2" />Μάθετε περισσότερα<ph name="END_LINK2" /></translation>
 <translation id="7374461526650987610">Χειριστές πρωτοκόλλου</translation>
+<translation id="7375053625150546623">EAP</translation>
 <translation id="7376553024552204454">Επισήμανση του δείκτη του ποντικιού όταν κινείται</translation>
 <translation id="7377169924702866686">Το Caps Lock είναι ενεργοποιημένο.</translation>
 <translation id="7378627244592794276">Όχι</translation>
@@ -4893,6 +4908,7 @@
 <translation id="8275038454117074363">Εισαγωγή</translation>
 <translation id="8276560076771292512">Άδειασμα προσωρινής μνήμης και υποχρεωτική επανάληψη φόρτωσης</translation>
 <translation id="8279388322240498158">Πληκτρολόγιο Σορανί Κουρδικών βασισμένο στα Αγγλικά</translation>
+<translation id="8279986815001244679">Το Smart Lock απαιτεί την πληκτρολόγηση του κωδικού πρόσβασης για την πρώτη σύνδεση. Έπειτα, θα μπορείτε να χρησιμοποιείτε το τηλέφωνό σας, για να ξεκλειδώνετε το <ph name="DEVICE_TYPE" />.</translation>
 <translation id="8280151743281770066">Φωνητικό Αρμενικά</translation>
 <translation id="8281886186245836920">Παράβλεψη</translation>
 <translation id="8282947398454257691">Πρόσβαση στο μοναδικό αναγνωριστικό της συσκευής σας</translation>
@@ -5017,6 +5033,7 @@
 <translation id="8480082892550707549">Ακόμα και αν έχετε κατεβάσει αρχεία από αυτόν τον ιστότοπο στο παρελθόν, ο ιστότοπος ενδέχεται να μην είναι ασφαλής προσωρινά (να έχει δεχτεί εισβολή). Δοκιμάστε να κατεβάσετε αυτό το αρχείο αργότερα.</translation>
 <translation id="8480417584335382321">Μεγέθυνση σελίδας:</translation>
 <translation id="8480869669560681089">Άγνωστη συσκευή από <ph name="VENDOR_NAME" /></translation>
+<translation id="848292461057474014">****Μην κάνετε αλλαγές κάτω από αυτήν τη γραμμή****</translation>
 <translation id="8483248364096924578">Διεύθυνση IP</translation>
 <translation id="8487678622945914333">Μεγέθυνση</translation>
 <translation id="8487693399751278191">Εισαγωγή σελιδοδεικτών τώρα...</translation>
@@ -5371,6 +5388,7 @@
 <translation id="9019062154811256702">Ανάγνωση και αλλαγή ρυθμίσεων αυτόματης συμπλήρωσης</translation>
 <translation id="9021662811137657072">Εντοπίστηκε ιός</translation>
 <translation id="9022847679183471841">Αυτός ο λογαριασμός χρησιμοποιείται ήδη σε αυτόν τον υπολογιστή από τον χρήστη <ph name="AVATAR_NAME" />.</translation>
+<translation id="9023009238991294202">Άλλοι χρήστες της συσκευής μπορούν να χρησιμοποιούν αυτό το δίκτυο.</translation>
 <translation id="9024127637873500333">Άνοιγμα σε &amp;Νέα Καρτέλα</translation>
 <translation id="9024331582947483881">πλήρης οθόνη</translation>
 <translation id="9025098623496448965">Εντάξει, θέλω να επιστρέψω στην οθόνη σύνδεσης</translation>

@@ -705,6 +705,7 @@
 <translation id="2028531481946156667">フォーマット処理を開始できませんでした。</translation>
 <translation id="2028997212275086731">RAR アーカイブ</translation>
 <translation id="2034346955588403444">他の Wi-Fi ネットワークを追加</translation>
+<translation id="203574396658008164">ロック画面からメモを取れるようにする</translation>
 <translation id="2039623879703305659">指の動きが速すぎました</translation>
 <translation id="2040460856718599782">ユーザー認証時に問題が発生しました。ログイン情報をお確かめのうえ、もう一度お試しください。</translation>
 <translation id="204497730941176055">Microsoft 証明書テンプレート名</translation>
@@ -976,6 +977,7 @@
 <translation id="2423578206845792524">名前を付けて画像を保存(&amp;V)...</translation>
 <translation id="2424091190911472304"><ph name="ORIGIN" /> で常に実行</translation>
 <translation id="2425665904502185219">合計ファイルサイズ</translation>
+<translation id="2428510569851653187">タブのクラッシュ時に行っていた操作をご説明ください</translation>
 <translation id="2433452467737464329">ページを自動更新するには URL に次のようなクエリ パラメータを追加してください: chrome://network/?refresh=&lt;sec&gt;</translation>
 <translation id="2433507940547922241">デザイン</translation>
 <translation id="2435248616906486374">ネットワークが切断されました</translation>
@@ -1197,6 +1199,7 @@
 <translation id="2733275712367076659">次の機関から発行された、ユーザーを識別する証明書があります:</translation>
 <translation id="2733364097704495499">プリンタ <ph name="PRINTER_NAME" /> を Google クラウド プリントに登録しますか？</translation>
 <translation id="2735698359135166290">ルーマニア語標準キーボード</translation>
+<translation id="2735712963799620190">スケジュール</translation>
 <translation id="2736434052592900364">[設定] で Chrome の同期とカスタマイズを管理する</translation>
 <translation id="2737363922397526254">折りたたむ...</translation>
 <translation id="2738771556149464852">終了時刻</translation>
@@ -1366,6 +1369,7 @@
 <translation id="2946640296642327832">Bluetooth を有効にする</translation>
 <translation id="2948300991547862301"><ph name="PAGE_TITLE" /> へ移動</translation>
 <translation id="29488703364906173">最新のウェブ環境に対応した高速、シンプル、安全なウェブブラウザです。</translation>
+<translation id="2949037475046662832">以下を含むすべてのサイトの Cookie とサイトデータを削除します</translation>
 <translation id="2951247061394563839">ウィンドウを中央に配置</translation>
 <translation id="2951721188322348056">動画情報</translation>
 <translation id="2956763290572484660">Cookie: <ph name="COOKIES" /></translation>
@@ -1458,6 +1462,7 @@
 <translation id="3077734595579995578">shift</translation>
 <translation id="3078461028045006476"><ph name="EXTENSION_NAME" /> と共有</translation>
 <translation id="3081104028562135154">増加</translation>
+<translation id="3081564097391116951">イーサネットまたは Wi-Fi 接続時のみ自動更新を行います。</translation>
 <translation id="3082374807674020857"><ph name="PAGE_TITLE" /> - <ph name="PAGE_URL" /></translation>
 <translation id="3082520371031013475">トラックパッドとマウスの設定</translation>
 <translation id="308268297242056490">URI</translation>
@@ -1690,6 +1695,7 @@
 <translation id="3421387094817716717">楕円曲線公開鍵</translation>
 <translation id="342383653005737728">この端末から診断と使用状況のデータを Google に送信するよう所有者が設定している可能性があります。この<ph name="BEGIN_LINK1" />設定はこちら<ph name="END_LINK1" />で確認できます。<ph name="BEGIN_LINK2" />詳細<ph name="END_LINK2" /></translation>
 <translation id="3423858849633684918"><ph name="PRODUCT_NAME" /> を再起動してください</translation>
+<translation id="3424969259347320884">タブのクラッシュ時に行っていた操作をご説明ください</translation>
 <translation id="3429599832623003132">$1 アイテム</translation>
 <translation id="3432227430032737297">表示中のサイトをすべて削除</translation>
 <translation id="3432757130254800023">映像と音声をローカル ネットワーク経由でディスプレイに送信する</translation>
@@ -2097,6 +2103,7 @@
 <translation id="39964277676607559">コンテンツ スクリプトの Javascript「<ph name="RELATIVE_PATH" />」を読み込むことができませんでした。</translation>
 <translation id="4002066346123236978">タイトル</translation>
 <translation id="40027638859996362">1 語移動する</translation>
+<translation id="4010917659463429001">ブックマークをモバイル端末で使用できるようにするには、<ph name="GET_IOS_APP_LINK" />してください。</translation>
 <translation id="4012550234655138030"><ph name="CLOUD_PRINT_NAME" /> でのプリンタの設定と管理。</translation>
 <translation id="4014432863917027322">「<ph name="EXTENSION_NAME" />」を修復しますか？</translation>
 <translation id="4018133169783460046"><ph name="PRODUCT_NAME" /> をこの言語で表示</translation>
@@ -2623,6 +2630,7 @@
 <translation id="4873312501243535625">メディア ファイル チェッカー</translation>
 <translation id="4874539263382920044">タイトルには 1 文字以上入力してください</translation>
 <translation id="4875622588773761625"><ph name="PASSWORD_MANAGER_BRAND" /> でこのサイトのパスワードを更新しますか？</translation>
+<translation id="4876273079589074638">このクラッシュについて迅速に調査、解決できるよう、具体的な操作についてできるだけ詳しくご説明ください。</translation>
 <translation id="4876895919560854374">画面のロックとロック解除</translation>
 <translation id="4877017884043316611">Chromebox のペア設定</translation>
 <translation id="4880214202172289027">音量スライダー</translation>
@@ -2784,6 +2792,7 @@
 <translation id="512903556749061217">接続</translation>
 <translation id="5129662217315786329">ポーランド語</translation>
 <translation id="5131347545782851480">PDF ドキュメント</translation>
+<translation id="5133483819862530305">日の入りから日の出まで</translation>
 <translation id="5135533361271311778">ブックマークの項目を作成できませんでした。</translation>
 <translation id="5136529877787728692">F7</translation>
 <translation id="5137501176474113045">このアイテムを削除</translation>
@@ -3326,6 +3335,7 @@
 <translation id="5916664084637901428">オン</translation>
 <translation id="59174027418879706">有効</translation>
 <translation id="5920543303088087579">このネットワークへの接続は管理者によって無効にされています</translation>
+<translation id="5920835625712313205">Chrome OS システム イメージ ライター</translation>
 <translation id="5921745308587794300">ウィンドウを回転</translation>
 <translation id="5924047253200400718"><ph name="SCANNING_STATUS" /> ヘルプ</translation>
 <translation id="5925147183566400388">CPS（認証実施規定）ポインタ</translation>
@@ -3366,6 +3376,7 @@
     <ph name="BEGIN_PARAGRAPH2" />Android アプリの設定でいつでもこの機能のオンとオフを切り替えることができます。この機能をオフにしても、端末でシステム アップデートやセキュリティなどの基本的なサービスを受けるために必要な情報の送信は行われます。<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5991049340509704927">拡大表示</translation>
 <translation id="5993332328670040093">データ使用量はこれ以上測定されません。</translation>
+<translation id="5999030009544436279">具体的にどのような操作を行ったときにプロフィール エラーのメッセージが表示されたかをお知らせください。</translation>
 <translation id="6003177993629630467"><ph name="PRODUCT_NAME" /> を最新の状態に維持できない場合があります。</translation>
 <translation id="600424552813877586">無効なアプリケーションです。</translation>
 <translation id="6005282720244019462">ラテン アメリカのキーボード</translation>
@@ -3509,6 +3520,7 @@
 <translation id="6232017090690406397">バッテリー</translation>
 <translation id="6232116551750539448"><ph name="NAME" /> への接続が切断されました</translation>
 <translation id="6237816943013845465">画面の解像度を調整できます</translation>
+<translation id="6238730967087877808">手動で設定</translation>
 <translation id="6239558157302047471">フレームを再読み込み(&amp;F)</translation>
 <translation id="6241530762627360640">システムでペア設定されている Bluetooth デバイスの情報へのアクセスと、近くにある Bluetooth デバイスの検出。</translation>
 <translation id="6243774244933267674">サーバーを使用できません</translation>
@@ -3726,6 +3738,7 @@
         <ph name="EVENT_NAME" /></translation>
 <translation id="6521494105510930048">共有方法</translation>
 <translation id="6527303717912515753">共有</translation>
+<translation id="6528513914570774834">この端末の他のユーザーにこのネットワークの使用を許可する</translation>
 <translation id="6528546217685656218">このクライアント証明書の秘密鍵がないか無効です。</translation>
 <translation id="652948702951888897">Chrome 履歴</translation>
 <translation id="653019979737152879"><ph name="FILE_NAME" /> を同期しています...</translation>
@@ -4096,6 +4109,7 @@
 <translation id="7093866338626856921">デバイス <ph name="HOSTNAMES" /> とのデータ交換</translation>
 <translation id="7096082900368329802">まだまだ機能があります。</translation>
 <translation id="7096108453481049031">監視対象ユーザーをインポートできませんでした。ネットワーク接続を確認し、しばらくしてからもう一度お試しください。</translation>
+<translation id="7097411490633210585">Smart Lock では、少なくとも 20 時間に 1 回はパスワードを入力する必要があります。</translation>
 <translation id="7098447629416471489">保存したその他の検索エンジンがここに表示されます</translation>
 <translation id="7100897339030255923"><ph name="COUNT" /> 個のアイテムが選択されています</translation>
 <translation id="7102687220333134671">自動更新が有効です</translation>
@@ -4255,6 +4269,7 @@
 <translation id="7369521049655330548">このページの次のプラグインがブロックされました。</translation>
 <translation id="7373789336584437724">この端末では現在、診断と使用状況のデータが Google に送信されるように設定されています。この設定は、端末の<ph name="BEGIN_LINK1" />設定<ph name="END_LINK1" />でいつでも変更できます。<ph name="BEGIN_LINK2" />詳細<ph name="END_LINK2" /></translation>
 <translation id="7374461526650987610">プロトコル ハンドラ</translation>
+<translation id="7375053625150546623">EAP</translation>
 <translation id="7376553024552204454">移動時にマウスカーソルを強調表示する</translation>
 <translation id="7377169924702866686">CapsLock 
 がオンになっています。</translation>
@@ -4874,6 +4889,7 @@
 <translation id="8275038454117074363">インポート</translation>
 <translation id="8276560076771292512">キャッシュの消去とハード再読み込み</translation>
 <translation id="8279388322240498158">ソラニークルド語キーボード（英語ベース）</translation>
+<translation id="8279986815001244679">Smart Lock では、初回ログイン時にパスワードを入力する必要があります。パスワードを入力すると、スマートフォンを使用して <ph name="DEVICE_TYPE" /> のロックを解除できるようになります。</translation>
 <translation id="8280151743281770066">アルメニア語（表音）</translation>
 <translation id="8281886186245836920">スキップ</translation>
 <translation id="8282947398454257691">デバイス固有の ID の認識</translation>
@@ -4996,6 +5012,7 @@
 <translation id="8480082892550707549">以前ファイルをダウンロードしたサイトでも、一時的に安全でなくなっている（ハッキングされている）可能性があります。しばらくしてからファイルをダウンロードしてみてください。</translation>
 <translation id="8480417584335382321">ページのズーム:</translation>
 <translation id="8480869669560681089"><ph name="VENDOR_NAME" /> 製の不明なデバイス</translation>
+<translation id="848292461057474014">**** これより下は変更しないでください ****</translation>
 <translation id="8483248364096924578">IP アドレス</translation>
 <translation id="8487678622945914333">拡大</translation>
 <translation id="8487693399751278191">今すぐブックマークをインポート...</translation>
@@ -5348,6 +5365,7 @@
 <translation id="9019062154811256702">自動入力設定の読み取りと変更</translation>
 <translation id="9021662811137657072">ウイルスを検出しました</translation>
 <translation id="9022847679183471841">このアカウントは既にこのパソコンで <ph name="AVATAR_NAME" /> によって使用されています。</translation>
+<translation id="9023009238991294202">この端末の他のユーザーもこのネットワークを使用できます。</translation>
 <translation id="9024127637873500333">新しいタブで開く(&amp;O)</translation>
 <translation id="9024331582947483881">全画面表示</translation>
 <translation id="9025098623496448965">ログイン画面に戻る</translation>
