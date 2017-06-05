@@ -43,7 +43,7 @@ AppWindow* AppWindowRegistryUtil::GetAppWindowForNativeWindowAnyProfile(
 
 // static
 bool AppWindowRegistryUtil::IsAppWindowVisibleInAnyProfile(
-    int window_type_mask) {
+                                                           int window_type_mask, bool check_visible) {
   std::vector<Profile*> profiles =
       g_browser_process->profile_manager()->GetLoadedProfiles();
   for (std::vector<Profile*>::const_iterator i = profiles.begin();
@@ -59,7 +59,7 @@ bool AppWindowRegistryUtil::IsAppWindowVisibleInAnyProfile(
       continue;
 
     for (const AppWindow* window : app_windows) {
-      if (!window->is_hidden() &&
+      if ((!window->is_hidden() || !check_visible )&&
           (window_type_mask == 0 ||
            (window->window_type() & window_type_mask)))
         return true;
@@ -70,7 +70,7 @@ bool AppWindowRegistryUtil::IsAppWindowVisibleInAnyProfile(
 }
 
 // static
-void AppWindowRegistryUtil::CloseAllAppWindows() {
+bool AppWindowRegistryUtil::CloseAllAppWindows(bool user_force) {
   std::vector<Profile*> profiles =
       g_browser_process->profile_manager()->GetLoadedProfiles();
   for (std::vector<Profile*>::const_iterator i = profiles.begin();
@@ -86,8 +86,13 @@ void AppWindowRegistryUtil::CloseAllAppWindows() {
     AppWindowList window_list_copy(registry->app_windows());
     for (auto* window : window_list_copy) {
       // Ensure window is still valid.
-      if (base::ContainsValue(registry->app_windows(), window))
-        window->GetBaseWindow()->Close();
+      if (base::ContainsValue(registry->app_windows(), window)) {
+        if (window->NWCanClose(user_force))
+          window->GetBaseWindow()->Close();
+        else
+          return false;
+      }
     }
   }
+  return true;
 }

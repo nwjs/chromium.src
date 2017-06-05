@@ -47,12 +47,13 @@ void ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
       files_to_register.GetMappingWithIDAdjustment(
           base::GlobalDescriptors::kBaseDescriptor);
 
+#if 0
   if (GetProcessType() == switches::kRendererProcess) {
     const int sandbox_fd =
         RenderSandboxHostLinux::GetInstance()->GetRendererSocket();
     fds_to_map->push_back(std::make_pair(sandbox_fd, GetSandboxFD()));
   }
-
+#endif
   options->environ = delegate_->GetEnvironment();
   // fds_to_remap will de deleted in AfterLaunchOnLauncherThread() below.
   options->fds_to_remap = fds_to_map.release();

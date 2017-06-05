@@ -27,6 +27,7 @@
 namespace crash_keys {
 
 const char kActiveURL[] = "url-chunk";
+const char kNWJSURL[] = "url-nwjs";
 
 const char kFontKeyName[] = "font_key_name";
 
@@ -105,6 +106,7 @@ size_t RegisterChromeCrashKeys() {
 #endif
     {kChannel, kSmallSize},
     {kActiveURL, kLargeSize},
+    {kNWJSURL, kLargeSize },
     {kNumVariations, kSmallSize},
     {kVariations, kHugeSize},
     {kNumExtensionsCount, kSmallSize},

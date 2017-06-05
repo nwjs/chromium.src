@@ -14,6 +14,7 @@
 content::NavigationThrottle* MaybeCreateSubresourceFilterNavigationThrottle(
     content::NavigationHandle* navigation_handle,
     safe_browsing::SafeBrowsingService* safe_browsing_service) {
+#if 0
   if (navigation_handle->IsInMainFrame() && safe_browsing_service &&
       safe_browsing_service->database_manager()->IsSupported() &&
       safe_browsing::V4FeatureList::GetV4UsageStatus() ==
@@ -22,5 +23,6 @@ content::NavigationThrottle* MaybeCreateSubresourceFilterNavigationThrottle(
         SubresourceFilterSafeBrowsingActivationThrottle(
             navigation_handle, safe_browsing_service->database_manager());
   }
+#endif
   return nullptr;
 }

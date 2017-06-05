@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/permission_bubble/chooser_bubble_ui_view.h"
 
+#include "extensions/components/native_app_window/native_app_window_views.h"
 #include <stddef.h>
 
 #include <memory>
@@ -29,7 +30,7 @@
 #include "ui/views/window/dialog_client_view.h"
 
 std::unique_ptr<BubbleUi> ChooserBubbleDelegate::BuildBubbleUi() {
-  return base::MakeUnique<ChooserBubbleUiView>(browser_,
+  return base::MakeUnique<ChooserBubbleUiView>(browser_, app_window_,
                                                std::move(chooser_controller_));
 }
 
@@ -184,12 +185,13 @@ void ChooserBubbleUiViewDelegate::UpdateTableView() const {
 // ChooserBubbleUiView
 ChooserBubbleUiView::ChooserBubbleUiView(
     Browser* browser,
+    void* app_window,
     std::unique_ptr<ChooserController> chooser_controller)
-    : browser_(browser), chooser_bubble_ui_view_delegate_(nullptr) {
-  DCHECK(browser_);
+  : browser_(browser), app_window_((extensions::AppWindow*)app_window), chooser_bubble_ui_view_delegate_(nullptr) {
+  //DCHECK(browser_);
   DCHECK(chooser_controller);
   chooser_bubble_ui_view_delegate_ = new ChooserBubbleUiViewDelegate(
-      GetAnchorView(), GetAnchorArrow(), std::move(chooser_controller));
+      nullptr, GetAnchorArrow(), std::move(chooser_controller));
 }
 
 ChooserBubbleUiView::~ChooserBubbleUiView() {}
@@ -198,10 +200,11 @@ void ChooserBubbleUiView::Show(BubbleReference bubble_reference) {
   chooser_bubble_ui_view_delegate_->set_bubble_reference(bubble_reference);
 
   // Set |parent_window| because some valid anchors can become hidden.
-  views::Widget* widget = views::Widget::GetWidgetForNativeWindow(
-      browser_->window()->GetNativeWindow());
-  chooser_bubble_ui_view_delegate_->set_parent_window(widget->GetNativeView());
-
+  views::Widget* widget = nullptr;
+  if (browser_) {
+    widget = views::Widget::GetWidgetForNativeWindow(browser_->window()->GetNativeWindow());
+    chooser_bubble_ui_view_delegate_->set_parent_window(widget->GetNativeView());
+  }
   views::BubbleDialogDelegateView::CreateBubble(
       chooser_bubble_ui_view_delegate_)
       ->Show();
@@ -217,6 +220,7 @@ void ChooserBubbleUiView::UpdateAnchorPosition() {
 }
 
 views::View* ChooserBubbleUiView::GetAnchorView() {
+  if (browser_) {
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser_);
 
   if (browser_->SupportsWindowFeature(Browser::FEATURE_LOCATIONBAR))
@@ -228,10 +232,16 @@ views::View* ChooserBubbleUiView::GetAnchorView() {
     return browser_view->exclusive_access_bubble()->GetView();
 
   return browser_view->top_container();
+  } else if (app_window_) {
+    native_app_window::NativeAppWindowViews* native_app_window_views =
+      static_cast<native_app_window::NativeAppWindowViews*>(app_window_->GetBaseWindow());
+    return native_app_window_views->web_view();
+  }
+  return nullptr;
 }
 
 views::BubbleBorder::Arrow ChooserBubbleUiView::GetAnchorArrow() {
-  if (browser_->SupportsWindowFeature(Browser::FEATURE_LOCATIONBAR))
+  if (browser_ && browser_->SupportsWindowFeature(Browser::FEATURE_LOCATIONBAR))
     return views::BubbleBorder::TOP_LEFT;
   return views::BubbleBorder::NONE;
 }

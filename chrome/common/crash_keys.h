@@ -54,6 +54,9 @@ class ScopedPrinterInfo {
 // The URL of the active tab.
 extern const char kActiveURL[];
 
+// NW crash report URL
+extern const char kNWJSURL[];
+
 // Installed extensions. |kExtensionID| should be formatted with an integer,
 // in the range [0, kExtensionIDMaxCount).
 const size_t kExtensionIDMaxCount = 10;

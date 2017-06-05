@@ -216,13 +216,13 @@ struct CONTENT_EXPORT WebPreferences {
   float expensive_background_throttling_max_budget;
   float expensive_background_throttling_max_delay;
 
+  bool double_tap_to_zoom_enabled;
 #if defined(OS_ANDROID)
   bool text_autosizing_enabled;
   float font_scale_factor;
   float device_scale_adjustment;
   bool force_enable_zoom;
   bool fullscreen_supported;
-  bool double_tap_to_zoom_enabled;
   bool user_gesture_required_for_media_playback;
   std::string media_playback_gesture_whitelist_scope;
   GURL default_video_poster_url;

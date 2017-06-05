@@ -167,7 +167,7 @@ static_library("common") {
     "//chrome/app/theme:theme_resources",
     "//chrome/common:constants",
     "//chrome/common/net",
-    "//chrome/common/safe_browsing:proto",
+    #"//chrome/common/safe_browsing:proto",
     "//chrome/installer/util:with_no_strings",
     "//components/autofill/content/common:ipc_traits",
     "//components/autofill/core/common",
@@ -198,8 +198,8 @@ static_library("common") {
     "//components/safe_browsing:csd_proto",
     "//components/signin/core/common",
     "//components/strings",
-    "//components/translate/content/common",
-    "//components/translate/core/common",
+    #"//components/translate/content/common",
+    #"//components/translate/core/common",
     "//components/url_formatter",
     "//components/variations",
     "//components/version_info",
@@ -317,6 +317,7 @@ static_library("common") {
     ]
     public_deps += [
       "//chrome/common/extensions:mojo_bindings",
+      "//content/nw/src/api:nw_api",
       "//chrome/common/extensions/api",
       "//chrome/common/extensions/api:extensions_features",
       "//device/usb",

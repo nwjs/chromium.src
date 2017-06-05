@@ -4,6 +4,8 @@
 
 #include "chrome/browser/apps/app_load_service.h"
 
+#include "content/nw/src/nw_content.h"
+
 #include "apps/app_restore_service.h"
 #include "apps/launcher.h"
 #include "chrome/browser/apps/app_load_service_factory.h"
@@ -70,6 +72,8 @@ bool AppLoadService::LoadAndLaunch(const base::FilePath& extension_path,
                                  true /* only_allow_apps */)) {
     return false;
   }
+
+  nw::SetMainExtensionId(extension_id);
 
   // Schedule the app to be launched once loaded.
   PostReloadAction& action = post_reload_actions_[extension_id];

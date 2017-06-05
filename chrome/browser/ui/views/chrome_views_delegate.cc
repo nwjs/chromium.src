@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/chrome_views_delegate.h"
 
+#include "content/nw/src/nw_content.h"
 #include <memory>
 
 #include "base/logging.h"
@@ -187,8 +188,10 @@ std::string ChromeViewsDelegate::GetApplicationName() {
 }
 
 scoped_refptr<base::TaskRunner>
-ChromeViewsDelegate::GetBlockingPoolTaskRunner() {
-  return content::BrowserThread::GetBlockingPool();
+ChromeViewsDelegate::GetBlockingPoolTaskRunner(bool continue_on_shutdown) {
+  if (!continue_on_shutdown)
+    return content::BrowserThread::GetBlockingPool();
+  return content::BrowserThread::GetBlockingPool()->GetTaskRunnerWithShutdownBehavior(base::SequencedWorkerPool::CONTINUE_ON_SHUTDOWN);
 }
 
 #if !defined(OS_CHROMEOS)

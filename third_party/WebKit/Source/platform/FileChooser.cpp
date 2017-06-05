@@ -62,13 +62,14 @@ FileChooser::~FileChooser() {}
 void FileChooser::ChooseFiles(const Vector<FileChooserFileInfo>& files) {
   // FIXME: This is inelegant. We should not be looking at settings here.
   Vector<String> paths;
+  bool canceled = false;
   for (unsigned i = 0; i < files.size(); ++i)
     paths.push_back(files[i].path);
   if (settings_.selected_files == paths)
-    return;
+    canceled = true;
 
   if (client_)
-    client_->FilesChosen(files);
+    client_->FilesChosen(files, canceled);
 }
 
 Vector<String> FileChooserSettings::AcceptTypes() const {

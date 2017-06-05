@@ -31,6 +31,18 @@
 #include "web/WebSharedWorkerImpl.h"
 
 #include <memory>
+
+#include "third_party/node-nw/src/node_webkit.h"
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 #include "core/dom/Document.h"
 #include "core/events/MessageEvent.h"
 #include "core/inspector/ConsoleMessage.h"
@@ -288,13 +300,16 @@ void WebSharedWorkerImpl::ConnectTaskOnWorkerThread(
   worker_global_scope->DispatchEvent(CreateConnectEvent(port));
 }
 
-void WebSharedWorkerImpl::StartWorkerContext(
+void WebSharedWorkerImpl::StartWorkerContext(bool nodejs,
+                                             const base::FilePath& root_path,
     const WebURL& url,
     const WebString& name,
     const WebString& content_security_policy,
     WebContentSecurityPolicyType policy_type,
     WebAddressSpace creation_address_space) {
   DCHECK(IsMainThread());
+  nodejs_ = nodejs;
+  root_path_ = root_path;
   url_ = url;
   name_ = name;
   creation_address_space_ = creation_address_space;
@@ -328,6 +343,10 @@ void WebSharedWorkerImpl::OnScriptLoaderFinished() {
   // FIXME: this document's origin is pristine and without any extra privileges.
   // (crbug.com/254993)
   SecurityOrigin* starter_origin = document->GetSecurityOrigin();
+  std::string main_script = root_path_.AsUTF8Unsafe();
+  if (g_web_worker_start_thread_fn && nodejs_) {
+    (*g_web_worker_start_thread_fn)(nullptr, (void*)main_script_loader_->Url().GetPath().Utf8().Data(), &main_script, &nodejs_);
+  }
 
   WorkerClients* worker_clients = WorkerClients::Create();
   ProvideLocalFileSystemToWorker(worker_clients,
@@ -346,7 +365,7 @@ void WebSharedWorkerImpl::OnScriptLoaderFinished() {
   std::unique_ptr<WorkerSettings> worker_settings =
       WTF::WrapUnique(new WorkerSettings(document->GetSettings()));
   std::unique_ptr<WorkerThreadStartupData> startup_data =
-      WorkerThreadStartupData::Create(
+      WorkerThreadStartupData::Create(nodejs_, main_script,
           url_, loading_document_->UserAgent(),
           main_script_loader_->SourceText(), nullptr, start_mode,
           content_security_policy ? content_security_policy->Headers().get()

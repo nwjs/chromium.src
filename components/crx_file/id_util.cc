@@ -82,6 +82,7 @@ base::FilePath MaybeNormalizePath(const base::FilePath& path) {
 }
 
 bool IdIsValid(const std::string& id) {
+#if 0
   // Verify that the id is legal.
   if (id.size() != (crx_file::id_util::kIdSize * 2))
     return false;
@@ -92,7 +93,7 @@ bool IdIsValid(const std::string& id) {
   for (size_t i = 0; i < temp.size(); i++)
     if (temp[i] < 'a' || temp[i] > 'p')
       return false;
-
+#endif
   return true;
 }
 

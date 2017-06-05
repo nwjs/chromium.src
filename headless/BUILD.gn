@@ -478,8 +478,8 @@ static_library("headless_shell_lib") {
   sources = [
     "app/headless_shell.cc",
     "app/headless_shell.h",
-    "app/headless_shell_switches.cc",
-    "app/headless_shell_switches.h",
+#   "app/headless_shell_switches.cc",
+#   "app/headless_shell_switches.h",
     "app/shell_navigation_request.cc",
     "app/shell_navigation_request.h",
     "public/headless_shell.h",

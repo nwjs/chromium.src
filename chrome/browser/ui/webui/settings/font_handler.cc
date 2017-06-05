@@ -39,7 +39,9 @@ FontHandler::FontHandler(content::WebUI* webui)
       profile_(Profile::FromWebUI(webui)),
       weak_ptr_factory_(this) {
   // Perform validation for saved fonts.
+#if 0
   options::FontSettingsUtilities::ValidateSavedFonts(profile_->GetPrefs());
+#endif
 }
 
 FontHandler::~FontHandler() {}
