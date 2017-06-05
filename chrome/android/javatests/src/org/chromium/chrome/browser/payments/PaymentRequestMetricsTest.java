@@ -336,6 +336,8 @@ public class PaymentRequestMetricsTest implements MainActivityStartCallback {
         Assert.assertEquals(0,
                 RecordHistogram.getHistogramValueCountForTesting(
                         "PaymentRequest.CheckoutFunnel.Shown", 1));
+
+        assertOnlySpecificSelectedPaymentMethodMetricLogged(SelectedPaymentMethod.ANDROID_PAY);
     }
 
     /**
