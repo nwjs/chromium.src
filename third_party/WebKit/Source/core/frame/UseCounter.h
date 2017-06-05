@@ -1620,6 +1620,10 @@ class CORE_EXPORT UseCounter {
     kTableSectionDirectionDifferentFromTable = 2016,
     // The above items are available in M60 branch.
 
+    kBudgetAPIGetCost = 2021,
+    kBudgetAPIGetBudget = 2022,
+    // The above items were merged to the M60 branch.
+
     // Add new features immediately above this line. Don't change assigned
     // numbers of any item, and don't reuse removed slots.
     // Also, run update_use_counter_feature_enum.py in
