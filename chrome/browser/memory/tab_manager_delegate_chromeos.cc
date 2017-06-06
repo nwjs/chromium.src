@@ -622,7 +622,12 @@ void TabManagerDelegate::LowMemoryKillImpl(
     if (process_type == ProcessType::VISIBLE_APP ||
         process_type == ProcessType::FOCUSED_APP ||
         process_type == ProcessType::FOCUSED_TAB) {
-      MEMORY_LOG(ERROR) << "Skipped killing " << it->app()->process_name();
+      if (it->app()) {
+        MEMORY_LOG(ERROR) << "Skipped killing " << it->app()->process_name();
+      } else if (it->tab()) {
+        MEMORY_LOG(ERROR) << "Skipped killing " << it->tab()->title << " ("
+                          << it->tab()->renderer_handle << ")";
+      }
       continue;
     }
     if (it->app()) {
@@ -644,7 +649,7 @@ void TabManagerDelegate::LowMemoryKillImpl(
       } else {
         MEMORY_LOG(ERROR) << "Failed to kill " << it->app()->process_name();
       }
-    } else {
+    } else if (it->tab()) {
       int64_t tab_id = it->tab()->tab_contents_id;
       // The estimation is problematic since multiple tabs may share the same
       // process, while the calculation counts memory used by the whole process.
