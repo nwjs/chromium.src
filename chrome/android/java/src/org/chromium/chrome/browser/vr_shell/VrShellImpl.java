@@ -63,13 +63,13 @@ public class VrShellImpl
     // a way to compute good values for any screen size/scaling ratio.
 
     // Increasing DPR any more than this doesn't appear to increase text quality.
-    private static final float DEFAULT_DPR = 1.2f;
+    private static final float DEFAULT_DPR = 1.4f;
     // For WebVR we just create a DPR 1.0 display that matches the physical display size.
     private static final float WEBVR_DPR = 1.0f;
     // Fairly arbitrary values that put a good amount of content on the screen without making the
     // text too small to read.
-    private static final float DEFAULT_CONTENT_WIDTH = 960f;
-    private static final float DEFAULT_CONTENT_HEIGHT = 640f;
+    public static final float DEFAULT_CONTENT_WIDTH = 800f;
+    public static final float DEFAULT_CONTENT_HEIGHT = 533f;
 
     // Make full screen 16:9 until we get exact dimensions from playing video.
     private static final float FULLSCREEN_CONTENT_WIDTH = 1024f;
