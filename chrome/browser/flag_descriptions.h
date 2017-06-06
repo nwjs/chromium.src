@@ -238,6 +238,9 @@ extern const char kEnableMidiManagerDynamicInstantiationDescription[];
 extern const char kEnableNavigationTracingName[];
 extern const char kEnableNavigationTracingDescription[];
 
+extern const char kEnableNightLightName[];
+extern const char kEnableNightLightDescription[];
+
 extern const char kEnableTokenBindingName[];
 extern const char kEnableTokenBindingDescription[];
 
