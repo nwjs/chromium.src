@@ -3752,8 +3752,6 @@ std::string LayerTreeHostImpl::LayerTreeAsJson() const {
 void LayerTreeHostImpl::RegisterScrollbarAnimationController(
     ElementId scroll_element_id,
     float scrollbar_opacity) {
-  if (settings().scrollbar_animator == LayerTreeSettings::NO_ANIMATOR)
-    return;
   if (ScrollbarAnimationControllerForElementId(scroll_element_id))
     return;
 
