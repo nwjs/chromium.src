@@ -95,6 +95,8 @@ public class VrShellImpl
     private Tab mTab;
     private ContentViewCore mContentViewCore;
     private NativePage mNativePage;
+    private Boolean mCanGoBack;
+    private Boolean mCanGoForward;
 
     private WindowAndroid mOriginalWindowAndroid;
     private VrWindowAndroid mContentVrWindowAndroid;
@@ -213,6 +215,28 @@ public class VrShellImpl
                 if (mNativeVrShell == 0) return;
                 nativeOnLoadProgressChanged(mNativeVrShell, progress / 100.0);
             }
+
+            @Override
+            public void onCrash(Tab tab, boolean sadTabShown) {
+                updateHistoryButtonsVisibility();
+            }
+
+            @Override
+            public void onLoadStarted(Tab tab, boolean toDifferentDocument) {
+                if (!toDifferentDocument) return;
+                updateHistoryButtonsVisibility();
+            }
+
+            @Override
+            public void onLoadStopped(Tab tab, boolean toDifferentDocument) {
+                if (!toDifferentDocument) return;
+                updateHistoryButtonsVisibility();
+            }
+
+            @Override
+            public void onUrlUpdated(Tab tab) {
+                updateHistoryButtonsVisibility();
+            }
         };
 
         mTabModelSelectorObserver = new EmptyTabModelSelectorObserver() {
@@ -295,6 +319,7 @@ public class VrShellImpl
         createTabList();
         mActivity.getTabModelSelector().addObserver(mTabModelSelectorObserver);
         createTabModelSelectorTabObserver();
+        updateHistoryButtonsVisibility();
 
         mPresentationView.setOnTouchListener(mTouchListener);
     }
@@ -596,7 +621,14 @@ public class VrShellImpl
         boolean shouldAlwaysGoBack = mActivity instanceof ChromeTabbedActivity
                 && (mNativePage == null || !(mNativePage instanceof NewTabPage));
         boolean canGoBack = mTab.canGoBack() || shouldAlwaysGoBack;
-        nativeSetHistoryButtonsEnabled(mNativeVrShell, canGoBack, mTab.canGoForward());
+        boolean canGoForward = mTab.canGoForward();
+        if ((mCanGoBack != null && canGoBack == mCanGoBack)
+                && (mCanGoForward != null && canGoForward == mCanGoForward)) {
+            return;
+        }
+        mCanGoBack = canGoBack;
+        mCanGoForward = canGoForward;
+        nativeSetHistoryButtonsEnabled(mNativeVrShell, mCanGoBack, mCanGoForward);
     }
 
     @CalledByNative
