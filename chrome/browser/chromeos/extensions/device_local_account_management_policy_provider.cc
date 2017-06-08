@@ -434,6 +434,7 @@ const char* const kSafePermissionStrings[] = {
 
     // PS UX can always be seen, this one doesn't go over it so it's fine.
     "app.window.alwaysOnTop",
+    "alwaysOnTopWindows",
 
     // Fullscreen is crippled in Public Sessions, maximizes instead, so both
     // fullscreen and overrideEsc are safe for use in PS. (The recommended
@@ -688,6 +689,7 @@ const char* const kSafePermissionStrings[] = {
 
     // Excessive resource usage is not a risk.
     "unlimitedStorage",
+    "unlimited_storage",
 
     // Plugging the USB device is sufficient as consent gesture.
     "usb",
