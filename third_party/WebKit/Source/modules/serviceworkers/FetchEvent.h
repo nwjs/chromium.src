@@ -5,8 +5,10 @@
 #ifndef FetchEvent_h
 #define FetchEvent_h
 
+#include "bindings/core/v8/ActiveScriptWrappable.h"
 #include "bindings/core/v8/ScriptPromise.h"
 #include "bindings/core/v8/ScriptPromiseProperty.h"
+#include "core/dom/ContextLifecycleObserver.h"
 #include "modules/EventModules.h"
 #include "modules/ModulesExport.h"
 #include "modules/fetch/Request.h"
@@ -29,8 +31,12 @@ class WebURLResponse;
 // A fetch event is dispatched by the client to a service worker's script
 // context. FetchRespondWithObserver can be used to notify the client about the
 // service worker's response.
-class MODULES_EXPORT FetchEvent final : public ExtendableEvent {
+class MODULES_EXPORT FetchEvent final
+    : public ExtendableEvent,
+      public ActiveScriptWrappable<FetchEvent>,
+      public ContextClient {
   DEFINE_WRAPPERTYPEINFO();
+  USING_GARBAGE_COLLECTED_MIXIN(FetchEvent);
 
  public:
   using PreloadResponseProperty = ScriptPromiseProperty<Member<FetchEvent>,
@@ -46,6 +52,8 @@ class MODULES_EXPORT FetchEvent final : public ExtendableEvent {
                             WaitUntilObserver*,
                             bool navigation_preload_sent);
 
+  ~FetchEvent() override;
+
   Request* request() const;
   String clientId() const;
   bool isReload() const;
@@ -60,6 +68,9 @@ class MODULES_EXPORT FetchEvent final : public ExtendableEvent {
                                 std::unique_ptr<WebServiceWorkerError>);
 
   const AtomicString& InterfaceName() const override;
+
+  // ScriptWrappable
+  bool HasPendingActivity() const override;
 
   DECLARE_VIRTUAL_TRACE();
 
