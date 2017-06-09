@@ -393,12 +393,6 @@ gfx::NativeWindow DesktopNativeWidgetAura::GetNativeWindow() const {
   return content_window_;
 }
 
-void DesktopNativeWidgetAura::SetNativeWindowProperty(const char* name,
-                                                      void* value) {
-  if (content_window_)
-    content_window_->SetNativeWindowProperty(name, value);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // DesktopNativeWidgetAura, internal::NativeWidgetPrivate implementation:
 
@@ -602,6 +596,12 @@ void DesktopNativeWidgetAura::ReorderNativeViews() {
 void DesktopNativeWidgetAura::ViewRemoved(View* view) {
   DCHECK(drop_helper_.get() != NULL);
   drop_helper_->ResetTargetViewIfEquals(view);
+}
+
+void DesktopNativeWidgetAura::SetNativeWindowProperty(const char* name,
+                                                      void* value) {
+  if (content_window_)
+    content_window_->SetNativeWindowProperty(name, value);
 }
 
 void* DesktopNativeWidgetAura::GetNativeWindowProperty(const char* name) const {
