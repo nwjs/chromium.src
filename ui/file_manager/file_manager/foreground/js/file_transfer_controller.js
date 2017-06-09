@@ -529,6 +529,7 @@ FileTransferController.prototype.paste =
   var shareEntries;
   var taskId = this.fileOperationManager_.generateTaskId();
 
+  // Creates early progress center item for faster user feedback.
   var item = new ProgressCenterItem();
   item.id = taskId;
   if (toMove) {
@@ -546,6 +547,8 @@ FileTransferController.prototype.paste =
            */
           function(result) {
             failureUrls = result.failureUrls;
+            // The promise is not rejected, so it's safe to not remove the early
+            // progress center item here.
             return this.fileOperationManager_.filterSameDirectoryEntry(
                 result.entries, destinationEntry, toMove);
           }.bind(this))
@@ -557,8 +560,14 @@ FileTransferController.prototype.paste =
            */
           function(filteredEntries) {
             entries = filteredEntries;
-            if (entries.length === 0)
+            if (entries.length === 0) {
+              // Remove the early progress center item.
+              var item = new ProgressCenterItem();
+              item.id = taskId;
+              item.state = ProgressItemState.CANCELED;
+              this.progressCenter_.updateItem(item);
               return Promise.reject('ABORT');
+            }
 
             this.pendingTaskIds.push(taskId);
             var item = new ProgressCenterItem();
