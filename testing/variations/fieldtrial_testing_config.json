@@ -3272,6 +3272,21 @@
             ]
         }
     ],
+    "VrShell": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "VrShell"
+                    ]
+                }
+            ]
+        }
+    ],
     "WebApkGooglePlay": [
         {
             "platforms": [
