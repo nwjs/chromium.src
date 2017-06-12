@@ -292,6 +292,16 @@ void ResetKeyboardOverscrollOverride() {
       keyboard::KEYBOARD_OVERSCROLL_OVERRIDE_NONE);
 }
 
+void ScheduleCompletionCallbacks(std::vector<base::OnceClosure>&& callbacks) {
+  for (auto& callback : callbacks) {
+    if (callback.is_null())
+      continue;
+
+    base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
+                                                  std::move(callback));
+  }
+}
+
 }  // namespace
 
 namespace chromeos {
@@ -521,6 +531,8 @@ LoginDisplayHostImpl::~LoginDisplayHostImpl() {
   views::FocusManager::set_arrow_key_traversal_enabled(false);
   ResetLoginWindowAndView();
 
+  ScheduleCompletionCallbacks(std::move(completion_callbacks_));
+
   keep_alive_.reset();
 
   default_host_ = nullptr;
@@ -554,8 +566,9 @@ void LoginDisplayHostImpl::BeforeSessionStart() {
   session_starting_ = true;
 }
 
-void LoginDisplayHostImpl::Finalize() {
-  DVLOG(1) << "Session starting";
+void LoginDisplayHostImpl::Finalize(base::OnceClosure completion_callback) {
+  DVLOG(1) << "Finalizing LoginDisplayHost. User session starting";
+
   // When adding another user into the session, we defer the wallpaper's
   // animation in order to prevent the flashing of the previous user's windows.
   // See crbug.com/541864.
@@ -563,6 +576,8 @@ void LoginDisplayHostImpl::Finalize() {
       finalize_animation_type_ != ANIMATION_ADD_USER) {
     ash::Shell::Get()->wallpaper_controller()->MoveToUnlockedContainer();
   }
+
+  completion_callbacks_.push_back(std::move(completion_callback));
 
   switch (finalize_animation_type_) {
     case ANIMATION_NONE:
@@ -656,11 +671,11 @@ AppLaunchController* LoginDisplayHostImpl::GetAppLaunchController() {
 }
 
 void LoginDisplayHostImpl::StartUserAdding(
-    const base::Closure& completion_callback) {
+    base::OnceClosure completion_callback) {
   DisableKeyboardOverscroll();
 
   restore_path_ = RESTORE_ADD_USER_INTO_SESSION;
-  completion_callback_ = completion_callback;
+  completion_callbacks_.push_back(std::move(completion_callback));
   // Animation is not supported in Mash
   if (!ash_util::IsRunningInMash())
     finalize_animation_type_ = ANIMATION_ADD_USER;
@@ -714,7 +729,7 @@ void LoginDisplayHostImpl::CancelUserAdding() {
   // canceled. Changing to ANIMATION_NONE so that Finalize() shuts down the host
   // immediately.
   finalize_animation_type_ = ANIMATION_NONE;
-  Finalize();
+  Finalize(base::OnceClosure());
 }
 
 void LoginDisplayHostImpl::StartSignInScreen(
@@ -1113,10 +1128,6 @@ void LoginDisplayHostImpl::ShutdownDisplayHost(bool post_quit_task) {
   if (post_quit_task)
     base::MessageLoop::current()->QuitWhenIdle();
 
-  if (!completion_callback_.is_null())
-    base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
-                                                  completion_callback_);
-
   if (ash::Shell::HasInstance() &&
       finalize_animation_type_ == ANIMATION_ADD_USER) {
     if (!ash_util::IsRunningInMash()) {
@@ -1132,18 +1143,11 @@ void LoginDisplayHostImpl::ScheduleWorkspaceAnimation() {
     NOTIMPLEMENTED();
     return;
   }
-  if (ash::Shell::GetContainer(ash::Shell::GetPrimaryRootWindow(),
-                               ash::kShellWindowId_WallpaperContainer)
-          ->children()
-          .empty()) {
-    // If there is no wallpaper window, don't perform any animation on the
-    // default and wallpaper layer because there is nothing behind it.
-    return;
-  }
 
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableLoginAnimations))
+          switches::kDisableLoginAnimations)) {
     ash::Shell::Get()->DoInitialWorkspaceAnimation();
+  }
 }
 
 void LoginDisplayHostImpl::ScheduleFadeOutAnimation(int animation_speed_ms) {
@@ -1211,7 +1215,7 @@ void LoginDisplayHostImpl::StartPostponedWebUI() {
       StartSignInScreen(LoginScreenContext());
       break;
     case RESTORE_ADD_USER_INTO_SESSION:
-      StartUserAdding(completion_callback_);
+      StartUserAdding(base::OnceClosure());
       break;
     default:
       NOTREACHED();
