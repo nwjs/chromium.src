@@ -6,9 +6,11 @@
 
 #include <linux/magic.h>
 #include <sys/statfs.h>
+#include <set>
 
 #include "base/callback.h"
 #include "base/files/file_path.h"
+#include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/sys_info.h"
 #include "base/task_scheduler/post_task.h"
@@ -35,6 +37,19 @@ constexpr char kAndroidMSdkVersion[] = "23";
 // Let IsAllowedForProfile() return "false" for any profile.
 bool g_disallow_for_testing = false;
 
+// TODO(kinaba): Temporary workaround for crbug.com/729034.
+//
+// Some type of accounts don't have user prefs. As a short-term workaround,
+// store the compatibility info from them on memory, ignoring the defect that
+// it cannot survive browser crash and restart.
+//
+// This will be removed once the forced migration for ARC Kiosk user is
+// implemented. After it's done such types of accounts cannot even sign-in
+// with incompatible filesystem. Hence it'll be safe to always regard compatible
+// for them then.
+base::LazyInstance<std::set<AccountId>>::DestructorAtExit
+    g_known_compatible_users = LAZY_INSTANCE_INITIALIZER;
+
 // Returns whether ARC can run on the filesystem mounted at |path|.
 // This function should run only on threads where IO operations are allowed.
 bool IsArcCompatibleFilesystem(const base::FilePath& path) {
@@ -47,6 +62,14 @@ bool IsArcCompatibleFilesystem(const base::FilePath& path) {
   return statfs_buf.f_type != ECRYPTFS_SUPER_MAGIC;
 }
 
+FileSystemCompatibilityState GetFileSystemCompatibilityPref(
+    const AccountId& account_id) {
+  int pref_value = kFileSystemIncompatible;
+  user_manager::known_user::GetIntegerPref(
+      account_id, prefs::kArcCompatibleFilesystemChosen, &pref_value);
+  return static_cast<FileSystemCompatibilityState>(pref_value);
+}
+
 // Stores the result of IsArcCompatibleFilesystem posted back from the blocking
 // task runner.
 void StoreCompatibilityCheckResult(const AccountId& account_id,
@@ -56,16 +79,15 @@ void StoreCompatibilityCheckResult(const AccountId& account_id,
     user_manager::known_user::SetIntegerPref(
         account_id, prefs::kArcCompatibleFilesystemChosen,
         arc::kFileSystemCompatible);
+
+    // TODO(kinaba): Remove this code for accounts without user prefs.
+    // See the comment for |g_known_compatible_users| for the detail.
+    if (GetFileSystemCompatibilityPref(account_id) !=
+        arc::kFileSystemCompatible) {
+      g_known_compatible_users.Get().insert(account_id);
+    }
   }
   callback.Run();
-}
-
-FileSystemCompatibilityState GetFileSystemCompatibilityPref(
-    const AccountId& account_id) {
-  int pref_value = kFileSystemIncompatible;
-  user_manager::known_user::GetIntegerPref(
-      account_id, prefs::kArcCompatibleFilesystemChosen, &pref_value);
-  return static_cast<FileSystemCompatibilityState>(pref_value);
 }
 
 }  // namespace
@@ -169,7 +191,8 @@ bool IsArcCompatibleFileSystemUsedForProfile(const Profile* profile) {
   FileSystemCompatibilityState filesystem_compatibility =
       GetFileSystemCompatibilityPref(user->GetAccountId());
   const bool is_filesystem_compatible =
-      filesystem_compatibility != kFileSystemIncompatible;
+      filesystem_compatibility != kFileSystemIncompatible ||
+      g_known_compatible_users.Get().count(user->GetAccountId()) != 0;
   std::string arc_sdk_version;
   const bool is_M = base::SysInfo::GetLsbReleaseValue(kLsbReleaseArcVersionKey,
                                                       &arc_sdk_version) &&
