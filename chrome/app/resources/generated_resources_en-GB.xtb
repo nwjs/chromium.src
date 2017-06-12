@@ -619,6 +619,7 @@
 <translation id="186612162884103683">"<ph name="EXTENSION" />" can read and write images, video and sound files in the ticked locations.</translation>
 <translation id="1867780286110144690"><ph name="PRODUCT_NAME" /> is ready to complete your installation</translation>
 <translation id="1871615898038944731">Your <ph name="DEVICE_TYPE" /> is up to date</translation>
+<translation id="1877520246462554164">Failed to get authentication token. Please sign out then sign in again to try again.</translation>
 <translation id="1878524442024357078">Do not allow any sites to use a plug-in to access your computer</translation>
 <translation id="1880905663253319515">Delete certificate "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="1882130480443819387">Sort by title</translation>
@@ -838,7 +839,6 @@
 <translation id="2224551243087462610">Edit folder name</translation>
 <translation id="2226449515541314767">This site has been blocked from having full control of MIDI devices.</translation>
 <translation id="2226720438730111184">Tell us what's happening</translation>
-<translation id="222903405933288376">Google uses your location to give you local content. You can change this in <ph name="SETTINGS_LINK" />.</translation>
 <translation id="2229161054156947610">More than 1 hour left</translation>
 <translation id="222931766245975952">File truncated</translation>
 <translation id="222949136907494149"><ph name="URL" /> wants to use your computer's location.</translation>
@@ -1183,6 +1183,7 @@ I don't think this site should be blocked!</translation>
 <translation id="271033894570825754">New</translation>
 <translation id="2713008223070811050">Manage displays</translation>
 <translation id="2714393097308983682">Google Play Store</translation>
+<translation id="2718395828230677721">Night Light</translation>
 <translation id="2718998670920917754">Anti-virus software detected a virus.</translation>
 <translation id="2721037002783622288">&amp;Search <ph name="SEARCH_ENGINE" /> for image</translation>
 <translation id="2721334646575696520">Microsoft Edge</translation>
@@ -1405,6 +1406,7 @@ I don't think this site should be blocked!</translation>
 <translation id="3004391367407090544">Please come back later</translation>
 <translation id="300544934591011246">Previous password</translation>
 <translation id="3007214526293698309">Fix ratio</translation>
+<translation id="3007771295016901659">Duplicate tab</translation>
 <translation id="3009300415590184725">Are you sure you want to cancel the mobile data service set-up process?</translation>
 <translation id="3009779501245596802">Indexed Databases</translation>
 <translation id="3010279545267083280">Password deleted</translation>
@@ -1444,12 +1446,14 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="3038675903128704560">Do not allow any site to use a plug-in to access your computer</translation>
 <translation id="3039828483675273919">Moving $1 items...</translation>
 <translation id="304009983491258911">Change SIM card PIN</translation>
+<translation id="304567287000691532">Sharing screen</translation>
 <translation id="3046910703532196514">Web Page, Complete</translation>
 <translation id="304826556400666995">Unmute Tabs</translation>
 <translation id="3053013834507634016">Certificate Key Usage</translation>
 <translation id="3056670889236890135">You can only edit settings for the current user. Switch to this user to edit settings for it.</translation>
 <translation id="3057861065630527966">Backup your photos and videos</translation>
 <translation id="3058212636943679650">If you ever need to restore your computer's operating system, you'll need a recovery SD card or USB memory stick.</translation>
+<translation id="3060379269883947824">Enable select-to-speak</translation>
 <translation id="3063844757726132584">Access all of your apps from this handy launcher. Play games, video chat, listen to music, edit documents or get more apps.</translation>
 <translation id="3064388234319122767">Transliteration (zdravo → здраво)</translation>
 <translation id="3064410671692449875">Insufficient data</translation>
@@ -1486,6 +1490,7 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="3112378005171663295">Collapse</translation>
 <translation id="3115147772012638511">Waiting for cache...</translation>
 <translation id="3116361045094675131">UK keyboard</translation>
+<translation id="3116902203001917540">Makes it easier to look at your screen or read in dim light</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME" /> Help</translation>
 <translation id="3120430004221004537">Insufficient encryption for a given operation on: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="3121793941267913344">Reset this <ph name="IDS_SHORT_PRODUCT_NAME" /> device</translation>
@@ -1681,6 +1686,7 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3391716558283801616">Tab 7</translation>
 <translation id="3394150261239285340"><ph name="HOST" /> wants to use your camera and microphone.</translation>
 <translation id="3396331542604645348">The selected printer is not available or not installed correctly. Check your printer or try selecting another printer.</translation>
+<translation id="3399432415385675819">Notifications will be disabled</translation>
 <translation id="3399597614303179694">Macedonian keyboard</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="340485819826776184">Use a prediction service to help complete searches and URLs typed in the address bar</translation>
@@ -2648,6 +2654,7 @@ Press any key to continue exploring.</translation>
 <translation id="488785315393301722">Show Details</translation>
 <translation id="4888510611625056742">Tab 2</translation>
 <translation id="4890773143211625964">Show advanced printer options</translation>
+<translation id="4891089016822695758">Beta forum</translation>
 <translation id="4893336867552636863">This will permanently delete your browsing data from this device.</translation>
 <translation id="4898011734382862273">The certificate '<ph name="CERTIFICATE_NAME" />' represents a Certification Authority</translation>
 <translation id="4899376560703610051">Your <ph name="DEVICE_TYPE" /> has been manually locked. You'll need to type your password to enter.</translation>
@@ -2876,6 +2883,7 @@ Press any key to continue exploring.</translation>
 <translation id="5246282308050205996"><ph name="APP_NAME" /> has crashed. Click this balloon to restart the app.</translation>
 <translation id="524759338601046922">Retype new PIN:</translation>
 <translation id="5249624017678798539">The browser crashed before the download completed.</translation>
+<translation id="5250372599208556903"><ph name="SEARCH_ENGINE_NAME" /> uses your location to give you local content. You can change this in <ph name="SETTINGS_LINK" />.</translation>
 <translation id="5252456968953390977">Roaming</translation>
 <translation id="5252653240322147470">PIN must be less than <ph name="MAXIMUM" /> digits</translation>
 <translation id="5253753933804516447">Enable 'Ok Google' to voice search when your screen is on and unlocked</translation>
@@ -2927,6 +2935,7 @@ Press any key to continue exploring.</translation>
 <translation id="5316588172263354223">Voice search at any time</translation>
 <translation id="5316716239522500219">Mirror monitors</translation>
 <translation id="5317780077021120954">Save</translation>
+<translation id="5319748504063551568">To enable your account to access the Google Play Store, you will need to authenticate with your Identity Provider. Please click Next to proceed.</translation>
 <translation id="5319782540886810524">Latvian keyboard</translation>
 <translation id="532247166573571973">The server may be unreachable. Try again later.</translation>
 <translation id="5323213332664049067">Latin American</translation>
@@ -3217,6 +3226,7 @@ Press any key to continue exploring.</translation>
 <translation id="5756163054456765343">Help centre</translation>
 <translation id="5756666464756035725">Hungarian QWERTY</translation>
 <translation id="5759728514498647443">Documents that you send to print via <ph name="APP_NAME" /> can be read by <ph name="APP_NAME" />.</translation>
+<translation id="5763751966069581670">No USB devices found</translation>
 <translation id="5764483294734785780">Sa&amp;ve audio as...</translation>
 <translation id="57646104491463491">Date Modified</translation>
 <translation id="5764797882307050727">Please free up some space on your device.</translation>
@@ -3348,11 +3358,13 @@ Press any key to continue exploring.</translation>
 <translation id="5941343993301164315">Please sign in to <ph name="TOKEN_NAME" />.</translation>
 <translation id="5941711191222866238">Minimise</translation>
 <translation id="5941907479813014493">Press Ctrl+Shift+Space to switch between input methods.</translation>
+<translation id="5946106656820696578">More warm</translation>
 <translation id="5946591249682680882">Report ID <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
 <translation id="5948205789991352045">Don't open</translation>
 <translation id="5948544841277865110">Add private network</translation>
 <translation id="5949544233750246342">Unable to parse file</translation>
 <translation id="5951823343679007761">No battery</translation>
+<translation id="5955282598396714173">Your password has expired. Please sign out then sign in again to change it.</translation>
 <translation id="5956585768868398362">Is this the search page that you were expecting?</translation>
 <translation id="5957613098218939406">More Options</translation>
 <translation id="5958529069007801266">Supervised user</translation>
@@ -3503,6 +3515,7 @@ Press any key to continue exploring.</translation>
 <translation id="6205710420833115353">Some operations are taking longer than expected. Do you want to abort them?</translation>
 <translation id="6206311232642889873">Cop&amp;y Image</translation>
 <translation id="6206337697064384582">Server 1</translation>
+<translation id="6207200176136643843">Reset to default zoom level</translation>
 <translation id="6207937957461833379">Country/Region</translation>
 <translation id="6212039847102026977">Show advanced network properties</translation>
 <translation id="6219616557885484178">Choose from over a million apps and games on Google Play to install and use on your <ph name="DEVICE_TYPE" />.</translation>
@@ -3659,6 +3672,7 @@ Press any key to continue exploring.</translation>
 <translation id="642282551015776456">This name may not be used as a file or folder name</translation>
 <translation id="6423239382391657905">Open VPN</translation>
 <translation id="6426039856985689743">Disable mobile data</translation>
+<translation id="6426200009596957090">Open ChromeVox settings</translation>
 <translation id="642870617012116879">This site attempted to download multiple files automatically.</translation>
 <translation id="6430814529589430811">Base64-encoded ASCII, single certificate</translation>
 <translation id="6431217872648827691">All data was encrypted with your Google password as of
@@ -3951,6 +3965,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="6860428250435764775">Please consider upgrading. <ph name="BEGIN_LINK_EOL" />Find out more<ph name="END_LINK_EOL" /></translation>
 <translation id="6862635236584086457">All files saved in this folder are backed up online automatically</translation>
 <translation id="6865313869410766144">Autofill form data</translation>
+<translation id="686664946474413495">Colour temperature</translation>
 <translation id="6867678160199975333">Switch to <ph name="NEW_PROFILE_NAME" /></translation>
 <translation id="6869402422344886127">Ticked checkbox</translation>
 <translation id="6870130893560916279">Ukrainian keyboard</translation>
@@ -4021,6 +4036,7 @@ Only use this feature with accounts that you trust.</translation>
 (requires previous password)</translation>
 <translation id="6981982820502123353">Accessibility</translation>
 <translation id="6982896539684144327">Printer from <ph name="VENDOR_NAME" /> detected</translation>
+<translation id="6983201004195852174">Press and hold Search, then click or drag to select content to be read aloud</translation>
 <translation id="6983783921975806247">Registered OID</translation>
 <translation id="6983991971286645866">All edits will be saved to $1.</translation>
 <translation id="6984299437918708277">Choose a picture to display for your account on the sign-in screen</translation>
@@ -4064,6 +4080,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7025325401470358758">Next pane</translation>
 <translation id="7027125358315426638">Database Name:</translation>
 <translation id="7029809446516969842">Passwords</translation>
+<translation id="7029916574452167660">Less warm</translation>
 <translation id="7030031465713069059">Save Password</translation>
 <translation id="7031962166228839643">TPM is being prepared, please wait (this may take a few minutes)...</translation>
 <translation id="7039326228527141150">Access USB devices from <ph name="VENDOR_NAME" /></translation>
@@ -4236,6 +4253,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7314440321558802142">Play Store (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (current)</translation>
 <translation id="7321545336522791733">Server unreachable</translation>
+<translation id="7324297612904500502">Beta forum</translation>
 <translation id="7325437708553334317">High Contrast Extension</translation>
 <translation id="7327088014939803293">The new supervised user couldn't be created. Please make sure that you're signed in properly and try again.</translation>
 <translation id="73289266812733869">Unselected</translation>
@@ -4632,6 +4650,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7908378463497120834">Sorry, at least one partition on your external storage device could not be mounted.</translation>
 <translation id="7909969815743704077">Downloaded in Incognito</translation>
 <translation id="7910768399700579500">&amp;New folder</translation>
+<translation id="7912080627461681647">Your password has been changed on the server. Please sign out then sign in again.</translation>
 <translation id="7915471803647590281">Please tell us what is happening before sending the feedback.</translation>
 <translation id="7917972308273378936">Lithuanian keyboard</translation>
 <translation id="7925247922861151263">AAA check failed</translation>
@@ -4640,6 +4659,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7926423016278357561">This wasn't me.</translation>
 <translation id="7928710562641958568">Eject device</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> is sharing your screen and audio.</translation>
+<translation id="7931318309563332511">Unknown</translation>
 <translation id="7938594894617528435">Currently offline</translation>
 <translation id="7939412583708276221">Keep anyway</translation>
 <translation id="7939997691108949385">The manager will be able to configure restrictions and settings for this supervised user at <ph name="MANAGEMENT_URL" />.</translation>
@@ -5282,6 +5302,7 @@ Subsequent notifications, windows and dialogues may be split between desktops.</
 <translation id="8899851313684471736">Open link in new &amp;window</translation>
 <translation id="8900820606136623064">Hungarian</translation>
 <translation id="8901822611024316615">Czech QWERTY keyboard</translation>
+<translation id="8902667442496790482">Open select-to-speak settings</translation>
 <translation id="8903921497873541725">Zoom in</translation>
 <translation id="8904976895050290827">Chrome Sync</translation>
 <translation id="8908902564709148335">Warning: You've enabled the -scripts-require-action flag on this computer, which limits the capabilities of this extension. However, other devices may not support this flag or have it enabled. On these devices, this extension can also:</translation>

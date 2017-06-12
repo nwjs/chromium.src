@@ -4,6 +4,7 @@
 <translation id="1006017844123154345">オンライン版を開く</translation>
 <translation id="1049743911850919806">シークレット モード</translation>
 <translation id="10614374240317010">常に保存しない</translation>
+<translation id="1068672505746868501"><ph name="SOURCE_LANGUAGE" />のページを翻訳しない</translation>
 <translation id="1080790410959514870"><ph name="DOMAIN_NAME" /> により管理されているアカウントからログアウトします。このデバイスに保存されている Chrome データは削除されますが、Google アカウントではデータが保持されます。</translation>
 <translation id="1111673857033749125">他の端末に保存されているブックマークがここに表示されます。</translation>
 <translation id="1121094540300013208">利用状況と障害レポート</translation>
@@ -91,6 +92,7 @@
 <translation id="1892551174703874605">アドレスバーです。ブックマーク、ダウンロード、履歴を表示するには上にスワイプします。</translation>
 <translation id="1897409700584096124">ウェブサイトが発信されています</translation>
 <translation id="1933845786846280168">選択したタブ</translation>
+<translation id="1938981467853765413">フィードバックを送信</translation>
 <translation id="194341124344773587"><ph name="BEGIN_LINK" />Android の設定<ph name="END_LINK" />で Chrome の権限を有効にしてください。</translation>
 <translation id="1943432128510653496">パスワードの保存</translation>
 <translation id="1944384637046898011"><ph name="TIME" />時点の Google パスワードですべてのデータを暗号化する</translation>
@@ -137,6 +139,7 @@
 <translation id="2387895666653383613">テキストの拡大と縮小</translation>
 <translation id="238909021488141516">コンテンツのダウンロード中にエラーが発生しました。</translation>
 <translation id="2414886740292270097">暗</translation>
+<translation id="2416359993254398973">このサイトを利用するには、Chrome にカメラへのアクセスを許可する必要があります。</translation>
 <translation id="2433507940547922241">デザイン</translation>
 <translation id="2440823041667407902">現在地情報へのアクセス</translation>
 <translation id="2450083983707403292"><ph name="FILE_NAME" /> のダウンロードをやり直してもよろしいですか？</translation>
@@ -175,6 +178,7 @@
 <translation id="2900528713135656174">予定を作成</translation>
 <translation id="2902702728133930130">Chrome の起動時に予期しないエラーが発生し、起動できませんでした。</translation>
 <translation id="2903493209154104877">住所</translation>
+<translation id="290376772003165898"><ph name="LANGUAGE" />のページではない場合:</translation>
 <translation id="2913331724188855103">サイトに Cookie データの保存と読み取りを許可する（推奨）</translation>
 <translation id="2932150158123903946">Google <ph name="APP_NAME" /> ストレージ</translation>
 <translation id="2956410042958133412">このアカウントは <ph name="PARENT_NAME_1" /> と <ph name="PARENT_NAME_2" /> によって管理されています。</translation>
@@ -236,6 +240,7 @@
 <translation id="3587482841069643663">すべて</translation>
 <translation id="3590487821116122040">Chrome で重要度が低いと判断されるサイトのストレージ（設定を保存していないサイトやアクセス頻度の少ないサイトなど）</translation>
 <translation id="3599863153486145794">ログインしているすべての端末の履歴を削除します。お使いの Google アカウントの <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> に、他の形式の閲覧履歴が記録されている場合があります。</translation>
+<translation id="360207483134687714">Chrome の VR モードの改善にご協力ください</translation>
 <translation id="360480449234699036">ウェブサイト上のトピックについてページを移動せずに調べられます。[タップして検索] を使用すると、単語とその周囲のコンテキストが Google 検索に送信され、定義、画像、検索結果などの情報が返されます。
 
 検索用語を押し続けるとその用語が選択され、選択範囲を調整できます。検索結果を絞り込むには、パネルを上にスライドして検索ボックスをタップします。</translation>
@@ -311,6 +316,7 @@
 <translation id="4378154925671717803">電話番号</translation>
 <translation id="4384468725000734951">検索に Sogou を使用します</translation>
 <translation id="4412992751769744546">サードパーティの Cookie を許可</translation>
+<translation id="4432792777822557199">今後、<ph name="SOURCE_LANGUAGE" />のページは<ph name="TARGET_LANGUAGE" />に翻訳されます</translation>
 <translation id="4445444302979002552">予測サービスを使用して検索キーワードやウェブサイトの候補を表示します</translation>
 <translation id="4452548195519783679">「<ph name="FOLDER_NAME" />」にブックマークしました</translation>
 <translation id="4453340223357552416"><ph name="FILE_NAME" /> を <ph name="PRODUCT_NAME" /> でダウンロードしました</translation>
@@ -429,6 +435,7 @@
 <translation id="5556459405103347317">再読み込み</translation>
 <translation id="5565871407246142825">クレジットカード</translation>
 <translation id="5568069709869097550">ログインできない</translation>
+<translation id="557283862590186398">このサイトを利用するには、Chrome にマイクへのアクセスを許可する必要があります。</translation>
 <translation id="5578795271662203820">この画像を <ph name="SEARCH_ENGINE" /> で検索</translation>
 <translation id="5595485650161345191">住所の編集</translation>
 <translation id="5596627076506792578">その他のオプション</translation>
@@ -508,12 +515,14 @@
 <translation id="6364438453358674297">履歴から候補を削除しますか？</translation>
 <translation id="6383961787135158834">サイトのストレージ消去...</translation>
 <translation id="6388207532828177975">消去してリセット</translation>
+<translation id="6393863479814692971">このサイトを利用するには、Chrome にカメラとマイクへのアクセスを許可する必要があります。</translation>
 <translation id="6395288395575013217">リンク</translation>
 <translation id="6404511346730675251">ブックマークを編集</translation>
 <translation id="6406506848690869874">同期</translation>
 <translation id="6409731863280057959">ポップアップ</translation>
 <translation id="641643625718530986">印刷...</translation>
 <translation id="6416782512398055893"><ph name="MBS" /> MB をダウンロード済み</translation>
+<translation id="6437478888915024427">ページ情報</translation>
 <translation id="6447842834002726250">Cookie</translation>
 <translation id="6448273550210938826">検索と URL 候補</translation>
 <translation id="6463070039183944536">追加しています…</translation>
@@ -645,6 +654,7 @@
 <translation id="7658239707568436148">キャンセル</translation>
 <translation id="7665369617277396874">アカウントを追加</translation>
 <translation id="7698359219371678927"><ph name="APP_NAME" /> でメールを作成</translation>
+<translation id="773466115871691567"><ph name="SOURCE_LANGUAGE" />のページを常に翻訳する</translation>
 <translation id="7764225426217299476">住所を追加</translation>
 <translation id="7765158879357617694">移動</translation>
 <translation id="7769602470925380267">同意してログアウトする</translation>
@@ -706,6 +716,7 @@
 <translation id="8275818695183729150">許可（アドレスバーでの検索）</translation>
 <translation id="8283853025636624853"><ph name="SYNC_ACCOUNT_USER_NAME" /> に同期しています</translation>
 <translation id="8310344678080805313">標準のタブ</translation>
+<translation id="8339163506404995330"><ph name="LANGUAGE" />のページは翻訳されません</translation>
 <translation id="8372893542064058268">特定のサイトに対してバックグラウンド同期を許可します。</translation>
 <translation id="8374821112118309944">TalkBack を最新版に更新する必要があります。</translation>
 <translation id="8393700583063109961">メッセージを送信</translation>

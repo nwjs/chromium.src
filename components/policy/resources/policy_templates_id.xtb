@@ -51,7 +51,7 @@
 <translation id="1152117524387175066">Laporkan status pengalih dev perangkat ketika boot.
 
       Jika kebijakan ini disetel ke false, status pengalih dev tidak akan dilaporkan.</translation>
-<translation id="1160939557934457296">Menonaktifkan untuk melanjutkan dari laman peringatan Penjelajahan Aman</translation>
+<translation id="1160939557934457296">Menonaktifkan untuk melanjutkan dari laman peringatan Safe Browsing</translation>
 <translation id="1198465924256827162">Frekuensi upload status perangkat dikirimkan, dalam milidetik.
 
       Jika kebijakan ini tidak disetel, frekuensi defaultnya adalah 3 jam. Frekuensi minimum
@@ -489,11 +489,11 @@
 
       Setiap entri daftar menentukan pengenal, yang digunakan secara internal untuk menunjukkan akun lokal perangkat yang berbeda secara terpisah.</translation>
 <translation id="2769952903507981510">Mengonfigurasi nama domain yang dibutuhkan untuk hosting akses jarak jauh</translation>
-<translation id="2785954641789149745">Mengaktifkan fitur Penjelajahan Aman <ph name="PRODUCT_NAME" /> dan mencegah pengguna mengubah setelan ini.
+<translation id="2785954641789149745">Mengaktifkan fitur Safe Browsing <ph name="PRODUCT_NAME" /> dan mencegah pengguna mengubah setelan ini.
 
-      Jika Anda mengaktifkan setelan ini, Penjelajahan Aman akan selalu aktif.
+      Jika Anda mengaktifkan setelan ini, Safe Browsing akan selalu aktif.
 
-      Jika Anda menonaktifkan setelan ini, Penjelajahan Aman tidak akan pernah aktif.
+      Jika Anda menonaktifkan setelan ini, Safe Browsing tidak akan pernah aktif.
 
       Jika Anda mengaktifkan atau menonaktifkan setelan ini, pengguna tidak dapat mengubah atau menimpa setelan "Aktifkan perlindungan phishing dan software perusak" di <ph name="PRODUCT_NAME" />.
 
@@ -510,7 +510,7 @@
           Jika setelan ini dinonaktifkan dan koneksi UDP yang keluar disaring oleh firewall, komputer ini hanya akan mengizinkan koneksi dari komputer klien dalam jaringan lokal.
 
           Jika kebijakan ini dibiarkan tidak disetel, setelan tersebut akan diaktifkan.</translation>
-<translation id="2811293057593285123">Layanan Penjelajahan Aman menampilkan laman peringatan saat pengguna bernavigasi ke situs yang diberi tanda sebagai berpotensi berbahaya. Mengaktifkan setelan ini mencegah pengguna terus melanjutkan dari laman peringatan ke situs yang berbahaya.
+<translation id="2811293057593285123">Layanan Safe Browsing menampilkan laman peringatan saat pengguna bernavigasi ke situs yang diberi tanda sebagai berpotensi berbahaya. Mengaktifkan setelan ini mencegah pengguna terus melanjutkan dari laman peringatan ke situs yang berbahaya.
 
       Jika setelan ini dinonaktifkan atau tidak dikonfigurasi, pengguna dapat memilih untuk melanjutkan ke situs yang diberi tanda setelah peringatan ditampilkan.</translation>
 <translation id="2824715612115726353">Aktifkan mode Penyamaran</translation>
@@ -896,7 +896,7 @@
 <translation id="4372704773119750918">Jangan izinkan pengguna perusahaan untuk menjadi bagian dari multiprofil (primer atau sekunder)</translation>
 <translation id="4377599627073874279">Izinkan semua situs menampilkan semua gambar</translation>
 <translation id="4389091865841123886">Mengonfigurasi pengesahan jarak jauh dengan mekanisme TPM.</translation>
-<translation id="4397469093966511008">Menyetel kebijakan ini ke false akan menghentikan pengguna memilih untuk mengirim beberapa informasi sistem dan konten halaman ke server Google. Jika disetel ke true atau tidak dikonfigurasi, pengguna akan diizinkan untuk mengirim beberapa informasi sistem dan konten halaman ke Penjelajahan Aman untuk membantu mendeteksi aplikasi dan situs yang berbahaya.</translation>
+<translation id="4397469093966511008">Menyetel kebijakan ini ke false akan menghentikan pengguna memilih untuk mengirim beberapa informasi sistem dan konten halaman ke server Google. Jika disetel ke true atau tidak dikonfigurasi, pengguna akan diizinkan untuk mengirim beberapa informasi sistem dan konten halaman ke Safe Browsing untuk membantu mendeteksi aplikasi dan situs yang berbahaya.</translation>
 <translation id="4418726081189202489">Menyetel kebijakan ini ke false akan menghentikan <ph name="PRODUCT_NAME" /> yang terkadang mengirim kueri ke server Google, untuk mengambil stempel waktu yang akurat. Kueri ini akan diaktifkan jika kebijakan disetel ke True atau tidak disetel.</translation>
 <translation id="4423597592074154136">Tentukan setelan proxy secara manual</translation>
 <translation id="4429220551923452215">Mengaktifkan atau menonaktifkan pintasan aplikasi di bilah bookmark.
@@ -1030,7 +1030,7 @@
 
           Kebijakan ini hanya dipatuhi jika kebijakan 'DefaultSearchProviderEnabled' diaktifkan.</translation>
 <translation id="489803897780524242">Parameter yang mengendalikan penempatan istilah penelusuran untuk penyedia penelusuran default</translation>
-<translation id="4899708173828500852">Aktifkan Penjelajahan Aman</translation>
+<translation id="4899708173828500852">Aktifkan Safe Browsing</translation>
 <translation id="4906194810004762807">Segarkan peringkat untuk Kebijakan Perangkat</translation>
 <translation id="4962262530309732070">Jika kebijakan ini disetel ke true atau tidak dikonfigurasi, <ph name="PRODUCT_NAME" /> akan mengizinkan setelan Tambahkan Orang dari pengelola pengguna.
 
@@ -1555,7 +1555,7 @@
 
           Jika kebijakan "RestoreOnStartup" disetel untuk memulihkan URL dari sesi sebelumnya, kebijakan ini akan diabaikan dan cookie akan disimpan secara permanen untuk situs tersebut.</translation>
 <translation id="7207095846245296855">Paksa Google TelusurAman</translation>
-<translation id="7216442368414164495">Memungkinkan pengguna ikut serta dalam pelaporan yang diperluas Penjelajahan Aman</translation>
+<translation id="7216442368414164495">Memungkinkan pengguna ikut serta dalam pelaporan yang diperluas Safe Browsing</translation>
 <translation id="7234280155140786597">Nama hosting perpesanan asli yang dilarang (atau * untuk semua)</translation>
 <translation id="7236775576470542603">Menyetel jenis lup default yang diaktifkan di layar masuk.
 

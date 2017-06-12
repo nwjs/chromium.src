@@ -615,6 +615,7 @@
 <translation id="186612162884103683">"<ph name="EXTENSION" />" har læse- og skriverettigheder til billed-, video- og lydfiler på de markerede placeringer.</translation>
 <translation id="1867780286110144690"><ph name="PRODUCT_NAME" /> er klar til at færdiggøre din installation</translation>
 <translation id="1871615898038944731">Din <ph name="DEVICE_TYPE" /> er opdateret</translation>
+<translation id="1877520246462554164">Godkendelsestoken kunne ikke hentes. Log ud, og log derefter ind igen for at prøve igen.</translation>
 <translation id="1878524442024357078">Tillad ikke, at et website anvender et plugin til at få adgang til din computer</translation>
 <translation id="1880905663253319515">Slet certifikatet "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="1882130480443819387">Sortér efter titel</translation>
@@ -833,7 +834,6 @@
 <translation id="2224551243087462610">Rediger mappenavn</translation>
 <translation id="2226449515541314767">Dette website er blevet blokeret fra at have fuld kontrol over MIDI-enheder.</translation>
 <translation id="2226720438730111184">Fortæl os, hvad der sker</translation>
-<translation id="222903405933288376">Google bruger din placering til at give dig lokalt indhold. Du kan ændre dette i <ph name="SETTINGS_LINK" />.</translation>
 <translation id="2229161054156947610">Mere end én time tilbage</translation>
 <translation id="222931766245975952">Fil forkortet</translation>
 <translation id="222949136907494149"><ph name="URL" /> vil gerne anvende computerens placering.</translation>
@@ -1180,6 +1180,7 @@ Jeg synes ikke, dette website skal blokeres.</translation>
 <translation id="271033894570825754">Nyt</translation>
 <translation id="2713008223070811050">Administrer visninger</translation>
 <translation id="2714393097308983682">Google Play Butik</translation>
+<translation id="2718395828230677721">Nattelys</translation>
 <translation id="2718998670920917754">Antivirussoftwaren har fundet en virus.</translation>
 <translation id="2721037002783622288">&amp;Søg efter billedet på <ph name="SEARCH_ENGINE" /></translation>
 <translation id="2721334646575696520">Microsoft Edge</translation>
@@ -1402,6 +1403,7 @@ Jeg synes ikke, dette website skal blokeres.</translation>
 <translation id="3004391367407090544">Kom tilbage senere</translation>
 <translation id="300544934591011246">Forrige adgangskode</translation>
 <translation id="3007214526293698309">Korriger formatforhold</translation>
+<translation id="3007771295016901659">Dupliker fane</translation>
 <translation id="3009300415590184725">Er du sikker på, at du vil annullere konfigurationen af en mobildatatjeneste?</translation>
 <translation id="3009779501245596802">Indekserede databaser</translation>
 <translation id="3010279545267083280">Adgangskoden er slettet</translation>
@@ -1443,12 +1445,14 @@ Få flere oplysninger i <ph name="BEGIN_LINK" />Hjælp<ph name="END_LINK" />.</t
 <translation id="3038675903128704560">Tillad ikke, at websites anvender et plugin til at få adgang til din computer</translation>
 <translation id="3039828483675273919">Flytter $1 elementer...</translation>
 <translation id="304009983491258911">Skift pinkode til SIM-kort</translation>
+<translation id="304567287000691532">Deler skærmen</translation>
 <translation id="3046910703532196514">Webside, komplet</translation>
 <translation id="304826556400666995">Slå fanernes lyd til</translation>
 <translation id="3053013834507634016">Brug af certifikatnøgle</translation>
 <translation id="3056670889236890135">Du kan kun redigere indstillinger for den aktuelle bruger. Skift til brugeren for at redigere indstillingerne for vedkommende.</translation>
 <translation id="3057861065630527966">Sikkerhedskopiér dine billeder og videoer</translation>
 <translation id="3058212636943679650">Hvis du skulle få brug for at genoprette din computers operativsystem, skal du bruge et SD-kort til genoprettelse eller en USB-nøgle.</translation>
+<translation id="3060379269883947824">Aktivér Tekstoplæsning</translation>
 <translation id="3063844757726132584">Få adgang til alle dine apps via denne smarte appliste. Du kan spille spil, videochatte, lytte til musik, redigere dokumenter eller hente flere apps.</translation>
 <translation id="3064388234319122767">Translitteration (zdravo → здраво)</translation>
 <translation id="3064410671692449875">Utilstrækkelige data</translation>
@@ -1485,6 +1489,7 @@ Få flere oplysninger i <ph name="BEGIN_LINK" />Hjælp<ph name="END_LINK" />.</t
 <translation id="3112378005171663295">Skjul</translation>
 <translation id="3115147772012638511">Venter på cache...</translation>
 <translation id="3116361045094675131">Britisk tastatur</translation>
+<translation id="3116902203001917540">Gør din skærm mere behagelig at læse eller se på i svag belysning</translation>
 <translation id="3118319026408854581"><ph name="PRODUCT_NAME" /> Hjælp</translation>
 <translation id="3120430004221004537">Utilstrækkelig kryptering til en angivet handling på: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="3121793941267913344">Nulstil denne <ph name="IDS_SHORT_PRODUCT_NAME" />-enhed</translation>
@@ -1680,6 +1685,7 @@ Fra <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3391716558283801616">Fane 7</translation>
 <translation id="3394150261239285340"><ph name="HOST" /> ønsker at bruge dit kamera og din mikrofon.</translation>
 <translation id="3396331542604645348">Den valgte printer er ikke tilgængelig eller ikke installeret korrekt. Tjek din printer, eller vælg en anden printer.</translation>
+<translation id="3399432415385675819">Underretninger deaktiveres</translation>
 <translation id="3399597614303179694">Makedonsk tastatur</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="340485819826776184">Brug en forudsigelsestjeneste til at hjælpe med udfyldning af søgninger og webadresser, som indtastes i adresselinjen</translation>
@@ -2646,6 +2652,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="488785315393301722">Vis detaljer</translation>
 <translation id="4888510611625056742">Fane 2</translation>
 <translation id="4890773143211625964">Vis avancerede printerindstillinger</translation>
+<translation id="4891089016822695758">Betaforum</translation>
 <translation id="4893336867552636863">Denne handling sletter dine browserdata permanent fra denne enhed.</translation>
 <translation id="4898011734382862273">Certifikatet "<ph name="CERTIFICATE_NAME" />" repræsenterer et nøglecenter</translation>
 <translation id="4899376560703610051">Din <ph name="DEVICE_TYPE" /> er blevet låst manuelt. Du skal indtaste din adgangskode for at få adgang.</translation>
@@ -2873,6 +2880,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5246282308050205996"><ph name="APP_NAME" /> er gået ned. Klik her for at genstarte appen.</translation>
 <translation id="524759338601046922">Angiv den nye pinkode igen:</translation>
 <translation id="5249624017678798539">Browseren lukkede ned, før overførslen var fuldført.</translation>
+<translation id="5250372599208556903"><ph name="SEARCH_ENGINE_NAME" /> anvender din placering for at give dig lokalt indhold. Du kan ændre dette i <ph name="SETTINGS_LINK" />.</translation>
 <translation id="5252456968953390977">Roaming</translation>
 <translation id="5252653240322147470">Pinkoden skal være mindre end <ph name="MAXIMUM" /> tegn</translation>
 <translation id="5253753933804516447">Aktivér "Ok Google" for talesøgning, når din skærm er slået til og låst op</translation>
@@ -2924,6 +2932,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5316588172263354223">Talesøgning til enhver tid</translation>
 <translation id="5316716239522500219">Spejlvend skærmene</translation>
 <translation id="5317780077021120954">Gem</translation>
+<translation id="5319748504063551568">Du skal godkende det med din identitetsudbyder, før du kan give din konto adgang til Google Play Butik. Klik på Næste for at fortsætte.</translation>
 <translation id="5319782540886810524">Lettisk tastatur</translation>
 <translation id="532247166573571973">Serveren kan være utilgængelig. Prøv igen senere.</translation>
 <translation id="5323213332664049067">Latinamerikansk</translation>
@@ -3214,6 +3223,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5756163054456765343">H&amp;jælp</translation>
 <translation id="5756666464756035725">Ungarsk QWERTY-tastatur</translation>
 <translation id="5759728514498647443">De dokumenter, du sender til udskrift via <ph name="APP_NAME" />, kan læses af <ph name="APP_NAME" />.</translation>
+<translation id="5763751966069581670">Der blev ikke fundet nogen USB-enheder</translation>
 <translation id="5764483294734785780">&amp;Gem lyd som...</translation>
 <translation id="57646104491463491">Dato for ændring</translation>
 <translation id="5764797882307050727">Frigør plads på din enhed.</translation>
@@ -3345,11 +3355,13 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5941343993301164315">Log ind på <ph name="TOKEN_NAME" />.</translation>
 <translation id="5941711191222866238">Minimer</translation>
 <translation id="5941907479813014493">Tryk på Ctrl+Shift+Mellemrum for at skifte mellem indtastningsmetoder.</translation>
+<translation id="5946106656820696578">Mest varme</translation>
 <translation id="5946591249682680882">Rapport-id <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
 <translation id="5948205789991352045">Åbn ikke</translation>
 <translation id="5948544841277865110">Tilføj privat netværk</translation>
 <translation id="5949544233750246342">Filen kan ikke parses</translation>
 <translation id="5951823343679007761">Intet batteri</translation>
+<translation id="5955282598396714173">Din adgangskode er udløbet. Log ud, og log derefter ind igen for at ændre den.</translation>
 <translation id="5956585768868398362">Var det den søgeside, du havde forventet?</translation>
 <translation id="5957613098218939406">Flere valgmuligheder</translation>
 <translation id="5958529069007801266">Overvåget bruger</translation>
@@ -3501,6 +3513,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6205710420833115353">Nogle handlinger tager længere tid end forventet. Vil du afbryde dem?</translation>
 <translation id="6206311232642889873">Ko&amp;pier billede</translation>
 <translation id="6206337697064384582">Server 1</translation>
+<translation id="6207200176136643843">Nulstil til standardniveauet for zoom</translation>
 <translation id="6207937957461833379">Land/Region</translation>
 <translation id="6212039847102026977">Vis avancerede netværksegenskaber</translation>
 <translation id="6219616557885484178">Vælg mellem mere end en million apps og spil i Google Play, som du kan installere og bruge på din <ph name="DEVICE_TYPE" />.</translation>
@@ -3657,6 +3670,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="642282551015776456">Dette navn kan ikke bruges som fil- eller mappenavn</translation>
 <translation id="6423239382391657905">OpenVPN</translation>
 <translation id="6426039856985689743">Deaktiver mobildata</translation>
+<translation id="6426200009596957090">Åbn indstillinger for ChromeVox</translation>
 <translation id="642870617012116879">Dette website har forsøgt at downloade flere filer automatisk.</translation>
 <translation id="6430814529589430811">Base64-kodet ASCII, enkeltcertifikat</translation>
 <translation id="6431217872648827691">Alle data blev krypteret med din Google-adgangskode den
@@ -3949,6 +3963,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="6860428250435764775">Sørg for at opgradere. <ph name="BEGIN_LINK_EOL" />Få flere oplysninger<ph name="END_LINK_EOL" /></translation>
 <translation id="6862635236584086457">Alle de filer, der er gemt i denne mappe, sikkerhedskopieres automatisk online</translation>
 <translation id="6865313869410766144">Formulardata for AutoFyld</translation>
+<translation id="686664946474413495">Farvetemperatur</translation>
 <translation id="6867678160199975333">Skift til <ph name="NEW_PROFILE_NAME" /></translation>
 <translation id="6869402422344886127">Markeret afkrydsningsfelt</translation>
 <translation id="6870130893560916279">Ukrainsk tastatur</translation>
@@ -4018,6 +4033,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="6980956047710795611">Overfør alle Chrome OS-data til den nye adgangskode (kræver forrige adgangskode)</translation>
 <translation id="6981982820502123353">Hjælpefunktioner</translation>
 <translation id="6982896539684144327">En printer fra <ph name="VENDOR_NAME" /> blev fundet</translation>
+<translation id="6983201004195852174">Hold søgeknappen nede, og klik eller træk derefter for at vælge det indhold, der skal læses op</translation>
 <translation id="6983783921975806247">Registreret OID</translation>
 <translation id="6983991971286645866">Alle ændringer gemmes i $1.</translation>
 <translation id="6984299437918708277">Vælg et billede, som skal vises på loginskærmen for din konto</translation>
@@ -4061,6 +4077,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7025325401470358758">Næste rude</translation>
 <translation id="7027125358315426638">Databasenavn:</translation>
 <translation id="7029809446516969842">Adgangskoder</translation>
+<translation id="7029916574452167660">Mindst varme</translation>
 <translation id="7030031465713069059">Gem adgangskoden</translation>
 <translation id="7031962166228839643">TPM forberedes. Vent lidt (dette kan tage et par minutter)...</translation>
 <translation id="7039326228527141150">Få adgang til USB-enheder fra <ph name="VENDOR_NAME" /></translation>
@@ -4233,6 +4250,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7314440321558802142">Play Butik (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (nuværende)</translation>
 <translation id="7321545336522791733">Serveren er utilgængelig</translation>
+<translation id="7324297612904500502">Betaforum</translation>
 <translation id="7325437708553334317">Udvidelsen Høj kontrast</translation>
 <translation id="7327088014939803293">Den nye administrerede bruger kunne ikke oprettes. Kontrollér, at du er logget korrekt ind, og prøv igen.</translation>
 <translation id="73289266812733869">Ikke valgt</translation>
@@ -4628,6 +4646,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7908378463497120834">Vi beklager, men der kunne ikke oprettes forbindelse til mindst én partition på enheden.</translation>
 <translation id="7909969815743704077">Downloadet i inkognitotilstand</translation>
 <translation id="7910768399700579500">&amp;Ny mappe</translation>
+<translation id="7912080627461681647">Din adgangskode er blevet ændret på serveren. Log ud, og log derefter ind igen.</translation>
 <translation id="7915471803647590281">Fortæl os, hvad der sker, inden du sender feedback.</translation>
 <translation id="7917972308273378936">Litauisk tastatur</translation>
 <translation id="7925247922861151263">AAA-kontrol mislykkedes</translation>
@@ -4636,6 +4655,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7926423016278357561">Det var ikke mig.</translation>
 <translation id="7928710562641958568">Skub enheden ud</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> deler din skærm og lyd.</translation>
+<translation id="7931318309563332511">Ukendt</translation>
 <translation id="7938594894617528435">I øjeblikket offline</translation>
 <translation id="7939412583708276221">Behold alligevel</translation>
 <translation id="7939997691108949385">Administratoren kan konfigurere begrænsninger og indstillinger for den administrerede bruger på <ph name="MANAGEMENT_URL" />.</translation>
@@ -5278,6 +5298,7 @@ Efterfølgende underretninger, vinduer og dialogbokse kan blive delt mellem skri
 <translation id="8899851313684471736">Åbn link i nyt &amp;vindue</translation>
 <translation id="8900820606136623064">Ungarsk</translation>
 <translation id="8901822611024316615">Tjekkisk QWERTY-tastatur</translation>
+<translation id="8902667442496790482">Åbn indstillinger for Tekstoplæsning</translation>
 <translation id="8903921497873541725">Zoom ind</translation>
 <translation id="8904976895050290827">Chrome-synkronisering</translation>
 <translation id="8908902564709148335">Advarsel! Du har aktiveret flaget for "scripts kræver handling" på denne computer, hvilket begrænser mulighederne i denne udvidelse. Andre enheder understøtter muligvis ikke dette flag eller har det måske ikke aktiveret. På disse enheder kan denne udvidelse kan også:</translation>
