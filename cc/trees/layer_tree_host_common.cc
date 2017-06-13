@@ -290,6 +290,17 @@ static void ComputeInitialRenderSurfaceLayerList(
   // all non-skipped layers to the layer list of their target surface, and
   // add their content rect to their target surface's accumulated content rect.
   for (LayerImpl* layer : *layer_tree_impl) {
+    DCHECK(layer);
+
+    // TODO(crbug.com/726423): LayerImpls should never have invalid PropertyTree
+    // indices.
+    if (!layer)
+      continue;
+
+    layer->set_is_drawn_render_surface_layer_list_member(false);
+    if (!layer->HasValidPropertyTreeIndices())
+      continue;
+
     RenderSurfaceImpl* render_surface = layer->GetRenderSurface();
     if (render_surface) {
       render_surface->ClearLayerLists();

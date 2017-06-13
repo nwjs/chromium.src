@@ -859,6 +859,7 @@ void FindLayersThatNeedUpdates(LayerTreeImpl* layer_tree_impl,
     // removed as layer_impl should not be nullptr here.
     if (!layer_impl || !layer_impl->HasValidPropertyTreeIndices())
       continue;
+
     if (!IsRootLayer(layer_impl) &&
         LayerShouldBeSkipped(layer_impl, transform_tree, effect_tree))
       continue;
