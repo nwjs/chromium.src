@@ -436,6 +436,8 @@ class CC_EXPORT LayerImpl {
   void set_needs_show_scrollbars(bool yes) { needs_show_scrollbars_ = yes; }
   bool needs_show_scrollbars() { return needs_show_scrollbars_; }
 
+  bool HasValidPropertyTreeIndices() const;
+
  protected:
   LayerImpl(LayerTreeImpl* layer_impl,
             int id,
