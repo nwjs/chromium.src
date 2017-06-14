@@ -74,11 +74,15 @@ struct FileChooserSettings {
 
   // Returns a combined vector of acceptMIMETypes and acceptFileExtensions.
   Vector<String> PLATFORM_EXPORT AcceptTypes() const;
+  String initial_path;
+  String initial_value;
+  bool directory_chooser;
+  bool save_as;
 };
 
 class PLATFORM_EXPORT FileChooserClient {
  public:
-  virtual void FilesChosen(const Vector<FileChooserFileInfo>&) = 0;
+  virtual void FilesChosen(const Vector<FileChooserFileInfo>&, bool canceled = false) = 0;
   virtual ~FileChooserClient();
 
  protected:

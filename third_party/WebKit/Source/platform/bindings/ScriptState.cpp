@@ -37,6 +37,8 @@ ScriptState::ScriptState(v8::Local<v8::Context> context,
   DCHECK(world_);
   context_.SetWeak(this, &ContextCollectedCallback);
   context->SetAlignedPointerInEmbedderData(kV8ContextPerContextDataIndex, this);
+  context->SetAlignedPointerInEmbedderData(33, nullptr);
+  context->SetAlignedPointerInEmbedderData(32, nullptr);
 }
 
 ScriptState::~ScriptState() {

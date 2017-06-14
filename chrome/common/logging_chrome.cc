@@ -20,6 +20,7 @@
 #define IPC_LOG_TABLE_ADD_ENTRY(msg_id, logger) \
     content::RegisterIPCLogger(msg_id, logger)
 #include "chrome/common/all_messages.h"
+#include "extensions/common/extension_messages.h"
 #endif
 
 #if defined(OS_WIN)

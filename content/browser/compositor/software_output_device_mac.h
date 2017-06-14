@@ -24,6 +24,21 @@ class Compositor;
 
 namespace content {
 
+class SoftwareOutputDeviceForceCPUMac : public cc::SoftwareOutputDevice {
+ public:
+  explicit SoftwareOutputDeviceForceCPUMac(ui::Compositor* compositor);
+  ~SoftwareOutputDeviceForceCPUMac() override;
+
+  void Resize(const gfx::Size& pixel_size, float scale_factor) override;
+  void EndPaint() override;
+
+ private:
+  ui::Compositor* compositor_;
+  float scale_factor_;
+
+  DISALLOW_COPY_AND_ASSIGN(SoftwareOutputDeviceForceCPUMac);
+};
+  
 class CONTENT_EXPORT SoftwareOutputDeviceMac : public cc::SoftwareOutputDevice,
                                                public gfx::VSyncProvider {
  public:

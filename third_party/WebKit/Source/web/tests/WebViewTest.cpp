@@ -2814,7 +2814,7 @@ class ViewCreatingWebViewClient : public FrameTestHelpers::TestWebViewClient {
                       const WebWindowFeatures&,
                       const WebString& name,
                       WebNavigationPolicy,
-                      bool) override {
+                      bool, WebString*) override {
     return web_view_helper_.InitializeWithOpener(opener, true);
   }
 

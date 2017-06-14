@@ -1589,8 +1589,20 @@ Status IndexedDBBackingStore::GetIDBDatabaseMetaData(
     INTERNAL_READ_ERROR(GET_IDBDATABASE_METADATA);
     return s;
   }
-  if (!*found)
-    return Status::OK();
+  if (!*found) {
+    // migrate from 0.12 origin
+    const Origin origin(GURL("file://"));
+    std::string nw12_origin = ComputeOriginIdentifier(origin);
+    const std::string key2 = DatabaseNameKey::Encode(nw12_origin, name);
+    s = GetInt(db_.get(), key2, &metadata->id, found);
+    if (!s.ok() || !*found)
+      return Status::OK();
+    scoped_refptr<LevelDBTransaction> transaction =
+      IndexedDBClassFactory::Get()->CreateLevelDBTransaction(db_.get());
+    PutInt(transaction.get(), key, metadata->id);
+    transaction->Commit();
+    LOG(INFO) << "migrated indexed db: " << name;
+  }
 
   s = GetVarInt(db_.get(), DatabaseMetaDataKey::Encode(
                                metadata->id, DatabaseMetaDataKey::USER_VERSION),

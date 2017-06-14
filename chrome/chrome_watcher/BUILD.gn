@@ -48,6 +48,7 @@ process_version_rc_template("chrome_watcher_resources") {
 }
 
 shared_library("chrome_watcher") {
+  output_name = "nw_watcher"
   sources = [
     "chrome_watcher_main.cc",
   ]
@@ -60,7 +61,6 @@ shared_library("chrome_watcher") {
     "//base",
     "//base:base_static",
     "//build/config:exe_and_shlib_deps",
-    "//chrome/common",
     "//chrome/install_static:secondary_module",
     "//chrome_elf",
     "//components/browser_watcher",

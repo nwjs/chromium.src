@@ -128,8 +128,10 @@ UberUI::UberUI(content::WebUI* web_ui) : WebUIController(web_ui) {
                   chrome::kChromeUIExtensionsHost);
   RegisterSubpage(chrome::kChromeUIHelpFrameURL,
                   chrome::kChromeUIHelpHost);
+#if 0
   RegisterSubpage(chrome::kChromeUISettingsFrameURL,
                   chrome::kChromeUISettingsHost);
+#endif
   RegisterSubpage(chrome::kChromeUIUberFrameURL,
                   chrome::kChromeUIUberHost);
 }

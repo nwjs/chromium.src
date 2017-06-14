@@ -126,6 +126,7 @@ void TranslateInternalsHandler::OnTranslateEvent(
 }
 
 void TranslateInternalsHandler::OnRemovePrefItem(const base::ListValue* args) {
+#if 0
   content::WebContents* web_contents = web_ui()->GetWebContents();
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
@@ -161,6 +162,7 @@ void TranslateInternalsHandler::OnRemovePrefItem(const base::ListValue* args) {
   }
 
   SendPrefsToJs();
+#endif
 }
 
 void TranslateInternalsHandler::OnOverrideCountry(const base::ListValue* args) {

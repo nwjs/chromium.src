@@ -6,44 +6,45 @@
 #
 # Chrome Application dir entries, sorted alphabetically.
 #
-chrome.exe: %(ChromeDir)s\
+nw.exe: %(ChromeDir)s\
 #
 # Chrome version dir assembly manifest.
 # The name of this file must match the name of the version dir, so we cannot
 # hard-code it.
 # // TODO(caitkp): Find a way to do this without wildcards.
 #
-*.*.*.*.manifest: %(VersionDir)s\
+*.*.*.*.manifest: %(ChromeDir)s\
 #
 # Chrome version dir entries, sorted alphabetically.
 #
-chrome.dll: %(VersionDir)s\
-chrome_100_percent.pak: %(VersionDir)s\
-chrome_child.dll: %(VersionDir)s\
-chrome_elf.dll: %(VersionDir)s\
-chrome_watcher.dll: %(VersionDir)s\
-d3dcompiler_47.dll: %(VersionDir)s\
-eventlog_provider.dll: %(VersionDir)s\
+nw.dll: %(ChromeDir)s\
+nw_100_percent.pak: %(ChromeDir)s\
+nw_child.dll: %(ChromeDir)s\
+nw_elf.dll: %(ChromeDir)s\
+nw_watcher.dll: %(ChromeDir)s\
+d3dcompiler_47.dll: %(ChromeDir)s\
+eventlog_provider.dll: %(ChromeDir)s\
 ffmpeg.dll: %(VersionDir)s\
-icudt.dll: %(VersionDir)s\
-icudtl.dat: %(VersionDir)s\
-libEGL.dll: %(VersionDir)s\
-libGLESv2.dll: %(VersionDir)s\
-nacl64.exe: %(VersionDir)s\
-nacl_irt_x86_32.nexe: %(VersionDir)s\
-nacl_irt_x86_64.nexe: %(VersionDir)s\
-natives_blob.bin: %(VersionDir)s\
-resources.pak: %(VersionDir)s\
-snapshot_blob.bin: %(VersionDir)s\
-syzyasan_rtl.dll: %(VersionDir)s\
+icudt.dll: %(ChromeDir)s\
+icudtl.dat: %(ChromeDir)s\
+libEGL.dll: %(ChromeDir)s\
+libGLESv2.dll: %(ChromeDir)s\
+nacl64.exe: %(ChromeDir)s\
+nacl_irt_x86_32.nexe: %(ChromeDir)s\
+nacl_irt_x86_64.nexe: %(ChromeDir)s\
+natives_blob.bin: %(ChromeDir)s\
+resources.pak: %(ChromeDir)s\
+snapshot_blob.bin: %(ChromeDir)s\
+syzyasan_rtl.dll: %(ChromeDir)s\
+node.dll: %(ChromeDir)s\
 #
 # Sub directories living in the version dir
 #
-default_apps\*.crx: %(VersionDir)s\default_apps\
-default_apps\external_extensions.json: %(VersionDir)s\default_apps\
-Extensions\*.*: %(VersionDir)s\Extensions\
-locales\*.dll: %(VersionDir)s\Locales
-locales\*.pak: %(VersionDir)s\Locales
+default_apps\*.crx: %(ChromeDir)s\default_apps\
+default_apps\external_extensions.json: %(ChromeDir)s\default_apps\
+Extensions\*.*: %(ChromeDir)s\Extensions\
+locales\*.dll: %(ChromeDir)s\Locales
+locales\*.pak: %(ChromeDir)s\Locales
 
 #
 # VisualElements sub-dir.
@@ -67,7 +68,7 @@ swiftshader\libEGL.dll: %(VersionDir)s\swiftshader\
 swiftshader\libGLESv2.dll: %(VersionDir)s\swiftshader\
 
 [HIDPI]
-chrome_200_percent.pak: %(VersionDir)s\
+nw_200_percent.pak: %(ChromeDir)s\
 
 [TOUCH]
 
@@ -75,10 +76,10 @@ chrome_200_percent.pak: %(VersionDir)s\
 #
 # Widevine CDM sub-dir
 #
-WidevineCdm\manifest.json: %(VersionDir)s\WidevineCdm\
-WidevineCdm\_platform_specific\win_x86\widevinecdm.dll: %(VersionDir)s\WidevineCdm\_platform_specific\win_x86\
-WidevineCdm\_platform_specific\win_x86\widevinecdm.dll.sig: %(VersionDir)s\WidevineCdm\_platform_specific\win_x86\
-WidevineCdm\_platform_specific\win_x86\widevinecdmadapter.dll: %(VersionDir)s\WidevineCdm\_platform_specific\win_x86\
-WidevineCdm\_platform_specific\win_x64\widevinecdm.dll: %(VersionDir)s\WidevineCdm\_platform_specific\win_x64\
-WidevineCdm\_platform_specific\win_x64\widevinecdm.dll.sig: %(VersionDir)s\WidevineCdm\_platform_specific\win_x64\
-WidevineCdm\_platform_specific\win_x64\widevinecdmadapter.dll: %(VersionDir)s\WidevineCdm\_platform_specific\win_x64\
+WidevineCdm\manifest.json: %(ChromeDir)s\WidevineCdm\
+WidevineCdm\_platform_specific\win_x86\widevinecdm.dll: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x86\
+WidevineCdm\_platform_specific\win_x86\widevinecdm.dll.sig: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x86\
+WidevineCdm\_platform_specific\win_x86\widevinecdmadapter.dll: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x86\
+WidevineCdm\_platform_specific\win_x64\widevinecdm.dll: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x64\
+WidevineCdm\_platform_specific\win_x64\widevinecdm.dll.sig: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x64\
+WidevineCdm\_platform_specific\win_x64\widevinecdmadapter.dll: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x64\
