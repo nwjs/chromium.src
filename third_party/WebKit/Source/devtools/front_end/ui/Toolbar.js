@@ -459,6 +459,13 @@ UI.ToolbarText = class extends UI.ToolbarItem {
   }
 
   /**
+   * @return {string}
+   */
+  text() {
+    return this.element.textContent;
+  }
+
+  /**
    * @param {string} text
    */
   setText(text) {
