@@ -218,22 +218,37 @@ public class LocaleManager {
      * See {@link LocaleManager#getSearchEnginePromoShowType()} for possible types and logic.
      *
      * @param activity    Activity showing the dialog.
-     * @param onDismissed Notified when the dialog is dismissed and whether the user acted on it.
-     * @return Whether such dialog is needed.
+     * @param onSearchEngineFinalized Notified when the search engine has been finalized.  This can
+     *                                either mean no dialog is needed, or the dialog was needed and
+     *                                the user completed the dialog with a valid selection.
      */
-    public boolean showSearchEnginePromoIfNeeded(
-            final Activity activity, final @Nullable Callback<Boolean> onDismissed) {
-        final int shouldShow = getSearchEnginePromoShowType();
+    public void showSearchEnginePromoIfNeeded(
+            final Activity activity, final @Nullable Callback<Boolean> onSearchEngineFinalized) {
+        assert LibraryLoader.isInitialized();
+        TemplateUrlService.getInstance().runWhenLoaded(new Runnable() {
+            @Override
+            public void run() {
+                handleSearchEnginePromoWithTemplateUrlsLoaded(activity, onSearchEngineFinalized);
+            }
+        });
+    }
 
+    private void handleSearchEnginePromoWithTemplateUrlsLoaded(
+            final Activity activity, final @Nullable Callback<Boolean> onSearchEngineFinalized) {
+        assert TemplateUrlService.getInstance().isLoaded();
+
+        final int shouldShow = getSearchEnginePromoShowType();
         Callable<PromoDialog> dialogCreator;
         switch (shouldShow) {
             case SEARCH_ENGINE_PROMO_DONT_SHOW:
-                return false;
+                if (onSearchEngineFinalized != null) onSearchEngineFinalized.onResult(true);
+                return;
             case SEARCH_ENGINE_PROMO_SHOW_SOGOU:
                 dialogCreator = new Callable<PromoDialog>() {
                     @Override
                     public PromoDialog call() throws Exception {
-                        return new SogouPromoDialog(activity, LocaleManager.this, onDismissed);
+                        return new SogouPromoDialog(
+                                activity, LocaleManager.this, onSearchEngineFinalized);
                     }
                 };
                 break;
@@ -243,48 +258,25 @@ public class LocaleManager {
                     @Override
                     public PromoDialog call() throws Exception {
                         return new DefaultSearchEnginePromoDialog(
-                                activity, shouldShow, onDismissed);
+                                activity, shouldShow, onSearchEngineFinalized);
                     }
                 };
                 break;
             default:
                 assert false;
-                return false;
+                if (onSearchEngineFinalized != null) onSearchEngineFinalized.onResult(true);
+                return;
         }
 
+        // If the activity has been destroyed by the time the TemplateUrlService has
+        // loaded, then do not attempt to show the dialog.
+        if (ApplicationStatus.getStateForActivity(activity) == ActivityState.DESTROYED) {
+            if (onSearchEngineFinalized != null) onSearchEngineFinalized.onResult(false);
+            return;
+        }
+
+        showPromoDialog(dialogCreator);
         mSearchEnginePromoShownThisSession = true;
-        ensureTemplateUrlServiceLoadedAndShowDialog(dialogCreator, activity, onDismissed);
-        return true;
-    }
-
-    private void ensureTemplateUrlServiceLoadedAndShowDialog(
-            final Callable<PromoDialog> dialogCreator, final Activity activity,
-            final Callback<Boolean> onDismissed) {
-        assert LibraryLoader.isInitialized();
-
-        // Load up the search engines.
-        final TemplateUrlService instance = TemplateUrlService.getInstance();
-        if (!instance.isLoaded()) {
-            instance.registerLoadListener(new TemplateUrlService.LoadListener() {
-                @Override
-                public void onTemplateUrlServiceLoaded() {
-                    instance.unregisterLoadListener(this);
-
-                    // If the activity has been destroyed by the time the TemplateUrlService has
-                    // loaded, then do not attempt to show the dialog.
-                    if (ApplicationStatus.getStateForActivity(activity)
-                            == ActivityState.DESTROYED) {
-                        if (onDismissed != null) onDismissed.onResult(false);
-                        return;
-                    }
-
-                    showPromoDialog(dialogCreator);
-                }
-            });
-            instance.load();
-        } else {
-            showPromoDialog(dialogCreator);
-        }
     }
 
     private void showPromoDialog(Callable<PromoDialog> dialogCreator) {

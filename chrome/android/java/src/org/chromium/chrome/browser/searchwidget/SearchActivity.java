@@ -54,11 +54,12 @@ public class SearchActivity extends AsyncInitializationActivity
         /**
          * Called to launch the search engine dialog if it's needed.
          * @param activity Activity that is launching the dialog.
-         * @param callback Called when the dialog has been dismissed.
-         * @return Whether or not the search dialog was shown.
+         * @param onSearchEngineFinalized Called when the dialog has been dismissed.
          */
-        boolean showSearchEngineDialogIfNeeded(Activity activity, Callback<Boolean> callback) {
-            return LocaleManager.getInstance().showSearchEnginePromoIfNeeded(activity, callback);
+        void showSearchEngineDialogIfNeeded(
+                Activity activity, Callback<Boolean> onSearchEngineFinalized) {
+            LocaleManager.getInstance().showSearchEnginePromoIfNeeded(
+                    activity, onSearchEngineFinalized);
         }
 
         /** Called when {@link SearchActivity#finishDeferredInitialization} is done. */
@@ -158,29 +159,32 @@ public class SearchActivity extends AsyncInitializationActivity
         mSearchBox.onNativeLibraryReady();
 
         // Force the user to choose a search engine if they have to.
-        final Callback<Boolean> deferredCallback = new Callback<Boolean>() {
+        final Callback<Boolean> onSearchEngineFinalizedCallback = new Callback<Boolean>() {
             @Override
             public void onResult(Boolean result) {
+                if (isActivityDestroyed()) return;
+
                 if (result == null || !result.booleanValue()) {
                     Log.e(TAG, "User failed to select a default search engine.");
                     finish();
                     return;
                 }
 
-                finishDeferredInitialization();
+                mHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        finishDeferredInitialization();
+                    }
+                });
             }
         };
-        if (!getActivityDelegate().showSearchEngineDialogIfNeeded(this, deferredCallback)) {
-            mHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    finishDeferredInitialization();
-                }
-            });
-        }
+        getActivityDelegate().showSearchEngineDialogIfNeeded(
+                SearchActivity.this, onSearchEngineFinalizedCallback);
     }
 
-    void finishDeferredInitialization() {
+    private void finishDeferredInitialization() {
+        assert !mIsActivityUsable
+                : "finishDeferredInitialization() incorrectly called multiple times";
         mIsActivityUsable = true;
         if (mQueuedUrl != null) loadUrl(mQueuedUrl);
 
