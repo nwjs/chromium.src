@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "content/nw/src/nw_base.h"
+
 #include "services/service_manager/embedder/main.h"
 #include "base/allocator/features.h"
 #include "base/command_line.h"
@@ -145,7 +147,7 @@ int Main(const MainParams& params) {
   base::win::SetupCRT(*base::CommandLine::ForCurrentProcess());
 #endif
 
-  SetProcessTitleFromCommandLine(argv);
+  //SetProcessTitleFromCommandLine(argv);
 #endif  // !defined(OS_ANDROID)
 
   MainDelegate::InitializeParams init_params;
@@ -177,6 +179,8 @@ int Main(const MainParams& params) {
   }
 
   exit_code = delegate->Run();
+  exit_code = nw::ExitCodeHook();
+
   if (tracker) {
     if (exit_code == 0) {
       tracker->SetProcessPhaseIfEnabled(

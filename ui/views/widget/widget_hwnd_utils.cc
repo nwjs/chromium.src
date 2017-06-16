@@ -10,6 +10,7 @@
 #include "build/build_config.h"
 #include "ui/base/l10n/l10n_util_win.h"
 #include "ui/base/ui_base_switches.h"
+#include "ui/display/display.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/win/hwnd_message_handler.h"
 
@@ -91,9 +92,16 @@ void CalculateWindowStylesFromInitParams(
       *ex_style |=
           native_widget_delegate->IsDialogBox() ? WS_EX_DLGMODALFRAME : 0;
 
-      // See layered window comment below.
-      if (is_translucent)
-        *style &= ~(WS_THICKFRAME | WS_CAPTION);
+      // See layered window comment above.
+      if (content::g_support_transparency) {
+        if (is_translucent && params.remove_standard_frame)
+          *style &= ~(WS_CAPTION);
+      }
+      else {
+        if (is_translucent)
+          *style &= ~(WS_THICKFRAME | WS_CAPTION);
+      }
+
       break;
     }
     case Widget::InitParams::TYPE_CONTROL:

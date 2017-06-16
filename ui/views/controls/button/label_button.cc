@@ -507,6 +507,9 @@ void LabelButton::ResetColorsFromNativeTheme() {
   } else {
     if (style() == STYLE_BUTTON)
       PlatformStyle::ApplyLabelButtonTextStyle(label_, &colors);
+    // Set auto color readability to false in case of switching theme from
+    // inverted color scheme.
+    label_->SetAutoColorReadabilityEnabled(false);
     label_->set_background(nullptr);
     label_->SetAutoColorReadabilityEnabled(false);
   }

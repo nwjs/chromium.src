@@ -39,6 +39,7 @@ GFX_EXPORT void ApplyNSWindowSizeConstraints(NSWindow* window,
                                              const gfx::Size& max_size,
                                              bool can_resize,
                                              bool can_fullscreen);
+GFX_EXPORT void SetNSWindowShowInTaskbar(NSWindow* window, bool show);
 
 }  // namespace gfx
 
