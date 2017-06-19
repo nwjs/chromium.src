@@ -1315,6 +1315,8 @@ void PaintLayer::AddChild(PaintLayer* child, PaintLayer* before_child) {
 }
 
 PaintLayer* PaintLayer::RemoveChild(PaintLayer* old_child) {
+  old_child->MarkCompositingContainerChainForNeedsRepaint();
+
   if (old_child->PreviousSibling())
     old_child->PreviousSibling()->SetNextSibling(old_child->NextSibling());
   if (old_child->NextSibling())
@@ -1358,8 +1360,6 @@ PaintLayer* PaintLayer::RemoveChild(PaintLayer* old_child) {
 
   if (old_child->EnclosingPaginationLayer())
     old_child->ClearPaginationRecursive();
-
-  SetNeedsRepaint();
 
   return old_child;
 }
