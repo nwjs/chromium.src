@@ -19,6 +19,7 @@
 #include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_list_observer.h"
+#include "chromeos/dbus/update_engine_client.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -40,7 +41,8 @@ class SystemTrayDelegateChromeOS
       public input_method::InputMethodManager::Observer,
       public chrome::BrowserListObserver,
       public extensions::AppWindowRegistry::Observer,
-      public input_method::InputMethodManager::ImeMenuObserver {
+      public input_method::InputMethodManager::ImeMenuObserver,
+      public UpdateEngineClient::Observer {
  public:
   SystemTrayDelegateChromeOS();
   ~SystemTrayDelegateChromeOS() override;
@@ -116,6 +118,9 @@ class SystemTrayDelegateChromeOS
       const std::string& engine_id,
       const std::vector<input_method::InputMethodManager::MenuItem>& items)
       override;
+
+  // Overridden from UpdateEngineClient::Observer.
+  void OnUpdateOverCellularTargetSet(bool success) override;
 
   std::unique_ptr<content::NotificationRegistrar> registrar_;
   std::unique_ptr<PrefChangeRegistrar> local_state_registrar_;
