@@ -111,7 +111,7 @@ define('main', [
      */
     function handleScoreChange(origin, e) {
       var scoreInput = e.target;
-      uiHandler.setSiteEngagementScoreForUrl(origin, scoreInput.value);
+      uiHandler.setSiteEngagementBaseScoreForUrl(origin, scoreInput.value);
       scoreInput.barCellRef.style.width = (scoreInput.value * 4) + 'px';
       scoreInput.blur();
       enableAutoupdate();
