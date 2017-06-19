@@ -44,7 +44,6 @@
 #include "components/safe_browsing_db/util.h"
 #include "components/security_interstitials/core/controller_client.h"
 #include "components/security_interstitials/core/metrics_helper.h"
-#include "components/security_interstitials/core/urls.h"
 #include "components/security_state/core/security_state.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/interstitial_page.h"
@@ -473,7 +472,7 @@ class SafeBrowsingBlockingPageBrowserTest
 
   GURL GetWhitePaperUrl() {
     return google_util::AppendGoogleLocaleParam(
-        GURL(security_interstitials::kSafeBrowsingWhitePaperUrl),
+        GURL(l10n_util::GetStringUTF8(IDS_SAFE_BROWSING_WHITEPAPER_URL)),
         factory_.test_safe_browsing_service()
             ->ui_manager()
             .get()
