@@ -238,21 +238,8 @@ void IDBRequest::AckReceivedBlobs(const Vector<RefPtr<IDBValue>>& values) {
 }
 
 bool IDBRequest::ShouldEnqueueEvent() const {
-  const ExecutionContext* execution_context = GetExecutionContext();
-
-  // https://crbug.com/733642 - Document::Shutdown() calls
-  // LocalDOMWindow::ClearEventQueue(), which nulls out the context's event
-  // queue, before calling ExecutionContext::NotifyContextDestroyed(). The
-  // latter eventually calls IDBRequest::ContextDestroyed(), which aborts the
-  // request. As an aborted IDBRequest is removed from its' IDBTransaction
-  // result queue, it may unblock another request whose result is already
-  // available. If the unblocked request hasn't received a
-  // NotifyContextDestroyed() call yet, it will hang onto an ExecutionContext
-  // whose event queue has been nulled out. The event queue null check covers
-  // these specific circumstances.
-  if (!execution_context || !execution_context->GetEventQueue())
+  if (!GetExecutionContext())
     return false;
-
   DCHECK(ready_state_ == PENDING || ready_state_ == DONE);
   if (request_aborted_)
     return false;
