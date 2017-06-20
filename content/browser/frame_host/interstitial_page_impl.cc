@@ -811,6 +811,10 @@ FrameTree* InterstitialPageImpl::GetFrameTree() {
 
 void InterstitialPageImpl::Disable() {
   enabled_ = false;
+
+  // Also let the InterstitialPageNavigatorImpl know.
+  static_cast<InterstitialPageNavigatorImpl*>(frame_tree_->root()->navigator())
+      ->Disable();
 }
 
 void InterstitialPageImpl::Shutdown() {
