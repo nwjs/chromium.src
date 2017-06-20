@@ -9876,6 +9876,11 @@ should be able to be added at any place in this file.
   <obsolete>Deprecated as of 8/2015</obsolete>
 </action>
 
+<action name="MobileCustomFeedback">
+  <owner>wychen@chromium.org</owner>
+  <description>Custom Feedback dialog is shown.</description>
+</action>
+
 <action name="MobileExternalNavigationDispatched">
   <owner>mariakhomenko@chromium.org</owner>
   <description>
@@ -9966,6 +9971,11 @@ should be able to be added at any place in this file.
     tracking uses onPause and onResume, this metric is also tied to that to
     ensure we capture the event.
   </description>
+</action>
+
+<action name="MobileHelpAndFeedback">
+  <owner>wychen@chromium.org</owner>
+  <description>The Help and Feedback dialog is shown.</description>
 </action>
 
 <action name="MobileMWSession">
