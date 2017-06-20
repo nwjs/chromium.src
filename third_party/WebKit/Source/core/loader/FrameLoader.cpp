@@ -1073,7 +1073,8 @@ void FrameLoader::RestoreScrollPositionAndViewStateForLoadType(
     FrameLoadType load_type) {
   FrameView* view = frame_->View();
   if (!view || !view->LayoutViewportScrollableArea() ||
-      !state_machine_.CommittedFirstRealDocumentLoad()) {
+      !state_machine_.CommittedFirstRealDocumentLoad() ||
+      !frame_->IsAttached()) {
     return;
   }
   if (!NeedsHistoryItemRestore(load_type))
