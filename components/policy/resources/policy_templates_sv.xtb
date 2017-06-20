@@ -1071,7 +1071,7 @@
 
       Ett lämpligt fel visas om en användare försöker logga in med ett användarnamn som inte matchar detta mönster. 
 
-      Om denna policy inte anges eller lämnas tom kan alla användare logga in på <ph name="PRODUCT_NAME" />.</translation>
+      Om denna princip inte anges eller lämnas tom kan alla användare logga in på <ph name="PRODUCT_NAME" />.</translation>
 <translation id="4858735034935305895">Tillåt helskärmsläge</translation>
 <translation id="4869787217450099946">Anger om skärmaktiveringslåset är tillåtet. Skärmaktiveringslåset kan krävas av vissa tillägg via API:et för näthanteringstillägget.
 
@@ -1270,6 +1270,8 @@
       Om <ph name="PRODUCT_NAME" /> inte kan hämta statusinformation för återkallning kommer sådana certifikat att behandlas som återkallade ("hard-fail").
 
       Om ingen inställning görs för principen eller om den har värdet falskt använder <ph name="PRODUCT_NAME" /> de befintliga inställningarna för kontroller för återkallning online.</translation>
+<translation id="572720239788271400">Aktiverar komponentuppdateringar i <ph name="PRODUCT_NAME" /></translation>
+<translation id="5728154254076636808">Aktivera framställningen av roamingkopior för profiluppgifterna för <ph name="PRODUCT_NAME" /></translation>
 <translation id="5732972008943405952">Importera formuläruppgifter för Autofyll från standardwebbläsaren första gången den körs</translation>
 <translation id="5765780083710877561">Beskrivning:</translation>
 <translation id="5770738360657678870">Kanal för utvecklare (kan vara instabil)</translation>
@@ -1505,6 +1507,7 @@
           Om policyn inte ställs in är skärmtangentbordet inaktiverat när inloggningsskärmen visas första gången. Användaren kan aktivera eller inaktivera skärmtangentbordet när som helst och dess status på inloggningsskärmen sparas för användaren.</translation>
 <translation id="6573305661369899995">Ange en extern källa för webbadressbegränsningar</translation>
 <translation id="6598235178374410284">Användarens avatarbild</translation>
+<translation id="6603004149426829878">Skicka alla tillgängliga platssignaler till servern när tidszon fastställs</translation>
 <translation id="6628646143828354685">Principen innebär att du kan ange om webbplatser får tillgång till Bluetooth-enheter i närheten. Åtkomsten kan blockeras helt eller så kan användaren bli tillfrågad varje gång en webbplats begär att få tillgång till Bluetooth-enheter i närheten.
 
           Om policyn inte anges används 3 och användaren kan ändra inställningen.</translation>
@@ -2179,7 +2182,7 @@
 <translation id="8906768759089290519">Aktivera gästläge</translation>
 <translation id="8908294717014659003">Gör att du kan ange om webbplatser ska kunna komma åt medieenheter. Åtkomst till medieenheter kan tillåtas som standard eller så kan användaren få en fråga varje gång en webbplats vill komma åt dem.
 
-         Om du inte anger någon policy kommer PromptOnAccess att användas och användaren kommer att kunna ändra den.</translation>
+         Om du inte anger någon princip kommer PromptOnAccess att användas och användaren kommer att kunna ändra den.</translation>
 <translation id="8909280293285028130">Anger efter hur lång tid utan åtgärd från användaren som skärmen ska låsas när enheten är ansluten till elnätet.
 
           Om policyn är inställd på ett värde som är större än noll anger den hur länge användaren måste vara inaktiv innan skärmen låses av <ph name="PRODUCT_OS_NAME" />.
@@ -2227,8 +2230,8 @@
 <translation id="9147029539363974059">Skickar systemloggar till hanteringsservern så att administratörer kan
       övervaka systemloggarna.
 
-      Om policyn är inställd på sant kommer systemloggar att skickas.
-      Om policyn är inställd på falskt eller inte har angetts kommer inga systemloggar att skickas.</translation>
+      Om principen är inställd på sant kommer systemloggar att skickas.
+      Om principen är inställd på falskt eller inte har angetts kommer inga systemloggar att skickas.</translation>
 <translation id="9150416707757015439">Policyn är föråldrad. Använd IncognitoModeAvailability istället.
       Inkognitoläge i <ph name="PRODUCT_NAME" /> aktiveras.
 
@@ -2262,5 +2265,6 @@
 <translation id="922540222991413931">Konfigurera installationskällor för tillägg, appar och användarskript</translation>
 <translation id="924557436754151212">Importera sparade lösenord från standardwebbläsaren första gången den körs</translation>
 <translation id="930930237275114205">Ange katalog för användardata i <ph name="PRODUCT_FRAME_NAME" /></translation>
+<translation id="934390688529359269">Aktiverar tvingad inloggning för <ph name="PRODUCT_NAME" /></translation>
 <translation id="944817693306670849">Ange storlek för diskcache</translation>
 </translationbundle>

@@ -1182,6 +1182,8 @@
       <ph name="PRODUCT_NAME" /> が失効のステータス情報を取得できない場合、該当の証明書は失効したものとして扱われます（強制エラー）。
 
       このポリシーが設定されていないか false に設定されている場合、<ph name="PRODUCT_NAME" /> は既存のオンライン失効確認設定を使用します。</translation>
+<translation id="572720239788271400"><ph name="PRODUCT_NAME" /> でコンポーネントの更新を有効にする</translation>
+<translation id="5728154254076636808"><ph name="PRODUCT_NAME" /> プロフィール データのローミング コピーを作成できるようにする</translation>
 <translation id="5732972008943405952">初回実行時にデフォルトのブラウザから自動入力フォームのデータをインポートする</translation>
 <translation id="5765780083710877561">説明:</translation>
 <translation id="5770738360657678870">Dev チャンネル（不安定な場合があります）</translation>
@@ -1395,6 +1397,7 @@ Active Directory ドメインに参加していない Windows インスタンス
           このポリシーが未設定の場合、ログイン画面が表示された時点では画面キーボードが無効になります。ユーザーはいつでも画面キーボードを有効または無効にでき、ユーザーが変わってもログイン画面はその状態のままとなります。</translation>
 <translation id="6573305661369899995">URL に関する制限の外部ソースを設定</translation>
 <translation id="6598235178374410284">ユーザーのアバター画像</translation>
+<translation id="6603004149426829878">タイムゾーンを解決する際、常に利用可能な位置情報の信号をサーバーに送信する</translation>
 <translation id="6628646143828354685">ウェブサイトによる近くの Bluetooth デバイスへのアクセスを許可するかどうかを設定できます。アクセスを完全に禁止することや、ウェブサイトが近くの Bluetooth デバイスにアクセスしてもよいかユーザーにその都度確認することができます。
 
           このポリシーが未設定の場合は「3」に設定されます。ユーザーはこの設定を変更できます。</translation>
@@ -2089,5 +2092,6 @@ Active Directory ドメインに参加していない Windows インスタンス
 <translation id="922540222991413931">拡張機能、アプリ、ユーザー スクリプトのインストール ソースを設定する</translation>
 <translation id="924557436754151212">初回実行時にデフォルトのブラウザから保存したパスワードをインポートする</translation>
 <translation id="930930237275114205"><ph name="PRODUCT_FRAME_NAME" /> のユーザー データ ディレクトリを設定する</translation>
+<translation id="934390688529359269"><ph name="PRODUCT_NAME" /> への強制ログインを有効にする</translation>
 <translation id="944817693306670849">ディスク キャッシュ サイズを設定します</translation>
 </translationbundle>

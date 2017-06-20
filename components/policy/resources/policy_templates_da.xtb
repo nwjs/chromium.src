@@ -1196,6 +1196,8 @@ Hvis denne politik slås fra eller indstilles til False (falsk), er udviklertils
       Hvis <ph name="PRODUCT_NAME" /> ikke kan hente oplysninger om tilbagekaldelsesstatus, bliver sådanne certifikater behandlet som tilbagekaldt ("alvorlig fejl").
 
       Hvis denne politik ikke er angivet eller angivet som falsk, vil <ph name="PRODUCT_NAME" /> anvende de eksisterende indstillinger for onlinesøgning efter tilbagekaldelser.</translation>
+<translation id="572720239788271400">Aktiverer komponentopdateringer i <ph name="PRODUCT_NAME" />.</translation>
+<translation id="5728154254076636808">Aktivér oprettelse af roamingkopier til profildata i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="5732972008943405952">Importér formulardata for AutoFyld fra standardbrowseren ved første visning</translation>
 <translation id="5765780083710877561">Beskrivelse:</translation>
 <translation id="5770738360657678870">Udviklerkanal (kan være ustabil)</translation>
@@ -1410,6 +1412,7 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
           Hvis denne politik ikke indstilles, deaktiveres skærmtastaturet, når loginskærmen vises første gang. Brugerne kan til enhver tid aktivere eller deaktivere skærmtastaturet, og status for skærmtastaturet på loginskærmen bibeholdes for de enkelte brugere.</translation>
 <translation id="6573305661369899995">Angiv en ekstern kilde til webadressebegrænsninger</translation>
 <translation id="6598235178374410284">Brugerens avatarbillede</translation>
+<translation id="6603004149426829878">Send altid eventuelle tilgængelige placeringssignaler til serveren under opdatering af tidszone.</translation>
 <translation id="6628646143828354685">Giver dig mulighed for at angive, om websites må få adgang til Bluetooth-enheder i nærheden. Adgangen kan være fuldstændig blokeret, eller brugeren kan få en anmodning, hver gang et website vil have adgang til en Bluetooth-enhed i nærheden.
 
           Hvis denne politik ikke indstilles, bruges "3", og brugeren kan ændre denne indstilling.</translation>
@@ -2108,5 +2111,6 @@ Dynamisk opdatering af denne politik understøttes i M56 og nyere versioner.</tr
 <translation id="922540222991413931">Konfigurer udvidelser, apps og installationskilder til brugerscripts</translation>
 <translation id="924557436754151212">Importer gemte adgangskoder fra standardbrowser på første visning</translation>
 <translation id="930930237275114205">Angiv brugerdatamappe for <ph name="PRODUCT_FRAME_NAME" /></translation>
+<translation id="934390688529359269">Aktiverer påtvungen login for <ph name="PRODUCT_NAME" />.</translation>
 <translation id="944817693306670849">Angiv diskcachens størrelse</translation>
 </translationbundle>

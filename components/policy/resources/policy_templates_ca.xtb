@@ -136,7 +136,7 @@
 
           Deixa-la sense establir si has seleccionat qualsevol altra manera de definir les polítiques del servidor intermediari.
 
-          Per veure exemples més detallats, vés a:
+          Per veure exemples més detallats, ves a:
           <ph name="PROXY_HELP_URL" />.</translation>
 <translation id="1504431521196476721">Testimoni remot</translation>
 <translation id="1509692106376861764">Aquesta política no està disponible des de la versió 29 de <ph name="PRODUCT_NAME" />.</translation>
@@ -594,7 +594,7 @@ Cada entrada de la llista especifica un identificador, que s'utilitza internamen
 
           Si decideixes fer servir un script de servidor intermediari .pac, has d'especificar l'URL de l'script a URL d'un fitxer .pac d'un servidor intermediari.
 
-          Per veure exemples detallats, vés a:
+          Per veure exemples detallats, ves a:
           <ph name="PROXY_HELP_URL" />.
 
           Si actives aquesta opció de configuració, <ph name="PRODUCT_NAME" /> i les aplicacions ARC ignoren totes les opcions relacionades amb el servidor intermediari que s'han especificat des de la línia d'ordres.
@@ -704,7 +704,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 
           Si decideixes detectar automàticament el servidor intermediari, la resta d'opcions s'ignoren.
 
-          Per veure exemples detallats, vés a:
+          Per veure exemples detallats, ves a:
           <ph name="PROXY_HELP_URL" />.
 
           Si actives aquesta opció de configuració, <ph name="PRODUCT_NAME" /> i les aplicacions ARC ignoren totes les opcions relacionades amb el servidor intermediari que s'han especificat des de la línia d'ordres.
@@ -995,7 +995,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 
           Si tries manualment la configuració del servidor intermediari, pots especificar més opcions a Adreça o URL del servidor intermediari, a URL d'un fitxer .pac d'un servidor intermediari i a Llista de regles d'evitació de servidors intermediaris separada per comes. Les aplicacions ARC només poden utilitzar el servidor intermediari HTTP amb la prioritat més alta.
 
-          Per veure exemples detallats, vés a:
+          Per veure exemples detallats, ves a:
           <ph name="PROXY_HELP_URL" />.
 
           Si actives aquesta opció de configuració, <ph name="PRODUCT_NAME" /> ignora totes les opcions relacionades amb el servidor intermediari que s'han especificat des de la línia d'ordres.
@@ -1178,6 +1178,8 @@ Si la política no es defineix, els usuaris podran triar si el prestatge s'ha d'
       Si <ph name="PRODUCT_NAME" /> no pot obtenir informació de l'estat de revocació, aquests certificats es consideraran revocats ("hard-fail").
 
       Si aquesta política no està definida o si es defineix com a "false", <ph name="PRODUCT_NAME" /> utilitzarà la configuració de la comprovació de revocació en línia existent.</translation>
+<translation id="572720239788271400">Permet les actualitzacions de components a <ph name="PRODUCT_NAME" /></translation>
+<translation id="5728154254076636808">Permet crear còpies itinerants de les dades de perfil que tingui <ph name="PRODUCT_NAME" /></translation>
 <translation id="5732972008943405952">Importa les dades d'emplenament automàtic de formularis des del navegador predeterminat quan s'inicia per primera vegada</translation>
 <translation id="5765780083710877561">Descripció:</translation>
 <translation id="5770738360657678870">Canal per a desenvolupadors (pot ser inestable)</translation>
@@ -1391,6 +1393,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
           Si aquesta política es deixa sense configurar, el teclat en pantalla estarà desactivat la primera vegada que es mostri la pantalla d'inici de sessió. Els usuaris podran activar o desactivar el teclat en pantalla en qualsevol moment i l'estat que tingui a la pantalla d'inici de sessió es conservarà entre els usuaris.</translation>
 <translation id="6573305661369899995">Estableix una font externa de restriccions d'URL</translation>
 <translation id="6598235178374410284">Imatge d'avatar de l'usuari</translation>
+<translation id="6603004149426829878">Envia sempre els senyals d'ubicació disponibles al servidor mentre es determina la zona horària</translation>
 <translation id="6628646143828354685">Us permet definir si els llocs web poden obtenir accés a dispositius Bluetooth propers. Es pot bloquejar completament o es pot consultar a l'usuari cada cop que un lloc web vulgui obtenir accés a dispositius Bluetooth propers.
 
           Si aquesta política es deixa sense establir, es farà servir el valor "3" i l'usuari podrà canviar-lo.</translation>
@@ -2089,5 +2092,6 @@ Aquesta política s'ignora en els comptes d'usuari normals.</translation>
 <translation id="922540222991413931">Configura fonts d'instal·lació d'extensions, d'aplicacions i de scripts d'usuari</translation>
 <translation id="924557436754151212">Importació de les contrasenyes desades des del navegador predeterminat en la primera execució</translation>
 <translation id="930930237275114205">Defineix el directori de dades de l'usuari del producte <ph name="PRODUCT_FRAME_NAME" /></translation>
+<translation id="934390688529359269">Permet l'inici de sessió forçat a <ph name="PRODUCT_NAME" /></translation>
 <translation id="944817693306670849">Defineix la mida de la memòria cau del disc</translation>
 </translationbundle>
