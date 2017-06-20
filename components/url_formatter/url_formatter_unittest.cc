@@ -460,6 +460,13 @@ const IDNTestCase idn_cases[] = {
   // Hebrew Gershayim used by itself is allowed.
   {"xn--5eb.il", L"\x05f4.il", true},
 
+  // Block RTL nonspacing marks (NSM) after unrelated scripts.
+  {"xn--foog-ycg.com", L"foog\x0650.com", false},    // Latin + Arabic NSM
+  {"xn--foog-jdg.com", L"foog\x0654.com", false},    // Latin + Arabic NSM
+  {"xn--foog-jhg.com", L"foog\x0670.com", false},    // Latin + Arbic NSM
+  {"xn--foog-opf.com", L"foog\x05b4.com", false},    // Latin + Hebrew NSM
+  {"xn--shb5495f.com", L"\xac00\x0650.com", false},  // Hang + Arabic NSM
+
   // 4 Deviation characters between IDNA 2003 and IDNA 2008
   // When entered in Unicode, the first two are mapped to 'ss' and Greek sigma
   // and the latter two are mapped away. However, the punycode form should
