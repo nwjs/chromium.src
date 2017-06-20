@@ -2578,7 +2578,7 @@ TEST_P(QuicNetworkTransactionTest,
 // request is reset from, then QUIC will be marked as broken and the request
 // retried over TCP.
 TEST_P(QuicNetworkTransactionTest, ResetAfterHandshakeConfirmedThenBroken) {
-  session_params_.retry_without_alt_svc_on_quic_errors = true;
+  params_.retry_without_alt_svc_on_quic_errors = true;
 
   // The request will initially go out over QUIC.
   MockQuicData quic_data;
@@ -2673,7 +2673,7 @@ TEST_P(QuicNetworkTransactionTest, ResetAfterHandshakeConfirmedThenBroken) {
 // This is a regression tests for crbug/731303.
 TEST_P(QuicNetworkTransactionTest,
        ResetPooledAfterHandshakeConfirmedThenBroken) {
-  session_params_.retry_without_alt_svc_on_quic_errors = true;
+  params_.retry_without_alt_svc_on_quic_errors = true;
 
   GURL origin1 = request_.url;
   GURL origin2("https://www.example.org/");
