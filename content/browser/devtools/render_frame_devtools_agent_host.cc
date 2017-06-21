@@ -1155,7 +1155,7 @@ void RenderFrameDevToolsAgentHost::OnRequestNewWindow(
 }
 
 bool RenderFrameDevToolsAgentHost::IsChildFrame() {
-  return current_ && current_->host()->GetParent();
+  return frame_tree_node_ && frame_tree_node_->parent();
 }
 
 }  // namespace content
