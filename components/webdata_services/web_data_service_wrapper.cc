@@ -46,7 +46,7 @@ void InitSyncableServicesOnDBThread(
     const std::string& app_locale,
     autofill::AutofillWebDataBackend* autofill_backend) {
   DCHECK(db_thread->BelongsToCurrentThread());
-
+#if 0
   // Currently only Autocomplete and Autofill profiles use the new Sync API, but
   // all the database data should migrate to this API over time.
   if (base::FeatureList::IsEnabled(switches::kSyncUSSAutocomplete)) {
@@ -72,6 +72,7 @@ void InitSyncableServicesOnDBThread(
       autofill_web_data.get())->InjectStartSyncFlare(sync_flare);
   autofill::AutofillWalletSyncableService::FromWebDataService(
       autofill_web_data.get())->InjectStartSyncFlare(sync_flare);
+#endif
 }
 
 }  // namespace

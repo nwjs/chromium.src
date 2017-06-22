@@ -107,6 +107,14 @@ class WebFrame {
   virtual bool IsWebRemoteFrame() const = 0;
   virtual WebRemoteFrame* ToWebRemoteFrame() = 0;
 
+  virtual bool isNwFakeTop() const {return false;}
+
+  virtual void setNodeJS(bool) {}
+  virtual bool isNodeJS() const {return false;}
+  virtual bool isNwDisabledChildFrame() const {return false;}
+
+  virtual void setDevtoolsJail(WebFrame*) {}
+  virtual WebFrame* getDevtoolsJail() {return nullptr;}
   BLINK_EXPORT bool Swap(WebFrame*);
 
   // This method closes and deletes the WebFrame. This is typically called by
@@ -424,8 +432,9 @@ class WebFrame {
   // the given element is not a frame, iframe or if the frame is empty.
   BLINK_EXPORT static WebFrame* FromFrameOwnerElement(const WebElement&);
 
+  BLINK_EXPORT static WebFrame* FromFrame(Frame*);
+
 #if BLINK_IMPLEMENTATION
-  static WebFrame* FromFrame(Frame*);
 
   bool InShadowTree() const { return scope_ == WebTreeScopeType::kShadow; }
 
