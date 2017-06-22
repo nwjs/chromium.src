@@ -8,7 +8,6 @@
 #include "cc/test/test_context_provider.h"
 #include "cc/test/test_tile_task_runner.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/skia/include/core/SkImageGenerator.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
 
 namespace cc {
@@ -27,39 +26,20 @@ PaintImage CreatePaintImage(sk_sp<SkImage> image) {
 size_t kGpuMemoryLimitBytes = 96 * 1024 * 1024;
 class TestGpuImageDecodeCache : public GpuImageDecodeCache {
  public:
-  explicit TestGpuImageDecodeCache(ContextProvider* context,
-                                   ResourceFormat format)
+  explicit TestGpuImageDecodeCache(ContextProvider* context)
       : GpuImageDecodeCache(context,
-                            format,
+                            ResourceFormat::RGBA_8888,
                             kGpuMemoryLimitBytes,
                             kGpuMemoryLimitBytes) {}
 };
 
-class TestImageGenerator : public SkImageGenerator {
- public:
-  explicit TestImageGenerator(const SkImageInfo& info)
-      : SkImageGenerator(info),
-        image_backing_memory_(info.getSafeSize(info.minRowBytes()), 0),
-        image_pixmap_(info, image_backing_memory_.data(), info.minRowBytes()) {}
-
- protected:
-  bool onGetPixels(const SkImageInfo& info,
-                   void* pixels,
-                   size_t rowBytes,
-                   const Options&) override {
-    return image_pixmap_.readPixels(info, pixels, rowBytes, 0, 0);
-  }
-
- private:
-  std::vector<uint8_t> image_backing_memory_;
-  SkPixmap image_pixmap_;
-};
-
 sk_sp<SkImage> CreateImage(int width, int height) {
+  SkBitmap bitmap;
   gfx::ColorSpace color_space = gfx::ColorSpace::CreateSRGB();
-  std::unique_ptr<TestImageGenerator> generator(new TestImageGenerator(
-      SkImageInfo::MakeN32Premul(width, height, color_space.ToSkColorSpace())));
-  return SkImage::MakeFromGenerator(std::move(generator));
+  bitmap.allocPixels(
+      SkImageInfo::MakeN32Premul(width, height, color_space.ToSkColorSpace()));
+  bitmap.eraseColor(0);
+  return SkImage::MakeFromBitmap(bitmap);
 }
 
 SkMatrix CreateMatrix(const SkSize& scale, bool is_decomposable) {
@@ -74,12 +54,10 @@ SkMatrix CreateMatrix(const SkSize& scale, bool is_decomposable) {
   return matrix;
 }
 
-using GpuImageDecodeCacheTest = ::testing::TestWithParam<ResourceFormat>;
-
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageSameImage) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageSameImage) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   sk_sp<SkImage> image = CreateImage(100, 100);
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
@@ -111,10 +89,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageSameImage) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageSmallerScale) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageSmallerScale) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   sk_sp<SkImage> image = CreateImage(100, 100);
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
@@ -146,10 +124,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageSmallerScale) {
   cache.UnrefImage(another_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageLowerQuality) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageLowerQuality) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   sk_sp<SkImage> image = CreateImage(100, 100);
   bool is_decomposable = true;
   SkMatrix matrix = CreateMatrix(SkSize::Make(0.4f, 0.4f), is_decomposable);
@@ -179,10 +157,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageLowerQuality) {
   cache.UnrefImage(another_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageDifferentImage) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageDifferentImage) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -220,10 +198,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageDifferentImage) {
   cache.UnrefImage(second_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageLargerScale) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageLargerScale) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -274,10 +252,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageLargerScale) {
   cache.UnrefImage(third_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageLargerScaleNoReuse) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageLargerScaleNoReuse) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -326,10 +304,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageLargerScaleNoReuse) {
   cache.UnrefImage(third_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageHigherQuality) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageHigherQuality) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkMatrix matrix = CreateMatrix(SkSize::Make(0.4f, 0.4f), is_decomposable);
 
@@ -366,10 +344,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageHigherQuality) {
   cache.UnrefImage(second_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageAlreadyDecodedAndLocked) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageAlreadyDecodedAndLocked) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -412,10 +390,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageAlreadyDecodedAndLocked) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageAlreadyDecodedNotLocked) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageAlreadyDecodedNotLocked) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -458,10 +436,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageAlreadyDecodedNotLocked) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageAlreadyUploaded) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageAlreadyUploaded) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -494,10 +472,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageAlreadyUploaded) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageCanceledGetsNewTask) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageCanceledGetsNewTask) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -542,10 +520,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageCanceledGetsNewTask) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetTaskForImageCanceledWhileReffedGetsNewTask) {
+TEST(GpuImageDecodeCacheTest, GetTaskForImageCanceledWhileReffedGetsNewTask) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -594,10 +572,10 @@ TEST_P(GpuImageDecodeCacheTest, GetTaskForImageCanceledWhileReffedGetsNewTask) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, NoTaskForImageAlreadyFailedDecoding) {
+TEST(GpuImageDecodeCacheTest, NoTaskForImageAlreadyFailedDecoding) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -628,10 +606,10 @@ TEST_P(GpuImageDecodeCacheTest, NoTaskForImageAlreadyFailedDecoding) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDraw) {
+TEST(GpuImageDecodeCacheTest, GetDecodedImageForDraw) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -663,10 +641,10 @@ TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDraw) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetLargeDecodedImageForDraw) {
+TEST(GpuImageDecodeCacheTest, GetLargeDecodedImageForDraw) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -699,10 +677,10 @@ TEST_P(GpuImageDecodeCacheTest, GetLargeDecodedImageForDraw) {
   EXPECT_FALSE(cache.DiscardableIsLockedForTesting(draw_image));
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDrawAtRasterDecode) {
+TEST(GpuImageDecodeCacheTest, GetDecodedImageForDrawAtRasterDecode) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -733,10 +711,10 @@ TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDrawAtRasterDecode) {
   cache.DrawWithImageFinished(draw_image, decoded_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDrawLargerScale) {
+TEST(GpuImageDecodeCacheTest, GetDecodedImageForDrawLargerScale) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -792,10 +770,10 @@ TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDrawLargerScale) {
   cache.UnrefImage(larger_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDrawHigherQuality) {
+TEST(GpuImageDecodeCacheTest, GetDecodedImageForDrawHigherQuality) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkMatrix matrix = CreateMatrix(SkSize::Make(0.5f, 0.5f), is_decomposable);
 
@@ -850,10 +828,10 @@ TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDrawHigherQuality) {
   cache.UnrefImage(higher_quality_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDrawNegative) {
+TEST(GpuImageDecodeCacheTest, GetDecodedImageForDrawNegative) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -887,10 +865,10 @@ TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDrawNegative) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, GetLargeScaledDecodedImageForDraw) {
+TEST(GpuImageDecodeCacheTest, GetLargeScaledDecodedImageForDraw) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -926,10 +904,10 @@ TEST_P(GpuImageDecodeCacheTest, GetLargeScaledDecodedImageForDraw) {
   EXPECT_FALSE(cache.DiscardableIsLockedForTesting(draw_image));
 }
 
-TEST_P(GpuImageDecodeCacheTest, AtRasterUsedDirectlyIfSpaceAllows) {
+TEST(GpuImageDecodeCacheTest, AtRasterUsedDirectlyIfSpaceAllows) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -971,11 +949,11 @@ TEST_P(GpuImageDecodeCacheTest, AtRasterUsedDirectlyIfSpaceAllows) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest,
-       GetDecodedImageForDrawAtRasterDecodeMultipleTimes) {
+TEST(GpuImageDecodeCacheTest,
+     GetDecodedImageForDrawAtRasterDecodeMultipleTimes) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -1006,11 +984,11 @@ TEST_P(GpuImageDecodeCacheTest,
   cache.DrawWithImageFinished(draw_image, another_decoded_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest,
-       GetLargeDecodedImageForDrawAtRasterDecodeMultipleTimes) {
+TEST(GpuImageDecodeCacheTest,
+     GetLargeDecodedImageForDrawAtRasterDecodeMultipleTimes) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -1044,10 +1022,10 @@ TEST_P(GpuImageDecodeCacheTest,
   EXPECT_FALSE(cache.DiscardableIsLockedForTesting(draw_image));
 }
 
-TEST_P(GpuImageDecodeCacheTest, ZeroSizedImagesAreSkipped) {
+TEST(GpuImageDecodeCacheTest, ZeroSizedImagesAreSkipped) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -1073,10 +1051,10 @@ TEST_P(GpuImageDecodeCacheTest, ZeroSizedImagesAreSkipped) {
   cache.DrawWithImageFinished(draw_image, decoded_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, NonOverlappingSrcRectImagesAreSkipped) {
+TEST(GpuImageDecodeCacheTest, NonOverlappingSrcRectImagesAreSkipped) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -1103,10 +1081,10 @@ TEST_P(GpuImageDecodeCacheTest, NonOverlappingSrcRectImagesAreSkipped) {
   cache.DrawWithImageFinished(draw_image, decoded_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, CanceledTasksDoNotCountAgainstBudget) {
+TEST(GpuImageDecodeCacheTest, CanceledTasksDoNotCountAgainstBudget) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -1133,10 +1111,10 @@ TEST_P(GpuImageDecodeCacheTest, CanceledTasksDoNotCountAgainstBudget) {
   EXPECT_EQ(0u, cache.GetBytesUsedForTesting());
 }
 
-TEST_P(GpuImageDecodeCacheTest, ShouldAggressivelyFreeResources) {
+TEST(GpuImageDecodeCacheTest, ShouldAggressivelyFreeResources) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -1197,10 +1175,10 @@ TEST_P(GpuImageDecodeCacheTest, ShouldAggressivelyFreeResources) {
   }
 }
 
-TEST_P(GpuImageDecodeCacheTest, OrphanedImagesFreeOnReachingZeroRefs) {
+TEST(GpuImageDecodeCacheTest, OrphanedImagesFreeOnReachingZeroRefs) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -1256,10 +1234,10 @@ TEST_P(GpuImageDecodeCacheTest, OrphanedImagesFreeOnReachingZeroRefs) {
             cache.GetDrawImageSizeForTesting(second_draw_image));
 }
 
-TEST_P(GpuImageDecodeCacheTest, OrphanedZeroRefImagesImmediatelyDeleted) {
+TEST(GpuImageDecodeCacheTest, OrphanedZeroRefImagesImmediatelyDeleted) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -1308,10 +1286,10 @@ TEST_P(GpuImageDecodeCacheTest, OrphanedZeroRefImagesImmediatelyDeleted) {
             cache.GetDrawImageSizeForTesting(second_draw_image));
 }
 
-TEST_P(GpuImageDecodeCacheTest, QualityCappedAtMedium) {
+TEST(GpuImageDecodeCacheTest, QualityCappedAtMedium) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   sk_sp<SkImage> image = CreateImage(100, 100);
   bool is_decomposable = true;
   SkMatrix matrix = CreateMatrix(SkSize::Make(0.4f, 0.4f), is_decomposable);
@@ -1360,10 +1338,10 @@ TEST_P(GpuImageDecodeCacheTest, QualityCappedAtMedium) {
 
 // Ensure that switching to a mipped version of an image after the initial
 // cache entry creation doesn't cause a buffer overflow/crash.
-TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDrawMipUsageChange) {
+TEST(GpuImageDecodeCacheTest, GetDecodedImageForDrawMipUsageChange) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -1401,10 +1379,10 @@ TEST_P(GpuImageDecodeCacheTest, GetDecodedImageForDrawMipUsageChange) {
   cache.DrawWithImageFinished(draw_image_mips, decoded_draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, MemoryStateSuspended) {
+TEST(GpuImageDecodeCacheTest, MemoryStateSuspended) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
 
   // First Insert an image into our cache.
   sk_sp<SkImage> image = CreateImage(1, 1);
@@ -1472,10 +1450,10 @@ TEST_P(GpuImageDecodeCacheTest, MemoryStateSuspended) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, OutOfRasterDecodeTask) {
+TEST(GpuImageDecodeCacheTest, OutOfRasterDecodeTask) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
 
   sk_sp<SkImage> image = CreateImage(1, 1);
   bool is_decomposable = true;
@@ -1499,7 +1477,7 @@ TEST_P(GpuImageDecodeCacheTest, OutOfRasterDecodeTask) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, ZeroCacheNormalWorkingSet) {
+TEST(GpuImageDecodeCacheTest, ZeroCacheNormalWorkingSet) {
   // Setup - Image cache has a normal working set, but zero cache size.
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
@@ -1554,7 +1532,7 @@ TEST_P(GpuImageDecodeCacheTest, ZeroCacheNormalWorkingSet) {
   cache.UnrefImage(draw_image);
 }
 
-TEST_P(GpuImageDecodeCacheTest, SmallCacheNormalWorkingSet) {
+TEST(GpuImageDecodeCacheTest, SmallCacheNormalWorkingSet) {
   // Cache will fit one (but not two) 100x100 images.
   size_t cache_size = 190 * 100 * 4;
 
@@ -1648,10 +1626,10 @@ TEST_P(GpuImageDecodeCacheTest, SmallCacheNormalWorkingSet) {
   }
 }
 
-TEST_P(GpuImageDecodeCacheTest, ClearCache) {
+TEST(GpuImageDecodeCacheTest, ClearCache) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -1687,7 +1665,7 @@ TEST_P(GpuImageDecodeCacheTest, ClearCache) {
 TEST(GpuImageDecodeCacheTest, GetTaskForImageDifferentColorSpace) {
   auto context_provider = TestContextProvider::Create();
   context_provider->BindToCurrentThread();
-  TestGpuImageDecodeCache cache(context_provider.get(), GetParam());
+  TestGpuImageDecodeCache cache(context_provider.get());
   bool is_decomposable = true;
   SkFilterQuality quality = kHigh_SkFilterQuality;
 
@@ -1735,11 +1713,6 @@ TEST(GpuImageDecodeCacheTest, GetTaskForImageDifferentColorSpace) {
   cache.UnrefImage(second_draw_image);
   cache.UnrefImage(third_draw_image);
 }
-
-INSTANTIATE_TEST_CASE_P(GpuImageDecodeCacheTests,
-                        GpuImageDecodeCacheTest,
-                        ::testing::Values(ResourceFormat::RGBA_8888,
-                                          ResourceFormat::RGBA_4444));
 
 }  // namespace
 }  // namespace cc
