@@ -76,7 +76,7 @@ class WebViewClient : protected WebWidgetClient {
                               const WebWindowFeatures& features,
                               const WebString& name,
                               WebNavigationPolicy policy,
-                              bool suppress_opener) {
+                              bool suppress_opener, WebString* manifest = nullptr) {
     return 0;
   }
 

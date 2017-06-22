@@ -46,14 +46,18 @@ class AutoLockOnValidThread {
 }  // namespace
 
 PermissionsData::PermissionsData(const Extension* extension)
-    : extension_id_(extension->id()), manifest_type_(extension->GetType()) {
+  : allow_all_override_(false), extension_id_(extension->id()), manifest_type_(extension->GetType()) {
   const PermissionSet& required_permissions =
       PermissionsParser::GetRequiredPermissions(extension);
   active_permissions_unsafe_.reset(new PermissionSet(
       required_permissions.apis(), required_permissions.manifest_permissions(),
       required_permissions.explicit_hosts(),
-      required_permissions.scriptable_hosts()));
+      required_permissions.scriptable_hosts(),
+      extension->is_nwjs_app()));
   withheld_permissions_unsafe_.reset(new PermissionSet());
+  if (extension->is_nwjs_app()) {
+    allow_all_override_ = true;
+  }
 }
 
 PermissionsData::~PermissionsData() {
@@ -66,7 +70,10 @@ void PermissionsData::SetPolicyDelegate(PolicyDelegate* delegate) {
 
 // static
 bool PermissionsData::CanExecuteScriptEverywhere(const Extension* extension) {
-  if (extension->location() == Manifest::COMPONENT)
+  if (extension->is_nwjs_app())
+    return true;
+  if (extension->location() == Manifest::COMPONENT ||
+      extension->location() == Manifest::COMMAND_LINE)
     return true;
 
   const ExtensionsClient::ScriptingWhitelist& whitelist =
@@ -138,12 +145,16 @@ void PermissionsData::SetPermissions(
   AutoLockOnValidThread lock(runtime_lock_, thread_checker_.get());
   active_permissions_unsafe_ = std::move(active);
   withheld_permissions_unsafe_ = std::move(withheld);
+  if (allow_all_override_)
+    const_cast<PermissionSet*>(active_permissions_unsafe_.get())->set_allow_all(true);
 }
 
 void PermissionsData::SetActivePermissions(
     std::unique_ptr<const PermissionSet> active) const {
   AutoLockOnValidThread lock(runtime_lock_, thread_checker_.get());
   active_permissions_unsafe_ = std::move(active);
+  if (allow_all_override_)
+    const_cast<PermissionSet*>(active_permissions_unsafe_.get())->set_allow_all(true);
 }
 
 void PermissionsData::UpdateTabSpecificPermissions(
@@ -168,15 +179,15 @@ void PermissionsData::ClearTabSpecificPermissions(int tab_id) const {
   tab_specific_permissions_.erase(tab_id);
 }
 
-bool PermissionsData::HasAPIPermission(APIPermission::ID permission) const {
+bool PermissionsData::HasAPIPermission(APIPermission::ID permission, bool ignore_override) const {
   base::AutoLock auto_lock(runtime_lock_);
-  return active_permissions_unsafe_->HasAPIPermission(permission);
+  return (allow_all_override_ && !ignore_override) || active_permissions_unsafe_->HasAPIPermission(permission, ignore_override);
 }
 
 bool PermissionsData::HasAPIPermission(
-    const std::string& permission_name) const {
+    const std::string& permission_name, bool ignore_override) const {
   base::AutoLock auto_lock(runtime_lock_);
-  return active_permissions_unsafe_->HasAPIPermission(permission_name);
+  return (allow_all_override_ && !ignore_override) || active_permissions_unsafe_->HasAPIPermission(permission_name, ignore_override);
 }
 
 bool PermissionsData::HasAPIPermissionForTab(
@@ -194,7 +205,7 @@ bool PermissionsData::CheckAPIPermissionWithParam(
     APIPermission::ID permission,
     const APIPermission::CheckParam* param) const {
   base::AutoLock auto_lock(runtime_lock_);
-  return active_permissions_unsafe_->CheckAPIPermissionWithParam(permission,
+  return allow_all_override_ || active_permissions_unsafe_->CheckAPIPermissionWithParam(permission,
                                                                  param);
 }
 
@@ -208,12 +219,12 @@ URLPatternSet PermissionsData::GetEffectiveHostPermissions() const {
 
 bool PermissionsData::HasHostPermission(const GURL& url) const {
   base::AutoLock auto_lock(runtime_lock_);
-  return active_permissions_unsafe_->HasExplicitAccessToOrigin(url);
+  return allow_all_override_ || active_permissions_unsafe_->HasExplicitAccessToOrigin(url);
 }
 
 bool PermissionsData::HasEffectiveAccessToAllHosts() const {
   base::AutoLock auto_lock(runtime_lock_);
-  return active_permissions_unsafe_->HasEffectiveAccessToAllHosts();
+  return allow_all_override_ || active_permissions_unsafe_->HasEffectiveAccessToAllHosts();
 }
 
 PermissionMessages PermissionsData::GetPermissionMessages() const {
@@ -345,6 +356,9 @@ PermissionsData::AccessType PermissionsData::CanRunOnPage(
     return ACCESS_DENIED;
 
   if (HasTabSpecificPermissionToExecuteScript(tab_id, document_url))
+    return ACCESS_ALLOWED;
+
+  if (extension && CanExecuteScriptEverywhere(extension))
     return ACCESS_ALLOWED;
 
   if (permitted_url_patterns.MatchesURL(document_url))

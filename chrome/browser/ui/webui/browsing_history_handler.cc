@@ -489,7 +489,7 @@ void BrowsingHistoryHandler::OnQueryComplete(
       ProfileSyncServiceFactory::GetInstance()->GetForProfile(profile);
 
   bool is_md = false;
-#if !defined(OS_ANDROID)
+#if 0
   is_md = base::FeatureList::IsEnabled(::features::kMaterialDesignHistory);
 #endif
 

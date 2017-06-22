@@ -61,9 +61,9 @@ class ComponentToolbarActionsFactory {
   void UnloadExtension(ExtensionService* service,
                        extensions::ExtensionRegistry* registry,
                        const std::string& extension_id);
-
+#if defined(NWJS_SDK)
   Profile* profile_;
-
+#endif
   // IDs of component actions that should be added to the toolbar model when it
   // gets initialized.
   std::set<std::string> initial_ids_;

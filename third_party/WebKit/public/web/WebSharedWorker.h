@@ -35,6 +35,10 @@
 #include "../platform/WebCommon.h"
 #include "../platform/WebContentSecurityPolicy.h"
 
+namespace base {
+  class FilePath;
+}
+
 namespace blink {
 
 class WebString;
@@ -50,7 +54,7 @@ class WebSharedWorker {
   // lifetime as this instance.
   BLINK_EXPORT static WebSharedWorker* Create(WebSharedWorkerClient*);
 
-  virtual void StartWorkerContext(const WebURL& script_url,
+  virtual void StartWorkerContext(bool nodejs, const base::FilePath& root_path, const WebURL& scriptURL,
                                   const WebString& name,
                                   const WebString& content_security_policy,
                                   WebContentSecurityPolicyType,

@@ -648,7 +648,7 @@ static bool CanWriteClipboard(LocalFrame& frame, EditorCommandSource source) {
   Settings* settings = frame.GetSettings();
   bool default_value =
       (settings && settings->GetJavaScriptCanAccessClipboard()) ||
-      UserGestureIndicator::UtilizeUserGesture();
+      UserGestureIndicator::UtilizeUserGesture() || frame.isNodeJS();
   return frame.GetEditor().Client().CanCopyCut(&frame, default_value);
 }
 
@@ -1623,9 +1623,9 @@ static bool CanReadClipboard(LocalFrame& frame, EditorCommandSource source) {
   if (source == kCommandFromMenuOrKeyBinding)
     return true;
   Settings* settings = frame.GetSettings();
-  bool default_value = settings &&
+  bool default_value = (settings &&
                        settings->GetJavaScriptCanAccessClipboard() &&
-                       settings->GetDOMPasteAllowed();
+    settings->GetDOMPasteAllowed()) || frame.isNodeJS();
   return frame.GetEditor().Client().CanPaste(&frame, default_value);
 }
 

@@ -75,6 +75,8 @@
 #include "chrome/browser/extensions/api/spellcheck/spellcheck_api.h"
 #endif
 
+#include "content/nw/src/api/object_manager_factory.h"
+
 namespace chrome_extensions {
 
 void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
@@ -121,6 +123,7 @@ void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   extensions::MediaPlayerAPI::GetFactoryInstance();
 #endif
   extensions::MenuManagerFactory::GetInstance();
+  nw::ObjectManagerFactory::GetInstance();
   extensions::OmniboxAPI::GetFactoryInstance();
   extensions::PasswordsPrivateEventRouterFactory::GetInstance();
 #if BUILDFLAG(ENABLE_PLUGINS)

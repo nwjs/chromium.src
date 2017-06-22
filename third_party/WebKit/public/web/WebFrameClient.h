@@ -112,6 +112,8 @@ class BLINK_EXPORT WebFrameClient {
   virtual ~WebFrameClient() {}
 
   // Factory methods -----------------------------------------------------
+  virtual void willHandleNavigationPolicy(
+                                          WebFrame*, const WebURLRequest&, WebNavigationPolicy*, WebString* manifest = NULL, bool new_win = true) { }
 
   // May return null.
   virtual WebPlugin* CreatePlugin(WebLocalFrame*, const WebPluginParams&) {
