@@ -173,8 +173,7 @@ void SoftwareOutputDeviceWin::EndPaint() {
 
   HDC dib_dc = skia::GetNativeDrawingContext(contents_.get());
   if (g_force_cpu_draw) {
-    LONG style = GetWindowLong(hwnd_, GWL_EXSTYLE);
-    is_hwnd_composited_ = !!(style & (WS_EX_COMPOSITED | WS_EX_LAYERED));
+    is_hwnd_composited_ = !!::GetProp(hwnd_, ui::kWindowTranslucent);
     views::HWNDMessageHandler* window = reinterpret_cast<views::HWNDMessageHandler*>(gfx::GetWindowUserData(hwnd_));
     is_hwnd_composited_ &= !(window->delegate_->HasFrame());
   }

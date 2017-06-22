@@ -178,7 +178,7 @@ bool IsCALayersDisabledFromCommandLine() {
 
 namespace content {
 
-extern bool g_force_cpu_draw;
+DISPLAY_EXPORT extern bool g_force_cpu_draw;
 
 struct GpuProcessTransportFactory::PerCompositorData {
   gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
