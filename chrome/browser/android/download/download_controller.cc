@@ -65,6 +65,8 @@ void CreateContextMenuDownload(
     const std::string& extra_headers,
     bool granted) {
   content::WebContents* web_contents = wc_getter.Run();
+  if (!granted)
+    return;
 
   if (!web_contents)
     return;
