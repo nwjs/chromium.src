@@ -3088,6 +3088,11 @@
     ]
   },
 
+  "DeviceEcryptfsMigrationStrategy": {
+    "os": ["chromeos"],
+    "test_policy": { "DeviceEcryptfsMigrationStrategy": 1 }
+  },
+
   "----- Chrome Frame policies -------------------------------------------": {},
 
   "ChromeFrameRendererSettings": {
