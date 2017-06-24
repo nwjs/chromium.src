@@ -36,6 +36,9 @@
 #include "modules/indexeddb/IDBDatabase.h"
 #include "modules/indexeddb/IDBDatabaseCallbacks.h"
 #include "modules/indexeddb/IDBKey.h"
+#include "modules/indexeddb/IDBKeyPath.h"
+#include "modules/indexeddb/IDBMetadata.h"
+#include "modules/indexeddb/IDBObjectStore.h"
 #include "modules/indexeddb/IDBOpenDBRequest.h"
 #include "modules/indexeddb/IDBTransaction.h"
 #include "modules/indexeddb/IDBValue.h"
@@ -80,13 +83,20 @@ class IDBRequestTest : public ::testing::Test {
     transaction_ = IDBTransaction::CreateNonVersionChange(
         scope.GetScriptState(), kTransactionId, transaction_scope,
         kWebIDBTransactionModeReadOnly, db_.Get());
+
+    IDBKeyPath store_key_path("primaryKey");
+    RefPtr<IDBObjectStoreMetadata> store_metadata = AdoptRef(
+        new IDBObjectStoreMetadata("store", kStoreId, store_key_path, true, 1));
+    store_ = IDBObjectStore::Create(store_metadata, transaction_);
   }
 
   WebURLLoaderMockFactory* url_loader_mock_factory_;
   Persistent<IDBDatabase> db_;
   Persistent<IDBTransaction> transaction_;
+  Persistent<IDBObjectStore> store_;
 
   static constexpr int64_t kTransactionId = 1234;
+  static constexpr int64_t kStoreId = 5678;
 };
 
 // The created value is an array of true. If create_wrapped_value is true, the
@@ -109,10 +119,12 @@ RefPtr<IDBValue> CreateIDBValue(v8::Isolate* isolate,
   wrapper.ExtractBlobDataHandles(blob_data_handles.get());
   Vector<WebBlobInfo>& blob_infos = wrapper.WrappedBlobInfo();
   RefPtr<SharedBuffer> wrapped_marker_buffer = wrapper.ExtractWireBytes();
+  IDBKey* key = IDBKey::CreateNumber(42.0);
+  IDBKeyPath key_path(String("primaryKey"));
 
-  RefPtr<IDBValue> idb_value =
-      IDBValue::Create(wrapped_marker_buffer, std::move(blob_data_handles),
-                       WTF::MakeUnique<Vector<WebBlobInfo>>(blob_infos));
+  RefPtr<IDBValue> idb_value = IDBValue::Create(
+      wrapped_marker_buffer, std::move(blob_data_handles),
+      WTF::MakeUnique<Vector<WebBlobInfo>>(blob_infos), key, key_path);
 
   DCHECK_EQ(create_wrapped_value,
             IDBValueUnwrapper::IsWrapped(idb_value.Get()));
@@ -148,7 +160,7 @@ TEST_F(IDBRequestTest, EventsAfterEarlyDeathStop) {
   ASSERT_TRUE(transaction_);
 
   IDBRequest* request = IDBRequest::Create(
-      scope.GetScriptState(), IDBAny::CreateUndefined(), transaction_.Get());
+      scope.GetScriptState(), IDBAny::Create(store_.Get()), transaction_.Get());
   EXPECT_EQ(request->readyState(), "pending");
   ASSERT_TRUE(!scope.GetExceptionState().HadException());
   ASSERT_TRUE(request->transaction());
@@ -167,7 +179,7 @@ TEST_F(IDBRequestTest, EventsAfterDoneStop) {
   ASSERT_TRUE(transaction_);
 
   IDBRequest* request = IDBRequest::Create(
-      scope.GetScriptState(), IDBAny::CreateUndefined(), transaction_.Get());
+      scope.GetScriptState(), IDBAny::Create(store_.Get()), transaction_.Get());
   ASSERT_TRUE(!scope.GetExceptionState().HadException());
   ASSERT_TRUE(request->transaction());
   request->HandleResponse(CreateIDBValue(scope.GetIsolate(), false));
@@ -186,7 +198,7 @@ TEST_F(IDBRequestTest, EventsAfterEarlyDeathStopWithQueuedResult) {
   ASSERT_TRUE(transaction_);
 
   IDBRequest* request = IDBRequest::Create(
-      scope.GetScriptState(), IDBAny::CreateUndefined(), transaction_.Get());
+      scope.GetScriptState(), IDBAny::Create(store_.Get()), transaction_.Get());
   EXPECT_EQ(request->readyState(), "pending");
   ASSERT_TRUE(!scope.GetExceptionState().HadException());
   ASSERT_TRUE(request->transaction());
@@ -208,9 +220,9 @@ TEST_F(IDBRequestTest, EventsAfterEarlyDeathStopWithTwoQueuedResults) {
   ASSERT_TRUE(transaction_);
 
   IDBRequest* request1 = IDBRequest::Create(
-      scope.GetScriptState(), IDBAny::CreateUndefined(), transaction_.Get());
+      scope.GetScriptState(), IDBAny::Create(store_.Get()), transaction_.Get());
   IDBRequest* request2 = IDBRequest::Create(
-      scope.GetScriptState(), IDBAny::CreateUndefined(), transaction_.Get());
+      scope.GetScriptState(), IDBAny::Create(store_.Get()), transaction_.Get());
   EXPECT_EQ(request1->readyState(), "pending");
   EXPECT_EQ(request2->readyState(), "pending");
   ASSERT_TRUE(!scope.GetExceptionState().HadException());
@@ -231,7 +243,7 @@ TEST_F(IDBRequestTest, AbortErrorAfterAbort) {
   V8TestingScope scope;
   IDBTransaction* transaction = nullptr;
   IDBRequest* request = IDBRequest::Create(
-      scope.GetScriptState(), IDBAny::CreateUndefined(), transaction);
+      scope.GetScriptState(),  IDBAny::Create(store_.Get()), transaction);
   EXPECT_EQ(request->readyState(), "pending");
 
   // Simulate the IDBTransaction having received OnAbort from back end and
