@@ -34,6 +34,11 @@
       .user-info {
         -webkit-padding-start: 20px;
       }
+
+      paper-icon-button {
+        -webkit-margin-end: 0;
+        -webkit-margin-start: var(--cr-icon-button-margin-start);
+      }
     </style>
     <div class="user-list" scrollable>
       <template is="dom-repeat" items="[[users_]]">
