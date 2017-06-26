@@ -918,7 +918,7 @@
 <translation id="4467952432486360968">Cekal cookie pihak ketiga</translation>
 <translation id="4474167089968829729">Aktifkan penyimpanan sandi di pengelola sandi</translation>
 <translation id="4476769083125004742">Jika kebijakan ini disetel ke <ph name="BLOCK_GEOLOCATION_SETTING" />, aplikasi Android tidak dapat mengakses informasi lokasi. Jika Anda menyetel kebijakan ini ke nilai lain atau tidak menyetel kebijakan, pengguna akan dimintai persetujuan ketika aplikasi Android ingin mengakses informasi lokasi.</translation>
-<translation id="4480694116501920047">Paksakan TelusurAman</translation>
+<translation id="4480694116501920047">Paksakan SafeSearch</translation>
 <translation id="4482640907922304445">Menampilkan tombol Beranda di bilah alat <ph name="PRODUCT_NAME" />. Jika Anda mengaktifkan setelan ini, tombol Beranda akan selalu ditampilkan. Jika Anda menonaktifkan setelan ini, tombol Beranda tidak akan pernah ditampilkan. Jika Anda mengaktifkan atau menonaktifkan setelan ini, pengguna tidak dapat mengubah atau menimpa setelan ini di <ph name="PRODUCT_NAME" />. Membiarkan kebijakan ini tidak disetel akan memungkinkan pengguna memilih apakah akan menampilkan tombol beranda.</translation>
 <translation id="4485425108474077672">Mengonfigurasi URL halaman Tab Baru</translation>
 <translation id="4492287494009043413">Menonaktifkan pengambilan screenshot</translation>
@@ -1265,11 +1265,11 @@
           Jika Anda menyetel kebijakan ini, pengguna dapat menimpanya untuk sementara dengan mengaktifkan atau menonaktifkan kursor besar. Namun, pilihan pengguna tidak bersifat permanen dan setelan default akan dipulihkan kapan pun layar masuk ditampilkan lagi atau pengguna menganggur di layar masuk selama satu menit.
 
           Jika kebijakan ini tidak disetel, kursor besar dinonaktifkan saat layar masuk ditampilkan untuk pertama kali. Pengguna dapat mengaktifkan atau menonaktifkan kursor besar kapan pun dan statusnya di layar masuk bersifat permanen antar pengguna.</translation>
-<translation id="5936622343001856595">Memaksa kueri di Google Penelusuran Web harus dilakukan dengan TelusurAman yang disetel ke aktif dan mencegah pengguna mengubah setelan ini.
+<translation id="5936622343001856595">Memaksa kueri di Google Penelusuran Web harus dilakukan dengan SafeSearch yang disetel ke aktif dan mencegah pengguna mengubah setelan ini.
 
-      Jika Anda mengaktifkan setelan ini, TelusurAman di Google Penelusuran akan selalu aktif.
+      Jika Anda mengaktifkan setelan ini, SafeSearch di Google Penelusuran akan selalu aktif.
 
-      Jika Anda menonaktifkan setelan ini atau tidak menyetel suatu nilai, TelusurAman di Google Penelusuran tidak akan diterapkan.</translation>
+      Jika Anda menonaktifkan setelan ini atau tidak menyetel suatu nilai, SafeSearch di Google Penelusuran tidak akan diterapkan.</translation>
 <translation id="5940306398763671235">Mengaktifkan Google Cast</translation>
 <translation id="5946082169633555022">Saluran beta</translation>
 <translation id="5950205771952201658">Mengingat pemeriksaan pembatalan online kegagalan-lunak tidak memberikan manfaat keamanan yang efektif, pemeriksaan tersebut dinonaktifkan secara default di <ph name="PRODUCT_NAME" /> versi 19 dan yang lebih baru. Dengan menyetel kebijakan ini ke true, perilaku sebelumnya akan dipulihkan dan akan dilakukan pemeriksaan OCSP/CRL online.
@@ -1557,7 +1557,7 @@
           Perhatikan bahwa jika <ph name="PRODUCT_NAME" /> berjalan dalam 'mode latar belakang', sesi mungkin tidak akan ditutup ketika jendela browser yang terakhir ditutup, namun sebagai gantinya akan tetap aktif hingga keluar dari browser. Lihat kebijakan 'BackgroundModeEnabled' untuk informasi selengkapnya tentang cara mengonfigurasi perilaku ini.
 
           Jika kebijakan "RestoreOnStartup" disetel untuk memulihkan URL dari sesi sebelumnya, kebijakan ini akan diabaikan dan cookie akan disimpan secara permanen untuk situs tersebut.</translation>
-<translation id="7207095846245296855">Paksa Google TelusurAman</translation>
+<translation id="7207095846245296855">Paksa Google SafeSearch</translation>
 <translation id="7216442368414164495">Memungkinkan pengguna ikut serta dalam pelaporan yang diperluas Safe Browsing</translation>
 <translation id="7234280155140786597">Nama hosting perpesanan asli yang dilarang (atau * untuk semua)</translation>
 <translation id="7236775576470542603">Menyetel jenis lup default yang diaktifkan di layar masuk.

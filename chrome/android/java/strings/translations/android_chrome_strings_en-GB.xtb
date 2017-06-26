@@ -162,7 +162,7 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="2587052924345400782">Newer version is available</translation>
 <translation id="2593272815202181319">Monospace</translation>
 <translation id="2621115761605608342">Allow JavaScript for a specific site.</translation>
-<translation id="2631006050119455616">saved</translation>
+<translation id="2631006050119455616">Saved</translation>
 <translation id="2653659639078652383">Submit</translation>
 <translation id="2677748264148917807">Leave</translation>
 <translation id="2704606927547763573">Copied</translation>
@@ -827,7 +827,7 @@ Your Google account may have other forms of browsing history like searches and a
 <translation id="969096075394517431">Change languages</translation>
 <translation id="970715775301869095"><ph name="MINUTES" /> mins left</translation>
 <translation id="974555521953189084">Enter your passphrase to start sync</translation>
-<translation id="977929483582859929">Data saved:</translation>
+<translation id="977929483582859929">Data Saved:</translation>
 <translation id="981121421437150478">Offline</translation>
 <translation id="982182592107339124">This will clear data for all sites, including:</translation>
 <translation id="983192555821071799">Close all tabs</translation>

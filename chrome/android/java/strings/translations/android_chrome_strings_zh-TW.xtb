@@ -11,7 +11,7 @@
 <translation id="1137305377394488060">過去 1 小時</translation>
 <translation id="1145536944570833626">刪除現有資料。</translation>
 <translation id="1146678959555564648">進入 VR</translation>
-<translation id="116280672541001035">已使用</translation>
+<translation id="116280672541001035">使用量</translation>
 <translation id="1178581264944972037">暫停</translation>
 <translation id="1181037720776840403">移除</translation>
 <translation id="1197267115302279827">移動書籤</translation>
@@ -162,7 +162,7 @@
 <translation id="2587052924345400782">已推出新版本</translation>
 <translation id="2593272815202181319">等寬</translation>
 <translation id="2621115761605608342">允許特定網站執行 JavaScript。</translation>
-<translation id="2631006050119455616">已儲存</translation>
+<translation id="2631006050119455616">已節省</translation>
 <translation id="2653659639078652383">提交</translation>
 <translation id="2677748264148917807">離開</translation>
 <translation id="2704606927547763573">已複製</translation>
@@ -829,7 +829,7 @@
 <translation id="969096075394517431">變更語言</translation>
 <translation id="970715775301869095">還剩 <ph name="MINUTES" /> 分鐘</translation>
 <translation id="974555521953189084">如要開始同步處理，請輸入你的通關密語</translation>
-<translation id="977929483582859929">節省數據用量：</translation>
+<translation id="977929483582859929">節省的流量：</translation>
 <translation id="981121421437150478">離線</translation>
 <translation id="982182592107339124">這會清除所有網站的資料，包括：</translation>
 <translation id="983192555821071799">關閉所有分頁</translation>

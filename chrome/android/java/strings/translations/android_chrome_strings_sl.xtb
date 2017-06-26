@@ -11,7 +11,7 @@
 <translation id="1137305377394488060">zadnje ure</translation>
 <translation id="1145536944570833626">Izbris obstoječih podatkov.</translation>
 <translation id="1146678959555564648">V navidezno resničnost</translation>
-<translation id="116280672541001035">Uporabljeno</translation>
+<translation id="116280672541001035">Porabljeno</translation>
 <translation id="1178581264944972037">Prekini</translation>
 <translation id="1181037720776840403">Odstrani</translation>
 <translation id="1197267115302279827">Premakni zavihke</translation>
@@ -162,7 +162,7 @@
 <translation id="2587052924345400782">Na voljo je nov. različica</translation>
 <translation id="2593272815202181319">Stalna širina</translation>
 <translation id="2621115761605608342">Dovoli JavaScript za določeno spletno mesto.</translation>
-<translation id="2631006050119455616">Shranjeno</translation>
+<translation id="2631006050119455616">Prihranjeno</translation>
 <translation id="2653659639078652383">Pošlji</translation>
 <translation id="2677748264148917807">Zapusti</translation>
 <translation id="2704606927547763573">Kopirano</translation>
@@ -829,7 +829,7 @@ Nove licence dobite tako, da se povežete v internet in predvajate preneseno vse
 <translation id="969096075394517431">Spreminjanje jezikov</translation>
 <translation id="970715775301869095">Še <ph name="MINUTES" /> min</translation>
 <translation id="974555521953189084">Vnesite geslo, če želite začeti sinhronizacijo</translation>
-<translation id="977929483582859929">Prihranjena količina podatkov:</translation>
+<translation id="977929483582859929">Količina prihranjenih podatkov:</translation>
 <translation id="981121421437150478">Brez povezave</translation>
 <translation id="982182592107339124">S tem bodo izbrisani podatki za vsa spletna mesta, vključno s temi:</translation>
 <translation id="983192555821071799">Zapri vse zavihke</translation>

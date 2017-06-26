@@ -758,7 +758,7 @@
 <translation id="2107494551712864447">إضافة بصمة إصبع</translation>
 <translation id="2111843886872897694">يجب تقديم التطبيقات من المضيف الذي يؤثرون فيه.</translation>
 <translation id="2112877397266219826">تشغيل عنصر التحكم باللمس للإعداد</translation>
-<translation id="21133533946938348">إضافة علامة التبويب</translation>
+<translation id="21133533946938348">تثبيت علامة التبويب</translation>
 <translation id="2113479184312716848">فتح &amp;ملف...</translation>
 <translation id="2113921862428609753">الدخول إلى معلومات الصلاحية</translation>
 <translation id="2114224913786726438">الوحدات (<ph name="TOTAL_COUNT" />) - لم يتم اكتشاف أية تعارضات</translation>
@@ -2798,7 +2798,7 @@
 <translation id="5099354524039520280">لأعلى</translation>
 <translation id="5099890666199371110">‏تعذر العثور على هاتفك. تأكد من أن جهاز <ph name="DEVICE_TYPE" /> تم تمكين البلوتوث عليه. &lt;a&gt;مزيد من المعلومات&lt;/a&gt;</translation>
 <translation id="5100114659116077956">‏لكي تحصل على أحدث العناصر، يلزم تحديث Chromebox.</translation>
-<translation id="5105855035535475848">إضافة علامات التبويب</translation>
+<translation id="5105855035535475848">تثبيت علامات التبويب</translation>
 <translation id="5108967062857032718">‏الإعدادات - إزالة تطبيقات Android</translation>
 <translation id="5109044022078737958">Mia</translation>
 <translation id="5111692334209731439">&amp;مدير الإشارات</translation>
@@ -4819,7 +4819,7 @@
 <translation id="8069615408251337349">‏طباعة في السحاب من Google</translation>
 <translation id="8071432093239591881">الطباعة كصورة</translation>
 <translation id="8071942001314758122">‏فقط قل "Ok Google" ثلاث مرات</translation>
-<translation id="8072988827236813198">إضافة علامات التبويب</translation>
+<translation id="8072988827236813198">تثبيت علامات التبويب</translation>
 <translation id="8074127646604999664">السماح لمواقع الويب التي تم إغلاقها مؤخرًا بإنهاء إرسال البيانات واستلامها</translation>
 <translation id="8075191520954018715">حالة الذاكرة</translation>
 <translation id="8077684120002777443">‏اسم المستخدم (على سبيل المثال، user@example.com)</translation>

@@ -3367,7 +3367,7 @@
 <translation id="5906065664303289925">하드웨어 주소:</translation>
 <translation id="5906655207909574370">업데이트가 거의 완료되었습니다. 업데이트를 완료하려면 기기를 다시 시작하세요.</translation>
 <translation id="5906732635754427568">이 앱과 관련된 데이터가 이 기기에서 삭제됩니다.</translation>
-<translation id="5908769186679515905">사이트에서 Flash를 실행하지 못하도록 차단</translation>
+<translation id="5908769186679515905">사이트에서 플래시를 실행하지 못하도록 차단</translation>
 <translation id="5910363049092958439">이미지를 다른 이름으로 저장(&amp;V)...</translation>
 <translation id="5911737117543891828">Google 드라이브 오프라인 임시 파일이 삭제됩니다. 오프라인에서 사용 가능으로 설정한 파일은 이 기기에서 삭제되지 않습니다.</translation>
 <translation id="5912378097832178659">검색 엔진 변경(&amp;E)...</translation>
@@ -3575,7 +3575,7 @@
 <translation id="6239558157302047471">프레임 새로고침(&amp;F)</translation>
 <translation id="6241530762627360640">시스템과 페어링된 블루투스 기기 관련 정보에 액세스하고 근처의 블루투스 기기를 검색합니다.</translation>
 <translation id="6243774244933267674">서버를 사용할 수 없음</translation>
-<translation id="6245220622116401744">사이트에서 Flash를 실행하도록 허용</translation>
+<translation id="6245220622116401744">사이트에서 플래시를 실행하도록 허용</translation>
 <translation id="6246413617632217567">관리 대상 사용자를 가져오지 못했습니다. 하드 드라이브 공간 및 권한을 확인한 후 다시 시도해 주세요.</translation>
 <translation id="6247708409970142803"><ph name="PERCENTAGE" />%</translation>
 <translation id="6247802389331535091">시스템: <ph name="ARC_PROCESS_NAME" /></translation>

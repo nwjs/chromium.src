@@ -1055,7 +1055,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="2510708650472996893">Color del perfil:</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="251662399991179012">És hora d'entrenar el dispositiu <ph name="DEVICE_TYPE" /></translation>
-<translation id="2518024842978892609">Utilitzar els certificats del client</translation>
+<translation id="2518024842978892609">Utilitzar els certificats de client</translation>
 <translation id="2520644704042891903">Estem esperant que hi hagi un sòcol disponible...</translation>
 <translation id="252219247728877310">Component no actualitzat</translation>
 <translation id="2523966157338854187">Obre una pàgina o un conjunt de pàgines determinat</translation>
@@ -1130,7 +1130,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="2624142942574147739">Aquesta pàgina té accés a la càmera i al micròfon</translation>
 <translation id="2626799779920242286">Torneu-ho a provar més tard.</translation>
 <translation id="2630681426381349926">Connecteu-vos a la xarxa Wi-Fi per començar</translation>
-<translation id="2631006050119455616">S'ha desat</translation>
+<translation id="2631006050119455616">Dades desades</translation>
 <translation id="2631498379019108537">Mostra opcions d'introducció al prestatge</translation>
 <translation id="2633199387167390344"><ph name="NAME" /> està utilitzant <ph name="USAGE" /> MB d'espai de disc.</translation>
 <translation id="2633212996805280240">Voleu eliminar "<ph name="EXTENSION_NAME" />"?</translation>
@@ -4000,7 +4000,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="6860428250435764775">Et recomanem que canviïs de dispositiu. <ph name="BEGIN_LINK_EOL" />Més informació<ph name="END_LINK_EOL" /></translation>
 <translation id="6862635236584086457">Es fa una còpia de seguretat en línia automàticament de tots els fitxers desats en aquesta carpeta</translation>
 <translation id="6865313869410766144">Dades d'emplenament automàtic de formularis</translation>
-<translation id="686664946474413495">Temperatura del color</translation>
+<translation id="686664946474413495">Temperatura de color</translation>
 <translation id="6867678160199975333">Canvia a <ph name="NEW_PROFILE_NAME" /></translation>
 <translation id="6869402422344886127">Casella de selecció activada</translation>
 <translation id="6870130893560916279">Teclat ucraïnès</translation>
