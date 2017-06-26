@@ -56,6 +56,17 @@
 #include "platform/wtf/Threading.h"
 #include "platform/wtf/text/WTFString.h"
 
+
+#include "third_party/node-nw/src/node_webkit.h"
+
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 namespace blink {
 
 using ExitCode = WorkerThread::ExitCode;
@@ -458,6 +469,8 @@ void WorkerThread::InitializeOnWorkerThread(
       startup_data->worker_v8_settings_.heap_limit_mode_ ==
       WorkerV8Settings::HeapLimitMode::kIncreasedForDebugging;
 
+  bool isNodeJS = startup_data->nodejs_;
+  std::string main_script = startup_data->main_script_;
   {
     MutexLocker lock(thread_state_mutex_);
 
@@ -483,7 +496,7 @@ void WorkerThread::InitializeOnWorkerThread(
       worker_reporting_proxy_.DidInitializeWorkerContext();
       v8::HandleScope handle_scope(GetIsolate());
       Platform::Current()->WorkerContextCreated(
-          GlobalScope()->ScriptController()->GetContext());
+               GlobalScope()->ScriptController()->GetContext(), isNodeJS, main_script);
     }
 
     SetThreadState(lock, ThreadState::kRunning);
@@ -525,6 +538,8 @@ void WorkerThread::PrepareForShutdownOnWorkerThread() {
     if (exit_code_ == ExitCode::kNotTerminated)
       SetExitCode(lock, ExitCode::kGracefullyTerminated);
   }
+
+  ::g_stop_nw_instance_fn();
 
   inspector_task_runner_->Kill();
   GetWorkerReportingProxy().WillDestroyWorkerGlobalScope();

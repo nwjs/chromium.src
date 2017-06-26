@@ -135,6 +135,12 @@ if (is_linux) {
 
     ldflags = [ "-pie" ]
 
+    if (is_linux) {
+      if (!is_component_build) {
+        # Set rpath to find our own libfreetype even in a non-component build.
+        configs += [ "//build/config/gcc:rpath_for_built_shared_libraries" ]
+      }
+    }
     data_deps = [
       "//native_client/src/trusted/service_runtime/linux:bootstrap",
     ]

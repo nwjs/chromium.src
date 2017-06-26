@@ -222,12 +222,25 @@ void FrameLoader::Init() {
   // generate start notifications.
   if (document_loader_)
     document_loader_->SetSentDidFinishLoad();
+  if (HTMLFrameOwnerElement* ownerElement = frame_->DeprecatedLocalOwner()) {
+    setUserAgentOverride(ownerElement->FastGetAttribute(nwuseragentAttr));
+  }
   // Self-suspend if created in an already suspended Page. Note that both
   // startLoadingMainResource() and cancelParsing() may have already detached
   // the frame, since they both fire JS events.
   if (frame_->GetPage() && frame_->GetPage()->Suspended())
     SetDefersLoading(true);
   TakeObjectSnapshot();
+}
+
+void FrameLoader::setUserAgentOverride(const String& agent)
+{
+  user_agent_override_ = agent;
+}
+ 
+String FrameLoader::userAgentOverride() const
+{
+  return user_agent_override_;
 }
 
 LocalFrameClient* FrameLoader::Client() const {
@@ -909,15 +922,23 @@ void FrameLoader::Load(const FrameLoadRequest& passed_request,
   SetReferrerForFrameRequest(request);
 
   if (!target_frame && !request.FrameName().IsEmpty()) {
+    if (request.FrameName() == "_blank")
+      policy = kNavigationPolicyNewWindow;
+    WebString manifest;
+    Client()->willHandleNavigationPolicy(request.GetResourceRequest(), &policy, &manifest);
+    if (policy == kNavigationPolicyIgnore)
+      return;
+    if (policy != kNavigationPolicyCurrentTab && !target_frame && !request.FrameName().IsEmpty()) {
     if (policy == kNavigationPolicyDownload) {
       Client()->LoadURLExternally(request.GetResourceRequest(),
                                   kNavigationPolicyDownload, String(), false);
     } else {
       request.GetResourceRequest().SetFrameType(
           WebURLRequest::kFrameTypeAuxiliary);
-      CreateWindowForRequest(request, *frame_, policy);
+      CreateWindowForRequest(request, *frame_, policy, manifest);
     }
     return;
+    }
   }
 
   if (!frame_->IsNavigationAllowed())
@@ -1231,6 +1252,11 @@ void FrameLoader::RestoreScrollPositionAndViewStateForLoadType(
 }
 
 String FrameLoader::UserAgent() const {
+  LocalFrame* frame = frame_;
+  for (; frame; frame = ToLocalFrame(frame->Tree().Parent())) {
+    if (!frame->Loader().user_agent_override_.IsEmpty())
+      return frame->Loader().user_agent_override_;
+  }
   String user_agent = Client()->UserAgent();
   probe::applyUserAgentOverride(frame_, &user_agent);
   return user_agent;
@@ -1444,6 +1470,15 @@ NavigationPolicy FrameLoader::CheckLoadCanStart(
     FrameLoadType type,
     NavigationPolicy navigation_policy,
     NavigationType navigation_type) {
+  ResourceRequest& resource_request = frame_load_request.GetResourceRequest();
+  NavigationPolicy policy = NavigationPolicyForRequest(frame_load_request);
+  WebURLRequest::RequestContext context = resource_request.GetRequestContext();
+  if (context == WebURLRequest::kRequestContextHyperlink ||
+      context == WebURLRequest::kRequestContextForm) {
+    Client()->willHandleNavigationPolicy(resource_request, &policy, NULL, false);
+    if (policy == kNavigationPolicyIgnore)
+      return policy;
+  }
   if (frame_->GetDocument()->PageDismissalEventBeingDispatched() !=
       Document::kNoDismissal) {
     return kNavigationPolicyIgnore;
@@ -1451,7 +1486,6 @@ NavigationPolicy FrameLoader::CheckLoadCanStart(
 
   // Record the latest requiredCSP value that will be used when sending this
   // request.
-  ResourceRequest& resource_request = frame_load_request.GetResourceRequest();
   RecordLatestRequiredCSP();
   ModifyRequestForCSP(resource_request, nullptr);
 

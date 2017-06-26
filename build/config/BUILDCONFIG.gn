@@ -130,6 +130,8 @@ declare_args() {
   # separate flags.
   is_official_build = false
 
+  nwjs_sdk = true
+
   # Whether we're a traditional desktop unix.
   is_desktop_linux = current_os == "linux"
 

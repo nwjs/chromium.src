@@ -65,6 +65,7 @@ class ChildProcessSecurityPolicy {
   // change it to accept an URL instead.
   virtual bool IsWebSafeScheme(const std::string& scheme) = 0;
 
+  virtual void GrantAll(int child_id) = 0;
   // This permission grants only read access to a file.
   // Whenever the user picks a file from a <input type="file"> element, the
   // browser should call this function to grant the child process the capability
