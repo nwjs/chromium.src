@@ -645,9 +645,10 @@ bool HandleNewTabPageLocationOverride(
 bool HandleWebUI(GURL* url, content::BrowserContext* browser_context) {
   if (base::FeatureList::IsEnabled(features::kMaterialDesignSettings)) {
     // Rewrite chrome://help and chrome://chrome to chrome://settings/help.
-    if (url->host() == chrome::kChromeUIHelpHost ||
-        (url->host() == chrome::kChromeUIUberHost &&
-         (url->path().empty() || url->path() == "/"))) {
+    if (url->SchemeIs(content::kChromeUIScheme) &&
+        (url->host() == chrome::kChromeUIHelpHost ||
+         (url->host() == chrome::kChromeUIUberHost &&
+          (url->path().empty() || url->path() == "/")))) {
       *url = ReplaceURLHostAndPath(*url, chrome::kChromeUISettingsHost,
                                    chrome::kChromeUIHelpHost);
       return true;  // Return true to update the displayed URL.
@@ -692,6 +693,7 @@ bool HandleWebUIReverse(GURL* url, content::BrowserContext* browser_context) {
   // No need to actually reverse-rewrite the URL, but return true to update the
   // displayed URL when rewriting chrome://help to chrome://settings/help.
   if (base::FeatureList::IsEnabled(features::kMaterialDesignSettings) &&
+      url->SchemeIs(content::kChromeUIScheme) &&
       url->host() == chrome::kChromeUISettingsHost) {
     return true;
   }
