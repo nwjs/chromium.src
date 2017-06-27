@@ -17,7 +17,9 @@
 #import "ios/chrome/browser/ui/url_loader.h"
 #import "ios/chrome/browser/ui/util/label_link_controller.h"
 #import "ios/third_party/material_components_ios/src/components/Buttons/src/MaterialButtons.h"
+#import "ios/third_party/material_components_ios/src/components/Typography/src/MaterialTypography.h"
 #import "ios/third_party/material_roboto_font_loader_ios/src/src/MaterialRobotoFontLoader.h"
+#include "ios/web/public/browser_state.h"
 #include "ios/web/public/navigation_manager.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
@@ -203,16 +205,33 @@ NSString* const kMessageLabelBulletRTLFormat = @"\u202E%@\u202C";
     case SadTabViewMode::RELOAD:
       label = l10n_util::GetNSString(IDS_SAD_TAB_MESSAGE);
       break;
-    case SadTabViewMode::FEEDBACK:
-      label = l10n_util::GetNSString(IDS_SAD_TAB_RELOAD_TRY);
-      label = [label
-          stringByAppendingFormat:
-              @"\n\n%@", [[self class] bulletedStringFromStrings:@[
-                l10n_util::GetNSString(IDS_SAD_TAB_RELOAD_INCOGNITO),
-                l10n_util::GetNSString(IDS_SAD_TAB_RELOAD_RESTART_BROWSER),
-                l10n_util::GetNSString(IDS_SAD_TAB_RELOAD_RESTART_DEVICE)
-              ]]];
 
+    case SadTabViewMode::FEEDBACK:
+      NSString* feedbackIntroductionString = [NSString
+          stringWithFormat:@"%@\n\n",
+                           l10n_util::GetNSString(IDS_SAD_TAB_RELOAD_TRY)];
+      NSMutableString* feedbackString =
+          [[NSMutableString alloc] initWithString:feedbackIntroductionString];
+      BOOL isAlreadyInIncognitoMode =
+          _navigationManager
+              ? _navigationManager->GetBrowserState()->IsOffTheRecord()
+              : NO;
+
+      NSMutableArray* stringsArray = [NSMutableArray
+          arrayWithObjects:l10n_util::GetNSString(
+                               IDS_SAD_TAB_RELOAD_RESTART_BROWSER),
+                           l10n_util::GetNSString(
+                               IDS_SAD_TAB_RELOAD_RESTART_DEVICE),
+                           nil];
+      if (!isAlreadyInIncognitoMode) {
+        NSString* incognitoSuggestionString =
+            l10n_util::GetNSString(IDS_SAD_TAB_RELOAD_INCOGNITO);
+        [stringsArray insertObject:incognitoSuggestionString atIndex:0];
+      }
+
+      [feedbackString
+          appendString:[[self class] bulletedStringFromStrings:stringsArray]];
+      label = feedbackString;
       break;
   }
   DCHECK(label);
