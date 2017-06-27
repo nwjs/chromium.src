@@ -241,6 +241,7 @@ ArcCustomNotificationView::ArcCustomNotificationView(ArcNotificationItem* item)
       notification_key_(item->GetNotificationKey()),
       event_forwarder_(new EventForwarder(this)) {
   SetFocusBehavior(FocusBehavior::ALWAYS);
+  set_notify_enter_exit_on_child(true);
 
   item_->IncrementWindowRefCount();
   item_->AddObserver(this);
