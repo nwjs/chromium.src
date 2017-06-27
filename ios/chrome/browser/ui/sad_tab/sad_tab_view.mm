@@ -208,7 +208,6 @@ NSString* const kMessageLabelBulletRTLFormat = @"\u202E%@\u202C";
       label = [label
           stringByAppendingFormat:
               @"\n\n%@", [[self class] bulletedStringFromStrings:@[
-                l10n_util::GetNSString(IDS_SAD_TAB_RELOAD_CLOSE_NOTABS),
                 l10n_util::GetNSString(IDS_SAD_TAB_RELOAD_INCOGNITO),
                 l10n_util::GetNSString(IDS_SAD_TAB_RELOAD_RESTART_BROWSER),
                 l10n_util::GetNSString(IDS_SAD_TAB_RELOAD_RESTART_DEVICE)
