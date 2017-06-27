@@ -712,13 +712,28 @@ TEST_F(ScrollbarAnimationControllerAuraOverlayTest, TestCantCaptureWhenFaded) {
                   h_scrollbar_layer_->thumb_thickness_scale_factor());
   EXPECT_TRUE(client_.start_fade().is_null());
 
-  // Similarly, releasing the scrollbar should have no effect.
+  // Similarly, releasing the scrollbar should have no effect but trigger a fade
+  // in.
   scrollbar_controller_->DidMouseUp();
   ExpectScrollbarsOpacity(0);
   EXPECT_FLOAT_EQ(1, v_scrollbar_layer_->thumb_thickness_scale_factor());
   EXPECT_FLOAT_EQ(kIdleThicknessScale,
                   h_scrollbar_layer_->thumb_thickness_scale_factor());
-  EXPECT_TRUE(client_.start_fade().is_null());
+
+  // An fade in animation should have been enqueued.
+  EXPECT_FALSE(client_.start_fade().is_null());
+  EXPECT_FALSE(client_.start_fade().IsCancelled());
+  EXPECT_EQ(kFadeDelay, client_.delay());
+
+  // Play the delay animation.
+  client_.start_fade().Run();
+  EXPECT_TRUE(client_.start_fade().IsCancelled());
+
+  scrollbar_controller_->Animate(time);
+  time += kFadeDuration;
+  scrollbar_controller_->Animate(time);
+
+  EXPECT_FALSE(scrollbar_controller_->ScrollbarsHidden());
 }
 
 // Initiate a scroll when the pointer is already near the scrollbar. It should
@@ -1088,7 +1103,7 @@ TEST_F(ScrollbarAnimationControllerAuraOverlayTest, BasicMouseHoverFadeIn) {
   base::TimeTicks time;
   time += base::TimeDelta::FromSeconds(1);
 
-  // Move mouse hover the fade in scrollbar region of scrollbar.
+  // Move mouse over the fade in region of scrollbar.
   scrollbar_controller_->DidMouseMove(
       NearVerticalScrollbarBegin(-kMouseMoveDistanceToTriggerFadeIn + 1, 0));
 
@@ -1122,7 +1137,7 @@ TEST_F(ScrollbarAnimationControllerAuraOverlayTest,
   base::TimeTicks time;
   time += base::TimeDelta::FromSeconds(1);
 
-  // Move mouse hover the fade in scrollbar region of scrollbar.
+  // Move mouse over the fade in region of scrollbar.
   scrollbar_controller_->DidMouseMove(
       NearVerticalScrollbarBegin(-kMouseMoveDistanceToTriggerFadeIn + 1, 0));
 
@@ -1132,7 +1147,7 @@ TEST_F(ScrollbarAnimationControllerAuraOverlayTest,
   EXPECT_EQ(kFadeDelay, client_.delay());
 
   base::Closure& fade = client_.start_fade();
-  // Move mouse still hover the fade in scrollbar region of scrollbar should not
+  // Move mouse still hover the fade in region of scrollbar should not
   // post a new fade in.
   scrollbar_controller_->DidMouseMove(
       NearVerticalScrollbarBegin(-kMouseMoveDistanceToTriggerFadeIn + 2, 0));
@@ -1147,7 +1162,7 @@ TEST_F(ScrollbarAnimationControllerAuraOverlayTest,
   base::TimeTicks time;
   time += base::TimeDelta::FromSeconds(1);
 
-  // Move mouse hover the fade in scrollbar region of scrollbar.
+  // Move mouse over the fade in region of scrollbar.
   scrollbar_controller_->DidMouseMove(
       NearVerticalScrollbarBegin(-kMouseMoveDistanceToTriggerFadeIn + 1, 0));
 
@@ -1171,7 +1186,7 @@ TEST_F(ScrollbarAnimationControllerAuraOverlayTest,
   base::TimeTicks time;
   time += base::TimeDelta::FromSeconds(1);
 
-  // Move mouse hover the fade in scrollbar region of scrollbar.
+  // Move mouse over the fade in region of scrollbar.
   scrollbar_controller_->DidMouseMove(
       NearVerticalScrollbarBegin(-kMouseMoveDistanceToTriggerFadeIn + 1, 0));
 
@@ -1185,7 +1200,7 @@ TEST_F(ScrollbarAnimationControllerAuraOverlayTest,
   EXPECT_TRUE(client_.start_fade().is_null() ||
               client_.start_fade().IsCancelled());
 
-  // Move mouse hover the fade in scrollbar region of scrollbar.
+  // Move mouse over the fade in region of scrollbar.
   scrollbar_controller_->DidMouseMove(
       NearVerticalScrollbarBegin(-kMouseMoveDistanceToTriggerFadeIn + 1, 0));
 
@@ -1203,6 +1218,94 @@ TEST_F(ScrollbarAnimationControllerAuraOverlayTest,
   scrollbar_controller_->Animate(time);
 
   EXPECT_FALSE(scrollbar_controller_->ScrollbarsHidden());
+}
+
+// Make sure mouse down will cancel hover fade in timer, then mouse move with
+// press will not trigger hover fade in, mouse release near will trigger new
+// hover fade in.
+TEST_F(ScrollbarAnimationControllerAuraOverlayTest,
+       MouseHoverThenMouseDownShouldCancelFadeInThenReleaseNearShouldFadeIn) {
+  base::TimeTicks time;
+  time += base::TimeDelta::FromSeconds(1);
+
+  // Move mouse over the fade in region of scrollbar.
+  scrollbar_controller_->DidMouseMove(
+      NearVerticalScrollbarBegin(-kMouseMoveDistanceToTriggerFadeIn + 1, 0));
+
+  // An fade in animation should have been enqueued.
+  EXPECT_FALSE(client_.start_fade().is_null());
+  EXPECT_FALSE(client_.start_fade().IsCancelled());
+  EXPECT_EQ(kFadeDelay, client_.delay());
+
+  // Mouse down，delay fade in should be canceled.
+  scrollbar_controller_->DidMouseDown();
+  EXPECT_TRUE(client_.start_fade().is_null() ||
+              client_.start_fade().IsCancelled());
+
+  // Move mouse hover the fade in region of scrollbar with press.
+  scrollbar_controller_->DidMouseMove(
+      NearVerticalScrollbarBegin(-kMouseMoveDistanceToTriggerFadeIn + 1, 0));
+
+  // Should not have delay fade animation.
+  EXPECT_TRUE(client_.start_fade().is_null() ||
+              client_.start_fade().IsCancelled());
+
+  // Mouse up.
+  scrollbar_controller_->DidMouseUp();
+
+  // An fade in animation should have been enqueued.
+  EXPECT_FALSE(client_.start_fade().is_null());
+  EXPECT_FALSE(client_.start_fade().IsCancelled());
+  EXPECT_EQ(kFadeDelay, client_.delay());
+
+  // Play the delay animation.
+  client_.start_fade().Run();
+  EXPECT_TRUE(client_.start_fade().IsCancelled());
+
+  scrollbar_controller_->Animate(time);
+  time += kFadeDuration;
+  scrollbar_controller_->Animate(time);
+
+  EXPECT_FALSE(scrollbar_controller_->ScrollbarsHidden());
+}
+
+// Make sure mouse down will cancel hover fade in timer, then mouse move with
+// press will not trigger hover fade in, mouse release far will not trigger new
+// hover fade in.
+TEST_F(ScrollbarAnimationControllerAuraOverlayTest,
+       MouseReleaseFarShouldNotFadeIn) {
+  base::TimeTicks time;
+  time += base::TimeDelta::FromSeconds(1);
+
+  // Move mouse over the fade in region of scrollbar.
+  scrollbar_controller_->DidMouseMove(
+      NearVerticalScrollbarBegin(-kMouseMoveDistanceToTriggerFadeIn + 1, 0));
+
+  // An fade in animation should have been enqueued.
+  EXPECT_FALSE(client_.start_fade().is_null());
+  EXPECT_FALSE(client_.start_fade().IsCancelled());
+  EXPECT_EQ(kFadeDelay, client_.delay());
+
+  // Mouse down，delay fade in should be canceled.
+  scrollbar_controller_->DidMouseDown();
+  EXPECT_TRUE(client_.start_fade().is_null() ||
+              client_.start_fade().IsCancelled());
+
+  // Move mouse far from hover the fade in region of scrollbar with
+  // press.
+  scrollbar_controller_->DidMouseMove(
+      NearVerticalScrollbarBegin(-kMouseMoveDistanceToTriggerFadeIn, 0));
+
+  // Should not have delay fade animation.
+  EXPECT_TRUE(client_.start_fade().is_null() ||
+              client_.start_fade().IsCancelled());
+
+  // Mouse up.
+  scrollbar_controller_->DidMouseUp();
+
+  // Should not have delay fade animation.
+  EXPECT_TRUE(client_.start_fade().is_null() ||
+              client_.start_fade().IsCancelled());
 }
 
 class ScrollbarAnimationControllerAndroidTest
