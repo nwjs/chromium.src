@@ -353,7 +353,22 @@ void Shell::OnRootWindowAdded(aura::Window* root_window) {
 }
 
 void Shell::CreateKeyboard() {
-  InitKeyboard();
+  if (keyboard::IsKeyboardEnabled()) {
+    if (keyboard::KeyboardController::GetInstance()) {
+      RootWindowControllerList controllers = GetAllRootWindowControllers();
+      for (RootWindowControllerList::iterator iter = controllers.begin();
+           iter != controllers.end(); ++iter) {
+        (*iter)->DeactivateKeyboard(
+            keyboard::KeyboardController::GetInstance());
+      }
+    }
+    keyboard::KeyboardController::ResetInstance(
+        new keyboard::KeyboardController(shell_delegate_->CreateKeyboardUI(),
+                                         virtual_keyboard_controller_.get()));
+    for (auto& observer : shell_observers_)
+      observer.OnKeyboardControllerCreated();
+  }
+
   GetPrimaryRootWindowController()->ActivateKeyboard(
       keyboard::KeyboardController::GetInstance());
 }
