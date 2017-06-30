@@ -116,7 +116,7 @@ void AshTouchExplorationManager::OnTwoFingerTouchStart() {
 
 void AshTouchExplorationManager::OnTwoFingerTouchStop() {
   AccessibilityDelegate* delegate = Shell::Get()->accessibility_delegate();
-  delegate->OnTwoFingerTouchStart();
+  delegate->OnTwoFingerTouchStop();
 }
 
 void AshTouchExplorationManager::PlaySpokenFeedbackToggleCountdown(
