@@ -292,3 +292,7 @@ ChromeMetricsServicesManagerClient::GetMetricsStateManager() {
 bool ChromeMetricsServicesManagerClient::IsMetricsReportingForceEnabled() {
   return ChromeMetricsServiceClient::IsMetricsReportingForceEnabled();
 }
+
+bool ChromeMetricsServicesManagerClient::IsIncognitoSessionActive() {
+  return chrome::IsIncognitoSessionActive();
+}
