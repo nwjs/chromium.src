@@ -87,8 +87,9 @@ SadTabView::SadTabView(content::WebContents* web_contents,
   layout->StartRowWithPadding(0, column_set_id, 0, kTitleBottomSpacing);
   layout->AddView(message_, 2, 1, views::GridLayout::LEADING,
                   views::GridLayout::LEADING);
-  std::vector<int> bullet_string_ids = GetSubMessages();
-  if (!bullet_string_ids.empty()) {
+  size_t bullet_id = 0;
+  int bullet_string_id = GetSubMessage(bullet_id);
+  if (bullet_string_id) {
     const int bullet_columnset_id = 1;
     views::ColumnSet* column_set = layout->AddColumnSet(bullet_columnset_id);
     column_set->AddPaddingColumn(1, views::kPanelSubVerticalSpacing);
@@ -103,7 +104,7 @@ SadTabView::SadTabView(content::WebContents* web_contents,
                           0);
     column_set->AddPaddingColumn(1, views::kPanelSubVerticalSpacing);
 
-    for (int bullet_string_id : bullet_string_ids) {
+    while (bullet_string_id) {
       const base::string16 bullet_character(base::WideToUTF16(L"\u2022"));
       views::Label* bullet_label = CreateFormattedLabel(bullet_character);
       views::Label* label =
@@ -115,6 +116,7 @@ SadTabView::SadTabView(content::WebContents* web_contents,
       layout->AddView(label);
 
       bullet_labels_.push_back(label);
+      bullet_string_id = GetSubMessage(++bullet_id);
     }
   }
 

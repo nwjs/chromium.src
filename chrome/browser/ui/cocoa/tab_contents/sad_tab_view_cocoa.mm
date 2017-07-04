@@ -4,8 +4,6 @@
 
 #include "chrome/browser/ui/cocoa/tab_contents/sad_tab_view_cocoa.h"
 
-#include <vector>
-
 #import "base/mac/foundation_util.h"
 #include "components/grit/components_scaled_resources.h"
 #import "ui/base/cocoa/controls/blue_label_button.h"
@@ -110,8 +108,8 @@ const CGFloat kMaxTopMargin = 130;
                                          NSForegroundColorAttributeName :
                                              messageColor,
                                        }] autorelease]];
-    std::vector<int> subMessages = sadTab->GetSubMessages();
-    if (!subMessages.empty()) {
+
+    if (int subMessage = sadTab->GetSubMessage(0)) {
       NSTextList* textList =
           [[[NSTextList alloc] initWithMarkerFormat:@"{disc}" options:0]
               autorelease];
@@ -123,10 +121,9 @@ const CGFloat kMaxTopMargin = 130;
           static_cast<NSTextTab*>(paragraphStyle.tabStops[1]).location;
 
       NSMutableString* subMessageString = [NSMutableString string];
-      for (int subMessage : subMessages) {
-        // All markers are disc so pass 0 here for item number.
+      for (int i = 0; subMessage; subMessage = sadTab->GetSubMessage(++i)) {
         [subMessageString appendFormat:@"\n\t%@\t%@",
-                                       [textList markerForItemNumber:0],
+                                       [textList markerForItemNumber:i],
                                        l10n_util::GetNSString(subMessage)];
       }
       [message_.textStorage
