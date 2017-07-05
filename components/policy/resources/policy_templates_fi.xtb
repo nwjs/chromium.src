@@ -514,6 +514,7 @@ Kaikki luettelon kohteet ovat tunnuksia, joiden perusteella erotetaan laitteesee
 
       Jos tämä asetus ei ole käytössä tai sitä ei ole määritetty, käyttäjä voi halutessaan jatkaa varoitussivulta mahdollisesti haitalliseen sivustoon.</translation>
 <translation id="2824715612115726353">Ota incognito-tila käyttöön</translation>
+<translation id="2838830882081735096">Estä tietojen siirtäminen ja ARC</translation>
 <translation id="2844404652289407061">Määrittää, näyttääkö <ph name="PRODUCT_NAME" /> Koskettamalla hakemisen sisältönäkymässä.
 
       Jos asetus on käytössä, Koskettamalla hakeminen on käytettävissä ja käyttäjä voi halutessaan ottaa sen käyttöön tai poistaa käytöstä.
@@ -895,6 +896,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 <translation id="436581050240847513">Ilmoita laitteen verkkokäyttöliittymät</translation>
 <translation id="4372704773119750918">Älä salli yrityskäyttäjän olla osa moniprofiilia (ensisijainen tai toissijainen)</translation>
 <translation id="4377599627073874279">Salli kaikkien sivustojen näyttää kaikki kuvat</translation>
+<translation id="437791893267799639">Käytäntöä ei määritetty, estä tietojen siirtäminen ja ARC</translation>
 <translation id="4389091865841123886">Määritä etätodennus TPM-mekanismilla.</translation>
 <translation id="4397469093966511008">Jos tämän käytännön arvo on epätosi, käyttäjät eivät voi valita, lähetetäänkö Googlen palvelimille joitain järjestelmätietoja ja joidenkin sivujen sisältöä. Jos asetuksen arvo on tosi tai sitä ei ole määritetty, käyttäjät voivat lähettää joitain järjestelmätietoja ja joidenkin sivujen sisältöä Selaussuojalle auttaakseen vaarallisten sovellusten ja sivustojen havaitsemisessa.</translation>
 <translation id="4418726081189202489">Jos tämän käytännön arvo on Epätosi, <ph name="PRODUCT_NAME" /> ei voi lähettää ajoittaisia kyselyjä Googlen palvelimille oikean aikaleiman saamiseksi. Jos tämän käytännön arvo on Tosi tai sillä ei ole arvoa, nämä kyselyt sallitaan.</translation>
@@ -1176,6 +1178,7 @@ Jos käytäntöä ei määritetä, käyttäjät voivat valita, tuleeko hylly pii
 <translation id="5586942249556966598">Ei toimia</translation>
 <translation id="5630352020869108293">Palauta edellinen käyttökerta</translation>
 <translation id="5645779841392247734">Salli evästeet näissä sivustoissa</translation>
+<translation id="5693469654327063861">Salli tietojen siirtäminen</translation>
 <translation id="5694594914843889579">Jos tämän käytännön arvoksi on määritetty tosi, ulkoista tallennustilaa ei voi käyttää tiedostoselaimessa.
 
       Käytäntö koskee kaikentyyppistä tallennustilaa, esimerkiksi USB-muistitikkuja, ulkoisia kiintolevyjä, SD- ja muita muistikortteja, optisia levyjä jne. Käytäntö ei vaikuta sisäiseen tallennustilaan, joten latauskansioon tallennettuja tiedostoja voi käyttää. Käytäntö ei myöskään koske Google Drivea.
@@ -1388,6 +1391,7 @@ Jos tämä asetus ei ole käytössä tai jos sen arvo on false, tulostuskomento 
           Tämän käytännön arvo täytyy määrittää millisekunteina. Arvo rajoitetaan käyttämättömyysajan arvoa pienemmäksi.</translation>
 <translation id="6536600139108165863">Automaattinen uudelleenkäynnistys laitteen sammuessa</translation>
 <translation id="6539246272469751178">Tällä käytännöllä ei ole vaikutusta Android-sovelluksiin. Android-sovellukset käyttävät aina oletuslataushakemistoa, eivätkä voi käyttää kohteen <ph name="PRODUCT_OS_NAME" /> muualle kuin oletuslataushakemistoon lataamia tiedostoja.</translation>
+<translation id="654303922206238013">Ecryptfs-siirtomenettely</translation>
 <translation id="6544897973797372144">Jos käytännön arvo on Tosi ja ChromeOsReleaseChannel-käytäntöä ei ole määritetty, käyttäjät voivat vaihtaa laitteen julkaisuversiota. Jos käytännön arvo on Epätosi, laitteeseen lukitaan viimeksi määritetty julkaisuversio.
 
       ChromeOsReleaseChannel-käytäntö ohittaa käyttäjän valitseman julkaisuversion. Jos käytännössä määritetty versio on vakaampi kuin laitteelle asennettu versio, versiota vaihdetaan vasta, kun vakaamman julkaisuversion versionumero on laitteelle asennettua julkaisuversiota suurempi.</translation>
@@ -1582,6 +1586,13 @@ Jos tätä käytäntöä ei ole määritetty, käytetään oletusarvoa (32).</tr
 
           Tätä käytäntöä noudatetaan vain, jos DefaultSearchProviderEnabled-käytäntö on käytössä.</translation>
 <translation id="7302043767260300182">Ruudun lukituksen viive käytettäessä laitetta verkkovirralla</translation>
+<translation id="7309839952828354215">Määrittää laitteen toiminnan, jos se toimitettiin ecryptfs-salauksen kanssa mutta on siirrettävä ext4-salaukseen.
+
+      Jos käytännön arvoksi määritetään DisallowArc, Android-sovellukset poistetaan kaikkien laitteen käyttäjien (myös niiden, joilla on jo ext4-salaus) käytöstä eikä käyttäjille tarjota lainkaan ecryptfs–ext4-siirtymistä.
+
+      Jos käytännön arvoksi määritetään AllowMigration, ext4-salaukseen siirtymistä tarjotaan tarvittaessa (tällä hetkellä Android N:n tullessa käyttöön laitteella), jos käyttäjän kotihakemisto käyttää ecryptfs-salausta.
+
+      Jos tätä käytäntöä ei määritetä, toiminta vastaa DisallowArc-valintaa.</translation>
 <translation id="7311458740754205918">Jos tämän käytännön arvo on tosi tai sitä ei ole määritetty, Uusi välilehti ‑sivulla voidaan näyttää sisältöehdotuksia käyttäjän historian, kiinnostuksen kohteiden tai sijainnin perusteella.
 
       Jos tämän käytännön arvo on epätosi, Uusi välilehti ‑sivulla ei näytetä automaattisesti luotuja sisältöehdotuksia.</translation>

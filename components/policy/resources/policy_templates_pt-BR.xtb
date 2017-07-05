@@ -509,6 +509,7 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 
       Se essa configuração for desativada ou não for configurada, os usuários poderão optar por prosseguir para o site sinalizado após o aviso ser exibido.</translation>
 <translation id="2824715612115726353">Ativar o modo sem rastros</translation>
+<translation id="2838830882081735096">Bloquear migração de dados e ARC</translation>
 <translation id="2844404652289407061">Ativa a disponibilidade de "Tocar para pesquisar" na visualização de conteúdo do <ph name="PRODUCT_NAME" />.
 
       Se você ativa esta configuração, o recurso "Tocar para pesquisar" fica disponível para o usuário, e é possível optar por ativar ou desativar o recurso.
@@ -887,6 +888,7 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="436581050240847513">Relatar interfaces de redes de dispositivos</translation>
 <translation id="4372704773119750918">Não permitir que o usuário corporativo faça parte de diversos perfis (primários ou secundários)</translation>
 <translation id="4377599627073874279">Permitir que todos os sites exibam todas as imagens</translation>
+<translation id="437791893267799639">Política não definida. Bloquear migração de dados e ARC</translation>
 <translation id="4389091865841123886">Configurar a declaração remota com mecanismo TPM</translation>
 <translation id="4397469093966511008">A configuração dessa política como "false" impede que os usuários optem por enviar informações do sistema e conteúdos de páginas aos servidores do Google. Se essa configuração for definida como "true" ou não for configurada, os usuários terão permissão para enviar informações do sistema e conteúdos de página à Navegação segura para ajudar a detectar apps e sites perigosos.</translation>
 <translation id="4418726081189202489">Configurar esta política como falsa impede que o <ph name="PRODUCT_NAME" /> envie, ocasionalmente, consultas a um servidor do Google para recuperar um timestamp preciso. Essas consultas serão ativadas caso esta política seja configurada como Verdadeira ou não seja configurada.</translation>
@@ -1162,6 +1164,7 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 <translation id="5586942249556966598">Não fazer nada</translation>
 <translation id="5630352020869108293">Restaurar a última sessão</translation>
 <translation id="5645779841392247734">Permitir cookies nestes sites</translation>
+<translation id="5693469654327063861">Permitir migração de dados</translation>
 <translation id="5694594914843889579">Quando esta política é definida como "true", o armazenamento externo não fica disponível no navegador de arquivos.
 
       Esta política afeta todos os tipos de mídia de armazenamento, como, por exemplo: unidades flash USB, discos rígidos externos, cartões SD e outros cartões de memória, armazenamento óptico, etc. Como o armazenamento interno não é afetado, os arquivos salvos na pasta "Download" continuam acessíveis. O Google Drive também não é afetado por esta política.
@@ -1374,6 +1377,7 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
           O valor da política deve ser especificado em milissegundos. Os valores são fixados para serem inferiores ao intervalo de inatividade.</translation>
 <translation id="6536600139108165863">Reinicialização automática no desligamento do dispositivo</translation>
 <translation id="6539246272469751178">Esta política não tem nenhum efeito sobre apps Android. Os apps Android sempre usam o diretório de downloads padrão e não podem acessar nenhum arquivo transferido por download pelo <ph name="PRODUCT_OS_NAME" /> para um diretório de downloads não padrão.</translation>
+<translation id="654303922206238013">Estratégia de migração para eCryptfs</translation>
 <translation id="6544897973797372144">Se esta política for definida como "True", e a política ChromeOsReleaseChannel não for especificada, os usuários do domínio de inscrição poderão alterar o canal de versão do dispositivo. Se esta política for definida como "false", o dispositivo será bloqueado em qualquer canal em que a política tenha sido definida pela última vez.
 
       O canal selecionado pelo usuário será substituído pela política ChromeOsReleaseChannel, mas se o canal da política for mais estável que aquele instalado no dispositivo, o canal só vai mudar depois que a versão do canal mais estável atingir um número de versão superior à que está instalada no dispositivo.</translation>
@@ -1567,6 +1571,13 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
 
           Esta política será respeitada apenas se a política 'DefaultSearchProviderEnabled' estiver ativada.</translation>
 <translation id="7302043767260300182">Intervalo de bloqueio da tela no funcionamento com alimentação CA</translation>
+<translation id="7309839952828354215">Especifica como um dispositivo deve se comportar com diretórios criptografados por eCryptfs que precisam de transição para a criptografia ext4.
+
+      Se você definir esta política como "DisallowArc", os apps do Android serão desativados para todos os usuários no dispositivo (incluindo aqueles que já têm criptografia ext4) e não será oferecida migração de eCryptfs para ext4 a nenhum usuário.
+
+      Se você definir esta política como "AllowMigration", os usuários com diretórios iniciais criptografados por eCryptfs poderão migrar esses diretórios para a criptografia ext4 conforme necessário (atualmente, quando o Android N fica disponível no dispositivo).
+
+      Se esta política não for definida, o dispositivo se comportará como se a opção "DisallowArc" tivesse sido escolhida.</translation>
 <translation id="7311458740754205918">Se a política é definida como true ou não é configurada, a página "Nova guia" pode mostrar sugestões de conteúdo com base no histórico de navegação, nos interesses ou no local do usuário.
 
       Se a política for definida como false, as sugestões de conteúdo geradas automaticamente não serão mostradas na página "Nova guia".</translation>

@@ -587,7 +587,7 @@
 <translation id="1812631533912615985">Odopnúť karty</translation>
 <translation id="1813278315230285598">Služby</translation>
 <translation id="18139523105317219">Názov strany EDI</translation>
-<translation id="1815083418640426271">Vložiť ako čistý text</translation>
+<translation id="1815083418640426271">Prilepiť ako čistý text</translation>
 <translation id="181577467034453336">Ďalšie (<ph name="NUMBER_OF_VIEWS" />)...</translation>
 <translation id="1815861158988915678"><ph name="BEGIN_BOLD" /> Upozornenie: <ph name="END_BOLD" /> Tieto súbory sú dočasné a kvôli uvoľneniu miesta na disku môžu byť automaticky odstránené. <ph name="BEGIN_LINK" />Viac informácií<ph name="END_LINK" /></translation>
 <translation id="1817871734039893258">Obnovenie súboru Microsoft</translation>
@@ -839,7 +839,7 @@ Do úplného nabitia zostáva: <ph name="HOUR" />:<ph name="MINUTE" /></translat
 <translation id="2215277870964745766">Vitajte! Nastavte svoj jazyk a sieť</translation>
 <translation id="2217501013957346740">Vytvoriť meno –</translation>
 <translation id="2218019600945559112">Myš a touchpad</translation>
-<translation id="2218515861914035131">Vložiť ako čistý text</translation>
+<translation id="2218515861914035131">Prilepiť ako čistý text</translation>
 <translation id="2218947405056773815">Ach jaj! Rozhranie <ph name="API_NAME" /> zlyhalo.</translation>
 <translation id="2220529011494928058">Nahlásiť problém</translation>
 <translation id="2220572644011485463">PIN alebo heslo</translation>
@@ -1024,7 +1024,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="2478830106132467213">Odomknúť toto zariadenie <ph name="DEVICE_TYPE" /> iba vtedy, keď je telefón na dosah ruky.</translation>
 <translation id="247949520305900375">Zdieľať zvuk</translation>
 <translation id="2479780645312551899">Spustiť tentokrát všetky doplnky</translation>
-<translation id="2480868415629598489">Upravovať dáta, ktoré skopírujete a prilepíte</translation>
+<translation id="2480868415629598489">Upravovať dáta, ktoré kopírujete a prilepujete</translation>
 <translation id="2481332092278989943">Pridať na poličku</translation>
 <translation id="2482878487686419369">Upozornenia</translation>
 <translation id="2485056306054380289">Certifikát CA servera:</translation>
@@ -5065,7 +5065,7 @@ Prebieha výpočet času do úplného nabitia</translation>
 <translation id="8442145116400417142">Obsah bol zablokovaný</translation>
 <translation id="8443621894987748190">Vyberte obrázok pre svoj účet</translation>
 <translation id="8446884382197647889">Viac informácií</translation>
-<translation id="8449008133205184768">Vložiť a použiť zodpovedajúci štýl</translation>
+<translation id="8449008133205184768">Prilepiť a prispôsobiť štýlu</translation>
 <translation id="8449036207308062757">Spravovať úložisko</translation>
 <translation id="8452135315243592079">Chýba SIM karta</translation>
 <translation id="8453482423012550001">Prebieha kopírovanie $1 položiek...</translation>

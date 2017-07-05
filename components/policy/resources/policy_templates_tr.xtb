@@ -541,6 +541,7 @@
 
       Bu ayar devre dışı bırakılırsa veya yapılandırılmazsa uyarı görüntülendikten sonra kullanıcılar devam ederek işaretli siteyi ziyaret edebilirler.</translation>
 <translation id="2824715612115726353">Gizli modu etkinleştir</translation>
+<translation id="2838830882081735096">Veri taşıma ve ARC'ye izin verme</translation>
 <translation id="2844404652289407061"><ph name="PRODUCT_NAME" /> ürününün içerik görünümünde Dokun ve Ara özelliğinin kullanılabilmesini sağlar.
 
       Bu ayarı etkinleştirirseniz, kullanıcı Dokun ve Ara özelliğini kullanabilir ve özelliği istediği gibi açıp kapatabilir.
@@ -931,6 +932,7 @@ politikayı geçersiz kılamaz.
 <translation id="436581050240847513">Cihaz ağ arayüzlerini rapor etme</translation>
 <translation id="4372704773119750918">Kurumsal kullanıcının çok profilli oturumun parçası olmasına izin verme (birincil veya ikincil)</translation>
 <translation id="4377599627073874279">Tüm sitelerin tüm resimleri görüntülemesine izin ver</translation>
+<translation id="437791893267799639">Politika ayarlanmadı, veri taşıma ve ARC'ye izin verme</translation>
 <translation id="4389091865841123886">TPM mekanizmasıyla uzaktan doğrulamayı yapılandırın.</translation>
 <translation id="4397469093966511008">Bu politika yanlış seçeneğine ayarlandığında, kullanıcıların, bazı sistem bilgilerini ve sayfa içeriğini Google sunucularına göndermeyi seçmeleri engellenir. Bu ayar doğru seçeneğine ayarlanırsa veya hiç yapılandırılmazsa kullanıcılar, tehlikeli uygulamaların ve sitelerin tespit edilmesine yardımcı olmak amacıyla bazı sistem bilgilerini ve sayfa içeriğini Güvenli Tarama'ya gönderebilir.</translation>
 <translation id="4418726081189202489">Bu politika false (yanlış) değerine ayarlandığında <ph name="PRODUCT_NAME" /> uygulaması doğru zaman damgasını almak için ara sıra bir Google sunucusuna sorgu göndermeyi durdurur. Bu politika true (doğru) değerine ayarlanır veya hiç ayarlanmazsa bu sorgular etkinleşir.</translation>
@@ -1244,6 +1246,7 @@ politikayı geçersiz kılamaz.
 <translation id="5586942249556966598">Hiçbir şey yapma</translation>
 <translation id="5630352020869108293">Son oturumu geri yükle</translation>
 <translation id="5645779841392247734">Bu sitelerde çerezlere izin ver</translation>
+<translation id="5693469654327063861">Veri taşımaya izin ver</translation>
 <translation id="5694594914843889579">Bu politika true (doğru) değerine ayarlandığında harici depolama birimi dosya tarayıcısında kullanılamaz.
 
       Bu politika tüm depolama ortamı türlerini etkiler. Örneğin: USB flaş sürücüleri, harici sabit diskler, SD ve diğer bellek kartları, optik depolama birimleri vb. Dahili depolama birimi bu politikadan etkilenmez, dolayısıyla İndirilenler klasörüne kaydedilen dosyalara erişilebilir. Google Drive da bu politikadan etkilenmez.
@@ -1474,6 +1477,7 @@ politikayı geçersiz kılamaz.
           Politika değeri milisaniye olarak belirtilmelidir. Değerler boşta kalma gecikmesinden daha az olacak şekilde bir aralığa sıkıştırılır.</translation>
 <translation id="6536600139108165863">Cihaz kapandığında otomatik olarak yenide başlat</translation>
 <translation id="6539246272469751178">Bu politikanın Android uygulamaları üzerinde hiçbir etkisi yoktur. Android uygulamaları daima varsayılan indirme dizinini kullanır ve <ph name="PRODUCT_OS_NAME" /> tarafından, varsayılan olmayan indirme dizinine indirilen dosyalara erişemez.</translation>
+<translation id="654303922206238013">ecryptfs için taşıma stratejisi</translation>
 <translation id="6544897973797372144">Bu politika True değerine ayarlanırsa ve ChromeOsReleaseChannel politikası belirtilmediyse, kaydedilmekte olan alan adı kullanıcılarının cihazın yayın kanalını değiştirmelerine izin verilir. Bu politika false değerine ayarlanırsa, cihaz son olarak ayarlandığı kanalda kilitlenir.
 
       Kullanıcının seçtiği kanal ChromeOsReleaseChannel politikası tarafından geçersiz kılınırsa, ancak politika kanalı cihaza yüklenen kanaldan daha dengeliyse; kanal yalnızca daha dengeli kanalın sürümü cihazda yüklü olandan daha yüksek bir sürüme ulaştığında değiştirilir.</translation>
@@ -1682,6 +1686,13 @@ politikayı geçersiz kılamaz.
 
           Bu politika yalnızca 'DefaultSearchProviderEnabled' politikası etkinleştirilirse uygulanır.</translation>
 <translation id="7302043767260300182">AC güçle çalışırken ekran kilidi gecikmesi</translation>
+<translation id="7309839952828354215">Ecryptfs koduyla gönderilen ve ext4 şifrelemesine geçmesi gereken bir cihazın nasıl davranması gerektiğini belirtir.
+
+      Bu politikayı "DisallowArc" değerine ayarlarsanız, cihazdaki tüm kullanıcılar için Android uygulamaları devre dışı bırakılır (ext4 şifrelemesine önceden sahip olanlar dahil) ve kullanıcılara, ecryptfs'den ext4 şifrelemesine geçiş yapmaları teklif edilmez.
+
+      Bu politikayı "AllowMigration" değerine ayarlarsanız, ecryptfs ana dizinlerine sahip kullanıcılara gerektiğinde (şimdilik cihazda Android N kullanılabilir hale geldiğinde) bunların ext4 şifrelemesine taşınması teklif edilir.
+
+      Bu politika ayarlanmadan bırakılırsa, cihaz "DisallowArc" değeri seçilmiş gibi davranır.</translation>
 <translation id="7311458740754205918">Bunun için doğru (true) değeri ayarlanır veya herhangi bir değer belirtilmezse Yeni Sekme sayfasında kullanıcının tarama geçmişi, ilgi alanları veya konumuna dayalı içerik önerileri gösterilebilir.
 
 Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otomatik oluşturulan içerik önerileri gösterilmez.</translation>

@@ -536,6 +536,7 @@
 
       Kung naka-disable o hindi naka-configure ang setting na ito maaaring piliin ng mga user na tumuloy sa naka-flag na site pagkatapos ipakita ang babala.</translation>
 <translation id="2824715612115726353">Paganahin ang Incognito mode</translation>
+<translation id="2838830882081735096">Huwag payagan ang paglipat ng data at ARC</translation>
 <translation id="2844404652289407061">Ine-enable ang availability ng Pindutin upang Hanapin sa view ng content ng <ph name="PRODUCT_NAME" />.
 
       Kung ie-enable mo ang setting na ito, magagamit ng user ang Pindutin upang Hanapin at magagawa niyang i-on o i-off ang feature.
@@ -929,6 +930,7 @@
 <translation id="436581050240847513">I-ulat ang mga interface ng network ng device</translation>
 <translation id="4372704773119750918">Hindi pinapayagan ang enterprise user na maging bahagi ng multiprofile (pangunahin o pangalawa)</translation>
 <translation id="4377599627073874279">Payagan ang lahat ng mga site na ipakita ang lahat ng mga larawan</translation>
+<translation id="437791893267799639">Hindi nakatakda ang patakaran, huwag payagan ang paglipat ng data at ARC</translation>
 <translation id="4389091865841123886">I-configure ang malayuang pagpapatunay gamit ang mekanismo ng TPM.</translation>
 <translation id="4397469093966511008">Kapag itinakda ang patakarang ito sa false, hindi na mapipili ng mga user na magpadala ng ilang impormasyon ng system at content ng page sa mga server ng Google. Kung ang setting na ito ay true o hindi na-configure, papayagan ang mga user na magpadala ng ilang impormasyon ng system at content ng page sa Ligtas na Pagba-browse upang makatulong na tumukoy ng mapapanganib na app at site.</translation>
 <translation id="4418726081189202489">Kapag itinakda ang patakarang ito sa false, pipigilan ang <ph name="PRODUCT_NAME" /> na paminsan-minsang magpadala ng mga query sa isang server ng Google upang kumuha ng tumpak na timestamp. Ie-enable ang mga query na ito kung nakatakda sa True ang patakarang ito o kung hindi ito nakatakda.</translation>
@@ -1243,6 +1245,7 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 <translation id="5586942249556966598">Walang gawin</translation>
 <translation id="5630352020869108293">Ipanumbalik ang huling session</translation>
 <translation id="5645779841392247734">Payagan ang cookies sa mga site na ito</translation>
+<translation id="5693469654327063861">Payagan ang paglipat ng data</translation>
 <translation id="5694594914843889579">Kapag nakatakda sa true ang patakarang ito, hindi magiging available ang external storage sa browser ng file.
 
       Naaapektuhan ng patakarang ito ang lahat ng uri ng storage media. Halimbawa: Mga USB flash drive, external hard drive, SD at iba pang mga memory card, optical storage atbp. Hindi naaapektuhan ang internal storage, samakatuwid, maa-access pa rin ang mga file na naka-save sa folder na Download. Hindi rin naaapektuhan ng patakarang ito ang Google Drive.
@@ -1475,6 +1478,7 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
           Dapat tukuyin ang halaga ng patakaran ayon sa millisecond. Kinakailangang mas mababa kaysa sa idle delay ang mga halaga.</translation>
 <translation id="6536600139108165863">Awtomatikong pag-reboot sa pag-shutdown ng device</translation>
 <translation id="6539246272469751178">Walang epekto ang patakarang ito sa mga Android app. Palaging ginagamit ng mga Android app ang default na directory ng mga download at hindi maaaring i-access ang anumang file na na-download ng <ph name="PRODUCT_OS_NAME" /> patungo sa isang hindi default na directory ng mga download.</translation>
+<translation id="654303922206238013">Diskarte sa paglipat para sa ecryptfs</translation>
 <translation id="6544897973797372144">Kung nakatakda sa True ang patakaran at hindi tinukoy ang patakaran sa ChromeOsReleaseChannel, papayagan ang mga user ng nagpapatalang domain na baguhin ang release channel ng device. Kung nakatakda sa false ang patakarang ito, ila-lock ang device sa channel kung saan ito huling itinakda.
 
       Papalitan ng patakarang ChromeOsReleaseChannel ang channel na pinili ng user, ngunit kung mas matatag ang channel ng patakaran sa channel na na-install sa device, lilipat lang ang channel kapag naabot na ng mas matatag na channel ang numero ng bersyon na mahigit sa numerong naka-install sa device.</translation>
@@ -1687,6 +1691,13 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 
           Sinusunod lang ang patakarang ito kung pinagana ang patakarang 'DefaultSearchProviderEnabled'.</translation>
 <translation id="7302043767260300182">Delay ng screen lock kapag tumatakbo habang nakasaksak sa kuryente</translation>
+<translation id="7309839952828354215">Tinutukoy kung paano dapat kumilos ang device na naipadala nang may ecryptfs at kinakailangang lumipat sa ext4 na pag-encrpyt.
+
+      Kung itatakda mo ang patakarang ito sa 'DisallowArc', idi-disable ang mga Android app para sa lahat ng user sa device (kasama iyong mga mayroon nang ext4 na pag-encrypt) at walang iaalok na paglilipat mula sa ecryptfs papuntang ext4 na pag-encrypt sa sinumang user.
+
+      Kung itatakda mo ang patakarang ito sa 'AllowMigration', aalukin ang mga user na may mga ecryptfs na directory sa tahanan na ilipat ang mga ito sa ext4 na pag-encrypt kung kinakailangan (sa kasalukuyan, kapag naging available ang Android N sa device).
+
+      Kung iniwang hindi nakatakda ang patakarang ito, kikilos ang device na parang 'DisallowArc' ang napili.</translation>
 <translation id="7311458740754205918">Kung itinakda ito sa true o hindi ito itinakda, ang page ng Bagong Tab ay maaaring magpakita ng mga suhestyon sa content batay sa history ng pagba-browse, mga interes o lokasyon ng user.
 
       Kung itinakda ito sa false, hindi makikita ang awtomatikong ginawang suhestyon sa content sa page ng Bagong Tab.</translation>

@@ -543,6 +543,7 @@
 
       Ja šis iestatījums ir atspējots vai nav konfigurēts, lietotāji pēc brīdinājuma saņemšanas var pāriet uz vietni, kas atzīmēta kā nevēlama.</translation>
 <translation id="2824715612115726353">Iespējo inkognito režīmu</translation>
+<translation id="2838830882081735096">Aizliegt datu migrēšanu un ARC</translation>
 <translation id="2844404652289407061">Izmantojot šo politiku, pārlūka <ph name="PRODUCT_NAME" /> satura skatā var iespējot funkciju “Meklēšana pieskaroties”.
 
       Ja šis iestatījums ir iespējots, funkcija “Meklēšana pieskaroties” ir pieejama lietotājam un lietotājs to var ieslēgt vai izslēgt.
@@ -938,6 +939,7 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
 <translation id="436581050240847513">Ziņot par ierīču tīkla saskarnēm</translation>
 <translation id="4372704773119750918">Neatļaut korporatīvajam lietotājam piedalīties vairākprofilu sesijā (ne kā primārajam, ne sekundārajam lietotājam)</translation>
 <translation id="4377599627073874279">Atļauj visām vietnēm rādīt visus attēlus</translation>
+<translation id="437791893267799639">Politika nav iestatīta, aizliegt datu migrēšanu un ARC</translation>
 <translation id="4389091865841123886">Konfigurē attālināto apstiprināšanu, izmantojot TPM mehānismu.</translation>
 <translation id="4397469093966511008">Ja šai politikai ir iestatīta vērtība Nepatiesa, lietotājiem tiek liegta iespēja nosūtīt sistēmas informāciju un lapu saturu Google serveriem. Ja šī vērtība ir Patiesa vai nav konfigurēta, lietotāji varēs nosūtīt sistēmas informāciju un lapu saturu funkcijai Droša pārlūkošana, lai palīdzētu noteikt bīstamas lietotnes un vietnes.</translation>
 <translation id="4418726081189202489">Iestatot šo politiku kā nepatiesu, tiek pārtraukta neregulāra vaicājumu sūtīšana no <ph name="PRODUCT_NAME" /> uz Google serveri, lai izgūtu precīzu laikspiedolu. Šie vaicājumi tiks iespējoti, ja šī politika tiks iestatīta kā patiesa vai netiks iestatīta.</translation>
@@ -1257,6 +1259,7 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
 <translation id="5586942249556966598">Nedarīt neko</translation>
 <translation id="5630352020869108293">Atjaunot pēdējo sesiju</translation>
 <translation id="5645779841392247734">Atļauj sīkfailus šajās vietnēs</translation>
+<translation id="5693469654327063861">Atļaut datu migrēšanu</translation>
 <translation id="5694594914843889579">Ja politika ir iestatīta kā patiesa, ārējā krātuve nav pieejama failu pārlūkā.
 
       Šī politika attiecas uz visiem datu nesēju veidiem, piemēram, USB zibatmiņas diskiem, ārējiem cietajiem diskiem, SD un citām atmiņas kartēm, optiskajām krātuvēm u. c. Uz iekšējo krātuvi politika neattiecas, tādēļ failiem, kas saglabāti mapē Lejupielādes, joprojām var piekļūt. Šī politika neattiecas arī uz pakalpojumu Google disks.
@@ -1485,6 +1488,7 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
           Politikas vērtību nedrīkst norādīt milisekundēs. Ir jānorāda vērtības, kas ir mazākas par aizkavi līdz dīkstāvei.</translation>
 <translation id="6536600139108165863">Automātiska restartēšana, izslēdzot ierīci</translation>
 <translation id="6539246272469751178">Šī politika neietekmē Android lietotnes. Android lietotnes vienmēr izmanto lejupielāžu noklusējuma direktoriju un nevar piekļūt failiem, ko <ph name="PRODUCT_OS_NAME" /> lejupielādēja lejupielāžu direktorijā, kas nav noklusējuma direktorijs.</translation>
+<translation id="654303922206238013">eCryptfs migrēšanas stratēģija</translation>
 <translation id="6544897973797372144">Ja šai politikai ir iestatīta vērtība Patiesa un politika ChromeOsReleaseChannel nav norādīta, reģistrēšanas domēna lietotājiem ir atļauts mainīt ierīces izlaišanas kanālu. Ja šī politika ir iestatīta uz Aplama, ierīce tiek bloķēta neatkarīgi no kanāla, kurā tā tika iestatīta pēdējo reizi.
 
       Iestatot politiku ChromeOsReleaseChannel, tiks ignorēts lietotāja atlasītais kanāls, bet, ja politikas kanāls būs stabilāks par to, kas instalēts ierīcē, kanāla pārslēgšana notiks tikai pēc tam, kad stabilākais kanāls sasniegs skaitli, kas ir lielāks par ierīcē instalēto skaitli.</translation>
@@ -1697,6 +1701,13 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
 
           Šī politika tiek lietota tikai tad, ja ir iespējota politika DefaultSearchProviderEnabled.</translation>
 <translation id="7302043767260300182">Aizkave līdz ekrāna bloķēšanai, ja ierīce darbojas ar maiņstrāvu</translation>
+<translation id="7309839952828354215">Norāda ierīces darbību gadījumos, kad tajā uzstādīta sistēma eCryptfs un jāpāriet uz ext4 šifrēšanu.
+
+      Ja politikai iestatīsiet vērtību “DisallowArc”, visiem lietotājiem ierīcē būs atspējotas Android lietotnes (tostarp tiem lietotājiem, kuri jau izmanto ext4 šifrēšanu) un lietotājiem netiks piedāvāta migrēšana no eCryptfs uz ext4 šifrēšanu.
+
+      Ja politikai iestatīsiet vērtību “AllowMigration”, lietotājiem ar eCryptfs sākumdirektorijiem nepieciešamības gadījumā tiks piedāvāts migrēt uz ext4 šifrēšanu (kad ierīcē būs pieejama operētājsistēma Android N).
+
+      Ja politika netiks iestatīta, ierīce darbosies tā, it kā būtu izvēlēta vērtība “DisallowArc”.</translation>
 <translation id="7311458740754205918">Ja šai politikai ir iestatīta vērtība “Patiesa” vai tā nav iestatīta, lapā “Jauna cilne” var tikt rādīti satura ieteikumi, pamatojoties uz lietotāja pārlūkošanas vēsturi, interesēm vai atrašanās vietu.
 
       Ja šai politikai ir iestatīta vērtība “Nepatiesa”, lapā “Jauna cilne” netiek rādīti automātiski veidoti satura ieteikumi.</translation>

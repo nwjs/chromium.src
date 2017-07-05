@@ -538,6 +538,7 @@
 
       이 설정을 사용 중지하거나 구성하지 않으면 경고 페이지가 표시된 뒤에 사용자가 악성 사이트로 이동할 수 있습니다.</translation>
 <translation id="2824715612115726353">시크릿 모드 사용</translation>
+<translation id="2838830882081735096">데이터 이전 및 ARC 허용 안함</translation>
 <translation id="2844404652289407061"><ph name="PRODUCT_NAME" />의 콘텐츠 보기에서 '터치하여 검색'을 사용 설정합니다.
 
       이 설정을 사용하면 사용자가 '터치하여 검색'을 사용할 수 있으며 기능을 켜거나 끌 수 있습니다.
@@ -933,6 +934,7 @@
 <translation id="436581050240847513">기기 네트워크 인터페이스 보고</translation>
 <translation id="4372704773119750918">기업 사용자가 멀티 프로필에 포함되도록 허용하지 않음(기본 또는 보조)</translation>
 <translation id="4377599627073874279">모든 사이트에서 모든 이미지를 표시하도록 허용</translation>
+<translation id="437791893267799639">정책이 설정되지 않음, 데이터 이전 및 ARC 허용 안함</translation>
 <translation id="4389091865841123886">TPM 메커니즘으로 원격 인증을 구성합니다.</translation>
 <translation id="4397469093966511008">이 정책을 false로 설정하면 사용자가 일부 시스템 정보 및 페이지 콘텐츠를 Google 서버로 전송하지 못하도록 차단됩니다. 이 설정이 true로 설정되거나 설정되지 않으면 위험한 앱 및 사이트를 감지하기 위해 사용자는 일부 시스템 정보와 페이지 콘텐츠를 세이프 브라우징으로 전송하도록 허용됩니다.</translation>
 <translation id="4418726081189202489">이 정책을 False로 설정하면 <ph name="PRODUCT_NAME" />이(가) 정확한 타임스탬프를 가져오기 위해 Google 서버로 쿼리를 전송하지 못하는 경우가 발생할 수도 있습니다. 이 정책을 설정하지 않거나 True로 설정하며 이러한 쿼리가 사용 설정됩니다.</translation>
@@ -1247,6 +1249,7 @@
 <translation id="5586942249556966598">취소</translation>
 <translation id="5630352020869108293">마지막 세션 복원</translation>
 <translation id="5645779841392247734">이 사이트에서 쿠키 허용</translation>
+<translation id="5693469654327063861">데이터 이전 허용</translation>
 <translation id="5694594914843889579">이 정책을 true로 설정하면 파일 브라우저에서 외부 저장소를 사용할 수 없습니다.
 
       이 정책은 모든 종류의 저장 매체(예: USB 플래시 드라이브, 외장 하드 드라이브, SD 및 기타 메모리 카드, 광학 저장장치 등)에 영향을 미칩니다. 내부 저장소는 영향을 받지 않기 때문에 다운로드 폴더에 저장된 파일에 계속 액세스할 수 있습니다. Google 드라이브도 이 정책의 영향을 받지 않습니다.
@@ -1479,6 +1482,7 @@
           정책 값은 밀리초 단위로 지정해야 하며, 유휴 지연 시간보다 작도록 값이 잘립니다.</translation>
 <translation id="6536600139108165863">기기 종료 시 자동 재부팅</translation>
 <translation id="6539246272469751178">이 정책은 Android 앱에 아무런 영향도 미치지 않습니다. Android 앱은 언제나 기본 다운로드 디렉토리를 사용하며 <ph name="PRODUCT_OS_NAME" />에 의해 기본 다운로드 디렉토리가 아닌 디렉토리로 다운로드된 파일에 액세스할 수 없습니다.</translation>
+<translation id="654303922206238013">ecryptfs 관련 이전 전략</translation>
 <translation id="6544897973797372144">정책이 True로 설정되어 있고 ChromeOsReleaseChannel 정책이 지정되지 않은 경우 등록된 도메인의 사용자가 기기의 배포 채널을 변경할 수 있도록 허용됩니다. 정책이 false로 설정되어 있으면 마지막에 설정한 채널을 기기가 사용합니다.
 
       사용자가 선택한 채널은 ChromeOsReleaseChannel 정책이 무시할 수 있지만 정책 채널이 기기에 설치된 채널보다 더 안정적인 경우 더 안정적인 채널이 기기에 설치된 채널보다 더 많아질 때 채널이 전환됩니다.</translation>
@@ -1690,6 +1694,13 @@
 
           이 정책은 'DefaultSearchProviderEnabled' 정책을 사용 설정한 경우에만 적용됩니다.</translation>
 <translation id="7302043767260300182">AC 전원으로 실행할 때 화면 잠금 지연</translation>
+<translation id="7309839952828354215">기기에 ecryptfs가 탑재되고 ext4 암호화로 전환되어야 하는 경우 기기 작동 방식을 지정합니다.
+
+      이 정책을 'DisallowArc'로 설정하면 기기의 모든 사용자에게 Android 앱이 사용 중지되며(이미 ext4 암호화가 포함된 앱 포함) 어느 사용자에게도 ecryptfs에서 ext4 암호화로 이전하는 기능이 제공되지 않습니다.
+
+      이 정책을 'AllowMigration'으로 설정하면 ecryptfs 홈 디렉토리가 있는 사용자에게 해당 디렉토리를 필요에 따라 ext4 암호화로 이전할 수 있는 기능을 제공합니다(현재 기기에서 Android N을 사용할 수 있게 되는 경우).
+
+      이 정책을 설정하지 않으면 기기는 'DisallowArc'를 선택한 경우와 동일하게 작동합니다.</translation>
 <translation id="7311458740754205918">true로 설정되거나 설정되지 않으면 새 탭 페이지에서 사용자의 방문 기록, 관심분야 또는 위치를 기반으로 콘텐츠 추천을 표시할 수 있습니다.
 
       false로 설정되어 있다면 자동 생성 콘텐츠 추천이 새 탭 페이지에 표시되지 않습니다.</translation>

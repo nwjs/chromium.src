@@ -517,6 +517,7 @@
 
       Dacă setarea este dezactivată sau nu este configurată, utilizatorii pot alege să acceseze site-ul semnalat după ce li se afișează avertismentul.</translation>
 <translation id="2824715612115726353">Activează modul incognito</translation>
+<translation id="2838830882081735096">Nu permite migrarea datelor și ARC</translation>
 <translation id="2844404652289407061">Activează disponibilitatea funcției Atinge pentru a căuta în timpul afișării conținutului din <ph name="PRODUCT_NAME" />.
 
       Dacă activezi această setare, funcția Atinge pentru a căuta va fi disponibilă utilizatorului și acesta va putea activa sau dezactiva funcția.
@@ -903,6 +904,7 @@
 <translation id="436581050240847513">Raportează interfețele de rețea pentru dispozitiv</translation>
 <translation id="4372704773119750918">Nu permite ca utilizatorul întreprindere să facă parte din profilul multiplu (principal sau secundar)</translation>
 <translation id="4377599627073874279">Permite tuturor site-urilor să afișeze toate imaginile</translation>
+<translation id="437791893267799639">Politica nu este configurată; nu se permite migrarea datelor și ARC</translation>
 <translation id="4389091865841123886">Configurați atestarea la distanță cu mecanismul TPM.</translation>
 <translation id="4397469093966511008">Dacă dezactivezi această politică, utilizatorii nu vor mai putea trimite unele informații de sistem și conținutul paginii la serverele Google. Dacă această setare este activată sau nu este configurată, utilizatorii au permisiunea să trimită unele informații de sistem și conținutul paginii la Navigarea sigură pentru detectarea aplicațiilor și a site-urilor periculoase.</translation>
 <translation id="4418726081189202489">Dacă dezactivezi această politică, <ph name="PRODUCT_NAME" /> nu mai trimite ocazional interogări către un server Google pentru a prelua un marcaj temporal precis. Dacă politica este activată sau nu este configurată, aceste interogări vor fi activate.</translation>
@@ -1188,6 +1190,7 @@
 <translation id="5586942249556966598">Nicio acțiune</translation>
 <translation id="5630352020869108293">Restabiliți ultima sesiune</translation>
 <translation id="5645779841392247734">Permite cookie-uri de pe aceste site-uri</translation>
+<translation id="5693469654327063861">Permite migrarea datelor</translation>
 <translation id="5694594914843889579">Dacă această politică este activată, stocarea externă nu va fi disponibilă în browserul de fișiere.
 
       Această politică afectează toate tipurile de suporturi de stocare. De exemplu: unități flash USB, hard diskuri externe, carduri SD și alte carduri de memorie, stocarea optică etc. Stocarea internă nu este afectată. Prin urmare, fișierele salvate în dosarul Descărcări pot fi în continuare accesate. Nici Google Drive nu este afectat de această politică.
@@ -1400,6 +1403,7 @@
           Valoarea politicii trebuie specificată în milisecunde. Valorile trebuie să fie mai mici decât intervalul de inactivitate.</translation>
 <translation id="6536600139108165863">Repornire automată la închiderea dispozitivului</translation>
 <translation id="6539246272469751178">Această politică nu afectează aplicațiile Android. Acestea folosesc întotdeauna directorul prestabilit pentru descărcări și nu pot accesa niciun fișier descărcat de <ph name="PRODUCT_OS_NAME" /> într-un director care nu este prestabilit pentru descărcări.</translation>
+<translation id="654303922206238013">Strategia de migrare pentru ecryptfs</translation>
 <translation id="6544897973797372144">Dacă această politică este activată, iar politica ChromeOsReleaseChannel nu este specificată, atunci utilizatorii domeniului de înregistrare vor putea să schimbe canalul de lansare al dispozitivului. Dacă această politică este dezactivată, dispozitivul va fi blocat pe canalul setat cel mai recent.
 
       Canalul selectat de utilizator va fi înlocuit de politica ChromeOsReleaseChannel. Totuși, în cazul în care canalul specificat de politică este mai stabil decât cel instalat pe dispozitiv, canalul se va schimba numai după ce versiunea canalului mai stabil ajunge la un număr de versiune superior celui instalat pe dispozitiv.</translation>
@@ -1597,6 +1601,13 @@ nu poate fi stabilit de utilizator din setările browserului.
 
           Această politică este respectată numai dacă este activată politica „DefaultSearchProviderEnabled”.</translation>
 <translation id="7302043767260300182">Interval până la blocarea ecranului la funcționarea pe c.a.</translation>
+<translation id="7309839952828354215">Specifică modul în care trebuie să se comporte un dispozitiv care a fost livrat cu ecryptfs și necesită trecerea la criptarea ext4.
+
+      Dacă setezi politica la „DisallowArc”, aplicațiile Android vor fi dezactivate pentru toți utilizatorii de pe dispozitiv (inclusiv pentru cei care folosesc deja criptarea ext4). Niciunui utilizator nu i se va oferi migrarea de la ecryptfs la criptarea ext4.
+
+      Dacă setezi politica la „AllowMigration”, utilizatorilor cu directoare principale ecryptfs li se va oferi posibilitatea să migreze la criptarea ext4, după cum este necesar (când Android N devine disponibil pe dispozitiv).
+
+      Dacă politica nu este configurată, dispozitivul se comportă ca și cum ar fi aleasă opțiunea „DisallowArc”.</translation>
 <translation id="7311458740754205918">Dacă politica este activată sau nu este configurată, este posibil ca pagina Filă nouă să afișeze sugestii privind conținutul pe baza istoricului de navigare, a intereselor și a locației utilizatorului.
 
       Dacă politica este dezactivată, sugestiile generate automat privind conținutul nu sunt afișate pe pagina Filă nouă.</translation>

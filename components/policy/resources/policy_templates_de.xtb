@@ -503,6 +503,7 @@ Falls die Richtlinie auf "false" gesetzt wird, kann eine verzögerungsfreie auto
 
       Ist die Einstellung deaktiviert oder nicht konfiguriert, können Nutzer zu der gekennzeichneten Website navigieren, nachdem sie den Warnhinweis gesehen haben.</translation>
 <translation id="2824715612115726353">Inkognitomodus aktivieren</translation>
+<translation id="2838830882081735096">Datenmigration und ARC nicht zulassen</translation>
 <translation id="2844404652289407061">Durch diese Richtlinie wird die Verfügbarkeit von "Zum Suchen tippen" in der Inhaltsansicht von <ph name="PRODUCT_NAME" /> aktiviert.
 
       Wenn Sie diese Einstellung aktivieren, steht dem Nutzer "Zum Suchen tippen" zur Verfügung und er kann die Funktion aktivieren oder deaktivieren.
@@ -879,6 +880,7 @@ Wird die Richtlinie auf "false" gesetzt oder nicht konfiguriert, wird kein Zerti
 <translation id="436581050240847513">Gerätenetzwerk-Schnittstellen melden</translation>
 <translation id="4372704773119750918">Nutzer in Unternehmen dürfen keine Mehrfachprofile verwenden (weder als primärer, noch als sekundärer Nutzer)</translation>
 <translation id="4377599627073874279">Anzeige aller Bilder auf allen Websites zulassen</translation>
+<translation id="437791893267799639">Richtlinie nicht konfiguriert, Datenmigration und ARC nicht zulassen</translation>
 <translation id="4389091865841123886">Konfiguriert die Remote-Bestätigung mit TPM-Mechanismus</translation>
 <translation id="4397469093966511008">Wenn diese Richtlinie auf "false" eingestellt ist, können Nutzer nicht mehr auswählen, ob sie einige Systeminformationen und Seiteninhalte an die Google-Server senden möchten. Ist die Richtlinie auf "true" eingestellt oder nicht konfiguriert, können Nutzer einige Systeminformationen und Seiteninhalte an Safe Browsing senden, um bei der Erfassung schädlicher Apps und Websites zu helfen.</translation>
 <translation id="4418726081189202489">Beim Festlegen dieser Richtlinien auf "False" wird <ph name="PRODUCT_NAME" /> daran gehindert, gelegentlich Abfragen an einen Google-Server zu senden, um einen korrekten Zeitstempel abzurufen. Diese Abfragen werden aktiviert, sobald für diese Richtlinien "True" oder nichts festgelegt ist.</translation>
@@ -1161,6 +1163,7 @@ Falls die Richtlinie auf "false" gesetzt wird, werden Anfragen für Bildschirm-W
 <translation id="5586942249556966598">Nichts tun</translation>
 <translation id="5630352020869108293">Letzte Sitzung wiederherstellen</translation>
 <translation id="5645779841392247734">Cookies auf diesen Websites zulassen</translation>
+<translation id="5693469654327063861">Datenmigration zulassen</translation>
 <translation id="5694594914843889579">Wenn diese Einstellung auf "true" gesetzt ist, ist im Datei-Browser kein externer Speicher verfügbar.
 
       Diese Einstellung gilt für alle Arten von Speichermedien, wie USB-Speichersticks, externe Festplatten, SD-Karten und andere Speicherkarten sowie optische Speichermedien. Der interne Speicher ist nicht betroffen, im Downloadordner gespeicherte Dateien können darum weiterhin abgerufen werden. Zudem hat diese Einstellung keine Auswirkungen auf Google Drive.
@@ -1374,6 +1377,7 @@ Ein Teil der Proxyeinstellungen ist für Android-Apps verfügbar und kann auf fr
           Der Wert für die Richtlinie muss in Millisekunden angegeben werden. Werte müssen kleiner als der Wert für die Inaktivitätsverzögerung sein.</translation>
 <translation id="6536600139108165863">Automatischer Neustart nach Herunterfahren des Geräts</translation>
 <translation id="6539246272469751178">Diese Richtlinie hat keine Auswirkung auf Android-Apps. Android-Apps verwenden immer das Standardverzeichnis für Downloads und haben keinen Zugriff auf Dateien, die von <ph name="PRODUCT_OS_NAME" /> in ein anderes Verzeichnis als das Standardverzeichnis für Downloads heruntergeladen werden.</translation>
+<translation id="654303922206238013">Migrationsstrategie für eCryptfs</translation>
 <translation id="6544897973797372144">Wenn diese Richtlinie auf "True" gesetzt ist und die Richtlinie "ChromeOsReleaseChannel" nicht angegeben ist, können Nutzer der Anmelde-Domain den Release-Kanal des Geräts ändern. Ist diese Richtlinie auf "False" gesetzt, wird auf dem Gerät der zuletzt eingestellte Kanal verwendet und dieser kann nicht geändert werden.
 
       Der vom Nutzer ausgewählte Kanal wird durch die Richtlinie "ChromeOsReleaseChannel" außer Kraft gesetzt. Falls der Kanal der Richtlinie jedoch stabiler ist als der auf dem Gerät installierte Kanal, wird der Kanal erst gewechselt, nachdem der stabilere Kanal eine höhere Versionsnummer als der auf dem Gerät installierte Kanal erreicht hat.</translation>
@@ -1567,6 +1571,13 @@ Wird diese Richtlinie nicht konfiguriert, wird der standardmäßige Profilpfad v
 
           Diese Richtlinie wird nur befolgt, wenn die Richtlinie "DefaultSearchProviderEnabled" aktiviert ist.</translation>
 <translation id="7302043767260300182">Verzögerung für die Bildschirmsperre im Netzbetrieb</translation>
+<translation id="7309839952828354215">Hiermit wird angegeben, wie sich ein Gerät verhalten soll, das mit eCryptfs geliefert wurde und nun eine ext4-Verschlüsselung benötigt.
+
+      Wenn diese Richtlinie auf "DisallowArc" gesetzt ist, werden Android-Apps für alle Nutzer des Geräts deaktiviert (einschließlich derer, die die ext4-Verschlüsselung schon haben). Außerdem wird die Migration von eCryptfs zur ext4-Verschlüsselung keinem Nutzer angeboten.
+
+      Wenn die Richtlinie auf "AllowMigration" gesetzt ist, wird Nutzern mit eCryptfs-Hauptverzeichnissen angeboten, diese je nach Bedarf in die ext4-Verschlüsselung zu migrieren (aktuell, wenn Android N für das Gerät zur Verfügung steht).
+
+      Wird die Richtlinie nicht konfiguriert, verhält sich das Gerät so, als ob "DisallowArc" ausgewählt wäre.</translation>
 <translation id="7311458740754205918">Wenn für diese Richtlinie "true" festgelegt wird oder wenn sie nicht konfiguriert wird, werden auf der "Neuer Tab"-Seite unter Umständen Inhaltsvorschläge auf Basis des Browserverlaufs, der Interessen oder des Standorts des Nutzers angezeigt.
 
       Wenn für diese Richtlinie "false" festgelegt wird, werden auf der "Neuer Tab"-Seite keine automatisch generierten Inhaltsvorschläge angezeigt.</translation>

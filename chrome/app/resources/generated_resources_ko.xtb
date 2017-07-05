@@ -1060,7 +1060,7 @@
 <translation id="2518024842978892609">클라이언트 인증서 사용</translation>
 <translation id="2520644704042891903">사용 가능한 소켓 대기 중...</translation>
 <translation id="252219247728877310">구성요소가 업데이트되지 않음</translation>
-<translation id="2523966157338854187">특정 페이지 또는 페이지 집합 열기.</translation>
+<translation id="2523966157338854187">특정 페이지 또는 페이지 모음 열기</translation>
 <translation id="2525250408503682495">키오스크 애플리케이션에 대한 cryptohome을 마운트할 수 없습니다.</translation>
 <translation id="2526590354069164005">데스크톱</translation>
 <translation id="2526619973349913024">업데이트 상태 확인</translation>
@@ -1133,7 +1133,7 @@
 <translation id="2624142942574147739">카메라와 마이크에 액세스하는 페이지입니다.</translation>
 <translation id="2626799779920242286">나중에 다시 시도해 주세요.</translation>
 <translation id="2630681426381349926">Wi-Fi에 연결하여 시작</translation>
-<translation id="2631006050119455616">저장됨</translation>
+<translation id="2631006050119455616">절약</translation>
 <translation id="2631498379019108537">실행기에 입력 옵션 표시</translation>
 <translation id="2633199387167390344"><ph name="NAME" />에서 <ph name="USAGE" />MB의 디스크 공간을 사용하고 있습니다.</translation>
 <translation id="2633212996805280240">'<ph name="EXTENSION_NAME" />'을(를) 삭제하시겠습니까?</translation>
@@ -1768,7 +1768,7 @@
 <translation id="3488065109653206955">부분적으로 활성화됨</translation>
 <translation id="3492788708641132712">동기화가 작동하지 않습니다. 다시 로그인하세요.</translation>
 <translation id="3493881266323043047">유효성</translation>
-<translation id="3494768541638400973">Google 일본어 입력(일본어 키보드용)</translation>
+<translation id="3494768541638400973">Google 일본어 입력기(일본어 키보드용)</translation>
 <translation id="3494769164076977169">사이트에서 첫 파일 다운로드 후 자동으로 파일을 다운로드하려고 할 때 확인(권장)</translation>
 <translation id="3495304270784461826">오류가 <ph name="COUNT" />개 있습니다.</translation>
 <translation id="3496213124478423963">축소</translation>
@@ -3158,7 +3158,7 @@
 <translation id="5583370583559395927">남은 시간: <ph name="TIME_REMAINING" /></translation>
 <translation id="5583640892426849032">Backspace</translation>
 <translation id="5585118885427931890">북마크 폴더를 만들지 못했습니다.</translation>
-<translation id="558563010977877295">특정 페이지 또는 페이지 집합 열기</translation>
+<translation id="558563010977877295">특정 페이지 또는 페이지 모음 열기</translation>
 <translation id="5585912436068747822">포맷 실패</translation>
 <translation id="5588033542900357244">(<ph name="RATING_COUNT" />개)</translation>
 <translation id="558918721941304263">앱 로드 중...</translation>
@@ -4042,7 +4042,7 @@
 <translation id="6929555043669117778">팝업 계속 차단</translation>
 <translation id="6930242544192836755">기간</translation>
 <translation id="6935867720248834680">GMS 서비스를 사용할 수 없습니다.</translation>
-<translation id="6937152069980083337">Google 일본어 입력(미국 키보드용)</translation>
+<translation id="6937152069980083337">Google 일본어 입력기(미국 키보드용)</translation>
 <translation id="693807610556624488">기기(<ph name="DEVICE_NAME" />)의 쓰기 작업이 최대 속성 길이를 초과합니다.</translation>
 <translation id="6939777852457331078">미국 워크맨 키보드</translation>
 <translation id="6941427089482296743">표시된 항목 모두 삭제</translation>

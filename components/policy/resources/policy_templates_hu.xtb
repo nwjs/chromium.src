@@ -513,6 +513,7 @@
 
       Ha a beállítás le van tiltva vagy nincs megadva, akkor a felhasználók dönthetik el, hogy a figyelmeztetés megtekintése után továbblépnek-e a megjelölt webhelyre.</translation>
 <translation id="2824715612115726353">Inkognitómód engedélyezése</translation>
+<translation id="2838830882081735096">Adatmigráció és ARC letiltása</translation>
 <translation id="2844404652289407061">Lehetővé teszi az Érintéssel keresés funkció használatát a <ph name="PRODUCT_NAME" /> tartalomnézetében.
 
       Ha aktiválja ezt a beállítást, akkor a felhasználó használhatja az Érintéssel keresés funkciót, és saját maga döntheti el, hogy be- vagy kikapcsolja-e azt.
@@ -888,6 +889,7 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 <translation id="436581050240847513">Hálózati eszközinterfészek bejelentése</translation>
 <translation id="4372704773119750918">A vállalati felhasználó ne használhassa a többprofilos módot (elsődleges vagy másodlagos)</translation>
 <translation id="4377599627073874279">Az összes kép megjelenítésének engedélyezése valamennyi webhely számára</translation>
+<translation id="437791893267799639">Házirend nincs beállítva, adatmigráció és ARC letiltása</translation>
 <translation id="4389091865841123886">TPM mechanizmussal történő távoli tanúsítás konfigurálása.</translation>
 <translation id="4397469093966511008">Ha ennek a házirendnek az értéke hamis, akkor a felhasználók nem dönthetik el, hogy elküldjenek-e bizonyos rendszer-információkat és oldaltartalmakat a Google szervereinek. Ha a beállítás aktív, vagy ha nincs konfigurálva, akkor a felhasználók elküldhetnek bizonyos rendszer-információkat és oldaltartalmakat a Biztonságos Böngészés szolgáltatásnak, hogy segítsék a veszélyes alkalmazások és webhelyek észlelését.</translation>
 <translation id="4418726081189202489">Ha a házirend értéke hamis, akkor a(z) <ph name="PRODUCT_NAME" /> nem küldhet véletlenszerűen lekérdezéseket Google-szervereknek pontos időbélyeg kéréséhez. A lekérdezések akkor engedélyezettek, ha a házirend értéke igaz, vagy ha nincs beállítva.</translation>
@@ -1169,6 +1171,7 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 <translation id="5586942249556966598">Ne tegyen semmit</translation>
 <translation id="5630352020869108293">Utolsó munkamenet visszaállítása</translation>
 <translation id="5645779841392247734">Cookie-k engedélyezése ezeken a webhelyeken</translation>
+<translation id="5693469654327063861">Adatmigráció engedélyezése</translation>
 <translation id="5694594914843889579">Ha a házirend értéke Igaz, a külső tárhely nem lesz hozzáférhető a fájlböngészőben.
 
       A házirend minden adathordozóra vonatkozik, például USB-tárra, külső merevlemezre, SD- és egyéb memóriakártyákra, optikai tárhelyre stb. A belső tárhelyre nincs hatással, így a Letöltések mappában mentett fájlok továbbra is elérhetők lesznek. A Google Drive-ra szintén nem érvényes ez a házirend.
@@ -1382,6 +1385,7 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
           A házirend értékét ezredmásodpercben kell megadni. Az értéknek kevesebbnek kell lennie a tétlenségi késleltetésnél.</translation>
 <translation id="6536600139108165863">Automatikus újraindítás az eszköz leállításakor</translation>
 <translation id="6539246272469751178">Ez a házirend nem vonatkozik az Android-alkalmazásokra. Az Android-alkalmazások mindig az alapértelmezés szerinti letöltési könyvtárat használják, és nem férhetnek hozzá a(z) <ph name="PRODUCT_OS_NAME" /> által a nem alapértelmezés szerinti letöltési könyvtárba letöltött fájlokhoz.</translation>
+<translation id="654303922206238013">Migrációs stratégia a következőhöz: ecryptfs</translation>
 <translation id="6544897973797372144">Ha a házirend értéke Igaz, és a ChromeOsReleaseChannel házirend nincs megadva, akkor a részt vevő domain felhasználói megváltoztathatják az eszköz kiadási csatornáját. Ha a házirend értéke Hamis, akkor az eszköz csak az utoljára beállított csatornát használhatja.
 
       A felhasználó által kiválasztott csatornát felülírja a ChromeOsReleaseChannel házirend, de ha a házirend csatornája stabilabb, mint az eszközön telepített csatorna, akkor a csatornaváltás csak azt követően történik meg, hogy a stabilabb csatorna verziója magasabb számot ért el, mint a korábban az eszközre telepített csatorna verziószáma.</translation>
@@ -1578,6 +1582,13 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 
           Az alkalmazás csak akkor veszi figyelembe ezt a házirendet, ha a „DefaultSearchProviderEnabled” házirend is engedélyezve van.</translation>
 <translation id="7302043767260300182">Képernyőzár késleltetése hálózati áramról való működés során</translation>
+<translation id="7309839952828354215">Meghatározza, hogy hogyan viselkedjenek az olyan eszközök, amelyek ecryptfs titkosítással rendelkeznek, és amelyeket át kell ültetni ext4 titkosításra.
+
+      Ha a házirend beállítása „DisallowArc”, akkor az Android-alkalmazások az eszköz összes felhasználója számára le lesznek tiltva (beleértve azokat is, akik már rendelkeznek ext4 titkosítással), és a rendszer nem ajánlja fel a felhasználóknak az ecryptfs titkosításról az ext4 titkosításra történő migrációt.
+
+      Ha a házirend beállítása „AllowMigration”, a rendszer felajánlja az ecryptfs kezdőkönyvtárakkal rendelkező felhasználóknak, hogy ezeket szükség esetén ext4 titkosításra migrálja (jelenleg akkor, amikor az Android N hozzáférhetővé válik az eszközön.
+
+      Ha nincs beállítva a házirend, az eszköz úgy viselkedik, mintha a „DisallowArc” lenne kiválasztva.</translation>
 <translation id="7311458740754205918">Ha igazra van állítva, vagy ha nincs beállítva, az Új lap oldalon megjelenhetnek javaslatok a felhasználó böngészési előzményei, érdeklődési körei vagy tartózkodási helye alapján.
 
       Ha a beállítás hamis, akkor nem jelennek meg automatikusan generált tartalomjavaslatok az Új lap oldalon.</translation>

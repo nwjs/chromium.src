@@ -513,6 +513,7 @@
 
       Jeśli nie skonfigurujesz tego ustawienia lub je wyłączysz, użytkownicy będą mogli wybrać, czy chcą przejść ze strony ostrzeżenia na stronę oznaczoną jako szkodliwa.</translation>
 <translation id="2824715612115726353">Włącz tryb incognito</translation>
+<translation id="2838830882081735096">Nie zezwalaj na migrację danych ani na działanie ARC</translation>
 <translation id="2844404652289407061">Pozwala korzystać z funkcji „Dotknij, by wyszukać” w widoku treści w <ph name="PRODUCT_NAME" />.
 
       Jeśli włączysz to ustawienie, funkcja „Dotknij, by wyszukać” będzie dostępna dla użytkownika i będzie on mógł ją włączyć lub wyłączyć.
@@ -890,8 +891,9 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="436581050240847513">Raportuj interfejsy sieciowe urządzeń</translation>
 <translation id="4372704773119750918">Nie zezwalaj użytkownikom firmowym na korzystanie z trybu wieloprofilowego (jako użytkownik główny ani dodatkowy)</translation>
 <translation id="4377599627073874279">Zezwalaj na wyświetlanie wszelkich grafik we wszystkich witrynach</translation>
+<translation id="437791893267799639">Zasada nie jest skonfigurowana, nie zezwalaj na migrację danych ani na działanie ARC</translation>
 <translation id="4389091865841123886">Konfiguruje zdalne poświadczanie przy użyciu mechanizmu TPM</translation>
-<translation id="4397469093966511008">Wyłączenie tej zasady spowoduje, że użytkownicy nie będą mogli wysyłać na serwery Google pewnych informacji o systemie ani zawartości stron. Jeśli ta zasada jest włączona lub nieskonfigurowana, użytkownicy będą mogli wysyłać te dane do usługi Bezpieczne przeglądanie, by pomóc w wykrywaniu niebezpiecznych aplikacji i stron.</translation>
+<translation id="4397469093966511008">Wyłączenie tej zasady spowoduje, że użytkownicy nie będą mogli wysyłać na serwery Google pewnych informacji o systemie ani zawartości stron. Jeśli ta zasada jest włączona lub nieskonfigurowana, użytkownicy będą mogli wysyłać te dane do funkcji Bezpieczne przeglądanie, by pomóc w wykrywaniu niebezpiecznych aplikacji i stron.</translation>
 <translation id="4418726081189202489">Wyłączenie tej zasady spowoduje, że <ph name="PRODUCT_NAME" /> nie będzie okresowo wysyłać zapytań do serwera Google w celu pobrania dokładnej sygnatury czasowej. Zapytania zostaną włączone, jeśli włączysz tę zasadę lub nie skonfigurujesz jej wcale.</translation>
 <translation id="4423597592074154136">Ręcznie określ ustawienia serwera proxy</translation>
 <translation id="4429220551923452215">Włącza lub wyłącza skróty aplikacji na pasku zakładek.
@@ -1166,6 +1168,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="5586942249556966598">Nic nie rób</translation>
 <translation id="5630352020869108293">Przywróć ostatnią sesję</translation>
 <translation id="5645779841392247734">Zezwalaj na pliki cookie w tych witrynach</translation>
+<translation id="5693469654327063861">Zezwól na migrację danych</translation>
 <translation id="5694594914843889579">Po włączeniu tej zasady pamięci zewnętrzne będą niedostępne w przeglądarce plików.
 
       Ta zasada dotyczy wszystkich typów nośników pamięci, takich jak na przykład napędy flash USB, zewnętrzne dyski twarde, karty pamięci SD i inne, pamięci optyczne itd. Pamięć wewnętrzna nie podlega tej zasadzie, więc nadal będzie można otwierać pliki z folderu Pobrane. Ta zasada nie dotyczy też Dysku Google.
@@ -1378,6 +1381,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
           Wartość zasady powinna być określona w milisekundach. Wartości muszą być mniejsze niż opóźnienie bezczynności.</translation>
 <translation id="6536600139108165863">Automatyczny restart przy wyłączaniu urządzenia</translation>
 <translation id="6539246272469751178">Ta zasada nie ma wpływu na aplikacje na Androida. Aplikacje te zawsze używają domyślnego katalogu na pobrane pliki i nie mają dostępu do plików pobranych przez <ph name="PRODUCT_OS_NAME" /> do innych katalogów.</translation>
+<translation id="654303922206238013">Strategia migracji dla plików eCryptfs</translation>
 <translation id="6544897973797372144">Jeśli ta zasada zostanie włączona, a zasada ChromeOsReleaseChannel nie będzie określona, użytkownicy domeny rejestrującej będą mogli zmienić kanał wersji urządzenia. Jeśli ta zasada będzie wyłączona, na urządzeniu zostanie zablokowany ostatnio ustawiony kanał.
 
       Kanał wybrany przez użytkownika zostanie zmieniony przez zasadę ChromeOsReleaseChannel, ale jeśli zasada określa kanał stabilniejszy niż zainstalowany na urządzeniu, kanał zostanie zmieniony, gdy wersja z kanału stabilniejszego będzie miała numer wyższy od wersji zainstalowanej na urządzeniu.</translation>
@@ -1564,6 +1568,13 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 
           Ta zasada jest stosowana tylko wtedy, gdy włączono zasadę „DefaultSearchProviderEnabled”.</translation>
 <translation id="7302043767260300182">Opóźnienie blokady ekranu przy zasilaniu sieciowym</translation>
+<translation id="7309839952828354215">Określa, jak powinno zachowywać się urządzenie, które zostało dostarczone z systemem plików eCryptfs i wymaga przejścia na szyfrowanie ext4.
+
+      Jeśli wybierzesz dla tej zasady ustawienie „DisallowArc”, aplikacje na Androida zostaną wyłączone dla wszystkich użytkowników urządzenia (także tych, którzy już korzystają z szyfrowania ext4). Użytkownicy nie będą mogli przeprowadzić migracji z szyfrowania eCryptfs do ext4.
+
+      Jeśli wybierzesz dla tej zasady ustawienie „AllowMigration”, użytkownicy korzystający z katalogów domowych eCryptfs zobaczą opcję przeniesienia ich do szyfrowania ext4, jeśli będzie to konieczne (obecnie dzieje się to w momencie, gdy na urządzeniu pojawia się Android N).
+
+      Jeśli zasada pozostanie nieskonfigurowana, urządzenie będzie zachowywać się tak samo jak po wybraniu opcji „DisallowArc”.</translation>
 <translation id="7311458740754205918">Jeśli ta zasada ma wartość prawda lub nie jest skonfigurowana, na stronie Nowa karta mogą pojawiać się polecane treści wybrane na podstawie historii przeglądania, zainteresowań lub lokalizacji użytkownika.
 
       Jeśli ta zasada ma wartość fałsz, automatycznie wybierane polecane treści nie będą wyświetlać się na stronie Nowa karta.</translation>

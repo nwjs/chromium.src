@@ -518,6 +518,7 @@ Pokud tuto zásadu ponecháte nenastavenou, bude tato možnost aktivována, ale 
 
       Pokud je toto nastavení deaktivováno nebo není nakonfigurováno, uživatelé mohou po zobrazení upozornění pokračovat na označený web.</translation>
 <translation id="2824715612115726353">Povolit anonymní režim</translation>
+<translation id="2838830882081735096">Zakázat migraci dat a rozšíření ARC</translation>
 <translation id="2844404652289407061">Aktivuje dostupnost Vyhledání klepnutím v zobrazení obsahu prohlížeče <ph name="PRODUCT_NAME" />.
 
 Pokud toto nastavení aktivujete, Vyhledání klepnutím bude pro uživatele dostupné (uživatel jej bude moci zapnout nebo vypnout).
@@ -911,6 +912,7 @@ Pokud tuto zásadu nenastavíte, použije se pro všechny webové stránky glob�
 <translation id="436581050240847513">Odesílat informace o síťových rozhraních zařízení</translation>
 <translation id="4372704773119750918">Nepovolí podnikovým uživatelům být součástí multiprofilu (primárního či sekundárního)</translation>
 <translation id="4377599627073874279">Povolit všem webům zobrazování všech obrázků</translation>
+<translation id="437791893267799639">Zásada nenastavena, zakázat migraci dat a rozšíření ARC</translation>
 <translation id="4389091865841123886">Konfiguruje vzdálené ověření identity pomocí mechanismu TPM.</translation>
 <translation id="4397469093966511008">Pokud tuto zásadu nastavíte na hodnotu false, uživatelé nebudou moci zvolit, že se mají některé informace o systému a obsahu stránek odeslat na servery Google. Pokud je tato zásada nastavena na hodnotu true nebo není nakonfigurována, uživatelé budou moci odesílat část informací o systému a obsahu stránek do Bezpečného prohlížení a pomoci tak zjišťovat nebezpečné aplikace a weby.</translation>
 <translation id="4418726081189202489">Pokud tuto zásadu nastavíte na hodnotu False, přestane <ph name="PRODUCT_NAME" /> odesílat příležitostné dotazy na server Google k získání přesného časového razítka. Pokud tato zásada bude nastavena na hodnotu True nebo nebude nastavena, budou tyto dotazy povoleny.</translation>
@@ -1224,6 +1226,7 @@ Pokud tuto zásadu ponecháte nenastavenou, uživatelé budou moci nastavit auto
 <translation id="5586942249556966598">Nedělat nic</translation>
 <translation id="5630352020869108293">Obnovit poslední relaci</translation>
 <translation id="5645779841392247734">Povolit soubory cookie na těchto stránkách</translation>
+<translation id="5693469654327063861">Povolit migraci dat</translation>
 <translation id="5694594914843889579">Když je tato zásada nastavena na hodnotu True, externí úložiště nebude k dispozici v prohlížeči souborů.
 
       Tato zásada má vliv na všechny typy úložných médií. Jedná se například o jednotky USB flash, externí pevné disky, paměťové karty SD a další paměťové karty, optická úložiště apod. Na interní úložiště tato zásada vliv nemá. Soubory ve složce Stažené zůstanou přístupné. Tato zásada nemá vliv ani na Disk Google.
@@ -1455,6 +1458,7 @@ Nastavením této zásady na hodnotu False přeskočení stránky s upozorněn�
           Hodnotu zásady zadávejte v milisekundách. Maximální hodnota je nižší než prodleva režimu spánku.</translation>
 <translation id="6536600139108165863">Automaticky restartovat po vypnutí zařízení</translation>
 <translation id="6539246272469751178">Na aplikace Android tato zásada nemá vliv. Aplikace Android používají pro stažené soubory vždy výchozí adresář a k souborům, které systém <ph name="PRODUCT_OS_NAME" /> stáhl do jiného než výchozího adresáře, nemají přístup.</translation>
+<translation id="654303922206238013">Strategie migrace pro šifrování ecryptfs</translation>
 <translation id="6544897973797372144">Pokud je tato zásada nastavena na hodnotu True a zásada ChromeOsReleaseChannel není určena, uživatelé smějí v zařízení změnit kanál verzí. Pokud je tato zásada nastavena hodnotu False, zařízení je uzamčeno v kanálu, ve kterém bylo naposledy nastaveno.
 
       Kanál vybraný uživatelem bude přepsán zásadou ChromeOsReleaseChannel, avšak je-li kanál zásady stabilnější než kanál nainstalovaný v zařízení, změní se kanál až ve chvíli, kdy bude pro stabilnější kanál k dispozici vyšší verze než pro kanál nainstalovaný k zařízení.</translation>
@@ -1661,6 +1665,13 @@ Pokud tuto zásadu nenastavíte, bude při prvním zobrazení přihlašovací ob
 
           Tato zásada platí pouze v případě, že je aktivována zásada DefaultSearchProviderEnabled.</translation>
 <translation id="7302043767260300182">Prodleva uzamčení obrazovky při napájení ze sítě</translation>
+<translation id="7309839952828354215">Určuje, jak se má chovat zařízení dodané s šifrováním ecryptfs, které potřebuje přejít na šifrování ext4.
+
+      Pokud tuto zásadu nastavíte na hodnotu DisallowArc, aplikace pro Android budou zakázány u všech uživatelů zařízení (včetně těch, kteří již šifrování ext4 mají) a žádným uživatelům nebude nabídnuta migrace z šifrování ecryptfs na ext4.
+
+      Pokud tuto zásadu nastavíte na hodnotu AllowMigration, uživatelům s domovskými adresáři šifrovanými pomocí ecryptfs bude podle potřeby nabízena migrace adresářů na šifrování ext4 (momentálně ve chvíli, kdy v zařízení bude dostupný systém Android N).
+
+      Pokud tato zásada nebude nastavena, zařízení se bude chovat, jako kdyby byla vybrána hodnota DisallowArc.</translation>
 <translation id="7311458740754205918">Pokud je tato zásada nastavena na hodnotu True nebo je ponechána nenastavená, na stránce Nová karta se mohou zobrazovat návrhy obsahu na základě historie procházení, zájmů nebo polohy uživatele.
 
       Pokud je tato zásada nastavena na hodnotu False, automaticky generované návrhy obsahu se na stránce Nová karta nezobrazují.</translation>

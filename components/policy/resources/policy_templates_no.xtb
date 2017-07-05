@@ -528,6 +528,7 @@
 
       Hvis denne innstillingen er deaktivert eller ikke konfigurert, kan brukerne velge å fortsette til det rapporterte nettstedet etter å ha sett advarselen.</translation>
 <translation id="2824715612115726353">Aktiver inkognitomodus</translation>
+<translation id="2838830882081735096">Ikke tillat dataoverføring og ARC</translation>
 <translation id="2844404652289407061">Gjør «Trykk for å søke» tilgjengelig i innholdsvisningen i <ph name="PRODUCT_NAME" />.
 
       Hvis du slår på denne innstillingen, blir «Trykk for å søke»-funksjonen tilgjengelig for brukerne, og de kan velge om de vil slå den på eller av.
@@ -912,6 +913,7 @@
 <translation id="436581050240847513">Rapportér nettverksgrensesnitt for enheten</translation>
 <translation id="4372704773119750918">Ikke tilllat bedriftsbrukeren å være en del av flerprofilen (primær eller sekundær)</translation>
 <translation id="4377599627073874279">La alle nettsteder vise alle bilder</translation>
+<translation id="437791893267799639">Innstillingen er ikke angitt – ikke tillat dataoverføring og ARC</translation>
 <translation id="4389091865841123886">Konfigurer ekstern attestering med TPM-mekanisme</translation>
 <translation id="4397469093966511008">Hvis denne regelen settes til «false» (usann), kan ikke brukerne velge å sende enkelte typer systeminformasjon og sideinnhold til Googles tjenere. Hvis denne regelen settes til «true» (sann) eller ikke konfigureres, kan brukerne sende enkelte typer systeminformasjon eller innhold til Sikker Surfing for å bidra til å oppdage farlige apper og nettsteder.</translation>
 <translation id="4418726081189202489">Hvis du setter denne regelen til «false» (usann), forhindres <ph name="PRODUCT_NAME" /> fra å sende sporadiske forespørsler til en Google-tjeneste for å innhente et nøyaktig tidsstempel. Slike forespørsler er aktivert hvis regelen er satt til «true» (sann) eller ikke er angitt.</translation>
@@ -1220,6 +1222,7 @@
 <translation id="5586942249556966598">Gjør ingenting</translation>
 <translation id="5630352020869108293">Gjenopprett den siste økten</translation>
 <translation id="5645779841392247734">Tillat informasjonskapsler på disse nettstedene</translation>
+<translation id="5693469654327063861">Tillat dataoverføring</translation>
 <translation id="5694594914843889579">Når denne regelen er angitt som «true» (sann), er ikke eksterne lagringsmedier tilgjengelige i filbehandleren.
 
       Denne regelen påvirker alle typer lagringsmedier, for eksempel USB-flashenheter, eksterne harddisker, SD-kort og andre minnekort, optisk lagring osv. Intern lagring påvirkes ikke, så filer du har lastet ned i nedlastingsmappen, er fortsatt tilgjengelige. Google Disk påvirkes heller ikke av denne regelen.
@@ -1450,6 +1453,7 @@
           Verdien for innstillingen må angis i millisekunder. Verdien er låst til å være lavere enn inaktivitetsforsinkelsen.</translation>
 <translation id="6536600139108165863">Start på nytt automatisk når enheten slås av</translation>
 <translation id="6539246272469751178">Denne regelen har ingen innvirkning på Android-apper. Android-apper bruker alltid standardkatalogen for nedlastinger og har ikke tilgang til noen filer som lastes ned av <ph name="PRODUCT_OS_NAME" /> til en annen katalog en standardkatalogen.</translation>
+<translation id="654303922206238013">Overføringsstrategi for eCryptfs</translation>
 <translation id="6544897973797372144">Hvis denne innstillingen er angitt som Sann og ChromeOsReleaseChannel-retningslinjen ikke er spesifisert, så gis brukere fra domenet som registreres, tillatelse til å endre enhetens lanseringskanal. Hvis denne retningslinjen er angitt som Usann, blir enheten låst til kanalen den sist ble tilordnet til.
 
       Den brukervalgte kanalen overstyres av ChromeOsReleaseChannel-retningslinjen, men hvis retningslinjekanalen er mer stabil enn den som ble installert på enheten, byttes kanalen bare etter at versjonen av den mer stabile kanalen når et høyere versjonsnummer enn nummeret på den som er installert på enheten.</translation>
@@ -1657,6 +1661,13 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 
          Denne retningslinjen gjelder bare hvis retningslinjen DefaultSearchProviderEnabled er aktivert.</translation>
 <translation id="7302043767260300182">Skjermlåsforsinkelse når du bruker strømadapteren</translation>
+<translation id="7309839952828354215">Spesifiserer hvordan enheter som har blitt levert med eCryptfs, og som må gå over til ext4-kryptering, bør oppføre seg.
+
+      Hvis du angir denne innstillingen som «DisallowArc», blir Android-apper deaktivert for alle brukere av enheten (inkludert brukerne som allerede har ext4-kryptering), og ingen brukere får muligheten til å overføre fra eCryptfs til ext4-kryptering.
+
+      Hvis du angir denne innstillingen som «AllowMigration», har brukere med eCryptfs-hjemmekataloger muligheten til å overføre disse til ext4-kryptering der det er nødvendig (for øyeblikket når Android N blir tilgjengelig på enheten).
+
+      Hvis denne innstillingen ikke angis, oppfører enheten seg som om «DisallowArc» er valgt.</translation>
 <translation id="7311458740754205918">Hvis denne regelen er angitt som «true» (sann) eller ikke er angitt, kan nye faner vise innholdsforslag som er basert på brukerens nettleserlogg, interesser eller steder.
 
       Hvis den er angitt som «false» (usann), vises ikke automatisk genererte innholdsforslag på nye faner.</translation>

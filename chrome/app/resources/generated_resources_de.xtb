@@ -2384,7 +2384,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="4452426408005428395">Abbrechen</translation>
 <translation id="4454939697743986778">Dieses Zertifikat wurde von Ihrem Systemadministrator installiert.</translation>
 <translation id="445891990714234385">ChromeVox-Einstellungen</translation>
-<translation id="445923051607553918">Mit WLAN-Netzwerk verbinden</translation>
+<translation id="445923051607553918">Mit WLAN verbinden</translation>
 <translation id="4462159676511157176">Benutzerdefinierte Nameserver</translation>
 <translation id="4465830120256509958">Brasilianische Tastatur</translation>
 <translation id="4467100756425880649">Chrome Web Store-Galerie</translation>
@@ -3124,7 +3124,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5553089923092577885">Zuordnungen von Zertifikatrichtlinien</translation>
 <translation id="5553784454066145694">Neue PIN auswählen</translation>
 <translation id="5554489410841842733">Dieses Symbol wird eingeblendet, wenn die Erweiterung auf die aktuelle Seite angewendet werden kann.</translation>
-<translation id="5554573843028719904">Anderes WLAN-Netzwerk...</translation>
+<translation id="5554573843028719904">Anderes WLAN...</translation>
 <translation id="5554720593229208774">E-Mail-Zertifizierungsstelle</translation>
 <translation id="5556206011531515970">Klicken Sie auf "Weiter", um Ihren Standardbrowser zu wählen.</translation>
 <translation id="5556459405103347317">Neu laden</translation>
@@ -3575,7 +3575,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="6251870443722440887">GDI-Handles</translation>
 <translation id="6251889282623539337">Nutzungsbedingungen für <ph name="DOMAIN" /></translation>
 <translation id="6254503684448816922">Kompromittierung des Schlüssels</translation>
-<translation id="6256079118265363670">Google Play Store auf Chromebook aktivieren</translation>
+<translation id="6256079118265363670">Google Play Store auf dem Chromebook aktivieren</translation>
 <translation id="6259104249628300056">Geräte in Ihrem lokalen Netzwerk finden</translation>
 <translation id="6263082573641595914">Microsoft - Version der Zertifizierungsstelle</translation>
 <translation id="6263284346895336537">Nicht kritisch</translation>
@@ -5595,7 +5595,7 @@ Nachfolgende Benachrichtigungen, Fenster und Dialogfenster werden unter Umständ
 <translation id="958515377357646513">Zum Weitergehen tippen.</translation>
 <translation id="960719561871045870">Betreibercode</translation>
 <translation id="960987915827980018">Noch etwa 1 Stunde</translation>
-<translation id="96421021576709873">WLAN-Netzwerk</translation>
+<translation id="96421021576709873">WLAN</translation>
 <translation id="968174221497644223">Cache</translation>
 <translation id="970047733946999531">{NUM_TABS,plural, =1{1 Tab}other{# Tabs}}</translation>
 <translation id="970794034573172516">Sprach- &amp; Audioaktivitäten aktivieren</translation>

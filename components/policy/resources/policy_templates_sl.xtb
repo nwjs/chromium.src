@@ -540,6 +540,7 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 
       Če je ta nastavitev onemogočena ali ni nastavljena, lahko uporabniki po prikazu opozorila nadaljujejo na označeno spletno mesto.</translation>
 <translation id="2824715612115726353">Omogoči način brez beleženja zgodovine</translation>
+<translation id="2838830882081735096">Prepoved selitve podatkov in ARC-ja</translation>
 <translation id="2844404652289407061">Omogoči razpoložljivost funkcije »Dotaknite se za iskanje« v pogledu vsebine brskalnika <ph name="PRODUCT_NAME" />.
 
       Če omogočite to nastavitev, je funkcija »Dotaknite se za iskanje« na voljo uporabniku, ki lahko to funkcijo vkopi ali izklopi.
@@ -940,6 +941,7 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 <translation id="436581050240847513">Poročanje o omrežnih vmesnikih naprave</translation>
 <translation id="4372704773119750918">Ne dovoli uporabnikom v podjetjih, da so del večkratnega profila (primarnega ali sekundarnega)</translation>
 <translation id="4377599627073874279">Dovoli vsem mestom, da pokažejo vse slike</translation>
+<translation id="437791893267799639">Preklic nastavitev pravilnika, prepoved selitve podatkov in ARC-ja</translation>
 <translation id="4389091865841123886">Konfiguriranje potrditve na daljavo z mehanizmom TPM.</translation>
 <translation id="4397469093966511008">Če onemogočite ta pravilnik, uporabnikom preprečite, da bi pošiljali nekatere informacije o sistemu in vsebino strani v Googlove strežnike. Če je ta nastavitev omogočena ali ni nastavljena, je uporabnikom dovoljeno pošiljati nekatere informacije o sistemu in vsebino strani Varnemu brskanju zaradi hitrejšega zaznavanja nevarnih aplikacij in spletnih mest.</translation>
 <translation id="4418726081189202489">Če onemogočite ta pravilnik, izdelku <ph name="PRODUCT_NAME" /> preprečite občasno pošiljanje poizvedb v Googlove storitve zaradi prejemanja točnega časovnega žiga. Te poizvedbe bodo omogočene, če je ta pravilnik omogočen ali ni nastavljen.</translation>
@@ -1256,6 +1258,7 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 <translation id="5586942249556966598">Ne naredi nič</translation>
 <translation id="5630352020869108293">Obnovi zadnjo sejo</translation>
 <translation id="5645779841392247734">Dovoli piškotke na teh mestih</translation>
+<translation id="5693469654327063861">Dovoljevanje selitve podatkov</translation>
 <translation id="5694594914843889579">Ko je ta pravilnik omogočen, zunanji pomnilnik ne bo na voljo za datotečni brskalnik.
 
       Ta pravilnik se uporablja za vse vrste nosilcev podatkov, kot so bliskovni pogoni USB, zunanji trdi diski, kartice SD in druge pomnilniške kartice, optični nosilci podatkov ipd. Na notranji pomnilnik to ne vpliva, zato je do datotek, shranjenih v mapi »Prenosi«, še vedno mogoče dostopati. Ta pravilnik prav tako ne vpliva na Google Drive.
@@ -1488,6 +1491,7 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
           Vrednost pravilnika naj bo navedena v milisekundah. Vrednosti morajo biti manjše od časovnega zamika ob nedejavnosti.</translation>
 <translation id="6536600139108165863">Samodejni vnovični zagon ob zaustavitvi naprave</translation>
 <translation id="6539246272469751178">Ta pravilnik ne vpliva na aplikacije za Android. Aplikacije za Android vedno uporabljajo privzeti imenik za prenose in ne morejo dostopati do datotek, ki jih sistem <ph name="PRODUCT_OS_NAME" /> prenese v imenik za prenose, ki ni privzet.</translation>
+<translation id="654303922206238013">Strategija selitve za ecryptfs</translation>
 <translation id="6544897973797372144">Če je ta pravilnik nastavljen na »True« in pravilnik »ChromeOsReleaseChannel« ni določen, lahko uporabniki domene za včlanitev spremenijo distribucijski kanal za nove izdaje naprave. Če je pravilnik nastavljen na »False«, je naprava zaklenjena v kanalu, v katerem je bila nazadnje nastavljena.
 
       Kanal, ki ga izbere uporabnik, preglasi pravilnik ChromeOsReleaseChannel, vendar če je kanal pravilnika stabilnejši kot pravilnik, nameščen v napravi, se stabilnejši kanal uporabi, ko je številka njegove različice večja od številke različice v napravi.</translation>
@@ -1700,6 +1704,13 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
 
           Ta pravilnik velja le, če je omogočen pravilnik »DefaultSearchProviderEnabled«.</translation>
 <translation id="7302043767260300182">Časovni zamik zaklepa zaslona, če se napaja iz električnega omrežja</translation>
+<translation id="7309839952828354215">Določa, kako naj deluje naprava, ki je bila dobavljena z ecryptfs in mora preiti na šifriranje ext4.
+
+      Če ta pravilnik nastavite na »DisallowArc«, bodo aplikacije za Android onemogočene za vse uporabnike naprave (vključno s tistimi, ki že imajo šifriranje ext4) in nobenemu uporabniku ne bo ponujena selitev s šifriranja ecryptfs na ext4.
+
+      Če ta pravilnik nastavite na »AllowMigration«, bo uporabnikom z domačimi imeniki ecryptfs po potrebi ponujena selitev na šifriranje ext4 (trenutno, ko je za napravo na voljo Android N).
+
+      Če ta pravilnik ni nastavljen, bo naprava delovala, kot da bi bila izbrana možnost »DisallowArc«.</translation>
 <translation id="7311458740754205918">Če je ta pravilnik omogočen ali ni nastavljen, bodo na strani »Nov zavihek« morda prikazani predlogi vsebine na podlagi uporabnikove zgodovine brskanja, zanimanj ali lokacije.
 
       Če je ta pravilni onemogočen, samodejno ustvarjeni predlogi vsebine ne bodo prikazani na strani »Nov zavihek«.</translation>

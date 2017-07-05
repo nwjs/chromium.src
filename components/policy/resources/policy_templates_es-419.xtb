@@ -507,6 +507,7 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 
       Si esta configuración se inhabilita o no se configura, los usuarios podrán elegir continuar hacia el sitio marcado después de que se les haya mostrado la advertencia.</translation>
 <translation id="2824715612115726353">Activar el modo de incógnito</translation>
+<translation id="2838830882081735096">No permitir la migración de datos y ARC</translation>
 <translation id="2844404652289407061">Habilita la disponibilidad de Tocar para buscar en la vista de contenido de <ph name="PRODUCT_NAME" />.
 
       Si se habilita esta configuración, Tocar para buscar estará disponible para el usuario, quien podrá elegir activar o desactivar la función.
@@ -887,6 +888,7 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 <translation id="436581050240847513">Informar interfaces de red del dispositivo</translation>
 <translation id="4372704773119750918">No permitir que el usuario de empresa forme parte de la función de varios perfiles (usuario principal o secundario)</translation>
 <translation id="4377599627073874279">Permitir a todos los sitios que muestren todas las imágenes</translation>
+<translation id="437791893267799639">No se estableció la política; no permitir la migración de datos y ARC</translation>
 <translation id="4389091865841123886">Permite configurar la atestación remota con el mecanismo de TPM.</translation>
 <translation id="4397469093966511008">Si esta política se establece como falsa, los usuarios ya pueden enviar determinada información sobre el sistema y contenido de páginas a los servidores de Google. Si se establece como verdadera o no se configura, los usuarios podrán enviar información sobre el sistema y contenido de páginas a Navegación segura para que detecte apps y sitios peligrosos.</translation>
 <translation id="4418726081189202489">Si esta política se establece como falsa, evita que <ph name="PRODUCT_NAME" /> envíe de forma ocasional consultas a un servidor de Google para obtener una marca de tiempo exacta. Estas consultas se habilitarán si esta política se establece como verdadera o no se establece.</translation>
@@ -1164,6 +1166,7 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 <translation id="5586942249556966598">No hacer nada</translation>
 <translation id="5630352020869108293">Restaurar la última sesión</translation>
 <translation id="5645779841392247734">Permitir cookies en estos sitios</translation>
+<translation id="5693469654327063861">Permitir la migración de datos</translation>
 <translation id="5694594914843889579">Cuando esta política se establece como verdadera, el almacenamiento externo no estará disponible en el navegador de archivos.
 
       Esta política afecta todos los tipos de medios de almacenamiento, p. ej., memorias USB, discos rígidos externos, tarjetas de memoria SD y de otros tipos, almacenamiento óptico, etc. El almacenamiento interno no se ve afectado, por lo que aún se puede acceder a los archivos guardados en la carpeta de Descargas. Esta política tampoco afecta a Google Drive.
@@ -1376,6 +1379,7 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
           El valor de la política debe especificarse en milisegundos. Los valores se establecerán para que sean inferiores a la demora de inactividad.</translation>
 <translation id="6536600139108165863">Reinicio automático cuando se apaga el dispositivo</translation>
 <translation id="6539246272469751178">Esta política no tiene efecto en las apps de Android. Estas apps siempre usan el directorio de descargas predeterminado y no pueden acceder a ningún archivo que haya descargado <ph name="PRODUCT_OS_NAME" /> en un directorio de descargas no predeterminado.</translation>
+<translation id="654303922206238013">Estrategia de migración para eCryptfs</translation>
 <translation id="6544897973797372144">Si esta política se establece en Verdadera y la política ChromeOsReleaseChannel no se especifica, los usuarios del dominio de inscripción podrán cambiar el canal de versiones del dispositivo. Si esta política se establece en Falsa, el dispositivo se bloqueará en cualquier canal que se haya establecido anteriormente.
 
       El canal seleccionado por el usuario será reemplazado por la política ChromeOsReleaseChannel, pero si el canal de la política es más estable que el que fue instalado en el dispositivo, el canal solo cambiará después de que la versión del canal más estable alcance un número de versión más alto que la instalada en el dispositivo.</translation>
@@ -1571,6 +1575,13 @@ Si esta política no se configura, se utilizará 'Permitir complementos' y el us
 
           Esta política solo se respeta si la política "DefaultSearchProviderEnabled" está habilitada.</translation>
 <translation id="7302043767260300182">Demora de bloqueo de pantalla con alimentación de CA</translation>
+<translation id="7309839952828354215">Especifica el comportamiento de un dispositivo que se ha enviado con eCryptfs y necesita una transición a la encriptación ext4.
+
+      Si estableces esta política como "DisallowArc", se inhabilitarán las apps de Android para todos los usuarios en el dispositivo (incluidos los que ya tienen la encriptación ext4) y no se le ofrecerá a ningún usuario la posibilidad de migrar de la encriptación eCryptfs a la ext4.
+
+      Si estableces esta política como "AllowMigration", los usuarios que tengan directorios principales con eCryptfs podrán migrarlos a la encriptación ext4 en caso de ser necesario (actualmente, cuando está disponible Android N en el dispositivo).
+
+      Si esta política no se establece, el dispositivo se comportará como cuando se elige "DisallowArc".</translation>
 <translation id="7311458740754205918">Si esta política se establece como verdadera o no se establece, la página Nueva pestaña mostrará sugerencias de contenido basadas en la ubicación, los intereses o el historial de navegación del usuario.
 
       Si se establece como falsa, la página Nueva pestaña no mostrará sugerencias de contenido generadas de forma automática.</translation>

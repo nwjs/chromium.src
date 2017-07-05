@@ -514,6 +514,7 @@
 
       Se esta definição estiver desativada ou não estiver configurada, os utilizadores podem optar por prosseguir para o site sinalizado após a apresentação do aviso.</translation>
 <translation id="2824715612115726353">Ativar o modo de navegação anónima</translation>
+<translation id="2838830882081735096">Não permitir a migração de dados nem ARC</translation>
 <translation id="2844404652289407061">Ativa a disponibilidade de Tocar para pesquisar na vista de conteúdo do <ph name="PRODUCT_NAME" />.
 
       Se ativar esta definição, a funcionalidade Tocar para pesquisar fica disponível para o utilizador e este pode optar por a ativar ou desativar.
@@ -894,6 +895,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="436581050240847513">Comunicar interfaces de rede do dispositivo</translation>
 <translation id="4372704773119750918">Não permitir que o utilizador empresarial faça parte do multiperfil (principal ou secundário)</translation>
 <translation id="4377599627073874279">Permitir que todos os sites mostrem todas as imagens</translation>
+<translation id="437791893267799639">Política não definida, não permitir a migração de dados nem ARC</translation>
 <translation id="4389091865841123886">Configura a comprovação remota através do mecanismo TPM.</translation>
 <translation id="4397469093966511008">Definir esta política como falsa impede os utilizadores de optarem por enviar algumas informações do sistema e conteúdo de páginas para os servidores da Google. Caso esta definição seja verdadeira ou não esteja configurada, os utilizadores podem enviar algumas informações do sistema e conteúdo de páginas para a Navegação segura de modo a ajudar a detetar aplicações e sites perigosos.</translation>
 <translation id="4418726081189202489">Definir esta política como falsa impede o <ph name="PRODUCT_NAME" /> de enviar ocasionalmente consultas para um servidor da Google para obter uma data/hora exata. Estas consultas serão ativadas caso esta política esteja definida como verdadeira ou não esteja definida.</translation>
@@ -1175,6 +1177,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="5586942249556966598">Não fazer nada</translation>
 <translation id="5630352020869108293">Restaurar a última sessão</translation>
 <translation id="5645779841392247734">Permitir cookies nestes sites</translation>
+<translation id="5693469654327063861">Permitir a migração de dados</translation>
 <translation id="5694594914843889579">Se esta política estiver definida como verdadeira, o armazenamento externo não estará disponível no navegador de ficheiros.
 
       Esta política afeta todos os tipos de suporte de armazenamento. Por exemplo: unidades flash USB, discos rígidos externos, cartões SD e outros cartões de memória, armazenamento ótico, etc. O armazenamento interno não é afetado, pelo que continua a ser possível aceder aos ficheiros guardados na pasta Transferência. O Google Drive também não é afetado por esta política.
@@ -1387,6 +1390,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
           O valor da política deve ser especificado em milissegundos. Os valores devem ser inferiores ao atraso de inatividade.</translation>
 <translation id="6536600139108165863">Reinicialização automática no encerramento do dispositivo</translation>
 <translation id="6539246272469751178">Esta política não tem qualquer efeito em aplicações Android. As aplicações Android utilizam sempre o diretório de transferências predefinido e não podem aceder a quaisquer ficheiros transferidos pelo <ph name="PRODUCT_OS_NAME" /> para um diretório de transferências não predefinido.</translation>
+<translation id="654303922206238013">Estratégia de migração de ecryptfs</translation>
 <translation id="6544897973797372144">Se esta política for definida como Verdadeira e a política ChromeOsReleaseChannel não estiver especificada, os utilizadores do domínio inscrito serão autorizados a alterar o canal de lançamento do dispositivo. Se esta política for definida como Falsa, o dispositivo será bloqueado no último canal em que foi definido.
 
       O canal selecionado do utilizador será substituído pela política ChromeOsReleaseChannel, mas, se o canal da política for mais estável do que o instalado no dispositivo, o canal apenas mudará quando a versão do canal mais estável atingir uma versão superior à instalada no dispositivo.</translation>
@@ -1583,6 +1587,13 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 
           Esta política só é respeitada se a política "DefaultSearchProviderEnabled" estiver ativada.</translation>
 <translation id="7302043767260300182">Atraso do bloqueio do ecrã quando o dispositivo está ligado à eletricidade</translation>
+<translation id="7309839952828354215">Especifica o comportamento de um dispositivo enviado com ecryptfs e que tem de transitar para a encriptação ext4.
+
+      Se definir esta política como "DisallowArc", as aplicações Android são desativadas para todos os utilizadores no dispositivo (incluindo os que já têm a encriptação ext4) e não é oferecida qualquer migração de ecryptfs para a encriptação ext4 a nenhum utilizador.
+
+      Se definir esta política como "AllowMigration", é proposta aos utilizadores com diretórios principais ecryptfs a migração para a encriptação ext4 conforme seja necessário (atualmente, quando o Android N ficar disponível no dispositivo).
+
+      Se esta política for deixada por definir, o dispositivo comporta-se como se "DisallowArc" fosse a opção escolhida.</translation>
 <translation id="7311458740754205918">Se esta política for definida para verdadeira ou não for definida, a página Novo separador pode mostrar sugestões de conteúdo com base no histórico de navegação, nos interesses ou na localização do utilizador.
 
       Se for definida para falsa, as sugestões de conteúdo geradas automaticamente não são mostradas na página Novo separador.</translation>

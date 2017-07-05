@@ -532,6 +532,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
       Nếu cài đặt này bị tắt hoặc không được định cấu hình thì người dùng có thể chọn để tiếp tục tới trang bị gắn cờ sau khi được hiển thị cảnh báo.</translation>
 <translation id="2824715612115726353">Bật chế độ Ẩn danh</translation>
+<translation id="2838830882081735096">Không cho phép di chuyển dữ liệu và ARC</translation>
 <translation id="2844404652289407061">Cho phép sử dụng Chạm để tìm kiếm trong chế độ xem nội dung của <ph name="PRODUCT_NAME" />.
 
       Nếu bạn bật cài đặt này, người dùng có thể sử dụng Chạm để tìm kiếm và họ có thể chọn tắt hoặc bật tính năng này.
@@ -924,6 +925,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="436581050240847513">Báo cáo giao diện mạng thiết bị</translation>
 <translation id="4372704773119750918">Không cho phép người dùng doanh nghiệp là một phần của đa cấu hình (chính hoặc phụ)</translation>
 <translation id="4377599627073874279">Cho phép tất cả các trang web hiển thị tất cả hình ảnh</translation>
+<translation id="437791893267799639">Chưa đặt chính sách, không cho phép di chuyển dữ liệu và ARC</translation>
 <translation id="4389091865841123886">Định cấu hình chứng thực từ xa với cơ chế TPM.</translation>
 <translation id="4397469093966511008">Đặt chính sách này thành false sẽ ngăn người dùng chọn gửi nội dung trang và thông tin hệ thống nhất định tới máy chủ Google. Nếu cài đặt này là true hoặc không được định cấu hình thì người dùng sẽ được phép gửi nội dung trang và thông tin hệ thống nhất định để Duyệt web an toàn nhằm giúp phát hiện các ứng dụng cũng như trang web nguy hiểm.</translation>
 <translation id="4418726081189202489">Đặt chính sách này thành False sẽ ngăn <ph name="PRODUCT_NAME" /> thỉnh thoảng gửi truy vấn tới máy chủ Google để truy xuất dấu thời gian chính xác. Các truy vấn này sẽ được kích hoạt nếu chính sách này được đặt thành True hoặc không được đặt.</translation>
@@ -1241,6 +1243,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="5586942249556966598">Không làm gì</translation>
 <translation id="5630352020869108293">Khôi phục phiên trước đó</translation>
 <translation id="5645779841392247734">Cho phép cookie trên các trang web này</translation>
+<translation id="5693469654327063861">Cho phép di chuyển dữ liệu</translation>
 <translation id="5694594914843889579">Khi chính sách này được đặt thành true, bộ nhớ ngoài sẽ không khả dụng trong trình duyệt tệp.
 
       Chính sách này ảnh hưởng tới tất cả các loại phương tiện lưu trữ. Ví dụ: ổ USB flash, ổ đĩa cứng bên ngoài, SD và các thẻ nhớ khác, bộ nhớ quang v.v.. Bộ nhớ trong không bị ảnh hưởng, do đó vẫn có thể truy cập vào các tệp đã lưu trong thư mục Tải xuống. Google Drive cũng không bị ảnh hưởng bởi chính sách này.
@@ -1467,6 +1470,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Phải chỉ định giá trị chính sách bằng mili giây. Các giá trị được giới hạn ở mức nhỏ hơn độ trễ khi không sử dụng.</translation>
 <translation id="6536600139108165863">Tự động khởi động lại khi tắt thiết bị</translation>
 <translation id="6539246272469751178">Chính sách này không ảnh hưởng đến ứng dụng Android. Ứng dụng Android luôn sử dụng thư mục nội dung tải xuống mặc định và không thể truy cập bất kỳ tệp nào do <ph name="PRODUCT_OS_NAME" /> tải xuống thư mục nội dung tải xuống không phải mặc định.</translation>
+<translation id="654303922206238013">Chiến lược di chuyển cho ecryptfs</translation>
 <translation id="6544897973797372144">Nếu chính sách này được đặt thành Đúng và chính sách ChromeOsReleaseChannel không được chỉ định thì người dùng của miền đăng ký sẽ được phép thay đổi kênh phát hành của thiết bị. Nếu chính sách này được đặt thành sai, thiết bị sẽ bị khóa bất kể kênh mà thiết bị được đặt lần cuối.
 
       Kênh do người dùng đã chọn sẽ bị ghi đè bởi chính sách ChromeOsReleaseChannel nhưng nếu kênh của chính sách ổn định hơn kênh được cài đặt trên thiết bị thì kênh sẽ chỉ chuyển đổi sau khi phiên bản của kênh ổn định hơn đạt tới số phiên bản cao hơn phiên bản được cài đặt trên thiết bị.</translation>
@@ -1676,6 +1680,13 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
           Chính sách này chỉ được áp dụng nếu chính sách 'DefaultSearchProviderEnabled' được bật.</translation>
 <translation id="7302043767260300182">Độ trễ khóa màn hình khi chạy trên nguồn AC</translation>
+<translation id="7309839952828354215">Chỉ định cách thiết bị đã có sẵn ecryptfs sẽ hoạt động và cần chuyển đổi sang mã hóa ext4.
+
+      Nếu bạn đặt chính sách này thành 'DisallowArc', các ứng dụng Android sẽ bị vô hiệu hóa cho tất cả người dùng trên thiết bị (bao gồm những người dùng đã có mã hóa ext4) và sẽ không có người dùng nào được đề nghị di chuyển từ ecryptfs sang mã hóa ext4.
+
+      Nếu bạn đặt chính sách này thành 'AllowMigration', người dùng có thư mục gốc ecryptfs sẽ được đề nghị di chuyển các thư mục này sang mã hóa ext4 nếu cần (hiện tại Android N đã có sẵn trên thiết bị).
+
+      Nếu không đặt chính sách này, thiết bị sẽ hoạt động giống như bạn đã chọn 'DisallowArc'.</translation>
 <translation id="7311458740754205918">Nếu giá trị này được đặt thành true hoặc không được đặt, trang Tab mới có thể hiển thị đề xuất nội dung dựa trên lịch sử duyệt web, sở thích hoặc vị trí của người dùng.
 
       Nếu giá trị này được đặt thành false, các đề xuất nội dung được tạo tự động sẽ không hiển thị trên trang Tab mới.</translation>

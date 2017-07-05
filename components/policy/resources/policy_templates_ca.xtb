@@ -511,6 +511,7 @@ Cada entrada de la llista especifica un identificador, que s'utilitza internamen
 
       Si desactiveu o si no definiu aquesta configuració, els usuaris podran decidir si volen accedir al lloc marcat després de veure l'advertiment.</translation>
 <translation id="2824715612115726353">Activa el mode d'incògnit</translation>
+<translation id="2838830882081735096">No permetis la migració de dades i ARC</translation>
 <translation id="2844404652289407061">Permet que la funció Toca per cercar estigui disponible a la visualització de contingut de <ph name="PRODUCT_NAME" />.
 
       Si activeu aquesta opció de configuració, l'usuari tindrà a la seva disposició la funció Toca per cercar i podrà activar-la i desactivar-la.
@@ -888,6 +889,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 <translation id="436581050240847513">Informe de les interfícies de xarxa del dispositiu</translation>
 <translation id="4372704773119750918">No permetis que l'usuari empresarial formi part dels perfils múltiples (com a usuari principal o secundari)</translation>
 <translation id="4377599627073874279">Permet que tots els llocs mostrin totes les imatges</translation>
+<translation id="437791893267799639">La política no està definida; no permetis la migració de dades i ARC</translation>
 <translation id="4389091865841123886">Configura el testimoni remot amb el mecanisme TPM.</translation>
 <translation id="4397469093966511008">Si s'estableix aquesta política en "false", els usuaris no poden decidir que s'enviïn als servidors de Google algunes dades del sistema i contingut de les pàgines. Si aquesta opció de configuració s'estableix en "true" o no es configura, els usuaris poden enviar aquestes dades al servei Navegació segura per ajudar a detectar les aplicacions i els llocs perillosos.</translation>
 <translation id="4418726081189202489">Si aquesta política es defineix en "false", impedeix que <ph name="PRODUCT_NAME" /> enviï de tant en tant consultes a un servidor de Google per recuperar una marca de temps precisa. Aquestes consultes s'activaran si la política es defineix en "true" o si no es defineix.</translation>
@@ -1166,6 +1168,7 @@ Si la política no es defineix, els usuaris podran triar si el prestatge s'ha d'
 <translation id="5586942249556966598">No facis res</translation>
 <translation id="5630352020869108293">Restaura l'última sessió</translation>
 <translation id="5645779841392247734">Permet les galetes en aquests llocs</translation>
+<translation id="5693469654327063861">Permet la migració de dades</translation>
 <translation id="5694594914843889579">Quan aquesta política s'estableixi en "true", l'emmagatzematge extern no estarà disponible al navegador de fitxers.
 
       Aquesta política afecta tots els tipus de mitjans d'emmagatzematge. Per exemple: unitats flaix USB, unitats de disc dur externes, SD i altres targetes de memòria, emmagatzematge òptic, etc. Aquesta política no afecta l'emmagatzematge intern, de manera que podràs continuar accedint als fitxers desats a la carpeta Baixades. Aquesta política tampoc no afecta Google Drive.
@@ -1377,6 +1380,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
           El valor de la política s'ha d'indicar en mil·lisegons i es limita perquè sigui inferior al retard d'inactivitat.</translation>
 <translation id="6536600139108165863">Reinicia automàticament en apagar el dispositiu</translation>
 <translation id="6539246272469751178">Aquesta política no té cap efecte a les aplicacions per a Android. Aquestes aplicacions utilitzen sempre el directori de baixades predeterminat i no poden accedir a cap fitxer que <ph name="PRODUCT_OS_NAME" /> baixi a un altre directori.</translation>
+<translation id="654303922206238013">Estratègia de migració per a eCryptfs</translation>
 <translation id="6544897973797372144">Si aquesta política s'estableix com a certa i no s'especifica la política ChromeOsReleaseChannel, els usuaris del domini de vinculació podran canviar el canal de llançament del dispositiu. Si aquesta política s'estableix com a falsa, el dispositiu es bloquejarà a tots els canals on s'hagi establert per darrera vegada.
 
       La política ChromeOsReleaseChannel anul·larà el canal seleccionat per l'usuari, però si el canal de la política és més estable que el que s'ha instal·lat al dispositiu, el canal només canviarà un cop la versió del canal més estable passi a un número de versió superior a l'instal·lat al dispositiu.</translation>
@@ -1573,6 +1577,13 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 
           Aquesta política només es respecta si la política "DefaultSearchProviderEnabled" està activada.</translation>
 <translation id="7302043767260300182">Retard del bloqueig de pantalla quan s'utilitza alimentació</translation>
+<translation id="7309839952828354215">Especifica com s'ha de comportar un dispositiu que conté eCryptfs i que ha de fer una transició a encriptació ext4.
+
+      Si defineixes aquesta política en "DisallowArc", les aplicacions d'Android es desactivaran per a tots els usuaris del dispositiu (fins i tot per a aquells que ja tinguin encriptació ext4) i no se'ls oferirà cap tipus de migració d'eCryptfs a encriptació ext4.
+
+      Si defineixes aquesta política en "AllowMigration", s'oferirà als usuaris amb directoris d'inici eCryptfs la possibilitat de migrar-los a encriptació ext4 si és necessari (en concret, quan Android N estigui disponible al dispositiu).
+
+      Si aquesta política no es defineix, el dispositiu es comportarà com si la política s'hagués establert en "DisallowArc".</translation>
 <translation id="7311458740754205918">Si s'estableix en "true" o no s'estableix cap valor, és possible que a la pàgina Pestanya nova es mostrin suggeriments de contingut basats en l'historial de navegació, en els interessos o en la ubicació de l'usuari.
 
       Si s'estableix en "false", a la pàgina Pestanya nova no es mostraran suggeriments de contingut generats automàticament.</translation>

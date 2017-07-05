@@ -497,6 +497,7 @@ Se la norma non viene impostata l'impostazione verrà attivata ma gli utenti pot
 
       Se questa impostazione è disattivata o non è configurata, gli utenti possono scegliere di proseguire al sito segnalato dopo che è stato mostrato l'avviso.</translation>
 <translation id="2824715612115726353">Attiva modalità di navigazione in incognito</translation>
+<translation id="2838830882081735096">Non consentire migrazione dei dati e ARC</translation>
 <translation id="2844404652289407061">Consente di attivare la disponibilità della funzione Tocca per cercare nella visualizzazione contenuti di <ph name="PRODUCT_NAME" />.
 
       Se questa impostazione viene attivata, la funzione Tocca per cercare sarà a disposizione degli utenti, che potranno scegliere se attivarla o disattivarla.
@@ -872,6 +873,7 @@ Avviso. Non è consigliabile configurare restrizioni alle versioni, poiché potr
 <translation id="436581050240847513">Riporta interfacce di rete del dispositivo</translation>
 <translation id="4372704773119750918">Non permettere all'utente aziendale di far parte del profilo multiplo (principale o secondario)</translation>
 <translation id="4377599627073874279">Consenti la visualizzazione di tutte le immagini in tutti i siti</translation>
+<translation id="437791893267799639">Norma non impostata. Non consentire migrazione dei dati e ARC</translation>
 <translation id="4389091865841123886">Configura l'attestazione da remoto con meccanismo TPM.</translation>
 <translation id="4397469093966511008">L'impostazione di questa norma su false impedisce agli utenti di decidere di inviare ai server di Google alcune informazioni sul sistema e alcuni contenuti delle pagine. Se questa impostazione viene impostata su true o non viene configurata, gli utenti potranno inviare alcune informazioni sul sistema e alcuni contenuti delle pagine alla Navigazione sicura per contribuire a rilevare app e siti pericolosi.</translation>
 <translation id="4418726081189202489">Se questa norma viene impostata su false, <ph name="PRODUCT_NAME" /> non può più inviare query occasionali a un server di Google per recuperare un timestamp preciso. Queste query vengono attivate se questa norma viene impostata su True o non viene configurata.</translation>
@@ -1144,6 +1146,7 @@ Se questa impostazione viene disattivata o non viene impostata, sia gli utenti l
 <translation id="5586942249556966598">Non fare niente</translation>
 <translation id="5630352020869108293">Ripristina l'ultima sessione</translation>
 <translation id="5645779841392247734">Consenti i cookie in questi siti</translation>
+<translation id="5693469654327063861">Consenti migrazione dei dati</translation>
 <translation id="5694594914843889579">Quando questa norma è impostata su true, la memoria esterna non sarà disponibile nei file che è possibile sfogliare.
 
       Questa norma riguarda tutti i tipi di supporti di memorizzazione. Ad esempio: unità flash USB, dischi rigidi esterni, schede di memoria SD e di altro tipo, memorie ottiche e così via. La memoria interna non è interessata, quindi i file salvati nella cartella Download rimangono accessibili. Anche Google Drive non è interessato da questa norma.
@@ -1350,6 +1353,7 @@ Il metodo consigliato per bloccare lo schermo in caso di inattività consiste ne
 Il valore della norma deve essere specificato in millisecondi. I valori devono essere inferiori al ritardo di inattività.</translation>
 <translation id="6536600139108165863">Riavvia automaticamente allo spegnimento del dispositivo</translation>
 <translation id="6539246272469751178">Questa norma non influisce sulle app Android, che utilizzano sempre la directory per i download predefinita e non possono accedere ai file scaricati da <ph name="PRODUCT_OS_NAME" /> in una directory per i download non predefinita.</translation>
+<translation id="654303922206238013">Strategia di migrazione per ecryptfs</translation>
 <translation id="6544897973797372144">Se questa norma è impostata su True e non è specificata la norma ChromeOsReleaseChannel, gli utenti del dominio di registrazione avranno la facoltà di modificare il canale della versione del dispositivo. Se questa norma è impostata su False, il dispositivo risulterà bloccato in qualunque canale in cui è stato impostato per ultimo.
 
       Il canale selezionato dall'utente verrà sostituito dalla norma ChromeOsReleaseChannel, ma se il canale della norma è più stabile di quello che è stato installato sul dispositivo, il canale cambierà solo quando la versione del canale più stabile raggiungerà un numero di versione superiore rispetto a quello installato sul dispositivo.</translation>
@@ -1545,6 +1549,13 @@ Se l'impostazione viene disattivata, questa funzione non sarà disponibile.</tra
 
           Questa norma viene rispettata solo se è attiva la norma "DefaultSearchProviderEnabled".</translation>
 <translation id="7302043767260300182">Ritardo blocco schermo in caso di utilizzo di CA</translation>
+<translation id="7309839952828354215">Consente di specificare come deve comportarsi un dispositivo con ecryptfs e come deve passare alla crittografia ext4.
+
+      Se questa norma viene impostata su "DisallowArc", le app Android verranno disattivate per tutti gli utenti configurati sul dispositivo (inclusi quelli che hanno già la crittografia ext4) e gli utenti non avranno la possibilità di eseguire la migrazione da ecryptfs alla crittografia ext4.
+
+      Se questa norma viene impostata su "AllowMigration", gli utenti con home directory ecryptfs avranno la possibilità di eseguire la migrazione di queste directory alla crittografia ext4, se necessario (attualmente quando Android N diventa disponibile sul dispositivo).
+
+      Se questa norma non viene impostata, il dispositivo si comporterà come se fosse stata scelta l'opzione "DisallowArc".</translation>
 <translation id="7311458740754205918">Se questa norma viene impostata su true o non viene impostata, nella pagina Nuova scheda potrebbero essere mostrati suggerimenti di contenuti basati sulla cronologia di navigazione, sugli interessi o sulla posizione dell'utente.
 
       Se viene impostata su false, i suggerimenti di contenuti generati automaticamente non vengono mostrati nella pagina Nuova scheda.</translation>

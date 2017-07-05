@@ -68,7 +68,7 @@
 <translation id="1097507499312291972"><ph name="BEGIN_SIGN_IN_LINK" />سجّل الدخول<ph name="END_SIGN_IN_LINK" /> للتحكم في مواقع الويب التي يزورها هذا الشخص وعرضها.</translation>
 <translation id="1097658378307015415">قبل تسجيل الدخول، الرجاء الدخول كضيف لتنشيط الشبكة <ph name="NETWORK_ID" /></translation>
 <translation id="1108600514891325577">إي&amp;قاف</translation>
-<translation id="110918622319006905">الشبكة الظاهرية الخاصة لطرف ثالث</translation>
+<translation id="110918622319006905">الشبكة الافتراضية الخاصة لطرف ثالث</translation>
 <translation id="1110155001042129815">انتظار</translation>
 <translation id="1110753181581583968">{NUM_DOWNLOAD,plural, =1{متابعة التنزيل}zero{متابعة التنزيلات}two{متابعة التنزيلين}few{متابعة التنزيلات}many{متابعة التنزيلات}other{متابعة التنزيلات}}</translation>
 <translation id="1110772031432362678">لم يتم العثور على شبكات.</translation>
@@ -4036,7 +4036,7 @@
 <translation id="6929555043669117778">متابعة منع عرض النوافذ المنبثقة</translation>
 <translation id="6930242544192836755">المدة</translation>
 <translation id="6935867720248834680">‏خدمات GMS غير متوفرة</translation>
-<translation id="6937152069980083337">‏أسلوب الإدخال الياباني لـ Google (للوحة المفاتيح بالولايات المتحدة)</translation>
+<translation id="6937152069980083337">‏أسلوب الإدخال باللغة اليابانية لـ Google (للوحة المفاتيح بالولايات المتحدة)</translation>
 <translation id="693807610556624488">تتجاوز عملية الكتابة الحد الأقصى لطول السمة على: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6939777852457331078">‏لوحة مفاتيح US Workman</translation>
 <translation id="6941427089482296743">إزالة كل المعروض</translation>
@@ -4313,7 +4313,7 @@
 <translation id="7348749398828259943">‏لوحة مفاتيح US Workman الدولية</translation>
 <translation id="7352651011704765696">حدث خطأ ما</translation>
 <translation id="73534262421337222">جارٍ تثبيت تحديث مهمّ</translation>
-<translation id="735745346212279324">تم قطع اتصال الشبكة الظاهرية الخاصة</translation>
+<translation id="735745346212279324">تم قطع اتصال الشبكة الافتراضية الخاصة</translation>
 <translation id="7360183604634508679">قائمة الإشارات</translation>
 <translation id="7360233684753165754"><ph name="PAGE_NUMBER" /> صفحة على <ph name="PRINTER_NAME" /></translation>
 <translation id="7361039089383199231">$1 بايت</translation>

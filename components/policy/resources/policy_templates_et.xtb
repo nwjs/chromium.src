@@ -539,6 +539,7 @@
 
       Kui seade on keelatud või seadistamata, saavad kasutajad pärast hoiatuse kuvamist teha valiku edasiminekuks märgistatud saidile.</translation>
 <translation id="2824715612115726353">Luba inkognitorežiim</translation>
+<translation id="2838830882081735096">Keela andmete üleviimine ja ARC</translation>
 <translation id="2844404652289407061">Lubab teenuse <ph name="PRODUCT_NAME" /> sisu vaates funktsiooni Puuduta otsimiseks.
 
       Kui selle seade lubate, on funktsioon Puuduta otsimiseks kasutaja jaoks saadaval ja ta saab selle sisse või välja lülitada.
@@ -925,6 +926,7 @@
 <translation id="436581050240847513">Seadme võrguliidestest teatamine</translation>
 <translation id="4372704773119750918">Ärge lubage ettevõtte kasutajal olla osa multiprofiilist (esmane või teisene)</translation>
 <translation id="4377599627073874279">Luba kõikidel saitidel kõikide kujutiste kuvamine</translation>
+<translation id="437791893267799639">Reegel on määramata, keela andmete üleviimine ja ARC</translation>
 <translation id="4389091865841123886">Kaugatesteerimine konfigureeritakse TPM-mehhanismi abil.</translation>
 <translation id="4397469093966511008">Kui reegli väärtuseks määratakse Väär, ei saa kasutajad soovi korral saata teatud süsteemiteavet ja lehe sisu Google'i serveritesse. Kui selle seade väärtuseks määratakse Tõene või seda ei seadistata, saavad kasutajad saata teatud süsteemiteavet ja lehe sisu ohutu sirvimise funktsioonile, et aidata ohtlikke rakendusi ja saite tuvastada.</translation>
 <translation id="4418726081189202489">Kui selle reegli väärtuseks määratakse Väär, peatatakse teenusest <ph name="PRODUCT_NAME" /> päringute saatmine Google'i serverile täpse ajatempli saamiseks. Need päringud lubatakse, kui reegli väärtuseks on määratud Tõene või see on määramata.</translation>
@@ -1240,6 +1242,7 @@
 <translation id="5586942249556966598">Ära tee midagi</translation>
 <translation id="5630352020869108293">Viimase seansi taastamine</translation>
 <translation id="5645779841392247734">Luba küpsised nendel saitidel</translation>
+<translation id="5693469654327063861">Luba andmete üleviimine</translation>
 <translation id="5694594914843889579">Kui reegli väärtuseks on määratud Tõene, siis ei ole väline salvestusseade failibrauseris saadaval.
 
       Reegel kehtib kõigile salvestusseadmete tüüpidele, näiteks USB-välkmäludraivid, välised kõvakettad, SD-kaardid jm mälukaardid, optilised salvestusseadmed jne. See ei kehti sisemälu kohta, mistõttu kausta Allalaadimised salvestatud failidele on juurdepääs olemas. Reegel ei kehti ka Google Drive'ile.
@@ -1472,6 +1475,7 @@
           Reegli väärtus tuleb määrata millisekundites. Väärtused tuleb kinnitada väiksematena kui jõudeoleku viiteaeg.</translation>
 <translation id="6536600139108165863">Automaatne taaskäivitamine seadme väljalülitamisel</translation>
 <translation id="6539246272469751178">See reegel ei mõjuta Androidi rakendusi. Androidi rakendused kasutavad alati allalaadimiste vaikekataloogi ega pääse juurde ühelegi failile, mille operatsioonisüsteem <ph name="PRODUCT_OS_NAME" /> on alla laadinud kataloogi, mis pole allalaadimiste vaikekataloog.</translation>
+<translation id="654303922206238013">Süsteemi eCryptfs üleviimisstrateegia</translation>
 <translation id="6544897973797372144">Kui reeglile on määratud olek True ja reeglit ChromeOsReleaseChannel pole määratud, siis on registreerumisdomeeni kanali kasutajatel lubatud seadme versiooni kanalit muuta. Kui reeglile on määratud olek False, siis lukustatakse seade mis tahes viimati määratud kanalil.
 
       Kasutaja valitud kanali alistab reegel ChromeOsReleaseChannel. Kui aga reegli kanal on stabiilsem kui seadmesse installitud kanal, siis lülitub see sisse alles pärast seda, kui stabiilsem kanal jõuab seadmesse installitud kanalist kõrgema versiooninumbrini.</translation>
@@ -1685,6 +1689,13 @@
 
           See reegel kehtib vaid siis, kui reegel „DefaultSearchProviderEnabled” on lubatud.</translation>
 <translation id="7302043767260300182">Ekraani lukustamise viiteaeg võrgutoite kasutamisel</translation>
+<translation id="7309839952828354215">Määrab, kuidas peaks käituma süsteemiga eCryptfs tarnitud seade, mis on vaja üle viia krüpteerimissüsteemile ext4.
+
+      Kui määrate reegli väärtuseks „DisallowArc”, on Androidi rakendused kõigi seadme kasutajate jaoks keelatud (sh rakendused, mis põhinevad juba krüpteerimissüsteemil ext4) ja ühelegi kasutajale ei pakuta üleminekut krüpteerimissüsteemilt eCryptfs süsteemile ext4.
+
+      Kui määrate reegli väärtuseks „AllowMigration”, pakutakse kasutajatele, kelle juurkataloog põhineb süsteemil eCryptfs, vajaduse korral (praegu siis, kui Android N tuleb seadmes saadavale) võimalust üle minna krüpteerimissüsteemile ext4.
+
+      Kui jätate reegli määramata, käitub seade nii, nagu oleks valitud väärtus „DisallowArc”.</translation>
 <translation id="7311458740754205918">Kui selle väärtuseks määratakse Tõene või seda ei määrata, võidakse uuel vahelehel näidata sisu soovitusi kasutaja sirvimisajaloo, huvide või asukoha põhjal.
 
       Kui selle väärtuseks määratakse Väär, ei näidata uuel vahelehel automaatselt loodud sisu soovitusi.</translation>

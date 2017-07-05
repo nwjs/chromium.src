@@ -548,6 +548,7 @@ Si cette règle est définie sur "False", les utilisateurs ne pourront pas jouer
 
       En cas de désactivation ou de non-configuration de ce paramètre, les utilisateurs ont la possibilité d'accéder aux sites potentiellement malveillants après l'affichage de l'avertissement.</translation>
 <translation id="2824715612115726353">Activer le mode navigation privée</translation>
+<translation id="2838830882081735096">Interdire la migration de données et ARC</translation>
 <translation id="2844404652289407061">Active la fonctionnalité Appuyer pour rechercher dans l'affichage du contenu de <ph name="PRODUCT_NAME" />.
 
       Si vous activez ce paramètre, l'utilisateur sera en mesure d'activer ou de désactiver la fonctionnalité Appuyer pour rechercher.
@@ -949,6 +950,7 @@ Cette option est habituellement désactivée dans le cadre de la protection cont
 <translation id="436581050240847513">Générer un rapport sur les interfaces réseau de l'appareil</translation>
 <translation id="4372704773119750918">Ne pas autoriser l'utilisateur d'entreprise à participer aux sessions à plusieurs profils, que ce soit en tant qu'utilisateur principal ou secondaire</translation>
 <translation id="4377599627073874279">Autoriser tous les sites à afficher toutes les images</translation>
+<translation id="437791893267799639">Règle non définie, interdire la migration de données et ARC</translation>
 <translation id="4389091865841123886">Configurer l'attestation à distance avec le mécanisme TPM</translation>
 <translation id="4397469093966511008">Si cette règle est définie sur "False", les utilisateurs ne peuvent pas envoyer d'informations système ni de contenu de pages aux serveurs Google. Si elle est définie sur "True" ou si elle n'est pas configurée, ils sont autorisés à envoyer des informations système et le contenu des pages au service de navigation sécurisée afin de contribuer à la détection des applications et des sites dangereux.</translation>
 <translation id="4418726081189202489">Si cette règle est définie sur "False", <ph name="PRODUCT_NAME" /> cesse d'envoyer occasionnellement des requêtes à un serveur Google en vue d'obtenir un horodatage précis. En revanche, si elle est définie sur "True" ou si elle n'est pas définie, ces requêtes pourront être envoyées.</translation>
@@ -1267,6 +1269,7 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
 <translation id="5586942249556966598">Ne rien faire</translation>
 <translation id="5630352020869108293">Restaurer la dernière session</translation>
 <translation id="5645779841392247734">Autoriser les cookies sur ces sites</translation>
+<translation id="5693469654327063861">Autoriser la migration de données</translation>
 <translation id="5694594914843889579">Lorsque cette règle est définie sur "True", le navigateur de fichiers n'offre pas la possibilité de procéder à un stockage externe.
 
       Cette règle concerne tous les types de support de stockage (clés USB, disques durs externes, cartes SD, autres cartes mémoire, etc.). Elle ne concerne pas Google Drive ni le stockage interne. Dès lors, les fichiers enregistrés dans le dossier de téléchargement restent accessibles.
@@ -1500,6 +1503,7 @@ Si cette règle n'est pas configurée, la valeur par défaut globale est utilis�
           La valeur de cette règle doit être indiquée en millisecondes. Les valeurs doivent être inférieures au délai d'inactivité.</translation>
 <translation id="6536600139108165863">Redémarrer automatiquement à l'arrêt de l'appareil</translation>
 <translation id="6539246272469751178">Cette règle n'a aucun effet sur les applications Android. Celles-ci se servent toujours du répertoire de téléchargements par défaut. Elles ne peuvent pas accéder aux fichiers téléchargés par <ph name="PRODUCT_OS_NAME" /> dans un autre répertoire de téléchargements.</translation>
+<translation id="654303922206238013">Stratégie de migration pour eCryptfs</translation>
 <translation id="6544897973797372144">Si cette règle est définie sur "True", et si la règle ChromeOsReleaseChannel n'est pas spécifiée, les utilisateurs du domaine correspondant sont autorisés à modifier la version de l'appareil. Si elle est définie sur "False", l'appareil est verrouillé sur la dernière version configurée.
 
       La règle ChromeOsReleaseChannel prévaut sur la version sélectionnée par l'utilisateur. Toutefois, si cette dernière est plus stable que la version installée sur l'appareil, elle n'est remplacée qu'une fois que la version la plus stable atteint un numéro supérieur à celui de la version installée sur l'appareil.</translation>
@@ -1712,6 +1716,13 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
 
           Cette règle n'est respectée que si la règle "DefaultSearchProviderEnabled" est activée.</translation>
 <translation id="7302043767260300182">Délai de verrouillage de l'écran (secteur)</translation>
+<translation id="7309839952828354215">Indique le comportement à adopter par un appareil qui a été fourni avec eCryptfs et qui doit faire la transition vers un chiffrement ext4.
+
+      Si cette règle est définie sur "DisallowArc", les applications Android seront désactivées pour tous les utilisateurs de l'appareil (y compris ceux utilisant déjà le chiffrement ext4) et la migration d'eCryptfs vers ext4 ne sera proposée à aucun utilisateur.
+
+      Si cette règle est définie sur "AllowMigration", les utilisateurs disposant d'un répertoire d'accueil eCryptfs pourront le faire migrer vers un chiffrement ext4 si nécessaire (à l'heure actuelle, proposé lorsqu'Android N est disponible sur l'appareil).
+
+      Si cette règle n'est pas définie, l'appareil se comportera par défaut comme si elle était définie sur "DisallowArc".</translation>
 <translation id="7311458740754205918">Si cette règle est définie sur "True" ou n'est pas définie, la page "Nouvel onglet" peut proposer des recommandations de contenus en fonction de l'historique de navigation, des centres d'intérêt ou de la position de l'utilisateur.
 
       Si cette règle est définie sur "False", aucune recommandation de contenus générée automatiquement ne s'affiche sur la page "Nouvel onglet".</translation>
