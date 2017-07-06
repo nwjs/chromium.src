@@ -739,9 +739,6 @@ void RenderFrameDevToolsAgentHost::RenderFrameHostChanged(
   for (auto* target : protocol::TargetHandler::ForAgentHost(this))
     target->UpdateFrames();
 
-  if (IsBrowserSideNavigationEnabled() && !current_frame_crashed_)
-    return;
-
   DCHECK(!pending_ || pending_->host() != old_host);
   if (!current_ || current_->host() != old_host) {
     DCHECK(CheckConsistency());
@@ -752,6 +749,7 @@ void RenderFrameDevToolsAgentHost::RenderFrameHostChanged(
   // navigation.
   if (!pending_)
     SetPending(static_cast<RenderFrameHostImpl*>(new_host));
+  pending_handle_ = nullptr;
   CommitPending();
   DCHECK(CheckConsistency());
 }
