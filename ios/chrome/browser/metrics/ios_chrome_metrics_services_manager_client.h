@@ -44,7 +44,7 @@ class IOSChromeMetricsServicesManagerClient
 
   net::URLRequestContextGetter* GetURLRequestContext() override;
   bool IsMetricsReportingEnabled() override;
-  bool IsIncognitoSessionActive() override;
+  bool OnlyDoMetricsRecording() override;
 
   // Gets the MetricsStateManager, creating it if it has not already been
   // created.
