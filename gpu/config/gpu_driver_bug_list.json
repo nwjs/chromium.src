@@ -1,6 +1,6 @@
 {
   "name": "gpu driver bug list",
-  "version": "10.91",
+  "version": "10.92",
   "entries": [
     {
       "id": 1,
@@ -2505,6 +2505,30 @@
       "device_id": ["0x22B0", "0x22B1", "0x22B2", "0x22B3"],
       "features": [
         "disable_d3d11"
+      ]
+    },
+    {
+      "id": 231,
+      "description": "Adreno 4xx support for EXT_multisampled_render_to_texture is broken on Android 8.0",
+      "comment": [
+        "Disabling EXT_multisampled_render_to_texture triggers the explicit multisample resolve path, which is broken on the same configurations. (See also software rendering list entry #148.)"
+      ],
+      "cr_bugs": [722962],
+      "os": {
+        "type": "android",
+        "version": {
+          "op": "between",
+          "value": "8.0.0",
+          "value2": "8.0.99",
+          "comment": "Only initial version of O."
+        }
+      },
+      "gl_renderer": "Adreno \\(TM\\) 4.*",
+      "disabled_extensions": [
+        "GL_EXT_multisampled_render_to_texture"
+      ],
+      "features": [
+        "disable_chromium_framebuffer_multisample"
       ]
     }
   ],
