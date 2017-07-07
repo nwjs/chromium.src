@@ -1066,7 +1066,7 @@ void DocumentLoader::InstallNewDocument(
   // features flag is enabled, then ignore any header received.
   // TODO(iclelland): Re-enable once the syntax is finalized. (crbug.com/737643)
   document->SetFeaturePolicy(
-      RuntimeEnabledFeatures::FeaturePolicyExperimentalFeaturesEnabled()
+      RuntimeEnabledFeatures::featurePolicyExperimentalFeaturesEnabled()
           ? response_.HttpHeaderField(HTTPNames::Feature_Policy)
           : g_empty_string);
 
