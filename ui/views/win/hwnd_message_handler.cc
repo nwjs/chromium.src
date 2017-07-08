@@ -1203,7 +1203,7 @@ void HWNDMessageHandler::ResetWindowRegion(bool force, bool redraw) {
   if (custom_window_region_.is_valid()) {
     new_region.reset(CreateRectRgn(0, 0, 0, 0));
     CombineRgn(new_region.get(), custom_window_region_.get(), NULL, RGN_COPY);
-  } else if (content::g_support_transparency && window_ex_style() & WS_EX_COMPOSITED) {
+  } else if (content::g_support_transparency && is_translucent_) {
     RECT work_rect = window_rect;
     OffsetRect(&work_rect, -window_rect.left, -window_rect.top);
     new_region.reset(CreateRectRgnIndirect(&work_rect));
@@ -1366,7 +1366,7 @@ LRESULT HWNDMessageHandler::OnCreate(CREATESTRUCT* create_struct) {
               MAKELPARAM(UIS_CLEAR, UISF_HIDEFOCUS),
               0);
 
-  if (TRANSPARENCY(!delegate_->HasFrame(), && !(window_ex_style() & WS_EX_COMPOSITED))) {
+  if (TRANSPARENCY(!delegate_->HasFrame(), && !(is_translucent_))) {
     SetWindowLong(hwnd(), GWL_STYLE,
                   GetWindowLong(hwnd(), GWL_STYLE) & ~WS_CAPTION);
     SendFrameChanged();
@@ -1855,7 +1855,7 @@ LRESULT HWNDMessageHandler::OnNCCalcSize(BOOL mode, LPARAM l_param) {
       return 0;
     }
   }
-  const LONG noTitleBar = (window_ex_style() & WS_EX_COMPOSITED) && !delegate_->HasFrame();
+  const LONG noTitleBar = (is_translucent_) && !delegate_->HasFrame();
   gfx::Insets insets;
   bool got_insets = GetClientAreaInsets(&insets);
   if (TRANSPARENCY(!got_insets && !IsFullscreen() &&
