@@ -123,10 +123,6 @@ class BookmarkBubbleView : public LocationBarBubbleDelegateView,
   void OnIOSPromotionFootnoteLinkClicked() override;
 
 #if defined(OS_WIN)
-  // Check eligiblity to showthe iOS promotion from a specific entry point.
-  bool IsIOSPromotionEligible(
-      desktop_ios_promotion::PromotionEntryPoint entry_point);
-
   // Shows the iOS promotion.
   void ShowIOSPromotion(desktop_ios_promotion::PromotionEntryPoint entry_point);
 #endif

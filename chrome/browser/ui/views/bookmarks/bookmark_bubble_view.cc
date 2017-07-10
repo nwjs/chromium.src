@@ -40,10 +40,8 @@
 #include "ui/views/widget/widget.h"
 
 #if defined(OS_WIN)
-#include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/views/desktop_ios_promotion/desktop_ios_promotion_bubble_view.h"
 #include "chrome/browser/ui/views/desktop_ios_promotion/desktop_ios_promotion_footnote_view.h"
-#include "components/browser_sync/profile_sync_service.h"
 #endif
 
 using base::UserMetricsAction;
@@ -279,7 +277,8 @@ views::View* BookmarkBubbleView::GetInitiallyFocusedView() {
 views::View* BookmarkBubbleView::CreateFootnoteView() {
 #if defined(OS_WIN)
   if (!is_showing_ios_promotion_ &&
-      IsIOSPromotionEligible(
+      desktop_ios_promotion::IsEligibleForIOSPromotion(
+          profile_,
           desktop_ios_promotion::PromotionEntryPoint::BOOKMARKS_FOOTNOTE)) {
     footnote_view_ = new DesktopIOSPromotionFootnoteView(profile_, this);
     return footnote_view_;
@@ -370,7 +369,8 @@ void BookmarkBubbleView::HandleButtonPressed(views::Button* sender) {
   } else {
     DCHECK_EQ(close_button_, sender);
 #if defined(OS_WIN)
-    if (IsIOSPromotionEligible(
+    if (desktop_ios_promotion::IsEligibleForIOSPromotion(
+            profile_,
             desktop_ios_promotion::PromotionEntryPoint::BOOKMARKS_BUBBLE)) {
       ShowIOSPromotion(
           desktop_ios_promotion::PromotionEntryPoint::BOOKMARKS_BUBBLE);
@@ -427,16 +427,6 @@ void BookmarkBubbleView::OnIOSPromotionFootnoteLinkClicked() {
 }
 
 #if defined(OS_WIN)
-
-bool BookmarkBubbleView::IsIOSPromotionEligible(
-    desktop_ios_promotion::PromotionEntryPoint entry_point) {
-  PrefService* prefs = profile_->GetPrefs();
-  const browser_sync::ProfileSyncService* sync_service =
-      ProfileSyncServiceFactory::GetForProfile(profile_);
-  return desktop_ios_promotion::IsEligibleForIOSPromotion(prefs, sync_service,
-                                                          entry_point);
-}
-
 void BookmarkBubbleView::ShowIOSPromotion(
     desktop_ios_promotion::PromotionEntryPoint entry_point) {
   DCHECK(!is_showing_ios_promotion_);
