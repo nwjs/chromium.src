@@ -25,6 +25,7 @@
 #include "extensions/common/value_counter.h"
 #include "extensions/renderer/extension_frame_helper.h"
 #include "extensions/renderer/script_context.h"
+#include "gin/converter.h"
 #include "url/gurl.h"
 
 namespace extensions {
