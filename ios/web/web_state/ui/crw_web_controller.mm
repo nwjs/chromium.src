@@ -686,6 +686,14 @@ registerLoadRequestForURL:(const GURL&)URL
 - (void)injectHTML5HistoryScriptWithHashChange:(BOOL)dispatchHashChange
                         sameDocumentNavigation:(BOOL)sameDocumentNavigation;
 
+// WKNavigation objects are used as a weak key to store web::NavigationContext.
+// WKWebView manages WKNavigation lifetime and destroys them after the
+// navigation is finished. However for window opening navigations WKWebView
+// passes null WKNavigation to WKNavigationDelegate callbacks and strong key is
+// used to store web::NavigationContext. Those "null" navigations have to be
+// cleaned up manually by calling this method.
+- (void)forgetNullWKNavigation:(WKNavigation*)navigation;
+
 - (BOOL)isLoaded;
 // Extracts the current page's viewport tag information and calls |completion|.
 // If the page has changed before the viewport tag is successfully extracted,
@@ -3477,6 +3485,11 @@ registerLoadRequestForURL:(const GURL&)requestURL
   return currentItem ? currentItem->GetHttpRequestHeaders() : nil;
 }
 
+- (void)forgetNullWKNavigation:(WKNavigation*)navigation {
+  if (!navigation)
+    [_navigationStates removeNavigation:navigation];
+}
+
 #pragma mark -
 #pragma mark CRWWebViewScrollViewProxyObserver
 
@@ -4543,7 +4556,7 @@ registerLoadRequestForURL:(const GURL&)requestURL
   // the pending load.
   _pendingNavigationInfo.reset();
   _certVerificationErrors->Clear();
-  [_navigationStates removeNavigation:navigation];
+  [self forgetNullWKNavigation:navigation];
 }
 
 - (void)webView:(WKWebView*)webView
@@ -4647,9 +4660,9 @@ registerLoadRequestForURL:(const GURL&)requestURL
 
   if (navigationFinished) {
     // webView:didFinishNavigation: was called before
-    // webView:didCommitNavigation:, so remove the navigation now and signal
+    // webView:didCommitNavigation:, so forget null navigation now and signal
     // that navigation was finished.
-    [_navigationStates removeNavigation:navigation];
+    [self forgetNullWKNavigation:navigation];
     [self didFinishNavigation:navigation];
   }
 }
@@ -4670,10 +4683,10 @@ registerLoadRequestForURL:(const GURL&)requestURL
   web::ExecuteJavaScript(webView, @"__gCrWeb.didFinishNavigation()", nil);
   [self didFinishNavigation:navigation];
 
-  // Remove navigation only if it has been committed. Otherwise it will be
-  // removed in webView:didCommitNavigation: callback.
+  // Forget null navigation only if it has been committed. Otherwise it will be
+  // forgotten in webView:didCommitNavigation: callback.
   if (navigationCommitted) {
-    [_navigationStates removeNavigation:navigation];
+    [self forgetNullWKNavigation:navigation];
   }
 }
 
@@ -4687,7 +4700,7 @@ registerLoadRequestForURL:(const GURL&)requestURL
             inMainFrame:YES
           forNavigation:navigation];
   _certVerificationErrors->Clear();
-  [_navigationStates removeNavigation:navigation];
+  [self forgetNullWKNavigation:navigation];
 }
 
 - (void)webView:(WKWebView*)webView
