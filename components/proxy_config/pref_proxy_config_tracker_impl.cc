@@ -24,12 +24,10 @@
 //============================= ProxyConfigServiceImpl =======================
 
 ProxyConfigServiceImpl::ProxyConfigServiceImpl(
-    std::unique_ptr<net::ProxyConfigService> base_service,
-    ProxyPrefs::ConfigState initial_config_state,
-    const net::ProxyConfig& initial_config)
-    : base_service_(std::move(base_service)),
-      pref_config_state_(initial_config_state),
-      pref_config_(initial_config),
+    net::ProxyConfigService* base_service)
+    : base_service_(base_service),
+      pref_config_state_(ProxyPrefs::CONFIG_UNSET),
+      pref_config_read_pending_(true),
       registered_observer_(false) {
   // ProxyConfigServiceImpl is created on the UI thread, but used on the network
   // thread.
@@ -56,6 +54,9 @@ net::ProxyConfigService::ConfigAvailability
 ProxyConfigServiceImpl::GetLatestProxyConfig(net::ProxyConfig* config) {
   RegisterObserver();
 
+  if (pref_config_read_pending_)
+    return net::ProxyConfigService::CONFIG_PENDING;
+
   // Ask the base service if available.
   net::ProxyConfig system_config;
   ConfigAvailability system_availability =
@@ -78,6 +79,7 @@ void ProxyConfigServiceImpl::UpdateProxyConfig(
     ProxyPrefs::ConfigState config_state,
     const net::ProxyConfig& config) {
   DCHECK(thread_checker_.CalledOnValidThread());
+  pref_config_read_pending_ = false;
   pref_config_state_ = config_state;
   pref_config_ = config;
 
@@ -107,7 +109,7 @@ void ProxyConfigServiceImpl::OnProxyConfigChanged(
 
   // Check whether there is a proxy configuration defined by preferences. In
   // this case that proxy configuration takes precedence and the change event
-  // from the delegate proxy config service can be disregarded.
+  // from the delegate proxy service can be disregarded.
   if (!PrefProxyConfigTrackerImpl::PrefPrecedes(pref_config_state_)) {
     net::ProxyConfig actual_config;
     availability = GetLatestProxyConfig(&actual_config);
@@ -147,12 +149,12 @@ PrefProxyConfigTrackerImpl::~PrefProxyConfigTrackerImpl() {
 std::unique_ptr<net::ProxyConfigService>
 PrefProxyConfigTrackerImpl::CreateTrackingProxyConfigService(
     std::unique_ptr<net::ProxyConfigService> base_service) {
-  DCHECK(!proxy_config_service_impl_);
-  proxy_config_service_impl_ = new ProxyConfigServiceImpl(
-      std::move(base_service), config_state_, pref_config_);
+  proxy_config_service_impl_ =
+      new ProxyConfigServiceImpl(base_service.release());
   VLOG(1) << this << ": set chrome proxy config service to "
           << proxy_config_service_impl_;
-  update_pending_ = false;
+  if (proxy_config_service_impl_ && update_pending_)
+    OnProxyConfigChanged(config_state_, pref_config_);
 
   return std::unique_ptr<net::ProxyConfigService>(proxy_config_service_impl_);
 }
