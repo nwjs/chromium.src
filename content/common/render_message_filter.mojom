@@ -12,6 +12,7 @@ import "third_party/WebKit/public/platform/referrer.mojom";
 import "third_party/WebKit/public/web/window_features.mojom";
 import "ui/base/mojo/window_open_disposition.mojom";
 import "url/mojo/url.mojom";
+import "mojo/common/string16.mojom";
 
 struct CreateNewWindowParams {
   // The routing id of the frame initiating the open.
@@ -56,6 +57,8 @@ struct CreateNewWindowParams {
 
   // The window features to use for the new view.
   blink.mojom.WindowFeatures features;
+
+  mojo.common.mojom.String16 nw_window_manifest;
 };
 
 struct CreateNewWindowReply {

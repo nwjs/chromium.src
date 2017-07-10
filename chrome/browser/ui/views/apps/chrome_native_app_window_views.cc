@@ -21,6 +21,14 @@
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/widget/widget.h"
 
+#if defined(NWJS_SDK)
+#include "base/command_line.h"
+#include "chrome/browser/devtools/devtools_window.h"
+#include "content/nw/src/common/shell_switches.h"
+#endif
+
+#include "ui/display/screen.h"
+
 using extensions::AppWindow;
 
 namespace {
@@ -37,9 +45,12 @@ struct AcceleratorMapping {
 };
 
 const AcceleratorMapping kAppWindowAcceleratorMap[] = {
-  { ui::VKEY_W, ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW },
-  { ui::VKEY_W, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW },
+  //  { ui::VKEY_W, ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW },
+  //  { ui::VKEY_W, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW },
   { ui::VKEY_F4, ui::EF_ALT_DOWN, IDC_CLOSE_WINDOW },
+#if defined(NWJS_SDK)
+  { ui::VKEY_F12, ui::EF_NONE, IDC_DEV_TOOLS_TOGGLE },
+#endif
 };
 
 // These accelerators will only be available in kiosk mode. These allow the
@@ -110,6 +121,10 @@ void ChromeNativeAppWindowViews::OnBeforeWidgetInit(
     views::Widget* widget) {
 }
 
+bool ChromeNativeAppWindowViews::NWCanClose(bool user_force) const {
+  return app_window()->NWCanClose(user_force);
+}
+
 void ChromeNativeAppWindowViews::OnBeforePanelWidgetInit(
     views::Widget::InitParams* init_params,
     views::Widget* widget) {
@@ -149,10 +164,23 @@ void ChromeNativeAppWindowViews::InitializeDefaultWindow(
     bool position_specified =
         window_bounds.x() != BoundsSpecification::kUnspecifiedPosition &&
         window_bounds.y() != BoundsSpecification::kUnspecifiedPosition;
+    position_specified |= create_params.position == AppWindow::POS_MOUSE;
     if (!position_specified)
       widget()->CenterWindow(window_bounds.size());
-    else
+    else if (create_params.position == AppWindow::POS_MOUSE) {
+      gfx::Point cursor_pos(display::Screen::GetScreen()->GetCursorScreenPoint());
+      window_bounds.set_origin(cursor_pos);
       widget()->SetBounds(window_bounds);
+    }else
+      widget()->SetBounds(window_bounds);
+  } else {
+    if (create_params.position == AppWindow::POS_CENTER)
+      widget()->CenterWindow(gfx::Size(640, 480));
+    else if (create_params.position == extensions::AppWindow::POS_MOUSE) {
+      gfx::Point cursor_pos(display::Screen::GetScreen()->GetCursorScreenPoint());
+      gfx::Rect bounds(cursor_pos, gfx::Size(640, 480));
+      widget()->SetBounds(bounds);
+    }
   }
 
 #if defined(OS_CHROMEOS)
@@ -249,6 +277,9 @@ bool ChromeNativeAppWindowViews::IsAlwaysOnTop() const {
 // views::WidgetDelegate implementation.
 
 gfx::ImageSkia ChromeNativeAppWindowViews::GetWindowAppIcon() {
+  gfx::Image icon_override = app_window()->icon_override();
+  if (!icon_override.IsEmpty())
+    return *icon_override.ToImageSkia();
   gfx::Image app_icon = app_window()->app_icon();
   if (app_icon.IsEmpty())
     return GetWindowIcon();
@@ -257,6 +288,9 @@ gfx::ImageSkia ChromeNativeAppWindowViews::GetWindowAppIcon() {
 }
 
 gfx::ImageSkia ChromeNativeAppWindowViews::GetWindowIcon() {
+  gfx::Image icon_override = app_window()->icon_override();
+  if (!icon_override.IsEmpty())
+    return *icon_override.ToImageSkia();
   content::WebContents* web_contents = app_window()->web_contents();
   if (web_contents) {
     favicon::FaviconDriver* favicon_driver =
@@ -298,6 +332,14 @@ bool ChromeNativeAppWindowViews::AcceleratorPressed(
       accelerator_table.find(accelerator);
   DCHECK(iter != accelerator_table.end());
   int command_id = iter->second;
+#if defined(NWJS_SDK)
+  content::WebContents* web_contents;
+  bool enable_devtools = true;
+  const base::CommandLine* command_line =
+      base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kDisableDevTools))
+    enable_devtools = false;
+#endif
   switch (command_id) {
     case IDC_CLOSE_WINDOW:
       Close();
@@ -313,7 +355,25 @@ bool ChromeNativeAppWindowViews::AcceleratorPressed(
     case IDC_ZOOM_PLUS:
       zoom::PageZoom::Zoom(web_view()->GetWebContents(), content::PAGE_ZOOM_IN);
       return true;
-    default:
+#if defined(NWJS_SDK)
+    case IDC_DEV_TOOLS:
+      if (!enable_devtools)
+        return true;
+      web_contents = app_window()->web_contents();
+      if (web_contents) {
+        DevToolsWindow::OpenDevToolsWindow(web_contents);
+      }
+      return true;
+    case IDC_DEV_TOOLS_TOGGLE:
+      if (!enable_devtools)
+        return true;
+      web_contents = app_window()->web_contents();
+      if (web_contents) {
+        DevToolsWindow::OpenDevToolsWindow(web_contents, DevToolsToggleAction::Toggle());
+      }
+      return true;
+#endif
+  default:
       NOTREACHED() << "Unknown accelerator sent to app window.";
   }
   return NativeAppWindowViews::AcceleratorPressed(accelerator);

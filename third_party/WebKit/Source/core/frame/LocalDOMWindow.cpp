@@ -269,7 +269,7 @@ unsigned LocalDOMWindow::PendingUnloadEventListeners() const {
 }
 
 bool LocalDOMWindow::AllowPopUp(LocalFrame& first_frame) {
-  if (UserGestureIndicator::UtilizeUserGesture())
+  if (UserGestureIndicator::UtilizeUserGesture() || first_frame.isNodeJS())
     return true;
 
   Settings* settings = first_frame.GetSettings();
@@ -1628,10 +1628,10 @@ DOMWindow* LocalDOMWindow::open(const String& url_string,
   // In those cases, we schedule a location change right now and return early.
   Frame* target_frame = nullptr;
   if (EqualIgnoringASCIICase(frame_name, "_top")) {
-    target_frame = GetFrame()->Tree().Top();
+    target_frame = GetFrame()->isNwFakeTop() ? GetFrame() : GetFrame()->Tree().Find("_top");
   } else if (EqualIgnoringASCIICase(frame_name, "_parent")) {
     if (Frame* parent = GetFrame()->Tree().Parent())
-      target_frame = parent;
+      target_frame = GetFrame()->isNwFakeTop() ? GetFrame() : parent;
     else
       target_frame = GetFrame();
   }

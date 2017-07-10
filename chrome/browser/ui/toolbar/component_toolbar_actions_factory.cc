@@ -28,12 +28,14 @@ const char ComponentToolbarActionsFactory::kMediaRouterActionId[] =
     "media_router_action";
 
 ComponentToolbarActionsFactory::ComponentToolbarActionsFactory(Profile* profile)
+#if defined(ENABLE_MEDIA_ROUTER) && defined(NWJS_SDK)
     : profile_(profile) {
-#if defined(ENABLE_MEDIA_ROUTER)
   if (media_router::MediaRouterEnabled(profile_) &&
       MediaRouterActionController::IsActionShownByPolicy(profile_)) {
     initial_ids_.insert(kMediaRouterActionId);
   }
+#else
+  {
 #endif
 }
 
@@ -65,9 +67,11 @@ ComponentToolbarActionsFactory::GetComponentToolbarActionForId(
   // should be okay. If this changes, we should rethink this design to have,
   // e.g., RegisterChromeAction().
 #if defined(ENABLE_MEDIA_ROUTER)
+#if defined(NWJS_SDK)
   if (action_id == kMediaRouterActionId)
     return std::unique_ptr<ToolbarActionViewController>(
         new MediaRouterAction(browser, bar));
+#endif
 #endif  // defined(ENABLE_MEDIA_ROUTER)
 
   NOTREACHED();
