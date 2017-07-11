@@ -103,6 +103,8 @@ class TranslateCompactInfoBar extends InfoBar
     private TranslateMenuHelper mLanguageMenuHelper;
     private TintedImageButton mMenuButton;
 
+    private TranslateSnackbarController mSnackbarController;
+
     private boolean mMenuExpanded;
     private boolean mUserInteracted;
 
@@ -116,11 +118,13 @@ class TranslateCompactInfoBar extends InfoBar
 
         @Override
         public void onDismissNoAction(Object actionData) {
+            mSnackbarController = null;
             handleTranslateOptionPostSnackbar(mActionId);
         }
 
         @Override
         public void onAction(Object actionData) {
+            mSnackbarController = null;
             switch (mActionId) {
                 case ACTION_OVERFLOW_ALWAYS_TRANSLATE:
                     recordInfobarAction(INFOBAR_SNACKBAR_CANCEL_ALWAYS);
@@ -415,8 +419,9 @@ class TranslateCompactInfoBar extends InfoBar
     @Override
     protected void onStartedHiding() {
         dismissMenus();
-        if (getSnackbarManager() != null) getSnackbarManager().dismissAllSnackbars();
-        super.onStartedHiding();
+        if (getSnackbarManager() != null && mSnackbarController != null) {
+            getSnackbarManager().dismissSnackbars(mSnackbarController);
+        }
     }
 
     private void createAndShowSnackbar(String title, int umaType, int actionId) {
@@ -445,9 +450,9 @@ class TranslateCompactInfoBar extends InfoBar
                 assert false : "Unsupported Menu Item Id, to show snackbar.";
         }
 
+        mSnackbarController = new TranslateSnackbarController(actionId);
         getSnackbarManager().showSnackbar(
-                Snackbar.make(title, new TranslateSnackbarController(actionId),
-                                Snackbar.TYPE_NOTIFICATION, umaType)
+                Snackbar.make(title, mSnackbarController, Snackbar.TYPE_NOTIFICATION, umaType)
                         .setSingleLine(false)
                         .setAction(
                                 getContext().getString(R.string.translate_snackbar_cancel), null));
