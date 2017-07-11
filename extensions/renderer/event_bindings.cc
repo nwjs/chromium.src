@@ -194,6 +194,13 @@ void EventBindings::DispatchEventInContext(
       kEventBindings, "dispatchEvent", arraysize(v8_args), v8_args);
 }
 
+void EventBindings::AttachEventHandler(
+    const v8::FunctionCallbackInfo<v8::Value>& args) {
+  CHECK_EQ(1, args.Length());
+  CHECK(args[0]->IsString());
+  AttachEvent(*v8::String::Utf8Value(args[0]));
+}
+
 void EventBindings::AttachEvent(const std::string& event_name) {
   if (!context()->HasAccessOrThrowError(event_name))
     return;
