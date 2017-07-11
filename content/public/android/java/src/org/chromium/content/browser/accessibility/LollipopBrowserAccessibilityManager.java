@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ReceiverCallNotAllowedException;
 import android.os.Build;
 import android.text.SpannableString;
 import android.text.style.LocaleSpan;
@@ -37,13 +38,18 @@ public class LollipopBrowserAccessibilityManager extends KitKatBrowserAccessibil
         super(nativeBrowserAccessibilityManagerAndroid, contentViewCore);
 
         // Cache the system language and set up a listener for when it changes.
-        IntentFilter filter = new IntentFilter(Intent.ACTION_LOCALE_CHANGED);
-        mContentViewCore.getContext().registerReceiver(new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                mSystemLanguageTag = Locale.getDefault().toLanguageTag();
-            }
-        }, filter);
+        try {
+            IntentFilter filter = new IntentFilter(Intent.ACTION_LOCALE_CHANGED);
+            mContentViewCore.getContext().registerReceiver(new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    mSystemLanguageTag = Locale.getDefault().toLanguageTag();
+                }
+            }, filter);
+        } catch (ReceiverCallNotAllowedException e) {
+            // WebView may be running inside a BroadcastReceiver, in which case registerReceiver is
+            // not allowed.
+        }
         mSystemLanguageTag = Locale.getDefault().toLanguageTag();
     }
 
