@@ -1836,7 +1836,7 @@ van <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3592260987370335752">&amp;Meer informatie</translation>
 <translation id="359283478042092570">Invoeren</translation>
 <translation id="3593965109698325041">Naambeperkingen voor certificaten</translation>
-<translation id="3595596368722241419">Accu is vol</translation>
+<translation id="3595596368722241419">Batterij is vol</translation>
 <translation id="3596235046596950091">Cloudservices inschakelen</translation>
 <translation id="3600456501114769456">Toegang tot lokale bestanden op je apparaat is door je beheerder uitgeschakeld.</translation>
 <translation id="3603385196401704894">Canadees Frans</translation>
@@ -2262,7 +2262,7 @@ Alle gebruikers moet uitloggen om door te gaan.</translation>
 <translation id="4250680216510889253">Nee</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" />: content van tabblad gedeeld</translation>
 <translation id="4254813446494774748">Doeltaal:</translation>
-<translation id="425573743389990240">Accu-ontlading in Watt (een negatieve waarde betekent dat de accu wordt opgeladen)</translation>
+<translation id="425573743389990240">Batterij-ontlading in Watt (een negatieve waarde betekent dat de batterij wordt opgeladen)</translation>
 <translation id="4256316378292851214">&amp;Video opslaan als...</translation>
 <translation id="4258348331913189841">Bestandssystemen</translation>
 <translation id="426015154560005552">Arabisch toetsenbord</translation>
@@ -3397,7 +3397,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5948205789991352045">Niet openen</translation>
 <translation id="5948544841277865110">Privénetwerk toevoegen</translation>
 <translation id="5949544233750246342">Kan bestand niet parseren</translation>
-<translation id="5951823343679007761">Geen accu</translation>
+<translation id="5951823343679007761">Geen batterij</translation>
 <translation id="5955282598396714173">Je wachtwoord is verlopen. Log uit en weer in om het te wijzigen.</translation>
 <translation id="5956585768868398362">Is dit de zoekpagina die je had verwacht?</translation>
 <translation id="5957613098218939406">Meer opties</translation>
@@ -3608,7 +3608,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> wordt niet vaak gedownload en kan gevaarlijk zijn.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Nieuwe printer in je netwerk}other{Nieuwe printers in je netwerk}}</translation>
-<translation id="6285395082104474418">Het statusvak bevat de huidige status van je netwerk, accu en meer.</translation>
+<translation id="6285395082104474418">Het statusvak bevat de huidige status van je netwerk, batterij en meer.</translation>
 <translation id="6286684120317096255">Dataverbruik wordt bijgehouden</translation>
 <translation id="6286708577777130801">Details van opgeslagen wachtwoorden</translation>
 <translation id="6287852322318138013">Een app selecteren om dit bestand te openen</translation>
@@ -4066,7 +4066,7 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="6972929256216826630">Alle sites toestaan automatisch meerdere bestanden te downloaden</translation>
 <translation id="6973630695168034713">Mappen</translation>
 <translation id="6974053822202609517">Rechts naar links</translation>
-<translation id="6975147921678461939">Accu wordt opgeladen: <ph name="PRECENTAGE" />%</translation>
+<translation id="6975147921678461939">Batterij wordt opgeladen: <ph name="PRECENTAGE" />%</translation>
 <translation id="6976108581241006975">JavaScript-console</translation>
 <translation id="6977381486153291903">Firmwarerevisie</translation>
 <translation id="6978121630131642226">Zoekmachines</translation>
@@ -4768,7 +4768,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="799923393800005025">Kan weergeven</translation>
 <translation id="8000066093800657092">Geen netwerk</translation>
 <translation id="8004582292198964060">Browser</translation>
-<translation id="8007030362289124303">Accu is bijna leeg</translation>
+<translation id="8007030362289124303">Batterij is bijna leeg</translation>
 <translation id="8008356846765065031">Verbinding met internet verbroken. Controleer je internetverbinding.</translation>
 <translation id="8008818777654712271">Bepaalde systeeminformatie en paginacontent automatisch verzenden naar Google om te helpen bij de detectie van gevaarlijke apps en sites</translation>
 <translation id="8012382203418782830">Deze pagina is vertaald.</translation>
@@ -4888,7 +4888,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="8165208966034452696"><ph name="PLUGIN_NAME" /></translation>
 <translation id="8165383685500900731">Microfooninstellingen beheren…</translation>
 <translation id="8168435359814927499">Content</translation>
-<translation id="8169977663846153645">Accu
+<translation id="8169977663846153645">Batterij
 Resterende tijd berekenen</translation>
 <translation id="8172078946816149352">Voor Adobe Flash Player worden afzonderlijke microfooninstellingen gebruikt.</translation>
 <translation id="8174047975335711832">Apparaatgegevens</translation>
@@ -5509,7 +5509,7 @@ Verdere meldingen, vensters en dialoogvensters worden mogelijk verdeeld over de 
 <translation id="9102610709270966160">Extensie inschakelen</translation>
 <translation id="9103001804464916031">{NUM_DOWNLOAD,plural, =1{Download wordt uitgevoerd}other{Downloads worden uitgevoerd}}</translation>
 <translation id="9105212490906037469">F2</translation>
-<translation id="9106577689055281370">Accu
+<translation id="9106577689055281370">Batterij
 <ph name="HOUR" />:<ph name="MINUTE" /> resterend</translation>
 <translation id="9109122242323516435">Verwijder bestanden uit de opslag van je apparaat om ruimte vrij te maken.</translation>
 <translation id="9110990317705400362">We zijn altijd op zoek naar manieren om het surfen veiliger te maken. Vroeger kon elke website je vragen een extensie toe te voegen aan je browser. In de nieuwste versies van Google Chrome moet je Chrome expliciet toestemming geven om deze extensies te installeren door ze toe te voegen via de pagina 'Extensies'. <ph name="BEGIN_LINK" />Meer informatie<ph name="END_LINK" /></translation>

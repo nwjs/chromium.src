@@ -1318,7 +1318,7 @@
 <translation id="2860150991415616761">매우 길게(4초)</translation>
 <translation id="2861301611394761800">시스템 업데이트가 완료되었습니다. 시스템을 다시 시작하세요.</translation>
 <translation id="2861941300086904918">네이티브 클라이언트 보안 관리자</translation>
-<translation id="2863360020633542314">플래시 예외</translation>
+<translation id="2863360020633542314">Flash 예외</translation>
 <translation id="2867768963760577682">고정 탭으로 열기</translation>
 <translation id="2868746137289129307">이 확장 프로그램은 오래된 것이며 기업 정책에 의해 중지되었습니다. 새로운 버전이 있는 경우 자동으로 사용 설정될 수 있습니다.</translation>
 <translation id="2870560284913253234">사이트</translation>
@@ -1423,7 +1423,7 @@
 <translation id="3009300415590184725">모바일 데이터 서비스 설정 과정을 취소하시겠습니까?</translation>
 <translation id="3009779501245596802">색인화된 데이터베이스</translation>
 <translation id="3010279545267083280">비밀번호 삭제됨</translation>
-<translation id="3011284594919057757">플래시 정보</translation>
+<translation id="3011284594919057757">Flash 정보</translation>
 <translation id="3011362742078013760">모든 북마크를 시크릿 창에서 열기(&amp;I)</translation>
 <translation id="3012631534724231212">(iframe)</translation>
 <translation id="3012804260437125868">동일한 사이트에서 보안 연결하는 경우에만</translation>
@@ -2439,7 +2439,7 @@
 <translation id="4546308221697447294">Chrome으로 빠르게 탐색</translation>
 <translation id="4547659257713117923">다른 기기의 탭 없음</translation>
 <translation id="4547992677060857254">선택한 폴더에 민감한 파일이 포함되어 있습니다. 이 폴더에 '$1' 영구 쓰기 액세스를 승인하시겠습니까?</translation>
-<translation id="4552089082226364758">플래시</translation>
+<translation id="4552089082226364758">Flash</translation>
 <translation id="4552495056028768700">페이지 액세스</translation>
 <translation id="4552678318981539154">추가 저장용량 구입</translation>
 <translation id="4554591392113183336">외부 확장 프로그램의 버전이 기존 프로그램과 동일하거나 낮습니다.</translation>
@@ -2959,7 +2959,7 @@
 <translation id="5308380583665731573">연결</translation>
 <translation id="5311260548612583999">비공개 키 파일(선택사항):</translation>
 <translation id="5311304534597152726">다음으로 로그인</translation>
-<translation id="5314487751552222713">중요한 플래시 콘텐츠 감지 및 실행(권장)</translation>
+<translation id="5314487751552222713">중요한 Flash 콘텐츠 감지 및 실행(권장)</translation>
 <translation id="5315873049536339193">주소</translation>
 <translation id="5316588172263354223">언제든지 음성 검색</translation>
 <translation id="5316716239522500219">모니터 미러</translation>
@@ -3367,7 +3367,7 @@
 <translation id="5906065664303289925">하드웨어 주소:</translation>
 <translation id="5906655207909574370">업데이트가 거의 완료되었습니다. 업데이트를 완료하려면 기기를 다시 시작하세요.</translation>
 <translation id="5906732635754427568">이 앱과 관련된 데이터가 이 기기에서 삭제됩니다.</translation>
-<translation id="5908769186679515905">사이트에서 플래시를 실행하지 못하도록 차단</translation>
+<translation id="5908769186679515905">사이트에서 Flash를 실행하지 못하도록 차단</translation>
 <translation id="5910363049092958439">이미지를 다른 이름으로 저장(&amp;V)...</translation>
 <translation id="5911737117543891828">Google 드라이브 오프라인 임시 파일이 삭제됩니다. 오프라인에서 사용 가능으로 설정한 파일은 이 기기에서 삭제되지 않습니다.</translation>
 <translation id="5912378097832178659">검색 엔진 변경(&amp;E)...</translation>
@@ -3575,7 +3575,7 @@
 <translation id="6239558157302047471">프레임 새로고침(&amp;F)</translation>
 <translation id="6241530762627360640">시스템과 페어링된 블루투스 기기 관련 정보에 액세스하고 근처의 블루투스 기기를 검색합니다.</translation>
 <translation id="6243774244933267674">서버를 사용할 수 없음</translation>
-<translation id="6245220622116401744">사이트에서 플래시를 실행하도록 허용</translation>
+<translation id="6245220622116401744">사이트에서 Flash를 실행하도록 허용</translation>
 <translation id="6246413617632217567">관리 대상 사용자를 가져오지 못했습니다. 하드 드라이브 공간 및 권한을 확인한 후 다시 시도해 주세요.</translation>
 <translation id="6247708409970142803"><ph name="PERCENTAGE" />%</translation>
 <translation id="6247802389331535091">시스템: <ph name="ARC_PROCESS_NAME" /></translation>
@@ -3838,7 +3838,7 @@
 <translation id="6585283250473596934">공개 세션을 시작합니다.</translation>
 <translation id="6586451623538375658">기본 마우스 버튼 전환</translation>
 <translation id="6588399906604251380">맞춤법 검사 사용</translation>
-<translation id="6589411753837135276">사이트에서 플래시를 실행하도록 허용하기 전에 확인(권장)</translation>
+<translation id="6589411753837135276">사이트에서 Flash를 실행하도록 허용하기 전에 확인(권장)</translation>
 <translation id="6589706261477377614">키 밝기 높임</translation>
 <translation id="6592267180249644460">WebRTC 로그 캡처 시간: <ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>
 <translation id="6596092346130528198">설정한 새 탭 페이지가 맞습니까?</translation>
@@ -4365,7 +4365,7 @@
 <translation id="7406691462051376731">이 기기는 현재 진단 및 사용 데이터를 Google에 전송합니다. 소유자가 지정한 <ph name="BEGIN_LINK1" />설정<ph name="END_LINK1" />입니다. <ph name="BEGIN_LINK2" />자세히 알아보기<ph name="END_LINK2" /></translation>
 <translation id="7407430846095439694">가져오기 및 연결</translation>
 <translation id="7409233648990234464">다시 실행 및 Powerwash</translation>
-<translation id="7409836189476010449">플래시 실행</translation>
+<translation id="7409836189476010449">Flash 실행</translation>
 <translation id="7410344089573941623"><ph name="HOST" />에서 카메라와 마이크에 액세스하려는 경우 메시지 표시</translation>
 <translation id="7412226954991670867">GPU 메모리</translation>
 <translation id="7416362041876611053">알려지지 않은 네트워크 오류입니다.</translation>

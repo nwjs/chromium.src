@@ -14,7 +14,7 @@
 <translation id="1165039591588034296">错误</translation>
 <translation id="1172898394251786223">下一个字段</translation>
 <translation id="1176932207622159128">无法保存图片</translation>
-<translation id="1201530049782216880">打开新的隐身标签页</translation>
+<translation id="1201530049782216880">打开新的无痕式标签页</translation>
 <translation id="1209206284964581585">暂时隐藏</translation>
 <translation id="1219674500290482172">无法连接到互联网。</translation>
 <translation id="1254117744268754948">选择文件夹</translation>
@@ -157,7 +157,7 @@
 <translation id="3897092660631435901">菜单</translation>
 <translation id="3928666092801078803">合并我的数据</translation>
 <translation id="3950820424414687140">登录</translation>
-<translation id="3963231839620026525">打开新的隐身标签页</translation>
+<translation id="3963231839620026525">打开新的无痕式标签页</translation>
 <translation id="3967822245660637423">下载完毕</translation>
 <translation id="3989635538409502728">退出</translation>
 <translation id="4002066346123236978">标题</translation>
@@ -243,7 +243,7 @@
 <translation id="5916664084637901428">启用</translation>
 <translation id="5953603475187800576">显示 Google Payments 中保存的地址和信用卡数据</translation>
 <translation id="5955891643922670672">正在查看离线版本</translation>
-<translation id="5964480694698977962">创建新的隐身标签页。</translation>
+<translation id="5964480694698977962">创建新的无痕式标签页。</translation>
 <translation id="5965679971710331625">您已登录</translation>
 <translation id="5982717868370722439">将现有数据添加到 <ph name="USER_EMAIL" />。</translation>
 <translation id="6012140227487808125">正在加密…</translation>
@@ -285,7 +285,7 @@
 <translation id="6445051938772793705">国家/地区</translation>
 <translation id="6445981559479772097">短信已发送。</translation>
 <translation id="6456425917241817154">Chrome 生成的密码</translation>
-<translation id="6464071786529933911">在新的隐身标签页中打开</translation>
+<translation id="6464071786529933911">在新的无痕式标签页中打开</translation>
 <translation id="6482629121755362506">删除了<ph name="NUMBER_OF_SELECTED_BOOKMARKS" />项</translation>
 <translation id="6541915733953096570">过去 1 小时</translation>
 <translation id="6570040839871198836">自动填充表单</translation>

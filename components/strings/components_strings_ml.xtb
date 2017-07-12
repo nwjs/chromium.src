@@ -39,10 +39,10 @@
 <translation id="1227633850867390598">മൂല്യം മറയ്‌ക്കുക</translation>
 <translation id="1228893227497259893">തെറ്റായ എന്റിറ്റി ഐഡന്റിഫയർ</translation>
 <translation id="1232569758102978740">ശീര്‍ഷകമില്ലാത്ത</translation>
-<translation id="1253921432148366685"><ph name="TYPE_1" />, <ph name="TYPE_2" /> (സമന്വയിപ്പച്ചത്)</translation>
+<translation id="1253921432148366685"><ph name="TYPE_1" />, <ph name="TYPE_2" /> (സമന്വയിപ്പിച്ചു)</translation>
 <translation id="1263231323834454256">വായനാ ലിസ്റ്റ്</translation>
 <translation id="1264126396475825575"><ph name="CRASH_TIME" />-ന് ക്യാപ്‌ച്ചർ ചെയ്‌ത ക്രാഷ് റിപ്പോർട്ട് (ഇതുവരെ അപ്‌ലോഡുചെയ്‌തിട്ടോ അവഗണിച്ചിട്ടോ ഇല്ല)</translation>
-<translation id="1281526147609854549"><ph name="ISSUER" /> ഇഷ്യൂ ചെയ്തത്</translation>
+<translation id="1281526147609854549"><ph name="ISSUER" /> ഇഷ്യൂ ചെയ്‌തത്</translation>
 <translation id="1283919782143846010">അപകടകരമായ ഉള്ളടക്കം ബ്ലോക്കുചെയ്‌തു</translation>
 <translation id="1285320974508926690">ഈ സൈറ്റ് ഒരിക്കലും വിവര്‍‌ത്തനം ചെയ്യരുത്</translation>
 <translation id="129553762522093515">സമീപകാലത്ത് അടച്ചവ</translation>
@@ -67,7 +67,7 @@
 <translation id="14171126816530869"><ph name="LOCALITY" /> ലെ <ph name="ORGANIZATION" /> ന്റെ വ്യക്തിത്വം <ph name="ISSUER" /> പരിശോധിച്ചു.</translation>
 <translation id="1426410128494586442">അതെ</translation>
 <translation id="1430915738399379752">അച്ചടിക്കുക</translation>
-<translation id="1495172241291051507">{PAYMENT_METHOD,plural, =1{<ph name="PAYMENT_METHOD_PREVIEW" /> എന്നതും വേറെ <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> എണ്ണവും}other{<ph name="PAYMENT_METHOD_PREVIEW" /> എന്നതും വേറെ <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> എണ്ണവും}}</translation>
+<translation id="1495172241291051507">{PAYMENT_METHOD,plural, =1{<ph name="PAYMENT_METHOD_PREVIEW" /> എന്നതും മറ്റ് <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> എണ്ണവും}other{<ph name="PAYMENT_METHOD_PREVIEW" /> എന്നതും മറ്റ് <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> എണ്ണവും}}</translation>
 <translation id="1506687042165942984">ഈ പേജിന്റെ സംരക്ഷിച്ച (അതായത്. അത് കാലഹരണപ്പെട്ടതായി അറിയിക്കുന്നു) പകർപ്പ് കാണിക്കുക</translation>
 <translation id="1517433312004943670">ഫോൺ നമ്പർ ആവശ്യമാണ്</translation>
 <translation id="1519264250979466059">ബിൽഡ് തീയതി</translation>
@@ -121,7 +121,7 @@
 <translation id="1871284979644508959">നിർബന്ധമായും പൂരിപ്പിക്കണം</translation>
 <translation id="187918866476621466">ആരംഭ പേജുകൾ തുറക്കുക</translation>
 <translation id="1883255238294161206">ലിസ്റ്റ് ചുരുക്കുക</translation>
-<translation id="1894246157993903018">{SHIPPING_ADDRESS,plural, =1{<ph name="SHIPPING_ADDRESS_PREVIEW" /> എന്നതും വേറെ <ph name="NUMBER_OF_ADDITIONAL_ADDRESSES" /> എണ്ണവും}other{<ph name="SHIPPING_ADDRESS_PREVIEW" /> എന്നതും വേറെ <ph name="NUMBER_OF_ADDITIONAL_ADDRESSES" /> എണ്ണവും}}</translation>
+<translation id="1894246157993903018">{SHIPPING_ADDRESS,plural, =1{<ph name="SHIPPING_ADDRESS_PREVIEW" /> എന്നതും മറ്റ് <ph name="NUMBER_OF_ADDITIONAL_ADDRESSES" /> എണ്ണവും}other{<ph name="SHIPPING_ADDRESS_PREVIEW" /> എന്നതും മറ്റ് <ph name="NUMBER_OF_ADDITIONAL_ADDRESSES" /> എണ്ണവും}}</translation>
 <translation id="1898423065542865115">ഫിൽട്ടർ ചെയ്യുന്നു</translation>
 <translation id="192020519938775529">{COUNT,plural, =0{ഒന്നുമില്ല}=1{ഒരു സൈറ്റ്}other{# സൈറ്റുകൾ}}</translation>
 <translation id="194030505837763158"><ph name="LINK" />-ലേക്ക് പോകുക</translation>
@@ -169,7 +169,7 @@
 <translation id="2292556288342944218">നിങ്ങളുടെ ഇന്റർനെറ്റ് ആക്‌സസ്സ് ബ്ലോക്കുചെയ്‌തു</translation>
 <translation id="230155334948463882">പുതിയ കാർഡാണോ?</translation>
 <translation id="2317259163369394535"><ph name="DOMAIN" /> ഡൊമെയ്‌ന് ഒരു ഉപയോക്തൃനാമവും പാസ്‌വേഡും വേണം.</translation>
-<translation id="2337852623177822836">നിങ്ങളുടെ അ‌ഡ്‌മിനിസ്‌ട്രേറ്ററാണ് ക്രമീകരണം നിയന്ത്രിക്കുന്നത്</translation>
+<translation id="2337852623177822836">ക്രമീകരണം നിയന്ത്രിക്കുന്നത് നിങ്ങളുടെ അഡ്‌മിനിസ്‌ട്രേറ്ററാണ്</translation>
 <translation id="2354001756790975382">മറ്റ് ബുക്‌മാര്‍ക്കുകള്‍</translation>
 <translation id="2354430244986887761">Google സുരക്ഷിത ബ്രൗസിംഗ് ഈയിടെ <ph name="SITE" /> എന്നതിൽ <ph name="BEGIN_LINK" />ദോഷകരമായ  ആപ്പുകൾ കണ്ടെത്തി<ph name="END_LINK" />.</translation>
 <translation id="2355395290879513365">നിങ്ങൾ ഈ സൈറ്റിൽ തിരയുന്ന ചിത്രങ്ങൾ കാണാനും അവയിൽ മാറ്റം വരുത്തി നിങ്ങളെ കബളിപ്പിക്കാനും അക്രമകാരികൾക്ക് കഴിഞ്ഞേക്കാം.</translation>
@@ -282,7 +282,7 @@
           നിങ്ങളുടെ പ്രോക്‌സി ക്രമീകരണം പരിശോധിക്കുകയോ നെറ്റ്‌വർക്ക് അഡ്‌മിനിസ്‌ട്രേറ്ററെ ബന്ധപ്പെടുകയോ ചെയ്യുക. നിങ്ങൾ ഉപയോഗിക്കുന്നത് ഒരു പ്രോക്‌സി സെർവറാണെന്ന് കരുതുന്നില്ലെങ്കിൽ:
           <ph name="PLATFORM_TEXT" /></translation>
 <translation id="3200379322500587640">അദൃശ്യതാ സംവിധാനത്തിൽ പേജ് തുറക്കുക</translation>
-<translation id="320323717674993345">പേയ്‌മെന്റ് റദ്ദാക്കൂ</translation>
+<translation id="320323717674993345">പേയ്‌മെന്റ് റദ്ദാക്കുക</translation>
 <translation id="3207960819495026254">ബുക്ക്‌മാർക്കുചെയ്‌തു</translation>
 <translation id="3225919329040284222">ബിൽട്ട്-ഇൻ പ്രതീക്ഷകള്‍ക്ക് പൊരുത്തപ്പെടാത്ത സര്‍ട്ടിഫിക്കറ്റാണ് സെര്‍വര്‍ അവതരിപ്പിച്ചത്. നിങ്ങളെ സംരക്ഷിക്കുന്നതിലേക്കായുള്ള നിശ്ചിത, ഉന്നത-സുരക്ഷാ വെബ്‌സൈറ്റുകൾക്കായാണ് ഈ പ്രതീക്ഷകൾ ഉൾപ്പെടുത്തിയിരിക്കുന്നത്.</translation>
 <translation id="3226128629678568754">പേജ് ലോഡുചെയ്യുന്നതിനാവശ്യമായ ഡാറ്റ വീണ്ടും സമർപ്പിക്കാൻ വീണ്ടും ലോഡുചെയ്യുക ബട്ടൺ അമർത്തുക.</translation>
@@ -334,13 +334,13 @@
 <translation id="3530944546672790857">{COUNT,plural, =0{സമന്വയിപ്പിച്ച ഉപകരണങ്ങളിൽ ഒരു ഇനമെങ്കിലും}=1{ഒരു ഇനം (ഒപ്പം സമന്വയിപ്പിച്ച ഉപകരണങ്ങളിൽ അതിൽ കൂടുതലും)}other{# ഇനങ്ങൾ (ഒപ്പം സമന്വയിപ്പിച്ച ഉപകരണങ്ങളിൽ അതിൽ കൂടുതലും)}}</translation>
 <translation id="3539171420378717834">ഈ ഉപകരണത്തിൽ ഈ കാർഡിന്റെ ഒരു പകർപ്പ് സൂക്ഷിക്കുക</translation>
 <translation id="3542684924769048008">ഇതിനായി പാസ്‌വേഡ് ഉപയോഗിക്കുക:</translation>
-<translation id="3545341443414427877">നിങ്ങളുടെ കമ്പ്യൂട്ടറിന്റെ തീയതിയും സമയവും (<ph name="DATE_AND_TIME" />) തെറ്റായതിനാൽ  <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> എന്നതിലേക്കുള്ള സ്വകാര്യ കണക്ഷൻ സ്ഥാപിക്കാനാവില്ല <ph name="BEGIN_LEARN_MORE_LINK" />കൂടുതലറിയുക<ph name="END_LEARN_MORE_LINK" /></translation>
+<translation id="3545341443414427877">നിങ്ങളുടെ കമ്പ്യൂട്ടറിന്റെ തീയതിയും സമയവും (<ph name="DATE_AND_TIME" />) തെറ്റായതിനാൽ <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> എന്നതിലേക്കുള്ള സ്വകാര്യ കണക്ഷൻ സ്ഥാപിക്കാനാവില്ല. <ph name="BEGIN_LEARN_MORE_LINK" />കൂടുതലറിയുക<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="3549644494707163724">നിങ്ങളുടെ സ്വന്തം പാസ്‌ഫ്രെയ്‌സ് ഉപയോഗിച്ച് എല്ലാ സമന്വിത ഡാറ്റയും എൻക്രിപ്റ്റുചെയ്യുക</translation>
 <translation id="3556433843310711081">നിങ്ങൾക്ക് വേണ്ടി ഇത് അൺബ്ലോക്കുചെയ്യാൻ മാനേജർക്ക് കഴിയും</translation>
 <translation id="3566021033012934673">നിങ്ങളുടെ കണക്ഷൻ സ്വകാര്യമല്ല</translation>
-<translation id="3569145463236695319">&lt;p&gt;നിങ്ങളുടെ ഉപകരണത്തിന്റെ തീയതിയും സമയവും (<ph name="DATE_AND_TIME" />) തെറ്റായതിനാൽ <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> എന്നതിലേക്ക് ഒരു സ്വകാര്യ കണക്ഷൻ സ്ഥാപിക്കാനാകില്ല.&lt;/p&gt;
+<translation id="3569145463236695319">&lt;p&gt;നിങ്ങളുടെ കമ്പ്യൂട്ടറിന്റെ തീയതിയും സമയവും (<ph name="DATE_AND_TIME" />) തെറ്റായതിനാൽ <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> എന്നതിലേക്കുള്ള സ്വകാര്യ കണക്ഷൻ സ്ഥാപിക്കാനാവില്ല.&lt;/p&gt;
 
-     &lt;p&gt;&lt;strong&gt;ക്രമീകരണ&lt;/strong&gt; ആപ്പിന്റെ&lt;strong&gt;പൊതുവായ&lt;/strong&gt; വിഭാഗത്തിൽ നിന്ന് തീയതിയും സമയവും ക്രമീകരിക്കുക.&lt;/p&gt; <ph name="BEGIN_LEARN_MORE_LINK" />കൂടുതലറിയുക<ph name="END_LEARN_MORE_LINK" /></translation>
+      &lt;p&gt;&lt;strong&gt;ക്രമീകരണ&lt;/strong&gt; ആപ്പിന്റെ &lt;strong&gt;പൊതുവായ&lt;/strong&gt; വിഭാഗത്തിൽ നിന്ന് തീയതിയും സമയവും ക്രമീകരിക്കുക.&lt;/p&gt; <ph name="BEGIN_LEARN_MORE_LINK" />കൂടുതലറിയുക<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="3574305903863751447"><ph name="CITY" />, <ph name="STATE" /> <ph name="COUNTRY" /></translation>
 <translation id="3582930987043644930">പേര് ചേർക്കുക</translation>
 <translation id="3583757800736429874">&amp;നീക്കുന്നത് വീണ്ടും ചെയ്യുക</translation>
@@ -369,7 +369,7 @@
 <translation id="3736520371357197498">നിങ്ങളുടെ സുരക്ഷയെ ബാധിച്ചേക്കാവുന്ന അപകട സാധ്യതകളെക്കുറിച്ച് മനസ്സിലാക്കുകയാണെങ്കിൽപ്പോലും, പ്രോഗ്രാമുകൾ നീക്കംചെയ്യുന്നതിനു മുമ്പ് <ph name="BEGIN_LINK" />ഈ സുരക്ഷിതമല്ലാത്ത സൈറ്റ്<ph name="END_LINK" /> നിങ്ങൾക്ക് സന്ദർശിക്കാം (ശുപാർശചെയ്യുന്നില്ല).</translation>
 <translation id="3739623965217189342">നിങ്ങൾ പകർത്തിയ ലിങ്ക്</translation>
 <translation id="3744899669254331632">Chromium-ന് പ്രോസസ്സുചെയ്യാനാകാത്ത രൂപമാറ്റം വരുത്തിയ ക്രെഡൻഷ്യലുകൾ വെബ്സൈറ്റ് അയയ്ക്കുന്നതിനാൽ നിങ്ങൾക്കിപ്പോൾ <ph name="SITE" /> സന്ദർശിക്കാനാകില്ല. നെറ്റ്‌വർക്ക് പിശകുകളും ആക്രമണങ്ങളും സാധാരണയായി താൽക്കാലികമായതിനാൽ ഈ പേജ് മിക്കവാറും പിന്നീട് പ്രവർത്തിക്കും.</translation>
-<translation id="3748148204939282805"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> എന്ന സൈറ്റിലെ ആക്രമികൾ, സോഫ്‌റ്റ്‌വയറുകൾ ഇൻസ്‌റ്റാൾ ചെയ്യുന്നതോ, അല്ലെങ്കിൽ നിങ്ങളുടെ സ്വകാര്യ വിവരങ്ങൾ വെളിപ്പെടുത്തുന്നതോ (ഉദാഹരണത്തിന് പാസ്‌വേഡുകൾ, ഫോൺ നമ്പറുകൾ അല്ലെങ്കിൽ ക്രഡിറ്റ് ‌കാർഡുകൾ എന്നീ വിവരങ്ങൾ) പോലെയുള്ള അപകടകരമായ കാര്യങ്ങൾ ചെയ്യിപ്പിക്കുന്ന രീതിയിൽ നിങ്ങളെ കബളിപ്പിച്ചേക്കാം. <ph name="BEGIN_LEARN_MORE_LINK" />കൂടുതലറിയുക<ph name="END_LEARN_MORE_LINK" /></translation>
+<translation id="3748148204939282805"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> എന്ന സൈറ്റിലെ ആക്രമികൾ, സോഫ്‌റ്റ്‌വയറുകൾ ഇൻസ്‌റ്റാൾ ചെയ്യുന്നതോ, അല്ലെങ്കിൽ നിങ്ങളുടെ സ്വകാര്യ വിവരങ്ങൾ വെളിപ്പെടുത്തുന്നതോ (ഉദാഹരണത്തിന് പാസ്‌വേഡുകൾ, ഫോൺ നമ്പറുകൾ അല്ലെങ്കിൽ ക്രഡിറ്റ് ‌കാർഡുകൾ) പോലെയുള്ള അപകടകരമായ കാര്യങ്ങൾ ചെയ്യിപ്പിക്കുന്ന രീതിയിൽ നിങ്ങളെ കബളിപ്പിച്ചേക്കാം. <ph name="BEGIN_LEARN_MORE_LINK" />കൂടുതലറിയുക<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="375403751935624634">ഒരു സെര്‍വര്‍ പിശക് കാരണം വിവര്‍‌ത്തനം പരാജയപ്പെട്ടു.</translation>
 <translation id="3759461132968374835">നിങ്ങള്‍ക്ക് സമീപകാലത്ത് റിപ്പോര്‍ട്ടുചെയ്ത ക്രാഷുകളൊന്നുമില്ല.  ക്രാഷ് റിപ്പോര്‍ട്ടുചെയ്യുന്ന സമയത്ത് സംഭവിച്ച ക്രാഷുകളെ അപ്രാപ്തമാക്കി, ഇവിടെ ദൃശ്യമാകില്ല.</translation>
 <translation id="3778403066972421603">ഈ കാർഡ് നിങ്ങളുടെ Google അക്കൗണ്ടിലും ഈ ഉപകരണത്തിലും സംരക്ഷിക്കണോ?</translation>
@@ -417,7 +417,7 @@
 <translation id="4196861286325780578">&amp;നീക്കുന്നത് വീണ്ടും ചെയ്യുക</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />ഫയർവാളും ആന്റിവൈറസ് കോൺഫിഗറേഷനുകളും പരിശോധിക്കുന്നു<ph name="END_LINK" /></translation>
 <translation id="4220128509585149162">ക്രാഷുകള്‍</translation>
-<translation id="422022731706691852"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> എന്ന സൈറ്റിലെ ആക്രമികൾ, ബ്രൗസർ അനുഭവത്തെ ദോഷകരമായി ബാധിക്കുന്ന പ്രോഗ്രാമുകൾ ഇൻസ്‌റ്റാളുചെയ്യിക്കുന്ന വിധത്തിൽ നിങ്ങളെ കബളിപ്പിക്കാൻ ശ്രമിച്ചേക്കും (ഉദാഹരണത്തിന്, നിങ്ങളുടെ ഹോംപേജ് മാറ്റുന്നതിലൂടെ അല്ലെങ്കിൽ സന്ദർശിക്കുന്ന സൈറ്റുകളിൽ അധിക പരസ്യങ്ങൾ കാണിക്കുന്നതിലൂടെ). <ph name="BEGIN_LEARN_MORE_LINK" />കൂടുതലറിയുക<ph name="END_LEARN_MORE_LINK" /></translation>
+<translation id="422022731706691852"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> എന്ന സൈറ്റിലെ ആക്രമികൾ, ബ്രൗസർ അനുഭവത്തെ ദോഷകരമായി ബാധിക്കുന്ന പ്രോഗ്രാമുകൾ ഇൻസ്‌റ്റാൾ ചെയ്യിക്കുന്ന വിധത്തിൽ നിങ്ങളെ കബളിപ്പിക്കാൻ ശ്രമിച്ചേക്കും (ഉദാഹരണത്തിന്, നിങ്ങളുടെ ഹോംപേജ് മാറ്റുന്നതിലൂടെ അല്ലെങ്കിൽ സന്ദർശിക്കുന്ന സൈറ്റുകളിൽ അധിക പരസ്യങ്ങൾ കാണിക്കുന്നതിലൂടെ). <ph name="BEGIN_LEARN_MORE_LINK" />കൂടുതലറിയുക<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="4226937834893929579"><ph name="BEGIN_LINK" />നെറ്റ്‌വർക്ക് ഡയഗണോസ്‌റ്റിക്‌സ് റൺ ചെയ്‌തുനോക്കൂ<ph name="END_LINK" />.</translation>
 <translation id="4235360514405112390">സാധുത</translation>
 <translation id="4250431568374086873">ഈ സൈറ്റിലുള്ള നിങ്ങളുടെ കണക്ഷൻ പൂർണ്ണമായും സുരക്ഷിതമല്ല</translation>
@@ -528,7 +528,7 @@
 <translation id="5308689395849655368">ക്രാഷ് റിപ്പോര്‍ട്ടുചെയ്യല്‍ അപ്രാപ്തമാക്കി.</translation>
 <translation id="5317780077021120954">സംരക്ഷിക്കുക</translation>
 <translation id="5327248766486351172">പേര്</translation>
-<translation id="5355557959165512791">സർട്ടിഫിക്കറ്റ് റദ്ദാക്കിയക്കിയതിനാൽ നിങ്ങൾക്കിപ്പോൾ <ph name="SITE" /> സന്ദർശിക്കാനാകില്ല. നെറ്റ്‌വർക്ക് പിശകുകളും ആക്രമണങ്ങളും സാധാരണയായി താൽക്കാലികമാണ്, അതിനാൽ ഈ പേജ് മിക്കവാറും പിന്നീട് പ്രവർത്തിക്കും.</translation>
+<translation id="5355557959165512791">സർട്ടിഫിക്കറ്റ് റദ്ദാക്കിയതിനാൽ നിങ്ങൾക്കിപ്പോൾ <ph name="SITE" /> സന്ദർശിക്കാനാകില്ല. നെറ്റ്‌വർക്ക് പിശകുകളും ആക്രമണങ്ങളും സാധാരണ താൽക്കാലികമായിരിക്കും, അതിനാൽ ഈ പേജ് മിക്കവാറും പിന്നീട് പ്രവർത്തിക്കും.</translation>
 <translation id="536296301121032821">നയ ക്രമീകരണങ്ങൾ സംഭരിക്കുന്നതിൽ പരാജയപ്പെട്ടു</translation>
 <translation id="5386426401304769735">ഈ സൈറ്റിന്റെ സർട്ടിഫിക്കറ്റ് ചെയിനിൽ SHA-1 ഉപയോഗിച്ച് സൈൻ ചെയ്‌ത ഒരു സർട്ടിഫിക്കറ്റ് അടങ്ങിയിരിക്കുന്നു.</translation>
 <translation id="5402410679244714488">കാലഹരണപ്പെടുന്ന തീയതി: <ph name="EXPIRATION_DATE_ABBR" />, അവസാനമായി ഉപയോഗിച്ചത് ഒരു വർഷം മുമ്പാണ്</translation>
@@ -608,7 +608,7 @@
 <translation id="6040143037577758943">അടയ്ക്കുക</translation>
 <translation id="6042308850641462728">കൂടുതൽ</translation>
 <translation id="6047233362582046994">നിങ്ങളുടെ സുരക്ഷയെ ബാധിക്കാനിടയുണ്ടെന്ന് മനസ്സിലാക്കുകയാണെങ്കിൽ, ദോഷകരമായ ആപ്പുകൾ നീക്കംചെയ്യുന്നതിനു മുമ്പ് <ph name="BEGIN_LINK" />ഈ സൈറ്റ് സന്ദർശിക്കുക<ph name="END_LINK" />.</translation>
-<translation id="6051221802930200923">വെബ്‌സൈറ്റ് സർട്ടിഫിക്കറ്റ് പിന്നിംഗ് ഉപയോഗിക്കുന്നതിനാൽ നിങ്ങൾക്കിപ്പോൾ <ph name="SITE" /> സന്ദർശിക്കാനാകില്ല. നെറ്റ്‌വർക്ക് പിശകുകളും ആക്രമണങ്ങളും സാധാരണയായി താൽക്കാലികമാണ്, അതിനാൽ ഈ പേജ് മിക്കവാറും പിന്നീട് പ്രവർത്തിക്കും.</translation>
+<translation id="6051221802930200923"><ph name="SITE" /> എന്ന വെബ്‌സൈറ്റ് സർട്ടിഫിക്കറ്റ് പിന്നിംഗ് ഉപയോഗിക്കുന്നതിനാൽ നിങ്ങൾക്കിപ്പോൾ അത് സന്ദർശിക്കാനാകില്ല. നെറ്റ്‌വർക്ക് പിശകുകളും ആക്രമണങ്ങളും സാധാരണയായി താൽക്കാലികമായിരിക്കും, അതിനാൽ ഈ പേജ് മിക്കവാറും പിന്നീട് പ്രവർത്തിക്കും.</translation>
 <translation id="6060685159320643512">ശ്രദ്ധിക്കൂ, ഈ പരീക്ഷണങ്ങള്‍ പാളിയേക്കാം‍ </translation>
 <translation id="6080696365213338172">അഡ്‌മിനിസ്‌ട്രേറ്റർ നൽകിയ സർട്ടിഫിക്കറ്റ് ഉപയോഗിച്ച് നിങ്ങൾ ഉള്ളടക്കം ആക്‌സസ്സുചെയ്‌തു. നിങ്ങൾ <ph name="DOMAIN" /> എന്നതിലേക്ക് നൽകുന്ന ഡാറ്റ അഡ്‌മിനിസ്‌ട്രേറ്റർക്ക് തടയാനാവും.</translation>
 <translation id="6144381551823904650">{COUNT,plural, =0{ഒന്നുമില്ല}=1{ഒരു പാസ്‌വേഡ് (സമന്വയിപ്പിച്ചത്)}other{# പാസ്‌വേഡുകൾ (സമന്വയിപ്പിച്ചത്)}}</translation>
@@ -689,7 +689,7 @@
 <translation id="6810899417690483278">ഇഷ്‌ടാനുസൃതമാക്കൽ ഐഡി</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6824266427216888781">പ്രദേശങ്ങളുടെ വിവരങ്ങൾ ലോഡുചെയ്യാനായില്ല</translation>
-<translation id="6825578344716086703">നിങ്ങള്‍‌ <ph name="DOMAIN" /> എന്നതില്‍ എത്താന്‍‌ ശ്രമിച്ചു, പക്ഷേ ഒരു ദുർബലമായ സിഗ്‌നേച്ചര്‍‌ അല്‍‌ഗോരിതം ഉപയോഗിച്ച് ഒപ്പിട്ട ഒരു സര്‍‌ട്ടിഫിക്കറ്റ് സെര്‍‌വര്‍‌ നല്‍‌കി. ഇതിനര്‍‌ത്ഥം സെര്‍‌വര്‍‌ നല്‍‌കിയ സുരക്ഷാ ക്രെഡന്‍‌ഷ്യലുകള്‍‌ വ്യാജമാകാമെന്നും സെര്‍‌വര്‍‌ നിങ്ങള്‍‌ ഉദ്ദേശിച്ച സെര്‍‌വറായിരിക്കില്ലെന്നുമാണ് (നിങ്ങള്‍‌ ആക്രമിയുമായിട്ടാകാം ആശയവിനിമയം നടത്തുന്നത്).</translation>
+<translation id="6825578344716086703">നിങ്ങൾ <ph name="DOMAIN" /> എന്നതിൽ എത്താൻ ശ്രമിച്ചു, പക്ഷേ ഒരു ദുർബലമായ സിഗ്‌നേച്ചർ അൽഗോരിതം ഉപയോഗിച്ച് ഒപ്പിട്ട ഒരു സർട്ടിഫിക്കറ്റ് സെർവർ നൽകി. ഇതിനർത്ഥം സെർവർ നൽകിയ സുരക്ഷാ ക്രെഡൻഷ്യലുകൾ വ്യാജമാകാമെന്നും നിങ്ങൾ ഉദ്ദേശിച്ച സെർവർ ആയിരിക്കില്ല എന്നുമാണ് (നിങ്ങൾ ആക്രമണകാരിയുമായിട്ടാകാം ആശയവിനിമയം നടത്തുന്നത്).</translation>
 <translation id="6830728435402077660">സുരക്ഷിതമല്ല</translation>
 <translation id="6831043979455480757">വിവർത്തനം ചെയ്യുക</translation>
 <translation id="6839929833149231406">ഏരിയ</translation>
@@ -771,7 +771,7 @@
 <translation id="7552846755917812628">ഇനിപ്പറയുന്ന നുറുങ്ങുകൾ പരീക്ഷിക്കൂ:</translation>
 <translation id="7554791636758816595">പുതിയ ടാബ്</translation>
 <translation id="7567204685887185387">ഈ സെർവറിന് അത് <ph name="DOMAIN" /> ആണെന്ന് തെളിയിക്കാനായില്ല; സെർവറിന്റെ സുരക്ഷ സർട്ടിഫിക്കറ്റ് വഞ്ചനാപരമായി ഇഷ്യൂ ചെയ്‌തിരിക്കാം. തെറ്റായ കോൺഫിഗറേഷൻ കാരണമോ ഒരു അക്രമണകാരി നിങ്ങളുടെ കണക്ഷനെ തടസ്സപ്പെടുത്തുന്നത് കൊണ്ടോ ആയിരിക്കാം ഇത് സംഭവിച്ചത്.</translation>
-<translation id="7567794288553138946">{CONTACT,plural, =1{<ph name="CONTACT_PREVIEW" /> എന്ന കോൺടാക്റ്റും വേറെ <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> എണ്ണവും}other{<ph name="CONTACT_PREVIEW" /> എന്ന കോൺടാക്റ്റും വേറെ <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> എണ്ണവും}}</translation>
+<translation id="7567794288553138946">{CONTACT,plural, =1{<ph name="CONTACT_PREVIEW" /> എന്നതും മറ്റ് <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> എണ്ണവും}other{<ph name="CONTACT_PREVIEW" /> എന്നതും മറ്റ് <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> എണ്ണവും}}</translation>
 <translation id="7568593326407688803">ഈ പേജ്<ph name="ORIGINAL_LANGUAGE" />ലാണ് നിങ്ങളത് വിവര്‍‌ത്തനം ചെയ്യാന്‍‌ താല്‍‌പ്പര്യപ്പെടുന്നോ?</translation>
 <translation id="7569952961197462199">Chrome-ൽ നിന്ന് ക്രെഡിറ്റ് കാർഡ് നീക്കംചെയ്യണോ?</translation>
 <translation id="7569983096843329377">കറുപ്പ്</translation>
@@ -942,7 +942,7 @@
 <translation id="9169664750068251925">ഈ സൈറ്റിൽ എല്ലായ്‌പ്പോഴും തടയുക</translation>
 <translation id="9170848237812810038">‍&amp;പൂര്‍വാവസ്ഥയിലാക്കുക</translation>
 <translation id="917450738466192189">സെര്‍വറിന്‍റെ സര്‍ട്ടിഫിക്കറ്റ് അസാധുവാണ്.</translation>
-<translation id="9180730219696997905">{SHIPPING_OPTIONS,plural, =1{<ph name="SHIPPING_OPTION_PREVIEW" /> എന്നതും വേറെ <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> എണ്ണവും}other{<ph name="SHIPPING_OPTION_PREVIEW" /> എന്നതും വേറെ <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> എണ്ണവും}}</translation>
+<translation id="9180730219696997905">{SHIPPING_OPTIONS,plural, =1{<ph name="SHIPPING_OPTION_PREVIEW" /> എന്നതും മറ്റ് <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> എണ്ണവും}other{<ph name="SHIPPING_OPTION_PREVIEW" /> എന്നതും മറ്റ് <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> എണ്ണവും}}</translation>
 <translation id="9183425211371246419"><ph name="HOST_NAME" /> പിന്തുണയ്‌ക്കാത്ത ഒരു പ്രോട്ടോക്കോളാണ് ഉപയോഗിക്കുന്നത്.</translation>
 <translation id="9205078245616868884">നിങ്ങളുടെ സമന്വയ പാസ്‌ഫ്രെയ്‌സ് ഉപയോഗിച്ച് ഡാറ്റ എൻക്രിപ്‌റ്റുചെയ്‌തു. സമന്വയം ആരംഭിക്കുന്നതിന് ഇത് നൽകുക.</translation>
 <translation id="9207861905230894330">ലേഖനം ചേർക്കുന്നത് പരാജയപ്പെട്ടു.</translation>

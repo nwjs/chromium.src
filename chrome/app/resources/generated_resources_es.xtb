@@ -3440,7 +3440,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="602251597322198729">Este sitio está intentando descargar varios archivos. ¿Aceptar?</translation>
 <translation id="6022526133015258832">Abrir en pantalla completa</translation>
 <translation id="602369534869631690">Desactivar estas notificaciones</translation>
-<translation id="6025215716629925253">Rastro de pila</translation>
+<translation id="6025215716629925253">Seguimiento de la pila</translation>
 <translation id="6026819612896463875"><ph name="WINDOW_TITLE" />: dispositivo USB conectado</translation>
 <translation id="6032912588568283682">Sistema de archivos</translation>
 <translation id="60357267506638014">Checo (QWERTY)</translation>
@@ -5113,7 +5113,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8525306231823319788">Pantalla completa</translation>
 <translation id="8528074251912154910">Añadir idiomas</translation>
 <translation id="8528962588711550376">Accediendo</translation>
-<translation id="8529925957403338845">No se ha podido establecer la conexión instantánea mediante dispositivo portátil</translation>
+<translation id="8529925957403338845">No se ha podido establecer la conexión compartida instantánea</translation>
 <translation id="8535005006684281994">URL de renovación de certificado de Netscape</translation>
 <translation id="8539727552378197395">No (HttpOnly)</translation>
 <translation id="8545107379349809705">Ocultar información...</translation>
