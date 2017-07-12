@@ -435,8 +435,10 @@ class ServiceManager::Instance
       mojom::PIDReceiverRequest pid_receiver_request,
       const StartServiceWithProcessCallback& callback) override {
     Identity target = in_target;
+    mojom::ServicePtr service;
+    service.Bind(mojom::ServicePtrInfo(std::move(service_handle), 0));
     mojom::ConnectResult result =
-        ValidateConnectParams(&target, nullptr, nullptr);
+        ValidateConnectParams(&target, &service, &pid_receiver_request);
     if (!Succeeded(result)) {
       callback.Run(result, Identity());
       return;
@@ -446,8 +448,6 @@ class ServiceManager::Instance
     params->set_source(identity_);
     params->set_target(target);
 
-    mojom::ServicePtr service;
-    service.Bind(mojom::ServicePtrInfo(std::move(service_handle), 0));
     params->set_client_process_info(std::move(service),
                                     std::move(pid_receiver_request));
     params->set_start_service_callback(callback);
