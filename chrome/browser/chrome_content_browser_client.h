@@ -284,6 +284,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   void ExposeInterfacesToFrame(
       service_manager::BinderRegistry* registry,
       content::RenderFrameHost* render_frame_host) override;
+  bool BindAssociatedInterfaceRequestFromFrame(
+      content::RenderFrameHost* render_frame_host,
+      const std::string& interface_name,
+      mojo::ScopedInterfaceEndpointHandle* handle) override;
   void BindInterfaceRequest(
       const service_manager::BindSourceInfo& source_info,
       const std::string& interface_name,
