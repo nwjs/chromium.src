@@ -72,3 +72,7 @@ class PixelExpectations(GpuTestExpectations):
               ['mac', 'linux', 'win', 'android'], bug=720188)
     self.Flaky('Pixel_OffscreenCanvasTransferAfterStyleResize',
               ['mac', 'linux', 'win', 'android'], bug=719144)
+
+    # TODO(junov): update reference images
+    self.Fail('Pixel_CSSFilterEffects', ['mac'], bug=721727)
+    self.Fail('Pixel_CSSFilterEffects_NoOverlays', ['mac'], bug=721727)
