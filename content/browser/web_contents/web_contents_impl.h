@@ -797,7 +797,7 @@ class CONTENT_EXPORT WebContentsImpl
   void AttachInterstitialPage(InterstitialPageImpl* interstitial_page) override;
 
   // Unsets the currently showing interstitial.
-  void DetachInterstitialPage() override;
+  void DetachInterstitialPage(bool has_focus) override;
 
   void UpdateOverridingUserAgent() override;
 
