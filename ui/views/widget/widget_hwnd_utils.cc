@@ -169,7 +169,8 @@ void ConfigureWindowStyles(
                                       native_widget_delegate, is_translucent,
                                       &style, &ex_style, &class_style);
 
-  if (content::g_support_transparency && is_translucent)
+  if (content::g_support_transparency && is_translucent && 
+    !(native_widget_delegate->IsDialogBox() || native_widget_delegate->IsModal()))
     ex_style |= WS_EX_LAYERED;
 
   handler->set_is_translucent(is_translucent);
