@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/permission_bubble/chooser_bubble_delegate.h"
+#include "extensions/browser/app_window/app_window_registry.h"
 
 #include "chrome/browser/chooser_controller/chooser_controller.h"
 #include "chrome/browser/ui/browser.h"
@@ -15,7 +16,14 @@ ChooserBubbleDelegate::ChooserBubbleDelegate(
     : owning_frame_(owner),
       browser_(chrome::FindBrowserWithWebContents(
           content::WebContents::FromRenderFrameHost(owner))),
-      chooser_controller_(std::move(chooser_controller)) {}
+      app_window_(nullptr),
+      chooser_controller_(std::move(chooser_controller)) {
+  if (!browser_) {
+    content::WebContents* web_contents = (content::WebContents*)content::WebContents::FromRenderFrameHost((content::RenderFrameHost*)owning_frame_);
+    extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(web_contents->GetBrowserContext());
+    app_window_ = registry->GetAppWindowForWebContents(web_contents);
+  }
+}
 
 ChooserBubbleDelegate::~ChooserBubbleDelegate() {}
 

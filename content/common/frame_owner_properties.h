@@ -28,6 +28,7 @@ struct CONTENT_EXPORT FrameOwnerProperties {
 
   std::string name;  // browsing context container's name
   blink::WebFrameOwnerProperties::ScrollingMode scrolling_mode;
+  bool nwfaketop;
   int margin_width;
   int margin_height;
   bool allow_fullscreen;
