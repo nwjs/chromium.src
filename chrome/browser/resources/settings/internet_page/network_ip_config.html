@@ -14,8 +14,7 @@
           aria-labelledby="autoIPConfigLabel">
       </paper-toggle-button>
     </div>
-    <div class="settings-box continuation"
-        hidden$="[[!showIPEditFields_(editable, automatic_)]]">
+    <div class="settings-box continuation" hidden$="[[!ipConfig_]]">
       <network-property-list
           fields="[[ipConfigFields_]]" property-dict="[[ipConfig_]]"
           edit-field-types="[[getIPEditFields_(editable, automatic_)]]"
