@@ -2890,12 +2890,7 @@ void WebContentsImpl::DidProceedOnInterstitial() {
     LoadingStateChanged(true, true, nullptr);
 }
 
-void WebContentsImpl::DetachInterstitialPage(bool has_focus) {
-  // If the focus was on the interstitial, let's keep it to the page.
-  // (Note that in unit-tests the RVH may not have a view).
-  if (has_focus && GetRenderViewHost()->GetWidget()->GetView())
-    GetRenderViewHost()->GetWidget()->GetView()->Focus();
-
+void WebContentsImpl::DetachInterstitialPage() {
   // Disconnect from outer WebContents if necessary.
   if (node_.OuterContentsFrameTreeNode()) {
     if (GetRenderManager()->GetProxyToOuterDelegate()) {
