@@ -408,14 +408,6 @@ InputEventAckState RenderWidgetInputHandler::HandleInputEvent(
         ->DidHandleInputEventOnMainThread(input_event, processed);
   }
 
-#if defined(OS_ANDROID)
-  // Allow the IME to be shown when the focus changes as a consequence
-  // of a processed touch end event.
-  if (input_event.GetType() == WebInputEvent::kTouchEnd &&
-      processed != WebInputEventResult::kNotHandled) {
-    delegate_->ShowVirtualKeyboard();
-  }
-#elif defined(USE_AURA)
   // Show the virtual keyboard if enabled and a user gesture triggers a focus
   // change.
   if (processed != WebInputEventResult::kNotHandled &&
@@ -423,7 +415,6 @@ InputEventAckState RenderWidgetInputHandler::HandleInputEvent(
        input_event.GetType() == WebInputEvent::kMouseUp)) {
     delegate_->ShowVirtualKeyboard();
   }
-#endif
 
   if (!prevent_default &&
       WebInputEvent::IsKeyboardEventType(input_event.GetType()))
