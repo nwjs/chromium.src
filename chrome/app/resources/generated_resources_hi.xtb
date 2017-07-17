@@ -1216,7 +1216,7 @@
 <translation id="2739191690716947896">डीबग</translation>
 <translation id="2739240477418971307">अपनी पहुंच-योग्यता सेटिंग बदलें</translation>
 <translation id="2740393541869613458">निगरानी में रखे गए उपयोगकर्ता द्वारा देखी गई वेबसाइटों की समीक्षा करें, और</translation>
-<translation id="2743387203779672305">क्लिपबोर्ड पर प्रतिलिपि बनाएं</translation>
+<translation id="2743387203779672305">क्लिपबोर्ड में कॉपी करें</translation>
 <translation id="2744221223678373668">साझा किए गए</translation>
 <translation id="2745080116229976798">Microsoft Qualified Subordination</translation>
 <translation id="2749756011735116528"><ph name="PRODUCT_NAME" /> में प्रवेश करें</translation>
@@ -1417,7 +1417,7 @@
 <translation id="3004391367407090544">कृपया बाद में वापस आएं</translation>
 <translation id="300544934591011246">पिछला पासवर्ड</translation>
 <translation id="3007214526293698309">अनुपात ठीक करें</translation>
-<translation id="3007771295016901659">डुप्लिकेट टैब</translation>
+<translation id="3007771295016901659">डुप्लीकेट टैब</translation>
 <translation id="3009300415590184725">क्‍या आप वाकई मोबाइल डेटा सेवा सेटअप प्रक्रिया को रद्द करना चाहते हैं?</translation>
 <translation id="3009779501245596802">अनुक्रमित डेटाबेस</translation>
 <translation id="3010279545267083280">पासवर्ड हटा दिया गया</translation>
@@ -4679,7 +4679,7 @@
 <translation id="7882358943899516840">प्रदाता का प्रकार</translation>
 <translation id="7885253890047913815">हाल ही के गंतव्य</translation>
 <translation id="7887192723714330082">स्‍क्रीन के चालू होने तथा अनलॉक होने पर "Ok Google" को प्रतिक्रिया दें</translation>
-<translation id="7887334752153342268">डुप्लिकेट</translation>
+<translation id="7887334752153342268">डुप्लीकेट</translation>
 <translation id="7887864092952184874">ब्लूटूथ माउस युग्मित किया गया</translation>
 <translation id="7892100671754994880">अगला उपयोगकर्ता</translation>
 <translation id="7893008570150657497">आपके कंप्यूटर के फ़ोटो, संगीत, और अन्य मीडिया तक पहुंचें</translation>
@@ -5263,7 +5263,7 @@
 <translation id="8749863574775030885">किसी अज्ञात विक्रेता के USB डिवाइस ऐक्‍सेस करें</translation>
 <translation id="8754200782896249056">&lt;p&gt;किसी समर्थित डेस्कटॉप वातावरण के अंतर्गत <ph name="PRODUCT_NAME" /> चलाते समय, सिस्टम प्रॉक्सी सेटिंग का उपयोग किया जाएगा.  हालांकि, या तो आपका सिस्टम समर्थित नहीं है या आपके सिस्टम कॉन्फ़िगरेशन को लॉन्च करने में कोई समस्या थी.&lt;/p&gt;
 
-          &lt;p&gt;लेकिन आप फिर भी कमांड लाइन के द्वारा कॉन्फ़िगर कर सकते हैं. फ़्लैग तथा वातावरण वैरिएबल पर अधिक जानकारी के लिए कृपया &lt;code&gt;man <ph name="PRODUCT_BINARY_NAME" />&lt;/code&gt; देखें.&lt;/p&gt;</translation>
+          &lt;p&gt;लेकिन आप फिर भी कमांड लाइन के द्वारा कॉन्फ़िगर कर सकते हैं. फ़्लैग तथा वातावरण वेरिएबल पर अधिक जानकारी के लिए कृपया &lt;code&gt;man <ph name="PRODUCT_BINARY_NAME" />&lt;/code&gt; देखें.&lt;/p&gt;</translation>
 <translation id="8755376271068075440">&amp;बड़ा</translation>
 <translation id="8757090071857742562">डेस्कटॉप कास्ट करने में असमर्थ.  यह देखने के लिए जांचें कि आपने अपनी स्क्रीन साझा करना शुरू करने के लिए संकेत की पुष्टि की है या नहीं.</translation>
 <translation id="8757640015637159332">सार्वजनिक सत्र में प्रवेश करें</translation>

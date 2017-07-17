@@ -1256,9 +1256,9 @@ Se esta política não for definida, 'AllowPlugins' será usada, e o usuário po
           Se esta política não for definida, o cursor grande será desativado quando a tela de login for exibida pela primeira vez. Os usuários podem ativar ou desativar o cursor grande a qualquer momento e seu status na tela de login continuará entre os usuários.</translation>
 <translation id="5936622343001856595">Força as consultas no Google Web Search a serem feitas com o SafeSearch ativado e impede que os usuários alterem esta configuração.
 
-      Se você ativar esta configuração, o SafeSearch estará sempre ativo na Pesquisa do Google.
+      Se você ativar esta configuração, o SafeSearch estará sempre ativo na Pesquisa Google.
 
-      Se você desativar esta configuração ou não definir nenhum valor, o SafeSearch não será aplicado na Pesquisa do Google.</translation>
+      Se você desativar esta configuração ou não definir nenhum valor, o SafeSearch não será aplicado na Pesquisa Google.</translation>
 <translation id="5940306398763671235">Ativa o Google Cast</translation>
 <translation id="5946082169633555022">Canal Beta</translation>
 <translation id="5950205771952201658">Considerando que as verificações de revogação on-line de sistemas tolerantes a falhas (soft-fail) não fornecem benefícios de segurança efetivos, elas são desativadas por padrão nas versões 19 e posteriores do <ph name="PRODUCT_NAME" />. Quando essa política é configurada como "true", o comportamento anterior é restaurado, e as verificações on-line de OCSP/CRL são realizadas.

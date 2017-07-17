@@ -2226,7 +2226,7 @@ Alle Nutzer müssen sich abmelden, um fortfahren zu können.</translation>
 <translation id="4195814663415092787">Zuletzt angesehene Seiten öffnen</translation>
 <translation id="4197674956721858839">Auswahl zippen</translation>
 <translation id="4200689466366162458">Benutzerdefinierte Wörter</translation>
-<translation id="4200983522494130825">&amp;Neuer Tab</translation>
+<translation id="4200983522494130825">Neuer &amp;Tab</translation>
 <translation id="4206144641569145248">Außerirdischer</translation>
 <translation id="4206323443866416204">Feedbackbericht</translation>
 <translation id="420665587194630159">Diese Erweiterung wird verwaltet und kann nicht entfernt oder deaktiviert werden.</translation>
@@ -3794,7 +3794,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="6544215763872433504">Der Webbrowser von Google, für Sie</translation>
 <translation id="6545325945815270297">Verwalten Sie Ihre synchronisierten Daten und Geräte über <ph name="BEGIN_LINK" />Chrome Dashboard<ph name="END_LINK" />.</translation>
 <translation id="6545665334409411530">Wiederholungsrate</translation>
-<translation id="6545834809683560467">Dienst zur Vervollständigung von Suchanfragen und URLs verwenden, die in die Adressleiste oder die Suchleiste des App Launchers eingegeben werden</translation>
+<translation id="6545834809683560467">Funktion zur Vervollständigung von Suchanfragen und URLs verwenden, die in die Adressleiste oder die Suchleiste des App Launchers eingegeben werden</translation>
 <translation id="6546686722964485737">Mit WiMAX-Netzwerk verbinden</translation>
 <translation id="6547316139431024316">Für diese Erweiterung keine Warnung mehr</translation>
 <translation id="6547354035488017500">Geben Sie mindestens 512 MB Speicherplatz frei oder Ihr Gerät reagiert nicht mehr. Löschen Sie Dateien aus dem Gerätespeicher, um Speicherplatz freizugeben.</translation>
@@ -3817,7 +3817,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="657402800789773160">&amp;Diese Seite neu laden</translation>
 <translation id="6575134580692778371">Nicht konfiguriert</translation>
 <translation id="6575251558004911012">Nachfragen, wenn eine Website auf Ihre Kamera zugreifen möchte (empfohlen)</translation>
-<translation id="6578664922716508575">Synchronisierte Passwörter mit Ihrem Google-Nutzernamen und Ihrem Passwort verschlüsseln</translation>
+<translation id="6578664922716508575">Synchronisierte Passwörter mit meinem Google-Nutzernamen und meinem Passwort verschlüsseln</translation>
 <translation id="6580151766480067746">ARC-Version</translation>
 <translation id="6580955892089546165">Dank dieser Funktion können Sie schnell auf alle angemeldeten Nutzerkonten zugreifen, ohne ein Passwort eingeben zu müssen.
 
@@ -4031,7 +4031,7 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="6922128026973287222">Mit dem Google-Datensparmodus verbrauchen Sie weniger Daten und surfen schneller. Klicken Sie hier, um mehr zu erfahren.</translation>
 <translation id="6929555043669117778">Pop-ups weiterhin blockieren</translation>
 <translation id="6930242544192836755">Dauer</translation>
-<translation id="6935867720248834680">GMS-Dienste sind nicht verfügbar</translation>
+<translation id="6935867720248834680">GMD sind nicht verfügbar</translation>
 <translation id="6937152069980083337">Google Japanese Input (für US-Tastatur)</translation>
 <translation id="693807610556624488">Der Schreibvorgang auf das folgende Gerät überschreitet die maximal zulässige Attributlänge: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6939777852457331078">US-amerikanische Workman-Tastatur</translation>
@@ -5457,7 +5457,7 @@ Nachfolgende Benachrichtigungen, Fenster und Dialogfenster werden unter Umständ
 <translation id="9034909046124500346">Starten Sie Ihren Computer neu, um den Vorgang abzuschließen</translation>
 <translation id="9037008143807155145">https://www.google.com/calendar/render?cid=%s</translation>
 <translation id="9037965129289936994">Original anzeigen</translation>
-<translation id="9038649477754266430">Vorhersagedienst zum schnelleren Laden von Seiten verwenden</translation>
+<translation id="9038649477754266430">Vervollständigungsfunktion zum schnelleren Laden von Seiten verwenden</translation>
 <translation id="9039663905644212491">PEAP</translation>
 <translation id="9039890312082871605">Tabs stummschalten</translation>
 <translation id="9040421302519041149">Der Zugriff auf dieses Netzwerk ist geschützt.</translation>

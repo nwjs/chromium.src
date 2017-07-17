@@ -471,7 +471,7 @@
 <translation id="4756388243121344051">&amp;Histórico</translation>
 <translation id="4758311279753947758">Adicionar dados de contato</translation>
 <translation id="4759118997339041434">Preenchimento automático de pagamento desativado</translation>
-<translation id="4764776831041365478">A página da web em <ph name="URL" /> pode estar temporariamente indisponível ou pode ter sido movida permanentemente para um novo endereço da web.</translation>
+<translation id="4764776831041365478">A página da web em <ph name="URL" /> pode estar temporariamente indisponível ou pode ter sido movida permanentemente para um novo endereço da Web.</translation>
 <translation id="4771973620359291008">Ocorreu um erro desconhecido.</translation>
 <translation id="4800132727771399293">Verifique sua data de validade e seu CVC e tente novamente</translation>
 <translation id="4803924862070940586"><ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
@@ -761,7 +761,7 @@
 <translation id="7485870689360869515">Nenhum dado encontrado</translation>
 <translation id="7508255263130623398">O código do dispositivo da política retornado está em branco ou não corresponde ao código do dispositivo atual</translation>
 <translation id="7514365320538308">Fazer o download</translation>
-<translation id="7518003948725431193">Nenhuma página da web foi encontrada para o endereço da web:<ph name="URL" /></translation>
+<translation id="7518003948725431193">Nenhuma página da web foi encontrada para o endereço da Web:<ph name="URL" /></translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7535087603100972091">Valor</translation>
 <translation id="7537536606612762813">Obrigatória</translation>
@@ -807,7 +807,7 @@
 <translation id="7764225426217299476">Adicionar endereço</translation>
 <translation id="777702478322588152">Prefeitura</translation>
 <translation id="7791543448312431591">Adicionar</translation>
-<translation id="7793809570500803535">A página da web em <ph name="SITE" /> pode estar temporariamente indisponível ou pode ter sido movida permanentemente para um novo endereço da web.</translation>
+<translation id="7793809570500803535">A página da web em <ph name="SITE" /> pode estar temporariamente indisponível ou pode ter sido movida permanentemente para um novo endereço da Web.</translation>
 <translation id="7800304661137206267">A conexão foi criptografada utilizando <ph name="CIPHER" />, com <ph name="MAC" /> para mensagem de autenticação e <ph name="KX" /> como o mecanismo de troca de chaves.</translation>
 <translation id="780301667611848630">Não</translation>
 <translation id="7805768142964895445">Status</translation>

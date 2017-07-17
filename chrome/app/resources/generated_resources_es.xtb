@@ -284,7 +284,7 @@
 <translation id="1408789165795197664">Configuración avanzada</translation>
 <translation id="1409390508152595145">Crear usuario supervisado</translation>
 <translation id="1410616244180625362">Seguir permitiendo que <ph name="HOST" /> acceda a la cámara</translation>
-<translation id="1413372529771027206">Ha cambiado el teléfono utilizado para Smart Lock. Escribe tu contraseña para actualizar Smart Lock para Chromebook en este dispositivo. La próxima vez solo tendrás que hacer clic en tu imagen para acceder.</translation>
+<translation id="1413372529771027206">Ha cambiado el teléfono utilizado para Smart Lock. Introduce tu contraseña para actualizar Smart Lock para Chromebook en este dispositivo. La próxima vez solo tendrás que hacer clic en tu imagen para acceder.</translation>
 <translation id="1414648216875402825">Vas a actualizar a una versión inestable de <ph name="PRODUCT_NAME" /> que incluye funciones que están en desarrollo. Se producirán fallos y errores inesperados. Utiliza esta versión con precaución.</translation>
 <translation id="1415990189994829608"><ph name="EXTENSION_NAME" /> (ID de extensión "<ph name="EXTENSION_ID" />") no se puede utilizar en este tipo de sesión.</translation>
 <translation id="1416836038590872660">EAP-MD5</translation>
@@ -492,7 +492,7 @@
 <translation id="1666058115165804494">Hora de creación</translation>
 <translation id="1666288758713846745">Dinámico</translation>
 <translation id="1666788816626221136">Tienes certificados registrados que no corresponden a ninguna otra categoría:</translation>
-<translation id="1670399744444387456">Básicas</translation>
+<translation id="1670399744444387456">Básico</translation>
 <translation id="1673103856845176271">No se ha podido acceder al archivo por razones de seguridad.</translation>
 <translation id="167832068858235403">disminuir volumen</translation>
 <translation id="1679068421605151609">Herramientas para desarrolladores</translation>
@@ -1984,7 +1984,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="3801082500826908679">Feroés</translation>
 <translation id="3802282970260083766">Ajustes del dispositivo</translation>
 <translation id="3803991353670408298">Añade otro método de entrada antes de eliminar este.</translation>
-<translation id="380408572480438692">Habilitar la recopilación de datos de rendimiento ayudará a Google a mejorar el sistema en el futuro. No se enviará ningún dato hasta que no envíes un informe de comentarios (Alt-Mayús-I) e incluyas datos de rendimiento. Puedes volver a esta pantalla para inhabilitar la recopilación de datos en cualquier momento.</translation>
+<translation id="380408572480438692">Habilitar la recogida de datos de rendimiento ayudará a Google a mejorar el sistema en el futuro. No se enviará ningún dato hasta que no envíes un informe de comentarios (Alt-Mayús-I) e incluyas datos de rendimiento. Puedes volver a esta pantalla para inhabilitar la recogida de datos en cualquier momento.</translation>
 <translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (ID de extensión "<ph name="EXTENSION_ID" />") no se puede utilizar en una pantalla de inicio de sesión.</translation>
 <translation id="3807747707162121253">&amp;Cancelar</translation>
 <translation id="3809280248639369696">Alienígena</translation>
@@ -2680,7 +2680,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4891089016822695758">Foro beta</translation>
 <translation id="4893336867552636863">Se eliminarán de forma permanente los datos de navegación del dispositivo.</translation>
 <translation id="4898011734382862273">El certificado "<ph name="CERTIFICATE_NAME" />" representa a una entidad emisora de certificados</translation>
-<translation id="4899376560703610051">Tu <ph name="DEVICE_TYPE" /> se ha bloqueado manualmente. Deberás escribir tu contraseña para acceder.</translation>
+<translation id="4899376560703610051">Tu <ph name="DEVICE_TYPE" /> se ha bloqueado manualmente. Deberás introducir tu contraseña para acceder.</translation>
 <translation id="4900392736118574277">Tu página de inicio ha cambiado a <ph name="URL" />.</translation>
 <translation id="490074449735753175">Utilizar un servicio web para revisar la ortografía</translation>
 <translation id="49027928311173603">La política que has descargado del servidor no es válida (<ph name="VALIDATION_ERROR" />).</translation>
@@ -3794,7 +3794,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6531282281159901044">Conservar archivo peligroso</translation>
 <translation id="6534583978616527129">Iniciar la conexión</translation>
 <translation id="6537749439188020683">Conexión mediante dispositivo portátil</translation>
-<translation id="654039047105555694"><ph name="BEGIN_BOLD" />Nota:<ph name="END_BOLD" /> Habilita esta opción solo si tienes conciencia de los efectos de esta acción o si se te ha pedido que lo hagas, ya que la recopilación de datos puede reducir el rendimiento.</translation>
+<translation id="654039047105555694"><ph name="BEGIN_BOLD" />Nota:<ph name="END_BOLD" /> Habilita esta opción solo si tienes conciencia de los efectos de esta acción o si se te ha pedido que lo hagas, ya que la recogida de datos puede reducir el rendimiento.</translation>
 <translation id="654233263479157500">Utilizar un servicio web para intentar resolver errores de navegación</translation>
 <translation id="6544215763872433504">El navegador web de Google a tu disposición</translation>
 <translation id="6545325945815270297">Administra tus dispositivos y datos sincronizados en el <ph name="BEGIN_LINK" />Panel de Control de Chrome<ph name="END_LINK" />.</translation>
@@ -4215,7 +4215,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="719009910964971313">Teclado Programmer Dvorak de EE. UU.</translation>
 <translation id="7191454237977785534">Guardar archivo como</translation>
 <translation id="7196835305346730603">Buscando Chromebox cercanos…</translation>
-<translation id="7198197644913728186">El Bluetooth está desactivado en este <ph name="DEVICE_TYPE" />. Escribe tu contraseña para acceder y activa el Bluetooth.</translation>
+<translation id="7198197644913728186">El Bluetooth está desactivado en este <ph name="DEVICE_TYPE" />. Introduce tu contraseña para acceder y activa el Bluetooth.</translation>
 <translation id="7199158086730159431">Obtener a&amp;yuda</translation>
 <translation id="7201354769043018523">Paréntesis de cierre</translation>
 <translation id="7205869271332034173">SSID:</translation>
@@ -4462,7 +4462,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="7551643184018910560">Fijar en la estantería</translation>
 <translation id="7553242001898162573">Introduce tu contraseña</translation>
 <translation id="7554791636758816595">Nueva pestaña</translation>
-<translation id="7556033326131260574">Smart Lock no ha podido verificar tu cuenta. Escribe la contraseña para acceder.</translation>
+<translation id="7556033326131260574">Smart Lock no ha podido verificar tu cuenta. Introduce la contraseña para acceder.</translation>
 <translation id="7556242789364317684">Lamentablemente, <ph name="SHORT_PRODUCT_NAME" /> no puede recuperar tu configuración. Para solucionar el error, <ph name="SHORT_PRODUCT_NAME" /> debe restablecer tu dispositivo con Powerwash.</translation>
 <translation id="7558050486864662801">Preguntar cuando un sitio necesite acceder a tu micrófono (recomendado)</translation>
 <translation id="7559719679815339381">Por favor, espera... La aplicación de kiosco se está actualizando. No extraigas el dispositivo USB.</translation>
@@ -4728,7 +4728,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="7966241909927244760">C&amp;opiar dirección de imagen</translation>
 <translation id="7967437925638594022">Extensiones y aplicaciones</translation>
 <translation id="7968742106503422125">Leer y modificar los datos que se copian y se pegan</translation>
-<translation id="7968833647796919681">Habilitar recopilación de datos de rendimiento</translation>
+<translation id="7968833647796919681">Habilitar recogida de datos de rendimiento</translation>
 <translation id="7969525169268594403">Esloveno</translation>
 <translation id="7972714317346275248">PKCS #1 SHA-384 con cifrado RSA</translation>
 <translation id="7973320858902175766">Aplicador de parches para componentes</translation>
@@ -5233,7 +5233,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8708671767545720562">&amp;Más información</translation>
 <translation id="8710187907779883426">breve (1 s)</translation>
 <translation id="8711402221661888347">Hamburguesa</translation>
-<translation id="8711453844311572806">Si el teléfono está desbloqueado y se encuentra cerca, solo tienes que hacer clic para acceder. De lo contrario, se mostrará un icono de bloqueo y deberás escribir la contraseña.</translation>
+<translation id="8711453844311572806">Si el teléfono está desbloqueado y se encuentra cerca, solo tienes que hacer clic para acceder. De lo contrario, se mostrará un icono de bloqueo y deberás introducir la contraseña.</translation>
 <translation id="8713570323158206935">Enviar <ph name="BEGIN_LINK1" />información del sistema<ph name="END_LINK1" /></translation>
 <translation id="871476437400413057">Contraseñas guardadas de Google</translation>
 <translation id="8714838604780058252">Gráficos de fondo</translation>
@@ -5532,7 +5532,7 @@ Puede que las notificaciones, las ventanas y los cuadros de diálogo que aparezc
 <translation id="9137013805542155359">Mostrar original</translation>
 <translation id="913758436357682283">Teclado birmano myansan</translation>
 <translation id="9137916601698928395">Abrir enlace como <ph name="USER" /></translation>
-<translation id="9138978632494473300">Añadir combinaciones de teclas a las siguientes ubicaciones:</translation>
+<translation id="9138978632494473300">Añadir accesos directos a las siguientes ubicaciones:</translation>
 <translation id="9147392381910171771">&amp;Opciones</translation>
 <translation id="9148058034647219655">Salir</translation>
 <translation id="9148126808321036104">Volver a iniciar sesión</translation>

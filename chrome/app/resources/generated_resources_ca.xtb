@@ -825,7 +825,7 @@
 <translation id="2193365732679659387">Configuració de confiança</translation>
 <translation id="2195729137168608510">Protecció del correu electrònic</translation>
 <translation id="2198315389084035571">Xinès simplificat</translation>
-<translation id="219985413780390209">Protegeix-me a mi i al meu dispositiu de llocs perillosos</translation>
+<translation id="219985413780390209">Protegeix-me a mi i al meu dispositiu de llocs web perillosos</translation>
 <translation id="220138918934036434">Amaga el botó</translation>
 <translation id="2202898655984161076">S'ha produït un problema en enumerar les impressores. Pot ser que algunes impressores no s'hagin registrat correctament a <ph name="CLOUD_PRINT_NAME" />.</translation>
 <translation id="2203682048752833055">Motor de cerca utilitzat a la <ph name="BEGIN_LINK" />barra d'adreces<ph name="END_LINK" /></translation>
@@ -2095,7 +2095,7 @@ Del domini <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3950820424414687140">Inicia la sessió</translation>
 <translation id="3951872452847539732">Una extensió gestiona la configuració del servidor intermediari de la vostra xarxa.</translation>
 <translation id="3954354850384043518">En curs</translation>
-<translation id="3955193568934677022">Permet que els llocs reprodueixin contingut protegit (opció recomanada)</translation>
+<translation id="3955193568934677022">Permet que els llocs web reprodueixin contingut protegit (opció recomanada)</translation>
 <translation id="3958088479270651626">Importació de les adreces d'interès i de la configuració</translation>
 <translation id="3960566196862329469">ONC</translation>
 <translation id="3966072572894326936">Tria una altra carpeta...</translation>
@@ -5466,7 +5466,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="9057119625587205566">No hi ha cap impressora a prop</translation>
 <translation id="9059868303873565140">Menú d'estat</translation>
 <translation id="9064142312330104323">Foto del perfil de Google (s'està carregant)</translation>
-<translation id="9064275926664971810">Activa l'emplenament automàtic per emplenar els formularis amb un sol clic</translation>
+<translation id="9064275926664971810">Activa Emplenament automàtic per emplenar els formularis amb un sol clic</translation>
 <translation id="9064939804718829769">S'està transferint...</translation>
 <translation id="9065203028668620118">Edita</translation>
 <translation id="9066782832737749352">Síntesi de veu</translation>
