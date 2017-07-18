@@ -278,6 +278,7 @@ class CORE_EXPORT EventHandler final
 
   bool ShouldApplyTouchAdjustment(const WebGestureEvent&) const;
 
+  bool ShouldShowIBeamForNode(const Node*, const HitTestResult&);
   OptionalCursor SelectCursor(const HitTestResult&);
   OptionalCursor SelectAutoCursor(const HitTestResult&,
                                   Node*,
@@ -384,6 +385,9 @@ class CORE_EXPORT EventHandler final
   // triggering |touchstart| event was canceled. This suppresses mouse event
   // firing for the current gesture sequence (i.e. until next GestureTapDown).
   bool suppress_mouse_events_from_gestures_;
+
+  FRIEND_TEST_ALL_PREFIXES(EventHandlerTest, HitOnNothingDoesNotShowIBeam);
+  FRIEND_TEST_ALL_PREFIXES(EventHandlerTest, HitOnTextShowsIBeam);
 };
 
 }  // namespace blink
