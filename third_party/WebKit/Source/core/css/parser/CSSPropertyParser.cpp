@@ -451,10 +451,8 @@ static CSSValue* ConsumeAnimationTimingFunction(CSSParserTokenRange& range) {
   CSSValueID function = range.Peek().FunctionId();
   if (function == CSSValueSteps)
     return ConsumeSteps(range);
-  if (RuntimeEnabledFeatures::FramesTimingFunctionEnabled() &&
-      function == CSSValueFrames) {
+  if (function == CSSValueFrames)
     return ConsumeFrames(range);
-  }
   if (function == CSSValueCubicBezier)
     return ConsumeCubicBezier(range);
   return nullptr;

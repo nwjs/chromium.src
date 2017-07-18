@@ -27,7 +27,6 @@
 
 #include "cc/animation/timing_function.h"
 #include "platform/PlatformExport.h"
-#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/wtf/Assertions.h"
 #include "platform/wtf/PassRefPtr.h"
 #include "platform/wtf/RefCounted.h"
@@ -215,9 +214,7 @@ class PLATFORM_EXPORT FramesTimingFunction final : public TimingFunction {
  private:
   FramesTimingFunction(int frames)
       : TimingFunction(Type::FRAMES),
-        frames_(cc::FramesTimingFunction::Create(frames)) {
-    DCHECK(RuntimeEnabledFeatures::FramesTimingFunctionEnabled());
-  }
+        frames_(cc::FramesTimingFunction::Create(frames)) {}
 
   std::unique_ptr<cc::FramesTimingFunction> frames_;
 };

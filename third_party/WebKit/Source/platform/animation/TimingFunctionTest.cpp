@@ -32,7 +32,6 @@
 
 #include <sstream>
 #include <string>
-#include "platform/RuntimeEnabledFeatures.h"
 #include "platform/wtf/text/WTFString.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -52,10 +51,6 @@ namespace {
 
 class TimingFunctionTest : public ::testing::Test {
  public:
-  TimingFunctionTest() {
-    RuntimeEnabledFeatures::SetFramesTimingFunctionEnabled(true);
-  }
-
   void NotEqualHelperLoop(
       Vector<std::pair<std::string, RefPtr<TimingFunction>>>& v) {
     for (size_t i = 0; i < v.size(); ++i) {

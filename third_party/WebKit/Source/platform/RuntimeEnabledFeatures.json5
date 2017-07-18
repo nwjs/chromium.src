@@ -454,10 +454,6 @@
       status: "experimental",
     },
     {
-      name: "FramesTimingFunction",
-      status: "experimental",
-    },
-    {
       name: "FrameTimingSupport",
       status: "experimental",
     },
