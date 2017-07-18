@@ -100,13 +100,13 @@ class FakeResourceTrackingUIResourceManager : public UIResourceManager {
   int total_ui_resource_deleted_;
 };
 
-class BaseScrollbarLayerTest : public testing::Test {
+class ScrollbarLayerTest : public testing::Test {
  public:
-  explicit BaseScrollbarLayerTest(
-      LayerTreeSettings::ScrollbarAnimator animator) {
+  ScrollbarLayerTest() {
     layer_tree_settings_.single_thread_proxy_scheduler = false;
     layer_tree_settings_.use_zero_copy = true;
-    layer_tree_settings_.scrollbar_animator = animator;
+    layer_tree_settings_.scrollbar_animator =
+        LayerTreeSettings::ANDROID_OVERLAY;
     layer_tree_settings_.scrollbar_fade_delay =
         base::TimeDelta::FromMilliseconds(20);
     layer_tree_settings_.scrollbar_fade_duration =
@@ -173,18 +173,6 @@ class BaseScrollbarLayerTest : public testing::Test {
   std::unique_ptr<AnimationHost> animation_host_;
   std::unique_ptr<FakeLayerTreeHost> layer_tree_host_;
   int scrollbar_layer_id_;
-};
-
-class ScrollbarLayerTest : public BaseScrollbarLayerTest {
- public:
-  ScrollbarLayerTest()
-      : BaseScrollbarLayerTest(LayerTreeSettings::ANDROID_OVERLAY) {}
-};
-
-class AuraScrollbarLayerTest : public BaseScrollbarLayerTest {
- public:
-  AuraScrollbarLayerTest()
-      : BaseScrollbarLayerTest(LayerTreeSettings::AURA_OVERLAY) {}
 };
 
 class FakePaintedOverlayScrollbar : public FakeScrollbar {
@@ -805,55 +793,6 @@ TEST_F(ScrollbarLayerTest, SubPixelCanScrollOrientation) {
   scrollbar_layer->SetClipLayerLength(979.0f);
 
   EXPECT_TRUE(scrollbar_layer->CanScrollOrientation());
-}
-
-TEST_F(AuraScrollbarLayerTest, ScrollbarLayerCreateAfterSetScrollable) {
-  // Scrollbar Layer can be created after SetScrollable is called and in a
-  // separate commit. Ensure we do not missing the DidRequestShowFromMainThread
-  // call.
-  const int kThumbThickness = 3;
-  const int kTrackStart = 0;
-
-  scoped_refptr<Layer> layer_tree_root = Layer::Create();
-  scoped_refptr<Layer> scroll_layer = Layer::Create();
-  scroll_layer->SetElementId(LayerIdToElementIdForTesting(scroll_layer->id()));
-  scoped_refptr<Layer> child1 = Layer::Create();
-  const bool kIsLeftSideVerticalScrollbar = false;
-
-  scroll_layer->AddChild(child1);
-  layer_tree_root->AddChild(scroll_layer);
-  layer_tree_host_->SetRootLayer(layer_tree_root);
-
-  layer_tree_root->SetBounds(gfx::Size(2, 2));
-  scroll_layer->SetBounds(gfx::Size(10, 10));
-  scroll_layer->SetScrollable(layer_tree_root->bounds());
-  layer_tree_host_->UpdateLayers();
-  LayerTreeHostImpl* host_impl = layer_tree_host_->host_impl();
-  host_impl->CreatePendingTree();
-  layer_tree_host_->CommitAndCreatePendingTree();
-  host_impl->ActivateSyncTree();
-
-  LayerImpl* scroll_layer_impl =
-      host_impl->active_tree()->LayerByElementId(scroll_layer->element_id());
-  EXPECT_TRUE(scroll_layer_impl->needs_show_scrollbars());
-
-  std::unique_ptr<Scrollbar> scrollbar(new FakeScrollbar(false, true, true));
-  scoped_refptr<Layer> scrollbar_layer = SolidColorScrollbarLayer::Create(
-      scrollbar->Orientation(), kThumbThickness, kTrackStart,
-      kIsLeftSideVerticalScrollbar, scroll_layer->element_id());
-  scroll_layer->InsertChild(scrollbar_layer, 1);
-
-  layer_tree_host_->UpdateLayers();
-  host_impl->CreatePendingTree();
-  layer_tree_host_->CommitAndCreatePendingTree();
-  host_impl->ActivateSyncTree();
-
-  EXPECT_TRUE(host_impl->ScrollbarAnimationControllerForElementId(
-      scroll_layer->element_id()));
-  EffectNode* node =
-      host_impl->active_tree()->property_trees()->effect_tree.Node(
-          scrollbar_layer->effect_tree_index());
-  EXPECT_EQ(node->opacity, 1.f);
 }
 
 class ScrollbarLayerSolidColorThumbTest : public testing::Test {
