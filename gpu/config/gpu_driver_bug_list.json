@@ -1,6 +1,6 @@
 {
   "name": "gpu driver bug list",
-  "version": "10.92",
+  "version": "10.93",
   "entries": [
     {
       "id": 1,
@@ -2529,6 +2529,18 @@
       ],
       "features": [
         "disable_chromium_framebuffer_multisample"
+      ]
+    },
+    {
+      "id": 235,
+      "description": "Avoid waiting on a egl fence before pageflipping and rely on implicit sync.",
+      "cr_bugs": [721463],
+      "os": {
+        "type": "chromeos"
+      },
+      "gl_vendor": "Intel.*",
+      "features": [
+        "rely_on_implicit_sync_for_swap_buffers"
       ]
     }
   ],

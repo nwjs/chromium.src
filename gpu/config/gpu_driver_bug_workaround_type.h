@@ -221,6 +221,8 @@
          disable_non_empty_post_sub_buffers_for_onscreen_surfaces) \
   GPU_OP(AVOID_STENCIL_BUFFERS,                              \
          avoid_stencil_buffers)                              \
+  GPU_OP(RELY_ON_IMPLICIT_SYNC_FOR_SWAP_BUFFERS,             \
+         rely_on_implicit_sync_for_swap_buffers)             \
 // clang-format on
 
 namespace gpu {
