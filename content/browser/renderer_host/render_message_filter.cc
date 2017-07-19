@@ -130,7 +130,6 @@ RenderMessageFilter::RenderMessageFilter(
                            arraysize(kFilteredMessageClasses)),
       BrowserAssociatedInterface<mojom::RenderMessageFilter>(this, this),
       resource_dispatcher_host_(ResourceDispatcherHostImpl::Get()),
-      bitmap_manager_client_(viz::HostSharedBitmapManager::current()),
       request_context_(request_context),
       resource_context_(browser_context->GetResourceContext()),
       render_widget_helper_(render_widget_helper),
@@ -211,11 +210,6 @@ void RenderMessageFilter::CreateFullscreenWidget(
   int route_id = 0;
   render_widget_helper_->CreateNewFullscreenWidget(opener_id, &route_id);
   std::move(callback).Run(route_id);
-}
-
-void RenderMessageFilter::GetSharedBitmapManager(
-    cc::mojom::SharedBitmapManagerAssociatedRequest request) {
-  bitmap_manager_client_.Bind(std::move(request));
 }
 
 #if defined(OS_MACOSX)

@@ -16,12 +16,14 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/shared_memory.h"
+#include "base/observer_list.h"
 #include "base/synchronization/lock.h"
+#include "base/threading/thread_checker.h"
 #include "base/trace_event/memory_dump_provider.h"
 #include "cc/ipc/shared_bitmap_manager.mojom.h"
 #include "cc/resources/shared_bitmap_manager.h"
 #include "components/viz/viz_export.h"
-#include "mojo/public/cpp/bindings/associated_binding.h"
+#include "mojo/public/cpp/bindings/binding.h"
 
 namespace BASE_HASH_NAMESPACE {
 template <>
@@ -36,6 +38,11 @@ namespace viz {
 class BitmapData;
 class HostSharedBitmapManager;
 
+class SharedBitmapAllocationObserver {
+ public:
+  virtual void DidAllocateSharedBitmap(uint32_t sequence_number) = 0;
+};
+
 class VIZ_EXPORT HostSharedBitmapManagerClient
     : NON_EXPORTED_BASE(public cc::mojom::SharedBitmapManager) {
  public:
@@ -43,7 +50,10 @@ class VIZ_EXPORT HostSharedBitmapManagerClient
 
   ~HostSharedBitmapManagerClient() override;
 
-  void Bind(cc::mojom::SharedBitmapManagerAssociatedRequest request);
+  void AddObserver(SharedBitmapAllocationObserver* observer);
+  void RemoveObserver(SharedBitmapAllocationObserver* observer);
+
+  void Bind(cc::mojom::SharedBitmapManagerRequest request);
 
   // cc::mojom::SharedBitmapManager overrides:
   void DidAllocateSharedBitmap(mojo::ScopedSharedBufferHandle buffer,
@@ -54,13 +64,17 @@ class VIZ_EXPORT HostSharedBitmapManagerClient
                                   const base::SharedMemoryHandle& handle,
                                   const cc::SharedBitmapId& id);
 
- private:
-  HostSharedBitmapManager* manager_;
-  mojo::AssociatedBinding<cc::mojom::SharedBitmapManager> binding_;
+  void ChildDied();
 
-  // Lock must be held around access to owned_bitmaps_.
-  base::Lock lock_;
+  uint32_t last_sequence_number() const { return last_sequence_number_; }
+
+ private:
+  THREAD_CHECKER(thread_checker_);
+  HostSharedBitmapManager* manager_;
+  mojo::Binding<cc::mojom::SharedBitmapManager> binding_;
   base::hash_set<cc::SharedBitmapId> owned_bitmaps_;
+  base::ObserverList<SharedBitmapAllocationObserver> observers_;
+  uint32_t last_sequence_number_ = 0;
 
   DISALLOW_COPY_AND_ASSIGN(HostSharedBitmapManagerClient);
 };

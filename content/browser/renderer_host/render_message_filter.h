@@ -20,7 +20,6 @@
 #include "base/strings/string16.h"
 #include "build/build_config.h"
 #include "cc/resources/shared_bitmap_manager.h"
-#include "components/viz/display_compositor/host_shared_bitmap_manager.h"
 #include "content/common/cache_storage/cache_storage_types.h"
 #include "content/common/render_message_filter.mojom.h"
 #include "content/public/browser/browser_associated_interface.h"
@@ -116,8 +115,6 @@ class CONTENT_EXPORT RenderMessageFilter
                        CreateNewWidgetCallback callback) override;
   void CreateFullscreenWidget(int opener_id,
                               CreateFullscreenWidgetCallback callback) override;
-  void GetSharedBitmapManager(
-      cc::mojom::SharedBitmapManagerAssociatedRequest request) override;
 
   // Message handlers called on the browser IO thread:
   void OnHasGpuProcess(IPC::Message* reply);
@@ -158,8 +155,6 @@ class CONTENT_EXPORT RenderMessageFilter
   // not own it; it is managed by the BrowserProcess, which has a wider scope
   // than we do.
   ResourceDispatcherHostImpl* resource_dispatcher_host_;
-
-  viz::HostSharedBitmapManagerClient bitmap_manager_client_;
 
   // Contextual information to be used for requests created here.
   scoped_refptr<net::URLRequestContextGetter> request_context_;

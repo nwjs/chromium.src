@@ -14,6 +14,7 @@
 #include "base/macros.h"
 #include "base/metrics/persistent_memory_allocator.h"
 #include "base/observer_list.h"
+#include "components/viz/display_compositor/host_shared_bitmap_manager.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_process_host_factory.h"
 #include "ipc/ipc_test_sink.h"
@@ -122,6 +123,8 @@ class MockRenderProcessHost : public RenderProcessHost {
   mojom::Renderer* GetRendererInterface() override;
   void SetIsNeverSuitableForReuse() override;
   bool MayReuseHost() override;
+  viz::HostSharedBitmapManagerClient* GetSharedBitmapAllocationNotifier()
+      override;
 
   // IPC::Sender via RenderProcessHost.
   bool Send(IPC::Message* msg) override;
@@ -174,6 +177,7 @@ class MockRenderProcessHost : public RenderProcessHost {
       renderer_interface_;
   std::map<std::string, InterfaceBinder> binder_overrides_;
   service_manager::Identity child_identity_;
+  viz::HostSharedBitmapManagerClient shared_bitmap_allocation_notifier_impl_;
 
   DISALLOW_COPY_AND_ASSIGN(MockRenderProcessHost);
 };

@@ -33,6 +33,10 @@ namespace service_manager {
 class Identity;
 }
 
+namespace viz {
+class HostSharedBitmapManagerClient;
+}
+
 namespace content {
 class BrowserContext;
 class BrowserMessageFilter;
@@ -362,6 +366,12 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // function can only be called on the browser's UI thread (and the |task| will
   // be posted back on the UI thread).
   void PostTaskWhenProcessIsReady(base::OnceClosure task);
+
+  // Returns the SharedBitmapAllocationNotifier associated with this process.
+  // SharedBitmapAllocationNotifier manages viz::SharedBitmaps created by this
+  // process and can notify observers when a new SharedBitmap is allocated.
+  virtual viz::HostSharedBitmapManagerClient*
+  GetSharedBitmapAllocationNotifier() = 0;
 
   // Static management functions -----------------------------------------------
 

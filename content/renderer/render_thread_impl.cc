@@ -664,13 +664,15 @@ void RenderThreadImpl::Init(
       IsRunningInMash() ? ui::mojom::kServiceName : mojom::kBrowserServiceName,
       GetIOTaskRunner());
 
-  cc::mojom::SharedBitmapManagerAssociatedPtr shared_bitmap_manager_ptr;
-  render_message_filter()->GetSharedBitmapManager(
-      mojo::MakeRequest(&shared_bitmap_manager_ptr));
-  shared_bitmap_manager_.reset(new ui::ChildSharedBitmapManager(
-      cc::mojom::ThreadSafeSharedBitmapManagerAssociatedPtr::Create(
-          shared_bitmap_manager_ptr.PassInterface(),
-          GetChannel()->ipc_task_runner_refptr())));
+  cc::mojom::SharedBitmapManagerPtr
+      shared_bitmap_allocation_notifier_ptr;
+  GetConnector()->BindInterface(
+      mojom::kBrowserServiceName,
+      mojo::MakeRequest(&shared_bitmap_allocation_notifier_ptr));
+  shared_bitmap_manager_ = base::MakeUnique<ui::ChildSharedBitmapManager>(
+      cc::mojom::ThreadSafeSharedBitmapManagerPtr::Create(
+          shared_bitmap_allocation_notifier_ptr.PassInterface(),
+          GetChannel()->ipc_task_runner_refptr()));
 
   InitializeWebKit(resource_task_queue);
 

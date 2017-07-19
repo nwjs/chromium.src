@@ -42,7 +42,7 @@ class HostSharedBitmap : public cc::SharedBitmap {
                    scoped_refptr<BitmapData> bitmap_data,
                    const cc::SharedBitmapId& id,
                    HostSharedBitmapManager* manager)
-      : SharedBitmap(pixels, id),
+      : SharedBitmap(pixels, id, 0 /* sequence_number */),
         bitmap_data_(bitmap_data),
         manager_(manager) {}
 
@@ -63,47 +63,77 @@ base::LazyInstance<HostSharedBitmapManager>::DestructorAtExit
 
 HostSharedBitmapManagerClient::HostSharedBitmapManagerClient(
     HostSharedBitmapManager* manager)
-    : manager_(manager), binding_(this) {}
+    : manager_(manager), binding_(this) {
+    DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+}
 
 HostSharedBitmapManagerClient::~HostSharedBitmapManagerClient() {
-  for (const auto& id : owned_bitmaps_)
-    manager_->ChildDeletedSharedBitmap(id);
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  ChildDied();
 }
 
 void HostSharedBitmapManagerClient::Bind(
-    cc::mojom::SharedBitmapManagerAssociatedRequest request) {
+    cc::mojom::SharedBitmapManagerRequest request) {
+    DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+    if (binding_.is_bound()) {
+      DLOG(ERROR) << "Only one SharedBitmapAllocationNotifierRequest is "
+                  << "expected from the renderer.";
+      return;
+    }
   binding_.Bind(std::move(request));
 }
 
 void HostSharedBitmapManagerClient::DidAllocateSharedBitmap(
     mojo::ScopedSharedBufferHandle buffer,
     const cc::SharedBitmapId& id) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   base::SharedMemoryHandle memory_handle;
   size_t size;
   MojoResult result = mojo::UnwrapSharedMemoryHandle(
       std::move(buffer), &memory_handle, &size, NULL);
   DCHECK_EQ(result, MOJO_RESULT_OK);
   this->ChildAllocatedSharedBitmap(size, memory_handle, id);
+  last_sequence_number_++;
+  for (SharedBitmapAllocationObserver& observer : observers_)
+    observer.DidAllocateSharedBitmap(last_sequence_number_);
 }
 
 void HostSharedBitmapManagerClient::ChildAllocatedSharedBitmap(
     size_t buffer_size,
     const base::SharedMemoryHandle& handle,
     const cc::SharedBitmapId& id) {
-  if (manager_->ChildAllocatedSharedBitmap(buffer_size, handle, id)) {
-    base::AutoLock lock(lock_);
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  if (manager_->ChildAllocatedSharedBitmap(buffer_size, handle, id))
     owned_bitmaps_.insert(id);
-  }
 }
 
 void HostSharedBitmapManagerClient::DidDeleteSharedBitmap(
     const cc::SharedBitmapId& id) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   manager_->ChildDeletedSharedBitmap(id);
-  {
-    base::AutoLock lock(lock_);
-    owned_bitmaps_.erase(id);
-  }
+  owned_bitmaps_.erase(id);
 }
+
+void HostSharedBitmapManagerClient::ChildDied() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  for (const auto& id : owned_bitmaps_)
+    manager_->ChildDeletedSharedBitmap(id);
+  owned_bitmaps_.clear();
+  binding_.Close();
+}
+
+void HostSharedBitmapManagerClient::AddObserver(
+    SharedBitmapAllocationObserver* observer) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  observers_.AddObserver(observer);
+}
+
+void HostSharedBitmapManagerClient::RemoveObserver(
+    SharedBitmapAllocationObserver* observer) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  observers_.RemoveObserver(observer);
+}
+
 
 HostSharedBitmapManager::HostSharedBitmapManager() {}
 HostSharedBitmapManager::~HostSharedBitmapManager() {
