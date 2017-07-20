@@ -187,7 +187,10 @@ void SoftwareOutputDeviceWin::EndPaint() {
     BLENDFUNCTION blend = {AC_SRC_OVER, 0x00, 0xFF, AC_SRC_ALPHA};
 
     DWORD style = GetWindowLong(hwnd_, GWL_EXSTYLE);
-    DCHECK(!(style & WS_EX_COMPOSITED));
+    if(!g_support_transparency)
+      DCHECK(!(style & WS_EX_COMPOSITED));
+    else
+      style &= ~WS_EX_COMPOSITED;
     style |= WS_EX_LAYERED;
     SetWindowLong(hwnd_, GWL_EXSTYLE, style);
 

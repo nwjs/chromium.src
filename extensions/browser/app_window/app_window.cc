@@ -352,12 +352,6 @@ void AppWindow::Init(const GURL& url,
   content::g_support_transparency = !base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kDisableTransparency);
   if (content::g_support_transparency) {
     content::g_force_cpu_draw = base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kForceCpuDraw);
-    if (content::g_force_cpu_draw) {
-      if (!base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kDisableGpu)) {
-        content::g_force_cpu_draw = false;
-        LOG(WARNING) << "switch " << ::switches::kForceCpuDraw << " must be used with switch " << ::switches::kDisableGpu;
-      }
-    }
   }
 
   requested_alpha_enabled_ = new_params.alpha_enabled;

@@ -15,6 +15,7 @@
 #include "ui/views/win/hwnd_message_handler.h"
 
 #if defined(OS_WIN)
+#include "base/win/windows_version.h"
 #include "ui/base/win/shell.h"
 #endif
 
@@ -92,10 +93,15 @@ void CalculateWindowStylesFromInitParams(
       *ex_style |=
           native_widget_delegate->IsDialogBox() ? WS_EX_DLGMODALFRAME : 0;
 
-      // See layered window comment above.
+      // See layered window comment below.
       if (content::g_support_transparency) {
         if (is_translucent && params.remove_standard_frame)
           *style &= ~(WS_CAPTION);
+        if (is_translucent && !(native_widget_delegate->IsDialogBox() || native_widget_delegate->IsModal())) {
+          *ex_style |= WS_EX_LAYERED;
+          if (base::win::GetVersion() < base::win::VERSION_WIN10)
+            *ex_style |= WS_EX_COMPOSITED;
+        }
       }
       else {
         if (is_translucent)
@@ -168,10 +174,6 @@ void ConfigureWindowStyles(
   CalculateWindowStylesFromInitParams(params, widget_delegate,
                                       native_widget_delegate, is_translucent,
                                       &style, &ex_style, &class_style);
-
-  if (content::g_support_transparency && is_translucent && 
-    !(native_widget_delegate->IsDialogBox() || native_widget_delegate->IsModal()))
-    ex_style |= WS_EX_LAYERED;
 
   handler->set_is_translucent(is_translucent);
   handler->set_initial_class_style(class_style);
