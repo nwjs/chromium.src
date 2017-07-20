@@ -65,7 +65,7 @@ using base::UserMetricsAction;
 namespace chrome {
 namespace {
 
-const char kHashMark[] = "#";
+//const char kHashMark[] = "#";
 
 void OpenBookmarkManagerWithHash(Browser* browser,
                                  const std::string& action,
@@ -140,6 +140,7 @@ void ShowHelpImpl(Browser* browser, Profile* profile, HelpSource source) {
 #endif
 }
 
+#if 0
 std::string GenerateContentSettingsExceptionsSubPage(ContentSettingsType type) {
   if (!base::FeatureList::IsEnabled(features::kMaterialDesignSettings)) {
     return kDeprecatedOptionsContentSettingsExceptionsSubPage +
@@ -173,6 +174,7 @@ std::string GenerateContentSettingsExceptionsSubPage(ContentSettingsType type) {
 
   return std::string(kContentSettingsSubPage) + "/" + content_type_path;
 }
+#endif
 
 #if defined(OS_CHROMEOS)
 std::string GenerateContentSettingsSearchQueryPath(int query_message_id) {
@@ -352,24 +354,30 @@ void ShowSettingsSubPageInTabbedBrowser(Browser* browser,
 
 void ShowContentSettingsExceptions(Browser* browser,
                                    ContentSettingsType content_settings_type) {
+#if 0
   ShowSettingsSubPage(
       browser, GenerateContentSettingsExceptionsSubPage(content_settings_type));
+#endif
 }
 
 void ShowContentSettingsExceptionsInWindow(
     Profile* profile,
     ContentSettingsType content_settings_type) {
+#if 0
   DCHECK(switches::SettingsWindowEnabled());
   ShowSettingsSubPageForProfile(
       profile, GenerateContentSettingsExceptionsSubPage(content_settings_type));
+#endif
 }
 
 void ShowContentSettings(Browser* browser,
                          ContentSettingsType content_settings_type) {
+#if 0
   ShowSettingsSubPage(
       browser,
       kContentSettingsSubPage + std::string(kHashMark) +
           site_settings::ContentSettingsTypeToGroupName(content_settings_type));
+#endif
 }
 
 void ShowClearBrowsingDataDialog(Browser* browser) {

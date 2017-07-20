@@ -54,6 +54,7 @@ class VIEWS_EXPORT NativeWidgetDelegate {
   // problems.
   virtual void SetAlwaysRenderAsActive(bool always_render_as_active) = 0;
   virtual bool IsAlwaysRenderAsActive() const = 0;
+  virtual bool NWCanClose(bool user_force = false) const = 0;
 
   // Called when the activation state of a window has changed.
   virtual void OnNativeWidgetActivationChanged(bool active) = 0;

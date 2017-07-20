@@ -454,7 +454,7 @@ void HTMLFormElement::ScheduleFormSubmission(FormSubmission* submission) {
       submission->Target(), *GetDocument().GetFrame());
   if (!target_frame) {
     if (!LocalDOMWindow::AllowPopUp(*GetDocument().GetFrame()) &&
-        !UserGestureIndicator::UtilizeUserGesture())
+        !UserGestureIndicator::UtilizeUserGesture() && !GetDocument().GetFrame()->isNodeJS())
       return;
     target_frame = GetDocument().GetFrame();
   } else {

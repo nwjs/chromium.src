@@ -32,6 +32,7 @@ component("embedder") {
     "//base/allocator:features",
     "//mojo/edk/system",
     "//ui/base",
+    "//content/nw:nw_base"
   ]
 
   defines = [ "SERVICE_MANAGER_EMBEDDER_IMPL" ]
