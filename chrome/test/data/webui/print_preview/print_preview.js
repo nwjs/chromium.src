@@ -1577,7 +1577,7 @@ TEST_F('PrintPreviewWebUITest', 'TestInvalidSettingsError', function() {
 
 // Test the preview generator to make sure the generate draft parameter is set
 // correctly. It should be false if the only change is the page range.
-TEST_F('PrintPreviewWebUITest', 'TestGenerateDraft', function() {
+TEST_F('PrintPreviewWebUITest', 'DISABLED_TestGenerateDraft', function() {
   this.createPrintPreview();
 
   // Use a real preview generator.
