@@ -18,7 +18,7 @@
 <translation id="119944043368869598">सभी साफ़ करें</translation>
 <translation id="1201402288615127009">अगला</translation>
 <translation id="1204037785786432551">डाउनलोड करने का लिंक</translation>
-<translation id="1206892813135768548">लिंक लेख की प्रतिलिपि बनाएं</translation>
+<translation id="1206892813135768548">लिंक लेख को कॉपी करें</translation>
 <translation id="1209206284964581585">अभी छिपाएं</translation>
 <translation id="1211530540767271776">यहां कोई USB डिवाइस नहीं है</translation>
 <translation id="123724288017357924">संचित सामग्री अनदेखी कर मौजूदा पेज पुनः लोड करें</translation>
@@ -122,7 +122,7 @@
 <translation id="2139186145475833000">होम स्क्रीन में जोड़ें</translation>
 <translation id="2146738493024040262">झटपट ऐप्लिकेशन खोलें</translation>
 <translation id="2148716181193084225">आज</translation>
-<translation id="2154710561487035718">URL की प्रतिलिपि बनाएं</translation>
+<translation id="2154710561487035718">URL की कॉपी बनाएं</translation>
 <translation id="2156074688469523661">बाकी साइटें (<ph name="NUMBER_OF_SITES" />)</translation>
 <translation id="219985413780390209">खतरनाक साइटों से आपकी और आपके डिवाइस की सुरक्षा करता है</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, वेब ऐप. <ph name="APP_URL" /></translation>
@@ -592,7 +592,7 @@
 <translation id="6875705348083140572">देखें कि आस-पास क्या है</translation>
 <translation id="688738109438487280">मौजूदा डेटा <ph name="TO_ACCOUNT" /> में जोड़ें.</translation>
 <translation id="6891858906296486776">{OPEN_TABS,plural, =1{%1$d खुला टैब}one{%1$d खुले टैब}other{%1$d खुले टैब}}</translation>
-<translation id="6896758677409633944">प्रतिलिपि बनाएं</translation>
+<translation id="6896758677409633944">कॉपी बनाएं</translation>
 <translation id="6945221475159498467">चुनें</translation>
 <translation id="6963766334940102469">बुकमार्क हटाएं</translation>
 <translation id="6965382102122355670">ठीक</translation>

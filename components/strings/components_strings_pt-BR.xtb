@@ -539,7 +539,7 @@
 <translation id="5431657950005405462">O arquivo não foi encontrado</translation>
 <translation id="5439770059721715174">Erro de validação de esquema em "<ph name="ERROR_PATH" />": <ph name="ERROR" /></translation>
 <translation id="5452270690849572955">Não foi possível encontrar a página deste <ph name="HOST_NAME" /></translation>
-<translation id="5455374756549232013">Carimbo de data e hora da política inválido</translation>
+<translation id="5455374756549232013">Carimbo de data/hora da política inválido</translation>
 <translation id="5455790498993699893"><ph name="ACTIVE_MATCH" /> de <ph name="TOTAL_MATCHCOUNT" /></translation>
 <translation id="5457113250005438886">Inválidos</translation>
 <translation id="5470861586879999274">&amp;Refazer editar</translation>

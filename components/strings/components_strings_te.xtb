@@ -339,9 +339,9 @@
 <translation id="3549644494707163724">మీ స్వంత సమకాలీకరణ రహస్య పదబంధంతో సమకాలీకరించబడిన డేటా మొత్తాన్ని గుప్తీకరించండి</translation>
 <translation id="3556433843310711081">మీ నిర్వాహకుడు మీ కోసం దీన్ని అన్‌బ్లాక్ చేయగలరు</translation>
 <translation id="3566021033012934673">మీ కనెక్షన్ ప్రైవేట్ కాదు</translation>
-<translation id="3569145463236695319">&lt;p&gt;మీ కంప్యూటర్ తేదీ మరియు సమయం (<ph name="DATE_AND_TIME" />) తప్పుగా ఉన్నందున <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />కి ప్రైవేట్ కనెక్షన్ ఏర్పాటు కాలేదు.&lt;/p&gt;
+<translation id="3569145463236695319">&lt;p&gt;మీ పరికరం తేదీ మరియు సమయం (<ph name="DATE_AND_TIME" />) తప్పుగా ఉన్నందున <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />కి ప్రైవేట్ కనెక్షన్ ఏర్పాటు కాలేదు.&lt;/p&gt;
 
-    &lt;p&gt;దయచేసి అనువర్తన &lt;strong&gt;సెట్టింగ్‌లు&lt;/strong&gt; యొక్క &lt;strong&gt;సాధారణ&lt;/strong&gt; వర్గం నుండి తేదీ మరియు సమయాన్ని సర్దుబాటు చేయండి.&lt;/p&gt; <ph name="BEGIN_LEARN_MORE_LINK" />మరింత తెలుసుకోండి<ph name="END_LEARN_MORE_LINK" /></translation>
+    &lt;p&gt;దయచేసి &lt;strong&gt;సెట్టింగ్‌లు&lt;/strong&gt; అనువర్తనం యొక్క &lt;strong&gt;సాధారణ&lt;/strong&gt; విభాగం నుండి తేదీ మరియు సమయాన్ని సర్దుబాటు చేయండి.&lt;/p&gt; <ph name="BEGIN_LEARN_MORE_LINK" />మరింత తెలుసుకోండి<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="3574305903863751447"><ph name="CITY" />, <ph name="STATE" /> <ph name="COUNTRY" /></translation>
 <translation id="3582930987043644930">పేరు జోడించండి</translation>
 <translation id="3583757800736429874">&amp;తరలించడాన్ని పునరావృతం చేయి</translation>
@@ -529,7 +529,7 @@
 <translation id="5308689395849655368">క్రాష్ నివేదిక నిలిపివెయ్యబడింది.</translation>
 <translation id="5317780077021120954">సేవ్ చేయి</translation>
 <translation id="5327248766486351172">పేరు</translation>
-<translation id="5355557959165512791"><ph name="SITE" /> యొక్క ప్రమాణపత్రం రద్దు చేయబడినందున మీరు దీన్ని సందర్శించలేరు. నెట్‌వర్క్ లోపాలు మరియు దాడులు సాధారణంగా తాత్కాలికమే, కనుక ఈ పేజీ తర్వాత పని చేయవచ్చు.</translation>
+<translation id="5355557959165512791"><ph name="SITE" /> యొక్క ప్రమాణపత్రం రద్దు చేయబడినందున మీరు ప్రస్తుతం దీన్ని సందర్శించలేరు. నెట్‌వర్క్ లోపాలు మరియు దాడులు సాధారణంగా తాత్కాలికమే, కనుక ఈ పేజీ తర్వాత పని చేయవచ్చు.</translation>
 <translation id="536296301121032821">విధాన సెట్టింగ్‌లను నిల్వ చేయడంలో విఫలమైంది</translation>
 <translation id="5386426401304769735">ఈ సైట్ ప్రమాణపత్రం గొలుసులో SHA-1 ఉపయోగించి సంతకం చేసిన ప్రమాణపత్రం ఉంది.</translation>
 <translation id="5402410679244714488">గడువు ముగింపు: <ph name="EXPIRATION_DATE_ABBR" />, చివరిగా దాదాపు సంవత్సరం క్రితం ఉపయోగించబడింది</translation>

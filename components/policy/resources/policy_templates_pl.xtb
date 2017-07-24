@@ -291,7 +291,7 @@
       Jeśli ta zasada nie jest ustawiona, stosowana jest wartość TimezoneAutomaticDetectionUsersDecide.
 
       Tę zasadę zastępuje włączona zasada SystemTimezone. Jeśli obowiązuje zasada SystemTimezone, automatyczne wykrywanie strefy czasowej jest całkowicie wyłączone.</translation>
-<translation id="2178899310296064282">Wymuś co najmniej umiarkowany tryb ograniczonego dostępu w YouTube</translation>
+<translation id="2178899310296064282">Wymuszaj co najmniej umiarkowany tryb ograniczonego dostępu w YouTube</translation>
 <translation id="2183294522275408937">To ustawienie określa, jak często trzeba podawać hasło na ekranie blokady, gdy używane jest szybkie odblokowanie. Szybkie odblokowanie ekranu blokady nie będzie możliwe, jeśli od ostatniego wpisania hasła minęło więcej czasu, niż określa to wartość tego ustawienia. Jeśli ekran blokady będzie otwarty dłużej niż wartość tego ustawienia, użytkownik będzie musiał podać hasło po podaniu błędnego kodu lub ponownym wyświetleniu ekranu blokady, w zależności od tego, co nastąpi wcześniej.
 
           Jeśli to ustawienie jest skonfigurowane, jego wartość określa, jak często użytkownicy korzystający z szybkiego odblokowania muszą podawać swoje hasło na ekranie blokady.
@@ -651,7 +651,7 @@
       W przypadku wyłączenia tej zasady <ph name="PRODUCT_OS_NAME" /> nie będzie zezwalać na uruchamianie sesji gościa.</translation>
 <translation id="3418871497193485241">Wymusza minimalny tryb ograniczonego dostępu w YouTube i uniemożliwia użytkownikom wybór trybu z mniejszymi ograniczeniami.
 
-Jeśli wybierzesz ustawienie „Ścisły”, ścisły tryb ograniczony będzie zawsze aktywny w YouTube.
+Jeśli wybierzesz ustawienie „Ścisły”, ścisły tryb ograniczonego dostępu będzie zawsze aktywny w YouTube.
 
 Jeśli wybierzesz ustawienie „Umiarkowany”, użytkownik może wybrać tylko umiarkowany lub ścisły tryb ograniczonego dostępu w YouTube i nie może go wyłączyć.
 

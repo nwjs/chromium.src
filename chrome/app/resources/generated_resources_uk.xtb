@@ -89,7 +89,7 @@
 <translation id="1128109161498068552">Заборонити всім сайтам використовувати виняткові повідомлення системи, щоб отримувати доступ до пристроїв MIDI</translation>
 <translation id="1128128132059598906">EAP – TTLS</translation>
 <translation id="1128591060186966949">Змінити пошукову систему</translation>
-<translation id="1128987120443782698">Ємність пристрою пам’яті – <ph name="DEVICE_CAPACITY" />. Вставте карту SD чи карту флеш-пам’яті USB ємністю принаймні 4 Гб.</translation>
+<translation id="1128987120443782698">Ємність пристрою пам’яті – <ph name="DEVICE_CAPACITY" />. Вставте карту SD чи карту флеш-пам’яті USB ємністю принаймні 4 ГБ.</translation>
 <translation id="1131167343343087859">Кредитні картки й адреси, додані в Google Payments.</translation>
 <translation id="1140351953533677694">Отримувати доступ до пристроїв Bluetooth і серійних пристроїв</translation>
 <translation id="114140604515785785">Кореневий каталог розширення:</translation>
@@ -948,7 +948,7 @@
 <translation id="2351266942280602854">Мова та способи введення</translation>
 <translation id="2351520734632194850"><ph name="MHZ" /> МГц</translation>
 <translation id="2352467521400612932">Налаштування стилуса</translation>
-<translation id="2352662711729498748">&lt; 1 Мб</translation>
+<translation id="2352662711729498748">&lt; 1 МБ</translation>
 <translation id="2356070529366658676">Запитати</translation>
 <translation id="2357949918965361754">За допомогою цієї функції ви можете транслювати вміст із Chrome на телевізор чи інші пристрої.</translation>
 <translation id="2359345697448000899">Керуйте своїми розширеннями, натиснувши вкладку "Розширення" в меню "Інструменти".</translation>
@@ -1037,7 +1037,7 @@
 <translation id="249303669840926644">Не вдалося закінчити реєстрацію</translation>
 <translation id="2494837236724268445">Клавіатура гуджараті (фонетична)</translation>
 <translation id="2496180316473517155">Історія переглядів</translation>
-<translation id="2496540304887968742">Ємність пристрою має становити 4 Гб або більше.</translation>
+<translation id="2496540304887968742">Ємність пристрою має становити 4 ГБ або більше.</translation>
 <translation id="2497229222757901769">Швидкість миші</translation>
 <translation id="2497852260688568942">Ваш адміністратор вимкнув синхронізацію</translation>
 <translation id="249819058197909513">Більше не попереджати для цього додатка</translation>
@@ -1079,7 +1079,7 @@
 <translation id="2550212893339833758">Змінна пам’ять</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> не вдалося з'єднатися з <ph name="NETWORK_ID" />. Виберіть іншу мережу або повторіть спробу.</translation>
 <translation id="2553440850688409052">Сховати цей плагін</translation>
-<translation id="2554553592469060349">Вибраний файл завеликий (максимальний розмір – 3 Мб).</translation>
+<translation id="2554553592469060349">Вибраний файл завеликий (максимальний розмір – 3 МБ).</translation>
 <translation id="2557899542277210112">Для швидкого доступу розташуйте свої закладки тут, на панелі закладок.</translation>
 <translation id="2558578666171469771">Магазин Google Play тепер на вашому пристрої <ph name="DEVICE_TYPE" /></translation>
 <translation id="255937426064304553">Міжнародна (США)</translation>
@@ -1133,7 +1133,7 @@
 <translation id="2630681426381349926">Під’єднайтеся до Wi-Fi, щоб почати</translation>
 <translation id="2631006050119455616">Збережено</translation>
 <translation id="2631498379019108537">Показувати на полиці опції введення</translation>
-<translation id="2633199387167390344"><ph name="NAME" /> використовує <ph name="USAGE" /> Мб місця на диску.</translation>
+<translation id="2633199387167390344"><ph name="NAME" /> використовує <ph name="USAGE" /> МБ місця на диску.</translation>
 <translation id="2633212996805280240">Видалити "<ph name="EXTENSION_NAME" />"?</translation>
 <translation id="263325223718984101"><ph name="PRODUCT_NAME" /> не вдалося завершити встановлення, але він продовжить працювати, використовуючи своє зображення диска.</translation>
 <translation id="2635276683026132559">Підписування</translation>
@@ -1346,7 +1346,7 @@
 <translation id="2902127500170292085">Розширення <ph name="EXTENSION_NAME" /> не може зв’язатися з цим принтером. Перевірте, чи принтер підключено, і повторіть спробу.</translation>
 <translation id="2902734494705624966">Американська розширена</translation>
 <translation id="2903493209154104877">Адреси</translation>
-<translation id="290444763029043472"><ph name="DOWNLOADED_AMOUNT_MB" /> Мб / завантажено <ph name="TOTAL_AMOUNT_MB" /> Мб</translation>
+<translation id="290444763029043472"><ph name="DOWNLOADED_AMOUNT_MB" /> МБ / завантажено <ph name="TOTAL_AMOUNT_MB" /> МБ</translation>
 <translation id="2904456025988372123">Запитувати, якщо сайт намагається завантажити файли автоматично після першого файлу</translation>
 <translation id="2907619724991574506">URL-адреси автозавантаження</translation>
 <translation id="2907798539022650680">Не вдалося під’єднатися до мережі "<ph name="NAME" />": <ph name="DETAILS" />
@@ -2183,7 +2183,7 @@
 <translation id="4099060993766194518">Відновити пошукову систему за умовчанням?</translation>
 <translation id="4100733287846229632">На пристрої дуже мало вільного місця</translation>
 <translation id="4104163789986725820">Е&amp;кспортувати...</translation>
-<translation id="4105563239298244027">Отримайте безкоштовно 1 Тб на Диску Google</translation>
+<translation id="4105563239298244027">Отримайте безкоштовно 1 ТБ на Диску Google</translation>
 <translation id="4109135793348361820">Перемістити вікно на робочий стіл користувача <ph name="USER_NAME" /> (<ph name="USER_EMAIL" />)</translation>
 <translation id="4110342520124362335">Файли cookie з домену <ph name="DOMAIN" /> заблоковано.</translation>
 <translation id="4110559665646603267">Вибрати полицю</translation>
@@ -2296,7 +2296,7 @@
 <translation id="4300305918532693141">Щоб змінити це налаштування, <ph name="BEGIN_LINK" />скиньте синхронізацію<ph name="END_LINK" />.</translation>
 <translation id="4305227814872083840">довга затримка (2 с)</translation>
 <translation id="4307281933914537745">Докладніше про відновлення системи</translation>
-<translation id="4309420042698375243"><ph name="NUM_KILOBYTES" /> Кб (<ph name="NUM_KILOBYTES_LIVE" /> Кб у реальному часі)</translation>
+<translation id="4309420042698375243"><ph name="NUM_KILOBYTES" /> КБ (<ph name="NUM_KILOBYTES_LIVE" /> КБ у реальному часі)</translation>
 <translation id="431076611119798497">&amp;Деталі</translation>
 <translation id="4315548163539304064">Сканування носія…
     <ph name="LINE_BREAK1" />
@@ -2652,7 +2652,7 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME" /> не може визначити чи встановити веб-переглядач за умовчанням.</translation>
 <translation id="48704129375571883">Додати більше функцій</translation>
 <translation id="4870903493621965035">Немає підключених пристроїв</translation>
-<translation id="4871210892959306034">$1 Кб</translation>
+<translation id="4871210892959306034">$1 КБ</translation>
 <translation id="4871308555310586478">Не з Веб-магазину Chrome.</translation>
 <translation id="4871370605780490696">Додати закладку</translation>
 <translation id="4871833665870725367">Оновити пароль <ph name="PASSWORD_MANAGER_BRAND" /> для <ph name="ORIGIN" />?</translation>
@@ -2769,7 +2769,7 @@
 <translation id="5037676449506322593">Вибрати всі</translation>
 <translation id="5038625366300922036">Більше…</translation>
 <translation id="5038863510258510803">Увімкнення...</translation>
-<translation id="5039512255859636053">$1 Тб</translation>
+<translation id="5039512255859636053">$1 ТБ</translation>
 <translation id="5039804452771397117">Дозволити</translation>
 <translation id="5045550434625856497">Неправильний пароль</translation>
 <translation id="5046747760454685637">Запитувати, перш ніж дозволити сайтам запускати Flash (рекомендовано)</translation>
@@ -3163,7 +3163,7 @@
 <translation id="558918721941304263">Завантаження додатків…</translation>
 <translation id="5592595402373377407">Ще недостатньо даних.</translation>
 <translation id="5595485650161345191">Редагувати адресу</translation>
-<translation id="5600706100022181951">Щоб завантажити оновлення, буде використано <ph name="UPDATE_SIZE_MB" /> Мб мобільного Інтернету. Продовжити?</translation>
+<translation id="5600706100022181951">Щоб завантажити оновлення, буде використано <ph name="UPDATE_SIZE_MB" /> МБ мобільного Інтернету. Продовжити?</translation>
 <translation id="5601503069213153581">PIN-код</translation>
 <translation id="5604324414379907186">Завжди показувати панель закладок</translation>
 <translation id="5605623530403479164">Інші пошукові системи</translation>
@@ -3696,7 +3696,7 @@
 <translation id="6410328738210026208">Змінити версію й виконати Powerwash</translation>
 <translation id="6410668567036790476">Додати пошукову систему</translation>
 <translation id="641081527798843608">Збіг суб’єкта</translation>
-<translation id="641105183165925463">$1 Мб</translation>
+<translation id="641105183165925463">$1 МБ</translation>
 <translation id="6412931879992742813">Нове анонімне вікно</translation>
 <translation id="6418160186546245112">Повернення до попередньої встановленої версії <ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
 <translation id="6418481728190846787">Назавжди видалити доступ для всіх програм</translation>
@@ -3806,7 +3806,7 @@
 <translation id="6545834809683560467">Використовувати підказки для завершення пошукових запитів і URL-адрес, введених в адресний рядок або вікно пошуку на панелі запуску додатків</translation>
 <translation id="6546686722964485737">Приєднатися до мережі WiMAX</translation>
 <translation id="6547316139431024316">Більше не попереджати для цього розширення</translation>
-<translation id="6547354035488017500">Звільніть принаймні 512 Мб пам’яті, інакше пристрій перестане відповідати. Щоб звільнити місце, видаліть файли з пам’яті пристрою.</translation>
+<translation id="6547354035488017500">Звільніть принаймні 512 МБ пам’яті, інакше пристрій перестане відповідати. Щоб звільнити місце, видаліть файли з пам’яті пристрою.</translation>
 <translation id="6549689063733911810">Останні</translation>
 <translation id="6550675742724504774">Параметри</translation>
 <translation id="6551034508248154663">Увімкнення голосової й аудіоактивності…</translation>
@@ -4234,7 +4234,7 @@
 <translation id="7216595297012131718">Мови замовлень на основі ваших налаштувань</translation>
 <translation id="7219989745826083607">Синтаксичний аналізатор опису пристрою набору номера</translation>
 <translation id="722055596168483966">Персоналізувати служби Google</translation>
-<translation id="7221155467930685510">$1 Гб</translation>
+<translation id="7221155467930685510">$1 ГБ</translation>
 <translation id="7221855153210829124">показувати сповіщення</translation>
 <translation id="7221869452894271364">Перезавантажити цю сторінку</translation>
 <translation id="7222232353993864120">Електронна адреса</translation>
@@ -4829,7 +4829,7 @@
 <translation id="8075191520954018715">Стан пам’яті</translation>
 <translation id="8077684120002777443">Ім’я користувача (наприклад, imyakorystuvacha@pryklad.com)</translation>
 <translation id="8079530767338315840">Повторити</translation>
-<translation id="8083739373364455075">Отримайте безкоштовно 100 Гб на Диску Google</translation>
+<translation id="8083739373364455075">Отримайте безкоштовно 100 ГБ на Диску Google</translation>
 <translation id="8086015605808120405">Налаштування принтера <ph name="PRINTER_NAME" />…</translation>
 <translation id="8088137642766812908">Увага, ця функція непередбачувана!</translation>
 <translation id="8090234456044969073">Переглядати список ваших найчастіше відвідуваних веб-сайтів</translation>

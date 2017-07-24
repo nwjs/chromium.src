@@ -3,7 +3,7 @@
 <translationbundle lang="ko">
 <translation id="1006017844123154345">온라인 열기</translation>
 <translation id="1049743911850919806">시크릿</translation>
-<translation id="10614374240317010">비밀번호를 저장하지 않은 사이트</translation>
+<translation id="10614374240317010">저장되지 않음</translation>
 <translation id="1068672505746868501"><ph name="SOURCE_LANGUAGE" />로 된 페이지는 번역하지 않음</translation>
 <translation id="1080790410959514870"><ph name="DOMAIN_NAME" />에서 관리하는 계정에서 로그아웃합니다. 로그아웃하면 이 기기에 저장된 Chrome 데이터는 삭제되지만 Google 계정에는 데이터가 남습니다.</translation>
 <translation id="1111673857033749125">다른 기기에서 저장한 북마크가 여기에 표시됩니다.</translation>
@@ -70,7 +70,7 @@
 <translation id="1620510694547887537">카메라</translation>
 <translation id="1623104350909869708">이 페이지가 추가적인 대화를 생성하지 않도록 차단</translation>
 <translation id="1628019612362412531">{NUM_SELECTED,plural, =1{선택한 1개 항목 삭제}other{선택한 #개 항목 삭제}}</translation>
-<translation id="1641113438599504367">안전 브라우징</translation>
+<translation id="1641113438599504367">세이프 브라우징</translation>
 <translation id="164269334534774161"><ph name="CREATION_TIME" />에 작성된 이 페이지의 오프라인 사본을 보는 중입니다.</translation>
 <translation id="1643702317193804718">페이지를 <ph name="SOURCE_LANGUAGE" />로 번역 중...</translation>
 <translation id="1644574205037202324">방문 기록</translation>
@@ -124,7 +124,7 @@
 <translation id="2148716181193084225">오늘</translation>
 <translation id="2154710561487035718">URL 복사</translation>
 <translation id="2156074688469523661">남은 사이트(<ph name="NUMBER_OF_SITES" />개)</translation>
-<translation id="219985413780390209">위험 사이트로부터 사용자와 기기를 보호합니다.</translation>
+<translation id="219985413780390209">위험한 사이트로부터 사용자와 기기 보호</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, 웹 앱. <ph name="APP_URL" /></translation>
 <translation id="2246961355222023276">사용한 데이터:</translation>
 <translation id="2268044343513325586">상세검색</translation>
@@ -435,7 +435,7 @@
 <translation id="5447765697759493033">이 사이트는 번역되지 않습니다.</translation>
 <translation id="5456381639095306749">다운로드 페이지</translation>
 <translation id="548278423535722844">지도 앱에서 열기</translation>
-<translation id="5487521232677179737">데이터 삭제</translation>
+<translation id="5487521232677179737">인터넷 사용 기록 삭제</translation>
 <translation id="5487729733663684359">Chrome 업데이트는 더 이상 이 버전의 Android에서 지원되지 않습니다.</translation>
 <translation id="5490801865084500306">북마크 탭이 선택됨</translation>
 <translation id="5512137114520586844"><ph name="PARENT_NAME" />님이 관리하는 계정입니다.</translation>

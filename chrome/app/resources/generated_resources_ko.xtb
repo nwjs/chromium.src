@@ -827,7 +827,7 @@
 <translation id="2193365732679659387">신뢰 설정</translation>
 <translation id="2195729137168608510">이메일 보호</translation>
 <translation id="2198315389084035571">중국어(간체)</translation>
-<translation id="219985413780390209">위험 사이트로부터 사용자와 기기를 보호합니다.</translation>
+<translation id="219985413780390209">위험한 사이트로부터 사용자와 기기 보호</translation>
 <translation id="220138918934036434">버튼 숨기기</translation>
 <translation id="2202898655984161076">프린터를 나열하는 데 문제가 발생했습니다. <ph name="CLOUD_PRINT_NAME" />에 성공적으로 등록되지 못한 프린터가 있을 수 있습니다.</translation>
 <translation id="2203682048752833055"><ph name="BEGIN_LINK" />주소 표시줄<ph name="END_LINK" />에서 사용되는 검색 엔진입니다.</translation>
@@ -1854,7 +1854,7 @@
 <translation id="3613134908380545408"><ph name="FOLDER_NAME" /> 표시</translation>
 <translation id="3613422051106148727">새 탭에서 열기(&amp;O)</translation>
 <translation id="3616113530831147358">오디오</translation>
-<translation id="3616741288025931835">인터넷 사용정보 삭제(&amp;C)...</translation>
+<translation id="3616741288025931835">인터넷 사용 기록 삭제(&amp;C)...</translation>
 <translation id="3618849550573277856">'<ph name="LOOKUP_STRING" />' 찾기</translation>
 <translation id="3620292326130836921">백업되지 않은 파일이 없습니다.</translation>
 <translation id="3623574769078102674">이 관리 대상 사용자는 <ph name="MANAGER_EMAIL" />에서 관리합니다.</translation>
@@ -3459,7 +3459,7 @@
 <translation id="6049065490165456785">내부 카메라의 사진</translation>
 <translation id="6051354611314852653">시스템에서 이 기기에 대한 API 액세스를 승인하지 못했습니다.</translation>
 <translation id="6052976518993719690">SSL 인증 기관</translation>
-<translation id="6053401458108962351">인터넷 사용정보 삭제(&amp;C)...</translation>
+<translation id="6053401458108962351">인터넷 사용 기록 삭제(&amp;C)...</translation>
 <translation id="6054173164583630569">프랑스어 키보드</translation>
 <translation id="6055171183283175969">입력한 비밀번호가 올바르지 않습니다.</translation>
 <translation id="6055392876709372977">PKCS #1 SHA-256(RSA 암호화 사용)</translation>
@@ -4351,7 +4351,7 @@
           개인정보처리방침에 따라 보호됩니다.<ph name="BEGIN_BOLD" /> 이 의견을 제출함으로써 귀하는 Google에서 Google 제품 또는 서비스 개선을 위해
           귀하가 제공한 의견을 사용하는 데 동의하는 것으로 간주됩니다.
           <ph name="END_BOLD" /></translation>
-<translation id="7387829944233909572">'인터넷 사용정보 삭제' 대화상자</translation>
+<translation id="7387829944233909572">'인터넷 사용 기록 삭제' 대화상자</translation>
 <translation id="7388044238629873883">거의 완료되었습니다.</translation>
 <translation id="7389722738210761877">태국어 키보드(TIS 820-2531)</translation>
 <translation id="7392118418926456391">바이러스 검사 실패</translation>
@@ -4938,7 +4938,7 @@
 <translation id="8248050856337841185">붙여넣기(&amp;P)</translation>
 <translation id="8249048954461686687">OEM 폴더</translation>
 <translation id="8249296373107784235">중단</translation>
-<translation id="8249672078237421304">사용 언어가 아닌 페이지에서 번역 옵션 제공</translation>
+<translation id="8249672078237421304">이 언어로 된 페이지에 대한 번역 옵션 제공</translation>
 <translation id="8249681497942374579">바탕화면 바로가기 삭제</translation>
 <translation id="8251578425305135684">미리보기 이미지가 삭제되었습니다.</translation>
 <translation id="8253198102038551905">'+'를 클릭하여 네트워크 속성 보기</translation>

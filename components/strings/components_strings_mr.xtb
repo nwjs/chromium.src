@@ -339,7 +339,7 @@
 <translation id="3549644494707163724">आपल्या स्वतःच्या वाक्यांशासह सर्व संंकालित केलेला डेटा कूटबद्ध करा</translation>
 <translation id="3556433843310711081">आपला व्यवस्थापक आपल्यासाठी ती अनावरोधित करू शकतो</translation>
 <translation id="3566021033012934673">आपले कनेक्शन खाजगी नाही</translation>
-<translation id="3569145463236695319">&lt;p&gt;तुमच्या डिव्हाइसची तारीख आणि वेळ (<ph name="DATE_AND_TIME" />) चुकीची असल्यामुळे <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> साठी एक खाजगी कनेक्शन तयार करू शकत नाही.&lt;/p&gt;
+<translation id="3569145463236695319">&lt;p&gt;तुमच्या डीव्हाइसची तारीख आणि वेळ (<ph name="DATE_AND_TIME" />) चुकीची असल्यामुळे <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> साठी एक खाजगी कनेक्शन तयार करू शकत नाही.&lt;/p&gt;
 
       &lt;p&gt;कृपया अ‍ॅपच्या &lt;strong&gt;सेटिंग्ज&lt;/strong&gt; मधील &lt;strong&gt;सामान्य&lt;/strong&gt; विभागातून तारीख आणि वेळ नीट करा.&lt;/p&gt; <ph name="BEGIN_LEARN_MORE_LINK" />आणखी जाणून घ्या<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="3574305903863751447"><ph name="CITY" />, <ph name="STATE" /> <ph name="COUNTRY" /></translation>
@@ -567,7 +567,7 @@
 <translation id="5622887735448669177">आपण ही साइट सोडू इच्छिता?</translation>
 <translation id="5629630648637658800">धोरण सेटिंग्ज लोड करण्यात अयशस्वी</translation>
 <translation id="5631439013527180824">अवैध डिव्हाइस व्यवस्थापन टोकन</translation>
-<translation id="5633066919399395251">सध्या <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> वर असलेले हल्लेखोर कदाचित तुमच्या कॉंप्युटरमधील तुमची माहिती चोरू किंवा हटवू शकणारे धोकादायक प्रोग्राम (उदाहरणार्थ, फोटो, पासवर्ड, संदेश आणि क्रेडिट कार्डे) इंस्टॉल करण्याचा प्रयत्न करू शकतील. <ph name="BEGIN_LEARN_MORE_LINK" />आणखी जाणून घ्या<ph name="END_LEARN_MORE_LINK" /></translation>
+<translation id="5633066919399395251">सध्या <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> वर असलेले हल्लेखोर कदाचित तुमच्या काँप्युटरमधील तुमची माहिती चोरू किंवा हटवू शकणारे धोकादायक प्रोग्राम (उदाहरणार्थ, फोटो, पासवर्ड, संदेश आणि क्रेडिट कार्डे) इंस्टॉल करण्याचा प्रयत्न करू शकतील. <ph name="BEGIN_LEARN_MORE_LINK" />आणखी जाणून घ्या<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="5646376287012673985">स्थान</translation>
 <translation id="5659593005791499971">ईमेल</translation>
 <translation id="5669703222995421982">वैयक्तीकृत सामग्री मिळवा</translation>
@@ -858,7 +858,7 @@
 <translation id="8289355894181816810">याचा निश्चित अर्थ आपल्याला माहिती नसल्यास आपल्या नेटवर्क प्रशासकाशी संपर्क साधा.</translation>
 <translation id="8293206222192510085">बुकमार्क जोडा</translation>
 <translation id="8294431847097064396">स्रोत</translation>
-<translation id="8306404619377842860">तुमच्या डिव्हाइसची तारीख आणि वेळ (<ph name="DATE_AND_TIME" />)चुकीची असल्यामुळे <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> साठी खाजगी कनेक्शन तयार करू शकत नाही. <ph name="BEGIN_LEARN_MORE_LINK" />आणखी जाणून घ्या<ph name="END_LEARN_MORE_LINK" /></translation>
+<translation id="8306404619377842860">तुमच्या डीव्हाइसची तारीख आणि वेळ (<ph name="DATE_AND_TIME" />)चुकीची असल्यामुळे <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> साठी खाजगी कनेक्शन तयार करू शकत नाही. <ph name="BEGIN_LEARN_MORE_LINK" />आणखी जाणून घ्या<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="8308427013383895095">नेटवर्क कनेक्शनसह समस्या असल्यामुळे भाषांतर अयशस्वी झाला.</translation>
 <translation id="8332188693563227489"><ph name="HOST_NAME" /> मधील प्रवेश नाकारला</translation>
 <translation id="834457929814110454">आपल्याला आपल्या सुरक्षिततेच्या जोखमी समजत असल्यास, धोकादायक प्रोग्राम काढले जाण्यापूर्वी आपण <ph name="BEGIN_LINK" />या असुरक्षित साइटला भेट देऊ शकता<ph name="END_LINK" />.</translation>
@@ -918,7 +918,7 @@
 <translation id="8986494364107987395">Google ला वापर आकडेवारी आणि क्रॅश अहवाल स्वयंचलितपणे पाठवा</translation>
 <translation id="8989148748219918422"><ph name="ORGANIZATION" /> [<ph name="COUNTRY" />]</translation>
 <translation id="8996941253935762404">पुढे असणार्‍या साइटमध्ये हानिकारक प्रोग्राम आहेत</translation>
-<translation id="8997023839087525404">सर्व्हरने प्रमाणपत्र पारदर्शकता धोरणाचा वापर करून सार्वजनिकरित्या उघड न केलेले एक प्रमाणपत्र सादर केले. काही प्रमाणपत्रे विश्वसनीय आहेत आणि आक्रमणकर्त्यांविरूद्ध संरक्षण करतात हे सुनिश्चित करण्‍यासाठी त्यांच्यासाठी ही एक आवश्यकता आहे.</translation>
+<translation id="8997023839087525404">सर्व्हरने प्रमाणपत्र पारदर्शकता धोरणाचा वापर करून सार्वजनिकरीत्या उघड न केलेले एक प्रमाणपत्र सादर केले. काही प्रमाणपत्रे विश्वसनीय आहेत आणि आक्रमणकर्त्यांविरूद्ध संरक्षण करतात हे सुनिश्चित करण्‍यासाठी त्यांच्यासाठी ही एक आवश्यकता आहे.</translation>
 <translation id="9001074447101275817">प्रॉक्सी <ph name="DOMAIN" /> ला वापरकर्तानाव आणि संकेतशब्द आवश्यक आहेत.</translation>
 <translation id="9005998258318286617">PDF दस्तऐवज लोड करण्यात अपयश आले.</translation>
 <translation id="901974403500617787">सिस्टीम-व्याप्त लागू होणारी ध्वजांकने केवळ मालकाद्वारे सेट केली जाऊ शकतात: <ph name="OWNER_EMAIL" />.</translation>
