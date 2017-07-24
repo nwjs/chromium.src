@@ -65,6 +65,7 @@
 <translation id="228809120910082333">Chromoting દ્વારા ઍક્સેસની મંજૂરી આપવા માટે કૃપા કરીને નીચે તમારા એકાઉન્ટ અને પિનની પુષ્ટિ કરો.</translation>
 <translation id="2314101195544969792">તમારું <ph name="APPLICATION_NAME" /> સત્ર થોડીવાર માટે નિષ્ક્રિય થઈ ગયું છે અને ટૂંક સમયમાં ડિસ્કનેક્ટ થઈ જશે.</translation>
 <translation id="2317666076142640974">નવી <ph name="LINK_BEGIN" />Chrome રિમોટ ડેસ્કટૉપ વેબ ઍપ્લિકેશન<ph name="LINK_END" />ને એક ઝલક જુઓ. અમને તમારો પ્રતિસાદ સાંભળવો ગમશે.</translation>
+<translation id="2320166752086256636">કીબોર્ડ છુપાવો</translation>
 <translation id="2353140552984634198">તમે Chromoting નો ઉપયોગ કરીને આ કમ્પ્યુટરને સુરક્ષિત રીતે ઍક્સેસ કરી શકો છો.</translation>
 <translation id="2359808026110333948">ચાલુ રાખો</translation>
 <translation id="2366718077645204424">હોસ્ટ સુધી પહોંચવામાં અક્ષમ. આ કદાચ તમે ઉપયોગ કરી રહ્યાં છો એ નેટવર્કની ગોઠવણીનાં કારણે છે.</translation>
@@ -78,9 +79,9 @@
 <translation id="2676780859508944670">કાર્ય કરી રહ્યું છે...</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">સૉફ્ટવેર અપડેટ્સ સુધારાઓ સામાન્ય રીતે આપમેળે થાય છે, પરંતુ કેટલાક કિસ્સાઓમાં ભાગ્યે જ નિષ્ફળ થાય છે. સૉફ્ટવેરને અપડેટ કરવામાં થોડી મિનિટથી વધુ સમય લાગતો નથી અને તમારું કમ્પ્યુટર રીમોટલી કનેક્ટ કરેલું હોય ત્યારે થઈ શકે છે.</translation>
+<translation id="2803375539583399270">PIN દાખલ કરો</translation>
 <translation id="2841013758207633010">સમય</translation>
 <translation id="2851754573186462851">Chromium ઍપ્લિકેશન સ્ટ્રીમિંગ</translation>
-<translation id="2855866366045322178">ઑફલાઇન</translation>
 <translation id="2888969873284818612">નેટવર્ક ભૂલ આવી. જ્યારે તમારું ડિવાઇસ ઓન-લાઇન થાય ત્યારે અમે એપ્લિકેશનને પુનઃપ્રારંભ કરીશું.</translation>
 <translation id="2894654864775534701">આ કોમ્પ્યુટર હાલમાં અન્ય એકાઉન્ટ હેઠળ શેર થયેલું છે.</translation>
 <translation id="2919669478609886916">હાલમાં તમે આ મશીનને બીજા વપરાશકર્તા સાથે શેર કરી રહ્યાં છો. શું તમે શેર કરવાનું ચાલુ રાખવા માગો છો?</translation>
@@ -112,7 +113,7 @@
 <translation id="3649256019230929621">વિંડો નાની કરો</translation>
 <translation id="369442766917958684">ઑફલાઇન.</translation>
 <translation id="3695446226812920698">જાણો કેવી રીતે</translation>
-<translation id="3718805989288361841">Chrome રીમોટ ડેસ્કટૉપ માટેની નીતિ સેટિંગ્સમાં એક ભૂલ આવી છે. સહાય માટે તમારા સિસ્ટમ વ્યવસ્થાપકનો સંપર્ક કરો.</translation>
+<translation id="3718805989288361841">Chrome રિમોટ ડેસ્કટૉપ માટેની નીતિ સેટિંગ્સમાં એક ભૂલ આવી છે. સહાય માટે તમારા સિસ્ટમ વ્યવસ્થાપકનો સંપર્ક કરો.</translation>
 <translation id="3776024066357219166">તમારું Chrome રીમોટ ડેસ્કટૉપ સત્ર સમાપ્ત થયું.</translation>
 <translation id="3785447812627779171">Chromoting
 હોસ્ટ</translation>
@@ -201,6 +202,7 @@
 <translation id="6062854958530969723">હોસ્ટ આરંભ નિષ્ફળ રહ્યું.</translation>
 <translation id="6091564239975589852">કી મોકલો</translation>
 <translation id="6099500228377758828">Chrome રીમોટ ડેસ્કટૉપ સેવા</translation>
+<translation id="6122191549521593678">ઓનલાઇન</translation>
 <translation id="6167788864044230298">Chrome ઍપ્લિકેશન સ્ટ્રીમિંગ</translation>
 <translation id="6173536234069435147">મારાથી મારી Google ડ્રાઇવ ફાઇલો ખોલી શકાતી નથી.</translation>
 <translation id="6178645564515549384">રિમોટ સહાયતા માટે મૂળ મેસેજિંગ હોસ્ટ</translation>
@@ -222,7 +224,6 @@
 <translation id="6570205395680337606">ઍપ્લિકેશન ફરીથી સેટ કરો. તમે કોઈપણ વણસાચવેલ કાર્ય ગુમાવશો.</translation>
 <translation id="6572345186230665992">Mac (OS X Mavericks 10.9 અને એ પછીના સંસ્કરણ) માટે</translation>
 <translation id="6612717000975622067">Ctrl-Alt-Del મોકલો</translation>
-<translation id="6640610550128933069">છેલ્લે ઓનલાઇન <ph name="DATE" /></translation>
 <translation id="6668065415969892472">તમારા PIN અપડેટ કરવામાં આવ્યો છે.</translation>
 <translation id="6681800064886881394">Copyright 2013 Google Inc. સર્વાધિકાર સુરક્ષિત.</translation>
 <translation id="6705482892455291412">એકવાર તેઓ કોડ દાખલ કરી દે તે પછી, તમને કનેક્શનને સ્વીકારવા અને શેરિંગ સત્ર શરૂ કરવા માટે સંકેત આપવામાં આવશે.</translation>
@@ -250,6 +251,7 @@
 <translation id="7401733114166276557">Chrome રીમોટ ડેસ્કટૉપ</translation>
 <translation id="7434397035092923453">ક્લાઇન્ટ માટે ઍક્સેસ નકારી: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">ક્લાઇન્ટ કનેક્ટ થયાં: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">એકાઉન્ટ બદલો</translation>
 <translation id="7589941250119944644">Chrome રિમોટ ડેસ્કટૉપને વેબ પર નવા હોમમાં ખસેડવામાં આવી રહ્યું છે. અમારી <ph name="LINK_BEGIN" />વેબ ઍપ્લિકેશન<ph name="LINK_END" /> અજમાવી જુઓ—તે પહેલાંની તમામ સમાન સુવિધાઓ ધરાવે છે, ઝડપી અને મફત છે.</translation>
 <translation id="7606912958770842224">રીમોટ કનેક્શન્સ સક્ષમ કરો</translation>
 <translation id="7649070708921625228">સહાય</translation>
@@ -283,6 +285,7 @@
 <translation id="837021510621780684">આ કમ્પ્યુટરથી</translation>
 <translation id="8383794970363966105">Chromoting નો ઉપયોગ કરવા માટે, તમારે તમારા ઉપકરણ પર એક Google એકાઉન્ટ ઉમેરવાની જરૂર છે.</translation>
 <translation id="8386846956409881180">હોસ્ટ અમાન્ય OAuth ઓળખપત્રો સાથે ગોઠવાયું છે.</translation>
+<translation id="8428213095426709021">સેટિંગ્સ</translation>
 <translation id="8445362773033888690">Google Play Store માં જુઓ</translation>
 <translation id="8509907436388546015">ડેસ્કટોપ ઇન્ટીગ્રેશન પ્રક્રિયા</translation>
 <translation id="8513093439376855948">હોસ્ટ સંચાલનને રિમોટ કરવા માટે મૂળ મેસેજિંગ હોસ્ટ</translation>
@@ -306,6 +309,7 @@
 <translation id="951991426597076286">નકારો</translation>
 <translation id="962733587145768554">પ્રક્રિયા પૂર્ણ કરવા માટે કનેક્શન સંવાદ બૉક્સ પર કૃપા કરીને '<ph name="SHARE" />' પસંદ કરો.</translation>
 <translation id="979100198331752041"><ph name="HOSTNAME" /> પર Chrome રીમોટ ડેસ્કટૉપ જૂનું છે અને તેને અપડેટ કરવાની જરૂર છે.</translation>
+<translation id="981121421437150478">ઑફલાઇન</translation>
 <translation id="985602178874221306">Chromium લેખકો</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (છેલ્લે ઓનલાઇન <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

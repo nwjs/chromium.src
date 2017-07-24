@@ -65,6 +65,7 @@ Lai saņemtu informāciju par konfidencialitāti, skatiet Google konfidencialit�
 <translation id="228809120910082333">Lūdzu, tālāk apstipriniet kontu un PIN kodu, lai piekļūtu Chrome saitei.</translation>
 <translation id="2314101195544969792">Jūsu <ph name="APPLICATION_NAME" /> sesija jau kādu laiku nav aktīva, un drīzumā tiks pārtraukts savienojums.</translation>
 <translation id="2317666076142640974">Izmēģiniet jauno <ph name="LINK_BEGIN" />Chrome attālās darbvirsmas tīmekļa lietotni<ph name="LINK_END" />. Mēs labprāt saņemtu atsauksmes no jums.</translation>
+<translation id="2320166752086256636">Paslēpt tastatūru</translation>
 <translation id="2353140552984634198">Varat izveidot drošu savienojumu ar šo datoru, izmantojot Chrome saiti.</translation>
 <translation id="2359808026110333948">Turpināt</translation>
 <translation id="2366718077645204424">Nevar sasniegt saimniekdatoru. Iespējamais iemesls var būt tīkla konfigurācija, kuru izmantojat.</translation>
@@ -78,9 +79,9 @@ Lai saņemtu informāciju par konfidencialitāti, skatiet Google konfidencialit�
 <translation id="2676780859508944670">Notiek apstrāde...</translation>
 <translation id="2699970397166997657">Chrome saite</translation>
 <translation id="2747641796667576127">Programmatūras atjauninājumi parasti tiek veikti automātiski, taču dažkārt šis process var neizdoties. Programmatūras atjaunināšana ilgst ne vairāk kā dažas minūtes un var tikt veikta, kamēr esat izveidojis attālu savienojumu ar datoru.</translation>
+<translation id="2803375539583399270">Ievadiet PIN</translation>
 <translation id="2841013758207633010">Laiks</translation>
 <translation id="2851754573186462851">Chromium lietotnes straumēšana</translation>
-<translation id="2855866366045322178">bezsaistē</translation>
 <translation id="2888969873284818612">Radās tīkla kļūda. Kad ierīce atkal darbosies tiešsaistē, lietotne tiks restartēta.</translation>
 <translation id="2894654864775534701">Šis dators šobrīd tiek koplietots, izmantojot citu kontu.</translation>
 <translation id="2919669478609886916">Šobrīd jūs koplietojat šo ierīci ar citu lietotāju. Vai vēlaties turpināt koplietošanu?</translation>
@@ -201,6 +202,7 @@ darbvirsmas saimniekdators</translation>
 <translation id="6062854958530969723">Neizdevās inicializēt saimniekdatoru.</translation>
 <translation id="6091564239975589852">Sūtīt taustiņus</translation>
 <translation id="6099500228377758828">Chrome attālās darbvirsmas pakalpojums</translation>
+<translation id="6122191549521593678">Tiešsaistē</translation>
 <translation id="6167788864044230298">Chrome lietotnes straumēšana</translation>
 <translation id="6173536234069435147">Nevaru atvērt savus Google diska failus.</translation>
 <translation id="6178645564515549384">Vietējais ziņojumapmaiņas saimniekdators attālai palīdzībai</translation>
@@ -222,7 +224,6 @@ darbvirsmas saimniekdators</translation>
 <translation id="6570205395680337606">Atiestatīt lietojumprogrammu. Tiks zaudēts viss nesaglabātais saturs.</translation>
 <translation id="6572345186230665992">Operētājsistēmai Mac (OS X Mavericks 10.9 un jaunākas versijas)</translation>
 <translation id="6612717000975622067">Sūtīt Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">pēdējoreiz tiešsaistē: <ph name="DATE" /></translation>
 <translation id="6668065415969892472">Jūsu PIN ir atjaunināts.</translation>
 <translation id="6681800064886881394">Autortiesības © 2013 Google Inc. Visas tiesības paturētas.</translation>
 <translation id="6705482892455291412">Tiklīdz tiks ievadīts kods, jūs tiksiet aicināts apstiprināt savienojumu un sākt kopīgot sesiju.</translation>
@@ -250,6 +251,7 @@ darbvirsmas saimniekdators</translation>
 <translation id="7401733114166276557">Chrome attālā darbvirsma</translation>
 <translation id="7434397035092923453">Piekļuve liegta šim klientam: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Klients, kas izveidojis savienojumu: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">Mainīt kontu</translation>
 <translation id="7589941250119944644">Chrome attālā darbvirsma tiek pārvietota uz tīmekli. Izmēģiniet mūsu <ph name="LINK_BEGIN" />tīmekļa lietotni<ph name="LINK_END" /> — tā darbojas ātri un bez maksas, un tajā ir ietvertas tās pašas funkcijas.</translation>
 <translation id="7606912958770842224">Iespējot attālos savienojumus</translation>
 <translation id="7649070708921625228">Palīdzība</translation>
@@ -283,6 +285,7 @@ darbvirsmas saimniekdators</translation>
 <translation id="837021510621780684">No šī datora</translation>
 <translation id="8383794970363966105">Lai izmantotu Chrome saiti, jums ir jāpievieno savā ierīcē Google konts.</translation>
 <translation id="8386846956409881180">Saimniekdators ir konfigurēts ar nederīgiem OAuth akreditācijas datiem.</translation>
+<translation id="8428213095426709021">Iestatījumi</translation>
 <translation id="8445362773033888690">Skatīt Google Play veikalā</translation>
 <translation id="8509907436388546015">Darbvirsmas integrācijas process</translation>
 <translation id="8513093439376855948">Vietējais ziņojumapmaiņas saimniekdators attālai saimniekdatora pārvaldībai</translation>
@@ -306,6 +309,7 @@ darbvirsmas saimniekdators</translation>
 <translation id="951991426597076286">Noraidīt</translation>
 <translation id="962733587145768554">Lai pabeigtu procesu, savienojuma dialoglodziņā atlasiet “<ph name="SHARE" />”.</translation>
 <translation id="979100198331752041">Chrome attālā darbvirsma saimniekdatorā <ph name="HOSTNAME" /> ir novecojusi un ir jāatjaunina.</translation>
+<translation id="981121421437150478">Bezsaistē</translation>
 <translation id="985602178874221306">Chromium autori</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (pēdējoreiz tiešsaistē: <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

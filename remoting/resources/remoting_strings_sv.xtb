@@ -65,6 +65,7 @@ Du hittar mer information om sekretess i Googles sekretesspolicy (http://goo.gl/
 <translation id="228809120910082333">Bekräfta ditt konto och pinkoden nedan genom att tillåta åtkomst via Chromoting.</translation>
 <translation id="2314101195544969792">Sessionen med <ph name="APPLICATION_NAME" /> har varit inaktiv en stund och kommer snart att kopplas från.</translation>
 <translation id="2317666076142640974">Få en förhandstitt på den nya <ph name="LINK_BEGIN" />webbappen Chrome Remote Desktop<ph name="LINK_END" />. Vi vill gärna höra vad du tycker!</translation>
+<translation id="2320166752086256636">Dölj tangentbordet</translation>
 <translation id="2353140552984634198">Du kan få säker åtkomst till den här datorn med Chromoting.</translation>
 <translation id="2359808026110333948">Fortsätt</translation>
 <translation id="2366718077645204424">Det går inte att nå värden. Detta beror troligen på konfigurationen av nätverket som du använder.</translation>
@@ -78,9 +79,9 @@ Du hittar mer information om sekretess i Googles sekretesspolicy (http://goo.gl/
 <translation id="2676780859508944670">Arbetar ...</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Programuppdateringar sker oftast automatiskt, men kan ibland misslyckas. Uppdateringen av programvaran bör inte ta mer än några minuter och du kan göra den när du är fjärransluten till datorn.</translation>
+<translation id="2803375539583399270">Ange pinkod</translation>
 <translation id="2841013758207633010">Tid</translation>
 <translation id="2851754573186462851">Chromium App Streaming</translation>
-<translation id="2855866366045322178">offline</translation>
 <translation id="2888969873284818612">Det uppstod ett nätverksfel. Vi startar om appen när enheten är online igen.</translation>
 <translation id="2894654864775534701">Datorn delas under ett annat konto.</translation>
 <translation id="2919669478609886916">Du delar nu den här datorn med en annan användare. Vill du fortsätta att dela?</translation>
@@ -201,6 +202,7 @@ Desktop Host</translation>
 <translation id="6062854958530969723">Värdinitieringen misslyckades.</translation>
 <translation id="6091564239975589852">Skicka tangenter</translation>
 <translation id="6099500228377758828">Tjänsten Chrome Remote Desktop</translation>
+<translation id="6122191549521593678">Online</translation>
 <translation id="6167788864044230298">Chrome App Streaming</translation>
 <translation id="6173536234069435147">Jag kan inte öppna mina Google Drive-filer.</translation>
 <translation id="6178645564515549384">Lokal meddelandevärd för fjärrhjälp</translation>
@@ -222,7 +224,6 @@ Desktop Host</translation>
 <translation id="6570205395680337606">Återställ programmet. Ändringar som inte har sparats går förlorade.</translation>
 <translation id="6572345186230665992">För Mac (OS X Mavericks 10.9 och senare)</translation>
 <translation id="6612717000975622067">Skicka Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">senast online den <ph name="DATE" /></translation>
 <translation id="6668065415969892472">PIN-koden har uppdaterats.</translation>
 <translation id="6681800064886881394">Upphovsrätt 2013 Google Inc. Med ensamrätt.</translation>
 <translation id="6705482892455291412">När den andra parten har angett koden blir du ombedd att godkänna anslutningen och börja delningssessionen.</translation>
@@ -250,6 +251,7 @@ Desktop Host</translation>
 <translation id="7401733114166276557">Chrome Remote Desktop</translation>
 <translation id="7434397035092923453">Åtkomst nekad för klient: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Klient ansluten: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">Byt konto</translation>
 <translation id="7589941250119944644">Chrome Remote Desktop har fått ett nytt hem på webben. Testa vår <ph name="LINK_BEGIN" />webbapp<ph name="LINK_END" /> – den är snabb och gratis, och alla de gamla funktionerna finns kvar.</translation>
 <translation id="7606912958770842224">Aktivera fjärranslutningar</translation>
 <translation id="7649070708921625228">Hjälp</translation>
@@ -283,6 +285,7 @@ Desktop Host</translation>
 <translation id="837021510621780684">Från den här datorn</translation>
 <translation id="8383794970363966105">Om du vill använda Chromoting måste du lägga till ett Google-konto på enheten.</translation>
 <translation id="8386846956409881180">Värden konfigurerades med ogiltiga användaruppgifter för OAuth.</translation>
+<translation id="8428213095426709021">Inställningar</translation>
 <translation id="8445362773033888690">Visa i Google Play Butik</translation>
 <translation id="8509907436388546015">Integreringsprocess för Desktop</translation>
 <translation id="8513093439376855948">Lokal meddelandevärd för fjärrvärdshantering</translation>
@@ -306,6 +309,7 @@ Desktop Host</translation>
 <translation id="951991426597076286">Godkänn inte</translation>
 <translation id="962733587145768554">Slutför processen genom att välja <ph name="SHARE" /> i dialogrutan för anslutning.</translation>
 <translation id="979100198331752041">Chrome Remote Desktop på <ph name="HOSTNAME" /> är inaktuellt och måste uppdateras.</translation>
+<translation id="981121421437150478">Offline</translation>
 <translation id="985602178874221306">The Chromium Authors</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (senast online <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

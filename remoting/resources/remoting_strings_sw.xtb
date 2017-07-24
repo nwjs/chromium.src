@@ -65,6 +65,7 @@ Kwa maelezo kuhusu faragha, tafadhali angalia Sera ya Faragha ya Google (http://
 <translation id="228809120910082333">Tafadhali thibitisha akaunti yako na PIN hapa chini ili kuruhusu ufikiaji kwa Chromoting.</translation>
 <translation id="2314101195544969792">Kipindi chako cha <ph name="APPLICATION_NAME" /> hakijawa kikitumika kwa muda na kitaondolewa baada ya muda mfupi.</translation>
 <translation id="2317666076142640974">Ijaribu <ph name="LINK_BEGIN" />programu mpya ya wavuti ya Chrome ya Ufikiaji wa Kompyuta kutoka Mbali<ph name="LINK_END" />. Tungependa kupata maoni yako.</translation>
+<translation id="2320166752086256636">Ficha kibodi</translation>
 <translation id="2353140552984634198">Unaweza kufikia kwa usalama kompyuta hii kutumia Chromoting.</translation>
 <translation id="2359808026110333948">Endelea</translation>
 <translation id="2366718077645204424">Haiwezi kufikia seva pangishi. Labda hii ni kwa sababu ya usanidi wa mtandao unaotumia.</translation>
@@ -78,9 +79,9 @@ Kwa maelezo kuhusu faragha, tafadhali angalia Sera ya Faragha ya Google (http://
 <translation id="2676780859508944670">Inafanya kazi…</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Usasishaji wa programu kwa kawaida hufanyika kiotomatiki, lakini wakati mwingine unaweza kushindwa japo kwa nadra. Kusasisha programu kunapaswa kuchukua si zaidi ya dakika chache na kunaweza kufanyika wakati imeunganishwa kwa kompyuta yako kwa mbali.</translation>
+<translation id="2803375539583399270">Weka PIN</translation>
 <translation id="2841013758207633010">Muda</translation>
 <translation id="2851754573186462851">Utiririshaji wa Programu ya Chromium</translation>
-<translation id="2855866366045322178">nje ya mtandao</translation>
 <translation id="2888969873284818612">Hitilafu ya mtandao imetokea. Tutazima na kuwasha programu kifaa chako kikiwa mtandaoni tena.</translation>
 <translation id="2894654864775534701">Kompyuta hii kwa sasa inashirikiwa chini ya akaunti tofauti.</translation>
 <translation id="2919669478609886916">Kwa sasa unashiriki mashine hii na mtumiaji mwengine. Unataka kuendelea kushiriki?</translation>
@@ -201,6 +202,7 @@ ya Mbali ya Chrome</translation>
 <translation id="6062854958530969723">Seva pangishi haikufaulu kuanzisha.</translation>
 <translation id="6091564239975589852">Vitufe vya kutuma</translation>
 <translation id="6099500228377758828">Huduma ya Kompyuta ya Mbali ya Chrome</translation>
+<translation id="6122191549521593678">Mtandaoni</translation>
 <translation id="6167788864044230298">Utiririshaji wa Programu ya Chrome</translation>
 <translation id="6173536234069435147">Siwezi kufungua faili zangu za Hifadhi ya Google.</translation>
 <translation id="6178645564515549384">Mpangishi wa ujumbe halisi kwa usaidizi wa mbali</translation>
@@ -222,7 +224,6 @@ ya Mbali ya Chrome</translation>
 <translation id="6570205395680337606">Weka upya programu. Utapoteza kazi yoyote ambayo haijahifadhiwa.</translation>
 <translation id="6572345186230665992">Kwa Mac (OS X Mavericks 10.9 na matoleo ya baadaye)</translation>
 <translation id="6612717000975622067">Tuma Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">mara ya mwisho mtandaoni <ph name="DATE" /></translation>
 <translation id="6668065415969892472">PIN yako imesasishwa.</translation>
 <translation id="6681800064886881394">Hakimiliki 2013 Google Inc. Haki Zote Zimehifadhiwa.</translation>
 <translation id="6705482892455291412">Mara tu wanapoweka nambari ya kuthibitisha, utadokezwa kukubali muunganisho na uanze kushiriki kipindi.</translation>
@@ -250,6 +251,7 @@ ya Mbali ya Chrome</translation>
 <translation id="7401733114166276557">Eneo-kazi la Mbali la Chrome</translation>
 <translation id="7434397035092923453">Kiteja kimenyimwa idhini ya kufikia: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Kiteja kimeunganishwa: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">Badilisha akaunti</translation>
 <translation id="7589941250119944644">Programu ya Chrome ya Ufikiaji wa Kompyuta kutoka Mbali sasa inahamia sehemu mpya kwenye wavuti. Ijaribu <ph name="LINK_BEGIN" />programu yetu ya wavuti<ph name="LINK_END" />—inafanya kazi kwa kasi na hailipiwi, huku ikitumia vipengele vyote vya awali.</translation>
 <translation id="7606912958770842224">Washa miunganisho ya mbali</translation>
 <translation id="7649070708921625228">Usaidizi</translation>
@@ -284,6 +286,7 @@ ya Mbali ya Chrome</translation>
 <translation id="837021510621780684">Kutoka kwenye kompyuta hii</translation>
 <translation id="8383794970363966105">Ili Kutumia Chrome ya mbali, itabidi uongeze Akaunti ya Google kwenye kifaa chako.</translation>
 <translation id="8386846956409881180">Seva pangishi imesanidiwa pamoja na kitambulisho cha OAuth ambacho si sahihi.</translation>
+<translation id="8428213095426709021">Mipangilio</translation>
 <translation id="8445362773033888690">Angalia katika Duka la Google Play</translation>
 <translation id="8509907436388546015">Mchakato wa Muingiliano wa Eneo-kazi</translation>
 <translation id="8513093439376855948">Mpangishi wa ujumbe halisi kwa usimamizi wa mpangishi wa mbali</translation>
@@ -307,6 +310,7 @@ ya Mbali ya Chrome</translation>
 <translation id="951991426597076286">Kataa</translation>
 <translation id="962733587145768554">Tafadhali chagua '<ph name="SHARE" />' kwenye kisanduku cha kidirisha cha muunganisho ili ukamilishe mchakato.</translation>
 <translation id="979100198331752041">Kompyuta ya Mbali ya Chrome kwenye <ph name="HOSTNAME" /> imepitwa na wakati na inahitaji kusasishwa.</translation>
+<translation id="981121421437150478">Nje ya mtandao</translation>
 <translation id="985602178874221306">Waandishi wa Chromium</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (mara ya mwisho mtandaoni <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

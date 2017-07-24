@@ -65,6 +65,7 @@
 <translation id="228809120910082333">Chromoting을 통해 액세스할 수 있도록 계정 및 PIN을 확인하세요.</translation>
 <translation id="2314101195544969792"><ph name="APPLICATION_NAME" /> 세션이 일정 시간 비활성화 상태였으므로 곧 연결 해제됩니다.</translation>
 <translation id="2317666076142640974">새로운 <ph name="LINK_BEGIN" />Chrome 원격 데스크톱 웹 앱<ph name="LINK_END" />을 미리 체험해 보시고 의견을 들려주세요.</translation>
+<translation id="2320166752086256636">키보드 숨기기</translation>
 <translation id="2353140552984634198">Chromoting을 사용하여 컴퓨터에 안전하게 액세스할 수 있습니다.</translation>
 <translation id="2359808026110333948">계속</translation>
 <translation id="2366718077645204424">호스트에 연결할 수 없습니다. 사용 중인 네트워크의 구성 때문일 수 있습니다.</translation>
@@ -78,9 +79,9 @@
 <translation id="2676780859508944670">처리 중…</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">소프트웨어 업데이트는 보통 자동으로 시행되며, 드물지만 실패하는 경우도 있습니다. 소프트웨어 업데이트는 몇 분 정도 소요되며 컴퓨터가 원격으로 연결되어 있을 때 이루어집니다.</translation>
+<translation id="2803375539583399270">PIN 입력</translation>
 <translation id="2841013758207633010">시간</translation>
 <translation id="2851754573186462851">Chromium 앱 스트리밍</translation>
-<translation id="2855866366045322178">오프라인</translation>
 <translation id="2888969873284818612">네트워크 오류가 발생했습니다. 기기가 다시 온라인 상태가 되면 앱을 다시 시작하겠습니다.</translation>
 <translation id="2894654864775534701">이 컴퓨터는 현재 다른 계정으로 공유되어 있습니다.</translation>
 <translation id="2919669478609886916">현재 이 컴퓨터를 다른 사용자와 공유하고 있습니다. 계속 공유하시겠습니까?</translation>
@@ -201,6 +202,7 @@
 <translation id="6062854958530969723">호스트 초기화에 실패했습니다.</translation>
 <translation id="6091564239975589852">키 보내기</translation>
 <translation id="6099500228377758828">Chrome 원격 데스크톱 서비스</translation>
+<translation id="6122191549521593678">온라인</translation>
 <translation id="6167788864044230298">Chrome 앱 스트리밍</translation>
 <translation id="6173536234069435147">내 Google 드라이브 파일을 열 수 없음</translation>
 <translation id="6178645564515549384">원격 지원을 위한 기본 메시징 호스트</translation>
@@ -222,7 +224,6 @@
 <translation id="6570205395680337606">애플리케이션을 재설정합니다. 저장하지 않은 작업을 잃게 됩니다.</translation>
 <translation id="6572345186230665992">Mac용(OS X Mavericks 10.9 이상)</translation>
 <translation id="6612717000975622067">Ctrl-Alt-Del 전송</translation>
-<translation id="6640610550128933069">마지막 사용 날짜: <ph name="DATE" /></translation>
 <translation id="6668065415969892472">PIN이 업데이트되었습니다.</translation>
 <translation id="6681800064886881394">Copyright 2013 Google Inc. All Rights Reserved.</translation>
 <translation id="6705482892455291412">코드가 입력되면 연결을 수락하고 공유 세션을 시작하라는 메시지가 표시됩니다.</translation>
@@ -250,6 +251,7 @@
 <translation id="7401733114166276557">Chrome 원격 데스크톱</translation>
 <translation id="7434397035092923453"><ph name="CLIENT_USERNAME" /> 클라이언트의 액세스가 거부되었습니다.</translation>
 <translation id="7444276978508498879">연결된 클라이언트: <ph name="CLIENT_USERNAME" /></translation>
+<translation id="7526139040829362392">계정 변경</translation>
 <translation id="7589941250119944644">이제 웹에서 Chrome 원격 데스크톱을 이용할 수 있습니다. <ph name="LINK_BEGIN" />웹 앱<ph name="LINK_END" />을 사용해 보세요. 이전 앱의 모든 기능을 무료로 더 빠르게 이용할 수 있습니다.</translation>
 <translation id="7606912958770842224">원격 연결 사용</translation>
 <translation id="7649070708921625228">도움말</translation>
@@ -283,6 +285,7 @@
 <translation id="837021510621780684">이 컴퓨터에서 시작한 연결</translation>
 <translation id="8383794970363966105">Chromoting을 사용하려면 기기에 Google 계정을 추가해야 합니다.</translation>
 <translation id="8386846956409881180">호스트가 잘못된 OAuth 사용자 인증 정보로 구성되었습니다.</translation>
+<translation id="8428213095426709021">설정</translation>
 <translation id="8445362773033888690">Google Play 스토어에서 보기</translation>
 <translation id="8509907436388546015">데스크톱 통합 프로세스</translation>
 <translation id="8513093439376855948">원격 호스트 관리를 위한 기본 메시징 호스트</translation>
@@ -306,6 +309,7 @@
 <translation id="951991426597076286">거부</translation>
 <translation id="962733587145768554">연결 대화상자에서 '<ph name="SHARE" />'를 선택하여 절차를 완료하세요.</translation>
 <translation id="979100198331752041"><ph name="HOSTNAME" />의 Chrome 원격 데스크톱이 오래되어 업데이트해야 합니다.</translation>
+<translation id="981121421437150478">오프라인</translation>
 <translation id="985602178874221306">The Chromium Authors</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" />(최근 연결: <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

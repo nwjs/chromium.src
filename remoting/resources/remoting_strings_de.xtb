@@ -65,6 +65,7 @@ Informationen zum Datenschutz finden Sie in der Google-Datenschutzerklärung (ht
 <translation id="228809120910082333">Bestätigen Sie unten Ihr Konto und Ihre PIN, um den Zugriff durch Chromoting zu gestatten.</translation>
 <translation id="2314101195544969792">Ihre Sitzung bei <ph name="APPLICATION_NAME" /> war längere Zeit inaktiv und wird in Kürze beendet.</translation>
 <translation id="2317666076142640974">Werfen Sie vorab einen Blick auf die Web-App <ph name="LINK_BEGIN" />Chrome Remote Desktop<ph name="LINK_END" />. Wir freuen uns über Feedback.</translation>
+<translation id="2320166752086256636">Tastatur ausblenden</translation>
 <translation id="2353140552984634198">Mit Chromoting erhalten Sie sicheren Zugriff auf diesen Computer.</translation>
 <translation id="2359808026110333948">Weiter</translation>
 <translation id="2366718077645204424">Die Verbindung zum Host kann nicht hergestellt werden. Das von Ihnen verwendete Netzwerk ist möglicherweise nicht korrekt konfiguriert.</translation>
@@ -78,9 +79,9 @@ Informationen zum Datenschutz finden Sie in der Google-Datenschutzerklärung (ht
 <translation id="2676780859508944670">Vorgang läuft...</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Softwareupdates werden normalerweise automatisch ausgeführt, in seltenen Fällen kann dabei jedoch ein Fehler auftreten. Die Aktualisierung der Software dauert nur wenige Minuten und kann bei bestehender Remote-Verbindung zum Computer erfolgen.</translation>
+<translation id="2803375539583399270">PIN eingeben</translation>
 <translation id="2841013758207633010">Zeit</translation>
 <translation id="2851754573186462851">Chromium App Streaming</translation>
-<translation id="2855866366045322178">offline</translation>
 <translation id="2888969873284818612">Ein Netzwerkfehler ist aufgetreten. Die App wird neu gestartet, wenn Ihr Gerät wieder online ist.</translation>
 <translation id="2894654864775534701">Dieser Computer ist derzeit über ein anderes Konto freigegeben.</translation>
 <translation id="2919669478609886916">Dieser Computer ist zurzeit für einen anderen Nutzer freigegeben. Möchten Sie die Freigabe fortsetzen?</translation>
@@ -201,6 +202,7 @@ Desktop Host</translation>
 <translation id="6062854958530969723">Hostinitialisierung fehlgeschlagen</translation>
 <translation id="6091564239975589852">Eingabe senden</translation>
 <translation id="6099500228377758828">Chrome Remote Desktop Service</translation>
+<translation id="6122191549521593678">Online</translation>
 <translation id="6167788864044230298">Chrome App Streaming</translation>
 <translation id="6173536234069435147">Ich kann meine Google Drive-Dateien nicht öffnen.</translation>
 <translation id="6178645564515549384">Nativer Nachrichtenhost für Remote-Unterstützung</translation>
@@ -222,7 +224,6 @@ Desktop Host</translation>
 <translation id="6570205395680337606">App zurücksetzen. Alle nicht gespeicherten Daten gehen verloren.</translation>
 <translation id="6572345186230665992">Für Mac OS X Mavericks 10.9 und höher</translation>
 <translation id="6612717000975622067">Strg-Alt-Entf senden</translation>
-<translation id="6640610550128933069">zuletzt online am <ph name="DATE" /></translation>
 <translation id="6668065415969892472">Ihre PIN wurde aktualisiert.</translation>
 <translation id="6681800064886881394">Copyright 2013 Google Inc. Alle Rechte vorbehalten</translation>
 <translation id="6705482892455291412">Sobald der Code eingegeben wurde, werden Sie aufgefordert, der Verbindung zuzustimmen und die Freigabesitzung zu starten.</translation>
@@ -250,6 +251,7 @@ Desktop Host</translation>
 <translation id="7401733114166276557">Chrome Remote Desktop</translation>
 <translation id="7434397035092923453">Zugriff für folgenden Client verweigert: <ph name="CLIENT_USERNAME" /></translation>
 <translation id="7444276978508498879">Client verbunden: <ph name="CLIENT_USERNAME" /></translation>
+<translation id="7526139040829362392">Konto ändern</translation>
 <translation id="7589941250119944644">Chrome Remote Desktop ist jetzt im Web verfügbar. Probieren Sie die <ph name="LINK_BEGIN" />Web-App<ph name="LINK_END" /> aus: Sie ist schnell, kostenlos und bietet den gewohnten Funktionsumfang.</translation>
 <translation id="7606912958770842224">Remote-Verbindungen aktivieren</translation>
 <translation id="7649070708921625228">Hilfe</translation>
@@ -283,6 +285,7 @@ Desktop Host</translation>
 <translation id="837021510621780684">Von diesem Computer</translation>
 <translation id="8383794970363966105">Wenn Sie Chromoting verwenden möchten, fügen Sie ein Google-Konto zu Ihrem Gerät hinzu.</translation>
 <translation id="8386846956409881180">Der Host wurde mit ungültigen OAuth-Anmeldedaten konfiguriert.</translation>
+<translation id="8428213095426709021">Einstellungen</translation>
 <translation id="8445362773033888690">Im Google Play Store ansehen</translation>
 <translation id="8509907436388546015">Desktop-Integrationsprozess</translation>
 <translation id="8513093439376855948">Nativer Nachrichtenhost zur Verwaltung von Remoting-Host</translation>
@@ -306,6 +309,7 @@ Desktop Host</translation>
 <translation id="951991426597076286">Ablehnen</translation>
 <translation id="962733587145768554">Wählen Sie im Dialogfeld für die Verbindung "<ph name="SHARE" />" aus, um den Vorgang abzuschließen.</translation>
 <translation id="979100198331752041">Chrome Remote Desktop auf <ph name="HOSTNAME" /> ist veraltet und muss aktualisiert werden.</translation>
+<translation id="981121421437150478">Offline</translation>
 <translation id="985602178874221306">Die Chromium-Autoren</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (zuletzt online: <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

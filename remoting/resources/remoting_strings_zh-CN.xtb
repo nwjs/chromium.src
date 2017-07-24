@@ -65,6 +65,7 @@
 <translation id="228809120910082333">请在下方确认您的帐号和 PIN，以便允许通过 Chrome 远程访问进行访问。</translation>
 <translation id="2314101195544969792">您的<ph name="APPLICATION_NAME" />会话已经有一段时间没有活动了，连接即将断开。</translation>
 <translation id="2317666076142640974">快来试用一下新版<ph name="LINK_BEGIN" />“Chrome 远程桌面”网络应用<ph name="LINK_END" />吧。我们期待听到您的反馈。</translation>
+<translation id="2320166752086256636">隐藏键盘</translation>
 <translation id="2353140552984634198">您可使用 Chrome 远程访问安全地访问此计算机。</translation>
 <translation id="2359808026110333948">继续</translation>
 <translation id="2366718077645204424">无法连接到主机，这可能是由您所使用网络的配置导致的。</translation>
@@ -78,9 +79,9 @@
 <translation id="2676780859508944670">运行中…</translation>
 <translation id="2699970397166997657">Chrome 远程访问</translation>
 <translation id="2747641796667576127">系统通常会自动执行软件更新，但在极少数情况下，更新可能会失败。更新软件应该只需要几分钟，而且可在远程连接到计算机时执行。</translation>
+<translation id="2803375539583399270">输入 PIN 码</translation>
 <translation id="2841013758207633010">时间</translation>
 <translation id="2851754573186462851">Chromium App Streaming</translation>
-<translation id="2855866366045322178">离线</translation>
 <translation id="2888969873284818612">出现网络错误。当您的设备重新联网后，系统将重新启动该应用。</translation>
 <translation id="2894654864775534701">目前，此计算机只能通过另一帐号进行共享。</translation>
 <translation id="2919669478609886916">您目前正在与其他用户共享此计算机。您希望继续共享吗？</translation>
@@ -201,6 +202,7 @@
 <translation id="6062854958530969723">主机初始化失败。</translation>
 <translation id="6091564239975589852">发送按键</translation>
 <translation id="6099500228377758828">Chrome 远程桌面服务</translation>
+<translation id="6122191549521593678">在线</translation>
 <translation id="6167788864044230298">Chrome App Streaming</translation>
 <translation id="6173536234069435147">我无法打开自己在 Google 云端硬盘中的文件。</translation>
 <translation id="6178645564515549384">用于远程协助的本地消息传递主机</translation>
@@ -222,7 +224,6 @@
 <translation id="6570205395680337606">重置该应用。所有未保存的工作都将会丢失。</translation>
 <translation id="6572345186230665992">适用于 Mac（OS X Mavericks 10.9 及更高版本）</translation>
 <translation id="6612717000975622067">发送Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">上次联网日期：<ph name="DATE" /></translation>
 <translation id="6668065415969892472">您的 PIN 已更新。</translation>
 <translation id="6681800064886881394">版权所有2013 Google Inc。保留所有权利。</translation>
 <translation id="6705482892455291412">他们输入访问代码后，系统会提示您接受连接并开始共享会话。</translation>
@@ -250,6 +251,7 @@
 <translation id="7401733114166276557">Chrome 远程桌面</translation>
 <translation id="7434397035092923453"><ph name="CLIENT_USERNAME" /> 访问客户端的请求遭拒。</translation>
 <translation id="7444276978508498879">已连接客户端：<ph name="CLIENT_USERNAME" />。</translation>
+<translation id="7526139040829362392">更改帐号</translation>
 <translation id="7589941250119944644">新版“Chrome 远程桌面”现已上线！欢迎试用我们的这款<ph name="LINK_BEGIN" />网络应用<ph name="LINK_END" />：它既快速又免费，而且所具备的功能和之前完全相同。</translation>
 <translation id="7606912958770842224">启用远程连接</translation>
 <translation id="7649070708921625228">帮助</translation>
@@ -283,6 +285,7 @@
 <translation id="837021510621780684">来自此计算机</translation>
 <translation id="8383794970363966105">要使用Chrome远程访问，您需要先为自己的设备添加一个Google帐号。</translation>
 <translation id="8386846956409881180">为主机指定的 OAuth 凭据无效。</translation>
+<translation id="8428213095426709021">设置</translation>
 <translation id="8445362773033888690">在Google Play商店中查看</translation>
 <translation id="8509907436388546015">桌面集成进程</translation>
 <translation id="8513093439376855948">用于远程主机管理的本地消息传递主机</translation>
@@ -306,6 +309,7 @@
 <translation id="951991426597076286">拒绝</translation>
 <translation id="962733587145768554">请在连接对话框中选择“<ph name="SHARE" />”以完成此过程。</translation>
 <translation id="979100198331752041"><ph name="HOSTNAME" />上的 Chrome 远程桌面已过期，需要更新。</translation>
+<translation id="981121421437150478">离线</translation>
 <translation id="985602178874221306">The Chromium Authors</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" />（上次联网时间：<ph name="DATE_OR_TIME" />）</translation>
 </translationbundle>

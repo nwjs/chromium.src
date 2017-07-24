@@ -65,6 +65,7 @@ Du kan finne informasjon om personvern i Googles personvernregler (http://goo.gl
 <translation id="228809120910082333">Bekreft kontoen og PIN-koden din for å tillate tilgang via Chromoting.</translation>
 <translation id="2314101195544969792"><ph name="APPLICATION_NAME" />-økten din har vært inaktiv en stund og kommer snart til å bli koblet fra.</translation>
 <translation id="2317666076142640974">Ta en sniktitt på det nye <ph name="LINK_BEGIN" />Chrome Eksternt skrivebord-nettprogrammet<ph name="LINK_END" />. Vi vil gjerne høre hva du synes.</translation>
+<translation id="2320166752086256636">Skjul tastaturet</translation>
 <translation id="2353140552984634198">Du kan trygt bruke denne datamaskinen med Chromoting.</translation>
 <translation id="2359808026110333948">Fortsett</translation>
 <translation id="2366718077645204424">Kunne ikke nå verten. Dette er sannsynligvis på grunn av innstillingene for nettverket du bruker.</translation>
@@ -78,9 +79,9 @@ Du kan finne informasjon om personvern i Googles personvernregler (http://goo.gl
 <translation id="2676780859508944670">Behandler …</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Programvareoppdateringer skjer vanligvis automatisk, men kan i noen sjeldne tilfeller mislykkes. Oppdateringen av programvare bør ikke ta mer enn noen få minutter og kan gjøres via ekstern tilgang.</translation>
+<translation id="2803375539583399270">Skriv inn PIN-koden</translation>
 <translation id="2841013758207633010">Klokkeslett</translation>
 <translation id="2851754573186462851">Chromium-appstrømming</translation>
-<translation id="2855866366045322178">uten nett</translation>
 <translation id="2888969873284818612">En nettverksfeil oppsto. Appen blir startet på nytt når enheten din er på nettet igjen.</translation>
 <translation id="2894654864775534701">Denne datamaskinen er for øyeblikket delt under en annen konto.</translation>
 <translation id="2919669478609886916">Du deler denne datamaskinen med en annen bruker. Vil du fortsette å dele?</translation>
@@ -201,6 +202,7 @@ skrivebord-vert</translation>
 <translation id="6062854958530969723">Vertsinitialiseringen mislyktes.</translation>
 <translation id="6091564239975589852">Send nøkler</translation>
 <translation id="6099500228377758828">Chrome Eksternt skrivebord-tjeneste</translation>
+<translation id="6122191549521593678">Pålogget</translation>
 <translation id="6167788864044230298">Chrome-appstrømming</translation>
 <translation id="6173536234069435147">Jeg kan ikke åpne Google Disk-filene mine.</translation>
 <translation id="6178645564515549384">Innebygd meldingsvert for ekstern hjelp</translation>
@@ -222,7 +224,6 @@ skrivebord-vert</translation>
 <translation id="6570205395680337606">Tilbakestill programmet. Du mister alt arbeid som ikke er lagret.</translation>
 <translation id="6572345186230665992">For Mac (OS X Mavericks 10.9 og nyere)</translation>
 <translation id="6612717000975622067">Send Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">sist på nettet <ph name="DATE" /></translation>
 <translation id="6668065415969892472">PIN-koden din er oppdatert.</translation>
 <translation id="6681800064886881394">Copyright 2013 Google Inc. Med enerett.</translation>
 <translation id="6705482892455291412">Når de skriver inn koden, blir du bedt om å godta tilkoblingen og begynne delingsøkten.</translation>
@@ -250,6 +251,7 @@ skrivebord-vert</translation>
 <translation id="7401733114166276557">Chrome Eksternt skrivebord</translation>
 <translation id="7434397035092923453">Klienten ble nektet tilgang: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Klienten ble tilknyttet: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">Velg en annen konto</translation>
 <translation id="7589941250119944644">Chrome Eksternt skrivebord flyttes til nettet. Prøv <ph name="LINK_BEGIN" />nettprogrammet<ph name="LINK_END" /> vårt – det er raskt og gratis og inneholder alle de samme funksjonene som før.</translation>
 <translation id="7606912958770842224">Slå på eksterne tilkoblinger</translation>
 <translation id="7649070708921625228">Hjelp</translation>
@@ -283,6 +285,7 @@ skrivebord-vert</translation>
 <translation id="837021510621780684">Fra denne datamaskinen</translation>
 <translation id="8383794970363966105">Hvis du vil bruke Chromoting, må du legge til en Google-konto på enheten din.</translation>
 <translation id="8386846956409881180">Verten er konfigurert med ugyldig OAuth-legitimasjon.</translation>
+<translation id="8428213095426709021">Innstillinger</translation>
 <translation id="8445362773033888690">Se oppføringen i Google Play-butikken</translation>
 <translation id="8509907436388546015">Integrasjonsprosess for skrivebord</translation>
 <translation id="8513093439376855948">Innebygd meldingsvert for administrasjon av ekstern vert</translation>
@@ -306,6 +309,7 @@ skrivebord-vert</translation>
 <translation id="951991426597076286">Avvis</translation>
 <translation id="962733587145768554">Velg «<ph name="SHARE" />» i dialogboksen for tilkoblingen for å fullføre prosessen.</translation>
 <translation id="979100198331752041">Chrome Eksternt skrivebord på <ph name="HOSTNAME" /> er utdatert og må oppdateres.</translation>
+<translation id="981121421437150478">Uten nett</translation>
 <translation id="985602178874221306">The Chromium Authors</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (sist på nettet <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

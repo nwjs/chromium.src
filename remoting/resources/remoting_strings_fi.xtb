@@ -65,6 +65,7 @@ Lisätietoja tietosuojasta on Googlen tietosuojakäytännössä (http://goo.gl/S
 <translation id="228809120910082333">Salli käyttö Chromotingin kautta vahvistamalla tilisi ja PIN-koodisi alla.</translation>
 <translation id="2314101195544969792"><ph name="APPLICATION_NAME" /> -istuntosi on ollut epäaktiivinen jonkin aikaa, ja se katkaistaan pian.</translation>
 <translation id="2317666076142640974">Tutustu uuteen <ph name="LINK_BEGIN" />Chrome-etäkäyttö-verkkosovellukseen<ph name="LINK_END" />. Kuulisimme mielellämme palautetta.</translation>
+<translation id="2320166752086256636">Piilota näppäimistö</translation>
 <translation id="2353140552984634198">Tähän tietokoneeseen voi muodostaa suojatun yhteyden Chromotingin avulla.</translation>
 <translation id="2359808026110333948">Jatka</translation>
 <translation id="2366718077645204424">Isäntään ei saatu yhteyttä. Tämä johtuu luultavasti käyttämäsi verkon määrityksistä.</translation>
@@ -78,9 +79,9 @@ Lisätietoja tietosuojasta on Googlen tietosuojakäytännössä (http://goo.gl/S
 <translation id="2676780859508944670">Käsitellään…</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Ohjelmistopäivitykset tapahtuvat yleensä automaattisesti, mutta voivat epäonnistua joissakin harvinaisissa tapauksissa. Ohjelmiston päivittäminen kestää yleensä vain muutaman minuutin, ja se voidaan suorittaa etäyhteyden välityksellä.</translation>
+<translation id="2803375539583399270">Anna PIN-koodi.</translation>
 <translation id="2841013758207633010">Aika</translation>
 <translation id="2851754573186462851">Chromium-sovellusten suoratoisto</translation>
-<translation id="2855866366045322178">offline</translation>
 <translation id="2888969873284818612">Verkkovirhe. Käynnistämme sovelluksen uudelleen, kun laitteesi on seuraavan kerran yhteydessä verkkoon.</translation>
 <translation id="2894654864775534701">Tämä tietokone on jaettu eri tilille.</translation>
 <translation id="2919669478609886916">Jaat tällä hetkellä tämän tietokoneen toisen käyttäjän kanssa. Haluatko jatkaa jakamista?</translation>
@@ -201,6 +202,7 @@ isäntä</translation>
 <translation id="6062854958530969723">Isännän alustus epäonnistui.</translation>
 <translation id="6091564239975589852">Lähetä näppäinvalinta</translation>
 <translation id="6099500228377758828">Chrome-etäkäyttöpalvelu</translation>
+<translation id="6122191549521593678">Online</translation>
 <translation id="6167788864044230298">Chrome-sovellusten suoratoisto</translation>
 <translation id="6173536234069435147">Google Drive -tiedostoni eivät aukea.</translation>
 <translation id="6178645564515549384">Viestiliikenteen alkuperäinen isäntä etäavustukselle</translation>
@@ -222,7 +224,6 @@ isäntä</translation>
 <translation id="6570205395680337606">Nollaa sovellus. Menetät kaikki tallentamattomat työt.</translation>
 <translation id="6572345186230665992">Mac (OS X Mavericks 10.9 ja uudemmat)</translation>
 <translation id="6612717000975622067">Lähetä Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">viimeksi online-tilassa <ph name="DATE" /></translation>
 <translation id="6668065415969892472">PIN-koodi on päivitetty.</translation>
 <translation id="6681800064886881394">Copyright 2013 Google Inc. Kaikki oikeudet pidätetään.</translation>
 <translation id="6705482892455291412">Kun koodi on annettu, sinua pyydetään hyväksymään yhteys ja aloittamaan jakaminen.</translation>
@@ -250,6 +251,7 @@ isäntä</translation>
 <translation id="7401733114166276557">Chrome-etäkäyttö</translation>
 <translation id="7434397035092923453">Käyttöoikeus kiellettiin asiakkaalta <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Asiakas <ph name="CLIENT_USERNAME" /> yhdistettiin.</translation>
+<translation id="7526139040829362392">Vaihda tiliä</translation>
 <translation id="7589941250119944644">Chrome-etäkäyttö siirtyy uuteen sijaintiin verkossa. Kokeile <ph name="LINK_BEGIN" />verkkosovellusta<ph name="LINK_END" /> – se on nopea ja maksuton, ja siinä on samat ominaisuudet kuin ennenkin.</translation>
 <translation id="7606912958770842224">Ota etäyhteydet käyttöön</translation>
 <translation id="7649070708921625228">Ohje</translation>
@@ -283,6 +285,7 @@ isäntä</translation>
 <translation id="837021510621780684">Tältä tietokoneelta</translation>
 <translation id="8383794970363966105">Sinun on lisättävä laitteeseesi Google-tili, jotta voit käyttää Chromotingia.</translation>
 <translation id="8386846956409881180">Isännälle on määritetty virheelliset OAuth-kirjautumistiedot.</translation>
+<translation id="8428213095426709021">Asetukset</translation>
 <translation id="8445362773033888690">Tarkastele Google Play Kaupassa</translation>
 <translation id="8509907436388546015">Tietokoneen integrointiprosessi</translation>
 <translation id="8513093439376855948">Viestiliikenteen alkuperäinen isäntä etäisännän hallinnalle</translation>
@@ -306,6 +309,7 @@ isäntä</translation>
 <translation id="951991426597076286">Hylkää</translation>
 <translation id="962733587145768554">Suorita prosessi loppuun valitsemalla valintaikkunassa <ph name="SHARE" />.</translation>
 <translation id="979100198331752041">Chrome-etäkäyttö kohteessa <ph name="HOSTNAME" /> on vanhentunut ja vaatii päivityksen.</translation>
+<translation id="981121421437150478">Offline</translation>
 <translation id="985602178874221306">The Chromium Authors</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (viimeksi online-tilassa <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

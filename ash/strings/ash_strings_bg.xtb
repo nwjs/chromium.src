@@ -4,7 +4,6 @@
 <translation id="1012876632442809908">USB-C устройство (предният порт)</translation>
 <translation id="1013923882670373915">Устройството с Bluetooth „<ph name="DEVICE_NAME" />“ иска разрешение за сдвояване. Моля, въведете на него следния ПИН код: <ph name="PINCODE" /></translation>
 <translation id="112308213915226829">Автоматично скриване на лавицата</translation>
-<translation id="1127238861555034875">Режим на лупа</translation>
 <translation id="1153356358378277386">Сдвоени устройства</translation>
 <translation id="1195412055398077112">допълнителна област</translation>
 <translation id="1247372569136754018">Микрофон (вътрешен)</translation>
@@ -37,6 +36,7 @@
 <translation id="1942830294380034169">Бутон „Препълване“</translation>
 <translation id="1957803754585243749">0°</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="2012624427112548395">Ctrl + клавиш „Търсене“ + H</translation>
 <translation id="2049639323467105390">Това устройство се управлява от <ph name="DOMAIN" />.</translation>
 <translation id="2050339315714019657">Вертикално</translation>
 <translation id="207439088875642105">Това е профил за деца, управляван от <ph name="FIRST_PARENT_EMAIL" /> и <ph name="SECOND_PARENT_EMAIL" /></translation>
@@ -57,6 +57,7 @@
 <translation id="2501920221385095727">Оставащи клавиши</translation>
 <translation id="2509468283778169019">„CAPS LOCK“ е включен</translation>
 <translation id="2532589005999780174">Режим на висок контраст</translation>
+<translation id="2597972630681408282">Нощно осветление: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2700058918926273959">Сесията приключва след <ph name="SESSION_TIME_REMAINING" />. Ще излезете от профила.</translation>
 <translation id="2727977024730340865">Използва се зарядно устройство с малка мощност. Зареждането на батерията може да не е надеждно.</translation>
 <translation id="2761704814324807722">Област за състоянието, часът е <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -76,8 +77,6 @@
 <translation id="3009178788565917040">Изход</translation>
 <translation id="3019353588588144572">Оставащо време до пълното зареждане на батерията: <ph name="TIME_REMAINING" /></translation>
 <translation id="3047477924825107454">Това е профил за деца, управляван от <ph name="MANAGER_EMAIL" /></translation>
-<translation id="3050422059534974565">„CAPS LOCK“ е включен.
-Натиснете „търсене“ или „Shift“, за да анулирате.</translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Най-долу</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
@@ -86,7 +85,6 @@
 <translation id="315116470104423982">Мобилни данни</translation>
 <translation id="3236488194889173876">Няма мобилни мрежи</translation>
 <translation id="3294437725009624529">Гост</translation>
-<translation id="3335772982573114336">Нова бележка</translation>
 <translation id="3364721542077212959">Инструменти за писане</translation>
 <translation id="3368922792935385530">Установена е връзка</translation>
 <translation id="3371140690572404006">устройство с USB-C (предният десен порт)</translation>
@@ -136,6 +134,7 @@
 <translation id="4849058404725798627">Открояване на обекта, върху който е фокусът от клавиатурата</translation>
 <translation id="4872237917498892622">„Alt + търсене“ или „Shift“</translation>
 <translation id="4895488851634969361">Батерията е пълна.</translation>
+<translation id="4905614135390995787">Клавишната комбинация за превключване на режима на висок контраст е променена. Моля, използвайте <ph name="NEW_SHORTCUT" /> вместо <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4918086044614829423">Приемам</translation>
 <translation id="4961318399572185831">Предаване на екрана</translation>
 <translation id="5011233892417813670">Chromebook</translation>
@@ -159,8 +158,10 @@
 <translation id="5744083938413354016">Преместване чрез докосване</translation>
 <translation id="5777841717266010279">Да се спре ли споделянето на екрана?</translation>
 <translation id="57838592816432529">Заглушаване</translation>
+<translation id="5860033963881614850">Изключено</translation>
 <translation id="5895138241574237353">Рестартиране</translation>
 <translation id="5901316534475909376">Shift + Esc</translation>
+<translation id="5916664084637901428">Включено</translation>
 <translation id="5927132638760172455">Предава се към неизвестен приемник</translation>
 <translation id="5932901536148835538">Chromebit</translation>
 <translation id="5947494881799873997">Възстановяване</translation>
@@ -169,8 +170,8 @@
 <translation id="5977415296283489383">Слушалки</translation>
 <translation id="5978382165065462689">Споделяте контрола върху екрана си чрез отдалечено съдействие.</translation>
 <translation id="5980301590375426705">Изход от сесията като гост</translation>
+<translation id="5992218262414051481">Режимът на висок контраст е активиран. За да го изключите, натиснете отново Ctrl + клавиш „Търсене“ + H.</translation>
 <translation id="6018164090099858612">Излиза се от огледалния режим</translation>
-<translation id="6041154455840261787">Режимът на висок контраст е активиран. Натиснете отново Search + Shift + H, за да го изключите.</translation>
 <translation id="6043212731627905357">Този монитор не се поддържа от вашия <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6043994281159824495">Изход сега</translation>
 <translation id="6047696787498798094">Споделянето на екрана ще спре, когато превключите към друг потребител. Искате ли да продължите?</translation>
@@ -195,6 +196,7 @@
 <translation id="6585808820553845416">Сесията приключва след <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="6627638273713273709">клавиш „търсене“ + Shift + K</translation>
 <translation id="6650933572246256093">Устройството с Bluetooth „<ph name="DEVICE_NAME" />“ иска разрешение за сдвояване. Моля, въведете на него следния ключ за достъп: <ph name="PASSKEY" /></translation>
+<translation id="6691659475504239918">Клавиш „Търсене“ + Shift + H</translation>
 <translation id="6700713906295497288">Бутон за меню на редактора за метод на въвеждане</translation>
 <translation id="6713285437468012787">Устройството с Bluetooth „<ph name="DEVICE_NAME" />“ е сдвоено и сега е налице за всички потребители. Може да премахнете това сдвояване посредством „Настройки“.</translation>
 <translation id="6785414152754474415">Батерията е <ph name="PERCENTAGE" />% пълна и се зарежда.</translation>
@@ -210,12 +212,9 @@
 <translation id="7066646422045619941">Тази мрежа е деактивирана от администратора ви.</translation>
 <translation id="7067196344162293536">Автоматично завъртане</translation>
 <translation id="7098389117866926363">Устройство с USB-C (левият порт на гърба)</translation>
-<translation id="7129360219436193655">Режим на лазерна показалка</translation>
 <translation id="714034171374937760">Chromebase</translation>
 <translation id="7165278925115064263">Alt + Shift + K</translation>
 <translation id="7168224885072002358">Старата разделителна способност ще се възстанови след <ph name="TIMEOUT_SECONDS" /></translation>
-<translation id="7209101170223508707">„CAPS LOCK“ е включен.
-Натиснете „Alt + търсене“ или „Shift“, за да анулирате.</translation>
 <translation id="7246339268451149667">Да се активира ли отключването с отпечатък?</translation>
 <translation id="7256634071279256947">Заден микрофон</translation>
 <translation id="7348093485538360975">Екранна клавиатура</translation>
@@ -233,10 +232,10 @@
 <translation id="7649070708921625228">Помощ</translation>
 <translation id="7692480393933218409">Свързаните устройства с USB-C се зареждат</translation>
 <translation id="776344839111254542">Кликнете, за да видите подробности за актуализацията</translation>
+<translation id="7798302898096527229">Натиснете клавиша „търсене“ или Shift, за да анулирате.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> и <ph name="MINUTE" /></translation>
 <translation id="7823564328645135659">Езикът се промени от „<ph name="FROM_LOCALE" />“ на „<ph name="TO_LOCALE" />“ след синхронизирането на настройките ви.</translation>
 <translation id="7904094684485781019">Администраторът на този профил е забранил централизирания вход.</translation>
-<translation id="7951523953736115461">Нощно осветление</translation>
 <translation id="7977927628060636163">Търсят се мобилни мрежи...</translation>
 <translation id="7982789257301363584">Мрежа</translation>
 <translation id="8000066093800657092">Няма мрежа</translation>
@@ -255,6 +254,7 @@
 <translation id="8433977262951327081">Комбинацията за показване в лавицата на балончето с менюто за опциите за въвеждане е променена. Моля, използвайте <ph name="NEW_SHORTCUT" /> вместо <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8454013096329229812">Wi-Fi е включен.</translation>
 <translation id="847056008324733326">Настройки за мащаба на показване</translation>
+<translation id="8477270416194247200">Натиснете Alt + клавиша „търсене“ или само Shift, за да анулирате.</translation>
 <translation id="8484916590211895857"><ph name="NAME" />: Установява се повторна връзка...</translation>
 <translation id="8517041960877371778">Възможно е вашият <ph name="DEVICE_TYPE" /> да не се зарежда, докато е включен.</translation>
 <translation id="8639760480004882931">Батерия: <ph name="PERCENTAGE" /></translation>

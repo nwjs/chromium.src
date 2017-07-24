@@ -65,6 +65,7 @@ Lisateavet privaatsuse kohta vaadake Google'i privaatsuseeskirjadest (http://goo
 <translation id="228809120910082333">Chromootimise abil juurdepääsu lubamiseks kinnitage allpool oma konto ja PIN-kood.</translation>
 <translation id="2314101195544969792">Teie rakenduse <ph name="APPLICATION_NAME" /> seanss on olnud mõnda aega passiivne ja ühendus katkestatakse peagi.</translation>
 <translation id="2317666076142640974">Vaadake uue <ph name="LINK_BEGIN" />veebirakenduse Chrome Remote Desktop<ph name="LINK_END" /> eelvaadet. Soovime kuulda teie tagasisidet.</translation>
+<translation id="2320166752086256636">Peida klaviatuur</translation>
 <translation id="2353140552984634198">Rakendus Chromoting võimaldab teil turvaliselt arvuti juurde pääseda.</translation>
 <translation id="2359808026110333948">Jätka</translation>
 <translation id="2366718077645204424">Hostiga ei saa ühendust. Seda põhjustab ilmselt kasutatava võrgu konfiguratsioon.</translation>
@@ -78,9 +79,9 @@ Lisateavet privaatsuse kohta vaadake Google'i privaatsuseeskirjadest (http://goo
 <translation id="2676780859508944670">Töötab …</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Tarkvaravärskendused toimuvad tavaliselt automaatselt, kuid mõnel üksikul juhul võivad need ebaõnnestuda. Tarkvara värskendamine ei tohiks võtta üle paari minuti ja saate seda teha, kui olete oma arvutiga ühendatud kaugühenduse abil.</translation>
+<translation id="2803375539583399270">Sisestage PIN-kood</translation>
 <translation id="2841013758207633010">Aeg</translation>
 <translation id="2851754573186462851">Chromiumi rakenduste voogesitus</translation>
-<translation id="2855866366045322178">võrguühenduseta</translation>
 <translation id="2888969873284818612">Ilmnes võrguviga. Rakendus taaskäivitatakse, kui seadmes on taas võrguühendus.</translation>
 <translation id="2894654864775534701">Seda arvutit jagatakse praegu teise kontoga.</translation>
 <translation id="2919669478609886916">Jagate seda seadet praegu teise kasutajaga. Kas soovite jagamist jätkata?</translation>
@@ -201,6 +202,7 @@ Desktopi host</translation>
 <translation id="6062854958530969723">Hosti lähtestamine ebaõnnestus.</translation>
 <translation id="6091564239975589852">Klahvide saatmine</translation>
 <translation id="6099500228377758828">Chrome Remote Desktopi teenus</translation>
+<translation id="6122191549521593678">Onlain</translation>
 <translation id="6167788864044230298">Chrome'i rakenduste voogesitus</translation>
 <translation id="6173536234069435147">Ma ei saa oma Google Drive'i faile avada.</translation>
 <translation id="6178645564515549384">Omasõnumside hostimine kaugabi jaoks</translation>
@@ -222,7 +224,6 @@ Desktopi host</translation>
 <translation id="6570205395680337606">Rakenduse lähtestamine. Kaotate kogu salvestamata töö.</translation>
 <translation id="6572345186230665992">Macile (OS X Mavericks 10.9 ja uuemad versioonid)</translation>
 <translation id="6612717000975622067">Saada klahvikombinatsioon Ctrl + Alt + Del</translation>
-<translation id="6640610550128933069">viimati oli veebis <ph name="DATE" /></translation>
 <translation id="6668065415969892472">Teie PIN-kood on värskendatud.</translation>
 <translation id="6681800064886881394">Autoriõigus 2013 Google Inc. Kõik õigused kaitstud.</translation>
 <translation id="6705482892455291412">Kui ta sisestab koodi, palutakse teil ühendus vastu võtta ja jagamisseanssi alustada.</translation>
@@ -250,6 +251,7 @@ Desktopi host</translation>
 <translation id="7401733114166276557">Chrome Remote Desktop</translation>
 <translation id="7434397035092923453">Järgmisele kliendile on juurdepääs keelatud: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Ühendatud klient: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">Konto vahetamine</translation>
 <translation id="7589941250119944644">Chrome Remote Desktop saab veebis uue kodu. Proovige meie <ph name="LINK_BEGIN" />veebirakendust<ph name="LINK_END" /> – see on kiire ja tasuta ning hõlmab kõiki tuttavaid funktsioone.</translation>
 <translation id="7606912958770842224">Luba kaugühendused</translation>
 <translation id="7649070708921625228">Abi</translation>
@@ -283,6 +285,7 @@ Desktopi host</translation>
 <translation id="837021510621780684">Sellest arvutist</translation>
 <translation id="8383794970363966105">Chromootimise kasutamiseks peate lisama seadmele Google'i konto.</translation>
 <translation id="8386846956409881180">Host on seadistatud sobimatu OAuth-mandaadiga.</translation>
+<translation id="8428213095426709021">Seaded</translation>
 <translation id="8445362773033888690">Kuva Google Play poes</translation>
 <translation id="8509907436388546015">Arvuti integreerimisprotsess</translation>
 <translation id="8513093439376855948">Omasõnumside hostimine hosti haldamise kaugjuhtimiseks</translation>
@@ -306,6 +309,7 @@ Desktopi host</translation>
 <translation id="951991426597076286">Keeldu</translation>
 <translation id="962733587145768554">Toimingu lõpuleviimiseks tehke ühenduse dialoogiboksis valik „<ph name="SHARE" />”.</translation>
 <translation id="979100198331752041">Chrome Remote Desktop hostis <ph name="HOSTNAME" /> on aegunud ja seda tuleb värskendada.</translation>
+<translation id="981121421437150478">Võrguühenduseta</translation>
 <translation id="985602178874221306">The Chromium Authors</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (viimati võrgus <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

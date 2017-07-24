@@ -65,6 +65,7 @@
 <translation id="228809120910082333">Моля, потвърдете профила и ПИН кода си по-долу, за да разрешите достъпа чрез Chromoting.</translation>
 <translation id="2314101195544969792">От известно време сесията ви в/ъв <ph name="APPLICATION_NAME" /> е неактивна и скоро ще бъде прекратена.</translation>
 <translation id="2317666076142640974">Получете ранен достъп до новото <ph name="LINK_BEGIN" />уеб приложение Отдалечен работен плот на Chrome<ph name="LINK_END" />. Ще се радваме да ни изпратите отзивите си.</translation>
+<translation id="2320166752086256636">Скриване на клавиатурата</translation>
 <translation id="2353140552984634198">Може да осъществите надеждно достъп до този компютър посредством Chromoting.</translation>
 <translation id="2359808026110333948">Напред</translation>
 <translation id="2366718077645204424">Не можем да се свържем с хоста. Това вероятно се дължи на конфигурацията на използваната от вас мрежа.</translation>
@@ -78,9 +79,9 @@
 <translation id="2676780859508944670">В процес на работа…</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Софтуерните актуализации обикновено се извършват автоматично, но в някои редки случаи може да не са успешни. Актуализирането не трябва да отнеме повече от няколко минути и може да се изпълни при отдалечена връзка с компютъра ви.</translation>
+<translation id="2803375539583399270">Въведете ПИН кодa</translation>
 <translation id="2841013758207633010">Време</translation>
 <translation id="2851754573186462851">Chromium App Streaming</translation>
-<translation id="2855866366045322178">офлайн</translation>
 <translation id="2888969873284818612">Възникна грешка в мрежата. Ще рестартираме приложението, когато устройството ви отново е онлайн.</translation>
 <translation id="2894654864775534701">Понастоящем този компютър е споделен с друг профил.</translation>
 <translation id="2919669478609886916">Понастоящем споделяте този компютър с друг потребител. Искате ли да продължите споделянето?</translation>
@@ -201,6 +202,7 @@ Chromoting</translation>
 <translation id="6062854958530969723">Стартирането на хоста не бе успешно.</translation>
 <translation id="6091564239975589852">Изпращане на клавишни комбинации</translation>
 <translation id="6099500228377758828">Услуга за отдалечен работен плот на Chrome</translation>
+<translation id="6122191549521593678">Онлайн</translation>
 <translation id="6167788864044230298">Chrome App Streaming</translation>
 <translation id="6173536234069435147">Не мога да отворя файловете си в Google Диск.</translation>
 <translation id="6178645564515549384">Хост за обмен на съобщения с приложения с директно изпълнение за отдалечено съдействие</translation>
@@ -222,7 +224,6 @@ Chromoting</translation>
 <translation id="6570205395680337606">Рестартиране на приложението. Незапазената работа ще бъде заличена.</translation>
 <translation id="6572345186230665992">За Mac (OS X Mavericks 10.9 и по-нови версии)</translation>
 <translation id="6612717000975622067">Изпращане на Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">последно онлайн: <ph name="DATE" /></translation>
 <translation id="6668065415969892472">ПИН кодът ви е актуализиран.</translation>
 <translation id="6681800064886881394">Авторски права 2013 Google Inc. Всички права запазени.</translation>
 <translation id="6705482892455291412">След като потребителят въведе кода, ще бъдете подканени да приемете връзката и да започнете сесията на споделяне.</translation>
@@ -250,6 +251,7 @@ Chromoting</translation>
 <translation id="7401733114166276557">Отдалечен работен плот на Chrome</translation>
 <translation id="7434397035092923453">Отказан е достъп на клиентска програма: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Установена е връзка с клиентска програма: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">Промяна на профила</translation>
 <translation id="7589941250119944644">Мрежата е новият дом на Отдалечен работен плот на Chrome. Изпробвайте <ph name="LINK_BEGIN" />уеб приложението<ph name="LINK_END" /> ни – то е бързо, безплатно и със същите функции както преди.</translation>
 <translation id="7606912958770842224">Активиране на отдалечените връзки</translation>
 <translation id="7649070708921625228">Помощ</translation>
@@ -283,6 +285,7 @@ Chromoting</translation>
 <translation id="837021510621780684">От този компютър</translation>
 <translation id="8383794970363966105">За да използвате Chromoting, ще се наложи да добавите профил в Google към устройството си.</translation>
 <translation id="8386846956409881180">Хостът е конфигуриран с невалидни идентификационни данни за OAuth.</translation>
+<translation id="8428213095426709021">Настройки</translation>
 <translation id="8445362773033888690">Преглед в Google Play Магазин</translation>
 <translation id="8509907436388546015">Процес на интегриране на работния плот</translation>
 <translation id="8513093439376855948">Хост за обмен на съобщения с приложения с директно изпълнение за управление на хост за отдалечен достъп</translation>
@@ -306,6 +309,7 @@ Chromoting</translation>
 <translation id="951991426597076286">Отхвърляне</translation>
 <translation id="962733587145768554">Моля, изберете „<ph name="SHARE" />“ в диалоговия прозорец за свързване, за да завършите процеса.</translation>
 <translation id="979100198331752041">Версията на отдалечения работен плот на Chrome на „<ph name="HOSTNAME" />“ не е актуална и трябва да се актуализира.</translation>
+<translation id="981121421437150478">Офлайн</translation>
 <translation id="985602178874221306">Авторите на Chromium</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (последно онлайн: <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

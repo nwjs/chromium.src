@@ -65,6 +65,7 @@
 <translation id="228809120910082333">‏يُرجى التأكيد على حسابك ورقم تعريفك الشخصي أدناه للسماح بالدخول من خلال التوافق مع نظام التشغيل Chrome.</translation>
 <translation id="2314101195544969792">جلسة تطبيقك <ph name="APPLICATION_NAME" /> كانت غير نشطة لفترة من الوقت وسيتم إلغاء ربطها قريبًا.</translation>
 <translation id="2317666076142640974">‏اطلع على لمحة سريعة عن <ph name="LINK_BEGIN" />التطبيق الجديد لسطح المكتب البعيد من Chrome على الويب<ph name="LINK_END" />. نود معرفة تعليقاتك.</translation>
+<translation id="2320166752086256636">إخفاء لوحة المفاتيح</translation>
 <translation id="2353140552984634198">‏يمكنك الدخول بأمان إلى هذا الكمبيوتر باستخدام تطبيق التوافق مع نظام التشغيل Chrome.</translation>
 <translation id="2359808026110333948">المتابعة</translation>
 <translation id="2366718077645204424">يتعذر الوصول إلى المضيف. ربما يرجع ذلك إلى تهيئة الشبكة التي تستخدمها.</translation>
@@ -78,9 +79,9 @@
 <translation id="2676780859508944670">جارٍ العمل…</translation>
 <translation id="2699970397166997657">‏التوافق مع نظام التشغيل Chrome</translation>
 <translation id="2747641796667576127">يتم عادةً إجراء تحديثات البرامج تلقائيًا، لكنها قد تخفق في بعض الحالات النادرة. من المفترض ألا يستغرق تحديث البرامج أكثر من بضع دقائق، كما يمكن إجراؤه أثناء الاتصال بالكمبيوتر عن بُعد.</translation>
+<translation id="2803375539583399270">أدخل رقم التعريف الشخصي</translation>
 <translation id="2841013758207633010">الوقت</translation>
 <translation id="2851754573186462851">Chromium App Streaming</translation>
-<translation id="2855866366045322178">غير متصل</translation>
 <translation id="2888969873284818612">حدث خطأ في الشبكة. سنعيد تشغيل التطبيق عندما يتصل جهازك بالإنترنت مرة أخرى.</translation>
 <translation id="2894654864775534701">تتم مشاركة جهاز الكمبيوتر هذا حاليًا ضمن حساب مختلف.</translation>
 <translation id="2919669478609886916">أنت تشارك هذا الجهاز حاليًا مع مستخدم آخر. هل تريد فعلًا متابعة المشاركة؟</translation>
@@ -202,6 +203,7 @@
 <translation id="6062854958530969723">فشلت تهيئة المضيف.</translation>
 <translation id="6091564239975589852">إرسال مفاتيح</translation>
 <translation id="6099500228377758828">‏خدمة سطح المكتب البعيد من Chrome</translation>
+<translation id="6122191549521593678">متصل</translation>
 <translation id="6167788864044230298">Chrome App Streaming</translation>
 <translation id="6173536234069435147">‏لا أستطيع فتح ملفات Google Drive.</translation>
 <translation id="6178645564515549384">مضيف الرسائل الأصلي للمساعدة عن بُعد</translation>
@@ -223,7 +225,6 @@
 <translation id="6570205395680337606">إعادة ضبط التطبيق. ستفقد أيّ عمل لم يتم حفظه.</translation>
 <translation id="6572345186230665992">‏لنظام التشغيل Mac‏ (OS X Mavericks 10.9 والإصدارات الأحدث)</translation>
 <translation id="6612717000975622067">‏إرسال Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">آخر مرة على الإنترنت <ph name="DATE" /></translation>
 <translation id="6668065415969892472">تم تحديث رقم التعريف الشخصي.</translation>
 <translation id="6681800064886881394">‏حقوق الطبع والنشر لعام 2013 لشركة Google Inc. جميع الحقوق محفوظة.</translation>
 <translation id="6705482892455291412">عند إدخال الرمز، ستتم مطالبتك بقبول الاتصال وبدء جلسة المشاركة.</translation>
@@ -251,6 +252,7 @@
 <translation id="7401733114166276557">‏سطح المكتب البعيد من Chrome</translation>
 <translation id="7434397035092923453">تم رفض دخول العميل: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">العميل المتصل: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">تغيير حساب</translation>
 <translation id="7589941250119944644">‏سينتقل سطح المكتب البعيد من Chrome إلى مكان جديد على الويب. جرّب <ph name="LINK_BEGIN" />تطبيق الويب<ph name="LINK_END" />—فهو سريع ومجاني، ويتضمن جميع الميزات السابقة نفسها.</translation>
 <translation id="7606912958770842224">تمكين الاتصالات عن بُعد</translation>
 <translation id="7649070708921625228">مساعدة</translation>
@@ -284,6 +286,7 @@
 <translation id="837021510621780684">من هذا الكمبيوتر</translation>
 <translation id="8383794970363966105">‏لاستخدام التوافق مع نظام التشغيل Chrome، يجب إضافة حساب في Google إلى جهازك.</translation>
 <translation id="8386846956409881180">‏تمت تهيئة المضيف بواسطة بيانات اعتماد OAuth غير صالحة.</translation>
+<translation id="8428213095426709021">إعدادات</translation>
 <translation id="8445362773033888690">‏عرض في متجر Google Play</translation>
 <translation id="8509907436388546015">عملية دمج سطح المكتب</translation>
 <translation id="8513093439376855948">مضيف الرسائل الأصلي لإدارة المضيف عن بُعد</translation>
@@ -308,6 +311,7 @@
 <translation id="951991426597076286">رفض</translation>
 <translation id="962733587145768554">يُرجى تحديد '<ph name="SHARE" />' في مربع حوار الاتصال لاستكمال العملية.</translation>
 <translation id="979100198331752041">‏ميزة سطح المكتب البعيد من Chrome على <ph name="HOSTNAME" /> قديمة ويلزم تحديثها.</translation>
+<translation id="981121421437150478">بلا اتصال</translation>
 <translation id="985602178874221306">The Chromium Authors</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (آخر دخول على الإنترنت في تمام <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

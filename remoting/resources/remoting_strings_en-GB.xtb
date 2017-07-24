@@ -65,6 +65,7 @@ For information about privacy, please see the Google Privacy Policy (http://goo.
 <translation id="228809120910082333">Please confirm your account and PIN below to allow access by Chromoting.</translation>
 <translation id="2314101195544969792">Your <ph name="APPLICATION_NAME" /> session has been inactive for a while and will be disconnected shortly.</translation>
 <translation id="2317666076142640974">Get a sneak peek at the new <ph name="LINK_BEGIN" />Chrome Remote Desktop web app<ph name="LINK_END" />. We'd love to hear your feedback.</translation>
+<translation id="2320166752086256636">Hide keyboard</translation>
 <translation id="2353140552984634198">You may securely access this computer using Chromoting.</translation>
 <translation id="2359808026110333948">Continue</translation>
 <translation id="2366718077645204424">Unable to reach the host. This is probably due to the configuration of the network you are using.</translation>
@@ -78,9 +79,9 @@ For information about privacy, please see the Google Privacy Policy (http://goo.
 <translation id="2676780859508944670">Working…</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Software updates usually happen automatically, but can fail in some rare cases. Updating the software should take no more than a few minutes and can be done while connected to your computer remotely.</translation>
+<translation id="2803375539583399270">Enter PIN</translation>
 <translation id="2841013758207633010">Time</translation>
 <translation id="2851754573186462851">Chromium App Streaming</translation>
-<translation id="2855866366045322178">offline</translation>
 <translation id="2888969873284818612">A network error occurred. We will restart the app when your device is on-line again.</translation>
 <translation id="2894654864775534701">This computer is currently shared under a different account.</translation>
 <translation id="2919669478609886916">You are currently sharing this machine with another user. Do you want to continue sharing?</translation>
@@ -201,6 +202,7 @@ Desktop Host</translation>
 <translation id="6062854958530969723">Host initialisation failed.</translation>
 <translation id="6091564239975589852">Send keys</translation>
 <translation id="6099500228377758828">Chrome Remote Desktop Service</translation>
+<translation id="6122191549521593678">Online</translation>
 <translation id="6167788864044230298">Chrome App Streaming</translation>
 <translation id="6173536234069435147">I can't open my Google Drive files.</translation>
 <translation id="6178645564515549384">Native messaging host for remote assistance</translation>
@@ -222,7 +224,6 @@ Desktop Host</translation>
 <translation id="6570205395680337606">Reset the application. You will lose any unsaved work.</translation>
 <translation id="6572345186230665992">For Mac (OS X Mavericks 10.9 and above)</translation>
 <translation id="6612717000975622067">Send Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">last online <ph name="DATE" /></translation>
 <translation id="6668065415969892472">Your PIN has been updated.</translation>
 <translation id="6681800064886881394">Copyright 2013 Google Inc. All Rights Reserved.</translation>
 <translation id="6705482892455291412">Once they enter the code, you will be prompted to accept the connection and begin the sharing session.</translation>
@@ -250,6 +251,7 @@ Desktop Host</translation>
 <translation id="7401733114166276557">Chrome Remote Desktop</translation>
 <translation id="7434397035092923453">Access denied for client: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Client connected: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">Change account</translation>
 <translation id="7589941250119944644">Chrome Remote Desktop is moving to a new home on the web. Try our <ph name="LINK_BEGIN" />web app<ph name="LINK_END" /> – it's fast and free, with all the same features as before.</translation>
 <translation id="7606912958770842224">Enable remote connections</translation>
 <translation id="7649070708921625228">Help</translation>
@@ -283,6 +285,7 @@ Desktop Host</translation>
 <translation id="837021510621780684">From this computer</translation>
 <translation id="8383794970363966105">To use Chromoting, you'll need to add a Google Account to your device.</translation>
 <translation id="8386846956409881180">Host is configured with invalid OAuth credentials.</translation>
+<translation id="8428213095426709021">Settings</translation>
 <translation id="8445362773033888690">View in Google Play Store</translation>
 <translation id="8509907436388546015">Desktop Integration Process</translation>
 <translation id="8513093439376855948">Native messaging host for remoting host management</translation>
@@ -306,6 +309,7 @@ Desktop Host</translation>
 <translation id="951991426597076286">Decline</translation>
 <translation id="962733587145768554">Please select '<ph name="SHARE" />' on the connection dialogue box to complete the process.</translation>
 <translation id="979100198331752041">Chrome Remote Desktop on <ph name="HOSTNAME" /> is out-of-date and needs to be updated.</translation>
+<translation id="981121421437150478">Offline</translation>
 <translation id="985602178874221306">The Chromium Authors</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (last online <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

@@ -65,6 +65,7 @@ Informacje na temat prywatności znajdziesz w Polityce prywatności Google (http
 <translation id="228809120910082333">Potwierdź poniżej swoje konto i kod PIN, by móc korzystać z funkcji Chromoting.</translation>
 <translation id="2314101195544969792">Sesja aplikacji <ph name="APPLICATION_NAME" /> jest od jakiegoś czasu nieaktywna i zostanie wkrótce zakończona.</translation>
 <translation id="2317666076142640974">Zobacz, jak wygląda nowa <ph name="LINK_BEGIN" />aplikacja internetowa Pulpit zdalny Chrome<ph name="LINK_END" /> i podziel się z nami opinią.</translation>
+<translation id="2320166752086256636">Ukryj klawiaturę</translation>
 <translation id="2353140552984634198">Możesz bezpiecznie korzystać z tego komputera przez Chromoting.</translation>
 <translation id="2359808026110333948">Dalej</translation>
 <translation id="2366718077645204424">Nie można połączyć się z hostem. Problem prawdopodobnie wynika z konfiguracji Twojej sieci.</translation>
@@ -78,9 +79,9 @@ Informacje na temat prywatności znajdziesz w Polityce prywatności Google (http
 <translation id="2676780859508944670">Przetwarzam…</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Aktualizacje oprogramowania są zwykle instalowane automatycznie, ale w niektórych rzadkich przypadkach kończą się niepowodzeniem. Aktualizacja oprogramowania nie powinna trwać dłużej niż kilka minut i można ją wykonać przy zdalnym połączeniu z komputerem.</translation>
+<translation id="2803375539583399270">Wpisz kod PIN</translation>
 <translation id="2841013758207633010">Godzina</translation>
 <translation id="2851754573186462851">Chromium App Streaming</translation>
-<translation id="2855866366045322178">offline</translation>
 <translation id="2888969873284818612">Wystąpił błąd sieci. Uruchomimy ponownie aplikację, gdy urządzenie znów będzie online.</translation>
 <translation id="2894654864775534701">Ten komputer jest obecnie udostępniany na innym koncie.</translation>
 <translation id="2919669478609886916">Obecnie udostępniasz ten komputer innemu użytkownikowi. Czy chcesz kontynuować udostępnianie?</translation>
@@ -201,6 +202,7 @@ zdalnego Chrome</translation>
 <translation id="6062854958530969723">Nie udało się zainicjować hosta.</translation>
 <translation id="6091564239975589852">Wyślij naciśnięcia klawiszy</translation>
 <translation id="6099500228377758828">Usługa Pulpitu zdalnego Chrome</translation>
+<translation id="6122191549521593678">Online</translation>
 <translation id="6167788864044230298">Chrome App Streaming</translation>
 <translation id="6173536234069435147">Nie mogę otworzyć moich plików na Dysku Google.</translation>
 <translation id="6178645564515549384">Host natywnego przesyłania komunikatów do pomocy zdalnej</translation>
@@ -222,7 +224,6 @@ zdalnego Chrome</translation>
 <translation id="6570205395680337606">Zresetuj aplikację. Niezapisane dane zostaną utracone.</translation>
 <translation id="6572345186230665992">Mac (OS X Mavericks 10.9 lub nowszy)</translation>
 <translation id="6612717000975622067">Wyślij Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">ostatnio online: <ph name="DATE" /></translation>
 <translation id="6668065415969892472">PIN został zaktualizowany.</translation>
 <translation id="6681800064886881394">Copyright 2013 Google Inc. Wszelkie prawa zastrzeżone.</translation>
 <translation id="6705482892455291412">Gdy poda kod, zobaczysz pytanie o zgodę na połączenie i rozpoczęcie sesji udostępniania.</translation>
@@ -250,6 +251,7 @@ zdalnego Chrome</translation>
 <translation id="7401733114166276557">Pulpit zdalny Chrome</translation>
 <translation id="7434397035092923453">Odmowa dostępu dla klienta: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Podłączył się klient: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">Zmień konto</translation>
 <translation id="7589941250119944644">Pulpit zdalny Chrome jest teraz dostępny w internecie. Wypróbuj naszą <ph name="LINK_BEGIN" />aplikację internetową<ph name="LINK_END" /> – jest szybka, bezpłatna i oferuje wszystkie funkcje znane z poprzedniej wersji Pulpitu.</translation>
 <translation id="7606912958770842224">Włącz połączenia zdalne</translation>
 <translation id="7649070708921625228">Pomoc</translation>
@@ -283,6 +285,7 @@ zdalnego Chrome</translation>
 <translation id="837021510621780684">Z tego komputera</translation>
 <translation id="8383794970363966105">Aby użyć funkcji Chromoting, musisz dodać do urządzenia konto Google.</translation>
 <translation id="8386846956409881180">Host został skonfigurowany z nieprawidłowymi danymi logowania protokołu OAuth.</translation>
+<translation id="8428213095426709021">Ustawienia</translation>
 <translation id="8445362773033888690">Wyświetl w Sklepie Google Play</translation>
 <translation id="8509907436388546015">Proces integracji pulpitu</translation>
 <translation id="8513093439376855948">Host natywnego przesyłania komunikatów do zdalnego zarządzania hostem</translation>
@@ -306,6 +309,7 @@ zdalnego Chrome</translation>
 <translation id="951991426597076286">Odrzuć</translation>
 <translation id="962733587145768554">Aby dokończyć procedurę, wybierz „<ph name="SHARE" />” w oknie połączenia.</translation>
 <translation id="979100198331752041">Pulpit zdalny Chrome na komputerze <ph name="HOSTNAME" /> jest nieaktualny i wymaga aktualizacji.</translation>
+<translation id="981121421437150478">Offline</translation>
 <translation id="985602178874221306">Autorzy Chromium</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (ostatnio online <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

@@ -65,6 +65,7 @@ Per obtenir informació sobre la privadesa, vegeu la Política de privadesa de G
 <translation id="228809120910082333">Confirmeu el vostre compte i PIN a continuació per permetre l'accés per Chromoting.</translation>
 <translation id="2314101195544969792">La vostra sessió de <ph name="APPLICATION_NAME" /> ha estat inactiva durant una estona i es desconnectarà aviat.</translation>
 <translation id="2317666076142640974">Dona un cop d'ull a la nova <ph name="LINK_BEGIN" />aplicació web Escriptori remot de Chrome<ph name="LINK_END" />. Ens agradaria saber la teva opinió.</translation>
+<translation id="2320166752086256636">Amaga el teclat</translation>
 <translation id="2353140552984634198">Podeu accedir de manera segura a aquest ordinador mitjançant Chromoting.</translation>
 <translation id="2359808026110333948">Continua</translation>
 <translation id="2366718077645204424">No es pot connectar amb l'amfitrió. Probablement, això passa a causa de la configuració de la xarxa que esteu fent servir.</translation>
@@ -78,9 +79,9 @@ Per obtenir informació sobre la privadesa, vegeu la Política de privadesa de G
 <translation id="2676780859508944670">S'hi està treballant...</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Les actualitzacions de programari se solen fer automàticament, però poden fallar en casos excepcionals. L'actualització del programari hauria de trigar només uns minuts i es pot fer mentre esteu connectat a l'ordinador de forma remota.</translation>
+<translation id="2803375539583399270">Introdueix el PIN</translation>
 <translation id="2841013758207633010">Hora</translation>
 <translation id="2851754573186462851">Chromium App Streaming</translation>
-<translation id="2855866366045322178">sense connexió</translation>
 <translation id="2888969873284818612">S'ha produït un error a la xarxa. Reiniciarem l'aplicació quan el dispositiu torni a estar en línia.</translation>
 <translation id="2894654864775534701">Aquest ordinador es comparteix actualment mitjançant un altre compte.</translation>
 <translation id="2919669478609886916">Esteu compartint aquest ordinador amb un altre usuari. Voleu continuar compartint-lo?</translation>
@@ -201,6 +202,7 @@ remot de Chrome</translation>
 <translation id="6062854958530969723">S'ha produït un error en iniciar l'amfitrió.</translation>
 <translation id="6091564239975589852">Envia les claus</translation>
 <translation id="6099500228377758828">Servei d'escriptori remot de Chrome</translation>
+<translation id="6122191549521593678">En línia</translation>
 <translation id="6167788864044230298">Chrome App Streaming</translation>
 <translation id="6173536234069435147">No puc obrir els meus fitxers de Google Drive.</translation>
 <translation id="6178645564515549384">Amfitrió de missatgeria nativa per a l'assistència remota</translation>
@@ -222,7 +224,6 @@ remot de Chrome</translation>
 <translation id="6570205395680337606">Restabliu l'aplicació. Els treballs que no s'hagin desat es perdran.</translation>
 <translation id="6572345186230665992">Per a Mac (OS X Mavericks 10.9 i versions posteriors)</translation>
 <translation id="6612717000975622067">Envia Ctrl-Alt-Supr</translation>
-<translation id="6640610550128933069">darrera vegada en línia: <ph name="DATE" /></translation>
 <translation id="6668065415969892472">S'ha actualitzat el vostre PIN.</translation>
 <translation id="6681800064886881394">Copyright 2013 Google Inc. Tots els drets reservats.</translation>
 <translation id="6705482892455291412">Quan introdueixin el codi, se't demanarà que acceptis la connexió i comencis la sessió compartida.</translation>
@@ -250,6 +251,7 @@ remot de Chrome</translation>
 <translation id="7401733114166276557">Escriptori remot de Chrome</translation>
 <translation id="7434397035092923453">S'ha rebutjat l'accés del client: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Client connectat: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">Canvia de compte</translation>
 <translation id="7589941250119944644">Escriptori remot de Chrome es trasllada al web. Prova la nostra <ph name="LINK_BEGIN" />aplicació web<ph name="LINK_END" />; és ràpida i gratuïta, i té totes les funcions que tenia abans.</translation>
 <translation id="7606912958770842224">Activa les connexions remotes</translation>
 <translation id="7649070708921625228">Ajuda</translation>
@@ -283,6 +285,7 @@ remot de Chrome</translation>
 <translation id="837021510621780684">Des d'aquest ordinador</translation>
 <translation id="8383794970363966105">Per utilitzar Chromoting, haureu d'afegir un compte de Google al dispositiu.</translation>
 <translation id="8386846956409881180">L'amfitrió està configurat amb unes credencials d'OAuth no vàlides.</translation>
+<translation id="8428213095426709021">Configuració</translation>
 <translation id="8445362773033888690">Mostra a Google Play Store</translation>
 <translation id="8509907436388546015">Procés d'integració de l'escriptori</translation>
 <translation id="8513093439376855948">Amfitrió de missatgeria nativa per a la gestió remota de l'amfitrió</translation>
@@ -306,6 +309,7 @@ remot de Chrome</translation>
 <translation id="951991426597076286">Rebutja</translation>
 <translation id="962733587145768554">Selecciona <ph name="SHARE" /> al quadre de diàleg de la connexió per completar el procés.</translation>
 <translation id="979100198331752041">L'escriptori remot de Chrome a <ph name="HOSTNAME" /> és obsolet i cal actualitzar-lo.</translation>
+<translation id="981121421437150478">Sense connexió</translation>
 <translation id="985602178874221306">Els autors de Chromium</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (última connexió: <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

@@ -65,6 +65,7 @@
 <translation id="228809120910082333">‏אשר את החשבון ומספר ה-PIN שלך שמפורטים למטה, כדי לאפשר גישה באמצעות Chromoting.</translation>
 <translation id="2314101195544969792">לא הייתה פעילות ב-<ph name="APPLICATION_NAME" /> במשך זמן-מה. אתה תנותק בקרוב.</translation>
 <translation id="2317666076142640974">‏יש לך הזדמנות לקבל הצצה מקדימה אל <ph name="LINK_BEGIN" />אפליקציית האינטרנט 'שולחן העבודה המרוחק של Chrome'<ph name="LINK_END" />. נשמח לקבל ממך משוב.</translation>
+<translation id="2320166752086256636">הסתר מקלדת</translation>
 <translation id="2353140552984634198">‏תוכל לגשת למחשב זה באופן מאובטח באמצעות Chromoting.</translation>
 <translation id="2359808026110333948">המשך</translation>
 <translation id="2366718077645204424">לא ניתן להשיג את המארח. הסיבה לכך יכולה להיות תצורת הרשת שבה אתה משתמש.</translation>
@@ -78,9 +79,9 @@
 <translation id="2676780859508944670">עובד…</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">עדכוני תוכנה מתבצעים בדרך כלל באופן אוטומטי, אבל במקרים נדירים הם עשויים להיכשל. עדכון התוכנה לא אמור לקחת יותר ממספר דקות, וניתן לבצע אותו כשאתה מחובר למחשב באופן מרוחק.</translation>
+<translation id="2803375539583399270">‏הזן PIN</translation>
 <translation id="2841013758207633010">שעה</translation>
 <translation id="2851754573186462851">Chromium App Streaming</translation>
-<translation id="2855866366045322178">לא מקוון</translation>
 <translation id="2888969873284818612">אירעה שגיאת רשת. נפעיל את היישום מחדש כשהמכשיר יהיה שוב מקוון.</translation>
 <translation id="2894654864775534701">המחשב הזו משותף כרגע כחלק מחשבון אחר.</translation>
 <translation id="2919669478609886916">אתה משתף כעת את המחשב הזה עם משתמש אחר. האם ברצונך להמשיך את השיתוף?</translation>
@@ -201,6 +202,7 @@ Chromoting</translation>
 <translation id="6062854958530969723">אתחול המארח נכשל.</translation>
 <translation id="6091564239975589852">שלח מקשים</translation>
 <translation id="6099500228377758828">‏שירות שולחן העבודה המרוחק של Chrome</translation>
+<translation id="6122191549521593678">מקוון</translation>
 <translation id="6167788864044230298">Chrome App Streaming</translation>
 <translation id="6173536234069435147">‏איני יכול לפתוח את הקבצים שלי ב-Google Drive.</translation>
 <translation id="6178645564515549384">מארח העברת הודעות ייעודי עבור סיוע מרוחק</translation>
@@ -222,7 +224,6 @@ Chromoting</translation>
 <translation id="6570205395680337606">אפס את היישום. תאבד עבודות שלא נשמרו.</translation>
 <translation id="6572345186230665992">‏ל-Mac ‏(OS X Mavericks מגירסה 10.9 ואילך)</translation>
 <translation id="6612717000975622067">‏שלח Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">חיבור אחרון לרשת ב-<ph name="DATE" /></translation>
 <translation id="6668065415969892472">‏ה-PIN שלך עודכן.</translation>
 <translation id="6681800064886881394">‏Copyright © 2013 Google Inc.‎. כל הזכויות שמורות.</translation>
 <translation id="6705482892455291412">לאחר הזנת הקוד, תתבקש לאשר את החיבור ולהתחיל בשיתוף ההפעלה.</translation>
@@ -250,6 +251,7 @@ Chromoting</translation>
 <translation id="7401733114166276557">‏שולחן עבודה מרוחק של Chrome</translation>
 <translation id="7434397035092923453">נדחתה גישה עבור לקוח: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">לקוח שהתחבר: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">החלף חשבון</translation>
 <translation id="7589941250119944644">‏שולחן העבודה המרוחק של Chrome יהיה זמין מעכשיו באינטרנט. נסה את <ph name="LINK_BEGIN" />אפליקציית האינטרנט<ph name="LINK_END" /> - היא מהירה וחינמית, וכוללת את כל התכונות המוכרות.</translation>
 <translation id="7606912958770842224">הפעל חיבורים מרוחקים</translation>
 <translation id="7649070708921625228">עזרה</translation>
@@ -283,6 +285,7 @@ Chromoting</translation>
 <translation id="837021510621780684">ממחשב זה</translation>
 <translation id="8383794970363966105">‏כדי להשתמש ב-Chromoting, עליך להוסיף חשבון Google למכשיר שלך.</translation>
 <translation id="8386846956409881180">‏בהגדרת המארח נעשה שימוש בפרטי כניסת OAuth לא חוקיים.</translation>
+<translation id="8428213095426709021">הגדרות</translation>
 <translation id="8445362773033888690">‏הצג בחנות Google Play</translation>
 <translation id="8509907436388546015">תהליך השילוב של שולחנות עבודה</translation>
 <translation id="8513093439376855948">מארח העברת הודעות ייעודי עבור ניהול אירוח מרחוק</translation>
@@ -306,6 +309,7 @@ Chromoting</translation>
 <translation id="951991426597076286">דחה</translation>
 <translation id="962733587145768554">בחר באפשרות '<ph name="SHARE" />' בתיבת הדו-שיח של החיבור כדי להשלים את התהליך.</translation>
 <translation id="979100198331752041">‏שולחן העבודה המרוחק של Chrome ב-<ph name="HOSTNAME" /> אינו מעודכן ויש לעדכן אותו.</translation>
+<translation id="981121421437150478">לא מקוון</translation>
 <translation id="985602178874221306">‏מחברי Chromium</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (התחברות אחרונה <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

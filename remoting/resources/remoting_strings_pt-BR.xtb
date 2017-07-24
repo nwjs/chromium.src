@@ -65,6 +65,7 @@ Para ver mais informações sobre privacidade, consulte a Política de Privacida
 <translation id="228809120910082333">Confirme sua conta e seu PIN abaixo para permitir acesso pelo Chromoting.</translation>
 <translation id="2314101195544969792">Sua sessão do <ph name="APPLICATION_NAME" /> está inativa há um tempo e será desconectada em breve.</translation>
 <translation id="2317666076142640974">Dê uma olhada no novo <ph name="LINK_BEGIN" />app da Web da Área de trabalho remota do Google Chrome<ph name="LINK_END" />. Adoraríamos receber seu feedback.</translation>
+<translation id="2320166752086256636">Ocultar teclado</translation>
 <translation id="2353140552984634198">Com o Chromoting, você pode acessar este computador com segurança.</translation>
 <translation id="2359808026110333948">Continuar</translation>
 <translation id="2366718077645204424">Não é possível acessar o host. Isso se deve, provavelmente, à configuração da rede que você está usando.</translation>
@@ -78,9 +79,9 @@ Para ver mais informações sobre privacidade, consulte a Política de Privacida
 <translation id="2676780859508944670">Processando…</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">As atualizações de software geralmente ocorrem automaticamente, mas podem falhar em casos raros. Essa atualização não deve demorar mais do que alguns minutos e pode ser feita enquanto você estiver conectado ao computador remotamente.</translation>
+<translation id="2803375539583399270">Insira o PIN</translation>
 <translation id="2841013758207633010">Tempo</translation>
 <translation id="2851754573186462851">Chromium App Streaming</translation>
-<translation id="2855866366045322178">off-line</translation>
 <translation id="2888969873284818612">Ocorreu um erro de rede. Reiniciaremos o aplicativo quando seu dispositivo estiver on-line novamente.</translation>
 <translation id="2894654864775534701">Atualmente, este computador é compartilhado com uma conta diferente.</translation>
 <translation id="2919669478609886916">Esta máquina está sendo compartilhada com outro usuário. Deseja continuar compartilhando?</translation>
@@ -201,6 +202,7 @@ remota do Google Chrome</translation>
 <translation id="6062854958530969723">Falha ao iniciar host.</translation>
 <translation id="6091564239975589852">Enviar chaves</translation>
 <translation id="6099500228377758828">Serviço Área de trabalho remota do Google Chrome</translation>
+<translation id="6122191549521593678">On-line</translation>
 <translation id="6167788864044230298">Chrome App Streaming</translation>
 <translation id="6173536234069435147">Não consigo abrir meus arquivos do Google Drive.</translation>
 <translation id="6178645564515549384">Host de mensagens nativas para assistência remota</translation>
@@ -222,7 +224,6 @@ remota do Google Chrome</translation>
 <translation id="6570205395680337606">Reinicie o aplicativo. Você perderá qualquer trabalho que não tenha sido salvo.</translation>
 <translation id="6572345186230665992">Para Mac (OS X Mavericks 10.9 e versões superiores)</translation>
 <translation id="6612717000975622067">Enviar Ctrl-Alt-Del</translation>
-<translation id="6640610550128933069">última vez on-line: <ph name="DATE" /></translation>
 <translation id="6668065415969892472">O PIN foi atualizado.</translation>
 <translation id="6681800064886881394">Copyright 2013 Google Inc. Todos os direitos reservados.</translation>
 <translation id="6705482892455291412">Depois que o código é informado, é solicitado que você aceite a conexão e inicie a sessão de compartilhamento.</translation>
@@ -250,6 +251,7 @@ remota do Google Chrome</translation>
 <translation id="7401733114166276557">Área de trabalho remota do Google Chrome</translation>
 <translation id="7434397035092923453">Acesso negado para o cliente <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Cliente conectado: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">Alterar conta</translation>
 <translation id="7589941250119944644">A Área de trabalho remota do Google Chrome agora tem nova versão na Web. Teste nosso <ph name="LINK_BEGIN" />app da Web<ph name="LINK_END" />: ele é rápido, gratuito e tem todos os mesmos recursos de antes.</translation>
 <translation id="7606912958770842224">Ativar conexões remotas</translation>
 <translation id="7649070708921625228">Ajuda</translation>
@@ -283,6 +285,7 @@ remota do Google Chrome</translation>
 <translation id="837021510621780684">Deste computador</translation>
 <translation id="8383794970363966105">Para usar o Chromoting, adicione uma Conta do Google a seu dispositivo.</translation>
 <translation id="8386846956409881180">O host está configurado com credenciais de OAuth inválidas.</translation>
+<translation id="8428213095426709021">Configurações</translation>
 <translation id="8445362773033888690">Ver na Google Play Store</translation>
 <translation id="8509907436388546015">Processo de integração da área de trabalho</translation>
 <translation id="8513093439376855948">Host de mensagens nativas para gerenciamento de host remoto</translation>
@@ -306,6 +309,7 @@ remota do Google Chrome</translation>
 <translation id="951991426597076286">Recusar</translation>
 <translation id="962733587145768554">Selecione "<ph name="SHARE" />" na caixa de diálogo de conexão para concluir o processo.</translation>
 <translation id="979100198331752041">A Área de trabalho remota do Google Chrome em <ph name="HOSTNAME" /> está desatualizada e precisa ser atualizada.</translation>
+<translation id="981121421437150478">Off-line</translation>
 <translation id="985602178874221306">Autores do Chromium</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (última vez on-line em <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

@@ -65,6 +65,7 @@ Voor meer informatie over privacy bekijk je het Privacybeleid van Google (http:/
 <translation id="228809120910082333">Bevestig je account en pincode hieronder om toegang door Chromoting toe te staan.</translation>
 <translation id="2314101195544969792">Je <ph name="APPLICATION_NAME" />-sessie is al enige tijd inactief. Binnenkort wordt de verbinding verbroken.</translation>
 <translation id="2317666076142640974">Bekijk een voorproefje van de nieuwe <ph name="LINK_BEGIN" />Chrome Remote Desktop-webapp<ph name="LINK_END" />. We horen graag wat je ervan vindt.</translation>
+<translation id="2320166752086256636">Toetsenbord verbergen</translation>
 <translation id="2353140552984634198">Je kunt veilig toegang krijgen tot deze computer via Chromoting.</translation>
 <translation id="2359808026110333948">Doorgaan</translation>
 <translation id="2366718077645204424">Kan de host niet bereiken. Dit komt waarschijnlijk door de configuratie van het netwerk dat je gebruikt.</translation>
@@ -78,9 +79,9 @@ Voor meer informatie over privacy bekijk je het Privacybeleid van Google (http:/
 <translation id="2676780859508944670">Bezig…</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Software-updates worden gewoonlijk automatisch uitgevoerd, maar kunnen in zeldzame gevallen mislukken. Het bijwerken van de software duurt slechts een paar minuten en kan worden gedaan terwijl je extern bent verbonden met je computer.</translation>
+<translation id="2803375539583399270">Pincode opgeven</translation>
 <translation id="2841013758207633010">Tijd</translation>
 <translation id="2851754573186462851">Streaming via Chromium-app</translation>
-<translation id="2855866366045322178">offline</translation>
 <translation id="2888969873284818612">Er is een netwerkfout opgetreden. We starten de app opnieuw wanneer je apparaat weer online is.</translation>
 <translation id="2894654864775534701">Deze computer wordt momenteel via een ander account gedeeld.</translation>
 <translation id="2919669478609886916">Je deelt deze computer momenteel met een andere gebruiker. Wil je doorgaan met delen?</translation>
@@ -201,6 +202,7 @@ Desktop-host</translation>
 <translation id="6062854958530969723">Initialisatie van host mislukt.</translation>
 <translation id="6091564239975589852">Toetsen verzenden</translation>
 <translation id="6099500228377758828">Chrome Remote Desktop-service</translation>
+<translation id="6122191549521593678">Online</translation>
 <translation id="6167788864044230298">Streaming via Chrome-app</translation>
 <translation id="6173536234069435147">Ik kan mijn Google Drive-bestanden niet openen.</translation>
 <translation id="6178645564515549384">Systeemeigen berichthost voor externe ondersteuning</translation>
@@ -222,7 +224,6 @@ Desktop-host</translation>
 <translation id="6570205395680337606">De app opnieuw instellen. Al je niet-opgeslagen werk gaat verloren.</translation>
 <translation id="6572345186230665992">Voor Mac (OS X Mavericks 10.9 en hoger)</translation>
 <translation id="6612717000975622067">Ctrl-Alt-Del verzenden</translation>
-<translation id="6640610550128933069">laatst online: <ph name="DATE" /></translation>
 <translation id="6668065415969892472">Je pincode is bijgewerkt.</translation>
 <translation id="6681800064886881394">Copyright 2013 Google Inc. Alle rechten voorbehouden.</translation>
 <translation id="6705482892455291412">Zodra ze de code opgeven, wordt je gevraagd de verbinding te accepteren en de deelsessie te starten.</translation>
@@ -250,6 +251,7 @@ Desktop-host</translation>
 <translation id="7401733114166276557">Chrome Remote Desktop</translation>
 <translation id="7434397035092923453">Toegang geweigerd voor client: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Client verbonden: <ph name="CLIENT_USERNAME" />.</translation>
+<translation id="7526139040829362392">Account wijzigen</translation>
 <translation id="7589941250119944644">Chrome Remote Desktop krijgt een nieuwe locatie op internet. Probeer onze snelle, gratis <ph name="LINK_BEGIN" />webapp<ph name="LINK_END" /> met dezelfde functies als voorheen.</translation>
 <translation id="7606912958770842224">Externe verbindingen inschakelen</translation>
 <translation id="7649070708921625228">Help</translation>
@@ -283,6 +285,7 @@ Desktop-host</translation>
 <translation id="837021510621780684">Vanaf deze computer</translation>
 <translation id="8383794970363966105">Als je Chromoting wilt gebruiken, moet je een Google-account aan je apparaat toevoegen</translation>
 <translation id="8386846956409881180">Host is geconfigureerd met ongeldige OAuth-inloggegevens.</translation>
+<translation id="8428213095426709021">Instellingen</translation>
 <translation id="8445362773033888690">Bekijken in de Google Play Store</translation>
 <translation id="8509907436388546015">Desktopintegratieproces</translation>
 <translation id="8513093439376855948">Systeemeigen berichthost voor extern hostbeheer</translation>
@@ -306,6 +309,7 @@ Desktop-host</translation>
 <translation id="951991426597076286">Afwijzen</translation>
 <translation id="962733587145768554">Selecteer <ph name="SHARE" /> in het dialoogvenster voor de verbinding om het proces te voltooien.</translation>
 <translation id="979100198331752041">Chrome Remote Desktop op <ph name="HOSTNAME" /> is verouderd en moet worden bijgewerkt.</translation>
+<translation id="981121421437150478">Offline</translation>
 <translation id="985602178874221306">De auteurs van Chromium</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (laatst online: <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>

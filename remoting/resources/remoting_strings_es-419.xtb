@@ -65,6 +65,7 @@ Para obtener más información sobre la privacidad, consulta la política de pri
 <translation id="228809120910082333">Confirma la cuenta y el PIN a continuación para permitir el acceso de Chromoting.</translation>
 <translation id="2314101195544969792">La sesión de <ph name="APPLICATION_NAME" /> estuvo inactiva por un tiempo y se desconectará en breve.</translation>
 <translation id="2317666076142640974">Obtén un adelanto de la nueva <ph name="LINK_BEGIN" />app web de Escritorio remoto de Chrome<ph name="LINK_END" />. Nos encantaría conocer tus comentarios.</translation>
+<translation id="2320166752086256636">Ocultar el teclado</translation>
 <translation id="2353140552984634198">Puedes acceder a esta computadora sin correr ningún riesgo a través de Chromoting.</translation>
 <translation id="2359808026110333948">Continuar</translation>
 <translation id="2366718077645204424">No se puede establecer la conexión con el host. Probablemente esto se deba a la configuración de la red que usas.</translation>
@@ -78,9 +79,9 @@ Para obtener más información sobre la privacidad, consulta la política de pri
 <translation id="2676780859508944670">Operación en curso…</translation>
 <translation id="2699970397166997657">Chromoting</translation>
 <translation id="2747641796667576127">Las actualizaciones de software, por lo general, se realizan de forma automática, pero puede haber errores en casos excepcionales. La actualización del software no debe tardar más de unos minutos y se puede hacer mientras estás conectado a tu computadora de forma remota.</translation>
+<translation id="2803375539583399270">Ingresar PIN</translation>
 <translation id="2841013758207633010">Hora</translation>
 <translation id="2851754573186462851">Chromium App Streaming</translation>
-<translation id="2855866366045322178">Sin conexión</translation>
 <translation id="2888969873284818612">Se produjo un error en la red. Reiniciaremos la aplicación cuando el dispositivo esté en línea nuevamente.</translation>
 <translation id="2894654864775534701">Actualmente, la computadora se comparte con una cuenta diferente.</translation>
 <translation id="2919669478609886916">En este momento compartes esta computadora con otro usuario. ¿Deseas continuar compartiéndola?</translation>
@@ -201,6 +202,7 @@ remoto de Chrome</translation>
 <translation id="6062854958530969723">Error al iniciar el host</translation>
 <translation id="6091564239975589852">Enviar teclas</translation>
 <translation id="6099500228377758828">Servicio del Escritorio remoto de Chrome</translation>
+<translation id="6122191549521593678">En línea</translation>
 <translation id="6167788864044230298">Chrome App Streaming</translation>
 <translation id="6173536234069435147">No puedo abrir mis archivos de Google Drive.</translation>
 <translation id="6178645564515549384">Host de mensajería nativa para asistencia remota</translation>
@@ -222,7 +224,6 @@ remoto de Chrome</translation>
 <translation id="6570205395680337606">Restablece la aplicación. Perderás todo el trabajo que no se haya guardado.</translation>
 <translation id="6572345186230665992">Para Mac (OS X Mavericks 10.9 y versiones posteriores)</translation>
 <translation id="6612717000975622067">Enviar Ctrl-Alt-Supr</translation>
-<translation id="6640610550128933069">Última vez en línea el <ph name="DATE" /></translation>
 <translation id="6668065415969892472">Se actualizó tu PIN.</translation>
 <translation id="6681800064886881394">Copyright 2013 Google Inc. Todos los derechos reservados.</translation>
 <translation id="6705482892455291412">Después de ingresar el código, se te pedirá que aceptes la conexión e inicies la sesión de uso compartido.</translation>
@@ -250,6 +251,7 @@ remoto de Chrome</translation>
 <translation id="7401733114166276557">Escritorio remoto de Chrome</translation>
 <translation id="7434397035092923453">Acceso rechazado para cliente: <ph name="CLIENT_USERNAME" /></translation>
 <translation id="7444276978508498879">Cliente conectado: <ph name="CLIENT_USERNAME" /></translation>
+<translation id="7526139040829362392">Cambiar cuenta</translation>
 <translation id="7589941250119944644">Escritorio remoto de Chrome llega a la Web. Prueba nuestra <ph name="LINK_BEGIN" />app web<ph name="LINK_END" />. Es rápida y gratuita, y cuenta con las mismas funciones que antes.</translation>
 <translation id="7606912958770842224">Habilitar conexiones remotas</translation>
 <translation id="7649070708921625228">Ayuda</translation>
@@ -283,6 +285,7 @@ remoto de Chrome</translation>
 <translation id="837021510621780684">Desde esta computadora</translation>
 <translation id="8383794970363966105">Para utilizar Chromoting, debes agregar una cuenta de Google en el dispositivo.</translation>
 <translation id="8386846956409881180">El host está configurado con credenciales OAuth que no son válidas.</translation>
+<translation id="8428213095426709021">Configuración</translation>
 <translation id="8445362773033888690">Ver en Google Play Store</translation>
 <translation id="8509907436388546015">Proceso de integración de escritorio</translation>
 <translation id="8513093439376855948">Host de mensajería nativa para administración de host remota</translation>
@@ -306,6 +309,7 @@ remoto de Chrome</translation>
 <translation id="951991426597076286">Rechazar</translation>
 <translation id="962733587145768554">Selecciona "<ph name="SHARE" />" en el cuadro de diálogo de conexión para completar el proceso.</translation>
 <translation id="979100198331752041">La aplicación Escritorio remoto de Chrome en <ph name="HOSTNAME" /> está desactualizada y debe actualizarse.</translation>
+<translation id="981121421437150478">Sin conexión</translation>
 <translation id="985602178874221306">Los creadores de Chromium</translation>
 <translation id="992215271654996353"><ph name="HOSTNAME" /> (en línea por última vez: <ph name="DATE_OR_TIME" />)</translation>
 </translationbundle>
