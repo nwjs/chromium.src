@@ -28,6 +28,18 @@
 #include "core/workers/InProcessWorkerMessagingProxy.h"
 
 #include <memory>
+#include "third_party/node-nw/src/node_webkit.h"
+#define BLINK_HOOK_MAP(type, sym, fn) BLINK_EXPORT type fn = nullptr;
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
+#include "base/command_line.h"
+
 #include "core/dom/Document.h"
 #include "core/dom/SecurityContext.h"
 #include "core/events/ErrorEvent.h"
@@ -93,6 +105,13 @@ void InProcessWorkerMessagingProxy::StartWorkerGlobalScope(
 
   Document* document = ToDocument(GetExecutionContext());
   SecurityOrigin* starter_origin = document->GetSecurityOrigin();
+  const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
+
+  bool isNodeJS = document->GetFrame() && document->GetFrame()->isNodeJS() && command_line.HasSwitch("enable-node-worker");
+  std::string main_script;
+  if (g_web_worker_start_thread_fn) {
+    (*g_web_worker_start_thread_fn)(document->GetFrame(), (void*)script_url.GetPath().Utf8().Data(), &main_script, &isNodeJS);
+  }
 
   ContentSecurityPolicy* csp = document->GetContentSecurityPolicy();
   DCHECK(csp);
@@ -107,7 +126,7 @@ void InProcessWorkerMessagingProxy::StartWorkerGlobalScope(
           ? WorkerV8Settings::HeapLimitMode::kIncreasedForDebugging
           : WorkerV8Settings::HeapLimitMode::kDefault;
   std::unique_ptr<WorkerThreadStartupData> startup_data =
-      WorkerThreadStartupData::Create(
+      WorkerThreadStartupData::Create(isNodeJS, main_script,
           script_url, user_agent, source_code, nullptr, start_mode,
           csp->Headers().get(), referrer_policy, starter_origin,
           worker_clients_.Release(), document->AddressSpace(),

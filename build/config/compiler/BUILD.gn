@@ -62,8 +62,8 @@ declare_args() {
 
   # Omit unwind support in official builds to save space.
   # We can use breakpad for these builds.
-  exclude_unwind_tables = (is_chrome_branded && is_official_build) ||
-                          (is_chromecast && !is_cast_desktop_build && !is_debug)
+  exclude_unwind_tables = true #(is_chrome_branded && is_official_build) ||
+                          #(is_chromecast && !is_cast_desktop_build && !is_debug)
 
   # If true, optimize for size. Does not affect windows builds.
   # Linux & Mac favor speed over size.
@@ -395,7 +395,7 @@ config("compiler") {
     # doesn't currently work on non-chromeos platforms.
     # Additionally, on Android x86 --icf=safe seems to cause issues as well.
     # Additionally, on cast Android x86, --icf=all causes issues.
-    if (is_android && current_cpu == "x86") {
+    if ((is_linux || is_android) && current_cpu == "x86") {
       ldflags += [ "-Wl,--icf=none" ]
     } else if ((is_clang && !is_android) || is_chromeos ||
                (current_cpu != "x86" && current_cpu != "x64")) {
@@ -963,6 +963,7 @@ config("default_warnings") {
       "/wd4457",
       "/wd4458",
       "/wd4459",
+      "/wd4275",
     ]
 
     cflags_cc += [

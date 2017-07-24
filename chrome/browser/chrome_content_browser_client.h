@@ -154,6 +154,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
                       int render_frame_id,
                       const net::CookieOptions& options) override;
   bool AllowSaveLocalState(content::ResourceContext* context) override;
+  base::FilePath GetRootPath() override;
   void AllowWorkerFileSystem(
       const GURL& url,
       content::ResourceContext* context,

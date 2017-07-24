@@ -33,6 +33,10 @@
   "chrome/app/address_input_strings.grd": {
     "messages": [400],
   },
+  "chrome/browser/browser_resources.grd": {
+    "includes": [400],
+    "structures": [850],
+  },
 
   # Chromium strings and Google Chrome strings must start at the same id.
   # We only use one file depending on whether we're building Chromium or
@@ -362,4 +366,8 @@
   # Please read the header and find the right section above instead.
 
   # Resource ids starting at 31000 are reserved for projects built on Chromium.
+  "chrome/browser/nwjs_resources.grd": {
+    "includes": [32000],
+    "structures": [32350],
+  },
 }
