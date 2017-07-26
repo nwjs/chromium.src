@@ -90,7 +90,7 @@ class GetNavigationPolicyTest : public testing::Test {
                         WebInputEvent::kTimeStampForTesting);
     event.button = button;
     web_view_->SetCurrentInputEventForTest(&event);
-    chrome_client_impl_->SetToolbarsVisible(!as_popup);
+    chrome_client_impl_->SetScrollbarsVisible(!as_popup);
     chrome_client_impl_->Show(kNavigationPolicyIgnore);
     web_view_->SetCurrentInputEventForTest(0);
     return result_;
@@ -214,23 +214,23 @@ TEST_F(GetNavigationPolicyTest, NoToolbarsForcesPopup) {
   EXPECT_FALSE(IsNavigationPolicyPopup());
 }
 
-TEST_F(GetNavigationPolicyTest, NoStatusbarIsNotPopup) {
+TEST_F(GetNavigationPolicyTest, NoStatusbarForcesPopup) {
   chrome_client_impl_->SetStatusbarVisible(false);
-  EXPECT_FALSE(IsNavigationPolicyPopup());
+  EXPECT_TRUE(IsNavigationPolicyPopup());
   chrome_client_impl_->SetStatusbarVisible(true);
   EXPECT_FALSE(IsNavigationPolicyPopup());
 }
 
-TEST_F(GetNavigationPolicyTest, NoMenubarIsNotPopup) {
+TEST_F(GetNavigationPolicyTest, NoMenubarForcesPopup) {
   chrome_client_impl_->SetMenubarVisible(false);
-  EXPECT_FALSE(IsNavigationPolicyPopup());
+  EXPECT_TRUE(IsNavigationPolicyPopup());
   chrome_client_impl_->SetMenubarVisible(true);
   EXPECT_FALSE(IsNavigationPolicyPopup());
 }
 
-TEST_F(GetNavigationPolicyTest, NotResizableIsNotPopup) {
+TEST_F(GetNavigationPolicyTest, NotResizableForcesPopup) {
   chrome_client_impl_->SetResizable(false);
-  EXPECT_FALSE(IsNavigationPolicyPopup());
+  EXPECT_TRUE(IsNavigationPolicyPopup());
   chrome_client_impl_->SetResizable(true);
   EXPECT_FALSE(IsNavigationPolicyPopup());
 }

@@ -335,19 +335,12 @@ void UpdatePolicyForEvent(const WebInputEvent* input_event,
 }
 
 WebNavigationPolicy GetNavigationPolicy(const WindowFeatures& features) {
-  // If the window features didn't enable the toolbar, or this window wasn't
-  // created by a user gesture, show as a popup instead of a new tab.
-  //
-  // Note: this previously also checked that menubar, resizable, scrollbar, and
-  // statusbar are enabled too. When no feature string is specified, these
-  // features default to enabled (and the window opens as a new tab). However,
-  // when a feature string is specified, any *unspecified* features default to
-  // disabled, often causing the window to open as a popup instead.
-  //
-  // As specifying menubar, resizable, scrollbar, and statusbar have no effect
-  // on the UI, just ignore them and only consider whether or not the toolbar is
-  // enabled, which matches Firefox's behavior.
-  bool as_popup = !features.tool_bar_visible;
+  // If our default configuration was modified by a script or wasn't
+  // created by a user gesture, then show as a popup. Else, let this
+  // new window be opened as a toplevel window.
+  bool as_popup = !features.tool_bar_visible || !features.status_bar_visible ||
+                  !features.scrollbars_visible || !features.menu_bar_visible ||
+                  !features.resizable;
 
   NavigationPolicy policy = kNavigationPolicyNewForegroundTab;
   if (as_popup)
