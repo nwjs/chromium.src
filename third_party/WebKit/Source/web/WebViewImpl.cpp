@@ -68,6 +68,7 @@
 #include "core/html/HTMLMediaElement.h"
 #include "core/html/HTMLPlugInElement.h"
 #include "core/html/HTMLTextAreaElement.h"
+#include "core/html/PluginDocument.h"
 #include "core/input/ContextMenuAllowedScope.h"
 #include "core/input/EventHandler.h"
 #include "core/input/TouchActionUtil.h"
@@ -2898,8 +2899,12 @@ void WebViewImpl::PropagateZoomFactorToLocalFrameRoots(Frame* frame,
                                                        float zoom_factor) {
   if (frame->IsLocalRoot()) {
     LocalFrame* local_frame = ToLocalFrame(frame);
-    if (!local_frame->GetWebPluginContainerBase())
-      local_frame->SetPageZoomFactor(zoom_factor);
+    if (Document* document = local_frame->GetDocument()) {
+      if (!document->IsPluginDocument() ||
+          !ToPluginDocument(document)->GetPluginView()) {
+        local_frame->SetPageZoomFactor(zoom_factor);
+      }
+    }
   }
 
   for (Frame* child = frame->Tree().FirstChild(); child;
