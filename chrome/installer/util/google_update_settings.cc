@@ -196,7 +196,7 @@ bool GoogleUpdateSettings::IsSystemInstall() {
 }
 
 bool GoogleUpdateSettings::GetCollectStatsConsent() {
-  return GetCollectStatsConsentAtLevel(IsSystemInstall());
+  return false; //GetCollectStatsConsentAtLevel(IsSystemInstall());
 }
 
 bool GoogleUpdateSettings::SetCollectStatsConsent(bool consented) {

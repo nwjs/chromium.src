@@ -249,9 +249,13 @@ bool ChromeMetricsServicesManagerClient::IsMetricsReportingEnabled() {
 }
 
 bool ChromeMetricsServicesManagerClient::OnlyDoMetricsRecording() {
+#if 1
+  return true;
+#else
   const base::CommandLine* cmdline = base::CommandLine::ForCurrentProcess();
   return cmdline->HasSwitch(switches::kMetricsRecordingOnly) ||
          cmdline->HasSwitch(switches::kEnableBenchmarking);
+#endif
 }
 
 #if defined(OS_WIN)

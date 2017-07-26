@@ -66,6 +66,7 @@ class Manifest {
     TYPE_PLATFORM_APP,
     TYPE_SHARED_MODULE,
 
+    TYPE_NWJS_APP,
     // New enum values must go above here.
     NUM_LOAD_TYPES
   };
@@ -147,7 +148,8 @@ class Manifest {
   bool is_app() const {
     return is_legacy_packaged_app() || is_hosted_app() || is_platform_app();
   }
-  bool is_platform_app() const { return type_ == TYPE_PLATFORM_APP; }
+  bool is_platform_app() const { return type_ == TYPE_PLATFORM_APP || type_ == TYPE_NWJS_APP; }
+  bool is_nwjs_app() const { return type_ == TYPE_NWJS_APP; }
   bool is_hosted_app() const { return type_ == TYPE_HOSTED_APP; }
   bool is_legacy_packaged_app() const {
     return type_ == TYPE_LEGACY_PACKAGED_APP;

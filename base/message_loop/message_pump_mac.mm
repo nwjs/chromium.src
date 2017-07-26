@@ -23,15 +23,7 @@
 
 namespace base {
 
-namespace {
-
-// AppKit RunLoop modes observed to potentially run tasks posted to Chrome's
-// main thread task runner. Some are internal to AppKit but must be observed to
-// keep Chrome's UI responsive. Others that may be interesting, but are not
-// watched:
-//  - com.apple.hitoolbox.windows.transitionmode
-//  - com.apple.hitoolbox.windows.flushmode
-const CFStringRef kAllModes[] = {
+const CFStringRef MessagePumpCFRunLoopBase::kAllModes[] = {
     kCFRunLoopCommonModes,
 
     // Mode that only sees Chrome work sources.
@@ -43,6 +35,15 @@ const CFStringRef kAllModes[] = {
     // Process work when AppKit is highlighting an item on the main menubar.
     CFSTR("NSUnhighlightMenuRunLoopMode"),
 };
+const size_t MessagePumpCFRunLoopBase::nAllModes = arraysize(MessagePumpCFRunLoopBase::kAllModes);
+namespace {
+
+// AppKit RunLoop modes observed to potentially run tasks posted to Chrome's
+// main thread task runner. Some are internal to AppKit but must be observed to
+// keep Chrome's UI responsive. Others that may be interesting, but are not
+// watched:
+//  - com.apple.hitoolbox.windows.transitionmode
+//  - com.apple.hitoolbox.windows.flushmode
 
 // Mask that determines which modes in |kAllModes| to use.
 enum { kCommonModeMask = 0x1, kAllModesMask = ~0 };
@@ -297,17 +298,6 @@ AutoreleasePoolType* MessagePumpCFRunLoopBase::CreateAutoreleasePool() {
   return [[NSAutoreleasePool alloc] init];
 }
 
-template <typename Argument>
-void MessagePumpCFRunLoopBase::InvokeForEnabledModes(void method(CFRunLoopRef,
-                                                                 Argument,
-                                                                 CFStringRef),
-                                                     Argument argument) {
-  for (size_t i = 0; i < arraysize(kAllModes); ++i) {
-    if (mode_mask_ & (0x1 << i))
-      method(run_loop_, argument, kAllModes[i]);
-  }
-}
-
 #if !defined(OS_IOS)
 // This function uses private API to modify a test timer's valid state and
 // uses public API to confirm that the private API changed the correct bit.
@@ -549,7 +539,11 @@ void MessagePumpCFRunLoopBase::PreWaitObserver(CFRunLoopObserverRef observer,
     // nesting-deferred work may have accumulated.  Schedule it for processing
     // if appropriate.
     self->MaybeScheduleNestingDeferredWork();
+    self->PreWaitObserverHook();
   });
+}
+
+void MessagePumpCFRunLoopBase::PreWaitObserverHook() {
 }
 
 // Called from the run loop.

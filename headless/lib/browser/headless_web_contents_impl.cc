@@ -82,7 +82,8 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
       const std::string& frame_name,
       const GURL& target_url,
       content::WebContents* new_contents,
-      const base::Optional<content::WebContents::CreateParams>& create_params)
+      const base::Optional<content::WebContents::CreateParams>& create_params,
+      const base::string16& nw_window_manifest)
       override {
     std::unique_ptr<HeadlessWebContentsImpl> web_contents =
         HeadlessWebContentsImpl::CreateFromWebContents(new_contents,
