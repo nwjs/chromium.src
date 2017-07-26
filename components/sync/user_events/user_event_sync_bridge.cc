@@ -123,6 +123,11 @@ void UserEventSyncBridge::DisableSync() {
 
 void UserEventSyncBridge::RecordUserEvent(
     std::unique_ptr<UserEventSpecifics> specifics) {
+  // TODO(skym): Remove this when ModelTypeStore synchronously returns a
+  // partially initialized reference, see crbug.com/709094.
+  if (!store_) {
+    return;
+  }
   std::string storage_key = GetStorageKeyFromSpecifics(*specifics);
   std::unique_ptr<WriteBatch> batch = store_->CreateWriteBatch();
   batch->WriteData(storage_key, specifics->SerializeAsString());
