@@ -794,6 +794,24 @@ WebViewInternalLoadDataWithBaseUrlFunction::Run() {
   return RespondNow(Error(error));
 }
 
+WebViewInternalShowDevToolsFunction::WebViewInternalShowDevToolsFunction() {
+}
+
+WebViewInternalShowDevToolsFunction::~WebViewInternalShowDevToolsFunction() {
+}
+
+bool WebViewInternalShowDevToolsFunction::RunAsyncSafe(WebViewGuest* guest) {
+  std::unique_ptr<web_view_internal::ShowDevTools::Params> params(
+      web_view_internal::ShowDevTools::Params::Create(*args_));
+  EXTENSION_FUNCTION_VALIDATE(params.get());
+
+  int proc_id = params->proc_id ? *params->proc_id : -1;
+  int guest_id = params->guest_id ? *params->guest_id : -1;
+  guest->ShowDevTools(params->show, proc_id, guest_id);
+  SendResponse(true);
+  return true;
+}
+
 WebViewInternalGoFunction::WebViewInternalGoFunction() {
 }
 
