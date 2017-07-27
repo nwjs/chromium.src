@@ -908,7 +908,6 @@ void AppListView::SetState(AppListState new_state) {
           StartAnimationForState(new_state_override);
           app_list_main_view_->contents_view()->SetActiveState(
               AppListModel::STATE_START);
-          search_box_view()->ClearSearch();
           break;
         }
         case FULLSCREEN_SEARCH:
