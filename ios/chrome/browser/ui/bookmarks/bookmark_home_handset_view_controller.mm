@@ -158,6 +158,7 @@ defaultMoveFolderFromBookmarks:(const std::set<const BookmarkNode*>&)bookmarks
   [self.panelView.contentView addSubview:self.contentView];
 
   [self.panelView.menuView addSubview:self.menuView];
+  [self.menuView setFrame:self.panelView.menuView.bounds];
 
   // Load the last primary menu item which the user had active.
   BookmarkMenuItem* item = nil;
