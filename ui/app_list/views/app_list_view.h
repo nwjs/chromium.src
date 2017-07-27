@@ -105,9 +105,6 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDialogDelegateView,
       gfx::NativeView child,
       const gfx::Point& location) override;
 
-  // Gets the PaginationModel owned by this view's apps grid.
-  PaginationModel* GetAppsPaginationModel();
-
   // Overridden from views::View:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
   void Layout() override;
@@ -124,22 +121,28 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDialogDelegateView,
   // whether the search box is empty.
   void SetStateFromSearchBoxView(bool search_box_is_empty);
 
+  // Sets y position of the app list bounds to |y_position_in_screen|.
+  void SetYPosition(int y_position_in_screen);
+
   // Called when tablet mode starts and ends.
   void OnTabletModeChanged(bool started);
+
+  // Changes |app_list_state_| from |PEEKING| to |FULLSCREEN_ALL_APPS|.
+  bool HandleScroll(const ui::Event* event);
 
   bool is_fullscreen() const {
     return app_list_state_ == FULLSCREEN_ALL_APPS ||
            app_list_state_ == FULLSCREEN_SEARCH;
   }
-
   AppListState app_list_state() const { return app_list_state_; }
+  // Gets the PaginationModel owned by this view's apps grid.
+  PaginationModel* GetAppsPaginationModel();
   AppListMainView* app_list_main_view() const { return app_list_main_view_; }
   views::Widget* search_box_widget() const { return search_box_widget_; }
   SearchBoxView* search_box_view() const { return search_box_view_; }
-
-  // Changes |app_list_state_| from |PEEKING| to |FULLSCREEN_ALL_APPS|.
-  bool HandleScroll(const ui::Event* event);
-
+  views::Widget* get_fullscreen_widget_for_test() const {
+    return fullscreen_widget_;
+  }
  private:
   friend class test::AppListViewTestApi;
 
