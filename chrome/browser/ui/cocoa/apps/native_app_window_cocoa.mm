@@ -693,7 +693,9 @@ void NativeAppWindowCocoa::RenderViewCreated(content::RenderViewHost* rvh) {
   if (content::g_support_transparency &&
       app_window_->requested_alpha_enabled() && CanHaveAlphaEnabled()) {
     content::RenderWidgetHostView* view = rvh->GetWidget()->GetView();
-    DCHECK(view);
+    // Workaround, SetBackgroundColor is "blocked" if the previous color is the same
+    // So set it to (0,1,1,1) then to transparent
+    view->SetBackgroundColor(SkColorSetARGB(0,1,1,1));
     view->SetBackgroundColor(SK_ColorTRANSPARENT);
   }
 }
