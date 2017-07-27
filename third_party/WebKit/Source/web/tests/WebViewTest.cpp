@@ -50,6 +50,7 @@
 #include "core/frame/WebLocalFrameBase.h"
 #include "core/html/HTMLIFrameElement.h"
 #include "core/html/HTMLInputElement.h"
+#include "core/html/HTMLObjectElement.h"
 #include "core/html/HTMLTextAreaElement.h"
 #include "core/layout/api/LayoutViewItem.h"
 #include "core/loader/DocumentLoader.h"
@@ -110,6 +111,7 @@
 #include "web/DevToolsEmulator.h"
 #include "web/WebInputMethodControllerImpl.h"
 #include "web/WebSettingsImpl.h"
+#include "web/tests/FakeWebPlugin.h"
 #include "web/tests/FrameTestHelpers.h"
 
 #if OS(MACOSX)
@@ -4342,6 +4344,39 @@ TEST_P(WebViewTest, DeviceEmulationResetScrollbars) {
   } else {
     EXPECT_NE(nullptr, frame_view->VerticalScrollbar());
   }
+}
+
+TEST_P(WebViewTest, SetZoomLevelWhilePluginFocused) {
+  class PluginCreatingWebFrameClient
+      : public FrameTestHelpers::TestWebFrameClient {
+   public:
+    // WebFrameClient overrides:
+    WebPlugin* CreatePlugin(const WebPluginParams& params) override {
+      return new FakeWebPlugin(params);
+    }
+  };
+  PluginCreatingWebFrameClient frame_client;
+  WebViewBase* web_view = web_view_helper_.Initialize(true, &frame_client);
+  WebURL base_url = URLTestHelpers::ToKURL("https://example.com/");
+  FrameTestHelpers::LoadHTMLString(
+      web_view->MainFrameImpl(),
+      "<!DOCTYPE html><html><body>"
+      "<object type='application/x-webkit-test-plugin'></object>"
+      "</body></html>",
+      base_url);
+  // Verify the plugin is loaded.
+  LocalFrame* main_frame = web_view->MainFrameImpl()->GetFrame();
+  HTMLObjectElement* plugin_element =
+      toHTMLObjectElement(main_frame->GetDocument()->body()->firstChild());
+  EXPECT_TRUE(plugin_element->OwnedPlugin());
+  // Focus the plugin element, and then change the zoom level on the WebView.
+  plugin_element->focus();
+  EXPECT_FLOAT_EQ(1.0f, main_frame->PageZoomFactor());
+  web_view->SetZoomLevel(-1.0);
+  // Even though the plugin is focused, the entire frame's zoom factor should
+  // still be updated.
+  EXPECT_FLOAT_EQ(5.0f / 6.0f, main_frame->PageZoomFactor());
+  web_view_helper_.Reset();  // Remove dependency on locally scoped client.
 }
 
 }  // namespace blink
