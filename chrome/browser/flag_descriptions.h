@@ -145,9 +145,6 @@ extern const char kDevtoolsExperimentsDescription[];
 extern const char kDisableAudioForDesktopShareName[];
 extern const char kDisableAudioForDesktopShareDescription[];
 
-extern const char kDisableNightLightName[];
-extern const char kDisableNightLightDescription[];
-
 extern const char kDisableTabForDesktopShareName[];
 extern const char kDisableTabForDesktopShareDescription[];
 
@@ -247,6 +244,9 @@ extern const char kEnableNavigationTracingDescription[];
 
 extern const char kEnableNetworkServiceName[];
 extern const char kEnableNetworkServiceDescription[];
+
+extern const char kEnableNightLightName[];
+extern const char kEnableNightLightDescription[];
 
 extern const char kEnablePictureInPictureName[];
 extern const char kEnablePictureInPictureDescription[];
