@@ -419,7 +419,7 @@ TEST_F(RemotePlaybackTest, IsListening) {
   ASSERT_FALSE(IsListening(remote_playback));
 
   remote_playback->SourceChanged(
-      WebURL(KURL(kParsedURLString, "http://www.example.com")), true);
+      WebURL(KURL(kParsedURLString, "http://www.example.com")));
   ASSERT_EQ((size_t)1, remote_playback->Urls().size());
   ASSERT_TRUE(IsListening(remote_playback));
   remote_playback->AvailabilityChanged(mojom::ScreenAvailability::AVAILABLE);
@@ -434,12 +434,11 @@ TEST_F(RemotePlaybackTest, IsListening) {
   ASSERT_TRUE(IsListening(remote_playback));
   remote_playback->AvailabilityChanged(mojom::ScreenAvailability::AVAILABLE);
 
-  remote_playback->SourceChanged(WebURL(), false);
+  remote_playback->SourceChanged(WebURL());
   ASSERT_TRUE(remote_playback->Urls().empty());
   ASSERT_FALSE(IsListening(remote_playback));
 
-  remote_playback->SourceChanged(WebURL(KURL(kParsedURLString, "@$@#@#")),
-                                 true);
+  remote_playback->SourceChanged(WebURL(KURL(kParsedURLString, "@$@#@#")));
   ASSERT_TRUE(remote_playback->Urls().empty());
   ASSERT_FALSE(IsListening(remote_playback));
 
