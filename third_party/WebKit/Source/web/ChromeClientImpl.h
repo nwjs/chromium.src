@@ -248,6 +248,10 @@ class WEB_EXPORT ChromeClientImpl final : public ChromeClient {
 
   void SetCursor(const WebCursorInfo&, LocalFrame*);
 
+  // Returns WebAutofillClient associated with the WebLocalFrame. This takes and
+  // returns nullable.
+  WebAutofillClient* AutofillClientFromFrame(LocalFrame*);
+
   WebViewBase* web_view_;  // Weak pointer.
   WindowFeatures window_features_;
   Vector<PopupOpeningObserver*> popup_opening_observers_;
