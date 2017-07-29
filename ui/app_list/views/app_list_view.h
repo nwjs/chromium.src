@@ -143,6 +143,7 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDialogDelegateView,
   views::Widget* get_fullscreen_widget_for_test() const {
     return fullscreen_widget_;
   }
+
  private:
   friend class test::AppListViewTestApi;
 
