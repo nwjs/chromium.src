@@ -43,6 +43,7 @@ namespace blink {
 
 class PagePopup;
 class PagePopupClient;
+class WebAutofillClient;
 class WebViewBase;
 struct WebCursorInfo;
 
