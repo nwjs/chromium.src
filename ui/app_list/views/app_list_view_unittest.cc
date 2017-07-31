@@ -358,6 +358,35 @@ TEST_F(AppListViewFullscreenTest, EscapeKeySideShelfSearchToFullscreen) {
   ASSERT_EQ(view_->app_list_state(), AppListView::FULLSCREEN_ALL_APPS);
 }
 
+// Tests that in fullscreen, the app list has multiple pages with enough apps.
+TEST_F(AppListViewFullscreenTest, PopulateAppsCreatesAnotherPage) {
+  Initialize(0, false, false);
+  delegate_->GetTestModel()->PopulateApps(kInitialItems);
+
+  Show();
+
+  ASSERT_EQ(GetPaginationModel()->total_pages(), 2);
+}
+
+// Tests that even if initialize is called again with a different initial page,
+// that for fullscreen we always select the first page.
+TEST_F(AppListViewFullscreenTest, MultiplePagesAlwaysReinitializeOnFirstPage) {
+  Initialize(0, false, false);
+  delegate_->GetTestModel()->PopulateApps(kInitialItems);
+
+  // Show and close the widget once.
+  Show();
+  view_->GetWidget()->Close();
+  // Set it up again with a nonzero initial page.
+  view_ = new AppListView(delegate_.get());
+  view_->Initialize(GetContext(), 1, false, false);
+  const gfx::Size size = view_->bounds().size();
+  view_->MaybeSetAnchorPoint(gfx::Point(size.width() / 2, size.height() / 2));
+  Show();
+
+  ASSERT_EQ(view_->GetAppsPaginationModel()->selected_page(), 0);
+}
+
 // Tests the focus change in search box view and start page view triggered by
 // tab key .
 TEST_F(AppListViewFullscreenTest, StartPageTabFocusTest) {
@@ -698,59 +727,22 @@ TEST_F(AppListViewTest, AppListOverlayTest) {
             view_->GetWidget()->GetFocusManager()->GetFocusedView());
 }
 
-// Tests the focus change in search box view and start page view triggered by
-// tab key .
-TEST_F(AppListViewFullscreenTest, StartPageTabFocusTest) {
-  AppListTestModel* model = delegate_->GetTestModel();
-  AppListMainView* main_view = view_->app_list_main_view();
-  StartPageView* start_page_view =
-      main_view->contents_view()->start_page_view();
-  SearchBoxView* search_box_view = main_view->search_box_view();
+// Tests that even if initialize is called again with a different initial page,
+// that different initial page is respected.
+TEST_F(AppListViewTest, MultiplePagesReinitializeOnInputPage) {
+  delegate_->GetTestModel()->PopulateApps(kInitialItems);
 
-  // Adds 3 suggestion apps to the start page view and show start page view.
-  constexpr size_t apps_num = 3;
-  for (size_t i = 0; i < apps_num; i++)
-    model->results()->Add(base::MakeUnique<TestStartPageSearchResult>());
-  EXPECT_TRUE(SetAppListState(AppListModel::STATE_START));
-  start_page_view->UpdateForTesting();
-  EXPECT_EQ(apps_num, GetVisibleViews(start_page_view->tile_views()));
+  // Show and close the widget once.
+  Show();
+  view_->GetWidget()->Close();
+  // Set it up again with a nonzero initial page.
+  view_ = new AppListView(delegate_.get());
+  view_->Initialize(GetContext(), 1, false, false);
+  const gfx::Size size = view_->bounds().size();
+  view_->MaybeSetAnchorPoint(gfx::Point(size.width() / 2, size.height() / 2));
+  Show();
 
-  // Initial focus should be on search box text field.
-  EXPECT_EQ(FOCUS_SEARCH_BOX, search_box_view->get_focused_view_for_test());
-  EXPECT_EQ(StartPageView::kNoSelection,
-            start_page_view->GetSelectedIndexForTest());
-
-  // Tapping tab key when focus is on search box text field moves focus through
-  // suggestion apps.
-  ui::KeyEvent tab(ui::ET_KEY_PRESSED, ui::VKEY_TAB, ui::EF_NONE);
-  for (size_t i = 0; i < apps_num; i++) {
-    search_box_view->search_box()->OnKeyEvent(&tab);
-    EXPECT_EQ(FOCUS_CONTENTS_VIEW,
-              search_box_view->get_focused_view_for_test());
-    EXPECT_EQ(static_cast<int>(i), start_page_view->GetSelectedIndexForTest());
-  }
-
-  // Tapping tab key when focus is on the last suggestion app moves focus to
-  // expand arrow view.
-  search_box_view->search_box()->OnKeyEvent(&tab);
-  EXPECT_EQ(FOCUS_CONTENTS_VIEW, search_box_view->get_focused_view_for_test());
-  EXPECT_EQ(StartPageView::kExpandArrowSelection,
-            start_page_view->GetSelectedIndexForTest());
-
-  // Tapping tab key when focus is on the expand arrow view moves focus back to
-  // search box text field.
-  search_box_view->search_box()->OnKeyEvent(&tab);
-  EXPECT_EQ(FOCUS_SEARCH_BOX, search_box_view->get_focused_view_for_test());
-  EXPECT_EQ(StartPageView::kNoSelection,
-            start_page_view->GetSelectedIndexForTest());
-
-  // Tapping shift-tab key when focus is on search box text field moves focus
-  // to the expand arrow view.
-  ui::KeyEvent shift_tab(ui::ET_KEY_PRESSED, ui::VKEY_TAB, ui::EF_SHIFT_DOWN);
-  search_box_view->search_box()->OnKeyEvent(&shift_tab);
-  EXPECT_EQ(FOCUS_CONTENTS_VIEW, search_box_view->get_focused_view_for_test());
-  EXPECT_EQ(StartPageView::kExpandArrowSelection,
-            start_page_view->GetSelectedIndexForTest());
+  ASSERT_EQ(view_->GetAppsPaginationModel()->selected_page(), 1);
 }
 
 }  // namespace test
