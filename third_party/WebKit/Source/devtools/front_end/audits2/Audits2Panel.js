@@ -309,11 +309,6 @@ Audits2.Audits2Panel = class extends UI.Panel {
       return;
     this._dialog.hide();
 
-    var emulationModel = self.singleton(Emulation.DeviceModeModel);
-    emulationModel.enabledSetting().set(this._emulationEnabledBefore);
-    emulationModel.deviceOutlineSetting().set(this._emulationOutlineEnabledBefore);
-    emulationModel.toolbarControlsEnabledSetting().set(true);
-
     delete this._dialog;
     delete this._statusView;
     delete this._statusIcon;
@@ -367,7 +362,13 @@ Audits2.Audits2Panel = class extends UI.Panel {
    */
   async _stopAndReattach() {
     await this._protocolService.detach();
+
+    var emulationModel = self.singleton(Emulation.DeviceModeModel);
+    emulationModel.enabledSetting().set(this._emulationEnabledBefore);
+    emulationModel.deviceOutlineSetting().set(this._emulationOutlineEnabledBefore);
+    emulationModel.toolbarControlsEnabledSetting().set(true);
     Emulation.InspectedPagePlaceholder.instance().update(true);
+
     var resourceTreeModel = SDK.targetManager.mainTarget().model(SDK.ResourceTreeModel);
     // reload to reset the page state
     await resourceTreeModel.navigate(this._inspectedURL);
