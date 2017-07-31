@@ -599,8 +599,8 @@ const char kGamepadExtensionsDescription[] =
 const char kGlCompositedOverlayCandidateQuadBordersName[] =
     "GL composited overlay candidate quad borders";
 const char kGlCompositedOverlayCandidateQuadBordersDescription[] =
-    "Renders a border around GL composited overlay candidate quads to help debug and "
-    "study overlay support.";
+    "Renders a border around GL composited overlay candidate quads to help "
+    "debug and study overlay support.";
 
 const char kGpuRasterizationMsaaSampleCountName[] =
     "GPU rasterization MSAA sample count.";
@@ -2487,6 +2487,11 @@ const char kEnableFullscreenAppListName[] = "Enable The Peeking Launcher";
 const char kEnableFullscreenAppListDescription[] =
     "The peeking launcher UI supports touch and provides more space for "
     "upcoming features.";
+
+extern const char kEnableBackgroundBlurName[] = "Enable background blur.";
+extern const char kEnableBackgroundBlurDescription[] =
+    "Enables background blur for the Peeking Launcher, Lock Screen, and Tab "
+    "Switcher.";
 
 const char kMemoryPressureThresholdName[] =
     "Memory discard strategy for advanced pressure handling";

@@ -1463,6 +1463,11 @@ const FeatureEntry kFeatureEntries[] = {
         flag_descriptions::kEnableFullscreenAppListDescription, kOsCrOS,
         SINGLE_VALUE_TYPE(app_list::switches::kEnableFullscreenAppList),
     },
+    {
+        "enable-background-blur", flag_descriptions::kEnableBackgroundBlurName,
+        flag_descriptions::kEnableBackgroundBlurDescription, kOsCrOS,
+        SINGLE_VALUE_TYPE(app_list::switches::kEnableBackgroundBlur),
+    },
     {"instant-tethering", flag_descriptions::kTetherName,
      flag_descriptions::kTetherDescription, kOsCrOS,
      FEATURE_VALUE_TYPE(features::kInstantTethering)},

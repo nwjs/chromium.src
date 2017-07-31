@@ -1288,6 +1288,9 @@ extern const char kDisplayColorCalibrationDescription[];
 extern const char kEnableFullscreenAppListName[];
 extern const char kEnableFullscreenAppListDescription[];
 
+extern const char kEnableBackgroundBlurName[];
+extern const char kEnableBackgroundBlurDescription[];
+
 extern const char kEnableAndroidWallpapersAppName[];
 extern const char kEnableAndroidWallpapersAppDescription[];
 
