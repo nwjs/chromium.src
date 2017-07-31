@@ -193,7 +193,7 @@ Polymer({
   /** @private */
   onSetModesChanged_: function() {
     if (this.shouldAskForPassword_(settings.getCurrentRoute())) {
-      this.$.setupPin.close();
+      this.showSetupPinDialog_ = false;
       this.openPasswordPromptDialog_();
     }
   },
