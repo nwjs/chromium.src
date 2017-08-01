@@ -300,6 +300,13 @@ public class ChildConnectionAllocator {
         assert removed;
     }
 
+    public boolean isConnectionFromAllocator(ChildProcessConnection connection) {
+        for (ChildProcessConnection existingConnection : mChildProcessConnections) {
+            if (existingConnection == connection) return true;
+        }
+        return false;
+    }
+
     @VisibleForTesting
     public void setConnectionFactoryForTesting(ConnectionFactory connectionFactory) {
         mConnectionFactory = connectionFactory;
