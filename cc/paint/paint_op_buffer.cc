@@ -82,16 +82,16 @@ NOINLINE static void RasterWithAlphaInternalForFlags(
     SkCanvas* canvas,
     uint8_t alpha) {
   SkMatrix unused_matrix;
-  if (alpha == 255) {
-    raster_fn(op, &op->flags, canvas, unused_matrix);
-  } else if (op->flags.SupportsFoldingAlpha()) {
-    PaintFlags flags = op->flags;
-    flags.setAlpha(SkMulDiv255Round(flags.getAlpha(), alpha));
-    raster_fn(op, &flags, canvas, unused_matrix);
-  } else {
+  if (!op->flags.SupportsFoldingAlpha()) {
     canvas->saveLayerAlpha(nullptr, alpha);
     raster_fn(op, &op->flags, canvas, unused_matrix);
     canvas->restore();
+  } else if (alpha == 255) {
+    raster_fn(op, &op->flags, canvas, unused_matrix);
+  } else {
+    PaintFlags flags = op->flags;
+    flags.setAlpha(SkMulDiv255Round(flags.getAlpha(), alpha));
+    raster_fn(op, &flags, canvas, unused_matrix);
   }
 }
 
