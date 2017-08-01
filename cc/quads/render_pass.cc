@@ -71,8 +71,6 @@ RenderPass::RenderPass()
 // is a good hint for what to reserve here.
 RenderPass::RenderPass(size_t num_layers)
     : has_transparent_background(true),
-      cache_render_pass(false),
-      has_damage_from_contributing_content(false),
       quad_list(kDefaultNumQuadsToReserve),
       shared_quad_state_list(alignof(SharedQuadState),
                              sizeof(SharedQuadState),
@@ -81,8 +79,6 @@ RenderPass::RenderPass(size_t num_layers)
 RenderPass::RenderPass(size_t shared_quad_state_list_size,
                        size_t quad_list_size)
     : has_transparent_background(true),
-      cache_render_pass(false),
-      has_damage_from_contributing_content(false),
       quad_list(quad_list_size),
       shared_quad_state_list(alignof(SharedQuadState),
                              sizeof(SharedQuadState),
@@ -99,8 +95,7 @@ std::unique_ptr<RenderPass> RenderPass::Copy(int new_id) const {
       Create(shared_quad_state_list.size(), quad_list.size()));
   copy_pass->SetAll(new_id, output_rect, damage_rect, transform_to_root_target,
                     filters, background_filters, color_space,
-                    has_transparent_background, cache_render_pass,
-                    has_damage_from_contributing_content);
+                    has_transparent_background);
   return copy_pass;
 }
 
@@ -113,8 +108,7 @@ std::unique_ptr<RenderPass> RenderPass::DeepCopy() const {
       Create(shared_quad_state_list.size(), quad_list.size()));
   copy_pass->SetAll(id, output_rect, damage_rect, transform_to_root_target,
                     filters, background_filters, color_space,
-                    has_transparent_background, cache_render_pass,
-                    has_damage_from_contributing_content);
+                    has_transparent_background);
   for (auto* shared_quad_state : shared_quad_state_list) {
     SharedQuadState* copy_shared_quad_state =
         copy_pass->CreateAndAppendSharedQuadState();
@@ -177,9 +171,7 @@ void RenderPass::SetAll(uint64_t id,
                         const FilterOperations& filters,
                         const FilterOperations& background_filters,
                         const gfx::ColorSpace& color_space,
-                        bool has_transparent_background,
-                        bool cache_render_pass,
-                        bool has_damage_from_contributing_content) {
+                        bool has_transparent_background) {
   DCHECK(id);
 
   this->id = id;
@@ -190,9 +182,6 @@ void RenderPass::SetAll(uint64_t id,
   this->background_filters = background_filters;
   this->color_space = color_space;
   this->has_transparent_background = has_transparent_background;
-  this->cache_render_pass = cache_render_pass;
-  this->has_damage_from_contributing_content =
-      has_damage_from_contributing_content;
 
   DCHECK(quad_list.empty());
   DCHECK(shared_quad_state_list.empty());
@@ -203,9 +192,6 @@ void RenderPass::AsValueInto(base::trace_event::TracedValue* value) const {
   MathUtil::AddToTracedValue("damage_rect", damage_rect, value);
 
   value->SetBoolean("has_transparent_background", has_transparent_background);
-  value->SetBoolean("cache_render_pass", cache_render_pass);
-  value->SetBoolean("has_damage_from_contributing_content",
-                    has_damage_from_contributing_content);
   value->SetInteger("copy_requests",
                     base::saturated_cast<int>(copy_requests.size()));
 

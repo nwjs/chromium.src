@@ -87,9 +87,7 @@ class CC_EXPORT RenderPass {
               const FilterOperations& filters,
               const FilterOperations& background_filters,
               const gfx::ColorSpace& color_space,
-              bool has_transparent_background,
-              bool cache_render_pass,
-              bool has_damage_from_contributing_content);
+              bool has_transparent_background);
 
   void AsValueInto(base::trace_event::TracedValue* dict) const;
 
@@ -130,12 +128,6 @@ class CC_EXPORT RenderPass {
 
   // If false, the pixels in the render pass' texture are all opaque.
   bool has_transparent_background = true;
-
-  // If true we might reuse the texture if there is no damage.
-  bool cache_render_pass = false;
-  // Indicates whether there is accumulated damage from contributing render
-  // surface or layer or surface quad. Not including property changes on itself.
-  bool has_damage_from_contributing_content = false;
 
   // If non-empty, the renderer should produce a copy of the render pass'
   // contents as a bitmap, and give a copy of the bitmap to each callback in
