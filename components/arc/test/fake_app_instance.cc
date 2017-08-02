@@ -303,7 +303,8 @@ void FakeAppInstance::GetRecentAndSuggestedAppsFromPlayStore(
         i,                                              // review_score
         fake_icon_png_data));                           // icon_png_data
   }
-  callback.Run(std::move(fake_apps));
+  callback.Run(arc::mojom::AppDiscoveryRequestState::SUCCESS,
+               std::move(fake_apps));
 }
 
 void FakeAppInstance::StartPaiFlow() {
