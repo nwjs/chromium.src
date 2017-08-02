@@ -152,10 +152,6 @@ bool RenderSurfaceImpl::HasCopyRequest() const {
   return OwningEffectNode()->has_copy_request;
 }
 
-bool RenderSurfaceImpl::ShouldCacheRenderSurface() const {
-  return OwningEffectNode()->cache_render_surface;
-}
-
 int RenderSurfaceImpl::TransformTreeIndex() const {
   return OwningEffectNode()->transform_id;
 }
@@ -205,7 +201,7 @@ gfx::Rect RenderSurfaceImpl::CalculateExpandedClipForFilters(
 }
 
 gfx::Rect RenderSurfaceImpl::CalculateClippedAccumulatedContentRect() {
-  if (ShouldCacheRenderSurface() || HasCopyRequest() || !is_clipped())
+  if (HasCopyRequest() || !is_clipped())
     return accumulated_content_rect();
 
   if (accumulated_content_rect().IsEmpty())
@@ -340,10 +336,6 @@ void RenderSurfaceImpl::NoteAncestorPropertyChanged() {
   ancestor_property_changed_ = true;
 }
 
-bool RenderSurfaceImpl::HasDamageFromeContributingContent() const {
-  return damage_tracker_->has_damage_from_contributing_content();
-}
-
 gfx::Rect RenderSurfaceImpl::GetDamageRect() const {
   gfx::Rect damage_rect;
   bool is_valid_rect = damage_tracker_->GetDamageRectIfValid(&damage_rect);
@@ -365,9 +357,6 @@ std::unique_ptr<RenderPass> RenderSurfaceImpl::CreateRenderPass() {
                draw_properties_.screen_space_transform);
   pass->filters = Filters();
   pass->background_filters = BackgroundFilters();
-  pass->cache_render_pass = ShouldCacheRenderSurface();
-  pass->has_damage_from_contributing_content =
-      HasDamageFromeContributingContent();
   return pass;
 }
 
