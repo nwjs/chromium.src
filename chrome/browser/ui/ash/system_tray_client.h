@@ -108,7 +108,7 @@ class SystemTrayClient : public ash::mojom::SystemTrayClient,
   void OnStoreLoaded(policy::CloudPolicyStore* store) override;
   void OnStoreError(policy::CloudPolicyStore* store) override;
 
-  void UpdateEnterpriseDomain();
+  void UpdateEnterpriseDisplayDomain();
 
   // content::NotificationObserver:
   void Observe(int type,
@@ -124,9 +124,9 @@ class SystemTrayClient : public ash::mojom::SystemTrayClient,
   // Whether an Adobe Flash component update is available.
   bool flash_update_available_ = false;
 
-  // Avoid sending ash an empty enterprise domain at startup and suppress
-  // duplicate IPCs during the session.
-  std::string last_enterprise_domain_;
+  // Avoid sending ash an empty enterprise display domain at startup and
+  // suppress duplicate IPCs during the session.
+  std::string last_enterprise_display_domain_;
   bool last_active_directory_managed_ = false;
 
   content::NotificationRegistrar registrar_;

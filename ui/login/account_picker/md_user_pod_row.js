@@ -1221,7 +1221,7 @@ cr.define('login', function() {
         return UserPod.Style.LARGE;
       if (this.querySelector('.small-pod').classList.contains('extra-small'))
         return UserPod.Style.EXTRA_SMALL;
-      return UserPod.Style.SMALL; 
+      return UserPod.Style.SMALL;
     },
 
     /**
@@ -2370,7 +2370,9 @@ cr.define('login', function() {
           this.user_.displayName;
       this.querySelector('.info').textContent =
           loadTimeData.getStringF('publicAccountInfoFormat',
-                                  this.user_.enterpriseDomain);
+                                  this.user_.enterpriseDisplayDomain);
+      if (this.querySelector('.full-name'))
+        this.querySelector('.full-name').textContent = this.user_.displayName;
     },
 
     /** @override */
@@ -3512,13 +3514,13 @@ cr.define('login', function() {
         // upward and see empty areas beyond the pod row and the scroll bar,
         // which should be avoided.
         // This is a hacky solution: we can make the scroll container hide
-        // the overflow area and manully position the client area. 
+        // the overflow area and manully position the client area.
         screen.style.overflowY = "hidden";
         clientArea.style.position = "absolute";
         clientArea.style.left = cr.ui.toCssPx(0);
         clientArea.style.top = cr.ui.toCssPx(0);
       } else {
-        // Sets the values to default when virtual keyboard is not shown. 
+        // Sets the values to default when virtual keyboard is not shown.
         screen.style.overflowY = "auto";
         clientArea.style.position = "relative";
       }
@@ -3649,7 +3651,7 @@ cr.define('login', function() {
       } else {
         // When the user count exceeds the limit (currently set to 2), only the
         // main pod still has pow row as parent, all other pods should be
-        // appended to the container with scroll bar. 
+        // appended to the container with scroll bar.
         for (var pod of pods) {
           if (pod == this.mainPod_) {
             this.appendChild(pod);
@@ -3682,7 +3684,7 @@ cr.define('login', function() {
       secondPod.setPodStyle(UserPod.Style.LARGE);
 
       var DOUBLE_PODS_PADDING = this.isPortraitMode() ? 32 : 118;
-      var leftPadding = (this.screenSize.width - (CROS_POD_WIDTH * 2 + DOUBLE_PODS_PADDING)) / 2;  
+      var leftPadding = (this.screenSize.width - (CROS_POD_WIDTH * 2 + DOUBLE_PODS_PADDING)) / 2;
       // Start actual positioning.
       this.mainPod_.left = leftPadding;
       this.mainPod_.top = (this.screenSize.height - CROS_POD_HEIGHT) / 2;
@@ -3721,7 +3723,7 @@ cr.define('login', function() {
       var MIDDLE_PADDING = this.isPortraitMode() ? 84 : 220;
       var contentsWidth = LEFT_PADDING +
           CROS_POD_WIDTH + MIDDLE_PADDING + CROS_SMALL_POD_WIDTH;
-      var blankWidth = this.screenSize.width - contentsWidth;   
+      var blankWidth = this.screenSize.width - contentsWidth;
       var actualLeftPadding = LEFT_PADDING;
       actualLeftPadding += this.isPortraitMode() ? blankWidth * 2 / 3:
                                                    blankWidth / 2;
@@ -3737,10 +3739,10 @@ cr.define('login', function() {
         smallPodsTotalHeight = (pods.length - 1) * CROS_SMALL_POD_HEIGHT +
           (pods.length - 2) * actualSmallPodPadding;
       }
-      
+
       // Start positioning of the main pod and the smallPodsContainer.
       this.mainPod_.left = actualLeftPadding;
-      this.mainPod_.top = (this.screenSize.height - CROS_POD_HEIGHT) / 2;   
+      this.mainPod_.top = (this.screenSize.height - CROS_POD_HEIGHT) / 2;
       this.smallPodsContainer.style.left =
           cr.ui.toCssPx(actualLeftPadding + CROS_POD_WIDTH + MIDDLE_PADDING);
       this.smallPodsContainer.style.top = cr.ui.toCssPx(0);
@@ -3807,7 +3809,7 @@ cr.define('login', function() {
           SCROLL_RIGHT_PADDING);
 
       // SCROLL_TOP_PADDING denotes the smallest top padding we can tolerate
-      // before allowing the container to overflow and show the scroll bar.    
+      // before allowing the container to overflow and show the scroll bar.
       var actualTopPadding = SCROLL_TOP_PADDING;
       if ((this.screenSize.height - scrollHeight) / 2 > actualTopPadding) {
         // Edge case: the total height of the scrollable container does not
@@ -3821,10 +3823,10 @@ cr.define('login', function() {
         // The scroll bar will definitely be shown if we reach here. A gradient
         // mask is applied to avoid blocking the header bar if the virtual
         // keyboard is not shown. When the keyboard is shown, there's no need
-        // to add the mask and the original top padding value should be kept. 
+        // to add the mask and the original top padding value should be kept.
         actualTopPadding = SCROLL_MASK_HEIGHT;
         this.showScrollMask();
-      } 
+      }
 
       // Start positioning of the small pods inside the smallPodsContainer.
       var topPadding = actualTopPadding;
@@ -3944,7 +3946,7 @@ cr.define('login', function() {
       var top = pod.top;
       // Edge case: paddingBottom should be switched too because there's a
       // chance that the small pod was at the end of the scrollable container
-      // and had a non-zero paddingBottom. 
+      // and had a non-zero paddingBottom.
       var paddingBottom = pod.style.paddingBottom;
       var parent = pod.parentNode;
       parent.removeChild(pod);

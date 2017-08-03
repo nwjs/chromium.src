@@ -351,6 +351,20 @@ void NTPResourceCache::CreateNewTabGuestHTML() {
         l10n_util::GetStringUTF16(IDS_LEARN_MORE));
     localized_strings.SetString("enterpriseInfoHintLink",
                                 chrome::kLearnMoreEnterpriseURL);
+    base::string16 enterprise_info;
+    if (connector->IsCloudManaged()) {
+      const std::string enterprise_display_domain =
+          connector->GetEnterpriseDisplayDomain();
+      enterprise_info = l10n_util::GetStringFUTF16(
+          IDS_ASH_ENTERPRISE_DEVICE_MANAGED_BY,
+          base::UTF8ToUTF16(enterprise_display_domain));
+    } else if (connector->IsActiveDirectoryManaged()) {
+      enterprise_info =
+          l10n_util::GetStringUTF16(IDS_ASH_ENTERPRISE_DEVICE_MANAGED);
+    } else {
+      NOTREACHED() << "Unknown management type";
+    }
+    localized_strings.SetString("enterpriseInfoMessage", enterprise_info);
   } else {
     localized_strings.SetString("enterpriseInfoVisible", "false");
   }

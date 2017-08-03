@@ -274,7 +274,8 @@ class DevicePolicyStatusProvider : public CloudPolicyCoreStatusProvider {
   void GetStatus(base::DictionaryValue* dict) override;
 
  private:
-  std::string domain_;
+  std::string enterprise_enrollment_domain_;
+  std::string enterprise_display_domain_;
 
   DISALLOW_COPY_AND_ASSIGN(DevicePolicyStatusProvider);
 };
@@ -386,7 +387,8 @@ DevicePolicyStatusProvider::DevicePolicyStatusProvider(
     policy::BrowserPolicyConnectorChromeOS* connector)
       : CloudPolicyCoreStatusProvider(
             connector->GetDeviceCloudPolicyManager()->core()) {
-  domain_ = connector->GetEnterpriseDomain();
+  enterprise_enrollment_domain_ = connector->GetEnterpriseEnrollmentDomain();
+  enterprise_display_domain_ = connector->GetEnterpriseDisplayDomain();
 }
 
 DevicePolicyStatusProvider::~DevicePolicyStatusProvider() {
@@ -394,7 +396,8 @@ DevicePolicyStatusProvider::~DevicePolicyStatusProvider() {
 
 void DevicePolicyStatusProvider::GetStatus(base::DictionaryValue* dict) {
   GetStatusFromCore(core_, dict);
-  dict->SetString("domain", domain_);
+  dict->SetString("enterpriseEnrollmentDomain", enterprise_enrollment_domain_);
+  dict->SetString("enterpriseDisplayDomain", enterprise_display_domain_);
 }
 
 DeviceLocalAccountPolicyStatusProvider::DeviceLocalAccountPolicyStatusProvider(

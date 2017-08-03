@@ -416,6 +416,10 @@ message PolicyData {
   // is affiliated on the device. See device_affiliation_ids for details.
   // Should be fetched with user policy. Ignored if fetched with other polices.
   repeated string user_affiliation_ids = 24;
+
+  // Used as the display domain when the primary domain gets renamed. This field
+  // is present only for device policies.
+  optional string display_domain = 25;
 }
 
 message PolicyFetchResponse {
@@ -1427,4 +1431,7 @@ message DeviceManagementResponse {
   // Response to a Play activity request.
   optional ActiveDirectoryPlayActivityResponse
       active_directory_play_activity_response = 20;
+
+  // Response to a check device license request.
+  optional CheckDeviceLicenseResponse check_device_license_response = 21;
 }
