@@ -1,6 +1,6 @@
 {
   "name": "gpu driver bug list",
-  "version": "10.20",
+  "version": "10.21",
   "entries": [
     {
       "id": 1,
@@ -2568,6 +2568,19 @@
       "device_id": ["0x1626", "0x162B", "0x1622"],
       "features": [
         "clear_to_zero_or_one_broken"
+      ]
+    },
+    {
+      "id": 238,
+      "description": "On Intel GPUs MSAA performance is not acceptable for GPU rasterization",
+      "cr_bugs": [527565, 751919],
+      "os": {
+        "type": "macosx"
+      },
+      "vendor_id": "0x8086",
+      "multi_gpu_category": "any",
+      "features": [
+        "msaa_is_slow"
       ]
     }
   ],
