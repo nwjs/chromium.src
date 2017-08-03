@@ -15,6 +15,7 @@
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/renderer_preferences.h"
+#include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "third_party/WebKit/public/platform/WebMouseEvent.h"
 #include "ui/views/controls/webview/web_contents_set_background_color.h"
