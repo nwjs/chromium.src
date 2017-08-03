@@ -154,7 +154,7 @@ const base::Feature kChromeHomeSwipeLogic{"ChromeHomeSwipeLogic",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kContentSuggestionsLargeThumbnail{
-    "ContentSuggestionsLargeThumbnail", base::FEATURE_ENABLED_BY_DEFAULT};
+    "ContentSuggestionsLargeThumbnail", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kContentSuggestionsVideoOverlay{
     "ContentSuggestionsVideoOverlay", base::FEATURE_ENABLED_BY_DEFAULT};
