@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include "content/nw/src/policy_cert_verifier.h"
+
 #include "base/base64.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -601,8 +603,9 @@ void IOThread::Init() {
       base::MakeUnique<net::MultiThreadedCertVerifier>(
           new chromeos::CertVerifyProcChromeOS()));
 #else
-  globals_->cert_verifier = IgnoreErrorsCertVerifier::MaybeWrapCertVerifier(
-      command_line, net::CertVerifier::CreateDefault());
+  std::unique_ptr<nw::PolicyCertVerifier> cert_verifier = base::MakeUnique<nw::PolicyCertVerifier>(base::Closure());
+  cert_verifier->InitializeOnIOThread(net::CertVerifyProc::CreateDefault());
+  globals_->cert_verifier = IgnoreErrorsCertVerifier::MaybeWrapCertVerifier(command_line, std::move(cert_verifier));
   UMA_HISTOGRAM_BOOLEAN(
       "Net.Certificate.IgnoreCertificateErrorsSPKIListPresent",
       command_line.HasSwitch(switches::kIgnoreCertificateErrorsSPKIList));

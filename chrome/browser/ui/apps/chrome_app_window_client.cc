@@ -13,6 +13,8 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/features/feature_channel.h"
 
+#include "content/nw/src/nw_content.h"
+
 // TODO(jamescook): We probably shouldn't compile this class at all on Android.
 // See http://crbug.com/343612
 #if !defined(OS_ANDROID)
@@ -38,8 +40,10 @@ extensions::AppWindow* ChromeAppWindowClient::CreateAppWindow(
 #if defined(OS_ANDROID)
   return NULL;
 #else
-  return new extensions::AppWindow(context, new ChromeAppDelegate(true),
+  extensions::AppWindow* ret = new extensions::AppWindow(context, new ChromeAppDelegate(true),
                                    extension);
+  nw::CreateAppWindowHook(ret);
+  return ret;
 #endif
 }
 

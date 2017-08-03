@@ -144,6 +144,9 @@ v8::Local<v8::Value> ScriptController::ExecuteScriptAndReturnValue(
 bool ScriptController::ShouldBypassMainWorldCSP() {
   v8::HandleScope handle_scope(GetIsolate());
   v8::Local<v8::Context> context = GetIsolate()->GetCurrentContext();
+  if (GetFrame() && GetFrame()->GetDocument() &&
+      GetFrame()->GetDocument()->GetSecurityOrigin()->hasUniversalAccess())
+    return true;
   if (context.IsEmpty() || !ToLocalDOMWindow(context))
     return false;
   DOMWrapperWorld& world = DOMWrapperWorld::Current(GetIsolate());

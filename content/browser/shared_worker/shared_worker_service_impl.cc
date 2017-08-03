@@ -332,7 +332,7 @@ blink::WebWorkerCreationError SharedWorkerServiceImpl::CreateWorker(
     ResourceContext* resource_context,
     const WorkerStoragePartitionId& partition_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  std::unique_ptr<SharedWorkerInstance> instance(new SharedWorkerInstance(
+  std::unique_ptr<SharedWorkerInstance> instance(new SharedWorkerInstance(params.is_node_js, params.root_path,
       params.url, params.name, params.content_security_policy,
       params.security_policy_type, params.creation_address_space,
       resource_context, partition_id, params.creation_context_type,

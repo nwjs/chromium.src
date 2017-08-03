@@ -13,7 +13,7 @@ namespace chrome_apps {
 
 void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   apps::EnsureBrowserContextKeyedServiceFactoriesBuilt();
-  AppShortcutManagerFactory::GetInstance();
+  //AppShortcutManagerFactory::GetInstance();
   apps::AppLoadServiceFactory::GetInstance();
 }
 
