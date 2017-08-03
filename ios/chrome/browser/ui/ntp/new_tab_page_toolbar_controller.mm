@@ -58,9 +58,9 @@ enum {
 
 @implementation NewTabPageToolbarController
 
-@synthesize dispatcher = _dispatcher;
 @synthesize canGoForward = _canGoForward;
 @synthesize canGoBack = _canGoBack;
+@dynamic dispatcher;
 
 - (instancetype)initWithDispatcher:(id<ApplicationCommands,
                                        BrowserCommands,
