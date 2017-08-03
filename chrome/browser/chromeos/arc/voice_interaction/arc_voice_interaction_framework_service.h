@@ -15,8 +15,6 @@
 #include "components/arc/instance_holder.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "mojo/public/cpp/bindings/binding.h"
-#include "ui/base/accelerators/accelerator.h"
-#include "ui/events/event_handler.h"
 
 class KeyedServiceBaseFactory;
 
@@ -38,8 +36,6 @@ class ArcBridgeService;
 class ArcVoiceInteractionFrameworkService
     : public KeyedService,
       public mojom::VoiceInteractionFrameworkHost,
-      public ui::AcceleratorTarget,
-      public ui::EventHandler,
       public InstanceHolder<mojom::VoiceInteractionFrameworkInstance>::Observer,
       public ArcSessionManager::Observer {
  public:
@@ -59,17 +55,11 @@ class ArcVoiceInteractionFrameworkService
   void OnInstanceReady() override;
   void OnInstanceClosed() override;
 
-  // ui::AcceleratorTarget overrides.
-  bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
-  bool CanHandleAccelerators() const override;
-
-  // ui::EventHandler overrides.
-  void OnTouchEvent(ui::TouchEvent* event) override;
-
   // mojom::VoiceInteractionFrameworkHost overrides.
   void CaptureFocusedWindow(
       const CaptureFocusedWindowCallback& callback) override;
   void CaptureFullscreen(const CaptureFullscreenCallback& callback) override;
+  // TODO(kaznacheev) remove usages of this obsolete method from the container.
   void OnMetalayerClosed() override;
   void SetMetalayerEnabled(bool enabled) override;
   void SetVoiceInteractionRunning(bool running) override;
@@ -115,8 +105,6 @@ class ArcVoiceInteractionFrameworkService
   static const char kArcServiceName[];
 
  private:
-  void SetMetalayerVisibility(bool visible);
-
   void CallAndResetMetalayerCallback();
 
   bool InitiateUserInteraction();
