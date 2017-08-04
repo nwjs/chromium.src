@@ -239,19 +239,8 @@ bool BrowserPolicyConnectorChromeOS::IsActiveDirectoryManaged() const {
   return install_attributes_ && install_attributes_->IsActiveDirectoryManaged();
 }
 
-std::string BrowserPolicyConnectorChromeOS::GetEnterpriseEnrollmentDomain()
-    const {
+std::string BrowserPolicyConnectorChromeOS::GetEnterpriseDomain() const {
   return install_attributes_ ? install_attributes_->GetDomain() : std::string();
-}
-
-std::string BrowserPolicyConnectorChromeOS::GetEnterpriseDisplayDomain() const {
-  if (device_cloud_policy_manager_) {
-    const enterprise_management::PolicyData* policy =
-        device_cloud_policy_manager_->device_store()->policy();
-    if (policy && policy->has_display_domain())
-      return policy->display_domain();
-  }
-  return GetEnterpriseEnrollmentDomain();
 }
 
 std::string BrowserPolicyConnectorChromeOS::GetRealm() const {

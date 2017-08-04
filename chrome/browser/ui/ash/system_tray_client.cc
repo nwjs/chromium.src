@@ -122,7 +122,7 @@ SystemTrayClient::SystemTrayClient() : binding_(this) {
       policy_connector->GetDeviceCloudPolicyManager();
   if (policy_manager)
     policy_manager->core()->store()->AddObserver(this);
-  UpdateEnterpriseDisplayDomain();
+  UpdateEnterpriseDomain();
 
   DCHECK(!g_instance);
   g_instance = this;
@@ -499,26 +499,25 @@ void SystemTrayClient::OnUpdateOverCellularAvailable() {
 ////////////////////////////////////////////////////////////////////////////////
 // policy::CloudPolicyStore::Observer
 void SystemTrayClient::OnStoreLoaded(policy::CloudPolicyStore* store) {
-  UpdateEnterpriseDisplayDomain();
+  UpdateEnterpriseDomain();
 }
 
 void SystemTrayClient::OnStoreError(policy::CloudPolicyStore* store) {
-  UpdateEnterpriseDisplayDomain();
+  UpdateEnterpriseDomain();
 }
 
-void SystemTrayClient::UpdateEnterpriseDisplayDomain() {
+void SystemTrayClient::UpdateEnterpriseDomain() {
   policy::BrowserPolicyConnectorChromeOS* connector =
       g_browser_process->platform_part()->browser_policy_connector_chromeos();
-  const std::string enterprise_display_domain =
-      connector->GetEnterpriseDisplayDomain();
+  const std::string enterprise_domain = connector->GetEnterpriseDomain();
   const bool active_directory_managed = connector->IsActiveDirectoryManaged();
-  if (enterprise_display_domain == last_enterprise_display_domain_ &&
+  if (enterprise_domain == last_enterprise_domain_ &&
       active_directory_managed == last_active_directory_managed_) {
     return;
   }
   // Send to ash, which will add an item to the system tray.
-  system_tray_->SetEnterpriseDisplayDomain(enterprise_display_domain,
-                                           active_directory_managed);
-  last_enterprise_display_domain_ = enterprise_display_domain;
+  system_tray_->SetEnterpriseDomain(enterprise_domain,
+                                    active_directory_managed);
+  last_enterprise_domain_ = enterprise_domain;
   last_active_directory_managed_ = active_directory_managed;
 }
