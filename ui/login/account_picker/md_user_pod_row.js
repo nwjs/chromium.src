@@ -2327,7 +2327,7 @@ cr.define('login', function() {
       UserPod.prototype.update.call(this);
       this.querySelector('.info').textContent =
           loadTimeData.getStringF('publicAccountInfoFormat',
-                                  this.user_.enterpriseDomain);
+                                  this.user_.enterpriseDisplayDomain);
       if (this.querySelector('.full-name'))
         this.querySelector('.full-name').textContent = this.user_.displayName;
     },
