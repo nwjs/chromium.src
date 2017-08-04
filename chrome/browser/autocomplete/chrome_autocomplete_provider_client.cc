@@ -302,6 +302,9 @@ void ChromeAutocompleteProviderClient::StartServiceWorker(
   if (!context)
     return;
 
+  if (!SearchSuggestEnabled())
+    return;
+
   context->StartServiceWorkerForNavigationHint(destination_url,
                                                base::Bind(&NoopCallback));
 }
