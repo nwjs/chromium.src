@@ -167,6 +167,102 @@
       <message name="IDS_LOGIN_DEFAULT_USER_DESC_33" desc="Description of the default user icon with a picture of a cat">
         Cat
       </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_34" desc="Description of the default user icon with a picture of a penguin">
+        Penguin
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_35" desc="Description of the default user icon with a picture of a fox">
+        Fox
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_36" desc="Description of the default user icon with a picture of a snail">
+        Snail
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_37" desc="Description of the default user icon with a picture of a red butterfly">
+        Red butterfly
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_38" desc="Description of the default user icon with a picture of a cat">
+        Cat
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_39" desc="Description of the default user icon with a picture of a corgi">
+        Corgi
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_40" desc="Description of the default user icon with a picture of a rabbit">
+        Rabbit
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_41" desc="Description of the default user icon with a picture of a pink butterfly">
+        Pink butterfly
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_42" desc="Description of the default user icon with a picture of a monkey">
+        Monkey
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_43" desc="Description of the default user icon with a picture of a dragon">
+        Dragon
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_44" desc="Description of the default user icon with a picture of a elephant">
+        Elephant
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_45" desc="Description of the default user icon with a picture of a panda">
+        Panda
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_46" desc="Description of the default user icon with a picture of a unicorn">
+        Unicorn
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_47" desc="Description of the default user icon with a picture of butterflies">
+        Butterflies
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_48" desc="Description of the default user icon with a picture of a bird">
+        Bird
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_49" desc="Description of the default user icon with a picture of ramen">
+        Ramen
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_50" desc="Description of the default user icon with a picture of a tamagochi">
+        Tamagochi
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_51" desc="Description of the default user icon with a picture of a cheese">
+        Cheese
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_52" desc="Description of the default user icon with a picture of a football">
+        Football
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_53" desc="Description of the default user icon with a picture of a basketball">
+        Basketball
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_54" desc="Description of the default user icon with a picture of a vinyl">
+        Vinyl
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_55" desc="Description of the default user icon with a picture of sushi">
+        Sushi
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_56" desc="Description of the default user icon with a picture of a bike">
+        Bike
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_57" desc="Description of the default user icon with a picture of a pair of sunglasses">
+        Sunglasses
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_58" desc="Description of the default user icon with a picture of a pizza">
+        Pizza
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_59" desc="Description of the default user icon with a picture of a sandwich">
+        Sandwich
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_60" desc="Description of the default user icon with a picture of a cappocino">
+        Cappocino
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_61" desc="Description of the default user icon with a picture of an ice water">
+        Ice water
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_62" desc="Description of the default user icon with a picture of an ice cream">
+        Ice cream
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_63" desc="Description of the default user icon with a picture of onigiri">
+        Onigiri
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_64" desc="Description of the default user icon with a picture of a melon">
+        Melon
+      </message>
+      <message name="IDS_LOGIN_DEFAULT_USER_DESC_65" desc="Description of the default user icon with a picture of an avocado">
+        Avocado
+      </message>
 
       <!-- Attribution strings for stock user images, not translateable. -->
       <message translateable="false" name="IDS_LOGIN_DEFAULT_USER_AUTHOR">
