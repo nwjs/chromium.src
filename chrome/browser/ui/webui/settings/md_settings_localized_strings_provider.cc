@@ -47,6 +47,7 @@
 #include "components/arc/arc_util.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
+#include "ui/chromeos/events/keyboard_layout_util.h"
 #include "ui/display/display_switches.h"
 #else
 #include "chrome/browser/ui/webui/settings/system_handler.h"
@@ -609,7 +610,9 @@ void AddDeviceStrings(content::WebUIDataSource* html_source) {
 
   LocalizedString keyboard_strings[] = {
       {"keyboardTitle", IDS_SETTINGS_KEYBOARD_TITLE},
-      {"keyboardKeySearch", IDS_SETTINGS_KEYBOARD_KEY_SEARCH},
+      {"keyboardKeySearch", ui::DeviceUsesKeyboardLayout2()
+                                ? IDS_SETTINGS_KEYBOARD_KEY_LAUNCHER
+                                : IDS_SETTINGS_KEYBOARD_KEY_SEARCH},
       {"keyboardKeyCtrl", IDS_SETTINGS_KEYBOARD_KEY_LEFT_CTRL},
       {"keyboardKeyAlt", IDS_SETTINGS_KEYBOARD_KEY_LEFT_ALT},
       {"keyboardKeyCapsLock", IDS_SETTINGS_KEYBOARD_KEY_CAPS_LOCK},
@@ -619,7 +622,9 @@ void AddDeviceStrings(content::WebUIDataSource* html_source) {
       {"keyboardKeyDisabled", IDS_SETTINGS_KEYBOARD_KEY_DISABLED},
       {"keyboardSendFunctionKeys", IDS_SETTINGS_KEYBOARD_SEND_FUNCTION_KEYS},
       {"keyboardSendFunctionKeysDescription",
-       IDS_SETTINGS_KEYBOARD_SEND_FUNCTION_KEYS_DESCRIPTION},
+       ui::DeviceUsesKeyboardLayout2()
+           ? IDS_SETTINGS_KEYBOARD_SEND_FUNCTION_KEYS_LAYOUT2_DESCRIPTION
+           : IDS_SETTINGS_KEYBOARD_SEND_FUNCTION_KEYS_DESCRIPTION},
       {"keyboardEnableAutoRepeat", IDS_SETTINGS_KEYBOARD_AUTO_REPEAT_ENABLE},
       {"keyRepeatDelay", IDS_SETTINGS_KEYBOARD_AUTO_REPEAT_DELAY},
       {"keyRepeatDelayLong", IDS_SETTINGS_KEYBOARD_AUTO_REPEAT_DELAY_LONG},
