@@ -166,6 +166,9 @@ extern const char kDropSyncCredentialDescription[];
 extern const char kEasyUnlockBluetoothLowEnergyDiscoveryName[];
 extern const char kEasyUnlockBluetoothLowEnergyDiscoveryDescription[];
 
+extern const char kEasyUnlockPromotionsName[];
+extern const char kEasyUnlockPromotionsDescription[];
+
 extern const char kEmbeddedExtensionOptionsName[];
 extern const char kEmbeddedExtensionOptionsDescription[];
 

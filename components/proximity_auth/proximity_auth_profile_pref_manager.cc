@@ -141,14 +141,14 @@ ProximityAuthProfilePrefManager::GetRemoteBleDevices() const {
 
 void ProximityAuthProfilePrefManager::SetLastPromotionCheckTimestampMs(
     int64_t timestamp_ms) {
-  pref_service_->SetInt64(prefs::kProximityAuthLastPasswordEntryTimestampMs,
+  pref_service_->SetInt64(prefs::kProximityAuthLastPromotionCheckTimestampMs,
                           timestamp_ms);
 }
 
 int64_t ProximityAuthProfilePrefManager::GetLastPromotionCheckTimestampMs()
     const {
   return pref_service_->GetInt64(
-      prefs::kProximityAuthLastPasswordEntryTimestampMs);
+      prefs::kProximityAuthLastPromotionCheckTimestampMs);
 }
 
 void ProximityAuthProfilePrefManager::SetProximityThreshold(
