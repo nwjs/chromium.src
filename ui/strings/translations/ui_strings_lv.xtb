@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Paziņojumu centrs</translation>
 <translation id="1243314992276662751">Augšupielādēt</translation>
 <translation id="1293699935367580298">Atsolis</translation>
+<translation id="1306549533752902673">IETEIKTĀS LIETOTNES</translation>
 <translation id="1398853756734560583">Maksimizēt</translation>
 <translation id="1413622004203049571">Atspējot paziņojumu saņemšanu no: <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minūte un }zero{# minūtes un }one{# minūte un }other{# minūtes un }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">VISAS LIETOTNES</translation>
 <translation id="4320177379694898372">Nav interneta savienojuma.</translation>
 <translation id="4588090240171750605">Ritināt pa labi</translation>
+<translation id="4730374152663651037">BIEŽI IZMANTOTĀS</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{Atlicis 1 mēnesis}zero{Atlikuši # mēneši}one{Atlicis # mēnesis}other{Atlikuši # mēneši}}</translation>
 <translation id="4820616160060340806">Command+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 sekunde}zero{# sekundes}one{# sekunde}other{# sekundes}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Dzēst</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">&amp;Atlasīt visu</translation>
+<translation id="6351032674660237738">LIETOTŅU IETEIKUMI</translation>
 <translation id="6364916375976753737">Ritināt pa kreisi</translation>
 <translation id="6394627529324717982">Komats</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{Pirms 1 s}zero{Pirms # s}one{Pirms # s}other{Pirms # s}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Atlasīt</translation>
 <translation id="6965382102122355670">Labi</translation>
 <translation id="7052633198403197513">taustiņš F1</translation>
+<translation id="7130207228079676353">VISTICAMĀK</translation>
 <translation id="7135556860107312402">Atļaut paziņojumu saņemšanu no:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{Atlikusi 1 min}zero{Atlikušas # min}one{Atlikusi # min}other{Atlikušas # min}}</translation>

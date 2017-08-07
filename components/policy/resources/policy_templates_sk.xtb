@@ -558,6 +558,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 <translation id="3001534538097271560">Nastavením tohto pravidla na možnosť False zabránite používateľom odosielať niektoré systémové informácie a obsah stránok na servery Google. Ak je nastavené na možnosť True alebo nie je nakonfigurované, používatelia budú môcť odosielať niektoré systémové informácie a obsah stránok do Bezpečného prehliadania a pomôcť tak rozpoznať nebezpečné aplikácie a weby.
 
       Ďalšie informácie o Bezpečnom prehliadaní získate na adrese https://developers.google.com/safe-browsing.</translation>
+<translation id="3016255526521614822">Pridať na bielu listinu aplikácie na písanie poznámok, ktoré sú povolené na uzamknutej obrazovke systému <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Zakázať nástroj na hľadanie doplnkov</translation>
 <translation id="3030000825273123558">Povoliť hlásenia o metrikách</translation>
 <translation id="3034580675120919256">Umožní nastaviť, či môžu webové stránky spúšťať kód JavaScript. Spúšťanie kódu JavaScript sa dá pre všetky webové stránky buď umožniť, alebo naopak zamietnuť.
@@ -901,6 +902,16 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
       "1412.24.34": aktualizácia iba na túto konkrétnu verziu
 
       Upozornenie: Neodporúča sa konfigurovať obmedzenia verzií, pretože to môže používateľom zabrániť získavať aktualizácie softvéru a kritické opravy chýb zabezpečenia. Obmedzenie aktualizácií na konkrétnu predponu verzie môže používateľov vystaviť riziku.</translation>
+<translation id="4298509794364745131">Špecifikuje zoznam aplikácií, ktoré môžu byť na uzamknutej obrazovke systému <ph name="PRODUCT_OS_NAME" /> povolené ako aplikácie na písanie poznámok.
+
+      Ak je na uzamknutej obrazovke povolená preferovaná aplikácia na písanie poznámok, na uzamknutej obrazovke bude prvok používateľského rozhrania na spustenie preferovanej aplikácie na písanie poznámok.
+      Po spustení bude táto aplikácia môcť otvoriť okno aplikácie na uzamknutej obrazovke a vytvárať dátové položky (poznámky) v kontexte uzamknutej obrazovky. Aplikácia bude môcť vytvorené poznámky importovať do primárnej používateľskej relácie (keď bude odomknutá). Na uzamknutej obrazovke sú momentálne podporované iba aplikácie na písanie poznámok prehliadača Chrome.
+
+      Ak je toto pravidlo nastavené, používateľ bude môcť povoliť aplikáciu na uzamknutej obrazovke iba v prípade, ak bude ID rozšírenia aplikácie zahrnuté ako hodnota v zozname pravidla.
+      Preto ak nastavíte toto pravidlo na prázdny zoznam, písanie poznámok bude na uzamknutej obrazovke úplne zakázané.
+      Upozorňujeme, že pravidlo zahrnujúce ID aplikácie automaticky neznamená, že používateľ bude môcť na uzamknutej obrazovke povoliť príslušnú aplikáciu ako aplikáciu na písanie poznámok – v systéme Chrome 61 je napríklad skupina dostupných aplikácií ďalej obmedzená platformou.
+
+      Ak pravidlo ponecháte nenastavené, nebudú existovať žiadne obmedzenia skupiny aplikácií, ktoré používateľ môže povoliť na uzamknutej obrazovke na základe tohto pravidla.</translation>
 <translation id="4309640770189628899">Ovláda, či sú v protokole TLS povolené šifrovacie súpravy DHE</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 alebo novší</translation>
 <translation id="4322842393287974810">Povoliť verejnej aplikácii, ktorá sa spúšťa automaticky s nulovým oneskorením, ovládať verziu systému <ph name="PRODUCT_OS_NAME" /></translation>

@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Centrul pentru notificări</translation>
 <translation id="1243314992276662751">Încărcați</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">APLICAȚII RECOMANDATE</translation>
 <translation id="1398853756734560583">Maximizează</translation>
 <translation id="1413622004203049571">Dezactivați notificările de la <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{Un minut și  }few{# minute și  }other{# de minute și  }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">TOATE APLICAȚIILE</translation>
 <translation id="4320177379694898372">Fără conexiune la internet</translation>
 <translation id="4588090240171750605">Derulează spre dreapta</translation>
+<translation id="4730374152663651037">FOLOSITE FRECVENT</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{1 lună rămasă}few{# luni rămase}other{# de luni rămase}}</translation>
 <translation id="4820616160060340806">Command+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{o secundă}few{# secunde}other{# de secunde}}</translation>
@@ -79,7 +81,7 @@
 <translation id="528468243742722775">Sfârșit</translation>
 <translation id="5329858601952122676">&amp;Șterge</translation>
 <translation id="5476505524087279545">debifează</translation>
-<translation id="5574202486608032840">Sistemul <ph name="IDS_SHORT_PRODUCT_OS_NAME" /></translation>
+<translation id="5574202486608032840"><ph name="IDS_SHORT_PRODUCT_OS_NAME" /></translation>
 <translation id="5583640892426849032">Backspace</translation>
 <translation id="5613020302032141669">Săgeată stânga</translation>
 <translation id="5754277640426581776">{MINUTES,plural, =1{Un min.}few{# min.}other{# min.}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">Select&amp;ează tot</translation>
+<translation id="6351032674660237738">SUGESTII DE APLICAȚII</translation>
 <translation id="6364916375976753737">Derulează spre stânga</translation>
 <translation id="6394627529324717982">Virgulă</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{Acum o sec.}few{Acum # sec}other{Acum # sec}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Selectează</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">CEL MAI PROBABIL DE ACCESAT</translation>
 <translation id="7135556860107312402">Permiteți notificările de la următoarele:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{Un min. rămas}few{# min. rămase}other{# min. rămase}}</translation>

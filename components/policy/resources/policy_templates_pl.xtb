@@ -539,6 +539,7 @@
 <translation id="3001534538097271560">Wyłączenie tej zasady uniemożliwi użytkownikom wysyłanie na serwery Google pewnych informacji o systemie i zawartości stron. Jeśli włączysz tę zasadę lub jej nie skonfigurujesz, użytkownicy będą mogli wysyłać te dane do funkcji Bezpieczne przeglądanie, by pomóc w wykrywaniu niebezpiecznych aplikacji i stron.
 
       Więcej informacji o Bezpiecznym przeglądaniu znajdziesz na stronie https://developers.google.com/safe-browsing</translation>
+<translation id="3016255526521614822">Aplikacje do robienia notatek dodane do białej listy, które są dozwolone na ekranie blokady w: <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Wyłącz znajdowanie wtyczek</translation>
 <translation id="3030000825273123558">Włącz raportowanie danych</translation>
 <translation id="3034580675120919256">Umożliwia określenie, czy w witrynach może być wykonywany kod JavaScript. Wykonanie kodu JavaScript może być dozwolone lub zabronione we wszystkich witrynach. W przypadku nieskonfigurowania tej zasady będzie używane ustawienie „AllowJavaScript”, a użytkownik będzie mógł je zmienić.</translation>
@@ -866,6 +867,16 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
       "1412.24.34": zaktualizuj tylko do tej konkretnej wersji.
 
       Ostrzeżenie: nie zaleca się konfigurowania ograniczeń wersji, ponieważ w rezultacie użytkownicy mogą nie otrzymywać aktualizacji oprogramowania ani bardzo ważnych poprawek zabezpieczeń. Ograniczenie aktualizacji do konkretnej wersji może narazić użytkowników na niebezpieczeństwo.</translation>
+<translation id="4298509794364745131">Określa listę aplikacji, które mogą być włączone jako aplikacje do notatek na ekranie blokady w: <ph name="PRODUCT_OS_NAME" />.
+
+      Jeśli preferowana aplikacja do robienia notatek jest włączona na ekranie blokady, będą na nim dostępne elementy interfejsu umożliwiające uruchomienie tej aplikacji.
+      Po uruchomieniu aplikacja będzie mogła otworzyć swoje okno w górnej części ekranu blokady, a następnie generować dane (notatki) na ekranie blokady. Aplikacja będzie mogła zaimportować utworzone notatki do głównej sesji użytkownika, gdy sesja ta zostanie odblokowana. Obecnie na ekranie blokady można używać tylko aplikacji do robienia notatek obsługiwanych przez Chrome.
+
+      Jeśli ta zasada zostanie skonfigurowana, użytkownik będzie mógł włączyć aplikację na ekranie blokady tylko wtedy, gdy identyfikator rozszerzenia aplikacji zostanie dodany do listy wartości zasady.
+      Z tego powodu w przypadku, gdy lista wartości będzie pusta, robienie notatek na ekranie blokady będzie niemożliwe.
+      Pamiętaj, że nawet jeśli zasada będzie zawierać identyfikator aplikacji, nie oznacza to, że użytkownik będzie mógł włączyć aplikację do robienia notatek na ekranie blokady – np. w przypadku Chrome 61 lista dostępnych aplikacji jest dodatkowo ograniczona przez samą platformę.
+
+      Jeśli ta zasada nie zostanie skonfigurowana, nie będzie ograniczeń dotyczących aplikacji, które użytkownik może włączyć na ekranie blokady.</translation>
 <translation id="4309640770189628899">Czy włączone są mechanizmy szyfrowania DHE w TLS</translation>
 <translation id="4320376026953250541">Microsoft Windows XP z dodatkiem SP2 lub nowszy</translation>
 <translation id="4322842393287974810">Zezwalaj aplikacji kiosku uruchamianej automatycznie z zerowym opóźnieniem na kontrolowanie wersji <ph name="PRODUCT_OS_NAME" /></translation>

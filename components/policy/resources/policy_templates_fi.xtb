@@ -540,6 +540,7 @@ Kaikki luettelon kohteet ovat tunnuksia, joiden perusteella erotetaan laitteesee
 <translation id="3001534538097271560">Jos tämän käytännön arvo on epätosi, käyttäjät eivät voi valita, lähetetäänkö Googlen palvelimille joitain järjestelmätietoja ja joidenkin sivujen sisältöä. Jos asetuksen arvo on tosi tai sitä ei ole määritetty, käyttäjät voivat lähettää joitain järjestelmätietoja ja joidenkin sivujen sisältöä Selaussuojalle auttaakseen vaarallisten sovellusten ja sivustojen havaitsemisessa.
 
       Voit lukea lisää Selaussuojasta osoitteessa https://developers.google.com/safe-browsing.</translation>
+<translation id="3016255526521614822">Luo luettelo sallituista muistiinpanosovelluksista, jotka <ph name="PRODUCT_OS_NAME" /> voi näyttää lukitusnäytöllä.</translation>
 <translation id="3021409116652377124">Poista laajennuksien haku käytöstä</translation>
 <translation id="3030000825273123558">Ota tilastoraportit käyttöön</translation>
 <translation id="3034580675120919256">Voit määrittää, saavatko sivustot suorittaa JavaScriptiä. JavaScriptin suorittaminen voidaan joko sallia kaikille sivustoille tai kieltää kaikilta sivustoilta. Jos tätä käytäntöä ei ole asetettu, käytetään AllowJavaScript-määritystä, ja käyttäjä voi muuttaa sitä.</translation>
@@ -871,6 +872,16 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
       "1412.24.34": päivitetään vain tähän versioon
 
       Varoitus: emme suosittele määrittämään versiorajoituksia, sillä tämä voi estää laitetta saamasta ohjelmistopäivityksiä ja kriittisiä tietoturvapäivityksiä. Päivitysten rajoittaminen tiettyyn etuliiteversioon voi vaarantaa käyttäjät.</translation>
+<translation id="4298509794364745131">Määrittää luettelon sovelluksia, jotka <ph name="PRODUCT_OS_NAME" /> voi näyttää lukitusnäytöllä muistiinpanosovelluksina.
+
+      Jos ensisijainen muistiinpanosovellus on käytettävissä lukitusnäytöllä, näytöllä näkyy sovelluksen käynnistävä käyttöliittymäelementti.
+      Kun sovellus on käynnistetty, se voi luoda lukitusnäytön päälle sovellusikkunan ja luoda muistiinpanoja lukitusnäytöltä. Sovellus voi tuoda nämä muistiinpanot ensisijaisen käyttäjän käyttökertaan, jos se on avattu. Tällä hetkellä lukitusnäytöllä voi olla vain Chromen muistiinpanosovelluksia.
+
+      Jos käytännölle on määritetty arvo, käyttäjä voi valita sovelluksen käytön lukitusnäytöllä vain, jos sovelluksen tunnus on luettelossa, joka on käytännön arvo.
+      Jos käytännön arvo on tyhjä luettelo, muistiinpanojen tekeminen lukitusnäytöltä poistetaan siis kokonaan käytöstä.
+      Huomaa, ettei käyttäjä voi välttämättä lisätä muistiinpanosovellusta lukitusnäytölle, vaikka sen tunnus olisi käytännön arvossa. Esimerkiksi Chromen versiossa 61 käyttöympäristö rajoittaa sovellusvaihtoehtojen määrää.
+
+      Jos käytännölle ei ole määritetty arvoa, se ei rajoita käyttäjän lukitusnäytölle lisäämiä sovelluksia millään tavalla.</translation>
 <translation id="4309640770189628899">TLS:n DHE-salaustekniikoiden käyttöönotto</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 tai uudempi</translation>
 <translation id="4322842393287974810">Salli automaattisesti ilman viivettä käynnistettävän kioskisovelluksen hallinnoida käyttöjärjestelmän <ph name="PRODUCT_OS_NAME" /> versiota</translation>

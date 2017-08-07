@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Centre de notification</translation>
 <translation id="1243314992276662751">Importer</translation>
 <translation id="1293699935367580298">Échap</translation>
+<translation id="1306549533752902673">APPLICATIONS RECOMMANDÉES</translation>
 <translation id="1398853756734560583">Agrandir</translation>
 <translation id="1413622004203049571">Désactiver les notifications <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minute et  }one{# minute et  }other{# minutes et  }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">TOUTES LES APPLICATIONS</translation>
 <translation id="4320177379694898372">Aucune connexion Internet.</translation>
 <translation id="4588090240171750605">Défilement vers la droite</translation>
+<translation id="4730374152663651037">SOUVENT UTILISÉES</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{1 mois restant}one{# mois restant}other{# mois restants}}</translation>
 <translation id="4820616160060340806">Commande + <ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 seconde}one{# seconde}other{# secondes}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Suppr</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> o/s</translation>
 <translation id="6264365405983206840">Tout &amp;sélectionner</translation>
+<translation id="6351032674660237738">SUGGESTIONS D'APPLICATIONS</translation>
 <translation id="6364916375976753737">Défilement vers la gauche</translation>
 <translation id="6394627529324717982">Virgule</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{Il y a 1 s}one{Il y a # s}other{Il y a # s}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Sélectionner</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">CLIC PROBABLE</translation>
 <translation id="7135556860107312402">Autoriser les notifications des éléments suivants :</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{1 min restante}one{# min restante}other{# min restantes}}</translation>

@@ -107,6 +107,7 @@
 <translation id="1994173015038366702">サイトの URL</translation>
 <translation id="2000271276660256125">セキュリティ上、パスワードにアクセスするには画面ロックを確認する必要があります。</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB を他のアプリで使用中</translation>
+<translation id="2011013297378343166">このアプリケーションを使用すると、Chrome の<ph name="BEGIN_LINK1" />利用規約<ph name="END_LINK1" />と<ph name="BEGIN_LINK2" />プライバシーに関するお知らせ<ph name="END_LINK2" />、および <ph name="BEGIN_LINK3" />Family Link で作成した Google アカウントのプライバシーに関するお知らせ<ph name="END_LINK3" />に同意したことになります。</translation>
 <translation id="2017836877785168846">アドレスバーの履歴とオートコンプリート データを削除します。</translation>
 <translation id="2020525020270327736">サイトをコピー</translation>
 <translation id="2038563949887743358">[PC 版サイトを見る] をオンにします</translation>
@@ -211,6 +212,7 @@
 <translation id="3115898365077584848">情報を表示</translation>
 <translation id="3137521801621304719">シークレット モードを終了</translation>
 <translation id="3148434565183091099">お使いのどの端末でも同じブックマークを使用するには、Chrome にログインします。</translation>
+<translation id="3157842584138209013">[その他のオプション] からデータ削減量を確認できます</translation>
 <translation id="3166827708714933426">タブとウィンドウのショートカット</translation>
 <translation id="3177909033752230686">ページの言語:</translation>
 <translation id="3190152372525844641"><ph name="BEGIN_LINK" />Android の設定<ph name="END_LINK" />で Chrome の権限を有効にしてください。</translation>
@@ -231,6 +233,7 @@
 <translation id="3319792846664697699">ナビゲーション パネル</translation>
 <translation id="3321222012623826478">このサービスでは、このウェブサイトのアドレスを Google サーバーに匿名で送信し、確認を行うことが必要になります。</translation>
 <translation id="3328801116991980348">サイト情報</translation>
+<translation id="3341058695485821946">データ削減量を確認できます</translation>
 <translation id="3350687908700087792">すべてのシークレット タブを閉じます</translation>
 <translation id="3365671512111106261">データセーバーが有効になっている場合は使用できません</translation>
 <translation id="3367813778245106622">同期を開始するにはもう一度ログインします</translation>
@@ -331,6 +334,7 @@
 <translation id="42981349822642051">展開</translation>
 <translation id="4300272766492248925">アプリを開く</translation>
 <translation id="4307992518367153382">基本設定</translation>
+<translation id="4334425495413014985"><ph name="APP_NAME" /> を初めて使用する場合は、インターネットに接続してください</translation>
 <translation id="4351244548802238354">ダイアログを閉じる</translation>
 <translation id="4378154925671717803">電話番号</translation>
 <translation id="4384468725000734951">検索に Sogou を使用します</translation>
@@ -491,12 +495,14 @@
 <translation id="583891442612896534">データ圧縮のために Chrome から Google サーバーにアクセスすることができません。データ使用量をあまり削減できない可能性があります。</translation>
 <translation id="5858741533101922242">Chrome から Bluetooth アダプタをオンにできません</translation>
 <translation id="5860033963881614850">オフ</translation>
+<translation id="5867841422488265304">検索語句またはウェブアドレスを入力</translation>
 <translation id="5869522115854928033">保存したパスワード</translation>
 <translation id="5878455346526065919">煩わしい広告がよく表示されるサイトで広告をブロックします</translation>
 <translation id="5902828464777634901">このウェブサイトで保存したすべてのローカルデータ（Cookie を含む）を削除します。</translation>
 <translation id="5911030830365207728">Google 翻訳</translation>
 <translation id="5916664084637901428">オン</translation>
 <translation id="5919204609460789179">同期を開始するには <ph name="PRODUCT_NAME" /> を更新してください</translation>
+<translation id="5923939907038835197">ニュース、レシピ、天気を検索...</translation>
 <translation id="5939518447894949180">リセット</translation>
 <translation id="5942872142862698679">検索に Google を使用します</translation>
 <translation id="5956665950594638604">Chrome ヘルプセンターを新しいタブで開く</translation>
@@ -673,6 +679,7 @@
 <translation id="7596558890252710462">オペレーティング システム</translation>
 <translation id="7600965453749440009"><ph name="LANGUAGE" />を翻訳しない</translation>
 <translation id="7605594153474022051">同期が機能していません</translation>
+<translation id="7607552448134703340">お探しの内容を入力してください</translation>
 <translation id="7612619742409846846">次のユーザーとして Google にログインしています:</translation>
 <translation id="7619072057915878432">ネットワーク障害が発生したため、<ph name="FILE_NAME" /> をダウンロードできませんでした。</translation>
 <translation id="7624880197989616768"><ph name="BEGIN_LINK1" />ヘルプ<ph name="END_LINK1" />または<ph name="BEGIN_LINK2" />再スキャン<ph name="END_LINK2" /></translation>

@@ -168,7 +168,7 @@
 <translation id="2282872951544483773">Eksperimen Tidak Tersedia</translation>
 <translation id="2292556288342944218">Akses Internet Anda diblokir</translation>
 <translation id="230155334948463882">Kartu baru?</translation>
-<translation id="2316887270356262533">Sediakan ruang kurang dari 1 MB. Beberapa situs mungkin dimuat lebih lambat pada kunjungan berikutnya.</translation>
+<translation id="2316887270356262533">Sediakan ruang kurang dari 1 MB. Beberapa situs mungkin dimuat lebih lambat dibuka lagi.</translation>
 <translation id="2317259163369394535"><ph name="DOMAIN" /> memerlukan nama pengguna dan sandi.</translation>
 <translation id="2317583587496011522">Kartu debit diterima.</translation>
 <translation id="2337852623177822836">Setelan dikontrol oleh administrator Anda</translation>
@@ -664,7 +664,7 @@
 <translation id="6321917430147971392">Periksa setelan DNS Anda</translation>
 <translation id="6328639280570009161">Coba nonaktifkan prediksi jaringan</translation>
 <translation id="6328786501058569169">Situs ini bersifat menipu</translation>
-<translation id="6337133576188860026">Sediakan ruang kurang dari <ph name="SIZE" />. Beberapa situs mungkin dimuat lebih lambat pada kunjungan Anda berikutnya.</translation>
+<translation id="6337133576188860026">Sediakan ruang kurang dari <ph name="SIZE" />. Beberapa situs mungkin dimuat lebih lambat saat dibuka lagi.</translation>
 <translation id="6337534724793800597">Filter kebijakan menurut nama</translation>
 <translation id="6342069812937806050">Baru saja</translation>
 <translation id="6355080345576803305">Diganti oleh sesi publik</translation>
@@ -910,7 +910,7 @@
 <translation id="8498891568109133222"><ph name="HOST_NAME" /> membutuhkan terlalu banyak waktu untuk merespons.</translation>
 <translation id="8503813439785031346">Nama Pengguna</translation>
 <translation id="8543181531796978784">Anda dapat <ph name="BEGIN_ERROR_LINK" />melaporkan masalah pendeteksian<ph name="END_ERROR_LINK" /> atau, jika memahami risiko bagi keamanan, Anda dapat <ph name="BEGIN_LINK" />mengunjungi situs yang tidak aman<ph name="END_LINK" />.</translation>
-<translation id="8543556556237226809">Ada pertanyaan? Hubungi orang yang mengawasi profil Anda.</translation>
+<translation id="8543556556237226809">Ada pertanyaan? Hubungi orang yang memantau profil Anda.</translation>
 <translation id="8553075262323480129">Terjemahan gagal karena bahasa laman tidak dapat ditentukan.</translation>
 <translation id="8571890674111243710">Menerjemahkan laman ke <ph name="LANGUAGE" />...</translation>
 <translation id="858637041960032120">+ nomor telepon</translation>

@@ -566,6 +566,7 @@
 
 
       Vaadake lisateavet ohutu sirvimise kohta aadressilt https://developers.google.com/safe-browsing.</translation>
+<translation id="3016255526521614822">Lisage lubatud rakenduste loendisse märkmete tegemise rakendused, mida <ph name="PRODUCT_OS_NAME" /> võib lukustuskuval näidata</translation>
 <translation id="3021409116652377124">Keela pistikprogrammide leidja</translation>
 <translation id="3030000825273123558">Luba mõõdikute aruandlus</translation>
 <translation id="3034580675120919256">Võimaldab määrata, kas veebisaitidel on lubatud käitada JavaScripti. JavaScripti käitamise saab kõikidel veebisaitidel lubada või keelata.
@@ -902,6 +903,16 @@
       "1412.24.34": värskendus ainult sellele konkreetsele versioonile
 
       Hoiatus. Me ei soovita versioonide piiranguid seadistada, kuna need võivad takistada kasutajatel tarkvaravärskendusi ja kriitilisi turvapaikasid vastu võtmast. Kui lubate kasutajatel kasutada vaid teatud versiooni eesliidet, võib see kasutajad ohtu seada.</translation>
+<translation id="4298509794364745131">Määratakse loend rakendustest, mille saab operatsioonisüsteemi <ph name="PRODUCT_OS_NAME" /> lukustuskuval lubada märkmete tegemise rakendustena.
+
+      Kui eelistatud märkmete tegemise rakendus on lukustuskuval lubatud, sisaldab lukustuskuva kasutajaliidese elementi eelistatud märkmete tegemise rakenduse käivitamiseks.
+      Rakendus saab käivitamisel lukustuskuva peale luua rakenduse akna ja lukustuskuva kontekstis luua andmeüksusi (märkmeid). Rakendus saab loodud märkmed importida peamise kasutaja seanssi, kui see avatakse. Praegu toetatakse lukustuskuval ainult Chrome'i märkmete tegemise rakendusi.
+
+      Kui see reegel on määratud, saab kasutaja rakenduse lukustuskuval lubada ainult siis, kui rakenduse laienduse ID on reeglite loendis olevas väärtuses olemas.
+      Seega, kui reegli väärtuseks määratakse tühi loend, keelatakse märkmete tegemine lukustuskuval täielikult.
+      Pange tähele, et reegel, mis sisaldab rakenduse ID-d, ei tähenda alati seda, et kasutaja saab rakenduse lubada lukustuskuval märkmete tegemise rakendusena. Näiteks Chrome'i versioonis 61 on saadaolevate rakenduste kogumi täiendavalt piiranud ka platvorm.
+
+      Kui reegel jäetakse määramata, puuduvad piirangud rakenduste kogumile, mille kasutaja saab lukustuskuval reegliga lubada.</translation>
 <translation id="4309640770189628899">Näitab, kas DHE šifreerimiskomplektid on TLS-is lubatud</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 või uuem</translation>
 <translation id="4322842393287974810">Luba automaatselt käivitatud viivituseta kioskirakendusel juhtida operatsioonisüsteemi <ph name="PRODUCT_OS_NAME" /> versiooni</translation>

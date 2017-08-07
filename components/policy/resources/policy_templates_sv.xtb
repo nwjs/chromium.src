@@ -567,6 +567,7 @@
 <translation id="3001534538097271560">Om den här principen är inställd på falskt kan inte användare skicka systeminformation eller innehåll på sidan till Googles servrar. Om inställningen är inställd på sant eller inte har konfigurerats kan användare skicka systeminformation och innehåll på sidan till Säker webbsökning och bidra till att farliga appar och webbplatser identifieras.
 
       Läs mer om Säker webbsökning på https://developers.google.com/safe-browsing.</translation>
+<translation id="3016255526521614822">Ange anteckningsappar som är tillåtna på låsskärmen i <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Inaktivera plugin-sökaren</translation>
 <translation id="3030000825273123558">Aktivera statistikrapportering</translation>
 <translation id="3034580675120919256">Policyn gör att du kan ange om webbplatser får köra JavaScript. Du kan tillåta JavaScript på alla webbplatser eller blockera JavaScript på alla webbplatser.
@@ -917,6 +918,16 @@
       "1412.24.34": uppdateras endast till just denna version
 
       Obs! Versionsbegränsningar rekommenderas inte eftersom de kan leda till att uppdateringar av programvaran eller viktiga säkerhetskorrigeringar inte görs. Om uppdateringarna begränsas till ett visst versionsprefix kan användarnas säkerhet äventyras.</translation>
+<translation id="4298509794364745131">Anger en lista med anteckningsappar som går att aktivera på låsskärmen i <ph name="PRODUCT_OS_NAME" />.
+
+      När den föredragna anteckningsappen har aktiverats på låsskärmen ges möjlighet att starta den appen i gränssnittet på låsskärmen.
+      När anteckningsappen har startats kan den öppna ett appfönster ovanpå låsskärmen och skapa dataobjekt (anteckningar) med låsskärmen som kontext. Appen kan importera de anteckningar som skapas till den primära användarsessionen när sessionen har låsts upp. För närvarande stöds bara anteckningsappar i Chrome på låsskärmen.
+
+      När principen har ställts in går en app bara att aktivera som anteckningsapp på låsskärmen om den appens tilläggs-id står med i principens värdelista.
+      Därav följer att anteckningar på låsskärmen inaktiveras helt och hållet om principen ställs in på en tom lista.
+      Observera att användaren inte nödvändigtvis kan aktivera en anteckningsapp på låsskärmen även om dess app-id har angetts i principen. I Chrome 61, till exempel, begränsas listan med tillgängliga appar ytterligare av plattformen.
+
+      Om principen inte ställs in alls begränsar den inte villka appar som användaren får aktivera på låsskärmen.</translation>
 <translation id="4309640770189628899">Om DHE-krypteringssviter i TLS är aktiverade eller inte</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 eller senare</translation>
 <translation id="4322842393287974810">Tillåt att kioskappen som startas automatiskt utan fördröjning styr <ph name="PRODUCT_OS_NAME" />-versionen</translation>

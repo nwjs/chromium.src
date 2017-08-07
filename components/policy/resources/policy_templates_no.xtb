@@ -554,6 +554,7 @@
 <translation id="3001534538097271560">Hvis denne regelen settes til «false» (usann), kan ikke brukerne velge å sende enkelte typer systeminformasjon og sideinnhold til Google-tjenere. Hvis denne regelen settes til «true» (sann) eller ikke konfigureres, kan brukerne sende enkelte typer systeminformasjon og sideinnhold til Safe Browsing for å bidra til å oppdage farlige apper og nettsteder.
 
       Gå til https://developers.google.com/safe-browsing for å få mer informasjon om Safe Browsing.</translation>
+<translation id="3016255526521614822">Godkjenn notatapper for å tillate dem på låseskjermen for <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Deaktiver programtilleggssøk</translation>
 <translation id="3030000825273123558">Aktiver rapportering av beregninger</translation>
 <translation id="3034580675120919256">Gjør at du kan angi om nettsteder får kjøre JavaScript. Kjøring av JavaScript kan tillates for alle nettsteder, eller nektes for alle nettsteder.
@@ -888,6 +889,16 @@
       "1412.24.34": Oppdater bare til denne spesifikke versjonen
 
       Advarsel: Det er ikke anbefalt å konfigurere versjonsbegrensninger, siden de kan hindre brukere i å motta programvareoppdateringer og kritiske sikkerhetsløsninger. Hvis oppdateringer begrenses til prefikset for en spesifikk versjon, kan brukerne bli utsatt for risiko.</translation>
+<translation id="4298509794364745131">Angir en liste over apper som kan aktiveres som notatapper på låseskjermen for <ph name="PRODUCT_OS_NAME" />.
+
+      Hvis den foretrukne notatappen er aktivert på låseskjermen, inneholder låseskjermen et UI-element for å starte den aktuelle appen.
+      Når appen er startet, kan den opprette et appvindu øverst på låseskjermen og opprette dataelementer (notater) når skjermen er låst. Appen kan også importere opprettede notater til den primære brukerøkten når den aktuelle økten er låst opp. For øyeblikket støttes bare Chrome-notatapper på låseskjermen.
+
+      Når regelen er angitt, kan brukeren bare aktivere en app på låseskjermen hvis utvidelses-ID-en til den aktuelle appen er oppført i listeverdien for regelen.
+      Dette betyr at hvis en tom liste angis for regelen, blir notater på startskjermen fullstendig deaktivert.
+      Vær oppmerksom på at selv når regelen inneholder en app-ID, er det ikke sikkert at brukeren kan aktivere den aktuelle appen som en notatapp på låseskjermen. I Chrome 61 er for eksempel settet med tilgjengelige apper også begrenset av plattformen.
+
+    Hvis regelen ikke angis, innfører den ikke noen begrensinger for hvilke apper brukeren kan aktivere på låseskjermen.</translation>
 <translation id="4309640770189628899">Definerer om DHE-chifferserier i TLS er slått på</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 eller nyere</translation>
 <translation id="4322842393287974810">La den automatisk startede kioskappen uten forsinkelse kontrollere <ph name="PRODUCT_OS_NAME" />-versjonen</translation>

@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Varselsenter</translation>
 <translation id="1243314992276662751">Last opp</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">ANBEFALTE APPER</translation>
 <translation id="1398853756734560583">Maksimer</translation>
 <translation id="1413622004203049571">Deaktiver varsler fra <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minutt og }other{# minutter og }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">ALLE APPER</translation>
 <translation id="4320177379694898372">Ingen Internett-tilkobling</translation>
 <translation id="4588090240171750605">Rull mot høyre</translation>
+<translation id="4730374152663651037">OFTE BRUKT</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{1 måned igjen}other{# måneder igjen}}</translation>
 <translation id="4820616160060340806">Kommando + <ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 sekund}other{# sekunder}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B per sek</translation>
 <translation id="6264365405983206840">Velg &amp;alle</translation>
+<translation id="6351032674660237738">APPFORSLAG</translation>
 <translation id="6364916375976753737">Rull mot venstre</translation>
 <translation id="6394627529324717982">Komma</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{For 1 sekund siden}other{For # sekunder siden}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Velg</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">MEST SANNSYNLIG</translation>
 <translation id="7135556860107312402">Tillat varsler fra følgende:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{1 min igjen}other{# min igjen}}</translation>

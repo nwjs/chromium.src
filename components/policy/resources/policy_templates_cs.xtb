@@ -545,6 +545,7 @@ Pokud toto nastavení zakážete nebo ponecháte bez nastavení, stránky ověř
 <translation id="3001534538097271560">Pokud tuto zásadu nastavíte na hodnotu false, uživatelé nebudou moci zvolit, že se mají některé informace o systému a obsahu stránek odeslat na servery Google. Pokud je tato zásada nastavena na hodnotu true nebo není nakonfigurována, uživatelé budou moci odesílat část informací o systému a obsahu stránek do Bezpečného prohlížení a pomoci tak zjišťovat nebezpečné aplikace a weby.
 
       Další informace o Bezpečném prohlížení najdete na stránce https://developers.google.com/safe-browsing.</translation>
+<translation id="3016255526521614822">Seznam povolených aplikací k přidávání poznámek na obrazovku uzamčení v systému <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Deaktivovat nástroj pro vyhledávání pluginů</translation>
 <translation id="3030000825273123558">Povolit hlášení o metrikách</translation>
 <translation id="3034580675120919256">Umožňuje nastavit, zda mohou webové stránky spouštět JavaScript. Spouštění JavaScriptu lze buď povolit pro všechny weby, nebo naopak pro všechny weby zakázat.
@@ -888,6 +889,16 @@ Pokud tuto zásadu nenastavíte, použije se pro všechny webové stránky glob�
       "1412.24.34": aktualizovat pouze na tuto konkrétní verzi.
 
       Upozornění: Konfigurovat omezení verzí se nedoporučuje, protože to uživatelům může zabránit v přijímání aktualizací softwaru a kritických oprav zabezpečení. Omezení aktualizací na konkrétní předponu verze uživatele může vystavit riziku.</translation>
+<translation id="4298509794364745131">Určuje seznam aplikací, které lze povolit jako aplikace k přidávání poznámek na obrazovku uzamčení v systému <ph name="PRODUCT_OS_NAME" />.
+
+      Je-li na obrazovce uzamčení povolena preferovaná aplikace k přidávání poznámek, obrazovka uzamčení bude obsahovat prvek uživatelského rozhraní ke spuštění preferované aplikace.
+      Když bude aplikace spuštěna, bude moci v horní části obrazovky uzamčení vytvořit okno aplikace a vkládat na ni datové položky (poznámky). Aplikace bude moci vytvořené poznámky importovat do primární relace uživatele, bude-li relace odemčená. V současné době jsou na obrazovce uzamčení podporovány pouze aplikace k přidávání poznámek pro Chrome.
+
+      Bude-li tato zásada aktivována, uživatel bude moci aplikaci na obrazovce uzamčení aktivovat jen v případě, že mezi hodnotami zásady bude uvedeno ID rozšíření aplikace.
+      To znamená, že pokud tuto zásadu nastavíte jako prázdný seznam, přidávání poznámek na obrazovku uzamčení bude zcela zakázáno.
+      Upozorňujeme, že zásada obsahující ID aplikace nutně neznamená, že uživatel bude moci určitou aplikaci povolit jako aplikaci k přidávání poznámek na obrazovku uzamčení. Například v Chromu verze 61 jsou dostupné aplikace navíc omezeny ze strany platformy.
+
+      Pokud zásada nebude nastavena, nebudou na základě zásady uplatňována žádná omezení ohledně sady aplikací, které uživatel může na obrazovce uzamčení povolit.</translation>
 <translation id="4309640770189628899">Zda jsou v protokolu TLS povoleny šifrovací sady DHE</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 nebo novější</translation>
 <translation id="4322842393287974810">Povolit automaticky spouštěné terminálové aplikaci s nulovým zpožděním ovládat verzi systému <ph name="PRODUCT_OS_NAME" /></translation>

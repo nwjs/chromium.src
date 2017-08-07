@@ -564,6 +564,7 @@
 <translation id="3001534538097271560">Als dit beleid wordt ingesteld op false (onwaar), kunnen gebruikers geen systeeminformatie en paginacontent meer naar Google-servers verzenden. Als deze instelling wordt ingesteld op true (waar) of niet wordt geconfigureerd, kunnen gebruikers bepaalde systeeminformatie en paginacontent naar Safe Browsing verzenden om te helpen bij de detectie van gevaarlijke apps en sites
 
       Zie https://developers.google.com/safe-browsing voor meer informatie over Safe Browsing.</translation>
+<translation id="3016255526521614822">Notitie-apps die zijn toegestaan op het <ph name="PRODUCT_OS_NAME" />-vergrendelingsscherm, op de witte lijst zetten</translation>
 <translation id="3021409116652377124">Plug-inzoeker uitschakelen</translation>
 <translation id="3030000825273123558">Rapportage van statistieken inschakelen</translation>
 <translation id="3034580675120919256">Hiermee kun je instellen of JavaScript op websites mag worden uitgevoerd. Het uitvoeren van JavaScript kan voor alle websites worden toegestaan of voor alle websites worden geweigerd.
@@ -913,6 +914,16 @@
       "1412.24.34": alleen updaten naar deze specifieke versie.
 
       Waarschuwing: Het wordt niet aanbevolen versiebeperkingen te configureren, omdat gebruikers hierdoor mogelijk geen software-updates en essentiële beveiligingsoplossingen ontvangen. Als je updates beperkt tot een specifiek versievoorvoegsel, kunnen gebruikers gevaar lopen.</translation>
+<translation id="4298509794364745131">Specificeert de lijst met apps die kunnen worden ingeschakeld als notitie-app op het <ph name="PRODUCT_OS_NAME" />-vergrendelingsscherm.
+
+      Als de gewenste notitie-app is ingeschakeld op het vergrendelingsscherm, bevat het vergrendelingsscherm een UI-element om de gewenste notitie-app te starten.
+      Wanneer de app is gestart, kan deze een app-venster bovenop het vergrendelingsscherm maken en gegevensitems (notities) maken in de context van het vergrendelingsscherm. De app kan gemaakte notities importeren naar de primaire gebruikerssessie wanneer de sessie ontgrendeld is. Momenteel worden alleen Chrome-notitie-apps ondersteund op het vergrendelingsscherm.
+
+      Als het beleid is ingesteld, kan de gebruiker een app alleen inschakelen op het vergrendelingsscherm als de extensie-ID van de app is opgenomen in de beleidslijstwaarde.
+      Dit betekent dat als je dit beleid instelt op een lege lijst, het maken van notities op het vergrendelingsscherm volledig wordt uitgeschakeld.
+      Houd er rekening mee dat als het beleid een app-ID bevat, dit niet noodzakelijkerwijs betekent dat de gebruiker de app kan inschakelen als notitie-app op het vergrendelingsscherm. In Chrome 61 wordt de reeks beschikbare apps bijvoorbeeld extra beperkt door het platform.
+
+      Als het beleid niet wordt ingesteld, gelden er geen beperkingen voor de reeks apps die de gebruiker kan inschakelen op het vergrendelingsscherm.</translation>
 <translation id="4309640770189628899">Of DHE-coderingssuites in TLS zijn ingeschakeld</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 of hoger</translation>
 <translation id="4322842393287974810">Toestaan dat de kiosk-app die automatisch zonder vertraging is gestart, de <ph name="PRODUCT_OS_NAME" />-versie beheert</translation>

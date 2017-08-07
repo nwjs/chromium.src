@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Centro notifiche</translation>
 <translation id="1243314992276662751">Carica</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">APP CONSIGLIATE</translation>
 <translation id="1398853756734560583">Ingrandisci</translation>
 <translation id="1413622004203049571">Disabilita notifiche da <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minuto e }other{# minuti e }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">TUTTE LE APP</translation>
 <translation id="4320177379694898372">Nessuna connessione Internet</translation>
 <translation id="4588090240171750605">Scorri a destra</translation>
+<translation id="4730374152663651037">USATE SPESSO</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{1 mese rimasto}other{# mesi rimasti}}</translation>
 <translation id="4820616160060340806">Comando+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 secondo}other{# secondi}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Canc</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">Seleziona &amp;tutto</translation>
+<translation id="6351032674660237738">APP SUGGERITE</translation>
 <translation id="6364916375976753737">Scorri a sinistra</translation>
 <translation id="6394627529324717982">Virgola</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 sec fa}other{# sec fa}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Seleziona</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">PIÙ PROBABILI</translation>
 <translation id="7135556860107312402">Consenti notifiche da:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{1 min rimanente}other{# min rimanenti}}</translation>

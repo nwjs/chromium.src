@@ -107,7 +107,7 @@
 <translation id="1994173015038366702">사이트 URL</translation>
 <translation id="2000271276660256125">보안상의 이유로 비밀번호에 액세스하려면 화면 잠금을 먼저 풀어야 합니다.</translation>
 <translation id="200815880754187296">기타 앱 <ph name="KILOBYTES" />KB</translation>
-<translation id="2011013297378343166">이 애플리케이션을 사용하면 Chrome의 <ph name="BEGIN_LINK1" />서비스 약관<ph name="END_LINK1" /> 및 <ph name="BEGIN_LINK2" />개인정보처리방침<ph name="END_LINK2" /> 및 <ph name="BEGIN_LINK3" />키즈 링크에서 생성된 Google 계정의 개인정보 보호정책<ph name="END_LINK3" />에 동의하는 것입니다.</translation>
+<translation id="2011013297378343166">이 애플리케이션을 사용하고 Chrome의 <ph name="BEGIN_LINK1" />서비스 약관<ph name="END_LINK1" /> 및 <ph name="BEGIN_LINK2" />개인정보처리방침<ph name="END_LINK2" /> , 그리고 <ph name="BEGIN_LINK3" />Family Link에서 생성된 Google 계정의 개인정보 보호정책<ph name="END_LINK3" />에 동의합니다.</translation>
 <translation id="2017836877785168846">검색주소창의 검색 기록 및 자동 완성 항목을 삭제합니다.</translation>
 <translation id="2020525020270327736">사이트 복사</translation>
 <translation id="2038563949887743358">데스크톱 버전으로 보기 사용 설정</translation>
@@ -334,7 +334,7 @@
 <translation id="42981349822642051">펼치기</translation>
 <translation id="4300272766492248925">앱 열기</translation>
 <translation id="4307992518367153382">기본설정</translation>
-<translation id="4334425495413014985">처음으로 <ph name="APP_NAME" />을(를) 사용하는 경우 인터넷에 연결하세요.</translation>
+<translation id="4334425495413014985">처음으로 <ph name="APP_NAME" />을(를) 사용하는 경우 인터넷에 연결하세요</translation>
 <translation id="4351244548802238354">대화상자 닫기</translation>
 <translation id="4378154925671717803">휴대전화</translation>
 <translation id="4384468725000734951">검색할 때 Sogou 사용</translation>

@@ -582,7 +582,7 @@ Chrome 브라우저 메뉴를 열려면 Alt+F를 누릅니다.</translation>
 <translation id="6006064078185310784">{COUNT,plural, =1{역슬래시}other{역슬래시 #개}}</translation>
 <translation id="6037602951055904232">앞으로 이동</translation>
 <translation id="6044160928851315051">화면을 어둡게 합니다.</translation>
-<translation id="605761629541007221">굵게 끝부분</translation>
+<translation id="605761629541007221">굵은 글꼴 끝부분</translation>
 <translation id="6065293622157674001">문법 오류 시작 부분</translation>
 <translation id="6082768461603900813">기본 탐색</translation>
 <translation id="6092707270915298410">링크 끝</translation>
@@ -793,7 +793,7 @@ Chrome 브라우저 메뉴를 열려면 Alt+F를 누릅니다.</translation>
 <translation id="8374154622594089836">월</translation>
 <translation id="8378855320830505539">지역</translation>
 <translation id="8382679411218029383">자동완성 본문 및 목록</translation>
-<translation id="8384907037845425279">굵게 시작 부분</translation>
+<translation id="8384907037845425279">굵은 글꼴 시작 부분</translation>
 <translation id="8428603554127842284">수준 <ph name="DEPTH" /></translation>
 <translation id="842922884199979200">다음 수준 3 제목이 없습니다.</translation>
 <translation id="8430049249787218991">mnubr</translation>

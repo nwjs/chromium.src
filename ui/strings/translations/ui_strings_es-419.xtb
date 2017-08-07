@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Centro de notificaciones</translation>
 <translation id="1243314992276662751">Cargar</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">APPS RECOMENDADAS</translation>
 <translation id="1398853756734560583">Maximizar</translation>
 <translation id="1413622004203049571">Inhabilitar notificaciones de <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minuto y }other{# minutos y }}</translation>
@@ -23,7 +24,7 @@
 <translation id="1842960171412779397">seleccionar</translation>
 <translation id="1860796786778352021">Cerrar notificación</translation>
 <translation id="1871244248791675517">Insert</translation>
-<translation id="1884435127456172652"><ph name="NUMBER" /> %</translation>
+<translation id="1884435127456172652"><ph name="NUMBER" />%</translation>
 <translation id="1901303067676059328">Seleccionar &amp;todo</translation>
 <translation id="2141853158323869627">{DAYS,plural, =1{1 d}other{# d}}</translation>
 <translation id="2148716181193084225">Hoy</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">TODAS LAS APPS</translation>
 <translation id="4320177379694898372">Sin conexión a Internet</translation>
 <translation id="4588090240171750605">Desplazar a la derecha</translation>
+<translation id="4730374152663651037">USADAS CON FRECUENCIA</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{Queda 1 mes}other{Quedan # meses}}</translation>
 <translation id="4820616160060340806">Comando+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 segundo}other{# segundos}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Supr</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">Seleccion&amp;ar todo</translation>
+<translation id="6351032674660237738">SUGERENCIAS DE APPS</translation>
 <translation id="6364916375976753737">Desplazar hacia la izquierda</translation>
 <translation id="6394627529324717982">Coma</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{Hace 1 s.}other{Hace # s.}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Seleccionar</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">MUY PROBABLES</translation>
 <translation id="7135556860107312402">Permitir notificaciones de:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{Falta 1 min.}other{Faltan # min.}}</translation>

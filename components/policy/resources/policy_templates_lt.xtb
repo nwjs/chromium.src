@@ -566,6 +566,7 @@
 <translation id="3001534538097271560">Nustačius šią politiką į „False“ naudotojai nebegalės pasirinkti siųsti tam tikros sistemos informacijos ir puslapių turinio į „Google“ serverius. Jei šis nustatymas nustatytas į „True“ arba nesukonfigūruotas, naudotojai galės siųsti tam tikrą sistemos informaciją ir puslapių turinį Saugaus naršymo funkcijai, kad padėtų aptikti pavojingas programas ir svetaines.
 
       Daugiau informacijos apie Saugų naršymą rasite adresu https://developers.google.com/safe-browsing.</translation>
+<translation id="3016255526521614822">Įtraukti į baltąjį sąrašą užrašų programas, kurios leidžiamos „<ph name="PRODUCT_OS_NAME" />“ užrakinimo ekrane</translation>
 <translation id="3021409116652377124">Neleisti papildinių ieškiklio</translation>
 <translation id="3030000825273123558">Įgalinti metrikos ataskaitų teikimą</translation>
 <translation id="3034580675120919256">Leidžiama nustatyti, ar svetainėse leidžiama paleisti „JavaScript“. Gali būti leidžiama arba draudžiama paleisti „JavaScript“ visose svetainėse.
@@ -916,6 +917,16 @@
       "1412.24.34": atnaujinti tik į šią konkrečią versiją
 
       Įspėjimas: nerekomenduojama konfigūruoti versijos apribojimų, nes dėl jų naudotojai gali negauti programinės įrangos naujinių ir svarbių saugos pataisų. Apribojus, kad būtų įdiegti tik konkrečios versijos priešdėlio naujiniai, gali kilti grėsmė naudotojų saugai.</translation>
+<translation id="4298509794364745131">Nurodomas programų, kurias galite įgalinti kaip užrašų programas „<ph name="PRODUCT_OS_NAME" />“ užrakinimo ekrane, sąrašas.
+
+      Jei pageidaujama užrašų programa įgalinta užrakinimo ekrane, jame bus NS elementas pageidaujamai užrašų programai paleisti.
+      Kai programa paleista, ji gali atidaryti programos langą užrakinimo ekrane ir kurti jame duomenų elementus (užrašus). Programa galės importuoti sukurtus užrašus į pagrindinę naudotojo sesiją, kai sesija bus atrakinta. Šiuo metu tik „Chrome“ užrašų programos palaikomos užrakinimo ekrane.
+
+      Jei politika nustatyta, naudotojui bus leidžiama įgalinti programą užrakinimo ekrane, tik jei programos plėtinio ID bus pateiktas politikos sąrašo vertėje.
+      Todėl šią politiką nustačius kaip tuščią sąrašą užrašai bus visiškai išjungti užrakinimo ekrane.
+      Atminkite, kad politika su programos ID nebūtinai reiškia, kad naudotojas galės įgalinti programą kaip užrašų programą užrakinimo ekrane (pvz., 61 versijos „Chrome“ platforma papildomai apriboja pasiekiamų programų rinkinį).
+
+      Jei politika nenustatyta, nebus taikoma jokių programų, kurias naudotojas gali įgalinti užrakinimo ekrane, rinkinio apribojimų.</translation>
 <translation id="4309640770189628899">Ar įgalinti DHE šifruotieji programų komplektai TLS</translation>
 <translation id="4320376026953250541">„Microsoft Windows XP“ SP2 arba naujesnė versija</translation>
 <translation id="4322842393287974810">Leisti automatiškai be delsos paleistai viešojo terminalo programai valdyti „<ph name="PRODUCT_OS_NAME" />“ versiją</translation>

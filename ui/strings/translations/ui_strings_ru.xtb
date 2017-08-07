@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Центр оповещений</translation>
 <translation id="1243314992276662751">Загрузить</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">РЕКОМЕНДУЕМЫЕ ПРИЛОЖЕНИЯ</translation>
 <translation id="1398853756734560583">Развернуть</translation>
 <translation id="1413622004203049571">Отключить оповещения от <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 минута }one{# минута }few{# минуты }many{# минут }other{# минуты }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">ВСЕ ПРИЛОЖЕНИЯ</translation>
 <translation id="4320177379694898372">Нет подключения к Интернету</translation>
 <translation id="4588090240171750605">Прокрутка вправо</translation>
+<translation id="4730374152663651037">ЧАСТО ИСПОЛЬЗУЕМЫЕ</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{остался 1 месяц}one{остался # месяц}few{осталось # месяца}many{осталось # месяцев}other{осталось # месяца}}</translation>
 <translation id="4820616160060340806">Command + <ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 секунда}one{# секунда}few{# секунды}many{# секунд}other{# секунды}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> Б/с</translation>
 <translation id="6264365405983206840">Выделить все</translation>
+<translation id="6351032674660237738">ПРЕДЛАГАЕМЫЕ ПРИЛОЖЕНИЯ</translation>
 <translation id="6364916375976753737">Прокрутка влево</translation>
 <translation id="6394627529324717982">Запятая</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 сек. назад}one{# сек. назад}few{# сек. назад}many{# сек. назад}other{# сек. назад}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Выбрать</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">САМЫЕ ПОДХОДЯЩИЕ</translation>
 <translation id="7135556860107312402">Разрешить оповещения от:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{Осталась 1 мин.}one{Осталась # мин.}few{Осталось # мин.}many{Осталось # мин.}other{Осталось # мин.}}</translation>

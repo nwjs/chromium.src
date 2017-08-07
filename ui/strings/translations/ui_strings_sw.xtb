@@ -4,10 +4,11 @@
 <translation id="111910763555783249">Mipangilio ya arifa</translation>
 <translation id="1127811143501539442">{DAYS,plural, =1{Siku 1 iliyopita}other{Siku # zilizopita}}</translation>
 <translation id="1156623771253174079">{SECONDS,plural, =1{Dakika 1 iliyopita}other{Dakika # zilizopita}}</translation>
-<translation id="1169783199079129864">{MINUTES,plural, =1{Dakika 1}other{Dakika #}}</translation>
+<translation id="1169783199079129864">{MINUTES,plural, =1{Dak 1}other{Dak #}}</translation>
 <translation id="1190609913194133056">Kituo cha Arifa</translation>
 <translation id="1243314992276662751">Pakia</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">PROGRAMU ZINAZOPENDEKEZWA</translation>
 <translation id="1398853756734560583">Tanua</translation>
 <translation id="1413622004203049571">Zima arifa kutoka <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{Dakika 1 na }other{Dakika # na }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">PROGRAMU ZOTE</translation>
 <translation id="4320177379694898372">Hakuna muunganisho wa intaneti</translation>
 <translation id="4588090240171750605">Sogeza Kulia</translation>
+<translation id="4730374152663651037">ZINAZOTUMIKA SANA</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{Umesalia mwezi 1}other{Imesalia miezi #}}</translation>
 <translation id="4820616160060340806">Amri+ <ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{Sekunde 1}other{Sekunde #}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Futa</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">Chagua &amp;Zote</translation>
+<translation id="6351032674660237738">MAPENDEKEZO YA PROGRAMU</translation>
 <translation id="6364916375976753737">Sogeza Kushoto</translation>
 <translation id="6394627529324717982">Koma</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{Sekunde 1 iliyopita}other{Sekunde # zilizopita}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Chagua</translation>
 <translation id="6965382102122355670">Sawa</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">UNAZOWEZA KUBOFYA SANA</translation>
 <translation id="7135556860107312402">Ruhusu arifa kutoka kwa:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{Imesalia dakika 1}other{Zimesalia dakika #}}</translation>

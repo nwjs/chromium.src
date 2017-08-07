@@ -562,6 +562,7 @@
 <translation id="3001534538097271560">Kapag itinakda ang patakarang ito sa false, hindi na mapipili ng mga user na magpadala ng ilang impormasyon ng system at content ng page sa mga server ng Google. Kung ang setting na ito ay true o hindi na-configure, papayagan ang mga user na magpadala ng ilang impormasyon ng system at content ng page sa Ligtas na Pag-browse upang makatulong na tumukoy ng mga mapanganib na app at site.
 
       Tingnan ang https://developers.google.com/safe-browsing para sa higit pang impormasyon tungkol sa Ligtas na Pag-browse.</translation>
+<translation id="3016255526521614822">Pinapayagan ang mga app sa paggawa ng tala ng Whitelist sa lock screen ng <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Huwag paganahin ang tagahanap ng plugin</translation>
 <translation id="3030000825273123558">Paganahin ang pag-uulat ng mga sukatan</translation>
 <translation id="3034580675120919256">Binibigyang-daan kang itakda kung pinapayagan o hindi ang mga website na magpatakbo ng JavaScript. Maaaring payagan para sa lahat ng website o tanggihan para sa lahat ng website ang pagpapatakbo ng JavaScript.
@@ -905,6 +906,16 @@
       "1412.24.34": mag-update sa partikular na bersyon lang na ito
 
       Babala: Hindi inirerekomenda na i-configure ang mga paghihigpit ng bersyon dahil maaari nitong pigilan ang pagtanggap ng mga user ng mga update sa software at kritikal na pag-aayos sa seguridad. Maaaring malagay sa peligro ang mga user kung paghihigpitan ang mga update sa isang partikular na prefix ng bersyon.</translation>
+<translation id="4298509794364745131">Tumutukoy ng listahan ng mga app na maaaring i-enable bilang app sa paggawa ng tala sa lock screen ng <ph name="PRODUCT_OS_NAME" />.
+
+      Kung naka-enable sa lock screen ang piniling app sa paggawa ng tala, maglalaman ang lock screen ng elemento ng UI para sa paglulunsad ng piniling app sa paggawa ng tala.
+      Kapag inilunsad, makakagawa ang app ng isang window sa itaas na bahagi ng lock screen, at makakagawa ng mga item ng data (mga tala) sa konteksto ng lock screen. Makakapag-import ang app ng mga nagawang tala sa session ng pangunahing user kapag naka-unlock ang screen. Sa kasalukuyan, ang mga app sa paggawa ng tala ng Chrome lang ang sinusuportahan sa lock screen.
+
+      Kung nakatakda ang patakaran, papayagan lang ang user na mag-enable ng app sa lock screen kung ang extension ID ng app ay nasa value ng listahan ng patakaran.
+      Bilang resulta, kapag itinakda ang patakarang ito sa isang listahang walang laman, tuluyang madi-disable ang paggawa ng tala sa lock screen.
+      Tandaan na ang patakarang naglalaman ng app ID ay hindi nangangahulugang mae-enable ng user ang app bilang app sa paggawa ng tala sa lock screen - halimbawa, sa Chrome 61, may karagdagang paghihigpit ayon sa platform ang hanay ng mga available na app.
+
+      Kung hindi nakatakda ang patakaran, walang ipapatupad na paghihigpit ang patakaran para sa hanay ng mga app na maaaring i-enable ng user sa lock screen.</translation>
 <translation id="4309640770189628899">Kung naka-enable ang mga DHE na cipher suite sa TLS o hindi</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 o mas bago</translation>
 <translation id="4322842393287974810">Payagan ang awtomatikong inilunsad na walang pagkaantalang kiosk app na kontrolin ang bersyon ng <ph name="PRODUCT_OS_NAME" /></translation>

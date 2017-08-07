@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">അറിയിപ്പ് കേന്ദ്രം</translation>
 <translation id="1243314992276662751">അപ്‌ലോഡുചെയ്യുക</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">ശുപാർശിത ആപ്പുകൾ</translation>
 <translation id="1398853756734560583">വലുതാക്കുക</translation>
 <translation id="1413622004203049571"><ph name="NOTIFIER_NAME" /> എന്നതിൽ നിന്നുള്ള അറിയിപ്പുകൾ പ്രവർത്തനരഹിതമാക്കുക</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{ഒരു മിനിറ്റും }other{# മിനിറ്റും }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">എല്ലാ ആപ്പുകളും</translation>
 <translation id="4320177379694898372">ഇന്റർനെറ്റ് കണക്ഷനൊന്നുമില്ല</translation>
 <translation id="4588090240171750605">വലത്തോട്ട് സ്ക്രോള്‍ ചെയ്യുക</translation>
+<translation id="4730374152663651037">പതിവായി ഉപയോഗിക്കുന്നത്</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{ഒരു മാസം ശേഷിക്കുന്നു}other{# മാസം ശേഷിക്കുന്നു}}</translation>
 <translation id="4820616160060340806">കമാൻഡ്+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{ഒരു സെക്കന്‍ഡ്}other{# സെക്കൻഡ്}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">എല്ലാം &amp;തിരഞ്ഞെടുക്കുക</translation>
+<translation id="6351032674660237738">ആപ്പ് നിർദ്ദേശങ്ങൾ</translation>
 <translation id="6364916375976753737">ഇടത്തേക്ക് സ്ക്രോള്‍ ചെയ്യുക</translation>
 <translation id="6394627529324717982">കോമ</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{ഒരു സെക്കൻഡ് മുമ്പ്}other{# സെക്കൻഡ് മുമ്പ്}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">തിരഞ്ഞെടുക്കുക</translation>
 <translation id="6965382102122355670">ശരി</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">ഏറ്റവും കൂടുതൽ പേർ ലൈക്കുചെയ്‌‌തത്</translation>
 <translation id="7135556860107312402">ഇനിപ്പറയുന്നതിൽ നിന്നുള്ള അറിയിപ്പുകൾ അനുവദിക്കുക:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{ഒരു മിനിറ്റ് ശേഷിക്കുന്നു}other{# മിനിറ്റ് ശേഷിക്കുന്നു}}</translation>

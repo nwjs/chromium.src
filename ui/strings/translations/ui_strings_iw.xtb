@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">מרכז התראות</translation>
 <translation id="1243314992276662751">העלה</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">אפליקציות מומלצות</translation>
 <translation id="1398853756734560583">הגדל</translation>
 <translation id="1413622004203049571">השבת הודעות מאת <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{דקה אחת ו }two{# דקות ו }many{# דקות ו }other{# דקות ו }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">כל האפליקציות</translation>
 <translation id="4320177379694898372">אין חיבור לאינטרנט</translation>
 <translation id="4588090240171750605">גלול ימינה</translation>
+<translation id="4730374152663651037">בשימוש לעתים קרובות</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{נותר חודש אחד}two{נותרו חודשיים}many{נותרו # חודשים}other{נותרו # חודשים}}</translation>
 <translation id="4820616160060340806">פקודה+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{שנייה אחת}two{# שניות}many{# שניות}other{# שניות}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">בחר &amp;הכל</translation>
+<translation id="6351032674660237738">הצעות לאפליקציות</translation>
 <translation id="6364916375976753737">גלול שמאלה</translation>
 <translation id="6394627529324717982">פסיק</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{לפני שנ‘ אחת}two{לפני # שנ‘}many{לפני # שנ‘}other{לפני # שנ‘}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">בחר</translation>
 <translation id="6965382102122355670">אישור</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">סבירות גבוהה</translation>
 <translation id="7135556860107312402">אפשר התראות ממקורות אלה:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{נותרה דק‘ אחת}two{נותרו # דק‘}many{נותרו # דק‘}other{נותרו # דק‘}}</translation>

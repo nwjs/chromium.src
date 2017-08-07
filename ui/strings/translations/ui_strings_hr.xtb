@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Centar za obavijesti</translation>
 <translation id="1243314992276662751">Prenesi</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">PREPORUČENE APLIKACIJE</translation>
 <translation id="1398853756734560583">Maksimiziraj</translation>
 <translation id="1413622004203049571">Onemogući obavijesti pošiljatelja <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minuta i }one{# minuta i }few{# minute i }other{# minuta i }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">SVE APLIKACIJE</translation>
 <translation id="4320177379694898372">Nema internetske veze</translation>
 <translation id="4588090240171750605">Pomakni se desno</translation>
+<translation id="4730374152663651037">ČESTO KORIŠTENO</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{Još mjesec dana}one{Još # mjesec}few{Još # mjeseca}other{Još # mjeseci}}</translation>
 <translation id="4820616160060340806">Naredba + <ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 sekunda}one{# sekunda}few{# sekunde}other{# sekundi}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">Odaberi &amp;sve</translation>
+<translation id="6351032674660237738">PRIJEDLOZI APLIKACIJA</translation>
 <translation id="6364916375976753737">Pomakni se lijevo</translation>
 <translation id="6394627529324717982">Zarez</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{Prije 1 s}one{Prije # s}few{Prije # s}other{Prije # s}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Odaberi</translation>
 <translation id="6965382102122355670">U redu</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">NAJVJEROJATNIJE</translation>
 <translation id="7135556860107312402">Omogućite obavijesti iz sljedećih izvora:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{Još 1 min}one{Još # min}few{Još # min}other{Još # min}}</translation>

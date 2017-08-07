@@ -539,6 +539,7 @@
 <translation id="3001534538097271560">Ha ennek a házirendnek az értéke hamis, akkor a felhasználók nem dönthetik el, hogy elküldjenek-e bizonyos rendszer-információkat és oldaltartalmakat a Google szervereinek. Ha a beállítás értéke igaz, vagy ha nincs megadva, akkor a felhasználók elküldhetnek bizonyos rendszer-információkat és oldaltartalmakat a Biztonságos Böngészés szolgáltatásnak, hogy segítsék a veszélyes alkalmazások és webhelyek észlelését.
 
       Ha további információt szeretne kapni a Biztonságos Böngészésről, látogasson el a https://developers.google.com/safe-browsing oldalra.</translation>
+<translation id="3016255526521614822">A(z) <ph name="PRODUCT_OS_NAME" /> lezárási képernyőjén engedélyezett jegyzetkészítő alkalmazások engedélyezőlistára tétele</translation>
 <translation id="3021409116652377124">Bővítménykereső letiltása</translation>
 <translation id="3030000825273123558">Mutatók jelentéseinek engedélyezése</translation>
 <translation id="3034580675120919256">Meghatározhatja, hogy a webhelyek futtathatnak-e JavaScriptet. A JavaScript futtatását engedélyezheti vagy letilthatja minden webhely számára. Ha a házirend beállítatlanul marad, a rendszer az "AllowJavaScript" értéket használja, amelyet a felhasználó módosíthat.</translation>
@@ -864,6 +865,16 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
       "1412.24.34": frissítés csak erre a konkrét verzióra
 
       Figyelem: Nem ajánlott verziókorlátozásokat beállítani, ez ugyanis megakadályozhatja, hogy a felhasználók megkapják a szoftverfrissítéseket és a kritikus biztonsági javításokat. A konkrét verzióelőtagra korlátozás kockázatot jelenthet a felhasználók számára.</translation>
+<translation id="4298509794364745131">Olyan alkalmazásokból álló listát ad meg, amelyek jegyzetkészítő alkalmazásként engedélyezhetők a(z) <ph name="PRODUCT_OS_NAME" /> lezárási képernyőjén.
+
+      Ha az előnyben részesített jegyzetkészítő alkalmazás engedélyezve van a lezárási képernyőn, akkor ezen a képernyőn szerepel majd az előnyben részesített jegyzetkészítő alkalmazás indítására szolgáló kezelőfelület-elem.
+      Indítás után az alkalmazás a lezárási képernyő tetején alkalmazásablakot, míg a lezárási képernyő felületén adatelemeket (jegyzeteket) tud létrehozni. Az alkalmazás létrehozott jegyzeteket importál az elsődleges felhasználói munkamenetbe, ha a munkamenet zárolása fel van oldva. Jelenleg csak a Chrome jegyzetkészítő alkalmazásai támogatottak a lezárási képernyőn.
+
+      Ha a házirend be van állítva, a felhasználó csak akkor engedélyezhet alkalmazást a lezárási képernyőn, ha a házirend listaértékei közt szerepel az alkalmazás bővítményazonosítója.
+      A házirend üres listára való beállítása ennek következtében teljesen letiltja a lezárási képernyőn való jegyzetkészítést.
+      Felhívjuk figyelmét, hogy az alkalmazásazonosítót tartalmazó házirend nem jelenti feltétlenül azt, hogy a felhasználó jegyzetkészítő alkalmazásként tudja majd engedélyezni az alkalmazást a lezárási képernyőn. Chrome 61-en például a platform tovább korlátozza a rendelkezésre álló alkalmazások készletét.
+
+      Ha nem állítja be ezt a házirendet, akkor a házirend által előírt korlátozások nem vonatkoznak majd a felhasználó által a lezárási képernyőn engedélyezhető alkalmazások készletére.</translation>
 <translation id="4309640770189628899">Engedélyezve vannak-e a DHE rejtjelezési csomagok a TLS protokollban</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 vagy újabb</translation>
 <translation id="4322842393287974810">Annak engedélyezése, hogy a <ph name="PRODUCT_OS_NAME" /> verziójának ellenőrzését a késés nélkül, automatikusan indított kioszkalkalmazás végezze.</translation>

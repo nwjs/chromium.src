@@ -558,6 +558,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="3001534538097271560">Đặt chính sách này thành false sẽ ngăn người dùng chọn gửi nội dung trang và thông tin hệ thống nhất định tới máy chủ Google. Nếu cài đặt này là true hoặc không được định cấu hình, thì người dùng sẽ được phép gửi nội dung trang và thông tin hệ thống nhất định tới dịch vụ Duyệt web an toàn nhằm giúp phát hiện các ứng dụng cũng như trang web nguy hiểm.
 
       Hãy xem https://developers.google.com/safe-browsing để biết thêm thông tin về Duyệt web an toàn.</translation>
+<translation id="3016255526521614822">Đưa các ứng dụng ghi chú được phép trên màn hình khóa của <ph name="PRODUCT_OS_NAME" /> vào danh sách cho phép</translation>
 <translation id="3021409116652377124">Vô hiệu hóa trình tìm kiếm plugin</translation>
 <translation id="3030000825273123558">Bật báo cáo số liệu</translation>
 <translation id="3034580675120919256">Cho phép bạn đặt liệu các trang web có được phép chạy JavaScript hay không. Bạn có thể cho phép hoặc từ chối chạy JavaScript đối với tất cả các trang web.
@@ -900,6 +901,16 @@ Khi chính sách này được đặt thành false hoặc không được địn
       "1412.24.34": chỉ cập nhật lên phiên bản cụ thể này
 
       Cảnh báo: Không nên định cấu hình giới hạn phiên bản vì chúng có thể khiến người dùng không thể nhận được các bản cập nhật phần mềm và các bản vá bảo mật tối quan trọng. Giới hạn cập nhật ở một tiền tố phiên bản cụ thể có thể khiến người dùng gặp rủi ro.</translation>
+<translation id="4298509794364745131">Chỉ định danh sách các ứng dụng có thể được bật làm ứng dụng ghi chú trên màn hình khóa của <ph name="PRODUCT_OS_NAME" />.
+
+      Nếu bạn bật ứng dụng ghi chú ưa thích trên màn hình khóa, màn hình khóa sẽ chứa phần tử giao diện người dùng để khởi chạy ứng dụng ghi chú ưa thích.
+      Khi đã khởi chạy, ứng dụng sẽ có thể tạo cửa sổ ứng dụng ở đầu màn hình khóa và tạo mục dữ liệu (ghi chú) trong ngữ cảnh màn hình khóa. Ứng dụng sẽ có thể nhập các ghi chú đã tạo vào phiên người dùng chính, khi phiên được mở khóa. Hiện tại, chỉ hỗ trợ các ứng dụng ghi chú của Chrome trên màn hình khóa.
+
+      Nếu bạn đã đặt chính sách, người dùng sẽ chỉ được phép bật ứng dụng trên màn hình khóa khi ID tiện ích của ứng dụng có trong giá trị danh sách chính sách.
+      Do vậy, việc đặt chính sách này cho một danh sách trống sẽ tắt hoàn toàn tính năng viết ghi chú trên màn hình khóa.
+      Lưu ý rằng chính sách chứa ID ứng dụng không nhất thiết có nghĩa là người dùng sẽ có thể bật ứng dụng làm ứng dụng ghi chú trên màn hình khóa - ví dụ: trên Chrome 61, tập hợp các ứng dụng hiện có bị nền tảng hạn chế thêm.
+
+      Nếu không đặt chính sách thì sẽ không có hạn chế nào được chính sách áp dụng cho tập hợp các ứng dụng mà người dùng có thể bật trên màn hình khóa.</translation>
 <translation id="4309640770189628899">Bộ mã hóa DHE trong TLS có được bật hay không</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 hoặc mới hơn</translation>
 <translation id="4322842393287974810">Cho phép ứng dụng kiosk tự động khởi chạy với độ trễ bằng không kiểm soát phiên bản <ph name="PRODUCT_OS_NAME" /></translation>
@@ -2159,9 +2170,9 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Nếu chính sách này không được định cấu hình thì <ph name="PRODUCT_NAME" /> sẽ sử dụng phiên bản tối đa mặc định.
 
       Ngoài ra, chính sách có thể được đặt thành một trong các giá trị sau: "tls1.2" hoặc "tls1.3". Khi được đặt, <ph name="PRODUCT_NAME" /> sẽ không sử dụng các phiên bản SSL/TLS cao hơn phiên bản đã chỉ định. Giá trị không xác định sẽ bị bỏ qua.</translation>
-<translation id="9213347477683611358">Định cấu hình hình nền cấp thiết bị được hiển thị trên màn hình đăng nhập nếu chưa có người dùng nào đăng nhập vào thiết bị. Bạn có thể đặt chính sách bằng cách chỉ định URL mà từ đó thiết bị Chrome OS có thể tải xuống hình nền và sử dụng một hàm mã hóa để xác minh tính toàn vẹn của nội dung tải xuống. Hình ảnh phải ở định dạng JPEG với kích thước tệp hình ảnh không được vượt quá 16MB. URL phải truy cập được mà không cần bất kỳ hình thức xác thực nào. Hình nền được tải xuống và lưu vào bộ nhớ cache. Hình ảnh sẽ được tải xuống lại mỗi khi URL hoặc hàm băm thay đổi.
+<translation id="9213347477683611358">Định cấu hình hình nền cấp thiết bị được hiển thị trên màn hình đăng nhập nếu chưa có người dùng nào đăng nhập vào thiết bị. Bạn có thể đặt chính sách bằng cách chỉ định URL mà từ đó thiết bị Chrome OS có thể tải xuống hình nền và sử dụng một hàm băm mật mã hóa để xác minh tính toàn vẹn của nội dung tải xuống. Hình ảnh phải ở định dạng JPEG với kích thước tệp hình ảnh không được vượt quá 16MB. URL phải truy cập được mà không cần bất kỳ hình thức xác thực nào. Hình nền được tải xuống và lưu vào bộ nhớ cache. Hình ảnh sẽ được tải xuống lại mỗi khi URL hoặc hàm băm thay đổi.
 
-      Chính sách phải được chỉ định dưới dạng một chuỗi biểu thị URL và hàm mã hóa ở định dạng JSON, ví dụ:
+      Chính sách phải được chỉ định dưới dạng một chuỗi biểu thị URL và hàm băm ở định dạng JSON, ví dụ:
       {
         "url": "https://example.com/device_wallpaper.jpg",
         "hash": "examplewallpaperhash"

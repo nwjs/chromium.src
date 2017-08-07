@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Centrum powiadomień</translation>
 <translation id="1243314992276662751">Prześlij</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">POLECANE APLIKACJE</translation>
 <translation id="1398853756734560583">Maksymalizuj</translation>
 <translation id="1413622004203049571">Wyłącz powiadomienia z <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minuta i }few{# minuty i }many{# minut i }other{# minuty i }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">WSZYSTKIE APLIKACJE</translation>
 <translation id="4320177379694898372">Brak połączenia z internetem</translation>
 <translation id="4588090240171750605">Przewiń w prawo</translation>
+<translation id="4730374152663651037">CZĘSTO UŻYWANE</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{Pozostał miesiąc}few{Pozostały # miesiące}many{Pozostało # miesięcy}other{Pozostało # miesiąca}}</translation>
 <translation id="4820616160060340806">Command+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 sekunda}few{# sekundy}many{# sekund}other{# sekundy}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">Wybierz &amp;wszystko</translation>
+<translation id="6351032674660237738">SUGEROWANE APLIKACJE</translation>
 <translation id="6364916375976753737">Przewiń w lewo</translation>
 <translation id="6394627529324717982">Przecinek</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 s temu}few{# s temu}many{# s temu}other{# s temu}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Wybierz</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">NAJBARDZIEJ PRAWDOPODOBNE</translation>
 <translation id="7135556860107312402">Zezwalaj na powiadomienia z:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{Pozostała 1 min}few{Pozostały # min}many{Pozostało # min}other{Pozostało # min}}</translation>

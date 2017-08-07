@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">सूचना केंद्र</translation>
 <translation id="1243314992276662751">अपलोड करा</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">शिफारस केलेले अ‍ॅप्स</translation>
 <translation id="1398853756734560583">वाढवा</translation>
 <translation id="1413622004203049571"><ph name="NOTIFIER_NAME" /> वरील सूचना अक्षम करा</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 मिनिट आणि }one{# मिनिट आणि }other{# मिनिटे आणि }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">सर्व अ‍ॅप्स</translation>
 <translation id="4320177379694898372">कोणतेही इंटरनेट कनेक्शन नाही</translation>
 <translation id="4588090240171750605">उजवे स्क्रोल करा</translation>
+<translation id="4730374152663651037">वारंवार वापरलेले</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{1 महिना राहिला}one{# महिना राहिला}other{# महिने राहिले}}</translation>
 <translation id="4820616160060340806">आदेश+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 सेकंद}one{# सेकंद}other{# सेकंद}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">&amp;सर्व निवडा</translation>
+<translation id="6351032674660237738">अॅप सूचना</translation>
 <translation id="6364916375976753737">डावीकडे स्क्रोल करा</translation>
 <translation id="6394627529324717982">स्वल्पविराम</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 सेकंदापूर्वी}one{# सेकंदापूर्वी}other{# सेकंदांपूर्वी}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">निवडा</translation>
 <translation id="6965382102122355670">ठीक आहे</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">सर्वाधिक शक्यता</translation>
 <translation id="7135556860107312402">खालील लोकांकडील सूचनांना अनुमत करा:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{1 मिनिट शिल्लक}one{# मिनिट शिल्लक}other{# मिनिटे शिल्लक}}</translation>

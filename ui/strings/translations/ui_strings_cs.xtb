@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Centrum oznámení</translation>
 <translation id="1243314992276662751">Nahrát</translation>
 <translation id="1293699935367580298">Klávesa Esc</translation>
+<translation id="1306549533752902673">DOPORUČENÉ APLIKACE</translation>
 <translation id="1398853756734560583">Maximalizovat</translation>
 <translation id="1413622004203049571">Deaktivovat oznámení ze služby <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minuta a  }few{# minuty a  }many{# minuty a  }other{# minut a  }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">VŠECHNY APLIKACE</translation>
 <translation id="4320177379694898372">Žádné připojení k internetu</translation>
 <translation id="4588090240171750605">Posuv doprava</translation>
+<translation id="4730374152663651037">ČASTO POUŽÍVANÉ</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{zbývá 1 měsíc}few{zbývají # měsíce}many{zbývá # měsíce}other{zbývá # měsíců}}</translation>
 <translation id="4820616160060340806">Příkaz + <ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 sekunda}few{# sekundy}many{# sekundy}other{# sekund}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Klávesa Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">Vybr&amp;at vše</translation>
+<translation id="6351032674660237738">NÁVRHY APLIKACÍ</translation>
 <translation id="6364916375976753737">Posuv doleva</translation>
 <translation id="6394627529324717982">Čárka</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{Před 1 s}few{Před # s}many{Před # s}other{Před # s}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Vybrat</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">NEJPRAVDĚPODOBNĚJŠÍ</translation>
 <translation id="7135556860107312402">Povolit oznámení z následujících zdrojů:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{Zbývá 1 min}few{Zbývají # min}many{Zbývá # min}other{Zbývá # min}}</translation>

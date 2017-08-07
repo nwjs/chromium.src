@@ -543,6 +543,7 @@
 <translation id="3001534538097271560">Dacă dezactivezi această politică, utilizatorii nu vor mai putea trimite unele informații de sistem și conținutul paginii la serverele Google. Dacă această setare este activată sau nu este configurată, utilizatorii au permisiunea să trimită unele informații de sistem și conținutul paginii la Navigarea sigură pentru detectarea aplicațiilor și a site-urilor periculoase.
 
       Consultă https://developers.google.com/safe-browsing pentru mai multe informații despre Navigarea sigură.</translation>
+<translation id="3016255526521614822">Trece în lista albă aplicațiile pentru creat note permise pe ecranul de blocare din <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Dezactivează instrumentul de găsire de pluginuri</translation>
 <translation id="3030000825273123558">Activați raportarea statisticilor</translation>
 <translation id="3034580675120919256">Vă permite să setați dacă site-urile web au permisiunea de a rula JavaScript. Rularea JavaScript poate fi permisă sau refuzată în bloc pentru toate site-urile web. Dacă această politică este lăsată nesetată, va fi utilizată politica „AllowJavaScript”, dar utilizatorul va putea să o schimbe.</translation>
@@ -879,6 +880,16 @@
       "1412.24.34": se actualizează numai la această versiune.
 
       Avertisment: nu se recomandă să se configureze restricții ale versiunilor, deoarece utilizatorii pot fi împiedicați să primească actualizări de software și remedieri importante de securitate. Dacă restricționezi actualizările pentru un anumit prefix de versiune, este posibil să pui în pericol utilizatorii.</translation>
+<translation id="4298509794364745131">Specifică lista de aplicații care pot fi activate ca aplicație pentru creat note pe ecranul de blocare din <ph name="PRODUCT_OS_NAME" />.
+
+      Dacă aplicația preferată pentru creat note este activată pe ecranul de blocare, acesta va include un element al interfeței de utilizare pentru lansarea aplicației preferate pentru creat note.
+      Când este lansată, aplicația va putea să creeze o fereastră peste ecranul de blocare și elemente de date (note) în contextul ecranului de blocare. Aplicația va putea să importe notele create în sesiunea utilizatorului principal, când sesiunea este deblocată. Momentan, doar aplicațiile pentru creat note din Chrome sunt acceptate pe ecranul de blocare.
+
+      Dacă politica este configurată, utilizatorul va putea să activeze o aplicație pe ecranul de blocare, numai dacă ID-ul extensiei aplicației este inclus în lista de valori a politicii.
+      Prin urmare, setarea unei liste goale pentru această politică va dezactiva complet crearea de note pe ecranul de blocare.
+      Reține că dacă politica conține un ID de aplicație nu înseamnă neapărat că utilizatorul va putea activa aplicația ca aplicație pentru creat note pe ecranul de blocare. De exemplu, în Chrome 61, setul de aplicații disponibile este restricționat suplimentar de platformă.
+
+      Dacă politica nu este configurată, nu vor exista restricții impuse de politică privind setul de aplicații pe care utilizatorul le poate activa pe ecranul de blocare.</translation>
 <translation id="4309640770189628899">Specifică dacă suitele de codificare DHE din TLS sunt activate</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 sau o versiune ulterioară</translation>
 <translation id="4322842393287974810">Permite aplicației chioșc lansate automat fără nicio întârziere să controleze versiunea <ph name="PRODUCT_OS_NAME" /></translation>

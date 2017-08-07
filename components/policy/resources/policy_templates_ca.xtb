@@ -537,6 +537,7 @@ Cada entrada de la llista especifica un identificador, que s'utilitza internamen
 <translation id="3001534538097271560">Si s'estableix aquesta política en "false", els usuaris no poden decidir si volen que algunes dades del sistema i contingut de les pàgines s'enviïn als servidors de Google. Si aquesta opció de configuració s'estableix en "true" o no s'estableix, els usuaris poden enviar aquestes dades a Navegació segura per ajudar a detectar les aplicacions i els llocs perillosos.
 
       Per obtenir més informació sobre Navegació segura, consulta https://developers.google.com/safe-browsing.</translation>
+<translation id="3016255526521614822">Afegeix a la llista blanca les aplicacions per prendre notes que es permeten a la pantalla de bloqueig de <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Desactiva el cercador de connectors</translation>
 <translation id="3030000825273123558">Activa la creació d'informes de mètriques</translation>
 <translation id="3034580675120919256">Us permet definir si els llocs web poden executar JavaScript. L'execució de JavaScript es pot autoritzar o denegar per a tots els llocs web. Si no es defineix aquesta política, s'utilitzarà el paràmetre "AllowJavaScript" i l'usuari podrà canviar-lo.</translation>
@@ -864,6 +865,16 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
       "1412.24.34":  només s'actualitza a aquesta versió específica
 
       Advertiment: no et recomanem configurar restriccions de versions, ja que podrien impedir que els usuaris rebin actualitzacions de programari i correccions crítiques de seguretat. En definitiva, restringir les actualitzacions al prefix d'una versió específica pot posar els usuaris en perill.</translation>
+<translation id="4298509794364745131">Indica una llista d'aplicacions que es poden activar com a aplicacions per prendre notes a la pantalla de bloqueig de <ph name="PRODUCT_OS_NAME" />.
+
+      Si l'aplicació preferida per prendre notes està activada a la pantalla de bloqueig, en aquesta pantalla s'hi mostrarà un element d'IU per iniciar-la.
+      Quan s'hagi iniciat, l'aplicació podrà crear una finestra d'aplicació a la part superior de la pantalla de bloqueig i crear elements de dades (notes) en el context de la pantalla de bloqueig. L'aplicació podrà importar notes creades a la sessió principal de l'usuari quan la sessió estigui desbloquejada. En aquests moments, a la pantalla de bloqueig només s'hi admeten aplicacions de Chrome per prendre notes.
+
+      Si la política es defineix, l'usuari podrà activar una aplicació a la pantalla de bloqueig només si el valor de llista de la política conté l'identificador d'extensió de l'aplicació.
+      Per tant, si aquesta política es defineix en una llista buida, no es permetrà en cap cas prendre notes des de la pantalla de bloqueig.
+      Tingues en compte que el fet que la política contingui un identificador d'aplicació no vol dir necessàriament que l'usuari pugui activar l'aplicació com a aplicació per prendre notes a la pantalla de bloqueig. Per exemple, a Chrome 61, la plataforma també restringeix el conjunt d'aplicacions disponibles.
+
+      Si la política no es defineix, no hi haurà restriccions imposades per la política respecte del conjunt d'aplicacions que l'usuari pot activar a la pantalla de bloqueig.</translation>
 <translation id="4309640770189628899">Si els sistemes de xifratge DHE de TLS estan activats</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 o una versió posterior</translation>
 <translation id="4322842393287974810">Permet que l'aplicació de quiosc d'inici automàtic sense retards controli la versió de <ph name="PRODUCT_OS_NAME" /></translation>

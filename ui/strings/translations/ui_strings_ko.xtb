@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">알림 센터</translation>
 <translation id="1243314992276662751">업로드</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">추천 앱</translation>
 <translation id="1398853756734560583">최대화</translation>
 <translation id="1413622004203049571"><ph name="NOTIFIER_NAME" />의 알림 사용 중지</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1분 }other{#분 }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">모든 앱</translation>
 <translation id="4320177379694898372">인터넷에 연결되지 않음</translation>
 <translation id="4588090240171750605">오른쪽 스크롤</translation>
+<translation id="4730374152663651037">자주 사용하는 앱</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{1개월 남음}other{#개월 남음}}</translation>
 <translation id="4820616160060340806">Command+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1초}other{#초}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" />B/s</translation>
 <translation id="6264365405983206840">모두 선택(&amp;A)</translation>
+<translation id="6351032674660237738">앱 추천</translation>
 <translation id="6364916375976753737">왼쪽으로 스크롤</translation>
 <translation id="6394627529324717982">콤마</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1초 전}other{#초 전}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">선택</translation>
 <translation id="6965382102122355670">확인</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">사용할 만한 앱</translation>
 <translation id="7135556860107312402">다음 항목에 알림 허용:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{1분 남음}other{#분 남음}}</translation>

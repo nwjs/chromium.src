@@ -377,6 +377,7 @@
 <translation id="3748148204939282805"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> এর আক্রমণকারীরা আপনাকে সফ্টওয়্যার ইনস্টলেশন বা আপনার ব্যক্তিগত তথ্য (যেমন পাসওয়ার্ড, ফোন নম্বর বা ক্রেডিট কার্ড) প্রকাশ করার মত বিপজ্জনক কাজ করার জন্য প্রতারিত করতে পারে। <ph name="BEGIN_LEARN_MORE_LINK" />আরও জানুন<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="375403751935624634">একটি সার্ভার ত্রুটির কারণে অনুবাদ ব্যর্থ হয়েছে৷</translation>
 <translation id="3759461132968374835">আপনার কাছে সাম্প্রতিক প্রতিবেদন করা কোনও ক্র্যাশ নেই৷ ক্র্যাশ প্রতিবেদন অক্ষম থাকাকালীন ঘটা ক্র্যাশ এখানে উপস্থিত হবে না৷</translation>
+<translation id="3765032636089507299">নিরাপদ ব্রাউজিং পৃষ্ঠা তৈরি করা হচ্ছে।</translation>
 <translation id="3778403066972421603">আপনি কি এই কার্ডটি আপনার Google অ্যাকাউন্টে ও এই ডিভাইসে সেভ করতে চান?</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3787705759683870569"><ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /> এ মেয়াদ শেষ হবে</translation>
@@ -909,6 +910,7 @@
 <translation id="8498891568109133222"><ph name="HOST_NAME" /> সাড়া দিতে খুবে বেশি সময় নিয়েছে।</translation>
 <translation id="8503813439785031346">ব্যবহারকারীর নাম</translation>
 <translation id="8543181531796978784">আপনি <ph name="BEGIN_ERROR_LINK" />একটি সনাক্তকরণ সমস্যা প্রতিবেদন করতে পারেন<ph name="END_ERROR_LINK" /> অথবা, আপনি আপনার নিরাপত্তা ঝুঁকি বুঝতে পারলে, <ph name="BEGIN_LINK" />এই অনিরাপদ সাইটটি ঘুরে দেখুন<ph name="END_LINK" />।</translation>
+<translation id="8543556556237226809">প্রশ্ন? আপনার প্রোফাইল যে তত্ত্বাবধান করে তার সাথে যোগাযোগ করুন।</translation>
 <translation id="8553075262323480129">পৃষ্ঠার ভাষা নির্ধারণ না করতে পারার কারণে অনুবাদ ব্যর্থ হয়েছে৷</translation>
 <translation id="8571890674111243710">পৃষ্ঠাটি<ph name="LANGUAGE" />তে অনুবাদ করুন...</translation>
 <translation id="858637041960032120">ফোননম্বর জুড়ুন</translation>

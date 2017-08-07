@@ -540,6 +540,7 @@
 <translation id="3001534538097271560">Definir esta política como falsa impede os utilizadores de optarem por enviar informações do sistema e conteúdo de páginas para os servidores da Google. Caso esta definição seja verdadeira ou não esteja configurada, os utilizadores podem enviar informações do sistema e conteúdo de páginas para a Navegação segura, de modo a ajudar a detetar aplicações e sites perigosos.
 
       Veja https://developers.google.com/safe-browsing para mais informações sobre a Navegação segura.</translation>
+<translation id="3016255526521614822">Adicionar à lista de autorizações as aplicações para tirar notas permitidas no ecrã de bloqueio do <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Desativar localizador de plug-ins</translation>
 <translation id="3030000825273123558">Ativar relatório de métricas</translation>
 <translation id="3034580675120919256">Permite definir se os Web sites estão autorizados a executar JavaScript. A execução de JavaScript pode ser permitida para todos os Web sites ou negada para todos os Web sites. Se esta política não for definida, será utilizada a definição "AllowJavaScript" e o utilizador poderá alterá-la.</translation>
@@ -871,6 +872,16 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
       "1412.24.34": atualizar para esta versão específica apenas
 
       Aviso: não se recomenda configurar restrições de versões, pois estas podem impedir os utilizadores de receber atualizações de software e correções de segurança críticas. Restringir atualizações a um prefixo de versão específico pode colocar os utilizadores em risco.</translation>
+<translation id="4298509794364745131">Especifica a lista de aplicações que podem ser ativadas como aplicações para tirar notas no ecrã de bloqueio do <ph name="PRODUCT_OS_NAME" />.
+
+      Se a aplicação para tirar notas preferida estiver ativada no ecrã de bloqueio, este irá conter um elemento de IU para a iniciar.
+      Quando for iniciada, a aplicação pode criar uma janela da aplicação na parte superior do ecrã de bloqueio e criar itens de dados (notas) no contexto do ecrã de bloqueio. A aplicação pode importar notas criadas para a sessão do utilizador principal quando a sessão estiver desbloqueada. Atualmente, o ecrã de bloqueio suporta apenas aplicações para tirar notas do Chrome.
+
+      Se a política estiver definida, o utilizador apenas pode ativar uma aplicação no ecrã de bloqueio se o ID de extensão da aplicação estiver incluído no valor da lista da política.
+      Por conseguinte, definir esta política para uma lista vazia desativa totalmente a possibilidade de tirar notas no ecrã de bloqueio.
+      Tenha em atenção que o facto de a política incluir um ID de aplicação não significa necessariamente que o utilizador possa ativar a aplicação como uma aplicação para tirar notas no ecrã de bloqueio. Por exemplo, no Chrome 61, aplicam-se restrições adicionais da plataforma ao conjunto de aplicações disponíveis.
+
+      Se a política não for definida, não se aplicam as restrições impostas pela política ao conjunto de aplicações que o utilizador pode ativar no ecrã de bloqueio.</translation>
 <translation id="4309640770189628899">Determinar se os conjuntos de cifras DHE no TLS estão ativados</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 ou posterior</translation>
 <translation id="4322842393287974810">Permitir que a aplicação de quiosque de início automático com atraso zero controle a versão do <ph name="PRODUCT_OS_NAME" /></translation>

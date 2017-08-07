@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Notification Center</translation>
 <translation id="1243314992276662751">I-upload</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">MGA INIREREKOMENDANG APP</translation>
 <translation id="1398853756734560583">Maximize</translation>
 <translation id="1413622004203049571">I-disable ang mga notification mula sa <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minuto at }one{# minuto at }other{# na minuto at }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">LAHAT NG APP</translation>
 <translation id="4320177379694898372">Walang koneksyon sa internet</translation>
 <translation id="4588090240171750605">Mag-scroll Pakanan</translation>
+<translation id="4730374152663651037">MADALAS GAMITIN</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{1 buwan ang natitira}one{# buwan ang natitira}other{# na buwan ang natitira}}</translation>
 <translation id="4820616160060340806">Command+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 segundo}one{# segundo}other{# na segundo}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> (na) B/s</translation>
 <translation id="6264365405983206840">Piliin &amp;Lahat</translation>
+<translation id="6351032674660237738">MGA IMINUMUNGKAHING APP</translation>
 <translation id="6364916375976753737">Mag-scroll Pakaliwa</translation>
 <translation id="6394627529324717982">Kuwit</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 segundo ang nakalipas}one{# segundo ang nakalipas}other{# na segundo ang nakalipas}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Pumili</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">PINAKAMALAMANG</translation>
 <translation id="7135556860107312402">Payagan ang mga notification mula sa sumusunod:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{1 minuto na lang ang natitira}one{# minuto na lang ang natitira}other{# na minuto na lang ang natitira}}</translation>

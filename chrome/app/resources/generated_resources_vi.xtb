@@ -135,6 +135,7 @@
 <translation id="1202596434010270079">Ứng dụng Kiosk đã được cập nhật. Vui lòng rút thẻ USB.</translation>
 <translation id="120368089816228251">Ghi chú âm nhạc</translation>
 <translation id="1205489148908752564">Đọc và thay đổi người dùng trong danh sách trắng</translation>
+<translation id="1206407435587370571">Khám phá Chromebook của bạn</translation>
 <translation id="1209796539517632982">Máy chủ có tên tự động</translation>
 <translation id="1213037489357051291">Đã thiết lập <ph name="NUM_FINGERPRINTS" /> vân tay</translation>
 <translation id="1215411991991485844">Đã thêm ứng dụng nền mới</translation>
@@ -170,6 +171,7 @@
 <translation id="1252987234827889034">Đã xảy ra lỗi hồ sơ</translation>
 <translation id="1254593899333212300">Kết nối Internet trực tiếp</translation>
 <translation id="1259724620062607540">Mục giá 7</translation>
+<translation id="1259832254221278963">Bắt đầu Trợ lý</translation>
 <translation id="1260240842868558614">Hiển thị:</translation>
 <translation id="126710816202626562">Ngôn ngữ dịch:</translation>
 <translation id="1268125225034560697">Việc chạy JavaScript thông qua AppleScript không được hỗ trợ nữa.</translation>
@@ -341,6 +343,7 @@
 <translation id="150962533380566081">PUK không hợp lệ.</translation>
 <translation id="1510030919967934016">Trang này đã bị chặn theo dõi vị trí của bạn.</translation>
 <translation id="1510200760579344855">Thiết bị này đã bị quản trị viên <ph name="SAML_DOMAIN" /> khóa.</translation>
+<translation id="1510238584712386396">Trình chạy</translation>
 <translation id="1510785804673676069">Nếu bạn sử dụng máy chủ proxy, hãy kiểm tra cài đặt proxy của bạn hoặc
     liên hệ với quản trị viên mạng để kiểm tra xem máy chủ proxy
     có đang hoạt động không. Nếu bạn cho rằng mình không cần sử dụng
@@ -701,6 +704,7 @@
 <translation id="204914487372604757">Tạo lối tắt</translation>
 <translation id="2050339315714019657">Khổ dọc</translation>
 <translation id="2053312383184521053">Dữ liệu ở trạng thái không hoạt động</translation>
+<translation id="205560151218727633">Biểu trưng Trợ lý Google</translation>
 <translation id="2058632120927660550">Đã xảy ra lỗi. Vui lòng kiểm tra máy in của bạn và thử lại.</translation>
 <translation id="2065405795449409761">Chrome đang được phần mềm kiểm tra tự động kiểm soát.</translation>
 <translation id="2068054174185416762">Tốc độ khung hình</translation>
@@ -800,7 +804,9 @@
 <translation id="2190469909648452501">Giảm</translation>
 <translation id="2192505247865591433">Từ:</translation>
 <translation id="2193365732679659387">Cài đặt tin cậy</translation>
+<translation id="2193512228430320736">Cho phép trợ lý hiển thị cho bạn các hành động, ứng dụng và thông tin có liên quan.</translation>
 <translation id="2195729137168608510">Bảo vệ Email</translation>
+<translation id="219905428774326614">Trình khởi chạy, tất cả ứng dụng</translation>
 <translation id="219985413780390209">Bảo vệ bạn và thiết bị của bạn khỏi các trang web nguy hiểm</translation>
 <translation id="220138918934036434">Nút ẩn</translation>
 <translation id="2202898655984161076">Đã có sự cố khi liệt kê máy in. Một số máy in của bạn có thể chưa được đăng ký thành công với <ph name="CLOUD_PRINT_NAME" />.</translation>
@@ -1006,6 +1012,7 @@ Tôi không cho rằng nên chặn trang web này!</translation>
 <translation id="249113932447298600">Rất tiếc, thiết bị <ph name="DEVICE_LABEL" /> không được hỗ trợ vào thời điểm này.</translation>
 <translation id="2493021387995458222">Chọn "từng từ một"</translation>
 <translation id="249303669840926644">Không thể hoàn tất đăng ký</translation>
+<translation id="2495777824269688114">Khám phá các tính năng khác hoặc nhận câu trả lời. Hãy chọn “?” để được trợ giúp.</translation>
 <translation id="2496180316473517155">Lịch sử duyệt web</translation>
 <translation id="2496540304887968742">Thiết bị phải có dung lượng 4 GB hoặc cao hơn.</translation>
 <translation id="2497229222757901769">Tốc độ chuột</translation>
@@ -1069,7 +1076,7 @@ Tôi không cho rằng nên chặn trang web này!</translation>
 <translation id="2573269395582837871">Chọn ảnh và tên</translation>
 <translation id="2574102660421949343">Đã cho phép cookie từ <ph name="DOMAIN" />.</translation>
 <translation id="2575247648642144396">Biểu tượng này sẽ hiển thị khi tiện ích có thể hoạt động trên trang hiện tại. Sử dụng tiện ích này bằng cách nhấp vào biểu tượng hoặc bằng cách nhấn <ph name="EXTENSION_SHORTCUT" />.</translation>
-<translation id="2575268751393592580">Không thể tìm thấy điện thoại của bạn. Hãy đảm bảo rằng <ph name="DEVICE_TYPE" /> được kết nối với Wi-Fi hoặc mạng di động. &lt;a&gt;Tìm hiểu thêm&lt;/a&gt;</translation>
+<translation id="2575268751393592580">Không thể tìm thấy điện thoại của bạn. Hãy đảm bảo rằng <ph name="DEVICE_TYPE" /> đã được kết nối với Wi-Fi hoặc mạng di động. &lt;a&gt;Tìm hiểu thêm&lt;/a&gt;</translation>
 <translation id="2576842806987913196">Hiện có tệp CRX hiển thị với tên này.</translation>
 <translation id="257779572837908839">Thiết lập làm Chromebox cho hội họp</translation>
 <translation id="2579575372772932244">Đang tạo lại hồ sơ, vui lòng đợi...</translation>
@@ -1151,7 +1158,7 @@ Tôi không cho rằng nên chặn trang web này!</translation>
 <translation id="2680208403056680091">Kết nối Internet của bạn đang bị kiểm soát</translation>
 <translation id="268053382412112343">Lị&amp;ch sử</translation>
 <translation id="2682935131208585215">Hỏi khi một trang web cố gắng theo dõi vị trí thực của bạn (được đề xuất)</translation>
-<translation id="2683638487103917598">Thư mục đã được sắp xếp</translation>
+<translation id="2683638487103917598">Đẵ sắp xếp thư mục</translation>
 <translation id="2686444421126615064">Xem tài khoản</translation>
 <translation id="2686759344028411998">Không thể phát hiện bất kỳ mô-đun đã tải nào.</translation>
 <translation id="2688196195245426394">Lỗi khi đăng ký thiết bị với máy chủ: <ph name="CLIENT_ERROR" />.</translation>
@@ -1304,6 +1311,7 @@ Tôi không cho rằng nên chặn trang web này!</translation>
 <translation id="2881966438216424900">Truy cập lần cuối:</translation>
 <translation id="2882943222317434580"><ph name="IDS_SHORT_PRODUCT_NAME" /> sẽ khởi động lại và đặt lại trong giây lát</translation>
 <translation id="2885378588091291677">Trình quản lý tác vụ</translation>
+<translation id="2886771036282400576">• <ph name="PERMISSION" /></translation>
 <translation id="2887525882758501333">Tài liệu PDF</translation>
 <translation id="2888807692577297075">Không có mục nào khớp với <ph name="SEARCH_STRING" /></translation>
 <translation id="2889064240420137087">Mở liên kết bằng...</translation>
@@ -1633,7 +1641,7 @@ Từ <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3355936511340229503">Lỗi kết nối</translation>
 <translation id="3356580349448036450">Hoàn tất</translation>
 <translation id="3356797067524893661">Bạn đã thiết lập xong và sẵn sàng tiếp tục với Hangouts Meet</translation>
-<translation id="3358935496594837302">Không thể tìm thấy điện thoại của bạn. Hãy đảm bảo rằng bạn đang sử dụng một điện thoại Android tương thích được bật và ở trong tầm tay. &lt;a&gt;Tìm hiểu thêm&lt;/a&gt;</translation>
+<translation id="3358935496594837302">Không thể tìm thấy điện thoại của bạn. Hãy đảm bảo rằng bạn đang sử dụng điện thoại Android tương thích được bật và ở trong tầm tay. &lt;a&gt;Tìm hiểu thêm&lt;/a&gt;</translation>
 <translation id="3359256513598016054">Giới hạn Chính sách của Chứng chỉ</translation>
 <translation id="335985608243443814">Duyệt qua...</translation>
 <translation id="3360297538363969800">Không in được. Vui lòng kiểm tra máy in và thử lại.</translation>
@@ -1730,6 +1738,7 @@ Từ <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3493881266323043047">Hiệu lực</translation>
 <translation id="3494769164076977169">Hỏi khi trang web cố gắng tự động tải tệp xuống sau tệp đầu tiên (được đề xuất)</translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> lỗi.</translation>
+<translation id="3495660573538963482">Cài đặt Trợ lý Google</translation>
 <translation id="3496213124478423963">Thu Nhỏ</translation>
 <translation id="3504135463003295723">Tên nhóm:</translation>
 <translation id="3505030558724226696">Thu hồi quyền truy cập thiết bị</translation>
@@ -2122,6 +2131,7 @@ Từ <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4075639477629295004">Không thể truyền <ph name="FILE_NAME" />.</translation>
 <translation id="4077917118009885966">Đã chặn quảng cáo trên trang web này</translation>
 <translation id="4081242589061676262">Không thể truyền tệp.</translation>
+<translation id="4084099073048755074">Cài đặt ứng dụng và trò chơi từ Google Play</translation>
 <translation id="4084682180776658562">Dấu trang</translation>
 <translation id="4084835346725913160">Đóng <ph name="TAB_NAME" /></translation>
 <translation id="4085298594534903246">JavaScript đã bị chặn trên trang này.</translation>
@@ -2188,6 +2198,7 @@ Tất cả người dùng phải đăng xuất để tiếp tục.</translation>
 <translation id="4195643157523330669">Mở bằng tab mới</translation>
 <translation id="4195814663415092787">Tiếp tục từ điểm bạn đã dừng lại</translation>
 <translation id="4197674956721858839">Chọn file nén zip</translation>
+<translation id="4198146608511578238">Bạn chỉ cần giữ biểu tượng Trình khởi chạy để nói chuyện với Trợ lý Google của mình.</translation>
 <translation id="4200689466366162458">Từ tùy chỉnh</translation>
 <translation id="4200983522494130825">&amp;Tab mới</translation>
 <translation id="4206144641569145248">Người ngoài hành tinh</translation>
@@ -2220,6 +2231,7 @@ Tất cả người dùng phải đăng xuất để tiếp tục.</translation>
 <translation id="4250229828105606438">Ảnh chụp màn hình</translation>
 <translation id="4250680216510889253">Không</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" /> - Đã chia sẻ nội dung tab</translation>
+<translation id="4253515443406306926">Trình khởi chạy, kết quả tìm kiếm ở chế độ toàn màn hình</translation>
 <translation id="4254813446494774748">Ngôn ngữ dịch:</translation>
 <translation id="425573743389990240">Tốc độ phóng điện của pin tính bằng Watt (giá trị âm có nghĩa là đang sạc pin)</translation>
 <translation id="4256316378292851214">Lưu &amp;Video Dưới dạng...</translation>
@@ -2239,7 +2251,7 @@ Tất cả người dùng phải đăng xuất để tiếp tục.</translation>
 <translation id="4278390842282768270">Được cho phép</translation>
 <translation id="4279490309300973883">Đang phản chiếu</translation>
 <translation id="4281844954008187215">Điều khoản dịch vụ</translation>
-<translation id="4282196459431406533">Smart Lock đang bật</translation>
+<translation id="4282196459431406533">Đã bật Smart Lock</translation>
 <translation id="4284105660453474798">Bạn có chắc bạn muốn xóa "$1" không?</translation>
 <translation id="4285498937028063278">Bỏ ghim</translation>
 <translation id="428565720843367874">Phần mềm chống vi-rút bị lỗi bất ngờ khi đang quét tệp này.</translation>
@@ -2679,6 +2691,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="496888482094675990">Ứng dụng Tệp cho phép truy cập nhanh các tệp mà bạn đã lưu trên Google Drive, bộ nhớ ngoài hoặc thiết bị Chrome OS của bạn.</translation>
 <translation id="4969785127455456148">Album</translation>
 <translation id="4971412780836297815">Mở khi hoàn tất</translation>
+<translation id="4972129977812092092">Chỉnh sửa máy in</translation>
 <translation id="4973307593867026061">Thêm máy in</translation>
 <translation id="4973698491777102067">Xóa các mục sau từ:</translation>
 <translation id="497421865427891073">Đi về phía trước</translation>
@@ -2708,6 +2721,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="5011739343823725107">Không thể khởi động chương trình phụ trợ đồng bộ hóa</translation>
 <translation id="5015344424288992913">Đang phân giải proxy…</translation>
 <translation id="5015762597229892204">Chọn ứng dụng trình điều khiển máy in</translation>
+<translation id="5016049845330225051">Nút xóa văn bản trong hộp tìm kiếm</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5018792385199109315">Quản lý các trang khi khởi động</translation>
 <translation id="5023943178135355362">Cuộn theo kiểu Úc <ph name="BEGIN_LINK" />Tìm hiểu thêm<ph name="END_LINK" /></translation>
@@ -2828,6 +2842,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="5209320130288484488">Không tìm thấy thiết bị nào</translation>
 <translation id="5209518306177824490">SHA-1 Fingerprint</translation>
 <translation id="5210365745912300556">Đóng tab</translation>
+<translation id="5211866059911729164">Cho phép trợ lý sử dụng nội dung trên màn hình của bạn</translation>
 <translation id="5212461935944305924">Ngoại lệ đối với cookie và dữ liệu trang web</translation>
 <translation id="5213891612754844763">Hiển thị cài đặt proxy</translation>
 <translation id="521582610500777512">Đã hủy ảnh</translation>
@@ -3010,6 +3025,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="5457113250005438886">Không hợp lệ</translation>
 <translation id="5457459357461771897">Đọc và xóa ảnh, nhạc và các phương tiện khác khỏi máy tính của bạn</translation>
 <translation id="5457599981699367932">Duyệt với tư cách Khách</translation>
+<translation id="5458998536542739734">Ghi chú trên màn hình khóa</translation>
 <translation id="5463275305984126951">Chỉ mục của <ph name="LOCATION" /></translation>
 <translation id="5463856536939868464">Menu chứa các dấu trang bị ẩn</translation>
 <translation id="5464632865477611176">Chạy lần này</translation>
@@ -3146,7 +3162,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="5649768706273821470">Nghe</translation>
 <translation id="5653140146600257126">Thư mục có tên "$1" đã tồn tại. Hãy chọn một tên khác.</translation>
 <translation id="5657667036353380798">Tiện ích bên ngoài yêu cầu cài đặt phiên bản phiên bản Chrome <ph name="MINIMUM_CHROME_VERSION" /> trở lên.</translation>
-<translation id="5658415415603568799">Để tăng cường tính bảo mật, Smart Lock sẽ yêu cầu bạn nhập mật khẩu sau 20 giờ.</translation>
+<translation id="5658415415603568799">Để tăng cường bảo mật, Smart Lock sẽ yêu cầu bạn nhập mật khẩu sau 20 giờ.</translation>
 <translation id="5659593005791499971">Email</translation>
 <translation id="5661272705528507004">Thẻ SIM này bị vô hiệu hóa và không thể sử dụng. Vui lòng liên hệ nhà cung cấp dịch vụ của bạn để lấy thẻ SIM thay thế.</translation>
 <translation id="5669267381087807207">Đang kích hoạt</translation>
@@ -3278,6 +3294,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="5856721540245522153">Bật tính năng gỡ lỗi</translation>
 <translation id="5857090052475505287">Thư mục Mới</translation>
 <translation id="5860033963881614850">Tắt</translation>
+<translation id="5860154621968450536">Rất tiếc, Trợ lý Google hiện không hỗ trợ ngôn ngữ của bạn.</translation>
 <translation id="5860209693144823476">Tab 3</translation>
 <translation id="5860491529813859533">Bật</translation>
 <translation id="5860494867054883682">Đang cập nhật thiết bị của bạn tới kênh <ph name="CHANNEL_NAME" /> (<ph name="PROGRESS_PERCENT" />)</translation>
@@ -3399,6 +3416,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="6051354611314852653">Rất tiếc! Hệ thống không cho phép truy cập API cho thiết bị này.</translation>
 <translation id="6052976518993719690">Tổ chức Cấp Chứng chỉ SSK</translation>
 <translation id="6053401458108962351">&amp;Xoá dữ liệu duyệt...</translation>
+<translation id="6054663654428587993">Chưa bật Trợ lý Google cho tài khoản của bạn.</translation>
 <translation id="6055171183283175969">Mật khẩu bạn đã nhập không chính xác.</translation>
 <translation id="6055392876709372977">PKCS #1 SHA-256 Với Mã hóa RSA</translation>
 <translation id="6056710589053485679">Tải lại bình thường</translation>
@@ -3460,6 +3478,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="6151771661215463137">Tệp đã tồn tại trong thư mục tải xuống của bạn.</translation>
 <translation id="615436196126345398">Giao thức</translation>
 <translation id="6154697846084421647">Hiện đã đăng nhập</translation>
+<translation id="6156262341071374681">Mở rộng cho tất cả ứng dụng</translation>
 <translation id="6156323911414505561">Hiển thị thanh dấu trang</translation>
 <translation id="6156863943908443225">Bộ nhớ cache tập lệnh</translation>
 <translation id="6156960295318603523">Cài đặt ngôn ngữ</translation>
@@ -3473,6 +3492,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="6171948306033499786">Tạm dừng in</translation>
 <translation id="6175314957787328458">GUID Tên miền của Microsoft</translation>
 <translation id="6178664161104547336">Chọn một chứng chỉ</translation>
+<translation id="6180288788882902869">Google Play trên <ph name="DEVICE_TYPE" /> của bạn</translation>
 <translation id="6181431612547969857">Tải xuống bị chặn</translation>
 <translation id="6185132558746749656">Vị trí thiết bị</translation>
 <translation id="6185696379715117369">Trang trên</translation>
@@ -3670,7 +3690,7 @@ Nhấn phím bất kỳ để tiếp tục khám phá.</translation>
 <translation id="6452181791372256707">Từ chối</translation>
 <translation id="6455348477571378046">Loại chứng chỉ:</translation>
 <translation id="6456394469623773452">Tốt</translation>
-<translation id="6456631036739229488">Đã thay đổi điện thoại Smart Lock. Nhập mật khẩu của bạn để cập nhật Smart Lock. Lần tới, điện thoại của bạn sẽ mở khóa <ph name="DEVICE_TYPE" />. Tắt Smart Lock trong Cài đặt.</translation>
+<translation id="6456631036739229488">Đã thay đổi điện thoại Smart Lock. Hãy nhập mật khẩu của bạn để cập nhật Smart Lock. Lần tới, điện thoại của bạn sẽ mở khóa <ph name="DEVICE_TYPE" />. Tắt Smart Lock trong Cài đặt.</translation>
 <translation id="645705751491738698">Tiếp tục chặn JavaScript</translation>
 <translation id="6458308652667395253">Quản lý chặn JavaScript...</translation>
 <translation id="6459488832681039634">Sử dụng Phần lựa chọn cho Tìm kiếm</translation>
@@ -3819,6 +3839,7 @@ Chỉ sử dụng tính năng này với các tài khoản mà bạn tin tưởn
 <translation id="667517062706956822">Bạn có muốn Google dịch trang này từ <ph name="SOURCE_LANGUAGE" /> sang <ph name="TARGET_LANGUAGE" /> không?</translation>
 <translation id="6675665718701918026">Đã kết nối thiết bị trỏ</translation>
 <translation id="6677037229676347494">ID mong muốn "<ph name="EXPECTED_ID" />", nhưng ID là "<ph name="NEW_ID" />".</translation>
+<translation id="6678312694238602710">Đã xóa tính năng tìm kiếm bằng giọng nói "Ok Google" khỏi Chrome OS</translation>
 <translation id="6678717876183468697">URL truy vấn</translation>
 <translation id="6680028776254050810">Chuyển người dùng</translation>
 <translation id="6680442031740878064">Còn trống: <ph name="AVAILABLE_SPACE" /></translation>
@@ -3979,6 +4000,7 @@ Chỉ sử dụng tính năng này với các tài khoản mà bạn tin tưởn
 <translation id="6943176775188458830">Hủy in</translation>
 <translation id="6943836128787782965">HTTP gặp lỗi</translation>
 <translation id="6945221475159498467">Chọn</translation>
+<translation id="6948064128393024347">Trình khởi chạy, kết quả tìm kiếm</translation>
 <translation id="6949306908218145636">Đánh dấu các trang đang mở...</translation>
 <translation id="6955446738988643816">Kiểm tra cửa sổ bật lên</translation>
 <translation id="695755122858488207">Nút radio không được chọn</translation>
@@ -4020,7 +4042,7 @@ Chỉ sử dụng tính năng này với các tài khoản mà bạn tin tưởn
 <translation id="699220179437400583">Tự động báo cáo với Google chi tiết về sự cố bảo mật có thể xảy ra</translation>
 <translation id="6996946928646015361">Mô-đun an toàn đã bị vô hiệu hóa hoặc bị thiếu.</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> thư mục đã được chọn</translation>
-<translation id="6998793565256476099">Đăng ký thiết bị cho hội nghị truyền hình</translation>
+<translation id="6998793565256476099">Đăng ký thiết bị tham gia hội nghị truyền hình</translation>
 <translation id="6998872712520806535">{NUM_PAGES,plural, =1{Trang sau không phản hồi. Bạn có thể chờ trang trở về trạng thái hồi đáp hoặc xóa trang.}other{Các trang sau không phản hồi. Bạn có thể chờ các trang trở về trạng thái hồi đáp hoặc xoá chúng.}}</translation>
 <translation id="7002055706763150362">Để thiết lập Smart Lock cho Chromebook, Google cần đảm bảo đó là bạn—hãy nhập mật khẩu của bạn để bắt đầu.</translation>
 <translation id="7002454948392136538">Chọn người quản lý cho người dùng được giám sát này</translation>
@@ -4181,6 +4203,7 @@ Chỉ sử dụng tính năng này với các tài khoản mà bạn tin tưởn
 <translation id="7254554697254365959">Không thể dịch trang này.</translation>
 <translation id="7254951428499890870">Bạn có chắc chắn muốn chạy "<ph name="APP_NAME" />" ở chế độ chẩn đoán không?</translation>
 <translation id="7255220508626648026">Đang truyền: <ph name="ROUTETITLE" /></translation>
+<translation id="7255733607359211052">Công cụ tìm kiếm và Trợ lý Google</translation>
 <translation id="7255935316994522020">Áp dụng</translation>
 <translation id="7256405249507348194">Lỗi không xác định: <ph name="DESC" /></translation>
 <translation id="7256710573727326513">Mở trong một tab</translation>
@@ -4302,7 +4325,7 @@ Chỉ sử dụng tính năng này với các tài khoản mà bạn tin tưởn
 <translation id="7439964298085099379">Bạn đã bật chế độ Tương phản cao. Bạn có muốn cài đặt tiện ích Tương phản cao của chúng tôi và chủ đề tối không?</translation>
 <translation id="7441570539304949520">Ngoại lệ cho JavaScript</translation>
 <translation id="7441830548568730290">Người dùng khác</translation>
-<translation id="7442465037756169001">Phần cứng Hangouts Meet của bạn đã sẵn sàng để được thiết lập.</translation>
+<translation id="7442465037756169001">Phần cứng Hangouts Meet của bạn đã sẵn sàng để thiết lập.</translation>
 <translation id="744341768939279100">Tạo cấu hình mới</translation>
 <translation id="7444726222535375658">Tiếp tục với Hangouts Meet</translation>
 <translation id="7444983668544353857">Vô hiệu hóa <ph name="NETWORKDEVICE" /></translation>
@@ -4401,6 +4424,7 @@ Chỉ sử dụng tính năng này với các tài khoản mà bạn tin tưởn
 <translation id="7573172247376861652">Sạc pin</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Đối chiếu</translation>
+<translation id="7580139917303152582">Sử dụng Trình khởi chạy để truy cập nhanh vào các ứng dụng và hoạt động mới.</translation>
 <translation id="7580671184200851182">Phát cùng một âm thanh qua tất cả các loa (đơn âm)</translation>
 <translation id="7581462281756524039">Công cụ làm sạch</translation>
 <translation id="7582582252461552277">Thích mạng này</translation>
@@ -4514,6 +4538,7 @@ Chỉ sử dụng tính năng này với các tài khoản mà bạn tin tưởn
 <translation id="7771452384635174008">Bố cục</translation>
 <translation id="7772032839648071052">Xác nhận cụm mật khẩu</translation>
 <translation id="7772127298218883077">Giới thiệu về <ph name="PRODUCT_NAME" /></translation>
+<translation id="7772773261844472235">Xem trạng thái Chromebook của bạn</translation>
 <translation id="7773726648746946405">Bộ nhớ phiên</translation>
 <translation id="7781335840981796660">Tất cả tài khoản người dùng và dữ liệu trên máy đều sẽ bị xóa.</translation>
 <translation id="7782102568078991263">Không có đề xuất nào khác từ Google</translation>
@@ -4897,6 +4922,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="8338952601723052325">Trang web dành cho nhà phát triển</translation>
 <translation id="8339012082103782726">Không cho phép trang web truy cập vào micrô của bạn</translation>
 <translation id="8339059274628563283"><ph name="SITE" /> đã lưu trữ dữ liệu cục bộ</translation>
+<translation id="834205140959175756">Quản lý kết nối, nội dung cập nhật và cài đặt bằng khay trạng thái.</translation>
 <translation id="8342318071240498787">Tệp hoặc thư mục có cùng tên đã tồn tại.</translation>
 <translation id="8351419472474436977">Tiện ích này đã chiếm quyền kiểm soát cài đặt proxy của bạn, điều đó có nghĩa là tiện ích này có thể thay đổi, làm gián đoạn hoặc nghe trộm bất kỳ điều gì bạn thực hiện trực tuyến. Nếu bạn không chắc chắn về lý do thay đổi này diễn ra, bạn có thể không cần tiện ích này.</translation>
 <translation id="8352772353338965963">Thêm một tài khoản để đăng nhập nhiều lần. Tất cả các tài khoản đã đăng nhập đều có thể truy cập được mà không cần mật khẩu, do đó bạn chỉ nên sử dụng tính năng này với các tài khoản đáng tin cậy.</translation>
@@ -4992,12 +5018,14 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="8498214519255567734">Giúp bạn nhìn màn hình hoặc đọc dưới ánh sáng mờ dễ dàng hơn</translation>
 <translation id="8498716162437226120">Thêm thiết bị Bluetooth</translation>
 <translation id="8503813439785031346">Tên người dùng</translation>
+<translation id="8508332354695141900">Trình khởi chạy, ứng dụng được đề xuất</translation>
 <translation id="8509646642152301857">Tải xuống từ điển kiểm tra lỗi chính tả không thành công.</translation>
 <translation id="8512476990829870887">Kết thúc quá trình</translation>
 <translation id="851263357009351303">Luôn cho phép <ph name="HOST" /> hiển thị hình ảnh</translation>
 <translation id="8513191386157529469">"<ph name="CLIENT_NAME" />" đang gỡ lỗi trình duyệt này.</translation>
 <translation id="8513974249124254369">ChromeVox (phản hồi bằng giọng nói) được bật. Nhấn Ctrl+Alt+Z để tắt.</translation>
 <translation id="8520687380519886411">Thao tác cuộn truyền thống</translation>
+<translation id="8521475323816527629">Truy cập nhanh vào các ứng dụng của bạn</translation>
 <translation id="852269967951527627">Không cho phép bất kỳ trang web nào hiển thị thông báo</translation>
 <translation id="8523493869875972733">Lưu thay đổi</translation>
 <translation id="8523849605371521713">Được thêm bởi chính sách</translation>
@@ -5206,7 +5234,7 @@ Các thông báo, cửa sổ và hộp thoại tiếp theo có thể bị phân 
 <translation id="8820961991571528294">Kiểm tra</translation>
 <translation id="8821045908425223359">Tự động định cấu hình địa chỉ IP</translation>
 <translation id="8822012246577321911">Bên thứ ba</translation>
-<translation id="882204272221080310">Cập nhật chương trình cơ sở để tăng cường tính bảo mật.</translation>
+<translation id="882204272221080310">Cập nhật chương trình cơ sở để tăng cường bảo mật.</translation>
 <translation id="8823514049557262177">Sao chép &amp;văn bản liên kết</translation>
 <translation id="8824701697284169214">Thêm tran&amp;g...</translation>
 <translation id="8828933418460119530">Tên DNS</translation>
@@ -5264,6 +5292,7 @@ Các thông báo, cửa sổ và hộp thoại tiếp theo có thể bị phân 
 <translation id="8915370057835397490">Đang tải đề xuất</translation>
 <translation id="8916476537757519021">Khung ẩn danh phụ: <ph name="SUBFRAME_SITE" /></translation>
 <translation id="8919034266226953085">Bộ chuyển đổi đường quét PWG</translation>
+<translation id="8921624153894383499">Trợ lý Google không hỗ trợ ngôn ngữ này.</translation>
 <translation id="89217462949994770">Bạn đã nhập mã PIN không chính xác quá nhiều lần. Vui lòng liên hệ với <ph name="CARRIER_ID" /> để lấy Khóa mở mã PIN gồm 8 chữ số mới.</translation>
 <translation id="8922013791253848639">Luôn cho phép quảng cáo trên trang web này</translation>
 <translation id="8925458182817574960">&amp;Cài đặt</translation>
@@ -5312,6 +5341,7 @@ Các thông báo, cửa sổ và hộp thoại tiếp theo có thể bị phân 
 <translation id="8986362086234534611">Quên</translation>
 <translation id="8986494364107987395">Tự động gửi số liệu thống kê về việc sử dụng và báo cáo sự cố cho Google</translation>
 <translation id="8987927404178983737">Tháng</translation>
+<translation id="8989308628569556420">Rất tiếc, Trợ lý Google hiện không hoạt động với tài khoản của bạn.</translation>
 <translation id="899403249577094719">URL Cơ sở Chứng chỉ Netscape</translation>
 <translation id="8995603266996330174">Được quản lý bởi <ph name="DOMAIN" /></translation>
 <translation id="8996526648899750015">Thêm tài khoản...</translation>
@@ -5346,7 +5376,7 @@ Các thông báo, cửa sổ và hộp thoại tiếp theo có thể bị phân 
 <translation id="9030515284705930323">Tổ chức chưa bật Cửa hàng Google Play cho tài khoản của bạn. Hãy liên hệ với quản trị viên để biết thêm thông tin.</translation>
 <translation id="9033780830059217187">Proxy bị tiện tích mở rộng buộc thực thi.</translation>
 <translation id="9033857511263905942">&amp;Dán</translation>
-<translation id="9035012421917565900">Không thể chuyển lại các tệp này vào '<ph name="DESTINATION_NAME" />', do đó bạn sẽ không thể hoàn tác tác vụ này.</translation>
+<translation id="9035012421917565900">Không thể chuyển lại các tệp này vào '<ph name="DESTINATION_NAME" />', do đó bạn sẽ không thể hoàn tác hành động này.</translation>
 <translation id="9037008143807155145">https://www.google.com/calendar/render?cid=%s</translation>
 <translation id="9037965129289936994">Hiển thị văn bản gốc</translation>
 <translation id="9038430547971207796">Lần tới, điện thoại của bạn sẽ mở khóa <ph name="DEVICE_TYPE" />. Hãy tắt Smart Lock trong Cài đặt.</translation>

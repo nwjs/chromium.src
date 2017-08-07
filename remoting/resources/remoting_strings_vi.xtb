@@ -172,7 +172,7 @@ Remote Desktop</translation>
 <translation id="4918086044614829423">Chấp nhận</translation>
 <translation id="492843737083352574">Tôi đang gặp sự cố với bàn phím hoặc chuột.</translation>
 <translation id="4973800994433240357">Khi tải xuống Trình cài đặt máy chủ kết nối từ xa trên Chrome, bạn đồng ý với <ph name="LINK_BEGIN" />Điều khoản dịch vụ<ph name="LINK_END" /> của Google.</translation>
-<translation id="4974476491460646149">Đã đóng kết nối cho <ph name="HOSTNAME" /></translation>
+<translation id="4974476491460646149">Đã ngắt kết nối khỏi <ph name="HOSTNAME" /></translation>
 <translation id="4985296110227979402">Trước tiên, bạn cần thiết lập máy tính để truy cập từ xa</translation>
 <translation id="5064360042339518108"><ph name="HOSTNAME" /> (ngoại tuyến)</translation>
 <translation id="5070121137485264635">Máy chủ lưu trữ từ xa yêu cầu bạn xác thực với một trang web của bên thứ ba. Để tiếp tục, bạn phải cấp cho Chrome Remote Desktop thêm quyền truy cập vào địa chỉ sau:</translation>
@@ -318,7 +318,7 @@ Remote Desktop</translation>
 <translation id="9016232822027372900">Vẫn tiếp tục kết nối</translation>
 <translation id="906458777597946297">Phóng to cửa sổ</translation>
 <translation id="9126115402994542723">Không yêu cầu lại mã PIN khi kết nối với máy chủ này từ thiết bị này.</translation>
-<translation id="9149580767411232853">Hiển thị toàn bộ màn hình nền từ xa</translation>
+<translation id="9149580767411232853">Duy trì hiển thị toàn bộ màn hình nền từ xa</translation>
 <translation id="9149992051684092333">Để bắt đầu chia sẻ máy tính của bạn, hãy cung cấp mã truy cập bên dưới cho người sẽ trợ giúp bạn.</translation>
 <translation id="9188433529406846933">Cho phép</translation>
 <translation id="9213184081240281106">Cấu hình máy chủ không hợp lệ.</translation>

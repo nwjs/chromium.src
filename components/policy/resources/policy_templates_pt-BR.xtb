@@ -535,6 +535,7 @@
 <translation id="3001534538097271560">A configuração desta política como False impede que os usuários optem por enviar informações do sistema e conteúdo de páginas aos servidores do Google. Se essa configuração for definida como True ou não for configurada, os usuários terão permissão para enviar informações do sistema e conteúdo de página ao recurso "Navegação segura" para ajudar a detectar apps e sites perigosos.
 
       Consulte https://developers.google.com/safe-browsing (em inglês) para ver mais informações sobre o recurso "Navegação segura".</translation>
+<translation id="3016255526521614822">Colocar na lista de permissões os apps de anotação permitidos na tela de bloqueio do <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="3021409116652377124">Desativar localizador de plug-ins</translation>
 <translation id="3030000825273123558">Ativa relatórios de métricas</translation>
 <translation id="3034580675120919256">Permite que você defina se os websites estão autorizados a executar JavaScript. O JavaScript em execução pode ser permitido ou negado para todos os websites. Se esta política for deixada sem definição, a política "AllowJavaScript" será utilizada, podendo ser modificada pelo usuário.</translation>
@@ -863,6 +864,16 @@
       "1412.24.34": atualiza somente para esta versão específica
 
       Aviso: não é recomendado configurar restrições de versão, pois elas podem impedir que os usuários recebam atualizações de software e correções de segurança críticas. Atualizações de restrição para um prefixo de versão específico podem colocar os usuários em risco.</translation>
+<translation id="4298509794364745131">Especifica uma lista de apps que podem ser ativados como apps de anotação na tela de bloqueio do <ph name="PRODUCT_OS_NAME" />.
+
+      Se o app de anotação preferencial for permitido na tela de bloqueio, essa tela mostrará o elemento de IU para abrir o app de anotação preferencial.
+      Quando aberto, o app poderá criar uma janela de app na parte superior da tela de bloqueio e criar itens de dados (anotações) no contexto da tela de bloqueio. O app poderá importar anotações criadas para a sessão do usuário principal quando a sessão estiver desbloqueada. Atualmente, apenas apps de anotação do Chrome funcionam na tela de bloqueio.
+
+      Se a política for definida, o usuário poderá ativar o app na tela de bloqueio apenas se o código da extensão do app estiver contido no valor da lista da política.
+      Como consequência, a configuração desta política para uma lista vazia desativará completamente o app de anotações na tela de bloqueio.
+      Observe que a política que contém um código de app não significa necessariamente que o usuário poderá ativar o app como um app de anotações na tela de bloqueio. Por exemplo, no Chrome 61, o conjunto de apps disponíveis é ainda mais restrito pela plataforma.
+
+      Se a política for deixada sem definição, não haverá restrições no conjunto de apps que o usuário pode ativar na tela de bloqueio impostas pela política.</translation>
 <translation id="4309640770189628899">Se os pacotes de criptografia DHE em TLS estão ativados ou não</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 ou posterior</translation>
 <translation id="4322842393287974810">Permitir que o app em Kiosk aberto automaticamente com zero de atraso controle a versão do <ph name="PRODUCT_OS_NAME" /></translation>

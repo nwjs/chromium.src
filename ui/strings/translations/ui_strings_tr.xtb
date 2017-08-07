@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Bildirim Merkezi</translation>
 <translation id="1243314992276662751">Yükle</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">ÖNERİLEN UYGULAMALAR</translation>
 <translation id="1398853756734560583">Büyüt</translation>
 <translation id="1413622004203049571"><ph name="NOTIFIER_NAME" /> bildirimlerini devre dışı bırak</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 dakika ve }other{# dakika ve }}</translation>
@@ -23,7 +24,7 @@
 <translation id="1842960171412779397">seç</translation>
 <translation id="1860796786778352021">Bildirimi kapat</translation>
 <translation id="1871244248791675517">Ins</translation>
-<translation id="1884435127456172652">% <ph name="NUMBER" /></translation>
+<translation id="1884435127456172652">%<ph name="NUMBER" /></translation>
 <translation id="1901303067676059328">Tümünü &amp;seç</translation>
 <translation id="2141853158323869627">{DAYS,plural, =1{1 gün}other{# gün}}</translation>
 <translation id="2148716181193084225">Bugün</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">TÜM UYGULAMALAR</translation>
 <translation id="4320177379694898372">İnternet bağlantısı yok</translation>
 <translation id="4588090240171750605">Sağa Kaydır</translation>
+<translation id="4730374152663651037">SIK KULLANILANLAR</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{1 ay kaldı}other{# ay kaldı}}</translation>
 <translation id="4820616160060340806">Command+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 saniye}other{# saniye}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/sn</translation>
 <translation id="6264365405983206840">&amp;Tümünü Seç</translation>
+<translation id="6351032674660237738">UYGULAMA ÖNERİLERİ</translation>
 <translation id="6364916375976753737">Sola Kaydır</translation>
 <translation id="6394627529324717982">Virgül</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 sn. önce}other{# sn. önce}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Seç</translation>
 <translation id="6965382102122355670">Tamam</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">BÜYÜK İHTİMALLE</translation>
 <translation id="7135556860107312402">Şunlardan gelen bildirimlere izin ver:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{1 dk. kaldı}other{# dk. kaldı}}</translation>

@@ -564,6 +564,7 @@
 <translation id="3001534538097271560">Penetapan dasar ini kepada palsu akan menghentikan pengguna daripada memilih untuk menghantar beberapa maklumat sistem dan kandungan halaman kepada pelayan Google. Jika tetapan ini benar atau tidak dikonfigurasikan, maka pengguna akan dibenarkan menghantar beberapa maklumat sistem dan kandungan halaman kepada Penyemakan Imbas Selamat untuk mengesan apl dan tapak yang berbahaya.
 
       Lihat https://developers.google.com/safe-browsing untuk mendapatkan maklumat tentang Penyemakan Imbas Selamat.</translation>
+<translation id="3016255526521614822">Apl pencatatan nota senarai putih dibenarkan pada skrin kunci <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Lumpuhkan pencari pemalam</translation>
 <translation id="3030000825273123558">Dayakan laporan metrik</translation>
 <translation id="3034580675120919256">Membolehkan anda menetapkan sama ada laman web dibenarkan untuk menjalankan JavaScript. Menjalankan JavaScript boleh dibenarkan untuk semua tapak web atau dinafikan untuk semua tapak web.
@@ -913,6 +914,16 @@
       "1412.24.34": kemas kini kepada versi tertentu yang ini sahaja
 
       Amaran: Anda tidak disyorkan untuk mengkonfigurasi had versi kerana tindakan ini boleh menghalang pengguna daripada menerima kemas kini perisian dan pembetulan keselamatan kritikal. Tindakan mengehadkan kemas kini kepada awalan versi tertentu boleh menyebabkan pengguna terdedah kepada risiko.</translation>
+<translation id="4298509794364745131">Menentukan senarai apl yang boleh didayakan sebagai apl pencatatan nota pada skrin kunci <ph name="PRODUCT_OS_NAME" />.
+
+      Jika apl pencatatan nota pilihan didayakan pada skrin kunci, skrin kunci akan mengandungi unsur UI untuk melancarkan apl pencatatan nota pilihan.
+      Apabila dilancarkan, apl ini akan dapat membuat tetingkap apl di atas skrin kunci dan membuat item data (nota) dalam konteks skrin kunci. Apl ini akan dapat mengimport nota yang dibuat ke sesi pengguna utama, semasa sesi dibuka kunci. Hanya apl pencatatan nota Chrome yang disokong pada skrin kunci pada masa ini.
+
+      Jika dasar ini ditetapkan, pengguna akan dibenarkan untuk mendayakan apl pada skrin kunci hanya jika ID sambungan apl terkandung dalam nilai senarai dasar.
+      Akibatnya, tindakan menetapkan dasar ini kepada senarai kosong akan melumpuhkan pencatatan nota pada keseluruhan skrin kunci.
+      Sila ambil perhatian bahawa dasar yang mengandungi ID apl tidak semestinya bermaksud pengguna akan dapat mendayakan apl sebagai apl pencatatan nota pada skrin kunci - contohnya, pada Chrome 61, set apl yang tersedia dihadkan secara tambahan oleh platform.
+
+      Jika dasar dibiarkan tanpa ditetapkan, tiada sekatan pada set apl yang boleh didayakan oleh pengguna pada skrin kunci yang dikenakan oleh dasar.</translation>
 <translation id="4309640770189628899">Sama ada suit sifer DHE dalam TLS didayakan</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 atau lebih baharu</translation>
 <translation id="4322842393287974810">Benarkan apl kios kelewatan sifar yang dilancarkan secara automatik untuk mengawal versi <ph name="PRODUCT_OS_NAME" /></translation>

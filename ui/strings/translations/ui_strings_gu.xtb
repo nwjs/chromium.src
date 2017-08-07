@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">સૂચના કેન્દ્ર</translation>
 <translation id="1243314992276662751">અપલોડ કરો</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">ભલામણ કરેલ ઍપ</translation>
 <translation id="1398853756734560583">મોટું કરો</translation>
 <translation id="1413622004203049571"><ph name="NOTIFIER_NAME" /> તરફથી સૂચનાઓ અક્ષમ કરો</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 મિનિટ અને }one{# મિનિટ અને }other{# મિનિટ અને }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">બધી ઍપ્લિકેશનો</translation>
 <translation id="4320177379694898372">કોઈ ઇન્ટરનેટ કનેક્શન નથી</translation>
 <translation id="4588090240171750605">જમણે સ્ક્રોલ કરો</translation>
+<translation id="4730374152663651037">વારંવાર વપરાયેલ</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{1 મહિનો બાકી}one{# મહિનો બાકી}other{# મહિના બાકી}}</translation>
 <translation id="4820616160060340806">કમાન્ડ+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 સેકન્ડ}one{# સેકન્ડ}other{# સેકન્ડ}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">&amp;બધા પસંદ કરો</translation>
+<translation id="6351032674660237738">ઍપ સૂચનો</translation>
 <translation id="6364916375976753737">ડાબે સ્ક્રોલ કરો</translation>
 <translation id="6394627529324717982">અલ્પવિરામ</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 સે પહેલાં}one{# સે પહેલાં}other{# સે પહેલાં}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">પસંદ કરો</translation>
 <translation id="6965382102122355670">ઓકે</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">સૌથી વધુ શક્ય</translation>
 <translation id="7135556860107312402">નીચેના પરથી સૂચનાઓને મંજૂરી આપો:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{1 મિ બાકી}one{# મિ બાકી}other{# મિ બાકી}}</translation>

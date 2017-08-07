@@ -567,6 +567,7 @@
 <translation id="3001534538097271560">Bu politika yanlış seçeneğine ayarlandığında, kullanıcıların, bazı sistem bilgilerini ve sayfa içeriğini Google sunucularına göndermeyi seçmeleri engellenir. Bu ayar doğru seçeneğine ayarlanırsa veya hiç yapılandırılmazsa kullanıcılar, tehlikeli uygulamaların ve sitelerin tespit edilmesine yardımcı olmak amacıyla bazı sistem bilgilerini ve sayfa içeriğini Güvenli Tarama'ya gönderebilir.
 
       Güvenli Tarama ile ilgili daha fazla bilgi için https://developers.google.com/safe-browsing adresine bakın.</translation>
+<translation id="3016255526521614822">Beyaz listedeki not alma uygulamalarına <ph name="PRODUCT_OS_NAME" /> kilit ekranında izin verilir</translation>
 <translation id="3021409116652377124">Eklenti bulucuyu devre dışı bırak</translation>
 <translation id="3030000825273123558">Ölçüm raporlamayı etkinleştir</translation>
 <translation id="3034580675120919256">Web sitelerinin JavaScript çalıştırmalarına izin verilip verilmeyeceğini ayarlamanıza olanak tanır. Tüm sitelerin JavaScript çalıştırmasına izin verilebilir veya tüm siteler için bu reddedilebilir.
@@ -907,6 +908,16 @@ politikayı geçersiz kılamaz.
       "1412.24.34": Sadece bu belirli sürüme güncelle
 
       Uyarı: Kullanıcıların yazılım güncellemelerini ve kritik güvenlik düzeltmelerini almasını engelleyebileceği için sürüm kısıtlamalarının yapılandırılması önerilmez. Güncellemeleri belirli bir sürüm önekiyle sınırlamak, kullanıcıları risk altında bırakabilir.</translation>
+<translation id="4298509794364745131"><ph name="PRODUCT_OS_NAME" /> kilit ekranında not alma uygulaması olarak etkinleştirilebilen uygulamaların listesini belirtir.
+
+      Tercih edilen not alma uygulaması kilit ekranında etkinleştirilmişse, kilit ekranı bu uygulamayı başlatacak bir kullanıcı arayüzü öğesi barındırır.
+      Uygulama başlatıldığı zaman kilit ekranının üst kısmında bir uygulama penceresi ve kilit ekranı bağlamında veri öğeleri (notlar) oluşturulabilir. Oturumun kilidi açık olduğunda, uygulama, oluşturulan notları birincil kullanıcı oturumuna aktarabilecektir. Şu anda yalnızca Chrome not alma uygulamaları kilit ekranında desteklenmektedir.
+
+      Politika ayarlanmışsa, yalnızca uygulamanın uzantı kimliğinin politika listesi değerinde yer alması halinde, kullanıcı uygulamayı kilit ekranında etkinleştirilebilir.
+      Bu nedenle, bu politikayı boş bir listeye ayarlamak, kilit ekranında not almayı tamamen devre dışı bırakır.
+      Uygulama kimliği içeren politikanın, kullanıcının uygulamayı kilit ekranında not alma uygulaması olarak etkinleştirebileceği anlamına gelmediğini unutmayın. Örneğin, Chrome 61 sürümünde, kullanılabilir uygulamalar dizisi platform tarafından ilave bir kısıtlamaya tabidir.
+
+      Politika ayarlanmadan bırakılırsa, kullanıcının kilit ekranında etkinleştirebileceği uygulama dizisi üzerinde politika tarafından hiçbir kısıtlama söz konusu olmaz.</translation>
 <translation id="4309640770189628899">TLS'deki DHE şifre paketlerinin etkinleştirilip etkinleştirilmediği</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 veya sonrası</translation>
 <translation id="4322842393287974810">Sıfır gecikmeyle otomatik başlatılan kiosk uygulamasının <ph name="PRODUCT_OS_NAME" /> sürümünü kontrol etmesine izin ver</translation>

@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">通知中心</translation>
 <translation id="1243314992276662751">上傳</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">推薦應用程式</translation>
 <translation id="1398853756734560583">放到最大</translation>
 <translation id="1413622004203049571">停用「<ph name="NOTIFIER_NAME" />」的通知</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 分鐘 }other{# 分鐘 }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">所有應用程式</translation>
 <translation id="4320177379694898372">沒有網際網路連線</translation>
 <translation id="4588090240171750605">向右捲動</translation>
+<translation id="4730374152663651037">常用的應用程式</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{還剩 1 個月}other{還剩 # 個月}}</translation>
 <translation id="4820616160060340806">Command + <ph name="KEY_COMBO_NAME" /> 鍵</translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 秒}other{# 秒}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/秒</translation>
 <translation id="6264365405983206840">選取全部(&amp;A)</translation>
+<translation id="6351032674660237738">應用程式建議</translation>
 <translation id="6364916375976753737">向左捲動</translation>
 <translation id="6394627529324717982">逗號</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 秒前}other{# 秒前}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">選取</translation>
 <translation id="6965382102122355670">確定</translation>
 <translation id="7052633198403197513">F1 鍵</translation>
+<translation id="7130207228079676353">最有可能選擇的應用程式</translation>
 <translation id="7135556860107312402">允許接收下列來源發出的通知：</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{還剩 1 分鐘}other{還剩 # 分鐘}}</translation>

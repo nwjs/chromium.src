@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Értesítési központ</translation>
 <translation id="1243314992276662751">Feltöltés</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">AJÁNLOTT ALKALMAZÁSOK</translation>
 <translation id="1398853756734560583">Teljes méret</translation>
 <translation id="1413622004203049571">A(z) <ph name="NOTIFIER_NAME" /> értesítéseinek kikapcsolása</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 perc és }other{# perc és }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">MINDEN ALKALMAZÁS</translation>
 <translation id="4320177379694898372">Nincs internetkapcsolat</translation>
 <translation id="4588090240171750605">Görgetés jobbra</translation>
+<translation id="4730374152663651037">GYAKRAN HASZNÁLT</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{hátralévő idő: 1 hónap}other{hátralévő idő: # hónap}}</translation>
 <translation id="4820616160060340806">Command+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 másodperc}other{# másodperc}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">Össz&amp;es kiválasztása</translation>
+<translation id="6351032674660237738">ALKALMAZÁSJAVASLATOK</translation>
 <translation id="6364916375976753737">Görgetés balra</translation>
 <translation id="6394627529324717982">Vessző</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 másodperce}other{# másodperce}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Kiválasztás</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">NAGY VALÓSZÍNŰSÉGGEL</translation>
 <translation id="7135556860107312402">Értesítések engedélyezése a következőtől:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{1 perc van hátra}other{# perc van hátra}}</translation>

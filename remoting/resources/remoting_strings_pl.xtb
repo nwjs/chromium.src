@@ -284,7 +284,7 @@ zdalnego Chrome</translation>
 <translation id="8041089156583427627">Prześlij opinię</translation>
 <translation id="8041721485428375115">Pobierając instalatora hosta Pulpitu zdalnego Chrome, akceptujesz <ph name="LINK_BEGIN" />Warunki korzystania z usług<ph name="LINK_END" /> Google.</translation>
 <translation id="8060029310790625334">Centrum pomocy</translation>
-<translation id="806699900641041263">Łączenie z: <ph name="HOSTNAME" /></translation>
+<translation id="806699900641041263">Łączę z: <ph name="HOSTNAME" /></translation>
 <translation id="8073845705237259513">Aby użyć Pulpitu zdalnego Chrome, musisz dodać do urządzenia konto Google.</translation>
 <translation id="80739703311984697">Host zdalny wymaga uwierzytelnienia w witrynie innej firmy. Aby kontynuować, musisz udzielić funkcji Chromoting dodatkowych uprawnień dostępu do tego adresu:</translation>
 <translation id="809687642899217504">Moje komputery</translation>

@@ -533,6 +533,7 @@
 <translation id="3001534538097271560">Configura esta política como falsa para evitar que los usuarios elijan mandar determinada información del sistema y contenido de páginas a los servidores de Google. Si esta opción se establece como verdadera o no se configura, los usuarios podrán enviar determinada información del sistema y contenido de páginas a Navegación segura para colaborar en la detección de apps y sitios peligrosos.
 
       Consulta https://developers.google.com/safe-browsing para obtener más información sobre Navegación segura.</translation>
+<translation id="3016255526521614822">Incluir en la lista blanca las apps para tomar notas que se permiten en la pantalla bloqueada de <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Inhabilitar el buscador de complemento</translation>
 <translation id="3030000825273123558">Activar los informes estadísticos</translation>
 <translation id="3034580675120919256">Te permite configurar si los sitios web pueden ejecutar JavaScript. La ejecución de JavaScript puede permitirse para todos los sitios web o denegarse para todos los sitios web. Si esta política no se configura, se usará "AllowJavaScript" y el usuario podrá cambiarla.</translation>
@@ -863,6 +864,16 @@
       "1412.24.34": Solo se actualiza a esta versión específica
 
       Advertencia: No se recomienda configurar restricciones de versión, ya que pueden evitar que los usuarios reciban actualizaciones de software o correcciones de seguridad críticas. Restringir las actualizaciones a una versión específica puede poner en riesgo a los usuarios.</translation>
+<translation id="4298509794364745131">Especifica una lista de las apps que se pueden habilitar como una app para tomar notas en la pantalla bloqueada de <ph name="PRODUCT_OS_NAME" />.
+
+      Si la app preferida para tomar notas se habilita en la pantalla bloqueada, esta pantalla incluirá el elemento de IU para ejecutar la app preferida para tomar notas.
+      Cuando se ejecuta la app, podrá crear una ventana en la parte superior de la pantalla bloqueada y crear elementos (notas) en este contexto. La app podrá importar las notas creadas a la sesión del usuario principal, cuando la sesión se desbloquee. Actualmente, solo las apps para tomar notas de Chrome son compatibles con la pantalla bloqueada.
+
+      Si se establece la política, el usuario podrá habilitar una app en la pantalla bloqueada, solo si la ID de extensión de la app aparece en la lista de valores de la política.
+      Como consecuencia, si se establece esta política con una lista vacía, se inhabilitará la toma de notas en la pantalla bloqueada por completo.
+      Ten en cuenta que la política que contiene la ID de una app no implica que el usuario podrá habilitar la app para tomar notas en la pantalla bloqueada. Por ejemplo, en Chrome 61, la plataforma aplica otras restricciones al conjunto de apps disponibles.
+
+      Si la política no se configura, la política no restringe el conjunto de apps que el usuario puede habilitar en la pantalla bloqueada.</translation>
 <translation id="4309640770189628899">Si se habilitan los paquetes de encriptación DHE en TLS</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 o posterior</translation>
 <translation id="4322842393287974810">Permitir que la aplicación de kiosko con lanzamiento automático sin tiempo de espera controle la versión de <ph name="PRODUCT_OS_NAME" /></translation>

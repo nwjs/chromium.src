@@ -523,6 +523,7 @@ Il valore della norma deve essere specificato in millisecondi. I valori devono e
 <translation id="3001534538097271560">L'impostazione di questa norma su false impedisce agli utenti di decidere di inviare ai server di Google alcune informazioni sul sistema e alcuni contenuti delle pagine. Se questa norma viene impostata su true o non viene configurata, gli utenti potranno inviare alcune informazioni sul sistema e alcuni contenuti delle pagine alla funzione Navigazione sicura per contribuire a rilevare app e siti pericolosi.
 
       Visita il sito https://developers.google.com/safe-browsing per avere ulteriori informazioni sulla funzione Navigazione sicura.</translation>
+<translation id="3016255526521614822">Autorizza l'uso di app per scrivere note nella schermata di blocco di <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021409116652377124">Disabilita ricerca plug-in</translation>
 <translation id="3030000825273123558">Attiva rapporti sulle metriche</translation>
 <translation id="3034580675120919256">Permette di stabilire se consentire o meno l'esecuzione di JavaScript nei siti web. L'esecuzione di JavaScript può essere consentita o negata per tutti i siti web. Se questa norma non viene impostata, verrà utilizzato il valore "AllowJavaScript", che potrà essere modificato dagli utenti.</translation>
@@ -848,6 +849,16 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
       "1412.24.34": si aggiorna soltanto a questa versione specifica
 
 Avviso. Non è consigliabile configurare restrizioni alle versioni, poiché potrebbero impedire agli utenti di ricevere aggiornamenti software e correzioni di sicurezza fondamentali. Limitare gli aggiornamenti a uno specifico prefisso per la versione potrebbe mettere a rischio gli utenti.</translation>
+<translation id="4298509794364745131">Consente di specificare l'elenco di app che è possibile attivare come app per scrivere note nella schermata di blocco di <ph name="PRODUCT_OS_NAME" />.
+
+      Se nella schermata di blocco viene attivata l'app per scrivere note preferita, nella schermata sarà presente l'elemento dell'interfaccia utente per avviare tale app.
+      Quando viene avviata, l'app può creare una finestra sopra la schermata di blocco e creare dati (note) nel contesto della schermata di blocco. L'app può importare note create nella sessione utente principale, quando la sessione è sbloccata. Attualmente, nella schermata di blocco sono supportate soltanto le app per scrivere note di Chrome.
+
+      Se la norma viene impostata, l'utente potrà attivare un'app nella schermata di blocco soltanto se l'ID estensione dell'app è presente come valore nell'elenco della norma.
+      Di conseguenza, se l'elenco di questa norma viene lasciato vuoto, non sarà consentito scrivere note nella schermata di blocco.
+      Tieni presente che l'esistenza dell'ID di un'app nella norma non implica necessariamente che l'utente potrà attivare l'app in questione come app per scrivere note nella schermata di blocco. Ad esempio, su Chrome 61, il gruppo di app disponibili è limitato ulteriormente dalla piattaforma.
+
+      Se la norma non viene impostata, non ci saranno limitazioni relative al gruppo di app che l'utente potrà attivare nella schermata di blocco.</translation>
 <translation id="4309640770189628899">Attiva o meno i pacchetti di crittografia DHE in TLS</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 o versione successiva</translation>
 <translation id="4322842393287974810">Consenti all'app kiosk avviata automaticamente senza ritardo di controllare la versione di <ph name="PRODUCT_OS_NAME" /></translation>

@@ -135,6 +135,7 @@
 <translation id="1202596434010270079">自助服务终端应用已更新完毕。请拔下 U 盘。</translation>
 <translation id="120368089816228251">乐谱</translation>
 <translation id="1205489148908752564">读取和更改已列入白名单的用户</translation>
+<translation id="1206407435587370571">探索 Chromebook</translation>
 <translation id="1209796539517632982">自动域名服务器</translation>
 <translation id="1213037489357051291">已设置 <ph name="NUM_FINGERPRINTS" /> 个指纹</translation>
 <translation id="1215411991991485844">已添加新的后台应用</translation>
@@ -170,6 +171,7 @@
 <translation id="1252987234827889034">发生个人资料错误</translation>
 <translation id="1254593899333212300">直接连接到互联网</translation>
 <translation id="1259724620062607540">栏中第 7 项</translation>
+<translation id="1259832254221278963">启动智能助理</translation>
 <translation id="1260240842868558614">显示：</translation>
 <translation id="126710816202626562">翻译语言：</translation>
 <translation id="1268125225034560697">系统已不再支持通过 AppleScript 执行 JavaScript。</translation>
@@ -340,6 +342,7 @@
 <translation id="150962533380566081">PUK 无效。</translation>
 <translation id="1510030919967934016">系统已阻止此网页跟踪您的位置。</translation>
 <translation id="1510200760579344855">此设备已被 <ph name="SAML_DOMAIN" /> 管理员锁定。</translation>
+<translation id="1510238584712386396">启动器</translation>
 <translation id="1510785804673676069">如果您使用的是代理服务器，请检查您的代理设置，或与网络管理员核实代理服务器是否运转正常。如果您认为自己使用的不是代理服务器，请调整您的<ph name="LINK_START" />代理设置<ph name="LINK_END" />。</translation>
 <translation id="1510907582379248592">已保存 <ph name="ORIGIN" /> 的密码：</translation>
 <translation id="1511004689539562549">不允许网站使用您的摄像头</translation>
@@ -697,6 +700,7 @@
 <translation id="204914487372604757">创建快捷方式</translation>
 <translation id="2050339315714019657">纵向</translation>
 <translation id="2053312383184521053">闲置状态数据</translation>
+<translation id="205560151218727633">Google 智能助理徽标</translation>
 <translation id="2058632120927660550">出错了。请检查您的打印机，然后重试。</translation>
 <translation id="2065405795449409761">Chrome 正受到自动测试软件的控制。</translation>
 <translation id="2068054174185416762">帧速率</translation>
@@ -795,7 +799,9 @@
 <translation id="2190469909648452501">减少</translation>
 <translation id="2192505247865591433">来源：</translation>
 <translation id="2193365732679659387">信任设置</translation>
+<translation id="2193512228430320736">允许智能助理向您显示相关的信息、应用和操作。</translation>
 <translation id="2195729137168608510">电子邮件保护</translation>
+<translation id="219905428774326614">启动器，所有应用</translation>
 <translation id="219985413780390209">保护您和您的设备不受危险网站的侵害</translation>
 <translation id="220138918934036434">隐藏按钮</translation>
 <translation id="2202898655984161076">列出打印机时发生问题。您的某些打印机可能尚未成功使用“<ph name="CLOUD_PRINT_NAME" />”进行注册。</translation>
@@ -1001,6 +1007,7 @@
 <translation id="249113932447298600">抱歉，系统目前不支持设备“<ph name="DEVICE_LABEL" />”。</translation>
 <translation id="2493021387995458222">选择“一次一个字词”</translation>
 <translation id="249303669840926644">无法完成注册</translation>
+<translation id="2495777824269688114">探索更多功能或获得相关解答。如需帮助，请选择“?”。</translation>
 <translation id="2496180316473517155">浏览记录</translation>
 <translation id="2496540304887968742">该设备必须至少拥有 4 GB 的容量。</translation>
 <translation id="2497229222757901769">鼠标速度</translation>
@@ -1298,6 +1305,7 @@
 <translation id="2881966438216424900">最后访问时间：</translation>
 <translation id="2882943222317434580"><ph name="IDS_SHORT_PRODUCT_NAME" /> 将立即重新启动并重置</translation>
 <translation id="2885378588091291677">任务管理器</translation>
+<translation id="2886771036282400576">• <ph name="PERMISSION" /></translation>
 <translation id="2887525882758501333">PDF 文档</translation>
 <translation id="2888807692577297075">找不到与&lt;b&gt;“<ph name="SEARCH_STRING" />”&lt;/b&gt;匹配的项</translation>
 <translation id="2889064240420137087">链接打开方式...</translation>
@@ -1722,6 +1730,7 @@
 <translation id="3493881266323043047">有效期</translation>
 <translation id="3494769164076977169">当网站下载第一个文件后要自动下载更多文件时询问您（推荐）</translation>
 <translation id="3495304270784461826"><ph name="COUNT" />个错误。</translation>
+<translation id="3495660573538963482">Google 智能助理设置</translation>
 <translation id="3496213124478423963">缩小</translation>
 <translation id="3504135463003295723">群组名称：</translation>
 <translation id="3505030558724226696">撤消对设备的访问权限</translation>
@@ -2113,6 +2122,7 @@
 <translation id="4075639477629295004">无法投射“<ph name="FILE_NAME" />”。</translation>
 <translation id="4077917118009885966">已拦截此网站上的广告</translation>
 <translation id="4081242589061676262">无法投射文件。</translation>
+<translation id="4084099073048755074">从 Google Play 安装应用和游戏</translation>
 <translation id="4084682180776658562">已保存的书签</translation>
 <translation id="4084835346725913160">关闭 <ph name="TAB_NAME" /></translation>
 <translation id="4085298594534903246">已拦截此网页上的 JavaScript。</translation>
@@ -2179,6 +2189,7 @@
 <translation id="4195643157523330669">在新标签页中打开</translation>
 <translation id="4195814663415092787">从上次停下的地方继续</translation>
 <translation id="4197674956721858839">压缩选择</translation>
+<translation id="4198146608511578238">只需按住“启动器”图标即可与 Google 智能助理对话。</translation>
 <translation id="4200689466366162458">自定义字词</translation>
 <translation id="4200983522494130825">打开新的标签页(&amp;T)</translation>
 <translation id="4206144641569145248">外星人</translation>
@@ -2211,6 +2222,7 @@
 <translation id="4250229828105606438">屏幕截图</translation>
 <translation id="4250680216510889253">否</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" /> - 已分享标签页内容</translation>
+<translation id="4253515443406306926">启动器，全屏显示的搜索结果</translation>
 <translation id="4254813446494774748">翻译语言：</translation>
 <translation id="425573743389990240">电池放电率（单位为瓦，负值表示电池正在充电）</translation>
 <translation id="4256316378292851214">视频存储为(&amp;V)...</translation>
@@ -2667,6 +2679,7 @@
 <translation id="496888482094675990">通过“文件”应用，您可以快速存取自己保存在Google云端硬盘、外部存储设备和Chrome操作系统设备上的文件。</translation>
 <translation id="4969785127455456148">专辑</translation>
 <translation id="4971412780836297815">完成后打开</translation>
+<translation id="4972129977812092092">修改打印机</translation>
 <translation id="4973307593867026061">添加打印机</translation>
 <translation id="4973698491777102067">清除指定时间段内的数据：</translation>
 <translation id="497421865427891073">前进</translation>
@@ -2695,6 +2708,7 @@
 <translation id="5011739343823725107">启动同步后端失败</translation>
 <translation id="5015344424288992913">正在解析代理...</translation>
 <translation id="5015762597229892204">选择打印机驱动程序应用</translation>
+<translation id="5016049845330225051">“清除搜索框文字”按钮</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5018792385199109315">管理启动页</translation>
 <translation id="5023943178135355362">自然滚动 <ph name="BEGIN_LINK" />了解详情<ph name="END_LINK" /></translation>
@@ -2813,6 +2827,7 @@
 <translation id="5209320130288484488">未找到任何设备</translation>
 <translation id="5209518306177824490">SHA-1 指纹</translation>
 <translation id="5210365745912300556">关闭标签页</translation>
+<translation id="5211866059911729164">允许智能助理使用您屏幕上的内容</translation>
 <translation id="5212461935944305924">Cookie 和网站数据例外情况</translation>
 <translation id="5213891612754844763">显示代理设置</translation>
 <translation id="521582610500777512">照片已被舍弃</translation>
@@ -2990,6 +3005,7 @@
 <translation id="5457113250005438886">无效</translation>
 <translation id="5457459357461771897">读取和删除您计算机上的照片、音乐和其他媒体</translation>
 <translation id="5457599981699367932">以访客身份浏览</translation>
+<translation id="5458998536542739734">锁定屏幕备注</translation>
 <translation id="5463275305984126951"><ph name="LOCATION" /> 的索引</translation>
 <translation id="5463856536939868464">包含隐藏书签的菜单</translation>
 <translation id="5464632865477611176">运行一次</translation>
@@ -3258,6 +3274,7 @@
 <translation id="5856721540245522153">启用调试功能</translation>
 <translation id="5857090052475505287">新文件夹</translation>
 <translation id="5860033963881614850">关闭</translation>
+<translation id="5860154621968450536">抱歉，Google 智能助理目前尚不支持您的语言区域。</translation>
 <translation id="5860209693144823476">标签页 3</translation>
 <translation id="5860491529813859533">启用</translation>
 <translation id="5860494867054883682">正在将您的设备更新至<ph name="CHANNEL_NAME" />版本 (<ph name="PROGRESS_PERCENT" />)</translation>
@@ -3379,6 +3396,7 @@
 <translation id="6051354611314852653">糟糕！系统无法将 API 访问权限授予此设备。</translation>
 <translation id="6052976518993719690">SSL 证书授权中心</translation>
 <translation id="6053401458108962351">清除浏览数据(&amp;C)...</translation>
+<translation id="6054663654428587993">您的帐号未启用 Google 智能助理。</translation>
 <translation id="6055171183283175969">您输入的密码不正确。</translation>
 <translation id="6055392876709372977">PKCS #1，带有 RSA 加密的 SHA-256</translation>
 <translation id="6056710589053485679">正常重新加载</translation>
@@ -3440,6 +3458,7 @@
 <translation id="6151771661215463137">“下载”文件夹中已存在此文件。</translation>
 <translation id="615436196126345398">协议</translation>
 <translation id="6154697846084421647">当前已登录</translation>
+<translation id="6156262341071374681">展开以显示所有应用</translation>
 <translation id="6156323911414505561">显示书签栏</translation>
 <translation id="6156863943908443225">脚本缓存</translation>
 <translation id="6156960295318603523">语言设置</translation>
@@ -3453,6 +3472,7 @@
 <translation id="6171948306033499786">暂停打印</translation>
 <translation id="6175314957787328458">Microsoft 域 GUID</translation>
 <translation id="6178664161104547336">选择证书</translation>
+<translation id="6180288788882902869">您的 <ph name="DEVICE_TYPE" /> 上的 Google Play</translation>
 <translation id="6181431612547969857">下载已被阻止</translation>
 <translation id="6185132558746749656">设备位置</translation>
 <translation id="6185696379715117369">向上翻页</translation>
@@ -3798,6 +3818,7 @@
 <translation id="667517062706956822">您希望 Google 将此网页的内容从<ph name="SOURCE_LANGUAGE" />翻译为<ph name="TARGET_LANGUAGE" />吗？</translation>
 <translation id="6675665718701918026">已连接指针设备</translation>
 <translation id="6677037229676347494">正确 ID 应为“<ph name="EXPECTED_ID" />”，但实际 ID 为“<ph name="NEW_ID" />”。</translation>
+<translation id="6678312694238602710">“Ok Google”语音搜索功能已从 Chrome 操作系统中移除</translation>
 <translation id="6678717876183468697">查询网址</translation>
 <translation id="6680028776254050810">切换用户</translation>
 <translation id="6680442031740878064">可用空间：<ph name="AVAILABLE_SPACE" /></translation>
@@ -3957,6 +3978,7 @@
 <translation id="6943176775188458830">取消打印</translation>
 <translation id="6943836128787782965">HTTP 获取请求失败</translation>
 <translation id="6945221475159498467">选择</translation>
+<translation id="6948064128393024347">启动器，搜索结果</translation>
 <translation id="6949306908218145636">为打开的网页添加书签…</translation>
 <translation id="6955446738988643816">审查弹出内容</translation>
 <translation id="695755122858488207">未选中的单选按钮</translation>
@@ -4159,6 +4181,7 @@
 <translation id="7254554697254365959">无法翻译此网页。</translation>
 <translation id="7254951428499890870">确定要以诊断模式启动“<ph name="APP_NAME" />”吗？</translation>
 <translation id="7255220508626648026">正在投射：<ph name="ROUTETITLE" /></translation>
+<translation id="7255733607359211052">搜索引擎和 Google 智能助理</translation>
 <translation id="7255935316994522020">应用</translation>
 <translation id="7256405249507348194">无法识别的错误：<ph name="DESC" /></translation>
 <translation id="7256710573727326513">在标签页中打开</translation>
@@ -4370,6 +4393,7 @@
 <translation id="7573172247376861652">电池充电</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">自动分页</translation>
+<translation id="7580139917303152582">使用启动器快速访问新的应用和活动。</translation>
 <translation id="7580671184200851182">在所有音响设备上播放相同的音频（单声道音频）</translation>
 <translation id="7581462281756524039">清理工具</translation>
 <translation id="7582582252461552277">首选此网络</translation>
@@ -4483,6 +4507,7 @@
 <translation id="7771452384635174008">布局</translation>
 <translation id="7772032839648071052">确认密码</translation>
 <translation id="7772127298218883077">关于<ph name="PRODUCT_NAME" /></translation>
+<translation id="7772773261844472235">检查 Chromebook 的状态</translation>
 <translation id="7773726648746946405">会话存储</translation>
 <translation id="7781335840981796660">所有用户帐号和本地数据都将会移除。</translation>
 <translation id="7782102568078991263">Google 无法提供其他任何建议</translation>
@@ -4866,6 +4891,7 @@
 <translation id="8338952601723052325">开发者网站</translation>
 <translation id="8339012082103782726">不允许网站使用您的麦克风</translation>
 <translation id="8339059274628563283"><ph name="SITE" /> 本地存储的数据</translation>
+<translation id="834205140959175756">使用状态栏管理连接、更新和设置。</translation>
 <translation id="8342318071240498787">已存在具有相同名称的文件或目录。</translation>
 <translation id="8351419472474436977">此扩展程序控制了您的代理设置，也就是说，它可以更改、破坏或窃听您在网上执行的任何操作。如果您不确定出现这种变化的原因，那么这种变化可能并不是您所希望的。</translation>
 <translation id="8352772353338965963">为多帐号登录添加帐号。用户无需使用密码即可访问所有已登录的帐号，因此您应仅通过受信任的帐号使用此功能。</translation>
@@ -4961,12 +4987,14 @@
 <translation id="8498214519255567734">可让您更舒适地在黯淡的光线下查看屏幕或阅读文字</translation>
 <translation id="8498716162437226120">添加蓝牙设备</translation>
 <translation id="8503813439785031346">用户名</translation>
+<translation id="8508332354695141900">启动器，推荐的应用</translation>
 <translation id="8509646642152301857">拼写检查字典下载失败。</translation>
 <translation id="8512476990829870887">结束进程</translation>
 <translation id="851263357009351303">始终允许 <ph name="HOST" /> 显示图片</translation>
 <translation id="8513191386157529469">“<ph name="CLIENT_NAME" />”正在调试此浏览器。</translation>
 <translation id="8513974249124254369">已启用 ChromeVox（语音反馈）。要停用，请按 Ctrl+Alt+Z。</translation>
 <translation id="8520687380519886411">传统滚动</translation>
+<translation id="8521475323816527629">快速访问您的应用</translation>
 <translation id="852269967951527627">不允许任何网站显示通知</translation>
 <translation id="8523493869875972733">保留更改</translation>
 <translation id="8523849605371521713">按政策添加</translation>
@@ -5233,6 +5261,7 @@
 <translation id="8915370057835397490">正在加载建议</translation>
 <translation id="8916476537757519021">隐身辅助框架：<ph name="SUBFRAME_SITE" /></translation>
 <translation id="8919034266226953085">PWG 光栅转换器</translation>
+<translation id="8921624153894383499">Google 智能助理不支持此语言。</translation>
 <translation id="89217462949994770">PIN 输入错误次数过多。请与<ph name="CARRIER_ID" />联系，以获取新的 PIN 解锁密钥（8 位数）。</translation>
 <translation id="8922013791253848639">在此网站上始终允许显示广告</translation>
 <translation id="8925458182817574960">设置(&amp;S)</translation>
@@ -5281,6 +5310,7 @@
 <translation id="8986362086234534611">不保存</translation>
 <translation id="8986494364107987395">将使用情况统计信息和崩溃报告自动发送给 Google</translation>
 <translation id="8987927404178983737">月</translation>
+<translation id="8989308628569556420">抱歉，您的帐号目前无法使用 Google 智能助理。</translation>
 <translation id="899403249577094719">Netscape 证书基本网址</translation>
 <translation id="8995603266996330174">由 <ph name="DOMAIN" /> 管理</translation>
 <translation id="8996526648899750015">添加帐号…</translation>

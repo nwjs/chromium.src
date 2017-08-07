@@ -107,7 +107,7 @@ Bạn phải bật Bluetooth và Vị trí để sử dụng Web trong cuộc s�
 <translation id="1994173015038366702">URL trang web</translation>
 <translation id="2000271276660256125">Vì lý do bảo mật, bạn cần phải xác nhận khóa màn hình để truy cập vào mật khẩu của mình.</translation>
 <translation id="200815880754187296">Các ứng dụng khác chiếm <ph name="KILOBYTES" /> KB</translation>
-<translation id="2011013297378343166">Bằng cách sử dụng ứng dụng này, bạn đồng ý với <ph name="BEGIN_LINK1" />Điều khoản dịch vụ<ph name="END_LINK1" /> và <ph name="BEGIN_LINK2" />Thông báo bảo mật<ph name="END_LINK2" /> của Chrome cũng như <ph name="BEGIN_LINK3" />Thông báo bảo mật cho Tài khoản Google được tạo trong Family Link<ph name="END_LINK3" />.</translation>
+<translation id="2011013297378343166">Bằng việc sử dụng ứng dụng này, bạn đồng ý với <ph name="BEGIN_LINK1" />Điều khoản dịch vụ<ph name="END_LINK1" /> và <ph name="BEGIN_LINK2" />Thông báo bảo mật<ph name="END_LINK2" /> của Chrome cũng như <ph name="BEGIN_LINK3" />Thông báo bảo mật cho Tài khoản Google được tạo trong Family Link<ph name="END_LINK3" />.</translation>
 <translation id="2017836877785168846">Xóa lịch sử và tự động hoàn thành trong thanh địa chỉ.</translation>
 <translation id="2020525020270327736">Sao chép trang web</translation>
 <translation id="2038563949887743358">Bật Yêu cầu trang web cho máy tính</translation>
@@ -798,7 +798,7 @@ Tài khoản Google của bạn có thể có các dạng lịch sử duyệt we
 <translation id="883635517171802338">Chặn trang web hiển thị cửa sổ bật lên (được đề xuất)</translation>
 <translation id="8847988622838149491">USB</translation>
 <translation id="8853345339104747198">Tab <ph name="TAB_TITLE" /></translation>
-<translation id="885701979325669005">Dung lượng</translation>
+<translation id="885701979325669005">Bộ nhớ</translation>
 <translation id="8901170036886848654">Không tìm thấy dấu trang</translation>
 <translation id="8909135823018751308">Chia sẻ...</translation>
 <translation id="8912362522468806198">Tài khoản Google</translation>

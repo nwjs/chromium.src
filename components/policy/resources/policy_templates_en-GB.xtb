@@ -566,6 +566,7 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
 <translation id="3001534538097271560">Setting this policy to false stops users from choosing to send some system information and page content to Google servers. If this setting is true or not configured, users will be allowed to send some system information and page content to Safe Browsing to help detect dangerous apps and sites.
 
       See https://developers.google.com/safe-browsing for more info on SafeBrowsing.</translation>
+<translation id="3016255526521614822">Whitelist note-taking apps allowed on the <ph name="PRODUCT_OS_NAME" /> lock screen</translation>
 <translation id="3021409116652377124">Disable plug-in finder</translation>
 <translation id="3030000825273123558">Enable metrics reporting</translation>
 <translation id="3034580675120919256">Allows you to set whether websites are allowed to run JavaScript. Running JavaScript can be either allowed for all websites or denied for all websites.
@@ -916,6 +917,16 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
       "1412.24.34": update to this specific version only
 
       Warning: It is not recommended to configure version restrictions as they may prevent users from receiving software updates and critical security fixes. Restricting updates to a specific version prefix might leave users at risk.</translation>
+<translation id="4298509794364745131">Specifies list of apps that can be enabled as a note-taking app on the <ph name="PRODUCT_OS_NAME" /> lock screen.
+
+      If the preferred note-taking app is enabled on the lock screen, the lock screen will contain UI element for launching the preferred note taking app.
+      When launched, the app will be able to create an app window on top of the lock screen and create data items (notes) in the lock screen context. The app will be able to import created notes to the primary user session, when the session is unlocked. Currently, only Chrome note-taking apps are supported on the lock screen.
+
+      If the policy is set, the user will be allowed to enable an app on the lock screen only if the app's extension ID is contained in the policy list value.
+      As a consequence, setting this policy to an empty list will disable note-taking on the lock screen entirely.
+      Note that the policy containing an app ID does not necessarily mean that the user will be able to enable the app as a note-taking app on the lock screen - for example, on Chrome 61, the set of available apps is additionally restricted by the platform.
+
+      If the policy is left unset, there will be no restrictions on the set of apps the user can enable on the lock screen imposed by the policy.</translation>
 <translation id="4309640770189628899">Whether DHE cipher suites in TLS are enabled</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 or later</translation>
 <translation id="4322842393287974810">Allow the auto launched with zero delay kiosk app to control <ph name="PRODUCT_OS_NAME" /> version</translation>

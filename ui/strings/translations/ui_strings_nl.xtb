@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">Meldingscentrum</translation>
 <translation id="1243314992276662751">Uploaden</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">AANBEVOLEN APPS</translation>
 <translation id="1398853756734560583">Maximaliseren</translation>
 <translation id="1413622004203049571">Meldingen van <ph name="NOTIFIER_NAME" /> uitschakelen</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minuut en }other{# minuten en }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">ALLE APPS</translation>
 <translation id="4320177379694898372">Geen internetverbinding</translation>
 <translation id="4588090240171750605">Naar rechts bladeren</translation>
+<translation id="4730374152663651037">VEELGEBRUIKT</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{Nog 1 maand}other{Nog # maanden}}</translation>
 <translation id="4820616160060340806">Command+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{1 seconde}other{# seconden}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">Del</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/s</translation>
 <translation id="6264365405983206840">&amp;Alles selecteren</translation>
+<translation id="6351032674660237738">APP-SUGGESTIES</translation>
 <translation id="6364916375976753737">Naar links bladeren</translation>
 <translation id="6394627529324717982">Komma</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 sec. geleden}other{# sec. geleden}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">Selecteren</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">MEEST WAARSCHIJNLIJK</translation>
 <translation id="7135556860107312402">Meldingen toestaan van het volgende:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{1 min. resterend}other{# min. resterend}}</translation>

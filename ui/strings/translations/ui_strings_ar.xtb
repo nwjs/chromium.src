@@ -8,6 +8,7 @@
 <translation id="1190609913194133056">مركز الإشعارات</translation>
 <translation id="1243314992276662751">تحميل</translation>
 <translation id="1293699935367580298">Esc</translation>
+<translation id="1306549533752902673">تطبيقات مقترحة</translation>
 <translation id="1398853756734560583">تكبير</translation>
 <translation id="1413622004203049571">تعطيل الإشعارات من <ph name="NOTIFIER_NAME" /></translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{دقيقة واحدة و }zero{# من الدقائق و }two{دقيقتان (#) و }few{# دقائق و }many{# دقيقة و }other{# من الدقائق و }}</translation>
@@ -65,6 +66,7 @@
 <translation id="4316910396681052118">جميع التطبيقات</translation>
 <translation id="4320177379694898372">لا يتوفر اتصال بالإنترنت</translation>
 <translation id="4588090240171750605">التمرير إلى اليسار</translation>
+<translation id="4730374152663651037">التطبيقات المستخدمة بشكل متكرر</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{يتبقى شهر واحد}zero{يتبقى # شهر}two{يتبقى شهرين (#)}few{يتبقى # أشهر}many{يتبقى # شهرًا}other{يتبقى # شهر}}</translation>
 <translation id="4820616160060340806">‏المفتاح Command+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="4968171027979920686">{SECONDS,plural, =1{ثانية واحدة}zero{# من الثواني}two{ثانيتان (#)}few{# ثوانٍ}many{# ثانية}other{# من الثواني}}</translation>
@@ -95,6 +97,7 @@
 <translation id="6135826906199951471">‏مفتاح Del (حذف)</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> بايت/ثانية</translation>
 <translation id="6264365405983206840">تحديد &amp;الكل</translation>
+<translation id="6351032674660237738">اقتراحات التطبيقات</translation>
 <translation id="6364916375976753737">التمرير إلى اليمين</translation>
 <translation id="6394627529324717982">فاصلة</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{قبل ثانية واحدة}zero{ قبل # من الثواني}two{ قبل ثانيتين (#)}few{قبل # ثوانٍ}many{قبل # ثانية}other{قبل # من الثواني}}</translation>
@@ -115,6 +118,7 @@
 <translation id="6945221475159498467">تحديد</translation>
 <translation id="6965382102122355670">موافق</translation>
 <translation id="7052633198403197513">F1</translation>
+<translation id="7130207228079676353">التطبيقات التي يرجح النقر عليها</translation>
 <translation id="7135556860107312402">السماح بالإشعارات من الجهات التالية:</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="7238427729722629793">{MINUTES,plural, =1{يتبقى دقيقة واحدة}zero{يتبقى # من الدقائق}two{يتبقى دقيقتان (#)}few{يتبقى # دقائق}many{يتبقى # دقيقة}other{يتبقى # من الدقائق}}</translation>

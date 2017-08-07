@@ -376,7 +376,7 @@
 <translation id="3748148204939282805">Osoby atakujące na stronie <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> mogą podstępem nakłonić Cię do wykonania czynności niebezpiecznych takich jak zainstalowanie oprogramowania czy ujawnienie danych osobowych (na przykład haseł, numerów telefonów lub danych kart kredytowych). <ph name="BEGIN_LEARN_MORE_LINK" />Więcej informacji<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="375403751935624634">Tłumaczenie nie powiodło się z powodu błędu serwera.</translation>
 <translation id="3759461132968374835">Brak ostatnio zgłoszonych awarii. Awarie, które nastąpiły wówczas, gdy funkcja zgłaszania awarii była wyłączona, nie są tutaj wymienione.</translation>
-<translation id="3765032636089507299">Strona Bezpiecznego przeglądania jest w budowie.</translation>
+<translation id="3765032636089507299">Strona funkcji Bezpieczne przeglądanie jest w budowie.</translation>
 <translation id="3778403066972421603">Czy chcesz zapisać tę kartę na swoim koncie Google i na tym urządzeniu?</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3787705759683870569">Wygasa: <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
@@ -957,7 +957,7 @@
 <translation id="9020200922353704812">Wymagany jest adres rozliczeniowy karty kredytowej</translation>
 <translation id="9020542370529661692">Ta strona została przetłumaczona na <ph name="TARGET_LANGUAGE" />.</translation>
 <translation id="9035022520814077154">Błąd zabezpieczeń</translation>
-<translation id="9038649477754266430">Użyj usługi podpowiedzi, by strony ładowały się szybciej</translation>
+<translation id="9038649477754266430">Używaj podpowiedzi, by strony ładowały się szybciej</translation>
 <translation id="9039213469156557790">Ta strona zawiera także niezabezpieczone zasoby. Podczas przesyłania mogą je wyświetlić inni użytkownicy, a osoby atakujące mogą je zmodyfikować, by zmienić sposób działania strony.</translation>
 <translation id="9049981332609050619">Podjęto próbę nawiązania połączenia z witryną <ph name="DOMAIN" />, jednak serwer przedstawił nieprawidłowy certyfikat.</translation>
 <translation id="9050666287014529139">Hasło</translation>

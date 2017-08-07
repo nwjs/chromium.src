@@ -535,6 +535,7 @@ Falls die Richtlinie auf "false" gesetzt wird, kann eine verzögerungsfreie auto
 <translation id="3001534538097271560">Wenn diese Richtlinie auf "false" eingestellt ist, können Nutzer nicht mehr auswählen, ob sie ausgewählte Systeminformationen und Seiteninhalte an die Google-Server senden möchten. Ist die Richtlinie auf "true" eingestellt oder nicht konfiguriert, können Nutzer einige Systeminformationen und Seiteninhalte an Safe Browsing senden, um bei der Erfassung schädlicher Apps und Websites zu helfen.
 
       Weitere Informationen zu Safe Browsing finden Sie auf https://developers.google.com/safe-browsing.</translation>
+<translation id="3016255526521614822">Auf dem <ph name="PRODUCT_OS_NAME" />-Sperrbildschirm zulässige Notizen-Apps auf die weiße Liste setzen</translation>
 <translation id="3021409116652377124">Plug-in-Suchfunktion deaktivieren</translation>
 <translation id="3030000825273123558">Messdatenberichte aktivieren</translation>
 <translation id="3034580675120919256">Ermöglicht Ihnen festzulegen, ob Websites JavaScript ausführen dürfen. Das Ausführen von JavaScript kann entweder allen Websites gestattet oder für alle unterbunden werden. Wenn diese Richtlinie nicht konfiguriert ist, so kommt "AllowJavaScript" zum Einsatz, wobei der Nutzer dies ändern kann.</translation>
@@ -861,6 +862,16 @@ Wird die Richtlinie auf "false" gesetzt oder nicht konfiguriert, wird kein Zerti
       "1412.24.34": nur Update auf diese Version
 
       Achtung: Die Konfiguration von Versionsbeschränkungen wird nicht empfohlen, da Nutzer dann unter Umständen Softwareupdates und wichtige Sicherheitspatches nicht erhalten. Bei Beschränkung von Updates auf ein bestimmtes Versionspräfix besteht eventuell ein Risiko für die Nutzer.</translation>
+<translation id="4298509794364745131">Gibt an, welche Apps auf dem <ph name="PRODUCT_OS_NAME" />-Sperrbildschirm als Notizen-App aktiviert werden können.
+
+      Wenn die bevorzugte Notizen-App auf dem Sperrbildschirm aktiviert ist, enthält dieser ein UI-Element zum Öffnen der App.
+      Nach dem Öffnen kann die App ein App-Fenster auf dem Sperrbildschirm sowie Datenelemente, also Notizen, im Sperrbildschirmkontext erstellen. Außerdem kann die App erstellte Notizen in die Sitzung des primären Nutzers importieren, wenn die Sitzung entsperrt wird. Zurzeit werden nur Chrome-Notizen-Apps auf dem Sperrbildschirm unterstützt.
+
+      Wenn die Richtlinie eingerichtet ist, kann der Nutzer eine App auf dem Sperrbildschirm nur dann aktivieren, wenn die Erweiterungs-ID der App im Listenwert der Richtlinie angegeben ist.
+      Folglich ist das Erstellen von Notizen auf dem Sperrbildschirm nicht möglich, wenn für die Richtlinie eine leere Liste festgelegt ist.
+      Hinweis: Selbst wenn die Richtlinie eine App-ID enthält, bedeutet das nicht zwangsläufig, dass der Nutzer die App als Notizen-App auf dem Sperrbildschirm aktivieren kann. Zum Beispiel ist unter Chrome 61 die Auswahl verfügbarer Apps zusätzlich durch die Plattform eingeschränkt.
+
+      Wenn die Richtlinie nicht eingerichtet ist, gibt es vonseiten der Richtlinie keinerlei Einschränkungen im Hinblick auf die Apps, die der Nutzer auf dem Sperrbildschirm aktivieren kann.</translation>
 <translation id="4309640770189628899">Festlegen, ob DHE-Verschlüsselungssammlungen in TLS aktiviert sind</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 oder höher</translation>
 <translation id="4322842393287974810">Der automatisch ohne Verzögerung gestarteten Kiosk-App die Steuerung der <ph name="PRODUCT_OS_NAME" />-Version gestatten</translation>

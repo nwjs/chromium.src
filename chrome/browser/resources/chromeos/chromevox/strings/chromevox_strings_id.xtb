@@ -12,7 +12,7 @@
 <translation id="1044777062731150180">Tanpa judul</translation>
 <translation id="106222400312645156">rwhdr</translation>
 <translation id="1065552602950927991">Input tidak valid</translation>
-<translation id="1080471004309605942">Akhir teks italic</translation>
+<translation id="1080471004309605942">Akhir teks berformat miring</translation>
 <translation id="1082209053475788238">Tidak ada judul tingkat 6 sebelumnya.</translation>
 <translation id="1088219014394087294">Tanpa judul.</translation>
 <translation id="1106741348836243114">Mengaktifkan atau menonaktifkan masukan suara (earcons).</translation>
@@ -122,7 +122,7 @@
 <translation id="225732394367814946">Meningkatkan laju ucapan</translation>
 <translation id="2267945578749931355">Karakter Berikutnya</translation>
 <translation id="2281234842553884450">Penggeser sebelumnya</translation>
-<translation id="2294136146931447363">Awal teks italic</translation>
+<translation id="2294136146931447363">Awal teks berformat miring</translation>
 <translation id="2318372665160196757">Utama</translation>
 <translation id="2329324941084714723">Panel tab</translation>
 <translation id="2344193891939537199">Kontrol tanggal dan waktu</translation>
@@ -675,7 +675,7 @@ Untuk membuka menu browser Chrome, tekan Alt+F.</translation>
 <translation id="712735679809149106">pengulangan kata</translation>
 <translation id="713824876195128146">Blockquote berikutnya</translation>
 <translation id="7143034430156387447">Beralih antara braille 6 titik dan 8 titik</translation>
-<translation id="7161425887892204659">Akhir pencocokan teks</translation>
+<translation id="7161425887892204659">Akhir teks yang cocok</translation>
 <translation id="7161771961008409533">Tombol munculan</translation>
 <translation id="7165714724802225287">Gaya tampilan saat ini adalah disisipkan.</translation>
 <translation id="7167657087543110">pengulangan karakter</translation>
@@ -707,7 +707,7 @@ Untuk membuka menu browser Chrome, tekan Alt+F.</translation>
 <translation id="7370432716629432284">{COUNT,plural, =1{tanda dan}other{# tanda dan}}</translation>
 <translation id="737396357417333429">clk</translation>
 <translation id="7374104575779636480">Meninggalkan tabel.</translation>
-<translation id="7392145451309930991">Awal pencocokan teks</translation>
+<translation id="7392145451309930991">Awal teks yang cocok</translation>
 <translation id="739763518212184081">Baris Sebelumnya</translation>
 <translation id="7400575256015741911">Kesalahan ejaan terdeteksi</translation>
 <translation id="7408482676469142474">tbl</translation>

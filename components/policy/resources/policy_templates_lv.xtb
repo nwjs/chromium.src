@@ -567,6 +567,7 @@
 <translation id="3001534538097271560">Ja šai politikai ir iestatīta vērtība “False”, lietotājiem tiek liegta iespēja nosūtīt sistēmas informāciju un lapu saturu Google serveriem. Ja šī vērtība ir “True” vai nav konfigurēta, lietotāji varēs nosūtīt sistēmas informāciju un lapu saturu funkcijai Droša pārlūkošana, lai palīdzētu noteikt bīstamas lietotnes un vietnes.
 
       Plašāku informāciju par funkciju Droša pārlūkošana skatiet vietnē https://developers.google.com/safe-browsing.</translation>
+<translation id="3016255526521614822">Baltajā sarakstā iekļautas piezīmju lietotnes, kas ir atļautas <ph name="PRODUCT_OS_NAME" /> bloķēšanas ekrānā</translation>
 <translation id="3021409116652377124">Atspējo spraudņu meklētāju</translation>
 <translation id="3030000825273123558">Iespējot metrikas ziņošanu</translation>
 <translation id="3034580675120919256">Ļauj iestatīt, vai vietnēm ir atļauts izpildīt JavaScript. JavaScript izpilde var tikt atļauta visām vietnēm vai noraidīta visām vietnēm.
@@ -912,6 +913,16 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
       “1412.24.34”: atjaunināt tikai uz šo konkrēto versiju.
 
       Brīdinājums: nav ieteicams konfigurēt versiju ierobežojumus, jo lietotāji var nesaņemt programmatūras atjauninājumus un kritiskus drošības labojumus. Atjauninājumu ierobežošana ar noteiktas versijas prefiksu var apdraudēt lietotājus.</translation>
+<translation id="4298509794364745131">Nosaka lietotņu sarakstu, kuras var iespējot kā piezīmju lietotnes <ph name="PRODUCT_OS_NAME" /> bloķēšanas ekrānā.
+
+      Ja bloķēšanas ekrānā ir iespējota vēlamā piezīmju lietotne, bloķēšanas ekrānā būs lietotāja saskarnes elements, ar ko varēs palaist vēlamo piezīmju lietotni.
+      Palaista lietotne varēs bloķēšanas ekrāna augšdaļā izveidot lietotnes logu un datu vienumus (piezīmes), kamēr bloķēšanas ekrāns ir iespējots. Lietotne varēs importēt izveidotās piezīmes galvenajā lietotāja sesijā, kad tā būs atbloķēta. Pašlaik bloķēšanas ekrānā tiek atbalstītas tikai Chrome piezīmju lietotnes.
+
+      Kad politika ir iestatīta, lietotājam ir atļauts iespējot lietotni bloķēšanas ekrānā tikai tad, ja attiecīgās lietotnes paplašinājuma ID ir iekļauts politikas saraksta vērtībā.
+      Tādējādi, iestatot šo politiku tukšā sarakstā, piezīmju izveidošana bloķēšanas ekrānā tiks pilnībā atspējota.
+      Ņemiet vērā: ja politika satur lietotnes ID, tas nenozīmē, ka lietotājs noteikti var iespējot bloķēšanas ekrānā šo lietotni kā piezīmju lietotni. Piemēram, pārlūkā Chrome 61 ir papildu pieejamo lietotņu ierobežojumi.
+
+      Ja politika nav iestatīta, attiecībā uz lietotnēm, kuras lietotājs var iespējot bloķēšanas ekrānā, nav nekādu politikā noteiktu ierobežojumu.</translation>
 <translation id="4309640770189628899">DHE šifra komplektu iespējošana standartā TLS</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 vai jaunāka versija</translation>
 <translation id="4322842393287974810">Atļaut kioska lietotnei, kas tiek automātiski palaista ar nulles aizkavi, kontrolēt <ph name="PRODUCT_OS_NAME" /> versiju</translation>

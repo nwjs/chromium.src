@@ -538,6 +538,7 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 
       Hvis du deaktiverer denne indstilling eller undlader at indstille den, vises alle godkendelsessider i loginportalen i en (almindelig) ny browserfane ved hjælp af brugerens proxyindstillinger.</translation>
 <translation id="3001534538097271560">Hvis denne politik angives som Falsk, forhindres brugerne i at sende visse former for systemoplysninger og sideindhold til Googles servere. Hvis denne indstilling er angivet som Sand eller ikke er angivet, kan brugerne sende visse former for systemoplysninger og sideindhold til Beskyttet browsing som en hjælp til at registrere skadelige apps og websites. Se https://developers.google.com/safe-browsing for flere oplysninger om Beskyttet browsing.</translation>
+<translation id="3016255526521614822">Hvidlistedeapps til notatskrivning er tilladt på <ph name="PRODUCT_OS_NAME" />-låseskærmen</translation>
 <translation id="3021409116652377124">Deaktiver pluginsøgning</translation>
 <translation id="3030000825273123558">Aktivér metrics-rapportering</translation>
 <translation id="3034580675120919256">Giver dig mulighed for at angive, om websites må køre JavaScript. Kørsel af JavaScript kan enten være tilladt for alle websites eller nægtet for alle websites. Hvis denne politik ikke angives, anvendes "AllowJavaScript", og brugeren vil kunne ændre det.</translation>
@@ -874,6 +875,16 @@ Hvis denne indstilling ikke er angivet, vil <ph name="PRODUCT_NAME" /> tillade b
       "1412.24.34": Opdater kun til denne specifikke version
 
       Advarsel! Det frarådes at konfigurere versionsbegrænsninger, da det kan forhindre brugerne i at modtage softwareopdateringer og kritiske sikkerhedsrettelser. Begrænsning af opdateringer til et bestemt præfiks for versionen kan udgøre en risiko for brugerne.</translation>
+<translation id="4298509794364745131">Specificerer en liste over apps, der kan aktiveres som apps til notatskrivning på <ph name="PRODUCT_OS_NAME" />-låseskærmen.
+
+      Hvis den foretrukne app til notatskrivning er aktiveret på låseskærmen, vil låseskærmen indeholde et brugerfladeelement til at åbne den foretrukne app til notatskrivning.
+      Når appen er åbnet, kan den oprette et appvindue oven på låseskærmen og oprette dataelementer (noter) i låseskærmskonteksten. Appen vil kunne importere oprettede noter til den primære brugersession, når sessionen ikke er låst. På nuværende tidspunkt er det kun Chrome-apps til notatskrivning, der understøttes på låseskærmen.
+
+      Hvis politikken er angivet, gives brugeren tilladelse til at aktivere en app på låseskærmen, såfremt at appens udvidelses-id omfattes af værdien på listen over politikker.
+      Som følge heraf deaktiveres notatskrivning helt på låseskærmen, hvis politikken angives som en tom liste.
+      Bemærk, at politikken, der indeholder et app-id, ikke nødvendigvis betyder, at brugeren kan aktivere appen som en app til notatskrivning på låseskærmen – f.eks. er rækken af tilgængelige apps i Chrome 61 begrænset yderligere af platformen.
+
+      Hvis politikken ikke angives, pålægges der ingen restriktioner på rækken af apps, som brugeren kan aktivere på låseskærmen, af politikken.</translation>
 <translation id="4309640770189628899">Afgør, om DHE-krypteringsprogrammerne i TLS aktiveres</translation>
 <translation id="4320376026953250541">Microsoft Windows XP SP2 eller nyere</translation>
 <translation id="4322842393287974810">Tillad, at den automatisk startede terminalapp uden forsinkelse kontrollerer <ph name="PRODUCT_OS_NAME" />-versionen</translation>
