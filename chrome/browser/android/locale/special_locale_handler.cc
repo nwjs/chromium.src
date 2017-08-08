@@ -10,6 +10,7 @@
 #include "base/memory/ptr_util.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
 #include "components/search_engines/prepopulated_engines.h"
 #include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_prepopulate_data.h"
@@ -74,8 +75,9 @@ jboolean SpecialLocaleHandler::LoadTemplateUrls(
     // Otherwise, matching based on keyword is sufficient and preferred as
     // some logically distinct search engines share the same prepopulate ID and
     // only differ on keyword.
-    bool exists = template_url_service_->GetTemplateURLForKeyword(
-                      data_url->keyword()) != nullptr;
+    const TemplateURL* matching_url =
+        template_url_service_->GetTemplateURLForKeyword(data_url->keyword());
+    bool exists = matching_url != nullptr;
     if (!exists &&
         data_url->prepopulate_id == TemplateURLPrepopulateData::google.id) {
       auto existing_urls = template_url_service_->GetTemplateURLs();
@@ -83,13 +85,29 @@ jboolean SpecialLocaleHandler::LoadTemplateUrls(
       for (auto* existing_url : existing_urls) {
         if (existing_url->prepopulate_id() ==
             TemplateURLPrepopulateData::google.id) {
+          matching_url = existing_url;
           exists = true;
           break;
         }
       }
     }
-    if (exists)
+
+    if (exists) {
+      // Update the visit time of any existing custom search engines to ensure
+      // they are not filtered out in TemplateUrlServicAndroid::LoadTemplateURLs
+      if (!template_url_service_->IsPrepopulatedOrCreatedByPolicy(
+              matching_url)) {
+        UIThreadSearchTermsData search_terms_data(profile_);
+
+        TemplateURLService::URLVisitedDetails visited_details;
+        visited_details.url =
+            matching_url->GenerateSearchURL(search_terms_data);
+        visited_details.is_keyword_transition = false;
+        template_url_service_->OnHistoryURLVisited(visited_details);
+      }
+
       continue;
+    }
 
     data_url.get()->safe_for_autoreplace = true;
     std::unique_ptr<TemplateURL> turl(
