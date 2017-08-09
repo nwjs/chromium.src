@@ -1227,8 +1227,12 @@ public class VrShellDelegate
         if (!mDoffOptional && !success && showDoff(false /* optional */)) return;
 
         mShowingDaydreamDoff = false;
-        callOnExitVrRequestListener(success);
         if (success) {
+            // If DOFF didn't succeed(for example, user clicked back button at DOFF screen), we
+            // don't know if user really intends to exit VR or not at this point. So we shouldn't
+            // call callOnExitVrRequestListener to tell the listener that the exit VR request has
+            // succeeded or been denied.
+            callOnExitVrRequestListener(success);
             shutdownVr(true /* disableVrMode */, false /* canReenter */,
                     !mExitingCct /* stayingInChrome */);
             if (mExitingCct) ((CustomTabActivity) mActivity).finishAndClose(false);
