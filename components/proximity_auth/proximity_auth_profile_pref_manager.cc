@@ -30,6 +30,7 @@ ProximityAuthProfilePrefManager::~ProximityAuthProfilePrefManager() {
 void ProximityAuthProfilePrefManager::RegisterPrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kEasyUnlockAllowed, true);
+  registry->RegisterBooleanPref(prefs::kEasyUnlockEnabled, false);
   registry->RegisterInt64Pref(prefs::kProximityAuthLastPasswordEntryTimestampMs,
                               0L);
   registry->RegisterInt64Pref(
@@ -67,6 +68,7 @@ void ProximityAuthProfilePrefManager::StartSyncingToLocalState(
 
   registrar_.Init(pref_service_);
   registrar_.Add(prefs::kEasyUnlockAllowed, on_pref_changed_callback);
+  registrar_.Add(prefs::kEasyUnlockEnabled, on_pref_changed_callback);
   registrar_.Add(proximity_auth::prefs::kEasyUnlockProximityThreshold,
                  on_pref_changed_callback);
   registrar_.Add(proximity_auth::prefs::kProximityAuthIsChromeOSLoginEnabled,
@@ -79,12 +81,14 @@ void ProximityAuthProfilePrefManager::SyncPrefsToLocalState() {
   std::unique_ptr<base::DictionaryValue> user_prefs_dict(
       new base::DictionaryValue());
 
-  user_prefs_dict->SetBooleanWithoutPathExpansion(prefs::kEasyUnlockAllowed,
-                                                  IsEasyUnlockAllowed());
-  user_prefs_dict->SetIntegerWithoutPathExpansion(
-      prefs::kEasyUnlockProximityThreshold, GetProximityThreshold());
-  user_prefs_dict->SetBooleanWithoutPathExpansion(
-      prefs::kProximityAuthIsChromeOSLoginEnabled, IsChromeOSLoginEnabled());
+  user_prefs_dict->SetKey(prefs::kEasyUnlockAllowed,
+                          base::Value(IsEasyUnlockAllowed()));
+  user_prefs_dict->SetKey(prefs::kEasyUnlockEnabled,
+                          base::Value(IsEasyUnlockEnabled()));
+  user_prefs_dict->SetKey(prefs::kEasyUnlockProximityThreshold,
+                          base::Value(GetProximityThreshold()));
+  user_prefs_dict->SetKey(prefs::kProximityAuthIsChromeOSLoginEnabled,
+                          base::Value(IsChromeOSLoginEnabled()));
 
   DictionaryPrefUpdate update(local_state_,
                               prefs::kEasyUnlockLocalStateUserPrefs);
@@ -94,6 +98,15 @@ void ProximityAuthProfilePrefManager::SyncPrefsToLocalState() {
 
 bool ProximityAuthProfilePrefManager::IsEasyUnlockAllowed() const {
   return pref_service_->GetBoolean(prefs::kEasyUnlockAllowed);
+}
+
+void ProximityAuthProfilePrefManager::SetIsEasyUnlockEnabled(
+    bool is_easy_unlock_enabled) const {
+  pref_service_->SetBoolean(prefs::kEasyUnlockEnabled, is_easy_unlock_enabled);
+}
+
+bool ProximityAuthProfilePrefManager::IsEasyUnlockEnabled() const {
+  return pref_service_->GetBoolean(prefs::kEasyUnlockEnabled);
 }
 
 void ProximityAuthProfilePrefManager::SetLastPasswordEntryTimestampMs(
