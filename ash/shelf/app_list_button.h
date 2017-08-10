@@ -69,6 +69,15 @@ class ASH_EXPORT AppListButton : public views::ImageButton,
 
   void StartVoiceInteractionAnimation();
 
+  // Helper function to determine whether and event at |location| should be
+  // handled by the back button or the app list circle. Returns false if we are
+  // not in tablet mode (there is no back button).
+  bool IsBackEvent(const gfx::Point& location);
+
+  // Generate and send a VKEY_BROWSER_BACK key event when the back button
+  // portion is clicked or tapped.
+  void GenerateAndSendBackEvent(const ui::LocatedEvent& original_event);
+
   // True if the app list is currently showing for this display.
   // This is useful because other IsApplistVisible functions aren't per-display.
   bool is_showing_app_list_;
