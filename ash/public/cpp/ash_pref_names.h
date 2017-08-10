@@ -17,6 +17,7 @@ ASH_PUBLIC_EXPORT extern const char kNightLightScheduleType[];
 ASH_PUBLIC_EXPORT extern const char kNightLightCustomStartTime[];
 ASH_PUBLIC_EXPORT extern const char kNightLightCustomEndTime[];
 
+ASH_PUBLIC_EXPORT extern const char kWallpaperColors[];
 }  // namespace prefs
 
 }  // namespace ash
