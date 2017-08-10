@@ -110,6 +110,8 @@ class WebSecurityOrigin {
   // Allows this WebSecurityOrigin access to local resources.
   BLINK_PLATFORM_EXPORT void GrantLoadLocalResources() const;
 
+    BLINK_PLATFORM_EXPORT void grantUniversalAccess() const;
+
 #if INSIDE_BLINK
   BLINK_PLATFORM_EXPORT WebSecurityOrigin(WTF::RefPtr<SecurityOrigin>);
   BLINK_PLATFORM_EXPORT WebSecurityOrigin& operator=(

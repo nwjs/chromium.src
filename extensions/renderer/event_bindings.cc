@@ -246,8 +246,8 @@ void EventBindings::AttachEventHandler(
 
 void EventBindings::AttachEvent(const std::string& event_name,
                                 bool supports_lazy_listeners) {
-  if (!context()->HasAccessOrThrowError(event_name))
-    return;
+  //if (!context()->HasAccessOrThrowError(event_name))
+  //  return;
 
   // Record the attachment for this context so that events can be detached when
   // the context is destroyed.
@@ -317,8 +317,8 @@ void EventBindings::AttachFilteredEvent(
   CHECK(args[2]->IsBoolean());
 
   std::string event_name = *v8::String::Utf8Value(args[0]);
-  if (!context()->HasAccessOrThrowError(event_name))
-    return;
+  //if (!context()->HasAccessOrThrowError(event_name))
+  //  return;
 
   std::unique_ptr<base::DictionaryValue> filter;
   {

@@ -19,6 +19,7 @@
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/lock_screen_apps/state_controller.h"
 #endif
+#include "content/nw/src/nw_content.h"
 
 // TODO(jamescook): We probably shouldn't compile this class at all on Android.
 // See http://crbug.com/343612
@@ -45,8 +46,10 @@ extensions::AppWindow* ChromeAppWindowClient::CreateAppWindow(
 #if defined(OS_ANDROID)
   return NULL;
 #else
-  return new extensions::AppWindow(context, new ChromeAppDelegate(true),
+  extensions::AppWindow* ret = new extensions::AppWindow(context, new ChromeAppDelegate(true),
                                    extension);
+  nw::CreateAppWindowHook(ret);
+  return ret;
 #endif
 }
 

@@ -23,6 +23,7 @@
  */
 
 #include "core/html/HTMLIFrameElement.h"
+#include "core/frame/LocalFrame.h"
 
 #include "core/CSSPropertyNames.h"
 #include "core/HTMLNames.h"
@@ -136,6 +137,9 @@ void HTMLIFrameElement::ParseAttribute(
           "Error while parsing the 'sandbox' attribute: " + invalid_tokens));
     }
     UseCounter::Count(GetDocument(), WebFeature::kSandboxViaIFrame);
+  } else if (name == nwuseragentAttr) {
+    if (ContentFrame() && ContentFrame()->IsLocalFrame())
+      ToLocalFrame(ContentFrame())->Loader().setUserAgentOverride(value);
   } else if (name == referrerpolicyAttr) {
     referrer_policy_ = kReferrerPolicyDefault;
     if (!value.IsNull()) {

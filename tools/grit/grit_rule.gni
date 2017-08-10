@@ -133,6 +133,13 @@ if (is_chrome_branded) {
   ]
 }
 
+if (nwjs_sdk) {
+  grit_defines += [
+    "-D",
+    "nwjs_sdk",
+  ]
+}
+
 if (is_chromeos) {
   grit_defines += [
     "-D",

@@ -227,7 +227,10 @@ void DragController::DragExited(DragData* drag_data, LocalFrame& local_root) {
 
   LocalFrameView* frame_view(local_root.View());
   if (frame_view) {
-    DataTransferAccessPolicy policy = kDataTransferTypesReadable;
+    DataTransferAccessPolicy policy =
+        document_under_mouse_->GetSecurityOrigin()->hasUniversalAccess()
+          ? kDataTransferReadable
+          : kDataTransferTypesReadable;
     DataTransfer* data_transfer = CreateDraggingDataTransfer(policy, drag_data);
     data_transfer->SetSourceOperation(drag_data->DraggingSourceOperationMask());
     local_root.GetEventHandler().CancelDragAndDrop(CreateMouseEvent(drag_data),
@@ -753,7 +756,10 @@ bool DragController::TryDHTMLDrag(DragData* drag_data,
   if (!local_root.View())
     return false;
 
-  DataTransferAccessPolicy policy = kDataTransferTypesReadable;
+  DataTransferAccessPolicy policy =
+    document_under_mouse_->GetSecurityOrigin()->hasUniversalAccess()
+          ? kDataTransferReadable
+          : kDataTransferTypesReadable;
   DataTransfer* data_transfer = CreateDraggingDataTransfer(policy, drag_data);
   DragOperation src_op_mask = drag_data->DraggingSourceOperationMask();
   data_transfer->SetSourceOperation(src_op_mask);

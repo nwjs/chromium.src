@@ -56,7 +56,9 @@ namespace {
 const base::FilePath::CharType kDevToolsActivePortFileName[] =
     FILE_PATH_LITERAL("DevToolsActivePort");
 
+#if defined(NWJS_SDK)
 const char kDevToolsHandlerThreadName[] = "Chrome_DevToolsHandlerThread";
+#endif
 
 const char kPageUrlPrefix[] = "/devtools/page/";
 
@@ -736,6 +738,7 @@ DevToolsHttpHandler::DevToolsHttpHandler(
       user_agent_(user_agent),
       delegate_(delegate),
       weak_factory_(this) {
+#if defined(NWJS_SDK)
   bool bundles_resources = frontend_url_.empty();
   if (frontend_url_.empty())
     frontend_url_ = "/devtools/inspector.html";
@@ -752,6 +755,7 @@ DevToolsHttpHandler::DevToolsHttpHandler(
                                   std::move(socket_factory), output_directory,
                                   debug_frontend_dir, bundles_resources));
   }
+#endif
 }
 
 void DevToolsHttpHandler::ServerStarted(

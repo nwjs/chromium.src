@@ -53,6 +53,7 @@ class ChromeNativeAppWindowViews
       views::Widget* widget) override;
   bool WidgetHasHitTestMask() const override;
   void GetWidgetHitTestMask(gfx::Path* mask) const override;
+  bool NWCanClose(bool user_force = false) const override;
 
   // views::View implementation.
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;

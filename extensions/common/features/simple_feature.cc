@@ -73,6 +73,8 @@ std::string GetDisplayName(Manifest::Type type) {
       return "user script";
     case Manifest::TYPE_SHARED_MODULE:
       return "shared module";
+    case Manifest::TYPE_NWJS_APP:
+      return "NW.js app";
     case Manifest::NUM_LOAD_TYPES:
       NOTREACHED();
   }
@@ -254,9 +256,11 @@ Feature::Availability SimpleFeature::IsAvailableToContext(
       return manifest_availability;
   }
 
+  if (!(extension && extension->is_nwjs_app() && context != WEB_PAGE_CONTEXT)) {
   Availability context_availability = GetContextAvailability(context, url);
   if (!context_availability.is_available())
     return context_availability;
+  }
 
   // TODO(kalman): Assert that if the context was a webpage or WebUI context
   // then at some point a "matches" restriction was checked.
@@ -563,6 +567,13 @@ Feature::Availability SimpleFeature::GetManifestAvailability(
   // when we compile feature files.
   Manifest::Type type_to_check =
       (type == Manifest::TYPE_USER_SCRIPT) ? Manifest::TYPE_EXTENSION : type;
+  if (type == Manifest::TYPE_NWJS_APP) {
+    if (!extension_types_.empty() && name_ == "devtools_page" && //NWJS#4959
+        !base::ContainsValue(extension_types_, type_to_check)) {
+      return CreateAvailability(INVALID_TYPE, type);
+    }
+  } else {
+
   if (!extension_types_.empty() &&
       !base::ContainsValue(extension_types_, type_to_check)) {
     return CreateAvailability(INVALID_TYPE, type);
@@ -592,6 +603,7 @@ Feature::Availability SimpleFeature::GetManifestAvailability(
   if (max_manifest_version_ != 0 && manifest_version > max_manifest_version_)
     return CreateAvailability(INVALID_MAX_MANIFEST_VERSION);
 
+  } // is nwjs app
   return CreateAvailability(IS_AVAILABLE);
 }
 

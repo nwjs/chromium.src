@@ -66,6 +66,11 @@ class ComponentLoader {
   // extension with the same ID.
   std::string AddOrReplace(const base::FilePath& path);
 
+  // Returns the extension ID of a component extension specified by resource
+  // id of its manifest file.
+  std::string GetExtensionID(int manifest_resource_id,
+                             const base::FilePath& root_directory);
+
   // Returns true if an extension with the specified id has been added.
   bool Exists(const std::string& id) const;
 
@@ -86,6 +91,9 @@ class ComponentLoader {
 
   // Similar to above but adds the default component extensions for kiosk mode.
   void AddDefaultComponentExtensionsForKioskMode(bool skip_session_components);
+
+  // Clear the list of registered extensions.
+  void ClearAllRegistered();
 
   // Reloads a registered component extension.
   void Reload(const std::string& extension_id);
@@ -112,36 +120,28 @@ class ComponentLoader {
 
   // Information about a registered component extension.
   struct ComponentExtensionInfo {
-    ComponentExtensionInfo(
-        std::unique_ptr<base::DictionaryValue> manifest_param,
-        const base::FilePath& root_directory);
-    ~ComponentExtensionInfo();
-
-    ComponentExtensionInfo(ComponentExtensionInfo&& other);
-    ComponentExtensionInfo& operator=(ComponentExtensionInfo&& other);
+    ComponentExtensionInfo(const base::DictionaryValue* manifest,
+                           const base::FilePath& root_directory);
 
     // The parsed contents of the extensions's manifest file.
-    std::unique_ptr<base::DictionaryValue> manifest;
+    const base::DictionaryValue* manifest;
 
     // Directory where the extension is stored.
     base::FilePath root_directory;
 
     // The component extension's ID.
     std::string extension_id;
-
-   private:
-    DISALLOW_COPY_AND_ASSIGN(ComponentExtensionInfo);
   };
 
   // Parses the given JSON manifest. Returns nullptr if it cannot be parsed or
   // if the result is not a DictionaryValue.
-  std::unique_ptr<base::DictionaryValue> ParseManifest(
+  base::DictionaryValue* ParseManifest(
       base::StringPiece manifest_contents) const;
 
   std::string Add(const base::StringPiece& manifest_contents,
                   const base::FilePath& root_directory,
                   bool skip_whitelist);
-  std::string Add(std::unique_ptr<base::DictionaryValue> parsed_manifest,
+  std::string Add(const base::DictionaryValue* parsed_manifest,
                   const base::FilePath& root_directory,
                   bool skip_whitelist);
 

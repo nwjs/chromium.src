@@ -41,7 +41,7 @@ void PrepareBrowserCommandLineForTests(base::CommandLine* command_line) {
     command_line->AppendSwitchASCII(switches::kLoggingLevel, "0");  // info
 
   // Disable safebrowsing autoupdate.
-  command_line->AppendSwitch(safe_browsing::switches::kSbDisableAutoUpdate);
+  //command_line->AppendSwitch(safe_browsing::switches::kSbDisableAutoUpdate);
 
   // Don't install default apps.
   command_line->AppendSwitch(switches::kDisableDefaultApps);

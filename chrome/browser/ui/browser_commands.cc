@@ -118,6 +118,7 @@ namespace {
 
 const char kOsOverrideForTabletSite[] = "Linux; Android 4.0.3";
 
+#if 0
 translate::TranslateBubbleUiEvent TranslateBubbleResultToUiEvent(
     ShowTranslateBubbleResult result) {
   switch (result) {
@@ -143,6 +144,7 @@ translate::TranslateBubbleUiEvent TranslateBubbleResultToUiEvent(
           BUBBLE_NOT_SHOWN_EDITABLE_FIELD_IS_ACTIVE;
   }
 }
+#endif
 
 }  // namespace
 
@@ -357,6 +359,7 @@ int GetContentRestrictions(const Browser* browser) {
 }
 
 void NewEmptyWindow(Profile* profile) {
+#if 0
   bool incognito = profile->IsOffTheRecord();
   PrefService* prefs = profile->GetPrefs();
   if (incognito) {
@@ -384,6 +387,7 @@ void NewEmptyWindow(Profile* profile) {
       OpenEmptyWindow(profile->GetOriginalProfile());
     }
   }
+#endif
 }
 
 Browser* OpenEmptyWindow(Profile* profile) {
@@ -850,6 +854,7 @@ void SaveCreditCard(Browser* browser) {
 }
 
 void Translate(Browser* browser) {
+#if 0
   if (!browser->window()->IsActive())
     return;
 
@@ -871,6 +876,7 @@ void Translate(Browser* browser) {
       web_contents, step, translate::TranslateErrors::NONE, true);
   if (result != ShowTranslateBubbleResult::SUCCESS)
     translate::ReportUiAction(TranslateBubbleResultToUiEvent(result));
+#endif
 }
 
 void ManagePasswordsForPage(Browser* browser) {

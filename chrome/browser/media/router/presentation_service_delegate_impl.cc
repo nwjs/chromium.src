@@ -476,9 +476,13 @@ void PresentationServiceDelegateImpl::StartPresentation(
               GetWeakPtr(), render_process_id, render_frame_id,
               std::move(success_cb)),
           std::move(error_cb)));
+#if defined(NWJS_SDK)
   MediaRouterDialogController* controller =
       MediaRouterDialogController::GetOrCreateForWebContents(web_contents_);
   if (!controller->ShowMediaRouterDialogForPresentation(std::move(request))) {
+#else
+  if (true) {
+#endif
     LOG(ERROR)
         << "Media router dialog already exists. Ignoring StartPresentation.";
     std::move(error_cb).Run(content::PresentationError(

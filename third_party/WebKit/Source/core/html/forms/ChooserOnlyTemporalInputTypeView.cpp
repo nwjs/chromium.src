@@ -29,6 +29,7 @@
 #include "core/dom/Document.h"
 #include "core/dom/ShadowRoot.h"
 #include "core/dom/UserGestureIndicator.h"
+#include "core/frame/LocalFrame.h"
 #include "core/html/HTMLDivElement.h"
 #include "core/html/HTMLInputElement.h"
 #include "core/page/ChromeClient.h"
@@ -60,7 +61,7 @@ DEFINE_TRACE(ChooserOnlyTemporalInputTypeView) {
 
 void ChooserOnlyTemporalInputTypeView::HandleDOMActivateEvent(Event*) {
   if (GetElement().IsDisabledOrReadOnly() || !GetElement().GetLayoutObject() ||
-      !UserGestureIndicator::ProcessingUserGesture() ||
+      (!UserGestureIndicator::ProcessingUserGesture() && !GetElement().GetDocument().GetFrame()->isNodeJS()) ||
       GetElement().openShadowRoot())
     return;
 

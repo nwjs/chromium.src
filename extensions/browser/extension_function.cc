@@ -4,6 +4,9 @@
 
 #include "extensions/browser/extension_function.h"
 
+#include "content/public/browser/interstitial_page.h"
+#include "content/browser/frame_host/render_frame_host_delegate.h"
+#include "content/browser/frame_host/render_frame_host_impl.h"
 #include <utility>
 
 #include "base/logging.h"
@@ -309,6 +312,10 @@ ExtensionFunction::ExtensionFunction()
 ExtensionFunction::~ExtensionFunction() {
 }
 
+bool ExtensionFunction::RunNWSync(base::ListValue* response, std::string* error) {
+  return false;
+}
+
 UIThreadExtensionFunction* ExtensionFunction::AsUIThreadExtensionFunction() {
   return NULL;
 }
@@ -579,8 +586,12 @@ content::WebContents* UIThreadExtensionFunction::GetAssociatedWebContents() {
 }
 
 content::WebContents* UIThreadExtensionFunction::GetSenderWebContents() {
-  return render_frame_host_ ?
+  content::WebContents* ret = render_frame_host_ ?
       content::WebContents::FromRenderFrameHost(render_frame_host_) : nullptr;
+  if (ret)
+    return ret;
+  content::InterstitialPage* page = static_cast<content::RenderFrameHostImpl*>(render_frame_host_)->delegate()->GetAsInterstitialPage();
+  return page->GetWebContents();
 }
 
 void UIThreadExtensionFunction::OnResponded() {
@@ -685,3 +696,35 @@ void AsyncExtensionFunction::SendResponse(bool success) {
   }
   Respond(std::move(response));
 }
+
+NWSyncExtensionFunction::NWSyncExtensionFunction() {
+}
+
+NWSyncExtensionFunction::~NWSyncExtensionFunction() {
+}
+
+ExtensionFunction::ResponseAction NWSyncExtensionFunction::Run() {
+  NOTREACHED() << "NWSyncExtensionFunction::Run";
+  return RespondNow(ArgumentList(std::move(results_)));
+}
+
+// static
+bool NWSyncExtensionFunction::ValidationFailure(
+    NWSyncExtensionFunction* function) {
+  return false;
+}
+
+void NWSyncExtensionFunction::SetError(const std::string& error) {
+  error_ = error;
+}
+
+void NWSyncExtensionFunction::SetResult(std::unique_ptr<base::Value> result) {
+  results_.reset(new base::ListValue());
+  results_->Append(std::move(result));
+}
+
+void NWSyncExtensionFunction::SetResultList(
+    std::unique_ptr<base::ListValue> results) {
+  results_ = std::move(results);
+}
+

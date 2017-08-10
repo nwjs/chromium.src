@@ -4,6 +4,7 @@
 
 #include "chrome/common/chrome_content_client.h"
 
+#include "components/crash/content/app/crash_reporter_client.h"
 #include <stdint.h>
 
 #include <map>
@@ -377,6 +378,53 @@ bool GetComponentUpdatedPepperFlash(content::PepperPluginInfo* plugin) {
 }
 #endif  // defined(OS_CHROMEOS)
 
+#if 1
+// This should be used on ChromeOS only - other platforms do not bundle Flash.
+bool GetBundledPepperFlash(content::PepperPluginInfo* plugin) {
+#if 1
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+
+  // Ignore bundled Pepper Flash if there is Pepper Flash specified from the
+  // command-line.
+  if (command_line->HasSwitch(switches::kPpapiFlashPath))
+    return false;
+
+  bool force_disable =
+      command_line->HasSwitch(switches::kDisableBundledPpapiFlash);
+  if (force_disable)
+    return false;
+
+  base::FilePath flash_path;
+  if (!PathService::Get(chrome::DIR_PEPPER_FLASH_PLUGIN, &flash_path))
+    return false;
+  base::FilePath flash_filename;
+  if (!PathService::Get(chrome::FILE_PEPPER_FLASH_PLUGIN, &flash_filename))
+    return false;
+  base::FilePath manifest_path(
+      flash_path.AppendASCII("manifest.json"));
+
+  std::string manifest_data;
+  if (!base::ReadFileToString(manifest_path, &manifest_data))
+    return false;
+  std::unique_ptr<base::Value> manifest_value(
+      base::JSONReader::Read(manifest_data, base::JSON_ALLOW_TRAILING_COMMAS));
+  if (!manifest_value.get())
+    return false;
+  base::DictionaryValue* manifest = NULL;
+  if (!manifest_value->GetAsDictionary(&manifest))
+    return false;
+
+  base::Version version;
+  if (!chrome::CheckPepperFlashManifest(*manifest, &version))
+    return false;
+  *plugin = CreatePepperFlashInfo(flash_filename, version.GetString(), false);
+  return true;
+#else
+  return false;
+#endif  // FLAPPER_AVAILABLE
+}
+#endif  // defined(OS_CHROMEOS)
+
 bool GetSystemPepperFlash(content::PepperPluginInfo* plugin) {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   // Do not try and find System Pepper Flash if there is a specific path on
@@ -449,6 +497,11 @@ void ChromeContentClient::SetActiveURL(const GURL& url) {
                                 url.possibly_invalid_spec());
 }
 
+void ChromeContentClient::SetNWReportURL(const GURL& url) {
+  base::debug::SetCrashKeyValue(crash_keys::kNWJSURL,
+                                url.possibly_invalid_spec());
+}
+
 void ChromeContentClient::SetGpuInfo(const gpu::GPUInfo& gpu_info) {
   gpu::SetKeysForCrashLogging(gpu_info);
 }
@@ -504,6 +557,13 @@ void ChromeContentClient::AddPepperPlugins(
   auto command_line_flash = base::MakeUnique<content::PepperPluginInfo>();
   if (GetCommandLinePepperFlash(command_line_flash.get()))
     flash_versions.push_back(std::move(command_line_flash));
+
+  //NWJS: revert 00777c52ac61dba4cd3d9047ede488f337d4a9a5
+#if 1
+  auto bundled_flash = base::MakeUnique<content::PepperPluginInfo>();
+  if (GetBundledPepperFlash(bundled_flash.get()))
+    flash_versions.push_back(std::move(bundled_flash));
+#endif  // defined(OS_CHROMEOS)
 
   auto system_flash = base::MakeUnique<content::PepperPluginInfo>();
   if (GetSystemPepperFlash(system_flash.get()))

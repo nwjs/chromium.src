@@ -186,6 +186,8 @@ bool IsCALayersDisabledFromCommandLine() {
 
 namespace content {
 
+DISPLAY_EXPORT extern bool g_force_cpu_draw;
+
 struct GpuProcessTransportFactory::PerCompositorData {
   gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
   BrowserCompositorOutputSurface* display_output_surface = nullptr;
@@ -259,8 +261,10 @@ GpuProcessTransportFactory::CreateSoftwareOutputDevice(
   return std::unique_ptr<cc::SoftwareOutputDevice>(
       new SoftwareOutputDeviceX11(compositor));
 #elif defined(OS_MACOSX)
-  return std::unique_ptr<cc::SoftwareOutputDevice>(
-      new SoftwareOutputDeviceMac(compositor));
+  if (g_force_cpu_draw)
+    return std::unique_ptr<cc::SoftwareOutputDevice>(new SoftwareOutputDeviceForceCPUMac(compositor));
+  else
+    return std::unique_ptr<cc::SoftwareOutputDevice>(new SoftwareOutputDeviceMac(compositor));
 #else
   NOTREACHED();
   return std::unique_ptr<cc::SoftwareOutputDevice>();

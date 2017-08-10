@@ -32,6 +32,7 @@ windows_manifest("chrome_elf_manifest") {
 # We should move chrome_result_codes.h to another target which does not bring
 # in the world.
 shared_library("chrome_elf") {
+  output_name = "nw_elf"
   sources = [
     "chrome_elf.def",
     "chrome_elf_main.cc",

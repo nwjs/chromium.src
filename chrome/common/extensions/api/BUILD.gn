@@ -235,6 +235,7 @@ json_features("api_features") {
   provider_class = "APIFeatureProvider"
   sources = [
     "../../../../extensions/common/api/_api_features.json",
+    "../../../../content/nw/src/api/_api_features.json",
     "_api_features.json",
   ]
 }

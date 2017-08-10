@@ -267,6 +267,7 @@ void AppendComponentUpdaterThrottles(
     content::ResourceContext* resource_context,
     ResourceType resource_type,
     std::vector<std::unique_ptr<content::ResourceThrottle>>* throttles) {
+#if 0
   bool is_prerendering =
       info.GetVisibilityState() == blink::kWebPageVisibilityStatePrerender;
   if (is_prerendering)
@@ -294,6 +295,7 @@ void AppendComponentUpdaterThrottles(
     throttles->push_back(base::WrapUnique(
         component_updater::GetOnDemandResourceThrottle(cus, crx_id)));
   }
+#endif
 }
 #endif  // !defined(DISABLE_NACL)
 
@@ -517,8 +519,10 @@ void ChromeResourceDispatcherHostDelegate::RequestBeginning(
     content::AppCacheService* appcache_service,
     ResourceType resource_type,
     std::vector<std::unique_ptr<content::ResourceThrottle>>* throttles) {
+#if defined(FULL_SAFE_BROWSING) || defined(MOBILE_SAFE_BROWSING)
   if (safe_browsing_.get())
     safe_browsing_->OnResourceRequest(request);
+#endif
 
   const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request);
 

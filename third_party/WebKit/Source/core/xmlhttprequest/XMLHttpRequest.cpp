@@ -710,11 +710,13 @@ void XMLHttpRequest::open(const AtomicString& method,
     // exception thrown.
     // Refer : https://xhr.spec.whatwg.org/#sync-warning
     // Use count for XHR synchronous requests on main thread only.
+#if 0
     if (!GetDocument()->ProcessingBeforeUnload()) {
       Deprecation::CountDeprecation(
           GetExecutionContext(),
           WebFeature::kXMLHttpRequestSynchronousInNonWorkerOutsideBeforeUnload);
     }
+#endif
   }
 
   method_ = FetchUtils::NormalizeMethod(method);

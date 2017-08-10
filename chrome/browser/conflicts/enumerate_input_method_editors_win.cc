@@ -76,6 +76,8 @@ void EnumerateImesOnBlockingSequence(
     scoped_refptr<base::SequencedTaskRunner> task_runner,
     OnImeEnumeratedCallback on_ime_enumerated,
     base::OnceClosure on_enumeration_finished) {
+#if 0
+  //to disable GetModuleImageSizeAndTimeDateStamp, which calls safe_browsing
   int nb_imes = 0;
   for (base::win::RegistryKeyIterator iter(HKEY_LOCAL_MACHINE, kImeRegistryKey);
        iter.Valid(); ++iter) {
@@ -106,6 +108,7 @@ void EnumerateImesOnBlockingSequence(
 
   base::UmaHistogramCounts100("ThirdPartyModules.InputMethodEditorsCount",
                               nb_imes);
+#endif
 }
 
 }  // namespace

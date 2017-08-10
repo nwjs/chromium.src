@@ -335,12 +335,15 @@ Binding.prototype = {
         apiFunction.definition = functionDef;
         apiFunction.name = schema.namespace + '.' + functionDef.name;
 
+        if (schema.namespace != "app.window" &&
+            schema.namespace != "nw.Window" &&
+            schema.namespace != "runtime") {
         if (!GetAvailability(apiFunction.name).is_available ||
             (checkUnprivileged && !isSchemaAccessAllowed(functionDef))) {
           this.apiFunctions_.registerUnavailable(functionDef.name);
           return;
         }
-
+        }
         // TODO(aa): It would be best to run this in a unit test, but in order
         // to do that we would need to better factor this code so that it
         // doesn't depend on so much v8::Extension machinery.
