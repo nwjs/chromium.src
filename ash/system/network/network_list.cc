@@ -120,7 +120,6 @@ class NetworkListView::SectionHeaderRowView : public views::View,
 
   void SetToggleVisible(bool visible) {
     toggle_->SetVisible(visible);
-    toggle_->set_accepts_events(visible);
   }
 
  protected:
