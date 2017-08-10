@@ -10,6 +10,6 @@ sources = [
 ]
 type_mappings = [
   "ash.mojom.WallpaperLayout=wallpaper::WallpaperLayout",
-  "ash.mojom.WallpaperType=user_manager::User::WallpaperType",
+  "ash.mojom.WallpaperType=wallpaper::WallpaperType",
   "ash.mojom.WallpaperInfo=wallpaper::WallpaperInfo",
 ]
