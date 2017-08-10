@@ -1447,6 +1447,7 @@ split_static_library("ui") {
       "//ash/strings",
       "//components/session_manager/core",
       "//components/user_manager",
+      "//services/data_decoder/public/cpp",
       "//services/ui/public/cpp",
       "//services/ui/public/interfaces",
       "//ui/app_list/presenter",
