@@ -882,6 +882,7 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleGestureScrollBegin(
                               scroll_status.main_thread_scrolling_reasons);
 
   InputHandlerProxy::EventDisposition result = DID_NOT_HANDLE;
+  scroll_sequence_ignored_ = false;
   switch (scroll_status.thread) {
     case cc::InputHandler::SCROLL_ON_IMPL_THREAD:
       TRACE_EVENT_INSTANT0("input",
@@ -978,10 +979,8 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleGestureScrollEnd(
     input_handler_->ScrollEnd(&scroll_state);
   }
 
-  if (scroll_sequence_ignored_) {
-    scroll_sequence_ignored_ = false;
+  if (scroll_sequence_ignored_)
     return DROP_EVENT;
-  }
 
   if (!gesture_scroll_on_impl_thread_)
     return DID_NOT_HANDLE;
@@ -996,6 +995,13 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleGestureScrollEnd(
 
 InputHandlerProxy::EventDisposition InputHandlerProxy::HandleGestureFlingStart(
     const WebGestureEvent& gesture_event) {
+#ifndef NDEBUG
+  expect_scroll_update_end_ = false;
+#endif
+
+  if (scroll_sequence_ignored_)
+    return DROP_EVENT;
+
   cc::ScrollState scroll_state = CreateScrollStateForGesture(gesture_event);
   cc::InputHandler::ScrollStatus scroll_status;
   scroll_status.main_thread_scrolling_reasons =
@@ -1025,10 +1031,6 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleGestureFlingStart(
       NOTREACHED();
       return DID_NOT_HANDLE;
   }
-
-#ifndef NDEBUG
-  expect_scroll_update_end_ = false;
-#endif
 
   switch (scroll_status.thread) {
     case cc::InputHandler::SCROLL_ON_IMPL_THREAD: {
