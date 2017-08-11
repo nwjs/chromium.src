@@ -202,6 +202,11 @@ class ArcNotificationContentView::ContentViewDelegate
       owner_->slide_helper_->Update();
   }
 
+  message_center::NotificationControlButtonsView* GetControlButtonsView()
+      const override {
+    return owner_->control_buttons_view_;
+  }
+
  private:
   ArcNotificationContentView* const owner_;
 
