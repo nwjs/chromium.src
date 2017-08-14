@@ -13,8 +13,10 @@
 #include "base/memory/ptr_util.h"
 #include "base/path_service.h"
 #include "base/strings/string16.h"
+#include "base/time/default_tick_clock.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/lock_screen_apps/app_manager_impl.h"
+#include "chrome/browser/chromeos/lock_screen_apps/app_window_metrics_tracker.h"
 #include "chrome/browser/chromeos/lock_screen_apps/focus_cycler_delegate.h"
 #include "chrome/browser/chromeos/note_taking_helper.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
@@ -118,6 +120,8 @@ void StateController::SetAppManagerForTesting(
 }
 
 void StateController::Initialize() {
+  tick_clock_ = base::MakeUnique<base::DefaultTickClock>();
+
   // The tray action ptr might be set previously if the client was being created
   // for testing.
   if (!tray_action_ptr_) {
@@ -219,7 +223,7 @@ void StateController::InitializeWithCryptoKey(Profile* profile,
 
   // App manager might have been set previously by a test.
   if (!app_manager_)
-    app_manager_ = base::MakeUnique<AppManagerImpl>();
+    app_manager_ = base::MakeUnique<AppManagerImpl>(tick_clock_.get());
   app_manager_->Initialize(profile, lock_screen_profile_->GetOriginalProfile());
 
   input_devices_observer_.Add(ui::InputDeviceManager::GetInstance());
@@ -270,8 +274,12 @@ void StateController::RequestNewLockScreenNote() {
   // Update state to launching even if app fails to launch - this is to notify
   // listeners that a lock screen note request was handled.
   UpdateLockScreenNoteState(TrayActionState::kLaunching);
-  if (!app_manager_->LaunchNoteTaking())
+  if (!app_manager_->LaunchNoteTaking()) {
     UpdateLockScreenNoteState(TrayActionState::kAvailable);
+    return;
+  }
+
+  note_app_window_metrics_->AppLaunchRequested();
 }
 
 void StateController::OnSessionStateChanged() {
@@ -279,6 +287,7 @@ void StateController::OnSessionStateChanged() {
     lock_screen_data_->SetSessionLocked(false);
     app_manager_->Stop();
     ResetNoteTakingWindowAndMoveToNextState(true /*close_window*/);
+    note_app_window_metrics_.reset();
     return;
   }
 
@@ -288,8 +297,16 @@ void StateController::OnSessionStateChanged() {
   app_manager_->Start(
       base::Bind(&StateController::OnNoteTakingAvailabilityChanged,
                  base::Unretained(this)));
+  note_app_window_metrics_ =
+      base::MakeUnique<AppWindowMetricsTracker>(tick_clock_.get());
   lock_screen_data_->SetSessionLocked(true);
   OnNoteTakingAvailabilityChanged();
+}
+
+void StateController::OnAppWindowAdded(extensions::AppWindow* app_window) {
+  if (note_app_window_ != app_window)
+    return;
+  note_app_window_metrics_->AppWindowCreated(app_window);
 }
 
 void StateController::OnAppWindowRemoved(extensions::AppWindow* app_window) {
@@ -362,8 +379,10 @@ bool StateController::HandleTakeFocus(content::WebContents* web_contents,
 
 void StateController::MoveToBackground() {
   if (GetLockScreenNoteState() == TrayActionState::kLaunching) {
+    note_app_window_metrics_->Reset();
     UpdateLockScreenNoteState(TrayActionState::kAvailable);
   } else if (GetLockScreenNoteState() == TrayActionState::kActive) {
+    note_app_window_metrics_->MovedToBackground();
     UpdateLockScreenNoteState(TrayActionState::kBackground);
   }
 }
@@ -371,6 +390,8 @@ void StateController::MoveToBackground() {
 void StateController::MoveToForeground() {
   if (GetLockScreenNoteState() != TrayActionState::kBackground)
     return;
+
+  note_app_window_metrics_->MovedToForeground();
   UpdateLockScreenNoteState(TrayActionState::kActive);
 }
 
@@ -409,6 +430,9 @@ void StateController::FocusAppWindow(bool reverse) {
 void StateController::ResetNoteTakingWindowAndMoveToNextState(
     bool close_window) {
   app_window_observer_.RemoveAll();
+
+  if (note_app_window_metrics_)
+    note_app_window_metrics_->Reset();
 
   if (note_app_window_) {
     if (focus_cycler_delegate_)
