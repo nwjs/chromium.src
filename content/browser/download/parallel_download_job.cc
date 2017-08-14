@@ -134,10 +134,8 @@ void ParallelDownloadJob::OnByteStreamReady(
 void ParallelDownloadJob::BuildParallelRequests() {
   DCHECK(!requests_sent_);
   DCHECK(!is_paused());
-  if (is_canceled_ ||
-      download_item_->GetLastReason() != DOWNLOAD_INTERRUPT_REASON_NONE) {
+  if (is_canceled_)
     return;
-  }
 
   // TODO(qinmin): The size of |slices_to_download| should be no larger than
   // |kParallelRequestCount| unless |kParallelRequestCount| is changed after
