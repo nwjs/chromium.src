@@ -78,6 +78,7 @@ class UiSceneManager {
   void CreateCloseButton();
   void CreateExitPrompt();
   void CreateToasts();
+  void CreateUnderDevelopmentNotice();
 
   void ConfigureScene();
   void ConfigureSecurityWarnings();

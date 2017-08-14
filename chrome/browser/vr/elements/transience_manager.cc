@@ -59,6 +59,7 @@ void TransienceManager::Show() {
 
 void TransienceManager::Hide() {
   element_->SetVisible(false);
+  element_->SetOpacity(0.0f);
 }
 
 }  // namespace vr

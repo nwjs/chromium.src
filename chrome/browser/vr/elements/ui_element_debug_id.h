@@ -32,6 +32,7 @@ enum UiElementDebugId {
   kExclusiveScreenToast,
   kSplashScreenIcon,
   kBluetoothConnectedIndicator,
+  kUnderDevelopmentNotice,
 };
 
 }  // namespace vr

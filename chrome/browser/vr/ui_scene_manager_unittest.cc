@@ -23,7 +23,8 @@ namespace vr {
 
 namespace {
 std::set<UiElementDebugId> kElementsVisibleInBrowsing = {
-    kContentQuad, kBackplane, kCeiling, kFloor, kUrlBar};
+    kContentQuad, kBackplane, kCeiling,
+    kFloor,       kUrlBar,    kUnderDevelopmentNotice};
 std::set<UiElementDebugId> kElementsVisibleWithExitPrompt = {
     kExitPrompt, kExitPromptBackplane, kCeiling, kFloor};
 }  // namespace
