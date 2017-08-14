@@ -57,6 +57,7 @@ bool UserEventServiceImpl::ShouldRecordEvent(
   // only in this exact scenario.
   return base::FeatureList::IsEnabled(switches::kSyncUserEvents) &&
          sync_service_ != nullptr && sync_service_->IsEngineInitialized() &&
+         !sync_service_->IsUsingSecondaryPassphrase() &&
          sync_service_->GetPreferredDataTypes().Has(HISTORY_DELETE_DIRECTIVES);
 }
 
