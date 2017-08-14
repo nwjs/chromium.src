@@ -249,6 +249,9 @@ public class BottomSheet
     /** Whether {@link #destroy()} has been called. **/
     private boolean mIsDestroyed;
 
+    /** The token used to enable browser controls persistence. */
+    private int mPersistentControlsToken;
+
     /**
      * An interface defining content that can be displayed inside of the bottom sheet for Chrome
      * Home.
@@ -1047,6 +1050,8 @@ public class BottomSheet
     private void onSheetOpened() {
         if (mIsSheetOpen) return;
 
+        mIsSheetOpen = true;
+
         // Make sure the toolbar is visible before expanding the sheet.
         Tab tab = getActiveTab();
         if (isToolbarAndroidViewHidden() && tab != null) {
@@ -1054,6 +1059,11 @@ public class BottomSheet
         }
 
         mIsSheetOpen = true;
+
+        // Browser controls should stay visible until the sheet is closed.
+        mPersistentControlsToken =
+                mFullscreenManager.getBrowserVisibilityDelegate().showControlsPersistent();
+
         dismissSelectedText();
         for (BottomSheetObserver o : mObservers) o.onSheetOpened();
         announceForAccessibility(getResources().getString(R.string.bottom_sheet_opened));
@@ -1074,6 +1084,11 @@ public class BottomSheet
 
         mBackButtonDismissesChrome = false;
         mIsSheetOpen = false;
+
+        // Update the browser controls since they are permanently shown while the sheet is open.
+        mFullscreenManager.getBrowserVisibilityDelegate().hideControlsPersistent(
+                mPersistentControlsToken);
+
         for (BottomSheetObserver o : mObservers) o.onSheetClosed();
         announceForAccessibility(getResources().getString(R.string.bottom_sheet_closed));
         clearFocus();
