@@ -1070,7 +1070,6 @@ DEFINE_TRACE(AccessibleNode) {
   visitor->Trace(element_);
   visitor->Trace(relation_properties_);
   visitor->Trace(relation_list_properties_);
-  EventTargetWithInlineData::Trace(visitor);
 }
 
 }  // namespace blink
