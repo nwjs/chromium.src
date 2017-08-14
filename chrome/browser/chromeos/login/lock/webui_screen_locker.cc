@@ -144,6 +144,8 @@ WebUIScreenLocker::~WebUIScreenLocker() {
   if (login_display_.get() && GetOobeUI())
     GetOobeUI()->ResetSigninScreenHandlerDelegate();
 
+  ClearLockScreenAppFocusCyclerDelegate();
+
   ResetKeyboardOverscrollOverride();
 
   RequestPreload();
@@ -175,6 +177,8 @@ void WebUIScreenLocker::LockScreen() {
 
   GetOobeUI()->ShowSigninScreen(
       LoginScreenContext(), login_display_.get(), login_display_.get());
+
+  SetLockScreenAppFocusCyclerDelegate();
 
   DisableKeyboardOverscroll();
 }
