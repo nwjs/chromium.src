@@ -153,6 +153,7 @@
 <translation id="1225211345201532184">Елемент полиці 5</translation>
 <translation id="1225404570112441414">Додайте цей сайт на полицю, щоб він завжди був під рукою.</translation>
 <translation id="1227507814927581609">Помилка автентифікації під час під’єднання до "<ph name="DEVICE_NAME" />".</translation>
+<translation id="1230807973377071856">системне меню</translation>
 <translation id="1232569758102978740">Без імені</translation>
 <translation id="1233721473400465416">Мовний код</translation>
 <translation id="1234808891666923653">Service Workers</translation>
@@ -1545,6 +1546,7 @@
 <translation id="3227137524299004712">Мікрофон</translation>
 <translation id="32279126412636473">Перезавантажити (⌘R)</translation>
 <translation id="3228679360002431295">З’єднання та перевірка<ph name="ANIMATED_ELLIPSIS" /></translation>
+<translation id="3229922550070982305">відтворити або призупинити</translation>
 <translation id="3232318083971127729">Значення:</translation>
 <translation id="3236289833370040187">Право власності буде передано в домен <ph name="DESTINATION_DOMAIN" />.</translation>
 <translation id="3237784613213365159"><ph name="NEW_PROFILE_NAME" /> тепер контрольований користувач</translation>
@@ -1858,6 +1860,7 @@
 <translation id="367645871420407123">залиште поле порожнім, якщо потрібно налаштувати кореневий пароль для значення тестового зображення за умовчанням</translation>
 <translation id="3678156199662914018">Розширення: <ph name="EXTENSION_NAME" /></translation>
 <translation id="3681311097828166361">Дякуємо за відгук. Звіт буде надіслано пізніше, оскільки зараз ви офлайн.</translation>
+<translation id="3683023058278427253">Ми виявили кілька типів ліцензій для вашого домену. Щоб продовжити, виберіть ліцензію.</translation>
 <translation id="3683524264665795342">Запит на спільний доступ до екрана від програми <ph name="APP_NAME" /></translation>
 <translation id="3685122418104378273">Коли використовується мобільний Інтернет, синхронізацію Google Диска вимкнено за умовчанням.</translation>
 <translation id="368789413795732264">Під час спроби запису файлу сталася помилка: <ph name="ERROR_TEXT" />.</translation>
@@ -2096,6 +2099,7 @@
 <translation id="4012550234655138030">Налаштувати принтери чи керувати ними в <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="4014432863917027322">Відновити розширення <ph name="EXTENSION_NAME" />?</translation>
 <translation id="4018133169783460046">Відображати <ph name="PRODUCT_NAME" /> цією мовою</translation>
+<translation id="4020106588733303597">На жаль, системі не вдалося завантажити доступні ліцензії.</translation>
 <translation id="4021279097213088397">–</translation>
 <translation id="4022426551683927403">&amp;Додати до словника</translation>
 <translation id="4023146161712577481">Визначення конфігурації пристрою.</translation>
@@ -2320,6 +2324,7 @@
 <translation id="4389091756366370506">Користувач <ph name="VALUE" /></translation>
 <translation id="4394049700291259645">Вимкнути</translation>
 <translation id="4400367121200150367">Тут відображатимуться сайти, які ніколи не зберігають паролі</translation>
+<translation id="4400632832271803360">Утримуйте клавішу панелі запуску, щоб змінити функції клавіш верхнього ряду</translation>
 <translation id="4408599188496843485">Д&amp;овідка</translation>
 <translation id="4409697491990005945">Поля</translation>
 <translation id="4411578466613447185">Підписувач коду</translation>
@@ -2680,6 +2685,7 @@
 <translation id="494660967831069720">Часткові дані</translation>
 <translation id="4950138595962845479">Параметри...</translation>
 <translation id="4953808748584563296">Стандартний оранжевий аватар</translation>
+<translation id="4955814292505481804">Річна ліцензія</translation>
 <translation id="495931528404527476">У Chrome</translation>
 <translation id="496226124210045887">У вибраній папці містяться файли з приватною інформацією. Справді надати програмі "$1" постійний доступ для читання з цієї папки?</translation>
 <translation id="4964455510556214366">Упорядкування</translation>
@@ -3163,6 +3169,7 @@
 <translation id="5658415415603568799">З міркувань безпеки Smart Lock запропонує ввести пароль через 20 годин.</translation>
 <translation id="5659593005791499971">Електронна пошта</translation>
 <translation id="5661272705528507004">Цю SIM-карту вимкнено, і вона непридатна для використання. Зв’яжіться зі своїм постачальником послуг, щоб здійснити заміну.</translation>
+<translation id="5662477687021125631">Безстрокова ліцензія</translation>
 <translation id="5669267381087807207">Активація</translation>
 <translation id="5669691691057771421">Введіть новий PIN-код</translation>
 <translation id="5677503058916217575">Мова сторінки:</translation>
@@ -3889,6 +3896,7 @@
 <translation id="6746392203843147041">збільшити гучність</translation>
 <translation id="6748140994595080445">Змінення способу обробки й показу мов у <ph name="APP_NAME" />.</translation>
 <translation id="6748465660675848252">Ви можете продовжити, однак буде відновлено лише синхронізовані дані та налаштування. Усі локальні дані буде втрачено.</translation>
+<translation id="6748775883310276718">Термінал з одним додатком</translation>
 <translation id="6751256176799620176">Вибрано 1 папку</translation>
 <translation id="6751344591405861699"><ph name="WINDOW_TITLE" /> (Анонімний перегляд)</translation>
 <translation id="6757101664402245801">URL-адресу скопійовано</translation>
@@ -4719,6 +4727,7 @@
 <translation id="8025789898011765392">Завдання</translation>
 <translation id="8026334261755873520">Очистити дані веб-перегляду</translation>
 <translation id="8028060951694135607">Відновлення ключів Microsoft</translation>
+<translation id="8028134359912645720">Утримуйте клавіші Control, Alt, Shift або клавішу панелі запуску, щоб побачити комбінації клавіш для цих модифікаторів.</translation>
 <translation id="8028993641010258682">Розмір</translation>
 <translation id="8030169304546394654">Роз'єднано</translation>
 <translation id="8030656706657716245">Додати принтер</translation>
@@ -4774,6 +4783,7 @@
 <translation id="8107015733319732394">Встановлення додатка Google Play Store на ваш <ph name="DEVICE_TYPE" />. Це може зайняти кілька хвилин.</translation>
 <translation id="8109930990200908494">Потрібно ввійти, щоб отримати сертифікат користувача.</translation>
 <translation id="8111155949205007504">Надішліть цей пароль на пристрій iPhone</translation>
+<translation id="8113043281354018522">Виберіть тип ліцензії</translation>
 <translation id="8116190140324504026">Докладніше...</translation>
 <translation id="8116483400482790018">Спеціальний орфографічний словник</translation>
 <translation id="8116972784401310538">&amp;Диспетчер закладок</translation>
@@ -4921,6 +4931,7 @@
 <translation id="8339059274628563283">Локально збережені дані сайту <ph name="SITE" /></translation>
 <translation id="834205140959175756">Керуйте з'єднаннями, оновленнями та налаштуваннями за допомогою панелі статусу.</translation>
 <translation id="8342318071240498787">Файл або каталог з таким же ім’ям уже існує.</translation>
+<translation id="8349826889576450703">панель запуску</translation>
 <translation id="8351419472474436977">Розширення керує налаштуваннями проксі-сервера, тобто може змінювати та переривати будь-які ваші дії онлайн, а також стежити за ними. Якщо ви не знаєте причини такої зміни, імовірно, вона небажана.</translation>
 <translation id="8352772353338965963">Додайте обліковий запис для паралельного входу. Доступ до всіх облікових записів, у які ви ввійшли, можна отримувати без пароля, тому цю функцію варто використовувати лише з надійними обліковими записами.</translation>
 <translation id="8353683614194668312">Може:</translation>
@@ -4979,6 +4990,7 @@
 <translation id="8446884382197647889">Докладніше</translation>
 <translation id="8449008133205184768">Вставити та застосувати стиль</translation>
 <translation id="8449036207308062757">Керувати пам’яттю</translation>
+<translation id="8451512073679317615">помічник</translation>
 <translation id="8452135315243592079">Немає SIM-карти</translation>
 <translation id="8453482423012550001">Копіювання елементів ($1)…</translation>
 <translation id="8454288007744638700">Або виберіть нову мережу:</translation>
@@ -5437,6 +5449,7 @@
 <translation id="9123413579398459698">Проксі-сервер FTP</translation>
 <translation id="9124003689441359348">Тут відображатимуться збережені паролі</translation>
 <translation id="912419004897138677">Кодек</translation>
+<translation id="9125466540846359910"><ph name="LICENSE_TYPE" /> (залишилося: <ph name="LICENSE_COUNT" />)</translation>
 <translation id="9127762771585363996">Перевернути зображення з камери горизонтально</translation>
 <translation id="9128870381267983090">З'єднатися з мережею</translation>
 <translation id="9130015405878219958">Введено недійсний режим.</translation>
