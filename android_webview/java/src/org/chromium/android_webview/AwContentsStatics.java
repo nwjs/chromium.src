@@ -135,7 +135,7 @@ public class AwContentsStatics {
         // API.
         ValueCallback<Boolean> wrapperCallback = new ValueCallback<Boolean>() {
             @Override
-            public void onReceiveValue(Boolean b) {
+            public void onReceiveValue(final Boolean b) {
                 if (callback != null) {
                     ThreadUtils.runOnUiThread(new Runnable() {
                         @Override
