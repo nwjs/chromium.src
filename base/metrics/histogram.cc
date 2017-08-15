@@ -39,6 +39,15 @@ namespace base {
 
 namespace {
 
+// A constant to be stored in the dummy field and later verified. This could
+// be either 32 or 64 bit but clang won't truncate the value without an error.
+// TODO(bcwhite): Remove this once crbug/736675 is fixed.
+#if defined(ARCH_CPU_64_BITS) && !defined(OS_NACL)
+constexpr uintptr_t kDummyValue = 0xFEEDC0DEDEADBEEF;
+#else
+constexpr uintptr_t kDummyValue = 0xDEADBEEF;
+#endif
+
 bool ReadHistogramArguments(PickleIterator* iter,
                             std::string* histogram_name,
                             int* flags,
@@ -584,7 +593,7 @@ Histogram::Histogram(const std::string& name,
                      Sample minimum,
                      Sample maximum,
                      const BucketRanges* ranges)
-    : HistogramBase(name), bucket_ranges_(ranges) {
+    : HistogramBase(name), dummy_(kDummyValue), bucket_ranges_(ranges) {
   // TODO(bcwhite): Make this a DCHECK once crbug/734049 is resolved.
   CHECK(ranges) << name << ": " << minimum << "-" << maximum;
   unlogged_samples_.reset(new SampleVector(HashMetricName(name), ranges));
@@ -599,7 +608,7 @@ Histogram::Histogram(const std::string& name,
                      const DelayedPersistentAllocation& logged_counts,
                      HistogramSamples::Metadata* meta,
                      HistogramSamples::Metadata* logged_meta)
-    : HistogramBase(name), bucket_ranges_(ranges) {
+    : HistogramBase(name), dummy_(kDummyValue), bucket_ranges_(ranges) {
   // TODO(bcwhite): Make this a DCHECK once crbug/734049 is resolved.
   CHECK(ranges) << name << ": " << minimum << "-" << maximum;
   unlogged_samples_.reset(
