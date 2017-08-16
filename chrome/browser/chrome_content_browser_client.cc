@@ -3,11 +3,18 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/chrome_content_browser_client.h"
+#include "content/browser/renderer_host/render_process_host_impl.h"
+#include "components/crash/content/app/crash_reporter_client.h"
 
 #include <map>
 #include <set>
 #include <utility>
 #include <vector>
+
+#include "content/nw/src/common/shell_switches.h"
+#include "content/nw/src/nw_content.h"
+#include "content/nw/src/nw_base.h"
+#include "chrome/browser/profiles/profile_manager.h"
 
 #include "base/base_switches.h"
 #include "base/bind.h"
@@ -336,6 +343,8 @@
 #include "components/guest_view/browser/guest_view_manager.h"
 #include "extensions/browser/extension_navigation_throttle.h"
 #include "extensions/browser/extension_registry.h"
+#include "chrome/browser/extensions/extension_service.h"
+#include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 #include "extensions/browser/guest_view/web_view/web_view_permission_helper.h"
@@ -730,7 +739,7 @@ breakpad::CrashHandlerHostLinux* CreateCrashHandlerHost(
   PathService::Get(chrome::DIR_CRASH_DUMPS, &dumps_path);
   {
     ANNOTATE_SCOPED_MEMORY_LEAK;
-    bool upload = (getenv(env_vars::kHeadless) == NULL);
+    bool upload = !crash_reporter::GetCrashReporterClient()->IsRunningUnattended();
     breakpad::CrashHandlerHostLinux* crash_handler =
         new breakpad::CrashHandlerHostLinux(process_type, dumps_path, upload);
     crash_handler->StartUploaderThread();
@@ -807,17 +816,17 @@ class CertificateReportingServiceCertReporter : public SSLCertReporter {
  public:
   explicit CertificateReportingServiceCertReporter(
       CertificateReportingService* service)
-      : service_(service) {}
+     {}
   ~CertificateReportingServiceCertReporter() override {}
 
   // SSLCertReporter implementation
   void ReportInvalidCertificateChain(
       const std::string& serialized_report) override {
-    service_->Send(serialized_report);
+    //service_->Send(serialized_report);
   }
 
  private:
-  CertificateReportingService* service_;
+  //CertificateReportingService* service_;
 
   DISALLOW_COPY_AND_ASSIGN(CertificateReportingServiceCertReporter);
 };
@@ -870,6 +879,7 @@ void GetGuestViewDefaultContentSettingRules(
                                   incognito));
 }
 
+#if 0
 AppLoadedInTabSource ClassifyAppLoadedInTabSource(
     const GURL& opener_url,
     const extensions::Extension* target_platform_app) {
@@ -891,6 +901,7 @@ AppLoadedInTabSource ClassifyAppLoadedInTabSource(
   // The forbidden app URL was being opened by a non-extension page (e.g. http).
   return APP_LOADED_IN_TAB_SOURCE_OTHER;
 }
+#endif
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 void CreateUsbDeviceManager(RenderFrameHost* render_frame_host,
@@ -1516,6 +1527,23 @@ bool ChromeContentBrowserClient::MayReuseHost(
 
 bool ChromeContentBrowserClient::ShouldTryToUseExistingProcessHost(
     content::BrowserContext* browser_context, const GURL& url) {
+  // PDF extension should use new process, or there is a loop of IPC
+  // message BrowserPluginHostMsg_SetFocus and InputMsg_SetFocus
+  // #4335
+
+  if (url.SchemeIs(extensions::kExtensionScheme)) {
+    if (url.host() == nw::GetMainExtensionId() && !content::RenderProcessHostImpl::main_host())
+      return false; //other extensions could load before the main
+                    //extension NWJS#5483
+    if (url.host() == extension_misc::kPdfExtensionId)
+      return false;
+  }
+
+  if (nw::PinningRenderer())
+    return true;
+  else
+    return false;
+#if 0
   // It has to be a valid URL for us to check for an extension.
   if (!url.is_valid())
     return false;
@@ -1527,6 +1555,7 @@ bool ChromeContentBrowserClient::ShouldTryToUseExistingProcessHost(
           profile, url);
 #else
   return false;
+#endif
 #endif
 }
 
@@ -1770,7 +1799,10 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
                                   homedir.value().c_str());
 #endif
 
+  command_line->AppendSwitchPath(switches::kNWAppPath, nw::package()->path());
   if (process_type == switches::kRendererProcess) {
+    command_line->AppendSwitch(switches::kNWJS);
+
     content::RenderProcessHost* process =
         content::RenderProcessHost::FromID(child_process_id);
     Profile* profile =
@@ -1893,6 +1925,7 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
 
     // Please keep this in alphabetical order.
     static const char* const kSwitchNames[] = {
+      switches::kEnableSpellChecking,
       autofill::switches::kDisablePasswordGeneration,
       autofill::switches::kEnablePasswordGeneration,
       autofill::switches::kEnableSingleClickAutofill,
@@ -2124,6 +2157,22 @@ bool ChromeContentBrowserClient::AllowSetCookie(
   return allow;
 }
 
+base::FilePath ChromeContentBrowserClient::GetRootPath() {
+  std::string id = nw::GetMainExtensionId();
+  base::FilePath path;
+  extensions::ExtensionSystem* extension_system =
+    extensions::ExtensionSystem::Get(ProfileManager::GetPrimaryUserProfile());
+  if (extension_system) {
+    ExtensionService* extension_service =
+      extension_system->extension_service();
+    const extensions::Extension* extension =
+      extension_service->GetExtensionById(id, true);
+    if (extension)
+      path = extension->path();
+  }
+  return path;
+}
+
 void ChromeContentBrowserClient::AllowWorkerFileSystem(
     const GURL& url,
     content::ResourceContext* context,
@@ -2346,15 +2395,16 @@ void ChromeContentBrowserClient::AllowCertificateError(
   if (expired_previous_decision)
     options_mask |= SSLErrorUI::EXPIRED_BUT_PREVIOUSLY_ALLOWED;
 
+#if 0
   CertificateReportingService* cert_reporting_service =
       CertificateReportingServiceFactory::GetForBrowserContext(
           web_contents->GetBrowserContext());
-  std::unique_ptr<CertificateReportingServiceCertReporter> cert_reporter(
-      new CertificateReportingServiceCertReporter(cert_reporting_service));
-
+  std::unique_ptr<CertificateReportingServiceCertReporter> cert_reporter(nullptr);
+  //new CertificateReportingServiceCertReporter(cert_reporting_service));
+#endif
   SSLErrorHandler::HandleSSLError(web_contents, cert_error, ssl_info,
                                   request_url, options_mask,
-                                  std::move(cert_reporter), callback);
+                                  nullptr, callback);
 }
 
 void ChromeContentBrowserClient::SelectClientCertificate(
@@ -2438,6 +2488,13 @@ bool ChromeContentBrowserClient::CanCreateWindow(
   DCHECK(profile);
   *no_javascript_access = false;
 
+  auto* registry = extensions::ExtensionRegistry::Get(profile);
+  if (registry) {
+    const Extension* extension =
+        registry->enabled_extensions().GetExtensionOrAppByURL(opener_url);
+    if (extension && extension->is_nwjs_app())
+      return true;
+  }
   // If the opener is trying to create a background window but doesn't have
   // the appropriate permission, fail the attempt.
   if (container_type == content::mojom::WindowContainerType::BACKGROUND) {
@@ -2478,6 +2535,9 @@ bool ChromeContentBrowserClient::CanCreateWindow(
     const Extension* extension =
         registry->enabled_extensions().GetExtensionOrAppByURL(target_url);
     if (extension && extension->is_platform_app()) {
+#if 1
+      return true;
+#else
       UMA_HISTOGRAM_ENUMERATION(
           "Extensions.AppLoadedInTab",
           ClassifyAppLoadedInTabSource(opener_url, extension),
@@ -2485,6 +2545,7 @@ bool ChromeContentBrowserClient::CanCreateWindow(
 
       // window.open() may not be used to load v2 apps in a regular tab.
       return false;
+#endif
     }
   }
 #endif
@@ -2708,6 +2769,8 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
 
   for (size_t i = 0; i < extra_parts_.size(); ++i)
     extra_parts_[i]->OverrideWebkitPrefs(rvh, web_prefs);
+
+  nw::OverrideWebkitPrefsHook(rvh, web_prefs);
 }
 
 void ChromeContentBrowserClient::BrowserURLHandlerCreated(
@@ -3074,10 +3137,12 @@ void ChromeContentBrowserClient::ExposeInterfacesToRenderer(
   registry->AddInterface(
       base::Bind(&BudgetServiceImpl::Create, render_process_host->GetID()),
       ui_task_runner);
+#if 0
   registry->AddInterface(
       base::Bind(&rappor::RapporRecorderImpl::Create,
                  g_browser_process->rappor_service()),
       ui_task_runner);
+#endif
   if (NetBenchmarking::CheckBenchmarkingEnabled()) {
     Profile* profile =
         Profile::FromBrowserContext(render_process_host->GetBrowserContext());
@@ -3139,7 +3204,7 @@ void ChromeContentBrowserClient::ExposeInterfacesToFrame(
     service_manager::BinderRegistry* registry,
     content::RenderFrameHost* render_frame_host) {
   if (base::FeatureList::IsEnabled(features::kWebUsb)
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if 0
       &&
       !render_frame_host->GetSiteInstance()->GetSiteURL().SchemeIs(
           extensions::kExtensionScheme)
@@ -3155,9 +3220,11 @@ void ChromeContentBrowserClient::ExposeInterfacesToFrame(
       base::Bind(&bluetooth::AdapterFactory::Create));
 
   if (!render_frame_host->GetParent()) {
+#if 0
     // Register mojo ContentTranslateDriver interface only for main frame.
     registry->AddInterface(base::Bind(
         &ChromeTranslateClient::BindContentTranslateDriver, render_frame_host));
+#endif
   }
 
   registry->AddInterface(

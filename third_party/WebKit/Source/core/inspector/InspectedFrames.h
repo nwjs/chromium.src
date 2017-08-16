@@ -10,6 +10,8 @@
 #include "platform/wtf/Forward.h"
 #include "platform/wtf/Noncopyable.h"
 
+#include "core/frame/LocalFrame.h"
+
 namespace blink {
 
 class LocalFrame;
@@ -41,7 +43,11 @@ class CORE_EXPORT InspectedFrames final
     return new InspectedFrames(root);
   }
 
-  LocalFrame* Root() { return root_; }
+  LocalFrame* Root() {
+    LocalFrame* f = root_;
+    LocalFrame* jail = (LocalFrame*)f->getDevtoolsJail();
+    return jail ? jail : f;
+  }
   bool Contains(LocalFrame*) const;
   LocalFrame* FrameWithSecurityOrigin(const String& origin_raw_string);
   Iterator begin();

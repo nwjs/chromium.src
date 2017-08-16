@@ -65,6 +65,44 @@ std::string GetKeyForScriptContext(ScriptContext* script_context) {
              : script_context->url().spec();
 }
 
+EventFilteringInfo ParseFromObject(v8::Local<v8::Object> object,
+                                   v8::Isolate* isolate) {
+  EventFilteringInfo info;
+  v8::Local<v8::String> url(v8::String::NewFromUtf8(isolate, "url"));
+  if (object->Has(url)) {
+    v8::Local<v8::Value> url_value(object->Get(url));
+    info.SetURL(GURL(*v8::String::Utf8Value(url_value)));
+  }
+  v8::Local<v8::String> instance_id(
+      v8::String::NewFromUtf8(isolate, "instanceId"));
+  if (object->Has(instance_id)) {
+    v8::Local<v8::Value> instance_id_value(object->Get(instance_id));
+    info.SetInstanceID(instance_id_value->IntegerValue());
+  }
+  v8::Local<v8::String> service_type(
+      v8::String::NewFromUtf8(isolate, "serviceType"));
+  if (object->Has(service_type)) {
+    v8::Local<v8::Value> service_type_value(object->Get(service_type));
+    info.SetServiceType(*v8::String::Utf8Value(service_type_value));
+  }
+  v8::Local<v8::String> window_types(
+      v8::String::NewFromUtf8(isolate, "windowType"));
+  if (object->Has(window_types)) {
+    v8::Local<v8::Value> window_types_value(object->Get(window_types));
+    info.SetWindowType(*v8::String::Utf8Value(window_types_value));
+  }
+
+  v8::Local<v8::String> window_exposed(
+      v8::String::NewFromUtf8(isolate, "windowExposedByDefault"));
+  if (object->Has(window_exposed)) {
+    v8::Local<v8::Value> window_exposed_value(object->Get(window_exposed));
+    info.SetWindowExposedByDefault(
+        window_exposed_value.As<v8::Boolean>()->Value());
+  }
+
+  return info;
+}
+
 // Increments the number of event-listeners for the given |event_name| and
 // ScriptContext. Returns the count after the increment.
 int IncrementEventListenerCount(ScriptContext* script_context,
@@ -149,6 +187,9 @@ v8::Local<v8::Array> GetMatchingListeners(
 
 EventBindings::EventBindings(ScriptContext* context)
     : ObjectBackedNativeHandler(context) {
+  RouteFunction("MatchAgainstEventFilter",
+                base::Bind(&EventBindings::MatchAgainstEventFilter,
+                           base::Unretained(this)));
   RouteFunction("AttachEvent", base::Bind(&EventBindings::AttachEventHandler,
                                           base::Unretained(this)));
   RouteFunction("DetachEvent", base::Bind(&EventBindings::DetachEventHandler,
@@ -164,6 +205,30 @@ EventBindings::EventBindings(ScriptContext* context)
   // outlive us.
   context->AddInvalidationObserver(
       base::Bind(&EventBindings::OnInvalidated, base::Unretained(this)));
+}
+
+void EventBindings::MatchAgainstEventFilter(
+                                            const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::Isolate* isolate = args.GetIsolate();
+  typedef std::set<EventFilter::MatcherID> MatcherIDs;
+  EventFilter& event_filter = g_event_filter.Get();
+  std::string event_name = *v8::String::Utf8Value(args[0]);
+  EventFilteringInfo info =
+    ParseFromObject(args[1]->ToObject(isolate), isolate);
+  // Only match events routed to this context's RenderFrame or ones
+  // that don't
+  // have a routingId in their filter.
+  MatcherIDs matched_event_filters = event_filter.MatchEvent(
+                                                             event_name, info, context()->GetRenderFrame()->GetRoutingID());
+  v8::Local<v8::Array> array(
+                             v8::Array::New(isolate, matched_event_filters.size()));
+  int i = 0;
+  for (MatcherIDs::iterator it = matched_event_filters.begin();
+       it != matched_event_filters.end();
+       ++it) {
+    array->Set(v8::Integer::New(isolate, i++), v8::Integer::New(isolate, *it));
+  }
+  args.GetReturnValue().Set(array);
 }
 
 EventBindings::~EventBindings() {}
@@ -202,8 +267,8 @@ void EventBindings::AttachEventHandler(
 }
 
 void EventBindings::AttachEvent(const std::string& event_name) {
-  if (!context()->HasAccessOrThrowError(event_name))
-    return;
+  //if (!context()->HasAccessOrThrowError(event_name))
+  //  return;
 
   // Record the attachment for this context so that events can be detached when
   // the context is destroyed.
@@ -270,8 +335,8 @@ void EventBindings::AttachFilteredEvent(
   CHECK(args[1]->IsObject());
 
   std::string event_name = *v8::String::Utf8Value(args[0]);
-  if (!context()->HasAccessOrThrowError(event_name))
-    return;
+  //if (!context()->HasAccessOrThrowError(event_name))
+  //  return;
 
   std::unique_ptr<base::DictionaryValue> filter;
   {

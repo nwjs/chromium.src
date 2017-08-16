@@ -257,6 +257,7 @@ LanguageSettingsPrivateEnableLanguageFunction::Run() {
       parameters =
           language_settings_private::EnableLanguage::Params::Create(*args_);
   EXTENSION_FUNCTION_VALIDATE(parameters.get());
+#if 0
   const std::string& language_code = parameters->language_code;
 
   std::unique_ptr<translate::TranslatePrefs> translate_prefs =
@@ -274,7 +275,7 @@ LanguageSettingsPrivateEnableLanguageFunction::Run() {
 
   languages.push_back(parameters->language_code);
   translate_prefs->UpdateLanguageList(languages);
-
+#endif
   return RespondNow(NoArguments());
 }
 
@@ -291,6 +292,7 @@ LanguageSettingsPrivateDisableLanguageFunction::Run() {
       parameters =
           language_settings_private::DisableLanguage::Params::Create(*args_);
   EXTENSION_FUNCTION_VALIDATE(parameters.get());
+#if 0
   const std::string& language_code = parameters->language_code;
 
   std::unique_ptr<translate::TranslatePrefs> translate_prefs =
@@ -309,6 +311,7 @@ LanguageSettingsPrivateDisableLanguageFunction::Run() {
   languages.erase(it);
   translate_prefs->UpdateLanguageList(languages);
 
+#endif
   return RespondNow(NoArguments());
 }
 
@@ -439,9 +442,7 @@ LanguageSettingsPrivateGetTranslateTargetLanguageFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateGetTranslateTargetLanguageFunction::Run() {
-  return RespondNow(OneArgument(
-      base::MakeUnique<base::Value>(TranslateService::GetTargetLanguage(
-          chrome_details_.GetProfile()->GetPrefs()))));
+  return RespondNow(NoArguments());
 }
 
 #if defined(OS_CHROMEOS)

@@ -58,6 +58,7 @@ void ChromeSubresourceFilterClient::MaybeAppendNavigationThrottles(
     return;
   }
 
+#if 0
   if (navigation_handle->IsInMainFrame()) {
     safe_browsing::SafeBrowsingService* safe_browsing_service =
         g_browser_process->safe_browsing_service();
@@ -77,6 +78,7 @@ void ChromeSubresourceFilterClient::MaybeAppendNavigationThrottles(
                 content::BrowserThread::IO),
             std::move(database_manager)));
   }
+#endif
 
   auto* driver_factory =
       subresource_filter::ContentSubresourceFilterDriverFactory::

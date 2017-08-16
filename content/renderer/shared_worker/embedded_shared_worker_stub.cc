@@ -123,6 +123,8 @@ class WebServiceWorkerNetworkProviderImpl
 }  // namespace
 
 EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
+    bool nodejs,
+    const base::FilePath& root_path,
     const GURL& url,
     const base::string16& name,
     const base::string16& content_security_policy,
@@ -131,7 +133,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
     bool pause_on_start,
     int route_id,
     bool data_saver_enabled)
-    : route_id_(route_id), name_(name), url_(url) {
+    : route_id_(route_id), name_(name), url_(url), nodejs_(nodejs), root_path_(root_path) {
   RenderThreadImpl::current()->AddEmbeddedWorkerRoute(route_id_, this);
   impl_ = blink::WebSharedWorker::Create(this);
   if (pause_on_start) {
@@ -141,7 +143,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
   }
   worker_devtools_agent_.reset(
       new SharedWorkerDevToolsAgent(route_id, impl_));
-  impl_->StartWorkerContext(
+  impl_->StartWorkerContext(nodejs_, root_path_,
       url, blink::WebString::FromUTF16(name_),
       blink::WebString::FromUTF16(content_security_policy),
       security_policy_type, creation_address_space, data_saver_enabled);

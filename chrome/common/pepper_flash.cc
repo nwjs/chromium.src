@@ -40,6 +40,7 @@ const char kPepperFlashOperatingSystem[] =
     "linux";
 #endif
 
+#if 0
 // Name of the Pepper Flash architecture in the component manifest.
 const char kPepperFlashArch[] =
 #if defined(ARCH_CPU_X86)
@@ -50,6 +51,7 @@ const char kPepperFlashArch[] =
     "arm";
 #else
     "???";
+#endif
 #endif
 
 // Returns true if the Pepper |interface_name| is implemented  by this browser.
@@ -119,6 +121,7 @@ bool CheckPepperFlashManifest(const base::DictionaryValue& manifest,
   if (os != kPepperFlashOperatingSystem)
     return false;
 
+#if 0
   std::string arch;
   manifest.GetStringASCII("x-ppapi-arch", &arch);
   if (arch != kPepperFlashArch) {
@@ -131,7 +134,7 @@ bool CheckPepperFlashManifest(const base::DictionaryValue& manifest,
     return false;
 #endif
   }
-
+#endif
   *version_out = version;
   return true;
 }

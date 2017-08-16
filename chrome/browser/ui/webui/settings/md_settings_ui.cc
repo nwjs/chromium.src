@@ -96,6 +96,7 @@ void MdSettingsUI::RegisterProfilePrefs(
 MdSettingsUI::MdSettingsUI(content::WebUI* web_ui, const GURL& url)
     : content::WebUIController(web_ui),
       WebContentsObserver(web_ui->GetWebContents()) {
+#if 0
   Profile* profile = Profile::FromWebUI(web_ui);
   AddSettingsPageUIHandler(base::MakeUnique<AppearanceHandler>(web_ui));
 
@@ -231,6 +232,7 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui, const GURL& url)
 
   content::WebUIDataSource::Add(web_ui->GetWebContents()->GetBrowserContext(),
                                 html_source);
+#endif
 }
 
 MdSettingsUI::~MdSettingsUI() {
