@@ -215,6 +215,7 @@
 -PointerWatcherdapterClassicTest.Mousevents
 -PointerWatcherdapterClassicTest.Touchvents
 -ResizeShadowAndCursorTest.MaximizeRestore
+-ResizeShadowAndCursorTest.Minimize
 -ResizeShadowAndCursorTest.MouseDrag
 -ResizeShadowAndCursorTest.MouseHover
 -ResizeShadowAndCursorTest.Touch
