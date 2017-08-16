@@ -263,9 +263,12 @@ public class TemplateUrlServiceTest {
         // Get the number of prepopulated search engine.
         final int prepopulatedEngineNum = getSearchEngineCount(templateUrlService);
 
-        ThreadUtils.runOnUiThreadBlocking(() -> {
-            for (int i = 0; i < 10; i++) {
-                templateUrlService.addSearchEngineForTesting("keyword" + i, 0);
+        ThreadUtils.runOnUiThreadBlocking(new Runnable() {
+            @Override
+            public void run() {
+                for (int i = 0; i < 10; i++) {
+                    templateUrlService.addSearchEngineForTesting("keyword" + i, 0);
+                }
             }
         });
 
