@@ -892,6 +892,8 @@ enum class StackViewDismissalMode { NONE, NORMAL, INCOGNITO };
 }
 
 - (void)stopChromeMain {
+  GetApplicationContext()->SetIsShuttingDown();
+
   [_spotlightManager shutdown];
   _spotlightManager = nil;
 

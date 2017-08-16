@@ -63,6 +63,7 @@ ApplicationContextImpl::ApplicationContextImpl(
     const std::string& locale)
     : local_state_task_runner_(local_state_task_runner),
       was_last_shutdown_clean_(false),
+      is_shutting_down_(false),
       created_local_state_(false) {
   DCHECK(!GetApplicationContext());
   SetApplicationContext(this);
@@ -182,6 +183,16 @@ bool ApplicationContextImpl::WasLastShutdownClean() {
   // Make sure the locale state is created as the file is initialized there.
   ignore_result(GetLocalState());
   return was_last_shutdown_clean_;
+}
+
+void ApplicationContextImpl::SetIsShuttingDown() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  is_shutting_down_ = true;
+}
+
+bool ApplicationContextImpl::IsShuttingDown() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  return is_shutting_down_;
 }
 
 PrefService* ApplicationContextImpl::GetLocalState() {
