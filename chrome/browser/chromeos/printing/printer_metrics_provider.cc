@@ -25,7 +25,7 @@ void PrinterMetricsProvider::OnRecordingDisabled() {
   PrinterEventTrackerFactory::GetInstance()->SetLogging(false);
 }
 
-void PrinterMetricsProvider::ProvideCurrentSessionData(
+void PrinterMetricsProvider::ProvideGeneralMetrics(
     metrics::ChromeUserMetricsExtension* uma_proto) {
   PrinterEventTrackerFactory* factory =
       PrinterEventTrackerFactory::GetInstance();
