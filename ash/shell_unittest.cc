@@ -149,6 +149,23 @@ class TestShellObserver : public ShellObserver {
   DISALLOW_COPY_AND_ASSIGN(TestShellObserver);
 };
 
+// Test support for M61 hack. See SessionObserver comment.
+class TestSessionObserver : public SessionObserver {
+ public:
+  TestSessionObserver() = default;
+  ~TestSessionObserver() override = default;
+
+  // SessionObserver:
+  void OnActiveUserPrefServiceChanged(PrefService* pref_service) override {
+    last_pref_service_ = pref_service;
+  }
+
+  PrefService* last_pref_service_ = nullptr;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(TestSessionObserver);
+};
+
 }  // namespace
 
 class ShellTest : public AshTestBase {
@@ -592,6 +609,31 @@ TEST_F(ShellPrefsTest, Observer) {
   EXPECT_EQ(&pref_service2_, observer.last_pref_service_);
 
   Shell::Get()->RemoveShellObserver(&observer);
+}
+
+// Test for M61 hack. See SessionObserver comment.
+TEST_F(ShellPrefsTest, SessionObserverHack) {
+  TestSessionObserver observer;
+  Shell::Get()->session_controller()->AddObserver(&observer);
+
+  // Setup 2 users.
+  TestSessionControllerClient* session = GetSessionControllerClient();
+  session->AddUserSession("user1@test.com");
+  session->AddUserSession("user2@test.com");
+
+  // Login notifies observers of the user pref service.
+  ash_test_helper()->test_shell_delegate()->set_active_user_pref_service(
+      &pref_service1_);
+  session->SwitchActiveUser(AccountId::FromUserEmail("user1@test.com"));
+  EXPECT_EQ(&pref_service1_, observer.last_pref_service_);
+
+  // Switching users notifies observers of the new user pref service.
+  ash_test_helper()->test_shell_delegate()->set_active_user_pref_service(
+      &pref_service2_);
+  session->SwitchActiveUser(AccountId::FromUserEmail("user2@test.com"));
+  EXPECT_EQ(&pref_service2_, observer.last_pref_service_);
+
+  Shell::Get()->session_controller()->RemoveObserver(&observer);
 }
 
 }  // namespace ash

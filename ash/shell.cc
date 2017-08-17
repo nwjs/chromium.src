@@ -1271,6 +1271,9 @@ void Shell::OnActiveUserSessionChanged(const AccountId& account_id) {
   PrefService* profile_prefs = shell_delegate_->GetActiveUserPrefService();
   for (auto& observer : shell_observers_)
     observer.OnActiveUserPrefServiceChanged(profile_prefs);
+
+  // HACK for M61. See SessionObserver comments.
+  session_controller_->NotifyActiveUserPrefServiceChanged(profile_prefs);
 }
 
 void Shell::OnSessionStateChanged(session_manager::SessionState state) {

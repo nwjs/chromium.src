@@ -21,6 +21,7 @@
 #include "mojo/public/cpp/bindings/binding_set.h"
 
 class AccountId;
+class PrefService;
 
 namespace ash {
 
@@ -139,6 +140,9 @@ class ASH_EXPORT SessionController
   void ClearUserSessionsForTest();
   void FlushMojoForTest();
   void LockScreenAndFlushForTest();
+
+  // HACK for M61. See SessionObserver comment.
+  void NotifyActiveUserPrefServiceChanged(PrefService* prefs);
 
  private:
   void SetSessionState(session_manager::SessionState state);

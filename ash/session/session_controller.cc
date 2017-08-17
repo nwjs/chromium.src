@@ -427,4 +427,10 @@ void SessionController::OnLockAnimationFinished() {
     std::move(start_lock_callback_).Run(true /* locked */);
 }
 
+// HACK for M61. See SessionObserver comment.
+void SessionController::NotifyActiveUserPrefServiceChanged(PrefService* prefs) {
+  for (auto& observer : observers_)
+    observer.OnActiveUserPrefServiceChanged(prefs);
+}
+
 }  // namespace ash
