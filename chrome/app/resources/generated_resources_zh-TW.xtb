@@ -2578,6 +2578,7 @@
 <translation id="4816492930507672669">依頁面大小自動調整</translation>
 <translation id="4820334425169212497">否，我沒有看到</translation>
 <translation id="4821086771593057290">你的密碼已變更，請使用你的新密碼再試一次。</translation>
+<translation id="4821725298388681253">這是初期版本，目前還無法使用部分功能 (例如搜尋和輸入文字)。</translation>
 <translation id="4821935166599369261">分析已啟用(&amp;P)</translation>
 <translation id="4823484602432206655">讀取及變更使用者和裝置設定</translation>
 <translation id="4823651846660089135">裝置目前是唯讀模式</translation>
@@ -3528,6 +3529,7 @@
 <translation id="6232017090690406397">電池</translation>
 <translation id="6232116551750539448">「<ph name="NAME" />」的連線已中斷</translation>
 <translation id="6237816943013845465">讓你調整螢幕解析度</translation>
+<translation id="6238923052227198598">在鎖定畫面上顯示最新記事</translation>
 <translation id="6239558157302047471">重新載入頁框(&amp;F)</translation>
 <translation id="6241530762627360640">存取與系統配對的藍牙裝置資訊並搜尋附近的藍牙裝置。</translation>
 <translation id="6243774244933267674">無法與伺服器連線</translation>

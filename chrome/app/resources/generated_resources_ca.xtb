@@ -2576,6 +2576,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="4816492930507672669">Ajusta a la mida de la pàgina</translation>
 <translation id="4820334425169212497">No, no el veig</translation>
 <translation id="4821086771593057290">La contrasenya ha canviat. Torneu-ho a provar amb la contrasenya nova.</translation>
+<translation id="4821725298388681253">Això és una versió inicial. Algunes de les funcions, com ara la cerca i la introducció de text, encara no estan disponibles.</translation>
 <translation id="4821935166599369261">Creació de &amp;perfils activada</translation>
 <translation id="4823484602432206655">Llegir i canviar la configuració de l'usuari i del dispositiu</translation>
 <translation id="4823651846660089135">El dispositiu és només de lectura</translation>
@@ -3147,7 +3148,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="5627086634964711283">També controla la pàgina que es mostra quan feu clic al botó Pàgina d'inici.</translation>
 <translation id="5627676517703583263">Navega de manera intel·ligent amb Chrome</translation>
 <translation id="562935524653278697">L'administrador ha desactivat la sincronització de les adreces d'interès, l'historial, les contrasenyes i altres opcions de configuració.</translation>
-<translation id="563535393368633106">Demana permís abans d'accedir als elements (recomanat)</translation>
+<translation id="563535393368633106">Demana permís abans d'accedir (recomanat)</translation>
 <translation id="5636996382092289526">Per utilitzar <ph name="NETWORK_ID" />, és possible que abans calgui que <ph name="LINK_START" />visiteu la pàgina d'inici de sessió de la xarxa<ph name="LINK_END" />, que s'obrirà automàticament d'aquí a pocs segons. Si no s'obre, no podreu utilitzar la xarxa.</translation>
 <translation id="5637380810526272785">Mètode d'introducció de text</translation>
 <translation id="5637476008227280525">Activa les dades mòbils</translation>
@@ -3528,6 +3529,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="6232017090690406397">Bateria</translation>
 <translation id="6232116551750539448">S'ha perdut la connexió amb <ph name="NAME" /></translation>
 <translation id="6237816943013845465">Permet ajustar la resolució de pantalla</translation>
+<translation id="6238923052227198598">Mantén la darrera nota a la pantalla de bloqueig</translation>
 <translation id="6239558157302047471">Torna a carregar el &amp;marc</translation>
 <translation id="6241530762627360640">Accedir a informació sobre els dispositius Bluetooth emparellats amb el sistema i descobrir dispositius Bluetooth a prop</translation>
 <translation id="6243774244933267674">El servidor no està disponible</translation>

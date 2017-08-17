@@ -2580,6 +2580,7 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="4816492930507672669">Igazítás az oldalmérethez</translation>
 <translation id="4820334425169212497">Nem látom</translation>
 <translation id="4821086771593057290">Jelszava megváltozott. Kérjük, próbálja újra új jelszavával.</translation>
+<translation id="4821725298388681253">Ez egy korai kiadás. Egyes funkciók, mint például a keresés és a szövegbevitel még nem állnak rendelkezésre.</translation>
 <translation id="4821935166599369261">&amp;Profilozás bekapcsolva</translation>
 <translation id="4823484602432206655">A felhasználó és az eszköz beállításainak olvasása és módosítása</translation>
 <translation id="4823651846660089135">Az eszköz csak olvasható</translation>
@@ -3534,6 +3535,7 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="6232017090690406397">Akkumulátor</translation>
 <translation id="6232116551750539448">Megszűnt a kapcsolat a következővel: <ph name="NAME" /></translation>
 <translation id="6237816943013845465">Lehetővé teszi a képernyő felbontásának módosítását</translation>
+<translation id="6238923052227198598">Legutóbbi jegyzet megtartása a lezárási képernyőn</translation>
 <translation id="6239558157302047471">&amp;Keret újratöltése</translation>
 <translation id="6241530762627360640">A rendszerrel párosított Bluetooth-eszközökkel kapcsolatos információk elérése és a közeli Bluetooth-eszközök felderítése.</translation>
 <translation id="6243774244933267674">A szerver nem érhető el</translation>

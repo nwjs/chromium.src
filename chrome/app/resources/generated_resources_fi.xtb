@@ -2574,6 +2574,7 @@ Kaikkien käyttäjien täytyy kirjautua ulos jatkaakseen käyttöä.</translatio
 <translation id="4816492930507672669">Sovita sivulle</translation>
 <translation id="4820334425169212497">Ei, en näe sitä</translation>
 <translation id="4821086771593057290">Salasanasi on muuttunut. Yritä uudelleen uudella salasanalla.</translation>
+<translation id="4821725298388681253">Tämä on ennakkoversio. Haku, tekstinsyöttö ja jotkin muut ominaisuudet eivät ole vielä käytössä.</translation>
 <translation id="4821935166599369261">&amp;Profilointi on käytössä</translation>
 <translation id="4823484602432206655">Lukea ja muokata käyttäjän ja laitteen asetuksia.</translation>
 <translation id="4823651846660089135">Laite on vain luku ‑tilassa.</translation>
@@ -3526,6 +3527,7 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="6232017090690406397">Akku</translation>
 <translation id="6232116551750539448">Yhteys kohteeseen <ph name="NAME" /> on katkennut.</translation>
 <translation id="6237816943013845465">Sallii näytön resoluution säätämisen.</translation>
+<translation id="6238923052227198598">Jätä viimeisin muistiinpano lukitusnäytölle</translation>
 <translation id="6239558157302047471">Lataa kehys uudelleen</translation>
 <translation id="6241530762627360640">Käyttää järjestelmäsi kanssa laitepariksi liitettyjen Bluetooth-laitteiden tietoja ja löytää lähellä olevia Bluetooth-laitteita.</translation>
 <translation id="6243774244933267674">Palvelin ei ole käytettävissä</translation>

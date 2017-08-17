@@ -2582,6 +2582,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4816492930507672669">По размеру страницы</translation>
 <translation id="4820334425169212497">Нет</translation>
 <translation id="4821086771593057290">Ваш пароль изменился. Повторите попытку и введите новый пароль.</translation>
+<translation id="4821725298388681253">Это предварительная версия. Некоторые функции, например ввод текста и поиск, пока недоступны.</translation>
 <translation id="4821935166599369261">&amp;Сбор данных включен</translation>
 <translation id="4823484602432206655">Просмотр и изменение настроек для пользователей и устройств</translation>
 <translation id="4823651846660089135">Устройство доступно только для чтения</translation>
@@ -3534,6 +3535,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6232017090690406397">Аккумулятор</translation>
 <translation id="6232116551750539448">Соединение с <ph name="NAME" /> прервано</translation>
 <translation id="6237816943013845465">Позволяет настроить разрешение экрана</translation>
+<translation id="6238923052227198598">Показывать последнюю заметку на заблокированном экране</translation>
 <translation id="6239558157302047471">Перезагрузить &amp;фрейм</translation>
 <translation id="6241530762627360640">Доступ к информации об устройствах Bluetooth, связанных с вашей системой, и обнаружение устройств Bluetooth рядом с вами.</translation>
 <translation id="6243774244933267674">Сервер недоступен</translation>

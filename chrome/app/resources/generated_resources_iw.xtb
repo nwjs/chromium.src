@@ -2577,6 +2577,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4816492930507672669">התאמה לדף</translation>
 <translation id="4820334425169212497">לא, אני לא רואה אותו</translation>
 <translation id="4821086771593057290">הסיסמה שלך השתנתה. נסה שוב עם הסיסמה החדשה.</translation>
+<translation id="4821725298388681253">זוהי הפצה מוקדמת. חלק מהתכונות, כמו חיפוש והזנת טקסט, עדיין לא זמינות.</translation>
 <translation id="4821935166599369261">&amp;יצירת פרופילים מופעלת</translation>
 <translation id="4823484602432206655">קריאה ושינוי של הגדרות המשתמש והמכשיר</translation>
 <translation id="4823651846660089135">המכשיר מוגדר לקריאה בלבד</translation>
@@ -3530,6 +3531,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6232017090690406397">סוללה</translation>
 <translation id="6232116551750539448">החיבור אל <ph name="NAME" /> נותק</translation>
 <translation id="6237816943013845465">הגדרה זו מאפשרת לך לקבוע את רזולוציית המסך</translation>
+<translation id="6238923052227198598">המשך הצגת ההודעה האחרונה במסך הנעילה</translation>
 <translation id="6239558157302047471">טען מחדש את ה&amp;מסגרת</translation>
 <translation id="6241530762627360640">‏פרטי גישה של מכשירי Bluetooth המותאמים למערכת שלך ומגלים מכשירי Bluetooth קרובים.</translation>
 <translation id="6243774244933267674">השרת אינו זמין</translation>

@@ -2582,6 +2582,7 @@ Press any key to continue exploring.</translation>
 <translation id="4816492930507672669">Fit to page</translation>
 <translation id="4820334425169212497">No, I don't see it</translation>
 <translation id="4821086771593057290">Your password has changed. Please try again with your new password.</translation>
+<translation id="4821725298388681253">This is an early release. Some features, like search and text entry, are not yet available.</translation>
 <translation id="4821935166599369261">&amp;Profiling Enabled</translation>
 <translation id="4823484602432206655">Read and change user and device settings</translation>
 <translation id="4823651846660089135">Device is read-only</translation>
@@ -3534,6 +3535,7 @@ Press any key to continue exploring.</translation>
 <translation id="6232017090690406397">Battery</translation>
 <translation id="6232116551750539448">Connection to <ph name="NAME" /> has been lost</translation>
 <translation id="6237816943013845465">Allows you to adjust your screen resolution</translation>
+<translation id="6238923052227198598">Keep latest note on lock screen</translation>
 <translation id="6239558157302047471">Reload &amp;frame</translation>
 <translation id="6241530762627360640">Access information about Bluetooth devices paired with your system and discover nearby Bluetooth devices.</translation>
 <translation id="6243774244933267674">Server unavailable</translation>

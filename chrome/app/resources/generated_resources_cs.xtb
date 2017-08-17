@@ -2578,6 +2578,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="4816492930507672669">Přizpůsobit na stránku</translation>
 <translation id="4820334425169212497">Ne, nevidím jej</translation>
 <translation id="4821086771593057290">Vaše heslo se změnilo. Zkuste to prosím znovu s novým heslem.</translation>
+<translation id="4821725298388681253">Jedná se o ranou verzi. Některé funkce, např. vyhledávání a zadávání textu, zatím nejsou k dispozici.</translation>
 <translation id="4821935166599369261">&amp;Profilování povoleno</translation>
 <translation id="4823484602432206655">Čtení a změna nastavení zařízení a uživatele</translation>
 <translation id="4823651846660089135">Zařízení je pouze pro čtení</translation>
@@ -3527,6 +3528,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="6232017090690406397">Baterie</translation>
 <translation id="6232116551750539448">Připojení k síti <ph name="NAME" /> bylo ztraceno</translation>
 <translation id="6237816943013845465">Umožňuje upravit rozlišení obrazovky</translation>
+<translation id="6238923052227198598">Zobrazovat poslední poznámku na obrazovce uzamčení</translation>
 <translation id="6239558157302047471">Znovu načíst &amp;rámec</translation>
 <translation id="6241530762627360640">Přístup k informacím o zařízeních Bluetooth spárovaných s vaším systémem a objevování zařízení Bluetooth v okolí</translation>
 <translation id="6243774244933267674">Server není dostupný</translation>
@@ -4803,7 +4805,7 @@ Svůj soubor klíče uchovávejte na bezpečném místě. Budete jej potřebovat
 <translation id="8153607920959057464">Soubor nelze zobrazit.</translation>
 <translation id="8154790740888707867">Žádný soubor</translation>
 <translation id="815491593104042026">Jejda, ověření se nezdařilo, protože bylo nakonfigurováno k použití nezabezpečené adresy URL (<ph name="BLOCKED_URL" />). Obraťte se na svého administrátora.</translation>
-<translation id="8156020606310233796">Seznamové zobrazení</translation>
+<translation id="8156020606310233796">Zobrazení v seznamu</translation>
 <translation id="8157939133946352716">7:5</translation>
 <translation id="816055135686411707">Chyba při nastavování důvěryhodnosti certifikátu</translation>
 <translation id="816095449251911490"><ph name="SPEED" /> – <ph name="RECEIVED_AMOUNT" />, <ph name="TIME_REMAINING" /></translation>

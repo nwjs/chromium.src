@@ -2582,6 +2582,7 @@
 <translation id="4816492930507672669">ページサイズに合わせる</translation>
 <translation id="4820334425169212497">いいえ、表示されていません</translation>
 <translation id="4821086771593057290">パスワードが変更されました。新しいパスワードでもう一度お試しください。</translation>
+<translation id="4821725298388681253">これは早期リリースです。検索、テキスト入力といった一部の機能はまだご利用いただけません。</translation>
 <translation id="4821935166599369261">プロファイル記録の開始(&amp;P)</translation>
 <translation id="4823484602432206655">ユーザー設定とデバイス設定の読み取りと変更</translation>
 <translation id="4823651846660089135">デバイスは読み取り専用です</translation>
@@ -3534,6 +3535,7 @@
 <translation id="6232017090690406397">バッテリー</translation>
 <translation id="6232116551750539448"><ph name="NAME" /> への接続が切断されました</translation>
 <translation id="6237816943013845465">画面の解像度を調整できます</translation>
+<translation id="6238923052227198598">ロック画面に最新のメモを表示する</translation>
 <translation id="6239558157302047471">フレームを再読み込み(&amp;F)</translation>
 <translation id="6241530762627360640">システムでペア設定されている Bluetooth デバイスの情報へのアクセスと、近くにある Bluetooth デバイスの検出。</translation>
 <translation id="6243774244933267674">サーバーを使用できません</translation>

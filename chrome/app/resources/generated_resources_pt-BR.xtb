@@ -2579,6 +2579,7 @@ Todos os usuários devem sair para continuar.</translation>
 <translation id="4816492930507672669">Ajustar à página</translation>
 <translation id="4820334425169212497">Não, não estou vendo</translation>
 <translation id="4821086771593057290">Sua senha foi alterada. Tente novamente com a nova senha.</translation>
+<translation id="4821725298388681253">Esta é uma versão inicial. Alguns recursos, como a pesquisa e a entrada de texto, ainda não estão disponíveis.</translation>
 <translation id="4821935166599369261">&amp;Criação de perfil ativada</translation>
 <translation id="4823484602432206655">Ler e alterar as configurações do dispositivo e usuário</translation>
 <translation id="4823651846660089135">O dispositivo é somente leitura</translation>
@@ -3533,6 +3534,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6232017090690406397">Bateria</translation>
 <translation id="6232116551750539448">A conexão com <ph name="NAME" /> foi perdida</translation>
 <translation id="6237816943013845465">Permite ajustar a resolução da tela</translation>
+<translation id="6238923052227198598">Manter a anotação mais recente na tela de bloqueio</translation>
 <translation id="6239558157302047471">Atualizar &amp;frame</translation>
 <translation id="6241530762627360640">Acessar informações sobre dispositivos Bluetooth pareados com seu sistema e descobrir dispositivos Bluetooth nas proximidades.</translation>
 <translation id="6243774244933267674">Servidor não disponível</translation>

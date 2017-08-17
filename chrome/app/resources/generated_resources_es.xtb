@@ -489,7 +489,7 @@
 <translation id="1698122934742150150">Solo a la sesión de incógnito actual</translation>
 <translation id="1699395855685456105">Revisión de hardware:</translation>
 <translation id="1700199471143028312">El administrador no permite que crees usuarios supervisados.</translation>
-<translation id="1701062906490865540">Eliminar a esta persona</translation>
+<translation id="1701062906490865540">Eliminar este perfil</translation>
 <translation id="1706586824377653884">Añadido por tu administrador</translation>
 <translation id="1706625117072057435">Niveles de zoom</translation>
 <translation id="1707463636381878959">Compartir esta red con otros usuarios</translation>
@@ -2581,6 +2581,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4816492930507672669">Ajustar a página</translation>
 <translation id="4820334425169212497">No, no lo veo</translation>
 <translation id="4821086771593057290">Se ha modificado tu contraseña. Intenta acceder de nuevo con la nueva contraseña.</translation>
+<translation id="4821725298388681253">Esta es una primera versión. Algunas funciones, como la búsqueda y la entrada de texto, aún no están disponibles.</translation>
 <translation id="4821935166599369261">Perfiles &amp;habilitados</translation>
 <translation id="4823484602432206655">Leer y cambiar la configuración del dispositivo y del usuario</translation>
 <translation id="4823651846660089135">El dispositivo es de solo lectura</translation>
@@ -3097,7 +3098,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="5556206011531515970">Haz clic en Siguiente para seleccionar el navegador predeterminado.</translation>
 <translation id="5556459405103347317">Volver a cargar</translation>
 <translation id="555746285996217175">Bloqueo/encendido</translation>
-<translation id="5557991081552967863">Mantener Wi-Fi encendida en suspensión</translation>
+<translation id="5557991081552967863">Usar Wi-Fi en suspensión</translation>
 <translation id="5558129378926964177">Ampliar &amp;zoom</translation>
 <translation id="55601339223879446">Ajusta los extremos de tu escritorio en la pantalla</translation>
 <translation id="556042886152191864">Botón</translation>
@@ -3530,6 +3531,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6232017090690406397">Batería</translation>
 <translation id="6232116551750539448">Se ha perdido la conexión a <ph name="NAME" /></translation>
 <translation id="6237816943013845465">Te permite ajustar la resolución de pantalla</translation>
+<translation id="6238923052227198598">Mantener la última nota en la pantalla de bloqueo</translation>
 <translation id="6239558157302047471">Volver a cargar &amp;marco</translation>
 <translation id="6241530762627360640">Acceder a información sobre dispositivos Bluetooth vinculados a tu sistema y descubrir dispositivos Bluetooth cercanos.</translation>
 <translation id="6243774244933267674">Servidor no disponible</translation>
@@ -4842,7 +4844,7 @@ Calculando el tiempo restante</translation>
 <translation id="8209677645716428427">Un usuario supervisado puede explorar la Web con tu ayuda. Como administrador de un usuario supervisado en Chrome, puedes realizar las siguientes acciones:</translation>
 <translation id="8213577208796878755">Otro dispositivo disponible.</translation>
 <translation id="8214489666383623925">Abrir archivo...</translation>
-<translation id="8214962590150211830">Eliminar a esta persona</translation>
+<translation id="8214962590150211830">Eliminar este perfil</translation>
 <translation id="8217399928341212914">Seguir bloqueando descargas automáticas de varios archivos</translation>
 <translation id="8222121761382682759">Desinstalar...</translation>
 <translation id="8223479393428528563">Para guardar estos archivos y poder usarlos sin conexión, vuelve a conectarte a Internet, haz clic con el botón derecho en los archivos y selecciona la opción <ph name="OFFLINE_CHECKBOX_NAME" />.</translation>
@@ -4985,7 +4987,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8439506636278576865">Ofrecer la traducción de páginas en este idioma</translation>
 <translation id="8446884382197647889">Más información</translation>
 <translation id="8449008133205184768">Pegar con el mismo estilo</translation>
-<translation id="8449036207308062757">Administrar almacenamiento</translation>
+<translation id="8449036207308062757">Gestionar almacenamiento</translation>
 <translation id="8451512073679317615">asistente</translation>
 <translation id="8452135315243592079">Falta la tarjeta SIM</translation>
 <translation id="8453482423012550001">Copiando $1 elementos...</translation>

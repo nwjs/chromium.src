@@ -2578,6 +2578,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="4816492930507672669">Ajustar a la página</translation>
 <translation id="4820334425169212497">No lo veo</translation>
 <translation id="4821086771593057290">Tu contraseña cambió. Inténtalo nuevamente con tu nueva contraseña.</translation>
+<translation id="4821725298388681253">Esta es una liberación anticipada. Algunas funciones, como la búsqueda y la entrada de texto, todavía no están disponibles.</translation>
 <translation id="4821935166599369261">&amp;Perfiles activados</translation>
 <translation id="4823484602432206655">Leer y cambiar la configuración del dispositivo y del usuario</translation>
 <translation id="4823651846660089135">El dispositivo es de solo lectura</translation>
@@ -3530,6 +3531,7 @@ Presiona cualquier tecla para seguir con navegando.</translation>
 <translation id="6232017090690406397">Batería</translation>
 <translation id="6232116551750539448">Se perdió la conexión a <ph name="NAME" />.</translation>
 <translation id="6237816943013845465">Permite ajustar la resolución de pantalla</translation>
+<translation id="6238923052227198598">Mantener la nota más reciente en la pantalla bloqueada</translation>
 <translation id="6239558157302047471">Volver a cargar &amp;marco</translation>
 <translation id="6241530762627360640">Acceder a la información sobre los dispositivos Bluetooth sincronizados con el sistema y detectar dispositivos Bluetooth cercanos.</translation>
 <translation id="6243774244933267674">Servidor no disponible</translation>

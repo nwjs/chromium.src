@@ -2571,6 +2571,7 @@
 <translation id="4816492930507672669">适合页面大小</translation>
 <translation id="4820334425169212497">没看到</translation>
 <translation id="4821086771593057290">您的密码已更改。请使用新密码重试。</translation>
+<translation id="4821725298388681253">这是早期版本。某些功能（例如搜索和文本输入）尚在开发中。</translation>
 <translation id="4821935166599369261">分析已启用(&amp;P)</translation>
 <translation id="4823484602432206655">读取和更改用户设置与设备设置</translation>
 <translation id="4823651846660089135">设备目前处于只读模式</translation>
@@ -3515,6 +3516,7 @@
 <translation id="6232017090690406397">电池</translation>
 <translation id="6232116551750539448">与“<ph name="NAME" />”的连接已中断</translation>
 <translation id="6237816943013845465">可让您调整屏幕分辨率</translation>
+<translation id="6238923052227198598">始终将最新记事显示在锁定屏幕上</translation>
 <translation id="6239558157302047471">重新加载框架(&amp;F)</translation>
 <translation id="6241530762627360640">获取与您的系统配对的蓝牙设备的相关信息，以及发现附近的蓝牙设备。</translation>
 <translation id="6243774244933267674">服务器不可用</translation>

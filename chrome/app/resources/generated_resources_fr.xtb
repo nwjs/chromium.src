@@ -2580,6 +2580,7 @@ Pour poursuivre l'exploration, appuyez sur n'importe quelle touche.</translation
 <translation id="4816492930507672669">Ajuster à la page</translation>
 <translation id="4820334425169212497">Non, je ne le vois pas</translation>
 <translation id="4821086771593057290">Votre mot de passe a changé. Veuillez réessayer avec votre nouveau mot de passe.</translation>
+<translation id="4821725298388681253">Ceci est une version préliminaire. Certaines fonctionnalités, comme la recherche et la saisie de texte, ne sont pas encore disponibles.</translation>
 <translation id="4821935166599369261">&amp;Profilage activé</translation>
 <translation id="4823484602432206655">Consulter et modifier les paramètres d'utilisateur et d'appareil</translation>
 <translation id="4823651846660089135">Appareil en lecture seule</translation>
@@ -3533,6 +3534,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6232017090690406397">Batterie</translation>
 <translation id="6232116551750539448">La connexion à "<ph name="NAME" />" a été interrompue.</translation>
 <translation id="6237816943013845465">Permet d'ajuster la résolution de l'écran</translation>
+<translation id="6238923052227198598">Conserver la dernière note sur l'écran de verrouillage</translation>
 <translation id="6239558157302047471">Actualiser le &amp;cadre</translation>
 <translation id="6241530762627360640">Accéder aux informations relatives aux appareils Bluetooth associés à votre système et détecter les appareils Bluetooth à proximité</translation>
 <translation id="6243774244933267674">Serveur indisponible.</translation>

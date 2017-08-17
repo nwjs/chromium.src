@@ -2578,6 +2578,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4816492930507672669">Да се побере в страницата</translation>
 <translation id="4820334425169212497">Не, не го виждам</translation>
 <translation id="4821086771593057290">Паролата ви е променена. Моля, опитайте отново с новата си парола.</translation>
+<translation id="4821725298388681253">Това е ранна версия. Някои функции, като например тези за въвеждане на текст и търсене, още не са налице.</translation>
 <translation id="4821935166599369261">&amp;Профилирането е активирано</translation>
 <translation id="4823484602432206655">Четене и промяна на настройките на потребителите и устройството</translation>
 <translation id="4823651846660089135">Устройството е само за четене</translation>
@@ -3531,6 +3532,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="6232017090690406397">Батерия</translation>
 <translation id="6232116551750539448">Връзката с/ъс <ph name="NAME" /> прекъсна</translation>
 <translation id="6237816943013845465">Позволява ви да коригирате разделителната способност на екрана</translation>
+<translation id="6238923052227198598">Запазване на най-новата бележка на заключения екран</translation>
 <translation id="6239558157302047471">Презареждане на рамката</translation>
 <translation id="6241530762627360640">Да осъществява достъп до информацията за сдвоените със системата ви устройства с Bluetooth и да открива тези, които са наблизо.</translation>
 <translation id="6243774244933267674">Няма достъп до сървъра</translation>

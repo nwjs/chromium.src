@@ -2575,6 +2575,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="4816492930507672669">Adatta alla pagina</translation>
 <translation id="4820334425169212497">No, non lo vedo</translation>
 <translation id="4821086771593057290">La tua password è stata modificata. Riprova con la nuova password.</translation>
+<translation id="4821725298388681253">Si tratta di una versione in anteprima. Alcune funzioni, ad esempio la ricerca e l'immissione di testo, non sono ancora disponibili.</translation>
 <translation id="4821935166599369261">&amp;Profiling attivato</translation>
 <translation id="4823484602432206655">Lettura e modifica delle impostazioni utente e dispositivo</translation>
 <translation id="4823651846660089135">Il dispositivo è in sola lettura</translation>
@@ -3526,6 +3527,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="6232017090690406397">Batteria</translation>
 <translation id="6232116551750539448">Connection a <ph name="NAME" /> interrotta</translation>
 <translation id="6237816943013845465">Consente di regolare la risoluzione dello schermo</translation>
+<translation id="6238923052227198598">Tieni le note più recenti sulla schermata di blocco</translation>
 <translation id="6239558157302047471">Ricarica &amp;frame</translation>
 <translation id="6241530762627360640">Accedere a informazioni sui dispositivi Bluetooth accoppiati con il sistema e rilevare dispositivi Bluetooth nelle vicinanze.</translation>
 <translation id="6243774244933267674">Server non disponibile</translation>

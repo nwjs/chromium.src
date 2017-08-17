@@ -2583,6 +2583,7 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="4816492930507672669">Prispôsobiť stránke</translation>
 <translation id="4820334425169212497">Nie, nevidím ho</translation>
 <translation id="4821086771593057290">Vaše heslo bolo zmenené. Skúste to znova s novým heslom.</translation>
+<translation id="4821725298388681253">Ide o rané vydanie. Niektoré funkcie, napríklad vyhľadávanie a zadávanie textu, zatiaľ nie sú k dispozícii.</translation>
 <translation id="4821935166599369261">&amp;Profilovanie povolené</translation>
 <translation id="4823484602432206655">Čítať a meniť nastavenia používateľa a zariadenia</translation>
 <translation id="4823651846660089135">Zariadenie je len na čítanie</translation>
@@ -3535,6 +3536,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="6232017090690406397">Batéria</translation>
 <translation id="6232116551750539448">Pripojenie k sieti <ph name="NAME" /> bolo prerušené</translation>
 <translation id="6237816943013845465">Umožňuje nastaviť rozlíšenie obrazovky</translation>
+<translation id="6238923052227198598">Zobrazovať poslednú poznámku na uzamknutej obrazovke</translation>
 <translation id="6239558157302047471">Znova načítať prvok &amp;frame</translation>
 <translation id="6241530762627360640">Prístup k informáciám o zariadeniach Bluetooth spárovaných s vaším systémom a objavovanie zariadení Bluetooth v blízkosti.</translation>
 <translation id="6243774244933267674">Server je nedostupný</translation>

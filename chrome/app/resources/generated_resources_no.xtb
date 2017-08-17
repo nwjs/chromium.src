@@ -2574,6 +2574,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="4816492930507672669">Tilpass til siden</translation>
 <translation id="4820334425169212497">Nei, jeg ser den ikke</translation>
 <translation id="4821086771593057290">Passordet er endret. Prøv på nytt med ditt nye passord.</translation>
+<translation id="4821725298388681253">Dette er en tidlig utgave. Enkelte funksjoner – for eksempel søk og tekstinndata – er ikke tilgjengelige ennå.</translation>
 <translation id="4821935166599369261">&amp;Profilering aktivert</translation>
 <translation id="4823484602432206655">lese og endre bruker- og enhetsinnstillinger</translation>
 <translation id="4823651846660089135">Enheten er skrivebeskyttet</translation>
@@ -3523,6 +3524,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="6232017090690406397">Batteri</translation>
 <translation id="6232116551750539448">Tilkoblingen til <ph name="NAME" /> er brutt</translation>
 <translation id="6237816943013845465">Lar deg justere skjermoppløsningen</translation>
+<translation id="6238923052227198598">Hold det siste notatet på låseskjermen</translation>
 <translation id="6239558157302047471">Last inn &amp;rammen på nytt</translation>
 <translation id="6241530762627360640">bruke informasjon om Bluetooth-enheter tilkoblet systemet ditt og oppdage Bluetooth-enheter i nærheten.</translation>
 <translation id="6243774244933267674">Tjeneren er ikke tilgjengelig</translation>

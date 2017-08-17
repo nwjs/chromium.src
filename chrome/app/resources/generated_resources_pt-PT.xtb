@@ -2583,6 +2583,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="4816492930507672669">Ajustar à página</translation>
 <translation id="4820334425169212497">Não, não estou a ver</translation>
 <translation id="4821086771593057290">A sua palavra-passe foi alterada. Tente novamente com a nova palavra-passe.</translation>
+<translation id="4821725298388681253">Trata-se de uma versão de lançamento antecipado. Algumas funcionalidades, como a pesquisa e a introdução de texto, ainda não estão disponíveis.</translation>
 <translation id="4821935166599369261">Criação de &amp;perfis ativada</translation>
 <translation id="4823484602432206655">Ler e alterar definições do utilizador e do dispositivo</translation>
 <translation id="4823651846660089135">O dispositivo é apenas de leitura</translation>
@@ -3014,7 +3015,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="5434706434408777842">F3</translation>
 <translation id="5436492226391861498">A aguardar pelo túnel do proxy...</translation>
 <translation id="5436510242972373446">Pesquisar <ph name="SITE_NAME" />:</translation>
-<translation id="5436822233913560332">Todas as janelas do navegador serão fechadas automaticamente em breve sem início de sessão.</translation>
+<translation id="5436822233913560332">Todas as janelas do navegador sem sessão iniciada serão fechadas automaticamente em breve.</translation>
 <translation id="5438224778284622050">Pretende eliminar os ficheiros offline?</translation>
 <translation id="5438430601586617544">(Expandida)</translation>
 <translation id="5439568486246921931">Esta ação, que não pode ser anulada, elimina permanentemente as transferências, os ficheiros offline e os dados de navegação deste utilizador.</translation>
@@ -3536,6 +3537,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6232017090690406397">Bateria</translation>
 <translation id="6232116551750539448">Perdeu-se a ligação a <ph name="NAME" /></translation>
 <translation id="6237816943013845465">Permite-lhe ajustar a resolução do ecrã</translation>
+<translation id="6238923052227198598">Manter a nota mais recente no ecrã de bloqueio</translation>
 <translation id="6239558157302047471">Atualizar &amp;frame</translation>
 <translation id="6241530762627360640">Aceder às informações acerca dos dispositivos Bluetooth sincronizados com o seu sistema e descobrir dispositivos Bluetooth nas proximidades.</translation>
 <translation id="6243774244933267674">Servidor indisponível</translation>
@@ -3899,7 +3901,7 @@ Utilize esta funcionalidade apenas com contas fidedignas.</translation>
 <translation id="6746392203843147041">aumentar volume</translation>
 <translation id="6748140994595080445">Altere a forma como a aplicação <ph name="APP_NAME" /> processa e apresenta os idiomas.</translation>
 <translation id="6748465660675848252">Pode continuar, mas apenas os dados e definições sincronizados são restaurados. Todos os dados locais perdem-se.</translation>
-<translation id="6748775883310276718">Quiosque de aplicação única</translation>
+<translation id="6748775883310276718">Single App Kiosk</translation>
 <translation id="6751256176799620176">1 pasta selecionada</translation>
 <translation id="6751344591405861699"><ph name="WINDOW_TITLE" /> (Navegação anónima)</translation>
 <translation id="6757101664402245801">URL copiado</translation>

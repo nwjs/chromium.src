@@ -2581,6 +2581,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="4816492930507672669">Anpassa till sida</translation>
 <translation id="4820334425169212497">Nej, jag ser den inte</translation>
 <translation id="4821086771593057290">Lösenordet har ändrats. Försök igen med ditt nya lösenord.</translation>
+<translation id="4821725298388681253">Det här är en tidig version. Vissa funktioner, till exempel sökning och textinmatning, är inte tillgängliga än.</translation>
 <translation id="4821935166599369261">&amp;Profilering aktiverad</translation>
 <translation id="4823484602432206655">Läsa och ändra användarinställningar och enhetsinställningar</translation>
 <translation id="4823651846660089135">Enheten är skrivskyddad</translation>
@@ -3533,6 +3534,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="6232017090690406397">Batteri</translation>
 <translation id="6232116551750539448">Anslutningen till <ph name="NAME" /> har brutits</translation>
 <translation id="6237816943013845465">Ger möjlighet att ändra skärmupplösningen</translation>
+<translation id="6238923052227198598">Behåll den senaste anteckningen på låsskärmen</translation>
 <translation id="6239558157302047471">Läs in &amp;ram igen</translation>
 <translation id="6241530762627360640">Få åtkomst till information om Bluetooth-enheter som är kopplade till ditt system och upptäck Bluetooth-enheter i närheten.</translation>
 <translation id="6243774244933267674">Servern är inte tillgänglig</translation>
@@ -4196,7 +4198,7 @@ Använd bara den här funktionen med konton som du litar på.</translation>
 <translation id="7230787553283372882">Anpassa textstorleken</translation>
 <translation id="7238585580608191973">SHA-256-fingeravtryck</translation>
 <translation id="7240120331469437312">Certifikatämnets andra namn</translation>
-<translation id="7240339475467890413">Vill du ansluta till en ny trådlös surfzon?</translation>
+<translation id="7240339475467890413">Vill du ansluta till en ny surfzon?</translation>
 <translation id="7241389281993241388">Logga in på <ph name="TOKEN_NAME" /> om du vill importera klientcertifikatet.</translation>
 <translation id="7243055093079293866">Säg ”Ok Google” på en ny flik och google.com</translation>
 <translation id="7243632151880336635">Rensa och logga ut</translation>
