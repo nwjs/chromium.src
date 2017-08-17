@@ -462,6 +462,18 @@ void Surface::CommitSurfaceHierarchy() {
   needs_commit_surface_hierarchy_ = false;
   has_pending_layer_changes_ = false;
 
+  bool full_damage = false;
+  if (pending_state_.opaque_region != state_.opaque_region ||
+      pending_state_.buffer_scale != state_.buffer_scale ||
+      pending_state_.viewport != state_.viewport ||
+      pending_state_.crop != state_.crop ||
+      pending_state_.only_visible_on_secure_output !=
+          state_.only_visible_on_secure_output ||
+      pending_state_.blend_mode != state_.blend_mode ||
+      pending_state_.alpha != state_.alpha) {
+    full_damage = true;
+  }
+
   state_ = pending_state_;
   pending_state_.only_visible_on_secure_output = false;
 
@@ -481,7 +493,7 @@ void Surface::CommitSurfaceHierarchy() {
   presentation_callbacks_.splice(presentation_callbacks_.end(),
                                  pending_presentation_callbacks_);
 
-  UpdateSurface(false);
+  UpdateSurface(full_damage);
 
   window_->layer()->SetFillsBoundsOpaquely(
       !current_resource_has_alpha_ || state_.blend_mode == SkBlendMode::kSrc ||
