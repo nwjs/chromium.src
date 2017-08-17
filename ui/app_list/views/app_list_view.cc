@@ -506,9 +506,16 @@ void AppListView::InitializeBubble(gfx::NativeView parent,
   overlay_view_->SetBoundsRect(GetContentsBounds());
 }
 
-void AppListView::HandleClickOrTap() {
+void AppListView::HandleClickOrTap(ui::LocatedEvent* event) {
   if (!is_fullscreen_app_list_enabled_)
     return;
+
+  // No-op if app list is on fullscreen all apps state and the event location is
+  // within apps grid view's bounds.
+  if (app_list_state_ == FULLSCREEN_ALL_APPS &&
+      GetAppsGridView()->GetBoundsInScreen().Contains(event->location())) {
+    return;
+  }
 
   if (!search_box_view_->is_search_box_active()) {
     SetState(CLOSED);
@@ -659,6 +666,12 @@ display::Display AppListView::GetDisplayNearestView() const {
   return display::Screen::GetScreen()->GetDisplayNearestView(parent_window());
 }
 
+AppsGridView* AppListView::GetAppsGridView() const {
+  return app_list_main_view_->contents_view()
+      ->apps_container_view()
+      ->apps_grid_view();
+}
+
 void AppListView::OnBeforeBubbleWidgetInit(views::Widget::InitParams* params,
                                            views::Widget* widget) const {
   if (!params->native_widget) {
@@ -713,7 +726,7 @@ void AppListView::OnMouseEvent(ui::MouseEvent* event) {
   switch (event->type()) {
     case ui::ET_MOUSE_PRESSED:
       event->SetHandled();
-      HandleClickOrTap();
+      HandleClickOrTap(event);
       break;
     case ui::ET_MOUSEWHEEL:
       if (HandleScroll(event))
@@ -732,7 +745,7 @@ void AppListView::OnGestureEvent(ui::GestureEvent* event) {
     case ui::ET_GESTURE_TAP:
       is_in_drag_ = false;
       event->SetHandled();
-      HandleClickOrTap();
+      HandleClickOrTap(event);
       break;
     case ui::ET_SCROLL_FLING_START:
     case ui::ET_GESTURE_SCROLL_BEGIN:
@@ -1027,11 +1040,8 @@ void AppListView::UpdateYPositionAndOpacity(int y_position_in_screen,
   DraggingLayout();
 }
 
-PaginationModel* AppListView::GetAppsPaginationModel() {
-  return app_list_main_view_->contents_view()
-      ->apps_container_view()
-      ->apps_grid_view()
-      ->pagination_model();
+PaginationModel* AppListView::GetAppsPaginationModel() const {
+  return GetAppsGridView()->pagination_model();
 }
 
 void AppListView::OnSpeechRecognitionStateChanged(
@@ -1124,10 +1134,7 @@ void AppListView::DraggingLayout() {
 
   // Updates the opacity of the items in the app list.
   search_box_view_->UpdateOpacity(app_list_y_position_in_screen_);
-  app_list_main_view_->contents_view()
-      ->apps_container_view()
-      ->apps_grid_view()
-      ->UpdateOpacity(app_list_y_position_in_screen_);
+  GetAppsGridView()->UpdateOpacity(app_list_y_position_in_screen_);
 
   app_list_main_view_->contents_view()->Layout();
 
