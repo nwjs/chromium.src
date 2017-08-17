@@ -105,7 +105,8 @@ class CupsPrintersHandler : public ::settings::SettingsPageUIHandler,
   void HandleStopDiscovery(const base::ListValue* args);
 
   // PrinterDetector::Observer implementations:
-  void OnPrintersFound(const std::vector<Printer>& printers) override;
+  void OnPrintersFound(
+      const std::vector<PrinterDetector::DetectedPrinter>& printers) override;
   void OnPrinterScanComplete() override;
 
   // Given a printer id, find the corresponding ppdManufacturer and ppdModel.
