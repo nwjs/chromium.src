@@ -109,6 +109,10 @@ const char kAshTouchHud[] = "ash-touch-hud";
 // instead of displaying an interactive animation.
 const char kAuraLegacyPowerButton[] = "aura-legacy-power-button";
 
+// Forces non-tablet-style power button behavior even if the device has a
+// convertible form factor.
+const char kForceClamshellPowerButton[] = "force-clamshell-power-button";
+
 // By default we use classic IME (i.e. InputMethodChromeOS) in kMus. This flag
 // enables the IME service (i.e. InputMethodMus) instead.
 const char kUseIMEService[] = "use-ime-service";
