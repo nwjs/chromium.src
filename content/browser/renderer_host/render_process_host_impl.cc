@@ -1913,7 +1913,7 @@ void RenderProcessHostImpl::RegisterMojoInterfaces() {
                                     base::Unretained(this)));
 
   registry->AddInterface(
-      base::Bind(&VideoCaptureHost::Create,
+      base::Bind(&VideoCaptureHost::Create, GetID(),
                  BrowserMainLoop::GetInstance()->media_stream_manager()));
 
   registry->AddInterface(
@@ -2277,14 +2277,14 @@ RenderProcessHostImpl::GetRendererAudioOutputStreamFactoryContext() {
   return audio_output_stream_factory_context_.get();
 }
 
-void RenderProcessHostImpl::OnAudioStreamAdded() {
-  ++audio_stream_count_;
+void RenderProcessHostImpl::OnMediaStreamAdded() {
+  ++media_stream_count_;
   UpdateProcessPriority();
 }
 
-void RenderProcessHostImpl::OnAudioStreamRemoved() {
-  DCHECK_GT(audio_stream_count_, 0);
-  --audio_stream_count_;
+void RenderProcessHostImpl::OnMediaStreamRemoved() {
+  DCHECK_GT(media_stream_count_, 0);
+  --media_stream_count_;
   UpdateProcessPriority();
 }
 
@@ -3745,11 +3745,11 @@ void RenderProcessHostImpl::UpdateProcessPriority() {
     return;
   }
 
-  // We background a process as soon as it hosts no active audio streams and no
-  // visible widgets -- the callers must call this function whenever we
+  // We background a process as soon as it hosts no active audio/video streams
+  // and no visible widgets -- the callers must call this function whenever we
   // transition in/out of those states.
   const bool should_background =
-      visible_widgets_ == 0 && audio_stream_count_ == 0 &&
+      visible_widgets_ == 0 && media_stream_count_ == 0 &&
       !base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableRendererBackgrounding);
   const bool should_background_changed =
