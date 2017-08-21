@@ -326,10 +326,12 @@ ScriptPromise BaseAudioContext::decodeAudioData(
     // they don't get collected prematurely before decodeAudioData
     // calls them.
     if (success_callback) {
-      success_callbacks_.emplace_back(this, success_callback);
+      success_callbacks_.push_back(
+          TraceWrapperMember<DecodeSuccessCallback>(this, success_callback));
     }
     if (error_callback) {
-      error_callbacks_.emplace_back(this, error_callback);
+      error_callbacks_.push_back(
+          TraceWrapperMember<DecodeErrorCallback>(this, error_callback));
     }
 
     audio_decoder_.DecodeAsync(audio, rate, success_callback, error_callback,
