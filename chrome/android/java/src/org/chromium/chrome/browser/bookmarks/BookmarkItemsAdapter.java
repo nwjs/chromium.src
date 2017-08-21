@@ -374,11 +374,15 @@ class BookmarkItemsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     }
 
     private void setBackgroundResourceForBookmarkRow(BookmarkRow row, BookmarkId id) {
+        if (id == null) return;
+
         row.setBackgroundResourceForGroupPosition(id.equals(mBookmarkSection.get(0)),
                 id.equals(mBookmarkSection.get(mBookmarkSection.size() - 1)));
     }
 
     private void setBackgroundResourceForFolderRow(BookmarkRow row, BookmarkId id) {
+        if (id == null) return;
+
         row.setBackgroundResourceForGroupPosition(id.equals(mFolderSection.get(0)),
                 id.equals(mFolderSection.get(mFolderSection.size() - 1)));
     }
