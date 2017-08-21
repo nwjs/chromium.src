@@ -4,7 +4,6 @@
 
 #include "chrome/browser/chromeos/login/app_launch_controller.h"
 
-#include "ash/shell.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/files/file_path.h"
@@ -30,7 +29,6 @@
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/ash/ash_util.h"
 #include "chrome/browser/ui/webui/chromeos/login/app_launch_splash_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
 #include "chromeos/settings/cros_settings_names.h"
@@ -41,7 +39,6 @@
 #include "extensions/browser/app_window/app_window_registry.h"
 #include "extensions/common/features/feature_session_type.h"
 #include "net/base/network_change_notifier.h"
-#include "ui/keyboard/keyboard_util.h"
 
 namespace chromeos {
 
@@ -305,15 +302,6 @@ void AppLaunchController::OnProfileLoaded(Profile* profile) {
 
   // This is needed to trigger input method extensions being loaded.
   profile_->InitChromeOSPreferences();
-
-  // Reset virtual keyboard to use IME engines in app profile early.
-  if (!ash_util::IsRunningInMash()) {
-    if (keyboard::IsKeyboardEnabled())
-      ash::Shell::Get()->CreateKeyboard();
-  } else {
-    // TODO(xiyuan): Update with mash VK work http://crbug.com/648733
-    NOTIMPLEMENTED();
-  }
 
   kiosk_profile_loader_.reset();
   startup_app_launcher_.reset(
