@@ -228,6 +228,7 @@ void PerformanceMonitor::Did(const probe::UserCallback& probe) {
   --user_callback_depth_;
   if (!user_callback_depth_)
     user_callback_ = nullptr;
+  DCHECK(user_callback_ != &probe);
 }
 
 void PerformanceMonitor::DocumentWriteFetchScript(Document* document) {
