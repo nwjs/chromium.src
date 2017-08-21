@@ -9,6 +9,7 @@
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/shell.h"
 #include "ash/system/tray/system_tray_notifier.h"
+#include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace/backdrop_delegate.h"
 #include "base/auto_reset.h"
@@ -158,9 +159,13 @@ void BackdropController::OnAppListVisibilityChanged(bool shown,
   if (container_->GetRootWindow() != root_window)
     return;
 
-  // Hide or update backdrop only for fullscreen app list.
-  if (!app_list::features::IsFullscreenAppListEnabled())
+  // Hide or update backdrop only for fullscreen app list in tablet mode.
+  if (!app_list::features::IsFullscreenAppListEnabled() ||
+      !Shell::Get()
+           ->tablet_mode_controller()
+           ->IsTabletModeWindowManagerEnabled()) {
     return;
+  }
 
   if (shown)
     AddForceHidden();
