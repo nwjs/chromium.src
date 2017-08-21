@@ -265,7 +265,7 @@ TEST_F(MixerTest, RemoveDuplicates) {
 }
 
 // Tests that "known results" have priority over others.
-TEST_F(MixerTest, KnownResultsPriority) {
+TEST_F(MixerTest, DISABLED_KnownResultsPriority) {
   // This gives omnibox 0 -- 5.
   omnibox_provider()->set_count(6);
 
@@ -302,7 +302,7 @@ TEST_F(MixerTest, KnownResultsIgnoredForRecommendations) {
             GetResults());
 }
 
-TEST_F(MixerTest, VoiceQuery) {
+TEST_F(MixerTest, DISABLED_VoiceQuery) {
   omnibox_provider()->set_count(3);
   RunQuery();
   EXPECT_EQ("omnibox0,omnibox1,omnibox2", GetResults());

@@ -246,7 +246,7 @@ class AppListMainViewTest : public views::ViewsTestBase {
 }  // namespace
 
 // Tests changing the AppListModel when switching profiles.
-TEST_F(AppListMainViewTest, ModelChanged) {
+TEST_F(AppListMainViewTest, DISABLED_ModelChanged) {
   delegate_->GetTestModel()->PopulateApps(kInitialItems);
   EXPECT_EQ(kInitialItems, RootViewModel()->view_size());
 
@@ -261,7 +261,7 @@ TEST_F(AppListMainViewTest, ModelChanged) {
 }
 
 // Tests that mouse hovering over an app item highlights it
-TEST_F(AppListMainViewTest, MouseHoverToHighlight) {
+TEST_F(AppListMainViewTest, DISABLED_MouseHoverToHighlight) {
   delegate_->GetTestModel()->PopulateApps(2);
   main_widget_->Show();
 
@@ -288,7 +288,7 @@ TEST_F(AppListMainViewTest, MouseHoverToHighlight) {
 }
 
 // Tests that tap gesture on app item highlights it
-TEST_F(AppListMainViewTest, TapGestureToHighlight) {
+TEST_F(AppListMainViewTest, DISABLED_TapGestureToHighlight) {
   delegate_->GetTestModel()->PopulateApps(1);
   main_widget_->Show();
 
@@ -310,7 +310,7 @@ TEST_F(AppListMainViewTest, TapGestureToHighlight) {
 
 // Tests dragging an item out of a single item folder and drop it at the last
 // slot.
-TEST_F(AppListMainViewTest, DragLastItemFromFolderAndDropAtLastSlot) {
+TEST_F(AppListMainViewTest, DISABLED_DragLastItemFromFolderAndDropAtLastSlot) {
   AppListItemView* folder_item_view = CreateAndOpenSingleItemFolder();
   const gfx::Rect first_slot_tile = folder_item_view->bounds();
 
@@ -353,7 +353,7 @@ TEST_F(AppListMainViewTest, DragLastItemFromFolderAndDropAtLastSlot) {
 
 // Tests dragging an item out of a single item folder and dropping it onto the
 // page switcher. Regression test for http://crbug.com/415530/.
-TEST_F(AppListMainViewTest, DragReparentItemOntoPageSwitcher) {
+TEST_F(AppListMainViewTest, DISABLED_DragReparentItemOntoPageSwitcher) {
   // Number of apps to populate. Should provide more than 1 page of apps (6*4 =
   // 24).
   const int kNumApps = 30;
@@ -392,7 +392,7 @@ TEST_F(AppListMainViewTest, DragReparentItemOntoPageSwitcher) {
 // Test that an interrupted drag while reparenting an item from a folder, when
 // canceled via the root grid, correctly forwards the cancelation to the drag
 // ocurring from the folder.
-TEST_F(AppListMainViewTest, MouseDragItemOutOfFolderWithCancel) {
+TEST_F(AppListMainViewTest, DISABLED_MouseDragItemOutOfFolderWithCancel) {
   CreateAndOpenSingleItemFolder();
   AppListItemView* dragged = StartDragForReparent(0);
 
@@ -415,7 +415,7 @@ TEST_F(AppListMainViewTest, MouseDragItemOutOfFolderWithCancel) {
 // Test that dragging an app out of a single item folder and reparenting it
 // back into its original folder results in a cancelled reparent. This is a
 // regression test for http://crbug.com/429083.
-TEST_F(AppListMainViewTest, ReparentSingleItemOntoSelf) {
+TEST_F(AppListMainViewTest, DISABLED_ReparentSingleItemOntoSelf) {
   // Add a folder with 1 item.
   AppListItemView* folder_item_view = CreateAndOpenSingleItemFolder();
   std::string folder_id = folder_item_view->item()->id();

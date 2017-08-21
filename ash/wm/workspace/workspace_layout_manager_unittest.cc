@@ -1405,7 +1405,7 @@ TEST_F(WorkspaceLayoutManagerBackdropTest,
 // Fullscreen app list changes to visible should hide the backdrop, otherwise,
 // should show the backdrop.
 TEST_F(WorkspaceLayoutManagerBackdropTest,
-       UpdateBackdropOnAppListVisibilityNotification) {
+       DISABLED_UpdateBackdropOnAppListVisibilityNotification) {
   WorkspaceController* wc = ShellTestApi(Shell::Get()).workspace_controller();
   WorkspaceControllerTestApi test_helper(wc);
 

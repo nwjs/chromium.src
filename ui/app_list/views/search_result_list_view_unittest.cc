@@ -219,7 +219,7 @@ TEST_F(SearchResultListViewTest, SpokenFeedback) {
             GetResultViewAt(2)->ComputeAccessibleName());
 }
 
-TEST_F(SearchResultListViewTest, ModelObservers) {
+TEST_F(SearchResultListViewTest, DISABLED_ModelObservers) {
   SetUpSearchResults();
   ExpectConsistent();
 

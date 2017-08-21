@@ -407,7 +407,7 @@ IN_PROC_BROWSER_TEST_F(ArcAppLauncherBrowserTest, PinOnPackageUpdateAndRemove) {
 
 // This test validates that app list is shown on new package and not shown
 // on package update.
-IN_PROC_BROWSER_TEST_F(ArcAppLauncherBrowserTest, AppListShown) {
+IN_PROC_BROWSER_TEST_F(ArcAppLauncherBrowserTest, DISABLED_AppListShown) {
   StartInstance();
   AppListService* app_list_service = AppListService::Get();
   ASSERT_TRUE(app_list_service);

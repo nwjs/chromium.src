@@ -146,7 +146,7 @@ void AppListPresenterImplTest::TearDown() {
 // not app list window's sibling and that appropriate delegate callbacks are
 // executed when the app launcher is shown and then when the app launcher is
 // dismissed.
-TEST_F(AppListPresenterImplTest, HideOnFocusOut) {
+TEST_F(AppListPresenterImplTest, DISABLED_HideOnFocusOut) {
   aura::client::FocusClient* focus_client =
       aura::client::GetFocusClient(root_window());
   presenter()->Show(GetDisplayId());
@@ -169,7 +169,7 @@ TEST_F(AppListPresenterImplTest, HideOnFocusOut) {
 // Tests that app launcher remains visible when focus moves to a window which
 // is app list window's sibling and that appropriate delegate callbacks are
 // executed when the app launcher is shown.
-TEST_F(AppListPresenterImplTest, RemainVisibleWhenFocusingToSibling) {
+TEST_F(AppListPresenterImplTest, DISABLED_RemainVisibleWhenFocusingToSibling) {
   aura::client::FocusClient* focus_client =
       aura::client::GetFocusClient(root_window());
   presenter()->Show(GetDisplayId());
@@ -192,7 +192,7 @@ TEST_F(AppListPresenterImplTest, RemainVisibleWhenFocusingToSibling) {
 
 // Tests that UpdateBounds is called on the delegate when the root window
 // is resized.
-TEST_F(AppListPresenterImplTest, RootWindowResize) {
+TEST_F(AppListPresenterImplTest, DISABLED_RootWindowResize) {
   presenter()->Show(GetDisplayId());
   EXPECT_FALSE(delegate()->update_bounds_called());
   gfx::Rect bounds = root_window()->bounds();
@@ -203,7 +203,7 @@ TEST_F(AppListPresenterImplTest, RootWindowResize) {
 
 // Tests that the app list is dismissed and the delegate is destroyed when the
 // app list's widget is destroyed.
-TEST_F(AppListPresenterImplTest, WidgetDestroyed) {
+TEST_F(AppListPresenterImplTest, DISABLED_WidgetDestroyed) {
   presenter()->Show(GetDisplayId());
   EXPECT_TRUE(presenter()->GetTargetVisibility());
   presenter()->GetView()->GetWidget()->CloseNow();

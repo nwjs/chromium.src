@@ -466,7 +466,7 @@ TEST_P(AppsGridViewTest, MouseDragMaxItemsInFolder) {
 
 // Check that moving items around doesn't allow a drop to happen into a full
 // folder.
-TEST_P(AppsGridViewTest, MouseDragMaxItemsInFolderWithMovement) {
+TEST_P(AppsGridViewTest, DISABLED_MouseDragMaxItemsInFolderWithMovement) {
   // Create and add a folder with 16 items in it.
   size_t kTotalItems = kMaxFolderItems;
   model_->CreateAndPopulateFolderWithApps(kTotalItems);
@@ -515,7 +515,7 @@ TEST_P(AppsGridViewTest, MouseDragMaxItemsInFolderWithMovement) {
   test_api_->LayoutToIdealBounds();
 }
 
-TEST_P(AppsGridViewTest, MouseDragItemReorder) {
+TEST_P(AppsGridViewTest, DISABLED_MouseDragItemReorder) {
   // Using a simulated 2x2 layout for the test. If fullscreen app list is
   // enabled, rows_per_page passed should be 3 as the first row is occupied by
   // suggested apps.
@@ -640,7 +640,7 @@ TEST_P(AppsGridViewTest, MouseDragWithCancelDeleteAddItem) {
 }
 
 // TODO(warx): enable this test for |test_with_fullscreen_|, crbug.com/742581.
-TEST_F(AppsGridViewTest, MouseDragFlipPage) {
+TEST_F(AppsGridViewTest, DISABLED_MouseDragFlipPage) {
   apps_grid_view_->set_page_flip_delay_in_ms_for_testing(10);
   GetPaginationModel()->SetTransitionDurations(10, 10);
 
@@ -735,7 +735,7 @@ TEST_P(AppsGridViewTest, UpdateFolderBackgroundOnCancelDrag) {
             model_->GetModelContent());
 }
 
-TEST_P(AppsGridViewTest, HighlightWithKeyboard) {
+TEST_P(AppsGridViewTest, DISABLED_HighlightWithKeyboard) {
   if (test_with_fullscreen_)
     return;
 

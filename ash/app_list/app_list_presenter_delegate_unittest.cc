@@ -165,7 +165,7 @@ TEST_P(AppListPresenterDelegateTest,
 }
 
 // Tests that clicking outside the app-list bubble closes it.
-TEST_F(AppListPresenterDelegateTest, ClickOutsideBubbleClosesBubble) {
+TEST_F(AppListPresenterDelegateTest, DISABLED_ClickOutsideBubbleClosesBubble) {
   app_list_presenter_impl()->Show(GetPrimaryDisplayId());
   aura::Window* app_window = app_list_presenter_impl()->GetWindow();
   ASSERT_TRUE(app_window);
@@ -187,7 +187,7 @@ TEST_F(AppListPresenterDelegateTest, ClickOutsideBubbleClosesBubble) {
 }
 
 // Tests that tapping outside the app-list bubble closes it.
-TEST_F(AppListPresenterDelegateTest, TapOutsideBubbleClosesBubble) {
+TEST_F(AppListPresenterDelegateTest, DISABLED_TapOutsideBubbleClosesBubble) {
   app_list_presenter_impl()->Show(GetPrimaryDisplayId());
   aura::Window* app_window = app_list_presenter_impl()->GetWindow();
   ASSERT_TRUE(app_window);
@@ -231,7 +231,7 @@ TEST_P(AppListPresenterDelegateTest, NonPrimaryDisplay) {
 
 // Tests opening the app list on a tiny display that is too small to contain
 // it.
-TEST_F(AppListPresenterDelegateTest, TinyDisplay) {
+TEST_F(AppListPresenterDelegateTest, DISABLED_TinyDisplay) {
   // Set up a screen with a tiny display (height smaller than the app list).
   UpdateDisplay("400x300");
 

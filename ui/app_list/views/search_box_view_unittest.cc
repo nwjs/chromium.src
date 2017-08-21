@@ -233,7 +233,7 @@ class SearchBoxViewFullscreenTest : public views::test::WidgetTest,
 // the parameterized tests.
 INSTANTIATE_TEST_CASE_P(, SearchBoxViewTest, testing::Bool());
 
-TEST_P(SearchBoxViewTest, Basic) {
+TEST_P(SearchBoxViewTest, DISABLED_Basic) {
   KeyPress(ui::VKEY_A);
   EXPECT_EQ("a", GetLastQueryAndReset());
   EXPECT_EQ(1, GetQueryChangedCountAndReset());

@@ -616,7 +616,7 @@ TEST_F(AppListViewFullscreenTest, TapAndClickWithinAppsGridView) {
 
 // Tests displaying the app list and performs a standard set of checks on its
 // top level views. Then closes the window.
-TEST_F(AppListViewTest, DisplayTest) {
+TEST_F(AppListViewTest, DISABLED_DisplayTest) {
   EXPECT_FALSE(view_->GetWidget()->IsVisible());
   EXPECT_EQ(-1, GetPaginationModel()->total_pages());
   delegate_->GetTestModel()->PopulateApps(kInitialItems);
@@ -643,7 +643,7 @@ TEST_F(AppListViewTest, DisplayTest) {
 
 // Tests that the main grid view is shown after hiding and reshowing the app
 // list with a folder view open. This is a regression test for crbug.com/357058.
-TEST_F(AppListViewTest, ReshowWithOpenFolderTest) {
+TEST_F(AppListViewTest, DISABLED_ReshowWithOpenFolderTest) {
   EXPECT_FALSE(view_->GetWidget()->IsVisible());
   EXPECT_EQ(-1, GetPaginationModel()->total_pages());
 
@@ -686,7 +686,7 @@ TEST_F(AppListViewTest, ReshowWithOpenFolderTest) {
 }
 
 // Tests that the start page view operates correctly.
-TEST_F(AppListViewTest, StartPageTest) {
+TEST_F(AppListViewTest, DISABLED_StartPageTest) {
   EXPECT_FALSE(view_->GetWidget()->IsVisible());
   EXPECT_EQ(-1, GetPaginationModel()->total_pages());
   AppListTestModel* model = delegate_->GetTestModel();
@@ -770,7 +770,7 @@ TEST_F(AppListViewTest, PageSwitchingAnimationTest) {
 }
 
 // Tests that the correct views are displayed for showing search results.
-TEST_F(AppListViewTest, SearchResultsTest) {
+TEST_F(AppListViewTest, DISABLED_SearchResultsTest) {
   EXPECT_FALSE(view_->GetWidget()->IsVisible());
   EXPECT_EQ(-1, GetPaginationModel()->total_pages());
   AppListTestModel* model = delegate_->GetTestModel();
@@ -830,7 +830,7 @@ TEST_F(AppListViewTest, SearchResultsTest) {
 }
 
 // Tests that the back button navigates through the app list correctly.
-TEST_F(AppListViewTest, BackTest) {
+TEST_F(AppListViewTest, DISABLED_BackTest) {
   EXPECT_FALSE(view_->GetWidget()->IsVisible());
   EXPECT_EQ(-1, GetPaginationModel()->total_pages());
 
@@ -881,7 +881,7 @@ TEST_F(AppListViewTest, BackTest) {
 }
 
 // Tests that the correct views are displayed for showing search results.
-TEST_F(AppListViewTest, AppListOverlayTest) {
+TEST_F(AppListViewTest, DISABLED_AppListOverlayTest) {
   Show();
 
   AppListMainView* main_view = view_->app_list_main_view();
@@ -900,7 +900,7 @@ TEST_F(AppListViewTest, AppListOverlayTest) {
 
 // Tests that even if initialize is called again with a different initial page,
 // that different initial page is respected.
-TEST_F(AppListViewTest, MultiplePagesReinitializeOnInputPage) {
+TEST_F(AppListViewTest, DISABLED_MultiplePagesReinitializeOnInputPage) {
   delegate_->GetTestModel()->PopulateApps(kInitialItems);
 
   // Show and close the widget once.
