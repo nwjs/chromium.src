@@ -482,10 +482,10 @@ cc::LayerTreeSettings RenderWidgetCompositor::GenerateLayerTreeSettings(
   }
 
   if (base::SysInfo::IsLowEndDevice()) {
-    // When running on a low end device, we limit cached bytes to 2MB.
-    // This allows a typical page to fit its images in cache, but prevents
-    // most long-term caching.
-    settings.decoded_image_cache_budget_bytes = 2 * 1024 * 1024;
+    // When running on a low end device, we limit cached bytes to 512KB.
+    // This allows pages which are light on images to stay in cache, but
+    // prevents most long-term caching.
+    settings.decoded_image_cache_budget_bytes = 512 * 1024;
   }
 
   // TODO(danakj): Only do this on low end devices.
