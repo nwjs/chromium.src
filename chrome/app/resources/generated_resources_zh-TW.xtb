@@ -2578,7 +2578,7 @@
 <translation id="4816492930507672669">依頁面大小自動調整</translation>
 <translation id="4820334425169212497">否，我沒有看到</translation>
 <translation id="4821086771593057290">你的密碼已變更，請使用你的新密碼再試一次。</translation>
-<translation id="4821725298388681253">這是初期版本，目前還無法使用部分功能 (例如搜尋和輸入文字)。</translation>
+<translation id="4821725298388681253">這是初期版本，目前還不支援部分功能 (例如搜尋和輸入文字)。</translation>
 <translation id="4821935166599369261">分析已啟用(&amp;P)</translation>
 <translation id="4823484602432206655">讀取及變更使用者和裝置設定</translation>
 <translation id="4823651846660089135">裝置目前是唯讀模式</translation>
