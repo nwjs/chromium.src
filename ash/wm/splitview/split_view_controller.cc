@@ -259,6 +259,9 @@ void SplitViewController::OnOverviewModeEnded() {
 }
 
 void SplitViewController::EndSplitView() {
+  if (!IsSplitViewModeActive())
+    return;
+
   StopObserving(left_window_);
   StopObserving(right_window_);
   left_window_ = nullptr;
