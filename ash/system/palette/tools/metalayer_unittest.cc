@@ -127,15 +127,4 @@ TEST_F(MetalayerToolTest, MetalayerCallbackDisablesPaletteTool) {
   test_palette_delegate()->metalayer_closed().Run();
 }
 
-// Verifies that disabling the metalayer support in the delegate disables the
-// tool.
-TEST_F(MetalayerToolTest, MetalayerUnsupportedDisablesPaletteTool) {
-  test_palette_delegate()->SetMetalayerSupported(true);
-  tool_->OnEnable();
-  // Disabling the metalayer support in the delegate will disable the tool.
-  EXPECT_CALL(*palette_tool_delegate_.get(),
-              DisableTool(PaletteToolId::METALAYER));
-  test_palette_delegate()->SetMetalayerSupported(false);
-}
-
 }  // namespace ash
