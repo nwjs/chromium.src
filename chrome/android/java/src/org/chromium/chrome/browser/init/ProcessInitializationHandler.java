@@ -204,7 +204,7 @@ public class ProcessInitializationHandler {
         final ChromeApplication application =
                 (ChromeApplication) ContextUtils.getApplicationContext();
 
-        DataReductionProxySettings.reconcileDataReductionProxyEnabledState(application);
+        DataReductionProxySettings.handlePostNativeInitialization();
         ChromeActivitySessionTracker.getInstance().initializeWithNative();
         ChromeApplication.removeSessionCookies();
         AppBannerManager.setAppDetailsDelegate(AppHooks.get().createAppDetailsDelegate());
