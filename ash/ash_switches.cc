@@ -113,9 +113,8 @@ const char kAuraLegacyPowerButton[] = "aura-legacy-power-button";
 // convertible form factor.
 const char kForceClamshellPowerButton[] = "force-clamshell-power-button";
 
-// By default we use classic IME (i.e. InputMethodChromeOS) in kMus. This flag
-// enables the IME service (i.e. InputMethodMus) instead.
-const char kUseIMEService[] = "use-ime-service";
+// Whether this device has an internal stylus.
+const char kHasInternalStylus[] = "has-internal-stylus";
 
 // Number of recent accelerometer samples to examine to determine if a power
 // button event was spurious.
@@ -140,6 +139,10 @@ const char kSpuriousPowerButtonKeyboardAccel[] =
 // exceeded for a power button event to be considered spurious.
 const char kSpuriousPowerButtonLidAngleChange[] =
     "spurious-power-button-lid-angle-change";
+
+// By default we use classic IME (i.e. InputMethodChromeOS) in kMus. This flag
+// enables the IME service (i.e. InputMethodMus) instead.
+const char kUseIMEService[] = "use-ime-service";
 
 // Constrains the pointer movement within a root window on desktop.
 bool ConstrainPointerToRoot() {
