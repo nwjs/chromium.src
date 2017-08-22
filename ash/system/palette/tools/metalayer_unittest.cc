@@ -54,16 +54,51 @@ class MetalayerToolTest : public AshTestBase {
 
 }  // namespace
 
-// The metalayer tool is only visible when the delegate supports metalayer.
-TEST_F(MetalayerToolTest, ViewOnlyCreatedWhenMetalayerIsSupported) {
-  test_palette_delegate()->set_is_metalayer_supported(false);
-  EXPECT_FALSE(tool_->CreateView());
-  tool_->OnViewDestroyed();
+// The metalayer tool is always visible, but only enabled when the delegate
+// supports metalayer AND the voice interaction framework is ready.
+TEST_F(MetalayerToolTest, PaletteMenuState) {
+  ash::Shell::Get()->NotifyVoiceInteractionStatusChanged(
+      ash::VoiceInteractionState::NOT_READY);
 
-  test_palette_delegate()->set_is_metalayer_supported(true);
-  std::unique_ptr<views::View> view = base::WrapUnique(tool_->CreateView());
-  EXPECT_TRUE(view);
-  tool_->OnViewDestroyed();
+  {
+    // Voice interaction not ready, metalayer not supported.
+    test_palette_delegate()->set_is_metalayer_supported(false);
+    std::unique_ptr<views::View> view = base::WrapUnique(tool_->CreateView());
+    EXPECT_TRUE(view);
+    EXPECT_FALSE(view->enabled());
+    tool_->OnViewDestroyed();
+  }
+
+  {
+    // Voice interaction not ready, metalayer supported.
+    test_palette_delegate()->set_is_metalayer_supported(true);
+    std::unique_ptr<views::View> view = base::WrapUnique(tool_->CreateView());
+    EXPECT_TRUE(view);
+    EXPECT_FALSE(view->enabled());
+    tool_->OnViewDestroyed();
+  }
+
+  ash::Shell::Get()->NotifyVoiceInteractionStatusChanged(
+      ash::VoiceInteractionState::RUNNING);
+
+  {
+    // Voice interaction ready, metalayer not supported.
+    test_palette_delegate()->set_is_metalayer_supported(false);
+    std::unique_ptr<views::View> view = base::WrapUnique(tool_->CreateView());
+    EXPECT_TRUE(view);
+    EXPECT_FALSE(view->enabled());
+    tool_->OnViewDestroyed();
+  }
+
+  {
+    // Voice interaction ready, metalayer supported: the only combination when
+    // the view should be enabled.
+    test_palette_delegate()->set_is_metalayer_supported(true);
+    std::unique_ptr<views::View> view = base::WrapUnique(tool_->CreateView());
+    EXPECT_TRUE(view);
+    EXPECT_TRUE(view->enabled());
+    tool_->OnViewDestroyed();
+  }
 }
 
 // Verifies that enabling/disabling the metalayer tool invokes the delegate.
@@ -90,6 +125,17 @@ TEST_F(MetalayerToolTest, MetalayerCallbackDisablesPaletteTool) {
   EXPECT_CALL(*palette_tool_delegate_.get(),
               DisableTool(PaletteToolId::METALAYER));
   test_palette_delegate()->metalayer_closed().Run();
+}
+
+// Verifies that disabling the metalayer support in the delegate disables the
+// tool.
+TEST_F(MetalayerToolTest, MetalayerUnsupportedDisablesPaletteTool) {
+  test_palette_delegate()->SetMetalayerSupported(true);
+  tool_->OnEnable();
+  // Disabling the metalayer support in the delegate will disable the tool.
+  EXPECT_CALL(*palette_tool_delegate_.get(),
+              DisableTool(PaletteToolId::METALAYER));
+  test_palette_delegate()->SetMetalayerSupported(false);
 }
 
 }  // namespace ash
