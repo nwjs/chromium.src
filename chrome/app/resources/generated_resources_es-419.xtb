@@ -4881,7 +4881,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8260864402787962391">Mouse</translation>
 <translation id="8261378640211443080">Esta extensión no figura en <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> y es posible que se haya agregado sin tu conocimiento.</translation>
 <translation id="8261387128019234107">Agregar cuenta para <ph name="PROFILE_NAME" /></translation>
-<translation id="8261506727792406068">Eliminar</translation>
+<translation id="8261506727792406068">Borrar</translation>
 <translation id="8261580862248730866">Excepciones del micrófono</translation>
 <translation id="8261673729476082470">Guardando copia de seguridad de <ph name="FILE_COUNT" /> fotos en <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" /></translation>
 <translation id="826246685091802258"><ph name="BAD_FLAG" /> no se implementó en esta compilación.</translation>
