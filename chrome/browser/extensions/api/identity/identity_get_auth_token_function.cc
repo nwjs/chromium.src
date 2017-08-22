@@ -6,6 +6,7 @@
 
 #include "base/strings/string_number_conversions.h"
 #include "build/build_config.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/api/identity/identity_api.h"
 #include "chrome/browser/extensions/api/identity/identity_constants.h"
 #include "chrome/browser/profiles/profile.h"
@@ -260,6 +261,13 @@ void IdentityGetAuthTokenFunction::StartSigninFlow() {
   SigninFailed();
   return;
 #endif
+
+  if (g_browser_process->IsShuttingDown()) {
+    // The login prompt cannot be displayed when the browser process is shutting
+    // down.
+    SigninFailed();
+    return;
+  }
 
   // Start listening for the primary account being available and display a
   // login prompt.
