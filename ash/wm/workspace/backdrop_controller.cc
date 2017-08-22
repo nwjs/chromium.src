@@ -9,13 +9,11 @@
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/shell.h"
 #include "ash/system/tray/system_tray_notifier.h"
-#include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace/backdrop_delegate.h"
 #include "base/auto_reset.h"
 #include "base/memory/ptr_util.h"
 #include "chromeos/audio/chromeos_sounds.h"
-#include "ui/app_list/app_list_features.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
@@ -108,7 +106,7 @@ void BackdropController::SetBackdropDelegate(
 
 void BackdropController::UpdateBackdrop() {
   // Avoid recursive calls.
-  if (in_restacking_ || force_hidden_counter_)
+  if (in_restacking_ || force_hidden_)
     return;
 
   aura::Window* window = GetTopmostWindowWithBackdrop();
@@ -138,39 +136,26 @@ void BackdropController::UpdateBackdrop() {
 }
 
 void BackdropController::OnOverviewModeStarting() {
-  AddForceHidden();
+  force_hidden_ = true;
+  Hide();
 }
 
 void BackdropController::OnOverviewModeEnded() {
-  RemoveForceHidden();
+  if (Shell::Get()->IsSplitViewModeActive())
+    return;
+
+  force_hidden_ = false;
+  UpdateBackdrop();
 }
 
 void BackdropController::OnSplitViewModeStarting() {
-  AddForceHidden();
+  force_hidden_ = true;
+  Hide();
 }
 
 void BackdropController::OnSplitViewModeEnded() {
-  RemoveForceHidden();
-}
-
-void BackdropController::OnAppListVisibilityChanged(bool shown,
-                                                    aura::Window* root_window) {
-  // Ignore the notification if it is not for this display.
-  if (container_->GetRootWindow() != root_window)
-    return;
-
-  // Hide or update backdrop only for fullscreen app list in tablet mode.
-  if (!app_list::features::IsFullscreenAppListEnabled() ||
-      !Shell::Get()
-           ->tablet_mode_controller()
-           ->IsTabletModeWindowManagerEnabled()) {
-    return;
-  }
-
-  if (shown)
-    AddForceHidden();
-  else
-    RemoveForceHidden();
+  force_hidden_ = false;
+  UpdateBackdrop();
 }
 
 void BackdropController::OnAccessibilityModeChanged(
@@ -264,24 +249,6 @@ void BackdropController::Hide() {
   backdrop_window_ = nullptr;
   original_event_handler_ = nullptr;
   backdrop_event_handler_.reset();
-}
-
-void BackdropController::AddForceHidden() {
-  force_hidden_counter_++;
-  CHECK_GE(force_hidden_counter_, 0);
-  if (force_hidden_counter_)
-    Hide();
-  else
-    UpdateBackdrop();
-}
-
-void BackdropController::RemoveForceHidden() {
-  force_hidden_counter_--;
-  CHECK_GE(force_hidden_counter_, 0);
-  if (force_hidden_counter_)
-    Hide();
-  else
-    UpdateBackdrop();
 }
 
 }  // namespace ash
