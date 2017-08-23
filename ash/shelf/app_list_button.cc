@@ -505,6 +505,11 @@ void AppListButton::OnVoiceInteractionStatusChanged(
   }
 }
 
+void AppListButton::OnVoiceInteractionEnabled(bool enabled) {
+  voice_interaction_settings_enabled_ = enabled;
+  SchedulePaint();
+}
+
 void AppListButton::OnActiveUserSessionChanged(const AccountId& account_id) {
   SchedulePaint();
   // If the active user is not the primary user, app list button animation will
@@ -581,7 +586,7 @@ void AppListButton::GenerateAndSendBackEvent(
 
 bool AppListButton::IsVoiceInteractionActive() {
   if (chromeos::switches::IsVoiceInteractionEnabled() &&
-      is_primary_user_active_) {
+      is_primary_user_active_ && voice_interaction_settings_enabled_) {
     DCHECK(voice_interaction_overlay_);
     return true;
   }
