@@ -1408,10 +1408,7 @@ TEST_F(WorkspaceLayoutManagerBackdropTest,
        UpdateBackdropOnAppListVisibilityNotification) {
   WorkspaceController* wc = ShellTestApi(Shell::Get()).workspace_controller();
   WorkspaceControllerTestApi test_helper(wc);
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      app_list::features::kEnableFullscreenAppList);
-
+  TestAppListViewPresenterImpl app_list_presenter_impl_;
   std::unique_ptr<aura::Window> window(
       CreateTestWindow(gfx::Rect(0, 0, 100, 100)));
   EXPECT_FALSE(test_helper.GetBackdropWindow());
@@ -1419,34 +1416,22 @@ TEST_F(WorkspaceLayoutManagerBackdropTest,
   // Turn the top window backdrop on.
   ShowTopWindowBackdropForContainer(default_container(), true);
   EXPECT_TRUE(test_helper.GetBackdropWindow());
-  EXPECT_FALSE(app_list::features::IsFullscreenAppListEnabled());
-
-  // Show the non-fullscreen app list should have no effect for the backdrop.
-  TestAppListViewPresenterImpl app_list_presenter_impl_;
-  app_list_presenter_impl_.Show(
-      display::Screen::GetScreen()->GetPrimaryDisplay().id());
-  EXPECT_TRUE(test_helper.GetBackdropWindow());
-
-  // Tap shelf should dismiss the app list.
-  ui::test::EventGenerator& generator = GetEventGenerator();
-  gfx::Rect work_area =
-      display::Screen::GetScreen()->GetPrimaryDisplay().work_area();
-  gfx::Point shelf_point(work_area.CenterPoint().x(), work_area.bottom() + 5);
-  generator.GestureTapAt(shelf_point);
-  EXPECT_TRUE(test_helper.GetBackdropWindow());
 
   // Enable fullscreen app list.
+  base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
       app_list::features::kEnableFullscreenAppList);
   EXPECT_TRUE(test_helper.GetBackdropWindow());
   EXPECT_TRUE(app_list::features::IsFullscreenAppListEnabled());
-  // Show the fullscreen app list should hide the backdrop.
+  // Showing the fullscreen app list should hide the backdrop.
   app_list_presenter_impl_.Show(
       display::Screen::GetScreen()->GetPrimaryDisplay().id());
   EXPECT_FALSE(test_helper.GetBackdropWindow());
-  // Tap at shelf should dismiss the app list and backdrop should be shown
-  // again.
-  generator.GestureTapAt(shelf_point);
+  // Dismissing the app list should cause the backdrop to be shown again.
+  gfx::Rect work_area =
+      display::Screen::GetScreen()->GetPrimaryDisplay().work_area();
+  gfx::Point shelf_point(work_area.CenterPoint().x(), work_area.bottom() + 5);
+  GetEventGenerator().GestureTapAt(shelf_point);
   EXPECT_TRUE(test_helper.GetBackdropWindow());
 }
 
