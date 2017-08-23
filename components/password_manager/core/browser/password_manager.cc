@@ -142,13 +142,6 @@ bool AreAllFieldsEmpty(const PasswordForm& form) {
 // static
 void PasswordManager::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
-#if defined(OS_IOS) || defined(OS_ANDROID)
-  uint32_t flags = PrefRegistry::NO_REGISTRATION_FLAGS;
-#else
-  uint32_t flags = user_prefs::PrefRegistrySyncable::SYNCABLE_PREF;
-#endif
-  registry->RegisterBooleanPref(prefs::kPasswordManagerSavingEnabled, true,
-                                flags);
   registry->RegisterBooleanPref(
       prefs::kCredentialsEnableService, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
