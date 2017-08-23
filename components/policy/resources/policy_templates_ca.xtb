@@ -192,7 +192,7 @@
 <translation id="187819629719252111">Permet que <ph name="PRODUCT_NAME" /> mostri diàlegs de selecció de fitxers per permetre l'accés als fitxers locals de l'equip. Si activeu aquest paràmetre, els usuaris podran obrir els diàlegs de selecció de fitxers de la manera habitual. Si el desactiveu, cada vegada que un usuari dugui a terme una acció que provoqui l'obertura d'un diàleg de selecció de fitxers (com ara la importació d'adreces d'interès, la càrrega de fitxers, el desament d'enllaços, etc.), li apareixerà un missatge que serà com si l'usuari fes clic a Cancel·la al diàleg de selecció de fitxers. Si no definiu aquest paràmetre, els usuaris podran obrir diàlegs de selecció de fitxers de la manera habitual.</translation>
 <translation id="1879485426724769439">Especifica la zona horària del dispositiu. Els usuaris poden canviar-la a la sessió en curs, però es torna a restablir en tancar la sessió. Si es proporciona un valor que no és vàlid, la política s'activa de tota manera amb la zona horària GMT. Si es proporciona una cadena buida, la política s'ignora.
 
-      Si no es fa servir aquesta política, es continua utilitzant la zona horària activa en aquell moment, tot i que els usuaris poden canviar-la de manera permanent. Per tant, els canvis que fan els usuaris afecten la pantalla d'inici de sessió i la resta d'usuaris.
+      Si no es fa servir aquesta política, es continua utilitzant la zona horària activa en aquell moment, tot i que els usuaris poden canviar-la permanentment. Per tant, els canvis que fan els usuaris afecten la pantalla d'inici de sessió i la resta d'usuaris.
 
       La zona horària predeterminada als dispositius nous és US/Pacific.
 

@@ -543,7 +543,7 @@
     <ph name="LIST_ITEM" />A <ph name="BEGIN_BOLD" />Tipus d'inici<ph name="END_BOLD" />, selecciona <ph name="BEGIN_BOLD" />Desactivat<ph name="END_BOLD" />
     <ph name="LIST_ITEM" />A <ph name="BEGIN_BOLD" />Estat del servei<ph name="END_BOLD" />, fes clic a <ph name="BEGIN_BOLD" />Atura<ph name="END_BOLD" />
     <ph name="LIST_ITEM" />Fes clic a <ph name="BEGIN_BOLD" />Aplica<ph name="END_BOLD" /> i, a continuació, a <ph name="BEGIN_BOLD" />D'acord<ph name="END_BOLD" />
-    <ph name="LIST_ITEM" />Visita el <ph name="BEGIN_LEARN_MORE_LINK" />Centre d'ajuda de Chrome<ph name="END_LEARN_MORE_LINK" /> per obtenir informació sobre com suprimir de manera permanent el programari de l'ordinador.
+    <ph name="LIST_ITEM" />Visita el <ph name="BEGIN_LEARN_MORE_LINK" />Centre d'ajuda de Chrome<ph name="END_LEARN_MORE_LINK" /> per obtenir informació sobre com suprimir permanentment el programari de l'ordinador.
     <ph name="END_LIST" /></translation>
 <translation id="5297526204711817721">La teva connexió amb aquest lloc no és privada. Per sortir del mode RV en qualsevol moment, treu-te el visor i prem Enrere.</translation>
 <translation id="5299298092464848405">S'ha produït un error en analitzar la política</translation>

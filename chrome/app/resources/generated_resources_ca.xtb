@@ -26,7 +26,7 @@
 <translation id="1038168778161626396">Només encriptar</translation>
 <translation id="1039337018183941703">Fitxer no vàlid o malmès</translation>
 <translation id="1042174272890264476">L'ordinador també incorpora la biblioteca RLZ de <ph name="SHORT_PRODUCT_NAME" />. La biblioteca RLZ assigna una etiqueta no única i sense identificació personal per mesurar les cerques i l'ús de <ph name="SHORT_PRODUCT_NAME" /> derivats d'una campanya promocional concreta. De vegades, aquestes etiquetes apareixen a les consultes de la Cerca de Google a <ph name="PRODUCT_NAME" />.</translation>
-<translation id="1042574203789536285"><ph name="URL" /> vol emmagatzemar una gran quantitat de dades al vostre dispositiu de manera permanent.</translation>
+<translation id="1042574203789536285"><ph name="URL" /> vol emmagatzemar una gran quantitat de dades al vostre dispositiu permanentment.</translation>
 <translation id="1046059554679513793">Aquest nom ja s'està utilitzant.</translation>
 <translation id="1047431265488717055">Copia el te&amp;xt de l'enllaç</translation>
 <translation id="1047726139967079566">Afegeix aquesta pàgina a les adreces d'interès...</translation>
@@ -306,7 +306,7 @@
 <translation id="1465176863081977902">C&amp;opia l'adreça de l'àudio</translation>
 <translation id="1465827627707997754">Tall de pizza</translation>
 <translation id="1467432559032391204">A l'esquerra</translation>
-<translation id="1467999917853307373"><ph name="URL" /> vol emmagatzemar dades al vostre dispositiu de manera permanent.</translation>
+<translation id="1467999917853307373"><ph name="URL" /> vol emmagatzemar dades al vostre dispositiu permanentment.</translation>
 <translation id="1470719357688513792">La nova configuració de galetes es farà efectiva quan torneu a carregar la pàgina.</translation>
 <translation id="1470811252759861213">Per accedir a les extensions des de tots els ordinadors, <ph name="SIGN_IN_LINK" />.</translation>
 <translation id="1474339897586437869">"<ph name="FILENAME" />" no s'ha penjat. No hi ha prou espai lliure al vostre compte de Google Drive.</translation>
@@ -2084,7 +2084,7 @@ Del domini <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3988996860813292272">Selecciona la zona horària</translation>
 <translation id="3989635538409502728">Tanca la sessió</translation>
 <translation id="399179161741278232">Importats</translation>
-<translation id="3991936620356087075">Heu introduït una clau de desbloqueig del PIN (PUK) incorrecta massa vegades. La vostra targeta SIM s'ha desactivat de manera permanent.</translation>
+<translation id="3991936620356087075">Heu introduït una clau de desbloqueig del PIN (PUK) incorrecta massa vegades. La vostra targeta SIM s'ha desactivat permanentment.</translation>
 <translation id="3994374631886003300">Desbloqueja el telèfon i acosta'l per desbloquejar <ph name="DEVICE_TYPE" />.</translation>
 <translation id="3994878504415702912">&amp;Zoom</translation>
 <translation id="3995964755286119116">La configuració de la càmera d'Adobe Flash Player és diferent.</translation>
@@ -2642,7 +2642,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="4888510611625056742">Pestanya 2</translation>
 <translation id="4890773143211625964">Mostra les opcions avançades de la impressora</translation>
 <translation id="4891089016822695758">Fòrum per a la versió beta</translation>
-<translation id="4893336867552636863">Amb aquesta acció, se suprimiran les vostres dades de navegació d'aquest dispositiu de manera permanent.</translation>
+<translation id="4893336867552636863">Amb aquesta acció, se suprimiran les vostres dades de navegació d'aquest dispositiu permanentment.</translation>
 <translation id="4898011734382862273">El certificat <ph name="CERTIFICATE_NAME" /> representa una entitat emissora de certificats</translation>
 <translation id="489985760463306091">Per acabar de suprimir el programari maliciós, reinicia l'ordinador</translation>
 <translation id="4900392736118574277">La pàgina d'inici ha canviat a <ph name="URL" />.</translation>
@@ -3128,7 +3128,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="5601503069213153581">PIN</translation>
 <translation id="5604324414379907186">Mostra la barra d'adreces d'interès</translation>
 <translation id="5605623530403479164">Altres motors de cerca</translation>
-<translation id="5605716740717446121">La vostra targeta SIM es desactivarà de manera permanent si no podeu introduir la clau de desbloqueig del PIN (PUK) correcta. Nombre d'intents restants: <ph name="TRIES_COUNT" /></translation>
+<translation id="5605716740717446121">La vostra targeta SIM es desactivarà permanentment si no podeu introduir la clau de desbloqueig del PIN (PUK) correcta. Nombre d'intents restants: <ph name="TRIES_COUNT" /></translation>
 <translation id="5606674617204776232">El connector <ph name="PEPPER_PLUGIN_NAME" /> de <ph name="PEPPER_PLUGIN_DOMAIN" /> vol accedir al vostre dispositiu.</translation>
 <translation id="5608580678041221894">Toca aquestes tecles per ajustar o moure l'àrea per retallar</translation>
 <translation id="5609231933459083978">Sembla que l'aplicació no és vàlida.</translation>
@@ -3486,7 +3486,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="6160625263637492097">Proporciona certificats per a l'autenticació</translation>
 <translation id="6163363155248589649">&amp;Normal</translation>
 <translation id="6163522313638838258">Amplia-ho tot...</translation>
-<translation id="6164005077879661055">Tots els fitxers i les dades locals associats amb l'usuari supervisat se suprimiran de manera permanent quan aquest usuari supervisat se suprimeixi. És possible que el gestor encara pugui veure els llocs web visitats i la configuració d'aquest usuari supervisat a la pàgina <ph name="MANAGEMENT_URL" />.</translation>
+<translation id="6164005077879661055">Tots els fitxers i les dades locals associats amb l'usuari supervisat se suprimiran permanentment quan aquest usuari supervisat se suprimeixi. És possible que el gestor encara pugui veure els llocs web visitats i la configuració d'aquest usuari supervisat a la pàgina <ph name="MANAGEMENT_URL" />.</translation>
 <translation id="6165508094623778733">Més informació</translation>
 <translation id="6166185671393271715">Importeu contrasenyes a Chrome</translation>
 <translation id="6169666352732958425">L'escriptori no es pot emetre.</translation>
