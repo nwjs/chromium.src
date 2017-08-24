@@ -230,7 +230,7 @@ void TetherService::AdapterPoweredChanged(device::BluetoothAdapter* adapter,
     SetBleAdvertisingInterval();
 }
 
-void TetherService::DefaultNetworkChanged(
+void TetherService::NetworkConnectionStateChanged(
     const chromeos::NetworkState* network) {
   if (CanEnableBluetoothNotificationBeShown()) {
     // If the device has just been disconnected from the Internet, the user may
@@ -431,8 +431,11 @@ bool TetherService::CanEnableBluetoothNotificationBeShown() {
     return false;
   }
 
+  // If a network is currently connecting or connected, it will be listed in the
+  // list first.
   const chromeos::NetworkState* network =
-      network_state_handler_->DefaultNetwork();
+      network_state_handler_->FirstNetworkByType(
+          chromeos::NetworkTypePattern::Default());
   if (network &&
       (network->IsConnectingState() || network->IsConnectedState())) {
     // If an Internet connection is available, there is no need to show a
