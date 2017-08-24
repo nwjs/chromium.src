@@ -350,8 +350,8 @@ bool IsCertificateCleared() {
   ios::ChromeBrowserState* browserState =
       chrome_test_util::GetOriginalBrowserState();
   PrefService* preferences = browserState->GetPrefs();
-  preferences->SetBoolean(
-      password_manager::prefs::kPasswordManagerSavingEnabled, true);
+  preferences->SetBoolean(password_manager::prefs::kCredentialsEnableService,
+                          true);
 }
 
 // Return pref for password management back to default and restore the Clear
@@ -360,14 +360,13 @@ bool IsCertificateCleared() {
   ios::ChromeBrowserState* browserState =
       chrome_test_util::GetOriginalBrowserState();
   PrefService* preferences = browserState->GetPrefs();
-  preferences->SetBoolean(
-      password_manager::prefs::kPasswordManagerSavingEnabled, true);
+  preferences->SetBoolean(password_manager::prefs::kCredentialsEnableService,
+                          true);
   [self clearPasswords];
 
   // Restore the password management pref state.
-  preferences->SetBoolean(
-      password_manager::prefs::kPasswordManagerSavingEnabled,
-      defaultPasswordManagementSetting);
+  preferences->SetBoolean(password_manager::prefs::kCredentialsEnableService,
+                          defaultPasswordManagementSetting);
 
   // Restore the Clear Browsing Data checkmarks prefs to their default state.
   [self restoreClearBrowsingDataCheckmarksToDefault];
@@ -680,7 +679,7 @@ bool IsCertificateCleared() {
       chrome_test_util::GetOriginalBrowserState();
   PrefService* preferences = browserState->GetPrefs();
   bool defaultPasswordManagerSavingPref = preferences->GetBoolean(
-      password_manager::prefs::kPasswordManagerSavingEnabled);
+      password_manager::prefs::kCredentialsEnableService);
 
   [self enablePasswordManagement];
   __weak SettingsTestCase* weakSelf = self;
@@ -909,7 +908,7 @@ bool IsCertificateCleared() {
       chrome_test_util::GetOriginalBrowserState();
   PrefService* preferences = browserState->GetPrefs();
   bool defaultPasswordManagerSavingPref = preferences->GetBoolean(
-      password_manager::prefs::kPasswordManagerSavingEnabled);
+      password_manager::prefs::kCredentialsEnableService);
 
   [self enablePasswordManagement];
   __weak SettingsTestCase* weakSelf = self;
