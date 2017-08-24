@@ -314,6 +314,7 @@ chromeos::NetworkStateHandler::TechnologyState
 TetherService::GetTetherTechnologyState() {
   switch (GetTetherFeatureState()) {
     case OTHER_OR_UNKNOWN:
+    case BLE_NOT_PRESENT:
     case BLE_ADVERTISING_NOT_SUPPORTED:
     case SCREEN_LOCKED:
     case NO_AVAILABLE_HOSTS:
@@ -356,7 +357,7 @@ void TetherService::OnBluetoothAdapterFetched(
 
   // If |adapter_| is not powered, wait until it is to call
   // SetBleAdvertisingInterval(). See AdapterPoweredChanged().
-  if (IsBluetoothAvailable())
+  if (IsBluetoothPowered())
     SetBleAdvertisingInterval();
 
   // The user has just logged in; display the "enable Bluetooth" notification if
@@ -381,7 +382,7 @@ void TetherService::OnBluetoothAdapterAdvertisingIntervalError(
 }
 
 void TetherService::SetBleAdvertisingInterval() {
-  DCHECK(IsBluetoothAvailable());
+  DCHECK(IsBluetoothPowered());
   adapter_->SetAdvertisingInterval(
       base::TimeDelta::FromMilliseconds(kMinAdvertisingIntervalMilliseconds),
       base::TimeDelta::FromMilliseconds(kMaxAdvertisingIntervalMilliseconds),
@@ -403,8 +404,12 @@ void TetherService::SetIsBleAdvertisingSupportedPref(
       is_ble_advertising_supported);
 }
 
-bool TetherService::IsBluetoothAvailable() const {
-  return adapter_.get() && adapter_->IsPresent() && adapter_->IsPowered();
+bool TetherService::IsBluetoothPresent() const {
+  return adapter_.get() && adapter_->IsPresent();
+}
+
+bool TetherService::IsBluetoothPowered() const {
+  return IsBluetoothPresent() && adapter_->IsPowered();
 }
 
 bool TetherService::IsCellularAvailableButNotEnabled() const {
@@ -423,7 +428,7 @@ bool TetherService::IsEnabledbyPreference() const {
 }
 
 bool TetherService::CanEnableBluetoothNotificationBeShown() {
-  if (!IsEnabledbyPreference() || IsBluetoothAvailable() ||
+  if (!IsEnabledbyPreference() || IsBluetoothPowered() ||
       GetTetherTechnologyState() !=
           chromeos::NetworkStateHandler::TechnologyState::
               TECHNOLOGY_UNINITIALIZED) {
@@ -450,6 +455,9 @@ TetherService::TetherFeatureState TetherService::GetTetherFeatureState() {
   if (shut_down_ || suspended_)
     return OTHER_OR_UNKNOWN;
 
+  if (!IsBluetoothPresent())
+    return BLE_NOT_PRESENT;
+
   if (!GetIsBleAdvertisingSupportedPref())
     return BLE_ADVERTISING_NOT_SUPPORTED;
 
@@ -468,10 +476,10 @@ TetherService::TetherFeatureState TetherService::GetTetherFeatureState() {
   if (!IsAllowedByPolicy())
     return PROHIBITED;
 
-  // TODO (hansberry): When !IsBluetoothAvailable(), this results in a weird
+  // TODO (hansberry): When !IsBluetoothPowered(), this results in a weird
   // UI state for Settings where the toggle is clickable but immediately
   // becomes disabled after enabling it. See crbug.com/753195.
-  if (!IsBluetoothAvailable())
+  if (!IsBluetoothPowered())
     return BLUETOOTH_DISABLED;
 
   if (!IsEnabledbyPreference())
