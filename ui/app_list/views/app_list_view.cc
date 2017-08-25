@@ -137,20 +137,26 @@ class AppListOverlayView : public views::View {
   DISALLOW_COPY_AND_ASSIGN(AppListOverlayView);
 };
 
-SkColor GetBackgroundShieldColor(const std::vector<SkColor>& prominent_colors) {
-  if (prominent_colors.empty())
-    return app_list::AppListView::kDefaultBackgroundColor;
+// An event targeter for the search box widget which will ignore events that
+// are on the search box's shadow.
+class SearchBoxWindowTargeter : public wm::MaskedWindowTargeter {
+ public:
+  explicit SearchBoxWindowTargeter(views::View* search_box)
+      : wm::MaskedWindowTargeter(search_box->GetWidget()->GetNativeWindow()),
+        search_box_(search_box) {}
+  ~SearchBoxWindowTargeter() override {}
 
-  DCHECK_EQ(static_cast<size_t>(ColorProfileType::NUM_OF_COLOR_PROFILES),
-            prominent_colors.size());
+ private:
+  // wm::MaskedWindowTargeter:
+  bool GetHitTestMask(aura::Window* window, gfx::Path* mask) const override {
+    mask->addRect(gfx::RectToSkRect(search_box_->GetContentsBounds()));
+    return true;
+  }
 
-  const SkColor dark_muted =
-      prominent_colors[static_cast<int>(ColorProfileType::DARK_MUTED)];
-  if (SK_ColorTRANSPARENT == dark_muted)
-    return app_list::AppListView::kDefaultBackgroundColor;
-  return color_utils::AlphaBlend(SK_ColorBLACK, dark_muted,
-                                 app_list::AppListView::kDarkMutedBlendAlpha);
-}
+  views::View* search_box_;
+
+  DISALLOW_COPY_AND_ASSIGN(SearchBoxWindowTargeter);
+};
 
 }  // namespace
 
@@ -1323,8 +1329,19 @@ void AppListView::SetBackgroundShieldColor() {
 
   std::vector<SkColor> prominent_colors;
   GetWallpaperProminentColors(&prominent_colors);
-  app_list_background_shield_->layer()->SetColor(
-      GetBackgroundShieldColor(prominent_colors));
+
+  if (prominent_colors.empty()) {
+    app_list_background_shield_->layer()->SetColor(kDefaultBackgroundColor);
+  } else {
+    DCHECK_EQ(static_cast<size_t>(ColorProfileType::NUM_OF_COLOR_PROFILES),
+              prominent_colors.size());
+
+    const SkColor dark_muted =
+        prominent_colors[static_cast<int>(ColorProfileType::DARK_MUTED)];
+    const SkColor dark_muted_mixed = color_utils::AlphaBlend(
+        SK_ColorBLACK, dark_muted, kDarkMutedBlendAlpha);
+    app_list_background_shield_->layer()->SetColor(dark_muted_mixed);
+  }
 }
 
 }  // namespace app_list
