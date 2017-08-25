@@ -571,10 +571,10 @@ void Histogram::ValidateHistogramContents() const {
         base::StringPrintf("%s/%" PRIu32, histogram_name().c_str(), bad_fields);
 #if !defined(OS_NACL)
     // Temporary for https://crbug.com/736675.
-    base::debug::ScopedCrashKey crash_key("bad_histogram", debug_string);
+    base::debug::SetCrashKeyValue("bad_histogram", debug_string);
 #endif
-    CHECK(false) << debug_string;
-    debug::Alias(&bad_fields);
+    // CHECK(false) << debug_string;
+    // debug::Alias(&bad_fields);
   }
 }
 
