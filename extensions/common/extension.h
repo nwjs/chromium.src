@@ -329,6 +329,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   // The differences between the types of Extension are documented here:
   // https://chromium.googlesource.com/chromium/src/+/HEAD/extensions/docs/extension_and_app_types.md
   bool is_platform_app() const;         // aka "V2 app", "V2 packaged app"
+  bool is_nwjs_app() const;
   bool is_hosted_app() const;           // Hosted app (or bookmark app)
   bool is_legacy_packaged_app() const;  // aka "V1 packaged app"
   bool is_extension() const;            // Regular browser extension, not an app

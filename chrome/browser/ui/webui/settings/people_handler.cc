@@ -524,6 +524,7 @@ void PeopleHandler::HandleStartSignin(const base::ListValue* args) {
 }
 
 void PeopleHandler::HandleStopSyncing(const base::ListValue* args) {
+#if 0
   bool delete_profile = false;
   args->GetBoolean(0, &delete_profile);
 
@@ -543,6 +544,7 @@ void PeopleHandler::HandleStopSyncing(const base::ListValue* args) {
                                web_ui(),
                                ProfileMetrics::DELETE_PROFILE_SETTINGS);
   }
+#endif
 }
 #endif
 

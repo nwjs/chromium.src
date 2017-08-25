@@ -10,6 +10,7 @@ import "third_party/WebKit/public/platform/referrer.mojom";
 import "third_party/WebKit/public/web/window_features.mojom";
 import "ui/base/mojo/window_open_disposition.mojom";
 import "url/mojo/url.mojom";
+import "mojo/common/string16.mojom";
 
 // The name of the InterfaceProviderSpec in service manifests used by the
 // frame tree to expose frame-specific interfaces between renderer and browser.
@@ -72,6 +73,8 @@ struct CreateNewWindowParams {
 
   // The window features to use for the new window.
   blink.mojom.WindowFeatures features;
+
+  mojo.common.mojom.String16 nw_window_manifest;
 };
 
 struct CreateNewWindowReply {

@@ -86,7 +86,7 @@ class WebSharedWorkerImpl final : public WebFrameClient,
       override;
 
   // WebSharedWorker methods:
-  void StartWorkerContext(const WebURL&,
+  void StartWorkerContext(bool, const base::FilePath&, const WebURL&,
                           const WebString& name,
                           const WebString& content_security_policy,
                           WebContentSecurityPolicyType,
@@ -162,6 +162,8 @@ class WebSharedWorkerImpl final : public WebFrameClient,
 
   RefPtr<WorkerLoaderProxy> loader_proxy_;
 
+  bool nodejs_;
+  base::FilePath root_path_;
   WebURL url_;
   WebString name_;
   WebAddressSpace creation_address_space_;

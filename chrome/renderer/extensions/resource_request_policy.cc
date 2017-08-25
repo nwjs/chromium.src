@@ -81,7 +81,10 @@ bool ResourceRequestPolicy::CanRequestResource(
 
     // Exceptions are:
     // - empty origin (needed for some edge cases when we have empty origins)
-    bool is_empty_origin = frame_url.is_empty();
+    // NWJS: about:blank here when load iframe in document-start-end
+    // case starting from cr53
+    bool is_empty_origin = frame_url.is_empty() || frame_url == GURL(url::kAboutBlankURL);
+
     // - extensions requesting their own resources (frame_url check is for
     //     images, page_url check is for iframes)
     bool is_own_resource = frame_url.GetOrigin() == extension->url() ||

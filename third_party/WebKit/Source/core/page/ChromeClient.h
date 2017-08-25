@@ -132,7 +132,7 @@ class CORE_EXPORT ChromeClient : public PlatformChromeClient {
   virtual Page* CreateWindow(LocalFrame*,
                              const FrameLoadRequest&,
                              const WindowFeatures&,
-                             NavigationPolicy) = 0;
+                             NavigationPolicy, WebString* manifest = nullptr) = 0;
   virtual void Show(NavigationPolicy = kNavigationPolicyIgnore) = 0;
 
   void SetWindowFeatures(const WindowFeatures&);

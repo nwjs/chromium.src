@@ -96,7 +96,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   Page* CreateWindow(LocalFrame*,
                      const FrameLoadRequest&,
                      const WindowFeatures&,
-                     NavigationPolicy) override {
+                     NavigationPolicy, WebString*) override {
     return nullptr;
   }
   void Show(NavigationPolicy) override {}

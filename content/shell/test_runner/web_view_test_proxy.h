@@ -195,7 +195,7 @@ class WebViewTestProxy : public Base, public WebViewTestProxyBase {
                                         policy, suppress_opener))
       return nullptr;
     return Base::CreateView(creator, request, features, frame_name, policy,
-                            suppress_opener);
+                            suppress_opener, nullptr);
   }
   void SetStatusText(const blink::WebString& text) override {
     view_test_client()->SetStatusText(text);

@@ -213,7 +213,8 @@ cr.define('print_preview', function() {
                 initialSettings['shouldPrintSelectionOnly'] || false,
                 initialSettings['printerName'] || null,
                 initialSettings['appState'] || null,
-                initialSettings['defaultDestinationSelectionRules'] || null);
+                initialSettings['defaultDestinationSelectionRules'] || null,
+                initialSettings['nwPrintMode'] || false);
           });
     },
 
@@ -971,8 +972,10 @@ cr.define('print_preview', function() {
       selectionOnly,
       systemDefaultDestinationId,
       serializedAppStateStr,
-      serializedDefaultDestinationSelectionRulesStr) {
+      serializedDefaultDestinationSelectionRulesStr,
+      nwPrintMode) {
 
+    this.isNWPrintMode_ = nwPrintMode;
     /**
      * Whether the print preview should be in auto-print mode.
      * @private {boolean}
@@ -1048,6 +1051,9 @@ cr.define('print_preview', function() {
   }
 
   NativeInitialSettings.prototype = {
+    get isInNWPrintMode() {
+      return this.isNWPrintMode_;
+    },
     /**
      * @return {boolean} Whether the print preview should be in auto-print mode.
      */

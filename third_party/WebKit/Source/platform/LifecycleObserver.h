@@ -48,6 +48,7 @@ class LifecycleObserver : public GarbageCollectedMixin {
     SetContext(context);
   }
 
+ public:
   void SetContext(Context*);
 
  private:

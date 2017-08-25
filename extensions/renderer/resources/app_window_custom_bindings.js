@@ -24,6 +24,19 @@ if (!apiBridge)
 var Bounds = function(boundsKey) {
   privates(this).boundsKey_ = boundsKey;
 };
+
+var try_hidden = function (view) {
+  if (view.chrome.app.window)
+    return view;
+  return privates(view);
+};
+
+var try_nw = function (view) {
+  if (view.nw)
+    return view;
+  return privates(view);
+};
+
 Object.defineProperty(Bounds.prototype, 'left', {
   get: function() {
     return appWindowData[privates(this).boundsKey_].left;
@@ -137,13 +150,13 @@ appWindow.registerCustomHook(function(bindingsAPI) {
       // Not creating a new window, but activating an existing one, so trigger
       // callback with existing window and don't do anything else.
       if (callback)
-        callback(view.chrome.app.window.current());
+        callback(try_hidden(view).chrome.app.window.current());
       return;
     }
 
     // Initialize appWindowData in the newly created JS context
     if (view.chrome.app) {
-      view.chrome.app.window.initializeAppWindow(windowParams);
+      try_hidden(view).chrome.app.window.initializeAppWindow(windowParams);
     } else {
       var sandbox_window_message = 'Creating sandboxed window, it doesn\'t ' +
           'have access to the chrome.app API.';
@@ -166,7 +179,12 @@ appWindow.registerCustomHook(function(bindingsAPI) {
               windowParams.frameId,
               function(success) {
                 if (success) {
-                  callback(view.chrome.app.window.current());
+                  var appwin = try_hidden(view).chrome.app.window.current();
+                  if (!appwin) {
+                    try_hidden(view).chrome.app.window.initializeAppWindow(windowParams);
+                    appwin = try_hidden(view).chrome.app.window.current();
+                  }
+                  callback(appwin);
                 } else {
                   callback(undefined);
                 }
@@ -179,8 +197,6 @@ appWindow.registerCustomHook(function(bindingsAPI) {
 
   apiFunctions.setHandleRequest('current', function() {
     if (!currentAppWindow) {
-      console.error('The JavaScript context calling ' +
-                    'chrome.app.window.current() has no associated AppWindow.');
       return null;
     }
     return currentAppWindow;
@@ -189,7 +205,9 @@ appWindow.registerCustomHook(function(bindingsAPI) {
   apiFunctions.setHandleRequest('getAll', function() {
     var views = runtimeNatives.GetExtensionViews(-1, -1, 'APP_WINDOW');
     return $Array.map(views, function(win) {
-      return win.chrome.app.window.current();
+      if (try_nw(win).nw) //check for undefined case in NWJS#5528
+        try_nw(win).nw.Window.get(); //construct the window object for NWJS#5294
+      return try_hidden(win).chrome.app.window.current();
     });
   });
 
@@ -243,6 +261,9 @@ appWindow.registerCustomHook(function(bindingsAPI) {
     };
     AppWindow.prototype.isFullscreen = function() {
       return appWindowData.fullscreen;
+    };
+    AppWindow.prototype.isResizable = function() {
+      return appWindowData.resizable;
     };
     AppWindow.prototype.isMinimized = function() {
       return appWindowData.minimized;
@@ -305,6 +326,7 @@ appWindow.registerCustomHook(function(bindingsAPI) {
       minimized: params.minimized,
       maximized: params.maximized,
       alwaysOnTop: params.alwaysOnTop,
+      resizable: params.resizable,
       hasFrameColor: params.hasFrameColor,
       activeFrameColor: params.activeFrameColor,
       inactiveFrameColor: params.inactiveFrameColor,
@@ -319,6 +341,18 @@ function boundsEqual(bounds1, bounds2) {
     return false;
   return (bounds1.left == bounds2.left && bounds1.top == bounds2.top &&
           bounds1.width == bounds2.width && bounds1.height == bounds2.height);
+}
+
+function sizeEqual(bounds1, bounds2) {
+  if (!bounds1 || !bounds2)
+    return false;
+  return (bounds1.width == bounds2.width && bounds1.height == bounds2.height);
+}
+
+function posEqual(bounds1, bounds2) {
+  if (!bounds1 || !bounds2)
+    return false;
+  return (bounds1.left == bounds2.left && bounds1.top == bounds2.top);
 }
 
 function dispatchEventIfExists(target, name) {
@@ -341,8 +375,20 @@ function updateAppWindowProperties(update) {
 
   var currentWindow = currentAppWindow;
 
-  if (!boundsEqual(oldData.innerBounds, update.innerBounds))
+  if (!boundsEqual(oldData.innerBounds, update.innerBounds)) {
     dispatchEventIfExists(currentWindow, "onBoundsChanged");
+    if (!sizeEqual(oldData.innerBounds, update.innerBounds))
+      dispatchEventIfExists(currentWindow, "onResized");
+    if (!posEqual(oldData.innerBounds, update.innerBounds))
+      dispatchEventIfExists(currentWindow, "onMoved");
+  }
+
+  // NW fix: fire onRestored earlier than fullscreen/minimize/maximize
+  // events. See nwjs/nw.js#5388.
+  if ((oldData.fullscreen && !update.fullscreen) ||
+      (oldData.minimized && !update.minimized) ||
+      (oldData.maximized && !update.maximized))
+    dispatchEventIfExists(currentWindow, "onRestored");
 
   if (!oldData.fullscreen && update.fullscreen)
     dispatchEventIfExists(currentWindow, "onFullscreened");
@@ -350,11 +396,6 @@ function updateAppWindowProperties(update) {
     dispatchEventIfExists(currentWindow, "onMinimized");
   if (!oldData.maximized && update.maximized)
     dispatchEventIfExists(currentWindow, "onMaximized");
-
-  if ((oldData.fullscreen && !update.fullscreen) ||
-      (oldData.minimized && !update.minimized) ||
-      (oldData.maximized && !update.maximized))
-    dispatchEventIfExists(currentWindow, "onRestored");
 
   if (oldData.alphaEnabled !== update.alphaEnabled)
     dispatchEventIfExists(currentWindow, "onAlphaEnabledChanged");

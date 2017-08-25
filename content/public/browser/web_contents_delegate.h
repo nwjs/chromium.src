@@ -338,7 +338,8 @@ class CONTENT_EXPORT WebContentsDelegate {
       const std::string& frame_name,
       const GURL& target_url,
       WebContents* new_contents,
-      const base::Optional<WebContents::CreateParams>& create_params) {}
+      const base::Optional<WebContents::CreateParams>& create_params,
+      const base::string16& nw_window_manifest) {}
 
   // Notification that the tab is hung.
   virtual void RendererUnresponsive(
