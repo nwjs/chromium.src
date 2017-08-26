@@ -314,10 +314,7 @@ void TouchEventConverterEvdev::SetPalmSuppressionCallback(
 
 void TouchEventConverterEvdev::ProcessMultitouchEvent(
     const input_event& input) {
-  TRACE_EVENT0("evdev",
-               "TouchEventConverterEvdev::ProcessMultitouchEvent");
-
-  if (touch_logging_enabled_)
+  if (touch_logging_enabled_ && !has_pen_)
     touch_evdev_debug_buffer_.ProcessEvent(current_slot_, &input);
 
   if (input.type == EV_SYN) {
@@ -445,9 +442,6 @@ void TouchEventConverterEvdev::ProcessAbs(const input_event& input) {
 }
 
 void TouchEventConverterEvdev::ProcessSyn(const input_event& input) {
-  TRACE_EVENT0("evdev",
-               "TouchEventConverterEvdev::ProcessSyn");
-
   switch (input.code) {
     case SYN_REPORT:
       ReportEvents(EventConverterEvdev::TimeTicksFromInputEvent(input));
@@ -497,9 +491,6 @@ void TouchEventConverterEvdev::ReportTouchEvent(
     const InProgressTouchEvdev& event,
     EventType event_type,
     base::TimeTicks timestamp) {
-  TRACE_EVENT0("evdev",
-               "TouchEventConverterEvdev::ReportTouchEvent");
-
   ui::PointerDetails details(event.reported_tool_type, /* pointer_id*/ 0,
                              event.radius_x, event.radius_y, event.pressure,
                              event.tilt_x, event.tilt_y);
@@ -521,9 +512,6 @@ void TouchEventConverterEvdev::CancelAllTouches() {
 }
 
 void TouchEventConverterEvdev::ReportEvents(base::TimeTicks timestamp) {
-  TRACE_EVENT0("evdev",
-               "TouchEventConverterEvdev::ReportEvents");
-
   if (dropped_events_) {
     Reinitialize();
     dropped_events_ = false;
