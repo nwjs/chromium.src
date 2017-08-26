@@ -28,6 +28,7 @@ Polymer({
     chooseFileLabel: String,
     oldImageLabel: String,
     profileImageLabel: String,
+    profileImageLoadingLabel: String,
     takePhotoLabel: String,
 
     /**
