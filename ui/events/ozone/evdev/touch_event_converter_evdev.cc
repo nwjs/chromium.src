@@ -125,7 +125,6 @@ TouchEventConverterEvdev::~TouchEventConverterEvdev() {
 void TouchEventConverterEvdev::Initialize(const EventDeviceInfo& info) {
   has_mt_ = info.HasMultitouch();
   has_pen_ = info.HasKeyEvent(BTN_TOOL_PEN);
-  device_name_ = info.name();
 
   if (has_mt_) {
     pressure_min_ = info.GetAbsMinimum(ABS_MT_PRESSURE);
@@ -263,11 +262,9 @@ int TouchEventConverterEvdev::GetTouchPoints() const {
 }
 
 void TouchEventConverterEvdev::OnEnabled() {
-  LOG(ERROR) << device_name_ << ": OnEnabled";
 }
 
 void TouchEventConverterEvdev::OnDisabled() {
-  LOG(ERROR) << device_name_ << ": OnDisabled";
   ReleaseTouches();
   ReleaseButtons();
   if (enable_palm_suppression_callback_) {
@@ -317,19 +314,14 @@ void TouchEventConverterEvdev::SetPalmSuppressionCallback(
 
 void TouchEventConverterEvdev::ProcessMultitouchEvent(
     const input_event& input) {
-  TRACE_EVENT0("evdev",
-               "TouchEventConverterEvdev::ProcessMultitouchEvent");
-
-  if (touch_logging_enabled_)
+  if (touch_logging_enabled_ && !has_pen_)
     touch_evdev_debug_buffer_.ProcessEvent(current_slot_, &input);
 
   if (input.type == EV_SYN) {
-    LOG(ERROR) << device_name_ << ": EV_SYN: " << input.code;
     ProcessSyn(input);
   } else if (dropped_events_) {
     // Do nothing. This branch indicates we have lost sync with the driver.
   } else if (input.type == EV_ABS) {
-    LOG(ERROR) << device_name_ << ": EV_ABS: " << input.code << " = " << input.value;
     if (events_.size() <= current_slot_) {
       LOG(ERROR) << "current_slot_ (" << current_slot_
                  << ") >= events_.size() (" << events_.size() << ")";
@@ -337,10 +329,8 @@ void TouchEventConverterEvdev::ProcessMultitouchEvent(
       ProcessAbs(input);
     }
   } else if (input.type == EV_KEY) {
-    LOG(ERROR) << device_name_ << ": EV_KEY: " << input.code << " = " << input.value;
     ProcessKey(input);
   } else if (input.type == EV_MSC) {
-    LOG(ERROR) << device_name_ << ": EV_MSC";
     // Ignored.
   } else {
     NOTIMPLEMENTED() << "invalid type: " << input.type;
@@ -430,7 +420,7 @@ void TouchEventConverterEvdev::ProcessAbs(const input_event& input) {
           static_cast<size_t>(input.value) < events_.size()) {
         current_slot_ = input.value;
       } else {
-        LOG(ERROR) << device_name_ << ": invalid touch event index: " << input.value;
+        LOG(ERROR) << "invalid touch event index: " << input.value;
         return;
       }
       break;
@@ -452,9 +442,6 @@ void TouchEventConverterEvdev::ProcessAbs(const input_event& input) {
 }
 
 void TouchEventConverterEvdev::ProcessSyn(const input_event& input) {
-  TRACE_EVENT0("evdev",
-               "TouchEventConverterEvdev::ProcessSyn");
-
   switch (input.code) {
     case SYN_REPORT:
       ReportEvents(EventConverterEvdev::TimeTicksFromInputEvent(input));
@@ -504,9 +491,6 @@ void TouchEventConverterEvdev::ReportTouchEvent(
     const InProgressTouchEvdev& event,
     EventType event_type,
     base::TimeTicks timestamp) {
-  TRACE_EVENT0("evdev",
-               "TouchEventConverterEvdev::ReportTouchEvent");
-
   ui::PointerDetails details(event.reported_tool_type, /* pointer_id*/ 0,
                              event.radius_x, event.radius_y, event.pressure,
                              event.tilt_x, event.tilt_y);
@@ -528,11 +512,7 @@ void TouchEventConverterEvdev::CancelAllTouches() {
 }
 
 void TouchEventConverterEvdev::ReportEvents(base::TimeTicks timestamp) {
-  TRACE_EVENT0("evdev",
-               "TouchEventConverterEvdev::ReportEvents");
-
   if (dropped_events_) {
-    LOG(ERROR) << device_name_ << ": DROPPED";
     Reinitialize();
     dropped_events_ = false;
   }
@@ -545,8 +525,6 @@ void TouchEventConverterEvdev::ReportEvents(base::TimeTicks timestamp) {
     if (event->altered && (event->cancelled ||
                            (false_touch_finder_ &&
                             false_touch_finder_->SlotHasNoise(event->slot)))) {
-      std::string cause = event->cancelled ? "cancelled" : "noise";
-      LOG(ERROR) << device_name_ << ": Slot " << i << " cancelled. cause: " <<  cause;
       CancelAllTouches();
       break;
     }
@@ -557,15 +535,13 @@ void TouchEventConverterEvdev::ReportEvents(base::TimeTicks timestamp) {
     if (!event->altered)
       continue;
 
-    if (enable_palm_suppression_callback_) 
+    if (enable_palm_suppression_callback_)
       enable_palm_suppression_callback_.Run(event->tool_code > 0);
 
     if (false_touch_finder_)
       event->delayed = false_touch_finder_->SlotShouldDelay(event->slot);
 
     EventType event_type = GetEventTypeForTouch(*event);
-    LOG(ERROR) << device_name_ << ": Slot " << i << " event type: " << static_cast<int>(event_type);
-    
     // The tool type is fixed with the touch pressed event and does not change.
     if (event_type == ET_TOUCH_PRESSED)
       event->reported_tool_type = GetEventPointerType(event->tool_code);
