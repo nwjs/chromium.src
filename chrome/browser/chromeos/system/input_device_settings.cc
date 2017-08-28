@@ -294,6 +294,7 @@ bool InputDeviceSettings::IsTouchscreenEnabledInPrefs(
 
 void InputDeviceSettings::SetTouchscreenEnabledInPrefs(bool enabled,
                                                        bool use_local_state) {
+  LOG(ERROR) << "SetTouchscreenEnabledInPrefs(" << enabled << ", " << use_local_state << ")";
   if (use_local_state) {
     PrefService* local_state = g_browser_process->local_state();
     DCHECK(local_state);
@@ -310,6 +311,7 @@ void InputDeviceSettings::SetTouchscreenEnabledInPrefs(bool enabled,
 void InputDeviceSettings::UpdateTouchscreenStatusFromPrefs() {
   bool enabled_in_local_state = IsTouchscreenEnabledInPrefs(true);
   bool enabled_in_user_prefs = IsTouchscreenEnabledInPrefs(false);
+  LOG(ERROR) << "UpdateTouchscreenStatusFromPrefs: local=" << enabled_in_local_state << ", user=" << enabled_in_user_prefs;
   SetTouchscreensEnabled(enabled_in_local_state && enabled_in_user_prefs);
 }
 
