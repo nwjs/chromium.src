@@ -2723,7 +2723,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5011739343823725107">Стартирането на задния слой за синхронизиране не бе успешно</translation>
 <translation id="5015344424288992913">Получава се разрешение от прокси сървъра...</translation>
 <translation id="5015762597229892204">Избор на приложение за драйвер за принтер</translation>
-<translation id="5016049845330225051">Бутон за изчистване на текста от полето за търсене</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5018792385199109315">Управление на страниците при стартиране</translation>
 <translation id="5023943178135355362">Обратно превъртане <ph name="BEGIN_LINK" />Научете повече<ph name="END_LINK" /></translation>
@@ -3482,7 +3481,6 @@ PDF файл или в Google Диск.</translation>
 <translation id="6151771661215463137">Файлът вече съществува в папката ви с изтегляния.</translation>
 <translation id="615436196126345398">Протокол</translation>
 <translation id="6154697846084421647">Сега сте в профила си</translation>
-<translation id="6156262341071374681">Разгъване на списъка с всички приложения</translation>
 <translation id="6156323911414505561">Показване на лентата на отметките</translation>
 <translation id="6156863943908443225">Кеш за скриптове</translation>
 <translation id="6156960295318603523">Езикови настройки</translation>

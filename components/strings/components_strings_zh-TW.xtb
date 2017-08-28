@@ -68,7 +68,7 @@
 <translation id="1430915738399379752">列印</translation>
 <translation id="1506687042165942984">顯示這個網頁的儲存複本 (亦即現已不再使用的版本)。</translation>
 <translation id="1517433312004943670">必須輸入電話號碼</translation>
-<translation id="1517500485252541695">接受的信用卡和金融卡</translation>
+<translation id="1517500485252541695">接受的信用卡和簽帳金融卡</translation>
 <translation id="1519264250979466059">建立日期</translation>
 <translation id="1527263332363067270">正在等待連線…</translation>
 <translation id="153384715582417236">暫無內容</translation>
@@ -170,7 +170,7 @@
 <translation id="230155334948463882">新信用卡？</translation>
 <translation id="2316887270356262533">釋出不到 1 MB。下次造訪部分網站時，載入速度可能會變慢。</translation>
 <translation id="2317259163369394535"><ph name="DOMAIN" /> 要求提供使用者名稱和密碼。</translation>
-<translation id="2317583587496011522">接受金融卡。</translation>
+<translation id="2317583587496011522">接受簽帳金融卡。</translation>
 <translation id="2337852623177822836">管理員所控制的設定</translation>
 <translation id="2354001756790975382">其他書籤</translation>
 <translation id="2354430244986887761">Google 安全瀏覽服務最近在 <ph name="SITE" /> <ph name="BEGIN_LINK" />發現有害的應用程式<ph name="END_LINK" />。</translation>
@@ -451,7 +451,7 @@
 <translation id="4424024547088906515">伺服器無法證明其屬於 <ph name="DOMAIN" /> 網域；其安全性憑證未取得 Chrome 的信任。這可能是因為設定錯誤，或有攻擊者攔截你的連線所致。</translation>
 <translation id="4432688616882109544"><ph name="HOST_NAME" /> 不接受你的登入憑證，或是你可能未提供登入憑證。</translation>
 <translation id="443673843213245140">雖然已停用 Proxy，不過已指定明確 Proxy 設定。</translation>
-<translation id="445100540951337728">接受的金融卡</translation>
+<translation id="445100540951337728">接受的簽帳金融卡</translation>
 <translation id="4506176782989081258">驗證錯誤：<ph name="VALIDATION_ERROR" /></translation>
 <translation id="4506599922270137252">與系統管理員聯絡</translation>
 <translation id="450710068430902550">與管理員分享</translation>
@@ -686,7 +686,7 @@
 <translation id="647261751007945333">裝置政策</translation>
 <translation id="6477321094435799029">Chrome 在這個網頁上偵測到異常代碼。為了保護你的個人資訊 (包括密碼、電話號碼或信用卡資料)，Chrome 已封鎖這個網頁。</translation>
 <translation id="6489534406876378309">開始上傳當機報告</translation>
-<translation id="6507833130742554667">接受信用卡和金融卡。</translation>
+<translation id="6507833130742554667">接受信用卡和簽帳金融卡。</translation>
 <translation id="6508722015517270189">重新啟動 Chrome</translation>
 <translation id="6529602333819889595">重做刪除(&amp;R)</translation>
 <translation id="6534179046333460208">實體化網路建議</translation>

@@ -2719,7 +2719,6 @@ Kaikkien käyttäjien täytyy kirjautua ulos jatkaakseen käyttöä.</translatio
 <translation id="5011739343823725107">Synkronoinnin käynnistäminen epäonnistui</translation>
 <translation id="5015344424288992913">Jäsennetään välityspalvelinta...</translation>
 <translation id="5015762597229892204">Valitse tulostimen ajurisovellus</translation>
-<translation id="5016049845330225051">Hakukentän tekstin poistopainike</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5018792385199109315">Hallinnoi käynnistyssivuja</translation>
 <translation id="5023943178135355362">Australialainen vieritys <ph name="BEGIN_LINK" />Lisätietoja<ph name="END_LINK" /></translation>
@@ -3475,7 +3474,6 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="6151771661215463137">Tiedosto on jo latauskansiossasi.</translation>
 <translation id="615436196126345398">Protokolla</translation>
 <translation id="6154697846084421647">Kirjautuneena sisään</translation>
-<translation id="6156262341071374681">Laajenna ja näytä kaikki sovellukset.</translation>
 <translation id="6156323911414505561">Näytä kirjanmerkkipalkki</translation>
 <translation id="6156863943908443225">Ohjelmavälimuisti</translation>
 <translation id="6156960295318603523">Kieliasetukset</translation>

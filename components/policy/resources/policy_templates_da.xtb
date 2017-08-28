@@ -415,7 +415,7 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 <translation id="2529880111512635313">Konfigurer listen over udvidelser og apps med tvungen installation</translation>
 <translation id="253135976343875019">Advarsel om inaktivitetsforsinkelse, når strømforsyningen er tilsluttet</translation>
 <translation id="2552966063069741410">Tidszone</translation>
-<translation id="2558917182010914102">Hvis denne politik angives som Sand eller ikke angives, aktiveres Google Cast, og brugerne kan starte funktionen via appmenuen, sidegenvejsmenuer, mediekontrolelementer på Cast-kompatible websites og (hvis det er angivet) via Cast-ikonet på værktøjslinjen.
+<translation id="2558917182010914102">Hvis denne politik angives som Sand eller ikke angives, aktiveres Google Cast, og brugerne kan starte funktionen via appmenuen, sidegenvejsmenuer, knapper til mediestyring på Cast-kompatible websites og (hvis det er angivet) via Cast-ikonet på værktøjslinjen.
 
           Hvis denne politik angives som Falsk, deaktiveres Google Cast.</translation>
 <translation id="2562339630163277285">Angiver webadressen for den søgemaskine, der bruges til at give direkte resultater. Webadressen skal indeholde strengen <ph name="SEARCH_TERM_MARKER" />, som på forespørgselstidspunktet erstattes af den tekst, som brugeren har indtastet hidtil.

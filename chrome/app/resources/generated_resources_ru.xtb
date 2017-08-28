@@ -2727,7 +2727,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5011739343823725107">Не удалось начать синхронизацию</translation>
 <translation id="5015344424288992913">Определение прокси-сервера...</translation>
 <translation id="5015762597229892204">Выберите драйвер для принтера</translation>
-<translation id="5016049845330225051">Удалить текст из окна поиска</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5018792385199109315">Управление стартовыми страницами</translation>
 <translation id="5023943178135355362">Простая прокрутка <ph name="BEGIN_LINK" />Подробнее...<ph name="END_LINK" /></translation>
@@ -3485,7 +3484,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6151771661215463137">Файл уже есть в папке назначения</translation>
 <translation id="615436196126345398">Протокол</translation>
 <translation id="6154697846084421647">Вы вошли в этот аккаунт</translation>
-<translation id="6156262341071374681">Просмотреть все приложения</translation>
 <translation id="6156323911414505561">Показывать панель закладок</translation>
 <translation id="6156863943908443225">Кеш скрипта</translation>
 <translation id="6156960295318603523">Языковые настройки</translation>

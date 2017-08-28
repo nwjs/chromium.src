@@ -2728,7 +2728,6 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="5011739343823725107">Nepodarilo sa spustiť internú implementáciu synchronizácie</translation>
 <translation id="5015344424288992913">Určenie proxy...</translation>
 <translation id="5015762597229892204">Výber aplikácie ovládača tlačiarne</translation>
-<translation id="5016049845330225051">Tlačidlo na vymazanie textu vo vyhľadávacom poli</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5018792385199109315">Spravovať stránky pri spustení</translation>
 <translation id="5023943178135355362">Austrálske posúvanie <ph name="BEGIN_LINK" />Ďalšie informácie<ph name="END_LINK" /></translation>
@@ -3486,7 +3485,6 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="6151771661215463137">Súbor už existuje v priečinku so stiahnutými súbormi</translation>
 <translation id="615436196126345398">Protokol</translation>
 <translation id="6154697846084421647">Používateľ prihlásený</translation>
-<translation id="6156262341071374681">Rozbaliť na všetky aplikácie</translation>
 <translation id="6156323911414505561">Zobrazovať panel so záložkami</translation>
 <translation id="6156863943908443225">Vyrovnávacia pamäť skriptov</translation>
 <translation id="6156960295318603523">Nastavenia jazyka</translation>
