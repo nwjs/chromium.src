@@ -586,7 +586,7 @@ bool CanHandleStartVoiceInteraction() {
   return chromeos::switches::IsVoiceInteractionEnabled();
 }
 
-void HandleStartVoiceInteraction(const ui::Accelerator& accelerator) {
+void HandleToggleVoiceInteraction(const ui::Accelerator& accelerator) {
   if (accelerator.IsCmdDown() && accelerator.key_code() == ui::VKEY_SPACE) {
     base::RecordAction(
         base::UserMetricsAction("VoiceInteraction.Started.Search_Space"));
@@ -597,7 +597,7 @@ void HandleStartVoiceInteraction(const ui::Accelerator& accelerator) {
     base::RecordAction(
         base::UserMetricsAction("VoiceInteraction.Started.Assistant"));
   }
-  Shell::Get()->app_list()->StartVoiceInteractionSession();
+  Shell::Get()->app_list()->ToggleVoiceInteractionSession();
 }
 
 void HandleSuspend() {
@@ -1262,7 +1262,7 @@ void AcceleratorController::PerformAction(AcceleratorAction action,
       HandleShowTaskManager();
       break;
     case START_VOICE_INTERACTION:
-      HandleStartVoiceInteraction(accelerator);
+      HandleToggleVoiceInteraction(accelerator);
       break;
     case SUSPEND:
       HandleSuspend();
