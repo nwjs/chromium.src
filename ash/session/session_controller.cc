@@ -139,6 +139,17 @@ const mojom::UserSession* SessionController::GetUserSession(
   return user_sessions_[index].get();
 }
 
+const mojom::UserSession* SessionController::GetPrimaryUserSession() const {
+  auto it = std::find_if(user_sessions_.begin(), user_sessions_.end(),
+                         [this](const mojom::UserSessionPtr& session) {
+                           return session->session_id == primary_session_id_;
+                         });
+  if (it == user_sessions_.end())
+    return nullptr;
+
+  return (*it).get();
+}
+
 bool SessionController::IsUserSupervised() const {
   if (!IsActiveUserSessionStarted())
     return false;
@@ -313,6 +324,8 @@ void SessionController::SetSessionLengthLimit(base::TimeDelta length_limit,
 
 void SessionController::ClearUserSessionsForTest() {
   user_sessions_.clear();
+  active_session_id_ = 0u;
+  primary_session_id_ = 0u;
 }
 
 void SessionController::FlushMojoForTest() {
@@ -347,6 +360,9 @@ void SessionController::SetSessionState(SessionState state) {
 
 void SessionController::AddUserSession(mojom::UserSessionPtr user_session) {
   const AccountId account_id(user_session->user_info->account_id);
+
+  if (primary_session_id_ == 0u)
+    primary_session_id_ = user_session->session_id;
 
   user_sessions_.push_back(std::move(user_session));
 
