@@ -352,18 +352,13 @@ bool InputDeviceFactoryEvdev::IsDeviceEnabled(
     return false;
 
   if (!input_device_settings_.enable_touch_screens &&
-      converter->HasTouchscreen()) {
-    LOG(ERROR) << "IsDeviceEnabled: enabled_touch_screens=false";
+      converter->HasTouchscreen())
     return false;
-  }
 
   if (palm_suppression_enabled_ &&
       converter->type() == InputDeviceType::INPUT_DEVICE_INTERNAL &&
-      converter->HasTouchscreen() && !converter->HasPen()) {
-    LOG(ERROR) << "IsDeviceEnabled: palm_suppression_enabled_=true";
+      converter->HasTouchscreen() && !converter->HasPen())
     return false;
-  }
-  LOG(ERROR) << "IsDeviceEnabled: enable_devices=" << input_device_settings_.enable_devices;
 
   return input_device_settings_.enable_devices;
 }

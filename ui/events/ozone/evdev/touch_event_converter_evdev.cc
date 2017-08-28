@@ -125,7 +125,6 @@ TouchEventConverterEvdev::~TouchEventConverterEvdev() {
 void TouchEventConverterEvdev::Initialize(const EventDeviceInfo& info) {
   has_mt_ = info.HasMultitouch();
   has_pen_ = info.HasKeyEvent(BTN_TOOL_PEN);
-  device_name_ = info.name();
 
   if (has_mt_) {
     pressure_min_ = info.GetAbsMinimum(ABS_MT_PRESSURE);
@@ -263,11 +262,9 @@ int TouchEventConverterEvdev::GetTouchPoints() const {
 }
 
 void TouchEventConverterEvdev::OnEnabled() {
-  LOG(ERROR) << device_name_ << ": OnEnabled()";
 }
 
 void TouchEventConverterEvdev::OnDisabled() {
-  LOG(ERROR) << device_name_ << ": OnDisabled()";
   ReleaseTouches();
   ReleaseButtons();
   if (enable_palm_suppression_callback_) {

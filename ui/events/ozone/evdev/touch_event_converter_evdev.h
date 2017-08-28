@@ -90,8 +90,6 @@ class EVENTS_OZONE_EVDEV_EXPORT TouchEventConverterEvdev
 
   int NextTrackingId();
 
-  std::string device_name_;
-
   // Input device file descriptor.
   ScopedInputDevice input_device_fd_;
 

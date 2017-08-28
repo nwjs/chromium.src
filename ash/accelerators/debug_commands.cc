@@ -141,7 +141,6 @@ void HandleToggleTouchpad() {
 
 void HandleToggleTouchscreen() {
   base::RecordAction(base::UserMetricsAction("Accel_Toggle_Touchscreen"));
-  LOG(ERROR) << "HandleToggleTouchscreen";
   ShellDelegate* delegate = Shell::Get()->shell_delegate();
   delegate->SetTouchscreenEnabledInPrefs(
       !delegate->IsTouchscreenEnabledInPrefs(false /* use_local_state */),
