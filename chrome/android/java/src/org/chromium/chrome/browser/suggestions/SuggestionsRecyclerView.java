@@ -191,9 +191,11 @@ public class SuggestionsRecyclerView extends RecyclerView {
         super.onLayout(changed, l, t, r, b);
     }
 
-    public void init(UiConfig uiConfig, ContextMenuManager contextMenuManager) {
+    public void init(
+            UiConfig uiConfig, ContextMenuManager contextMenuManager, NewTabPageAdapter adapter) {
         mUiConfig = uiConfig;
         mContextMenuManager = contextMenuManager;
+        setAdapter(adapter);
     }
 
     public NewTabPageAdapter getNewTabPageAdapter() {

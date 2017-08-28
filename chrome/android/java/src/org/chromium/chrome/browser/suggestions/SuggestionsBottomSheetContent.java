@@ -92,7 +92,6 @@ public class SuggestionsBottomSheetContent implements BottomSheet.BottomSheetCon
         });
 
         UiConfig uiConfig = new UiConfig(mRecyclerView);
-        mRecyclerView.init(uiConfig, mContextMenuManager);
 
         mSuggestionsCarousel =
                 ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXTUAL_SUGGESTIONS_CAROUSEL)
@@ -102,12 +101,12 @@ public class SuggestionsBottomSheetContent implements BottomSheet.BottomSheetCon
         final NewTabPageAdapter adapter = new NewTabPageAdapter(mSuggestionsUiDelegate,
                 /* aboveTheFoldView = */ null, uiConfig, OfflinePageBridge.getForProfile(profile),
                 mContextMenuManager, mTileGroupDelegate, mSuggestionsCarousel);
+        mRecyclerView.init(uiConfig, mContextMenuManager, adapter);
 
         mBottomSheetObserver = new SuggestionsSheetVisibilityChangeObserver(this, activity) {
             @Override
             public void onContentShown(boolean isFirstShown) {
                 if (isFirstShown) {
-                    mRecyclerView.setAdapter(adapter);
 
                     mRecyclerView.scrollToPosition(0);
                     adapter.refreshSuggestions();
@@ -132,12 +131,6 @@ public class SuggestionsBottomSheetContent implements BottomSheet.BottomSheetCon
                 } else if (contentState == BottomSheet.SHEET_STATE_FULL) {
                     SuggestionsMetrics.recordSurfaceFullyVisible();
                 }
-            }
-
-            @Override
-            public void onSheetClosed() {
-                super.onSheetClosed();
-                mRecyclerView.setAdapter(null);
             }
         };
 
