@@ -4,6 +4,7 @@
 
 #include "extensions/browser/value_store/lazy_leveldb.h"
 
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/memory/ptr_util.h"
 #include "base/strings/string_util.h"
@@ -263,13 +264,9 @@ ValueStore::Status LazyLevelDb::ToValueStoreError(
 
 bool LazyLevelDb::DeleteDbFile() {
   base::ThreadRestrictions::AssertIOAllowed();
-  db_.reset();  // Close the database.
-
-  leveldb::Status s =
-      leveldb::DestroyDB(db_path_.AsUTF8Unsafe(), leveldb_env::Options());
-  if (!s.ok()) {
-    LOG(WARNING) << "Failed to destroy leveldb database at "
-                 << db_path_.value();
+  db_.reset();  // release any lock on the directory
+  if (!base::DeleteFile(db_path_, true /* recursive */)) {
+    LOG(WARNING) << "Failed to delete leveldb database at " << db_path_.value();
     return false;
   }
   return true;
