@@ -105,6 +105,7 @@ public class VrShellDelegate
 
     private static final long REENTER_VR_TIMEOUT_MS = 1000;
     private static final int EXPECT_DON_TIMEOUT_MS = 2000;
+    private static final long ENTER_VR_FAILED_TIMEOUT_MS = 10000;
 
     private static final String FEEDBACK_REPORT_TYPE = "USER_INITIATED_FEEDBACK_REPORT_VR";
 
@@ -179,6 +180,7 @@ public class VrShellDelegate
     private boolean mVrBrowserUsed;
 
     private final VSyncEstimator mVSyncEstimator;
+    private boolean mWaitingForVrTimeout;
 
     private static final class VrBroadcastReceiver extends BroadcastReceiver {
         private final WeakReference<ChromeActivity> mTargetActivity;
@@ -1045,6 +1047,7 @@ public class VrShellDelegate
     private int enterVrInternal() {
         if (mPaused) return ENTER_VR_CANCELLED;
         if (mInVr) return ENTER_VR_NOT_NECESSARY;
+        if (mWaitingForVrTimeout) return ENTER_VR_CANCELLED;
 
         // Update VR support level as it can change at runtime
         maybeUpdateVrSupportLevel();
@@ -1131,7 +1134,15 @@ public class VrShellDelegate
             // This means the user backed out of the DON flow, and we won't be entering VR.
             maybeSetPresentResult(false, mDonSucceeded);
             shutdownVr(true, false, false);
+            mWaitingForVrTimeout = true;
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mWaitingForVrTimeout = false;
+                }
+            }, ENTER_VR_FAILED_TIMEOUT_MS);
         }
+
         mProbablyInDon = false;
     }
 
