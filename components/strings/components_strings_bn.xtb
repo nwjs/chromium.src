@@ -131,7 +131,7 @@
 <translation id="1973335181906896915">ধারাবাহিকতাতে ত্রুটি</translation>
 <translation id="1974060860693918893">উন্নত</translation>
 <translation id="1978555033938440688">ফার্মওয়ের সংস্করণ</translation>
-<translation id="1995859865337580572">অনুগ্রহ করে আপনার CVC যাচাই করুন</translation>
+<translation id="1995859865337580572">Please verify your CVC</translation>
 <translation id="2001146170449793414">{COUNT,plural, =1{এবং আরো ১টি}one{এবং আরো #টি}other{এবং আরো #টি}}</translation>
 <translation id="2025186561304664664">স্বতঃ কনফিগার করতে প্রক্সি সেট করা হয়৷</translation>
 <translation id="2030481566774242610">আপনি কি <ph name="LINK" /> বোঝাতে চেয়েছিলেন?</translation>
@@ -260,7 +260,7 @@
 <translation id="2991174974383378012">ওয়েবসাইটের সাথে ভাগ করছে</translation>
 <translation id="2991571918955627853">ওয়েবসাইটটি HSTS ব্যবহার করার কারণে আপনি এখন <ph name="SITE" /> এ যেতে পারবেন না। নেটওয়ার্ক ত্রুটি এবং আক্রমণ সাধারণত সাময়িকভাবে হয়, তাই এই পৃষ্ঠাটি সম্ভবত পরে কাজ করবে।</translation>
 <translation id="3005723025932146533">সংরক্ষিত প্রতিলিপি দেখান</translation>
-<translation id="3008447029300691911"><ph name="CREDIT_CARD" /> এর CVC লিখুন। আপনি নিশ্চিত করলে, আপনার কার্ডের বিবরণ এই সাইটের সাথে শেয়ার করা হবে।</translation>
+<translation id="3008447029300691911">Enter the CVC for <ph name="CREDIT_CARD" />. Once you confirm, your card details will be shared with this site.</translation>
 <translation id="3010559122411665027">তালিকার এন্ট্রি " <ph name="ENTRY_INDEX" /> ": <ph name="ERROR" /></translation>
 <translation id="301521992641321250">স্বয়ংক্রিয়ভাবে ব্লক করা হয়েছে</translation>
 <translation id="3024663005179499861">নীতির ভুল প্রকার</translation>
@@ -292,7 +292,7 @@
 <translation id="3226128629678568754">পৃষ্ঠাটি লোড করতে প্রয়োজনীয় ডেটেটি আবার জমা দিতে আবার লোড করার বোতামটি টিপুন৷</translation>
 <translation id="3227137524299004712">মাইক্রোফোন</translation>
 <translation id="3228969707346345236">পৃষ্ঠাটি ইতিমধ্যে <ph name="LANGUAGE" />-এ থাকার কারণে অনুবাদ ব্যর্থ হয়েছে৷</translation>
-<translation id="323107829343500871"><ph name="CREDIT_CARD" /> এর CVC লিখুন</translation>
+<translation id="323107829343500871">Enter the CVC for <ph name="CREDIT_CARD" /></translation>
 <translation id="3234666976984236645">এই সাইটে সর্বদা গুরুত্বপূর্ণ সামগ্রী সনাক্ত করুন</translation>
 <translation id="3254409185687681395">এই পৃষ্ঠাটি বুকমার্ক করুন</translation>
 <translation id="3270847123878663523">&amp;পুনর্বিন্যাসকে পূর্বাবস্থায় ফেরান</translation>
@@ -484,7 +484,7 @@
 <translation id="4759118997339041434">পেমেন্ট স্বতঃপূর্ণকরণ অক্ষম করা হয়েছে</translation>
 <translation id="4764776831041365478"><ph name="URL" />-এ ওয়েবপৃষ্ঠাটি হতে পারে অস্থায়ীভাবে ডাউন আছে অথবা হতে পারে এটি স্থায়ীভাবে কোনো নতুন ওয়েব ঠিকানাতে সরানো হয়েছে৷</translation>
 <translation id="4771973620359291008">একটি অজানা ত্রুটি ঘটেছে৷</translation>
-<translation id="4800132727771399293">আপনার মেয়াদ শেষের তারিখ এবং CVC পরীক্ষা করুন এবং আবার চেষ্টা করুন</translation>
+<translation id="4800132727771399293">Check your expiration date and CVC and try again</translation>
 <translation id="4803924862070940586"><ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
 <translation id="4807049035289105102">এই মুহূর্তে আপনি <ph name="SITE" /> এ যেতে পারবেন না কারণ ওয়েবসাইটটি অবোধ্য শংসাপত্র পাঠিয়েছে যেটি Google Chrome প্রক্রিয়া করতে পারছে না।  নেটওয়ার্ক ত্রুটি এবং আক্রমণ সাধারণত সাময়িকভাবে হয়, তাই এই পৃষ্ঠা সম্ভবত পরে কাজ করবে।</translation>
 <translation id="4813512666221746211">নেটওয়ার্ক  ত্রুটি</translation>
@@ -673,7 +673,7 @@
 <translation id="6387478394221739770">Chrome এর নতুন দুর্দান্ত বৈশিষ্ট্যগুলিতে আগ্রহী? chrome.com/beta এ আমাদের বিটা চ্যানেল ব্যবহার করে দেখুন৷</translation>
 <translation id="6397451950548600259">আপনার কম্পিউটারে সফ্টওয়্যারটি নিরাপদে ওয়েব সংযোগের করতে Chrome কে বাধা দিচ্ছে</translation>
 <translation id="6404511346730675251">বুকমার্ক সম্পাদনা করুন</translation>
-<translation id="6410264514553301377"><ph name="CREDIT_CARD" /> এর মেয়াদ শেষের তারিখ এবং CVC লিখুন</translation>
+<translation id="6410264514553301377">Enter the expiration date and CVC for <ph name="CREDIT_CARD" /></translation>
 <translation id="6414888972213066896">এই সাইটটি ঘুরে দেখা ঠিক হবে কিনা সেই বিষয়ে আপনি আপনার পিতামাতাকে জিজ্ঞাসা করেছেন</translation>
 <translation id="6417515091412812850">শংসাপত্রকরণটি প্রত্যাহার করা হয়েছে কিনা তা যাচাইয়ে অক্ষম৷</translation>
 <translation id="6433490469411711332">পরিচিতি তথ্য সম্পাদনা করুন</translation>
@@ -760,7 +760,7 @@
 <translation id="7219179957768738017">এই সংযোগটি <ph name="SSL_VERSION" />টি ব্যবহার করে</translation>
 <translation id="7220786058474068424">প্রক্রিয়ায় রয়েছে</translation>
 <translation id="724691107663265825">এই সাইটটিতে ম্যালওয়্যার আছে</translation>
-<translation id="724975217298816891">আপনার কার্ডের বিবরণ আপডেট করার জন্য মেয়াদ শেষের তারিখ এবং <ph name="CREDIT_CARD" /> এর CVC  লিখুন। আপনি নিশ্চিত করলে, আপনার কার্ডের বিবরণ এই সাইটের সাথে শেয়ার করা হবে।</translation>
+<translation id="724975217298816891">Enter the expiration date and CVC for <ph name="CREDIT_CARD" /> to update your card details. Once you confirm, your card details will be shared with this site.</translation>
 <translation id="7260504762447901703">অ্যাক্সেস প্রত্যাহার করুন</translation>
 <translation id="7275334191706090484">পরিচালিত বুকমার্কগুলি</translation>
 <translation id="7298195798382681320">প্রস্তাবিত</translation>
@@ -845,7 +845,7 @@
 <translation id="785549533363645510">আপনি অবশ্য অদৃশ্য থাকবেন না। ছদ্মবেশী মোডে গেলেও তা আপনার নিয়োগকর্তা, আপনার ইন্টারনেট পরিষেবা প্রদানকারী অথবা আপনার পরিদর্শন করা ওয়েবসাইট থেকে আপনার ব্রাউজিংকে আড়াল করবে না।</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
 <translation id="7878176543348854470">ডেবিট ও প্রিপেড কার্ড গ্রহণ করা হয়।</translation>
-<translation id="7887683347370398519">আপনার CVC পরীক্ষা করুন এবং আবার চেষ্টা করুন</translation>
+<translation id="7887683347370398519">Check your CVC and try again</translation>
 <translation id="79338296614623784">একটি সঠিক ফোন নম্বর লিখুন</translation>
 <translation id="7935318582918952113">DOM Distiller</translation>
 <translation id="7938958445268990899">সার্ভারের শংসাপত্র এখনও কার্যকর নয়.</translation>

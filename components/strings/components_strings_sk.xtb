@@ -10,7 +10,7 @@
 <translation id="1055184225775184556">&amp;Vrátiť späť pridanie</translation>
 <translation id="10614374240317010">Neuložené</translation>
 <translation id="1066396345355680611">Môžete stratiť prístup ku chránenému obsahu z webu <ph name="SITE" /> a niektorých ďalších webov.</translation>
-<translation id="106701514854093668">Záložky plochy</translation>
+<translation id="106701514854093668">Záložky v počítači</translation>
 <translation id="1074497978438210769">Nezabezpečené</translation>
 <translation id="1080116354587839789">Prispôsobiť šírke</translation>
 <translation id="1103523840287552314">Vždy preložiť nasledujúci jazyk: <ph name="LANGUAGE" /></translation>
@@ -172,7 +172,7 @@
 <translation id="2317259163369394535">Doména <ph name="DOMAIN" /> vyžaduje používateľské meno a heslo.</translation>
 <translation id="2317583587496011522">Debetné karty sú akceptované.</translation>
 <translation id="2337852623177822836">Nastavenie ovládané správcom</translation>
-<translation id="2354001756790975382">Iné záložky</translation>
+<translation id="2354001756790975382">Ostatné</translation>
 <translation id="2354430244986887761">Funkcia Bezpečné prehliadanie Google nedávno <ph name="BEGIN_LINK" />našla škodlivé aplikácie<ph name="END_LINK" /> na webe <ph name="SITE" />.</translation>
 <translation id="2355395290879513365">Útočníci môžu vidieť obrázky, ktoré si prehliadate na tomto webe, a môžu vás napadnúť tým, že ich podvodným spôsobom upravia.</translation>
 <translation id="2356070529366658676">Opýtať sa</translation>

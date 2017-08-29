@@ -2,7 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="sk">
 <translation id="1016495303386450659">Položka bola aktualizovaná</translation>
-<translation id="1047726139967079566">Pridať túto stránku medzi záložky...</translation>
+<translation id="1047726139967079566">Pridať stránku medzi záložky…</translation>
 <translation id="1049743911850919806">Inkognito</translation>
 <translation id="1076421457278169141">Kód bol naskenovaný</translation>
 <translation id="1084365883616172403">Príspevok bol uverejnený na Facebook.</translation>
@@ -168,7 +168,7 @@ Ak chcete upraviť hľadaný výraz, vyberte ho dlhým stlačením. Ak chcete vy
 <translation id="4124987746317609294">Časové obdobie</translation>
 <translation id="4172051516777682613">Vždy zobraziť</translation>
 <translation id="418156467088430727">Zobraziť offline verziu na novej karte</translation>
-<translation id="4237682350741091554">Synchronizáciu Chrome a prispôsobenie môžete spravovať v časti <ph name="BEGIN_LINK" />Nastavenia<ph name="END_LINK" /></translation>
+<translation id="4237682350741091554">Synchronizáciu a prispôsobenie Chromu môžete spravovať v <ph name="BEGIN_LINK" />Nastaveniach<ph name="END_LINK" /></translation>
 <translation id="424315890655130736">Zadajte prístupovú frázu</translation>
 <translation id="4272631900155121838">Ak chcete naskenovať QR kód, povoľte v nastaveniach fotoaparát</translation>
 <translation id="4281844954008187215">Zmluvné podmienky</translation>
@@ -390,7 +390,7 @@ Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej
 <translation id="8820817407110198400">Záložky</translation>
 <translation id="8840513115188359703">Neodhlásime vás z účtu Google.</translation>
 <translation id="8881801611828450202">Hľadať tento obrázok v službe <ph name="SEARCH_ENGINE" /></translation>
-<translation id="8904976895050290827">Chrome Sync</translation>
+<translation id="8904976895050290827">Synchronizácia Chromu</translation>
 <translation id="895541991026785598">Nahlásiť problém</translation>
 <translation id="8971089644512329999">Ok, rozumiem</translation>
 <translation id="8981454092730389528">Riadenie aktivity Google</translation>

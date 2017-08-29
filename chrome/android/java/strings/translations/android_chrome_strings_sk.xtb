@@ -255,7 +255,7 @@ Ak chcete používať Fyzický web, musíte mať zapnuté rozhranie Bluetooth a�
 <translation id="3542235761944717775">Voľné miesto: <ph name="KILOBYTES" /> kB</translation>
 <translation id="3549644494707163724">Šifrovať všetky synchronizované údaje pomocou vlastnej prístupovej frázy pre synchronizáciu</translation>
 <translation id="3549657413697417275">Prehľadať históriu</translation>
-<translation id="3552151358455404883">Spravujte synchronizáciu Chrome a prispôsobenie v časti <ph name="BEGIN_LINK1" />Nastavenia<ph name="END_LINK1" /></translation>
+<translation id="3552151358455404883">Synchronizáciu a prispôsobenie Chromu môžete spravovať v <ph name="BEGIN_LINK1" />Nastaveniach<ph name="END_LINK1" /></translation>
 <translation id="3557336313807607643">Pridať do kontaktov</translation>
 <translation id="3583454905526475291">Aplikácia sa nedá spustiť</translation>
 <translation id="3587482841069643663">Všetko</translation>
@@ -289,7 +289,7 @@ Ak chcete upraviť hľadaný výraz, vyberte ho dlhým stlačením. Ak chcete vy
 <translation id="3859306556332390985">Pretočiť dopredu</translation>
 <translation id="3894427358181296146">Pridanie priečinka</translation>
 <translation id="3895926599014793903">Vynútiť povolenie priblíženia</translation>
-<translation id="3917783807003067648">Poloha je zablokovaná</translation>
+<translation id="3917783807003067648">Poloha je blokovaná</translation>
 <translation id="3927692899758076493">Bezpätkové</translation>
 <translation id="3928666092801078803">Spojiť moje dáta</translation>
 <translation id="3931947361983910192">posledných štyroch týždňov</translation>
@@ -446,14 +446,14 @@ Ak chcete upraviť hľadaný výraz, vyberte ho dlhým stlačením. Ak chcete vy
 <translation id="548278423535722844">Otvorte v aplikácii pre mapy</translation>
 <translation id="5487521232677179737">Vymazať údaje</translation>
 <translation id="5487729733663684359">Pre túto verziu systému Android už nie sú podporované aktualizácie prehliadača Chrome</translation>
-<translation id="5490801865084500306">Bola vybraná karta Záložky</translation>
+<translation id="5490801865084500306">Je vybraná karta záložiek</translation>
 <translation id="5512137114520586844">Tento účet je spravovaný používateľom <ph name="PARENT_NAME" />.</translation>
 <translation id="5514904542973294328">Deaktivované správcom tohto zariadenia</translation>
 <translation id="5517095782334947753">Máte záložky, históriu, heslá a ďalšie nastavenia z účtu <ph name="FROM_ACCOUNT" />.</translation>
 <translation id="5527082711130173040">Na to, aby mohol Chrome hľadať zariadenia, musí mať prístup k polohe. <ph name="BEGIN_LINK1" />Aktualizujte povolenia<ph name="END_LINK1" />. Prístup k polohe je <ph name="BEGIN_LINK2" />vypnutý aj v tomto zariadení<ph name="END_LINK2" />.</translation>
 <translation id="5530766185686772672">Zavrieť karty inkognito</translation>
 <translation id="5534640966246046842">Web bol skopírovaný</translation>
-<translation id="5537099431952529648">Synchronizáciu Chrome a prispôsobenie môžete spravovať v časti <ph name="BEGIN_LINK1" />Nastavenia<ph name="END_LINK1" /> vy, ale aj vaši rodičia.</translation>
+<translation id="5537099431952529648">Synchronizáciu a prispôsobenie Chromu môžete spravovať v <ph name="BEGIN_LINK1" />Nastaveniach<ph name="END_LINK1" /> vy, ale aj vaši rodičia.</translation>
 <translation id="5556459405103347317">Obnoviť</translation>
 <translation id="5568069709869097550">Nedá sa prihlásiť</translation>
 <translation id="557283862590186398">Chrome potrebuje povolenie pre tento web na prístup k vášmu mikrofónu.</translation>
@@ -466,7 +466,7 @@ Ak chcete upraviť hľadaný výraz, vyberte ho dlhým stlačením. Ak chcete vy
 <translation id="5639724618331995626">Povoliť všetky weby</translation>
 <translation id="5646376287012673985">Poloha</translation>
 <translation id="5648166631817621825">Posledných 7 dní</translation>
-<translation id="5655963694829536461">Hľadajte stiahnuté súbory</translation>
+<translation id="5655963694829536461">Hľadajte medzi stiahnutými súbormi</translation>
 <translation id="5659593005791499971">E-mail</translation>
 <translation id="5665379678064389456">Vytvorte udalosť v aplikácii <ph name="APP_NAME" /></translation>
 <translation id="5668404140385795438">Ignorovať požiadavku webových stránok na zákaz priblíženia</translation>
@@ -634,7 +634,7 @@ Niektoré weby môžu napríklad na túto žiadosť reagovať tak, že vám zobr
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 vybratá položka}few{# vybraté položky}many{Niekoľko (#) vybratých položiek}other{# vybratých položiek}}</translation>
 <translation id="7121362699166175603">Vymaže históriu a záznamy automatického dopĺňania v paneli s adresou. Váš účet Google môže mať ďalšie formy histórie prehliadania na adrese <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7128222689758636196">Povoliť pre aktuálny vyhľadávač</translation>
-<translation id="7138678301420049075">Iné</translation>
+<translation id="7138678301420049075">Ostatné</translation>
 <translation id="7144878232160441200">Skúsiť znova</translation>
 <translation id="7149893636342594995">Posledných 24 hodín</translation>
 <translation id="7177466738963138057">Zmeniť to môžete neskôr v časti Nastavenia</translation>
@@ -675,7 +675,7 @@ Váš účet Google môže mať na adrese <ph name="BEGIN_LINK" />history.google
 <translation id="756809126120519699">Údaje Chromu boli vymazané</translation>
 <translation id="7588950540487816470">Fyzický web</translation>
 <translation id="7589445247086920869">Blokovať pre aktuálny vyhľadávač</translation>
-<translation id="7593557518625677601">V nastaveniach Androidu spustite Synchronizáciu Chrome opätovným povolením synchronizácie Androidu</translation>
+<translation id="7593557518625677601">V nastaveniach Androidu spustite synchronizáciu Chromu opätovným povolením synchronizácie Androidu</translation>
 <translation id="7596558890252710462">Operačný systém</translation>
 <translation id="7600965453749440009">Nikdy neprekladať jazyk <ph name="LANGUAGE" /></translation>
 <translation id="7605594153474022051">Synchronizácia nefunguje</translation>

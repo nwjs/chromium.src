@@ -19,7 +19,7 @@
 <translation id="103279545524624934">Ak chcete spúšťať aplikácie pre Android, uvoľnite miesto na disku.</translation>
 <translation id="1033780634303702874">Mať prístup k zariadeniam pripojeným cez sériový port</translation>
 <translation id="1035094536595558507">Zobrazenie snímky</translation>
-<translation id="1035590878859356651">Vytvoriť záložku pre túto stránku...</translation>
+<translation id="1035590878859356651">Pridať stránku medzi záložky…</translation>
 <translation id="1036348656032585052">Vypnúť</translation>
 <translation id="1036511912703768636">Prístup ku ktorýmkoľvek z týchto zariadení USB</translation>
 <translation id="1036982837258183574">Režim celej obrazovky ukončíte stlačením klávesa |<ph name="ACCELERATOR" />|</translation>
@@ -29,7 +29,7 @@
 <translation id="1042574203789536285">Stránky <ph name="URL" /> chcú natrvalo ukladať veľké množstvo údajov vo vašom zariadení.</translation>
 <translation id="1046059554679513793">Hops, toto meno sa už používa.</translation>
 <translation id="1047431265488717055">Kopírovať te&amp;xt odkazu</translation>
-<translation id="1047726139967079566">Pridať túto stránku medzi záložky...</translation>
+<translation id="1047726139967079566">Pridať stránku medzi záložky…</translation>
 <translation id="1047956942837015229">Prebieha odstraňovanie <ph name="COUNT" /> položiek...</translation>
 <translation id="1048286738600630630">Zobrazenie</translation>
 <translation id="1049795001945932310">&amp;Nastavenia jazyka</translation>
@@ -352,7 +352,7 @@
 <translation id="1511004689539562549">Nepovoliť stránkam používať vašu kameru</translation>
 <translation id="1511388193702657997">Ponúkať uloženie hesiel webových stránok</translation>
 <translation id="1514215615641002767">Pridať na plochu</translation>
-<translation id="151501797353681931">Importované z prehliadača Safari</translation>
+<translation id="151501797353681931">Importované zo Safari</translation>
 <translation id="1515163294334130951">Spustiť</translation>
 <translation id="1519759545815312682">Pre účet <ph name="USER_EMAIL" /> je aktivovaná Hlasová a zvuková aktivita.</translation>
 <translation id="1520635877184409083">Upraviť...</translation>
@@ -837,7 +837,7 @@ Do úplného nabitia zostáva: <ph name="HOUR" />:<ph name="MINUTE" /></translat
 <translation id="2231238007119540260">Ak odstránite certifikát servera, obnovíte zvyčajné bezpečnostné kontroly servera a server bude musieť používať platný certifikát.</translation>
 <translation id="2231990265377706070">Výkričník</translation>
 <translation id="2232876851878324699">Súbor obsahoval jeden certifikát, ktorý nebol importovaný:</translation>
-<translation id="2233502537820838181">&amp;Viac informácií</translation>
+<translation id="2233502537820838181">Ďalšie &amp;informácie</translation>
 <translation id="2238379619048995541">Údaje stavu frekvencie</translation>
 <translation id="2239921694246509981">Pridať kontrolovanú osobu</translation>
 <translation id="2241053333139545397">Čítanie a úprava údajov na rôznych weboch</translation>
@@ -849,10 +849,10 @@ Do úplného nabitia zostáva: <ph name="HOUR" />:<ph name="MINUTE" /></translat
 <translation id="2249499294612408921">Kontrolovaný používateľ môže skúmať web pod vaším dohľadom. Ako správca kontrolovaného používateľa v prehliadači Chrome môžete
 
  • povoliť alebo zakázať konkrétne webové stránky,
- • kontrolovať webové stránky, ktoré kontrolovaný používateľ navštívil, a
+ • kontrolovať webové stránky, ktoré kontrolovaný používateľ navštívil,
  • spravovať ďalšie nastavenia.
 
-Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeho záložky, história prehliadania a ďalšie predvoľby sa neprenesú do ďalších zariadení pomocou Synchronizácie Chrome.
+Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeho záložky, história prehliadania a ďalšie predvoľby sa neprenesú do ďalších zariadení pomocou synchronizácie Chromu.
 
 Po vytvorení nového kontrolovaného používateľa môžete kedykoľvek spravovať nastavenia z akéhokoľvek zariadenia na adrese <ph name="DISPLAY_LINK" />. <ph name="BEGIN_LINK" />Ďalšie informácie o kontrolovaných používateľoch<ph name="END_LINK" /></translation>
 <translation id="2249605167705922988">napr. 1-5, 8, 11-13</translation>
@@ -919,7 +919,7 @@ Po vytvorení nového kontrolovaného používateľa môžete kedykoľvek spravo
 <translation id="2339120501444485379">Zadajte nové meno</translation>
 <translation id="2339641773402824483">Hľadajú sa aktualizácie...</translation>
 <translation id="2340263603246777781"><ph name="ORIGIN" /> žiada o spárovanie</translation>
-<translation id="2344028582131185878">Automatické stiahnutia</translation>
+<translation id="2344028582131185878">Automatické sťahovania</translation>
 <translation id="2345723121311404059">1 strana do tlačiarne <ph name="PRINTER_NAME" /></translation>
 <translation id="2347476388323331511">Nie je možné synchronizovať</translation>
 <translation id="2348176352564285430">Aplikácia: <ph name="ARC_PROCESS_NAME" /></translation>
@@ -1090,8 +1090,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="2585116156172706706">Toto rozšírenie mohlo byť pridané bez vášho vedomia.</translation>
 <translation id="2585300050980572691">Predvolené nastavenia vyhľadávania</translation>
 <translation id="2587203970400270934">Kód operátora:</translation>
-<translation id="2587922270115112871">Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeho nastavenia
-    a údaje sa neprenesú na ďalšie zariadenia pomocou Synchronizácie Chrome. Kontrolovaný používateľ sa vzťahuje iba na toto zariadenie.</translation>
+<translation id="2587922270115112871">Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeho nastavenia a dáta sa neprenesú na ďalšie zariadenia pomocou synchronizácie Chromu. Kontrolovaný používateľ sa vzťahuje iba na toto zariadenie.</translation>
 <translation id="258932246702879617">Vyberte možnosť <ph name="BEGIN_BOLD" />Pripnúť na panel úloh<ph name="END_BOLD" /></translation>
 <translation id="259421303766146093">Zrušiť zväčšenie</translation>
 <translation id="2594999711683503743">Vyhľadávajte na Googli alebo zadajte webovú adresu</translation>
@@ -1415,10 +1414,10 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="3030243755303701754">Kontrolovaný používateľ môže preskúmavať web pod vaším dohľadom. Ako správca kontrolovaného používateľa v Chrome môžete:
 
  • povoliť alebo zakázať konkrétne weby;
- • pozrieť si weby, ktoré kontrolovaný používateľ navštívil; a
+ • pozrieť si weby, ktoré kontrolovaný používateľ navštívil;
  • spravovať ďalšie nastavenia.
 
-Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeho záložky, história prehliadania ani ďalšie predvoľby sa neprenesú na ďalšie zariadenia pomocou Synchronizácie Chrome. Po vytvorení nového kontrolovaného používateľa môžete kedykoľvek spravovať nastavenia z akéhokoľvek zariadenia na adrese <ph name="BEGIN_MANAGE_LINK" /><ph name="DISPLAY_LINK" /><ph name="END_MANAGE_LINK" />.
+Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeho záložky, história prehliadania ani ďalšie predvoľby sa neprenesú na ďalšie zariadenia pomocou synchronizácie Chromu. Po vytvorení nového kontrolovaného používateľa môžete kedykoľvek spravovať nastavenia z akéhokoľvek zariadenia na adrese <ph name="BEGIN_MANAGE_LINK" /><ph name="DISPLAY_LINK" /><ph name="END_MANAGE_LINK" />.
 
 Ďalšie informácie nájdete v našom <ph name="BEGIN_LINK" />centre pomoci<ph name="END_LINK" />.</translation>
 <translation id="3031417829280473749">Agent X</translation>
@@ -2063,7 +2062,7 @@ z domény <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3948116654032448504">&amp;Hľadať obrázok v službe <ph name="SEARCH_ENGINE" /></translation>
 <translation id="3949371968208420848">Vitajte v službe Hangouts Meet!</translation>
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
-<translation id="394984172568887996">Importované z prehliadača IE</translation>
+<translation id="394984172568887996">Importované z Internet Explorera</translation>
 <translation id="3950820424414687140">Prihlásiť sa</translation>
 <translation id="3951872452847539732">Vaše nastavenia serveru proxy siete sú spravované pomocou rozšírenia.</translation>
 <translation id="3954354850384043518">Prebieha</translation>
@@ -3060,7 +3059,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="5496587651328244253">Usporiadať</translation>
 <translation id="549673810209994709">Túto stránku sa nepodarilo preložiť.</translation>
 <translation id="5499313591153584299">Tento súbor môže poškodiť váš počítať.</translation>
-<translation id="5502500733115278303">Importované z prehliadača Firefox</translation>
+<translation id="5502500733115278303">Importované z Firefoxu</translation>
 <translation id="5505095961735225576">Služba Hangouts Meet vyžaduje informácie o tom, do ktorej domény patrí. Poskytnete jej ich prihlásením sa do účtu.</translation>
 <translation id="5507756662695126555">Zrušenie zamietnutia</translation>
 <translation id="5509693895992845810">Uložiť &amp;ako...</translation>
@@ -3290,7 +3289,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="5849869942539715694">Zbaliť rozšírenie...</translation>
 <translation id="5850516540536751549">Tento typ súboru nie je podporovaný. Navštívte <ph name="BEGIN_LINK" />Internetový obchod Chrome<ph name="END_LINK" />, kde nájdete aplikáciu, pomocou ktorej môžete otvoriť tento typ súboru.
         <ph name="BEGIN_LINK_HELP" />Ďalšie informácie<ph name="END_LINK_HELP" /></translation>
-<translation id="5851063901794976166">Tento priečinok je prázdny...</translation>
+<translation id="5851063901794976166">Nič tu nie je…</translation>
 <translation id="5851868085455377790">Vydavateľ</translation>
 <translation id="5852112051279473187">Ojoj! Pri registrácii tohto zariadenia sa vyskytla závažná chyba. Skúste to znova alebo kontaktujte svojho zástupcu podpory.</translation>
 <translation id="5852137567692933493">Reštartovať a použiť funkciu Powerwash</translation>
@@ -4144,7 +4143,7 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="7134098520442464001">Zmenšiť text</translation>
 <translation id="7136694880210472378">Nastaviť ako predvolený</translation>
 <translation id="7136984461011502314">Vitajte v aplikácii <ph name="PRODUCT_NAME" /></translation>
-<translation id="7138678301420049075">Iné</translation>
+<translation id="7138678301420049075">Ostatné</translation>
 <translation id="713888829801648570">Je nám to ľúto, ale vaše heslo nemohlo byť overené, pretože ste offline</translation>
 <translation id="7140928199327930795">Žiadne ďalšie dostupné zariadenia.</translation>
 <translation id="7141105143012495934">Prihlásenie zlyhalo, pretože podrobnosti účtu sa nepodarilo načítať. Kontaktujte svojho správcu alebo to skúste znova.</translation>
@@ -4404,7 +4403,7 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="7547317915858803630">Upozornenie: Vaše nastavenia aplikácie <ph name="PRODUCT_NAME" /> sú uložené na sieťovom disku. Môže to viesť ku spomaleniu, chybám alebo strate údajov.</translation>
 <translation id="7548856833046333824">Limonáda</translation>
 <translation id="7549053541268690807">Hľadať v slovníku</translation>
-<translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
+<translation id="7550830279652415241">záložky_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">Nepodarilo sa stiahnuť súbor <ph name="FILE_NAME" /></translation>
 <translation id="7551643184018910560">Pripnúť na poličku</translation>
 <translation id="7553242001898162573">Zadajte svoje heslo</translation>
@@ -5141,7 +5140,7 @@ Prebieha výpočet času do úplného nabitia</translation>
 <translation id="8676374126336081632">Vymazať vstup</translation>
 <translation id="8677039480012021122">Vymazať údaje a odpojiť</translation>
 <translation id="8677212948402625567">Zbaliť všetky...</translation>
-<translation id="8678648549315280022">Spravovať nastavenia stiahnutia...</translation>
+<translation id="8678648549315280022">Spravovať nastavenia sťahovania…</translation>
 <translation id="8680251145628383637">Prihláste sa, aby ste získali svoje karty, záložky, históriu a ďalšie nastavenia na všetkých zariadeniach. Navyše budete automaticky prihlásený/-á do služieb Google.</translation>
 <translation id="8680536109547170164"><ph name="QUERY" />, odpoveď, <ph name="ANSWER" /></translation>
 <translation id="8686213429977032554">Tento súbor na Disku sa zatiaľ nezdieľa</translation>
@@ -5163,7 +5162,7 @@ Prebieha výpočet času do úplného nabitia</translation>
 <translation id="8705580154597116082">Sieť Wi-Fi je k dispozícii prostredníctvom telefónu</translation>
 <translation id="8708000541097332489">Vymazať po ukončení</translation>
 <translation id="870805141700401153">Komerčné podpisovanie kódu Microsoft</translation>
-<translation id="8708671767545720562">&amp;Viac informácií</translation>
+<translation id="8708671767545720562">Ďalšie &amp;informácie</translation>
 <translation id="8710187907779883426">krátke (1 s)</translation>
 <translation id="8711402221661888347">Kyslé uhorky</translation>
 <translation id="8713570323158206935">Odoslať <ph name="BEGIN_LINK1" />informácie o systéme<ph name="END_LINK1" /></translation>
@@ -5291,7 +5290,7 @@ Nasledujúce upozornenia, okná a dialógové okná sa môžu zobraziť rozdele
 <translation id="8899851313684471736">Otvoriť odkaz v novom &amp;okne</translation>
 <translation id="8902667442496790482">Otvoriť nastavenia počúvania vybraného textu</translation>
 <translation id="8903921497873541725">Priblížiť</translation>
-<translation id="8904976895050290827">Chrome Sync</translation>
+<translation id="8904976895050290827">Synchronizácia Chromu</translation>
 <translation id="8908902564709148335">Upozornenie: Na tomto počítači ste povolili príznak --scripts-require-action, ktorý obmedzuje možnosti tohto rozšírenia. Iné zariadenia ho však nemusia podporovať alebo ho mať povolený. Na týchto zariadeniach môže toto rozšírenie tiež:</translation>
 <translation id="8910146161325739742">Zdieľanie obrazovky</translation>
 <translation id="8910222113987937043">Záložky, história, heslá a ďalšie nastavenia sa už nebudú ďalej synchronizovať do vášho účtu Google. Vaše existujúce údaje však zostanú uložené v účte Google a môžete ich spravovať pomocou panela <ph name="BEGIN_LINK" />Google Dashboard<ph name="END_LINK" />.</translation>

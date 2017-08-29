@@ -1892,7 +1892,7 @@
 <translation id="3726527440140411893">আপনি যখন এই পৃষ্ঠাটি দেখেছিলেন তখন নিম্নোক্ত কুকিজ সেট হয়েছিল:</translation>
 <translation id="3727148787322499904">এই সেটিং পরিবর্তন করা হলে শেয়ার করা সব নেটওয়ার্ক প্রভাবিত হবে</translation>
 <translation id="3727187387656390258">পপআপ সংবীক্ষণ</translation>
-<translation id="3728067901555601989">OTP:</translation>
+<translation id="3728067901555601989">ওটিপি</translation>
 <translation id="3730639321086573427">স্থানীয় গন্তব্যস্থল</translation>
 <translation id="3733127536501031542">স্টেপ-আপ সহ SSL সার্ভার</translation>
 <translation id="3737536731758327622">আপনার ডাউনলোডগুলি এখানে দেখা যাবে</translation>
@@ -2388,7 +2388,7 @@
 <translation id="4530494379350999373">উৎস</translation>
 <translation id="4532499992208253975">emloading</translation>
 <translation id="4533259260976001693">সঙ্কুচিত করুন/প্রসারিত করুন</translation>
-<translation id="4533985347672295764">CPU সময়</translation>
+<translation id="4533985347672295764">CPU Time</translation>
 <translation id="4534799089889278411">কোনো নতুন ট্যাব, google.com, এবং অ্যাপ্লিকেশান লঞ্চারে "Ok Google" বলুন</translation>
 <translation id="4535127706710932914">ডিফল্ট প্রোফাইল</translation>
 <translation id="4538417792467843292">শব্দ মুছুন </translation>
@@ -2616,7 +2616,7 @@
 <translation id="4870177177395420201"><ph name="PRODUCT_NAME" /> ডিফল্ট ব্রাউজারকে নির্ধারণ বা সেট করতে পারে না৷</translation>
 <translation id="48704129375571883">অতিরিক্ত বৈশিষ্ট্যগুলি যোগ করুন</translation>
 <translation id="4870903493621965035">কোনো ডিভাইস যুক্ত করা নেই</translation>
-<translation id="4871210892959306034">$১ KB</translation>
+<translation id="4871210892959306034">KB</translation>
 <translation id="4871308555310586478">Chrome ওয়েব দোকান থেকে নয়৷</translation>
 <translation id="4871370605780490696">বুকমার্ক যোগ করুন</translation>
 <translation id="4871833665870725367">আপনি কি <ph name="PASSWORD_MANAGER_BRAND" /> এর মাধ্যমে <ph name="ORIGIN" /> এর জন্য আপনার পাসওয়ার্ডগুলি আপডেট করতে চান?</translation>

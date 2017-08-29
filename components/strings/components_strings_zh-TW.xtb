@@ -195,7 +195,7 @@
 <translation id="2495093607237746763">勾選後，Chromium 會將您的信用卡資料儲存在這個裝置上，以加快表單填寫速度。</translation>
 <translation id="2498091847651709837">掃描新信用卡</translation>
 <translation id="2501278716633472235">返回</translation>
-<translation id="2503184589641749290">接受的金融卡和預付卡</translation>
+<translation id="2503184589641749290">接受的簽帳金融卡和預付卡</translation>
 <translation id="2515629240566999685">檢查所在位置的網路訊號</translation>
 <translation id="2539524384386349900">偵測</translation>
 <translation id="255002559098805027"><ph name="HOST_NAME" /> 傳送的回應無效。</translation>
@@ -613,7 +613,7 @@
 <translation id="5869405914158311789">無法連上這個網站</translation>
 <translation id="5869522115854928033">已儲存的密碼</translation>
 <translation id="5872918882028971132">家長建議</translation>
-<translation id="5893752035575986141">接受金融卡。</translation>
+<translation id="5893752035575986141">接受簽帳金融卡。</translation>
 <translation id="5901630391730855834">黃色</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (已同步)</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{目前使用 1 個 Cookie}other{目前使用 # 個 Cookie}}</translation>
@@ -844,7 +844,7 @@
 <translation id="7815407501681723534">找到 <ph name="NUMBER_OF_RESULTS" /> 個與「<ph name="SEARCH_STRING" />」相符的<ph name="SEARCH_RESULTS" /></translation>
 <translation id="785549533363645510">不過，這並不意味著您可以完全隱形。使用無痕模式時，您的雇主和網際網路服務供應商仍然可以追蹤您的瀏覽紀錄，您所造訪的網站也可能會記錄您的瀏覽行為。</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
-<translation id="7878176543348854470">接受金融卡和預付卡。</translation>
+<translation id="7878176543348854470">接受簽帳金融卡和預付卡。</translation>
 <translation id="7887683347370398519">請檢查您的 CVC，然後再試一次</translation>
 <translation id="79338296614623784">請輸入有效的電話號碼</translation>
 <translation id="7935318582918952113">DOM Distiller</translation>
