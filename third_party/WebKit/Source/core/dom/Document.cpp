@@ -5832,20 +5832,20 @@ void Document::InitSecurityContext(const DocumentInit& initializer) {
     // load local resources. The latter lets about:blank iframes in
     // file:// URL documents load images and other resources from
     // the file system.
-    Document* owner = initializer.OwnerDocument();
-    if (owner) {
-      if (owner->GetSecurityOrigin()->IsPotentiallyTrustworthy())
-        GetSecurityOrigin()->SetUniqueOriginIsPotentiallyTrustworthy(true);
-      if (owner->GetSecurityOrigin()->CanLoadLocalResources())
-        GetSecurityOrigin()->GrantLoadLocalResources();
-      policy_to_inherit = owner->GetContentSecurityPolicy();
-    }
-  } else if (Document* owner = initializer.OwnerDocument()) {
-    cookie_url_ = owner->CookieURL();
+    if (initializer.Owner() &&
+        initializer.Owner()->GetSecurityOrigin()->IsPotentiallyTrustworthy())
+      GetSecurityOrigin()->SetUniqueOriginIsPotentiallyTrustworthy(true);
+    if (initializer.Owner() &&
+        initializer.Owner()->GetSecurityOrigin()->CanLoadLocalResources())
+      GetSecurityOrigin()->GrantLoadLocalResources();
+    if (initializer.Owner())
+      policy_to_inherit = initializer.Owner()->GetContentSecurityPolicy();
+  } else if (initializer.Owner()) {
+    cookie_url_ = initializer.Owner()->CookieURL();
     // We alias the SecurityOrigins to match Firefox, see Bug 15313
     // https://bugs.webkit.org/show_bug.cgi?id=15313
-    SetSecurityOrigin(owner->GetSecurityOrigin());
-    policy_to_inherit = owner->GetContentSecurityPolicy();
+    SetSecurityOrigin(initializer.Owner()->GetSecurityOrigin());
+    policy_to_inherit = initializer.Owner()->GetContentSecurityPolicy();
   } else {
     cookie_url_ = url_;
     SetSecurityOrigin(SecurityOrigin::Create(url_));
