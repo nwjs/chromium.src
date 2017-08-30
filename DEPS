@@ -714,8 +714,7 @@ hooks = [
   {
     'action': [
       'python',
-      'src/content/nw/tools/patcher.py',
-      '--patch-config', 'src/content/nw/patch/patch.cfg'
+      'src/content/nw/tools/patcher.py'
     ],
     'pattern':
       '.',
