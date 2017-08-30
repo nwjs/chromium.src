@@ -161,6 +161,14 @@ public class PictureInPictureController {
         // Inform the WebContents when we enter and when we leave PiP.
         final WebContents webContents = getWebContents(activity);
         assert webContents != null;
+
+        try {
+            activity.enterPictureInPictureMode();
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Error entering PiP: " + e);
+            return;
+        }
+
         webContents.setHasPersistentVideo(true);
 
         mOnLeavePipCallbacks.add(new Callback<ChromeActivity>() {
@@ -169,9 +177,6 @@ public class PictureInPictureController {
                 webContents.setHasPersistentVideo(false);
             }
         });
-
-        // TODO(peconn): Use non-deprecated version once building with Android O.
-        activity.enterPictureInPictureMode();
 
         // Setup observers to dismiss the Activity on events that should end PiP.
         final Tab activityTab = activity.getActivityTab();
