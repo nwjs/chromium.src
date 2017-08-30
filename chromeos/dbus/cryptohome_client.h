@@ -489,10 +489,6 @@ class CHROMEOS_EXPORT CryptohomeClient : public DBusClient {
       const std::string& key_prefix,
       const BoolDBusMethodCallback& callback) = 0;
 
-  // Asynchronously gets the underlying TPM version information and passes it to
-  // the given callback as a string.
-  virtual void TpmGetVersion(const StringDBusMethodCallback& callback) = 0;
-
   // Asynchronously calls the GetKeyDataEx method. |callback| will be invoked
   // with the reply protobuf.
   // GetKeyDataEx returns information about the key specified in |request|. At

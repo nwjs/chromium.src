@@ -500,8 +500,11 @@ DeviceStatusCollector::DeviceStatusCollector(
   // Fetch the current values of the policies.
   UpdateReportingSettings();
 
-  // Get the OS and firmware version info.
-  chromeos::version_loader::GetFullOSAndTpmVersion(
+  // Get the the OS and firmware version info.
+  base::PostTaskWithTraitsAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BACKGROUND},
+      base::Bind(&chromeos::version_loader::GetVersion,
+                 chromeos::version_loader::VERSION_FULL),
       base::Bind(&DeviceStatusCollector::OnOSVersion,
                  weak_factory_.GetWeakPtr()));
   base::PostTaskWithTraitsAndReplyWithResult(
