@@ -348,16 +348,7 @@ void FastInkView::UpdateSurface() {
   DCHECK(rv);
 
   gfx::Rect output_rect(widget_->GetNativeView()->GetBoundsInScreen().size());
-  // |quad_rect| is under normal cricumstances equal to |buffer_size| but to
-  // be more resilient to rounding errors in the compositor that might cause
-  // off-by-one problems when the transform is non-trivial we compute this rect
-  // by mapping the output rect back into buffer space and intersecting by
-  // buffer bounds. This avoids some corner cases where one row or column
-  // would end up outside the screen and we would fail to take advantage of HW
-  // overlays.
-  gfx::Rect quad_rect = gfx::ToEnclosedRect(cc::MathUtil::MapClippedRect(
-      screen_to_buffer_transform_, gfx::RectF(output_rect)));
-  quad_rect.Intersect(gfx::Rect(buffer_size));
+  gfx::Rect quad_rect(buffer_size);
 
   const int kRenderPassId = 1;
   std::unique_ptr<cc::RenderPass> render_pass = cc::RenderPass::Create();
