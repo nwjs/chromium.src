@@ -544,6 +544,7 @@ class CONTENT_EXPORT WebContentsImpl
   void OnFocusedElementChangedInFrame(
       RenderFrameHostImpl* frame,
       const gfx::Rect& bounds_in_root_view) override;
+  void OnAdvanceFocus(RenderFrameHostImpl* source_rfh) override;
   void CreateNewWindow(
       RenderFrameHost* opener,
       int32_t render_view_route_id,
