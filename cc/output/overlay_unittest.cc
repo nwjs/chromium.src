@@ -753,7 +753,6 @@ TEST_F(SingleOverlayOnTopTest, DamageRect) {
   // Primary plane.
   OverlayCandidate output_surface_plane;
   output_surface_plane.display_rect = gfx::RectF(kOverlayRect);
-  output_surface_plane.quad_rect_in_target_space = kOverlayRect;
   output_surface_plane.use_output_surface_for_resource = true;
   output_surface_plane.overlay_handled = true;
   candidate_list.push_back(output_surface_plane);
@@ -1669,8 +1668,6 @@ OverlayCandidateList BackbufferOverlayList(const RenderPass* root_render_pass) {
   OverlayCandidateList list;
   OverlayCandidate output_surface_plane;
   output_surface_plane.display_rect = gfx::RectF(root_render_pass->output_rect);
-  output_surface_plane.quad_rect_in_target_space =
-      root_render_pass->output_rect;
   output_surface_plane.use_output_surface_for_resource = true;
   output_surface_plane.overlay_handled = true;
   list.push_back(output_surface_plane);

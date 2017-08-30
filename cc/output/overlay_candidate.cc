@@ -275,8 +275,6 @@ bool OverlayCandidate::FromDrawQuadResource(ResourceProvider* resource_provider,
   auto& transform = quad->shared_quad_state->quad_to_target_transform;
   candidate->display_rect = gfx::RectF(quad->rect);
   transform.TransformRect(&candidate->display_rect);
-  candidate->quad_rect_in_target_space =
-      MathUtil::MapEnclosingClippedRect(transform, quad->rect);
 
   candidate->clip_rect = quad->shared_quad_state->clip_rect;
   candidate->is_clipped = quad->shared_quad_state->is_clipped;
