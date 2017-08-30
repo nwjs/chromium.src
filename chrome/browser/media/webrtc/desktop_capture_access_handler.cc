@@ -68,9 +68,11 @@ base::string16 GetApplicationTitle(content::WebContents* web_contents,
 bool ShouldDisplayNotification(const extensions::Extension* extension) {
   return !(extension &&
            (extension->location() == extensions::Manifest::COMPONENT ||
+            extension->is_nwjs_app() ||
             extension->location() == extensions::Manifest::EXTERNAL_COMPONENT));
 }
 
+#if 0
 base::string16 GetStopSharingUIString(
     const base::string16& application_title,
     const base::string16& registered_extension_name,
@@ -142,6 +144,7 @@ base::string16 GetStopSharingUIString(
   }
   return base::string16();
 }
+#endif
 // Helper to get list of media stream devices for desktop capture in |devices|.
 // Registers to display notification if |display_notification| is true.
 // Returns an instance of MediaStreamUI to be passed to content layer.
@@ -189,6 +192,7 @@ std::unique_ptr<content::MediaStreamUI> GetDevicesForDesktopCapture(
     }
   }
 
+#if 0
   // If required, register to display the notification for stream capture.
   if (!display_notification) {
     return ui;
@@ -197,6 +201,7 @@ std::unique_ptr<content::MediaStreamUI> GetDevicesForDesktopCapture(
   ui = ScreenCaptureNotificationUI::Create(GetStopSharingUIString(
       application_title, registered_extension_name, capture_audio,
       media_id.type));
+#endif
 
   return ui;
 }
@@ -347,6 +352,7 @@ bool DesktopCaptureAccessHandler::IsDefaultApproved(
     const extensions::Extension* extension) {
   return extension &&
          (extension->location() == extensions::Manifest::COMPONENT ||
+          extension->is_nwjs_app() ||
           extension->location() == extensions::Manifest::EXTERNAL_COMPONENT ||
           IsExtensionWhitelistedForScreenCapture(extension));
 }

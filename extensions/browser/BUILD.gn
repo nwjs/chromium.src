@@ -371,6 +371,10 @@ source_set("browser_sources") {
     "//ui/display",
   ]
 
+  include_dirs = [
+    "//third_party/WebKit",
+  ]
+
   public_deps = [
     "//extensions/browser/install",
     "//extensions/browser/kiosk",

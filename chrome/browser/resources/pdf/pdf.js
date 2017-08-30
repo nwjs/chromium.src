@@ -618,7 +618,7 @@ PDFViewer.prototype = {
               message.data.url,
               Navigator.WindowOpenDisposition.NEW_BACKGROUND_TAB);
         } else {
-          this.navigator_.navigate(message.data.url, message.data.disposition);
+          this.navigator_.navigate(message.data.url, Navigator.WindowOpenDisposition.NEW_BACKGROUND_TAB);
         }
         break;
       case 'printPreviewLoaded':

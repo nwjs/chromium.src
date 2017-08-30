@@ -5,6 +5,10 @@
 #include "chrome/browser/profiles/profile_impl_io_data.h"
 
 #include <memory>
+
+#include "content/nw/src/nw_base.h"
+#include "extensions/common/manifest_constants.h"
+
 #include <set>
 #include <string>
 #include <utility>
@@ -505,6 +509,11 @@ void ProfileImplIOData::InitializeInternal(
   cookie_config.crypto_delegate = cookie_config::GetCookieCryptoDelegate();
   cookie_config.channel_id_service = main_context->channel_id_service();
   cookie_config.background_task_runner = cookie_background_task_runner;
+  const base::CommandLine& command_line =
+      *base::CommandLine::ForCurrentProcess();
+  if (command_line.HasSwitch("disable-cookie-encryption")) {
+    cookie_config::SetEnableCookieCrypto(false);
+  }
   main_context_storage->set_cookie_store(
       content::CreateCookieStore(cookie_config));
 
@@ -566,6 +575,10 @@ void ProfileImplIOData::
   // store.
   net::URLRequestContext* extensions_context = extensions_request_context();
 
+  std::string domain;
+  if (nw::package()->root()->GetString(extensions::manifest_keys::kNWJSDomain, &domain)) {
+    extensions_context->set_cookie_store(main_request_context()->cookie_store());
+  } else {
   content::CookieStoreConfig cookie_config(
       lazy_params_->extensions_cookie_path,
       lazy_params_->session_cookie_mode,
@@ -576,6 +589,7 @@ void ProfileImplIOData::
   cookie_config.channel_id_service = extensions_context->channel_id_service();
   extensions_cookie_store_ = content::CreateCookieStore(cookie_config);
   extensions_context->set_cookie_store(extensions_cookie_store_.get());
+  }
 }
 
 net::URLRequestContext* ProfileImplIOData::InitializeAppRequestContext(

@@ -238,7 +238,6 @@ void AppIndicatorIcon::SetImage(const gfx::ImageSkia& image) {
 }
 
 void AppIndicatorIcon::SetToolTip(const base::string16& tool_tip) {
-  DCHECK(!tool_tip_.empty());
   tool_tip_ = base::UTF16ToUTF8(tool_tip);
   UpdateClickActionReplacementMenuItem();
 }
@@ -383,8 +382,8 @@ void AppIndicatorIcon::UpdateClickActionReplacementMenuItem() {
   if (!delegate()->HasClickAction() && menu_model_)
     return;
 
-  DCHECK(!tool_tip_.empty());
-  menu_->UpdateClickActionReplacementMenuItem(
+  if(!tool_tip_.empty())
+    menu_->UpdateClickActionReplacementMenuItem(
       tool_tip_.c_str(),
       base::Bind(&AppIndicatorIcon::OnClickActionReplacementMenuItemActivated,
                  base::Unretained(this)));

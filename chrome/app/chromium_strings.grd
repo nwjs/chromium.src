@@ -130,10 +130,10 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
         Disconnecting <ph name="USERNAME">$1<ex>someone@example.com</ex></ph> will clear your history, bookmarks, settings, and other Chromium data stored on this device. Data stored in your Google Account will not be cleared and can be managed on <ph name="GOOGLE_DASHBOARD_LINK">&lt;a target="_blank" href="$2"&gt;</ph>Google Dashboard<ph name="END_GOOGLE_DASHBOARD_LINK">&lt;/a&gt;</ph>.
       </message>
       <message name="IDS_PRODUCT_NAME" desc="The Chrome application name">
-        Chromium
+        nwjs
       </message>
       <message name="IDS_SHORT_PRODUCT_NAME" desc="The Chrome application short name.">
-        Chromium
+        nwjs
       </message>
       <if expr="is_win">
         <message name="IDS_SXS_SHORTCUT_NAME" desc="Unused in Chromium builds" translateable="false">
@@ -143,7 +143,7 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
         <message name="IDS_SHORTCUT_NAME_DEV" desc="Unused in Chromium builds" translateable="false">
         </message>
         <message name="IDS_PRODUCT_DESCRIPTION" desc="Browser description">
-          Chromium is a web browser that runs webpages and applications with lightning speed. It's fast, stable, and easy to use. Browse the web more safely with malware and phishing protection built into Chromium.
+          nwjs runtime enables writing native application with Web technologies.
         </message>
       </if>
       <if expr="chromeos">
@@ -197,7 +197,7 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
         The Chromium Authors
       </message>
       <message name="IDS_ABOUT_VERSION_COPYRIGHT" desc="Copyright information on the about pages">
-        Copyright <ph name="YEAR">{0,date,y}<ex>2016</ex></ph> The Chromium Authors. All rights reserved.
+        Copyright <ph name="YEAR">{0,date,y}<ex>2016</ex></ph> The Chromium Authors, NW.js contributors, Node.js. All rights reserved.
       </message>
       <if expr="chromeos">
         <message name="IDS_ABOUT_VERSION_LICENSE_EULA" desc="The label below the copyright message, containing the URLs.">
@@ -674,13 +674,13 @@ Chromium is unable to recover your settings.
 
       <if expr="is_macosx">
         <message name="IDS_APP_MENU_PRODUCT_NAME" desc="The application's short name, used for the Mac's application menu, activity monitor, etc. This should be less than 16 characters. Example: Chrome, not Google Chrome.">
-          Chromium
+          nwjs
         </message>
         <message name="IDS_HELPER_NAME" desc="The helper application's name.  Should contain the Chrome application name (IDS_PRODUCT_NAME). Example: Google Chrome Helper.">
-          Chromium Helper
+          nwjs Helper
         </message>
         <message name="IDS_SHORT_HELPER_NAME" desc="The helper application's short name, used for the Mac's application menu, activity monitor, etc. Example: Chrome Helper, not Google Chrome Helper.">
-          Chromium Helper
+          nwjs Helper
         </message>
       </if>
 

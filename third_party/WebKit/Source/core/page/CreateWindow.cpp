@@ -50,6 +50,8 @@
 #include "public/platform/WebURLRequest.h"
 #include "public/web/WebWindowFeatures.h"
 
+#include "core/frame/LocalFrameClient.h"
+
 namespace blink {
 
 namespace {
@@ -279,7 +281,7 @@ static Frame* CreateNewWindow(LocalFrame& opener_frame,
                               const FrameLoadRequest& request,
                               const WebWindowFeatures& features,
                               NavigationPolicy policy,
-                              bool& created) {
+                              bool& created, WebString* manifest) {
   Page* old_page = opener_frame.GetPage();
   if (!old_page)
     return nullptr;
@@ -293,8 +295,9 @@ static Frame* CreateNewWindow(LocalFrame& opener_frame,
           ? opener_frame.GetSecurityContext()->GetSandboxFlags()
           : kSandboxNone;
 
+  WebString manifest_str(*manifest);
   Page* page = old_page->GetChromeClient().CreateWindow(
-      &opener_frame, request, features, policy, sandbox_flags);
+                                                        &opener_frame, request, features, policy, sandbox_flags, &manifest_str);
   if (!page)
     return nullptr;
 
@@ -341,7 +344,7 @@ static Frame* CreateWindowHelper(LocalFrame& opener_frame,
                                  const FrameLoadRequest& request,
                                  const WebWindowFeatures& features,
                                  NavigationPolicy policy,
-                                 bool& created) {
+                                 bool& created, WebString* manifest) {
   DCHECK(request.GetResourceRequest().RequestorOrigin() ||
          opener_frame.GetDocument()->Url().IsEmpty());
   DCHECK_EQ(request.GetResourceRequest().GetFrameType(),
@@ -379,7 +382,7 @@ static Frame* CreateWindowHelper(LocalFrame& opener_frame,
     return window;
   }
 
-  return CreateNewWindow(opener_frame, request, features, policy, created);
+  return CreateNewWindow(opener_frame, request, features, policy, created, manifest);
 }
 
 DOMWindow* CreateWindow(const String& url_string,
@@ -430,20 +433,36 @@ DOMWindow* CreateWindow(const String& url_string,
   // createWindow(LocalFrame& openerFrame, ...).
   // This value will be set in ResourceRequest loaded in a new LocalFrame.
   bool has_user_gesture = UserGestureIndicator::ProcessingUserGesture();
+  NavigationPolicy navigationPolicy = kNavigationPolicyNewForegroundTab;
+  WebString manifest;
+  opener_frame.Client()->willHandleNavigationPolicy(frame_request.GetResourceRequest(), &navigationPolicy, &manifest);
 
   // We pass the opener frame for the lookupFrame in case the active frame is
   // different from the opener frame, and the name references a frame relative
   // to the opener frame.
-  bool created;
-  Frame* new_frame = CreateWindowHelper(
+  bool created = false;
+  Frame* new_frame = nullptr;
+  if (navigationPolicy != kNavigationPolicyIgnore &&
+      navigationPolicy != kNavigationPolicyCurrentTab) {
+    new_frame = CreateWindowHelper(
       opener_frame, *active_frame, opener_frame, frame_request, window_features,
-      kNavigationPolicyIgnore, created);
-  if (!new_frame)
+      kNavigationPolicyIgnore, created, &manifest);
+    if (!new_frame)
+      return nullptr;
+    if (!window_features.noopener)
+      new_frame->Client()->SetOpener(&opener_frame);
+  } else if (navigationPolicy == kNavigationPolicyIgnore)
     return nullptr;
+  else
+    new_frame = &opener_frame;
   if (new_frame->DomWindow()->IsInsecureScriptAccess(calling_window,
                                                      completed_url))
     return window_features.noopener ? nullptr : new_frame->DomWindow();
 
+  String agent = opener_frame.Loader().userAgentOverride();
+  if (!agent.IsEmpty() && new_frame->IsLocalFrame())
+    ToLocalFrame(new_frame)->Loader().setUserAgentOverride(agent);
+  
   // TODO(dcheng): Special case for window.open("about:blank") to ensure it
   // loads synchronously into a new window. This is our historical behavior, and
   // it's consistent with the creation of a new iframe with src="about:blank".
@@ -468,7 +487,7 @@ DOMWindow* CreateWindow(const String& url_string,
 
 void CreateWindowForRequest(const FrameLoadRequest& request,
                             LocalFrame& opener_frame,
-                            NavigationPolicy policy) {
+                            NavigationPolicy policy, WebString& manifest) {
   DCHECK(request.GetResourceRequest().RequestorOrigin() ||
          (opener_frame.GetDocument() &&
           opener_frame.GetDocument()->Url().IsEmpty()));
@@ -489,7 +508,7 @@ void CreateWindowForRequest(const FrameLoadRequest& request,
   bool created;
   Frame* new_frame =
       CreateWindowHelper(opener_frame, opener_frame, opener_frame, request,
-                         features, policy, created);
+                         features, policy, created, &manifest);
   if (!new_frame)
     return;
   if (request.GetShouldSendReferrer() == kMaybeSendReferrer) {

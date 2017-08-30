@@ -28,15 +28,21 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
 
   void SendRequestIPC(ScriptContext* context,
                       std::unique_ptr<ExtensionHostMsg_Request_Params> params,
-                      binding::RequestThread thread) override {
+                      binding::RequestThread thread,
+                      bool sync, bool* success, base::ListValue* response,
+                      std::string* error) override {
     content::RenderFrame* frame = context->GetRenderFrame();
     if (!frame)
       return;
 
     switch (thread) {
       case binding::RequestThread::UI:
+        if (!sync)
         frame->Send(
             new ExtensionHostMsg_Request(frame->GetRoutingID(), *params));
+        else
+        frame->Send(
+            new ExtensionHostMsg_RequestSync(frame->GetRoutingID(), *params, success, response, error));
         break;
       case binding::RequestThread::IO:
         frame->Send(new ExtensionHostMsg_RequestForIOThread(
@@ -125,7 +131,9 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
 
   void SendRequestIPC(ScriptContext* context,
                       std::unique_ptr<ExtensionHostMsg_Request_Params> params,
-                      binding::RequestThread thread) override {
+                      binding::RequestThread thread,
+                      bool sync, bool* success, base::ListValue* response,
+                      std::string* error) override {
     DCHECK(!context->GetRenderFrame());
     DCHECK_EQ(Feature::SERVICE_WORKER_CONTEXT, context->context_type());
     DCHECK_EQ(binding::RequestThread::UI, thread);

@@ -566,7 +566,8 @@
   }],
   "launcherPage": {
     "dependencies": ["manifest:launcher_page"],
-    "contexts": ["blessed_extension"]
+      "contexts": ["blessed_extension"],
+    "platforms": ["chromeos"]
   },
   "launcherSearchProvider": {
     "dependencies": ["permission:launcherSearchProvider"],
@@ -766,10 +767,13 @@
   },
   "usersPrivate": [{
     "dependencies": ["permission:usersPrivate"],
+    "platforms": ["chromeos"],
     "contexts": ["blessed_extension"]
   }, {
     "channel": "stable",
     "contexts": ["webui"],
+    "dependencies": ["permission:usersPrivate"],
+    "platforms": ["chromeos"],
     "matches": [
       "chrome://md-settings/*",
       "chrome://settings/*"

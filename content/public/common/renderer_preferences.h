@@ -164,6 +164,8 @@ struct CONTENT_EXPORT RendererPreferences {
 
   // The default font size used for rendering on Linux.
   int default_font_size;
+  std::string nw_inject_js_doc_start;
+  std::string nw_inject_js_doc_end;
 };
 
 }  // namespace content

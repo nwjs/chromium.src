@@ -5,8 +5,9 @@
 #ifndef CHROME_ELF_CHROME_ELF_MAIN_H_
 #define CHROME_ELF_CHROME_ELF_MAIN_H_
 
-extern "C" void SignalInitializeCrashReporting();
+extern "C" void SignalInitializeCrashReporting(void*, void*);
 extern "C" void SignalChromeElf();
 extern "C" void DumpProcessWithoutCrash();
+extern "C" void* ElfGetReporterClient();
 
 #endif  // CHROME_ELF_CHROME_ELF_MAIN_H_
