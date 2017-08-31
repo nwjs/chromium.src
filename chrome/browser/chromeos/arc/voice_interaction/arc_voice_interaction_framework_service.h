@@ -113,6 +113,9 @@ class ArcVoiceInteractionFrameworkService
   // container is enabled.
   void UpdateVoiceInteractionPrefs();
 
+  // Set voice interaction setup completed flag and notify the change.
+  void SetVoiceInteractionSetupCompleted();
+
   // For supporting ArcServiceManager::GetService<T>().
   static const char kArcServiceName[];
 
