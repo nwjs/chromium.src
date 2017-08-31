@@ -40,6 +40,7 @@ Polymer({
     selectedItem: {
       type: Object,
       notify: true,
+      observer: 'onImageSelected_',
     },
 
     /**
@@ -93,7 +94,21 @@ Polymer({
   fallbackImage_: null,
 
   setFocus: function() {
-    this.$.container.focus();
+    if (this.selectedItem) {
+      this.selectedItem.focus();
+    }
+  },
+
+  onImageSelected_: function(newImg, oldImg) {
+    if (newImg) {
+      newImg.setAttribute('tabindex', '0');
+      newImg.setAttribute('aria-checked', 'true');
+      newImg.focus();
+    }
+    if (oldImg) {
+      oldImg.removeAttribute('tabindex');
+      oldImg.removeAttribute('aria-checked');
+    }
   },
 
   /**
