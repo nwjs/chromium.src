@@ -4,6 +4,9 @@
 
 #include "ash/system/palette/test_palette_delegate.h"
 
+#include "ash/highlighter/highlighter_controller_test_api.h"
+#include "base/callback_helpers.h"
+
 namespace ash {
 
 TestPaletteDelegate::TestPaletteDelegate() {}
@@ -44,17 +47,16 @@ void TestPaletteDelegate::TakePartialScreenshot(const base::Closure& done) {
 
 void TestPaletteDelegate::CancelPartialScreenshot() {}
 
-bool TestPaletteDelegate::IsMetalayerSupported() {
-  return is_metalayer_supported_;
-}
-
-void TestPaletteDelegate::ShowMetalayer(const base::Closure& closed) {
+void TestPaletteDelegate::ShowMetalayer() {
   ++show_metalayer_count_;
-  metalayer_closed_ = closed;
+  if (highlighter_test_api_)
+    highlighter_test_api_->SetEnabled(true);
 }
 
 void TestPaletteDelegate::HideMetalayer() {
   ++hide_metalayer_count_;
+  if (highlighter_test_api_)
+    highlighter_test_api_->SetEnabled(false);
 }
 
 }  // namespace ash
