@@ -57,22 +57,41 @@ v8::Local<v8::Object> GetOrCreateObject(const v8::Local<v8::Object>& object,
 // creates a new object for it. If a chrome property exists on the window
 // already (as in the case when a script did `window.chrome = true`), returns
 // an empty object.
-v8::Local<v8::Object> GetOrCreateChrome(ScriptContext* context) {
+v8::Local<v8::Object> GetOrCreateChrome(ScriptContext* context, bool hidden, const char* name = nullptr) {
   v8::Local<v8::String> chrome_string(
-      v8::String::NewFromUtf8(context->isolate(), "chrome"));
+                                      v8::String::NewFromUtf8(context->isolate(), name ? name : "chrome"));
   v8::Local<v8::Object> global(context->v8_context()->Global());
+  if (!hidden) {
   v8::Local<v8::Value> chrome(global->Get(chrome_string));
   if (chrome->IsUndefined()) {
     chrome = v8::Object::New(context->isolate());
     global->Set(chrome_string, chrome);
   }
   return chrome->IsObject() ? chrome.As<v8::Object>() : v8::Local<v8::Object>();
+  } else { //hidden
+    // MUST MATCH Private() in module_system.cc
+    v8::Local<v8::Value> privates;
+    if (!context->module_system()->GetPrivate(global, "privates", &privates) || !privates->IsObject()) {
+      privates = v8::Object::New(context->isolate());
+      context->module_system()->SetPrivate(global, "privates", privates);
+    }
+    v8::Local<v8::Object> priv_obj = privates->ToObject();
+    v8::Local<v8::Value> chrome(priv_obj->Get(chrome_string));
+    if (chrome->IsUndefined()) {
+      chrome = v8::Object::New(context->isolate());
+      v8::Local<v8::String> hidden_key(
+       v8::String::NewFromUtf8(context->isolate(), "__nw_is_hidden"));
+      chrome->ToObject()->Set(hidden_key, v8::Boolean::New(context->isolate(), true));
+      priv_obj->Set(chrome_string, chrome);
+    }
+    return chrome->IsObject() ? chrome.As<v8::Object>() : v8::Local<v8::Object>();
+  }
 }
 
 v8::Local<v8::Object> GetOrCreateBindObjectIfAvailable(
     const std::string& api_name,
     std::string* bind_name,
-    ScriptContext* context) {
+    ScriptContext* context, bool hidden = false) {
   std::vector<std::string> split = base::SplitString(
       api_name, ".", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
 
@@ -93,9 +112,15 @@ v8::Local<v8::Object> GetOrCreateBindObjectIfAvailable(
   std::string ancestor_name;
   bool only_ancestor_available = false;
 
-  for (size_t i = 0; i < split.size() - 1; ++i) {
+  const char* prefix = nullptr;
+  int start = 0;
+  if (split[0] == "nw") {
+    prefix = "nw";
+    start = 1;
+  }
+  for (size_t i = start; i < split.size() - 1; ++i) {
     ancestor_name += (i ? "." : "") + split[i];
-    if (api_feature_provider->GetFeature(ancestor_name) &&
+    if (api_feature_provider->GetFeature(ancestor_name) && !hidden &&
         context->GetAvailability(ancestor_name).is_available() &&
         !context->GetAvailability(api_name).is_available()) {
       only_ancestor_available = true;
@@ -103,7 +128,7 @@ v8::Local<v8::Object> GetOrCreateBindObjectIfAvailable(
     }
 
     if (bind_object.IsEmpty()) {
-      bind_object = GetOrCreateChrome(context);
+      bind_object = GetOrCreateChrome(context, hidden, prefix);
       if (bind_object.IsEmpty())
         return v8::Local<v8::Object>();
     }
@@ -116,7 +141,7 @@ v8::Local<v8::Object> GetOrCreateBindObjectIfAvailable(
   DCHECK(bind_name);
   *bind_name = split.back();
 
-  return bind_object.IsEmpty() ? GetOrCreateChrome(context) : bind_object;
+  return bind_object.IsEmpty() ? GetOrCreateChrome(context, hidden, prefix) : bind_object;
 }
 
 // Creates the event bindings if necessary for the given |context|.
@@ -126,7 +151,7 @@ void MaybeCreateEventBindings(ScriptContext* context) {
   // though, not all webpages!
   if (!context->extension())
     return;
-  v8::Local<v8::Object> chrome = GetOrCreateChrome(context);
+  v8::Local<v8::Object> chrome = GetOrCreateChrome(context, false);
   if (chrome.IsEmpty())
     return;
   context->module_system()->SetLazyField(chrome, "Event", kEventBindings,
@@ -161,6 +186,12 @@ void JsExtensionBindingsSystem::UpdateBindingsForContext(
   v8::HandleScope handle_scope(context->isolate());
   v8::Context::Scope context_scope(context->v8_context());
 
+  bool nodejs_enabled = false;
+  if (context->extension()) {
+    nodejs_enabled = context->extension()->is_nwjs_app();
+    context->extension()->manifest()->GetBoolean(manifest_keys::kNWJSEnableNode, &nodejs_enabled);
+  }
+
   // TODO(kalman): Make the bindings registration have zero overhead then run
   // the same code regardless of context type.
   switch (context->context_type()) {
@@ -173,6 +204,11 @@ void JsExtensionBindingsSystem::UpdateBindingsForContext(
       for (const char* feature_name : kWebAvailableFeatures) {
         if (context->GetAvailability(feature_name).is_available())
           RegisterBinding(feature_name, feature_name, context);
+      }
+      if (!context->GetAvailability("app.window").is_available()) {
+        RegisterBinding("app.window", "app.window", context, true);
+        RegisterBinding("nw.Window", "nw.Window", context, true);
+        RegisterBinding("runtime", "runtime", context, true);
       }
       if (IsRuntimeAvailableToContext(context))
         RegisterBinding("runtime", "runtime", context);
@@ -192,6 +228,8 @@ void JsExtensionBindingsSystem::UpdateBindingsForContext(
       const FeatureProvider* api_feature_provider =
           FeatureProvider::GetAPIFeatures();
       for (const auto& map_entry : api_feature_provider->GetAllFeatures()) {
+        if (map_entry.first.substr(0, 3) == "nw." && !nodejs_enabled)
+          continue;
         // Internal APIs are included via require(api_name) from internal code
         // rather than chrome[api_name].
         if (map_entry.second->IsInternal())
@@ -259,10 +297,10 @@ bool JsExtensionBindingsSystem::HasEventListenerInContext(
 void JsExtensionBindingsSystem::RegisterBinding(
     const std::string& api_name,
     const std::string& api_bind_name,
-    ScriptContext* context) {
+    ScriptContext* context, bool hidden) {
   std::string bind_name;
   v8::Local<v8::Object> bind_object =
-      GetOrCreateBindObjectIfAvailable(api_bind_name, &bind_name, context);
+    GetOrCreateBindObjectIfAvailable(api_bind_name, &bind_name, context, hidden);
 
   // Empty if the bind object failed to be created, probably because the
   // extension overrode chrome with a non-object, e.g. window.chrome = true.

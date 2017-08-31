@@ -152,6 +152,9 @@
 #include "chrome/browser/ui/views/profiles/profile_chooser_view.h"
 #endif  // !defined(OS_CHROMEOS)
 
+#include "extensions/browser/app_window/app_window.h"
+#include "extensions/browser/app_window/app_window_registry.h"
+
 #if defined(USE_AURA)
 #include "chrome/browser/ui/views/theme_profile_key.h"
 #include "ui/aura/client/window_parenting_client.h"
@@ -433,6 +436,8 @@ BrowserView::~BrowserView() {
 }
 
 void BrowserView::Init(Browser* browser) {
+  // type popup is for devtools window. that's what we want
+  CHECK(browser->is_type_popup()) << "opening browser window.";
   browser_.reset(browser);
   browser_->tab_strip_model()->AddObserver(this);
   immersive_mode_controller_.reset(chrome::CreateImmersiveModeController());
@@ -801,7 +806,7 @@ void BrowserView::OnActiveTabChanged(content::WebContents* old_contents,
   // Update all the UI bits.
   UpdateTitleBar();
 
-  TranslateBubbleView::CloseCurrentBubble();
+  //TranslateBubbleView::CloseCurrentBubble();
   ZoomBubbleView::CloseCurrentBubble();
 }
 
@@ -1188,6 +1193,7 @@ ShowTranslateBubbleResult BrowserView::ShowTranslateBubble(
     return ShowTranslateBubbleResult::EDITABLE_FIELD_IS_ACTIVE;
   }
 
+#if 0
   translate::LanguageState& language_state =
       ChromeTranslateClient::FromWebContents(web_contents)->GetLanguageState();
   language_state.SetTranslateEnabled(true);
@@ -1197,6 +1203,7 @@ ShowTranslateBubbleResult BrowserView::ShowTranslateBubble(
 
   toolbar_->ShowTranslateBubble(web_contents, step, error_type,
                                 is_user_gesture);
+#endif
   return ShowTranslateBubbleResult::SUCCESS;
 }
 
@@ -1677,6 +1684,22 @@ bool BrowserView::ShouldShowWindowTitle() const {
 }
 
 gfx::ImageSkia BrowserView::GetWindowAppIcon() {
+#if 1
+  if (browser_->is_devtools()) {
+    WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
+    DevToolsWindow* devtools_window = DevToolsWindow::AsDevToolsWindow(contents);
+    if (devtools_window) {
+      WebContents* inspected_contents = devtools_window->GetInspectedWebContents();
+      Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
+      extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(profile);
+      if (registry) {
+        extensions::AppWindow* app_window = registry->GetAppWindowForWebContents(inspected_contents);
+        if (app_window)
+          return app_window->custom_app_icon().AsImageSkia();
+      }
+    }
+  }
+#endif
   if (browser_->is_app()) {
     WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
     extensions::TabHelper* extensions_tab_helper =
@@ -1691,8 +1714,21 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
 
 gfx::ImageSkia BrowserView::GetWindowIcon() {
   // Use the default icon for devtools.
-  if (browser_->is_devtools())
+  if (browser_->is_devtools()) {
+    WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
+    DevToolsWindow* devtools_window = DevToolsWindow::AsDevToolsWindow(contents);
+    if (devtools_window) {
+      WebContents* inspected_contents = devtools_window->GetInspectedWebContents();
+      Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
+      extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(profile);
+      if (registry) {
+        extensions::AppWindow* app_window = registry->GetAppWindowForWebContents(inspected_contents);
+        if (app_window)
+          return app_window->custom_app_icon().AsImageSkia();
+      }
+    }
     return gfx::ImageSkia();
+  }
 
   if (browser_->is_app() || browser_->is_type_popup())
     return browser_->GetCurrentPageIcon().AsImageSkia();

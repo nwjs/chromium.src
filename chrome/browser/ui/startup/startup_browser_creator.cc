@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
+#include "chrome/browser/spellchecker/spellcheck_factory.h"
+#include "content/nw/src/common/shell_switches.h"
 
 #include <stddef.h>
 
@@ -79,6 +81,15 @@
 #include "extensions/common/switches.h"
 #include "net/base/port_util.h"
 #include "printing/features/features.h"
+
+#include "extensions/browser/extension_system.h"
+#include "chrome/browser/extensions/component_loader.h"
+#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/common/extensions/extension_constants.h"
+#include "chrome/grit/browser_resources.h"
+#include "extensions/common/constants.h"
+#include "chrome/browser/ui/extensions/app_launch_params.h"
+#include "chrome/browser/ui/extensions/application_launch.h"
 
 #if defined(USE_ASH)
 #include "ash/shell.h"  // nogncheck
@@ -558,7 +569,7 @@ std::vector<GURL> StartupBrowserCreator::GetURLsFromCommandLine(
     const GURL reset_settings_url =
         settings_url.Resolve(chrome::kResetProfileSettingsSubPage);
     url_points_to_an_approved_settings_page = url == reset_settings_url;
-#if defined(OS_WIN)
+#if 0
     // On Windows, also allow a hash for the Chrome Cleanup Tool.
     const GURL reset_settings_url_with_cct_hash = reset_settings_url.Resolve(
         std::string("#") +
@@ -709,7 +720,7 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
     // chrome to shut down.
     // TODO(jackhou): Do this properly once keep-alive is handled by the
     // background page of apps. Tracked at http://crbug.com/175381
-    if (chrome::GetBrowserCount(last_used_profile) != 0)
+    // if (chrome::GetBrowserCount(last_used_profile) != 0)
       return true;
   }
 
@@ -732,6 +743,46 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
       return true;
   }
 
+  if (!process_startup)
+    return true;
+  if (command_line.HasSwitch(switches::kEnableSpellChecking))
+    SpellcheckServiceFactory::GetForContext(last_used_profile);
+
+  const base::CommandLine::StringVector& params = command_line.GetArgs();
+  if (command_line.HasSwitch("nwapp")) {
+	  if (!apps::AppLoadService::Get(last_used_profile)->LoadAndLaunch(
+		  base::FilePath(command_line.GetSwitchValueNative("nwapp")), command_line, cur_dir)) {
+		  return false;
+	  }
+	  return true;
+  }
+
+  if (!command_line.HasSwitch("nwjs-test-mode")) {
+    if (params.size() > 0) {
+      if (!apps::AppLoadService::Get(last_used_profile)->LoadAndLaunch(
+                                                                       base::FilePath(params[0]), command_line, cur_dir)) {
+        return false;
+      }
+      return true;
+    } else {
+      ExtensionService* extension_service =
+        extensions::ExtensionSystem::Get(last_used_profile)->extension_service();
+      extensions::ComponentLoader* component_loader = extension_service->component_loader();
+      std::string id =  component_loader->GetExtensionID(IDR_NWJS_DEFAPP_MANIFEST,
+                                                         base::FilePath(FILE_PATH_LITERAL("nwjs_default_app")));
+
+      LOG(INFO) << "loading default app: " << id;
+      const extensions::Extension* extension = extension_service->GetExtensionById(id, true);
+      if (!extension) {
+        LOG(FATAL) << "Failed to load default app";
+        return false;
+      }
+      OpenApplication(
+                      AppLaunchParams(last_used_profile, extension, extensions::LAUNCH_CONTAINER_WINDOW,
+                                      WindowOpenDisposition::NEW_WINDOW, extensions::SOURCE_CHROME_INTERNAL));
+      return true;
+    }
+  }
 #if defined(OS_WIN)
   // Log whether this process was a result of an action in the Windows Jumplist.
   if (command_line.HasSwitch(switches::kWinJumplistAction)) {

@@ -259,7 +259,8 @@ Page* ChromeClientImpl::CreateWindow(LocalFrame* frame,
                                      const FrameLoadRequest& r,
                                      const WebWindowFeatures& features,
                                      NavigationPolicy navigation_policy,
-                                     SandboxFlags sandbox_flags) {
+                                     SandboxFlags sandbox_flags,
+                                     WebString* manifest) {
   if (!web_view_->Client())
     return nullptr;
 
@@ -277,7 +278,7 @@ Page* ChromeClientImpl::CreateWindow(LocalFrame* frame,
           WrappedResourceRequest(r.GetResourceRequest()), features, frame_name,
           static_cast<WebNavigationPolicy>(navigation_policy),
           r.GetShouldSetOpener() == kNeverSetOpener,
-          static_cast<WebSandboxFlags>(sandbox_flags)));
+          static_cast<WebSandboxFlags>(sandbox_flags), manifest));
   if (!new_view)
     return nullptr;
   return new_view->GetPage();
@@ -586,12 +587,20 @@ void ChromeClientImpl::OpenFileChooser(LocalFrame* frame,
 
   WebFileChooserParams params;
   params.multi_select = file_chooser->GetSettings().allows_multiple_files;
-  params.directory = file_chooser->GetSettings().allows_directory_upload;
+  params.directory = file_chooser->GetSettings().allows_directory_upload || file_chooser->GetSettings().directory_chooser;
   params.accept_types = file_chooser->GetSettings().AcceptTypes();
   params.selected_files = file_chooser->GetSettings().selected_files;
+  if (params.selected_files.size() > 0) {
+    params.initial_value = params.selected_files[0];
+  } else {
+    params.initial_value = file_chooser->GetSettings().initial_value;
+  }
   params.use_media_capture = file_chooser->GetSettings().use_media_capture;
   params.need_local_path = file_chooser->GetSettings().allows_directory_upload;
   params.requestor = frame->GetDocument()->Url();
+  params.initialPath = file_chooser->GetSettings().initial_path;
+  params.save_as = file_chooser->GetSettings().save_as;
+  params.extract_directory = file_chooser->GetSettings().allows_directory_upload;
 
   WebFileChooserCompletionImpl* chooser_completion =
       new WebFileChooserCompletionImpl(std::move(file_chooser));

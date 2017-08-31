@@ -748,14 +748,18 @@ static_library("headless_shell_lib") {
   sources = [
     "app/headless_shell.cc",
     "app/headless_shell.h",
-    "app/headless_shell_switches.cc",
-    "app/headless_shell_switches.h",
     "app/shell_navigation_request.cc",
     "app/shell_navigation_request.h",
     "lib/browser/headless_content_browser_client.cc",
     "lib/browser/headless_content_browser_client.h",
     "public/headless_shell.h",
   ]
+  if (is_debug && is_linux) {
+    sources += [
+      "app/headless_shell_switches.cc",
+      "app/headless_shell_switches.h",
+    ]
+  }
 
   deps = [
     ":headless_renderer",
@@ -766,7 +770,12 @@ static_library("headless_shell_lib") {
     "//content/public/child:child",
     "//content/public/common",
   ]
-
+  if ((is_linux || is_mac) && is_component_build) {
+    sources += [
+      "app/headless_shell_switches.cc",
+      "app/headless_shell_switches.h",
+    ]
+  }
   if (enable_basic_printing) {
     deps += [
       "//components/printing/browser",

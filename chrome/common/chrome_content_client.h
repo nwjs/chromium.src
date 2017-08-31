@@ -71,6 +71,7 @@ class ChromeContentClient : public content::ContentClient {
 #endif
 
   void SetActiveURL(const GURL& url) override;
+  void SetNWReportURL(const GURL& url) override;
   void SetGpuInfo(const gpu::GPUInfo& gpu_info) override;
   void AddPepperPlugins(
       std::vector<content::PepperPluginInfo>* plugins) override;

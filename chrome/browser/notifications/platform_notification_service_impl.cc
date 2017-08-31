@@ -99,11 +99,13 @@ void ReportNotificationImageOnIOThread(
     Profile* profile,
     const GURL& origin,
     const SkBitmap& image) {
+#if 0
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   if (!safe_browsing_service || !safe_browsing_service->enabled())
     return;
   safe_browsing_service->ping_manager()->ReportNotificationImage(
       profile, safe_browsing_service->database_manager(), origin, image);
+#endif
 }
 
 }  // namespace
