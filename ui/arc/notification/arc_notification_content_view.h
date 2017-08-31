@@ -66,6 +66,7 @@ class ArcNotificationContentView
   void SetSurface(ArcNotificationSurface* surface);
   void UpdatePreferredSize();
   void UpdateControlButtonsVisibility();
+  void UpdatePinnedState();
   void UpdateSnapshot();
   void AttachSurface();
   void Activate();
