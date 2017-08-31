@@ -563,6 +563,16 @@ void NotificationViewMD::UpdateWithNotification(
   SchedulePaint();
 }
 
+// TODO(yoshiki): Move this to the parent class (MessageView).
+void NotificationViewMD::UpdateControlButtonsVisibilityWithNotification(
+    const Notification& notification) {
+  control_buttons_view_->ShowSettingsButton(
+      notification.delegate() &&
+      notification.delegate()->ShouldDisplaySettingsButton());
+  control_buttons_view_->ShowCloseButton(!GetPinned());
+  UpdateControlButtonsVisibility();
+}
+
 void NotificationViewMD::ButtonPressed(views::Button* sender,
                                        const ui::Event& event) {
   // Certain operations can cause |this| to be destructed, so copy the members
