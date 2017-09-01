@@ -29,7 +29,7 @@
 <translation id="1747827819627189109">Klávesnica na obrazovke je povolená</translation>
 <translation id="1823873187264960516">Ethernet: <ph name="ADDRESS" /></translation>
 <translation id="1836215606488044471">Asistent (načítava sa...)</translation>
-<translation id="1850504506766569011">Pripojenie Wi-Fi je vypnuté.</translation>
+<translation id="1850504506766569011">Pripojenie Wi‑Fi je vypnuté.</translation>
 <translation id="1856813161013948396">Preskočte uzamknutú obrazovku jednoduchým klepnutím na senzor odtlačkov prstov. Kliknutím nastavíte konfiguráciu.</translation>
 <translation id="1864454756846565995">Zariadenie USB-C (port vzadu)</translation>
 <translation id="1882897271359938046">Zrkadlenie na displej <ph name="DISPLAY_NAME" /></translation>
@@ -130,7 +130,7 @@
 <translation id="4378551569595875038">Pripája sa...</translation>
 <translation id="4421231901400348175">Ovládanie obrazovky sa prostredníctvom Vzdialenej pomoci zdieľa s používateľom <ph name="HELPER_NAME" />.</translation>
 <translation id="4430019312045809116">Hlasitosť</translation>
-<translation id="4448844063988177157">Prebieha vyhľadávanie sietí Wi-Fi...</translation>
+<translation id="4448844063988177157">Prebieha vyhľadávanie sietí Wi‑Fi...</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4481530544597605423">Nespárované zariadenia</translation>
 <translation id="4508225577814909926"><ph name="NAME" />: pripája sa...</translation>
@@ -138,6 +138,7 @@
 <translation id="453661520163887813">Zostávajúci čas do úplného nabitia: <ph name="TIME" /></translation>
 <translation id="4544944664594876241">Skratka uzamknutia obrazovky bola zmenená. Namiesto skratky <ph name="OLD_SHORTCUT" /> používajte kombináciu klávesov <ph name="NEW_SHORTCUT" />.</translation>
 <translation id="4659419629803378708">Funkcia ChromeVox je povolená</translation>
+<translation id="4729904664295161097">Asistent je k dispozícii iba pre primárny profil.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Odpojiť</translation>
 <translation id="4849058404725798627">Zvýrazniť objekt so zameraním klávesnice</translation>
@@ -264,7 +265,7 @@
 <translation id="8428213095426709021">Nastavenia</translation>
 <translation id="8433186206711564395">Nastavenia siete</translation>
 <translation id="8433977262951327081">Klávesová skratka na zobrazenie bubliny s možnosťami vstupu na poličke sa zmenila. Namiesto skratky <ph name="OLD_SHORTCUT" /> použite skratku <ph name="NEW_SHORTCUT" />.</translation>
-<translation id="8454013096329229812">Pripojenie Wi-Fi je zapnuté.</translation>
+<translation id="8454013096329229812">Pripojenie Wi‑Fi je zapnuté.</translation>
 <translation id="847056008324733326">Nastavenia hustoty zobrazenia</translation>
 <translation id="8477270416194247200">Ak to chcete zrušiť, stlačte klávesy Alt+Hľadať alebo Shift.</translation>
 <translation id="8484916590211895857"><ph name="NAME" />: Opätovné pripájanie...</translation>
@@ -272,7 +273,7 @@
 <translation id="8639760480004882931">Zostávajúca kapacita: <ph name="PERCENTAGE" /></translation>
 <translation id="8673028979667498656">270 °</translation>
 <translation id="8676770494376880701">Pripojila sa nabíjačka s nízkym výkonom</translation>
-<translation id="8814190375133053267">Wi-Fi</translation>
+<translation id="8814190375133053267">Wi‑Fi</translation>
 <translation id="8825534185036233643">Zrkadlenie s viac ako dvoma obrazovkami nie je podporované.</translation>
 <translation id="8828714802988429505">90 °</translation>
 <translation id="8850991929411075241">Hľadať+Esc</translation>
@@ -281,7 +282,7 @@
 <translation id="8938800817013097409">Zariadenie USB-C (pravý port vzadu)</translation>
 <translation id="8940956008527784070">Kapacita batérie je nízka (<ph name="PERCENTAGE" /> %)</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
-<translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
+<translation id="9079731690316798640">Wi‑Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Mikrofón sa používa.</translation>
 <translation id="9089416786594320554">Metódy vstupu</translation>
 <translation id="9091626656156419976">Obrazovka <ph name="DISPLAY_NAME" /> bola odstránená</translation>

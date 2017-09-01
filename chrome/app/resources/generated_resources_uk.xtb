@@ -1381,7 +1381,7 @@
 <translation id="2986010903908656993">Цій сторінці заборонено повністю контролювати пристрої MIDI.</translation>
 <translation id="2989474696604907455">не підключено</translation>
 <translation id="2989786307324390836">DER-кодування у двійковій формі, єдиний сертифікат</translation>
-<translation id="2993517869960930405">Інформація про додаток</translation>
+<translation id="2993517869960930405">Про додаток</translation>
 <translation id="299483336428448530">Установили батьки.</translation>
 <translation id="3002017044809397427">Ваш телефон <ph name="PHONE_TYPE" /> знайдено. Однак Smart Lock працює лише на пристроях з ОС Android 5.0 або новішої версії. &lt;a&gt;Докладніше&lt;/a&gt;</translation>
 <translation id="3003144360685731741">Рекомендовані мережі</translation>
@@ -1624,7 +1624,7 @@
 <translation id="3324301154597925148">Це сторінка пошуку, яку ви очікували?</translation>
 <translation id="3326821416087822643">Архівування файлу <ph name="FILE_NAME" />…</translation>
 <translation id="3331321258768829690">(<ph name="UTCOFFSET" />) <ph name="LONGTZNAME" /> (<ph name="EXEMPLARCITY" />)</translation>
-<translation id="3331974543021145906">Інформація про додаток</translation>
+<translation id="3331974543021145906">Про додаток</translation>
 <translation id="3335561837873115802">Завантажити Майстер очищення Chrome</translation>
 <translation id="3335947283844343239">Знову відкрити закриту вкладку</translation>
 <translation id="3337069537196930048">Плагін <ph name="PLUGIN_NAME" /> заблоковано, оскільки він застарів.</translation>
