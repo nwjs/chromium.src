@@ -954,6 +954,10 @@
       name: "highContrastImagePolicy",
       initial: "HighContrastImagePolicy::kFilterAll",
       type: "HighContrastImagePolicy",
+    },
+    {
+      name: "forceDisplayList2dCanvasEnabled",
+      initial: false,
     }
   ],
 }
