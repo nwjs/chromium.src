@@ -96,6 +96,10 @@ void WebRuntimeFeatures::EnableCompositorTouchAction(bool enable) {
   RuntimeEnabledFeatures::SetCompositorTouchActionEnabled(enable);
 }
 
+void WebRuntimeFeatures::EnableScrollTopLeftInterop(bool enable) {
+  RuntimeEnabledFeatures::SetScrollTopLeftInteropEnabled(enable);
+}
+
 void WebRuntimeFeatures::EnableDatabase(bool enable) {
   RuntimeEnabledFeatures::SetDatabaseEnabled(enable);
 }

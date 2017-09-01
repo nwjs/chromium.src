@@ -252,6 +252,10 @@ struct CONTENT_EXPORT WebPreferences {
   // If enabled, video fullscreen detection will be enabled.
   bool video_fullscreen_detection_enabled;
   bool embedded_media_experience_enabled;
+  // Enable support for document.scrollingElement
+  // WebView sets this to false to retain old documentElement behaviour
+  // (http://crbug.com/761016).
+  bool scroll_top_left_interop_enabled;
 #else  // defined(OS_ANDROID)
 #endif  // defined(OS_ANDROID)
 
