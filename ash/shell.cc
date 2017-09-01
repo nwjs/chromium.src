@@ -67,6 +67,7 @@
 #include "ash/shutdown_controller.h"
 #include "ash/sticky_keys/sticky_keys_controller.h"
 #include "ash/system/bluetooth/bluetooth_notification_controller.h"
+#include "ash/system/bluetooth/bluetooth_power_controller.h"
 #include "ash/system/bluetooth/tray_bluetooth_helper.h"
 #include "ash/system/brightness/brightness_controller_chromeos.h"
 #include "ash/system/brightness_control_delegate.h"
@@ -332,11 +333,13 @@ bool Shell::ShouldUseIMEService() {
 void Shell::RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   PaletteTray::RegisterLocalStatePrefs(registry);
   WallpaperController::RegisterLocalStatePrefs(registry);
+  BluetoothPowerController::RegisterLocalStatePrefs(registry);
 }
 
 // static
 void Shell::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   NightLightController::RegisterProfilePrefs(registry);
+  BluetoothPowerController::RegisterProfilePrefs(registry);
 }
 
 views::NonClientFrameView* Shell::CreateDefaultNonClientFrameView(
@@ -858,6 +861,9 @@ Shell::~Shell() {
   shell_port_.reset();
   session_controller_->RemoveObserver(this);
   wallpaper_delegate_.reset();
+  // BluetoothPowerController depends on the PrefService and must be destructed
+  // before it.
+  bluetooth_power_controller_ = nullptr;
   // NightLightController depeneds on the PrefService and must be destructed
   // before it. crbug.com/724231.
   night_light_controller_ = nullptr;
@@ -876,6 +882,8 @@ void Shell::Init(const ShellInitParams& init_params) {
 
   if (NightLightController::IsFeatureEnabled())
     night_light_controller_ = base::MakeUnique<NightLightController>();
+
+  bluetooth_power_controller_ = base::MakeUnique<BluetoothPowerController>();
 
   wallpaper_delegate_ = shell_delegate_->CreateWallpaperDelegate();
 
