@@ -298,7 +298,8 @@ void GpuChannelManager::OnApplicationBackgrounded() {
   for (int channel : channels_to_clear)
     RemoveChannel(channel);
 
-  program_cache_.reset();
+  if (program_cache_)
+    program_cache_->Trim(0u);
 }
 #endif
 
