@@ -17,6 +17,7 @@
 #include "chrome/browser/chromeos/arc/arc_session_manager.h"
 #include "chrome/browser/chromeos/arc/voice_interaction/arc_voice_interaction_framework_service.h"
 #include "chrome/browser/chromeos/first_run/first_run.h"
+#include "chrome/browser/ui/app_list/arc/arc_app_list_prefs_factory.h"
 #include "chrome/browser/ui/app_list/arc/arc_pai_starter.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/browser.h"
@@ -112,6 +113,7 @@ class ArcVoiceInteractionArcHomeServiceFactory
   friend base::DefaultSingletonTraits<ArcVoiceInteractionArcHomeServiceFactory>;
 
   ArcVoiceInteractionArcHomeServiceFactory() {
+    DependsOn(ArcAppListPrefsFactory::GetInstance());
     DependsOn(ArcVoiceInteractionFrameworkService::GetFactory());
   }
   ~ArcVoiceInteractionArcHomeServiceFactory() override = default;
@@ -151,14 +153,18 @@ ArcVoiceInteractionArcHomeService::ArcVoiceInteractionArcHomeService(
   arc_bridge_service_->voice_interaction_arc_home()->AddObserver(this);
 }
 
-ArcVoiceInteractionArcHomeService::~ArcVoiceInteractionArcHomeService() {
+ArcVoiceInteractionArcHomeService::~ArcVoiceInteractionArcHomeService() =
+    default;
+
+void ArcVoiceInteractionArcHomeService::Shutdown() {
+  ResetTimeouts();
+
   // TODO(hidehiko): Currently, the lifetime of ArcBridgeService and
   // BrowserContextKeyedService is not nested.
   // If ArcServiceManager::Get() returns nullptr, it is already destructed,
   // so do not touch it.
   if (ArcServiceManager::Get())
     arc_bridge_service_->voice_interaction_arc_home()->RemoveObserver(this);
-  ResetTimeouts();
 }
 
 void ArcVoiceInteractionArcHomeService::LockPai() {
