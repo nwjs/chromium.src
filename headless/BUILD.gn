@@ -754,12 +754,6 @@ static_library("headless_shell_lib") {
     "lib/browser/headless_content_browser_client.h",
     "public/headless_shell.h",
   ]
-  if (is_debug && is_linux) {
-    sources += [
-      "app/headless_shell_switches.cc",
-      "app/headless_shell_switches.h",
-    ]
-  }
 
   deps = [
     ":headless_renderer",
