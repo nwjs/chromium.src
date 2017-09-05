@@ -367,7 +367,7 @@
 <translation id="1529116897397289129">Las tarjetas guardadas aparecerán aquí</translation>
 <translation id="1529891865407786369">Fuente de alimentación</translation>
 <translation id="1529968269513889022">la semana pasada</translation>
-<translation id="1530838837447122178">Abrir la configuración del ratón y del touchpad</translation>
+<translation id="1530838837447122178">Abrir la configuración del ratón y del panel táctil</translation>
 <translation id="1531004739673299060">Ventana de la aplicación</translation>
 <translation id="1533897085022183721">Menos de <ph name="MINUTES" /></translation>
 <translation id="1533920822694388968">Alineación de TV</translation>
@@ -818,7 +818,7 @@
 <translation id="2213819743710253654">Acciones en la página</translation>
 <translation id="2215277870964745766">¡Te damos la bienvenida! Establece tu idioma y tu red</translation>
 <translation id="2217501013957346740">Crea un nombre -</translation>
-<translation id="2218019600945559112">Ratón y touchpad</translation>
+<translation id="2218019600945559112">Ratón y panel táctil</translation>
 <translation id="2218515861914035131">Pegar como texto sin formato</translation>
 <translation id="2218947405056773815">¡Vaya! <ph name="API_NAME" /> ha detectado un error.</translation>
 <translation id="2220529011494928058">Notificar un error</translation>
@@ -1169,7 +1169,7 @@ y su configuración no se sincronizan en otros dispositivos con la función de s
 <translation id="2702540957532124911">Teclado:</translation>
 <translation id="270358213449696159">Contenido de las condiciones de Google Chrome OS</translation>
 <translation id="2704184184447774363">Firma de documentos de Microsoft</translation>
-<translation id="270516211545221798">Velocidad del touchpad</translation>
+<translation id="270516211545221798">Velocidad del panel táctil</translation>
 <translation id="2706892089432507937">Dispositivos USB</translation>
 <translation id="2707024448553392710">Descargando componente</translation>
 <translation id="270921614578699633">Por encima de la media</translation>
@@ -1452,7 +1452,7 @@ Para obtener más información, accede a nuestro <ph name="BEGIN_LINK" />Centro 
 <translation id="3081104028562135154">Aumentar</translation>
 <translation id="3081564097391116951">Las actualizaciones automáticas solo se realizarán a través de una conexión Ethernet o Wi-Fi.</translation>
 <translation id="3082374807674020857"><ph name="PAGE_TITLE" />: <ph name="PAGE_URL" /></translation>
-<translation id="3082520371031013475">Configuración del ratón y del touchpad</translation>
+<translation id="3082520371031013475">Configuración del ratón y del panel táctil</translation>
 <translation id="308268297242056490">URI</translation>
 <translation id="3082780749197361769">Esta pestaña está utilizando tu cámara o tu micrófono.</translation>
 <translation id="308330327687243295">https://mail.google.com/mail/?extsrc=mailto&amp;url=%s</translation>
@@ -2677,7 +2677,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4927846293686536410">Inicia sesión para acceder a tus marcadores, tu historial, tus contraseñas y tu configuración en todos tus dispositivos. Además, iniciarás sesión automáticamente en tus servicios de Google.</translation>
 <translation id="4933484234309072027">insertada en <ph name="URL" /></translation>
 <translation id="493571969993549666">Añadir usuario supervisado</translation>
-<translation id="4938972461544498524">Configuración del touchpad</translation>
+<translation id="4938972461544498524">Configuración del panel táctil</translation>
 <translation id="4940047036413029306">Comilla</translation>
 <translation id="4941246025622441835">Utiliza esta solicitud de dispositivo al registrar el dispositivo para la administración empresarial:</translation>
 <translation id="4941627891654116707">Tamaño de la fuente</translation>
@@ -3004,6 +3004,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="5428850089342283580"><ph name="ACCNAME_APP" /> (actualización disponible)</translation>
 <translation id="5431318178759467895">Color</translation>
 <translation id="5431825016875453137">OpenVPN/L2TP</translation>
+<translation id="5432996274932278848">Haz búsquedas en tu dispositivo, en tus aplicaciones y en la Web. Utiliza las teclas de flecha para desplazarte por las aplicaciones.</translation>
 <translation id="543381445212956829">Habilitar WiMAX</translation>
 <translation id="5434065355175441495">PKCS #1 con cifrado RSA</translation>
 <translation id="5434706434408777842">F3</translation>

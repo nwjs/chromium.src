@@ -2238,7 +2238,7 @@
 <translation id="4256316378292851214">另存影片(&amp;V)...</translation>
 <translation id="4258348331913189841">檔案系統</translation>
 <translation id="4261901459838235729">Google 簡報</translation>
-<translation id="4262241142610945528">簡訊連結</translation>
+<translation id="4262241142610945528">簡訊同步連結</translation>
 <translation id="4262366363486082931">將焦點移至工具列</translation>
 <translation id="4263757076580287579">已取消註冊印表機。</translation>
 <translation id="426564820080660648">如要檢查更新，請使用 Wi-Fi 或行動數據。</translation>
@@ -3002,6 +3002,7 @@
 <translation id="5428850089342283580"><ph name="ACCNAME_APP" /> (有可用的更新)</translation>
 <translation id="5431318178759467895">彩色</translation>
 <translation id="5431825016875453137">OpenVPN/L2TP</translation>
+<translation id="5432996274932278848">搜尋你的裝置、應用程式和網路。使用方向鍵可瀏覽應用程式。</translation>
 <translation id="543381445212956829">啟用 WiMAX</translation>
 <translation id="5434065355175441495">PKCS #1 RSA 加密</translation>
 <translation id="5434706434408777842">F3</translation>

@@ -1382,7 +1382,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="2986010903908656993">U této stránky byla zablokována úplná kontrola zařízení MIDI.</translation>
 <translation id="2989474696604907455">nepřipojeno</translation>
 <translation id="2989786307324390836">Binární soubor kódovaný DER, jeden certifikát</translation>
-<translation id="2993517869960930405">Informace o aplikaci</translation>
+<translation id="2993517869960930405">O aplikaci</translation>
 <translation id="299483336428448530">Nainstaloval rodič</translation>
 <translation id="3002017044809397427">Váš telefon <ph name="PHONE_TYPE" /> byl nalezen. Smart Lock však funguje pouze na zařízeních se systémem Android 5.0 nebo novějším. &lt;a&gt;Další informace&lt;/a&gt;</translation>
 <translation id="3003144360685731741">Preferované sítě</translation>
@@ -1623,7 +1623,7 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="3324301154597925148">Je toto stránka vyhledávání, kterou jste očekávali?</translation>
 <translation id="3326821416087822643">Komprimace souboru <ph name="FILE_NAME" />...</translation>
 <translation id="3331321258768829690">(<ph name="UTCOFFSET" />) <ph name="LONGTZNAME" /> (<ph name="EXEMPLARCITY" />)</translation>
-<translation id="3331974543021145906">Informace o aplikaci</translation>
+<translation id="3331974543021145906">O aplikaci</translation>
 <translation id="3335561837873115802">Stáhnout nástroj Chrome Cleanup Tool</translation>
 <translation id="3335947283844343239">Znovu otevřít zavřenou kartu</translation>
 <translation id="3337069537196930048">Plugin <ph name="PLUGIN_NAME" /> byl blokován, protože je zastaralý.</translation>
@@ -3001,6 +3001,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="5428850089342283580"><ph name="ACCNAME_APP" /> (K dispozici je aktualizace)</translation>
 <translation id="5431318178759467895">Barevně</translation>
 <translation id="5431825016875453137">OpenVPN/L2TP</translation>
+<translation id="5432996274932278848">Prohledejte zařízení, aplikace a internet. Mezi aplikacemi se můžete pohybovat pomocí kláves.</translation>
 <translation id="543381445212956829">Aktivovat WiMAX</translation>
 <translation id="5434065355175441495">Šifrování PKCS #1 RSA</translation>
 <translation id="5434706434408777842">F3</translation>

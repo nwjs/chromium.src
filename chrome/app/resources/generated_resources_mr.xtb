@@ -895,7 +895,7 @@
 <translation id="230927227160767054">हे पृष्ठ एक सेवा हँडलर इंस्टॉल करू इच्छिते.</translation>
 <translation id="2311496337038385958">रेकॉर्ड केलेले वर्ष</translation>
 <translation id="2312980885338881851">अरेरे! आयात करण्यासाठी आपल्याकडे कोणतेही विद्यमान पर्यवेक्षी वापरकर्ते नाहीत असे दिसते. कृपया आपण ते येथे आयात करण्यापेक्षा दुसर्‍या डिव्हाइसवरून एक किंवा अधिक तयार करा.</translation>
-<translation id="2316129865977710310">नाही, धन्यवाद</translation>
+<translation id="2316129865977710310">नाही, नको</translation>
 <translation id="2317031807364506312">रद्द करा</translation>
 <translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% पूर्ण झाले</translation>
 <translation id="2318143611928805047">कागदाचा आकार</translation>
@@ -3000,6 +3000,7 @@
 <translation id="5428850089342283580"><ph name="ACCNAME_APP" /> (अपडेट उपलब्ध आहे)</translation>
 <translation id="5431318178759467895">रंग</translation>
 <translation id="5431825016875453137">OpenVPN / L2TP</translation>
+<translation id="5432996274932278848">तुमचे डीव्हाइस, अ‍ॅप्स आणि वेब शोधा. तुमची अ‍ॅप्स नेव्हिगेट करण्यासाठी बाण की वापरा.</translation>
 <translation id="543381445212956829">WiMAX सक्षम आहे</translation>
 <translation id="5434065355175441495">PKCS #1 RSA कूटबद्धीकरण</translation>
 <translation id="5434706434408777842">F3</translation>
@@ -4339,7 +4340,7 @@
 <translation id="7465778193084373987">Netscape प्रमाणपत्र निरस्तीकरण URL</translation>
 <translation id="7469894403370665791">या नेटवर्कशी स्वयंचलितपणे कनेक्ट व्हा</translation>
 <translation id="747114903913869239">त्रुटी:  विस्तार डीकोड करण्यात अक्षम</translation>
-<translation id="7473891865547856676">नाही धन्यवाद</translation>
+<translation id="7473891865547856676">नाही, नको</translation>
 <translation id="747459581954555080">सर्व पुनर्संचयित करा</translation>
 <translation id="7475671414023905704">Netscape संकेतशब्द URL गमावली</translation>
 <translation id="7476454130948140105">अपडेटसाठी बॅटरी खूप कमी (<ph name="BATTERY_PERCENT" />%) आहे</translation>
@@ -4562,7 +4563,7 @@
 <translation id="7799329977874311193">HTML दस्तऐवज</translation>
 <translation id="7800518121066352902">घड्याळाच्या वि&amp;रुद्ध दिशेने फिरवा</translation>
 <translation id="7801746894267596941">फक्त आपला सांकेतिक वाक्यांश असलेली कोणतीही व्यक्ती आपला कूटबद्ध डेटा वाचू शकते -- सांकेतिक वाक्यांश Google कडे पाठविला किंवा त्याद्वारे संचयित केलेला नाही. आपण आपला सांकेतिक वाक्यांश विसरल्यास, आपल्याला असे करणे आवश्यक असेल</translation>
-<translation id="780301667611848630">नाही, धन्यवाद</translation>
+<translation id="780301667611848630">नाही, नको</translation>
 <translation id="7805768142964895445">स्थिती</translation>
 <translation id="7806513705704909664">एका क्लिकमध्ये वेब फॉर्म भरण्यासाठी स्वयंभरण सक्षम करा.</translation>
 <translation id="7807711621188256451">आपल्या कॅमेर्‍यावर प्रवेश करण्यासाठी <ph name="HOST" /> ला नेहमी अनुमती द्या</translation>

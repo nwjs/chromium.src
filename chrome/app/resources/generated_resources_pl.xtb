@@ -87,7 +87,7 @@
 <translation id="1128128132059598906">EAP-TTLS</translation>
 <translation id="1128591060186966949">Edytuj wyszukiwarkę</translation>
 <translation id="1128987120443782698">Urządzenie pamięci masowej ma pojemność <ph name="DEVICE_CAPACITY" />. Włóż kartę SD lub pamięć USB o pojemności co najmniej 4 GB.</translation>
-<translation id="1131167343343087859">Karty kredytowe i adresy z Google Payments.</translation>
+<translation id="1131167343343087859">Karty kredytowe i adresy z płatności Google</translation>
 <translation id="1140351953533677694">Dostęp do urządzeń Bluetooth i szeregowych</translation>
 <translation id="114140604515785785">Główny katalog rozszerzenia:</translation>
 <translation id="1143142264369994168">Podmiot podpisujący certyfikat</translation>
@@ -3005,6 +3005,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5428850089342283580"><ph name="ACCNAME_APP" /> (dostępna aktualizacja)</translation>
 <translation id="5431318178759467895">Kolor</translation>
 <translation id="5431825016875453137">OpenVPN / L2TP</translation>
+<translation id="5432996274932278848">Przeszukaj urządzenie, aplikacje i internet. Aby poruszać się po aplikacjach, użyj klawiszy strzałek.</translation>
 <translation id="543381445212956829">Włączanie WiMAX</translation>
 <translation id="5434065355175441495">PKCS #1, szyfrowanie RSA</translation>
 <translation id="5434706434408777842">F3</translation>

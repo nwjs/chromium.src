@@ -1809,7 +1809,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
           Si s'estableix aquesta política, els usuaris no podran canviar-la ni ignorar-la.
 
           Si no s'estableix aquesta política, el mode d'alt contrast es desactivarà inicialment, però l'usuari el podrà activar en qualsevol moment.</translation>
-<translation id="815061180603915310">Si s'estableix com a activada, aquesta política obliga a canviar el perfil al mode efímer. Si aquesta política s'estableix com una política de sistema operatiu (per exemple, GPO a Windows), s'aplicarà a tots els perfils del sistema; si s'estableix com una política en núvol, s'aplicarà només a un perfil amb la sessió iniciada com un compte gestionat.
+<translation id="815061180603915310">Si s'estableix com a activada, aquesta política obliga a canviar el perfil al mode efímer. Si aquesta política s'estableix com una política de sistema operatiu (per exemple, GPO a Windows), s'aplicarà a tots els perfils del sistema; si s'estableix com una política per al núvol, s'aplicarà només a un perfil amb la sessió iniciada com un compte gestionat.
 
       En aquest mode, les dades del perfil només són presents al disc durant el temps que dura la sessió. Un cop tancat el navegador, no es conserven característiques com l'historial de navegació, les extensions i les seves dades, ni les dades web com ara galetes o bases de dades web. Tanmateix, això no impedeix que l'usuari baixi manualment qualsevol dada al disc, desi pàgines o n'imprimeixi.
 

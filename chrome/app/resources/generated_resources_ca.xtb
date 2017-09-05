@@ -1581,7 +1581,7 @@ Consulteu el vostre correu electrònic (<ph name="ACCOUNT_EMAIL" />) per obtenir
 <translation id="3280431534455935878">S'està preparant</translation>
 <translation id="3282568296779691940">Inicia la sessió a Chrome</translation>
 <translation id="3285322247471302225">Pes&amp;tanya nova</translation>
-<translation id="3288047731229977326">Les extensions que funcionen amb el mode desenvolupador poden malmetre el vostre ordinador. Si no sou desenvolupador, hauríeu de desactivar aquestes extensions per continuar protegit.</translation>
+<translation id="3288047731229977326">Les extensions que funcionen amb el mode de desenvolupador poden malmetre el vostre ordinador. Si no sou desenvolupador, hauríeu de desactivar aquestes extensions per continuar protegit.</translation>
 <translation id="3289856944988573801">Per comprovar si hi ha actualitzacions, feu servir Ethernet o Wi-Fi.</translation>
 <translation id="3294437725009624529">Convidat</translation>
 <translation id="329650768420594634">Advertiment de l'empaquetatge d'extensió</translation>
@@ -2147,7 +2147,7 @@ Del domini <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4093955363990068916">Fitxer local:</translation>
 <translation id="4095507791297118304">Pantalla principal</translation>
 <translation id="409579654357498729">Afegeix a Cloud Print</translation>
-<translation id="4096508467498758490">Desactivació de les extensions del mode desenvolupador</translation>
+<translation id="4096508467498758490">Desactivació de les extensions del mode de desenvolupador</translation>
 <translation id="4096824249111507322">S'està preparant el mòdul de seguretat; espera (el procés pot tardar una estona)...</translation>
 <translation id="4099060993766194518">Vols restablir el motor de cerca predeterminat?</translation>
 <translation id="4100733287846229632">Queda molt poc espai al dispositiu</translation>
@@ -3001,6 +3001,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="5428850089342283580"><ph name="ACCNAME_APP" /> (l'actualització està disponible)</translation>
 <translation id="5431318178759467895">Color</translation>
 <translation id="5431825016875453137">VPN oberta / L2TP</translation>
+<translation id="5432996274932278848">Fes cerques al dispositiu, en aplicacions i al web. Fes servir les tecles de fletxa per navegar per les aplicacions.</translation>
 <translation id="543381445212956829">Activa WiMAX</translation>
 <translation id="5434065355175441495">PKCS #1 amb encriptació RSA</translation>
 <translation id="5434706434408777842">F3</translation>
@@ -5292,7 +5293,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8922013791253848639">Permet sempre els anuncis en aquest lloc web</translation>
 <translation id="8925458182817574960">&amp;Configuració</translation>
 <translation id="8926389886865778422">No m'ho tornis a preguntar</translation>
-<translation id="8926518602592448999">Desactivació de les extensions del mode desenvolupador</translation>
+<translation id="8926518602592448999">Desactivació de les extensions del mode de desenvolupador</translation>
 <translation id="892706138619340876">S'han restablert algunes opcions de configuració</translation>
 <translation id="8931394284949551895">Dispositius nous</translation>
 <translation id="8933960630081805351">&amp;Mostra a Finder</translation>
