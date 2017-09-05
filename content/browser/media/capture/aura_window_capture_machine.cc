@@ -81,6 +81,9 @@ bool AuraWindowCaptureMachine::InternalStart(
   // Update capture size.
   UpdateCaptureSize();
 
+  // Start observing for GL context losses.
+  ImageTransportFactory::GetInstance()->GetContextFactory()->AddObserver(this);
+
   // Start observing compositor updates.
   aura::WindowTreeHost* const host = desktop_window_->GetHost();
   ui::Compositor* const compositor = host ? host->compositor() : nullptr;
@@ -163,6 +166,11 @@ void AuraWindowCaptureMachine::InternalStop(const base::Closure& callback) {
     desktop_window_ = NULL;
     cursor_renderer_.reset();
   }
+
+  // Stop observing for GL context losses.
+  ImageTransportFactory::GetInstance()->GetContextFactory()->RemoveObserver(
+      this);
+  OnLostResources();
 
   callback.Run();
 }
@@ -458,6 +466,11 @@ void AuraWindowCaptureMachine::OnCompositingShuttingDown(
     ui::Compositor* compositor) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   compositor->RemoveAnimationObserver(this);
+}
+
+void AuraWindowCaptureMachine::OnLostResources() {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  yuv_readback_pipeline_.reset();
 }
 
 }  // namespace content
