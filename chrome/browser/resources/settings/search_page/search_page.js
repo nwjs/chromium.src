@@ -205,6 +205,16 @@ Polymer({
         toggleValue ? 'searchGoogleAssistantEnabled' :
                       'searchGoogleAssistantDisabled');
   },
+
+  /**
+   * @param {boolean} featureAvailable
+   * @param {boolean} arcEnabled
+   * @return {boolean}
+   * @private
+   */
+  showAssistantSection_: function(featureAvailable, arcEnabled) {
+    return featureAvailable && arcEnabled;
+  },
   // </if>
 
   /**
