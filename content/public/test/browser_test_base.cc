@@ -160,7 +160,7 @@ void BrowserTestBase::SetUp() {
 
   // The tests assume that file:// URIs can freely access other file:// URIs.
   command_line->AppendSwitch(switches::kAllowFileAccessFromFiles);
-
+  command_line->AppendSwitch("nwjs-test-mode");
   command_line->AppendSwitch(switches::kDomAutomationController);
 
   // It is sometimes useful when looking at browser test failures to know which

@@ -916,6 +916,7 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   web_view->SetDefaultPageScaleLimits(prefs.default_minimum_page_scale_factor,
                                       prefs.default_maximum_page_scale_factor);
 
+  settings->SetDoubleTapToZoomEnabled(prefs.double_tap_to_zoom_enabled);
 #if defined(OS_ANDROID)
   settings->SetAllowCustomScrollbarInMainFrame(false);
   settings->SetTextAutosizingEnabled(prefs.text_autosizing_enabled);
@@ -924,7 +925,6 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->SetFullscreenSupported(prefs.fullscreen_supported);
   web_view->SetIgnoreViewportTagScaleLimits(prefs.force_enable_zoom);
   settings->SetAutoZoomFocusedNodeToLegibleScale(true);
-  settings->SetDoubleTapToZoomEnabled(prefs.double_tap_to_zoom_enabled);
   settings->SetMediaPlaybackGestureWhitelistScope(
       blink::WebString::FromUTF8(prefs.media_playback_gesture_whitelist_scope));
   settings->SetDefaultVideoPosterURL(
@@ -1028,7 +1028,7 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
   settings->SetMediaControlsEnabled(prefs.media_controls_enabled);
 
 #if defined(OS_MACOSX)
-  settings->SetDoubleTapToZoomEnabled(true);
+  //settings->SetDoubleTapToZoomEnabled(true);
   web_view->SetMaximumLegibleScale(prefs.default_maximum_page_scale_factor);
 #endif
 
@@ -1339,7 +1339,8 @@ WebView* RenderViewImpl::CreateView(WebLocalFrame* creator,
                                     const WebString& frame_name,
                                     WebNavigationPolicy policy,
                                     bool suppress_opener,
-                                    WebSandboxFlags sandbox_flags) {
+                                    WebSandboxFlags sandbox_flags,
+                                    WebString* manifest) {
   RenderFrameImpl* creator_frame = RenderFrameImpl::FromWebFrame(creator);
   mojom::CreateNewWindowParamsPtr params = mojom::CreateNewWindowParams::New();
   params->user_gesture = WebUserGestureIndicator::IsProcessingUserGesture();
@@ -1357,6 +1358,7 @@ WebView* RenderViewImpl::CreateView(WebLocalFrame* creator,
     params->referrer = GetReferrerFromRequest(creator, request);
   }
   params->features = ConvertWebWindowFeaturesToMojoWindowFeatures(features);
+  params->nw_window_manifest = manifest->Utf16();
 
   // We preserve this information before sending the message since |params| is
   // moved on send.

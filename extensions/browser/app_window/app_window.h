@@ -37,6 +37,10 @@ class RenderFrameHost;
 class WebContents;
 }
 
+namespace nw {
+class Menu;
+}
+
 namespace extensions {
 
 class AppDelegate;
@@ -59,7 +63,8 @@ class AppWindowContents {
   // Called to initialize the WebContents, before the app window is created.
   virtual void Initialize(content::BrowserContext* context,
                           content::RenderFrameHost* creator_frame,
-                          const GURL& url) = 0;
+                          const GURL& url,
+                          const Extension* extension) = 0;
 
   // Called to load the contents, after the app window is created.
   virtual void LoadContents(int32_t creator_process_id) = 0;
@@ -97,6 +102,12 @@ class AppWindow : public content::WebContentsDelegate,
   enum Frame {
     FRAME_CHROME,  // Chrome-style window frame.
     FRAME_NONE,    // Frameless window.
+  };
+
+  enum Position {
+    POS_NONE,
+    POS_CENTER,
+    POS_MOUSE,
   };
 
   enum FullscreenType {
@@ -196,6 +207,19 @@ class AppWindow : public content::WebContentsDelegate,
     // Icon URL to be used for setting the window icon.
     GURL window_icon_url;
 
+    bool skip_load;
+
+    bool show_in_taskbar;
+    bool new_instance;
+
+    Position position;
+
+    std::string title;
+
+    std::string inject_js_start, inject_js_end;
+
+    gfx::Image icon;
+
     // The API enables developers to specify content or window bounds. This
     // function combines them into a single, constrained window size.
     gfx::Rect GetInitialWindowBounds(const gfx::Insets& frame_insets) const;
@@ -239,13 +263,18 @@ class AppWindow : public content::WebContentsDelegate,
   }
   content::BrowserContext* browser_context() const { return browser_context_; }
   const gfx::Image& custom_app_icon() const { return custom_app_icon_; }
+  const gfx::Image& icon_override() const { return icon_override_; }
   const GURL& app_icon_url() const { return app_icon_url_; }
   const GURL& initial_url() const { return initial_url_; }
   bool is_hidden() const { return is_hidden_; }
-
+  const std::string& title_override() const { return title_override_; }
+  void set_title_override(const std::string& title) { title_override_ = title; }
+  
   const Extension* GetExtension() const;
   NativeAppWindow* GetBaseWindow();
   gfx::NativeWindow GetNativeWindow();
+
+  bool NWCanClose(bool user_force = false) const;
 
   // Returns the bounds that should be reported to the renderer.
   gfx::Rect GetClientBounds() const;
@@ -309,6 +338,8 @@ class AppWindow : public content::WebContentsDelegate,
   void Maximize();
   void Minimize();
   void Restore();
+
+  void SetShowInTaskbar(bool);
 
   // Transitions to OS fullscreen. See FULLSCREEN_TYPE_OS for more details.
   void OSFullscreen();
@@ -378,6 +409,7 @@ class AppWindow : public content::WebContentsDelegate,
       std::unique_ptr<AppWindowContents> contents) {
     app_window_contents_ = std::move(contents);
   }
+  nw::Menu* menu_;
 
  protected:
   ~AppWindow() override;
@@ -387,6 +419,10 @@ class AppWindow : public content::WebContentsDelegate,
   friend class PlatformAppBrowserTest;
 
   // content::WebContentsDelegate implementation.
+  void LoadingStateChanged(content::WebContents* source,
+                           bool to_different_document) override;
+  content::JavaScriptDialogManager* GetJavaScriptDialogManager(
+      content::WebContents* source) override;
   void CloseContents(content::WebContents* contents) override;
   bool ShouldSuppressDialogs(content::WebContents* source) override;
   content::ColorChooser* OpenColorChooser(
@@ -426,6 +462,7 @@ class AppWindow : public content::WebContentsDelegate,
   content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
       content::WebContents* source,
       const content::NativeWebKeyboardEvent& event) override;
+  void ActivateContents(content::WebContents* contents) override;
   void HandleKeyboardEvent(
       content::WebContents* source,
       const content::NativeWebKeyboardEvent& event) override;
@@ -441,6 +478,7 @@ class AppWindow : public content::WebContentsDelegate,
 
   // content::WebContentsObserver implementation.
   void RenderViewCreated(content::RenderViewHost* render_view_host) override;
+  void WasShown() override;
 
   // ExtensionFunctionDispatcher::Delegate implementation.
   WindowController* GetExtensionWindowController() const override;
@@ -503,6 +541,8 @@ class AppWindow : public content::WebContentsDelegate,
   // not own this object.
   content::BrowserContext* browser_context_;
 
+  std::string title_override_;
+
   const std::string extension_id_;
 
   // Identifier that is used when saving and restoring geometry for this
@@ -514,6 +554,7 @@ class AppWindow : public content::WebContentsDelegate,
 
   // Custom icon shown in the task bar or in Chrome OS shelf.
   gfx::Image custom_app_icon_;
+  gfx::Image icon_override_;
 
   // Icon URL to be used for setting the app icon. If not empty, app_icon_ will
   // be fetched and set using this URL.
@@ -553,6 +594,7 @@ class AppWindow : public content::WebContentsDelegate,
 
   // Whether |is_ime_window| was set in the CreateParams.
   bool is_ime_window_;
+  bool last_to_different_document_;
 
   // Whether |show_on_lock_screen| was set in the CreateParams.
   bool show_on_lock_screen_;

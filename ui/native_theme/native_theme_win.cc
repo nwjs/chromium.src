@@ -53,6 +53,7 @@ const int kSystemColors[] = {
   COLOR_HIGHLIGHT,
   COLOR_HIGHLIGHTTEXT,
   COLOR_HOTLIGHT,
+  COLOR_MENU,
   COLOR_MENUHIGHLIGHT,
   COLOR_SCROLLBAR,
   COLOR_WINDOW,
@@ -466,6 +467,10 @@ SkColor NativeThemeWin::GetSystemColor(ColorId color_id) const {
       return system_colors_[COLOR_BTNTEXT];
     case kColorId_ButtonHoverColor:
       return kButtonHoverColor;
+
+    // Menu
+    case kColorId_MenuBackgroundColor:
+      return system_colors_[COLOR_MENU];
 
     // Label
     case kColorId_LabelEnabledColor:

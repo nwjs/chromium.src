@@ -29,6 +29,7 @@ component("accelerated_widget_mac") {
     "//base",
     "//skia",
     "//ui/base",
+    "//ui/display",
     "//ui/events",
     "//ui/events:events_base",
     "//ui/gfx",
