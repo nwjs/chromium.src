@@ -108,6 +108,9 @@ class EncryptionMigrationScreenHandler : public EncryptionMigrationScreenView,
 
   device::mojom::WakeLock* GetWakeLock();
 
+  // Stop forcing migration if it was forced by policy.
+  void MaybeStopForcingMigration();
+
   Delegate* delegate_ = nullptr;
   bool show_on_init_ = false;
 
