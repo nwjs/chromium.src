@@ -1011,6 +1011,9 @@ const char kInstantTetheringEnabled[] = "tether.enabled";
 const char kInstantTetheringBleAdvertisingSupported[] =
     "tether.ble_advertising_supported";
 
+// Integer pref indicating the ecryptfs to ext4 migration strategy. One of
+// options: forbidden = 0, migrate = 1, wipe = 2 or ask the user = 3.
+const char kEcryptfsMigrationStrategy[] = "ecryptfs_migration_strategy";
 #endif  // defined(OS_CHROMEOS)
 
 // A boolean pref set to true if a Home button to open the Home pages should be
