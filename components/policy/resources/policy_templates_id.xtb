@@ -528,13 +528,6 @@
           Nilai kebijakan harus ditentukan dalam milidetik. Nilai dijepit hingga kurang dari atau setara dengan penundaan mematikan layar (jika disetel) dan penundaan waktu menganggur.</translation>
 <translation id="2987155890997901449">Aktifkan ARC</translation>
 <translation id="2987227569419001736">Mengontrol penggunaan API Bluetooth Web</translation>
-<translation id="2998881342848488968">Kebijakan ini memungkinkan <ph name="PRODUCT_OS_NAME" /> melewati proxy apa pun untuk autentikasi portal tawanan.
-
-      Kebijakan ini hanya berlaku jika proxy dikonfigurasi (misalnya melalui kebijakan, oleh pengguna di chrome://settings, atau dengan ekstensi).
-
-      Jika Anda mengaktifkan setelan ini, laman autentikasi portal tawanan apa pun (semua laman web mulai laman masuk portal tawanan hingga <ph name="PRODUCT_NAME" /> mendeteksi sambungan internet berhasil) akan ditampilkan dalam jendela yang terpisah dengan mengabaikan semua batasan dan setelan kebijakan bagi pengguna saat ini.
-
-      Jika Anda menonaktifkan setelan ini atau tidak menyetelnya, laman autentikasi portal tawanan apa pun akan ditampilkan dalam tab browser baru (reguler), menggunakan setelan proxy pengguna saat ini.</translation>
 <translation id="3001534538097271560">Menyetel kebijakan ini ke false akan membuat pengguna tidak dapat mengirim beberapa informasi sistem dan konten halaman ke server Google. Jika disetel ke true atau tidak dikonfigurasi, pengguna akan diizinkan mengirim beberapa informasi sistem dan konten halaman ke Safe Browsing untuk membantu mendeteksi situs dan aplikasi berbahaya.
 
       Lihat https://developers.google.com/safe-browsing untuk mendapatkan informasi selengkapnya terkait SafeBrowsing.</translation>
@@ -709,6 +702,11 @@
           Jika kebijakan "EnableMediaRouter" disetel ke false, setelan kebijakan ini tidak akan berpengaruh, dan ikon toolbar tidak akan ditampilkan.</translation>
 <translation id="3788662722837364290">Setelan pengelolaan daya saat pengguna sedang menganggur</translation>
 <translation id="3793095274466276777">Mengonfigurasi pemeriksaan browser default di <ph name="PRODUCT_NAME" /> dan mencegah pengguna mengubahnya. Jika Anda mengaktifkan setelan ini, <ph name="PRODUCT_NAME" /> akan selalu memeriksa saat permulaan apakah itu browser default dan mendaftar sendiri secara otomatis jika memungkinkan. Jika setelan ini dinonaktifkan, <ph name="PRODUCT_NAME" /> tidak akan memeriksa apakah itu browser default dan akan menonaktifkan kontrol pengguna untuk setelan opsi ini. Jika setelan ini tidak disetel, <ph name="PRODUCT_NAME" /> akan mengizinkan pengguna mengontrol apakah itu browser default dan apakah pemberitahuan pengguna harus ditampilkan ketika tidak muncul.</translation>
+<translation id="379602782757302612">Memungkinkan Anda menentukan ekstensi mana yang TIDAK dapat diinstal pengguna. Ekstensi yang sudah diinstal akan dinonaktifkan jika termasuk dalam daftar yang tidak diizinkan, tanpa memberikan opsi kepada pengguna untuk mengaktifkannya. Setelah ekstensi yang dinonaktifkan dihapus dari daftar karena termasuk dalam daftar yang tidak diizinkan, ekstensi akan diaktfikan kembali secara otomatis.
+
+          Nilai pada daftar yang tidak diizinkan '*' berarti semua ekstensi termasuk dalam daftar yang tidak diizinkan sampai ekstensi tersebut dicantumkan secara eksplisit dalam daftar yang diizinkan.
+
+          Jika kebijakan ini tidak disetel, pengguna dapat menginstal ekstensi apa pun di <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Mengonfigurasi direktori yang akan digunakan oleh <ph name="PRODUCT_NAME" /> untuk mendownload file.
 
       Jika Anda menyetel kebijakan ini, <ph name="PRODUCT_NAME" /> akan menggunakan direktori yang diberikan terlepas apakah pengguna telah menetapkan satu tanda atau mengaktifkan tanda untuk dimintai lokasi download setiap saat.
@@ -1047,6 +1045,7 @@
 <translation id="5052081091120171147">Kebijakan ini memaksa riwayat browseran diimpor dari browser default saat ini, jika diaktifkan. Jika diaktifkan, kebijakan ini juga memengaruhi dialog impor. Jika dinonaktifkan, tidak ada riwayat browseran yang diimpor. Jika tidak disetel, pengguna mungkin ditanya apakah akan mengimpor, atau pengimporan dapat terjadi secara otomatis.</translation>
 <translation id="5056708224511062314">Lup dinonaktifkan</translation>
 <translation id="5067143124345820993">Daftar putih pengguna masuk</translation>
+<translation id="5068140065960598044">Kebijakan cloud <ph name="PRODUCT_NAME" /> mengganti kebijakan Perangkat.</translation>
 <translation id="5085647276663819155">Nonaktifkan Pratinjau Cetak</translation>
 <translation id="5105313908130842249">Penundaan penguncian layar saat menggunakan daya baterai</translation>
 <translation id="5130288486815037971">Untuk mengetahui apakah cipher suite RC4 di TLS diaktifkan</translation>
@@ -1485,6 +1484,13 @@
           Jika Anda menyetel kebijakan ini, pengguna tidak dapat mengubah atau menimpanya.
 
           Jika kebijakan ini tidak disetel, masukan yang diucapkan pertama-tama dinonaktifkan, namun dapat diaktifkan oleh pengguna kapan saja.</translation>
+<translation id="6922040258551909078">
+      Jika kebijakan disetel ke true, kebijakan cloud akan lebih diutamakan jika bertentangan dengan kebijakan perangkat.
+      Jika kebijakan disetel ke false atau tidak dikonfigurasi, kebijakan perangkat akan lebih diutamakan jika bertentangan dengan kebijakan cloud.
+      Untuk informasi selengkapnya terkait kebijakan yang diprioritaskan, buka: https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      Kebijakan ini tidak tersedia di instance Windows yang tidak bergabung dengan domain <ph name="MS_AD_NAME" />.
+      </translation>
 <translation id="6922884955650325312">Blokir plugin <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Menentukan nama penyedia penelusuran default. Jika dibiarkan kosong atau tidak disetel, nama host yang ditentukan oleh URL penelusuran akan digunakan. Kebijakan ini hanya dipertimbangkan jika kebijakan 'DefaultSearchProviderEnabled' diaktifkan.</translation>
 <translation id="6931242315485576290">Nonaktifkan sinkronisasi data dengan Google</translation>

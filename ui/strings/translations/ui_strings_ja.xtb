@@ -32,6 +32,7 @@
 <translation id="2190355936436201913">(なし)</translation>
 <translation id="2289052229480071835">画面に表示されるタップ ターゲットをタップします。</translation>
 <translation id="2297836609126180313"><ph name="QUANTITY" /> TB/秒</translation>
+<translation id="24452542372838207">通知を展開</translation>
 <translation id="2482878487686419369">通知</translation>
 <translation id="2497284189126895209">すべてのファイル</translation>
 <translation id="2522350507219695259">キャリブレーションが完了しました</translation>
@@ -94,7 +95,7 @@
 <translation id="598033046487663418">すべてのアプリ</translation>
 <translation id="6040143037577758943">閉じる</translation>
 <translation id="6119846243427417423">アクティブにする</translation>
-<translation id="6129953537138746214">スペース</translation>
+<translation id="6129953537138746214">Space</translation>
 <translation id="6135826906199951471">Delete</translation>
 <translation id="6142413573757616983"><ph name="QUANTITY" /> B/秒</translation>
 <translation id="6156262341071374681">すべてのアプリを表示</translation>
@@ -162,6 +163,7 @@
 <translation id="9002566407876343676">開く</translation>
 <translation id="9038489124413477075">名前のないフォルダ</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{1 秒}other{# 秒}}</translation>
+<translation id="9059834730836941392">通知を折りたたむ</translation>
 <translation id="9150735707954472829">タブ</translation>
 <translation id="9161053988251441839">おすすめのアプリ</translation>
 <translation id="9170848237812810038">取消(&amp;U)</translation>

@@ -528,13 +528,6 @@ Kaikki luettelon kohteet ovat tunnuksia, joiden perusteella erotetaan laitteesee
           Tämän käytännön arvo täytyy määrittää millisekunteina. Arvo rajoitetaan korkeintaan mahdollisen ruudun sammutuksen viiveen ja käyttämättömyysajan suuruiseksi.</translation>
 <translation id="2987155890997901449">Ota ARC käyttöön.</translation>
 <translation id="2987227569419001736">Hallinnoi Web Bluetooth ‑sovellusliittymän käyttöä</translation>
-<translation id="2998881342848488968">Tämä käytäntö määrittää, että <ph name="PRODUCT_OS_NAME" /> voi ohittaa välityspalvelimet captive portal -todennuksessa.
-
-      Tämä käytäntö on voimassa vain, jos esimerkiksi käytäntö, käyttäjä tai laajennus on määrittänyt välityspalvelinasetukset.
-
-      Jos asetus on käytössä, captive portal -todennussivut (eli kaikki sivut, jotka näytetään kirjautumissivulta lähtien, kunnes <ph name="PRODUCT_NAME" /> havaitsee internetyhteyden), näytetään erillisessä ikkunassa, jossa ohitetaan aktiivisen käyttäjän kaikki käytäntöasetukset ja rajoitukset.
-
-      Jos asetus poistetaan käytöstä tai sitä ei aseteta, captive portal -todennussivut näytetään uudessa (tavallisessa) välilehdessä käyttäen aktiivisen käyttäjän välityspalvelinasetuksia.</translation>
 <translation id="3001534538097271560">Jos tämän käytännön arvo on epätosi, käyttäjät eivät voi valita, lähetetäänkö Googlen palvelimille joitain järjestelmätietoja ja joidenkin sivujen sisältöä. Jos asetuksen arvo on tosi tai sitä ei ole määritetty, käyttäjät voivat lähettää joitain järjestelmätietoja ja joidenkin sivujen sisältöä Selaussuojalle auttaakseen vaarallisten sovellusten ja sivustojen havaitsemisessa.
 
       Voit lukea lisää Selaussuojasta osoitteessa https://developers.google.com/safe-browsing.</translation>
@@ -708,6 +701,11 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
           Jos EnableMediaRouter-käytännön arvo on Epätosi, tämän käytännön arvolla ei ole merkitystä eikä yläpalkkikuvaketta näytetä.</translation>
 <translation id="3788662722837364290">Virransäästöasetukset laitteen ollessa käyttämättä</translation>
 <translation id="3793095274466276777">Määrittää oletusselaimen tarkistukset tuotteelle <ph name="PRODUCT_NAME" /> ja estää käyttäjiä muuttamasta niitä. Jos otat tämän asetuksen käyttöön, <ph name="PRODUCT_NAME" /> tarkistaa aina käynnistettäessä, onko se oletusselain, ja rekisteröi itsensä automaattisesti, jos mahdollista. Jos tämä asetus on pois käytöstä, <ph name="PRODUCT_NAME" /> ei koskaan tarkista, onko se oletusselain eikä anna käyttäjän muuttaa asetusta. Jos asetusta ei ole määritetty, <ph name="PRODUCT_NAME" /> antaa käyttäjän valita, onko tuote oletusselain ja näytetäänkö käyttäjälle ilmoitus, jos tuote ei ole oletusselain.</translation>
+<translation id="379602782757302612">Voit määrittää, mitä laajennuksia käyttäjät EIVÄT saa asentaa. Jo asennetut laajennukset poistetaan käytöstä, jos ne ovat kieltoluettelossa, eikä käyttäjä voi ottaa niitä käyttöön. Kun kieltoluettelon vuoksi käytöstä poistettu laajennus on poistettu luettelosta, se otetaan automaattisesti takaisin käyttöön.
+
+          Jos kieltoluettelossa on arvo "*", se tarkoittaa, että kaikki laajennukset on lisätty kieltoluetteloon, ellei niitä ole erikseen lisätty sallittujen luetteloon.
+
+          Jos käytäntöä ei ole määritetty, käyttäjä voi asentaa minkä tahansa laajennuksen palvelussa <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Määrittää hakemiston, johon <ph name="PRODUCT_NAME" /> tallentaa ladattuja tiedostoja.
 
       Jos määrität tämän käytännön, <ph name="PRODUCT_NAME" /> käyttää annettua hakemistoa huolimatta siitä, onko käyttäjä määrittänyt hakemiston tai asettanut sovelluksen kysymään aina latausten tallennussijaintia.
@@ -1047,6 +1045,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 <translation id="5052081091120171147">Tämä käytäntö pakottaa selaushistorian tuonnin nykyisestä oletusselaimesta. Jos käytäntö on käytössä, käytäntö vaikuttaa myös tuonti-ikkunaan. Jos käytäntö ei ole käytössä, selaushistoriaa ei tuoda. Jos käytäntöä ei ole määritetty, käyttäjiltä voidaan kysyä, haluavatko he tuoda selaushistorian, tai historia voidaan tuoda automaattisesti.</translation>
 <translation id="5056708224511062314">Näytön suurentaja ei käytössä</translation>
 <translation id="5067143124345820993">Sallittujen käyttäjien luettelo</translation>
+<translation id="5068140065960598044">Palvelun <ph name="PRODUCT_NAME" /> pilvikäytäntö ohittaa laitekäytännön.</translation>
 <translation id="5085647276663819155">Poista tulostusesikatselu käytöstä</translation>
 <translation id="5105313908130842249">Ruudun lukituksen viive käytettäessä laitetta akkuvirralla</translation>
 <translation id="5130288486815037971">TLS:n RC4-salaustekniikoiden käyttöönotto</translation>
@@ -1483,6 +1482,13 @@ Jos tämä asetus ei ole käytössä tai jos sen arvo on false, tulostuskomento 
           Jos määrität tämän käytännön, käyttäjät eivät voi muuttaa tai ohittaa sitä.
 
           Jos tätä käytäntöä ei ole määritetty, äänipalaute ei ole käytössä aluksi, mutta käyttäjä voi ottaa sen käyttöön milloin tahansa.</translation>
+<translation id="6922040258551909078">
+      Jos käytännön arvoksi on määritetty tosi, pilvikäytäntö ohittaa laitekäytännön, jos ne ovat keskenään ristiriidassa.
+      Jos käytännön arvoksi on määritetty epätosi tai sitä ei ole määritetty ollenkaan, laitekäytäntö ohittaa pilvikäytännön, jos ne ovat keskenään ristiriidassa.
+      Saat lisätietoja käytäntöjen prioriteeteistä osoitteesta https://support.google.com/chrome?p=set_chrome_policies_for_devices.
+
+      Tämä käytäntö ei ole käytettävissä Windowsin esiintymissä, joita ei ole liitetty <ph name="MS_AD_NAME" /> ‑verkkotunnukseen.
+      </translation>
 <translation id="6922884955650325312">Estä <ph name="FLASH_PLUGIN_NAME" />-laajennus.</translation>
 <translation id="6923366716660828830">Määrittää oletushakupalvelun nimen. Jos nimi jätetään tyhjäksi tai käytäntöä ei ole määritetty, käytetään haku-URL-osoitteen määrittämää isäntänimeä. Tämä käytäntö on voimassa vain jos DefaultSearchProviderEnabled-käytäntö on käytössä.</translation>
 <translation id="6931242315485576290">Poista tietojen synkronointi Googlen kanssa käytöstä</translation>

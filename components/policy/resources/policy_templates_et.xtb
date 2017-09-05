@@ -553,13 +553,6 @@
           Reegli väärtus tuleb määrata millisekundites. Väärtused tuleb kinnitada väiksematena kui ekraani väljalülitamise viiteaeg (kui see on määratud) ja jõudeoleku viiteaeg või nendega võrdsetena.</translation>
 <translation id="2987155890997901449">ARC lubamine</translation>
 <translation id="2987227569419001736">Web Bluetooth API kasutuse kontrollimine</translation>
-<translation id="2998881342848488968">See reegel võimaldab teenusel <ph name="PRODUCT_OS_NAME" /> kontrollportaali autentimisel puhverserverit vältida.
-
-      See reegel jõustatakse vaid siis, kui puhverserver on seadistatud (nt kasutaja on seda teinud reegli kaudu aadressil chrome://settings või on seda teinud laiendused).
-
-      Kui selle seade lubate, kuvatakse kõik kontrollportaalide autentimislehed (nt kõik veebilehed alates kontrollportaali sisselogimislehest, kuni teenus <ph name="PRODUCT_NAME" /> tuvastab toimiva Interneti-ühenduse) eraldi aknas, eirates kõiki praeguse kasutaja reegliseadeid ja piiranguid.
-
-      Kui selle seade keelate või jätate selle määramata, kuvatakse kõik kontrollportaali autentimislehed (tavapärasel) brauseri uuel vahelehel, kasutades praeguse kasutaja puhverserveri seadeid.</translation>
 <translation id="3001534538097271560">Kui reegli väärtuseks määratakse Väär, ei saa kasutajad soovi korral saata teatud süsteemiteavet ja lehe sisu Google'i serveritesse. Kui selle seade väärtuseks määratakse Tõene või see jäetakse seadistamata, saavad kasutajad saata teatud süsteemiteavet ja lehe sisu ohutu sirvimise teenusesse, et aidata ohtlikke rakendusi ja saite tuvastada.
 
 
@@ -736,6 +729,11 @@
           Kui reegli „EnableMediaRouter” väärtuseks on määratud Väär, siis pole selle reegli väärtusel mõju ja tööriistariba ikooni ei kuvata.</translation>
 <translation id="3788662722837364290">Toitehalduse seaded, kui kasutaja on tegevusetu</translation>
 <translation id="3793095274466276777">Seadistab vaikebrauseri kontrolli rakenduses <ph name="PRODUCT_NAME" /> ja takistab kasutajaid neid muutmast. Kui lubate seade, kontrollib <ph name="PRODUCT_NAME" /> käivitamisel alati, kas ta on vaikebrauser, ja võimalusel registreerib end ise. Kui keelate seade, ei kontrolli <ph name="PRODUCT_NAME" /> kunagi, kas ta on vaikebrauser, ja kasutajal keelatakse valiku seadmine. Kui te ei määra seadet, võimaldab <ph name="PRODUCT_NAME" /> kasutajal valida, kas see on vaikebrauser ja kas vastasel korral näidatakse kasutajale teatist.</translation>
+<translation id="379602782757302612">Võimaldab määrata, milliseid laiendusi kasutajad EI saa installida. Juba installitud laiendused eemaldatakse, kui need lisatakse musta nimekirja, ja kasutaja ei saa neid lubada. Kui musta nimekirja kuulumise tõttu keelatud laiendus sealt eemaldatakse, lubatakse see automaatselt uuesti.
+
+          Musta nimekirja väärtus * tähendab, et kõik laiendused on mustas nimekirjas, kui need ei ole selgelt määratud lubatud nimekirja.
+
+          Kui see reegel jäetakse määramata, saab kasutaja teenuses <ph name="PRODUCT_NAME" /> installida mis tahes laienduse.</translation>
 <translation id="3800626789999016379">Seadistab kataloogi, mida <ph name="PRODUCT_NAME" /> kasutab failide allalaadimiseks.
 
       Kui määrate selle reegli, kasutab <ph name="PRODUCT_NAME" /> kataloogi olenemata sellest, kas kasutaja on selle määranud või on lubanud märgistuse, mis küsib iga kord allalaadimise asukohta.
@@ -1093,6 +1091,7 @@
       Kui jätate reegli määramata, siis võib importimine toimuda automaatselt või kasutajalt võidakse küsida, kas ta soovib importida.</translation>
 <translation id="5056708224511062314">Ekraaniluup on keelatud</translation>
 <translation id="5067143124345820993">Kasutajate sisselogimise lubatud loend</translation>
+<translation id="5068140065960598044">Teenuse <ph name="PRODUCT_NAME" /> pilve-eeskirjad alistavad seadme-eeskirjad.</translation>
 <translation id="5085647276663819155">Printimise eelvaate keelamine</translation>
 <translation id="5105313908130842249">Ekraani lukustamise viiteaeg akutoite kasutamisel</translation>
 <translation id="5130288486815037971">Kas RC4 šifreerimiskomplektid TLS-is on lubatud?</translation>
@@ -1570,6 +1569,13 @@
           Kui määrate reegli, ei saa kasutajad seda muuta ega alistada.
 
           Kui jätate reegli määramata, on suur kursor algselt keelatud, kuid kasutaja võib selle igal ajal lubada.</translation>
+<translation id="6922040258551909078">
+      Kui selle reegli väärtuseks on määratud Tõene, alistavad pilve-eeskirjad konflikti puhul seadme-eeskirjad.
+      Kui reegli väärtuseks on määratud Väär või see jäetakse määramata, alistavad seadme-eeskirjad konflikti puhul pilve-eeskirjad.
+      Reeglite prioriteedi kohta lisateabe saamiseks minge saidile https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      See reegel ei ole saadaval Windowsi eksemplarides, mis ei ole liitunud domeeniga <ph name="MS_AD_NAME" />.
+      </translation>
 <translation id="6922884955650325312">Pistikprogrammi <ph name="FLASH_PLUGIN_NAME" /> blokeerimine</translation>
 <translation id="6923366716660828830">Määrab vaikeotsingupakkuja nime. Kui see jäetakse tühjaks või määramata, siis kasutatakse otsingu URL-i määratud hosti nime.
 

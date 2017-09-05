@@ -18,6 +18,7 @@
 <translation id="1209206284964581585">Skjul indtil videre</translation>
 <translation id="1219674500290482172">Der kunne ikke oprettes forbindelse til internettet.</translation>
 <translation id="1254117744268754948">Vælg mappe</translation>
+<translation id="1265739287306757398">Se, hvordan du gør</translation>
 <translation id="1272079795634619415">Stop</translation>
 <translation id="129553762522093515">Senest lukkede</translation>
 <translation id="1323735185997015385">Slet</translation>
@@ -60,6 +61,7 @@ Nogle websites kan f.eks. reagere på denne anmodning ved at vise dig annoncer, 
 <translation id="1952728750904661634">Log ind med en administreret konto</translation>
 <translation id="1974060860693918893">Avanceret</translation>
 <translation id="1989112275319619282">Gennemse</translation>
+<translation id="2015722694326466240">Angiv en adgangskode på din enhed, før du kan se adgangskoder.</translation>
 <translation id="2068952045031577364">Seneste uge</translation>
 <translation id="2079545284768500474">Fortryd</translation>
 <translation id="209018056901015185">Vis computerversion</translation>
@@ -134,7 +136,6 @@ Nogle websites kan f.eks. reagere på denne anmodning ved at vise dig annoncer, 
 <translation id="3474649192738347024">Formularerne er udfyldt.</translation>
 <translation id="3478058380795961209">Udløbsmåned:</translation>
 <translation id="3482959374254649722">Synkroniserer dine faner...</translation>
-<translation id="3487093336331957349">Søge- og websiteforslag</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /> om anbefalet indhold</translation>
 <translation id="3494788280727468875">Bekræft rydning af browserdata</translation>
 <translation id="3519193562722059437">Åbn en fane for at søge på nettet.</translation>
@@ -155,6 +156,7 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 <translation id="3779810277399252432">Ingen internetforbindelse.</translation>
 <translation id="3783017676699494206">Gem billede</translation>
 <translation id="385051799172605136">Tilbage</translation>
+<translation id="3857761338463387655">Opret mail med:</translation>
 <translation id="3897092660631435901">Menu</translation>
 <translation id="3928666092801078803">Kombiner mine data</translation>
 <translation id="3950820424414687140">Log ind</translation>
@@ -182,6 +184,7 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 <translation id="4508750114462689118">Luk loginkampagne</translation>
 <translation id="4526249700380860531">Se og administrer gemte adgangskoder på <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /></translation>
 <translation id="4536418791685807335">Prøv at logge ind igen.</translation>
+<translation id="461440297010471931">Søgning via Google</translation>
 <translation id="4620246317052452550">Sider, du har læst</translation>
 <translation id="4636930964841734540">Oplysninger</translation>
 <translation id="4659667755519643272">Åbn Faneskift</translation>
@@ -190,6 +193,7 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 Dine data er krypteret med din adgangssætning til synkronisering. Indtast den for at starte synkroniseringen.</translation>
 <translation id="473775607612524610">Opdater</translation>
 <translation id="481968316161811770">Cookies, websitedata</translation>
+<translation id="4854345657858711387">Angiv en adgangskode</translation>
 <translation id="4860895144060829044">Ring op</translation>
 <translation id="4875622588773761625">Skal <ph name="PASSWORD_MANAGER_BRAND" /> opdatere din adgangskode til dette website?</translation>
 <translation id="4881695831933465202">Åbn</translation>
@@ -242,6 +246,7 @@ Handoff skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enhed
 <translation id="5871497086027727873">1 bogmærke blev flyttet</translation>
 <translation id="5911030830365207728">Google Oversæt</translation>
 <translation id="5916664084637901428">Til</translation>
+<translation id="5948291296578561264">Dermed kan du gemme billeder i din billedsamling.</translation>
 <translation id="5953603475187800576">Vis adresser og kreditkort fra Google Payments</translation>
 <translation id="5955891643922670672">Viser offlineversion</translation>
 <translation id="5964480694698977962">Opret ny inkognitofane.</translation>

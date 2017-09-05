@@ -562,13 +562,6 @@ Si cette règle est définie sur "False", les utilisateurs ne pourront pas jouer
                       La valeur de cette règle doit être indiquée en millisecondes. Les valeurs doivent être inférieures ou égales au délai d'arrêt de l'écran (le cas échéant) et au délai d'inactivité.</translation>
 <translation id="2987155890997901449">Activer ARC</translation>
 <translation id="2987227569419001736">Contrôler l'utilisation de l'API Web Bluetooth</translation>
-<translation id="2998881342848488968">Cette règle permet à <ph name="PRODUCT_OS_NAME" /> de contourner les proxy pour l'authentification du portail captif.
-
-     Cette règle n'est active que si un proxy est configuré (par exemple par une règle définie par l'utilisateur dans chrome://settings ou par des extensions).
-
-      Si vous activez cette règle, toutes les pages d'authentification du portail captif (c'est-à-dire toutes les pages Web à partir de la page de connexion jusqu'à ce que <ph name="PRODUCT_NAME" /> détecte une connexion Internet réussie) s'afficheront dans une fenêtre distincte, sans tenir compte des règles et des restrictions en place pour l'utilisateur actuel.
-
-      Si vous désactivez cette règle ou si elle n'est pas configurée, toutes les pages d'authentification du portail captif s'afficheront sous un nouvel onglet normal, conformément aux paramètres de proxy de l'utilisateur actuel.</translation>
 <translation id="3001534538097271560">Si cette règle est définie sur "False", les utilisateurs ne peuvent pas envoyer d'informations système ni de contenu de pages aux serveurs Google. Si elle est définie sur "True" ou si elle n'est pas configurée, ils sont autorisés à envoyer des informations système et le contenu des pages au service de navigation sécurisée afin de contribuer à la détection des applications et des sites dangereux.
 
       Consultez la page https://developers.google.com/safe-browsing pour en savoir plus sur la navigation sécurisée.</translation>
@@ -754,6 +747,11 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
       Si ce paramètre est désactivé, <ph name="PRODUCT_NAME" /> ne vérifiera jamais s'il s'agit du navigateur par défaut et désactivera les contrôles utilisateur pour définir cette option.
 
       Si ce paramètre n'est pas défini, <ph name="PRODUCT_NAME" /> autorisera l'utilisateur à déterminer s'il s'agit du navigateur par défaut et si des notifications aux utilisateurs doivent être affichées dans le cas contraire.</translation>
+<translation id="379602782757302612">Permet de spécifier les extensions que les utilisateurs ne peuvent PAS installer. Les extensions déjà installées et figurant sur la liste noire seront supprimées, sans que l'utilisateur puisse les activer. Une fois qu'une extension désactivée suite à son ajout à la liste noire est retirée de cette liste, elle est automatiquement réactivée.
+
+          Définir la liste noire sur la valeur "*" revient à interdire toutes les extensions, sauf celles qui sont expressément répertoriées dans la liste blanche.
+
+          Si cette règle n'est pas configurée, l'utilisateur peut installer n'importe quelle extension dans <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Configure le répertoire que <ph name="PRODUCT_NAME" /> utilise pour télécharger les fichiers.
 
       Si vous définissez cette règle, <ph name="PRODUCT_NAME" /> utilise le répertoire fourni, que l'utilisateur en ait spécifié un ou non, ou qu'il ait ou non activé l'indicateur permettant d'être invité à renseigner l'emplacement du téléchargement à chaque fois.
@@ -1111,6 +1109,7 @@ Si elle est désactivée, aucun historique de navigation n'est importé.
 Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'importation, ou celle-ci peut se faire automatiquement.</translation>
 <translation id="5056708224511062314">Loupe désactivée</translation>
 <translation id="5067143124345820993">Liste des utilisateurs autorisés à se connecter</translation>
+<translation id="5068140065960598044">Les règles relatives au cloud <ph name="PRODUCT_NAME" /> remplacent celles de la machine.</translation>
 <translation id="5085647276663819155">Désactiver l'aperçu avant impression</translation>
 <translation id="5105313908130842249">Délai de verrouillage de l'écran (batterie)</translation>
 <translation id="5130288486815037971">Activation ou non des suites de chiffrement RC4 dans TLS</translation>
@@ -1593,6 +1592,13 @@ Si vous désactivez cette option ou si vous ne la définissez pas, l'outil de re
           Si vous définissez cette règle, les utilisateurs ne peuvent pas la modifier ni l'ignorer.
 
           Si vous ne définissez pas cette règle, la fonctionnalité de commentaires audio est désactivée au départ, mais peut ensuite être activée à tout moment par les utilisateurs.</translation>
+<translation id="6922040258551909078">
+      Si la règle est définie sur la valeur "true", les règles relatives au cloud ont priorité en cas de conflit avec celles de la machine.
+      Si la règle est définie sur la valeur "false" ou si elle n'est pas configurée, les règles de la machine ont priorité en cas de conflit avec celles du cloud.
+      Pour en savoir plus sur la priorité des règles, consultez la page https://support.google.com/chrome?p=set_chrome_policies_for_devices.
+
+      Cette règle n'est pas disponible sur les instances de Windows qui ne sont pas associées à un domaine <ph name="MS_AD_NAME" />.
+      </translation>
 <translation id="6922884955650325312">Bloquer le plug-in "<ph name="FLASH_PLUGIN_NAME" />"</translation>
 <translation id="6923366716660828830">Indique le nom du moteur de recherche par défaut. Si cette règle n'est pas configurée, le nom d'hôte spécifié par l'URL de recherche est utilisé. 
 

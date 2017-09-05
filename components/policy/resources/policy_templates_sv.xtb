@@ -555,13 +555,6 @@
           Policyns värde anges i millisekunder. Värdena måste vara mindre än eller lika med skärmavstängningstiden (om den har ställts in) och inaktivitetstiden.</translation>
 <translation id="2987155890997901449">Aktivera ARC</translation>
 <translation id="2987227569419001736">Kontrollera användningen av Web Bluetooth API</translation>
-<translation id="2998881342848488968">Med den här policyn kan <ph name="PRODUCT_OS_NAME" /> kringgå en proxyserver för autentisering av infångstportaler.
-
-      Den här policyn gäller endast om en proxyserver har konfigurerats (till exempel via en policy, av användaren i chrome://settings eller via tillägg).
-
-      Om du aktiverar inställningen kommer autentiseringssidor för en infångstportal (dvs. alla webbsidor som startar från en inloggningssida för en infångstportal tills <ph name="PRODUCT_NAME" /> kan identifiera en lyckad internetanslutning) att visas i ett separat fönster och ignorera alla policyinställningar och begränsningar för den aktuella användaren.
-
-      Om du inaktiverar inställningen eller inte anger den kommer autentiseringssidor för infångstportaler att visas på en (vanlig) ny flik i webbläsaren med den aktuella användarens proxyinställningar.</translation>
 <translation id="3001534538097271560">Om den här principen är inställd på falskt kan inte användare skicka systeminformation eller innehåll på sidan till Googles servrar. Om inställningen är inställd på sant eller inte har konfigurerats kan användare skicka systeminformation och innehåll på sidan till Säker webbsökning och bidra till att farliga appar och webbplatser identifieras.
 
       Läs mer om Säker webbsökning på https://developers.google.com/safe-browsing.</translation>
@@ -747,6 +740,11 @@
       Om inställningen är inaktiverad kontrollerar <ph name="PRODUCT_NAME" /> aldrig om den är standardwebbläsare och användarkontrollerna för inställningen inaktiveras.
 
       Om inställningen inte anges kan användaren avgöra om <ph name="PRODUCT_NAME" /> ska vara standardwebbläsare och om ett meddelande ska visas för användaren när den inte är det.</translation>
+<translation id="379602782757302612">Låter dig ange vilka tillägg som användarna INTE får installera. Om ett svartlistat tillägg redan har installerats inaktiveras det och användaren kan inte aktivera det igen. Svartlistade tillägg som tas bort från listan aktiveras igen automatiskt.
+
+          Värdet * i listan betyder att alla tillägg är svartlistade såvida de inte uttryckligen står med i vitlistan.
+
+          Om principen har lämnats utan inställning får användaren installera vilket tillägg som helst i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Konfigurerar vilken katalog som ska användas för nedladdade filer i <ph name="PRODUCT_NAME" />.
 
       Om principen har ställts in används den angivna katalogen i <ph name="PRODUCT_NAME" /> oavsett om användaren har angett en katalog eller aktiverat flaggan för att bli tillfrågad om nedladdningsplats varje gång.
@@ -1103,6 +1101,7 @@
       Om den inte anges kan användaren få välja om import ska göras, eller så kan import göras automatiskt.</translation>
 <translation id="5056708224511062314">Skärmförstoraren är inaktiverad</translation>
 <translation id="5067143124345820993">Vitlista för användarinloggning</translation>
+<translation id="5068140065960598044">Molnprincipen åsidosätter datorprincipen för <ph name="PRODUCT_NAME" />.</translation>
 <translation id="5085647276663819155">Inaktivera förhandsgranskning av utskrift</translation>
 <translation id="5105313908130842249">Skärmlåsningstid när enheten drivs av batteriet</translation>
 <translation id="5130288486815037971">Om RC4-krypteringssviter i TLS är aktiverade eller inte</translation>
@@ -1584,6 +1583,13 @@
           Om du anger den här principen kan användarna varken ändra eller åsidosätta den.
 
           Om den här principen inte anges är talad feedback inaktiverad från start, men funktionen kan aktiveras av användaren när som helst.</translation>
+<translation id="6922040258551909078">
+      När principen är inställd på sant har molnprincipen företräde framför datorprincipen i händelse av konflikt.
+      När principen är inställd på falskt eller inte har ställts in har datorprincipen företräde i händelse av konflikt med molnprincipen.
+      Mer information om principers inbördes prioritet finns här: https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      Principen är inte tillgänglig på Windows-instanser som inte har anslutits till en <ph name="MS_AD_NAME" />-domän
+      </translation>
 <translation id="6922884955650325312">Blockera pluginprogrammet för <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Policyn anger namnet på standardsökleverantören. Om värdet lämnas tomt eller inte anges används det värdnamn som angavs av sökadressen.
 

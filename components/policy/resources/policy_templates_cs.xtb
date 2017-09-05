@@ -533,13 +533,6 @@ Pokud zásadu nenastavíte, bude se považovat za aktivované (viz popis výše)
           Hodnotu zásady zadávejte v milisekundách. Maximální hodnota je stejná jako prodleva vypnutí obrazovky (pokud je nastavena) a prodleva režimu spánku.</translation>
 <translation id="2987155890997901449">Povolit rozšíření ARC</translation>
 <translation id="2987227569419001736">Ovládat používání rozhraní Web Bluetooth API</translation>
-<translation id="2998881342848488968">Tato zásada umožňuje operačnímu systému <ph name="PRODUCT_OS_NAME" /> obejít jakýkoliv proxy server pro ověření captive portálu.
-
-Tato zásada bude použita pouze v případě, že je proxy server nakonfigurován (například pomocí zásady, uživatelským nastavením na stránce chrome://settings nebo pomocí rozšíření).
-
-Pokud toto nastavení povolíte, všechny stránky ověření captive portálu (tj. všechny webové stránky počínaje přihlašovací stránkou captive portálu až do doby, dokud prohlížeč <ph name="PRODUCT_NAME" /> nezjistí úspěšné připojení k internetu) budou zobrazeny v samostatném okně ignorujícím všechna nastavení zásad a omezení aktuálního uživatele.
-
-Pokud toto nastavení zakážete nebo ponecháte bez nastavení, stránky ověření captive portálu budou zobrazeny v běžné nové kartě prohlížeče s použitím nastavení proxy serveru aktuálního uživatele.</translation>
 <translation id="3001534538097271560">Pokud tuto zásadu nastavíte na hodnotu false, uživatelé nebudou moci zvolit, že se mají některé informace o systému a obsahu stránek odeslat na servery Google. Pokud je tato zásada nastavena na hodnotu true nebo není nakonfigurována, uživatelé budou moci odesílat část informací o systému a obsahu stránek do Bezpečného prohlížení a pomoci tak zjišťovat nebezpečné aplikace a weby.
 
       Další informace o Bezpečném prohlížení najdete na stránce https://developers.google.com/safe-browsing.</translation>
@@ -723,6 +716,11 @@ Pokud tuto zásadu nenastavíte, použije se pro všechny webové stránky glob�
       Pokud je toto nastavení deaktivováno, <ph name="PRODUCT_NAME" /> nebude kontrolovat, zda je výchozím prohlížečem, a deaktivuje uživatelské ovládací prvky pro nastavení této možnosti.
 
       Pokud toto nastavení není nakonfigurováno, může uživatel v prohlížeči <ph name="PRODUCT_NAME" /> určit, zda jej chce nastavit jako výchozí prohlížeč a zda se má zobrazit oznámení v případě, že jím není.</translation>
+<translation id="379602782757302612">Umožňuje zadat, která rozšíření uživatelé NEMOHOU instalovat. Již nainstalovaná rozšíření uvedená na seznamu zakázaných budou deaktivována. Když bude takto deaktivované rozšíření ze seznamu odstraněno, automaticky se znovu aktivuje.
+
+          Hodnota * v seznamu zakázaných znamená, že jsou zakázána všechna rozšíření, která nejsou uvedena na seznamu povolených.
+
+          Pokud tato zásada není nastavena, může uživatel v prohlížeči <ph name="PRODUCT_NAME" /> nainstalovat libovolné rozšíření.</translation>
 <translation id="3800626789999016379">Slouží ke konfiguraci adresáře, do kterého bude prohlížeč <ph name="PRODUCT_NAME" /> stahovat soubory.
 
       Pokud tuto zásadu nastavíte, použije <ph name="PRODUCT_NAME" /> zadaný adresář i v případě, že uživatel zadal jiný adresář nebo zvolil, že chce pokaždé zobrazit výzvu k zadání umístění stahovaného souboru.
@@ -1073,6 +1071,7 @@ Pokud ji ponecháte nenastavenou, velký kurzor bude ve výchozím nastavení de
       Není-li nastavena, může se uživatelům zobrazit výzva, zda chtějí historii importovat, nebo může import probíhat automaticky.</translation>
 <translation id="5056708224511062314">Deaktivace lupy</translation>
 <translation id="5067143124345820993">Seznam povolených uživatelů k přihlášení</translation>
+<translation id="5068140065960598044">Cloudové zásady prohlížeče <ph name="PRODUCT_NAME" /> přepisují zásady pro počítač.</translation>
 <translation id="5085647276663819155">Deaktivovat náhled tisku</translation>
 <translation id="5105313908130842249">Prodleva uzamčení obrazovky při napájení z baterie</translation>
 <translation id="5130288486815037971">Zda jsou v protokolu TLS povoleny šifrovací sady RC4</translation>
@@ -1546,6 +1545,13 @@ Pokud je tato zásada nastavena na hodnotu false, bude hlasová odezva vždy dea
 Pokud tuto zásadu nastavíte, uživatelé ji nebudou moci změnit ani přepsat.
 
 Pokud ji ponecháte nenastavenou, bude hlasová odezva ve výchozím nastavení deaktivována, ale uživatelé ji budou moci kdykoli aktivovat.</translation>
+<translation id="6922040258551909078">
+      Je-li tato zásada nastavena na hodnotu true, mají cloudové zásady v případě konfliktu přednost před zásadami pro počítač.
+      Pokud je tato zásada nastavena na hodnotu false nebo není nakonfigurována, mají v případě konfliktu zásady pro počítač přednost před cloudovými zásadami.
+      Další informace o prioritě zásad naleznete na stránce https://support.google.com/chrome?p=set_chrome_policies_for_devices.
+
+      V instancích systému Windows, které nejsou zařazeny do domény <ph name="MS_AD_NAME" />, tato zásada není k dispozici.
+      </translation>
 <translation id="6922884955650325312">Blokovat plugin <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Určuje název výchozího poskytovatele vyhledávání. Je-li toto pole ponecháno prázdné, bude použit název hostitele určený adresou URL vyhledávání.
 

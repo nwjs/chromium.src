@@ -554,13 +554,6 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
           The policy value should be specified in milliseconds. Values are clamped to be less than or equal the screen off delay (if set) and the idle delay.</translation>
 <translation id="2987155890997901449">Enable ARC</translation>
 <translation id="2987227569419001736">Control use of the Web Bluetooth API</translation>
-<translation id="2998881342848488968">This policy allows <ph name="PRODUCT_OS_NAME" /> to bypass any proxy for captive portal authentication.
-
-      This policy only takes effect if a proxy is configured (for example through policy, by the user in chrome://settings or by extensions).
-
-      If you enable this setting, any captive portal authentication pages (i.e. all web pages starting from captive portal sign in page until <ph name="PRODUCT_NAME" /> detects successful Internet connection) will be displayed in a separate window ignoring all policy settings and restrictions for the current user.
-
-      If you disable this setting or leave it unset, any captive portal authentication pages will be shown in a (regular) new browser tab, using the current user's proxy settings.</translation>
 <translation id="3001534538097271560">Setting this policy to false stops users from choosing to send some system information and page content to Google servers. If this setting is true or not configured, users will be allowed to send some system information and page content to Safe Browsing to help detect dangerous apps and sites.
 
       See https://developers.google.com/safe-browsing for more info on SafeBrowsing.</translation>

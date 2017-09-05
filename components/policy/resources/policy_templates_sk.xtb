@@ -273,9 +273,9 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 
       Ak je nastavené na hodnotu TimezoneAutomaticDetectionIPOnly, ovládacie prvky časového pásma budú v nastaveniach na adrese chrome://settings zakázané. Automatické zisťovanie časového pásma bude vždy zapnuté. Zisťovanie časového pásma bude na rozpoznávanie polohy používať iba metódu pomocou adresy IP.
 
-      Ak je nastavené na hodnotu TimezoneAutomaticDetectionSendWiFiAccessPoints, ovládacie prvky časového pásma budú v nastaveniach na adrese chrome://settings zakázané. Automatické zisťovanie časového pásma bude vždy zapnuté. Zoznam viditeľných prístupových bodov Wi-Fi sa bude vždy posielať na server s rozhraním Geolocation API, ktorý zisťovanie časového pásma ešte viac spresní.
+      Ak je nastavené na hodnotu TimezoneAutomaticDetectionSendWiFiAccessPoints, ovládacie prvky časového pásma budú v nastaveniach na adrese chrome://settings zakázané. Automatické zisťovanie časového pásma bude vždy zapnuté. Zoznam viditeľných prístupových bodov Wi‑Fi sa bude vždy posielať na server s rozhraním Geolocation API, ktorý zisťovanie časového pásma ešte viac spresní.
 
-      Ak je nastavené na hodnotu TimezoneAutomaticDetectionSendAllLocationInfo, ovládacie prvky časového pásma budú v nastaveniach na adrese chrome://settings zakázané. Automatické zisťovanie časového pásma bude vždy zapnuté. Informácie o polohe (ako sú prístupové body Wi-Fi, stanice BTS v dosahu a súradnice GPS) sa budú odosielať na server, ktorý zisťovanie časového pásma ešte viac spresní.
+      Ak je nastavené na hodnotu TimezoneAutomaticDetectionSendAllLocationInfo, ovládacie prvky časového pásma budú v nastaveniach na adrese chrome://settings zakázané. Automatické zisťovanie časového pásma bude vždy zapnuté. Informácie o polohe (ako sú prístupové body Wi‑Fi, stanice BTS v dosahu a súradnice GPS) sa budú odosielať na server, ktorý zisťovanie časového pásma ešte viac spresní.
 
       Ak toto pravidlo nie je nastavené, bude sa správať, ako keby bolo nastavené pravidlo TimezoneAutomaticDetectionUsersDecide.
 
@@ -546,13 +546,6 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
           Hodnota pravidla by mala byť uvedená v milisekundách. Hodnoty musia byť nižšie alebo rovnaké ako oneskorenie vypnutia obrazovky (pokiaľ je nastavené) a oneskorenie režimu nečinnosti.</translation>
 <translation id="2987155890997901449">Povoliť funkciu ARC</translation>
 <translation id="2987227569419001736">Ovládať používanie rozhrania Web Bluetooth API</translation>
-<translation id="2998881342848488968">Toto pravidlo umožňuje operačnému systému <ph name="PRODUCT_OS_NAME" /> obísť akýkoľvek proxy server na overenie totožnosti pomocou prihlasovacieho portálu.
-
-      Toto pravidlo sa použije iba v prípade, že je nakonfigurovaný proxy server (napríklad pomocou pravidla, používateľským nastavením na stránke chrome://settings alebo pomocou rozšírení).
-
-      Ak toto nastavenie povolíte, všetky overovacie stránky prihlasovacieho portálu (t. j. všetky webové stránky od prihlasovacej stránky tohto portálu až do momentu, kedy prehliadač <ph name="PRODUCT_NAME" /> zistí úspešné pripojenie k internetu) budú zobrazené v samostatnom okne ignorujúcom všetky nastavenia pravidiel a obmedzenia aktuálneho používateľa.
-
-      Ak toto nastavenie zakážete alebo pravidlo nenastavíte, akékoľvek overovacie stránky prihlasovacieho portálu sa budú zobrazovať v bežnej novej karte prehliadača s použitím nastavení proxy servera aktuálneho používateľa.</translation>
 <translation id="3001534538097271560">Nastavením tohto pravidla na možnosť False zabránite používateľom odosielať niektoré systémové informácie a obsah stránok na servery Google. Ak je nastavené na možnosť True alebo nie je nakonfigurované, používatelia budú môcť odosielať niektoré systémové informácie a obsah stránok do Bezpečného prehliadania a pomôcť tak rozpoznať nebezpečné aplikácie a weby.
 
       Ďalšie informácie o Bezpečnom prehliadaní získate na adrese https://developers.google.com/safe-browsing.</translation>
@@ -731,6 +724,11 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
           Ak je pravidlo EnableMediaRouter nastavené na hodnotu False, hodnota tohto pravidla sa nijak neprejaví a ikona sa na paneli s nástrojmi nebude zobrazovať.</translation>
 <translation id="3788662722837364290">Nastavenia správy spotreby energie, keď je používateľ nečinný</translation>
 <translation id="3793095274466276777">Slúži na konfiguráciu kontroly predvoleného prehliadača v prehliadači <ph name="PRODUCT_NAME" /> a bráni používateľom toto nastavenie zmeniť. Ak toto nastavenie povolíte, prehliadač <ph name="PRODUCT_NAME" /> pri spustení vždy skontroluje, či je predvoleným prehliadačom, a ak to bude možné, automaticky sa registruje. Ak je toto nastavenie zakázané, prehliadač <ph name="PRODUCT_NAME" /> nebude kontrolovať, či je predvoleným prehliadačom, a zakáže používateľské ovládacie prvky na nastavenie tejto možnosti. Ak toto nastavenie nebolo nakonfigurované, prehliadač <ph name="PRODUCT_NAME" /> umožní používateľovi určiť, či ho chce nastaviť ako predvolený prehliadač a či sa v prípade, ak ním nie je, majú používateľovi zobraziť upozornenia.</translation>
+<translation id="379602782757302612">Umožňuje určiť, ktoré rozšírenia používatelia NEMÔŽU inštalovať. Nainštalované rozšírenia uvedené v zozname zakázaných položiek budú zakázané a používateľ ich nebude môcť povoliť. Ak odstránite rozšírenie zo zoznamu zakázaných položiek, ktoré bolo na základe toho zakázané, bude automaticky znova povolené.
+
+          Hodnota „*“ v zozname zakázaných položiek znamená, že všetky rozšírenia sú zaradené do zoznamu zakázaných položiek, ak nie sú výslovne uvedené v zozname povolených položiek.
+
+          Ak toto pravidlo nenastavíte, používateľ bude môcť v prehliadači <ph name="PRODUCT_NAME" /> inštalovať všetky rozšírenia.</translation>
 <translation id="3800626789999016379">Umožňuje nakonfigurovať adresár, ktorý bude prehliadač <ph name="PRODUCT_NAME" /> používať na sťahovanie súborov.
 
       Ak nastavíte toto pravidlo, prehliadač <ph name="PRODUCT_NAME" /> bude používať zadaný adresár bez ohľadu na to, či používateľ určil takýto adresár alebo povolil príznak na zobrazenie výzvy na zadanie umiestnenia pre stiahnuté položky pri každom sťahovaní.
@@ -1089,6 +1087,7 @@ Ak toto pravidlo nie je nastavené alebo je prázdne, akýkoľvek používateľ 
       Ak nie je nastavené, môže sa používateľovi zobraziť výzva, či chce históriu prehliadania importovať, alebo môže import prebehnúť automaticky.</translation>
 <translation id="5056708224511062314">Lupa obrazovky je vypnutá</translation>
 <translation id="5067143124345820993">Zoznam používateľov s povolením na prihlásenie</translation>
+<translation id="5068140065960598044">Pravidlá používania cloudu v prehliadači <ph name="PRODUCT_NAME" /> prepíšu pravidlá zariadenia.</translation>
 <translation id="5085647276663819155">Zakázať ukážku pred tlačou</translation>
 <translation id="5105313908130842249">Oneskorenie uzamknutia obrazovky pri napájaní z batérie</translation>
 <translation id="5130288486815037971">Ovláda, či sú v protokole TLS povolené šifrovacie súpravy RC4</translation>
@@ -1564,6 +1563,13 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
       Ak toto pravidlo povolíte alebo zakážete, používatelia ho nebudú môcť zmeniť ani prepísať.
 
       Ak toto pravidlo ponecháte nenastavené, hlasová odozva bude spočiatku zakázaná, ale používateľ to bude môcť kedykoľvek zmeniť.</translation>
+<translation id="6922040258551909078">
+      Ak toto pravidlo nastavíte na hodnotu True, pravidlá používania cloudu budú uprednostnené, ak sa dostanú do konfliktu s pravidlami zariadenia.
+      Ak ho nastavíte na hodnotu False alebo ho nenakonfigurujete, pravidlá zariadenia budú uprednostnené, ak sa dostanú do konfliktu s pravidlami používania cloudu.
+      Ďalšie podrobnosti o priorite pravidiel získate na adrese https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      Toto pravidlo nie je k dispozícii v inštanciách systému Windows, ktoré nie sú v doméne <ph name="MS_AD_NAME" />.
+      </translation>
 <translation id="6922884955650325312">Blokovať doplnok <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Určuje názov predvoleného poskytovateľa vyhľadávania. Ak sa pole nevyplní alebo bude pravidlo ponechané nenastavené, použije sa názov hostiteľa určený webovou adresou vyhľadávania.
 
@@ -2000,7 +2006,7 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
           Ak toto nastavenie zakážete, na stránkach sa budú hľadať metaznačky.
 
           Ak toto pravidlo nenastavíte, na stránkach sa budú hľadať metaznačky.</translation>
-<translation id="8300455783946254851">Ak je pravidlo nastavené na hodnotu True, zakáže v aplikácií Súbory systému <ph name="PRODUCT_OS_NAME" /> synchronizáciu služby Disk Google pri používaní mobilného pripojenia. V tomto prípade sa budú údaje v službe Disk Google synchronizovať iba pri pripojení k sieti Wi-Fi alebo Ethernet.
+<translation id="8300455783946254851">Ak je pravidlo nastavené na hodnotu True, zakáže v aplikácií Súbory systému <ph name="PRODUCT_OS_NAME" /> synchronizáciu služby Disk Google pri používaní mobilného pripojenia. V tomto prípade sa budú údaje v službe Disk Google synchronizovať iba pri pripojení k sieti Wi‑Fi alebo Ethernet.
 
           Ak je hodnota funkcie nastavená na možnosť False, používatelia budú môcť prenášať súbory do služby Disk Google prostredníctvom mobilných pripojení.</translation>
 <translation id="8312129124898414409">Umožňuje nastaviť, či môžu webové stránky používať generovanie kľúčov. Používanie generovania kľúčov je možné buď povoliť pre všetky webové stránky, alebo ho pre všetky webové stránky zakázať.

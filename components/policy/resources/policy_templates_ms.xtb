@@ -552,13 +552,6 @@
           Nilai dasar ini harus ditetapkan dalam milisaat. Nilai diapit supaya kurang daripada atau sama dengan kelewatan pemadaman skrin (jika ditetapkan) dan kelewatan melahu.</translation>
 <translation id="2987155890997901449">Dayakan ARC</translation>
 <translation id="2987227569419001736">Kawal penggunaan API Bluetooth Web</translation>
-<translation id="2998881342848488968">Dasar ini membenarkan <ph name="PRODUCT_OS_NAME" /> memintas mana-mana proksi untuk pengesahan portal tawanan.
-
-      Dasar ini hanya berkuat kuasa jika proksi dikonfigurasikan (contohnya menerusi dasar, oleh pengguna dalam chrome://settings atau oleh sambungan).
-
-      Jika anda mendayakan tetapan ini, mana-mana halaman pengesahan portal tawanan (iaitu semua halaman web bermula daripada halaman log masuk portal tawanan sehingga <ph name="PRODUCT_NAME" /> mengesan sambungan internet yang berjaya dilakukan) akan dipaparkan dalam tetingkap yang lain dengan mengabaikan semua tetapan dasar dan sekatan untuk pengguna semasa.
-
-      Jika anda melumpuhkan tetapan ini atau membiarkannya tidak ditetapkan, mana-mana halaman pengesahan portal tawanan akan ditunjukkan dalam tab penyemak imbas yang baharu (biasa), menggunakan tetapan proksi pengguna semasa.</translation>
 <translation id="3001534538097271560">Penetapan dasar ini kepada palsu akan menghentikan pengguna daripada memilih untuk menghantar beberapa maklumat sistem dan kandungan halaman kepada pelayan Google. Jika tetapan ini benar atau tidak dikonfigurasikan, maka pengguna akan dibenarkan menghantar beberapa maklumat sistem dan kandungan halaman kepada Penyemakan Imbas Selamat untuk mengesan apl dan tapak yang berbahaya.
 
       Lihat https://developers.google.com/safe-browsing untuk mendapatkan maklumat tentang Penyemakan Imbas Selamat.</translation>
@@ -743,6 +736,11 @@
       Jika tetapan ini dilumpuhkan, <ph name="PRODUCT_NAME" /> tidak akan sesekali memeriksa jika ia adalah penyemak imbas lalai dan akan melumpuhkan kawalan pengguna untuk menetapkan pilihan ini.
 
       Jika tetapan ini tidak ditetapkan, <ph name="PRODUCT_NAME" /> akan membenarkan pengguna untuk mengawal sama ada ia adalah penyemak imbas lalai dan sama ada pemberitahuan pengguna perlu dipaparkan apabila ia tidak perlu.</translation>
+<translation id="379602782757302612">Membolehkan anda menentukan sambungan yang TIDAK boleh dipasang oleh pengguna. Sambungan yang telah dipasang akan dilumpuhkan jika disenaraihitamkan dan pengguna tidak akan ada cara untuk mendayakan sambungan tersebut. Sebaik sahaja sambungan yang dilumpuhkan kerana senarai hitam itu dialih keluar daripada senarai tersebut, sambungan itu akan didayakan semula secara automatik.
+
+          Nilai senarai hitam '*' bermakna semua sambungan akan disenaraihitamkan melainkan sambungan itu disenaraikan dalam senarai putih dengan jelas.
+
+          Jika dasar ini dibiarkan tidak ditetapkan, pengguna boleh memasang sebarang sambungan dalam <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Mengkonfigurasi direktori yang <ph name="PRODUCT_NAME" /> akan gunakan untuk memuat turun fail.
 
       Jika anda menetapkan dasar ini, <ph name="PRODUCT_NAME" /> akan menggunakan direktori yang disediakan tidak kira sama ada pengguna telah menetapkan satu direktori atau mendayakan bendera untuk digesa bagi lokasi muat turun pada setiap kali.
@@ -1099,6 +1097,7 @@
       Jika ia tidak ditetapkan, pengguna mungkin ditanya sama ada hendak mengimport atau import boleh berlaku secara automatik.</translation>
 <translation id="5056708224511062314">Penggadang skrin dilumpuhkan</translation>
 <translation id="5067143124345820993">Log masuk senarai putih pengguna</translation>
+<translation id="5068140065960598044">Dasar awan <ph name="PRODUCT_NAME" /> mengatasi dasar Mesin.</translation>
 <translation id="5085647276663819155">Lumpuhkan Pratonton Cetakan</translation>
 <translation id="5105313908130842249">Kelewatan kunci skrin apabila dijalankan dengan kuasa bateri</translation>
 <translation id="5130288486815037971">Sama ada suit sifer RC4 dalam TLS didayakan</translation>
@@ -1574,6 +1573,13 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
           Jika anda menetapkan dasar ini, pengguna tidak boleh mengubah atau mengatasinya.
 
           Jika dasar ini dibiarkan tanpa ditetapkan, maklum balas pertuturan dilumpuhkan pada mulanya tetapi boleh didayakan oleh pengguna pada bila-bila masa.</translation>
+<translation id="6922040258551909078">
+      Jika dasar ini ditetapkan kepada benar, dasar awan akan diutamakan sekiranya bercanggah dengan dasar mesin.
+      Jika dasar ini ditetapkan kepada palsu atau tidak dikonfigurasikan, dasar mesin akan diutamakan sekiranya bercanggah dengan dasar awan.
+      Untuk mendapatkan butiran lanjut tentang keutamaan dasar, sila lawati: https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      Dasar ini tidak tersedia pada tika Windows yang tidak dihubungkan ke domain <ph name="MS_AD_NAME" />.
+      </translation>
 <translation id="6922884955650325312">Sekat pemalam <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Menentukan nama penyedia carian lalai. Jika dibiarkan kosong atau tidak ditetapkan, nama hos yang ditentukan oleh URL carian akan digunakan.
 

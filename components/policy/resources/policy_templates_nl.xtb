@@ -552,13 +552,6 @@
           De beleidswaarde moet worden opgegeven in milliseconden. Waarden moeten lager zijn dan of gelijk zijn aan de vertraging van scherm uitschakelen (indien ingesteld) en de inactieve vertraging.</translation>
 <translation id="2987155890997901449">ARC inschakelen</translation>
 <translation id="2987227569419001736">Gebruik van de Web Bluetooth API beheren</translation>
-<translation id="2998881342848488968">Met dit beleid kan <ph name="PRODUCT_OS_NAME" /> elke proxy voor captive portal-verificatie omzeilen.
-
-      Dit beleid wordt alleen geactiveerd als een proxy wordt geconfigureerd (bijvoorbeeld via een beleid, door de gebruiker in chrome://settings of met extensies).
-
-      Als je deze instelling inschakelt, worden captive portal-verificatiepagina's (alle webpagina's vanaf de captive portal-inlogpagina totdat <ph name="PRODUCT_NAME" /> een internetverbinding detecteert) in een afzonderlijk venster weergegeven, waarbij alle beleidsinstellingen en beperkingen voor de huidige gebruiker worden genegeerd.
-
-      Als je deze instelling uitschakelt of niet instelt, worden captive portal-verificatiepagina's weergegeven in een (normaal) nieuw browsertabblad, waarbij de proxy-instellingen van de huidige gebruiker worden gebruikt.</translation>
 <translation id="3001534538097271560">Als dit beleid wordt ingesteld op false (onwaar), kunnen gebruikers geen systeeminformatie en paginacontent meer naar Google-servers verzenden. Als deze instelling wordt ingesteld op true (waar) of niet wordt geconfigureerd, kunnen gebruikers bepaalde systeeminformatie en paginacontent naar Safe Browsing verzenden om te helpen bij de detectie van gevaarlijke apps en sites
 
       Zie https://developers.google.com/safe-browsing voor meer informatie over Safe Browsing.</translation>
@@ -744,6 +737,11 @@
       Als deze instelling is uitgeschakeld, controleert <ph name="PRODUCT_NAME" /> nooit of dit programma de standaardbrowser is en worden gebruikersopties voor het instellen van de standaardbrowser uitgeschakeld.
 
       Als deze instelling niet is ingeschakeld, kan de gebruiker in <ph name="PRODUCT_NAME" /> bepalen of dit programma de standaardbrowser is, en of er een melding aan de gebruiker moet worden weergegeven wanneer dit niet het geval is.</translation>
+<translation id="379602782757302612">Hiermee kun je opgeven welke extensies gebruikers NIET mogen installeren. Extensies die al zijn geïnstalleerd, worden uitgeschakeld als ze op de zwarte lijst zijn gezet en de gebruiker kan ze niet weer inschakelen. Nadat een extensie die op basis van de zwarte lijst is uitgeschakeld, van de zwarte lijst is verwijderd, wordt deze automatisch weer ingeschakeld.
+
+          Een zwartelijstwaarde van '*' betekent dat alle extensies op de zwarte lijst staan, tenzij ze expliciet worden vermeld op de witte lijst.
+
+          Als dit beleid niet wordt ingesteld, kan de gebruiker elke extensie installeren in <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Hiermee configureer je de directory die <ph name="PRODUCT_NAME" /> gebruikt voor het downloaden van bestanden.
 
       Als je dit beleid instelt, gebruikt <ph name="PRODUCT_NAME" /> deze directory, ongeacht of de gebruiker een directory heeft gespecificeerd of heeft aangegeven telkens te willen worden gevraagd wat de downloadlocatie moet zijn.
@@ -1095,6 +1093,7 @@
       Als dit beleid niet is ingesteld, kan de gebruiker worden gevraagd of deze wil importeren, of wordt er automatisch geïmporteerd.</translation>
 <translation id="5056708224511062314">Vergrootglas uitgeschakeld</translation>
 <translation id="5067143124345820993">Aanmelden bij witte lijst van gebruikers</translation>
+<translation id="5068140065960598044">Het cloudbeleid van <ph name="PRODUCT_NAME" /> overschrijft het apparaatbeleid.</translation>
 <translation id="5085647276663819155">Afdrukvoorbeeld uitschakelen</translation>
 <translation id="5105313908130842249">Vertraging van schermvergrendeling wanneer op de batterij wordt gewerkt</translation>
 <translation id="5130288486815037971">Of RC4-coderingssuites in TLS zijn ingeschakeld</translation>
@@ -1573,6 +1572,13 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
           Als je dit beleid instelt, kunnen gebruikers dit niet wijzigen of negeren.
 
           Als je dit beleid niet instelt, is gesproken feedback eerst uitgeschakeld maar kan de gebruiker deze op elk moment inschakelen.</translation>
+<translation id="6922040258551909078">
+      Als het beleid is ingesteld op 'true' (waar), krijgt het cloudbeleid voorrang als dit conflicteert met het apparaatbeleid.
+      Als het beleid is ingesteld op 'false' (onwaar) of niet is geconfigureerd, krijgt het apparaatbeleid voorrang als dit conflicteert met het cloudbeleid.
+      Voor meer informatie over beleidsprioriteit ga je naar: https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      Dit beleid is niet beschikbaar op Windows-instanties die niet zijn gekoppeld aan een <ph name="MS_AD_NAME" />-domein.
+      </translation>
 <translation id="6922884955650325312">De <ph name="FLASH_PLUGIN_NAME" />-plug-in blokkeren</translation>
 <translation id="6923366716660828830">Hiermee wordt de naam van de standaardzoekprovider gespecificeerd. Als dit leeg is of niet wordt ingesteld, wordt de hostnaam gebruikt die door de zoek-URL wordt gespecificeerd.
 

@@ -531,13 +531,6 @@
           Valoarea politicii trebuie specificată în milisecunde. Valorile trebuie să fie mai mici sau egale cu intervalul pentru oprirea ecranului (dacă este setat) și cu intervalul de inactivitate.</translation>
 <translation id="2987155890997901449">Activează ARC</translation>
 <translation id="2987227569419001736">Controlează folosirea API-ului Web Bluetooth</translation>
-<translation id="2998881342848488968">Această politică permite <ph name="PRODUCT_OS_NAME" /> să ocolească orice proxy pentru autentificarea prin portalul captiv.
-
-      Această politică are efect numai dacă este configurat un proxy (de exemplu, conform unei politici, de utilizatori în chrome://settings sau prin extensii).
-
-      Dacă activezi această setare, orice pagină de autentificare prin portalul captiv (de ex., toate paginile începând cu pagina de conectare la portalul captiv până când <ph name="PRODUCT_NAME" /> detectează o conexiune stabilă la internet) va fi afișată într-o fereastră separată, ignorând toate setările și restricțiile politicii pentru utilizatorul actual.
-
-      Dacă dezactivezi această setare sau nu o configurezi, orice pagină de autentificare prin portalul activ va fi afișată într-o filă nouă (obișnuită) a browserului, folosind setările de proxy ale utilizatorului actual.</translation>
 <translation id="3001534538097271560">Dacă dezactivezi această politică, utilizatorii nu vor mai putea trimite unele informații de sistem și conținutul paginii la serverele Google. Dacă această setare este activată sau nu este configurată, utilizatorii au permisiunea să trimită unele informații de sistem și conținutul paginii la Navigarea sigură pentru detectarea aplicațiilor și a site-urilor periculoase.
 
       Consultă https://developers.google.com/safe-browsing pentru mai multe informații despre Navigarea sigură.</translation>
@@ -717,6 +710,11 @@
       Dacă această setare este dezactivată, <ph name="PRODUCT_NAME" /> nu va verifica niciodată dacă este browserul prestabilit și va dezactiva comenzile utilizatorului pentru setarea acestei opțiuni.
 
       Dacă această setare nu este configurată, <ph name="PRODUCT_NAME" /> va permite utilizatorului să stabilească dacă acesta este browserul prestabilit și dacă trebuie afișate notificări pentru utilizator atunci când nu este.</translation>
+<translation id="379602782757302612">Îți permite să specifici extensiile pe care utilizatorii NU le pot instala. Extensiile instalate deja vor fi dezactivate dacă apar în lista neagră, fără ca utilizatorul să le poată activa. După ce o extensie dezactivată din cauza listei negre este eliminată din aceasta, extensia va fi activată din nou automat.
+
+          O valoare „*” din lista neagră înseamnă că toate extensiile apar în lista neagră, cu excepția cazului în care acestea sunt explicit specificate în lista albă.
+
+          Dacă politica nu este configurată, utilizatorul poate instala orice extensie în <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Configurează directorul pe care <ph name="PRODUCT_NAME" /> îl va folosi pentru a descărca fișierele.
 
       Dacă configurezi această politică, <ph name="PRODUCT_NAME" /> va folosi directorul indicat, indiferent dacă utilizatorul a specificat unul sau a activat semnalizatorul care îi solicită locația de descărcare de fiecare dată.
@@ -1055,6 +1053,7 @@
 <translation id="5052081091120171147">Dacă este activată, această politică forțează importarea istoricului de navigare din browserul prestabilit actual. Dacă este activată, această politică afectează, de asemenea, caseta de dialog de importare. Dacă este dezactivată, istoricul de navigare nu va fi importat. În cazul în care nu este setată, utilizatorul poate fi întrebat dacă dorește importarea sau aceasta poate avea loc în mod automat.</translation>
 <translation id="5056708224511062314">Lupă ecran dezactivată</translation>
 <translation id="5067143124345820993">Lista albă a utilizatorilor cu permisiuni de conectare</translation>
+<translation id="5068140065960598044">Politica în cloud <ph name="PRODUCT_NAME" /> înlocuiește politica dispozitivului.</translation>
 <translation id="5085647276663819155">Dezactivați Previzualizarea înainte de printare</translation>
 <translation id="5105313908130842249">Interval până la blocarea ecranului la funcționarea pe baterie</translation>
 <translation id="5130288486815037971">Specifică dacă suitele de codificare RC4 din TLS sunt activate</translation>
@@ -1497,6 +1496,13 @@
           Dacă această politică este configurată, utilizatorii nu o pot modifica sau ignora.
 
           Dacă această politică nu este configurată, feedbackul vocal este inițial dezactivat, dar poate fi activat oricând de utilizator.</translation>
+<translation id="6922040258551909078">
+      Când politica este activată, politica în cloud are prioritate dacă este în conflict cu politica dispozitivului.
+      Când politica este dezactivată sau nu este configurată, politica dispozitivului are prioritate dacă este în conflict cu politica în cloud.
+      Pentru mai multe detalii despre prioritatea politicilor, accesează https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      Această politică nu este disponibilă în instanțele Windows care nu sunt asociate unui domeniu <ph name="MS_AD_NAME" />.
+      </translation>
 <translation id="6922884955650325312">Blochează pluginul <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Specifică numele furnizorului de căutare prestabilit. Dacă nu este completată sau este nesetată, va fi utilizat numele de gazdă specificat de adresa URL de căutare. Această politică este luată în considerare numai în cazul în care este activată politica „DefaultSearchProviderEnabled”.</translation>
 <translation id="6931242315485576290">Dezactivează sincronizarea datelor cu Google</translation>

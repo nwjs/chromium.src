@@ -549,13 +549,6 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
           El valor de la política se debe especificar en milisegundos. Los valores están establecidos para ser inferiores o iguales al retraso de desconexión de pantalla (si está establecido) y al retraso de inactividad.</translation>
 <translation id="2987155890997901449">Habilitar ARC</translation>
 <translation id="2987227569419001736">Controlar el uso de la API Bluetooth web</translation>
-<translation id="2998881342848488968">Esta política permite a <ph name="PRODUCT_OS_NAME" /> omitir cualquier proxy para la autenticación de portal cautivo.
-
-      Esta política solo tendrá validez si se ha configurado un proxy (por ejemplo, a través de una política o de las extensiones, o si lo ha configurado el usuario en chrome://settings).
-
-      Si habilitas esta opción, las páginas de autenticación de portal cautivo (es decir, las páginas web que empiezan con una página de inicio de sesión de portal cautivo hasta que <ph name="PRODUCT_NAME" /> detecta que la conexión a Internet se ha realizado correctamente) se mostrarán en una ventana independiente ignorando la configuración de la política y las restricciones del usuario actual.
-
-      Si inhabilitas esta opción o no la configuras, las páginas de autenticación de portal cautivo se mostrarán en una nueva pestaña del navegador (como habitualmente) utilizando la configuración del proxy del usuario actual.</translation>
 <translation id="3001534538097271560">Si se asigna el valor false a esta política, los usuarios no podrán elegir si quieren enviar información y contenido de las páginas a los servidores de Google. Si se le asigna el valor true o no se configura, los usuarios podrán enviar información del sistema y contenido de las páginas a la función Navegación Segura para que detecte aplicaciones y sitios web peligrosos.
 
       Consulta la página https://developers.google.com/safe-browsing para obtener más información sobre la función Navegación Segura.</translation>
@@ -740,6 +733,11 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
       Si inhabilitas esta opción, nunca se comprobará si <ph name="PRODUCT_NAME" /> es el navegador predeterminado y se inhabilitará el control de los usuarios sobre la configuración de esta opción.
 
       Si no se configura esta opción, los usuarios de <ph name="PRODUCT_NAME" /> podrán decidir si quieren que este sea el navegador predeterminado y si deben aparecer notificaciones cuando no lo sea.</translation>
+<translation id="379602782757302612">Te permite especificar las extensiones que los usuarios no pueden instalar. Se inhabilitarán las extensiones ya instaladas si se encuentran en una lista negra, y el usuario no las podrá habilitar. Si se elimina una extensión de la lista negra, se volverá a habilitar automáticamente.
+
+          El valor "*" en una lista negra indica que todas las extensiones están en la lista negra a menos que aparezcan explícitamente en la lista blanca.
+
+          Si no se establece esta política, el usuario podrá instalar cualquier extensión en <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Configura el directorio que <ph name="PRODUCT_NAME" /> utilizará para descargar archivos.
 
       Si se establece esta política, <ph name="PRODUCT_NAME" /> utilizará el directorio proporcionado independientemente de que el usuario haya especificado un directorio o habilitado el indicador para seleccionar siempre la ubicación de la descarga.
@@ -1095,6 +1093,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
       Si no se establece, es posible que se le pida al usuario que haga la importación o que el historial de navegación se importe automáticamente.</translation>
 <translation id="5056708224511062314">Aumento de pantalla inhabilitado</translation>
 <translation id="5067143124345820993">Lista de admisión de usuarios con permiso para iniciar sesión</translation>
+<translation id="5068140065960598044">La política de la nube de <ph name="PRODUCT_NAME" /> anula la política del equipo.</translation>
 <translation id="5085647276663819155">Inhabilitar vista previa de impresión</translation>
 <translation id="5105313908130842249">Retraso de bloqueo de pantalla cuando el dispositivo funciona con la batería</translation>
 <translation id="5130288486815037971">Indicar si se han habilitado los conjuntos de cifrado de RC4 en TLS</translation>
@@ -1574,6 +1573,13 @@ Al habilitar esta política, se inhabilita la sincronización en la nube.
           Si estableces esta política, los usuarios no podrán modificarla o anularla.
 
           Si no se establece esta política, los comentarios por voz se inhabilitarán de forma inicial, pero el usuario podrá habilitarlos en cualquier momento.</translation>
+<translation id="6922040258551909078">
+      Si se le asigna el valor "true" a esta política, la política de la nube prevalecerá si entra en conflicto con la política del equipo.
+      Si se le asigna el valor "false" o no se le asigna ningún valor, la política del equipo prevalecerá si entra en conflicto con la política de la nube.
+      Para obtener más información sobre la prioridad de las políticas, consulta: https://support.google.com/chrome?p=set_chrome_policies_for_devices.
+
+      Esta política no está disponible en instancias de Windows que no estén vinculadas a un dominio <ph name="MS_AD_NAME" />.
+      </translation>
 <translation id="6922884955650325312">Bloquear el complemento <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Permite especificar el nombre del proveedor de búsquedas predeterminado. Si se deja en blanco, se utilizará el nombre del host especificado por la URL de búsqueda.
 

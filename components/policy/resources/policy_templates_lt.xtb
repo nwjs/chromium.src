@@ -554,13 +554,6 @@
           Politikos vertė turėtų būti nurodyta milisekundėmis. Vertės sumažinamos, kad neviršytų ekrano išjungimo delsos laiko (jei jis nustatytas) ar neveikos delsos laiko arba būtų jam lygios.</translation>
 <translation id="2987155890997901449">ARC įgalinimas</translation>
 <translation id="2987227569419001736">Valdyti „Web Bluetooth“ API naudojimą</translation>
-<translation id="2998881342848488968">Įgalinus šią politiką „<ph name="PRODUCT_OS_NAME" />“ gali apeiti fiksuotojo portalo autentifikavimo tarpinį serverį.
-
-      Ši politika taikoma, tik jei sukonfigūruotas tarpinis serveris (pvz., kai naudotojas pakeičia politiką apsilankęs adresu chrome://settings arba kai tai atlieka plėtiniai).
-
-      Jei įgalinsite šį nustatymą, visi fiksuotojo portalo autentifikavimo puslapiai (pvz., visi tinklalapiai nuo fiksuotojo portalo prisijungimo puslapio iki tada, kai „<ph name="PRODUCT_NAME" />“ aptinka, kad sėkmingai prisijungta prie interneto), bus rodomi atskirame lange ir bus nepaisoma visų dabartinio naudotojo politikos nustatymų bei apribojimų.
-
-      Jei išjungsite šį nustatymą arba paliksite jį nenustatytą, fiksuotojo portalo autentifikavimo puslapiai bus rodomi (įprastame) naujame naršyklės skirtuke naudojant dabartinio naudotojo tarpinio serverio nustatymus.</translation>
 <translation id="3001534538097271560">Nustačius šią politiką į „False“ naudotojai nebegalės pasirinkti siųsti tam tikros sistemos informacijos ir puslapių turinio į „Google“ serverius. Jei šis nustatymas nustatytas į „True“ arba nesukonfigūruotas, naudotojai galės siųsti tam tikrą sistemos informaciją ir puslapių turinį Saugaus naršymo funkcijai, kad padėtų aptikti pavojingas programas ir svetaines.
 
       Daugiau informacijos apie Saugų naršymą rasite adresu https://developers.google.com/safe-browsing.</translation>
@@ -746,6 +739,11 @@
       Jei šio nustatymo neleisite, „<ph name="PRODUCT_NAME" />“ niekada netikrins, ar ji yra numatytoji naršyklė, o naudotojams bus neleidžiama naudoti šios parinkties nustatymo valdiklių.
 
       Nenustačius šio nustatymo „<ph name="PRODUCT_NAME" />“ leis naudotojui valdyti numatytosios naršyklės parinktis ir nurodyti, ar turi būti pateikti naudotojui skirti pranešimai, jei naršyklė nėra numatytoji.</translation>
+<translation id="379602782757302612">Leidžiama nurodyti, kurių plėtinių naudotojai NEGALI įdiegti. Jei jau įdiegti plėtiniai bus įtraukti į juodąjį sąrašą, jie bus išjungiami, ir naudotojai negalės vėl jų įgalinti. Kai išjungtas plėtinys, kuris buvo įtrauktas į juodąjį sąrašą, iš sąrašo bus pašalintas, jis vėl bus automatiškai įgalintas.
+
+          Juodojo sąrašo vertė * nurodo, kad visi plėtiniai yra įtraukti į juodąjį sąrašą, nebent jie yra aiškiai nurodyti baltajame sąraše.
+
+          Jei ši politika lieka nenustatyta, naudotojas gali įdiegti bet kurį „<ph name="PRODUCT_NAME" />“ plėtinį.</translation>
 <translation id="3800626789999016379">Konfigūruojamas katalogas, kurį „<ph name="PRODUCT_NAME" />“ naudos failams atsisiųsti.
 
       Jei nustatysite šią politiką, „<ph name="PRODUCT_NAME" />“ naudos nurodytą katalogą, nesvarbu, ar naudotojas jį nurodė, ar įgalino žymą kiekvieną kartą raginti nurodyti atsisiuntimo vietą.
@@ -1101,6 +1099,7 @@
       Jei nenustatyta, naudotojo gali būti klausiama, ar importuoti, arba gali būti automatiškai importuojama.</translation>
 <translation id="5056708224511062314">Ekrano didinimas išjungtas</translation>
 <translation id="5067143124345820993">Prisijungusių naudotojų baltasis sąrašas</translation>
+<translation id="5068140065960598044">Taikant „<ph name="PRODUCT_NAME" />“ debesies politiką įrenginio politikos nebepaisoma.</translation>
 <translation id="5085647276663819155">Neleisti spaudinio peržiūros</translation>
 <translation id="5105313908130842249">Ekrano užrakto delsa, kai naudojama akumuliatoriaus energija</translation>
 <translation id="5130288486815037971">Ar įgalinti RC4 šifruotieji programų komplektai TLS</translation>
@@ -1581,6 +1580,13 @@
           Jei nustatysite šią politiką, naudotojai negalės jos pakeisti arba nepaisyti.
 
           Jei ši politika nenustatyta, ekrano skaitymas balsu bus išjungtas, bet naudotojas galės bet kada jį įgalinti.</translation>
+<translation id="6922040258551909078">
+      Jei ši politika nustatyta kaip „True“, debesies politikai yra teikiama pirmenybė, jei ji prieštarauja įrenginio politikai.
+      Jei ši politika nustatyta kaip „False“ arba nėra sukonfigūruota, įrenginio politikai yra teikiama pirmenybė, jei ji prieštarauja debesies politikai.
+      Jei reikia daugiau informacijos apie politikų pirmumą, apsilankykite adresu https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      Ši politika negalima „Windows“ objektuose, kurie nėra prijungti prie „<ph name="MS_AD_NAME" />“ domeno.
+      </translation>
 <translation id="6922884955650325312">Užblokuoti papildinį „<ph name="FLASH_PLUGIN_NAME" />“</translation>
 <translation id="6923366716660828830">Nurodomas numatytojo paieškos teikėjo pavadinimas. Jei laukas paliekamas tuščias arba nenustatomas, naudojamas paieškos URL nurodytas prieglobos pavadinimas.
 

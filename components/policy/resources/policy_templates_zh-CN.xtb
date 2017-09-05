@@ -509,13 +509,6 @@
           指定的政策值应以毫秒为单位，并且不得大于屏幕关闭延迟时间（如果设置了的话）和闲置延迟时间。</translation>
 <translation id="2987155890997901449">启用 ARC</translation>
 <translation id="2987227569419001736">控制对 Web Bluetooth API 的使用</translation>
-<translation id="2998881342848488968">此政策允许 <ph name="PRODUCT_OS_NAME" />在进行强制门户身份验证时跳过任何代理服务器。
-
-      只有在配置了代理服务器时（例如，通过政策配置、由用户在 chrome://settings 中配置，或通过扩展程序配置），此政策才会生效。
-
-      如果您启用了此设置，所有强制门户身份验证页面（即 <ph name="PRODUCT_NAME" /> 检测到成功的互联网连接之前，从强制门户登录页面开始的所有网页）都将在单独的窗口中显示，并忽略针对当前用户的所有政策设置和限制。
-
-      如果您停用了此设置或未对其进行设置，所有强制门户身份验证页面都将在新的常规浏览器标签页中显示，并使用当前用户的代理服务器设置。</translation>
 <translation id="3001534538097271560">如果此政策设为 false，用户将无法选择向 Google 服务器发送一些系统信息和网页内容。如果此设置设为 true 或未配置，用户将能够向安全浏览服务发送一些系统信息和网页内容，以帮助检测危险应用和网站。
 
       要详细了解安全浏览功能，请访问 https://developers.google.com/safe-browsing。</translation>
@@ -685,6 +678,11 @@
           如果“EnableMediaRouter”政策设为 false，那么此政策的值将不会发挥任何作用，该工具栏图标将不会显示。</translation>
 <translation id="3788662722837364290">设备闲置时的电源管理设置</translation>
 <translation id="3793095274466276777">在“<ph name="PRODUCT_NAME" />”中配置默认浏览器检查，并禁止用户更改此设置。如果您启用了此设置，则“<ph name="PRODUCT_NAME" />”在启动时总是会检查自己是否为默认浏览器，并会自动注册（如果可以）。如果此设置已停用，则“<ph name="PRODUCT_NAME" />”永远不会检查自己是否为默认浏览器，并会禁止用户设置此选项。如果此设置未配置，则“<ph name="PRODUCT_NAME" />”会让用户控制是否将它设为默认浏览器，并控制是否在它不是默认浏览器的情况下显示用户通知。</translation>
+<translation id="379602782757302612">可让您指定哪些扩展程序是用户无法安装的。如果已安装的扩展程序被列入黑名单，就会遭到停用，而且用户将无法启用它们。一旦某个因被列入黑名单而遭到停用的扩展程序被移出黑名单，系统即会自动重新启用它。
+
+          黑名单中的“*”值表示：除了在白名单中明确列出的扩展程序，其他所有扩展程序均已被列入黑名单。
+
+          如果未设置此政策，用户便可在 <ph name="PRODUCT_NAME" /> 中安装任何扩展程序。</translation>
 <translation id="3800626789999016379">配置 <ph name="PRODUCT_NAME" /> 将用于下载文件的目录。
 
       如果您设置了此政策，那么无论用户是指定了一个目录，还是启用了要求在每次下载文件时都提示指定下载位置的项，<ph name="PRODUCT_NAME" /> 都将使用通过此政策提供的目录。
@@ -1018,6 +1016,7 @@
 <translation id="5052081091120171147">如果启用此政策，就会强制从当前默认浏览器导入浏览记录，还会影响导入对话框。如果停用此政策，就不会导入浏览记录。如果未设置此政策，系统就会询问用户是否导入浏览记录，或者系统自动进行导入。</translation>
 <translation id="5056708224511062314">放大镜已停用</translation>
 <translation id="5067143124345820993">登录用户白名单</translation>
+<translation id="5068140065960598044"><ph name="PRODUCT_NAME" /> 云政策会替换机器政策。</translation>
 <translation id="5085647276663819155">停用打印预览</translation>
 <translation id="5105313908130842249">使用电池供电时的屏幕锁定延迟时间</translation>
 <translation id="5130288486815037971">是否在 TLS 中启用 RC4 加密套件</translation>
@@ -1450,6 +1449,13 @@
           如果您设置了此政策，那么用户将无法对其进行更改或覆盖。
 
           如果未设置此政策，则语音反馈最初处于停用状态，但用户可以随时启用该功能。</translation>
+<translation id="6922040258551909078">
+      如果此政策设为 true，那么当云政策与机器政策冲突时，即会以云政策为准。
+      如果此政策设为 false 或未配置，那么当机器政策与云政策冲突时，就会以机器政策为准。
+      有关政策优先级的更多详情，请访问：https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      此政策不适用于未加入 <ph name="MS_AD_NAME" /> 网域的 Windows 实例。
+      </translation>
 <translation id="6922884955650325312">禁止 <ph name="FLASH_PLUGIN_NAME" /> 插件运行</translation>
 <translation id="6923366716660828830">指定默认搜索服务提供商的名称。如果留空或未设置，系统就会使用由搜索网址指定的主机名。要考虑此政策，必须先启用“DefaultSearchProviderEnabled”政策。</translation>
 <translation id="6931242315485576290">停用与 Google 同步数据的功能</translation>

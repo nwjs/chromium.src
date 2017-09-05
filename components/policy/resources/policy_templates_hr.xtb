@@ -528,13 +528,6 @@
           Vrijednost pravila treba navesti u milisekundama. Vrijednosti su ograničene na vrijeme kraće od odgode isključivanja zaslona i odgode neaktivnosti ili jednako tom vremenu (ako je postavljeno).</translation>
 <translation id="2987155890997901449">Omogući ARC</translation>
 <translation id="2987227569419001736">Upravljanje upotrebom API-ja Web Bluetooth</translation>
-<translation id="2998881342848488968">To pravilo omogućuje proizvodu <ph name="PRODUCT_OS_NAME" /> da zaobiđe bilo koji proxy za autentifikaciju zaštitnim portalom.
-
-      To pravilo djeluje samo ako je proxy konfiguriran (na primjer, pravilom, korisnički u chrome://settings ili proširenjima).
-
-      Ako omogućite tu postavku, sve autentifikacijske stranice zaštitnog portala (tj., sve web-stranice koje se pokreću sa stranice za prijavu na zaštitnom portalu dok <ph name="PRODUCT_NAME" /> ne otkrije uspješnu internetsku vezu) prikazivat će se u zasebnom prozoru, zanemarujući sve postavke i ograničenja pravila za trenutačnog korisnika.
-
-      Ako onemogućite tu postavku ili je ostavite nepostavljenu, sve autentifikacijske stranice zaštitnog portala prikazivat će se u (uobičajenoj) novoj kartici preglednika, na temelju trenutačnih korisničkih postavki proxyja.</translation>
 <translation id="3001534538097271560">Ako se to pravilo postavi na "false", korisnici neće moći odabrati slanje nekih informacija sustava i sadržaja stranice Googleovim poslužiteljima. Ako se ta postavka postavi na "true" ili se ne konfigurira, korisnici će moći slati neke informacije sustava i sadržaj stranice Sigurnom pregledavanju radi boljeg otkrivanja opasnih aplikacija i web-lokacija.
 
       Više informacija o Sigurnom pregledavanju potražite na stranici https://developers.google.com/safe-browsing.</translation>
@@ -705,6 +698,11 @@
           Ako se pravilo "EnableMediaRouter" postavi na "neistinito", tada vrijednost tog pravila nema učinka i ikona na alatnoj traci neće se prikazivati.</translation>
 <translation id="3788662722837364290">Postavke upravljanja napajanjem kada korisnik postane neaktivan</translation>
 <translation id="3793095274466276777">Konfigurira zadane provjere preglednika u proizvodu <ph name="PRODUCT_NAME" /> i sprječava korisnike da ih promijene. Ako omogućite ovu postavku, <ph name="PRODUCT_NAME" /> će prilikom svakog pokretanja provjeriti je li zadani preglednik i automatski se registrirati ako je moguće. Ako je ova postavka onemogućena, <ph name="PRODUCT_NAME" /> neće nikad provjeravati je li zadani preglednik i onemogućit će korisničke kontrole za postavljanje ove opcije. Ako ova postavka nije podešena, korisnik će moći odrediti je li <ph name="PRODUCT_NAME" /> zadani preglednik i trebaju li korisničke obavijesti biti prikazane kada to nije slučaj.</translation>
+<translation id="379602782757302612">Omogućuje da odredite koja proširenja korisnici NE mogu instalirati. Prethodno instalirana proširenja koja stavite na popis zabranjenih bit će onemogućena i korisnici ih neće moći omogućiti. Kad se proširenje koje je onemogućeno zbog toga što se nalazi na popisu zabranjenih ukloni s tog popisa, automatski će biti ponovo omogućeno.
+
+          Vrijednost "*" na popisu zabranjenih znači da nije dopušteno nijedno proširenje osim onih koja su izričito navedena na popisu dopuštenih.
+
+          Ako to pravilo nije postavljeno, korisnik može instalirati bilo koje proširenje u <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Konfigurira direktorij koji će <ph name="PRODUCT_NAME" /> upotrebljavati za preuzimanje datoteka.
 
       Ako postavite to pravilo, preglednik <ph name="PRODUCT_NAME" /> upotrebljavat će navedeni direktorij bez obzira je li ga je korisnik naveo ili je označio okvir da se mjesto preuzimanja treba svaki put ponovo navesti.
@@ -1044,6 +1042,7 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
 <translation id="5052081091120171147">Ako je omogućeno, ovo pravilo prisilno uvozi povijest pregledavanja iz trenutačno zadanog preglednika. Ako je omogućeno, ovo pravilo također utječe na dijaloški okvir za uvoz. Ako je onemogućeno, povijest pregledavanja se ne uvozi. Ako nije postavljeno, korisniku može biti postavljen upit želi li uvesti povijest pregledavanja ili do uvoza može doći automatski.</translation>
 <translation id="5056708224511062314">Povećalo je onemogućeno</translation>
 <translation id="5067143124345820993">Popis korisnika kojima je dopuštena prijava</translation>
+<translation id="5068140065960598044">Pravila oblaka za <ph name="PRODUCT_NAME" /> nadjačavaju pravila računala.</translation>
 <translation id="5085647276663819155">Onemogući pregled ispisa</translation>
 <translation id="5105313908130842249">Odgoda zaključavanja zaslona za vrijeme baterijskog napajanja</translation>
 <translation id="5130288486815037971">Omogućivanje RC4 paketa šifri u TLS-u</translation>
@@ -1484,6 +1483,13 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
           Ako postavite to pravilo, korisnici ga ne mogu promijeniti ili premostiti.
 
           Ako se to pravilo ne postavi, izgovaranje povratnih informacija u početku je onemogućeno, ali korisnik ga može omogućiti u bilo kojem trenutku.</translation>
+<translation id="6922040258551909078">
+      Ako je pravilo postavljeno na točno, pravila oblaka imaju prednost u slučaju sukoba s pravilima računala.
+      Ako je pravilo postavljeno na netočno ili nije konfigurirano, pravila računala imaju prednost u slučaju sukoba s pravilima oblaka.
+      Za više pojedinosti o prioritetu pravila posjetite: https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      To pravilo nije dostupno u instancama Windowsa koje nisu pridružene <ph name="MS_AD_NAME" /> domeni.
+      </translation>
 <translation id="6922884955650325312">Blokiraj dodatak <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Određuje naziv zadanog davatelja usluga pretraživanja. Ako naziv ostane prazan ili nije postavljen, upotrebljavat će se naziv hosta određen URL-om pretraživanja. Ovo će pravilo biti uzeto u obzir samo ako je omogućeno pravilo "DefaultSearchProviderEnabled".</translation>
 <translation id="6931242315485576290">Onemogući sinkronizaciju podataka s Googleom</translation>

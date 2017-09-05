@@ -555,13 +555,6 @@
           Politikas vērtību nedrīkst norādīt milisekundēs. Ir jānorāda vērtības, kas ir mazākas par aizkavi līdz ekrāna izslēgšanai (ja tāda ir iestatīta) un dīkstāvei vai kas ir vienādas ar to.</translation>
 <translation id="2987155890997901449">ARC iespējošana</translation>
 <translation id="2987227569419001736">Web Bluetooth API lietošanas pārvaldība</translation>
-<translation id="2998881342848488968">Šī politika ļauj operētājsistēmai <ph name="PRODUCT_OS_NAME" /> apiet visus caurlaides lapu autentifikācijas starpniekserverus.
-
-      Šī politika ir spēkā tikai tad, ja ir konfigurēts starpniekserveris (piemēram, izmantojot politiku, lietotāja iestatījumus lapā chrome://settings vai paplašinājumus).
-
-      Ja iespējosiet šo iestatījumu, visas caurlaides lapu autentifikācijas lapas (t.i., visas tīmekļa lapas no caurlaides lapas pierakstīšanās lapas līdz brīdim, kad pārlūkā <ph name="PRODUCT_NAME" /> būs konstatēts sekmīgi izveidots interneta savienojums) tiks parādītas atsevišķā logā, ignorējot visus pašreizējam lietotājam piemērotos politiku iestatījumus un ierobežojumus.
-
-      Ja atspējosiet šo iestatījumu vai atstāsiet to neiestatītu, visas caurlaides lapas autentifikācijas lapas tiks rādītās (parastā) jaunā pārlūka cilnē, izmantojot pašreizējos lietotāja starpniekservera iestatījumus.</translation>
 <translation id="3001534538097271560">Ja šai politikai ir iestatīta vērtība “False”, lietotājiem tiek liegta iespēja nosūtīt sistēmas informāciju un lapu saturu Google serveriem. Ja šī vērtība ir “True” vai nav konfigurēta, lietotāji varēs nosūtīt sistēmas informāciju un lapu saturu funkcijai Droša pārlūkošana, lai palīdzētu noteikt bīstamas lietotnes un vietnes.
 
       Plašāku informāciju par funkciju Droša pārlūkošana skatiet vietnē https://developers.google.com/safe-browsing.</translation>
@@ -745,6 +738,11 @@ Ja šim iestatījumam ir izvēlēta vērtība “Izslēgts” vai vērtība nav 
       Ja šis iestatījums ir atspējots, <ph name="PRODUCT_NAME" /> nekad nepārbauda, vai tas ir noklusējuma pārlūks, un lietotājam tiek atspējota iespēja iestatīt šo opciju.
 
       Ja šis iestatījums nav iestatīts, <ph name="PRODUCT_NAME" /> ļauj lietotājam noteikt, vai tas ir noklusējuma pārlūks un, ja tas nav, vai jāparāda lietotāja paziņojumi.</translation>
+<translation id="379602782757302612">Ļauj norādīt, kurus paplašinājumus lietotāji NEDRĪKST instalēt. Ja melnajā sarakstā būs iekļauts kāds no jau instalētajiem paplašinājumiem, tas tiks atspējots tādā veidā, ka lietotājs nevarēs to iespējot. Tiklīdz atspējotais paplašinājums tiks izņemts no melnā saraksta, tas tiks automātiski atkārtoti iespējots.
+
+          Melnā saraksta vērtība “*” nozīmē, ka visi paplašinājumi ir iekļauti melnajā sarakstā, ja vien tie nav skaidri norādīti baltajā sarakstā.
+
+          Ja šī politika nav iestatīta, lietotājs var instalēt jebkuru paplašinājumu pārlūkā <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Tiek konfigurēts direktorijs, kas pārlūkā <ph name="PRODUCT_NAME" /> tiek lietots failu lejupielādei.
 
       Ja šī politika ir iestatīta, pārlūkā <ph name="PRODUCT_NAME" /> tiek lietots norādītais direktorijs neatkarīgi no tā, vai lietotājs ir norādījis direktoriju vai iespējojis karodziņu, lai ikreiz tiktu pieprasīts norādīt lejupielādes vietu.
@@ -1098,6 +1096,7 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
       Ja tā nav iestatīta, vai nu lietotājam var tikt vaicāts, vai importēt, vai arī importēšana var notikt automātiski.</translation>
 <translation id="5056708224511062314">Ekrāna lupa ir atspējota</translation>
 <translation id="5067143124345820993">Pieteikšanās lietotāju baltais saraksts</translation>
+<translation id="5068140065960598044"><ph name="PRODUCT_NAME" /> mākoņa politika ignorē ierīces politiku.</translation>
 <translation id="5085647276663819155">Atspējot drukas priekšskatījumu</translation>
 <translation id="5105313908130842249">Aizkave līdz ekrāna bloķēšanai, ja ierīce darbojas ar akumulatora jaudu</translation>
 <translation id="5130288486815037971">RC4 šifra komplektu iespējošana standartā TLS</translation>
@@ -1576,6 +1575,13 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
           Ja iestatāt šo politiku, lietotāji nevar to mainīt vai ignorēt.
 
           Ja šī politika nav iestatīta, mutiskās atsauksmes sākotnēji ir atspējotas, taču lietotājs var jebkurā brīdī tās iespējot.</translation>
+<translation id="6922040258551909078">
+      Ja šai politikai ir iestatīta vērtība “True” un ja mākoņa politika konfliktē ar ierīces politiku, mākoņa politikai ir priekšroka.
+      Ja šai politikai ir iestatīta vērtība “False” vai tā nav konfigurēta un ja ierīces politika ir konfliktā ar mākoņa politiku, ierīces politikai ir priekšroka.
+      Plašāku informāciju par politiku prioritātēm skatiet vietnē https://support.google.com/chrome?p=set_chrome_policies_for_devices.
+
+      Šī politika nav pieejama Windows instancēs, kas nav pievienotas <ph name="MS_AD_NAME" /> domēnam.
+      </translation>
 <translation id="6922884955650325312">Spraudņa <ph name="FLASH_PLUGIN_NAME" /> bloķēšana</translation>
 <translation id="6923366716660828830">Norāda noklusējuma meklētājprogrammas nosaukumu. Ja nekas nav ievadīts vai šī politika nav iestatīta, tiks lietots ar meklēšanas URL norādītais saimniekdatora nosaukums.
 

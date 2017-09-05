@@ -523,13 +523,6 @@ Falls die Richtlinie auf "false" gesetzt wird, kann eine verzögerungsfreie auto
           Der Wert für die Richtlinie muss in Millisekunden angegeben werden. Werte müssen kleiner oder gleich dem Wert der Verzögerung für die Bildschirmabschaltung (falls angegeben) und der Inaktivitätsverzögerung sein.</translation>
 <translation id="2987155890997901449">ARC aktivieren</translation>
 <translation id="2987227569419001736">Verwendung der Web Bluetooth API steuern</translation>
-<translation id="2998881342848488968">Diese Richtlinie ermöglicht <ph name="PRODUCT_OS_NAME" />, zur Captive-Portal-Authentifizierung alle Proxys zu umgehen.
-
-      Die Richtlinie kommt nur dann zum Einsatz, wenn ein Proxy konfiguriert ist, zum Beispiel über eine Richtlinie, vom Nutzer unter chrome://settings oder von Erweiterungen.
-
-      Wenn diese Einstellung aktiviert ist, werden alle Seiten der Captive-Portal-Authentifizierung – also alle Webseiten ab der Anmeldeseite, bis <ph name="PRODUCT_NAME" /> eine funktionierende Internetverbindung erkennt – in einem separaten Fenster angezeigt und alle Richtlinieneinstellungen und -beschränkungen für den aktuellen Nutzer ignoriert.
-
-      Wenn Sie diese Einstellung deaktivieren oder nicht konfigurieren, werden alle Seiten der Captive-Portal-Authentifizierung auf einem regulären neuen Browsertab angezeigt und es kommen die Proxy-Einstellungen des aktuellen Nutzers zum Einsatz.</translation>
 <translation id="3001534538097271560">Wenn diese Richtlinie auf "false" eingestellt ist, können Nutzer nicht mehr auswählen, ob sie ausgewählte Systeminformationen und Seiteninhalte an die Google-Server senden möchten. Ist die Richtlinie auf "true" eingestellt oder nicht konfiguriert, können Nutzer einige Systeminformationen und Seiteninhalte an Safe Browsing senden, um bei der Erfassung schädlicher Apps und Websites zu helfen.
 
       Weitere Informationen zu Safe Browsing finden Sie auf https://developers.google.com/safe-browsing.</translation>
@@ -700,6 +693,11 @@ Ist die Einstellung deaktiviert oder nicht konfiguriert, können Nutzer zu der g
           Wenn die Richtlinie "EnableMediaRouter" auf "false" gesetzt wird, hat der Wert dieser Richtlinie keine Auswirkungen und das Symbol wird nicht auf der Symbolleiste angezeigt.</translation>
 <translation id="3788662722837364290">Einstellungen für die Energieverwaltung bei Inaktivität des Nutzers</translation>
 <translation id="3793095274466276777">Konfiguriert den Standardbrowser, führt in <ph name="PRODUCT_NAME" /> eine Überprüfung durch und verhindert, dass Nutzer die Einstellung ändern. Falls Sie diese Einstellung aktivieren, überprüft <ph name="PRODUCT_NAME" /> bei jedem Start, ob es der Standardbrowser ist. Nach Möglichkeit registriert sich die Anwendung dann automatisch. Ist diese Einstellung deaktiviert, überprüft <ph name="PRODUCT_NAME" /> nie, ob es der Standardbrowser ist. Außerdem werden alle Nutzersteuerelemente zum Einstellen dieser Option deaktiviert. Falls diese Einstellung nicht festgelegt ist, kann der Nutzer selbst steuern, ob <ph name="PRODUCT_NAME" /> der Standardbrowser ist und ob Nutzerbenachrichtigungen angezeigt werden sollen, wenn dies nicht der Fall ist.</translation>
+<translation id="379602782757302612">Mit dieser Richtlinie können Sie festlegen, welche Erweiterungen Nutzer NICHT installieren dürfen. Bereits installierte Erweiterungen, die auf die schwarze Liste gesetzt werden, werden entfernt. Der Nutzer hat keine Möglichkeit, diese zu aktivieren. Sollte eine aufgrund der schwarzen Liste deaktivierte Erweiterung aus dieser entfernt werden, wird sie automatisch wieder aktiviert.
+
+          Der Wert "*" in der schwarzen Liste gibt an, dass alle Erweiterungen ausgeschlossen werden, sofern diese nicht ausdrücklich auf die weiße Liste gesetzt wurden.
+
+          Wenn diese Richtlinie nicht konfiguriert ist, kann der Nutzer jede Erweiterung in <ph name="PRODUCT_NAME" /> installieren.</translation>
 <translation id="3800626789999016379">Konfiguriert das Verzeichnis, das <ph name="PRODUCT_NAME" /> zum Herunterladen von Dateien verwendet.
 
       Wenn Sie diese Richtlinie festlegen, verwendet <ph name="PRODUCT_NAME" /> das angegebene Verzeichnis unabhängig davon, ob der Nutzer selbst eines angegeben oder festgelegt hat, dass er den Downloadpfad jedes Mal selbst angeben möchte.
@@ -1038,6 +1036,7 @@ Falls die Richtlinie auf "false" gesetzt wird, werden Anfragen für Bildschirm-W
 <translation id="5052081091120171147">Diese Richtlinie erzwingt, sofern aktiv, den Import des Browserverlaufs aus dem aktuellen Standardbrowser. Ist die Richtlinie aktiviert, wirkt sie sich auch auf den Importdialog aus. Wenn sie deaktiviert ist, erfolgt kein Import des Browserverlaufs. Sollte sie nicht konfiguriert sein, so wird der Nutzer möglicherweise gefragt, ob ein Import erfolgen soll, oder der Import findet automatisch statt.</translation>
 <translation id="5056708224511062314">Lupe deaktiviert</translation>
 <translation id="5067143124345820993">Weiße Liste für Nutzer bei der Anmeldung</translation>
+<translation id="5068140065960598044">Die Cloud-Richtlinie für <ph name="PRODUCT_NAME" /> überschreibt die Computerrichtlinie.</translation>
 <translation id="5085647276663819155">Druckvorschau deaktivieren</translation>
 <translation id="5105313908130842249">Verzögerung für die Bildschirmsperre im Akkubetrieb</translation>
 <translation id="5130288486815037971">Legt fest, ob RC4-Verschlüsselungssammlungen in TLS aktiviert sind</translation>
@@ -1475,6 +1474,13 @@ Speicherinformationen werden unabhängig von der gewählten Option an die Seite 
           Wenn Sie diese Richtlinie konfigurieren, können die Nutzer sie nicht ändern oder außer Kraft setzen.
 
           Wird diese Richtlinie nicht konfiguriert, ist das gesprochene Feedback zunächst deaktiviert, kann aber von den Nutzern jederzeit aktiviert werden.</translation>
+<translation id="6922040258551909078">
+      Ist die Richtlinie auf "True" festgelegt, hat die Cloud-Richtlinie Vorrang, wenn sie mit der Computerrichtlinie in Konflikt steht.
+      Ist die Richtlinie auf "False" festgelegt oder nicht konfiguriert, hat die Computerrichtlinie Vorrang, wenn sie mit der Cloud-Richtlinie in Konflikt steht.
+      Weitere Informationen zu Richtlinienprioritäten finden Sie unter: https://support.google.com/chrome?p=set_chrome_policies_for_devices.
+
+      Diese Richtlinie ist nur in Windows-Instanzen verfügbar, die nicht mit einer <ph name="MS_AD_NAME" />-Domain verbunden sind.
+      </translation>
 <translation id="6922884955650325312">Das Plug-in "<ph name="FLASH_PLUGIN_NAME" />" blockieren</translation>
 <translation id="6923366716660828830">Gibt den Namen des Standardsuchanbieters an. Wenn die Richtlinie leer oder nicht konfiguriert ist, so wird der durch die Such-URL angegebene Hostname verwendet. Diese Richtlinie wird nur dann umgesetzt, wenn "DefaultSearchProviderEnabled" aktiviert ist.</translation>
 <translation id="6931242315485576290">Synchronisierung der Daten mit Google deaktivieren</translation>

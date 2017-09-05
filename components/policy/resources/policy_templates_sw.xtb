@@ -541,13 +541,6 @@ Sera hii ikiondolewa, chaguo-msingi zitatumika kwa mipangilio yote.</translation
           Sera ya thamani inastahili kubainishwa kwa nukta. Thamani zinabanwa ili kuwa chini ya ucheleweshaji wa kutokuwa na shughuli.</translation>
 <translation id="2987155890997901449">Washa kipengele cha ARC</translation>
 <translation id="2987227569419001736">Dhibiti matumizi ya API ya Bluetooth ya Wavuti</translation>
-<translation id="2998881342848488968">Sera hii inaruhusu <ph name="PRODUCT_OS_NAME" /> kukwepa seva mbadala yoyote kwa uthibitishaji wa ukurasa wa kwanza wa kuingia kwenye wavuti.
-
-      Sera hii inatumika tu ikiwa seva mbadala imesanidiwa (kwa mfano kupitia sera, na mtumiaji katika mipangilio ya://chrome, au kwa kiendelezi).
-
-     Ukiwasha mipangilio hii, kurasa zozote za kwanza za kuthibitisha kuingia kwenye wavuti (yaani kurasa zote za wavuti kuanzia ukurasa wa kuingia kwenye wavuti hadi <ph name="PRODUCT_NAME" /> igundue muunganisho bora wa intaneti) zitaonyeshwa kwenye dirisha tofauti bila kujali mipangilio na vikwazo vyote vya sera kwa mtumiaji wa sasa.
-
-     Ukizima mipangilio hii au uiache bila kuiweka, kurasa zozote za kwanza za kuthibitisha kuingia kwenye wavuti zitaonyeshwa katika kichupo kipya cha kivinjari (cha kawaida), kwa kutumia mipangilio ya sasa ya seva mbadala ya mtumiaji.</translation>
 <translation id="3001534538097271560">Kuweka sera hii kuwa sivyo kunazuia watumiaji kuchagua kutuma baadhi ya maelezo ya mfumo na maudhui ya ukurasa kwenye seva za Google. Ikiwa mipangilio hii imewekwa kuwa ndivyo au haijawekwa, basi watumiaji wataruhusiwa kutuma baadhi ya maelezo ya mfumo na maudhui ya ukurasa kwenye Kuvinjari Salama ili kusaidia kugundua programu na tovuti hatari.
 
       Angalia https://developers.google.com/safe-browsing kwa maelezo zaidi kuhusu  SafeBrowsing.</translation>
@@ -735,6 +728,11 @@ Sera hii inatumika tu kama sera ya 'DefaultSearchProviderEnabled' imewashwa.</tr
       Ikiwa mpangilio huu umelemazwa, <ph name="PRODUCT_NAME" /> haitakagua ikiwa ni kivinjari chaguo-msingi na italemaza vidhibiti vya mtumiaji vya kuweka chaguo hili.
 
       Ikiwa mpangilio huu haujawekwa, <ph name="PRODUCT_NAME" /> itaruhusu mtumiaji kudhibiti iwapo ni kivinjari chaguo-msingi na iwapo arifa za mtumiaji zitaonyeshwa wakati siyo.</translation>
+<translation id="379602782757302612">Hukuruhusu kubainisha viendelezi ambavyo watumiaji HAWAWEZI kusakinisha.  Tutazima viendelezi ambavyo tayari vimesakinishwa ikiwa havijaidhinishwa. Hatutampa mtumiaji uwezo wa kuviwasha. Tutawasha kiotomatiki kiendelezi ambacho kimeidhinishwa ikiwa kilikuwa kimezimwa awali kwa kukosa idhini.
+
+Thamani ya kukosa idhini ya '*' inamaanisha kwamba viendelezi vyote havijaidhinishwa isipokuwa viwe vimebainishwa kwa njia dhahiri kwenye orodha ya viendelezi vilivyoidhinishwa.
+
+Sera hii isipowekwa, mtumiaji bado anaweza kusakinisha kiendelezi chochote katika <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Hupangilia saraka ambayo <ph name="PRODUCT_NAME" /> itatumia kwa kupakua faili.
 
       Ukiweka sera hii, <ph name="PRODUCT_NAME" /> itatumia saraka iliyotolewa bila kujali iwapo mtumiaji amebainisha moja au amewasha alamisho ya kuchochewa kwa eneo la upakuaji kila wakati.
@@ -1085,6 +1083,7 @@ Iwapo sera hii haijawekwa, kiteuzi kikubwa kitazimwa mwanzoni lakini kitawashwa 
       Ikiwa haijawekwa, mtumiaji anaweza kuombwa iwapo anataka kuleta, au uletaji unaweza kufanyika kiotomatiki.</translation>
 <translation id="5056708224511062314">Kikuza skrini kimezimwa</translation>
 <translation id="5067143124345820993">Ingia kwenye orodha ya kutoa idhini ya mtumiaji</translation>
+<translation id="5068140065960598044">Sera ya wingu ya <ph name="PRODUCT_NAME" /> inabatilisha Sera ya Mashine</translation>
 <translation id="5085647276663819155">Lemaza Uhakiki wa Uchapishaji</translation>
 <translation id="5105313908130842249">Ufungaji wa skrini unachelewa wakati wa kuendesha kwa nishati ya betri</translation>
 <translation id="5130288486815037971">Ikiwa mipangilio ya kriptografia ya RC4 katika TLS imewashwa</translation>
@@ -1558,6 +1557,15 @@ Iwapo sera itawekwa kuwa haitumiki, maoni yanayotamkwa yatazimwa kila wakati.
 Iwapo utaweka sera hii, watumiaji hawezi kuibadilisha au kuipuuza. 
 
 Iwapo sera hii haijawekwa, maoni yanayotamkwaa yatazimwa mwanzoni lakini yanaweza kuwashwa na mtumiaji wakati wowote.</translation>
+<translation id="6922040258551909078">
+      Ikiwa sera imewekwa kuwa 'ndivyo', sera ya wingu inapewa kipaumbele ikiwa inakinzana na sera ya mashine.
+
+Ikiwa sera imewekwa kuwa 'sivyo' au haijawekwa, sera ya mashine inapewa kipaumbele ikiwa inakinzana na sera ya wingu.
+      
+Kwa maelezo zaidi kuhusu kuipa sera kipaumbele, tafadhali tembelea: https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+Sera hii haipatikani kwenye Windows ambazo hazijaunganishwa kwenye kikoa cha <ph name="MS_AD_NAME" />.
+      </translation>
 <translation id="6922884955650325312">Zuia programu-jalizi ya <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Inabainisha jina la mtoaji wa utafutaji chaguo -msingi. Likiachwa tupu au bila kuwekwa, jina la mpangishaji lililobainishwa na URL ya utafutaji litatumiwa.
 

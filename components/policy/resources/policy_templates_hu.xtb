@@ -527,13 +527,6 @@
           A házirend értékét ezredmásodpercben kell megadni. Az értéknek kisebbnek kell lennie a képernyő kikapcsolásának késleltetésénél (ha be van állítva) és a tétlenségi késleltetésnél.</translation>
 <translation id="2987155890997901449">ARC engedélyezése</translation>
 <translation id="2987227569419001736">A Web Bluetooth API használatának irányítása</translation>
-<translation id="2998881342848488968">Lehetővé teszi a <ph name="PRODUCT_OS_NAME" /> számára, hogy megkerülje a proxyt a hitelesítési portálokon történő hitelesítéskor.
-
-      Ez a házirend csak akkor lép érvénybe, ha be van állítva proxy (például házirend vagy bővítmény révén, illetve a felhasználó által a chrome://settings oldalon).
-
-      Ha engedélyezi ezt a beállítást, a hitelesítési portál mindegyik hitelesítési oldala (azaz az összes weboldal a hitelesítési portál bejelentkezési oldalától addig, amíg a <ph name="PRODUCT_NAME" /> sikeresen felállított internetkapcsolatot észlel) külön ablakban jelenik meg, figyelmen kívül hagyva a házirendek beállításait és az aktuális felhasználóra vonatkozó korlátozásokat.
-
-      Ha letiltja a beállítást, vagy ha nem állítja be, akkor a hitelesítési portál hitelesítési oldalai új (normál) böngészőlapon jelennek meg, figyelembe véve az aktuális felhasználó proxybeállításait</translation>
 <translation id="3001534538097271560">Ha ennek a házirendnek az értéke hamis, akkor a felhasználók nem dönthetik el, hogy elküldjenek-e bizonyos rendszer-információkat és oldaltartalmakat a Google szervereinek. Ha a beállítás értéke igaz, vagy ha nincs megadva, akkor a felhasználók elküldhetnek bizonyos rendszer-információkat és oldaltartalmakat a Biztonságos Böngészés szolgáltatásnak, hogy segítsék a veszélyes alkalmazások és webhelyek észlelését.
 
       Ha további információt szeretne kapni a Biztonságos Böngészésről, látogasson el a https://developers.google.com/safe-browsing oldalra.</translation>
@@ -705,6 +698,11 @@
           Ha az „EnableMediaRouter” elnevezésű házirend hamis értékre van állítva, akkor a házirend értékének semmilyen hatása nincs, és az eszköztár ikonja nem jelenik meg.</translation>
 <translation id="3788662722837364290">Energiagazdálkodási beállítások olyankor, amikor a felhasználó tétlen</translation>
 <translation id="3793095274466276777">Beállítja a <ph name="PRODUCT_NAME" /> alapértelmezett böngésző-ellenőrzéseit, és megakadályozza, hogy a felhasználók megváltoztassák ezeket. Ha engedélyezi ezt a beállítást, a <ph name="PRODUCT_NAME" /> mindig ellenőrzi induláskor, hogy alapértelmezett böngésző-e, és automatikusan regisztrálja magát, ha lehetséges. Ha ez a beállítás le van tiltva, a <ph name="PRODUCT_NAME" /> soha nem fogja ellenőrizni, hogy alapértelmezett böngésző-e, és letiltja a felhasználók számára a beállítás lehetőségét. Ha ez a beállítás nincs megadva, a <ph name="PRODUCT_NAME" /> elérhetővé teszi a választást a felhasználó számára, hogy ez legyen-e az alapértelmezett böngésző, és hogy mutasson-e felhasználói értesítéseket, ha nem az.</translation>
+<translation id="379602782757302612">Lehetővé teszi annak meghatározását, hogy a felhasználók milyen bővítményeket NE telepíthessenek. A tiltólistára kerülő bővítményeket a rendszer letiltja, amennyiben már telepítve voltak, a felhasználó pedig nem tudja őket engedélyezni. Ha a letiltott bővítmény lekerül a tiltólistáról, a rendszer automatikusan újra engedélyezi.
+
+          A „*” érték a tiltólistán azt jelenti, hogy minden bővítmény tiltólistás – kivéve azokat, amelyek kifejezetten szerepelnek az engedélyezőlistán.
+
+          Ha a házirend nincs beállítva, a felhasználó bármilyen bővítményt telepíthet a következő termékben: <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Beállítja a(z) <ph name="PRODUCT_NAME" /> által a fájlok letöltéséhez használt mappát.
 
       Ha beállítja ezt a házirendet, a(z) <ph name="PRODUCT_NAME" /> a megadott mappát fogja használni attól függetlenül, hogy a felhasználó kiválasztott-e egyet, vagy engedélyezte-e azt a jelölőt, amely alapján a rendszer minden alkalommal megkérdezi a letöltés helyét.
@@ -1040,6 +1038,7 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 <translation id="5052081091120171147">Ez a házirend engedélyezése esetén a böngészési előzmények importálását kényszeríti a jelenlegi alapértelmezett böngészőből. Bekapcsolása esetén a házirend az importálás párbeszédpanelére is hatással van. Ha le van tiltva, nem történik meg a böngészési előzmények importálása. Ha nincs beállítva, akkor előfordulhat, hogy a rendszer a felhasználótól kérdezi meg, hogy megtörténjen-e az importálás, vagy hogy lehet-e automatikus az importálás.</translation>
 <translation id="5056708224511062314">Nagyító kikapcsolva</translation>
 <translation id="5067143124345820993">A bejelentkezett felhasználó engedélyezőlistája</translation>
+<translation id="5068140065960598044">A(z) <ph name="PRODUCT_NAME" /> felhővel kapcsolatos házirendje felülírja a számítógép házirendjét.</translation>
 <translation id="5085647276663819155">Nyomtatási előnézet letiltása</translation>
 <translation id="5105313908130842249">Képernyő lezárásának késleltetése akkumulátorról való működés során</translation>
 <translation id="5130288486815037971">Engedélyezve vannak-e az RC4 rejtjelezési csomagok a TLS protokollban</translation>
@@ -1479,6 +1478,13 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
           Amennyiben beállítja ezt a házirendet, a felhasználók nem módosíthatják, és nem bírálhatják felül.
 
           Ha a házirend nincs beállítva, akkor a hangos visszajelzés kezdetben le van tiltva, de a felhasználó bármikor engedélyezheti.</translation>
+<translation id="6922040258551909078">
+      Ha a házirend igazra van állítva, ütközés esetén a felhővel kapcsolatos házirend elsőbbséget élvez a számítógép házirendjével szemben.
+      Ha a házirend hamis értékre van állítva, illetve nincs beállítva, ütközés esetén a számítógép házirendje elsőbbséget élvez a felhővel kapcsolatos házirenddel szemben.
+      A házirendek prioritásáról további információt a következő súgócikkben találhat: https://support.google.com/chrome?p=set_chrome_policies_for_devices.
+
+      A házirend nem áll rendelkezésre olyan Windows-példányokon, amelyek nincsenek <ph name="MS_AD_NAME" /> domainhez csatlakoztatva.
+      </translation>
 <translation id="6922884955650325312">A(z) <ph name="FLASH_PLUGIN_NAME" /> beépülő modul letiltása</translation>
 <translation id="6923366716660828830">Megadja az alapértelmezett keresési szolgáltató nevét. Ha üresen vagy beállítatlanul marad, a keresési URL által megadott gazdagépnév lesz használatban. A házirend csak akkor érvényesül, ha a "DefaultSearchProviderEnabled" házirend engedélyezve van.</translation>
 <translation id="6931242315485576290">A Google-lal való adatszinkronizálás tiltása</translation>

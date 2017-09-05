@@ -136,7 +136,6 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="3474649192738347024">Forms filled.</translation>
 <translation id="3478058380795961209">Month of Expiry</translation>
 <translation id="3482959374254649722">Syncing your tabs...</translation>
-<translation id="3487093336331957349">Search and site suggestions</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Find out more<ph name="END_LINK" /> about suggested content</translation>
 <translation id="3494788280727468875">Confirm Clear Browsing Data</translation>
 <translation id="3519193562722059437">Open a tab to browse the web.</translation>
@@ -157,6 +156,7 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="3779810277399252432">No Internet connection.</translation>
 <translation id="3783017676699494206">Save Image</translation>
 <translation id="385051799172605136">Back</translation>
+<translation id="3857761338463387655">Create email with:</translation>
 <translation id="3897092660631435901">Menu</translation>
 <translation id="3928666092801078803">Combine my data</translation>
 <translation id="3950820424414687140">Sign in</translation>
@@ -246,6 +246,7 @@ Handoff must also be enabled in the General section of Settings, and your device
 <translation id="5871497086027727873">1 item moved</translation>
 <translation id="5911030830365207728">Google Translate</translation>
 <translation id="5916664084637901428">On</translation>
+<translation id="5948291296578561264">This lets you save photos to your photo library.</translation>
 <translation id="5953603475187800576">Show addresses and credit cards from Google Payments</translation>
 <translation id="5955891643922670672">Viewing Offline Version</translation>
 <translation id="5964480694698977962">Create new incognito tab.</translation>

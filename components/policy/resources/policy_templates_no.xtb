@@ -542,13 +542,6 @@
           Innstillingsverdien må spesifiseres i millisekunder. Verdien er låst til å være lavere enn eller samsvarende med forsinkelsen for å slå av skjermen (hvis den er konfigurert) og inaktivitetsforsinkelsen.</translation>
 <translation id="2987155890997901449">Slå på ARC</translation>
 <translation id="2987227569419001736">Kontrollér bruken av Web Bluetooth API</translation>
-<translation id="2998881342848488968">Med denne innstillingen kan <ph name="PRODUCT_OS_NAME" /> omgå eventuelle proxy-tjenere for autentisering via obligatoriske sider.
-
-      Denne regelen trer bare i kraft hvis en proxy-tjener er konfigurert (for eksempel gjennom administratorinnstillingene, av brukeren i chrome://settings eller av utvidelser).
-
-      Hvis du slår på denne regelen, blir alle obligatoriske autentiseringssider (det vil si alle nettsider fra den obligatoriske påloggingssiden og frem til <ph name="PRODUCT_NAME" /> registrerer at enheten er koblet til Internett) vist i separate vinduer, og alle administratorinnstillinger og begrensninger for den aktive brukeren blir ignorert.
-
-      Hvis du slår av denne regelen eller ikke spesifiserer den, blir alle obligatoriske autentiseringssider vist i (vanlige) nye nettleserfaner, med den aktive brukerens proxy-tjenerinnstillinger.</translation>
 <translation id="3001534538097271560">Hvis denne regelen settes til «false» (usann), kan ikke brukerne velge å sende enkelte typer systeminformasjon og sideinnhold til Google-tjenere. Hvis denne regelen settes til «true» (sann) eller ikke konfigureres, kan brukerne sende enkelte typer systeminformasjon og sideinnhold til Safe Browsing for å bidra til å oppdage farlige apper og nettsteder.
 
       Gå til https://developers.google.com/safe-browsing for å få mer informasjon om Safe Browsing.</translation>
@@ -719,6 +712,11 @@
           Hvis regelen «EnableMediaRouter» angis som «false», har denne regelens verdi ingen virkning, og verktøyradikonet vises ikke.</translation>
 <translation id="3788662722837364290">Innstillinger for strømstyring når brukeren er inaktiv</translation>
 <translation id="3793095274466276777">Konfigurerer standard nettleserkontroller i <ph name="PRODUCT_NAME" /> og hindrer brukere i å endre dem. Hvis du aktiverer denne innstillingen, sjekker <ph name="PRODUCT_NAME" /> alltid ved oppstart om den er standardnettleser, og registrerer seg selv automatisk om mulig. Hvis denne innstillingen er deaktivert, sjekker <ph name="PRODUCT_NAME" /> aldri om den er standardnettleser, og deaktiverer brukerstyrt kontroll av dette alternativet. Hvis denne innstillingen ikke er angitt, lar <ph name="PRODUCT_NAME" /> brukeren kontrollere om den er standardnettleser, og hvorvidt brukervarslinger skal vises når den ikke er det.</translation>
+<translation id="379602782757302612">Lar deg angi hvilke utvidelser brukerne IKKE kan installere. Utvidelser som allerede er installert, blir deaktivert hvis de er svartelistet – uten at brukeren kan aktivere dem. Når en utvidelse som er deaktivert på grunn av svartelisten, fjernes fra svartelisten, aktiveres den automatisk igjen.
+
+          En svartelisteverdi på «*» betyr at alle utvidelser er svartelistet, med mindre de er uttrykkelig oppført i godkjenningslisten.
+
+          Hvis denne regelen ikke er angitt, kan brukeren installere alle utvidelser i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Konfigurerer katalogen <ph name="PRODUCT_NAME" /> bruker for å laste ned filer. 
 
       Hvis du angir denne regelen, bruker <ph name="PRODUCT_NAME" /> den oppgitte katalogen uansett om brukeren har angitt en annen katalog eller slått på flagget for å velge lagringsplass for hver nedlasting.
@@ -1069,6 +1067,7 @@
 <translation id="5052081091120171147">Denne retningslinjen tvinger import av nettleserloggen fra den aktuelle standardnettleseren hvis den er aktivert. Hvis den er aktivert, påvirker denne retningslinjen også importdialogen. Hvis den er deaktivert, importeres ingen nettleserlogg. Hvis den ikke er angitt, er det mulig at brukeren får spørsmål om hvorvidt vedkommende ønsker å importere, eller så kan importeringen skje automatisk.</translation>
 <translation id="5056708224511062314">Skjermforstørrelse deaktivert</translation>
 <translation id="5067143124345820993">Godkjenningsliste for brukerpålogging</translation>
+<translation id="5068140065960598044"><ph name="PRODUCT_NAME" />-regelen for nettskyen overstyrer maskinens retningslinjer.</translation>
 <translation id="5085647276663819155">Deaktiver forhåndsvisning av utskrift</translation>
 <translation id="5105313908130842249">Forsinkelse for låst skjerm når enheten kjører på batteristrøm</translation>
 <translation id="5130288486815037971">Definerer om RC4-chifferserier i TLS er slått på</translation>
@@ -1544,6 +1543,13 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
           Hvis du angir denne innstillingen, kan ikke brukere endre eller overstyre den.
 
           Hvis denne innstillingen ikke angis, deaktiveres muntlig tilbakemelding til å begynne med, men brukere kan aktivere den når som helst.</translation>
+<translation id="6922040258551909078">
+      Hvis regelen er satt til Sann, prioriteres den foran maskinens retningslinjer hvis de er i konflikt med hverandre.
+      Hvis regelen er satt til Usann eller ikke er konfigurert, prioriteres maskinens retningslinjer hvis de er i konflikt med hverandre.
+      Hvis du vil vite mer om retningslinjenes prioritet, kan du besøke: https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      Denne regelen er ikke tilgjengelig på Windows-forekomster som ikke er knyttet til et <ph name="MS_AD_NAME" />-domene.
+      </translation>
 <translation id="6922884955650325312">Blokkér <ph name="FLASH_PLUGIN_NAME" />-programtillegget</translation>
 <translation id="6923366716660828830">Angir navnet på standard søkeleverandør. Hvis dette ikke angis, brukes vertsnavnet angitt av søkenettadressen.
 

@@ -19,7 +19,7 @@
 <translation id="1510238584712386396">লঞ্চার</translation>
 <translation id="1525508553941733066">খারিজ করুন</translation>
 <translation id="15373452373711364">বড় মাউস কার্সার</translation>
-<translation id="1550523713251050646">আরো বিকল্পের জন্য ক্লিক করুন</translation>
+<translation id="1550523713251050646">আরও বিকল্পের জন্য ক্লিক করুন</translation>
 <translation id="1621499497873603021">ব্যাটারি শেষ হতে <ph name="TIME_LEFT" /> সময় বাকি আছে</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> বাকি আছে</translation>
 <translation id="1698760176351776263">IPv6 ঠিকানা: <ph name="ADDRESS" /></translation>
@@ -93,7 +93,7 @@
 <translation id="3364721542077212959">লেখনী সরঞ্জামগুলি</translation>
 <translation id="3368922792935385530">সংযুক্ত</translation>
 <translation id="3371140690572404006">USB-C ডিভাইস (ডান দিকের সামনের পোর্ট)</translation>
-<translation id="3400357268283240774">আরো সেটিংস</translation>
+<translation id="3400357268283240774">আরও সেটিংস</translation>
 <translation id="3445925074670675829">USB-C ডিভাইস</translation>
 <translation id="3473479545200714844">স্ক্রীন ম্যাগনিফায়ার</translation>
 <translation id="3510164367642747937">মাউস কার্সার হাইলাইট করুন</translation>
@@ -129,7 +129,7 @@
 <translation id="4378551569595875038">সংযুক্ত হচ্ছে...</translation>
 <translation id="4421231901400348175">রিমোট সহায়কের মাধ্যমে <ph name="HELPER_NAME" />-এর সাথে আপনার স্ক্রীন নিয়ন্ত্রন ভাগ করুন৷</translation>
 <translation id="4430019312045809116">ভলিউম</translation>
-<translation id="4448844063988177157">ওয়াই-ফাই নেটওয়ার্কগুলির জন্য অনুসন্ধান করুন...</translation>
+<translation id="4448844063988177157">ওয়াই-ফাই নেটওয়ার্কগুলির জন্য খুঁজুন...</translation>
 <translation id="4479639480957787382">ইথারনেট</translation>
 <translation id="4481530544597605423">বিযুক্ত করা ডিভাইসগুলি</translation>
 <translation id="4508225577814909926"><ph name="NAME" />: সংযুক্ত হচ্ছে...</translation>
@@ -137,6 +137,7 @@
 <translation id="453661520163887813">সম্পূর্ণ হতে <ph name="TIME" /> বাকি</translation>
 <translation id="4544944664594876241">স্ক্রীন লক করার শর্টকাটটি পরিবর্তিত হয়েছে। <ph name="OLD_SHORTCUT" /> এর পরিবর্তে দয়া করে <ph name="NEW_SHORTCUT" /> ব্যবহার করুন।</translation>
 <translation id="4659419629803378708">ChromeVox সক্ষম করা আছে</translation>
+<translation id="4729904664295161097">সহায়ক শুধুমাত্র প্রাথমিক প্রোফাইলেই ব্যবহার করা যায়।</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">সংযোগ বিচ্ছিন্ন</translation>
 <translation id="4849058404725798627">কিবোর্ড ফোকাসের মাধ্যমে হাইলাইট করুন</translation>
@@ -187,7 +188,7 @@
 <translation id="6106745654298855237"><ph name="POWER_SOURCE" /> চার্জ হচ্ছে</translation>
 <translation id="6144938890088808325">আমাদের Chromebooks উন্নত করতে সাহায্য করুন</translation>
 <translation id="615957422585914272">অন-স্ক্রীন কীবোর্ড প্রদর্শন করুন</translation>
-<translation id="6165508094623778733">আরো জানুন</translation>
+<translation id="6165508094623778733">আরও জানুন</translation>
 <translation id="6267036997247669271"><ph name="NAME" />: সক্রিয় করা হচ্ছে...</translation>
 <translation id="6297287540776456956">একটি অঞ্চল নির্বাচন করতে লেখনী ব্যবহার করুন</translation>
 <translation id="6310121235600822547"><ph name="DISPLAY_NAME" /> <ph name="ROTATION" /> আবর্তিত হয়েছে</translation>

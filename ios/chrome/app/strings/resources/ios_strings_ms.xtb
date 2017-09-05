@@ -18,6 +18,7 @@
 <translation id="1209206284964581585">Sorok sementara</translation>
 <translation id="1219674500290482172">Tidak dapat menyambung ke Internet.</translation>
 <translation id="1254117744268754948">Pilih Folder</translation>
+<translation id="1265739287306757398">Ketahui Caranya</translation>
 <translation id="1272079795634619415">Berhenti</translation>
 <translation id="129553762522093515">Ditutup baru-baru ini</translation>
 <translation id="1323735185997015385">Padam</translation>
@@ -60,6 +61,7 @@ Contohnya, sesetengah tapak web mungkin menyambut permintaan ini dengan memapark
 <translation id="1952728750904661634">Log masuk dengan akaun terurus</translation>
 <translation id="1974060860693918893">Lanjutan</translation>
 <translation id="1989112275319619282">Semak Imbas</translation>
+<translation id="2015722694326466240">Untuk melihat kata laluan, mula-mula anda mesti menetapkan kod laluan pada peranti anda.</translation>
 <translation id="2068952045031577364">Minggu Yang Lalu</translation>
 <translation id="2079545284768500474">Buat asal</translation>
 <translation id="209018056901015185">Minta Tapak Desktop</translation>
@@ -134,7 +136,6 @@ Contohnya, sesetengah tapak web mungkin menyambut permintaan ini dengan memapark
 <translation id="3474649192738347024">Borang diisi.</translation>
 <translation id="3478058380795961209">Bulan Tamat Tempoh</translation>
 <translation id="3482959374254649722">Menyegerakkan tab anda...</translation>
-<translation id="3487093336331957349">Cadangan carian dan tapak</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Ketahui lebih lanjut<ph name="END_LINK" /> tentang kandungan yang disyorkan</translation>
 <translation id="3494788280727468875">Sahkan Kosongkan Data Semakan Imbas.</translation>
 <translation id="3519193562722059437">Buka tab untuk menyemak imbas web.</translation>
@@ -155,6 +156,7 @@ Untuk membetulkan istilah carian anda, tekan lama untuk memilih. Untuk memperhal
 <translation id="3779810277399252432">Tiada sambungan Internet.</translation>
 <translation id="3783017676699494206">Simpan Imej</translation>
 <translation id="385051799172605136">Kembali</translation>
+<translation id="3857761338463387655">Buat e-mel menggunakan:</translation>
 <translation id="3897092660631435901">Menu</translation>
 <translation id="3928666092801078803">Gabungkan data saya</translation>
 <translation id="3950820424414687140">Log masuk</translation>
@@ -182,6 +184,7 @@ Untuk membetulkan istilah carian anda, tekan lama untuk memilih. Untuk memperhal
 <translation id="4508750114462689118">Tutup promosi log masuk</translation>
 <translation id="4526249700380860531">Lihat dan urus kata laluan yang disimpan di <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /></translation>
 <translation id="4536418791685807335">Cuba log masuk semula.</translation>
+<translation id="461440297010471931">Mencari dengan Google</translation>
 <translation id="4620246317052452550">Halaman yang Anda Baca</translation>
 <translation id="4636930964841734540">Maklumat</translation>
 <translation id="4659667755519643272">Masuk ke Penukar Tab</translation>
@@ -190,6 +193,7 @@ Untuk membetulkan istilah carian anda, tekan lama untuk memilih. Untuk memperhal
 Data anda disulitkan dengan ungkapan laluan segerak anda. Masukkannya untuk memulakan penyegerakan.</translation>
 <translation id="473775607612524610">Kemas kini</translation>
 <translation id="481968316161811770">Kuki, Data Tapak</translation>
+<translation id="4854345657858711387">Tetapkan Kod Laluan</translation>
 <translation id="4860895144060829044">Hubungi</translation>
 <translation id="4875622588773761625">Adakah anda ingin <ph name="PASSWORD_MANAGER_BRAND" /> mengemaskinikan kata laluan anda untuk tapak ini?</translation>
 <translation id="4881695831933465202">Buka</translation>
@@ -242,6 +246,7 @@ Serah mestilah turut didayakan dalam bahagian Umum pada Tetapan dan peranti anda
 <translation id="5871497086027727873">1 item dialihkan</translation>
 <translation id="5911030830365207728">Google Terjemah</translation>
 <translation id="5916664084637901428">Hidupkan</translation>
+<translation id="5948291296578561264">Tindakan ini membolehkan anda menyimpan foto pada pustaka foto anda.</translation>
 <translation id="5953603475187800576">Tunjukkan alamat dan kad kredit daripada Google Payments</translation>
 <translation id="5955891643922670672">Melihat Versi Luar Talian</translation>
 <translation id="5964480694698977962">Buat tab inkognito baharu.</translation>

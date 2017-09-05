@@ -528,13 +528,6 @@
           O valor da política deve ser especificado em milissegundos. Os valores devem ser inferiores ou iguais ao atraso para desligar o ecrã (se estiver definido) e ao atraso de inatividade.</translation>
 <translation id="2987155890997901449">Ativar ARC</translation>
 <translation id="2987227569419001736">Controlar a utilização da API Web Bluetooth</translation>
-<translation id="2998881342848488968">Esta política permite ao <ph name="PRODUCT_OS_NAME" /> ignorar qualquer proxy para autenticação do portal cativo.
-
-      Esta política apenas é efetiva se um proxy estiver configurado (por exemplo através da política, pelo utilizador em chrome://settings ou por extensões).
-
-      Se ativar esta definição, todas as páginas de autenticação do portal cativo (ou seja, todas as páginas Web desde a página de início de sessão do portal cativo até que o <ph name="PRODUCT_NAME" /> detete uma ligação à Internet bem-sucedida) são apresentadas numa janela separada e são ignoradas todas as restrições e definições da política para o utilizador atual.
-
-      Se desativar esta definição ou não a definir, todas as páginas de autenticação do portal cativo são apresentadas num separador de navegador novo (normal), com as definições de proxy do utilizador atual.</translation>
 <translation id="3001534538097271560">Definir esta política como falsa impede os utilizadores de optarem por enviar informações do sistema e conteúdo de páginas para os servidores da Google. Caso esta definição seja verdadeira ou não esteja configurada, os utilizadores podem enviar informações do sistema e conteúdo de páginas para a Navegação segura, de modo a ajudar a detetar aplicações e sites perigosos.
 
       Veja https://developers.google.com/safe-browsing para mais informações sobre a Navegação segura.</translation>
@@ -709,6 +702,11 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
           Se a política "EnableMediaRouter" estiver definida como falsa, o respetivo valor não tem nenhum efeito e o ícone da barra de ferramentas não é apresentado.</translation>
 <translation id="3788662722837364290">Definições de gestão de energia quando o utilizador fica inativo</translation>
 <translation id="3793095274466276777">Configura o navegador predefinido, verifica o <ph name="PRODUCT_NAME" /> e impede que os utilizadores as alterem. Se ativar esta definição, o <ph name="PRODUCT_NAME" /> verificará sempre, durante o arranque, se é o navegador predefinido e registar-se-á automaticamente, se possível. Se esta definição estiver desativada, o <ph name="PRODUCT_NAME" /> nunca verificará se é o navegador predefinido e desativará os controlos dos utilizadors para definirem esta opção. Se a opção não for definida, o <ph name="PRODUCT_NAME" /> permitirá que os utilizadores controlem se é o navegador predefinido e se deverão ser mostradas as notificações de utilizador caso não o seja.</translation>
+<translation id="379602782757302612">Permite-lhe especificar as extensões que os utilizadores NÃO podem instalar. As extensões já instaladas que estejam na lista negra serão desativadas sem que o utilizador tenha qualquer forma de as ativar. Se uma extensão desativada por constar da lista negra for removida desta lista, será automaticamente reativada.
+
+          Um valor de lista negra de "*" significa que todas as extensões estão na lista negra, a menos que estejam expressamente incluídas na lista de autorizações.
+
+          Se esta política não for definida, o utilizador pode instalar qualquer extensão no <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Configura o diretório que o <ph name="PRODUCT_NAME" /> irá utilizar para transferir ficheiros.
 
       Se definir esta política, o <ph name="PRODUCT_NAME" /> utilizar o diretório fornecido, independentemente de o utilizador ter especificado um diretório ou ativado o sinalizador para que seja sempre pedida a localização da transferência.
@@ -1047,6 +1045,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="5052081091120171147">Se esta política estiver ativada, força a importação do histórico de navegação a partir do navegador predefinido atual e também afeta a caixa de diálogo de importação. Se estiver desativada, o histórico de navegação não é importado. Se não estiver definida, o utilizador poderá ser questionado se pretende importá-lo ou a importação poderá ocorrer automaticamente.</translation>
 <translation id="5056708224511062314">Lupa desativada</translation>
 <translation id="5067143124345820993">Lista branca de utilizadores com início de sessão</translation>
+<translation id="5068140065960598044">A política da nuvem do <ph name="PRODUCT_NAME" /> substitui a política do equipamento.</translation>
 <translation id="5085647276663819155">Desativar Pré-visualização de Impressão</translation>
 <translation id="5105313908130842249">Atraso do bloqueio do ecrã quando o dispositivo está a utilizar a energia da bateria</translation>
 <translation id="5130288486815037971">Determinar se os conjuntos de cifras RC4 no TLS estão ativados</translation>
@@ -1485,6 +1484,13 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
           Se definir esta política, os utilizadores não a podem alterar ou substituir.
 
            Se esta política não for definida, as respostas faladas estão inicialmente desativadas, mas poderão ser ativadas a qualquer momento pelo utilizador.</translation>
+<translation id="6922040258551909078">
+      Se a política estiver definida como verdadeira, a política da nuvem tem prioridade em caso de conflito com a política do equipamento.
+      Se a política estiver definida como falsa ou não estiver configurada, a política do equipamento tem prioridade em caso de conflito com a política da nuvem.
+      Para obter mais detalhes acerca da prioridade da política, aceda a https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      Esta política não está disponível em instâncias do Windows que não pertençam a um domínio <ph name="MS_AD_NAME" />.
+      </translation>
 <translation id="6922884955650325312">Bloquear o plug-in <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Especifica o nome do fornecedor de pesquisas predefinido. Se deixar esta política em branco ou por definir, será utilizado o nome de anfitrião especificado pelo URL de pesquisa. Esta política apenas será considerada se a política "DefaultSearchProviderEnabled" estiver ativada.</translation>
 <translation id="6931242315485576290">Desativar a sincronização de dados com o Google</translation>

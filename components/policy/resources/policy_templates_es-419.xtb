@@ -521,13 +521,6 @@
           El valor de la política debe especificarse en milisegundos. Los valores se establecerán para que sean inferiores o equivalentes a la demora de pantalla apagada (si está configurada) y la demora de inactividad.</translation>
 <translation id="2987155890997901449">Habilitar ARC</translation>
 <translation id="2987227569419001736">Controlar el uso de la API de Bluetooth web</translation>
-<translation id="2998881342848488968">Esta política permite que <ph name="PRODUCT_OS_NAME" /> omita cualquier proxy para la autenticación de portales cautivos.
-
-      Esta política se aplica únicamente si hay un proxy configurado (por ejemplo, a través de la política, por el usuario en chrome://settings o por extensiones).
-
-      Si se habilita esta configuración, se mostrarán las páginas de autenticación de portales cautivos (es decir, todas las páginas web desde la página de acceso del portal cautivo hasta que <ph name="PRODUCT_NAME" /> detecte una conexión a Internet exitosa) en una ventana separada; además, se ignorarán todos los ajustes de configuración de la política y las restricciones para el usuario actual.
-
-      Si se inhabilita esta configuración o se deja sin establecer, las páginas de autenticación de portales cautivos se mostrarán en una pestaña nueva del navegador (normal), con la configuración de proxy del usuario actual.</translation>
 <translation id="3001534538097271560">Configura esta política como falsa para evitar que los usuarios elijan mandar determinada información del sistema y contenido de páginas a los servidores de Google. Si esta opción se establece como verdadera o no se configura, los usuarios podrán enviar determinada información del sistema y contenido de páginas a Navegación segura para colaborar en la detección de apps y sitios peligrosos.
 
       Consulta https://developers.google.com/safe-browsing para obtener más información sobre Navegación segura.</translation>
@@ -700,6 +693,11 @@
           Si la política "EnableMediaRouter" se establece como falsa, su valor no tendrá efecto y el ícono no aparecerá en la barra de herramientas.</translation>
 <translation id="3788662722837364290">Configuración de la administración de energía cuando el usuario está inactivo</translation>
 <translation id="3793095274466276777">Configura los controles del navegador predeterminado en <ph name="PRODUCT_NAME" /> y evita que los usuarios los cambien. Si se habilita esta configuración, <ph name="PRODUCT_NAME" /> siempre comprobará al iniciarse si es el navegador predeterminado y se registrará automáticamente en caso de ser posible. Si esta opción está inhabilitada, <ph name="PRODUCT_NAME" /> nunca verificará si es el navegador predeterminado e inhabilitará los controles de usuario para poder configurar esta opción. Si no se ha establecido esta configuración, <ph name="PRODUCT_NAME" /> permitirá al usuario controlar si es el navegador predeterminado y si las notificaciones para el usuario deben mostrarse cuando no lo es.</translation>
+<translation id="379602782757302612">Permite especificar las extensiones que los usuarios NO pueden instalar. Si se incluyen en la lista negra, se inhabilitarán las extensiones ya instaladas y el usuario no podrá habilitarlas. Cuando una extensión inhabilitada se quite de la lista negra, se volverá a habilitar automáticamente.
+
+          El valor "*" en la lista negra significa que todas las extensiones están inhabilitadas a menos que se incluyan de forma explícita en la lista blanca.
+
+          Si esta política no se establece, el usuario podrá instalar cualquier extensión en <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3800626789999016379">Configura el directorio que <ph name="PRODUCT_NAME" /> usará para descargar archivos.
 
       Si estableces esta política, <ph name="PRODUCT_NAME" /> usará el directorio proporcionado, sin importar si el usuario especificó uno o si habilitó que la marca solicite una ubicación de descarga cada vez.
@@ -1039,6 +1037,7 @@
 <translation id="5052081091120171147">Esta política, si se habilita, fuerza la importación del historial de navegación del navegador predeterminado actual. Si se la habilita, esta política también afecta el cuadro de diálogo de importación. Si se la inhabilita, no se importa ningún historial de navegación. Si no se configura, se le puede preguntar al usuario si desea importar el historial de navegación o la importación puede realizarse de forma automática.</translation>
 <translation id="5056708224511062314">La lupa está inhabilitada.</translation>
 <translation id="5067143124345820993">Lista de usuarios con permiso para iniciar sesión</translation>
+<translation id="5068140065960598044">La política de nube de <ph name="PRODUCT_NAME" /> anula la política de la máquina.</translation>
 <translation id="5085647276663819155">Inhabilitar vista previa de impresión</translation>
 <translation id="5105313908130842249">Demora de bloqueo de pantalla con batería</translation>
 <translation id="5130288486815037971">Si se habilitan los conjuntos de cifrado de RC4 en TLS</translation>
@@ -1474,6 +1473,13 @@
           Si estableces esta política, los usuarios no podrán modificarla ni anularla.
 
           Si no se establece esta política, inicialmente los comentarios por voz estarán inhabilitados, pero el usuario podrá habilitarlos en cualquier momento.</translation>
+<translation id="6922040258551909078">
+      Si la política se establece como verdadera, la política de nube tiene prioridad en caso de contradecirse con la política de la máquina.
+      Si la política se establece como falsa o no se configura, la política de la máquina tiene prioridad en caso de contradecirse con la política de nube.
+      Para obtener más información sobre la prioridad de la política, visita: https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      Esta política no está disponible en instancias de Windows que no estén unidas a un dominio de <ph name="MS_AD_NAME" />.
+      </translation>
 <translation id="6922884955650325312">Bloquear el complemento <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Especifica el nombre del proveedor de búsqueda predeterminado. Si se deja vacío o si no se configura, se usará el nombre de host especificado por la URL de búsqueda. Esta política solo se considera si la política "DefaultSearchProviderEnabled" está habilitada.</translation>
 <translation id="6931242315485576290">Inhabilitar la sincronización de datos con Google</translation>
