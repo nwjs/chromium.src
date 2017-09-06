@@ -36103,6 +36103,17 @@ from previous Chrome versions.
   <int value="2" label="Load failed"/>
 </enum>
 
+<enum name="SuggestedAppListAppLaunched">
+  <int value="0" label="Not a suggested app"/>
+  <int value="1" label="Suggested app"/>
+</enum>
+
+<!--
+These values are based on the server-side type AnswerTriggererKey. Note that not
+all of the types are launched in Chrome but if they're sent erroneously, it
+would be helpful to identify which type is being sent.
+-->
+
 <enum name="SuggestionAnswerType">
   <summary>Type of Answer shown in omnibox suggestion list.</summary>
   <int value="1" label="Dictionary"/>
