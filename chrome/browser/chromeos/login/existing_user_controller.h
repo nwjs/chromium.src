@@ -229,7 +229,7 @@ class ExistingUserController
   void PerformLogin(const UserContext& user_context,
                     LoginPerformer::AuthorizationMode auth_mode);
 
-  // Calls login() on previously-used |login_performer_|.
+  // calls login() on previously-used |login_performer|.
   void ContinuePerformLogin(LoginPerformer::AuthorizationMode auth_mode,
                             const UserContext& user_context);
 
@@ -238,9 +238,6 @@ class ExistingUserController
   void ContinuePerformLoginWithoutMigration(
       LoginPerformer::AuthorizationMode auth_mode,
       const UserContext& user_context);
-
-  // Asks the user to enter their password again.
-  void RestartLogin(const UserContext& user_context);
 
   // Updates the |login_display_| attached to this controller.
   void UpdateLoginDisplay(const user_manager::UserList& users);

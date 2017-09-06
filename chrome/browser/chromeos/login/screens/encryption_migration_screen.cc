@@ -64,12 +64,6 @@ void EncryptionMigrationScreen::SetContinueLoginCallback(
   view_->SetContinueLoginCallback(std::move(callback));
 }
 
-void EncryptionMigrationScreen::SetRestartLoginCallback(
-    RestartLoginCallback callback) {
-  DCHECK(view_);
-  view_->SetRestartLoginCallback(std::move(callback));
-}
-
 void EncryptionMigrationScreen::SetupInitialView() {
   DCHECK(view_);
   view_->SetupInitialView();

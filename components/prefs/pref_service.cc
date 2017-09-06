@@ -104,12 +104,8 @@ void PrefService::InitFromStorage(bool async) {
 }
 
 void PrefService::CommitPendingWrite() {
-  CommitPendingWrite(base::OnceClosure());
-}
-
-void PrefService::CommitPendingWrite(base::OnceClosure done_callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  user_pref_store_->CommitPendingWrite(std::move(done_callback));
+  user_pref_store_->CommitPendingWrite();
 }
 
 void PrefService::SchedulePendingLossyWrites() {

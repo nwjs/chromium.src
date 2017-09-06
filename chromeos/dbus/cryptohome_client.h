@@ -27,7 +27,6 @@ class CheckKeyRequest;
 class FlushAndSignBootAttributesRequest;
 class GetBootAttributeRequest;
 class GetKeyDataRequest;
-class MigrateToDircryptoRequest;
 class MountRequest;
 class RemoveFirmwareManagementParametersRequest;
 class RemoveKeyRequest;
@@ -578,11 +577,8 @@ class CHROMEOS_EXPORT CryptohomeClient : public DBusClient {
   // status flag indicating the completion.
   // MigrateToDircrypto attempts to migrate the home dir to the new "dircrypto"
   // encryption.
-  // |request| contains additional parameters, such as specifying if a full
-  // migration or a minimal migration should be performed.
   virtual void MigrateToDircrypto(
       const cryptohome::Identification& cryptohome_id,
-      const cryptohome::MigrateToDircryptoRequest& request,
       VoidDBusMethodCallback callback) = 0;
 
   // Asynchronously calls RemoveFirmwareManagementParameters method. |callback|
