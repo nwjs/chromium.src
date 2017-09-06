@@ -120,7 +120,8 @@ TEST_F(RecentModelTest, GetRecentFiles_CutoffTime) {
 TEST_F(RecentModelTest, GetRecentFiles_UmaStats) {
   base::HistogramTester histogram_tester;
 
-  BuildModelAndGetRecentFiles({}, 10, base::Time());
+  BuildModelAndGetRecentFiles(std::vector<std::unique_ptr<RecentSource>>(), 10,
+                              base::Time());
 
   histogram_tester.ExpectTotalCount(RecentModel::kLoadHistogramName, 1);
 }
