@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "ui/app_list/presenter/app_list_delegate.h"
+#include "ui/events/event.h"
 
 namespace app_list {
 
@@ -38,6 +39,11 @@ void AppList::UpdateYPositionAndOpacity(int y_position_in_screen,
 void AppList::EndDragFromShelf(mojom::AppListState app_list_state) {
   if (presenter_)
     presenter_->EndDragFromShelf(app_list_state);
+}
+
+void AppList::ProcessMouseWheelEvent(const ui::MouseWheelEvent& event) {
+  if (presenter_)
+    presenter_->ProcessMouseWheelOffset(event.offset().y());
 }
 
 void AppList::Dismiss() {
