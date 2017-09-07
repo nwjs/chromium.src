@@ -2597,6 +2597,41 @@ TEST_F(ShelfViewInkDropTest, ShelfButtonWithMenuPressRelease) {
                           views::InkDropState::DEACTIVATED));
 }
 
+// Ensure the app list button ink drop is disabled during bounds animations.
+// TODO(crbug.com/758402): Update ink drop bounds with app list button bounds.
+TEST_F(ShelfViewInkDropTest, AppListButtonInkDropDisabledOnAnimations) {
+  InitAppListButtonInkDrop();
+
+  // Display the app list.
+  ShowAppList();
+  FinishAppListVisibilityChange();
+  RunAllPendingInMessageLoop();
+  EXPECT_EQ(views::InkDropState::ACTIVATED,
+            app_list_button_ink_drop_->GetTargetInkDropState());
+  EXPECT_THAT(app_list_button_ink_drop_->GetAndResetRequestedStates(),
+              ElementsAre(views::InkDropState::ACTIVATED));
+
+  // The ink drop should be hidden during the animation to enter tablet mode.
+  Shell::Get()->tablet_mode_controller()->EnableTabletModeWindowManager(true);
+  EXPECT_THAT(app_list_button_ink_drop_->GetAndResetRequestedStates(),
+              ElementsAre(views::InkDropState::DEACTIVATED));
+  test_api_->RunMessageLoopUntilAnimationsDone();
+  EXPECT_EQ(views::InkDropState::ACTIVATED,
+            app_list_button_ink_drop_->GetTargetInkDropState());
+  EXPECT_THAT(app_list_button_ink_drop_->GetAndResetRequestedStates(),
+              ElementsAre(views::InkDropState::ACTIVATED));
+
+  // The ink drop should be hidden during the animation to exit tablet mode.
+  Shell::Get()->tablet_mode_controller()->EnableTabletModeWindowManager(false);
+  EXPECT_THAT(app_list_button_ink_drop_->GetAndResetRequestedStates(),
+              ElementsAre(views::InkDropState::DEACTIVATED));
+  test_api_->RunMessageLoopUntilAnimationsDone();
+  EXPECT_EQ(views::InkDropState::ACTIVATED,
+            app_list_button_ink_drop_->GetTargetInkDropState());
+  EXPECT_THAT(app_list_button_ink_drop_->GetAndResetRequestedStates(),
+              ElementsAre(views::InkDropState::ACTIVATED));
+}
+
 namespace {
 
 // Test fixture to run app list button ink drop tests for both mouse and touch
