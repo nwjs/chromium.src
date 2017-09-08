@@ -327,6 +327,10 @@ int GetRandomDefaultImageIndex() {
   return base::RandInt(first, last);
 }
 
+bool IsValidIndex(int index) {
+  return index >= 0 && index < kDefaultImagesCount;
+}
+
 bool IsInCurrentImageSet(int index) {
   int first, last;
   GetFirstLastIndex(&first, &last);
