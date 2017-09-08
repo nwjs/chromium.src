@@ -39,11 +39,11 @@ class CacheCreator {
 
   int TryCreateCleanupTrackerAndRun();
 
- private:
   // Creates the backend, the cleanup context for it having been already
-  // established.
+  // established... or purposefully left as null.
   int Run();
 
+ private:
   ~CacheCreator();
 
   void DoCallback(int result);
@@ -228,9 +228,14 @@ int CreateCacheBackendImpl(
     }
   }
 
+  bool had_post_cleanup_callback = !post_cleanup_callback.is_null();
   CacheCreator* creator = new CacheCreator(
       path, force, max_bytes, type, backend_type, kNone, thread, net_log,
       backend, std::move(post_cleanup_callback), callback);
+  if (type == net::DISK_CACHE || type == net::MEDIA_CACHE) {
+    DCHECK(!had_post_cleanup_callback);
+    return creator->Run();
+  }
 
   return creator->TryCreateCleanupTrackerAndRun();
 }
