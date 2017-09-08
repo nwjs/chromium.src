@@ -70,9 +70,18 @@ Polymer({
 
     /**
      * The timestamp for when the controller last submitted a seek request.
-     * @private {boolean}
+     * @private {number}
      */
     lastSeekByUser_: {
+      type: Number,
+      value: 0,
+    },
+
+    /**
+     * The timestamp for when |routeStatus| was last updated.
+     * @private {number}
+     */
+    lastStatusUpdate_: {
       type: Number,
       value: 0,
     },
@@ -137,9 +146,10 @@ Polymer({
    * @private
    */
   canIncrementCurrentTime_: function() {
-    return this.routeStatus.playState === media_router.PlayState.PLAYING &&
+    return !this.isSeeking_ &&
+        this.routeStatus.playState === media_router.PlayState.PLAYING &&
         (this.routeStatus.duration === 0 ||
-         this.routeStatus.currentTime < this.routeStatus.duration);
+         this.displayedCurrentTime_ < this.routeStatus.duration);
   },
 
   /**
@@ -258,10 +268,13 @@ Polymer({
    */
   maybeIncrementCurrentTime_: function() {
     if (this.canIncrementCurrentTime_()) {
-      this.routeStatus.currentTime++;
-      this.displayedCurrentTime_ = this.routeStatus.currentTime;
+      var updatedCurrentTime = this.routeStatus.currentTime +
+          Math.floor((Date.now() - this.lastStatusUpdate_) / 1000);
+      this.displayedCurrentTime_ = this.routeStatus.duration === 0 ?
+          updatedCurrentTime :
+          Math.min(updatedCurrentTime, this.routeStatus.duration);
       if (this.routeStatus.duration === 0 ||
-          this.routeStatus.currentTime < this.routeStatus.duration) {
+          this.displayedCurrentTime_ < this.routeStatus.duration) {
         this.timeIncrementsTimeoutId_ =
             setTimeout(() => this.maybeIncrementCurrentTime_(), 1000);
       }
@@ -299,6 +312,7 @@ Polymer({
    * @private
    */
   onRouteStatusChange_: function(newRouteStatus) {
+    this.lastStatusUpdate_ = Date.now();
     if (this.shouldAcceptCurrentTimeUpdates_()) {
       this.displayedCurrentTime_ = newRouteStatus.currentTime;
     }
@@ -313,13 +327,10 @@ Polymer({
       media_router.browserApi.reportWebUIRouteControllerLoaded(
           this.initialLoadTime_ - this.routeDetailsOpenTime);
     }
+    this.stopIncrementingCurrentTime_();
     if (this.canIncrementCurrentTime_()) {
-      if (!this.timeIncrementsTimeoutId_) {
-        this.timeIncrementsTimeoutId_ =
-            setTimeout(() => this.maybeIncrementCurrentTime_(), 1000);
-      }
-    } else {
-      this.stopIncrementingCurrentTime_();
+      this.timeIncrementsTimeoutId_ =
+          setTimeout(() => this.maybeIncrementCurrentTime_(), 1000);
     }
   },
 
