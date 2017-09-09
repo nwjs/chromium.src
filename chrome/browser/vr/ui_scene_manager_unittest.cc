@@ -42,6 +42,22 @@ std::set<UiElementName> kElementsVisibleWithExitPrompt = {
     kBackgroundFront, kBackgroundLeft,     kBackgroundBack, kBackgroundRight,
     kBackgroundTop,   kBackgroundBottom,   kCeiling,        kFloor,
     kExitPrompt,      kExitPromptBackplane};
+std::set<UiElementName> kHitTestableElements = {
+    kFloor,
+    kCeiling,
+    kBackplane,
+    kContentQuad,
+    kAudioCaptureIndicator,
+    kVideoCaptureIndicator,
+    kScreenCaptureIndicator,
+    kBluetoothConnectedIndicator,
+    kLocationAccessIndicator,
+    kExitPrompt,
+    kExitPromptBackplane,
+    kUrlBar,
+    kLoadingIndicator,
+    kCloseButton,
+};
 
 static constexpr float kTolerance = 1e-5;
 
@@ -50,6 +66,16 @@ MATCHER_P2(SizeFsAreApproximatelyEqual, other, tolerance, "") {
                                           tolerance) &&
          cc::MathUtil::ApproximatelyEqual(arg.height(), other.height(),
                                           tolerance);
+}
+
+void CheckHitTestableRecursive(UiElement* element) {
+  const bool should_be_hit_testable =
+      kHitTestableElements.find(element->name()) != kHitTestableElements.end();
+  EXPECT_EQ(should_be_hit_testable, element->hit_testable())
+      << "element name: " << element->name();
+  for (const auto& child : element->children()) {
+    CheckHitTestableRecursive(child.get());
+  }
 }
 
 }  // namespace
@@ -564,6 +590,12 @@ TEST_F(UiSceneManagerTest, PropagateContentBoundsOnFullscreen) {
                   SizeFsAreApproximatelyEqual(expected_bounds, kTolerance)));
 
   manager_->OnProjMatrixChanged(kProjMatrix);
+}
+
+TEST_F(UiSceneManagerTest, HitTestableElements) {
+  MakeManager(kNotInCct, kNotInWebVr);
+  AnimateBy(MsToDelta(0));
+  CheckHitTestableRecursive(&scene_->root_element());
 }
 
 TEST_F(UiSceneManagerTest, DontPropagateContentBoundsOnNegligibleChange) {
