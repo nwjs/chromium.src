@@ -3,6 +3,7 @@
 <translationbundle lang="hr">
 <translation id="1012876632442809908">USB-C uređaj (prednji priključak)</translation>
 <translation id="1013923882670373915">Bluetooth uređaj "<ph name="DEVICE_NAME" />" traži dopuštenje za uparivanje. Unesite ovaj PIN na tom uređaju: <ph name="PINCODE" />.</translation>
+<translation id="1032891413405719768">Baterija pisaljke gotovo je prazna</translation>
 <translation id="112308213915226829">Automatski sakrij policu</translation>
 <translation id="1153356358378277386">Upareni uređaji</translation>
 <translation id="1195412055398077112">rubno područje zaslona</translation>
@@ -140,6 +141,7 @@
 <translation id="4729904664295161097">Asistent je dostupan samo za primarni profil.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Prekini vezu</translation>
+<translation id="4821830640883629383">Napunite ili zamijenite baterije.</translation>
 <translation id="4849058404725798627">Istakni objekt fokusom na tipkovnici</translation>
 <translation id="4872237917498892622">Alt + Pretraživanje ili Shift</translation>
 <translation id="4895488851634969361">Baterija je puna.</translation>

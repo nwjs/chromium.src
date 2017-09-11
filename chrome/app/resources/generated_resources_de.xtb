@@ -1850,7 +1850,7 @@ von <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3783640748446814672">Alt</translation>
 <translation id="3785308913036335955">Verknüpfung "Apps" anzeigen</translation>
 <translation id="3785852283863272759">Seitenadresse als E-Mail senden</translation>
-<translation id="3786301125658655746">Sie sind offline.</translation>
+<translation id="3786301125658655746">Sie sind offline</translation>
 <translation id="3788401245189148511">Sie könnte:</translation>
 <translation id="3789841737615482174">Installieren</translation>
 <translation id="3790146417033334899"><ph name="PLUGIN_NAME" /> funktioniert nur auf dem Desktop.</translation>
@@ -3030,7 +3030,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5639549361331209298">Seite aktualisieren, für weitere Optionen gedrückt halten</translation>
 <translation id="5641461229021317093">Sie erhalten Benachrichtigungen über neue SMS auf Ihrem Chromebook</translation>
 <translation id="5642508497713047">CRL-Signaturgeber</translation>
-<translation id="5646376287012673985">Standort</translation>
+<translation id="5646376287012673985">Speicherort</translation>
 <translation id="5646558797914161501">Geschäftsmann</translation>
 <translation id="5649053991847567735">Auto-Downloads</translation>
 <translation id="5649768706273821470">Anhören</translation>
@@ -5184,7 +5184,8 @@ Nachfolgende Benachrichtigungen, Fenster und Dialogfenster werden unter Umständ
 <translation id="9037008143807155145">https://www.google.com/calendar/render?cid=%s</translation>
 <translation id="9037965129289936994">Original anzeigen</translation>
 <translation id="9038430547971207796">Beim nächsten Mal wird Ihr <ph name="DEVICE_TYPE" /> von Ihrem Smartphone entsperrt. Sie können Smart Lock bei Bedarf jederzeit in den Einstellungen deaktivieren.</translation>
-<translation id="9038649477754266430">Vervollständigungsfunktion zum schnelleren Laden von Seiten verwenden</translation>
+<translation id="9038649477754266430">Vorhersagefunktion zum schnelleren Laden von Seiten verwenden
+</translation>
 <translation id="9039663905644212491">PEAP</translation>
 <translation id="9039890312082871605">Tabs stummschalten</translation>
 <translation id="9042893549633094279">Sicherheit und Datenschutz</translation>

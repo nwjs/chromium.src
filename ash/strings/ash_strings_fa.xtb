@@ -3,6 +3,7 @@
 <translationbundle lang="fa">
 <translation id="1012876632442809908">‏دستگاه USB-C (درگاه جلو)</translation>
 <translation id="1013923882670373915">دستگاه بلوتوث «<ph name="DEVICE_NAME" />» برای مرتبط‌سازی به مجوز نیاز دارد. لطفاً این کد پین را در آن دستگاه وارد کنید: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">شارژ باتری قلم کم است</translation>
 <translation id="112308213915226829">پنهان کردن خودکار قفسه</translation>
 <translation id="1153356358378277386">دستگاه‌های مرتبط‌شده</translation>
 <translation id="1195412055398077112">بزرگتر از صفحه</translation>
@@ -140,6 +141,7 @@
 <translation id="4729904664295161097">«دستیار» فقط برای نمایه اصلی دردسترس است.</translation>
 <translation id="479989351350248267">جستجو</translation>
 <translation id="4804818685124855865">قطع اتصال</translation>
+<translation id="4821830640883629383">لطفاً باتری را شارژ یا تعویض کنید.</translation>
 <translation id="4849058404725798627">برجسته کردن شیء با فوکوس صفحه‌کلید</translation>
 <translation id="4872237917498892622">‏Alt+جستجو یا Shift</translation>
 <translation id="4895488851634969361">باتری پر است.</translation>

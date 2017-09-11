@@ -244,7 +244,7 @@
 <translation id="5871497086027727873">ย้ายแล้ว 1 รายการ</translation>
 <translation id="5911030830365207728">Google แปลภาษา</translation>
 <translation id="5916664084637901428">เปิด</translation>
-<translation id="5948291296578561264">ช่วยให้คุณบันทึกรูปภาพในห้องสมุดรูปภาพได้</translation>
+<translation id="5948291296578561264">ช่วยให้คุณบันทึกรูปภาพในคลังภาพได้</translation>
 <translation id="5953603475187800576">แสดงที่อยู่และบัตรเครดิตจาก Google Payments</translation>
 <translation id="5955891643922670672">การดูเวอร์ชันออฟไลน์</translation>
 <translation id="5964480694698977962">สร้างแท็บที่ไม่ระบุตัวตนใหม่</translation>
@@ -345,6 +345,7 @@
 <translation id="7649070708921625228">ช่วยเหลือ</translation>
 <translation id="7658239707568436148">ยกเลิก</translation>
 <translation id="7671141431838911305">ติดตั้ง</translation>
+<translation id="7677825787905683892">เลือกแอปอีเมลเริ่มต้น</translation>
 <translation id="7765158879357617694">ย้าย</translation>
 <translation id="7769602470925380267">ยอมรับและออกจากระบบ</translation>
 <translation id="7772032839648071052">ยืนยันข้อความรหัสผ่าน</translation>
@@ -408,6 +409,7 @@
 <translation id="9083392325882095631">1 รายการ</translation>
 <translation id="9100610230175265781">ต้องระบุรหัสผ่าน</translation>
 <translation id="9148126808321036104">ลงชื่อเข้าใช้อีกครั้ง</translation>
+<translation id="914898748153555155">คุณสามารถเปลี่ยนค่ากำหนดนี้ได้ทุกเมื่อในการตั้งค่า Chrome</translation>
 <translation id="9157836665414082580">ระงับกล่องโต้ตอบ</translation>
 <translation id="9188680907066685419">ออกจากระบบบัญชีที่มีการจัดการ</translation>
 <translation id="9203116392574189331">แฮนด์ออฟ</translation>

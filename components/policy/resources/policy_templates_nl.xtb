@@ -687,6 +687,7 @@
 
           Dit beleid wordt alleen gerespecteerd als het beleid 'DefaultSearchProviderEnabled' is ingeschakeld.</translation>
 <translation id="350797926066071931">Vertalen inschakelen</translation>
+<translation id="3512226956150568738">Als het apparaatmodel van de klant al ondersteuning voor ARC bood voordat migratie naar ext4 nodig werd om ARC uit te voeren en als het beleid ArcEnabled is ingesteld op 'true' (waar), wordt AskUser (waarde 3) gebruikt voor deze optie. In alle andere gevallen (als het apparaatmodel voorheen geen ondersteuning voor ARC bood of als het beleid ArcEnabled is ingesteld op 'false' (onwaar)), is deze waarde gelijk aan DisallowArc (waarde 0).</translation>
 <translation id="3528000905991875314">Alternatieve foutpagina's inschakelen</translation>
 <translation id="3547954654003013442">Proxyinstellingen</translation>
 <translation id="3591584750136265240">Het verificatiegedrag voor inloggen configureren</translation>
@@ -1703,6 +1704,7 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 
       Als dit is ingesteld op 'onwaar', worden er geen automatisch gegenereerde contentsuggesties weergegeven op de nieuwe tabbladpagina.</translation>
 <translation id="7323896582714668701">Extra opdrachtregelparameters voor <ph name="PRODUCT_NAME" /></translation>
+<translation id="7326394567531622570">Vergelijkbaar met Wipe (waarde 2), maar probeert inlogtokens te behouden, zodat de gebruiker niet opnieuw hoeft in te loggen.</translation>
 <translation id="7329842439428490522">Hiermee wordt de tijdsduur zonder input van gebruikers gespecificeerd waarna het scherm wordt uitgeschakeld als er op de batterij wordt gewerkt.
 
           Als dit beleid is ingesteld op een grotere waarde dan nul, specificeert het de tijd die de gebruiker inactief moet blijven voordat het scherm wordt uitgeschakeld door <ph name="PRODUCT_OS_NAME" />.

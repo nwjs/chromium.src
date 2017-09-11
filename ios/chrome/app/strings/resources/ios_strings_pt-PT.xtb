@@ -69,6 +69,7 @@ Por exemplo, alguns Sites poderão mostrar anúncios que não sejam baseados nou
 <translation id="2116625576999540962"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> itens movidos</translation>
 <translation id="2149973817440762519">Editar marcador</translation>
 <translation id="2230173723195178503">Página Web carregada</translation>
+<translation id="2256128224215992540">Sugestões de pesquisa e de sites</translation>
 <translation id="2267753748892043616">Adicionar conta</translation>
 <translation id="2273327106802955778">Menu Mais</translation>
 <translation id="2320166752086256636">Ocultar teclado</translation>
@@ -181,6 +182,7 @@ Para ajustar o termo de pesquisa, prima continuamente para selecionar. Para refi
 <translation id="4375040482473363939">Pesquisa de códigos QR</translation>
 <translation id="4378154925671717803">Telefone</translation>
 <translation id="441868831736628555">Aviso de Privacidade</translation>
+<translation id="4460091562821778167">Perguntar-me sempre qual a aplicação que pretendo utilizar</translation>
 <translation id="4508750114462689118">Fechar a promoção de início de sessão</translation>
 <translation id="4526249700380860531">Ver e gerir as palavras-passe guardadas em <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /></translation>
 <translation id="4536418791685807335">Experimente iniciar sessão novamente.</translation>
@@ -347,6 +349,7 @@ Os dados foram encriptados com a sua frase de acesso de sincronização em <ph n
 <translation id="7649070708921625228">Ajuda</translation>
 <translation id="7658239707568436148">Cancelar</translation>
 <translation id="7671141431838911305">INSTALAR</translation>
+<translation id="7677825787905683892">Selecionar aplicação de email predefinida</translation>
 <translation id="7765158879357617694">Mover</translation>
 <translation id="7769602470925380267">Aceitar e terminar sessão</translation>
 <translation id="7772032839648071052">Confirmar frase de acesso</translation>
@@ -410,6 +413,7 @@ Os dados foram encriptados com a sua frase de acesso de sincronização em <ph n
 <translation id="9083392325882095631">1 item</translation>
 <translation id="9100610230175265781">Frase de acesso obrigatória</translation>
 <translation id="9148126808321036104">Iniciar sessão novamente</translation>
+<translation id="914898748153555155">Pode alterar esta preferência a qualquer momento nas definições do Chrome.</translation>
 <translation id="9157836665414082580">Supr. caixas diálogo</translation>
 <translation id="9188680907066685419">Terminar sessão na conta gerida</translation>
 <translation id="9203116392574189331">Entrega</translation>

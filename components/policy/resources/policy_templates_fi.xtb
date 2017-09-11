@@ -657,6 +657,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 
           Käytäntö on voimassa vain, jos käytäntö DefaultSearchProviderEnabled on käytössä.</translation>
 <translation id="350797926066071931">Ota Kääntäjä käyttöön</translation>
+<translation id="3512226956150568738">Jos asiakkaan laitemalli tuki ARC:tä jo ennen kuin siirtyminen ext4:ään oli pakollista ARC:n suorittamiseksi ja jos ArcEnabled-käytännön arvoksi on asetettu tosi, tämä vaihtoehto toimii samalla tavalla kuin AskUser (arvo 3). Kaikissa muissa tapauksissa (jos laitemalli ei tukenut ARC:tä ennen tai jos ArcEnabled-käytännön arvoksi on asetettu epätosi), tämä arvo on sama kuin DisallowArc (arvo 0).</translation>
 <translation id="3528000905991875314">Ota vaihtoehtoiset virhesivut käyttöön</translation>
 <translation id="3547954654003013442">Välityspalvelimen asetukset</translation>
 <translation id="3591584750136265240">Määritä kirjautumistodennuksen käytös.</translation>
@@ -1599,6 +1600,7 @@ Jos tätä käytäntöä ei ole määritetty, käytetään oletusarvoa (32).</tr
 
       Jos tämän käytännön arvo on epätosi, Uusi välilehti ‑sivulla ei näytetä automaattisesti luotuja sisältöehdotuksia.</translation>
 <translation id="7323896582714668701">Muut tuotteen <ph name="PRODUCT_NAME" /> komentoriviparametrit</translation>
+<translation id="7326394567531622570">Samanlainen kuin Wipe (arvo 2), mutta yrittää säilyttää kirjautumistunnukset, jotta käyttäjän ei tarvitse kirjautua sisään uudelleen.</translation>
 <translation id="7329842439428490522">Määrittää käyttämättömyysajan, jonka kuluttua ruutu sammutetaan, kun laitetta käytetään akkuvirralla.
 
           Kun tälle käytännölle asetetaan nollaa suurempi arvo, se määrittää käyttämättömyysajan, jonka kuluttua <ph name="PRODUCT_OS_NAME" /> sammuttaa ruudun.

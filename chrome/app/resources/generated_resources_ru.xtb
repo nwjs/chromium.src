@@ -865,7 +865,7 @@
 <translation id="2327492829706409234">Включить приложение</translation>
 <translation id="2329597144923131178">Войдите, чтобы синхронизировать закладки, пароли, историю и т. д. на всех устройствах.</translation>
 <translation id="2332131598580221120">Открыть в Интернет-магазине</translation>
-<translation id="2332742915001411729">Масштаб по умолчанию</translation>
+<translation id="2332742915001411729">Сбросить</translation>
 <translation id="2335122562899522968">Эта страница установила файлы cookie.</translation>
 <translation id="2336228925368920074">Добавить все вкладки в закладки…</translation>
 <translation id="2336381494582898602">Powerwash</translation>
@@ -1699,7 +1699,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3549797760399244642">Перейти на drive.google.com…</translation>
 <translation id="3550915441744863158">Chrome обновляется автоматически, поэтому у вас всегда будет установлена последняя версия.</translation>
 <translation id="3551320343578183772">Закрыть вкладку</translation>
-<translation id="355298399003313926"><ph name="URL" /> хочет использовать специальные возможности.</translation>
+<translation id="355298399003313926"><ph name="URL" /> запрашивает доступ к специальным возможностям.</translation>
 <translation id="3555812735919707620">Удалить расширение</translation>
 <translation id="3556000484321257665">Поисковая система изменена на <ph name="URL" />.</translation>
 <translation id="3561217442734750519">Входное значение закрытого ключа должно предоставлять собой допустимый путь.</translation>

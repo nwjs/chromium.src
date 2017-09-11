@@ -62,7 +62,7 @@
 <translation id="1093457606523402488">Zichtbare netwerken:</translation>
 <translation id="1094607894174825014">Lees- of schrijfbewerking is aangevraagd met een ongeldige verschuiving op: <ph name="DEVICE_NAME" />.</translation>
 <translation id="1097507499312291972"><ph name="BEGIN_SIGN_IN_LINK" />Log in<ph name="END_SIGN_IN_LINK" /> om de websites die deze persoon bezoekt te beheren en te bekijken.</translation>
-<translation id="109758035718544977">Dempen van sites opheffen</translation>
+<translation id="109758035718544977">Geluid van sites dempen opheffen</translation>
 <translation id="1097658378307015415">Voordat je inlogt, log je eerst in als gast om het netwerk <ph name="NETWORK_ID" /> te activeren.</translation>
 <translation id="1108600514891325577">&amp;Stop</translation>
 <translation id="1110155001042129815">Wachten</translation>
@@ -136,7 +136,7 @@
 <translation id="1206407435587370571">Je Chromebook leren kennen</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> vingerafdrukken ingesteld</translation>
 <translation id="1215411991991485844">Nieuwe achtergrondapp toegevoegd</translation>
-<translation id="1216654534877302979">Sites dempen</translation>
+<translation id="1216654534877302979">Geluid van sites dempen</translation>
 <translation id="1216659994753476700">We kunnen geen toegang krijgen tot je profiel. De bestanden en gegevens op dit apparaat zijn mogelijk verloren gegaan.<ph name="BR" />
     <ph name="BR" />
     Je moet je profiel weer instellen.<ph name="BR" />
@@ -183,7 +183,7 @@
 <translation id="1280820357415527819">Mobiele netwerken zoeken</translation>
 <translation id="1285320974508926690">Deze site nooit vertalen</translation>
 <translation id="1285484354230578868">Gegevens opslaan in je Google Drive-account</translation>
-<translation id="1293177648337752319">Dempen van site opheffen</translation>
+<translation id="1293177648337752319">Geluid van site dempen opheffen</translation>
 <translation id="1293509594570842875">De nieuwe gebruiker met beperkte rechten kan niet worden gemaakt. Controleer je netwerkverbinding en probeer het later opnieuw.</translation>
 <translation id="1293556467332435079">Bestanden</translation>
 <translation id="1294298200424241932">Vertrouwensinstellingen bewerken:</translation>
@@ -371,7 +371,7 @@
 <translation id="1559235587769913376">Unicode-tekens invoeren</translation>
 <translation id="1566049601598938765">Website</translation>
 <translation id="1567993339577891801">JavaScript-console</translation>
-<translation id="1568067597247500137">Site dempen</translation>
+<translation id="1568067597247500137">Geluid van site dempen</translation>
 <translation id="1568323446248056064">Weergave-instellingen van apparaat openen</translation>
 <translation id="1568822834048182062">Je bladwijzers, geschiedenis, wachtwoorden en andere instellingen worden gesynchroniseerd met je Google-account.</translation>
 <translation id="1572266655485775982">Wifi inschakelen</translation>
@@ -1308,7 +1308,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="2972557485845626008">Firmware</translation>
 <translation id="2972581237482394796">&amp;Opnieuw</translation>
 <translation id="2972642118232180842">Alleen belangrijke content uitvoeren (aanbevolen)</translation>
-<translation id="2973324205039581528">Site dempen</translation>
+<translation id="2973324205039581528">Geluid van site dempen</translation>
 <translation id="2979639724566107830">Openen in nieuw venster</translation>
 <translation id="2981113813906970160">Grote muisaanwijzer weergeven</translation>
 <translation id="2982970937345031">Anoniem melden</translation>
@@ -3337,7 +3337,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="6122875415561139701">Schrijfbewerking is niet toegestaan op: <ph name="DEVICE_NAME" />.</translation>
 <translation id="6124650939968185064">De volgende extensies zijn afhankelijk van deze extensie:</translation>
 <translation id="6125479973208104919">Je moet je account opnieuw toevoegen aan deze <ph name="DEVICE_TYPE" />.</translation>
-<translation id="612596694132302162">Dempen van site opheffen</translation>
+<translation id="612596694132302162">Geluid van site dempen opheffen</translation>
 <translation id="6129938384427316298">Opmerking van Netscape-certificaat</translation>
 <translation id="6129953537138746214">Spatie</translation>
 <translation id="6132383530370527946">De kleine lettertjes</translation>
@@ -3766,7 +3766,7 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="6769712124046837540">Printer toevoegen…</translation>
 <translation id="6771503742377376720">Is een certificeringsinstantie</translation>
 <translation id="6773575010135450071">Meer acties...</translation>
-<translation id="6778959797435875428">Dempen van sites opheffen</translation>
+<translation id="6778959797435875428">Geluid van sites dempen opheffen</translation>
 <translation id="677965093459947883">Zeer klein</translation>
 <translation id="6780439250949340171">andere instellingen beheren</translation>
 <translation id="6782111308708962316">Voorkomen dat websites van derden cookiegegevens opslaan en lezen</translation>
@@ -4270,7 +4270,7 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="7573172247376861652">Acculading</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Sorteren</translation>
-<translation id="7579149537961810247">Sites dempen</translation>
+<translation id="7579149537961810247">Geluid van sites dempen</translation>
 <translation id="7580139917303152582">Gebruik de Launcher om snel naar nieuwe apps en activiteiten te gaan.</translation>
 <translation id="7580671184200851182">Dezelfde audio afspelen via alle speakers (mono-audio)</translation>
 <translation id="7581462281756524039">Een cleanup-tool</translation>

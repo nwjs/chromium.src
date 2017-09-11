@@ -666,6 +666,7 @@ Pokud tuto zásadu nenastavíte, použije se pro všechny webové stránky glob�
 
           Tato zásada je respektována pouze v případě, že je aktivována zásada DefaultSearchProviderEnabled.</translation>
 <translation id="350797926066071931">Aktivovat Překladač</translation>
+<translation id="3512226956150568738">Pokud model zařízení klienta podporoval ARC již předtím, než kvůli spuštění ARC bylo potřeba migrovat na ext4, a zásada ArcEnabled je nastavena na hodnotu true, bude se tato možnost chovat jako AskUser (hodnota 3). Ve všech ostatních případech (model zařízení dříve ARC nepodporoval nebo je zásada ArcEnabled nastavena na hodnotu false) se tato možnost bude chovat jako DisallowArc (hodnota 0).</translation>
 <translation id="3528000905991875314">Aktivovat alternativní chybové stránky</translation>
 <translation id="3547954654003013442">Nastavení proxy serveru</translation>
 <translation id="3591584750136265240">Konfigurace chování přihlašovacího ověření</translation>
@@ -1676,6 +1677,7 @@ Pokud tuto zásadu nenastavíte, bude při prvním zobrazení přihlašovací ob
 
       Pokud je tato zásada nastavena na hodnotu False, automaticky generované návrhy obsahu se na stránce Nová karta nezobrazují.</translation>
 <translation id="7323896582714668701">Dodatečné parametry příkazového řádku pro <ph name="PRODUCT_NAME" /></translation>
+<translation id="7326394567531622570">Podobné jako možnost Wipe (hodnota 2), ale pokusí se zachovat přihlašovací tokeny, aby se uživatel nemusel znovu přihlašovat.</translation>
 <translation id="7329842439428490522">Udává dobu nečinnosti uživatele, po které bude obrazovka při napájení z baterie vypnuta.
 
            Pokud je tato zásada nastavena hodnotu větší než nula, jedná se o dobu, po kterou musí uživatel zůstat v nečinnosti, než systém <ph name="PRODUCT_OS_NAME" /> obrazovku vypne.

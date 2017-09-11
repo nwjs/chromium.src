@@ -652,6 +652,7 @@
 
           このポリシーは「DefaultSearchProviderEnabled」ポリシーが有効な場合にのみ適用されます。</translation>
 <translation id="350797926066071931">翻訳を有効にする</translation>
+<translation id="3512226956150568738">ARC の実行に ext4 への移行が必要となる前からすでにクライアント端末機種で ARC がサポートされていて、かつ ArcEnabled ポリシーが true に設定されている場合、このオプションの動作は AskUser（値 3）と同じになります。その他すべての場合（端末機種で以前より ARC がサポートされていなかった場合、または ArcEnabled ポリシーが false に設定されている場合）、この値は DisallowArc（値 0）と同じになります。</translation>
 <translation id="3528000905991875314">別のエラー ページを有効にする</translation>
 <translation id="3547954654003013442">プロキシ設定</translation>
 <translation id="3591584750136265240">ログイン認証の動作を設定する</translation>
@@ -1595,6 +1596,7 @@
 
       このオプションが false に設定されている場合、自動生成のおすすめのコンテンツは [新しいタブ] ページに表示されません。</translation>
 <translation id="7323896582714668701"><ph name="PRODUCT_NAME" /> の追加コマンド ライン パラメータ</translation>
+<translation id="7326394567531622570">このオプションは Wipe（値 2）と似ていますが、ログイン トークンを保持するように動作します（この場合、ユーザーの再ログインが不要になります）。</translation>
 <translation id="7329842439428490522">バッテリー電源での実行時に、ユーザー入力が行われなくなってから画面がオフになるまでの時間を指定します。
 
           このポリシーをゼロより大きい値に設定した場合、値は <ph name="PRODUCT_OS_NAME" /> の画面がオフになるまでのアイドル時間を表します。

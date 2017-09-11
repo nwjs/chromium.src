@@ -635,6 +635,7 @@
 
           此政策只在启用了“DefaultSearchProviderEnabled”政策的前提下才会生效。</translation>
 <translation id="350797926066071931">启用翻译</translation>
+<translation id="3512226956150568738">如果客户端设备型号在需要迁移到 ext4 才能运行 ARC 之前就已支持 ARC，且 ArcEnabled 政策已设为 true，该选项的行为便会和 AskUser（值 3）的行为一样。在所有其他情形（如果相应的设备型号之前不支持 ARC，或者如果 ArcEnabled 政策被设为 false）下，此值将会等同于 DisallowArc（值 0）。</translation>
 <translation id="3528000905991875314">启用备用的错误页面</translation>
 <translation id="3547954654003013442">代理设置</translation>
 <translation id="3591584750136265240">配置登录身份验证行为</translation>
@@ -1566,6 +1567,7 @@
 
       如果此政策设为 false，“打开新的标签页”页面上不会显示自动生成的内容建议。</translation>
 <translation id="7323896582714668701">适用于 <ph name="PRODUCT_NAME" />的其他命令行参数</translation>
+<translation id="7326394567531622570">与 Wipe（值 2）类似，但该选项会尝试保留登录令牌，以使用户无需再次登录。</translation>
 <translation id="7329842439428490522">指定在使用电池供电时用户停止输入后隔多久关闭屏幕。
 
           当此政策的值设置为大于 0 时，只要机器闲置的时间达到了此处指定的时长，<ph name="PRODUCT_OS_NAME" />就会关闭屏幕。

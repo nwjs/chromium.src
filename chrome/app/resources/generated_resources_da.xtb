@@ -62,7 +62,7 @@
 <translation id="1093457606523402488">Synlige netværk:</translation>
 <translation id="1094607894174825014">Der blev anmodet om en læse- eller skrivehandling med en ugyldig forskydning på: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="1097507499312291972"><ph name="BEGIN_SIGN_IN_LINK" />Log på<ph name="END_SIGN_IN_LINK" /> for at kontrollere og se, hvilke websites denne person besøger.</translation>
-<translation id="109758035718544977">Ignorer ikke websites</translation>
+<translation id="109758035718544977">Slå lyden til på websites</translation>
 <translation id="1097658378307015415">Før du logger ind, skal du logge ind som gæst for at aktivere netværket <ph name="NETWORK_ID" /></translation>
 <translation id="1108600514891325577">&amp;Stop</translation>
 <translation id="1110155001042129815">Vent</translation>
@@ -136,7 +136,7 @@
 <translation id="1206407435587370571">Udforsk din Chromebook</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> fingeraftryk er registreret</translation>
 <translation id="1215411991991485844">Der er tilføjet en ny baggrunds-app</translation>
-<translation id="1216654534877302979">Ignorer websites</translation>
+<translation id="1216654534877302979">Slå lyden fra på websites</translation>
 <translation id="1216659994753476700">Du kan desværre ikke få adgang til din profil. Filer og data, der er gemt på denne enhed, kan være gået tabt.<ph name="BR" />
     <ph name="BR" />
     Du er nødt til at oprette din profil igen.<ph name="BR" />
@@ -183,7 +183,7 @@
 <translation id="1280820357415527819">Søger efter mobilnetværk</translation>
 <translation id="1285320974508926690">Oversæt aldrig dette website</translation>
 <translation id="1285484354230578868">Gemme data på din Google Drev-konto</translation>
-<translation id="1293177648337752319">Ignorer ikke website</translation>
+<translation id="1293177648337752319">Slå lyden til på et website</translation>
 <translation id="1293509594570842875">Den nye administrerede bruger kunne ikke oprettes. Kontrollér din netværksforbindelse, og prøv igen senere.</translation>
 <translation id="1293556467332435079">Filer</translation>
 <translation id="1294298200424241932">Rediger, hvilke indstillinger der er tillid til:</translation>
@@ -371,7 +371,7 @@
 <translation id="1559235587769913376">Input af Unicode-tegn</translation>
 <translation id="1566049601598938765">Website</translation>
 <translation id="1567993339577891801">JavaScript-konsol</translation>
-<translation id="1568067597247500137">Ignorer website</translation>
+<translation id="1568067597247500137">Slå lyden fra på et website</translation>
 <translation id="1568323446248056064">Åbn enhedens skærmindstillinger</translation>
 <translation id="1568822834048182062">Dine bogmærker, din historik og dine andre indstillinger synkroniseres med din Google-konto.</translation>
 <translation id="1572266655485775982">Aktivér Wi-Fi</translation>
@@ -1305,7 +1305,7 @@ Jeg synes ikke, dette website skal blokeres.</translation>
 <translation id="2972557485845626008">Firmware</translation>
 <translation id="2972581237482394796">&amp;Annuller fortryd</translation>
 <translation id="2972642118232180842">Kør kun vigtigt indhold (anbefales)</translation>
-<translation id="2973324205039581528">Ignorer website</translation>
+<translation id="2973324205039581528">Slå lyden fra på et website</translation>
 <translation id="2979639724566107830">Åbn i nyt vindue</translation>
 <translation id="2981113813906970160">Vis stor musemarkør</translation>
 <translation id="2982970937345031">Rapportér anonymt</translation>
@@ -2574,7 +2574,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="4942394808693235155">Søg efter og anvend opdateringer</translation>
 <translation id="494286511941020793">Hjælp til proxykonfiguration</translation>
 <translation id="494660967831069720">Ufuldstændige data</translation>
-<translation id="4953689047182316270">Reager på hændelser med hjælpefunktioner</translation>
+<translation id="4953689047182316270">Reagere på hændelser med hjælpefunktioner</translation>
 <translation id="4953808748584563296">Orange standardavatar</translation>
 <translation id="4955814292505481804">Årligt</translation>
 <translation id="495931528404527476">I Chrome</translation>
@@ -3335,7 +3335,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="6122875415561139701">Skrivehandlingen er ikke tilladt på: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">Følgende udvidelser er afhængige af denne udvidelse:</translation>
 <translation id="6125479973208104919">Du skal desværre føje din konto til denne <ph name="DEVICE_TYPE" /> igen.</translation>
-<translation id="612596694132302162">Ignorer ikke website</translation>
+<translation id="612596694132302162">Slå lyden til på et website</translation>
 <translation id="6129938384427316298">Kommentar til Netscape-certifikat</translation>
 <translation id="6129953537138746214">Mellemrum</translation>
 <translation id="6132383530370527946">Det med småt</translation>
@@ -3765,7 +3765,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="6769712124046837540">Tilføjer printer...</translation>
 <translation id="6771503742377376720">Er en certificeringsautoritet</translation>
 <translation id="6773575010135450071">Flere handlinger...</translation>
-<translation id="6778959797435875428">Ignorer ikke websites</translation>
+<translation id="6778959797435875428">Slå lyden til på websites</translation>
 <translation id="677965093459947883">Meget lille</translation>
 <translation id="6780439250949340171">administrer andre indstillinger</translation>
 <translation id="6782111308708962316">Undgå, at tredjepartswebsites gemmer og læser cookiedata</translation>
@@ -4268,7 +4268,7 @@ Brug kun denne funktion til konti, du har tillid til.</translation>
 <translation id="7573172247376861652">Batteriopladning</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Saml</translation>
-<translation id="7579149537961810247">Ignorer websites</translation>
+<translation id="7579149537961810247">Slå lyden fra på websites</translation>
 <translation id="7580139917303152582">Brug Starter til hurtigt at gå til nye apps og aktiviteter.</translation>
 <translation id="7580671184200851182">Afspil den samme lyd via alle højttalere (monolyd)</translation>
 <translation id="7581462281756524039">Et oprydningsværktøj</translation>

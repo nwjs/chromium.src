@@ -650,6 +650,7 @@
 
           Esta política só é respeitada se a política "DefaultSearchProviderEnabled" policy estiver ativada.</translation>
 <translation id="350797926066071931">Ativar Traduzir</translation>
+<translation id="3512226956150568738">Se o modelo do dispositivo do cliente já era compatível com ARC antes de a migração para ext4 ser necessária para executar ARC e se a política ArcEnabled estiver definida como true, esta opção se comportará como AskUser (valor 3). Em todos os outros casos (se o modelo do dispositivo não era compatível com ARC anteriormente ou se a política ArcEnabled estiver definida como false), esse valor será equivalente a DisallowArc (valor 0).</translation>
 <translation id="3528000905991875314">Ativar páginas de erro alternativas</translation>
 <translation id="3547954654003013442">Configurações de proxy</translation>
 <translation id="3591584750136265240">Configura o comportamento de autenticação de login</translation>
@@ -1585,6 +1586,7 @@
 
       Se a política for definida como false, as sugestões de conteúdo geradas automaticamente não serão mostradas na página "Nova guia".</translation>
 <translation id="7323896582714668701">Parâmetros de linha de comando adicionais para o <ph name="PRODUCT_NAME" /></translation>
+<translation id="7326394567531622570">Semelhante a Wipe (valor 2), mas tenta preservar os tokens de login para que o usuário não precise fazer login novamente.</translation>
 <translation id="7329842439428490522">Especifica o período de inatividade do usuário após o qual a tela é desligada no funcionamento com a energia da bateria.
 
           Quando esta política está definida para um valor superior a zero, especifica por qual período o usuário deve permanecer inativo antes que o <ph name="PRODUCT_OS_NAME" /> desligue a tela.

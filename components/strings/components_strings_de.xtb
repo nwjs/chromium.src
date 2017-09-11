@@ -276,7 +276,7 @@
 <translation id="3063697135517575841">Ihre Karte kann von Chrome zurzeit nicht bestätigt werden. Bitte versuchen Sie es später noch einmal.</translation>
 <translation id="3064966200440839136">Der Inkognitomodus wird beendet, um über eine externe Anwendung zu zahlen. Fortfahren?</translation>
 <translation id="3083099961703215236">{COUNT,plural, =0{Keine}=1{1 Passwort}other{# Passwörter}}</translation>
-<translation id="3093245981617870298">Sie sind offline.</translation>
+<translation id="3093245981617870298">Sie sind offline</translation>
 <translation id="3105172416063519923">Geräte-ID:</translation>
 <translation id="3109728660330352905">Sie sind nicht zum Aufrufen dieser Seite autorisiert.</translation>
 <translation id="3120730422813725195">Elo</translation>
@@ -612,7 +612,7 @@
 <translation id="5631439013527180824">Ungültiges Management-Token für das Gerät</translation>
 <translation id="5633066919399395251">Zurzeit auf <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> befindliche Hacker könnten versuchen, gefährliche Programme auf Ihrem Computer zu installieren, um Daten wie Fotos, Passwörter, Nachrichten und Kreditkartendaten zu stehlen oder zu löschen. <ph name="BEGIN_LEARN_MORE_LINK" />Weitere Informationen<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="563324245173044180">Betrügerische Inhalte blockiert.</translation>
-<translation id="5646376287012673985">Standort</translation>
+<translation id="5646376287012673985">Speicherort</translation>
 <translation id="5659593005791499971">E-Mail-Adresse</translation>
 <translation id="5669703222995421982">Personalisierte Inhalte erhalten</translation>
 <translation id="5675650730144413517">Diese Seite funktioniert nicht</translation>
@@ -682,7 +682,7 @@
 <translation id="6305205051461490394"><ph name="URL" /> ist nicht erreichbar.</translation>
 <translation id="6319915415804115995">Vor über einem Jahr zuletzt verwendet</translation>
 <translation id="6321917430147971392">Überprüfen Sie die DNS-Einstellungen.</translation>
-<translation id="6328639280570009161">Deaktivieren Sie die Netzwerkvervollständigung.</translation>
+<translation id="6328639280570009161">Deaktivieren Sie die Netzwerkvorhersage.</translation>
 <translation id="6328786501058569169">Sie befinden sich auf einer betrügerischen Website</translation>
 <translation id="6337133576188860026">Es werden weniger als <ph name="SIZE" /> Speicherplatz freigegeben. Manche Websites werden beim nächsten Öffnen eventuell langsamer geladen.</translation>
 <translation id="6337534724793800597">Richtlinien nach Name filtern</translation>
@@ -988,7 +988,8 @@
 <translation id="9020200922353704812">Rechnungsadresse für Kreditkarte erforderlich</translation>
 <translation id="9020542370529661692">Die Seite wurde übersetzt und liegt nun auf <ph name="TARGET_LANGUAGE" /> vor.</translation>
 <translation id="9035022520814077154">Sicherheitsfehler</translation>
-<translation id="9038649477754266430">Vervollständigungsfunktion zum schnelleren Laden von Seiten verwenden</translation>
+<translation id="9038649477754266430">Vorhersagefunktion zum schnelleren Laden von Seiten verwenden
+</translation>
 <translation id="9039213469156557790">Außerdem enthält diese Seite andere, nicht sichere Ressourcen. Diese Ressourcen können während der Übertragung von anderen Nutzern angezeigt und von Angreifern bearbeitet werden, die das Verhalten der Seite verändern.</translation>
 <translation id="9049981332609050619">Sie haben versucht, auf <ph name="DOMAIN" /> zuzugreifen, der Server hat sich jedoch mit einem ungültigen Zertifikat ausgewiesen.</translation>
 <translation id="9050666287014529139">Passphrase</translation>

@@ -3,6 +3,7 @@
 <translationbundle lang="lv">
 <translation id="1012876632442809908">USB-C ierīce (priekšējā pieslēgvieta)</translation>
 <translation id="1013923882670373915">Bluetooth ierīce “<ph name="DEVICE_NAME" />” vēlas saņemt atļauju, lai izveidotu savienojumu pārī. Lūdzu, ierīcē ievadiet šo PIN: <ph name="PINCODE" />.</translation>
+<translation id="1032891413405719768">Skārienekrāna pildspalvas akumulatora līmenis ir zems</translation>
 <translation id="112308213915226829">Automātiski slēpt plauktu</translation>
 <translation id="1153356358378277386">Pārī savienotās ierīces</translation>
 <translation id="1195412055398077112">attēla izvērse</translation>
@@ -140,6 +141,7 @@
 <translation id="4729904664295161097">Asistents ir pieejams tikai galvenajam profilam.</translation>
 <translation id="479989351350248267">meklēt</translation>
 <translation id="4804818685124855865">Atvienot</translation>
+<translation id="4821830640883629383">Lūdzu, uzlādējiet akumulatoru vai nomainiet baterijas.</translation>
 <translation id="4849058404725798627">Izcelt objektu ar tastatūras fokusu</translation>
 <translation id="4872237917498892622">Alt+Meklēt vai Shift</translation>
 <translation id="4895488851634969361">Akumulators ir pilnībā uzlādēts.</translation>

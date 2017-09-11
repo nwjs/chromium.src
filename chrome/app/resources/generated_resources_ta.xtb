@@ -62,7 +62,7 @@
 <translation id="1093457606523402488">தெரியும் நெட்வொர்க்குகள்:</translation>
 <translation id="1094607894174825014">படித்தல் அல்லது எழுதுதல் செயல்பாடு தவறான ஆஃப்செட்டுடன் கோரப்பட்ட சாதனம்: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="1097507499312291972">இவர் பார்வையிடுகின்ற, இணையதளங்களைக் கட்டுப்படுத்த மற்றும் பார்க்க, <ph name="BEGIN_SIGN_IN_LINK" />உள்நுழையவும்<ph name="END_SIGN_IN_LINK" />.</translation>
-<translation id="109758035718544977">தளங்களை இயக்கு</translation>
+<translation id="109758035718544977">தளங்களில் ஒலி இயக்கு</translation>
 <translation id="1097658378307015415">உள்நுழைவதற்கு முன்பாக, நெட்வொர்க் <ph name="NETWORK_ID" /> ஐச் செயல்படுத்த விருந்தினராக உள்ளிடுக</translation>
 <translation id="1108600514891325577">&amp;Stop</translation>
 <translation id="1110155001042129815">காத்திருங்கள்</translation>
@@ -136,7 +136,7 @@
 <translation id="1206407435587370571">உங்கள் Chromebookஐப் பற்றி அறிந்துகொள்ளுங்கள்</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> கைரேகைகளை அமைத்துள்ளீர்கள்</translation>
 <translation id="1215411991991485844">புதிய பின்புலப் பயன்பாடு சேர்க்கப்பட்டது</translation>
-<translation id="1216654534877302979">தளங்களை முடக்கு</translation>
+<translation id="1216654534877302979">தளங்களில் ஒலியடக்கு</translation>
 <translation id="1216659994753476700">உங்கள் சுயவிவரத்தை எங்களால் அணுக முடியவில்லை. இந்தச் சாதனத்தில் சேமிக்கப்பட்ட கோப்புகளும் தரவும் இழக்கப்பட்டிருக்கலாம்.<ph name="BR" />
     <ph name="BR" />
     சுயவிவரத்தை மீண்டும் அமைக்க வேண்டும்.<ph name="BR" />
@@ -183,7 +183,7 @@
 <translation id="1280820357415527819">மொபைல் நெட்வொர்க்குகளைத் தேடுகிறது</translation>
 <translation id="1285320974508926690">இந்த தளத்தை எப்போதும் மொழிபெயர்க்க வேண்டாம்</translation>
 <translation id="1285484354230578868">உங்கள் Google இயக்ககக் கணக்கில் தரவைச் சேமிக்கலாம்</translation>
-<translation id="1293177648337752319">தளத்தை இயக்கு</translation>
+<translation id="1293177648337752319">தளத்தில் ஒலி இயக்கு</translation>
 <translation id="1293509594570842875">புதிய கண்காணிக்கப்படும் பயனரை உருவாக்க முடியவில்லை. உங்கள் நெட்வொர்க் இணைப்பைச் சரிபார்த்து, பிறகு முயலவும்.</translation>
 <translation id="1293556467332435079">கோப்புகள்</translation>
 <translation id="1294298200424241932">நம்பிக்கை அமைப்புகளைத் திருத்து:</translation>
@@ -371,7 +371,7 @@
 <translation id="1559235587769913376">யுனிக்கோட் எழுத்துகளை உள்ளிடுக</translation>
 <translation id="1566049601598938765">இணையதளம்</translation>
 <translation id="1567993339577891801">JavaScript கன்சோல்</translation>
-<translation id="1568067597247500137">தளத்தை முடக்கு</translation>
+<translation id="1568067597247500137">தளத்தில் ஒலியடக்கு</translation>
 <translation id="1568323446248056064">திரை அமைப்புகளைத் திற</translation>
 <translation id="1568822834048182062">உங்கள் புத்தகக்குறிகள், வரலாறு, கடவுச்சொற்கள் மற்றும் பிற அமைப்புகள் உங்கள் Google கணக்கில் ஒத்திசைக்கப்படும்.</translation>
 <translation id="1572266655485775982">வைஃபையை இயக்கு</translation>
@@ -1308,7 +1308,7 @@
 <translation id="2972557485845626008">நிலைபொருள்</translation>
 <translation id="2972581237482394796">&amp;மீண்டும் செய்</translation>
 <translation id="2972642118232180842">முக்கியமான உள்ளடக்கத்தை மட்டும் இயக்கு (பரிந்துரைக்கப்படுவது)</translation>
-<translation id="2973324205039581528">தளத்தை முடக்கு</translation>
+<translation id="2973324205039581528">தளத்தில் ஒலி இயக்கு</translation>
 <translation id="2979639724566107830">புதிய சாளரத்தில் திற</translation>
 <translation id="2981113813906970160">பெரிய மவுஸ் இடஞ்சுட்டியைக் காட்டு</translation>
 <translation id="2982970937345031">பெயரில்லாமல் புகாரளி</translation>
@@ -3333,7 +3333,7 @@
 <translation id="6122875415561139701">எழுதுதல் செயல்பாடு இந்தச் சாதனத்தில் அனுமதிக்கப்படவில்லை: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">பின்வரும் நீட்டிப்புகள் இந்த நீட்டிப்பைச் சார்ந்தவை:</translation>
 <translation id="6125479973208104919"><ph name="DEVICE_TYPE" /> இல் உங்கள் கணக்கை மீண்டும் சேர்க்க வேண்டும்.</translation>
-<translation id="612596694132302162">தளத்தை இயக்கு</translation>
+<translation id="612596694132302162">தளத்தில் ஒலி இயக்கு</translation>
 <translation id="6129938384427316298">Netscape சான்றிதழ் கருத்துரை</translation>
 <translation id="6129953537138746214">இடைவெளி</translation>
 <translation id="6132383530370527946">சிறு அச்சு</translation>
@@ -3762,7 +3762,7 @@
 <translation id="6769712124046837540">பிரிண்டரைச் சேர்க்கிறது...</translation>
 <translation id="6771503742377376720">இது ஒரு சான்றளிக்கும் மையம்</translation>
 <translation id="6773575010135450071">மேலும் செயல்கள்...</translation>
-<translation id="6778959797435875428">தளங்களை இயக்கு</translation>
+<translation id="6778959797435875428">தளங்களில் ஒலி இயக்கு</translation>
 <translation id="677965093459947883">மிகச் சிறியது</translation>
 <translation id="6780439250949340171">பிற அமைப்புகளை நிர்வகிக்கவும்</translation>
 <translation id="6782111308708962316">குக்கீத் தரவைச் சேமிப்பதிலிருந்தும் படிப்பதிலிருந்தும் மூன்றாம் தரப்பு இணையதளங்களைத் தடு</translation>
@@ -4257,7 +4257,7 @@
 <translation id="7573172247376861652">பேட்டரி மின்னேற்றம்</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">ஒப்பீடு</translation>
-<translation id="7579149537961810247">தளங்களை முடக்கு</translation>
+<translation id="7579149537961810247">தளங்களில் ஒலியடக்கு</translation>
 <translation id="7580139917303152582">புதிய பயன்பாடுகளுக்கும் செயல்பாடுகளுக்கும் விரைவாகச் செல்ல, துவக்கியைப் பயன்படுத்தவும்.</translation>
 <translation id="7580671184200851182">எல்லா ஸ்பீக்கர்களிலும் ஒரே ஆடியோவை இயக்கு (மோனோ ஆடியோ)</translation>
 <translation id="7581462281756524039">சுத்திகரிப்புக் கருவி</translation>

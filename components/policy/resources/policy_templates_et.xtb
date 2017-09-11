@@ -685,6 +685,7 @@
 
           Reeglit järgitakse ainult siis, kui lubatud on reegel „DefaultSearchProviderEnabled”.</translation>
 <translation id="350797926066071931">Luba Tõlge</translation>
+<translation id="3512226956150568738">Kui kliendi seadme mudel toetas ARC-d juba enne seda, kui üleminek ext4-le oli ARC käitamiseks vajalik, ja kui reegli ArcEnabled väärtuseks on määratud Tõene, siis toimib see valik sarnaselt väärtusega AskUser (väärtus 3). Kõigil muudel juhtudel (kui seadme mudel varem ARC-d ei toetanud või kui reegli ArcEnabled väärtuseks on määratud Väär) on see väärtus võrdne väärtusega DisallowArc (väärtus 0).</translation>
 <translation id="3528000905991875314">Luba alternatiivsed vealehed</translation>
 <translation id="3547954654003013442">Puhverserveri seaded</translation>
 <translation id="3591584750136265240">Sisselogimise autentimise käitumise seadistamine</translation>
@@ -1701,6 +1702,7 @@
 
       Kui selle väärtuseks määratakse Väär, ei näidata uuel vahelehel automaatselt loodud sisu soovitusi.</translation>
 <translation id="7323896582714668701">Rakenduse <ph name="PRODUCT_NAME" /> täiendavad käsureaparameetrid</translation>
+<translation id="7326394567531622570">Sarnane väärtusega Wipe (väärtus 2), kuid see üritab säilitada sisselogimismärgid, et kasutaja ei peaks uuesti sisse logima.</translation>
 <translation id="7329842439428490522">Määrab aja, pärast mida ekraan akutoitega töötamisel välja lülitatakse, kui kasutaja pole midagi sisestanud.
 
           Kui selle reegli väärtuseks määratakse arv, mis on suurem kui null, määrab see aja, mille jooksul peab kasutaja olema tegevusetu, enne kui <ph name="PRODUCT_OS_NAME" /> ekraani välja lülitab.

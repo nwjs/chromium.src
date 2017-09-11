@@ -325,7 +325,7 @@
 <translation id="4127069705158143605">{BOOKMARKS_COUNT,plural, =1{북마크 %1$d개}other{북마크 %1$d개}}</translation>
 <translation id="4165986682804962316">사이트 설정</translation>
 <translation id="4170011742729630528">서비스를 사용할 수 없습니다. 나중에 다시 시도해 주세요.</translation>
-<translation id="4183813635650697113"><ph name="WEB_APP_NAME" />이(가) Chrome에서 실행되고 있습니다.</translation>
+<translation id="4183813635650697113"><ph name="WEB_APP_NAME" />은(는) Chrome에서 실행됩니다.</translation>
 <translation id="4195643157523330669">새 탭에서 열기</translation>
 <translation id="4226663524361240545">알림이 있으면 진동이 울릴 수도 있습니다.</translation>
 <translation id="4242533952199664413">설정 열기</translation>
@@ -659,7 +659,6 @@
 <translation id="7189598951263744875">공유...</translation>
 <translation id="7191430249889272776">탭이 백그라운드에 열림</translation>
 <translation id="723171743924126238">이미지 선택</translation>
-<translation id="7239442631100552029">데이터 절약 모드를 재설정하시겠습니까? 재설정하면 방문한 사이트 목록을 포함하여 데이터 절약 모드 기록이 삭제됩니다.</translation>
 <translation id="7243308994586599757">화면 하단에서 옵션 선택 가능</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" />이(가) 사용자 위치 정보를 사용하여 지역 검색결과 표시</translation>
 <translation id="7251326866581677552">일부 사이트에서 차단됨</translation>

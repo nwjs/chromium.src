@@ -3,6 +3,7 @@
 <translationbundle lang="pl">
 <translation id="1012876632442809908">Urządzenie USB-C (przedni port)</translation>
 <translation id="1013923882670373915">Urządzenie Bluetooth „<ph name="DEVICE_NAME" />” chce się sparować. Wpisz na nim ten kod PIN: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Niski poziom baterii rysika</translation>
 <translation id="112308213915226829">Autoukrywanie półki</translation>
 <translation id="1153356358378277386">Sparowane urządzenia</translation>
 <translation id="1195412055398077112">nadmiarowość obrazu</translation>
@@ -140,6 +141,7 @@
 <translation id="4729904664295161097">Asystent jest dostępny tylko na profilu głównym.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Rozłącz</translation>
+<translation id="4821830640883629383">Naładuj lub wymień baterie.</translation>
 <translation id="4849058404725798627">Podświetlaj obiekt wybrany za pomocą klawiatury</translation>
 <translation id="4872237917498892622">Alt+Szukaj lub Shift</translation>
 <translation id="4895488851634969361">Bateria jest pełna.</translation>

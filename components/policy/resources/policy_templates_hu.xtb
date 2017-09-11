@@ -654,6 +654,7 @@
 
           A házirend csak akkor érvényesül, ha a „DefaultSearchProviderEnabled” házirend engedélyezve van.</translation>
 <translation id="350797926066071931">Fordítás engedélyezése</translation>
+<translation id="3512226956150568738">Ha a kliens eszközmodellje már azelőtt támogatta az ARC-t, hogy az ARC futtatásához az ext4-re való migráció szükséges lett volna, valamint ha az ArcEnabled-házirend igaz értékre van beállítva, akkor ez a beállítás AskUser (3. érték) módjára fog viselkedni. Az érték minden egyéb esetben (ha az eszköz nem támogatta előtte az ARC-t, vagy ha az ArcEnabled-házirend hamis értékre van beállítva) megegyezik a DisallowArc (0. érték) értékével.</translation>
 <translation id="3528000905991875314">Alternatív hibaoldalak engedélyezése</translation>
 <translation id="3547954654003013442">Proxybeállítások</translation>
 <translation id="3591584750136265240">Bejelentkezési hitelesítési viselkedés konfigurálása</translation>
@@ -1595,6 +1596,7 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 
       Ha a beállítás hamis, akkor nem jelennek meg automatikusan generált tartalomjavaslatok az Új lap oldalon.</translation>
 <translation id="7323896582714668701">A(z) <ph name="PRODUCT_NAME" /> további parancssori paraméterei</translation>
+<translation id="7326394567531622570">Hasonló a Wipe-hoz (2. érték), azonban igyekszik megőrizni a bejelentkezési tokeneket, hogy a felhasználónak ne kelljen újra bejelentkeznie.</translation>
 <translation id="7329842439428490522">Megadja azt a felhasználói bevitel nélküli időtartamot, amely után a rendszer kikapcsolja a képernyőt, ha akkumulátorról működik.
 
           Ha a házirend nullánál nagyobb értékre van állítva, megadja azt az időtartamot, ameddig a felhasználónak tétlennek kell maradnia, mielőtt a(z) <ph name="PRODUCT_OS_NAME" /> kikapcsolja a képernyőt.

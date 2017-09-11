@@ -680,6 +680,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 
           Toto pravidlo sa rešpektuje iba v prípade, ak je povolené pravidlo DefaultSearchProviderEnabled.</translation>
 <translation id="350797926066071931">Povoliť službu Translate</translation>
+<translation id="3512226956150568738">Ak model klientskeho zariadenia podporoval ARC už predtým, ako bolo na spustenie ARC potrebné migrovať na ext4, a ak je pravidlo ArcEnabled nastavené na hodnotu True, táto možnosť sa bude správať ako parameter AskUser (hodnota 3). Vo všetkých ostatných prípadoch (ak model zariadenia predtým ARC nepodporoval alebo ak je pravidlo ArcEnabled nastavené na hodnotu False), táto hodnota sa bude zhodovať s parametrom DisallowArc (hodnota 0).</translation>
 <translation id="3528000905991875314">Povoliť alternatívne chybové stránky</translation>
 <translation id="3547954654003013442">Nastavenia servera proxy</translation>
 <translation id="3591584750136265240">Konfigurácia správania pri overovaní prihlasovacích údajov</translation>
@@ -1694,6 +1695,7 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
 
       Ak toto pravidlo nastavíte na možnosť False, automaticky generované návrhy obsahu sa na stránke na novej karte nezobrazujú.</translation>
 <translation id="7323896582714668701">Dodatočné parametre príkazového riadka pre <ph name="PRODUCT_NAME" /></translation>
+<translation id="7326394567531622570">Podobné možnosti Vymazať (hodnota 2), ale pokúsi sa uchovať prihlasovacie tokeny, aby sa používateľ nemusel znova prihlasovať.</translation>
 <translation id="7329842439428490522">Určuje dobu nečinnosti používateľa, po ktorej sa obrazovka pri napájaní z batérie vypne.
 
           Ak je toto pravidlo nastavené na hodnotu väčšiu ako nula, určuje dobu nečinnosti používateľa, po ktorej systém <ph name="PRODUCT_OS_NAME" /> obrazovku vypne.

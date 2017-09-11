@@ -62,7 +62,7 @@
 <translation id="1093457606523402488">Видљиве мреже:</translation>
 <translation id="1094607894174825014">Операција читања или писања је захтевана уз неважеће смањење на: „<ph name="DEVICE_NAME" />“.</translation>
 <translation id="1097507499312291972"><ph name="BEGIN_SIGN_IN_LINK" />Пријавите се<ph name="END_SIGN_IN_LINK" /> да бисте контролисали и прегледали веб-сајтове које ова особа посећује.</translation>
-<translation id="109758035718544977">Опозови игнорисање сајтова</translation>
+<translation id="109758035718544977">Укључи звук сајтова</translation>
 <translation id="1097658378307015415">Пре пријављивања приступите као гост да бисте активирали мрежу <ph name="NETWORK_ID" /></translation>
 <translation id="1108600514891325577">&amp;Stop (Заустави)</translation>
 <translation id="1110155001042129815">Сачекај</translation>
@@ -136,7 +136,7 @@
 <translation id="1206407435587370571">Истражите Chromebook</translation>
 <translation id="1213037489357051291">Отисци прстију (<ph name="NUM_FINGERPRINTS" />) су подешени</translation>
 <translation id="1215411991991485844">Нова апликација у позадини је додата</translation>
-<translation id="1216654534877302979">Игнориши сајтове</translation>
+<translation id="1216654534877302979">Искључи звук сајтова</translation>
 <translation id="1216659994753476700">Жао нам је. Не можемо да приступимо профилу. Подаци и датотеке сачувани на овом уређају су изгубљени.<ph name="BR" />
     <ph name="BR" />
     Мораћете да поново подесите профил.<ph name="BR" />
@@ -184,7 +184,7 @@
 <translation id="1280820357415527819">Траже се мобилне мреже</translation>
 <translation id="1285320974508926690">Никад не преводи овај сајт</translation>
 <translation id="1285484354230578868">Складиштите податке на налогу Google диска</translation>
-<translation id="1293177648337752319">Опозови игнорисање сајта</translation>
+<translation id="1293177648337752319">Укључи звук сајта</translation>
 <translation id="1293509594570842875">Прављење новог корисника под надзором није успело. Проверите мрежну везу и покушајте поново касније.</translation>
 <translation id="1293556467332435079">Датотеке</translation>
 <translation id="1294298200424241932">Измени подешавања поузданости:</translation>
@@ -369,7 +369,7 @@
 <translation id="1559235587769913376">Унос Unicode знакова</translation>
 <translation id="1566049601598938765">Веб-сајт</translation>
 <translation id="1567993339577891801">JavaScript конзола</translation>
-<translation id="1568067597247500137">Игнориши сајт</translation>
+<translation id="1568067597247500137">Искључи звук сајта</translation>
 <translation id="1568323446248056064">Отвори подешавања уређаја за екран</translation>
 <translation id="1568822834048182062">Обележивачи, историја, лозинке и друга подешавања се синхронизују са Google налогом.</translation>
 <translation id="1572266655485775982">Омогући Wi-Fi</translation>
@@ -1305,7 +1305,7 @@
 <translation id="2972557485845626008">Фирмвер</translation>
 <translation id="2972581237482394796">&amp;Понови радњу</translation>
 <translation id="2972642118232180842">Покрећи само важан садржај (препоручено)</translation>
-<translation id="2973324205039581528">Игнориши сајт</translation>
+<translation id="2973324205039581528">Искључи звук сајта</translation>
 <translation id="2979639724566107830">Отворите у новом прозору</translation>
 <translation id="2981113813906970160">Прикажи велики курсор</translation>
 <translation id="2982970937345031">Пошаљи извештај анонимно</translation>
@@ -3337,7 +3337,7 @@
 <translation id="6122875415561139701">Операција писања није дозвољена на: „<ph name="DEVICE_NAME" />“.</translation>
 <translation id="6124650939968185064">Следећи додаци зависе од овог додатка:</translation>
 <translation id="6125479973208104919">Нажалост, треба поново да додате налог на овај <ph name="DEVICE_TYPE" />.</translation>
-<translation id="612596694132302162">Опозови игнорисање сајта</translation>
+<translation id="612596694132302162">Укључи звук сајта</translation>
 <translation id="6129938384427316298">Коментар Netscape сертификата</translation>
 <translation id="6129953537138746214">Размак</translation>
 <translation id="6132383530370527946">Уговор</translation>
@@ -3765,7 +3765,7 @@
 <translation id="6769712124046837540">Додавање штампача...</translation>
 <translation id="6771503742377376720">Јесте ауторитет за издавање сертификата</translation>
 <translation id="6773575010135450071">Још радњи...</translation>
-<translation id="6778959797435875428">Опозови игнорисање сајтова</translation>
+<translation id="6778959797435875428">Укључи звук сајтова</translation>
 <translation id="677965093459947883">Јако мали</translation>
 <translation id="6780439250949340171">да управљате другим подешавањима</translation>
 <translation id="6782111308708962316">Спречи веб-сајтове треће стране да чувају и читају податке колачића</translation>
@@ -4263,7 +4263,7 @@
 <translation id="7573172247376861652">Напуњеност батерије</translation>
 <translation id="7576032389798113292">6×4</translation>
 <translation id="7576690715254076113">Упари</translation>
-<translation id="7579149537961810247">Игнориши сајтове</translation>
+<translation id="7579149537961810247">Искључи звук сајтова</translation>
 <translation id="7580139917303152582">Користите Покретач да бисте брзо приступали новим апликацијама и активностима.</translation>
 <translation id="7580671184200851182">Пуштај исти звук на свим звучницима (моно звук)</translation>
 <translation id="7581462281756524039">Алатка за чишћење</translation>

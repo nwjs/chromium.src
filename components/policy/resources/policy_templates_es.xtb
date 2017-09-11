@@ -684,6 +684,7 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 
           Esta política solo se respeta si se habilita la política "DefaultSearchProviderEnabled".</translation>
 <translation id="350797926066071931">Habilitar el Traductor</translation>
+<translation id="3512226956150568738">Si el modelo de dispositivo del cliente ya admitía ARC antes de que fuera necesario realizar la migración a ext4 para ejecutar ese formato y si se ha asignado el valor "True" a la política ArcEnabled, esta opción se comportará como AskUser (valor 3). En el resto de los casos (si el modelo de dispositivo no admitía ARC antes o si se ha asignado el valor "False" a la política ArcEnabled), este valor es equivalente a DisallowArc (valor 0).</translation>
 <translation id="3528000905991875314">Habilitar páginas de error alternativas</translation>
 <translation id="3547954654003013442">Configuración de proxy</translation>
 <translation id="3591584750136265240">Configurar el comportamiento de la autenticación de inicio de sesión</translation>
@@ -1704,6 +1705,7 @@ Estas políticas te permiten configurar el comportamiento de <ph name="PRODUCT_O
 
      Si se asigna el valor False, no se mostrarán las sugerencias de contenido generadas automáticamente en la página Nueva pestaña.</translation>
 <translation id="7323896582714668701">Parámetros de línea de comandos adicionales para <ph name="PRODUCT_NAME" /></translation>
+<translation id="7326394567531622570">Similar a Wipe (valor 2), pero intenta conservar los tokens de inicio de sesión para que el usuario no tenga que volver a iniciar sesión.</translation>
 <translation id="7329842439428490522">Permite especificar el tiempo transcurrido hasta la desconexión de la pantalla (sin que el usuario realice ninguna acción) cuando el dispositivo funciona con la batería.
 
           Cuando esta política se establece en un valor superior a cero, especifica el tiempo en que el usuario debe permanecer inactivo antes de que <ph name="PRODUCT_OS_NAME" /> desconecte la pantalla.

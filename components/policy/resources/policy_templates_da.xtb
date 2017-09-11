@@ -655,6 +655,7 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 
           Denne politik respekteres, hvis politikken "DefaultSearchProviderEnabled" er aktiveret.</translation>
 <translation id="350797926066071931">Aktiver Oversæt</translation>
+<translation id="3512226956150568738">Hvis klientens enhedsmodel allerede understøttede ARC, inden det blev nødvendigt at migrere til ext4 for at køre ARC, og hvis politikken ArcEnabled er angivet som sand, opfører denne valgmulighed sig som AskUser (værdi 3). I alle andre tilfælde (hvis enhedsmodellen ikke tidligere understøttede ARC, eller hvis politikken ArcEnabled er angivet som falsk), svarer denne værdi til DisallowArc (værdi 0).</translation>
 <translation id="3528000905991875314">Aktiver alternative fejlsider</translation>
 <translation id="3547954654003013442">Proxyindstillinger</translation>
 <translation id="3591584750136265240">Konfigurer adfærden for logingodkendelse</translation>
@@ -1585,6 +1586,7 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
 
       Hvis politikken er angivet som Falsk, vises automatisk genererede forslag til indhold ikke på siden Ny fane.</translation>
 <translation id="7323896582714668701">Yderligere kommandolinjeparametre for <ph name="PRODUCT_NAME" /></translation>
+<translation id="7326394567531622570">Minder om Wipe (værdi 2), men forsøger at bevare logintokens, så brugeren ikke behøver at logge ind igen.</translation>
 <translation id="7329842439428490522">Angiver den tid uden brugerinput, der udløser skærmsluk, når batteriet bruges.
 
           Hvis denne politik indstilles til en værdi, der er højere end nul, angives den tid, som brugeren skal være inaktiv, før <ph name="PRODUCT_OS_NAME" /> slukker skærmen.

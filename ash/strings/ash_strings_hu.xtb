@@ -3,6 +3,7 @@
 <translationbundle lang="hu">
 <translation id="1012876632442809908">C típusú USB-vel kompatibilis eszköz (elülső port)</translation>
 <translation id="1013923882670373915">A(z) „<ph name="DEVICE_NAME" />” Bluetooth-eszköz engedélyt kér a párosításra. Kérjük, adja meg ezt a PIN kódot azon az eszközön: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Az érintőceruza töltöttségi szintje alacsony</translation>
 <translation id="112308213915226829">Polc automatikus elrejtése</translation>
 <translation id="1153356358378277386">Párosított eszközök</translation>
 <translation id="1195412055398077112">túlpásztázás</translation>
@@ -140,6 +141,7 @@
 <translation id="4729904664295161097">A Segéd csak az elsődleges profilhoz áll rendelkezésre.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Kapcsolat bontása</translation>
+<translation id="4821830640883629383">Töltse fel vagy cserélje ki az akkumulátort.</translation>
 <translation id="4849058404725798627">Objektum kiemelése billentyűzetfókusszal</translation>
 <translation id="4872237917498892622">Alt + Keresés vagy Shift</translation>
 <translation id="4895488851634969361">Az akkumulátor feltöltve.</translation>

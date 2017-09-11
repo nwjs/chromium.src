@@ -160,6 +160,7 @@
 <translation id="2184405333245229118">{COUNT,plural, =1{1 endereço}one{# addresses}other{# endereços}}</translation>
 <translation id="2187317261103489799">Detetar (predefinição)</translation>
 <translation id="2202020181578195191">Introduza um ano de expiração válido</translation>
+<translation id="2209523182407020534">As aplicações que podem causar este erro incluem antivírus, firewalls e software de filtragem Web ou proxy.</translation>
 <translation id="2212735316055980242">Política não encontrada</translation>
 <translation id="2213606439339815911">A obter entradas...</translation>
 <translation id="2218879909401188352">Os utilizadores mal-intencionados que se encontram em <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> podem instalar aplicações perigosas que danificam o dispositivo, adicionam cobranças ocultas à fatura de dados móveis ou roubam as suas informações pessoais. <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" /></translation>
@@ -525,6 +526,7 @@
 <translation id="5019198164206649151">Armazenamento de segurança em mau estado</translation>
 <translation id="5023310440958281426">Verificar as políticas do administrador</translation>
 <translation id="5029568752722684782">Limpar cópia</translation>
+<translation id="503069730517007720">É necessário um certificado de raiz para o "<ph name="SOFTWARE_NAME" />", que não está instalado. O administrador de TI deve consultar as instruções de configuração do "<ph name="SOFTWARE_NAME" />" para corrigir este problema. <ph name="FURTHER_EXPLANATION" /></translation>
 <translation id="5031870354684148875">Acerca do Google Tradutor</translation>
 <translation id="5039804452771397117">Permitir</translation>
 <translation id="5040262127954254034">Privacidade</translation>
@@ -889,11 +891,13 @@
 <translation id="8037357227543935929">Pedir (predefinição)</translation>
 <translation id="8041089156583427627">Enviar comentários</translation>
 <translation id="8041940743680923270">Utilizar predefinição global (Perguntar)</translation>
+<translation id="8057711352706143257">O "<ph name="SOFTWARE_NAME" />" não está configurado corretamente. Normalmente, a desinstalação do "<ph name="SOFTWARE_NAME" />" resolve o problema. <ph name="FURTHER_EXPLANATION" /></translation>
 <translation id="8088680233425245692">Falha ao ver o artigo.</translation>
 <translation id="8091372947890762290">Ativação pendente no servidor</translation>
 <translation id="8094917007353911263">A rede que está a utilizar pode exigir que visite <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
 <translation id="8103161714697287722">Método de pagamento</translation>
 <translation id="8118489163946903409">Método de pagamento</translation>
+<translation id="8127301229239896662">O "<ph name="SOFTWARE_NAME" />" não foi instalado corretamente no computador ou na rede. Peça ao administrador de TI para resolver este problema.</translation>
 <translation id="8131740175452115882">Confirmar</translation>
 <translation id="8134994873729925007">Não foi possível encontrar o <ph name="BEGIN_ABBR" />endereço DNS<ph name="END_ABBR" /> do servidor de <ph name="HOST_NAME" />.</translation>
 <translation id="8149426793427495338">O computador entrou em suspensão.</translation>
@@ -1025,4 +1029,9 @@
 <translation id="988159990683914416">Compilação de programador</translation>
 <translation id="989988560359834682">Editar endereço</translation>
 <translation id="992115559265932548"><ph name="MICROSOFT_ACTIVE_DIRECTORY" /></translation>
+<translation id="992432478773561401">O "<ph name="SOFTWARE_NAME" />" não foi instalado corretamente no computador ou na rede:
+    &lt;ul&gt;
+    &lt;li&gt;Experimente desinstalar ou desativar o "<ph name="SOFTWARE_NAME" />"&lt;/li&gt;
+    &lt;li&gt;Experimente estabelecer ligação a outra rede&lt;/li&gt;
+    &lt;/ul&gt;</translation>
 </translationbundle>

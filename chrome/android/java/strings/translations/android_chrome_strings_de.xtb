@@ -346,7 +346,8 @@ Zur Anpassung des Suchbegriffs drücken Sie einige Sekunden lang auf den entspre
 <translation id="4412992751769744546">Cookies Dritter zulassen</translation>
 <translation id="443008484043213881">Tools</translation>
 <translation id="4432792777822557199">Seiten auf <ph name="SOURCE_LANGUAGE" /> werden ab jetzt auf <ph name="TARGET_LANGUAGE" /> übersetzt</translation>
-<translation id="4445444302979002552">Vervollständigungsdienste verwenden, um Vorschläge für Suchbegriffe und Websites zu erhalten</translation>
+<translation id="4445444302979002552">Vorhersagedienste verwenden, um Vorschläge für Suchbegriffe und Websites zu erhalten 
+</translation>
 <translation id="4452411734226507615">Tab "<ph name="TAB_TITLE" />" schließen</translation>
 <translation id="4452548195519783679">Als Lesezeichen in "<ph name="FOLDER_NAME" />" gespeichert</translation>
 <translation id="4453340223357552416"><ph name="FILE_NAME" /> in <ph name="PRODUCT_NAME" /> heruntergeladen</translation>
@@ -478,7 +479,7 @@ Zur Anpassung des Suchbegriffs drücken Sie einige Sekunden lang auf den entspre
 <translation id="5620928963363755975">Ihre Dateien und Seiten finden Sie durch Auswahl der Schaltfläche "Weitere Optionen" unter "Downloads"</translation>
 <translation id="5626134646977739690">Name:</translation>
 <translation id="5639724618331995626">Alle Websites zulassen</translation>
-<translation id="5646376287012673985">Standort</translation>
+<translation id="5646376287012673985">Speicherort</translation>
 <translation id="5648166631817621825">Letzte 7 Tage</translation>
 <translation id="5655963694829536461">Downloads durchsuchen</translation>
 <translation id="5659593005791499971">E-Mail-Adresse</translation>
@@ -659,7 +660,6 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="7189598951263744875">Teilen...</translation>
 <translation id="7191430249889272776">Tab im Hintergrund geöffnet</translation>
 <translation id="723171743924126238">Bilder auswählen</translation>
-<translation id="7239442631100552029">Datensparmodus zurücksetzen? Durch das Zurücksetzen wird der Datensparmodus-Verlauf gelöscht, einschließlich der Liste besuchter Websites.</translation>
 <translation id="7243308994586599757">Optionen unten auf dem Bildschirm verfügbar</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> zeigt Ihnen lokale Suchergebnisse basierend auf Ihrem Standort.</translation>
 <translation id="7251326866581677552">Auf einigen Websites blockiert</translation>
@@ -838,7 +838,8 @@ Um neue Lizenzen zu erwerben, stellen Sie eine Internetverbindung her und spiele
 <translation id="8993760627012879038">Neuen Tab im Inkognitomodus öffnen</translation>
 <translation id="8998729206196772491">Sie melden sich mit einem von <ph name="MANAGED_DOMAIN" /> verwalteten Konto an und geben dem Administrator der Domain Kontrolle über Ihre Chrome-Daten. Die Daten werden diesem Konto dauerhaft zugeordnet. Wenn Sie sich von Chrome abmelden, werden Ihre Daten auf dem Gerät gelöscht, bleiben jedoch in Ihrem Google-Konto erhalten.</translation>
 <translation id="9019902583201351841">Von deinen Eltern verwaltet</translation>
-<translation id="9038649477754266430">Vervollständigungsfunktion zum schnelleren Laden von Seiten verwenden</translation>
+<translation id="9038649477754266430">Vorhersagefunktion zum schnelleren Laden von Seiten verwenden
+</translation>
 <translation id="9050666287014529139">Passphrase</translation>
 <translation id="9060538597317784206">App <ph name="APP_NAME" /> im Play Store anzeigen. Bewertung: <ph name="APP_RATING" /></translation>
 <translation id="9063523880881406963">"Desktopversion anfordern" deaktivieren</translation>

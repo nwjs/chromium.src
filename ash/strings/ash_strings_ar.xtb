@@ -3,6 +3,7 @@
 <translationbundle lang="ar">
 <translation id="1012876632442809908">‏جهاز USB-C (المنفذ الأمامي)</translation>
 <translation id="1013923882670373915">يريد جهاز بلوتوث "<ph name="DEVICE_NAME" />" الحصول على إذن للإقران. يُرجى إدخال رقم التعريف الشخصي هذا في هذا الجهاز: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">بطارية قلم الشاشة منخفضة</translation>
 <translation id="112308213915226829">الإخفاء التلقائي للرف</translation>
 <translation id="1153356358378277386">الأجهزة المقترنة</translation>
 <translation id="1195412055398077112">الخروج عن إطار الشاشة</translation>
@@ -140,6 +141,7 @@
 <translation id="4729904664295161097">لا يتوفر المساعد إلا للملفات الشخصية الأساسية.</translation>
 <translation id="479989351350248267">بحث</translation>
 <translation id="4804818685124855865">قطع الاتصال</translation>
+<translation id="4821830640883629383">يُرجى شحن البطاريات أو استبدالها.</translation>
 <translation id="4849058404725798627">تمييز الكائن باستخدام تركيز لوحة المفاتيح</translation>
 <translation id="4872237917498892622">‏Alt+مفتاح البحث أو Shift</translation>
 <translation id="4895488851634969361">البطارية مملوءة.</translation>

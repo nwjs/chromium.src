@@ -595,7 +595,7 @@
 <translation id="1905710495812624430">S'ha superat el nombre màxim d'intents permesos.</translation>
 <translation id="1909880997794698664">Confirmeu que voleu establir permanentment el mode de quiosc en aquest dispositiu?</translation>
 <translation id="1910721550319506122">Us donem la benvinguda</translation>
-<translation id="1915073950770830761">Canary</translation>
+<translation id="1915073950770830761">canary</translation>
 <translation id="1916502483199172559">Avatar vermell predeterminat</translation>
 <translation id="1918141783557917887">&amp;Més petit</translation>
 <translation id="1919345977826869612">Anuncis</translation>
@@ -3287,7 +3287,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="6049065490165456785">Foto de la càmera interna</translation>
 <translation id="6051354611314852653">El sistema no ha pogut autoritzar l'accés a l'API per a aquest dispositiu.</translation>
 <translation id="6052976518993719690">Entitat emissora de certificats SSL</translation>
-<translation id="6053401458108962351">&amp;Elimina les dades de navegació...</translation>
+<translation id="6053401458108962351">&amp;Esborra les dades de navegació...</translation>
 <translation id="6054663654428587993">L'Assistent de Google no està activat per al teu compte.</translation>
 <translation id="6055171183283175969">La contrasenya que has introduït és incorrecta.</translation>
 <translation id="6055392876709372977">PKCS #1 SHA-256 amb encriptació RSA</translation>

@@ -689,6 +689,7 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
 
           This policy is only respected if the 'DefaultSearchProviderEnabled' policy is enabled.</translation>
 <translation id="350797926066071931">Enable Translate</translation>
+<translation id="3512226956150568738">If the client device model already supported ARC before migration to ext4 was necessary to run ARC, and if the ArcEnabled policy is set to true, this option will behave as AskUser (value 3). In all other cases (if the device model did not support ARC before, or if ArcEnabled policy is set to false), this value is equivalent to DisallowArc (value 0).</translation>
 <translation id="3528000905991875314">Enable alternate error pages</translation>
 <translation id="3547954654003013442">Proxy settings</translation>
 <translation id="3591584750136265240">Configure the login authentication behaviour</translation>
@@ -1709,6 +1710,7 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 
       If this is set to false, automatically-generated content suggestions are not shown on the New Tab page.</translation>
 <translation id="7323896582714668701">Additional command line parameters for <ph name="PRODUCT_NAME" /></translation>
+<translation id="7326394567531622570">Similar to Wipe (value 2), but tries to preserve login tokens so that the user does not have to sign in again.</translation>
 <translation id="7329842439428490522">Specifies the length of time without user input after which the screen is turned off when running on battery power.
 
           When this policy is set to a value greater than zero, it specifies the length of time that the user must remain idle before <ph name="PRODUCT_OS_NAME" /> turns off the screen.

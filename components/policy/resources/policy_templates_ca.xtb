@@ -653,6 +653,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 
           Aquesta política només es respecta si la política "DefaultSearchProviderEnabled" està activada.</translation>
 <translation id="350797926066071931">Activa Google Traductor</translation>
+<translation id="3512226956150568738">Si el model de dispositiu del client ja admetia ARC abans que la migració a ext4 fos necessària per executar ARC, i si la política ArcEnabled s'estableix en "true", aquesta opció es comportarà com AskUser (valor 3). En la resta de casos (si abans el model de dispositiu no admetia ARC o si la política ArcEnabled s'estableix en "false"), aquest valor és equivalent a DisallowArc (valor 0).</translation>
 <translation id="3528000905991875314">Activa les pàgines d'error alternatives</translation>
 <translation id="3547954654003013442">Configuració del servidor intermediari</translation>
 <translation id="3591584750136265240">Configura el comportament de l'autenticació d'inici de sessió</translation>
@@ -1007,11 +1008,11 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 
       Si aquesta política es deixa sense definir o en blanc, qualsevol usuari pot iniciar la sessió a <ph name="PRODUCT_NAME" />.</translation>
 <translation id="4858735034935305895">Permet el mode de pantalla completa</translation>
-<translation id="4869787217450099946">Especifica si es permeten els bloquejos d'activació de la pantalla. Les extensions poden sol·licitar bloquejos d'activació de la pantalla a través de l'API de l'extensió de gestió de l'alimentació.
+<translation id="4869787217450099946">Especifica si es permeten els wake locks de la pantalla. Les extensions poden sol·licitar wake locks de la pantalla a través de l'API de l'extensió de gestió de l'alimentació.
 
-          Si aquesta aplicació es defineix com a vertadera o no es defineix, es compliran els bloquejos d'activació de la pantalla per a la gestió d'alimentació.
+          Si aquesta aplicació es defineix com a vertadera o no es defineix, es compliran els wake locks de la pantalla per a la gestió d'alimentació.
 
-          Si es defineix com a falsa, les sol·licituds de bloqueig d'activació de la pantalla es rebutjaran.</translation>
+          Si es defineix com a falsa, les sol·licituds de wake lock de la pantalla es rebutjaran.</translation>
 <translation id="4876805738539874299">Versió SSL màxima activada</translation>
 <translation id="4882546920824859909">Definiu els dominis que tenen permís per accedir a Google Apps for Work</translation>
 <translation id="4897928009230106190">Especifica els paràmetres utilitzats en fer una cerca suggerida amb POST. Consisteix en parelles de nom/valor separades per comes. Si un valor és un paràmetre de plantilla, com ara {searchTerms} a l'exemple anterior, se substituirà per dades de termes de cerca reals.
@@ -1590,6 +1591,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 
       Si s'estableix en "false", a la pàgina Pestanya nova no es mostraran suggeriments de contingut generats automàticament.</translation>
 <translation id="7323896582714668701">Paràmetres de línia d'ordres de <ph name="PRODUCT_NAME" /> addicionals</translation>
+<translation id="7326394567531622570">És similar a Wipe (valor 2), però prova de preservar els testimonis d'inici de sessió perquè l'usuari no hagi de tornar a iniciar la sessió.</translation>
 <translation id="7329842439428490522">Indica el temps sense activitat per part de l'usuari després del qual la pantalla es desactiva quan el dispositiu funciona amb bateria.
 
           Quan aquesta política es defineix en un valor superior a zero, indica el temps que l'usuari ha de romandre inactiu abans <ph name="PRODUCT_OS_NAME" /> no desactivi la pantalla.

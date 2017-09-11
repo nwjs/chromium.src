@@ -62,7 +62,7 @@
 <translation id="1093457606523402488">Widoczne sieci:</translation>
 <translation id="1094607894174825014">Zażądano operacji odczytu lub zapisu z nieprawidłowym offsetem w: „<ph name="DEVICE_NAME" />”.</translation>
 <translation id="1097507499312291972"><ph name="BEGIN_SIGN_IN_LINK" />Zaloguj się<ph name="END_SIGN_IN_LINK" />, by kontrolować i wyświetlać strony, na które wchodzi ta osoba.</translation>
-<translation id="109758035718544977">Przestań ignorować strony</translation>
+<translation id="109758035718544977">Zakończ wyciszanie stron</translation>
 <translation id="1097658378307015415">Zanim się zalogujesz, wybierz tryb gościa, aby aktywować sieć <ph name="NETWORK_ID" />.</translation>
 <translation id="1108600514891325577">&amp;Zatrzymaj</translation>
 <translation id="1110155001042129815">Zaczekaj</translation>
@@ -136,7 +136,7 @@
 <translation id="1206407435587370571">Poznaj swojego Chromebooka</translation>
 <translation id="1213037489357051291">Skonfigurowane odciski palców: <ph name="NUM_FINGERPRINTS" /></translation>
 <translation id="1215411991991485844">Nowa aplikacja działająca w tle została dodana</translation>
-<translation id="1216654534877302979">Ignoruj strony</translation>
+<translation id="1216654534877302979">Wycisz strony</translation>
 <translation id="1216659994753476700">Nie możemy uzyskać dostępu do Twojego profilu. Pliki i dane zapisane na tym urządzeniu mogły zostać utracone.<ph name="BR" />
     <ph name="BR" />
     Musisz ponownie skonfigurować profil.<ph name="BR" />
@@ -183,7 +183,7 @@
 <translation id="1280820357415527819">Szukam sieci komórkowych</translation>
 <translation id="1285320974508926690">Nigdy nie tłumacz tej witryny</translation>
 <translation id="1285484354230578868">Przechowuj dane na koncie Dysku Google</translation>
-<translation id="1293177648337752319">Przestań ignorować stronę</translation>
+<translation id="1293177648337752319">Zakończ wyciszanie strony</translation>
 <translation id="1293509594570842875">Nie można utworzyć nowego nadzorowanego użytkownika. Sprawdź połączenie sieciowe i spróbuj ponownie później.</translation>
 <translation id="1293556467332435079">Pliki</translation>
 <translation id="1294298200424241932">Edytuj ustawienia zaufania:</translation>
@@ -371,7 +371,7 @@
 <translation id="1559235587769913376">Wprowadź znaki Unicode</translation>
 <translation id="1566049601598938765">Strona internetowa</translation>
 <translation id="1567993339577891801">Konsola JavaScript</translation>
-<translation id="1568067597247500137">Ignoruj stronę</translation>
+<translation id="1568067597247500137">Wycisz stronę</translation>
 <translation id="1568323446248056064">Otwórz ustawienia wyświetlacza</translation>
 <translation id="1568822834048182062">Twoje zakładki, historia, hasła i inne ustawienia będą synchronizowane z kontem Google.</translation>
 <translation id="1572266655485775982">Włączanie Wi-Fi</translation>
@@ -1307,7 +1307,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="2972557485845626008">Oprogramowanie układowe</translation>
 <translation id="2972581237482394796">&amp;Ponów</translation>
 <translation id="2972642118232180842">Uruchamiaj tylko ważną treść (zalecane)</translation>
-<translation id="2973324205039581528">Ignoruj stronę</translation>
+<translation id="2973324205039581528">Wycisz stronę</translation>
 <translation id="2979639724566107830">Otwórz w nowym oknie</translation>
 <translation id="2981113813906970160">Pokaż duży kursor myszy</translation>
 <translation id="2982970937345031">Zgłoś anonimowo</translation>
@@ -2070,7 +2070,7 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="4100733287846229632">Na urządzeniu już prawie nie ma miejsca</translation>
 <translation id="4104163789986725820">E&amp;ksportuj</translation>
 <translation id="4105563239298244027">Uzyskaj 1 TB miejsca na Dysku Google za darmo</translation>
-<translation id="4107048419833779140">Zidentyfikuj i wysuń urządzenia pamięci</translation>
+<translation id="4107048419833779140">Rozpoznaj i wysuń urządzenia pamięci</translation>
 <translation id="4109135793348361820">Przesuń okno do: <ph name="USER_NAME" /> (<ph name="USER_EMAIL" />)</translation>
 <translation id="4110342520124362335">Pliki cookie z witryny <ph name="DOMAIN" /> zostały zablokowane.</translation>
 <translation id="4110559665646603267">Zaznacz półkę</translation>
@@ -2572,7 +2572,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="4942394808693235155">Sprawdź i zastosuj aktualizacje</translation>
 <translation id="494286511941020793">Konfiguracja serwera proxy – pomoc</translation>
 <translation id="494660967831069720">Częściowe dane</translation>
-<translation id="4953689047182316270">Odpowiadać na zdarzenia dotyczące ułatwień dostępu</translation>
+<translation id="4953689047182316270">Odpowiadanie na zdarzenia dotyczące ułatwień dostępu</translation>
 <translation id="4953808748584563296">Domyślny pomarańczowy awatar</translation>
 <translation id="4955814292505481804">Roczna</translation>
 <translation id="495931528404527476">W Chrome</translation>
@@ -3335,7 +3335,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="6122875415561139701">Nie jest dozwolona operacja zapisu na: „<ph name="DEVICE_NAME" />”.</translation>
 <translation id="6124650939968185064">To rozszerzenie jest wymagane przez następujące rozszerzenia:</translation>
 <translation id="6125479973208104919">Musisz jeszcze raz dodać swoje konto na tym urządzeniu <ph name="DEVICE_TYPE" />.</translation>
-<translation id="612596694132302162">Przestań ignorować stronę</translation>
+<translation id="612596694132302162">Zakończ wyciszanie strony</translation>
 <translation id="6129938384427316298">Komentarz do certyfikatu firmy Netscape</translation>
 <translation id="6129953537138746214">Spacja</translation>
 <translation id="6132383530370527946">Przeczytaj umowę</translation>
@@ -3764,7 +3764,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="6769712124046837540">Dodaję drukarkę...</translation>
 <translation id="6771503742377376720">Jest urzędem certyfikacji</translation>
 <translation id="6773575010135450071">Więcej czynności...</translation>
-<translation id="6778959797435875428">Przestań ignorować strony</translation>
+<translation id="6778959797435875428">Zakończ wyciszanie stron</translation>
 <translation id="677965093459947883">Bardzo mała</translation>
 <translation id="6780439250949340171">zarządzać innymi ustawieniami</translation>
 <translation id="6782111308708962316">Nie pozwalaj witrynom innych firm zapisywać ani odczytywać danych z plików cookie</translation>
@@ -4260,7 +4260,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="7573172247376861652">Poziom naładowania akumulatora</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Sortuj</translation>
-<translation id="7579149537961810247">Ignoruj strony</translation>
+<translation id="7579149537961810247">Wycisz strony</translation>
 <translation id="7580139917303152582">Użyj menu z aplikacjami, by szybko otwierać nowe aplikacje i wykonywać inne czynności.</translation>
 <translation id="7580671184200851182">Odtwarzaj ten sam dźwięk na wszystkich głośnikach (dźwięk mono)</translation>
 <translation id="7581462281756524039">Narzędzie do czyszczenia</translation>

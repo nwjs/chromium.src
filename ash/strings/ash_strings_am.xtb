@@ -3,6 +3,7 @@
 <translationbundle lang="am">
 <translation id="1012876632442809908">USB-C መሣሪያ (የፊት ወደብ)</translation>
 <translation id="1013923882670373915">የብሉቱዝ መሣሪያ «<ph name="DEVICE_NAME" />» ለመጣመር ፍቃድ ይፈልጋል። እባክዎ ይህን የፒን ኮድ በዚህ መሣሪያ ላይ ያስገቡ፦ <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">የስታይለስ ባትሪ ዝቅተኛ ነው</translation>
 <translation id="112308213915226829">መደርደሪያን በራስ ሰር ደብቅ</translation>
 <translation id="1153356358378277386">የተጣመሩ መሣሪያዎች</translation>
 <translation id="1195412055398077112">ትርፍ ቅኝት</translation>
@@ -140,6 +141,7 @@
 <translation id="4729904664295161097">ረዳት ለዋና መገለጫ ብቻ ነው የሚገኘው።</translation>
 <translation id="479989351350248267">ፈልግ</translation>
 <translation id="4804818685124855865">ግንኙነት አቋርጥ</translation>
+<translation id="4821830640883629383">እባክዎ ኃይል ይሙሉ ወይም ባትሪዎችን ይተኩ</translation>
 <translation id="4849058404725798627">ነገርየውን ከቁልፍ ሰሌዳ ትኩረት ጋር አድምቅ</translation>
 <translation id="4872237917498892622">Alt+Search ወይም Shift</translation>
 <translation id="4895488851634969361">ባትሪው ሙሉ ነው።</translation>

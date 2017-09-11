@@ -3,6 +3,7 @@
 <translationbundle lang="pt-BR">
 <translation id="1012876632442809908">Dispositivo USB-C (porta frontal)</translation>
 <translation id="1013923882670373915">O dispositivo Bluetooth "<ph name="DEVICE_NAME" />" deseja permissão para realizar o pareamento. Digite este código PIN no dispositivo: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">A bateria da stylus está fraca</translation>
 <translation id="112308213915226829">Ocultar estante automaticamente</translation>
 <translation id="1153356358378277386">Dispositivos pareados</translation>
 <translation id="1195412055398077112">overscan</translation>
@@ -140,6 +141,7 @@
 <translation id="4729904664295161097">O Assistente só está disponível para o perfil principal.</translation>
 <translation id="479989351350248267">pesquisar</translation>
 <translation id="4804818685124855865">Desconectar</translation>
+<translation id="4821830640883629383">Carregue ou substitua as baterias.</translation>
 <translation id="4849058404725798627">Destacar objeto com o foco de teclado</translation>
 <translation id="4872237917498892622">Alt + Pesquisar ou Shift</translation>
 <translation id="4895488851634969361">A bateria está carregada.</translation>

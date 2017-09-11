@@ -659,13 +659,13 @@ Por exemplo, alguns Sites podem responder a este pedido ao mostrar-lhe anúncios
 <translation id="7189598951263744875">Partilhar...</translation>
 <translation id="7191430249889272776">Separador aberto em segundo plano.</translation>
 <translation id="723171743924126238">Selecionar imagens</translation>
-<translation id="7239442631100552029">Pretende repor a Poupança de dados? A reposição apaga o histórico da Poupança de dados, incluindo a lista de sites visitados.</translation>
 <translation id="7243308994586599757">Opções disponíveis junto à parte inferior do ecrã</translation>
 <translation id="7244362611678346589"><ph name="SEARCH_ENGINE_URL" /> utiliza a sua localização para mostrar resultados da pesquisa locais</translation>
 <translation id="7251326866581677552">Bloqueados em alguns sites</translation>
 <translation id="7253272406652746122">Adicione uma Conta Google na página Contas na aplicação Definições do dispositivo.</translation>
 <translation id="7274013316676448362">Site bloqueado</translation>
 <translation id="7307288900373049735">A contactar a Google… Isto pode demorar um pouco</translation>
+<translation id="7318797029885648322">Toque em Mais para obter artigos.</translation>
 <translation id="7333031090786104871">Ainda a adicionar o site anterior…</translation>
 <translation id="7352939065658542140">VÍDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Partilhar 1 item selecionado}one{Share # selected items}other{Partilhar # itens selecionados}}</translation>
@@ -805,6 +805,7 @@ Para obter licenças novas, ligue-se à Internet e reproduza o conteúdo transfe
 <translation id="8636825310635137004">Para obter os separadores dos seus outros dispositivos, ative a sincronização.</translation>
 <translation id="8641930654639604085">Tentar bloquear sites para adultos</translation>
 <translation id="8662811608048051533">A sua sessão é terminada na maioria dos sites.</translation>
+<translation id="867485229011312729">Onde estão os marcadores, as transferências e o histórico?</translation>
 <translation id="8676374126336081632">Limpar texto</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{Nível de intensidade do sinal: # barra}one{Nível de intensidade do sinal: # barras}other{Nível de intensidade do sinal: # barras}}</translation>
 <translation id="869891660844655955">Data de expiração</translation>
