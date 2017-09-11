@@ -2423,10 +2423,7 @@ bool LayoutBox::PaintedOutputOfObjectHasNoEffectRegardlessOfSize() const {
   return true;
 }
 
-LayoutRect LayoutBox::LocalVisualRect() const {
-  if (Style()->Visibility() != EVisibility::kVisible)
-    return LayoutRect();
-
+LayoutRect LayoutBox::LocalVisualRectIgnoringVisibility() const {
   if (HasMask() && !ShouldClipOverflow() &&
       !RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
     return LayoutRect(Layer()->BoxForFilterOrMask());
