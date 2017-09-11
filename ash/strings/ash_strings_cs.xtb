@@ -3,6 +3,7 @@
 <translationbundle lang="cs">
 <translation id="1012876632442809908">Zařízení USB Type-C (přední port)</translation>
 <translation id="1013923882670373915">Zařízení Bluetooth „<ph name="DEVICE_NAME" />“ žádá o povolení ke spárování. Zadejte prosím v zařízení tento kód PIN: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Baterie dotykového pera je slabá</translation>
 <translation id="112308213915226829">Automaticky skrývat poličku</translation>
 <translation id="1153356358378277386">Spárovaná zařízení</translation>
 <translation id="1195412055398077112">přesah obrazu</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">Asistent je k dispozici pouze pro primární profil.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Odpojit</translation>
+<translation id="4821830640883629383">Nabijte nebo vyměňte baterie.</translation>
 <translation id="4849058404725798627">Zvýraznit objekt se zaměřením pro zadávání</translation>
 <translation id="4872237917498892622">Alt + Vyhledávání nebo Shift</translation>
 <translation id="4895488851634969361">Baterie je plně nabita.</translation>

@@ -3,6 +3,7 @@
 <translationbundle lang="no">
 <translation id="1012876632442809908">USB-C-enhet (porten foran)</translation>
 <translation id="1013923882670373915">Bluetooth-enheten «<ph name="DEVICE_NAME" />» ber om tillatelse til å koble til. Skriv inn denne PIN-koden på den aktuelle enheten: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Pekepennen har lite batteri</translation>
 <translation id="112308213915226829">Skjul hyllen automatisk</translation>
 <translation id="1153356358378277386">Tilkoblede enheter</translation>
 <translation id="1195412055398077112">overscan</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">Assistenten er bare tilgjengelig for hovedprofilen.</translation>
 <translation id="479989351350248267">søk</translation>
 <translation id="4804818685124855865">Koble fra</translation>
+<translation id="4821830640883629383">Lad pekepennen eller bytt ut batteriene.</translation>
 <translation id="4849058404725798627">Fremhev objektet med tastaturfokus</translation>
 <translation id="4872237917498892622">Alt + Søk eller Shift</translation>
 <translation id="4895488851634969361">Batteriet er fullt.</translation>

@@ -3,6 +3,7 @@
 <translationbundle lang="ko">
 <translation id="1012876632442809908">USB-C 기기(전면 포트)</translation>
 <translation id="1013923882670373915">블루투스 기기 '<ph name="DEVICE_NAME" />'에서 페어링 허가를 요청합니다. 기기에서 다음 PIN 코드를 입력하세요. <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">스타일러스 배터리 부족</translation>
 <translation id="112308213915226829">실행기 자동 숨김</translation>
 <translation id="1153356358378277386">페어링된 기기</translation>
 <translation id="1195412055398077112">오버스캔</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">어시스턴트는 기본 프로필에서만 사용할 수 있습니다.</translation>
 <translation id="479989351350248267">검색</translation>
 <translation id="4804818685124855865">연결 해제</translation>
+<translation id="4821830640883629383">배터리를 충전하거나 교체해 주세요.</translation>
 <translation id="4849058404725798627">키보드 포커스로 개체 강조표시</translation>
 <translation id="4872237917498892622">Alt+검색 또는 Shift 키</translation>
 <translation id="4895488851634969361">배터리 충전이 완료되었습니다.</translation>

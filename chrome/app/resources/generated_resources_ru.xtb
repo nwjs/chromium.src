@@ -909,7 +909,7 @@
 <translation id="2328054044222305089">Все данные сайта <ph name="SITE" /> будут удалены с устройства, а его разрешения – сброшены. Продолжить?</translation>
 <translation id="2329597144923131178">Войдите, чтобы синхронизировать закладки, пароли, историю и т. д. на всех устройствах.</translation>
 <translation id="2332131598580221120">Открыть в Интернет-магазине</translation>
-<translation id="2332742915001411729">Масштаб по умолчанию</translation>
+<translation id="2332742915001411729">Сбросить</translation>
 <translation id="2335122562899522968">Эта страница установила файлы cookie.</translation>
 <translation id="2336228925368920074">Добавить все вкладки в закладки…</translation>
 <translation id="2336381494582898602">Powerwash</translation>
@@ -3008,6 +3008,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5428850089342283580"><ph name="ACCNAME_APP" /> (доступно обновление)</translation>
 <translation id="5431318178759467895">Цветная печать</translation>
 <translation id="5431825016875453137">OpenVPN / L2TP</translation>
+<translation id="5432996274932278848">Поиск на устройстве, в приложениях и Интернете. Чтобы перемещаться между приложениями, используйте клавиши со стрелками.</translation>
 <translation id="543381445212956829">Включить WiMAX</translation>
 <translation id="5434065355175441495">PKCS #1 шифрование RSA</translation>
 <translation id="5434706434408777842">F3</translation>

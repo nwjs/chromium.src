@@ -3,6 +3,7 @@
 <translationbundle lang="da">
 <translation id="1012876632442809908">USB-C-enhed (port foran)</translation>
 <translation id="1013923882670373915">Bluetooth-enheden "<ph name="DEVICE_NAME" />" vil gerne have parringstilladelse. Indtast denne pinkode på den pågældende enhed: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Styluspennen er ved at løbe tør for batteri</translation>
 <translation id="112308213915226829">Skjul hylde automatisk</translation>
 <translation id="1153356358378277386">Parrede enheder</translation>
 <translation id="1195412055398077112">overscan</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">Assistenten kan kun bruges via den primære profil.</translation>
 <translation id="479989351350248267">søg</translation>
 <translation id="4804818685124855865">Afbryd</translation>
+<translation id="4821830640883629383">Oplad eller udskift batterierne.</translation>
 <translation id="4849058404725798627">Fremhæv element med tastaturfokus</translation>
 <translation id="4872237917498892622">Alt+Søg eller Shift</translation>
 <translation id="4895488851634969361">Batteriet er helt opladet.</translation>

@@ -3,6 +3,7 @@
 <translationbundle lang="mr">
 <translation id="1012876632442809908">USB-C डिव्‍हाइस (पुढील बाजूचे पोर्ट)</translation>
 <translation id="1013923882670373915">"<ph name="DEVICE_NAME" />" Bluetooth डीव्हाइस जोडण्यासाठी परवानगी घेऊ इच्छिते. कृपया त्या डीव्हाइसवर हा पिन प्रविष्ट करा: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">स्टायलस बॅटरी कमी आहे</translation>
 <translation id="112308213915226829">शेल्फ स्वयं लपवा</translation>
 <translation id="1153356358378277386">जोडलेली डीव्हाइस</translation>
 <translation id="1195412055398077112">ओव्हरस्कॅन</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">साहाय्यक केवळ प्राथमिक प्रोफाइलसाठी उपलब्ध आहे.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">‍डिस्कनेक्ट</translation>
+<translation id="4821830640883629383">कृपया बॅटऱ्या चार्ज करा किंवा बदला.</translation>
 <translation id="4849058404725798627">कीबोर्ड फोकससह ऑब्जेक्ट हायलाइट करा</translation>
 <translation id="4872237917498892622">Alt+Search किंवा Shift</translation>
 <translation id="4895488851634969361">बॅटरी भरली आहे.</translation>

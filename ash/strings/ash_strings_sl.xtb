@@ -3,6 +3,7 @@
 <translationbundle lang="sl">
 <translation id="1012876632442809908">Naprava USB-C (sprednja vrata)</translation>
 <translation id="1013923882670373915">Naprava Bluetooth »<ph name="DEVICE_NAME" />« želi dovoljenje za seznanjanje. V napravi vnesite ta PIN: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Baterija pisala je skoraj izpraznjena</translation>
 <translation id="112308213915226829">Samodejno skrivanje police</translation>
 <translation id="1153356358378277386">Seznanjene naprave</translation>
 <translation id="1195412055398077112">upodabljanje čez rob zaslona</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">Pomočnik je na voljo samo za primarni profil.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Prekini povezavo</translation>
+<translation id="4821830640883629383">Napolnite ali zamenjajte baterije.</translation>
 <translation id="4849058404725798627">Označitev predmeta s fokusom na tipkovnici</translation>
 <translation id="4872237917498892622">Alt + iskanje ali Shift</translation>
 <translation id="4895488851634969361">Akumulator je poln.</translation>

@@ -3,6 +3,7 @@
 <translationbundle lang="ja">
 <translation id="1012876632442809908">USB-C デバイス（前面のポート）</translation>
 <translation id="1013923882670373915">Bluetooth デバイス「<ph name="DEVICE_NAME" />」がペア設定の権限をリクエストしています。このデバイスに次の PIN コードを入力してください: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">タッチペンのバッテリー残量が少なくなっています</translation>
 <translation id="112308213915226829">シェルフを自動的に隠す</translation>
 <translation id="1153356358378277386">ペア設定されたデバイス</translation>
 <translation id="1195412055398077112">オーバースキャン</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">アシスタントはメインのプロフィールでのみご利用いただけます。</translation>
 <translation id="479989351350248267">検索</translation>
 <translation id="4804818685124855865">切断</translation>
+<translation id="4821830640883629383">バッテリーを充電するか交換してください。</translation>
 <translation id="4849058404725798627">キーボードのフォーカスがある項目をハイライト表示する</translation>
 <translation id="4872237917498892622">Alt+ 検索/Shift</translation>
 <translation id="4895488851634969361">バッテリー残量: 満。</translation>

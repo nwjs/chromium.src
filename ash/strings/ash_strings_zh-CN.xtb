@@ -3,6 +3,7 @@
 <translationbundle lang="zh-CN">
 <translation id="1012876632442809908">USB-C 设备（前方端口）</translation>
 <translation id="1013923882670373915">蓝牙设备“<ph name="DEVICE_NAME" />”需要配对许可。请在该设备上输入以下PIN码：<ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">触控笔电池电量较低</translation>
 <translation id="112308213915226829">自动隐藏任务栏</translation>
 <translation id="1153356358378277386">已配对的设备</translation>
 <translation id="1195412055398077112">过扫描</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">智能助理仅适用于主要个人资料。</translation>
 <translation id="479989351350248267">搜索</translation>
 <translation id="4804818685124855865">断开连接</translation>
+<translation id="4821830640883629383">请为电池充电或更换电池。</translation>
 <translation id="4849058404725798627">突出显示键盘焦点所在对象</translation>
 <translation id="4872237917498892622">Alt + 搜索键或 Shift</translation>
 <translation id="4895488851634969361">电池电量已满。</translation>

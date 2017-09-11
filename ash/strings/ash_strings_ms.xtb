@@ -3,6 +3,7 @@
 <translationbundle lang="ms">
 <translation id="1012876632442809908">Peranti USB-C (port depan)</translation>
 <translation id="1013923882670373915">Peranti Bluetooth "<ph name="DEVICE_NAME" />" ingin kebenaran untuk berpasangan. Sila masukkan kod PIN ini pada peranti tersebut: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Bateri stilus lemah</translation>
 <translation id="112308213915226829">Autosembunyi rak</translation>
 <translation id="1153356358378277386">Peranti digandingkan</translation>
 <translation id="1195412055398077112">imbas lampau</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">Pembantu hanya tersedia untuk profil utama.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Putuskan sambungan</translation>
+<translation id="4821830640883629383">Sila cas atau gantikan bateri.</translation>
 <translation id="4849058404725798627">Serlahkan objek dengan fokus papan kekunci</translation>
 <translation id="4872237917498892622">Alt+Search atau Shift</translation>
 <translation id="4895488851634969361">Bateri penuh.</translation>

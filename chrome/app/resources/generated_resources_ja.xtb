@@ -2240,7 +2240,7 @@
 <translation id="4256316378292851214">名前を付けて動画を保存(&amp;V)...</translation>
 <translation id="4258348331913189841">ファイル システム</translation>
 <translation id="4261901459838235729">Google プレゼンテーション</translation>
-<translation id="4262241142610945528">SMS 接続</translation>
+<translation id="4262241142610945528">SMS コネクト</translation>
 <translation id="4262366363486082931">ツールバーにフォーカスを移す</translation>
 <translation id="4263757076580287579">プリンタの登録がキャンセルされました。</translation>
 <translation id="426564820080660648">アップデートの有無を確認するには、イーサネット、Wi-Fi、またはモバイル データを使用してください。</translation>
@@ -3008,6 +3008,7 @@
 <translation id="5428850089342283580"><ph name="ACCNAME_APP" />（アップデート利用可）</translation>
 <translation id="5431318178759467895">カラー</translation>
 <translation id="5431825016875453137">OpenVPN / L2TP</translation>
+<translation id="5432996274932278848">端末、アプリ、ウェブを検索します。アプリに移動するには矢印キーを使用します。</translation>
 <translation id="543381445212956829">WiMAX の有効化</translation>
 <translation id="5434065355175441495">PKCS #1 RSA 暗号化</translation>
 <translation id="5434706434408777842">F3</translation>

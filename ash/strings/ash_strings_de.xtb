@@ -3,6 +3,7 @@
 <translationbundle lang="de">
 <translation id="1012876632442809908">USB-C-Gerät (Port vorne)</translation>
 <translation id="1013923882670373915">Das Bluetooth-Gerät "<ph name="DEVICE_NAME" />" bittet um Erlaubnis für Kopplung. Geben Sie folgenden PIN-Code auf dem Gerät ein: <ph name="PINCODE" />.</translation>
+<translation id="1032891413405719768">Eingabestift-Batterie ist schwach</translation>
 <translation id="112308213915226829">Ablage automatisch ausblenden</translation>
 <translation id="1153356358378277386">Gekoppelte Geräte</translation>
 <translation id="1195412055398077112">Overscan</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">Assistant steht nur für das Hauptprofil zur Verfügung.</translation>
 <translation id="479989351350248267">Suchen</translation>
 <translation id="4804818685124855865">Verbindung trennen</translation>
+<translation id="4821830640883629383">Laden Sie die Batterien auf oder tauschen Sie sie aus.</translation>
 <translation id="4849058404725798627">Objekt mit Tastaturfokus hervorheben</translation>
 <translation id="4872237917498892622">Alt+Suchen oder Shift</translation>
 <translation id="4895488851634969361">Akku ist vollständig geladen.</translation>

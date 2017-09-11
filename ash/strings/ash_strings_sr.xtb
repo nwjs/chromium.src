@@ -3,6 +3,7 @@
 <translationbundle lang="sr">
 <translation id="1012876632442809908">Уређај са USB прикључком типа C (предњи порт)</translation>
 <translation id="1013923882670373915">Bluetooth уређај „<ph name="DEVICE_NAME" />“ жели дозволу за упаривање. Унесите овај PIN кôд на том уређају: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Батерија писаљке је скоро празна</translation>
 <translation id="112308213915226829">Аутоматски сакриј полицу</translation>
 <translation id="1153356358378277386">Упарени уређаји</translation>
 <translation id="1195412055398077112">ивично подручје екрана</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">Помоћник је доступан само за примарни профил.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Прекини везу</translation>
+<translation id="4821830640883629383">Напуните или замените батерије.</translation>
 <translation id="4849058404725798627">Истакни објекат помоћу фокуса тастатуре</translation>
 <translation id="4872237917498892622">Alt + тастер за претрагу или Shift</translation>
 <translation id="4895488851634969361">Батерија је пуна.</translation>

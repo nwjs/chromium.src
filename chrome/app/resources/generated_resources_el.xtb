@@ -1972,7 +1972,7 @@
 <translation id="3819007103695653773">Να επιτρέπεται σε όλους τους ιστότοπους η αποστολή μηνυμάτων push παρασκηνίου</translation>
 <translation id="3819752733757735746">Πρόσβαση με διακόπτες (ελέγξτε τον υπολογιστή με έναν ή δύο διακόπτες μόνο)</translation>
 <translation id="3819800052061700452">&amp;Πλήρης οθόνη</translation>
-<translation id="3820172043799983114">Μη έγκυρος αριθμός PIN.</translation>
+<translation id="3820172043799983114">Μη έγκυρο PIN.</translation>
 <translation id="3820749202859700794">Ελλειπτική καμπύλη SECG secp521r1 (επίσης γνωστή ως NIST P-521)</translation>
 <translation id="3822265067668554284">Να μην επιτρέπεται σε κανέναν ιστότοπο να παρακολουθεί τη φυσική σας θέση</translation>
 <translation id="3822559385185038546">Αυτός ο διακομιστής μεσολάβησης επιβάλλεται από τον διαχειριστή σας</translation>
@@ -2879,7 +2879,7 @@
 <translation id="5249624017678798539">Διακόπηκε η λειτουργία του προγράμματος περιήγησης πριν από την ολοκλήρωση της λήψης.</translation>
 <translation id="5250372599208556903">Το <ph name="SEARCH_ENGINE_NAME" /> χρησιμοποιεί την τοποθεσία σας για να παρέχει τοπικό περιεχόμενο. Μπορείτε να αλλάξετε αυτήν τη ρύθμιση από το μενού <ph name="SETTINGS_LINK" />.</translation>
 <translation id="5252456968953390977">Περιαγωγη</translation>
-<translation id="5252653240322147470">Ο αριθμός PIN δεν πρέπει να είναι μεγαλύτερος από <ph name="MAXIMUM" /> ψηφία</translation>
+<translation id="5252653240322147470">Το PIN δεν πρέπει να είναι μεγαλύτερο από <ph name="MAXIMUM" /> ψηφία</translation>
 <translation id="5253753933804516447">Ενεργοποίηση "Ok Google" για φωνητική αναζήτηση όταν η οθόνη σας είναι αναμμένη και ξεκλειδωμένη</translation>
 <translation id="5254368820972107711">Εμφάνιση αρχείων για κατάργηση</translation>
 <translation id="52550593576409946">Δεν ήταν δυνατή η εκκίνηση της εφαρμογής Kiosk.</translation>
@@ -2951,7 +2951,7 @@
 <translation id="5337771866151525739">Εγκαταστάθηκε από τρίτο μέρος.</translation>
 <translation id="5338503421962489998">Τοπικός αποθηκευτικός χώρος</translation>
 <translation id="5340217413897845242">Στοιχείο ραφιού 6</translation>
-<translation id="5342091991439452114">Ο αριθμός PIN πρέπει να αποτελείται από τουλάχιστον <ph name="MINIMUM" /> ψηφία</translation>
+<translation id="5342091991439452114">Το PIN πρέπει να αποτελείται από τουλάχιστον <ph name="MINIMUM" /> ψηφία</translation>
 <translation id="534916491091036097">Αρ. παρένθ.</translation>
 <translation id="5350965906220856151">Ώχ!</translation>
 <translation id="5352033265844765294">Χρονική σήμανση</translation>

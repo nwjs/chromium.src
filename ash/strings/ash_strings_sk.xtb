@@ -3,6 +3,7 @@
 <translationbundle lang="sk">
 <translation id="1012876632442809908">Zariadenie USB-C (port vpredu)</translation>
 <translation id="1013923882670373915">Zariadenie Bluetooth s názvom <ph name="DEVICE_NAME" /> žiada o povolenie párovania. Zadajte na danom zariadení toto číslo PIN: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Batéria dotykového pera je takmer vybitá</translation>
 <translation id="112308213915226829">Automatické skrývanie poličky</translation>
 <translation id="1153356358378277386">Spárované zariadenia</translation>
 <translation id="1195412055398077112">presah obsahu</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">Asistent je k dispozícii iba pre primárny profil.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Odpojiť</translation>
+<translation id="4821830640883629383">Nabite ju alebo ju vymeňte.</translation>
 <translation id="4849058404725798627">Zvýrazniť objekt so zameraním klávesnice</translation>
 <translation id="4872237917498892622">Alt + Hľadať alebo Shift</translation>
 <translation id="4895488851634969361">Batéria je úplne nabitá.</translation>

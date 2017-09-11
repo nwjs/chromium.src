@@ -3,6 +3,7 @@
 <translationbundle lang="en-GB">
 <translation id="1012876632442809908">USB-C device (front port)</translation>
 <translation id="1013923882670373915">Bluetooth device "<ph name="DEVICE_NAME" />" would like permission to pair. Please enter this PIN code on that device: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Stylus battery is low</translation>
 <translation id="112308213915226829">Autohide shelf</translation>
 <translation id="1153356358378277386">Paired devices</translation>
 <translation id="1195412055398077112">overscan</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">Assistant is only available for primary profile.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Disconnect</translation>
+<translation id="4821830640883629383">Please charge or replace the batteries.</translation>
 <translation id="4849058404725798627">Highlight object with keyboard focus</translation>
 <translation id="4872237917498892622">Alt+Search or Shift</translation>
 <translation id="4895488851634969361">Battery is full.</translation>

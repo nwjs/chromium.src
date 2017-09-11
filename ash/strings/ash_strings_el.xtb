@@ -3,6 +3,7 @@
 <translationbundle lang="el">
 <translation id="1012876632442809908">Συσκευή USB-C (μπροστινή θύρα)</translation>
 <translation id="1013923882670373915">Η συσκευή Bluetooth "<ph name="DEVICE_NAME" />" ζητά δικαιώματα σύζευξης. Καταχωρίστε αυτόν τον κωδικό PIN στη συγκεκριμένη συσκευή: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Η μπαταρία της γραφίδας είναι χαμηλή</translation>
 <translation id="112308213915226829">Αυτόματη απόκρυψη ραφιού</translation>
 <translation id="1153356358378277386">Συσκευές σε σύζευξη</translation>
 <translation id="1195412055398077112">υπερσάρωση</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">Ο Βοηθός είναι διαθέσιμος μόνο για το κύριο προφίλ.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Αποσύνδεση</translation>
+<translation id="4821830640883629383">Φορτίστε ή αντικαταστήστε τις μπαταρίες.</translation>
 <translation id="4849058404725798627">Επισήμανση αντικειμένου με εστίαση στο πληκτρολόγιο</translation>
 <translation id="4872237917498892622">Alt+Search ή Shift</translation>
 <translation id="4895488851634969361">Η μπαταρία είναι πλήρης.</translation>

@@ -3,6 +3,7 @@
 <translationbundle lang="bg">
 <translation id="1012876632442809908">USB-C устройство (предният порт)</translation>
 <translation id="1013923882670373915">Устройството с Bluetooth „<ph name="DEVICE_NAME" />“ иска разрешение за сдвояване. Моля, въведете на него следния ПИН код: <ph name="PINCODE" /></translation>
+<translation id="1032891413405719768">Батериите на писалката са изтощени</translation>
 <translation id="112308213915226829">Автоматично скриване на лавицата</translation>
 <translation id="1153356358378277386">Сдвоени устройства</translation>
 <translation id="1195412055398077112">допълнителна област</translation>
@@ -141,6 +142,7 @@
 <translation id="4729904664295161097">Асистент е налице само за основния потребителски профил.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Изключване</translation>
+<translation id="4821830640883629383">Моля, заредете или заменете батериите.</translation>
 <translation id="4849058404725798627">Открояване на обекта, върху който е фокусът от клавиатурата</translation>
 <translation id="4872237917498892622">„Alt + търсене“ или „Shift“</translation>
 <translation id="4895488851634969361">Батерията е пълна.</translation>
