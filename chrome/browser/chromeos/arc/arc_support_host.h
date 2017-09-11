@@ -204,6 +204,9 @@ class ArcSupportHost : public arc::ArcSupportMessageHost::Observer,
   void SendPreferenceCheckboxUpdate(const std::string& action_name,
                                     const PreferenceCheckboxData& data);
 
+  // Sends the two active_directory_auth_* URLs (see below) to the extension.
+  void SendActiveDirectoryAuthUrls();
+
   void DisconnectMessageHost();
 
   Profile* const profile_;
