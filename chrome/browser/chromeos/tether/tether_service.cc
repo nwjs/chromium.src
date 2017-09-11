@@ -169,8 +169,10 @@ void TetherService::StartTetherIfPossible() {
 }
 
 void TetherService::StopTetherIfNecessary() {
-  if (!initializer_)
+  if (!initializer_ ||
+      initializer_->status() != chromeos::tether::Initializer::Status::ACTIVE) {
     return;
+  }
 
   PA_LOG(INFO) << "Shutting down Tether component.";
 
