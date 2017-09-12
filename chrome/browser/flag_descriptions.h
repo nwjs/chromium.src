@@ -1420,6 +1420,9 @@ extern const char kEnableEhvInputDescription[];
 extern const char kEnableEncryptionMigrationName[];
 extern const char kEnableEncryptionMigrationDescription[];
 
+extern const char kEnableExternalDriveRename[];
+extern const char kEnableExternalDriveRenameDescription[];
+
 extern const char kEnableImeMenuName[];
 extern const char kEnableImeMenuDescription[];
 
