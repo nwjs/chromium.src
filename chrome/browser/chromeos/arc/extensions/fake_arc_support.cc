@@ -152,6 +152,14 @@ void FakeArcSupport::PostMessageFromNativeHost(
       ui_page_ = ArcSupportHost::UIPage::ARC_LOADING;
     } else if (page == "active-directory-auth") {
       ui_page_ = ArcSupportHost::UIPage::ACTIVE_DIRECTORY_AUTH;
+      if (!message->GetString("options.federationUrl",
+                              &active_directory_auth_federation_url_) ||
+          !message->GetString(
+              "options.deviceManagementUrlPrefix",
+              &active_directory_auth_device_management_url_prefix_)) {
+        NOTREACHED() << message_string;
+        return;
+      }
     } else {
       NOTREACHED() << message_string;
     }
@@ -169,15 +177,6 @@ void FakeArcSupport::PostMessageFromNativeHost(
     }
   } else if (action == "setLocationServiceMode") {
     if (!message->GetBoolean("enabled", &location_service_mode_)) {
-      NOTREACHED() << message_string;
-      return;
-    }
-  } else if (action == "setActiveDirectoryAuthUrls") {
-    if (!message->GetString("federationUrl",
-                            &active_directory_auth_federation_url_) ||
-        !message->GetString(
-            "deviceManagementUrlPrefix",
-            &active_directory_auth_device_management_url_prefix_)) {
       NOTREACHED() << message_string;
       return;
     }
