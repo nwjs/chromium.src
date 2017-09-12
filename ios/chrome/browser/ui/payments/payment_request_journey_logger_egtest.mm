@@ -49,7 +49,7 @@ using payments::JourneyLogger;
 
 - (void)addCard2 {
   _creditCard2 = autofill::test::GetCreditCard2();
-  _creditCard2.set_billing_address_id(_profile2.guid());
+  _creditCard2.set_billing_address_id(_profile1.guid());
   [self addCreditCard:_creditCard2];
 }
 
@@ -304,12 +304,6 @@ using payments::JourneyLogger;
 // Tests that the correct number of suggestions shown for each section is logged
 // when a Payment Request is aborted by the user.
 - (void)testAllSectionStats_NumberOfSuggestionsShown_UserAborted {
-  if (!base::ios::IsRunningOnOrLater(10, 3, 0)) {
-    EARL_GREY_TEST_SKIPPED(
-        @"Disabled on iOS versions below 10.3 because DOMException is not "
-        @"available.");
-  }
-
   chrome_test_util::HistogramTester histogramTester;
 
   [self addProfiles];
@@ -321,7 +315,6 @@ using payments::JourneyLogger;
   [[EarlGrey
       selectElementWithMatcher:chrome_test_util::ButtonWithAccessibilityLabelId(
                                    IDS_CANCEL)] performAction:grey_tap()];
-  [self waitForWebViewContainingTexts:{"Request cancelled"}];
 
   FailureBlock failureBlock = ^(NSString* error) {
     GREYFail(error);
@@ -448,12 +441,6 @@ using payments::JourneyLogger;
 // Tests that the correct number of suggestions shown for each section is logged
 // when a Payment Request is aborted by the user.
 - (void)testNoShippingSectionStats_NumberOfSuggestionsShown_UserAborted {
-  if (!base::ios::IsRunningOnOrLater(10, 3, 0)) {
-    EARL_GREY_TEST_SKIPPED(
-        @"Disabled on iOS versions below 10.3 because DOMException is not "
-        @"available.");
-  }
-
   chrome_test_util::HistogramTester histogramTester;
 
   [self addProfiles];
@@ -464,7 +451,6 @@ using payments::JourneyLogger;
   [[EarlGrey
       selectElementWithMatcher:chrome_test_util::ButtonWithAccessibilityLabelId(
                                    IDS_CANCEL)] performAction:grey_tap()];
-  [self waitForWebViewContainingTexts:{"Request cancelled"}];
 
   FailureBlock failureBlock = ^(NSString* error) {
     GREYFail(error);
@@ -594,12 +580,6 @@ using payments::JourneyLogger;
 // Tests that the correct number of suggestions shown for each section is logged
 // when a Payment Request is aborted by the user.
 - (void)testNoContactDetailSectionStats_NumberOfSuggestionsShown_UserAborted {
-  if (!base::ios::IsRunningOnOrLater(10, 3, 0)) {
-    EARL_GREY_TEST_SKIPPED(
-        @"Disabled on iOS versions below 10.3 because DOMException is not "
-        @"available.");
-  }
-
   chrome_test_util::HistogramTester histogramTester;
 
   [self addProfiles];
@@ -610,7 +590,6 @@ using payments::JourneyLogger;
   [[EarlGrey
       selectElementWithMatcher:chrome_test_util::ButtonWithAccessibilityLabelId(
                                    IDS_CANCEL)] performAction:grey_tap()];
-  [self waitForWebViewContainingTexts:{"Request cancelled"}];
 
   FailureBlock failureBlock = ^(NSString* error) {
     GREYFail(error);
@@ -740,8 +719,8 @@ using payments::JourneyLogger;
       buckets[0].min & JourneyLogger::EVENT_RECEIVED_INSTRUMENT_DETAILS, @"");
   GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_SKIPPED_SHOW, @"");
   GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_COMPLETED, @"");
-  GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_USER_ABORTED, @"");
-  GREYAssertTrue(buckets[0].min & JourneyLogger::EVENT_OTHER_ABORTED, @"");
+  GREYAssertTrue(buckets[0].min & JourneyLogger::EVENT_USER_ABORTED, @"");
+  GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_OTHER_ABORTED, @"");
   GREYAssertTrue(
       buckets[0].min & JourneyLogger::EVENT_HAD_INITIAL_FORM_OF_PAYMENT, @"");
   GREYAssertTrue(
@@ -791,8 +770,8 @@ using payments::JourneyLogger;
       buckets[0].min & JourneyLogger::EVENT_RECEIVED_INSTRUMENT_DETAILS, @"");
   GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_SKIPPED_SHOW, @"");
   GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_COMPLETED, @"");
-  GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_USER_ABORTED, @"");
-  GREYAssertTrue(buckets[0].min & JourneyLogger::EVENT_OTHER_ABORTED, @"");
+  GREYAssertTrue(buckets[0].min & JourneyLogger::EVENT_USER_ABORTED, @"");
+  GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_OTHER_ABORTED, @"");
   GREYAssertFalse(
       buckets[0].min & JourneyLogger::EVENT_HAD_INITIAL_FORM_OF_PAYMENT, @"");
   GREYAssertFalse(
@@ -843,8 +822,8 @@ using payments::JourneyLogger;
       buckets[0].min & JourneyLogger::EVENT_RECEIVED_INSTRUMENT_DETAILS, @"");
   GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_SKIPPED_SHOW, @"");
   GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_COMPLETED, @"");
-  GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_USER_ABORTED, @"");
-  GREYAssertTrue(buckets[0].min & JourneyLogger::EVENT_OTHER_ABORTED, @"");
+  GREYAssertTrue(buckets[0].min & JourneyLogger::EVENT_USER_ABORTED, @"");
+  GREYAssertFalse(buckets[0].min & JourneyLogger::EVENT_OTHER_ABORTED, @"");
   GREYAssertFalse(
       buckets[0].min & JourneyLogger::EVENT_HAD_INITIAL_FORM_OF_PAYMENT, @"");
   GREYAssertFalse(
