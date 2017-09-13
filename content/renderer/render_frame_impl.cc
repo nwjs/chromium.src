@@ -4157,6 +4157,7 @@ void RenderFrameImpl::DidBlockFramebust(const WebURL& url) {
 }
 
 void RenderFrameImpl::AbortClientNavigation() {
+  browser_side_navigation_pending_ = false;
   Send(new FrameHostMsg_AbortNavigation(routing_id_));
 }
 
@@ -5225,6 +5226,15 @@ void RenderFrameImpl::OnCommitNavigation(
     const CommonNavigationParams& common_params,
     const RequestNavigationParams& request_params) {
   CHECK(IsBrowserSideNavigationEnabled());
+  // If this was a renderer-initiated navigation (nav_entry_id == 0) from this
+  // frame, but it was aborted, then ignore it.
+  if (!browser_side_navigation_pending_ &&
+      !browser_side_navigation_pending_url_.is_empty() &&
+      browser_side_navigation_pending_url_ == request_params.original_url &&
+      request_params.nav_entry_id == 0) {
+    browser_side_navigation_pending_url_ = GURL();
+    return;
+  }
 
   // This will override the url requested by the WebURLLoader, as well as
   // provide it with the response to the request.
@@ -5263,6 +5273,7 @@ void RenderFrameImpl::OnCommitNavigation(
                                       : nullptr);
 
   browser_side_navigation_pending_ = false;
+  browser_side_navigation_pending_url_ = GURL();
 
   NavigateInternal(common_params, StartNavigationParams(), request_params,
                    std::move(stream_override));
@@ -5309,6 +5320,7 @@ void RenderFrameImpl::OnFailedNavigation(
     // that the load stopped.
     Send(new FrameHostMsg_DidStopLoading(routing_id_));
     browser_side_navigation_pending_ = false;
+    browser_side_navigation_pending_url_ = GURL();
     return;
   }
 
@@ -5326,6 +5338,7 @@ void RenderFrameImpl::OnFailedNavigation(
       Send(new FrameHostMsg_DidStopLoading(routing_id_));
     }
     browser_side_navigation_pending_ = false;
+    browser_side_navigation_pending_url_ = GURL();
     return;
   }
 
@@ -5361,6 +5374,7 @@ void RenderFrameImpl::OnFailedNavigation(
   }
 
   browser_side_navigation_pending_ = false;
+  browser_side_navigation_pending_url_ = GURL();
 }
 
 void RenderFrameImpl::OnReportContentSecurityPolicyViolation(
@@ -6399,6 +6413,7 @@ void RenderFrameImpl::PrepareRenderViewForNavigation(
 void RenderFrameImpl::BeginNavigation(const NavigationPolicyInfo& info) {
   CHECK(IsBrowserSideNavigationEnabled());
   browser_side_navigation_pending_ = true;
+  browser_side_navigation_pending_url_ = info.url_request.Url();
 
   blink::WebURLRequest& request = info.url_request;
 
