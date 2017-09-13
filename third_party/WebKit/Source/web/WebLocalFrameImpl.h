@@ -283,6 +283,7 @@ class WEB_EXPORT WebLocalFrameImpl final
                          bool was_allowed,
                          bool had_redirect,
                          const WebSourceLocation&) override;
+  void ClientDroppedNavigation() override;
   void SendOrientationChangeEvent() override;
   WebSandboxFlags EffectiveSandboxFlags() const override;
   void DidCallAddSearchProvider() override;
