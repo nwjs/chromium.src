@@ -116,6 +116,9 @@ class ArcVoiceInteractionFrameworkService
   // Set voice interaction setup completed flag and notify the change.
   void SetVoiceInteractionSetupCompleted();
 
+  // Starts voice interaction OOBE flow.
+  void StartVoiceInteractionOobe();
+
   // For supporting ArcServiceManager::GetService<T>().
   static const char kArcServiceName[];
 
