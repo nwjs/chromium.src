@@ -347,6 +347,7 @@ TetherService::GetTetherTechnologyState() {
     case OTHER_OR_UNKNOWN:
     case BLE_NOT_PRESENT:
     case BLE_ADVERTISING_NOT_SUPPORTED:
+    case WIFI_NOT_PRESENT:
     case SCREEN_LOCKED:
     case NO_AVAILABLE_HOSTS:
     case CELLULAR_DISABLED:
@@ -438,6 +439,11 @@ bool TetherService::IsBluetoothPowered() const {
   return IsBluetoothPresent() && adapter_->IsPowered();
 }
 
+bool TetherService::IsWifiPresent() const {
+  return network_state_handler_->IsTechnologyAvailable(
+      chromeos::NetworkTypePattern::WiFi());
+}
+
 bool TetherService::IsCellularAvailableButNotEnabled() const {
   return (network_state_handler_->IsTechnologyAvailable(
               chromeos::NetworkTypePattern::Cellular()) &&
@@ -459,6 +465,9 @@ TetherService::TetherFeatureState TetherService::GetTetherFeatureState() {
 
   if (!IsBluetoothPresent())
     return BLE_NOT_PRESENT;
+
+  if (!IsWifiPresent())
+    return WIFI_NOT_PRESENT;
 
   if (!GetIsBleAdvertisingSupportedPref())
     return BLE_ADVERTISING_NOT_SUPPORTED;
