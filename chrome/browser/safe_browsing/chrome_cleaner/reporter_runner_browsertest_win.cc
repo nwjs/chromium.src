@@ -45,8 +45,8 @@ namespace safe_browsing {
 
 namespace {
 
-// Parameters for this test:
-//  - bool in_browser_cleaner_ui_: indicates if InBrowserCleanerUI feature
+// Parameter for this test:
+//  - bool in_browser_cleaner_ui: indicates if InBrowserCleanerUI feature
 //    is enabled;
 //
 //    We expect that the reporter's logic should remain unchanged even when the
@@ -312,8 +312,6 @@ IN_PROC_BROWSER_TEST_P(ReporterRunnerTest, NothingFound) {
 }
 
 IN_PROC_BROWSER_TEST_P(ReporterRunnerTest, CleanupNeeded) {
-  bool expect_prompt = incoming_seed_.empty() || (incoming_seed_ != old_seed_);
-
   RunReporter(chrome_cleaner::kSwReporterCleanupNeeded);
   ExpectReporterLaunches(0, 1, true);
   ExpectToRunAgain(kDaysBetweenSuccessfulSwReporterRuns);
