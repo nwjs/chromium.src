@@ -50,6 +50,7 @@ import android.widget.TextView;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.CollectionUtil;
 import org.chromium.base.CommandLine;
+import org.chromium.base.Log;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
@@ -107,6 +108,8 @@ import java.util.List;
 public class LocationBarLayout extends FrameLayout
         implements OnClickListener, OnSuggestionsReceivedListener, LocationBar, FakeboxDelegate,
                    WindowAndroid.IntentCallback, FadingBackgroundView.FadingViewObserver {
+    private static final String TAG = "cr_LocationBar";
+
     // Delay triggering the omnibox results upon key press to allow the location bar to repaint
     // with the new characters.
     private static final long OMNIBOX_SUGGESTION_START_DELAY_MS = 30;
@@ -1148,6 +1151,8 @@ public class LocationBarLayout extends FrameLayout
 
     @Override
     public void onTextChangedForAutocomplete() {
+        // crbug.com/764749
+        Log.w(TAG, "onTextChangedForAutocomplete");
         cancelPendingAutocompleteStart();
 
         updateButtonVisibility();
@@ -1165,6 +1170,8 @@ public class LocationBarLayout extends FrameLayout
 
         stopAutocomplete(false);
         if (TextUtils.isEmpty(mUrlBar.getTextWithoutAutocomplete())) {
+            // crbug.com/764749
+            Log.w(TAG, "onTextChangedForAutocomplete: url is empty");
             hideSuggestions();
             startZeroSuggest();
         } else {
@@ -1178,6 +1185,8 @@ public class LocationBarLayout extends FrameLayout
 
                     if (!mToolbarDataProvider.hasTab()
                             && (mBottomSheet == null || !mBottomSheet.isShowingNewTab())) {
+                        // crbug.com/764749
+                        Log.w(TAG, "onTextChangedForAutocomplete: no tab");
                         return;
                     }
 
