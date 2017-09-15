@@ -126,10 +126,8 @@ deps = {
   'src/breakpad/src':
     Var('chromium_git') + '/breakpad/breakpad/src.git' + '@' + 'e6bc67c33952f25a1d81be49ad9eb38aca9934a7',
 
-  'src/buildtools':  {
-    'url': Var('chromium_git') + '/chromium/buildtools.git' + '@' +  Var('buildtools_revision'),
-    'condition': 'True',
-  },
+  'src/buildtools':
+    Var('chromium_git') + '/chromium/buildtools.git' + '@' +  Var('buildtools_revision'),
 
   'src/sdch/open-vcdiff':
     Var('chromium_git') + '/external/github.com/google/open-vcdiff.git' + '@' + '7162d8ee5a7f1cca110749ec5c7585cdab3f0144',
@@ -563,7 +561,6 @@ hooks = [
         'python',
         'src/build/landmines.py',
     ],
-    'condition': 'True',
   },
   {
     # Ensure that the DEPS'd "depot_tools" has its self-update capability
