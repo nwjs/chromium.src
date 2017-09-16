@@ -5,9 +5,11 @@
 #ifndef MOJO_EDK_SYSTEM_WATCHER_DISPATCHER_H_
 #define MOJO_EDK_SYSTEM_WATCHER_DISPATCHER_H_
 
-#include <map>
+#include <stdint.h>
+
 #include <set>
 
+#include "base/containers/flat_map.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/synchronization/lock.h"
@@ -74,10 +76,10 @@ class WatcherDispatcher : public Dispatcher {
   bool closed_ = false;
 
   // A mapping from context to Watch.
-  std::map<uintptr_t, scoped_refptr<Watch>> watches_;
+  base::flat_map<uintptr_t, scoped_refptr<Watch>> watches_;
 
   // A mapping from watched dispatcher to Watch.
-  std::map<Dispatcher*, scoped_refptr<Watch>> watched_handles_;
+  base::flat_map<Dispatcher*, scoped_refptr<Watch>> watched_handles_;
 
   // The set of all Watch instances which are currently ready to signal. This is
   // used for efficient arming behavior, as it allows for O(1) discovery of

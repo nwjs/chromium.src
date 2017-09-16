@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <limits>
-#include <map>
 
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
@@ -94,7 +93,7 @@ Dispatcher::Type WatcherDispatcher::GetType() const {
 MojoResult WatcherDispatcher::Close() {
   // We swap out all the watched handle information onto the stack so we can
   // call into their dispatchers without our own lock held.
-  std::map<uintptr_t, scoped_refptr<Watch>> watches;
+  base::flat_map<uintptr_t, scoped_refptr<Watch>> watches;
   {
     base::AutoLock lock(lock_);
     DCHECK(!closed_);
