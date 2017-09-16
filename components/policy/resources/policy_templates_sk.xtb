@@ -523,7 +523,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 <translation id="2872961005593481000">Vypnúť</translation>
 <translation id="2874209944580848064">Poznámka pre zariadenia so systémom <ph name="PRODUCT_OS_NAME" />, ktoré podporujú aplikácie pre Android:</translation>
 <translation id="2877225735001246144">Zakázať hľadanie záznamov CNAME pri absolvovaní overenia Kerberos</translation>
-<translation id="2884728160143956392">Povoliť na týchto stránkach súbory cookie platné len pre reláciu</translation>
+<translation id="2884728160143956392">Povoliť súbory cookie iba pre reláciu na týchto weboch</translation>
 <translation id="2893546967669465276">Odosielanie denníkov systému na správcovský server</translation>
 <translation id="2899002520262095963">Aplikácie pre Android môžu používať konfigurácie siete a certifikáty CA nastavené prostredníctvom tohto pravidla, nemajú však prístup k rovnakým možnostiam konfigurácie.</translation>
 <translation id="2906874737073861391">Zoznam rozšírení AppPack</translation>
@@ -673,11 +673,11 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 <translation id="3449886121729668969">Nakonfiguruje nastavenia proxy servera pre prehliadač <ph name="PRODUCT_NAME" />. Tieto nastavenia proxy servera budú k dispozícii aj pre aplikácie s podporou ARC.
 
       Toto pravidlo ešte nie je pripravené na používanie, preto ho radšej nepoužívajte.</translation>
-<translation id="3460784402832014830">Určuje webovú adresu, ktorú použije vyhľadávač na poskytnutie stránky Nová karta.
+<translation id="3460784402832014830">Určuje webovú adresu, ktorú vyhľadávač otvorí na novej karte.
 
-          Toto pravidlo je voliteľné. Ak sa nenastaví, neposkytne sa žiadna stránka Nová karta.
+          Toto pravidlo je nepovinné. Ak sa nenastaví, neotvorí sa na novej karta žiadna stránka.
 
-          Toto pravidlo sa rešpektuje iba v prípade, ak je povolené pravidlo DefaultSearchProviderEnabled.</translation>
+          Toto pravidlo sa rešpektuje iba v prípade, ak je zapnuté pravidlo DefaultSearchProviderEnabled.</translation>
 <translation id="346731943813722404">Toto pravidlo určuje, či oneskorenia správy napájania a limit dĺžky relácie sa majú spustiť iba po zaznamenaní prvej aktivity používateľa v relácii.
 
           Ak je toto pravidlo nastavené na hodnotu True, oneskorenia správy napájania a limit dĺžky relácie sa nespustia po zaznamenaní prvej aktivity používateľa v relácii.
@@ -1194,7 +1194,7 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
 <translation id="5469484020713359236">Umožňuje nastaviť zoznam vzorov webových adries určujúcich webové stránky, ktoré môžu nastavovať súbory cookie.
 
           Ak toto pravidlo ponecháte nenastavené, použije sa v prípade všetkých webových stránok globálna predvolená hodnota buď z pravidla „DefaultCookiesSetting“ (ak je nastavené), alebo z osobnej konfigurácie používateľa.</translation>
-<translation id="5469825884154817306">Blokovať obrázky na týchto stránkach</translation>
+<translation id="5469825884154817306">Blokovať obrázky na týchto weboch</translation>
 <translation id="5475361623548884387">Povoliť tlač</translation>
 <translation id="5499375345075963939">Toto pravidlo je aktívne iba v režime predaja.
 
@@ -1444,7 +1444,7 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
           Toto pravidlo sa rešpektuje iba v prípade, ak je povolené pravidlo DefaultSearchProviderEnabled.</translation>
 <translation id="6367755442345892511">Či má byť kanál na vydávanie nových verzií konfigurovateľný používateľom</translation>
 <translation id="6368011194414932347">Konfigurovať webovú adresu domovskej stránky</translation>
-<translation id="6368403635025849609">Povoliť jazyk JavaScript na týchto stránkach</translation>
+<translation id="6368403635025849609">Povoliť JavaScript na týchto weboch</translation>
 <translation id="6376659517206731212">Môže byť povinné</translation>
 <translation id="6378076389057087301">Určuje, či prehrávanie zvuku ovplyvňuje správu napájania</translation>
 <translation id="637934607141010488">Nahlásenie zoznamu používateľov zariadenia, ktorí sa nedávno prihlásili.
@@ -1620,7 +1620,7 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
       Ak je zakázané, nebudú importované žiadne záložky.
 
       Ak nie je nastavené, môže sa používateľovi zobraziť výzva, či chce domovskú stránku importovať alebo či má import prebehnúť automaticky.</translation>
-<translation id="7063895219334505671">Povoliť na týchto stránkach kontextové okná</translation>
+<translation id="7063895219334505671">Povoliť na týchto weboch kontextové okná</translation>
 <translation id="706669471845501145">Povoliť webovým stránkam zobrazovať upozornenia na pracovnej ploche</translation>
 <translation id="7072406291414141328">Aktivuje obmedzenie rýchlosti pripojenia</translation>
 <translation id="7079519252486108041">Blokovať kontextové okná na týchto webových stránkach</translation>

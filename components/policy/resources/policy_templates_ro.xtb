@@ -1606,7 +1606,7 @@ nu poate fi stabilit de utilizator din setările browserului.
 
       Dacă politica este dezactivată, sugestiile generate automat privind conținutul nu sunt afișate pe pagina Filă nouă.</translation>
 <translation id="7323896582714668701">Parametri de linie de comandă suplimentari pentru <ph name="PRODUCT_NAME" /></translation>
-<translation id="7326394567531622570">Similar cu golirea (valoarea 2), însă încearcă să păstreze indicativele de conectare, astfel încât utilizatorul să nu trebuiască să se conecteze din nou.</translation>
+<translation id="7326394567531622570">Similar cu Golirea (valoarea 2), însă încearcă să păstreze indicativele de conectare, astfel încât utilizatorul să nu trebuiască să se conecteze din nou.</translation>
 <translation id="7329842439428490522">Indică intervalul de timp fără intervenția utilizatorului după care ecranul este oprit atunci când dispozitivul funcționează pe baterie.
 
           Dacă politica este setată la o valoare mai mare decât zero, specifică intervalul de timp în care utilizatorul trebuie să fie inactiv înainte ca <ph name="PRODUCT_OS_NAME" /> să oprească ecranul.

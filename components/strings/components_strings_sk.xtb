@@ -289,7 +289,7 @@
 <translation id="3227137524299004712">Mikrofón</translation>
 <translation id="3228969707346345236">Prekladanie zlyhalo, pretože stránka už je v jazyku: <ph name="LANGUAGE" /></translation>
 <translation id="323107829343500871">Zadajte kód CVC karty <ph name="CREDIT_CARD" /></translation>
-<translation id="3234666976984236645">Vždy na týchto stránkach zisťovať dôležitý obsah</translation>
+<translation id="3234666976984236645">Vždy na tomto webe zisťovať dôležitý obsah</translation>
 <translation id="3254409185687681395">Vytvoriť záložku pre túto stránku</translation>
 <translation id="3270847123878663523">&amp;Vrátiť späť zmenu poradia</translation>
 <translation id="3282497668470633863">Pridanie mena na karte</translation>
@@ -407,7 +407,7 @@
 <translation id="410351446219883937">Automatické prehrávanie</translation>
 <translation id="4103763322291513355">Na stránke &lt;strong&gt;chrome://policy&lt;/strong&gt; nájdete zoznam zakázaných webových adries a ďalšie pravidlá vynútené vaším správcom systému.</translation>
 <translation id="4115378294792113321">Purpurová</translation>
-<translation id="4116663294526079822">Vždy povoliť na týchto stránkach</translation>
+<translation id="4116663294526079822">Vždy povoliť na tomto webe</translation>
 <translation id="4117700440116928470">Rozsah pravidla nie je podporovaný.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 ďalšia}few{# ďalšie}many{# ďalšej}other{# ďalších}}</translation>
 <translation id="4130226655945681476">Skontrolovať sieťové káble, modem a smerovač</translation>
@@ -969,7 +969,7 @@
 <translation id="9148507642005240123">&amp;Vrátiť späť úpravu</translation>
 <translation id="9154194610265714752">Aktualizované</translation>
 <translation id="9157595877708044936">Prebieha nastavenie...</translation>
-<translation id="9169664750068251925">Vždy blokovať na týchto stránkach</translation>
+<translation id="9169664750068251925">Vždy blokovať na tomto webe</translation>
 <translation id="9170848237812810038">&amp;Naspäť</translation>
 <translation id="917450738466192189">Certifikát servera je neplatný.</translation>
 <translation id="9183425211371246419">Web <ph name="HOST_NAME" /> využíva nepodporovaný protokol.</translation>

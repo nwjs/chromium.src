@@ -1593,7 +1593,7 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
 
       Ako se postavi na neistinito, automatski generirani prijedlozi sadržaja neće se prikazivati na web-stranici nove kartice.</translation>
 <translation id="7323896582714668701">Dodatni parametri naredbenog retka za uslugu <ph name="PRODUCT_NAME" /></translation>
-<translation id="7326394567531622570">Slično pravilu Wipe (vrijednost 2), no pokušava zadržati tokene za prijavu kako se korisnik ne bi morao ponovo prijavljivati.</translation>
+<translation id="7326394567531622570">Slično pravilu Wipe (vrijednost 2), no pokušava zadržati oznake za prijavu kako se korisnik ne bi morao ponovo prijavljivati.</translation>
 <translation id="7329842439428490522">Određuje koliko vremena treba proteći bez aktivnosti korisnika da bi se zaslon isključio tijekom baterijskog napajanja.
 
           Kada je postavljeno na vrijednost veću od nule, ovo pravilo određuje koliko vremena treba proteći u neaktivnosti prije nego što <ph name="PRODUCT_OS_NAME" /> isključi zaslon.

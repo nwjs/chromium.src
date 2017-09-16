@@ -17,6 +17,8 @@
 <translation id="1197267115302279827">Премести обележиваче</translation>
 <translation id="119944043368869598">Обриши све</translation>
 <translation id="1201402288615127009">Даље</translation>
+<translation id="1204037785786432551">Преузми линк</translation>
+<translation id="1206892813135768548">Копирај текст линка</translation>
 <translation id="1209206284964581585">Сакриј за сада</translation>
 <translation id="1211530540767271776">Овде нема USB уређаја</translation>
 <translation id="123724288017357924">Поновно учитавање актуелне странице, занемарујући кеширани садржај</translation>
@@ -329,6 +331,7 @@
 <translation id="4256782883801055595">Лиценце отвореног кода</translation>
 <translation id="4259722352634471385">Навигација је блокирана: <ph name="URL" /></translation>
 <translation id="4262028915562328938">Дошло је до грешке у синхронизацији. Додирните да бисте добили детаље.</translation>
+<translation id="4269820728363426813">Копирај адресу линка</translation>
 <translation id="4275663329226226506">Медији</translation>
 <translation id="4278390842282768270">Дозвољено</translation>
 <translation id="42981349822642051">Прошири</translation>
@@ -516,7 +519,7 @@
 <translation id="604996488070107836">Преузимање датотеке <ph name="FILE_NAME" /> није успело због непознате грешке.</translation>
 <translation id="605721222689873409">ГГ</translation>
 <translation id="6075798973483050474">Измените почетну страницу</translation>
-<translation id="60923314841986378">Још <ph name="HOURS" /> сата(и)</translation>
+<translation id="60923314841986378">Још <ph name="HOURS" /> сата/и</translation>
 <translation id="60924377787140961">Још чланака ће се појавити ускоро. Желимо вам пријатно поподне!</translation>
 <translation id="6108923351542677676">Подешавање је у току...</translation>
 <translation id="6112702117600201073">Освежавање странице</translation>

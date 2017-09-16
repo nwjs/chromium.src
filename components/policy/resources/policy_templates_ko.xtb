@@ -700,7 +700,7 @@
 
           이 정책은 'DefaultSearchProviderEnabled' 정책을 사용하도록 설정된 경우에만 적용됩니다.</translation>
 <translation id="350797926066071931">Google 번역 사용</translation>
-<translation id="3512226956150568738">클라이언트 기기 모델에서 ARC를 실행하기 위해 ext4로 업그레이드하기 전에 ARC를 이미 지원한 경우 또는 ArcEnabled 정책이 true로 설정된 경우, 이 옵션은 AskUser(값 3)로 작동합니다. 다른 모든 경우(기기 모델이 이전에 ARC를 지원하지 않았거나 ArcEnabled 정책이 false로 설정된 경우), 이 값은 DisallowArc(값 0)와 동일합니다.</translation>
+<translation id="3512226956150568738">클라이언트 기기 모델에서 ARC를 실행하기 위해 ext4로 이전해야 했던 시점 전에 ARC를 이미 지원했으며 ArcEnabled 정책이 true로 설정된 경우, 이 옵션은 AskUser(값 3)로 작동합니다. 다른 모든 경우(기기 모델이 이전에 ARC를 지원하지 않았거나 ArcEnabled 정책이 false로 설정된 경우), 이 값은 DisallowArc(값 0)와 동일합니다.</translation>
 <translation id="3528000905991875314">대체 오류 페이지 사용</translation>
 <translation id="3547954654003013442">프록시 설정</translation>
 <translation id="3591584750136265240">로그인 인증 동작 설정</translation>
@@ -1699,7 +1699,7 @@
 
       false로 설정되어 있다면 자동 생성 콘텐츠 추천이 새 탭 페이지에 표시되지 않습니다.</translation>
 <translation id="7323896582714668701"><ph name="PRODUCT_NAME" />의 추가 명령줄 매개변수</translation>
-<translation id="7326394567531622570">Wipe(값 2)와 유사하지만, 사용자가 다시 로그인하지 않아도 되도록 로그인 토큰을 저장합니다.</translation>
+<translation id="7326394567531622570">완전 삭제(값 2)와 유사하지만, 사용자가 다시 로그인할 필요가 없도록 로그인 토큰을 저장합니다.</translation>
 <translation id="7329842439428490522">배터리 전원으로 실행할 때 사용자 입력이 없어서 화면이 꺼질 때까지 걸리는 시간을 지정합니다.
 
           이 정책이 0보다 큰 값으로 설정되어 있으면 이는 <ph name="PRODUCT_OS_NAME" />에서 화면을 끄기 전에 사용자가 유휴 상태여야 하는 시간을 의미합니다.

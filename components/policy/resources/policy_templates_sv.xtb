@@ -703,7 +703,7 @@
 
           Policyn följs endast om policyn DefaultSearchProviderEnabled är aktiverad.</translation>
 <translation id="350797926066071931">Aktivera Översätt</translation>
-<translation id="3512226956150568738">Om klientmodellen hade stöd för ARC redan innan det blev nödvändigt att migrera till ext4 för att köra ARC och om principen ArcEnabled är inställd på sant fungerar det här alternativet som AskUser (värde 3). I alla andra fall – om enhetsmodellen inte hade stöd för ARC tidigare eller om principen ArcEnabled är inställd på falskt – är det här värdet likvärdigt med DisallowArc (värde 0).</translation>
+<translation id="3512226956150568738">Om klientmodellen hade stöd för ARC redan innan det blev nödvändigt att migrera till ext4 för att köra ARC och om principen ArcEnabled är inställd på sant fungerar det här alternativet som AskUser (värde 3). I alla andra fall (om enhetsmodellen inte hade stöd för ARC tidigare eller om principen ArcEnabled är inställd på falskt) är det här värdet likvärdigt med DisallowArc (värde 0).</translation>
 <translation id="3528000905991875314">Aktivera alternativa felsidor</translation>
 <translation id="3547954654003013442">Proxyinställningar</translation>
 <translation id="3591584750136265240">Konfigurera vad som ska göras vid inloggningsautentisering</translation>
@@ -1710,7 +1710,7 @@
 
       Om policyn är inställd på falskt visas inte förslag på innehåll som genererats automatiskt på sidan Ny flik.</translation>
 <translation id="7323896582714668701">Ytterligare kommandoradsparametrar för <ph name="PRODUCT_NAME" /></translation>
-<translation id="7326394567531622570">Som Wipe (värde 2), med skillnaden att inloggningstoken bevaras om möjligt så att användaren inte behöver logga in på nytt.</translation>
+<translation id="7326394567531622570">Som Wipe (värde 2), med skillnaden att inloggningstoken om möjligt sparas så att användaren inte behöver logga in på nytt.</translation>
 <translation id="7329842439428490522">Anger efter hur lång tid utan åtgärd från användaren som skärmen ska stängas av när enheten drivs av batteriet.
 
           Om policyn är inställd på ett värde som är större än noll anger den hur länge användaren måste vara inaktiv innan skärmen stängs av av <ph name="PRODUCT_OS_NAME" />.
