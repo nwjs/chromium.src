@@ -66,8 +66,10 @@ void CollapseMatchingPrefixInPath(const StringMapping& prefix_mapping,
 
 // Reads the file on disk to find out the SizeOfImage and TimeDateStamp
 // properties of the module. Returns false on error.
+#if 0
 bool GetModuleImageSizeAndTimeDateStamp(const base::FilePath& path,
                                         uint32_t* size_of_image,
                                         uint32_t* time_date_stamp);
+#endif
 
 #endif  // CHROME_BROWSER_CONFLICTS_MODULE_INFO_UTIL_WIN_H_

@@ -154,7 +154,7 @@ __attribute__((visibility("default"))) int main(int argc, char* argv[]) {
   char* framework_path = new char[framework_path_size];
   snprintf(framework_path, framework_path_size, "%s/%s", parent_dir, rel_path);
 
-  void* library = dlopen(framework_path, RTLD_LAZY | RTLD_LOCAL | RTLD_FIRST);
+  void* library = dlopen(framework_path, RTLD_LAZY | RTLD_FIRST);
   if (!library) {
     fprintf(stderr, "dlopen %s: %s\n", framework_path, dlerror());
     abort();

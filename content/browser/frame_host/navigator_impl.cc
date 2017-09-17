@@ -49,6 +49,11 @@
 #include "url/gurl.h"
 #include "url/url_util.h"
 
+namespace nw {
+  typedef bool(*RphGuestFilterURLHookFn)(content::RenderProcessHost* rph, const GURL* url);
+  extern RphGuestFilterURLHookFn gRphGuestFilterURLHook;
+}
+
 namespace content {
 
 namespace {
@@ -183,9 +188,9 @@ void NavigatorImpl::DidStartProvisionalLoad(
       ChildProcessSecurityPolicyImpl::GetInstance();
   if (render_process_host->IsForGuestsOnly() &&
       !policy->IsWebSafeScheme(validated_url.scheme())) {
+    if (!(nw::gRphGuestFilterURLHook && nw::gRphGuestFilterURLHook(render_process_host, &validated_url))) //NWJS#5682
     validated_url = GURL(url::kAboutBlankURL);
   }
-
   if (is_main_frame && !is_error_page) {
     DidStartMainFrameNavigation(validated_url,
                                 render_frame_host->GetSiteInstance(),

@@ -115,6 +115,7 @@ void MdSettingsUI::RegisterProfilePrefs(
 MdSettingsUI::MdSettingsUI(content::WebUI* web_ui, const GURL& url)
     : content::WebUIController(web_ui),
       WebContentsObserver(web_ui->GetWebContents()) {
+#if 0
 #if BUILDFLAG(USE_VULCANIZE)
   std::unordered_set<std::string> exclude_from_gzip;
 #endif
@@ -286,7 +287,6 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui, const GURL& url)
 
   content::WebUIDataSource::Add(web_ui->GetWebContents()->GetBrowserContext(),
                                 html_source);
-
 #if defined(OS_WIN)
   // This needs to be below content::WebUIDataSource::Add to make sure there
   // is a WebUIDataSource to update if the observer is immediately notified.
@@ -296,6 +296,7 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui, const GURL& url)
             &MdSettingsUI::UpdateCleanupDataSource, base::Unretained(this))));
   }
 #endif  // defined(OS_WIN)
+#endif
 }
 
 MdSettingsUI::~MdSettingsUI() {

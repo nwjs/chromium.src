@@ -322,7 +322,7 @@ const Extension* ExtensionAppShimHandler::MaybeGetAppForBrowser(
 }
 
 // static
-void ExtensionAppShimHandler::QuitAppForWindow(AppWindow* app_window) {
+void ExtensionAppShimHandler::QuitAppForWindow(AppWindow* app_window, bool user_force) {
   ExtensionAppShimHandler* handler = GetInstance();
   Host* host = handler->FindHost(
       Profile::FromBrowserContext(app_window->browser_context()),
@@ -333,7 +333,7 @@ void ExtensionAppShimHandler::QuitAppForWindow(AppWindow* app_window) {
     // App shims might be disabled or the shim is still starting up.
     AppWindowRegistry::Get(
         Profile::FromBrowserContext(app_window->browser_context()))
-        ->CloseAllAppWindowsForApp(app_window->extension_id());
+      ->CloseAllAppWindowsForApp(app_window->extension_id(), user_force);
   }
 }
 
@@ -638,7 +638,8 @@ void ExtensionAppShimHandler::OnShimQuit(Host* host) {
     const AppWindowList windows = delegate_->GetWindows(profile, app_id);
     for (AppWindowRegistry::const_iterator it = windows.begin();
          it != windows.end(); ++it) {
-      (*it)->GetBaseWindow()->Close();
+      if ((*it)->NWCanClose())
+        (*it)->GetBaseWindow()->Close();
     }
   }
   // Once the last window closes, flow will end up in OnAppDeactivated via

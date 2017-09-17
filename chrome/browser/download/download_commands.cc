@@ -187,9 +187,11 @@ bool DownloadCommands::IsCommandEnabled(Command command) const {
       // filename. Don't base an "Always open" decision based on it. Also
       // exclude extensions.
       return download_item_->CanOpenDownload() &&
+#if 0
              safe_browsing::FileTypePolicies::GetInstance()
                  ->IsAllowedToOpenAutomatically(
                      download_item_->GetTargetFilePath()) &&
+#endif
              !download_crx_util::IsExtensionDownload(*download_item_);
     case CANCEL:
       return !download_item_->IsDone();

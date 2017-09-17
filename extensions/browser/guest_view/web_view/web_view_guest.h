@@ -73,6 +73,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest>,
       int embedder_process_id,
       int web_view_instance_id);
 
+  void ShowDevTools(bool show, int proc_id, int guest_id);
   // Get the current zoom.
   double GetZoom() const;
 
@@ -245,7 +246,8 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest>,
                           int opener_render_frame_id,
                           const std::string& frame_name,
                           const GURL& target_url,
-                          content::WebContents* new_contents) final;
+                          content::WebContents* new_contents,
+                          const base::string16& nw_window_manifest) final;
   void EnterFullscreenModeForTab(content::WebContents* web_contents,
                                  const GURL& origin) final;
   void ExitFullscreenModeForTab(content::WebContents* web_contents) final;
@@ -330,6 +332,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest>,
 
   // Stores whether the contents of the guest can be transparent.
   bool allow_transparency_;
+  bool allow_nw_;
 
   // Stores the src URL of the WebView.
   GURL src_;

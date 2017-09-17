@@ -93,7 +93,7 @@ class ExtensionAppShimHandler : public AppShimHandler,
 
   static const extensions::Extension* MaybeGetAppForBrowser(Browser* browser);
 
-  static void QuitAppForWindow(extensions::AppWindow* app_window);
+  static void QuitAppForWindow(extensions::AppWindow* app_window, bool user_force = false);
 
   static void QuitHostedAppForWindow(Profile* profile,
                                      const std::string& app_id);

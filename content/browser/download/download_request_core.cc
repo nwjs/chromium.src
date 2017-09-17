@@ -351,6 +351,7 @@ bool DownloadRequestCore::OnResponseStarted(
   if (request()->initiator().has_value() &&
       !create_info->url_chain.back().SchemeIsBlob() &&
       !create_info->url_chain.back().SchemeIs(url::kAboutScheme) &&
+      !request()->initiator()->GetURL().SchemeIs("chrome-extension") &&
       !create_info->url_chain.back().SchemeIs(url::kDataScheme) &&
       request()->initiator()->GetURL() !=
           create_info->url_chain.back().GetOrigin()) {

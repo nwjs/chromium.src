@@ -253,6 +253,8 @@ IPC_STRUCT_TRAITS_BEGIN(content::RendererPreferences)
   IPC_STRUCT_TRAITS_MEMBER(arrow_bitmap_width_horizontal_scroll_bar_in_dips)
 #endif
   IPC_STRUCT_TRAITS_MEMBER(default_font_size)
+  IPC_STRUCT_TRAITS_MEMBER(nw_inject_js_doc_start)
+  IPC_STRUCT_TRAITS_MEMBER(nw_inject_js_doc_end)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::TextInputState)
@@ -270,6 +272,8 @@ IPC_STRUCT_TRAITS_BEGIN(content::TextInputState)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_BEGIN(ViewHostMsg_CreateWorker_Params)
+  IPC_STRUCT_MEMBER(bool, is_node_js)
+  IPC_STRUCT_MEMBER(base::FilePath, root_path)
   // URL for the worker script.
   IPC_STRUCT_MEMBER(GURL, url)
 

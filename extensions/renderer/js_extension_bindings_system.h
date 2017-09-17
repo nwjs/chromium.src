@@ -42,7 +42,7 @@ class JsExtensionBindingsSystem : public ExtensionBindingsSystem {
  private:
   void RegisterBinding(const std::string& api_name,
                        const std::string& api_bind_name,
-                       ScriptContext* context);
+                       ScriptContext* context, bool hidden = false);
 
   ResourceBundleSourceMap* source_map_ = nullptr;
 
