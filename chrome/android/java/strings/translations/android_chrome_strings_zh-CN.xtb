@@ -665,6 +665,7 @@
 <translation id="7253272406652746122">请在设备的“设置”应用中，通过“帐号”页面添加 Google 帐号。</translation>
 <translation id="7274013316676448362">禁止访问的网站</translation>
 <translation id="7307288900373049735">正在连接到 Google…请稍等片刻</translation>
+<translation id="7318797029885648322">点按“更多”即可获取相关文章</translation>
 <translation id="7333031090786104871">仍在添加先前的网站</translation>
 <translation id="7352939065658542140">视频</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{分享 1 个所选项}other{分享 # 个所选项}}</translation>
@@ -804,6 +805,7 @@
 <translation id="8636825310635137004">要在您的其他设备上访问您的标签页，请开启同步功能。</translation>
 <translation id="8641930654639604085">尽量屏蔽成人网站</translation>
 <translation id="8662811608048051533">您会从大多数网站退出。</translation>
+<translation id="867485229011312729">“书签”、“下载内容”和“历史记录”这三项内容现在何处？</translation>
 <translation id="8676374126336081632">清除输入的内容</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{信号强度：# 格}other{信号强度：# 格}}</translation>
 <translation id="869891660844655955">截止日期</translation>

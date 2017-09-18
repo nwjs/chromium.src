@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">Expiry month</translation>
 <translation id="1153356358378277386">Paired devices</translation>
 <translation id="1156185823432343624">Volume: Muted</translation>
+<translation id="1156488781945104845">Current time</translation>
 <translation id="1161575384898972166">Please sign in to <ph name="TOKEN_NAME" /> to export the client certificate.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{A download is currently in progress. Do you want to cancel the download and exit incognito mode?}other{# downloads are currently in progress. Do you want to cancel the downloads and exit incognito mode?}}</translation>
 <translation id="1163931534039071049">&amp;View frame source</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">Music note</translation>
 <translation id="1205489148908752564">Read and change whitelisted users</translation>
 <translation id="1206407435587370571">Explore your Chromebook</translation>
+<translation id="1211364473545090084">Use the web without saving your browsing history with an incognito window</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> fingerprints set up</translation>
 <translation id="1215411991991485844">New background app added</translation>
 <translation id="1216654534877302979">Mute Sites</translation>
@@ -400,6 +402,7 @@
 <translation id="1608626060424371292">Remove this user</translation>
 <translation id="1609170755653088773">Sync this password to your iPhone</translation>
 <translation id="1609862759711084604">Previous user</translation>
+<translation id="1611584202130317952">Provisioning flow was interrupted. Please try again or contact your device owner or administrator.</translation>
 <translation id="1611649489706141841">forward</translation>
 <translation id="1611704746353331382">Export Bookmarks to HTML File...</translation>
 <translation id="1612129875274679969">Permanently keep this device in kiosk mode.</translation>
@@ -1071,7 +1074,6 @@ I don't think this site should be blocked!</translation>
 <translation id="2638942478653899953">Google Drive could not be reached. Please <ph name="BEGIN_LINK" />log out<ph name="END_LINK" /> and log back in.</translation>
 <translation id="2642111877055905627">Football</translation>
 <translation id="2643698698624765890">Manage your extensions by clicking Extensions in the Window menu.</translation>
-<translation id="2644493576963871098">Pages to open on start-up</translation>
 <translation id="2647142853114880570">reload</translation>
 <translation id="2648831393319960979">Adding the device to your account – this may take a moment...</translation>
 <translation id="2649045351178520408">Base64-encoded ASCII, certificate chain</translation>
@@ -1108,6 +1110,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2688196195245426394">Error when registering the device with the server: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Show language options</translation>
 <translation id="2691385045260836588">Model</translation>
+<translation id="2693176596243495071">Oops!  An unknown error occurred. Please try again later or contact your administrator if the issue persists.</translation>
 <translation id="2694026874607847549">1 cookie</translation>
 <translation id="2695749433451188613">Internet Printing Protocol (HTTPS)</translation>
 <translation id="270358213449696159">Google Chrome OS Terms contents</translation>
@@ -1452,6 +1455,7 @@ Please check your email at <ph name="ACCOUNT_EMAIL" /> for these and further ins
 <translation id="3166571619128686629">Click, or say 'Ok Google' to start voice search</translation>
 <translation id="3170072451822350649">You may also skip signing in and <ph name="LINK_START" />browse as Guest<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">Click to hide password</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> has a permission request.</translation>
 <translation id="3177909033752230686">Page language:</translation>
 <translation id="3180365125572747493">Please enter a password to encrypt this certificate file.</translation>
 <translation id="3181110748548073003">Press |<ph name="SHORTCUT" />| to go forward</translation>
@@ -1503,6 +1507,7 @@ Please check your email at <ph name="ACCOUNT_EMAIL" /> for these and further ins
 <translation id="3269101346657272573">Please enter PIN.</translation>
 <translation id="326999365752735949">Downloading diff</translation>
 <translation id="3270965368676314374">Read, change and delete photos, music and other media from your computer</translation>
+<translation id="327147043223061465">See all cookies and site data</translation>
 <translation id="3271648667212143903"><ph name="ORIGIN" /> wants to connect</translation>
 <translation id="3273410961255278341">Send For:</translation>
 <translation id="327444463633065042">Invalid machine name</translation>
@@ -1982,6 +1987,7 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3950820424414687140">Sign in</translation>
 <translation id="3954354850384043518">In progress</translation>
 <translation id="3955193568934677022">Allow sites to play protected content (recommended)</translation>
+<translation id="3956702100721821638">Couldn't reach Google Play</translation>
 <translation id="3958088479270651626">Import bookmarks and settings</translation>
 <translation id="3960566196862329469">ONC</translation>
 <translation id="3966072572894326936">Choose another folder...</translation>
@@ -2621,7 +2627,6 @@ Press any key to continue exploring.</translation>
 <translation id="5015344424288992913">Resolving proxy...</translation>
 <translation id="5015762597229892204">Select a printer driver app</translation>
 <translation id="5017508259293544172">LEAP</translation>
-<translation id="5018792385199109315">Manage on start-up pages</translation>
 <translation id="5024856940085636730">An operation is taking longer than expected. Do you want to abort it?</translation>
 <translation id="5026874946691314267">Don't show this again</translation>
 <translation id="5027550639139316293">Email Certificate</translation>
@@ -2658,6 +2663,7 @@ Press any key to continue exploring.</translation>
 <translation id="5087249366037322692">Added by a third party</translation>
 <translation id="5087580092889165836">Add card</translation>
 <translation id="5087864757604726239">back</translation>
+<translation id="5087926280563932024">Couldn’t verify your account. Please try again or restart your Chromebook.</translation>
 <translation id="508794495705880051">Add new credit card...</translation>
 <translation id="5088534251099454936">PKCS #1 SHA-512 With RSA Encryption</translation>
 <translation id="509429900233858213">An error occurred.</translation>
@@ -2987,7 +2993,6 @@ Press any key to continue exploring.</translation>
 <translation id="55601339223879446">Adjust the boundaries of your desktop within the display</translation>
 <translation id="556042886152191864">Button</translation>
 <translation id="5562781907504170924">This tab is connected to a Bluetooth device.</translation>
-<translation id="5562792089140223095">Restore tabs or open specific pages</translation>
 <translation id="5565871407246142825">Credit cards</translation>
 <translation id="5567989639534621706">Application Caches</translation>
 <translation id="5568069709869097550">Can't sign in</translation>
@@ -3312,6 +3317,7 @@ Press any key to continue exploring.</translation>
 <translation id="6076448957780543068">Include this screenshot</translation>
 <translation id="6077131872140550515">Remove from preferred</translation>
 <translation id="6078752646384677957">Please check your microphone and audio levels.</translation>
+<translation id="6080515710685820702">Using a shared computer? Try opening an incognito window.</translation>
 <translation id="6080689532560039067">Check your system time</translation>
 <translation id="6082651258230788217">Show in toolbar</translation>
 <translation id="6086814797483779854">Run on Click</translation>
@@ -3470,6 +3476,7 @@ Press any key to continue exploring.</translation>
 <translation id="6333064448949140209">File will be sent to Google for debugging</translation>
 <translation id="6333834492048057036">Focus address bar for search</translation>
 <translation id="6339668969738228384">Create a new profile for <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="6340017061976355871">Couldn’t connect with the server. Please check your network connection and try again. If the problem persists, restart your Chromebook.</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
 <translation id="6341850831632289108">Detect your physical location</translation>
 <translation id="634208815998129842">Task manager</translation>
@@ -3653,6 +3660,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="6586451623538375658">Swap the primary mouse button</translation>
 <translation id="6589411753837135276">Ask first before allowing sites to run Flash (recommended)</translation>
 <translation id="6589706261477377614">Increase key brightness</translation>
+<translation id="6590458744723262880">Rename folder</translation>
 <translation id="6592267180249644460">WebRTC log captured <ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>
 <translation id="6596092346130528198">Is This the New Tab Page that You Were Expecting?</translation>
 <translation id="6596325263575161958">Encryption options</translation>
@@ -3798,6 +3806,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="682123305478866682">Cast desktop</translation>
 <translation id="6823506025919456619">You need to sign in to Chrome to see your devices</translation>
 <translation id="6824564591481349393">Copy &amp;Email Address</translation>
+<translation id="6825184156888454064">Sort by name</translation>
 <translation id="6827236167376090743">This video will keep playing until the cows come home.</translation>
 <translation id="6828153365543658583">Restrict sign-in to the following users:</translation>
 <translation id="6828434191343384461">The selected data has been removed from Chrome and synced devices. Your Google Account may have other forms of browsing history like searches and activity from other Google services at <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />.</translation>
@@ -3849,6 +3858,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="6909461304779452601">Apps, extensions and user scripts cannot be added from this website.</translation>
 <translation id="6910211073230771657">Deleted</translation>
 <translation id="691024665142758461">Download multiple files</translation>
+<translation id="6911324888870229398">Network connection was lost. Please check your connection or try another Wi-Fi network.</translation>
 <translation id="6915804003454593391">User:</translation>
 <translation id="6916590542764765824">Manage Extensions</translation>
 <translation id="6920989436227028121">Open as standard tab</translation>
@@ -3949,6 +3959,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7054808953701320293">Got it, don't show me again.</translation>
 <translation id="7056526158851679338">&amp;Inspect Devices</translation>
 <translation id="7059858479264779982">Set to auto-launch</translation>
+<translation id="7059893117020417984">To browse privately, click the dots icon menu to open an incognito window</translation>
 <translation id="7062222374113411376">Allow recently closed sites to finish sending and receiving data (recommended)</translation>
 <translation id="7063129466199351735">Processing shortcuts...</translation>
 <translation id="7063957500469387217">Set up or manage printers in Google Cloud Print.</translation>
@@ -4020,6 +4031,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7191454237977785534">Save file as</translation>
 <translation id="7196835305346730603">Searching for nearby Chromeboxes...</translation>
 <translation id="7199158086730159431">Get H&amp;elp</translation>
+<translation id="7201118060536064622">'<ph name="DELETED_ITEM_NAME" />' deleted</translation>
 <translation id="7201354769043018523">Right paren</translation>
 <translation id="7205869271332034173">SSID:</translation>
 <translation id="7206693748120342859">Downloading <ph name="PLUGIN_NAME" />...</translation>
@@ -4616,6 +4628,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8116190140324504026">More info...</translation>
 <translation id="8116483400482790018">Custom spelling dictionary</translation>
 <translation id="8116972784401310538">&amp;Bookmark manager</translation>
+<translation id="8118362518458010043">Disabled by Chrome. This extension may be unsafe.</translation>
 <translation id="8118860139461251237">Manage your downloads</translation>
 <translation id="8119631488458759651">remove this site</translation>
 <translation id="81238879832906896">Yellow and white flower</translation>
@@ -4733,6 +4746,7 @@ Calculating remaining time</translation>
 <translation id="8283475148136688298">Authentication code rejected while connecting to "<ph name="DEVICE_NAME" />".</translation>
 <translation id="8284279544186306258">all <ph name="WEBSITE_1" /> sites</translation>
 <translation id="8286036467436129157">Sign In</translation>
+<translation id="8286963743045814739">You can browse privately using an incognito window</translation>
 <translation id="8291967909914612644">Home provider country</translation>
 <translation id="8294431847097064396">Source</translation>
 <translation id="8297006494302853456">Weak</translation>
@@ -5325,6 +5339,7 @@ Subsequent notifications, windows and dialogues may be split between desktops.</
 <translation id="945522503751344254">Send feedback</translation>
 <translation id="951981865514037445"><ph name="URL" /> wants to use your device's location.</translation>
 <translation id="952992212772159698">Not activated</translation>
+<translation id="9580706199804957">Couldn’t connect with Google services</translation>
 <translation id="958515377357646513">Touch to go forward.</translation>
 <translation id="960719561871045870">Operator code</translation>
 <translation id="960987915827980018">About 1 hour left</translation>

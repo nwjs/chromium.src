@@ -69,6 +69,7 @@ En del webbplatser kan till exempel svara genom att visa annonser som inte baser
 <translation id="2116625576999540962"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> objekt flyttades</translation>
 <translation id="2149973817440762519">Redigera bokmärke</translation>
 <translation id="2230173723195178503">Webbsidan har lästs in</translation>
+<translation id="2256128224215992540">Sök- och webbplatsförslag</translation>
 <translation id="2267753748892043616">Lägg till konto</translation>
 <translation id="2273327106802955778">Mer-menyn</translation>
 <translation id="2320166752086256636">Dölj tangentbordet</translation>
@@ -181,6 +182,7 @@ Om du vill ändra söktermen trycker du länge för att välja. Om du vill förf
 <translation id="4375040482473363939">Sök med QR-koder</translation>
 <translation id="4378154925671717803">Telefon</translation>
 <translation id="441868831736628555">Sekretessmeddelande</translation>
+<translation id="4460091562821778167">Fråga alltid vilken app som ska användas</translation>
 <translation id="4508750114462689118">Stäng inloggningskampanj</translation>
 <translation id="4526249700380860531">Visa och hantera sparade lösenord på <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /></translation>
 <translation id="4536418791685807335">Försök att logga in igen.</translation>

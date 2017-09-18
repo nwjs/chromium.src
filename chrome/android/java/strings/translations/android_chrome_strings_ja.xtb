@@ -665,6 +665,7 @@
 <translation id="7253272406652746122">端末の設定アプリのアカウント ページで Google アカウントを追加してください。</translation>
 <translation id="7274013316676448362">ブロック中のサイト</translation>
 <translation id="7307288900373049735">Google に問い合わせ中… 1 分ほどかかる場合があります</translation>
+<translation id="7318797029885648322">候補を表示するには [もっと見る] をタップしてください</translation>
 <translation id="7333031090786104871">前のサイトを追加中です</translation>
 <translation id="7352939065658542140">動画</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{1 件の選択されたアイテムを共有します}other{# 件の選択されたアイテムを共有します}}</translation>
@@ -804,6 +805,7 @@
 <translation id="8636825310635137004">他の端末と同じタブを使用するには、同期を有効にします。</translation>
 <translation id="8641930654639604085">成人向けのサイトを可能な限りブロックする</translation>
 <translation id="8662811608048051533">ほとんどのサイトからログアウトします。</translation>
+<translation id="867485229011312729">ブックマーク、ダウンロード、履歴を表示するには</translation>
 <translation id="8676374126336081632">入力内容を消去</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{電波強度: レベル #}other{電波強度: レベル #}}</translation>
 <translation id="869891660844655955">有効期限</translation>

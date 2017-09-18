@@ -665,6 +665,7 @@
 <translation id="7253272406652746122">기기 설정 앱의 계정 페이지에서 Google 계정을 추가하세요.</translation>
 <translation id="7274013316676448362">차단된 사이트</translation>
 <translation id="7307288900373049735">Google에 연락하는 중입니다. 잠시만 기다려 주세요.</translation>
+<translation id="7318797029885648322">더보기를 탭하여 도움말 가져오기</translation>
 <translation id="7333031090786104871">아직 이전 사이트 추가 중</translation>
 <translation id="7352939065658542140">동영상</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{선택한 1개 항목 공유}other{선택한 #개 항목 공유}}</translation>
@@ -804,6 +805,7 @@
 <translation id="8636825310635137004">다른 기기에서 탭을 가져오려면 동기화를 사용 설정하세요.</translation>
 <translation id="8641930654639604085">성인용 사이트 차단 시도</translation>
 <translation id="8662811608048051533">대부분의 사이트에서 로그아웃됩니다.</translation>
+<translation id="867485229011312729">북마크, 다운로드 항목, 방문 기록은 어디에 있나요?</translation>
 <translation id="8676374126336081632">입력내용 지우기</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{신호 강도: 막대 #개}other{신호 강도: 막대 #개}}</translation>
 <translation id="869891660844655955">유효기간</translation>

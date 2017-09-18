@@ -665,6 +665,7 @@ Nekatera spletna mesta se lahko na primer na zahtevo odzovejo tako, da prikažej
 <translation id="7253272406652746122">Na strani za račune v aplikaciji Nastavitve dodajte Google Račun.</translation>
 <translation id="7274013316676448362">Blokirano spletno mesto</translation>
 <translation id="7307288900373049735">Vzpostavljanje stika z Googlom … To lahko traja kakšno minuto.</translation>
+<translation id="7318797029885648322">Če želite prejeti članke, se dotaknite »Več«</translation>
 <translation id="7333031090786104871">Dodajanje prejšnjega spletnega mesta še vedno poteka</translation>
 <translation id="7352939065658542140">VIDEOPOSNETEK</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Delitev 1 izbranega elementa z drugimi}one{Delitev # izbranega elementa z drugimi}two{Delitev # izbranih elementov z drugimi}few{Delitev # izbranih elementov z drugimi}other{Delitev # izbranih elementov z drugimi}}</translation>
@@ -804,6 +805,7 @@ Nove licence dobite tako, da se povežete v internet in predvajate preneseno vse
 <translation id="8636825310635137004">Če želite dostopati do zavihkov iz drugih naprav, vklopite sinhronizacijo.</translation>
 <translation id="8641930654639604085">Poskusi blokirati spletna mesta za odrasle</translation>
 <translation id="8662811608048051533">Odjavi vas iz večine spletnih mest.</translation>
+<translation id="867485229011312729">Kje so zaznamki, prenosi in zgodovina?</translation>
 <translation id="8676374126336081632">Izbriši vnos</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{Moč signala: # črtica}one{Moč signala: # črtica}two{Moč signala: # črtici}few{Moč signala: # črtice}other{Moč signala: # črtic}}</translation>
 <translation id="869891660844655955">Datum izteka</translation>

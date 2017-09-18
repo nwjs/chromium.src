@@ -665,6 +665,7 @@ De exemplu, unele site-uri pot răspunde la această solicitare afișând anunț
 <translation id="7253272406652746122">Adaugă un Cont Google din pagina Conturi din aplicația Setări a dispozitivului.</translation>
 <translation id="7274013316676448362">Site blocat</translation>
 <translation id="7307288900373049735">Se contactează Google… poate dura un minut</translation>
+<translation id="7318797029885648322">Atinge Mai multe pentru a obține articole</translation>
 <translation id="7333031090786104871">Încă se adaugă site-ul anterior</translation>
 <translation id="7352939065658542140">VIDEOCLIP</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Trimite un element selectat}few{Trimite # elemente selectate}other{Trimite # de elemente selectate}}</translation>
@@ -804,6 +805,7 @@ Pentru licențe noi, conectează-te la internet și redă conținutul descărcat
 <translation id="8636825310635137004">Pentru a accesa filele de pe alte dispozitive, activează sincronizarea.</translation>
 <translation id="8641930654639604085">Încearcă să blochezi site-urile destinate adulților</translation>
 <translation id="8662811608048051533">Te deconectează de pe majoritatea site-urilor.</translation>
+<translation id="867485229011312729">Unde sunt marcajele, descărcările și istoricul?</translation>
 <translation id="8676374126336081632">Șterge textul introdus</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{Nivelul puterii semnalului: # bară}few{Nivelul puterii semnalului: # bare}other{Nivelul puterii semnalului: # de bare}}</translation>
 <translation id="869891660844655955">Dată de expirare</translation>

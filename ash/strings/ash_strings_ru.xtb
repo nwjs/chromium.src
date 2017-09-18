@@ -9,6 +9,7 @@
 <translation id="1195412055398077112">Каемка экрана</translation>
 <translation id="1247372569136754018">Микрофон (встроенный)</translation>
 <translation id="1252999807265626933">Подключен источник питания: <ph name="POWER_SOURCE" /></translation>
+<translation id="1267032506238418139">Изменение сочетания клавиш</translation>
 <translation id="1270290102613614947">Экранная клавиатура отключена</translation>
 <translation id="1272079795634619415">Остановить</translation>
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
@@ -109,6 +110,7 @@
 <translation id="3712407551474845318">Снимок области</translation>
 <translation id="371370241367527062">Фронтальный микрофон</translation>
 <translation id="3742055079367172538">Сделан скриншот</translation>
+<translation id="3771549900096082774">Режим высокой контрастности</translation>
 <translation id="3775358506042162758">Множественный вход поддерживает не более трех аккаунтов.</translation>
 <translation id="3783640748446814672">alt</translation>
 <translation id="3784455785234192852">Заблокировать</translation>
@@ -141,7 +143,7 @@
 <translation id="4729904664295161097">Ассистент доступен только в основном профиле.</translation>
 <translation id="479989351350248267">поиск</translation>
 <translation id="4804818685124855865">Отключиться</translation>
-<translation id="4821830640883629383">Зарядите или замените ее.</translation>
+<translation id="4821830640883629383">Зарядите или замените батарею стилуса.</translation>
 <translation id="4849058404725798627">Выделять элементы, выбранные с помощью клавиатуры</translation>
 <translation id="4872237917498892622">Alt + Search или Shift</translation>
 <translation id="4895488851634969361">Батарея полностью заряжена.</translation>

@@ -396,6 +396,7 @@
 <translation id="1608626060424371292">حذف این کاربر</translation>
 <translation id="1609170755653088773">‏همگام‌سازی گذرواژه با iPhone</translation>
 <translation id="1609862759711084604">کاربر قبلی</translation>
+<translation id="1611584202130317952">جریان ارائه مجوز قطع شد. لطفاً دوباره امتحان کنید یا با مالک یا سرپرست دستگاه تماس بگیرید.</translation>
 <translation id="1611649489706141841">هدایت</translation>
 <translation id="1611704746353331382">‏صادر کردن نشانک‌ها به فایل HTML...</translation>
 <translation id="1612129875274679969">این دستگاه همیشه در حالت کیوسک نگه داشته شود.</translation>
@@ -1066,7 +1067,6 @@
 <translation id="2638942478653899953">‏دسترسی به Google Drive امکان‌پذیر نیست. لطفاً <ph name="BEGIN_LINK" />از سیستم خارج شوید<ph name="END_LINK" /> و دوباره وارد شوید.</translation>
 <translation id="2642111877055905627">توپ فوتبال</translation>
 <translation id="2643698698624765890">با کلیک کردن روی افزونه‌ها در منوی پنجره، برنامه‌های افزودنی نصب شده خود را مدیریت کنید.</translation>
-<translation id="2644493576963871098">صفحه‌هایی که هنگام شروع باز می‌شوند</translation>
 <translation id="2647142853114880570">بازخوانی</translation>
 <translation id="2648831393319960979">در حال افزودن دستگاه به حسابتان - ممکن است چند لحظه طول بکشد...</translation>
 <translation id="2649045351178520408">‏Base64-ASCII رمزگذاری‌شده، زنجیره گواهی</translation>
@@ -1498,6 +1498,7 @@
 <translation id="3269101346657272573">لطفاً کد پین را وارد کنید.</translation>
 <translation id="326999365752735949">در حال بارگیری تفاوت</translation>
 <translation id="3270965368676314374">خواندن، تغییر و حذف عکس‌ها، موسیقی و سایر رسانه‌ها از رایانه‌تان</translation>
+<translation id="327147043223061465">مشاهده همه کوکی‌ها و داده‌های سایت</translation>
 <translation id="3271648667212143903"><ph name="ORIGIN" /> می‌خواهد مرتبط شود</translation>
 <translation id="3273410961255278341">ارسال برای:</translation>
 <translation id="327444463633065042">نام دستگاه نامعتبر</translation>
@@ -1977,6 +1978,7 @@
 <translation id="3950820424414687140">ورود به سیستم</translation>
 <translation id="3954354850384043518">درحال انجام</translation>
 <translation id="3955193568934677022">به سایت‌ها اجازه داده شود محتوای محافظت‌شده پخش کنند (توصیه می‌شود)</translation>
+<translation id="3956702100721821638">‏دسترسی به Google Play موفق نبود</translation>
 <translation id="3958088479270651626">وارد کردن نشانک‌ها و تنظیمات</translation>
 <translation id="3960566196862329469">ONC</translation>
 <translation id="3966072572894326936">انتخاب یک پوشه دیگر...</translation>
@@ -2614,7 +2616,6 @@
 <translation id="5015344424288992913">در حال تحلیل پراکسی...</translation>
 <translation id="5015762597229892204">یک برنامه درایور چاپگر انتخاب کنید</translation>
 <translation id="5017508259293544172">LEAP</translation>
-<translation id="5018792385199109315">مدیریت در صفحه‌های شروع</translation>
 <translation id="5024856940085636730">اقدام بیشتر از انتظار طول می‌کشد. می‌خواهید از این کار صرف‌نظر کنید؟</translation>
 <translation id="5026874946691314267">این مورد دیگر نشان داده نشود.</translation>
 <translation id="5027550639139316293">گواهی رایانامه</translation>
@@ -2651,6 +2652,7 @@
 <translation id="5087249366037322692">توسط یک شخص ثالث اضافه شده است</translation>
 <translation id="5087580092889165836">افزودن کارت</translation>
 <translation id="5087864757604726239">برگشت</translation>
+<translation id="5087926280563932024">‏حسابتان به تأیید نرسید. لطفاً دوباره امتحان کنید یا Chromebook خود را بازراه‌اندازی کنید.</translation>
 <translation id="508794495705880051">افزودن کارت اعتباری جدید...</translation>
 <translation id="5088534251099454936">‏PKCS #1 SHA-512 با رمزگذاری RSA</translation>
 <translation id="509429900233858213">خطایی روی داد.</translation>
@@ -2981,7 +2983,6 @@
 <translation id="55601339223879446">تنظیم محدوه دسک‌تاپ شما در صفحه نمایشگر</translation>
 <translation id="556042886152191864">دکمه</translation>
 <translation id="5562781907504170924">این برگه به دستگاه بلوتوث متصل است.</translation>
-<translation id="5562792089140223095">بازیابی برگه‌ها یا باز کردن صفحه‌های خاص</translation>
 <translation id="5565871407246142825">کارت‌های اعتباری</translation>
 <translation id="5567989639534621706">حافظه‌های پنهان برنامه</translation>
 <translation id="5568069709869097550">ورود به سیستم ممکن نیست</translation>
@@ -3464,6 +3465,7 @@
 <translation id="6333064448949140209">‏فایل برای اشکال‌زدایی به Google ارسال خواهد شد</translation>
 <translation id="6333834492048057036">تمرکز نوار آدرس برای جستجو</translation>
 <translation id="6339668969738228384">ایجاد نمایه جدیدی برای <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="6340017061976355871">‏به سرور متصل نشد. لطفاً اتصال شبکه‌تان را بررسی کرده و دوباره امتحان کنید. اگر مشکل برطرف نشد، Chromebook خود را بازراه‌اندازی کنید.</translation>
 <translation id="6340071272923955280">‏پروتکل چاپ اینترنتی (IPPS)</translation>
 <translation id="6341850831632289108">شناسایی موقعیت مکانی فیزیکی شما</translation>
 <translation id="634208815998129842">مدیر فعالیت‌ها</translation>
@@ -3647,6 +3649,7 @@
 <translation id="6586451623538375658">جابجایی دکمه اصلی ماوس</translation>
 <translation id="6589411753837135276">‏قبل از اجازه دادن به سایت‌ها برای اجرای Flash سؤال شود (توصیه می‌شود)</translation>
 <translation id="6589706261477377614">افزایش روشنایی کلید</translation>
+<translation id="6590458744723262880">تغییر نام پوشه</translation>
 <translation id="6592267180249644460">‏زمان ثبت گزارش WebRTC ‏<ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>
 <translation id="6596092346130528198">این صفحه برگه جدیدی است که منتظرش بودید؟</translation>
 <translation id="6596325263575161958">گزینه‌های رمزگذاری</translation>
@@ -3792,6 +3795,7 @@
 <translation id="682123305478866682">فرستادن میزکار</translation>
 <translation id="6823506025919456619">‏برای مشاهده دستگاه‌هایتان باید به سیستم Chrome وارد شوید</translation>
 <translation id="6824564591481349393">کپی آدرس &amp;ایمیل</translation>
+<translation id="6825184156888454064">مرتب‌سازی براساس نام</translation>
 <translation id="6827236167376090743">پخش این ویدئو ادامه می‌یابد و تکرار می‌شود.</translation>
 <translation id="6828153365543658583">محدود کردن ورود به سیستم برای کاربران زیر:</translation>
 <translation id="6828434191343384461">‏داده‌های انتخاب‌شده از Chrome و دستگاه‌های همگام‌سازی‌شده حذف شده است. ممکن است حساب Google شما در <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> اشکال دیگری از سابقه مرور (مانند جستجوها و فعالیت از سایر خدمات Google) داشته باشد.</translation>
@@ -3843,6 +3847,7 @@
 <translation id="6909461304779452601">برنامه‌ها، افزونه‌ها و اسکریپت‌های کاربر را نمی‌توان از این وب‌سایت اضافه کرد.</translation>
 <translation id="6910211073230771657">حذف شد</translation>
 <translation id="691024665142758461">بارگیری چندین فایل.</translation>
+<translation id="6911324888870229398">‏اتصال شبکه قطع شد. لطفاً اتصالتان را بررسی کنید یا شبکه Wi-Fi دیگری را امتحان کنید.</translation>
 <translation id="6915804003454593391">کاربر:</translation>
 <translation id="6916590542764765824">مدیریت افزونه‌ها</translation>
 <translation id="6920989436227028121">باز کردن به‌عنوان برگه عادی</translation>
@@ -4013,6 +4018,7 @@
 <translation id="7191454237977785534">ذخیره فایل به‌عنوان</translation>
 <translation id="7196835305346730603">‏در حال جستجو برای دستگاه‌های Chromebox نزدیک...</translation>
 <translation id="7199158086730159431">دریافت راهنمایی</translation>
+<translation id="7201118060536064622">«<ph name="DELETED_ITEM_NAME" />» حذف شد</translation>
 <translation id="7201354769043018523">پرانتز راست</translation>
 <translation id="7205869271332034173">SSID:</translation>
 <translation id="7206693748120342859">در حال بارگیری <ph name="PLUGIN_NAME" />…</translation>
@@ -5317,6 +5323,7 @@
 <translation id="945522503751344254">ارسال بازخورد</translation>
 <translation id="951981865514037445"><ph name="URL" /> می‌خواهد از موقعیت مکانی دستگاه شما استفاده کند.</translation>
 <translation id="952992212772159698">فعال نشد</translation>
+<translation id="9580706199804957">‏به سرویس‌های Google متصل نشد</translation>
 <translation id="958515377357646513">برای حرکت به جلو،‌ لمس کنید.</translation>
 <translation id="960719561871045870">کد اپراتور</translation>
 <translation id="960987915827980018">حدود ۱ ساعت باقی مانده است</translation>

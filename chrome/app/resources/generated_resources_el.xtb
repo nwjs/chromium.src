@@ -400,6 +400,7 @@
 <translation id="1608626060424371292">Κατάργηση αυτού του χρήστη</translation>
 <translation id="1609170755653088773">Συγχρονισμός αυτού του κωδικού πρόσβασης με το iPhone σας</translation>
 <translation id="1609862759711084604">Προηγούμενος χρήστης</translation>
+<translation id="1611584202130317952">Η ροή παροχής διακόπηκε. Δοκιμάστε ξανά ή επικοινωνήστε με τον κάτοχο ή τον διαχειριστή της συσκευής σας.</translation>
 <translation id="1611649489706141841">προώθηση</translation>
 <translation id="1611704746353331382">Εξαγωγή σελιδοδεικτών σε αρχείο HTML...</translation>
 <translation id="1612129875274679969">Μόνιμη διατήρηση της παρούσας συσκευής σε λειτουργία Kiosk.</translation>
@@ -1072,7 +1073,6 @@
 <translation id="2638942478653899953">Δεν ήταν δυνατή η επικοινωνία με το Google Drive. <ph name="BEGIN_LINK" />Αποσυνδεθείτε<ph name="END_LINK" /> και συνδεθείτε ξανά.</translation>
 <translation id="2642111877055905627">Μπάλα ποδοσφαίρου</translation>
 <translation id="2643698698624765890">Διαχειριστείτε τις επεκτάσεις σας, κάνοντας κλικ στην επιλογή "Επεκτάσεις" στο μενού "Παράθυρο".</translation>
-<translation id="2644493576963871098">Σελίδες που θα ανοίγουν κατά την εκκίνηση</translation>
 <translation id="2647142853114880570">επανάληψη φόρτωσης</translation>
 <translation id="2648831393319960979">Γίνεται προσθήκη της συσκευής στο λογαριασμό σας. Αυτή η διαδικασία μπορεί να διαρκέσει λίγη ώρα…</translation>
 <translation id="2649045351178520408">ASCII με κωδικοποίηση Base64, αλυσίδα πιστοποιητικού</translation>
@@ -1504,6 +1504,7 @@
 <translation id="3269101346657272573">Εισαγάγετε το PIN.</translation>
 <translation id="326999365752735949">Διαφορά λήψεων</translation>
 <translation id="3270965368676314374">Ανάγνωση, αλλαγή και διαγραφή φωτογραφιών, μουσικής και άλλων μέσων από τον υπολογιστή σας</translation>
+<translation id="327147043223061465">Εμφάνιση όλων των cookie και των δεδομένων ιστοτόπων</translation>
 <translation id="3271648667212143903">Ο ιστότοπος <ph name="ORIGIN" /> επιθυμεί σύνδεση</translation>
 <translation id="3273410961255278341">Αποστολή για:</translation>
 <translation id="327444463633065042">Μη έγκυρο όνομα μηχανήματος</translation>
@@ -1983,6 +1984,7 @@
 <translation id="3950820424414687140">Σύνδεση</translation>
 <translation id="3954354850384043518">Σε εξέλιξη</translation>
 <translation id="3955193568934677022">Να επιτρέπεται στους ιστοτόπους να αναπαράγουν προστατευμένο περιεχόμενο (συνιστάται)</translation>
+<translation id="3956702100721821638">Δεν ήταν δυνατή η επικοινωνία με το Google Play</translation>
 <translation id="3958088479270651626">Εισαγωγή σελιδοδεικτών και ρυθμίσεων</translation>
 <translation id="3960566196862329469">ONC</translation>
 <translation id="3966072572894326936">Επιλέξτε άλλο φάκελο...</translation>
@@ -2622,7 +2624,6 @@
 <translation id="5015344424288992913">Ανάλυση της διεύθυνσης του διακομιστή μεσολάβησης...</translation>
 <translation id="5015762597229892204">Επιλέξτε μια εφαρμογή προγράμματος οδήγησης εκτυπωτή</translation>
 <translation id="5017508259293544172">LEAP</translation>
-<translation id="5018792385199109315">Διαχείριση στις σελίδες εκκίνησης</translation>
 <translation id="5024856940085636730">Μια λειτουργία διαρκεί περισσότερο από το αναμενόμενο. Θέλετε να τη ματαιώσετε;</translation>
 <translation id="5026874946691314267">Να μην εμφανιστεί ξανά</translation>
 <translation id="5027550639139316293">Πιστοποιητικό ηλεκτρονικού ταχυδρομείου</translation>
@@ -2659,6 +2660,7 @@
 <translation id="5087249366037322692">Προστέθηκε από τρίτο μέρος</translation>
 <translation id="5087580092889165836">Προσθήκη κάρτας</translation>
 <translation id="5087864757604726239">πίσω</translation>
+<translation id="5087926280563932024">Δεν ήταν δυνατή η επαλήθευση του λογαριασμού σας. Δοκιμάστε ξανά ή επανεκκινήστε το Chromebook.</translation>
 <translation id="508794495705880051">Προσθήκη νέας πιστωτικής κάρτας...</translation>
 <translation id="5088534251099454936">PKCS #1 SHA-512 με κρυπτογράφηση RSA</translation>
 <translation id="509429900233858213">Παρουσιάστηκε σφάλμα.</translation>
@@ -2988,7 +2990,6 @@
 <translation id="55601339223879446">Προσαρμογή των ορίων της επιφάνειας εργασίας εντός της οθόνης</translation>
 <translation id="556042886152191864">Κουμπί</translation>
 <translation id="5562781907504170924">Αυτή η καρτέλα είναι συνδεδεμένη σε μια συσκευή Bluetooth.</translation>
-<translation id="5562792089140223095">Επαναφορά καρτελών ή άνοιγμα συγκεκριμένων σελίδων</translation>
 <translation id="5565871407246142825">Πιστωτικές κάρτες</translation>
 <translation id="5567989639534621706">Προσωρινές μνήμες εφαρμογών</translation>
 <translation id="5568069709869097550">Δεν είναι δυνατή η σύνδεση</translation>
@@ -3472,6 +3473,7 @@
 <translation id="6333064448949140209">Το αρχείο θα σταλεί στην Google για εντοπισμό σφαλμάτων</translation>
 <translation id="6333834492048057036">Γραμμή διευθύνσεων εστίασης για αναζήτηση</translation>
 <translation id="6339668969738228384">Δημιουργία νέου προφίλ για τη διεύθυνση <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="6340017061976355871">Δεν ήταν δυνατή η σύνδεση με τον διακομιστή. Ελέγξτε τη σύνδεση δικτύου και δοκιμάστε ξανά. Εάν το πρόβλημα παραμένει, επανεκκινήστε το Chromebook.</translation>
 <translation id="6340071272923955280">Πρωτόκολλο εκτύπωσης στο διαδίκτυο (IPPS)</translation>
 <translation id="6341850831632289108">Εντοπισμός της φυσικής σας τοποθεσίας</translation>
 <translation id="634208815998129842">Διαχείριση εργασιών</translation>
@@ -3655,6 +3657,7 @@
 <translation id="6586451623538375658">Εναλλαγή κύριου κουμπιού ποντικιού</translation>
 <translation id="6589411753837135276">Να γίνεται ερώτηση προτού επιτραπεί στους ιστότοπους να εκτελούν Flash (συνιστάται)</translation>
 <translation id="6589706261477377614">Αύξηση φωτεινότητας πλήκτρων</translation>
+<translation id="6590458744723262880">Μετονομασία φακέλου</translation>
 <translation id="6592267180249644460">Έγινε λήψη αρχείου καταγραφής WebRTC <ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>
 <translation id="6596092346130528198">Είναι αυτή η σελίδα σε νέα καρτέλα που περιμένατε να δείτε;</translation>
 <translation id="6596325263575161958">Επιλογές κρυπτογράφησης</translation>
@@ -3800,6 +3803,7 @@
 <translation id="682123305478866682">Μετάδοση επιφάνειας εργασίας</translation>
 <translation id="6823506025919456619">Για να δείτε τις συσκευές σας, θα πρέπει να συνδεθείτε στο Chrome</translation>
 <translation id="6824564591481349393">Αντιγραφή Διεύθυνσης &amp;Ηλεκτρονικού Ταχυδρομείου</translation>
+<translation id="6825184156888454064">Ταξινόμηση κατά όνομα</translation>
 <translation id="6827236167376090743">Αυτό το βίντεο θα συνεχίσει να παίζει για πάντα.</translation>
 <translation id="6828153365543658583">Περιορισμός σύνδεσης στους ακόλουθους χρήστες:</translation>
 <translation id="6828434191343384461">Τα επιλεγμένα δεδομένα καταργήθηκαν από το Chrome και από τις συγχρονισμένες συσκευές. Ο Λογαριασμός σας Google ενδέχεται να διαθέτει άλλες μορφές ιστορικού περιήγησης, όπως αναζητήσεις και δραστηριότητα από άλλες υπηρεσίες Google στη διεύθυνση <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />.</translation>
@@ -3851,6 +3855,7 @@
 <translation id="6909461304779452601">Δεν ήταν δυνατή η προσθήκη εφαρμογών, επεκτάσεων και σεναρίων χρήστη από αυτόν τον ιστότοπο.</translation>
 <translation id="6910211073230771657">Διαγράφηκε</translation>
 <translation id="691024665142758461">Λήψη πολλών αρχείων</translation>
+<translation id="6911324888870229398">Η σύνδεση δικτύου χάθηκε. Ελέγξτε τη σύνδεσή σας ή δοκιμάστε άλλο δίκτυο Wi-Fi.</translation>
 <translation id="6915804003454593391">Χρήστης</translation>
 <translation id="6916590542764765824">Διαχείριση επεκτάσεων</translation>
 <translation id="6920989436227028121">Άνοιγμα ως κανονικής καρτέλας</translation>
@@ -4021,6 +4026,7 @@
 <translation id="7191454237977785534">Αποθήκευση αρχείου ως</translation>
 <translation id="7196835305346730603">Γίνεται αναζήτηση για κοντινά Chromebox…</translation>
 <translation id="7199158086730159431">Λάβετε β&amp;οήθεια</translation>
+<translation id="7201118060536064622">Το "<ph name="DELETED_ITEM_NAME" />" διαγράφηκε</translation>
 <translation id="7201354769043018523">Δεξ. παρένθ.</translation>
 <translation id="7205869271332034173">SSID:</translation>
 <translation id="7206693748120342859">Γίνεται λήψη της προσθήκης <ph name="PLUGIN_NAME" />…</translation>
@@ -5323,6 +5329,7 @@
 <translation id="945522503751344254">Αποστολή σχολίων</translation>
 <translation id="951981865514037445">Η διεύθυνση <ph name="URL" /> ζητά να χρησιμοποιήσει την τοποθεσία της συσκευής σας.</translation>
 <translation id="952992212772159698">Μη ενεργοποιημένο</translation>
+<translation id="9580706199804957">Δεν ήταν δυνατή η σύνδεση με τις υπηρεσίες Google</translation>
 <translation id="958515377357646513">Αγγίξτε για προώθηση.</translation>
 <translation id="960719561871045870">Κωδικός τελεστή</translation>
 <translation id="960987915827980018">Απομένει περίπου 1 ώρα</translation>

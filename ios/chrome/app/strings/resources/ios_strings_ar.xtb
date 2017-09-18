@@ -69,6 +69,7 @@
 <translation id="2116625576999540962">تم نقل <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> من العناصر</translation>
 <translation id="2149973817440762519">تعديل الإشارة</translation>
 <translation id="2230173723195178503">تم تحميل الصفحة المطلوبة</translation>
+<translation id="2256128224215992540">اقتراحات البحث والمواقع</translation>
 <translation id="2267753748892043616">إضافة حساب</translation>
 <translation id="2273327106802955778">قائمة "المزيد"</translation>
 <translation id="2320166752086256636">إخفاء لوحة المفاتيح</translation>
@@ -181,6 +182,7 @@
 <translation id="4375040482473363939">البحث عن رمز الاستجابة السريعة</translation>
 <translation id="4378154925671717803">الهاتف</translation>
 <translation id="441868831736628555">إشعار الخصوصية</translation>
+<translation id="4460091562821778167">اطلب مني تحديد التطبيق الذي أود استخدامه كل مرة</translation>
 <translation id="4508750114462689118">إغلاق عرض ترويجي لتسجيل الدخول</translation>
 <translation id="4526249700380860531">‏عرض كلمات المرور المحفوظة وإدارتها في <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /></translation>
 <translation id="4536418791685807335">حاول تسجيل الدخول مرة أخرى.</translation>
@@ -347,7 +349,7 @@
 <translation id="7649070708921625228">مساعدة</translation>
 <translation id="7658239707568436148">إلغاء</translation>
 <translation id="7671141431838911305">تثبيت</translation>
-<translation id="7677825787905683892">اختيار تطبيق البريد الإلكتروني الافتراضي</translation>
+<translation id="7677825787905683892">اختيار تطبيق البريد الإلكتروني التلقائي</translation>
 <translation id="7765158879357617694">نقل</translation>
 <translation id="7769602470925380267">قبول وتسجيل الخروج</translation>
 <translation id="7772032839648071052">تأكيد عبارة المرور</translation>

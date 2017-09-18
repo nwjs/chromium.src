@@ -399,6 +399,7 @@
 <translation id="1608626060424371292">इस उपयोगकर्ता को निकालें</translation>
 <translation id="1609170755653088773">इस पासवर्ड को अपने iPhone से सिंक करें</translation>
 <translation id="1609862759711084604">पिछला उपयोगकर्ता</translation>
+<translation id="1611584202130317952">प्रावधान प्रवाह में रुकावट आई थी. कृपया फिर से कोशिश करें या अपने डिवाइस मालिक या व्यवस्थापक से संपर्क करें.</translation>
 <translation id="1611649489706141841">अग्रेषित करें</translation>
 <translation id="1611704746353331382">HTML फ़ाइल में बुकमार्क नि‍र्यात करें...</translation>
 <translation id="1612129875274679969">इस डिवाइस को स्थायी रूप से कियोस्क मोड में रखें.</translation>
@@ -1070,7 +1071,6 @@
 <translation id="2638942478653899953">Google डिस्क तक नहीं पहुंचा जा सका. कृपया <ph name="BEGIN_LINK" />लॉग आउट करें<ph name="END_LINK" /> और वापस प्रवेश करें.</translation>
 <translation id="2642111877055905627">सॉकर बॉल</translation>
 <translation id="2643698698624765890">विंडो मेनू में एक्सटेंशन क्लिक करके अपने एक्सटेंशन प्रबंधित करें.</translation>
-<translation id="2644493576963871098">स्टार्टअप पर खुलने वाले पेज</translation>
 <translation id="2647142853114880570">पुन: लोड करें</translation>
 <translation id="2648831393319960979">आपके खाते में डिवाइस जोड़ा रहा है - इसमें कुछ समय लग सकता है...</translation>
 <translation id="2649045351178520408">Base64-एन्कोड किया गया ASCII, प्रमाणपत्र चेन</translation>
@@ -1502,6 +1502,7 @@
 <translation id="3269101346657272573">कृपया पिन दर्ज करें.</translation>
 <translation id="326999365752735949">अंतर डाउनलोड करना</translation>
 <translation id="3270965368676314374">अपने कंप्यूटर के फ़ोटो, संगीत और अन्य मीडिया पढ़ें व बदलें</translation>
+<translation id="327147043223061465">सभी कुकी और साइट डेटा देखें</translation>
 <translation id="3271648667212143903"><ph name="ORIGIN" /> कनेक्ट करना चाहती है</translation>
 <translation id="3273410961255278341">इसके लिए भेजें:</translation>
 <translation id="327444463633065042">मशीन का नाम मान्य नहीं है</translation>
@@ -1980,6 +1981,7 @@
 <translation id="3950820424414687140">प्रवेश करें</translation>
 <translation id="3954354850384043518">जारी है</translation>
 <translation id="3955193568934677022">साइटों को सुरक्षित सामग्री चलाने दें (अनुशंसित)</translation>
+<translation id="3956702100721821638">Google Play तक नहीं पहुंचा जा सका</translation>
 <translation id="3958088479270651626">बुकमार्क और सेटिंग आयात करें</translation>
 <translation id="3960566196862329469">ONC</translation>
 <translation id="3966072572894326936">कोई अन्य फ़ोल्डर चुनें</translation>
@@ -2619,7 +2621,6 @@
 <translation id="5015344424288992913">प्रॉक्सी को परिष्कृत कर रहा है...</translation>
 <translation id="5015762597229892204">प्रिंटर ड्राइवर ऐप चुनें</translation>
 <translation id="5017508259293544172">LEAP</translation>
-<translation id="5018792385199109315">शुरुआती पन्ना पर प्रबंधित करें</translation>
 <translation id="5024856940085636730">किसी कार्य में अपेक्षा से अधिक समय लग रहा है. क्या आप उसे निरस्त करना चाहते हैं?</translation>
 <translation id="5026874946691314267">इसे दोबारा न दिखाएं</translation>
 <translation id="5027550639139316293">ईमेल प्रमाणपत्र</translation>
@@ -2656,6 +2657,7 @@
 <translation id="5087249366037322692">किसी तृतीय-पक्ष द्वारा जोड़ा गया</translation>
 <translation id="5087580092889165836">कार्ड जोड़ें</translation>
 <translation id="5087864757604726239">वापस जाएं</translation>
+<translation id="5087926280563932024">आपके खाते की पुष्टि नहीं हो सकी. कृपया फिर से कोशिश करें या अपना Chromebook फिर से चालू करें.</translation>
 <translation id="508794495705880051">नया क्रेडिट कार्ड जोड़ें...</translation>
 <translation id="5088534251099454936">RSA सुरक्षित तरीका के साथ PKCS #1 SHA-512</translation>
 <translation id="509429900233858213">कोई गड़बड़ी हुई.</translation>
@@ -2985,7 +2987,6 @@
 <translation id="55601339223879446">स्क्रीन के भीतर अपने डेस्कटॉप की सीमाएं एडजस्ट करें</translation>
 <translation id="556042886152191864">बटन</translation>
 <translation id="5562781907504170924">यह टैब किसी ब्लूटूथ डिवाइस से कनेक्ट है.</translation>
-<translation id="5562792089140223095">टैब बहाल करें या कोई खास पेज खोलें</translation>
 <translation id="5565871407246142825">क्रेडिट कार्ड</translation>
 <translation id="5567989639534621706">ऐप्स  संचय</translation>
 <translation id="5568069709869097550">प्रवेश नहीं कर सकता</translation>
@@ -3468,6 +3469,7 @@
 <translation id="6333064448949140209">डीबग करने के लिए फ़ाइल Google को भेजी जाएगी</translation>
 <translation id="6333834492048057036">खोज के लिए पता बार पर फ़ोकस करें</translation>
 <translation id="6339668969738228384"><ph name="USER_EMAIL_ADDRESS" /> के लिए एक नया प्रोफ़ाइल बनाएं</translation>
+<translation id="6340017061976355871">सर्वर से नहीं जुड़ सका. कृपया अपना नेटवर्क कनेक्शन जांचें और दोबारा कोशिश करें. अगर समस्या बनी रहती है, तो अपना Chromebook फिर से चालू करें.</translation>
 <translation id="6340071272923955280">इंटरनेट प्रिंटिंग प्रोटोकॉल (IPPS)</translation>
 <translation id="6341850831632289108">अपने भौतिक स्थान का पता लगाएं</translation>
 <translation id="634208815998129842">काम का प्रबंधक</translation>
@@ -3651,6 +3653,7 @@
 <translation id="6586451623538375658">प्राथमिक माउस बटन स्वैप करें</translation>
 <translation id="6589411753837135276">साइट को Flash चलाने की अनुमति देने से पहले पूछें (अनुशंसित)</translation>
 <translation id="6589706261477377614">कुंजी की स्क्रीन की रोशनी बढ़ाएं</translation>
+<translation id="6590458744723262880">फ़ोल्‍डर का नाम बदलें</translation>
 <translation id="6592267180249644460">WebRTC लॉग कैप्चर किया गया <ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>
 <translation id="6596092346130528198">क्या यह वही नया टैब पेज है जिसकी आप अपेक्षा कर रहे थे?</translation>
 <translation id="6596325263575161958">सुरक्षित तरीका विकल्प</translation>
@@ -3796,6 +3799,7 @@
 <translation id="682123305478866682">डेस्कटॉप कास्ट करें</translation>
 <translation id="6823506025919456619">आपको अपने डिवाइस को देखने के लिए Chrome में प्रवेश करने की आवश्यकता है</translation>
 <translation id="6824564591481349393">&amp;ईमेल पते की कॉपी बनाएं</translation>
+<translation id="6825184156888454064">नाम के अनुसार क्रम से लगाएं</translation>
 <translation id="6827236167376090743">यह वीडियो शाम होने तक चलता रहेगा.</translation>
 <translation id="6828153365543658583">निम्‍नलिखित उपयोगर्ताओं के लिए साइन-इन प्रतिबंधित करें:</translation>
 <translation id="6828434191343384461">चयनित डेटा Chrome और समन्वयित डिवाइस से निकाल दिया गया है. हो सकता है कि आपके Google खाते में अन्य प्रकार के ब्राउज़िंग इतिहास जैसे खोज और <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> पर अन्य Google सेवाओं की गतिविधि हो.</translation>
@@ -3847,6 +3851,7 @@
 <translation id="6909461304779452601">इस वेबसाइट से ऐप्स , एक्सटेंशन, और उपयोगकर्ता स्क्रिप्ट नहीं जोड़े जा सकते हैं.</translation>
 <translation id="6910211073230771657">हटाया गया</translation>
 <translation id="691024665142758461">एकाधिक फ़ाइलें डाउनलोड करें</translation>
+<translation id="6911324888870229398">नेटवर्क कनेक्शन टूट गया था. कृपया अपना नेटवर्क कनेक्शन जांचें या कोई दूसरा वाई-फ़ाई नेटवर्क आज़माकर देखें.</translation>
 <translation id="6915804003454593391">उपयोगकर्ता:</translation>
 <translation id="6916590542764765824">एक्‍सटेंशन प्रबंधित करें</translation>
 <translation id="6920989436227028121">नियमित टैब के रूप में खोलें</translation>
@@ -4018,6 +4023,7 @@
 <translation id="7191454237977785534">फ़ाइल इस रूप में सहेजें</translation>
 <translation id="7196835305346730603">आस-पास के Chromeboxes के लिए खोजना...</translation>
 <translation id="7199158086730159431">स&amp;हायता प्राप्त करें</translation>
+<translation id="7201118060536064622">'<ph name="DELETED_ITEM_NAME" />' मिटाया गया</translation>
 <translation id="7201354769043018523">दायां कोष्ठक</translation>
 <translation id="7205869271332034173">SSID:</translation>
 <translation id="7206693748120342859"><ph name="PLUGIN_NAME" /> डाउनलोड हो रहा है...</translation>
@@ -4268,7 +4274,7 @@
 <translation id="7571643774869182231">अपडेट करने के लिए पर्याप्त जगह नहीं है</translation>
 <translation id="7573172247376861652">बैटरी चार्ज</translation>
 <translation id="7576032389798113292">6x4</translation>
-<translation id="7576690715254076113">क्रम अनुसार सजाना</translation>
+<translation id="7576690715254076113">सेट में प्रिंट करें</translation>
 <translation id="7579149537961810247">साइटें म्यूट करें</translation>
 <translation id="7580139917303152582">नए ऐप्लिकेशन और गतिविधियों तक तेज़ी से पहुंचने के लिए लॉन्चर का उपयोग करें.</translation>
 <translation id="7580671184200851182">सभी स्पीकर से समान ऑडियो चलाएं (मोनो ऑडियो)</translation>
@@ -4977,7 +4983,7 @@
 <translation id="8710187907779883426">कम समय (1 सेकंड)</translation>
 <translation id="8711402221661888347">पिकल्‍स</translation>
 <translation id="8713570323158206935"><ph name="BEGIN_LINK1" />सिस्‍टम जानकारी<ph name="END_LINK1" /> भेजें</translation>
-<translation id="8714154114375107944">यह डिवाइस अब काम नहीं करेगा</translation>
+<translation id="8714154114375107944">इस डिवाइस पर अब यह सुविधा काम नहीं करेगी</translation>
 <translation id="871476437400413057">Google द्वारा सहेजे गए पासवर्ड</translation>
 <translation id="8714838604780058252">पृष्‍ठभूमि ग्राफ़िक</translation>
 <translation id="8719653885894320876"><ph name="PLUGIN_NAME" /> डाउनलोड विफल रहा</translation>
@@ -5320,6 +5326,7 @@
 <translation id="945522503751344254">सुझाव भेजें</translation>
 <translation id="951981865514037445"><ph name="URL" /> आपके डिवाइस के स्थान का उपयोग करना चाहता है.</translation>
 <translation id="952992212772159698">सक्रिय नहीं किया गया</translation>
+<translation id="9580706199804957">Google सेवाओं से कनेक्ट नहीं हो सका</translation>
 <translation id="958515377357646513">आगे जाने के लिए स्पर्श करें.</translation>
 <translation id="960719561871045870">ऑपरेटर कोड</translation>
 <translation id="960987915827980018">लगभग 1 घंटा शेष है</translation>

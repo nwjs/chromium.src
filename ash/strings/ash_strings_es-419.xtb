@@ -3,12 +3,13 @@
 <translationbundle lang="es-419">
 <translation id="1012876632442809908">Dispositivo USB-C (puerto delantero)</translation>
 <translation id="1013923882670373915">El dispositivo Bluetooth "<ph name="DEVICE_NAME" />" solicita permiso para sincronizarse. Ingresa el siguiente código de PIN en el dispositivo: <ph name="PINCODE" />.</translation>
-<translation id="1032891413405719768">El nivel de la batería del Stylus está bajo</translation>
+<translation id="1032891413405719768">El nivel de la batería de la pluma stylus está bajo</translation>
 <translation id="112308213915226829">Ocultar la biblioteca automáticamente</translation>
 <translation id="1153356358378277386">Dispositivos sincronizados</translation>
 <translation id="1195412055398077112">desajuste de dimensiones</translation>
 <translation id="1247372569136754018">Micrófono (interno)</translation>
 <translation id="1252999807265626933">Cargando desde <ph name="POWER_SOURCE" /></translation>
+<translation id="1267032506238418139">Cambio de la combinación de teclas</translation>
 <translation id="1270290102613614947">Teclado en pantalla inhabilitado</translation>
 <translation id="1272079795634619415">Interrumpir</translation>
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
@@ -109,6 +110,7 @@
 <translation id="3712407551474845318">Captura parcial de pantalla</translation>
 <translation id="371370241367527062">Micrófono delantero</translation>
 <translation id="3742055079367172538">Captura de pantalla tomada</translation>
+<translation id="3771549900096082774">Modo de contraste alto</translation>
 <translation id="3775358506042162758">Solo puedes tener un máximo de tres cuentas en un acceso múltiple.</translation>
 <translation id="3783640748446814672">alt</translation>
 <translation id="3784455785234192852">Bloquear</translation>

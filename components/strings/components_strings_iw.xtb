@@ -160,6 +160,7 @@
 <translation id="2184405333245229118">{COUNT,plural, =1{כתובת אחת}two{שתי כתובות}many{# כתובות}other{# כתובות}}</translation>
 <translation id="2187317261103489799">זהה (ברירת מחדל)</translation>
 <translation id="2202020181578195191">עליך להזין שנת תפוגה חוקית</translation>
+<translation id="2209523182407020534">יישומים שיכולים לגרום לשגיאה הזו: אנטי וירוס, חומת אש או תוכנת סינון אינטרנט.</translation>
 <translation id="2212735316055980242">לא נמצאה מדיניות</translation>
 <translation id="2213606439339815911">מאחזר רשומות...</translation>
 <translation id="2218879909401188352">תוקפים שמשתמשים עכשיו ב-<ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> עלולים להתקין יישומים מסוכנים ולגרום נזק למכשיר שלך, להגדיל את החיובים שלך על החבילה לנייד או לגנוב את המידע האישי שלך. <ph name="BEGIN_LEARN_MORE_LINK" />מידע נוסף<ph name="END_LEARN_MORE_LINK" /></translation>
@@ -529,6 +530,7 @@ Del</translation>
 <translation id="5019198164206649151">האחסון המשמש כגיבוי אינו תקין</translation>
 <translation id="5023310440958281426">בדוק את תקנון מנהל המערכת שלך</translation>
 <translation id="5029568752722684782">נקה את העותק</translation>
+<translation id="503069730517007720">‏יש צורך באישור שורש בשביל "<ph name="SOFTWARE_NAME" />", אבל לא מותקן אישור כזה. על מנהל ה-IT לבדוק את הוראות התצורה של "<ph name="SOFTWARE_NAME" />" כדי לפתור את הבעיה. <ph name="FURTHER_EXPLANATION" /></translation>
 <translation id="5031870354684148875">‏מידע על Google Translate</translation>
 <translation id="5039804452771397117">אפשר</translation>
 <translation id="5040262127954254034">פרטיות</translation>
@@ -894,11 +896,13 @@ Del</translation>
 <translation id="8037357227543935929">שאל (ברירת מחדל)</translation>
 <translation id="8041089156583427627">שלח משוב</translation>
 <translation id="8041940743680923270">השתמש בברירת המחדל הכללית (שאל)</translation>
+<translation id="8057711352706143257">יש בעיה בהגדרה של "<ph name="SOFTWARE_NAME" />". בדרך כלל, הסרת ההתקנה של "<ph name="SOFTWARE_NAME" />" פותרת את הבעיה. <ph name="FURTHER_EXPLANATION" /></translation>
 <translation id="8088680233425245692">הצגת הפריט נכשלה.</translation>
 <translation id="8091372947890762290">ההפעלה ממתינה בשרת</translation>
 <translation id="8094917007353911263">ייתכן שתידרש להיכנס ל-<ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> עבור הרשת שבה אתה משתמש.</translation>
 <translation id="8103161714697287722">אמצעי תשלום</translation>
 <translation id="8118489163946903409">אמצעי תשלום</translation>
+<translation id="8127301229239896662">‏הייתה בעיה בהתקנה של "<ph name="SOFTWARE_NAME" />" במחשב שלך או ברשת. יש לבקש ממנהל ה-IT לפתור את הבעיה.</translation>
 <translation id="8131740175452115882">אישור</translation>
 <translation id="8134994873729925007">‏לא ניתן היה למצוא את <ph name="BEGIN_ABBR" />כתובת ה-DNS<ph name="END_ABBR" /> של השרת של <ph name="HOST_NAME" />.</translation>
 <translation id="8149426793427495338">המחשב עבר למצב שינה.</translation>
@@ -1030,4 +1034,9 @@ Del</translation>
 <translation id="988159990683914416">גירסת מפתחים</translation>
 <translation id="989988560359834682">ערוך כתובת</translation>
 <translation id="992115559265932548"><ph name="MICROSOFT_ACTIVE_DIRECTORY" /></translation>
+<translation id="992432478773561401">‏הייתה בעיה בהתקנה של "<ph name="SOFTWARE_NAME" />" במחשב שלך או ברשת. אפשר לנסות אחת מהפעולות הבאות:
+    &lt;ul&gt;
+    &lt;li&gt;להסיר את ההתקנה של "<ph name="SOFTWARE_NAME" />"&lt;/li&gt;
+    &lt;li&gt;להתחבר לרשת אחרת&lt;/li&gt;
+    &lt;/ul&gt;</translation>
 </translationbundle>

@@ -399,6 +399,7 @@
 <translation id="1608626060424371292">移除這位使用者</translation>
 <translation id="1609170755653088773">將這組密碼在 iPhone 上保持同步</translation>
 <translation id="1609862759711084604">上一位使用者</translation>
+<translation id="1611584202130317952">帳戶管理作業中斷。請再試一次，或是與裝置擁有者或管理員聯絡。</translation>
 <translation id="1611649489706141841">往前</translation>
 <translation id="1611704746353331382">將書籤匯出為 HTML 檔案...</translation>
 <translation id="1612129875274679969">讓裝置永久使用 Kiosk 模式。</translation>
@@ -1070,7 +1071,6 @@
 <translation id="2638942478653899953">無法連上 Google 雲端硬碟。請<ph name="BEGIN_LINK" />登出<ph name="END_LINK" />並重新登入帳戶。</translation>
 <translation id="2642111877055905627">足球</translation>
 <translation id="2643698698624765890">如要管理擴充功能，只要按一下 [視窗] 選單裡的 [擴充功能] 即可。</translation>
-<translation id="2644493576963871098">啟動時開啟的網頁</translation>
 <translation id="2647142853114880570">重新載入</translation>
 <translation id="2648831393319960979">正在將裝置新增到你的帳戶中，這可能需要幾分鐘的時間...</translation>
 <translation id="2649045351178520408">Base64 編碼 ASCII，憑證鏈結</translation>
@@ -1502,6 +1502,7 @@
 <translation id="3269101346657272573">請輸入 PIN。</translation>
 <translation id="326999365752735949">正在下載差異部分</translation>
 <translation id="3270965368676314374">讀取、變更及刪除你電腦中的相片、音樂及其他媒體</translation>
+<translation id="327147043223061465">顯示所有 Cookie 和網站資料</translation>
 <translation id="3271648667212143903"><ph name="ORIGIN" /> 要求連線</translation>
 <translation id="3273410961255278341">送至：</translation>
 <translation id="327444463633065042">裝置名稱無效</translation>
@@ -1980,6 +1981,7 @@
 <translation id="3950820424414687140">登入</translation>
 <translation id="3954354850384043518">下載中</translation>
 <translation id="3955193568934677022">允許網站播放受保護的內容 (建議)</translation>
+<translation id="3956702100721821638">無法連上 Google Play</translation>
 <translation id="3958088479270651626">匯入書籤和設定</translation>
 <translation id="3960566196862329469">ONC</translation>
 <translation id="3966072572894326936">選擇其他資料夾...</translation>
@@ -2616,7 +2618,6 @@
 <translation id="5015344424288992913">正在解析 proxy...</translation>
 <translation id="5015762597229892204">選取印表機驅動程式應用程式</translation>
 <translation id="5017508259293544172">LEAP</translation>
-<translation id="5018792385199109315">管理起始網頁</translation>
 <translation id="5024856940085636730">作業處理時間超出預期。你想中斷作業嗎？</translation>
 <translation id="5026874946691314267">不要再顯示這則通知</translation>
 <translation id="5027550639139316293">電子郵件憑證</translation>
@@ -2653,6 +2654,7 @@
 <translation id="5087249366037322692">由第三方新增</translation>
 <translation id="5087580092889165836">新增信用卡</translation>
 <translation id="5087864757604726239">返回</translation>
+<translation id="5087926280563932024">無法驗證帳戶。請再試一次，或重新啟動 Chromebook。</translation>
 <translation id="508794495705880051">新增信用卡...</translation>
 <translation id="5088534251099454936">PKCS #1 SHA-512 (使用 RSA 加密)</translation>
 <translation id="509429900233858213">發生錯誤。</translation>
@@ -2981,7 +2983,6 @@
 <translation id="55601339223879446">調整顯示畫面中的桌面邊界</translation>
 <translation id="556042886152191864">按鈕</translation>
 <translation id="5562781907504170924">這個分頁已連線至藍牙裝置。</translation>
-<translation id="5562792089140223095">還原分頁或開啟指定網頁</translation>
 <translation id="5565871407246142825">信用卡</translation>
 <translation id="5567989639534621706">應用程式快取</translation>
 <translation id="5568069709869097550">無法登入</translation>
@@ -3464,6 +3465,7 @@
 <translation id="6333064448949140209">檔案會傳送給 Google 進行偵錯</translation>
 <translation id="6333834492048057036">將焦點移至網址列以便進行搜尋</translation>
 <translation id="6339668969738228384">為 <ph name="USER_EMAIL_ADDRESS" /> 建立新的個人資料</translation>
+<translation id="6340017061976355871">無法連上伺服器。請檢查網路連線狀態，然後再試一次。如果問題持續發生，請重新啟動 Chromebook。</translation>
 <translation id="6340071272923955280">網際網路列印通訊協定 (IPPS)</translation>
 <translation id="6341850831632289108">偵測你的實際位置</translation>
 <translation id="634208815998129842">工作管理員</translation>
@@ -3646,6 +3648,7 @@
 <translation id="6586451623538375658">調換滑鼠主按鈕</translation>
 <translation id="6589411753837135276">允許網站執行 Flash 前，必須先詢問你 (建議)</translation>
 <translation id="6589706261477377614">增加按鍵亮度</translation>
+<translation id="6590458744723262880">重新命名資料夾</translation>
 <translation id="6592267180249644460">WebRTC 紀錄擷取時間：<ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>
 <translation id="6596092346130528198">這是你想要的新分頁嗎？</translation>
 <translation id="6596325263575161958">加密選項</translation>
@@ -3791,6 +3794,7 @@
 <translation id="682123305478866682">投放桌面</translation>
 <translation id="6823506025919456619">你必須登入 Chrome 才能查看自己的裝置</translation>
 <translation id="6824564591481349393">複製電子郵件地址(&amp;E)</translation>
+<translation id="6825184156888454064">依名稱排序</translation>
 <translation id="6827236167376090743">這部影片會持續播放到地老天荒。</translation>
 <translation id="6828153365543658583">只允許下列使用者登入：</translation>
 <translation id="6828434191343384461">所選資料已從 Chrome 和已同步的裝置中移除。不過，您仍可前往 <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> 存取 Google 帳戶中保存的其他各種瀏覽紀錄，例如在其他 Google 服務中的搜尋和活動紀錄。</translation>
@@ -3842,6 +3846,7 @@
 <translation id="6909461304779452601">無法從這個網站新增應用程式、擴充功能及使用者指令碼。</translation>
 <translation id="6910211073230771657">已刪除</translation>
 <translation id="691024665142758461">下載多個檔案</translation>
+<translation id="6911324888870229398">網路連線中斷。請檢查連線狀態，或改用其他 Wi-Fi 網路。</translation>
 <translation id="6915804003454593391">使用者：</translation>
 <translation id="6916590542764765824">管理擴充功能</translation>
 <translation id="6920989436227028121">在一般分頁中開啟</translation>
@@ -4013,6 +4018,7 @@
 <translation id="7191454237977785534">另存新檔</translation>
 <translation id="7196835305346730603">正在搜尋附近的 Chromebox...</translation>
 <translation id="7199158086730159431">取得說明(&amp;E)</translation>
+<translation id="7201118060536064622">已刪除「<ph name="DELETED_ITEM_NAME" />」</translation>
 <translation id="7201354769043018523">右括弧</translation>
 <translation id="7205869271332034173">SSID：</translation>
 <translation id="7206693748120342859">正在下載 <ph name="PLUGIN_NAME" />...</translation>
@@ -5312,6 +5318,7 @@
 <translation id="945522503751344254">提供意見</translation>
 <translation id="951981865514037445"><ph name="URL" /> 要求使用裝置的位置資訊。</translation>
 <translation id="952992212772159698">未啟用</translation>
+<translation id="9580706199804957">無法連上 Google 服務</translation>
 <translation id="958515377357646513">輕觸即可繼續。</translation>
 <translation id="960719561871045870">電信業者代碼</translation>
 <translation id="960987915827980018">剩下約 1 個小時</translation>

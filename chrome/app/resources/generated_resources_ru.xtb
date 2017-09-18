@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">Месяц окончания срока действия</translation>
 <translation id="1153356358378277386">Сопряженные устройства</translation>
 <translation id="1156185823432343624">Громкость: выкл.</translation>
+<translation id="1156488781945104845">Текущее время</translation>
 <translation id="1161575384898972166">Чтобы экспортировать сертификат клиента, войдите в <ph name="TOKEN_NAME" />.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{Идет скачивание. Отменить и выйти из режима инкогнито?}one{Идет скачивание (#). Отменить и выйти из режима инкогнито?}few{Идет скачивание (#). Отменить и выйти из режима инкогнито?}many{Идет скачивание (#). Отменить и выйти из режима инкогнито?}other{Идет скачивание (#). Отменить и выйти из режима инкогнито?}}</translation>
 <translation id="1163931534039071049">&amp;Просмотр кода фрейма</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">Ноты</translation>
 <translation id="1205489148908752564">Просмотр и изменение белого списка пользователей</translation>
 <translation id="1206407435587370571">Знакомство с Chromebook</translation>
+<translation id="1211364473545090084">Не хотите, чтобы сохранилась история просмотров? Используйте режим инкогнито.</translation>
 <translation id="1213037489357051291">Отпечатков добавлено: <ph name="NUM_FINGERPRINTS" /></translation>
 <translation id="1215411991991485844">Добавлено фоновое приложение</translation>
 <translation id="1216654534877302979">Отключить звук на сайтах</translation>
@@ -398,6 +400,7 @@
 <translation id="1608626060424371292">Удалить профиль</translation>
 <translation id="1609170755653088773">Синхронизируйте этот пароль с iPhone</translation>
 <translation id="1609862759711084604">Предыдущий пользователь</translation>
+<translation id="1611584202130317952">Синхронизация прервана. Повторите попытку либо свяжитесь с владельцем устройства или администратором.</translation>
 <translation id="1611649489706141841">вперед</translation>
 <translation id="1611704746353331382">Экспорт закладок в файл HTML</translation>
 <translation id="1612129875274679969">Всегда запускать устройство в режиме киоска.</translation>
@@ -1071,7 +1074,6 @@
 <translation id="2638942478653899953">Не удается подключиться к Google Диску. Попробуйте <ph name="BEGIN_LINK" />выйти<ph name="END_LINK" /> и снова зайти в систему.</translation>
 <translation id="2642111877055905627">Футбольный мяч</translation>
 <translation id="2643698698624765890">Управлять расширениями можно на вкладке "Расширения" в меню "Окно".</translation>
-<translation id="2644493576963871098">Страницы, открывающиеся при запуске</translation>
 <translation id="2647142853114880570">обновить</translation>
 <translation id="2648831393319960979">Добавление устройства в аккаунт. Подождите несколько минут...</translation>
 <translation id="2649045351178520408">ASCII с кодировкой Base64, цепочка сертификатов</translation>
@@ -1108,6 +1110,7 @@
 <translation id="2688196195245426394">Ошибка при регистрации устройства на сервере: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Показать языковые настройки</translation>
 <translation id="2691385045260836588">Модель</translation>
+<translation id="2693176596243495071">Произошла неизвестная ошибка. Повторите попытку позже. Если ситуация не изменится, обратитесь к администратору.</translation>
 <translation id="2694026874607847549">Файлов cookie: 1</translation>
 <translation id="2695749433451188613">Internet Printing Protocol (HTTPS)</translation>
 <translation id="270358213449696159">Полный текст Условий использования Google Chrome OS</translation>
@@ -1452,6 +1455,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3166571619128686629">Нажмите на этот значок или произнесите "О'кей, Google", чтобы начать голосовой поиск</translation>
 <translation id="3170072451822350649">Можно пропустить это действие и начать <ph name="LINK_START" />гостевой сеанс<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">Нажмите, чтобы скрыть пароль</translation>
+<translation id="3177857336576585529">Сайт <ph name="SITE_NAME" /> запрашивает разрешение.</translation>
 <translation id="3177909033752230686">Язык страницы:</translation>
 <translation id="3180365125572747493">Введите пароль для шифрования этого файла сертификата.</translation>
 <translation id="3181110748548073003">Чтобы перейти на следующую страницу, нажмите |<ph name="SHORTCUT" />|</translation>
@@ -1503,6 +1507,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3269101346657272573">Введите PIN-код.</translation>
 <translation id="326999365752735949">Утилита diff скачивается</translation>
 <translation id="3270965368676314374">Доступ к фотографиям, музыке и другим медиафайлам на вашем компьютере, а также их изменение и удаление</translation>
+<translation id="327147043223061465">Все файлы cookie и данные сайта</translation>
 <translation id="3271648667212143903">Сайт <ph name="ORIGIN" /> запрашивает подключение</translation>
 <translation id="3273410961255278341">Отправка:</translation>
 <translation id="327444463633065042">Недействительное имя компьютера</translation>
@@ -1982,6 +1987,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3950820424414687140">Вход</translation>
 <translation id="3954354850384043518">Скачивание…</translation>
 <translation id="3955193568934677022">Разрешить сайтам воспроизводить защищенное содержание (рекомендуется)</translation>
+<translation id="3956702100721821638">Не удалось подключиться к Google Play</translation>
 <translation id="3958088479270651626">Импорт закладок и настроек</translation>
 <translation id="3960566196862329469">ONC</translation>
 <translation id="3966072572894326936">Выбрать другую папку...</translation>
@@ -2621,7 +2627,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5015344424288992913">Определение прокси-сервера...</translation>
 <translation id="5015762597229892204">Выберите драйвер для принтера</translation>
 <translation id="5017508259293544172">LEAP</translation>
-<translation id="5018792385199109315">Управление стартовыми страницами</translation>
 <translation id="5024856940085636730">Операция займет больше времени, чем ожидалось. Прервать?</translation>
 <translation id="5026874946691314267">Больше не показывать это сообщение</translation>
 <translation id="5027550639139316293">Сертификат электронной почты</translation>
@@ -2658,6 +2663,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5087249366037322692">Добавлено сторонней программой</translation>
 <translation id="5087580092889165836">Добавить карту</translation>
 <translation id="5087864757604726239">назад</translation>
+<translation id="5087926280563932024">Не удалось подтвердить аккаунт. Повторите попытку или перезагрузите устройство Chromebook.</translation>
 <translation id="508794495705880051">Добавить карту…</translation>
 <translation id="5088534251099454936">PKCS #1 SHA-512 с шифрованием RSA</translation>
 <translation id="509429900233858213">Произошла ошибка.</translation>
@@ -2987,7 +2993,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="55601339223879446">Подогнать границы рабочего стола под размер экрана</translation>
 <translation id="556042886152191864">Кнопка</translation>
 <translation id="5562781907504170924">Эта вкладка подключена к одному устройству по Bluetooth.</translation>
-<translation id="5562792089140223095">Восстановить вкладки или открыть отдельные страницы</translation>
 <translation id="5565871407246142825">Банковские карты</translation>
 <translation id="5567989639534621706">Кеш приложений</translation>
 <translation id="5568069709869097550">Не удается войти</translation>
@@ -3312,6 +3317,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6076448957780543068">Включить этот скриншот</translation>
 <translation id="6077131872140550515">Удалить из предпочитаемых сетей</translation>
 <translation id="6078752646384677957">Проверьте микрофон и уровни громкости.</translation>
+<translation id="6080515710685820702">Компьютером пользуются несколько человек? Откройте окно в режиме инкогнито.</translation>
 <translation id="6080689532560039067">Проверка системного времени</translation>
 <translation id="6082651258230788217">Добавить на панель инструментов</translation>
 <translation id="6086814797483779854">Запуск по нажатию</translation>
@@ -3470,6 +3476,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6333064448949140209">Файл будет отправлен в Google для отладки</translation>
 <translation id="6333834492048057036">Ввод поискового запроса в адресной строке</translation>
 <translation id="6339668969738228384">Создать профиль для <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="6340017061976355871">Не удалось подключиться к серверу. Проверьте подключение к сети и повторите попытку. Если проблема не исчезнет, перезагрузите устройство Chromebook.</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
 <translation id="6341850831632289108">Определение вашего местоположения</translation>
 <translation id="634208815998129842">Диспетчер задач</translation>
@@ -3653,6 +3660,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6586451623538375658">Поменять местами кнопки мыши</translation>
 <translation id="6589411753837135276">Запрашивать разрешение на использование Flash (рекомендуется)</translation>
 <translation id="6589706261477377614">Увеличить яркость клавиш</translation>
+<translation id="6590458744723262880">Переименование папки</translation>
 <translation id="6592267180249644460">Время сохранения журнала WebRTC: <ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>
 <translation id="6596092346130528198">Другая страница быстрого доступа?</translation>
 <translation id="6596325263575161958">Параметры шифрования</translation>
@@ -3798,6 +3806,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="682123305478866682">Трансляция содержимого рабочего стола</translation>
 <translation id="6823506025919456619">Войдите в Chrome, чтобы увидеть свои устройства</translation>
 <translation id="6824564591481349393">Скопировать адрес электронной почты</translation>
+<translation id="6825184156888454064">Упорядочить по названию</translation>
 <translation id="6827236167376090743">Видео будет воспроизводиться в режиме повтора.</translation>
 <translation id="6828153365543658583">Разрешить вход только следующим пользователям:</translation>
 <translation id="6828434191343384461">Выбранные данные удалены из Chrome и с синхронизированных устройств. История также может храниться в вашем аккаунте Google, например в виде поисковых запросов и сведений из сервисов Google. Их можно найти на сайте <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />.</translation>
@@ -3849,6 +3858,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6909461304779452601">Невозможно добавить приложение, расширение или пользовательский скрипт с этого сайта.</translation>
 <translation id="6910211073230771657">Удалено</translation>
 <translation id="691024665142758461">скачивание нескольких файлов</translation>
+<translation id="6911324888870229398">Соединение прервано. Проверьте подключение или используйте другую сеть Wi-Fi.</translation>
 <translation id="6915804003454593391">Пользователь:</translation>
 <translation id="6916590542764765824">Управление расширениями</translation>
 <translation id="6920989436227028121">Открыть в обычной вкладке</translation>
@@ -3949,6 +3959,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7054808953701320293">Больше не показывать это сообщение.</translation>
 <translation id="7056526158851679338">&amp;Проверка устройств</translation>
 <translation id="7059858479264779982">Включить автозапуск</translation>
+<translation id="7059893117020417984">Чтобы просматривать веб-страницы анонимно, нажмите на значок с тремя точками и выберите "Новое окно в режиме инкогнито"</translation>
 <translation id="7062222374113411376">Разрешать недавно закрытым сайтам завершать отправку и получение данных</translation>
 <translation id="7063129466199351735">Обработка ярлыков…</translation>
 <translation id="7063957500469387217">Настройка и управление виртуальными принтерами Google</translation>
@@ -4020,6 +4031,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7191454237977785534">Сохранить файл как</translation>
 <translation id="7196835305346730603">Поиск других устройств Chromebox...</translation>
 <translation id="7199158086730159431">&amp;Справка</translation>
+<translation id="7201118060536064622">Объект "<ph name="DELETED_ITEM_NAME" />" удален</translation>
 <translation id="7201354769043018523">Правая скобка</translation>
 <translation id="7205869271332034173">SSID:</translation>
 <translation id="7206693748120342859">Скачивание плагина <ph name="PLUGIN_NAME" />…</translation>
@@ -4616,6 +4628,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8116190140324504026">Дополнительная информация...</translation>
 <translation id="8116483400482790018">Пользовательский словарь для проверки правописания</translation>
 <translation id="8116972784401310538">&amp;Диспетчер закладок</translation>
+<translation id="8118362518458010043">Расширение отключено браузером Chrome. Оно может быть небезопасно.</translation>
 <translation id="8118860139461251237">Управление скачанными файлами</translation>
 <translation id="8119631488458759651">удалить этот сайт</translation>
 <translation id="81238879832906896">Цветок (желтый с белым)</translation>
@@ -4732,6 +4745,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8283475148136688298">При подключении к "<ph name="DEVICE_NAME" />" код аутентификации был отклонен.</translation>
 <translation id="8284279544186306258">все сайты <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">Вход</translation>
+<translation id="8286963743045814739">В режиме инкогнито вы можете просматривать веб-страницы анонимно</translation>
 <translation id="8291967909914612644">Страна провайдера</translation>
 <translation id="8294431847097064396">Источник</translation>
 <translation id="8297006494302853456">Слабый</translation>
@@ -5322,6 +5336,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="945522503751344254">Отправить отзыв</translation>
 <translation id="951981865514037445"><ph name="URL" /> запрашивает данные о местоположении вашего устройства.</translation>
 <translation id="952992212772159698">Не активировано</translation>
+<translation id="9580706199804957">Не удалось подключиться к сервисам Google</translation>
 <translation id="958515377357646513">Нажмите, чтобы перейти вперед</translation>
 <translation id="960719561871045870">Код оператора</translation>
 <translation id="960987915827980018">Осталось около часа</translation>

@@ -396,6 +396,7 @@
 <translation id="1608626060424371292">移除此用户</translation>
 <translation id="1609170755653088773">将此密码同步到您的 iPhone</translation>
 <translation id="1609862759711084604">上一位用户</translation>
+<translation id="1611584202130317952">配置流程中断了。请重试，或与您的设备所有者/管理员联系。</translation>
 <translation id="1611649489706141841">前进</translation>
 <translation id="1611704746353331382">将书签导出到 HTML 文件...</translation>
 <translation id="1612129875274679969">使此设备永远处于自助服务终端模式。</translation>
@@ -1066,7 +1067,6 @@
 <translation id="2638942478653899953">无法访问 Google 云端硬盘。请先<ph name="BEGIN_LINK" />退出<ph name="END_LINK" />，然后再重新登录。</translation>
 <translation id="2642111877055905627">足球</translation>
 <translation id="2643698698624765890">您可以通过点击“窗口”菜单中的“扩展程序”，管理您的扩展程序。</translation>
-<translation id="2644493576963871098">会在浏览器启动时打开的网页</translation>
 <translation id="2647142853114880570">重新加载</translation>
 <translation id="2648831393319960979">正在将该设备添加到您的帐号，这可能需要一点时间…</translation>
 <translation id="2649045351178520408">Base64 编码 ASCII，证书链</translation>
@@ -1498,6 +1498,7 @@
 <translation id="3269101346657272573">请输入 PIN。</translation>
 <translation id="326999365752735949">正在下载diff</translation>
 <translation id="3270965368676314374">读取、更改和删除您计算机上的照片、音乐和其他媒体</translation>
+<translation id="327147043223061465">查看所有 Cookie 和网站数据</translation>
 <translation id="3271648667212143903"><ph name="ORIGIN" /> 希望连接到以下所选设备：</translation>
 <translation id="3273410961255278341">发送用途：</translation>
 <translation id="327444463633065042">机器名称无效</translation>
@@ -1974,6 +1975,7 @@
 <translation id="3950820424414687140">登录</translation>
 <translation id="3954354850384043518">正在下载</translation>
 <translation id="3955193568934677022">允许网站播放受保护的内容（推荐）</translation>
+<translation id="3956702100721821638">无法连接到 Google Play</translation>
 <translation id="3958088479270651626">导入书签和设置</translation>
 <translation id="3960566196862329469">ONC</translation>
 <translation id="3966072572894326936">选择其他文件夹...</translation>
@@ -2609,7 +2611,6 @@
 <translation id="5015344424288992913">正在解析代理...</translation>
 <translation id="5015762597229892204">选择打印机驱动程序应用</translation>
 <translation id="5017508259293544172">LEAP</translation>
-<translation id="5018792385199109315">管理启动页</translation>
 <translation id="5024856940085636730">某项操作所用的时间超出预期。要取消该操作吗？</translation>
 <translation id="5026874946691314267">不再显示此通知</translation>
 <translation id="5027550639139316293">电子邮件证书</translation>
@@ -2646,6 +2647,7 @@
 <translation id="5087249366037322692">由第三方添加</translation>
 <translation id="5087580092889165836">添加新卡</translation>
 <translation id="5087864757604726239">后退</translation>
+<translation id="5087926280563932024">无法验证您的帐号。请重试，或重新启动您的 Chromebook。</translation>
 <translation id="508794495705880051">添加新信用卡...</translation>
 <translation id="5088534251099454936">PKCS #1，带有 RSA 加密的 SHA-512</translation>
 <translation id="509429900233858213">出现错误。</translation>
@@ -2968,7 +2970,6 @@
 <translation id="55601339223879446">调整您的桌面在显示屏内的边界</translation>
 <translation id="556042886152191864">按钮</translation>
 <translation id="5562781907504170924">此标签页已连接到蓝牙设备。</translation>
-<translation id="5562792089140223095">恢复标签页或打开特定网页</translation>
 <translation id="5565871407246142825">信用卡</translation>
 <translation id="5567989639534621706">应用缓存</translation>
 <translation id="5568069709869097550">无法登录</translation>
@@ -3451,6 +3452,7 @@
 <translation id="6333064448949140209">文件将发送到 Google 进行调试</translation>
 <translation id="6333834492048057036">将光标移到地址栏以进行搜索</translation>
 <translation id="6339668969738228384">为 <ph name="USER_EMAIL_ADDRESS" /> 创建新的个人资料</translation>
+<translation id="6340017061976355871">无法与此服务器建立连接。请检查您的网络连接，然后重试。如果问题仍然存在，请重新启动您的 Chromebook。</translation>
 <translation id="6340071272923955280">互联网打印协议 (IPPS)</translation>
 <translation id="6341850831632289108">检测您所在的地理位置</translation>
 <translation id="634208815998129842">任务管理器</translation>
@@ -3633,6 +3635,7 @@
 <translation id="6586451623538375658">切换鼠标主按钮</translation>
 <translation id="6589411753837135276">在允许网站运行 Flash 前先询问（推荐）</translation>
 <translation id="6589706261477377614">提高键盘亮度</translation>
+<translation id="6590458744723262880">重命名文件夹</translation>
 <translation id="6592267180249644460">WebRTC日志记录时间：<ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>
 <translation id="6596092346130528198">这是您想要的新标签页吗？</translation>
 <translation id="6596325263575161958">加密选项</translation>
@@ -3778,6 +3781,7 @@
 <translation id="682123305478866682">投射桌面</translation>
 <translation id="6823506025919456619">您需要登录 Chrome，才能看到自己的设备</translation>
 <translation id="6824564591481349393">复制电子邮件地址(&amp;E)</translation>
+<translation id="6825184156888454064">按名称排序</translation>
 <translation id="6827236167376090743">此视频将不断循环播放。</translation>
 <translation id="6828153365543658583">只允许以下用户登录：</translation>
 <translation id="6828434191343384461">所选数据已从 Chrome 和同步的设备中移除。不过，您的 Google 帐号在 <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> 上可能有其他形式的浏览记录（例如，在其他 Google 服务中的搜索记录和活动记录）。</translation>
@@ -3829,6 +3833,7 @@
 <translation id="6909461304779452601">无法添加来自此网站的应用、扩展程序和用户脚本。</translation>
 <translation id="6910211073230771657">已删除</translation>
 <translation id="691024665142758461">下载多个文件</translation>
+<translation id="6911324888870229398">网络连接中断了。请检查您的网络连接，或尝试连接到其他 Wi-Fi 网络。</translation>
 <translation id="6915804003454593391">用户：</translation>
 <translation id="6916590542764765824">管理扩展程序</translation>
 <translation id="6920989436227028121">在常规标签页中打开</translation>
@@ -4000,6 +4005,7 @@
 <translation id="7191454237977785534">文件另存为</translation>
 <translation id="7196835305346730603">正在搜索附近的 Chromebox…</translation>
 <translation id="7199158086730159431">获取帮助(&amp;E)</translation>
+<translation id="7201118060536064622">已删除“<ph name="DELETED_ITEM_NAME" />”</translation>
 <translation id="7201354769043018523">右括号</translation>
 <translation id="7205869271332034173">SSID：</translation>
 <translation id="7206693748120342859">正在下载 <ph name="PLUGIN_NAME" />...</translation>
@@ -5293,6 +5299,7 @@
 <translation id="945522503751344254">发送反馈</translation>
 <translation id="951981865514037445"><ph name="URL" /> 想要使用您的设备位置信息。</translation>
 <translation id="952992212772159698">未激活</translation>
+<translation id="9580706199804957">无法连接到 Google 服务</translation>
 <translation id="958515377357646513">触摸即可前进。</translation>
 <translation id="960719561871045870">运营商代码</translation>
 <translation id="960987915827980018">约剩 1 小时</translation>
