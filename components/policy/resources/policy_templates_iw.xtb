@@ -662,7 +662,7 @@
 
           מדיניות זו מכובדת רק אם המדיניות 'DefaultSearchProviderEnabled' מופעלת.</translation>
 <translation id="350797926066071931">‏הפוך את Google Translate לפעיל</translation>
-<translation id="3512226956150568738">‏אם המודל של מכשיר הלקוח תמך ב-ARC לפני שהיה צורך בהעברה אל ext4 כדי להפעיל ARC, ואם המדיניות ArcEnabled מוגדרת כ-true, ההתנהגות של אפשרות זו תהיה זהה ל-AskUser (ערך 3). בכל המקרים האחרים (אם מודל המכשיר לא תמך לפני כן ב-ARC, או אם מדיניות ArcEnabled מוגדרת כ-false), הערך הזה זהה ל-DisallowArc (ערך 0).</translation>
+<translation id="3512226956150568738">‏אם הדגם של מכשיר הלקוח תמך ב-ARC לפני שהיה צורך בהעברה אל ext4 כדי להפעיל ARC, ואם המדיניות ArcEnabled מוגדרת כ-true, ההתנהגות של אפשרות זו תהיה זהה ל-AskUser (ערך 3). בכל המקרים האחרים (אם דגם המכשיר לא תמך לפני כן ב-ARC, או אם מדיניות ArcEnabled מוגדרת כ-false), הערך הזה זהה ל-DisallowArc (ערך 0).</translation>
 <translation id="3528000905991875314">הפעל דפי שגיאה חלופיים</translation>
 <translation id="3547954654003013442">‏הגדרות Proxy</translation>
 <translation id="3591584750136265240">הגדרה של התנהגות האימות בהתחברות</translation>

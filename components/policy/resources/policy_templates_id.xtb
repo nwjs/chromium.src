@@ -1594,7 +1594,7 @@
 
       Jika kebijakan disetel ke false, saran konten yang dibuat secara otomatis tidak akan ditampilkan di laman Tab Baru.</translation>
 <translation id="7323896582714668701">Parameter baris perintah tambahan untuk <ph name="PRODUCT_NAME" /></translation>
-<translation id="7326394567531622570">Serupa dengan Wipe (nilai 2), namun cobalah untuk mempertahankan token login sehingga pengguna tidak perlu login kembali.</translation>
+<translation id="7326394567531622570">Serupa dengan Wipe (nilai 2), namun mencoba untuk mempertahankan token login sehingga pengguna tidak perlu login lagi.</translation>
 <translation id="7329842439428490522">Menentukan panjang waktu tanpa masukan pengguna sebelum layar dimatikan ketika menggunakan daya baterai.
 
           Saat kebijakan ini disetel ke nilai yang lebih besar dari nol, nilai tersebut akan menentukan panjang waktu pengguna tetap menganggur sebelum <ph name="PRODUCT_OS_NAME" /> mematikan layar.

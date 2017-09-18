@@ -663,7 +663,7 @@
 
           To se pravilo poštuje samo ako je omogućeno pravilo "DefaultSearchProviderEnabled".</translation>
 <translation id="350797926066071931">Omogući Prevoditelj</translation>
-<translation id="3512226956150568738">Ako je klijentov model uređaja već podržavao ARC prije nego što je premještanje na ext4 bilo obavezno za izvođenje ARC-a i ako je pravilo ArcEnabled postavljeno na točno, ta će se opcija ponašati kao AskUser (vrijednost 3). U svim ostalim slučajevima (ako model uređaja nije podržavao ARC ili ako je pravilo ArcEnabled postavljeno na netočno), ta je vrijednost ekvivalentna pravilu DisallowArc (vrijednost 0).</translation>
+<translation id="3512226956150568738">Ako je klijentov model uređaja već podržavao ARC prije nego što je premještanje na ext4 bilo obavezno za izvođenje ARC-a i ako je pravilo ArcEnabled postavljeno na true, ta će se opcija ponašati kao AskUser (vrijednost 3). U svim ostalim slučajevima (ako model uređaja nije podržavao ARC ili ako je pravilo ArcEnabled postavljeno na false), ta je vrijednost ekvivalentna pravilu DisallowArc (vrijednost 0).</translation>
 <translation id="3528000905991875314">Omogući alternativne stranice pogrešaka</translation>
 <translation id="3547954654003013442">Proxy postavke</translation>
 <translation id="3591584750136265240">Konfiguriraj ponašanje autentifikacije tijekom prijave</translation>
