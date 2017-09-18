@@ -35284,7 +35284,7 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   <owner>jlebel@chromium.org</owner>
   <summary>
     Counts how many times the signin promo is implicitly dismissed (by closing
-    the bookmark manager) per impression, only iOS.
+    the bookmark manager) per impression.
   </summary>
 </histogram>
 
@@ -35295,7 +35295,7 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
     Counts how many times one of the &quot;sign in&quot; buttons (any of the
     signed-out &quot;Sign in to Chrome&quot; button, the &quot;Continue as
     |name|&quot; button, or the &quot;Not |email|?&quot; button) is clicked per
-    impression, only iOS.
+    impression.
   </summary>
 </histogram>
 
@@ -35304,7 +35304,7 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   <owner>jlebel@chromium.org</owner>
   <summary>
     Counts how many times the explicit &quot;X&quot;-to-close button is clicked
-    per impression, only iOS.
+    per impression.
   </summary>
 </histogram>
 
@@ -35313,7 +35313,7 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   <owner>jlebel@chromium.org</owner>
   <summary>
     Counts how many times the signin promo is implicitly dismissed (by closing
-    the settings view) per impression, only iOS.
+    the settings view) per impression.
   </summary>
 </histogram>
 
@@ -35324,7 +35324,7 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
     Counts how many times one of the &quot;sign in&quot; buttons (any of the
     signed-out &quot;Sign in to Chrome&quot; button, the &quot;Continue as
     |name|&quot; button, or the &quot;Not |email|?&quot; button) is clicked per
-    impression, only iOS.
+    impression.
   </summary>
 </histogram>
 
