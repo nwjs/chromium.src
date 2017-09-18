@@ -109,10 +109,6 @@ class ArcVoiceInteractionFrameworkService
   // Show the voice interaction settings in container.
   void ShowVoiceInteractionSettings();
 
-  // Updates voice interaction flags. These flags are set only once when ARC
-  // container is enabled.
-  void UpdateVoiceInteractionPrefs();
-
   // Set voice interaction setup completed flag and notify the change.
   void SetVoiceInteractionSetupCompleted();
 
@@ -126,6 +122,8 @@ class ArcVoiceInteractionFrameworkService
   void NotifyMetalayerStatusChanged(bool visible);
 
   bool InitiateUserInteraction();
+
+  void SetVoiceInteractionSetupCompletedInternal(bool completed);
 
   content::BrowserContext* context_;
   ArcBridgeService* const arc_bridge_service_;  // Owned by ArcServiceManager
