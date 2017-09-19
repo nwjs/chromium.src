@@ -1082,6 +1082,10 @@ bool AppListView::HandleScroll(const ui::Event* event) {
 }
 
 void AppListView::SetState(AppListState new_state) {
+  // Do not allow the state to be changed once it has been set to CLOSED.
+  if (app_list_state_ == CLOSED)
+    return;
+
   AppListState new_state_override = new_state;
   if (is_side_shelf_ || is_tablet_mode_) {
     // If side shelf or tablet mode are active, all transitions should be
@@ -1206,6 +1210,9 @@ void AppListView::StartCloseAnimation(base::TimeDelta animation_duration) {
   if (is_side_shelf_ || !is_fullscreen_app_list_enabled_)
     return;
 
+  if (app_list_state_ != CLOSED)
+    SetState(CLOSED);
+
   app_list_main_view_->contents_view()->FadeOutOnClose(animation_duration);
 }
 
@@ -1238,7 +1245,10 @@ void AppListView::SetStateFromSearchBoxView(bool search_box_is_empty) {
 
 void AppListView::UpdateYPositionAndOpacity(int y_position_in_screen,
                                             float background_opacity,
-                                            bool is_end_gesture) {
+                                          bool is_end_gesture) {
+  if (app_list_state_ == CLOSED)
+    return;
+
   SetIsInDrag(!is_end_gesture);
   background_opacity_ = background_opacity;
   if (is_end_gesture) {
@@ -1270,6 +1280,9 @@ gfx::Rect AppListView::GetAppInfoDialogBounds() const {
 }
 
 void AppListView::SetIsInDrag(bool is_in_drag) {
+  if (app_list_state_ == CLOSED)
+    return;
+
   if (is_in_drag == is_in_drag_)
     return;
 

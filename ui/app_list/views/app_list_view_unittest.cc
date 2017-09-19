@@ -477,6 +477,17 @@ TEST_F(AppListViewFullscreenTest, MultiplePagesAlwaysReinitializeOnFirstPage) {
   ASSERT_EQ(view_->GetAppsPaginationModel()->selected_page(), 0);
 }
 
+// Tests that AppListView::SetState fails when the state has been set to CLOSED.
+TEST_F(AppListViewFullscreenTest, SetStateFailsWhenClosing) {
+  Initialize(0, false, false);
+  Show();
+  view_->SetState(AppListView::CLOSED);
+
+  view_->SetState(AppListView::FULLSCREEN_ALL_APPS);
+
+  ASSERT_EQ(AppListView::CLOSED, view_->app_list_state());
+}
+
 // Tests that when a click or tap event propagates to the AppListView, if the
 // event location is within the bounds of AppsGridView, do not close the
 // AppListView.
