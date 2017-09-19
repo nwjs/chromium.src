@@ -83,7 +83,7 @@ class BrowserNonClientFrameViewAsh : public BrowserNonClientFrameView,
                            ToggleTabletModeRelayout);
   FRIEND_TEST_ALL_PREFIXES(BrowserNonClientFrameViewAshTest,
                            AvatarDisplayOnTeleportedWindow);
-  FRIEND_TEST_ALL_PREFIXES(ImmersiveModeControllerAshTestTabletMode,
+  FRIEND_TEST_ALL_PREFIXES(ImmersiveModeControllerAshTestHostedApp,
                            FrameLayout);
 
   friend class BrowserHeaderPainterAsh;

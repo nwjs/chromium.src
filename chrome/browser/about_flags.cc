@@ -3449,6 +3449,14 @@ const FeatureEntry kFeatureEntries[] = {
      SINGLE_VALUE_TYPE(chromeos::switches::kEnableExternalDriveRename)},
 #endif  // defined(OS_CHROMEOS)
 
+#if defined(OS_CHROMEOS)
+    {"disable-tablet-autohide-titlebars",
+     flag_descriptions::kDisableTabletAutohideTitlebarsName,
+     flag_descriptions::kDisableTabletAutohideTitlebarsDescription, kOsCrOS,
+     SINGLE_DISABLE_VALUE_TYPE(
+         ash::switches::kAshDisableTabletAutohideTitlebars)},
+#endif  // defined(OS_CHROMEOS)
+
     // NOTE: Adding new command-line switches requires adding corresponding
     // entries to enum "LoginCustomFlags" in histograms/enums.xml. See note in
     // enums.xml and don't forget to run AboutFlagsHistogramTest unit test.
