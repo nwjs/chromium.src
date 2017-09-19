@@ -78,7 +78,7 @@ constexpr int kMaxAutoHideShowShelfRegionSize = 10;
 // TODO(minch): Add unit tests for this value. http://crbug.com/755185.
 // The velocity the app list must be dragged in order to change the state of the
 // app list for fling event, measured in DIPs/event.
-constexpr int kAppListDragVelocityThreshold = 100;
+constexpr int kAppListDragVelocityThreshold = 6;
 
 ui::Layer* GetLayer(views::Widget* widget) {
   return widget->GetNativeView()->layer();
