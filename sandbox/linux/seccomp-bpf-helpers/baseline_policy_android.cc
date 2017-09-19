@@ -14,6 +14,7 @@
 #include "build/build_config.h"
 #include "sandbox/linux/bpf_dsl/bpf_dsl.h"
 #include "sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.h"
+#include "sandbox/linux/system_headers/linux_syscalls.h"
 
 #if defined(__x86_64__)
 #include <asm/prctl.h>
