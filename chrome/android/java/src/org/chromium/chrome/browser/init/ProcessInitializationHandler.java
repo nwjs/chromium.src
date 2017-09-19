@@ -228,8 +228,7 @@ public class ProcessInitializationHandler {
                 }
 
                 @Override
-                public void dismissPhotoPicker() {
-                    mDialog.dismiss();
+                public void onPhotoPickerDismissed() {
                     mDialog = null;
                 }
             });
