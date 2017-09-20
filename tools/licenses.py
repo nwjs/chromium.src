@@ -127,12 +127,12 @@ ADDITIONAL_PATHS = (
 SPECIAL_CASES = {
     os.path.join('content', 'nw'): {
         "Name": "NW.js",
-        "URL": "http://nwjs.io",
+        "URL": "https://nwjs.io",
         "License": "MIT",
     },
-    os.path.join('third_party', 'node'): {
-        "Name": "IO.js",
-        "URL": "https://iojs.org",
+    os.path.join('third_party', 'node-nw'): {
+        "Name": "Node.js",
+        "URL": "https://nodejs.org",
         "License": "MIT",
     },
     os.path.join('native_client'): {
