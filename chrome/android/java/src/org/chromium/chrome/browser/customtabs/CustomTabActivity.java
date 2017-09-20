@@ -953,7 +953,8 @@ public class CustomTabActivity extends ChromeActivity {
     }
 
     private void recordClientConnectionStatus() {
-        String packageName = getActivityTab().getAppAssociatedWith();
+        String packageName =
+                (getActivityTab() == null) ? null : getActivityTab().getAppAssociatedWith();
         if (packageName == null) return; // No associated package
 
         boolean isConnected = packageName.equals(
