@@ -74,8 +74,13 @@ template("generate_nmf") {
       # Starts empty so the code below can use += everywhere.
       data = []
 
-      nmfflags +=
+      if (target_os == "linux") {
+        nmfflags +=
+          [ "--library-path=" + rebase_path("${root_out_dir}/lib", root_build_dir) ]
+      } else {
+        nmfflags +=
           [ "--library-path=" + rebase_path(root_out_dir, root_build_dir) ]
+      }
 
       # NOTE: There is no explicit dependency for the lib directory
       # (lib32 and lib64 for x86/x64) created in the product directory.

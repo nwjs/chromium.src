@@ -31,6 +31,7 @@ size_t size_of_item(const base::string16& key,
 
 }  // namespace
 
+size_t DOMStorageMap::quota_override_ = 0;
 DOMStorageMap::DOMStorageMap(size_t quota) : DOMStorageMap(quota, false) {}
 
 DOMStorageMap::DOMStorageMap(size_t quota, bool has_only_keys)
@@ -39,6 +40,8 @@ DOMStorageMap::DOMStorageMap(size_t quota, bool has_only_keys)
       quota_(quota),
       has_only_keys_(has_only_keys) {
   ResetKeyIterator();
+  if (quota_override_)
+    quota_ = quota_override_;
 }
 
 DOMStorageMap::~DOMStorageMap() {}

@@ -171,7 +171,8 @@ bool AllowCrossRendererResourceLoadHelper(bool is_guest,
 
     // An extension's resources should only be accessible to WebViews owned by
     // that extension.
-    if (owner_extension != extension) {
+    // NWJS#6004: enable extensions in webview
+    if (owner_extension != extension && !owner_extension->is_nwjs_app()) {
       *allowed = false;
       return true;
     }

@@ -33,6 +33,7 @@ struct CORE_EXPORT GlobalScopeCreationParams final {
 
  public:
   GlobalScopeCreationParams(
+      bool isNodeJS, const std::string& main_script,
       const KURL& script_url,
       const String& user_agent,
       const String& source_code,
@@ -50,6 +51,8 @@ struct CORE_EXPORT GlobalScopeCreationParams final {
   ~GlobalScopeCreationParams() = default;
 
   KURL script_url;
+  bool nodejs_;
+  std::string main_script_;
   String user_agent;
   String source_code;
   std::unique_ptr<Vector<char>> cached_meta_data;

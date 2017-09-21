@@ -397,6 +397,14 @@ class CORE_EXPORT WebLocalFrameImpl final
   }
 
   void SetInputEventsScaleForEmulation(float);
+  void setNodeJS(bool node) { GetFrame()->setNodeJS(node); }
+  bool isNodeJS() const { return GetFrame()->isNodeJS(); }
+  bool isNwDisabledChildFrame() const { return GetFrame()->isNwDisabledChildFrame(); }
+  bool isNwFakeTop() const { return GetFrame()->isNwFakeTop(); }
+  void setDevtoolsJail(WebFrame* iframe) {
+    GetFrame()->setDevtoolsJail(iframe ? static_cast<const WebLocalFrameImpl*>(iframe)->GetFrame() : nullptr);
+  }
+  WebFrame* getDevtoolsJail() { return FromFrame((blink::LocalFrame*)GetFrame()->getDevtoolsJail()); }
 
   static void SelectWordAroundPosition(LocalFrame*, VisiblePosition);
 

@@ -60,8 +60,10 @@ void ExtensionsGuestViewManagerDelegate::DispatchEvent(
   if (!owner)
     return;  // Could happen at tab shutdown.
 
+  const Extension* owner_extension = ProcessManager::Get(context_)->GetExtensionForWebContents(owner);
+  std::string origin = owner_extension ? owner_extension->id() : guest->owner_host();
   EventRouter::DispatchEventToSender(owner, guest->browser_context(),
-                                     guest->owner_host(), histogram_value,
+                                     origin, histogram_value,
                                      event_name, std::move(event_args),
                                      EventRouter::USER_GESTURE_UNKNOWN, info);
 }

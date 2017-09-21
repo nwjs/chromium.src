@@ -346,10 +346,10 @@ std::vector<GURL> Predictor::GetPredictedUrlListAtStartup(
         urls.push_back(gurl.GetWithEmptyPath());
     }
   }
-
+#if 0
   if (urls.empty())
     urls.push_back(GURL("http://www.google.com:80"));
-
+#endif
   return urls;
 }
 

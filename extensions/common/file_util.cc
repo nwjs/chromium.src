@@ -44,6 +44,9 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
+#include "base/command_line.h"
+#include "content/nw/src/browser/nw_extensions_browser_hooks.h"
+
 namespace extensions {
 namespace file_util {
 namespace {
@@ -231,7 +234,20 @@ scoped_refptr<Extension> LoadExtension(const base::FilePath& extension_path,
 std::unique_ptr<base::DictionaryValue> LoadManifest(
     const base::FilePath& extension_path,
     std::string* error) {
-  return LoadManifest(extension_path, kManifestFilename, error);
+  base::FilePath manifest_path = extension_path.Append(kNWJSManifestFilename);
+  
+  if (!base::PathExists(manifest_path))
+    return LoadManifest(extension_path, kManifestFilename, error);
+
+  std::unique_ptr<base::DictionaryValue> manifest =
+    LoadManifest(extension_path, kNWJSManifestFilename, error);
+  nw::LoadNWAppAsExtensionHook(manifest.get(), extension_path, error);
+
+  base::CommandLine* cmdline = base::CommandLine::ForCurrentProcess();
+  if (cmdline->HasSwitch("mixed-context"))
+    manifest->SetBoolean(manifest_keys::kNWJSMixedContext, true);
+
+  return manifest;
 }
 
 std::unique_ptr<base::DictionaryValue> LoadManifest(
@@ -278,6 +294,7 @@ bool ValidateExtension(const Extension* extension,
   // Check children of extension root to see if any of them start with _ and is
   // not on the reserved list. We only warn, and do not block the loading of the
   // extension.
+#if 0
   std::string warning;
   CheckForIllegalFilenames(extension->path(), &warning);
   if (!warning.empty())
@@ -310,6 +327,7 @@ bool ValidateExtension(const Extension* extension,
     }
     // Only warn; don't block loading the extension.
   }
+#endif
   return true;
 }
 
@@ -342,6 +360,7 @@ std::vector<base::FilePath> FindPrivateKeyFiles(
 
 bool CheckForIllegalFilenames(const base::FilePath& extension_path,
                               std::string* error) {
+#if 0
   // Reserved underscore names.
   static const base::FilePath::CharType* reserved_names[] = {
       kLocaleFolder, kPlatformSpecificFolder, FILE_PATH_LITERAL("__MACOSX"), };
@@ -378,7 +397,7 @@ bool CheckForIllegalFilenames(const base::FilePath& extension_path,
       return false;
     }
   }
-
+#endif
   return true;
 }
 
@@ -564,11 +583,11 @@ MessageBundle::SubstitutionMap* LoadMessageBundleSubstitutionMapFromPaths(
 }
 
 base::FilePath GetVerifiedContentsPath(const base::FilePath& extension_path) {
-  return extension_path.Append(kMetadataFolder)
+  return extension_path
       .Append(kVerifiedContentsFilename);
 }
 base::FilePath GetComputedHashesPath(const base::FilePath& extension_path) {
-  return extension_path.Append(kMetadataFolder).Append(kComputedHashesFilename);
+  return extension_path.Append(kComputedHashesFilename);
 }
 
 }  // namespace file_util

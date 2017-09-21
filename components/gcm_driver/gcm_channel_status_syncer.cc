@@ -20,6 +20,8 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 
+#include "content/nw/src/nw_base.h"
+
 namespace gcm {
 
 namespace {
@@ -61,7 +63,7 @@ const char kCustomPollIntervalMinutes[] = "gcm-channel-poll-interval";
 
 // static
 void GCMChannelStatusSyncer::RegisterPrefs(PrefRegistrySimple* registry) {
-  registry->RegisterBooleanPref(prefs::kGCMChannelStatus, true);
+  registry->RegisterBooleanPref(prefs::kGCMChannelStatus, nw::gcm_enabled());
   registry->RegisterIntegerPref(
       prefs::kGCMChannelPollIntervalSeconds,
       GCMChannelStatusRequest::default_poll_interval_seconds());
@@ -71,7 +73,7 @@ void GCMChannelStatusSyncer::RegisterPrefs(PrefRegistrySimple* registry) {
 // static
 void GCMChannelStatusSyncer::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
-  registry->RegisterBooleanPref(prefs::kGCMChannelStatus, true);
+  registry->RegisterBooleanPref(prefs::kGCMChannelStatus, nw::gcm_enabled());
   registry->RegisterIntegerPref(
       prefs::kGCMChannelPollIntervalSeconds,
       GCMChannelStatusRequest::default_poll_interval_seconds());
@@ -95,7 +97,7 @@ GCMChannelStatusSyncer::GCMChannelStatusSyncer(
       user_agent_(user_agent),
       request_context_(request_context),
       started_(false),
-      gcm_enabled_(true),
+      gcm_enabled_(nw::gcm_enabled()),
       poll_interval_seconds_(
           GCMChannelStatusRequest::default_poll_interval_seconds()),
       custom_poll_interval_use_count_(0),

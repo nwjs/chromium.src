@@ -71,8 +71,8 @@ declare_args() {
 
   # Omit unwind support in official builds to save space.
   # We can use breakpad for these builds.
-  exclude_unwind_tables = (is_chrome_branded && is_official_build) ||
-                          (is_chromecast && !is_cast_desktop_build && !is_debug)
+  exclude_unwind_tables = true #(is_chrome_branded && is_official_build) ||
+                          #(is_chromecast && !is_cast_desktop_build && !is_debug)
 
   # If true, optimize for size. Does not affect windows builds.
   # Linux & Mac favor speed over size.
@@ -415,7 +415,9 @@ config("compiler") {
     # chromeos binutils has been patched with the fix, so always use icf there.
     # The bug only affects x86 and x64, so we can still use ICF when targeting
     # other architectures.
-    if ((!is_android && linux_use_bundled_binutils) || is_chromeos ||
+    if (is_linux && current_cpu == "x86") {
+      ldflags += [ "-Wl,--icf=none" ]
+    } else if ((!is_android && linux_use_bundled_binutils) || is_chromeos ||
         !(current_cpu == "x86" || current_cpu == "x64")) {
       ldflags += [ "-Wl,--icf=all" ]
     }
@@ -1095,6 +1097,7 @@ config("default_warnings") {
       "/wd4457",
       "/wd4458",
       "/wd4459",
+      "/wd4275",
     ]
 
     cflags_cc += [

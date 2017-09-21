@@ -151,7 +151,7 @@ component("core") {
   output_name = "blink_core"
 
   visibility = []  # Allow re-assignment of list.
-  visibility = [ "//third_party/WebKit/*" ]
+  visibility = [ "//third_party/WebKit/*", "//content/nw/*" ]
 
   # If you create a new subdirectory, make a new BUILD file for that directory
   # and reference it in the deps below rather than adding the sources here.

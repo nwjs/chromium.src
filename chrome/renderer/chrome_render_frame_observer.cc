@@ -153,9 +153,11 @@ ChromeRenderFrameObserver::ChromeRenderFrameObserver(
       base::Bind(&ChromeRenderFrameObserver::OnWebUITesterRequest,
                  base::Unretained(this)));
 #endif
+#if 0
   translate_helper_ = new translate::TranslateHelper(
       render_frame, chrome::ISOLATED_WORLD_ID_TRANSLATE,
       extensions::kExtensionScheme);
+#endif
 }
 
 ChromeRenderFrameObserver::~ChromeRenderFrameObserver() {
@@ -350,12 +352,14 @@ void ChromeRenderFrameObserver::DidFinishLoad() {
 
 void ChromeRenderFrameObserver::DidStartProvisionalLoad(
     WebDocumentLoader* document_loader) {
+#if 0
   // Let translate_helper do any preparatory work for loading a URL.
   if (!translate_helper_)
     return;
 
   translate_helper_->PrepareForUrl(
       render_frame()->GetWebFrame()->GetDocument().Url());
+#endif
 }
 
 void ChromeRenderFrameObserver::DidCommitProvisionalLoad(
@@ -417,10 +421,12 @@ void ChromeRenderFrameObserver::CapturePageText(TextCaptureType capture_type) {
   UMA_HISTOGRAM_TIMES(kTranslateCaptureText,
                       base::TimeTicks::Now() - capture_begin_time);
 
+#if 0
   // We should run language detection only once. Parsing finishes before
   // the page loads, so let's pick that timing.
   if (translate_helper_ && capture_type == PRELIMINARY_CAPTURE)
     translate_helper_->PageCaptured(contents);
+#endif
 
   TRACE_EVENT0("renderer", "ChromeRenderFrameObserver::CapturePageText");
 

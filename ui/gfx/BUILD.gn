@@ -362,6 +362,7 @@ component("gfx") {
 
   if (is_mac) {
     libs = [
+      "ApplicationServices.framework",
       "AppKit.framework",
       "CoreFoundation.framework",
       "CoreGraphics.framework",
