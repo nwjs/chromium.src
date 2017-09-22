@@ -421,9 +421,9 @@ enum {
 }
 
 - (CGPoint)scrollOffset {
-  if (_currentController == self.homePanel) {
-    return self.contentSuggestionsCoordinator.viewController.collectionView
-        .contentOffset;
+  if (_currentController == self.homePanel &&
+      [self.homePanel respondsToSelector:@selector(scrollOffset)]) {
+    return [self.homePanel scrollOffset];
   }
   return CGPointZero;
 }

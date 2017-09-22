@@ -610,6 +610,14 @@ const char kNTPHelpURL[] = "https://support.google.com/chrome/?p=ios_new_tab";
 - (void)setScrollsToTop:(BOOL)enable {
 }
 
+- (CGPoint)scrollOffset {
+  CGPoint collectionOffset =
+      self.suggestionsViewController.collectionView.contentOffset;
+  collectionOffset.y -=
+      self.headerCollectionInteractionHandler.collectionShiftingOffset;
+  return collectionOffset;
+}
+
 #pragma mark - Private
 
 // Opens the |URL| in a new tab |incognito| or not.

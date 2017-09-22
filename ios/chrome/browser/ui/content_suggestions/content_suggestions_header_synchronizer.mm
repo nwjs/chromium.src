@@ -36,12 +36,6 @@ const CGFloat kShiftTilesUpAnimationDuration = 0.25;
 // Tap gesture recognizer when the omnibox is focused.
 @property(nonatomic, strong) UITapGestureRecognizer* tapGestureRecognizer;
 
-// When the omnibox is focused, this value represents the shift distance of the
-// collection needed to pin the omnibox to the top. It is 0 if the omnibox has
-// not been moved when focused (i.e. the collection was already scrolled to
-// top).
-@property(nonatomic, assign) CGFloat collectionShiftingOffset;
-
 @end
 
 @implementation ContentSuggestionsHeaderSynchronizer
@@ -84,6 +78,7 @@ initWithCollectionController:
   self.shouldAnimateHeader = YES;
 
   if (self.collectionShiftingOffset == 0 || self.collectionView.dragging) {
+    self.collectionShiftingOffset = 0;
     [self updateFakeOmniboxOnCollectionScroll];
     return;
   }
@@ -216,6 +211,7 @@ initWithCollectionController:
 
   if (percentComplete == 1.0) {
     [link invalidate];
+    self.collectionShiftingOffset = 0;
     // Reset |shiftTilesDownStartTime to its sentinel value.
     self.shiftTilesDownStartTime = -1;
   }
