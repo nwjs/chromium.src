@@ -689,8 +689,14 @@ void CleanCertificatePolicyCache(
 
   for (int index = oldCount; index < _webStateList->count(); ++index) {
     web::WebState* webState = _webStateList->GetWebStateAt(index);
-    PagePlaceholderTabHelper::FromWebState(webState)
-        ->AddPlaceholderForNextNavigation();
+    web::NavigationItem* visible_item =
+        webState->GetNavigationManager()->GetVisibleItem();
+
+    if (!(visible_item &&
+          visible_item->GetVirtualURL() == GURL(kChromeUINewTabURL))) {
+      PagePlaceholderTabHelper::FromWebState(webState)
+          ->AddPlaceholderForNextNavigation();
+    }
 
     // Restore the CertificatePolicyCache (note that webState is invalid after
     // passing it via move semantic to -initWithWebState:model:).
