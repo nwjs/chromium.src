@@ -50,7 +50,7 @@ class WebSharedWorkerRepositoryClient {
   using DocumentID = unsigned long long;
 
   // Connects to a shared worker.
-  virtual void Connect(const WebURL& url,
+  virtual void Connect(bool isNodeJS, const WebURL& url,
                        const WebString& name,
                        DocumentID id,
                        const WebString& content_security_policy,

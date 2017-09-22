@@ -18,17 +18,21 @@
 std::unique_ptr<BubbleUi> ChooserBubbleDelegate::BuildBubbleUi() {
   if (!ui::MaterialDesignController::IsSecondaryUiMaterial()) {
     return base::MakeUnique<ChooserBubbleUiCocoa>(
-        browser_, std::move(chooser_controller_));
+        browser_, app_window_, std::move(chooser_controller_));
   }
-  return base::MakeUnique<ChooserBubbleUi>(browser_,
+  return base::MakeUnique<ChooserBubbleUi>(browser_, app_window_,
                                            std::move(chooser_controller_));
 }
 
 void ChooserBubbleUi::CreateAndShow(views::BubbleDialogDelegateView* delegate) {
-  gfx::NativeWindow parent_window = browser_->window()->GetNativeWindow();
-  gfx::NativeView parent = platform_util::GetViewForWindow(parent_window);
-  DCHECK(parent);
   // Set |parent_window_| because some valid anchors can become hidden.
+  gfx::NativeView parent = nullptr;
+  gfx::NativeWindow parent_window = nullptr;
+  if (browser_) {
+      parent = platform_util::GetViewForWindow(browser_->window()->GetNativeWindow());
+      parent_window = browser_->window()->GetNativeWindow();
+  }
+  //DCHECK(parent);
   delegate->set_parent_window(parent);
   views::BubbleDialogDelegateView::CreateBubble(delegate)->Show();
   KeepBubbleAnchored(delegate, GetPageInfoDecoration(parent_window));

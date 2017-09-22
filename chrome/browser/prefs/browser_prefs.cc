@@ -436,7 +436,7 @@ void RegisterLocalState(PrefRegistrySimple* registry) {
 
 #if defined(OS_WIN)
   app_metro_launch::RegisterPrefs(registry);
-  component_updater::RegisterPrefsForSwReporter(registry);
+  //component_updater::RegisterPrefsForSwReporter(registry);
   desktop_ios_promotion::RegisterLocalPrefs(registry);
   password_manager::PasswordManager::RegisterLocalPrefs(registry);
 #endif
@@ -466,7 +466,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   HostContentSettingsMap::RegisterProfilePrefs(registry);
   ImportantSitesUtil::RegisterProfilePrefs(registry);
   IncognitoModePrefs::RegisterProfilePrefs(registry);
-  InstantUI::RegisterProfilePrefs(registry);
+  //InstantUI::RegisterProfilePrefs(registry);
   language::UrlLanguageHistogram::RegisterProfilePrefs(registry);
   MediaCaptureDevicesDispatcher::RegisterProfilePrefs(registry);
   MediaDeviceIDSalt::RegisterProfilePrefs(registry);
@@ -622,12 +622,14 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 #endif
 
 #if defined(OS_WIN)
-  component_updater::RegisterProfilePrefsForSwReporter(registry);
+  //component_updater::RegisterProfilePrefsForSwReporter(registry);
   desktop_ios_promotion::RegisterProfilePrefs(registry);
   NetworkProfileBubble::RegisterProfilePrefs(registry);
+#if 0
   safe_browsing::SettingsResetPromptPrefsManager::RegisterProfilePrefs(
       registry);
   safe_browsing::PostCleanupSettingsResetter::RegisterProfilePrefs(registry);
+#endif
 #endif
 
 #if defined(TOOLKIT_VIEWS)
@@ -639,7 +641,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   RegisterChromeLauncherUserPrefs(registry);
 #endif
 
-#if !defined(OS_ANDROID)
+#if 0
   MdHistoryUI::RegisterProfilePrefs(registry);
   settings::MdSettingsUI::RegisterProfilePrefs(registry);
 #endif

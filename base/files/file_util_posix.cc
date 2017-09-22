@@ -133,7 +133,7 @@ std::string TempFileName() {
 #if defined(GOOGLE_CHROME_BUILD)
   return std::string(".com.google.Chrome.XXXXXX");
 #else
-  return std::string(".org.chromium.Chromium.XXXXXX");
+  return std::string(".io.nwjs.XXXXXX");
 #endif
 }
 

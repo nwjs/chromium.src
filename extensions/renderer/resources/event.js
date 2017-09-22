@@ -251,6 +251,13 @@
   // the list of arguments that will be sent to the event callback.
   // |listenerIds| contains the ids of matching listeners, or is an empty array
   // for all listeners.
+function dispatchEventNW(name, args, filteringInfo) {
+  var listenerIDs = [];
+  if (filteringInfo)
+    listenerIDs = eventNatives.MatchAgainstEventFilter(name, filteringInfo);
+  dispatchEvent(name, args, listenerIDs);
+}
+
   function dispatchEvent(name, args, listenerIds) {
     var event = attachedNamedEvents[name];
     if (!event)
@@ -269,6 +276,9 @@
       dispatchArgs(args);
   }
 
+  EventImpl.prototype.getListeners = function() {
+    return this.listeners;
+  };
   // Registers a callback to be called when this event is dispatched.
   EventImpl.prototype.addListener = function(cb, filters) {
     if (!this.eventOptions.supportsListeners)
@@ -515,6 +525,7 @@
   }
   utils.expose(Event, EventImpl, {
     functions: [
+      'getListeners',
       'addListener',
       'removeListener',
       'hasListener',
@@ -531,5 +542,6 @@
   exports.$set('Event', Event);
 
   exports.$set('dispatchEvent', dispatchEvent);
+  exports.$set('dispatchEventNW', dispatchEventNW);
   exports.$set('parseEventOptions', parseEventOptions);
   exports.$set('registerArgumentMassager', registerArgumentMassager);

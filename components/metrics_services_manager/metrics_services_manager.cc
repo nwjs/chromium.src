@@ -38,11 +38,13 @@ metrics::MetricsService* MetricsServicesManager::GetMetricsService() {
 }
 
 rappor::RapporServiceImpl* MetricsServicesManager::GetRapporServiceImpl() {
+#if 0
   DCHECK(thread_checker_.CalledOnValidThread());
   if (!rappor_service_) {
     rappor_service_ = client_->CreateRapporServiceImpl();
     rappor_service_->Initialize(client_->GetURLRequestContext());
   }
+#endif
   return rappor_service_.get();
 }
 
@@ -105,10 +107,10 @@ void MetricsServicesManager::UpdateRunningServices() {
   DCHECK(thread_checker_.CalledOnValidThread());
   metrics::MetricsService* metrics = GetMetricsService();
 
-  const base::CommandLine* cmdline = base::CommandLine::ForCurrentProcess();
-  if (cmdline->HasSwitch(metrics::switches::kMetricsRecordingOnly)) {
+  //const base::CommandLine* cmdline = base::CommandLine::ForCurrentProcess();
+  if (true /*cmdline->HasSwitch(metrics::switches::kMetricsRecordingOnly)*/) {
     metrics->StartRecordingForTests();
-    GetRapporServiceImpl()->Update(true, false);
+    //GetRapporServiceImpl()->Update(true, false);
     return;
   }
 
@@ -125,9 +127,11 @@ void MetricsServicesManager::UpdateRunningServices() {
     metrics->Stop();
   }
 
+#if defined(GOOGLE_CHROME_BUILD)
   UpdateUkmService();
 
-  GetRapporServiceImpl()->Update(may_record_, may_upload_);
+  //GetRapporServiceImpl()->Update(may_record_, may_upload_);
+#endif  // defined(GOOGLE_CHROME_BUILD)
 }
 
 void MetricsServicesManager::UpdateUkmService() {

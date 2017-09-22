@@ -39,6 +39,7 @@ DEFINE_WEB_CONTENTS_USER_DATA_KEY(ChromeSubresourceFilterClient);
 
 namespace {
 
+#if 0
 scoped_refptr<safe_browsing::SafeBrowsingDatabaseManager> GetDatabaseManager() {
   safe_browsing::SafeBrowsingService* safe_browsing_service =
       g_browser_process->safe_browsing_service();
@@ -49,7 +50,7 @@ scoped_refptr<safe_browsing::SafeBrowsingDatabaseManager> GetDatabaseManager() {
   return has_supported_manager ? safe_browsing_service->database_manager()
                                : nullptr;
 }
-
+#endif
 }  // namespace
 
 ChromeSubresourceFilterClient::ChromeSubresourceFilterClient(
@@ -69,6 +70,7 @@ ChromeSubresourceFilterClient::~ChromeSubresourceFilterClient() {}
 void ChromeSubresourceFilterClient::MaybeAppendNavigationThrottles(
     content::NavigationHandle* navigation_handle,
     std::vector<std::unique_ptr<content::NavigationThrottle>>* throttles) {
+#if 0
   if (navigation_handle->IsInMainFrame()) {
     throttles->push_back(
         base::MakeUnique<subresource_filter::
@@ -78,6 +80,7 @@ void ChromeSubresourceFilterClient::MaybeAppendNavigationThrottles(
                 content::BrowserThread::IO),
             GetDatabaseManager()));
   }
+#endif
 
   auto* driver_factory =
       subresource_filter::ContentSubresourceFilterDriverFactory::

@@ -201,10 +201,12 @@ class ScopedExtensionPrefUpdate : public prefs::ScopedDictionaryPrefUpdate {
     std::unique_ptr<prefs::DictionaryValueUpdate> dict =
         ScopedDictionaryPrefUpdate::Get();
     std::unique_ptr<prefs::DictionaryValueUpdate> extension;
-    if (!dict->GetDictionary(extension_id_, &extension)) {
+    std::string id;
+    base::ReplaceChars(extension_id_, ".", "", &id);
+    if (!dict->GetDictionary(id, &extension)) {
       // Extension pref does not exist, create it.
       extension = dict->SetDictionary(
-          extension_id_, base::MakeUnique<base::DictionaryValue>());
+          id, base::MakeUnique<base::DictionaryValue>());
     }
     return extension;
   }
@@ -234,7 +236,9 @@ void LoadExtensionControlledPrefs(ExtensionPrefs* prefs,
   std::string scope_string;
   if (!pref_names::ScopeToPrefName(scope, &scope_string))
     return;
-  std::string key = extension_id + "." + scope_string;
+  std::string id;
+  base::ReplaceChars(extension_id, ".", "", &id);
+  std::string key = id + "." + scope_string;
 
   const base::DictionaryValue* source_dict =
       prefs->pref_service()->GetDictionary(pref_names::kExtensions);
@@ -424,11 +428,14 @@ void ExtensionPrefs::MakePathsRelative() {
 
 const base::DictionaryValue* ExtensionPrefs::GetExtensionPref(
     const std::string& extension_id) const {
+  std::string id;
+  base::ReplaceChars(extension_id, ".", "", &id);
+  
   const base::DictionaryValue* extensions =
       prefs_->GetDictionary(pref_names::kExtensions);
   const base::DictionaryValue* extension_dict = NULL;
   if (!extensions ||
-      !extensions->GetDictionary(extension_id, &extension_dict)) {
+      !extensions->GetDictionary(id, &extension_dict)) {
     return NULL;
   }
   return extension_dict;

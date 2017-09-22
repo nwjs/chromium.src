@@ -5,6 +5,8 @@
 #include "content/renderer/renderer_blink_platform_impl.h"
 
 #include <memory>
+#include "content/nw/src/nw_version.h"
+
 #include <utility>
 
 #include "base/command_line.h"
@@ -172,6 +174,21 @@ using blink::WebSize;
 using blink::WebString;
 using blink::WebURL;
 using blink::WebVector;
+
+#include "third_party/node-nw/src/node_webkit.h"
+#include "nw/id/commit.h"
+
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
+namespace nw{
+const char* GetChromiumVersion();
+}
 
 namespace content {
 
@@ -1418,9 +1435,40 @@ RendererBlinkPlatformImpl::TrialTokenValidator() {
 }
 
 void RendererBlinkPlatformImpl::WorkerContextCreated(
-    const v8::Local<v8::Context>& worker) {
+    const v8::Local<v8::Context>& worker, bool isNodeJS, const std::string& main_script) {
   GetContentClient()->renderer()->DidInitializeWorkerContextOnWorkerThread(
       worker);
+  if (isNodeJS) {
+      int argc = 1;
+      char argv0[] = "node";
+      char* argv[3];
+      argv[0] = argv0;
+      argv[1] = argv[2] = nullptr;
+
+      v8::Isolate* isolate = v8::Isolate::GetCurrent();
+      v8::HandleScope scope(isolate);
+      v8::MicrotasksScope microtasks(isolate, v8::MicrotasksScope::kDoNotRunMicrotasks);
+
+      worker->SetSecurityToken(v8::String::NewFromUtf8(isolate, "nw-token"));
+      worker->Enter();
+
+      ::g_start_nw_instance_fn(argc, argv, worker);
+      {
+        v8::Local<v8::Script> script =
+          v8::Script::Compile(v8::String::NewFromUtf8(isolate,
+                                                      (std::string("process.versions['nw'] = '" NW_VERSION_STRING "';") +
+                                                       "process.versions['node-webkit'] = '" NW_VERSION_STRING "';"
+                                                       "process.versions['nw-commit-id'] = '" NW_COMMIT_HASH "';"
+                                                       "process.versions['chromium'] = '" + "';").c_str()
+         ));
+        script->Run();
+      }
+      {
+        v8::Local<v8::Script> script =
+          v8::Script::Compile(v8::String::NewFromUtf8(isolate, main_script.c_str()));
+        script->Run();
+      }
+  }
 }
 
 //------------------------------------------------------------------------------

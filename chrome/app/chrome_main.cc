@@ -76,7 +76,7 @@ int ChromeMain(int argc, const char** argv) {
   auto crash_on_detach_resetter = base::ScopedClosureRunner(
       base::Bind(&base::win::SetShouldCrashOnProcessDetach,
                  base::win::ShouldCrashOnProcessDetach()));
-  base::win::SetShouldCrashOnProcessDetach(true);
+  base::win::SetShouldCrashOnProcessDetach(false);
   base::win::SetAbortBehaviorForCrashReporting();
   params.instance = instance;
   params.sandbox_info = sandbox_info;

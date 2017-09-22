@@ -116,7 +116,7 @@ void FeedbackPrivateAPI::RequestFeedback(
     const std::string& category_tag,
     const std::string& extra_diagnostics,
     const GURL& page_url) {
-#if defined(OS_WIN)
+#if 0
   // Show prompt for Software Removal Tool if the Reporter component has found
   // unwanted software, and the user has never run the cleaner before.
   if (base::FeatureList::IsEnabled(kSrtPromptOnFeedbackForm) &&

@@ -31,6 +31,8 @@
 
 #include "core/workers/SharedWorker.h"
 
+#include "base/command_line.h"
+
 #include "bindings/core/v8/ExceptionState.h"
 #include "core/dom/ExecutionContext.h"
 #include "core/dom/MessageChannel.h"
@@ -80,9 +82,11 @@ SharedWorker* SharedWorker::Create(ExecutionContext* context,
   if (script_url.IsEmpty())
     return nullptr;
 
+  const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
+  bool isNodeJS = document->GetFrame()->isNodeJS() && command_line.HasSwitch("enable-node-worker");
   if (document->GetFrame()->Client()->GetSharedWorkerRepositoryClient()) {
     document->GetFrame()->Client()->GetSharedWorkerRepositoryClient()->Connect(
-        worker, std::move(remote_port), script_url, name);
+                     worker, std::move(remote_port), script_url, name, isNodeJS);
   }
 
   return worker;

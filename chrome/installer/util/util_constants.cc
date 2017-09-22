@@ -195,9 +195,9 @@ const char kGoogleUpdateIsMachineEnvVar[] = "GoogleUpdateIsMachine";
 // TODO(gab): Rename setup.exe itself altogether and use the same binary for
 // Active Setup.
 const wchar_t kActiveSetupExe[] = L"chrmstp.exe";
-const wchar_t kChromeDll[] = L"chrome.dll";
-const wchar_t kChromeChildDll[] = L"chrome_child.dll";
-const wchar_t kChromeExe[] = L"chrome.exe";
+const wchar_t kChromeDll[] = L"nw.dll";
+const wchar_t kChromeChildDll[] = L"nw_child.dll";
+const wchar_t kChromeExe[] = L"nw.exe";
 const wchar_t kChromeNewExe[] = L"new_chrome.exe";
 const wchar_t kChromeOldExe[] = L"old_chrome.exe";
 const wchar_t kCmdOnOsUpgrade[] = L"on-os-upgrade";

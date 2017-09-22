@@ -294,6 +294,7 @@ void CollapseMatchingPrefixInPath(const StringMapping& prefix_mapping,
   }
 }
 
+#if 0
 bool GetModuleImageSizeAndTimeDateStamp(const base::FilePath& path,
                                         uint32_t* size_of_image,
                                         uint32_t* time_date_stamp) {
@@ -322,3 +323,4 @@ bool GetModuleImageSizeAndTimeDateStamp(const base::FilePath& path,
 
   return true;
 }
+#endif
