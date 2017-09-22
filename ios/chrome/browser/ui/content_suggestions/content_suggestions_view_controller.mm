@@ -18,6 +18,7 @@
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_header_synchronizing.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_layout.h"
+#import "ios/chrome/browser/ui/content_suggestions/content_suggestions_layout_handset.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_metrics_recording.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_view_controller_audience.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_view_controller_delegate.h"
@@ -71,9 +72,9 @@ BOOL ShouldCellsBeFullWidth(UITraitCollection* collection) {
 - (instancetype)initWithStyle:(CollectionViewControllerStyle)style {
   UICollectionViewLayout* layout = nil;
   if (IsIPadIdiom()) {
-    layout = [[MDCCollectionViewFlowLayout alloc] init];
-  } else {
     layout = [[ContentSuggestionsLayout alloc] init];
+  } else {
+    layout = [[ContentSuggestionsLayoutHandset alloc] init];
   }
   self = [super initWithLayout:layout style:style];
   if (self) {
