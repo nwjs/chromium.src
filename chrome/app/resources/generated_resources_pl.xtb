@@ -194,7 +194,6 @@
 <translation id="1297175357211070620">Urządzenie docelowe</translation>
 <translation id="1297922636971898492">Dysk Google nie jest teraz dostępny. Gdy znów będzie można z niego korzystać, przesyłanie zostanie automatycznie wznowione.</translation>
 <translation id="1303101771013849280">Plik HTML z zakładkami</translation>
-<translation id="1303319084542230573">Dodaj drukarkę</translation>
 <translation id="1303671224831497365">Nie znaleziono urządzeń Bluetooth</translation>
 <translation id="1306606229401759371">Zmień ustawienia</translation>
 <translation id="1307398858972670978">Odczytuj swoje hasła na dowolnym urządzeniu na <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -973,7 +972,6 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="2497229222757901769">Szybkość myszy</translation>
 <translation id="2497852260688568942">Synchronizację wyłączył administrator</translation>
 <translation id="249819058197909513">Nie pokazuj już ostrzeżeń dla tej aplikacji</translation>
-<translation id="2498436043474441766">Dodaj drukarki</translation>
 <translation id="2498539833203011245">Zminimalizuj</translation>
 <translation id="2498765460639677199">Ogromny</translation>
 <translation id="2500471369733289700">Zablokowano, by chronić Twoją prywatność</translation>
@@ -1981,7 +1979,7 @@ Dalsze instrukcje znajdziesz w e-mailu przesłanym na adres <ph name="ACCOUNT_EM
 <translation id="3948116654032448504">&amp;Szukaj obrazu w <ph name="SEARCH_ENGINE" /></translation>
 <translation id="3949371968208420848">Witamy w Hangouts Meet</translation>
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
-<translation id="394984172568887996">Importowane z IE</translation>
+<translation id="394984172568887996">Zaimportowane z IE</translation>
 <translation id="3950403266210374996">Odblokuj swój profil za pomocą konta firmowego.</translation>
 <translation id="3950820424414687140">Zaloguj się</translation>
 <translation id="3954354850384043518">W toku</translation>
@@ -2431,7 +2429,6 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="4728558894243024398">Platforma</translation>
 <translation id="4731351517694976331">Zezwalaj usługom Google na dostęp do danych o mojej lokalizacji</translation>
 <translation id="4731422630970790516">3 element na półce</translation>
-<translation id="473221644739519769">Dodanie drukarek do Google Cloud Print umożliwia Ci drukowanie z każdego urządzenia w dowolnym miejscu. Udostępnij drukarki wybranym osobom i drukuj z Chrome, telefonu, tabletu, komputera lub innego urządzenia z dostępem do internetu.</translation>
 <translation id="4732760563705710320">Twoje urządzenie przesyłające nie obsługuje tego filmu.</translation>
 <translation id="4734518477988699048">Wpisana wartość jest nieprawidłowa.</translation>
 <translation id="473546211690256853">To konto jest zarządzane w domenie <ph name="DOMAIN" /></translation>
@@ -2701,10 +2698,6 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5152451685298621771">(Konto dla dzieci)</translation>
 <translation id="5154108062446123722">Ustawienia zaawansowane dla <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Możesz dodać drukarki do komputera, klikając poniżej
-        przycisk „Dodaj drukarkę”. Jeśli nie masz drukarki do
-        dodania, nadal będziesz mieć możliwość zapisania
-        pliku PDF lub zapisania na Dysku Google.</translation>
 <translation id="5154702632169343078">Podmiot</translation>
 <translation id="5154917547274118687">Pamięć</translation>
 <translation id="5157635116769074044">Przypnij tę stronę do ekranu startowego...</translation>
@@ -2945,7 +2938,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="5496587651328244253">Organizuj</translation>
 <translation id="549673810209994709">Nie można przetłumaczyć tej strony.</translation>
 <translation id="5499313591153584299">Ten plik może wyrządzić szkody na Twoim komputerze.</translation>
-<translation id="5502500733115278303">Importowane z Firefoxa</translation>
+<translation id="5502500733115278303">Zaimportowane z Firefoxa</translation>
 <translation id="5505095961735225576">Hangouts Meet potrzebuje informacji, do jakiej domeny należy. Dlatego musisz zalogować się na swoje konto.</translation>
 <translation id="5507756662695126555">Niezaprzeczalność</translation>
 <translation id="5509693895992845810">Zapisz &amp;jako...</translation>
@@ -4098,7 +4091,6 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="7311079019872751559">Dostęp przez wtyczkę spoza piaskownicy</translation>
 <translation id="7311891583377621132">Przesuń odrobinę, by zeskanować inną część odcisku palca</translation>
 <translation id="7314244761674113881">Host SOCKS</translation>
-<translation id="7314440321558802142">Sklep Play (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (bieżący)</translation>
 <translation id="7321545336522791733">Serwer niedostępny</translation>
 <translation id="7324297612904500502">Forum użytkowników wersji beta</translation>
@@ -4696,7 +4688,6 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8242426110754782860">Dalej</translation>
 <translation id="8245799906159200274">Obecna wersja: <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Nieznany operator</translation>
-<translation id="8246455765446055172">Sklep Google Play (beta)</translation>
 <translation id="8248050856337841185">&amp;Wklej</translation>
 <translation id="8249048954461686687">Folder OEM</translation>
 <translation id="8249296373107784235">Przerwij</translation>
@@ -4734,7 +4725,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8283475148136688298">Podczas łączenia się z urządzeniem „<ph name="DEVICE_NAME" />” został odrzucony kod uwierzytelniania.</translation>
 <translation id="8284279544186306258">wszystkie strony <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">Zaloguj się</translation>
-<translation id="8286963743045814739">Możesz przeglądać prywatnie, używając okna incognito</translation>
+<translation id="8286963743045814739">Możesz przeglądać prywatnie w oknie incognito</translation>
 <translation id="8291967909914612644">Kraj operatora macierzystego</translation>
 <translation id="8294431847097064396">Źródło</translation>
 <translation id="8297006494302853456">Słaby</translation>

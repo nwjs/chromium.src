@@ -194,7 +194,6 @@
 <translation id="1297175357211070620">Місце призначення</translation>
 <translation id="1297922636971898492">Диск Google зараз недоступний. Завантаження автоматично відновиться після повторного під’єднання до Google Диска.</translation>
 <translation id="1303101771013849280">HTML-файл із закладками</translation>
-<translation id="1303319084542230573">Додати принтер</translation>
 <translation id="1303671224831497365">Пристрої Bluetooth не знайдено</translation>
 <translation id="1306606229401759371">Змінити налаштування</translation>
 <translation id="1307398858972670978">Переглядайте свої паролі з будь-якого пристрою на сторінці <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -973,7 +972,6 @@
 <translation id="2497229222757901769">Швидкість миші</translation>
 <translation id="2497852260688568942">Ваш адміністратор вимкнув синхронізацію</translation>
 <translation id="249819058197909513">Більше не попереджати для цього додатка</translation>
-<translation id="2498436043474441766">Додайте принтери</translation>
 <translation id="2498539833203011245">Згорнути</translation>
 <translation id="2498765460639677199">Дуже великий</translation>
 <translation id="2500471369733289700">Заблоковано, щоб захистити вашу конфіденційність</translation>
@@ -2431,10 +2429,6 @@
 <translation id="4728558894243024398">Платформа</translation>
 <translation id="4731351517694976331">Надавати службам Google дані про ваше місцезнаходження</translation>
 <translation id="4731422630970790516">Елемент полиці 3</translation>
-<translation id="473221644739519769">Додавання принтерів у службу Google Cloud Print дозволяє друкувати будь-де з
-        будь-якого пристрою. Використовуйте принтери спільно з іншими
-        та друкуйте на них із Chrome, телефона, планшета, комп’ютера чи
-        будь-якого іншого пристрою, під’єднаного до Інтернету.</translation>
 <translation id="4732760563705710320">На жаль, ваш пристрій для трансляції не підтримує це відео.</translation>
 <translation id="4734518477988699048">Введено недійсне значення.</translation>
 <translation id="473546211690256853">Цим обліковим записом керує домен <ph name="DOMAIN" /></translation>
@@ -2704,9 +2698,6 @@
 <translation id="5152451685298621771">(обліковий запис для дітей)</translation>
 <translation id="5154108062446123722"><ph name="PRINTING_DESTINATION" />: розширені налаштування</translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Можна додати принтери до комп’ютера, натиснувши кнопку "Додати принтер"
-        нижче. Якщо у вас немає принтерів, які можна додати, ви зможете
-        зберегти файл PDF або зберегти дані на Диск Google.</translation>
 <translation id="5154702632169343078">Суб'єкт</translation>
 <translation id="5154917547274118687">Пам’ять</translation>
 <translation id="5157635116769074044">Закріпити цю сторінку на екрані запуску…</translation>
@@ -4100,7 +4091,6 @@
 <translation id="7311079019872751559">Доступ плагіна з неізольованим програмним середовищем</translation>
 <translation id="7311891583377621132">Трохи перемістіть палець, щоб зісканувати всі його частини</translation>
 <translation id="7314244761674113881">Хост SOCKS</translation>
-<translation id="7314440321558802142">Play Маркет (бета-версія)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (поточний)</translation>
 <translation id="7321545336522791733">Сервер недоступний</translation>
 <translation id="7324297612904500502">Форум бета-версії</translation>
@@ -4705,7 +4695,6 @@
 <translation id="8242426110754782860">Продовжити</translation>
 <translation id="8245799906159200274">Ваша версія: <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Невідомий оператор</translation>
-<translation id="8246455765446055172">Магазин Google Play (бета-версія)</translation>
 <translation id="8248050856337841185">&amp;Вставити</translation>
 <translation id="8249048954461686687">Папка OEM</translation>
 <translation id="8249296373107784235">Скасувати</translation>

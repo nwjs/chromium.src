@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Anpassa till fönstrets bredd</translation>
 <translation id="1088860948719068836">Lägg till namnet på kortet</translation>
 <translation id="1103523840287552314">Översätt alltid <ph name="LANGUAGE" /></translation>
+<translation id="1103778128462718200">Visa alla sparade lösenord …</translation>
 <translation id="1107591249535594099">Om alternativet är markerat sparas en kopia av kortet på enheten så att det går snabbare att fylla i formulär.</translation>
 <translation id="1111153019813902504">Nya bokmärken</translation>
 <translation id="1113869188872983271">&amp;Ångra Ändra ordning</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">Det gick inte att hitta den önskade artikeln.</translation>
 <translation id="5541546772353173584">Lägg till e-postadress</translation>
 <translation id="5544037170328430102">På en inbäddad sida på <ph name="SITE" /> står det:</translation>
+<translation id="5545756402275714221">Artiklar för dig</translation>
 <translation id="5556459405103347317">Hämta igen</translation>
 <translation id="5560088892362098740">Sista giltighetsdatum</translation>
 <translation id="5565735124758917034">Aktiv</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">E-post</translation>
 <translation id="5669703222995421982">Få anpassat innehåll</translation>
 <translation id="5675650730144413517">Sidan fungerar inte</translation>
+<translation id="5689199277474810259">Exportera som JSON</translation>
 <translation id="5710435578057952990">Webbplatsens identitet har inte verifierats.</translation>
 <translation id="5719499550583120431">Förbetalda kort kan användas.</translation>
 <translation id="5720705177508910913">Aktuell användare</translation>

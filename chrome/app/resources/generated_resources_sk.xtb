@@ -194,7 +194,6 @@
 <translation id="1297175357211070620">Cieľ</translation>
 <translation id="1297922636971898492">Služba Disk Google práve teraz nie je k dispozícii. Nahrávanie sa automaticky spustí znova, keď bude služba Disk Google opäť dostupná.</translation>
 <translation id="1303101771013849280">Súbor HTML so záložkami</translation>
-<translation id="1303319084542230573">Pridať tlačiareň</translation>
 <translation id="1303671224831497365">Nenašli sa žiadne zariadenia Bluetooth</translation>
 <translation id="1306606229401759371">Zmeniť nastavenia</translation>
 <translation id="1307398858972670978">K heslám môžete pristupovať z ľubovoľného zariadenia na adrese <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -975,7 +974,6 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="2497229222757901769">Rýchlosť myši</translation>
 <translation id="2497852260688568942">Synchronizácia je zakázaná správcom</translation>
 <translation id="249819058197909513">Nezobrazovať znova upozornenia pre túto aplikáciu</translation>
-<translation id="2498436043474441766">Pridať tlačiarne</translation>
 <translation id="2498539833203011245">Minimalizovať</translation>
 <translation id="2498765460639677199">Obrovské</translation>
 <translation id="2500471369733289700">Blokované s cieľom ochrániť vaše súkromie</translation>
@@ -2432,10 +2430,6 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="4728558894243024398">Platforma</translation>
 <translation id="4731351517694976331">Povoliť službám Google prístup k vašej polohe</translation>
 <translation id="4731422630970790516">3. položka na poličke</translation>
-<translation id="473221644739519769">Ak pridáte tlačiarne do služby Google Cloud Print, budete môcť tlačiť
-        z ktoréhokoľvek počítača na ktorejkoľvek tlačiarni. Môžete zdieľať tlačiarne s ktorýmikoľvek používateľmi a
-        budete môcť pomocou ich tlačiarne vytlačiť dokumenty z prehliadača Chrome, telefónu, tabletu, počítača a akýchkoľvek iných
-        zariadení s prístupom na internet.</translation>
 <translation id="4732760563705710320">Je nám to ľúto, ale vaše zariadenie na prenos nepodporuje toto video</translation>
 <translation id="4734518477988699048">Hodnota vstupu je neplatná.</translation>
 <translation id="473546211690256853">Tento účet spravuje doména <ph name="DOMAIN" />.</translation>
@@ -2705,9 +2699,6 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="5152451685298621771">(Detský účet)</translation>
 <translation id="5154108062446123722">Rozšírené nastavenia pre <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Ak chcete k počítaču pridať tlačiarne, kliknite na tlačidlo Pridať tlačiareň
-        uvedené nižšie. Ak nemôžete pridať žiadne tlačiarne, stále môžete súbor uložiť
-        vo formáte PDF alebo ho môžete uložiť v službe Disk Google.</translation>
 <translation id="5154702632169343078">Subjekt</translation>
 <translation id="5154917547274118687">Pamäť</translation>
 <translation id="5157635116769074044">Pripnúť túto stránku na Úvodnú obrazovku...</translation>
@@ -4099,7 +4090,6 @@ Túto funkciu používajte iba s dôveryhodnými účtami.</translation>
 <translation id="7311079019872751559">Prístup k doplnku mimo karantény</translation>
 <translation id="7311891583377621132">Zľahka pohýbte, aby sa nasnímala ďalšia časť odtlačku</translation>
 <translation id="7314244761674113881">Hostiteľ SOCKS</translation>
-<translation id="7314440321558802142">Obchod Play (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (aktuálny)</translation>
 <translation id="7321545336522791733">Server je nedostupný</translation>
 <translation id="7324297612904500502">Beta fórum</translation>
@@ -4704,7 +4694,6 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="8242426110754782860">Pokračovať</translation>
 <translation id="8245799906159200274">Momentálne ste v kanáli <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Neznámy operátor</translation>
-<translation id="8246455765446055172">Obchod Google Play (beta)</translation>
 <translation id="8248050856337841185">&amp;Prilepiť</translation>
 <translation id="8249048954461686687">Priečinok OEM</translation>
 <translation id="8249296373107784235">Prerušiť</translation>

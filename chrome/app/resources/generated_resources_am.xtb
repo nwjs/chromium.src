@@ -194,7 +194,6 @@
 <translation id="1297175357211070620">መዳረሻ</translation>
 <translation id="1297922636971898492">Google Drive አሁን አይገኝም። Google Drive ተመልሶ እንደመጣ መስቀል በራስ-ሰር ዳግም ይጀመራል።</translation>
 <translation id="1303101771013849280">ለኤችቲኤምኤል ፋይል እልባት ያደርጋል</translation>
-<translation id="1303319084542230573">አንድ አታሚ ያክሉ</translation>
 <translation id="1303671224831497365">ምንም የብሉቱዝ መሣሪያዎች አልተገኙም</translation>
 <translation id="1306606229401759371">ቅንብሮችን ቀይር</translation>
 <translation id="1307398858972670978"><ph name="SAVED_PASSWORDS_LINK" /> ላይ የይለፍ ቃላትዎን ከማንኛውም መሣሪያ ላይ ይድረሱባቸው</translation>
@@ -974,7 +973,6 @@
 <translation id="2497229222757901769">የመዳፊት ፍጥነት</translation>
 <translation id="2497852260688568942">ስምረት በእርስዎ አስተዳዳሪ ተሰናክሏል</translation>
 <translation id="249819058197909513">ለዚህ መተግበሪያ ዳግም አታስጠንቅቅ</translation>
-<translation id="2498436043474441766">አታሚዎችን ያክሉ</translation>
 <translation id="2498539833203011245">አሳንስ</translation>
 <translation id="2498765460639677199">ግዙፍ</translation>
 <translation id="2500471369733289700">ግላዊነትዎን ለመጠበቅ ሲባል ታግዷል</translation>
@@ -2430,10 +2428,6 @@
 <translation id="4728558894243024398">የመሣሪያ ስርዓት</translation>
 <translation id="4731351517694976331">የGoogle አገልግሎቶች አካባቢዎን እንዲደርሱበት ይፍቀዱ</translation>
 <translation id="4731422630970790516">የመደርደሪያ ንጥል 3</translation>
-<translation id="473221644739519769">የእርስዎን አታሚዎች ወደ Google ደመና ህትመት ማከል ከየትኛውም ቦታ ሆነው
-        ወደ ማንኛውም ቦታ እንዲያትሙ ያስችልዎታል። የእርስዎን አታሚዎች ለመረጧቸው
-        ያጋሩ እና ከእርስዎ Chrome፣ ስልክ፣ ጡባዊ፣ ተኮ ወይም ሌላ ማንኛውም
-        ከድር ጋር ከተገናኘ መሣሪያ ወደ እነሱ ያትሙ።</translation>
 <translation id="4732760563705710320">ይቅርታ፣ ይህ ቪዲዮ በእርስዎ የውሰድ መሣሪያ አይደገፍም።</translation>
 <translation id="4734518477988699048">የግቤት እሴቱ ልክ ያልኾነ ነው።</translation>
 <translation id="473546211690256853">ይህ መለያ በ<ph name="DOMAIN" /> ነው የሚተዳደረው</translation>
@@ -2703,9 +2697,6 @@
 <translation id="5152451685298621771">(የህጻናት መለያ)</translation>
 <translation id="5154108062446123722">የላቁ የ<ph name="PRINTING_DESTINATION" /> ቅንብሮች</translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">ከታች ያለውን የ«አታሚ አክል» አዝራሩን ጠቅ በማድረግ አታሚዎችን ወደ ኮምፒውተርዎ ማከል ይችላሉ።
-        ምንም የሚያክሉት አታሚ ከሌልዎ አሁንም አንድ PDF ማስቀመጥ ወይም
-        ወደ Google Drive ማስቀመጥ ይችላሉ።</translation>
 <translation id="5154702632169343078">ርዕሰ ጉዳይ</translation>
 <translation id="5154917547274118687">ማህደረ ትውስታ</translation>
 <translation id="5157635116769074044">ይህን ገጽ የመነሻ ገጹ ላይ ይሰኩት...</translation>
@@ -4099,7 +4090,6 @@
 <translation id="7311079019872751559">በማጠሪያ ውስጥ ያልገባ ተሰኪ መዳረሻ</translation>
 <translation id="7311891583377621132">የጣት አሻራውን የተለየ ክፍል ለመያዝ በቀስታ ያንቀሳቅሱት</translation>
 <translation id="7314244761674113881">የSOCKS አስተናጋጅ</translation>
-<translation id="7314440321558802142">Play Store (ቅድመ-ይሁንታ)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (የአሁኑ)</translation>
 <translation id="7321545336522791733">አገልጋይ አይደረስበትም</translation>
 <translation id="7324297612904500502">የቅድመ-ይሁንታ ሙከራ መድረክ</translation>
@@ -4710,7 +4700,6 @@ nil</translation>
 <translation id="8242426110754782860">ቀጥል</translation>
 <translation id="8245799906159200274">በአሁኑ ጊዜ በ<ph name="CHANNEL_NAME" /> ሰርጥ ላይ።</translation>
 <translation id="8246209727385807362">የማይታወቅ አገልግሎት አቅራቢ</translation>
-<translation id="8246455765446055172">Google Play Store (ቅድመ-ይሁንታ)</translation>
 <translation id="8248050856337841185">&amp;ለጥፍ</translation>
 <translation id="8249048954461686687">የኦኢኤም አቃፊ</translation>
 <translation id="8249296373107784235">አጨንግፍ</translation>

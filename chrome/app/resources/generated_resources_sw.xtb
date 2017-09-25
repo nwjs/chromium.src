@@ -194,7 +194,6 @@
 <translation id="1297175357211070620">Itumwe kwenye</translation>
 <translation id="1297922636971898492">Hifadhi ya Google haipatikani kwa sasa kupakia kutafungua upya kiotomatiki baada Hifadhi ya Google imerudi.</translation>
 <translation id="1303101771013849280">Alamisho za Faili ya HTML</translation>
-<translation id="1303319084542230573">Ongeza printa</translation>
 <translation id="1303671224831497365">Hakuna vifaa vya Bluetooth vilivyopatikana</translation>
 <translation id="1306606229401759371">Badilisha mipangilio</translation>
 <translation id="1307398858972670978">Fikia manenosiri yako kutoka kwenye kifaa chochote katika <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -972,7 +971,6 @@ Sidhani ikiwa tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="2497229222757901769">Kasi ya kipanya</translation>
 <translation id="2497852260688568942">Usawazishaji umezimwa na msimamizi wako</translation>
 <translation id="249819058197909513">Usitume onyo kuhusu programu hii tena</translation>
-<translation id="2498436043474441766">Ongeza Printa</translation>
 <translation id="2498539833203011245">Punguza</translation>
 <translation id="2498765460639677199">Kubwa mno</translation>
 <translation id="2500471369733289700">Ruhusa imezuiwa ili kulinda faragha yako</translation>
@@ -2423,10 +2421,6 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="4728558894243024398">Mfumo wa uendeshaji</translation>
 <translation id="4731351517694976331">Ruhusu huduma za Google zifikie mahali ulipo</translation>
 <translation id="4731422630970790516">Kipengee cha kabati cha 3</translation>
-<translation id="473221644739519769">Kuongeza printa zako kwenye Printa ya Wingu la Google kunakuruhusu kuchapisha kutoka 
-         mahali popote, hadi mahali popote. Shiriki printa zako na yeyote unayemchagua
-         na uzichapishe kutoka kwa Chrome, simu, kompyuta kibao, kompyuta yako au kifaa kingine
-         chochote kilichounganishwa kwenye wavuti.</translation>
 <translation id="4732760563705710320">Samahani, video hii haiwezi kuchezwa na kifaa chako cha kutuma maudhui.</translation>
 <translation id="4734518477988699048">Thamani iliyowekwa si sahihi.</translation>
 <translation id="473546211690256853">Akaunti hii inadhibitiwa na <ph name="DOMAIN" /></translation>
@@ -2695,9 +2689,6 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="5152451685298621771">(Akaunti ya watoto)</translation>
 <translation id="5154108062446123722">Mipangilio ya kina ya <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Unaweza kuongeza printa kwenye kompyuta yako kwa kubofya kitufe cha "Add a printer" 
-            hapo chini. Iwapo huna printa za kuongeza, utaweza kuhifadhi
-            PDF au kuweka kwenye Hifadhi ya Google.</translation>
 <translation id="5154702632169343078">Kichwa</translation>
 <translation id="5154917547274118687">Kumbukumbu</translation>
 <translation id="5157635116769074044">Bana ukurasa huu kwenye Skrini ya Kuanza...</translation>
@@ -3307,7 +3298,7 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="6076448957780543068">Jumuisha picha hii ya skrini</translation>
 <translation id="6077131872140550515">Ondoa kwenye orodha ya mitandao inayopendelewa</translation>
 <translation id="6078752646384677957">Tafadhali angalia maikrofoni yako na viwango vya sauti.</translation>
-<translation id="6080515710685820702">Je, unatumia kompyuta inayoshirikiwa? Jaribu kufungua dirisha fiche.</translation>
+<translation id="6080515710685820702">Je, unatumia kompyuta inayotumiwa pamoja na wengine? Jaribu kufungua dirisha fiche.</translation>
 <translation id="6080689532560039067">Angalia saa ya mfumo wako</translation>
 <translation id="6082651258230788217">Onyesha katika upau wa vidhibiti</translation>
 <translation id="6086814797483779854">Tekeleza kwa Kubofya</translation>
@@ -4092,7 +4083,6 @@ Tumia kipengele hiki kwa akaunti unazoamini pekee.</translation>
 <translation id="7311079019872751559">Idhini ya kufikia programu-jalizi isiyo kwenye sandbox</translation>
 <translation id="7311891583377621132">Sogeza kidogo ili unase sehemu tofauti ya alama ya kidole</translation>
 <translation id="7314244761674113881">Mpangishaji wa SOCKS</translation>
-<translation id="7314440321558802142">Duka la Google Play (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (sasa)</translation>
 <translation id="7321545336522791733">Seva haifikiki</translation>
 <translation id="7324297612904500502">Mfumo wa Beta</translation>
@@ -4699,7 +4689,6 @@ Inakokotoa muda unaosalia</translation>
 <translation id="8242426110754782860">Endelea</translation>
 <translation id="8245799906159200274">Sasa hivi kwenye kituo cha <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Mtoa huduma asiyejulikana</translation>
-<translation id="8246455765446055172">Duka la Google Play (beta)</translation>
 <translation id="8248050856337841185">&amp;Bandika</translation>
 <translation id="8249048954461686687">Folda ya OEM</translation>
 <translation id="8249296373107784235">Ghairi</translation>

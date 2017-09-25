@@ -3,6 +3,7 @@
 <translationbundle lang="fr">
 <translation id="1006017844123154345">Ouvrir la version en ligne</translation>
 <translation id="1036727731225946849">Ajout de <ph name="WEBAPK_NAME" />…</translation>
+<translation id="1041308826830691739">À partir de sites Web</translation>
 <translation id="1049743911850919806">Navigation privée</translation>
 <translation id="10614374240317010">Jamais enregistrés</translation>
 <translation id="1068672505746868501">Ne jamais traduire les pages en <ph name="SOURCE_LANGUAGE" /></translation>
@@ -267,6 +268,7 @@ Vous devez activer le Bluetooth et les services de localisation pour utiliser le
 
 Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée afin de le sélectionner. Pour affiner la recherche, faites glisser le panneau jusqu'en haut et appuyez sur le champ de recherche.</translation>
 <translation id="3616113530831147358">Audio</translation>
+<translation id="3620176948598597475">Le processus de réinitialisation efface l'historique de l'économiseur de données, y compris la liste des sites consultés.</translation>
 <translation id="3632295766818638029">Afficher le mot de passe</translation>
 <translation id="363596933471559332">Connexion automatique aux sites Web à l'aide des identifiants enregistrés. Lorsque la fonctionnalité est désactivée, vous êtes invité à effectuer la validation avant chaque connexion à un site Web.</translation>
 <translation id="3649663272864015643">Onglet "Accueil" sélectionné</translation>
@@ -275,6 +277,7 @@ Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée
 <translation id="3662546969139119822">Aucun historique ici</translation>
 <translation id="3672452749423051839">Suggestions en cas d'erreur de navigation</translation>
 <translation id="3706423975342040244">Divertissement</translation>
+<translation id="3712575778697986964">Réinitialiser l'économiseur de données ?</translation>
 <translation id="3714981814255182093">Ouvrir la barre de recherche</translation>
 <translation id="3734660163659757482">Tirez la feuille vers le haut pour afficher les favoris, etc.</translation>
 <translation id="3738139272394829648">Appuyer pour rechercher</translation>
@@ -298,6 +301,7 @@ Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée
 <translation id="393697183122708255">Aucune recherche vocale activée dispo.</translation>
 <translation id="3946611741043634542">En continuant, vous acceptez les <ph name="BEGIN_LINK1" />Conditions d'utilisation<ph name="END_LINK1" /> et l'<ph name="BEGIN_LINK2" />Avis de confidentialité<ph name="END_LINK2" /> de Chrome.</translation>
 <translation id="3950820424414687140">Ouvrir une session</translation>
+<translation id="395206256282351086">Suggestions de recherches et de sites désactivées</translation>
 <translation id="395922942268463099">Pages mises à jour régulièrement</translation>
 <translation id="3967822245660637423">Téléchargement terminé</translation>
 <translation id="397583555483684758">La synchronisation s'est arrêtée.</translation>
@@ -549,6 +553,7 @@ Vous n'êtes cependant pas devenu invisible. L'utilisation du mode navigation pr
 <translation id="6232535412751077445">Si vous interdisez le suivi, une demande sera incluse dans le trafic lié à votre navigation. Les résultats obtenus dépendent de la réponse du site (s'il répond ou non) et de la manière dont il interprète la demande.
 
 Par exemple, certains sites Web peuvent répondre à cette demande en diffusant des annonces qui ne sont pas déterminées en fonction des autres sites Web que vous avez consultés. Toutefois, nombre d'entre eux recueillent et utilisent vos données de navigation afin, par exemple, d'améliorer la sécurité ou d'afficher du contenu, des services, des annonces et des recommandations, ou encore pour générer des rapports statistiques.</translation>
+<translation id="6255999984061454636">Recommandations de contenus</translation>
 <translation id="6277522088822131679">Un problème est survenu lors de l'impression de la page. Veuillez réessayer.</translation>
 <translation id="6295158916970320988">Tous les sites</translation>
 <translation id="6320088164292336938">Vibreur</translation>
@@ -677,6 +682,7 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="7423098979219808738">Demander d'abord</translation>
 <translation id="7437998757836447326">Se déconnecter de Chrome</translation>
 <translation id="7445411102860286510">Autoriser les sites à lire automatiquement des vidéos dont le son est coupé (recommandé)</translation>
+<translation id="7453467225369441013">Vous déconnecte de la plupart des sites. Vous ne serez cependant pas déconnecté de votre compte Google.</translation>
 <translation id="7455923816558154057">Appuyer pour afficher</translation>
 <translation id="7464701184726199289">Les données synchronisées seront effacées de tous les appareils. Les paramètres de site enregistrés ne seront pas supprimés et peuvent donner des indications sur vos habitudes de navigation. <ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">Non, merci</translation>
@@ -743,6 +749,7 @@ Votre compte Google conserve peut-être d'autres formes d'historique de navigati
 <translation id="8026334261755873520">Effacer les données de navigation</translation>
 <translation id="8035133914807600019">Nouveau dossier…</translation>
 <translation id="8037750541064988519"><ph name="DAYS" /> jours restants</translation>
+<translation id="805047784848435650">En fonction de votre historique de navigation</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> Mo disponibles</translation>
 <translation id="8058746566562539958">Ouvrir dans nouvel onglet Chrome</translation>
 <translation id="8063895661287329888">Échec de l'ajout du favori</translation>

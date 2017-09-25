@@ -3,6 +3,7 @@
 <translationbundle lang="fil">
 <translation id="1006017844123154345">Buksan Online</translation>
 <translation id="1036727731225946849">Idinaragdag ang <ph name="WEBAPK_NAME" />...</translation>
+<translation id="1041308826830691739">Mula sa mga website</translation>
 <translation id="1049743911850919806">Incognito</translation>
 <translation id="10614374240317010">Hindi kailanman nag-save</translation>
 <translation id="1068672505746868501">Huwag kailanman isalin ang mga page sa <ph name="SOURCE_LANGUAGE" /></translation>
@@ -267,6 +268,7 @@ Dapat na na-on mo ang Bluetooth at Lokasyon upang magamit ang Pisikal na Web.</t
 
 Upang baguhin ang iyong termino para sa paghahanap, pindutin ito nang matagal upang mapili ito. Upang pinuhin ang iyong paghahanap, i-slide ang panel hanggang sa pinakaitaas at pindutin ang box para sa paghahanap.</translation>
 <translation id="3616113530831147358">Audio</translation>
+<translation id="3620176948598597475">Kapag nag-reset, mabubura ang history ng Data Saver, kabilang ang listahan ng mga binisitang site.</translation>
 <translation id="3632295766818638029">I-unmask ang password</translation>
 <translation id="363596933471559332">Awtomatikong mag-sign in sa mga website gamit ang mga nakaimbak na kredensyal. Kapag naka-off ang feature, hihilingin sa iyong mag-verify sa tuwing magsa-sign in ka sa isang website.</translation>
 <translation id="3649663272864015643">Pinili ang tab ng home</translation>
@@ -275,6 +277,7 @@ Upang baguhin ang iyong termino para sa paghahanap, pindutin ito nang matagal up
 <translation id="3662546969139119822">Walang history rito</translation>
 <translation id="3672452749423051839">Mga suhestyon para sa error sa pag-navigate</translation>
 <translation id="3706423975342040244">Entertainment</translation>
+<translation id="3712575778697986964">I-reset ang Data Saver?</translation>
 <translation id="3714981814255182093">Buksan ang Bar sa Paghahanap</translation>
 <translation id="3734660163659757482">Hilahin pataas upang makita ang mga bookmark at higit pa</translation>
 <translation id="3738139272394829648">Pindutin upang Hanapin</translation>
@@ -298,6 +301,7 @@ Upang baguhin ang iyong termino para sa paghahanap, pindutin ito nang matagal up
 <translation id="393697183122708255">Walang available na naka-enable na paghahanap gamit ang boses</translation>
 <translation id="3946611741043634542">Sa pamamagitan ng pagpapatuloy, sumasang-ayon ka sa <ph name="BEGIN_LINK1" />Mga Tuntunin ng Serbisyo<ph name="END_LINK1" /> at <ph name="BEGIN_LINK2" />Notification ng Privacy<ph name="END_LINK2" />.</translation>
 <translation id="3950820424414687140">Mag-sign in</translation>
+<translation id="395206256282351086">Naka-disable ang mga suhestyon sa paghahanap at site</translation>
 <translation id="395922942268463099">Regular na naa-update ang mga page</translation>
 <translation id="3967822245660637423">Tapos na ang pag-download</translation>
 <translation id="397583555483684758">Huminto ang pag-sync</translation>
@@ -549,6 +553,7 @@ Gayunpaman, hindi ka invisible. Hindi tinatago ng pagiging incognito ang iyong p
 <translation id="6232535412751077445">Kapag na-enable mo ang “Huwag Subaybayan,” magsasama ng isang kahilingan sa trapiko ng iyong pagba-browse. Ang anumang magiging epekto ay dedepende sa pagtugon at pagbibigay-kahulugan ng website sa nabanggit na kahilingan.
 
 Halimbawa, maaaring tumugon ang ilang website sa kahilingang ito sa pamamagitan ng pagpapakita sa iyo ng mga ad na hindi ibinatay sa iba pang mga nabisita mo nang website. Kokolektahin at gagamitin pa rin ng maraming website ang iyong data mula sa pagba-browse - halimbawa, upang mapahusay ang seguridad, makapagpakita ng content, mga ad at rekomendasyon, at makabuo ng mga istatistika sa pag-uulat.</translation>
+<translation id="6255999984061454636">Mga suhestyon sa content</translation>
 <translation id="6277522088822131679">Nagkaproblema sa pag-print sa pahina. Pakisubukang muli.</translation>
 <translation id="6295158916970320988">Lahat ng site</translation>
 <translation id="6320088164292336938">Mag-vibrate</translation>
@@ -677,6 +682,7 @@ Halimbawa, maaaring tumugon ang ilang website sa kahilingang ito sa pamamagitan 
 <translation id="7423098979219808738">Magtanong muna</translation>
 <translation id="7437998757836447326">Mag-sign out sa Chrome</translation>
 <translation id="7445411102860286510">Payagan ang mga site na awtomatikong mag-play ng mga naka-mute na video (inirerekomenda)</translation>
+<translation id="7453467225369441013">Isa-sign out ka sa karamihan ng mga site. Hindi ka masa-sign out sa iyong Google Account.</translation>
 <translation id="7455923816558154057">I-tap upang tingnan</translation>
 <translation id="7464701184726199289">Maki-clear nito ang mga naka-sync na data mula sa lahat ng device. Hindi made-delete ang mga naka-save na setting ng site at maaari nitong ipakita ang iyong mga gawi sa pagba-browse. <ph name="BEGIN_LINK" />Matuto nang higit pa<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">Hindi, Salamat</translation>
@@ -743,6 +749,7 @@ Maaaring mayroong ibang mga uri ng history ng pagba-browse ang iyong Google acco
 <translation id="8026334261755873520">I-clear ang data ng pagba-browse</translation>
 <translation id="8035133914807600019">Bagong folder…</translation>
 <translation id="8037750541064988519"><ph name="DAYS" /> (na) araw na lang ang natitira</translation>
+<translation id="805047784848435650">Batay sa iyong history ng pag-browse</translation>
 <translation id="8051695050440594747">Available ang <ph name="MEGABYTES" /> MB</translation>
 <translation id="8058746566562539958">Buksan sa bagong tab ng Chrome</translation>
 <translation id="8063895661287329888">Hindi naidagdag ang bookmark.</translation>

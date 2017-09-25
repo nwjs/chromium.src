@@ -194,7 +194,6 @@ Na následující obrazovce prosím zadejte zpětnou vazbu, která nám problém
 <translation id="1297175357211070620">Cíl</translation>
 <translation id="1297922636971898492">Disk Google aktuálně není k dispozici. Jakmile bude Disk Google opět dostupný, nahrávání se automaticky obnoví.</translation>
 <translation id="1303101771013849280">Soubor HTML záložek</translation>
-<translation id="1303319084542230573">Přidat tiskárnu</translation>
 <translation id="1303671224831497365">Nebyla nalezena žádná zařízení Bluetooth</translation>
 <translation id="1306606229401759371">Změnit nastavení</translation>
 <translation id="1307398858972670978">Ke svým heslům můžete získat přístup ze kteréhokoliv zařízení na stránce <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -974,7 +973,6 @@ Tento web by podle mě neměl být blokován.</translation>
 <translation id="2497229222757901769">Rychlost myši</translation>
 <translation id="2497852260688568942">Synchronizace je administrátorem zakázána.</translation>
 <translation id="249819058197909513">Pro tuto aplikaci již upozornění nezobrazovat</translation>
-<translation id="2498436043474441766">Přidat tiskárny</translation>
 <translation id="2498539833203011245">Minimalizovat</translation>
 <translation id="2498765460639677199">Obrovské</translation>
 <translation id="2500471369733289700">Blokováno z důvodu ochrany vašeho soukromí</translation>
@@ -2429,9 +2427,6 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="4728558894243024398">Platforma</translation>
 <translation id="4731351517694976331">Povolit službám Google přístup k údajům o poloze</translation>
 <translation id="4731422630970790516">Položka č. 3 v poličce</translation>
-<translation id="473221644739519769">Pokud své tiskárny přidáte do služby Google Cloud Print, budete moci tisknout odkudkoli na kterékoli z nich. Budete také moci sdílet své tiskárny s kýmkoli
-        a tisknout z Chromu, telefonu, tabletu, počítače a jakéhokoli jiného
-        zařízení připojeného k internetu.</translation>
 <translation id="4732760563705710320">Je nám líto, ale vaše zařízení Cast toto video nepodporuje.</translation>
 <translation id="4734518477988699048">Hodnota vstupu je neplatná.</translation>
 <translation id="473546211690256853">Tento účet spravuje <ph name="DOMAIN" />.</translation>
@@ -2701,7 +2696,6 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="5152451685298621771">(Dětský účet)</translation>
 <translation id="5154108062446123722">Rozšířené nastavení tiskárny <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Kliknutím na tlačítko Přidat tiskárnu níže můžete do počítače přidat tiskárny. Pokud žádné tiskárny k přidání nemáte, budete obsah moci alespoň uložit do souboru PDF nebo na Disk Google.</translation>
 <translation id="5154702632169343078">Subjekt</translation>
 <translation id="5154917547274118687">Paměť</translation>
 <translation id="5157635116769074044">Připnout tuto stránku na úvodní obrazovku...</translation>
@@ -4095,7 +4089,6 @@ Tuto funkci používejte pouze s účty, kterým důvěřujete.</translation>
 <translation id="7311079019872751559">Přístup pluginu mimo izolovaný prostor</translation>
 <translation id="7311891583377621132">Lehce prst natočte, aby se zaznamenala jiná část otisku</translation>
 <translation id="7314244761674113881">Hostitel protokolu SOCKS</translation>
-<translation id="7314440321558802142">Obchod Play (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (aktuální)</translation>
 <translation id="7321545336522791733">Server je nedostupný</translation>
 <translation id="7324297612904500502">Fórum beta</translation>
@@ -4697,7 +4690,6 @@ Výpočet zbývajícího času</translation>
 <translation id="8242426110754782860">Pokračovat</translation>
 <translation id="8245799906159200274">Aktuální kanál: <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Neznámý operátor</translation>
-<translation id="8246455765446055172">Obchod Google Play (beta)</translation>
 <translation id="8248050856337841185">&amp;Vložit</translation>
 <translation id="8249048954461686687">Složka OEM</translation>
 <translation id="8249296373107784235">Zrušit</translation>

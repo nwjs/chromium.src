@@ -194,7 +194,6 @@
 <translation id="1297175357211070620">Cél</translation>
 <translation id="1297922636971898492">A Google Drive jelenleg nem érhető el. A feltöltés automatikusan újrakezdődik, amint a Google Drive elérhetővé válik.</translation>
 <translation id="1303101771013849280">Könyvjelzők HTML-fájlja</translation>
-<translation id="1303319084542230573">Nyomtató hozzáadása</translation>
 <translation id="1303671224831497365">Nem található Bluetooth-eszköz</translation>
 <translation id="1306606229401759371">Beállítások módosítása</translation>
 <translation id="1307398858972670978">Bármely eszközről elérheti jelszavait a következő címen: <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -973,7 +972,6 @@ Miután létrehozott egy új felügyelt felhasználót, bármikor és bármilyen
 <translation id="2497229222757901769">Egér sebessége</translation>
 <translation id="2497852260688568942">A szinkronizálást letiltotta a rendszergazda</translation>
 <translation id="249819058197909513">Nem kérek többé figyelmeztetést ennél az alkalmazásnál</translation>
-<translation id="2498436043474441766">Nyomtatók hozzáadása</translation>
 <translation id="2498539833203011245">Kis méret</translation>
 <translation id="2498765460639677199">Óriási</translation>
 <translation id="2500471369733289700">Személyes adatai védelme érdekében a rendszer letiltotta</translation>
@@ -2430,11 +2428,6 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="4728558894243024398">Platform</translation>
 <translation id="4731351517694976331">A Google-szolgáltatások hozzáférhetnek az Ön tartózkodási helyéhez</translation>
 <translation id="4731422630970790516">3. polcelem</translation>
-<translation id="473221644739519769">Ha hozzáadja nyomtatóit a Google Cloud Print szolgáltatáshoz,
-        bárhonnan és bárhova nyomtathat. Bárkivel megoszthatja
-        nyomtatóit, akivel csak szeretné, és nyomtathat rajtuk 
-        a Chrome-ból, a telefonjáról, a táblagépéről, a számítógépéről,
-        illetve az internethez csatlakoztatott egyéb eszközeiről.</translation>
 <translation id="4732760563705710320">Cast-eszköze nem támogatja ezt a videót.</translation>
 <translation id="4734518477988699048">A beviteli érték érvénytelen.</translation>
 <translation id="473546211690256853">Ennek a fióknak a kezelője: <ph name="DOMAIN" />.</translation>
@@ -2703,9 +2696,6 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="5152451685298621771">(Gyermekeknek készített fiók)</translation>
 <translation id="5154108062446123722">A(z) <ph name="PRINTING_DESTINATION" /> speciális beállításai</translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Úgy adhat hozzá nyomtatókat számítógépéhez, hogy rákattint az alábbi „Nyomtató hozzáadása”
-        gombra. Ha nincsenek hozzáadható nyomtatói, menthet
-        PDF-fájlként, vagy menthet a Google Drive-ra.</translation>
 <translation id="5154702632169343078">Tulajdonos</translation>
 <translation id="5154917547274118687">Memória</translation>
 <translation id="5157635116769074044">Az oldal rögzítése a kezdőképernyőn...</translation>
@@ -4101,7 +4091,6 @@ Kizárólag olyan fiókok esetében használja a funkciót, amelyekben megbízik
 <translation id="7311079019872751559">Sandbox-technológiát nem alkalmazó beépülő modul hozzáférése</translation>
 <translation id="7311891583377621132">Óvatosan mozgassa ujját az ujjlenyomat újabb részének rögzítéséhez</translation>
 <translation id="7314244761674113881">SOCKS-szerver</translation>
-<translation id="7314440321558802142">Play Áruház (béta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (jelenlegi)</translation>
 <translation id="7321545336522791733">A szerver nem áll rendelkezésre</translation>
 <translation id="7324297612904500502">Béta fórum</translation>
@@ -4706,7 +4695,6 @@ A kulcsfájlt tartsa biztonságos helyen. Szüksége lesz rá ahhoz, hogy új ve
 <translation id="8242426110754782860">Folytatás</translation>
 <translation id="8245799906159200274">Jelenleg <ph name="CHANNEL_NAME" /> csatornán.</translation>
 <translation id="8246209727385807362">Ismeretlen szolgáltató</translation>
-<translation id="8246455765446055172">Google Play Áruház (béta)</translation>
 <translation id="8248050856337841185">&amp;Beillesztés</translation>
 <translation id="8249048954461686687">OEM mappa</translation>
 <translation id="8249296373107784235">Megszakítás</translation>

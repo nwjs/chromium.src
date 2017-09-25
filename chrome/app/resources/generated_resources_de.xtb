@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">Ablaufmonat</translation>
 <translation id="1153356358378277386">Gekoppelte Geräte</translation>
 <translation id="1156185823432343624">Lautstärke: Stumm</translation>
+<translation id="1156488781945104845">Aktuelle Uhrzeit</translation>
 <translation id="1161575384898972166">Melden Sie sich in <ph name="TOKEN_NAME" /> an, um das Clientzertifikat zu exportieren.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{Ein Download wird derzeit ausgeführt. Möchten Sie den Download abbrechen und den Inkognitomodus verlassen?}other{# Downloads werden derzeit ausgeführt. Möchten Sie die Downloads abbrechen und den Inkognitomodus verlassen?}}</translation>
 <translation id="1163931534039071049">Frame-Quelltext &amp;anzeigen</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">Musiknote</translation>
 <translation id="1205489148908752564">Nutzer auf der weißen Liste lesen und ändern</translation>
 <translation id="1206407435587370571">Ihr Chromebook kennenlernen</translation>
+<translation id="1211364473545090084">Mit einem Inkognitofenster surfen Sie im Web, ohne Ihren Browserverlauf zu speichern</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> Fingerabdrücke eingerichtet</translation>
 <translation id="1215411991991485844">Neue Hintergrund-App hinzugefügt</translation>
 <translation id="1216654534877302979">Websites stummschalten</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">Ziel</translation>
 <translation id="1297922636971898492">Google Drive ist momentan nicht verfügbar. Das Hochladen Ihrer Dateien wird automatisch fortgesetzt, sobald Google Drive wieder verfügbar ist.</translation>
 <translation id="1303101771013849280">Lesezeichen-HTML-Datei</translation>
-<translation id="1303319084542230573">Drucker hinzufügen</translation>
 <translation id="1303671224831497365">Keine Bluetooth-Geräte gefunden</translation>
 <translation id="1306606229401759371">Einstellungen ändern</translation>
 <translation id="1307398858972670978">Unter <ph name="SAVED_PASSWORDS_LINK" /> haben Sie von jedem Gerät aus Zugriff auf Ihre Passwörter</translation>
@@ -968,7 +969,6 @@ Ich glaube nicht, dass diese Website blockiert werden sollte.</translation>
 <translation id="2497229222757901769">Mausgeschwindigkeit</translation>
 <translation id="2497852260688568942">Die Synchronisierung wurde von Ihrem Administrator deaktiviert</translation>
 <translation id="249819058197909513">Für diese App keine Warnung mehr</translation>
-<translation id="2498436043474441766">Drucker hinzufügen</translation>
 <translation id="2498539833203011245">Minimieren</translation>
 <translation id="2498765460639677199">Riesig</translation>
 <translation id="2500471369733289700">Blockiert, um Ihre Privatsphäre zu schützen</translation>
@@ -1103,6 +1103,7 @@ Ich glaube nicht, dass diese Website blockiert werden sollte.</translation>
 <translation id="2688196195245426394">Fehler bei der Registrierung des Geräts auf dem Server: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Sprachoptionen anzeigen</translation>
 <translation id="2691385045260836588">Modell</translation>
+<translation id="2693176596243495071">Hoppla! Ein unbekannter Fehler ist aufgetreten. Probieren Sie es später noch einmal oder kontaktieren Sie Ihren Administrator, wenn das Problem weiterhin besteht.</translation>
 <translation id="2694026874607847549">1 Cookie</translation>
 <translation id="2695749433451188613">Internet Printing Protocol (HTTPS)</translation>
 <translation id="270358213449696159">Inhalt der Google Chrome OS-Nutzungsbedingungen</translation>
@@ -1447,6 +1448,7 @@ Eine Anleitung und weitere Informationen wurden per E-Mail an <ph name="ACCOUNT_
 <translation id="3166571619128686629">Zum Starten der Sprachsuche klicken oder "Ok Google" sagen</translation>
 <translation id="3170072451822350649">Sie können die Anmeldung auch überspringen und <ph name="LINK_START" />als Gast surfen<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">Hier klicken, um Passwort zu verbergen</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> hat eine Berechtigungsanfrage gestellt.</translation>
 <translation id="3177909033752230686">Sprache der Seite:</translation>
 <translation id="3180365125572747493">Bitte geben Sie ein Passwort zur Verschlüsselung dieser Zertifikatdatei ein.</translation>
 <translation id="3181110748548073003">Zum Weitergehen |<ph name="SHORTCUT" />| drücken</translation>
@@ -2423,7 +2425,6 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="4728558894243024398">Plattform</translation>
 <translation id="4731351517694976331">Google-Diensten Zugriff auf Ihren Standort erlauben</translation>
 <translation id="4731422630970790516">Ablageartikel 3</translation>
-<translation id="473221644739519769">Wenn Sie Drucker zu Google Cloud Print hinzufügen, können Sie von jedem beliebigen Gerät aus auf jedem beliebigen Gerät drucken. Geben Sie Ihre Drucker für andere Nutzer frei und senden Sie Druckaufträge über Chrome, Ihr Telefon, Ihr Tablet, Ihren PC oder ein anderes mit dem Web verbundenes Gerät.</translation>
 <translation id="4732760563705710320">Das Video wird von Ihrem Übertragungsgerät leider nicht unterstützt.</translation>
 <translation id="4734518477988699048">Der Eingabewert ist ungültig.</translation>
 <translation id="473546211690256853">Dieses Konto wird von <ph name="DOMAIN" /> verwaltet.</translation>
@@ -2693,7 +2694,6 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5152451685298621771">(Konto für Kinder)</translation>
 <translation id="5154108062446123722">Erweiterte Einstellungen für <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Sie können Drucker zu Ihrem Computer hinzufügen, indem Sie unten auf "Drucker hinzufügen" klicken. Wenn Sie über keinen Drucker verfügen, können Sie stattdessen eine PDF-Datei erstellen oder die Daten in Google Drive speichern.</translation>
 <translation id="5154702632169343078">Antragsteller</translation>
 <translation id="5154917547274118687">Speicher</translation>
 <translation id="5157635116769074044">Diese Seite am Startbildschirm anheften...</translation>
@@ -3303,6 +3303,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="6076448957780543068">Diesen Screenshot einfügen</translation>
 <translation id="6077131872140550515">Von bevorzugten Netzwerken entfernen</translation>
 <translation id="6078752646384677957">Überprüfen Sie Ihr Mikrofon und die Audio-Lautstärke.</translation>
+<translation id="6080515710685820702">Sie verwenden einen freigegebenen Computer? Nutzen Sie ein Inkognitofenster.</translation>
 <translation id="6080689532560039067">Systemzeit überprüfen</translation>
 <translation id="6082651258230788217">In Symbolleiste anzeigen</translation>
 <translation id="6086814797483779854">Bei Klick ausführen</translation>
@@ -3943,6 +3944,7 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="7054808953701320293">Ok, nicht mehr anzeigen</translation>
 <translation id="7056526158851679338">&amp;Geräte untersuchen</translation>
 <translation id="7059858479264779982">Automatisch starten</translation>
+<translation id="7059893117020417984">Um privat zu surfen, klicken Sie auf das Punktesymbol und öffnen Sie ein Inkognitofenster</translation>
 <translation id="7062222374113411376">Fertigstellen des Datenversands und -empfangs von kürzlich geschlossen Websites erlauben (empfohlen)</translation>
 <translation id="7063129466199351735">Verknüpfungen werden bearbeitet...</translation>
 <translation id="7063957500469387217">Drucker in Google Cloud Print einrichten oder verwalten.</translation>
@@ -4085,7 +4087,6 @@ Nutzen Sie diese Funktion nur mit vertrauenswürdigen Konten.</translation>
 <translation id="7311079019872751559">Plug-in-Zugriff ohne Sandbox</translation>
 <translation id="7311891583377621132">Bewegen Sie Ihren Finger etwas, um einen anderen Teil des Fingerabdrucks zu erfassen</translation>
 <translation id="7314244761674113881">SOCKS-Host</translation>
-<translation id="7314440321558802142">Play Store (Beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (aktuell)</translation>
 <translation id="7321545336522791733">Server nicht erreichbar</translation>
 <translation id="7324297612904500502">Beta-Forum</translation>
@@ -4614,6 +4615,7 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="8116190140324504026">Weitere Informationen</translation>
 <translation id="8116483400482790018">Benutzerdefiniertes Wörterbuch zur Rechtschreibprüfung</translation>
 <translation id="8116972784401310538">&amp;Lesezeichen-Manager</translation>
+<translation id="8118362518458010043">Von Chrome deaktiviert. Diese Erweiterung könnte unsicher sein.</translation>
 <translation id="8118860139461251237">Downloads verwalten</translation>
 <translation id="8119631488458759651">Diese Website entfernen</translation>
 <translation id="81238879832906896">Gelbe und weiße Blume</translation>
@@ -4692,7 +4694,6 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="8242426110754782860">Fortfahren</translation>
 <translation id="8245799906159200274">Derzeit auf der Version "<ph name="CHANNEL_NAME" />"</translation>
 <translation id="8246209727385807362">Unbekannter Mobilfunkanbieter</translation>
-<translation id="8246455765446055172">Google Play Store (Beta)</translation>
 <translation id="8248050856337841185">&amp;Einfügen</translation>
 <translation id="8249048954461686687">OEM-Ordner</translation>
 <translation id="8249296373107784235">Abbrechen</translation>
@@ -4730,6 +4731,7 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="8283475148136688298">Beim Herstellen der Verbindung zu "<ph name="DEVICE_NAME" />" wurde der Authentifizierungscode zurückgewiesen.</translation>
 <translation id="8284279544186306258">alle <ph name="WEBSITE_1" />-Websites</translation>
 <translation id="8286036467436129157">Anmelden</translation>
+<translation id="8286963743045814739">In einem Inkognitofenster können Sie privat surfen</translation>
 <translation id="8291967909914612644">Land des Homepageanbieters</translation>
 <translation id="8294431847097064396">Quelle</translation>
 <translation id="8297006494302853456">Schwach</translation>

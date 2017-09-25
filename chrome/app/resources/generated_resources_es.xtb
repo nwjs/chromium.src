@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">Mes de caducidad</translation>
 <translation id="1153356358378277386">Dispositivos vinculados</translation>
 <translation id="1156185823432343624">Volumen: silenciado</translation>
+<translation id="1156488781945104845">Hora actual</translation>
 <translation id="1161575384898972166">Inicia sesión en <ph name="TOKEN_NAME" /> para exportar el certificado de cliente.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{Actualmente hay una descarga en curso. ¿Quieres cancelar la descarga y salir del modo incógnito?}other{Actualmente hay # descargas en curso. ¿Quieres cancelar las descargas y salir del modo incógnito?}}</translation>
 <translation id="1163931534039071049">&amp;Ver fuente del marco</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">Nota musical</translation>
 <translation id="1205489148908752564">Consultar y modificar cuentas de usuarios incluidos en lista blanca</translation>
 <translation id="1206407435587370571">Explora tu Chromebook</translation>
+<translation id="1211364473545090084">Navega por Internet sin guardar tu historial de navegación con una ventana de incógnito</translation>
 <translation id="1213037489357051291">Número de huellas digitales configuradas: <ph name="NUM_FINGERPRINTS" /></translation>
 <translation id="1215411991991485844">Nueva aplicación en segundo plano añadida</translation>
 <translation id="1216654534877302979">Silenciar sitios web</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">Destino</translation>
 <translation id="1297922636971898492">Google Drive no está disponible en estos momentos. La subida se reiniciará automáticamente cuando vuelva a estar disponible.</translation>
 <translation id="1303101771013849280">Archivo HTML de marcadores</translation>
-<translation id="1303319084542230573">Añadir una impresora</translation>
 <translation id="1303671224831497365">No se han encontrado dispositivos Bluetooth</translation>
 <translation id="1306606229401759371">Cambiar configuración</translation>
 <translation id="1307398858972670978">Accede a tus contraseñas desde cualquier dispositivo a través de <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -744,7 +745,7 @@
 <translation id="2152580633399033274">Mostrar todas las imágenes (recomendado)</translation>
 <translation id="2154484045852737596">Editar tarjeta</translation>
 <translation id="2154710561487035718">Copiar URL</translation>
-<translation id="2155931291251286316">Permitir siempre pop-ups de <ph name="HOST" /></translation>
+<translation id="2155931291251286316">Permitir siempre ventanas emergentes de <ph name="HOST" /></translation>
 <translation id="215753907730220065">Desactivar pantalla completa</translation>
 <translation id="2157875535253991059">Esta página se muestra ahora en pantalla completa.</translation>
 <translation id="216169395504480358">Añadir Wi-Fi...</translation>
@@ -972,7 +973,6 @@ No creo que este sitio deba bloquearse</translation>
 <translation id="2497229222757901769">Velocidad del ratón</translation>
 <translation id="2497852260688568942">El administrador ha inhabilitado la sincronización</translation>
 <translation id="249819058197909513">No volver a advertirme sobre esta aplicación</translation>
-<translation id="2498436043474441766">Añadir impresoras</translation>
 <translation id="2498539833203011245">Minimizar</translation>
 <translation id="2498765460639677199">Enorme</translation>
 <translation id="2500471369733289700">Bloqueado para proteger tu privacidad</translation>
@@ -1108,6 +1108,7 @@ y su configuración no se sincronizan en otros dispositivos con la función de s
 <translation id="2688196195245426394">Error al registrar el dispositivo en el servidor (<ph name="CLIENT_ERROR" />)</translation>
 <translation id="2690024944919328218">Mostrar opciones de idioma</translation>
 <translation id="2691385045260836588">Modelo</translation>
+<translation id="2693176596243495071">¡Vaya! Se ha producido un error desconocido. Vuelve a intentarlo más tarde o ponte en contacto con tu administrador si el problema persiste.</translation>
 <translation id="2694026874607847549">1 cookie</translation>
 <translation id="2695749433451188613">Protocolo de impresión en Internet (HTTPS)</translation>
 <translation id="270358213449696159">Contenido de las condiciones de Google Chrome OS</translation>
@@ -1454,6 +1455,7 @@ Accede a tu dirección de correo electrónico <ph name="ACCOUNT_EMAIL" /> para c
 <translation id="3166571619128686629">Haz clic o di "Ok Google" para iniciar la búsqueda por voz</translation>
 <translation id="3170072451822350649">También puedes <ph name="LINK_START" />navegar como invitado<ph name="LINK_END" /> sin iniciar sesión.</translation>
 <translation id="3177048931975664371">Haz clic aquí para ocultar la contraseña</translation>
+<translation id="3177857336576585529">Se ha enviado una solicitud de permiso al sitio web <ph name="SITE_NAME" />.</translation>
 <translation id="3177909033752230686">Idioma de la página:</translation>
 <translation id="3180365125572747493">Introduce una contraseña para cifrar este archivo de certificado.</translation>
 <translation id="3181110748548073003">Pulsa |<ph name="SHORTCUT" />| para ir a la página siguiente</translation>
@@ -2427,10 +2429,6 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4728558894243024398">Plataforma</translation>
 <translation id="4731351517694976331">Permitir que los servicios de Google accedan a tu ubicación</translation>
 <translation id="4731422630970790516">Elemento 3 de la estantería</translation>
-<translation id="473221644739519769">Si añades tus impresoras a Google Cloud Print, podrás imprimir tus documentos
-        estés donde estés. Comparte tus impresoras con quien quieras e imprime
-        tus documentos desde Chrome, tu teléfono, tu tablet, tu ordenador o
-        cualquier otro dispositivo conectado a Internet.</translation>
 <translation id="4732760563705710320">El dispositivo de transmisión no admite este vídeo.</translation>
 <translation id="4734518477988699048">El valor de entrada no es válido.</translation>
 <translation id="473546211690256853">Esta cuenta está administrada por <ph name="DOMAIN" /></translation>
@@ -2699,7 +2697,6 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="5152451685298621771">(Cuenta infantil)</translation>
 <translation id="5154108062446123722">Configuración avanzada para <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Para añadir impresoras a tu ordenador, haz clic en el botón "Añadir una impresora" que aparece a continuación. Si no tienes ninguna impresora que añadir, puedes guardar tus documentos como archivos PDF o usar Google Drive.</translation>
 <translation id="5154702632169343078">Entidad receptora</translation>
 <translation id="5154917547274118687">Memoria</translation>
 <translation id="5157635116769074044">Fijar esta página a la pantalla de inicio...</translation>
@@ -3309,6 +3306,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6076448957780543068">Incluir esta captura de pantalla</translation>
 <translation id="6077131872140550515">Quitar de las redes preferidas</translation>
 <translation id="6078752646384677957">Comprueba el volumen del micrófono y del audio.</translation>
+<translation id="6080515710685820702">¿Utilizas un ordenador compartido? Prueba a abrir una ventana de incógnito.</translation>
 <translation id="6080689532560039067">Comprueba la hora del sistema</translation>
 <translation id="6082651258230788217">Mostrar en la barra de herramientas</translation>
 <translation id="6086814797483779854">Ejecutar al hacer clic</translation>
@@ -3459,7 +3457,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6317369057005134371">Esperando ventana de la aplicación...</translation>
 <translation id="6322279351188361895">Se ha producido un error al leer la clave privada.</translation>
 <translation id="6325191661371220117">Inhabilitar inicio automático</translation>
-<translation id="6326175484149238433">Eliminar de Chrome</translation>
+<translation id="6326175484149238433">Desinstalar de Chrome</translation>
 <translation id="6326855256003666642">Número de actividades en curso</translation>
 <translation id="632744581670418035">Superposición de teclado</translation>
 <translation id="6327785803543103246">Detección automática de proxy web</translation>
@@ -3948,6 +3946,7 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="7054808953701320293">No volver a mostrar.</translation>
 <translation id="7056526158851679338">&amp;Inspeccionar dispositivos</translation>
 <translation id="7059858479264779982">Establecer inicio automático</translation>
+<translation id="7059893117020417984">Para navegar en privado, haz clic en el icono de puntos y abre una ventana de incógnito</translation>
 <translation id="7062222374113411376">Permitir que los sitios web cerrados recientemente terminen de enviar y recibir datos (recomendado)</translation>
 <translation id="7063129466199351735">Procesando accesos directos...</translation>
 <translation id="7063957500469387217">Establecer o administrar impresoras en Google Cloud Print.</translation>
@@ -4090,7 +4089,6 @@ Solo debes usar esta función con las cuentas de confianza.</translation>
 <translation id="7311079019872751559">Acceso de complementos sin pasar por la zona de pruebas</translation>
 <translation id="7311891583377621132">Mueve el dedo ligeramente para capturar otra parte de la huella digital</translation>
 <translation id="7314244761674113881">Host SOCKS</translation>
-<translation id="7314440321558802142">Play Store (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (actual)</translation>
 <translation id="7321545336522791733">No se puede acceder al servidor</translation>
 <translation id="7324297612904500502">Foro beta</translation>
@@ -4615,6 +4613,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8116190140324504026">Más información...</translation>
 <translation id="8116483400482790018">Diccionario ortográfico personalizado</translation>
 <translation id="8116972784401310538">Administrador de &amp;marcadores</translation>
+<translation id="8118362518458010043">Chrome ha inhabilitado esta extensión porque es posible que no sea segura.</translation>
 <translation id="8118860139461251237">Gestionar tus descargas</translation>
 <translation id="8119631488458759651">eliminar este sitio</translation>
 <translation id="81238879832906896">Flor blanca y amarilla</translation>
@@ -4694,7 +4693,6 @@ Calculando el tiempo restante</translation>
 <translation id="8242426110754782860">Continuar</translation>
 <translation id="8245799906159200274">Actualmente estás en el canal <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Operador desconocido</translation>
-<translation id="8246455765446055172">Google Play Store (beta)</translation>
 <translation id="8248050856337841185">&amp;Pegar</translation>
 <translation id="8249048954461686687">Carpeta OEM</translation>
 <translation id="8249296373107784235">Anular</translation>
@@ -4732,6 +4730,7 @@ Calculando el tiempo restante</translation>
 <translation id="8283475148136688298">Se ha rechazado el código de autenticación mientras se establecía conexión con <ph name="DEVICE_NAME" />.</translation>
 <translation id="8284279544186306258">todos los sitios de <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">Iniciar sesión</translation>
+<translation id="8286963743045814739">Puedes navegar en privado con una ventana de incógnito</translation>
 <translation id="8291967909914612644">País del proveedor inicial</translation>
 <translation id="8294431847097064396">Origen</translation>
 <translation id="8297006494302853456">Débil</translation>

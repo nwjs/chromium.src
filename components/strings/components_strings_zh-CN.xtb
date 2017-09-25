@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">适合窗口宽度</translation>
 <translation id="1088860948719068836">添加持卡人姓名</translation>
 <translation id="1103523840287552314">总是翻译<ph name="LANGUAGE" /></translation>
+<translation id="1103778128462718200">显示所有已保存的密码…</translation>
 <translation id="1107591249535594099">选中后，Chrome 会将您的信用卡副本存储在此设备上，以加快表单填写速度。</translation>
 <translation id="1111153019813902504">最近用过的书签</translation>
 <translation id="1113869188872983271">撤消顺序调整(&amp;U)</translation>
@@ -595,6 +596,7 @@
 <translation id="5540224163453853">找不到请求的文章。</translation>
 <translation id="5541546772353173584">添加电子邮件地址</translation>
 <translation id="5544037170328430102"><ph name="SITE" /> 上的嵌入式页面显示：</translation>
+<translation id="5545756402275714221">为您推荐的报道</translation>
 <translation id="5556459405103347317">重新加载</translation>
 <translation id="5560088892362098740">到期日期</translation>
 <translation id="5565735124758917034">主动</translation>
@@ -616,6 +618,7 @@
 <translation id="5659593005791499971">电子邮件</translation>
 <translation id="5669703222995421982">获取个性化内容</translation>
 <translation id="5675650730144413517">该网页无法正常运作</translation>
+<translation id="5689199277474810259">导出为 JSON 格式</translation>
 <translation id="5710435578057952990">此网站尚未经过身份验证。</translation>
 <translation id="5719499550583120431">接受预付卡。</translation>
 <translation id="5720705177508910913">当前用户</translation>

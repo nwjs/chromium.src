@@ -194,7 +194,6 @@
 <translation id="1297175357211070620">Принтер</translation>
 <translation id="1297922636971898492">Google Диск временно недоступен. Когда доступ будет восстановлен, загрузка автоматически возобновится.</translation>
 <translation id="1303101771013849280">HTML-файл с закладками</translation>
-<translation id="1303319084542230573">Добавить принтер</translation>
 <translation id="1303671224831497365">Устройства Bluetooth не найдены</translation>
 <translation id="1306606229401759371">Изменить настройки</translation>
 <translation id="1307398858972670978">Получить доступ к своим паролям с любого устройства можно по ссылке <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -972,7 +971,6 @@
 <translation id="2497229222757901769">Скорость указателя (для мыши)</translation>
 <translation id="2497852260688568942">Ваш администратор отключил синхронизацию</translation>
 <translation id="249819058197909513">Больше не показывать для этого приложения</translation>
-<translation id="2498436043474441766">Добавление принтеров</translation>
 <translation id="2498539833203011245">Свернуть</translation>
 <translation id="2498765460639677199">Огромный</translation>
 <translation id="2500471369733289700">Заблокировано в целях безопасности</translation>
@@ -2432,10 +2430,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4728558894243024398">Платформа</translation>
 <translation id="4731351517694976331">Предоставить службам Google доступ к данным о местоположении</translation>
 <translation id="4731422630970790516">3-й объект на панели запуска</translation>
-<translation id="473221644739519769">Виртуальный принтер Google позволяет выводить файлы на печать,
-        где бы вы ни находились. Вы сможете предоставлять доступ к своим принтерам
-        и отправлять на печать файлы из браузера Chrome, с телефона, компьютера
-        и любого другого устройства, подключенного к Интернету.</translation>
 <translation id="4732760563705710320">Это видео не поддерживается на вашем Cast-устройстве.</translation>
 <translation id="4734518477988699048">Введено недопустимое значение.</translation>
 <translation id="473546211690256853">Этот аккаунт находится в домене <ph name="DOMAIN" /></translation>
@@ -2705,9 +2699,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5152451685298621771">(детский аккаунт)</translation>
 <translation id="5154108062446123722"><ph name="PRINTING_DESTINATION" /> – дополнительные настройки</translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Вы можете подключать принтеры к своему компьютеру с помощью кнопки "Добавить принтер"
-        ниже. Если доступных принтеров нет, вместо печати файл можно сохранить
-        на Google Диске или локально в формате PDF.</translation>
 <translation id="5154702632169343078">Субъект</translation>
 <translation id="5154917547274118687">Память</translation>
 <translation id="5157635116769074044">Прикрепить эту страницу к экрану запуска…</translation>
@@ -4102,7 +4093,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7311079019872751559">Доступ к плагинам вне тестовой среды</translation>
 <translation id="7311891583377621132">Немного перемещайте палец, чтобы отсканировать его полностью</translation>
 <translation id="7314244761674113881">SOCKS</translation>
-<translation id="7314440321558802142">Google Play (бета)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (используется)</translation>
 <translation id="7321545336522791733">Сервер недоступен</translation>
 <translation id="7324297612904500502">Форум бета-версии</translation>
@@ -4707,7 +4697,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8242426110754782860">Продолжить</translation>
 <translation id="8245799906159200274">Используемая версия: <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Неизвестный оператор</translation>
-<translation id="8246455765446055172">Google Play (бета-версия)</translation>
 <translation id="8248050856337841185">&amp;Вставить</translation>
 <translation id="8249048954461686687">Папка OEM</translation>
 <translation id="8249296373107784235">Отмена</translation>

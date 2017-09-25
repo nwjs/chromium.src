@@ -194,7 +194,6 @@
 <translation id="1297175357211070620">Destination</translation>
 <translation id="1297922636971898492">Google Drive is not available right now. Uploading will automatically restart once Google Drive is back.</translation>
 <translation id="1303101771013849280">Bookmarks HTML File</translation>
-<translation id="1303319084542230573">Add a printer</translation>
 <translation id="1303671224831497365">No Bluetooth devices found</translation>
 <translation id="1306606229401759371">Change settings</translation>
 <translation id="1307398858972670978">Access your passwords from any device at <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -975,7 +974,6 @@ I don't think this site should be blocked!</translation>
 <translation id="2497229222757901769">Mouse speed</translation>
 <translation id="2497852260688568942">Sync is disabled by your administrator</translation>
 <translation id="249819058197909513">Don't warn again for this app</translation>
-<translation id="2498436043474441766">Add Printers</translation>
 <translation id="2498539833203011245">Minimise</translation>
 <translation id="2498765460639677199">Huge</translation>
 <translation id="2500471369733289700">Blocked to protect your privacy</translation>
@@ -2432,10 +2430,6 @@ Press any key to continue exploring.</translation>
 <translation id="4728558894243024398">Platform</translation>
 <translation id="4731351517694976331">Allow Google services to access your location</translation>
 <translation id="4731422630970790516">Shelf item 3</translation>
-<translation id="473221644739519769">Adding your printers to Google Cloud Print allows you to print from
-          anywhere, to anywhere. Share your printers with whoever you choose and
-          print to them from Chrome, your phone, tablet, PC or any other
-          web-connected device.</translation>
 <translation id="4732760563705710320">Sorry, this video is not supported by your cast device.</translation>
 <translation id="4734518477988699048">Input value is invalid.</translation>
 <translation id="473546211690256853">This account is managed by <ph name="DOMAIN" /></translation>
@@ -2705,9 +2699,6 @@ Press any key to continue exploring.</translation>
 <translation id="5152451685298621771">(Account for kids)</translation>
 <translation id="5154108062446123722">Advanced settings for <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">You can add printers to your computer by clicking the "Add a printer"
-          button below. If you have no printers to add, you'll still be able to save
-          a PDF or save to Google Drive.</translation>
 <translation id="5154702632169343078">Subject</translation>
 <translation id="5154917547274118687">Memory</translation>
 <translation id="5157635116769074044">Pin this Page to Start Screen...</translation>
@@ -4102,7 +4093,6 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7311079019872751559">Unsandboxed plug-in access</translation>
 <translation id="7311891583377621132">Move slightly to capture a different part of the fingerprint</translation>
 <translation id="7314244761674113881">SOCKS host</translation>
-<translation id="7314440321558802142">Play Store (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (current)</translation>
 <translation id="7321545336522791733">Server unreachable</translation>
 <translation id="7324297612904500502">Beta forum</translation>
@@ -4708,7 +4698,6 @@ Calculating remaining time</translation>
 <translation id="8242426110754782860">Proceed</translation>
 <translation id="8245799906159200274">Currently on <ph name="CHANNEL_NAME" /> channel.</translation>
 <translation id="8246209727385807362">Unknown operator</translation>
-<translation id="8246455765446055172">Google Play Store (beta)</translation>
 <translation id="8248050856337841185">&amp;Paste</translation>
 <translation id="8249048954461686687">OEM folder</translation>
 <translation id="8249296373107784235">Abort</translation>

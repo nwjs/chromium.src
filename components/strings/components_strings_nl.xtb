@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Aanpassen aan breedte</translation>
 <translation id="1088860948719068836">Naam op kaart toevoegen</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> altijd vertalen</translation>
+<translation id="1103778128462718200">Alle opgeslagen wachtwoorden weergeven...</translation>
 <translation id="1107591249535594099">Als deze optie is aangevinkt, bewaart Chrome een exemplaar van je kaart op dit apparaat om formulieren sneller te kunnen invullen.</translation>
 <translation id="1111153019813902504">Onlangs bezochte bladwijzers</translation>
 <translation id="1113869188872983271">&amp;Volgorde wijzigen ongedaan maken</translation>
@@ -594,6 +595,7 @@
 <translation id="5540224163453853">Kan het gevraagde artikel niet vinden.</translation>
 <translation id="5541546772353173584">E-mailadres toevoegen</translation>
 <translation id="5544037170328430102">Een ingesloten pagina op <ph name="SITE" /> meldt het volgende:</translation>
+<translation id="5545756402275714221">Artikelen voor jou</translation>
 <translation id="5556459405103347317">Opnieuw laden</translation>
 <translation id="5560088892362098740">Vervaldatum</translation>
 <translation id="5565735124758917034">Actief</translation>
@@ -615,6 +617,7 @@
 <translation id="5659593005791499971">E-mailadres</translation>
 <translation id="5669703222995421982">Gepersonaliseerde content ontvangen</translation>
 <translation id="5675650730144413517">Deze pagina werkt niet</translation>
+<translation id="5689199277474810259">Exporteren naar JSON</translation>
 <translation id="5710435578057952990">De identiteit van deze website is niet geverifieerd.</translation>
 <translation id="5719499550583120431">Prepaidkaarten worden geaccepteerd.</translation>
 <translation id="5720705177508910913">Huidige gebruiker</translation>

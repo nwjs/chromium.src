@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Sovita leveyteen</translation>
 <translation id="1088860948719068836">Lisää kortissa oleva nimi</translation>
 <translation id="1103523840287552314">Käännä <ph name="LANGUAGE" /> aina</translation>
+<translation id="1103778128462718200">Näytä kaikki tallennetut salasanat…</translation>
 <translation id="1107591249535594099">Jos tämä ruutu on valittu, Chrome tallentaa kortin kopion tälle laitteelle, jotta lomakkeiden täyttö nopeutuu.</translation>
 <translation id="1111153019813902504">Uusimmat kirjanmerkit</translation>
 <translation id="1113869188872983271">K&amp;umoa uudelleenjärjestely</translation>
@@ -599,6 +600,7 @@
 <translation id="5540224163453853">Pyydettyä artikkelia ei löydy.</translation>
 <translation id="5541546772353173584">Lisää sähköposti</translation>
 <translation id="5544037170328430102">Viesti upotetulta sivulta osoitteessa <ph name="SITE" />:</translation>
+<translation id="5545756402275714221">Sinulle valitut artikkelit</translation>
 <translation id="5556459405103347317">Lataa uudelleen</translation>
 <translation id="5560088892362098740">Viimeinen voimassaolopäivä</translation>
 <translation id="5565735124758917034">Aktiivinen</translation>
@@ -620,6 +622,7 @@
 <translation id="5659593005791499971">Sähköposti</translation>
 <translation id="5669703222995421982">Hanki räätälöityä sisältöä</translation>
 <translation id="5675650730144413517">Sivu ei toimi</translation>
+<translation id="5689199277474810259">Vie JSON-tiedostoon</translation>
 <translation id="5710435578057952990">Tämän sivuston identiteettiä ei ole vahvistettu.</translation>
 <translation id="5719499550583120431">Prepaid-kortit hyväksytään.</translation>
 <translation id="5720705177508910913">Nykyinen käyttäjä</translation>

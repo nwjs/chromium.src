@@ -3,6 +3,7 @@
 <translationbundle lang="fi">
 <translation id="1006017844123154345">Avaa verkkoversio</translation>
 <translation id="1036727731225946849">Lisätään <ph name="WEBAPK_NAME" />…</translation>
+<translation id="1041308826830691739">Verkkosivustoilta</translation>
 <translation id="1049743911850919806">Incognito</translation>
 <translation id="10614374240317010">Ei tallenneta</translation>
 <translation id="1068672505746868501">Älä koskaan käännä kielellä <ph name="SOURCE_LANGUAGE" /> kirjoitettuja sivuja.</translation>
@@ -267,6 +268,7 @@ Bluetooothin ja sijaintipalvelun on oltava päällä, jotta Fyysistä webiä voi
 
 Muokkaa hakutermiä valitsemalla se pitkällä painalluksella. Tarkenna hakua liu'uttamalla paneeli yläasentoon ja koskettamalla hakukenttää.</translation>
 <translation id="3616113530831147358">Ääni</translation>
+<translation id="3620176948598597475">Nollaaminen tyhjentää Data Saverin historian, mukaan lukien avattujen sivustojen luettelon.</translation>
 <translation id="3632295766818638029">Paljasta salasana</translation>
 <translation id="363596933471559332">Kirjaudu automaattisesti verkkosivustoille käyttämällä tallennettuja kirjautumistietoja. Jos tämä toiminto ei ole käytössä, sinua pyydetään vahvistamaan kirjautuminen aina, kun kirjaudut sivustolle.</translation>
 <translation id="3649663272864015643">Etusivu-välilehti valittu</translation>
@@ -275,6 +277,7 @@ Muokkaa hakutermiä valitsemalla se pitkällä painalluksella. Tarkenna hakua li
 <translation id="3662546969139119822">Ei historiatietoja</translation>
 <translation id="3672452749423051839">Selausvirheiden ehdotukset</translation>
 <translation id="3706423975342040244">Viihde</translation>
+<translation id="3712575778697986964">Nollataanko Data Saver?</translation>
 <translation id="3714981814255182093">Avaa hakupalkki</translation>
 <translation id="3734660163659757482">Vedä ylös, niin näet esimerkiksi kirjanmerkit.</translation>
 <translation id="3738139272394829648">Koskettamalla hakeminen</translation>
@@ -298,6 +301,7 @@ Muokkaa hakutermiä valitsemalla se pitkällä painalluksella. Tarkenna hakua li
 <translation id="393697183122708255">Puhehaku ei ole käytössä</translation>
 <translation id="3946611741043634542">Jatkamalla hyväksyt Chromen <ph name="BEGIN_LINK1" />käyttöehdot<ph name="END_LINK1" /> ja <ph name="BEGIN_LINK2" />tietosuojailmoituksen<ph name="END_LINK2" />.</translation>
 <translation id="3950820424414687140">Kirjaudu sisään</translation>
+<translation id="395206256282351086">Haku- ja sivustoehdotukset on poistettu käytöstä.</translation>
 <translation id="395922942268463099">Säännöllisesti päivitettävät sivut</translation>
 <translation id="3967822245660637423">Lataus on valmis</translation>
 <translation id="397583555483684758">Synkronointi on lakannut toimimasta.</translation>
@@ -549,6 +553,7 @@ Et ole kuitenkaan näkymätön. Incognito-tila ei piilota selaustietojasi työna
 <translation id="6232535412751077445">Do Not Track -toiminnon käyttöönotto tarkoittaa sitä, että selausliikenteeseesi sisällytetään pyyntö. Sen vaikutus riippuu siitä, vastaako verkkosivusto pyyntöön ja miten pyyntöä tulkitaan.
 
 Jotkin verkkosivustot voivat vastata tähän pyyntöön esimerkiksi näyttämällä sinulle mainoksia, jotka eivät perustu muihin vierailemiisi verkkosivustoihin. Monet sivustot keräävät ja käyttävät silti edelleen selaustietojasi – esimerkiksi turvallisuuden parantamiseen, sisällön, mainosten ja suositusten tarjoamiseen sekä raportointitilastojen luomiseen.</translation>
+<translation id="6255999984061454636">Sisältöehdotukset</translation>
 <translation id="6277522088822131679">Sivua tulostettaessa tapahtui virhe. Yritä uudelleen.</translation>
 <translation id="6295158916970320988">Kaikki sivustot</translation>
 <translation id="6320088164292336938">Värinä</translation>
@@ -677,6 +682,7 @@ Jotkin verkkosivustot voivat vastata tähän pyyntöön esimerkiksi näyttämäl
 <translation id="7423098979219808738">Kysy ensin</translation>
 <translation id="7437998757836447326">Uloskirjautuminen Chromesta</translation>
 <translation id="7445411102860286510">Salli sivustoille mykistettyjen videoiden automaattinen toisto (suositus)</translation>
+<translation id="7453467225369441013">Tämä kirjaa sinut ulos useimmilta sivustoilta. Sinua ei kirjata ulos Google-tililtäsi.</translation>
 <translation id="7455923816558154057">Napauta, niin linkki avataan</translation>
 <translation id="7464701184726199289">Synkronoidut tiedot poistetaan kaikilta laitteilta. Tallennettuja sivustoasetuksia ei poisteta, ja ne saattavat sisältää tietoa selaustavoistasi. <ph name="BEGIN_LINK" />Lisätietoja<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">Ei kiitos</translation>
@@ -743,6 +749,7 @@ Google-tililläsi voi olla muita selaushistoriatietoja, kuten hakuja ja toiminta
 <translation id="8026334261755873520">Poista selaustiedot</translation>
 <translation id="8035133914807600019">Uusi kansio…</translation>
 <translation id="8037750541064988519"><ph name="DAYS" /> päivää jäljellä</translation>
+<translation id="805047784848435650">Selaushistoriasi perusteella</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> Mt käytettävissä</translation>
 <translation id="8058746566562539958">Avaa, uusi Chrome-välilehti</translation>
 <translation id="8063895661287329888">Kirjanmerkin lisääminen epäonnistui.</translation>

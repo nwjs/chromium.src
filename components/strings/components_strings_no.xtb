@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Tilpass til vindusbredden</translation>
 <translation id="1088860948719068836">Legg til navnet på kortet</translation>
 <translation id="1103523840287552314">Oversett alltid <ph name="LANGUAGE" /></translation>
+<translation id="1103778128462718200">Vis alle lagrede passord</translation>
 <translation id="1107591249535594099">Hvis det er merket av for dette alternativet, lagrer Chrome en kopi av kortet ditt på denne enheten, slik at det går raskere å fylle ut skjemaer.</translation>
 <translation id="1111153019813902504">Nylige bokmerker</translation>
 <translation id="1113869188872983271">&amp;Angre omorganiseringen</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">Den forespurte artikkelen ble ikke funnet.</translation>
 <translation id="5541546772353173584">Legg til e-post</translation>
 <translation id="5544037170328430102">En innebygd side på <ph name="SITE" /> sier:</translation>
+<translation id="5545756402275714221">Artikler for deg</translation>
 <translation id="5556459405103347317">Last inn på nytt</translation>
 <translation id="5560088892362098740">Utløpsdato</translation>
 <translation id="5565735124758917034">Aktiv</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">E-post</translation>
 <translation id="5669703222995421982">Få innhold med et personlig preg</translation>
 <translation id="5675650730144413517">Denne siden fungerer ikke</translation>
+<translation id="5689199277474810259">Eksportér til JSON</translation>
 <translation id="5710435578057952990">Identiteten til dette nettstedet er ikke verifisert.</translation>
 <translation id="5719499550583120431">Forhåndsbetalte kort godtas.</translation>
 <translation id="5720705177508910913">Gjeldende bruker</translation>

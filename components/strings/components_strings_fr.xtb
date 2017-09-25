@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Ajuster à la largeur</translation>
 <translation id="1088860948719068836">Ajouter le nom du titulaire de la carte</translation>
 <translation id="1103523840287552314">Toujours traduire les pages en <ph name="LANGUAGE" /></translation>
+<translation id="1103778128462718200">Afficher tous les mots de passe enregistrés…</translation>
 <translation id="1107591249535594099">Si cette case est cochée, une copie de votre carte est stockée sur cet appareil pour compléter les formulaires plus rapidement.</translation>
 <translation id="1111153019813902504">Favoris consultés récemment</translation>
 <translation id="1113869188872983271">&amp;Annuler la réorganisation</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">Impossible de trouver l'article demandé.</translation>
 <translation id="5541546772353173584">Ajouter une adresse e-mail</translation>
 <translation id="5544037170328430102">Une page intégrée à l'adresse <ph name="SITE" /> indique :</translation>
+<translation id="5545756402275714221">Articles pour vous</translation>
 <translation id="5556459405103347317">Actualiser</translation>
 <translation id="5560088892362098740">Date d'expiration</translation>
 <translation id="5565735124758917034">Actif</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">E-mail</translation>
 <translation id="5669703222995421982">Obtenir une recommandation de contenu personnalisé</translation>
 <translation id="5675650730144413517">Cette page ne fonctionne pas</translation>
+<translation id="5689199277474810259">Exporter au format JSON</translation>
 <translation id="5710435578057952990">L'identité de ce site Web n'a pas été vérifiée.</translation>
 <translation id="5719499550583120431">Les cartes prépayées sont acceptées.</translation>
 <translation id="5720705177508910913">Utilisateur actuel</translation>

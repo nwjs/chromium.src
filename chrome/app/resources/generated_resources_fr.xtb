@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">Mois d'expiration</translation>
 <translation id="1153356358378277386">Appareils associés</translation>
 <translation id="1156185823432343624">Volume : désactivé</translation>
+<translation id="1156488781945104845">Heure actuelle</translation>
 <translation id="1161575384898972166">Connectez-vous à <ph name="TOKEN_NAME" /> pour exporter le certificat client.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{Un téléchargement est en cours. Voulez-vous annuler ce dernier et quitter le mode navigation privée ?}one{# téléchargement est en cours. Voulez-vous annuler ce dernier et quitter le mode navigation privée ?}other{# téléchargements sont en cours. Voulez-vous annuler ces derniers et quitter le mode navigation privée ?}}</translation>
 <translation id="1163931534039071049">&amp;Afficher le code source du cadre</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">Note de musique</translation>
 <translation id="1205489148908752564">Accéder aux comptes utilisateur sur liste blanche et les modifier</translation>
 <translation id="1206407435587370571">Explorez votre Chromebook</translation>
+<translation id="1211364473545090084">Parcourez le Web sans enregistrer votre historique de navigation à l'aide d'une fenêtre de navigation privée</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> empreintes digitales configurées</translation>
 <translation id="1215411991991485844">Nouvelle application en arrière-plan ajoutée</translation>
 <translation id="1216654534877302979">Couper le son des sites</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">Destination</translation>
 <translation id="1297922636971898492">Google Drive n'est pas disponible pour le moment. L'importation reprendra lorsque Google Drive sera à nouveau disponible.</translation>
 <translation id="1303101771013849280">Ajouter le fichier HTML aux favoris</translation>
-<translation id="1303319084542230573">Ajouter une imprimante</translation>
 <translation id="1303671224831497365">Aucun appareil Bluetooth détecté</translation>
 <translation id="1306606229401759371">Modifier les paramètres</translation>
 <translation id="1307398858972670978">Accédez à vos mots de passe depuis n'importe quel appareil à l'adresse <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -399,7 +400,7 @@
 <translation id="1608626060424371292">Supprimer cet utilisateur</translation>
 <translation id="1609170755653088773">Synchroniser ce mot de passe avec votre iPhone</translation>
 <translation id="1609862759711084604">Utilisateur précédent</translation>
-<translation id="1611584202130317952">Flux de provisionnement interrompu. Veuillez réessayer ou contacter le propriétaire/l'administrateur de l'appareil.</translation>
+<translation id="1611584202130317952">Flux d'accès interrompu. Veuillez réessayer ou contacter le propriétaire/l'administrateur de l'appareil.</translation>
 <translation id="1611649489706141841">suivant</translation>
 <translation id="1611704746353331382">Exporter les favoris vers un fichier HTML…</translation>
 <translation id="1612129875274679969">Conserver cet appareil en mode Kiosque de manière permanente</translation>
@@ -506,7 +507,7 @@
 <translation id="1766352429832934452">Activé (nécessaire pour utiliser "Ok Google")</translation>
 <translation id="1768278914020124551">Petit problème… Impossible de contacter le serveur d'ouverture de session. Vérifiez votre connexion réseau et le nom de domaine, puis réessayez.</translation>
 <translation id="1769104665586091481">Ouvrir le lien dans une nouvelle &amp;fenêtre</translation>
-<translation id="1772267994638363865">Pour ce faire, vous devez activer l'historique de vos activités vocales et audio et apprendre à votre appareil <ph name="DEVICE_TYPE" /> à reconnaître votre modèle de voix aux étapes suivantes.</translation>
+<translation id="1772267994638363865">Pour ce faire, vous devez activer l'historique de vos activités vocales et audio et apprendre à votre appareil <ph name="DEVICE_TYPE" /> à reconnaître votre empreinte vocale aux étapes suivantes.</translation>
 <translation id="1773212559869067373">Certificat d'authentification rejeté en local.</translation>
 <translation id="177336675152937177">Données d'application hébergée</translation>
 <translation id="1774349594977710164">Votre téléphone déverrouille également vos autres <ph name="DEVICE_TYPE" />s, car ils sont automatiquement synchronisés.</translation>
@@ -971,7 +972,6 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2497229222757901769">Vitesse de la souris</translation>
 <translation id="2497852260688568942">Votre administrateur a désactivé la synchronisation</translation>
 <translation id="249819058197909513">Ne plus m'avertir pour cette application</translation>
-<translation id="2498436043474441766">Ajouter des imprimantes</translation>
 <translation id="2498539833203011245">Réduire</translation>
 <translation id="2498765460639677199">Très grande</translation>
 <translation id="2500471369733289700">Bloquée pour protéger la confidentialité de vos données</translation>
@@ -985,7 +985,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2508428939232952663">Compte Google Play Store</translation>
 <translation id="2509495747794740764">La valeur d'échelle doit être un nombre compris entre 10 et 200.</translation>
 <translation id="2515586267016047495">Alt</translation>
-<translation id="251662399991179012">C'est le moment d'apprendre à votre appareil <ph name="DEVICE_TYPE" /> à reconnaître votre modèle de voix</translation>
+<translation id="251662399991179012">C'est le moment d'apprendre à votre appareil <ph name="DEVICE_TYPE" /> à reconnaître votre empreinte vocale</translation>
 <translation id="2518024842978892609">Utiliser vos certificats client</translation>
 <translation id="2520644704042891903">En attente d'une interface de connexion disponible…</translation>
 <translation id="252219247728877310">Composant non mis à jour</translation>
@@ -1107,6 +1107,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2688196195245426394">Erreur survenue lors de l'enregistrement de l'appareil avec le serveur : <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Afficher les options linguistiques</translation>
 <translation id="2691385045260836588">Modèle</translation>
+<translation id="2693176596243495071">Petit problème… Une erreur inconnue s'est produite. Veuillez réessayer plus tard ou contacter votre administrateur si le problème persiste.</translation>
 <translation id="2694026874607847549">1 cookie</translation>
 <translation id="2695749433451188613">Protocole d'impression Internet (HTTPS)</translation>
 <translation id="270358213449696159">Conditions d'utilisation de Google Chrome OS</translation>
@@ -1451,6 +1452,7 @@ Pour vérifier ce point et en savoir plus, veuillez consulter votre compte de me
 <translation id="3166571619128686629">Cliquer, ou dire "Ok Google", pour lancer une recherche vocale</translation>
 <translation id="3170072451822350649">Vous pouvez également ignorer l'étape de connexion et <ph name="LINK_START" />naviguer en tant qu'invité<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">Cliquer pour masquer le mot de passe</translation>
+<translation id="3177857336576585529">Le site <ph name="SITE_NAME" /> a envoyé une demande d'autorisation.</translation>
 <translation id="3177909033752230686">Langue de la page :</translation>
 <translation id="3180365125572747493">Saisissez un mot de passe pour chiffrer ce fichier de certificat.</translation>
 <translation id="3181110748548073003">Appuyez sur |<ph name="SHORTCUT" />| pour avancer</translation>
@@ -1467,7 +1469,7 @@ Pour vérifier ce point et en savoir plus, veuillez consulter votre compte de me
 <translation id="3204741654590142272">Le changement de version sera appliqué ultérieurement</translation>
 <translation id="3206175707080061730">Un fichier nommé "$1" existe déjà. Voulez-vous le remplacer ?</translation>
 <translation id="3208703785962634733">Non confirmé</translation>
-<translation id="3216508313927987948">Pour ce faire, vous devez apprendre à votre appareil <ph name="DEVICE_TYPE" /> à reconnaître votre modèle de voix à l'étape suivante.</translation>
+<translation id="3216508313927987948">Pour ce faire, vous devez apprendre à votre appareil <ph name="DEVICE_TYPE" /> à reconnaître votre empreinte vocale à l'étape suivante.</translation>
 <translation id="3220586366024592812">Le processus du connecteur <ph name="CLOUD_PRINT_NAME" /> est bloqué. Voulez-vous le redémarrer ?</translation>
 <translation id="3221634914176615296">Explorer le contenu de l'appareil dans l'application Fichiers</translation>
 <translation id="3222066309010235055">Pré-rendu : <ph name="PRERENDER_CONTENTS_NAME" /></translation>
@@ -2427,9 +2429,6 @@ Pour poursuivre l'exploration, veuillez appuyer sur n'importe quelle touche.</tr
 <translation id="4728558894243024398">Plate-forme</translation>
 <translation id="4731351517694976331">Autoriser les services Google à accéder à votre position</translation>
 <translation id="4731422630970790516">Élément d'étagère 3</translation>
-<translation id="473221644739519769">Si vous ajoutez vos imprimantes à Google Cloud Print, vous pouvez imprimer à partir de
-        n'importe où et vers n'importe quelle destination. Partagez vos imprimantes avec les personnes de votre choix et
-        envoyez-leur vos impressions depuis Chrome, votre téléphone, votre tablette, votre PC ou depuis n'importe quel appareil connecté au Web.</translation>
 <translation id="4732760563705710320">Cette vidéo n'est pas compatible avec votre appareil Cast.</translation>
 <translation id="4734518477988699048">La valeur d'entrée est incorrecte.</translation>
 <translation id="473546211690256853">Ce compte est géré par <ph name="DOMAIN" />.</translation>
@@ -2699,9 +2698,6 @@ Pour poursuivre l'exploration, appuyez sur n'importe quelle touche.</translation
 <translation id="5152451685298621771">(Compte pour enfants)</translation>
 <translation id="5154108062446123722">Paramètres avancés pour <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Vous pouvez ajouter des imprimantes à votre ordinateur en cliquant sur le bouton "Ajouter une imprimante"
-        ci-dessous. Si vous n'avez pas d'imprimante à ajouter, vous pouvez enregistrer
-        un document PDF ou enregistrer votre fichier sur Google Drive.</translation>
 <translation id="5154702632169343078">Objet</translation>
 <translation id="5154917547274118687">Mémoire</translation>
 <translation id="5157635116769074044">Épingler cette page à l'écran de démarrage…</translation>
@@ -3312,6 +3308,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6076448957780543068">Inclure cette capture d'écran</translation>
 <translation id="6077131872140550515">Supprimer des réseaux préférés</translation>
 <translation id="6078752646384677957">Veuillez vérifier le volume de votre micro et le volume audio.</translation>
+<translation id="6080515710685820702">Vous utilisez un ordinateur partagé ? Essayez d'ouvrir une fenêtre de navigation privée.</translation>
 <translation id="6080689532560039067">Vérifier l'heure du système</translation>
 <translation id="6082651258230788217">Afficher dans la barre d'outils</translation>
 <translation id="6086814797483779854">Exécuter en cas de clic</translation>
@@ -3952,6 +3949,7 @@ N'utilisez cette fonctionnalité qu'avec des comptes fiables.</translation>
 <translation id="7054808953701320293">OK, ne plus afficher</translation>
 <translation id="7056526158851679338">&amp;Inspecter les appareils</translation>
 <translation id="7059858479264779982">Lancement automatique</translation>
+<translation id="7059893117020417984">Pour parcourir le Web en mode privé, cliquez sur l'icône représentant trois points afin d'ouvrir une fenêtre de navigation privée</translation>
 <translation id="7062222374113411376">Autoriser les sites fermés récemment à terminer l'envoi et la réception de données (recommandé)</translation>
 <translation id="7063129466199351735">Traitement des raccourcis en cours…</translation>
 <translation id="7063957500469387217">Configurer ou gérer des imprimantes dans Google Cloud Print.</translation>
@@ -4094,7 +4092,6 @@ N'utilisez cette fonctionnalité qu'avec des comptes fiables.</translation>
 <translation id="7311079019872751559">Accès via un plug-in sans système de bac à sable</translation>
 <translation id="7311891583377621132">Déplacez légèrement votre doigt pour enregistrer une autre partie de votre empreinte digitale</translation>
 <translation id="7314244761674113881">Hôte SOCKS</translation>
-<translation id="7314440321558802142">Play Store (bêta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (profil actuel)</translation>
 <translation id="7321545336522791733">Serveur inaccessible</translation>
 <translation id="7324297612904500502">Forum bêta</translation>
@@ -4620,6 +4617,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8116190140324504026">Plus d'informations...</translation>
 <translation id="8116483400482790018">Dictionnaire orthographique personnalisé</translation>
 <translation id="8116972784401310538">&amp;Gestionnaire de favoris</translation>
+<translation id="8118362518458010043">Désactivée par Chrome. Cette extension est peut-être dangereuse.</translation>
 <translation id="8118860139461251237">Gérer vos téléchargements</translation>
 <translation id="8119631488458759651">supprimer ce site</translation>
 <translation id="81238879832906896">Fleur jaune et blanche</translation>
@@ -4699,7 +4697,6 @@ Calcul de la durée restante</translation>
 <translation id="8242426110754782860">Continuer</translation>
 <translation id="8245799906159200274">Version actuelle : <ph name="CHANNEL_NAME" /></translation>
 <translation id="8246209727385807362">Opérateur inconnu</translation>
-<translation id="8246455765446055172">Google Play Store (bêta)</translation>
 <translation id="8248050856337841185">&amp;Coller</translation>
 <translation id="8249048954461686687">Dossier OEM</translation>
 <translation id="8249296373107784235">Annuler</translation>
@@ -4737,6 +4734,7 @@ Calcul de la durée restante</translation>
 <translation id="8283475148136688298">Refus du code d'authentification lors de la connexion à l'appareil "<ph name="DEVICE_NAME" />".</translation>
 <translation id="8284279544186306258">tous les sites <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">Connexion</translation>
+<translation id="8286963743045814739">Vous pouvez parcourir le Web en mode privé à l'aide d'une fenêtre de navigation privée</translation>
 <translation id="8291967909914612644">Pays du fournisseur personnel</translation>
 <translation id="8294431847097064396">Source</translation>
 <translation id="8297006494302853456">Faible</translation>

@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">Месец на валидност</translation>
 <translation id="1153356358378277386">Сдвоени устройства</translation>
 <translation id="1156185823432343624">Сила на звука: Заглушен</translation>
+<translation id="1156488781945104845">Текущ час</translation>
 <translation id="1161575384898972166">Моля, влезте в/ъв <ph name="TOKEN_NAME" />, за да експортирате сертификата за клиентската програма.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{В момента се изтегля файл. Искате ли да анулирате изтеглянето и да излезете от режима „инкогнито“?}other{В момента се изтеглят # файла. Искате ли да анулирате изтеглянията и да излезете от режима „инкогнито“?}}</translation>
 <translation id="1163931534039071049">&amp;Преглед на изходния код на рамката</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">Нота</translation>
 <translation id="1205489148908752564">Четене и промяна на потребителите в белия списък</translation>
 <translation id="1206407435587370571">Запознайте се със своя Chromebook</translation>
+<translation id="1211364473545090084">Отворете прозорец в режим „инкогнито“, за да използвате мрежата, без да се запазва история на сърфирането ви</translation>
 <translation id="1213037489357051291">Настроени са <ph name="NUM_FINGERPRINTS" /> отпечатъка</translation>
 <translation id="1215411991991485844">Добавено е ново приложение на заден план</translation>
 <translation id="1216654534877302979">Заглушаване на сайтовете</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">Принтер</translation>
 <translation id="1297922636971898492">В момента няма достъп до Google Диск. Качването ще се рестартира автоматично, щом услугата отново е налице.</translation>
 <translation id="1303101771013849280">HTML файл с отметки</translation>
-<translation id="1303319084542230573">Добавяне на принтер</translation>
 <translation id="1303671224831497365">Няма намерени устройства с Bluetooth</translation>
 <translation id="1306606229401759371">Промяна на настройките</translation>
 <translation id="1307398858972670978">Осъществявайте достъп до паролите си от всяко устройство на адрес <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -968,7 +969,6 @@
 <translation id="2497229222757901769">Скорост на мишката</translation>
 <translation id="2497852260688568942">Синхронизирането е деактивирано от администратора ви</translation>
 <translation id="249819058197909513">Без повторно предупреждение за това приложение</translation>
-<translation id="2498436043474441766">Добавяне на принтери</translation>
 <translation id="2498539833203011245">Намаляване</translation>
 <translation id="2498765460639677199">Огромен</translation>
 <translation id="2500471369733289700">Блокирано с цел защита на поверителността ви</translation>
@@ -1104,6 +1104,7 @@
 <translation id="2688196195245426394">Грешка при регистрирането на устройството в сървъра: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Показване на езиковите опции</translation>
 <translation id="2691385045260836588">Модел</translation>
+<translation id="2693176596243495071">Ами сега! Възникна неизвестна грешка. Моля, опитайте отново по-късно или се свържете с администратора си, ако проблемът не се отстрани.</translation>
 <translation id="2694026874607847549">1 „бисквитка“</translation>
 <translation id="2695749433451188613">Internet Printing Protocol (HTTPS)</translation>
 <translation id="270358213449696159">Съдържание на Общите условия на Google Chrome OS</translation>
@@ -1448,6 +1449,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3166571619128686629">Кликнете или кажете „Ok Google“, за да стартирате гласово търсене</translation>
 <translation id="3170072451822350649">Може също да пропуснете влизането и <ph name="LINK_START" />да сърфирате като гост<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">Кликнете, за да скриете паролата</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> иска разрешение.</translation>
 <translation id="3177909033752230686">Език на страницата:</translation>
 <translation id="3180365125572747493">Моля, въведете парола за шифроването на този файл със сертификат.</translation>
 <translation id="3181110748548073003">Натиснете |<ph name="SHORTCUT" />|, за да преминете напред</translation>
@@ -2424,10 +2426,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4728558894243024398">Платформа</translation>
 <translation id="4731351517694976331">Разрешаване на достъп до местоположението ви от страна на услугите на Google</translation>
 <translation id="4731422630970790516">Елемент 3 в лавицата</translation>
-<translation id="473221644739519769">Добавянето на принтерите ви в Google Отпечатване в облак ви позволява да печатате
-отвсякъде и на всяко място. Споделяйте ги с избраните от вас хора и
-отпечатвайте на тях от Chrome, от своя телефон, таблет, компютър или от всяко друго,
-свързано с мрежата устройство.</translation>
 <translation id="4732760563705710320">За съжаление, този видеоклип не се поддържа от устройството ви за предаване на съдържание.</translation>
 <translation id="4734518477988699048">Въведената стойност е невалидна.</translation>
 <translation id="473546211690256853">Този профил се управлява от <ph name="DOMAIN" /></translation>
@@ -2697,9 +2695,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5152451685298621771">(Профил за деца)</translation>
 <translation id="5154108062446123722">Разширени настройки за „<ph name="PRINTING_DESTINATION" />“</translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Можете да добавите принтери към компютъра си, като кликнете върху бутона „Добавяне на принтер“ по-долу.
-Ако нямате такива, пак ще сте в състояние да запазвате в
-PDF файл или в Google Диск.</translation>
 <translation id="5154702632169343078">Субект</translation>
 <translation id="5154917547274118687">Памет</translation>
 <translation id="5157635116769074044">Фиксиране на тази страница в стартовия екран...</translation>
@@ -3310,6 +3305,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="6076448957780543068">Включване на тази екранна снимка</translation>
 <translation id="6077131872140550515">Премахване от предпочитаните</translation>
 <translation id="6078752646384677957">Моля, проверете микрофона си и нивата на звука.</translation>
+<translation id="6080515710685820702">Използвате общ компютър? Отворете прозорец в режим „инкогнито“.</translation>
 <translation id="6080689532560039067">Проверете системния си час</translation>
 <translation id="6082651258230788217">Показване в лентата с инструменти</translation>
 <translation id="6086814797483779854">Стартиране при кликване</translation>
@@ -3950,6 +3946,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="7054808953701320293">Разбрах, да не се показва повече.</translation>
 <translation id="7056526158851679338">&amp;Инспектиране на устройствата</translation>
 <translation id="7059858479264779982">Задаване на автоматично стартиране</translation>
+<translation id="7059893117020417984">За да сърфирате частно, кликнете върху иконата с точки и отворете прозорец в режим „инкогнито“ от менюто</translation>
 <translation id="7062222374113411376">Разрешаване на наскоро затворените сайтове да завършват изпращането и получаването на данни (препоръчително)</translation>
 <translation id="7063129466199351735">Преките пътища се обработват...</translation>
 <translation id="7063957500469387217">Настройване или управление на принтери в Google Отпечатване в облак.</translation>
@@ -4092,7 +4089,6 @@ PDF файл или в Google Диск.</translation>
 <translation id="7311079019872751559">Достъп до приставките извън тестова среда</translation>
 <translation id="7311891583377621132">Преместете малко пръста си, за да бъде заснета друга част от отпечатъка</translation>
 <translation id="7314244761674113881">SOCKS хост</translation>
-<translation id="7314440321558802142">Google Play Магазин (бета)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (текущ)</translation>
 <translation id="7321545336522791733">Няма достъп до сървъра</translation>
 <translation id="7324297612904500502">Форум за бета версията</translation>
@@ -4618,6 +4614,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="8116190140324504026">Още информация...</translation>
 <translation id="8116483400482790018">Персонализиран правописен речник</translation>
 <translation id="8116972784401310538">&amp;Диспечер на отметките</translation>
+<translation id="8118362518458010043">Деактивирано от Chrome. Това разширение може да е опасно.</translation>
 <translation id="8118860139461251237">Управление на изтеглянията ви</translation>
 <translation id="8119631488458759651">премахване на този сайт</translation>
 <translation id="81238879832906896">Жълто-бяло цвете</translation>
@@ -4696,7 +4693,6 @@ PDF файл или в Google Диск.</translation>
 <translation id="8242426110754782860">Продължаване</translation>
 <translation id="8245799906159200274">Понастоящем в канал: <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Неизвестен оператор</translation>
-<translation id="8246455765446055172">Google Play Магазин (бета)</translation>
 <translation id="8248050856337841185">&amp;Поставяне</translation>
 <translation id="8249048954461686687">OEM папка</translation>
 <translation id="8249296373107784235">Прекратяване</translation>
@@ -4734,6 +4730,7 @@ PDF файл или в Google Диск.</translation>
 <translation id="8283475148136688298">Кодът за удостоверяване бе отхвърлен при установяването на връзка с/ъс <ph name="DEVICE_NAME" />.</translation>
 <translation id="8284279544186306258">всички <ph name="WEBSITE_1" /> сайта</translation>
 <translation id="8286036467436129157">Вход</translation>
+<translation id="8286963743045814739">Можете да сърфирате частно посредством прозорец в режим „инкогнито“</translation>
 <translation id="8291967909914612644">Държава на собствения доставчик</translation>
 <translation id="8294431847097064396">Източник</translation>
 <translation id="8297006494302853456">Слаб</translation>

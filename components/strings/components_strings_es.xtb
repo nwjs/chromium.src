@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Se ajusta al ancho</translation>
 <translation id="1088860948719068836">Añade el nombre de la tarjeta</translation>
 <translation id="1103523840287552314">Traducir siempre el <ph name="LANGUAGE" /></translation>
+<translation id="1103778128462718200">Mostrar todas las contraseñas guardadas...</translation>
 <translation id="1107591249535594099">Si se selecciona, Chrome almacenará una copia de tu tarjeta en este dispositivo para completar formularios más rápidamente.</translation>
 <translation id="1111153019813902504">Marcadores visitados recientemente</translation>
 <translation id="1113869188872983271">&amp;Deshacer reorganización</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">No se ha podido encontrar el artículo solicitado.</translation>
 <translation id="5541546772353173584">Añade un correo electrónico</translation>
 <translation id="5544037170328430102">Una página insertada en <ph name="SITE" /> dice:</translation>
+<translation id="5545756402275714221">Artículos recomendados para ti</translation>
 <translation id="5556459405103347317">Volver a cargar</translation>
 <translation id="5560088892362098740">Fecha de caducidad</translation>
 <translation id="5565735124758917034">Activo</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">Correo electrónico</translation>
 <translation id="5669703222995421982">Obtener contenido personalizado</translation>
 <translation id="5675650730144413517">Esta página no funciona</translation>
+<translation id="5689199277474810259">Exportar a JSON</translation>
 <translation id="5710435578057952990">No se ha verificado la identidad de este sitio web.</translation>
 <translation id="5719499550583120431">Se aceptan tarjetas prepago.</translation>
 <translation id="5720705177508910913">Usuario actual</translation>

@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Prilagoditev prikaza širini</translation>
 <translation id="1088860948719068836">Dodajanje imena na kartico</translation>
 <translation id="1103523840287552314">Vedno prevedi ta jezik: <ph name="LANGUAGE" /></translation>
+<translation id="1103778128462718200">Pokaži vsa shranjena gesla …</translation>
 <translation id="1107591249535594099">Če je izbrana ta možnost, bo shranil kopijo kartice v tej napravi za hitrejše izpolnjevanje obrazcev.</translation>
 <translation id="1111153019813902504">Nedavni zaznamki</translation>
 <translation id="1113869188872983271">&amp;Razveljavi razvrstitev</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">Zahtevanega članka ni bilo mogoče najti.</translation>
 <translation id="5541546772353173584">Dodajanje e-poštnega naslova</translation>
 <translation id="5544037170328430102">Vdelana stran na spletnem mestu <ph name="SITE" /> sporoča:</translation>
+<translation id="5545756402275714221">Članki za vas</translation>
 <translation id="5556459405103347317">Ponovno naloži</translation>
 <translation id="5560088892362098740">Datum poteka</translation>
 <translation id="5565735124758917034">Aktivno</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">E-pošta</translation>
 <translation id="5669703222995421982">Prilagojena vsebina</translation>
 <translation id="5675650730144413517">Ta stran ne deluje</translation>
+<translation id="5689199277474810259">Izvozi v JSON</translation>
 <translation id="5710435578057952990">Identiteta tega spletnega mesta ni bila potrjena.</translation>
 <translation id="5719499550583120431">Sprejema predplačniške kartice.</translation>
 <translation id="5720705177508910913">Trenutni uporabnik</translation>

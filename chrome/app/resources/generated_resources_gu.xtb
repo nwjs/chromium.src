@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">સમય સમાપ્તિ મહિનો</translation>
 <translation id="1153356358378277386">જોડી કરેલા ઉપકરણો</translation>
 <translation id="1156185823432343624">વોલ્યુમ: મ્યૂટ કરેલું</translation>
+<translation id="1156488781945104845">હાલનો સમય</translation>
 <translation id="1161575384898972166">ક્લાયંટ પ્રમાણપત્ર નિકાસ કરવા માટે કૃપા કરીને <ph name="TOKEN_NAME" /> પર સાઇન ઇન કરો.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{હાલમાં એક ડાઉનલોડ ચાલુ છે. શું તમે છુપા મોડથી બહાર નીકળવા અને ડાઉનલોડને રદ કરવા માગો છો?}one{હાલમાં # ડાઉનલોડ્સ ચાલુ છે. શું તમે છુપા મોડથી બહાર નીકળવા અને ડાઉનલોડ્સને રદ કરવા માગો છો?}other{હાલમાં # ડાઉનલોડ્સ ચાલુ છે. શું તમે છુપા મોડથી બહાર નીકળવા અને ડાઉનલોડ્સને રદ કરવા માગો છો?}}</translation>
 <translation id="1163931534039071049">ફ્રેમ સ્રોત &amp;જુઓ</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">સંગીતનો સૂર</translation>
 <translation id="1205489148908752564">વ્હાઇટલિસ્ટ કરેલ વપરાશકર્તાઓને વાંચો અને બદલો</translation>
 <translation id="1206407435587370571">તમારા Chromebookનું અન્વેષણ કરો</translation>
+<translation id="1211364473545090084">છુપી વિંડો વડે, તમારો બ્રાઉઝિંગ ઇતિહાસ સાચવ્યા વિના વેબનો ઉપયોગ કરો</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> ફિંગરપ્રિન્ટ સેટ અપ</translation>
 <translation id="1215411991991485844">નવી પૃષ્ઠભૂમિ ઍપ્લિકેશન ઉમેરી છે</translation>
 <translation id="1216654534877302979">સાઇટને મ્યૂટ કરો</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">લક્ષ્યસ્થાન</translation>
 <translation id="1297922636971898492">Google ડ્રાઇવ હાલમાં ઉપલબ્ધ નથી. Google ડ્રાઇવ પાછું આવી જાય તે પછી અપલોડિંગ આપમેળે ફરીથી પ્રારંભ થશે.</translation>
 <translation id="1303101771013849280">બુકમાર્ક્સ HTML ફાઇલ</translation>
-<translation id="1303319084542230573">એક પ્રિન્ટર ઉમેરો</translation>
 <translation id="1303671224831497365">કોઈ Bluetooth ઉપકરણો મળ્યાં નથી</translation>
 <translation id="1306606229401759371">સેટિંગ્સ બદલો</translation>
 <translation id="1307398858972670978"><ph name="SAVED_PASSWORDS_LINK" /> પર કોઈ પણ ઉપકરણ પરથી તમારા પાસવર્ડને ઍક્સેસ કરો</translation>
@@ -968,7 +969,6 @@
 <translation id="2497229222757901769">માઉસની ગતિ</translation>
 <translation id="2497852260688568942">સમન્વયન, તમારા વ્યવસ્થાપક દ્વારા અક્ષમ કરવામાં આવ્યું છે</translation>
 <translation id="249819058197909513">આ ઍપ્લિકેશન માટે ફરીથી ચેતવણી આપશો નહીં</translation>
-<translation id="2498436043474441766">પ્રિંટર્સ ઉમેરો</translation>
 <translation id="2498539833203011245">નાનું કરો</translation>
 <translation id="2498765460639677199">વિશાળ</translation>
 <translation id="2500471369733289700">તમારી ગોપનીયતા સુરક્ષિત રાખવા માટે અવરોધિત કરી છે</translation>
@@ -1104,6 +1104,7 @@
 <translation id="2688196195245426394">સર્વર સાથે ઉપકરણની નોંધણી કરતી વખતે ભૂલ: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">ભાષા વિકલ્પો બતાવો</translation>
 <translation id="2691385045260836588">મોડલ</translation>
+<translation id="2693176596243495071">અરેરે! અજાણી ભૂલ આવી. કૃપા કરીને થોડા સમય પછી ફરી પ્રયાસ કરો અથવા જો સમસ્યા ચાલુ રહે, તો તમારા વ્યવસ્થાપકનો સંપર્ક કરો.</translation>
 <translation id="2694026874607847549">1 કૂકી</translation>
 <translation id="2695749433451188613">ઇન્ટરનેટ પ્રિંટિંગ પ્રોટોકોલ (IPPS)</translation>
 <translation id="270358213449696159">Google Chrome OS શરતો સામગ્રીઓ</translation>
@@ -1448,6 +1449,7 @@
 <translation id="3166571619128686629">વૉઇસ શોધ પ્રારંભ કરવા માટે ક્લિક કરો અથવા "Ok Google" કહો</translation>
 <translation id="3170072451822350649">તમે સાઇન ઇન કરવાનું છોડી અને <ph name="LINK_START" />અતિથિ તરીકે બ્રાઉઝ<ph name="LINK_END" /> પણ કરી શકો છો.</translation>
 <translation id="3177048931975664371">પાસવર્ડ છુપાવવા માટે ક્લિક કરો</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> પરવાનગીની વિનંતી ધરાવે છે.</translation>
 <translation id="3177909033752230686">પૃષ્ઠ ભાષા:</translation>
 <translation id="3180365125572747493">આ પ્રમાણપત્ર ફાઇલને એન્ક્રિપ્ટ કરવા માટે કૃપા કરીને પાસવર્ડ દાખલ કરો.</translation>
 <translation id="3181110748548073003">આગળ જવા માટે |<ph name="SHORTCUT" />| દબાવો</translation>
@@ -2424,10 +2426,6 @@
 <translation id="4728558894243024398">પ્લેટફોર્મ</translation>
 <translation id="4731351517694976331">Google સેવાઓને તમારા સ્થાનને ઍક્સેસ કરવાની મંજૂરી આપો</translation>
 <translation id="4731422630970790516">શેલ્ફ આઇટમ 3</translation>
-<translation id="473221644739519769">તમારા પ્રિન્ટર્સને Google મેઘ મુદ્રણ પર ઉમેરવાથી તમે ગમે ત્યાંથી, 
-        ગમે ત્યાં છાપી શકો છો. તમારા પ્રિન્ટર્સને તમે જેની સાથે ઇચ્છો તેની સાથે શેર કરો અને તેમને 
-        Chrome, તમારા ફોન, ટેબ્લેટ, PC અથવા કોઈપણ અન્ય
-        વેબ-કનેક્ટેડ ઉપકરણથી છાપો.</translation>
 <translation id="4732760563705710320">માફ કરશો, આ વિડિઓ તમારા કાસ્ટ ઉપકરણ દ્વારા સમર્થિત નથી.</translation>
 <translation id="4734518477988699048">ઇનપુટ મૂલ્ય અમાન્ય છે.</translation>
 <translation id="473546211690256853">આ એકાઉન્ટ <ph name="DOMAIN" /> દ્વારા સંચાલિત છે</translation>
@@ -2697,7 +2695,6 @@
 <translation id="5152451685298621771">(બાળકો માટેનું એકાઉન્ટ)</translation>
 <translation id="5154108062446123722"><ph name="PRINTING_DESTINATION" /> માટે વિગતવાર સેટિંગ્સ</translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">તમે નીચેના "એક પ્રિન્ટર ઉમેરો" બટનને ક્લિક કરીને તમારા કમ્પ્યુટર પર  પ્રિન્ટર્સ ઉમેરી શકો છો. જો તમારી પાસે ઉમેરવા માટે પ્રિન્ટર્સ નથી, તો તમે હજુ પણ PDF સાચવવા અથવા Google ડ્રાઇવ પર સાચવવા માટે સક્ષમ હશો.</translation>
 <translation id="5154702632169343078">વિષય</translation>
 <translation id="5154917547274118687">મેમરી</translation>
 <translation id="5157635116769074044">પ્રારંભ સ્ક્રીન પર આ પૃષ્ઠ પિન કરો...</translation>
@@ -3308,6 +3305,7 @@
 <translation id="6076448957780543068">આ સ્ક્રીનશોટ શામેલ કરો</translation>
 <translation id="6077131872140550515">પસંદગીમાંથી દૂર કરો</translation>
 <translation id="6078752646384677957">કૃપા કરીને તમારા માઇક્રોફોન અને ઑડિઓના સ્તરોને તપાસો.</translation>
+<translation id="6080515710685820702">શેર કરેલા કમ્પ્યુટરનો ઉપયોગ કરી રહ્યા છો? છુપી વિંડો ખોલવાનો પ્રયાસ કરો.</translation>
 <translation id="6080689532560039067">તમારી સિસ્ટમનો સમય તપાસો</translation>
 <translation id="6082651258230788217">ટુલબારમાં દર્શાવો</translation>
 <translation id="6086814797483779854">ક્લિક કરવા પર શરૂ કરો</translation>
@@ -3950,6 +3948,7 @@
 <translation id="7054808953701320293">સમજાઈ ગયું, મને ફરીથી બતાવશો નહીં.</translation>
 <translation id="7056526158851679338">&amp;ઉપકરણોની તપાસ કરો</translation>
 <translation id="7059858479264779982">સ્વતઃ-લોંચ સેટ કરો</translation>
+<translation id="7059893117020417984">ખાનગી રૂપે બ્રાઉઝ કરવા માટે, છુપી વિંડો ખોલવા માટે બિંદુના આઇકનવાળા મેનૂ પર ક્લિક કરો</translation>
 <translation id="7062222374113411376">ડેટા મોકલવાનું અને પ્રાપ્ત કરવાનું સમાપ્ત કરવા માટે તાજેતરમાં બંધ કરેલ સાઇટ્સને મંજૂરી આપો (ભલામણ કરેલ)</translation>
 <translation id="7063129466199351735">શોર્ટકટ્સની પ્રક્રિયા કરી રહ્યું છે...</translation>
 <translation id="7063957500469387217">Google મેઘ મુદ્રણમાં પ્રિન્ટર્સ સેટ કરો અથવા સંચાલિત કરો.</translation>
@@ -4092,7 +4091,6 @@
 <translation id="7311079019872751559">અનસેન્ડબૉક્સ કરેલ પ્લગિનની ઍક્સેસ</translation>
 <translation id="7311891583377621132">ફિંગરપ્રિન્ટનો ભિન્ન ભાગ કૅપ્ચર કરવા માટે સહેજ ખસેડો</translation>
 <translation id="7314244761674113881">સૉક્સ હોસ્ટ</translation>
-<translation id="7314440321558802142">Play સ્ટોર (બીટા)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (ચાલુ)</translation>
 <translation id="7321545336522791733">સર્વર પહોંચની બહાર છે</translation>
 <translation id="7324297612904500502">બીટા ચર્ચા મંચ</translation>
@@ -4612,6 +4610,7 @@
 <translation id="8116190140324504026">વધુ માહિતી...</translation>
 <translation id="8116483400482790018">કસ્ટમ જોડણી કોશ</translation>
 <translation id="8116972784401310538">&amp;બુકમાર્ક વ્યવસ્થાપક</translation>
+<translation id="8118362518458010043">Chrome દ્વારા બંધ કરેલ છે. આ એક્સ્ટેંશન અસુરક્ષિત હોઈ શકે છે.</translation>
 <translation id="8118860139461251237">તમારા ડાઉનલોડ્સનું સંચાલન કરો</translation>
 <translation id="8119631488458759651">આ સાઇટને દૂર કરો</translation>
 <translation id="81238879832906896">પીળા અને સફેદ ફૂલ</translation>
@@ -4691,7 +4690,6 @@
 <translation id="8242426110754782860">આગળ વધો</translation>
 <translation id="8245799906159200274">હાલમાં <ph name="CHANNEL_NAME" /> ચેનલ પર છે.</translation>
 <translation id="8246209727385807362">અજાણ કૅરિઅર</translation>
-<translation id="8246455765446055172">Google Play સ્ટોર (બીટા)</translation>
 <translation id="8248050856337841185">&amp;પેસ્ટ કરો</translation>
 <translation id="8249048954461686687">OEM ફોલ્ડર</translation>
 <translation id="8249296373107784235">છોડો</translation>
@@ -4729,6 +4727,7 @@
 <translation id="8283475148136688298">"<ph name="DEVICE_NAME" />" થી કનેક્ટ કરતી વખતે પ્રમાણીકરણ કોડ નકારવામાં આવ્યો.</translation>
 <translation id="8284279544186306258">તમામ <ph name="WEBSITE_1" /> સાઇટ્સ</translation>
 <translation id="8286036467436129157">સાઇન ઇન કરો</translation>
+<translation id="8286963743045814739">તમે છુપી વિંડોનો ઉપયોગ કરીને ખાનગી રૂપે બ્રાઉઝ કરી શકો છો</translation>
 <translation id="8291967909914612644">હોમ પ્રદાતાનો દેશ</translation>
 <translation id="8294431847097064396">સ્રોત</translation>
 <translation id="8297006494302853456">નબળું</translation>

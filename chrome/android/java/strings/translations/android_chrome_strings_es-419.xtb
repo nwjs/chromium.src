@@ -301,7 +301,7 @@ Para ajustar el término de búsqueda, mantén presionado el texto y seleccióna
 <translation id="393697183122708255">La búsqueda por voz no está habilitada</translation>
 <translation id="3946611741043634542">Si continúas, aceptas las <ph name="BEGIN_LINK1" />Condiciones del servicio<ph name="END_LINK1" /> y el <ph name="BEGIN_LINK2" />Aviso de privacidad<ph name="END_LINK2" /> de Chrome.</translation>
 <translation id="3950820424414687140">Acceder</translation>
-<translation id="395206256282351086">Se inhabilitaron los sugerencias de sitios y de búsqueda</translation>
+<translation id="395206256282351086">Se inhabilitaron las sugerencias de sitios y búsqueda</translation>
 <translation id="395922942268463099">Páginas actualizadas de forma regular</translation>
 <translation id="3967822245660637423">Descarga completa</translation>
 <translation id="397583555483684758">La sincronización dejó de funcionar</translation>
@@ -749,7 +749,7 @@ Es posible que tu cuenta de Google tenga otros formularios del historial de nave
 <translation id="8026334261755873520">Eliminar datos de navegación</translation>
 <translation id="8035133914807600019">Nueva carpeta…</translation>
 <translation id="8037750541064988519"><ph name="DAYS" /> días restantes</translation>
-<translation id="805047784848435650">Basada en tu historial de navegación</translation>
+<translation id="805047784848435650">Según tu historial de navegación</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> MB disponibles</translation>
 <translation id="8058746566562539958">Abrir en una nueva pestaña de Chrome</translation>
 <translation id="8063895661287329888">Se produjo un error al agregar el marcador.</translation>

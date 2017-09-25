@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Genişliğe sığdır</translation>
 <translation id="1088860948719068836">Kart Üzerindeki Adı Ekleyin</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> dilini daima çevir</translation>
+<translation id="1103778128462718200">Tüm kayıtlı şifreleri göster...</translation>
 <translation id="1107591249535594099">İşaretlenirse Chrome, formları daha hızlı doldurma amacıyla kartınızın bir kopyasını bu cihazda depolar.</translation>
 <translation id="1111153019813902504">Son yer işaretleri</translation>
 <translation id="1113869188872983271">Sıralama değişikliğini &amp;geri al</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">İstenen makale bulunamadı.</translation>
 <translation id="5541546772353173584">E-posta Adresi Ekleyin</translation>
 <translation id="5544037170328430102"><ph name="SITE" /> web sitesindeki yerleşik bir sayfanın mesajı:</translation>
+<translation id="5545756402275714221">Sizin için Seçilmiş Makaleler</translation>
 <translation id="5556459405103347317">Yeniden Yükle</translation>
 <translation id="5560088892362098740">Son Kullanma Tarihi</translation>
 <translation id="5565735124758917034">Etkin</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">E-posta</translation>
 <translation id="5669703222995421982">Kişiselleştirilmiş içerikler alma</translation>
 <translation id="5675650730144413517">Bu sayfa çalışmıyor</translation>
+<translation id="5689199277474810259">JSON'a aktar</translation>
 <translation id="5710435578057952990">Bu web sitesinin kimliği doğrulanmadı.</translation>
 <translation id="5719499550583120431">Ön ödemeli kartlar kabul edilir.</translation>
 <translation id="5720705177508910913">Geçerli kullanıcı</translation>

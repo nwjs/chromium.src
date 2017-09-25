@@ -194,7 +194,6 @@
 <translation id="1297175357211070620">Odredište</translation>
 <translation id="1297922636971898492">Google disk trenutačno nije dostupan. Prijenos će se automatski ponovo pokrenuti kada Google disk opet postane dostupan.</translation>
 <translation id="1303101771013849280">HTML datoteka oznaka</translation>
-<translation id="1303319084542230573">Dodaj pisač</translation>
 <translation id="1303671224831497365">Nije pronađen nijedan Bluetooth uređaj</translation>
 <translation id="1306606229401759371">Promijeni postavke</translation>
 <translation id="1307398858972670978">Pristupajte zaporkama s bilo kojeg uređaja na stranici <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -973,7 +972,6 @@ Mislim da ta web-lokacija ne bi trebala biti blokirana!</translation>
 <translation id="2497229222757901769">Brzina miša</translation>
 <translation id="2497852260688568942">Administrator je onemogućio sinkronizaciju</translation>
 <translation id="249819058197909513">Ne upozoravaj više u vezi s ovom aplikacijom</translation>
-<translation id="2498436043474441766">Dodaj pisače</translation>
 <translation id="2498539833203011245">Minimiziraj</translation>
 <translation id="2498765460639677199">Ogroman</translation>
 <translation id="2500471369733289700">Blokirano radi zaštite vaše privatnosti</translation>
@@ -2431,10 +2429,6 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="4728558894243024398">Platforma</translation>
 <translation id="4731351517694976331">Dopustite Googleovim uslugama da pristupaju vašoj lokaciji</translation>
 <translation id="4731422630970790516">Stavka police 3</translation>
-<translation id="473221644739519769">Dodavanje pisača na uslugu Google Cloud Print omogućuje vam ispis s bilo kojeg
-        mjesta i na bilo koje mjesto. Dijelite svoje pisače s kime god želite i ispisujte
-        na njima iz Chromea, sa svojeg telefona, tableta, računala ili bilo kojeg drugog
-        uređaja koji je povezan s webom.</translation>
 <translation id="4732760563705710320">Nažalost, vaš uređaj za emitiranje ne podržava ovaj videozapis.</translation>
 <translation id="4734518477988699048">Vrijednost unosa nije važeća.</translation>
 <translation id="473546211690256853">Ovim računom upravlja domena <ph name="DOMAIN" /></translation>
@@ -2704,9 +2698,6 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="5152451685298621771">(Račun za djecu)</translation>
 <translation id="5154108062446123722">Napredne postavke za <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Možete dodati pisače na svoje računalo klikom na gumb "Dodaj pisač" u
-        nastavku. Ako nemate pisače koje želite dodati, moći ćete i dalje
-        spremiti PDF ili spremiti dokument na Google disk.</translation>
 <translation id="5154702632169343078">Predmet</translation>
 <translation id="5154917547274118687">Memorija</translation>
 <translation id="5157635116769074044">Prikvači ovu stranicu na početni zaslon...</translation>
@@ -4100,7 +4091,6 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="7311079019872751559">Pristup dodatka izvan testnog okruženja</translation>
 <translation id="7311891583377621132">Lagano pomaknite prst da biste snimili različite dijelove otiska prsta</translation>
 <translation id="7314244761674113881">SOCKS host</translation>
-<translation id="7314440321558802142">Trgovina Play (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (trenutačno)</translation>
 <translation id="7321545336522791733">Poslužitelj nije dostupan</translation>
 <translation id="7324297612904500502">Forum za beta verziju</translation>
@@ -4704,7 +4694,6 @@ Ključnu datoteku čuvajte na sigurnom mjestu. Trebat će vam za stvaranje novih
 <translation id="8242426110754782860">Nastavi</translation>
 <translation id="8245799906159200274">Trenutačno na kanalu <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Nepoznat mobilni operater</translation>
-<translation id="8246455765446055172">Trgovina Google Play (beta)</translation>
 <translation id="8248050856337841185">&amp;Zalijepi</translation>
 <translation id="8249048954461686687">OEM mapa</translation>
 <translation id="8249296373107784235">Prekini</translation>

@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">너비에 맞춤</translation>
 <translation id="1088860948719068836">카드 명의 추가</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> 항상 번역</translation>
+<translation id="1103778128462718200">모든 저장된 비밀번호 표시...</translation>
 <translation id="1107591249535594099">선택하면 Chrome에서 양식을 더 빠르게 입력할 수 있도록 이 기기에 카드 사본을 저장합니다.</translation>
 <translation id="1111153019813902504">최근 북마크</translation>
 <translation id="1113869188872983271">재정렬 실행 취소(&amp;U)</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">요청한 글을 찾지 못했습니다.</translation>
 <translation id="5541546772353173584">이메일 추가</translation>
 <translation id="5544037170328430102"><ph name="SITE" />에 삽입된 페이지 내용:</translation>
+<translation id="5545756402275714221">추천 기사</translation>
 <translation id="5556459405103347317">새로고침</translation>
 <translation id="5560088892362098740">만료일</translation>
 <translation id="5565735124758917034">활성</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">이메일</translation>
 <translation id="5669703222995421982">내게 맞는 콘텐츠 추천 받기</translation>
 <translation id="5675650730144413517">페이지가 작동하지 않습니다.</translation>
+<translation id="5689199277474810259">JSON 형식으로 내보내기</translation>
 <translation id="5710435578057952990">이 웹사이트의 주소가 확인되지 않았습니다.</translation>
 <translation id="5719499550583120431">선불카드를 사용할 수 있습니다.</translation>
 <translation id="5720705177508910913">현재 사용자</translation>

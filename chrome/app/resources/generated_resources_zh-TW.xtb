@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">到期月份</translation>
 <translation id="1153356358378277386">配對裝置</translation>
 <translation id="1156185823432343624">音量：靜音</translation>
+<translation id="1156488781945104845">目前時間</translation>
 <translation id="1161575384898972166">登入 <ph name="TOKEN_NAME" /> 即可匯出用戶端憑證。</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{目前正在執行一項下載作業。您要取消下載並結束無痕模式嗎？}other{目前正在執行 # 項下載作業。您要取消下載並結束無痕模式嗎？}}</translation>
 <translation id="1163931534039071049">檢視框架原始碼(&amp;V)</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">音符</translation>
 <translation id="1205489148908752564">讀取及變更使用者許可清單</translation>
 <translation id="1206407435587370571">探索你的 Chromebook</translation>
+<translation id="1211364473545090084">如果不希望系統在你使用網路時儲存你的瀏覽紀錄，請使用無痕式視窗</translation>
 <translation id="1213037489357051291">已設定 <ph name="NUM_FINGERPRINTS" /> 枚指紋</translation>
 <translation id="1215411991991485844">已新增新的背景應用程式</translation>
 <translation id="1216654534877302979">關閉多個網站音訊</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">目的地</translation>
 <translation id="1297922636971898492">Google 雲端硬碟目前無法提供服務。一旦 Google 雲端硬碟恢復正常運作，上傳作業將會自動重新啟動。</translation>
 <translation id="1303101771013849280">HTML 格式的書籤檔案</translation>
-<translation id="1303319084542230573">新增印表機</translation>
 <translation id="1303671224831497365">找不到藍牙裝置</translation>
 <translation id="1306606229401759371">變更設定</translation>
 <translation id="1307398858972670978">在任何裝置上皆可透過 <ph name="SAVED_PASSWORDS_LINK" /> 存取你的密碼</translation>
@@ -399,7 +400,7 @@
 <translation id="1608626060424371292">移除這位使用者</translation>
 <translation id="1609170755653088773">將這組密碼在 iPhone 上保持同步</translation>
 <translation id="1609862759711084604">上一位使用者</translation>
-<translation id="1611584202130317952">帳戶管理作業中斷。請再試一次，或是與裝置擁有者或管理員聯絡。</translation>
+<translation id="1611584202130317952">佈建作業中斷。請再試一次，或是與裝置擁有者或管理員聯絡。</translation>
 <translation id="1611649489706141841">往前</translation>
 <translation id="1611704746353331382">將書籤匯出為 HTML 檔案...</translation>
 <translation id="1612129875274679969">讓裝置永久使用 Kiosk 模式。</translation>
@@ -971,7 +972,6 @@
 <translation id="2497229222757901769">滑鼠速度</translation>
 <translation id="2497852260688568942">你的管理員停用了同步功能</translation>
 <translation id="249819058197909513">不要再顯示這個應用程式的相關警告訊息</translation>
-<translation id="2498436043474441766">新增印表機</translation>
 <translation id="2498539833203011245">最小化</translation>
 <translation id="2498765460639677199">最大</translation>
 <translation id="2500471369733289700">已封鎖權限，保護你的隱私</translation>
@@ -1107,6 +1107,7 @@
 <translation id="2688196195245426394">向伺服器註冊裝置時發生錯誤：<ph name="CLIENT_ERROR" />。</translation>
 <translation id="2690024944919328218">顯示語言選項</translation>
 <translation id="2691385045260836588">型號</translation>
+<translation id="2693176596243495071">糟糕！發生不明錯誤。請稍後再試一次，如果這樣無法解決問題，請與你的管理員聯絡。</translation>
 <translation id="2694026874607847549">1 個 Cookie</translation>
 <translation id="2695749433451188613">網際網路列印通訊協定 (HTTPS)</translation>
 <translation id="270358213449696159">Google Chrome 作業系統條款內容</translation>
@@ -1451,6 +1452,7 @@
 <translation id="3166571619128686629">按一下或說出「Ok Google」啟動語音搜尋</translation>
 <translation id="3170072451822350649">你也可以略過登入程序，<ph name="LINK_START" />以訪客身分瀏覽<ph name="LINK_END" />。</translation>
 <translation id="3177048931975664371">按這裡隱藏密碼</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> 有權限要求。</translation>
 <translation id="3177909033752230686">網頁語言：</translation>
 <translation id="3180365125572747493">請輸入對這個憑證檔案進行加密時使用的密碼。</translation>
 <translation id="3181110748548073003">按下 |<ph name="SHORTCUT" />| 即可繼續</translation>
@@ -2426,8 +2428,6 @@
 <translation id="4728558894243024398">平台</translation>
 <translation id="4731351517694976331">允許 Google 服務存取你的位置</translation>
 <translation id="4731422630970790516">檔案櫃項目 3</translation>
-<translation id="473221644739519769">將你的印表機新增到 Google 雲端列印後，無論你身在何處，皆可使用指定的印表機列印文件。
-        你可以和指定對象共用印表機，並且在 Chrome、手機、平板電腦、電腦或其他任何具備網路連線功能的裝置上，透過這些共用印表機進行列印。</translation>
 <translation id="4732760563705710320">很抱歉，你的投放裝置不支援這部影片。</translation>
 <translation id="4734518477988699048">輸入值無效。</translation>
 <translation id="473546211690256853">這個帳戶是由 <ph name="DOMAIN" /> 負責管理。</translation>
@@ -2696,8 +2696,6 @@
 <translation id="5152451685298621771">(兒童專用帳戶)</translation>
 <translation id="5154108062446123722">「<ph name="PRINTING_DESTINATION" />」進階設定</translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">你可以按下方的 [新增印表機] 按鈕，將印表機新增至電腦。
-        如果沒有可供新增的印表機，你仍然可以將文件儲存為 PDF 檔案或儲存至 Google 雲端硬碟。</translation>
 <translation id="5154702632169343078">主體</translation>
 <translation id="5154917547274118687">記憶體</translation>
 <translation id="5157635116769074044">將網頁固定到開始畫面...</translation>
@@ -3307,6 +3305,7 @@
 <translation id="6076448957780543068">包含這個螢幕擷取畫面</translation>
 <translation id="6077131872140550515">從慣用網路移除</translation>
 <translation id="6078752646384677957">請檢查麥克風和音量。</translation>
+<translation id="6080515710685820702">你是與其他人共用電腦嗎？試試使用無痕式視窗。</translation>
 <translation id="6080689532560039067">請檢查你的系統時間</translation>
 <translation id="6082651258230788217">顯示在工具列中</translation>
 <translation id="6086814797483779854">點擊即可執行</translation>
@@ -3846,7 +3845,7 @@
 <translation id="6909461304779452601">無法從這個網站新增應用程式、擴充功能及使用者指令碼。</translation>
 <translation id="6910211073230771657">已刪除</translation>
 <translation id="691024665142758461">下載多個檔案</translation>
-<translation id="6911324888870229398">網路連線中斷。請檢查連線狀態，或改用其他 Wi-Fi 網路。</translation>
+<translation id="6911324888870229398">網路連線已中斷。請檢查連線狀態，或改用其他 Wi-Fi 網路。</translation>
 <translation id="6915804003454593391">使用者：</translation>
 <translation id="6916590542764765824">管理擴充功能</translation>
 <translation id="6920989436227028121">在一般分頁中開啟</translation>
@@ -3947,6 +3946,7 @@
 <translation id="7054808953701320293">知道了，不要再顯示這則訊息。</translation>
 <translation id="7056526158851679338">檢查裝置 (&amp;I)</translation>
 <translation id="7059858479264779982">設為自動啟動</translation>
+<translation id="7059893117020417984">如果想要進行私密瀏覽，請按一下三個點的圖示選單，然後開啟無痕式視窗</translation>
 <translation id="7062222374113411376">允許最近關閉的網站完成資料的傳送及接收 (建議)</translation>
 <translation id="7063129466199351735">正在處理捷徑...</translation>
 <translation id="7063957500469387217">使用 Google 雲端列印設定或管理印表機。</translation>
@@ -4089,7 +4089,6 @@
 <translation id="7311079019872751559">無沙箱防護的外掛程式存取行為</translation>
 <translation id="7311891583377621132">請稍微移動手指，讓系統擷取完整指紋</translation>
 <translation id="7314244761674113881">SOCKS 主機</translation>
-<translation id="7314440321558802142">Play 商店 (測試版)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (目前)</translation>
 <translation id="7321545336522791733">無法連上伺服器</translation>
 <translation id="7324297612904500502">測試版論壇</translation>
@@ -4612,6 +4611,7 @@
 <translation id="8116190140324504026">更多資訊...</translation>
 <translation id="8116483400482790018">自訂拼字字典</translation>
 <translation id="8116972784401310538">書籤管理員(&amp;B)</translation>
+<translation id="8118362518458010043">Chrome 已停用這個擴充功能，因為這項功能可能不安全。</translation>
 <translation id="8118860139461251237">管理下載內容</translation>
 <translation id="8119631488458759651">移除這個網站</translation>
 <translation id="81238879832906896">黃色和白色花朵</translation>
@@ -4690,7 +4690,6 @@
 <translation id="8242426110754782860">Proceed</translation>
 <translation id="8245799906159200274">目前是<ph name="CHANNEL_NAME" />版本。</translation>
 <translation id="8246209727385807362">不明電信業者</translation>
-<translation id="8246455765446055172">Google Play 商店 (測試版)</translation>
 <translation id="8248050856337841185">貼上(&amp;P)</translation>
 <translation id="8249048954461686687">OEM 資料夾</translation>
 <translation id="8249296373107784235">取消</translation>
@@ -4728,6 +4727,7 @@
 <translation id="8283475148136688298">驗證代碼在連線至「<ph name="DEVICE_NAME" />」時遭拒。</translation>
 <translation id="8284279544186306258">所有 <ph name="WEBSITE_1" /> 網站</translation>
 <translation id="8286036467436129157">登入</translation>
+<translation id="8286963743045814739">使用無痕式視窗，安心進行私密瀏覽</translation>
 <translation id="8291967909914612644">家用提供者國家/地區</translation>
 <translation id="8294431847097064396">來源</translation>
 <translation id="8297006494302853456">弱</translation>

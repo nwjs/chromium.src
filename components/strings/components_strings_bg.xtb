@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Побиране на ширина</translation>
 <translation id="1088860948719068836">Добавяне на името на картодържателя</translation>
 <translation id="1103523840287552314">Винаги да се превежда от <ph name="LANGUAGE" /></translation>
+<translation id="1103778128462718200">Показване на всички запазени пароли...</translation>
 <translation id="1107591249535594099">Ако поставите отметка, Chrome ще съхранява копие на картата ви на това устройство с цел по-бързо попълване на формуляри.</translation>
 <translation id="1111153019813902504">Скорошни отметки</translation>
 <translation id="1113869188872983271">&amp;Отмяна на пренареждането</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">Заявената статия не можа да бъде намерена.</translation>
 <translation id="5541546772353173584">Добавяне на имейл адрес</translation>
 <translation id="5544037170328430102">Вградена страница на адрес <ph name="SITE" /> изпраща подкана:</translation>
+<translation id="5545756402275714221">Статии за вас</translation>
 <translation id="5556459405103347317">Повторно зареждане</translation>
 <translation id="5560088892362098740">Дата на изтичане</translation>
 <translation id="5565735124758917034">Активно</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">Имейл</translation>
 <translation id="5669703222995421982">Получаване на персонализирано съдържание</translation>
 <translation id="5675650730144413517">Тази страница не работи</translation>
+<translation id="5689199277474810259">Експортиране във формат JSON</translation>
 <translation id="5710435578057952990">Самоличността на този уебсайт не е потвърдена.</translation>
 <translation id="5719499550583120431">Приемат се предплатени карти.</translation>
 <translation id="5720705177508910913">Текущият потребител</translation>

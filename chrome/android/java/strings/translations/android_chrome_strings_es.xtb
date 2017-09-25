@@ -3,6 +3,7 @@
 <translationbundle lang="es">
 <translation id="1006017844123154345">Abrir versión online</translation>
 <translation id="1036727731225946849">Añadiendo <ph name="WEBAPK_NAME" />...</translation>
+<translation id="1041308826830691739">De sitios web</translation>
 <translation id="1049743911850919806">Incógnito</translation>
 <translation id="10614374240317010">Contraseñas que nunca se guardan</translation>
 <translation id="1068672505746868501">No traducir nunca las páginas en <ph name="SOURCE_LANGUAGE" /></translation>
@@ -267,6 +268,7 @@ Debes activar la ubicación y el Bluetooth para utilizar la Web física.</transl
 
 Para ajustar el término de búsqueda, mantén pulsado el texto para seleccionarlo. Para restringir la búsqueda, desliza el panel hacia arriba y toca el cuadro de búsqueda.</translation>
 <translation id="3616113530831147358">Audio</translation>
+<translation id="3620176948598597475">Se borrará el historial de la extensión Ahorro de Datos, incluidos los sitios web a los que has accedido.</translation>
 <translation id="3632295766818638029">Mostrar contraseña</translation>
 <translation id="363596933471559332">Permite iniciar sesión automáticamente en sitios web con credenciales almacenadas. Si esta función está desactivada, se solicitará la verificación cada vez que se intente iniciar sesión en un sitio web.</translation>
 <translation id="3649663272864015643">Pestaña Página principal seleccionada</translation>
@@ -275,6 +277,7 @@ Para ajustar el término de búsqueda, mantén pulsado el texto para seleccionar
 <translation id="3662546969139119822">Ningún elemento del historial</translation>
 <translation id="3672452749423051839">Sugerencias para errores de navegación</translation>
 <translation id="3706423975342040244">Espectáculos</translation>
+<translation id="3712575778697986964">¿Quieres vaciar el historial de Ahorro de Datos?</translation>
 <translation id="3714981814255182093">Abre la barra de búsqueda</translation>
 <translation id="3734660163659757482">Súbela para ver marcadores y más</translation>
 <translation id="3738139272394829648">Tocar para Buscar</translation>
@@ -298,6 +301,7 @@ Para ajustar el término de búsqueda, mantén pulsado el texto para seleccionar
 <translation id="393697183122708255">La búsqueda por voz no está disponible</translation>
 <translation id="3946611741043634542">Si continúas, aceptas las <ph name="BEGIN_LINK1" />Condiciones de Servicio<ph name="END_LINK1" /> y el <ph name="BEGIN_LINK2" />Aviso de Privacidad<ph name="END_LINK2" /> de Chrome.</translation>
 <translation id="3950820424414687140">Iniciar sesión</translation>
+<translation id="395206256282351086">Sugerencias de búsqueda y sitios web inhabilitadas</translation>
 <translation id="395922942268463099">Páginas actualizadas con frecuencia</translation>
 <translation id="3967822245660637423">Descarga completa</translation>
 <translation id="397583555483684758">La sincronización ha dejado de funcionar</translation>
@@ -549,6 +553,7 @@ No obstante, tus acciones no serán totalmente invisibles. El uso del modo incó
 <translation id="6232535412751077445">Al habilitar la opción No realizar seguimiento, se incluirá una solicitud con el tráfico de navegación. El efecto dependerá de si algún sitio web responde a la solicitud y de cómo se interpreta.
 
 Por ejemplo, algunos sitios web pueden responder a la solicitud mostrándote anuncios no basados en otros sitios web que hayas visitado. Muchos sitios web seguirán recopilando y utilizando tus datos de navegación (por ejemplo, para mejorar la seguridad, para proporcionar contenido, anuncios y recomendaciones o para generar estadísticas de informes).</translation>
+<translation id="6255999984061454636">Sugerencias de contenido</translation>
 <translation id="6277522088822131679">Se ha producido un problema al imprimir la página. Vuelve a intentarlo.</translation>
 <translation id="6295158916970320988">Todos los sitios</translation>
 <translation id="6320088164292336938">Vibrar</translation>
@@ -677,6 +682,7 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mostrándote anu
 <translation id="7423098979219808738">Preguntar antes</translation>
 <translation id="7437998757836447326">Cerrar sesión en Chrome</translation>
 <translation id="7445411102860286510">Permite que los sitios web reproduzcan automáticamente los vídeos silenciados (recomendado)</translation>
+<translation id="7453467225369441013">Cierra tu sesión en la mayoría de los sitios web. No se cerrará la sesión en tu cuenta de Google.</translation>
 <translation id="7455923816558154057">Toca para ver</translation>
 <translation id="7464701184726199289">Se borrarán los datos sincronizados de todos los dispositivos. No se eliminará la configuración guardada de los sitios web, lo cual puede reflejar tus hábitos de navegación. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">No, gracias</translation>
@@ -743,6 +749,7 @@ Es posible que tu cuenta de Google tenga otras formas del historial de navegaci�
 <translation id="8026334261755873520">Borrar datos de navegación</translation>
 <translation id="8035133914807600019">Nueva carpeta…</translation>
 <translation id="8037750541064988519">Quedan <ph name="DAYS" /> días</translation>
+<translation id="805047784848435650">Según tu historial de navegación</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> MB disponible(s)</translation>
 <translation id="8058746566562539958">Abrir en una pestaña nueva</translation>
 <translation id="8063895661287329888">No se ha podido añadir el marcador.</translation>

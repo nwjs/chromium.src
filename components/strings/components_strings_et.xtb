@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Sobita laiusesse</translation>
 <translation id="1088860948719068836">Kaardil oleva nime lisamine</translation>
 <translation id="1103523840287552314">Tõlgi alati: <ph name="LANGUAGE" /></translation>
+<translation id="1103778128462718200">Kuva kõik salvestatud paroolid …</translation>
 <translation id="1107591249535594099">Kui see on märgitud, salvestab Chrome teie kaardi koopia sellesse seadmesse, et vormi kiiremini täita.</translation>
 <translation id="1111153019813902504">Hiljuti kasutatud järjehoidjad</translation>
 <translation id="1113869188872983271">&amp;Võta korrastamine tagasi</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">Taotletud artiklit ei õnnestunud leida.</translation>
 <translation id="5541546772353173584">E-posti aadressi lisamine</translation>
 <translation id="5544037170328430102">Manustatud leht saidil <ph name="SITE" /> ütleb:</translation>
+<translation id="5545756402275714221">Teile soovitatud artiklid</translation>
 <translation id="5556459405103347317">Laadi uuesti</translation>
 <translation id="5560088892362098740">Aegumiskuupäev</translation>
 <translation id="5565735124758917034">Aktiivne</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">Meil</translation>
 <translation id="5669703222995421982">Isikupärastatud sisu hankimine</translation>
 <translation id="5675650730144413517">See leht ei tööta</translation>
+<translation id="5689199277474810259">Ekspordi JSON-vormingus</translation>
 <translation id="5710435578057952990">Selle veebisaidi identiteeti pole kinnitanud.</translation>
 <translation id="5719499550583120431">Kaupmees aktsepteerib ettemakstud kaarte.</translation>
 <translation id="5720705177508910913">Praegune kasutaja</translation>

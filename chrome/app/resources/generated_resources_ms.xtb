@@ -194,7 +194,6 @@
 <translation id="1297175357211070620">Destinasi</translation>
 <translation id="1297922636971898492">Google Drive tidak tersedia pada masa ini. Memuat naik akan dimulakan semula secara automatik sebaik sahaja Google Drive kembali.</translation>
 <translation id="1303101771013849280">Menandakan Fail HTML</translation>
-<translation id="1303319084542230573">Tambah pencetak</translation>
 <translation id="1303671224831497365">Peranti Bluetooth tidak ditemui</translation>
 <translation id="1306606229401759371">Tukar tetapan</translation>
 <translation id="1307398858972670978">Akses kata laluan anda daripada sebarang peranti di <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -973,7 +972,6 @@ Saya tidak fikir tapak web ini perlu disekat!</translation>
 <translation id="2497229222757901769">Kelajuan tetikus</translation>
 <translation id="2497852260688568942">Penyegerakan dilumpuhkan oleh pentadbir anda</translation>
 <translation id="249819058197909513">Jangan berikan amaran untuk apl ini lagi</translation>
-<translation id="2498436043474441766">Tambah Pencetak</translation>
 <translation id="2498539833203011245">Minimize</translation>
 <translation id="2498765460639677199">Besar</translation>
 <translation id="2500471369733289700">Disekat untuk melindungi privasi anda</translation>
@@ -2432,10 +2430,6 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="4728558894243024398">Platform</translation>
 <translation id="4731351517694976331">Benarkan perkhidmatan Google mengakses lokasi anda</translation>
 <translation id="4731422630970790516">Item rak 3</translation>
-<translation id="473221644739519769">Apabila pencetak anda ditambahkan kepada Cetakan Awan Google, anda boleh
-        mencetak dari mana-mana sahaja, ke mana-mana sahaja. Kongsi pencetak anda 
-        dengan sesiapa yang anda pilih dan cetak padanya dari Chrome, telefon, tablet,
-        PC anda atau sebarang peranti lain yang disambungkan ke web.</translation>
 <translation id="4732760563705710320">Maaf, video ini tidak disokong oleh peranti cast anda.</translation>
 <translation id="4734518477988699048">Nilai input tidak sah.</translation>
 <translation id="473546211690256853">Akaun ini diuruskan oleh <ph name="DOMAIN" />.</translation>
@@ -2705,9 +2699,6 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="5152451685298621771">(Akaun untuk kanak-kanak)</translation>
 <translation id="5154108062446123722">Tetapan lanjutan untuk <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Anda boleh menambah pencetak pada komputer anda dengan mengklik butang
-        "Tambah pencetak" di bawah. Jika anda mempunyai pencetak untuk ditambah, 
-        anda masih boleh menyimpan PDF atau menyimpan ke Google Drive.</translation>
 <translation id="5154702632169343078">Subjek</translation>
 <translation id="5154917547274118687">Memori</translation>
 <translation id="5157635116769074044">Pin halaman ini pada Skrin Mula...</translation>
@@ -4101,7 +4092,6 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="7311079019872751559">Akses pemalam tanpa kotak pasir</translation>
 <translation id="7311891583377621132">Bergerak sedikit untuk menangkap bahagian lain cap jari anda</translation>
 <translation id="7314244761674113881">Hos SOCKS</translation>
-<translation id="7314440321558802142">Gedung Play (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (semasa)</translation>
 <translation id="7321545336522791733">Pelayan tidak dapat dihubungi</translation>
 <translation id="7324297612904500502">Forum Beta</translation>
@@ -4705,7 +4695,6 @@ Simpan fail kunci anda di tempat selamat. Anda akan memerlukannya untuk mencipta
 <translation id="8242426110754782860">Teruskan</translation>
 <translation id="8245799906159200274">Kini di saluran <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Pembawa tidak diketahui</translation>
-<translation id="8246455765446055172">Gedung Google Play (beta)</translation>
 <translation id="8248050856337841185">&amp;Tampal</translation>
 <translation id="8249048954461686687">Folder OEM</translation>
 <translation id="8249296373107784235">Henti paksa</translation>

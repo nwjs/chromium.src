@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">Vervalmaand</translation>
 <translation id="1153356358378277386">Gekoppelde apparaten</translation>
 <translation id="1156185823432343624">Volume: gedempt</translation>
+<translation id="1156488781945104845">Huidige tijd</translation>
 <translation id="1161575384898972166">Log in bij <ph name="TOKEN_NAME" /> om het klantcertificaat te exporteren.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{Er wordt momenteel een download uitgevoerd. Wil je de download annuleren en de incognitomodus afsluiten?}other{Er worden momenteel # downloads uitgevoerd. Wil je de downloads annuleren en de incognitomodus afsluiten?}}</translation>
 <translation id="1163931534039071049">&amp;Framebron weergeven</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">Muzieknoot</translation>
 <translation id="1205489148908752564">Gebruikers op de witte lijst lezen en wijzigen</translation>
 <translation id="1206407435587370571">Je Chromebook leren kennen</translation>
+<translation id="1211364473545090084">Gebruik een incognitovenster om te internetten zonder dat je browsegeschiedenis wordt opgeslagen</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> vingerafdrukken ingesteld</translation>
 <translation id="1215411991991485844">Nieuwe achtergrondapp toegevoegd</translation>
 <translation id="1216654534877302979">Geluid van sites dempen</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">Bestemming</translation>
 <translation id="1297922636971898492">Google Drive is momenteel niet beschikbaar. Het uploaden wordt automatisch gestart zodra Google Drive weer beschikbaar is.</translation>
 <translation id="1303101771013849280">HTML-bestand met bladwijzers</translation>
-<translation id="1303319084542230573">Een printer toevoegen</translation>
 <translation id="1303671224831497365">Geen Bluetooth-apparaten gevonden</translation>
 <translation id="1306606229401759371">Instellingen wijzigen</translation>
 <translation id="1307398858972670978">Je hebt toegang tot je wachtwoorden op elk apparaat via <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -972,7 +973,6 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="2497229222757901769">Snelheid muis</translation>
 <translation id="2497852260688568942">Synchronisatie is uitgeschakeld door je beheerder</translation>
 <translation id="249819058197909513">Geen waarschuwing meer weergeven voor deze app</translation>
-<translation id="2498436043474441766">Printers toevoegen</translation>
 <translation id="2498539833203011245">Minimaliseren</translation>
 <translation id="2498765460639677199">Heel groot</translation>
 <translation id="2500471369733289700">Geblokkeerd ter bescherming van je privacy</translation>
@@ -1108,6 +1108,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="2688196195245426394">Fout bij het registreren van het apparaat bij de server: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Taalopties weergeven</translation>
 <translation id="2691385045260836588">Model</translation>
+<translation id="2693176596243495071">Er is een onbekende fout opgetreden. Probeer het later opnieuw of neem contact op met je beheerder als het probleem blijft optreden.</translation>
 <translation id="2694026874607847549">1 cookie</translation>
 <translation id="2695749433451188613">Internetafdrukprotocol (HTTPS)</translation>
 <translation id="270358213449696159">Inhoud van Voorwaarden van Google Chrome OS</translation>
@@ -1452,6 +1453,7 @@ Controleer je e-mail op <ph name="ACCOUNT_EMAIL" /> voor deze en verdere instruc
 <translation id="3166571619128686629">Klik of zeg 'Ok Google' om een gesproken zoekopdracht uit te voeren</translation>
 <translation id="3170072451822350649">Je kunt het inloggen ook overslaan en <ph name="LINK_START" />browsen als gast<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">Klik om het wachtwoord te verbergen</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> heeft een toestemmingsverzoek.</translation>
 <translation id="3177909033752230686">Brontaal:</translation>
 <translation id="3180365125572747493">Voer een wachtwoord in voor het versleutelen van dit certificaatbestand.</translation>
 <translation id="3181110748548073003">Druk op |<ph name="SHORTCUT" />| om verder te gaan</translation>
@@ -2428,10 +2430,6 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="4728558894243024398">Platform</translation>
 <translation id="4731351517694976331">Google-services toegang tot je locatie toestaan</translation>
 <translation id="4731422630970790516">Plankartikel 3</translation>
-<translation id="473221644739519769">Als je printers toevoegt aan Google Cloudprinter, kun je vanaf
-        elke locatie naar elke locatie afdrukken. Deel je printers met wie je wilt en
-        druk af naar deze printers via Chrome, je telefoon, tablet, pc of elk ander
-        apparaat dat is verbonden met internet.</translation>
 <translation id="4732760563705710320">Sorry, deze video wordt niet ondersteund door je cast-apparaat.</translation>
 <translation id="4734518477988699048">Invoerwaarde is ongeldig.</translation>
 <translation id="473546211690256853">Dit account wordt beheerd door <ph name="DOMAIN" />.</translation>
@@ -2701,7 +2699,6 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5152451685298621771">(Account voor kinderen)</translation>
 <translation id="5154108062446123722">Geavanceerde instellingen voor <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Je kunt printers aan je computer toevoegen door op de onderstaande knop 'Een printer toevoegen' te klikken. Als je geen printers hebt om toe te voegen, kun je nog steeds een pdf opslaan of opslaan naar Google Drive.</translation>
 <translation id="5154702632169343078">Entiteit</translation>
 <translation id="5154917547274118687">Geheugen</translation>
 <translation id="5157635116769074044">Deze pagina vastzetten op het startscherm…</translation>
@@ -3312,6 +3309,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="6076448957780543068">Dit screenshot opnemen</translation>
 <translation id="6077131872140550515">Verwijderen uit voorkeursnetwerken</translation>
 <translation id="6078752646384677957">Controleer je microfoon en audioniveaus</translation>
+<translation id="6080515710685820702">Gebruik je een gedeelde computer? Open een incognitovenster.</translation>
 <translation id="6080689532560039067">De systeemtijd controleren</translation>
 <translation id="6082651258230788217">In werkbalk weergeven</translation>
 <translation id="6086814797483779854">Uitvoeren voor klik</translation>
@@ -3953,6 +3951,7 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="7054808953701320293">Dit niet meer weergeven.</translation>
 <translation id="7056526158851679338">Apparaten &amp;inspecteren</translation>
 <translation id="7059858479264779982">Instellen op automatisch starten</translation>
+<translation id="7059893117020417984">Als je privé wilt browsen, klik je op het menupictogram met de stippen om een incognitovenster te openen</translation>
 <translation id="7062222374113411376">Toestaan dat onlangs gesloten sites het verzenden en ontvangen van gegevens voltooien (aanbevolen)</translation>
 <translation id="7063129466199351735">Snelle links verwerken...</translation>
 <translation id="7063957500469387217">Printer in Google Cloudprinter instellen of beheren.</translation>
@@ -4095,7 +4094,6 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="7311079019872751559">Plug-intoegang zonder sandbox</translation>
 <translation id="7311891583377621132">Beweeg je vinger enigszins om een ander deel van de vingerafdruk vast te leggen</translation>
 <translation id="7314244761674113881">SOCKS-host</translation>
-<translation id="7314440321558802142">Play Store (bèta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (huidig)</translation>
 <translation id="7321545336522791733">Server niet bereikbaar</translation>
 <translation id="7324297612904500502">Bètaforum</translation>
@@ -4620,6 +4618,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="8116190140324504026">Meer informatie...</translation>
 <translation id="8116483400482790018">Aangepast spellingwoordenboek</translation>
 <translation id="8116972784401310538">&amp;Bladwijzerbeheer</translation>
+<translation id="8118362518458010043">Uitgeschakeld door Chrome. Deze extensie kan onveilig zijn.</translation>
 <translation id="8118860139461251237">Je downloads beheren</translation>
 <translation id="8119631488458759651">deze site verwijderen</translation>
 <translation id="81238879832906896">Geel-witte bloem</translation>
@@ -4699,7 +4698,6 @@ Resterende tijd berekenen</translation>
 <translation id="8242426110754782860">Doorgaan</translation>
 <translation id="8245799906159200274">Momenteel op kanaal <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Onbekende provider</translation>
-<translation id="8246455765446055172">Google Play Store (bèta)</translation>
 <translation id="8248050856337841185">&amp;Plakken</translation>
 <translation id="8249048954461686687">OEM-map</translation>
 <translation id="8249296373107784235">Annuleren</translation>
@@ -4737,6 +4735,7 @@ Resterende tijd berekenen</translation>
 <translation id="8283475148136688298">Verificatiecode geweigerd tijdens verbinden met '<ph name="DEVICE_NAME" />'.</translation>
 <translation id="8284279544186306258">alle sites op <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">Inloggen</translation>
+<translation id="8286963743045814739">Je kunt privé browsen in een incognitovenster</translation>
 <translation id="8291967909914612644">Land thuisprovider</translation>
 <translation id="8294431847097064396">Bron</translation>
 <translation id="8297006494302853456">Zwak</translation>

@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">ملاءمة مع العرض</translation>
 <translation id="1088860948719068836">إضافة الاسم الوارد في البطاقة</translation>
 <translation id="1103523840287552314">ترجمة اللغة <ph name="LANGUAGE" /> دائمًا</translation>
+<translation id="1103778128462718200">عرض جميع كلمات المرور المحفوظة...</translation>
 <translation id="1107591249535594099">‏إذا تم وضع علامة على هذا الخيار، سيخزّن Chrome نسخة من هذه البطاقة على هذا الجهاز لتعبئة النماذج بشكل أسرع.</translation>
 <translation id="1111153019813902504">الإشارات الجديدة</translation>
 <translation id="1113869188872983271">تراجع عن إعادة الت&amp;رتيب</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">تعذر العثور على المقالة المطلوبة</translation>
 <translation id="5541546772353173584">إضافة البريد الإلكتروني</translation>
 <translation id="5544037170328430102">صفحة مُضمنة في <ph name="SITE" /> تعرض:</translation>
+<translation id="5545756402275714221">مقالات لك</translation>
 <translation id="5556459405103347317">إعادة تحميل</translation>
 <translation id="5560088892362098740">تاريخ انتهاء الصلاحية</translation>
 <translation id="5565735124758917034">نشط</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">البريد الإلكتروني</translation>
 <translation id="5669703222995421982">الحصول على محتوى مخصص</translation>
 <translation id="5675650730144413517">يتعذّر على هذه الصفحة العمل</translation>
+<translation id="5689199277474810259">‏تصدير إلى JSON</translation>
 <translation id="5710435578057952990">لم  يتمّ التحقق من هوية هذا الموقع.</translation>
 <translation id="5719499550583120431">يتم قبول بطاقات الدفع المسبق.</translation>
 <translation id="5720705177508910913">المستخدم الحالي</translation>

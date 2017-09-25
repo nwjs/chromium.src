@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">कालबाह्य होण्याचा महिना:</translation>
 <translation id="1153356358378277386">जोडलेली डीव्हाइस</translation>
 <translation id="1156185823432343624">व्हॉल्यूम: निश:ब्द</translation>
+<translation id="1156488781945104845">वर्तमान वेळ</translation>
 <translation id="1161575384898972166">कृपया क्लायंट प्रमाणपत्र निर्यात करण्यासाठी <ph name="TOKEN_NAME" /> मध्ये साइन इन करा.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{एक डाउनलोड सध्या प्रगतीपथावर आहे. आपण डाउनलोड रद्द करू आणि गुप्त मोडच्या बाहेर पडू इच्छिता?}one{सध्या # डाउनलोड प्रगतीपथावर आहे. आपण डाउनलोड रद्द करू आणि गुप्त मोडच्या बाहेर पडू इच्छिता?}other{ सध्या # डाउनलोड प्रगतीपथावर आहेत. आपण डाउनलोड रद्द करू आणि गुप्त मोडच्या बाहेर पडू इच्छिता?}}</translation>
 <translation id="1163931534039071049">फ्रेम स्त्रोत &amp;पहा</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">संगीत टीप</translation>
 <translation id="1205489148908752564">श्वेतसूची केलेले वापरकर्ते वाचा आणि बदला</translation>
 <translation id="1206407435587370571">तुमचे Chromebook एक्सप्लोर करा</translation>
+<translation id="1211364473545090084">गुप्त विंडोसह तुमचा ब्राउझ करण्याचा इतिहास सेव्ह न करता वेब वापरा</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> फिंगरप्रिंट सेट केले</translation>
 <translation id="1215411991991485844">नवीन पार्श्वभूमी अॅप्लिकेशन जोडला</translation>
 <translation id="1216654534877302979">साइट निःशब्द करा</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">गंतव्य</translation>
 <translation id="1297922636971898492">Google ड्राइव्ह आत्ता उपलब्ध नाही. Google ड्राइव्ह एकदा परत आल्यानंतर अपलोड करणे स्वयंचलितपणे रीस्टार्ट होईल.</translation>
 <translation id="1303101771013849280">HTML फाईल बुकमार्क करते</translation>
-<translation id="1303319084542230573">एक प्रिंटर जोडा</translation>
 <translation id="1303671224831497365">Bluetooth डिव्हाइसेस सापडली नाहीत</translation>
 <translation id="1306606229401759371">सेटिंग्ज बदला</translation>
 <translation id="1307398858972670978"><ph name="SAVED_PASSWORDS_LINK" /> वर आपल्या संकेतशब्दांमध्‍ये कोणत्याही डिव्हाइस वरून प्रवेश करा</translation>
@@ -970,7 +971,6 @@
 <translation id="2497229222757901769">माऊस गती</translation>
 <translation id="2497852260688568942">आपल्या प्रशासकाने संकालन अक्षम केले आहे</translation>
 <translation id="249819058197909513">या अॅप साठी पुन्हा चेतावणी देऊ नका</translation>
-<translation id="2498436043474441766">प्रिंटर जोडा</translation>
 <translation id="2498539833203011245">लहान करा</translation>
 <translation id="2498765460639677199">विशाल</translation>
 <translation id="2500471369733289700">तुमची गोपनीयता संरक्षित करण्यासाठी ब्लॉक केले</translation>
@@ -1106,6 +1106,7 @@
 <translation id="2688196195245426394">सर्व्हरवर डिव्हाइसची नोंदणी करताना त्रुटी: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">भाषा पर्याय दर्शवा</translation>
 <translation id="2691385045260836588">मॉडेल</translation>
+<translation id="2693176596243495071">अरेरे!  एक अज्ञात एरर आली. कृपया नंतर पुन्हा प्रयत्न करा किंवा समस्या कायम राहिल्यास तुमच्या अ‍ॅडमिनिस्ट्रेटरशी संपर्क साधा.</translation>
 <translation id="2694026874607847549">1  कुकी</translation>
 <translation id="2695749433451188613">इंटरनेट मुद्रण प्रोटोकॉल (HTTPS)</translation>
 <translation id="270358213449696159">Google Chrome OS अटी सामग्री</translation>
@@ -1176,7 +1177,7 @@
     <ph name="BR" />
     आपण आपल्या डिव्हाइसवर सानुकूल कोड इंस्टॉल आणि त्याची चाचणी घेण्यासाठी आपल्या Chrome OS डिव्हाइसवर डिबगिंग वैशिष्ट्ये सक्षम करू शकता.  हे आपल्याला याची अनुमती देईल:<ph name="BR" />
     <ph name="BEGIN_LIST" />
-      <ph name="LIST_ITEM" />rootfs सत्यापन काढा जेणेकरून आपण OS फायली सुधारित करू शकता
+      <ph name="LIST_ITEM" />rootfs पडताळणी काढा जेणेकरून आपण OS फायली सुधारित करू शकता
       <ph name="LIST_ITEM" />मानक चाचणी की वापरून डिव्हाइसवर SSH प्रवेश सक्षम करा जेणेकरून डिव्हाइसवर प्रवेश करण्यासाठी आपण <ph name="BEGIN_CODE" />'cros flash'<ph name="END_CODE" /> सारखी साधने वापरू शकता
       <ph name="LIST_ITEM" />USB वरून बूट करणे सक्षम करा जेणेकरून आपण USB ड्राइव्हवरून OS प्रतिमा इंस्टॉल करू शकता
       <ph name="LIST_ITEM" />एका सानुकूल मूल्यावर आपले dev आणि सिस्टम दोन्ही मूळ लॉग इन संकेतशब्द सेट करा जेणेकरून आपण डिव्हाइसवर व्यक्तिचलितपणे SSH करू शकता
@@ -1446,6 +1447,7 @@
 <translation id="3166571619128686629">व्हॉइस शोध प्रारंभ करण्यासाठी "Ok Google" क्लिक करा किंवा म्हणा</translation>
 <translation id="3170072451822350649">आपण साइन इन वगळुन <ph name="LINK_START" />अतिथी म्हणून ब्राउझ<ph name="LINK_END" /> देखील करू शकता.</translation>
 <translation id="3177048931975664371">संकेतशब्द लपविण्यासाठी क्लिक करा</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> कडे परवानगी विनंती आहे.</translation>
 <translation id="3177909033752230686">पृष्ठ भाषा:</translation>
 <translation id="3180365125572747493">कृपया ही प्रमाणपत्र फाइल कूटबद्ध करण्यासाठी संकेतशब्द प्रविष्ट करा.</translation>
 <translation id="3181110748548073003">पुढे जाण्यासाठी |<ph name="SHORTCUT" />| दाबा</translation>
@@ -1985,7 +1987,7 @@
 <translation id="3968261067169026421">नेटवर्क सेट करणे शक्य झाले नाही</translation>
 <translation id="3970114302595058915">आयडी</translation>
 <translation id="397105322502079400">गणना करत आहे...</translation>
-<translation id="3972425373133383637">सर्व डिव्हाइसेसवर, आपल्याला काय माहित असणे आवश्यक आहे त्यासाठी कनेक्ट केलेले रहा.</translation>
+<translation id="3972425373133383637">सर्व डिव्हाइसेसवर, आपल्याला काय माहीत असणे आवश्यक आहे त्यासाठी कनेक्ट केलेले रहा.</translation>
 <translation id="3974195870082915331">संकेतशब्द दर्शविण्यासाठी क्लिक करा</translation>
 <translation id="3975222297214566386">इनपुट पर्याय फुगा</translation>
 <translation id="397703832102027365">पूर्ण करीत आहे...</translation>
@@ -2420,9 +2422,6 @@
 <translation id="4728558894243024398">प्लॅटफॉर्म</translation>
 <translation id="4731351517694976331">आपल्या स्थानात प्रवेश करण्यासाठी Google सेवांना अनुमती द्या</translation>
 <translation id="4731422630970790516">शेल्‍फ आयटम 3</translation>
-<translation id="473221644739519769">आपले प्रिंटर Google क्लाउड प्रिंट ला जोडल्यामुळे आपल्याला कुठूनही
-        मुद्रण करण्याची अनुमती देते. आपण ज्यांना निवडता त्यांच्यासह आपले प्रिंटर
-        सामायिक करा आणि Chrome वरून, आपल्या फोनवरून, टॅबलेट, PC किंवा           कोणत्याही अन्य वेब-कनेक्ट केलेल्या डिव्हाइसवरून त्यांचे मुद्रण करा.</translation>
 <translation id="4732760563705710320">क्षमस्‍व, आपल्‍या कास्‍ट डिव्‍हाइसद्वारे हा व्‍हिडिओ समर्थित नाही.</translation>
 <translation id="4734518477988699048">इनपुट मूल्य अवैध आहे.</translation>
 <translation id="473546211690256853">हे खाते <ph name="DOMAIN" /> द्वारे व्यवस्थापित केले आहे</translation>
@@ -2693,9 +2692,6 @@
 <translation id="5152451685298621771">(मुलांसाठी खाती)</translation>
 <translation id="5154108062446123722"><ph name="PRINTING_DESTINATION" /> यासाठी प्रगत सेटिंग्ज</translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">आपण खाली "एक प्रिंटर जोडा" क्लिक करून आपल्या संगणकावर प्रिंटर जोडू शकता.
-        आपल्याकडे जोडण्यासाठी कोणतेही प्रिंटर नसले, तरीही आपण एक PDF जतन
-        करण्यात किंवा Google ड्राइव्हमध्ये जतन करण्यात सक्षम व्हाल.</translation>
 <translation id="5154702632169343078">विषय</translation>
 <translation id="5154917547274118687">मेमरी</translation>
 <translation id="5157635116769074044">हे पृष्ठ प्रारंभ स्क्रीनवर पिन करा...</translation>
@@ -3305,6 +3301,7 @@
 <translation id="6076448957780543068">हा स्क्रीनशॉट समाविष्ट करा</translation>
 <translation id="6077131872140550515">प्राधान्यीकृत मधून हटवा</translation>
 <translation id="6078752646384677957">कृपया तुमचा मायक्रोफोन आणि ऑडिओ स्तर तपासा.</translation>
+<translation id="6080515710685820702">शेअर केलेला काँप्युटर वापरत आहात का? गुप्त विंडो उघडण्याचा प्रयत्न करा.</translation>
 <translation id="6080689532560039067">आपली प्रणाली वेळ तपासा</translation>
 <translation id="6082651258230788217">टूलबारमध्ये दर्शवा</translation>
 <translation id="6086814797483779854">क्लिक केल्यावर चालवा</translation>
@@ -3946,6 +3943,7 @@
 <translation id="7054808953701320293">मला समजले, मला पुन्हा दर्शवू नका.</translation>
 <translation id="7056526158851679338">&amp;निरीक्षण डिव्हाइसेस</translation>
 <translation id="7059858479264779982">स्वयं-लाँच करा वर सेट करा</translation>
+<translation id="7059893117020417984">खाजगीरित्या ब्राउझ करण्यासाठी, गुप्त विंडो उघडण्यासाठी डॉट्स आयकॉन मेनुवर क्लिक करा</translation>
 <translation id="7062222374113411376">अलीकडील बंद केलेल्या साइटना डेटा पाठविणे आणि प्राप्त करणे समाप्त करण्यासाठी अनुमती द्या (शिफारस केलेले)</translation>
 <translation id="7063129466199351735">प्रक्रिया करण्‍याचे शॉर्टकट...</translation>
 <translation id="7063957500469387217">Google क्लाउड मुद्रणामधील प्रिंटर सेट करा किंवा व्यवस्थापित करा.</translation>
@@ -4088,7 +4086,6 @@
 <translation id="7311079019872751559">सॅन्डबॉक्स न केलेला प्लगिन प्रवेश</translation>
 <translation id="7311891583377621132">फिंगरप्रिंटचा वेगळा भाग कॅप्चर करण्यासाठी थोडीशी हालचाल करा</translation>
 <translation id="7314244761674113881">सॉक्स होस्ट</translation>
-<translation id="7314440321558802142">Play स्टोअर (बीटा)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (वर्तमान)</translation>
 <translation id="7321545336522791733">सर्व्हर आवाक्याबाहेर आहे</translation>
 <translation id="7324297612904500502">बीटा फोरम</translation>
@@ -4612,6 +4609,7 @@
 <translation id="8116190140324504026">अधिक माहिती...</translation>
 <translation id="8116483400482790018">शब्दलेखन शब्दकोश सानुकूल करा</translation>
 <translation id="8116972784401310538">&amp;बुकमार्क व्यवस्थापक</translation>
+<translation id="8118362518458010043">Chrome ने बंद केले. हा विस्तार असुरक्षित असू शकतो.</translation>
 <translation id="8118860139461251237">आपले डाउनलोड व्यवस्थापित करा</translation>
 <translation id="8119631488458759651">ही साइट काढा</translation>
 <translation id="81238879832906896">पिवळे आणि पांढरे फूल</translation>
@@ -4689,8 +4687,7 @@
 <translation id="8241868517363889229">आपले बुकमार्क वाचा आणि बदला</translation>
 <translation id="8242426110754782860">पुढे जा</translation>
 <translation id="8245799906159200274">सध्या <ph name="CHANNEL_NAME" /> चॅनेलवर.</translation>
-<translation id="8246209727385807362">माहित नसलेला वाहक</translation>
-<translation id="8246455765446055172">Google Play स्टोअर (बीटा)</translation>
+<translation id="8246209727385807362">माहीत नसलेला वाहक</translation>
 <translation id="8248050856337841185">&amp;पेस्ट करा</translation>
 <translation id="8249048954461686687">OEM फोल्डर</translation>
 <translation id="8249296373107784235">निरस्त करा</translation>
@@ -4728,6 +4725,7 @@
 <translation id="8283475148136688298">"<ph name="DEVICE_NAME" />" शी कनेक्ट करताना प्रमाणीकरण कोड नाकारण्यात आला.</translation>
 <translation id="8284279544186306258">सर्व <ph name="WEBSITE_1" /> साइट</translation>
 <translation id="8286036467436129157">साइन इन</translation>
+<translation id="8286963743045814739">तुम्ही गुप्त विंडो वापरून खाजगीरित्या ब्राउझ करू शकता</translation>
 <translation id="8291967909914612644">मुख्यपृष्ठ प्रदाता देश</translation>
 <translation id="8294431847097064396">स्रोत</translation>
 <translation id="8297006494302853456">कमकुवत</translation>

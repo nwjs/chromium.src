@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">شهر انتهاء الصلاحية</translation>
 <translation id="1153356358378277386">الأجهزة المقترنة</translation>
 <translation id="1156185823432343624">مستوى الصوت: تم كتم الصوت</translation>
+<translation id="1156488781945104845">الوقت الحالي</translation>
 <translation id="1161575384898972166">يُرجى تسجيل الدخول إلى <ph name="TOKEN_NAME" /> لتصدير شهادة العميل.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{هناك تنزيل قيد التقدم حاليًا. هل تريد إلغاء التنزيل والخروج من وضع التصفح المتخفي؟}zero{هناك # من التنزيلات قيد التقدم حاليًا. هل تريد إلغاء التنزيلات والخروج من وضع التصفح المتخفي؟}two{هناك تنزيلان (#) قيد التقدم حاليًا. هل تريد إلغاء التنزيلين والخروج من وضع التصفح المتخفي؟}few{هناك # تنزيلات قيد التقدم حاليًا. هل تريد إلغاء التنزيلات والخروج من وضع التصفح المتخفي؟}many{هناك # تنزيلاً قيد التقدم حاليًا. هل تريد إلغاء التنزيلات والخروج من وضع التصفح المتخفي؟}other{هناك # من التنزيلات قيد التقدم حاليًا. هل تريد إلغاء التنزيلات والخروج من وضع التصفح المتخفي؟}}</translation>
 <translation id="1163931534039071049">عرض م&amp;صدر الإطار</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">نوتة موسيقية</translation>
 <translation id="1205489148908752564">قراءة وتغيير المستخدمين في القائمة البيضاء</translation>
 <translation id="1206407435587370571">‏استكشاف جهاز Chromebook</translation>
+<translation id="1211364473545090084">استخدِم الويب دون حفظ سجلّ التصفُّح من خلال نافذة تصفُّح متخفٍ</translation>
 <translation id="1213037489357051291">تم إعداد <ph name="NUM_FINGERPRINTS" /> من بصمات الإصبع</translation>
 <translation id="1215411991991485844">تمت إضافة تطبيق جديد في الخلفية</translation>
 <translation id="1216654534877302979">تجاهل المواقع</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">الوجهة</translation>
 <translation id="1297922636971898492">‏Google Drive غير متاح في الوقت الحالي. ستتم إعادة تشغيل التحميل تلقائيًا فور توفر Google Drive.</translation>
 <translation id="1303101771013849280">‏لوضع إشارة مرجعية لملف HTML</translation>
-<translation id="1303319084542230573">إضافة طابعة</translation>
 <translation id="1303671224831497365">لم يتم العثور على أي أجهزة بلوتوث</translation>
 <translation id="1306606229401759371">تغيير الإعدادات</translation>
 <translation id="1307398858972670978">الوصول إلى كلمات المرور من أي جهاز في <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -972,7 +973,6 @@
 <translation id="2497229222757901769">سرعة الماوس</translation>
 <translation id="2497852260688568942">تم تعطيل المزامنة من قِبل المشرف</translation>
 <translation id="249819058197909513">لا أريد التحذير مرة أخرى بشأن هذا التطبيق</translation>
-<translation id="2498436043474441766">إضافة طابعات</translation>
 <translation id="2498539833203011245">تصغير</translation>
 <translation id="2498765460639677199">ضخم</translation>
 <translation id="2500471369733289700">تم الحظر لحماية خصوصيتك</translation>
@@ -1107,6 +1107,7 @@
 <translation id="2688196195245426394">حدث خطأ عند تسجيل الجهاز مع الخادم: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">عرض خيارات اللغة</translation>
 <translation id="2691385045260836588">الطراز</translation>
+<translation id="2693176596243495071">عفوًا، حدث خطأ غير معروف. يُرجى إعادة المحاولة فيما بعد أو الاتصال بالمشرف إذا استمرت المشكلة.</translation>
 <translation id="2694026874607847549">ملف تعريف ارتباط واحد</translation>
 <translation id="2695749433451188613">‏بروتوكول الطباعة عبر الإنترنت (HTTPS)</translation>
 <translation id="270358213449696159">‏محتويات بنود نظام التشغيل Google Chrome</translation>
@@ -1451,6 +1452,7 @@
 <translation id="3166571619128686629">‏انقر أو قل "Ok Google" لبدء البحث الصوتي</translation>
 <translation id="3170072451822350649">يمكنك أيضًا تخطي تسجيل الدخول و<ph name="LINK_START" />التصفح كضيف<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">انقر لإخفاء كلمة المرور</translation>
+<translation id="3177857336576585529">يمتلك <ph name="SITE_NAME" /> طلب إذن.</translation>
 <translation id="3177909033752230686">لغة الصفحة:</translation>
 <translation id="3180365125572747493">يُرجى إدخال كلمة مرور لتشفير ملف الشهادة هذا.</translation>
 <translation id="3181110748548073003">اضغط على |<ph name="SHORTCUT" />| للانتقال إلى الأمام</translation>
@@ -2422,10 +2424,6 @@
 <translation id="4728558894243024398">النظام الأساسي</translation>
 <translation id="4731351517694976331">‏السماح لخدمات Google بالدخول إلى الموقع</translation>
 <translation id="4731422630970790516">بند الرف 3</translation>
-<translation id="473221644739519769">‏تتيح لك إضافة طابعات إلى الطباعة في السحاب من Google إمكانية الطباعة من
-        أي مكان إلى أي مكان. يمكنك مشاركة طابعاتك مع من تختاره
-        والطباعة باستخدامها من Chrome أو هاتفك أو جهازك اللوحي أو جهاز الكمبيوتر
-        أو أي جهاز آخر متصل بالويب.</translation>
 <translation id="4732760563705710320">عفوًا، جهاز البث لا يدعم هذا الفيديو.</translation>
 <translation id="4734518477988699048">قيمة الإدخال غير صالحة.</translation>
 <translation id="473546211690256853">تتم إدارة هذا الحساب من خلال <ph name="DOMAIN" /></translation>
@@ -2694,9 +2692,6 @@
 <translation id="5152451685298621771">(حساب للأطفال)</translation>
 <translation id="5154108062446123722">الإعدادات المتقدمة لـ <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">‏يمكنك إضافة طابعات إلى جهاز الكمبيوتر من خلال النقر على زر "إضافة طابعة"
-        أدناه. إذا لم يكن لديك أي طابعات لإضافتها، فسيظل بمقدورك حفظ
-        ملف PDF أو الحفظ إلى Google Drive.</translation>
 <translation id="5154702632169343078">الموضوع</translation>
 <translation id="5154917547274118687">الذاكرة</translation>
 <translation id="5157635116769074044">تثبيت هذه الصفحة في شاشة البدء...</translation>
@@ -3306,6 +3301,7 @@
 <translation id="6076448957780543068">تضمين لقطة الشاشة هذه</translation>
 <translation id="6077131872140550515">إزالة من الشبكات المُفضلة</translation>
 <translation id="6078752646384677957">الرجاء التحقق من الميكروفون ومستويات الصوت.</translation>
+<translation id="6080515710685820702">هل تستخدم جهاز كمبيوتر مشتركًا؟ جرِّب فتح نافذة تصفُّح متخفٍ.</translation>
 <translation id="6080689532560039067">تحقق من وقت النظام</translation>
 <translation id="6082651258230788217">العرض في شريط الأدوات</translation>
 <translation id="6086814797483779854">تشغيل عند النقر</translation>
@@ -3948,6 +3944,7 @@
 <translation id="7054808953701320293">أعي ذلك، عدم الإظهار لي مرة أخرى.</translation>
 <translation id="7056526158851679338">&amp;فحص الأجهزة</translation>
 <translation id="7059858479264779982">ضبط على تشغيل تلقائي</translation>
+<translation id="7059893117020417984">للتصفُّح بشكل خاص، انقر على قائمة رمز النقاط لفتح نافذة تصفُّح متخفٍ</translation>
 <translation id="7062222374113411376">السماح للمواقع الإلكترونية التي تم إغلاقها مؤخرًا بإنهاء إرسال البيانات واستلامها (موصى به)</translation>
 <translation id="7063129466199351735">معالجة الاختصارات...</translation>
 <translation id="7063957500469387217">‏إعداد الطابعات أو إدارتها في الطباعة في السحاب من Google.</translation>
@@ -4090,7 +4087,6 @@
 <translation id="7311079019872751559">الوصول إلى المكون الإضافي دون استخدام وضع الحماية</translation>
 <translation id="7311891583377621132">التحرك قليلاً لالتقاط جزء مختلف من بصمة الإصبع</translation>
 <translation id="7314244761674113881">‏مضيف SOCKS</translation>
-<translation id="7314440321558802142">‏متجر Play (الإصدار التجريبي)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (الحالي)</translation>
 <translation id="7321545336522791733">خادم يتعذر الوصول إليه</translation>
 <translation id="7324297612904500502">منتدى الإصدار التجريبي</translation>
@@ -4616,6 +4612,7 @@
 <translation id="8116190140324504026">مزيد من المعلومات...</translation>
 <translation id="8116483400482790018">قاموس هجائي مخصص</translation>
 <translation id="8116972784401310538">م&amp;دير الإشارات</translation>
+<translation id="8118362518458010043">‏تم التعطيل بواسطة متصفح Chrome. ربما تكون هذه الإضافة غير آمنة.</translation>
 <translation id="8118860139461251237">إدارة التنزيلات</translation>
 <translation id="8119631488458759651">إزالة هذا الموقع</translation>
 <translation id="81238879832906896">زهرة صفراء وبيضاء</translation>
@@ -4695,7 +4692,6 @@
 <translation id="8242426110754782860">متابعة</translation>
 <translation id="8245799906159200274">حاليًا على قناة <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">مشغل شبكة جوّال غير معروف</translation>
-<translation id="8246455765446055172">‏متجر Google Play (الإصدار التجريبي)</translation>
 <translation id="8248050856337841185">ل&amp;صق</translation>
 <translation id="8249048954461686687">‏مجلد OEM</translation>
 <translation id="8249296373107784235">إلغاء</translation>
@@ -4733,6 +4729,7 @@
 <translation id="8283475148136688298">تم رفض رمز المصادقة أثناء الاتصال بالجهاز "<ph name="DEVICE_NAME" />".</translation>
 <translation id="8284279544186306258">جميع مواقع <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">تسجيل الدخول</translation>
+<translation id="8286963743045814739">يمكنك التصفح بشكل خاص باستخدام نافذة تصفُّح متخفٍ</translation>
 <translation id="8291967909914612644">بلد مقدم الخدمة الرئيسي</translation>
 <translation id="8294431847097064396">المصدر</translation>
 <translation id="8297006494302853456">ضعيفة</translation>

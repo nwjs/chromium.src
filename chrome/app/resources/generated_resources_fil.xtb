@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">Buwan ng pag-expire</translation>
 <translation id="1153356358378277386">Mga nakapares na device</translation>
 <translation id="1156185823432343624">Volume: Naka-mute</translation>
+<translation id="1156488781945104845">Kasalukuyang oras</translation>
 <translation id="1161575384898972166">Mangyaring mag-sign in sa <ph name="TOKEN_NAME" /> upang i-export ang certificate ng client.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{May nagaganap na pagda-download sa kasalukuyan. Gusto mo bang kanselahin ang pag-download at umalis sa incognito mode?}one{# pag-download ang nagaganap sa kasalukuyan. Gusto mo bang kanselahin ang mga pag-download at umalis sa incognito mode?}other{# na pag-download ang nagaganap sa kasalukuyan. Gusto mo bang kanselahin ang mga pag-download at umalis sa incognito mode?}}</translation>
 <translation id="1163931534039071049">&amp;View frame source</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">Nota ng musika</translation>
 <translation id="1205489148908752564">Basahin at baguhin ang mga naka-whitelist na user</translation>
 <translation id="1206407435587370571">I-explore ang iyong Chromebook</translation>
+<translation id="1211364473545090084">Gamitin ang web nang hindi nase-save ang iyong history ng pag-browse sa pamamagitan ng incognito window</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> ang naka-set up na fingerprint</translation>
 <translation id="1215411991991485844">Nadagdag ang bagong background na app</translation>
 <translation id="1216654534877302979">I-mute ang mga site</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">Destinasyon</translation>
 <translation id="1297922636971898492">Hindi available sa ngayon ang Google Drive. Awtomatikong magre-restart ang pag-a-upload sa sandaling bumalik na ang Google Drive.</translation>
 <translation id="1303101771013849280">HTML File ng Mga Bookmark</translation>
-<translation id="1303319084542230573">Magdagdag ng printer</translation>
 <translation id="1303671224831497365">Walang nakitang Bluetooth device</translation>
 <translation id="1306606229401759371">Baguhin ang mga setting</translation>
 <translation id="1307398858972670978">I-access ang iyong mga password mula sa anumang device sa <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -973,7 +974,6 @@ Sa palagay ko, hindi dapat i-block ang site na ito!</translation>
 <translation id="2497229222757901769">Bilis ng mouse</translation>
 <translation id="2497852260688568942">Na-disable ng iyong administrator ang pag-sync</translation>
 <translation id="249819058197909513">Huwag muling magbabala para sa app na ito</translation>
-<translation id="2498436043474441766">Magdagdag ng Mga Printer</translation>
 <translation id="2498539833203011245">I-minimize</translation>
 <translation id="2498765460639677199">Napakalaki</translation>
 <translation id="2500471369733289700">Na-block upang protektahan ang iyong privacy</translation>
@@ -1109,6 +1109,7 @@ Sa palagay ko, hindi dapat i-block ang site na ito!</translation>
 <translation id="2688196195245426394">Error kapag inirerehistro ang device sa server: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Ipakita ang mga opsyon sa wika</translation>
 <translation id="2691385045260836588">Modelo</translation>
+<translation id="2693176596243495071">Oops! Nagkaroon ng hindi matukoy na error. Pakisubukang muli sa ibang pagkakataon o makipag-ugnayan sa iyong administrator kung magpapatuloy ang isyu.</translation>
 <translation id="2694026874607847549">1 cookie</translation>
 <translation id="2695749433451188613">Internet Printing Protocol (HTTPS)</translation>
 <translation id="270358213449696159">Mga content ng Mga Tuntunin ng Google Chrome OS</translation>
@@ -1453,6 +1454,7 @@ Pakitingnan ang iyong email sa <ph name="ACCOUNT_EMAIL" /> para sa mga ito at hi
 <translation id="3166571619128686629">Mag-click, o sabihin ang "Ok Google" upang simulan ang paghahanap gamit ang boses</translation>
 <translation id="3170072451822350649">Maaari mo ring laktawan ang pag-sign in at <ph name="LINK_START" />mag-browse bilang Bisita<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">I-click upang itago ang password</translation>
+<translation id="3177857336576585529">May kahilingan sa pahintulot ang <ph name="SITE_NAME" />.</translation>
 <translation id="3177909033752230686">Wika ng Page:</translation>
 <translation id="3180365125572747493">Mangyaring magpasok ng password upang i-encrypt ang certificate file na ito.</translation>
 <translation id="3181110748548073003">Pindutin ang |<ph name="SHORTCUT" />| upang pumunta sa susunod</translation>
@@ -2430,10 +2432,6 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="4728558894243024398">Platform</translation>
 <translation id="4731351517694976331">Pahintulutan ang serbisyo sa Google na i-access ang iyong lokasyon</translation>
 <translation id="4731422630970790516">Item 3 sa shelf</translation>
-<translation id="473221644739519769">Nagbibigay-daan sa iyo ang pagdaragdag sa iyong mga printer sa Google Cloud Print na mag-print
-          saanman, patungo saanman. Ibahagi ang iyong mga printer sa sinumang pipiliin mo at
-          mag-print sa kanila mula sa Chrome, sa iyong telepono, tablet, PC o anumang iba pang
-          device na nakakonekta sa web.</translation>
 <translation id="4732760563705710320">Paumanhin, hindi sinusuportahan ang video na ito ng iyong cast device.</translation>
 <translation id="4734518477988699048">Di-wasto ang value ng input.</translation>
 <translation id="473546211690256853">Pinamamahalaan ang account na ito ng <ph name="DOMAIN" /></translation>
@@ -2703,9 +2701,6 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="5152451685298621771">(Account para sa mga bata)</translation>
 <translation id="5154108062446123722">Mga advanced na setting para sa <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Maaari kang magdagdag ng mga printer sa iyong computer sa pamamagitan ng pag-click sa button na "Magdagdag ng printer"
-          sa ibaba. Kung wala kang mga printer na idaragdag, magagawa mo pa ring mag-save
-          ng PDF o mag-save sa Google Drive.</translation>
 <translation id="5154702632169343078">Paksa</translation>
 <translation id="5154917547274118687">Memorya</translation>
 <translation id="5157635116769074044">I-pin ang Pahinang ito sa Screen ng Simula...</translation>
@@ -3315,6 +3310,7 @@ Pumindot ng anumang key upang magpatuloy sa pagtuklas.</translation>
 <translation id="6076448957780543068">Isama ang screenshot na ito</translation>
 <translation id="6077131872140550515">Alisin mula sa mga gustong network</translation>
 <translation id="6078752646384677957">Pakisuri ang mga antas ng iyong mikropono at audio.</translation>
+<translation id="6080515710685820702">Gumagamit ng nakabahaging computer? Subukang magbukas ng incognito window.</translation>
 <translation id="6080689532560039067">Tingnan ang iyong oras sa system</translation>
 <translation id="6082651258230788217">Ipakita sa toolbar</translation>
 <translation id="6086814797483779854">Patakbuhin kapag Na-click</translation>
@@ -3956,6 +3952,7 @@ Gamitin lang ang feature na ito sa mga account na iyong pinagkakatiwalaan.</tran
 <translation id="7054808953701320293">Nakuha ko, huwag na ulit ipakita sa akin.</translation>
 <translation id="7056526158851679338">&amp;Inspeksyunin ang Mga Device</translation>
 <translation id="7059858479264779982">Itakdang awtomatikong ilunsad</translation>
+<translation id="7059893117020417984">Upang mag-browse nang pribado, i-click ang menu ng icon na mga tuldok upang magbukas ng incognito window</translation>
 <translation id="7062222374113411376">Payagan ang mga kamakailang isinarang site na tapusin ang pagpapadala at pagtanggap ng data</translation>
 <translation id="7063129466199351735">Kasalukuyang pinoproseso ang mga shortcut...</translation>
 <translation id="7063957500469387217">I-set up o pamahalaan ang mga printer sa Google Cloud Print.</translation>
@@ -4098,7 +4095,6 @@ Gamitin lang ang feature na ito sa mga account na iyong pinagkakatiwalaan.</tran
 <translation id="7311079019872751559">Access sa hindi naka-sandbox na plugin</translation>
 <translation id="7311891583377621132">Gumalaw nang bahagya upang makunan ang ibang bahagi ng fingerprint</translation>
 <translation id="7314244761674113881">SOCKS host</translation>
-<translation id="7314440321558802142">Play Store (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (kasalukuyan)</translation>
 <translation id="7321545336522791733">Hindi makakonekta sa server</translation>
 <translation id="7324297612904500502">Forum sa Beta</translation>
@@ -4624,6 +4620,7 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="8116190140324504026">Higit pang impormasyon...</translation>
 <translation id="8116483400482790018">Custom na diksyunaryo ng spelling</translation>
 <translation id="8116972784401310538">&amp;Tagapangasiwa ng bookmark</translation>
+<translation id="8118362518458010043">Na-disable ng Chrome. Maaaring hindi ligtas ang extension na ito.</translation>
 <translation id="8118860139461251237">Pamahalaan ang iyong mga download</translation>
 <translation id="8119631488458759651">alisin ang site na ito</translation>
 <translation id="81238879832906896">Dilaw at puting bulaklak</translation>
@@ -4703,7 +4700,6 @@ Kinakalkula ang natitirang oras</translation>
 <translation id="8242426110754782860">Magpatuloy</translation>
 <translation id="8245799906159200274">Kasalukuyang nasa <ph name="CHANNEL_NAME" /> channel.</translation>
 <translation id="8246209727385807362">Hindi kilalang carrier</translation>
-<translation id="8246455765446055172">Google Play Store (beta)</translation>
 <translation id="8248050856337841185">I-&amp;paste</translation>
 <translation id="8249048954461686687">Folder ng OEM</translation>
 <translation id="8249296373107784235">I-abort</translation>
@@ -4741,6 +4737,7 @@ Kinakalkula ang natitirang oras</translation>
 <translation id="8283475148136688298">Tinanggihan ang code sa pagpapatunay habang kumokonekta sa "<ph name="DEVICE_NAME" />".</translation>
 <translation id="8284279544186306258">lahat ng site ng <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">Mag-sign In</translation>
+<translation id="8286963743045814739">Maaari kang mag-browse nang pribado sa pamamagitan ng incognito window</translation>
 <translation id="8291967909914612644">Bansa ng home provider</translation>
 <translation id="8294431847097064396">Pinagmulan</translation>
 <translation id="8297006494302853456">Mahina</translation>

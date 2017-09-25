@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">Son kullanım tarihinin ayı</translation>
 <translation id="1153356358378277386">Eşlenen cihazlar</translation>
 <translation id="1156185823432343624">Ses Düzeyi: Sessiz</translation>
+<translation id="1156488781945104845">Şu anki zaman</translation>
 <translation id="1161575384898972166">Lütfen istemci sertifikasını dışa aktarmak için <ph name="TOKEN_NAME" /> cihazında oturum açın.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{Şu anda devam eden bir indirme işlemi var. İndirme işlemini iptal etmek ve gizli moddan çıkmak istiyor musunuz?}other{Şu anda devam eden # indirme işlemi var. İndirme işlemlerini iptal etmek ve gizli moddan çıkmak istiyor musunuz?}}</translation>
 <translation id="1163931534039071049">&amp;Çerçeve kaynağını görüntüle</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">Müzik notası</translation>
 <translation id="1205489148908752564">Beyaz listedeki kullanıcıları okuma ve değiştirme</translation>
 <translation id="1206407435587370571">Chromebook'unuzu keşfedin</translation>
+<translation id="1211364473545090084">Gizli pencere sayesinde göz atma geçmişinizi kaydetmeden web'i kullanın</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> parmak izi ayarlandı</translation>
 <translation id="1215411991991485844">Yeni arka plan uygulaması eklendi</translation>
 <translation id="1216654534877302979">Sitelerin sesini kapat</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">Hedef</translation>
 <translation id="1297922636971898492">Google Drive şu anda kullanılamıyor. Google Drive tekrar kullanılabilir olduğunda yükleme işlemi otomatik olarak yeniden başlayacak.</translation>
 <translation id="1303101771013849280">Yer İşaretleri HTML Dosyası</translation>
-<translation id="1303319084542230573">Yazıcı ekle</translation>
 <translation id="1303671224831497365">Bluetooth cihazı bulunamadı</translation>
 <translation id="1306606229401759371">Ayarları değiştir</translation>
 <translation id="1307398858972670978"><ph name="SAVED_PASSWORDS_LINK" /> adresine giderek şifrelerinize istediğiniz cihazdan erişin</translation>
@@ -972,7 +973,6 @@ Bu sitenin engellenmesi gerektiğini düşünmüyorum!</translation>
 <translation id="2497229222757901769">Fare hızı</translation>
 <translation id="2497852260688568942">Yöneticiniz senkronizasyonu devre dışı bıraktı</translation>
 <translation id="249819058197909513">Bu uygulama için tekrar uyarma</translation>
-<translation id="2498436043474441766">Yazıcı Ekle</translation>
 <translation id="2498539833203011245">Simge durumuna küçült</translation>
 <translation id="2498765460639677199">Çok büyük</translation>
 <translation id="2500471369733289700">Gizliliğinizi korumak için engellendi</translation>
@@ -1108,6 +1108,7 @@ Bu sitenin engellenmesi gerektiğini düşünmüyorum!</translation>
 <translation id="2688196195245426394">Cihaz sunucuya kaydedilirken hata oluştu: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Dil seçeneklerini göster</translation>
 <translation id="2691385045260836588">Model</translation>
+<translation id="2693176596243495071">Hay aksi!  Bilinmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin veya sorunun devam etmesi halinde yöneticinizle iletişime geçin.</translation>
 <translation id="2694026874607847549">1 çerez</translation>
 <translation id="2695749433451188613">İnternet Yazdırma Protokolü (HTTPS)</translation>
 <translation id="270358213449696159">Google Chrome OS Şartları içeriği</translation>
@@ -1452,6 +1453,7 @@ Bunlar ve diğer talimatlar için lütfen <ph name="ACCOUNT_EMAIL" /> e-postanı
 <translation id="3166571619128686629">Sesli aramayı başlatmak için tıklayın veya "Ok Google" deyin</translation>
 <translation id="3170072451822350649">Ayrıca, oturum açmayı atlayabilir ve <ph name="LINK_START" />misafir olarak göz atabilirsiniz<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">Şifreyi gizlemek için tıklayın</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> sitesinin bir izin isteği var.</translation>
 <translation id="3177909033752230686">Sayfanın Dili:</translation>
 <translation id="3180365125572747493">Lütfen bu sertifika dosyasını şifrelemek için bir şifre girin.</translation>
 <translation id="3181110748548073003">İlerlemek için |<ph name="SHORTCUT" />| tuşuna basın.</translation>
@@ -2428,10 +2430,6 @@ Keşfetmeye devam etmek için herhangi bir tuşa basın.</translation>
 <translation id="4728558894243024398">Platform</translation>
 <translation id="4731351517694976331">Google hizmetlerinin konumunuza erişmesine izin verin</translation>
 <translation id="4731422630970790516">Raf öğesi 3</translation>
-<translation id="473221644739519769">Yazıcılarınızı Google Cloud Print'e eklemeniz, istediğiniz yerden istediğiniz yere
-        yazdırabilmenizi sağlar. Yazıcılarınızı seçtiğiniz kişilerle paylaşabilir ve Chrome'dan,
-        telefonunuzdan, tabletinizden, bilgisayarınızdan veya web bağlantılı başka
-        herhangi bir cihazdan yazdırabilirsiniz.</translation>
 <translation id="4732760563705710320">Maalesef bu video, yayın için kullandığınız cihaz tarafından desteklenmiyor.</translation>
 <translation id="4734518477988699048">Giriş değeri geçersiz.</translation>
 <translation id="473546211690256853">Bu hesap <ph name="DOMAIN" /> tarafından yönetiliyor.</translation>
@@ -2701,9 +2699,6 @@ Keşfetmeye devam etmek için herhangi bir tuşa basın.</translation>
 <translation id="5152451685298621771">(Çocuklar için hesap)</translation>
 <translation id="5154108062446123722"><ph name="PRINTING_DESTINATION" /> için gelişmiş ayarlar</translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Aşağıdaki "Yazıcı ekle" düğmesini tıklayarak bilgisayarınıza yazıcılar
-          ekleyebilirsiniz. Ekleyecek yazıcınız yoksa yine de bir PDF
-          kaydedebilir veya dosyayı Google Drive'da saklayabilirsiniz.</translation>
 <translation id="5154702632169343078">Konu</translation>
 <translation id="5154917547274118687">Bellek</translation>
 <translation id="5157635116769074044">Bu sayfayı Başlangıç ekranına sabitle...</translation>
@@ -3314,6 +3309,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6076448957780543068">Bu ekran görüntüsünü ekle</translation>
 <translation id="6077131872140550515">Tercih edilenlerden kaldır</translation>
 <translation id="6078752646384677957">Lütfen mikrofonunuzu ve ses seviyelerini kontrol edin.</translation>
+<translation id="6080515710685820702">Paylaşılan bir bilgisayar mı kullanıyorsunuz? Gizli pencere açmayı deneyin.</translation>
 <translation id="6080689532560039067">Sistem saatinizi kontrol edin</translation>
 <translation id="6082651258230788217">Araç çubuğunda göster</translation>
 <translation id="6086814797483779854">Tıklandığında çalıştır</translation>
@@ -3954,6 +3950,7 @@ Bu özelliği sadece güvendiğiniz hesaplarda kullanın.</translation>
 <translation id="7054808953701320293">Anladım, bunu bir daha gösterme.</translation>
 <translation id="7056526158851679338">&amp;Cihazları Denetle</translation>
 <translation id="7059858479264779982">Otomatik başlatmaya ayarla</translation>
+<translation id="7059893117020417984">Gizli olarak göz atmak için nokta simgeli menüyü tıklayarak gizli pencere açın</translation>
 <translation id="7062222374113411376">Yeni kapatılan sitelerin veri gönderme ve alma işlemini bitirmesine izin ver (önerilir)</translation>
 <translation id="7063129466199351735">Kısayollar işleniyor...</translation>
 <translation id="7063957500469387217">Google Cloud Print için yazıcıları kurun veya yönetin.</translation>
@@ -4096,7 +4093,6 @@ Bu özelliği sadece güvendiğiniz hesaplarda kullanın.</translation>
 <translation id="7311079019872751559">Korumalı alan içinde olmayan eklenti erişimi</translation>
 <translation id="7311891583377621132">Parmak izinizin farklı bir kısmının yakalanması için parmağınızı çok az hareket ettirin</translation>
 <translation id="7314244761674113881">SOCKS Ana makine</translation>
-<translation id="7314440321558802142">Play Store (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (şu andaki)</translation>
 <translation id="7321545336522791733">Sunucuya ulaşılamıyor</translation>
 <translation id="7324297612904500502">Beta Forumu</translation>
@@ -4622,6 +4618,7 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="8116190140324504026">Daha fazla bilgi...</translation>
 <translation id="8116483400482790018">Özel yazım sözlüğü</translation>
 <translation id="8116972784401310538">&amp;Yer imi yöneticisi</translation>
+<translation id="8118362518458010043">Chrome tarafından devre dışı bırakıldı. Bu uzantı güvenli olmayabilir.</translation>
 <translation id="8118860139461251237">İndirilen öğelerinizi yönetme</translation>
 <translation id="8119631488458759651">bu siteyi kaldır</translation>
 <translation id="81238879832906896">Sarı ve beyaz çiçek</translation>
@@ -4701,7 +4698,6 @@ Kalan süre hesaplanıyor</translation>
 <translation id="8242426110754782860">Devam et</translation>
 <translation id="8245799906159200274">Şu anda <ph name="CHANNEL_NAME" /> kanalında.</translation>
 <translation id="8246209727385807362">Bilinmeyen operatör</translation>
-<translation id="8246455765446055172">Google Play Store (beta)</translation>
 <translation id="8248050856337841185">&amp;Yapıştır</translation>
 <translation id="8249048954461686687">OEM klasörü</translation>
 <translation id="8249296373107784235">İptal Et</translation>
@@ -4739,6 +4735,7 @@ Kalan süre hesaplanıyor</translation>
 <translation id="8283475148136688298">"<ph name="DEVICE_NAME" />" cihazına bağlanırken kimlik doğrulaması kodu reddedildi.</translation>
 <translation id="8284279544186306258">tüm <ph name="WEBSITE_1" /> siteleri</translation>
 <translation id="8286036467436129157">Oturum Aç</translation>
+<translation id="8286963743045814739">Gizli pencere kullanarak gizli olarak göz atabilirsiniz</translation>
 <translation id="8291967909914612644">Ev sağlayıcısının ülkesi</translation>
 <translation id="8294431847097064396">Kaynak</translation>
 <translation id="8297006494302853456">Zayıf</translation>

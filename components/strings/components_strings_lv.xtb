@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Ietilpināt pēc platuma</translation>
 <translation id="1088860948719068836">Uz kartes norādītā vārda pievienošana</translation>
 <translation id="1103523840287552314">Vienmēr tulkot <ph name="LANGUAGE" /> valodas saturu</translation>
+<translation id="1103778128462718200">Rādīt visas saglabātās paroles...</translation>
 <translation id="1107591249535594099">Ja šī izvēles rūtiņa ir atzīmēta, pārlūks Chrome saglabās jūsu kartes kopiju šajā ierīcē, lai nodrošinātu ātrāku veidlapu aizpildi.</translation>
 <translation id="1111153019813902504">Nesenas grāmatzīmes</translation>
 <translation id="1113869188872983271">&amp;Atsaukt pārkārtošanu</translation>
@@ -597,6 +598,7 @@
 <translation id="5540224163453853">Pieprasīto rakstu nevarēja atrast.</translation>
 <translation id="5541546772353173584">E-pasta adreses pievienošana</translation>
 <translation id="5544037170328430102">Vietnē <ph name="SITE" /> iegultā lapā ir rakstīts:</translation>
+<translation id="5545756402275714221">Ieteiktie raksti</translation>
 <translation id="5556459405103347317">Pārlādēt</translation>
 <translation id="5560088892362098740">Derīguma termiņš</translation>
 <translation id="5565735124758917034">Aktīvs</translation>
@@ -618,6 +620,7 @@
 <translation id="5659593005791499971">E-pasts</translation>
 <translation id="5669703222995421982">Saņemiet personalizētu saturu</translation>
 <translation id="5675650730144413517">Šī lapa nedarbojas</translation>
+<translation id="5689199277474810259">Eksportēt JSON formātā</translation>
 <translation id="5710435578057952990">Tīmekļa vietnes identitāte nav apstiprināta.</translation>
 <translation id="5719499550583120431">Tiek pieņemtas priekšapmaksas kartes.</translation>
 <translation id="5720705177508910913">Pašreizējais lietotājs</translation>

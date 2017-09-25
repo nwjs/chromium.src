@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">Utgångsmånad</translation>
 <translation id="1153356358378277386">Kopplade enheter</translation>
 <translation id="1156185823432343624">Volym: avstängd</translation>
+<translation id="1156488781945104845">Aktuell tid</translation>
 <translation id="1161575384898972166">Logga in på <ph name="TOKEN_NAME" /> om du vill exportera klientcertifikatet.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{En nedladdning pågår för närvarande. Vill du avbryta nedladdningen och avsluta inkognitoläget?}other{# nedladdningar pågår för närvarande. Vill du avbryta nedladdningarna och avsluta inkognitoläget?}}</translation>
 <translation id="1163931534039071049">&amp;Visa ramkälla</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">Musiknot</translation>
 <translation id="1205489148908752564">Läs och ändra tillåtna användare</translation>
 <translation id="1206407435587370571">Utforska din Chromebook</translation>
+<translation id="1211364473545090084">Surfa utan att någon webbhistorik sparas med ett inkognitofönster</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> fingeravtryck har konfigurerats</translation>
 <translation id="1215411991991485844">En ny bakgrundsapp har lagts till</translation>
 <translation id="1216654534877302979">Dölj webbplatser</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">Destination</translation>
 <translation id="1297922636971898492">Google Drive är inte tillgängligt för närvarande. Överföringen fortsätter automatiskt när Google Drive är tillgängligt igen.</translation>
 <translation id="1303101771013849280">HTML-fil med bokmärken</translation>
-<translation id="1303319084542230573">Lägg till en skrivare</translation>
 <translation id="1303671224831497365">Inga Bluetooth-enheter hittades</translation>
 <translation id="1306606229401759371">Ändra inställningar</translation>
 <translation id="1307398858972670978">Få tillgång till dina lösenord från alla enheter på <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -971,7 +972,6 @@ Jag tycker inte att den här webbplatsen ska blockeras!</translation>
 <translation id="2497229222757901769">Mushastighet</translation>
 <translation id="2497852260688568942">Synkronisering har inaktiverats av administratören</translation>
 <translation id="249819058197909513">Varna inte för den här appen fler gånger</translation>
-<translation id="2498436043474441766">Lägg till skrivare</translation>
 <translation id="2498539833203011245">Minimera</translation>
 <translation id="2498765460639677199">Enorm</translation>
 <translation id="2500471369733289700">Blockerades av säkerhetsskäl</translation>
@@ -1107,6 +1107,7 @@ Jag tycker inte att den här webbplatsen ska blockeras!</translation>
 <translation id="2688196195245426394">Det uppstod ett fel när enheten registrerades med servern: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Visa språkalternativ</translation>
 <translation id="2691385045260836588">Modell</translation>
+<translation id="2693176596243495071">Hoppsan! Ett okänt fel har uppstått. Försök igen senare eller kontakta administratören om felet kvarstår.</translation>
 <translation id="2694026874607847549">1 cookie</translation>
 <translation id="2695749433451188613">Protokoll för internetutskrift (HTTPS)</translation>
 <translation id="270358213449696159">Innehåll i villkor för Google Chrome OS</translation>
@@ -1451,6 +1452,7 @@ Läs din e-post på <ph name="ACCOUNT_EMAIL" />. Där finns dessa och andra anvi
 <translation id="3166571619128686629">Klicka eller säg ”Ok Google” om du vill starta röstsökningen</translation>
 <translation id="3170072451822350649">Du kan även hoppa över inloggningen och <ph name="LINK_START" />surfa som gäst<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">Klicka om du vill dölja lösenordet</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> begär behörighet.</translation>
 <translation id="3177909033752230686">Sidans språk:</translation>
 <translation id="3180365125572747493">Ange ett lösenord om du vill kryptera denna certifikatfil.</translation>
 <translation id="3181110748548073003">Fortsätt med |<ph name="SHORTCUT" />|</translation>
@@ -2427,10 +2429,6 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="4728558894243024398">Plattform</translation>
 <translation id="4731351517694976331">Tillåt Googles tjänster att ta reda på var du är</translation>
 <translation id="4731422630970790516">Hyllobjekt 3</translation>
-<translation id="473221644739519769">Om du lägger till dina skrivare i Google Cloud Print kan du skriva ut
-        var du än är och var skrivaren än är. Dela skrivare med vem du vill och
-        skriv ut till dem från Chrome, mobilen, surfplattan, datorn eller
-        vilken internetansluten enhet som helst.</translation>
 <translation id="4732760563705710320">Den här videon stöds tyvärr inte av överföringsenheten.</translation>
 <translation id="4734518477988699048">Värdet för indata är ogiltigt.</translation>
 <translation id="473546211690256853">Detta konto hanteras av <ph name="DOMAIN" /></translation>
@@ -2700,9 +2698,6 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="5152451685298621771">(Konto för barn)</translation>
 <translation id="5154108062446123722">Avancerade inställningar för <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Du kan lägga till skrivare i datorn genom att klicka på knappen Lägg till en skrivare
-        nedan. Om du inte har några skrivare som du kan lägga till kan du ändå spara
-        en PDF eller spara i Google Drive.</translation>
 <translation id="5154702632169343078">Ämne</translation>
 <translation id="5154917547274118687">Minne</translation>
 <translation id="5157635116769074044">Fäst den här sidan på startskärmen ...</translation>
@@ -3312,6 +3307,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="6076448957780543068">Ta med skärmdumpen</translation>
 <translation id="6077131872140550515">Ta bort från prioriterade nätverk</translation>
 <translation id="6078752646384677957">Kontrollera mikrofonen och ljudnivåerna.</translation>
+<translation id="6080515710685820702">Delar du datorn med andra? Testa att öppna ett inkognitofönster.</translation>
 <translation id="6080689532560039067">Kontrollera systemtiden</translation>
 <translation id="6082651258230788217">Visa i verktygsfältet</translation>
 <translation id="6086814797483779854">Kör vid klickning</translation>
@@ -3952,6 +3948,7 @@ Använd bara den här funktionen med konton som du litar på.</translation>
 <translation id="7054808953701320293">Visa inte det här igen.</translation>
 <translation id="7056526158851679338">&amp;Inspektera enheter</translation>
 <translation id="7059858479264779982">Inställd på att starta automatiskt</translation>
+<translation id="7059893117020417984">Öppna ett inkognitofönster genom att klicka på menyn med tre punkter om du vill surfa privat</translation>
 <translation id="7062222374113411376">Tillåt webbplatser som nyligen har stängts att slutföra överföringen av data (rekommenderas)</translation>
 <translation id="7063129466199351735">Genvägarna behandlas …</translation>
 <translation id="7063957500469387217">Konfigurera eller hantera skrivare i Google Cloud Print.</translation>
@@ -4094,7 +4091,6 @@ Använd bara den här funktionen med konton som du litar på.</translation>
 <translation id="7311079019872751559">Åtkomst till plugin utanför sandlåda</translation>
 <translation id="7311891583377621132">Flytta fingret något så att en annan del av fingeravtrycket registreras</translation>
 <translation id="7314244761674113881">SOCKS-värd</translation>
-<translation id="7314440321558802142">Play Butik (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (aktuell)</translation>
 <translation id="7321545336522791733">Servern kan inte nås</translation>
 <translation id="7324297612904500502">Forum för betaversionen</translation>
@@ -4619,6 +4615,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8116190140324504026">Mer information...</translation>
 <translation id="8116483400482790018">Anpassad stavningsordlista</translation>
 <translation id="8116972784401310538">&amp;Bokmärkshanteraren</translation>
+<translation id="8118362518458010043">Tillägget har inaktiverats. Det kan vara osäkert.</translation>
 <translation id="8118860139461251237">Hantera dina nedladdningar</translation>
 <translation id="8119631488458759651">ta bort webbplatsen</translation>
 <translation id="81238879832906896">Gul och vit blomma</translation>
@@ -4697,7 +4694,6 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8242426110754782860">Fortsätt</translation>
 <translation id="8245799906159200274">För närvarande i kanalen <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Okänd operatör</translation>
-<translation id="8246455765446055172">Google Play Butik (beta)</translation>
 <translation id="8248050856337841185">K&amp;listra in</translation>
 <translation id="8249048954461686687">OEM-mapp</translation>
 <translation id="8249296373107784235">Avbryt</translation>
@@ -4735,6 +4731,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8283475148136688298">Autentiseringskoden avvisades vid anslutning till <ph name="DEVICE_NAME" />.</translation>
 <translation id="8284279544186306258">alla <ph name="WEBSITE_1" />-webbplatser</translation>
 <translation id="8286036467436129157">Logga in</translation>
+<translation id="8286963743045814739">Du kan surfa privat med ett inkognitofönster</translation>
 <translation id="8291967909914612644">Hemleverantörens land</translation>
 <translation id="8294431847097064396">Källa</translation>
 <translation id="8297006494302853456">Svag</translation>

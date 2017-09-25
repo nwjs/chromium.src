@@ -3,6 +3,7 @@
 <translationbundle lang="zh-TW">
 <translation id="1006017844123154345">在網路上開啟</translation>
 <translation id="1036727731225946849">正在新增「<ph name="WEBAPK_NAME" />」...</translation>
+<translation id="1041308826830691739">來自網站</translation>
 <translation id="1049743911850919806">無痕模式</translation>
 <translation id="10614374240317010">一律不儲存</translation>
 <translation id="1068672505746868501">一律不翻譯<ph name="SOURCE_LANGUAGE" />網頁</translation>
@@ -267,6 +268,7 @@
 
 如要調整搜尋字詞，直接長按即可選取。如要修正搜尋，請將面板滑動到最上方，再輕觸搜尋框。</translation>
 <translation id="3616113530831147358">音訊</translation>
+<translation id="3620176948598597475">重設會清除 Data Saver 的紀錄，包含造訪過的網站清單。</translation>
 <translation id="3632295766818638029">取消密碼遮罩</translation>
 <translation id="363596933471559332">自動使用已儲存的憑證登入網站。如果關閉這項功能，每次在您登入網站之前，網站一律會要求驗證。</translation>
 <translation id="3649663272864015643">已選取 [首頁] 標籤</translation>
@@ -275,6 +277,7 @@
 <translation id="3662546969139119822">這裡沒有任何紀錄</translation>
 <translation id="3672452749423051839">瀏覽錯誤建議</translation>
 <translation id="3706423975342040244">娛樂</translation>
+<translation id="3712575778697986964">確定要重設 Data Saver 嗎？</translation>
 <translation id="3714981814255182093">開啟搜尋列</translation>
 <translation id="3734660163659757482">往上拉即可查看書籤和其他內容</translation>
 <translation id="3738139272394829648">輕觸搜尋</translation>
@@ -298,6 +301,7 @@
 <translation id="393697183122708255">沒有可用的語音搜尋功能</translation>
 <translation id="3946611741043634542">繼續操作即表示您同意接受 Chrome 的《<ph name="BEGIN_LINK1" />服務條款<ph name="END_LINK1" />》和《<ph name="BEGIN_LINK2" />隱私權聲明<ph name="END_LINK2" />》。</translation>
 <translation id="3950820424414687140">登入</translation>
+<translation id="395206256282351086">已停用搜尋與網站建議</translation>
 <translation id="395922942268463099">定期更新的頁面</translation>
 <translation id="3967822245660637423">下載完成</translation>
 <translation id="397583555483684758">同步處理功能已停止運作</translation>
@@ -549,6 +553,7 @@
 <translation id="6232535412751077445">啟用「不追蹤」選項後，您的瀏覽流量會置入一項特定的要求，其作用則視網站是否回應要求，以及網站解讀要求的方式而定。
 
 舉例來說，部分網站可能會以顯示廣告的方式回應這類要求，而這些廣告並非根據您所造訪的其他網站紀錄而產生。許多網站仍會收集您的瀏覽資料，並將這些資料用於下列目的：提高網站安全性、在網站上提供更相關的內容、廣告和推薦項目，以及產生報告統計資料。</translation>
+<translation id="6255999984061454636">內容建議</translation>
 <translation id="6277522088822131679">列印網頁時發生問題，請再試一次。</translation>
 <translation id="6295158916970320988">所有網站</translation>
 <translation id="6320088164292336938">震動</translation>
@@ -677,6 +682,7 @@
 <translation id="7423098979219808738">先詢問我</translation>
 <translation id="7437998757836447326">登出 Chrome</translation>
 <translation id="7445411102860286510">允許網站自動播放靜音的影片 (建議)</translation>
+<translation id="7453467225369441013">你會從大多數網站登出，但不會因此登出 Google 帳戶。</translation>
 <translation id="7455923816558154057">輕觸即可查看</translation>
 <translation id="7464701184726199289">系統會將保持同步的資料從所有裝置上刪除。已儲存的網站設定不會遭到刪除，而且可能會反映您的瀏覽習慣。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">不用了，謝謝</translation>
@@ -743,6 +749,7 @@
 <translation id="8026334261755873520">清除瀏覽資料</translation>
 <translation id="8035133914807600019">新資料夾…</translation>
 <translation id="8037750541064988519">還剩 <ph name="DAYS" /> 天</translation>
+<translation id="805047784848435650">根據你的瀏覽紀錄獨家推薦</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> MB 可用空間</translation>
 <translation id="8058746566562539958">在新的 Chrome 分頁中開啟</translation>
 <translation id="8063895661287329888">無法加入書籤。</translation>

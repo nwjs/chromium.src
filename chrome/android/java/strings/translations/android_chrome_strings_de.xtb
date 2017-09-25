@@ -3,6 +3,7 @@
 <translationbundle lang="de">
 <translation id="1006017844123154345">Online öffnen</translation>
 <translation id="1036727731225946849"><ph name="WEBAPK_NAME" /> wird hinzugefügt...</translation>
+<translation id="1041308826830691739">Von Websites</translation>
 <translation id="1049743911850919806">Inkognito</translation>
 <translation id="10614374240317010">Nie speichern für…</translation>
 <translation id="1068672505746868501">Seiten auf <ph name="SOURCE_LANGUAGE" /> nie übersetzen</translation>
@@ -267,6 +268,7 @@ Zur Verwendung von Physical Web müssen Bluetooth und der Standortdienst aktivie
 
 Zur Anpassung des Suchbegriffs drücken Sie einige Sekunden lang auf den entsprechenden Begriff. Sie können Ihre Suche auch verfeinern, indem Sie das Feld ganz nach oben schieben und auf das Suchfeld tippen.</translation>
 <translation id="3616113530831147358">Audio</translation>
+<translation id="3620176948598597475">Durch das Zurücksetzen wird der Verlauf des Datensparmodus gelöscht, einschließlich der Liste besuchter Websites.</translation>
 <translation id="3632295766818638029">Passwort anzeigen</translation>
 <translation id="363596933471559332">Sie werden mit gespeicherten Anmeldedaten automatisch auf Websites angemeldet. Wenn das Kästchen nicht angeklickt ist, werden Sie jedes Mal aufgefordert, sich manuell auf einer Website anzumelden.</translation>
 <translation id="3649663272864015643">Tab "Startseite" ausgewählt</translation>
@@ -275,6 +277,7 @@ Zur Anpassung des Suchbegriffs drücken Sie einige Sekunden lang auf den entspre
 <translation id="3662546969139119822">Kein Verlauf vorhanden</translation>
 <translation id="3672452749423051839">Vorschläge bei Navigationsfehlern</translation>
 <translation id="3706423975342040244">Unterhaltung</translation>
+<translation id="3712575778697986964">Datensparmodus zurücksetzen?</translation>
 <translation id="3714981814255182093">Suchleiste öffnen</translation>
 <translation id="3734660163659757482">Nach oben ziehen, um Lesezeichen und weitere Inhalte anzuzeigen</translation>
 <translation id="3738139272394829648">Zum Suchen tippen</translation>
@@ -298,6 +301,7 @@ Zur Anpassung des Suchbegriffs drücken Sie einige Sekunden lang auf den entspre
 <translation id="393697183122708255">Keine aktivierte Sprachsuche verfügbar</translation>
 <translation id="3946611741043634542">Sobald Sie fortfahren, stimmen Sie den <ph name="BEGIN_LINK1" />Nutzungsbedingungen<ph name="END_LINK1" /> und den <ph name="BEGIN_LINK2" />Datenschutzhinweisen<ph name="END_LINK2" /> von Chrome zu.</translation>
 <translation id="3950820424414687140">Anmelden</translation>
+<translation id="395206256282351086">Vorschläge für Suchbegriffe und Websites deaktiviert</translation>
 <translation id="395922942268463099">Regelmäßig aktualisierte Seiten</translation>
 <translation id="3967822245660637423">Download abgeschlossen</translation>
 <translation id="397583555483684758">Die Synchronisierung funktioniert nicht mehr</translation>
@@ -550,6 +554,7 @@ Sie sind jedoch nicht unsichtbar. Der Inkognitomodus verhindert nicht, dass Info
 <translation id="6232535412751077445">Wenn Sie das Kästchen "Do Not Track" anklicken, wird mit Ihren Browserzugriffen eine Anforderung gesendet. Wie sich diese Anforderung auswirkt, hängt davon ab, ob eine Website darauf reagiert und wie die Anforderung interpretiert wird.
 
 Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht darauf basiert, welche Websites Sie zuvor besucht haben. Viele Websites erfassen weiterhin Ihre Browserdaten und verwenden sie, um beispielsweise die Sicherheit zu verbessern oder Inhalte, Werbeanzeigen und Empfehlungen bereitzustellen und Statistiken für Berichte zu erstellen.</translation>
+<translation id="6255999984061454636">Inhaltsvorschläge</translation>
 <translation id="6277522088822131679">Beim Drucken der Seite ist ein Problem aufgetreten. Bitte versuchen Sie es erneut.</translation>
 <translation id="6295158916970320988">Alle Websites</translation>
 <translation id="6320088164292336938">Vibrieren</translation>
@@ -666,7 +671,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="7253272406652746122">Fügen Sie ein Google-Konto über die Seite "Konten" der App "Einstellungen" Ihres Geräts hinzu.</translation>
 <translation id="7274013316676448362">Blockierte Website</translation>
 <translation id="7307288900373049735">Google wird kontaktiert. Das kann einen Moment dauern.</translation>
-<translation id="7318797029885648322">Tippen Sie auf "Mehr", damit Artikel angezeigt werden</translation>
+<translation id="7318797029885648322">Tippen Sie auf "Mehr", damit weitere Artikel angezeigt werden</translation>
 <translation id="7333031090786104871">Vorherige Website wird noch hinzugefügt</translation>
 <translation id="7352939065658542140">VIDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{1 ausgewähltes Element teilen}other{# ausgewählte Elemente teilen}}</translation>
@@ -678,6 +683,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="7423098979219808738">Zuerst fragen</translation>
 <translation id="7437998757836447326">Von Chrome abmelden</translation>
 <translation id="7445411102860286510">Automatische Wiedergabe stummgeschalteter Videos auf Websites zulassen (empfohlen)</translation>
+<translation id="7453467225369441013">Sie werden von den meisten Websites, nicht aber von Ihrem Google-Konto abgemeldet.</translation>
 <translation id="7455923816558154057">Zum Ansehen tippen</translation>
 <translation id="7464701184726199289">Dadurch werden synchronisierte Daten von allen Geräten gelöscht. Gespeicherte Website-Einstellungen werden nicht gelöscht und können möglicherweise Ihre Surfgewohnheiten wiedergeben. <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">Nein danke</translation>
@@ -744,6 +750,7 @@ Eventuell finden Sie unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="8026334261755873520">Browserdaten löschen</translation>
 <translation id="8035133914807600019">Neuer Ordner…</translation>
 <translation id="8037750541064988519"><ph name="DAYS" /> Tage übrig</translation>
+<translation id="805047784848435650">Basierend auf Ihrem Browserverlauf</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> MB verfügbar</translation>
 <translation id="8058746566562539958">In neuem Chrome-Tab öffnen</translation>
 <translation id="8063895661287329888">Fehler beim Hinzufügen des Lesezeichens.</translation>

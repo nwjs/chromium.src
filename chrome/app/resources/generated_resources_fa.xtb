@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">ماه انقضا</translation>
 <translation id="1153356358378277386">دستگاه‌های مرتبط‌شده</translation>
 <translation id="1156185823432343624">میزان صدا: بی‌صدا</translation>
+<translation id="1156488781945104845">زمان کنونی</translation>
 <translation id="1161575384898972166">لطفاً برای صدور مجوز سرویس گیرنده، به <ph name="TOKEN_NAME" /> وارد شوید.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{در حال حاضر یک بارگیری در حال انجام است. آیا می‌خواهید بارگیری را لغو کنید و از حالت ناشناس خارج شوید؟}one{در حال حاضر # بارگیری در حال انجام است. آیا می‌خواهید بارگیری را لغو کنید و از حالت ناشناس خارج شوید؟}other{در حال حاضر # بارگیری در حال انجام است. آیا می‌خواهید بارگیری‌ها را لغو کنید و از حالت ناشناس خارج شوید؟}}</translation>
 <translation id="1163931534039071049">&amp;نمای منبع قاب</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">نت موسیقی</translation>
 <translation id="1205489148908752564">خواندن و تغییر کاربران فهرست مجاز</translation>
 <translation id="1206407435587370571">‏Chromebook خود را کاوش کنید</translation>
+<translation id="1211364473545090084">بدون ذخیره کردن سابقه مرور با پنجره‌ای ناشناس، از وب استفاده کنید</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> اثرانگشت تنظیم شده است</translation>
 <translation id="1215411991991485844">برنامه جدید پس‌زمینه اضافه شد</translation>
 <translation id="1216654534877302979">بی‌صدا کردن سایت‌ها</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">مقصد</translation>
 <translation id="1297922636971898492">‏Google Drive در حال حاضر در دسترس نیست. به محض در دسترس قرار گرفتن Google Drive بارگذاری کردن به صورت خودکار دوباره شروع می‌شود.</translation>
 <translation id="1303101771013849280">‏فایل HTML نشانک‌ها</translation>
-<translation id="1303319084542230573">افزودن چاپگر</translation>
 <translation id="1303671224831497365">هیچ دستگاه بلوتوثی یافت نشد</translation>
 <translation id="1306606229401759371">تغییر تنظیمات</translation>
 <translation id="1307398858972670978">در <ph name="SAVED_PASSWORDS_LINK" />، از هر دستگاهی به گذرواژه‌هایتان دسترسی داشته باشید</translation>
@@ -968,7 +969,6 @@
 <translation id="2497229222757901769">سرعت موشواره</translation>
 <translation id="2497852260688568942">سرپرستتان همگام‌سازی را غیرفعال کرده است</translation>
 <translation id="249819058197909513">دیگر برای این برنامه هشدار داده نشود</translation>
-<translation id="2498436043474441766">افزودن چاپگرها</translation>
 <translation id="2498539833203011245">کوچک کردن</translation>
 <translation id="2498765460639677199">بسیار بزرگ</translation>
 <translation id="2500471369733289700">برای محافظت از حریم خصوصی‌تان مسدود شده است</translation>
@@ -1103,6 +1103,7 @@
 <translation id="2688196195245426394">خطا هنگام ثبت دستگاه با سرور: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">نمایش گزینه‌های زبان</translation>
 <translation id="2691385045260836588">مدل</translation>
+<translation id="2693176596243495071">متأسفیم، خطای ناشناخته‌ای روی داد. لطفاً بعداً دوباره امتحان کنید یا اگر مشکل حل نشد، با سرپرستتان تماس بگیرید.</translation>
 <translation id="2694026874607847549">1 کوکی</translation>
 <translation id="2695749433451188613">‏پروتکل چاپ اینترنتی (HTTPS)</translation>
 <translation id="270358213449696159">‏محتوای شرایط سیستم‌عامل Google Chrome</translation>
@@ -1447,6 +1448,7 @@
 <translation id="3166571619128686629">‏برای شروع جستجوی گفتاری، کلیک کنید یا بگویید «Ok Google»</translation>
 <translation id="3170072451822350649">همچنین می‌توانید از ورود به سیستم صرف‌نظر کرده، <ph name="LINK_START" />به عنوان مهمان مرور کنید<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">برای پنهان کردن گذرواژه، کلیک کنید</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> برای مجوز یک درخواست دارد.</translation>
 <translation id="3177909033752230686">زبان صفحه:</translation>
 <translation id="3180365125572747493">برای رمزگذاری این فایل مجوز، یک گذرواژه وارد کنید.</translation>
 <translation id="3181110748548073003">برای رفتن به جلو، |<ph name="SHORTCUT" />| را فشار دهید</translation>
@@ -2423,9 +2425,6 @@
 <translation id="4728558894243024398">پلت فورم</translation>
 <translation id="4731351517694976331">‏به خدمات Google اجازه دسترسی به موقعیت مکانی شما داده شود</translation>
 <translation id="4731422630970790516">مورد ۳ قفسه</translation>
-<translation id="473221644739519769">‏افزودن چاپگرهایتان به Google Cloud Print به شما امکان می‌دهد تا
-        از همه جا در همه جا چاپ کنید. چاپگرهای خود را با افرادی که انتخاب می‌کنید به اشتراک بگذارید و
-        از Chrome، تلفن، رایانه لوحی، رایانه یا هر دستگاه دیگرتان که به وب متصل است، در آنها چاپ کنید.</translation>
 <translation id="4732760563705710320">متأسفیم، دستگاه فرستادن شما، این ویدئو را پشتیبانی نمی‌کند.</translation>
 <translation id="4734518477988699048">مقدار ورودی نامعتبر است.</translation>
 <translation id="473546211690256853"><ph name="DOMAIN" />، این حساب را مدیریت می‌کند</translation>
@@ -2694,10 +2693,6 @@
 <translation id="5152451685298621771">(حساب مخصوصی بچه‌ها)</translation>
 <translation id="5154108062446123722">تنظیمات پیشرفته برای <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">‏با کلیک کردن بر روی دکمه «افزودن چاپگر» در زیر می‌توانید چاپگرها
- را به رایانه‌تان اضافه کنید.
-اگر چاپگری برای افزودن ندارید، هنوز هم قادر به ذخیره یک فایل PDF
- یا ذخیره در Google Drive خواهید بود.</translation>
 <translation id="5154702632169343078">موضوع</translation>
 <translation id="5154917547274118687">حافظه</translation>
 <translation id="5157635116769074044">پین کردن این صفحه به صفحه شروع…</translation>
@@ -3307,6 +3302,7 @@
 <translation id="6076448957780543068">اضافه کردن این عکس صفحه‌نمایش</translation>
 <translation id="6077131872140550515">برداشتن از شبکه‌های برگزیده</translation>
 <translation id="6078752646384677957">لطفاً میکروفون و میزان صدا را بررسی کنید.</translation>
+<translation id="6080515710685820702">از رایانامه مشترکی استفاده می‌کنید؟ باز کردن پنجره ناشناس را امتحان کنید.</translation>
 <translation id="6080689532560039067">بررسی زمان سیستم</translation>
 <translation id="6082651258230788217">نمایش در نوار ابزار</translation>
 <translation id="6086814797483779854">با کلیک کردن اجرا شود</translation>
@@ -3947,6 +3943,7 @@
 <translation id="7054808953701320293">متوجه شدم، دیگر به من نشان داده نشود.</translation>
 <translation id="7056526158851679338">&amp;بازرسی دستگاه‌ها</translation>
 <translation id="7059858479264779982">تنظیم روی اجرای خودکار</translation>
+<translation id="7059893117020417984">برای مرور خصوصی، روی منوی نماد نقطه‌ها کلیک کنید تا پنجره ناشناس باز شود</translation>
 <translation id="7062222374113411376">به سایت‌های اخیراً بسته‌شده امکان داده شود ارسال و دریافت داده را تکمیل کند (توصیه می‌شود)</translation>
 <translation id="7063129466199351735">در حال پردازش میان‌برها...</translation>
 <translation id="7063957500469387217">‏تنظیم یا مدیریت چاپگرها در Google Cloud Print.</translation>
@@ -4089,7 +4086,6 @@
 <translation id="7311079019872751559">دسترسی به افزایه خارج از جعبه ایمنی</translation>
 <translation id="7311891583377621132">انگشتتان را کمی حرکت دهید تا بخش دیگری از اثرانگشت ثبت شود</translation>
 <translation id="7314244761674113881">‏میزبان SOCKS</translation>
-<translation id="7314440321558802142">‏فروشگاه Play (بتا)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (کنونی)</translation>
 <translation id="7321545336522791733">سرور غیرقابل دسترسی است</translation>
 <translation id="7324297612904500502">تالار گفتمان بتا</translation>
@@ -4616,6 +4612,7 @@
 <translation id="8116190140324504026">اطلاعات بیشتر...</translation>
 <translation id="8116483400482790018">واژه‌نامه املای سفارشی</translation>
 <translation id="8116972784401310538">مدیر &amp;نشانک</translation>
+<translation id="8118362518458010043">‏توسط Chrome غیرفعال شد. ممکن است این افزونه ناامن باشد.</translation>
 <translation id="8118860139461251237">مدیریت بارگیری‌ها</translation>
 <translation id="8119631488458759651">حذف این سایت</translation>
 <translation id="81238879832906896">گل زرد و سفید</translation>
@@ -4694,7 +4691,6 @@
 <translation id="8242426110754782860">ادامه دادن</translation>
 <translation id="8245799906159200274">در حال حاضر روی کانال <ph name="CHANNEL_NAME" /> است.</translation>
 <translation id="8246209727385807362">شرکت مخابراتی ناشناس</translation>
-<translation id="8246455765446055172">‏فروشگاه Google Play (بتا)</translation>
 <translation id="8248050856337841185">&amp;جای‌گذاری</translation>
 <translation id="8249048954461686687">‏پوشه OEM</translation>
 <translation id="8249296373107784235">لغو</translation>
@@ -4732,6 +4728,7 @@
 <translation id="8283475148136688298">هنگام اتصال به «<ph name="DEVICE_NAME" />» کد راستی‌آزمایی رد شد.</translation>
 <translation id="8284279544186306258">همه سایت‌های <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">ورود به سیستم</translation>
+<translation id="8286963743045814739">می‌توانید با استفاده از پنجره ناشناس، به‌طور خصوصی مرور کنید</translation>
 <translation id="8291967909914612644">کشور ارائه‌دهنده اصلی</translation>
 <translation id="8294431847097064396">منبع</translation>
 <translation id="8297006494302853456">ضعیف</translation>

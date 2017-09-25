@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">Pagkasyahin sa lapad</translation>
 <translation id="1088860948719068836">Magdagdag ng Pangalan sa Card</translation>
 <translation id="1103523840287552314">Palaging i-translate ang <ph name="LANGUAGE" /></translation>
+<translation id="1103778128462718200">Ipakita ang lahat ng naka-save na password...</translation>
 <translation id="1107591249535594099">Kung lalagyan ng check, mag-iimbak ang Chrome ng kopya ng iyong card sa device na ito para sa mas mabilis na pagsagot sa form.</translation>
 <translation id="1111153019813902504">Mga kamakailang bookmark</translation>
 <translation id="1113869188872983271">&amp;I-undo ang pagbabago sa ayos</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">Hindi mahanap ang hiniling na artikulo.</translation>
 <translation id="5541546772353173584">Magdagdag ng Email</translation>
 <translation id="5544037170328430102">Isinasaad ng isang naka-embed na page sa <ph name="SITE" /> na:</translation>
+<translation id="5545756402275714221">Mga Artikulo para sa Iyo</translation>
 <translation id="5556459405103347317">I-reload</translation>
 <translation id="5560088892362098740">Petsa ng Pag-expire</translation>
 <translation id="5565735124758917034">Aktibo</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">Email</translation>
 <translation id="5669703222995421982">Makakuha ng naka-personalize na content</translation>
 <translation id="5675650730144413517">Hindi gumagana ang page na ito</translation>
+<translation id="5689199277474810259">I-export sa JSON</translation>
 <translation id="5710435578057952990">Ang pagkilala ng website na ito ay hindi natukoy.</translation>
 <translation id="5719499550583120431">Tinatanggap ang mga prepaid card.</translation>
 <translation id="5720705177508910913">Kasalukuyang user</translation>

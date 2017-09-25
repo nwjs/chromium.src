@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">有効期限（月）</translation>
 <translation id="1153356358378277386">ペア設定されたデバイス</translation>
 <translation id="1156185823432343624">音量: ミュート</translation>
+<translation id="1156488781945104845">現在の時間</translation>
 <translation id="1161575384898972166">クライアント証明書をエクスポートするには <ph name="TOKEN_NAME" /> にログインしてください。</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{ダウンロードが現在進行中です。ダウンロードをキャンセルし、シークレット モードを終了しますか？}other{# 件のダウンロードが現在進行中です。ダウンロードをキャンセルし、シークレット モードを終了しますか？}}</translation>
 <translation id="1163931534039071049">フレームのソースを表示(&amp;V)</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">音符</translation>
 <translation id="1205489148908752564">ホワイトリストに登録されたユーザーの読み取りと変更</translation>
 <translation id="1206407435587370571">Chromebook を使いこなそう</translation>
+<translation id="1211364473545090084">シークレット ウィンドウを使うと、閲覧履歴を残さずにウェブを閲覧できます</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> 個の指紋を登録済み</translation>
 <translation id="1215411991991485844">新しいバックグラウンド アプリが追加されました</translation>
 <translation id="1216654534877302979">複数のサイトをミュート</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">送信先</translation>
 <translation id="1297922636971898492">Google ドライブは現在ご利用いただけません。Google ドライブが利用可能になったときに、自動的にアップロードを再開します。</translation>
 <translation id="1303101771013849280">HTML ファイルをブックマークに登録</translation>
-<translation id="1303319084542230573">プリンタを追加</translation>
 <translation id="1303671224831497365">Bluetooth デバイスが見つかりませんでした</translation>
 <translation id="1306606229401759371">設定を変更</translation>
 <translation id="1307398858972670978">どの端末からでも <ph name="SAVED_PASSWORDS_LINK" /> でパスワードにアクセスできます</translation>
@@ -972,7 +973,6 @@
 <translation id="2497229222757901769">マウスの速度</translation>
 <translation id="2497852260688568942">同期は管理者により無効にされています</translation>
 <translation id="249819058197909513">このアプリの警告を表示しない</translation>
-<translation id="2498436043474441766">プリンタを追加</translation>
 <translation id="2498539833203011245">最小化</translation>
 <translation id="2498765460639677199">極大</translation>
 <translation id="2500471369733289700">プライバシー保護のためにブロックされています</translation>
@@ -1108,6 +1108,7 @@
 <translation id="2688196195245426394">デバイスをサーバーに登録するときにエラーが発生しました: <ph name="CLIENT_ERROR" />。</translation>
 <translation id="2690024944919328218">言語オプションを表示</translation>
 <translation id="2691385045260836588">機種</translation>
+<translation id="2693176596243495071">不明なエラーが発生しました。後でもう一度お試しになるか、問題が解決しない場合は管理者にお問い合わせください。</translation>
 <translation id="2694026874607847549">Cookie: 1</translation>
 <translation id="2695749433451188613">インターネット印刷プロトコル（HTTPS）</translation>
 <translation id="270358213449696159">Google Chrome OS 利用規約コンテンツ</translation>
@@ -1452,6 +1453,7 @@
 <translation id="3166571619128686629">クリックするか「OK Google」と言って、音声検索を開始します</translation>
 <translation id="3170072451822350649">ログインせずに<ph name="LINK_START" />ゲストとしてブラウジング<ph name="LINK_END" />することもできます。</translation>
 <translation id="3177048931975664371">クリックしてパスワードを隠す</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> が権限をリクエストしています。</translation>
 <translation id="3177909033752230686">ページの言語:</translation>
 <translation id="3180365125572747493">この証明書ファイルの暗号化に使用するパスワードを入力してください。</translation>
 <translation id="3181110748548073003">次に進むには |<ph name="SHORTCUT" />| キーを押します</translation>
@@ -2428,10 +2430,6 @@
 <translation id="4728558894243024398">プラットフォーム</translation>
 <translation id="4731351517694976331">Google のサービスに現在地情報へのアクセスを許可する</translation>
 <translation id="4731422630970790516">シェルフ アイテム 3</translation>
-<translation id="473221644739519769">Google クラウド プリントにプリンタを追加すると、どこにでも、
-        どこからでも印刷できます。選択したユーザーとプリンタを共有し、Chrome、
-        スマートフォン、タブレット、パソコン、その他ウェブに接続されたデバイスから
-        印刷します。</translation>
 <translation id="4732760563705710320">この動画はキャスト デバイスでサポートされていません。</translation>
 <translation id="4734518477988699048">入力値が無効です。</translation>
 <translation id="473546211690256853">このアカウントは <ph name="DOMAIN" /> によって管理されています。</translation>
@@ -2701,9 +2699,6 @@
 <translation id="5152451685298621771">（子供向けのアカウント）</translation>
 <translation id="5154108062446123722"><ph name="PRINTING_DESTINATION" /> の詳細設定</translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">下の [プリンタを追加] ボタンをクリックすると、パソコンにプリンタを
-        追加できます。追加するプリンタがなくても PDF を保存したり
-        Google ドライブに保存したりできます。</translation>
 <translation id="5154702632169343078">サブジェクト</translation>
 <translation id="5154917547274118687">メモリ</translation>
 <translation id="5157635116769074044">このページを起動画面に固定...</translation>
@@ -3313,6 +3308,7 @@
 <translation id="6076448957780543068">このスクリーンショットを含める</translation>
 <translation id="6077131872140550515">優先ネットワークから削除</translation>
 <translation id="6078752646384677957">マイクと音声のレベルを確認してください。</translation>
+<translation id="6080515710685820702">共有のパソコンをお使いの場合は、シークレット ウィンドウをご活用ください。</translation>
 <translation id="6080689532560039067">システムの時刻の確認</translation>
 <translation id="6082651258230788217">ツールバーに表示</translation>
 <translation id="6086814797483779854">クリックで実行</translation>
@@ -3954,6 +3950,7 @@
 <translation id="7054808953701320293">了解。今後このメッセージを表示しない。</translation>
 <translation id="7056526158851679338">デバイスを検証(&amp;I)</translation>
 <translation id="7059858479264779982">自動起動に設定する</translation>
+<translation id="7059893117020417984">シークレット モードを使うには、その他アイコンのメニューからシークレット ウィンドウを開きます</translation>
 <translation id="7062222374113411376">最近閉じたサイトがデータの送受信を完了できるようにする（推奨）</translation>
 <translation id="7063129466199351735">ショートカットを処理しています...</translation>
 <translation id="7063957500469387217">Google クラウド プリントのプリンタを設定または管理</translation>
@@ -4096,7 +4093,6 @@
 <translation id="7311079019872751559">サンドボックスの無効化プラグインのアクセス</translation>
 <translation id="7311891583377621132">指紋の別の部分を登録するため、指を少し移動してください</translation>
 <translation id="7314244761674113881">SOCKS ホスト</translation>
-<translation id="7314440321558802142">Play ストア（ベータ版）</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" />（現在）</translation>
 <translation id="7321545336522791733">サーバーにアクセスできません</translation>
 <translation id="7324297612904500502">ベータ版フォーラム</translation>
@@ -4624,6 +4620,7 @@
 <translation id="8116190140324504026">詳細情報...</translation>
 <translation id="8116483400482790018">カスタム スペルチェック辞書</translation>
 <translation id="8116972784401310538">ブックマーク マネージャ(&amp;B)</translation>
+<translation id="8118362518458010043">Chrome によって無効にされました。この拡張機能は安全ではない可能性があります。</translation>
 <translation id="8118860139461251237">ダウンロードの管理</translation>
 <translation id="8119631488458759651">このサイトを削除</translation>
 <translation id="81238879832906896">黄色と白の花</translation>
@@ -4702,7 +4699,6 @@
 <translation id="8242426110754782860">続行</translation>
 <translation id="8245799906159200274">現在のチャンネルは <ph name="CHANNEL_NAME" /> です。</translation>
 <translation id="8246209727385807362">不明な携帯通信会社</translation>
-<translation id="8246455765446055172">Google Play ストア（ベータ版）</translation>
 <translation id="8248050856337841185">貼り付け(&amp;P)</translation>
 <translation id="8249048954461686687">OEM フォルダ</translation>
 <translation id="8249296373107784235">中止</translation>
@@ -4740,6 +4736,7 @@
 <translation id="8283475148136688298">「<ph name="DEVICE_NAME" />」への接続中に、認証コードが拒否されました。</translation>
 <translation id="8284279544186306258"><ph name="WEBSITE_1" /> の全サイト</translation>
 <translation id="8286036467436129157">ログイン</translation>
+<translation id="8286963743045814739">シークレット ウィンドウを使って、シークレット モードで閲覧できます</translation>
 <translation id="8291967909914612644">ホーム プロバイダの国</translation>
 <translation id="8294431847097064396">ソース</translation>
 <translation id="8297006494302853456">弱い</translation>

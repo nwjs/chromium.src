@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">유효기간 월</translation>
 <translation id="1153356358378277386">페어링된 기기</translation>
 <translation id="1156185823432343624">볼륨: 음소거</translation>
+<translation id="1156488781945104845">현재 시간</translation>
 <translation id="1161575384898972166"><ph name="TOKEN_NAME" />에 로그인하여 클라이언트 인증서를 내보내세요.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{현재 다운로드가 진행 중입니다. 다운로드를 취소하고 시크릿 모드를 종료하시겠습니까?}other{현재 #개의 다운로드가 진행 중입니다. 다운로드를 취소하고 시크릿 모드를 종료하시겠습니까?}}</translation>
 <translation id="1163931534039071049">프레임 소스 보기(&amp;V)</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">음표</translation>
 <translation id="1205489148908752564">허용 목록에 있는 사용자를 읽고 변경하기</translation>
 <translation id="1206407435587370571">Chromebook 살펴보기</translation>
+<translation id="1211364473545090084">시크릿 창에서는 인터넷 사용 기록을 저장하지 않고 웹을 사용할 수 있습니다.</translation>
 <translation id="1213037489357051291">지문 <ph name="NUM_FINGERPRINTS" />개 설정됨</translation>
 <translation id="1215411991991485844">새 백그라운드 앱을 추가함</translation>
 <translation id="1216654534877302979">사이트 음소거</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">대상</translation>
 <translation id="1297922636971898492">현재 Google 드라이브를 사용할 수 없습니다. Google 드라이브를 다시 사용할 수 있게 되면 자동으로 업로드가 다시 시작됩니다.</translation>
 <translation id="1303101771013849280">HTML 파일 북마크하기</translation>
-<translation id="1303319084542230573">프린터 추가</translation>
 <translation id="1303671224831497365">블루투스 기기를 찾을 수 없습니다.</translation>
 <translation id="1306606229401759371">설정 변경</translation>
 <translation id="1307398858972670978"><ph name="SAVED_PASSWORDS_LINK" /> 링크를 통해 어느 기기에서나 비밀번호에 액세스할 수 있습니다.</translation>
@@ -973,7 +974,6 @@
 <translation id="2497229222757901769">마우스 속도</translation>
 <translation id="2497852260688568942">관리자가 동기화를 사용 중지했습니다.</translation>
 <translation id="249819058197909513">이 앱에 대해 다시 경고하지 않음</translation>
-<translation id="2498436043474441766">프린터 추가</translation>
 <translation id="2498539833203011245">최소화</translation>
 <translation id="2498765460639677199">크게</translation>
 <translation id="2500471369733289700">개인정보 보호를 위해 차단됨</translation>
@@ -1109,6 +1109,7 @@
 <translation id="2688196195245426394">기기를 서버에 등록하는 중에 오류 발생: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">언어 옵션 표시</translation>
 <translation id="2691385045260836588">모델</translation>
+<translation id="2693176596243495071">죄송합니다. 알 수 없는 오류가 발생했습니다. 나중에 다시 시도하거나 문제가 계속되는 경우 관리자에게 문의하세요.</translation>
 <translation id="2694026874607847549">쿠키 1개</translation>
 <translation id="2695749433451188613">인터넷 인쇄 프로토콜(HTTPS)</translation>
 <translation id="270358213449696159">Google Chrome OS 이용약관 내용</translation>
@@ -1453,6 +1454,7 @@
 <translation id="3166571619128686629">음성 검색을 시작하려면 클릭하거나 "Ok, Google"이라고 말하세요.</translation>
 <translation id="3170072451822350649">로그인을 건너뛰고 <ph name="LINK_START" />손님으로 로그인<ph name="LINK_END" />할 수도 있습니다.</translation>
 <translation id="3177048931975664371">비밀번호를 숨기려면 클릭하세요.</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" />에 권한 요청이 있습니다.</translation>
 <translation id="3177909033752230686">페이지 언어:</translation>
 <translation id="3180365125572747493">이 인증서 파일을 암호화하려면 비밀번호를 입력하세요.</translation>
 <translation id="3181110748548073003">앞으로 이동하려면 |<ph name="SHORTCUT" />| 키를 누르세요.</translation>
@@ -2428,10 +2430,6 @@
 <translation id="4728558894243024398">플랫폼</translation>
 <translation id="4731351517694976331">Google 서비스가 내 위치에 액세스하도록 허용</translation>
 <translation id="4731422630970790516">서가 항목 3</translation>
-<translation id="473221644739519769">Google 클라우드 프린트에 프린터를 추가하면
-        어디에서든 인쇄할 수 있습니다. 원하는 사용자와 프린터를 공유한 다음
-        Chrome, 휴대전화, 태블릿, PC 또는 기타 웹 연결 기기에서
-        인쇄합니다.</translation>
 <translation id="4732760563705710320">죄송합니다. 사용 중인 전송 기기에서 지원하지 않는 동영상입니다.</translation>
 <translation id="4734518477988699048">입력 값이 올바르지 않습니다.</translation>
 <translation id="473546211690256853">이 계정은 <ph name="DOMAIN" />에서 관리합니다.</translation>
@@ -2701,9 +2699,6 @@
 <translation id="5152451685298621771">(어린이용 계정)</translation>
 <translation id="5154108062446123722"><ph name="PRINTING_DESTINATION" /> 고급 설정</translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">아래의 '프린터 추가' 버튼을 클릭하여
-        프린터를 컴퓨터에 추가할 수 있습니다. 추가할 프린터가 없는 경우
-        PDF 파일을 저장하거나 Google 드라이브에 저장할 수 있습니다.</translation>
 <translation id="5154702632169343078">제목</translation>
 <translation id="5154917547274118687">메모리</translation>
 <translation id="5157635116769074044">이 페이지를 시작 화면에 고정...</translation>
@@ -3313,6 +3308,7 @@
 <translation id="6076448957780543068">이 스크린샷 포함</translation>
 <translation id="6077131872140550515">기본 네트워크에서 삭제</translation>
 <translation id="6078752646384677957">마이크 및 오디오 음량을 확인하세요.</translation>
+<translation id="6080515710685820702">공유 컴퓨터를 사용 중인가요? 시크릿 창에서 열어보세요.</translation>
 <translation id="6080689532560039067">시스템 시간 확인</translation>
 <translation id="6082651258230788217">툴바에서 보기</translation>
 <translation id="6086814797483779854">클릭하여 실행</translation>
@@ -3953,6 +3949,7 @@
 <translation id="7054808953701320293">확인했습니다. 다시 표시하지 않습니다.</translation>
 <translation id="7056526158851679338">기기 검사(&amp;I)</translation>
 <translation id="7059858479264779982">자동 실행 설정</translation>
+<translation id="7059893117020417984">비공개로 탐색하려면 점 아이콘 메뉴를 클릭하여 시크릿 창을 여세요.</translation>
 <translation id="7062222374113411376">최근에 닫은 사이트에서 데이터 전송 및 수신을 완료하도록 허용(권장)</translation>
 <translation id="7063129466199351735">바로가기 처리 중...</translation>
 <translation id="7063957500469387217">Google 클라우드 프린트에서 프린터 설정 또는 관리</translation>
@@ -4095,7 +4092,6 @@
 <translation id="7311079019872751559">샌드박스 처리되지 않은 플러그인 액세스</translation>
 <translation id="7311891583377621132">지문의 다른 부분이 인식되도록 손가락을 살짝 움직이세요.</translation>
 <translation id="7314244761674113881">SOCKS 호스트</translation>
-<translation id="7314440321558802142">Play 스토어(베타)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" />(현재)</translation>
 <translation id="7321545336522791733">서버에 연결할 수 없음</translation>
 <translation id="7324297612904500502">베타 포럼</translation>
@@ -4621,6 +4617,7 @@
 <translation id="8116190140324504026">추가 정보...</translation>
 <translation id="8116483400482790018">사용자정의 맞춤법 사전</translation>
 <translation id="8116972784401310538">북마크 관리자(&amp;B)</translation>
+<translation id="8118362518458010043">Chrome에서 사용 중지했습니다. 이 확장 프로그램은 안전하지 않을 수 있습니다.</translation>
 <translation id="8118860139461251237">다운로드 관리</translation>
 <translation id="8119631488458759651">사이트 삭제</translation>
 <translation id="81238879832906896">노란색과 흰색 꽃</translation>
@@ -4700,7 +4697,6 @@
 <translation id="8242426110754782860">계속</translation>
 <translation id="8245799906159200274">현재 <ph name="CHANNEL_NAME" /> 채널입니다.</translation>
 <translation id="8246209727385807362">알 수 없는 이동통신사</translation>
-<translation id="8246455765446055172">Google Play 스토어(베타)</translation>
 <translation id="8248050856337841185">붙여넣기(&amp;P)</translation>
 <translation id="8249048954461686687">OEM 폴더</translation>
 <translation id="8249296373107784235">중단</translation>
@@ -4738,6 +4734,7 @@
 <translation id="8283475148136688298">'<ph name="DEVICE_NAME" />'에 연결하는 동안 인증 코드가 거부되었습니다.</translation>
 <translation id="8284279544186306258">모든 <ph name="WEBSITE_1" /> 사이트</translation>
 <translation id="8286036467436129157">로그인</translation>
+<translation id="8286963743045814739">시크릿 창을 사용하여 비공개로 탐색할 수 있습니다.</translation>
 <translation id="8291967909914612644">홈 공급자 국가</translation>
 <translation id="8294431847097064396">출처</translation>
 <translation id="8297006494302853456">약함</translation>

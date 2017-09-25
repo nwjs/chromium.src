@@ -194,7 +194,6 @@
 <translation id="1297175357211070620">Tujuan</translation>
 <translation id="1297922636971898492">Saat ini Google Drive tidak tersedia. Upload akan dimulai ulang secara otomatis setelah Google Drive aktif kembali.</translation>
 <translation id="1303101771013849280">File HTML Bookmark</translation>
-<translation id="1303319084542230573">Tambahkan printer</translation>
 <translation id="1303671224831497365">Perangkat Bluetooth tidak ditemukan</translation>
 <translation id="1306606229401759371">Ubah setelan</translation>
 <translation id="1307398858972670978">Akses sandi dari perangkat apa pun di <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -973,7 +972,6 @@ Saya rasa situs ini tidak perlu diblokir!</translation>
 <translation id="2497229222757901769">Kecepatan mouse</translation>
 <translation id="2497852260688568942">Sinkronisasi dinonaktifkan oleh administrator</translation>
 <translation id="249819058197909513">Jangan peringatkan lagi untuk aplikasi ini</translation>
-<translation id="2498436043474441766">Tambahkan Printer</translation>
 <translation id="2498539833203011245">Perkecil</translation>
 <translation id="2498765460639677199">Raksasa</translation>
 <translation id="2500471369733289700">Diblokir untuk melindungi privasi Anda</translation>
@@ -2431,10 +2429,6 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="4728558894243024398">Platform</translation>
 <translation id="4731351517694976331">Mengizinkan layanan Google mengakses lokasi Anda</translation>
 <translation id="4731422630970790516">Item rak 3</translation>
-<translation id="473221644739519769">Menambahkan printer ke Google Cloud Print memungkinkan Anda mencetak dari
-        mana saja, ke mana saja. Bagikan printer Anda dengan orang yang Anda
-        pilih dan cetak dari Chrome, ponsel, tablet, PC, atau perangkat
-        lain yang tersambung ke web.</translation>
 <translation id="4732760563705710320">Maaf, video ini tidak didukung oleh perangkat transmisi Anda.</translation>
 <translation id="4734518477988699048">Nilai masukan tidak valid.</translation>
 <translation id="473546211690256853">Akun ini dikelola oleh <ph name="DOMAIN" /></translation>
@@ -2704,9 +2698,6 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="5152451685298621771">(Akun untuk anak)</translation>
 <translation id="5154108062446123722">Setelan lanjutan untuk <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Anda dapat menambahkan printer ke komputer dengan mengeklik tombol "Tambahkan printer"
-        di bawah. Jika tidak ada printer yang ditambahkan, Anda tetap dapat menyimpan
-        PDF atau menyimpannya di Google Drive.</translation>
 <translation id="5154702632169343078">Subjek</translation>
 <translation id="5154917547274118687">Memori</translation>
 <translation id="5157635116769074044">Sematkan laman ini ke Layar Awal...</translation>
@@ -4100,7 +4091,6 @@ Hanya gunakan fitur ini dengan akun yang Anda percayai.</translation>
 <translation id="7311079019872751559">Akses plugin yang tidak dimasukkan kotak pasir</translation>
 <translation id="7311891583377621132">Gerakkan jari sedikit untuk menangkap bagian sidik jari yang lain</translation>
 <translation id="7314244761674113881">Host SOCKS</translation>
-<translation id="7314440321558802142">Play Store (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (sedang dipakai)</translation>
 <translation id="7321545336522791733">Server tidak dapat dijangkau</translation>
 <translation id="7324297612904500502">Forum Beta</translation>
@@ -4705,7 +4695,6 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8242426110754782860">Lanjutkan</translation>
 <translation id="8245799906159200274">Saat ini, Anda berada di saluran <ph name="CHANNEL_NAME" />.</translation>
 <translation id="8246209727385807362">Operator tidak diketahui</translation>
-<translation id="8246455765446055172">Google Play Store (beta)</translation>
 <translation id="8248050856337841185">&amp;Tempel</translation>
 <translation id="8249048954461686687">Folder OEM</translation>
 <translation id="8249296373107784235">Batalkan</translation>
@@ -4743,7 +4732,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8283475148136688298">Kode autentikasi ditolak saat menyambung ke "<ph name="DEVICE_NAME" />".</translation>
 <translation id="8284279544186306258">semua situs <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">Masuk</translation>
-<translation id="8286963743045814739">Anda dapat melakukan browsing secara rahasia menggunakan jendela samaran</translation>
+<translation id="8286963743045814739">Anda dapat melakukan browsing rahasia menggunakan jendela samaran</translation>
 <translation id="8291967909914612644">Negara penyedia rumah</translation>
 <translation id="8294431847097064396">Sumber</translation>
 <translation id="8297006494302853456">Lemah</translation>

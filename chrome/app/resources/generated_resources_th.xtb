@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">เดือนที่หมดอายุ</translation>
 <translation id="1153356358378277386">อุปกรณ์ที่จับคู่</translation>
 <translation id="1156185823432343624">ระดับเสียง: ปิดเสียง</translation>
+<translation id="1156488781945104845">เวลาปัจจุบัน</translation>
 <translation id="1161575384898972166">โปรดลงชื่อเข้าใช้ <ph name="TOKEN_NAME" /> เพื่อส่งออกใบรับรองไคลเอ็นต์</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{ขณะนี้อยู่ระหว่างการดาวน์โหลด 1 รายการ คุณต้องการยกเลิกการดาวน์โหลดและออกจากโหมดไม่ระบุตัวตนไหม}other{ขณะนี้อยู่ระหว่างการดาวน์โหลด # รายการ คุณต้องการยกเลิกการดาวน์โหลดและออกจากโหมดไม่ระบุตัวตนไหม}}</translation>
 <translation id="1163931534039071049">&amp;ดูรหัสต้นฉบับของเฟรม</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">โน้ตดนตรี</translation>
 <translation id="1205489148908752564">อ่านและเปลี่ยนผู้ใช้ที่อนุญาตพิเศษ</translation>
 <translation id="1206407435587370571">สำรวจ Chromebook</translation>
+<translation id="1211364473545090084">ใช้เว็บโดยไม่บันทึกประวัติการท่องเว็บด้วยหน้าต่างที่ไม่ระบุตัวตน</translation>
 <translation id="1213037489357051291">การตั้งค่าลายนิ้วมือ <ph name="NUM_FINGERPRINTS" /> รายการ</translation>
 <translation id="1215411991991485844">มีการเพิ่มแอปพลิเคชันที่ทำงานอยู่เบื้องหลังตัวใหม่</translation>
 <translation id="1216654534877302979">ปิดเสียงเว็บไซต์</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">ปลายทาง</translation>
 <translation id="1297922636971898492">Google ไดรฟ์ไม่พร้อมใช้งานในขณะนี้ การอัปโหลดจะเริ่มต้นอีกครั้งโดยอัตโนมัติเมื่อ Google ไดรฟ์ใช้งานได้</translation>
 <translation id="1303101771013849280">ไฟล์ HTML บุ๊กมาร์ก</translation>
-<translation id="1303319084542230573">เพิ่มเครื่องพิมพ์</translation>
 <translation id="1303671224831497365">ไม่พบอุปกรณ์บลูทูธ</translation>
 <translation id="1306606229401759371">เปลี่ยนการตั้งค่า</translation>
 <translation id="1307398858972670978">เข้าถึงรหัสผ่านของคุณจากอุปกรณ์เครื่องใดก็ได้ที่ <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -971,7 +972,6 @@
 <translation id="2497229222757901769">ความเร็วเมาส์</translation>
 <translation id="2497852260688568942">ผู้ดูแลระบบปิดใช้การซิงค์</translation>
 <translation id="249819058197909513">ไม่ต้องเตือนอีกสำหรับแอปนี้</translation>
-<translation id="2498436043474441766">เพิ่มเครื่องพิมพ์</translation>
 <translation id="2498539833203011245">ย่อ</translation>
 <translation id="2498765460639677199">ขนาดใหญ่มาก</translation>
 <translation id="2500471369733289700">ถูกบล็อกเพื่อปกป้องความเป็นส่วนตัวของคุณ</translation>
@@ -1107,6 +1107,7 @@
 <translation id="2688196195245426394">เกิดข้อผิดพลาดขณะลงทะเบียนอุปกรณ์กับเซิร์ฟเวอร์: <ph name="CLIENT_ERROR" /></translation>
 <translation id="2690024944919328218">แสดงตัวเลือกภาษา</translation>
 <translation id="2691385045260836588">รุ่น</translation>
+<translation id="2693176596243495071">อ๊ะ! เกิดข้อผิดพลาดที่ไม่รู้จัก โปรดลองอีกครั้งในภายหลังหรือติดต่อผู้ดูแลระบบหากยังมีปัญหานี้อยู่</translation>
 <translation id="2694026874607847549">คุกกี้ 1 รายการ</translation>
 <translation id="2695749433451188613">โปรโตคอลการพิมพ์ผ่านอินเทอร์เน็ต (HTTPS)</translation>
 <translation id="270358213449696159">เนื้อหาข้อกำหนดของ Google Chrome OS</translation>
@@ -1451,6 +1452,7 @@
 <translation id="3166571619128686629">คลิกหรือพูดว่า "Ok Google" เพื่อเริ่มค้นหาด้วยเสียง</translation>
 <translation id="3170072451822350649">คุณสามารถข้ามการลงชื่อเข้าใช้และ<ph name="LINK_START" />เรียกดูในฐานะผู้เยี่ยมชม<ph name="LINK_END" />ได้ด้วย</translation>
 <translation id="3177048931975664371">คลิกเพื่อซ่อนรหัสผ่าน</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> ได้ขอสิทธิ์</translation>
 <translation id="3177909033752230686">ภาษาหน้าเว็บ:</translation>
 <translation id="3180365125572747493">ป้อนรหัสผ่านเพื่อเข้ารหัสไฟล์ใบรับรองนี้</translation>
 <translation id="3181110748548073003">กด |<ph name="SHORTCUT" />| เพื่อไปข้างหน้า</translation>
@@ -2427,10 +2429,6 @@
 <translation id="4728558894243024398">แพลตฟอร์ม</translation>
 <translation id="4731351517694976331">อนุญาตให้บริการของ Google เข้าถึงตำแหน่งของคุณ</translation>
 <translation id="4731422630970790516">รายการชั้นวาง 3</translation>
-<translation id="473221644739519769">การเพิ่มเครื่องพิมพ์ลงใน Google Cloud Print จะทำให้คุณสามารถพิมพ์
-        ได้จากทุกที่ และสั่งพิมพ์ไปได้ทุกที่ แชร์เครื่องพิมพ์ของคุณกับคนที่คุณเลือกและ
-        สั่งพิมพ์จาก Chrome, โทรศัพท์, แท็บเล็ต, คอมพิวเตอร์ 
-        หรืออุปกรณ์ที่เชื่อมต่อเว็บอื่นๆ</translation>
 <translation id="4732760563705710320">ขออภัย เครื่องส่งไม่สนับสนุนวิดีโอนี้</translation>
 <translation id="4734518477988699048">ค่าที่ป้อนไม่ถูกต้อง</translation>
 <translation id="473546211690256853">บัญชีนี้จัดการโดย <ph name="DOMAIN" /></translation>
@@ -2700,9 +2698,6 @@
 <translation id="5152451685298621771">(บัญชีสำหรับเด็ก)</translation>
 <translation id="5154108062446123722">การตั้งค่าขั้นสูงสำหรับ <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">คุณสามารถเพิ่มเครื่องพิมพ์ลงในคอมพิวเตอร์ด้วยการคลิกปุ่ม "เพิ่มเครื่องพิมพ์"
-          ด้านล่าง หากไม่มีเครื่องพิมพ์ที่จะเพิ่ม คุณจะยังคงสามารถบันทึก
-          ไฟล์ PDF หรือบันทึกไว้ใน Google ไดรฟ์ได้</translation>
 <translation id="5154702632169343078">Subject</translation>
 <translation id="5154917547274118687">หน่วยความจำ</translation>
 <translation id="5157635116769074044">ตรึงหน้าเว็บนี้ไว้ที่หน้าจอเริ่ม...</translation>
@@ -3312,6 +3307,7 @@
 <translation id="6076448957780543068">รวมภาพหน้าจอนี้</translation>
 <translation id="6077131872140550515">นำออกจากเครือข่ายที่ต้องการ</translation>
 <translation id="6078752646384677957">โปรดตรวจสอบไมโครโฟนและระดับเสียง</translation>
+<translation id="6080515710685820702">หากมีการใช้คอมพิวเตอร์ร่วมกัน ให้ลองเปิดหน้าต่างที่ไม่ระบุตัวตน</translation>
 <translation id="6080689532560039067">ตรวจสอบเวลาระบบของคุณ</translation>
 <translation id="6082651258230788217">แสดงในแถบเครื่องมือ</translation>
 <translation id="6086814797483779854">เรียกใช้เมื่อคลิก</translation>
@@ -3952,6 +3948,7 @@
 <translation id="7054808953701320293">รับทราบ ไม่ต้องแสดงอีก</translation>
 <translation id="7056526158851679338">&amp;ตรวจสอบอุปกรณ์</translation>
 <translation id="7059858479264779982">ตั้งค่าเป็นเรียกใช้อัตโนมัติ</translation>
+<translation id="7059893117020417984">หากต้องการท่องเว็บแบบส่วนตัว ให้คลิกเมนูไอคอนรูปจุดเพื่อเปิดหน้าต่างที่ไม่ระบุตัวตน</translation>
 <translation id="7062222374113411376">อนุญาตให้เว็บไซต์ที่ปิดล่าสุดดำเนินการส่งและรับข้อมูลต่อจนเสร็จ (แนะนำ)</translation>
 <translation id="7063129466199351735">กำลังประมวลผลทางลัด...</translation>
 <translation id="7063957500469387217">ตั้งค่าหรือจัดการเครื่องพิมพ์ใน Google Cloud Print</translation>
@@ -4094,7 +4091,6 @@
 <translation id="7311079019872751559">การเข้าถึงปลั๊กอินที่ไม่ได้อยู่ในแซนด์บ็อกซ์</translation>
 <translation id="7311891583377621132">เลื่อนนิ้วเล็กน้อยเพื่อจับภาพส่วนต่างๆ ของลายนิ้วมือ</translation>
 <translation id="7314244761674113881">โฮสต์ SOCKS</translation>
-<translation id="7314440321558802142">Play Store (เบต้า)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (ปัจจุบัน)</translation>
 <translation id="7321545336522791733">ไม่สามารถเข้าถึงเซิร์ฟเวอร์</translation>
 <translation id="7324297612904500502">ฟอรัมเบต้า</translation>
@@ -4620,6 +4616,7 @@
 <translation id="8116190140324504026">เพิ่มเติม...</translation>
 <translation id="8116483400482790018">พจนานุกรมตัวสะกดที่กำหนดเอง</translation>
 <translation id="8116972784401310538">ตั&amp;วจัดการบุ๊กมาร์ก</translation>
+<translation id="8118362518458010043">Chrome ได้ปิดใช้แล้ว ส่วนขยายนี้อาจไม่ปลอดภัย</translation>
 <translation id="8118860139461251237">จัดการการดาวน์โหลดของคุณ</translation>
 <translation id="8119631488458759651">นำไซต์นี้ออก</translation>
 <translation id="81238879832906896">ดอกไม้สีเหลืองแซมขาว</translation>
@@ -4698,7 +4695,6 @@
 <translation id="8242426110754782860">ดำเนินการต่อ</translation>
 <translation id="8245799906159200274">อยู่ที่ช่อง <ph name="CHANNEL_NAME" /> ในขณะนี้</translation>
 <translation id="8246209727385807362">ผู้ให้บริการที่ไม่รู้จัก</translation>
-<translation id="8246455765446055172">Google Play Store (เบต้า)</translation>
 <translation id="8248050856337841185">&amp;วาง</translation>
 <translation id="8249048954461686687">โฟลเดอร์ OEM</translation>
 <translation id="8249296373107784235">ล้มเลิก</translation>
@@ -4736,6 +4732,7 @@
 <translation id="8283475148136688298">รหัสการตรวจสอบสิทธิ์ถูกปฏิเสธขณะที่เชื่อมต่อกับ "<ph name="DEVICE_NAME" />"</translation>
 <translation id="8284279544186306258">ไซต์ <ph name="WEBSITE_1" /> ทั้งหมด</translation>
 <translation id="8286036467436129157">ลงชื่อเข้าใช้</translation>
+<translation id="8286963743045814739">คุณจะท่องเว็บแบบส่วนตัวได้โดยใช้หน้าต่างที่ไม่ระบุตัวตน</translation>
 <translation id="8291967909914612644">ประเทศผู้ให้บริการหน้าแรก</translation>
 <translation id="8294431847097064396">แหล่งที่มา</translation>
 <translation id="8297006494302853456">อ่อน</translation>

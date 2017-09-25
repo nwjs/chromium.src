@@ -97,6 +97,7 @@
 <translation id="1149401351239820326">Utløpsmåned</translation>
 <translation id="1153356358378277386">Tilkoblede enheter</translation>
 <translation id="1156185823432343624">Volum: dempet</translation>
+<translation id="1156488781945104845">Klokkeslettet nå</translation>
 <translation id="1161575384898972166">Logg på <ph name="TOKEN_NAME" /> for å eksportere klientsertifikatet.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{En nedlasting pågår for øyeblikket. Vil du avbryte nedlastingen og avslutte inkognitomdous?}other{# nedlastinger pågår for øyeblikket. Vil du avbryte nedlastingene og avslutte inkognitomdous?}}</translation>
 <translation id="1163931534039071049">&amp;Vis rammekilde</translation>
@@ -134,6 +135,7 @@
 <translation id="120368089816228251">Note</translation>
 <translation id="1205489148908752564">Se gjennom og endre listen over godkjente brukere</translation>
 <translation id="1206407435587370571">Utforsk Chromebooken din</translation>
+<translation id="1211364473545090084">Med et inkognitovindu kan du bruke nettet uten at nettlesingsloggen lagres</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> fingeravtrykk er registrert</translation>
 <translation id="1215411991991485844">Nytt bakgrunnsprogram er lagt til</translation>
 <translation id="1216654534877302979">Kutt lyden for nettsteder</translation>
@@ -192,7 +194,6 @@
 <translation id="1297175357211070620">Destinasjon</translation>
 <translation id="1297922636971898492">Google Disk er ikke tilgjengelig for øyeblikket. Opplastingen starter automatisk på nytt når Google Disk er tilgjengelig.</translation>
 <translation id="1303101771013849280">HTML-fil med bokmerker</translation>
-<translation id="1303319084542230573">Legg til en skriver</translation>
 <translation id="1303671224831497365">Fant ingen Bluetooth-enheter</translation>
 <translation id="1306606229401759371">Endre innstillingene</translation>
 <translation id="1307398858972670978">Du kan finne passordene dine fra alle enheter på <ph name="SAVED_PASSWORDS_LINK" /></translation>
@@ -968,7 +969,6 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="2497229222757901769">Musehastighet</translation>
 <translation id="2497852260688568942">Administratoren din har slått av synkronisering</translation>
 <translation id="249819058197909513">Ikke advar om denne appen igjen</translation>
-<translation id="2498436043474441766">Legg til skrivere</translation>
 <translation id="2498539833203011245">Minimer</translation>
 <translation id="2498765460639677199">Kjempestor</translation>
 <translation id="2500471369733289700">Blokkert for å beskytte personvernet ditt</translation>
@@ -1103,6 +1103,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="2688196195245426394">Feil under registreringen av enheten hos tjeneren: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Vis alternativer for språk</translation>
 <translation id="2691385045260836588">Modell</translation>
+<translation id="2693176596243495071">Beklager. En ukjent feil oppsto. Prøv på nytt senere, eller kontakt administratoren hvis problemet fortsetter.</translation>
 <translation id="2694026874607847549">1 informasjonskapsel </translation>
 <translation id="2695749433451188613">Internet Printing Protocol (HTTPS)</translation>
 <translation id="270358213449696159">Innholdet i vilkårene for Google Chrome OS</translation>
@@ -1447,6 +1448,7 @@ Sjekk e-posten din på <ph name="ACCOUNT_EMAIL" /> for instruksjoner om dette og
 <translation id="3166571619128686629">Klikk eller si «Ok Google» for å starte talesøk</translation>
 <translation id="3170072451822350649">Du kan også hoppe over påloggingen og <ph name="LINK_START" />surfe som gjest<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">Klikk for å skjule passord</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> har en forespørsel om tillatelse.</translation>
 <translation id="3177909033752230686">Språket siden er på:</translation>
 <translation id="3180365125572747493">Skriv inn et passord for å kryptere denne sertifikatfilen.</translation>
 <translation id="3181110748548073003">Trykk på |<ph name="SHORTCUT" />| for å gå fremover</translation>
@@ -2420,10 +2422,6 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="4728558894243024398">Plattform</translation>
 <translation id="4731351517694976331">Tillat at Google-tjenester bruker posisjonen din</translation>
 <translation id="4731422630970790516">Hylleelement 3</translation>
-<translation id="473221644739519769">Hvis du legger til skriverne dine i Google Cloud Print, kan du skrive ut fra
-        hvor som helst, og til hvor som helst. Del skriverne med hvem du vil,
-        og skriv ut innhold til disse fra Chrome, telefonen, nettbrettet, datamaskinen 
-        eller andre nettilkoblede enheter.</translation>
 <translation id="4732760563705710320">Beklager. Denne videoen støttes ikke av castenheten din.</translation>
 <translation id="4734518477988699048">Inndataverdien er ugyldig.</translation>
 <translation id="473546211690256853">Denne kontoen administreres av <ph name="DOMAIN" />.</translation>
@@ -2692,7 +2690,6 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="5152451685298621771">(Konto for barn)</translation>
 <translation id="5154108062446123722">Avanserte innstillinger for <ph name="PRINTING_DESTINATION" /></translation>
 <translation id="5154176924561037127">F8</translation>
-<translation id="5154383699530644092">Du kan legge skrivere til datamaskinen ved å klikke på «Legg til skriver»-knappen nedenfor. Hvis du ikke har noen skrivere å legge til, kan du fortsatt lagre en PDF-fil eller lagre i Google Disk.</translation>
 <translation id="5154702632169343078">Emne</translation>
 <translation id="5154917547274118687">Minne</translation>
 <translation id="5157635116769074044">Fest denne siden til startsiden</translation>
@@ -3302,6 +3299,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="6076448957780543068">Inkluder denne skjermdumpen</translation>
 <translation id="6077131872140550515">Fjern som foretrukket nettverk</translation>
 <translation id="6078752646384677957">Sjekk mikrofonen din og lydnivåer.</translation>
+<translation id="6080515710685820702">Bruker du en delt datamaskin? Prøv å åpne et inkognitovindu.</translation>
 <translation id="6080689532560039067">Sjekk systemtiden din</translation>
 <translation id="6082651258230788217">Vis i verktøyraden</translation>
 <translation id="6086814797483779854">Kjør når brukeren klikker</translation>
@@ -3941,6 +3939,7 @@ Du bør bare bruke denne funksjonen med kontoer du stoler på.</translation>
 <translation id="7054808953701320293">Den er grei. Ikke vis meg dette igjen.</translation>
 <translation id="7056526158851679338">&amp;Inspiser enheter</translation>
 <translation id="7059858479264779982">Angi automatisk oppstart</translation>
+<translation id="7059893117020417984">Hvis du vil besøke nettsteder privat, klikker du på menyen med de tre prikkene og åpner et inkognitovindu</translation>
 <translation id="7062222374113411376">Tillat at nylig lukkede nettsteder fullfører sending og mottak av data</translation>
 <translation id="7063129466199351735">Behandler snarveier …</translation>
 <translation id="7063957500469387217">Konfigurer eller administrer skrivere i Google Cloud Print.</translation>
@@ -4083,7 +4082,6 @@ Du bør bare bruke denne funksjonen med kontoer du stoler på.</translation>
 <translation id="7311079019872751559">Tilgang for programtillegg uten prosessisolering</translation>
 <translation id="7311891583377621132">Flytt litt på fingeren for å registrere en annen del av fingeravtrykket</translation>
 <translation id="7314244761674113881">SOCKS-vert</translation>
-<translation id="7314440321558802142">Play Butikk (beta)</translation>
 <translation id="7317938878466090505"><ph name="PROFILE_NAME" /> (gjeldende)</translation>
 <translation id="7321545336522791733">Tjeneren er ikke tilgjengelig</translation>
 <translation id="7324297612904500502">Forumet for betaversjoner</translation>
@@ -4601,6 +4599,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8116190140324504026">Les mer</translation>
 <translation id="8116483400482790018">Ordbok for egendefinert rettskriving</translation>
 <translation id="8116972784401310538">&amp;Bokmerkebehandling</translation>
+<translation id="8118362518458010043">Deaktivert av Chrome. Denne utvidelsen kan være usikker.</translation>
 <translation id="8118860139461251237">administrere nedlastingene dine</translation>
 <translation id="8119631488458759651">fjern dette nettstedet</translation>
 <translation id="81238879832906896">Gul og hvit blomst</translation>
@@ -4679,7 +4678,6 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8242426110754782860">Gå videre</translation>
 <translation id="8245799906159200274">Nå på <ph name="CHANNEL_NAME" />-kanalen.</translation>
 <translation id="8246209727385807362">Ukjent operatør</translation>
-<translation id="8246455765446055172">Google Play Butikk (beta)</translation>
 <translation id="8248050856337841185">&amp;Lim inn</translation>
 <translation id="8249048954461686687">OEM-mappe</translation>
 <translation id="8249296373107784235">Avbryt</translation>
@@ -4717,6 +4715,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8283475148136688298">Autentiseringskoden ble avvist under tilkobling til <ph name="DEVICE_NAME" />.</translation>
 <translation id="8284279544186306258">alle <ph name="WEBSITE_1" />-nettsteder</translation>
 <translation id="8286036467436129157">Logg på</translation>
+<translation id="8286963743045814739">Med et inkognitovindu kan du besøke nettsteder privat</translation>
 <translation id="8291967909914612644">Land for leverandøren av hjemmeenheten</translation>
 <translation id="8294431847097064396">Kilde</translation>
 <translation id="8297006494302853456">Svak</translation>

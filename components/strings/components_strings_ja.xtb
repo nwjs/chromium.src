@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">ウィンドウ幅に合わせる</translation>
 <translation id="1088860948719068836">名義人名の追加</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" />を常に翻訳</translation>
+<translation id="1103778128462718200">保存したパスワードをすべて表示...</translation>
 <translation id="1107591249535594099">チェックボックスをオンにすると、Chrome はフォームに迅速に入力するために、カード情報のコピーをこのデバイスに保存します。</translation>
 <translation id="1111153019813902504">最近アクセスしたブックマーク</translation>
 <translation id="1113869188872983271">順序変更の取り消し（&amp;U）</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">リクエストされた記事が見つかりませんでした。</translation>
 <translation id="5541546772353173584">メールの追加</translation>
 <translation id="5544037170328430102"><ph name="SITE" /> に埋め込まれているページの内容:</translation>
+<translation id="5545756402275714221">おすすめの記事</translation>
 <translation id="5556459405103347317">再読み込み</translation>
 <translation id="5560088892362098740">有効期限</translation>
 <translation id="5565735124758917034">有効</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">メール</translation>
 <translation id="5669703222995421982">自分向けのコンテンツを表示</translation>
 <translation id="5675650730144413517">このページは動作していません</translation>
+<translation id="5689199277474810259">JSON にエクスポート</translation>
 <translation id="5710435578057952990">このウェブサイトの ID は確認されていません。</translation>
 <translation id="5719499550583120431">プリペイド カードをご利用いただけます。</translation>
 <translation id="5720705177508910913">現在のユーザー</translation>

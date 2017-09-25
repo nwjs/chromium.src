@@ -15,6 +15,7 @@
 <translation id="1080116354587839789">متناسب با پهنا</translation>
 <translation id="1088860948719068836">افزودن نام روی کارت</translation>
 <translation id="1103523840287552314"><ph name="LANGUAGE" /> همیشه ترجمه شود</translation>
+<translation id="1103778128462718200">نمایش همه گذرواژه‌های ذخیره‌شده…</translation>
 <translation id="1107591249535594099">‏اگر علامت زده شود، Chrome یک کپی از این کارت را در دستگاه نگهداری می‌کند تا برای پرکردن فرم‌ها از آن استفاده شود.</translation>
 <translation id="1111153019813902504">نشانک‌های اخیر</translation>
 <translation id="1113869188872983271">&amp;واگرد ترتیب‌بندی مجدد</translation>
@@ -598,6 +599,7 @@
 <translation id="5540224163453853">مقاله درخواستی یافت نشد.</translation>
 <translation id="5541546772353173584">افزودن رایانامه</translation>
 <translation id="5544037170328430102">صفحه جاسازی‌شده‌ای در <ph name="SITE" /> می‌گوید:</translation>
+<translation id="5545756402275714221">مقاله‌هایی برای شما</translation>
 <translation id="5556459405103347317">تازه‌سازی</translation>
 <translation id="5560088892362098740">تاریخ انقضا</translation>
 <translation id="5565735124758917034">فعال</translation>
@@ -619,6 +621,7 @@
 <translation id="5659593005791499971">رایانامه</translation>
 <translation id="5669703222995421982">دریافت محتوای شخصی‌سازی‌شده</translation>
 <translation id="5675650730144413517">این صفحه کار نمی‌کند</translation>
+<translation id="5689199277474810259">‏صادر کردن به JSON</translation>
 <translation id="5710435578057952990">هویت این وب سایت تأیید نشده است.</translation>
 <translation id="5719499550583120431">کارت‌های پیش‌پرداخت پذیرفته می‌شوند.</translation>
 <translation id="5720705177508910913">کاربر کنونی</translation>
