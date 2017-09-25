@@ -219,7 +219,8 @@ void ScriptProcessorHandler::Process(size_t frames_to_process) {
             ->PostTask(
                 BLINK_FROM_HERE,
                 CrossThreadBind(&ScriptProcessorHandler::FireProcessEvent,
-                                WrapRefPtr(this), double_buffer_index_));
+                                RefPtr<ScriptProcessorHandler>(this),
+                                double_buffer_index_));
       } else {
         // If this node is in the offline audio context, use the
         // waitable event to synchronize to the offline rendering thread.
@@ -232,7 +233,8 @@ void ScriptProcessorHandler::Process(size_t frames_to_process) {
                 BLINK_FROM_HERE,
                 CrossThreadBind(&ScriptProcessorHandler::
                                     FireProcessEventForOfflineAudioContext,
-                                WrapRefPtr(this), double_buffer_index_,
+                                RefPtr<ScriptProcessorHandler>(this),
+                                double_buffer_index_,
                                 CrossThreadUnretained(waitable_event.get())));
 
         // Okay to block the offline audio rendering thread since it is
