@@ -199,13 +199,6 @@ class ServiceWorkerJobTest : public testing::Test {
   ServiceWorkerJobCoordinator* job_coordinator() const {
     return context()->job_coordinator();
   }
-  std::map<GURL, ServiceWorkerJobCoordinator::JobQueue>* job_queues() const {
-    return &(job_coordinator()->job_queues_);
-  }
-  bool is_job_timer_running() {
-    return job_coordinator()->job_timeout_timer_.IsRunning();
-  }
-
   ServiceWorkerStorage* storage() const { return context()->storage(); }
 
  protected:
@@ -220,7 +213,6 @@ class ServiceWorkerJobTest : public testing::Test {
       const GURL& pattern,
       ServiceWorkerStatusCode expected_status = SERVICE_WORKER_OK);
   std::unique_ptr<ServiceWorkerProviderHost> CreateControllee();
-  void TimeOutFirstJob();
 
   TestBrowserThreadBundle browser_thread_bundle_;
   std::unique_ptr<EmbeddedWorkerTestHelper> helper_;
@@ -236,11 +228,9 @@ scoped_refptr<ServiceWorkerRegistration> ServiceWorkerJobTest::RunRegisterJob(
   job_coordinator()->Register(
       script_url, ServiceWorkerRegistrationOptions(pattern), nullptr,
       SaveRegistration(expected_status, &called, &registration));
-  EXPECT_TRUE(is_job_timer_running());
   EXPECT_FALSE(called);
   base::RunLoop().RunUntilIdle();
   EXPECT_TRUE(called);
-  EXPECT_FALSE(is_job_timer_running());
   return registration;
 }
 
@@ -279,14 +269,6 @@ ServiceWorkerJobTest::CreateControllee() {
       true /* is_parent_frame_secure */, helper_->context()->AsWeakPtr(),
       &remote_endpoints_.back());
   return host;
-}
-
-void ServiceWorkerJobTest::TimeOutFirstJob() {
-  ServiceWorkerRegisterJob* job = static_cast<ServiceWorkerRegisterJob*>(
-      job_queues()->begin()->second.front());
-  base::TimeDelta duration = base::TimeDelta::FromMinutes(30);
-  job->set_start_time_for_test(base::TimeTicks::Now() - duration);
-  job_coordinator()->MaybeTimeoutJobs();
 }
 
 TEST_F(ServiceWorkerJobTest, SameDocumentSameRegistration) {
@@ -414,6 +396,7 @@ TEST_F(ServiceWorkerJobTest, Register) {
   EXPECT_EQ(valid_origin, version_->foreign_fetch_origins_[0]);
 }
 
+<<<<<<< HEAD
 // Make sure job timeout timer is working.
 TEST_F(ServiceWorkerJobTest, RegistrationTimeout) {
   bool called1;
@@ -451,6 +434,8 @@ TEST_F(ServiceWorkerJobTest, RegistrationTimeout) {
   EXPECT_FALSE(is_job_timer_running());
 }
 
+=======
+>>>>>>> 3b33c617981e... service worker: Revert registration timeout timer.
 // Make sure registrations are cleaned up when they are unregistered.
 TEST_F(ServiceWorkerJobTest, Unregister) {
   GURL pattern("http://www.example.com/");
