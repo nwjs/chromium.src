@@ -569,9 +569,9 @@ void FakeCryptohomeClient::TpmAttestationDeleteKeys(
 }
 
 void FakeCryptohomeClient::TpmGetVersion(
-    const StringDBusMethodCallback& callback) {
+    DBusMethodCallback<TpmVersionInfo> callback) {
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::Bind(callback, DBUS_METHOD_CALL_SUCCESS, std::string()));
+      FROM_HERE, base::BindOnce(std::move(callback), TpmVersionInfo()));
 }
 
 void FakeCryptohomeClient::GetKeyDataEx(
