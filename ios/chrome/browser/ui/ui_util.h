@@ -34,9 +34,6 @@ CGFloat CurrentScreenHeight();
 // Returns the width of the screen in the current orientation.
 CGFloat CurrentScreenWidth();
 
-// Returns true if the device is an iPhone X.
-bool IsIPhoneX();
-
 // Returns the height of the status bar, accounting for orientation.
 CGFloat StatusBarHeight();
 
