@@ -30,7 +30,7 @@
 #include <memory>
 #include "bindings/core/v8/V8CacheOptions.h"
 #include "third_party/node-nw/src/node_webkit.h"
-#define BLINK_HOOK_MAP(type, sym, fn) BLINK_EXPORT type fn = nullptr;
+#define BLINK_HOOK_MAP(type, sym, fn) CORE_EXPORT type fn = nullptr;
 #if defined(COMPONENT_BUILD) && defined(WIN32)
 #define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
 #else
