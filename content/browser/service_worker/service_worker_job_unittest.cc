@@ -396,46 +396,6 @@ TEST_F(ServiceWorkerJobTest, Register) {
   EXPECT_EQ(valid_origin, version_->foreign_fetch_origins_[0]);
 }
 
-<<<<<<< HEAD
-// Make sure job timeout timer is working.
-TEST_F(ServiceWorkerJobTest, RegistrationTimeout) {
-  bool called1;
-  scoped_refptr<ServiceWorkerRegistration> registration1;
-  job_coordinator()->Register(
-      GURL("http://www.example.com/service_worker.js"),
-      ServiceWorkerRegistrationOptions(GURL("http://www.example.com/one/")),
-      nullptr,
-      SaveRegistration(SERVICE_WORKER_ERROR_ABORT, &called1, &registration1));
-
-  bool called2;
-  scoped_refptr<ServiceWorkerRegistration> registration2;
-  job_coordinator()->Register(
-      GURL("http://www.example.com/service_worker.js"),
-      ServiceWorkerRegistrationOptions(GURL("http://www.example.com/two/")),
-      nullptr,
-      SaveRegistration(SERVICE_WORKER_ERROR_ABORT, &called2, &registration2));
-
-  EXPECT_EQ(2u, job_queues()->size());
-  EXPECT_FALSE(called1);
-  EXPECT_FALSE(called2);
-
-  // Timeout the first job. The timer should still be running.
-  TimeOutFirstJob();
-  EXPECT_EQ(1u, job_queues()->size());
-  EXPECT_TRUE(called1);
-  EXPECT_FALSE(called2);
-  EXPECT_TRUE(is_job_timer_running());
-
-  // Timeout the second job. The queue should be empty and the timer should be
-  // stopped.
-  TimeOutFirstJob();
-  EXPECT_TRUE(called2);
-  EXPECT_TRUE(job_queues()->empty());
-  EXPECT_FALSE(is_job_timer_running());
-}
-
-=======
->>>>>>> 3b33c617981e... service worker: Revert registration timeout timer.
 // Make sure registrations are cleaned up when they are unregistered.
 TEST_F(ServiceWorkerJobTest, Unregister) {
   GURL pattern("http://www.example.com/");
