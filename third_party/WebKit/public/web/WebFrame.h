@@ -215,7 +215,7 @@ class BLINK_EXPORT WebFrame {
   // the given element is not a frame, iframe or if the frame is empty.
   static WebFrame* FromFrameOwnerElement(const WebElement&);
 
-  BLINK_EXPORT static WebFrame* FromFrame(Frame*);
+  static WebFrame* FromFrame(Frame*);
 
 #if BLINK_IMPLEMENTATION
   static Frame* ToCoreFrame(const WebFrame&);
