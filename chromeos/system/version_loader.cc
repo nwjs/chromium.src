@@ -6,7 +6,6 @@
 
 #include <stddef.h>
 
-#include <utility>
 #include <vector>
 
 #include "base/bind.h"
@@ -65,16 +64,14 @@ std::string GetVersion(VersionFormat format) {
   return version;
 }
 
-void GetTpmVersion(GetTpmVersionCallback callback) {
+void GetTpmVersion(StringCallback callback) {
   chromeos::DBusThreadManager::Get()->GetCryptohomeClient()->TpmGetVersion(
-      base::BindOnce(
-          [](GetTpmVersionCallback callback,
-             base::Optional<CryptohomeClient::TpmVersionInfo>
-                 tpm_version_info) {
-            std::move(callback).Run(
-                tpm_version_info.value_or(CryptohomeClient::TpmVersionInfo()));
-          },
-          std::move(callback)));
+      base::Bind([](StringCallback callback,
+                    chromeos::DBusMethodCallStatus call_status,
+                    const std::string& tpm_version) {
+        callback.Run(tpm_version);
+      },
+      callback));
 }
 
 std::string GetARCVersion() {
