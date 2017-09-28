@@ -204,6 +204,7 @@
 #include "ash/accelerators/accelerator_controller.h"
 #include "ash/accelerators/accelerator_table.h"
 #include "ash/accessibility_types.h"
+#include "ash/ash_switches.h"
 #include "ash/shell.h"
 #include "ash/shell_port_classic.h"
 #include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
@@ -4508,6 +4509,7 @@ class NoteTakingOnLockScreenPolicyTest : public PolicyTest {
     // whitelisted as well.
     command_line->AppendSwitchASCII(
         extensions::switches::kWhitelistedExtensionID, kTestAppId);
+    command_line->AppendSwitch(ash::switches::kAshForceEnableStylusTools);
     PolicyTest::SetUpCommandLine(command_line);
   }
 
