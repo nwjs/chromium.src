@@ -29,6 +29,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/resource_dispatcher_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/browser_side_navigation_policy.h"
@@ -627,6 +628,12 @@ void AppWindow::OnNativeWindowChanged() {
   SaveWindowPosition();
 
 #if defined(OS_WIN)
+  if (content::g_support_transparency && requested_alpha_enabled_) {
+    content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
+    content::RenderWidgetHostView* view = rfh->GetRenderViewHost()->GetWidget()->GetView();
+    if(view)
+      view->SetBackgroundColor(native_app_window_->CanHaveAlphaEnabled() ? SK_ColorTRANSPARENT : native_app_window_->ActiveFrameColor());
+  }
 #if 0
   if (cached_always_on_top_ && !IsFullscreen() &&
       !native_app_window_->IsMaximized() &&

@@ -4,8 +4,6 @@
 
 #include "content/browser/compositor/software_output_device_win.h"
 
-#include "ui/display/display.h"
-
 #include "base/debug/alias.h"
 #include "base/memory/shared_memory.h"
 #include "components/viz/common/quads/shared_bitmap.h"
@@ -14,6 +12,7 @@
 #include "skia/ext/skia_utils_win.h"
 #include "ui/base/win/internal_constants.h"
 #include "ui/compositor/compositor.h"
+#include "ui/display/display.h"
 #include "ui/gfx/gdi_util.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/gfx/win/hwnd_util.h"
@@ -187,10 +186,7 @@ void SoftwareOutputDeviceWin::EndPaint() {
     BLENDFUNCTION blend = {AC_SRC_OVER, 0x00, 0xFF, AC_SRC_ALPHA};
 
     DWORD style = GetWindowLong(hwnd_, GWL_EXSTYLE);
-    if(!g_support_transparency)
-      DCHECK(!(style & WS_EX_COMPOSITED));
-    else
-      style &= ~WS_EX_COMPOSITED;
+    DCHECK(!(style & WS_EX_COMPOSITED));
     style |= WS_EX_LAYERED;
     SetWindowLong(hwnd_, GWL_EXSTYLE, style);
 
