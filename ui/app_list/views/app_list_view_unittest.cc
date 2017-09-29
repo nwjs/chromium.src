@@ -338,6 +338,24 @@ TEST_F(AppListViewFullscreenTest, EmptySearchTextStillPeeking) {
   ASSERT_EQ(view_->app_list_state(), AppListView::PEEKING);
 }
 
+TEST_F(AppListViewFullscreenTest, MouseWheelScrollTransitionsToFullscreen) {
+  Initialize(0, false, false);
+  delegate_->GetTestModel()->PopulateApps(kInitialItems);
+  Show();
+
+  view_->HandleScroll(-30, ui::ET_MOUSEWHEEL);
+  EXPECT_EQ(AppListView::FULLSCREEN_ALL_APPS, view_->app_list_state());
+}
+
+TEST_F(AppListViewFullscreenTest, GestureScrollTransitionsToFullscreen) {
+  Initialize(0, false, false);
+  delegate_->GetTestModel()->PopulateApps(kInitialItems);
+  Show();
+
+  view_->HandleScroll(-30, ui::ET_SCROLL);
+  EXPECT_EQ(AppListView::FULLSCREEN_ALL_APPS, view_->app_list_state());
+}
+
 // Tests that typing text after opening transitions from peeking to half.
 TEST_F(AppListViewFullscreenTest, TypingPeekingToHalf) {
   Initialize(0, false, false);
