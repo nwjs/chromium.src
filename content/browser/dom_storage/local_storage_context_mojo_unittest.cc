@@ -715,7 +715,7 @@ TEST_F(LocalStorageContextMojoTest, Migration) {
   DOMStorageArea* area = local->OpenStorageArea(origin1.GetURL());
   base::NullableString16 dummy;
   area->SetItem(key, value, &dummy);
-  area->SetItem(key2, value, dummy, &dummy);
+  area->SetItem(key2, value, &dummy);
   local->CloseStorageArea(area);
   FlushAndPurgeDOMStorageMemory();
 
