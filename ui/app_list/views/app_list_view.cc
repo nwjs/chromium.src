@@ -12,7 +12,6 @@
 #include "base/profiler/scoped_tracker.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
-#include "base/timer/elapsed_timer.h"
 #include "components/wallpaper/wallpaper_color_profile.h"
 #include "ui/app_list/app_list_constants.h"
 #include "ui/app_list/app_list_features.h"
@@ -881,6 +880,9 @@ void AppListView::OnScrollEvent(ui::ScrollEvent* event) {
   if (!is_fullscreen_app_list_enabled_)
     return;
 
+  if (event->type() == ui::ET_SCROLL_FLING_CANCEL)
+    return;
+
   if (!HandleScroll(event->y_offset(), event->type()))
     return;
 
@@ -1047,48 +1049,35 @@ void AppListView::OnTabletModeChanged(bool started) {
 }
 
 bool AppListView::HandleScroll(int offset, ui::EventType type) {
-  if (app_list_state_ != PEEKING && app_list_state_ != FULLSCREEN_ALL_APPS)
+  if (app_list_state_ != PEEKING)
     return false;
 
-  // Let the Apps grid view handle the event first in FULLSCREEN_ALL_APPS.
-  if (app_list_state_ == FULLSCREEN_ALL_APPS &&
-      GetAppsGridView()->HandleScrollFromAppListView(offset, type)) {
-    // Set the scroll ignore timer to avoid processing the tail end of the
-    // stream of scroll events, which would close the view.
-    SetOrRestartScrollIgnoreTimer();
-    return true;
-  }
-
-  if (ShouldIgnoreScrollEvents())
-    return true;
-
-  // If the event is a mousewheel event, the offset is always large enough,
-  // otherwise the offset must be larger than the scroll threshold.
-  if (type == ui::ET_MOUSEWHEEL ||
-      abs(offset) > kAppListMinScrollToSwitchStates) {
-    if (offset >= 0) {
-      Dismiss();
-    } else {
-      if (app_list_state_ == FULLSCREEN_ALL_APPS)
+  switch (type) {
+    case ui::ET_MOUSEWHEEL:
+      SetState(offset < 0 ? FULLSCREEN_ALL_APPS : CLOSED);
+      if (app_list_state_ == FULLSCREEN_ALL_APPS) {
+        UMA_HISTOGRAM_ENUMERATION(kAppListPeekingToFullscreenHistogram,
+                                  kMousewheelScroll, kMaxPeekingToFullscreen);
+      }
+      // Return true unconditionally because all mousewheel events are large
+      // enough to transition the app list.
+      return true;
+    case ui::ET_SCROLL:
+    case ui::ET_SCROLL_FLING_START: {
+      if (fabs(offset) > kAppListMinScrollToSwitchStates) {
+        SetState(offset < 0 ? FULLSCREEN_ALL_APPS : CLOSED);
+        if (app_list_state_ == FULLSCREEN_ALL_APPS) {
+          UMA_HISTOGRAM_ENUMERATION(kAppListPeekingToFullscreenHistogram,
+                                    kMousepadScroll, kMaxPeekingToFullscreen);
+        }
         return true;
-      SetState(FULLSCREEN_ALL_APPS);
-      const AppListPeekingToFullscreenSource source =
-          type == ui::ET_MOUSEWHEEL ? kMousewheelScroll : kMousepadScroll;
-      UMA_HISTOGRAM_ENUMERATION(kAppListPeekingToFullscreenHistogram, source,
-                                kMaxPeekingToFullscreen);
+      }
+      break;
     }
+    default:
+      break;
   }
-  return true;
-}
-
-void AppListView::SetOrRestartScrollIgnoreTimer() {
-  scroll_ignore_timer_.reset(new base::ElapsedTimer());
-}
-
-bool AppListView::ShouldIgnoreScrollEvents() {
-  return scroll_ignore_timer_ &&
-         scroll_ignore_timer_->Elapsed() <=
-             base::TimeDelta::FromMilliseconds(kScrollIgnoreTimeMs);
+  return false;
 }
 
 void AppListView::SetState(AppListState new_state) {
@@ -1103,8 +1092,7 @@ void AppListView::SetState(AppListState new_state) {
     if (new_state == HALF) {
       new_state_override = FULLSCREEN_SEARCH;
     } else if (new_state == PEEKING) {
-      // If the old state was already FULLSCREEN_ALL_APPS, then we should
-      // close.
+      // If the old state was already FULLSCREEN_ALL_APPS, then we should close.
       new_state_override =
           app_list_state_ == FULLSCREEN_ALL_APPS ? CLOSED : FULLSCREEN_ALL_APPS;
     }
@@ -1168,9 +1156,6 @@ void AppListView::SetState(AppListState new_state) {
   RecordStateTransitionForUma(new_state_override);
   model_->SetStateFullscreen(new_state_override);
   app_list_state_ = new_state_override;
-  if (new_state_override == CLOSED) {
-    return;
-  }
 
   // Updates the visibility of app list items according to the change of
   // |app_list_state_|.
@@ -1439,9 +1424,8 @@ void AppListView::OnWallpaperColorsChanged() {
 }
 
 void AppListView::SetBackgroundShieldColor() {
-  // There is a chance when AppListView::OnWallpaperColorsChanged is called
-  // from AppListViewDelegate, the |app_list_background_shield_| is not
-  // initialized.
+  // There is a chance when AppListView::OnWallpaperColorsChanged is called from
+  // AppListViewDelegate, the |app_list_background_shield_| is not initialized.
   if (!is_fullscreen_app_list_enabled_ || !app_list_background_shield_)
     return;
 
