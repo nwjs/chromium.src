@@ -26,19 +26,12 @@ namespace blink {
 
 namespace {
 
-const char kFeaturePolicyBlockedMessage[] =
-    "Access to the feature \"vr\" is disallowed by feature policy.";
-
-const char kIframeBlockedOnUserGestureMessage[] =
-    "Access to the method is blocked on a user gesture in cross-origin "
-    "embedded frames.";
-
-const char kNotAssociatedWithDocumentMessage[] =
-    "The object is no longer associated with a document.";
-
-const char kCannotUseBothNewAndOldAPIMessage[] =
-    "Cannot use navigator.getVRDisplays if the latest VR API is already in "
-    "use.";
+void RejectNavigatorDetached(ScriptPromiseResolver* resolver) {
+  DOMException* exception = DOMException::Create(
+      kInvalidStateError,
+      "The object is no longer associated with a document.");
+  resolver->Reject(exception);
+}
 
 }  // namespace
 
@@ -62,41 +55,39 @@ NavigatorVR& NavigatorVR::From(Navigator& navigator) {
 ScriptPromise NavigatorVR::getVRDisplays(ScriptState* script_state,
                                          Navigator& navigator) {
   if (!navigator.GetFrame()) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state, DOMException::Create(kInvalidStateError,
-                                           kNotAssociatedWithDocumentMessage));
+    ScriptPromiseResolver* resolver =
+        ScriptPromiseResolver::Create(script_state);
+    ScriptPromise promise = resolver->Promise();
+    RejectNavigatorDetached(resolver);
+    return promise;
   }
   return NavigatorVR::From(navigator).getVRDisplays(script_state);
 }
 
 ScriptPromise NavigatorVR::getVRDisplays(ScriptState* script_state) {
+  ScriptPromiseResolver* resolver = ScriptPromiseResolver::Create(script_state);
+  ScriptPromise promise = resolver->Promise();
+
   if (!GetDocument()) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state, DOMException::Create(kInvalidStateError,
-                                           kNotAssociatedWithDocumentMessage));
+    RejectNavigatorDetached(resolver);
+    return promise;
   }
 
   LocalFrame* frame = GetDocument()->GetFrame();
+  // TODO(bshe): Add different error string for cases when promise is rejected.
   if (!frame) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state, DOMException::Create(kInvalidStateError,
-                                           kNotAssociatedWithDocumentMessage));
+    RejectNavigatorDetached(resolver);
+    return promise;
   }
   if (IsSupportedInFeaturePolicy(WebFeaturePolicyFeature::kWebVr)) {
     if (!frame->IsFeatureEnabled(WebFeaturePolicyFeature::kWebVr)) {
-      return ScriptPromise::RejectWithDOMException(
-          script_state,
-          DOMException::Create(kSecurityError, kFeaturePolicyBlockedMessage));
+      RejectNavigatorDetached(resolver);
+      return promise;
     }
   } else if (!frame->HasReceivedUserGesture() &&
              frame->IsCrossOriginSubframe()) {
-    // Before we introduced feature policy, cross-origin iframes had access to
-    // WebVR APIs. Ideally, we want to block access to WebVR APIs for
-    // cross-origin iframes. To be backward compatible, we changed to require a
-    // user gesture for cross-origin iframes.
-    return ScriptPromise::RejectWithDOMException(
-        script_state, DOMException::Create(kSecurityError,
-                                           kIframeBlockedOnUserGestureMessage));
+    RejectNavigatorDetached(resolver);
+    return promise;
   }
 
   UseCounter::Count(*GetDocument(), WebFeature::kVRGetDisplays);
@@ -107,8 +98,6 @@ ScriptPromise NavigatorVR::getVRDisplays(ScriptState* script_state) {
   Platform::Current()->RecordRapporURL("VR.WebVR.GetDisplays",
                                        GetDocument()->Url());
 
-  ScriptPromiseResolver* resolver = ScriptPromiseResolver::Create(script_state);
-  ScriptPromise promise = resolver->Promise();
   Controller()->GetDisplays(resolver);
 
   return promise;
