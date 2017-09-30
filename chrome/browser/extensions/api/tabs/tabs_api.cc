@@ -95,6 +95,8 @@
 #include "ui/base/models/list_selection_model.h"
 #include "ui/base/ui_base_types.h"
 
+#include "extensions/browser/guest_view/web_view/web_view_guest.h"
+
 using content::BrowserThread;
 using content::NavigationController;
 using content::NavigationEntry;
@@ -981,6 +983,7 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
   AssignOptionalValue(params->create_properties.index, options.index);
   AssignOptionalValue(params->create_properties.url, options.url);
 
+  options.create_browser_if_needed = true;
   std::string error;
   std::unique_ptr<base::DictionaryValue> result(
       ExtensionTabUtil::OpenTab(this, options, user_gesture(), &error));
@@ -1691,6 +1694,8 @@ bool TabsDetectLanguageFunction::RunAsync() {
       tabs::DetectLanguage::Params::Create(*args_));
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
+  return false;
+#if 0
   int tab_id = 0;
   Browser* browser = NULL;
   WebContents* contents = NULL;
@@ -1747,6 +1752,7 @@ bool TabsDetectLanguageFunction::RunAsync() {
       this, content::NOTIFICATION_NAV_ENTRY_COMMITTED,
       content::Source<NavigationController>(&(contents->GetController())));
   return true;
+#endif
 }
 
 void TabsDetectLanguageFunction::Observe(
@@ -1894,12 +1900,17 @@ ScriptExecutor* ExecuteCodeInTabFunction::GetScriptExecutor() {
   bool success =
       GetTabById(execute_tab_id_, browser_context(), include_incognito(),
                  &browser, nullptr, &contents, nullptr, &error_) &&
-      contents && browser;
+      contents;
 
   if (!success)
     return NULL;
 
-  return TabHelper::FromWebContents(contents)->script_executor();
+  if (TabHelper::FromWebContents(contents))
+    return TabHelper::FromWebContents(contents)->script_executor();
+  auto* web_view = extensions::WebViewGuest::FromWebContents(contents);
+  if (web_view)
+    return web_view->script_executor();
+  return nullptr;
 }
 
 bool ExecuteCodeInTabFunction::IsWebView() const {

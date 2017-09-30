@@ -39,7 +39,7 @@ bool WebNotificationDelegate::SettingsClick() {
 }
 
 bool WebNotificationDelegate::ShouldDisplaySettingsButton() {
-  return notification_type_ != NotificationCommon::EXTENSION;
+  return false;
 }
 
 bool WebNotificationDelegate::ShouldDisplayOverFullscreen() const {

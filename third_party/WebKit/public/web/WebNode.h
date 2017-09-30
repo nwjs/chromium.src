@@ -104,8 +104,8 @@ class BLINK_EXPORT WebNode {
   template <typename T>
   const T ToConst() const;
 
-#if BLINK_IMPLEMENTATION
   WebNode(Node*);
+#if BLINK_IMPLEMENTATION
   WebNode& operator=(Node*);
   operator Node*() const;
 

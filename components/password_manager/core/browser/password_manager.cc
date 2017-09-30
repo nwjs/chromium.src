@@ -578,6 +578,8 @@ bool PasswordManager::ShouldBlockPasswordForSameOriginButDifferentScheme(
 }
 
 bool PasswordManager::ShouldPromptUserToSavePassword() const {
+  return false;
+#if 0
   return (provisional_save_manager_->IsNewLogin() ||
           provisional_save_manager_
               ->is_possible_change_password_form_without_username() ||
@@ -586,6 +588,7 @@ bool PasswordManager::ShouldPromptUserToSavePassword() const {
          !(provisional_save_manager_->has_generated_password() &&
            provisional_save_manager_->IsNewLogin()) &&
          !provisional_save_manager_->IsPendingCredentialsPublicSuffixMatch();
+#endif
 }
 
 void PasswordManager::OnPasswordFormsRendered(

@@ -498,9 +498,10 @@ ProfileImpl::ProfileImpl(const base::FilePath& path,
       path_, sequenced_task_runner, create_mode == CREATE_MODE_SYNCHRONOUS);
 #endif
 
+  prefs::mojom::TrackedPreferenceValidationDelegatePtr pref_validation_delegate;
+#if 0
   scoped_refptr<safe_browsing::SafeBrowsingService> safe_browsing_service(
       g_browser_process->safe_browsing_service());
-  prefs::mojom::TrackedPreferenceValidationDelegatePtr pref_validation_delegate;
   if (safe_browsing_service.get()) {
     auto pref_validation_delegate_impl =
         safe_browsing_service->CreatePreferenceValidationDelegate(this);
@@ -509,6 +510,7 @@ ProfileImpl::ProfileImpl(const base::FilePath& path,
                               mojo::MakeRequest(&pref_validation_delegate));
     }
   }
+#endif
 
   content::BrowserContext::Initialize(this, path_);
 

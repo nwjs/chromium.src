@@ -23,6 +23,7 @@ class SendRequestNatives : public ObjectBackedNativeHandler {
   // Starts an API request to the browser, with an optional callback.  The
   // callback will be dispatched to EventBindings::HandleResponse.
   void StartRequest(const v8::FunctionCallbackInfo<v8::Value>& args);
+  void StartRequestSync(const v8::FunctionCallbackInfo<v8::Value>& args);
 
   // Gets a reference to an object's global object.
   void GetGlobal(const v8::FunctionCallbackInfo<v8::Value>& args);

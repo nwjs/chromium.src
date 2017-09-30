@@ -19,27 +19,37 @@
 #include "extensions/browser/app_window/native_app_window.h"
 #include "extensions/common/extension_messages.h"
 
+#include "content/nw/src/nw_content.h"
+
 namespace extensions {
 
-AppWindowContentsImpl::AppWindowContentsImpl(AppWindow* host)
-    : host_(host), is_blocking_requests_(false), is_window_ready_(false) {}
+AppWindowContentsImpl::AppWindowContentsImpl(AppWindow* host, content::WebContents* web_contents)
+  :host_(host), is_blocking_requests_(false), is_window_ready_(false), web_contents_(web_contents) {}
 
 AppWindowContentsImpl::~AppWindowContentsImpl() {}
 
 void AppWindowContentsImpl::Initialize(content::BrowserContext* context,
                                        content::RenderFrameHost* creator_frame,
-                                       const GURL& url) {
+                                       const GURL& url,
+                                       const Extension* extension) {
   url_ = url;
 
   content::WebContents::CreateParams create_params(
-      context, creator_frame->GetSiteInstance());
+                                                   //NWJS#5163: fix regression
+       context, nw::PinningRenderer() ? creator_frame->GetSiteInstance() : content::SiteInstance::CreateForURL(context, url_));
   create_params.opener_render_process_id = creator_frame->GetProcess()->GetID();
   create_params.opener_render_frame_id = creator_frame->GetRoutingID();
-  web_contents_.reset(content::WebContents::Create(create_params));
+  if (!web_contents_)
+    web_contents_.reset(content::WebContents::Create(create_params));
 
   Observe(web_contents_.get());
-  web_contents_->GetMutableRendererPrefs()->
-      browser_handles_all_top_level_requests = true;
+  content::RendererPreferences* render_prefs =
+      web_contents_->GetMutableRendererPrefs();
+  if (!extension || !extension->is_nwjs_app())
+    render_prefs->browser_handles_all_top_level_requests = true;
+  std::string user_agent;
+  if (nw::GetUserAgentFromManifest(&user_agent))
+    render_prefs->user_agent_override = user_agent;
   web_contents_->GetRenderViewHost()->SyncRendererPrefs();
 }
 

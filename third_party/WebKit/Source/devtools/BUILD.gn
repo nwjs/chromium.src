@@ -888,6 +888,7 @@ generated_applications = [
 ]
 
 generated_non_autostart_non_remote_modules = [
+  "$resources_out_dir/product_registry_impl/product_registry_impl_module.js",
   "$resources_out_dir/animation/animation_module.js",
   "$resources_out_dir/audits/audits_module.js",
   "$resources_out_dir/audits2/audits2_module.js",
@@ -936,7 +937,6 @@ generated_remote_modules = [
   "$resources_out_dir/cm_modes/cm_modes_module.js",
   "$resources_out_dir/emulated_devices/emulated_devices_module.js",
   "$resources_out_dir/gonzales/gonzales_module.js",
-  "$resources_out_dir/product_registry_impl/product_registry_impl_module.js",
   "$resources_out_dir/screencast/screencast_module.js",
 ]
 

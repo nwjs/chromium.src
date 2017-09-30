@@ -182,7 +182,7 @@ class LocalStorageContextMojo::LevelDBWrapperHolder
     // To avoid excessive IO we apply limits to the amount of data being written
     // and the frequency of writes.
     const int kMaxBytesPerHour = kPerStorageAreaQuota;
-    const int kMaxCommitsPerHour = 60;
+    const int kMaxCommitsPerHour = std::numeric_limits<int32_t>::max();
 
     level_db_wrapper_ = base::MakeUnique<LevelDBWrapperImpl>(
         context_->database_.get(),

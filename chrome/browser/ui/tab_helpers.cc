@@ -187,7 +187,7 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
           subresource_filter::kSafeBrowsingSubresourceFilter)) {
     ChromeSubresourceFilterClient::CreateForWebContents(web_contents);
   }
-  ChromeTranslateClient::CreateForWebContents(web_contents);
+  //ChromeTranslateClient::CreateForWebContents(web_contents);
   CoreTabHelper::CreateForWebContents(web_contents);
   data_use_measurement::DataUseWebContentsObserver::CreateForWebContents(
       web_contents);
@@ -254,9 +254,11 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
                         new ChromePDFWebContentsHelperClient()));
   PluginObserver::CreateForWebContents(web_contents);
   SadTabHelper::CreateForWebContents(web_contents);
+#if 0
   safe_browsing::SafeBrowsingTabObserver::CreateForWebContents(web_contents);
   safe_browsing::SafeBrowsingNavigationObserver::MaybeCreateForWebContents(
       web_contents);
+#endif
   TabContentsSyncedTabDelegate::CreateForWebContents(web_contents);
   TabDialogs::CreateForWebContents(web_contents);
   ThumbnailTabHelper::CreateForWebContents(web_contents);

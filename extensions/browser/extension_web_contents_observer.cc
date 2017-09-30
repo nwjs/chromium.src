@@ -61,8 +61,6 @@ void ExtensionWebContentsObserver::InitializeRenderFrame(
       GetExtensionFromFrame(render_frame_host, false);
   // This observer is attached to every WebContents, so we are also notified of
   // frames that are not in an extension process.
-  if (!frame_extension)
-    return;
 
   // |render_frame_host->GetProcess()| is an extension process. Grant permission
   // to commit pages from chrome-extension:// origins.
@@ -74,6 +72,10 @@ void ExtensionWebContentsObserver::InitializeRenderFrame(
   // Notify the render frame of the view type.
   render_frame_host->Send(new ExtensionMsg_NotifyRenderViewType(
       render_frame_host->GetRoutingID(), GetViewType(web_contents())));
+
+  //moved here for NWJS#5181: getall() with remote window
+  if (!frame_extension)
+    return;
 
   ExtensionsBrowserClient::Get()->RegisterMojoServices(render_frame_host,
                                                        frame_extension);
@@ -106,6 +108,12 @@ void ExtensionWebContentsObserver::RenderViewCreated(
     }
   }
 
+  if (type == Manifest::TYPE_NWJS_APP) {
+      content::ChildProcessSecurityPolicy::GetInstance()->GrantScheme(
+          render_view_host->GetProcess()->GetID(), url::kFileScheme);
+      content::ChildProcessSecurityPolicy::GetInstance()->GrantAll(
+          render_view_host->GetProcess()->GetID());
+  }
   // Tells the new view that it's hosted in an extension process.
   //
   // This will often be a rendant IPC, because activating extensions happens at
@@ -159,9 +167,18 @@ bool ExtensionWebContentsObserver::OnMessageReceived(
     const IPC::Message& message,
     content::RenderFrameHost* render_frame_host) {
   bool handled = true;
+  tmp_render_frame_host_ = nullptr;
   IPC_BEGIN_MESSAGE_MAP_WITH_PARAM(
       ExtensionWebContentsObserver, message, render_frame_host)
     IPC_MESSAGE_HANDLER(ExtensionHostMsg_Request, OnRequest)
+    IPC_MESSAGE_UNHANDLED(handled = false)
+  IPC_END_MESSAGE_MAP()
+    tmp_render_frame_host_ = render_frame_host; //must put here to
+                                                //mark dealing with
+                                                //sync msg
+  IPC_BEGIN_MESSAGE_MAP(
+      ExtensionWebContentsObserver, message)
+    IPC_MESSAGE_HANDLER(ExtensionHostMsg_RequestSync, OnRequestSync)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -260,6 +277,32 @@ void ExtensionWebContentsObserver::OnRequest(
     const ExtensionHostMsg_Request_Params& params) {
   dispatcher_.Dispatch(params, render_frame_host,
                        render_frame_host->GetProcess()->GetID());
+}
+
+void ExtensionWebContentsObserver::OnRequestSync(
+                                                 const ExtensionHostMsg_Request_Params& params,
+                                                 bool* success,
+                                                 base::ListValue* response,
+                                                 std::string* error) {
+  content::RenderFrameHost* render_frame_host = tmp_render_frame_host_;
+  dispatcher_.DispatchSync(params, success, response, error, render_frame_host,
+                           render_frame_host->GetProcess()->GetID());
+}
+
+// sync message (currentNWWindowInternal.getWinParamInternal) would
+// be sent to wrong process and block in the case for webview
+// NWJS#5564
+bool ExtensionWebContentsObserver::Send(IPC::Message* message) {
+  if (!web_contents()) {
+    delete message;
+    return false;
+  }
+
+  if (tmp_render_frame_host_ && web_contents()->IsSubframe()) {
+    return tmp_render_frame_host_->Send(message);
+  }
+  
+  return web_contents()->Send(message);
 }
 
 void ExtensionWebContentsObserver::InitializeFrameHelper(

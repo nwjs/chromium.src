@@ -48,6 +48,8 @@
 #include "extensions/common/permissions/permissions_data.h"
 #include "url/gurl.h"
 
+#include "components/guest_view/browser/guest_view_manager.h"
+
 using content::NavigationEntry;
 using content::WebContents;
 
@@ -149,7 +151,7 @@ base::DictionaryValue* ExtensionTabUtil::OpenTab(
     if (!browser)
       return nullptr;
   }
-
+#if 0
   // Ensure the selected browser is tabbed.
   if (!browser->is_type_tabbed() && browser->IsAttemptingToCloseBrowser())
     browser = chrome::FindTabbedBrowser(profile, function->include_incognito());
@@ -158,7 +160,7 @@ base::DictionaryValue* ExtensionTabUtil::OpenTab(
       *error = keys::kNoCurrentWindowError;
     return nullptr;
   }
-
+#endif
   // TODO(jstritar): Add a constant, chrome.tabs.TAB_ID_ACTIVE, that
   // represents the active tab.
   WebContents* opener = nullptr;
@@ -549,6 +551,27 @@ bool ExtensionTabUtil::GetTabById(int tab_id,
       include_incognito && profile->HasOffTheRecordProfile()
           ? profile->GetOffTheRecordProfile()
           : nullptr;
+  AppWindowRegistry* registry = AppWindowRegistry::Get(profile);
+  for (AppWindow* app_window : registry->app_windows()) {
+    WebContents* target_contents = app_window->web_contents();
+    if (SessionTabHelper::IdForTab(target_contents) == tab_id) {
+      if (contents)
+        *contents = target_contents;
+      return true;
+    }
+  }
+  guest_view::GuestViewManager* manager =
+    guest_view::GuestViewManager::FromBrowserContext(browser_context);
+  if (manager) {
+    const std::map<int, content::WebContents*>& guest_contents = manager->guest_web_contents_by_instance_id();
+    for (std::map<int, content::WebContents*>::const_iterator it = guest_contents.begin(); it != guest_contents.end(); it++) {
+      if (SessionTabHelper::IdForTab(it->second) == tab_id) {
+        if (contents)
+          *contents = it->second;
+        return true;
+      }
+    }
+  }
   for (auto* target_browser : *BrowserList::GetInstance()) {
     if (target_browser->profile() == profile ||
         target_browser->profile() == incognito_profile) {

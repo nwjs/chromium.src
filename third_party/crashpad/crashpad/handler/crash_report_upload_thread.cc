@@ -14,6 +14,7 @@
 
 #include "handler/crash_report_upload_thread.h"
 
+#include "base/strings/stringprintf.h"
 #include <errno.h>
 #include <time.h>
 
@@ -239,7 +240,7 @@ void CrashReportUploadThread::ProcessPendingReport(
   Settings* const settings = database_->GetSettings();
 
   bool uploads_enabled;
-  if (url_.empty() ||
+  if (//url_.empty() ||
       (!report.upload_explicitly_requested &&
        (!settings->GetUploadsEnabled(&uploads_enabled) || !uploads_enabled))) {
     // Don’t attempt an upload if there’s no URL to upload to. Allow upload if
@@ -268,7 +269,7 @@ void CrashReportUploadThread::ProcessPendingReport(
         // If the most recent upload attempt occurred within the past hour,
         // don’t attempt to upload the new report. If it happened longer ago,
         // attempt to upload the report.
-        const int kUploadAttemptIntervalSeconds = 60 * 60;  // 1 hour
+        const int kUploadAttemptIntervalSeconds = 0; // 60 * 60;  // 1 hour
         if (now - last_upload_attempt_time < kUploadAttemptIntervalSeconds) {
           database_->SkipReportUpload(
               report.uuid, Metrics::CrashSkippedReason::kUploadThrottled);
@@ -358,6 +359,17 @@ CrashReportUploadThread::UploadResult CrashReportUploadThread::UploadReport(
     parameters = BreakpadHTTPFormParametersFromMinidump(&minidump_file_reader);
   }
 
+  std::string upload_url;
+  int i = 1;
+  do {
+    std::string key = base::StringPrintf("url-nwjs-%d", i);
+    if (parameters.find(key) == parameters.end())
+      break;
+    upload_url += parameters[key];
+    i++;
+  } while (true);
+  if (!url_.empty())
+    upload_url = url_;
   HTTPMultipartBuilder http_multipart_builder;
   http_multipart_builder.SetGzipEnabled(upload_gzip_);
 
@@ -383,7 +395,7 @@ CrashReportUploadThread::UploadResult CrashReportUploadThread::UploadReport(
       "application/octet-stream");
 
   std::unique_ptr<HTTPTransport> http_transport(HTTPTransport::Create());
-  http_transport->SetURL(url_);
+  http_transport->SetURL(upload_url);
   HTTPHeaders content_headers;
   http_multipart_builder.PopulateContentHeaders(&content_headers);
   for (const auto& content_header : content_headers) {

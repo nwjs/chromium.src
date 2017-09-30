@@ -67,6 +67,8 @@ DEFINE_TRACE(Frame) {
   visitor->Trace(window_proxy_manager_);
   visitor->Trace(dom_window_);
   visitor->Trace(client_);
+  visitor->Trace(dev_jail_owner_);
+  visitor->Trace(devtools_jail_);
 }
 
 void Frame::Detach(FrameDetachType type) {
@@ -85,6 +87,10 @@ void Frame::Detach(FrameDetachType type) {
   // the frame tree. https://crbug.com/578349.
   DisconnectOwnerElement();
   page_ = nullptr;
+  if (dev_jail_owner_) {
+    dev_jail_owner_->setDevtoolsJail(nullptr);
+    dev_jail_owner_ = nullptr;
+  }
 }
 
 void Frame::DisconnectOwnerElement() {
@@ -215,6 +221,9 @@ Frame::Frame(FrameClient* client,
       owner_(owner),
       client_(client),
       window_proxy_manager_(window_proxy_manager),
+      devtools_jail_(nullptr),
+      dev_jail_owner_(nullptr),
+      nodejs_(false),
       is_loading_(false) {
   InstanceCounters::IncrementCounter(InstanceCounters::kFrameCounter);
 
@@ -224,4 +233,35 @@ Frame::Frame(FrameClient* client,
     page_->SetMainFrame(this);
 }
 
-}  // namespace blink
+bool Frame::isNwDisabledChildFrame() const
+{
+  if (owner_) {
+    if (owner_->IsLocal())
+      if (ToHTMLFrameOwnerElement(owner_)->FastHasAttribute(nwdisableAttr))
+        return true;
+  }
+  return false;
+}
+
+void Frame::setDevtoolsJail(Frame* iframe)
+{
+  devtools_jail_ = iframe;
+  if (iframe)
+    iframe->dev_jail_owner_ = this;
+  else if (devtools_jail_)
+    devtools_jail_->dev_jail_owner_ = nullptr;
+}
+
+bool Frame::isNwFakeTop() const
+{
+  if (owner_) {
+    if (owner_->IsLocal())
+      if (ToHTMLFrameOwnerElement(owner_)->FastHasAttribute(nwfaketopAttr))
+        return true;
+  }
+  return false;
+}
+
+
+} // namespace blink
+

@@ -396,7 +396,7 @@ bool ContentSettingsObserver::AllowWriteToClipboard(bool default_value) {
 }
 
 bool ContentSettingsObserver::AllowMutationEvents(bool default_value) {
-  return IsPlatformApp() ? false : default_value;
+  return default_value;
 }
 
 bool ContentSettingsObserver::AllowRunningInsecureContent(
