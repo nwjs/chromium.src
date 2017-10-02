@@ -206,7 +206,8 @@ TEST_F(WebNotificationTrayTest, WebNotificationPopupBubble) {
   AddNotification("test_id5");
   EXPECT_TRUE(GetTray()->IsPopupVisible());
 
-  GetTray()->message_center_tray_->ShowMessageCenterBubble();
+  GetTray()->message_center_tray_->ShowMessageCenterBubble(
+      false /* show_by_click */);
   GetTray()->message_center_tray_->HideMessageCenterBubble();
 
   EXPECT_FALSE(GetTray()->IsPopupVisible());
@@ -222,7 +223,8 @@ TEST_F(WebNotificationTrayTest, ManyMessageCenterNotifications) {
     std::string id = base::StringPrintf("test_id%d", static_cast<int>(i));
     AddNotification(id);
   }
-  bool shown = GetTray()->message_center_tray_->ShowMessageCenterBubble();
+  bool shown = GetTray()->message_center_tray_->ShowMessageCenterBubble(
+      false /* show_by_click */);
   EXPECT_TRUE(shown);
   RunAllPendingInMessageLoop();
   EXPECT_TRUE(GetTray()->message_center_bubble() != NULL);
@@ -294,7 +296,8 @@ TEST_F(WebNotificationTrayTest, PopupAndSystemTray) {
 
   // System tray is created, the popup's work area should be narrowed but still
   // visible.
-  GetSystemTray()->ShowDefaultView(BUBBLE_CREATE_NEW);
+  GetSystemTray()->ShowDefaultView(BUBBLE_CREATE_NEW,
+                                   false /* show_by_click */);
   EXPECT_TRUE(GetTray()->IsPopupVisible());
   int bottom_with_tray = GetPopupWorkAreaBottom();
   EXPECT_GT(bottom, bottom_with_tray);
@@ -324,7 +327,8 @@ TEST_F(WebNotificationTrayTest, PopupAndAutoHideShelf) {
   widget = CreateTestWidget();
   TestItem* test_item = new TestItem;
   GetSystemTray()->AddTrayItem(base::WrapUnique(test_item));
-  GetSystemTray()->ShowDefaultView(BUBBLE_CREATE_NEW);
+  GetSystemTray()->ShowDefaultView(BUBBLE_CREATE_NEW,
+                                   false /* show_by_click */);
   UpdateAutoHideStateNow();
 
   EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
@@ -386,7 +390,8 @@ TEST_F(WebNotificationTrayTest, PopupAndSystemTrayMultiDisplay) {
 
   // System tray is created on the primary display. The popups in the secondary
   // tray aren't affected.
-  GetSystemTray()->ShowDefaultView(BUBBLE_CREATE_NEW);
+  GetSystemTray()->ShowDefaultView(BUBBLE_CREATE_NEW,
+                                   false /* show_by_click */);
   EXPECT_GT(bottom, GetPopupWorkAreaBottom());
   EXPECT_EQ(bottom_second, GetPopupWorkAreaBottomForTray(GetSecondaryTray()));
 }
