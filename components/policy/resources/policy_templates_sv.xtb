@@ -1734,7 +1734,7 @@
 
           Om inställningen inaktiveras kommer inte funktionen att vara tillgänglig.</translation>
 <translation id="7275334191706090484">Hanterade bokmärken</translation>
-<translation id="7295019613773647480">Aktivera övervakade användare</translation>
+<translation id="7295019613773647480">Aktivera kontrollerade användare</translation>
 <translation id="7301543427086558500">Anger en lista med alternativa webbadresser som kan användas för att extrahera sökord från sökmotorn. Webbadresserna ska innehålla strängen <ph name="SEARCH_TERM_MARKER" />, som används för att extrahera sökorden.
 
           Policyn är valfri. Om den inte anges används inga alternativa webbadresser för att extrahera sökord.
@@ -1934,7 +1934,7 @@
           Mer ingående exempel hittar du på:
           <ph name="PROXY_HELP_URL" />.</translation>
 <translation id="793134539373873765">Anger om p2p ska användas för uppdateringar av betalningar i operativsystemet. Om policyn är inställd på Sant kommer enheterna att dela och försöka använda uppdateringar av betalningar i det lokala nätverket och eventuellt reducera användningen av bandbredd och överbelastning. Om uppdateringar av betalningar inte är tillgängliga i det lokala nätverket kommer enheten att återgå till att ladda ned från en uppdateringsserver. Om policyn är inställd på Falskt eller inte konfigurerad kommer p2p inte att användas.</translation>
-<translation id="7933141401888114454">Aktivera alternativet att skapa övervakade användare</translation>
+<translation id="7933141401888114454">Aktivera alternativet att skapa kontrollerade användare</translation>
 <translation id="793473937901685727">Ange om certifikat ska vara tillgängliga för ARC-appar</translation>
 <translation id="7937766917976512374">Tillåta eller neka videoinspelning</translation>
 <translation id="7941975817681987555">Förutsäg inte nätverksåtgärder för någon nätverksanslutning</translation>

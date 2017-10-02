@@ -3,7 +3,7 @@
 <translationbundle lang="fil">
 <translation id="1012876632442809908">USB-C device (port sa harap)</translation>
 <translation id="1013923882670373915">Gusto ng bluetooth device na "<ph name="DEVICE_NAME" />" ng pahintulot na magpares. Pakilagay ang PIN na ito sa device na iyon: <ph name="PINCODE" /></translation>
-<translation id="1032891413405719768">Paubos na ang baterya ng stylus</translation>
+<translation id="1032891413405719768">Mahina na ang baterya ng stylus</translation>
 <translation id="112308213915226829">Awtomatikong itago ang shelf</translation>
 <translation id="1153356358378277386">Mga nakapares na device</translation>
 <translation id="1195412055398077112">overscan</translation>
@@ -92,6 +92,7 @@
 <translation id="315116470104423982">Data sa mobile</translation>
 <translation id="3236488194889173876">Walang available na mobile network</translation>
 <translation id="3294437725009624529">Bisita</translation>
+<translation id="332587331255250389">Pakipalitan ang baterya</translation>
 <translation id="3364721542077212959">Mga stylus tool</translation>
 <translation id="3368922792935385530">Nakakonekta</translation>
 <translation id="3371140690572404006">USB-C device (port sa kanang bahagi sa harap)</translation>

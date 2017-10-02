@@ -135,7 +135,7 @@
 <translation id="120368089816228251">نوتة موسيقية</translation>
 <translation id="1205489148908752564">قراءة وتغيير المستخدمين في القائمة البيضاء</translation>
 <translation id="1206407435587370571">‏استكشاف جهاز Chromebook</translation>
-<translation id="1211364473545090084">استخدِم الويب دون حفظ سجلّ التصفُّح من خلال نافذة تصفُّح متخفٍ</translation>
+<translation id="1211364473545090084">استخدِم الويب دون حفظ سجلّ التصفُّح باستخدام نافذة تصفُّح متخفٍ</translation>
 <translation id="1213037489357051291">تم إعداد <ph name="NUM_FINGERPRINTS" /> من بصمات الإصبع</translation>
 <translation id="1215411991991485844">تمت إضافة تطبيق جديد في الخلفية</translation>
 <translation id="1216654534877302979">تجاهل المواقع</translation>
@@ -1107,7 +1107,7 @@
 <translation id="2688196195245426394">حدث خطأ عند تسجيل الجهاز مع الخادم: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">عرض خيارات اللغة</translation>
 <translation id="2691385045260836588">الطراز</translation>
-<translation id="2693176596243495071">عفوًا، حدث خطأ غير معروف. يُرجى إعادة المحاولة فيما بعد أو الاتصال بالمشرف إذا استمرت المشكلة.</translation>
+<translation id="2693176596243495071">عفوًا،  حدث خطأ غير معروف. يُرجى إعادة المحاولة فيما بعد أو الاتصال بالمشرف في حال استمرار المشكلة.</translation>
 <translation id="2694026874607847549">ملف تعريف ارتباط واحد</translation>
 <translation id="2695749433451188613">‏بروتوكول الطباعة عبر الإنترنت (HTTPS)</translation>
 <translation id="270358213449696159">‏محتويات بنود نظام التشغيل Google Chrome</translation>
@@ -1452,7 +1452,7 @@
 <translation id="3166571619128686629">‏انقر أو قل "Ok Google" لبدء البحث الصوتي</translation>
 <translation id="3170072451822350649">يمكنك أيضًا تخطي تسجيل الدخول و<ph name="LINK_START" />التصفح كضيف<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">انقر لإخفاء كلمة المرور</translation>
-<translation id="3177857336576585529">يمتلك <ph name="SITE_NAME" /> طلب إذن.</translation>
+<translation id="3177857336576585529">لدى <ph name="SITE_NAME" /> طلب إذن.</translation>
 <translation id="3177909033752230686">لغة الصفحة:</translation>
 <translation id="3180365125572747493">يُرجى إدخال كلمة مرور لتشفير ملف الشهادة هذا.</translation>
 <translation id="3181110748548073003">اضغط على |<ph name="SHORTCUT" />| للانتقال إلى الأمام</translation>
@@ -2444,6 +2444,7 @@
 <translation id="4763830802490665879">سيتم محو ملفات تعريف الارتباط من مواقع متعددة عند الخروج.</translation>
 <translation id="4768332406694066911">لديك شهادات تحدد هويتك من هذه المؤسسات</translation>
 <translation id="4776917500594043016">كلمة مرور <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">‏متجر Play</translation>
 <translation id="4779083564647765204">تكبير/تصغير</translation>
 <translation id="4780321648949301421">حفظ صفحة باسم...</translation>
 <translation id="4781787911582943401">تكبير الشاشة</translation>
@@ -3301,7 +3302,7 @@
 <translation id="6076448957780543068">تضمين لقطة الشاشة هذه</translation>
 <translation id="6077131872140550515">إزالة من الشبكات المُفضلة</translation>
 <translation id="6078752646384677957">الرجاء التحقق من الميكروفون ومستويات الصوت.</translation>
-<translation id="6080515710685820702">هل تستخدم جهاز كمبيوتر مشتركًا؟ جرِّب فتح نافذة تصفُّح متخفٍ.</translation>
+<translation id="6080515710685820702">هل تستخدم جهاز كمبيوتر مشتركًا؟ جرِّب فتح نافذة للتصفُّح المتخفي.</translation>
 <translation id="6080689532560039067">تحقق من وقت النظام</translation>
 <translation id="6082651258230788217">العرض في شريط الأدوات</translation>
 <translation id="6086814797483779854">تشغيل عند النقر</translation>
@@ -3944,7 +3945,7 @@
 <translation id="7054808953701320293">أعي ذلك، عدم الإظهار لي مرة أخرى.</translation>
 <translation id="7056526158851679338">&amp;فحص الأجهزة</translation>
 <translation id="7059858479264779982">ضبط على تشغيل تلقائي</translation>
-<translation id="7059893117020417984">للتصفُّح بشكل خاص، انقر على قائمة رمز النقاط لفتح نافذة تصفُّح متخفٍ</translation>
+<translation id="7059893117020417984">للتصفُّح الخاص، انقر على القائمة المشار إليها برمز النقاط لفتح نافذة للتصفُّح المتخفي</translation>
 <translation id="7062222374113411376">السماح للمواقع الإلكترونية التي تم إغلاقها مؤخرًا بإنهاء إرسال البيانات واستلامها (موصى به)</translation>
 <translation id="7063129466199351735">معالجة الاختصارات...</translation>
 <translation id="7063957500469387217">‏إعداد الطابعات أو إدارتها في الطباعة في السحاب من Google.</translation>
@@ -4612,7 +4613,7 @@
 <translation id="8116190140324504026">مزيد من المعلومات...</translation>
 <translation id="8116483400482790018">قاموس هجائي مخصص</translation>
 <translation id="8116972784401310538">م&amp;دير الإشارات</translation>
-<translation id="8118362518458010043">‏تم التعطيل بواسطة متصفح Chrome. ربما تكون هذه الإضافة غير آمنة.</translation>
+<translation id="8118362518458010043">‏تم تعطيل الإضافة بواسطة متصفح Chrome. ربما تكون هذه الإضافة غير آمنة.</translation>
 <translation id="8118860139461251237">إدارة التنزيلات</translation>
 <translation id="8119631488458759651">إزالة هذا الموقع</translation>
 <translation id="81238879832906896">زهرة صفراء وبيضاء</translation>
@@ -4729,7 +4730,7 @@
 <translation id="8283475148136688298">تم رفض رمز المصادقة أثناء الاتصال بالجهاز "<ph name="DEVICE_NAME" />".</translation>
 <translation id="8284279544186306258">جميع مواقع <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">تسجيل الدخول</translation>
-<translation id="8286963743045814739">يمكنك التصفح بشكل خاص باستخدام نافذة تصفُّح متخفٍ</translation>
+<translation id="8286963743045814739">يمكنك إجراء التصفُّح الخاص باستخدام نافذة للتصفُّح المتخفي</translation>
 <translation id="8291967909914612644">بلد مقدم الخدمة الرئيسي</translation>
 <translation id="8294431847097064396">المصدر</translation>
 <translation id="8297006494302853456">ضعيفة</translation>

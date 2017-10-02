@@ -665,7 +665,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
           Ak toto pravidlo ponecháte nenastavené, pre všetky stránky sa použije globálna predvolená hodnota buď z pravidla DefaultKeygenSetting (ak je nastavené), alebo z osobnej konfigurácie používateľa.</translation>
 <translation id="332771718998993005">Umožňuje zistiť názov cieľového priečinka funkcie <ph name="PRODUCT_NAME" />.
 
-          Ak v tomto pravidle nastavíte reťazec, ktorý nie je prázdny, daný reťazec sa použije ako názov cieľového priečinka funkcie <ph name="PRODUCT_NAME" />. Inak sa ako názov cieľového priečinka použije názov zariadenia. Ak toto pravidlo nenastavíte, názov cieľového priečinka bude názov zariadenia, ktorý bude môcť zmeniť vlastník zariadenia. Názov môže mať maximálne 24 znakov.</translation>
+          Ak v tomto pravidle nastavíte reťazec, ktorý nie je prázdny, daný reťazec sa použije ako názov cieľového priečinka funkcie <ph name="PRODUCT_NAME" />. Inak sa ako názov cieľového priečinka použije názov zariadenia. Ak toto pravidlo nenastavíte, názov cieľového priečinka bude názov zariadenia, ktorý bude môcť zmeniť jeho vlastník (alebo používateľ z domény, ktorá ho spravuje). Názov môže mať maximálne 24 znakov.</translation>
 <translation id="3381968327636295719">V predvolenom nastavení použiť hosťovský prehliadač</translation>
 <translation id="3417418267404583991">Ak je toto pravidlo nastavené na hodnotu true alebo je nenakonfigurované, systém <ph name="PRODUCT_OS_NAME" /> povolí prihlásenie hostí. Prihlásenia hostí predstavujú relácie anonymných používateľov a nevyžadujú heslo.
 
@@ -1178,7 +1178,7 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
 <translation id="5318185076587284965">Povolí hostiteľovi vzdialeného prístupu používať servery typu relay</translation>
 <translation id="5323128137188992869">Umožňuje povoliť prenášanie obsahu do zariadenia pomocou funkcie <ph name="PRODUCT_NAME" />.
 
-          Ak toto pravidlo nastavíte na hodnotu False, používatelia nebudú môcť do svojho zariadenia prenášať obsah. Ak ho nastavíte na hodnotu True, používatelia budú môcť prenášať obsah. Ak ho nenastavíte, používatelia nebudú môcť prenášať obsah do registrovaných zariadení Chrome OS, ale v prípade iných zariadení to bude povolené.</translation>
+          Ak toto pravidlo nastavíte na hodnotu False, používatelia nebudú môcť do svojho zariadenia prenášať obsah. Ak ho nastavíte na hodnotu True, používatelia budú môcť prenášať obsah. Ak ho nenastavíte, používatelia nebudú môcť prenášať obsah do registrovaných zariadení Chrome OS, ale v prípade iných zariadení to bude povolené.</translation>
 <translation id="5330684698007383292">Povoliť doplnku <ph name="PRODUCT_FRAME_NAME" /> spracovávať nasledujúce typy obsahu</translation>
 <translation id="5365946944967967336">Zobraziť tlačidlo Domov na paneli s nástrojmi</translation>
 <translation id="5366977351895725771">Ak toto pravidlo nastavíte na hodnotu false, bude vytváranie a prihlasovanie kontrolovaných používateľov zakázané. Všetci existujúci kontrolovaní používatelia budú stále k dispozícii.

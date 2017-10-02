@@ -2442,6 +2442,7 @@
 <translation id="4763830802490665879">退出时会清除来自多个网站的 Cookie。</translation>
 <translation id="4768332406694066911">您有以下组织发给您的身份证书</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> 的密码</translation>
+<translation id="4777825441726637019">Play 商店</translation>
 <translation id="4779083564647765204">缩放</translation>
 <translation id="4780321648949301421">页面存储为...</translation>
 <translation id="4781787911582943401">放大屏幕</translation>
@@ -5081,7 +5082,7 @@
 <translation id="8899851313684471736">在新窗口中打开链接(&amp;W)</translation>
 <translation id="8902667442496790482">打开“随选朗读”设置</translation>
 <translation id="8903921497873541725">放大</translation>
-<translation id="8904976895050290827">酷容浏览器同步</translation>
+<translation id="8904976895050290827">Chrome 浏览器同步</translation>
 <translation id="8908902564709148335">警告：您已在此计算机上启用“--scripts-require-action”，这会限制此扩展程序的功能。不过，其他设备可能不支持或未启用此项。在这些设备上，此扩展程序还可以：</translation>
 <translation id="8910146161325739742">共享屏幕</translation>
 <translation id="8910222113987937043">对您的书签、历史记录、密码及其他设置所做的更改将不再同步到您的 Google 帐号。但是，您的现有数据依然会存储在您的 Google 帐号中，而且您可以通过 <ph name="BEGIN_LINK" />Google 信息中心<ph name="END_LINK" />管理这些数据。</translation>

@@ -1108,7 +1108,7 @@ Ma arvan, et see sait ei tohiks olla blokeeritud.</translation>
 <translation id="2688196195245426394">Seadme serveris registreerimisel ilmnes viga: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Kuva keelevalikud</translation>
 <translation id="2691385045260836588">Mudel</translation>
-<translation id="2693176596243495071">Vabandust!  Ilmnes tundmatu viga. Proovige hiljem uuesti või võtke probleemi jätkumisel ühendust administraatoriga.</translation>
+<translation id="2693176596243495071">Vabandust!  Ilmnes tundmatu viga. Proovige hiljem uuesti või võtke probleemi püsimisel ühendust administraatoriga.</translation>
 <translation id="2694026874607847549">1 küpsis</translation>
 <translation id="2695749433451188613">Interneti prindiprotokoll (HTTPS)</translation>
 <translation id="270358213449696159">Google Chrome OS-i tingimuste sisu</translation>
@@ -2449,6 +2449,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="4763830802490665879">Mitme saidi küpsised tühjendatakse väljumisel.</translation>
 <translation id="4768332406694066911">Teil on nende organisatsioonide sertifikaadid, mis teid tuvastavad</translation>
 <translation id="4776917500594043016">Kasutaja <ph name="USER_EMAIL_ADDRESS" /> parool</translation>
+<translation id="4777825441726637019">Play pood</translation>
 <translation id="4779083564647765204">Suumi</translation>
 <translation id="4780321648949301421">Salvesta leht &amp;nimega...</translation>
 <translation id="4781787911582943401">Suumi ekraanil sisse</translation>

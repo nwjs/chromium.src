@@ -97,7 +97,7 @@
 <translation id="1149401351239820326">Luna expirării</translation>
 <translation id="1153356358378277386">Dispozitive asociate</translation>
 <translation id="1156185823432343624">Volum: sunet dezactivat</translation>
-<translation id="1156488781945104845">Momentul actual</translation>
+<translation id="1156488781945104845">Ora actuală</translation>
 <translation id="1161575384898972166">Conectează-te la <ph name="TOKEN_NAME" /> pentru a exporta certificatul client.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{O descărcare este în desfășurare. Dorești să anulezi descărcarea și să ieși din modul incognito?}few{# descărcări sunt în desfășurare. Dorești să anulezi descărcările și să ieși din modul incognito?}other{# de descărcări sunt în desfășurare. Dorești să anulezi descărcările și să ieși din modul incognito?}}</translation>
 <translation id="1163931534039071049">&amp;Afișează sursa cadrului</translation>
@@ -2449,6 +2449,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="4763830802490665879">Cookie-urile de la mai multe site-uri vor fi șterse la ieșire.</translation>
 <translation id="4768332406694066911">Ai certificate de la aceste organizații care te identifică</translation>
 <translation id="4776917500594043016">Parolă pentru <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Magazin Play</translation>
 <translation id="4779083564647765204">Zoom</translation>
 <translation id="4780321648949301421">Salvează pagina ca...</translation>
 <translation id="4781787911582943401">Mărește ecranul</translation>

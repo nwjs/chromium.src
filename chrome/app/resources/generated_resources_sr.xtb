@@ -1105,7 +1105,7 @@
 <translation id="2688196195245426394">Грешка при регистровању уређаја на сервер: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Приказуј опције језика</translation>
 <translation id="2691385045260836588">Модел</translation>
-<translation id="2693176596243495071">Упс! Дошло је до непознате грешке сервера. Пробајте поново касније или контактирајте администратора ако се проблем настави.</translation>
+<translation id="2693176596243495071">Упс! Дошло је до непознате грешке. Пробајте поново касније или контактирајте администратора ако се проблем настави.</translation>
 <translation id="2694026874607847549">1 колачић</translation>
 <translation id="2695749433451188613">Интернет протокол за штампање (HTTPS)</translation>
 <translation id="270358213449696159">Садржај услова за Google Chrome ОС</translation>
@@ -2447,6 +2447,7 @@
 <translation id="4763830802490665879">Колачићи са више сајтова ће бити обрисани при затварању.</translation>
 <translation id="4768332406694066911">Имате сертификате следећих организација који вас идентификују</translation>
 <translation id="4776917500594043016">Лозинка за <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Play продавница</translation>
 <translation id="4779083564647765204">Зумирање</translation>
 <translation id="4780321648949301421">Сачувај страницу као...</translation>
 <translation id="4781787911582943401">Увећавање екрана</translation>

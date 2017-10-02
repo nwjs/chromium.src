@@ -631,7 +631,7 @@ Por exemplo, alguns Sites podem responder a este pedido ao mostrar-lhe anúncios
 <translation id="688738109438487280">Adicionar dados existentes a <ph name="TO_ACCOUNT" />.</translation>
 <translation id="6891858906296486776">{OPEN_TABS,plural, =1{%1$d separador aberto}one{%1$d open tabs}other{%1$d separadores abertos}}</translation>
 <translation id="6896758677409633944">Copiar</translation>
-<translation id="6945221475159498467">Seleccionar</translation>
+<translation id="6945221475159498467">Selecionar</translation>
 <translation id="6963766334940102469">Eliminar marcadores</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="6978479750597523876">Repor definições de tradução</translation>
@@ -749,7 +749,7 @@ A sua Conta Google pode ter outras formas do histórico de navegação, como pes
 <translation id="8026334261755873520">Limpar dados de navegação</translation>
 <translation id="8035133914807600019">Nova pasta…</translation>
 <translation id="8037750541064988519">Faltam <ph name="DAYS" /> dias</translation>
-<translation id="805047784848435650">Com base no seu histórico de navegação</translation>
+<translation id="805047784848435650">Baseado no seu histórico de navegação</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> MB disponíveis</translation>
 <translation id="8058746566562539958">Abrir num novo sep. do Chrome</translation>
 <translation id="8063895661287329888">Falha ao adicionar marcador.</translation>

@@ -668,7 +668,7 @@
 <translation id="3322771899429619102">Võimaldab määrata URL-i mustrite loendi, mis määrab saidid, millel on lubatud kasutada võtmete loomist. Kui URL-i muster on loendis „KeygenBlockedForUrls”, alistab see need erandid.
 
           Kui jätate reegli määramata, kasutatakse kõikide saitide puhul globaalset vaikeväärtust, mis pärineb reeglist „DefaultKeygenSetting”, kui see on määratud, või kasutaja isiklikku seadistust.</translation>
-<translation id="332771718998993005">Määratakse nimi, mis esitatakse teenuse <ph name="PRODUCT_NAME" /> sihtkohana.
+<translation id="332771718998993005">Määratakse nimi, mida esitatakse teenuse <ph name="PRODUCT_NAME" /> sihtkohana.
 
           Kui selle reegli väärtuseks määratakse mõni täidetud string, kasutatakse seda stringi teenuse <ph name="PRODUCT_NAME" /> sihtkohana. Muul juhul on sihtkoha nimeks seadme nimi. Kui see reegel jäetakse määramata, on sihtkoha nimeks seadme nimi ja seadme omanik (või seadet haldava domeeni kasutaja) saab seda muuta. Nimi tohib olla maksimaalselt 24 tähemärki.</translation>
 <translation id="3381968327636295719">Kasuta vaikimisi hostbrauserit</translation>
@@ -1414,7 +1414,7 @@
 <translation id="6111936128861357925">Luba dinosauruse üllatusmäng</translation>
 <translation id="6114416803310251055">iganenud</translation>
 <translation id="6133088669883929098">Luba kõikidel saitidel võtmeid luua</translation>
-<translation id="6139485614509308022">Kui reegel „OffHours” on määratud, siis eiratakse määratud ajavahemikes seadme määratud reegleid (kasutage nende reeglite vaikeseadeid). Chrome rakendab seadme reeglid uuesti iga sündmuse korral, kui periood „OffHours” algab või lõpeb. Kui aeg „OffHours” lõpeb ja seadme reeglite seadeid muudetakse, teavitatakse sellest kasutajat ja ta logitakse välja (näiteks kui kasutaja pole sisse logitud lubatud kontoga).</translation>
+<translation id="6139485614509308022">Kui reegel „OffHours” on määratud, siis eiratakse määratud ajavahemikes seadme määratud reegleid (kasutage nende reeglite vaikeseadeid). Chrome rakendab seadme reeglid uuesti iga sündmuse korral, kui periood „OffHours” algab või lõpeb. Kui aeg „OffHours” lõpeb ja seadme reeglite seadeid muudetakse, teavitatakse sellest kasutajat ning ta logitakse välja (näiteks kui kasutaja pole sisse logitud lubatud kontoga).</translation>
 <translation id="6145799962557135888">Võimaldab määrata URL-i mustrite nimekirja, mis määrab saidid, millel on lubatud käitada JavaScripti.
 
           Kui jätate selle reegli määramata, siis kasutatakse kõikide saitide puhul globaalset vaikeväärtust, mis pärineb reeglist „DefaultJavaScriptSetting”, kui see on määratud, või kasutaja isiklikku konfigureerimist.</translation>

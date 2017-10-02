@@ -1107,7 +1107,7 @@
 <translation id="2688196195245426394">向伺服器註冊裝置時發生錯誤：<ph name="CLIENT_ERROR" />。</translation>
 <translation id="2690024944919328218">顯示語言選項</translation>
 <translation id="2691385045260836588">型號</translation>
-<translation id="2693176596243495071">糟糕！發生不明錯誤。請稍後再試一次，如果這樣無法解決問題，請與你的管理員聯絡。</translation>
+<translation id="2693176596243495071">糟糕！發生不明錯誤，請稍後再試。如果這樣無法解決問題，請與你的管理員聯絡。</translation>
 <translation id="2694026874607847549">1 個 Cookie</translation>
 <translation id="2695749433451188613">網際網路列印通訊協定 (HTTPS)</translation>
 <translation id="270358213449696159">Google Chrome 作業系統條款內容</translation>
@@ -2448,6 +2448,7 @@
 <translation id="4763830802490665879">系統將於你退出時將多個網站產生的 Cookie 清除。</translation>
 <translation id="4768332406694066911">您有這些機構核發給您的憑證</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> 的密碼</translation>
+<translation id="4777825441726637019">Play 商店</translation>
 <translation id="4779083564647765204">縮放</translation>
 <translation id="4780321648949301421">另存網頁...</translation>
 <translation id="4781787911582943401">放大畫面</translation>
@@ -3946,7 +3947,7 @@
 <translation id="7054808953701320293">知道了，不要再顯示這則訊息。</translation>
 <translation id="7056526158851679338">檢查裝置 (&amp;I)</translation>
 <translation id="7059858479264779982">設為自動啟動</translation>
-<translation id="7059893117020417984">如果想要進行私密瀏覽，請按一下三個點的圖示選單，然後開啟無痕式視窗</translation>
+<translation id="7059893117020417984">如果想要進行私密瀏覽，請按一下三個圓點圖示的選單，然後開啟無痕式視窗</translation>
 <translation id="7062222374113411376">允許最近關閉的網站完成資料的傳送及接收 (建議)</translation>
 <translation id="7063129466199351735">正在處理捷徑...</translation>
 <translation id="7063957500469387217">使用 Google 雲端列印設定或管理印表機。</translation>
@@ -4611,7 +4612,7 @@
 <translation id="8116190140324504026">更多資訊...</translation>
 <translation id="8116483400482790018">自訂拼字字典</translation>
 <translation id="8116972784401310538">書籤管理員(&amp;B)</translation>
-<translation id="8118362518458010043">Chrome 已停用這個擴充功能，因為這項功能可能不安全。</translation>
+<translation id="8118362518458010043">這個擴充功能可能不安全，因此遭到 Chrome 停用。</translation>
 <translation id="8118860139461251237">管理下載內容</translation>
 <translation id="8119631488458759651">移除這個網站</translation>
 <translation id="81238879832906896">黃色和白色花朵</translation>

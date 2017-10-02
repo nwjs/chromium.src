@@ -135,7 +135,7 @@
 <translation id="120368089816228251">Nota musical</translation>
 <translation id="1205489148908752564">Ler e alterar utilizadores na lista de autorizações</translation>
 <translation id="1206407435587370571">Explorar o seu Chromebook</translation>
-<translation id="1211364473545090084">Navegue na Web sem guardar o seu histórico de navegação com uma janela de navegação anónima.</translation>
+<translation id="1211364473545090084">Navegue na Web sem guardar o seu histórico de navegação com uma janela de navegação anónima</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> impressões digitais configuradas</translation>
 <translation id="1215411991991485844">Nova aplicação de segundo plano adicionada</translation>
 <translation id="1216654534877302979">Desativar som dos sites</translation>
@@ -965,7 +965,7 @@ Acho que este site não deveria estar bloqueado.</translation>
 <translation id="2489918096470125693">Adicionar &amp;Pasta...</translation>
 <translation id="249113932447298600">Lamentamos, mas de momento o aparelho <ph name="DEVICE_LABEL" /> não é suportado.</translation>
 <translation id="2492711144692806453">Mudança de nome concluída</translation>
-<translation id="2493021387995458222">Seleccionar "palavra de cada vez"</translation>
+<translation id="2493021387995458222">Selecionar "palavra de cada vez"</translation>
 <translation id="249303669840926644">Não foi possível concluir o registo</translation>
 <translation id="2495777824269688114">Descubra mais funcionalidades ou obtenha respostas. Selecione "?" para obter ajuda.</translation>
 <translation id="2496180316473517155">Histórico de navegação</translation>
@@ -1798,7 +1798,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3688526734140524629">Alterar canal</translation>
 <translation id="3688578402379768763">Atualizado</translation>
 <translation id="3693415264595406141">Palavra-passe:</translation>
-<translation id="3694027410380121301">Seleccionar o separador anterior</translation>
+<translation id="3694027410380121301">Selecionar o separador anterior</translation>
 <translation id="3695919544155087829">Introduza a palavra-passe utilizada para encriptar o ficheiro deste certificado.</translation>
 <translation id="3697100740575341996">O administrador de TI desativou os Diversos do Chrome para o seu dispositivo. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="3699624789011381381">Endereço de email</translation>
@@ -2451,6 +2451,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="4763830802490665879">Os cookies de vários Sites serão apagados à saída.</translation>
 <translation id="4768332406694066911">Tem certificados destas entidades que o identificam</translation>
 <translation id="4776917500594043016">Palavra-passe para <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Play Store</translation>
 <translation id="4779083564647765204">Zoom</translation>
 <translation id="4780321648949301421">Guardar página como...</translation>
 <translation id="4781787911582943401">Ampliar o ecrã</translation>
@@ -2843,7 +2844,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="5355097969896547230">Localizar novamente</translation>
 <translation id="5355926466126177564">A extensão "<ph name="EXTENSION_NAME" />" alterou a página apresentada quando pesquisa a partir da caixa geral.</translation>
 <translation id="5360150013186312835">Mostrar na Barra de ferramentas</translation>
-<translation id="5362741141255528695">Seleccionar ficheiro de chave privada.</translation>
+<translation id="5362741141255528695">Selecionar ficheiro de chave privada.</translation>
 <translation id="5363109466694494651">Powerwash e reverter</translation>
 <translation id="5367091008316207019">A ler ficheiro...</translation>
 <translation id="5367116720986018215">Agrupado</translation>
@@ -3366,7 +3367,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6169666352732958425">Não é possível transmitir o ambiente de trabalho.</translation>
 <translation id="6171948306033499786">Interromper impressão</translation>
 <translation id="6175314957787328458">GUID de Domínio do Windows</translation>
-<translation id="6178664161104547336">Seleccionar um certificado</translation>
+<translation id="6178664161104547336">Selecionar um certificado</translation>
 <translation id="6180288788882902869">O Google Play no seu <ph name="DEVICE_TYPE" /></translation>
 <translation id="6181431612547969857">Transferência bloqueada</translation>
 <translation id="6185132558746749656">Localização do dispositivo</translation>
@@ -3863,7 +3864,7 @@ Utilize esta funcionalidade apenas com contas fidedignas.</translation>
 <translation id="6941937518557314510">Inicie sessão no <ph name="TOKEN_NAME" /> para autenticar em <ph name="HOST_NAME" /> com o seu certificado.</translation>
 <translation id="6943176775188458830">Cancelar impressão</translation>
 <translation id="6943836128787782965">A obtenção de HTTP falhou</translation>
-<translation id="6945221475159498467">Seleccionar</translation>
+<translation id="6945221475159498467">Selecionar</translation>
 <translation id="6948064128393024347">Iniciador, resultados da pesquisa</translation>
 <translation id="6949306908218145636">Adicionar Páginas Abertas aos Marcadores...</translation>
 <translation id="6955446738988643816">Inspecionar Pop-up</translation>
@@ -3951,7 +3952,7 @@ Utilize esta funcionalidade apenas com contas fidedignas.</translation>
 <translation id="7054808953701320293">Entendido, não voltar a mostrar esta mensagem.</translation>
 <translation id="7056526158851679338">&amp;Inspecionar dispositivos</translation>
 <translation id="7059858479264779982">Definir para iniciação automática</translation>
-<translation id="7059893117020417984">Para navegar em privado, clique no menu dos três pontos para abrir uma janela de navegação anónima.</translation>
+<translation id="7059893117020417984">Para navegar em privado, clique no menu dos três pontos para abrir uma janela de navegação anónima</translation>
 <translation id="7062222374113411376">Permitir que os sites fechados recentemente concluam o envio e a receção de dados (recomendado)</translation>
 <translation id="7063129466199351735">A processar atalhos...</translation>
 <translation id="7063957500469387217">Configure ou gira impressoras no Google Cloud Print.</translation>
@@ -4735,7 +4736,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8283475148136688298">O código de autenticação foi rejeitado ao ligar a "<ph name="DEVICE_NAME" />".</translation>
 <translation id="8284279544186306258">todos os sites de <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">Iniciar Sessão</translation>
-<translation id="8286963743045814739">Pode navegar em privado através de uma janela de navegação anónima.</translation>
+<translation id="8286963743045814739">Pode navegar em privado com uma janela de navegação anónima</translation>
 <translation id="8291967909914612644">País do fornecedor base</translation>
 <translation id="8294431847097064396">Origem</translation>
 <translation id="8297006494302853456">Fraca</translation>
@@ -4745,7 +4746,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8308179586020895837">Perguntar se <ph name="HOST" /> pretende aceder à sua câmara</translation>
 <translation id="830868413617744215">Beta</translation>
 <translation id="8309458809024885768">O certificado já existe</translation>
-<translation id="8309505303672555187">Seleccionar uma rede:</translation>
+<translation id="8309505303672555187">Selecionar uma rede:</translation>
 <translation id="8312871300878166382">Colar numa pasta</translation>
 <translation id="8317671367883557781">Adicionar ligação de rede</translation>
 <translation id="8319414634934645341">Utilização alargada da chave</translation>
@@ -5099,7 +5100,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8892992092192084762">Tema instalado "<ph name="THEME_NAME" />".</translation>
 <translation id="8893928184421379330">Lamentamos, não foi possível reconhecer o aparelho <ph name="DEVICE_LABEL" />.</translation>
 <translation id="88986195241502842">Página para baixo</translation>
-<translation id="8898786835233784856">Seleccionar separador seguinte</translation>
+<translation id="8898786835233784856">Selecionar separador seguinte</translation>
 <translation id="8898840733695078011">Intensidade do sinal</translation>
 <translation id="8899285681604219177">Extensões não suportadas desativadas</translation>
 <translation id="8899551033019439140">A procurar impressora…</translation>

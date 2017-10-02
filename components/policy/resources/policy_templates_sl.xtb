@@ -1194,7 +1194,7 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 <translation id="5318185076587284965">Gostitelju oddaljenega dostopa omogoči uporabo posredovalnih strežnikov</translation>
 <translation id="5323128137188992869">Omogočanje predvajanja predstavnosti v napravi z napravo <ph name="PRODUCT_NAME" />.
 
-          Če je ta pravilnik onemogočen, uporabniki ne bodo mogli predajati vsebine v tej napravi. Če je pravilnik omogočen, je uporabnikom dovoljeno predvajanje vsebine. Če ta pravilnik ni nastavljen, uporabnikom ni dovoljeno predvajati vsebine v včlanjenih napravah OS Chrome, vendar jo lahko predvajajo v napravah, ki niso včlanjene.</translation>
+          Če je ta pravilnik onemogočen, uporabniki ne bodo mogli predvajati vsebine v tej napravi. Če je pravilnik omogočen, je uporabnikom dovoljeno predvajanje vsebine. Če ta pravilnik ni nastavljen, uporabnikom ni dovoljeno predvajati vsebine v včlanjenih napravah OS Chrome, vendar jo lahko predvajajo v napravah, ki niso včlanjene.</translation>
 <translation id="5330684698007383292">Dovoli, da <ph name="PRODUCT_FRAME_NAME" /> obravnava te vrste vsebine.</translation>
 <translation id="5365946944967967336">V orodni vrstici pokaži gumb »Domov«</translation>
 <translation id="5366977351895725771">Če pravilnik ni vklopljen, ta uporabnik ne more ustvarjati zaščitenih uporabnikov. Obstoječi zaščiteni uporabniki so še vedno na voljo.
@@ -1732,7 +1732,7 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
 
           Če je ta nastavitev onemogočena, ta funkcija ne bo na voljo.</translation>
 <translation id="7275334191706090484">Upravljani zaznamki</translation>
-<translation id="7295019613773647480">Omogoči nadzorovane uporabnike</translation>
+<translation id="7295019613773647480">Omogoči zaščitene uporabnike</translation>
 <translation id="7301543427086558500">Določa seznam nadomestnih URL-jev, ki jih je mogoče uporabiti za pridobivanje iskalnih izrazov iz iskalnika. URL-ji morajo vsebovati niz <ph name="SEARCH_TERM_MARKER" />, ki bo uporabljen za pridobivanje iskalnih izrazov.
 
           Ta pravilnik je izbiren. Če ni nastavljen, za pridobivanje iskalnih izrazov ne bodo uporabljeni nadomestni URL-ji.

@@ -2235,7 +2235,7 @@ Presiona cualquier tecla para seguir navegando.</translation>
 <translation id="4408599188496843485">A&amp;yuda</translation>
 <translation id="4409697491990005945">Márgenes</translation>
 <translation id="4411578466613447185">Firmante del código</translation>
-<translation id="4414232939543644979">Nuevo ventana de &amp;incógnito</translation>
+<translation id="4414232939543644979">Nueva ventana de &amp;incógnito</translation>
 <translation id="4415531645938095119">Las actualizaciones de software para este dispositivo ya no están disponibles.</translation>
 <translation id="4415748029120993980">Curva elíptica SECG secp384r1 (también conocido como NIST P-384)</translation>
 <translation id="4419409365248380979">Permitir siempre que <ph name="HOST" /> configure las cookies</translation>
@@ -2446,6 +2446,7 @@ Presiona cualquier tecla para seguir navegando.</translation>
 <translation id="4763830802490665879">Las cookies de varios sitios se borrarán al salir.</translation>
 <translation id="4768332406694066911">Tienes certificados de esas organizaciones que te identifican</translation>
 <translation id="4776917500594043016">Contraseña para <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Play Store</translation>
 <translation id="4779083564647765204">Zoom</translation>
 <translation id="4780321648949301421">Guardar página como...</translation>
 <translation id="4781787911582943401">Acercar pantalla</translation>
@@ -3667,7 +3668,7 @@ Usa esta función solo con cuentas de confianza.</translation>
 <translation id="6615807189585243369"><ph name="BURNT_AMOUNT" /> de <ph name="TOTAL_SIZE" /> copiados</translation>
 <translation id="661719348160586794">Las contraseñas que guardaste aparecerán aquí.</translation>
 <translation id="6619058681307408113">Line Printer Daemon (LPD)</translation>
-<translation id="6619990499523117484">Confirma tu PIN</translation>
+<translation id="6619990499523117484">Confirma el PIN</translation>
 <translation id="662080504995468778">Permanecer aquí</translation>
 <translation id="6621715389962683284">No se puede establecer una conexión de red.</translation>
 <translation id="6622980291894852883">Continuar con el bloqueo de imágenes</translation>

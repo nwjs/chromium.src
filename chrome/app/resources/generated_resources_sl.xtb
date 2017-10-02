@@ -2451,6 +2451,7 @@ Pritisnite katero koli tipko, če želite še naprej raziskovati.</translation>
 <translation id="4763830802490665879">Piškotki z več spletnih mest bodo ob izhodu izbrisani.</translation>
 <translation id="4768332406694066911">Imate potrdila teh organizacij, ki vas identificirajo</translation>
 <translation id="4776917500594043016">Geslo za <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Trgovina Play</translation>
 <translation id="4779083564647765204">Povečaj</translation>
 <translation id="4780321648949301421">Shrani stran &amp;kot ...</translation>
 <translation id="4781787911582943401">Povečava zaslona</translation>
@@ -4081,7 +4082,7 @@ Uporabljajte to funkcijo samo z računi, ki jim zaupate.</translation>
 <translation id="7290242001003353852">Prijavna storitev, ki jo gosti <ph name="SAML_DOMAIN" />, dostopa do vaše kamere.</translation>
 <translation id="7290594223351252791">Potrditev registracije</translation>
 <translation id="729459249680637905">Št. preostalih poskusov: $1</translation>
-<translation id="7295019613773647480">Omogoči nadzorovane uporabnike</translation>
+<translation id="7295019613773647480">Omogoči zaščitene uporabnike</translation>
 <translation id="7295662345261934369">Deljenje z drugimi</translation>
 <translation id="7296774163727375165">Pogoji za <ph name="DOMAIN" /></translation>
 <translation id="7297443947353982503">Napačno uporabniško ime/geslo ali preverjanje pristnosti EAP ni uspelo</translation>

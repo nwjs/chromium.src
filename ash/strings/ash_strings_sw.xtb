@@ -3,7 +3,7 @@
 <translationbundle lang="sw">
 <translation id="1012876632442809908">Kifaa cha USB-C (mlango wa mbele)</translation>
 <translation id="1013923882670373915">Kifaa cha Bluetooth cha "<ph name="DEVICE_NAME" />" kinaomba idhini ya kuoanisha. Tafadhali weka nambari hii ya PIN kwenye kifaa hicho: <ph name="PINCODE" /></translation>
-<translation id="1032891413405719768">Betri ya Stylus imepungua</translation>
+<translation id="1032891413405719768">Chaji ya betri ya Stylus imepungua</translation>
 <translation id="112308213915226829">Ficha rafu kiotomatiki</translation>
 <translation id="1153356358378277386">Vifaa vilivyooanishwa</translation>
 <translation id="1195412055398077112">angalia kwa ujumla:</translation>
@@ -92,6 +92,7 @@
 <translation id="315116470104423982">Data ya mtandao wa simu</translation>
 <translation id="3236488194889173876">Mtandao wa simu haupatikani</translation>
 <translation id="3294437725009624529">Mgeni</translation>
+<translation id="332587331255250389">Tafadhali badilisha betri</translation>
 <translation id="3364721542077212959">Zana za stylus</translation>
 <translation id="3368922792935385530">Umeunganishwa</translation>
 <translation id="3371140690572404006">Kifaa cha USB-C (mlango wa upande wa kulia mbele)</translation>

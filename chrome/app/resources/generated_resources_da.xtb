@@ -135,7 +135,7 @@
 <translation id="120368089816228251">Musiknode</translation>
 <translation id="1205489148908752564">Se og rediger brugerne på hvidlisten</translation>
 <translation id="1206407435587370571">Udforsk din Chromebook</translation>
-<translation id="1211364473545090084">Brug internettet uden at gemme din browserhistorik med et inkognitovindue</translation>
+<translation id="1211364473545090084">Brug internettet uden at gemme din browserhistorik ved hjælp af et inkognitovindue</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> fingeraftryk er registreret</translation>
 <translation id="1215411991991485844">Der er tilføjet en ny baggrunds-app</translation>
 <translation id="1216654534877302979">Slå lyden fra på websites</translation>
@@ -2448,6 +2448,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="4763830802490665879">Cookies fra flere websites bliver ryddet ved lukning.</translation>
 <translation id="4768332406694066911">Du har certifikater fra disse organisationer, der identificerer dig</translation>
 <translation id="4776917500594043016">Adgangskode for <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Play Butik</translation>
 <translation id="4779083564647765204">Zoom</translation>
 <translation id="4780321648949301421">Gem side som...</translation>
 <translation id="4781787911582943401">Zoom ind på skærmen</translation>

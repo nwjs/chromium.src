@@ -135,7 +135,7 @@
 <translation id="120368089816228251">Nota muzik</translation>
 <translation id="1205489148908752564">Baca dan ubah pengguna senarai putih</translation>
 <translation id="1206407435587370571">Teroka Chromebook anda</translation>
-<translation id="1211364473545090084">Gunakan web tanpa menyimpan sejarah penyemakan imbas anda dengan tetingkap inkognito</translation>
+<translation id="1211364473545090084">Gunakan web tanpa menyimpan sejarah penyemakan imbas anda menggunakan tetingkap inkognito</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> cap jari disediakan</translation>
 <translation id="1215411991991485844">Apl latar belakang baharu ditambah</translation>
 <translation id="1216654534877302979">Redam tapak</translation>
@@ -2450,6 +2450,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="4763830802490665879">Kuki dari beberapa tapak akan dikosongkan semasa keluar.</translation>
 <translation id="4768332406694066911">Anda mempunyai sijil daripada organisasi ini yang mengenal pasti anda</translation>
 <translation id="4776917500594043016">Kata laluan untuk <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Gedung Play</translation>
 <translation id="4779083564647765204">Zum</translation>
 <translation id="4780321648949301421">Simpan Halaman Sebagai...</translation>
 <translation id="4781787911582943401">Zum masuk skrin</translation>

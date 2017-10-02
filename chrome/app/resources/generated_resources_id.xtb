@@ -471,7 +471,7 @@
 <translation id="1707463636381878959">Bagikan jaringan ini dengan pengguna lain</translation>
 <translation id="1708338024780164500">(Tidak aktif)</translation>
 <translation id="1708713382908678956"><ph name="NAME_PH" /> (ID: <ph name="ID_PH" />)</translation>
-<translation id="1709106626015023981"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (Bawaan)</translation>
+<translation id="1709106626015023981"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (Asli)</translation>
 <translation id="1711973684025117106">Gagal membuat file zip, kesalahan tidak terduga: $1</translation>
 <translation id="1712349894969001173">Dapatkan sandi ini di iPhone</translation>
 <translation id="1719312230114180055">Catatan: Sidik jari mungkin kurang aman dibandingkan dengan PIN atau sandi yang kuat.</translation>
@@ -2449,6 +2449,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="4763830802490665879">Cookie dari berbagai situs akan dihapus saat keluar.</translation>
 <translation id="4768332406694066911">Anda memiliki sertifikat dari organisasi ini yang mengenali Anda</translation>
 <translation id="4776917500594043016">Sandi untuk <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Play Store</translation>
 <translation id="4779083564647765204">Zoom</translation>
 <translation id="4780321648949301421">Simpan Laman Sebagai...</translation>
 <translation id="4781787911582943401">Memperbesar layar</translation>
@@ -3948,7 +3949,7 @@ Hanya gunakan fitur ini dengan akun yang Anda percayai.</translation>
 <translation id="7054808953701320293">Mengerti, jangan tampilkan lagi.</translation>
 <translation id="7056526158851679338">&amp;Periksa Perangkat</translation>
 <translation id="7059858479264779982">Setel ke luncurkan otomatis</translation>
-<translation id="7059893117020417984">Untuk melakukan browsing secara rahasia, klik menu ikon titik untuk membuka jendela samaran</translation>
+<translation id="7059893117020417984">Untuk melakukan browsing rahasia, klik menu ikon titik untuk membuka jendela samaran</translation>
 <translation id="7062222374113411376">Izinkan situs yang baru ditutup untuk menyelesaikan pengiriman dan penerimaan data (disarankan)</translation>
 <translation id="7063129466199351735">Memproses pintasan...</translation>
 <translation id="7063957500469387217">Siapkan atau kelola printer di Google Cloud Print.</translation>

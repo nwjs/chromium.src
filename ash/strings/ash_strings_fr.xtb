@@ -3,7 +3,7 @@
 <translationbundle lang="fr">
 <translation id="1012876632442809908">Appareil USB de type C (port situé sur l'avant de l'appareil)</translation>
 <translation id="1013923882670373915">L'appareil Bluetooth "<ph name="DEVICE_NAME" />" demande l'autorisation de s'associer. Veuillez saisir le code suivant sur l'appareil : <ph name="PINCODE" />.</translation>
-<translation id="1032891413405719768">Le niveau de charge des piles du stylet est faible.</translation>
+<translation id="1032891413405719768">Le niveau de charge des piles du stylet est faible</translation>
 <translation id="112308213915226829">Masquer automatiquement l'étagère</translation>
 <translation id="1153356358378277386">Appareils associés</translation>
 <translation id="1195412055398077112">Surbalayage</translation>
@@ -92,6 +92,7 @@
 <translation id="315116470104423982">Données mobiles</translation>
 <translation id="3236488194889173876">Aucun réseau mobile disponible</translation>
 <translation id="3294437725009624529">Invité</translation>
+<translation id="332587331255250389">Veuillez remplacer la batterie</translation>
 <translation id="3364721542077212959">Outils de stylet</translation>
 <translation id="3368922792935385530">Connecté</translation>
 <translation id="3371140690572404006">Appareil USB de type C (port situé sur la droite de l'appareil, à l'avant)</translation>

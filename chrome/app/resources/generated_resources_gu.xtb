@@ -893,12 +893,12 @@
 <translation id="2381756643783702095">મોકલતાં પહેલાં પૂછો (ભલામણ કરેલ)</translation>
 <translation id="2384436799579181135">એક ભૂલ આવી છે. કૃપા કરીને તમારું પ્રિન્ટર તપાસો અને ફરી પ્રયાસ કરો.</translation>
 <translation id="2385700042425247848">સેવા નામ:</translation>
-<translation id="2387458720915042159">પ્રૉક્સી કનેક્શનો પ્રકાર</translation>
-<translation id="2391243203977115091"><ph name="FILE_COUNT" /> નવા ફોટા મળ્યાં
+<translation id="2387458720915042159">પ્રૉક્સી કનેક્શનનો પ્રકાર</translation>
+<translation id="2391243203977115091"><ph name="FILE_COUNT" /> નવા ફોટો મળ્યાં
     <ph name="LINE_BREAK1" />
     ઉપકરણ પર પર્યાપ્ત સ્થાન નથી.
     <ph name="LINE_BREAK2" />
-    પ્રારંભ કરવા માટે ઓછા ફોટા પસંદ કરીને પ્રયાસ કરો.</translation>
+    પ્રારંભ કરવા માટે ઓછા ફોટો પસંદ કરીને પ્રયાસ કરો.</translation>
 <translation id="2391419135980381625">માનક ફૉન્ટ</translation>
 <translation id="2391762656119864333">રદબાતલ કરો</translation>
 <translation id="2392369802118427583">સક્રિય કરો</translation>
@@ -1366,7 +1366,7 @@
 <translation id="3046910703532196514">વેબપૃષ્ઠ, પૂર્ણ</translation>
 <translation id="304826556400666995">ટૅબ્સને અનમ્યૂટ કરો</translation>
 <translation id="3053013834507634016">પ્રમાણપત્ર કી ઉપયોગ</translation>
-<translation id="3057861065630527966">તમારા ફોટા અને વિડિઓઝનો બેકઅપ લો</translation>
+<translation id="3057861065630527966">તમારા ફોટો અને વિડિઓઝનો બેકઅપ લો</translation>
 <translation id="3058212636943679650">જો કોઈવાર તમને તમારા કમ્પ્યુટરની ઑપરેટિંગ સિસ્ટમ પુનઃસ્થાપિત કરવાની જરૂર પડે, તો તમને  SD કાર્ડ અથવા USB મેમરી સ્ટિકની પુનઃપ્રાપ્તિ કરવાની જરૂર પડશે.</translation>
 <translation id="3060379269883947824">બોલવા માટે પસંદ કરો સક્ષમ કરો</translation>
 <translation id="3064410671692449875">અપૂરતો ડેટા</translation>
@@ -1500,7 +1500,7 @@
 <translation id="3269093882174072735">છબી લોડ કરો</translation>
 <translation id="3269101346657272573">કૃપા કરીને PIN દાખલ કરો.</translation>
 <translation id="326999365752735949">ડાઉનલોડનો તફાવત</translation>
-<translation id="3270965368676314374">તમારા કમ્પ્યુટરમાંથી ફોટા, સંગીત અને અન્ય મીડિયા વાંચો, બદલો અને કાઢી નાખો</translation>
+<translation id="3270965368676314374">તમારા કમ્પ્યુટરમાંથી ફોટો, સંગીત અને અન્ય મીડિયા વાંચો, બદલો અને કાઢી નાખો</translation>
 <translation id="327147043223061465">બધી કુકીઝ અને સાઇટ ડેટા જુઓ</translation>
 <translation id="3271648667212143903"><ph name="ORIGIN" />, કનેક્ટ કરવા માગે છે</translation>
 <translation id="3273410961255278341">આ માટે મોકલો:</translation>
@@ -1638,7 +1638,7 @@
 <translation id="3459774175445953971">છેલ્લું સંપાદન:</translation>
 <translation id="3462413494201477527">એકાઉન્ટ સેટઅપ રદ કરીએ?</translation>
 <translation id="346431825526753">આ <ph name="CUSTODIAN_EMAIL" /> દ્વારા સંચાલિત બાળકોનું એકાઉન્ટ છે.</translation>
-<translation id="3465566417615315331">તમારા ફોટા પર ક્લિક કરો</translation>
+<translation id="3465566417615315331">તમારા ફોટો પર ક્લિક કરો</translation>
 <translation id="3466147780910026086">તમારા મીડિયા ઉપકરણને સ્કેન કરી રહ્યું છે...</translation>
 <translation id="3467267818798281173">સૂચનો માટે Google ને પૂછો</translation>
 <translation id="3468275649641751422">વીડિઓ અથવા ઑડિઓ ફાઇલને સ્ટ્રીમ કરો</translation>
@@ -1718,7 +1718,7 @@
 <translation id="357886715122934472">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt;, તમે માલિકી ધરાવો છો તે જૂથ સાથે &lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt; પ્રિન્ટર શેર કરવા માગે છે: &lt;strong&gt;<ph name="GROUP_NAME" />&lt;/strong&gt;. જો તમે સ્વીકારો છો, તો બધા જૂથ સભ્યો પ્રિન્ટર પર છાપવામાં સમર્થ હશે.</translation>
 <translation id="3582792037806681688">આ સત્રમાં કોઈ વપરાશકર્તા માટે બહુવિધ સાઇન-ઇન નામંજૂર કરવામાં આવેલ છે</translation>
 <translation id="3583413473134066075">જાય છે... જાય છે... ગયું.</translation>
-<translation id="3584169441612580296">વાંચો અને તમારા કમ્પ્યુટરમાંથી ફોટા, સંગીત અને અન્ય મીડિયા બદલો</translation>
+<translation id="3584169441612580296">વાંચો અને તમારા કમ્પ્યુટરમાંથી ફોટો, સંગીત અને અન્ય મીડિયા બદલો</translation>
 <translation id="3587482841069643663">બધા</translation>
 <translation id="358796204584394954">જોડી બનાવવા માટે "<ph name="DEVICE_NAME" />" પર આ કોડ લખો:</translation>
 <translation id="3590194807845837023">પ્રોફાઇલ અનલૉક કરો અને ફરીથી લોંચ કરો</translation>
@@ -1771,7 +1771,7 @@
 <translation id="3653999333232393305"><ph name="HOST" /> ને તમારા માઇક્રોફોનને ઍક્સેસ કરવા દેવાનું ચાલુ રાખો</translation>
 <translation id="3654045516529121250">તમારી ઍક્સેસિબિલિટી સેટિંગ્સ વાંચો</translation>
 <translation id="3655712721956801464">{NUM_FILES,plural, =1{તેને એક ફાઇલ માટે કાયમી ઍક્સેસ છે.}one{તેને # ફાઈલ્સ માટે કાયમી ઍક્સેસ છે.}other{તેને # ફાઈલ્સ માટે કાયમી ઍક્સેસ છે.}}</translation>
-<translation id="365793796291733849"><ph name="BEGIN_PARAGRAPH1" />જ્યારે તમે સ્વયંચલિત બેકઅપ ચાલુ કરો છો, ત્યારે ઉપકરણ અને ઍપ્લિકેશન ડેટાને સમયાંતરે Google ડ્રાઇવમાં ખાનગી ફોલ્ડરમાં સાચવવામાં આવે છે. ઍપ્લિકેશન ડેટા એ ઍપ્લિકેશને સાચવેલો કોઈપણ ડેટા હોઈ શકે છે (વિકાસકર્તા સેટિંગ્સના આધારે), જેમાં સંપર્કો, સંદેશા અને ફોટા જેવા સંભવિત રૂપે સંવેદનશીલ ડેટાનો સમાવેશ થાય છે.<ph name="END_PARAGRAPH1" />
+<translation id="365793796291733849"><ph name="BEGIN_PARAGRAPH1" />જ્યારે તમે સ્વયંચલિત બેકઅપ ચાલુ કરો છો, ત્યારે ઉપકરણ અને ઍપ્લિકેશન ડેટાને સમયાંતરે Google ડ્રાઇવમાં ખાનગી ફોલ્ડરમાં સાચવવામાં આવે છે. ઍપ્લિકેશન ડેટા એ ઍપ્લિકેશને સાચવેલો કોઈપણ ડેટા હોઈ શકે છે (વિકાસકર્તા સેટિંગ્સના આધારે), જેમાં સંપર્કો, સંદેશા અને ફોટો જેવા સંભવિત રૂપે સંવેદનશીલ ડેટાનો સમાવેશ થાય છે.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />તમારા Drive storage ક્વોટાની સામે બેકઅપ ડેટાને ગણવામાં આવશે નહીં. મોટી ફાઇલો અથવા વિકાસકર્તાઓએ સેવામાંથી બાકાત રાખવાનું પસંદ કર્યું હોય તેવી ફાઇલોનું બેક અપ લેવામાં આવશે નહીં.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="3660234220361471169">અવિશ્વસનીય</translation>
 <translation id="3661054927247347545">સાઇન ઇન પ્રમાણન માન્ય નથી, <ph name="MINUTES" /> : <ph name="SECONDS" />માં વિંડો બંધ થાય છે</translation>
@@ -1823,7 +1823,7 @@
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
 <translation id="3739254215541673094"><ph name="APPLICATION" /> ખોલીએ?</translation>
 <translation id="3741158646617793859"><ph name="DEVICE_NAME" /> હવે Admin Console માં દેખાશે</translation>
-<translation id="3741243925913727067">Google ડ્રાઇવ પર તમારા મીડિયા ઉપકરણના ફોટા અને વિડિઓઝનો બેક અપ લો.</translation>
+<translation id="3741243925913727067">Google ડ્રાઇવ પર તમારા મીડિયા ઉપકરણના ફોટો અને વિડિઓઝનો બેક અપ લો.</translation>
 <translation id="3744111561329211289">પૃષ્ઠભૂમિ સમન્વયન</translation>
 <translation id="3745016858329272300">સામાન્ય માહિતી</translation>
 <translation id="3748026146096797577">કનેક્ટેડ નથી</translation>
@@ -1881,7 +1881,7 @@
 <translation id="3812525830114410218">ખોટું પ્રમાણપત્ર</translation>
 <translation id="3813296892522778813">જો તમે શોધી રહ્યાં છો તે શોધી શકતાં ન હોવ તો <ph name="BEGIN_LINK_CHROMIUM" />Google Chrome સહાય<ph name="END_LINK_CHROMIUM" /> પર જાઓ</translation>
 <translation id="3813984289128269159">Ok Google</translation>
-<translation id="3815571115159309122"><ph name="FILE_COUNT" /> નવા ફોટા મળ્યા
+<translation id="3815571115159309122"><ph name="FILE_COUNT" /> નવા ફોટો મળ્યા
     <ph name="LINE_BREAK1" />
     <ph name="BEGIN_LINK" />Google ડ્રાઇવ<ph name="END_LINK" /> પર બેકઅપ લેવા માટે તૈયાર</translation>
 <translation id="3816789583333631750">આ સુવિધાનો ઉપયોગ કરવા માટે મૂળ ક્લાઇન્ટ પ્લગ-ઇનને સક્ષમ કરવાની જરૂર છે.</translation>
@@ -2088,7 +2088,7 @@
 <translation id="413121957363593859">ઘટકો</translation>
 <translation id="4131410914670010031">કાળો અને સફેદ</translation>
 <translation id="4135450933899346655">તમારા પ્રમાણપત્રો</translation>
-<translation id="4138267921960073861">સાઇન-ઇન સ્ક્રીન પર વપરાશકર્તા નામ અને ફોટા બતાવો</translation>
+<translation id="4138267921960073861">સાઇન-ઇન સ્ક્રીન પર વપરાશકર્તા નામ અને ફોટો બતાવો</translation>
 <translation id="4140559601186535628">પુશ સંદેશાઓ</translation>
 <translation id="4146026355784316281">હંમેશા સિસ્ટમ દર્શક સાથે ખોલો</translation>
 <translation id="4146175323503586871"><ph name="SERVICE_NAME" /> તપાસવા માગે છે કે તમારું Chrome OS ઉપકરણ ઓફર માટે પાત્ર છે કે કેમ. <ph name="MORE_INFO_LINK" /></translation>
@@ -2182,7 +2182,7 @@
 <translation id="4312866146174492540">અવરોધિત કરો (ડિફૉલ્ટ)</translation>
 <translation id="4315548163539304064">તમારા મીડિયા ઉપકરણને સ્કેન કરી રહ્યાં છે...
     <ph name="LINE_BREAK1" />
-    <ph name="FILE_COUNT" /> નવા ફોટા મળ્યાં</translation>
+    <ph name="FILE_COUNT" /> નવા ફોટો મળ્યાં</translation>
 <translation id="4316850752623536204">વિકાસકર્તા વેબસાઇટ</translation>
 <translation id="4321136812570927563">{NUM_DOWNLOAD,plural, =1{ડાઉનલોડ ચાલુ રાખો}one{ડાઉનલોડ્સ ચાલુ રાખો}other{ડાઉનલોડ્સ ચાલુ રાખો}}</translation>
 <translation id="4321179778687042513">ctrl</translation>
@@ -2446,6 +2446,7 @@
 <translation id="4763830802490665879">બહુવિધ સાઇટ્સની કૂકીઝને બહાર નીકળવા પર સાફ કરવામાં આવશે.</translation>
 <translation id="4768332406694066911">તમારી પાસે આ સંસ્થાઓના પ્રમાણપત્ર છે કે જે તમને ઓળખે છે</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> માટેનો પાસવર્ડ </translation>
+<translation id="4777825441726637019">Play સ્ટોર</translation>
 <translation id="4779083564647765204">ઝૂમ કરો</translation>
 <translation id="4780321648949301421">પૃષ્ઠ આ રીતે સાચવો...</translation>
 <translation id="4781787911582943401">સ્ક્રીનનું ઝૂમ વધારો</translation>
@@ -2583,7 +2584,7 @@
 <translation id="4967749818080339523">એકાઉન્ટ પસંદ કરો</translation>
 <translation id="496888482094675990">ફાઇલ્સ ઍપ્લિકેશન તમે Google ડ્રાઇવ, બાહ્ય સ્ટોરેજ અથવા તમારા Chrome OS ઉપકરણ પર સાચવી છે તે ફાઇલોની ઝડપી ઍક્સેસ પ્રદાન કરે છે.</translation>
 <translation id="4969785127455456148">આલ્બમ</translation>
-<translation id="4971078675931090428">બાકી પ્રક્રિયામાં થોડો સમય લાગી શકે છે. કૃપા કરીને રાહ જુઓ.</translation>
+<translation id="4971078675931090428">નામ બદલવાની પ્રક્રિયામાં થોડો સમય લાગી શકે છે. કૃપા કરીને રાહ જુઓ.</translation>
 <translation id="4971412780836297815">પૂર્ણ થાય ત્યારે ખોલો</translation>
 <translation id="4972129977812092092">પ્રિન્ટર સંપાદિત કરો</translation>
 <translation id="4973307593867026061">પ્રિંટર્સ ઉમેરો</translation>
@@ -2904,7 +2905,7 @@
 <translation id="5453029940327926427">ટૅબ્સ બંધ કરો</translation>
 <translation id="5454166040603940656"><ph name="PROVIDER" /> સાથે</translation>
 <translation id="5457113250005438886">અમાન્ય</translation>
-<translation id="5457459357461771897">વાંચો અને તમારા કમ્પ્યુટરમાંથી ફોટા, સંગીત અને અન્ય મીડિયા કાઢી નાખો</translation>
+<translation id="5457459357461771897">વાંચો અને તમારા કમ્પ્યુટરમાંથી ફોટો, સંગીત અને અન્ય મીડિયા કાઢી નાખો</translation>
 <translation id="5457599981699367932">અતિથિ તરીકે બ્રાઉઝ કરો</translation>
 <translation id="5458998536542739734">લૉક સ્ક્રીન માટેની નોંધો</translation>
 <translation id="5463275305984126951"><ph name="LOCATION" /> ની અનુક્રમણિકા</translation>
@@ -2961,7 +2962,7 @@
 <translation id="5534520101572674276">કદની ગણના કરી રહ્યું છે</translation>
 <translation id="5535941515421698170">આ ઉપકરણ પરથી તમારો અસ્તિત્વમાંનો ડેટા પણ દૂર કરો</translation>
 <translation id="5537725057119320332">કાસ્ટ કરો</translation>
-<translation id="5539221284352502426">તમે દાખલ કરેલો પાસવર્ડ સર્વર દ્વારા નકારવામાં આવ્યો હતો. આ શક્ય કારણો હોઈ શકે છે: પાસવર્ડ ખૂબ ટૂંકો છે. પાસવર્ડમાં માત્ર સંખ્યાઓ અથવા પ્રતીકો જ હોવા જોઈએ. પાસવર્ડ પહેલાંના પાસવર્ડ કરતાં ભિન્ન હોવો જોઈએ.</translation>
+<translation id="5539221284352502426">તમે દાખલ કરેલો પાસવર્ડ સર્વર દ્વારા નકારવામાં આવ્યો હતો. આ શક્ય કારણો હોઈ શકે છે: પાસવર્ડ ખૂબ ટૂંકો છે. પાસવર્ડમાં સંખ્યાઓ અથવા પ્રતીકો સમાવિષ્ટ હોવા જ જોઈએ. પાસવર્ડ પહેલાંના પાસવર્ડ કરતાં ભિન્ન હોવો જોઈએ.</translation>
 <translation id="5541687815721799001">ઍપ્લિકેશનનો ઉપયોગ કરો</translation>
 <translation id="5542132724887566711">પ્રોફાઇલ</translation>
 <translation id="5543983818738093899">સ્થિતિ માટે તપાસી રહ્યું છે...</translation>
@@ -3948,7 +3949,7 @@
 <translation id="7054808953701320293">સમજાઈ ગયું, મને ફરીથી બતાવશો નહીં.</translation>
 <translation id="7056526158851679338">&amp;ઉપકરણોની તપાસ કરો</translation>
 <translation id="7059858479264779982">સ્વતઃ-લોંચ સેટ કરો</translation>
-<translation id="7059893117020417984">ખાનગી રૂપે બ્રાઉઝ કરવા માટે, છુપી વિંડો ખોલવા માટે બિંદુના આઇકનવાળા મેનૂ પર ક્લિક કરો</translation>
+<translation id="7059893117020417984">ખાનગી રીતે બ્રાઉઝ કરવા માટે, છુપી વિંડો ખોલવા માટે બિંદુના આઇકનવાળા મેનૂ પર ક્લિક કરો</translation>
 <translation id="7062222374113411376">ડેટા મોકલવાનું અને પ્રાપ્ત કરવાનું સમાપ્ત કરવા માટે તાજેતરમાં બંધ કરેલ સાઇટ્સને મંજૂરી આપો (ભલામણ કરેલ)</translation>
 <translation id="7063129466199351735">શોર્ટકટ્સની પ્રક્રિયા કરી રહ્યું છે...</translation>
 <translation id="7063957500469387217">Google મેઘ મુદ્રણમાં પ્રિન્ટર્સ સેટ કરો અથવા સંચાલિત કરો.</translation>
@@ -4458,7 +4459,7 @@
 <translation id="7887864092952184874">Bluetooth માઉસની જોડી બનાવી</translation>
 <translation id="7889966925761734854">શોધો</translation>
 <translation id="7892100671754994880">આગલા વપરાશકર્તા</translation>
-<translation id="7893008570150657497">તમારા કમ્પ્યુટર પરથી ફોટા, સંગીત અને અન્ય મીડિયા ઍક્સેસ કરો</translation>
+<translation id="7893008570150657497">તમારા કમ્પ્યુટર પરથી ફોટો, સંગીત અને અન્ય મીડિયા ઍક્સેસ કરો</translation>
 <translation id="7893153962594818789">આ <ph name="DEVICE_TYPE" />માં Bluetooth બંધ છે. તમારો પાસવર્ડ દાખલ કરો અને Bluetooth ચાલુ કરો.</translation>
 <translation id="7893393459573308604"><ph name="ENGINE_NAME" /> (ડિફૉલ્ટ)</translation>
 <translation id="78957024357676568">ડાબી</translation>

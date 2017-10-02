@@ -3,7 +3,7 @@
 <translationbundle lang="tr">
 <translation id="1012876632442809908">USB-C cihaz (ön bağlantı noktası)</translation>
 <translation id="1013923882670373915">"<ph name="DEVICE_NAME" />" adlı Bluetooth cihaz eşleme izni istiyor. Lütfen söz konusu cihazda şu PIN kodunu girin: <ph name="PINCODE" /></translation>
-<translation id="1032891413405719768">Ekran kalemi pili düşük</translation>
+<translation id="1032891413405719768">Ekran kaleminin pili düşük</translation>
 <translation id="112308213915226829">Rafı otomatik gizle</translation>
 <translation id="1153356358378277386">Eşlenen cihazlar</translation>
 <translation id="1195412055398077112">fazla tarama</translation>
@@ -92,6 +92,7 @@
 <translation id="315116470104423982">Mobil veriler</translation>
 <translation id="3236488194889173876">Kullanılabilir mobil ağ yok</translation>
 <translation id="3294437725009624529">Misafir</translation>
+<translation id="332587331255250389">Lütfen pili değiştirin</translation>
 <translation id="3364721542077212959">Ekran kalemi araçları</translation>
 <translation id="3368922792935385530">Bağlı</translation>
 <translation id="3371140690572404006">USB-C cihaz (sağ ön bağlantı noktası)</translation>

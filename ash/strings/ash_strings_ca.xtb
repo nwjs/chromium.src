@@ -3,7 +3,7 @@
 <translationbundle lang="ca">
 <translation id="1012876632442809908">Dispositiu USB-C (port frontal)</translation>
 <translation id="1013923882670373915">El dispositiu Bluetooth "<ph name="DEVICE_NAME" />" sol·licita permís per emparellar-se. Introduïu aquest codi PIN al dispositiu: <ph name="PINCODE" />.</translation>
-<translation id="1032891413405719768">S'estan esgotant les piles del llapis òptic</translation>
+<translation id="1032891413405719768">El llapis òptic té poca bateria</translation>
 <translation id="112308213915226829">Amaga el prestatge automàticament</translation>
 <translation id="1153356358378277386">Dispositius vinculats</translation>
 <translation id="1195412055398077112">ajusta la mida</translation>
@@ -92,6 +92,7 @@
 <translation id="315116470104423982">Dades mòbils</translation>
 <translation id="3236488194889173876">No hi ha cap xarxa mòbil disponible</translation>
 <translation id="3294437725009624529">Convidat</translation>
+<translation id="332587331255250389">Canvia la bateria</translation>
 <translation id="3364721542077212959">Eines del llapis òptic</translation>
 <translation id="3368922792935385530">Connectat</translation>
 <translation id="3371140690572404006">Dispositiu USB-C (port frontal dret)</translation>

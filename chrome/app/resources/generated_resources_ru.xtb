@@ -135,7 +135,7 @@
 <translation id="120368089816228251">Ноты</translation>
 <translation id="1205489148908752564">Просмотр и изменение белого списка пользователей</translation>
 <translation id="1206407435587370571">Знакомство с Chromebook</translation>
-<translation id="1211364473545090084">Не хотите, чтобы сохранилась история просмотров? Используйте режим инкогнито.</translation>
+<translation id="1211364473545090084">Не хотите, чтобы сохранялась история просмотров? Используйте режим инкогнито.</translation>
 <translation id="1213037489357051291">Отпечатков добавлено: <ph name="NUM_FINGERPRINTS" /></translation>
 <translation id="1215411991991485844">Добавлено фоновое приложение</translation>
 <translation id="1216654534877302979">Отключить звук на сайтах</translation>
@@ -2450,6 +2450,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4763830802490665879">Файлы cookie с нескольких сайтов будут удалены при завершении сеанса.</translation>
 <translation id="4768332406694066911">У вас есть идентифицирующие вас сертификаты этих организаций</translation>
 <translation id="4776917500594043016">Пароль для адреса электронной почты <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Play Маркет</translation>
 <translation id="4779083564647765204">Масштаб</translation>
 <translation id="4780321648949301421">Сохранить страницу как...</translation>
 <translation id="4781787911582943401">Увеличить масштаб экрана</translation>
@@ -3950,7 +3951,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7054808953701320293">Больше не показывать это сообщение.</translation>
 <translation id="7056526158851679338">&amp;Проверка устройств</translation>
 <translation id="7059858479264779982">Включить автозапуск</translation>
-<translation id="7059893117020417984">Чтобы просматривать веб-страницы анонимно, нажмите на значок с тремя точками и выберите "Новое окно в режиме инкогнито"</translation>
+<translation id="7059893117020417984">Чтобы просматривать сайты анонимно, нажмите на значок с тремя точками и выберите "Новое окно в режиме инкогнито"</translation>
 <translation id="7062222374113411376">Разрешать недавно закрытым сайтам завершать отправку и получение данных</translation>
 <translation id="7063129466199351735">Обработка ярлыков…</translation>
 <translation id="7063957500469387217">Настройка и управление виртуальными принтерами Google</translation>
@@ -4618,7 +4619,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8116190140324504026">Дополнительная информация...</translation>
 <translation id="8116483400482790018">Пользовательский словарь для проверки правописания</translation>
 <translation id="8116972784401310538">&amp;Диспетчер закладок</translation>
-<translation id="8118362518458010043">Расширение отключено браузером Chrome. Оно может быть небезопасно.</translation>
+<translation id="8118362518458010043">Расширение отключено браузером Chrome. Оно может быть небезопасным.</translation>
 <translation id="8118860139461251237">Управление скачанными файлами</translation>
 <translation id="8119631488458759651">удалить этот сайт</translation>
 <translation id="81238879832906896">Цветок (желтый с белым)</translation>
@@ -4734,7 +4735,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8283475148136688298">При подключении к "<ph name="DEVICE_NAME" />" код аутентификации был отклонен.</translation>
 <translation id="8284279544186306258">все сайты <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">Вход</translation>
-<translation id="8286963743045814739">В режиме инкогнито вы можете просматривать веб-страницы анонимно</translation>
+<translation id="8286963743045814739">В режиме инкогнито можно просматривать сайты анонимно</translation>
 <translation id="8291967909914612644">Страна провайдера</translation>
 <translation id="8294431847097064396">Источник</translation>
 <translation id="8297006494302853456">Слабый</translation>

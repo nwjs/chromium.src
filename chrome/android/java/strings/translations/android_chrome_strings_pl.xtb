@@ -3,7 +3,7 @@
 <translationbundle lang="pl">
 <translation id="1006017844123154345">Otwórz online</translation>
 <translation id="1036727731225946849">Dodaję aplikację <ph name="WEBAPK_NAME" />…</translation>
-<translation id="1041308826830691739">Ze stron</translation>
+<translation id="1041308826830691739">Ze stron internetowych</translation>
 <translation id="1049743911850919806">Incognito</translation>
 <translation id="10614374240317010">Nigdy nie zapisane</translation>
 <translation id="1068672505746868501">Nigdy nie tłumacz stron, których językiem jest <ph name="SOURCE_LANGUAGE" /></translation>
@@ -110,7 +110,7 @@ Aby korzystać z internetu rzeczy, musisz włączyć Bluetooth i Lokalizację.</
 <translation id="1993768208584545658"><ph name="SITE" /> chce się sparować</translation>
 <translation id="1994173015038366702">URL strony</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB innych aplikacji</translation>
-<translation id="2011013297378343166">Korzystając z tej aplikacji, akceptujesz <ph name="BEGIN_LINK1" />Warunki korzystania z Chrome<ph name="END_LINK1" />, <ph name="BEGIN_LINK2" />Informacje na temat ochrony prywatności w Chrome<ph name="END_LINK2" /> oraz <ph name="BEGIN_LINK3" />Informacje na temat ochrony prywatności dla kont Google utworzonych w Family Link<ph name="END_LINK3" />.</translation>
+<translation id="2011013297378343166">Korzystając z tej aplikacji, akceptujesz <ph name="BEGIN_LINK1" />Warunki korzystania z Chrome<ph name="END_LINK1" />, <ph name="BEGIN_LINK2" />Informacje na temat ochrony prywatności w Chrome<ph name="END_LINK2" /> oraz <ph name="BEGIN_LINK3" />Informacje na temat ochrony prywatności na kontach Google utworzonych w Family Link<ph name="END_LINK3" />.</translation>
 <translation id="2017836877785168846">Usuwa historię i wpisy autouzupełniania w pasku adresu.</translation>
 <translation id="2038563949887743358">Włącz opcję „Wersja na komputer”</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> GB innych aplikacji</translation>

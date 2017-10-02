@@ -3,7 +3,7 @@
 <translationbundle lang="vi">
 <translation id="1012876632442809908">Thiết bị USB-C (cổng phía trước)</translation>
 <translation id="1013923882670373915">Thiết bị Bluetooth "<ph name="DEVICE_NAME" />" muốn được phép ghép nối. Vui lòng nhập mã PIN này trên thiết bị đó: <ph name="PINCODE" /></translation>
-<translation id="1032891413405719768">Pin của bút cảm ứng yếu</translation>
+<translation id="1032891413405719768">Pin của bút cảm ứng ở mức thấp</translation>
 <translation id="112308213915226829">Tự động ẩn giá</translation>
 <translation id="1153356358378277386">Thiết bị được ghép nối</translation>
 <translation id="1195412055398077112">quét quá mức</translation>
@@ -92,6 +92,7 @@
 <translation id="315116470104423982">Dữ liệu di động</translation>
 <translation id="3236488194889173876">Không có mạng di động nào</translation>
 <translation id="3294437725009624529">Khách</translation>
+<translation id="332587331255250389">Vui lòng thay thế pin</translation>
 <translation id="3364721542077212959">Công cụ bút cảm ứng</translation>
 <translation id="3368922792935385530">Đã kết nối</translation>
 <translation id="3371140690572404006">Thiết bị USB-C (cổng phía trước, bên phải)</translation>

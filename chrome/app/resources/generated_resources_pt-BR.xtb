@@ -1452,7 +1452,7 @@ Para ver mais informações, visite nossa <ph name="BEGIN_LINK" />Central de Aju
 <translation id="3166571619128686629">Clique ou diga "Ok Google" para iniciar uma pesquisa por voz</translation>
 <translation id="3170072451822350649">Também é possível ignorar o login e <ph name="LINK_START" />navegar como visitante<ph name="LINK_END" />.</translation>
 <translation id="3177048931975664371">Clique para ocultar senha</translation>
-<translation id="3177857336576585529">O site <ph name="SITE_NAME" /> tem uma solicitação de permissão.</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" /> tem uma solicitação de permissão.</translation>
 <translation id="3177909033752230686">Idioma da página:</translation>
 <translation id="3180365125572747493">Digite uma senha para criptografar este arquivo de certificado.</translation>
 <translation id="3181110748548073003">Pressione |<ph name="SHORTCUT" />| para avançar</translation>
@@ -2448,6 +2448,7 @@ Todos os usuários devem sair para continuar.</translation>
 <translation id="4763830802490665879">Os cookies de vários sites serão apagados na saída.</translation>
 <translation id="4768332406694066911">Você tem certificados das seguintes empresas que identificam você</translation>
 <translation id="4776917500594043016">Senha para <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Play Store</translation>
 <translation id="4779083564647765204">Zoom</translation>
 <translation id="4780321648949301421">Salvar página como...</translation>
 <translation id="4781787911582943401">Ampliar o zoom da tela</translation>
@@ -3306,7 +3307,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="6076448957780543068">Incluir esta captura de tela</translation>
 <translation id="6077131872140550515">Remover das redes preferidas</translation>
 <translation id="6078752646384677957">Verifique seu microfone e os níveis de áudio.</translation>
-<translation id="6080515710685820702">Está usando um computador compartilhado? Tente abrir uma janela anônima.</translation>
+<translation id="6080515710685820702">Está usando um computador compartilhado? Tente abrir uma janela sem rastros.</translation>
 <translation id="6080689532560039067">Verifique a hora do seu sistema</translation>
 <translation id="6082651258230788217">Mostrar na barra de ferramentas</translation>
 <translation id="6086814797483779854">Executar ao clicar</translation>

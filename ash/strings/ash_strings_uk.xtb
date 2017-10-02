@@ -3,7 +3,7 @@
 <translationbundle lang="uk">
 <translation id="1012876632442809908">Пристрій із портом USB типу C (на передній панелі)</translation>
 <translation id="1013923882670373915">Пристрою Bluetooth "<ph name="DEVICE_NAME" />" потрібен дозвіл на підключення. Введіть на пристрої цей PIN-код: <ph name="PINCODE" /></translation>
-<translation id="1032891413405719768">Акумулятор стилуса розряджений</translation>
+<translation id="1032891413405719768">Низький заряд акумулятора стилуса</translation>
 <translation id="112308213915226829">Автоматично ховати полицю</translation>
 <translation id="1153356358378277386">Підключені пристрої</translation>
 <translation id="1195412055398077112">облямівка екрана</translation>
@@ -92,6 +92,7 @@
 <translation id="315116470104423982">Мобільне передавання даних</translation>
 <translation id="3236488194889173876">Немає мобільних мереж</translation>
 <translation id="3294437725009624529">Гість</translation>
+<translation id="332587331255250389">Замініть акумулятор</translation>
 <translation id="3364721542077212959">Інструменти стилуса</translation>
 <translation id="3368922792935385530">Підключено</translation>
 <translation id="3371140690572404006">пристрій, під’єднаний до порту USB-C (праворуч на передній панелі)</translation>

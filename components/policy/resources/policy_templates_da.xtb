@@ -1125,7 +1125,7 @@ Hvis denne politik slås fra eller indstilles til False (falsk), er udviklertils
 <translation id="5318185076587284965">Aktivér brugen af relæservere for hosten for fjernadgang</translation>
 <translation id="5323128137188992869">Tillad, at indhold castes til enheden via <ph name="PRODUCT_NAME" />.
 
-          Hvis denne politik er angivet som Falsk, kan brugerne ikke caste indhold til deres enheder. Hvis denne politik er angivet som Sand, kan brugerne caste indhold. Hvis politikken ikke er angivet, kan brugerne ikke caste indhold til tilmeldte Chrome OS-enheder, men de kan caste indhold til andre enheder.</translation>
+          Hvis denne politik er angivet som Falsk, kan brugerne ikke caste indhold til deres enheder. Hvis denne politik er angivet som Sand, kan brugerne caste indhold. Hvis politikken ikke er angivet, kan brugerne ikke caste indhold til tilmeldte Chrome OS-enheder, men de kan caste indhold til enheder, der ikke er tilmeldt.</translation>
 <translation id="5330684698007383292">Tillad, at <ph name="PRODUCT_FRAME_NAME" /> håndterer følgende indholdstyper</translation>
 <translation id="5365946944967967336">Vis knap til startsiden på værktøjslinjen</translation>
 <translation id="5366977351895725771">Hvis dette er angivet som falsk, vil oprettelse af administrerede brugere være deaktiveret for denne bruger. Alle eksisterende administrerede brugere vil stadig være tilgængelige.

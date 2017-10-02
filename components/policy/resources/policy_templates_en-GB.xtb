@@ -1427,7 +1427,7 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 <translation id="6111936128861357925">Allow Dinosaur Easter Egg Game</translation>
 <translation id="6114416803310251055">deprecated</translation>
 <translation id="6133088669883929098">Allow all sites to use key generation</translation>
-<translation id="6139485614509308022">If 'OffHours' policy is set, then the specified device policies are ignored (use the default settings of these policies) during the defined time intervals. Device policies are re-applied by Chrome on every event when 'OffHours' period starts or ends. User will be notified and forced to sign out when 'OffHours' time end and device policy settings are changed (i.e. when user is logged in not with an allowed account).</translation>
+<translation id="6139485614509308022">If 'OffHours' policy is set, then the specified device policies are ignored (use the default settings of these policies) during the defined time intervals. Device policies are re-applied by Chrome on every event when 'OffHours' period starts or ends. User will be notified and forced to sign out when 'OffHours' time end and device policy settings are changed, (i.e. when user is logged in not with an allowed account).</translation>
 <translation id="6145799962557135888">Allows you to set a list of url patterns that specify sites which are allowed to run JavaScript.
 
           If this policy is left not set the global default value will be used for all sites either from the 'DefaultJavaScriptSetting' policy, if it is set, or the user's personal configuration otherwise.</translation>

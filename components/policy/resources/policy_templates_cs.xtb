@@ -651,7 +651,7 @@ Pokud zásadu nenastavíte, bude se považovat za aktivované (viz popis výše)
 Pokud tuto zásadu nenastavíte, použije se pro všechny webové stránky globální výchozí hodnota buď ze zásady DefaultKeygenSetting (pokud je nastavena), nebo z osobního nastavení uživatele.</translation>
 <translation id="332771718998993005">Určuje název uváděný jako cíl služby <ph name="PRODUCT_NAME" />.
 
-          Je-li tato zásada nastavena na neprázdný řetězec, bude příslušný řetězec použit jako název cíle služby <ph name="PRODUCT_NAME" />. V opačném případě bude jako název cíle použit název zařízení. Pokud tato zásada není nastavena, bude jako název cíle použit název zařízení a vlastník zařízení (nebo uživatel z domény, která zařízení spravuje) jej bude moci změnit. Název smí mít maximálně 24 znaků.</translation>
+          Je-li tato zásada nastavena na neprázdný řetězec, bude jako název cíle služby <ph name="PRODUCT_NAME" /> použit příslušný řetězec. V opačném případě bude jako název cíle použit název zařízení. Pokud tato zásada není nastavena, bude jako název cíle použit název zařízení a vlastník zařízení (nebo uživatel z domény, která zařízení spravuje) jej bude moci změnit. Název smí mít maximálně 24 znaků.</translation>
 <translation id="3381968327636295719">Používat ve výchozím nastavení hostitelský prohlížeč</translation>
 <translation id="3417418267404583991">Pokud je tato zásada nastavena na hodnotu True nebo není nastavena, povolí systém <ph name="PRODUCT_OS_NAME" /> přihlášení hosta. Přihlášení hosta jsou anonymní uživatelské relace a nevyžadují heslo.
 
@@ -1163,7 +1163,7 @@ Pokud zásadu nastavíte, můžete nakonfigurovat, zda má uživatel oprávněn�
 <translation id="5318185076587284965">Povolit použití předávacích serverů hostitelem vzdáleného přístupu</translation>
 <translation id="5323128137188992869">Umožňuje odesílání obsahu do zařízení pomocí služby <ph name="PRODUCT_NAME" />.
 
-          Je-li tato zásada nastavena na hodnotu False, uživatelé nebudou moci odesílat obsah do svého zařízení. Je-li tato zásada nastavena na hodnotu True, uživatelé obsah odesílat mohou. Pokud tato zásada není nastavena, uživatelé nemohou odesílat obsah do zaregistrovaných zařízení se systémem Chrome OS, ale do nezaregistrovaných zařízení jej odesílat mohou.</translation>
+          Je-li tato zásada nastavena na hodnotu False, uživatelé do svého zařízení nebudou moci odesílat obsah. Je-li tato zásada nastavena na hodnotu True, uživatelé obsah odesílat mohou. Pokud tato zásada není nastavena, uživatelé nemohou odesílat obsah do zaregistrovaných zařízení se systémem Chrome OS, ale do nezaregistrovaných zařízení jej odesílat mohou.</translation>
 <translation id="5330684698007383292">Umožnit pluginu <ph name="PRODUCT_FRAME_NAME" /> zpracovávat následující typy obsahu</translation>
 <translation id="5365946944967967336">Zobrazit na liště tlačítko Domů</translation>
 <translation id="5366977351895725771">Pokud tuto zásadu nastavíte na hodnotu false, vytváření a přihlašování dozorovaných uživatelů bude zakázáno. Všichni existující dozorovaní uživatelé budou stále k dispozici.

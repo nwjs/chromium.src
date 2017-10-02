@@ -1104,7 +1104,7 @@
 <translation id="2688196195245426394">Грешка при регистрирането на устройството в сървъра: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Показване на езиковите опции</translation>
 <translation id="2691385045260836588">Модел</translation>
-<translation id="2693176596243495071">Ами сега! Възникна неизвестна грешка. Моля, опитайте отново по-късно или се свържете с администратора си, ако проблемът не се отстрани.</translation>
+<translation id="2693176596243495071">Ами сега! Възникна неизвестна грешка. Моля, опитайте отново по-късно или се свържете с администратора си, ако проблемът продължи.</translation>
 <translation id="2694026874607847549">1 „бисквитка“</translation>
 <translation id="2695749433451188613">Internet Printing Protocol (HTTPS)</translation>
 <translation id="270358213449696159">Съдържание на Общите условия на Google Chrome OS</translation>
@@ -2446,6 +2446,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4763830802490665879">„Бисквитките“ от няколко сайта ще бъдат изчистени при изход.</translation>
 <translation id="4768332406694066911">Имате идентифициращи ви сертификати от тези организации</translation>
 <translation id="4776917500594043016">Парола за <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Google Play Магазин</translation>
 <translation id="4779083564647765204">Промяна на мащаба</translation>
 <translation id="4780321648949301421">Запазване на страницата като...</translation>
 <translation id="4781787911582943401">Увеличаване на мащаба на екрана</translation>

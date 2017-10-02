@@ -301,7 +301,7 @@
 <translation id="393697183122708255">لا يتوفر بحث صوتي تم تمكينه</translation>
 <translation id="3946611741043634542">‏من خلال المتابعة، فإنك توافق على <ph name="BEGIN_LINK1" />بنود الخدمة<ph name="END_LINK1" /> و<ph name="BEGIN_LINK2" />إشعار الخصوصية<ph name="END_LINK2" /> من Chrome.</translation>
 <translation id="3950820424414687140">تسجيل الدخول</translation>
-<translation id="395206256282351086">اقتراحات البحث والمواقع الإلكترونية معطّلة</translation>
+<translation id="395206256282351086">اقتراحات البحث ومواقع الويب معطّلة</translation>
 <translation id="395922942268463099">صفحات تم تحديثها بانتظام</translation>
 <translation id="3967822245660637423">اكتمل التنزيل</translation>
 <translation id="397583555483684758">توقفت المزامنة</translation>
@@ -683,7 +683,7 @@
 <translation id="7423098979219808738">السؤال أولاً</translation>
 <translation id="7437998757836447326">‏الخروج من Chrome</translation>
 <translation id="7445411102860286510">السماح للمواقع بتشغيل مقاطع الفيديو مكتومة الصوت تلقائيًا (مُستحسن)</translation>
-<translation id="7453467225369441013">‏يُسجِّل خروجك من معظم مواقع الويب. لن يُسجَّل خروجك من حسابك في Google.</translation>
+<translation id="7453467225369441013">‏سيتم تسجيل الخروج من معظم مواقع الويب لكن لن يتم تسجيل الخروج من حسابك في Google.</translation>
 <translation id="7455923816558154057">يُرجى النقر للعرض</translation>
 <translation id="7464701184726199289">يمحو هذا الخيار البيانات المتزامنة من كافة الأجهزة. لن يتم حذف إعدادات موقع الويب المحفوظة وقد تعكس عادات التصفح. <ph name="BEGIN_LINK" />مزيد من المعلومات<ph name="END_LINK" /></translation>
 <translation id="7473891865547856676">لا، شكرًا</translation>
@@ -750,7 +750,7 @@
 <translation id="8026334261755873520">محو بيانات التصفُّح</translation>
 <translation id="8035133914807600019">مجلد جديد...</translation>
 <translation id="8037750541064988519">عدد الأيام المتبقية: <ph name="DAYS" /></translation>
-<translation id="805047784848435650">استنادًا إلى سجلّ التصفح</translation>
+<translation id="805047784848435650">استنادًا إلى سجلّ التصفُّح</translation>
 <translation id="8051695050440594747">هناك <ph name="MEGABYTES" /> ميغابايت متوفرة</translation>
 <translation id="8058746566562539958">‏فتح بعلامة تبويب Chrome جديدة</translation>
 <translation id="8063895661287329888">أخفقت إضافة الإشارة المرجعية.</translation>

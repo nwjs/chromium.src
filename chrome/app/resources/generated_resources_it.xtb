@@ -97,7 +97,7 @@
 <translation id="1149401351239820326">Mese di scadenza</translation>
 <translation id="1153356358378277386">Dispositivi accoppiati</translation>
 <translation id="1156185823432343624">Volume: disattivato</translation>
-<translation id="1156488781945104845">Posizione temporale corrente</translation>
+<translation id="1156488781945104845">Ora corrente</translation>
 <translation id="1161575384898972166">Accedi a <ph name="TOKEN_NAME" /> per esportare il certificato client.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{È in corso un download. Vuoi annullare il download e uscire dalla modalità di navigazione in incognito?}other{Sono in corso # download. Vuoi annullare i download e uscire dalla modalità di navigazione in incognito?}}</translation>
 <translation id="1163931534039071049">&amp;Visualizza sorgente frame</translation>
@@ -2446,6 +2446,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="4763830802490665879">I cookie di diversi siti verranno cancellati all'uscita.</translation>
 <translation id="4768332406694066911">Hai certificati da queste organizzazioni che ti identificano</translation>
 <translation id="4776917500594043016">Password per <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Play Store</translation>
 <translation id="4779083564647765204">Dimensioni dei caratteri</translation>
 <translation id="4780321648949301421">Salva pagina con nome...</translation>
 <translation id="4781787911582943401">Ingrandimento dello schermo</translation>

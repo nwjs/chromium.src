@@ -2449,6 +2449,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="4763830802490665879">Cookies från flera webbplatser kommer att rensas vid avslut.</translation>
 <translation id="4768332406694066911">Du har certifikat från dessa organisationer som identifierar dig</translation>
 <translation id="4776917500594043016">Lösenord för <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="4777825441726637019">Play Butik</translation>
 <translation id="4779083564647765204">Zooma in</translation>
 <translation id="4780321648949301421">Spara sida som...</translation>
 <translation id="4781787911582943401">Zooma in skärmen</translation>
@@ -4079,7 +4080,7 @@ Använd bara den här funktionen med konton som du litar på.</translation>
 <translation id="7290242001003353852">Inloggningstjänsten som tillhandahålls av <ph name="SAML_DOMAIN" /> använder din kamera.</translation>
 <translation id="7290594223351252791">Bekräfta registrering</translation>
 <translation id="729459249680637905">Återstående försök: $1</translation>
-<translation id="7295019613773647480">Aktivera övervakade användare</translation>
+<translation id="7295019613773647480">Aktivera kontrollerade användare</translation>
 <translation id="7295662345261934369">Dela med andra</translation>
 <translation id="7296774163727375165">Villkor för <ph name="DOMAIN" /></translation>
 <translation id="7297443947353982503">Användarnamnet eller lösenordet är felaktigt, eller så misslyckades EAP-auktoriseringen</translation>
