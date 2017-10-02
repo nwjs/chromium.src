@@ -302,9 +302,11 @@ class ArcBluetoothBridge
 
   // Chrome observer callbacks
   void OnPoweredOn(
-      const base::Callback<void(mojom::BluetoothAdapterState)>& callback) const;
+      const base::Callback<void(mojom::BluetoothAdapterState)>& callback,
+      bool save_user_pref) const;
   void OnPoweredOff(
-      const base::Callback<void(mojom::BluetoothAdapterState)>& callback) const;
+      const base::Callback<void(mojom::BluetoothAdapterState)>& callback,
+      bool save_user_pref) const;
   void OnPoweredError(
       const base::Callback<void(mojom::BluetoothAdapterState)>& callback) const;
   void OnDiscoveryStarted(
