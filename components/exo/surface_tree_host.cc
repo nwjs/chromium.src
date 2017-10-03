@@ -76,15 +76,23 @@ class CustomWindowTargeter : public aura::WindowTargeter {
 // SurfaceTreeHost, public:
 
 SurfaceTreeHost::SurfaceTreeHost(const std::string& window_name,
-                                 aura::WindowDelegate* window_delegate) {
-  host_window_ = base::MakeUnique<aura::Window>(window_delegate);
+                                 aura::WindowDelegate* window_delegate)
+    : host_window_(new aura::Window(window_delegate)),
+      surface_host_(new aura::Window(nullptr)) {
   host_window_->SetType(aura::client::WINDOW_TYPE_CONTROL);
   host_window_->SetName(window_name);
-  host_window_->Init(ui::LAYER_SOLID_COLOR);
+  host_window_->Init(ui::LAYER_NOT_DRAWN);
   host_window_->set_owned_by_parent(false);
   host_window_->SetEventTargeter(base::MakeUnique<CustomWindowTargeter>(this));
+
+  surface_host_->SetName("ExoSurfaceHost");
+  surface_host_->Init(ui::LAYER_SOLID_COLOR);
   layer_tree_frame_sink_holder_ = base::MakeUnique<LayerTreeFrameSinkHolder>(
-      this, host_window_->CreateLayerTreeFrameSink());
+      this, surface_host_->CreateLayerTreeFrameSink());
+
+  host_window_->AddChild(surface_host_);
+  surface_host_->Show();
+
   aura::Env::GetInstance()->context_factory()->AddObserver(this);
 }
 
@@ -197,11 +205,16 @@ void SurfaceTreeHost::OnSurfaceCommit() {
       layer_tree_frame_sink_holder_.get(),
       &frame_callbacks_, &presentation_callbacks_);
 
-  host_window_->SetBounds(
-      gfx::Rect(host_window_->bounds().origin(), bounds.size()));
-  host_window_->layer()->SetFillsBoundsOpaquely(
+  gfx::Point origin = bounds.origin();
+  origin.SetToMin(gfx::Point());
+
+  surface_host_->SetBounds(gfx::Rect(origin, bounds.size()));
+  surface_host_->layer()->SetFillsBoundsOpaquely(
       bounds.size() == root_surface_->content_size() &&
       root_surface_->FillsBoundsOpaquely());
+
+  host_window_->SetBounds(
+      gfx::Rect(host_window_->bounds().origin(), bounds.size()));
 }
 
 bool SurfaceTreeHost::IsSurfaceSynchronized() const {
@@ -266,7 +279,7 @@ void SurfaceTreeHost::OnUpdateVSyncParameters(base::TimeTicks timebase,
 // ui::ContextFactoryObserver overrides:
 
 void SurfaceTreeHost::OnLostResources() {
-  if (!host_window_->GetSurfaceId().is_valid() || !root_surface_)
+  if (!surface_host_->GetSurfaceId().is_valid() || !root_surface_)
     return;
   root_surface_->RecreateResources(layer_tree_frame_sink_holder_.get());
   SubmitCompositorFrame();
@@ -293,11 +306,24 @@ void SurfaceTreeHost::SubmitCompositorFrame() {
   const int kRenderPassId = 1;
   render_pass->SetNew(kRenderPassId, gfx::Rect(), gfx::Rect(),
                       gfx::Transform());
-  float device_scale_factor = host_window()->layer()->device_scale_factor();
+  float device_scale_factor = surface_host_->layer()->device_scale_factor();
   frame.metadata.device_scale_factor = device_scale_factor;
   root_surface_->AppendSurfaceHierarchyContentsToFrame(
       gfx::Point(), device_scale_factor, layer_tree_frame_sink_holder_.get(),
       &frame);
+
+  gfx::Point origin = render_pass->output_rect.origin();
+  origin.SetToMin(gfx::Point());
+
+  render_pass->output_rect -= origin.OffsetFromOrigin();
+  render_pass->damage_rect -= origin.OffsetFromOrigin();
+
+  gfx::Transform translation;
+  translation.Translate(-origin.x(), -origin.y());
+
+  for (auto* quad_state : render_pass->shared_quad_state_list)
+    quad_state->quad_to_target_transform.ConcatTransform(translation);
+
   layer_tree_frame_sink_holder_->frame_sink()->SubmitCompositorFrame(
       std::move(frame));
 
