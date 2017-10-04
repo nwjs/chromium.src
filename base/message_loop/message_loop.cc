@@ -207,6 +207,9 @@ std::unique_ptr<MessagePump> MessageLoop::CreateMessagePumpForType(Type type) {
     return std::unique_ptr<MessagePump>(new MessagePumpForUI());
 #endif
 
+  if (type == MessageLoop::TYPE_NODE)
+    return std::unique_ptr<MessagePump>(new MessagePumpUV());
+
   DCHECK_EQ(MessageLoop::TYPE_DEFAULT, type);
   return MESSAGE_PUMP_DEFAULT;
 }

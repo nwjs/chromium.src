@@ -244,7 +244,7 @@ class UI_BASE_EXPORT Clipboard : NON_EXPORTED_BASE(public base::ThreadChecker) {
   static const FormatType& GetIDListFormatType();
 #endif
 
- protected:
+ public:
   static Clipboard* Create();
 
   Clipboard() {}

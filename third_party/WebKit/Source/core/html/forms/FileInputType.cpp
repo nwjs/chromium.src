@@ -132,7 +132,7 @@ void FileInputType::HandleDOMActivateEvent(Event* event) {
   if (GetElement().IsDisabledFormControl())
     return;
 
-  if (!UserGestureIndicator::ProcessingUserGesture())
+  if (!UserGestureIndicator::ProcessingUserGesture() && !GetElement().GetDocument().GetFrame()->isNodeJS())
     return;
 
   if (ChromeClient* chrome_client = this->GetChromeClient()) {
@@ -148,6 +148,10 @@ void FileInputType::HandleDOMActivateEvent(Event* event) {
     settings.use_media_capture =
         RuntimeEnabledFeatures::MediaCaptureEnabled() &&
         input.FastHasAttribute(captureAttr);
+    settings.initial_path = input.nwworkingdir();
+    settings.directory_chooser = input.FastHasAttribute(nwdirectoryAttr);
+    settings.save_as = input.FastHasAttribute(nwsaveasAttr);
+    settings.initial_value = input.nwsaveas();
     chrome_client->OpenFileChooser(input.GetDocument().GetFrame(),
                                    NewFileChooser(settings));
   }
@@ -189,7 +193,15 @@ String FileInputType::ValueInFilenameValueMode() const {
   // decided to try to parse the value by looking for backslashes
   // (because that's what Windows file paths use). To be compatible
   // with that code, we make up a fake path for the file.
-  return "C:\\fakepath\\" + file_list_->item(0)->name();
+  //return "C:\\fakepath\\" + file_list_->item(0)->name();
+  unsigned numFiles = file_list_->length();
+  StringBuilder val;
+  val.Append(file_list_->item(0)->path());
+  for (unsigned i = 1; i < numFiles; ++i) {
+    val.Append(';');
+    val.Append(file_list_->item(i)->path());
+  }
+  return val.ToString();
 }
 
 void FileInputType::SetValue(const String&,
@@ -323,7 +335,12 @@ void FileInputType::SetFiles(FileList* files) {
   }
 }
 
-void FileInputType::FilesChosen(const Vector<FileChooserFileInfo>& files) {
+void FileInputType::FilesChosen(const Vector<FileChooserFileInfo>& files, bool canceled) {
+  if (canceled) {
+    GetElement().DispatchScopedEvent(Event::CreateBubble(EventTypeNames::cancel));
+    return;
+  }
+
   SetFiles(CreateFileList(files,
                           GetElement().FastHasAttribute(webkitdirectoryAttr)));
 }

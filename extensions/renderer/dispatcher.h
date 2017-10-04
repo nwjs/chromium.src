@@ -111,6 +111,7 @@ class Dispatcher : public content::RenderThreadObserver,
 
   // This method is not allowed to run JavaScript code in the frame.
   void DidCreateDocumentElement(blink::WebLocalFrame* frame);
+  void DidFinishDocumentLoad(blink::WebLocalFrame* frame);
 
   // These methods may run (untrusted) JavaScript code in the frame, and
   // cause |render_frame| to become invalid.

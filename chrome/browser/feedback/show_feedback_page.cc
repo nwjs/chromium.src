@@ -39,10 +39,12 @@ void ShowFeedbackPage(Browser* browser,
   UMA_HISTOGRAM_ENUMERATION("Feedback.RequestSource", source,
                             kFeedbackSourceCount);
 
+#if 0
   if (::switches::MdFeedbackEnabled()) {
     MdFeedbackDialogController::GetInstance()->Show(profile);
     return;
   }
+#endif
 
   extensions::FeedbackPrivateAPI* api =
       extensions::FeedbackPrivateAPI::GetFactoryInstance()->Get(profile);

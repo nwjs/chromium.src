@@ -222,7 +222,7 @@ bool GetUrlForTabId(int tab_id,
 
   if (found) {
     *url = contents->GetURL();
-    *is_incognito = browser->profile()->IsOffTheRecord();
+    *is_incognito = false; //browser->profile()->IsOffTheRecord();
     return true;
   } else {
     return false;

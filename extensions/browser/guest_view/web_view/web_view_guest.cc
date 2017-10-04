@@ -4,7 +4,12 @@
 
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 
+#include "content/nw/src/nw_content.h"
+
 #include <stddef.h>
+#include "content/nw/src/nw_content.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/common/manifest_handlers/webview_info.h"
 
 #include <utility>
 
@@ -326,6 +331,9 @@ void WebViewGuest::CreateWebContents(
   std::string storage_partition_id;
   bool persist_storage = false;
   ParsePartitionParam(create_params, &storage_partition_id, &persist_storage);
+  bool allow_nw = false;
+  create_params.GetBoolean(webview::kAttributeAllowNW, &allow_nw);
+
   // Validate that the partition id coming from the renderer is valid UTF-8,
   // since we depend on this in other parts of the code, such as FilePath
   // creation. If the validation fails, treat it as a bad message and kill the
@@ -802,6 +810,7 @@ WebViewGuest::WebViewGuest(WebContents* owner_web_contents)
       find_helper_(this),
       is_overriding_user_agent_(false),
       allow_transparency_(false),
+      allow_nw_(false),
       javascript_dialog_helper_(this),
       allow_scaling_(false),
       is_guest_fullscreen_(false),
@@ -964,6 +973,17 @@ void WebViewGuest::PushWebViewStateToIOThread() {
   web_view_info.content_script_ids = manager->GetContentScriptIDSet(
       web_view_info.embedder_process_id, web_view_info.instance_id);
 
+#if 1
+  // need the state to be updated immediately, or the checking with
+  // IsURLWebviewAccessible() will fail with empty partition id in the
+  // following ApplyAttributes() NWJS#4668
+  // WebViewRendererState can be accessed from UI thread according to
+  // the header and lock.
+  WebViewRendererState::GetInstance()->AddGuest(
+                 web_contents()->GetRenderProcessHost()->GetID(),
+                 web_contents()->GetRenderViewHost()->GetRoutingID(),
+                 web_view_info);
+#else
   content::BrowserThread::PostTask(
       content::BrowserThread::IO, FROM_HERE,
       base::Bind(&WebViewRendererState::AddGuest,
@@ -971,6 +991,7 @@ void WebViewGuest::PushWebViewStateToIOThread() {
                  web_contents()->GetRenderProcessHost()->GetID(),
                  web_contents()->GetRenderViewHost()->GetRoutingID(),
                  web_view_info));
+#endif
 }
 
 // static
@@ -1127,6 +1148,12 @@ void WebViewGuest::ApplyAttributes(const base::DictionaryValue& params) {
     // We need to set the background opaque flag after navigation to ensure that
     // there is a RenderWidgetHostView available.
     SetAllowTransparency(allow_transparency);
+  }
+
+  bool allow_nw = false;
+  if (params.GetBoolean(webview::kAttributeAllowNW,
+      &allow_nw)) {
+    allow_nw_ = allow_nw;
   }
 
   bool allow_scaling = false;
@@ -1340,7 +1367,8 @@ void WebViewGuest::WebContentsCreated(WebContents* source_contents,
                                       int opener_render_frame_id,
                                       const std::string& frame_name,
                                       const GURL& target_url,
-                                      WebContents* new_contents) {
+                                      WebContents* new_contents,
+                                      const base::string16& nw_window_manifest) {
   auto* guest = WebViewGuest::FromWebContents(new_contents);
   CHECK(guest);
   guest->SetOpener(this);
@@ -1405,6 +1433,16 @@ void WebViewGuest::LoadURLWithParams(
        !url.SchemeIs(url::kAboutScheme)) ||
       url.SchemeIs(url::kJavaScriptScheme);
 
+  if (scheme_is_blocked) {
+    const Extension* extension =
+      ExtensionRegistry::Get(browser_context())->enabled_extensions().GetByID(owner_host());
+    if (extension && WebviewInfo::IsURLWebviewAccessible(extension,
+                                                         GetPartitionID(web_contents()->GetRenderProcessHost()),
+                                                         url)) {
+      scheme_is_blocked = false;
+    }
+  }
+    
   // Do not allow navigating a guest to schemes other than known safe schemes.
   // This will block the embedder trying to load unwanted schemes, e.g.
   // chrome://.
@@ -1432,7 +1470,9 @@ void WebViewGuest::LoadURLWithParams(
     load_url_params.override_user_agent =
         content::NavigationController::UA_OVERRIDE_TRUE;
   }
+  nw::SetInWebViewApplyAttr(true, allow_nw_);
   GuestViewBase::LoadURLWithParams(load_url_params);
+  nw::SetInWebViewApplyAttr(false, allow_nw_);
 
   src_ = validated_url;
 }
@@ -1505,6 +1545,17 @@ void WebViewGuest::OnFullscreenPermissionDecided(
     const std::string& user_input) {
   last_fullscreen_permission_was_allowed_by_embedder_ = allowed;
   SetFullscreenState(allowed);
+}
+
+void WebViewGuest::ShowDevTools(bool show, int proc_id, int guest_id) {
+  if (proc_id > 0 && guest_id >= 0) {
+    auto* that =
+      WebViewGuest::From(owner_web_contents()->GetRenderProcessHost()->GetID(),
+                         guest_id);
+    nw::ShowDevtools(show, web_contents(), that->web_contents());
+    return;
+  }
+  nw::ShowDevtools(show, web_contents());
 }
 
 bool WebViewGuest::GuestMadeEmbedderFullscreen() const {

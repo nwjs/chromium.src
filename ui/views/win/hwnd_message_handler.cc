@@ -340,6 +340,7 @@ base::LazyInstance<HWNDMessageHandler::FullscreenWindowMonitorMap>::
 // HWNDMessageHandler, public:
 
 long HWNDMessageHandler::last_touch_message_time_ = 0;
+#define TRANSPARENCY(original, addition) content::g_support_transparency ? original addition : original
 
 HWNDMessageHandler::HWNDMessageHandler(HWNDMessageHandlerDelegate* delegate)
     : msg_handled_(FALSE),
@@ -838,13 +839,16 @@ void HWNDMessageHandler::SetWindowIcons(const gfx::ImageSkia& window_icon,
                                         const gfx::ImageSkia& app_icon) {
   if (!window_icon.isNull()) {
     base::win::ScopedHICON previous_icon = std::move(window_icon_);
-    window_icon_ = IconUtil::CreateHICONFromSkBitmap(*window_icon.bitmap());
+    window_icon_ =
+        IconUtil::CreateHICONFromSkBitmapSizedTo(*window_icon.bitmap(),
+          GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON));
     SendMessage(hwnd(), WM_SETICON, ICON_SMALL,
                 reinterpret_cast<LPARAM>(window_icon_.get()));
   }
   if (!app_icon.isNull()) {
     base::win::ScopedHICON previous_icon = std::move(app_icon_);
-    app_icon_ = IconUtil::CreateHICONFromSkBitmap(*app_icon.bitmap());
+    app_icon_ = IconUtil::CreateHICONFromSkBitmapSizedTo(*app_icon.bitmap(),
+          GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON));
     SendMessage(hwnd(), WM_SETICON, ICON_BIG,
                 reinterpret_cast<LPARAM>(app_icon_.get()));
   }
@@ -884,7 +888,8 @@ void HWNDMessageHandler::SizeConstraintsChanged() {
     if (!delegate_->CanMaximize())
       style &= ~WS_MAXIMIZEBOX;
   } else {
-    style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    if (!content::g_support_transparency)
+      style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
   }
   if (delegate_->CanMinimize()) {
     style |= WS_MINIMIZEBOX;
@@ -1241,7 +1246,7 @@ void HWNDMessageHandler::ResetWindowRegion(bool force, bool redraw) {
   // allow for a custom hit mask.
   if (!is_translucent_ && !custom_window_region_.is_valid() &&
       (IsFrameSystemDrawn() || !delegate_->HasNonClientView())) {
-    if (force)
+    if (force || content::g_force_cpu_draw)
       SetWindowRgn(hwnd(), NULL, redraw);
     return;
   }
@@ -1257,6 +1262,10 @@ void HWNDMessageHandler::ResetWindowRegion(bool force, bool redraw) {
   if (custom_window_region_.is_valid()) {
     new_region.reset(CreateRectRgn(0, 0, 0, 0));
     CombineRgn(new_region.get(), custom_window_region_.get(), NULL, RGN_COPY);
+  } else if (content::g_support_transparency && is_translucent_) {
+    RECT work_rect = window_rect;
+    OffsetRect(&work_rect, -window_rect.left, -window_rect.top);
+    new_region.reset(CreateRectRgnIndirect(&work_rect));
   } else if (IsMaximized()) {
     HMONITOR monitor = MonitorFromWindow(hwnd(), MONITOR_DEFAULTTONEAREST);
     MONITORINFO mi;
@@ -1416,7 +1425,7 @@ LRESULT HWNDMessageHandler::OnCreate(CREATESTRUCT* create_struct) {
               MAKELPARAM(UIS_CLEAR, UISF_HIDEFOCUS),
               0);
 
-  if (!delegate_->HasFrame()) {
+  if (TRANSPARENCY(!delegate_->HasFrame(), && !(is_translucent_))) {
     SetWindowLong(hwnd(), GWL_STYLE,
                   GetWindowLong(hwnd(), GWL_STYLE) & ~WS_CAPTION);
     SendFrameChanged();
@@ -1544,15 +1553,17 @@ void HWNDMessageHandler::OnGetMinMaxInfo(MINMAXINFO* minmax_info) {
   if (delegate_->WidgetSizeIsClientSize()) {
     RECT client_rect, window_rect;
     GetClientRect(hwnd(), &client_rect);
-    GetWindowRect(hwnd(), &window_rect);
-    CR_DEFLATE_RECT(&window_rect, &client_rect);
-    min_window_size.Enlarge(window_rect.right - window_rect.left,
-                            window_rect.bottom - window_rect.top);
-    // Either axis may be zero, so enlarge them independently.
-    if (max_window_size.width())
-      max_window_size.Enlarge(window_rect.right - window_rect.left, 0);
-    if (max_window_size.height())
-      max_window_size.Enlarge(0, window_rect.bottom - window_rect.top);
+	if (client_rect.right > client_rect.left) {
+		GetWindowRect(hwnd(), &window_rect);
+		CR_DEFLATE_RECT(&window_rect, &client_rect);
+		min_window_size.Enlarge(window_rect.right - window_rect.left,
+			window_rect.bottom - window_rect.top);
+		// Either axis may be zero, so enlarge them independently.
+		if (max_window_size.width())
+			max_window_size.Enlarge(window_rect.right - window_rect.left, 0);
+		if (max_window_size.height())
+			max_window_size.Enlarge(0, window_rect.bottom - window_rect.top);
+	}
   }
   minmax_info->ptMinTrackSize.x = min_window_size.width();
   minmax_info->ptMinTrackSize.y = min_window_size.height();
@@ -1833,10 +1844,11 @@ LRESULT HWNDMessageHandler::OnNCCalcSize(BOOL mode, LPARAM l_param) {
       return 0;
     }
   }
-
+  const LONG noTitleBar = (is_translucent_) && !delegate_->HasFrame();
   gfx::Insets insets;
   bool got_insets = GetClientAreaInsets(&insets);
-  if (!got_insets && !IsFullscreen() && !(mode && !delegate_->HasFrame())) {
+  if (TRANSPARENCY(!got_insets && !IsFullscreen() &&
+                   !(mode && !delegate_->HasFrame()), && !noTitleBar)) {
     SetMsgHandled(FALSE);
     return 0;
   }
@@ -2214,6 +2226,17 @@ void HWNDMessageHandler::OnSize(UINT param, const gfx::Size& size) {
   // ResetWindowRegion is going to trigger WM_NCPAINT. By doing it after we've
   // invoked OnSize we ensure the RootView has been laid out.
   ResetWindowRegion(false, true);
+  if (delegate_->ShouldHandleOnSize())
+    delegate_->HandleSize(param, size);
+}
+
+void HWNDMessageHandler::OnStyleChanging(int nStyleType, LPSTYLESTRUCT lpStyleStruct) {
+  if (!content::g_support_transparency)
+    return;
+  if (nStyleType == GWL_EXSTYLE)
+    set_window_ex_style(lpStyleStruct->styleNew);
+  else if (nStyleType == GWL_STYLE)
+    set_window_style(lpStyleStruct->styleNew);
 }
 
 void HWNDMessageHandler::OnSysCommand(UINT notification_code,
@@ -2877,6 +2900,11 @@ bool HWNDMessageHandler::IsSynthesizedMouseMessage(unsigned int message,
 
 void HWNDMessageHandler::PerformDwmTransition() {
   dwm_transition_desired_ = false;
+  if (content::g_support_transparency && !content::g_force_cpu_draw && is_translucent_) {
+    const int im = ui::win::IsAeroGlassEnabled() ? -1 : 0;
+    MARGINS m = { im, im, im, im };
+    DwmExtendFrameIntoClientArea(hwnd(), &m);
+  }
 
   UpdateDwmNcRenderingPolicy();
   // Don't redraw the window here, because we need to hide and show the window
@@ -2885,7 +2913,7 @@ void HWNDMessageHandler::PerformDwmTransition() {
   // The non-client view needs to update too.
   delegate_->HandleFrameChanged();
 
-  if (IsVisible() && IsFrameSystemDrawn()) {
+  if (IsVisible() && IsFrameSystemDrawn() && !content::g_force_cpu_draw) {
     // For some reason, we need to hide the window after we change from a custom
     // frame to a native frame.  If we don't, the client area will be filled
     // with black.  This seems to be related to an interaction between DWM and

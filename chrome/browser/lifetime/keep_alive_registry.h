@@ -61,10 +61,12 @@ class KeepAliveRegistry {
   KeepAliveRegistry();
   ~KeepAliveRegistry();
 
+ public:
   // Add/Remove entries. Do not use directly, use ScopedKeepAlive instead.
   void Register(KeepAliveOrigin origin, KeepAliveRestartOption restart);
   void Unregister(KeepAliveOrigin origin, KeepAliveRestartOption restart);
 
+ private:
   // Methods called when a specific aspect of the state of the registry changes.
   void OnKeepAliveStateChanged(bool new_keeping_alive);
   void OnRestartAllowedChanged(bool new_restart_allowed);

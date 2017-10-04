@@ -214,7 +214,7 @@ class VIEWS_EXPORT ViewsDelegate {
 #endif
 
   // Returns a blocking pool task runner given a TaskRunnerType.
-  virtual scoped_refptr<base::TaskRunner> GetBlockingPoolTaskRunner();
+  virtual scoped_refptr<base::TaskRunner> GetBlockingPoolTaskRunner(bool continue_on_shutdown = false);
 
  protected:
   ViewsDelegate();

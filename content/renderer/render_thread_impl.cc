@@ -2272,7 +2272,7 @@ void RenderThreadImpl::PurgePluginListCache(bool reload_pages) {
 void RenderThreadImpl::OnCreateNewSharedWorker(
     const WorkerProcessMsg_CreateWorker_Params& params) {
   // EmbeddedSharedWorkerStub will self-destruct.
-  new EmbeddedSharedWorkerStub(
+  new EmbeddedSharedWorkerStub(params.nodejs, params.root_path,
       params.url, params.name, params.content_security_policy,
       params.security_policy_type, params.creation_address_space,
       params.pause_on_start, params.route_id, params.data_saver_enabled);

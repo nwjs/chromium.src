@@ -51,7 +51,7 @@ DOMWindow* CreateWindow(const String& url_string,
 
 void CreateWindowForRequest(const FrameLoadRequest&,
                             LocalFrame& opener_frame,
-                            NavigationPolicy);
+                            NavigationPolicy, WebString& manifest);
 
 // Exposed for testing
 CORE_EXPORT NavigationPolicy

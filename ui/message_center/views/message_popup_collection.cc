@@ -210,10 +210,12 @@ void MessagePopupCollection::UpdateWidgets() {
       view = MessageViewFactory::Create(NULL, *(*iter), true);
     }
 
+#if 0
     // TODO(yoshiki): Temporary disable context menu on custom notifications.
     // See crbug.com/750307 for detail.
     if ((*iter)->type() != NOTIFICATION_TYPE_CUSTOM)
       view->set_context_menu_controller(context_menu_controller_.get());
+#endif
 
     int view_height = ToastContentsView::GetToastSizeForView(view).height();
     int height_available =

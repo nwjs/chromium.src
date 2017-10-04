@@ -8,6 +8,14 @@
 namespace extensions {
 
 namespace manifest_keys {
+const char kNWJSInternalFlag[] = "__nwjs_app";
+const char kNWJSInternalManifest[] = "__nwjs_manifest";
+const char kNWJSInternalMainFilename[] = "__nwjs_filename";
+const char kNWJSContentVerifyFlag[] = "__nwjs_cv";
+const char kNWJSMain[] = "main";
+const char kNWJSMixedContext[] = "mixed_context";
+const char kNWJSEnableNode[] = "nodejs";
+const char kNWJSDomain[] = "domain";
 
 const char kAboutPage[] = "about_page";
 const char kAllFrames[] = "all_frames";
@@ -89,6 +97,7 @@ const char kLinkedAppIconURL[] = "url";
 const char kLinkedAppIconSize[] = "size";
 const char kManifestVersion[] = "manifest_version";
 const char kMatchAboutBlank[] = "match_about_blank";
+const char kInMainWorld[] = "in_main_world";
 const char kMatches[] = "matches";
 const char kMinimumChromeVersion[] = "minimum_chrome_version";
 const char kMinimumVersion[] = "minimum_version";
@@ -193,7 +202,6 @@ const char kActionHandlerEnabledOnLockScreenKey[] = "enabled_on_lock_screen";
 const char kFileSystemProviderCapabilities[] =
     "file_system_provider_capabilities";
 #endif
-
 }  // namespace manifest_keys
 
 namespace manifest_values {
@@ -522,6 +530,8 @@ const char kInvalidMatch[] =
     "Invalid value for 'content_scripts[*].matches[*]': *";
 const char kInvalidMatchAboutBlank[] =
     "Invalid value for 'content_scripts[*].match_about_blank'.";
+const char kInvalidInMainWorld[] =
+    "Invalid value for 'content_scripts[*].in_main_world'.";
 const char kInvalidMatchCount[] =
     "Invalid value for 'content_scripts[*].matches'. There must be at least "
     "one match specified.";

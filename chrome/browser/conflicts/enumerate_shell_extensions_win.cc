@@ -48,6 +48,7 @@ void OnShellExtensionPathEnumerated(
     scoped_refptr<base::SequencedTaskRunner> task_runner,
     OnShellExtensionEnumeratedCallback on_shell_extension_enumerated,
     const base::FilePath& path) {
+#if 0
   uint32_t size_of_image = 0;
   uint32_t time_date_stamp = 0;
   if (!GetModuleImageSizeAndTimeDateStamp(path, &size_of_image,
@@ -58,6 +59,7 @@ void OnShellExtensionPathEnumerated(
   task_runner->PostTask(
       FROM_HERE, base::BindRepeating(std::move(on_shell_extension_enumerated),
                                      path, size_of_image, time_date_stamp));
+#endif
 }
 
 void EnumerateShellExtensionsOnBlockingSequence(

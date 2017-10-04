@@ -191,10 +191,12 @@ DownloadPrefs::DownloadPrefs(Profile* profile) : profile_(profile) {
     // automatically can change in the future. When the list is tightened, it is
     // expected that some entries in the users' auto open list will get dropped
     // permanently as a result.
+#if 0
     if (FileTypePolicies::GetInstance()->IsAllowedToOpenAutomatically(
             filename_with_extension)) {
       auto_open_.insert(extension);
     }
+#endif
   }
 }
 
@@ -205,7 +207,7 @@ void DownloadPrefs::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(
       prefs::kPromptForDownload,
-      false,
+      true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterStringPref(prefs::kDownloadExtensionsToOpen, std::string());
   registry->RegisterBooleanPref(prefs::kDownloadDirUpgraded, false);
@@ -328,11 +330,12 @@ bool DownloadPrefs::IsAutoOpenEnabledBasedOnExtension(
 bool DownloadPrefs::EnableAutoOpenBasedOnExtension(
     const base::FilePath& file_name) {
   base::FilePath::StringType extension = file_name.Extension();
+#if 0
   if (!FileTypePolicies::GetInstance()->IsAllowedToOpenAutomatically(
           file_name)) {
     return false;
   }
-
+#endif
   DCHECK(extension[0] == base::FilePath::kExtensionSeparator);
   extension.erase(0, 1);
 

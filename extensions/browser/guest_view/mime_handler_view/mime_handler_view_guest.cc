@@ -201,6 +201,9 @@ bool MimeHandlerViewGuest::ShouldDestroyOnDetach() const {
 WebContents* MimeHandlerViewGuest::OpenURLFromTab(
     WebContents* source,
     const content::OpenURLParams& params) {
+  if (!embedder_web_contents())
+    return owner_web_contents()->GetDelegate()->OpenURLFromTab(
+      owner_web_contents(), params);
   return embedder_web_contents()->GetDelegate()->OpenURLFromTab(
       embedder_web_contents(), params);
 }

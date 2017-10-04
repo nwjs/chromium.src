@@ -46,6 +46,10 @@ base::FilePath PlatformCrashpadInitialization(bool initial_client,
 
       // Is there a way to recover if this fails?
       CrashReporterClient* crash_reporter_client = GetCrashReporterClient();
+      const char* product_name = "";
+      const char* version = "";
+
+      crash_reporter_client->GetProductNameAndVersion(&product_name, &version);
       crash_reporter_client->GetCrashDumpLocation(&database_path);
       crash_reporter_client->GetCrashMetricsLocation(&metrics_path);
 
@@ -58,7 +62,9 @@ base::FilePath PlatformCrashpadInitialization(bool initial_client,
 #endif
 
       std::map<std::string, std::string> process_annotations;
-
+      process_annotations["prod"] = product_name;
+      process_annotations["ver"] = version;
+#if 0
       NSBundle* outer_bundle = base::mac::OuterBundle();
       NSString* product = base::mac::ObjCCast<NSString>([outer_bundle
           objectForInfoDictionaryKey:base::mac::CFToNSCast(kCFBundleNameKey)]);
@@ -83,7 +89,7 @@ base::FilePath PlatformCrashpadInitialization(bool initial_client,
           base::mac::ObjCCast<NSString>([base::mac::FrameworkBundle()
               objectForInfoDictionaryKey:@"CFBundleShortVersionString"]);
       process_annotations["ver"] = base::SysNSStringToUTF8(version);
-
+#endif
       process_annotations["plat"] = std::string("OS X");
 
       std::vector<std::string> arguments;

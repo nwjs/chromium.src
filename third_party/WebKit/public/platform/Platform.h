@@ -597,7 +597,7 @@ class BLINK_PLATFORM_EXPORT Platform {
 
   virtual void DidStartWorkerThread() {}
   virtual void WillStopWorkerThread() {}
-  virtual void WorkerContextCreated(const v8::Local<v8::Context>& worker) {}
+  virtual void WorkerContextCreated(const v8::Local<v8::Context>& worker, bool, const std::string&) {}
   virtual bool AllowScriptExtensionForServiceWorker(const WebURL& script_url) {
     return false;
   }

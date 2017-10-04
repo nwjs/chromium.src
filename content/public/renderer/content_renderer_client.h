@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "base/files/file_path.h"
+
 #include "base/callback_forward.h"
 #include "base/memory/ref_counted.h"
 #include "base/strings/string16.h"
@@ -34,6 +36,7 @@ class FilePath;
 }
 
 namespace blink {
+class WebString;
 class WebAudioDevice;
 class WebAudioLatencyHint;
 class WebClipboard;
@@ -72,6 +75,13 @@ class URLLoaderThrottle;
 // Embedder API for participating in renderer logic.
 class CONTENT_EXPORT ContentRendererClient {
  public:
+  virtual base::FilePath GetRootPath();
+  virtual void willHandleNavigationPolicy(RenderView* rv,
+                                          blink::WebFrame* frame,
+                                          const blink::WebURLRequest& request,
+                                          blink::WebNavigationPolicy* policy,
+                                          blink::WebString* manifest,
+                                          bool new_win) {}
   virtual ~ContentRendererClient() {}
 
   // Notifies us that the RenderThread has been created.
