@@ -120,8 +120,6 @@ class AppListFolderView : public views::View,
 
   base::string16 accessible_name_;
 
-  const bool is_fullscreen_app_list_enabled_;
-
   DISALLOW_COPY_AND_ASSIGN(AppListFolderView);
 };
 

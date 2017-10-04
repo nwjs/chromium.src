@@ -30,7 +30,7 @@ class AppsGridViewTestApi {
 
   void LayoutToIdealBounds();
 
-  gfx::Rect GetItemTileRectOnCurrentPageAt(int row, int col) const;
+  gfx::Rect GetItemTileRectAt(int row, int col) const;
 
   void PressItemAt(int index);
 
