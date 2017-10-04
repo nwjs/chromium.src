@@ -144,7 +144,6 @@ class Surface : public ui::PropertyHandler {
   // sub-surface with pending state. Returns the bounding box of the surface
   // and its descendants, in the local coordinate space of the surface.
   gfx::Rect CommitSurfaceHierarchy(
-      LayerTreeFrameSinkHolder* frame_sink_holder,
       std::list<FrameCallback>* frame_callbacks,
       std::list<PresentationCallback>* presentation_callbacks);
 
@@ -206,8 +205,8 @@ class Surface : public ui::PropertyHandler {
   // Enables 'stylus-only' mode for the associated window.
   void SetStylusOnly();
 
-  // Recreates resources for the surface and sub surfaces.
-  void RecreateResources(LayerTreeFrameSinkHolder* frame_sink_holder);
+  // Notify surface that resources and subsurfaces' resources have been lost.
+  void SurfaceHierarchyResourcesLost();
 
   // Returns true if the surface's bounds should be filled opaquely.
   bool FillsBoundsOpaquely() const;
@@ -257,8 +256,7 @@ class Surface : public ui::PropertyHandler {
   // contents of the attached buffer (or id 0, if no buffer is attached).
   // UpdateSurface must be called afterwards to ensure the release callback
   // will be called.
-  void UpdateResource(LayerTreeFrameSinkHolder* frame_sink_holder,
-                      bool client_usage);
+  void UpdateResource(LayerTreeFrameSinkHolder* frame_sink_holder);
 
   // Updates buffer_transform_ to match the current buffer parameters.
   void UpdateBufferTransform();
@@ -269,6 +267,7 @@ class Surface : public ui::PropertyHandler {
                              float device_scale_factor,
                              cc::CompositorFrame* frame);
 
+  // Update surface content size base on current buffer size.
   void UpdateContentSize();
 
   // This returns true when the surface has some contents assigned to it.
@@ -339,6 +338,9 @@ class Surface : public ui::PropertyHandler {
   // This is true if a call to Commit() as been made but
   // CommitSurfaceHierarchy() has not yet been called.
   bool needs_commit_surface_ = false;
+
+  // This is true if UpdateResources() should be called.
+  bool needs_update_resource_ = true;
 
   // The current buffer transform matrix. It specifies the transformation from
   // normalized buffer coordinates to post-tranform buffer coordinates.
