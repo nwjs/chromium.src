@@ -233,30 +233,34 @@ void ApplyTimeZone(const TimeZoneResponseData* timezone) {
     return;
   }
 
-  if (!timezone->timeZoneId.empty()) {
-    VLOG(1) << "Refresh TimeZone: setting timezone to '" << timezone->timeZoneId
-            << "'";
+  if (timezone->timeZoneId.empty())
+    return;
 
-    if (PerUserTimezoneEnabled()) {
-      const user_manager::UserManager* user_manager =
-          user_manager::UserManager::Get();
-      const user_manager::User* primary_user = user_manager->GetPrimaryUser();
+  VLOG(1) << "Refresh TimeZone: setting timezone to '" << timezone->timeZoneId
+          << "'";
 
-      if (primary_user) {
-        Profile* profile = ProfileHelper::Get()->GetProfileByUser(primary_user);
-        // profile can be NULL only if user has logged in, but profile has not
-        // been initialized yet. Ignore delayed time zone update until user
-        // preferences are initialized.
-        if (!profile)
-          return;
+  if (PerUserTimezoneEnabled()) {
+    const user_manager::UserManager* user_manager =
+        user_manager::UserManager::Get();
+    const user_manager::User* primary_user = user_manager->GetPrimaryUser();
 
-        profile->GetPrefs()->SetString(prefs::kUserTimezone,
-                                       timezone->timeZoneId);
-        // chromeos::Preferences::ApplyPreferences() will automatically change
-        // system timezone because user is primary.
-      } else {
-        SetSystemAndSigninScreenTimezone(timezone->timeZoneId);
-      }
+    if (primary_user) {
+      Profile* profile = ProfileHelper::Get()->GetProfileByUser(primary_user);
+      // profile can be NULL only if user has logged in, but profile has not
+      // been initialized yet. Ignore delayed time zone update until user
+      // preferences are initialized.
+      if (!profile)
+        return;
+
+      profile->GetPrefs()->SetString(prefs::kUserTimezone,
+                                     timezone->timeZoneId);
+      // For non-enterprise device, chromeos::Preferences::ApplyPreferences()
+      // will automatically change system timezone because user is primary.
+      // But it may not happen for enterprise device, as policy may prevent
+      // user from changing device time zone manually.
+      // That is the reason we always update system time zone here.
+      TimezoneSettings::GetInstance()->SetTimezoneFromID(
+          base::UTF8ToUTF16(timezone->timeZoneId));
     } else {
       chromeos::system::TimezoneSettings::GetInstance()->SetTimezoneFromID(
           base::UTF8ToUTF16(timezone->timeZoneId));
