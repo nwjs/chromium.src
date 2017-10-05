@@ -150,8 +150,10 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint
 // Focuses the omnibox.
 - (void)focusOmnibox;
 
-// Dismisses all presented views then calls |completion|.
-- (void)clearPresentedStateWithCompletion:(ProceduralBlock)completion;
+// Dismisses all presented views, excluding the omnibox if |dismissOmnibox| is
+// NO, then calls |completion|.
+- (void)clearPresentedStateWithCompletion:(ProceduralBlock)completion
+                           dismissOmnibox:(BOOL)dismissOmnibox;
 
 // Returns a set with the names of the files received from other applications
 // that are bookmarked or referenced by an open or recently closed tab.

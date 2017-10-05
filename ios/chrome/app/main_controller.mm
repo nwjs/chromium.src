@@ -756,6 +756,7 @@ enum class StackViewDismissalMode { NONE, NORMAL, INCOGNITO };
   if (_startupParameters) {
     [self dismissModalsAndOpenSelectedTabInMode:ApplicationMode::NORMAL
                                         withURL:[_startupParameters externalURL]
+                                 dismissOmnibox:YES
                                      transition:ui::PAGE_TRANSITION_LINK
                                      completion:^{
                                        [self setStartupParameters:nil];
@@ -1342,7 +1343,7 @@ enum class StackViewDismissalMode { NONE, NORMAL, INCOGNITO };
 #pragma mark - ApplicationCommands
 
 - (void)dismissModalDialogs {
-  [self dismissModalDialogsWithCompletion:nil];
+  [self dismissModalDialogsWithCompletion:nil dismissOmnibox:YES];
 }
 
 - (void)switchModesAndOpenNewTab:(OpenNewTabCommand*)command {
@@ -1464,6 +1465,7 @@ enum class StackViewDismissalMode { NONE, NORMAL, INCOGNITO };
   if ([command fromChrome]) {
     [self dismissModalsAndOpenSelectedTabInMode:ApplicationMode::NORMAL
                                         withURL:[command url]
+                                 dismissOmnibox:YES
                                      transition:ui::PAGE_TRANSITION_TYPED
                                      completion:nil];
   } else {
@@ -1473,7 +1475,8 @@ enum class StackViewDismissalMode { NONE, NORMAL, INCOGNITO };
                                  referrer:[command referrer]
                              inBackground:[command inBackground]
                                  appendTo:[command appendTo]];
-    }];
+    }
+                             dismissOmnibox:YES];
   }
 }
 
@@ -1548,6 +1551,7 @@ enum class StackViewDismissalMode { NONE, NORMAL, INCOGNITO };
   ProceduralBlock completion = ^{
     [self dismissModalsAndOpenSelectedTabInMode:ApplicationMode::NORMAL
                                         withURL:[command url]
+                                 dismissOmnibox:YES
                                      transition:ui::PAGE_TRANSITION_TYPED
                                      completion:nil];
   };
@@ -1830,7 +1834,7 @@ enum class StackViewDismissalMode { NONE, NORMAL, INCOGNITO };
   if ([_tabSwitcherController
           respondsToSelector:@selector(tabSwitcherDismissWithModel:
                                                           animated:)]) {
-    [self dismissModalDialogsWithCompletion:nil];
+    [self dismissModalDialogsWithCompletion:nil dismissOmnibox:YES];
     [_tabSwitcherController tabSwitcherDismissWithModel:tabModel animated:NO];
   } else {
     [self beginDismissingStackViewWithCurrentModel:tabModel];
@@ -2254,7 +2258,8 @@ enum class StackViewDismissalMode { NONE, NORMAL, INCOGNITO };
   return tab;
 }
 
-- (void)dismissModalDialogsWithCompletion:(ProceduralBlock)completion {
+- (void)dismissModalDialogsWithCompletion:(ProceduralBlock)completion
+                           dismissOmnibox:(BOOL)dismissOmnibox {
   // Immediately hide modals from the provider (alert views, action sheets,
   // popovers). They will be ultimately dismissed by their owners, but at least,
   // they are not visible.
@@ -2272,7 +2277,8 @@ enum class StackViewDismissalMode { NONE, NORMAL, INCOGNITO };
   // it.
   ProceduralBlock completionWithBVC = ^{
     // This will dismiss the SSO view controller.
-    [self.currentBVC clearPresentedStateWithCompletion:completion];
+    [self.currentBVC clearPresentedStateWithCompletion:completion
+                                        dismissOmnibox:dismissOmnibox];
   };
   ProceduralBlock completionWithoutBVC = ^{
     // This will dismiss the SSO view controller.
@@ -2359,6 +2365,7 @@ enum class StackViewDismissalMode { NONE, NORMAL, INCOGNITO };
 
 - (void)dismissModalsAndOpenSelectedTabInMode:(ApplicationMode)targetMode
                                       withURL:(const GURL&)url
+                               dismissOmnibox:(BOOL)dismissOmnibox
                                    transition:(ui::PageTransition)transition
                                    completion:(ProceduralBlock)completion {
   GURL copyOfURL = url;
@@ -2367,7 +2374,8 @@ enum class StackViewDismissalMode { NONE, NORMAL, INCOGNITO };
                         withURL:copyOfURL
                      transition:transition
                      completion:completion];
-  }];
+  }
+                           dismissOmnibox:dismissOmnibox];
 }
 
 - (void)openTabFromLaunchOptions:(NSDictionary*)launchOptions
