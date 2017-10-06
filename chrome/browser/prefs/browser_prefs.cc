@@ -203,6 +203,7 @@
 #include "chrome/browser/chromeos/login/quick_unlock/pin_storage.h"
 #include "chrome/browser/chromeos/login/quick_unlock/quick_unlock_utils.h"
 #include "chrome/browser/chromeos/login/saml/saml_offline_signin_limiter.h"
+#include "chrome/browser/chromeos/login/screens/reset_screen.h"
 #include "chrome/browser/chromeos/login/session/user_session_manager.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
 #include "chrome/browser/chromeos/login/users/avatar/user_image_manager.h"
@@ -233,7 +234,6 @@
 #include "chrome/browser/metrics/chromeos_metrics_provider.h"
 #include "chrome/browser/ui/webui/chromeos/login/enable_debugging_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/hid_detection_screen_handler.h"
-#include "chrome/browser/ui/webui/chromeos/login/reset_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/signin_screen_handler.h"
 #include "chromeos/audio/audio_devices_pref_handler_impl.h"
 #include "chromeos/chromeos_switches.h"
@@ -408,7 +408,7 @@ void RegisterLocalState(PrefRegistrySimple* registry) {
   chromeos::NetworkThrottlingObserver::RegisterPrefs(registry);
   chromeos::Preferences::RegisterPrefs(registry);
   chromeos::RegisterDisplayLocalStatePrefs(registry);
-  chromeos::ResetScreenHandler::RegisterPrefs(registry);
+  chromeos::ResetScreen::RegisterPrefs(registry);
   chromeos::ResourceReporter::RegisterPrefs(registry);
   chromeos::ServicesCustomizationDocument::RegisterPrefs(registry);
   chromeos::SigninScreenHandler::RegisterPrefs(registry);
