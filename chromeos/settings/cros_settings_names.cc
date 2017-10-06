@@ -264,4 +264,8 @@ const char kPerUserTimezoneEnabled[] = "cros.flags.per_user_timezone_enabled";
 // }
 const char kDeviceOffHours[] = "cros.device_off_hours";
 
+// A dictionary containing parameters controlling the TPM firmware update
+// functionality.
+const char kTPMFirmwareUpdateSettings[] = "cros.tpm_firmware_update_settings";
+
 }  // namespace chromeos

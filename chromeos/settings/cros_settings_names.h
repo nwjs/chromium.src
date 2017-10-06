@@ -123,6 +123,8 @@ CHROMEOS_EXPORT extern const char kPerUserTimezoneEnabled[];
 
 CHROMEOS_EXPORT extern const char kDeviceOffHours[];
 
+CHROMEOS_EXPORT extern const char kTPMFirmwareUpdateSettings[];
+
 }  // namespace chromeos
 
 #endif  // CHROMEOS_SETTINGS_CROS_SETTINGS_NAMES_H_

@@ -860,6 +860,12 @@ message DeviceOffHoursProto {
   repeated string ignored_policies = 3;
 }
 
+// Settings to control the behavior of the TPM firmware update functionality.
+message TPMFirmwareUpdateSettingsProto {
+  // Whether the user can invoke the update via powerwash.
+  optional bool allow_user_initiated_powerwash = 1;
+}
+
 message ChromeDeviceSettingsProto {
   optional DevicePolicyRefreshRateProto device_policy_refresh_rate = 1;
   optional UserWhitelistProto user_whitelist = 2;
@@ -924,4 +930,5 @@ message ChromeDeviceSettingsProto {
       device_second_factor_authentication = 52;
   optional CastReceiverNameProto cast_receiver_name = 53;
   optional DeviceOffHoursProto device_off_hours = 54;
+  optional TPMFirmwareUpdateSettingsProto tpm_firmware_update_settings = 59;
 }
