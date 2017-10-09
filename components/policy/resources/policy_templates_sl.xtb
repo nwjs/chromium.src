@@ -1192,7 +1192,7 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
           Vrednost pravilnika naj bo navedena v milisekundah. Vrednosti morajo biti manjše ali enake kot časovni zamik nedejavnosti.</translation>
 <translation id="5307432759655324440">Razpoložljivost načina brez beleženja zgodovine</translation>
 <translation id="5318185076587284965">Gostitelju oddaljenega dostopa omogoči uporabo posredovalnih strežnikov</translation>
-<translation id="5323128137188992869">Omogočanje predvajanja predstavnosti v napravi z napravo <ph name="PRODUCT_NAME" />.
+<translation id="5323128137188992869">Omogočanje predvajanja vsebine v napravi z napravo <ph name="PRODUCT_NAME" />.
 
           Če je ta pravilnik onemogočen, uporabniki ne bodo mogli predvajati vsebine v tej napravi. Če je pravilnik omogočen, je uporabnikom dovoljeno predvajanje vsebine. Če ta pravilnik ni nastavljen, uporabnikom ni dovoljeno predvajati vsebine v včlanjenih napravah OS Chrome, vendar jo lahko predvajajo v napravah, ki niso včlanjene.</translation>
 <translation id="5330684698007383292">Dovoli, da <ph name="PRODUCT_FRAME_NAME" /> obravnava te vrste vsebine.</translation>

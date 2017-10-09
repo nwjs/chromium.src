@@ -20,6 +20,8 @@
 <translation id="1197267115302279827">Könyvjelzők áthelyezése</translation>
 <translation id="119944043368869598">Összes törlése</translation>
 <translation id="1201402288615127009">Következő</translation>
+<translation id="1204037785786432551">Link letöltése</translation>
+<translation id="1206892813135768548">Link szövegének másolása</translation>
 <translation id="1209206284964581585">Elrejtés most</translation>
 <translation id="1211530540767271776">Nincs USB-eszköz</translation>
 <translation id="123724288017357924">Oldal újratöltése a gyorsítótárat figyelmen kívül hagyva</translation>
@@ -339,6 +341,7 @@ A keresési kifejezés módosításához hosszú nyomva tartással hajthat végr
 <translation id="4256782883801055595">Nyílt forráskódú licencek</translation>
 <translation id="4259722352634471385">Le van tiltva az ide vezető navigáció: <ph name="URL" /></translation>
 <translation id="4262028915562328938">Szinkronizálási hiba történt, koppintson a részletek megtekintéséhez.</translation>
+<translation id="4269820728363426813">Link másolása</translation>
 <translation id="4275663329226226506">Média</translation>
 <translation id="4278390842282768270">Engedélyezve</translation>
 <translation id="42981349822642051">Részletes nézet</translation>

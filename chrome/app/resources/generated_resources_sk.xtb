@@ -135,7 +135,7 @@
 <translation id="120368089816228251">Nota</translation>
 <translation id="1205489148908752564">Čítať a meniť používateľov na bielej listine</translation>
 <translation id="1206407435587370571">Preskúmajte svoj Chromebook</translation>
-<translation id="1211364473545090084">Používajte web bez ukladania histórie prehliadania pomocou okna inkognito</translation>
+<translation id="1211364473545090084">Používajte web bez ukladania histórie prehliadania v okne inkognito</translation>
 <translation id="1213037489357051291">Počet nastavených odtlačkov: <ph name="NUM_FINGERPRINTS" /></translation>
 <translation id="1215411991991485844">Bola pridaná nová aplikácia na pozadí</translation>
 <translation id="1216654534877302979">Vypnúť zvuk webov</translation>
@@ -1108,7 +1108,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="2688196195245426394">Pri registrácii zariadenia na serveri <ph name="CLIENT_ERROR" /> sa vyskytla chyba.</translation>
 <translation id="2690024944919328218">Zobraziť možnosti jazyka</translation>
 <translation id="2691385045260836588">Model</translation>
-<translation id="2693176596243495071">Ojoj, vyskytla sa neznáma chyba. Skúste to znova neskôr alebo ak problém pretrváva, kontaktujte správcu.</translation>
+<translation id="2693176596243495071">Ojoj, vyskytla sa neznáma chyba. Skúste to znova neskôr alebo, ak problém pretrváva, kontaktujte správcu.</translation>
 <translation id="2694026874607847549">Počet súborov cookie: 1</translation>
 <translation id="2695749433451188613">Protokol IPP (HTTPS)</translation>
 <translation id="270358213449696159">Obsah zmluvných podmienok systému Google Chrome OS</translation>
@@ -4732,7 +4732,7 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="8283475148136688298">Kód overenia totožnosti sa počas pripájania k zariadeniu <ph name="DEVICE_NAME" /> odmietol.</translation>
 <translation id="8284279544186306258">všetky weby <ph name="WEBSITE_1" /></translation>
 <translation id="8286036467436129157">Prihlásenie</translation>
-<translation id="8286963743045814739">Prehliadať v súkromí môžete pomocou okna inkognito</translation>
+<translation id="8286963743045814739">Prehliadať v súkromí môžete v okne inkognito</translation>
 <translation id="8291967909914612644">Krajina poskytovateľa domácej siete</translation>
 <translation id="8294431847097064396">Zdroj</translation>
 <translation id="8297006494302853456">Slabé</translation>

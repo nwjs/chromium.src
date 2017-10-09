@@ -20,6 +20,8 @@
 <translation id="1197267115302279827">Lesezeichen verschieben</translation>
 <translation id="119944043368869598">Alle löschen</translation>
 <translation id="1201402288615127009">Weiter</translation>
+<translation id="1204037785786432551">Link herunterladen</translation>
+<translation id="1206892813135768548">Linktext kopieren</translation>
 <translation id="1209206284964581585">Vorerst ausblenden</translation>
 <translation id="1211530540767271776">Kein USB-Gerät vorhanden</translation>
 <translation id="123724288017357924">Aktuelle Seite neu laden, Cache-Inhalte ignorieren</translation>
@@ -339,6 +341,7 @@ Zur Anpassung des Suchbegriffs drücken Sie einige Sekunden lang auf den entspre
 <translation id="4256782883801055595">Open Source-Lizenzen</translation>
 <translation id="4259722352634471385">Die Navigation zu <ph name="URL" /> ist blockiert.</translation>
 <translation id="4262028915562328938">Es ist ein Synchronisierungsfehler aufgetreten. Tippen Sie, um Details zu erhalten.</translation>
+<translation id="4269820728363426813">URL kopieren</translation>
 <translation id="4275663329226226506">Medien</translation>
 <translation id="4278390842282768270">Zugelassen</translation>
 <translation id="42981349822642051">Maximieren</translation>

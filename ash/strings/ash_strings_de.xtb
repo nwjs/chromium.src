@@ -3,7 +3,7 @@
 <translationbundle lang="de">
 <translation id="1012876632442809908">USB-C-Gerät (Port vorne)</translation>
 <translation id="1013923882670373915">Das Bluetooth-Gerät "<ph name="DEVICE_NAME" />" bittet um Erlaubnis für Kopplung. Geben Sie folgenden PIN-Code auf dem Gerät ein: <ph name="PINCODE" />.</translation>
-<translation id="1032891413405719768">Eingabestift-Batterie ist schwach</translation>
+<translation id="1032891413405719768">Die Batterie des Eingabestifts ist schwach</translation>
 <translation id="112308213915226829">Ablage automatisch ausblenden</translation>
 <translation id="1153356358378277386">Gekoppelte Geräte</translation>
 <translation id="1195412055398077112">Overscan</translation>
@@ -92,6 +92,7 @@
 <translation id="315116470104423982">Mobilfunk</translation>
 <translation id="3236488194889173876">Kein Mobilfunknetz verfügbar</translation>
 <translation id="3294437725009624529">Gast</translation>
+<translation id="332587331255250389">Bitte ersetzen Sie den Akku</translation>
 <translation id="3364721542077212959">Eingabestift-Tools</translation>
 <translation id="3368922792935385530">Verbunden</translation>
 <translation id="3371140690572404006">USB-C-Gerät (Port vorne rechts)</translation>

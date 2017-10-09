@@ -97,7 +97,7 @@
 <translation id="1149401351239820326">Galiojimo laiko pabaigos mėnuo</translation>
 <translation id="1153356358378277386">Susieti įrenginiai</translation>
 <translation id="1156185823432343624">Garsis: nutildyta</translation>
-<translation id="1156488781945104845">Esamas laikas</translation>
+<translation id="1156488781945104845">Dabartinis laikas</translation>
 <translation id="1161575384898972166">Jei norite eksportuoti programos sertifikatą, prisijunkite prie „<ph name="TOKEN_NAME" />“.</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{Šiuo metu vykdomas atsisiuntimas. Ar norite atšaukti atsisiuntimą ir išeiti iš inkognito režimo?}one{Šiuo metu vykdomas # atsisiuntimas. Ar norite atšaukti atsisiuntimus ir išeiti iš inkognito režimo?}few{Šiuo metu vykdomi # atsisiuntimai. Ar norite atšaukti atsisiuntimus ir išeiti iš inkognito režimo?}many{Šiuo metu vykdoma # atsisiuntimo. Ar norite atšaukti atsisiuntimus ir išeiti iš inkognito režimo?}other{Šiuo metu vykdoma # atsisiuntimų. Ar norite atšaukti atsisiuntimus ir išeiti iš inkognito režimo?}}</translation>
 <translation id="1163931534039071049">&amp;Rodyti rėmelio šaltinį</translation>
@@ -4620,7 +4620,7 @@ Rakto failą laikykite saugioje vietoje. Jo reikės, kai norėsite sukurti nauja
 <translation id="8116190140324504026">Daugiau informacijos...</translation>
 <translation id="8116483400482790018">Priskirtas rašybos žodynas</translation>
 <translation id="8116972784401310538">&amp;Žymių tvarkytuvė</translation>
-<translation id="8118362518458010043">Neleidžia „Chrome“. Šis plėtinys gali būti nesaugus.</translation>
+<translation id="8118362518458010043">„Chrome“ neleidžia. Šis plėtinys gali būti nesaugus.</translation>
 <translation id="8118860139461251237">Tvarkykite atsisiuntimus</translation>
 <translation id="8119631488458759651">pašalinti šią svetainę</translation>
 <translation id="81238879832906896">Geltonos ir baltos spalvos gėlė</translation>

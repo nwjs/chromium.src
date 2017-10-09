@@ -135,7 +135,7 @@
 <translation id="120368089816228251">Musiknote</translation>
 <translation id="1205489148908752564">Nutzer auf der weißen Liste lesen und ändern</translation>
 <translation id="1206407435587370571">Ihr Chromebook kennenlernen</translation>
-<translation id="1211364473545090084">Mit einem Inkognitofenster surfen Sie im Web, ohne Ihren Browserverlauf zu speichern</translation>
+<translation id="1211364473545090084">In einem Inkognitofenster können Sie surfen, ohne dass Ihr Browserverlauf gespeichert wird</translation>
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" /> Fingerabdrücke eingerichtet</translation>
 <translation id="1215411991991485844">Neue Hintergrund-App hinzugefügt</translation>
 <translation id="1216654534877302979">Websites stummschalten</translation>
@@ -1103,7 +1103,7 @@ Ich glaube nicht, dass diese Website blockiert werden sollte.</translation>
 <translation id="2688196195245426394">Fehler bei der Registrierung des Geräts auf dem Server: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Sprachoptionen anzeigen</translation>
 <translation id="2691385045260836588">Modell</translation>
-<translation id="2693176596243495071">Hoppla! Ein unbekannter Fehler ist aufgetreten. Versuchen Sie es später noch einmal oder wenden Sie sich an Ihren Administrator, wenn das Problem weiterhin besteht.</translation>
+<translation id="2693176596243495071">Hoppla! Ein unbekannter Fehler ist aufgetreten. Bitte versuchen Sie es später noch einmal oder wenden Sie sich an Ihren Administrator, wenn das Problem weiterhin besteht.</translation>
 <translation id="2694026874607847549">1 Cookie</translation>
 <translation id="2695749433451188613">Internet Printing Protocol (HTTPS)</translation>
 <translation id="270358213449696159">Inhalt der Google Chrome OS-Nutzungsbedingungen</translation>
@@ -3303,7 +3303,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="6076448957780543068">Diesen Screenshot einfügen</translation>
 <translation id="6077131872140550515">Von bevorzugten Netzwerken entfernen</translation>
 <translation id="6078752646384677957">Überprüfen Sie Ihr Mikrofon und die Audio-Lautstärke.</translation>
-<translation id="6080515710685820702">Sie verwenden einen freigegebenen Computer? Nutzen Sie ein Inkognitofenster.</translation>
+<translation id="6080515710685820702">Sie teilen sich einen Computer? Dann können Sie ganz einfach ein Inkognitofenster nutzen.</translation>
 <translation id="6080689532560039067">Systemzeit überprüfen</translation>
 <translation id="6082651258230788217">In Symbolleiste anzeigen</translation>
 <translation id="6086814797483779854">Bei Klick ausführen</translation>

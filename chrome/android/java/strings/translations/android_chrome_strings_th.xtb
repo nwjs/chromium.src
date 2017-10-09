@@ -20,6 +20,8 @@
 <translation id="1197267115302279827">ย้ายบุ๊กมาร์ก</translation>
 <translation id="119944043368869598">ล้างทั้งหมด</translation>
 <translation id="1201402288615127009">ถัดไป</translation>
+<translation id="1204037785786432551">ดาวน์โหลดลิงก์</translation>
+<translation id="1206892813135768548">คัดลอกข้อความลิงก์</translation>
 <translation id="1209206284964581585">ซ่อนไปก่อน</translation>
 <translation id="1211530540767271776">ไม่มีอุปกรณ์ USB ที่นี่</translation>
 <translation id="123724288017357924">โหลดหน้าปัจจุบันซ้ำ โดยไม่คำนึงถึงเนื้อหาที่แคชไว้</translation>
@@ -339,6 +341,7 @@
 <translation id="4256782883801055595">ใบอนุญาตโอเพนซอร์ส</translation>
 <translation id="4259722352634471385">มีการบล็อกการนำทาง: <ph name="URL" /></translation>
 <translation id="4262028915562328938">เกิดข้อผิดพลาดการซิงค์ แตะเพื่ออ่านรายละเอียด</translation>
+<translation id="4269820728363426813">คัดลอกที่อยู่ลิงก์</translation>
 <translation id="4275663329226226506">สื่อ</translation>
 <translation id="4278390842282768270">อนุญาตแล้ว</translation>
 <translation id="42981349822642051">ขยาย</translation>

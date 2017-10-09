@@ -20,6 +20,8 @@
 <translation id="1197267115302279827">Sposta i Preferiti</translation>
 <translation id="119944043368869598">Cancella tutto</translation>
 <translation id="1201402288615127009">Avanti</translation>
+<translation id="1204037785786432551">Scarica link</translation>
+<translation id="1206892813135768548">Copia testo link</translation>
 <translation id="1209206284964581585">Nascondi per ora</translation>
 <translation id="1211530540767271776">Nessun dispositivo USB qui</translation>
 <translation id="123724288017357924">Ricarica pag. corr. Ignora i contenuti nella cache</translation>
@@ -339,6 +341,7 @@ Per modificare il termine di ricerca, premi a lungo per selezionarlo. Per perfez
 <translation id="4256782883801055595">Licenze open source</translation>
 <translation id="4259722352634471385">Navigazione bloccata: <ph name="URL" /></translation>
 <translation id="4262028915562328938">Si è verificato un errore di sincronizzazione. Tocca per avere i dettagli.</translation>
+<translation id="4269820728363426813">Copia indirizzo link</translation>
 <translation id="4275663329226226506">Multimediali</translation>
 <translation id="4278390842282768270">Consentiti</translation>
 <translation id="42981349822642051">Espandi</translation>
@@ -761,7 +764,7 @@ Il tuo account Google potrebbe avere altre forme di cronologia di navigazione, a
 <translation id="8084114998886531721">Password salvata</translation>
 <translation id="8087000398470557479">Questi contenuti derivano da <ph name="DOMAIN_NAME" /> e sono offerti da Google.</translation>
 <translation id="8100932616285851614">Riquadro di navigazione chiuso</translation>
-<translation id="8103578431304235997">Scheda in incognito</translation>
+<translation id="8103578431304235997">Scheda di navigazione in incognito</translation>
 <translation id="813082847718468539">Visualizza informazioni sul sito</translation>
 <translation id="8137558756159375272">La funzione Tocca per cercare invia la parola selezionata e la pagina corrente come contesto alla Ricerca Google. Puoi disattivare la funzione nelle <ph name="BEGIN_LINK" />Impostazioni<ph name="END_LINK" />.</translation>
 <translation id="8168435359814927499">Contenuti</translation>

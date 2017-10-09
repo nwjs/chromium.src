@@ -873,7 +873,7 @@
 <translation id="2332742915001411729">기본 설정으로 돌아가기</translation>
 <translation id="2335122562899522968">이 페이지에서 쿠키를 설정합니다.</translation>
 <translation id="2336228925368920074">모든 탭 북마크...</translation>
-<translation id="2336381494582898602">Powerwash</translation>
+<translation id="2336381494582898602">파워워시</translation>
 <translation id="2339120501444485379">새 이름 입력</translation>
 <translation id="2339641773402824483">업데이트 확인 중...</translation>
 <translation id="2340263603246777781"><ph name="ORIGIN" />에서 페어링하려고 함</translation>
@@ -1454,7 +1454,7 @@
 <translation id="3166571619128686629">음성 검색을 시작하려면 클릭하거나 "Ok, Google"이라고 말하세요.</translation>
 <translation id="3170072451822350649">로그인을 건너뛰고 <ph name="LINK_START" />손님으로 로그인<ph name="LINK_END" />할 수도 있습니다.</translation>
 <translation id="3177048931975664371">비밀번호를 숨기려면 클릭하세요.</translation>
-<translation id="3177857336576585529"><ph name="SITE_NAME" />에 권한 요청이 있습니다.</translation>
+<translation id="3177857336576585529"><ph name="SITE_NAME" />에서 권한을 요청하고 있습니다.</translation>
 <translation id="3177909033752230686">페이지 언어:</translation>
 <translation id="3180365125572747493">이 인증서 파일을 암호화하려면 비밀번호를 입력하세요.</translation>
 <translation id="3181110748548073003">앞으로 이동하려면 |<ph name="SHORTCUT" />| 키를 누르세요.</translation>
@@ -4735,7 +4735,7 @@
 <translation id="8283475148136688298">'<ph name="DEVICE_NAME" />'에 연결하는 동안 인증 코드가 거부되었습니다.</translation>
 <translation id="8284279544186306258">모든 <ph name="WEBSITE_1" /> 사이트</translation>
 <translation id="8286036467436129157">로그인</translation>
-<translation id="8286963743045814739">시크릿 창을 사용하여 비공개로 탐색할 수 있습니다.</translation>
+<translation id="8286963743045814739">시크릿 창을 사용하면 비공개로 탐색할 수 있습니다.</translation>
 <translation id="8291967909914612644">홈 공급자 국가</translation>
 <translation id="8294431847097064396">출처</translation>
 <translation id="8297006494302853456">약함</translation>

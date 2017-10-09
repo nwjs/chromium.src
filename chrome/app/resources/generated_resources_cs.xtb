@@ -3105,7 +3105,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="5771816112378578655">Probíhá nastavování...</translation>
 <translation id="5772265531560382923">{NUM_PAGES,plural, =1{Můžete počkat, než stránka začne reagovat, nebo ji můžete opustit.}few{Můžete počkat, než stránky začnou reagovat, nebo je můžete opustit.}many{Můžete počkat, než stránky začnou reagovat, nebo je můžete opustit.}other{Můžete počkat, než stránky začnou reagovat, nebo je můžete opustit.}}</translation>
 <translation id="577322787686508614">Operace čtení v zařízení <ph name="DEVICE_NAME" /> není povolena.</translation>
-<translation id="5774295353725270860">Otevřít aplikaci Soubory</translation>
+<translation id="5774295353725270860">Do aplikace Soubory</translation>
 <translation id="5774515636230743468">Manifest:</translation>
 <translation id="577624874850706961">Prohledávat cookie</translation>
 <translation id="5777468213129569553">Spustit Chrome</translation>

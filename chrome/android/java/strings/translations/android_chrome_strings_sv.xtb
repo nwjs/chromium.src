@@ -20,6 +20,8 @@
 <translation id="1197267115302279827">Flytta bokmärken</translation>
 <translation id="119944043368869598">Ta bort alla</translation>
 <translation id="1201402288615127009">Nästa</translation>
+<translation id="1204037785786432551">Ladda ned länk</translation>
+<translation id="1206892813135768548">Kopiera länktext</translation>
 <translation id="1209206284964581585">Dölj för tillfället</translation>
 <translation id="1211530540767271776">Det finns inga USB-enheter här</translation>
 <translation id="123724288017357924">Läs in den aktuella sidan igen och ignorera cachelagrat innehåll</translation>
@@ -339,6 +341,7 @@ Om du vill ändra söktermen trycker du länge för att välja. Om du vill förf
 <translation id="4256782883801055595">Licenser för öppen källkod</translation>
 <translation id="4259722352634471385">Webbadressen har blockerats: <ph name="URL" /></translation>
 <translation id="4262028915562328938">Ett synkroniseringsfel uppstod. Tryck här om du vill veta mer.</translation>
+<translation id="4269820728363426813">Kopiera länkadress</translation>
 <translation id="4275663329226226506">Media</translation>
 <translation id="4278390842282768270">Tillåtet</translation>
 <translation id="42981349822642051">Expandera</translation>

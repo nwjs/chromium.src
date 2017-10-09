@@ -1197,7 +1197,7 @@
 <translation id="5318185076587284965">Aktivera reläserveranvändning via värden för fjärråtkomst</translation>
 <translation id="5323128137188992869">Tillåt att innehåll castas till enheten med <ph name="PRODUCT_NAME" />.
 
-          Om principen är inställd på falskt får användarna inte casta till enheten. Om principen är inställd på sant får användarna casta innehåll. Om principen lämnas utan inställning får användarna inte casta till registrerade Chrome OS-enheter, men däremot till enheter som inte är registrerade.</translation>
+          Om principen är inställd på falskt kan användarna inte casta till enheten. Om principen är inställd på sant får användarna casta innehåll. Om principen lämnas utan inställning får användarna inte casta till registrerade Chrome OS-enheter, men däremot till enheter som inte är registrerade.</translation>
 <translation id="5330684698007383292">Tillåt att <ph name="PRODUCT_FRAME_NAME" /> hanterar följande innehållstyper</translation>
 <translation id="5365946944967967336">Visa knappen Startsida i verktygsfältet</translation>
 <translation id="5366977351895725771">Om "false" anges inaktiveras alternativet att skapa övervakade användare för den här användaren. Eventuella befintliga övervakade användare är fortfarande tillgängliga.

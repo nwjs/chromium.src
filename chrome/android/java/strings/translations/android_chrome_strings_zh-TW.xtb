@@ -20,6 +20,8 @@
 <translation id="1197267115302279827">移動書籤</translation>
 <translation id="119944043368869598">全部清除</translation>
 <translation id="1201402288615127009">繼續</translation>
+<translation id="1204037785786432551">下載連結</translation>
+<translation id="1206892813135768548">複製連結文字</translation>
 <translation id="1209206284964581585">暫時隱藏</translation>
 <translation id="1211530540767271776">清單中沒有任何 USB 裝置</translation>
 <translation id="123724288017357924">重新載入目前的網頁，略過已快取的內容</translation>
@@ -339,6 +341,7 @@
 <translation id="4256782883801055595">開放原始碼授權</translation>
 <translation id="4259722352634471385">瀏覽的網址已封鎖：<ph name="URL" /></translation>
 <translation id="4262028915562328938">發生同步處理錯誤，輕觸即可取得詳細資料。</translation>
+<translation id="4269820728363426813">複製連結網址</translation>
 <translation id="4275663329226226506">媒體</translation>
 <translation id="4278390842282768270">允許</translation>
 <translation id="42981349822642051">展開</translation>

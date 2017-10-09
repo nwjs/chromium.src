@@ -20,6 +20,8 @@
 <translation id="1197267115302279827">העבר סימניות</translation>
 <translation id="119944043368869598">נקה הכל</translation>
 <translation id="1201402288615127009">הבא</translation>
+<translation id="1204037785786432551">הורד קישור</translation>
+<translation id="1206892813135768548">העתק טקסט קישור</translation>
 <translation id="1209206284964581585">הסתר בינתיים</translation>
 <translation id="1211530540767271776">‏לא נמצאו מכשירי USB</translation>
 <translation id="123724288017357924">טען מחדש את הדף הנוכחי, תוך התעלמות מתוכן שמאוחסן בקובץ השמור</translation>
@@ -301,7 +303,7 @@
 <translation id="393697183122708255">חיפוש קולי מופעל לא זמין</translation>
 <translation id="3946611741043634542">‏אם תמשיך, משמעות הדבר היא שאתה מסכים <ph name="BEGIN_LINK1" />לתנאים ולהגבלות<ph name="END_LINK1" /> ול<ph name="BEGIN_LINK2" />הודעת הפרטיות<ph name="END_LINK2" /> של Chrome.</translation>
 <translation id="3950820424414687140">כניסה</translation>
-<translation id="395206256282351086">הצעות למונחי חיפוש ואתרים הושבתו</translation>
+<translation id="395206256282351086">ההצעות למונחי חיפוש ואתרים הושבתו</translation>
 <translation id="395922942268463099">דפים המעודכנים על בסיס קבוע</translation>
 <translation id="3967822245660637423">ההורדה הושלמה</translation>
 <translation id="397583555483684758">הסנכרון הפסיק לפעול</translation>
@@ -339,6 +341,7 @@
 <translation id="4256782883801055595">רישיונות קוד פתוח</translation>
 <translation id="4259722352634471385">הניווט חסום: <ph name="URL" /></translation>
 <translation id="4262028915562328938">אירעה שגיאת סנכרון, הקש כדי לקבל פרטים.</translation>
+<translation id="4269820728363426813">העתק כתובת של קישור</translation>
 <translation id="4275663329226226506">מדיה</translation>
 <translation id="4278390842282768270">מותר</translation>
 <translation id="42981349822642051">הרחב</translation>

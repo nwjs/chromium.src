@@ -3,7 +3,7 @@
 <translationbundle lang="pt-PT">
 <translation id="1012876632442809908">Dispositivo USB-C (porta frontal)</translation>
 <translation id="1013923882670373915">O dispositivo Bluetooth "<ph name="DEVICE_NAME" />" necessita de autorização para sincronizar. Introduza este código PIN nesse dispositivo: <ph name="PINCODE" /></translation>
-<translation id="1032891413405719768">A bateria da caneta stylus está fraca</translation>
+<translation id="1032891413405719768">A pilha da caneta stylus está fraca</translation>
 <translation id="112308213915226829">Ocultar prateleira automaticamente</translation>
 <translation id="1153356358378277386">Dispositivos sincronizados</translation>
 <translation id="1195412055398077112">overscan</translation>
@@ -92,7 +92,7 @@
 <translation id="315116470104423982">Dados móveis</translation>
 <translation id="3236488194889173876">Nenhuma rede móvel disponível</translation>
 <translation id="3294437725009624529">Convidado</translation>
-<translation id="332587331255250389">Substitua a bateria.</translation>
+<translation id="332587331255250389">Substitua a bateria</translation>
 <translation id="3364721542077212959">Ferramentas da caneta stylus</translation>
 <translation id="3368922792935385530">Ligado</translation>
 <translation id="3371140690572404006">Dispositivo USB-C (porta frontal do lado direito)</translation>

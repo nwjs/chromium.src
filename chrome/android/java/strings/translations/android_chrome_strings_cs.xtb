@@ -20,6 +20,8 @@
 <translation id="1197267115302279827">Přesunutí záložek</translation>
 <translation id="119944043368869598">Vymazat vše</translation>
 <translation id="1201402288615127009">Další</translation>
+<translation id="1204037785786432551">Stáhnout odkaz</translation>
+<translation id="1206892813135768548">Zkopírovat text odkazu</translation>
 <translation id="1209206284964581585">Prozatím skrýt</translation>
 <translation id="1211530540767271776">Nejsou zde žádná zařízení USB</translation>
 <translation id="123724288017357924">Obnovit stránku a ignorovat obsah v mezipaměti</translation>
@@ -339,6 +341,7 @@ Chcete-li vyhledávací dotaz upravit, proveďte výběr dlouhým stisknutím. C
 <translation id="4256782883801055595">Licence open source</translation>
 <translation id="4259722352634471385">Navigace je blokována: <ph name="URL" /></translation>
 <translation id="4262028915562328938">Došlo k chybě synchronizace. Podrobnosti zobrazíte klepnutím.</translation>
+<translation id="4269820728363426813">Zkopírovat adresu odkazu</translation>
 <translation id="4275663329226226506">Média</translation>
 <translation id="4278390842282768270">Povoleno</translation>
 <translation id="42981349822642051">Rozbalit</translation>
@@ -370,7 +373,7 @@ Chcete-li vyhledávací dotaz upravit, proveďte výběr dlouhým stisknutím. C
 <translation id="4583164079174244168">{MINUTES,plural, =1{před # minutou}few{před # minutami}many{před # minuty}other{před # minutami}}</translation>
 <translation id="4587589328781138893">Weby</translation>
 <translation id="4605958867780575332">Tato položka byla odstraněna: <ph name="ITEM_TITLE" /></translation>
-<translation id="4616150815774728855">Otevřít aplikaci <ph name="WEBAPK_NAME" /></translation>
+<translation id="4616150815774728855">Do aplikace <ph name="WEBAPK_NAME" /></translation>
 <translation id="4645575059429386691">Spravováno vaším rodičem</translation>
 <translation id="4663756553811254707">Smazané záložky: <ph name="NUMBER_OF_BOOKMARKS" /></translation>
 <translation id="4665282149850138822">Na plochu byl přidán web <ph name="NAME" /></translation>

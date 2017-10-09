@@ -649,7 +649,7 @@
 <translation id="3322771899429619102">Gjør det mulig å definere en liste med nettadressemønstre for å spesifisere nettsteder som har tillatelse til å bruke nøkkelgenerering. Hvis det er et nettadressemønster i «KeygenBlockedForUrls», overstyrer det disse unntakene.
 
           Hvis denne regelen ikke angis, brukes den globale standardverdien for alle nettstedene, enten fra regelen «DefaultKeygenSetting» hvis den er angitt, eller fra brukerens personlige konfigurasjon.</translation>
-<translation id="332771718998993005">Fastslå navnet som er annonsert som en destinasjon for <ph name="PRODUCT_NAME" />.
+<translation id="332771718998993005">Finn ut hvilket navn som er annonsert som en destinasjon for <ph name="PRODUCT_NAME" />.
 
           Hvis denne innstillingen er satt til en streng som ikke er tom, brukes denne strengen som navnet på destinasjonen for <ph name="PRODUCT_NAME" />. Ellers blir enhetsnavnet angitt som destinasjonsnavnet. Hvis denne innstillingen ikke er satt til noen verdi, blir enhetsnavnet angitt som destinasjonsnavnet, og eieren av enheten (eller en bruker fra domenet som administrerer enheten) kan endre det. Navnet er begrenset til 24 tegn.</translation>
 <translation id="3381968327636295719">Bruk vertsnettleser som standard</translation>

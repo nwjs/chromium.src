@@ -97,7 +97,7 @@
 <translation id="1149401351239820326">有効期限（月）</translation>
 <translation id="1153356358378277386">ペア設定されたデバイス</translation>
 <translation id="1156185823432343624">音量: ミュート</translation>
-<translation id="1156488781945104845">現在の時間</translation>
+<translation id="1156488781945104845">現在の時刻</translation>
 <translation id="1161575384898972166">クライアント証明書をエクスポートするには <ph name="TOKEN_NAME" /> にログインしてください。</translation>
 <translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{ダウンロードが現在進行中です。ダウンロードをキャンセルし、シークレット モードを終了しますか？}other{# 件のダウンロードが現在進行中です。ダウンロードをキャンセルし、シークレット モードを終了しますか？}}</translation>
 <translation id="1163931534039071049">フレームのソースを表示(&amp;V)</translation>
