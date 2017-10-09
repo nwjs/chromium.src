@@ -50,3 +50,8 @@ a {
   color: rgba(0, 0, 0, .54);
   line-height: 20px;
 }
+
+#tpmFirmwareUpdateContainer a {
+  cursor: pointer;
+  pointer-events: auto;
+}
