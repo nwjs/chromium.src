@@ -54,7 +54,7 @@ def GetVersion(compiler, tool):
   try:
     # Note that compiler could be something tricky like "distcc g++".
     if tool == "assembler":
-      compiler = compiler + " --version -Xassembler -x assembler -c /dev/null"
+      compiler = compiler + " -Xassembler --version -x assembler -c /dev/null"
       # Unmodified: GNU assembler (GNU Binutils) 2.24
       # Ubuntu: GNU assembler (GNU Binutils for Ubuntu) 2.22
       # Fedora: GNU assembler version 2.23.2
