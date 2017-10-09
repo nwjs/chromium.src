@@ -908,7 +908,12 @@ void AndroidVideoDecodeAccelerator::SendDecodedFrameToClient(
     picture_buffer.set_size(size_);
 
   // Only ask for promotion hints if we can actually switch surfaces.
-  const bool want_promotion_hint = device_info_->IsSetOutputSurfaceSupported();
+  // For sync init, we haven't even initialized the surface chooser, nor is the
+  // client able to handle the new Picture flags.  Don't request hints.  The
+  // sync path only supports SurfaceTexture anyway.
+  const bool want_promotion_hint =
+      device_info_->IsSetOutputSurfaceSupported() &&
+      config_.is_deferred_initialization_allowed;
   const bool allow_overlay = picture_buffer_manager_.ArePicturesOverlayable();
 
   // TODO(liberato): remove in M63, if FrameInformation is clearly working.
