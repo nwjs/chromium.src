@@ -304,6 +304,8 @@ void PaintLayerClipper::CalculateRects(
     ClipRect& foreground_rect,
     const LayoutPoint* offset_from_root) const {
   if (use_geometry_mapper_) {
+    if (!layer_.GetLayoutObject().FirstFragment())
+      return;
     CalculateRectsWithGeometryMapper(context, paint_dirty_rect, layer_bounds,
                                      background_rect, foreground_rect,
                                      offset_from_root);
