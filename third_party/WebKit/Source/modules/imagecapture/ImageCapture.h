@@ -23,7 +23,6 @@ namespace blink {
 
 class ExceptionState;
 class MediaStreamTrack;
-class MediaTrackConstraints;
 class PhotoCapabilities;
 class ScriptPromiseResolver;
 class WebImageCaptureFrameGrabber;
@@ -100,7 +99,7 @@ class MODULES_EXPORT ImageCapture final
   void ResolveWithNothing(ScriptPromiseResolver*);
   void ResolveWithPhotoSettings(ScriptPromiseResolver*);
   void ResolveWithPhotoCapabilities(ScriptPromiseResolver*);
-  void ResolveWithMediaTrackConstraints(MediaTrackConstraints,
+  void ResolveWithMediaTrackConstraints(ScriptValue constraints,
                                         ScriptPromiseResolver*);
 
   Member<MediaStreamTrack> stream_track_;
