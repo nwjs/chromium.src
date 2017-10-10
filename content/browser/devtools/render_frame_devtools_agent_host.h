@@ -92,6 +92,9 @@ class CONTENT_EXPORT RenderFrameDevToolsAgentHost
   bool Close() override;
   base::TimeTicks GetLastActivityTime() override;
 
+  // PlzNavigate
+  RenderFrameHostImpl* GetFrameHostForTesting() { return frame_host_; }
+
  private:
   friend class DevToolsAgentHost;
   explicit RenderFrameDevToolsAgentHost(FrameTreeNode*);
