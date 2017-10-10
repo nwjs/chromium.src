@@ -23,6 +23,7 @@ namespace blink {
 
 class ExceptionState;
 class MediaStreamTrack;
+class MediaTrackConstraints;
 class PhotoCapabilities;
 class ScriptPromiseResolver;
 class WebImageCaptureFrameGrabber;
