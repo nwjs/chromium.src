@@ -78,6 +78,9 @@ class CONTENT_EXPORT IndexedDBFactoryImpl : public IndexedDBFactory {
   void DatabaseDeleted(
       const IndexedDBDatabase::Identifier& identifier) override;
 
+  // Called by IndexedDBBackingStore when blob files have been cleaned.
+  void BlobFilesCleaned(const url::Origin& origin) override;
+
   size_t GetConnectionCount(const url::Origin& origin) const override;
 
  protected:
