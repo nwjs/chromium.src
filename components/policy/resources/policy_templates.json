@@ -8196,6 +8196,7 @@
         'dynamic_refresh': False,
         'per_profile': False,
       },
+      'future': True,
       'example_value': False,
       'id': 346,
       'caption': '''Enables force sign in for <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>''',
