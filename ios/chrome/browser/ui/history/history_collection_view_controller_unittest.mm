@@ -136,7 +136,7 @@ TEST_F(HistoryCollectionViewControllerTest, HasHistoryEntriesWhenSyncEnabled) {
   EXPECT_CALL(*sync_setup_service_mock_, IsSyncEnabled())
       .WillRepeatedly(testing::Return(true));
   EXPECT_CALL(*sync_setup_service_mock_,
-              IsDataTypeEnabled(syncer::HISTORY_DELETE_DIRECTIVES))
+              IsDataTypeActive(syncer::HISTORY_DELETE_DIRECTIVES))
       .WillRepeatedly(testing::Return(false));
 
   QueryHistory({{GURL(kTestUrl1), Time::Now()}});
