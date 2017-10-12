@@ -1317,7 +1317,7 @@ TEST_P(FrameThrottlingTest, RebuildCompositedLayerTreeOnLayerRemoval) {
 
   CompositeFrame();
   auto* frame_element =
-      ToHTMLIFrameElement(GetDocument().getElementById("frame"));
+      toHTMLIFrameElement(GetDocument().getElementById("frame"));
   {
     DocumentLifecycle::AllowThrottlingScope throttling_scope(
         GetDocument().Lifecycle());
