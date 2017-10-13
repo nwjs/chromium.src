@@ -15,6 +15,7 @@
 <translation id="1270290102613614947">터치 키보드 사용 중지됨</translation>
 <translation id="1272079795634619415">중지</translation>
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" />(<ph name="ANNOTATION" />)</translation>
+<translation id="1290331692326790741">신호 세기 약함</translation>
 <translation id="1293264513303784526">USB-C 기기(왼쪽 포트)</translation>
 <translation id="1346748346194534595">오른쪽</translation>
 <translation id="1383876407941801731">검색</translation>
@@ -79,6 +80,7 @@
 <translation id="2844169650293029770">USB-C 기기(좌측 전면 포트)</translation>
 <translation id="2865888419503095837">네트워크 정보</translation>
 <translation id="2872961005593481000">종료</translation>
+<translation id="2903844815300039659"><ph name="NAME" />에 연결됨, <ph name="STRENGTH" /></translation>
 <translation id="2911940648265863620">화면 공유 중</translation>
 <translation id="2942516765047364088">실행기 위치</translation>
 <translation id="2946119680249604491">연결 추가</translation>
@@ -96,7 +98,7 @@
 <translation id="315116470104423982">모바일 데이터</translation>
 <translation id="3236488194889173876">사용할 수 있는 모바일 네트워크 없음</translation>
 <translation id="3294437725009624529">손님</translation>
-<translation id="332587331255250389">배터리를 교체해 주세요.</translation>
+<translation id="332587331255250389">배터리를 교체해 주세요</translation>
 <translation id="3364721542077212959">스타일러스 도구</translation>
 <translation id="3368922792935385530">연결됨</translation>
 <translation id="3371140690572404006">USB-C 기기(우측 전면 포트)</translation>
@@ -126,6 +128,7 @@
 <translation id="397105322502079400">계산 중...</translation>
 <translation id="3995138139523574647">USB-C 기기(우측 후면 포트)</translation>
 <translation id="4017989525502048489">레이저 포인터</translation>
+<translation id="4072264167173457037">신호 세기 보통</translation>
 <translation id="4279490309300973883">미러링</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4338109981321384717">돋보기</translation>
@@ -256,6 +259,7 @@
 <translation id="776344839111254542">업데이트 세부정보를 보려면 클릭하세요.</translation>
 <translation id="7798302898096527229">취소하려면 검색 또는 Shift 키를 누르세요.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" />시간 <ph name="MINUTE" />분</translation>
+<translation id="7829386189513694949">신호 세기 강함</translation>
 <translation id="7904094684485781019">이 계정의 관리자가 멀티 로그인을 허용하지 않습니다.</translation>
 <translation id="7977927628060636163">모바일 네트워크 검색 중...</translation>
 <translation id="7982789257301363584">네트워크</translation>
@@ -274,7 +278,6 @@
 <translation id="8308637677604853869">이전 메뉴</translation>
 <translation id="8351131234907093545">메모 만들기</translation>
 <translation id="8392234662362215700">키보드 레이아웃을 전환하려면 Control-Shift-Space 키를 누르세요.</translation>
-<translation id="8392688371657486010">알림이 없습니다.</translation>
 <translation id="8428213095426709021">설정</translation>
 <translation id="8433186206711564395">네트워크 설정</translation>
 <translation id="8433977262951327081">실행기에서 입력 옵션 메뉴 도움말 풍선을 표시하는 단축키가 변경되었습니다. <ph name="OLD_SHORTCUT" /> 대신 <ph name="NEW_SHORTCUT" />을(를) 사용하세요.</translation>

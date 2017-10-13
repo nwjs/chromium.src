@@ -53,7 +53,7 @@ Per exemple, pot ser que, per respondre a aquesta sol·licitud, alguns llocs web
 <translation id="1813414402673211292">Esborra dades navegació</translation>
 <translation id="1820259098641718022">S'ha afegit a la llista de lectura</translation>
 <translation id="1876721852596493031">Envia les dades d'ús</translation>
-<translation id="1886928167269928266">Des de l'inici</translation>
+<translation id="1886928167269928266">L'inici</translation>
 <translation id="1911619930368729126">Penja a Google Drive</translation>
 <translation id="1941314575388338491">Feu doble toc per copiar-ho.</translation>
 <translation id="1952728750904661634">Inicieu la sessió amb un compte gestionat</translation>
@@ -67,7 +67,6 @@ Per exemple, pot ser que, per respondre a aquesta sol·licitud, alguns llocs web
 <translation id="2116625576999540962"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> elements desplaçats</translation>
 <translation id="213900355088104901">Per navegar de manera privada, obre una pestanya d'incògnit</translation>
 <translation id="2149973817440762519">Edició de l'adreça d'interès</translation>
-<translation id="2154710561487035718">Copia l'URL</translation>
 <translation id="2230173723195178503">La pàgina web s'ha carregat</translation>
 <translation id="2256128224215992540">Suggeriments de cerques i llocs</translation>
 <translation id="2267753748892043616">Afegeix un compte</translation>
@@ -312,7 +311,6 @@ Les vostres dades es van encriptar el dia <ph name="TIME" /> amb la vostra frase
 <translation id="6797885426782475225">Cerca per veu</translation>
 <translation id="6807889908376551050">Mostra-ho tot...</translation>
 <translation id="681368974849482173">S'ha creat un element.</translation>
-<translation id="6871663519944855400">Obre en mode d'incògnit</translation>
 <translation id="6896758677409633944">Copia</translation>
 <translation id="6903907808598579934">Activa la sincronització</translation>
 <translation id="6945221475159498467">Selecciona</translation>

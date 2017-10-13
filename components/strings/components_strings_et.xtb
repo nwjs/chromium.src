@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Lugemisloend</translation>
 <translation id="1264126396475825575">Krahhiaruanne talletati <ph name="CRASH_TIME" /> (ei ole veel üles laaditud ega eiratud)</translation>
 <translation id="1270502636509132238">Kättesaamisviis</translation>
-<translation id="1281526147609854549">Väljaandja: <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Ära kunagi seda saiti tõlgi</translation>
 <translation id="129553762522093515">Viimati suletud</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Kustutage küpsisefailid<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Tühista makse</translation>
 <translation id="2147827593068025794">Taustal sünkroonimine</translation>
 <translation id="2148613324460538318">Lisa kaart</translation>
+<translation id="2149973817440762519">Muuda järjehoidjat</translation>
 <translation id="2154054054215849342">Sünkroonimisteenus pole domeeni jaoks saadaval</translation>
 <translation id="2154484045852737596">Kaardi muutmine</translation>
 <translation id="2166049586286450108">Täielik administraatorijuurdepääs</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Variatsioonid</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Ühtegi}=1{1 rakendus ($1)}=2{2 rakendust ($1, $2)}other{# rakendust ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Teie kell on ees</translation>
+<translation id="2634124572758952069">Hosti <ph name="HOST_NAME" /> serveri IP-aadressi ei leitud.</translation>
 <translation id="2639739919103226564">Olek:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Faili juurde ei saa pääseda</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Ründajad saidil <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> võivad installida petlikke rakendusi, mis esinevad millegi muuna või koguvad andmeid, mida võidakse kasutada teie jälgimiseks. <ph name="BEGIN_LEARN_MORE_LINK" />Lisateave<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (sünkroonitud)</translation>
 <translation id="6027201098523975773">Sisestage nimi</translation>
+<translation id="6039846035001940113">Kui probleem jätkub, võtke ühendust saidi omanikuga.</translation>
 <translation id="6040143037577758943">Sulge</translation>
 <translation id="6047233362582046994">Kui mõistate, kuidas see teie turvalisust ohustab, siis võite <ph name="BEGIN_LINK" />seda saiti külastada<ph name="END_LINK" /> enne, kui kahjulikud rakendused on eemaldatud.</translation>
 <translation id="6047927260846328439">See sisu võib meelitada teid installima tarkvara või avaldama isiklikke andmeid. <ph name="BEGIN_LINK" />Kuva ikkagi<ph name="END_LINK" /></translation>

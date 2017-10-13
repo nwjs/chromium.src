@@ -15,6 +15,7 @@
 <translation id="1270290102613614947">Ruutunäppäimistö poistettiin käytöstä</translation>
 <translation id="1272079795634619415">Pysäytä</translation>
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
+<translation id="1290331692326790741">Heikko signaali</translation>
 <translation id="1293264513303784526">C-tyypin USB-laite (vasemman sivun portti)</translation>
 <translation id="1346748346194534595">Oikealle</translation>
 <translation id="1383876407941801731">Haku</translation>
@@ -79,6 +80,7 @@
 <translation id="2844169650293029770">C-tyypin USB-laite (vasemman sivun etummainen portti)</translation>
 <translation id="2865888419503095837">Verkon tiedot</translation>
 <translation id="2872961005593481000">Sammuta</translation>
+<translation id="2903844815300039659">Yhdistetty: <ph name="NAME" />, <ph name="STRENGTH" /></translation>
 <translation id="2911940648265863620">Jaat näyttösi</translation>
 <translation id="2942516765047364088">Hyllyn sijainti</translation>
 <translation id="2946119680249604491">Lisää yhteys</translation>
@@ -110,6 +112,7 @@
 <translation id="3606978283550408104">Pistekirjoitusnäyttö on yhdistetty.</translation>
 <translation id="3621202678540785336">Äänitulo:</translation>
 <translation id="3626281679859535460">Kirkkaus</translation>
+<translation id="3631369015426612114">Salli ilmoitukset seuraavista:</translation>
 <translation id="3712407551474845318">Tallenna kuvakaappaus alueesta</translation>
 <translation id="371370241367527062">Etumikrofoni</translation>
 <translation id="3771549900096082774">Suuri kontrasti ‑tila</translation>
@@ -126,6 +129,7 @@
 <translation id="397105322502079400">Lasketaan...</translation>
 <translation id="3995138139523574647">C-tyypin USB-laite (oikean sivun taaimmainen portti)</translation>
 <translation id="4017989525502048489">Laserosoitin</translation>
+<translation id="4072264167173457037">Keskitasoinen signaali</translation>
 <translation id="4279490309300973883">Peilaus päällä</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4338109981321384717">Suurennuslasi</translation>
@@ -256,6 +260,7 @@ Käytä tätä ominaisuutta vain luotettavien tilien kanssa.</translation>
 <translation id="776344839111254542">Klikkaa nähdäksesi päivityksen tiedot</translation>
 <translation id="7798302898096527229">Peruuta painamalla haku- tai vaihtonäppäintä.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> <ph name="MINUTE" /></translation>
+<translation id="7829386189513694949">Vahva signaali</translation>
 <translation id="7904094684485781019">Tämän tilin järjestelmänvalvoja on estänyt useisiin tileihin kirjautumisen.</translation>
 <translation id="7977927628060636163">Haetaan mobiiliverkkoja…</translation>
 <translation id="7982789257301363584">Verkko</translation>
@@ -274,7 +279,6 @@ Käytä tätä ominaisuutta vain luotettavien tilien kanssa.</translation>
 <translation id="8308637677604853869">Edellinen valikko</translation>
 <translation id="8351131234907093545">Luo muistiinpano</translation>
 <translation id="8392234662362215700">Vaihda näppäimistöasettelua painamalla Control + Shift + välilyönti.</translation>
-<translation id="8392688371657486010">Ei ilmoituksia</translation>
 <translation id="8428213095426709021">Asetukset</translation>
 <translation id="8433186206711564395">Verkkoasetukset</translation>
 <translation id="8433977262951327081">Hyllyn syöttöasetukset näyttävä valikkokupla on muuttunut. Käytä uutta pikanäppäintä <ph name="NEW_SHORTCUT" /> vanhan (<ph name="OLD_SHORTCUT" />) sijaan.</translation>

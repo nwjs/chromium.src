@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Do przeczytania</translation>
 <translation id="1264126396475825575">Utworzono raport o awarii w dniu: <ph name="CRASH_TIME" /> (nie został jeszcze przesłany ani zignorowany)</translation>
 <translation id="1270502636509132238">Metoda odbioru</translation>
-<translation id="1281526147609854549">Wystawca: <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Nigdy nie tłumacz tej witryny</translation>
 <translation id="129553762522093515">Ostatnio zamknięte</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Usuń pliki cookie<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Anuluj płatność</translation>
 <translation id="2147827593068025794">Synchronizacja w tle</translation>
 <translation id="2148613324460538318">Dodaj kartę</translation>
+<translation id="2149973817440762519">Edytuj zakładkę</translation>
 <translation id="2154054054215849342">Synchronizacja nie jest dostępna w Twojej domenie.</translation>
 <translation id="2154484045852737596">Edytowanie karty</translation>
 <translation id="2166049586286450108">Pełny dostęp administratora</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Odmiany</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Brak}=1{1 aplikacja ($1)}=2{2 aplikacje ($1, $2)}few{# aplikacje ($1, $2, $3)}many{# aplikacji ($1, $2, $3)}other{# aplikacji ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Twój zegar się śpieszy</translation>
+<translation id="2634124572758952069">Nie udało się znaleźć adresu IP serwera ze stroną <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Stan:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Odmówiono dostępu do pliku</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Osoby atakujące stronę <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> mogą instalować wprowadzające w błąd aplikacje, które udają, że są przeznaczone do czegoś innego niż w rzeczywistości, lub zbierają dane, na podstawie których można Cię śledzić. <ph name="BEGIN_LEARN_MORE_LINK" />Więcej informacji<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (zsynchronizowane)</translation>
 <translation id="6027201098523975773">Wpisz imię i nazwisko</translation>
+<translation id="6039846035001940113">Jeśli problem nie ustąpi, skontaktuj się z właścicielem strony.</translation>
 <translation id="6040143037577758943">Zamknij</translation>
 <translation id="6047233362582046994">Jeśli rozumiesz zagrożenie, możesz <ph name="BEGIN_LINK" />wejść na tę stronę<ph name="END_LINK" />, zanim szkodliwe aplikacje zostaną usunięte.</translation>
 <translation id="6047927260846328439">Te treści mogą próbować podstępem nakłonić Cię do zainstalowania oprogramowania lub ujawnienia danych osobowych. <ph name="BEGIN_LINK" />Wyświetl mimo to<ph name="END_LINK" /></translation>

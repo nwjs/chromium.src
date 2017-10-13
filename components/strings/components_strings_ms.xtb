@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Senarai bacaan</translation>
 <translation id="1264126396475825575">Laporan ranap sistem dirakam pada <ph name="CRASH_TIME" /> (belum dimuat naik atau diabaikan)</translation>
 <translation id="1270502636509132238">Kaedah Pengambilan</translation>
-<translation id="1281526147609854549">Dikeluarkan oleh <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Jangan sekali-kali menterjemahkan tapak ini</translation>
 <translation id="129553762522093515">Ditutup baru-baru ini</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Cuba kosongkan kuki anda<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Batalkan pembayaran</translation>
 <translation id="2147827593068025794">Penyegerakan Latar Belakang</translation>
 <translation id="2148613324460538318">Tambahkan Kad</translation>
+<translation id="2149973817440762519">Edit Penanda Halaman</translation>
 <translation id="2154054054215849342">Penyegerakan tidak tersedia untuk domain anda</translation>
 <translation id="2154484045852737596">Edit kad</translation>
 <translation id="2166049586286450108">Akses Penuh Pentadbir</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Variasi</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Tiada}=1{1 apl ($1)}=2{2 apl ($1, $2)}other{# apl ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Jam anda lebih awal</translation>
+<translation id="2634124572758952069">Alamat IP pelayan <ph name="HOST_NAME" /> tidak ditemui.</translation>
 <translation id="2639739919103226564">Status:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Akses ke fail dinafikan</translation>
@@ -651,6 +652,7 @@
 <translation id="6017850046339264347">Penyerang di <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> boleh memasang apl yang mengelirukan yang menyamar menjadi sesuatu yang lain atau mengumpul data yang boleh digunakan untuk menjejak anda. <ph name="BEGIN_LEARN_MORE_LINK" />Ketahui lebih lanjut<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (disegerakkan)</translation>
 <translation id="6027201098523975773">Masukkan nama</translation>
+<translation id="6039846035001940113">Jika masalah berterusan, hubungi pemilik tapak.</translation>
 <translation id="6040143037577758943">Tutup</translation>
 <translation id="6047233362582046994">Jika anda memahami risiko terhadap keselamatan anda, anda boleh <ph name="BEGIN_LINK" />melawat tapak ini<ph name="END_LINK" /> sebelum program yang berbahaya ini dialih keluar.</translation>
 <translation id="6047927260846328439">Kandungan ini mungkin menggunakan tipu muslihat supaya anda memasang perisian atau mendedahkan maklumat peribadi. <ph name="BEGIN_LINK" />Tunjukkan juga<ph name="END_LINK" /></translation>

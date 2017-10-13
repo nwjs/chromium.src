@@ -37,6 +37,7 @@ A Fizikai web használatához be kell kapcsolnia a Bluetooth funkciót és a hel
 <translation id="1291207594882862231">Előzmények, cookie-k, webhelyadatok és a gyorsítótár törlése…</translation>
 <translation id="129553762522093515">Mostanában bezárt</translation>
 <translation id="1303671224831497365">Nem található Bluetooth-eszköz</translation>
+<translation id="1320663236730331991">Népszerű webhelyekhez, cikkekhez, letöltésekhez és sok minden máshoz is hozzáférhet egyszerűen, ha felfelé csúsztatja az ujját</translation>
 <translation id="1326317727527857210">Ha hozzá szeretne férni lapjaihoz a többi eszközéről, jelentkezzen be a Chrome-ba.</translation>
 <translation id="1332501820983677155">A Google Chrome-funkciók billentyűparancsai</translation>
 <translation id="1369915414381695676">A(z) <ph name="SITE_NAME" /> webhely hozzáadva</translation>
@@ -109,7 +110,6 @@ A Fizikai web használatához be kell kapcsolnia a Bluetooth funkciót és a hel
 <translation id="1993768208584545658">A(z) <ph name="SITE" /> párosítást szeretne végrehajtani</translation>
 <translation id="1994173015038366702">Webhely URL-je</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB más alkalmazások által</translation>
-<translation id="2011013297378343166">Az alkalmazás használatával elfogadja a Chrome <ph name="BEGIN_LINK1" />általános szerződési feltételeit<ph name="END_LINK1" /> és <ph name="BEGIN_LINK2" />adatvédelmi közleményét<ph name="END_LINK2" />, valamint <ph name="BEGIN_LINK3" />a Family Link szolgáltatásban létrehozott Google-fiókokra vonatkozó adatvédelmi közleményt<ph name="END_LINK3" />.</translation>
 <translation id="2017836877785168846">Törli a címsávban található előzményeket és automatikus kiegészítéseket.</translation>
 <translation id="2038563949887743358">Kapcsolja be az Asztali webhely kérése funkciót</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> GB más alkalmazások által</translation>
@@ -147,6 +147,7 @@ A Fizikai web használatához be kell kapcsolnia a Bluetooth funkciót és a hel
 <translation id="2351097562818989364">A fordítási beállítások visszaállítása megtörtént.</translation>
 <translation id="2359808026110333948">Folytatás</translation>
 <translation id="2369533728426058518">megnyitott lapok</translation>
+<translation id="2372491353676110880">Oldalak automatikus letöltése</translation>
 <translation id="2385560268894525395">elmúlt hét</translation>
 <translation id="2387895666653383613">Szöveg nagyítása</translation>
 <translation id="2414886740292270097">Sötét</translation>
@@ -156,6 +157,7 @@ A Fizikai web használatához be kell kapcsolnia a Bluetooth funkciót és a hel
 <translation id="2450083983707403292">Szeretné újra elkezdeni a(z) <ph name="FILE_NAME" /> letöltését?</translation>
 <translation id="2476578072172137802">Webhelybeállítások</translation>
 <translation id="2482878487686419369">Értesítések</translation>
+<translation id="2490674006498621843">Húzza fel az eszköztárat – a fájlokat és oldalakat a letöltések között találja</translation>
 <translation id="2496180316473517155">Böngészés előzményei</translation>
 <translation id="2498359688066513246">Súgó és visszajelzés</translation>
 <translation id="2501278716633472235">Visszalépés</translation>
@@ -174,6 +176,7 @@ A Fizikai web használatához be kell kapcsolnia a Bluetooth funkciót és a hel
 <translation id="2625189173221582860">Jelszó vágólapra másolva</translation>
 <translation id="2631006050119455616">Megtakarított</translation>
 <translation id="2653659639078652383">Elküldés</translation>
+<translation id="2671100504997899381">Gyorsabban tölthet be oldalakat, és a népszerűeket elmentheti offline olvasáshoz</translation>
 <translation id="2677748264148917807">Lap elhagyása</translation>
 <translation id="2704606927547763573">Másolt</translation>
 <translation id="2707726405694321444">Oldal frissítése</translation>
@@ -308,7 +311,6 @@ A keresési kifejezés módosításához hosszú nyomva tartással hajthat végr
 <translation id="3997476611815694295">Nem fontos tárhely</translation>
 <translation id="4002066346123236978">Cím</translation>
 <translation id="4013356575049925793">E-kereskedelem</translation>
-<translation id="4041402800604793551">A folytatással elfogadja a Chrome <ph name="BEGIN_LINK1" />Általános Szerződési Feltételeit<ph name="END_LINK1" /> és <ph name="BEGIN_LINK2" />Adatvédelmi közleményét<ph name="END_LINK2" />, valamint a <ph name="BEGIN_LINK3" />A Family Link szolgáltatásban létrehozott Google-fiókokra vonatkozó Adatvédelmi közleményt<ph name="END_LINK3" />.</translation>
 <translation id="4042870126885713738">Javaslatok megjelenítése, ha egy internetcímet nem lehet feloldani, vagy nem lehet kapcsolódni</translation>
 <translation id="4046123991198612571">Következő szám</translation>
 <translation id="4056223980640387499">Szépia</translation>
@@ -469,7 +471,6 @@ A keresési kifejezés módosításához hosszú nyomva tartással hajthat végr
 <translation id="5534640966246046842">Webhely vágólapra másolva</translation>
 <translation id="5537099431952529648">Te és a szüleid kezelhetitek a Chrome-szinkronizálást és a személyre szabást a <ph name="BEGIN_LINK1" />Beállításokban<ph name="END_LINK1" /></translation>
 <translation id="5556459405103347317">Újratöltés</translation>
-<translation id="5568069709869097550">Nem sikerült a bejelentkezés</translation>
 <translation id="557283862590186398">A Chrome számára engedély szükséges, hogy hozzáférjen a mikrofonhoz ennél a webhelynél.</translation>
 <translation id="5578795271662203820">A kép keresése a(z) <ph name="SEARCH_ENGINE" /> keresővel</translation>
 <translation id="5585019845078534178">Kártyák</translation>
@@ -601,6 +602,7 @@ Egyes webhelyek például válaszolhatnak rá úgy, hogy olyan hirdetéseket jel
 <translation id="666268767214822976">„Várható kifejezések” szolgáltatás használata a kapcsolódó lekérdezések és népszerű webhelyek megjelenítéséhez a címsávba történő gépelés során.</translation>
 <translation id="666731172850799929">Megnyitás itt: <ph name="APP_NAME" /></translation>
 <translation id="666981079809192359">Chrome – Adatvédelmi közlemény</translation>
+<translation id="6689700624704789898">Koppintson duplán a kibontás gombra – a fájlokat és oldalakat a letöltések között találja</translation>
 <translation id="6697947395630195233">A Chrome-nak hozzáférésre van szüksége a helyadatokra ahhoz, hogy megoszthassa a webhellyel az Ön tartózkodási helyét.</translation>
 <translation id="6698801883190606802">Szinkronizálás kezelése</translation>
 <translation id="6701279291835318271">Biztonsági jelentések</translation>
@@ -608,7 +610,6 @@ Egyes webhelyek például válaszolhatnak rá úgy, hogy olyan hirdetéseket jel
 <translation id="6710213216561001401">Előző</translation>
 <translation id="6738867403308150051">Letöltés…</translation>
 <translation id="6762156594045689028">A beállítás módosításához <ph name="BEGIN_LINK" />állítsa alaphelyzetbe a szinkronizálást<ph name="END_LINK" /></translation>
-<translation id="6764789522080107716">A fájlt nem lehet megnyitni.</translation>
 <translation id="6770414673596662518">A Chrome Biztonságos Böngészés rendszere is segít a rosszindulatú oldalak észlelésében, valamint megvédi Önt az adathalászattól, a rosszindulatú programoktól és az ártalmas letöltésektől.</translation>
 <translation id="6776813977906306442">A Letöltés gomb segítségével videókat tölthet le, hogy később tekintse meg őket</translation>
 <translation id="6790428901817661496">Játék</translation>
@@ -644,7 +645,6 @@ Egyes webhelyek például válaszolhatnak rá úgy, hogy olyan hirdetéseket jel
 <translation id="7029809446516969842">Jelszavak</translation>
 <translation id="7031882061095297553">Szinkronizálás a következőknél</translation>
 <translation id="704059664004611800">Koppintson a könyvjelzők és egyéb tartalmak megtekintéséhez</translation>
-<translation id="7040779639826445456">Koppintson a könyvjelzők, a letöltések és az előzmények megtekintéséhez</translation>
 <translation id="7053983685419859001">Letiltás</translation>
 <translation id="7062545763355031412">Elfogadás és fiókváltás</translation>
 <translation id="7063006564040364415">Nem sikerült csatlakozni a szinkronizálószerverhez.</translation>
@@ -693,6 +693,7 @@ Előfordulhat, hogy Google-fiókjában (a <ph name="BEGIN_LINK" />history.google
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7562080006725997899">Böngészési adatok törlése</translation>
 <translation id="756809126120519699">Chrome-adatok törölve</translation>
+<translation id="7581273696622423628">Kérdőív kitöltése</translation>
 <translation id="7588950540487816470">Fizikai web</translation>
 <translation id="7589445247086920869">Tiltja a jelenlegi keresőmotor számára</translation>
 <translation id="7593557518625677601">Aktiválja újra az Android rendszer szinkronizálását a Chrome-szinkronizáláshoz</translation>
@@ -702,6 +703,7 @@ Előfordulhat, hogy Google-fiókjában (a <ph name="BEGIN_LINK" />history.google
 <translation id="7607552448134703340">Írja be, mit keres</translation>
 <translation id="7612619742409846846">Bejelentkezve a Google rendszerébe mint</translation>
 <translation id="7619072057915878432">A következő fájl letöltése hálózati hibák miatt nem sikerült: <ph name="FILE_NAME" />.</translation>
+<translation id="7620146066550602128">Próbálja ki <ph name="BEGIN_LINK" />a böngészés még egyszerűbb módját<ph name="END_LINK" /></translation>
 <translation id="7624880197989616768"><ph name="BEGIN_LINK1" />Kérjen segítséget<ph name="END_LINK1" />, vagy <ph name="BEGIN_LINK2" />keressen rá újra<ph name="END_LINK2" />.</translation>
 <translation id="7626032353295482388">A Chrome üdvözli Önt!</translation>
 <translation id="7638584964844754484">Hibás összetett jelszó</translation>
@@ -807,7 +809,6 @@ Az új engedélyek beszerzéséhez kapcsolódjon az internethez, és játssza le
 <translation id="8636825310635137004">Ha a többi eszközén is szeretné elérni lapjait, kapcsolja be a szinkronizálást</translation>
 <translation id="8641930654639604085">Felnőtteknek szóló webhelyek letiltásának megkísérlése</translation>
 <translation id="8662811608048051533">A rendszer a legtöbb webhelyről kijelentkezteti Önt.</translation>
-<translation id="867485229011312729">Hol találom a könyvjelzőket, a letöltéseket és az előzményeket?</translation>
 <translation id="8676374126336081632">Beírt szöveg törlése</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{Jelerősség szintje: # sáv}other{Jelerősség szintje: # sáv}}</translation>
 <translation id="869891660844655955">Lejárati dátum</translation>

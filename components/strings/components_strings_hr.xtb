@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Popis za čitanje</translation>
 <translation id="1264126396475825575">Izvješća o rušenju programa generirana <ph name="CRASH_TIME" /> (još nisu prenesena ili zanemarena)</translation>
 <translation id="1270502636509132238">Način preuzimanja</translation>
-<translation id="1281526147609854549">Izdavač: <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Nikad nemoj prevoditi ovu web-lokaciju</translation>
 <translation id="129553762522093515">Nedavno zatvoreno</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Izbrišite kolačiće<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Otkaži plaćanje</translation>
 <translation id="2147827593068025794">Sinkronizacija u pozadini</translation>
 <translation id="2148613324460538318">Dodaj karticu</translation>
+<translation id="2149973817440762519">Uredi oznaku</translation>
 <translation id="2154054054215849342">Sinkronizacija nije dostupna za vašu domenu</translation>
 <translation id="2154484045852737596">Uredite karticu</translation>
 <translation id="2166049586286450108">Potpuni administratorski pristup</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Varijacije</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Nijedna}=1{1 aplikacija ($1)}=2{2 aplikacije ($1, $2)}one{# aplikacija ($1, $2, $3)}few{# aplikacije ($1, $2, $3)}other{# aplikacija ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Sat ide unaprijed</translation>
+<translation id="2634124572758952069">IP adresa poslužitelja hosta <ph name="HOST_NAME" /> nije pronađena.</translation>
 <translation id="2639739919103226564">Status:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Pristup datoteci nije dopušten</translation>
@@ -649,6 +650,7 @@
 <translation id="6017850046339264347">Napadači na web-lokaciji <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> mogli bi instalirati obmanjujuće aplikacije koje se pretvaraju da su nešto drugo ili prikupljaju podatke na temelju kojih vas je moguće pratiti. <ph name="BEGIN_LEARN_MORE_LINK" />Saznajte više<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (sinkronizirano)</translation>
 <translation id="6027201098523975773">Unesite ime</translation>
+<translation id="6039846035001940113">Ako se problem nastavi, obratite se vlasniku web-lokacije.</translation>
 <translation id="6040143037577758943">Zatvori</translation>
 <translation id="6047233362582046994">Ako ste svjesni sigurnosnih rizika, možete <ph name="BEGIN_LINK" />posjetiti ovu web-lokaciju<ph name="END_LINK" /> prije uklanjanja štetnih aplikacija.</translation>
 <translation id="6047927260846328439">Ovaj vas sadržaj može na prijevaru pokušati navesti da instalirate softver ili odate svoje osobne podatke. <ph name="BEGIN_LINK" />Ipak prikaži<ph name="END_LINK" /></translation>

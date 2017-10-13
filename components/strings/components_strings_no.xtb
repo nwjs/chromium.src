@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Leseliste</translation>
 <translation id="1264126396475825575">Programstopprapport fra <ph name="CRASH_TIME" /> (ignorert eller ikke lastet opp ennå)</translation>
 <translation id="1270502636509132238">Hentemåte</translation>
-<translation id="1281526147609854549">Utstedt av <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Oversett aldri dette nettstedet</translation>
 <translation id="129553762522093515">Nylig lukket</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Prøv å slette informasjonskapslene dine<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Avbryt betalingen</translation>
 <translation id="2147827593068025794">Bakgrunnssynkronisering</translation>
 <translation id="2148613324460538318">Legg til et kort</translation>
+<translation id="2149973817440762519">Rediger bokmerke</translation>
 <translation id="2154054054215849342">Synkronisering er ikke tilgjengelig for domenet ditt</translation>
 <translation id="2154484045852737596">Endre kortet</translation>
 <translation id="2166049586286450108">Full administratortilgang</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Varianter</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Ingen}=1{1 app ($1)}=2{2 apper ($1, $2)}other{# apper ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Klokken går for fort</translation>
+<translation id="2634124572758952069">Kunne ikke finne IP-adressen for tjeneren <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Status:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Tilgang til filen ble nektet</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Angripere på <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> kan installere villedende apper som ser ut til å være noe annet, eller samle inn data som kan brukes til å spore deg. <ph name="BEGIN_LEARN_MORE_LINK" />Finn ut mer<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" /> og <ph name="TYPE_3" /> (synkronisert)</translation>
 <translation id="6027201098523975773">Skriv inn et navn</translation>
+<translation id="6039846035001940113">Hvis problemet fortsetter, kan du kontakte nettstedseieren.</translation>
 <translation id="6040143037577758943">Lukk</translation>
 <translation id="6047233362582046994">Hvis du forstår sikkerhetsrisikoen, kan du <ph name="BEGIN_LINK" />gå til dette nettstedet<ph name="END_LINK" /> før de skadelige appene er fjernet.</translation>
 <translation id="6047927260846328439">Dette innholdet kan prøve å lure deg til å installere programvare eller oppgi personopplysninger. <ph name="BEGIN_LINK" />Vis det likevel<ph name="END_LINK" /></translation>

@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Danh sách đọc</translation>
 <translation id="1264126396475825575">Báo cáo sự cố được ghi lại vào <ph name="CRASH_TIME" /> (nhưng chưa tải lên hoặc đã bị bỏ qua)</translation>
 <translation id="1270502636509132238">Phương thức nhận hàng</translation>
-<translation id="1281526147609854549">Do <ph name="ISSUER" /> phát hành</translation>
 <translation id="1285320974508926690">Không bao giờ dịch trang web này</translation>
 <translation id="129553762522093515">Các tab đã đóng gần đây</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Thử xóa các cookie của bạn<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Hủy thanh toán</translation>
 <translation id="2147827593068025794">Đồng bộ hóa dưới nền</translation>
 <translation id="2148613324460538318">Thêm thẻ</translation>
+<translation id="2149973817440762519">Chỉnh sửa dấu trang</translation>
 <translation id="2154054054215849342">Tính năng đồng bộ hóa không khả dụng cho miền của bạn</translation>
 <translation id="2154484045852737596">Chỉnh sửa thẻ</translation>
 <translation id="2166049586286450108">Quyền truy cập quản trị đầy đủ</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Các biến thể</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Không có}=1{1 ứng dụng ($1)}=2{2 ứng dụng ($1, $2)}other{# ứng dụng ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Đồng hồ của bạn chạy nhanh</translation>
+<translation id="2634124572758952069">Không thể tìm thấy địa chỉ IP của máy chủ <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Trạng thái:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Truy cập vào tệp bị từ chối</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Những kẻ tấn công trên <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> có thể cài đặt ứng dụng lừa đảo giả vờ là nội dung khác hoặc thu thập dữ liệu có thể dùng để theo dõi bạn. <ph name="BEGIN_LEARN_MORE_LINK" />Tìm hiểu thêm<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (được đồng bộ hóa)</translation>
 <translation id="6027201098523975773">Nhập tên</translation>
+<translation id="6039846035001940113">Nếu sự cố vẫn tiếp diễn, hãy liên hệ với chủ sở hữu trang web.</translation>
 <translation id="6040143037577758943">Đóng</translation>
 <translation id="6047233362582046994">Nếu bạn hiểu các rủi ro về bảo mật, bạn có thể <ph name="BEGIN_LINK" />truy cập trang này<ph name="END_LINK" /> trước khi các ứng dụng có hại bị xóa.</translation>
 <translation id="6047927260846328439">Nội dung này có thể tìm cách đánh lừa bạn cài đặt phần mềm hoặc tiết lộ thông tin cá nhân. <ph name="BEGIN_LINK" />Vẫn hiển thị<ph name="END_LINK" /></translation>

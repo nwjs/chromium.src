@@ -49,6 +49,12 @@
 
       Se a política estiver definida como "false", o estado do comutador dev não será comunicado.</translation>
 <translation id="1160939557934457296">Desativar procedimento da página de aviso de Navegação Segura</translation>
+<translation id="1166377463685560145">Especifica as impressoras que não estão disponíveis para um utilizador.
+
+      Esta política é apenas utilizada se <ph name="PRINTERS_BLACKLIST" /> for selecionado para <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
+
+      Se esta política for utilizada, todas as impressoras são disponibilizadas ao utilizador, exceto aquelas cujos IDs forem indicados nesta política.
+      </translation>
 <translation id="1198465924256827162">Com que frequência os carregamentos do estado do dispositivo são enviados, em milissegundos.
 
       Se esta política não for definida, a frequência predefinida é de 3 horas. A frequência mínima
@@ -81,6 +87,12 @@
 <translation id="1363275621236827384">Ativar consultas ao Quirks Server para perfis de hardware</translation>
 <translation id="1393485621820363363">Impressoras empresariais de dispositivos ativadas</translation>
 <translation id="1397855852561539316">URL de sugestão do fornecedor de pesquisas padrão</translation>
+<translation id="1420281424655200442">Controla as impressoras de <ph name="DEVICE_PRINTERS_POLICY" /> que estão disponíveis para os utilizadores.
+
+      Designa a política de acesso utilizada para a configuração de impressoras em massa. Se <ph name="PRINTERS_ALLOW_ALL" /> for selecionado, são apresentadas todas as impressoras. Se <ph name="PRINTERS_BLACKLIST" /> for selecionado, <ph name="DEVICE_PRINTERS_BLACKLIST" /> é utilizado para restringir o acesso às impressoras especificadas. Se <ph name="PRINTERS_WHITELIST" /> for selecionado, <ph name="DEVICE_PRINTERS_WHITELIST" /> designa apenas as impressoras que são selecionáveis.
+
+      Se esta política não estiver definida, é assumida a opção <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="1426410128494586442">Sim</translation>
 <translation id="1427655258943162134">Endereço ou URL do servidor proxy</translation>
 <translation id="1435659902881071157">Configuração de rede ao nível do aparelho</translation>
@@ -141,6 +153,19 @@
 <translation id="1561424797596341174">Substituições da política para compilações de Depuração do anfitrião de acesso remoto</translation>
 <translation id="1561967320164410511">U2F mais extensões para comprovação individual</translation>
 <translation id="1583248206450240930">Utilizar o <ph name="PRODUCT_FRAME_NAME" /> por predefinição</translation>
+<translation id="1603058613431276040">Fornece configurações para impressoras empresariais associadas a dispositivos.
+
+      Esta política permite-lhe fornecer configurações de impressora para dispositivos <ph name="PRODUCT_OS_NAME" />. O tamanho do ficheiro não pode exceder 5 MB e tem de estar codificado em JSON. O formato é igual ao formato do dicionário NativePrinters. Prevê-se que um ficheiro com aproximadamente 21 000 impressoras seja codificado como um ficheiro de 5 MB. O hash criptográfico é utilizado para validar a integridade da transferência.
+
+      O ficheiro é transferido e colocado na cache. É transferido sempre que o URL ou o hash for alterado.
+
+      Se esta política estiver definida, o <ph name="PRODUCT_OS_NAME" /> irá transferir o ficheiro de configurações de impressora e disponibilizar as impressoras de acordo com <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> e <ph name="DEVICE_PRINTERS_BLACKLIST" />.
+
+      Esta política não afeta o facto de os utilizadores poderem ou não configurar impressoras em dispositivos individuais. Destina-se a complementar a configuração de impressoras por utilizadores individuais.
+
+      Esta política complementa a <ph name="BULK_PRINTERS_POLICY" />.
+
+      Se esta política não estiver definida, não existirão impressoras de dispositivos e as outras políticas de <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> serão ignoradas.</translation>
 <translation id="1608755754295374538">URLs aos quais será concedido acesso a dispositivos de captura de áudio imediatamente</translation>
 <translation id="1617235075406854669">Ativar a eliminação do histórico de transferências e do navegador</translation>
 <translation id="163200210584085447">Os padrões nesta lista serão comparados com a origem de
@@ -241,6 +266,12 @@
 <translation id="2030905906517501646">Palavra-chave do fornecedor de pesquisas predefinido</translation>
 <translation id="203096360153626918">Esta política não tem qualquer efeito nas aplicações Android. Estas podem ser colocadas no modo de ecrã inteiro mesmo que esta política esteja definida como <ph name="FALSE" />.</translation>
 <translation id="2043770014371753404">Impressoras empresariais desativadas</translation>
+<translation id="2063380907529983889">Controla as impressoras de <ph name="BULK_PRINTERS_POLICY" /> que estão disponíveis para os utilizadores.
+
+      Designa a política de acesso utilizada para a configuração de impressoras em massa. Se <ph name="PRINTERS_ALLOW_ALL" /> for selecionado, são apresentadas todas as impressoras. Se <ph name="PRINTERS_BLACKLIST" /> for selecionado, <ph name="BULK_PRINTERS_BLACKLIST" /> é utilizado para restringir o acesso às impressoras especificadas. Se <ph name="PRINTERS_WHITELIST" /> for selecionado, <ph name="BULK_PRINTERS_WHITELIST" /> designa apenas as impressoras que são selecionáveis.
+
+      Se esta política não estiver definida, é assumida a opção <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="206623763829450685">Especifica quais os esquemas de autenticação HTTP que o <ph name="PRODUCT_NAME" /> suporta.
 
           "basic", "digest", "ntlm" e "negotiate" são exemplos de valores possíveis. Separe os vários valores por vírgulas.
@@ -491,6 +522,12 @@
 <translation id="2762164719979766599">Especifica a lista de contas locais do dispositivo que serão mostradas no ecrã de início de sessão.
 
       Cada entrada da lista especifica um identificador, o qual é utilizado internamente para distinguir as diferentes contas locais do dispositivo.</translation>
+<translation id="2766302473082018239">Especifica as impressoras disponíveis para um utilizador.
+
+      Esta política é apenas utilizada se <ph name="PRINTERS_WHITELIST" /> for selecionado para <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Se esta política for utilizada, apenas as impressoras com IDs correspondentes aos valores nesta política estão disponíveis para o utilizador. Os IDs têm de corresponder às entradas no ficheiro especificado em <ph name="BULK_PRINTERS_POLICY" />.
+      </translation>
 <translation id="2769952903507981510">Configurar o nome de domínio necessário para anfitriões de acesso remoto</translation>
 <translation id="2787173078141616821">Comunicar informações acerca do estado do Android</translation>
 <translation id="2801230735743888564">Permitir aos utilizadores jogar o jogo do ovo da Páscoa do dinossauro quando o dispositivo está offline.
@@ -555,6 +592,7 @@
 <translation id="3030000825273123558">Ativar relatório de métricas</translation>
 <translation id="3034580675120919256">Permite definir se os Web sites estão autorizados a executar JavaScript. A execução de JavaScript pode ser permitida para todos os Web sites ou negada para todos os Web sites. Se esta política não for definida, será utilizada a definição "AllowJavaScript" e o utilizador poderá alterá-la.</translation>
 <translation id="3038323923255997294">Continuar a executar aplicações em segundo plano quando o <ph name="PRODUCT_NAME" /> está fechado</translation>
+<translation id="3039065003245994702">Configurar o comportamento de atualização de firmware do TPM</translation>
 <translation id="3046192273793919231">Enviar pacotes de rede para o servidor de gestão para monitorizar o estado online</translation>
 <translation id="3048744057455266684">Se esta política estiver definida e um URL de pesquisa sugerido pela caixa geral tiver incluído este parâmetro na cadeia de consulta ou no identificador de fragmento, a sugestão apresentará os termos de pesquisa e o fornecedor de pesquisa em vez do URL de pesquisa não processado.
 
@@ -644,6 +682,12 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
 
          Se esta política estiver definida como uma string não vazia, essa string é utilizada como o nome do destino do <ph name="PRODUCT_NAME" />. Caso contrário, o nome do destino é o nome do dispositivo. Se esta política não estiver definida, o nome do destino é o nome do dispositivo e o proprietário do dispositivo (ou um utilizador do domínio que gere o dispositivo) pode alterá-lo. O nome tem um limite de 24 carateres.</translation>
 <translation id="3381968327636295719">Utilizar o navegador anfitrião por predefinição</translation>
+<translation id="3395348522300156660">Especifica as impressoras disponíveis para um utilizador.
+
+      Esta política é apenas utilizada se <ph name="PRINTERS_WHITELIST" /> for selecionado para <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
+
+      Se esta política for utilizada, apenas as impressoras com IDs correspondentes aos valores nesta política estão disponíveis para o utilizador. Os IDs têm de corresponder às entradas no ficheiro especificado em <ph name="DEVICE_PRINTERS_POLICY" />.
+      </translation>
 <translation id="3417418267404583991">Se esta política estiver definida como verdadeira ou não estiver configurada, o <ph name="PRODUCT_OS_NAME" /> irá ativar os inícios de sessão de convidado. Os inícios de sessão de convidado são sessões de utilizadores anónimos e não necessitam de uma palavra-passe.
 
      Se esta política estiver definida como falsa, o <ph name="PRODUCT_OS_NAME" /> não permitirá que sejam iniciadas sessões de convidado.</translation>
@@ -681,6 +725,13 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
           Esta política só será seguida se a política "DefaultSearchProviderEnabled" estiver ativada.</translation>
 <translation id="350797926066071931">Ativar Google Tradutor</translation>
 <translation id="3512226956150568738">Se o modelo do dispositivo do cliente já era compatível com ARC antes de a migração para ext4 ser necessária para executar ARC e se a política ArcEnabled estiver definida como verdadeira, esta opção comporta-se como AskUser (valor 3). Em todos os outros casos (se o modelo do dispositivo não era compatível com ARC anteriormente ou se a política ArcEnabled estiver definida como falsa), este valor é equivalente a DisallowArc (valor 0).</translation>
+<translation id="3519432185185398282">Configura a disponibilidade e o comportamento da funcionalidade de atualização de firmware do TPM.
+
+      É possível especificar definições individuais nas propriedades de JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: se for definida como <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, os utilizadores podem acionar o fluxo de Powerwash para instalar uma atualização de firmware do TPM.
+
+      Se a política não for definida, a funcionalidade de atualização de firmware do TPM não estará disponível.</translation>
 <translation id="3528000905991875314">Ativar páginas de erro alternativas</translation>
 <translation id="3547954654003013442">Definições de proxy</translation>
 <translation id="3591584750136265240">Configurar o comportamento de autenticação de início de sessão</translation>
@@ -851,6 +902,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
           O valor da política deve ser especificado em milissegundos.</translation>
 <translation id="4105989332710272578">Desativar a imposição da Transparência de certificados para uma lista de URLs</translation>
 <translation id="4121350739760194865">Impedir a apresentação de promoções de aplicações na página de novo separador</translation>
+<translation id="4133144443101280166">Intervalos fora do horário de funcionamento quando as políticas OffHours |ignored_policy_proto_tags| do dispositivo são lançadas</translation>
 <translation id="4157003184375321727">Comunicar versão do SO e do firmware</translation>
 <translation id="4183229833636799228">Definição de <ph name="FLASH_PLUGIN_NAME" /> predefinida</translation>
 <translation id="4192388905594723944">URL para validar o símbolo de autenticação de cliente de acesso remoto</translation>
@@ -1072,6 +1124,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="5067143124345820993">Lista branca de utilizadores com início de sessão</translation>
 <translation id="5068140065960598044">A política da nuvem do <ph name="PRODUCT_NAME" /> substitui a política do equipamento.</translation>
 <translation id="5085647276663819155">Desativar Pré-visualização de Impressão</translation>
+<translation id="5090209345759901501">Expandir a definição de conteúdo Flash a todo o conteúdo</translation>
 <translation id="5105313908130842249">Atraso do bloqueio do ecrã quando o dispositivo está a utilizar a energia da bateria</translation>
 <translation id="5108031557082757679">Impressoras empresariais de dispositivos desativadas</translation>
 <translation id="5130288486815037971">Determinar se os conjuntos de cifras RC4 no TLS estão ativados</translation>
@@ -1421,6 +1474,11 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
           Se escolher utilizar um script de proxy .pac, o URL do script é fornecido às aplicações Android.</translation>
 <translation id="6491139795995924304">Permitir o Bluetooth no dispositivo</translation>
 <translation id="6520802717075138474">Importar motores de pesquisa a partir do navegador predefinido na primeira execução</translation>
+<translation id="6525955212636890608">Se ativar esta definição, será executado todo o conteúdo Flash incorporado em Websites aos quais foi permitida a execução do Flash nas definições de conteúdo pelo utilizador ou pela política empresarial, incluindo conteúdo de outras origens ou conteúdo de dimensões reduzidas.
+
+      Para controlar os Websites autorizados a executar o Flash, consulte as políticas "DefaultPluginsSetting", "PluginsAllowedForUrls" e "PluginsBlockedForUrls".
+
+      Se esta definição estiver desativada ou não estiver definida, o conteúdo Flash de outras origens ou o conteúdo de dimensões reduzidas pode ser bloqueado.</translation>
 <translation id="653608967792832033">Especifica o período de tempo sem atividade por parte do utilizador após o qual se bloqueia o ecrã quando se está a utilizar a energia da bateria.
 
           Quando esta política está definida para um valor superior a zero, especifica o período de tempo que o utilizador tem de permanecer inativo antes de o <ph name="PRODUCT_OS_NAME" /> bloquear o ecrã.
@@ -1978,6 +2036,12 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="8493645415242333585">Desativar armazenamento do histórico de navegação</translation>
 <translation id="8499172469244085141">Predefinições (os utilizadores podem substituir)</translation>
 <translation id="8519264904050090490">URLs de exceção no manual do utilizador gerido</translation>
+<translation id="8527932539502116028">Especifica as impressoras que não estão disponíveis para um utilizador.
+
+      Esta política é apenas utilizada se <ph name="PRINTERS_BLACKLIST" /> for selecionado para <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Se esta política for utilizada, todas as impressoras são disponibilizadas ao utilizador, exceto aquelas cujos IDs forem indicados nesta política.
+      </translation>
 <translation id="8544375438507658205">Processador de HTML predefinido para <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Avisar quando estiver a visitar sites fora dos pacotes de conteúdo</translation>
 <translation id="8566842294717252664">Ocultar a Web Store da página Novo separador e do iniciador de aplicações</translation>
@@ -2047,6 +2111,18 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 
           O valor da política deve ser especificado em milissegundos. Os valores devem ser inferiores ao atraso de inatividade.</translation>
 <translation id="891435090623616439">codificado como uma string JSON; para mais detalhes, consulte <ph name="COMPLEX_POLICIES_URL" /></translation>
+<translation id="8927384992072706174">Fornece configurações para impressoras empresariais.
+
+      Esta política permite-lhe fornecer configurações de impressora para dispositivos <ph name="PRODUCT_OS_NAME" />. O tamanho do ficheiro não pode exceder 5 MB e tem de estar codificado em JSON. O formato é igual ao formato do dicionário NativePrinters. Prevê-se que um ficheiro com aproximadamente 21 000 impressoras seja codificado como um ficheiro de 5 MB. O hash criptográfico é utilizado para validar a integridade da transferência.
+
+      O ficheiro é transferido e colocado na cache. É transferido sempre que o URL ou o hash for alterado.
+
+      Se esta política estiver definida, o <ph name="PRODUCT_OS_NAME" /> transfere o ficheiro de configurações de impressora e disponibiliza as impressoras de acordo com <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> e <ph name="BULK_PRINTERS_BLACKLIST" />.
+
+      Se definir esta política, os utilizadores não a podem alterar ou substituir.
+
+      Esta política não afeta o facto de os utilizadores poderem ou não configurar impressoras em dispositivos individuais. Destina-se a complementar a configuração de impressoras por utilizadores individuais.
+      </translation>
 <translation id="8947415621777543415">Comunicar localização do dispositivo</translation>
 <translation id="8951350807133946005">Definir o diretório de cache do disco</translation>
 <translation id="8952317565138994125">Desativa a sincronização de dados no <ph name="PRODUCT_NAME" /> através de serviços de sincronização alojados no Google e impede que os utilizadores alterem esta definição.

@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Lista de lectură</translation>
 <translation id="1264126396475825575">Raport de blocare creat <ph name="CRASH_TIME" /> (nu a fost încă încărcat sau ignorat)</translation>
 <translation id="1270502636509132238">Metodă de preluare</translation>
-<translation id="1281526147609854549">Emis de <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Nu traduce niciodată acest site</translation>
 <translation id="129553762522093515">Închise recent</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Șterge cookie-urile<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Anulează plata</translation>
 <translation id="2147827593068025794">Sincronizare în fundal</translation>
 <translation id="2148613324460538318">Adaugă un card</translation>
+<translation id="2149973817440762519">Editați marcajul</translation>
 <translation id="2154054054215849342">Sincronizarea nu este disponibilă pentru domeniul tău</translation>
 <translation id="2154484045852737596">Editează cardul</translation>
 <translation id="2166049586286450108">Acces complet de administrare</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Modificări</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Niciuna}=1{1 aplicație ($1)}=2{2 aplicații ($1, $2)}few{# aplicații ($1, $2, $3)}other{# de aplicații ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Ora este setată în viitor</translation>
+<translation id="2634124572758952069">Nu s-a găsit adresa IP pentru serverul <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Stare:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Accesul la fișier a fost refuzat</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Atacatorii de pe <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> ar putea instala aplicații înșelătoare care pretind a fi altceva sau culeg date care pot fi folosite pentru a te urmări. <ph name="BEGIN_LEARN_MORE_LINK" />Află mai multe<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (sincronizate)</translation>
 <translation id="6027201098523975773">Introdu un nume</translation>
+<translation id="6039846035001940113">Dacă problema persistă, contactează proprietarul site-ului.</translation>
 <translation id="6040143037577758943">Închide</translation>
 <translation id="6047233362582046994">Dacă îți asumi riscurile de securitate, poți să <ph name="BEGIN_LINK" />accesezi acest site<ph name="END_LINK" /> înainte ca aplicațiile dăunătoare să fie eliminate.</translation>
 <translation id="6047927260846328439">Acest conținut ar putea încerca să te păcălească să instalezi software sau să dezvălui informații cu caracter personal. <ph name="BEGIN_LINK" />Afișează oricum<ph name="END_LINK" /></translation>

@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Λίστα ανάγνωσης</translation>
 <translation id="1264126396475825575">Καταγράφηκαν αναφορές σφαλμάτων <ph name="CRASH_TIME" /> (δεν έχουν ακόμη μεταφορτωθεί ή παραβλεφθεί)</translation>
 <translation id="1270502636509132238">Τρόπος παραλαβής</translation>
-<translation id="1281526147609854549">Εκδόθηκε από <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Να μην γίνεται ποτέ μετάφραση αυτού του ιστότοπου</translation>
 <translation id="129553762522093515">Έκλεισαν πρόσφατα</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Δοκιμάστε να διαγράψετε τα cookie σας<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Ακύρωση πληρωμής</translation>
 <translation id="2147827593068025794">Συγχρονισμός παρασκηνίου</translation>
 <translation id="2148613324460538318">Προσθήκη κάρτας</translation>
+<translation id="2149973817440762519">Επεξεργασία σελιδοδείκτη</translation>
 <translation id="2154054054215849342">Ο συγχρονισμός δεν είναι διαθέσιμος για τον τομέα σας</translation>
 <translation id="2154484045852737596">Επεξεργασία κάρτας</translation>
 <translation id="2166049586286450108">Πλήρης πρόσβαση διαχειριστή</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Παραλλαγές</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Καμία}=1{1 εφαρμογή ($1)}=2{2 εφαρμογές ($1, $2)}other{# εφαρμογές ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Το ρολόι σας πάει μπροστά</translation>
+<translation id="2634124572758952069">Δεν ήταν δυνατή η εύρεση της διεύθυνσης IP διακομιστή του κεντρικού υπολογιστή <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Κατάσταση:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Η πρόσβαση στο αρχείο απορρίφθηκε</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Οι εισβολείς στον ιστότοπο <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> θα μπορούσαν να εγκαταστήσουν παραπλανητικές εφαρμογές που προσποιούνται ότι είναι κάτι άλλο ή συλλέγουν δεδομένα τα οποία μπορεί να χρησιμοποιηθούν για την παρακολούθησή σας. <ph name="BEGIN_LEARN_MORE_LINK" />Μάθετε περισσότερα<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (συγχρονισμένο)</translation>
 <translation id="6027201098523975773">Εισαγωγή ονόματος</translation>
+<translation id="6039846035001940113">Εάν το πρόβλημα παραμείνει, επικοινωνήστε με τον κάτοχο του ιστοτόπου.</translation>
 <translation id="6040143037577758943">Κλείσιμο</translation>
 <translation id="6047233362582046994">Εάν κατανοείτε τους κινδύνους για την ασφάλειά σας, μπορείτε να <ph name="BEGIN_LINK" />επισκεφτείτε αυτόν τον ιστότοπο<ph name="END_LINK" /> πριν από την κατάργηση των επιβλαβών εφαρμογών.</translation>
 <translation id="6047927260846328439">Αυτό το περιεχόμενο μπορεί να προσπαθήσει να σας εξαπατήσει έτσι ώστε να εγκαταστήσετε λογισμικό ή να αποκαλύψετε προσωπικά στοιχεία. <ph name="BEGIN_LINK" />Εμφάνιση ούτως ή άλλως<ph name="END_LINK" /></translation>

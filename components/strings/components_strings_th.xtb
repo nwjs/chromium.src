@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">เรื่องรออ่าน</translation>
 <translation id="1264126396475825575">รายงานข้อขัดข้องเมื่อ <ph name="CRASH_TIME" /> (ยังไม่ได้อัปโหลดหรือละเว้น)</translation>
 <translation id="1270502636509132238">วิธีการรับสินค้า</translation>
-<translation id="1281526147609854549">ออกโดย <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">ไม่ต้องแปลไซต์นี้</translation>
 <translation id="129553762522093515">เพิ่งปิด</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />ลองล้างคุกกี้<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">ยกเลิกการชำระเงิน</translation>
 <translation id="2147827593068025794">การซิงค์ในแบ็กกราวด์</translation>
 <translation id="2148613324460538318">เพิ่มบัตร</translation>
+<translation id="2149973817440762519">แก้ไขบุ๊กมาร์ก</translation>
 <translation id="2154054054215849342">ไม่มีการซิงค์สำหรับโดเมนของคุณ</translation>
 <translation id="2154484045852737596">แก้ไขบัตร</translation>
 <translation id="2166049586286450108">การเข้าถึงระดับผู้ดูแลระบบโดยสมบูรณ์</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">รูปแบบต่างๆ</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{ไม่มี}=1{1 แอป ($1)}=2{2 แอป ($1, $2)}other{# แอป ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">นาฬิกาเร็วเกินไป</translation>
+<translation id="2634124572758952069">ไม่พบที่อยู่ IP ของเซิร์ฟเวอร์ <ph name="HOST_NAME" /></translation>
 <translation id="2639739919103226564">สถานะ:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">การเข้าถึงไฟล์ถูกปฏิเสธ</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">ผู้โจมตี <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> สามารถติดตั้งแอปที่หลอกลวงซึ่งปลอมเป็นเนื้อหาอย่างอื่นหรือรวบรวมข้อมูลที่อาจนำไปใช้ติดตามคุณ <ph name="BEGIN_LEARN_MORE_LINK" />เรียนรู้เพิ่มเติม<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" /> <ph name="TYPE_2" /> <ph name="TYPE_3" /> (ซิงค์แล้ว)</translation>
 <translation id="6027201098523975773">ป้อนชื่อ</translation>
+<translation id="6039846035001940113">หากยังคงพบปัญหา ให้ติดต่อเจ้าของเว็บไซต์</translation>
 <translation id="6040143037577758943">ปิด</translation>
 <translation id="6047233362582046994">หากคุณเข้าใจความเสี่ยงต่อความปลอดภัย คุณสามารถ<ph name="BEGIN_LINK" />ไปยังไซต์นี้<ph name="END_LINK" />ก่อนที่จะมีการนำแอปอันตรายออก</translation>
 <translation id="6047927260846328439">เนื้อหานี้อาจพยายามหลอกล่อให้คุณติดตั้งซอฟต์แวร์หรือเปิดเผยข้อมูลส่วนบุคคล <ph name="BEGIN_LINK" />แสดงเนื้อหา<ph name="END_LINK" /></translation>

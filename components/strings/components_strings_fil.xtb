@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Listahan ng babasahin</translation>
 <translation id="1264126396475825575">Ulat ng pag-crash na nakuha noong <ph name="CRASH_TIME" /> (hindi pa naa-upload o nababalewala)</translation>
 <translation id="1270502636509132238">Paraan sa Pag-pick up</translation>
-<translation id="1281526147609854549">Inisyu ng <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Huwag isalin kailanman ang site na ito</translation>
 <translation id="129553762522093515">Kamakailang isinara</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Subukang i-clear ang iyong cookies<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Kanselahin ang pagbabayad</translation>
 <translation id="2147827593068025794">Pag-sync sa Background</translation>
 <translation id="2148613324460538318">Magdagdag ng Card</translation>
+<translation id="2149973817440762519">I-edit ang Bookmark</translation>
 <translation id="2154054054215849342">Hindi available ang pag-sync para sa iyong domain</translation>
 <translation id="2154484045852737596">I-edit ang card</translation>
 <translation id="2166049586286450108">Ganap na Access ng Admin</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Mga Pagkakaiba-iba</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Wala}=1{1 app ($1)}=2{2 app ($1, $2)}one{# app ($1, $2, $3)}other{# na app ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Nauuna ang iyong orasan</translation>
+<translation id="2634124572758952069">Hindi makita ang IP address ng server ng <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Katayuan:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Tinanggihan ang access sa file</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Ang mga umaatake sa <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> ay maaaring mag-install ng mga mapanlinlang na app na nagpapanggap na ibang bagay o nangongolekta ng data na maaaring gamitin upang subaybayan ka. <ph name="BEGIN_LEARN_MORE_LINK" />Matuto pa<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (naka-sync)</translation>
 <translation id="6027201098523975773">Maglagay ng pangalan</translation>
+<translation id="6039846035001940113">Kung magpapatuloy ang problema, makipag-ugnayan sa may-ari ng site.</translation>
 <translation id="6040143037577758943">Isara</translation>
 <translation id="6047233362582046994">Kung nauunawaan mo ang mga panganib sa iyong seguridad, maaari mong <ph name="BEGIN_LINK" />bisitahin ang site na ito<ph name="END_LINK" /> bago maalis ang mga mapaminsalang app.</translation>
 <translation id="6047927260846328439">Maaaring subukan ng content na ito na linlangin kang mag-install ng software o maghayag ng personal na impormasyon. <ph name="BEGIN_LINK" />Ipakita pa rin<ph name="END_LINK" /></translation>

@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">पठन सूची</translation>
 <translation id="1264126396475825575">ख़राबी रिपोर्ट <ph name="CRASH_TIME" /> पर कैप्चर की गई (अभी तक अपलोड नहीं की गई या उसे अनदेखा किया गया)</translation>
 <translation id="1270502636509132238">पिकअप का तरीका</translation>
-<translation id="1281526147609854549"><ph name="ISSUER" /> ने जारी किया है</translation>
 <translation id="1285320974508926690">कभी भी इस साइट का अनुवाद न करें</translation>
 <translation id="129553762522093515">हाल ही में बंद किए गए</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />अपनी कुकी साफ़ करके देखें<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">भुगतान न करें</translation>
 <translation id="2147827593068025794">पृष्ठभूमि समन्वयन</translation>
 <translation id="2148613324460538318">कार्ड जोड़ें</translation>
+<translation id="2149973817440762519">बुकमार्क संपादित करें</translation>
 <translation id="2154054054215849342">आपके डोमेन के लिए सिंक करने की सुविधा उपलब्‍ध नहीं है</translation>
 <translation id="2154484045852737596">कार्ड संपादित करें</translation>
 <translation id="2166049586286450108">पूर्ण व्यवस्थापकीय एक्सेस</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">विविधताएं</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{कुछ नहीं}=1{1 ऐप्लिकेशन ($1)}=2{2 ऐप्लिकेशन ($1, $2)}one{# ऐप्लिकेशन ($1, $2, $3)}other{# ऐप्लिकेशन ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">आपकी घड़ी आगे है</translation>
+<translation id="2634124572758952069"><ph name="HOST_NAME" /> का सर्वर IP पता नहीं मिल सका.</translation>
 <translation id="2639739919103226564">स्थिति:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">फ़ाइल तक पहुंच अस्वीकृत थी</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> पर मौजूद हमलावर ऐसे भ्रामक ऐप्लिकेशन इंस्टॉल कर सकते हैं जो कुछ और होने का दावा करते हैं या ऐसा डेटा एकत्रित करते हैं जिसका उपयोग आप पर नज़र रखने के लिए किया जा सके. <ph name="BEGIN_LEARN_MORE_LINK" />अधिक जानें<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (सिंक किए गए)</translation>
 <translation id="6027201098523975773">नाम डालें</translation>
+<translation id="6039846035001940113">अगर समस्या बनी रहती है, तो साइट के मालिक से संपर्क करें.</translation>
 <translation id="6040143037577758943">बंद करें</translation>
 <translation id="6047233362582046994">अगर आप अपनी सुरक्षा में होने वाले जोखिमों को समझते हैं, तो खतरनाक ऐप्लिकेशन निकाले जाने से पहले आप <ph name="BEGIN_LINK" />इस साइट पर जा<ph name="END_LINK" /> सकते हैं.</translation>
 <translation id="6047927260846328439">यह सामग्री आपसे धोखे से सॉफ़्टवेयर इंस्‍टॉल करवाने या व्यक्तिगत जानकारी का खुलासा करवाने की कोशिश कर सकती है. <ph name="BEGIN_LINK" />फिर भी दिखाएं<ph name="END_LINK" /></translation>

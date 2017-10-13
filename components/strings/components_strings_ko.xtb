@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">읽기 목록</translation>
 <translation id="1264126396475825575"><ph name="CRASH_TIME" />에 캡처된 비정상 종료 보고서(아직 업로드 또는 무시되지 않음)</translation>
 <translation id="1270502636509132238">픽업 방법</translation>
-<translation id="1281526147609854549">발급 기관: <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">이 사이트 번역 안함</translation>
 <translation id="129553762522093515">최근에 닫은 탭</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />쿠키 삭제해 보기<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">결제 취소</translation>
 <translation id="2147827593068025794">백그라운드 동기화</translation>
 <translation id="2148613324460538318">카드 추가</translation>
+<translation id="2149973817440762519">북마크 수정</translation>
 <translation id="2154054054215849342">도메인에 대해 동기화를 사용할 수 없습니다.</translation>
 <translation id="2154484045852737596">카드 수정</translation>
 <translation id="2166049586286450108">전체 관리자 액세스</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">유사 버전</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{없음}=1{앱 1개($1)}=2{앱 2개($1, $2)}other{앱 #개($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">시간이 너무 먼 미래로 설정되어 있습니다.</translation>
+<translation id="2634124572758952069"><ph name="HOST_NAME" />의 서버 IP 주소를 찾을 수 없습니다.</translation>
 <translation id="2639739919103226564">상태:</translation>
 <translation id="2649204054376361687"><ph name="COUNTRY" />, <ph name="CITY" /></translation>
 <translation id="2650446666397867134">파일 액세스 거부됨</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />에 있는 공격자는 다른 앱인 것처럼 가장하거나 사용자를 추적하는 데 사용될 수 있는 데이터를 수집하는 사기성 앱을 설치할 수도 있습니다. <ph name="BEGIN_LEARN_MORE_LINK" />자세히 알아보기<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" />(동기화됨)</translation>
 <translation id="6027201098523975773">이름을 입력하세요.</translation>
+<translation id="6039846035001940113">문제가 계속되면 사이트 소유자에게 문의하세요.</translation>
 <translation id="6040143037577758943">닫기</translation>
 <translation id="6047233362582046994">유해한 앱이 삭제되기 전에 <ph name="BEGIN_LINK" />이 사이트를 방문<ph name="END_LINK" />하는 경우 보안상 위험을 반드시 이해하시기 바랍니다.</translation>
 <translation id="6047927260846328439">이 콘텐츠는 사용자를 속여 소프트웨어를 설치하거나 개인정보를 유출할 수도 있습니다. <ph name="BEGIN_LINK" />표시하기<ph name="END_LINK" /></translation>

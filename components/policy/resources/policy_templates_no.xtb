@@ -49,6 +49,12 @@
 
       Hvis innstillingen angis som «true», rapporteres ikke tilstanden til utviklerbryteren.</translation>
 <translation id="1160939557934457296">Deaktiver muligheten til å overse Safe Browsing-advarsler og fortsette til potensielt farlig nettsted</translation>
+<translation id="1166377463685560145">Angir skriverne som en bruker ikke kan bruke.
+
+      Denne regelen brukes bare hvis <ph name="PRINTERS_BLACKLIST" /> er valgt for <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
+
+      Hvis denne regelen brukes, får brukeren tilgang til alle skrivere – unntatt eventuelle ID-er som er oppført i denne regelen.
+      </translation>
 <translation id="1198465924256827162">Hvor ofte opplastinger av enhetsstatusen sendes, i millisekunder.
 
       Hvis denne regelen ikke spesifiseres, er standardfrekvensen 3 timer. 
@@ -81,6 +87,12 @@
 <translation id="1363275621236827384">Slå på forespørsler til Quirks Server for maskinvareprofiler</translation>
 <translation id="1393485621820363363">Aktiverte bedriftsskrivere</translation>
 <translation id="1397855852561539316">Foreslått nettadresse for standard søkeleverandør</translation>
+<translation id="1420281424655200442">Kontrollerer hvilke skrivere fra <ph name="DEVICE_PRINTERS_POLICY" /> som er tilgjengelige for brukere.
+
+      Spesifiserer hvilken tilgangsregel som brukes for å konfigurere flere skrivere om gangen. Hvis <ph name="PRINTERS_ALLOW_ALL" /> er valgt, vises alle skrivere. Hvis <ph name="PRINTERS_BLACKLIST" /> er valgt, brukes <ph name="DEVICE_PRINTERS_BLACKLIST" /> til å begrense tilgangen til de angitte skriverne. Hvis <ph name="PRINTERS_WHITELIST" /> er valgt, spesifiserer <ph name="DEVICE_PRINTERS_WHITELIST" /> bare de skriverne som kan velges. 
+
+      Hvis denne regelen ikke er angitt, brukes <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="1426410128494586442">Ja</translation>
 <translation id="1427655258943162134">Adresse eller nettadresse for proxy-tjener</translation>
 <translation id="1435659902881071157">Nettverkskonfigurasjon på enhetsnivå</translation>
@@ -143,6 +155,19 @@
 <translation id="1561424797596341174">Overstyring av regler for delversjoner for feilsøking på fjerntilgangsverten</translation>
 <translation id="1561967320164410511">U2F samt utvidelser for individuell attestering</translation>
 <translation id="1583248206450240930">Bruk <ph name="PRODUCT_FRAME_NAME" /> som standard</translation>
+<translation id="1603058613431276040">Gir konfigurasjoner for bedriftsskrivere som er bundet til enheter.
+
+      Med denne regelen kan du gi skriverkonfigurasjoner til enheter med <ph name="PRODUCT_OS_NAME" />. Størrelsen på filen må ikke overskride 5 MB og må være i JSON-format. Formatet er det samme som for NativePrinters-ordlisten. Det anslås at en fil som inneholder omtrent 21 000 skrivere, blir lagret som en fil på 5 MB. Den kryptografiske hashen brukes for å bekrefte integriteten for nedlastingen.
+
+      Filen lastes ned og bufres. Den blir lastet ned på nytt hver gang nettadressen eller hashen endres.
+
+      Hvis denne regelen er aktivert, laster <ph name="PRODUCT_OS_NAME" /> ned filen for skriverkonfigurasjoner og gjør skrivere tilgjengelig i henhold til <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> og <ph name="DEVICE_PRINTERS_BLACKLIST" />.
+
+      Denne regelen påvirker ikke hvorvidt brukere kan konfigurere skrivere på enkeltenheter. Den er ment å supplere konfigurering av skrivere utført av enkeltbrukere.
+
+      Denne regelen kommer i tillegg til <ph name="BULK_PRINTERS_POLICY" />.
+
+      Hvis denne regelen deaktiveres, blir ingen skrivere bundet til enheter, og de andre <ph name="DEVICE_PRINTERS_POLICY_PATTERN" />-reglene blir ignorert.</translation>
 <translation id="1608755754295374538">Nettadresser som uten forespørsel blir gitt tilgang til enheter med lydopptak</translation>
 <translation id="1617235075406854669">Gjør det mulig å slette nettleser- og nedlastingslogg</translation>
 <translation id="163200210584085447">Mønstrene på denne listen stilles opp mot sikkerhetskilden
@@ -247,6 +272,12 @@
 <translation id="2030905906517501646">Søkeord for standard søkeleverandør</translation>
 <translation id="203096360153626918">Denne regelen har ingen innvirkning på Android-apper. Android-apper kan brukes i fullskjermmodus selv om denne regelen er angitt som <ph name="FALSE" />.</translation>
 <translation id="2043770014371753404">Deaktiverte bedriftsskrivere</translation>
+<translation id="2063380907529983889">Kontrollerer hvilke skrivere fra <ph name="BULK_PRINTERS_POLICY" /> som er tilgjengelige for brukere.
+
+      Spesifiserer hvilken tilgangsregel som brukes for å konfigurere flere skrivere om gangen. Hvis <ph name="PRINTERS_ALLOW_ALL" /> er valgt, vises alle skrivere. Hvis <ph name="PRINTERS_BLACKLIST" /> er valgt, brukes <ph name="BULK_PRINTERS_BLACKLIST" /> til å begrense tilgangen til de angitte skriverne. Hvis <ph name="PRINTERS_WHITELIST" /> er valgt, spesifiserer <ph name="BULK_PRINTERS_WHITELIST" /> bare de skriverne som kan velges. 
+
+      Hvis denne regelen ikke er angitt, brukes <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="206623763829450685">Spesifiserer hvilke HTTP-autentiseringsskjemaer som støttes av <ph name="PRODUCT_NAME" />.
 
           Mulige verdier er «basic», «digest», «ntlm» og «negotiate». Bruk komma til å skille mellom flere verdier.
@@ -498,6 +529,12 @@
 <translation id="2762164719979766599">Spesifiserer listen over lokale kontoer på enheten til å vises på påloggingsskjermen.
 
       Hvert bidrag på listen spesifiserer en identifikator, som brukes internt for å skille de ulike lokale kontoene på enheten fra hverandre.</translation>
+<translation id="2766302473082018239">Angir skriverne som en bruker kan bruke.
+
+      Denne regelen brukes bare hvis <ph name="PRINTERS_WHITELIST" /> er valgt for <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Hvis denne regelen brukes, blir bare skriverne med ID-er som samsvarer med verdiene i denne regelen, tilgjengelige for brukeren. ID-ene må samsvare med oppføringene i filen spesifisert i <ph name="BULK_PRINTERS_POLICY" />.
+      </translation>
 <translation id="2769952903507981510">Konfigurer det ønskede domenenavnet for verter med ekstern adgang</translation>
 <translation id="2787173078141616821">Rapportér informasjon om Android-status</translation>
 <translation id="2801230735743888564">Gir brukerne mulighet til å spille dinosaurspill-påskeegget når enheten ikke er koblet til.
@@ -563,6 +600,7 @@
 <translation id="3034580675120919256">Gjør at du kan angi om nettsteder får kjøre JavaScript. Kjøring av JavaScript kan tillates for alle nettsteder, eller nektes for alle nettsteder.
           Hvis denne retningslinjen ikke angis, brukes AllowJavaScript, og brukeren kan endre på dette.</translation>
 <translation id="3038323923255997294">Fortsett å kjøre bakgrunnsprogrammer når <ph name="PRODUCT_NAME" /> er lukket</translation>
+<translation id="3039065003245994702">Konfigurer oppdatering av TMP-fastvaren</translation>
 <translation id="3046192273793919231">Send nettverkspakker til administreringstjeneren for å overvåke nettstatusen</translation>
 <translation id="3048744057455266684">Hvis denne innstillingen er angitt og en nettadresse som blir foreslått av søkefeltet inneholder denne parameteren i søkestrengen eller fragmentidentifikatoren, viser forslaget søkeordene og søkeleverandøren i stedet for søkenettadressen.
 
@@ -646,6 +684,12 @@
 
           Hvis denne innstillingen er satt til en streng som ikke er tom, brukes denne strengen som navnet på destinasjonen for <ph name="PRODUCT_NAME" />. Ellers blir enhetsnavnet angitt som destinasjonsnavnet. Hvis denne innstillingen ikke er satt til noen verdi, blir enhetsnavnet angitt som destinasjonsnavnet, og eieren av enheten (eller en bruker fra domenet som administrerer enheten) kan endre det. Navnet er begrenset til 24 tegn.</translation>
 <translation id="3381968327636295719">Bruk vertsnettleser som standard</translation>
+<translation id="3395348522300156660">Angir skriverne som en bruker kan bruke.
+
+      Denne regelen brukes bare hvis <ph name="PRINTERS_WHITELIST" /> er valgt for <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
+
+      Hvis denne regelen brukes, blir bare skriverne med ID-er som samsvarer med verdiene i denne regelen, tilgjengelige for brukeren. ID-ene må samsvare med oppføringene i filen spesifisert i <ph name="DEVICE_PRINTERS_POLICY" />.
+      </translation>
 <translation id="3417418267404583991">Hvis denne retningslinjen er angitt som Sann eller ikke er konfigurert, aktiverer <ph name="PRODUCT_OS_NAME" /> gjestepålogging. Gjestepålogginger er anonyme brukerøkter og krever ikke passord.
 
       Hvis denne retningslinjen er angitt som Usann, tillater ikke <ph name="PRODUCT_OS_NAME" /> at gjesteøkter startes.</translation>
@@ -685,6 +729,13 @@
           Denne innstillingen brukes bare hvis «DefaultSearchProviderEnabled»-innstillingen er aktivert.</translation>
 <translation id="350797926066071931">Aktiver oversettelse</translation>
 <translation id="3512226956150568738">Hvis klientens enhetsmodell allerede støttet ARC før overføringen til ext4 var nødvendig for å kjøre ARC, og hvis ArcEnabled-regelen er satt til sann, har dette alternativet samme effekt som AskUser (verdi 3). I alle andre tilfeller (hvis enhetsmodellen ikke støttet ARC tidligere, eller hvis ArcEnabled-regelen er satt til usann), tilsvarer denne verdien DisallowArc (verdi 0).</translation>
+<translation id="3519432185185398282">Konfigurerer tilgjengeligheten og funksjonaliteten for oppdatering av TMP-fastvaren.
+
+      Enkeltinnstillinger kan angis i JSON-egenskaper:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Hvis den er satt til <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, kan brukere utløse Powerwash-prosessen for å installere en oppdatering for TMP-fastvaren.
+
+      Hvis regelen ikke er aktivert, er ikke funksjonaliteten for oppdatering av TMP-fastvaren tilgjengelig.</translation>
 <translation id="3528000905991875314">Aktiver alternative feilsider</translation>
 <translation id="3547954654003013442">Innstillinger for proxy-tjener</translation>
 <translation id="3591584750136265240">Konfigurer autentiseringsatferden ved pålogging</translation>
@@ -857,6 +908,7 @@
           Innstillingsverdien må angis i millisekunder.</translation>
 <translation id="4105989332710272578">Slå av tvungen sertifikatåpenhet for en liste med nettadresser</translation>
 <translation id="4121350739760194865">Gjør at programkampanjer ikke vises på siden Ny fane</translation>
+<translation id="4133144443101280166">Intervaller utenfor arbeidstiden når enhetens OffHours |ignored_policy_proto_tags| er tilgjengelig</translation>
 <translation id="4157003184375321727">Rapportering av operativsystem og maskinvareversjon</translation>
 <translation id="4183229833636799228">Standard <ph name="FLASH_PLUGIN_NAME" />-innstilling</translation>
 <translation id="4192388905594723944">Nettadressen for validering av autentiseringstokenet for klienten for ekstern tilgang</translation>
@@ -1087,6 +1139,7 @@
 <translation id="5067143124345820993">Godkjenningsliste for brukerpålogging</translation>
 <translation id="5068140065960598044"><ph name="PRODUCT_NAME" />-regelen for nettskyen overstyrer maskinens retningslinjer.</translation>
 <translation id="5085647276663819155">Deaktiver forhåndsvisning av utskrift</translation>
+<translation id="5090209345759901501">Utvid innstillingen for Flash-innhold til alt innhold</translation>
 <translation id="5105313908130842249">Forsinkelse for låst skjerm når enheten kjører på batteristrøm</translation>
 <translation id="5108031557082757679">Deaktiverte bedriftsskrivere</translation>
 <translation id="5130288486815037971">Definerer om RC4-chifferserier i TLS er slått på</translation>
@@ -1472,6 +1525,11 @@
           Hvis du velger PAC-skript for proxy-tjenere, får Android-apper skriptnettadressen.</translation>
 <translation id="6491139795995924304">Tillat Bluetooth på enheten</translation>
 <translation id="6520802717075138474">Importér søkemotorer fra standard nettleser ved første kjøring</translation>
+<translation id="6525955212636890608">Hvis du aktiverer denne innstillingen, kjøres alt Flash-innhold som er bygget inn i nettsteder som er gitt tillatelse til å bruke Flash i innholdsinnstillingene, enten tillatelsen er gitt direkte av brukeren eller av en bedriftsregel, inkludert innhold av annen opprinnelse eller lite innhold.
+
+For å kontrollere hvilke nettsteder som tillates å kjøre Flash, kan du lese mer om reglene «DefaultPluginsSetting», «PluginsAllowedForUrls» og «PluginsBlockedForUrls».
+
+Hvis denne regelen er deaktivert eller ikke angitt, kan Flash-innhold av annen opprinnelse eller med lite innhold bli blokkert.</translation>
 <translation id="653608967792832033">Angir hvor lenge skjermen kan stå ubrukt før den låses når enheten bruker batteriet.
 
           Når denne innstillingen er satt til en verdi som er høyere enn null, angir den tiden brukeren kan være inaktiv før  <ph name="PRODUCT_OS_NAME" /> låser skjermen.
@@ -2043,6 +2101,12 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 <translation id="8493645415242333585">Deaktiver lagring av nettleserlogg</translation>
 <translation id="8499172469244085141">Standardinnstillinger (kan overstyres av brukere)</translation>
 <translation id="8519264904050090490">Nettadresser med manuelle unntak for administrerte brukere</translation>
+<translation id="8527932539502116028">Angir skriverne som en bruker ikke kan bruke.
+
+      Denne regelen brukes bare hvis <ph name="PRINTERS_BLACKLIST" /> er valgt for <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Hvis denne regelen brukes, får brukeren tilgang til alle skrivere – unntatt eventuelle ID-er som er oppført i denne regelen.
+      </translation>
 <translation id="8544375438507658205">Standard gjengivelse av HTML for <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Varsle ved besøk på nettsteder som ikke inngår i innholdspakker</translation>
 <translation id="8566842294717252664">Skjul nettbutikken fra nye faner og appvelgeren</translation>
@@ -2116,6 +2180,18 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 
           Innstillingsverdien må angis i millisekunder. Verdiene er låst til å være lavere enn inaktivitetsforsinkelsen.</translation>
 <translation id="891435090623616439">kodet som en JSON-streng – se <ph name="COMPLEX_POLICIES_URL" /> for nærmere informasjon</translation>
+<translation id="8927384992072706174">Gir konfigurasjoner for bedriftsskrivere.
+
+      Med denne regelen kan du gi skriverkonfigurasjoner til <ph name="PRODUCT_OS_NAME" />-enheter. Størrelsen på filen må ikke overskride 5 MB og må være i JSON-format. Formatet er det samme som for NativePrinters-ordlisten. Det anslås at en fil som inneholder omtrent 21 000 skrivere, blir lagret som en fil på 5 MB. Den kryptografiske hashen brukes for å bekrefte integriteten for nedlastingen.
+
+      Filen lastes ned og bufres. Den blir lastet ned på nytt hver gang nettadressen eller hashen endres.
+
+      Hvis denne regelen er aktivert, laster <ph name="PRODUCT_OS_NAME" /> ned filen for skriverkonfigurasjoner og gjør skrivere tilgjengelig i henhold til <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> og <ph name="BULK_PRINTERS_BLACKLIST" />.
+
+      Hvis du aktiverer denne regelen, kan ikke brukere endre eller overstyre den.
+
+      Denne regelen har ingen effekt på hvorvidt brukere kan konfigurere skrivere på enkeltenheter. Den er ment å supplere konfigurering av skrivere utført av enkeltbrukere.
+      </translation>
 <translation id="8947415621777543415">Rapportering av enhetsposisjonen</translation>
 <translation id="8951350807133946005">Angi katalog for diskbufring</translation>
 <translation id="8952317565138994125">Slår av datasynkronisering i <ph name="PRODUCT_NAME" /> ved hjelp av synkroniseringstjenester Google er vert for, og hindrer brukerne i å endre denne innstillingen.

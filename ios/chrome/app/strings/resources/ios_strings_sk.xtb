@@ -67,7 +67,6 @@ Niektoré webové stránky môžu napríklad na túto žiadosť odpovedať zobra
 <translation id="2116625576999540962">Počet presunutých položiek: <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
 <translation id="213900355088104901">Ak chcete prehliadať v súkromí, otvorte kartu inkognito</translation>
 <translation id="2149973817440762519">Upraviť záložku</translation>
-<translation id="2154710561487035718">Kopírovať webovú adresu</translation>
 <translation id="2230173723195178503">Načítala sa webová stránka</translation>
 <translation id="2256128224215992540">Návrhy vyhľadávania a webov</translation>
 <translation id="2267753748892043616">Pridať účet</translation>
@@ -312,7 +311,6 @@ Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej
 <translation id="6797885426782475225">Hlasové vyhľadávanie</translation>
 <translation id="6807889908376551050">Zobraziť všetky...</translation>
 <translation id="681368974849482173">Položka bola vytvorená</translation>
-<translation id="6871663519944855400">Otvoriť v režime inkognito</translation>
 <translation id="6896758677409633944">Kopírovať</translation>
 <translation id="6903907808598579934">Zapnúť synchronizáciu</translation>
 <translation id="6945221475159498467">Vybrať</translation>

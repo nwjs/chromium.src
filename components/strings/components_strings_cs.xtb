@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Seznam četby</translation>
 <translation id="1264126396475825575">Zpráva o selhání pořízená <ph name="CRASH_TIME" /> (dosud nenahrána nebo ignorována)</translation>
 <translation id="1270502636509132238">Způsob vyzvednutí</translation>
-<translation id="1281526147609854549">Vydavatel: <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Tento web nikdy nepřekládat</translation>
 <translation id="129553762522093515">Nedávno zavřené</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Zkuste vymazat soubory cookie<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Zrušit platbu</translation>
 <translation id="2147827593068025794">Synchronizace na pozadí</translation>
 <translation id="2148613324460538318">Přidat kartu</translation>
+<translation id="2149973817440762519">Upravit záložku</translation>
 <translation id="2154054054215849342">Synchronizace není pro vaši doménu k dispozici</translation>
 <translation id="2154484045852737596">Úprava karty</translation>
 <translation id="2166049586286450108">Úplný přístup administrátora</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Varianty</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Žádné}=1{1 aplikace ($1)}=2{2 aplikace ($1, $2)}few{# aplikace ($1, $2 $3)}many{# aplikace ($1, $2 $3)}other{# aplikací ($1, $2 $3)}}</translation>
 <translation id="2625385379895617796">Vaše hodiny jdou napřed</translation>
+<translation id="2634124572758952069">IP adresa serveru <ph name="HOST_NAME" /> nebyla nalezena.</translation>
 <translation id="2639739919103226564">Stav:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Přístup k souboru byl odepřen.</translation>
@@ -646,6 +647,7 @@ Kontaktujte administrátora systému.</translation>
 <translation id="6017850046339264347">Útočníci na webu <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> by vám do zařízení mohli nainstalovat klamavé aplikace, které se vydávají za něco jiného nebo shromažďují data ke sledování vaší aktivity. <ph name="BEGIN_LEARN_MORE_LINK" />Další informace<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (synchronizováno)</translation>
 <translation id="6027201098523975773">Zadejte jméno</translation>
+<translation id="6039846035001940113">Pokud problém přetrvává, kontaktujte vlastníka webu.</translation>
 <translation id="6040143037577758943">Zavřít</translation>
 <translation id="6047233362582046994">Pokud bezpečnostní rizika chápete, můžete <ph name="BEGIN_LINK" />tento web navštívit<ph name="END_LINK" /> před tím, než budou nebezpečné aplikace odstraněny.</translation>
 <translation id="6047927260846328439">Tento obsah by se vás podvodem mohl pokusit přimět k instalaci softwaru nebo odhalení osobních údajů. <ph name="BEGIN_LINK" />Přesto zobrazit<ph name="END_LINK" /></translation>

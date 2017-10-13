@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Čitateľský zoznam</translation>
 <translation id="1264126396475825575">Správa o zlyhaní bola zaznamenaná v čase <ph name="CRASH_TIME" /> (ešte nebola nahraná ani ignorovaná)</translation>
 <translation id="1270502636509132238">Spôsob vyzdvihnutia</translation>
-<translation id="1281526147609854549">Vydavateľ: <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Nikdy neprekladať tieto webové stránky</translation>
 <translation id="129553762522093515">Naposledy zatvorené</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Skúste vymazať súbory cookie<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Zrušiť platbu</translation>
 <translation id="2147827593068025794">Synchronizácia na pozadí</translation>
 <translation id="2148613324460538318">Pridať kartu</translation>
+<translation id="2149973817440762519">Upraviť záložku</translation>
 <translation id="2154054054215849342">Synchronizácia nie je pre vašu doménu k dispozícii</translation>
 <translation id="2154484045852737596">Úprava karty</translation>
 <translation id="2166049586286450108">Úplný prístup správcu</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Variácie</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Žiadne}=1{1 aplikácia ($1)}=2{2 aplikácie ($1, $2)}few{# aplikácie ($1, $2, $3)}many{# aplikácie ($1, $2, $3)}other{# aplikácií ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Vaše hodiny idú dopredu</translation>
+<translation id="2634124572758952069">Adresu IP servera <ph name="HOST_NAME" /> sa nepodarilo nájsť.</translation>
 <translation id="2639739919103226564">Stav:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Prístup k súboru bol odmietnutý</translation>
@@ -646,6 +647,7 @@
 <translation id="6017850046339264347">Útočníci na webe <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> by mohli nainštalovať klamlivé aplikácie vydávajúce sa za iné aplikácie alebo zhromažďujúce údaje, ktoré sa dajú použiť na sledovanie vašej osoby. <ph name="BEGIN_LEARN_MORE_LINK" />Ďalšie informácie<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (synchronizované)</translation>
 <translation id="6027201098523975773">Zadajte meno</translation>
+<translation id="6039846035001940113">Ak problém naďalej pretrváva, kontaktujte vlastníka webu.</translation>
 <translation id="6040143037577758943">Zavrieť</translation>
 <translation id="6047233362582046994">Ak si uvedomujete bezpečnostné riziko, môžete <ph name="BEGIN_LINK" />tento web navštíviť<ph name="END_LINK" /> ešte skôr, ako budú škodlivé aplikácie odstránené.</translation>
 <translation id="6047927260846328439">Tento obsah sa vás môže podvodom pokúsiť presvedčiť, aby ste si nainštalovali softvér alebo poskytli osobné informácie. <ph name="BEGIN_LINK" />Napriek tomu zobraziť<ph name="END_LINK" /></translation>

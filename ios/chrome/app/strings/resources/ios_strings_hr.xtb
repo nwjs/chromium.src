@@ -67,7 +67,6 @@ Na primjer, neke web-lokacije mogu reagirati na taj zahtjev prikazivanjem oglasa
 <translation id="2116625576999540962">Broj premještenih stavki: <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
 <translation id="213900355088104901">Da biste pregledavali privatno, otvorite anonimnu karticu</translation>
 <translation id="2149973817440762519">Uredi oznaku</translation>
-<translation id="2154710561487035718">Kopiraj URL</translation>
 <translation id="2230173723195178503">Web-stranica učitana</translation>
 <translation id="2256128224215992540">Prijedlozi pretraživanja i web-lokacija</translation>
 <translation id="2267753748892043616">Dodaj račun</translation>
@@ -312,7 +311,6 @@ Vaši su podaci šifrirani vašom šifrom za sinkronizaciju <ph name="TIME" />. 
 <translation id="6797885426782475225">Glasovno pretraživanje</translation>
 <translation id="6807889908376551050">Prikaži sve...</translation>
 <translation id="681368974849482173">Stavka je stvorena</translation>
-<translation id="6871663519944855400">Otvori u anonimnom načinu</translation>
 <translation id="6896758677409633944">Kopiraj</translation>
 <translation id="6903907808598579934">Uključi sinkronizaciju</translation>
 <translation id="6945221475159498467">Odaberi</translation>

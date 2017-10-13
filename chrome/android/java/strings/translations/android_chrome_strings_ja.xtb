@@ -37,6 +37,7 @@
 <translation id="1291207594882862231">履歴、Cookie、サイトデータ、キャッシュを消去…</translation>
 <translation id="129553762522093515">最近閉じたタブ</translation>
 <translation id="1303671224831497365">Bluetooth デバイスが見つかりませんでした</translation>
+<translation id="1320663236730331991">人気の高いサイトや記事、ダウンロードしたアイテムなどにすばやくアクセスするには、上にスワイプします</translation>
 <translation id="1326317727527857210">他の端末と同じタブを使用するには、Chrome にログインします。</translation>
 <translation id="1332501820983677155">Google Chrome 機能のショートカット</translation>
 <translation id="1369915414381695676">サイト <ph name="SITE_NAME" /> を追加しました</translation>
@@ -109,7 +110,6 @@
 <translation id="1993768208584545658"><ph name="SITE" /> がペア設定を要求しています</translation>
 <translation id="1994173015038366702">サイトの URL</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB を他のアプリで使用中</translation>
-<translation id="2011013297378343166">このアプリケーションを使用すると、Chrome の<ph name="BEGIN_LINK1" />利用規約<ph name="END_LINK1" />と<ph name="BEGIN_LINK2" />プライバシーに関するお知らせ<ph name="END_LINK2" />、および <ph name="BEGIN_LINK3" />Family Link で作成した Google アカウントのプライバシーに関するお知らせ<ph name="END_LINK3" />に同意したことになります。</translation>
 <translation id="2017836877785168846">アドレスバーの履歴とオートコンプリート データを削除します。</translation>
 <translation id="2038563949887743358">[PC 版サイトを見る] をオンにします</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> GB を他のアプリで使用中</translation>
@@ -147,6 +147,7 @@
 <translation id="2351097562818989364">翻訳設定をリセットしました。</translation>
 <translation id="2359808026110333948">続行</translation>
 <translation id="2369533728426058518">開いているタブ</translation>
+<translation id="2372491353676110880">自動的にページをダウンロードする</translation>
 <translation id="2385560268894525395">過去 1 週間</translation>
 <translation id="2387895666653383613">テキストの拡大と縮小</translation>
 <translation id="2414886740292270097">暗</translation>
@@ -156,6 +157,7 @@
 <translation id="2450083983707403292"><ph name="FILE_NAME" /> のダウンロードをやり直してもよろしいですか？</translation>
 <translation id="2476578072172137802">サイトの設定</translation>
 <translation id="2482878487686419369">通知</translation>
+<translation id="2490674006498621843">[ダウンロード] で自分のファイルやページを探すには、ツールバーを上にスワイプします</translation>
 <translation id="2496180316473517155">閲覧履歴</translation>
 <translation id="2498359688066513246">ヘルプとフィードバック</translation>
 <translation id="2501278716633472235">戻る</translation>
@@ -174,6 +176,7 @@
 <translation id="2625189173221582860">パスワードがコピーされました</translation>
 <translation id="2631006050119455616">削減量</translation>
 <translation id="2653659639078652383">送信</translation>
+<translation id="2671100504997899381">ページの読み込み時間を短縮するとともに、よくアクセスするページを保存してオフラインで読めるようにします</translation>
 <translation id="2677748264148917807">このページを離れる</translation>
 <translation id="2704606927547763573">コピーしました</translation>
 <translation id="2707726405694321444">ページを更新</translation>
@@ -308,7 +311,6 @@
 <translation id="3997476611815694295">重要度の低いストレージ</translation>
 <translation id="4002066346123236978">タイトル</translation>
 <translation id="4013356575049925793">e コマース</translation>
-<translation id="4041402800604793551">続行すると、Chrome の<ph name="BEGIN_LINK1" />利用規約<ph name="END_LINK1" />と<ph name="BEGIN_LINK2" />プライバシーに関するお知らせ<ph name="END_LINK2" />、および <ph name="BEGIN_LINK3" />Family Link で作成された Google アカウントのプライバシーに関するお知らせ<ph name="END_LINK3" />の内容に同意したことになります。</translation>
 <translation id="4042870126885713738">ウェブアドレスが解決されない場合や接続を確立できない場合にアドバイスを表示します</translation>
 <translation id="4046123991198612571">次のトラック</translation>
 <translation id="4056223980640387499">セピア</translation>
@@ -469,7 +471,6 @@
 <translation id="5534640966246046842">サイトがコピーされました</translation>
 <translation id="5537099431952529648">あなたとあなたの保護者が [<ph name="BEGIN_LINK1" />設定<ph name="END_LINK1" />] で Chrome 同期とパーソナライズを管理できます</translation>
 <translation id="5556459405103347317">再読み込み</translation>
-<translation id="5568069709869097550">ログインできない</translation>
 <translation id="557283862590186398">このサイトを利用するには、Chrome でマイクの使用を許可する必要があります。</translation>
 <translation id="5578795271662203820">この画像を <ph name="SEARCH_ENGINE" /> で検索</translation>
 <translation id="5585019845078534178">カード</translation>
@@ -601,6 +602,7 @@
 <translation id="666268767214822976">予測サービスを使用し、アドレスバーへの入力時に関連性の高い検索キーワードや人気のウェブサイトを表示します</translation>
 <translation id="666731172850799929"><ph name="APP_NAME" />で開く</translation>
 <translation id="666981079809192359">Chrome のプライバシーに関するお知らせ</translation>
+<translation id="6689700624704789898">[ダウンロード] で自分のファイルやページを探すには、展開ボタンをダブルタップします</translation>
 <translation id="6697947395630195233">このサイトで現在地を共有するには、Chrome で位置情報の使用を許可する必要があります。</translation>
 <translation id="6698801883190606802">同期データを管理</translation>
 <translation id="6701279291835318271">セキュリティ レポート</translation>
@@ -608,7 +610,6 @@
 <translation id="6710213216561001401">前へ</translation>
 <translation id="6738867403308150051">ダウンロードしています…</translation>
 <translation id="6762156594045689028">この設定を変更するには、<ph name="BEGIN_LINK" />同期をリセット<ph name="END_LINK" />します</translation>
-<translation id="6764789522080107716">ファイルを開けません</translation>
 <translation id="6770414673596662518">また、Chrome のセーフ ブラウジング システムにより悪意のあるページが検出され、フィッシング、不正なソフトウェア、有害なダウンロードからユーザーを保護します。</translation>
 <translation id="6776813977906306442">動画をダウンロードして後で見るには、[ダウンロード] をクリックします</translation>
 <translation id="6790428901817661496">再生</translation>
@@ -644,7 +645,6 @@
 <translation id="7029809446516969842">パスワード</translation>
 <translation id="7031882061095297553">同期先</translation>
 <translation id="704059664004611800">タップするとブックマークなどが表示されます</translation>
-<translation id="7040779639826445456">タップするとブックマーク、ダウンロード、履歴が表示されます</translation>
 <translation id="7053983685419859001">ブロック</translation>
 <translation id="7062545763355031412">同意してアカウントを切り替える</translation>
 <translation id="7063006564040364415">同期サーバーに接続できませんでした。</translation>
@@ -693,6 +693,7 @@
 <translation id="7521387064766892559">Javascript</translation>
 <translation id="7562080006725997899">閲覧データの消去</translation>
 <translation id="756809126120519699">Chrome データの消去完了</translation>
+<translation id="7581273696622423628">アンケートに答える</translation>
 <translation id="7588950540487816470">フィジカルウェブ</translation>
 <translation id="7589445247086920869">現在の検索エンジンをブロックする</translation>
 <translation id="7593557518625677601">Chrome の同期を開始するには、Android の設定で Android システムの同期を再度有効にします</translation>
@@ -702,6 +703,7 @@
 <translation id="7607552448134703340">お探しの内容を入力してください</translation>
 <translation id="7612619742409846846">次のユーザーとして Google にログインしています:</translation>
 <translation id="7619072057915878432">ネットワーク障害が発生したため、<ph name="FILE_NAME" /> をダウンロードできませんでした。</translation>
+<translation id="7620146066550602128"><ph name="BEGIN_LINK" />より簡単な閲覧方法<ph name="END_LINK" />をお試しください</translation>
 <translation id="7624880197989616768"><ph name="BEGIN_LINK1" />ヘルプ<ph name="END_LINK1" />または<ph name="BEGIN_LINK2" />再スキャン<ph name="END_LINK2" /></translation>
 <translation id="7626032353295482388">Chrome にようこそ</translation>
 <translation id="7638584964844754484">パスフレーズが正しくありません</translation>
@@ -807,7 +809,6 @@
 <translation id="8636825310635137004">他の端末と同じタブを使用するには、同期を有効にします。</translation>
 <translation id="8641930654639604085">成人向けのサイトを可能な限りブロックする</translation>
 <translation id="8662811608048051533">ほとんどのサイトからログアウトします。</translation>
-<translation id="867485229011312729">ブックマーク、ダウンロード、履歴を表示するには</translation>
 <translation id="8676374126336081632">入力内容を消去</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{電波強度: レベル #}other{電波強度: レベル #}}</translation>
 <translation id="869891660844655955">有効期限</translation>

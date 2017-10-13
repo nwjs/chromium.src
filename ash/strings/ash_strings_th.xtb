@@ -15,6 +15,7 @@
 <translation id="1270290102613614947">ปิดใช้แป้นพิมพ์บนหน้าจออยู่</translation>
 <translation id="1272079795634619415">หยุด</translation>
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
+<translation id="1290331692326790741">สัญญาณไม่ดี</translation>
 <translation id="1293264513303784526">อุปกรณ์ USB-C (พอร์ตด้านซ้าย)</translation>
 <translation id="1346748346194534595">ขวา</translation>
 <translation id="1383876407941801731">ค้นหา</translation>
@@ -79,6 +80,7 @@
 <translation id="2844169650293029770">อุปกรณ์ USB-C (พอร์ตด้านหน้าซ้าย)</translation>
 <translation id="2865888419503095837">ข้อมูลเครือข่าย</translation>
 <translation id="2872961005593481000">ปิด</translation>
+<translation id="2903844815300039659">เชื่อมต่อกับ <ph name="NAME" /> <ph name="STRENGTH" /></translation>
 <translation id="2911940648265863620">คุณกำลังแชร์หน้าจอของตัวเอง</translation>
 <translation id="2942516765047364088">ตำแหน่งของชั้นวาง</translation>
 <translation id="2946119680249604491">เพิ่มการเชื่อมต่อ</translation>
@@ -126,6 +128,7 @@
 <translation id="397105322502079400">กำลังคำนวณ...</translation>
 <translation id="3995138139523574647">อุปกรณ์ USB-C (พอร์ตด้านหลังขวา)</translation>
 <translation id="4017989525502048489">ตัวชี้เลเซอร์</translation>
+<translation id="4072264167173457037">สัญญาณแรงปานกลาง</translation>
 <translation id="4279490309300973883">กำลังแสดงผล</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4338109981321384717">แว่นขยาย</translation>
@@ -256,6 +259,7 @@
 <translation id="776344839111254542">คลิกเพื่อดูรายละเอียดการอัปเดต</translation>
 <translation id="7798302898096527229">กด Search หรือ Shift เพื่อยกเลิก</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> กับ <ph name="MINUTE" /></translation>
+<translation id="7829386189513694949">สัญญาณแรง</translation>
 <translation id="7904094684485781019">ผู้ดูแลระบบของบัญชีนี้ไม่อนุญาตการลงชื่อเข้าสู่ระบบพร้อมกันหลายบัญชี</translation>
 <translation id="7977927628060636163">กำลังค้นหาเครือข่ายมือถือ...</translation>
 <translation id="7982789257301363584">เครือข่าย</translation>
@@ -274,7 +278,6 @@
 <translation id="8308637677604853869">เมนูก่อนหน้า</translation>
 <translation id="8351131234907093545">สร้างโน้ต</translation>
 <translation id="8392234662362215700">กด Control-Shift-Space เพื่อสลับรูปแบบแป้นพิมพ์</translation>
-<translation id="8392688371657486010">คุณไม่มีการแจ้งเตือน</translation>
 <translation id="8428213095426709021">การตั้งค่า</translation>
 <translation id="8433186206711564395">การตั้งค่าเครือข่าย</translation>
 <translation id="8433977262951327081">มีการเปลี่ยนแปลงทางลัดที่ใช้แสดงลูกโป่งเมนูตัวเลือกการป้อนข้อมูลในชั้นวาง โปรดใช้ <ph name="NEW_SHORTCUT" /> แทน <ph name="OLD_SHORTCUT" /></translation>

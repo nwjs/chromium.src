@@ -49,6 +49,12 @@ Hvis denne politik er angivet, vises loginskærmen i den landestandard, der er a
 
       Hvis politikken er angivet til Falsk, rapporteres tilstanden for udviklerkontakten ikke.</translation>
 <translation id="1160939557934457296">Deaktiver fortsættelse fra advarselssiden for Beskyttet browsing</translation>
+<translation id="1166377463685560145">Angiver, hvilke printere en bruger ikke kan anvende.
+
+      Denne politik anvendes kun, hvis <ph name="PRINTERS_BLACKLIST" /> er valgt for <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
+
+      Hvis denne politik anvendes, kan alle printere anvendes af brugeren, medmindre deres id er angivet i denne politik.
+      </translation>
 <translation id="1198465924256827162">Hvor ofte der sendes enhedsstatusuploads (i millisekunder).
 
       Hvis denne politik ikke angives, er standardfrekvensen tre timer. Den laveste
@@ -81,6 +87,12 @@ Hvis denne politik er angivet, vises loginskærmen i den landestandard, der er a
 <translation id="1363275621236827384">Aktivér forespørgsler til Quirks Server om hardwareprofiler</translation>
 <translation id="1393485621820363363">Aktiverede virksomhedsprintere for enheder</translation>
 <translation id="1397855852561539316">Foreslået webadresse fra standardsøgemaskinen</translation>
+<translation id="1420281424655200442">Bestemmer, hvilke printere fra <ph name="DEVICE_PRINTERS_POLICY" /> der kan anvendes af brugerne.
+
+      Angiver, hvilken adgangspolitik der anvendes til konfiguration af flere printere. Hvis <ph name="PRINTERS_ALLOW_ALL" /> er valgt, vises alle printere. Hvis <ph name="PRINTERS_BLACKLIST" /> er valgt, anvendes <ph name="DEVICE_PRINTERS_BLACKLIST" /> til at begrænse adgangen til de angivne printere. Hvis <ph name="PRINTERS_WHITELIST" /> er valgt, angiver <ph name="DEVICE_PRINTERS_WHITELIST" /> kun de printere, der kan vælges.
+
+      Hvis denne politik ikke er angivet, anvendes <ph name="PRINTERS_BLACKLIST" /> som standard.
+      </translation>
 <translation id="1426410128494586442">Ja</translation>
 <translation id="1427655258943162134">Adresse eller webadresse på proxyserveren</translation>
 <translation id="1435659902881071157">Netværkskonfiguration på enhedsniveau</translation>
@@ -141,6 +153,19 @@ Hvis denne politik er angivet, vises loginskærmen i den landestandard, der er a
 <translation id="1561424797596341174">Tilsidesættelser af politik for fejlretningsbuilds på hosten til fjernadgang</translation>
 <translation id="1561967320164410511">U2F samt udvidelser til individuel attestering</translation>
 <translation id="1583248206450240930">Brug <ph name="PRODUCT_FRAME_NAME" /> som standard</translation>
+<translation id="1603058613431276040">Angiver konfigurationer af virksomhedsprintere, der er knyttet til enheder.
+
+      Denne politik tillader, at du kan konfigurere printere for <ph name="PRODUCT_OS_NAME" />-enheder. Filen må ikke være større end 5 MB, og den skal indkodes i JSON. Formatet er det samme som for NativePrinters-ordbogen. En fil med ca. 21.000 printere forventes at indkode som en fil på 5 MB. Den kryptografiske nøgletransformation bruges til at bekræfte downloadens integritet.
+
+      Filen downloades og gemmes i cachen. Den downloades igen, hver gang webadressen eller nøgletransformationen ændres.
+
+      Hvis denne politik er angivet, vil <ph name="PRODUCT_OS_NAME" /> downloade filen til printerkonfigurationer og gøre printere tilgængelige i overensstemmelse med <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> og <ph name="DEVICE_PRINTERS_BLACKLIST" />.
+
+      Denne politik har ingen indflydelse på, om brugere kan konfigurere printere på individuelle enheder. Den har til formål at supplere printerkonfigurationen for individuelle brugere.
+
+      Denne politik er en tilføjelse til <ph name="BULK_PRINTERS_POLICY" />.
+
+      Hvis denne politik ikke er angivet, er der ingen printere for enhederne, og andre politikker af typen <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> ignoreres.</translation>
 <translation id="1608755754295374538">Webadresser, der får adgang til lydoptagelsesenheder, uden at du skal give tilladelse hertil</translation>
 <translation id="1617235075406854669">Aktivér sletning af browser- og downloadhistorik</translation>
 <translation id="163200210584085447">Mønstre på denne liste sammenlignes med sikkerhedskilden
@@ -241,6 +266,12 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 <translation id="2030905906517501646">Søgeord til standardsøgemaskine</translation>
 <translation id="203096360153626918">Denne politik påvirker ikke Android-apps. De kan åbnes i fuldskærmstilstand, selv hvis denne politik angives som <ph name="FALSE" />.</translation>
 <translation id="2043770014371753404">Deaktiverede virksomhedsprintere</translation>
+<translation id="2063380907529983889">Bestemmer, hvilke printere fra <ph name="BULK_PRINTERS_POLICY" /> der kan anvendes af brugerne.
+
+      Angiver, hvilken adgangspolitik der anvendes til konfiguration af flere printere. Hvis <ph name="PRINTERS_ALLOW_ALL" /> er valgt, vises alle printere. Hvis <ph name="PRINTERS_BLACKLIST" /> er valgt, anvendes <ph name="BULK_PRINTERS_BLACKLIST" /> til at begrænse adgangen til de angivne printere. Hvis <ph name="PRINTERS_WHITELIST" /> er valgt, angiver <ph name="BULK_PRINTERS_WHITELIST" /> kun de printere, der kan vælges.
+
+      Hvis denne politik ikke er angivet, anvendes <ph name="PRINTERS_BLACKLIST" /> som standard.
+      </translation>
 <translation id="206623763829450685">Angiver, hvilke skemaer for HTTP-godkendelse der understøttes af <ph name="PRODUCT_NAME" />.
 
           Mulige værdier er "grundlæggende", "sammenfatning", "NTLM" og "forhandling". Flere værdier adskilles med kommaer.
@@ -484,6 +515,12 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 <translation id="2762164719979766599">Angiver listen over enhedslokale konti, der skal vises på loginskærmen.
 
       Hver post på listen angiver et id, som bruges internt til at skelne mellem de forskellige enhedslokale konti.</translation>
+<translation id="2766302473082018239">Angiver, hvilke printere en bruger kan anvende.
+
+      Denne politik anvendes kun, hvis <ph name="PRINTERS_WHITELIST" /> er valgt for <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Hvis denne politik anvendes, er det kun printere med id'er, der matcher værdierne i denne politik, som kan anvendes af brugeren. Id'erne skal svare til posterne i den fil, der er angivet i <ph name="BULK_PRINTERS_POLICY" />.
+      </translation>
 <translation id="2769952903507981510">Konfigurer det påkrævede domænenavn for værter med fjernadgang</translation>
 <translation id="2787173078141616821">Rapportér oplysninger om status for Android</translation>
 <translation id="2801230735743888564">Giv brugerne mulighed for at spille det ekstra dinosaurspil, når enheden er offline.
@@ -529,7 +566,7 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 <translation id="2957513448235202597">Kontotype for <ph name="HTTP_NEGOTIATE" />-godkendelse</translation>
 <translation id="2959898425599642200">Regler for omgåelse af proxy</translation>
 <translation id="2960691910306063964">Aktivér eller deaktiver godkendelse uden pinkode for hosts til fjernadgang</translation>
-<translation id="2976002782221275500">Angiver den tid uden brugerinput, der udløser skærmnedtoning, når batteriet bruges.
+<translation id="2976002782221275500">Angiver den tid uden brugerinput, der aktiverer skærmnedtoning, når batteriet bruges.
 
           Hvis denne politik indstilles til en højere værdi end nul, angives den tid, som brugeren skal forblive inaktiv i, før <ph name="PRODUCT_OS_NAME" /> nedtoner skærmen.
 
@@ -546,6 +583,7 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 <translation id="3030000825273123558">Aktivér metrics-rapportering</translation>
 <translation id="3034580675120919256">Giver dig mulighed for at angive, om websites må køre JavaScript. Kørsel af JavaScript kan enten være tilladt for alle websites eller nægtet for alle websites. Hvis denne politik ikke angives, anvendes "AllowJavaScript", og brugeren vil kunne ændre det.</translation>
 <translation id="3038323923255997294">Fortsætter med at køre baggrundsapps, når <ph name="PRODUCT_NAME" /> er lukket</translation>
+<translation id="3039065003245994702">Konfigurering af adfærd i forbindelse med opdatering af TPM-firmware</translation>
 <translation id="3046192273793919231">Send netværkspakker til administratorserveren for at overvåge onlinestatus</translation>
 <translation id="3048744057455266684">Hvis denne politik er indstillet, og en søgewebadresse foreslået af omnifeltet indeholder denne parameter i forespørgselsstrengen eller i fragment-id'et, vil forslaget vise søgetermerkene og søgemaskinen i stedet for kun søgewebadressen.
 
@@ -601,7 +639,7 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 <translation id="3220624000494482595">Hvis terminalappen er en Android-app, har den ingen kontrol over <ph name="PRODUCT_OS_NAME" />-versionen, selv hvis denne politik angives som <ph name="TRUE" />.</translation>
 <translation id="3236046242843493070">Webadressemønstre, der tillader installation af udvidelser, apps og brugerscripts fra</translation>
 <translation id="3240609035816615922">Adgangspolitik for konfiguration af printere.</translation>
-<translation id="3243309373265599239">Angiver den tid uden brugerinput, der udløser skærmnedtoning, når strømforsyningen er tilsluttet.
+<translation id="3243309373265599239">Angiver den tid uden brugerinput, der aktiverer skærmnedtoning, når strømforsyningen er tilsluttet.
 
           Hvis denne politik indstilles til end højere værdi end nul, angives den tid, som brugeren skal forblive inaktiv i, før <ph name="PRODUCT_OS_NAME" /> nedtoner skærmen.
 
@@ -635,6 +673,12 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 
           Hvis denne politik er angivet som en udfyldt streng, anvendes strengen som navnet på destinationen for <ph name="PRODUCT_NAME" />. Hvis ikke, er navnet på destinationen det samme som navnet på enheden. Hvis denne politik ikke er angivet, er navnet på destinationen det samme som navnet på enheden, og enhedsejeren (eller en bruger fra domænet, som administrerer enheden) kan ændre det. Navnet må højst indeholde 24 tegn.</translation>
 <translation id="3381968327636295719">Brug værtsbrowseren som standard</translation>
+<translation id="3395348522300156660">Angiver, hvilke printere en bruger kan anvende..
+
+      Denne politik anvendes kun, hvis <ph name="PRINTERS_WHITELIST" /> er valgt for <ph name="DEVICE_PRINTERS_ACCESS_MODE" />
+
+      Hvis denne politik anvendes, er det kun printere med id'er, der matcher værdierne i denne politik, som kan anvendes af brugeren. Id'erne skal svare til posterne i den fil, der er angivet i <ph name="DEVICE_PRINTERS_POLICY" />.
+      </translation>
 <translation id="3417418267404583991">Hvis denne politik er angivet til sand eller ikke er konfigureret, aktiverer <ph name="PRODUCT_OS_NAME" /> gæstelogins. Gæstelogins er anonyme brugersessioner, der ikke kræver en adgangskode,
 
       Hvis denne politik er angivet til falsk, vil <ph name="PRODUCT_OS_NAME" /> ikke tillade, at der startes gæstesessioner.</translation>
@@ -672,6 +716,13 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
           Denne politik respekteres, hvis politikken "DefaultSearchProviderEnabled" er aktiveret.</translation>
 <translation id="350797926066071931">Aktiver Oversæt</translation>
 <translation id="3512226956150568738">Hvis klientens enhedsmodel allerede understøttede ARC, inden det blev nødvendigt at migrere til ext4 for at køre ARC, og hvis politikken ArcEnabled er angivet som sand, opfører denne valgmulighed sig som AskUser (værdi 3). I alle andre tilfælde (hvis enhedsmodellen ikke tidligere understøttede ARC, eller hvis politikken ArcEnabled er angivet som falsk), svarer denne værdi til DisallowArc (værdi 0).</translation>
+<translation id="3519432185185398282">Konfigurerer tilgængelighed og adfærd for funktionen til opdatering af TPM-firmware.
+
+      Individuelle indstillinger kan angives i JSON-egenskaber:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Hvis den er angivet til <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, kan brugere udløse Powerwash-processen for at installere en TPM-firmwareopdatering.
+
+      Hvis politikken ikke er angivet, er funktionen til opdatering af TPM-firmware ikke tilgængelig.</translation>
 <translation id="3528000905991875314">Aktiver alternative fejlsider</translation>
 <translation id="3547954654003013442">Proxyindstillinger</translation>
 <translation id="3591584750136265240">Konfigurer adfærden for logingodkendelse</translation>
@@ -834,15 +885,16 @@ Hvis denne indstilling ikke er angivet, vil <ph name="PRODUCT_NAME" /> tillade b
 
           Hvis denne politik ikke angives, anvendes "AllowCookies", og brugeren kan ændre dette.</translation>
 <translation id="4103289232974211388">Omdiriger til SAML IdP efter brugerbekræftelse</translation>
-<translation id="410478022164847452">Angiver den tid uden brugerinput, der udløser inaktivitetshandlingen, når strømforsyningen er tilsluttet.
+<translation id="410478022164847452">Angiver den tid uden brugerinput, der aktiverer inaktivitetshandlingen, når strømforsyningen er tilsluttet.
 
-          Hvis denne politik indstilles, angives den tid, som brugeren skal være inaktiv, før <ph name="PRODUCT_OS_NAME" /> udløser inaktivitetshandlingen, hvilket kan konfigureres separat.
+          Hvis denne politik indstilles, angives den tid, som brugeren skal være inaktiv, før <ph name="PRODUCT_OS_NAME" /> aktiverer inaktivitetshandlingen, hvilket kan konfigureres separat.
 
           Hvis denne politik ikke indstilles, anvendes standardindstillingen.
 
           Værdien for politikken bør angives i millisekunder.</translation>
 <translation id="4105989332710272578">Deaktiver håndhævelse af Certifikatsgennemsigtighed for en række webadresser</translation>
 <translation id="4121350739760194865">Undgå, at appkampagner vises på ny fane-siden</translation>
+<translation id="4133144443101280166">Intervaller uden for åbningstiden, hvor OffHours |ignored_policy_proto-tags| anvendes på enheden</translation>
 <translation id="4157003184375321727">Rapportér OS- og firmwareversion</translation>
 <translation id="4183229833636799228">Standardindstilling for <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="4192388905594723944">Webadresse til validering af tokenet til klientgodkendelse for fjernadgang</translation>
@@ -1065,6 +1117,7 @@ Mens selve politikken understøttes på ovenstående platforme, kan den funktion
 <translation id="5067143124345820993">Login til brugerens hvidliste</translation>
 <translation id="5068140065960598044">Cloudpolitikken for <ph name="PRODUCT_NAME" /> tilsidesætter maskinpolitikken.</translation>
 <translation id="5085647276663819155">Deaktiver udskriftsvisning</translation>
+<translation id="5090209345759901501">Brug indstillingen for Flash-indhold til alt indhold</translation>
 <translation id="5105313908130842249">Skærmlåsforsinkelse, når batteriet bruges</translation>
 <translation id="5108031557082757679">Deaktiverede virksomhedsprintere for enheder</translation>
 <translation id="5130288486815037971">Afgør, om RC4-krypteringsprogrammer i TLS aktiveres</translation>
@@ -1221,7 +1274,7 @@ Hvis denne politik slås fra eller indstilles til False (falsk), er udviklertils
 <translation id="5781412041848781654">Angiver, hvilket GSSAPI-bibliotek der skal anvendes til HTTP-godkendelse. Du kan enten angive et biblioteksnavn eller en hel sti.
 
           Hvis der ikke angives en indstilling, går <ph name="PRODUCT_NAME" /> tilbage til at bruge et standardbiblioteksnavn.</translation>
-<translation id="5781806558783210276">Angiver den tid uden brugerinput, der udløser inaktivitetshandlingen, når batteriet bruges.
+<translation id="5781806558783210276">Angiver den tid uden brugerinput, der aktiverer inaktivitetshandlingen, når batteriet bruges.
 
           Hvis denne politik indstilles, angives den tid, som brugeren skal være inaktiv, før <ph name="PRODUCT_OS_NAME" /> effektuerer inaktivitetshandlingen, som kan konfigureres separat.
 
@@ -1300,7 +1353,7 @@ Hvis denne politik slås fra eller indstilles til False (falsk), er udviklertils
 
       Når denne indstilling er aktiveret, åbnes <ph name="PRODUCT_NAME" /> systemets udskriftsdialog i stedet for det indbyggede udskriftseksempel, når en bruger anmoder om en side, der skal udskrives.
 
-      Hvis denne politik ikke er indstillet eller er indstillet til falsk, udløser udskriftskommandoer skærmen Vis udskrift.</translation>
+      Hvis denne politik ikke er indstillet eller er indstillet til falsk, aktiverer udskriftskommandoer skærmen Vis udskrift.</translation>
 <translation id="6022948604095165524">Handling ved opstart</translation>
 <translation id="602728333950205286">Direkte webadresse til standardsøgemaskinen</translation>
 <translation id="603410445099326293">Parametre for forslagswebadresser, som anvender POST</translation>
@@ -1398,7 +1451,12 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
           Hvis du vælger at bruge et .pac-proxyscript, oplyses scriptwebadressen til Android-apps.</translation>
 <translation id="6491139795995924304">Tillad Bluetooth på enheden</translation>
 <translation id="6520802717075138474">Import af søgemaskiner fra standardbrowseren ved første visning</translation>
-<translation id="653608967792832033">Angiver den tid uden brugerinput, der udløser skærmlåsen, når enheden kører på batteri.
+<translation id="6525955212636890608">Hvis du aktiverer denne indstilling, køres alt det Flash-indhold, der er integreret på websites med tilladelse til at bruge Flash i indstillingerne for indhold (som enten er angivet af brugeren eller virksomhedspolitikken). Dette omfatter indhold af anden oprindelse eller mindre indhold.
+
+      Du kan se, hvilke websites der har tilladelse til at køre Flash, i politikkerne "DefaultPluginsSetting", "PluginsAllowedForUrls" og "PluginsBlockedForUrls".
+
+      Hvis denne indstilling er deaktiveret eller ikke er angivet, kan Flash-indhold af anden oprindelse eller mindre indhold blive blokeret.</translation>
+<translation id="653608967792832033">Angiver den tid uden brugerinput, der aktiverer skærmlåsen, når enheden kører på batteri.
 
           Hvis denne politik indstilles til en højere værdi end nul, angives den tid, som brugeren skal være inaktiv, før <ph name="PRODUCT_OS_NAME" /> låser skærmen.
 
@@ -1611,7 +1669,7 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
       Hvis politikken er angivet som Falsk, vises automatisk genererede forslag til indhold ikke på siden Ny fane.</translation>
 <translation id="7323896582714668701">Yderligere kommandolinjeparametre for <ph name="PRODUCT_NAME" /></translation>
 <translation id="7326394567531622570">Minder om Wipe (værdi 2), men forsøger at bevare logintokens, så brugeren ikke behøver at logge ind igen.</translation>
-<translation id="7329842439428490522">Angiver den tid uden brugerinput, der udløser skærmsluk, når batteriet bruges.
+<translation id="7329842439428490522">Angiver den tid uden brugerinput, der aktiverer skærmsluk, når batteriet bruges.
 
           Hvis denne politik indstilles til en værdi, der er højere end nul, angives den tid, som brugeren skal være inaktiv, før <ph name="PRODUCT_OS_NAME" /> slukker skærmen.
 
@@ -1821,7 +1879,7 @@ Dynamisk opdatering af denne politik understøttes i M56 og nyere versioner.</tr
 <translation id="8114382167597081590">Gennemtving ikke Begrænset tilstand på YouTube</translation>
 <translation id="8118665053362250806">Angiv størrelse på mediediskcache</translation>
 <translation id="8124468781472887384">Adgangspolitik for konfiguration af printere til enheder.</translation>
-<translation id="8135937294926049787">Angiver den tid uden brugerinput, der udløser skærmsluk, når strømforsyningen er tilsluttet.
+<translation id="8135937294926049787">Angiver den tid uden brugerinput, der aktiverer skærmsluk, når strømforsyningen er tilsluttet.
 
           Hvis denne politik indstilles til en højere værdi end nul, angives den tid, hvor brugeren skal være inaktiv, før <ph name="PRODUCT_OS_NAME" /> slukker skærmen.
 
@@ -1938,6 +1996,12 @@ Dynamisk opdatering af denne politik understøttes i M56 og nyere versioner.</tr
 <translation id="8493645415242333585">Deaktiver lagring af browserhistorik</translation>
 <translation id="8499172469244085141">Standardindstillinger (brugere kan tilsidesætte)</translation>
 <translation id="8519264904050090490">Webadresser for manuel undtagelse af administreret bruger</translation>
+<translation id="8527932539502116028">Angiver, hvilke printere en bruger ikke kan anvende.
+
+      Denne politik anvendes kun, hvis <ph name="PRINTERS_BLACKLIST" /> er valgt for <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Hvis denne politik anvendes, kan alle printere anvendes af brugeren, medmindre deres id er angivet i denne politik.
+      </translation>
 <translation id="8544375438507658205">Standard HTML-gengivelse for <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Vis en advarsel, når du er på websites uden for indholdspakkerne</translation>
 <translation id="8566842294717252664">Skjul webshoppen fra siden Ny fane og applisten</translation>
@@ -1995,7 +2059,7 @@ Dynamisk opdatering af denne politik understøttes i M56 og nyere versioner.</tr
 <translation id="8908294717014659003">Giver dig mulighed for at angive, om websites skal have adgang til optageenheder. Der kan gives adgang til optageenheder som standard, eller brugeren kan blive spurgt, hver gang et website ønsker at få adgang til optageenheder.
 
           Hvis denne politik ikke indstilles, anvendes "PromptOnAccess", og brugeren vil være i stand til at ændre den.</translation>
-<translation id="8909280293285028130">Angiver den tid uden brugerinput, der udløser skærmlås, når strømforsyningen er tilsluttet.
+<translation id="8909280293285028130">Angiver den tid uden brugerinput, der aktiverer skærmlås, når strømforsyningen er tilsluttet.
 
           Hvis denne politik indstilles til en værdi, der er større end nul, angiver den en tid, som brugeren skal være inaktiv, før <ph name="PRODUCT_OS_NAME" /> låser skærmen.
 
@@ -2007,6 +2071,18 @@ Dynamisk opdatering af denne politik understøttes i M56 og nyere versioner.</tr
 
           Politikkens værdi skal angives i millisekunder. Værdierne reduceres, så de er mindre end inaktivitetsforsinkelsen.</translation>
 <translation id="891435090623616439">kodet som en JSON-streng. Få flere oplysninger på <ph name="COMPLEX_POLICIES_URL" /></translation>
+<translation id="8927384992072706174">Angiver konfigurationer af virksomhedsprintere.
+
+      Denne politik tillader, at du kan konfigurere printere for <ph name="PRODUCT_OS_NAME" />-enheder. Filen må ikke være større end 5 MB, og den skal indkodes i JSON. Formatet er det samme som for NativePrinters-ordbogen. En fil med ca. 21.000 printere forventes at indkode som en fil på 5 MB. Den kryptografiske nøgletransformation bruges til at bekræfte downloadens integritet.
+
+      Filen downloades og gemmes i cachen. Den downloades igen, hver gang webadressen eller nøgletransformationen ændres.
+
+      Hvis denne politik er angivet, vil <ph name="PRODUCT_OS_NAME" /> downloade filen til printerkonfigurationer og gøre printere tilgængelige i overensstemmelse med <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> og <ph name="BULK_PRINTERS_BLACKLIST" />.
+
+      Hvis du har angivet denne politik, kan brugerne ikke ændre eller tilsidesætte den.
+
+      Denne politik har ingen indflydelse på, om brugere kan konfigurere printere på individuelle enheder. Den har til formål at supplere printerkonfigurationen for individuelle brugere.
+      </translation>
 <translation id="8947415621777543415">Rapportér enhedens placering</translation>
 <translation id="8951350807133946005">Angiv mappen for diskens cache</translation>
 <translation id="8952317565138994125">Deaktiverer datasynkronisering i <ph name="PRODUCT_NAME" /> ved hjælp af Google-hostede synkroniseringstjenester og forhindrer brugerne i at ændre denne indstilling.
@@ -2057,7 +2133,7 @@ Dynamisk opdatering af denne politik understøttes i M56 og nyere versioner.</tr
       den er angivet til Falsk eller ikke er angivet, sendes der ingen systemlogfiler.</translation>
 <translation id="9150416707757015439">Denne politik er udfaset. Brug i stedet IncognitoModeAvailability. Aktiverer inkognitotilstand i <ph name="PRODUCT_NAME" />. Hvis denne indstilling er aktiveret eller ikke er konfigureret, kan brugerne åbne websider i inkognitotilstand. Hvis denne indstilling er deaktiveret, kan brugerne ikke åbne websider i inkognitotilstand. Hvis denne politik ikke er angivet, vil dette blive aktiveret, så brugeren kan bruge inkognitotilstand.</translation>
 <translation id="915194831143859291">Hvis denne politik er angivet til Falsk eller ikke er konfigureret, tillader <ph name="PRODUCT_OS_NAME" />, at brugeren lukker enheden ned.
-      Hvis denne politik er angivet til Sand, udløser <ph name="PRODUCT_OS_NAME" /> en genstart, når brugeren lukker enheden ned. <ph name="PRODUCT_OS_NAME" /> erstatter alle forekomster af Luk-knapper i grænsefladen med genstartsknapper. Hvis brugeren lukker enheden ved hjælp af afbryderknappen, genstartes den ikke automatisk, selvom politikken er aktiveret.</translation>
+      Hvis denne politik er angivet til Sand, aktiverer <ph name="PRODUCT_OS_NAME" /> en genstart, når brugeren lukker enheden ned. <ph name="PRODUCT_OS_NAME" /> erstatter alle forekomster af Luk-knapper i grænsefladen med genstartsknapper. Hvis brugeren lukker enheden ved hjælp af afbryderknappen, genstartes den ikke automatisk, selvom politikken er aktiveret.</translation>
 <translation id="9187743794267626640">Deaktiver isætning af eksternt lager</translation>
 <translation id="9197740283131855199">Den procentdel, som nedtoningsforsinkelsen på skærmen skaleres, hvis brugeren bliver aktiv efter nedtoningen</translation>
 <translation id="9200828125069750521">Parametre for billedets webadresse, som anvender POST</translation>

@@ -49,6 +49,12 @@
 
       이 정책을 false로 설정하면 기기 개발자 스위치 상태가 보고되지 않습니다.</translation>
 <translation id="1160939557934457296">세이프 브라우징 경고 페이지 사용 중지</translation>
+<translation id="1166377463685560145">사용자가 사용할 수 없는 프린터를 지정합니다.
+
+      이 정책은 <ph name="DEVICE_PRINTERS_ACCESS_MODE" />(으)로 <ph name="PRINTERS_BLACKLIST" />이(가) 선택된 경우에만 사용됩니다.
+
+      이 정책을 사용하면 ID가 이 정책에 명시된 프린터를 제외한 모든 프린터가 사용자에게 제공됩니다.
+      </translation>
 <translation id="1198465924256827162">기기 상태 업로드가 전송되는 빈도를 밀리초로 나타냅니다.
 
       이 정책이 설정되지 않은 경우 기본 빈도는 3시간입니다. 허용되는
@@ -81,6 +87,12 @@
 <translation id="1363275621236827384">하드웨어 프로필 Quirks 서버에 검색어를 사용합니다.</translation>
 <translation id="1393485621820363363">사용 설정된 엔터프라이즈 기기 프린터</translation>
 <translation id="1397855852561539316">기본 검색 공급자 추천 URL</translation>
+<translation id="1420281424655200442"><ph name="DEVICE_PRINTERS_POLICY" />에 명시된 프린터 중 사용자에게 제공되는 프린터를 관리합니다.
+
+      일괄 프린터 설정에 사용할 액세스 정책을 지정합니다. <ph name="PRINTERS_ALLOW_ALL" />을(를) 선택하면 모든 프린터가 표시됩니다. <ph name="PRINTERS_BLACKLIST" />을(를) 선택하면 <ph name="DEVICE_PRINTERS_BLACKLIST" />이(가) 사용되어 지정된 프린터에 대한 액세스 권한이 제한됩니다. <ph name="PRINTERS_WHITELIST" />을(를) 선택하면 <ph name="DEVICE_PRINTERS_WHITELIST" />이(가) 사용되어 선택 가능한 프린터만 지정됩니다.
+
+      이 정책이 설정되지 않으면 <ph name="PRINTERS_BLACKLIST" />이(가) 기본적으로 사용됩니다.
+      </translation>
 <translation id="1426410128494586442">예</translation>
 <translation id="1427655258943162134">프록시 서버의 주소 또는 URL</translation>
 <translation id="1435659902881071157">기기 수준 네트워크 설정</translation>
@@ -143,6 +155,19 @@
 <translation id="1561424797596341174">정책은 원격 액세스 호스트의 디버그 빌드를 무시합니다.</translation>
 <translation id="1561967320164410511">개별 인증을 위한 U2F 및 확장 프로그램</translation>
 <translation id="1583248206450240930">기본으로 <ph name="PRODUCT_FRAME_NAME" /> 사용</translation>
+<translation id="1603058613431276040">기기에 적용되는 엔터프라이즈 프린터 설정을 제공합니다.
+
+      이 정책을 통해 <ph name="PRODUCT_OS_NAME" /> 기기에 프린터 설정을 제공할 수 있습니다. 파일 크기는 5MB를 초과할 수 없으며, JSON으로 인코딩되어야 합니다. 정책 형식은 NativePrinters 사전과 같습니다.  약 21,000대의 프린터가 포함된 파일을 인코딩하면 파일 용량이 5MB 정도 될 것으로 예상됩니다.  암호화 해시는 다운로드 파일의 무결성을 확인하는 데 사용됩니다.
+
+      이 파일은 다운로드되어 캐시됩니다. URL 또는 해시가 변경될 때마다 파일이 다시 다운로드됩니다.
+
+      이 정책이 설정되면 <ph name="PRODUCT_OS_NAME" />에서 프린터 설정 파일을 다운로드한 다음 <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" />, <ph name="DEVICE_PRINTERS_BLACKLIST" />에 따라 프린터를 제공합니다.
+
+      이 정책은 사용자가 개별 기기에서 프린터를 설정할 수 있는지에 영향을 미치지 않습니다. 이 정책은 개별 사용자의 프린터 설정을 보완하기 위한 것입니다.
+
+      이 정책은 <ph name="BULK_PRINTERS_POLICY" />에 더해 부가적인 기능을 합니다.
+
+      이 정책이 설정되지 않으면 기기 프린터가 사용되지 않으며 다른 <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> 정책은 무시됩니다.</translation>
 <translation id="1608755754295374538">별도 메시지를 표시하지 않고 오디오 캡처 기기에 대한 액세스 권한이 부여되는 URL입니다.</translation>
 <translation id="1617235075406854669">브라우저 및 다운로드 기록을 삭제하도록 설정합니다.</translation>
 <translation id="163200210584085447">이 목록의 패턴을 요청 URL의 보안 출처와 비교합니다.
@@ -249,6 +274,12 @@
 <translation id="2030905906517501646">기본 검색 공급자 키워드</translation>
 <translation id="203096360153626918">이 정책은 Android 앱에 아무런 영향도 미치지 않습니다. 이 정책이 <ph name="FALSE" />로 설정되더라도 Android 앱이 전체화면 모드로 전환될 수 있습니다.</translation>
 <translation id="2043770014371753404">사용 중지된 엔터프라이즈 프린터</translation>
+<translation id="2063380907529983889"><ph name="BULK_PRINTERS_POLICY" />에 명시된 프린터 중 사용자에게 제공되는 프린터를 관리합니다.
+
+      일괄 프린터 설정에 사용할 액세스 정책을 지정합니다. <ph name="PRINTERS_ALLOW_ALL" />을(를) 선택하면 모든 프린터가 표시됩니다. <ph name="PRINTERS_BLACKLIST" />을(를) 선택하면 <ph name="BULK_PRINTERS_BLACKLIST" />이(가) 사용되어 지정된 프린터에 대한 액세스 권한이 제한됩니다. <ph name="PRINTERS_WHITELIST" />을(를) 선택하면 <ph name="BULK_PRINTERS_WHITELIST" />이(가) 사용되어 선택 가능한 프린터만 지정됩니다.
+
+      이 정책이 설정되지 않으면 <ph name="PRINTERS_BLACKLIST" />이(가) 기본적으로 사용됩니다.
+      </translation>
 <translation id="206623763829450685"><ph name="PRODUCT_NAME" />에서 지원하는 HTTP 인증 스키마를 지정합니다.
 
           사용할 수 있는 값은 'basic', 'digest', 'ntlm', 'negotiate'이며, 두 개 이상의 값은 쉼표로 분리하세요.
@@ -508,6 +539,12 @@
 <translation id="2762164719979766599">로그인 화면에 표시될 기기 로컬 계정 목록을 지정합니다.
 
       모든 목록 항목은 다른 기기 로컬 계정을 구별하기 위해 내부적으로 사용되는 식별자를 지정합니다.</translation>
+<translation id="2766302473082018239">사용자가 사용할 수 있는 프린터를 지정합니다.
+
+      이 정책은 <ph name="BULK_PRINTERS_ACCESS_MODE" />으(로) <ph name="PRINTERS_WHITELIST" />이(가) 선택된 경우에만 사용됩니다. 
+
+      이 정책을 사용하면 이 정책에 있는 값과 ID가 일치하는 프린터만 사용자에게 제공됩니다. 이 ID는 <ph name="BULK_PRINTERS_POLICY" />에 명시된 파일 내 항목과 일치해야 합니다.
+      </translation>
 <translation id="2769952903507981510">원격 액세스 호스트에 대한 필수 도메인 이름 구성</translation>
 <translation id="2787173078141616821">Android 상태에 관한 정보 보고</translation>
 <translation id="2801230735743888564">기기가 오프라인일 때 사용자가 공룡 부활절 달걀 게임을 플레이할 수 있도록 허용합니다.
@@ -574,6 +611,7 @@
 
           이 정책을 설정하지 않은 경우 'AllowJavaScript' 정책이 사용되며 사용자가 설정을 변경할 수 있습니다.</translation>
 <translation id="3038323923255997294"><ph name="PRODUCT_NAME" /> 종료 후에도 백그라운드 앱을 계속 실행</translation>
+<translation id="3039065003245994702">TPM 펌웨어 업데이트 동작 설정</translation>
 <translation id="3046192273793919231">온라인 상태를 모니터링하기 위해 관리 서버에 네트워크 패킷을 전송합니다.</translation>
 <translation id="3048744057455266684">이 정책이 설정되어 있고 검색주소창에서 제안된 검색 URL의 검색 문자열 또는 일부 식별자에 이 매개변수가 포함되어 있으면 추천 검색어가 원시 검색 URL 대신 검색어 및 검색 공급자를 표시합니다.
 
@@ -667,6 +705,12 @@
 
           이 정책을 비어 있지 않은 문자열로 설정하면 해당 문자열이 <ph name="PRODUCT_NAME" /> 전송 대상의 이름으로 사용됩니다. 반면에 비어 있는 문자열로 설정하면 기기 이름이 전송 대상의 이름으로 사용됩니다. 이 정책을 설정하지 않으면 기기 이름이 전송 대상의 이름으로 사용되며, 기기 소유자(또는 기기를 관리하는 도메인의 사용자)가 이 이름을 변경할 수 있습니다. 이름의 길이는 영문 24자로 제한됩니다.</translation>
 <translation id="3381968327636295719">호스트 브라우저를 기본으로 사용</translation>
+<translation id="3395348522300156660">사용자가 사용할 수 있는 프린터를 지정합니다.
+
+      이 정책은 <ph name="DEVICE_PRINTERS_ACCESS_MODE" />으(로) <ph name="PRINTERS_WHITELIST" />이(가) 선택된 경우에만 사용됩니다. 
+
+      이 정책을 사용하면 이 정책에 있는 값과 ID가 일치하는 프린터만 사용자에게 제공됩니다. 이 ID는 <ph name="DEVICE_PRINTERS_POLICY" />에 명시된 파일 내 항목과 일치해야 합니다.
+      </translation>
 <translation id="3417418267404583991">이 정책을 true로 설정하거나 구성하지 않으면 <ph name="PRODUCT_OS_NAME" />은(는) 손님 로그인을 사용합니다. 손님 로그인은 익명 사용자 세션이며 비밀번호가 필요없습니다.
 
       이 정책을 false로 설정하면, <ph name="PRODUCT_OS_NAME" />은(는) 손님 세션을 시작하지 않습니다.</translation>
@@ -704,6 +748,13 @@
           이 정책은 'DefaultSearchProviderEnabled' 정책을 사용하도록 설정된 경우에만 적용됩니다.</translation>
 <translation id="350797926066071931">Google 번역 사용</translation>
 <translation id="3512226956150568738">클라이언트 기기 모델에서 ARC를 실행하기 위해 ext4로 이전해야 했던 시점 전에 ARC를 이미 지원했으며 ArcEnabled 정책이 true로 설정된 경우, 이 옵션은 AskUser(값 3)로 작동합니다. 다른 모든 경우(기기 모델이 이전에 ARC를 지원하지 않았거나 ArcEnabled 정책이 false로 설정된 경우), 이 값은 DisallowArc(값 0)와 동일합니다.</translation>
+<translation id="3519432185185398282">TPM 펌웨어 업데이트 기능의 사용 가능 여부 및 동작을 설정합니다.
+
+      개별 설정을 JASON 속성으로 지정할 수 있습니다.
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />(으)로 설정되어 있는 경우, 사용자가 파워워시 절차를 실행하여 TPM 펌웨어 업데이트를 설치할 수 있습니다.
+
+      정책이 설정되지 않은 경우, TPM 펌웨어 업데이트 기능을 사용할 수 없습니다.</translation>
 <translation id="3528000905991875314">대체 오류 페이지 사용</translation>
 <translation id="3547954654003013442">프록시 설정</translation>
 <translation id="3591584750136265240">로그인 인증 동작 설정</translation>
@@ -877,6 +928,7 @@
           정책 값은 밀리초 단위로 지정되어야 합니다.</translation>
 <translation id="4105989332710272578">일부 URL 목록에는 인증서 투명성 시행 사용 중지</translation>
 <translation id="4121350739760194865">앱 프로모션이 새 탭 페이지에 표시되지 않도록 합니다.</translation>
+<translation id="4133144443101280166">기기 OffHours |ignored_policy_proto_tags|가 공개되었을 때 Off hours 간격</translation>
 <translation id="4157003184375321727">OS 및 펌웨어 버전을 보고합니다.</translation>
 <translation id="4183229833636799228">기본 <ph name="FLASH_PLUGIN_NAME" /> 설정</translation>
 <translation id="4192388905594723944">원격 액세스 클라이언트 인증 토큰을 확인하기 위한 URL</translation>
@@ -1113,6 +1165,7 @@
 <translation id="5067143124345820993">로그인 사용자 허용 목록</translation>
 <translation id="5068140065960598044"><ph name="PRODUCT_NAME" /> 클라우드 정책은 머신 정책에 우선합니다.</translation>
 <translation id="5085647276663819155">인쇄 미리보기 사용 안함</translation>
+<translation id="5090209345759901501">플래시 콘텐츠 설정을 모든 콘텐츠로 확장</translation>
 <translation id="5105313908130842249">배터리 전원으로 실행할 때 화면 잠금 지연</translation>
 <translation id="5108031557082757679">사용 중지된 엔터프라이즈 기기 프린터</translation>
 <translation id="5130288486815037971">TLS RC4 암호화 기술이 사용하도록 설정되었는지 여부</translation>
@@ -1499,6 +1552,11 @@
           .pac 프록시 스크립트를 사용하도록 선택한 경우 Android 앱에 스크립트 URL이 제공됩니다.</translation>
 <translation id="6491139795995924304">기기에서 블루투스 허용</translation>
 <translation id="6520802717075138474">처음 실행 시 기본 브라우저에서 검색엔진 가져오기</translation>
+<translation id="6525955212636890608">이 설정을 사용하면 사용자 또는 엔터프라이즈 정책에 의해 콘텐츠 설정에서 플래시를 허용하도록 설정된 웹사이트에 삽입된 모든 플래시 콘텐츠가 실행됩니다. 여기에는 다른 출처의 콘텐츠나 용량이 작은 콘텐츠도 포함됩니다.
+
+      플래시를 실행하도록 허용된 웹사이트를 관리하려면 'DefaultPluginsSetting', 'PluginsAllowedForUrls', 'PluginsBlockedForUrls' 정책을 확인하세요.
+
+      이 설정을 사용 중지하거나 설정하지 않으면 다른 출처의 플래시 콘텐츠나 용량이 작은 플래시 콘텐츠가 차단될 수 있습니다.</translation>
 <translation id="653608967792832033">배터리 전원으로 실행할 때 사용자 입력이 없어서 화면이 잠길 때까지 걸리는 시간을 지정합니다.
 
           이 정책이 0보다 큰 값으로 설정되어 있으면 이는 <ph name="PRODUCT_OS_NAME" />에서 화면을 잠그기 전에 사용자가 유휴 상태여야 하는 시간을 의미합니다.
@@ -2079,6 +2137,12 @@
 <translation id="8493645415242333585">브라우저 기록 저장 사용 중지</translation>
 <translation id="8499172469244085141">기본 설정(사용자가 변경할 수 있음)</translation>
 <translation id="8519264904050090490">관리 사용자 직접 예외 URL</translation>
+<translation id="8527932539502116028">사용자가 사용할 수 없는 프린터를 지정합니다.
+
+      이 정책은 <ph name="BULK_PRINTERS_ACCESS_MODE" />(으)로 <ph name="PRINTERS_BLACKLIST" />이(가) 선택된 경우에만 사용됩니다.
+
+      이 정책을 사용하면 ID가 이 정책에 명시된 프린터를 제외한 모든 프린터가 사용자에게 제공됩니다.
+      </translation>
 <translation id="8544375438507658205"><ph name="PRODUCT_FRAME_NAME" />의 기본 HTML 렌더러</translation>
 <translation id="8549772397068118889">콘텐츠 팩 외부 사이트를 방문할 때 표시되는 경고입니다.</translation>
 <translation id="8566842294717252664">새 탭 페이지 및 앱 런처에서 웹 스토어 숨기기</translation>
@@ -2156,6 +2220,18 @@
 
           정책 값은 밀리초 단위로 지정해야 하며, 유휴 지연 시간보다 작도록 값이 잘립니다.</translation>
 <translation id="891435090623616439">JSON 문자열로 인코딩됨, 자세한 내용은 <ph name="COMPLEX_POLICIES_URL" /> 참조</translation>
+<translation id="8927384992072706174">엔터프라이즈 프린터의 설정을 제공합니다.
+
+      이 정책을 통해 <ph name="PRODUCT_OS_NAME" /> 기기에 프린터 설정을 제공할 수 있습니다. 파일 크기는 5MB를 초과할 수 없으며, JSON으로 인코딩되어야 합니다. 정책 형식은 NativePrinters 사전과 같습니다. 약 21,000대의 프린터가 포함된 파일을 인코딩하면 파일 용량이 5MB 정도 될 것으로 예상됩니다. 암호화 해시는 다운로드 파일의 무결성을 확인하는 데 사용됩니다.
+
+      이 파일은 다운로드되어 캐시됩니다. URL 또는 해시가 변경될 때마다 파일이 다시 다운로드됩니다.
+
+      이 정책이 설정되면 <ph name="PRODUCT_OS_NAME" />에서 프린터 설정 파일을 다운로드한 다음  <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" />, <ph name="BULK_PRINTERS_BLACKLIST" />에 따라 프린터를 제공합니다.
+
+      이 정책을 설정하면 사용자가 정책을 변경하거나 재정의할 수 없습니다.
+
+      이 정책은 사용자가 개별 기기에서 프린터를 설정할 수 있는지에 영향을 미치지 않습니다. 이 정책은 개별 사용자의 프린터 설정을 보완하기 위한 것입니다.
+      </translation>
 <translation id="8947415621777543415">기기 위치 신고</translation>
 <translation id="8951350807133946005">디스크 캐시 디렉토리 설정</translation>
 <translation id="8952317565138994125">Google에서 호스팅하는 동기화 서비스를 사용하는 <ph name="PRODUCT_NAME" />의 데이터 동기화를 사용 중지하고 사용자가 이 설정을 변경하지 못하게 합니다.

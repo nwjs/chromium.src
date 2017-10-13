@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Lista de lectura</translation>
 <translation id="1264126396475825575">Informe sobre fallos registrado el <ph name="CRASH_TIME" /> (todavía no se ha subido ni ignorado)</translation>
 <translation id="1270502636509132238">Método de recogida</translation>
-<translation id="1281526147609854549">Emitido por <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">No traducir nunca este sitio</translation>
 <translation id="129553762522093515">Cerrado recientemente</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Borrar las cookies<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Cancelar pago</translation>
 <translation id="2147827593068025794">Sincronización en segundo plano</translation>
 <translation id="2148613324460538318">Añadir tarjeta</translation>
+<translation id="2149973817440762519">Editar marcador</translation>
 <translation id="2154054054215849342">La sincronización no está disponible para tu dominio</translation>
 <translation id="2154484045852737596">Editar tarjeta</translation>
 <translation id="2166049586286450108">Acceso de administrador completo</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Variaciones</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Ninguna}=1{1 aplicación ($1)}=2{2 aplicaciones ($1 y $2)}other{# aplicaciones ($1, $2 y $3)}}</translation>
 <translation id="2625385379895617796">Tu reloj está adelantado</translation>
+<translation id="2634124572758952069">No se ha podido encontrar la dirección IP del servidor de <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Estado:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Acceso al archivo denegado</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Se ha detectado la presencia de atacantes en el sitio web <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />. Estos podrían instalar aplicaciones engañosas que se hagan pasar por otra persona o recojan datos que podrían usarse para realizar un seguimiento de tu actividad. <ph name="BEGIN_LEARN_MORE_LINK" />Más información<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (sincronizados)</translation>
 <translation id="6027201098523975773">Introduce un nombre</translation>
+<translation id="6039846035001940113">Si el problema persiste, ponte en contacto con el propietario del sitio web.</translation>
 <translation id="6040143037577758943">Cerrar</translation>
 <translation id="6047233362582046994">Si entiendes los riesgos para tu seguridad, puedes <ph name="BEGIN_LINK" />acceder a este sitio web<ph name="END_LINK" /> antes de que se hayan eliminado las aplicaciones dañinas.</translation>
 <translation id="6047927260846328439">Es posible que este contenido intente engañarte para que instales software o reveles información personal. <ph name="BEGIN_LINK" />Mostrar de todos modos<ph name="END_LINK" /></translation>

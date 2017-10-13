@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">阅读清单</translation>
 <translation id="1264126396475825575">崩溃报告获取时间：<ph name="CRASH_TIME" />（该报告尚未上传或已被忽略）</translation>
 <translation id="1270502636509132238">取货方式</translation>
-<translation id="1281526147609854549">颁发者：<ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">一律不翻译此网站</translation>
 <translation id="129553762522093515">最近关闭的标签页</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />尝试清除 Cookie<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">取消付款</translation>
 <translation id="2147827593068025794">后台同步</translation>
 <translation id="2148613324460538318">添加支付卡</translation>
+<translation id="2149973817440762519">修改书签</translation>
 <translation id="2154054054215849342">您的网域不支持同步</translation>
 <translation id="2154484045852737596">修改支付卡</translation>
 <translation id="2166049586286450108">完全的管理员访问权限</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">其他变体</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{无}=1{1 个应用（$1）}=2{2 个应用（$1、$2）}other{# 个应用（$1、$2，$3）}}</translation>
 <translation id="2625385379895617796">您的时钟快了</translation>
+<translation id="2634124572758952069">找不到 <ph name="HOST_NAME" /> 的服务器 IP 地址。</translation>
 <translation id="2639739919103226564">状态：</translation>
 <translation id="2649204054376361687"><ph name="COUNTRY" /><ph name="CITY" /></translation>
 <translation id="2650446666397867134">访问文件遭拒</translation>
@@ -647,6 +648,7 @@
 <translation id="6017850046339264347"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> 上的攻击者可能会安装欺骗性应用来冒充其他内容或收集可用于对您进行跟踪的数据。<ph name="BEGIN_LEARN_MORE_LINK" />了解详情<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />、<ph name="TYPE_2" />、<ph name="TYPE_3" />（已同步）</translation>
 <translation id="6027201098523975773">请输入名称</translation>
+<translation id="6039846035001940113">如果问题仍然存在，请与网站所有者联系。</translation>
 <translation id="6040143037577758943">关闭</translation>
 <translation id="6047233362582046994">如果您了解自己将面临的安全风险，则可在有害应用被移除之前<ph name="BEGIN_LINK" />访问此网站<ph name="END_LINK" />。</translation>
 <translation id="6047927260846328439">此内容可能会试图诱骗您安装软件或透露个人信息。<ph name="BEGIN_LINK" />仍然显示<ph name="END_LINK" /></translation>

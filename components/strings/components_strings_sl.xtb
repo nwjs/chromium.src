@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Bralni seznam</translation>
 <translation id="1264126396475825575">Poročilo o zrušitvi je bilo zajeto takrat: <ph name="CRASH_TIME" /> (ni še naloženo ali je prezrto)</translation>
 <translation id="1270502636509132238">Način prevzema</translation>
-<translation id="1281526147609854549">Izdal: <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Nikoli ne prevedi tega spletnega mesta</translation>
 <translation id="129553762522093515">Nedavno zaprto</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Poskusite izbrisati piškotke<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Prekliči plačilo</translation>
 <translation id="2147827593068025794">Sinhroniziranje v ozadju</translation>
 <translation id="2148613324460538318">Dodaj kartico</translation>
+<translation id="2149973817440762519">Uredi zaznamek</translation>
 <translation id="2154054054215849342">Sinhronizacija ni na voljo za vašo domeno</translation>
 <translation id="2154484045852737596">Urejanje kartice</translation>
 <translation id="2166049586286450108">Polni skrbniški dostop</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Različice</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Brez}=1{1 aplikacija ($1)}=2{2 aplikaciji ($1, $2)}one{# aplikacija ($1, $2, $3)}two{# aplikaciji ($1, $2, $3)}few{# aplikacije ($1, $2, $3)}other{# aplikacij ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Ura prehiteva</translation>
+<translation id="2634124572758952069">Naslova IP strežnika <ph name="HOST_NAME" /> ni bilo mogoče najti.</translation>
 <translation id="2639739919103226564">Stanje:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Dostop do datoteke je bil zavrnjen</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Napadalci na spletnem mestu <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> bi lahko namestili zavajajoče aplikacije, ki se pretvarjajo, da so nekaj drugega, ali zbirajo podatke, s katerimi vas lahko spremljajo. <ph name="BEGIN_LEARN_MORE_LINK" />Več o tem<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (sinhronizirano)</translation>
 <translation id="6027201098523975773">Vnesite ime</translation>
+<translation id="6039846035001940113">Če težave ne odpravite, se obrnite na lastnika spletnega mesta.</translation>
 <translation id="6040143037577758943">Zapri</translation>
 <translation id="6047233362582046994">Če se zavedate varnostnega tveganja, lahko <ph name="BEGIN_LINK" />obiščete to spletno mesto<ph name="END_LINK" />, preden bodo škodljive aplikacije odstranjene.</translation>
 <translation id="6047927260846328439">Ta vsebina vas morda poskuša zavesti, da namestite programsko opremo ali razkrijete osebne podatke. <ph name="BEGIN_LINK" />Vseeno prikaži<ph name="END_LINK" /></translation>

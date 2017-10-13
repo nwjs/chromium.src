@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Läslista</translation>
 <translation id="1264126396475825575">Felrapport skapades <ph name="CRASH_TIME" /> (har ännu inte laddats upp eller ignorerats)</translation>
 <translation id="1270502636509132238">Alternativ för utlämning</translation>
-<translation id="1281526147609854549">Utfärdades av <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Översätt aldrig den här webbplatsen</translation>
 <translation id="129553762522093515">Nyligen stängda</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Testa att rensa cookies<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Avbryt betalningen</translation>
 <translation id="2147827593068025794">Bakgrundssynkronisering</translation>
 <translation id="2148613324460538318">Lägg till kort</translation>
+<translation id="2149973817440762519">Redigera bokmärke</translation>
 <translation id="2154054054215849342">Synkronisering är inte tillgänglig för din domän</translation>
 <translation id="2154484045852737596">Redigera kortet</translation>
 <translation id="2166049586286450108">Fullständig administrativ åtkomst</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Varianter</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Ingen}=1{1 app ($1)}=2{2 appar ($1, $2)}other{# appar ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Klockan går före</translation>
+<translation id="2634124572758952069">Det gick inte att hitta IP-adressen till servern på <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Status:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Åtkomst till filen nekades</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Angripare på <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> skulle kunna installera bedrägliga appar som inte gör vad de påstås göra eller samla in data som används för att spåra dig. <ph name="BEGIN_LEARN_MORE_LINK" />Läs mer<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (synkroniserade)</translation>
 <translation id="6027201098523975773">Ange ett namn</translation>
+<translation id="6039846035001940113">Kontakta webbplatsens ägare om problemet kvarstår.</translation>
 <translation id="6040143037577758943">Stäng</translation>
 <translation id="6047233362582046994">Om du är medveten om säkerhetsriskerna kan du <ph name="BEGIN_LINK" />besöka webbplatsen<ph name="END_LINK" /> innan de skadliga apparna har tagits bort.</translation>
 <translation id="6047927260846328439">Sidan kan ha till syfte att försöka lura dig att installera programvara eller avslöja personliga uppgifter. <ph name="BEGIN_LINK" />Visa ändå<ph name="END_LINK" /></translation>

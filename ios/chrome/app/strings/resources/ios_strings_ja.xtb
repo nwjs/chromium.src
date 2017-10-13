@@ -67,7 +67,6 @@
 <translation id="2116625576999540962"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" />件の項目を移動しました</translation>
 <translation id="213900355088104901">シークレット モードで閲覧するにはシークレット タブを開きます</translation>
 <translation id="2149973817440762519">ブックマークを編集</translation>
-<translation id="2154710561487035718">URL をコピー</translation>
 <translation id="2230173723195178503">ウェブページを読み込みました</translation>
 <translation id="2256128224215992540">検索とサイトの候補を表示</translation>
 <translation id="2267753748892043616">アカウントを追加</translation>
@@ -228,7 +227,7 @@
 <translation id="5433691172869980887">ユーザー名がコピーされました</translation>
 <translation id="54401264925851789">ページのセキュリティ情報</translation>
 <translation id="5525269841082836315">パスフレーズの作成</translation>
-<translation id="5531274207066050939">Google ペイメント</translation>
+<translation id="5531274207066050939">Google Payments</translation>
 <translation id="5548760955356983418">Handoffを使うと、この端末で見ているウェブサイトの続きをMacで見ることができます。現在開いているウェブサイトはMacのDockに表示されます。
 
 また[設定]の[一般]画面でHandoffを有効にしておく必要があります。お使いの端末では、iCloudと同じアカウントを使用してください。</translation>
@@ -312,7 +311,6 @@
 <translation id="6797885426782475225">音声検索</translation>
 <translation id="6807889908376551050">すべて表示...</translation>
 <translation id="681368974849482173">作成済みのアイテム</translation>
-<translation id="6871663519944855400">シークレット モードで開く</translation>
 <translation id="6896758677409633944">コピー</translation>
 <translation id="6903907808598579934">同期を有効にする</translation>
 <translation id="6945221475159498467">選択</translation>

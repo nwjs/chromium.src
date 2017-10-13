@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">పఠన జాబితా</translation>
 <translation id="1264126396475825575">క్రాష్ నివేదిక <ph name="CRASH_TIME" />కి సంగ్రహించబడింది (ఇంకా అప్‌లోడ్ చేయలేదు లేదా విస్మరించబడింది)</translation>
 <translation id="1270502636509132238">పికప్ పద్ధతి</translation>
-<translation id="1281526147609854549"><ph name="ISSUER" /> ద్వారా జారీ చేయబడింది</translation>
 <translation id="1285320974508926690">ఈ సైట్‌ను అనువదించవద్దు</translation>
 <translation id="129553762522093515">ఇటీవల మూసివెయ్యబడినవి</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />మీ కుక్కీలను తీసివేయడానికి ప్రయత్నించండి<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">చెల్లింపును రద్దు చేయి</translation>
 <translation id="2147827593068025794">నేపథ్య సమకాలీకరణ</translation>
 <translation id="2148613324460538318">కార్డ్‌ని జోడించు</translation>
+<translation id="2149973817440762519">బుక్‌మార్క్‌ను సవరించు</translation>
 <translation id="2154054054215849342">సమకాలీకరణ మీ డొమైన్‌కు అందుబాటులో లేదు</translation>
 <translation id="2154484045852737596">కార్డ్‌ను సవరించండి</translation>
 <translation id="2166049586286450108">పూర్తి నిర్వాహక ప్రాప్యత</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">వ్యత్యాసాలు</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{ఏమీ లేవు}=1{1 అనువర్తనం ($1)}=2{2 అనువర్తనాలు ($1, $2)}other{# అనువర్తనాలు ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">మీ గడియారం సమయం భవిష్యత్తులో ఉంది</translation>
+<translation id="2634124572758952069"><ph name="HOST_NAME" /> యొక్క సర్వర్ IP చిరునామా కనుగొనబడలేదు.</translation>
 <translation id="2639739919103226564">స్థితి: </translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">ఫైల్‌కు ప్రాప్యత తిరస్కరించబడింది</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />లోని హ్యాకర్‌లు మోసపూరిత యాప్‌లను ఇన్‌స్టాల్ చేయవచ్చు, ఇవి వేరే వాటిలా కనిపించవచ్చు లేదా మిమ్మల్ని ట్రాక్ చేయడానికి ఉపయోగించబడే డేటాని సేకరించవచ్చు. <ph name="BEGIN_LEARN_MORE_LINK" />మరింత తెలుసుకోండి<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (సమకాలీకరించబడ్డాయి)</translation>
 <translation id="6027201098523975773">పేరుని నమోదు చేయండి</translation>
+<translation id="6039846035001940113">సమస్య కొనసాగుతుంటే, సైట్ యజమానిని సంప్రదించండి.</translation>
 <translation id="6040143037577758943">మూసివేయి</translation>
 <translation id="6047233362582046994">మీ భద్రతకు వాటిల్లే ఆపదల గురించి మీకు అర్థం అయ్యి ఉంటే, హానికర యాప్‌లు తీసివేయబడటానికి ముందే మీరు <ph name="BEGIN_LINK" />ఈ సైట్‌ను సందర్శించవచ్చు<ph name="END_LINK" />.</translation>
 <translation id="6047927260846328439">ఈ కంటెంట్ సాఫ్ట్‌వేర్‌ని ఇన్‌స్టాల్ చేయడానికి లేదా వ్యక్తిగత సమాచారాన్ని బహిర్గతం చేయడానికి పురిగొల్పేలా మిమ్మల్ని మాయ చేయడానికి ప్రయత్నించవచ్చు. <ph name="BEGIN_LINK" />ఏదేమైనా చూపు<ph name="END_LINK" /></translation>

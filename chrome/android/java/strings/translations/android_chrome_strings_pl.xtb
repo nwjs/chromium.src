@@ -110,7 +110,6 @@ Aby korzystać z internetu rzeczy, musisz włączyć Bluetooth i Lokalizację.</
 <translation id="1993768208584545658"><ph name="SITE" /> chce się sparować</translation>
 <translation id="1994173015038366702">URL strony</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB innych aplikacji</translation>
-<translation id="2011013297378343166">Korzystając z tej aplikacji, akceptujesz <ph name="BEGIN_LINK1" />Warunki korzystania z Chrome<ph name="END_LINK1" />, <ph name="BEGIN_LINK2" />Informacje na temat ochrony prywatności w Chrome<ph name="END_LINK2" /> oraz <ph name="BEGIN_LINK3" />Informacje na temat ochrony prywatności na kontach Google utworzonych w Family Link<ph name="END_LINK3" />.</translation>
 <translation id="2017836877785168846">Usuwa historię i wpisy autouzupełniania w pasku adresu.</translation>
 <translation id="2038563949887743358">Włącz opcję „Wersja na komputer”</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> GB innych aplikacji</translation>
@@ -148,6 +147,7 @@ Aby korzystać z internetu rzeczy, musisz włączyć Bluetooth i Lokalizację.</
 <translation id="2351097562818989364">Ustawienia tłumaczenia zostały zresetowane.</translation>
 <translation id="2359808026110333948">Dalej</translation>
 <translation id="2369533728426058518">otwarte karty</translation>
+<translation id="2372491353676110880">Automatycznie pobieraj strony</translation>
 <translation id="2385560268894525395">z ostatniego tygodnia</translation>
 <translation id="2387895666653383613">Skalowanie tekstu</translation>
 <translation id="2414886740292270097">Ciemny</translation>
@@ -157,6 +157,7 @@ Aby korzystać z internetu rzeczy, musisz włączyć Bluetooth i Lokalizację.</
 <translation id="2450083983707403292">Czy chcesz jeszcze raz rozpocząć pobieranie pliku <ph name="FILE_NAME" />?</translation>
 <translation id="2476578072172137802">Ustawienia witryny</translation>
 <translation id="2482878487686419369">Powiadomienia</translation>
+<translation id="2490674006498621843">Pociągnij w górę pasek narzędzi, by znaleźć pliki i strony w Pobranych plikach</translation>
 <translation id="2496180316473517155">Historia przeglądania</translation>
 <translation id="2498359688066513246">Pomoc i opinie</translation>
 <translation id="2501278716633472235">Wróć</translation>
@@ -175,6 +176,7 @@ Aby korzystać z internetu rzeczy, musisz włączyć Bluetooth i Lokalizację.</
 <translation id="2625189173221582860">Hasło zostało skopiowane</translation>
 <translation id="2631006050119455616">Zaoszczędzono</translation>
 <translation id="2653659639078652383">Prześlij</translation>
+<translation id="2671100504997899381">Ładuj strony szybciej i zapisuj popularne strony do czytania w trybie offline</translation>
 <translation id="2677748264148917807">Wyjdź</translation>
 <translation id="2704606927547763573">Skopiowane</translation>
 <translation id="2707726405694321444">Odśwież stronę</translation>
@@ -230,7 +232,6 @@ Aby korzystać z internetu rzeczy, musisz włączyć Bluetooth i Lokalizację.</
 <translation id="3259831549858767975">Pomniejsz całą zawartość strony</translation>
 <translation id="3269093882174072735">Wczytaj obraz</translation>
 <translation id="3269956123044984603">Aby korzystać z kart ze swoich pozostałych urządzeń, włącz opcję „Autosynchronizacja danych” w ustawieniach konta na urządzeniu z Androidem.</translation>
-<translation id="3274105979672092244">Korzystasz z Chrome Home</translation>
 <translation id="3282568296779691940">Zaloguj się w Chrome</translation>
 <translation id="3295602654194328831">Ukryj informacje</translation>
 <translation id="3303414029551471755">Przejść do pobrania treści?</translation>
@@ -310,7 +311,6 @@ Aby dostosować wyszukiwane hasło, naciśnij je i przytrzymaj, by je zaznaczyć
 <translation id="3997476611815694295">Nieistotne dane</translation>
 <translation id="4002066346123236978">Tytuł</translation>
 <translation id="4013356575049925793">E-commerce</translation>
-<translation id="4041402800604793551">Przechodząc dalej, akceptujesz <ph name="BEGIN_LINK1" />Warunki korzystania z Chrome<ph name="END_LINK1" /> oraz <ph name="BEGIN_LINK2" />Informacje na temat ochrony prywatności w Chrome<ph name="END_LINK2" />, a także <ph name="BEGIN_LINK3" />Informacje na temat ochrony prywatności na kontach Google utworzonych w aplikacji Family Link<ph name="END_LINK3" />.</translation>
 <translation id="4042870126885713738">Pokazuj podpowiedzi, gdy nie można znaleźć adresu internetowego lub nawiązać połączenia</translation>
 <translation id="4046123991198612571">Następny utwór</translation>
 <translation id="4056223980640387499">Sepia</translation>
@@ -427,7 +427,6 @@ Aby dostosować wyszukiwane hasło, naciśnij je i przytrzymaj, by je zaznaczyć
 <translation id="5164482624172255778">Czy chcesz, aby następnym razem przeglądarka Google Chrome zaoferowała tłumaczenie stron z tej witryny, których język to <ph name="LANGUAGE" />?</translation>
 <translation id="5168917394043976756">Otwórz panel nawigacji</translation>
 <translation id="5184329579814168207">Otwórz w Chrome</translation>
-<translation id="519793908071017925">Użyj Chrome Home</translation>
 <translation id="5199929503336119739">Profil do pracy</translation>
 <translation id="5209320130288484488">Nie znaleziono urządzeń</translation>
 <translation id="5210286577605176222">Przejdź do poprzedniej karty</translation>
@@ -472,7 +471,6 @@ Aby dostosować wyszukiwane hasło, naciśnij je i przytrzymaj, by je zaznaczyć
 <translation id="5534640966246046842">Strona została skopiowana</translation>
 <translation id="5537099431952529648">Ty i Twoi rodzice możecie zarządzać synchronizacją Chrome i personalizacją w <ph name="BEGIN_LINK1" />Ustawieniach<ph name="END_LINK1" /></translation>
 <translation id="5556459405103347317">Odśwież</translation>
-<translation id="5568069709869097550">Nie można się zalogować</translation>
 <translation id="557283862590186398">Chrome potrzebuje uprawnień dostępu do mikrofonu na tej stronie.</translation>
 <translation id="5578795271662203820">Szukaj tej grafiki w <ph name="SEARCH_ENGINE" /></translation>
 <translation id="5585019845078534178">Karty</translation>
@@ -595,7 +593,6 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="6583199322650523874">Dodaj bieżącą stronę do zakładek</translation>
 <translation id="6600954340915313787">Skopiowana do Chrome</translation>
 <translation id="6612358246767739896">Treść chroniona</translation>
-<translation id="6619166911218440149">Poznaj Chrome Home</translation>
 <translation id="6627583120233659107">Edytuj folder</translation>
 <translation id="6643016212128521049">Wyczyść</translation>
 <translation id="6648977384226967773">{CONTACT,plural, =1{<ph name="CONTACT_PREVIEW" />\u2026 i jeszcze <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" />}few{<ph name="CONTACT_PREVIEW" />\u2026 i jeszcze <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" />}many{<ph name="CONTACT_PREVIEW" />\u2026 i jeszcze <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" />}other{<ph name="CONTACT_PREVIEW" />\u2026 i jeszcze <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" />}}</translation>
@@ -605,6 +602,7 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="666268767214822976">Gdy piszesz na pasku adresu, korzystaj z usługi przewidywania, by wyświetlać podobne zapytania i adresy popularnych stron</translation>
 <translation id="666731172850799929">Otwórz w <ph name="APP_NAME" /></translation>
 <translation id="666981079809192359">Informacje na temat ochrony prywatności w Chrome</translation>
+<translation id="6689700624704789898">Kliknij dwukrotnie przycisk rozwijania, by znaleźć pliki i strony w Pobranych plikach</translation>
 <translation id="6697947395630195233">Chrome musi mieć dostęp do Twojej lokalizacji, by udostępnić ją tej stronie.</translation>
 <translation id="6698801883190606802">Zarządzaj synchronizowanymi danymi</translation>
 <translation id="6701279291835318271">Raporty zabezpieczeń</translation>
@@ -612,7 +610,6 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="6710213216561001401">Wstecz</translation>
 <translation id="6738867403308150051">Pobieram…</translation>
 <translation id="6762156594045689028">Aby zmienić to ustawienie, <ph name="BEGIN_LINK" />zresetuj synchronizację<ph name="END_LINK" /></translation>
-<translation id="6764789522080107716">Nie można otworzyć pliku</translation>
 <translation id="6770414673596662518">System Bezpieczne przeglądanie w Chrome jest też używany do wykrywania złośliwych stron oraz ochrony przed wyłudzaniem informacji, złośliwym oprogramowaniem i szkodliwymi plikami do pobrania.</translation>
 <translation id="6776813977906306442">Kliknij przycisk Pobierz, by pobrać film i obejrzeć go później</translation>
 <translation id="6790428901817661496">Odtwórz</translation>
@@ -648,7 +645,6 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="7029809446516969842">Hasła</translation>
 <translation id="7031882061095297553">Synchronizuj z</translation>
 <translation id="704059664004611800">Kliknij, by zobaczyć zakładki i nie tylko</translation>
-<translation id="7040779639826445456">Kliknij, by zobaczyć zakładki, pobrane pliki i historię</translation>
 <translation id="7053983685419859001">Blokuj</translation>
 <translation id="7062545763355031412">Zaakceptuj i przełącz konta</translation>
 <translation id="7063006564040364415">Nie udało się nawiązać połączenia z serwerem synchronizacji.</translation>
@@ -697,6 +693,7 @@ Inne rodzaje historii przeglądania, takie jak wyszukiwania i aktywność w inny
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7562080006725997899">Czyszczenie danych przeglądania</translation>
 <translation id="756809126120519699">Wyczyszczono dane Chrome</translation>
+<translation id="7581273696622423628">Wypełnij ankietę</translation>
 <translation id="7588950540487816470">Internet rzeczy</translation>
 <translation id="7589445247086920869">Blokuj dostęp obecnej wyszukiwarce</translation>
 <translation id="7593557518625677601">Otwórz ustawienia Androida i ponownie włącz jego synchronizację, by uruchomić Synchronizację Chrome</translation>
@@ -812,7 +809,6 @@ Aby otrzymać nowe licencje, połącz się z internetem i odtwórz pobrane treś
 <translation id="8636825310635137004">Aby korzystać z kart ze swoich innych urządzeń, włącz synchronizację</translation>
 <translation id="8641930654639604085">Próbuj blokować strony dla dorosłych</translation>
 <translation id="8662811608048051533">Wylogowuje z większości stron internetowych.</translation>
-<translation id="867485229011312729">Gdzie znaleźć zakładki, pobrane pliki i historię?</translation>
 <translation id="8676374126336081632">Wyczyść wpisany tekst</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{Poziom siły sygnału: # słupek}few{Poziom siły sygnału: # słupki}many{Poziom siły sygnału: # słupków}other{Poziom siły sygnału: # słupka}}</translation>
 <translation id="869891660844655955">Data wygaśnięcia</translation>

@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Листа за читање</translation>
 <translation id="1264126396475825575">Извештај о отказивању је снимљен <ph name="CRASH_TIME" /> (још увек није отпремљен или игнорисан)</translation>
 <translation id="1270502636509132238">Начин преузимања</translation>
-<translation id="1281526147609854549">Издавач: <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Никад не преводи овај сајт</translation>
 <translation id="129553762522093515">Недавно затворено</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Покушајте да обришете колачиће<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Откажи плаћање</translation>
 <translation id="2147827593068025794">Синхронизација у позадини</translation>
 <translation id="2148613324460538318">Додај картицу</translation>
+<translation id="2149973817440762519">Измените обележивач</translation>
 <translation id="2154054054215849342">Синхронизација није доступна за домен</translation>
 <translation id="2154484045852737596">Измените картицу</translation>
 <translation id="2166049586286450108">Потпуни администраторски приступ</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Варијације</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{None}=1{1 апликација ($1)}=2{2 апликације ($1, $2)}one{# апликација ($1, $2, $3)}few{# апликације ($1, $2, $3)}other{# апликација ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Сат вам жури</translation>
+<translation id="2634124572758952069">Нисмо успели да пронађемо IP адресу сервера хоста <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Статус:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Приступ датотеци је одбијен</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Нападачи који су на <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> могу да инсталирају обмањујуће апликације које се претварају да су нешто друго или да прикупљају податке који могу да се користе за праћење. <ph name="BEGIN_LEARN_MORE_LINK" />Сазнајте више<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (синхронизовано)</translation>
 <translation id="6027201098523975773">Унесите назив</translation>
+<translation id="6039846035001940113">Ако се проблем и даље јавља, контактирајте власника сајта.</translation>
 <translation id="6040143037577758943">Затвори</translation>
 <translation id="6047233362582046994">Ако разумете безбедносне ризике, можете да <ph name="BEGIN_LINK" />посетите овај сајт<ph name="END_LINK" /> пре него што уклонимо штетне апликације.</translation>
 <translation id="6047927260846328439">Овај садржај ће покушати да вас превари да инсталирате софтвер или откријете личне податке. <ph name="BEGIN_LINK" />Ипак прикажи<ph name="END_LINK" /></translation>

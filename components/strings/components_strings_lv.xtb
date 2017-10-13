@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Lasīšanas saraksts</translation>
 <translation id="1264126396475825575"><ph name="CRASH_TIME" /> notverts ziņojums par avāriju (vēl nav augšupielādēts vai ignorēts)</translation>
 <translation id="1270502636509132238">Saņemšanas veids</translation>
-<translation id="1281526147609854549">Izsniedza <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Nekad netulkot šo vietni</translation>
 <translation id="129553762522093515">Nesen aizvērtas</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Dzēsiet sīkfailus<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Atcelt maksājumu</translation>
 <translation id="2147827593068025794">Sinhronizācija fonā</translation>
 <translation id="2148613324460538318">Pievienot karti</translation>
+<translation id="2149973817440762519">Rediģēt grāmatzīmes</translation>
 <translation id="2154054054215849342">Sinhronizācija jūsu domēnam nav pieejama.</translation>
 <translation id="2154484045852737596">Kartes informācijas rediģēšana</translation>
 <translation id="2166049586286450108">Pilna administratora piekļuve</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Varianti</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Nav}=1{1 lietotne ($1)}=2{2 lietotnes ($1, $2)}zero{# lietotnes ($1, $2, $3)}one{# lietotne ($1, $2, $3)}other{# lietotnes ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Norādītais laiks ir pārāk tālu nākotnē</translation>
+<translation id="2634124572758952069">Nevarēja atrast vietnes <ph name="HOST_NAME" /> servera IP adresi.</translation>
 <translation id="2639739919103226564">Statuss:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Piekļuve failam tika noraidīta.</translation>
@@ -649,6 +650,7 @@
 <translation id="6017850046339264347">Uzbrucēji vietnē <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> varētu instalēt maldinošas lietotnes, kas uzdodas par citu saturu, vai ievākt datus, ko izmantot jūsu izsekošanai. <ph name="BEGIN_LEARN_MORE_LINK" />Uzziniet vairāk<ph name="END_LEARN_MORE_LINK" />.</translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (veikta sinhronizācija)</translation>
 <translation id="6027201098523975773">Ievadiet vārdu</translation>
+<translation id="6039846035001940113">Ja problēma joprojām pastāv, sazinieties ar vietnes īpašnieku.</translation>
 <translation id="6040143037577758943">Aizvērt</translation>
 <translation id="6047233362582046994">Ja apzināties drošības risku, varat arī <ph name="BEGIN_LINK" />apmeklēt šo vietni<ph name="END_LINK" />, pirms ir noņemtas kaitīgās lietotnes.</translation>
 <translation id="6047927260846328439">Ar šo saturu jūs var maldināt un panākt, ka instalējat programmatūru vai atklājat personas informāciju. <ph name="BEGIN_LINK" />Tāpat rādīt<ph name="END_LINK" />.</translation>

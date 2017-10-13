@@ -15,6 +15,7 @@
 <translation id="1270290102613614947">Keyboard di layar dinonaktifkan</translation>
 <translation id="1272079795634619415">Berhenti</translation>
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
+<translation id="1290331692326790741">Sinyal lemah</translation>
 <translation id="1293264513303784526">Perangkat USB-C (port sebelah kiri)</translation>
 <translation id="1346748346194534595">Kanan</translation>
 <translation id="1383876407941801731">Telusuri</translation>
@@ -79,6 +80,7 @@
 <translation id="2844169650293029770">Perangkat USB-C (port depan sebelah kiri)</translation>
 <translation id="2865888419503095837">Info jaringan</translation>
 <translation id="2872961005593481000">Matikan</translation>
+<translation id="2903844815300039659">Terhubung ke <ph name="NAME" />, <ph name="STRENGTH" /></translation>
 <translation id="2911940648265863620">Anda berbagi layar</translation>
 <translation id="2942516765047364088">Posisi rak</translation>
 <translation id="2946119680249604491">Tambahkan koneksi</translation>
@@ -126,6 +128,7 @@
 <translation id="397105322502079400">Menghitung...</translation>
 <translation id="3995138139523574647">Perangkat USB-C (port belakang sebelah kanan)</translation>
 <translation id="4017989525502048489">Penunjuk laser</translation>
+<translation id="4072264167173457037">Sinyal sedang</translation>
 <translation id="4279490309300973883">Mencerminkan</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4338109981321384717">Kaca pembesar</translation>
@@ -256,6 +259,7 @@ Hanya gunakan fitur ini dengan akun yang Anda percayai.</translation>
 <translation id="776344839111254542">Klik untuk melihat detail update</translation>
 <translation id="7798302898096527229">Tekan Search atau Shift untuk membatalkan.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> dan <ph name="MINUTE" /></translation>
+<translation id="7829386189513694949">Sinyal kuat</translation>
 <translation id="7904094684485781019">Administrator untuk akun ini menonaktifkan fitur masuk banyak akun.</translation>
 <translation id="7977927628060636163">Menelusuri jaringan seluler...</translation>
 <translation id="7982789257301363584">Jaringan</translation>
@@ -274,7 +278,6 @@ Hanya gunakan fitur ini dengan akun yang Anda percayai.</translation>
 <translation id="8308637677604853869">Menu sebelumnya</translation>
 <translation id="8351131234907093545">Buat catatan</translation>
 <translation id="8392234662362215700">Tekan Control-Shift-Space untuk mengubah tata letak keyboard.</translation>
-<translation id="8392688371657486010">Tidak ada notifikasi</translation>
 <translation id="8428213095426709021">Setelan</translation>
 <translation id="8433186206711564395">Setelan jaringan</translation>
 <translation id="8433977262951327081">Pintasan untuk menampilkan balon menu opsi masukan di rak telah diubah. Harap gunakan <ph name="NEW_SHORTCUT" />, bukan <ph name="OLD_SHORTCUT" />.</translation>

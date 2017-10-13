@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">የንባብ ዝርዝር</translation>
 <translation id="1264126396475825575">በ<ph name="CRASH_TIME" /> ላይ የብልሽት ሪፖርት ተይዟል (እስካሁን አልተሰቀለም ወይም ችላ አልተባለም)</translation>
 <translation id="1270502636509132238">የመውሰጃ ስልት</translation>
-<translation id="1281526147609854549">በ<ph name="ISSUER" /> የተሰጠ</translation>
 <translation id="1285320974508926690">ይህን ጣቢያ በጭራሽ አትተርጉም</translation>
 <translation id="129553762522093515">በቅርብ ጊዜ የተዘጉ</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />ኩኪዎችዎን ማጽዳት ይሞክሩ<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">ክፍያን ሰርዝ</translation>
 <translation id="2147827593068025794">የጀርባ ስምረት</translation>
 <translation id="2148613324460538318">ካርድ አክል</translation>
+<translation id="2149973817440762519">እልባት አርትዕ</translation>
 <translation id="2154054054215849342">ስምረት ለእርስዎ ጎራ አይገኝም</translation>
 <translation id="2154484045852737596">ካርትን ያርትዑ</translation>
 <translation id="2166049586286450108">ሙሉ የአስተዳደር መድረሻ</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">ልዩነቶች</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{ምንም}=1{1 መተግበሪያ ($1)}=2{2 መተግበሪያዎች ($1፣ $2)}one{# መተግበሪያዎች ($1፣ $2፣ $3)}other{# መተግበሪያዎች ($1፣ $2፣ $3)}}</translation>
 <translation id="2625385379895617796">የእርስዎ ሰዓት ገና የወደፊት ነው</translation>
+<translation id="2634124572758952069">የ<ph name="HOST_NAME" /> አገልጋይ አይፒ አድራሻ ሊገኝ አልቻለም።</translation>
 <translation id="2639739919103226564">ሁኔታ፦</translation>
 <translation id="2649204054376361687"><ph name="CITY" />፣ <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">የፋይሉ መዳረሻ ተከልክሏል</translation>
@@ -649,6 +650,7 @@
 <translation id="6017850046339264347">በ<ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> ላይ ያሉ አጥቂዎች የሆነ ሌላ ነገር እንደሆነ መስለው የሚቀርቡ አታላይ መተግበሪያዎችን ሊጭኑ ወይም የእርስዎን ዱካ ለመከታተል የሚያስችል ውሂብን ሊሰበስቡ ይችላሉ። <ph name="BEGIN_LEARN_MORE_LINK" />የበለጠ ለመረዳት<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />፣ <ph name="TYPE_2" />፣ <ph name="TYPE_3" /> (ሰምሯል)</translation>
 <translation id="6027201098523975773">ስም ያስገቡ</translation>
+<translation id="6039846035001940113">ችግሩ ከቀጠለ የጣቢያ ባለቤቱን ያነጋግሩ።</translation>
 <translation id="6040143037577758943">ዝጋ</translation>
 <translation id="6047233362582046994">በእርስዎ ደህንነት ላይ የሚያመጣቸውን ስጋቶች ከተረዱ አደገኛ መተግበሪያዎቹ ከመወገዳቸው በፊት <ph name="BEGIN_LINK" />ይህን ጣቢያ መጎብኘት<ph name="END_LINK" /> ይችላሉ።</translation>
 <translation id="6047927260846328439">ይህ ይዘት ሶፍትዌር እንዲጭኑ ወይም የግል መረጃ ገልጸው እንዲያሳዩ እርስዎን ለማሳሳት ሊሞክር ይችል ይሆናል። <ph name="BEGIN_LINK" />የሆነው ሆኖ አሳይ<ph name="END_LINK" /></translation>

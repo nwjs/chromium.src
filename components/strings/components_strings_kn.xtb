@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">ಓದುವ ಪಟ್ಟಿ</translation>
 <translation id="1264126396475825575"><ph name="CRASH_TIME" /> ನಲ್ಲಿ ಕ್ರ್ಯಾಶ್ ವರದಿಯನ್ನು ಸೆರೆಹಿಡಿಯಲಾಗಿದೆ (ಇನ್ನೂ ಅಪ್‌ಲೋಡ್ ಮಾಡಲಾಗಿಲ್ಲ ಅಥವಾ ನಿರ್ಲಕ್ಷಿಸಲಾಗಿಲ್ಲ)</translation>
 <translation id="1270502636509132238">ಪಿಕಪ್ ವಿಧಾನ</translation>
-<translation id="1281526147609854549"><ph name="ISSUER" /> ಇವರಿಂದ ನೀಡಲಾಗಿದೆ</translation>
 <translation id="1285320974508926690">ಈ ಸೈಟ್ ಅನ್ನು ಎಂದಿಗೂ ಭಾಷಾಂತರಿಸದಿರಿ</translation>
 <translation id="129553762522093515">ಇತ್ತೀಚೆಗೆ ಮುಚ್ಚಲಾಗಿರುವುದು</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />ನಿಮ್ಮ ಕುಕೀಗಳನ್ನು ತೆರವುಗೊಳಿಸಲು ಪ್ರಯತ್ನಿಸಿ<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">ಪಾವತಿಯನ್ನು ರದ್ದುಮಾಡಿ</translation>
 <translation id="2147827593068025794">ಹಿನ್ನೆಲೆ ಸಿಂಕ್</translation>
 <translation id="2148613324460538318">ಕಾರ್ಡ್ ಸೇರಿಸಿ</translation>
+<translation id="2149973817440762519">ಬುಕ್‌ಮಾರ್ಕ್ ಎಡಿಟ್ ಮಾಡಿ</translation>
 <translation id="2154054054215849342">ಸಿಂಕ್ ಸೇವೆಯು ನಿಮ್ಮ ಡೊಮೇನ್‌ಗೆ ಲಭ್ಯವಿಲ್ಲ</translation>
 <translation id="2154484045852737596">ಕಾರ್ಡ್ ಎಡಿಟ್ ಮಾಡಿ</translation>
 <translation id="2166049586286450108">ಪೂರ್ಣ ನಿರ್ವಾಹಕ ಪ್ರವೇಶ</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">ಪರಿವರ್ತನೆಗಳು</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{ಯಾವುದೂ ಇಲ್ಲ}=1{1 ಅಪ್ಲಿಕೇಶನ್‌ ($1)}=2{2 ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ($1, $2)}one{# ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ($1, $2, $3)}other{# ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">ನಿಮ್ಮ ಗಡಿಯಾರವು ಮುಂದೆ ಇದೆ</translation>
+<translation id="2634124572758952069"><ph name="HOST_NAME" /> ನ ಸರ್ವರ್ IP ವಿಳಾಸ ಕಂಡುಬರಲಿಲ್ಲ.</translation>
 <translation id="2639739919103226564">ಸ್ಥಿತಿ: </translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">ಫೈಲ್‌ಗೆ ಪ್ರವೇಶವನ್ನು ನಿರಾಕರಿಸಲಾಗಿದೆ</translation>
@@ -644,6 +645,7 @@
 <translation id="6017850046339264347"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> ನಲ್ಲಿನ ದಾಳಿಕೋರರು ವಂಚನೆಯ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಸ್ಥಾಪಿಸಿ, ನಿಮ್ಮನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಲು ಬಳಸಬಹುದಾದ ಬೇರೆ ಯಾವುದಾದರೂ ಮಾಹಿತಿ ಅಥವಾ ಡೇಟಾ ಸಂಗ್ರಹಿಸುವ ಸಾಧ್ಯವಿದೆ. <ph name="BEGIN_LEARN_MORE_LINK" />ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (ಸಿಂಕ್‌ ಮಾಡಲಾಗಿದೆ)</translation>
 <translation id="6027201098523975773">ಹೆಸರು ನಮೂದಿಸಿ</translation>
+<translation id="6039846035001940113">ಸಮಸ್ಯೆ ಮುಂದುವರಿದರೆ, ಸೈಟ್ ಮಾಲೀಕರನ್ನು ಸಂಪರ್ಕಿಸಿ.</translation>
 <translation id="6040143037577758943">ಮುಚ್ಚಿರಿ</translation>
 <translation id="6047233362582046994">ನಿಮ್ಮ ಸುರಕ್ಷತೆ ಅಪಾಯಗಳು ನಿಮಗೆ ಅರ್ಥವಾಗಿದ್ದರೆ, ಅಪಾಯಕಾರಿ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ತೆಗೆದುಹಾಕುವುದಕ್ಕೂ ಮೊದಲು ನೀವು <ph name="BEGIN_LINK" />ಈ ಸೈಟ್‌ಗೆ ಭೇಟಿ<ph name="END_LINK" /> ನೀಡಬಹುದು.</translation>
 <translation id="6047927260846328439">ಈ ಕಂಟೆಂಟ್‌ ಸಾಫ್ಟ್‌ವೇರ್ ಸ್ಥಾಪಿಸುವಂತೆ ಅಥವಾ ನಿಮ್ಮ ವೈಯಕ್ತಿಕ ಮಾಹಿತಿಯನ್ನು ಬಹಿರಂಗಪಡಿಸುವಂತೆ  ನಿಮ್ಮನ್ನು ಮೋಸಗೊಳಿಸಲು ಪ್ರಯತ್ನಿಸುತ್ತಿರಬಹುದು. <ph name="BEGIN_LINK" />ಹೇಗಿದ್ದರೂ ತೋರಿಸಿ<ph name="END_LINK" /></translation>

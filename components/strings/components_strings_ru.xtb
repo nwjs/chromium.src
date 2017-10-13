@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Список для чтения</translation>
 <translation id="1264126396475825575"><ph name="CRASH_TIME" />: получен отчет о сбое (ещё не загружен или не отклонен)</translation>
 <translation id="1270502636509132238">Способ получения</translation>
-<translation id="1281526147609854549">Выдан <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Никогда не переводить этот сайт</translation>
 <translation id="129553762522093515">Недавно закрытые</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Удалите файлы cookie<ph name="END_LINK" />.</translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Отменить оплату</translation>
 <translation id="2147827593068025794">Фоновая синхронизация</translation>
 <translation id="2148613324460538318">Добавить карту</translation>
+<translation id="2149973817440762519">Закладка</translation>
 <translation id="2154054054215849342">В вашем домене синхронизация недоступна</translation>
 <translation id="2154484045852737596">Изменение данных карты</translation>
 <translation id="2166049586286450108">Доступ администратора ко всем данным</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Варианты</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Нет}=1{1 приложение ($1)}=2{2 приложения ($1 и $2)}one{# приложение ($1, $2 $3)}few{# приложения ($1, $2 $3)}many{# приложений ($1, $2 $3)}other{# приложения ($1, $2 $3)}}</translation>
 <translation id="2625385379895617796">Часы спешат</translation>
+<translation id="2634124572758952069">Не удалось найти IP-адрес сервера <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Состояние:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Доступ к файлу запрещен</translation>
@@ -649,6 +650,7 @@
 <translation id="6017850046339264347">Злоумышленники могут использовать сайт <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />, чтобы установить вредоносные приложения, маскирующиеся под безопасные программы или собирающие данные, по которым вас можно отследить. <ph name="BEGIN_LEARN_MORE_LINK" />Подробнее…<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (данные синхронизируются)</translation>
 <translation id="6027201098523975773">Введите имя.</translation>
+<translation id="6039846035001940113">Если проблема не исчезнет, свяжитесь с владельцем сайта.</translation>
 <translation id="6040143037577758943">Закрыть</translation>
 <translation id="6047233362582046994">Если вы осознаете, что можете подвергнуть риску свои личные данные, то можете <ph name="BEGIN_LINK" />перейти на зараженный сайт<ph name="END_LINK" />, не дожидаясь удаления вредоносных приложений.</translation>
 <translation id="6047927260846328439">Посещение этой страницы может привести к установке вредоносной программы или хищению вашей личной информации. <ph name="BEGIN_LINK" />Все равно продолжить<ph name="END_LINK" /></translation>

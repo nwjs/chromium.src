@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">વાચન સૂચિ</translation>
 <translation id="1264126396475825575"><ph name="CRASH_TIME" /> એ ક્રેશ રિપોર્ટ કૅપ્ચર કરવામાં આવી (હજી સુધી અપલોડ કરવામાં કે અવગણવામાં આવેલ નથી)</translation>
 <translation id="1270502636509132238">પિકઅપ પદ્ધતિ</translation>
-<translation id="1281526147609854549"><ph name="ISSUER" /> દ્વારા જારી કરાયેલ</translation>
 <translation id="1285320974508926690">આ સાઇટનું ક્યારેય ભાષાંતર કરશો નહીં</translation>
 <translation id="129553762522093515">તાજેતરમાં બંધ કરેલા</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />તમારી કૂકીઝને સાફ કરવાનો પ્રયાસ કરો<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">ચુકવણી રદ કરો</translation>
 <translation id="2147827593068025794">પૃષ્ઠભૂમિ સમન્વયન</translation>
 <translation id="2148613324460538318">કાર્ડ ઉમેરો</translation>
+<translation id="2149973817440762519">બુકમાર્ક સંપાદિત કરો</translation>
 <translation id="2154054054215849342">સમન્વયન તમારા ડોમેન માટે ઉપલબ્ધ નથી.</translation>
 <translation id="2154484045852737596">કાર્ડ સંપાદિત કરો</translation>
 <translation id="2166049586286450108">સંપૂર્ણ વ્યવસ્થાપક ઍક્સેસ</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">વૈવિધ્ય</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{કોઈ નહીં}=1{1 ઍપ્લિકેશન ($1)}=2{2 ઍપ્લિકેશનો ($1, $2)}one{# ઍપ્લિકેશનો ($1, $2, $3)}other{# ઍપ્લિકેશનો ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">તમારી ઘડિયાળ આગળ છે</translation>
+<translation id="2634124572758952069"><ph name="HOST_NAME" />નું સર્વર IP ઍડ્રેસ ન મળ્યું.</translation>
 <translation id="2639739919103226564">સ્થિતિ:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">ફાઇલની ઍક્સેસ નકારવામાં આવી હતી</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">હુમલાખોરો <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> પર ભ્રામક ઍપ્લિકેશન ઇન્સ્ટૉલ કરી શકે છે જે કંઈક બીજું હોવાનો ડોળ કરે છે અથવા તમને ટ્રૅક કરવા માટે ઉપયોગમાં લઈ શકાય તેવો ડેટા એકત્રિત કરી શકે છે. <ph name="BEGIN_LEARN_MORE_LINK" />વધુ જાણો<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (સમન્વયિત)</translation>
 <translation id="6027201098523975773">એક નામ દાખલ કરો</translation>
+<translation id="6039846035001940113">જો સમસ્યા ચાલુ રહે, તો સાઇટના માલિકનો સંપર્ક કરો.</translation>
 <translation id="6040143037577758943">બંધ કરો</translation>
 <translation id="6047233362582046994">જો તમે તમારી સુરક્ષાના જોખમોને સમજો છો, તો તમે જોખમકારક ઍપ્લિકેશનો દૂર કરતા પહેલા <ph name="BEGIN_LINK" />આ સાઇટની મુલાકાત<ph name="END_LINK" /> લઈ શકો છો.</translation>
 <translation id="6047927260846328439">આ કન્ટેન્ટ કદાચ સૉફ્ટવેર ઇન્સ્ટૉલ કરવા માટે અથવા વ્યક્તિગત માહિતી કઢાવવા માટે તમારી સાથે કપટ કરવાનો પ્રયાસ કરી શકે છે. <ph name="BEGIN_LINK" />છતાં પણ બતાવો<ph name="END_LINK" /></translation>

@@ -37,6 +37,7 @@ Vous devez activer le Bluetooth et les services de localisation pour utiliser le
 <translation id="1291207594882862231">Effacer l'historique, vider le cache, supprimer les cookies et les données du site…</translation>
 <translation id="129553762522093515">Récemment fermés</translation>
 <translation id="1303671224831497365">Aucun appareil Bluetooth détecté</translation>
+<translation id="1320663236730331991">Balayez l'écran vers le haut pour accéder facilement à des sites et articles populaires, à des téléchargements, etc.</translation>
 <translation id="1326317727527857210">Connectez-vous à Chrome pour accéder à vos onglets sur vos autres appareils.</translation>
 <translation id="1332501820983677155">Raccourcis liés aux fonctionnalités de Google Chrome</translation>
 <translation id="1369915414381695676">Site "<ph name="SITE_NAME" />" ajouté</translation>
@@ -109,7 +110,6 @@ Vous devez activer le Bluetooth et les services de localisation pour utiliser le
 <translation id="1993768208584545658"><ph name="SITE" /> tente de s'associer</translation>
 <translation id="1994173015038366702">URL du site</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> Ko par d'autres applis</translation>
-<translation id="2011013297378343166">En utilisant cette application, vous acceptez les <ph name="BEGIN_LINK1" />Conditions d'utilisation<ph name="END_LINK1" /> et l'<ph name="BEGIN_LINK2" />Avis de confidentialité<ph name="END_LINK2" /> de Chrome, ainsi que l'<ph name="BEGIN_LINK3" />Avis de confidentialité relatif aux comptes Google créés dans Family Link<ph name="END_LINK3" />.</translation>
 <translation id="2017836877785168846">Efface l'historique et les saisies semi-automatiques dans la barre d'adresse.</translation>
 <translation id="2038563949887743358">Activer "Voir version ordinateur"</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> Go par d'autres applis</translation>
@@ -147,6 +147,7 @@ Vous devez activer le Bluetooth et les services de localisation pour utiliser le
 <translation id="2351097562818989364">Les paramètres de traduction ont été réinitialisés.</translation>
 <translation id="2359808026110333948">Continuer</translation>
 <translation id="2369533728426058518">onglets ouverts</translation>
+<translation id="2372491353676110880">Télécharger automatiquement des pages</translation>
 <translation id="2385560268894525395">de la dernière semaine</translation>
 <translation id="2387895666653383613">Mise à l'échelle du texte</translation>
 <translation id="2414886740292270097">Foncé</translation>
@@ -156,6 +157,7 @@ Vous devez activer le Bluetooth et les services de localisation pour utiliser le
 <translation id="2450083983707403292">Souhaitez-vous relancer le téléchargement du fichier <ph name="FILE_NAME" /> ?</translation>
 <translation id="2476578072172137802">Paramètres du site</translation>
 <translation id="2482878487686419369">Notifications</translation>
+<translation id="2490674006498621843">Affichez la barre d'outils pour rechercher vos fichiers et vos pages dans la section "Téléchargements"</translation>
 <translation id="2496180316473517155">Historique de navigation</translation>
 <translation id="2498359688066513246">Aide et commentaires</translation>
 <translation id="2501278716633472235">Retour</translation>
@@ -174,6 +176,7 @@ Vous devez activer le Bluetooth et les services de localisation pour utiliser le
 <translation id="2625189173221582860">Mot de passe copié</translation>
 <translation id="2631006050119455616">Enregistrées</translation>
 <translation id="2653659639078652383">Valider</translation>
+<translation id="2671100504997899381">Chargez des pages plus rapidement, et enregistrez celles qui sont très consultées pour les lire hors connexion</translation>
 <translation id="2677748264148917807">Quitter</translation>
 <translation id="2704606927547763573">Copié</translation>
 <translation id="2707726405694321444">Actualiser la page</translation>
@@ -308,7 +311,6 @@ Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée
 <translation id="3997476611815694295">Stockage non important</translation>
 <translation id="4002066346123236978">Titre</translation>
 <translation id="4013356575049925793">E-commerce</translation>
-<translation id="4041402800604793551">En continuant, vous acceptez les <ph name="BEGIN_LINK1" />Conditions d'utilisation<ph name="END_LINK1" /> et les <ph name="BEGIN_LINK2" />Règles de confidentialité<ph name="END_LINK2" /> de Chrome, ainsi que l'<ph name="BEGIN_LINK3" />Avis de confidentialité relatif aux comptes Google créés dans Family Link<ph name="END_LINK3" />.</translation>
 <translation id="4042870126885713738">Afficher d'autres solutions lorsqu'une adresse Web ne peut pas être résolue ou qu'une connexion ne peut pas être établie</translation>
 <translation id="4046123991198612571">Piste suivante</translation>
 <translation id="4056223980640387499">Sépia</translation>
@@ -469,7 +471,6 @@ Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée
 <translation id="5534640966246046842">Site copié</translation>
 <translation id="5537099431952529648">Tes parents et toi pouvez gérer la synchronisation et la personnalisation de Chrome dans les <ph name="BEGIN_LINK1" />paramètres<ph name="END_LINK1" /></translation>
 <translation id="5556459405103347317">Actualiser</translation>
-<translation id="5568069709869097550">Impossible de se connecter</translation>
 <translation id="557283862590186398">Chrome a besoin de votre autorisation pour accéder à votre micro pour ce site.</translation>
 <translation id="5578795271662203820">Rechercher l'image sur <ph name="SEARCH_ENGINE" /></translation>
 <translation id="5585019845078534178">Cartes</translation>
@@ -601,6 +602,7 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="666268767214822976">Utiliser un service de prédiction pour suggérer des requêtes associées et des sites populaires lorsque vous saisissez des termes dans la barre d'adresse</translation>
 <translation id="666731172850799929">Ouvrir dans <ph name="APP_NAME" /></translation>
 <translation id="666981079809192359">Avis de confidentialité de Chrome</translation>
+<translation id="6689700624704789898">Appuyez deux fois sur le bouton "Développer" pour rechercher vos fichiers et vos pages dans la section "Téléchargements"</translation>
 <translation id="6697947395630195233">Chrome a besoin d'accéder à votre position pour la partager avec ce site.</translation>
 <translation id="6698801883190606802">Gérer les données synchronisées</translation>
 <translation id="6701279291835318271">Rapports relatifs à la sécurité</translation>
@@ -608,7 +610,6 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="6710213216561001401">Précédent</translation>
 <translation id="6738867403308150051">Téléchargement en cours…</translation>
 <translation id="6762156594045689028">Pour modifier ce paramètre, <ph name="BEGIN_LINK" />réinitialisez la synchronisation<ph name="END_LINK" />.</translation>
-<translation id="6764789522080107716">Impossible d'ouvrir le fichier</translation>
 <translation id="6770414673596662518">Nous utilisons également le système de navigation sécurisée de Chrome pour détecter les pages nuisibles tout en vous protégeant de l'hameçonnage, des logiciels malveillants et des téléchargements dangereux.</translation>
 <translation id="6776813977906306442">Téléchargez des vidéos à regarder plus tard à l'aide du bouton "Télécharger"</translation>
 <translation id="6790428901817661496">Lire</translation>
@@ -644,7 +645,6 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="7029809446516969842">Mots de passe</translation>
 <translation id="7031882061095297553">Synchroniser avec</translation>
 <translation id="704059664004611800">Appuyer pour afficher les favoris et plus encore</translation>
-<translation id="7040779639826445456">Appuyer pour afficher les favoris, les téléchargements et l'historique</translation>
 <translation id="7053983685419859001">Bloquer</translation>
 <translation id="7062545763355031412">Accepter et changer de compte</translation>
 <translation id="7063006564040364415">Impossible de se connecter au serveur de synchronisation.</translation>
@@ -693,6 +693,7 @@ Votre compte Google conserve peut-être d'autres formes d'historique de navigati
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7562080006725997899">Effacement des données de navigation en cours</translation>
 <translation id="756809126120519699">Données de Chrome effacées</translation>
+<translation id="7581273696622423628">Participer à l'enquête</translation>
 <translation id="7588950540487816470">Web physique</translation>
 <translation id="7589445247086920869">Bloquer l'accès pour le moteur de recherche actuel</translation>
 <translation id="7593557518625677601">Ouvrez paramètres Android et réactivez synchro système Android pour démarrer synchro Chrome.</translation>
@@ -702,6 +703,7 @@ Votre compte Google conserve peut-être d'autres formes d'historique de navigati
 <translation id="7607552448134703340">Saisissez votre recherche</translation>
 <translation id="7612619742409846846">Connecté à Google en tant que</translation>
 <translation id="7619072057915878432">Échec du téléchargement du fichier "<ph name="FILE_NAME" />" en raison de l'échec du réseau.</translation>
+<translation id="7620146066550602128">Découvrez une <ph name="BEGIN_LINK" />navigation simplifiée<ph name="END_LINK" /></translation>
 <translation id="7624880197989616768"><ph name="BEGIN_LINK1" />Obtenir de l'aide<ph name="END_LINK1" /> ou <ph name="BEGIN_LINK2" />effectuer une nouvelle recherche<ph name="END_LINK2" /></translation>
 <translation id="7626032353295482388">Bienvenue dans Chrome</translation>
 <translation id="7638584964844754484">Phrase secrète incorrecte.</translation>
@@ -807,7 +809,6 @@ Pour obtenir de nouvelles licences, connectez-vous à Internet et lisez le conte
 <translation id="8636825310635137004">Activez la synchronisation pour accéder à vos onglets sur vos autres appareils.</translation>
 <translation id="8641930654639604085">Essayer de bloquer les sites réservés aux adultes</translation>
 <translation id="8662811608048051533">Vous déconnecte de la plupart des sites.</translation>
-<translation id="867485229011312729">Où se trouvent les favoris, les téléchargements et l'historique ?</translation>
 <translation id="8676374126336081632">Effacer la saisie</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{Intensité du signal : # barre}one{Intensité du signal : # barre}other{Intensité du signal : # barres}}</translation>
 <translation id="869891660844655955">Date d'expiration</translation>

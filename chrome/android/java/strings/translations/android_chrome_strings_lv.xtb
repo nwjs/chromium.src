@@ -37,6 +37,7 @@ Lai izmantotu fizisko tīmekli, ir jābūt ieslēgtam Bluetooth savienojumam un 
 <translation id="1291207594882862231">Dzēst vēsturi, sīkfailus, vietnes datus, kešatmiņu…</translation>
 <translation id="129553762522093515">Nesen aizvērtas</translation>
 <translation id="1303671224831497365">Netika atrasta neviena Bluetooth ierīce.</translation>
+<translation id="1320663236730331991">Velciet augšup, lai ērti piekļūtu populārām vietnēm un rakstiem, lejupielādēm, kā arī citam saturam.</translation>
 <translation id="1326317727527857210">Pierakstieties pārlūkā Chrome, lai būtu pieejamas cilnes no citām jūsu ierīcēm.</translation>
 <translation id="1332501820983677155">Google Chrome funkciju īsinājumtaustiņi</translation>
 <translation id="1369915414381695676">Tika pievienota vietne <ph name="SITE_NAME" /></translation>
@@ -109,7 +110,6 @@ Lai izmantotu fizisko tīmekli, ir jābūt ieslēgtam Bluetooth savienojumam un 
 <translation id="1993768208584545658"><ph name="SITE" /> vēlas savienot pārī</translation>
 <translation id="1994173015038366702">Vietnes URL</translation>
 <translation id="200815880754187296">Citas lietotnes: <ph name="KILOBYTES" /> KB</translation>
-<translation id="2011013297378343166">Izmantojot šo lietojumprogrammu, jūs piekrītat Chrome <ph name="BEGIN_LINK1" />pakalpojumu sniegšanas noteikumiem<ph name="END_LINK1" /> un <ph name="BEGIN_LINK2" />konfidencialitātes politikai<ph name="END_LINK2" />, kā arī <ph name="BEGIN_LINK3" />konfidencialitātes paziņojumam par Google kontiem, kas izveidoti lietotnē Family Link<ph name="END_LINK3" />.</translation>
 <translation id="2017836877785168846">Notīra vēsturi un automātiskās pabeigšanas ierakstus adreses joslā.</translation>
 <translation id="2038563949887743358">Ieslēgt iestatījumu “Pieprasīt datora vietni”</translation>
 <translation id="2045104531052923016">Citas lietotnes: <ph name="GIGABYTES" /> GB</translation>
@@ -147,6 +147,7 @@ Lai izmantotu fizisko tīmekli, ir jābūt ieslēgtam Bluetooth savienojumam un 
 <translation id="2351097562818989364">Tulkošanas iestatījumi ir atiestatīti.</translation>
 <translation id="2359808026110333948">Turpināt</translation>
 <translation id="2369533728426058518">atvērt cilnes</translation>
+<translation id="2372491353676110880">Automātiski lejupielādējiet lapas</translation>
 <translation id="2385560268894525395">iepriekšējās nedēļas</translation>
 <translation id="2387895666653383613">Teksta mērogošana</translation>
 <translation id="2414886740292270097">Tumšs</translation>
@@ -156,6 +157,7 @@ Lai izmantotu fizisko tīmekli, ir jābūt ieslēgtam Bluetooth savienojumam un 
 <translation id="2450083983707403292">Vai vēlaties vēlreiz sākt faila <ph name="FILE_NAME" /> lejupielādi?</translation>
 <translation id="2476578072172137802">Vietnes iestatījumi</translation>
 <translation id="2482878487686419369">Paziņojumi</translation>
+<translation id="2490674006498621843">Velciet augšup rīkjoslu, lai atrastu savus failus un lapas sadaļā Lejupielādes</translation>
 <translation id="2496180316473517155">Pārlūkošanas vēsture</translation>
 <translation id="2498359688066513246">Palīdzība un atsauksmes</translation>
 <translation id="2501278716633472235">Doties atpakaļ</translation>
@@ -174,6 +176,7 @@ Lai izmantotu fizisko tīmekli, ir jābūt ieslēgtam Bluetooth savienojumam un 
 <translation id="2625189173221582860">Parole ir nokopēta.</translation>
 <translation id="2631006050119455616">Saglabāts</translation>
 <translation id="2653659639078652383">Iesniegt</translation>
+<translation id="2671100504997899381">Ielādējiet lapas ātrāk un saglabājiet bieži apmeklētās lapas lasīšanai bezsaistē</translation>
 <translation id="2677748264148917807">Iziet</translation>
 <translation id="2704606927547763573">Nokopēts</translation>
 <translation id="2707726405694321444">Atsvaidzināt lapu</translation>
@@ -308,7 +311,6 @@ Lai pielāgotu meklēšanas vienumu, nospiediet un turiet to. Lai veiktu precīz
 <translation id="3997476611815694295">Nesvarīga krātuve</translation>
 <translation id="4002066346123236978">Nosaukums</translation>
 <translation id="4013356575049925793">E-komercija</translation>
-<translation id="4041402800604793551">Turpinot darbu, jūs piekrītat Chrome <ph name="BEGIN_LINK1" />pakalpojumu sniegšanas noteikumiem<ph name="END_LINK1" /> un <ph name="BEGIN_LINK2" />konfidencialitātes paziņojumam<ph name="END_LINK2" />, kā arī <ph name="BEGIN_LINK3" />konfidencialitātes paziņojumam par Google kontiem, kas izveidoti lietotnē Family Link<ph name="END_LINK3" />.</translation>
 <translation id="4042870126885713738">Rādīt ieteikumus, ja nedarbojas tīmekļa adrese vai nevar izveidot savienojumu.</translation>
 <translation id="4046123991198612571">Nākamais ieraksts</translation>
 <translation id="4056223980640387499">Sēpija</translation>
@@ -469,7 +471,6 @@ Lai pielāgotu meklēšanas vienumu, nospiediet un turiet to. Lai veiktu precīz
 <translation id="5534640966246046842">Vietne ir nokopēta.</translation>
 <translation id="5537099431952529648">Jūs un jūsu vecāki varat pārvaldīt Chrome sinhronizāciju un personalizēšanu <ph name="BEGIN_LINK1" />iestatījumos<ph name="END_LINK1" /></translation>
 <translation id="5556459405103347317">Pārlādēt</translation>
-<translation id="5568069709869097550">Nevarat pieteikties</translation>
 <translation id="557283862590186398">Pārlūkam Chrome ir nepieciešama atļauja piekļūt jūsu mikrofonam šajā vietnē.</translation>
 <translation id="5578795271662203820">Meklēt šo attēlu ar <ph name="SEARCH_ENGINE" /></translation>
 <translation id="5585019845078534178">Kartes</translation>
@@ -601,6 +602,7 @@ Piemēram, dažas vietnes, reaģējot uz šo pieprasījumu, var rādīt jums rek
 <translation id="666268767214822976">Izmantojiet ieteikumus, lai skatītu saistītos vaicājumus un populāras vietnes, kad rakstāt adreses joslā.</translation>
 <translation id="666731172850799929">Atvērt lietotnē <ph name="APP_NAME" /></translation>
 <translation id="666981079809192359">Chrome konfidencialitātes paziņojums</translation>
+<translation id="6689700624704789898">Veiciet dubultskārienu uz izvēršanas pogas, lai atrastu savus failus un lapas sadaļā Lejupielādes</translation>
 <translation id="6697947395630195233">Pārlūkam Chrome ir nepieciešama piekļuve jūsu atrašanās vietas datiem, lai varētu tos kopīgot ar šo vietni.</translation>
 <translation id="6698801883190606802">Pārvaldīt sinhronizētos datus</translation>
 <translation id="6701279291835318271">Ziņojumi par drošību</translation>
@@ -608,7 +610,6 @@ Piemēram, dažas vietnes, reaģējot uz šo pieprasījumu, var rādīt jums rek
 <translation id="6710213216561001401">Iepriekšējais</translation>
 <translation id="6738867403308150051">Notiek lejupielāde…</translation>
 <translation id="6762156594045689028">Lai mainītu šo iestatījumu, <ph name="BEGIN_LINK" />atiestatiet sinhronizāciju<ph name="END_LINK" />.</translation>
-<translation id="6764789522080107716">Nevar atvērt failu</translation>
 <translation id="6770414673596662518">Chrome sistēma Droša pārlūkošana tiks arī izmantota, lai noteiktu ļaunprātīgas lapas un pasargātu jūs no pikšķerēšanas, ļaunprātīgas programmatūras un kaitīgu failu lejupielādes.</translation>
 <translation id="6776813977906306442">Nospiediet pogu Lejupielādēt, lai lejupielādētu videoklipus un tos skatītos vēlāk.</translation>
 <translation id="6790428901817661496">Atskaņot</translation>
@@ -644,7 +645,6 @@ Piemēram, dažas vietnes, reaģējot uz šo pieprasījumu, var rādīt jums rek
 <translation id="7029809446516969842">Paroles</translation>
 <translation id="7031882061095297553">Sinhronizēt ar:</translation>
 <translation id="704059664004611800">Pieskarieties, lai skatītu grāmatzīmes un citu saturu.</translation>
-<translation id="7040779639826445456">Pieskarieties, lai skatītu grāmatzīmes, lejupielādes un vēsturi.</translation>
 <translation id="7053983685419859001">Bloķēt</translation>
 <translation id="7062545763355031412">Piekrist un pārslēgt kontus</translation>
 <translation id="7063006564040364415">Nevarēja izveidot savienojumu ar sinhronizācijas serveri.</translation>
@@ -693,6 +693,7 @@ Jūsu Google kontam vietnē <ph name="BEGIN_LINK" />history.google.com<ph name=
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7562080006725997899">Notiek pārlūkošanas datu notīrīšana</translation>
 <translation id="756809126120519699">Chrome dati tika notīrīti</translation>
+<translation id="7581273696622423628">Piedalīties aptaujā</translation>
 <translation id="7588950540487816470">Fiziskais tīmeklis</translation>
 <translation id="7589445247086920869">Aizliegšana pašreizējai meklētājprogrammai</translation>
 <translation id="7593557518625677601">Lai sāktu Chrome sinhronizēšanu, atveriet Android iestatījumus un atkārtoti iespējojiet Android sistēmas sinhronizēšanu</translation>
@@ -702,6 +703,7 @@ Jūsu Google kontam vietnē <ph name="BEGIN_LINK" />history.google.com<ph name=
 <translation id="7607552448134703340">Ievadiet meklējamo tekstu</translation>
 <translation id="7612619742409846846">Pierakstījies Google kontā kā</translation>
 <translation id="7619072057915878432">Neizdevās lejupielādēt failu <ph name="FILE_NAME" />, jo radās tīkla kļūdas.</translation>
+<translation id="7620146066550602128">Izmēģiniet <ph name="BEGIN_LINK" />ērtāku pārlūkošanas veidu<ph name="END_LINK" /></translation>
 <translation id="7624880197989616768"><ph name="BEGIN_LINK1" />Saņemiet palīdzību<ph name="END_LINK1" /> vai <ph name="BEGIN_LINK2" />meklējiet ierīces atkārtoti<ph name="END_LINK2" />.</translation>
 <translation id="7626032353295482388">Laipni lūdzam pārlūkā Chrome</translation>
 <translation id="7638584964844754484">Nepareiza ieejas frāze</translation>
@@ -807,7 +809,6 @@ Lai iegūtu jaunas licences, izveidojiet savienojumu ar internetu un atskaņojie
 <translation id="8636825310635137004">Ieslēdziet sinhronizāciju, lai būtu pieejamas cilnes no citām jūsu ierīcēm.</translation>
 <translation id="8641930654639604085">Pēc iespējas bloķēt vietnes ar pieaugušajiem paredzētu saturu</translation>
 <translation id="8662811608048051533">Jūs tiksiet izrakstīts no lielākās daļas vietņu.</translation>
-<translation id="867485229011312729">Kur atrodas grāmatzīmes, lejupielādes un vēsture?</translation>
 <translation id="8676374126336081632">Notīrīt ievadi</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{Signāla stipruma līmenis: # josla}zero{Signāla stipruma līmenis: # joslu}one{Signāla stipruma līmenis: # josla}other{Signāla stipruma līmenis: # joslas}}</translation>
 <translation id="869891660844655955">Derīguma termiņš</translation>

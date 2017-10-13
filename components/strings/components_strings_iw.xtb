@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">רשימת קריאה</translation>
 <translation id="1264126396475825575">דוח הקריסה תועד ב-<ph name="CRASH_TIME" /> (עדיין לא העלית אותו או בחרת להתעלם ממנו)</translation>
 <translation id="1270502636509132238">שיטת איסוף</translation>
-<translation id="1281526147609854549">הונפק על-ידי <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">לעולם אל תתרגם אתר זה</translation>
 <translation id="129553762522093515">נסגרו לאחרונה</translation>
 <translation id="129863573139666797">‏<ph name="BEGIN_LINK" />נסה לנקות את קובצי ה-Cookie<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">ביטול תשלום</translation>
 <translation id="2147827593068025794">סינכרון ברקע</translation>
 <translation id="2148613324460538318">הוספת כרטיס</translation>
+<translation id="2149973817440762519">ערוך סימניות</translation>
 <translation id="2154054054215849342">סנכרון אינו זמין בדומיין שלך</translation>
 <translation id="2154484045852737596">עריכת כרטיס</translation>
 <translation id="2166049586286450108">גישה מלאה של מנהל המערכת</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">וריאציות</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{ללא}=1{אפליקציה אחת (1‏$)}=2{שתי אפליקציות ($1, $2)}many{# אפליקציות ($1, $2, $3)}other{# אפליקציות ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">השעון שלך מקדים</translation>
+<translation id="2634124572758952069">‏לא ניתן היה למצוא את כתובת ה-IP של השרת של <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">סטטוס:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">הגישה לקובץ נדחתה</translation>
@@ -655,6 +656,7 @@ Del</translation>
 <translation id="6017850046339264347">תוקפים שמשתמשים ב-<ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> עלולים להתקין יישומים מטעים שמתחזים לאחרים או לאסוף נתונים שאפשר להשתמש בהם כדי לעקוב אחריך. <ph name="BEGIN_LEARN_MORE_LINK" />מידע נוסף<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (מסונכרנים)</translation>
 <translation id="6027201098523975773">עליך להזין שם</translation>
+<translation id="6039846035001940113">אם הבעיה ממשיכה, יש לפנות אל בעל האתר.</translation>
 <translation id="6040143037577758943">סגור</translation>
 <translation id="6047233362582046994">אם אתה מבין את סיכוני האבטחה, תוכל <ph name="BEGIN_LINK" />להיכנס לאתר הזה<ph name="END_LINK" /> לפני הסרת היישומים המזיקים.</translation>
 <translation id="6047927260846328439">ייתכן שבתוכן הזה יש מידע מטעה שנועד לגרום לך להתקין תוכנות או לחשוף מידע אישי. <ph name="BEGIN_LINK" />הצג בכל זאת<ph name="END_LINK" /></translation>

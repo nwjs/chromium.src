@@ -15,6 +15,7 @@
 <translation id="1270290102613614947">Teclado en pantalla inhabilitado</translation>
 <translation id="1272079795634619415">Interrumpir</translation>
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
+<translation id="1290331692326790741">Señal débil</translation>
 <translation id="1293264513303784526">Dispositivo USB-C (puerto izquierdo)</translation>
 <translation id="1346748346194534595">Derecha</translation>
 <translation id="1383876407941801731">Buscar</translation>
@@ -79,6 +80,7 @@
 <translation id="2844169650293029770">Dispositivo USB-C (puerto lateral izquierdo delantero)</translation>
 <translation id="2865888419503095837">Información de red</translation>
 <translation id="2872961005593481000">Cerrar</translation>
+<translation id="2903844815300039659">Conectado a <ph name="NAME" />, <ph name="STRENGTH" /></translation>
 <translation id="2911940648265863620">Estás compartiendo la pantalla</translation>
 <translation id="2942516765047364088">Posición de la biblioteca</translation>
 <translation id="2946119680249604491">Agregar conexión</translation>
@@ -126,6 +128,7 @@
 <translation id="397105322502079400">Calculando...</translation>
 <translation id="3995138139523574647">Dispositivo USB-C (puerto lateral derecho trasero)</translation>
 <translation id="4017989525502048489">Puntero láser</translation>
+<translation id="4072264167173457037">Señal media</translation>
 <translation id="4279490309300973883">Duplicando</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4338109981321384717">Lupa</translation>
@@ -256,6 +259,7 @@ Usa esta función solo con cuentas de confianza.</translation>
 <translation id="776344839111254542">Haz clic para ver los detalles de la actualización</translation>
 <translation id="7798302898096527229">Presiona mayúscula o la tecla de búsqueda para cancelarlo.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> y <ph name="MINUTE" /></translation>
+<translation id="7829386189513694949">Señal fuerte</translation>
 <translation id="7904094684485781019">El administrador de esta cuenta inhabilitó el acceso múltiple.</translation>
 <translation id="7977927628060636163">Buscando redes móviles…</translation>
 <translation id="7982789257301363584">Red</translation>
@@ -274,7 +278,6 @@ Usa esta función solo con cuentas de confianza.</translation>
 <translation id="8308637677604853869">Menú anterior</translation>
 <translation id="8351131234907093545">Crear nota</translation>
 <translation id="8392234662362215700">Presiona Control-Mayúscula-Espacio para cambiar el diseño del teclado.</translation>
-<translation id="8392688371657486010">No tienes notificaciones</translation>
 <translation id="8428213095426709021">Configuración</translation>
 <translation id="8433186206711564395">Opciones de red</translation>
 <translation id="8433977262951327081">El acceso directo para mostrar el cuadro con el menú de opciones de entrada en la biblioteca cambió. Usa <ph name="NEW_SHORTCUT" /> en lugar de <ph name="OLD_SHORTCUT" />.</translation>

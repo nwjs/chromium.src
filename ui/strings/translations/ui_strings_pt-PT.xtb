@@ -18,6 +18,7 @@
 <translation id="1801827354178857021">Período</translation>
 <translation id="1803208670097017349">{MONTHS,plural, =1{1 mês}one{# months}other{# meses}}</translation>
 <translation id="1809410197924942083"><ph name="QUANTITY" /> MB/s</translation>
+<translation id="1812519734428420144">Classificação de <ph name="RATING_SCORE" /> estrelas</translation>
 <translation id="1830179671306812954">{HOURS,plural, =1{1 hora e  }one{# hours and }other{# horas e  }}</translation>
 <translation id="1842960171412779397">seleccionar</translation>
 <translation id="1860796786778352021">Fechar notificação</translation>

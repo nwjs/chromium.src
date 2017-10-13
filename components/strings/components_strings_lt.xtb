@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Skaitymo sąrašas</translation>
 <translation id="1264126396475825575"><ph name="CRASH_TIME" /> užfiksuota strigčių ataskaita (dar neįkelta ar nepaisoma)</translation>
 <translation id="1270502636509132238">Paėmimo metodas</translation>
-<translation id="1281526147609854549">Išdavė „<ph name="ISSUER" />“</translation>
 <translation id="1285320974508926690">Niekada neversti šios svetainės</translation>
 <translation id="129553762522093515">Neseniai uždarytas</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Pabandykite išvalyti slapukus<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Atšaukti mokėjimą</translation>
 <translation id="2147827593068025794">Fono sinchronizavimas</translation>
 <translation id="2148613324460538318">Pridėti kortelę</translation>
+<translation id="2149973817440762519">Redaguoti žymes</translation>
 <translation id="2154054054215849342">Sinchronizavimo paslauga nepasiekiama jūsų domenui</translation>
 <translation id="2154484045852737596">Kortelės informacijos redagavimas</translation>
 <translation id="2166049586286450108">Visateisė administratoriaus prieiga</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Variantai</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Nėra}=1{1 programa („$1“)}=2{2 programos („$1“, „$2“)}one{# programa („$1“, „$2“, „$3“)}few{# programos („$1“, „$2“, „$3“)}many{# programos („$1“, „$2“, „$3“)}other{# programų („$1“, „$2“, „$3“)}}</translation>
 <translation id="2625385379895617796">Jūsų laikrodis skuba</translation>
+<translation id="2634124572758952069">Nepavyko rasti <ph name="HOST_NAME" /> serverio IP adreso.</translation>
 <translation id="2639739919103226564">Būsena:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Prieiga prie failo atmesta</translation>
@@ -651,6 +652,7 @@
 <translation id="6017850046339264347">Užgrobėjai svetainėje <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> gali įdiegti klaidinančių programų, kurios apsimeta kitomis programomis, arba rinkti duomenis, naudojamus jums stebėti. <ph name="BEGIN_LEARN_MORE_LINK" />Sužinokite daugiau<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (sinchronizuota)</translation>
 <translation id="6027201098523975773">Įveskite pavadinimą</translation>
+<translation id="6039846035001940113">Jei problema išlieka, susisiekite su svetainės savininku.</translation>
 <translation id="6040143037577758943">Uždaryti</translation>
 <translation id="6047233362582046994">Jei suprantate, kokia rizika gali kilti jūsų saugai, galite <ph name="BEGIN_LINK" />apsilankyti šioje svetainėje<ph name="END_LINK" />, kol iš jos dar nepašalintos kenkėjiškos programos.</translation>
 <translation id="6047927260846328439">Šiuo turiniu gali būti bandoma apgaule priversti jus įdiegti programinę įrangą arba atskleisti asmens informaciją. <ph name="BEGIN_LINK" />Rodyti vis tiek<ph name="END_LINK" /></translation>

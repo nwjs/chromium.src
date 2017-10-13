@@ -49,6 +49,12 @@
 
       如果這項政策設為 False，則不會回報開發人員模式切換設定的狀態。</translation>
 <translation id="1160939557934457296">停用略過安全瀏覽警告網頁繼續進行</translation>
+<translation id="1166377463685560145">指定哪些印表機是禁止使用的。
+
+      只有在為 <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_BLACKLIST" /> 的情況下，這項政策才有作用。
+
+      一旦設定了這項政策，除了本政策中列出的 ID 外，其他所有印表機皆可供使用者使用。
+      </translation>
 <translation id="1198465924256827162">裝置狀態上傳的傳送頻率 (以毫秒數為單位)。
 
       如未設定這項政策，預設頻率為 3 小時一次。可用頻率下限
@@ -81,6 +87,12 @@
 <translation id="1363275621236827384">允許在 Quirks Server 中查詢硬體設定檔</translation>
 <translation id="1393485621820363363">已啟用企業裝置印表機</translation>
 <translation id="1397855852561539316">預設搜尋引擎建議網址</translation>
+<translation id="1420281424655200442">控制要開放 <ph name="DEVICE_PRINTERS_POLICY" /> 中哪些印表機供使用者使用。
+
+      指派用於大量印表機設定的存取權政策。如果選取 <ph name="PRINTERS_ALLOW_ALL" />，系統會顯示所有印表機。如果選取 <ph name="PRINTERS_BLACKLIST" />，系統會使用 <ph name="DEVICE_PRINTERS_BLACKLIST" /> 限制對特定印表機的存取權。如果選取 <ph name="PRINTERS_WHITELIST" />，<ph name="DEVICE_PRINTERS_WHITELIST" /> 只會指派可選取的印表機。
+
+      如果沒有設定這項政策，系統會自動採用 <ph name="PRINTERS_BLACKLIST" />。
+      </translation>
 <translation id="1426410128494586442">是</translation>
 <translation id="1427655258943162134">Proxy 伺服器的地址或網址</translation>
 <translation id="1435659902881071157">裝置層級網路設定</translation>
@@ -141,6 +153,19 @@
 <translation id="1561424797596341174">針對遠端存取主機的偵錯版本覆寫政策</translation>
 <translation id="1561967320164410511">用於個人認證的 U2F 和擴充功能</translation>
 <translation id="1583248206450240930">根據預設使用 <ph name="PRODUCT_FRAME_NAME" /></translation>
+<translation id="1603058613431276040">為繫結至裝置的企業印表機進行設定。
+
+      你可以透過這項政策為 <ph name="PRODUCT_OS_NAME" /> 裝置進行印表機設定。這個檔案的大小不得超過 5MB，且必須使用 JSON 編碼，格式則須和 NativePrinters 字典相同。根據估計，一份 5MB 的編碼檔案中可包含約 21,000 部印表機。系統會使用加密編譯雜湊驗證下載完整性。
+
+      系統會為這份檔案執行下載和快取作業。如果網址或雜湊有所變更，系統就會重新下載檔案。
+
+      設定這項政策後，<ph name="PRODUCT_OS_NAME" /> 會下載這份檔案以進行印表機設定，並根據 <ph name="DEVICE_PRINTERS_ACCESS_MODE" />、<ph name="DEVICE_PRINTERS_WHITELIST" /> 和 <ph name="DEVICE_PRINTERS_BLACKLIST" /> 開放使用印表機。
+
+      這項政策不會影響到使用者在個別裝置上設定印表機的權限，其目的是為了使個別使用者指定的印表機設定更為完善。
+
+      這項政策是 <ph name="BULK_PRINTERS_POLICY" /> 的額外政策。
+
+      如果沒有設定這項政策，就沒有裝置印表機可供使用，且系統會忽略其他 <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> 政策。</translation>
 <translation id="1608755754295374538">系統會直接授權存取音訊擷取裝置而不需提示的網址</translation>
 <translation id="1617235075406854669">啟用刪除瀏覽器和下載紀錄</translation>
 <translation id="163200210584085447">系統會比對這份清單中的模式與要求網址的
@@ -241,6 +266,12 @@
 <translation id="2030905906517501646">預設搜尋引擎關鍵字</translation>
 <translation id="203096360153626918">這項政策對 Android 應用程式沒有影響。即使將這項政策設為 <ph name="FALSE" />，Android 應用程式仍可進入全螢幕模式。</translation>
 <translation id="2043770014371753404">停用的企業印表機</translation>
+<translation id="2063380907529983889">控制要開放 <ph name="BULK_PRINTERS_POLICY" /> 中哪些印表機供使用者使用。
+
+      指派用於大量印表機設定的存取權政策。如果選取 <ph name="PRINTERS_ALLOW_ALL" />，系統會顯示所有印表機。如果選取 <ph name="PRINTERS_BLACKLIST" />，系統會使用 <ph name="BULK_PRINTERS_BLACKLIST" /> 限制對特定印表機的存取權。如果選取 <ph name="PRINTERS_WHITELIST" />，<ph name="BULK_PRINTERS_WHITELIST" /> 只會指派可選取的印表機。
+
+      如果沒有設定這項政策，系統會自動採用 <ph name="PRINTERS_BLACKLIST" />。
+      </translation>
 <translation id="206623763829450685">指定 <ph name="PRODUCT_NAME" /> 支援的 HTTP 驗證機制。
 
           可用的值為「basic」、「digest」、「ntlm」和「negotiate」。如果指定多個值，請以半形逗號分隔。
@@ -484,6 +515,12 @@
 <translation id="2762164719979766599">指定要顯示在登入畫面的裝置本機帳戶清單。
 
       每個清單項目都會指定一個識別碼，用來在系統內部區別不同的裝置本機帳戶。</translation>
+<translation id="2766302473082018239">指定哪些印表機是可以使用的。
+
+      只有在為 <ph name="BULK_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_WHITELIST" /> 的情況下，這項政策才有作用。
+
+      一旦設定了這項政策，使用者就只能使用 ID 符合本政策值的印表機，且 ID 必須和 <ph name="BULK_PRINTERS_POLICY" /> 中指定的檔案項目相符。
+      </translation>
 <translation id="2769952903507981510">設定遠端存取主機所需的網域名稱</translation>
 <translation id="2787173078141616821">回報 Android 狀態的相關資訊</translation>
 <translation id="2801230735743888564">允許使用者在裝置處於離線狀態時玩恐龍復活節彩蛋遊戲。
@@ -548,6 +585,7 @@
 <translation id="3030000825273123558">啟用計量報告</translation>
 <translation id="3034580675120919256">允許你設定是否要讓網站執行 JavaScript。你可以允許或禁止所有網站執行 JavaScript。如果未設定這項政策，系統會使用「AllowJavaScript」，不過使用者可以變更設定。</translation>
 <translation id="3038323923255997294">在 <ph name="PRODUCT_NAME" /> 關閉時繼續執行背景應用程式 </translation>
+<translation id="3039065003245994702">設定 TPM 韌體更新行為</translation>
 <translation id="3046192273793919231">將監控線上狀態所需的網路封包傳送到管理伺服器</translation>
 <translation id="3048744057455266684">如果你設定這項政策，且網址列所建議的搜尋網址在查詢字串或片段識別碼中含有這項 參數，則搜尋建議會顯示搜尋字詞和搜尋引擎供應商，而不是顯示原始的搜尋網址。
 
@@ -637,6 +675,12 @@
 
           如果這項政策設為非空白字串，該字串就會成為「<ph name="PRODUCT_NAME" />」目的地的名稱，否則目的地名稱將會是裝置名稱。如果未設定這項政策，則目的地名稱會是裝置名稱，且裝置擁有者 (或裝置管理網域中的使用者) 可進行變更。名稱長度上限為 24 個字元。</translation>
 <translation id="3381968327636295719">根據預設使用主機瀏覽器</translation>
+<translation id="3395348522300156660">指定哪些印表機是可以使用的。
+
+      只有在為 <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_WHITELIST" /> 的情況下，這項政策才有作用
+
+      一旦設定了這項政策，使用者就只能使用 ID 符合本政策值的印表機，且 ID 必須和 <ph name="DEVICE_PRINTERS_POLICY" /> 中指定的檔案項目相符。
+      </translation>
 <translation id="3417418267404583991">如果這項政策設為 True 或未設定，<ph name="PRODUCT_OS_NAME" /> 會啟用訪客登入。訪客登入是匿名的使用者工作階段，並且不需要密碼。
 
       如果這項政策設為 False，<ph name="PRODUCT_OS_NAME" /> 不會允許開啟訪客工作階段。</translation>
@@ -674,6 +718,13 @@
           只有在啟用「DefaultSearchProviderEnabled」政策時，系統才會遵循這項政策。</translation>
 <translation id="350797926066071931">啟用翻譯</translation>
 <translation id="3512226956150568738">如果用戶端裝置型號在必須遷移至 Ext4 才能執行 ARC 之前已支援 ARC，且 ArcEnabled 政策設為 True，這個選項的行為會與 AskUser 相同 (值 3)。在所有其他情況下 (如果用戶端裝置型號之前不支援 ARC，或 ArcEnabled 政策設為 False)，這個值會等同於 DisallowArc (值 0)。</translation>
+<translation id="3519432185185398282">設定 TPM 韌體更新功能的可用性和行為。
+
+      可在 JSON 屬性中指定個別設定：
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />：如果設為 <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />，則使用者可觸發 Powerwash 流程來安裝 TPM 韌體更新。
+
+      如果未設定這項政策，則不提供 TPM 韌體更新功能。</translation>
 <translation id="3528000905991875314">啟用替代的錯誤網頁</translation>
 <translation id="3547954654003013442">Proxy 設定</translation>
 <translation id="3591584750136265240">設定登入驗證行為</translation>
@@ -842,6 +893,7 @@
           指定政策值時需以毫秒為單位。</translation>
 <translation id="4105989332710272578">不針對列出的網址強制執行憑證透明化政策</translation>
 <translation id="4121350739760194865">阻止應用程式宣傳資訊在新分頁上顯示</translation>
+<translation id="4133144443101280166">裝置 OffHours |ignored_policy_proto_tags| 解除時的停機時間間隔</translation>
 <translation id="4157003184375321727">回報作業系統和韌體版本</translation>
 <translation id="4183229833636799228"><ph name="FLASH_PLUGIN_NAME" /> 預設設定</translation>
 <translation id="4192388905594723944">用於驗證遠端存取用戶端驗證憑證的網址</translation>
@@ -1063,6 +1115,7 @@
 <translation id="5067143124345820993">登入使用者許可清單</translation>
 <translation id="5068140065960598044"><ph name="PRODUCT_NAME" /> 雲端政策覆寫裝置政策。</translation>
 <translation id="5085647276663819155">停用列印預覽</translation>
+<translation id="5090209345759901501">將 Flash 內容設定套用至所有內容</translation>
 <translation id="5105313908130842249">在電池供電環境下執行時的螢幕鎖定延遲時間</translation>
 <translation id="5108031557082757679">已停用企業裝置印表機</translation>
 <translation id="5130288486815037971">是否在 TLS 中啟用 RC4 加密套件</translation>
@@ -1412,6 +1465,11 @@
           如果選擇 .pac Proxy 指令碼，系統會提供該指令碼網址給 Android 應用程式。</translation>
 <translation id="6491139795995924304">允許在裝置上使用藍牙功能</translation>
 <translation id="6520802717075138474">第一次執行時從預設瀏覽器匯入搜尋引擎</translation>
+<translation id="6525955212636890608">如果啟用這項設定，在已設為允許 Flash 內容 (無論是由使用者或根據公司政策所設定) 的網站上，系統會執行所有內嵌的 Flash 內容，包括來自其他來源或較小的內容。
+
+      如要控制哪些網站可執行 Flash，請查看「DefaultPluginsSetting」、「PluginsAllowedForUrls」和「PluginsBlockedForUrls」政策。
+
+      如果這項設定已停用或尚未設定，系統可能會封鎖來自其他來源的 Flash 內容或較小的內容。</translation>
 <translation id="653608967792832033">指定時間長度，如果系統在電池供電環境下執行且未偵測到使用者輸入行為，就會在這段時間過後鎖定螢幕。
 
           如果你將這項政策設為大於 0 以上的值，表示使用者必須維持該值所指定的時間長度後，<ph name="PRODUCT_OS_NAME" /> 才會鎖定螢幕。
@@ -1942,6 +2000,12 @@
 <translation id="8493645415242333585">停用儲存瀏覽紀錄功能</translation>
 <translation id="8499172469244085141">預設設定 (使用者可覆寫)</translation>
 <translation id="8519264904050090490">管理化環境下使用者手動建立的例外網址</translation>
+<translation id="8527932539502116028">指定哪些印表機是禁止使用的。
+
+      只有在為 <ph name="BULK_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_BLACKLIST" /> 的情況下，這項政策才有作用。
+
+      一旦設定了這項政策，除了本政策中列出的 ID 外，其他所有印表機皆可供使用者使用。
+      </translation>
 <translation id="8544375438507658205">預設 <ph name="PRODUCT_FRAME_NAME" /> 的 HTML 轉譯器</translation>
 <translation id="8549772397068118889">瀏覽內容套件以外的網站時顯示警告</translation>
 <translation id="8566842294717252664">在新分頁和應用程式啟動畫面中隱藏線上應用程式商店</translation>
@@ -2011,6 +2075,18 @@
 
           指定政策值時需以毫秒為單位。該值需小於閒置延遲時間。</translation>
 <translation id="891435090623616439">以 JSON 字串格式編碼，詳情請參閱 <ph name="COMPLEX_POLICIES_URL" /></translation>
+<translation id="8927384992072706174">為企業印表機進行設定。
+
+      你可以透過這項政策為 <ph name="PRODUCT_OS_NAME" /> 裝置進行印表機設定。這個檔案的大小不得超過 5MB，且必須使用 JSON 編碼，格式則須和 NativePrinters 字典相同。根據估計，一個 5MB 的編碼檔案中可包含約 21,000 部印表機。系統會使用加密編譯雜湊驗證下載完整性。
+
+      系統會為這個檔案執行下載和快取作業。如果網址或雜湊有所變更，系統就會重新下載檔案。
+
+      設定這項政策後，<ph name="PRODUCT_OS_NAME" /> 會下載這個檔案以進行印表機設定，並根據 <ph name="BULK_PRINTERS_ACCESS_MODE" />、<ph name="BULK_PRINTERS_WHITELIST" /> 和 <ph name="BULK_PRINTERS_BLACKLIST" /> 開放使用印表機。
+
+      設定這項政策後，使用者無法予以變更或覆寫。
+
+      這項政策不會影響到使用者在個別裝置上設定印表機的權限，其目的是為了讓個別使用者指定的印表機設定更為完善。
+      </translation>
 <translation id="8947415621777543415">回報裝置位置</translation>
 <translation id="8951350807133946005">設定磁碟快取目錄</translation>
 <translation id="8952317565138994125">使用 Google 代管的同步處理服務停用 <ph name="PRODUCT_NAME" /> 的資料同步處理功能，並禁止使用者變更這項設定。

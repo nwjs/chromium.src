@@ -37,6 +37,7 @@
 <translation id="1291207594882862231">ล้างประวัติการเข้าชม คุกกี้ ข้อมูลเว็บไซต์ แคช…</translation>
 <translation id="129553762522093515">เพิ่งปิด</translation>
 <translation id="1303671224831497365">ไม่พบอุปกรณ์บลูทูธ</translation>
+<translation id="1320663236730331991">เลื่อนขึ้นเพื่อเข้าถึงไซต์และบทความยอดนิยม การดาวน์โหลด และอื่นๆ อย่างง่ายดาย</translation>
 <translation id="1326317727527857210">ลงชื่อเข้าใช้ Chrome เพื่อรับแท็บจากอุปกรณ์เครื่องอื่นๆ ของคุณ</translation>
 <translation id="1332501820983677155">แป้นพิมพ์ลัดสำหรับฟีเจอร์ของ Google Chrome</translation>
 <translation id="1369915414381695676">เพิ่มเว็บไซต์ <ph name="SITE_NAME" /> แล้ว</translation>
@@ -109,7 +110,6 @@
 <translation id="1993768208584545658"><ph name="SITE" /> ต้องการจับคู่</translation>
 <translation id="1994173015038366702">URL ของเว็บไซต์</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB จากแอปอื่นๆ</translation>
-<translation id="2011013297378343166">การใช้แอปพลิเคชันนี้หมายความว่าคุณยอมรับ<ph name="BEGIN_LINK1" />ข้อกำหนดในการให้บริการ<ph name="END_LINK1" />และ<ph name="BEGIN_LINK2" />ประกาศเกี่ยวกับนโยบายความเป็นส่วนตัว<ph name="END_LINK2" />ของ Chrome และ<ph name="BEGIN_LINK3" />ประกาศเกี่ยวกับนโยบายความเป็นส่วนตัวของบัญชี Google ที่สร้างใน Family Link<ph name="END_LINK3" /></translation>
 <translation id="2017836877785168846">ล้างประวัติการเข้าชมและการเติมข้อความอัตโนมัติในแถบที่อยู่เว็บ</translation>
 <translation id="2038563949887743358">เปิดการขอเว็บไซต์เดสก์ท็อป</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> GB จากแอปอื่นๆ</translation>
@@ -147,6 +147,7 @@
 <translation id="2351097562818989364">รีเซ็ตการตั้งค่าการแปลภาษาของคุณแล้ว</translation>
 <translation id="2359808026110333948">ดำเนินการต่อ</translation>
 <translation id="2369533728426058518">แท็บที่เปิดอยู่</translation>
+<translation id="2372491353676110880">ดาวน์โหลดหน้าเว็บโดยอัตโนมัติ</translation>
 <translation id="2385560268894525395">สัปดาห์ที่ผ่านมา</translation>
 <translation id="2387895666653383613">อัตราส่วนข้อความ</translation>
 <translation id="2414886740292270097">มืด</translation>
@@ -156,6 +157,7 @@
 <translation id="2450083983707403292">คุณต้องการเริ่มดาวน์โหลด <ph name="FILE_NAME" /> อีกครั้งไหม</translation>
 <translation id="2476578072172137802">การตั้งค่าไซต์</translation>
 <translation id="2482878487686419369">การแจ้งเตือน</translation>
+<translation id="2490674006498621843">ดึงแถบเครื่องมือขึ้นเพื่อหาไฟล์และหน้าเว็บใน "ดาวน์โหลด"</translation>
 <translation id="2496180316473517155">ประวัติการเข้าชมที่เรียกดู</translation>
 <translation id="2498359688066513246">ความช่วยเหลือและความคิดเห็น</translation>
 <translation id="2501278716633472235">ย้อนกลับ</translation>
@@ -174,6 +176,7 @@
 <translation id="2625189173221582860">คัดลอกรหัสผ่านแล้ว</translation>
 <translation id="2631006050119455616">ประหยัดได้</translation>
 <translation id="2653659639078652383">ส่ง</translation>
+<translation id="2671100504997899381">โหลดหน้าเว็บได้รวดเร็วขึ้นและบันทึกหน้าเว็บยอดนิยมไว้อ่านแบบออฟไลน์</translation>
 <translation id="2677748264148917807">ออก</translation>
 <translation id="2704606927547763573">คัดลอกแล้ว</translation>
 <translation id="2707726405694321444">รีเฟรชหน้า</translation>
@@ -308,7 +311,6 @@
 <translation id="3997476611815694295">พื้นที่เก็บข้อมูลที่ไม่สำคัญ</translation>
 <translation id="4002066346123236978">ชื่อ</translation>
 <translation id="4013356575049925793">อีคอมเมิร์ซ</translation>
-<translation id="4041402800604793551">การดำเนินการต่อหมายความว่าคุณยอมรับ<ph name="BEGIN_LINK1" />ข้อกำหนดในการให้บริการ<ph name="END_LINK1" />และ<ph name="BEGIN_LINK2" />ประกาศเกี่ยวกับนโยบายความเป็นส่วนตัว<ph name="END_LINK2" />ของ Chrome และ<ph name="BEGIN_LINK3" />ประกาศเกี่ยวกับนโยบายความเป็นส่วนตัวสำหรับบัญชี Google ที่สร้างใน Family Link<ph name="END_LINK3" /></translation>
 <translation id="4042870126885713738">แสดงคำแนะนำเมื่อไม่สามารถระบุที่อยู่เว็บหรือไม่สามารถเชื่อมต่อได้</translation>
 <translation id="4046123991198612571">แทร็กถัดไป</translation>
 <translation id="4056223980640387499">ซีเปีย</translation>
@@ -469,7 +471,6 @@
 <translation id="5534640966246046842">คัดลอกไซต์แล้ว</translation>
 <translation id="5537099431952529648">คุณและผู้ปกครองสามารถจัดการการซิงค์ของ Chrome และการปรับเปลี่ยนในแบบของคุณใน<ph name="BEGIN_LINK1" />การตั้งค่า<ph name="END_LINK1" /></translation>
 <translation id="5556459405103347317">โหลดใหม่</translation>
-<translation id="5568069709869097550">ไม่สามารถลงชื่อเข้าใช้</translation>
 <translation id="557283862590186398">Chrome ต้องการสิทธิ์เข้าถึงไมโครโฟนของคุณสำหรับไซต์นี้</translation>
 <translation id="5578795271662203820">ค้นหาภาพนี้ใน <ph name="SEARCH_ENGINE" /></translation>
 <translation id="5585019845078534178">บัตร</translation>
@@ -601,6 +602,7 @@
 <translation id="666268767214822976">ใช้บริการการคาดคะเนเพื่อแสดงคำค้นหาที่เกี่ยวข้องและเว็บไซต์ยอดนิยมขณะที่คุณพิมพ์ในแถบที่อยู่เว็บ</translation>
 <translation id="666731172850799929">เปิดใน <ph name="APP_NAME" /></translation>
 <translation id="666981079809192359">ประกาศเกี่ยวกับนโยบายความเป็นส่วนตัวของ Chrome</translation>
+<translation id="6689700624704789898">แตะปุ่มขยาย 2 ครั้งเพื่อหาไฟล์และหน้าเว็บใน "ดาวน์โหลด"</translation>
 <translation id="6697947395630195233">Chrome ต้องการสิทธิ์เข้าถึงตำแหน่งของคุณเพื่อแชร์ตำแหน่งกับไซต์นี้</translation>
 <translation id="6698801883190606802">จัดการข้อมูลที่ซิงค์</translation>
 <translation id="6701279291835318271">รายงานการรักษาความปลอดภัย</translation>
@@ -608,7 +610,6 @@
 <translation id="6710213216561001401">ก่อนหน้า</translation>
 <translation id="6738867403308150051">กำลังดาวน์โหลด…</translation>
 <translation id="6762156594045689028">หากต้องการเปลี่ยนการตั้งค่านี้ โปรด<ph name="BEGIN_LINK" />รีเซ็ตการซิงค์<ph name="END_LINK" /></translation>
-<translation id="6764789522080107716">ไม่สามารถเปิดไฟล์ได้</translation>
 <translation id="6770414673596662518">ระบบ Safe Browsing ของ Chrome ยังใช้ในการตรวจหาหน้าเว็บที่ไม่ปลอดภัยและปกป้องคุณจากฟิชชิง มัลแวร์ และการดาวน์โหลดที่เป็นอันตราย</translation>
 <translation id="6776813977906306442">ดาวน์โหลดวิดีโอไว้ดูภายหลังโดยใช้ปุ่ม "ดาวน์โหลด"</translation>
 <translation id="6790428901817661496">เล่น</translation>
@@ -644,7 +645,6 @@
 <translation id="7029809446516969842">รหัสผ่าน</translation>
 <translation id="7031882061095297553">ซิงค์กับ</translation>
 <translation id="704059664004611800">แตะเพื่อดูบุ๊กมาร์กและอื่นๆ</translation>
-<translation id="7040779639826445456">แตะเพื่อดูบุ๊กมาร์ก การดาวน์โหลด และประวัติ</translation>
 <translation id="7053983685419859001">บล็อก</translation>
 <translation id="7062545763355031412">ยอมรับและเปลี่ยนบัญชี</translation>
 <translation id="7063006564040364415">ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์การซิงค์</translation>
@@ -693,6 +693,7 @@
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7562080006725997899">กำลังล้างข้อมูลการท่องเว็บ</translation>
 <translation id="756809126120519699">ล้างข้อมูล Chrome แล้ว</translation>
+<translation id="7581273696622423628">ตอบแบบสำรวจ</translation>
 <translation id="7588950540487816470">Physical Web</translation>
 <translation id="7589445247086920869">บล็อกสำหรับเครื่องมือค้นหาปัจจุบัน</translation>
 <translation id="7593557518625677601">เปิดการตั้งค่า Android และเปิดการซิงค์ Android ใหม่เพื่อเริ่มการซิงค์ของ Chrome</translation>
@@ -702,6 +703,7 @@
 <translation id="7607552448134703340">พิมพ์สิ่งที่คุณต้องการค้นหา</translation>
 <translation id="7612619742409846846">ลงชื่อเข้าใช้ Google ด้วย</translation>
 <translation id="7619072057915878432">การดาวน์โหลด <ph name="FILE_NAME" /> ล้มเหลวเพราะเครือข่ายขัดข้อง</translation>
+<translation id="7620146066550602128">ลองใช้<ph name="BEGIN_LINK" />วิธีที่ง่ายกว่าในการท่องเว็บ<ph name="END_LINK" /></translation>
 <translation id="7624880197989616768"><ph name="BEGIN_LINK1" />รับความช่วยเหลือ<ph name="END_LINK1" />หรือ<ph name="BEGIN_LINK2" />สแกนใหม่<ph name="END_LINK2" /></translation>
 <translation id="7626032353295482388">ยินดีต้อนรับสู่ Chrome</translation>
 <translation id="7638584964844754484">รหัสผ่านไม่ถูกต้อง</translation>
@@ -807,7 +809,6 @@
 <translation id="8636825310635137004">เปิดการซิงค์เพื่อรับแท็บจากอุปกรณ์เครื่องอื่นๆ ของคุณ</translation>
 <translation id="8641930654639604085">พยายามบล็อกไซต์สำหรับผู้ใหญ่</translation>
 <translation id="8662811608048051533">นำคุณออกจากระบบของเว็บไซต์ส่วนใหญ่</translation>
-<translation id="867485229011312729">บุ๊กมาร์ก การดาวน์โหลด และประวัติการเข้าชมอยู่ที่ไหน</translation>
 <translation id="8676374126336081632">ล้างข้อมูลที่ป้อน</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{ระดับความแรงของสัญญาณ: # แถบ}other{ระดับความแรงของสัญญาณ: # แถบ}}</translation>
 <translation id="869891660844655955">วันหมดอายุ</translation>

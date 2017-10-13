@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">قائمة القراءة</translation>
 <translation id="1264126396475825575">تقرير الأعطال الذي تم الحصول عليه في <ph name="CRASH_TIME" /> (لم يتم تحميله بعد أو تجاهله)</translation>
 <translation id="1270502636509132238">طريقة الاستلام</translation>
-<translation id="1281526147609854549">تم الإصدار بواسطة <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">عدم ترجمة هذا الموقع مطلقًا</translation>
 <translation id="129553762522093515">المغلقة حديثًا</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />جرّب محو ملفات تعريف الارتباط<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">إلغاء الدفع</translation>
 <translation id="2147827593068025794">مزامنة الخلفية</translation>
 <translation id="2148613324460538318">إضافة بطاقة</translation>
+<translation id="2149973817440762519">تعديل الإشارة</translation>
 <translation id="2154054054215849342">المزامنة غير متاحة لنطاقك</translation>
 <translation id="2154484045852737596">تعديل البطاقة</translation>
 <translation id="2166049586286450108">الوصول الكامل للمشرف</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">الاختلافات</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{بدون}=1{تطبيق واحد ($1)}=2{تطبيقان (2) ($1، $2)}few{# تطبيقات ($1، $2، $3)}many{# تطبيقًا ($1، $2، $3)}other{# تطبيق ($1، $2، $3)}}</translation>
 <translation id="2625385379895617796">توقيت ساعتك متقدم عن الوقت الحالي</translation>
+<translation id="2634124572758952069">‏تعذّر العثور على عنوان IP لخادم <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">الحالة:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">تم رفض الدخول إلى الملف</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">يمكن للمهاجمين على <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> تثبيت تطبيقات مضللة تدعي أنها شيء آخر أو تجمع بيانات قد يتم استخدامها لتتبعك. <ph name="BEGIN_LEARN_MORE_LINK" />مزيد من المعلومات<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />، <ph name="TYPE_2" />، <ph name="TYPE_3" /> (تمت المزامنة)</translation>
 <translation id="6027201098523975773">أدخِل اسمًا</translation>
+<translation id="6039846035001940113">في حال استمرت المشكلة، اتصل بمالك الموقع.</translation>
 <translation id="6040143037577758943">إغلاق</translation>
 <translation id="6047233362582046994">إذا كنت على دراية بالمخاطر التي تهدد أمانك، يمكنك <ph name="BEGIN_LINK" />زيارة موقع الويب هذا<ph name="END_LINK" /> قبل أن تتم إزالة التطبيقات الضارة.</translation>
 <translation id="6047927260846328439">قد يحاول هذا المحتوى خداعك لتثبيت برامج أو الكشف عن معلومات شخصية. <ph name="BEGIN_LINK" />عرض على أي حال<ph name="END_LINK" /></translation>

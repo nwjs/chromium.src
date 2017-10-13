@@ -18,6 +18,7 @@
 <translation id="1801827354178857021">காலம்</translation>
 <translation id="1803208670097017349">{MONTHS,plural, =1{1 மாதம்}other{# மாதங்கள்}}</translation>
 <translation id="1809410197924942083"><ph name="QUANTITY" /> மெ.பை/வி</translation>
+<translation id="1812519734428420144">நட்சத்திர மதிப்பீடு <ph name="RATING_SCORE" /></translation>
 <translation id="1830179671306812954">{HOURS,plural, =1{1 மணிநேரம், }other{# மணிநேரம், }}</translation>
 <translation id="1842960171412779397">தேர்ந்தெடு</translation>
 <translation id="1860796786778352021">அறிவிப்பை மூடு</translation>

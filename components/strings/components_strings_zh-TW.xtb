@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">閱讀清單</translation>
 <translation id="1264126396475825575">當機報告擷取時間：<ph name="CRASH_TIME" /> (尚未上傳或略過)</translation>
 <translation id="1270502636509132238">取件方式</translation>
-<translation id="1281526147609854549">核發者：<ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">一律不翻譯此網站</translation>
 <translation id="129553762522093515">最近關閉的分頁</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />試試看清除 Cookie<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">取消付款</translation>
 <translation id="2147827593068025794">背景同步處理</translation>
 <translation id="2148613324460538318">新增卡片</translation>
+<translation id="2149973817440762519">編輯書籤</translation>
 <translation id="2154054054215849342">你的網域無法使用同步功能</translation>
 <translation id="2154484045852737596">編輯卡片資訊</translation>
 <translation id="2166049586286450108">完整管理員存取權</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">變化版本</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{無}=1{1 個應用程式 ($1)}=2{2 個應用程式 ($1、$2)}other{# 個應用程式 ($1、$2 $3)}}</translation>
 <translation id="2625385379895617796">你的時鐘時間過快</translation>
+<translation id="2634124572758952069">找不到 <ph name="HOST_NAME" /> 的伺服器 IP 位址。</translation>
 <translation id="2639739919103226564">狀態：</translation>
 <translation id="2649204054376361687"><ph name="COUNTRY" />，<ph name="CITY" /></translation>
 <translation id="2650446666397867134">存取檔案遭拒</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">目前在 <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> 上的攻擊者可能會讓你安裝身分不實的欺騙性應用程式，或是收集可用於追蹤你的資料。<ph name="BEGIN_LEARN_MORE_LINK" />瞭解詳情<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />、<ph name="TYPE_2" />、<ph name="TYPE_3" /> (已同步)</translation>
 <translation id="6027201098523975773">輸入名稱</translation>
+<translation id="6039846035001940113">如果問題仍未解決，請與網站擁有者聯絡。</translation>
 <translation id="6040143037577758943">關閉</translation>
 <translation id="6047233362582046994">如果你瞭解安全性風險，也可以選擇在有害應用程式尚未遭到移除的狀態下<ph name="BEGIN_LINK" />造訪這個網站<ph name="END_LINK" />。</translation>
 <translation id="6047927260846328439">這項內容可能會試圖誘使你安裝軟體或提供個人資訊。<ph name="BEGIN_LINK" />仍要顯示<ph name="END_LINK" /></translation>

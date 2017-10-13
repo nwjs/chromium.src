@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Okuma listesi</translation>
 <translation id="1264126396475825575">Kilitlenme raporu yakalanma zamanı: <ph name="CRASH_TIME" /> (henüz yüklenmedi veya yoksayıldı)</translation>
 <translation id="1270502636509132238">Alma Yöntemi</translation>
-<translation id="1281526147609854549">Yayınlayan: <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Bu siteyi hiçbir zaman çevirme</translation>
 <translation id="129553762522093515">Son kapatılan</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Çerezlerinizi temizlemeyi deneyin<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Ödemeyi iptal et</translation>
 <translation id="2147827593068025794">Arka Plan Senkronizasyonu</translation>
 <translation id="2148613324460538318">Kart Ekle</translation>
+<translation id="2149973817440762519">Yer İşaretini Düzenle</translation>
 <translation id="2154054054215849342">Senkronizasyon alan adınızda kullanılamıyor</translation>
 <translation id="2154484045852737596">Kartı düzenle</translation>
 <translation id="2166049586286450108">Tam Yönetici Erişimi</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Varyasyonlar</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Yok}=1{1 uygulama ($1)}=2{2 uygulama ($1, $2)}other{# uygulama ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Saatiniz ileri</translation>
+<translation id="2634124572758952069"><ph name="HOST_NAME" /> ana makinesinin sunucu IP adresi bulunamadı.</translation>
 <translation id="2639739919103226564">Durum:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Dosyaya erişim reddedildi</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> öğesini kullanan saldırganlar başka bir şeyi taklit eden aldatıcı uygulamalar yükleyebilir veya sizi izlemek için kullanılabilecek veriler toplayabilirler. <ph name="BEGIN_LEARN_MORE_LINK" />Daha fazla bilgi<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (senkronize edildi)</translation>
 <translation id="6027201098523975773">Bir ad girin</translation>
+<translation id="6039846035001940113">Sorun devam ederse site sahibiyle iletişime geçin.</translation>
 <translation id="6040143037577758943">Kapat</translation>
 <translation id="6047233362582046994">Güvenliğinize ilişkin riskleri anladıysanız zararlı programlar kaldırılmadan önce <ph name="BEGIN_LINK" />bu siteyi ziyaret edebilirsiniz<ph name="END_LINK" />.</translation>
 <translation id="6047927260846328439">Bu içerik sizi kandırarak yazılım yüklemenizi veya kişisel bilgilerinizi ifşa etmenizi sağlamaya çalışabilir. <ph name="BEGIN_LINK" />Yine de göster<ph name="END_LINK" /></translation>

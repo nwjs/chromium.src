@@ -49,6 +49,12 @@
 
       Als het beleid is ingesteld op 'onwaar' (false), wordt de status van de schakelaar voor de ontwikkelaarsmodus niet gemeld.</translation>
 <translation id="1160939557934457296">Doorgaan vanaf de waarschuwingspagina van Safe Browsing uitschakelen</translation>
+<translation id="1166377463685560145">Hiermee worden de printers gespecificeerd die een gebruiker niet kan gebruiken.
+
+      Dit beleid wordt alleen gebruikt als <ph name="PRINTERS_BLACKLIST" /> is gekozen voor <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
+
+      Als dit beleid wordt gebruikt, zijn alle printers beschikbaar voor de gebruiker, met uitzondering van de ID's die in dit beleid worden vermeld.
+      </translation>
 <translation id="1198465924256827162">De frequentie, in milliseconden, waarmee uploads van de apparaatstatus worden verzonden.
 
       Als dit beleid niet is ingesteld, is de standaardfrequentie 3 uur. De minimaal toegestane frequentie is 60 seconden.</translation>
@@ -80,6 +86,12 @@
 <translation id="1363275621236827384">Query's naar de Quirks Server inschakelen voor hardwareprofielen</translation>
 <translation id="1393485621820363363">Zakelijke apparaatprinters ingeschakeld</translation>
 <translation id="1397855852561539316">Voorgestelde URL voor standaardzoekprovider</translation>
+<translation id="1420281424655200442">Hiermee wordt beheerd welke printers uit <ph name="DEVICE_PRINTERS_POLICY" /> beschikbaar zijn voor gebruikers.
+
+      Hiermee wordt aangegeven welk toegangsbeleid wordt gebruikt voor bulksgewijze printerconfiguratie. Als <ph name="PRINTERS_ALLOW_ALL" /> is geselecteerd, worden alle printers weergegeven. Als <ph name="PRINTERS_BLACKLIST" /> is geselecteerd, wordt <ph name="DEVICE_PRINTERS_BLACKLIST" /> gebruikt om de toegang te beperken tot de gespecificeerde printers. Als <ph name="PRINTERS_WHITELIST" /> is geselecteerd, geeft <ph name="DEVICE_PRINTERS_WHITELIST" /> alleen die printers aan die kunnen worden geselecteerd.
+
+      Als dit beleid niet is ingesteld, wordt uitgegaan van <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="1426410128494586442">Ja</translation>
 <translation id="1427655258943162134">Adres of URL van proxyserver</translation>
 <translation id="1435659902881071157">Netwerkconfiguratie op apparaatniveau</translation>
@@ -101,6 +113,11 @@
 
       Als dit beleid niet wordt ingesteld, is de standaardwaarde 'MultiProfileUserBehaviorMustBePrimary' van toepassing op gebruikers die op ondernemingsniveau worden beheerd en wordt 'MultiProfileUserBehaviorUnrestricted' gebruikt voor niet-beheerde gebruikers.</translation>
 <translation id="1465619815762735808">Klikken om te spelen</translation>
+<translation id="1466133662354365542">Hiermee wordt de functie Automatisch aanvullen van <ph name="PRODUCT_NAME" /> ingeschakeld en wordt gebruikers toegestaan creditcard- of adresgegevens automatisch in te vullen op webformulieren aan de hand van eerder opgeslagen gegevens.
+
+      Als je deze instelling uitschakelt, worden er nooit creditcardgegevens voorgesteld of ingevuld door Automatisch aanvullen. Er worden ook geen aanvullende creditcardgegevens opgeslagen die de gebruiker mogelijk verzendt terwijl hij browst op internet.
+
+      Als je deze instelling inschakelt of geen waarde instelt, kan de gebruiker de functie Automatisch aanvullen (waaronder creditcards) beheren in de UI.</translation>
 <translation id="1468307069016535757">De standaardstatus van de toegankelijkheidsfunctie 'Modus voor hoog contrast' instellen op het inlogscherm
 
           Als dit beleid op 'waar' is ingesteld, wordt de modus voor hoog contrast ingeschakeld wanneer het inlogscherm wordt weergegeven.
@@ -138,6 +155,19 @@
 <translation id="1561424797596341174">Beleid overschrijft Debug-builds van de host voor externe toegang</translation>
 <translation id="1561967320164410511">U2F plus extensies voor individuele bevestiging</translation>
 <translation id="1583248206450240930"><ph name="PRODUCT_FRAME_NAME" /> standaard gebruiken</translation>
+<translation id="1603058613431276040">Hiermee worden configuraties geleverd voor zakelijke printers die zijn gekoppeld aan apparaten.
+
+      Met dit beleid kun je printerconfiguraties leveren aan <ph name="PRODUCT_OS_NAME" />-apparaten. Het bestand mag niet groter zijn dan 5 MB en moet zijn gecodeerd in JSON-indeling. De indeling is gelijk aan het NativePrinters-woordenboek. Naar schatting wordt een bestand dat ongeveer 21.000 printers bevat, gecodeerd als een bestand van 5 MB. De cryptografische hash wordt gebruikt om de integriteit van de download te verifiëren.
+
+      Het bestand wordt gedownload en gecachet. Het bestand wordt opnieuw gedownload wanneer de URL of de hash verandert.
+
+      Als dit beleid is ingesteld, wordt in <ph name="PRODUCT_OS_NAME" /> het bestand voor printerconfiguraties gedownload en worden printers beschikbaar gesteld in overeenstemming met <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> en <ph name="DEVICE_PRINTERS_BLACKLIST" />.
+
+      Dit beleid is niet van invloed op de mogelijkheid van gebruikers om printers op afzonderlijke apparaten te configureren. Het is bedoeld als aanvulling op de configuratie van printers door individuele gebruikers.
+
+      Dit beleid vormt een aanvulling op <ph name="BULK_PRINTERS_POLICY" />.
+
+      Als dit beleid niet is ingesteld, zijn er geen apparaatprinters en worden de overige beleidsregels van <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> genegeerd.</translation>
 <translation id="1608755754295374538">URL's die zonder prompt toegang krijgen tot apparaten voor het vastleggen van audio</translation>
 <translation id="1617235075406854669">Verwijderen van browser- en downloadgeschiedenis inschakelen</translation>
 <translation id="163200210584085447">Patronen in deze lijst worden vergeleken met de
@@ -245,6 +275,12 @@
 <translation id="2030905906517501646">Zoekwoord voor standaardzoekprovider</translation>
 <translation id="203096360153626918">Dit beleid is niet van invloed op de Android-apps. Deze hebben toegang tot de modus voor volledig scherm, zelfs als dit beleid is ingesteld op <ph name="FALSE" /> (Onwaar).</translation>
 <translation id="2043770014371753404">Bedrijfsprinters uitgeschakeld</translation>
+<translation id="2063380907529983889">Hiermee wordt beheerd welke printers uit <ph name="BULK_PRINTERS_POLICY" /> beschikbaar zijn voor gebruikers.
+
+      Hiermee wordt aangegeven welk toegangsbeleid wordt gebruikt voor bulksgewijze printerconfiguratie. Als <ph name="PRINTERS_ALLOW_ALL" /> is geselecteerd, worden alle printers weergegeven. Als <ph name="PRINTERS_BLACKLIST" /> is geselecteerd, wordt <ph name="BULK_PRINTERS_BLACKLIST" /> gebruikt om de toegang te beperken tot de gespecificeerde printers. Als <ph name="PRINTERS_WHITELIST" /> is geselecteerd, geeft <ph name="BULK_PRINTERS_WHITELIST" /> alleen die printers aan die kunnen worden geselecteerd.
+
+      Als dit beleid niet is ingesteld, wordt uitgegaan van <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="206623763829450685">Hiermee wordt gespecificeerd welke HTTP-verificatieschema's door <ph name="PRODUCT_NAME" /> worden ondersteund.
 
           Mogelijke waarden zijn 'basic', 'digest', 'ntlm' en 'negotiate'. Scheid meerdere waarden van elkaar met komma's.
@@ -338,6 +374,7 @@
 <translation id="2294382669900758280">Er wordt geen rekening gehouden met het afspelen van video in Android-apps, zelfs niet wanneer dit beleid is ingesteld op <ph name="TRUE" /> (Waar).</translation>
 <translation id="2298647742290373702">De standaardpagina 'Nieuw tabblad' configureren in <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Een lijst met ingeschakelde plug-ins specificeren</translation>
+<translation id="2303795211377219696">Automatisch aanvullen inschakelen voor creditcards</translation>
 <translation id="2309390639296060546">Standaardinstelling voor geolocatie</translation>
 <translation id="2312134445771258233">Hiermee kun he de pagina's configureren die bij het starten worden geladen.
 
@@ -508,6 +545,12 @@
 <translation id="2762164719979766599">Hiermee wordt de lijst met lokale accounts op het apparaat weergegeven op het aanmeldscherm.
 
       Elke lijstvermelding specificeert een ID die intern wordt gebruikt om de verschillende lokale accounts van het apparaat te onderscheiden.</translation>
+<translation id="2766302473082018239">Hiermee worden de printers gespecificeerd die een gebruiker kan gebruiken.
+
+      Dit beleid wordt alleen gebruikt als <ph name="PRINTERS_WHITELIST" /> is gekozen voor <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Als dit beleid wordt gebruikt, zijn alleen de printers met ID's die overeenkomen met de waarden in dit beleid, beschikbaar voor de gebruiker. De ID's moeten overeenkomen met de vermeldingen in het bestand dat is opgegeven in <ph name="BULK_PRINTERS_POLICY" />.
+      </translation>
 <translation id="2769952903507981510">De vereiste domeinnaam configureren voor hosts voor externe toegang</translation>
 <translation id="2787173078141616821">Informatie over de status van Android rapporteren</translation>
 <translation id="2801230735743888564">Toestaan dat gebruikers de easter egg-dinosaurusgame spelen wanneer het apparaat offline is.
@@ -574,6 +617,7 @@
 
           Als dit beleid niet wordt ingesteld, wordt 'AllowJavaScript' gebruikt en kan de gebruiker dit aanpassen.</translation>
 <translation id="3038323923255997294">Doorgaan met uitvoeren van achtergrondapps als <ph name="PRODUCT_NAME" /> is gesloten</translation>
+<translation id="3039065003245994702">Updategedrag voor TPM-firmware configureren</translation>
 <translation id="3046192273793919231">Netwerkpakketten verzenden naar de beheerserver om de online status bij te houden</translation>
 <translation id="3048744057455266684">Als dit beleid is ingesteld en een zoek-URL die is voorgesteld vanuit de omnibox, deze parameter in de zoekreeks of in de fragment-ID bevat, geeft de suggestie de zoektermen en zoekprovider weer en niet de onbewerkte zoek-URL.
 
@@ -667,6 +711,12 @@
 
           Als dit beleid is ingesteld op een niet-lege tekenreeks, wordt die tekenreeks gebruikt als de naam van de <ph name="PRODUCT_NAME" />-bestemming. Anders wordt de apparaatnaam gebruikt voor de bestemmingsnaam. Als dit beleid niet is ingesteld, is de naam van de bestemming de apparaatnaam en kan de eigenaar van het apparaat (of een gebruiker in het domein dat het apparaat beheert) deze naam wijzigen. De naam mag maximaal 24 tekens lang zijn.</translation>
 <translation id="3381968327636295719"> gebruiken</translation>
+<translation id="3395348522300156660">Hiermee worden de printers gespecificeerd die een gebruiker kan gebruiken.
+
+      Dit beleid wordt alleen gebruikt als <ph name="PRINTERS_WHITELIST" /> is gekozen voor <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
+
+      Als dit beleid wordt gebruikt, zijn alleen de printers met ID's die overeenkomen met de waarden in dit beleid, beschikbaar voor de gebruiker. De ID's moeten overeenkomen met de vermeldingen in het bestand dat is opgegeven in <ph name="DEVICE_PRINTERS_POLICY" />.
+      </translation>
 <translation id="3417418267404583991">Als dit beleid is ingesteld op 'true' of niet is geconfigureerd, staat <ph name="PRODUCT_OS_NAME" /> gasten toe zich aan te melden. Gastensessies zijn anonieme sessies waar geen wachtwoord voor hoeft te worden ingevoerd.
 
       Als dit beleid is ingesteld op 'false', staat <ph name="PRODUCT_OS_NAME" /> niet toe dat er gastensessies worden gestart.</translation>
@@ -704,6 +754,13 @@
           Dit beleid wordt alleen gerespecteerd als het beleid 'DefaultSearchProviderEnabled' is ingeschakeld.</translation>
 <translation id="350797926066071931">Vertalen inschakelen</translation>
 <translation id="3512226956150568738">Als het apparaatmodel van de klant al ondersteuning voor ARC bood voordat migratie naar ext4 nodig werd om ARC uit te voeren en als het beleid ArcEnabled is ingesteld op 'true' (waar), wordt AskUser (waarde 3) gebruikt voor deze optie. In alle andere gevallen (als het apparaatmodel voorheen geen ondersteuning voor ARC bood of als het beleid ArcEnabled op 'false' (onwaar) is ingesteld), is deze waarde gelijk aan DisallowArc (waarde 0).</translation>
+<translation id="3519432185185398282">Hiermee configureer je de beschikbaarheid en het gedrag van de updatefunctionaliteit voor TPM-firmware.
+
+      Afzonderlijke instellingen kunnen worden gespecificeerd in JSON-eigenschappen:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Als dit is ingesteld op <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, kunnen gebruikers het Powerwash-proces activeren om een TPM-firmware-update te installeren.
+
+      Als het beleid niet is ingesteld, is de updatefunctionaliteit voor TPM-firmware niet beschikbaar.</translation>
 <translation id="3528000905991875314">Alternatieve foutpagina's inschakelen</translation>
 <translation id="3547954654003013442">Proxyinstellingen</translation>
 <translation id="3591584750136265240">Het verificatiegedrag voor inloggen configureren</translation>
@@ -882,6 +939,7 @@
           De beleidswaarde moet in milliseconden worden opgegeven.</translation>
 <translation id="4105989332710272578">Handhaving van Certificaattransparantie voor een lijst met URL's uitschakelen</translation>
 <translation id="4121350739760194865">Voorkomen dat app-promoties worden weergegeven op de pagina 'Nieuw tabblad'</translation>
+<translation id="4133144443101280166">Intervallen buiten gebruikstijd wanneer OffHours van het apparaat |ignored_policy_proto_tags| worden vrijgegeven</translation>
 <translation id="4157003184375321727">Besturingssysteem- en firmwareversie rapporteren</translation>
 <translation id="4183229833636799228">Standaardinstelling voor <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="4192388905594723944">URL voor het valideren van verificatietoken voor client voor externe toegang</translation>
@@ -1100,6 +1158,7 @@
           De waarde moet een array van JSON-woordenboeken met tekenreeksen zijn. Elk woordenboek moet de indeling { "pattern": "$URL_PATTERN", "filter" : $FILTER } hebben, waarbij $URL_PATTERN een patroon voor het instellen van content is. $FILTER beperkt de clientcertificaten die de browser automatisch kan selecteren. Onafhankelijk van het filter, worden alleen certificaten geselecteerd die overeenkomen met het certificaatverzoek van de server. Als $FILTER de indeling { "ISSUER": { "CN": "$ISSUER_CN" } } heeft, worden daarnaast alleen clientcertificaten geselecteerd die zijn uitgegeven door een certificaat met de CommonName $ISSUER_CN. Als $FILTER het lege woordenboek {} is, wordt de selectie van clientcertificaten niet verder beperkt.
 
           Als dit beleid niet wordt ingesteld, wordt voor geen enkele site automatische selectie uitgevoerd.</translation>
+<translation id="4978405676361550165">Als het beleid 'OffHours' is ingesteld, worden de gespecificeerde apparaatbeleidsregels genegeerd (gebruik de standaardinstellingen van deze beleidsregels) tijdens de gedefinieerde tijdsintervallen. Chrome past apparaatbeleidsregels opnieuw toe voor elke gebeurtenis wanneer de periode 'OffHours' begint of eindigt. De gebruiker ontvangt een melding en wordt gedwongen uit te loggen wanneer de tijd 'OffHours' eindigt en de apparaatbeleidsinstellingen worden gewijzigd (bijvoorbeeld wanneer de gebruiker is ingelogd met een niet-toegestaan account).</translation>
 <translation id="4980635395568992380">Gegevenstype:</translation>
 <translation id="4983201894483989687">Verouderde plug-ins toestaan die actief zijn</translation>
 <translation id="4988291787868618635">Actie die wordt ondernomen wanneer de inactieve vertraging wordt bereikt</translation>
@@ -1113,6 +1172,7 @@
 <translation id="5067143124345820993">Aanmelden bij witte lijst van gebruikers</translation>
 <translation id="5068140065960598044">Het cloudbeleid van <ph name="PRODUCT_NAME" /> overschrijft het apparaatbeleid.</translation>
 <translation id="5085647276663819155">Afdrukvoorbeeld uitschakelen</translation>
+<translation id="5090209345759901501">Instelling voor Flash-content uitbreiden naar alle content</translation>
 <translation id="5105313908130842249">Vertraging van schermvergrendeling wanneer op de batterij wordt gewerkt</translation>
 <translation id="5108031557082757679">Zakelijke apparaatprinters uitgeschakeld</translation>
 <translation id="5130288486815037971">Of RC4-coderingssuites in TLS zijn ingeschakeld</translation>
@@ -1390,6 +1450,53 @@
 
       Als dit beleid niet is ingesteld of is ingesteld op 'onwaar', activeren afdrukopdrachten het afdrukvoorbeeldscherm.</translation>
 <translation id="6022948604095165524">Actie bij starten</translation>
+<translation id="6023030044732320798">Hiermee wordt een reeks beleidsregels gespecificeerd om door te geven aan de ARC-runtime. De waarde moet geldige JSON zijn.
+
+      Dit beleid kan worden gebruikt om in te stellen welke Android-apps automatisch worden geïnstalleerd op het apparaat:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android-app-ID, bijv. "com.google.android.gm" voor Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Specificeert hoe een app wordt geïnstalleerd. OPTIONAL: De app wordt niet automatisch geïnstalleerd, maar de gebruiker kan deze installeren. Dit is de standaardwaarde als dit beleid niet is gespecificeerd. PRELOAD: De app wordt automatisch geïnstalleerd, maar de gebruiker kan deze verwijderen. FORCE_INSTALLED: De app wordt automatisch geïnstalleerd en de gebruiker kan deze niet verwijderen. BLOCKED: De app is geblokkeerd en kan niet worden geïnstalleerd. Als de app is geïnstalleerd op basis van een eerder beleid, wordt deze verwijderd.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Beleid voor het verlenen van machtigingen aan apps. PERMISSION_POLICY_UNSPECIFIED: Beleid niet gespecificeerd. Als er geen beleid is gespecificeerd voor een machtiging op een bepaald niveau, wordt het gedrag 'PROMPT' standaard gebruikt. PROMPT: De gebruiker vragen een machtiging te verlenen. GRANT: Een machtiging automatisch verlenen. DENY: Een machtiging automatisch weigeren.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "App-specifiek JSON-configuratieobject met een set sleutel/waarde-paren, bijv. '"managedConfiguration": { "key1": value1, "key2": value2 }'. De sleutels worden gedefinieerd in het app-manifest.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Bekijk PinnedLauncherApps als je apps wilt vastzetten in de Launcher.</translation>
 <translation id="602728333950205286">Instant-URL voor standaardzoekprovider</translation>
 <translation id="603410445099326293">Parameters voor suggestie-URL die POST gebruikt</translation>
 <translation id="6036523166753287175">Firewallpassage vanaf host voor externe toegang inschakelen</translation>
@@ -1502,6 +1609,11 @@
           Als je het PAC-script voor de proxy kiest, ontvangen de Android-apps de script-URL.</translation>
 <translation id="6491139795995924304">Bluetooth toestaan op apparaat</translation>
 <translation id="6520802717075138474">Zoekmachines importeren uit standaardbrowser bij eerste uitvoering</translation>
+<translation id="6525955212636890608">Als je deze instelling inschakelt, wordt alle Flash-content uitgevoerd die is ingesloten op websites waarvoor in de instellingen voor content is ingesteld dat Flash is toegestaan (door de gebruiker of op basis van bedrijfsbeleid). Dit geldt ook voor content die afkomstig is uit andere bronnen of minder belangrijke content.
+
+      Als je wilt beheren welke websites Flash mogen uitvoeren, bekijk je de beleidsregels 'DefaultPluginsSetting', 'PluginsAllowedForUrls' en 'PluginsBlockedForUrls'.
+
+      Als deze instelling is uitgeschakeld of niet is ingesteld, kan Flash-content van andere bronnen of minder belangrijke content worden geblokkeerd.</translation>
 <translation id="653608967792832033">Hiermee wordt de tijdsduur zonder input van gebruikers gespecificeerd waarna het scherm wordt vergrendeld wanneer op de batterij wordt gewerkt.
 
           Als dit beleid is ingesteld op een grotere waarde dan nul, specificeert het de tijd die de gebruiker inactief moet blijven voordat het scherm wordt vergrendeld door <ph name="PRODUCT_OS_NAME" />.
@@ -2080,6 +2192,12 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="8493645415242333585">Opslaan van browsegeschiedenis uitschakelen</translation>
 <translation id="8499172469244085141">Standaardinstellingen (gebruikers kunnen overschrijven)</translation>
 <translation id="8519264904050090490">URL's van handmatige uitzonderingen voor beheerde gebruikers</translation>
+<translation id="8527932539502116028">Hiermee worden de printers gespecificeerd die een gebruiker niet kan gebruiken.
+
+      Dit beleid wordt alleen gebruikt als <ph name="PRINTERS_BLACKLIST" /> is gekozen voor <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Als dit beleid wordt gebruikt, zijn alle printers beschikbaar voor de gebruiker, met uitzondering van de ID's die in dit beleid worden vermeld.
+      </translation>
 <translation id="8544375438507658205">Standaard HTML-renderer voor <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Waarschuwen als sites worden bezocht die zich niet in de inhoudspakketten bevinden</translation>
 <translation id="8566842294717252664">De Web Store verbergen op de pagina 'Nieuw tabblad' en in de App Launcher</translation>
@@ -2159,6 +2277,18 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 
           De beleidswaarde moet worden opgegeven in milliseconden. Waarden moeten lager zijn dan de inactieve vertraging.</translation>
 <translation id="891435090623616439">gecodeerd als een JSON-tekenreeks. Ga voor meer informatie naar <ph name="COMPLEX_POLICIES_URL" /></translation>
+<translation id="8927384992072706174">Hiermee worden configuraties geleverd voor zakelijke printers.
+
+      Met dit beleid kun  je printerconfiguraties leveren aan <ph name="PRODUCT_OS_NAME" />-apparaten. Het bestand mag niet groter zijn dan 5 MB en moet zijn gecodeerd in JSON-indeling. De indeling is gelijk aan het NativePrinters-woordenboek. Naar schatting wordt een bestand dat ongeveer 21.000 printers bevat, gecodeerd als een bestand van 5 MB. De cryptografische hash wordt gebruikt om de integriteit van de download te verifiëren.
+
+      Het bestand wordt gedownload en gecachet. Het bestand wordt opnieuw gedownload wanneer de URL of hash verandert.
+
+      Als dit beleid is ingesteld, wordt in <ph name="PRODUCT_OS_NAME" /> het bestand voor printerconfiguraties gedownload en worden printers beschikbaar gesteld in overeenstemming met <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> en <ph name="BULK_PRINTERS_BLACKLIST" />.
+
+      Als je dit beleid instelt, kunnen gebruikers dit niet wijzigen of overschrijven.
+
+      Dit beleid is niet van invloed op de mogelijkheid van gebruikers om printers op afzonderlijke apparaten te configureren. Het is bedoeld als aanvulling op de configuratie van printers door individuele gebruikers.
+      </translation>
 <translation id="8947415621777543415">Apparaatlocatie rapporteren</translation>
 <translation id="8951350807133946005">Directory voor schijfcache instellen</translation>
 <translation id="8952317565138994125">Hiermee wordt gegevenssynchronisatie uitgeschakeld in <ph name="PRODUCT_NAME" /> via door Google gehoste synchronisatieservices. Gebruikers kunnen deze instelling niet wijzigen.

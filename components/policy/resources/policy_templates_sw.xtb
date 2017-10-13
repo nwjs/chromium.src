@@ -49,6 +49,12 @@
 
       Ikiwa sera hii itawekwa kuwa uongo, hali ya ubadilishaji wa dev haitaripotiwa.</translation>
 <translation id="1160939557934457296">Lemaza kuendelea kutoka kwenye ukurasa wa ilani ya Kuvinjari Salama</translation>
+<translation id="1166377463685560145">Hubainisha printa ambazo mtumiaji hawezi kutumia.
+
+      Sera hii hutumika tu ikiwa mipangilio ya <ph name="PRINTERS_BLACKLIST" /> imechaguliwa katika <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
+
+      Ikiwa sera hii inatumiwa, printa zote hutolewa kwa mtumiaji isipokuwa vitambulisho vilivyoorodheshwa katika sera hii.
+      </translation>
 <translation id="1198465924256827162">Ni mara ngapi vipakiwa vya hali ya kifaa hutumwa, katika milisekunde.
 
      Sera hii isipowekwa, idadi chaguo-msingi ni saa 3. Idadi ya chini inayoruhusiwa ni sekunde 60.</translation>
@@ -80,6 +86,12 @@ Mfumo wa kipimo lazima uwe 100% au zaidi.</translation>
 <translation id="1363275621236827384">Washa kipengele cha hoja za Seva ya Quirks ya wasifu wa maunzi</translation>
 <translation id="1393485621820363363">Printa za biashara zinazotumia sera</translation>
 <translation id="1397855852561539316">Mtoa huduma chaguo-msingi wa utafutaji anapendekeza URL</translation>
+<translation id="1420281424655200442">Hudhibiti aina za printa kutoka <ph name="DEVICE_PRINTERS_POLICY" /> zinazopatikana kwa watumiaji.
+
+      Hubainisha sera ya ufikiaji inayotumiwa katika mipangilio ya printa ya kina. Ikiwa <ph name="PRINTERS_ALLOW_ALL" /> imechaguliwa, printa zote zitaonyeshwa. Ikiwa <ph name="PRINTERS_BLACKLIST" /> imechaguliwa, <ph name="DEVICE_PRINTERS_BLACKLIST" /> itatumika kudhibiti uwezo wa kufikia printa zilizobainishwa. Ikiwa <ph name="PRINTERS_WHITELIST" /> imechaguliwa, <ph name="DEVICE_PRINTERS_WHITELIST" /> itabainisha printa ambazo zitachaguliwa pekee.
+
+      Ikiwa sera haijawekwa, <ph name="PRINTERS_BLACKLIST" /> itaendelea kufuatwa.
+      </translation>
 <translation id="1426410128494586442">Ndio</translation>
 <translation id="1427655258943162134">Anwani au URL ya seva ya proksi</translation>
 <translation id="1435659902881071157">Usanidi wa mtandao wa kiwango cha kifaa</translation>
@@ -136,6 +148,19 @@ Iwapo sera hii haijawekwa, hali ya juu ya utoafautishaji huzimwa wakati skrini y
 <translation id="1561424797596341174">Ubatilishaji wa sera kwa miundo ya Hitilafu ya seva pangishi ya ufikiaji wa mbali</translation>
 <translation id="1561967320164410511">U2F pamoja na viendelezi vya uthibitishaji wa mtu binafsi</translation>
 <translation id="1583248206450240930">Tumia <ph name="PRODUCT_FRAME_NAME" /> kwa chaguo-msingi</translation>
+<translation id="1603058613431276040">Hutoa mipangilio ya printa za biashara zilizopachikwa kwenye vifaa.
+
+      Huduma hii inakuruhusu kuweka mipangilio ya printa kwenye vifaa vya <ph name="PRODUCT_OS_NAME" />. Ukubwa wa faili haupaswi kuzidi MB 5 na ni lazima uwe umesimbwa katika JSON. Muundo huu ni sawa na ule wa kamusi ya NativePrinters. Inakadiriwa kuwa faili iliyo na takribani printa 21,000 itasimbwa kuwa faili ya MB 5. Hashi ya kriptografia itatumika kuthibitisha hadhi ya upakiaji. 
+
+      Faili imepakuliwa na kuwekwa katika akiba. Itapakuliwa tena wakati hashi au URL itabadilishwa.
+
+      Ikiwa sera hii imewekwa, <ph name="PRODUCT_OS_NAME" /> itapakua faili ya kwa ajili ya mipangilio ya printa na kufanya printa zipatikane kulingana na sera za <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> na <ph name="DEVICE_PRINTERS_BLACKLIST" />.
+
+      Sera hii haina athari yoyote iwapo watumiaji wanaweka mipangilio ya printa kwenye vifaa mahususi. Imewekwa ili kutumika badala ya mipangilio ya printa ya watumiaji mahususi.
+
+      Sera hii inafuata <ph name="BULK_PRINTERS_POLICY" />.
+
+      Ikiwa sera hii haijawekwa, hakutakuwa na printa za vifaa na sera zingine za <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> hazitafuatwa.</translation>
 <translation id="1608755754295374538">URL ambazo zitapewa ufikiaji wa vifaa vya kunasa sauti bila ushawishi</translation>
 <translation id="1617235075406854669">Washa ufutaji wa historia ya upakuaji na kivinjari</translation>
 <translation id="163200210584085447">Michoro katika orodha hii italinganishwa na asili ya
@@ -242,6 +267,12 @@ Sera hii ikiondolewa, chaguo-msingi zitatumika kwa mipangilio yote.</translation
 <translation id="2030905906517501646">Nenomsingi la mtoa huduma chaguo-msingi wa utafutaji</translation>
 <translation id="203096360153626918">Sera hii haiathiri programu za Android kwa njia yoyote. Zitaweza kuwekwa katika hali ya skrini nzima hata kama sera hii imewekwa kuwa <ph name="FALSE" />.</translation>
 <translation id="2043770014371753404">Printa za biashara zisizotumia sera</translation>
+<translation id="2063380907529983889">Hudhibiti aina za printa kutoka <ph name="BULK_PRINTERS_POLICY" /> zinazopatikana kwa watumiaji.
+
+      Hubainisha sera ya ufikiaji inayotumiwa katika mipangilio ya printa ya kina. Ikiwa <ph name="PRINTERS_ALLOW_ALL" /> imechaguliwa, printa zote zitaonyeshwa. Ikiwa <ph name="PRINTERS_BLACKLIST" /> imechaguliwa, <ph name="BULK_PRINTERS_BLACKLIST" /> itatumika kudhibiti uwezo wa kufikia printa zilizobainishwa. Ikiwa <ph name="PRINTERS_WHITELIST" /> imechaguliwa, <ph name="BULK_PRINTERS_WHITELIST" /> itabainisha printa ambazo zitachaguliwa pekee.
+
+      Ikiwa sera haijawekwa, <ph name="PRINTERS_BLACKLIST" /> itaendelea kufuatwa.
+      </translation>
 <translation id="206623763829450685">Hubainisha mipango ya uthibitishaji wa HTTP inayotumia na <ph name="PRODUCT_NAME" />.
 
           Thamani zinazowezekana ni 'basic', 'digest', 'ntlm' na 'negotiate'. Tenganisha thamani anuwai kwa koma.
@@ -497,6 +528,12 @@ Sera hii ikiondolewa, chaguo-msingi zitatumika kwa mipangilio yote.</translation
 <translation id="2762164719979766599">Hubainisha akaunti za kifaa cha karibu nawe cha kuonyeshwa kwenye skrini ya kuingia.
 
       Kila ingizo la orodha hubainisha kitambulishi, kinachotumiwa ndani kutambua akaunti tofauti za kifaa cha karibu nawe zilizo mbali.</translation>
+<translation id="2766302473082018239">Hubainisha printa ambazo mtumiaji anaweza kutumia.
+
+      Sera hii hutumika tu ikiwa mipangilio ya <ph name="PRINTERS_WHITELIST" /> imechaguliwa katika <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Ikiwa sera hii inatumiwa, printa zenye vitambulisho vinavyolingana na thamani iliyo katika sera ndizo pekee zitapatikana kwa watumiaji. Ni lazima vitambulisho vilingane na data iliyowekwa katika faili iliyobainishwa katika <ph name="BULK_PRINTERS_POLICY" />.
+      </translation>
 <translation id="2769952903507981510">Sanidi jina la kikoa linalohitajika kwa wapangishaji wa ufikivu wa mbali</translation>
 <translation id="2787173078141616821">Ripoti maelezo kuhusu hali ya Android</translation>
 <translation id="2801230735743888564">Ruruhusu watumiaji wacheze mchezo fiche wa dinosau kifaa kinapokuwa nje ya mtandao.
@@ -563,6 +600,7 @@ Sera hii ikiondolewa, chaguo-msingi zitatumika kwa mipangilio yote.</translation
 
           Ikiwa sera hii itasalia kama haijawekwa, 'AllowJavaScript' itatumiwa na mtumiaji ataweza kuibadilisha.</translation>
 <translation id="3038323923255997294">Endelea kuendesha programu za mandharinyuma wakati <ph name="PRODUCT_NAME" /> imefungwa</translation>
+<translation id="3039065003245994702">Weka mipangilio ya sasisho la utendaji wa programu dhibiti ya TPM</translation>
 <translation id="3046192273793919231">Tuma vifurushi vya mtandao kwenye seva ya udhibiti ili kufuatilia hali ya mtandao</translation>
 <translation id="3048744057455266684">Sera hii ikiwekwa na URL ya utafutaji inayopendekezwa kutoka kwenye sandukuu iwe na kigezo hiki katika mtiririko wa hoja au katika kitambulishi cha kipande, basi pendekezo litaonyesha maneno ya utafutaji na mtoa huduma ya utafutaji badala ya URL ya utafutaji ghafi.
 
@@ -656,6 +694,12 @@ Sera hii ikiondolewa, chaguo-msingi zitatumika kwa mipangilio yote.</translation
 
           Ikiwa sera hii imewekwa kwenye mfuatano ulio na maudhui, mfuatano huo utatumika kama jina la mahali ambapo <ph name="PRODUCT_NAME" /> inatuma. Vinginevyo, jina la mahali litakuwa jina la kifaa. Ikiwa sera hii haijawekwa, jina mahali litakuwa jina la kifaa na mmiliki wa kifaa (au mmiliki kutoka kwenye kikoa kinachodhibiti kifaa) ataruhusiwa kulibadilisha. Jina halitakiwi kuwa na zaidi ya herufi 24.</translation>
 <translation id="3381968327636295719">Tumia kivinjari kipangishi kwa chaguo-msingi</translation>
+<translation id="3395348522300156660">Hubainisha printa ambazo mtumiaji anaweza kutumia.
+
+      Sera hii hutumika tu ikiwa mipangilio ya <ph name="PRINTERS_WHITELIST" /> imechaguliwa katika <ph name="DEVICE_PRINTERS_ACCESS_MODE" />
+
+      Ikiwa sera hii inatumiwa, printa zenye vitambulisho vinavyolingana na thamani iliyo katika sera ndizo pekee zitapatikana kwa watumiaji. Ni lazima vitambulisho vilingane na data iliyowekwa katika faili iliyobainishwa katika <ph name="DEVICE_PRINTERS_POLICY" />.
+      </translation>
 <translation id="3417418267404583991">Ikiwa sera hii itawekwa kwenye Ndivyo au haitasanidiwa, <ph name="PRODUCT_OS_NAME" /> haitawezesha uingiaji wa mgeni. Uingiaji wa mgeni ni vipindi visivyojulikana vya mtumiaji na havihitaji nenosiri..
 
       Ikiwa sera hii itawekwa kwenye Sivyo, <ph name="PRODUCT_OS_NAME" /> haitaruhusu vipindi vya mgeni kuanzishwa.</translation>
@@ -694,6 +738,13 @@ Sera hii inatumika tu kama sera ya 'DefaultSearchProviderEnabled' imewashwa.</tr
           Sera hii itatumika tu endapo sera ya 'DefaultSearchProviderEnabled' imewashwa.</translation>
 <translation id="350797926066071931">Wezesha Tafsiri</translation>
 <translation id="3512226956150568738">Ikiwa muundo wa kifaa teja tayari unatumia ARC kabla ya kuhamishiwa kwenye ext4 ili kutumia ARC na sera ya ArcEnabled imewekwa kuwa ndivyo, chaguo hili litafanya kazi kama AskUser (thamani ya 3). Katika hali zingine zote (ikiwa muundo wa kifaa haukuwa unatumia ARC hapo awali, au kama sera ya ArcEnabled imewekwa kuwa sivyo), thamani hii inalingana na DisallowArc (thamani ya 0).</translation>
+<translation id="3519432185185398282">Huweka mipangilio ya upatikanaji na utendaji wa kipengele cha kusasisha programu dhibiti ya TPM.
+
+      Mipangilio mahususi inaweza kubainishwa katika sifa za JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Ikiwekwa kuwa <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, watumiaji watawezesha utaratibu wa Powerwash wa kusakinisha sasisho la programu dhibiti ya TPM.
+
+      Ikiwa sera hii haijawekwa, kipengele cha kusasisha programu dhibiti ya TPM hakitapatikana.</translation>
 <translation id="3528000905991875314">Wezesha kurasa badala za hitilafu</translation>
 <translation id="3547954654003013442">Mipangilio ya proksi</translation>
 <translation id="3591584750136265240">Weka mipangilio ya tabia ya kithibitishaji cha kuingia katika akaunti</translation>
@@ -874,6 +925,7 @@ Sera hii isipowekwa, mtumiaji bado anaweza kusakinisha kiendelezi chochote katik
           Sera ya thamani inastahili kubainishwa kwa nukta.</translation>
 <translation id="4105989332710272578">Zima utekelezaji wa Uwazi wa Cheti kwa orodha ya URL</translation>
 <translation id="4121350739760194865">Zuia utambulishaji dhidi ya kuonekana kwenye ukurasa mpya wa kichupo</translation>
+<translation id="4133144443101280166">Vipindi ambavyo kifaa kimezimwa ambapo sera ya kifaa ya OffHours |ignored_policy_proto_tags| hutolewa</translation>
 <translation id="4157003184375321727">Ripoti OS na toleo la programu dhibiti</translation>
 <translation id="4183229833636799228">Mipangilio chaguo-msingi ya <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="4192388905594723944">URL ya kuidhinisha tokeni ya kuthibitisha seva teja ya ufikiaji wa mbali</translation>
@@ -1103,6 +1155,7 @@ Iwapo sera hii haijawekwa, kiteuzi kikubwa kitazimwa mwanzoni lakini kitawashwa 
 <translation id="5067143124345820993">Ingia kwenye orodha ya kutoa idhini ya mtumiaji</translation>
 <translation id="5068140065960598044">Sera ya wingu ya <ph name="PRODUCT_NAME" /> inabatilisha Sera ya Mashine</translation>
 <translation id="5085647276663819155">Lemaza Uhakiki wa Uchapishaji</translation>
+<translation id="5090209345759901501">Panua mipangilio ya maudhui ya Flash kujumuisha maudhui yote</translation>
 <translation id="5105313908130842249">Ufungaji wa skrini unachelewa wakati wa kuendesha kwa nishati ya betri</translation>
 <translation id="5108031557082757679">Printa za biashara zisizotumia sera</translation>
 <translation id="5130288486815037971">Ikiwa mipangilio ya kriptografia ya RC4 katika TLS imewashwa</translation>
@@ -1486,6 +1539,11 @@ Thamani ya sera inapaswa kubainishwa katika milisekunde. Thamani huwekwa pamoja 
           Ukichagua kutumia hati ya seva mbadala ya a .pac, URL ya hati inatolewa kwa programu za Android.</translation>
 <translation id="6491139795995924304">Ruhusu Bluetooth kwenye kifaa</translation>
 <translation id="6520802717075138474">Leta injini za utafutaji kutoka kwenye kivinjari chaguo-msingi wakati wa uendeshaji wa kwanza</translation>
+<translation id="6525955212636890608">Ikiwa utaweka mipangilio hii, maudhui yote yaliyopachikwa katika Flash kwenye tovuti ambazo zimewekwa kuruhusu Flash katika mipangilio ya maudhui -- na mtumiaji au sera ya biashara -- itatekelezwa, ikijumuisha maudhui kutoka vyanzo vingine au maudhui machache.
+
+      Ili kudhibiti aina ya tovuti ambazo zinakubaliwa kutumia Flash, angalia sera za  "DefaultPluginsSetting", "PluginsAllowedForUrls", na "PluginsBlockedForUrls".
+
+    Ikiwa mipangilio hii imezimwa au haijawekwa, maudhui ya Flash kutoka vyanzo vingine au maudhui machache yanaweza kuzuiwa.</translation>
 <translation id="653608967792832033">Hubainisha urefu wa muda bila mchango wa mtumiaji ambapo baadaye skrini hufungwa inapoendeshwa kwa nguvu ya betri.
 
           Sera hii inapowekwa katika thamani kubwa zidi ya sufuri, hubainisha urefu wa muda ambao lazima mtumiaji asalie bila shughuli kabla ya <ph name="PRODUCT_OS_NAME" /> kufunga skrini.
@@ -2057,6 +2115,12 @@ Kama sera hii haitawekwa, hali ya juu ya utofautishaji itazimwa mwanzoni lakini 
 <translation id="8493645415242333585">Lemaza kuhifadhi historia ya kivinjari</translation>
 <translation id="8499172469244085141">Mipangilio ya Chaguo-Msingi (watumiaji wanaweza kubadilisha)</translation>
 <translation id="8519264904050090490">URL zisizofuata kanuni za mwongozo wa mtumiaji uliodhibitiwa</translation>
+<translation id="8527932539502116028">Hubainisha printa ambazo mtumiaji hawezi kutumia.
+
+      Sera hii hutumika tu ikiwa mipangilio ya <ph name="PRINTERS_BLACKLIST" /> imechaguliwa katika <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Ikiwa sera hii inatumiwa, printa zote hutolewa kwa mtumiaji isipokuwa vitambulisho vilivyoorodheshwa katika sera hii.
+      </translation>
 <translation id="8544375438507658205">Kionyeshi chaguo-msngi cha HTML kwa<ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Tahadharisha ninapotembelea tovuti zilizo nje ya vifurushi vya maudhui</translation>
 <translation id="8566842294717252664">Ficha duka la wavuti kwenye ukurasa mpya wa kichupo na kifungua programu cha Chrome</translation>
@@ -2136,6 +2200,18 @@ Mfumo wa kipimo  lazima uwe 100% au zaidi. Thamani zitakazofupisha kuchelewa kwa
 
           Sera ya thamani inastahili kubainishwa kwa nukta. Thamani zinabanwa ili kuwa chini ya ucheleweshaji wa kutokuwa na shughuli.</translation>
 <translation id="891435090623616439">imesimbwa kama mfuatano wa JSON, kwa maelezo angalia <ph name="COMPLEX_POLICIES_URL" /></translation>
+<translation id="8927384992072706174">Hutoa mipangilio ya printa zinazotumika katika biashara.
+
+      Sera hii inakuruhusu kuweka mipangilio ya printa kwenye vifaa vya <ph name="PRODUCT_OS_NAME" />. Ukubwa wa faili haupaswi kuzidi MB 5 na ni lazima uwe umesimbwa katika JSON. Muundo huu ni sawa na ule wa kamusi ya NativePrinters. Inakadiriwa kuwa faili iliyo na takribani printa 21,000 itasimbwa kuwa faili ya MB 5. Hashi ya kriptografia inatumika kuthibitisha hadhi ya upakiaji.
+
+      Faili itapakuliwa na kuwekwa kwenye akiba. Itapakuliwa tena wakati hashi au URL itabadilishwa. 
+
+      Ikiwa sera hii imewekwa, <ph name="PRODUCT_OS_NAME" /> itapakua faili kwa ajili ya mipangilio ya printa na kufanya printa zipatikane kulingana na sera za  <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> na <ph name="BULK_PRINTERS_BLACKLIST" />.
+
+      Ukiweka sera hii, watumiaji hawataweza kuibadilisha wala kuifuta.
+
+      Sera hii haina athari yoyote iwapo watumiaji wanaweka mipangilio ya printa kwenye vifaa mahususi. Imewekwa ili kutumika badala ya mipangilio ya printa ya watumiaji mahususi.
+      </translation>
 <translation id="8947415621777543415">Ripoti eneo la kifaa</translation>
 <translation id="8951350807133946005">Weka saraka ya akiba ya diski</translation>
 <translation id="8952317565138994125">Huzima usawazishaji data kwenye <ph name="PRODUCT_NAME" /> kwa kutumia huduma za usawazishaji zilizopangishwa kwenye Google na kuzuia watumiaji kuibadilisha mipangilio hii.

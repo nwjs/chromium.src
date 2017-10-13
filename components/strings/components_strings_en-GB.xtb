@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Reading list</translation>
 <translation id="1264126396475825575">Crash report captured on <ph name="CRASH_TIME" /> (not yet uploaded or ignored)</translation>
 <translation id="1270502636509132238">Pickup Method</translation>
-<translation id="1281526147609854549">Issued by <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Never translate this site</translation>
 <translation id="129553762522093515">Recently closed</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Try clearing your cookies<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Cancel payment</translation>
 <translation id="2147827593068025794">Background Sync</translation>
 <translation id="2148613324460538318">Add Card</translation>
+<translation id="2149973817440762519">Edit Bookmark</translation>
 <translation id="2154054054215849342">Sync is not available for your domain</translation>
 <translation id="2154484045852737596">Edit card</translation>
 <translation id="2166049586286450108">Full Admin Access</translation>

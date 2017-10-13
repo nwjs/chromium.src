@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">فهرست خواندن</translation>
 <translation id="1264126396475825575">گزارش خرابی ثبت‌شده در <ph name="CRASH_TIME" /> (هنوز بارگذاری نشده است یا نادیده‌ گرفته شده است)</translation>
 <translation id="1270502636509132238">روش تحویل گرفتن</translation>
-<translation id="1281526147609854549">صادرشده توسط <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">این سایت هرگز ترجمه نشود</translation>
 <translation id="129553762522093515">اخیراً بسته‌شده</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />کوکی‌ها را پاک کنید<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">لغو پرداخت</translation>
 <translation id="2147827593068025794">همگام‌سازی پس‌زمینه</translation>
 <translation id="2148613324460538318">افزودن کارت</translation>
+<translation id="2149973817440762519">ویرایش نشانک</translation>
 <translation id="2154054054215849342">همگام‌سازی برای دامنه شما در دسترس نیست</translation>
 <translation id="2154484045852737596">ویرایش کارت</translation>
 <translation id="2166049586286450108">دسترسی کامل سرپرست</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">انواع مختلف</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{هیچ‌کدام}=1{۱ برنامه ($1)}=2{۲ برنامه ($1،‏ $2)}one{# برنامه ($1،‏ $2،‏ $3)}other{# برنامه ($1،‏ $2،‏ $3)}}</translation>
 <translation id="2625385379895617796">ساعت شما جلو است</translation>
+<translation id="2634124572758952069">‏نشانی IP سرور <ph name="HOST_NAME" /> پیدا نشد.</translation>
 <translation id="2639739919103226564">وضعیت:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />، <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">دسترسی به فایل رد شد</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">مهاجم‌ها در <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> می‌توانند برنامه‌های فریب‌دهنده‌ای نصب کنند که وانمود می‌کنند چیز دیگری هستند یا داده‌هایی جمع‌آوری کنند که ممکن است برای ردیابی شما استفاده شوند. <ph name="BEGIN_LEARN_MORE_LINK" />بیشتر بدانید<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />، <ph name="TYPE_2" />، <ph name="TYPE_3" /> (همگام‌سازی‌شده)</translation>
 <translation id="6027201098523975773">نامی وارد کنید</translation>
+<translation id="6039846035001940113">اگر مشکل ادامه دارد، با مالک سایت تماس بگیرید.</translation>
 <translation id="6040143037577758943">بستن</translation>
 <translation id="6047233362582046994">اگر خطری را که امنیتتان را تهدید می‌کند درک می‌کنید، می‌توانید قبل از حذف برنامه‌های مضر، <ph name="BEGIN_LINK" />از این سایت بازدید کنید<ph name="END_LINK" />.</translation>
 <translation id="6047927260846328439">شاید محتوای این صفحه تلاش کند شما را فریب دهد تا نرم‌افزاری نصب کنید یا اطلاعات شخصی را افشا سازید. <ph name="BEGIN_LINK" />درهرصورت نمایش داده شود<ph name="END_LINK" /></translation>

@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Orodha ya kusoma</translation>
 <translation id="1264126396475825575">Ripoti ya kuacha kufanya kazi iliyochukuliwa <ph name="CRASH_TIME" /> (haijapakiwa au imepuuzwa)</translation>
 <translation id="1270502636509132238">Mbinu ya Kuchukua</translation>
-<translation id="1281526147609854549">Imetolewa na <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Kamwe usitafsiri tovuti hii</translation>
 <translation id="129553762522093515">Vilivyofungwa hivi karibuni</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Jaribu kufuta vidakuzi kwenye kivinjari chako<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Ghairi malipo</translation>
 <translation id="2147827593068025794">Usawazishaji wa Chini Chini</translation>
 <translation id="2148613324460538318">Ongeza Kadi</translation>
+<translation id="2149973817440762519">Badilisha Alamisho</translation>
 <translation id="2154054054215849342">Huduma ya usawazishaji haipatikani kwa ajili ya kikoa chako</translation>
 <translation id="2154484045852737596">Badilisha kadi</translation>
 <translation id="2166049586286450108">Idhini Kamili ya Kufikia ya Msimamizi</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Vipera</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Hamna}=1{Programu 1 ($1)}=2{Programu 2 ($1, $2)}other{Programu # ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Saa yako iko mbele</translation>
+<translation id="2634124572758952069">Haikupata anwani ya IP ya seva ya <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Hali:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Ufikivu katika faili umekataliwa</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Wavamizi walio kwenye <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> wanaweza kusakinisha programu za udanganyifu zinazojifanya kuwa kitu kingine au kukusanya data inayoweza kutumika kukufuatilia. <ph name="BEGIN_LEARN_MORE_LINK" />Pata maelezo zaidi<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (imesawazishwa)</translation>
 <translation id="6027201098523975773">Andika jina</translation>
+<translation id="6039846035001940113">Ikiwa tatizo litaendelea, wasiliana na mmiliki wa tovuti.</translation>
 <translation id="6040143037577758943">Funga</translation>
 <translation id="6047233362582046994">Ikiwa unaelewa hatari kwa usalama wako, unaweza <ph name="BEGIN_LINK" />kuitembelea tovuti hii<ph name="END_LINK" /> kabla programu hasidi hazijaondolewa.</translation>
 <translation id="6047927260846328439">Maudhui haya yanaweza kukuhadaa kusakinisha programu au kuonyesha maelezo yako ya binafsi. <ph name="BEGIN_LINK" />Onyesha tu<ph name="END_LINK" /></translation>

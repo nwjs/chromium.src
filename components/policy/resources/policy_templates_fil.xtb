@@ -49,6 +49,12 @@
 
       Kung nakatakda ang patakaran sa false, hindi iuulat ang katayuan ng dev switch.</translation>
 <translation id="1160939557934457296">Huwag paganahin ang pagpapatuloy mula sa pahina ng babala sa Ligtas na Pag-browse</translation>
+<translation id="1166377463685560145">Tumutukoy sa mga printer na hindi magagamit ng user.
+
+      Ginagamit lang ang patakarang ito kung napili ang <ph name="PRINTERS_BLACKLIST" /> para sa <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
+
+      Kung ginagamit ang patakarang ito, ibibigay ang lahat ng printer sa user maliban sa mga id na nakalista sa patakarang ito.
+      </translation>
 <translation id="1198465924256827162">Kung gaano kadalas ipinapadala ang mga pag-upload ng status ng device, sa mga millisecond.
 
       Kung hindi itatakda ang patakarang ito, ang default na dalas ay 3 oras. Ang minimum
@@ -81,6 +87,12 @@
 <translation id="1363275621236827384">I-enable ang mga query sa Quirks Server para sa mga profile sa hardware</translation>
 <translation id="1393485621820363363">Mga naka-enable na printer ng device ng enterprise</translation>
 <translation id="1397855852561539316">Default ng iminumungkahing URL ng provider ng paghahanap</translation>
+<translation id="1420281424655200442">Kumokontrol sa kung aling mga printer mula sa <ph name="DEVICE_PRINTERS_POLICY" /> ang available sa mga user.
+
+      Nagtatalaga sa kung aling patakaran sa pag-access ang gagamitin para sa maramihang pag-configure ng printer. Kung pipiliin ang <ph name="PRINTERS_ALLOW_ALL" />, ipapakita ang lahat ng printer. Kung pipiliin ang <ph name="PRINTERS_BLACKLIST" />, gagamitin ang <ph name="DEVICE_PRINTERS_BLACKLIST" /> upang paghigpitan ang access sa mga tinukoy na printer.  Kung pipiliin ang <ph name="PRINTERS_WHITELIST" />, ang mga printer na maaaring piliin lang ang itatalaga ng <ph name="DEVICE_PRINTERS_WHITELIST" />.
+
+      Kung hindi nakatakda ang patakarang ito, ipagpapalagay ang <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="1426410128494586442">Oo</translation>
 <translation id="1427655258943162134">Address o URL ng mga proxy server</translation>
 <translation id="1435659902881071157">Configuration ng network sa antas ng device</translation>
@@ -143,6 +155,19 @@
 <translation id="1561424797596341174">Mga pag-override ng patakaran para sa Mga build sa pag-debug ng host ng malayuang access</translation>
 <translation id="1561967320164410511">U2F kasama ang mga extension para sa pagpapatunay ng indibidwal</translation>
 <translation id="1583248206450240930">Gamitin ang <ph name="PRODUCT_FRAME_NAME" /> bilang default</translation>
+<translation id="1603058613431276040">Nagbibigay ng mga configuration para sa mga enterprise printer na naka-bind sa mga device.
+
+      Pinapayagan ka ng patakarang ito na magbigay ng mga configuration ng printer sa mga <ph name="PRODUCT_OS_NAME" /> device. Hindi dapat lumampas ang laki ng file sa 5MB at dapat ay naka-encode ito sa JSON. Pareho ang format sa format ng diksyunaryo ng NativePrinters.  Tinatantyang ang isang file na may humigit-kumulang 21,000 printer ay mae-encode bilang 5MB na file.  Ginagamit ang cryptographic hash upang i-verify ang integridad ng download.
+
+      Ida-download at ika-cache ang file. Muli itong ida-download sa tuwing magbabago ang URL o ang hash.
+
+      Kung nakatakda ang patakarang ito, ida-download ng <ph name="PRODUCT_OS_NAME" /> ang file para sa mga pag-configure ng printer at gagawin nitong available ang mga printer alinsunod sa <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" />, at <ph name="DEVICE_PRINTERS_BLACKLIST" />.
+
+      Walang epekto ang patakarang ito sa kung maaaring mag-configure ng mga printer ang mga user sa mga indibidwal na device.  Nakalaan itong maging dagdag sa pag-configure ng mga indibidwal na user sa mga printer.
+
+      Karagdagan ang patakarang ito sa <ph name="BULK_PRINTERS_POLICY" />.
+
+      Kung hindi nakatakda ang patakarang ito, walang magiging device printer at babalewalain ang iba pang patakaran ng <ph name="DEVICE_PRINTERS_POLICY_PATTERN" />.</translation>
 <translation id="1608755754295374538">Mga URL na mabibigyan ng access sa mga device na nakakakuha ng audio nang walang prompt</translation>
 <translation id="1617235075406854669">Paganahin ang pagtatanggal ng browser at kasaysayan ng pag-download</translation>
 <translation id="163200210584085447">Itutugma ang mga pattern na nasa listahang ito sa security
@@ -247,6 +272,12 @@
 <translation id="2030905906517501646">Default na keyword ng provider ng paghahanap</translation>
 <translation id="203096360153626918">Ang patakarang ito ay walang epekto sa mga Android app. Makakapunta ang mga ito sa fullscreen mode kahit na nakatakda ang patakaran sa <ph name="FALSE" />.</translation>
 <translation id="2043770014371753404">Mga naka-disable na printer ng enterprise</translation>
+<translation id="2063380907529983889">Kumokontrol sa kung aling mga printer mula sa <ph name="BULK_PRINTERS_POLICY" /> ang available sa mga user.
+
+      Nagtatalaga sa kung aling patakaran sa pag-access ang gagamitin para sa maramihang pag-configure ng printer. Kung pipiliin ang <ph name="PRINTERS_ALLOW_ALL" />, ipapakita ang lahat ng printer. Kung pipiliin ang <ph name="PRINTERS_BLACKLIST" />, gagamitin ang <ph name="BULK_PRINTERS_BLACKLIST" /> upang paghigpitan ang access sa mga tinukoy na printer.  Kung pipiliin ang <ph name="PRINTERS_WHITELIST" />, ang mga printer na maaaring piliin lang ang itatalaga ng <ph name="BULK_PRINTERS_WHITELIST" />.
+
+      Kung hindi nakatakda ang patakarang ito, ipagpapalagay ang <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="206623763829450685">Tinutukoy kung aling mga scheme ng pagpapatotoo ng HTTP ang sinusuportahan ng <ph name="PRODUCT_NAME" />.
 
           Ang mga posibleng value ay 'basic,' 'digest,' 'ntlm' at 'negotiate.' Paghiwa-hiwalayin ang maraming value gamit ang mga kuwit.
@@ -506,6 +537,12 @@
 <translation id="2762164719979766599">Tinutukoy ang listahan ng mga account na lokal sa device na ipapakita sa screen ng pag-login.
 
       Tumutukoy ng identifier ang bawat entry sa listahan, na panloob na ginagamit upang hiwalay na tukuyin ang iba't ibang mga account na lokal sa device.</translation>
+<translation id="2766302473082018239">Tumutukoy sa mga printer na magagamit ng user.
+
+      Ginagamit lang ang patakarang ito kung pipiliin ang <ph name="PRINTERS_WHITELIST" /> para sa <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Kung ginagamit ang patakarang ito, ang mga printer lang na may mga id na tumutugma sa mga value sa patakarang ito ang available sa user. Dapat tumugma ang mga id sa mga entry sa file na tinukoy sa <ph name="BULK_PRINTERS_POLICY" />.
+      </translation>
 <translation id="2769952903507981510">I-configure ang kinakailangang domain name para sa mga host ng malayuang pag-access</translation>
 <translation id="2787173078141616821">Ulat ng impormasyon tungkol sa status ng Android</translation>
 <translation id="2801230735743888564">Nagbibigay-daan sa mga user na makapaglaro ng dinosaur easter egg game kapag offline ang device.
@@ -572,6 +609,7 @@
 
           Kung hinayaang hindi nakatakda ang patakarang ito, gagamitin ang 'AllowJavaScript' at magagawa ng user na baguhin ito.</translation>
 <translation id="3038323923255997294">Magpatuloy sa pagpapatakbo ng apps sa background kapag nakasara ang <ph name="PRODUCT_NAME" /></translation>
+<translation id="3039065003245994702">I-configure ang gawi sa pag-update ng TPM firmware</translation>
 <translation id="3046192273793919231">Magpadala ng mga network packet sa server sa pamamahala upang masubaybayan ang online status</translation>
 <translation id="3048744057455266684">Kung nakatakda ang patakarang ito at may URL sa paghahanap na iminungkahi mula sa omnibox na naglalaman ng parameter na ito sa string ng query o sa tagatukoy ng fragment, ipapakita ng suhestiyon ang mga termino para sa paghahanap at search provider sa halip na ang mismong URL sa paghahanap.
 
@@ -664,6 +702,12 @@
 
           Kung nakatakda ang patakarang ito sa isang may lamang string, gagamitin ang string na iyon bilang pangalan ng destinasyon ng <ph name="PRODUCT_NAME" />. Kung hindi, ang pangalan ng device ang magiging pangalan ng destinasyon. Kung hindi nakatakda ang patakarang ito, ang pangalan ng device ang magiging pangalan ng destinasyon, at papayagan ang may-ari ng device (o isang user mula sa domain na namamahala sa device) na palitan ito. Nalilimitahan ang pangalan sa 24 na character.</translation>
 <translation id="3381968327636295719">Gamitin ang host browser bilang default</translation>
+<translation id="3395348522300156660">Tumutukoy sa mga printer na magagamit ng user.
+
+      Ginagamit lang ang patakarang ito kung pipiliin ang <ph name="PRINTERS_WHITELIST" /> para sa <ph name="DEVICE_PRINTERS_ACCESS_MODE" />
+
+      Kung ginagamit ang patakarang ito, ang mga printer lang na may mga id na tumutugma sa mga value sa patakarang ito ang available sa user. Dapat tumugma ang mga id sa mga entry sa file na tinukoy sa <ph name="DEVICE_PRINTERS_POLICY" />.
+      </translation>
 <translation id="3417418267404583991">Kung nakatakda sa true o hindi naka-configure ang patakarang ito, papaganahin ng <ph name="PRODUCT_OS_NAME" /> ang mga pag-login ng bisita. Ang mga pag-login ng bisita ay mga walang pagkakakilanlang session ng user at hindi nangangailangan ng password.
 
       Kung nakatakda sa false ang patakarang ito, hindi papayagan ng <ph name="PRODUCT_OS_NAME" /> na masimulan ang mga session ng bisita.</translation>
@@ -701,6 +745,13 @@
           Iginagalang lang ang patakarang ito kung naka-enable ang patakarang 'DefaultSearchProviderEnabled.'</translation>
 <translation id="350797926066071931">Paganahin ang I-translate</translation>
 <translation id="3512226956150568738">Kung sinusuportahan na ng modelo ng device ng kliyente ang ARC bago kailanganin ang paglipat sa ext4 upang mapatakbo ang ARC at kung nakatakda sa true ang patakarang ArcEnabled, gagana ang opsyong ito bilang AskUser (value 3). Sa lahat ng iba pang sitwasyon (kung hindi sinusuportahan ng modelo ng device ang ARC dati, o kung nakatakda sa false ang patakarang ArcEnabled), ang value na ito ay katumbas ng DisallowArc (value 0).</translation>
+<translation id="3519432185185398282">Nagko-configure ng availability at gawi ng functionality ng pag-update sa TPM firmware.
+
+      Maaaring tumukoy ng mga indibidwal na setting sa mga property ng JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Kung nakatakda sa <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, mati-trigger ng mga user ang powerwash flow upang mag-install ng update sa TPM firmware.
+
+      Kung hindi nakatakda ang patakaran, magiging hindi available ang functionality ng pag-update sa TPM firmware.</translation>
 <translation id="3528000905991875314">Paganahin ang mga kahaliling pahina ng error</translation>
 <translation id="3547954654003013442">Mga setting ng proxy</translation>
 <translation id="3591584750136265240">I-configure ang gawi sa pagpapatotoo sa pag-log in</translation>
@@ -874,6 +925,7 @@
           Dapat tukuyin ang halaga ng patakaran ayon sa millisecond.</translation>
 <translation id="4105989332710272578">I-disable ang pagpapatupad ng Transparency ng Certificate para sa isang listahan ng mga URL</translation>
 <translation id="4121350739760194865">Pigilan ang paglitaw ng mga pag-promote ng app sa pahina ng bagong tab</translation>
+<translation id="4133144443101280166">Mga off hour na pagitan kapag na-release ang OffHours |ignored_policy_proto_tags| ng device</translation>
 <translation id="4157003184375321727">I-ulat ang bersyon ng OS at firmware.</translation>
 <translation id="4183229833636799228">Default na setting ng <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="4192388905594723944">URL para sa pagva-validate ng token ng pagpapatotoo ng client sa malayuang pag-access</translation>
@@ -1109,6 +1161,7 @@
 <translation id="5067143124345820993">White list ng user sa pag-login</translation>
 <translation id="5068140065960598044">Ino-override ng patakaran sa cloud ng <ph name="PRODUCT_NAME" /> ang patakaran sa Machine.</translation>
 <translation id="5085647276663819155">Huwag paganahin ang Preview ng Pag-print</translation>
+<translation id="5090209345759901501">I-extend ang setting ng Flash content sa lahat ng content</translation>
 <translation id="5105313908130842249">Delay ng pag-lock ng screen kapag tumatakbo gamit ang power ng baterya</translation>
 <translation id="5108031557082757679">Mga naka-disable na printer ng device ng enterprise</translation>
 <translation id="5130288486815037971">Kung naka-enable ang mga RC4 na cipher suite sa TLS o hindi</translation>
@@ -1496,6 +1549,11 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
           Kung pipiliin mong gumamit ng isang .pac proxy script, ibibigay sa mga Android app ang script URL.</translation>
 <translation id="6491139795995924304">Payagan ang bluetooth sa device</translation>
 <translation id="6520802717075138474">Mag-import ng mga search engine mula sa default na browser sa unang pagtakbo</translation>
+<translation id="6525955212636890608">Kung ie-enable mo ang setting na ito, ang lahat ng Flash content na naka-embed sa mga website na itinakdang payagan ang Flash sa mga setting ng content -- ng user man o ng patakaran ng enterprise -- ay papatakbuhin, kabilang ang content mula sa iba pang pinagmulan o maliit na content.
+
+      Upang makontrol kung aling mga website ang pinapayagang magpatakbo ng Flash, tingnan ang mga patakarang "DefaultPluginsSetting," "PluginsAllowedForUrls," at "PluginsBlockedForUrls."
+
+      Kung naka-disable o hindi nakatakda ang setting na ito, maaaring ma-block ang Flash content mula sa iba pang pinagmulan o maliit na content.</translation>
 <translation id="653608967792832033">Tinutukoy ang tagal ng oras na walang input ng user na kapag lumipas ay mala-lock ang screen kapag tumatakbo gamit ang power ng baterya.
 
           Kapag nakatakda ang patakarang ito sa halagang mas malaki kaysa sa zero, tinutukoy nito ang tagal ng oras na dapat manatiling idle ang user bago i-lock ng <ph name="PRODUCT_OS_NAME" /> ang screen.
@@ -2077,6 +2135,12 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 <translation id="8493645415242333585">Huwag paganahin ang pag-save ng kasaysayan ng browser</translation>
 <translation id="8499172469244085141">Mga Default na Setting (maaaring i-override ng mga user)</translation>
 <translation id="8519264904050090490">Mga pinapamahalaang URL ng manu-manong exception ng user</translation>
+<translation id="8527932539502116028">Tumutukoy sa mga printer na hindi magagamit ng user.
+
+      Ginagamit lang ang patakarang ito kung pipiliin ang <ph name="PRINTERS_BLACKLIST" /> para sa <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Kung ginagamit ang patakarang ito, ibibigay ang lahat ng printer sa user maliban sa mga id na nakalista sa patakarang ito.
+      </translation>
 <translation id="8544375438507658205">Default na taga-render ng HTML para sa <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Magbabala kapag bumibisita ng mga site na nasa labas ng mga pack ng nilalaman</translation>
 <translation id="8566842294717252664">Itago ang web store sa Page ng Bagong Tab at app launcher</translation>
@@ -2154,6 +2218,18 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 
           Dapat tukuyin ang halaga ng patakaran ayon sa millisecond. Kinakailangang mas mababa kaysa sa idle delay ang mga halaga.</translation>
 <translation id="891435090623616439">naka-encode bilang JSON string, para sa mga detalye, tingnan ang <ph name="COMPLEX_POLICIES_URL" /></translation>
+<translation id="8927384992072706174">Nagbibigay ng mga configuration para sa mga enterprise printer.
+
+      Pinapayagan ka ng patakarang ito na magbigay ng mga configuration ng printer sa mga <ph name="PRODUCT_OS_NAME" /> device. Hindi dapat lumampas ang laki ng file sa 5MB at dapat ay naka-encode ito sa JSON.  Pareho ang format sa format ng diksyunaryo ng NativePrinters.  Tinatantyang ang isang file na may humigit-kumulang 21,000 printer ay mae-encode bilang 5MB na file.  Ginagamit ang cryptographic hash upang i-verify ang integridad ng download.
+
+      Ida-download at ika-cach file. Muli itong ida-download sa tuwing magbabago ang URL o ang hash.
+
+      Kung nakatakda ang patakarang ito, ida-download ng <ph name="PRODUCT_OS_NAME" /> ang file para sa mga configuration ng printer at gagawin nitong available ang mga printer alinsunod sa <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" />, at <ph name="BULK_PRINTERS_BLACKLIST" />.
+
+      Kung itatakda mo ang patakarang ito, hindi ito mababago o mao-override ng mga user.
+
+      Walang epekto ang patakarang ito sa kung maaaring mag-configure ng mga printer ang mga user sa mga indibidwal na device.  Nakalaan itong maging dagdag sa pag-configure ng mga indibidwal na user sa mga printer.
+      </translation>
 <translation id="8947415621777543415">I-ulat ang lokasyon ng device</translation>
 <translation id="8951350807133946005">Itakda ang direktoryo ng cache ng disk</translation>
 <translation id="8952317565138994125">Dini-disable ang pag-synchronize ng data sa <ph name="PRODUCT_NAME" /> gamit ang mga serbisyo sa pag-synchronize na hino-host ng Google at pinipigilan ang mga user na baguhin ang setting na ito.

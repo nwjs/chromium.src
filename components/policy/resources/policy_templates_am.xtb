@@ -49,6 +49,12 @@
 
       መምሪያው ካልተዋቀረ ወይም ወደ ሐሰት ከተዋቀረ የገንቢ ማብሪያ ሁኔታው ሪፖርት አይደረግም።</translation>
 <translation id="1160939557934457296">ከደህንነቱ የተጠበቀ አሰሳ ማስጠንቀቂያ ገጽ መቀጠልን ያሰናክሉ</translation>
+<translation id="1166377463685560145">ተጠቃሚው ሊጠቀምባቸው የማይችላቸውን አታሚዎች ይገልጻል።
+
+      ይህ መመሪያ ስራ ላይ የሚውለው <ph name="PRINTERS_BLACKLIST" /> ለ<ph name="DEVICE_PRINTERS_ACCESS_MODE" /> ከተመረጠ ብቻ ነው።
+
+      ይህ መመሪያ ስራ ላይ ከዋለ በዚህ መመሪያ ውስጥ ከተጠቀሱት መታወቂያዎች በስተቀር ሁሉም አታሚዎች ለተጠቃሚው ይቀርባሉ።
+      </translation>
 <translation id="1198465924256827162">የመሣሪያ ሁኔታ ሰቀላዎች የሚላኩት በምን ያህል ድግግሞሽ እንደሆነ፣ በሚሊሰከንዶች።
 
       ይህ መመሪያ እንዳልተዋቀረ ከተተወ ነባሪ ድግግሞሹ በ3 ሰዓቶች ነው። ዝቅተኛው
@@ -81,6 +87,12 @@
 <translation id="1363275621236827384">የሃርድዌር መገለጫዎች መጠይቆች ለQuirks Server እንዲደረጉ ያንቁ</translation>
 <translation id="1393485621820363363">የድርጅት መሣሪያ አታሚዎች አንቅቷል</translation>
 <translation id="1397855852561539316">ነባሪ ፍለጋ አቅራቢ የሚጠቁመው ዩአርኤል</translation>
+<translation id="1420281424655200442">የትኛዎቹ የ<ph name="DEVICE_PRINTERS_POLICY" /> አታሚዎች ለተጠቃሚዎች የሚገኙ እንደሆኑ ይቆጣጠራል።
+
+      የትኛው የመዳረሻ መመሪያ ለጅምላ አታሚ ውቅረት ስራ ላይ እንደሚውል ይሰይማል። <ph name="PRINTERS_ALLOW_ALL" /> ከተመረጠ ሁሉም አታሚዎች ይታያሉ። <ph name="PRINTERS_BLACKLIST" /> ከተመረጠ <ph name="DEVICE_PRINTERS_BLACKLIST" /> የተገለጹት አታሚዎች መዳረሻን ለመገደብ ስራ ላይ ይውላል። <ph name="PRINTERS_WHITELIST" /> ከተመረጠ <ph name="DEVICE_PRINTERS_WHITELIST" /> ሊመረጡ የሚችሉ አታሚዎችን ብቻ ነው የሚሰይመው።
+
+      ይህ መመሪያ ካልተዋቀረ <ph name="PRINTERS_BLACKLIST" /> ስራ ላይ እንደዋለ ይታሰባል።
+      </translation>
 <translation id="1426410128494586442">አዎ</translation>
 <translation id="1427655258943162134">የተኪ አገልጋይ አድራሻ ወይም ዩአርኤል</translation>
 <translation id="1435659902881071157">የመሣሪያ ደረጃ አውታረ መረብ ውቅር</translation>
@@ -141,6 +153,19 @@
 <translation id="1561424797596341174">መመሪያ ለርቀት መዳረሻ አስተናጋጅ እርማት ግንቦች ይሽራል</translation>
 <translation id="1561967320164410511">U2F ለግለሰብ ማስረገጥ ከሆኑ ቅጥያዎች ጋር</translation>
 <translation id="1583248206450240930"><ph name="PRODUCT_FRAME_NAME" />ን በነባሪነት ይጠቀሙ</translation>
+<translation id="1603058613431276040">ከመሣሪያዎች ጋር ለተሳሰሩ የድርጅት አታሚዎች ውቅረቶችን ያቀርባል።
+
+      ይህ መመሪያ የአታሚ ውቅረቶችን ለ<ph name="PRODUCT_OS_NAME" /> መሣሪያዎች እንዲያቀርቡ ያስችልዎታል። የፋይሉ መጠን ከ5 ሜባ መብለጥ የለበትም፣ እና በJSON ኮድ ነው መቀመጥ ያለበት።  ቅርጸቱ ከNativePrinters መዝገበ-ቃላት ጋር ተመሳሳይ ነው። 21,000 አካባቢ አታሚዎች ያለው ፋይል እንደ የ5 ሜባ ኮድ ፋይል ሆኖ እንደሚቀመጥ ይገመታል። ስነ-መሰውራዊ ሃሹ የውርዱ ትክክለኝነት ለማረጋገጥ ስራ ላይ የሚውል ነው።
+
+      ፋይሉ ይወርድና ይሸጎጣል። ዩአርኤሉ ወይም ሃሹ በተቀየረ ጊዜ ዳግም ይወርዳል።
+
+      ይህ መመሪያ ከተዋቀረ <ph name="PRODUCT_OS_NAME" /> ፋይሉን ለአታሚ ውቅረቶችን ያወርደውና አታሚዎች በ<ph name="DEVICE_PRINTERS_ACCESS_MODE" />፣ <ph name="DEVICE_PRINTERS_WHITELIST" /> እና <ph name="DEVICE_PRINTERS_BLACKLIST" /> መሠረት የሚገኙ ያደርጋቸዋል።
+
+      ይህ መመሪያ ተጠቃሚዎች አታሚዎችን በተናጠል መሣሪያዎች ላይ ማዋቀር ይችሉ እንደሆነ ላይ ምንም ተጽዕኖ የለውም። ይሄ ግለሰብ ተጠቃሚዎች ለሚያደርጓቸው የአታሚዎች ውቅረት እንደ ማሟያ እንዲሆን የታሰበ ነው።
+
+      ይህ መመሪያ ለ<ph name="BULK_PRINTERS_POLICY" /> ጭማሬ ነው።
+
+      ይህ መመሪያ ካልተዋቀረ ምንም የመሣሪያ አታሚዎች አይኖሩም እና ሌሎች የ<ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> መመሪያዎች ችላ ይባላሉ።</translation>
 <translation id="1608755754295374538">የድምጽ ቀረጻ መሣሪያዎች መዳረሻ ያለጥያቄ የሚሰጣቸው ዩ አር ኤሎች</translation>
 <translation id="1617235075406854669">የአሳሽ እና ውርድ ታሪክ መሰረዝን ያንቁ</translation>
 <translation id="163200210584085447">በዚህ ዝርዝር ውስጥ ያሉ ስርዓተ-ጥለቶች ከጠያቂው ዩአርኤል
@@ -247,6 +272,12 @@
 <translation id="2030905906517501646">ነባሪ የፍለጋ አቅራቢ ቁልፍ ቃል</translation>
 <translation id="203096360153626918">ይህ መመሪያ በAndroid መተግበሪያዎች ላይ ምንም ተጽዕኖ የለውም። ይህ መመሪያ ወደ <ph name="FALSE" /> ቢዋቀርም እንኳ ወደ የሙሉ ማያ ገጽ ሁነታ መግባት ይችላሉ።</translation>
 <translation id="2043770014371753404">የድርጅት አታሚዎች ተሰናክለዋል</translation>
+<translation id="2063380907529983889">የትኛዎቹ የ<ph name="BULK_PRINTERS_POLICY" /> አታሚዎች ለተጠቃሚዎች የሚገኙ እንደሆኑ ይቆጣጠራል።
+
+      የትኛው የመዳረሻ መመሪያ ለጅምላ አታሚ ውቅረት ስራ ላይ እንደሚውል ይሰይማል። <ph name="PRINTERS_ALLOW_ALL" /> ከተመረጠ ሁሉም አታሚዎች ይታያሉ። <ph name="PRINTERS_BLACKLIST" /> ከተመረጠ <ph name="BULK_PRINTERS_BLACKLIST" /> የተገለጹት አታሚዎች መዳረሻን ለመገደብ ስራ ላይ ይውላል። <ph name="PRINTERS_WHITELIST" /> ከተመረጠ <ph name="BULK_PRINTERS_WHITELIST" /> ሊመረጡ የሚችሉ አታሚዎችን ብቻ ነው የሚሰይመው።
+
+      ይህ መመሪያ ካልተዋቀረ <ph name="PRINTERS_BLACKLIST" /> ስራ ላይ እንደዋለ ይታሰባል።
+      </translation>
 <translation id="206623763829450685">የትኛዎቹ የኤችቲቲፒ ማረጋገጫ መርሐግብሮች በ<ph name="PRODUCT_NAME" /> የሚደገፉ መሆናቸውን ይገልጻል።
 
           ሊሆኑ የሚችሉ እሴቶች «basic»፣ «digest»፣ «ntlm» እና «negotiate» ናቸው። በርካታ እሴቶችን በኮማ ያለያዩ።
@@ -508,6 +539,12 @@
 <translation id="2762164719979766599">በመግቢያው ገጹ ላይ የሚታየው የመሣሪያ-አካባቢያዊ መለያዎች ዝርዝር ይገልጻል።
 
       እያንዳንዱ የዝርዝር ግቤት የተለያዩ የመሣሪያ-አካባቢያዊ መለያዎችን እንዲለዩ በውስጥ የሚያገለግሉ አንድ ለዪ ይገልጻሉ።</translation>
+<translation id="2766302473082018239">ተጠቃሚው ሊጠቀምባቸው የሚችላቸው አታሚዎችን ይገልጻል።
+
+      ይህ መመሪያ ስራ ላይ የሚውለው <ph name="PRINTERS_WHITELIST" /> ለ<ph name="BULK_PRINTERS_ACCESS_MODE" /> ከተመረጠ ብቻ ነው።
+
+      ይህ መመሪያ ስራ ላይ ከዋለ በዚህ መመሪያ ውስጥ ካሉ እሴቶች የሚዛመዱ መታወቂያዎች ያላቸው አታሚዎች ብቻ ናቸው ለተጠቃሚው የሚገኙት። መታወቂያዎቹ በ<ph name="BULK_PRINTERS_POLICY" /> ውስጥ በተገለጸው ፋይል ላይ ካሉት ግቤቶች ጋር የሚዛመዱ መሆን አለባቸው።
+      </translation>
 <translation id="2769952903507981510">የተፈለገውን የጎራ ስም ለሩቅ መዳረሻ አስተናጋጆች ያዋቅሩ</translation>
 <translation id="2787173078141616821">ስለAndroid ሁኔታ መረጃን ሪፖርት አድርግ</translation>
 <translation id="2801230735743888564">መሣሪያው ከመሥመር ውጭ በሚሆን ጊዜ ተጠቃሚዎች የዳይኖሰር ኢስተር ኤግ ጨዋታን እንዲጫወቱ ይፍቅዱ።
@@ -574,6 +611,7 @@
 
           ይህ መመሪያ እንዳልተዋቀረ ከተተወ «AllowJavaScript» ስራ ላይ ይውልና ተጠቃሚው ሊቀይረው ይችላል።</translation>
 <translation id="3038323923255997294"><ph name="PRODUCT_NAME" /> ሲዘጋ የጀርባ መተግበሪያዎችን ማሂዱን ይቀጥሉ</translation>
+<translation id="3039065003245994702">የTPM ጽኑ ትዕዛዝ ዝማኔ ባህሪን ያዋቅሩ</translation>
 <translation id="3046192273793919231">የመስመር ላይ ሁኔታን ለመከታተል የአውታረ መረብ ጥቅሎችን ወደ የአስተዳደር አገልጋይ ይላኩ</translation>
 <translation id="3048744057455266684">ይህ መመሪያ ከተዋቀረና አንድ ከኦምኒቦክሱ የተጠቆመ የፍለጋ ዩአርኤል በሕብረቁምፊው ወይም በቁራጭ ለዪው ውስጥ የተጠቆመው ይህን ልኬት ከያዘ የጥቆማ አስተያየቱ ከጥሬ ፍለጋ ዩአርኤል ይልቅ የፍለጋ ቃላቱ እና የፍለጋ አቅራቢውን ያሳያል።
 
@@ -667,6 +705,12 @@
 
           ይህ መመሪያ ባዶ ወዳልሆነ ሕብረቁምፊ ከተዋቀረ ይህ ሕብረቁምፊ እንደ የ<ph name="PRODUCT_NAME" /> መድረሻ ስም ሆኖ ጥቅም ላይ ይውላል። አለበለዚያ የመድረሻ ስሙ የመሣሪያው ስም ይሆናል። ይህ መመሪያ ካልተዋቀረ የመድረሻ ስሙ የመሣሪያው ስም ይሆንና የመሣሪያው ባለቤት (ወይም መሣሪያውን ከሚያስተዳድር ጎራ የመጣ ተጠቃሚ) እንዲቀይረው ይፈቀድለታል። ስሙ በ24 ቁምፊዎች የተገደበ ነው።</translation>
 <translation id="3381968327636295719">አስተናጋጅ አሳሹን በነበሪነት ይጠቀሙ</translation>
+<translation id="3395348522300156660">ተጠቃሚው ሊጠቀምባቸው የሚችላቸው አታሚዎችን ይገልጻል።
+
+      ይህ መመሪያ ስራ ላይ የሚውለው <ph name="PRINTERS_WHITELIST" /> ለ<ph name="DEVICE_PRINTERS_ACCESS_MODE" /> ከተመረጠ ብቻ ነው
+
+      ይህ መመሪያ ስራ ላይ ከዋለ በዚህ መመሪያ ውስጥ ካሉ እሴቶች የሚዛመዱ መታወቂያዎች ያላቸው አታሚዎች ብቻ ናቸው ለተጠቃሚው የሚገኙት። መታወቂያዎቹ በ<ph name="DEVICE_PRINTERS_POLICY" /> ውስጥ በተገለጸው ፋይል ላይ ካሉት ግቤቶች ጋር የሚዛመዱ መሆን አለባቸው።
+      </translation>
 <translation id="3417418267404583991">ይህ መመሪያ ወደ እውነት ከተዋቀረ ወይም እንዲያውም ካልተዋቀረ <ph name="PRODUCT_OS_NAME" /> የእንግዶች መግቢያዎችን ያነቃል። የእንግዳ መግቢያዎች የይለፍ ቃል የማያስፈልጋቸው የተጠቃሚ ስም-አልባ ክፍለ-ጊዜዎች ናቸው።
 
       ይህ መመሪያ ወደ ሐሰት ከተዋቀረ <ph name="PRODUCT_OS_NAME" /> የእንግዳ ክፍለ-ጊዜዎችን እንዲጀመር አይፈቅድም።</translation>
@@ -705,6 +749,13 @@
 ይህ መመሪያ የሚከበረው የ«DefaultSearchProviderEnabled» መመሪያው ሲነቃ ብቻ ነው።</translation>
 <translation id="350797926066071931">ተርጉምን ያንቁ</translation>
 <translation id="3512226956150568738">የደንበኛ መሣሪያ ሞዴሉ ወደ ext4 ከማፍለስ በፊት ቀደም ብሎ ARCን የሚደግፍ ከሆነ እና የArcEnabled መመሪያ ወደ እውነት ከተዋቀረ ይህ አማራጭ እንደ AskUser (እሴት 3) ይሆናል። በሌሎች ሁኔታዎች ሁሉ (የመሣሪያው ሞዴል ከዚህ ቀደም ARC የማይደግፍ ከሆነ ወይም የArcEnabled መመሪያ ወደ ሀሰት ከተዋቀረ) ይህ እሴት ከDisallowArc (እሴት 0) ጋር እኩል ነው።</translation>
+<translation id="3519432185185398282">የTPM ጽኑ ትዕዛዝ ዝማኔ ተግባር ተገኝነትን እና ባህሪን ያዋቅራል።
+
+      ተናጠል ቅንብሮች በJSON ልኬቶች ውስጥ ሊገለጹ ይችላሉ፦
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />፦ ወደ <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" /> ከተዋቀረ ተጠቃሚዎች የTPM ጽኑ ትዕዛዝ ዝማኔን ለመጫን የpowerwash ፍሰቱን መቀስቀስ ይችላሉ።
+
+      መመሪያው ካልተዋቀረ የTPM ጽኑ ትዕዛዝ ዝማኔ ተግባሩ የሚገኝ አይሆንም።</translation>
 <translation id="3528000905991875314">ተለዋጭ የስህተት ገጾችን ያንቁ</translation>
 <translation id="3547954654003013442">የተኪ ቅንብሮች</translation>
 <translation id="3591584750136265240">የመግባት ማረጋገጥ ባህሪውን ያዋቅሩ</translation>
@@ -884,6 +935,7 @@
           የመመሪያው ዋጋ በሚሊሰከንዶች ነው መገለጽ ያለበት።</translation>
 <translation id="4105989332710272578">ለአንድ የዩአርኤሎች ዝርዝር የእውቅና ማረጋገጫ ግልጽነት ማስፈጸምን አሰናክል</translation>
 <translation id="4121350739760194865">የመተግበሪያ ማስተዋወቂያዎች በአዲስ የትር ገጽ ላይ እንዳይታዩ ያግዳል</translation>
+<translation id="4133144443101280166">የመሣሪያ Off Hours |ignored_policy_proto_tags| ሲለቀቁ የመጥፊያ ሰዓት ክፍተቶች</translation>
 <translation id="4157003184375321727">የስርዓተ ክወና እና የጽኑ ትዕዛዝ ስሪት ሪፖርት ያድርጉ</translation>
 <translation id="4183229833636799228">ነባሪ የ<ph name="FLASH_PLUGIN_NAME" /> ቅንብር</translation>
 <translation id="4192388905594723944">የርቀት መዳረሻ ደንበኛ ማስመሰያን የማረጋገጫ ዩአርኤል</translation>
@@ -1120,6 +1172,7 @@
 <translation id="5067143124345820993">የተፈቀደላቸው የተጠቃሚዎች ዝርዝር ያስገቡ</translation>
 <translation id="5068140065960598044">የ<ph name="PRODUCT_NAME" /> ደመና መመሪያ የማሽን መመሪያን ይሽራል።</translation>
 <translation id="5085647276663819155">የህትመት ቅድመ-እይታን ያሰናክሉ</translation>
+<translation id="5090209345759901501">የFlash ይዘት ቅንብር ወደ ሁሉም ይዘት ያስቀጥሉት</translation>
 <translation id="5105313908130842249">በባትሪ ኃይል ላይ ሲሆን የማያ ገጽ መቆለፍ መዘግየት</translation>
 <translation id="5108031557082757679">የድርጅት መሣሪያ አታሚዎች አሰናክሏል</translation>
 <translation id="5130288486815037971">በTLS ውስጥ ያሉት የRC4 ስነ መሰውር ጥቅሎች እንደነቁ</translation>
@@ -1507,6 +1560,11 @@
           እርስዎ የ .pac ተኪ ስክሪፕትን ለመጠቀም ከመረጡ የስክሪፕቱ ዩአርኤል ለAndroid መተግበሪያዎች ይሰጣል።</translation>
 <translation id="6491139795995924304">በመሣሪያው ላይ ብሉቱዝ ፍቀድ</translation>
 <translation id="6520802717075138474">የመጀመሪያው አሂድ ላይ የፍለጋ ፕሮግራሞችን ከነባሪው አሳሽ ያስመጣል</translation>
+<translation id="6525955212636890608">ይህን ቅንብር ካነቁት በይዘት ቅንብሮች ውስጥ Flashን -- በተጠቃሚውም ሆነ በድርጅት መመሪያ -- እንዲፈቅዱ የተዋቀሩ ድር ጣቢያዎች ላይ የተከተቱ ሁሉም የFlash ይዘት እንዲያሄዱ ይደረጋሉ፣ ከሌሎች ምንጮች የመጣ ይዘት ወይም አነስተኛ ይዘትም ጨምሮ።
+
+      የትኛዎቹ ድር ጣቢያዎች Flashን እንዲያሄዱ እንደተፈቀደላቸው ለመቆጣጠር የ«DefaultPluginsSetting»፣ «PluginsAllowedForUrls» እና «PluginsBlockedForUrls» መመሪያዎችን ይመልከቱ።
+
+      ይህ ቅንብር ከተሰናከለ ወይም ካልተዋቀረ ከሌሎች ምንጮች የመጣ የFlash ይዘት ወይም አነስተኛ ይዘት ሊታገዱ ይችላሉ።</translation>
 <translation id="653608967792832033">በባትሪ ኃይል ላይ ሲሆን ማያ ገጹ ከመቆለፉ በፊት ተጠቃሚ ግብዓት ሳያስገባ የሚቆይበት ጊዜ ይገልጻል።
 
           ይህ መመሪያ ከዜሮ በላይ ወደሆነ ዋጋ ሲዋቀር <ph name="PRODUCT_OS_NAME" /> ማያ ገጹን ከመቆለፉ በፊት  ተጠቃሚው ስራ ፈትቶ መቆየት ያለበት ጊዜ ይገልጻል።
@@ -2087,6 +2145,12 @@
 <translation id="8493645415242333585">የአሰሳ ታሪክ ማስቀመጥን ያሰናክሉ</translation>
 <translation id="8499172469244085141">ነባሪ ቅንብሮች (ተጠቃሚዎች ሊሽሯቸው የሚችሉት)</translation>
 <translation id="8519264904050090490">የሚቀናበሩ በተጠቃሚው እራሱ የተገለሉ ዩ አር ኤሎች</translation>
+<translation id="8527932539502116028">ተጠቃሚው ሊጠቀምባቸው የማይችላቸውን አታሚዎች ይገልጻል።
+
+      ይህ መመሪያ ስራ ላይ የሚውለው <ph name="PRINTERS_BLACKLIST" /> ለ<ph name="BULK_PRINTERS_ACCESS_MODE" /> ከተመረጠ ብቻ ነው።
+
+      ይህ መመሪያ ስራ ላይ ከዋለ በዚህ መመሪያ ውስጥ ከተጠቀሱት መታወቂያዎች በስተቀር ሁሉም አታሚዎች ለተጠቃሚው ይቀርባሉ።
+      </translation>
 <translation id="8544375438507658205">የ<ph name="PRODUCT_FRAME_NAME" /> ነባሪ ኤች ቲ ኤም ኤል አሳዪ</translation>
 <translation id="8549772397068118889">ከይዘት ጥቅሎች ውጪ የሆኑ ጣቢያዎችን በሚጎበኙበት ጊዜ ያስጠንቅቅ</translation>
 <translation id="8566842294717252664">የድር መደብሩን ከአዲስ ትር ገጹ እና ከመተግበሪያ ማስጀመሪያው ይደብቁ</translation>
@@ -2165,6 +2229,18 @@
 
           የመመሪያ ዋጋው በሚሊሰከንዶች ነው መገለጽ ያለበት። ዋጋዎች ከስራ ፈትቶ መዘግየቱ ያነሱ ነው የሚሆኑት።</translation>
 <translation id="891435090623616439">እንደ JSON ሕብረ ቁምፊ በኮድ ተቀምጧል፣ ለዝርዝሩ <ph name="COMPLEX_POLICIES_URL" />ን ይመልከቱ</translation>
+<translation id="8927384992072706174">ለድርጅት አታሚዎች ውቅረቶችን ያቀርባል።
+
+      ይህ መመሪያ የአታሚ ውቅረቶችን ለ<ph name="PRODUCT_OS_NAME" /> መሣሪያዎች እንዲያቀርቡ ያስችልዎታል። የፋይሉ መጠን ከ5 ሜባ መብለጥ የለበትም፣ እና በJSON ኮድ ነው መቀመጥ ያለበት።  ቅርጸቱ ከNativePrinters መዝገበ-ቃላት ጋር ተመሳሳይ ነው። 21,000 አካባቢ አታሚዎች ያለው ፋይል እንደ የ5 ሜባ ኮድ ፋይል ሆኖ እንደሚቀመጥ ይገመታል። ስነ-መሰውራዊ ሃሹ የውርዱ ትክክለኝነት ለማረጋገጥ ስራ ላይ የሚውል ነው።
+
+      ፋይሉ ይወርድና ይሸጎጣል። ዩአርኤሉ ወይም ሃሹ በተቀየረ ጊዜ ዳግም ይወርዳል።
+
+      ይህ መመሪያ ከተዋቀረ <ph name="PRODUCT_OS_NAME" /> ፋይሉን ለአታሚ ውቅረቶችን ያወርደውና አታሚዎች በ<ph name="BULK_PRINTERS_ACCESS_MODE" />፣ <ph name="BULK_PRINTERS_WHITELIST" /> እና <ph name="BULK_PRINTERS_BLACKLIST" /> መሠረት የሚገኙ ያደርጋቸዋል።
+
+      እርስዎ ይህን መመሪያ ካዋቀሩት ተጠቃሚዎች ሊቀይሩት ወይም ሊሽሩት አይችሉም።
+
+      ይህ መመሪያ ተጠቃሚዎች አታሚዎችን በተናጠል መሣሪያዎች ላይ ማዋቀር ይችሉ እንደሆነ ላይ ምንም ተጽዕኖ የለውም። ይሄ ግለሰብ ተጠቃሚዎች ለሚያደርጓቸው የአታሚዎች ውቅረት እንደ ማሟያ እንዲሆን የታሰበ ነው።
+      </translation>
 <translation id="8947415621777543415">የመሣሪያ አካባቢ ሪፖርት አድርግ</translation>
 <translation id="8951350807133946005">የዲስክ መሸጎጫ አቃፊ አዋቅር</translation>
 <translation id="8952317565138994125">በGoogle የተስተናገዱ የስምረት አገልግልቶችን በመጠቀም <ph name="PRODUCT_NAME" /> ውስጥ የውሂብ ስምረትን ያሰናክልና ተጠቃሚዎች ይህን ቅንብር እንዳይቀይሩት ያግዳል።

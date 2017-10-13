@@ -67,7 +67,6 @@ Jotkin verkkosivustot esimerkiksi vastaavat pyyntöön näyttämällä sinulle m
 <translation id="2116625576999540962"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> kohdetta siirretty</translation>
 <translation id="213900355088104901">Voit selata verkkoa yksityisesti avaamalla incognito-välilehden.</translation>
 <translation id="2149973817440762519">Muokkaa kirjanmerkkiä</translation>
-<translation id="2154710561487035718">Kopioi URL-osoite</translation>
 <translation id="2230173723195178503">Verkkosivu ladattiin.</translation>
 <translation id="2256128224215992540">Haku- ja sivustoehdotukset</translation>
 <translation id="2267753748892043616">Lisää tili</translation>
@@ -312,7 +311,6 @@ Tietosi salattiin tunnuslauseesi avulla <ph name="TIME" />. Aloita synkronointi 
 <translation id="6797885426782475225">Puhehaku</translation>
 <translation id="6807889908376551050">Näytä kaikki...</translation>
 <translation id="681368974849482173">Kohde luotiin</translation>
-<translation id="6871663519944855400">Avaa incognito-tilassa</translation>
 <translation id="6896758677409633944">Kopioi</translation>
 <translation id="6903907808598579934">Ota synkronointi käyttöön</translation>
 <translation id="6945221475159498467">Valitse</translation>

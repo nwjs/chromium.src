@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Liste de lecture</translation>
 <translation id="1264126396475825575">Rapport d'erreur enregistré le <ph name="CRASH_TIME" /> (pas encore importé ou ignoré)</translation>
 <translation id="1270502636509132238">Mode d'enlèvement</translation>
-<translation id="1281526147609854549">Émis par <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Ne jamais traduire ce site</translation>
 <translation id="129553762522093515">Récemment fermés</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Essayez de supprimer les cookies.<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Annuler le paiement</translation>
 <translation id="2147827593068025794">Synchronisation en arrière-plan</translation>
 <translation id="2148613324460538318">Ajouter une carte</translation>
+<translation id="2149973817440762519">Modifier le favori</translation>
 <translation id="2154054054215849342">La synchronisation n'est pas disponible pour votre domaine</translation>
 <translation id="2154484045852737596">Modifier la carte</translation>
 <translation id="2166049586286450108">Accès administrateur complet</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Variantes</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Aucune}=1{1 application ($1)}=2{2 applications ($1, $2)}one{# application ($1, $2 $3)}other{# applications ($1, $2 $3)}}</translation>
 <translation id="2625385379895617796">Votre horloge est en avance.</translation>
+<translation id="2634124572758952069">Impossible de trouver l'adresse IP du serveur de <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">État :</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Accès au fichier refusé</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Les pirates informatiques qui contrôlent le site <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> peuvent installer des applications trompeuses se faisant passer pour d'autres, ou collecter des données afin de vous surveiller. <ph name="BEGIN_LEARN_MORE_LINK" />En savoir plus<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (synchronisés)</translation>
 <translation id="6027201098523975773">Saisissez un nom</translation>
+<translation id="6039846035001940113">Si le problème persiste, contactez le propriétaire du site.</translation>
 <translation id="6040143037577758943">Fermer</translation>
 <translation id="6047233362582046994">Si vous êtes conscient des risques auxquels vous vous exposez, vous pouvez <ph name="BEGIN_LINK" />consulter ce site<ph name="END_LINK" /> avant que les applications dangereuses aient été supprimées.</translation>
 <translation id="6047927260846328439">Ce contenu peut vous inciter à installer un logiciel ou vous soutirer des informations personnelles. <ph name="BEGIN_LINK" />Je souhaite y accéder malgré tout.<ph name="END_LINK" /></translation>

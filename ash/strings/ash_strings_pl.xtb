@@ -15,6 +15,7 @@
 <translation id="1270290102613614947">Klawiatura ekranowa wyłączona</translation>
 <translation id="1272079795634619415">Zatrzymaj</translation>
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
+<translation id="1290331692326790741">słaby sygnał</translation>
 <translation id="1293264513303784526">Urządzenie USB-C (lewy port)</translation>
 <translation id="1346748346194534595">W prawo</translation>
 <translation id="1383876407941801731">Szukaj</translation>
@@ -79,6 +80,7 @@
 <translation id="2844169650293029770">Urządzenie USB-C (przedni port na lewym boku)</translation>
 <translation id="2865888419503095837">Informacje o sieci</translation>
 <translation id="2872961005593481000">Wyłącz</translation>
+<translation id="2903844815300039659">Połączono z siecią <ph name="NAME" />, <ph name="STRENGTH" /></translation>
 <translation id="2911940648265863620">Udostępniasz ekran</translation>
 <translation id="2942516765047364088">Pozycja półki</translation>
 <translation id="2946119680249604491">Dodaj połączenie</translation>
@@ -126,6 +128,7 @@
 <translation id="397105322502079400">Obliczanie...</translation>
 <translation id="3995138139523574647">Urządzenie USB-C (tylny port na prawym boku)</translation>
 <translation id="4017989525502048489">Wskaźnik laserowy</translation>
+<translation id="4072264167173457037">średni sygnał</translation>
 <translation id="4279490309300973883">Odbicie lustrzane</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4338109981321384717">Lupa</translation>
@@ -256,6 +259,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="776344839111254542">Kliknij, by wyświetlić szczegóły aktualizacji</translation>
 <translation id="7798302898096527229">Aby anulować, naciśnij Szukaj lub Shift.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> i <ph name="MINUTE" /></translation>
+<translation id="7829386189513694949">silny sygnał</translation>
 <translation id="7904094684485781019">Administrator tego konta zablokował możliwość wielokrotnego logowania.</translation>
 <translation id="7977927628060636163">Szukam sieci komórkowych…</translation>
 <translation id="7982789257301363584">Sieć</translation>
@@ -274,7 +278,6 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="8308637677604853869">Poprzednie menu</translation>
 <translation id="8351131234907093545">Utwórz notatkę</translation>
 <translation id="8392234662362215700">Naciśnij Control+Shift+spacja, by przełączyć układ klawiatury.</translation>
-<translation id="8392688371657486010">Nie masz powiadomień</translation>
 <translation id="8428213095426709021">Ustawienia</translation>
 <translation id="8433186206711564395">Ustawienia sieci</translation>
 <translation id="8433977262951327081">Zmieniliśmy skrót, który pokazuje dymek menu opcji wejścia na półce. Zamiast <ph name="OLD_SHORTCUT" /> używaj teraz <ph name="NEW_SHORTCUT" />.</translation>

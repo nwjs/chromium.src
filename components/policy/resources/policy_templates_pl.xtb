@@ -47,6 +47,12 @@
 
       Jeśli ta zasada ma wartość Fałsz, stan przełącznika trybu programisty nie jest zgłaszany.</translation>
 <translation id="1160939557934457296">Wyłącz możliwość kontynuacji na stronie ostrzeżenia Bezpiecznego przeglądania</translation>
+<translation id="1166377463685560145">Określa drukarki, z których użytkownik nie może korzystać.
+
+      Ta zasada jest używana tylko wtedy, gdy dla zasady <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> wybrano ustawienie <ph name="PRINTERS_BLACKLIST" />.
+
+      Jeśli ta zasada jest używana, użytkownik ma dostęp do wszystkich drukarek z wyjątkiem tych, których identyfikatory zostały w niej określone.
+      </translation>
 <translation id="1198465924256827162">Częstotliwość wysyłania raportów o stanie urządzenia (w milisekundach).
 
       Jeśli ta zasada nie jest skonfigurowana, domyślna częstotliwość wynosi trzy
@@ -79,6 +85,12 @@
 <translation id="1363275621236827384">Włącz wysyłanie zapytań o profile sprzętowe do Quirks Server</translation>
 <translation id="1393485621820363363">Włączone drukarki firmowe powiązane z urządzeniami</translation>
 <translation id="1397855852561539316">Adres URL usługi propozycji od domyślnego dostawcy wyszukiwania</translation>
+<translation id="1420281424655200442">Steruje tym, które drukarki określone w zasadzie <ph name="DEVICE_PRINTERS_POLICY" /> są dostępne dla użytkowników.
+
+      Wskazuje zasadę dostępu, która jest używana do zbiorczego skonfigurowania drukarek. Jeśli wybrano opcję <ph name="PRINTERS_ALLOW_ALL" />, pokazywane są wszystkie drukarki. Jeśli wybrano opcję <ph name="PRINTERS_BLACKLIST" />, zasada <ph name="DEVICE_PRINTERS_BLACKLIST" /> jest używana do ograniczania dostępu do określonych drukarek. Jeśli wybrano ustawienie <ph name="PRINTERS_WHITELIST" />, zasada <ph name="DEVICE_PRINTERS_WHITELIST" /> wskazuje tylko te drukarki, które można wybrać.
+
+      Jeśli ta zasada nie jest ustawiona, domyślnie stosowana jest opcja <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="1426410128494586442">Tak</translation>
 <translation id="1427655258943162134">Adres IP lub URL serwera proxy</translation>
 <translation id="1435659902881071157">Konfiguracja sieci na poziomie urządzenia</translation>
@@ -139,6 +151,19 @@
 <translation id="1561424797596341174">Zasada zastępuje kompilacje hosta dostępu zdalnego w trybie debugowania</translation>
 <translation id="1561967320164410511">U2F i rozszerzenia do indywidualnego poświadczania</translation>
 <translation id="1583248206450240930">Używaj domyślnie wtyczki <ph name="PRODUCT_FRAME_NAME" /></translation>
+<translation id="1603058613431276040">Udostępnia konfiguracje drukarek firmowych powiązanych z urządzeniami.
+
+      Ta zasada umożliwia udostępnianie konfiguracji drukarek urządzeniom z systemem <ph name="PRODUCT_OS_NAME" />. Plik nie może być większy niż 5 MB i musi być zapisany w formacie JSON. Format jest taki sam jak w słowniku NativePrinters. Szacuje się, że w pliku o tym rozmiarze można zakodować około 21 000 drukarek. Do weryfikacji integralności pobranego pliku służy skrót kryptograficzny.
+
+      Pobrany plik zostaje zapisany w pamięci podręcznej. Po każdej zmianie adresu URL lub skrótu jest pobierany ponownie.
+
+      Jeśli ta zasada jest ustawiona, <ph name="PRODUCT_OS_NAME" /> pobierze plik do konfiguracji drukarek i udostępni drukarki zgodnie z zasadami <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> i <ph name="DEVICE_PRINTERS_BLACKLIST" />.
+
+      Zasada nie ma wpływu na to, czy użytkownicy mogą konfigurować drukarki na pojedynczych urządzeniach. Jest ona uzupełnieniem konfiguracji drukarek wykonywanej przez poszczególnych użytkowników.
+
+      Ta zasada jest modyfikatorem zasady <ph name="BULK_PRINTERS_POLICY" />.
+
+      Jeśli ta zasada nie jest ustawiona, drukarki nie zostaną powiązane z urządzeniami, a inne zasady <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> będą ignorowane.</translation>
 <translation id="1608755754295374538">Adresy URL, które bez pytania otrzymają dostęp do urządzeń do nagrywania dźwięku</translation>
 <translation id="1617235075406854669">Włącz usuwanie historii przeglądarki i pobierania</translation>
 <translation id="163200210584085447">Wzorce na tej liście są dopasowywane do źródła zabezpieczeń adresu URL,
@@ -239,6 +264,12 @@
 <translation id="2030905906517501646">Słowo kluczowe domyślnego dostawcy wyszukiwania</translation>
 <translation id="203096360153626918">Ta zasada nie ma wpływu na aplikacje na Androida. Mogą one działać w trybie pełnoekranowym, nawet gdy zasada jest ustawiona na <ph name="FALSE" />.</translation>
 <translation id="2043770014371753404">Wyłączone drukarki firmowe</translation>
+<translation id="2063380907529983889">Steruje tym, które drukarki określone w zasadzie <ph name="BULK_PRINTERS_POLICY" /> są dostępne dla użytkowników.
+
+      Wskazuje zasadę dostępu, która jest używana do zbiorczego skonfigurowania drukarek. Jeśli wybrano opcję <ph name="PRINTERS_ALLOW_ALL" />, pokazywane są wszystkie drukarki. Jeśli wybrano opcję <ph name="PRINTERS_BLACKLIST" />, zasada <ph name="BULK_PRINTERS_BLACKLIST" /> jest używana do ograniczania dostępu do określonych drukarek. Jeśli wybrano ustawienie <ph name="PRINTERS_WHITELIST" />, zasada <ph name="BULK_PRINTERS_WHITELIST" /> wskazuje tylko te drukarki, które można wybrać.
+
+      Jeśli ta zasada nie jest ustawiona, domyślnie stosowana jest opcja <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="206623763829450685">Pozwala określić schematy uwierzytelniania HTTP obsługiwane w <ph name="PRODUCT_NAME" />.
 
           Możliwe wartości to „basic”, „digest”, „NTLM” i „negotiate”. Poszczególne wartości należy rozdzielić przecinkami.
@@ -483,6 +514,12 @@
 <translation id="2762164719979766599">Określa listę kont na urządzeniu, które będą pokazywane na ekranie logowania.
 
       Każdy wpis określa identyfikator używany wewnętrznie do rozróżniania lokalnych kont na urządzeniu.</translation>
+<translation id="2766302473082018239">Określa drukarki, z których może korzystać użytkownik.
+
+      Ta zasada jest używana tylko wtedy, gdy dla zasady <ph name="BULK_PRINTERS_ACCESS_MODE" /> wybrano ustawienie <ph name="PRINTERS_WHITELIST" />.
+
+      Jeśli ta zasada jest używana, użytkownik ma dostęp tylko do drukarek, których identyfikatory pasują do wartości w niej ustawionych. Identyfikatory muszą być zgodne z pozycjami w pliku określonym w zasadzie <ph name="BULK_PRINTERS_POLICY" />.
+      </translation>
 <translation id="2769952903507981510">Konfiguracja wymaganej nazwy domeny dla hostów zdalnego dostępu</translation>
 <translation id="2787173078141616821">Przesyłaj informacje o stanie Androida</translation>
 <translation id="2801230735743888564">Daje użytkownikom dostęp do ukrytej gry-żartu z dinozaurem, gdy urządzenie jest offline.
@@ -547,6 +584,7 @@
 <translation id="3030000825273123558">Włącz raportowanie danych</translation>
 <translation id="3034580675120919256">Umożliwia określenie, czy w witrynach może być wykonywany kod JavaScript. Wykonanie kodu JavaScript może być dozwolone lub zabronione we wszystkich witrynach. W przypadku nieskonfigurowania tej zasady będzie używane ustawienie „AllowJavaScript”, a użytkownik będzie mógł je zmienić.</translation>
 <translation id="3038323923255997294">Kontynuuj działanie aplikacji w tle po zamknięciu <ph name="PRODUCT_NAME" /></translation>
+<translation id="3039065003245994702">Konfigurowanie zachowania aktualizacji oprogramowania TPM</translation>
 <translation id="3046192273793919231">Wysyłaj pakiety sieciowe na serwer zarządzania w celu monitorowania stanu online</translation>
 <translation id="3048744057455266684">Jeśli ta zasada jest ustawiona, a URL wyszukiwania zaproponowany przez omnibox zawiera ten parametr w ciągu zapytania lub identyfikatorze fragmentu, wtedy sugestia zamiast nieprzetworzonego adresu URL wyszukiwania pokaże wyszukiwane hasła i dostawcę wyszukiwania.
 
@@ -636,6 +674,12 @@
 
           Jeśli ta zasada jest ustawiona na niepusty ciąg znaków, to jest on nazwą miejsca docelowego <ph name="PRODUCT_NAME" />. W przeciwnym razie nazwą miejsca docelowego jest nazwa urządzenia. Jeśli ta zasada nie jest ustawiona, nazwą miejsca docelowego jest nazwa urządzenia, a właściciel urządzenia (lub użytkownik z domeny zarządzającej urządzeniem) może ją zmienić. Nazwa może mieć maksymalnie 24 znaki.</translation>
 <translation id="3381968327636295719">Używaj domyślnie przeglądarki hosta</translation>
+<translation id="3395348522300156660">Określa drukarki, z których może korzystać użytkownik.
+
+      Ta zasada jest używana tylko wtedy, gdy dla zasady <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> wybrano ustawienie <ph name="PRINTERS_WHITELIST" />
+
+      Jeśli ta zasada jest używana, użytkownik ma dostęp tylko do drukarek, których identyfikatory pasują do wartości w niej ustawionych. Identyfikatory muszą być zgodne z pozycjami w pliku określonym w zasadzie <ph name="DEVICE_PRINTERS_POLICY" />.
+      </translation>
 <translation id="3417418267404583991">Jeśli ta zasada zostanie włączona lub nie będzie skonfigurowana, <ph name="PRODUCT_OS_NAME" /> będzie umożliwiał logowanie się w trybie gościa. Logowania w trybie gościa to anonimowe sesje użytkownika, które nie wymagają hasła.
 
       W przypadku wyłączenia tej zasady <ph name="PRODUCT_OS_NAME" /> nie będzie zezwalać na uruchamianie sesji gościa.</translation>
@@ -671,6 +715,13 @@ Jeśli nie podasz wartości albo wybierzesz ustawienie „Wyłącz”, stosowani
           Ta zasada jest uwzględniana tylko wtedy, gdy włączona jest zasada „DefaultSearchProviderEnabled”.</translation>
 <translation id="350797926066071931">Włącz Tłumacza</translation>
 <translation id="3512226956150568738">Jeśli model urządzenia klienta obsługiwał środowisko ARC już wtedy, gdy do uruchomienia ARC nie była konieczna migracja do ext4, i jeśli zasada ArcEnabled jest ustawiona na wartość prawda, ta opcja będzie zachowywać się tak jak opcja AskUser (wartość 3). We wszystkich pozostałych przypadkach (jeśli model urządzenia nie obsługiwał wcześniej ARC lub jeśli zasada ArcEnabled jest ustawiona na wartość fałsz), ta wartość jest równoznaczna z opcją DisallowArc (wartość 0).</translation>
+<translation id="3519432185185398282">Konfiguruje dostępność i zachowanie funkcji aktualizacji oprogramowania TPM.
+
+      Poszczególne ustawienia można określić we właściwościach JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: jeśli ustawiono na wartość <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, użytkownicy mogą wyzwalać procedurę Powerwash, by zainstalować aktualizację oprogramowania TPM.
+
+      Jeśli zasada nie jest ustawiona, funkcja aktualizacji oprogramowania TPM nie jest dostępna.</translation>
 <translation id="3528000905991875314">Włącz alternatywne strony błędów</translation>
 <translation id="3547954654003013442">Ustawienia serwera proxy</translation>
 <translation id="3591584750136265240">Skonfiguruj sposób uwierzytelniania logowania</translation>
@@ -839,6 +890,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
           Wartość tej zasady powinna być określona w milisekundach.</translation>
 <translation id="4105989332710272578">Wyłącz egzekwowanie protokołu Certificate Transparency dla adresów URL z listy</translation>
 <translation id="4121350739760194865">Zablokuj wyświetlanie promocji aplikacji na stronie Nowa karta</translation>
+<translation id="4133144443101280166">Okresy bezczynności urządzeń, gdy aktywne są zasady OffHours |ignored_policy_proto_tags|</translation>
 <translation id="4157003184375321727">Zgłoś wersje systemu operacyjnego i oprogramowania układowego</translation>
 <translation id="4183229833636799228">Domyślne ustawienie wtyczki <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="4192388905594723944">URL pozwalający zweryfikować token uwierzytelniania klienta dostępu zdalnego</translation>
@@ -1056,6 +1108,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="5067143124345820993">Biała lista loginów użytkowników</translation>
 <translation id="5068140065960598044">Zasady dotyczące chmury obowiązujące w <ph name="PRODUCT_NAME" /> zastępują zasady dotyczące komputera.</translation>
 <translation id="5085647276663819155">Wyłącz podgląd wydruku</translation>
+<translation id="5090209345759901501">Rozszerz ustawienie treści Flash na całą zawartość</translation>
 <translation id="5105313908130842249">Opóźnienie blokady ekranu przy zasilaniu z baterii</translation>
 <translation id="5108031557082757679">Wyłączone drukarki firmowe powiązane z urządzeniami</translation>
 <translation id="5130288486815037971">Czy włączone są mechanizmy szyfrowania RC4 w TLS</translation>
@@ -1404,6 +1457,11 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
           Jeśli wybierzesz używanie skryptu .pac serwera proxy, aplikacje na Androida otrzymają URL skryptu.</translation>
 <translation id="6491139795995924304">Włącz Bluetooth na urządzeniu</translation>
 <translation id="6520802717075138474">Importuj wyszukiwarki z przeglądarki domyślnej przy pierwszym uruchomieniu</translation>
+<translation id="6525955212636890608">Jeśli włączysz to ustawienie, będzie ono miało wpływ na te strony, dla których w ustawieniach treści dozwolone są treści Flash (przez użytkownika albo przez zasady przedsiębiorstwa). Uruchamiane będą wszystkie umieszczone na tych stronach treści Flash, w tym zarówno pochodzące z innych źródeł, jak i drobne.
+
+      Aby określić strony, na których będzie dozwolone uruchamianie treści Flash, zapoznaj się z zasadami „DefaultPluginsSetting”, „PluginsAllowedForUrls” i „PluginsBlockedForUrls”.
+
+      Jeśli to ustawienie jest wyłączone lub nie jest określone, treści Flash z innych źródeł oraz treści drobne mogą być blokowane.</translation>
 <translation id="653608967792832033">Określa, po jakim czasie nieaktywności użytkownika blokowany jest ekran przy zasilaniu z baterii.
 
           Jeśli ta zasada ma wartość większą niż zero, określa czas, przez który użytkownik musi pozostać bezczynny, zanim <ph name="PRODUCT_OS_NAME" /> zablokuje ekran.
@@ -1939,6 +1997,12 @@ Więcej opcji i szczegółowych przykładów znajdziesz na:
 <translation id="8493645415242333585">Wyłącz zapisywanie historii przeglądarki</translation>
 <translation id="8499172469244085141">Ustawienia domyślne (użytkownicy mogą zmienić)</translation>
 <translation id="8519264904050090490">Zarządzane adresy URL dodane przez użytkownika na listę wyjątków</translation>
+<translation id="8527932539502116028">Określa drukarki, z których użytkownik nie może korzystać.
+
+      Ta zasada jest używana tylko wtedy, gdy dla zasady <ph name="BULK_PRINTERS_ACCESS_MODE" /> wybrano opcję <ph name="PRINTERS_BLACKLIST" />.
+
+      Jeśli ta zasada jest używana, użytkownik ma dostęp do wszystkich drukarek oprócz tych, których identyfikatory w niej określono.
+      </translation>
 <translation id="8544375438507658205">Domyślny mechanizm renderowania HTML wtyczki <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Ostrzegaj przy odwiedzaniu witryn spoza pakietów treści</translation>
 <translation id="8566842294717252664">Ukryj Chrome Web Store na stronie Nowa karta i w menu z aplikacjami</translation>
@@ -2008,6 +2072,18 @@ Więcej opcji i szczegółowych przykładów znajdziesz na:
 
           Wartość zasady powinna być określona w milisekundach. Wartości muszą być mniejsze niż opóźnienie bezczynności.</translation>
 <translation id="891435090623616439">zakodowane jako ciąg JSON – więcej szczegółów znajdziesz na <ph name="COMPLEX_POLICIES_URL" /></translation>
+<translation id="8927384992072706174">Udostępnia konfiguracje drukarek firmowych.
+
+      Ta zasada umożliwia udostępnianie konfiguracji drukarek urządzeniom z systemem <ph name="PRODUCT_OS_NAME" />. Plik nie może być większy niż 5 MB i musi być zapisany w formacie JSON. Format jest taki sam jak w słowniku NativePrinters. Szacuje się, że w pliku o tym rozmiarze można zakodować około 21 000 drukarek. Do weryfikacji integralności pobranego pliku służy skrót kryptograficzny.
+
+      Pobrany plik zostaje zapisany w pamięci podręcznej. Po każdej zmianie adresu URL lub skrótu jest pobierany ponownie.
+
+      Jeśli ta zasada jest ustawiona, <ph name="PRODUCT_OS_NAME" /> pobierze plik do konfiguracji drukarek i udostępni drukarki zgodnie z zasadami <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> i <ph name="BULK_PRINTERS_BLACKLIST" />.
+
+      W przypadku ustawienia tej zasady użytkownicy nie będą mogli jej zmienić ani zastąpić.
+
+      Zasada nie ma wpływu na to, czy użytkownicy mogą konfigurować drukarki na pojedynczych urządzeniach. Jest ona uzupełnieniem konfiguracji drukarek wykonywanej przez poszczególnych użytkowników.
+      </translation>
 <translation id="8947415621777543415">Zgłoś lokalizację urządzenia</translation>
 <translation id="8951350807133946005">Ustaw katalog podręcznej pamięci dyskowej</translation>
 <translation id="8952317565138994125">Wyłącza synchronizację danych w <ph name="PRODUCT_NAME" /> przy użyciu usług synchronizacji obsługiwanych przez Google i uniemożliwia użytkownikom zmianę tego ustawienia.

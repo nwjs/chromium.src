@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Список читання</translation>
 <translation id="1264126396475825575">Звіт про аварійне завершення роботи о <ph name="CRASH_TIME" /> (ще не завантажено або пропущено)</translation>
 <translation id="1270502636509132238">Спосіб отримання</translation>
-<translation id="1281526147609854549">Видано <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Ніколи не перекладати цей сайт</translation>
 <translation id="129553762522093515">Нещодавно закриті</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Спробуйте видалити файли cookie<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Скасувати оплату</translation>
 <translation id="2147827593068025794">Фонова синхронізація</translation>
 <translation id="2148613324460538318">Додати картку</translation>
+<translation id="2149973817440762519">Редагувати закладку</translation>
 <translation id="2154054054215849342">Синхронізація недоступна для вашого домену</translation>
 <translation id="2154484045852737596">Редагувати картку</translation>
 <translation id="2166049586286450108">Повний адміністративний доступ</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Різновиди</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Немає}=1{1 додаток ($1)}=2{2 додатки ($1, $2)}one{# додаток ($1, $2, $3)}few{# додатки ($1, $2, $3)}many{# додатків ($1, $2, $3)}other{# додатка ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Ваш годинник спішить</translation>
+<translation id="2634124572758952069">IP-адресу сервера <ph name="HOST_NAME" /> не знайдено.</translation>
 <translation id="2639739919103226564">Статус:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">У доступі до файлу відмовлено</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Зловмисники на сайті <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> можуть установити на ваш пристрій оманливі додатки, які видають себе за інший вміст або збирають дані для відстеження вашої активності. <ph name="BEGIN_LEARN_MORE_LINK" />Докладніше<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (синхронізовано)</translation>
 <translation id="6027201098523975773">Введіть ім’я</translation>
+<translation id="6039846035001940113">Якщо проблема не зникла, зв’яжіться з власником сайту.</translation>
 <translation id="6040143037577758943">Закрити</translation>
 <translation id="6047233362582046994">Якщо ви розумієте ризики, пов’язані з безпекою, можете <ph name="BEGIN_LINK" />перейти на цей сайт<ph name="END_LINK" />, перш ніж небезпечні додатки буде видалено.</translation>
 <translation id="6047927260846328439">Цей вміст може оманливим шляхом змусити вас установити програмну або надати особисту інформацію. <ph name="BEGIN_LINK" />Усе одно показати<ph name="END_LINK" /></translation>

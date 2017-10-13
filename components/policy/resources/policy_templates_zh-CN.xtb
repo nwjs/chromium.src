@@ -49,6 +49,12 @@
 
       如果此政策设为False，则不报告dev开关的状态。</translation>
 <translation id="1160939557934457296">禁止从安全浏览警告页面继续访问</translation>
+<translation id="1166377463685560145">指定用户无法使用的打印机。
+
+      仅当为 <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> 选择了 <ph name="PRINTERS_BLACKLIST" /> 时，才可使用此政策。
+
+      如果使用此政策，那么除了与此政策中所列 ID 对应的打印机之外，其他所有打印机都可供用户使用。
+      </translation>
 <translation id="1198465924256827162">发送设备状态上传内容的频率（以毫秒为单位）。
 
       如果此政策未设置，默认频率为 3 小时。允许的最低频率为 60 秒。</translation>
@@ -80,6 +86,12 @@
 <translation id="1363275621236827384">允许在 Quirks Server 中查询硬件配置文件</translation>
 <translation id="1393485621820363363">已启用企业设备打印机</translation>
 <translation id="1397855852561539316">默认搜索服务提供商建议网址</translation>
+<translation id="1420281424655200442">控制用户可以使用 <ph name="DEVICE_PRINTERS_POLICY" /> 中的哪些打印机。
+
+      指定对批量打印机配置使用哪项访问政策。如果选择 <ph name="PRINTERS_ALLOW_ALL" />，系统即会显示所有打印机。如果选择 <ph name="PRINTERS_BLACKLIST" />，系统便会使用 <ph name="DEVICE_PRINTERS_BLACKLIST" /> 来限制用户对指定打印机的访问权。如果选择 <ph name="PRINTERS_WHITELIST" />，则 <ph name="DEVICE_PRINTERS_WHITELIST" /> 仅会指定可供用户选择的打印机。
+
+      如果未设置此政策，系统将会默认选择 <ph name="PRINTERS_BLACKLIST" />。
+      </translation>
 <translation id="1426410128494586442">是</translation>
 <translation id="1427655258943162134">代理服务器的地址或网址</translation>
 <translation id="1435659902881071157">设备级网络配置</translation>
@@ -132,6 +144,19 @@
 <translation id="1561424797596341174">覆盖与远程访问主机的调试版本号相关的政策</translation>
 <translation id="1561967320164410511">用于个人认证的 U2F 和扩展程序</translation>
 <translation id="1583248206450240930">默认情况下使用“<ph name="PRODUCT_FRAME_NAME" />”</translation>
+<translation id="1603058613431276040">为绑定到设备的企业打印机提供配置。
+
+      此政策让您能够为 <ph name="PRODUCT_OS_NAME" />设备提供打印机配置。该文件不得超过 5MB，且必须用 JSON 编码。在格式方面，与 NativePrinters 字典一样。据估计，一个包含大约 21000 台打印机的文件编码后的大小将会是 5MB。相关加密哈希值用于验证下载内容是否完整。
+
+      该文件会被下载并缓存。只要相关网址或哈希值发生了变化，系统就会重新下载该文件。
+
+      如果设置了此政策，<ph name="PRODUCT_OS_NAME" />即会下载该文件以进行打印机配置，并会根据 <ph name="DEVICE_PRINTERS_ACCESS_MODE" />、<ph name="DEVICE_PRINTERS_WHITELIST" /> 和 <ph name="DEVICE_PRINTERS_BLACKLIST" /> 向用户提供可用的打印机。
+
+      此政策对用户能否在各台设备上配置打印机没有影响。它旨在对各用户的打印机配置进行补充。
+
+      此政策是 <ph name="BULK_PRINTERS_POLICY" /> 的附加内容。
+
+      如果未设置此政策，便不存在任何设备打印机，同时其他 <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> 政策会被忽略。</translation>
 <translation id="1608755754295374538">无需提示用户即可使用音频捕获设备的网址</translation>
 <translation id="1617235075406854669">允许删除浏览器历史记录和下载记录</translation>
 <translation id="163200210584085447">系统会将此列表中的网址格式与请求网址的安全来源进行比对。如果找到了匹配项，系统将允许相应网址通过 SAML 登录页面访问视频捕获设备。如果未找到匹配项，系统将自动拒绝授予访问权限。不允许使用通配符模式。</translation>
@@ -228,6 +253,12 @@
 <translation id="2030905906517501646">默认搜索服务提供商关键字</translation>
 <translation id="203096360153626918">此政策对 Android 应用没有任何影响。即使此政策设为 <ph name="FALSE" />，这些应用也将能够进入全屏模式。</translation>
 <translation id="2043770014371753404">已停用企业打印机</translation>
+<translation id="2063380907529983889">控制用户可以使用 <ph name="BULK_PRINTERS_POLICY" /> 中的哪些打印机。
+
+      指定对批量打印机配置使用哪项访问政策。如果选择 <ph name="PRINTERS_ALLOW_ALL" />，系统即会显示所有打印机。如果选择 <ph name="PRINTERS_BLACKLIST" />，系统便会使用 <ph name="BULK_PRINTERS_BLACKLIST" /> 来限制用户对指定打印机的访问权。如果选择 <ph name="PRINTERS_WHITELIST" />，则 <ph name="BULK_PRINTERS_WHITELIST" /> 仅会指定可供用户选择的打印机。
+
+      如果未设置此政策，系统将会默认选择 <ph name="PRINTERS_BLACKLIST" />。
+      </translation>
 <translation id="206623763829450685">指定 <ph name="PRODUCT_NAME" /> 支持哪些 HTTP 身份验证方案。
 
           可以指定以下值：“basic”、“digest”、“ntlm”和“negotiate”。如果指定多个值，请以英文逗号分隔。
@@ -465,6 +496,12 @@
 <translation id="2762164719979766599">指定要在登录屏幕上显示的设备本地帐号列表。
 
       每个列表条目指定一个标识符，用于在内部区分不同的设备本地帐号。</translation>
+<translation id="2766302473082018239">指定用户可以使用的打印机。
+
+      仅当为 <ph name="BULK_PRINTERS_ACCESS_MODE" /> 选择了 <ph name="PRINTERS_WHITELIST" /> 时，才可使用此政策。
+
+      如果使用此政策，则只有那些具有与此政策中所列值匹配的 ID 的打印机才可供用户使用。ID 必须与 <ph name="BULK_PRINTERS_POLICY" /> 中指定的文件内的条目对应。
+      </translation>
 <translation id="2769952903507981510">为远程访问主机配置所需的域名</translation>
 <translation id="2787173078141616821">报告有关 Android 状态的信息</translation>
 <translation id="2801230735743888564">允许用户在设备未联网的情况下玩恐龙复活节彩蛋游戏。
@@ -529,6 +566,7 @@
 <translation id="3030000825273123558">启用指标报告</translation>
 <translation id="3034580675120919256">可让您设置是否允许网站运行 JavaScript。可以针对所有网站允许或拒绝运行 JavaScript。如果未设置此政策，系统将使用“AllowJavaScript”并允许用户更改此设置。</translation>
 <translation id="3038323923255997294">在<ph name="PRODUCT_NAME" />关闭后继续运行后台应用</translation>
+<translation id="3039065003245994702">配置 TPM 固件更新行为</translation>
 <translation id="3046192273793919231">将网络数据包发送到管理服务器以监控联网状态</translation>
 <translation id="3048744057455266684">如果设置了此政策，且多功能框建议的搜索网址在查询字符串或片段标识符中包含此参数，则该建议将显示搜索字词和搜索服务提供商，而不是原始的搜索网址。
 
@@ -617,6 +655,12 @@
 
           如果此政策设为非空字符串，该字符串将被用作 <ph name="PRODUCT_NAME" /> 目标名称。否则，目标名称便是设备名称。如果此政策未设置，则目标名称将是设备名称，且设备所有者（或者该设备的托管网域内的用户）将能更改该名称。该名称的长度不得超过 24 个字符。</translation>
 <translation id="3381968327636295719">默认情况下托管主机浏览器</translation>
+<translation id="3395348522300156660">指定用户可以使用的打印机。
+
+      仅当为 <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> 选择了 <ph name="PRINTERS_WHITELIST" /> 时，才可使用此政策。
+
+      如果使用此政策，则只有那些具有与此政策中所列值匹配的 ID 的打印机才可供用户使用。ID 必须与 <ph name="DEVICE_PRINTERS_POLICY" /> 中指定的文件内的条目对应。
+      </translation>
 <translation id="3417418267404583991">如果未配置此政策或将其设置为 true，<ph name="PRODUCT_OS_NAME" />将启用访客登录。访客登录是匿名用户会话，不需要密码。
 
       如果将此政策设置为 false，<ph name="PRODUCT_OS_NAME" />就不会允许访客会话启动。</translation>
@@ -652,6 +696,13 @@
           此政策只在启用了“DefaultSearchProviderEnabled”政策的前提下才会生效。</translation>
 <translation id="350797926066071931">启用翻译</translation>
 <translation id="3512226956150568738">如果客户端设备型号在需要迁移到 ext4 才能运行 ARC 之前就已支持 ARC，且 ArcEnabled 政策已设为 true，该选项的行为便会和 AskUser（值 3）的行为一样。在所有其他情形（如果相应的设备型号之前不支持 ARC，或者如果 ArcEnabled 政策被设为 false）下，此值将会等同于 DisallowArc（值 0）。</translation>
+<translation id="3519432185185398282">配置 TPM 固件更新功能的可用性和行为。
+
+      各项具体设置可在 JSON 属性中进行指定：
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />：如果设为 <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />，用户将能够触发 Powerwash 流程以安装 TPM 固件更新。
+
+      如果未设置此政策，TPM 固件更新功能将会不可用。</translation>
 <translation id="3528000905991875314">启用备用的错误页面</translation>
 <translation id="3547954654003013442">代理设置</translation>
 <translation id="3591584750136265240">配置登录身份验证行为</translation>
@@ -816,6 +867,7 @@
           指定的政策值应以毫秒为单位。</translation>
 <translation id="4105989332710272578">对于指定的一系列网址，不强制要求必须符合证书透明度政策</translation>
 <translation id="4121350739760194865">阻止在新标签页上显示应用宣传信息</translation>
+<translation id="4133144443101280166">发布设备 OffHours |ignored_policy_proto_tags| 后的非工作时间的间隔</translation>
 <translation id="4157003184375321727">报告操作系统和固件版本</translation>
 <translation id="4183229833636799228">默认 <ph name="FLASH_PLUGIN_NAME" /> 设置</translation>
 <translation id="4192388905594723944">验证远程访问客户端身份验证令牌时使用的网址</translation>
@@ -1036,6 +1088,7 @@
 <translation id="5067143124345820993">登录用户白名单</translation>
 <translation id="5068140065960598044"><ph name="PRODUCT_NAME" /> 云政策会替换机器政策。</translation>
 <translation id="5085647276663819155">停用打印预览</translation>
+<translation id="5090209345759901501">将 Flash 内容设置的涵盖面扩展至所有内容</translation>
 <translation id="5105313908130842249">使用电池供电时的屏幕锁定延迟时间</translation>
 <translation id="5108031557082757679">已停用企业设备打印机</translation>
 <translation id="5130288486815037971">是否在 TLS 中启用 RC4 加密套件</translation>
@@ -1381,6 +1434,11 @@
           如果您选择使用 .pac 代理脚本，则系统会向 Android 应用提供相应的脚本网址。</translation>
 <translation id="6491139795995924304">允许在设备上使用蓝牙功能</translation>
 <translation id="6520802717075138474">首次运行时，从默认浏览器导入搜索引擎</translation>
+<translation id="6525955212636890608">如果启用此设置，那么在内容设置中设为允许运行 Flash（无论是由用户还是由企业政策设置）的网站中内嵌的所有 Flash 内容（包括来自其他来源的内容或不重要的内容）都会运行。
+
+      要控制哪些网站可以运行 Flash，请参见“DefaultPluginsSetting”、“PluginsAllowedForUrls”和“PluginsBlockedForUrls”政策。
+
+      如果停用或未设定此设置，来自其他来源的 Flash 内容或不重要的内容可能会被屏蔽。</translation>
 <translation id="653608967792832033">指定在使用电池供电时用户停止输入后隔多久锁定屏幕。
 
           当此政策的值设置为大于 0 时，只要机器闲置的时间达到此处指定的时长，<ph name="PRODUCT_OS_NAME" />就会锁定屏幕。
@@ -1911,6 +1969,12 @@
 <translation id="8493645415242333585">停用保存浏览器历史记录的功能</translation>
 <translation id="8499172469244085141">默认设置（用户可以覆盖）</translation>
 <translation id="8519264904050090490">托管用户手动管理的例外网址</translation>
+<translation id="8527932539502116028">指定用户无法使用的打印机。
+
+      仅当为 <ph name="BULK_PRINTERS_ACCESS_MODE" /> 选择了 <ph name="PRINTERS_BLACKLIST" /> 时，才可使用此政策。
+
+      如果使用此政策，那么除了与此政策中所列 ID 对应的打印机之外，其他所有打印机都可供用户使用。
+      </translation>
 <translation id="8544375438507658205">默认 HTML 呈现器为“<ph name="PRODUCT_FRAME_NAME" />”</translation>
 <translation id="8549772397068118889">访问非内容包内的网站时发出警告</translation>
 <translation id="8566842294717252664">在“打开新的标签页”页面和应用启动器中不显示网上应用店</translation>
@@ -1980,6 +2044,18 @@
 
           指定的政策值应以毫秒为单位，并且必须少于闲置延迟时间。</translation>
 <translation id="891435090623616439">已编码为 JSON 字符串。有关详情，请访问 <ph name="COMPLEX_POLICIES_URL" /></translation>
+<translation id="8927384992072706174">为企业打印机提供配置。
+
+      此政策让您能够为 <ph name="PRODUCT_OS_NAME" />设备提供打印机配置。该文件不得超过 5MB，且必须用 JSON 编码。在格式方面，与 NativePrinters 字典一样。据估计，一个包含大约 21000 台打印机的文件编码后的大小将会是 5MB。相关加密哈希值用于验证下载内容是否完整。
+
+      该文件会被下载并缓存。只要相关网址或哈希值发生了变化，系统就会重新下载该文件。
+
+      如果设置了此政策，<ph name="PRODUCT_OS_NAME" />即会下载该文件以配置打印机，并会根据 <ph name="BULK_PRINTERS_ACCESS_MODE" />、<ph name="BULK_PRINTERS_WHITELIST" /> 和 <ph name="BULK_PRINTERS_BLACKLIST" /> 向用户提供可用的打印机。
+
+      如果您设置了此政策，用户便无法更改或替换它。
+
+      此政策对用户能否在各台设备上配置打印机没有影响。它旨在对各用户的打印机配置进行补充。
+      </translation>
 <translation id="8947415621777543415">报告设备位置</translation>
 <translation id="8951350807133946005">设置磁盘缓存目录</translation>
 <translation id="8952317565138994125">在使用由 Google 托管的同步服务的 <ph name="PRODUCT_NAME" /> 中停用数据同步功能，并禁止用户更改此设置。

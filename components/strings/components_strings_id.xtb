@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">Daftar bacaan</translation>
 <translation id="1264126396475825575">Laporan kerusakan diambil pada pukul <ph name="CRASH_TIME" /> (belum diupload atau diabaikan)</translation>
 <translation id="1270502636509132238">Metode Pengambilan</translation>
-<translation id="1281526147609854549">Diterbitkan oleh <ph name="ISSUER" /></translation>
 <translation id="1285320974508926690">Jangan pernah terjemahkan situs ini</translation>
 <translation id="129553762522093515">Barusan ditutup</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />Coba hapus cookie Anda<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">Batalkan pembayaran</translation>
 <translation id="2147827593068025794">Sinkronisasi Latar Belakang</translation>
 <translation id="2148613324460538318">Tambahkan Kartu</translation>
+<translation id="2149973817440762519">Edit Bookmark</translation>
 <translation id="2154054054215849342">Sinkronisasi tidak tersedia untuk domain Anda</translation>
 <translation id="2154484045852737596">Edit kartu</translation>
 <translation id="2166049586286450108">Akses Penuh Admin</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">Variasi</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Tidak ada}=1{1 aplikasi ($1)}=2{2 aplikasi ($1, $2)}other{# aplikasi ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Setelan jam terlalu cepat</translation>
+<translation id="2634124572758952069">Alamat IP server <ph name="HOST_NAME" /> tidak dapat ditemukan.</translation>
 <translation id="2639739919103226564">Status:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Akses ke file ditolak</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347">Penyerang di <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> dapat menginstal aplikasi penipuan dengan berpura-pura menjadi sesuatu yang lain atau mengumpulkan data yang dapat digunakan untuk melacak Anda. <ph name="BEGIN_LEARN_MORE_LINK" />Pelajari lebih lanjut<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (disinkronkan)</translation>
 <translation id="6027201098523975773">Masukkan nama</translation>
+<translation id="6039846035001940113">Jika masalah berlanjut, hubungi pemilik situs.</translation>
 <translation id="6040143037577758943">Tutup</translation>
 <translation id="6047233362582046994">Jika Anda memahami risiko keamanan tersebut, Anda dapat <ph name="BEGIN_LINK" />mengunjungi situs ini<ph name="END_LINK" /> sebelum aplikasi berbahaya tersebut dihapus.</translation>
 <translation id="6047927260846328439">Konten ini mungkin mencoba mengelabui Anda agar menginstal software atau mengungkapkan informasi pribadi. <ph name="BEGIN_LINK" />Tetap tampilkan<ph name="END_LINK" /></translation>

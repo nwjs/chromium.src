@@ -48,6 +48,12 @@
 
       Ak je toto pravidlo nastavené na hodnotu False, stav prepínača režimu pre vývojárov sa nebude nahlasovať.</translation>
 <translation id="1160939557934457296">Zakázať pokračovanie zo stránky s upozornením Bezpečného prehliadania</translation>
+<translation id="1166377463685560145">Umožňuje určiť tlačiarne, ktoré používateľ nemôže používať.
+
+      Toto pravidlo sa používa iba vtedy, ak je pre režim <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> vybraná možnosť <ph name="PRINTERS_BLACKLIST" />.
+
+      Ak toto pravidlo použijete, používateľ má k dispozícii všetky tlačiarne okrem tých, ktorých identifikátory sú uvedené v tomto pravidle.
+      </translation>
 <translation id="1198465924256827162">Ako často sa odosielajú informácie o stave zaradenia (v milisekundách).
 
       Ak toto pravidlo nie je nastavené, použije sa predvolená frekvencia 3 hodiny. Minimálna
@@ -80,6 +86,12 @@
 <translation id="1363275621236827384">Povoľte dopyty na serveri Quirks pre hardvérové profily</translation>
 <translation id="1393485621820363363">Povolené podnikové tlačiarne zariadenia</translation>
 <translation id="1397855852561539316">Webová adresa návrhu predvoleného poskytovateľa vyhľadávania</translation>
+<translation id="1420281424655200442">Umožňuje ovládať, ktoré tlačiarne z pravidla <ph name="DEVICE_PRINTERS_POLICY" /> majú používatelia k dispozícii.
+
+      Označuje, ktoré pravidlo pre prístup sa použije na hromadnú konfiguráciu tlačiarní. Ak vyberiete možnosť <ph name="PRINTERS_ALLOW_ALL" />, zobrazia sa všetky tlačiarne. Ak vyberiete <ph name="PRINTERS_BLACKLIST" />, na obmedzenie prístupu špecifikovaných tlačiarní sa použije pravidlo <ph name="DEVICE_PRINTERS_BLACKLIST" />. Ak vyberiete možnosť <ph name="PRINTERS_WHITELIST" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> označuje iba tie tlačiarne, ktoré sa dajú vybrať.
+
+      Ak toto pravidlo nenastavíte, bude platiť možnosť <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="1426410128494586442">Áno</translation>
 <translation id="1427655258943162134">Adresa alebo webová adresa servera proxy</translation>
 <translation id="1435659902881071157">Konfigurácia siete na úrovni zariadenia</translation>
@@ -138,6 +150,19 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 <translation id="1561424797596341174">Prepísania pravidiel pre zostavy ladenia používané hostiteľom vzdialeného prístupu</translation>
 <translation id="1561967320164410511">U2F a rozšírenia na individuálne preverovanie</translation>
 <translation id="1583248206450240930">Používať v predvolenom nastavení doplnok <ph name="PRODUCT_FRAME_NAME" /></translation>
+<translation id="1603058613431276040">Umožňuje poskytnúť konfigurácie podnikových tlačiarní priradených k zariadeniam.
+
+      Toto pravidlo umožňuje poskytnúť konfigurácie tlačiarní pre zariadenia <ph name="PRODUCT_OS_NAME" />. Veľkosť súboru nesmie prekročiť 5 MB a musí byť zakódovaný vo formáte JSON. Tento formát je rovnaký ako slovník NativePrinters. Odhaduje sa, že súbor obsahujúci približne 21 000 tlačiarní sa zašifruje ako súbor s veľkosťou 5 MB. Na overenie integrity stiahnutého obsahu sa použije kryptografická hodnota hash.
+
+      Súbor sa stiahne a uloží do vyrovnávacej pamäte. Znova sa stiahne, keď sa zmení webová adresa alebo hodnota hash.
+
+      Ak toto pravidlo nastavíte, <ph name="PRODUCT_OS_NAME" /> stiahne súbor na konfiguráciu tlačiarní a sprístupní tlačiarne v súlade s pravidlami <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> a <ph name="DEVICE_PRINTERS_BLACKLIST" />.
+
+      Toto pravidlo neovplyvní, či používatelia môžu konfigurovať tlačiarne pri jednotlivých zariadeniach. Slúži skôr ako doplnok ku konfigurácii tlačiarní jednotlivými používateľmi.
+
+      Toto pravidlo je doplnok pravidla <ph name="BULK_PRINTERS_POLICY" />.
+
+      Ak ho nenastavíte, nebudú k dispozícii žiadne tlačiarne zariadení a ostatné pravidlá <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> budú ignorované.</translation>
 <translation id="1608755754295374538">Webové adresy, ktorým bude udelený prístup k zariadeniam na zachytávanie zvuku bez zobrazenia výzvy</translation>
 <translation id="1617235075406854669">Povoliť odstránenie histórie prehliadača a sťahovania</translation>
 <translation id="163200210584085447">Vzory v tomto zozname sa porovnajú s pôvodom zabezpečenia webovej adresy, ktorá odoslala žiadosť. Ak sa nájde zhoda, prístup k zariadeniam na zaznamenávanie videa sa udelí na prihlasovacích stránkach SAML. Ak sa zhoda nenájde, prístup bude automaticky odmietnutý. Vzory zástupných znakov nie sú povolené.</translation>
@@ -240,6 +265,12 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 <translation id="2030905906517501646">Kľúčové slovo predvoleného poskytovateľa vyhľadávania</translation>
 <translation id="203096360153626918">Toto pravidlo nemá žiaden vplyv na aplikácie pre Android. Budú môcť prejsť do režimu celej obrazovky aj v prípade, že je toto pravidlo nastavené na hodnotu <ph name="FALSE" />.</translation>
 <translation id="2043770014371753404">Zakázané podnikové tlačiarne</translation>
+<translation id="2063380907529983889">Umožňuje ovládať, ktoré tlačiarne z pravidla <ph name="BULK_PRINTERS_POLICY" /> majú používatelia k dispozícii.
+
+      Označuje, ktoré pravidlo pre prístup sa použije na hromadnú konfiguráciu tlačiarní. Ak vyberiete možnosť <ph name="PRINTERS_ALLOW_ALL" />, zobrazia sa všetky tlačiarne. Ak vyberiete <ph name="PRINTERS_BLACKLIST" />, na obmedzenie prístupu špecifikovaných tlačiarní sa použije pravidlo <ph name="BULK_PRINTERS_BLACKLIST" />. Ak vyberiete možnosť <ph name="PRINTERS_WHITELIST" />, <ph name="BULK_PRINTERS_WHITELIST" /> označuje iba tie tlačiarne, ktoré sa dajú vybrať.
+
+      Ak toto pravidlo nenastavíte, bude platiť možnosť <ph name="PRINTERS_BLACKLIST" />.
+      </translation>
 <translation id="206623763829450685">Určuje, ktoré schémy overenia totožnosti pomocou protokolu HTTP bude prehliadač <ph name="PRODUCT_NAME" /> podporovať.
 
           Zadať môžete hodnoty „basic“, „ntlm“ a „negotiate“. Ak chcete zadať viacero hodnôt, oddeľte ich čiarkami.
@@ -502,6 +533,12 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 <translation id="2762164719979766599">Určuje zoznam miestnych účtov na zariadení, ktoré sa majú zobrazovať na obrazovke prihlásenia.
 
       Každá položka v zozname určuje identifikátor, ktorý sa používa interne na rozpoznanie odlišných miestnych účtov na zariadení.</translation>
+<translation id="2766302473082018239">Umožňuje určiť tlačiarne, ktoré má používateľ k dispozícii.
+
+      Toto pravidlo sa používa iba vtedy, keď je pre <ph name="PRINTERS_WHITELIST" /> vybraná možnosť <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Ak toto pravidlo použijete, používateľ bude mať k dispozícii iba tlačiarne s identifikátormi, ktoré sa zhodujú s hodnotami v tomto pravidle. Identifikátory sa musia zhodovať so zadanými údajmi v súbore určenom v pravidle <ph name="BULK_PRINTERS_POLICY" />.
+      </translation>
 <translation id="2769952903507981510">Konfigurácia povinného názvu domény pre hostiteľov vzdialeného prístupu</translation>
 <translation id="2787173078141616821">Nahlasovať informácie o stave Androidu</translation>
 <translation id="2801230735743888564">Povoľte používateľom hrať veľkonočnú hru s dinosaurom, keď je zariadenie offline.
@@ -568,6 +605,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 
           Ak toto pravidlo ponecháte nenastavené, použije sa pravidlo „AllowJavaScript“ a používateľ to bude môcť zmeniť.</translation>
 <translation id="3038323923255997294">Po zatvorení prehliadača <ph name="PRODUCT_NAME" /> nechať aplikácie na pozadí spustené</translation>
+<translation id="3039065003245994702">Konfigurácia správania aktualizácie firmvéru TPM</translation>
 <translation id="3046192273793919231">Odosielať sieťové pakety na správcovský server s cieľom sledovania online stavu</translation>
 <translation id="3048744057455266684">Ak je toto pravidlo nastavené a webová adresa vyhľadávania navrhnutá vo všeobecnom poli obsahuje tento parameter v reťazci dopytu alebo v identifikátore fragmentu, potom odporúčanie zobrazí hľadané výrazy a poskytovateľa vyhľadávania namiesto nespracovanej webovej adresy vyhľadávania.
 
@@ -660,6 +698,12 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 
           Ak v tomto pravidle nastavíte reťazec, ktorý nie je prázdny, daný reťazec sa použije ako názov cieľového priečinka funkcie <ph name="PRODUCT_NAME" />. Inak sa ako názov cieľového priečinka použije názov zariadenia. Ak toto pravidlo nenastavíte, názov cieľového priečinka bude názov zariadenia, ktorý bude môcť zmeniť jeho vlastník (alebo používateľ z domény, ktorá ho spravuje). Názov môže mať maximálne 24 znakov.</translation>
 <translation id="3381968327636295719">V predvolenom nastavení použiť hosťovský prehliadač</translation>
+<translation id="3395348522300156660">Umožňuje určiť tlačiarne, ktoré má používateľ k dispozícii.
+
+      Toto pravidlo sa používa iba vtedy, keď je pre <ph name="PRINTERS_WHITELIST" /> vybraná možnosť <ph name="DEVICE_PRINTERS_ACCESS_MODE" />
+
+      Ak toto pravidlo použijete, používateľ bude mať k dispozícii iba tlačiarne s identifikátormi, ktoré sa zhodujú s hodnotami v tomto pravidle. Identifikátory sa musia zhodovať so zadanými údajmi v súbore určenom v pravidle <ph name="DEVICE_PRINTERS_POLICY" />.
+      </translation>
 <translation id="3417418267404583991">Ak je toto pravidlo nastavené na hodnotu true alebo je nenakonfigurované, systém <ph name="PRODUCT_OS_NAME" /> povolí prihlásenie hostí. Prihlásenia hostí predstavujú relácie anonymných používateľov a nevyžadujú heslo.
 
       Ak je toto pravidlo nastavené na hodnotu false, systém <ph name="PRODUCT_OS_NAME" /> nepovolí spustenie relácií hosťa.</translation>
@@ -697,6 +741,13 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
           Toto pravidlo sa rešpektuje iba v prípade, ak je povolené pravidlo DefaultSearchProviderEnabled.</translation>
 <translation id="350797926066071931">Povoliť službu Translate</translation>
 <translation id="3512226956150568738">Ak model klientskeho zariadenia podporoval ARC už predtým, ako bolo na spustenie ARC potrebné migrovať na ext4, a ak je pravidlo ArcEnabled nastavené na hodnotu True, táto možnosť sa bude správať ako parameter AskUser (hodnota 3). Vo všetkých ostatných prípadoch (ak model zariadenia predtým ARC nepodporoval alebo ak je pravidlo ArcEnabled nastavené na hodnotu False), táto hodnota sa bude zhodovať s parametrom DisallowArc (hodnota 0).</translation>
+<translation id="3519432185185398282">Umožňuje konfigurovať dostupnosť a správanie funkcií aktualizácie firmvéru TPM.
+
+      Jednotlivé nastavenia môžete určiť vo vlastnostiach JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Ak nastavíte možnosť <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, používatelia budú môcť spustiť postup Powerwash na inštaláciu aktualizácie firmvéru TPM.
+
+      Ak toto pravidlo nenastavíte, funkcie aktualizácie firmvéru TPM nebudú k dispozícii.</translation>
 <translation id="3528000905991875314">Povoliť alternatívne chybové stránky</translation>
 <translation id="3547954654003013442">Nastavenia servera proxy</translation>
 <translation id="3591584750136265240">Konfigurácia správania pri overovaní prihlasovacích údajov</translation>
@@ -870,6 +921,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
           Hodnota pravidla by mala byť uvedená v milisekundách.</translation>
 <translation id="4105989332710272578">Zakázať vynucovanie pravidla transparentnosti certifikátov pre zoznam webových adries</translation>
 <translation id="4121350739760194865">Zabraňuje tomu, aby sa propagácie aplikácií zobrazovali na stránke Nová karta</translation>
+<translation id="4133144443101280166">Intervaly nečinnosti, kedy sú povolené pravidlá |ignored_policy_proto_tags| upravujúce parameter OffHours</translation>
 <translation id="4157003184375321727">Hlásiť verziu operačného systému a firmvéru</translation>
 <translation id="4183229833636799228">Predvolené nastavenie doplnku <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="4192388905594723944">Webová adresa na potvrdenie overovacieho tokenu klienta vzdialeného pripojenia</translation>
@@ -1107,6 +1159,7 @@ Ak toto pravidlo nie je nastavené alebo je prázdne, akýkoľvek používateľ 
 <translation id="5067143124345820993">Zoznam používateľov s povolením na prihlásenie</translation>
 <translation id="5068140065960598044">Pravidlá používania cloudu v prehliadači <ph name="PRODUCT_NAME" /> prepíšu pravidlá zariadenia.</translation>
 <translation id="5085647276663819155">Zakázať ukážku pred tlačou</translation>
+<translation id="5090209345759901501">Rozšíriť obsah Flash na všetok obsah</translation>
 <translation id="5105313908130842249">Oneskorenie uzamknutia obrazovky pri napájaní z batérie</translation>
 <translation id="5108031557082757679">Zakázané podnikové tlačiarne zariadenia</translation>
 <translation id="5130288486815037971">Ovláda, či sú v protokole TLS povolené šifrovacie súpravy RC4</translation>
@@ -1491,6 +1544,11 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
           Ak zvolíte, že chcete používať skript .pac proxy servera, budú mať aplikácie pre Android k dispozícii webovú adresu skriptu.</translation>
 <translation id="6491139795995924304">Povoliť Bluetooth na zariadení</translation>
 <translation id="6520802717075138474">Importovať vyhľadávače z predvoleného prehliadača pri prvom spustení</translation>
+<translation id="6525955212636890608">Ak toto nastavenie povolíte, všetok obsah Flash vložený do webových stránok, ktoré majú povolené zobrazovať prvky Flash v nastaveniach obsahu (buď používateľom, alebo pravidlami pre podniky), bude spustený, a to vrátane obsahu z ostatných zdrojov alebo malého obsahu.
+
+      Ak chcete ovládať, ktoré webové stránky majú povolené spúšťať Flash, pozrite si pravidlá DefaultPluginsSetting, PluginsAllowedForUrls a PluginsBlockedForUrls.
+
+      Ak je toto nastavenie zakázané alebo nie je nastavené, obsah Flash z ostatných zdrojov alebo malého obsahu môže byť blokovaný.</translation>
 <translation id="653608967792832033">Určuje dobu nečinnosti používateľa, po ktorej sa obrazovka pri napájaní z batérie uzamkne.
 
           Ak je toto pravidlo nastavené na hodnotu väčšiu ako nula, určuje dobu nečinnosti používateľa, po ktorej systém <ph name="PRODUCT_OS_NAME" /> obrazovku uzamkne.
@@ -2072,6 +2130,12 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
 <translation id="8493645415242333585">Zakázať ukladanie histórie prehliadača</translation>
 <translation id="8499172469244085141">Predvolené nastavenia (používatelia ich môžu nahradiť)</translation>
 <translation id="8519264904050090490">Spravované výnimky webových adries ručne nastavené používateľom</translation>
+<translation id="8527932539502116028">Umožňuje určiť tlačiarne, ktoré používateľ nemôže používať.
+
+      Toto pravidlo sa používa iba vtedy, ak je pre režim <ph name="PRINTERS_BLACKLIST" /> vybraná možnosť <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Ak toto pravidlo použijete, používateľ má k dispozícii všetky tlačiarne okrem tých, ktorých identifikátory sú uvedené v tomto pravidle.
+      </translation>
 <translation id="8544375438507658205">Predvolený vykresľovací modul HTML pre doplnok <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Upozorniť na návštevu stránky, ktorá je mimo balíkov obsahu</translation>
 <translation id="8566842294717252664">Skryť internetový obchod zo stránky na novej karte a zo spúšťača aplikácií</translation>
@@ -2149,6 +2213,16 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
 
           Hodnota pravidla by mala byť uvedená v milisekundách. Hodnoty musia byť nižšie ako oneskorenie režimu nečinnosti.</translation>
 <translation id="891435090623616439">kódované ako reťazec JSON, podrobnosti nájdete na adrese <ph name="COMPLEX_POLICIES_URL" /></translation>
+<translation id="8927384992072706174">Umožňuje poskytnúť konfigurácie podnikových tlačiarní.
+
+      Toto pravidlo umožňuje poskytnúť konfigurácie tlačiarní pre zariadenia <ph name="PRODUCT_OS_NAME" />. Veľkosť súboru nesmie prekročiť 5 MB a musí byť zakódovaný vo formáte JSON. Tento formát je rovnaký ako slovník NativePrinters. Odhaduje sa, že súbor obsahujúci približne 21 000 tlačiarní sa zašifruje ako súbor s veľkosťou 5 MB. Na overenie integrity stiahnutého obsahu sa použije kryptografická hodnota hash.
+
+      Súbor sa stiahne a uloží do vyrovnávacej pamäte. Znova sa stiahne, keď sa zmení webová adresa alebo hodnota hash.
+
+      Ak toto pravidlo nastavíte, <ph name="PRODUCT_OS_NAME" /> stiahne súbor na konfiguráciu tlačiarní a sprístupní tlačiarne v súlade s pravidlami <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> a <ph name="BULK_PRINTERS_BLACKLIST" />.
+
+      Toto pravidlo neovplyvní, či používatelia môžu konfigurovať tlačiarne pri jednotlivých zariadeniach. Slúži skôr ako doplnok ku konfigurácii tlačiarní jednotlivými používateľmi.
+      </translation>
 <translation id="8947415621777543415">Nahlasovať polohu zariadenia</translation>
 <translation id="8951350807133946005">Nastaviť adresár diskovej vyrovnávacej pamäte</translation>
 <translation id="8952317565138994125">Zakáže v prehliadači <ph name="PRODUCT_NAME" /> synchronizáciu údajov pomocou služieb synchronizácie hostených Googlom a zabráni používateľom toto nastavenie zmeniť.

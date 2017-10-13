@@ -46,7 +46,6 @@
 <translation id="1263231323834454256">वाचन सूची</translation>
 <translation id="1264126396475825575"><ph name="CRASH_TIME" /> वाजता क्रॅश अहवाल कॅप्चर केला (अद्याप अपलोड केलेला नाही किंवा दुर्लक्ष केले)</translation>
 <translation id="1270502636509132238">घेण्याची पद्धत</translation>
-<translation id="1281526147609854549"><ph name="ISSUER" /> ने दिलेले</translation>
 <translation id="1285320974508926690">या साइटचा कधीही भाषांतर करु नका</translation>
 <translation id="129553762522093515">अलीकडे बंद केलेले</translation>
 <translation id="129863573139666797"><ph name="BEGIN_LINK" />आपल्या कुकीज साफ करून पहा<ph name="END_LINK" /></translation>
@@ -153,6 +152,7 @@
 <translation id="214556005048008348">पेमेंट रद्द करा</translation>
 <translation id="2147827593068025794">पार्श्वभूमी संकालन</translation>
 <translation id="2148613324460538318">कार्ड जोडा</translation>
+<translation id="2149973817440762519">बुकमार्क संपादित करा</translation>
 <translation id="2154054054215849342">आपल्या डोमेनसाठी संकालन उपलब्ध नाही</translation>
 <translation id="2154484045852737596">कार्ड संपादित करा</translation>
 <translation id="2166049586286450108">पूर्ण प्रशासन प्रवेश</translation>
@@ -211,6 +211,7 @@
 <translation id="2609632851001447353">तफावत</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{काहीही नाही}=1{1 अ‍ॅप ($1)}=2{2 अ‍ॅप्स ($1, $2)}one{# अ‍ॅप् ($1, $2, $3)}other{# अ‍ॅप्स ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">आपले घड्याळ पुढे आहे</translation>
+<translation id="2634124572758952069"><ph name="HOST_NAME" /> चा सर्व्हर आयपी अॅड्रेस सापडला नाही.</translation>
 <translation id="2639739919103226564">स्थिती:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">फाइलवरील प्रवेश नाकारण्यात आला</translation>
@@ -650,6 +651,7 @@
 <translation id="6017850046339264347"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />वर असलेले आक्रमणकर्ता फसवणारे अॅप्स इंस्टॉल करू शकतात जे दुसरे काहीतरी असल्याचे भासवू शकतात किंवा तुम्हाला शोधण्यासाठी डेटा वापरू शकतात. <ph name="BEGIN_LEARN_MORE_LINK" />अधिक जाणून घ्या<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="6025416945513303461"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /> (सिंक केलेले)</translation>
 <translation id="6027201098523975773">नाव प्रविष्ट करा</translation>
+<translation id="6039846035001940113">समस्या कायम राहिल्यास साइटच्या मालकाशी संपर्क साधा.</translation>
 <translation id="6040143037577758943">बंद करा</translation>
 <translation id="6047233362582046994">तुम्हाला तुमच्या सुरक्षेला असणारा धोका समजत असल्यास, हानिकारक अॅप्स काढले जाण्यापूर्वी तुम्ही <ph name="BEGIN_LINK" />या साइटला भेट देऊ शकता<ph name="END_LINK" />.</translation>
 <translation id="6047927260846328439">हा आशय तुम्हाला सॉफ्टवेअर इंस्टॉल करण्याचा किंवा वैयक्तिक माहिती उघड करण्याचा फसवा प्रयत्न करू शकेल. <ph name="BEGIN_LINK" />तरीही दाखवा<ph name="END_LINK" /></translation>
