@@ -29,6 +29,7 @@
 #include "components/arc/arc_bridge_service.h"
 #include "components/arc/arc_browser_context_keyed_service_factory_base.h"
 #include "components/arc/bluetooth/bluetooth_type_converters.h"
+#include "components/device_event_log/device_event_log.h"
 #include "components/prefs/pref_service.h"
 #include "components/user_manager/user_manager.h"
 #include "device/bluetooth/bluetooth_common.h"
@@ -2133,6 +2134,7 @@ void ArcBluetoothBridge::EnqueueRemotePowerChange(
   remote_power_changes_.push(powered);
 
   bool turn_on = (powered == AdapterPowerState::TURN_ON);
+  BLUETOOTH_LOG(EVENT) << "ARC bluetooth set power: " << turn_on;
   bluetooth_adapter_->SetPowered(
       turn_on,
       base::Bind(turn_on ? &ArcBluetoothBridge::OnPoweredOn
