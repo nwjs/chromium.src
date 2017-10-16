@@ -891,7 +891,7 @@ Wird die Richtlinie auf "false" gesetzt oder nicht konfiguriert, wird kein Zerti
           Der Wert für die Richtlinie muss in Millisekunden angegeben werden.</translation>
 <translation id="4105989332710272578">Erzwingung der Zertifikatstransparenz für eine Liste von URLs deaktivieren</translation>
 <translation id="4121350739760194865">App-Werbung nicht auf der "Neuer Tab"-Seite anzeigen</translation>
-<translation id="4133144443101280166">Intervalle für Abwesenheitszeiten, wenn OffHours |ignored_policy_proto_tags| für das Gerät veröffentlicht werden</translation>
+<translation id="4133144443101280166">Intervalle für Abwesenheitszeiten, wenn OffHours |ignored_policy_proto_tags| für das Gerät veröffentlicht wird</translation>
 <translation id="4157003184375321727">Betriebssystem- und Firmware-Version melden</translation>
 <translation id="4183229833636799228">"<ph name="FLASH_PLUGIN_NAME" />" als Standardeinstellung</translation>
 <translation id="4192388905594723944">URL zur Überprüfung des Client-Authentifizierungs-Tokens für den Remote-Zugriff</translation>

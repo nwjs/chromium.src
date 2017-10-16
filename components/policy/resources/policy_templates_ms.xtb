@@ -87,7 +87,7 @@
 <translation id="1363275621236827384">Dayakan pertanyaan ke Pelayan Quirks untuk mendapatkan profil perkakasan</translation>
 <translation id="1393485621820363363">Pencetak peranti perusahaan didayakan</translation>
 <translation id="1397855852561539316">Pembekal carian lalai mencadangkan URL</translation>
-<translation id="1420281424655200442">Mengawal peranti daripada <ph name="DEVICE_PRINTERS_POLICY" /> yang tersedia kepada pengguna.
+<translation id="1420281424655200442">Mengawal pencetak daripada <ph name="DEVICE_PRINTERS_POLICY" /> yang tersedia kepada pengguna.
 
       Menetapkan dasar akses yang digunakan untuk konfigurasi pencetak pukal. Jika <ph name="PRINTERS_ALLOW_ALL" /> dipilih, semua pencetak akan dipaparkan. Jika <ph name="PRINTERS_BLACKLIST" /> dipilih, <ph name="DEVICE_PRINTERS_BLACKLIST" /> akan digunakan untuk mengehadkan akses kepada pencetak yang ditetapkan.  Jika <ph name="PRINTERS_WHITELIST" /> dipilih, <ph name="DEVICE_PRINTERS_WHITELIST" /> akan menetapkan pencetak yang boleh dipilih sahaja.
 
@@ -114,6 +114,11 @@
 
       Jika dasar tidak ditetapkan, nilai lalai 'MultiProfileUserBehaviorMustBePrimary' terpakai untuk pengguna diuruskan perusahaan dan 'MultiProfileUserBehaviorUnrestricted' akan digunakan untuk pengguna tidak diuruskan.</translation>
 <translation id="1465619815762735808">Klik untuk bermain</translation>
+<translation id="1466133662354365542">Mendayakan ciri Autolengkap <ph name="PRODUCT_NAME" /> dan membolehkan pengguna mengisikan maklumat kredit kad dan alamat dalam borang web secara automatik dengan menggunakan maklumat yang disimpan sebelum itu.
+
+      Jika anda melumpuhkan tetapan ini, Autolengkap tidak akan mencadangkan atau mengisikan maklumat kad kredit atau menyimpan maklumat kad kredit tambahan yang mungkin diserahkan oleh pengguna semasa menyemak imbas web.
+
+      Jika anda mendayakan tetapan ini atau tidak menetapkan nilai, maka pengguna akan dapat mengawal keseluruhan ciri autolengkap (termasuk kad kredit) dalam UI.</translation>
 <translation id="1468307069016535757">Tetapkan keadaan lalai ciri kebolehcapaian mod kontras tinggi pada skrin log masuk.
 
           Jika dasar ini ditetapkan kepada benar, mod kontras tinggi akan didayakan apabila skrin log masuk dipaparkan.
@@ -274,7 +279,7 @@
 <translation id="2030905906517501646">Kata kunci pembekal carian lalai</translation>
 <translation id="203096360153626918">Dasar ini tidak berkesan terhadap apl Android. Apl ini dapat memasuki mod skrin penuh walaupun jika dasar ini ditetapkan kepada <ph name="FALSE" />.</translation>
 <translation id="2043770014371753404">Pencetak perusahaan dilumpuhkan</translation>
-<translation id="2063380907529983889">Mengawal peranti daripada <ph name="BULK_PRINTERS_POLICY" /> yang tersedia kepada pengguna.
+<translation id="2063380907529983889">Mengawal pencetak daripada <ph name="BULK_PRINTERS_POLICY" /> yang tersedia kepada pengguna.
 
       Menetapkan dasar akses yang digunakan untuk konfigurasi pencetak pukal. Jika <ph name="PRINTERS_ALLOW_ALL" /> dipilih, semua pencetak akan dipaparkan. Jika <ph name="PRINTERS_BLACKLIST" /> dipilih, <ph name="BULK_PRINTERS_BLACKLIST" /> akan digunakan untuk mengehadkan akses kepada pencetak yang ditetapkan.  Jika <ph name="PRINTERS_WHITELIST" /> dipilih, <ph name="BULK_PRINTERS_WHITELIST" /> akan menetapkan pencetak yang boleh dipilih sahaja.
 
@@ -371,6 +376,7 @@
 <translation id="2294382669900758280">Tindakan memainkan video dalam apl Android tidak diambil kira, walaupun jika dasar ini ditetapkan kepada <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Konfigurasi halaman Tab Baharu lalai dalam <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Tentukan senarai pemalam yang didayakan</translation>
+<translation id="2303795211377219696">Dayakan Autolengkap untuk kad kredit</translation>
 <translation id="2309390639296060546">Tetapan geolokasi lalai</translation>
 <translation id="2312134445771258233">Membenarkan anda mengkonfigurasi halaman yang dimuatkan pada permulaan.
 
@@ -1156,6 +1162,7 @@
           Nilai tersebut mestilah tatasusunan pelbagai kamus JSON yang berentetan. Setiap kamus mestilah berbentuk { "pattern": "$URL_PATTERN", "filter" : $FILTER }, dengan $URL_PATTERN ialah pola tetapan kandungan. $FILTER menyekat yang daripadanya sijil pelanggan akan dipilih secara automatik oleh penyemak imbas. Tanpa bergantung kepada penapis, hanya sijil akan dipilih apabila sepadan dengan permintaan sijil pelayan. Jika $FILTER berbentuk { "ISSUER": { "CN": "$ISSUER_CN" } }, selain itu hanya sijil pelanggan dipilih yang dikeluarkan oleh sijil dengan CommonName $ISSUER_CN. Jika $FILTER ialah kamus kosong {}, pemilihan sijil pelanggan tidak dihadkan sebagai tambahan.
 
           Jika dasar ini dibiarkan tanpa ditetapkan, tiada auto pilihan akan dibuat untuk mana-mana tapak.</translation>
+<translation id="4978405676361550165">Jika dasar "OffHours" ditetapkan, maka dasar peranti yang ditetapkan akan diabaikan (gunakan tetapan lalai dasar ini) semasa selang masa yang ditakrifkan. Dasar peranti akan diterapkan semula oleh Chrome pada setiap peristiwa apabila tempoh "OffHours" bermula atau berakhir. Pengguna akan diberitahu dan dipaksa log keluar apabila masa "OffHours" berakhir dan tetapan dasar peranti diubah (mis., apabila pengguna log masuk menggunakan akaun yang tidak dibenarkan).</translation>
 <translation id="4980635395568992380">Jenis data:</translation>
 <translation id="4983201894483989687">Benarkan pemalam yang lapuk dijalankan</translation>
 <translation id="4988291787868618635">Tindakan yang perlu diambil apabila kelewatan melahu dicapai</translation>
@@ -1444,6 +1451,53 @@
 
       Jika dasar ini tidak ditetapkan atau ditetapkan kepada palsu, arahan cetakan akan mencetuskan skrin pratonton cetakan.</translation>
 <translation id="6022948604095165524">Tindakan semasa permulaan</translation>
+<translation id="6023030044732320798">Menentukan set dasar yang akan diserahkan kepada waktu jalan ARC. Nilainya mestilah JSON sah.
+
+      Dasar ini boleh digunakan untuk mengkonfigurasikan apl Android yang akan dipasang secara automatik pada peranti:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Pengecam apl Android, mis. "com.google.android.gm" untuk Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Menentukan cara apl dipasang. OPTIONAL: Apl tidak dipasang secara automatik, tetapi pengguna boleh memasangnya. Ini ialah nilai lalai jika dasar ini tidak ditentukan. PRELOAD: Apl dipasang secara automatik, tetapi pengguna boleh menyahpasangnya. FORCE_INSTALLED: Apl dipasang secara automatik dan pengguna tidak boleh menyahpasangnya. BLOCKED: Apl disekat dan tidak boleh dipasang. Jika apl dipasang di bawah dasar sebelumnya, apl itu akan dinyahpasang.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Dasar untuk meluluskan permintaan kebenaran apl. PERMISSION_POLICY_UNSPECIFIED: Dasar tidak ditentukan. Jika tiada dasar ditentukan untuk kebenaran pada mana-mana tahap, maka tingkah laku `PROMPT` digunakan secara lalai. PROMPT: Menggesa pengguna supaya memberikan kebenaran. GRANT: Berikan kebenaran secara automatik. DENY: Nafikan kebenaran seara automatik.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Objek konfigurasi JSON khusus apl dengan set pasangan kunci dan nilai, mis. '"managedConfiguration": { "key1": value1, "key2": value2 }'. Kunci ditakrifkan dalam manifes apl.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Untuk menyematkan apl pada pelancar, lihat PinnedLauncherApps.</translation>
 <translation id="602728333950205286">URL semerta pembekal carian lalai</translation>
 <translation id="603410445099326293">Parameter untuk URL cadangan yang menggunakan POST</translation>
 <translation id="6036523166753287175">Dayakan penyusuran tembok api daripada hos akses jauh</translation>

@@ -393,6 +393,7 @@
 <translation id="3778403066972421603">このカードを Google アカウントとこの端末に保存しますか？</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3787705759683870569">有効期限: <ph name="EXPIRATION_MONTH" /> / <ph name="EXPIRATION_YEAR" /></translation>
+<translation id="3808375843007691220">警告: 試験運用版の機能です。</translation>
 <translation id="382518646247711829">プロキシ サーバーを使用している場合...</translation>
 <translation id="3828924085048779000">パスフレーズは必ず指定してください。</translation>
 <translation id="385051799172605136">戻る</translation>
@@ -448,6 +449,7 @@
 <translation id="4269787794583293679">（ユーザー名なし）</translation>
 <translation id="4275830172053184480">デバイスの再起動</translation>
 <translation id="4280429058323657511">、有効期限: <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4292213515608230699">一致する試験運用機能が見つかりません</translation>
 <translation id="4304224509867189079">ログイン</translation>
 <translation id="4312866146174492540">ブロック（デフォルト）</translation>
 <translation id="4325863107915753736">記事が見つかりませんでした</translation>
@@ -518,6 +520,7 @@
 <translation id="495170559598752135">操作</translation>
 <translation id="4958444002117714549">リストを展開する</translation>
 <translation id="4974590756084640048">警告を再度有効にする</translation>
+<translation id="4989542687859782284">利用不可</translation>
 <translation id="4989809363548539747">このプラグインはサポートされていません</translation>
 <translation id="5002932099480077015">有効にすると、Chrome ではこの端末にカードのコピーが保存されます。これにより、フォームにすばやく入力できるようになります。</translation>
 <translation id="5018422839182700155">このページを開けません</translation>
@@ -571,6 +574,7 @@
 <translation id="5355557959165512791"><ph name="SITE" /> は証明書が失効しているため、現在アクセスできません。通常、ネットワーク エラーやネットワークへの攻撃は一時的なものです。しばらくするとページにアクセスできるようになります。</translation>
 <translation id="536296301121032821">ポリシー設定を保存できませんでした</translation>
 <translation id="5386426401304769735">このサイトの証明書チェーンには SHA-1 を使って署名された証明書が含まれています。</translation>
+<translation id="5401815295726769233">フラグを検索</translation>
 <translation id="5402410679244714488">有効期限: <ph name="EXPIRATION_DATE_ABBR" />、最終使用日: 1 年以上前</translation>
 <translation id="540969355065856584">このサーバーが <ph name="DOMAIN" /> であることを確認できませんでした。このサーバーのセキュリティ証明書は現在有効ではありません。設定が不適切か、悪意のあるユーザーによって接続が妨害されている可能性があります。</translation>
 <translation id="5421136146218899937">閲覧履歴データの消去...</translation>
@@ -623,6 +627,7 @@
 <translation id="5732392974455271431">ブロックの解除は保護者が行うことができます</translation>
 <translation id="5763042198335101085">有効なメールアドレスを入力してください</translation>
 <translation id="5765072501007116331">配達方法と要件を確認するには、住所を選択してください</translation>
+<translation id="5770114862687765385">ファイルが壊れているようです。[リセット] ボタンをクリックしてセッションをリセットしてください。</translation>
 <translation id="5778550464785688721">MIDI デバイスのフル コントロール</translation>
 <translation id="5784606427469807560">カードの確認中に問題が発生しました。インターネット接続を確認してもう一度お試しください。</translation>
 <translation id="5785756445106461925">加えて、このページには安全でない他のリソースが含まれています。このリソースは送信中に他のユーザーから見られる可能性があります。また、悪意のあるユーザーによって改変されページの見た目が変わる可能性もあります。</translation>
@@ -636,6 +641,7 @@
 <translation id="5869522115854928033">保存したパスワード</translation>
 <translation id="5893752035575986141">クレジット カードをご利用いただけます。</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" />（同期済み）</translation>
+<translation id="5909194079078764042">これらの機能を有効にすると、ブラウザのデータが失われたり、セキュリティやプライバシーが侵害されたりする可能性があります。有効にした機能は、このブラウザのすべてのユーザーに適用されます。</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 個が使用中}other{# 個が使用中}}</translation>
 <translation id="5939518447894949180">リセット</translation>
 <translation id="5959728338436674663">危険なアプリやサイトの検出に役立てるために一部の<ph name="BEGIN_WHITEPAPER_LINK" />システム情報やページのコンテンツ<ph name="END_WHITEPAPER_LINK" />を Google に自動送信する。<ph name="PRIVACY_PAGE_LINK" /></translation>
@@ -683,6 +689,7 @@
 <translation id="6305205051461490394"><ph name="URL" /> にアクセスできません。</translation>
 <translation id="6319915415804115995">最終使用日: 1 年以上前</translation>
 <translation id="6321917430147971392">DNS 設定を確認してください</translation>
+<translation id="6325286409953503969">Chrome の新しい機能に関心をお持ちでしたら、<ph name="BEGIN_LINK" />Dev チャンネル<ph name="END_LINK" />をお試しください。</translation>
 <translation id="6328639280570009161">ネットワーク予測を無効にしてみてください</translation>
 <translation id="6328786501058569169">これは偽のサイトです</translation>
 <translation id="6337133576188860026">最大で <ph name="SIZE" /> を解放します。サイトによっては、次回アクセスする際に読み込みに時間がかかる可能性があります。</translation>
@@ -785,6 +792,7 @@
 <translation id="7298195798382681320">推奨</translation>
 <translation id="7309308571273880165"><ph name="CRASH_TIME" /> にクラッシュ レポートが作成されました（ユーザーからアップロードがリクエストされましたが、まだアップロードされていません）</translation>
 <translation id="7334320624316649418">順序変更のやり直し（&amp;R）</translation>
+<translation id="7337706099755338005">現在のプラットフォームではご利用いただけません。</translation>
 <translation id="733923710415886693">サーバーの証明書は、証明書の透明性ポリシーを介して公開されていません。</translation>
 <translation id="7353601530677266744">コマンドライン</translation>
 <translation id="7372973238305370288">検索結果</translation>
@@ -792,6 +800,7 @@
 <translation id="7378627244592794276">いいえ</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">カードの確認</translation>
+<translation id="739697976928952788">保存したパスワードをすべて表示</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7419106976560586862">プロフィール パス</translation>
 <translation id="7424977062513257142">このウェブページに埋め込まれているページの内容:</translation>
@@ -838,6 +847,7 @@
 <translation id="7668654391829183341">不明なデバイス</translation>
 <translation id="7669271284792375604">このサイトを利用すると、悪意のあるユーザーによって、閲覧時のエクスペリエンスを損なうプログラム（ホームページを改ざんする、アクセス先のサイトに追加の広告を表示するなどのプログラム）をインストールするよう誘導される可能性があります。</translation>
 <translation id="7682287625158474539">発送先</translation>
+<translation id="7695552107151968219">Chrome の新しい機能に関心をお持ちでしたら、<ph name="BEGIN_LINK" />Beta チャンネル<ph name="END_LINK" />をお試しください。</translation>
 <translation id="7699293099605015246">記事は現在利用できません</translation>
 <translation id="7701040980221191251">なし</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" /><ph name="SITE" /> にアクセスする（安全ではありません）<ph name="END_LINK" /></translation>

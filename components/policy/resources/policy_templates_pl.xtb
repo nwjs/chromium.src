@@ -110,6 +110,11 @@
 
       Jeśli nie ustawisz tej zasady, wartość domyślna „MultiProfileUserBehaviorMustBePrimary” jest stosowana do użytkowników zarządzanych w firmie, a wartość „MultiProfileUserBehaviorUnrestricted” – do niezarządzanych.</translation>
 <translation id="1465619815762735808">Kliknij, by uruchomić</translation>
+<translation id="1466133662354365542">Włącza funkcję autouzupełniania w <ph name="PRODUCT_NAME" />, umożliwiając użytkownikom automatyczne wprowadzanie wcześniej zapisanych danych karty kredytowej i adresu w formularzach na stronach internetowych.
+
+      Jeśli wyłączysz to ustawienie, autouzupełnianie nie będzie podpowiadać ani wypełniać danych karty kredytowej, jak też nie będzie zapisywać dodatkowych danych karty kredytowej, które użytkownik może podawać na stronach internetowych.
+
+      Jeśli ustawienie jest włączone lub nieskonfigurowane, użytkownik może samodzielnie skonfigurować autouzupełnianie (w tym wpisać dane kart kredytowych) w interfejsie.</translation>
 <translation id="1468307069016535757">Ustawia domyślny stan funkcji ułatwień dostępu w postaci trybu wysokiego kontrastu na ekranie logowania.
 
           Jeśli ta zasada ma wartość „prawda”, po wyświetleniu ekranu logowania tryb wysokiego kontrastu jest włączony.
@@ -360,6 +365,7 @@
 <translation id="2294382669900758280">Odtwarzanie filmów w aplikacjach na Androida nie jest uwzględniane, nawet gdy zasada jest ustawiona na <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Skonfiguruj domyślną stronę nowej karty w <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Określ listę włączonych wtyczek</translation>
+<translation id="2303795211377219696">Włącz autouzupełnianie kart kredytowych</translation>
 <translation id="2309390639296060546">Domyślne ustawienie geolokalizacji</translation>
 <translation id="2312134445771258233">Umożliwia skonfigurowanie stron wczytywanych po uruchomieniu. Zawartość listy „Adresy URL otwierane po uruchomieniu” jest ignorowana, chyba że wybierzesz opcję „Otwórz adresy URL z listy” w ustawieniu „Działanie po uruchomieniu”.</translation>
 <translation id="2337466621458842053">Umożliwia skonfigurowanie listy wzorcowych URL-i określających witryny, w których mogą być wyświetlane obrazy. Jeśli ta zasada nie zostanie skonfigurowana, dla wszystkich witryn będzie używana globalna wartość domyślna pochodząca z zasady „DefaultImagesSettings” (jeśli została skonfigurowana) lub z osobistej konfiguracji użytkownika.</translation>
@@ -1099,6 +1105,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
           Wartość musi być tablicą słowników JSON odwzorowanych na ciąg. Każdy słownik musi mieć postać { "pattern": "$URL_PATTERN", "filter" : $FILTER }, gdzie $URL_PATTERN jest wzorcem ustawiającym zawartość. $FILTER ogranicza certyfikaty klienta, spośród których przeglądarka może dokonać automatycznego wyboru. Niezależnie od filtra wybierane mogą być tylko te certyfikaty, które są zgodne z żądaniem certyfikatu serwera. Jeśli $FILTER ma postać { "ISSUER": { "CN": "$ISSUER_CN" } }, to dodatkowo wybierane będą tylko te certyfikaty klienta, które zostały wydane przez certyfikat z CommonName $ISSUER_CN. Jeśli $FILTER jest pustym słownikiem {}, wybór certyfikatów klienta nie jest dodatkowo ograniczany.
 
           Jeśli ta zasada nie jest ustawiona, automatyczna selekcja nie będzie przeprowadzana w żadnej witrynie.</translation>
+<translation id="4978405676361550165">Jeśli zasada „OffHours” jest ustawiona, to określone zasady dotyczące urządzeń są ignorowane (używane są ustawienia domyślne tych zasad) w konkretnych okresach. Zasady dotyczące urządzeń są ponownie stosowane przez Chrome za każdym razem, gdy zaczyna lub kończy się okres „OffHours”. Użytkownik otrzymuje powiadomienie i następuje wymuszone wylogowanie, gdy zakończenie okresu „OffHours” i zasady dotyczące urządzeń zmienią się (np. gdy użytkownik jest zalogowany na konto, które nie ma uprawnień).</translation>
 <translation id="4980635395568992380">Typ danych:</translation>
 <translation id="4983201894483989687">Zezwalaj na uruchamianie nieaktualnych wtyczek</translation>
 <translation id="4988291787868618635">Działanie, jakie ma zostać wykonane po osiągnięciu opóźnienia bezczynności</translation>
@@ -1357,6 +1364,53 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 
       Jeśli ta opcja będzie nieustawiona lub wyłączona, polecenia wydruku będą wyświetlać ekran podglądu.</translation>
 <translation id="6022948604095165524">Działanie po uruchomieniu</translation>
+<translation id="6023030044732320798">Określa zestaw zasad przesyłany do środowiska wykonawczego ARC. Wartość musi być prawidłowym kodem JSON.
+
+      Za pomocą tej zasady można wskazać aplikacje na Androida, które mają być automatycznie instalowane na urządzeniu:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "identyfikator aplikacji na Androida, np. "com.google.android.gm" w przypadku Gmaila",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Określa sposób instalowania aplikacji. OPTIONAL: aplikacja nie jest instalowana automatycznie, ale użytkownik może ją zainstalować. To ustawienie domyślne, gdy ta zasada nie jest skonfigurowana. PRELOAD: aplikacja jest instalowana automatycznie, ale użytkownik może ją odinstalować. FORCE_INSTALLED: aplikacja jest instalowana automatycznie i użytkownik nie może jej odinstalować. BLOCKED: aplikacja jest zablokowana i nie można jej zainstalować. Jeśli aplikacja została zainstalowana podczas obowiązywania wcześniejszej zasady, zostanie odinstalowana.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Zasada przyznawania uprawnień aplikacjom. PERMISSION_POLICY_UNSPECIFIED: zasada nie jest określona. Jeśli uprawnienie nie ma zasady na żadnym poziomie, domyślnie stosowane jest zachowanie PROMPT. PROMPT: użytkownik jest proszony o przyznanie uprawnień. GRANT: automatyczne przyznanie uprawnień. DENY: automatyczna odmowa uprawnień.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Obiekt JSON z konfiguracją specyficzną dla danej aplikacji w postaci par klucz-wartość, np. '"managedConfiguration": { "klucz1": wartość1, "klucz2": wartość2 }'. Klucze są zdefiniowane w manifeście aplikacji.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Przypinanie aplikacji do menu startowego, zobacz PinnedLauncherApps.</translation>
 <translation id="602728333950205286">Adres URL wyszukiwania dynamicznego od domyślnego dostawcy wyszukiwania</translation>
 <translation id="603410445099326293">Parametry dla sugerowania URL-i używających POST</translation>
 <translation id="6036523166753287175">Włącz omijanie zapory sieciowej przez hosta dostępu zdalnego</translation>

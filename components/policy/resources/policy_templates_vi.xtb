@@ -114,6 +114,11 @@
 
       Nếu chính sách không được đặt, giá trị mặc định 'MultiProfileUserBehaviorMustBePrimary' sẽ áp dụng cho người dùng được doanh nghiệp quản lý và 'MultiProfileUserBehaviorUnrestricted' sẽ được sử dụng cho người dùng không bị quản lý.</translation>
 <translation id="1465619815762735808">Nhấp để phát</translation>
+<translation id="1466133662354365542">Bật tính năng Tự động điền của <ph name="PRODUCT_NAME" /> rồi cho phép người dùng tự động hoàn thành thông tin địa chỉ và thẻ tín dụng trong biểu mẫu web bằng cách sử dụng thông tin đã lưu trữ trước đây.
+
+      Nếu bạn tắt cài đặt này, tính năng Tự động điền sẽ không bao giờ đề xuất hoặc điền thông tin thẻ tín dụng cũng như không lưu thông tin thẻ tín dụng bổ sung mà người dùng có thể gửi trong khi duyệt web.
+
+      Nếu bạn bật cài đặt này hoặc không đặt giá trị thì người dùng sẽ có thể kiểm soát toàn bộ tính năng tự động điền (bao gồm cả thẻ tín dụng) trong giao diện người dùng.</translation>
 <translation id="1468307069016535757">Đặt trạng thái mặc định của tính năng trợ năng chế độ tương phản cao trên màn hình đăng nhập.
 
           Nếu chính sách này được đặt thành true, chế độ tương phản cao sẽ được bật khi màn hình đăng nhập hiển thị.
@@ -372,6 +377,7 @@
 <translation id="2294382669900758280">Video đang phát trong các ứng dụng Android không được xem xét ngay cả khi chính sách này được đặt thành <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Định cấu hình trang Tab mới mặc định trong <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Chỉ định danh sách plugin được phép</translation>
+<translation id="2303795211377219696">Bật tính năng Tự động điền cho thẻ tín dụng</translation>
 <translation id="2309390639296060546">Cài đặt vị trí địa lý mặc định</translation>
 <translation id="2312134445771258233">Cho phép bạn định cấu hình các trang được tải khi khởi động. Nội dung của danh sách 'Các URL được mở khi khởi động' bị bỏ qua trừ khi bạn chọn 'Mở danh sách các URL' trong' Tác vụ khi khởi động'.</translation>
 <translation id="2337466621458842053">Cho phép bạn thiết lập danh sách các mẫu url chỉ định những trang web được phép hiển thị hình ảnh.
@@ -1149,6 +1155,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Giá trị phải là một dãy từ điển JSON dạng chuỗi. Mỗi từ điển đều phải có dạng { "pattern": "$URL_PATTERN", "filter" : $FILTER }, trong đó $URL_PATTERN là mẫu cài đặt nội dung. $FILTER giới hạn các chứng chỉ ứng dụng mà trình duyệt sẽ tự động chọn. Bất kể bộ lọc, chỉ các chứng chỉ khớp với yêu cầu chứng chỉ của máy chủ mới được chọn. Nếu $FILTER có dạng { "ISSUER": { "CN": "$ISSUER_CN" } } thì thêm nữa, chỉ những chứng chỉ ứng dụng do chứng chỉ có CommonName $ISSUER_CN cấp mới được chọn. Nếu $FILTER là từ điển trống {}, lựa chọn chứng chỉ ứng dụng sẽ không bị hạn chế thêm.
 
           Nếu bạn không đặt chính sách này, sẽ không có thao tác tự động chọn nào được thực hiện cho bất kỳ trang web nào.</translation>
+<translation id="4978405676361550165">Nếu bạn đặt chính sách "OffHours" thì các chính sách thiết bị đã chỉ định sẽ bị bỏ qua (sử dụng cài đặt mặc định của những chính sách này) trong khoảng thời gian đã định. Chính sách thiết bị được Chrome áp dụng lại trên mọi sự kiện khi khoảng thời gian "OffHours" bắt đầu hoặc kết thúc. Người dùng sẽ được thông báo và bắt buộc phải đăng xuất khi kết thúc thời gian "OffHours" và cài đặt chính sách thiết bị thay đổi (tức là khi người dùng đăng nhập không phải bằng tài khoản được cho phép).</translation>
 <translation id="4980635395568992380">Loại dữ liệu:</translation>
 <translation id="4983201894483989687">Cho phép chạy các plugin đã lỗi thời</translation>
 <translation id="4988291787868618635">Hành động cần thực hiện khi đạt tới độ trễ khi không sử dụng</translation>
@@ -1441,6 +1448,53 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
        Nếu chính sách này không được đặt hoặc bị đặt thành sai, lệnh in sẽ chạy màn hình chế độ xem trước bản in.</translation>
 <translation id="6022948604095165524">Tác vụ khi khởi động</translation>
+<translation id="6023030044732320798">Chỉ định một nhóm chính sách sẽ được chuyển giao cho ARC trong thời gian chạy. Giá trị phải là JSON hợp lệ.
+
+      Chính sách này có thể được sử dụng để định cấu hình ứng dụng Android nào sẽ được tự động cài đặt trên thiết bị:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android app identifier, e.g. "com.google.android.gm" for Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Specifies how an app is installed. OPTIONAL: The app is not installed automatically, but the user can install it. This is the default if this policy is not specified. PRELOAD: The app is installed automatically, but the user can uninstall it. FORCE_INSTALLED: The app is installed automatically and the user cannot uninstall it. BLOCKED: The app is blocked and cannot be installed. If the app was installed under a previous policy it will be uninstalled.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Policy for granting permission requests to apps. PERMISSION_POLICY_UNSPECIFIED: Policy not specified. If no policy is specified for a permission at any level, then the `PROMPT` behavior is used by default. PROMPT: Prompt the user to grant a permission. GRANT: Automatically grant a permission. DENY: Automatically deny a permission.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "App-specific JSON configuration object with a set of key-value pairs, e.g. '"managedConfiguration": { "key1": value1, "key2": value2 }'. The keys are defined in the app manifest.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Để ghim ứng dụng vào trình khởi chạy, hãy xem PinnedLauncherApps.</translation>
 <translation id="602728333950205286">URL instant của nhà cung cấp dịch vụ tìm kiếm mặc định</translation>
 <translation id="603410445099326293">Tham số cho URL đề xuất sử dụng POST</translation>
 <translation id="6036523166753287175">Bật tính năng chặn tường lửa từ máy chủ truy cập từ xa</translation>

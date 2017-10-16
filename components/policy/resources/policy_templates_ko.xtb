@@ -114,6 +114,11 @@
 
       정책을 설정하지 않은 상태로 두면 엔터프라이즈 관리 사용자의 경우 'MultiProfileUserBehaviorMustBePrimary' 기본값이 적용되며 비관리 사용자에게는 'MultiProfileUserBehaviorUnrestricted'가 사용됩니다.</translation>
 <translation id="1465619815762735808">클릭하여 재생</translation>
+<translation id="1466133662354365542"><ph name="PRODUCT_NAME" />의 자동 완성 기능을 사용 설정하면 사용자가 신용카드 정보나 주소와 같이 이전에 저장된 정보를 사용하여 웹 양식을 자동으로 완성할 수 있습니다.
+
+      이 설정을 사용 중지하면 자동 완성 기능이 입력할 신용카드 정보를 제안하거나 자동으로 채우지 않으며, 사용자가 웹 탐색 중에 제출하는 신용카드 정보를 새로 저장하지도 않습니다.
+
+      이 설정을 사용하거나 값을 지정하지 않으면 사용자가 UI에서 신용카드를 포함한 전반적인 자동 완성 기능을 관리할 수 있게 됩니다.</translation>
 <translation id="1468307069016535757">로그인 화면에서 고대비 모드 접근성 기능의 기본 상태를 설정합니다.
 
           이 정책을 true로 설정하면 로그인 화면이 표시될 때 고대비 모드를 사용하도록 설정합니다.
@@ -371,6 +376,7 @@
 <translation id="2294382669900758280">이 정책이 <ph name="TRUE" />로 설정되더라도 Android 앱에서 재생되는 동영상은 고려 대상에 포함되지 않습니다.</translation>
 <translation id="2298647742290373702"><ph name="PRODUCT_NAME" />의 기본 새 탭 페이지를 설정합니다.</translation>
 <translation id="2299220924812062390">사용 설정한 플러그인 목록 지정</translation>
+<translation id="2303795211377219696">신용카드 정보 자동 완성 사용</translation>
 <translation id="2309390639296060546">기본 위치정보 설정</translation>
 <translation id="2312134445771258233">시작 시 로드되는 페이지를 설정할 수 있습니다. '시작 시 동작'에서 'URL 목록 열기'를 선택하지 않으면 '시작 시 열리는 URL' 목록의 콘텐츠는 무시됩니다.</translation>
 <translation id="2337466621458842053">이미지 표시가 허용되는 사이트를 지정하는 URL 패턴 목록을 설정할 수 있습니다.
@@ -1152,6 +1158,7 @@
           이 값은 문자열화된 JSON 사전의 배열이어야 합니다. 각 사전은 { "pattern": "$URL_PATTERN", "filter" : $FILTER } 형태여야 하며, 여기에서 $URL_PATTERN은 콘텐츠 설정 패턴입니다. $FILTER는 브라우저에서 선택할 수 있는 클라이언트 인증서를 제한합니다. 필터와 관계없이 서버의 인증서 요청과 일치하는 인증서만이 선택됩니다. 또한 $FILTER가 { "ISSUER": { "CN": "$ISSUER_CN" } } 형태인 경우 CommonName $ISSUER_CN으로 된 인증서에 의해 발급된 클라이언트 인증서만이 선택됩니다. $FILTER가 빈 사전 {}인 경우 클라이언트 인증서 선택에 추가 제한은 없습니다.
 
           이 정책이 설정되지 않으면 모든 사이트에서 자동으로 선택되지 않습니다.</translation>
+<translation id="4978405676361550165">‘OffHours’ 정책이 설정된 경우, 정의된 기간에 지정된 기기 정책이 무시됩니다(이러한 정책의 기본 설정이 사용됨). 기기 정책은 Chrome에 의해 ‘OffHours’ 기간이 시작 또는 종료되는 모든 이벤트가 발생할 때마다 다시 적용됩니다. ‘OffHours’ 시간이 종료되고 기기 정책 설정이 변경되면(예: 사용자가 허용되지 않는 계정으로 로그인한 경우) 사용자는 알림을 수신하고 강제로 로그아웃됩니다.</translation>
 <translation id="4980635395568992380">데이터 유형:</translation>
 <translation id="4983201894483989687">오래된 플러그인 실행 허용</translation>
 <translation id="4988291787868618635">유휴 지연 시간에 도달하면 수행할 작업</translation>
@@ -1440,6 +1447,53 @@
 
       이 정책을 설정하지 않거나 false로 설정하면 인쇄 명령 시 인쇄 미리보기 화면이 열립니다.</translation>
 <translation id="6022948604095165524">시작 시 동작</translation>
+<translation id="6023030044732320798">ARC 런타임에 전달될 정책 모음을 지정합니다. 유효한 JSON 값이어야 합니다..
+
+      이 정책을 사용하여 기기에 자동 설치될 Android 앱을 설정할 수 있습니다.
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android app identifier, e.g. "com.google.android.gm" for Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "앱의 설치 방법을 지정합니다. OPTIONAL: 앱이 자동으로 설치되지 않으며 사용자가 앱을 설치할 수 있습니다. 이 값은 이 정책이 지정되지 않은 경우의 기본값입니다. PRELOAD: 앱이 자동으로 설치되지만 사용자가 앱을 제거할 수 있습니다. FORCE_INSTALLED: 앱이 자동으로 설치되며 사용자가 제거할 수 없습니다. BLOCKED: 앱이 차단되며 설치할 수 없습니다. 이전 정책하에서 설치된 앱은 제거됩니다.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "앱에 대한 권한 요청을 허가하는 정책입니다. PERMISSION_POLICY_UNSPECIFIED: 정책이 지정되지 않았습니다. 어떤 수준에서도 권한과 관련된 정책이 지정되지 않은 경우, 'PROMPT' 동작이 기본값으로 사용됩니다. PROMPT: 사용자에게 권한을 허가하라는 메시지를 표시합니다. GRANT: 자동으로 권한을 허가합니다. DENY: 자동으로 권한을 거부합니다.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "키-값 쌍이 있는 앱별 JSON 설정 객체입니다. 예: '"managedConfiguration": { "key1": value1, "key2": value2 }'. 키는 앱 매니페스트에 정의되어 있습니다.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      런처에 앱을 고정하려면 PinnedLauncherApps를 참조하세요.</translation>
 <translation id="602728333950205286">기본 검색 공급자 순간 검색 URL</translation>
 <translation id="603410445099326293">POST를 사용하는 추천 URL용 매개변수</translation>
 <translation id="6036523166753287175">원격 액세스 호스트의 방화벽 통과 허용</translation>

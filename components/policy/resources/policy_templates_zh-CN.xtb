@@ -111,6 +111,11 @@
 
       如果此政策未设置，则对于受企业管理的用户，将使用默认值“MultiProfileUserBehaviorMustBePrimary”；对于不受企业管理的用户，则使用“MultiProfileUserBehaviorUnrestricted”。</translation>
 <translation id="1465619815762735808">点击运行</translation>
+<translation id="1466133662354365542">启用 <ph name="PRODUCT_NAME" /> 的“自动填充”功能，并允许用户使用以前存储的信息自动填写网络表单中的信用卡信息和地址信息。
+
+      如果您停用了此设置，“自动填充”功能将不会提示或填充信用卡信息，也不会保存用户在浏览网页时可能提交的其他信用卡信息。
+
+      如果您启用了此设置或未设置任何值，那么用户将能够在界面中控制整个“自动填充”功能（包括信用卡信息）。</translation>
 <translation id="1468307069016535757">设置登录屏幕上高反差模式辅助功能的默认状态。
 
           如果此政策的值设为 True，则登录屏幕显示时将会启用高反差模式。
@@ -342,6 +347,7 @@
 <translation id="2294382669900758280">即使此政策设为 <ph name="TRUE" />，系统也不会考虑在 Android 应用中播放视频。</translation>
 <translation id="2298647742290373702">在 <ph name="PRODUCT_NAME" /> 中配置默认的“打开新的标签页”页面。</translation>
 <translation id="2299220924812062390">指定已启用插件的列表</translation>
+<translation id="2303795211377219696">允许使用“自动填充”功能填写信用卡信息</translation>
 <translation id="2309390639296060546">默认地理位置设置</translation>
 <translation id="2312134445771258233">允许您配置在启动时加载的页面。除非您在“启动时的操作”中选择“打开网址列表”，否则系统会忽略“启动时打开的网址”列表中的内容。</translation>
 <translation id="2337466621458842053">可让您设置网址格式的列表，这些网址格式用于指定允许显示图片的网站。在未设置此政策的情况下，如果设置了“DefaultImagesSetting”政策，那么将对该政策中的所有网站使用全局默认值，否则将对用户个人配置中的所有网站使用全局默认值。</translation>
@@ -1079,6 +1085,7 @@
           此值必须是一个字符串化的 JSON 字典数组。每个字典都必须采用 { "pattern": "$URL_PATTERN", "filter" : $FILTER } 样式，其中 $URL_PATTERN 是内容设置格式，而 $FILTER 会限制相应浏览器可自动从哪些客户端证书中进行选择。无论是否设置了过滤器，系统都只会选择与该服务器的证书请求相匹配的证书。如果 $FILTER 采用 { "ISSUER": { "CN": "$ISSUER_CN" } } 样式，系统则只会选择由 CommonName 为 $ISSUER_CN 的证书颁发机构颁发的客户端证书。如果 $FILTER 是空字典 {}，那么系统在选择客户端证书时便不会受到额外限制。
 
           如果未设置此政策，系统将不会为任何网站自动选择证书。</translation>
+<translation id="4978405676361550165">如果“OffHours”政策已设置，那么在定义的时间间隔内，指定的设备政策会被忽略（使用这些政策的默认设置）。当“OffHours”时段开始或结束时，Chrome 会对每个事件重新应用设备政策。当“OffHours”时段结束且设备政策设置改变时（即当用户使用不被允许的帐号处于已登录状态时），系统会通知用户并强制用户退出。</translation>
 <translation id="4980635395568992380">数据类型：</translation>
 <translation id="4983201894483989687">允许运行过期的插件</translation>
 <translation id="4988291787868618635">闲置延迟时间已过时执行的操作</translation>
@@ -1334,6 +1341,53 @@
 
       如果此策略未设置或设置为 False，打印命令将触发打印预览屏幕。</translation>
 <translation id="6022948604095165524">启动时的操作</translation>
+<translation id="6023030044732320798">指定要向 ARC 运行时传递的一系列政策。相应值必须是有效的 JSON。
+
+      此政策可用于配置哪些 Android 应用会在设备上自动安装：
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android 应用标识符，例如“com.google.android.gm”是 Gmail 的标识符",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "指定相应应用的安装方式。OPTIONAL：系统不会自动安装该应用，但用户可以安装它。如果未指定此政策，这即是默认设置。PRELOAD：系统会自动安装该应用，但用户可以卸载它。FORCE_INSTALLED：系统会自动安装该应用，且用户无法卸载它。BLOCKED：该应用已被屏蔽且无法安装。如果系统已根据之前的政策安装了该应用，则会将其卸载。",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "此政策用于向应用授予所请求的权限。PERMISSION_POLICY_UNSPECIFIED：未指定此政策。如果在任何等级都未针对相应权限指定政策，系统便会默认使用“PROMPT”行为。PROMPT：提示用户授予相应权限。GRANT：自动授予相应权限。DENY：自动拒绝授予相应权限。",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "包含一系列键值对的应用专用型 JSON 配置对象，例如“"managedConfiguration": { "key1": value1, "key2": value2 }”。这些键是在应用清单中定义的。",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      要将应用固定到启动器上，请参阅 PinnedLauncherApps。</translation>
 <translation id="602728333950205286">默认搜索服务提供商的即搜即得网址</translation>
 <translation id="603410445099326293">在使用 POST 的建议网址中所需的参数</translation>
 <translation id="6036523166753287175">支持通过远程访问主机穿越防火墙</translation>

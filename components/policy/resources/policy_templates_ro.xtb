@@ -112,6 +112,11 @@
 
       Dacă politica nu este configurată, valoarea prestabilită „MultiProfileUserBehaviorMustBePrimary” se aplică în cazul utilizatorilor gestionați de o companie, iar valoarea „MultiProfileUserBehaviorUnrestricted” va fi folosită pentru utilizatorii negestionați.</translation>
 <translation id="1465619815762735808">Dă clic pentru redare</translation>
+<translation id="1466133662354365542">Activează funcția de completare automată din <ph name="PRODUCT_NAME" /> și permite utilizatorilor să completeze automat informațiile despre carduri de credit și adrese în formularele web folosind informațiile stocate anterior.
+
+      Dacă dezactivezi această setare, completarea automată nu va sugera și nu va completa niciodată informațiile despre carduri de credit, nici nu va salva informații suplimentare despre carduri de credit pe care utilizatorul le-ar putea trimite când navighează pe web.
+
+      Dacă activezi această setare sau dacă nu setezi o valoare, utilizatorul va putea controla funcția generală de completare automată (inclusiv pentru carduri de credit) în interfața de utilizare.</translation>
 <translation id="1468307069016535757">Setați funcția de accesibilitate pentru modul de contrast ridicat ca stare prestabilită pe ecranul de conectare.
 
           Dacă această politică este activată, modul de contrast ridicat va fi activat când este afișat ecranul de conectare.
@@ -362,6 +367,7 @@
 <translation id="2294382669900758280">Redarea videoclipurilor în aplicațiile Android nu este luată în considerare, chiar dacă politica este setată la <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Configurează pagina Filă nouă prestabilită în <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Specifică o listă de pluginuri activate</translation>
+<translation id="2303795211377219696">Activează completarea automată pentru cardurile de credit</translation>
 <translation id="2309390639296060546">Setare prestabilită pentru localizarea geografică</translation>
 <translation id="2312134445771258233">Poți să configurezi paginile încărcate la pornire.
 
@@ -1116,6 +1122,7 @@
           Valoarea trebuie să fie o serie de dicționare JSON sub formă de șiruri de caractere. Fiecare dicționar trebuie să aibă forma { „pattern”: „$URL_PATTERN”, „filter” : $FILTER }, unde $URL_PATTERN este un șablon pentru setarea de conținut. Valoarea pentru $FILTER limitează din care certificate de client va selecta automat browserul. Indiferent de filtru, se vor selecta numai certificatele care se potrivesc cu solicitarea de certificat a serverului. Dacă $FILTER are forma { „ISSUER”: { „CN”: „$ISSUER_CN” } }, se vor selecta numai certificatele de client emise de o autoritate de certificare cu numele comun $ISSUER_CN. Dacă $FILTER este dicționarul gol {}, nu mai există alte restricții privind selectarea certificatelor de client.
 
           Dacă această politică nu este configurată, nu se va efectua nicio selectare automată, pentru niciun site.</translation>
+<translation id="4978405676361550165">Dacă politica „OffHours” este configurată, politicile privind dispozitivele specificate sunt ignorate (se folosesc setările prestabilite ale acestor politici) în intervalele de timp definite. Politicile privind dispozitivele sunt aplicate din nou de Chrome la fiecare eveniment când perioada setată prin „OffHours” începe sau se încheie. Utilizatorul va fi notificat și forțat să se deconecteze când perioada setată prin „OffHours” se încheie și setările politicii privind dispozitivele sunt modificate (de ex., când utilizatorul nu este conectat cu un cont permis).</translation>
 <translation id="4980635395568992380">Tip de date:</translation>
 <translation id="4983201894483989687">Permite rularea pluginurilor învechite</translation>
 <translation id="4988291787868618635">Măsura care se va lua la atingerea intervalului maxim de inactivitate</translation>
@@ -1379,6 +1386,53 @@
 
       Dacă această politică nu este configurată sau este dezactivată, comenzile de printare declanșează ecranul de previzualizare înainte de printare.</translation>
 <translation id="6022948604095165524">Acțiune la pornire</translation>
+<translation id="6023030044732320798">Specifică un set de politici care vor fi trimise în procesul ARC. Valoarea trebuie să fie un fișier JSON valid.
+
+      Această politică poate fi folosită pentru a configura aplicațiile Android care sunt instalate automat pe dispozitiv:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Identificatorul aplicației Android, de ex., „com.google.android.gmˮ pentru Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Specifică modul în care este instalată aplicația. OPTIONAL: aplicația nu este instalată automat, dar utilizatorul poate să o instaleze. Aceasta este opțiunea prestabilită, dacă politica nu este specificată. PRELOAD: aplicația este instalată automat, dar utilizatorul poate să o dezinstaleze. FORCE_INSTALLED: aplicația este instalată automat și utilizatorul nu o poate dezinstala. BLOCKED: aplicația este blocată și nu poate fi instalată. Dacă aplicația a fost instalată conform unei politici anterioare, va fi dezinstalată.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Politica pentru acordarea solicitărilor de permisiune aplicațiilor. PERMISSION_POLICY_UNSPECIFIED: politica nu este specificată. Dacă nu este specificată nicio politică pentru o permisiune la niciun nivel, comportamentul „PROMPT” este folosit în mod prestabilit. PROMPT: solicită unui utilizator să acorde o permisiune. GRANT: acordă automat o permisiune. DENY: refuză automat o permisiune.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Obiect de configurare JSON specific aplicației cu un set de perechi cheie-valoare, de ex., „"managedConfiguration": { "key1": value1, "key2": value2 }”. Cheile sunt definite în manifestul aplicației.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Pentru a fixa aplicațiile în lansator, consultă PinnedLauncherApps.</translation>
 <translation id="602728333950205286">Adresa URL instant a furnizorului de căutare prestabilit</translation>
 <translation id="603410445099326293">Parametrii pentru adresa URL a sugestiei care utilizează POST</translation>
 <translation id="6036523166753287175">Activați trecerea prin firewall de la gazda de acces la distanță</translation>

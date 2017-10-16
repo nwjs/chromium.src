@@ -195,6 +195,7 @@
 <translation id="1296497012903089238">Type de certificat</translation>
 <translation id="1297175357211070620">Destination</translation>
 <translation id="1297922636971898492">Google Drive n'est pas disponible pour le moment. L'importation reprendra lorsque Google Drive sera à nouveau disponible.</translation>
+<translation id="1300806585489372370">Pour modifier ce paramètre, commencez par <ph name="BEGIN_LINK" />activer les identifiants<ph name="END_LINK" />.</translation>
 <translation id="1303101771013849280">Ajouter le fichier HTML aux favoris</translation>
 <translation id="1303671224831497365">Aucun appareil Bluetooth détecté</translation>
 <translation id="1306606229401759371">Modifier les paramètres</translation>
@@ -317,6 +318,7 @@
 <translation id="1487335504823219454">Activée – Paramètres personnalisés</translation>
 <translation id="1493892686965953381">En attente de <ph name="LOAD_STATE_PARAMETER" />...</translation>
 <translation id="1495486559005647033"><ph name="NUM_PRINTERS" /> autres périphériques disponibles</translation>
+<translation id="1497284176235884849">Le fichier PPD fourni est incorrect.</translation>
 <translation id="1497522201463361063">Impossible de renommer "<ph name="FILE_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1500297251995790841">Appareil inconnu [<ph name="VENDOR_ID" />:<ph name="PRODUCT_ID" />]</translation>
 <translation id="1503394326855300303">Ce compte de propriétaire doit être le premier compte à être connecté lors de sessions de connexion multicompte.</translation>
@@ -529,6 +531,7 @@
 <translation id="180035236176489073">Pour accéder à ces fichiers, vous devez être connecté à Internet.</translation>
 <translation id="1801298019027379214">Code PIN incorrect. Veuillez réessayer. Nombre de tentatives restantes : <ph name="TRIES_COUNT" /></translation>
 <translation id="1801827354178857021">Période</translation>
+<translation id="1802931390041703523">Flash a été bloqué sur cette page</translation>
 <translation id="1803545009660609783">Reprogrammer</translation>
 <translation id="1807938677607439181">Tous les fichiers</translation>
 <translation id="1809734401532861917">Ajouter mes favoris, mon historique, mes mots de passe et d'autres paramètres au compte <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -868,6 +871,7 @@
 <translation id="2350796302381711542">Autoriser <ph name="HANDLER_HOSTNAME" /> à ouvrir tous les liens <ph name="PROTOCOL" /> à la place de <ph name="REPLACED_HANDLER_TITLE" /> ?</translation>
 <translation id="2351266942280602854">Langue et mode de saisie</translation>
 <translation id="2352662711729498748">&lt; 1 Mo</translation>
+<translation id="2353297238722298836">Caméra et micro autorisés</translation>
 <translation id="2356070529366658676">Demander</translation>
 <translation id="2357949918965361754">Vous pouvez utiliser cette fonctionnalité pour afficher des contenus issus de Chrome sur votre téléviseur ou sur d'autres appareils.</translation>
 <translation id="2359345697448000899">Pour gérer les extensions, cliquer sur "Extensions" dans le menu "Outils"</translation>
@@ -1133,6 +1137,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2755367719610958252">Gérer les fonctionnalités d'accessibilité</translation>
 <translation id="275662540872599901">écran désactivé</translation>
 <translation id="2756798847867733934">Carte SIM désactivée</translation>
+<translation id="2762441749940182211">Caméra bloquée</translation>
 <translation id="2765217105034171413">Petite</translation>
 <translation id="2766006623206032690">Coller l'URL et y a&amp;ccéder</translation>
 <translation id="276969039800130567">Connecté en tant que <ph name="USER_EMAIL_ADDRESS" />.</translation>
@@ -1523,6 +1528,7 @@ Domaine d'origine : <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3313622045786997898">Valeur de signature du certificat</translation>
 <translation id="3315158641124845231">Masquer <ph name="PRODUCT_NAME" /></translation>
 <translation id="3317459757438853210">Recto verso</translation>
+<translation id="3317678681329786349">Caméra et micro bloqués</translation>
 <translation id="3319048459796106952">Nouvelle fenêtre de nav&amp;igation privée</translation>
 <translation id="3320021301628644560">Ajouter une adresse de facturation</translation>
 <translation id="3320859581025497771">votre opérateur</translation>
@@ -1987,6 +1993,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4022426551683927403">&amp;Ajouter au dictionnaire</translation>
 <translation id="4023146161712577481">Détermination de la configuration de l'appareil en cours…</translation>
 <translation id="4027804175521224372">(Bénéficiez de toutes ses fonctionnalités - <ph name="IDS_SYNC_PROMO_NOT_SIGNED_IN_STATUS_LINK" />)</translation>
+<translation id="4031179711345676612">Micro autorisé</translation>
 <translation id="4031910098617850788">F5</translation>
 <translation id="4033471457476425443">Ajouter un dossier</translation>
 <translation id="4034042927394659004">Réduire la luminosité du clavier</translation>
@@ -2048,6 +2055,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4120817667028078560">Chemin d'accès trop long.</translation>
 <translation id="4121428309786185360">Expire le</translation>
 <translation id="412730574613779332">Super-héros</translation>
+<translation id="412940972494182898">Exécuter Flash cette fois</translation>
 <translation id="4130199216115862831">Journal d'appareils</translation>
 <translation id="4130207949184424187">Cette extension a modifié la page qui s'affiche lorsque vous effectuez une recherche dans l'omnibox.</translation>
 <translation id="413121957363593859">Composants</translation>
@@ -2105,6 +2113,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4249373718504745892">L'accès à votre caméra et à votre micro est bloqué pour cette page</translation>
 <translation id="4250229828105606438">Capture d'écran</translation>
 <translation id="4250680216510889253">Non</translation>
+<translation id="4252852543720145436">Identifiants de contenu protégé</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" /> – Contenu de l'onglet partagé</translation>
 <translation id="4253515443406306926">Lanceur d'applications, résultats de recherche en plein écran</translation>
 <translation id="4254813446494774748">Langue de traduction :</translation>
@@ -2119,6 +2128,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4270393598798225102">Version <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Aucune correspondance</translation>
 <translation id="4275830172053184480">Redémarrer l'appareil</translation>
+<translation id="4276216215490044084">Impossible de charger un fichier PPD volumineux. La taille maximale est 250 Ko.</translation>
 <translation id="4278390842282768270">Autorisé</translation>
 <translation id="4279490309300973883">Mise en miroir</translation>
 <translation id="4281844954008187215">Conditions d'utilisation</translation>
@@ -2207,6 +2217,7 @@ Pour poursuivre l'exploration, veuillez appuyer sur n'importe quelle touche.</tr
 <translation id="4433914671537236274">Créer un support de récupération</translation>
 <translation id="443464694732789311">Continuer</translation>
 <translation id="4439318412377770121">Voulez-vous vous enregistrer l'appareil <ph name="DEVICE_NAME" /> dans Google Cloud Devices ?</translation>
+<translation id="4439612350502082674">Impossible d'ajouter l'imprimante. Redémarrez et réessayez.</translation>
 <translation id="4441124369922430666">Voulez-vous démarrer automatiquement cette application à la mise sous tension de l'ordinateur ?</translation>
 <translation id="444134486829715816">Développer...</translation>
 <translation id="4441548209689510310">Afficher les options du correcteur orthographique</translation>
@@ -2333,6 +2344,7 @@ Pour poursuivre l'exploration, veuillez appuyer sur n'importe quelle touche.</tr
 <translation id="4656293982926141856">Cet ordinateur</translation>
 <translation id="4658312088164718891">Saisissez votre mot de passe pour activer Smart Lock. La prochaine fois, votre téléphone déverrouillera votre <ph name="DEVICE_TYPE" />. Vous pouvez désactiver Smart Lock dans les paramètres.</translation>
 <translation id="4662788913887017617">Partager ce favori avec votre iPhone</translation>
+<translation id="4663373278480897665">Caméra autorisée</translation>
 <translation id="4664482161435122549">Erreur d'exportation de fichier PKCS #12</translation>
 <translation id="466481852929361583">Configuration du module sécurisé en cours. Veuillez patienter, cela peut prendre quelques minutes.</translation>
 <translation id="4665014895760275686">Fabricant</translation>
@@ -2579,6 +2591,7 @@ Pour poursuivre l'exploration, appuyez sur n'importe quelle touche.</translation
 <translation id="5039512255859636053">$1 To</translation>
 <translation id="5039804452771397117">Autoriser</translation>
 <translation id="5045550434625856497">Mot de passe incorrect</translation>
+<translation id="5050042263972837708">Nom du groupe</translation>
 <translation id="5052499409147950210">Modifier le site</translation>
 <translation id="5053604404986157245">Le mot de passe TPM généré de manière aléatoire n'est pas disponible, ce qui est normal après un Powerwash.</translation>
 <translation id="5061347216700970798">{NUM_BOOKMARKS,plural, =1{Ce dossier contient un favori. Voulez-vous vraiment le supprimer ?}one{Ce dossier contient # favori. Voulez-vous vraiment le supprimer ?}other{Ce dossier contient # favoris. Voulez-vous vraiment le supprimer ?}}</translation>
@@ -2855,7 +2868,7 @@ Pour poursuivre l'exploration, appuyez sur n'importe quelle touche.</translation
 <translation id="5465662442746197494">Besoin d'aide ?</translation>
 <translation id="5469954281417596308">Gestionnaire de favoris</translation>
 <translation id="5473333559083690127">Saisir encore le nouveau code</translation>
-<translation id="5477985481522800229">Passer en mode Appareil photo</translation>
+<translation id="5477985481522800229">Changer de mode de caméra</translation>
 <translation id="5480254151128201294">Cet appareil a été verrouillé par le propriétaire.</translation>
 <translation id="5481941284378890518">Ajouter des imprimantes à proximité</translation>
 <translation id="5483785310822538350">Retirer les droits d'accès aux fichiers et aux appareils</translation>
@@ -3173,6 +3186,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="5972708806901999743">Déplacer vers le haut</translation>
 <translation id="5972826969634861500">Lancer <ph name="PRODUCT_NAME" /></translation>
 <translation id="5975083100439434680">Zoom arrière</translation>
+<translation id="5975730206036440725">Impossible de trouver le fichier PPD. Vérifiez que votre Chromebook est en ligne et réessayez.</translation>
 <translation id="5975792506968920132">Pourcentage de chargement de la batterie</translation>
 <translation id="5976160379964388480">Autres</translation>
 <translation id="5978264784700053212">Centre de messagerie</translation>
@@ -3418,6 +3432,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6374077068638737855">Iceweasel</translation>
 <translation id="6374108032506706911">Configurer Smart Lock pour Android</translation>
 <translation id="6374469231428023295">Réessayer</translation>
+<translation id="6377158645544167202">Impossible de connecter l'imprimante. Vérifiez que l'imprimante est sous tension et connectée à votre Chromebook par Wi-Fi ou USB.</translation>
 <translation id="6380143666419481200">Accepter et continuer</translation>
 <translation id="6383051423892982287">Chiffrer les données synchronisées avec votre propre <ph name="BEGIN_LINK" />phrase secrète de synchronisation<ph name="END_LINK" /></translation>
 <translation id="6384275966486438344">Modifier les paramètres de la recherche pour utiliser l'adresse <ph name="SEARCH_HOST" />.</translation>
@@ -3782,6 +3797,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6948064128393024347">Lanceur d'applications, résultats de recherche</translation>
 <translation id="6949306908218145636">Ajouter les pages ouvertes aux favoris…</translation>
 <translation id="6955446738988643816">Inspecter le pop-up</translation>
+<translation id="6957231940976260713">Nom du service</translation>
 <translation id="695755122858488207">Case d'option décochée</translation>
 <translation id="696203921837389374">Activer la synchronisation via les données mobiles</translation>
 <translation id="6964390816189577014">Héros</translation>
@@ -4004,6 +4020,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="729761647156315797">Sélectionner votre langue et votre clavier</translation>
 <translation id="7299337219131431707">Activer la navigation en tant qu'invité</translation>
 <translation id="730515362922783851">Échanger des données avec n'importe quel appareil sur le réseau local ou sur Internet</translation>
+<translation id="7308002049209013926">Utilisez le lanceur d'applications pour accéder rapidement à vos nouvelles applications et activités. Pour y accéder depuis le clavier, appuyez sur Alt+Maj+L.</translation>
 <translation id="7309257895202129721">Afficher les &amp;commandes</translation>
 <translation id="7311079019872751559">Accès via un plug-in sans système de bac à sable</translation>
 <translation id="7311891583377621132">Déplacez légèrement votre doigt pour enregistrer une autre partie de votre empreinte digitale</translation>
@@ -4516,6 +4533,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8116190140324504026">Plus d'informations...</translation>
 <translation id="8116925261070264013">Son coupé</translation>
 <translation id="8116972784401310538">&amp;Gestionnaire de favoris</translation>
+<translation id="8117620576188476503">Gérez les connexions, les mises à jour et les paramètres depuis la barre d'état. Pour y accéder depuis le clavier, appuyez sur Alt+Maj+S.</translation>
 <translation id="8118362518458010043">Désactivée par Chrome. Cette extension est peut-être dangereuse.</translation>
 <translation id="8118860139461251237">Gérer vos téléchargements</translation>
 <translation id="81238879832906896">Fleur jaune et blanche</translation>
@@ -4661,6 +4679,7 @@ Calcul de la durée restante</translation>
 <translation id="8357224663288891423">Raccourcis clavier pour les extensions et les applications</translation>
 <translation id="8358685469073206162">Restaurer les pages ?</translation>
 <translation id="8363095875018065315">stable</translation>
+<translation id="8363142353806532503">Micro bloqué</translation>
 <translation id="8366396658833131068">Votre connexion réseau est rétablie. Veuillez sélectionner un autre réseau ou appuyer sur "Continuer" ci-dessous pour lancer votre application kiosque.</translation>
 <translation id="8366947248864804596">Lorsque votre téléphone est déverrouillé et situé à proximité, il suffit de le sélectionner pour déverrouiller l'appareil. Dans le cas contraire, saisissez votre mot de passe ou votre code.</translation>
 <translation id="8368859634510605990">&amp;Ouvrir tous les favoris</translation>
@@ -4842,6 +4861,7 @@ Calcul de la durée restante</translation>
 <translation id="8671210955687109937">Commentateur</translation>
 <translation id="8673026256276578048">Rechercher sur le Web...</translation>
 <translation id="8673383193459449849">Problème avec le serveur.</translation>
+<translation id="8675354002693747642">Clé prépartagée</translation>
 <translation id="8676374126336081632">Effacer la saisie</translation>
 <translation id="8677039480012021122">Effacer les données et se déconnecter</translation>
 <translation id="8677212948402625567">Tout réduire...</translation>
@@ -5033,6 +5053,7 @@ Calcul de la durée restante</translation>
 <translation id="8973557916016709913">Supprimer le niveau de zoom</translation>
 <translation id="8973596347849323817">Vous pouvez personnaliser cet appareil en fonction de vos besoins. Il est possible de modifier ces fonctionnalités d'accessibilité ultérieurement dans les paramètres.</translation>
 <translation id="897414447285476047">Le fichier de destination est incomplet en raison d'un problème de connexion.</translation>
+<translation id="8976520271376534479">Flash a été bloqué sur cette page.</translation>
 <translation id="8977811652087512276">Mot de passe incorrect ou fichier corrompu</translation>
 <translation id="8978154919215542464">Activé – Tout synchroniser</translation>
 <translation id="8978526688207379569">Plusieurs fichiers ont été téléchargés automatiquement via ce site</translation>

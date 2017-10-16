@@ -195,6 +195,7 @@
 <translation id="1296497012903089238">نوع گواهینامه</translation>
 <translation id="1297175357211070620">مقصد</translation>
 <translation id="1297922636971898492">‏Google Drive در حال حاضر در دسترس نیست. به محض در دسترس قرار گرفتن Google Drive بارگذاری کردن به صورت خودکار دوباره شروع می‌شود.</translation>
+<translation id="1300806585489372370">برای تغییر این تنظیم، ابتدا <ph name="BEGIN_LINK" />شناسه‌ها را روشن کنید<ph name="END_LINK" /></translation>
 <translation id="1303101771013849280">‏فایل HTML نشانک‌ها</translation>
 <translation id="1303671224831497365">هیچ دستگاه بلوتوثی یافت نشد</translation>
 <translation id="1306606229401759371">تغییر تنظیمات</translation>
@@ -317,6 +318,7 @@
 <translation id="1487335504823219454">روشن - تنظیمات سفارشی</translation>
 <translation id="1493892686965953381">انتظار برای <ph name="LOAD_STATE_PARAMETER" />...</translation>
 <translation id="1495486559005647033"><ph name="NUM_PRINTERS" /> دستگاه دیگر در دسترس است.</translation>
+<translation id="1497284176235884849">‏PPD ارائه‌شده نامعتبر است.</translation>
 <translation id="1497522201463361063">تغییرنام «<ph name="FILE_NAME" />» ممکن نیست.<ph name="ERROR_MESSAGE" /></translation>
 <translation id="1500297251995790841">دستگاه نامشخص [<ph name="VENDOR_ID" />:<ph name="PRODUCT_ID" />]</translation>
 <translation id="1503394326855300303">این حساب مالک باید اولین حسابی باشد که در یک جلسه ورود به سیستم چندگانه به سیستم وارد می‌شود.</translation>
@@ -526,6 +528,7 @@
 <translation id="180035236176489073">باید آنلاین باشید تا به این فایل‌ها دسترسی داشته باشید.</translation>
 <translation id="1801298019027379214">پین اشتباه، لطفاً دوباره امتحان کنید. تلاش‌های باقیمانده:<ph name="TRIES_COUNT" /></translation>
 <translation id="1801827354178857021">دوره زمانی</translation>
+<translation id="1802931390041703523">‏Flash در این صفحه مسدود شده است</translation>
 <translation id="1803545009660609783">آموزش دوباره</translation>
 <translation id="1807938677607439181">همه فایل‌ها</translation>
 <translation id="1809734401532861917">نشانک‌ها، سابقه، گذرواژه‌ها و سایر تنظیماتم به <ph name="USER_EMAIL_ADDRESS" /> اضافه شود</translation>
@@ -865,6 +868,7 @@
 <translation id="2350796302381711542">به <ph name="HANDLER_HOSTNAME" /> امکان داده شود همه پیوندهای <ph name="PROTOCOL" /> را به جای <ph name="REPLACED_HANDLER_TITLE" /> باز کند؟</translation>
 <translation id="2351266942280602854">زبان و ورودی</translation>
 <translation id="2352662711729498748">کمتر از ۱ مگابایت</translation>
+<translation id="2353297238722298836">دوربین و میکروفون مجاز هستند</translation>
 <translation id="2356070529366658676">سؤال شود</translation>
 <translation id="2357949918965361754">‏می‌توانید از این قابلیت برای نمایش محتوا از Chrome روی تلویزیون یا دستگاه‌های دیگرتان استفاده کنید.</translation>
 <translation id="2359345697448000899">با کلیک کردن روی افزونه‌ها در منوی ابزار، برنامه‌های افزودنی خود را مدیریت کنید.</translation>
@@ -1129,6 +1133,7 @@
 <translation id="2755367719610958252">مدیریت قابلیت‌های دسترس‌پذیری</translation>
 <translation id="275662540872599901">صفحه خاموش است</translation>
 <translation id="2756798847867733934">سیم کارت غیرفعال شد</translation>
+<translation id="2762441749940182211">دوربین مسدود شده است</translation>
 <translation id="2765217105034171413">کوچک</translation>
 <translation id="2766006623206032690">جا&amp;گذاری و رفتن</translation>
 <translation id="276969039800130567">با <ph name="USER_EMAIL_ADDRESS" /> وارد سیستم شد.</translation>
@@ -1519,6 +1524,7 @@
 <translation id="3313622045786997898">ارزش امضای گواهی</translation>
 <translation id="3315158641124845231">عدم نمایش <ph name="PRODUCT_NAME" /></translation>
 <translation id="3317459757438853210">دو طرفه</translation>
+<translation id="3317678681329786349">دوربین و میکروفون مسدود شده‌اند</translation>
 <translation id="3319048459796106952">&amp;پنجره جدید حالت ناشناس</translation>
 <translation id="3320021301628644560">افزودن نشانی صورتحساب</translation>
 <translation id="3320859581025497771">شرکت مخابراتی شما</translation>
@@ -1983,6 +1989,7 @@
 <translation id="4022426551683927403">&amp;افزودن به واژه‌نامه</translation>
 <translation id="4023146161712577481">تعیین پیکربندی دستگاه</translation>
 <translation id="4027804175521224372">(شما موفق نشدید-<ph name="IDS_SYNC_PROMO_NOT_SIGNED_IN_STATUS_LINK" />)</translation>
+<translation id="4031179711345676612">میکروفون مجاز است</translation>
 <translation id="4031910098617850788">F5</translation>
 <translation id="4033471457476425443">افزودن پوشه جدید</translation>
 <translation id="4034042927394659004">کاهش روشنایی کلید</translation>
@@ -2044,6 +2051,7 @@
 <translation id="4120817667028078560">مسیر بیش از حد طولانی است</translation>
 <translation id="4121428309786185360">تاریخ انقضا</translation>
 <translation id="412730574613779332">قهرمان</translation>
+<translation id="412940972494182898">‏Flash این بار اجرا شود</translation>
 <translation id="4130199216115862831">گزارش دستگاه</translation>
 <translation id="4130207949184424187">‏این افزونه، صفحه‌ای را تغییر داده است که هنگام جستجو از Omnibox نشان داده می‌شود.</translation>
 <translation id="413121957363593859">مؤلفه‌ها</translation>
@@ -2101,6 +2109,7 @@
 <translation id="4249373718504745892">این صفحه از دسترسی به دوربین و میکروفون شما بازداشته شده است.</translation>
 <translation id="4250229828105606438">عکس صفحه‌نمایش</translation>
 <translation id="4250680216510889253">نه</translation>
+<translation id="4252852543720145436">شناسه‌های محتوای محافظت‌شده</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" /> - محتوای برگه به اشتراک گذاشته شده است</translation>
 <translation id="4253515443406306926">«راه‌انداز»، نتایج جستجو به‌صورت تمام‌صفحه</translation>
 <translation id="4254813446494774748">زبان ترجمه:</translation>
@@ -2115,6 +2124,7 @@
 <translation id="4270393598798225102">نسخه <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">مورد منطبقی وجود ندارد</translation>
 <translation id="4275830172053184480">راه‌اندازی دستگاه خود</translation>
+<translation id="4276216215490044084">‏PPD بار نشد. بیشترین اندازه ۲۵۰ کیلوبایت است.</translation>
 <translation id="4278390842282768270">مجاز است</translation>
 <translation id="4279490309300973883">بازتاب می‌شود</translation>
 <translation id="4281844954008187215">شرایط استفاده از سرویس</translation>
@@ -2203,6 +2213,7 @@
 <translation id="4433914671537236274">ایجاد یک رسانه بازیابی</translation>
 <translation id="443464694732789311">ادامه</translation>
 <translation id="4439318412377770121">‏می‌خواهید <ph name="DEVICE_NAME" /> را در دستگاه‌های Google Cloud ثبت کنید؟</translation>
+<translation id="4439612350502082674">چاپگر اضافه نشد. بازراه‌اندازی و دوباره امتحان کنید.</translation>
 <translation id="4441124369922430666">آیا می‌خواهید با روشن شدن دستگاه، این برنامه به‌طور خودکار شروع شود؟</translation>
 <translation id="444134486829715816">گسترده کردن...</translation>
 <translation id="4441548209689510310">نمایش گزینه‌های غلط‌گیر املا</translation>
@@ -2329,6 +2340,7 @@
 <translation id="4656293982926141856">این رایانه</translation>
 <translation id="4658312088164718891">‏برای روشن کردن Smart Lock، گذرواژه‌تان را وارد کنید. دفعه بعد، تلفنتان قفل <ph name="DEVICE_TYPE" /> را باز می‌کند. در «تنظیمات»، Smart Lock را خاموش کنید.</translation>
 <translation id="4662788913887017617">‏این نشانک را با iPhone خود به اشتراک بگذارید</translation>
+<translation id="4663373278480897665">دوربین مجاز است</translation>
 <translation id="4664482161435122549">‏خطای صادر کردن PKCS #12</translation>
 <translation id="466481852929361583">مدول امن درحال راه‌اندازی است. منتظر بمانید؛ ممکن است چند دقیقه طول بکشد.</translation>
 <translation id="4665014895760275686">سازنده</translation>
@@ -2574,6 +2586,7 @@
 <translation id="5039512255859636053">$1 ترابایت</translation>
 <translation id="5039804452771397117">اجازه دادن</translation>
 <translation id="5045550434625856497">گذرواژه نادرست</translation>
+<translation id="5050042263972837708">نام گروه</translation>
 <translation id="5052499409147950210">ویرایش سایت</translation>
 <translation id="5053604404986157245">‏‫گذرواژه TPM، که به صورت تصادفی ایجاد می‌شود، در دسترس نیست. پس از Powerwash این اتفاق عادی است.</translation>
 <translation id="5061347216700970798">{NUM_BOOKMARKS,plural, =1{این پوشه حاوی نشانک است. مطمئنید که می‌خواهید آن را حذف کنید؟}one{این پوشه حاوی # نشانک است. مطمئنید که می‌خواهید آن را حذف کنید؟}other{این پوشه حاوی # نشانک است. مطمئنید که می‌خواهید آن را حذف کنید؟}}</translation>
@@ -3167,6 +3180,7 @@
 <translation id="5972708806901999743">انتقال به بالا</translation>
 <translation id="5972826969634861500">شروع <ph name="PRODUCT_NAME" /></translation>
 <translation id="5975083100439434680">کوچک نمایی</translation>
+<translation id="5975730206036440725">‏PPD پیدا نشد. بررسی کنید Chromebook شما آنلاین باشد و دوباره امتحان کنید.</translation>
 <translation id="5975792506968920132">درصد شارژ باتری</translation>
 <translation id="5976160379964388480">موارد دیگر</translation>
 <translation id="5978264784700053212">مرکز پیام‌رسانی</translation>
@@ -3412,6 +3426,7 @@
 <translation id="6374077068638737855">Iceweasel</translation>
 <translation id="6374108032506706911">‏راه‌اندازی Smart Lock برای Android</translation>
 <translation id="6374469231428023295">دوباره امتحان کنید</translation>
+<translation id="6377158645544167202">‏چاپگر متصل نشد. بررسی کنید چاپگر روشن و با Wi-Fi یا USB به Chromebook شما متصل باشد.</translation>
 <translation id="6380143666419481200">پذیرش و ادامه</translation>
 <translation id="6383051423892982287">رمزگذاری داده‌های همگام‌سازی‌شده با <ph name="BEGIN_LINK" />عبارت عبور همگام‌سازی<ph name="END_LINK" /> خودتان</translation>
 <translation id="6384275966486438344">تغییر تنظیمات جستجویتان به: <ph name="SEARCH_HOST" /></translation>
@@ -3776,6 +3791,7 @@
 <translation id="6948064128393024347">«راه‌انداز»، نتایج جستجو</translation>
 <translation id="6949306908218145636">نشانک‌گذاری صفحه‌های باز...</translation>
 <translation id="6955446738988643816">بازرسی پنجره بازشو</translation>
+<translation id="6957231940976260713">نام سرویس</translation>
 <translation id="695755122858488207">دکمه رادیویی انتخاب نشده</translation>
 <translation id="696203921837389374">فعال کردن همگام‌سازی از طریق داده تلفن همراه</translation>
 <translation id="6964390816189577014">قهرمان</translation>
@@ -3998,6 +4014,7 @@
 <translation id="729761647156315797">انتخاب زبان و صفحه‌کلید</translation>
 <translation id="7299337219131431707">فعال کردن مرور به‌عنوان مهمان</translation>
 <translation id="730515362922783851">تبادل داده با هر دستگاهی در شبکه محلی یا اینترنت</translation>
+<translation id="7308002049209013926">‏از «راه‌انداز» برای دسترسی سریع به برنامه‌ها و فعالیت‌های جدید استفاده کنید. برای اینکه ازطریق صفحه‌کلید به اینجا بیایید Alt + Shift + L را فشار دهید.</translation>
 <translation id="7309257895202129721">نمایش &amp;کنترل‌ها</translation>
 <translation id="7311079019872751559">دسترسی به افزایه خارج از جعبه ایمنی</translation>
 <translation id="7311891583377621132">انگشتتان را کمی حرکت دهید تا بخش دیگری از اثرانگشت ثبت شود</translation>
@@ -4511,6 +4528,7 @@
 <translation id="8116190140324504026">اطلاعات بیشتر...</translation>
 <translation id="8116925261070264013">صامت‌شده</translation>
 <translation id="8116972784401310538">مدیر &amp;نشانک</translation>
+<translation id="8117620576188476503">‏اتصال‌ها، به‌روزرسانی‌ها و تنظیمات را ازطریق سینی وضعیت مدیریت کنید. برای اینکه ازطریق صفحه‌کلید به اینجا بیایید Alt + Shift + S را فشار دهید.</translation>
 <translation id="8118362518458010043">‏توسط Chrome غیرفعال شده است. ممکن است این افزونه ناامن باشد.</translation>
 <translation id="8118860139461251237">مدیریت بارگیری‌ها</translation>
 <translation id="81238879832906896">گل زرد و سفید</translation>
@@ -4655,6 +4673,7 @@
 <translation id="8357224663288891423">میان‌برهای صفحه‌کلید برای افزونه‌ها و برنامه‌ها</translation>
 <translation id="8358685469073206162">صفحه‌ها بازیابی شوند؟</translation>
 <translation id="8363095875018065315">پایدار</translation>
+<translation id="8363142353806532503">میکروفون مسدود شده است</translation>
 <translation id="8366396658833131068">اتصالتان به شبکه بازیابی شد. لطفاً شبکه دیگری را انتخاب کنید یا دکمه «ادامه» را در زیر فشار دهید تا برنامه کیوسکتان را راه‌اندازی کنید.</translation>
 <translation id="8366947248864804596">وقتی تلفنتان قفل نیست و همین اطراف است، برای باز کردن قفل، فقط آن را انتخاب کنید. در غیراین‌صورت، گذرواژه یا پینتان را وارد کنید.</translation>
 <translation id="8368859634510605990">&amp;باز کردن همه نشانک‌ها</translation>
@@ -4836,6 +4855,7 @@
 <translation id="8671210955687109937">می‌تواند نظر بدهد</translation>
 <translation id="8673026256276578048">جستجوی وب…</translation>
 <translation id="8673383193459449849">مشکل سرور</translation>
+<translation id="8675354002693747642">کلید ازپیش هم‌رسانی‌شده</translation>
 <translation id="8676374126336081632">پاک کردن ورودی</translation>
 <translation id="8677039480012021122">پاک کردن داده‌ها و قطع اتصال</translation>
 <translation id="8677212948402625567">کوچک کردن همه...</translation>
@@ -5027,6 +5047,7 @@
 <translation id="8973557916016709913">برداشتن سطح بزرگ‌نمایی</translation>
 <translation id="8973596347849323817">می‌توانید این دستگاه را متناسب با نیازهایتان سفارشی کنید. می‌توانید بعداً در «تنظیمات»، این قابلیت‌های دسترس‌پذیری را تغییر دهید.</translation>
 <translation id="897414447285476047">فایل مقصد به‌علت مشکل اتصال، ناقص بود.</translation>
+<translation id="8976520271376534479">‏Flash در این صفحه مسدود شده است.</translation>
 <translation id="8977811652087512276">گذرواژه نادرست یا فایل خراب است</translation>
 <translation id="8978154919215542464">‏On (روشن) - همگام‌سازی همه‌چیز</translation>
 <translation id="8978526688207379569">این سایت چند فایل را به صورت خودکار بارگیری کرد.</translation>

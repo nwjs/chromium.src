@@ -195,6 +195,7 @@
 <translation id="1296497012903089238">Тип сертифіката</translation>
 <translation id="1297175357211070620">Місце призначення</translation>
 <translation id="1297922636971898492">Диск Google зараз недоступний. Завантаження автоматично відновиться після повторного під’єднання до Google Диска.</translation>
+<translation id="1300806585489372370">Щоб змінити це налаштування, спершу <ph name="BEGIN_LINK" />ввімкніть ідентифікатори<ph name="END_LINK" /></translation>
 <translation id="1303101771013849280">HTML-файл із закладками</translation>
 <translation id="1303671224831497365">Пристрої Bluetooth не знайдено</translation>
 <translation id="1306606229401759371">Змінити налаштування</translation>
@@ -317,6 +318,7 @@
 <translation id="1487335504823219454">Спеціальні налаштування ввімкнено</translation>
 <translation id="1493892686965953381">Очікування <ph name="LOAD_STATE_PARAMETER" />...</translation>
 <translation id="1495486559005647033">Інші доступні пристрої: <ph name="NUM_PRINTERS" />.</translation>
+<translation id="1497284176235884849">Указаний PPD недійсний.</translation>
 <translation id="1497522201463361063">Не вдається перейменувати "<ph name="FILE_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1500297251995790841">Невідомий пристрій [<ph name="VENDOR_ID" />:<ph name="PRODUCT_ID" />]</translation>
 <translation id="1503394326855300303">Цей обліковий запис власника має бути першим обліковим записом, з якого здійснено вхід під час сеансу паралельного входу.</translation>
@@ -529,6 +531,7 @@
 <translation id="180035236176489073">Щоб отримати доступ до цих файлів, потрібно перебувати в режимі онлайн.</translation>
 <translation id="1801298019027379214">Неправильний PIN-код. Повторіть спробу. Залишилося спроб: <ph name="TRIES_COUNT" /></translation>
 <translation id="1801827354178857021">Період</translation>
+<translation id="1802931390041703523">Flash заблоковано на цій сторінці</translation>
 <translation id="1803545009660609783">Оновити</translation>
 <translation id="1807938677607439181">Усі файли</translation>
 <translation id="1809734401532861917">Додати закладки, історію, паролі й інші налаштування в обліковий запис <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -868,6 +871,7 @@
 <translation id="2350796302381711542">Дозволити обробнику <ph name="HANDLER_HOSTNAME" /> відкривати всі посилання протоколу <ph name="PROTOCOL" /> замість обробника <ph name="REPLACED_HANDLER_TITLE" />?</translation>
 <translation id="2351266942280602854">Мова та способи введення</translation>
 <translation id="2352662711729498748">&lt; 1 МБ</translation>
+<translation id="2353297238722298836">Дозволено використовувати камеру та мікрофон</translation>
 <translation id="2356070529366658676">Запитати</translation>
 <translation id="2357949918965361754">За допомогою цієї функції ви можете транслювати вміст із Chrome на телевізор чи інші пристрої.</translation>
 <translation id="2359345697448000899">Керуйте своїми розширеннями, натиснувши вкладку "Розширення" в меню "Інструменти".</translation>
@@ -1133,6 +1137,7 @@
 <translation id="2755367719610958252">Керувати функціями для спеціальних можливостей</translation>
 <translation id="275662540872599901">екран вимкнено</translation>
 <translation id="2756798847867733934">SIM-карту вимкнено</translation>
+<translation id="2762441749940182211">Заборонено використовувати камеру</translation>
 <translation id="2765217105034171413">Малий</translation>
 <translation id="2766006623206032690">Вста&amp;вити та перейти</translation>
 <translation id="276969039800130567">Ви ввійшли як <ph name="USER_EMAIL_ADDRESS" />.</translation>
@@ -1523,6 +1528,7 @@
 <translation id="3313622045786997898">Значення підпису сертифіката</translation>
 <translation id="3315158641124845231">Сховати <ph name="PRODUCT_NAME" /></translation>
 <translation id="3317459757438853210">Двосторонній</translation>
+<translation id="3317678681329786349">Заборонено використовувати камеру та мікрофон</translation>
 <translation id="3319048459796106952">Нове &amp;анонімне вікно</translation>
 <translation id="3320021301628644560">Додати платіжну адресу</translation>
 <translation id="3320859581025497771">ваш оператор</translation>
@@ -1987,6 +1993,7 @@
 <translation id="4022426551683927403">&amp;Додати до словника</translation>
 <translation id="4023146161712577481">Визначення конфігурації пристрою.</translation>
 <translation id="4027804175521224372">(Ви не ввійшли – <ph name="IDS_SYNC_PROMO_NOT_SIGNED_IN_STATUS_LINK" />)</translation>
+<translation id="4031179711345676612">Дозволено використовувати мікрофон</translation>
 <translation id="4031910098617850788">F5</translation>
 <translation id="4033471457476425443">Додати нову папку</translation>
 <translation id="4034042927394659004">Зменшити яскравість клавіатури</translation>
@@ -2048,6 +2055,7 @@
 <translation id="4120817667028078560">Шлях задовгий</translation>
 <translation id="4121428309786185360">Діє до</translation>
 <translation id="412730574613779332">Культурист</translation>
+<translation id="412940972494182898">Запустити Flash цього разу</translation>
 <translation id="4130199216115862831">Журнал пристрою</translation>
 <translation id="4130207949184424187">Це розширення змінило сторінку, яка відкривається під час пошуку в універсальному вікні пошуку.</translation>
 <translation id="413121957363593859">Компоненти</translation>
@@ -2105,6 +2113,7 @@
 <translation id="4249373718504745892">Доступ цієї сторінки до ваших камери та мікрофона заблоковано.</translation>
 <translation id="4250229828105606438">Знімок екрана</translation>
 <translation id="4250680216510889253">ні</translation>
+<translation id="4252852543720145436">Ідентифікатори захищеного вмісту</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" /> – надано доступ до вмісту вкладки</translation>
 <translation id="4253515443406306926">Панель запуску, результати пошуку на весь екран</translation>
 <translation id="4254813446494774748">Мова перекладу:</translation>
@@ -2119,6 +2128,7 @@
 <translation id="4270393598798225102">Версія <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Немає збігів</translation>
 <translation id="4275830172053184480">Перезапустіть пристрій</translation>
+<translation id="4276216215490044084">Не вдається завантажити великий файл PPD. Розмір не має перевищувати 250 КБ.</translation>
 <translation id="4278390842282768270">Дозволено</translation>
 <translation id="4279490309300973883">Дзеркальне відображення</translation>
 <translation id="4281844954008187215">Умови використання</translation>
@@ -2207,6 +2217,7 @@
 <translation id="4433914671537236274">Створення носія для відновлення</translation>
 <translation id="443464694732789311">Продовжити</translation>
 <translation id="4439318412377770121">Зареєструвати <ph name="DEVICE_NAME" /> у Google Cloud Devices?</translation>
+<translation id="4439612350502082674">Не вдається додати принтер. Перезавантажте його та повторіть спробу.</translation>
 <translation id="4441124369922430666">Запускати цю програму автоматично під час увімкнення комп’ютера?</translation>
 <translation id="444134486829715816">Розгорнути...</translation>
 <translation id="4441548209689510310">Показати налаштування перевірки правопису</translation>
@@ -2333,6 +2344,7 @@
 <translation id="4656293982926141856">На цьому комп’ютері</translation>
 <translation id="4658312088164718891">Щоб увімкнути Smart Lock, введіть пароль. Наступного разу ви зможете розблокувати пристрій <ph name="DEVICE_TYPE" /> за допомогою свого телефона. Smart Lock можна вимкнути в налаштуваннях.</translation>
 <translation id="4662788913887017617">Надішліть цю закладку на iPhone</translation>
+<translation id="4663373278480897665">Дозволено використовувати камеру</translation>
 <translation id="4664482161435122549">Помилка експортування PKCS #12</translation>
 <translation id="466481852929361583">Налаштовується модуль безпеки. Зачекайте (це може зайняти кілька хвилин).</translation>
 <translation id="4665014895760275686">Виробник</translation>
@@ -2579,6 +2591,7 @@
 <translation id="5039512255859636053">$1 ТБ</translation>
 <translation id="5039804452771397117">Дозволити</translation>
 <translation id="5045550434625856497">Неправильний пароль</translation>
+<translation id="5050042263972837708">Назва групи</translation>
 <translation id="5052499409147950210">Редагувати сайт</translation>
 <translation id="5053604404986157245">Навмання згенерований пароль TPM не доступний. Це нормально після Powerwash (очищення).</translation>
 <translation id="5061347216700970798">{NUM_BOOKMARKS,plural, =1{Ця папка містить закладку. Усе одно видалити?}one{Ця папка містить # закладку. Усе одно видалити?}few{Ця папка містить # закладки. Усе одно видалити?}many{Ця папка містить # закладок. Усе одно видалити?}other{Ця папка містить # закладки. Усе одно видалити?}}</translation>
@@ -3172,6 +3185,7 @@
 <translation id="5972708806901999743">На початок</translation>
 <translation id="5972826969634861500">Запустити <ph name="PRODUCT_NAME" /></translation>
 <translation id="5975083100439434680">Зменшити масштаб</translation>
+<translation id="5975730206036440725">Не вдається знайти PPD. Перевірте, чи під’єднано Chromebook до Інтернету, і повторіть спробу.</translation>
 <translation id="5975792506968920132">Відсоток заряду акумулятора</translation>
 <translation id="5976160379964388480">Інші</translation>
 <translation id="5978264784700053212">Центр повідомлень</translation>
@@ -3417,6 +3431,7 @@
 <translation id="6374077068638737855">Iceweasel</translation>
 <translation id="6374108032506706911">Налаштуйте Smart Lock на пристрої Android</translation>
 <translation id="6374469231428023295">Повторити спробу</translation>
+<translation id="6377158645544167202">Не вдається під’єднати принтер. Перевірте, чи принтер увімкнено та під’єднано до Chromebook через Wi-Fi або USB.</translation>
 <translation id="6380143666419481200">Прийняти та продовжити</translation>
 <translation id="6383051423892982287">Шифрувати синхронізовані дані за допомогою власної <ph name="BEGIN_LINK" />парольної фрази<ph name="END_LINK" /></translation>
 <translation id="6384275966486438344">Використовувати пошукову систему <ph name="SEARCH_HOST" /></translation>
@@ -3781,6 +3796,7 @@
 <translation id="6948064128393024347">Панель запуску, результати пошуку</translation>
 <translation id="6949306908218145636">Створити закладки для відкритих сторінок…</translation>
 <translation id="6955446738988643816">Перевірити спливаюче вікно</translation>
+<translation id="6957231940976260713">Назва служби</translation>
 <translation id="695755122858488207">Невибраний перемикач</translation>
 <translation id="696203921837389374">Увімкнути синхронізацію через мобільний Інтернет</translation>
 <translation id="6964390816189577014">Герой</translation>
@@ -4003,6 +4019,7 @@
 <translation id="729761647156315797">Виберіть мову та клавіатуру</translation>
 <translation id="7299337219131431707">Увімкнути гостьовий режим</translation>
 <translation id="730515362922783851">Обмінюватися даними з будь-яким пристроєм у локальній мережі чи Інтернеті</translation>
+<translation id="7308002049209013926">Швидко переходьте до нових додатків і дій за допомогою панелі запуску. Щоб відкрити панель запуску з клавіатури, натисніть Alt+Shift+L.</translation>
 <translation id="7309257895202129721">Показати &amp;елементи керування</translation>
 <translation id="7311079019872751559">Доступ плагіна з неізольованим програмним середовищем</translation>
 <translation id="7311891583377621132">Трохи перемістіть палець, щоб зісканувати всі його частини</translation>
@@ -4515,6 +4532,7 @@
 <translation id="8116190140324504026">Докладніше...</translation>
 <translation id="8116925261070264013">Звук вимкнено</translation>
 <translation id="8116972784401310538">&amp;Диспетчер закладок</translation>
+<translation id="8117620576188476503">Керуйте з’єднаннями, оновленнями та налаштуваннями за допомогою панелі статусу. Щоб відкрити панель статусу з клавіатури, натисніть Alt+Shift+S.</translation>
 <translation id="8118362518458010043">Розширення вимкнено, оскільки воно може бути небезпечним.</translation>
 <translation id="8118860139461251237">Керувати вашими завантаженнями</translation>
 <translation id="81238879832906896">Жовто-біла квітка</translation>
@@ -4659,6 +4677,7 @@
 <translation id="8357224663288891423">Комбінації клавіш для розширень і програм</translation>
 <translation id="8358685469073206162">Відновити сторінки?</translation>
 <translation id="8363095875018065315">стабільна</translation>
+<translation id="8363142353806532503">Заборонено використовувати мікрофон</translation>
 <translation id="8366396658833131068">З’єднання з мережею відновлено. Виберіть іншу мережу або натисніть кнопку "Продовжити" нижче, щоб запустити додаток для терміналів.</translation>
 <translation id="8366947248864804596">Коли ваш телефон розблокований і розташований поблизу, просто виберіть "Розблокувати". В іншому випадку введіть пароль або PIN-код.</translation>
 <translation id="8368859634510605990">&amp;Відкрити всі закладки</translation>
@@ -4840,6 +4859,7 @@
 <translation id="8671210955687109937">Може коментувати</translation>
 <translation id="8673026256276578048">Пошук в Інтернеті...</translation>
 <translation id="8673383193459449849">Проблема із сервером</translation>
+<translation id="8675354002693747642">Спільний ключ</translation>
 <translation id="8676374126336081632">Видалити введений текст</translation>
 <translation id="8677039480012021122">Видалити дані та від’єднатися</translation>
 <translation id="8677212948402625567">Згорнути все...</translation>
@@ -5031,6 +5051,7 @@
 <translation id="8973557916016709913">Вилучити масштабування</translation>
 <translation id="8973596347849323817">Ви можете налаштувати цей пристрій для своїх потреб. Ці спеціальні можливості можна пізніше змінити в налаштуваннях.</translation>
 <translation id="897414447285476047">Через проблеми підключення кінцевий файл неповний.</translation>
+<translation id="8976520271376534479">Flash заблоковано на цій сторінці.</translation>
 <translation id="8977811652087512276">Неправильний пароль або пошкоджений файл</translation>
 <translation id="8978154919215542464">Увімкнено – синхронізувати все</translation>
 <translation id="8978526688207379569">Цей сайт автоматично завантажив декілька файлів.</translation>

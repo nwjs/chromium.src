@@ -94,6 +94,7 @@
 <translation id="1829244130665387512">በዚህ ገጽ ውስጥ የተገኘ</translation>
 <translation id="1832521218263067499">የደህንነት ክስተቶች</translation>
 <translation id="1853692000353488670">አዲስ ማንነት የማያሳውቅ ትር</translation>
+<translation id="1880072593381090678">ታዋቂ ገጾች ከChrome</translation>
 <translation id="189172778771606813">የአሰሳ መሳቢያ ዝጋ</translation>
 <translation id="1897409700584096124">ድር ጣቢያ በማሠራጨት ላይ ነው</translation>
 <translation id="1919345977826869612">ማስታወቂያዎች</translation>
@@ -121,6 +122,7 @@
 <translation id="2096396629993765042">ከእርስዎ የGoogle መለያ ዘግተው እንዲወጡ አይደረጉም። የእርስዎ Google መለያ በ<ph name="BEGIN_LINK" />history.google.<ph name="END_LINK" /> ውስጥ ሌሎች ዓይነቶች የአሰሳ ታሪኮች ሊኖሩት ይችላል።</translation>
 <translation id="2100273922101894616">በራስ-ግባ</translation>
 <translation id="2111511281910874386">ወደዚህ ገጽ ይሂዱ</translation>
+<translation id="2122601567107267586">መተግበሪያውን መክፈት አልተቻለም</translation>
 <translation id="2126426811489709554">በChrome የጎለበተ</translation>
 <translation id="2131665479022868825"><ph name="DATA" /> ተቀምጧል</translation>
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> ተዘግቷል</translation>
@@ -137,6 +139,7 @@
 <translation id="2268044343513325586">አጽዳ</translation>
 <translation id="2283599456633275070">ጉዞ</translation>
 <translation id="2286841657746966508">የመላኪያ አድራሻ</translation>
+<translation id="2300590596239819242">በሁሉም ጽሑፎች ላይ የተቃለለ እይታን ያንቁ</translation>
 <translation id="2315043854645842844">የደንበኛ ወገን ዕውቅና ማረጋገጫ ምርጫ በስርዓተ-ክወናው አይደገፍም።</translation>
 <translation id="2321958826496381788">ይህን በሚመች ሁኔታ ማንበብ እስኪችሉ ድረስ ተንሸራታቹን ይጎትቱት። በአንድ አንቀጽ ላይ ሁለቴ መታ ካደረጉ በኋላ ጽሑፍ ቢያንስ የዚህ ያህል ትልቀት ሊኖረው ይገባል።</translation>
 <translation id="2323763861024343754">የጣቢያ ማከማቻ</translation>
@@ -161,6 +164,7 @@
 <translation id="2496180316473517155">ታሪክ አሰሳ</translation>
 <translation id="2498359688066513246">እገዛ እና ግብረመልስ</translation>
 <translation id="2501278716633472235">ወደ ኋላ ተመለስ</translation>
+<translation id="2503472621226270518">የአሰሳ ፓነሉን ዘርጋ</translation>
 <translation id="2512222046227390255">የራስ-ሙላ ቅጾች</translation>
 <translation id="2526148617758225454">የውሂብ አስቀማጭ በርቷል። በቅንብሮች ውስጥ ያስተዳድሩት።</translation>
 <translation id="2532336938189706096">የድር ዕይታ</translation>
@@ -285,6 +289,7 @@
 <translation id="3744111309925758534"><ph name="MEGABYTES" /> ሜባ ሌሎች መተግበሪያዎች</translation>
 <translation id="3744111561329211289">የዳራ ስምረት</translation>
 <translation id="3773755127849930740">ማጣመርን ለመፍቀድ <ph name="BEGIN_LINK" />ብሉቱዝን ያብሩ<ph name="END_LINK" /></translation>
+<translation id="3778956594442850293">ወደ የመነሻ ገጽ ታክሏል</translation>
 <translation id="3789841737615482174">ጫን  </translation>
 <translation id="3810838688059735925">ቪዲዮ</translation>
 <translation id="3810973564298564668">አቀናብር</translation>
@@ -379,6 +384,7 @@
 <translation id="4699172675775169585">የተሸጎጡ ምስሎች እና ፋይሎች</translation>
 <translation id="4714588616299687897">እስከ 60% የሚደርስ ውሂብዎን ይቆጥቡ</translation>
 <translation id="4720023427747327413">በ<ph name="PRODUCT_NAME" /> ውስጥ ክፈት</translation>
+<translation id="472631402238783923">Chrome እንዲሻሻል ያግዙ። <ph name="BEGIN_LINK" />የዳሰሳ ጥናት ይወሰዱ።<ph name="END_LINK" /></translation>
 <translation id="4730876730346568982">የስምረት መለያዎችን ከ<ph name="ACCOUNT_EMAIL_OLD" /> ወደ <ph name="ACCOUNT_EMAIL_NEW" /> እየቀየሩ ነው። ነባሩ የChrome ውሂብዎ በ<ph name="MANAGED_DOMAIN" /> ነው የሚተዳደረው። ይሄ ውሂብዎን ከዚህ መሣሪያ ይሰርዘዋል፣ ነገር ግን ውሂብዎ በ<ph name="ACCOUNT_EMAIL_OLD" /> ውስጥ እንዳለ ይቀራል።</translation>
 <translation id="473775607612524610">አዘምን</translation>
 <translation id="4738836084190194332">የተመሳሰለበት የመጨረሻው ጊዜ፦ <ph name="WHEN" /></translation>
@@ -432,6 +438,7 @@
 <translation id="5210286577605176222">ወደ ቀዳሚው ትር ዝለል</translation>
 <translation id="5210365745912300556">ትር ዝጋ</translation>
 <translation id="5222676887888702881">ዘግተህ ውጣ</translation>
+<translation id="5224771365102442243">ከቪዲዮ ጋር</translation>
 <translation id="5233638681132016545">አዲስ ትር</translation>
 <translation id="5271967389191913893">መሣሪያ የሚወርደውን ይዘት መክፈት አይችልም።</translation>
 <translation id="528192093759286357">ከሙሉ ማያ ገጽ ለመውጣት ከላይ ይጎትቱ እና የተመለስ አዝራሩን ይንኩ።</translation>
@@ -547,6 +554,7 @@
 <translation id="618555311922999635">የአሰሳ ፓነሉ በሙሉ ቁመት ተከፍቷል</translation>
 <translation id="6192792657125177640">የተለዩ</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" /> አይደለም?</translation>
+<translation id="6221892641068781024">የተቃለለ እይታ</translation>
 <translation id="6232535412751077445">«አትከታተል»ን ማንቃት ማለት አንድ ጥያቄ በአሰሳ ትራፊክዎ ላይ ይካተታል ማለት ነው። ማንኛውም ውጤት አንድ ድር ጣቢያ ለጥያቄው ምላሽ ከሰጠና ጥያቄውን በሚተረጎምበት መንገድ ላይ የሚወሰን ነው።
 
 ለምሳሌ፣ አንዳንድ ድር ጣቢያዎች ሌሎች በጎበኟቸው ድር ጣቢያዎች ላይ ያልተመሠረቱ ማስታወቂያዎችን በማሳየት ለዚህ ጥያቄ ምላሽ ሊሰጡ ይችላሉ። ብዙ ድር ጣቢያዎች አሁንም የአሰሳ ውሂብዎን ይሰበስቡና ይጠቀሙበታል — ለምሳሌ ደህንነትን ለማሻሻል፤ ይዘት፣ ማስታወቂያዎችና ምክሮች በድር ጣቢያዎች ላይ ለማቅረብ፤ እና የሪፖርት አደራረግ ስታቲስቲክስን ለማመንጨት።</translation>
@@ -591,6 +599,7 @@
 <translation id="6573431926118603307">በሌሎች መሣሪያዎችዎ ላይ ባለ Chrome ላይ የከፈቷቸው ትሮች እዚህ ይመጣሉ።</translation>
 <translation id="6575643671698722332">ዳግም ማስጀመር አልተሳካም። የእርስዎ መሣሪያ መስመር ላይ መሆኑን ያረጋግጡና እንደገና ይሞክሩ።</translation>
 <translation id="6583199322650523874">የአሁኑን ገጽ ዕልባት አድርግበት</translation>
+<translation id="6593061639179217415">የዴስክቶፕ ጣቢያ</translation>
 <translation id="6600954340915313787">ወደ Chrome ተቀድቷል</translation>
 <translation id="6612358246767739896">ጥበቃ የሚደረግለት ይዘት</translation>
 <translation id="6627583120233659107">አቃፊ አርትዕ</translation>
@@ -728,6 +737,7 @@
 <translation id="7846076177841592234">ምርጫ ሰርዝ</translation>
 <translation id="784934925303690534">የጊዜ ወሰን</translation>
 <translation id="7851858861565204677">ሌሎች መሣሪያዎች</translation>
+<translation id="785312750761189439">የታዋቂ ጣቢያዎች እና ጽሑፎች፣ ውርዶች እና ተጨማሪ ነገሮች ቀላል መዳረሻ ለማግኘት ከማያ ገጹ ታችኛው ክፍል ወደ ላይ ያንሸራትቱ</translation>
 <translation id="7875915731392087153">ኢሜይል ይፍጠሩ</translation>
 <translation id="7876243839304621966">ሁሉንም አስወግድ</translation>
 <translation id="7882131421121961860">ምንም ታሪክ አልተገኘም</translation>

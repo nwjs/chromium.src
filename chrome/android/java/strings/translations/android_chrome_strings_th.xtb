@@ -94,6 +94,7 @@
 <translation id="1829244130665387512">ค้นหาในหน้าเว็บ</translation>
 <translation id="1832521218263067499">เหตุการณ์ด้านความปลอดภัย</translation>
 <translation id="1853692000353488670">แท็บใหม่ที่ไม่ระบุตัวตน</translation>
+<translation id="1880072593381090678">หน้ายอดนิยมจาก Chrome</translation>
 <translation id="189172778771606813">ปิดลิ้นชักการนำทาง</translation>
 <translation id="1897409700584096124">เว็บไซต์กำลังออกอากาศ</translation>
 <translation id="1919345977826869612">โฆษณา</translation>
@@ -121,6 +122,7 @@
 <translation id="2096396629993765042">คุณจะไม่ออกจากระบบบัญชี Google บัญชี Google ของคุณอาจมีประวัติการท่องเว็บในรูปแบบอื่นๆ ที่ <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /></translation>
 <translation id="2100273922101894616">ลงชื่อเข้าใช้อัตโนมัติ</translation>
 <translation id="2111511281910874386">ไปที่หน้า</translation>
+<translation id="2122601567107267586">เปิดแอปไม่ได้</translation>
 <translation id="2126426811489709554">สนับสนุนโดย Chrome</translation>
 <translation id="2131665479022868825">ประหยัดไป <ph name="DATA" /></translation>
 <translation id="213279576345780926">ปิด <ph name="TAB_TITLE" /> แล้ว</translation>
@@ -137,6 +139,7 @@
 <translation id="2268044343513325586">ปรับแต่ง</translation>
 <translation id="2283599456633275070">การเดินทาง</translation>
 <translation id="2286841657746966508">ที่อยู่สำหรับเรียกเก็บเงิน</translation>
+<translation id="2300590596239819242">เปิดใช้ "มุมมองอย่างง่าย" กับบทความทั้งหมด</translation>
 <translation id="2315043854645842844">ระบบปฏิบัติการไม่สนับสนุนการเลือกใบรับรองฝั่งลูกค้า</translation>
 <translation id="2321958826496381788">ลากแถบเลื่อนจนกว่าคุณจะสามารถอ่านได้อย่างสะดวก ข้อความควรมีขนาดเท่านี้เป็นอย่างน้อยหลังจากแตะ 2 ครั้งบนย่อหน้า</translation>
 <translation id="2323763861024343754">พื้นที่เก็บข้อมูลเว็บไซต์</translation>
@@ -161,6 +164,7 @@
 <translation id="2496180316473517155">ประวัติการเข้าชมที่เรียกดู</translation>
 <translation id="2498359688066513246">ความช่วยเหลือและความคิดเห็น</translation>
 <translation id="2501278716633472235">ย้อนกลับ</translation>
+<translation id="2503472621226270518">ขยายแผงการนำทาง</translation>
 <translation id="2512222046227390255">ป้อนฟอร์มอัตโนมัติ</translation>
 <translation id="2526148617758225454">โปรแกรมประหยัดอินเทอร์เน็ตเปิดอยู่ จัดการโปรแกรมนี้ได้ในการตั้งค่า</translation>
 <translation id="2532336938189706096">มุมมองเว็บ</translation>
@@ -285,6 +289,7 @@
 <translation id="3744111309925758534"><ph name="MEGABYTES" /> MB จากแอปอื่นๆ</translation>
 <translation id="3744111561329211289">ซิงค์ในแบ็กกราวด์</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />เปิดบลูทูธ<ph name="END_LINK" />เพื่อให้จับคู่ได้</translation>
+<translation id="3778956594442850293">เพิ่มในหน้าจอหลักแล้ว</translation>
 <translation id="3789841737615482174">ติดตั้ง</translation>
 <translation id="3810838688059735925">วิดีโอ</translation>
 <translation id="3810973564298564668">จัดการ</translation>
@@ -379,6 +384,7 @@
 <translation id="4699172675775169585">รูปภาพและไฟล์ในแคช</translation>
 <translation id="4714588616299687897">ประหยัดการใช้ข้อมูลถึง 60%</translation>
 <translation id="4720023427747327413">เปิดใน <ph name="PRODUCT_NAME" /></translation>
+<translation id="472631402238783923">ช่วยปรับปรุง Chrome ด้วยการ<ph name="BEGIN_LINK" />ตอบแบบสอบถาม<ph name="END_LINK" /></translation>
 <translation id="4730876730346568982">คุณสลับบัญชีที่ซิงค์จาก <ph name="ACCOUNT_EMAIL_OLD" /> เป็น <ph name="ACCOUNT_EMAIL_NEW" /> และข้อมูล Chrome ที่มีอยู่จะจัดการโดย <ph name="MANAGED_DOMAIN" /> การสลับบัญชีนี้จะลบข้อมูลออกจากอุปกรณ์เครื่องนี้ แต่ข้อมูลจะยังคงอยู่ใน <ph name="ACCOUNT_EMAIL_OLD" /></translation>
 <translation id="473775607612524610">การอัปเดต</translation>
 <translation id="4738836084190194332">ซิงค์ครั้งล่าสุด: <ph name="WHEN" /></translation>
@@ -432,6 +438,7 @@
 <translation id="5210286577605176222">ข้ามไปยังแท็บก่อนหน้า</translation>
 <translation id="5210365745912300556">ปิดแท็บ</translation>
 <translation id="5222676887888702881">ออกจากระบบ</translation>
+<translation id="5224771365102442243">มีวิดีโอ</translation>
 <translation id="5233638681132016545">แท็บใหม่</translation>
 <translation id="5271967389191913893">อุปกรณ์ไม่สามารถเปิดเนื้อหาที่จะดาวน์โหลดได้</translation>
 <translation id="528192093759286357">ลากจากด้านบน แล้วแตะปุ่มกลับเพื่อออกจากโหมดเต็มหน้าจอ</translation>
@@ -547,6 +554,7 @@
 <translation id="618555311922999635">แผงการนำทางเปิดที่ระดับความสูงเต็มหน้าจอ</translation>
 <translation id="6192792657125177640">ข้อยกเว้น</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" /> ไม่ใช่บัญชีที่ฉันจะใช้</translation>
+<translation id="6221892641068781024">มุมมองอย่างง่าย</translation>
 <translation id="6232535412751077445">การเปิดใช้ "ไม่ติดตาม" หมายความว่าจะมีการรวมคำขอหนึ่งไว้กับการเข้าชมของคุณ ผลกระทบทั้งหมดขึ้นอยู่กับว่าเว็บไซต์ตอบสนองต่อคำขอนั้นไหม และวิธีตีความคำขอ
 
 ตัวอย่างเช่น บางเว็บไซต์อาจตอบสนองต่อคำขอนี้โดยแสดงให้คุณเห็นโฆษณาที่ไม่ได้อิงอยู่กับเว็บไซต์อื่นๆ ที่คุณเข้าชม เว็บไซต์จำนวนมากจะยังคงรวบรวมและใช้ข้อมูลการท่องเว็บของคุณเพื่อปรับปรุงความปลอดภัย เพื่อแสดงเนื้อหา โฆษณา และคำแนะนำ และเพื่อสร้างสถิติในการรายงาน เป็นต้น</translation>
@@ -591,6 +599,7 @@
 <translation id="6573431926118603307">แท็บที่คุณเปิดไว้ใน Chrome ในอุปกรณ์เครื่องอื่นๆ จะปรากฏที่นี่</translation>
 <translation id="6575643671698722332">การรีเซ็ตล้มเหลว ตรวจสอบว่าอุปกรณ์ของคุณออนไลน์และลองอีกครั้ง</translation>
 <translation id="6583199322650523874">บุ๊กมาร์กหน้าปัจจุบัน</translation>
+<translation id="6593061639179217415">เว็บไซต์ในเดสก์ท็อป</translation>
 <translation id="6600954340915313787">คัดลอกไปยัง Chrome แล้ว</translation>
 <translation id="6612358246767739896">เนื้อหาที่ได้รับความคุ้มครอง</translation>
 <translation id="6627583120233659107">แก้ไขโฟลเดอร์</translation>
@@ -728,6 +737,7 @@
 <translation id="7846076177841592234">ยกเลิกการเลือก</translation>
 <translation id="784934925303690534">ช่วงเวลา</translation>
 <translation id="7851858861565204677">อุปกรณ์อื่นๆ</translation>
+<translation id="785312750761189439">เลื่อนขึ้นจากด้านล่างของหน้าจอหรือแตะปุ่มขยายเพื่อเข้าถึงเว็บไซต์ยอดนิยมและการดาวน์โหลดบทความได้อย่างง่ายดาย เป็นต้น</translation>
 <translation id="7875915731392087153">สร้างอีเมล</translation>
 <translation id="7876243839304621966">ลบทั้งหมด</translation>
 <translation id="7882131421121961860">ไม่พบประวัติ</translation>

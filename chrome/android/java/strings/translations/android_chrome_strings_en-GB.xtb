@@ -94,6 +94,7 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="1829244130665387512">Find in page</translation>
 <translation id="1832521218263067499">Security incidents</translation>
 <translation id="1853692000353488670">New incognito tab</translation>
+<translation id="1880072593381090678">Popular pages from Chrome</translation>
 <translation id="189172778771606813">Close navigation drawer</translation>
 <translation id="1897409700584096124">Website is broadcasting</translation>
 <translation id="1919345977826869612">Ads</translation>
@@ -121,6 +122,7 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="2096396629993765042">You won’t be signed out of your Google account. Your Google account may have other forms of browsing history at <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />.</translation>
 <translation id="2100273922101894616">Auto Sign-in</translation>
 <translation id="2111511281910874386">Go to page</translation>
+<translation id="2122601567107267586">Could not open app</translation>
 <translation id="2126426811489709554">Powered by Chrome</translation>
 <translation id="2131665479022868825"><ph name="DATA" /> saved</translation>
 <translation id="213279576345780926">Closed <ph name="TAB_TITLE" /></translation>
@@ -137,6 +139,7 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="2268044343513325586">Refine</translation>
 <translation id="2283599456633275070">Travel</translation>
 <translation id="2286841657746966508">Billing address</translation>
+<translation id="2300590596239819242">Enable Simplified View on all articles</translation>
 <translation id="2315043854645842844">Client side certificate selection is not supported by the operating system.</translation>
 <translation id="2321958826496381788">Drag the slider until you can read this comfortably. Text should look at least this big after double-tapping on a paragraph.</translation>
 <translation id="2323763861024343754">Site storage</translation>
@@ -161,6 +164,7 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="2496180316473517155">Browsing history</translation>
 <translation id="2498359688066513246">Help &amp; feedback</translation>
 <translation id="2501278716633472235">Go back</translation>
+<translation id="2503472621226270518">Expand navigation panel</translation>
 <translation id="2512222046227390255">Auto-fill forms</translation>
 <translation id="2526148617758225454">Data Saver is on. Manage it in Settings.</translation>
 <translation id="2532336938189706096">Web View</translation>
@@ -285,6 +289,7 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="3744111309925758534"><ph name="MEGABYTES" /> MB other apps</translation>
 <translation id="3744111561329211289">Background sync</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />Turn on Bluetooth<ph name="END_LINK" /> to allow pairing</translation>
+<translation id="3778956594442850293">Added to Home screen</translation>
 <translation id="3789841737615482174">Install</translation>
 <translation id="3810838688059735925">Video</translation>
 <translation id="3810973564298564668">Manage</translation>
@@ -379,6 +384,7 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="4699172675775169585">Cached images and files</translation>
 <translation id="4714588616299687897">Save up to 60% of your data</translation>
 <translation id="4720023427747327413">Open in <ph name="PRODUCT_NAME" /></translation>
+<translation id="472631402238783923">Help improve Chrome. <ph name="BEGIN_LINK" />Take survey.<ph name="END_LINK" /></translation>
 <translation id="4730876730346568982">You are switching sync accounts from <ph name="ACCOUNT_EMAIL_OLD" /> to <ph name="ACCOUNT_EMAIL_NEW" />. Your existing Chrome data is managed by <ph name="MANAGED_DOMAIN" />. This will delete your data from this device, but your data will remain in <ph name="ACCOUNT_EMAIL_OLD" />.</translation>
 <translation id="473775607612524610">Update</translation>
 <translation id="4738836084190194332">Last synced: <ph name="WHEN" /></translation>
@@ -432,6 +438,7 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="5210286577605176222">Jump to the previous tab</translation>
 <translation id="5210365745912300556">Close tab</translation>
 <translation id="5222676887888702881">Sign out</translation>
+<translation id="5224771365102442243">With video</translation>
 <translation id="5233638681132016545">New tab</translation>
 <translation id="5271967389191913893">Device cannot open the content to be downloaded.</translation>
 <translation id="528192093759286357">Drag from top and touch the back button to exit full screen.</translation>
@@ -547,6 +554,7 @@ However, you aren't invisible. Going incognito doesn't hide your browsing from y
 <translation id="618555311922999635">Navigation panel opened at full height</translation>
 <translation id="6192792657125177640">Exceptions</translation>
 <translation id="6210748933810148297">Not <ph name="EMAIL" />?</translation>
+<translation id="6221892641068781024">Simplified View</translation>
 <translation id="6232535412751077445">Enabling “Do Not Track” means that a request will be included with your browsing traffic. Any effect depends on whether a website responds to the request and how the request is interpreted.
 
 For example, some websites may respond to this request by showing you ads that aren’t based on other websites that you’ve visited. Many websites will still collect and use your browsing data – for example to improve security, to provide content, ads and recommendations and to generate reporting statistics.</translation>
@@ -591,6 +599,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="6573431926118603307">Tabs that you've opened in Chrome on your other devices will appear here.</translation>
 <translation id="6575643671698722332">Reset failed. Ensure that your device is online and try again.</translation>
 <translation id="6583199322650523874">Bookmark the current page</translation>
+<translation id="6593061639179217415">Desktop site</translation>
 <translation id="6600954340915313787">Copied to Chrome</translation>
 <translation id="6612358246767739896">Protected content</translation>
 <translation id="6627583120233659107">Edit folder</translation>
@@ -728,6 +737,7 @@ Your Google account may have other forms of browsing history like searches and a
 <translation id="7846076177841592234">Cancel selection</translation>
 <translation id="784934925303690534">Time range</translation>
 <translation id="7851858861565204677">Other Devices</translation>
+<translation id="785312750761189439">Swipe up from the bottom of the screen or tap the expand button for easy access to popular sites and articles, downloads and more</translation>
 <translation id="7875915731392087153">Create email</translation>
 <translation id="7876243839304621966">Remove all</translation>
 <translation id="7882131421121961860">No history found</translation>

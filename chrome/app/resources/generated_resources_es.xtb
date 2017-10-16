@@ -195,6 +195,7 @@
 <translation id="1296497012903089238">Tipo de certificado</translation>
 <translation id="1297175357211070620">Destino</translation>
 <translation id="1297922636971898492">Google Drive no está disponible en estos momentos. La subida se reiniciará automáticamente cuando vuelva a estar disponible.</translation>
+<translation id="1300806585489372370">Para cambiar esta opción, <ph name="BEGIN_LINK" />activa los identificadores<ph name="END_LINK" /></translation>
 <translation id="1303101771013849280">Archivo HTML de marcadores</translation>
 <translation id="1303671224831497365">No se han encontrado dispositivos Bluetooth</translation>
 <translation id="1306606229401759371">Cambiar configuración</translation>
@@ -317,6 +318,7 @@
 <translation id="1487335504823219454">Activada: configuración personalizada</translation>
 <translation id="1493892686965953381">Esperando <ph name="LOAD_STATE_PARAMETER" />...</translation>
 <translation id="1495486559005647033">Otros <ph name="NUM_PRINTERS" /> dispositivos disponibles.</translation>
+<translation id="1497284176235884849">El archivo PPD proporcionado no es válido</translation>
 <translation id="1497522201463361063">No se puede cambiar el nombre del archivo "<ph name="FILE_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1500297251995790841">Dispositivo desconocido [<ph name="VENDOR_ID" />:<ph name="PRODUCT_ID" />]</translation>
 <translation id="1503394326855300303">La cuenta de este propietario debe ser la primera cuenta que ha iniciado sesión en un inicio de sesión múltiple.</translation>
@@ -529,6 +531,7 @@
 <translation id="180035236176489073">Tienes que conectarte a Internet para acceder a estos archivos.</translation>
 <translation id="1801298019027379214">PIN incorrecto. Inténtalo de nuevo. Intentos restantes: <ph name="TRIES_COUNT" />.</translation>
 <translation id="1801827354178857021">Periodo</translation>
+<translation id="1802931390041703523">Se ha bloqueado Flash en esta página</translation>
 <translation id="1803545009660609783">Reeducar</translation>
 <translation id="1807938677607439181">Todos los archivos</translation>
 <translation id="1809734401532861917">Añadir mis marcadores, mi historial, mis contraseñas y otras opciones de configuración a <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -869,6 +872,7 @@
 <translation id="2350796302381711542">¿Quieres permitir que <ph name="HANDLER_HOSTNAME" /> en lugar de <ph name="REPLACED_HANDLER_TITLE" /> abra todos los enlaces de <ph name="PROTOCOL" />?</translation>
 <translation id="2351266942280602854">Idioma y entrada</translation>
 <translation id="2352662711729498748">Menos de 1 MB</translation>
+<translation id="2353297238722298836">Cámara y micrófono permitidos</translation>
 <translation id="2356070529366658676">Preguntar</translation>
 <translation id="2357949918965361754">Puedes usar esta función para mostrar contenido de Chrome en tu TV o en otros dispositivos.</translation>
 <translation id="2359345697448000899">Para administrar tus extensiones, haz clic en la opción Extensiones del menú Herramientas.</translation>
@@ -1134,6 +1138,7 @@ y su configuración no se sincronizan en otros dispositivos con la función de s
 <translation id="2755367719610958252">Administrar las funciones de accesibilidad</translation>
 <translation id="275662540872599901">pantalla apagada</translation>
 <translation id="2756798847867733934">Tarjeta SIM inhabilitada</translation>
+<translation id="2762441749940182211">Cámara bloqueada</translation>
 <translation id="2765217105034171413">Pequeño</translation>
 <translation id="2766006623206032690">Pe&amp;gar y acceder</translation>
 <translation id="276969039800130567">Has iniciado sesión como <ph name="USER_EMAIL_ADDRESS" />.</translation>
@@ -1524,6 +1529,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="3313622045786997898">Valor de firma de certificados</translation>
 <translation id="3315158641124845231">Ocultar <ph name="PRODUCT_NAME" /></translation>
 <translation id="3317459757438853210">Doble cara</translation>
+<translation id="3317678681329786349">Cámara y micrófono bloqueados</translation>
 <translation id="3319048459796106952">Nueva ventana de &amp;incógnito</translation>
 <translation id="3320021301628644560">Añadir dirección de facturación</translation>
 <translation id="3320859581025497771">tu operador de telefonía</translation>
@@ -1987,6 +1993,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="4022426551683927403">&amp;Añadir al diccionario</translation>
 <translation id="4023146161712577481">Determinando la configuración del dispositivo.</translation>
 <translation id="4027804175521224372">(Te lo estás perdiendo: <ph name="IDS_SYNC_PROMO_NOT_SIGNED_IN_STATUS_LINK" />)</translation>
+<translation id="4031179711345676612">Micrófono permitido</translation>
 <translation id="4031910098617850788">F5</translation>
 <translation id="4033471457476425443">Añadir nueva carpeta</translation>
 <translation id="4034042927394659004">Disminuir brillo de teclado</translation>
@@ -2048,6 +2055,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="4120817667028078560">Ruta demasiado larga</translation>
 <translation id="4121428309786185360">Vencimiento el</translation>
 <translation id="412730574613779332">Superhéroe</translation>
+<translation id="412940972494182898">Ejecutar Flash esta vez</translation>
 <translation id="4130199216115862831">Registro de dispositivo</translation>
 <translation id="4130207949184424187">Esta extensión ha cambiado la página que se muestra al buscar en el omnibox.</translation>
 <translation id="413121957363593859">Componentes</translation>
@@ -2105,6 +2113,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="4249373718504745892">Esta página no tiene permiso para acceder a la cámara y al micrófono.</translation>
 <translation id="4250229828105606438">Captura de pantalla</translation>
 <translation id="4250680216510889253">No</translation>
+<translation id="4252852543720145436">Identificadores de contenido protegido</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" />: contenido de la pestaña compartido</translation>
 <translation id="4253515443406306926">Menú de aplicaciones, resultados de búsqueda en pantalla completa</translation>
 <translation id="4254813446494774748">Idioma de traducción:</translation>
@@ -2119,6 +2128,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="4270393598798225102">Versión <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Sin resultados</translation>
 <translation id="4275830172053184480">Reiniciar tu dispositivo</translation>
+<translation id="4276216215490044084">No se pueden cargar archivos PPD grandes. El tamaño máximo es 250 kB.</translation>
 <translation id="4278390842282768270">Permitido</translation>
 <translation id="4279490309300973883">Duplicando</translation>
 <translation id="4281844954008187215">Condiciones del servicio</translation>
@@ -2207,6 +2217,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4433914671537236274">Crear un medio de recuperación</translation>
 <translation id="443464694732789311">Continuar</translation>
 <translation id="4439318412377770121">¿Quieres registrar <ph name="DEVICE_NAME" /> en Google Cloud Devices?</translation>
+<translation id="4439612350502082674">No se puede añadir la impresora. Reinicia y vuelve a intentarlo.</translation>
 <translation id="4441124369922430666">¿Quieres que esta aplicación se inicie de forma automática cuando se active el ordenador?</translation>
 <translation id="444134486829715816">Ampliar...</translation>
 <translation id="4441548209689510310">Mostrar opciones de revisión ortográfica</translation>
@@ -2333,6 +2344,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="4656293982926141856">Este ordenador</translation>
 <translation id="4658312088164718891">Introduce tu contraseña para activar Smart Lock. La próxima vez, el teléfono desbloqueará tu <ph name="DEVICE_TYPE" />. Desactiva Smart Lock en Ajustes.</translation>
 <translation id="4662788913887017617">Compartir este marcador con tu iPhone</translation>
+<translation id="4663373278480897665">Cámara permitida</translation>
 <translation id="4664482161435122549">Error de exportación de archivos PKCS #12</translation>
 <translation id="466481852929361583">Se está configurando el módulo seguro. Ten paciencia, este proceso puede tardar unos minutos.</translation>
 <translation id="4665014895760275686">Fabricante</translation>
@@ -2578,6 +2590,7 @@ Pulsa cualquier tecla para seguir con la exploración.</translation>
 <translation id="5039512255859636053">$1 TB</translation>
 <translation id="5039804452771397117">Permitir</translation>
 <translation id="5045550434625856497">Contraseña incorrecta</translation>
+<translation id="5050042263972837708">Nombre del grupo</translation>
 <translation id="5052499409147950210">Editar sitio web</translation>
 <translation id="5053604404986157245">La contraseña de TPM generada de forma aleatoria no está disponible. Esto es normal después de un Powerwash.</translation>
 <translation id="5061347216700970798">{NUM_BOOKMARKS,plural, =1{Esta carpeta contiene un marcador. ¿Seguro que quieres eliminarla?}other{Esta carpeta contiene # marcadores. ¿Seguro que quieres eliminarla?}}</translation>
@@ -3171,6 +3184,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="5972708806901999743">Mover al principio</translation>
 <translation id="5972826969634861500">Iniciar <ph name="PRODUCT_NAME" /></translation>
 <translation id="5975083100439434680">Reducir</translation>
+<translation id="5975730206036440725">No se encuentra el archivo PPD. Comprueba que el Chromebook esté conectado y vuelve a intentarlo.</translation>
 <translation id="5975792506968920132">Porcentaje de carga de batería</translation>
 <translation id="5976160379964388480">Otros</translation>
 <translation id="5978264784700053212">Centro de mensajes</translation>
@@ -3416,6 +3430,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6374077068638737855">Iceweasel</translation>
 <translation id="6374108032506706911">Configurar Smart Lock para Android</translation>
 <translation id="6374469231428023295">Volver a intentarlo</translation>
+<translation id="6377158645544167202">No se puede conectar la impresora. Comprueba que esté encendida y conectada a tu Chromebook por red Wi‑Fi o USB.</translation>
 <translation id="6380143666419481200">Aceptar y continuar</translation>
 <translation id="6383051423892982287">Cifrar los datos sincronizados con tu propia <ph name="BEGIN_LINK" />frase de contraseña de sincronización<ph name="END_LINK" /></translation>
 <translation id="6384275966486438344">Cambiar configuración de búsqueda por: <ph name="SEARCH_HOST" /></translation>
@@ -3779,6 +3794,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6948064128393024347">Menú de aplicaciones, resultados de búsqueda</translation>
 <translation id="6949306908218145636">Añadir páginas abiertas a marcadores...</translation>
 <translation id="6955446738988643816">Inspeccionar ventana emergente</translation>
+<translation id="6957231940976260713">Nombre de servicio</translation>
 <translation id="695755122858488207">Botón de selección sin seleccionar</translation>
 <translation id="696203921837389374">Habilitar sincronización a través de redes de datos móviles</translation>
 <translation id="6964390816189577014">Héroe</translation>
@@ -4001,6 +4017,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="729761647156315797">Seleccionar idioma y teclado</translation>
 <translation id="7299337219131431707">Habilitar navegación como invitado</translation>
 <translation id="730515362922783851">Intercambiar datos con cualquier dispositivo en la red local o Internet</translation>
+<translation id="7308002049209013926">Utiliza el menú de aplicaciones para acceder rápidamente a aplicaciones y actividades nuevas. Para acceder al menú con el teclado, pulsa Alt + Mayús + L.</translation>
 <translation id="7309257895202129721">Mostrar &amp;controles</translation>
 <translation id="7311079019872751559">Acceso de complementos sin pasar por la zona de pruebas</translation>
 <translation id="7311891583377621132">Mueve el dedo ligeramente para capturar otra parte de la huella digital</translation>
@@ -4512,6 +4529,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8116190140324504026">Más información...</translation>
 <translation id="8116925261070264013">Silenciados</translation>
 <translation id="8116972784401310538">Administrador de &amp;marcadores</translation>
+<translation id="8117620576188476503">Administra los ajustes, conexiones y actualizaciones con la bandeja de estado. Para acceder a ella con el teclado, pulsa Alt + Mayús + S.</translation>
 <translation id="8118362518458010043">Chrome ha inhabilitado esta extensión porque es posible que no sea segura.</translation>
 <translation id="8118860139461251237">Gestionar tus descargas</translation>
 <translation id="81238879832906896">Flor blanca y amarilla</translation>
@@ -4658,6 +4676,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8357224663288891423">Combinaciones de teclas para extensiones y aplicaciones</translation>
 <translation id="8358685469073206162">¿Quieres restaurar las páginas?</translation>
 <translation id="8363095875018065315">estable</translation>
+<translation id="8363142353806532503">Micrófono bloqueado</translation>
 <translation id="8366396658833131068">Tu conexión de red se ha restaurado. Selecciona una red diferente o pulsa el botón "Continuar" para ejecutar tu aplicación de kiosco.</translation>
 <translation id="8366947248864804596">Si el teléfono está desbloqueado y está cerca, solo tienes que seleccionarlo para desbloquearlo. De lo contrario, introduce tu contraseña o PIN.</translation>
 <translation id="8368859634510605990">&amp;Abrir todos los marcadores</translation>
@@ -4839,6 +4858,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8671210955687109937">Puede comentar</translation>
 <translation id="8673026256276578048">Búsqueda en la Web...</translation>
 <translation id="8673383193459449849">Problema en el servidor</translation>
+<translation id="8675354002693747642">Clave precompartida</translation>
 <translation id="8676374126336081632">Borrar entrada</translation>
 <translation id="8677039480012021122">Borrar datos y desvincular</translation>
 <translation id="8677212948402625567">Ocultar todos...</translation>
@@ -5030,6 +5050,7 @@ Calculando el tiempo de carga completa</translation>
 <translation id="8973557916016709913">Quitar el nivel de zoom</translation>
 <translation id="8973596347849323817">Personaliza este dispositivo para adaptarlo a tus necesidades. Puedes modificar las funciones de accesibilidad posteriormente en Ajustes.</translation>
 <translation id="897414447285476047">El archivo de destino está incompleto debido a un problema relacionado con la conexión.</translation>
+<translation id="8976520271376534479">Se ha bloqueado Flash en esta página.</translation>
 <translation id="8977811652087512276">La contraseña es incorrecta o el archivo está dañado</translation>
 <translation id="8978154919215542464">Activada: sincronizar todo</translation>
 <translation id="8978526688207379569">Este sitio ha descargado varios archivos automáticamente.</translation>

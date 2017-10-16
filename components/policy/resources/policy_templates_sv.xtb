@@ -114,6 +114,11 @@
 
       Om policyn inte har angetts tillämpas standardvärdet MultiProfileUserBehaviorMustBePrimary för användare som hanteras av ett företag och MultiProfileUserBehaviorUnrestricted för användare som inte hanteras.</translation>
 <translation id="1465619815762735808">Klicka för att spela</translation>
+<translation id="1466133662354365542">Aktiverar funktionen Autofyll i <ph name="PRODUCT_NAME" /> så att användarna kan fylla i webbformulär automatiskt med uppgifter som är sparade sedan tidigare, till exempel adress- och kreditkortsuppgifter.
+
+      Om du inaktiverar Autofyll får du inga förslag och kreditkortsuppgifter fylls inte i automatiskt. Ytterligare kreditkortsuppgifter som du anger när du surfar på webben sparas inte heller.
+
+      Om du aktiverar funktionen eller inte anger något värde kan användarna själva styra autofyll (inklusive kreditkort) i användargränssnittet.</translation>
 <translation id="1468307069016535757">Välj standardtillståndet för hjälpmedelsfunktionen högkontrastläge på inloggningsskärmen.
 
           Om den här principen är sann är högkontrastläget aktiverat på inloggningsskärmen.
@@ -372,6 +377,7 @@
 <translation id="2294382669900758280">Videouppspelning i Android-appar påverkas inte även om den här principen har ställts in på <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Konfigurera standardinställningen för sidan Ny flik i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Ange en lista med aktiverade plugin-program</translation>
+<translation id="2303795211377219696">Aktivera autofyll för kreditkort</translation>
 <translation id="2309390639296060546">Standardinställning för geografisk plats</translation>
 <translation id="2312134445771258233">Innebär att du kan konfigurera sidorna som läses in vid start.
 
@@ -1160,6 +1166,7 @@
           Värdet måste vara JSON-ordlistor i strängformat i en matris. Varje ordlista måste ha formen { "pattern": "$URL_PATTERN", "filter" : $FILTER }, där $URL_PATTERN är ett innehållsinställningsmönster. $FILTER begränsar vilka klientcertifikat webbläsaren automatiskt väljer mellan. Oavsett vilket filter som används väljs bara certifikat som matchar serverns certifikatbegäran. Om $FILTER har formen { "ISSUER": { "CN": "$ISSUER_CN" } } är det dessutom endast klientcertifikat som har skapats av ett certifikat med CommonName $ISSUER_CN som väljs. Om $FILTER är en tom ordlista {} begränsas inte valet av klientcertifikat ytterligare.
 
           Om principen inte anges görs inga automatiska val för någon webbplats.</translation>
+<translation id="4978405676361550165">När principen OffHours har ställts in ignoreras de angivna enhetsprinciperna (använd standardinställningarna för dessa principer) under de angivna tidsperioderna. Varje gång en OffHours-period börjar eller slutar ändras tillämpningen av enhetsprinciperna i Chrome. Användarna aviseras och måste logga ut när OffHours-perioden slutar och enhetens principinställningar ändras (t.ex. om användaren är inloggad med ett konto som inte är tillåtet).</translation>
 <translation id="4980635395568992380">Datatyp:</translation>
 <translation id="4983201894483989687">Tillåt att föråldrade plugin-program körs</translation>
 <translation id="4988291787868618635">Åtgärd som ska vidtas när inaktivitetstiden har gått</translation>
@@ -1452,6 +1459,53 @@
 
       Om policyn inte tillämpas eller tillämpas felaktigt visas skärmen med förhandsgranskning av utskriften vid utskrifter.</translation>
 <translation id="6022948604095165524">Åtgärd vid start</translation>
+<translation id="6023030044732320798">Anger en uppsättning principer som överlämnas till ARC-körning. Värdet måste vara en giltig JSON.
+
+      Principen används för att konfigurera vilka Android-appar som installeras automatiskt på enheten:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "beskrivning": "Identifierare för Android-app, t.ex. "com.google.android.gm" for Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "beskrivning": "Anger hur en app installeras. OPTIONAL: Appen installeras inte automatiskt men användaren kan installera den. Detta är standardprincipen om annat inte anges. PRELOAD: Appen installeras automatiskt men användaren kan avinstallera den. FORCE_INSTALLED: Appen installeras automatiskt och användaren kan inte avinstallera den. BLOCKED: Appen blockeras och användaren kan inte installera den. Om appen installerades när en tidigare princip gällde så avinstalleras den.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "beskrivning": "Princip för att godkänna begäranden om behörighet till appar. PERMISSION_POLICY_UNSPECIFIED: Ingen princip är angiven. PROMPT är standard om ingen annan princip anges på någon nivå. PROMPT: Låt användaren ge behörighet. GRANT: Ge behörighet automatiskt. DENY: Neka behörighet automatiskt.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "beskrivning": "Appspecifikt konfigurationsobjekt för JSON med en uppsättning nyckel-värden, t.ex. '"managedConfiguration": { "key1": value1, "key2": value2 }'. Nycklarna definieras i appens manifest.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Läs mer om PinnedLauncherApps om du vill fästa appar i översikten.</translation>
 <translation id="602728333950205286">Dynamisk webbadress för standardsökleverantör</translation>
 <translation id="603410445099326293">Parametrar för föreslagen webbadress som använder POST</translation>
 <translation id="6036523166753287175">Aktivera brandväggspassage från fjärråtkomstsvärd</translation>

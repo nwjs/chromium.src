@@ -94,6 +94,7 @@
 <translation id="1829244130665387512">在網頁中尋找</translation>
 <translation id="1832521218263067499">安全性事件</translation>
 <translation id="1853692000353488670">新增無痕式分頁</translation>
+<translation id="1880072593381090678">Chrome 常用網頁</translation>
 <translation id="189172778771606813">關閉導覽匣</translation>
 <translation id="1897409700584096124">網站正在播送</translation>
 <translation id="1919345977826869612">廣告</translation>
@@ -121,6 +122,7 @@
 <translation id="2096396629993765042">您並不會因此登出 Google 帳戶，不過帳戶中可能仍保留了其他類型的瀏覽紀錄 (可前往 <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> 查詢)。</translation>
 <translation id="2100273922101894616">自動登入</translation>
 <translation id="2111511281910874386">前往指定頁面</translation>
+<translation id="2122601567107267586">無法開啟應用程式</translation>
 <translation id="2126426811489709554">技術提供：Chrome</translation>
 <translation id="2131665479022868825">已節省 <ph name="DATA" /></translation>
 <translation id="213279576345780926">已關閉的「<ph name="TAB_TITLE" />」</translation>
@@ -137,6 +139,7 @@
 <translation id="2268044343513325586">修正搜尋</translation>
 <translation id="2283599456633275070">旅遊</translation>
 <translation id="2286841657746966508">帳單地址</translation>
+<translation id="2300590596239819242">為所有文章啟用「簡易檢視」模式</translation>
 <translation id="2315043854645842844">作業系統不允許您在用戶端選取憑證。</translation>
 <translation id="2321958826496381788">拖曳滑桿，將文字調整到您可以舒適閱讀的大小。當您輕觸兩下文字段落，文字至少應呈現這樣的大小。</translation>
 <translation id="2323763861024343754">網站儲存資料量</translation>
@@ -161,6 +164,7 @@
 <translation id="2496180316473517155">瀏覽紀錄</translation>
 <translation id="2498359688066513246">說明與意見回饋</translation>
 <translation id="2501278716633472235">返回</translation>
+<translation id="2503472621226270518">展開導覽面板</translation>
 <translation id="2512222046227390255">自動填入表單</translation>
 <translation id="2526148617758225454">Data Saver 已開啟，您可以在 [設定] 中管理這項擴充功能。</translation>
 <translation id="2532336938189706096">網頁檢視</translation>
@@ -285,6 +289,7 @@
 <translation id="3744111309925758534">其他應用程式佔 <ph name="MEGABYTES" /> MB</translation>
 <translation id="3744111561329211289">背景同步處理</translation>
 <translation id="3773755127849930740">如要允許配對，請<ph name="BEGIN_LINK" />開啟藍牙功能<ph name="END_LINK" /></translation>
+<translation id="3778956594442850293">已新增至主畫面</translation>
 <translation id="3789841737615482174">安裝</translation>
 <translation id="3810838688059735925">影片</translation>
 <translation id="3810973564298564668">管理</translation>
@@ -379,6 +384,7 @@
 <translation id="4699172675775169585">快取圖片和檔案</translation>
 <translation id="4714588616299687897">最多可減少 60% 的數據流量</translation>
 <translation id="4720023427747327413">在 <ph name="PRODUCT_NAME" /> 中開啟</translation>
+<translation id="472631402238783923">想要協助改善 Chrome 嗎？<ph name="BEGIN_LINK" />請填寫這份問卷調查<ph name="END_LINK" /></translation>
 <translation id="4730876730346568982">您的同步處理帳戶即將從 <ph name="ACCOUNT_EMAIL_OLD" /> 切換至 <ph name="ACCOUNT_EMAIL_NEW" />。您現有的 Chrome 資料是由 <ph name="MANAGED_DOMAIN" /> 所管理。系統會將您的資料從這個裝置上刪除，但繼續保留在 <ph name="ACCOUNT_EMAIL_OLD" /> 中。</translation>
 <translation id="473775607612524610">更新</translation>
 <translation id="4738836084190194332">上次同步處理時間：<ph name="WHEN" /></translation>
@@ -432,6 +438,7 @@
 <translation id="5210286577605176222">跳至上一個分頁</translation>
 <translation id="5210365745912300556">關閉分頁</translation>
 <translation id="5222676887888702881">登出</translation>
+<translation id="5224771365102442243">含有影片</translation>
 <translation id="5233638681132016545">新增分頁</translation>
 <translation id="5271967389191913893">裝置無法開啟您要下載的這項內容。</translation>
 <translation id="528192093759286357">從頂端拖曳並輕觸返回按鈕即可結束全螢幕模式。</translation>
@@ -547,6 +554,7 @@
 <translation id="618555311922999635">導覽面版已開啟，填滿整個畫面</translation>
 <translation id="6192792657125177640">例外</translation>
 <translation id="6210748933810148297">不是 <ph name="EMAIL" /> 嗎？</translation>
+<translation id="6221892641068781024">簡易檢視</translation>
 <translation id="6232535412751077445">啟用「不追蹤」選項後，您的瀏覽流量會置入一項特定的要求，其作用則視網站是否回應要求，以及網站解讀要求的方式而定。
 
 舉例來說，部分網站可能會以顯示廣告的方式回應這類要求，而這些廣告並非根據您所造訪的其他網站紀錄而產生。許多網站仍會收集您的瀏覽資料，並將這些資料用於下列目的：提高網站安全性、在網站上提供更相關的內容、廣告和推薦項目，以及產生報告統計資料。</translation>
@@ -591,6 +599,7 @@
 <translation id="6573431926118603307">您在其他裝置上透過 Chrome 開啟的分頁會顯示在這裡。</translation>
 <translation id="6575643671698722332">重設失敗。請確認裝置已連上網路，然後再試一次。</translation>
 <translation id="6583199322650523874">將目前的網頁加入書籤</translation>
+<translation id="6593061639179217415">電腦版網站</translation>
 <translation id="6600954340915313787">已複製到 Chrome</translation>
 <translation id="6612358246767739896">受保護內容</translation>
 <translation id="6627583120233659107">編輯資料夾</translation>
@@ -602,7 +611,7 @@
 <translation id="666268767214822976">啟用預測查詢字串服務，讓您在網址列中輸入查詢內容時，能夠即時看到相關查詢和熱門網站</translation>
 <translation id="666731172850799929">在「<ph name="APP_NAME" />」中開啟</translation>
 <translation id="666981079809192359">Chrome 隱私權聲明</translation>
-<translation id="6689700624704789898">輕觸展開按鈕兩下，即可前往「下載」主畫面尋找你的檔案和網頁</translation>
+<translation id="6689700624704789898">輕觸兩下展開按鈕，即可前往「下載」主畫面尋找你的檔案和網頁</translation>
 <translation id="6697947395630195233">Chrome 需要位置資訊存取權，才能與這個網站分享你的位置資訊。</translation>
 <translation id="6698801883190606802">管理同步資料</translation>
 <translation id="6701279291835318271">安全性報告</translation>
@@ -728,6 +737,7 @@
 <translation id="7846076177841592234">全部取消選取</translation>
 <translation id="784934925303690534">時間範圍</translation>
 <translation id="7851858861565204677">其他裝置</translation>
+<translation id="785312750761189439">從畫面底部向上滑動或輕觸展開按鈕，即可輕鬆存取常用網站、文章、下載內容等等</translation>
 <translation id="7875915731392087153">建立電子郵件</translation>
 <translation id="7876243839304621966">全部移除</translation>
 <translation id="7882131421121961860">找不到瀏覽紀錄</translation>

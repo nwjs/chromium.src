@@ -155,9 +155,9 @@
 <translation id="1583248206450240930">Fes servir <ph name="PRODUCT_FRAME_NAME" /> de manera predeterminada</translation>
 <translation id="1603058613431276040">Proporciona configuracions per a les impressores d'empresa vinculades a dispositius.
 
-      Aquesta política et permet proporcionar configuracions d'impressores als dispositius <ph name="PRODUCT_OS_NAME" />. El fitxer ha d'estar codificat en JSON i no pot superar els 5 MB. El format és el mateix que el del diccionari NativePrinters. Es calcula que 5 MB corresponen a un fitxer amb unes 21.000 impressores. El hash criptogràfic serveix per verificar la integritat de la baixada.
+      Aquesta política et permet proporcionar configuracions d'impressores als dispositius <ph name="PRODUCT_OS_NAME" />. El fitxer ha d'estar codificat en JSON i no pot superar els 5 MB. El format és el mateix que el del diccionari NativePrinters. Es calcula que 5 MB corresponen a un fitxer amb unes 21.000 impressores. El resum criptogràfic serveix per verificar la integritat de la baixada.
 
-      El fitxer es baixa i es desa a la memòria cau. Es torna a baixar cada cop que es modifica l'URL o el hash.
+      El fitxer es baixa i es desa a la memòria cau. Es torna a baixar cada cop que es modifica l'URL o el resum.
 
       Si es defineix aquesta política, <ph name="PRODUCT_OS_NAME" /> baixarà el fitxer per a les configuracions d'impressores i les impressores estaran disponibles de conformitat amb <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> i <ph name="DEVICE_PRINTERS_BLACKLIST" />.
 
@@ -2080,9 +2080,9 @@ Aquesta política s'ignora en els comptes d'usuari normals.</translation>
 <translation id="891435090623616439">codificat com a cadena JSON; per obtenir informació detallada, consulteu <ph name="COMPLEX_POLICIES_URL" /></translation>
 <translation id="8927384992072706174">Proporciona configuracions per a les impressores d'empresa.
 
-      Aquesta política et permet proporcionar configuracions d'impressores als dispositius <ph name="PRODUCT_OS_NAME" />. El fitxer ha d'estar codificat en JSON i no pot superar els 5 MB. El format és el mateix que el del diccionari NativePrinters. Es calcula que 5 MB corresponen a un fitxer amb unes 21.000 impressores. El hash criptogràfic serveix per verificar la integritat de la baixada.
+      Aquesta política et permet proporcionar configuracions d'impressores als dispositius <ph name="PRODUCT_OS_NAME" />. El fitxer ha d'estar codificat en JSON i no pot superar els 5 MB. El format és el mateix que el del diccionari NativePrinters. Es calcula que 5 MB corresponen a un fitxer amb unes 21.000 impressores. El resum criptogràfic serveix per verificar la integritat de la baixada.
 
-      El fitxer es baixa i es desa a la memòria cau. Es torna a baixar cada cop que es modifica l'URL o el hash.
+      El fitxer es baixa i es desa a la memòria cau. Es torna a baixar cada cop que es modifica l'URL o el resum.
 
       Si es defineix aquesta política, <ph name="PRODUCT_OS_NAME" /> baixarà el fitxer per a les configuracions d'impressores i les impressores estaran disponibles de conformitat amb <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> i <ph name="BULK_PRINTERS_BLACKLIST" />.
 

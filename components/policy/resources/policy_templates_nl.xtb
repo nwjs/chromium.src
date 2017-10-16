@@ -939,7 +939,7 @@
           De beleidswaarde moet in milliseconden worden opgegeven.</translation>
 <translation id="4105989332710272578">Handhaving van Certificaattransparantie voor een lijst met URL's uitschakelen</translation>
 <translation id="4121350739760194865">Voorkomen dat app-promoties worden weergegeven op de pagina 'Nieuw tabblad'</translation>
-<translation id="4133144443101280166">Intervallen buiten gebruikstijd wanneer OffHours van het apparaat |ignored_policy_proto_tags| worden vrijgegeven</translation>
+<translation id="4133144443101280166">Intervallen buiten gebruikstijd wanneer het beleid DeviceOffHours |ignored_policy_proto_tags| wordt vrijgegeven</translation>
 <translation id="4157003184375321727">Besturingssysteem- en firmwareversie rapporteren</translation>
 <translation id="4183229833636799228">Standaardinstelling voor <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="4192388905594723944">URL voor het valideren van verificatietoken voor client voor externe toegang</translation>

@@ -113,6 +113,11 @@
 
       Ak pravidlo nenastavíte, použije sa predvolená hodnota MultiProfileUserBehaviorMustBePrimary pre používateľov spravovaných podnikom a hodnota MultiProfileUserBehaviorUnrestricted pre nespravovaných používateľov.</translation>
 <translation id="1465619815762735808">Kliknutím prehrať</translation>
+<translation id="1466133662354365542">Aktivuje v prehliadači <ph name="PRODUCT_NAME" /> funkciu Automatické dopĺňanie, ktorá používateľom umožňuje automaticky dopĺňať údaje kreditných kariet a adries do webových formulárov na základe predtým uložených informácií.
+
+      Ak toto nastavenie deaktivujete, Automatické dopĺňanie nebude nikdy navrhovať ani vyplňovať údaje kreditných kariet ani ukladať informácie o ďalších kartách, ktoré môže používateľ odoslať počas prehliadania webu.
+
+      Ak toto nastavenie aktivujete alebo preň nenastavíte žiadnu hodnotu, používateľ bude môcť ovládať celú funkciu Automatické dopĺňanie (vrátane kreditných kariet) v používateľskom rozhraní.</translation>
 <translation id="1468307069016535757">Nastaví predvolený stav režimu vysokého kontrastu (funkcia na uľahčenie prístupu) na prihlasovacej obrazovke.
 
           Ak je toto pravidlo nastavené na hodnotu true, pri zobrazení prihlasovacej obrazovky sa povolí režim vysokého kontrastu.
@@ -361,6 +366,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 <translation id="2294382669900758280">Prehrávanie videí v aplikáciách pre Android sa neberie do úvahy ani v prípade, ak je toto pravidlo nastavené na hodnotu <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Nastavenie predvolenej stránky na novej karte v prehliadači <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Určiť zoznam povolených doplnkov</translation>
+<translation id="2303795211377219696">Aktivovať Automatické dopĺňanie pre kreditné karty</translation>
 <translation id="2309390639296060546">Predvolené nastavenie geolokácie</translation>
 <translation id="2312134445771258233">Umožňuje konfigurovať stránky, ktoré sa načítavajú pri spustení. Ak ste v časti „Akcie pri spustení“ nezvolili možnosť „Otvoriť zoznam webových adries“, položky v zozname „Webové adresy otvárané pri spustení“ sa ignorujú.</translation>
 <translation id="2337466621458842053">Umožňuje nastaviť zoznam vzorov webových adries určujúcich webové stránky, na ktorých sa môžu zobrazovať obrázky.
@@ -1146,6 +1152,7 @@ Ak toto pravidlo nie je nastavené alebo je prázdne, akýkoľvek používateľ 
           Hodnota musí byť pole slovníkov JSON prevedených na reťazce. Každý slovník musí mať tvar { "pattern": "$URL_PATTERN", "filter" : $FILTER }, kde $URL_PATTERN je vzor nastavenia obsahu. $FILTER obmedzuje certifikáty klienta, z ktorých bude prehliadač automaticky vyberať. Nezávisle od filtra budú vybraté iba tie certifikáty, ktoré zodpovedajú žiadosti servera o certifikát. Ak má $FILTER tvar { "ISSUER": { "CN": "$ISSUER_CN" } }, budú navyše vybraté iba tie certifikáty klienta, ktoré boli vydané certifikátom s bežným názvom $ISSUER_CN. Ak je $FILTER prázdny slovník {}, výber certifikátov klienta nie je nijako ďalej obmedzený.
 {/}{}
           Ak toto pravidlo nenastavíte, automatický výber sa nevykoná pre žiadne webové stránky.</translation>
+<translation id="4978405676361550165">Ak nastavíte pravidlo OffHours, zadané pravidlá zariadenia budú ignorované (použite predvolené nastavenia týchto pravidiel) počas stanovených časových intervalov. Chrome znova začne používať pravidlá zariadenia, keď sa obdobie pravidla OffHours začne alebo skončí. Používateľ bude upozornený a systém vynúti jeho odhlásenie, keď sa časové obdobie pravidla OffHours skončí a nastavenia pravidiel zariadenia sa zmenia (t. j. keď sa používateľ prihlási pomocou účtu, ktorý nie je povolený).</translation>
 <translation id="4980635395568992380">Typ údajov:</translation>
 <translation id="4983201894483989687">Povoliť spúšťanie zastaraných doplnkov</translation>
 <translation id="4988291787868618635">Akcia po určitej dobe nečinnosti</translation>
@@ -1433,6 +1440,53 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
 
       Ak toto pravidlo nastavené nie je alebo je nastavené na hodnotu False, príkazy na tlač spustia obrazovku ukážky tlače.</translation>
 <translation id="6022948604095165524">Akcia pri spustení</translation>
+<translation id="6023030044732320798">Určuje skupinu pravidiel, ktoré budú postúpené na spustenie ARC. Hodnota musí mať platný formát JSON.
+
+      Pomocou tohto pravidla je možné konfigurovať, ktoré aplikácie pre Android sa automaticky nainštalujú do zariadenia:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Identifikátor aplikácie pre Android, napr. „com.google.android.gm“ pre Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Určí spôsob inštalácie aplikácie. OPTIONAL (VOLITEĽNÁ): Aplikácia sa nenainštaluje automaticky, ale môže ju nainštalovať používateľ. Ide o predvolené nastavenie, ak pravidlo nie je určené. PRELOAD (PREDINŠTALOVANÁ): Aplikácia sa nainštaluje automaticky, ale používateľ ju môže odinštalovať. FORCE_INSTALLED (VYNÚTENE NAINŠTALOVANÁ): Aplikácia sa nainštaluje automaticky a používateľ ju nemôže odinštalovať. BLOCKED (BLOKOVANÁ): Aplikácia je blokovaná a nedá sa nainštalovať. Ak bola aplikácia nainštalovaná v rámci predchádzajúceho pravidla, odinštaluje sa.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Pravidlo na udeľovanie žiadostí o povolenie aplikáciám. PERMISSION_POLICY_UNSPECIFIED (PRAVIDLO POVOLENÍ NIE JE URČENÉ): Pravidlo nie je určené. Ak pre povolenie na akejkoľvek úrovni nie je určené žiadne pravidlo, predvolene sa použije nastavenie PROMPT (VYZVAŤ). PROMPT (VYZVAŤ): Používateľ bude vyzvaný udeliť povolenie. GRANT (UDELIŤ): Povolenie bude udelené automaticky. DENY (ZAMIETNUŤ): Povolenie bude automaticky zamietnuté.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Konfiguračný objekt JSON špecifický pre aplikáciu s nastavenými pármi kľúč-hodnota, napr. „"managedConfiguration": { "kľúč": hodnota, "kľúč": hodnota }“. Kľúče sú definované v manifeste aplikácie.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Ak chcete pripnúť aplikácie do spúšťača, pozrite si pravidlo PinnedLauncherApps.</translation>
 <translation id="602728333950205286">Webová adresa dynamického vyhľadávania predvoleného poskytovateľa vyhľadávania</translation>
 <translation id="603410445099326293">Parametre pre webovú adresu návrhov, ktorá používa metódu POST</translation>
 <translation id="6036523166753287175">Povoliť prechod cez bránu firewall v smere od hostiteľa vzdialeného prístupu</translation>

@@ -111,6 +111,11 @@
 
       このポリシーを設定しないままにした場合、デフォルト値として企業の管理対象ユーザーには「MultiProfileUserBehaviorMustBePrimary」が適用され、管理対象外のユーザーには「MultiProfileUserBehaviorUnrestricted」が適用されます。</translation>
 <translation id="1465619815762735808">クリックして再生する</translation>
+<translation id="1466133662354365542"><ph name="PRODUCT_NAME" /> の自動入力機能を有効にし、ユーザーが以前に保存した情報を使ってウェブフォームにクレジット カードや住所の情報を自動入力できるようにします。
+
+      この設定を無効にした場合は、クレジット カード情報が候補として表示されたり、自動入力されたりすることはありません。また、ユーザーがウェブの利用中に送信したクレジット カード情報が追加で保存されることもありません。
+
+      この設定を有効にするか、値を設定しない場合、ユーザーは UI で自動入力の全般的な機能（クレジット カードを含む）を制御できます。</translation>
 <translation id="1468307069016535757">ログイン画面でのユーザー補助機能「ハイコントラスト モード」のデフォルト状態を設定します。
 
           このポリシーが true に設定されている場合は、ログイン画面が表示されるときにハイコントラスト モードが有効になります。
@@ -356,6 +361,7 @@
 <translation id="2294382669900758280">Android アプリで再生中の動画は、このポリシーを <ph name="TRUE" /> に設定した場合でも考慮されません。</translation>
 <translation id="2298647742290373702"><ph name="PRODUCT_NAME" /> のデフォルトの新しいタブページを設定します。</translation>
 <translation id="2299220924812062390">有効なプラグインのリストを指定する</translation>
+<translation id="2303795211377219696">クレジット カードの自動入力を有効にする</translation>
 <translation id="2309390639296060546">デフォルトの位置情報設定</translation>
 <translation id="2312134445771258233">起動時に読み込まれるページを設定できます。[起動時の操作] の [URL のリストを開く] を選択しない場合、[起動時に開く URL] リストのコンテンツは無視されます。</translation>
 <translation id="2337466621458842053">画像を表示できるサイトを指定する url パターンのリストを設定できます。このポリシーが未設定の場合、グローバルのデフォルト値がすべてのサイトで使用されます。グローバルのデフォルト値は「DefaultImagesSetting」ポリシーの値か、この値が未設定の場合はユーザーの個人設定の値です。</translation>
@@ -1102,6 +1108,7 @@
           値は文字列変換した JSON 辞書の配列で指定する必要があります。各辞書は { "pattern": "$URL_PATTERN", "filter" : $FILTER } の形式で指定します。$URL_PATTERN でコンテンツ設定パターンを指定し、$FILTER でブラウザが自動的に選択するクライアント証明書の発行元を指定します。なお、フィルタの設定に関わらず、選択される証明書はサーバーの証明書リクエストに一致するもののみとなります。$FILTER を { "ISSUER": { "CN": "$ISSUER_CN" } } の形式で指定すると、CommonName $ISSUER_CN が発行したクライアント証明書のみが選択されます。$FILTER が空の辞書 {} の場合は、クライアント証明書の選択にこうした条件は適用されません。
 
           このポリシーを未設定のままにすると、どのサイトについても証明書の自動選択は行われません。</translation>
+<translation id="4978405676361550165">「OffHours」ポリシーが設定されている場合、指定されたデバイス ポリシーは、定義された時間間隔の間は無視されます（ポリシーのデフォルト設定が使用されます）。「OffHours」の開始または終了のイベントが発生するたびに、Chrome によってデバイス ポリシーが再適用されます。「OffHours」の時間が終了し、デバイス ポリシーの設定が変更されたとき（許可されたアカウント以外でユーザーがログインしたときなど）には、ユーザーは通知を受けたうえで強制的にログアウトされます。</translation>
 <translation id="4980635395568992380">データ タイプ:</translation>
 <translation id="4983201894483989687">古いプラグインの実行を許可する</translation>
 <translation id="4988291787868618635">アイドル時間に到達したときに行われる操作</translation>
@@ -1361,6 +1368,53 @@
 
       このポリシーが設定されていない場合や false に設定されている場合、印刷コマンドを実行すると印刷プレビュー画面が表示されます。</translation>
 <translation id="6022948604095165524">起動時の操作</translation>
+<translation id="6023030044732320798">ARC ランタイムに渡される一連のポリシーを指定します。値は有効な JSON である必要があります。
+
+      このポリシーを使用して、端末にどの Android アプリを自動的にインストールするかを設定できます。
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android アプリ識別子。たとえば、Gmail は "com.google.android.gm" など",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "アプリのインストール方法を指定します。OPTIONAL: アプリは自動的にはインストールされませんが、ユーザーがインストールすることはできます。このポリシーが指定されていない場合は、デフォルトでこの設定が使用されます。PRELOAD: アプリは自動的にインストールされますが、ユーザーがアンインストールすることもできます。FORCE_INSTALLED: アプリは自動的にインストールされ、ユーザーがアンインストールすることはできません。BLOCKED: アプリはブロックされ、インストールできません。以前のポリシーによってアプリがインストール済みの場合はアンインストールされます。",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "アプリへの権限付与のリクエストに関するポリシーです。PERMISSION_POLICY_UNSPECIFIED: ポリシーを指定しません。権限に関するポリシーがどのレベルでも指定されていなければ、デフォルトで「PROMPT」の動作が適用されます。PROMPT: 権限を付与するよう促すメッセージをユーザーに表示します。GRANT: 自動的に権限を付与します。DENY: 自動的に権限の付与を拒否します。",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "アプリ固有の JSON 設定文字列です。例: '"managedConfiguration": { "key1": value1, "key2": value2 }'。キーはアプリのマニフェストで定義されます。",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      ランチャーにアプリを固定する場合は、PinnedLauncherApps をご覧ください。</translation>
 <translation id="602728333950205286">デフォルトの検索プロバイダのインスタント検索 URL</translation>
 <translation id="603410445099326293">POST を使用するキーワード候補による検索 URL のパラメータ</translation>
 <translation id="6036523166753287175">リモート アクセス ホストからのファイアウォール トラバーサルを有効にする</translation>

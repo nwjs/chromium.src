@@ -393,6 +393,7 @@
 <translation id="3778403066972421603">Ali želite shraniti to kartico v Google Račun in v tej napravi?</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3787705759683870569">Poteče: <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
+<translation id="3808375843007691220">Opozorilo: pred vami so poskusne funkcije.</translation>
 <translation id="382518646247711829">Če uporabite namestniški strežnik ...</translation>
 <translation id="3828924085048779000">Prazno geslo ni dovoljeno.</translation>
 <translation id="385051799172605136">Nazaj</translation>
@@ -448,6 +449,7 @@
 <translation id="4269787794583293679">(Ni uporabniškega imena)</translation>
 <translation id="4275830172053184480">Znova zaženite napravo.</translation>
 <translation id="4280429058323657511">, datum poteka veljavnosti: <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4292213515608230699">Ni ujemajočih se poskusov</translation>
 <translation id="4304224509867189079">Prijava</translation>
 <translation id="4312866146174492540">Blokira (privzeto)</translation>
 <translation id="4325863107915753736">Članka ni bilo mogoče najti</translation>
@@ -518,6 +520,7 @@
 <translation id="495170559598752135">Dejanja</translation>
 <translation id="4958444002117714549">Razširi seznam</translation>
 <translation id="4974590756084640048">Vnovično omogočanje opozoril</translation>
+<translation id="4989542687859782284">Ni na voljo</translation>
 <translation id="4989809363548539747">Ta vtičnik ni podprt</translation>
 <translation id="5002932099480077015">Če je to omogočeno, Chrome shrani kopijo kartice v tej napravi zaradi hitrejšega izpolnjevanja obrazcev.</translation>
 <translation id="5018422839182700155">Te strani ni mogoče odpreti</translation>
@@ -571,6 +574,7 @@
 <translation id="5355557959165512791">Spletnega mesta <ph name="SITE" /> trenutno ni mogoče obiskati, saj je to potrdilo preklicano. Napake omrežja in napadi na omrežje so običajno začasni, zato bo ta stran verjetno delovala pozneje.</translation>
 <translation id="536296301121032821">Nastavitev pravilnika ni bilo mogoče shraniti</translation>
 <translation id="5386426401304769735">Veriga potrdil za to spletno mesto vsebuje potrdilo, podpisano z algoritmom SHA-1.</translation>
+<translation id="5401815295726769233">Zastavice za iskanje</translation>
 <translation id="5402410679244714488">Datum poteka: <ph name="EXPIRATION_DATE_ABBR" />, zadnja uporaba pred več kot enim letom</translation>
 <translation id="540969355065856584">Strežniku ni uspelo dokazati, da je <ph name="DOMAIN" />; njegovo varnostno potrdilo trenutno ni veljavno. Razlog za to je lahko napačna konfiguracija ali napadalčevo prestrezanje povezave.</translation>
 <translation id="5421136146218899937">Izbriši podatke brskanja ...</translation>
@@ -623,6 +627,7 @@
 <translation id="5732392974455271431">Starši ga lahko odblokirajo</translation>
 <translation id="5763042198335101085">Vnesite veljaven e-poštni naslov</translation>
 <translation id="5765072501007116331">Če si želite ogledati načine dostave in zahteve, izberite naslov</translation>
+<translation id="5770114862687765385">Videti je, da je datoteka poškodovana. Kliknite gumb »Ponastavi«, da ponastavite sejo.</translation>
 <translation id="5778550464785688721">Popolni nadzor naprav MIDI</translation>
 <translation id="5784606427469807560">Težava pri potrditvi kartice. Preverite internetno povezavo in poskusite znova.</translation>
 <translation id="5785756445106461925">Poleg tega so na tej strani druga sredstva, ki niso varna. Ta sredstva lahko med prenosom pregledujejo drugi, morebitni napadalec pa jih lahko spremeni, tako da se spremeni videz strani.</translation>
@@ -636,6 +641,7 @@
 <translation id="5869522115854928033">Shranjena gesla</translation>
 <translation id="5893752035575986141">Sprejema kreditne kartice.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (sinhronizirano)</translation>
+<translation id="5909194079078764042">Če omogočite te funkcije, lahko izgubite podatke brskalnika oziroma ogrozite svojo varnost ali zasebnost. Omogočene funkcije veljajo za vse uporabnike tega brskalnika.</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 v uporabi}one{# v uporabi}two{# v uporabi}few{# v uporabi}other{# v uporabi}}</translation>
 <translation id="5939518447894949180">Ponastavi</translation>
 <translation id="5959728338436674663">Samodejno pošlji Googlu nekatere <ph name="BEGIN_WHITEPAPER_LINK" />sistemske podatke in vsebino strani<ph name="END_WHITEPAPER_LINK" /> zaradi zaznavanja nevarnih aplikacij in spletnih mest. <ph name="PRIVACY_PAGE_LINK" /></translation>
@@ -683,6 +689,7 @@
 <translation id="6305205051461490394">Naslov <ph name="URL" /> je nedosegljiv.</translation>
 <translation id="6319915415804115995">Zadnja uporaba pred več kot enim letom</translation>
 <translation id="6321917430147971392">Preverite nastavitve za DNS</translation>
+<translation id="6325286409953503969">Vas zanimajo nove zanimive funkcije Chroma? Preskusite naš <ph name="BEGIN_LINK" />kanal za razvijalce<ph name="END_LINK" />.</translation>
 <translation id="6328639280570009161">Poskusite onemogočiti omrežno predvidevanje</translation>
 <translation id="6328786501058569169">To spletno mesto je zavajajoče</translation>
 <translation id="6337133576188860026">Sprosti manj kot <ph name="SIZE" />. Nekatera spletna mesta se bodo ob naslednjem obisku morda počasneje naložila.</translation>
@@ -785,6 +792,7 @@
 <translation id="7298195798382681320">Priporočeni</translation>
 <translation id="7309308571273880165">Poročilo o zrušitvi, zajeto takrat: <ph name="CRASH_TIME" /> (uporabnik je zahteval nalaganje; ni še bilo naloženo)</translation>
 <translation id="7334320624316649418">&amp;Uveljavi razvrstitev</translation>
+<translation id="7337706099755338005">Ni na voljo v vašem okolju.</translation>
 <translation id="733923710415886693">Potrdilo strežnika ni bilo razkrito na podlagi pravilnika o preglednosti potrdila.</translation>
 <translation id="7353601530677266744">Ukazna vrstica</translation>
 <translation id="7372973238305370288">rezultat iskanja</translation>
@@ -792,6 +800,7 @@
 <translation id="7378627244592794276">Ne</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">Potrditev kartice</translation>
+<translation id="739697976928952788">Prikaži vsa shranjena gesla</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7419106976560586862">Pot profila</translation>
 <translation id="7424977062513257142">Vdelana stran na tej spletni strani sporoča:</translation>
@@ -838,6 +847,7 @@
 <translation id="7668654391829183341">Neznana naprava</translation>
 <translation id="7669271284792375604">Napadalci na tem spletnem mestu vas bodo morda poskusili zavesti, da bi namestili programe, ki škodljivo vplivajo na brskanje (na primer tako, da spremenijo vašo domačo stran ali na spletnih mestih, ki jih obiščete, prikazujejo dodatne oglase).</translation>
 <translation id="7682287625158474539">Pošiljanje</translation>
+<translation id="7695552107151968219">Vas zanimajo nove zanimive funkcije Chroma? Preskusite naš <ph name="BEGIN_LINK" />kanal za različice beta<ph name="END_LINK" />.</translation>
 <translation id="7699293099605015246">Članki trenutno niso na voljo</translation>
 <translation id="7701040980221191251">Brez</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Nadaljuj na spletno mesto <ph name="SITE" /> (ni varno)<ph name="END_LINK" /></translation>

@@ -393,6 +393,7 @@
 <translation id="3778403066972421603">Voulez-vous enregistrer cette carte dans votre compte Google et sur cet appareil ?</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3787705759683870569">Expire en <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
+<translation id="3808375843007691220">Attention : Fonctionnalités expérimentales sur cette page !</translation>
 <translation id="382518646247711829">Si vous utilisez un serveur proxy…</translation>
 <translation id="3828924085048779000">La phrase secrète est obligatoire.</translation>
 <translation id="385051799172605136">Retour</translation>
@@ -448,6 +449,7 @@
 <translation id="4269787794583293679">(aucun nom d'utilisateur)</translation>
 <translation id="4275830172053184480">Redémarrer l'appareil</translation>
 <translation id="4280429058323657511">, expiration le <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4292213515608230699">Aucun test correspondant</translation>
 <translation id="4304224509867189079">Se connecter</translation>
 <translation id="4312866146174492540">Bloquer (par défaut)</translation>
 <translation id="4325863107915753736">Échec de la recherche de l'article.</translation>
@@ -518,6 +520,7 @@
 <translation id="495170559598752135">Actions</translation>
 <translation id="4958444002117714549">Développer la liste</translation>
 <translation id="4974590756084640048">Réactiver les avertissements</translation>
+<translation id="4989542687859782284">Indisponible</translation>
 <translation id="4989809363548539747">Ce plug-in n'est pas compatible.</translation>
 <translation id="5002932099480077015">Si cette option est activée, Chrome enregistre une copie de votre carte sur cet appareil pour vous permettre de remplir plus rapidement les formulaires.</translation>
 <translation id="5018422839182700155">Impossible d'ouvrir cette page</translation>
@@ -571,6 +574,7 @@
 <translation id="5355557959165512791">Le site <ph name="SITE" /> est actuellement inaccessible, car son certificat a été révoqué. Les erreurs réseau et les attaques sont généralement temporaires. Vous devriez donc pouvoir accéder à cette page plus tard.</translation>
 <translation id="536296301121032821">Échec du stockage des paramètres de la règle.</translation>
 <translation id="5386426401304769735">La chaîne de certificats de ce site contient un certificat signé avec SHA-1.</translation>
+<translation id="5401815295726769233">Rechercher des signalements</translation>
 <translation id="5402410679244714488">Date d'expiration : <ph name="EXPIRATION_DATE_ABBR" />, dernière utilisation il y a plus d'un an</translation>
 <translation id="540969355065856584">Impossible de vérifier que ce serveur est bien <ph name="DOMAIN" />, car son certificat de sécurité actuel n'est pas valide. Cela peut être dû à une mauvaise configuration ou bien à l'interception de votre connexion par un pirate informatique.</translation>
 <translation id="5421136146218899937">Effacer les données de navigation...</translation>
@@ -623,6 +627,7 @@
 <translation id="5732392974455271431">Tes parents peuvent te le débloquer</translation>
 <translation id="5763042198335101085">Saisissez une adresse e-mail valide</translation>
 <translation id="5765072501007116331">Sélectionnez une adresse pour consulter les modes et conditions de livraison disponibles</translation>
+<translation id="5770114862687765385">Le fichier semble être corrompu. Cliquez sur le bouton "Réinitialiser" pour réinitialiser la session.</translation>
 <translation id="5778550464785688721">Contrôle total des appareils MIDI</translation>
 <translation id="5784606427469807560">Un problème est survenu lors de la validation de votre carte. Vérifiez votre connexion Internet, puis réessayez.</translation>
 <translation id="5785756445106461925">De plus, cette page inclut d'autres ressources qui ne sont pas sécurisées. Ces ressources peuvent être consultées par des tiers pendant leur transfert, et modifiées par un pirate informatique dans le but de changer l'aspect de cette page.</translation>
@@ -636,6 +641,7 @@
 <translation id="5869522115854928033">Mots de passe enregistrés</translation>
 <translation id="5893752035575986141">Les cartes de crédit sont acceptées.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (synchronisés)</translation>
+<translation id="5909194079078764042">En activant ces fonctionnalités, vous risquez de perdre les données de navigation, ou de compromettre votre sécurité ou votre vie privée. Les fonctionnalités activées s'appliquent à tous les utilisateurs de ce navigateur.</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 en cours d'utilisation}one{# en cours d'utilisation}other{# en cours d'utilisation}}</translation>
 <translation id="5939518447894949180">Réinitialiser</translation>
 <translation id="5959728338436674663">Envoyer automatiquement <ph name="BEGIN_WHITEPAPER_LINK" />des informations système et du contenu de page<ph name="END_WHITEPAPER_LINK" /> à Google afin de faciliter la détection d'applications et de sites dangereux. <ph name="PRIVACY_PAGE_LINK" /></translation>
@@ -683,6 +689,7 @@
 <translation id="6305205051461490394"><ph name="URL" /> est inaccessible.</translation>
 <translation id="6319915415804115995">Dernière utilisation il y a plus d'un an</translation>
 <translation id="6321917430147971392">Vérifiez vos paramètres DNS</translation>
+<translation id="6325286409953503969">Vous souhaitez bénéficier de nouvelles fonctionnalités Chrome passionnantes ? Essayez notre <ph name="BEGIN_LINK" />version en développement<ph name="END_LINK" />.</translation>
 <translation id="6328639280570009161">Essayez de désactiver la prédiction réseau</translation>
 <translation id="6328786501058569169">Ce site est trompeur</translation>
 <translation id="6337133576188860026">Libère moins de <ph name="SIZE" />. Le chargement de certains sites risque d'être plus lent lors de votre prochaine visite.</translation>
@@ -785,6 +792,7 @@
 <translation id="7298195798382681320">Recommandé</translation>
 <translation id="7309308571273880165">Rapport d'erreur enregistré le <ph name="CRASH_TIME" /> (importation demandée par l'utilisateur, mais non effectuée)</translation>
 <translation id="7334320624316649418">&amp;Rétablir la réorganisation</translation>
+<translation id="7337706099755338005">Non disponible sur votre plate-forme</translation>
 <translation id="733923710415886693">Le certificat du serveur n'a pas été communiqué tel que le prévoient les règles de transparence des certificats.</translation>
 <translation id="7353601530677266744">Ligne de commande</translation>
 <translation id="7372973238305370288">résultat de recherche</translation>
@@ -792,6 +800,7 @@
 <translation id="7378627244592794276">Non</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">Valider la carte</translation>
+<translation id="739697976928952788">Afficher tous les mots de passe enregistrés</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7419106976560586862">Chemin d'accès au profil</translation>
 <translation id="7424977062513257142">Une page intégrée à cette page Web indique :</translation>
@@ -838,6 +847,7 @@
 <translation id="7668654391829183341">Appareil inconnu</translation>
 <translation id="7669271284792375604">Des individus malveillants à l'œuvre sur ce site pourraient vous inciter à installer des programmes qui nuisent à votre confort de navigation (par exemple, en changeant votre page d'accueil ou en affichant des annonces supplémentaires sur les sites que vous consultez.</translation>
 <translation id="7682287625158474539">Adresse de livraison</translation>
+<translation id="7695552107151968219">Vous souhaitez bénéficier de nouvelles fonctionnalités Chrome passionnantes ? Essayez notre <ph name="BEGIN_LINK" />version bêta<ph name="END_LINK" />.</translation>
 <translation id="7699293099605015246">Articles non disponibles pour le moment</translation>
 <translation id="7701040980221191251">Aucun</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Continuer vers le site <ph name="SITE" /> (dangereux)<ph name="END_LINK" /></translation>

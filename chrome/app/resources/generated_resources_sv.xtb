@@ -195,6 +195,7 @@
 <translation id="1296497012903089238">Certifikattyp</translation>
 <translation id="1297175357211070620">Destination</translation>
 <translation id="1297922636971898492">Google Drive är inte tillgängligt för närvarande. Överföringen fortsätter automatiskt när Google Drive är tillgängligt igen.</translation>
+<translation id="1300806585489372370"><ph name="BEGIN_LINK" />Aktivera identifierare<ph name="END_LINK" /> om du vill ändra den här inställningen</translation>
 <translation id="1303101771013849280">HTML-fil med bokmärken</translation>
 <translation id="1303671224831497365">Inga Bluetooth-enheter hittades</translation>
 <translation id="1306606229401759371">Ändra inställningar</translation>
@@ -317,6 +318,7 @@
 <translation id="1487335504823219454">Aktiverat – anpassade inställningar</translation>
 <translation id="1493892686965953381">Väntar på <ph name="LOAD_STATE_PARAMETER" /> ...</translation>
 <translation id="1495486559005647033"><ph name="NUM_PRINTERS" /> andra tillgängliga enheter.</translation>
+<translation id="1497284176235884849">Angiven PPD-fil är ogiltig.</translation>
 <translation id="1497522201463361063">Det gick inte att byta namn på <ph name="FILE_NAME" />. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1500297251995790841">Okänd enhet [<ph name="VENDOR_ID" />:<ph name="PRODUCT_ID" />]</translation>
 <translation id="1503394326855300303">Det här ägarkontot måste vara det första inloggade kontot i en session med flera inloggningar.</translation>
@@ -528,6 +530,7 @@
 <translation id="180035236176489073">Du måste vara online för att kunna öppna filerna.</translation>
 <translation id="1801298019027379214">Fel PIN. Försök igen. Antal försök kvar: <ph name="TRIES_COUNT" /></translation>
 <translation id="1801827354178857021">Period</translation>
+<translation id="1802931390041703523">Flash är blockerat på den här sidan</translation>
 <translation id="1803545009660609783">Träna om</translation>
 <translation id="1807938677607439181">Alla filer</translation>
 <translation id="1809734401532861917">Lägg till bokmärken, historik, lösenord och andra inställningar i <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -868,6 +871,7 @@
 <translation id="2350796302381711542">Vill du tillåta att <ph name="HANDLER_HOSTNAME" /> öppnar alla <ph name="PROTOCOL" />-länkar i stället för <ph name="REPLACED_HANDLER_TITLE" />?</translation>
 <translation id="2351266942280602854">Språk och inmatning</translation>
 <translation id="2352662711729498748">&lt; 1 MB</translation>
+<translation id="2353297238722298836">Kamera och mikrofon är tillåtna</translation>
 <translation id="2356070529366658676">Fråga</translation>
 <translation id="2357949918965361754">Du kan använda funktionen för att visa innehåll från Chrome på TV:n eller andra enheter.</translation>
 <translation id="2359345697448000899">Hantera tillägg genom att klicka på Tillägg på menyn Verktyg.</translation>
@@ -1133,6 +1137,7 @@ Jag tycker inte att den här webbplatsen ska blockeras!</translation>
 <translation id="2755367719610958252">Hantera tillgänglighetsfunktioner</translation>
 <translation id="275662540872599901">skärm av</translation>
 <translation id="2756798847867733934">SIM-kort inaktiverat</translation>
+<translation id="2762441749940182211">Kamera är blockerad</translation>
 <translation id="2765217105034171413">Liten</translation>
 <translation id="2766006623206032690">Kl&amp;istra in och öppna</translation>
 <translation id="276969039800130567">Inloggad som <ph name="USER_EMAIL_ADDRESS" />.</translation>
@@ -1523,6 +1528,7 @@ Från <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3313622045786997898">Certifikatets signaturvärde</translation>
 <translation id="3315158641124845231">Dölj <ph name="PRODUCT_NAME" /></translation>
 <translation id="3317459757438853210">Dubbelsidig</translation>
+<translation id="3317678681329786349">Kamera och mikrofon är blockerade</translation>
 <translation id="3319048459796106952">Nytt &amp;inkognitofönster</translation>
 <translation id="3320021301628644560">Lägg till faktureringsadress</translation>
 <translation id="3320859581025497771">din operatör</translation>
@@ -1987,6 +1993,7 @@ Från <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4022426551683927403">&amp;Lägg till i ordlistan</translation>
 <translation id="4023146161712577481">Kontrollerar enhetskonfiguration.</translation>
 <translation id="4027804175521224372">(Du går miste om att <ph name="IDS_SYNC_PROMO_NOT_SIGNED_IN_STATUS_LINK" />)</translation>
+<translation id="4031179711345676612">Mikrofon är tillåten</translation>
 <translation id="4031910098617850788">F5</translation>
 <translation id="4033471457476425443">Lägg till ny mapp</translation>
 <translation id="4034042927394659004">Minska tangenternas ljusstyrka</translation>
@@ -2048,6 +2055,7 @@ Från <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4120817667028078560">Sökvägen är för lång</translation>
 <translation id="4121428309786185360">Giltig till</translation>
 <translation id="412730574613779332">Superhjälte</translation>
+<translation id="412940972494182898">Kör Flash den här gången</translation>
 <translation id="4130199216115862831">Enhetslogg</translation>
 <translation id="4130207949184424187">Det här tillägget har ändrat vilken sida som visas när du söker i adressfältet.</translation>
 <translation id="413121957363593859">Komponenter</translation>
@@ -2105,6 +2113,7 @@ Från <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4249373718504745892">Den här sidan har blockerats och kan inte komma åt kameran och mikrofonen.</translation>
 <translation id="4250229828105606438">Skärmdump</translation>
 <translation id="4250680216510889253">Nej</translation>
+<translation id="4252852543720145436">Identifierare för skyddat innehåll</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" /> – innehållet på fliken delas</translation>
 <translation id="4253515443406306926">Startprogram, sökresultat i helskärmsläge</translation>
 <translation id="4254813446494774748">Översättningsspråk:</translation>
@@ -2119,6 +2128,7 @@ Från <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4270393598798225102">Version <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Inga träffar</translation>
 <translation id="4275830172053184480">Starta om enheten</translation>
+<translation id="4276216215490044084">Det gick inte att läsa in PPD-filen eftersom den är för stor. Storleksgränsen är 250 kB.</translation>
 <translation id="4278390842282768270">Tillåtet</translation>
 <translation id="4279490309300973883">Spegling</translation>
 <translation id="4281844954008187215">Användarvillkor</translation>
@@ -2207,6 +2217,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="4433914671537236274">Skapa återställningsmedia</translation>
 <translation id="443464694732789311">Fortsätt</translation>
 <translation id="4439318412377770121">Vill du registrera <ph name="DEVICE_NAME" /> i Google Cloud Devices?</translation>
+<translation id="4439612350502082674">Det gick inte att lägga till skrivaren. Starta om och försök igen.</translation>
 <translation id="4441124369922430666">Vill du starta denna app automatiskt när maskinen slås på?</translation>
 <translation id="444134486829715816">Expandera..</translation>
 <translation id="4441548209689510310">Visa alternativ för stavningskontrollen</translation>
@@ -2333,6 +2344,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="4656293982926141856">Den här datorn</translation>
 <translation id="4658312088164718891">Aktivera Smart Lock genom att ange lösenordet. Nästa gång låser din mobil upp denna <ph name="DEVICE_TYPE" />. Du kan inaktivera Smart Lock i inställningarna.</translation>
 <translation id="4662788913887017617">Dela det här bokmärket med din iPhone</translation>
+<translation id="4663373278480897665">Kamera är tillåten</translation>
 <translation id="4664482161435122549">Fel vid export av PKCS #12</translation>
 <translation id="466481852929361583">Den säkra modulen konfigureras. Det kan ta några minuter.</translation>
 <translation id="4665014895760275686">Tillverkare</translation>
@@ -2579,6 +2591,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="5039512255859636053">$1 TB</translation>
 <translation id="5039804452771397117">Tillåt</translation>
 <translation id="5045550434625856497">Felaktigt lösenord</translation>
+<translation id="5050042263972837708">Gruppnamn</translation>
 <translation id="5052499409147950210">Redigera webbplats</translation>
 <translation id="5053604404986157245">Det slumpmässigt genererade TPM-lösenordet är inte tillgängligt. Det här är normalt efter en powerwash.</translation>
 <translation id="5061347216700970798">{NUM_BOOKMARKS,plural, =1{Den här mappen innehåller ett bokmärke. Vill du ta bort den?}other{Den här mappen innehåller # bokmärken. Vill du ta bort den?}}</translation>
@@ -3172,6 +3185,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="5972708806901999743">Flytta högst upp</translation>
 <translation id="5972826969634861500">Starta <ph name="PRODUCT_NAME" /></translation>
 <translation id="5975083100439434680">Zooma ut</translation>
+<translation id="5975730206036440725">Det gick inte att hitta PPD-filen. Kontrollera att Chromebook är ansluten till internet och försök igen.</translation>
 <translation id="5975792506968920132">Batteriets laddning i procent</translation>
 <translation id="5976160379964388480">Övriga</translation>
 <translation id="5978264784700053212">Meddelandecenter</translation>
@@ -3417,6 +3431,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="6374077068638737855">Iceweasel</translation>
 <translation id="6374108032506706911">Konfigurera Smart Lock för Android</translation>
 <translation id="6374469231428023295">Försök igen</translation>
+<translation id="6377158645544167202">Det gick inte att ansluta skrivaren. Kontrollera att skrivaren är påslagen och ansluten till Chromebook via Wi-Fi eller USB.</translation>
 <translation id="6380143666419481200">Godkänn och fortsätt</translation>
 <translation id="6383051423892982287">Kryptera synkroniserad data med en egen <ph name="BEGIN_LINK" />lösenfras för synkronisering<ph name="END_LINK" /></translation>
 <translation id="6384275966486438344">Ändra sökinställningarna till: <ph name="SEARCH_HOST" /></translation>
@@ -3781,6 +3796,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="6948064128393024347">Startprogram, sökresultat</translation>
 <translation id="6949306908218145636">Spara bokmärke till öppna sidor …</translation>
 <translation id="6955446738988643816">Kontrollera popup</translation>
+<translation id="6957231940976260713">Namn på tjänsten</translation>
 <translation id="695755122858488207">Avmarkerad alternativknapp</translation>
 <translation id="696203921837389374">Aktivera synkronisering via mobildata</translation>
 <translation id="6964390816189577014">Hjälte</translation>
@@ -4003,6 +4019,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="729761647156315797">Välj språk och tangentbord</translation>
 <translation id="7299337219131431707">Aktivera gästsurfning</translation>
 <translation id="730515362922783851">Utväxla data med enheter i det lokala nätverket eller via internet</translation>
+<translation id="7308002049209013926">Öppna nya appar och aktiviteter snabbt med översikten. Tryck på Alt + Skift + L om du vill öppna översikten.</translation>
 <translation id="7309257895202129721">Visa &amp;kontroller</translation>
 <translation id="7311079019872751559">Åtkomst till plugin utanför sandlåda</translation>
 <translation id="7311891583377621132">Flytta fingret något så att en annan del av fingeravtrycket registreras</translation>
@@ -4514,6 +4531,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8116190140324504026">Mer information...</translation>
 <translation id="8116925261070264013">Ljudet avstängt</translation>
 <translation id="8116972784401310538">&amp;Bokmärkshanteraren</translation>
+<translation id="8117620576188476503">Hantera anslutningar, uppdateringar och inställningar i statusfältet. Tryck på Alt + Skift + S om du vill öppna statusfältet.</translation>
 <translation id="8118362518458010043">Tillägget har inaktiverats. Det kan vara osäkert.</translation>
 <translation id="8118860139461251237">Hantera dina nedladdningar</translation>
 <translation id="81238879832906896">Gul och vit blomma</translation>
@@ -4658,6 +4676,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8357224663288891423">Kortkommandon för tillägg och appar</translation>
 <translation id="8358685469073206162">Vill du återställa sidorna?</translation>
 <translation id="8363095875018065315">stabil</translation>
+<translation id="8363142353806532503">Mikrofon är blockerad</translation>
 <translation id="8366396658833131068">Nätverksanslutningen har återställts. Välj ett annat nätverk eller tryck på knappen Fortsätt om du vill starta kioskappen.</translation>
 <translation id="8366947248864804596">När mobilen är olåst och finns i närheten väljer du bara detta för att låsa upp enheten. I annat fall anger du lösenordet eller pinkoden.</translation>
 <translation id="8368859634510605990">&amp;Öppna alla bokmärken</translation>
@@ -4839,6 +4858,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8671210955687109937">Kan kommentera</translation>
 <translation id="8673026256276578048">Söka på Internet...</translation>
 <translation id="8673383193459449849">Serverfel</translation>
+<translation id="8675354002693747642">I förväg delad nyckel</translation>
 <translation id="8676374126336081632">Radera inmatning</translation>
 <translation id="8677039480012021122">Rensa data och koppla från</translation>
 <translation id="8677212948402625567">Dölj alla...</translation>
@@ -5030,6 +5050,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8973557916016709913">Ta bort zoomnivå</translation>
 <translation id="8973596347849323817">Du kan anpassa enheten efter dina behov. Tillgänglighetsfunktionerna kan ändras senare under Inställningar.</translation>
 <translation id="897414447285476047">Hela målfilen laddades inte ned på grund av ett anslutningsfel.</translation>
+<translation id="8976520271376534479">Flash är blockerat på den här sidan.</translation>
 <translation id="8977811652087512276">Felaktigt lösenord eller skadad fil</translation>
 <translation id="8978154919215542464">På – synkronisera allt</translation>
 <translation id="8978526688207379569">Den här webbplatsen laddade ned flera filer automatiskt.</translation>

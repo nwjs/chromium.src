@@ -393,6 +393,7 @@
 <translation id="3778403066972421603">Kas soovite selle kaardi salvestada oma Google'i kontole ja sellesse seadmesse?</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3787705759683870569">Aegub: <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
+<translation id="3808375843007691220">Hoiatus: edaspidi on kasutusel katselised funktsioonid.</translation>
 <translation id="382518646247711829">Kui kasutate puhverserverit ...</translation>
 <translation id="3828924085048779000">Tühi parool ei ole lubatud.</translation>
 <translation id="385051799172605136">Tagasi</translation>
@@ -448,6 +449,7 @@
 <translation id="4269787794583293679">(Kasutajanimi puudub)</translation>
 <translation id="4275830172053184480">Taaskäivitage seade</translation>
 <translation id="4280429058323657511">, aegub <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4292213515608230699">Ühtivaid katseid ei ole</translation>
 <translation id="4304224509867189079">Logi sisse</translation>
 <translation id="4312866146174492540">Blokeeri (vaikimisi)</translation>
 <translation id="4325863107915753736">Artiklit ei leitud</translation>
@@ -518,6 +520,7 @@
 <translation id="495170559598752135">Toimingud</translation>
 <translation id="4958444002117714549">Laienda loendit</translation>
 <translation id="4974590756084640048">Luba hoiatused uuesti</translation>
+<translation id="4989542687859782284">Pole saadaval</translation>
 <translation id="4989809363548539747">Seda pistikprogrammi ei toetata</translation>
 <translation id="5002932099480077015">Kui see on lubatud, salvestab Chrome teie kaardi koopia vormide kiiremini täitmiseks sellesse seadmesse.</translation>
 <translation id="5018422839182700155">Seda lehte ei saa avada</translation>
@@ -571,6 +574,7 @@
 <translation id="5355557959165512791">Te ei saa saiti <ph name="SITE" /> praegu külastada, sest selle sertifikaat on tühistatud. Võrguvead ja -rünnakud on tavaliselt ajutised, nii et leht tõenäoliselt hiljem töötab.</translation>
 <translation id="536296301121032821">Reegli seadete talletamine ebaõnnestus</translation>
 <translation id="5386426401304769735">Selle saidi sertifikaadiahel sisaldab sertifikaati, mis on allkirjastatud SHA-1-ga.</translation>
+<translation id="5401815295726769233">Otsi märgistusi</translation>
 <translation id="5402410679244714488">Aegub: <ph name="EXPIRATION_DATE_ABBR" />, viimati kasutati üle aasta tagasi</translation>
 <translation id="540969355065856584">Server ei suutnud tõestada, et see on domeen <ph name="DOMAIN" />; selle turvasertifikaat pole praegu kehtiv. Selle põhjuseks võib olla vale seadistus või ründaja, kes on sekkunud teie ühendusse.</translation>
 <translation id="5421136146218899937">Sirvimisandmete kustutamine ...</translation>
@@ -623,6 +627,7 @@
 <translation id="5732392974455271431">Vanemad saavad blokeeringu teie eest tühistada</translation>
 <translation id="5763042198335101085">Sisestage kehtiv e-posti aadress</translation>
 <translation id="5765072501007116331">Kohaletoimetamisviiside ja nõuete nägemiseks valige aadress</translation>
+<translation id="5770114862687765385">Näib, et fail on rikutud. Seansi lähtestamiseks klõpsake nupul „Lähtesta”.</translation>
 <translation id="5778550464785688721">MIDI-seadmete täielik juhtimine</translation>
 <translation id="5784606427469807560">Kaardi kinnitamisel tekkis probleem. Kontrollige Interneti-ühendust ja proovige uuesti.</translation>
 <translation id="5785756445106461925">Lisaks sisaldab see leht teisi ressursse, mis pole turvalised. Edastamise ajal võivad ressursse vaadata ka teised ja ründajad saavad lehe välimuse muutmiseks ressursse muuta.</translation>
@@ -636,6 +641,7 @@
 <translation id="5869522115854928033">Salvestatud paroolid</translation>
 <translation id="5893752035575986141">Kaupmees aktsepteerib krediitkaarte.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (sünkroonitud)</translation>
+<translation id="5909194079078764042">Nende funktsioonide lubamisel võivad sirvimisandmed kaotsi minna või teie turvalisus või privaatsus võib ohtu sattuda. Lubatud funktsioonid on saadaval kõigile selle brauseri kasutajatele.</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 on kasutusel}other{# on kasutusel}}</translation>
 <translation id="5939518447894949180">Lähtesta</translation>
 <translation id="5959728338436674663">Saatke Google'ile automaatselt <ph name="BEGIN_WHITEPAPER_LINK" />süsteemiteavet ja lehe sisu<ph name="END_WHITEPAPER_LINK" />, et aidata tuvastada ohtlikke rakendusi ja saite. <ph name="PRIVACY_PAGE_LINK" /></translation>
@@ -683,6 +689,7 @@
 <translation id="6305205051461490394">URL-iga <ph name="URL" /> ei saa ühendust.</translation>
 <translation id="6319915415804115995">Viimati kasutati üle aasta tagasi</translation>
 <translation id="6321917430147971392">Kontrollige DNS-i seadeid</translation>
+<translation id="6325286409953503969">Kas olete huvitatud Chrome'i uutest lahedatest funktsioonidest? Proovige meie <ph name="BEGIN_LINK" />arenduskanalit<ph name="END_LINK" />.</translation>
 <translation id="6328639280570009161">Proovige keelata võrguprognoos</translation>
 <translation id="6328786501058569169">See sait on petturlik</translation>
 <translation id="6337133576188860026">Vabastab alla <ph name="SIZE" />. Mõne saidi laadimine võib järgmisel külastusel rohkem aega võtta.</translation>
@@ -785,6 +792,7 @@
 <translation id="7298195798382681320">Soovitatud</translation>
 <translation id="7309308571273880165">Krahhiaruanne jäädvustati ajal <ph name="CRASH_TIME" /> (kasutaja taotles üleslaadimist; pole veel üles laaditud)</translation>
 <translation id="7334320624316649418">&amp;Korrasta uuesti</translation>
+<translation id="7337706099755338005">Pole teie platvormil saadaval.</translation>
 <translation id="733923710415886693">Serveri sertifikaati ei avalikustatud sertifikaadi läbipaistvuse reegli kaudu.</translation>
 <translation id="7353601530677266744">Käsurida</translation>
 <translation id="7372973238305370288">otsingutulemus</translation>
@@ -792,6 +800,7 @@
 <translation id="7378627244592794276">Ei</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">Kaardi kinnitamine</translation>
+<translation id="739697976928952788">Kuva kõik salvestatud paroolid</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7419106976560586862">Profiili tee</translation>
 <translation id="7424977062513257142">Selle veebilehe manustatud leht ütleb:</translation>
@@ -838,6 +847,7 @@
 <translation id="7668654391829183341">Tundmatu seade</translation>
 <translation id="7669271284792375604">Sellel saidil asuvad ründajad võivad proovida meelitada teid installima programme, mis kahjustavad sirvimiskogemust (nt muudavad avalehte või kuvavad külastatavatel saitidel lisareklaame).</translation>
 <translation id="7682287625158474539">Kohaletoimetamine</translation>
+<translation id="7695552107151968219">Kas olete huvitatud Chrome'i uutest lahedatest funktsioonidest? Proovige meie <ph name="BEGIN_LINK" />beetakanalit<ph name="END_LINK" />.</translation>
 <translation id="7699293099605015246">Artiklid pole praegu saadaval</translation>
 <translation id="7701040980221191251">Mitte ükski</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Edasiliikumine saidile <ph name="SITE" /> (ebaturvaline)<ph name="END_LINK" /></translation>

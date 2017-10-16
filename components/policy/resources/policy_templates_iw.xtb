@@ -88,9 +88,9 @@
 <translation id="1397855852561539316">כתובת אתר שמציעה ספק חיפוש המוגדר כברירת מחדל</translation>
 <translation id="1420281424655200442">קובעת אילו מדפסות מהמדיניות <ph name="DEVICE_PRINTERS_POLICY" /> זמינות למשתמשים.
 
-      מגדירה מהי מדיניות הגישה שבה ייעשה שימוש בקביעת התצורה של מדפסות בכמות גדולה. אם נבחרה האפשרות <ph name="PRINTERS_ALLOW_ALL" />, כל המדפסות יוצגו. אם נבחרה האפשרות <ph name="PRINTERS_BLACKLIST" />, ייעשה שימוש ב-<ph name="DEVICE_PRINTERS_BLACKLIST" /> כדי להגביל את הגישה אל המדפסות שצוינו. אם נבחרה האפשרות <ph name="PRINTERS_WHITELIST" />, רשימת ההיתרים <ph name="DEVICE_PRINTERS_WHITELIST" /> תאפשר גישה רק למדפסות שניתן לבחור.
+      מגדירה על פי איזו מדיניות גישה תיקבע התצורה של מדפסות בכמות גדולה. אם נבחרה האפשרות <ph name="PRINTERS_ALLOW_ALL" />, כל המדפסות יוצגו. אם נבחרה האפשרות <ph name="PRINTERS_BLACKLIST" />, הגישה אל המדפסות שצוינו תוגבל על פי <ph name="DEVICE_PRINTERS_BLACKLIST" />. אם נבחרה האפשרות <ph name="PRINTERS_WHITELIST" />, רשימת ההיתרים <ph name="DEVICE_PRINTERS_WHITELIST" /> תאפשר גישה רק למדפסות שניתן לבחור.
 
-      אם המדיניות הזו לא הוגדרה, ייעשה שימוש ב-<ph name="PRINTERS_BLACKLIST" />.
+      אם המדיניות הזו לא הוגדרה, תיבחר  <ph name="PRINTERS_BLACKLIST" /> כברירת מחדל.
       </translation>
 <translation id="1426410128494586442">כן</translation>
 <translation id="1427655258943162134">‏כתובת או כתובת אתר של שרת Proxy</translation>
@@ -157,7 +157,7 @@
 
       המערכת מורידה את הקובץ ומעבירה אותו למטמון. המערכת תוריד אותו שוב כשכתובת האתר או הגיבוב ישתנו.
 
-      אם המדיניות הזו מוגדרת, <ph name="PRODUCT_OS_NAME" /> יוריד את הקובץ כדי לקבל תצורות מדפסת ויהפוך מדפסות לזמינות בהתאם ל-<ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> ו-<ph name="DEVICE_PRINTERS_BLACKLIST" />.
+      אם המדיניות הזו מוגדרת, <ph name="PRODUCT_OS_NAME" /> יוריד את הקובץ כדי לקבל תצורות מדפסת, והזמינות של המדפסות תהיה על פי <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> ו-<ph name="DEVICE_PRINTERS_BLACKLIST" />.
 
       למדיניות הזו אין השפעה על היכולת של משתמשים להגדיר תצורת מדפסות במכשירים נפרדים. היא מיועדת לשמש כתוסף לתצורה של מדפסות שנקבעת על-ידי משתמשים נפרדים.
 
@@ -265,9 +265,9 @@
 <translation id="2043770014371753404">מדפסות ארגוניות מושבתות</translation>
 <translation id="2063380907529983889">קובעת אילו מדפסות מהמדיניות <ph name="BULK_PRINTERS_POLICY" /> זמינות למשתמשים.
 
-      מגדירה מהי מדיניות הגישה שבה ייעשה שימוש בקביעת התצורה של מדפסות בכמות גדולה. אם נבחרה האפשרות <ph name="PRINTERS_ALLOW_ALL" />, כל המדפסות יוצגו. אם נבחרה האפשרות <ph name="PRINTERS_BLACKLIST" />, ייעשה שימוש ב-<ph name="BULK_PRINTERS_BLACKLIST" /> כדי להגביל את הגישה אל המדפסות שצוינו. אם נבחרה האפשרות <ph name="PRINTERS_WHITELIST" />, רשימת ההיתרים <ph name="BULK_PRINTERS_WHITELIST" /> תאפשר גישה רק למדפסות שניתן לבחור.
+      מגדירה מהי מדיניות הגישה שבה ייעשה שימוש בקביעת התצורה של מדפסות בכמות גדולה. אם נבחרה האפשרות <ph name="PRINTERS_ALLOW_ALL" />, כל המדפסות יוצגו. אם נבחרה האפשרות <ph name="PRINTERS_BLACKLIST" />, הגישה אל המדפסות שצוינו תוגבל על פי <ph name="BULK_PRINTERS_BLACKLIST" />. אם נבחרה האפשרות <ph name="PRINTERS_WHITELIST" />, רשימת ההיתרים <ph name="BULK_PRINTERS_WHITELIST" /> תאפשר גישה רק למדפסות שניתן לבחור.
 
-      אם המדיניות הזו לא הוגדרה, ייעשה שימוש ב-<ph name="PRINTERS_BLACKLIST" />.
+      אם המדיניות הזו לא הוגדרה, תיבחר <ph name="PRINTERS_BLACKLIST" /> כברירת מחדל.
       </translation>
 <translation id="206623763829450685">‏מציינת אילו סכמות אימות HTTP נתמכות ב-<ph name="PRODUCT_NAME" />.
 
@@ -514,9 +514,9 @@
       כל רשומה ברשימה מציינת מזהה, המשמש באופן פנימי להבחנה בין החשבונות המקומיים השונים במכשיר.</translation>
 <translation id="2766302473082018239">מציינת את המדפסות הזמינות למשתמש.
 
-      במדיניות הזו נעשה שימוש רק אם האפשרות <ph name="PRINTERS_WHITELIST" /> נבחרה בשביל <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+      המדיניות הזו מופעלת רק אם האפשרות <ph name="PRINTERS_WHITELIST" /> נבחרה בשביל <ph name="BULK_PRINTERS_ACCESS_MODE" />.
 
-      אם נעשה שימוש במדיניות הזו, רק המדפסות שהמזהים שלהן תואמים לערכים שצוינו יהיו זמינות למשתמש. המזהים חייבים להיות תואמים לרשומות בקובץ שצוין ב-<ph name="BULK_PRINTERS_POLICY" />.
+      אם המדיניות הזו הופעלה, רק המדפסות שהמזהים שלהן תואמים לערכים שצוינו יהיו זמינות למשתמש. המזהים חייבים להיות תואמים לרשומות בקובץ שצוין ב-<ph name="BULK_PRINTERS_POLICY" />.
       </translation>
 <translation id="2769952903507981510">הגדר את שם הדומיין הנדרש עבור מארחים של גישה מרחוק</translation>
 <translation id="2787173078141616821">‏דיווח מידע על סטטוס של Android</translation>
@@ -674,9 +674,9 @@
 <translation id="3381968327636295719">השתמש בדפדפן המארח כברירת מחדל</translation>
 <translation id="3395348522300156660">מציינת את המדפסות הזמינות למשתמש.
 
-      במדיניות הזו נעשה שימוש רק אם האפשרות <ph name="PRINTERS_WHITELIST" /> נבחרה בשביל <ph name="DEVICE_PRINTERS_ACCESS_MODE" />
+      המדיניות הזו מופעלת רק אם האפשרות <ph name="PRINTERS_WHITELIST" /> נבחרה בשביל <ph name="DEVICE_PRINTERS_ACCESS_MODE" />
 
-      אם נעשה שימוש במדיניות הזו, רק המדפסות שהמזהים שלהן תואמים לערכים שצוינו יהיו זמינות למשתמש. המזהים חייבים להיות תואמים לרשומות בקובץ שצוין ב-<ph name="DEVICE_PRINTERS_POLICY" />.
+      אם המדיניות הזו הופעלה, רק המדפסות שהמזהים שלהן תואמים לערכים שצוינו יהיו זמינות למשתמש. המזהים חייבים להיות תואמים לרשומות בקובץ שצוין ב-<ph name="DEVICE_PRINTERS_POLICY" />.
       </translation>
 <translation id="3417418267404583991">אם מדיניות זו מוגדרת כ'אמת' או אינה מוגדרת, <ph name="PRODUCT_OS_NAME" /> יאפשר כניסות אורח. כניסות אורח הן הפעלות משתמש אנונימיות ואינן דורשות סיסמה.
       
@@ -1456,7 +1456,7 @@
           אם אתה בוחר להשתמש בסקריפט ‎.pac‎ של שרת proxy, כתובת האתר של הסקריפט תימסר לאפליקציות Android.</translation>
 <translation id="6491139795995924304">‏התר Bluetooth במכשיר</translation>
 <translation id="6520802717075138474">ייבא ​​מנועי חיפוש מדפדפן ברירת המחדל בהפעלה הראשונה</translation>
-<translation id="6525955212636890608">‏ההגדרה הזו תגרום להפעלה של כל תוכן Flash המוטמע באתרים שבהם הגדרות התוכן מתירות Flash, כולל תוכן ממקורות אחרים או תוכן קטן. השינוי הזה יתרחש בין אם ההגדרות להתרת Flash נקבעו על-ידי המשתמש או על-ידי מדיניות הארגון.
+<translation id="6525955212636890608">‏ההגדרה הזו תגרום להפעלה של כל תוכן Flash המוטמע באתרים שבהם הגדרות התוכן מתירות Flash, כולל תוכן ממקורות אחרים או תוכן קטן. השינוי הזה יתרחש בין אם ההגדרות להתרת Flash נקבעו על-ידי המשתמש ובין אם מקורן במדיניות הארגון.
 
       כדי לקבוע אילו אתרים יורשו להפעיל Flash, יש לעיין במדיניות "DefaultPluginsSetting"‏, "PluginsAllowedForUrls" ו-"PluginsBlockedForUrls" policies.
 
@@ -2000,9 +2000,9 @@
 <translation id="8519264904050090490">כתובות אתרים של חריגים ידניים של משתמשים מנוהלים</translation>
 <translation id="8527932539502116028">מציינת את המדפסות שאינן זמינות למשתמש.
 
-      במדיניות הזו נעשה שימוש רק אם האפשרות <ph name="PRINTERS_BLACKLIST" /> נבחרה בשביל <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+      המדיניות הזו מופעלת רק אם האפשרות <ph name="PRINTERS_BLACKLIST" /> נבחרה בשביל <ph name="BULK_PRINTERS_ACCESS_MODE" />.
 
-      אם המדיניות הזו בשימוש, כל המדפסות זמינות למשתמש, מלבד אלה עם המזהים שרשומים במדיניות.
+      אם המדיניות הזו הופעלה, כל המדפסות זמינות למשתמש, מלבד אלה עם המזהים שרשומים במדיניות.
       </translation>
 <translation id="8544375438507658205">‏מעבד HTML המוגדר כברירת מחדל עבור <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">הצג אזהרה בעת ביקור באתרים שמחוץ לחבילות תוכן</translation>
@@ -2079,7 +2079,7 @@
 
       המערכת מורידה את הקובץ ומעבירה אותו למטמון. המערכת תוריד אותו שוב כשכתובת האתר או הגיבוב ישתנו.
 
-      אם המדיניות הזו תוגדר, <ph name="PRODUCT_OS_NAME" /> יוריד את הקובץ כדי לקבל תצורות מדפסת ויהפוך מדפסות לזמינות בהתאם ל-<ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> ו-<ph name="BULK_PRINTERS_BLACKLIST" />.
+      אם המדיניות הזו תוגדר, <ph name="PRODUCT_OS_NAME" /> יוריד את הקובץ כדי לקבל תצורות מדפסת, והמדפסות יהיו זמינות על פי <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> ו-<ph name="BULK_PRINTERS_BLACKLIST" />.
 
       אם המדיניות הזו הוגדרה, המשתמשים לא יכולים לשנות או לעקוף אותה.
 

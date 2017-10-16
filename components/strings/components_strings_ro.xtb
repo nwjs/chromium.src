@@ -393,6 +393,7 @@
 <translation id="3778403066972421603">Dorești să salvezi acest card în Contul Google și pe acest dispozitiv?</translation>
 <translation id="3783418713923659662">MasterCard</translation>
 <translation id="3787705759683870569">Expiră în <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
+<translation id="3808375843007691220">Avertisment: acestea sunt funcții experimentale!</translation>
 <translation id="382518646247711829">Dacă utilizați un server proxy...</translation>
 <translation id="3828924085048779000">Trebuie să fie introdusă expresia de acces.</translation>
 <translation id="385051799172605136">Înapoi</translation>
@@ -448,6 +449,7 @@
 <translation id="4269787794583293679">(Niciun nume de utilizator)</translation>
 <translation id="4275830172053184480">Reporniți gadgetul</translation>
 <translation id="4280429058323657511">data expirării: <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4292213515608230699">Nu s-a găsit niciun experiment</translation>
 <translation id="4304224509867189079">Conectează-te</translation>
 <translation id="4312866146174492540">Blochează (în mod prestabilit)</translation>
 <translation id="4325863107915753736">Articolul nu a fost găsit</translation>
@@ -518,6 +520,7 @@
 <translation id="495170559598752135">Acțiuni</translation>
 <translation id="4958444002117714549">Extindeți lista</translation>
 <translation id="4974590756084640048">Reactivează avertismentele</translation>
+<translation id="4989542687859782284">Indisponibile</translation>
 <translation id="4989809363548539747">Acest plugin nu este acceptat</translation>
 <translation id="5002932099480077015">Dacă este activată, Chrome va stoca o copie a cardului pe acest dispozitiv, pentru completarea mai rapidă a formularelor.</translation>
 <translation id="5018422839182700155">Pagina nu poate fi deschisă</translation>
@@ -571,6 +574,7 @@
 <translation id="5355557959165512791">Nu poți accesa <ph name="SITE" /> acum, deoarece certificatul său a fost revocat. Erorile de rețea și atacurile sunt de obicei temporare și probabil că această pagină va funcționa mai târziu.</translation>
 <translation id="536296301121032821">Setările pentru politică nu au putut fi stocate</translation>
 <translation id="5386426401304769735">Lanțul de certificate pentru acest site conține un certificat semnat folosind SHA-1.</translation>
+<translation id="5401815295726769233">Caută marcaje</translation>
 <translation id="5402410679244714488">Expirat în <ph name="EXPIRATION_DATE_ABBR" />, folosit ultima dată acum peste un an</translation>
 <translation id="540969355065856584">Acest server nu a putut dovedi că este <ph name="DOMAIN" />; momentan, certificatul de securitate nu este valid. Cauza poate fi o configurare greșită sau interceptarea conexiunii de un atacator.</translation>
 <translation id="5421136146218899937">Șterge datele de navigare...</translation>
@@ -623,6 +627,7 @@
 <translation id="5732392974455271431">Părinții tăi îl pot debloca pentru tine</translation>
 <translation id="5763042198335101085">Introdu o adresă de e-mail validă</translation>
 <translation id="5765072501007116331">Pentru a vedea metodele de livrare și cerințele, selectează o adresă</translation>
+<translation id="5770114862687765385">Fișierul pare deteriorat. Pentru a reseta sesiunea, dă clic pe butonul „Resetează”.</translation>
 <translation id="5778550464785688721">Control complet asupra dispozitivelor MIDI</translation>
 <translation id="5784606427469807560">A apărut o eroare la confirmarea cardului. Verifică conexiunea la internet și încearcă din nou.</translation>
 <translation id="5785756445106461925">În plus, această pagină include alte resurse care nu sunt securizate. Aceste resurse sunt vizibile pentru alți utilizatori în cursul transferului și pot fi modificate de un atacator pentru a schimba aspectul paginii.</translation>
@@ -636,6 +641,7 @@
 <translation id="5869522115854928033">Parole salvate</translation>
 <translation id="5893752035575986141">Se acceptă carduri de credit.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (sincronizat)</translation>
+<translation id="5909194079078764042">Dacă activezi aceste funcții, ai putea pierde date din browser sau ți-ai putea compromite siguranța ori confidențialitatea. Funcțiile activate se aplică tuturor utilizatorilor acestui browser.</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 în uz}few{# în uz}other{# în uz}}</translation>
 <translation id="5939518447894949180">Resetează</translation>
 <translation id="5959728338436674663">Trimite automat anumite <ph name="BEGIN_WHITEPAPER_LINK" />informații despre sistem și conținutul paginii<ph name="END_WHITEPAPER_LINK" /> la Google pentru a detecta aplicațiile și site-urile periculoase. <ph name="PRIVACY_PAGE_LINK" /></translation>
@@ -683,6 +689,7 @@
 <translation id="6305205051461490394">Adresa URL <ph name="URL" /> nu poate fi accesată.</translation>
 <translation id="6319915415804115995">Folosit ultima dată acum peste un an</translation>
 <translation id="6321917430147971392">Verificați setările DNS</translation>
+<translation id="6325286409953503969">Dorești să folosești funcții noi și interesante în Chrome? Poți să încerci <ph name="BEGIN_LINK" />canalul de dezvoltare<ph name="END_LINK" />.</translation>
 <translation id="6328639280570009161">Încercați să dezactivați anticiparea rețelei</translation>
 <translation id="6328786501058569169">Acest site este înșelător</translation>
 <translation id="6337133576188860026">Eliberează mai puțin de <ph name="SIZE" />. Este posibil ca unele site-uri să se încarce mai lent la următoarea accesare.</translation>
@@ -785,6 +792,7 @@
 <translation id="7298195798382681320">Recomandate</translation>
 <translation id="7309308571273880165">Raportul de blocare creat <ph name="CRASH_TIME" /> (utilizatorul a solicitat încărcarea, dar nu a fost încărcat încă)</translation>
 <translation id="7334320624316649418">&amp;Repetați reordonarea</translation>
+<translation id="7337706099755338005">Nu este disponibil pe platforma ta.</translation>
 <translation id="733923710415886693">Certificatul serverului nu a fost dezvăluit folosind Transparența certificatului.</translation>
 <translation id="7353601530677266744">Linie de comandă</translation>
 <translation id="7372973238305370288">rezultat al căutării</translation>
@@ -792,6 +800,7 @@
 <translation id="7378627244592794276">Nu</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">Confirmă cardul</translation>
+<translation id="739697976928952788">Vezi toate parolele salvate</translation>
 <translation id="7400418766976504921">Adresă URL</translation>
 <translation id="7419106976560586862">Calea profilului</translation>
 <translation id="7424977062513257142">O pagină încorporată de pe această pagină web afișează mesajul:</translation>
@@ -838,6 +847,7 @@
 <translation id="7668654391829183341">Dispozitiv necunoscut</translation>
 <translation id="7669271284792375604">Atacatorii de pe acest site pot încerca să te înșele pentru a instala programe care dăunează experienței de navigare (de exemplu, schimbând pagina de pornire sau afișând anunțuri suplimentare pe site-urile pe care le accesezi).</translation>
 <translation id="7682287625158474539">Expediere</translation>
+<translation id="7695552107151968219">Dorești să folosești funcții noi și interesante în Chrome? Poți să încerci <ph name="BEGIN_LINK" />canalul beta<ph name="END_LINK" />.</translation>
 <translation id="7699293099605015246">Articolele nu sunt disponibile în acest moment</translation>
 <translation id="7701040980221191251">Niciuna</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Accesați <ph name="SITE" /> (nesigur)<ph name="END_LINK" /></translation>

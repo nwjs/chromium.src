@@ -195,6 +195,7 @@
 <translation id="1296497012903089238">પ્રમાણપત્રનો પ્રકાર</translation>
 <translation id="1297175357211070620">લક્ષ્યસ્થાન</translation>
 <translation id="1297922636971898492">Google ડ્રાઇવ હાલમાં ઉપલબ્ધ નથી. Google ડ્રાઇવ પાછું આવી જાય તે પછી અપલોડિંગ આપમેળે ફરીથી પ્રારંભ થશે.</translation>
+<translation id="1300806585489372370">આ સેટિંગ બદલવા માટે, પહેલાં <ph name="BEGIN_LINK" />ઓળખકર્તાઓ ચાલુ કરો<ph name="END_LINK" /></translation>
 <translation id="1303101771013849280">બુકમાર્ક્સ HTML ફાઇલ</translation>
 <translation id="1303671224831497365">કોઈ Bluetooth ઉપકરણો મળ્યાં નથી</translation>
 <translation id="1306606229401759371">સેટિંગ્સ બદલો</translation>
@@ -317,6 +318,7 @@
 <translation id="1487335504823219454">ચાલુ - કસ્ટમ સેટિંગ્સ</translation>
 <translation id="1493892686965953381"><ph name="LOAD_STATE_PARAMETER" /> માટે પ્રતીક્ષારત...</translation>
 <translation id="1495486559005647033"><ph name="NUM_PRINTERS" /> અન્ય ઉપલબ્ધ ઉપકરણો.</translation>
+<translation id="1497284176235884849">પૂરા પાડવામાં આવેલ PPD અમાન્ય છે.</translation>
 <translation id="1497522201463361063">"<ph name="FILE_NAME" />" નું નામ બદલવામાં અક્ષમ. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1500297251995790841">અજાણ્યું ઉપકરણ [<ph name="VENDOR_ID" />:<ph name="PRODUCT_ID" />]</translation>
 <translation id="1503394326855300303">આ માલિક એકાઉન્ટે બહુવિધ સાઇન-ઇન સત્રમાં પ્રથમ સાઇન-ઇન કરનાર એકાઉન્ટ થવું જોઈએ.</translation>
@@ -525,6 +527,7 @@
 <translation id="180035236176489073">આ ફાઇલો ઍક્સેસ કરવા માટે તમારું ઑનલાઇન હોવું આવશ્યક છે.</translation>
 <translation id="1801298019027379214">ખોટો PIN, કૃપા કરીને ફરીથી પ્રયત્ન કરો. બાકી પ્રયત્નો: <ph name="TRIES_COUNT" /></translation>
 <translation id="1801827354178857021">સમયગાળો</translation>
+<translation id="1802931390041703523">આ પેજ પર ફ્લૅશને અવરોધવામાં આવ્યો હતો</translation>
 <translation id="1803545009660609783">ફરી તાલીમ આપો</translation>
 <translation id="1807938677607439181">બધી ફાઇલો</translation>
 <translation id="1809734401532861917">મારા બુકમાર્ક, ઇતિહાસ, પાસવર્ડ અને અન્ય સેટિંગ્સને <ph name="USER_EMAIL_ADDRESS" /> માં ઉમેરો</translation>
@@ -865,6 +868,7 @@
 <translation id="2350796302381711542"><ph name="REPLACED_HANDLER_TITLE" /> ના બદલે <ph name="HANDLER_HOSTNAME" /> ને બધી <ph name="PROTOCOL" /> લિંક્સ ખોલવાની મંજૂરી આપીએ?</translation>
 <translation id="2351266942280602854">ભાષા અને ઇનપુટ</translation>
 <translation id="2352662711729498748">&lt; 1 MB</translation>
+<translation id="2353297238722298836">કૅમેરા અને માઇક્રોફોનની મંજૂરી</translation>
 <translation id="2356070529366658676">કહો</translation>
 <translation id="2357949918965361754">તમે Chrome માંથી તમારા TV પર અથવા અન્ય ઉપકરણો પર સામગ્રી પ્રદર્શિત કરવા માટે આ સુવિધાનો ઉપયોગ કરી શકો છો.</translation>
 <translation id="2359345697448000899">ટૂલ્સ મેનૂમાં એક્સટેંશનને ક્લિક કરીને તમારા એક્સ્ટેંશન્સને મેનેજ કરો.</translation>
@@ -1130,6 +1134,7 @@
 <translation id="2755367719610958252">ઍક્સેસિબિલિટી સુવિધાઓ સંચાલિત કરો</translation>
 <translation id="275662540872599901">સ્ક્રીન બંધ છે</translation>
 <translation id="2756798847867733934">SIM કાર્ડ અક્ષમ છે</translation>
+<translation id="2762441749940182211">કૅમેરા અવરોધિત</translation>
 <translation id="2765217105034171413">નાનું</translation>
 <translation id="2766006623206032690">પે&amp;સ્ટ કરો અને જાઓ</translation>
 <translation id="276969039800130567"><ph name="USER_EMAIL_ADDRESS" /> તરીકે સાઇન ઇન કરો.</translation>
@@ -1520,6 +1525,7 @@
 <translation id="3313622045786997898">પ્રમાણપત્ર હસ્તાક્ષર મૂલ્ય</translation>
 <translation id="3315158641124845231"><ph name="PRODUCT_NAME" /> છુપાવો</translation>
 <translation id="3317459757438853210">બંને બાજુ</translation>
+<translation id="3317678681329786349">કૅમેરા અને માઇક્રોફોન અવરોધિત</translation>
 <translation id="3319048459796106952">નવી &amp;છુપી વિંડો</translation>
 <translation id="3320021301628644560">બિલિંગ સરનામું ઉમેરો</translation>
 <translation id="3320859581025497771">તમારો વાહક</translation>
@@ -1984,6 +1990,7 @@
 <translation id="4022426551683927403">શબ્દકોષમાં &amp;ઉમેરો</translation>
 <translation id="4023146161712577481">ઉપકરણ ગોઠવણી નક્કી કરી રહ્યાં છે.</translation>
 <translation id="4027804175521224372">(તમે ભૂલી રહ્યા છો - <ph name="IDS_SYNC_PROMO_NOT_SIGNED_IN_STATUS_LINK" />)</translation>
+<translation id="4031179711345676612">માઇક્રોફોનને મંજૂરી</translation>
 <translation id="4031910098617850788">F5</translation>
 <translation id="4033471457476425443">નવું ફોલ્ડર ઉમેરો</translation>
 <translation id="4034042927394659004">કીના તેજને ઘટાડો</translation>
@@ -2045,6 +2052,7 @@
 <translation id="4120817667028078560">પાથ ખૂબ લાંબો છે</translation>
 <translation id="4121428309786185360">ના રોજ સમાપ્ત થાય છે</translation>
 <translation id="412730574613779332">સ્પાંડેક્સ</translation>
+<translation id="412940972494182898">આ વખતે ફ્લૅશ ચલાવો</translation>
 <translation id="4130199216115862831">ઉપકરણ લૉગ</translation>
 <translation id="4130207949184424187">જ્યારે તમે ઑમ્નિબૉક્સથી શોધ કરો છો ત્યારે જે પૃષ્ઠ દર્શાવવામાં આવે છે તે આ એક્સટેન્શને બદલ્યું છે.</translation>
 <translation id="413121957363593859">ઘટકો</translation>
@@ -2102,6 +2110,7 @@
 <translation id="4249373718504745892">આ પૃષ્ઠને તમારા કૅમેરા અને માઇક્રોફોનને ઍક્સેસ કરવાથી અવરોધિત કરવામાં આવ્યું છે.</translation>
 <translation id="4250229828105606438">સ્ક્રીનશૉટ</translation>
 <translation id="4250680216510889253">નહીં</translation>
+<translation id="4252852543720145436">સંરક્ષિત કન્ટેન્ટ ઓળખકર્તા</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" /> - ટૅબની સામગ્રી શેર કરી</translation>
 <translation id="4253515443406306926">લૉન્ચર, પૂર્ણસ્ક્રીન શોધ પરિણામો</translation>
 <translation id="4254813446494774748">અનુવાદ ભાષા:</translation>
@@ -2116,6 +2125,7 @@
 <translation id="4270393598798225102">સંસ્કરણ <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">કોઇ મેળ મળ્યાં નથી</translation>
 <translation id="4275830172053184480">તમારું ઉપકરણ પુનઃપ્રારંભ કરો</translation>
+<translation id="4276216215490044084">વિશાળ PPD લોડ કરી શકતાં નથી. વધુમાં વધુ કદ 250 kB છે.</translation>
 <translation id="4278390842282768270">મંજૂર</translation>
 <translation id="4279490309300973883">પ્રતિબિંબત થઈ રહ્યું છે</translation>
 <translation id="4281844954008187215">સેવાની શરતો</translation>
@@ -2204,6 +2214,7 @@
 <translation id="4433914671537236274">પુનર્પ્રાપ્તિ મીડિયા બનાવો</translation>
 <translation id="443464694732789311">ચાલુ રાખો</translation>
 <translation id="4439318412377770121">શું તમે Google મેઘ ઉપકરણો પર <ph name="DEVICE_NAME" /> ને નોંધાવવા માગો છો?</translation>
+<translation id="4439612350502082674">પ્રિન્ટર ઉમેરી શકતાં નથી. ફરી શરૂ કરો અને ફરી પ્રયાસ કરો.</translation>
 <translation id="4441124369922430666">શું જ્યારે મશીન ચાલુ થાય ત્યારે તમે આ એપ્લિકેશનને આપમેળે પ્રારંભ કરવા માંગો છો?</translation>
 <translation id="444134486829715816">વિસ્તૃત કરો...</translation>
 <translation id="4441548209689510310">જોડણી તપાસણી વિકલ્પો બતાવો</translation>
@@ -2330,6 +2341,7 @@
 <translation id="4656293982926141856">આ કમ્પ્યુટર</translation>
 <translation id="4658312088164718891">Smart Lock ચાલુ કરવા માટે તમારો પાસવર્ડ દાખલ કરો. આગલી વખતે, તમારો ફોન તમારા <ph name="DEVICE_TYPE" />ને અનલૉક કરશે. સેટિંગ્સમાં Smart Lock બંધ કરો.</translation>
 <translation id="4662788913887017617">તમારા iPhone સાથે આ બુકમાર્ક શેર કરો</translation>
+<translation id="4663373278480897665">કૅમેરાને મંજૂરી</translation>
 <translation id="4664482161435122549">PKCS #12 નિકાસ ભૂલ</translation>
 <translation id="466481852929361583">સુરક્ષિત મોડ્યુલ અપડેટ કરવામાં આવી રહ્યું છે. કૃપા કરીને ધીરજ રાખો; તેમાં થોડીક મિનિટ લાગી શકે છે.</translation>
 <translation id="4665014895760275686">નિર્માતા</translation>
@@ -2576,6 +2588,7 @@
 <translation id="5039512255859636053">$1 TB</translation>
 <translation id="5039804452771397117">મંજૂરી આપો</translation>
 <translation id="5045550434625856497">ખોટો પાસવર્ડ</translation>
+<translation id="5050042263972837708">જૂથનું નામ</translation>
 <translation id="5052499409147950210">સાઇટ સંપાદિત કરો</translation>
 <translation id="5053604404986157245">રેન્ડમલી બનાવેલ TPM પાસવર્ડ ઉપલબ્ધ નથી. Powerwash પછી આ સામાન્ય હોય છે.</translation>
 <translation id="5061347216700970798">{NUM_BOOKMARKS,plural, =1{આ ફોલ્ડર બુકમાર્ક સમાવે છે. શું તમે ખરેખર તે કાઢી નાખવા માંગો છો?}one{આ ફોલ્ડર # બુકમાર્ક સમાવે છે. શું તમે ખરેખર તે કાઢી નાખવા માંગો છો?}other{આ ફોલ્ડર # બુકમાર્ક સમાવે છે. શું તમે ખરેખર તે કાઢી નાખવા માંગો છો?}}</translation>
@@ -3170,6 +3183,7 @@
 <translation id="5972708806901999743">ટોચ પર જાઓ</translation>
 <translation id="5972826969634861500"><ph name="PRODUCT_NAME" />  શરૂ કરો</translation>
 <translation id="5975083100439434680">ઝૂમ ઘટાડો</translation>
+<translation id="5975730206036440725">PPD શોધી શકતાં નથી. તમારી Chromebook ઑનલાઇન છે કે નહીં તે તપાસો અને ફરી પ્રયાસ કરો.</translation>
 <translation id="5975792506968920132">બેટરી ચાર્જની ટકાવારી</translation>
 <translation id="5976160379964388480">અન્ય લોકો</translation>
 <translation id="5978264784700053212">સંદેશ કેન્દ્ર</translation>
@@ -3415,6 +3429,7 @@
 <translation id="6374077068638737855">Iceweasel</translation>
 <translation id="6374108032506706911">Android માટે Smart Lock સેટ કરો</translation>
 <translation id="6374469231428023295">ફરી પ્રયાસ કરો</translation>
+<translation id="6377158645544167202">પ્રિન્ટર કનેક્ટ કરી શકતાં નથી. તપાસો કે પ્રિન્ટર ચાલુ છે અને વાઇ-ફાઇ અથવા USB દ્વારા તમારા Chromebook સાથે કનેક્ટ કરેલું છે.</translation>
 <translation id="6380143666419481200">સ્વીકારો અને ચાલુ રાખો</translation>
 <translation id="6383051423892982287">તમારા પોતાના <ph name="BEGIN_LINK" />સમન્વયન પાસફ્રેઝ<ph name="END_LINK" /> સાથે સમન્વયિત ડેટા એન્ક્રિપ્ટ કરો</translation>
 <translation id="6384275966486438344">આ પર તમારી શોધ સેટિંગ્સ બદલો: <ph name="SEARCH_HOST" /></translation>
@@ -3780,6 +3795,7 @@
 <translation id="6948064128393024347">લૉન્ચર, શોધ પરિણામો</translation>
 <translation id="6949306908218145636">ખુલ્લા પૃષ્ઠોને બુકમાર્ક કરો...</translation>
 <translation id="6955446738988643816">પૉપઅપની તપાસ કરો</translation>
+<translation id="6957231940976260713">સેવાનું નામ</translation>
 <translation id="695755122858488207">પસંદ ન કરેલું  રેડિઓ બટન</translation>
 <translation id="696203921837389374">મોબાઇલ ડેટા પર સમન્વયન કરવાનું સક્ષમ કરો</translation>
 <translation id="6964390816189577014">હીરો</translation>
@@ -4003,6 +4019,7 @@
 <translation id="729761647156315797">તમારી ભાષા અને કીબોર્ડ પસંદ કરો</translation>
 <translation id="7299337219131431707">અતિથિ બ્રાઉઝિંગ સક્ષમ કરો</translation>
 <translation id="730515362922783851">સ્થાનિક નેટવર્ક અથવા ઈન્ટરનેટ પર કોઈપણ ઉપકરણ સાથે ડેટા વિનિમય કરો</translation>
+<translation id="7308002049209013926">નવી ઍપ અને પ્રવૃત્તિઓ પર ઝડપથી પહોંચવા માટે લૉન્ચરનો ઉપયોગ કરો. અહીં કીબોર્ડ વડે પહોંચવા માટે, Alt + Shift + L દબાવો.</translation>
 <translation id="7309257895202129721">&amp;નિયંત્રણો બતાવો</translation>
 <translation id="7311079019872751559">અનસેન્ડબૉક્સ કરેલ પ્લગિનની ઍક્સેસ</translation>
 <translation id="7311891583377621132">ફિંગરપ્રિન્ટનો ભિન્ન ભાગ કૅપ્ચર કરવા માટે સહેજ ખસેડો</translation>
@@ -4509,6 +4526,7 @@
 <translation id="8116190140324504026">વધુ માહિતી...</translation>
 <translation id="8116925261070264013">મ્યૂટ કરેલ</translation>
 <translation id="8116972784401310538">&amp;બુકમાર્ક વ્યવસ્થાપક</translation>
+<translation id="8117620576188476503">સ્ટેટસ ટ્રે વડે કનેક્શનો, અપડેટ અને સેટિઁગ મેનેજ કરો. અહીં કીબોર્ડ વડે પહોંચવા માટે, Alt + Shift + S દબાવો.</translation>
 <translation id="8118362518458010043">Chrome દ્વારા બંધ કરેલ છે. આ એક્સ્ટેંશન અસુરક્ષિત હોઈ શકે છે.</translation>
 <translation id="8118860139461251237">તમારા ડાઉનલોડ્સનું સંચાલન કરો</translation>
 <translation id="81238879832906896">પીળા અને સફેદ ફૂલ</translation>
@@ -4655,6 +4673,7 @@
 <translation id="8357224663288891423">એક્સ્ટેન્શન્સ અને ઍપ્લિકેશનો માટે કીબોર્ડ શૉર્ટકટ્સ</translation>
 <translation id="8358685469073206162">પૃષ્ઠોને પુનર્સ્થાપિત કરીએ?</translation>
 <translation id="8363095875018065315">સ્થિર</translation>
+<translation id="8363142353806532503">માઇક્રોફોન અવરોધિત</translation>
 <translation id="8366396658833131068">તમારી નેટવર્ક કનેક્ટિવિટી પુનઃસ્થાપિત થઈ છે. કૃપા કરીને બીજું નેટવર્ક પસંદ કરો અથવા તમારી કિઓસ્ક એપ્લિકેશનને લોંચ કરવા માટે નીચે 'ચાલુ રાખો' બટનને દબાવો.</translation>
 <translation id="8366947248864804596">તમારો ફોન અનલૉક કરેલો અને નજીકમાં હોય, ત્યારે માત્ર અનલૉક કરવાનું પસંદ કરો. અન્યથા, તમારો પાસવર્ડ અથવા પિન દાખલ કરો.</translation>
 <translation id="8368859634510605990">બધાં બુકમાર્ક્સ &amp;ખોલો</translation>
@@ -4836,6 +4855,7 @@
 <translation id="8671210955687109937">ટિપ્પણી કરી શકે છે</translation>
 <translation id="8673026256276578048">વેબ પર શોધો...</translation>
 <translation id="8673383193459449849">સર્વર સમસ્યા</translation>
+<translation id="8675354002693747642">પહેલેથી-શેર કરેલી કી</translation>
 <translation id="8676374126336081632">ઇનપુટ સાફ કરો</translation>
 <translation id="8677039480012021122">ડેટા સાફ કરો અને ડિસ્કનેક્ટ કરો</translation>
 <translation id="8677212948402625567">બધાને સંકુચિત કરો...</translation>
@@ -5027,6 +5047,7 @@
 <translation id="8973557916016709913">ઝૂમ સ્તર દૂર કરો</translation>
 <translation id="8973596347849323817">તમે તમારી જરૂરિયાતો મુજબ આ ઉપકરણને કસ્ટમાઇઝ કરી શકો છો. સેટિંગ્સમાં આ ઍક્સેસિબિલિટી સુવિધાઓ પછીથી બદલી શકાય છે.</translation>
 <translation id="897414447285476047">કનેક્શનની સમસ્યાને લીધે ગંતવ્યની ફાઇલ અધૂરી રહી ગઈ હતી.</translation>
+<translation id="8976520271376534479">આ પેજ પર ફ્લૅશ અવરોધિત હતું.</translation>
 <translation id="8977811652087512276">ખોટો પાસવર્ડ અથવા દૂષિત ફાઇલ</translation>
 <translation id="8978154919215542464">ચાલુ - દરેક વસ્તુ સમન્વયિત કરો</translation>
 <translation id="8978526688207379569">આ સાઇટે બહુવિધ ફાઇલો આપમેળે ડાઉનલોડ કરી છે.</translation>

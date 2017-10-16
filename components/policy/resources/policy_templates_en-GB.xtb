@@ -114,6 +114,11 @@
 
       If the policy is left not set, the default value 'Multi-ProfileUserBehaviourMustBePrimary' applies for enterprise-managed users and 'Multi-ProfileUserBehaviourUnrestricted' will be used for non-managed users.</translation>
 <translation id="1465619815762735808">Click to play</translation>
+<translation id="1466133662354365542">Enables <ph name="PRODUCT_NAME" />'s AutoFill feature and allows users to auto complete credit card and address information in web forms using previously stored information.
+
+      If you disable this setting, Autofill will never suggest, or fill credit card information, nor will it save additional credit card information that the user might submit while browsing the web.
+
+      If you enable this setting or do not set a value, then user will be able to control the overall AutoFill feature (including credit cards) in the UI.</translation>
 <translation id="1468307069016535757">Set the default state of the high contrast mode accessibility feature on the login screen.
 
           If this policy is set to true, high contrast mode will be enabled when the login screen is shown.
@@ -371,6 +376,7 @@
 <translation id="2294382669900758280">Video playing in Android apps is not taken into consideration, even if this policy is set to <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Configure the default New Tab page in <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Specify a list of enabled plug-ins</translation>
+<translation id="2303795211377219696">Enable AutoFill for credit cards</translation>
 <translation id="2309390639296060546">Default geolocation setting</translation>
 <translation id="2312134445771258233">Allows you to configure the pages that are loaded on start-up.
 
@@ -1159,6 +1165,7 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
           The value must be an array of stringified JSON dictionaries. Each dictionary must have the form { "pattern": "$URL_PATTERN", "filter" : $FILTER }, where $URL_PATTERN is a content setting pattern. $FILTER restricts from which client certificates the browser will automatically select. Independent of the filter, only certificates will be selected that match the server's certificate request. If $FILTER has the form { "ISSUER": { "CN": "$ISSUER_CN" } }, additionally only client certificates are selected that are issued by a certificate with the CommonName $ISSUER_CN. If $FILTER is the empty dictionary {}, the selection of client certificates is not additionally restricted.
 
           If this policy is left not set, no auto-selection will be done for any site.</translation>
+<translation id="4978405676361550165">If 'OffHours' policy is set, then the specified device policies are ignored (use the default settings of these policies) during the defined time intervals. Device policies are re-applied by Chrome on every event when 'OffHours' period starts or ends. User will be notified and forced to sign out when 'OffHours' time end and device policy settings are changed (e.g. when user is logged in with an unallowed account).</translation>
 <translation id="4980635395568992380">Data Types</translation>
 <translation id="4983201894483989687">Allow running plug-ins that are outdated</translation>
 <translation id="4988291787868618635">Action to take when the idle delay is reached</translation>
@@ -1451,6 +1458,53 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 
       If this policy is not set or is set to false, print commands trigger the print preview screen.</translation>
 <translation id="6022948604095165524">Action on start-up</translation>
+<translation id="6023030044732320798">Specifies a set of policies that will be handed over to the ARC runtime. The value must be valid JSON.
+
+      This policy can be used to configure which Android apps are automatically installed on the device:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android app identifier, e.g. "com.google.android.gm" for Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": 'Specifies how an app is installed. OPTIONAL: The app is not installed automatically, but the user can install it. This is the default if this policy is not specified. PRELOAD: The app is installed automatically, but the user can uninstall it. FORCE_INSTALLED: The app is installed automatically and the user cannot uninstall it. BLOCKED: The app is blocked and cannot be installed. If the app was installed under a previous policy it will be uninstalled.',
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": 'Policy for granting permission requests to apps. PERMISSION_POLICY_UNSPECIFIED: Policy not specified. If no policy is specified for a permission at any level, then the `PROMPT` behaviour is used by default. PROMPT: Prompt the user to grant a permission. GRANT: Automatically grant a permission. DENY: Automatically deny a permission.',
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": 'App-specific JSON configuration object with a set of key-value pairs, e.g. '"managedConfiguration": { "key1": value1, "key2": value2 }'. The keys are defined in the app manifest.',
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      To pin apps to the launcher, see PinnedLauncherApps.</translation>
 <translation id="602728333950205286">Default search provider instant URL</translation>
 <translation id="603410445099326293">Parameters for suggest URL which uses POST</translation>
 <translation id="6036523166753287175">Enable firewall traversal from remote access host</translation>

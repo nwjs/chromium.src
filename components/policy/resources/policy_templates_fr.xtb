@@ -49,7 +49,7 @@
 
       Si la règle est définie sur "False", l'état de l'interrupteur du mode développeur n'est pas communiqué.</translation>
 <translation id="1160939557934457296">Désactiver l'accès au site lors de l'affichage de la page d'avertissement par le service de navigation sécurisée</translation>
-<translation id="1166377463685560145">Indique les imprimantes qu'un utilisateur ne peut pas employer.
+<translation id="1166377463685560145">Indique les imprimantes auxquelles un utilisateur n'a pas accès.
 
       Cette règle est utilisée uniquement si <ph name="PRINTERS_BLACKLIST" /> est sélectionné pour <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
 
@@ -114,6 +114,11 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
 
       Si la règle n'est pas définie, la valeur par défaut "MultiProfileUserBehaviorMustBePrimary'' s'applique aux utilisateurs gérés par l'entreprise et la valeur "MultiProfileUserBehaviorUnrestricted" est utilisée pour les utilisateurs non gérés.</translation>
 <translation id="1465619815762735808">Cliquer pour lire</translation>
+<translation id="1466133662354365542">Active la fonction de saisie automatique de <ph name="PRODUCT_NAME" /> et permet aux utilisateurs de remplir automatiquement des formulaires Web à l'aide de données stockées précédemment, telles qu'une adresse ou des informations de carte de crédit.
+
+      Si vous désactivez ce paramètre, la fonction de saisie automatique ne suggérera ni ne remplira jamais les informations de carte de crédit, et n'enregistrera pas d'autres informations de carte de crédit que l'internaute pourrait saisir lors de sa navigation sur le Web.
+
+      Si vous activez ce paramètre ou ne configurez pas de valeur, l'internaute sera en mesure de contrôler la fonction de saisie automatique globale (y compris les cartes de crédit) dans l'interface utilisateur.</translation>
 <translation id="1468307069016535757">Définit l'état par défaut de la fonctionnalité d'accessibilité du mode Contraste élevé sur l'écran de connexion.
 
           Si vous définissez cette règle sur "True", le mode Contraste élevé est activé à l'affichage de l'écran de connexion.
@@ -379,6 +384,7 @@ Si cette règle n'est pas configurée, le paramètre "BlockPopups" est utilisé 
 <translation id="2294382669900758280">La lecture vidéo dans les applications Android n'est pas prise en compte même si cette règle est définie sur "<ph name="TRUE" />".</translation>
 <translation id="2298647742290373702">Configurer la page "Nouvel onglet" par défaut dans <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Indiquer une liste de plug-ins activés</translation>
+<translation id="2303795211377219696">Activer la saisie automatique pour les cartes de crédit</translation>
 <translation id="2309390639296060546">Paramètre de géolocalisation par défaut</translation>
 <translation id="2312134445771258233">Vous permet de configurer les pages chargées au démarrage.
 
@@ -549,7 +555,7 @@ Cette règle n'est respectée que si la règle "DefaultSearchProviderEnabled" es
 <translation id="2762164719979766599">Indique la liste des comptes locaux de l'appareil devant être affichés sur l'écran de connexion.
 
       Chaque entrée de la liste indique un identifiant, qui est utilisé de façon interne pour différencier les comptes locaux de l'appareil.</translation>
-<translation id="2766302473082018239">Indique les imprimantes qu'un utilisateur peut employer.
+<translation id="2766302473082018239">Indique les imprimantes auxquelles un utilisateur a accès.
 
       Cette règle est utilisée uniquement si <ph name="PRINTERS_WHITELIST" /> est sélectionné pour <ph name="BULK_PRINTERS_ACCESS_MODE" />.
 
@@ -1168,6 +1174,7 @@ Si cette règle n'est pas configurée, la valeur par défaut globale est utilis�
           La valeur doit être un ensemble de dictionnaires convertis au format JSON à l'aide de la méthode JSON.stringify(). Chaque dictionnaire doit avoir le format { "pattern": "$URL_PATTERN", "filter": $FILTER }, où $URL_PATTERN correspond à un schéma de paramètre de contenu. La valeur $FILTER limite les certificats client à partir desquels le navigateur effectue une sélection automatique. Indépendamment du filtre, seuls les certificats correspondant à la demande de certificats du serveur sont sélectionnés. De plus, si $FILTER a le format { "ISSUER": { "CN": "$ISSUER_CN" } }, seuls les certificats client émis par un certificat dont la valeur CommonName est $ISSUER_CN sont sélectionnés. Si $FILTER correspond à la valeur {} vide du dictionnaire, la sélection de certificats client ne fait pas l'objet de restrictions supplémentaires.
 
           Si cette règle n'est pas définie, la sélection automatique n'est effectuée pour aucun site.</translation>
+<translation id="4978405676361550165">Si la règle de désactivation "OffHours" est définie, les règles relatives aux appareils spécifiées sont ignorées (utilisation des paramètres par défaut de ces règles) pendant la période définie. Les règles relatives aux appareils sont de nouveau appliquées par Chrome à chaque événement lorsque la période de désactivation OffHours commence ou se termine. L'utilisateur reçoit une notification et est obligé de se déconnecter à la fin de la période de désactivation OffHours et lorsque les paramètres des règles relatives aux appareils sont modifiés (par exemple, si l'utilisateur est connecté avec un compte non autorisé).</translation>
 <translation id="4980635395568992380">Type de données :</translation>
 <translation id="4983201894483989687">Autoriser l'exécution de plug-ins obsolètes</translation>
 <translation id="4988291787868618635">Action à effectuer au terme du délai d'inactivité</translation>
@@ -1462,6 +1469,53 @@ Si l'option "Forcé" est sélectionnée, les pages peuvent être ouvertes UNIQUE
 
       Si cette règle n'est pas configurée ou si elle est définie sur "False", les commandes d'impressions génèrent un aperçu avant impression.</translation>
 <translation id="6022948604095165524">Action au démarrage</translation>
+<translation id="6023030044732320798">Indique un ensemble de règles transmises à l'exécution ARC. Un fichier JSON valide doit être spécifié.
+
+      Cette règle peut être utilisée pour configurer les applications Android automatiquement installées sur l'appareil :
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Identifiant de l'application Android, p. ex. "com.google.android.gm" pour Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Indique la façon dont s'installe une application. OPTIONAL : l'application ne s'installe pas automatiquement, mais l'utilisateur peut l'installer. Il s'agit du réglage par défaut si cette règle n'est pas spécifiée. PRELOAD : l'application s'installe automatiquement, mais l'utilisateur peut la désinstaller. FORCE_INSTALLED : l'application s'installe automatiquement, et l'utilisateur ne peut pas la désinstaller. BLOCKED : l'application est bloquée et ne peut pas être installée. Si l'application a été installée dans le cadre d'une ancienne règle, elle sera désinstallée.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Règle pour répondre aux demandes d'autorisation des applications. PERMISSION_POLICY_UNSPECIFIED : règle non spécifiée. Si aucune règle n'est spécifiée pour une autorisation à quelque niveau que ce soit, le comportement `PROMPT` est utilisé par défaut. PROMPT : demander à l'utilisateur d'accorder une autorisation. GRANT : accorder automatiquement une autorisation. DENY : refuser automatiquement une autorisation.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Objet de configuration JSON propre à l'application avec un ensemble de paires clé/valeur, p. ex. '"managedConfiguration": { "key1": value1, "key2": value2 }'. Les clés sont définies dans le fichier manifeste de l'application.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Pour épingler des applications sur le lanceur d'applications, reportez-vous à PinnedLauncherApps.</translation>
 <translation id="602728333950205286">URL de recherche instantanée du moteur de recherche par défaut</translation>
 <translation id="603410445099326293">Paramètres pour l'URL de suggestion utilisant POST</translation>
 <translation id="6036523166753287175">Activer la traversée de pare-feu depuis l'hôte d'accès à distance</translation>
@@ -2159,7 +2213,7 @@ Si ce paramètre n'est pas défini, l'utilisateur peut décider d'utiliser cette
 <translation id="8493645415242333585">Désactiver l'enregistrement de l'historique du navigateur</translation>
 <translation id="8499172469244085141">Paramètres par défaut (les utilisateurs peuvent les contourner)</translation>
 <translation id="8519264904050090490">URL d'exception manuelle des utilisateurs gérés</translation>
-<translation id="8527932539502116028">Indique les imprimantes qu'un utilisateur ne peut pas employer.
+<translation id="8527932539502116028">Indique les imprimantes auxquelles un utilisateur n'a pas accès.
 
       Cette règle est utilisée uniquement si <ph name="PRINTERS_BLACKLIST" /> est sélectionné pour <ph name="BULK_PRINTERS_ACCESS_MODE" />.
 

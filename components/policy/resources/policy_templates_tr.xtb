@@ -160,7 +160,7 @@
 <translation id="1583248206450240930">Varsayılan olarak <ph name="PRODUCT_FRAME_NAME" /> ürününü kullan</translation>
 <translation id="1603058613431276040">Cihazlara bağlı kurumsal yazıcılar için yapılandırmalar sağlar.
 
-      Bu politika, <ph name="PRODUCT_OS_NAME" /> cihazlarına yazıcı yapılandırmaları sağlamanıza olanak tanır. Dosya 5 MB'tan daha büyük olmamalı ve JSON olarak kodlanmalıdır. Biçim, NativePrinters sözlüğü ile aynıdır. Yaklaşık 21.000 yazıcı içeren bir dosyanın 5 MB olacağı tahmin edilmektedir. İndirmenin bütünlüğünü doğrulamak için şifreleme karma değeri kullanılır.
+      Bu politika, <ph name="PRODUCT_OS_NAME" /> cihazlarına yazıcı yapılandırmaları sağlamanıza olanak tanır. Dosya 5 MB'tan büyük olmamalı ve JSON olarak kodlanmalıdır. Biçim, NativePrinters sözlüğü ile aynıdır. Yaklaşık 21.000 yazıcı içeren bir dosyanın 5 MB olacağı tahmin edilmektedir. İndirmenin bütünlüğünü doğrulamak için şifreleme karma değeri kullanılır.
 
       Dosya indirilir ve önbelleğe alınır. URL veya karma değer değiştiğinde yeniden indirilir.
 
@@ -2219,7 +2219,7 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
 <translation id="891435090623616439">JSON dizesi olarak kodlanmıştır, ayrıntılar için <ph name="COMPLEX_POLICIES_URL" /> sayfasına bakın</translation>
 <translation id="8927384992072706174">Kurumsal yazıcılar için yapılandırmalar sağlar.
 
-      Bu politika, <ph name="PRODUCT_OS_NAME" /> cihazlarına yazıcı yapılandırmaları sağlamanıza olanak tanır. Dosya 5 MB'tan daha büyük olmamalı ve JSON olarak kodlanmalıdır. Biçim, NativePrinters sözlüğü ile aynıdır. Yaklaşık 21.000 yazıcı içeren bir dosyanın 5 MB olacağı tahmin edilmektedir. İndirmenin bütünlüğünü doğrulamak için şifreleme karma değeri kullanılır.
+      Bu politika, <ph name="PRODUCT_OS_NAME" /> cihazlarına yazıcı yapılandırmaları sağlamanıza olanak tanır. Dosya 5 MB'tan büyük olmamalı ve JSON olarak kodlanmalıdır. Biçim, NativePrinters sözlüğü ile aynıdır. Yaklaşık 21.000 yazıcı içeren bir dosyanın 5 MB olacağı tahmin edilmektedir. İndirmenin bütünlüğünü doğrulamak için şifreleme karma değeri kullanılır.
 
       Dosya indirilir ve önbelleğe alınır. URL veya karma değer değiştiğinde yeniden indirilir.
 

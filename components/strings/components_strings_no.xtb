@@ -211,7 +211,7 @@
 <translation id="2609632851001447353">Varianter</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{Ingen}=1{1 app ($1)}=2{2 apper ($1, $2)}other{# apper ($1, $2, $3)}}</translation>
 <translation id="2625385379895617796">Klokken går for fort</translation>
-<translation id="2634124572758952069">Kunne ikke finne IP-adressen for tjeneren <ph name="HOST_NAME" />.</translation>
+<translation id="2634124572758952069">Fant ikke IP-adressen til tjeneren for <ph name="HOST_NAME" />.</translation>
 <translation id="2639739919103226564">Status:</translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">Tilgang til filen ble nektet</translation>

@@ -158,6 +158,11 @@
 
       જો નીતિ સેટ કર્યા વિના છોડેલી છે, તો એન્ટરપ્રાઇઝ-સંચાલિત વપરાશકર્તાઓ માટે ડિફોલ્ટ મૂલ્ય 'MultiProfileUserBehaviorMustBePrimary' લાગુ થાય છે અને બિન-સંચાલિત વપરાશકર્તાઓ માટે 'MultiProfileUserBehaviorUnrestricted' નો ઉપયોગ  થશે.</translation>
 <translation id="1465619815762735808">ચલાવવા માટે ક્લિક કરો</translation>
+<translation id="1466133662354365542"><ph name="PRODUCT_NAME" />ની સ્વતઃભરણ સુવિધા ચાલુ કરે છે અને વપરાશકર્તાઓને પહેલાં સંગ્રહ કરેલી માહિતીનો ઉપયોગ કરીને ક્રેડિટ કાર્ડ તથા સરનામાની માહિતી આપમેળે ભરાય તે માટેની મંજૂરી આપે છે.
+
+      જો તમે આ સેટિંગ બંધ કરશો, તો સ્વતઃભરણ ક્યારેય સૂચન નહીં આપે, ક્રેડિટ કાર્ડની માહિતી નહીં ભરે અથવા વેબને બ્રાઉઝ કરતી વખતે વપરાશકર્તાએ સબમિટ કરી હોઈ શકે તેવી ક્રેડિટ કાર્ડ વિશેની વધારાની માહિતી નહીં સાચવે.
+
+      જો તમે આ સેટિંગ ચાલુ કરશો અથવા મૂલ્ય સેટ નહીં કરો, તો વપરાશકર્તા UIમાં (ક્રેડિટ કાર્ડ સહિતની) કુલ સ્વતઃભરણ સુવિધાનું નિયંત્રણ કરી શકશે.</translation>
 <translation id="1468307069016535757">લોગિન સ્ક્રીન પર ઉચ્ચ કોન્ટ્રાસ્ટ મોડ ઍક્સેસિબિલિટી સુવિધાની ડિફોલ્ટ સ્થિતિ સેટ કરો.
 
           જો આ નીતિને ટ્રૂ પર સેટ કરેલી હોય, તો જ્યારે લોગિન સ્ક્રીન બતાવવામાં આવે ત્યારે ઉચ્ચ કોન્ટ્રાસ્ટ મોડ સક્ષમ થશે.
@@ -441,6 +446,7 @@
 <translation id="2294382669900758280">Android અ‍ૅપ્લિકેશનોમાં વિડિઓ ચલાવવા પર વિચારણા કરવામાં આવતી નથી, પછી ભલેને આ નીતિ <ph name="TRUE" /> પર સેટ કરેલ હોય.</translation>
 <translation id="2298647742290373702"><ph name="PRODUCT_NAME" /> માં ડિફૉલ્ટ નવું ટૅબ પૃષ્ઠ ગોઠવો.</translation>
 <translation id="2299220924812062390">સક્ષમ પ્લગિન્સની સૂચિનો ઉલ્લેખ કરો</translation>
+<translation id="2303795211377219696">ક્રેડિટ કાર્ડ માટે સ્વતઃભરણ ચાલુ કરો</translation>
 <translation id="2309390639296060546">ડિફોલ્ટ ભૌગોલિકસ્થાન સેટિંગ</translation>
 <translation id="2312134445771258233">સ્ટાર્ટઅપ પર લોડ થયેલા પૃષ્ઠોને ગોઠવવાની તમને મંજૂરી આપે છે. 
 
@@ -1385,6 +1391,7 @@
           મૂલ્ય એ સ્ટ્રીંગમાં રૂપાંતરિત કરવામાં આવેલ JSON શબ્દકોશોનો એરે હોવું આવશ્યક છે. દરેક શબ્દકોશ ફોર્મ { "પેટર્ન": "$URL_PATTERN", "ફિલ્ટર" : $FILTER } ધરાવતો હોવો જોઈએ જ્યાં $URL_PATTERN એ સામગ્રી સેટિંગ પેટર્ન છે. $FILTER એ બ્રાઉઝર કયા કલાઇન્ટ પ્રમાણપત્રોમાંથી આપમેળે પસંદ કરશે તે પ્રતિબંધિત કરે છે.ફિલ્ટરથી સ્વતંત્ર, જે પ્રમાણપત્રો સર્વરની પ્રમાણપત્ર વિનંતી સાથે મેળ ખાતા હોય માત્ર તેવા પ્રમાણપત્રોને જ પસંદ કરવામાં આવશે. જો $FILTER ફોર્મ { "ISSUER": { "CN": "$ISSUER_CN" } } ધરાવતું હોય, તો વધારામાં એવા કલાઇન્ટ પ્રમાણપત્રો જ પસંદ કરવામાં આવે છે જેઓ સામાન્ય નામ $ISSUER_CN ધરાવતા પ્રમાણપત્ર દ્વારા ઇસ્યુ કરવામાં આવે. જો $FILTER એ ખાલી શબ્દકોશ {} હોય, તો કલાઇન્ટ પ્રમાણપત્રોની પસંદગીને વધારામાં પ્રતિબંધિત કરવામાં આવતી નથી.
 
           જો નીતિને સેટ કર્યા વિના છોડવામાં આવે, તો કોઈપણ સાઇટ માટે સ્વતઃ-પસંદગી કરવામાં આવશે નહિ.</translation>
+<translation id="4978405676361550165">જો "OffHours" નીતિ સેટ કરેલી હશે, તો સમયના વ્યાખ્યાયિત અંતરાલો દરમિયાન ઉપકરણની ઉલ્લેખિત નીતિઓ અવગણવામાં આવે છે (આ નીતિઓની ડિફૉલ્ટ સેટિંગનો ઉપયોગ કરો). જ્યારે "OffHours" સમયગાળો શરૂ કે સમાપ્ત થાય, ત્યારે દરેક ઇવેન્ટ માટે Chrome દ્વારા ઉપકરણ નીતિઓ ફરીથી લાગુ કરવામાં આવે છે. જ્યારે "OffHours" સમય સમાપ્ત થયો હશે અને ઉપકરણની નીતિ સેટિંગ બદલવામાં આવી હશે (દા.ત., જ્યારે વપરાશકર્તાએ મંજૂરીપ્રાપ્ત એકાઉન્ટમાં લૉગ ઇન નહીં કર્યું હોય), ત્યારે વપરાશકર્તાને સૂચિત કરવામાં આવશે અને સાઇન આઉટ કરવાની ફરજ પાડવામાં આવશે.</translation>
 <translation id="4980635395568992380">ડેટા પ્રકાર:</translation>
 <translation id="4983201894483989687">જૂના પલ્ગઇંસને ચલાવવાની મંજૂરી આપે છે</translation>
 <translation id="4988291787868618635">નિષ્ક્રિય વિલંબ પર પહોંચવા પર લેવાની ક્રિયા</translation>
@@ -1749,6 +1756,53 @@
 
       જો આ નીતિ સેટ નથી અથવા તે ખોટા પર સેટ છે, તો પ્રિંટ આદેશો પ્રિંટ પૂર્વાવલોકન સ્ક્રીનને ટ્રિગર કરે છે.</translation>
 <translation id="6022948604095165524">સ્ટાર્ટઅપ પર ક્રિયા</translation>
+<translation id="6023030044732320798">નીતિઓનો એ સેટ ઉલ્લેખિત કરે છે જે ARC રનટાઇમને સોંપવામાં આવશે. મૂલ્ય માન્ય JSON હોવું જોઈએ.
+
+      ઉપકરણમાં કઈ Android ઍપ આપમેળે ઇન્સ્ટૉલ થાય તેની ગોઠવણ કરવા માટે આ નીતિનો ઉપયોગ થઈ શકે છે:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android app identifier, e.g. "com.google.android.gm" for Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Specifies how an app is installed. OPTIONAL: The app is not installed automatically, but the user can install it. This is the default if this policy is not specified. PRELOAD: The app is installed automatically, but the user can uninstall it. FORCE_INSTALLED: The app is installed automatically and the user cannot uninstall it. BLOCKED: The app is blocked and cannot be installed. If the app was installed under a previous policy it will be uninstalled.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Policy for granting permission requests to apps. PERMISSION_POLICY_UNSPECIFIED: Policy not specified. If no policy is specified for a permission at any level, then the `PROMPT` behavior is used by default. PROMPT: Prompt the user to grant a permission. GRANT: Automatically grant a permission. DENY: Automatically deny a permission.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "App-specific JSON configuration object with a set of key-value pairs, e.g. '"managedConfiguration": { "key1": value1, "key2": value2 }'. The keys are defined in the app manifest.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      લૉન્ચર પર ઍપને પિન કરવા માટે, PinnedLauncherApps જુઓ.</translation>
 <translation id="602728333950205286">ડિફોલ્ટ શોધ પ્રદાતા ત્વરિત URL</translation>
 <translation id="603410445099326293">POST નો ઉપયોગ કરતી URL સૂચવવા માટેના પેરામીટર્સ</translation>
 <translation id="6036523166753287175">રીમોટ ઍક્સેસ હોસ્ટથી ફાયરવૉલ ટ્રાવર્સલને સક્ષમ કરો</translation>

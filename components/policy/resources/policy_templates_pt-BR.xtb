@@ -108,6 +108,11 @@
 
       Se a política não for configurada, o valor padrão "MultiProfileUserBehaviorMustBePrimary" será aplicado aos usuários gerenciados pela empresa, e "MultiProfileUserBehaviorUnrestricted" será usado para usuários não gerenciados.</translation>
 <translation id="1465619815762735808">Clique para reproduzir</translation>
+<translation id="1466133662354365542">Ativa o recurso de preenchimento automático do <ph name="PRODUCT_NAME" /> e permite que os usuários preencham automaticamente informações sobre cartão de crédito e endereço em formulários da Web usando informações previamente armazenadas.
+
+      Se você desativar essa configuração, o preenchimento automático nunca sugerirá ou preencherá informações sobre cartão de crédito, nem salvará informações adicionais de cartão de crédito que o usuário pode enviar ao navegar na Web.
+
+      Se você ativar essa configuração ou não definir um valor, o usuário poderá controlar o recurso de preenchimento automático global (incluindo cartões de crédito) na IU.</translation>
 <translation id="1468307069016535757">Definir o estado padrão do recurso de acessibilidade do modo de alto contraste na tela de login.
 
           Se esta política for definida como "verdadeira", o modo de alto contraste será ativado quando a tela de login for exibida.
@@ -357,6 +362,7 @@
 <translation id="2294382669900758280">A reprodução de vídeos em apps Android não é levada em consideração, mesmo se esta política estiver definida como <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Configurar a página "Nova guia" padrão no <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Especifica uma lista de plug-ins ativados</translation>
+<translation id="2303795211377219696">Ativar o preenchimento automático para cartões de crédito</translation>
 <translation id="2309390639296060546">Configuração padrão de geolocalização</translation>
 <translation id="2312134445771258233">Permite configurar as páginas que são carregadas na inicialização. O conteúdo da lista "URLs que devem ser abertos na inicialização" é ignorado, a menos que você selecione "Abrir uma lista de URLs" em "Ação na inicialização".</translation>
 <translation id="2337466621458842053">Permite que você defina uma lista de padrões URL para especificar os sites autorizados a exibir imagens. Se esta política for deixada sem definição, o valor padrão global será utilizado para todos os sites a partir da política "DefaultImagesSetting", caso esta tenha sido definida, ou a partir das configurações pessoais do usuário, caso não tenha sido definida.</translation>
@@ -1100,6 +1106,7 @@
           O valor deve ser uma matriz de dicionários JSON com strings. Cada dicionário deve ter a forma { "padrão": "$PADRÃO_DE_URL", "filtro" : $FILTRO}, em que $PADRÃO_DE_URL é um padrão de configuração de conteúdo. $FILTRO restringe a partir de quais certificados de cliente o navegador selecionará automaticamente. Independentemente do filtro, apenas certificados que correspondam à solicitação de certificado do servidor serão selecionados. Se $FILTRO tem a forma { "EMISSOR": { "CN": "$CN_DO_EMISSOR" } }, apenas os certificados de cliente que são emitidos por um certificado com o nome real $CN_DO_EMISSOR são selecionados. Se $FILTRO for o dicionário em branco {}, a seleção de certificados de cliente não ficará mais restrita.
 
           Se esta política não for definida, nenhuma seleção automática será feita para nenhum site.</translation>
+<translation id="4978405676361550165">Se a política "OffHours" for definida, as políticas do dispositivo especificadas serão ignoradas (use as configurações padrão dessas políticas) durante os intervalos de tempo definidos. As políticas do dispositivo são reaplicadas pelo Chrome em todos os eventos quando o período "OffHours" começa ou termina. O usuário será notificado e forçado a se desconectar quando o período "OffHours" terminar e as configurações de política do dispositivo forem alteradas (por exemplo, quando o usuário estiver conectado com uma conta que não seja permitida).</translation>
 <translation id="4980635395568992380">Tipo do dado:</translation>
 <translation id="4983201894483989687">Permitir a execução de plug-ins que estão desatualizados</translation>
 <translation id="4988291787868618635">Ação a ser realizada quando o intervalo de inatividade for atingido</translation>
@@ -1353,6 +1360,53 @@
 
       Se esta política não estiver definida ou se estiver definida como falsa, os comandos de impressão acionarão a tela de visualização de impressão.</translation>
 <translation id="6022948604095165524">Ação na inicialização</translation>
+<translation id="6023030044732320798">Especifica um conjunto de políticas que serão entregues ao tempo de execução de ARC. O valor deve ser um JSON válido.
+
+      Esta política pode ser usada para configurar quais aplicativos Android são instalados automaticamente no dispositivo:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "identificador do aplicativo Android, por exemplo, "com.google.android.gm" para Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Especifica como um aplicativo é instalado. OPTIONAL: o aplicativo não é instalado automaticamente, mas o usuário pode instalá-lo. Esse será o padrão se essa política não for especificada. PRELOAD: o aplicativo é instalado automaticamente, mas o usuário pode desinstalá-lo. FORCE_INSTALLED: o aplicativo é instalado automaticamente, e o usuário não pode desinstalá-lo. BLOCKED: o aplicativo é bloqueado e não pode ser instalado. Se o aplicativo tiver sido instalado com uma política anterior, ele será desinstalado.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Política para conceder solicitações de permissão a aplicativos. PERMISSION_POLICY_UNSPECIFIED: política não especificada. Se nenhuma política for especificada para uma permissão em nenhum nível, o comportamento `PROMPT` será usado por padrão. PROMPT: solicitar que o usuário para conceda uma permissão. GRANT: conceder uma permissão automaticamente. DENY: negar uma permissão automaticamente.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Objeto de configuração JSON específico do aplicativo com um conjunto de pares de chave-valor, por exemplo, '"managedConfiguration": { "key1": value1, "key2": value2 }'. As chaves são definidas no manifesto do aplicativo.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Para fixar aplicativos na tela de início, consulte PinnedLauncherApps.</translation>
 <translation id="602728333950205286">URL instantâneo do provedor de pesquisa padrão</translation>
 <translation id="603410445099326293">Parâmetros para URL de sugestões que usa POST</translation>
 <translation id="6036523166753287175">Habilitar passagem de firewall a partir do host de acesso remoto</translation>

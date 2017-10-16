@@ -114,6 +114,11 @@
 
       Jei politika nenustatyta, numatytoji vertė „MultiProfileUserBehaviorMustBePrimary“ taikoma įmonėms tvarkomiems naudotojams, o „MultiProfileUserBehaviorUnrestricted“ – netvarkomiems naudotojams.</translation>
 <translation id="1465619815762735808">Paleisti spustelėjus</translation>
+<translation id="1466133662354365542">Įgalinama „<ph name="PRODUCT_NAME" />“ automatinio pildymo funkcija ir naudotojams leidžiama automatiškai užpildyti žiniatinklio formas, naudojant anksčiau išsaugotą informaciją, pvz., adresą arba kredito kortelės informaciją.
+
+      Jei šį nustatymą išjungsite, Automatinio pildymo funkcija niekada nesiūlys ir automatiškai neįves kredito kortelės informacijos, taip pat neišsaugos papildomos kredito kortelės informacijos, kurią naudotojas gali pateikti naršydamas žiniatinklį.
+
+      Jei įgalinsite šį nustatymą arba nenustatysite vertės, naudotojai galės valdyti Automatinio pildymo funkciją (įskaitant kredito kortelių informaciją) naudotojo sąsajoje.</translation>
 <translation id="1468307069016535757">Nustatyti numatytąją didelio kontrasto pasiekiamumo funkciją prisijungimo ekrane.
 
           Jei ši politika nustatyta, didelio kontrasto režimas bus įgalintas, kai bus rodomas prisijungimo ekranas.
@@ -371,6 +376,7 @@
 <translation id="2294382669900758280">Į vaizdo įrašų leidimą „Android“ programose neatsižvelgiama, net jei ši politika nustatyta į „<ph name="TRUE" />“.</translation>
 <translation id="2298647742290373702">Konfigūruokite numatytąjį naujo skirtuko puslapį sistemoje „<ph name="PRODUCT_NAME" />“.</translation>
 <translation id="2299220924812062390">Nurodyti įgalintų papildinių sąrašą</translation>
+<translation id="2303795211377219696">Kredito kortelių automatinio pildymo funkcijos įgalinimas</translation>
 <translation id="2309390639296060546">Numatytasis geografinės vietovės nustatymas</translation>
 <translation id="2312134445771258233">Leidžiama konfigūruoti paleidžiant įkeliamus puslapius.
 
@@ -1158,6 +1164,7 @@
           Vertė turi būti eilutėmis suskirstytų JSON žodynų masyvas. Kiekvienas žodynas turi būti tokios formos: { "pattern": "$URL_PATTERN", "filter" : $FILTER }, kur $URL_PATTERN yra turinio nustatymo šablonas. $FILTER apriboja, iš kurių klientų sertifikatų naršyklė automatiškai pasirinks. Neatsižvelgiant į filtrą, bus pasirinkti tik tie sertifikatai, kurie atitinka serverio sertifikato užklausą. Jei $FILTER yra tokios formos: { "ISSUER": { "CN": "$ISSUER_CN" } }, papildomai pasirenkami tik klientų sertifikatai, kurie išduoti pagal sertifikatą, kurio „CommonName“ $ISSUER_CN. Jei $FILTER yra tuščias žodynas {}, klientų sertifikatų pasirinkimas nėra papildomai ribojamas.
 
           Nenustačius šios politikos, jokioje svetainėje nėra atliekamas joks automatinis pasirinkimas.</translation>
+<translation id="4978405676361550165">Nustačius politiką „OffHours“ nustatytais laiko intervalais nepaisoma nurodytos įrenginio politikos (naudojami numatytieji šios politikos nustatymai). Įrenginio politiką „Chrome“ pakartotinai pritaiko per kiekvieną įvykį, kai „OffHours“ laikotarpis prasideda ir baigiasi. Naudotojams bus pranešta ir jie bus priverstinai atjungti, kai „OffHours“ laikas pasibaigs ir įrenginio politikos nustatymai bus pakeisti (pvz., kai naudotojas bus prisijungęs su neleidžiama paskyra).</translation>
 <translation id="4980635395568992380">Duomenų tipas:</translation>
 <translation id="4983201894483989687">Leisti paleisti pasenusius papildinius</translation>
 <translation id="4988291787868618635">Veiksmas, kuris bus atliktas, kai bus pasiektas neveikos delsos laikas</translation>
@@ -1449,6 +1456,53 @@
 
       Jei ši politika nenustatyta arba deaktyvinta, įvykdžius spausdinimo komandą atveriamas spaudinio peržiūros ekranas.</translation>
 <translation id="6022948604095165524">Veiksmai paleidžiant</translation>
+<translation id="6023030044732320798">Nurodomos politikos nuostatos, kurios bus perduotos vykdant ARC. Vertė turi būti galiojantis JSON.
+
+      Ši politika gali būti naudojama norint sukonfigūruoti, kurios „Android“ programos yra automatiškai įdiegiamos įrenginyje:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "„Android“ programos identifikatorius, pvz., "com.google.android.gm" skirtas „Gmail“",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Nurodoma, kaip įdiegta programa. OPTIONAL: programa neįdiegta automatiškai, bet ją gali įdiegti naudotojas. Tai yra numatytasis nustatymas, jei ši politika nėra nurodoma. PRELOAD: programa įdiegta automatiškai, bet naudotojas gali ją pašalinti. FORCE_INSTALLED: programa įdiegta automatiškai, ir naudotojas negali jos pašalinti. BLOCKED: programa yra užblokuota ir negali būti įdiegta. Jei programa buvo įdiegta galiojant ankstesnei politikai, ji bus pašalinta.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Leidimo suteikimo programoms užklausų politika. PERMISSION_POLICY_UNSPECIFIED: politika nenurodyta. Jei nenurodyta jokia leidimo politika jokiu lygmeniu, pagal numatytuosius nustatymus naudojama PROMPT elgsena. PROMPT: paraginti naudotoją suteikti leidimą. GRANT: automatiškai suteikti leidimą. DENY: automatiškai atmesti leidimą.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Konkrečios programos JSON konfigūracijos objektas su rakto reikšmių porų rinkiniu, pvz., "managedConfiguration": { "key1": value1, "key2": value2 }. Raktai nurodyti programos apraše.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Jei norite prisegti programas prie paleidimo priemonės, žr. „PinnedLauncherApps“.</translation>
 <translation id="602728333950205286">Numatytojo paieškos teikėjo intuityviosios paieškos URL</translation>
 <translation id="603410445099326293">Pasiūlymų URL parametrai, kuriuose naudojama POST</translation>
 <translation id="6036523166753287175">Įgalinkite užkardos apėjimą iš nuotolinės prieigos prieglobos</translation>

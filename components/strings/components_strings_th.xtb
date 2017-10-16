@@ -393,6 +393,7 @@
 <translation id="3778403066972421603">คุณต้องการบันทึกบัตรนี้ลงในบัญชี Google และในอุปกรณ์นี้ไหม</translation>
 <translation id="3783418713923659662">MasterCard</translation>
 <translation id="3787705759683870569">หมดอายุ <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
+<translation id="3808375843007691220">คำเตือน: จากนี้ไปจะเป็นฟีเจอร์ทดลอง!</translation>
 <translation id="382518646247711829">หากคุณใช้พร็อกซีเซิร์ฟเวอร์...</translation>
 <translation id="3828924085048779000">ข้อความรหัสผ่านต้องไม่เว้นว่างไว้</translation>
 <translation id="385051799172605136">กลับ</translation>
@@ -448,6 +449,7 @@
 <translation id="4269787794583293679">(ไม่มีชื่อผู้ใช้)</translation>
 <translation id="4275830172053184480">รีสตาร์ทอุปกรณ์ของคุณ</translation>
 <translation id="4280429058323657511">หมดอายุ <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4292213515608230699">ไม่มีการทดลองที่ตรงกัน</translation>
 <translation id="4304224509867189079">เข้าสู่ระบบ</translation>
 <translation id="4312866146174492540">บล็อก (ค่าเริ่มต้น)</translation>
 <translation id="4325863107915753736">การค้นหาบทความล้มเหลว</translation>
@@ -518,6 +520,7 @@
 <translation id="495170559598752135">การทำงาน</translation>
 <translation id="4958444002117714549">ขยายรายการ</translation>
 <translation id="4974590756084640048">เปิดใช้คำเตือนอีกครั้ง</translation>
+<translation id="4989542687859782284">ไม่มี</translation>
 <translation id="4989809363548539747">ไม่รองรับปลั๊กอินนี้</translation>
 <translation id="5002932099480077015">หากเปิดใช้ Chrome จะเก็บสำเนาการ์ดของคุณในอุปกรณ์นี้เพื่อให้การกรอกฟอร์มทำได้เร็วขึ้น</translation>
 <translation id="5018422839182700155">ไม่สามารถเปิดหน้านี้</translation>
@@ -571,6 +574,7 @@
 <translation id="5355557959165512791">คุณไม่สามารถไปที่ <ph name="SITE" /> ได้ในขณะนี้เนื่องจากใบรับรองถูกเพิกถอนแล้ว โดยปกติข้อผิดพลาดของเครือข่ายและการโจมตีจะเกิดขึ้นเพียงชั่วคราว หน้านี้จึงอาจจะใช้งานได้ในภายหลัง</translation>
 <translation id="536296301121032821">ไม่สามารถจัดเก็บการตั้งค่านโยบาย</translation>
 <translation id="5386426401304769735">กลุ่มใบรับรองสำหรับเว็บไซต์นี้มีใบรับรองที่ลงนามโดยใช้ SHA-1</translation>
+<translation id="5401815295726769233">ค้นหารายการที่ตั้งค่าสถานะ</translation>
 <translation id="5402410679244714488">วันที่หมดอายุ: <ph name="EXPIRATION_DATE_ABBR" /> ใช้ล่าสุดกว่า 1 ปีที่ผ่านมา</translation>
 <translation id="540969355065856584">เซิร์ฟเวอร์นี้ไม่สามารถพิสูจน์ได้ว่าเป็น <ph name="DOMAIN" /> เนื่องจากใบรับรองความปลอดภัยไม่สามารถใช้ได้ในขณะนี้ ซึ่งอาจเป็นเพราะการกำหนดค่าที่ไม่ถูกต้องหรือมีผู้โจมตีที่ขัดขวางการเชื่อมต่อของคุณ</translation>
 <translation id="5421136146218899937">ล้างข้อมูลการท่องเว็บ...</translation>
@@ -623,6 +627,7 @@
 <translation id="5732392974455271431">ผู้ปกครองสามารถเลิกบล็อกเว็บไซต์ให้คุณ</translation>
 <translation id="5763042198335101085">ป้อนที่อยู่อีเมลที่ถูกต้อง</translation>
 <translation id="5765072501007116331">หากต้องการดูวิธีการนำส่งสินค้าและข้อกำหนด โปรดเลือกที่อยู่</translation>
+<translation id="5770114862687765385">ดูเหมือนไฟล์จะเสียหาย คลิกปุ่ม "รีเซ็ต" เพื่อรีเซ็ตเซสชัน</translation>
 <translation id="5778550464785688721">การควบคุมอุปกรณ์ MIDI เต็มรูปแบบ</translation>
 <translation id="5784606427469807560">เกิดปัญหาในการยืนยันบัตรของคุณ โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ตและลองอีกครั้ง</translation>
 <translation id="5785756445106461925">นอกจากนี้ หน้านี้ประกอบด้วยทรัพยากรอื่นๆ ซึ่งไม่ปลอดภัย ผู้อื่นสามารถดูทรัพยากรเหล่านี้ขณะถ่ายโอน และผู้บุกรุกสามารถแก้ไขเพื่อเปลี่ยนรูปลักษณ์ของหน้าได้</translation>
@@ -636,6 +641,7 @@
 <translation id="5869522115854928033">รหัสผ่านที่บันทึกไว้</translation>
 <translation id="5893752035575986141">รับบัตรเครดิต</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (ซิงค์แล้ว)</translation>
+<translation id="5909194079078764042">คุณอาจสูญเสียข้อมูลการท่องเว็บหรือการรักษาความปลอดภัยและความเป็นส่วนตัวลดลงจากการเปิดใช้ฟีเจอร์เหล่านี้ ฟีเจอร์ที่เปิดใช้จะมีผลกับผู้ใช้ทั้งหมดของเบราว์เซอร์นี้</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{ใช้งานอยู่ 1 รายการ}other{ใช้งานอยู่ # รายการ}}</translation>
 <translation id="5939518447894949180">รีเซ็ต</translation>
 <translation id="5959728338436674663">ส่ง<ph name="BEGIN_WHITEPAPER_LINK" />ข้อมูลบางอย่างของระบบและเนื้อหาของหน้าเว็บ<ph name="END_WHITEPAPER_LINK" />ไปยัง Google เพื่อช่วยตรวจหาแอปและเว็บไซต์ที่เป็นอันตรายโดยอัตโนมัติ<ph name="PRIVACY_PAGE_LINK" /></translation>
@@ -683,6 +689,7 @@
 <translation id="6305205051461490394">ไม่สามารถเข้าถึง <ph name="URL" /></translation>
 <translation id="6319915415804115995">ใช้ล่าสุดกว่า 1 ปีที่ผ่านมา</translation>
 <translation id="6321917430147971392">ตรวจสอบการตั้งค่า DNS</translation>
+<translation id="6325286409953503969">หากสนใจในฟีเจอร์เจ๋งๆ จาก Chrome ลองใช้<ph name="BEGIN_LINK" />เวอร์ชันที่กำลังพัฒนา<ph name="END_LINK" /></translation>
 <translation id="6328639280570009161">ลองปิดการคาดคะเนเครือข่าย</translation>
 <translation id="6328786501058569169">เว็บไซต์นี้มีการหลอกลวง</translation>
 <translation id="6337133576188860026">หากเพิ่มพื้นที่ว่างไม่ถึง <ph name="SIZE" /> ไซต์บางแห่งอาจโหลดช้าลงเมื่อคุณเข้าชมครั้งถัดไป</translation>
@@ -785,6 +792,7 @@
 <translation id="7298195798382681320">แนะนำ</translation>
 <translation id="7309308571273880165">รายงานข้อขัดข้องเมื่อ <ph name="CRASH_TIME" /> (ผู้ใช้ขอการอัปโหลด ยังไม่ได้อัปโหลด)</translation>
 <translation id="7334320624316649418">&amp;ทำซ้ำการจัดลำดับใหม่</translation>
+<translation id="7337706099755338005">ยังไม่พร้อมให้ใช้งานในแพลตฟอร์มของคุณ</translation>
 <translation id="733923710415886693">ไม่มีการเปิดเผยใบรับรองของเซิร์ฟเวอร์ผ่านความโปร่งใสของใบรับรอง</translation>
 <translation id="7353601530677266744">บรรทัดคำสั่ง </translation>
 <translation id="7372973238305370288">ผลการค้นหา</translation>
@@ -792,6 +800,7 @@
 <translation id="7378627244592794276">ไม่</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">ยืนยันบัตร</translation>
+<translation id="739697976928952788">แสดงรหัสผ่านที่บันทึกไว้ทั้งหมด</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7419106976560586862">เส้นทางโปรไฟล์</translation>
 <translation id="7424977062513257142">หน้าที่ฝังไว้ในหน้าเว็บนี้บอกว่า:</translation>
@@ -838,6 +847,7 @@
 <translation id="7668654391829183341">อุปกรณ์ที่ไม่รู้จัก</translation>
 <translation id="7669271284792375604">ผู้โจมตีเว็บไซต์นี้อาจพยายามหลอกล่อให้คุณติดตั้งโปรแกรมที่เป็นอันตรายต่อประสบการณ์การท่องเว็บของคุณ (ตัวอย่างเช่น โดยการเปลี่ยนแปลงหน้าแรกหรือแสดงโฆษณาเพิ่มเติมในเว็บไซต์ที่คุณเข้าชม)</translation>
 <translation id="7682287625158474539">จัดส่ง</translation>
+<translation id="7695552107151968219">หากสนใจในฟีเจอร์เจ๋งๆ จาก Chrome ลองใช้<ph name="BEGIN_LINK" />เวอร์ชันเบต้า<ph name="END_LINK" /></translation>
 <translation id="7699293099605015246">บทความไม่พร้อมใช้งานในขณะนี้</translation>
 <translation id="7701040980221191251">ไม่มี</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />ไปยัง <ph name="SITE" /> (ไม่ปลอดภัย)<ph name="END_LINK" /></translation>

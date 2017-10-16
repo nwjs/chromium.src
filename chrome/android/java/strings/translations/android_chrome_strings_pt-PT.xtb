@@ -94,6 +94,7 @@ Tem de ter a Localização e o Bluetooth ativados para poder utilizar a Web fís
 <translation id="1829244130665387512">Localizar na página</translation>
 <translation id="1832521218263067499">Incidentes de segurança</translation>
 <translation id="1853692000353488670">Novo separador de navegação anónima</translation>
+<translation id="1880072593381090678">Páginas populares do Chrome</translation>
 <translation id="189172778771606813">Fechar a gaveta de navegação</translation>
 <translation id="1897409700584096124">O Website está a transmitir</translation>
 <translation id="1919345977826869612">Anúncios</translation>
@@ -121,6 +122,7 @@ Tem de ter a Localização e o Bluetooth ativados para poder utilizar a Web fís
 <translation id="2096396629993765042">A sessão na sua Conta Google não é terminada. A sua Conta Google pode ter outras formas do histórico de navegação em <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />.</translation>
 <translation id="2100273922101894616">Início de sessão automático</translation>
 <translation id="2111511281910874386">Ir para a página</translation>
+<translation id="2122601567107267586">Não foi possível abrir a aplicação.</translation>
 <translation id="2126426811489709554">Com tecnologia do Chrome</translation>
 <translation id="2131665479022868825"><ph name="DATA" /> guardado(s)</translation>
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> fechado</translation>
@@ -137,6 +139,7 @@ Tem de ter a Localização e o Bluetooth ativados para poder utilizar a Web fís
 <translation id="2268044343513325586">Refinar</translation>
 <translation id="2283599456633275070">Viagens</translation>
 <translation id="2286841657746966508">Endereço de facturação</translation>
+<translation id="2300590596239819242">Ativar a Vista simplificada em todos os artigos</translation>
 <translation id="2315043854645842844">O sistema operativo não suporta a seleção do certificado do lado do cliente.</translation>
 <translation id="2321958826496381788">Arraste o controlo de deslize até conseguir ler confortavelmente. O texto deve ter, pelo menos, este tamanho depois de tocar duas vezes num parágrafo.</translation>
 <translation id="2323763861024343754">Armazenamento do site</translation>
@@ -161,6 +164,7 @@ Tem de ter a Localização e o Bluetooth ativados para poder utilizar a Web fís
 <translation id="2496180316473517155">Histórico de navegação</translation>
 <translation id="2498359688066513246">Ajuda e comentários</translation>
 <translation id="2501278716633472235">Retroceder</translation>
+<translation id="2503472621226270518">Expandir painel de navegação</translation>
 <translation id="2512222046227390255">Preenchimento autom. formulários</translation>
 <translation id="2526148617758225454">A Poupança de dados está ativada. Pode geri-la nas Definições.</translation>
 <translation id="2532336938189706096">Visualização na Web</translation>
@@ -285,6 +289,7 @@ Para ajustar o termo de pesquisa, prima continuamente para selecionar. Para refi
 <translation id="3744111309925758534"><ph name="MEGABYTES" /> MB de outras aplicações</translation>
 <translation id="3744111561329211289">Sincronização em segundo plano</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />Ative o Bluetooth<ph name="END_LINK" /> para permitir a sincronização</translation>
+<translation id="3778956594442850293">Adicionado ao ecrã principal</translation>
 <translation id="3789841737615482174">Instalar</translation>
 <translation id="3810838688059735925">Vídeo</translation>
 <translation id="3810973564298564668">Gerir</translation>
@@ -379,6 +384,7 @@ Para ajustar o termo de pesquisa, prima continuamente para selecionar. Para refi
 <translation id="4699172675775169585">Imagens e ficheiros em cache</translation>
 <translation id="4714588616299687897">Poupe até 60% dos seus dados</translation>
 <translation id="4720023427747327413">Abrir no <ph name="PRODUCT_NAME" /></translation>
+<translation id="472631402238783923">Ajude a melhorar o Chrome. <ph name="BEGIN_LINK" />Responda ao inquérito<ph name="END_LINK" />.</translation>
 <translation id="4730876730346568982">Está a mudar de contas de sincronização de <ph name="ACCOUNT_EMAIL_OLD" /> para <ph name="ACCOUNT_EMAIL_NEW" />. Os dados do Chrome existentes são geridos por <ph name="MANAGED_DOMAIN" />. Esta ação elimina os seus dados deste dispositivo, embora permaneçam em <ph name="ACCOUNT_EMAIL_OLD" />.</translation>
 <translation id="473775607612524610">Actualizar</translation>
 <translation id="4738836084190194332">Última sincronização: <ph name="WHEN" /></translation>
@@ -432,6 +438,7 @@ Para ajustar o termo de pesquisa, prima continuamente para selecionar. Para refi
 <translation id="5210286577605176222">Ir para o separador anterior</translation>
 <translation id="5210365745912300556">Fechar separador</translation>
 <translation id="5222676887888702881">Terminar sessão</translation>
+<translation id="5224771365102442243">Com vídeo</translation>
 <translation id="5233638681132016545">Novo separador</translation>
 <translation id="5271967389191913893">O dispositivo não consegue abrir o conteúdo a transferir.</translation>
 <translation id="528192093759286357">Arraste a partir da parte superior e toque no botão de retrocesso para sair do ecrã inteiro.</translation>
@@ -547,6 +554,7 @@ No entanto, a navegação não é invisível. Passar para o modo de navegação 
 <translation id="618555311922999635">Painel de navegação aberto à altura total</translation>
 <translation id="6192792657125177640">Excepções</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" /> não é o seu email?</translation>
+<translation id="6221892641068781024">Vista simplificada</translation>
 <translation id="6232535412751077445">A ativação da funcionalidade "Não Monitorizar" significa que é incluído um pedido no seu tráfego de navegação. Qualquer efeito depende de um Website responder ou não ao pedido e do modo como o pedido é interpretado.
 
 Por exemplo, alguns Sites podem responder a este pedido ao mostrar-lhe anúncios que não são baseados noutros Sites que tenha visitado. Ainda assim, muitos Sites continuam a recolher e a utilizar os seus dados de navegação para, por exemplo, melhorar a segurança, fornecer conteúdo, anúncios e recomendações, e gerar estatísticas de relatórios.</translation>
@@ -591,6 +599,7 @@ Por exemplo, alguns Sites podem responder a este pedido ao mostrar-lhe anúncios
 <translation id="6573431926118603307">Os separadores que abriu no Chrome nos seus outros dispositivos são apresentados aqui.</translation>
 <translation id="6575643671698722332">Falha ao repor. Verifique se o dispositivo está online e tente novamente.</translation>
 <translation id="6583199322650523874">Adicionar a página atual aos marcadores</translation>
+<translation id="6593061639179217415">Site para computador</translation>
 <translation id="6600954340915313787">Copiado para o Chrome</translation>
 <translation id="6612358246767739896">Conteúdo protegido</translation>
 <translation id="6627583120233659107">Editar pasta</translation>
@@ -728,6 +737,7 @@ A sua Conta Google pode ter outras formas do histórico de navegação, como pes
 <translation id="7846076177841592234">Cancelar seleção</translation>
 <translation id="784934925303690534">Intervalo de tempo</translation>
 <translation id="7851858861565204677">Outros aparelhos</translation>
+<translation id="785312750761189439">Deslize rapidamente para cima a partir da parte inferior do ecrã ou toque no botão para expandir de forma a aceder facilmente a sites e artigos populares, a transferências, entre outros.</translation>
 <translation id="7875915731392087153">Criar email</translation>
 <translation id="7876243839304621966">Remover tudo</translation>
 <translation id="7882131421121961860">Nenhum histórico encontrado</translation>

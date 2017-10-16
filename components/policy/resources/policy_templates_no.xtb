@@ -157,17 +157,17 @@
 <translation id="1583248206450240930">Bruk <ph name="PRODUCT_FRAME_NAME" /> som standard</translation>
 <translation id="1603058613431276040">Gir konfigurasjoner for bedriftsskrivere som er bundet til enheter.
 
-      Med denne regelen kan du gi skriverkonfigurasjoner til enheter med <ph name="PRODUCT_OS_NAME" />. Størrelsen på filen må ikke overskride 5 MB og må være i JSON-format. Formatet er det samme som for NativePrinters-ordlisten. Det anslås at en fil som inneholder omtrent 21 000 skrivere, blir lagret som en fil på 5 MB. Den kryptografiske hashen brukes for å bekrefte integriteten for nedlastingen.
+      Med denne regelen kan du gi skriverkonfigurasjoner til enheter med <ph name="PRODUCT_OS_NAME" />. Størrelsen på filen må ikke overskride 5 MB, og den må være i JSON-format. Formatet er det samme som for NativePrinters-ordlisten. Det anslås at en fil som inneholder omtrent 21 000 skrivere, opptar 5 MB. Den kryptografiske hashen brukes for å bekrefte integriteten for nedlastingen.
 
       Filen lastes ned og bufres. Den blir lastet ned på nytt hver gang nettadressen eller hashen endres.
 
-      Hvis denne regelen er aktivert, laster <ph name="PRODUCT_OS_NAME" /> ned filen for skriverkonfigurasjoner og gjør skrivere tilgjengelig i henhold til <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> og <ph name="DEVICE_PRINTERS_BLACKLIST" />.
+      Hvis denne regelen er angitt, laster <ph name="PRODUCT_OS_NAME" /> ned filen for skriverkonfigurasjoner og gjør skrivere tilgjengelig i henhold til <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> og <ph name="DEVICE_PRINTERS_BLACKLIST" />.
 
       Denne regelen påvirker ikke hvorvidt brukere kan konfigurere skrivere på enkeltenheter. Den er ment å supplere konfigurering av skrivere utført av enkeltbrukere.
 
       Denne regelen kommer i tillegg til <ph name="BULK_PRINTERS_POLICY" />.
 
-      Hvis denne regelen deaktiveres, blir ingen skrivere bundet til enheter, og de andre <ph name="DEVICE_PRINTERS_POLICY_PATTERN" />-reglene blir ignorert.</translation>
+      Hvis denne regelen ikke er angitt (er deaktivert), blir ingen skrivere bundet til enheter, og de andre <ph name="DEVICE_PRINTERS_POLICY_PATTERN" />-reglene blir ignorert.</translation>
 <translation id="1608755754295374538">Nettadresser som uten forespørsel blir gitt tilgang til enheter med lydopptak</translation>
 <translation id="1617235075406854669">Gjør det mulig å slette nettleser- og nedlastingslogg</translation>
 <translation id="163200210584085447">Mønstrene på denne listen stilles opp mot sikkerhetskilden
@@ -2182,13 +2182,13 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 <translation id="891435090623616439">kodet som en JSON-streng – se <ph name="COMPLEX_POLICIES_URL" /> for nærmere informasjon</translation>
 <translation id="8927384992072706174">Gir konfigurasjoner for bedriftsskrivere.
 
-      Med denne regelen kan du gi skriverkonfigurasjoner til <ph name="PRODUCT_OS_NAME" />-enheter. Størrelsen på filen må ikke overskride 5 MB og må være i JSON-format. Formatet er det samme som for NativePrinters-ordlisten. Det anslås at en fil som inneholder omtrent 21 000 skrivere, blir lagret som en fil på 5 MB. Den kryptografiske hashen brukes for å bekrefte integriteten for nedlastingen.
+      Med denne regelen kan du gi skriverkonfigurasjoner til <ph name="PRODUCT_OS_NAME" />-enheter. Størrelsen på filen må ikke overskride 5 MB, og den må være i JSON-format. Formatet er det samme som for NativePrinters-ordlisten. Det anslås at en fil som inneholder omtrent 21 000 skrivere, opptar 5 MB. Den kryptografiske hashen brukes for å bekrefte integriteten for nedlastingen.
 
       Filen lastes ned og bufres. Den blir lastet ned på nytt hver gang nettadressen eller hashen endres.
 
-      Hvis denne regelen er aktivert, laster <ph name="PRODUCT_OS_NAME" /> ned filen for skriverkonfigurasjoner og gjør skrivere tilgjengelig i henhold til <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> og <ph name="BULK_PRINTERS_BLACKLIST" />.
+      Hvis denne regelen er angitt, laster <ph name="PRODUCT_OS_NAME" /> ned filen for skriverkonfigurasjoner og gjør skrivere tilgjengelig i henhold til <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> og <ph name="BULK_PRINTERS_BLACKLIST" />.
 
-      Hvis du aktiverer denne regelen, kan ikke brukere endre eller overstyre den.
+      Hvis du angir denne regelen, kan ikke brukere endre eller overstyre den.
 
       Denne regelen har ingen effekt på hvorvidt brukere kan konfigurere skrivere på enkeltenheter. Den er ment å supplere konfigurering av skrivere utført av enkeltbrukere.
       </translation>

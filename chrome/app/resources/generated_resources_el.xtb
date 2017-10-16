@@ -195,6 +195,7 @@
 <translation id="1296497012903089238">Τύπος πιστοποιητικού</translation>
 <translation id="1297175357211070620">Προορισμός</translation>
 <translation id="1297922636971898492">Το Google Drive δεν είναι διαθέσιμο αυτήν τη στιγμή. Η μεταφόρτωση θα ξεκινήσει ξανά, όταν το Google Drive είναι και πάλι διαθέσιμο.</translation>
+<translation id="1300806585489372370">Για να αλλάξετε αυτήν τη ρύθμιση, θα πρέπει πρώτα να <ph name="BEGIN_LINK" />ενεργοποιήσετε τα αναγνωριστικά<ph name="END_LINK" /></translation>
 <translation id="1303101771013849280">Αρχείο σελιδοδεικτών HTML</translation>
 <translation id="1303671224831497365">Δεν βρέθηκαν συσκευές Bluetooth</translation>
 <translation id="1306606229401759371">Αλλαγή ρυθμίσεων</translation>
@@ -318,6 +319,7 @@
 <translation id="1487335504823219454">Ενεργοποίηση - προσαρμοσμένες ρυθμίσεις</translation>
 <translation id="1493892686965953381">Αναμονή για <ph name="LOAD_STATE_PARAMETER" />...</translation>
 <translation id="1495486559005647033"><ph name="NUM_PRINTERS" /> ακόμα διαθέσιμες συσκευές.</translation>
+<translation id="1497284176235884849">Το παρεχόμενο PPD δεν είναι έγκυρο.</translation>
 <translation id="1497522201463361063">Δεν είναι δυνατή η μετονομασία του "<ph name="FILE_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1500297251995790841">Άγνωστη συσκευή [<ph name="VENDOR_ID" />:<ph name="PRODUCT_ID" />]</translation>
 <translation id="1503394326855300303">Αυτός ο λογαριασμός κατόχου θα πρέπει να είναι ο πρώτος συνδεδεμένος λογαριασμός σε μια περίοδο σύνδεσης πολλαπλών συνδέσεων.</translation>
@@ -530,6 +532,7 @@
 <translation id="180035236176489073">Πρέπει να είστε συνδεδεμένοι στο διαδίκτυο για να αποκτήσετε πρόσβαση σε αυτά τα αρχεία.</translation>
 <translation id="1801298019027379214">Εσφαλμένο PIN, δοκιμάστε ξανά. Προσπάθειες που απομένουν: <ph name="TRIES_COUNT" /></translation>
 <translation id="1801827354178857021">Περίοδος</translation>
+<translation id="1802931390041703523">Το Flash αποκλείστηκε σε αυτήν τη σελίδα</translation>
 <translation id="1803545009660609783">Επανεκπαίδευση</translation>
 <translation id="1807938677607439181">Όλα τα αρχεία</translation>
 <translation id="1809734401532861917">Προσθήκη των σελιδοδεικτών, του ιστορικού, των κωδικών πρόσβασης και άλλων ρυθμίσεών μου στον λογαριασμό <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -870,6 +873,7 @@
 <translation id="2350796302381711542">Να επιτρέπεται στο <ph name="HANDLER_HOSTNAME" /> το άνοιγμα όλων των συνδέσμων <ph name="PROTOCOL" /> αντί για το χειριστή <ph name="REPLACED_HANDLER_TITLE" />;</translation>
 <translation id="2351266942280602854">Γλώσσα και εισαγωγή</translation>
 <translation id="2352662711729498748">&lt; 1 MB</translation>
+<translation id="2353297238722298836">Η κάμερα και το μικρόφωνο επιτρέπονται</translation>
 <translation id="2356070529366658676">Να γίνεται ερώτηση</translation>
 <translation id="2357949918965361754">Μπορείτε να χρησιμοποιήσετε αυτήν τη λειτουργία για την προβολή περιεχομένου από το Chrome στην τηλεόραση ή σε άλλες συσκευές σας.</translation>
 <translation id="2359345697448000899">Διαχειριστείτε τις επεκτάσεις σας, κάνοντας κλικ στην επιλογή "Επεκτάσεις" στο μενού "Εργαλεία".</translation>
@@ -1135,6 +1139,7 @@
 <translation id="2755367719610958252">Διαχείριση λειτουργιών προσβασιμότητας</translation>
 <translation id="275662540872599901">η οθόνη απενεργοποιήθηκε</translation>
 <translation id="2756798847867733934">Η κάρτα SIM έχει απενεργοποιηθεί</translation>
+<translation id="2762441749940182211">Η κάμερα έχει αποκλειστεί</translation>
 <translation id="2765217105034171413">Μικρό</translation>
 <translation id="2766006623206032690">Επικό&amp;λληση και μετάβαση</translation>
 <translation id="276969039800130567">Συνδεδεμένος ως <ph name="USER_EMAIL_ADDRESS" />.</translation>
@@ -1525,6 +1530,7 @@
 <translation id="3313622045786997898">Τιμή υπογραφής πιστοποιητικού</translation>
 <translation id="3315158641124845231">Απόκρυψη του <ph name="PRODUCT_NAME" /></translation>
 <translation id="3317459757438853210">Διπλής όψης</translation>
+<translation id="3317678681329786349">Η κάμερα και το μικρόφωνο έχουν αποκλειστεί</translation>
 <translation id="3319048459796106952">Νέο &amp;παράθυρο ανώνυμης περιήγησης</translation>
 <translation id="3320021301628644560">Προσθήκη διεύθυνσης χρέωσης</translation>
 <translation id="3320859581025497771">ο πάροχος σας κινητής τηλεφωνίας</translation>
@@ -1989,6 +1995,7 @@
 <translation id="4022426551683927403">&amp;Προσθήκη στο λεξικό</translation>
 <translation id="4023146161712577481">Καθορισμός διαμόρφωσης συσκευής.</translation>
 <translation id="4027804175521224372">(Απουσιάζετε—<ph name="IDS_SYNC_PROMO_NOT_SIGNED_IN_STATUS_LINK" />)</translation>
+<translation id="4031179711345676612">Επιτρέπεται το μικρόφωνο</translation>
 <translation id="4031910098617850788">F5</translation>
 <translation id="4033471457476425443">Προσθήκη νέου φακέλου</translation>
 <translation id="4034042927394659004">Μείωση φωτεινότητας πλήκτρων</translation>
@@ -2050,6 +2057,7 @@
 <translation id="4120817667028078560">Η διαδρομή είναι πάρα πολύ μεγάλη</translation>
 <translation id="4121428309786185360">Λήγει την</translation>
 <translation id="412730574613779332">Σπάντεξ</translation>
+<translation id="412940972494182898">Εκτέλεση του Flash αυτήν τη φορά</translation>
 <translation id="4130199216115862831">Αρχείο καταγραφής συσκευής</translation>
 <translation id="4130207949184424187">Αυτή η επέκταση άλλαξε τη σελίδα που εμφανίζεται όταν κάνετε αναζήτηση από το κύριο πλαίσιο.</translation>
 <translation id="413121957363593859">Στοιχεία</translation>
@@ -2107,6 +2115,7 @@
 <translation id="4249373718504745892">Αποκλείστηκε η πρόσβαση αυτής της σελίδας στην κάμερα και στο μικρόφωνό σας.</translation>
 <translation id="4250229828105606438">Στιγμιότυπο οθόνης</translation>
 <translation id="4250680216510889253">Όχι</translation>
+<translation id="4252852543720145436">Προστατευμένα αναγνωριστικά περιεχομένου</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" /> - Το περιεχόμενο της καρτέλας είναι κοινόχρηστο</translation>
 <translation id="4253515443406306926">Εφαρμογή εκκίνησης, αποτελέσματα αναζήτησης σε πλήρη οθόνη</translation>
 <translation id="4254813446494774748">Γλώσσα μετάφρασης:</translation>
@@ -2121,6 +2130,7 @@
 <translation id="4270393598798225102">Έκδοση <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Δεν υπάρχουν αντιστοιχίες</translation>
 <translation id="4275830172053184480">Επανεκκινήστε τη συσκευή σας</translation>
+<translation id="4276216215490044084">Δεν είναι δυνατή η φόρτωση μεγάλου PPD. Το μέγιστο μέγεθος είναι 250 KB.</translation>
 <translation id="4278390842282768270">Επιτρέπεται</translation>
 <translation id="4279490309300973883">Κατοπτρισμός</translation>
 <translation id="4281844954008187215">Όροι Παροχής Υπηρεσιών</translation>
@@ -2209,6 +2219,7 @@
 <translation id="4433914671537236274">Δημιουργία μέσου ανάκτησης</translation>
 <translation id="443464694732789311">Συνέχεια</translation>
 <translation id="4439318412377770121">Θέλετε να κάνατε εγγραφή του <ph name="DEVICE_NAME" /> στις Συσκευές Google Cloud;</translation>
+<translation id="4439612350502082674">Δεν είναι δυνατή η προσθήκη του εκτυπωτή. Επανεκκινήστε και δοκιμάστε ξανά.</translation>
 <translation id="4441124369922430666">Θέλετε να ξεκινά αυτόματα αυτή η εφαρμογή όταν η συσκευή τίθεται σε λειτουργία;</translation>
 <translation id="444134486829715816">Ανάπτυξη...</translation>
 <translation id="4441548209689510310">Εμφάνιση επιλογών ορθογραφικού ελέγχου</translation>
@@ -2335,6 +2346,7 @@
 <translation id="4656293982926141856">Αυτός ο υπολογιστής</translation>
 <translation id="4658312088164718891">Καταχωρίστε τον κωδικό πρόσβασης, για να ενεργοποιήσετε το Smart Lock. Την επόμενη φορά, το τηλέφωνό σας θα ξεκλειδώσει το <ph name="DEVICE_TYPE" />. Απενεργοποιήστε το Smart Lock στις Ρυθμίσεις.</translation>
 <translation id="4662788913887017617">Μοιραστείτε αυτόν τον σελιδοδείκτη με το iPhone</translation>
+<translation id="4663373278480897665">Επιτρέπεται η κάμερα</translation>
 <translation id="4664482161435122549">Σφάλμα εξαγωγής PKCS #12</translation>
 <translation id="466481852929361583">Η ασφαλής λειτουργική μονάδα ρυθμίζεται. Η διαδικασία μπορεί να διαρκέσει λίγα λεπτά.</translation>
 <translation id="4665014895760275686">Κατασκευαστής</translation>
@@ -2581,6 +2593,7 @@
 <translation id="5039512255859636053">$1 TB</translation>
 <translation id="5039804452771397117">Επιτρέπεται</translation>
 <translation id="5045550434625856497">Λανθασμένος κωδικός πρόσβασης</translation>
+<translation id="5050042263972837708">Όνομα ομάδας</translation>
 <translation id="5052499409147950210">Επεξεργασία ιστοτόπου</translation>
 <translation id="5053604404986157245">Ο κωδικός πρόσβασης TPM που δημιουργήθηκε τυχαία δεν είναι διαθέσιμος. Αυτό είναι φυσιολογικό μετά το Powerwash.</translation>
 <translation id="5061347216700970798">{NUM_BOOKMARKS,plural, =1{Αυτός ο φάκελος περιέχει έναν σελιδοδείκτη. Είστε βέβαιοι ότι θέλετε να τον διαγράψετε;}other{Αυτός ο φάκελος περιέχει # σελιδοδείκτες. Είστε βέβαιοι ότι θέλετε να τους διαγράψετε;}}</translation>
@@ -3175,6 +3188,7 @@
 <translation id="5972708806901999743">Μετακίνηση στην κορυφή</translation>
 <translation id="5972826969634861500">Έναρξη του <ph name="PRODUCT_NAME" /></translation>
 <translation id="5975083100439434680">Σμίκρυνση</translation>
+<translation id="5975730206036440725">Δεν είναι δυνατή η εύρεση του PPD. Βεβαιωθείτε ότι το Chromebook σας είναι συνδεδεμένο και δοκιμάστε ξανά.</translation>
 <translation id="5975792506968920132">Ποσοστό φόρτισης μπαταρίας</translation>
 <translation id="5976160379964388480">Άλλα</translation>
 <translation id="5978264784700053212">Κέντρο μηνυμάτων</translation>
@@ -3420,6 +3434,7 @@
 <translation id="6374077068638737855">Iceweasel</translation>
 <translation id="6374108032506706911">Ρυθμίστε το Smart Lock για το Android</translation>
 <translation id="6374469231428023295">Δοκιμάστε ξανά</translation>
+<translation id="6377158645544167202">Δεν είναι δυνατή η σύνδεση του εκτυπωτή. Βεβαιωθείτε ότι ο εκτυπωτής είναι ενεργοποιημένος και ότι είναι συνδεδεμένος στο Chromebook μέσω Wi-Fi ή USB.</translation>
 <translation id="6380143666419481200">Αποδοχή και συνέχεια</translation>
 <translation id="6383051423892982287">Κρυπτογράφηση συγχρονισμένων δεδομένων με τη δική σας <ph name="BEGIN_LINK" />φράση πρόσβασης συγχρονισμού<ph name="END_LINK" /></translation>
 <translation id="6384275966486438344">Αλλαγή των ρυθμίσεων αναζήτησης σε: <ph name="SEARCH_HOST" /></translation>
@@ -3784,6 +3799,7 @@
 <translation id="6948064128393024347">Εφαρμογή εκκίνησης, αποτελέσματα αναζήτησης</translation>
 <translation id="6949306908218145636">Δημιουργία σελιδοδεικτών για όλες τις ανοικτές σελίδες…</translation>
 <translation id="6955446738988643816">Έλεγχος αναδυόμενου παραθύρου</translation>
+<translation id="6957231940976260713">Όνομα υπηρεσίας</translation>
 <translation id="695755122858488207">Μη επιλεγμένο κουμπί επιλογής</translation>
 <translation id="696203921837389374">Ενεργοποίηση συγχρονισμού μέσω δεδομένων κινητής τηλεφωνίας</translation>
 <translation id="6964390816189577014">Ήρωας</translation>
@@ -4006,6 +4022,7 @@
 <translation id="729761647156315797">Επιλέξτε γλώσσα και πληκτρολόγιο</translation>
 <translation id="7299337219131431707">Ενεργοποίηση περιήγησης Επισκέπτη</translation>
 <translation id="730515362922783851">Ανταλλαγή δεδομένων με οποιαδήποτε συσκευή στο τοπικό δίκτυο ή το διαδίκτυο</translation>
+<translation id="7308002049209013926">Χρησιμοποιήστε την Εφαρμογή εκκίνησης, για να μεταβείτε γρήγορα σε νέες εφαρμογές και δραστηριότητες. Για να μεταβείτε εδώ από το πληκτρολόγιο, πατήστε Alt + Shift + L.</translation>
 <translation id="7309257895202129721">Εμφάνιση &amp;στοιχείων ελέγχου</translation>
 <translation id="7311079019872751559">Πρόσβαση σε προσθήκη εκτός περιβάλλοντος δοκιμών</translation>
 <translation id="7311891583377621132">Μετακινήστε ελαφρώς για να αποτυπώσετε ένα διαφορετικό τμήμα του δακτυλικού αποτυπώματος</translation>
@@ -4518,6 +4535,7 @@
 <translation id="8116190140324504026">Περισσότερες πληροφορίες...</translation>
 <translation id="8116925261070264013">Σε σίγαση</translation>
 <translation id="8116972784401310538">&amp;Διαχείριση σελιδοδεικτών</translation>
+<translation id="8117620576188476503">Διαχειριστείτε συνδέσεις, ενημερώσεις και ρυθμίσεις από την περιοχή κατάστασης. Για να μεταβείτε εδώ από το πληκτρολόγιο, πατήστε Alt + Shift + S.</translation>
 <translation id="8118362518458010043">Απενεργοποιήθηκε από το Chrome. Αυτή η επέκταση μπορεί να μην είναι ασφαλής.</translation>
 <translation id="8118860139461251237">Διαχείριση των λήψεών σας</translation>
 <translation id="81238879832906896">Κίτρινο και λευκό λουλούδι</translation>
@@ -4664,6 +4682,7 @@
 <translation id="8357224663288891423">Συντομεύσεις πληκτρολογίου για επεκτάσεις και εφαρμογές</translation>
 <translation id="8358685469073206162">Να γίνει επαναφορά σελίδων;</translation>
 <translation id="8363095875018065315">σταθερό</translation>
+<translation id="8363142353806532503">Το μικρόφωνο αποκλείστηκε</translation>
 <translation id="8366396658833131068">Αποκαταστάθηκε η συνδεσιμότητα δικτύου. Επιλέξτε κάποιο άλλο δίκτυο ή πατήστε το κουμπί "Συνέχεια" παρακάτω, για να εκκινήσετε την εφαρμογή kiosk.</translation>
 <translation id="8366947248864804596">Όταν το τηλέφωνό σας είναι ξεκλειδωμένο και σε κοντινή απόσταση, απλώς επιλέξτε για ξεκλείδωμα. Διαφορετικά, καταχωρίστε τον κωδικό πρόσβασης ή το PIN.</translation>
 <translation id="8368859634510605990">Ά&amp;νοιγμα όλων των σελιδοδεικτών</translation>
@@ -4845,6 +4864,7 @@
 <translation id="8671210955687109937">Δυνατότητα σχολιασμού</translation>
 <translation id="8673026256276578048">Αναζήτηση στον Ιστό...</translation>
 <translation id="8673383193459449849">Πρόβλημα διακομιστή</translation>
+<translation id="8675354002693747642">Ήδη κοινόχρηστο κλειδί</translation>
 <translation id="8676374126336081632">Διαγραφή καταχώρισης</translation>
 <translation id="8677039480012021122">Διαγραφή δεδομένων και αποσύνδεση</translation>
 <translation id="8677212948402625567">Σύμπτυξη όλων...</translation>
@@ -5034,6 +5054,7 @@
 <translation id="8973557916016709913">Κατάργηση επιπέδου εστίασης</translation>
 <translation id="8973596347849323817">Μπορείτε να προσαρμόσετε αυτήν τη συσκευή σύμφωνα με τις ανάγκες σας. Οι λειτουργίες προσβασιμότητας μπορούν να τροποποιηθούν αργότερα από τις Ρυθμίσεις.</translation>
 <translation id="897414447285476047">Το αρχείο προορισμού ήταν ελλιπές λόγω ενός προβλήματος σύνδεσης.</translation>
+<translation id="8976520271376534479">Το Flash αποκλείστηκε σε αυτήν τη σελίδα.</translation>
 <translation id="8977811652087512276">Εσφαλμένος κωδικός πρόσβασης ή κατεστραμμένο αρχείο</translation>
 <translation id="8978154919215542464">Ενεργό - συγχρονισμός όλων</translation>
 <translation id="8978526688207379569">Αυτός ο ιστότοπος κατέβασε αυτόματα πολλά αρχεία.</translation>

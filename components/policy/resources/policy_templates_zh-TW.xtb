@@ -87,7 +87,7 @@
 <translation id="1363275621236827384">允許在 Quirks Server 中查詢硬體設定檔</translation>
 <translation id="1393485621820363363">已啟用企業裝置印表機</translation>
 <translation id="1397855852561539316">預設搜尋引擎建議網址</translation>
-<translation id="1420281424655200442">控制要開放 <ph name="DEVICE_PRINTERS_POLICY" /> 中哪些印表機供使用者使用。
+<translation id="1420281424655200442">根據 <ph name="DEVICE_PRINTERS_POLICY" /> 設定哪些印表機是可供使用的。
 
       指派用於大量印表機設定的存取權政策。如果選取 <ph name="PRINTERS_ALLOW_ALL" />，系統會顯示所有印表機。如果選取 <ph name="PRINTERS_BLACKLIST" />，系統會使用 <ph name="DEVICE_PRINTERS_BLACKLIST" /> 限制對特定印表機的存取權。如果選取 <ph name="PRINTERS_WHITELIST" />，<ph name="DEVICE_PRINTERS_WHITELIST" /> 只會指派可選取的印表機。
 
@@ -112,6 +112,11 @@
 
       如未設定這項政策，系統將會對受企業管理的使用者套用預設值「MultiProfileUserBehaviorMustBePrimary」，並對不屬於管理化環境的使用者使用「MultiProfileUserBehaviorUnrestricted」。</translation>
 <translation id="1465619815762735808">點擊執行</translation>
+<translation id="1466133662354365542">啟用「<ph name="PRODUCT_NAME" />」的自動填入功能，並允許使用者使用先前儲存的信用卡和地址資訊自動填寫網路表單。
+
+      如果你停用這項設定，自動填入功能就無法提出填寫建議或填入信用卡資訊，也無法儲存使用者在瀏覽網路時提交的其他信用卡資訊。
+
+      如果你啟用這項設定或未設定任何值，使用者就能透過 UI 完全掌控自動填入功能 (包含信用卡)。</translation>
 <translation id="1468307069016535757">設定高反差模式協助功能在登入畫面的預設狀態。
 
           如果你將這項政策設為 True，系統將在顯示登入畫面時啟用高反差模式。
@@ -266,7 +271,7 @@
 <translation id="2030905906517501646">預設搜尋引擎關鍵字</translation>
 <translation id="203096360153626918">這項政策對 Android 應用程式沒有影響。即使將這項政策設為 <ph name="FALSE" />，Android 應用程式仍可進入全螢幕模式。</translation>
 <translation id="2043770014371753404">停用的企業印表機</translation>
-<translation id="2063380907529983889">控制要開放 <ph name="BULK_PRINTERS_POLICY" /> 中哪些印表機供使用者使用。
+<translation id="2063380907529983889">根據 <ph name="BULK_PRINTERS_POLICY" /> 設定哪些印表機是可供使用的。
 
       指派用於大量印表機設定的存取權政策。如果選取 <ph name="PRINTERS_ALLOW_ALL" />，系統會顯示所有印表機。如果選取 <ph name="PRINTERS_BLACKLIST" />，系統會使用 <ph name="BULK_PRINTERS_BLACKLIST" /> 限制對特定印表機的存取權。如果選取 <ph name="PRINTERS_WHITELIST" />，<ph name="BULK_PRINTERS_WHITELIST" /> 只會指派可選取的印表機。
 
@@ -361,6 +366,7 @@
 <translation id="2294382669900758280">即使將這項政策設為 <ph name="TRUE" />，在 Android 應用程式中播放的影片仍不會受到影響。</translation>
 <translation id="2298647742290373702">設定 <ph name="PRODUCT_NAME" /> 的預設新分頁。</translation>
 <translation id="2299220924812062390">指定停用的外掛程式清單</translation>
+<translation id="2303795211377219696">啟用信用卡的自動填入功能</translation>
 <translation id="2309390639296060546">預設地理位置設定</translation>
 <translation id="2312134445771258233">允許你設定起始時載入的網頁。系統會略過 [起始時開啟的網址] 網頁清單內容，除非你在 [起始動作] 中選取 [開啟網址清單]。</translation>
 <translation id="2337466621458842053">允許你設定網址模式清單，指定可以顯示圖片的網站。如果未設定這項政策，系統會從「DefaultImagesSetting」政策 (如果有設定的話) 或使用者的個人設定，將通用預設值套用至所有網站。</translation>
@@ -1106,6 +1112,7 @@
           這個值必須是字串化的 JSON 字典陣列。每個字典的格式都必須是 { "pattern": "$URL_PATTERN", "filter" : $FILTER } (其中的 $URL_PATTERN 是內容設定模式，$FILTER 則限定瀏覽器自動選取的用戶端憑證)。無論是否設定篩選條件，瀏覽器只會選取符合伺服器憑證要求的憑證。如果 $FILTER 的格式為 { "ISSUER": { "CN": "$ISSUER_CN" } }，則瀏覽器只會選取 CommonName 為 $ISSUER_CN 的憑證所核發的用戶端憑證。如果 $FILTER 是空白的字典 {}，那麼瀏覽器在選擇客戶端憑證時就不會受到額外限制。
 
           如果未設定這項政策，系統將不會為任何網站自動選取憑證。</translation>
+<translation id="4978405676361550165">如果設定了「OffHours」政策，系統會在指定的時間間隔忽略特定裝置政策 (採用這些政策的預設設定)。Chrome 會在「OffHours」期間開始或結束時，為所有事件重新套用裝置政策。系統會通知使用者，並強制使用者在「OffHours」時間結束以及裝置政策設定變更時 (也就是使用者登入未受到允許的帳戶時) 登出。</translation>
 <translation id="4980635395568992380">資料類型：</translation>
 <translation id="4983201894483989687">允許執行過舊的外掛程式</translation>
 <translation id="4988291787868618635">在達到閒置延遲時間時要採取的動作</translation>
@@ -1365,6 +1372,53 @@
 
       如果你停用這項政策或將其設為 False，列印指令就會啟動列印預覽畫面。</translation>
 <translation id="6022948604095165524">起始動作</translation>
+<translation id="6023030044732320798">指定要遞交至 ARC 執行階段的一系列政策。政策值必須是有效的 JSON。
+
+      這項政策可用於指定要自動在裝置上安裝哪些 Android 應用程式：
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android 應用程式 ID，例如：Gmail 的應用程式 ID 為「com.google.android.gm」",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "指定應用程式的安裝方式。OPTIONAL：系統不會自動安裝應用程式，但使用者可以自行安裝。如果未指定這項政策，則此為預設安裝方式。PRELOAD：系統會自動安裝應用程式，但使用者可以解除安裝。FORCE_INSTALLED：系統會自動安裝應用程式，且使用者無法解除安裝。BLOCKED：應用程式遭到封鎖且無法安裝。如果應用程式是依據先前政策所安裝，系統將解除安裝該應用程式。",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "設定政策來授予應用程式所要求的權限。PERMISSION_POLICY_UNSPECIFIED：未指定政策。如果未針對任何層級的權限指定政策，則將使用「PROMPT」做為預設行為。PROMPT：提示使用者授予權限。GRANT：自動授予權限。DENY：自動拒絕授予權限。",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "應用程式專屬的 JSON 設定物件及一個鍵/值組合，例如「"managedConfiguration": { "key1": value1, "key2": value2 }」。應用程式的資訊清單中會定義這些鍵。",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      如要將應用程式固定在啟動器中，請參閱 PinnedLauncherApps。</translation>
 <translation id="602728333950205286">預設搜尋引擎互動智慧搜尋網址</translation>
 <translation id="603410445099326293">使用 POST 的建議網址參數</translation>
 <translation id="6036523166753287175">允許遠端存取主機穿越防火牆</translation>
@@ -1465,11 +1519,11 @@
           如果選擇 .pac Proxy 指令碼，系統會提供該指令碼網址給 Android 應用程式。</translation>
 <translation id="6491139795995924304">允許在裝置上使用藍牙功能</translation>
 <translation id="6520802717075138474">第一次執行時從預設瀏覽器匯入搜尋引擎</translation>
-<translation id="6525955212636890608">如果啟用這項設定，在已設為允許 Flash 內容 (無論是由使用者或根據公司政策所設定) 的網站上，系統會執行所有內嵌的 Flash 內容，包括來自其他來源或較小的內容。
+<translation id="6525955212636890608">如果啟用這項設定，在已設為允許 Flash 內容 (無論是由使用者或根據公司政策所設定) 的網站上，系統會執行所有內嵌的 Flash 內容，包括來自其他來源的內容或檔案較小的內容。
 
       如要控制哪些網站可執行 Flash，請查看「DefaultPluginsSetting」、「PluginsAllowedForUrls」和「PluginsBlockedForUrls」政策。
 
-      如果這項設定已停用或尚未設定，系統可能會封鎖來自其他來源的 Flash 內容或較小的內容。</translation>
+      如果這項設定已停用或尚未設定，系統可能會封鎖來自其他來源的 Flash 內容或檔案較小的內容。</translation>
 <translation id="653608967792832033">指定時間長度，如果系統在電池供電環境下執行且未偵測到使用者輸入行為，就會在這段時間過後鎖定螢幕。
 
           如果你將這項政策設為大於 0 以上的值，表示使用者必須維持該值所指定的時間長度後，<ph name="PRODUCT_OS_NAME" /> 才會鎖定螢幕。

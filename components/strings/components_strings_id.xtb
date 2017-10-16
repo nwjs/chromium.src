@@ -393,6 +393,7 @@
 <translation id="3778403066972421603">Ingin menyimpan kartu ini di Akun Google dan perangkat ini?</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3787705759683870569">Masa berlaku <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
+<translation id="3808375843007691220">Peringatan: Anda akan mengakses fitur eksperimental!</translation>
 <translation id="382518646247711829">Jika Anda menggunakan server proxy...</translation>
 <translation id="3828924085048779000">Frasa sandi kosong tidak dibolehkan.</translation>
 <translation id="385051799172605136">Mundur</translation>
@@ -448,6 +449,7 @@
 <translation id="4269787794583293679">(Tidak ada nama pengguna)</translation>
 <translation id="4275830172053184480">Mulai ulang perangkat Anda</translation>
 <translation id="4280429058323657511">, kedaluwarsa <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4292213515608230699">Tidak ada eksperimen yang cocok</translation>
 <translation id="4304224509867189079">Log In</translation>
 <translation id="4312866146174492540">Blokir (default)</translation>
 <translation id="4325863107915753736">Gagal menemukan artikel</translation>
@@ -518,6 +520,7 @@
 <translation id="495170559598752135">Tindakan</translation>
 <translation id="4958444002117714549">Luaskan daftar</translation>
 <translation id="4974590756084640048">Aktifkan kembali peringatan</translation>
+<translation id="4989542687859782284">Tidak Tersedia</translation>
 <translation id="4989809363548539747">Plugin ini tidak didukung</translation>
 <translation id="5002932099480077015">Jika diaktifkan, Chrome akan menyimpan salinan kartu Anda di perangkat ini untuk pengisian formulir yang lebih cepat.</translation>
 <translation id="5018422839182700155">Tidak dapat membuka halaman ini</translation>
@@ -571,6 +574,7 @@
 <translation id="5355557959165512791">Anda tidak dapat membuka <ph name="SITE" /> sekarang karena sertifikatnya telah dicabut. Error jaringan dan serangan biasanya bersifat sementara, sehingga halaman ini mungkin akan berfungsi nanti.</translation>
 <translation id="536296301121032821">Gagal menyimpan setelan kebijakan</translation>
 <translation id="5386426401304769735">Rantai sertifikat untuk situs ini berisi sertifikat yang ditandatangani menggunakan SHA-1.</translation>
+<translation id="5401815295726769233">Telusuri tanda</translation>
 <translation id="5402410679244714488">Kedaluwarsa: <ph name="EXPIRATION_DATE_ABBR" />, terakhir digunakan lebih dari setahun yang lalu</translation>
 <translation id="540969355065856584">Server ini tidak dapat membuktikan bahwa ini adalah <ph name="DOMAIN" />; sertifikat keamanannya saat ini tidak valid. Hal ini mungkin disebabkan oleh kesalahan konfigurasi atau ada penyerang yang mengganggu sambungan internet Anda.</translation>
 <translation id="5421136146218899937">Hapus data browsing...</translation>
@@ -623,6 +627,7 @@
 <translation id="5732392974455271431">Orang tua dapat membuka blokirnya untukmu</translation>
 <translation id="5763042198335101085">Masukkan alamat email yang valid</translation>
 <translation id="5765072501007116331">Untuk melihat persyaratan dan metode pengiriman, pilih alamat</translation>
+<translation id="5770114862687765385">File tersebut sepertinya rusak. Klik tombol 'Setel Ulang' untuk menyetel ulang sesi.</translation>
 <translation id="5778550464785688721">Kontrol penuh perangkat MIDI</translation>
 <translation id="5784606427469807560">Terjadi masalah saat mengonfirmasi kartu. Periksa sambungan internet Anda dan coba lagi.</translation>
 <translation id="5785756445106461925">Selain itu, halaman ini berisi sumber daya lainnya yang tidak aman. Sumber daya ini dapat dilihat oleh orang lain saat transit dan dapat dimodifikasi oleh penyerang untuk mengubah tampilan perangkat.</translation>
@@ -636,6 +641,7 @@
 <translation id="5869522115854928033">Sandi tersimpan</translation>
 <translation id="5893752035575986141">Kartu kredit diterima.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (disinkronkan)</translation>
+<translation id="5909194079078764042">Dengan mengaktifkan fitur ini, Anda dapat kehilangan data browsing atau membahayakan keamanan atau privasi Anda. Fitur yang diaktifkan berlaku bagi semua pengguna browser ini.</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 terpakai}other{# terpakai}}</translation>
 <translation id="5939518447894949180">Setel ulang</translation>
 <translation id="5959728338436674663">Kirim beberapa <ph name="BEGIN_WHITEPAPER_LINK" />informasi sistem dan konten halaman<ph name="END_WHITEPAPER_LINK" /> secara otomatis ke Google untuk membantu mendeteksi aplikasi dan situs berbahaya. <ph name="PRIVACY_PAGE_LINK" /></translation>
@@ -683,6 +689,7 @@
 <translation id="6305205051461490394"><ph name="URL" /> tidak dapat dijangkau.</translation>
 <translation id="6319915415804115995">Terakhir digunakan lebih dari setahun yang lalu</translation>
 <translation id="6321917430147971392">Periksa setelan DNS Anda</translation>
+<translation id="6325286409953503969">Tertarik dengan fitur Chrome yang baru dan keren? Coba <ph name="BEGIN_LINK" />saluran dev<ph name="END_LINK" /> kami.</translation>
 <translation id="6328639280570009161">Coba nonaktifkan prediksi jaringan</translation>
 <translation id="6328786501058569169">Situs ini bersifat menipu</translation>
 <translation id="6337133576188860026">Sediakan ruang kurang dari <ph name="SIZE" />. Beberapa situs mungkin dimuat lebih lambat saat dibuka lagi.</translation>
@@ -785,6 +792,7 @@
 <translation id="7298195798382681320">Direkomendasikan</translation>
 <translation id="7309308571273880165">Laporan kerusakan diambil pada <ph name="CRASH_TIME" /> (upload yang diminta pengguna, belum diupload)</translation>
 <translation id="7334320624316649418">&amp;Ulangi pengaturan ulang</translation>
+<translation id="7337706099755338005">Tidak tersedia di platform Anda.</translation>
 <translation id="733923710415886693">Sertifikat server tidak diungkapkan melalui Transparansi Sertifikat.</translation>
 <translation id="7353601530677266744">Baris Perintah</translation>
 <translation id="7372973238305370288">hasil penelusuran</translation>
@@ -792,6 +800,7 @@
 <translation id="7378627244592794276">Tidak</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">Konfirmasi Kartu</translation>
+<translation id="739697976928952788">Tampilkan semua Sandi Tersimpan</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7419106976560586862">Jalur Profil</translation>
 <translation id="7424977062513257142">Laman tersemat di halaman web ini menyatakan:</translation>
@@ -838,6 +847,7 @@
 <translation id="7668654391829183341">Perangkat tidak dikenal</translation>
 <translation id="7669271284792375604">Penyerang di situs ini mungkin berusaha mengelabui Anda agar memasang program yang dapat membahayakan pengalaman menjelajah Anda (misalnya dengan mengubah beranda Anda atau menayangkan iklan ekstra pada situs yang dikunjungi).</translation>
 <translation id="7682287625158474539">Pengiriman</translation>
+<translation id="7695552107151968219">Tertarik dengan fitur Chrome yang baru dan keren? Coba <ph name="BEGIN_LINK" />saluran beta<ph name="END_LINK" /> kami.</translation>
 <translation id="7699293099605015246">Artikel tidak tersedia untuk saat ini</translation>
 <translation id="7701040980221191251">Tidak ada</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Lanjutkan ke <ph name="SITE" /> (tidak aman)<ph name="END_LINK" /></translation>

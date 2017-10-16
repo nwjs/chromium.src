@@ -2058,7 +2058,7 @@ Fra <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4163560723127662357">Ukjent tastatur</translation>
 <translation id="4166210099837486476">overvåke når du utfører handlinger i Chrome</translation>
 <translation id="4168015872538332605">Noen innstillinger som tilhører <ph name="PRIMARY_EMAIL" /> blir delt med deg. Disse innstillingene påvirker bare kontoen din når du bruker multipålogging.</translation>
-<translation id="4170314459383239649">Tøm ved avslutning</translation>
+<translation id="4170314459383239649">Slett ved avslutning</translation>
 <translation id="4172051516777682613">Vis alltid</translation>
 <translation id="4175737294868205930">Permanent lagring</translation>
 <translation id="4176463684765177261">Deaktivert</translation>
@@ -3261,7 +3261,7 @@ Trykk på en tast for å fortsette økten.</translation>
 <translation id="6133173853026656527">Flytter <ph name="FILE_NAME" /> ...</translation>
 <translation id="6135622770221372891">ID-er for kanal</translation>
 <translation id="6136285399872347291">tilbake</translation>
-<translation id="6137767437444130246">Klientsertifikat</translation>
+<translation id="6137767437444130246">Brukersertifikat</translation>
 <translation id="6138680304137685902">X9.62 ECDSA-signatur med SHA-384</translation>
 <translation id="6143186082490678276">Få hjelp</translation>
 <translation id="6144938890088808325">Hjelp oss med å forbedre Chromebook</translation>
@@ -4553,7 +4553,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8206354486702514201">Denne innstillingen håndheves av administratoren din.</translation>
 <translation id="8206745257863499010">Plystre</translation>
 <translation id="8209677645716428427">En administrert bruker kan utforske nettet med veiledning fra deg. Som administrator for en administrert bruker i Chrome kan du:</translation>
-<translation id="8213449224684199188">Fotomodusen er aktivert</translation>
+<translation id="8213449224684199188">Fotomodus er aktivert</translation>
 <translation id="8213577208796878755">Én annen tilgjengelig enhet.</translation>
 <translation id="8214489666383623925">Åpne fil</translation>
 <translation id="8214962590150211830">Fjern denne personen</translation>

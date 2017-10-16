@@ -393,6 +393,7 @@
 <translation id="3778403066972421603">‏هل تريد حفظ هذه البطاقة في حسابك في Google وعلى هذا الجهاز؟</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3787705759683870569">تنتهي في <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
+<translation id="3808375843007691220">تحذير: الميزات التجريبية في انتظارك!</translation>
 <translation id="382518646247711829">إذا كنت تستخدم خادمًا وكيلاً...</translation>
 <translation id="3828924085048779000">غير مسموح باستخدام عبارة مرور فارغة.</translation>
 <translation id="385051799172605136">الرجوع إلى الوراء</translation>
@@ -448,6 +449,7 @@
 <translation id="4269787794583293679">(اسم المستخدم غير موجود)</translation>
 <translation id="4275830172053184480">إعادة تشغيل جهازك</translation>
 <translation id="4280429058323657511">، تاريخ انتهاء الصلاحية <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4292213515608230699">لم يتم العثور على تجارب متطابقة.</translation>
 <translation id="4304224509867189079">تسجيل الدخول</translation>
 <translation id="4312866146174492540">حظر (افتراضي)</translation>
 <translation id="4325863107915753736">تعذّر العثور على المقالة</translation>
@@ -518,6 +520,7 @@
 <translation id="495170559598752135">إجراءات</translation>
 <translation id="4958444002117714549">توسيع القائمة</translation>
 <translation id="4974590756084640048">إعادة تمكين التحذيرات</translation>
+<translation id="4989542687859782284">غير متاحة</translation>
 <translation id="4989809363548539747">هذا المكوِّن الإضافي غير مدعوم</translation>
 <translation id="5002932099480077015">‏إذا تم التمكين، سيخزن Chrome نسخة من بطاقتك على هذا الجهاز لملء النموذج بشكل أسرع.</translation>
 <translation id="5018422839182700155">يتعذّر فتح هذه الصفحة</translation>
@@ -571,6 +574,7 @@
 <translation id="5355557959165512791">لا يمكنك زيارة <ph name="SITE" /> الآن لأنه تم إبطال شهادته. أخطاء الشبكة والهجمات عليها عادةً ما تكون مؤقتة، لذا ستعمل هذه الصفحة في وقت على الأرجح.</translation>
 <translation id="536296301121032821">تعذّر تخزين إعدادات السياسة</translation>
 <translation id="5386426401304769735">‏تتضمن سلسلة الشهادات لهذا الموقع شهادة موقعة باستخدام SHA-1.</translation>
+<translation id="5401815295726769233">علامات البحث</translation>
 <translation id="5402410679244714488">تاريخ انتهاء الصلاحية: <ph name="EXPIRATION_DATE_ABBR" />، تم استخدامها آخر مرة قبل أكثر من عام</translation>
 <translation id="540969355065856584">لم يتمكن هذا الخادم من إثبات أنه <ph name="DOMAIN" />؛ بل إن شهادة الأمان الخاصة به غير صالحة حاليًا. وربما يكون السبب في ذلك وجود خطأ في التكوين أو اعترض أحد المهاجمين للاتصال.</translation>
 <translation id="5421136146218899937">محو بيانات التصفح...</translation>
@@ -623,6 +627,7 @@
 <translation id="5732392974455271431">يمكن لوالديك إلغاء الحظر لك</translation>
 <translation id="5763042198335101085">أدخِل عنوان بريد إلكتروني صحيحًا</translation>
 <translation id="5765072501007116331">لعرض طرق التسليم ومتطلباته، حدِّد عنوانًا</translation>
+<translation id="5770114862687765385">يبدو أن الملف تالف. انقر على الزر "إعادة تعيين" لإعادة تعيين الجلسة.</translation>
 <translation id="5778550464785688721">‏التحكم الكامل في MIDI</translation>
 <translation id="5784606427469807560">حدثت مشكلة أثناء التأكد من بطاقتك. تحقق من اتصالك بالإنترنت وأعد المحاولة.</translation>
 <translation id="5785756445106461925">إضافة إلى ذلك، تتضمن هذه الصفحة موارد أخرى غير آمنة. ويستطيع الآخرون مشاهدة هذه الموارد أثناء نقلها، كما يستطيع أي مهاجم تعديلها لتغيير مظهر الصفحة.</translation>
@@ -636,6 +641,7 @@
 <translation id="5869522115854928033">كلمات المرور المحفوظة</translation>
 <translation id="5893752035575986141">يتم قبول بطاقات الائتمان.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (تمت المزامنة)</translation>
+<translation id="5909194079078764042">من خلال تمكين هذه الميزات، قد تفقد بيانات المتصفح أو تتعرض لاختراق أمانك أو خصوصيتك. ويتم تطبيق الميزات الممكّنة على جميع مستخدمي هذا المتصفح.</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 قيد الاستخدام}zero{# قيد الاستخدام}two{# قيد الاستخدام}few{# قيد الاستخدام}many{# قيد الاستخدام}other{# قيد الاستخدام}}</translation>
 <translation id="5939518447894949180">إعادة</translation>
 <translation id="5959728338436674663">‏يمكنك إرسال بعض <ph name="BEGIN_WHITEPAPER_LINK" />معلومات النظام ومحتوى الصفحة<ph name="END_WHITEPAPER_LINK" /> إلى Google تلقائيًا للمساعدة في اكتشاف التطبيقات والمواقع الضارة. <ph name="PRIVACY_PAGE_LINK" /></translation>
@@ -683,6 +689,7 @@
 <translation id="6305205051461490394">يتعذر الوصول إلى <ph name="URL" />.</translation>
 <translation id="6319915415804115995">تم استخدامها آخر مرة قبل أكثر من عام</translation>
 <translation id="6321917430147971392">التحقق من إعدادات نظام أسماء النطاقات</translation>
+<translation id="6325286409953503969">‏هل أنت مهتم بميزات Chrome الجديدة والرائعة؟ يمكنك تجربة <ph name="BEGIN_LINK" />قناة مطوري البرامج<ph name="END_LINK" />.</translation>
 <translation id="6328639280570009161">تجربة تعطيل التنبؤ بإجراءات الشبكة</translation>
 <translation id="6328786501058569169">هذا الموقع مخادع</translation>
 <translation id="6337133576188860026">يوفِّر أقل من <ph name="SIZE" />. وقد يتم تحميل بعض مواقع الويب بشكل أبطأ عند زيارتها في المرة القادمة.</translation>
@@ -785,6 +792,7 @@
 <translation id="7298195798382681320">موصى بها</translation>
 <translation id="7309308571273880165">تقرير الأعطال الذي تم الحصول عليه في <ph name="CRASH_TIME" /> (التحميل مطلوب بواسطة المستخدم، لم يتم التحميل بعد)</translation>
 <translation id="7334320624316649418">إعادة إ&amp;جراء الترتيب</translation>
+<translation id="7337706099755338005">غير متاحة على نظامك الأساسي.</translation>
 <translation id="733923710415886693">لم يتم الكشف عن شهادة الخادم عن طريق شهادة الشفافية.</translation>
 <translation id="7353601530677266744">سطر الأوامر</translation>
 <translation id="7372973238305370288">نتيجة البحث</translation>
@@ -792,6 +800,7 @@
 <translation id="7378627244592794276">لا</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">التأكد من البطاقة</translation>
+<translation id="739697976928952788">عرض جميع كلمات المرور المحفوظة</translation>
 <translation id="7400418766976504921">‏عنوان URL</translation>
 <translation id="7419106976560586862">مسار الملف الشخصي</translation>
 <translation id="7424977062513257142">صفحة مُضمنة في صفحة الويب هذه تعرض:</translation>
@@ -838,6 +847,7 @@
 <translation id="7668654391829183341">جهاز غير معروف</translation>
 <translation id="7669271284792375604">قد يحاول المهاجمون في هذا الموقع خداعك من خلال تثبيت برامج تضر بتجربة التصفح (على سبيل المثال، من خلال تغيير صفحتك الرئيسية أو عرض إعلانات إضافية على المواقع التي تزورها).</translation>
 <translation id="7682287625158474539">الشحن</translation>
+<translation id="7695552107151968219">‏هل أنت مهتم بميزات Chrome الجديدة والرائعة؟ يمكنك تجربة <ph name="BEGIN_LINK" />القناة التجريبية<ph name="END_LINK" />.</translation>
 <translation id="7699293099605015246">المقالات غير متاحة الآن</translation>
 <translation id="7701040980221191251">بلا</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />متابعة إلى <ph name="SITE" /> (غير آمن)<ph name="END_LINK" /></translation>

@@ -112,6 +112,11 @@
 
       Ha a házirend nincs beállítva, akkor a vállalat által felügyelt felhasználókra a „MultiProfileUserBehaviorMustBePrimary” alapértelmezett érték vonatkozik, a nem felügyelt felhasználókra pedig a „MultiProfileUserBehaviorUnrestricted” érték vonatkozik.</translation>
 <translation id="1465619815762735808">Kattintson a lejátszáshoz</translation>
+<translation id="1466133662354365542">Engedélyezi a <ph name="PRODUCT_NAME" /> automatikus kitöltés funkcióját, és lehetővé teszi a felhasználók számára az internetes űrlapok automatikus kitöltését korábban eltárolt címekkel és hitelkártyaadatokkal.
+
+      Ha letiltja ezt a beállítást, az automatikus kitöltés funkció nem ajánlja fel és nem végzi el a hitelkártyaadatok kitöltését, és nem ment további hitelkártyaadatokat, amelyeket a felhasználó az interneten való böngészés közben ad meg.
+
+      Ha engedélyezi ezt a beállítást, vagy nem állítja be az értékét, a használó a teljes automatikus kitöltés funkciót (beleértve a hitelkártyákat is) vezérelheti a kezelőfelületen.</translation>
 <translation id="1468307069016535757">A nagy kontrasztú mód kisegítő lehetőség alapértelmezett állapotának beállítása a bejelentkezési képernyőn.
 
           Ha a házirend értéke igaz, akkor a nagy kontrasztú mód engedélyezett lesz a bejelentkezési képernyő megjelenítésekor.
@@ -360,6 +365,7 @@
 <translation id="2294382669900758280">Az androidos alkalmazásokban való videólejátszást a rendszer akkor is figyelmen kívül hagyja, ha a házirend beállítása <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Az alapértelmezett Új lap oldal beállítása a(z) <ph name="PRODUCT_NAME" /> böngészőben.</translation>
 <translation id="2299220924812062390">Adja meg az engedélyezett bővítmények listáját</translation>
+<translation id="2303795211377219696">Automatikus kitöltés engedélyezése hitelkártyákhoz</translation>
 <translation id="2309390639296060546">Helymeghatározás alapértelmezett beállítása</translation>
 <translation id="2312134445771258233">Lehetővé teszi az induláskor betöltött lapok beállítását. Az "Indításkor betöltendő URL-ek" listájának tartalmát figyelmen kívül hagyja, hacsak a "Teendő indításkor" részben nem az "URL-ek listájának megnyitása" lehetőséget választja.</translation>
 <translation id="2337466621458842053">Lehetővé teszi az olyan webhelyeket meghatározó URL-minták listájának összeállítását, amelyek esetében engedélyezett a képek megjelenítése. Ha ez a házirend beállítatlanul marad, akkor a globális alapértelmezett érték kerül felhasználásra valamennyi webhelyre vonatkozóan; vagy -- ha be van állítva -- a "DefaultImagesSetting" házirendből, vagy pedig a felhasználó személyes konfigurációjából.</translation>
@@ -1101,6 +1107,7 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
           Az értéknek szöveges karakterláncként megadott JSON-könyvtárak tömbjének kell lennie. A könyvtárakat a { "pattern": "$URL_PATTERN", "filter" : $FILTER } formátumban kell megadni, ahol az $URL_PATTERN egy tartalombeállítási mintát jelöl. A $FILTER korlátozza azt, hogy a böngésző melyik ügyféltanúsítványok közül választhat automatikusan. A szűrőtől függetlenül csak olyan tanúsítványokat választhat, amelyek megfelelnek a szerver tanúsítványkérelmének. Ezenkívül ha a $FILTER formátuma { "ISSUER": { "CN": "$ISSUER_CN" } }, akkor a böngésző csak olyan ügyféltanúsítványokat választ, amelyeket az $ISSUER_CN nevű tanúsítványkibocsátó adott ki. Ha a $FILTER egy üres könyvtár („{}”), akkor az ügyféltanúsítványok kiválaszthatósága nem lesz tovább korlátozva.
 
           Ha nem állítja be ezt a házirendet, akkor semmilyen webhely esetében nem történik automatikus kiválasztás.</translation>
+<translation id="4978405676361550165">Ha az „OffHours” házirend be van állítva, akkor a rendszer nem veszi figyelembe a megadott eszközházirendeket (azaz az alapértelmezés szerinti beállításokkal használja őket) a meghatározott időintervallumban. A Chrome újra beállítja az eszközszabályzatokat minden alkalommal, amikor az „OffHours” időszaka elindul vagy befejeződik. Az „OffHours” időszak végén és az eszközszabályzat beállításainak módosulásakor a felhasználók értesítést kapnak, és kijelentkezteti őket a rendszer (pl. amikor a felhasználó nem engedélyezett fiókkal van bejelentkezve).</translation>
 <translation id="4980635395568992380">Adattípus:</translation>
 <translation id="4983201894483989687">Elavult bővítmények futtatásának engedélyezése</translation>
 <translation id="4988291787868618635">A tétlenségi késleltetés elteltével végzendő művelet</translation>
@@ -1361,6 +1368,53 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 
       Ha az irányelv nincs beállítva, vagy az értéke hamis, akkor a nyomtatási parancsok a nyomtatási előnézet képernyőt aktiválják.</translation>
 <translation id="6022948604095165524">Művelet indításkor</translation>
+<translation id="6023030044732320798">Meghatározza az ARC futási időnek átadandó házirendek készletét. Az értéknek érvényes JSON-értéknek kell lennie.
+
+      Az irányelv használható annak meghatározására, hogy milyen Android-alkalmazások települjenek automatikusan az eszközre:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android-alkalmazásazonosító, pl. "com.google.android.gm" a Gmail esetében",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Meghatározza az alkalmazás telepítésének módját. OPTIONAL: Az alkalmazás telepítése nem történik meg automatikusan, de a felhasználó elvégezheti. Ez az alapértelmezés, ha nincs meghatározva a házirend. PRELOAD: Az alkalmazás automatikusan települ, de a felhasználó eltávolíthatja. FORCE_INSTALLED: Az alkalmazás automatikusan települ, a felhasználó nem távolíthatja el. BLOCKED: Az alkalmazás le van tiltva, és nem telepíthető. Ha az alkalmazás másik házirend értelmében telepítve lett, le lesz törölve.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Ezzel a házirenddel engedélykérelmeket lehet megadni az alkalmazásoknak. PERMISSION_POLICY_UNSPECIFIED: A házirend nincs meghatározva. Ha semelyik engedélyen nincs beállítva házirend, akkor alapértelmezés szerint a rendszer a PROMPT viselkedést használja. PROMPT: A felhasználó felkérése engedély megadására. GRANT: Engedély automatikus megadása. DENY: Engedély automatikus elutasítása.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Alkalmazásspecifikus JSON-konfigurációs objektum kulcsértékpár-készlettel, pl. '"managedConfiguration": { "key1": value1, "key2": value2 }'. A kulcsok az alkalmazás jegyzékében vannak meghatározva.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Ha alkalmazást szeretne rögzíteni az indítóra, keresse meg a PinnedLauncherApps házirendet.</translation>
 <translation id="602728333950205286">Alapértelmezett keresési szolgáltató azonnali URL-je</translation>
 <translation id="603410445099326293">Paraméterek POST metódust használó javasolt URL-hez</translation>
 <translation id="6036523166753287175">Engedélyezze a tűzfalon való átjárást a távoli elérésű szerverekről</translation>

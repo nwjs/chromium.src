@@ -114,6 +114,11 @@
 
       Ja politika netiek iestatīta, uzņēmumu pārvaldītajiem lietotājiem tiks lietota noklusējuma vērtība “MultiProfileUserBehaviorMustBePrimary”, savukārt nepārvaldītajiem lietotājiem — “MultiProfileUserBehaviorUnrestricted”.</translation>
 <translation id="1465619815762735808">Noklikšķināt, lai parādītu</translation>
+<translation id="1466133662354365542">Iespējo <ph name="PRODUCT_NAME" /> funkciju Automātiskā aizpilde un ļauj lietotājiem automātiski aizpildīt tīmekļa veidlapas, izmantojot iepriekš saglabātos datus, piemēram, informāciju par kredītkarti un adresi.
+
+      Ja šis iestatījums ir atspējots, funkcija Automātiskā aizpilde nerādīs kredītkartes informācijas ieteikumus un neaizpildīs šo informāciju automātiski, kā arī nesaglabās papildu informāciju par kredītkarti, ko lietotājs, iespējams, norādīs, pārlūkojot tīmekli.
+
+      Ja šis iestatījums ir iespējots vai tam nav iestatīta vērtība, lietotājs varēs pārvaldīt automātiskās aizpildes funkciju (tostarp informāciju par kredītkartēm) lietotāja saskarnē.</translation>
 <translation id="1468307069016535757">Iestatiet augsta kontrasta pieejamības funkcijas noklusējuma stāvokli pieteikšanās ekrānā.
 
           Ja šī politika ir iestatīta uz “true”, augsta kontrasta režīms tiks iespējots, kad tiks parādīts pieteikšanās ekrāns.
@@ -372,6 +377,7 @@
 <translation id="2294382669900758280">Android lietotnēs atskaņoti videoklipi netiek ņemti vērā, pat ja šī politika ir iestatīta kā <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Konfigurēt noklusējuma jaunas cilnes lapu sistēmā <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Norādīt iespējoto spraudņu sarakstu</translation>
+<translation id="2303795211377219696">Funkcijas Automātiskā aizpilde iespējošana kredītkaršu informācijas aizpildīšanai</translation>
 <translation id="2309390639296060546">Noklusējuma ģeogrāfiskās atrašanās vietas iestatījums</translation>
 <translation id="2312134445771258233">Ļauj konfigurēt lapas, kas tiek ielādētas startēšanas brīdī.
 
@@ -1155,6 +1161,7 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
           Vērtībai ir jābūt virknētai JSON vārdnīcu masīvam. Katrai vārdnīcai ir jābūt šādā formā: { "pattern": "$URL_PATTERN", "filter" : $FILTER } (kur $URL_PATTERN ir satura iestatījuma raksts). $FILTER ierobežo, no kura klienta pārlūkprogrammā tiks automātiski atlasīti sertifikāti. Neatkarīgi no filtra tiks atlasīti tikai sertifikāti, kas atbilst servera sertifikāta pieprasījumam. Ja $FILTER ir formā { "ISSUER": { "CN": "$ISSUER_CN" } }, papildus tiek atlasīti tikai klienta sertifikāti, kas izsniegti, izmantojot sertifikātu ar nosaukumu CommonName $ISSUER_CN. Ja $FILTER ir tukšā vārdnīca {}, klienta sertifikātu atlasīšana nav papildus ierobežota.
 
           Ja šī politika nav iestatīta, nevienai vietnei netiks veikta automātiskā atlase.</translation>
+<translation id="4978405676361550165">Ja politika “OffHours” ir iestatīta, noteiktajos laika intervālos konkrētās ierīču politikas tiek ignorētas (tiek izmantoti šo politiku noklusējuma iestatījumi). Ierīču politikas tiek atkārtoti izmantotas pārlūkā Chrome katru reizi, kad sākas vai beidzas “OffHours” periods. Lietotājam tiks parādīts paziņojums un viņam būs jāizrakstās piespiedu kārtā, kad tiks mainīti “OffHours” laika un ierīču politikas iestatījumi (t. i., ja lietotājs būs pieteicies, izmantojot neatļautu kontu).</translation>
 <translation id="4980635395568992380">Datu tips:</translation>
 <translation id="4983201894483989687">Atļauj palaist novecojušus spraudņus</translation>
 <translation id="4988291787868618635">Darbība, kas ir jāveic, kad ir aizritējis laiks līdz dīkstāvei</translation>
@@ -1448,6 +1455,53 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
 
       Ja šī politikas nav iestatīta vai ir izvēlēta vērtība Aplams, drukāšanas komanda aktivizēs drukas priekšskatījuma ekrānu.</translation>
 <translation id="6022948604095165524">Darbība startēšanas brīdī</translation>
+<translation id="6023030044732320798">Norāda politiku kopu, kura tiks pārsūtīta ARC izpildlaikam. Vērtībai jābūt derīgai JSON vērtībai.
+
+      Šo politiku var izmantot, lai konfigurētu, kuras Android lietotnes tiek automātiski instalētas ierīcē:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android lietotņu identifikators, piemēram, "com.google.android.gm" pakalpojumam Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Norāda, kā lietotne tiek instalēta. OPTIONAL: lietotne netiek instalēta automātiski, taču lietotājs var to instalēt. Šis ir noklusējuma iestatījums, ja šī politika nav norādīta. PRELOAD: lietotne tiek instalēta automātiski, taču lietotājs var to atinstalēt. FORCE_INSTALLED: lietotne tiek instalēta automātiski, un lietotājs nevar to atinstalēt. BLOCKED: lietotne ir bloķēta, un to nevar instalēt. Ja lietotne tika instalēta saskaņā ar iepriekšēju politiku, tā tiks atinstalēta.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Politika atļauju pieprasījumu piešķiršanai lietotnēm. PERMISSION_POLICY_UNSPECIFIED: politika nav norādīta. Ja atļaujai nevienā līmenī nav norādīta neviena politika, pēc noklusējuma tiek izmantots iestatījums PROMPT. PROMPT: prasīt lietotājam piešķirt atļauju. GRANT: automātiski piešķirt atļauju. DENY: automātiski noraidīt atļauju.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Konkrētas lietotnes JSON konfigurācijas objekti ar atslēgas/vērtības pāru kopu, piemēram, '"managedConfiguration": { "key1": value1, "key2": value2 }'. Atslēgas ir norādītas lietotnes manifestā.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Lai piespraustu lietotnes palaišanas programmai, skatiet politiku PinnedLauncherApps.</translation>
 <translation id="602728333950205286">Noklusējuma meklētājprogrammas dinamisko mekl. rezultātu URL</translation>
 <translation id="603410445099326293">Parametri ieteikumu meklēšanas vietrādim URL, kurā izmantota metode POST</translation>
 <translation id="6036523166753287175">Ugunsmūra apvada iespējošana no attālās piekļuves saimniekdatora</translation>

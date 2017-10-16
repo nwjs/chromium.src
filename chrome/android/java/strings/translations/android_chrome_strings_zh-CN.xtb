@@ -94,6 +94,7 @@
 <translation id="1829244130665387512">在网页中查找</translation>
 <translation id="1832521218263067499">安全事件</translation>
 <translation id="1853692000353488670">打开新的无痕式标签页</translation>
+<translation id="1880072593381090678">Chrome 中的热门网页</translation>
 <translation id="189172778771606813">关闭抽屉式导航栏</translation>
 <translation id="1897409700584096124">网站正在广播</translation>
 <translation id="1919345977826869612">广告</translation>
@@ -121,6 +122,7 @@
 <translation id="2096396629993765042">您不会因此而退出自己的 Google 帐号。您的 Google 帐号在 <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> 上可能有其他形式的浏览记录。</translation>
 <translation id="2100273922101894616">自动登录</translation>
 <translation id="2111511281910874386">转至相关网页</translation>
+<translation id="2122601567107267586">无法打开此应用</translation>
 <translation id="2126426811489709554">由 Chrome 提供支持</translation>
 <translation id="2131665479022868825">节省了 <ph name="DATA" /></translation>
 <translation id="213279576345780926">已关闭<ph name="TAB_TITLE" /></translation>
@@ -137,6 +139,7 @@
 <translation id="2268044343513325586">优化</translation>
 <translation id="2283599456633275070">旅游</translation>
 <translation id="2286841657746966508">帐单邮寄地址</translation>
+<translation id="2300590596239819242">使用简化版视图查看所有文章</translation>
 <translation id="2315043854645842844">操作系统不支持选择客户端证书。</translation>
 <translation id="2321958826496381788">拖动该滑块，将文字调整到适合您阅读的大小。点按两次某段落后，显示的文字至少应是这么大。</translation>
 <translation id="2323763861024343754">网站存储数据</translation>
@@ -161,6 +164,7 @@
 <translation id="2496180316473517155">浏览记录</translation>
 <translation id="2498359688066513246">帮助和反馈</translation>
 <translation id="2501278716633472235">返回</translation>
+<translation id="2503472621226270518">展开导航面板</translation>
 <translation id="2512222046227390255">自动填充表单</translation>
 <translation id="2526148617758225454">流量节省程序已启用。您可以在“设置”中对其进行管理。</translation>
 <translation id="2532336938189706096">网页视图</translation>
@@ -285,6 +289,7 @@
 <translation id="3744111309925758534">其他应用已占用的空间：<ph name="MEGABYTES" /> MB</translation>
 <translation id="3744111561329211289">后台同步</translation>
 <translation id="3773755127849930740">请<ph name="BEGIN_LINK" />开启蓝牙<ph name="END_LINK" />以允许配对</translation>
+<translation id="3778956594442850293">已添加到主屏幕</translation>
 <translation id="3789841737615482174">安装</translation>
 <translation id="3810838688059735925">视频</translation>
 <translation id="3810973564298564668">管理</translation>
@@ -379,6 +384,7 @@
 <translation id="4699172675775169585">缓存的图片和文件</translation>
 <translation id="4714588616299687897">最多可为您节省 60% 的数据流量</translation>
 <translation id="4720023427747327413">在<ph name="PRODUCT_NAME" />中打开</translation>
+<translation id="472631402238783923">欢迎帮助我们改进 Chrome。<ph name="BEGIN_LINK" />参与调查<ph name="END_LINK" />。</translation>
 <translation id="4730876730346568982">您正要将同步帐号从 <ph name="ACCOUNT_EMAIL_OLD" /> 切换到 <ph name="ACCOUNT_EMAIL_NEW" />。您现有的 Chrome 数据由 <ph name="MANAGED_DOMAIN" /> 管理。切换同步帐号后，您的数据将从这台设备上删除，但仍会保留在 <ph name="ACCOUNT_EMAIL_OLD" /> 中。</translation>
 <translation id="473775607612524610">更新</translation>
 <translation id="4738836084190194332">上次同步时间：<ph name="WHEN" /></translation>
@@ -432,6 +438,7 @@
 <translation id="5210286577605176222">跳转到上一个标签页</translation>
 <translation id="5210365745912300556">关闭标签页</translation>
 <translation id="5222676887888702881">退出</translation>
+<translation id="5224771365102442243">包含视频</translation>
 <translation id="5233638681132016545">打开新的标签页</translation>
 <translation id="5271967389191913893">设备无法打开要下载的内容。</translation>
 <translation id="528192093759286357">从顶部向下拖动并触摸“返回”按钮，即可退出全屏模式。</translation>
@@ -547,6 +554,7 @@
 <translation id="618555311922999635">已全屏打开导航面板</translation>
 <translation id="6192792657125177640">例外</translation>
 <translation id="6210748933810148297">您的身份不是 <ph name="EMAIL" />？</translation>
+<translation id="6221892641068781024">简化版视图</translation>
 <translation id="6232535412751077445">如果您启用了“不跟踪”，您的浏览流量中将会包含一项请求。具体影响取决于网站是否会回应该请求以及如何解读该请求。
 
 例如：某些网站在收到该请求后，可能会向您展示相应的广告（这些广告并不是根据您访问过的其他网站而展示的）。许多网站仍会出于一些目的收集并使用您的浏览数据，例如，为了提高安全性，为了提供相关内容、广告和推荐内容，以及为了生成报告统计信息。</translation>
@@ -591,6 +599,7 @@
 <translation id="6573431926118603307">您在其他设备上的 Chrome 中打开的标签页将列在此处。</translation>
 <translation id="6575643671698722332">重置失败。请确保您的设备已联网，然后重试。</translation>
 <translation id="6583199322650523874">为当前网页添加书签</translation>
+<translation id="6593061639179217415">桌面版网站</translation>
 <translation id="6600954340915313787">已复制到 Chrome</translation>
 <translation id="6612358246767739896">受保护的内容</translation>
 <translation id="6627583120233659107">修改文件夹</translation>
@@ -728,6 +737,7 @@
 <translation id="7846076177841592234">取消选择</translation>
 <translation id="784934925303690534">时间范围</translation>
 <translation id="7851858861565204677">来自其他设备的同步</translation>
+<translation id="785312750761189439">从屏幕底部向上滑动手指或点按“展开”按钮，即可轻松访问热门网站和文章、各项下载内容，等等</translation>
 <translation id="7875915731392087153">创建电子邮件</translation>
 <translation id="7876243839304621966">全部删除</translation>
 <translation id="7882131421121961860">未找到任何记录</translation>

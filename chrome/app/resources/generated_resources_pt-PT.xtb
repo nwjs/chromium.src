@@ -195,6 +195,7 @@
 <translation id="1296497012903089238">Tipo de certificado</translation>
 <translation id="1297175357211070620">Destino</translation>
 <translation id="1297922636971898492">De momento, o Google Drive não está disponível. O carregamento será reiniciado automaticamente assim que o Google Drive voltar a estar disponível.</translation>
+<translation id="1300806585489372370">Para alterar esta definição, <ph name="BEGIN_LINK" />ative os identificadores<ph name="END_LINK" /> em primeiro lugar.</translation>
 <translation id="1303101771013849280">Ficheiro HTML de marcadores</translation>
 <translation id="1303671224831497365">Não foram encontrados dispositivos Bluetooth</translation>
 <translation id="1306606229401759371">Alterar definições</translation>
@@ -318,6 +319,7 @@
 <translation id="1487335504823219454">Ativado - definições personalizadas</translation>
 <translation id="1493892686965953381">A aguardar <ph name="LOAD_STATE_PARAMETER" />...</translation>
 <translation id="1495486559005647033">Mais <ph name="NUM_PRINTERS" /> dispositivos disponíveis.</translation>
+<translation id="1497284176235884849">O PPD fornecido é inválido.</translation>
 <translation id="1497522201463361063">Não é possível mudar o nome de "<ph name="FILE_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1500297251995790841">Dispositivo desconhecido [<ph name="VENDOR_ID" />:<ph name="PRODUCT_ID" />]</translation>
 <translation id="1503394326855300303">Esta conta de proprietário tem de ser a primeira conta com início de sessão integrado.</translation>
@@ -530,6 +532,7 @@
 <translation id="180035236176489073">Tem de estar online para aceder a estes ficheiros.</translation>
 <translation id="1801298019027379214">PIN incorreto - tente novamente. Tentativas restantes: <ph name="TRIES_COUNT" /></translation>
 <translation id="1801827354178857021">Período</translation>
+<translation id="1802931390041703523">O Flash foi bloqueado nesta página.</translation>
 <translation id="1803545009660609783">Repetir</translation>
 <translation id="1807938677607439181">Todos os ficheiros</translation>
 <translation id="1809734401532861917">Adicionar os marcadores, o histórico, as palavras-passe e outras definições a <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -869,6 +872,7 @@
 <translation id="2350796302381711542">Permitir que <ph name="HANDLER_HOSTNAME" /> abra todos os links <ph name="PROTOCOL" />, em vez de <ph name="REPLACED_HANDLER_TITLE" />?</translation>
 <translation id="2351266942280602854">Idioma e introdução</translation>
 <translation id="2352662711729498748">&lt;1 MB</translation>
+<translation id="2353297238722298836">Câmara e microfone permitidos</translation>
 <translation id="2356070529366658676">Perguntar</translation>
 <translation id="2357949918965361754">Pode utilizar esta funcionalidade para apresentar conteúdo do Chrome na sua TV ou noutros dispositivos.</translation>
 <translation id="2359345697448000899">Faça a gestão das suas extensões clicando em Extensões no menu Ferramentas.</translation>
@@ -1134,6 +1138,7 @@ Acho que este site não deveria estar bloqueado.</translation>
 <translation id="2755367719610958252">Gerir funcionalidades de acessibilidade</translation>
 <translation id="275662540872599901">ecrã desligado</translation>
 <translation id="2756798847867733934">Cartão SIM desativado</translation>
+<translation id="2762441749940182211">Câmara bloqueada</translation>
 <translation id="2765217105034171413">Pequeno</translation>
 <translation id="2766006623206032690">Co&amp;lar e ir</translation>
 <translation id="276969039800130567">Com sessão iniciado como <ph name="USER_EMAIL_ADDRESS" />.</translation>
@@ -1525,6 +1530,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3313622045786997898">Valor de assinatura do certificado</translation>
 <translation id="3315158641124845231">Ocultar o <ph name="PRODUCT_NAME" /></translation>
 <translation id="3317459757438853210">Frente e verso</translation>
+<translation id="3317678681329786349">Câmara e microfone bloqueados</translation>
 <translation id="3319048459796106952">&amp;Nova janela sem registo</translation>
 <translation id="3320021301628644560">Adicionar endereço de faturação</translation>
 <translation id="3320859581025497771">a sua operadora</translation>
@@ -1989,6 +1995,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4022426551683927403">&amp;Adicionar ao Dicionário</translation>
 <translation id="4023146161712577481">A determinar a configuração do dispositivo.</translation>
 <translation id="4027804175521224372">(Está a perder - <ph name="IDS_SYNC_PROMO_NOT_SIGNED_IN_STATUS_LINK" />)</translation>
+<translation id="4031179711345676612">Microfone permitido</translation>
 <translation id="4031910098617850788">F5</translation>
 <translation id="4033471457476425443">Adicionar nova pasta</translation>
 <translation id="4034042927394659004">Diminuir o brilho das teclas</translation>
@@ -2050,6 +2057,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4120817667028078560">Caminho demasiado longo</translation>
 <translation id="4121428309786185360">Expira em</translation>
 <translation id="412730574613779332">Spandex</translation>
+<translation id="412940972494182898">Executar o Flash desta vez</translation>
 <translation id="4130199216115862831">Registo do dispositivo</translation>
 <translation id="4130207949184424187">Esta extensão alterou a página apresentada quando pesquisa a partir da caixa geral.</translation>
 <translation id="413121957363593859">Componentes</translation>
@@ -2107,6 +2115,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4249373718504745892">Esta página foi impedida de aceder à sua câmara e microfone.</translation>
 <translation id="4250229828105606438">Captura de ecrã</translation>
 <translation id="4250680216510889253">Não</translation>
+<translation id="4252852543720145436">Identificadores de conteúdo protegido</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" /> – conteúdo do separador partilhado</translation>
 <translation id="4253515443406306926">Iniciador, resultados da pesquisa em ecrã inteiro</translation>
 <translation id="4254813446494774748">Idioma de tradução:</translation>
@@ -2121,6 +2130,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4270393598798225102">Versão <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Sem correspondências</translation>
 <translation id="4275830172053184480">Reiniciar o dispositivo</translation>
+<translation id="4276216215490044084">Não é possível carregar PPDs grandes. O tamanho máximo é 250 KB.</translation>
 <translation id="4278390842282768270">Permitidos:</translation>
 <translation id="4279490309300973883">Espelhamento</translation>
 <translation id="4281844954008187215">Termos de Utilização</translation>
@@ -2209,6 +2219,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="4433914671537236274">Criar um Suporte de Dados de Recuperação</translation>
 <translation id="443464694732789311">Continuar</translation>
 <translation id="4439318412377770121">Pretende registar o <ph name="DEVICE_NAME" /> no Google Cloud Devices?</translation>
+<translation id="4439612350502082674">Não é possível adicionar a impressora. Reinicie e tente novamente.</translation>
 <translation id="4441124369922430666">Pretende iniciar automaticamente esta aplicação quando o computador é ligado?</translation>
 <translation id="444134486829715816">Expandir...</translation>
 <translation id="4441548209689510310">Mostrar opções de verificação ortográfica</translation>
@@ -2335,6 +2346,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="4656293982926141856">Este computador</translation>
 <translation id="4658312088164718891">Introduza a palavra-passe para ativar o Smart Lock. Da próxima vez, o telemóvel irá desbloquear o <ph name="DEVICE_TYPE" />. Desative o Smart Lock nas Definições.</translation>
 <translation id="4662788913887017617">Partilhar este marcador com o seu iPhone</translation>
+<translation id="4663373278480897665">Câmara permitida</translation>
 <translation id="4664482161435122549">Erro ao exportar PKCS #12</translation>
 <translation id="466481852929361583">O módulo seguro está a ser configurado. Aguarde, esta operação pode demorar alguns minutos.</translation>
 <translation id="4665014895760275686">Fabricante</translation>
@@ -2581,6 +2593,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="5039512255859636053">$1 TB</translation>
 <translation id="5039804452771397117">Permitir</translation>
 <translation id="5045550434625856497">Palavra-passe incorrecta</translation>
+<translation id="5050042263972837708">Nome do grupo</translation>
 <translation id="5052499409147950210">Editar site</translation>
 <translation id="5053604404986157245">A palavra-passe TPM, gerada aleatoriamente, não está disponível. Esta situação é normal após uma Powerwash.</translation>
 <translation id="5061347216700970798">{NUM_BOOKMARKS,plural, =1{Esta pasta contém um marcador. Tem a certeza de que pretende eliminá-la?}one{This folder contains # bookmarks. Are you sure you want to delete it?}other{Esta pasta contém # marcadores. Tem a certeza de que pretende eliminá-la?}}</translation>
@@ -3175,6 +3188,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="5972708806901999743">Mover para o início</translation>
 <translation id="5972826969634861500">Iniciar o <ph name="PRODUCT_NAME" /></translation>
 <translation id="5975083100439434680">Reduzir</translation>
+<translation id="5975730206036440725">Não é possível encontrar o PPD. Verifique se o Chromebook está online e tente novamente.</translation>
 <translation id="5975792506968920132">Percentagem de carga da bateria</translation>
 <translation id="5976160379964388480">Outros</translation>
 <translation id="5978264784700053212">Centro de mensagens</translation>
@@ -3420,6 +3434,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6374077068638737855">Iceweasel</translation>
 <translation id="6374108032506706911">Configurar o Smart Lock para Android</translation>
 <translation id="6374469231428023295">Tentar novamente</translation>
+<translation id="6377158645544167202">Não é possível associar a impressora. Verifique se a impressão está ligada e associada ao Chromebook por Wi-Fi ou USB.</translation>
 <translation id="6380143666419481200">Aceitar e continuar</translation>
 <translation id="6383051423892982287">Encriptar dados sincronizados com a sua própria <ph name="BEGIN_LINK" />frase de acesso de sincronização<ph name="END_LINK" /></translation>
 <translation id="6384275966486438344">Alterar as definições de pesquisa para: <ph name="SEARCH_HOST" /></translation>
@@ -3784,6 +3799,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6948064128393024347">Iniciador, resultados da pesquisa</translation>
 <translation id="6949306908218145636">Adicionar Páginas Abertas aos Marcadores...</translation>
 <translation id="6955446738988643816">Inspecionar Pop-up</translation>
+<translation id="6957231940976260713">Nome do serviço</translation>
 <translation id="695755122858488207">Botão de opção não selecionado</translation>
 <translation id="696203921837389374">Ativar a sincronização através de dados móveis</translation>
 <translation id="6964390816189577014">Herói</translation>
@@ -4006,6 +4022,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="729761647156315797">Escolher o idioma e o teclado</translation>
 <translation id="7299337219131431707">Ativar Navegação como convidado</translation>
 <translation id="730515362922783851">Trocar dados com qualquer dispositivo na rede local ou na Internet</translation>
+<translation id="7308002049209013926">Utilize o Iniciador para aceder rapidamente a novas aplicações e atividades. Para chegar aqui através do teclado, prima Alt + Shift + L.</translation>
 <translation id="7309257895202129721">Mostrar &amp;controlos</translation>
 <translation id="7311079019872751559">Acesso de plug-in sem isolamento de processos</translation>
 <translation id="7311891583377621132">Mova ligeiramente para capturar uma parte diferente da impressão digital</translation>
@@ -4518,6 +4535,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8116190140324504026">Mais informações...</translation>
 <translation id="8116925261070264013">Com som desativado</translation>
 <translation id="8116972784401310538">&amp;Gestor de marcadores</translation>
+<translation id="8117620576188476503">Faça a gestão de ligações, atualizações e definições através do tabuleiro de estado. Para chegar aqui através do teclado, prima Alt + Shift + S.</translation>
 <translation id="8118362518458010043">Desativada pelo Chrome. Esta extensão pode ser insegura.</translation>
 <translation id="8118860139461251237">Gerir as transferências</translation>
 <translation id="81238879832906896">Flor amarela e branca</translation>
@@ -4662,6 +4680,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8357224663288891423">Atalhos de teclado para extensões e aplicações</translation>
 <translation id="8358685469073206162">Restaurar páginas?</translation>
 <translation id="8363095875018065315">estável</translation>
+<translation id="8363142353806532503">Microfone bloqueado</translation>
 <translation id="8366396658833131068">A conetividade de rede foi restaurada. Selecione uma rede diferente ou prima "Continuar" abaixo para iniciar a aplicação de quiosque.</translation>
 <translation id="8366947248864804596">Quando o telemóvel estiver desbloqueado e próximo, basta selecionar para desbloquear. Caso contrário, introduza a palavra-passe ou o PIN.</translation>
 <translation id="8368859634510605990">&amp;Abrir todos os marcadores</translation>
@@ -4843,6 +4862,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8671210955687109937">Pode comentar</translation>
 <translation id="8673026256276578048">Pesquisar na Web...</translation>
 <translation id="8673383193459449849">Problema no servidor</translation>
+<translation id="8675354002693747642">Chave pré-partilhada</translation>
 <translation id="8676374126336081632">Limpar texto</translation>
 <translation id="8677039480012021122">Limpar dados e desligar</translation>
 <translation id="8677212948402625567">Reduzir tudo...</translation>
@@ -5034,6 +5054,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8973557916016709913">Remover nível de zoom</translation>
 <translation id="8973596347849323817">Pode personalizar este dispositivo de acordo com as suas necessidades. Pode alterar estas funcionalidades de acessibilidade mais tarde em Definições.</translation>
 <translation id="897414447285476047">O ficheiro de destino está incompleto devido a um problema de ligação.</translation>
+<translation id="8976520271376534479">O Flash foi bloqueado nesta página.</translation>
 <translation id="8977811652087512276">Palavra-passe incorreta ou ficheiro danificado</translation>
 <translation id="8978154919215542464">Ativar – sincronizar tudo</translation>
 <translation id="8978526688207379569">Este site transferiu vários ficheiros automaticamente.</translation>

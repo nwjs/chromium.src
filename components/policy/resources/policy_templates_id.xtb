@@ -112,6 +112,11 @@
 
       Jika kebijakan dibiarkan tidak disetel, nilai default 'MultiProfileUserBehaviorMustBePrimary' berlaku untuk pengguna yang dikelola oleh perusahaan dan 'MultiProfileUserBehaviorUnrestricted' akan digunakan untuk pengguna yang tidak dikelola.</translation>
 <translation id="1465619815762735808">Klik untuk memainkan</translation>
+<translation id="1466133662354365542">Mengaktifkan fitur IsiOtomatis <ph name="PRODUCT_NAME" /> dan memungkinkan pengguna otomatis mengisi informasi alamat dan kartu kredit di formulir web menggunakan informasi yang disimpan sebelumnya.
+
+      Jika Anda menonaktifkan setelan ini, IsiOtomatis tidak akan menyarankan atau mengisi informasi kartu kredit, serta tidak akan menyimpan informasi kartu kredit tambahan yang mungkin dikirim oleh pengguna saat browsing web.
+
+      Jika Anda mengaktifkan setelan ini atau tidak menyetel nilai, pengguna dapat mengontrol fitur IsiOtomatis secara keseluruhan (termasuk kartu kredit) di UI.</translation>
 <translation id="1468307069016535757">Menyetel status default fitur aksesibilitas mode kontras tinggi di layar masuk.
 
           Jika kebijakan ini disetel ke true, mode kontras tinggi akan diaktifkan saat layar masuk ditampilkan.
@@ -361,6 +366,7 @@
 <translation id="2294382669900758280">Pemutaran video di aplikasi Android tidak dipertimbangkan, meski kebijakan ini disetel ke <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Mengonfigurasi halaman Tab Baru di <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Tentukan daftar plugin yang diaktifkan</translation>
+<translation id="2303795211377219696">Mengaktifkan IsiOtomatis untuk kartu kredit</translation>
 <translation id="2309390639296060546">Setelan geolokasi default</translation>
 <translation id="2312134445771258233">Memungkinkan Anda mengonfigurasi halaman yang dimuat saat permulaan. Isi daftar 'URL yang dibuka saat permulaan' diabaikan kecuali jika Anda memilih 'Buka daftar URL' dalam 'Tindakan saat permulaan'.</translation>
 <translation id="2337466621458842053">Memungkinkan Anda menyetel daftar pola url yang menentukan situs yang diizinkan untuk menampilkan gambar. Jika kebijakan ini dibiarkan tanpa disetel, nilai global default akan digunakan untuk semua situs, baik dari kebijakan 'DefaultImagesSetting', jika disetel, maupun konfigurasi pribadi pengguna.</translation>
@@ -1108,6 +1114,7 @@
           Nilai harus berupa rangkaian kamus dengan string JSON. Setiap kamus harus memiliki bentuk { "pattern": "$URL_PATTERN", "filter" : $FILTER }, dengan $URL_PATTERN yang merupakan pola setelan konten. $FILTER membatasi asal sertifikat klien yang akan dipilih browser secara otomatis. Terlepas dari filter, hanya sertifikat yang cocok dengan permintaan sertifikat server yang akan dipilih. Selain itu, jika $FILTER memiliki bentuk { "ISSUER": { "CN": "$ISSUER_CN" } }, hanya sertifikat klien yang dikeluarkan oleh sertifikat dengan CommonName $ISSUER_CN yang akan dipilih. Jika $FILTER berupa kamus kosong {}, pemilihan sertifikat klien tidak lagi dibatasi.
 
           Jika kebijakan ini tidak disetel, tidak akan ada pemilihan otomatis untuk situs apa pun.</translation>
+<translation id="4978405676361550165">Jika kebijakan "OffHours" disetel, kebijakan perangkat tertentu akan diabaikan (gunakan setelan default kebijakan tersebut) selama rentang waktu yang ditentukan. Kebijakan perangkat akan diterapkan kembali oleh Chrome pada setiap aktivitas saat periode "OffHours" dimulai atau berakhir. Pengguna akan diberi tahu dan dipaksa logout saat waktu "OffHours" berakhir dan setelan kebijakan perangkat diubah (misalnya, saat pengguna login menggunakan akun yang tidak diizinkan).</translation>
 <translation id="4980635395568992380">Jenis data:</translation>
 <translation id="4983201894483989687">Izinkan menjalankan plugin yang kedaluwarsa</translation>
 <translation id="4988291787868618635">Tindakan yang akan diambil saat penundaan waktu menganggur tercapai</translation>
@@ -1367,6 +1374,53 @@
 
       Jika kebijakan ini tidak disetel atau disetel ke salah, perintah cetak memicu layar pratinjau cetak.</translation>
 <translation id="6022948604095165524">Tindakan saat permulaan</translation>
+<translation id="6023030044732320798">Menentukan kumpulan kebijakan yang akan diteruskan ke waktu proses ARC. Nilanya harus JSON yang valid.
+
+      Kebijakan ini dapat digunakan untuk mengonfigurasi aplikasi Android mana yang dapat diinstal secara otomatis di perangkat: 
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "ID aplikasi Android, misalnya "com.google.android.gm" untuk Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Menentukan cara aplikasi diinstal. OPTIONAL: Aplikasi tersebut tidak diinstal secara otomatis, namun pengguna dapat menginstalnya. Ini merupakan default jika kebijakan tidak ditentukan. PRELOAD: Aplikasi diinstal secara otomatis, namun pengguna dapat meng-uninstalnya. FORCE_INSTALLED: Aplikasi diinstal secara otoamtis dan pengguna tidak dapat meng-uninstalnya. BLOCKED: Aplikasi diblokir dan tidak dapat diinstal. Jika aplikasi diinstal saat menggunakan kebijakan sebelumnya, aplikasi akan di-uninstal".,
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Kebijakan untuk memberi permintaan izin ke aplikasi. PERMISSION_POLICY_UNSPECIFIED: Kebijakan tidak ditentukan. Jika tidak ada kebijakan yang ditentukan untuk izin pada tingkat apa pun, perilaku `PROMPT` akan digunakan secara default. PROMPT: Meminta pengguna untuk memberi izin. GRANT: Memberi izin secara otomatis. DENY: Menolak izin secara otomatis".,
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Objek konfigurasi JSON khusus aplikasi dengan kumpulan key-value pair, misalnya '"managedConfiguration": { "key1": value1, "key2": value2 }'. Kunci ditentukan dalam manifes aplikasi".,
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Untuk menyematkan aplikasi ke peluncur, lihat PinnedLauncherApps.</translation>
 <translation id="602728333950205286">URL sekejap penyedia penelusuran default</translation>
 <translation id="603410445099326293">Parameter untuk URL yang disarankan yang menggunakan POST</translation>
 <translation id="6036523166753287175">Mengaktifkan firewall traversal dari host akses jarak jauh</translation>

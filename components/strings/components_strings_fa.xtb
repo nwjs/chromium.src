@@ -393,6 +393,7 @@
 <translation id="3778403066972421603">‏آیا می‌خواهید این کارت در حساب Google شما و این دستگاه ذخیره شود؟</translation>
 <translation id="3783418713923659662">مسترکارت</translation>
 <translation id="3787705759683870569">تاریخ انقضا <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
+<translation id="3808375843007691220">هشدار: ویژگی‌های آزمایشی پیش رو است!</translation>
 <translation id="382518646247711829">اگر از سرور پراکسی استفاده می‌کنید...</translation>
 <translation id="3828924085048779000">عبارت عبور خالی مجاز نیست.</translation>
 <translation id="385051799172605136">بازگشت</translation>
@@ -448,6 +449,7 @@
 <translation id="4269787794583293679">(بدون نام کاربری)</translation>
 <translation id="4275830172053184480">راه‌اندازی دستگاه خود</translation>
 <translation id="4280429058323657511">، انقضا <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4292213515608230699">هیچ آزمایش مطابقی وجود ندارد</translation>
 <translation id="4304224509867189079">ورود به سیستم</translation>
 <translation id="4312866146174492540">مسدود کردن (پیش‌فرض)</translation>
 <translation id="4325863107915753736">مقاله یافت نشد.</translation>
@@ -518,6 +520,7 @@
 <translation id="495170559598752135">عملکردها</translation>
 <translation id="4958444002117714549">بزرگ کردن فهرست</translation>
 <translation id="4974590756084640048">فعال کردن مجدد اخطارها</translation>
+<translation id="4989542687859782284">دردسترس نیست</translation>
 <translation id="4989809363548539747">این افزایه پشتیبانی نمی‌شود</translation>
 <translation id="5002932099480077015">‏اگر فعال شود، Chrome یک کپی از کارت شما را برای پرکردن سریع‌تر فرم در این دستگاه ذخیره می‌کند.</translation>
 <translation id="5018422839182700155">این صفحه نمی‌تواند باز شود</translation>
@@ -571,6 +574,7 @@
 <translation id="5355557959165512791">درحال‌حاضر نمی‌توانید از <ph name="SITE" /> دیدن کنید، زیرا گواهینامه آن لغو شده است. معمولاً خطاهای شبکه و حمله‌ها موقتی هستند، بنابراین احتمالاً این صفحه بعداً کار خواهد کرد.</translation>
 <translation id="536296301121032821">تنظیمات خط‌‌مشی ذخیره نشد</translation>
 <translation id="5386426401304769735">‏زنجیره گواهی این سایت حاوی یک گواهی با امضای SHA-1 است.</translation>
+<translation id="5401815295726769233">جستجوی پرچم‌ها</translation>
 <translation id="5402410679244714488">انقضا: <ph name="EXPIRATION_DATE_ABBR" />، آخرین استفاده، بیش از یک سال قبل</translation>
 <translation id="540969355065856584">این سرور نتوانست ثابت کند که <ph name="DOMAIN" /> است؛ در حال حاضر، گواهی امنیتی آن معتبر نیست. ممکن است این مشکل به دلیل پیکربندی نادرست یا قطع اتصال شما توسط حمله‌کننده ایجاد شده باشد.</translation>
 <translation id="5421136146218899937">پاک کردن داده‌های مرور...</translation>
@@ -623,6 +627,7 @@
 <translation id="5732392974455271431">والدینتان می‌توانند این سایت را برای شما بگشایند</translation>
 <translation id="5763042198335101085">نشانی رایانامه معتبری وارد کنید</translation>
 <translation id="5765072501007116331">برای دیدن روش‌های تحویل و شرایط موردنیاز، یک نشانی انتخاب کنید</translation>
+<translation id="5770114862687765385">به نظر می‌رسد فایل خراب شده باشد. برای بازنشانی جلسه، روی دکمه «بازنشانی» کلیک کنید.</translation>
 <translation id="5778550464785688721">‏کنترل کامل دستگاه‌های MIDI</translation>
 <translation id="5784606427469807560">هنگام تأیید کارت مشکلی پیش آمد. اتصال اینترنتتان را بررسی و دوباره امتحان کنید.</translation>
 <translation id="5785756445106461925">علاوه بر این، این صفحه دارای منابع دیگری است که امن نیستند. دیگران می‌توانند در حین انتقال، این منابع را ببینند و این منابع می‌توانند برای تغییر قفل صفحه، توسط یک مهاجم تغییر داده شوند.</translation>
@@ -636,6 +641,7 @@
 <translation id="5869522115854928033">گذرواژه‌های ذخیره‌شده</translation>
 <translation id="5893752035575986141">کارت‌های اعتباری پذیرفته می‌شوند.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (همگام‌سازی‌شده)</translation>
+<translation id="5909194079078764042">با فعال کردن این قابلیت‌ها، ممکن است داده‌های محصول مرور را از دست بدهید یا امنیت یا حریم خصوصی‌تان را به خطر بیاندازید. قابلیت‌های فعال‌شده، برای همه کاربران این مرورگر اعمال می‌شوند.</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{۱ کوکی درحال استفاده}one{# کوکی درحال استفاده}other{# کوکی درحال استفاده}}</translation>
 <translation id="5939518447894949180">بازنشانی</translation>
 <translation id="5959728338436674663">‏ارسال خودکار برخی از <ph name="BEGIN_WHITEPAPER_LINK" />اطلاعات سیستم و محتوای صفحه<ph name="END_WHITEPAPER_LINK" /> به Google برای کمک به شناسایی برنامه‌ها و سایت‌های خطرناک. <ph name="PRIVACY_PAGE_LINK" /></translation>
@@ -683,6 +689,7 @@
 <translation id="6305205051461490394">دسترسی به <ph name="URL" /> امکان‌پذیر نیست.</translation>
 <translation id="6319915415804115995">آخرین استفاده، بیش از یک سال قبل</translation>
 <translation id="6321917430147971392">‏تنظیمات DNS خودتان را بررسی کنید</translation>
+<translation id="6325286409953503969">‏به قابلیت‌های جدید و جالب Chrome علاقه‌مند هستید؟ <ph name="BEGIN_LINK" />کانال برنامه‌نویس<ph name="END_LINK" /> ما را امتحان کنید.</translation>
 <translation id="6328639280570009161">غیرفعال کردن پیش‌بینی شبکه را امتحان کنید</translation>
 <translation id="6328786501058569169">این سایت گول‌زننده است</translation>
 <translation id="6337133576188860026">کمتر از <ph name="SIZE" /> از فضا را آزاد می‌کند. ممکن است برخی از سایت‌ها در بازدیدهای بعدی کندتر بارگیری شوند.</translation>
@@ -785,6 +792,7 @@
 <translation id="7298195798382681320">توصیه می‌شود</translation>
 <translation id="7309308571273880165">گزارش خرابی ثبت‌شده در <ph name="CRASH_TIME" /> (کاربر درخواست بارگذاری کرده است، هنوز بارگذاری نشده است)</translation>
 <translation id="7334320624316649418">&amp;انجام مجدد ترتیب‌بندی مجدد</translation>
+<translation id="7337706099755338005">در پلتفورم شما دردسترس نیست.</translation>
 <translation id="733923710415886693">گواهی سرور از طریق شفافیت گواهینامه نشان داده نشده بود.</translation>
 <translation id="7353601530677266744">خط فرمان</translation>
 <translation id="7372973238305370288">نتیجه جستجو</translation>
@@ -792,6 +800,7 @@
 <translation id="7378627244592794276">نه</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">تأیید کارت</translation>
+<translation id="739697976928952788">نمایش همه گذرواژه‌های ذخیره‌شده</translation>
 <translation id="7400418766976504921">نشانی وب</translation>
 <translation id="7419106976560586862">مسیر نمایه</translation>
 <translation id="7424977062513257142">صفحه جاسازی‌شده‌ای در این صفحه وب می‌گوید:</translation>
@@ -838,6 +847,7 @@
 <translation id="7668654391829183341">دستگاه ناشناس</translation>
 <translation id="7669271284792375604">مهاجمان در این سایت ممکن است تلاش کنند شما را با نصب برنامه‌هایی که به تجربه مرور شما آسیب می‌رساند، فریب دهند (مثلاً با تغییر دادن صفحه اصلی شما یا با نشان دادن آگهی‌های بیش از حد در سایت‌هایی که بازدید می‌کنید).</translation>
 <translation id="7682287625158474539">ارسال</translation>
+<translation id="7695552107151968219">‏به قابلیت‌های جدید و جالب Chrome علاقه‌مند هستید؟ <ph name="BEGIN_LINK" />کانال بتای<ph name="END_LINK" /> ما را امتحان کنید.</translation>
 <translation id="7699293099605015246">مقاله‌ها درحال‌حاضر دردسترس نیستند</translation>
 <translation id="7701040980221191251">هیچ کدام</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />ادامه به <ph name="SITE" /> (غیرایمن)<ph name="END_LINK" /></translation>

@@ -113,6 +113,11 @@ Si no se establece ningún valor para esta política, la frecuencia predetermina
 
       Si no se establece la política, el valor predeterminado MultiProfileUserBehaviorMustBePrimary se aplicará a usuarios administrados por empresas y MultiProfileUserBehaviorUnrestricted se utilizará para usuarios no administrados.</translation>
 <translation id="1465619815762735808">Hacer clic para ejecutar</translation>
+<translation id="1466133662354365542">Habilita la función Autocompletar de <ph name="PRODUCT_NAME" /> y permite que los usuarios rellenen automáticamente formularios web con información almacenada anteriormente, como la dirección o la información de la tarjeta de crédito.
+
+      Si inhabilitas esta opción, la función Autocompletar no hará sugerencias ni rellenará la información de la tarjeta de crédito, y tampoco guardará información adicional de la tarjeta de crédito que el usuario envíe cuando esté navegando por la Web.
+
+      Si habilitas esta opción o no estableces ningún valor, el usuario podrá controlar la función Autocompletar, incluida la información de la tarjeta de crédito, en la IU.</translation>
 <translation id="1468307069016535757">Establece el estado predeterminado de la función de accesibilidad del modo de contraste alto en la pantalla de inicio de sesión.
 
           Si el valor de esta política se establece en True, el modo de contraste alto se habilitará cuando se muestre la pantalla de inicio de sesión.
@@ -366,6 +371,7 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 <translation id="2294382669900758280">La reproducción de vídeo en las aplicaciones para Android no se tiene en cuenta, aunque se haya asignado el valor <ph name="TRUE" /> a esta política.</translation>
 <translation id="2298647742290373702">Configura la página Nueva pestaña predeterminada de <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Especificar una lista de complementos habilitados</translation>
+<translation id="2303795211377219696">Habilitar la función Autocompletar para tarjetas de crédito</translation>
 <translation id="2309390639296060546">Configuración de ubicación geográfica predeterminada</translation>
 <translation id="2312134445771258233">Permite configurar las páginas que se cargan al iniciar el navegador.
 
@@ -1152,6 +1158,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
           El valor debe ser un conjunto de diccionarios JSON de tipo Stringify. Cada diccionario debe tener la forma { "pattern": "$URL_PATTERN", "filter" : $FILTER }, donde $URL_PATTERN es un patrón de configuración de contenido. $FILTER limita desde qué certificados de cliente podrá seleccionar el navegador automáticamente. Independientemente del filtro, solo se seleccionarán certificados que coincidan con la solicitud de certificado del servidor. Además, si $FILTER tiene la forma { "ISSUER": { "CN": "$ISSUER_CN" } }, solo se seleccionarán certificados de cliente emitidos por un certificado con el valor $ISSUER_CN para CommonName. Si $FILTER es el diccionario vacío {}, no se limitará de forma adicional la selección de los certificados de cliente.
 
           Si esta política no se configura, no se aplicará la selección automática en ningún sitio web.</translation>
+<translation id="4978405676361550165">Si se establece la política OffHours, se ignorarán las políticas de dispositivos especificadas (se utiliza la configuración predeterminada de estas políticas) durante los intervalos de tiempo establecidos. Chrome vuelve a aplicar las políticas de dispositivos en cada evento cuando se inicia o finaliza el periodo de OffHours. El usuario recibirá una notificación y tendrá que cerrar sesión cuando finalice OffHours y se modifique la configuración de la política de dispositivos (es decir, cuando el usuario no haya iniciado sesión con una cuenta permitida).</translation>
 <translation id="4980635395568992380">Tipo de datos:</translation>
 <translation id="4983201894483989687">Permitir la ejecución de complementos obsoletos</translation>
 <translation id="4988291787868618635">Acción que se realiza al alcanzar el retraso de inactividad</translation>
@@ -1443,6 +1450,53 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
 
       Si esta política no se establece o se establece en falsa, los comandos de impresión muestran la pantalla de vista previa de impresión.</translation>
 <translation id="6022948604095165524">Acción al iniciar</translation>
+<translation id="6023030044732320798">Especifica las políticas que se enviarán al tiempo en ejecución ARC. . Se debe usar un valor JSON válido.
+
+      Esta política se puede utilizar para configurar qué aplicaciones Android se instalan automáticamente en el dispositivo: 
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Identificador de aplicaciones Android, p. ej., "com.google.android.gm" en el caso de Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Especifica cómo se instala una aplicación. OPTIONAL: la aplicación no se instala automáticamente, pero el usuario puede instalarla. Es la opción predeterminada si no se especifica esta política. PRELOAD: la aplicación se instala automáticamente, pero el usuario puede desinstalarla. FORCE_INSTALLED: la aplicación se instala automáticamente y el usuario no puede desinstalarla. BLOCKED: la aplicación está bloqueada y no se puede instalar. Si la aplicación se ha instalado con una política anterior, se desinstalará.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Política para conceder solicitudes de permisos a las aplicaciones. PERMISSION_POLICY_UNSPECIFIED: la política no se ha especificado. Si no se asigna una política específica a un permiso a cualquier nivel, se utiliza el comportamiento 'PROMPT' de forma predeterminada. PROMPT: pide al usuario que conceda un permiso. GRANT: se concede automáticamente un permiso. DENY: se deniega automáticamente un permiso.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Objeto de configuración JSON específico de la aplicación con un conjunto de pares clave/valor, p. ej., "managedConfiguration". { "key1": value1, "key2": value2 }'. Las teclas se definen en el archivo de manifiesto de la aplicación.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Para fijar aplicaciones en el menú, consulta la política PinnedLauncherApps.</translation>
 <translation id="602728333950205286">URL de función Instant del proveedor de búsquedas predeterminadas</translation>
 <translation id="603410445099326293">Parámetros para URL sugerida que utiliza POST</translation>
 <translation id="6036523166753287175">Habilita que se pueda pasar a través de un cortafuegos desde un host de acceso remoto.</translation>
@@ -2230,7 +2284,7 @@ Si la política está establecida en False, no se informará sobre la lista de i
 
       El archivo se descarga y almacena en la memoria caché y se vuelve a descargar cada vez que la URL o el hash cambian.
 
-      Si se establece esta política, <ph name="PRODUCT_OS_NAME" />  descargará el archivo con las configuraciones de las impresoras y estas estarán disponibles según lo especificado en las políticas <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> y <ph name="BULK_PRINTERS_BLACKLIST" />.
+      Si se establece esta política, <ph name="PRODUCT_OS_NAME" /> descargará el archivo con las configuraciones de las impresoras y estas estarán disponibles según lo especificado en las políticas <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> y <ph name="BULK_PRINTERS_BLACKLIST" />.
 
       Si estableces esta política, los usuarios no podrán cambiarla ni anularla.
 

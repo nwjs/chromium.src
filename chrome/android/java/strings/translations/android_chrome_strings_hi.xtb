@@ -94,6 +94,7 @@
 <translation id="1829244130665387512">पेज में ढूंढें</translation>
 <translation id="1832521218263067499">सुरक्षा संबंधी घटनाएं</translation>
 <translation id="1853692000353488670">नया गुप्त टैब</translation>
+<translation id="1880072593381090678">Chrome से लोकप्रिय पेज</translation>
 <translation id="189172778771606813">मार्गदर्शक ड्रॉवर बंद करें</translation>
 <translation id="1897409700584096124">वेबसाइट प्रसारित हो रही है</translation>
 <translation id="1919345977826869612">विज्ञापन</translation>
@@ -121,6 +122,7 @@
 <translation id="2096396629993765042">आप अपने Google खाते से प्रस्थान नहीं करेंगे. आपके Google खाते में <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> पर अन्य प्रकार के ब्राउज़िंग इतिहास हो सकते हैं.</translation>
 <translation id="2100273922101894616">स्वतः प्रवेश करें</translation>
 <translation id="2111511281910874386">पेज पर जाएं</translation>
+<translation id="2122601567107267586">ऐप नहीं खोला जा सका</translation>
 <translation id="2126426811489709554">Chrome के द्वारा संचालित</translation>
 <translation id="2131665479022868825"><ph name="DATA" /> बचाया गया</translation>
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> बंद है</translation>
@@ -137,6 +139,7 @@
 <translation id="2268044343513325586">परिशोधित करें</translation>
 <translation id="2283599456633275070">यात्रा</translation>
 <translation id="2286841657746966508">बिलिंग पता</translation>
+<translation id="2300590596239819242">सभी लेखों पर सरल बनाए गए व्यू को चालू करें</translation>
 <translation id="2315043854645842844">क्लाइंट-साइड प्रमाणपत्र चयन ऑपरेटिंग सिस्टम के द्वारा समर्थित नहीं है.</translation>
 <translation id="2321958826496381788">स्‍लाइडर को तब तक खींचें, जब तक कि आपको इसे पढ़ने में सुविधा न हो. पैराग्राफ़ पर डबल-टैप करने के बाद लेख को इतना बड़ा दिखाई देना चाहिए.</translation>
 <translation id="2323763861024343754">साइट मेमोरी</translation>
@@ -161,6 +164,7 @@
 <translation id="2496180316473517155">ब्राउज़िंग इतिहास...</translation>
 <translation id="2498359688066513246">सहायता और फ़ीडबैक</translation>
 <translation id="2501278716633472235">वापस जाएं</translation>
+<translation id="2503472621226270518">नेविगेशन पैनल विस्तृत करें</translation>
 <translation id="2512222046227390255">स्वत: भरण फ़ॉर्म</translation>
 <translation id="2526148617758225454">डेटा सर्वर चालू है. उसे सेटिंग में प्रबंधित करें.</translation>
 <translation id="2532336938189706096">वेब दृश्य</translation>
@@ -285,6 +289,7 @@
 <translation id="3744111309925758534"><ph name="MEGABYTES" /> MB अन्य ऐप्लिकेशन</translation>
 <translation id="3744111561329211289">पृष्ठभूमि समन्वयन</translation>
 <translation id="3773755127849930740">युग्मन की अनुमति देने के लिए <ph name="BEGIN_LINK" />ब्लूटूथ चालू करें<ph name="END_LINK" /></translation>
+<translation id="3778956594442850293">होम स्‍क्रीन में जोड़ा गया</translation>
 <translation id="3789841737615482174">इंस्‍टॉल करें</translation>
 <translation id="3810838688059735925">वीडियो</translation>
 <translation id="3810973564298564668">प्रबंधित करें</translation>
@@ -379,6 +384,7 @@
 <translation id="4699172675775169585">संचय चित्र और फ़ाइलें</translation>
 <translation id="4714588616299687897">अपना 60% तक डेटा बचाएं</translation>
 <translation id="4720023427747327413"><ph name="PRODUCT_NAME" /> में खोलें</translation>
+<translation id="472631402238783923">Chrome को बेहतर बनाने में सहायता करें. <ph name="BEGIN_LINK" />सर्वे में भाग लें.<ph name="END_LINK" /></translation>
 <translation id="4730876730346568982">आप समन्वयन खातों को <ph name="ACCOUNT_EMAIL_OLD" /> से <ph name="ACCOUNT_EMAIL_NEW" /> में स्विच कर रहे हैं. आपका मौजूदा Chrome डेटा <ph name="MANAGED_DOMAIN" /> द्वारा प्रबंधित किया जाता है. ऐसा करने से इस डिवाइस से आपका डेटा हट जाएगा, लेकिन आपका डेटा <ph name="ACCOUNT_EMAIL_OLD" /> में बना रहेगा.</translation>
 <translation id="473775607612524610">अपडेट करें</translation>
 <translation id="4738836084190194332">पिछली बार समन्वयित: <ph name="WHEN" /></translation>
@@ -432,6 +438,7 @@
 <translation id="5210286577605176222">सीधे पिछले टैब पर जाएं</translation>
 <translation id="5210365745912300556">टैब बंद करें</translation>
 <translation id="5222676887888702881">प्रस्थान करें</translation>
+<translation id="5224771365102442243">वीडियो के साथ</translation>
 <translation id="5233638681132016545">नया टैब</translation>
 <translation id="5271967389191913893">डाउनलोड की जाने वाली सामग्री को डिवाइस नहीं खोल सकता.</translation>
 <translation id="528192093759286357">पूर्ण स्क्रीन से बाहर निकलने के लिए ऊपर से खींचें और वापस जाएं स्पर्श करें.</translation>
@@ -547,6 +554,7 @@
 <translation id="618555311922999635">नेविगेशन पैनल पूरी स्क्रीन पर खुला</translation>
 <translation id="6192792657125177640">अपवाद</translation>
 <translation id="6210748933810148297">क्या <ph name="EMAIL" /> नहीं हैं?</translation>
+<translation id="6221892641068781024">सरल बनाया गया व्यू</translation>
 <translation id="6232535412751077445">“नज़र न रखें” सक्षम करने का अर्थ है कि आपके ब्राउज़िंग ट्रैफ़िक के साथ एक अनुरोध शामिल किया जाएगा. कोई भी प्रभाव इस बात पर निर्भर करता है कि वेबसाइट अनुरोध का प्रतिसाद देती है या नहीं और अनुरोध को किस तरह समझा जाता है.
 
 उदाहरण के लिए, कुछ वेबसाइट इस अनुरोध का प्रतिसाद आपको ऐसे विज्ञापन दिखाकर दे सकती हैं जो आपके द्वारा देखी गई अन्य वेबसाइट पर आधारित नहीं हैं. कई वेबसाइट अब भी आपके ब्राउज़िंग डेटा को संग्रहित करेंगी और उसका उपयोग करेंगी — उदाहरण के लिए सुरक्षा को बेहतर बनाने के लिए, सामग्री, विज्ञापन और सुझाव प्रदान करने के लिए और रिपोर्टिंग के आकंड़े जेनरेट करने के लिए.</translation>
@@ -591,6 +599,7 @@
 <translation id="6573431926118603307">आपके द्वारा अपने अन्य डिवाइस पर खोले गए टैब यहां दिखाई देंगे.</translation>
 <translation id="6575643671698722332">रीसेट विफल रहा. डिवाइस ऑनलाइन होना सुनिश्चित करें और पुन: प्रयास करें.</translation>
 <translation id="6583199322650523874">वर्तमान पेज को बुकमार्क करें</translation>
+<translation id="6593061639179217415">डेस्कटॉप साइट</translation>
 <translation id="6600954340915313787">Chrome पर कॉपी किया गया</translation>
 <translation id="6612358246767739896">सुरक्षित सामग्री</translation>
 <translation id="6627583120233659107">फ़ोल्‍डर संपादित करें</translation>
@@ -728,6 +737,7 @@
 <translation id="7846076177841592234">चयन हटाएं</translation>
 <translation id="784934925303690534">समय सीमा</translation>
 <translation id="7851858861565204677">अन्य डिवाइस</translation>
+<translation id="785312750761189439">लोकप्रिय साइटों और लेखों, डाउनलोड आदि की आसान एक्सेस के लिए स्क्रीन पर नीचे से ऊपर स्वाइप करें या विस्तार करें बटन को टैप करें</translation>
 <translation id="7875915731392087153">ईमेल बनाएं</translation>
 <translation id="7876243839304621966">सभी को निकालें</translation>
 <translation id="7882131421121961860">कोई इतिहास नहीं मिला</translation>
