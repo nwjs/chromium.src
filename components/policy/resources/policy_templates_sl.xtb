@@ -583,6 +583,7 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 
           Če ta pravilnik ni nastavljen, bo omogočen pravilnik »AllowJavaScript«, uporabnik pa ga bo lahko spremenil.</translation>
 <translation id="3038323923255997294">Nadaljuj izvajanje programov v ozadju, ko je <ph name="PRODUCT_NAME" /> zaprt</translation>
+<translation id="3039065003245994702">Konfiguriranje delovanja posodobitve vdelane programske opreme modula TPM</translation>
 <translation id="3046192273793919231">Pošiljanje omrežnih paketov v strežnik za upravljanje zaradi spremljanja stanja povezave</translation>
 <translation id="3048744057455266684">Če je pravilnik nastavljen in predlagani iskalni URL iz naslovne vrstice vsebuje ta parameter v poizvedbi ali identifikatorju delov, predlog prikaže iskalne izraze in ponudnika iskanja namesto neobdelanega iskalnega URL-ja.
 
@@ -713,6 +714,13 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
           Ta pravilnik se upošteva samo, če je omogočen pravilnik »DefaultSearchProviderEnabled«.</translation>
 <translation id="350797926066071931">Omogoči Google Prevajalnik</translation>
 <translation id="3512226956150568738">Če je model odjemalske naprave že podpiral ARC, preden je bila zaradi izvajanja ARC-a potrebna selitev na šifriranje ext4, in je omogočen pravilnik »ArcEnabled«, bo možnost delovala kot »AskUser« (vrednost 3). V vseh drugih primerih (če model naprave prej ni podpiral ARC-ja ali če je pravilnik »ArcEnabled« onemogočen) je ta vrednost enakovredna »DisallowArc« (vrednost 0).</translation>
+<translation id="3519432185185398282">Konfigurira razpoložljivost in delovanje funkcije posodobitve vdelane programske opreme modula TPM.
+
+      Posamezne nastavitve je mogoče določiti v lastnostih datoteke JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Če je nastavljeno na <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, bodo uporabniki lahko sprožili potek postopka »powerwash« zaradi namestitve posodobitve vdelane programske opreme modula TPM.
+
+      Če pravilnik ni nastavljen, funkcija posodobitve vdelane programske opreme modula TPM ne bo na voljo.</translation>
 <translation id="3528000905991875314">Omogoči nadomestne strani za napake</translation>
 <translation id="3547954654003013442">Nastavitve proxyja</translation>
 <translation id="3591584750136265240">Konfiguriranje preverjanja pristnosti pri prijavi</translation>

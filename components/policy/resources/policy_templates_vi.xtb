@@ -582,6 +582,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
           Nếu không thiết lập chính sách này, 'AllowJavaScript' sẽ được sử dụng và người dùng có thể thay đổi cài đặt này.</translation>
 <translation id="3038323923255997294">Tiếp tục chạy các ứng dụng dưới nền khi <ph name="PRODUCT_NAME" /> bị đóng</translation>
+<translation id="3039065003245994702">Định cấu hình hành vi của bản cập nhật chương trình cơ sở TPM</translation>
 <translation id="3046192273793919231">Gửi gói mạng tới máy chủ quản lý để theo dõi trạng thái trực tuyến</translation>
 <translation id="3048744057455266684">Nếu chính sách này được đặt và URL tìm kiếm được đề xuất từ thanh địa chỉ có chứa tham số này trong chuỗi truy vấn hoặc trong số nhận dạng phân đoạn, thì đề xuất sẽ hiển thị cụm từ tìm kiếm và nhà cung cấp dịch vụ tìm kiếm thay vì URL tìm kiếm thô.
           Chính sách này là tùy chọn. Nếu không được đặt, sẽ không có thay thế cụm từ tìm kiếm nào được thực hiện.
@@ -711,6 +712,13 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Chính sách này chỉ được tuân theo nếu kích hoạt chính sách 'DefaultSearchProviderEnabled'.</translation>
 <translation id="350797926066071931">Bật tính năng Dịch</translation>
 <translation id="3512226956150568738">Nếu cần có kiểu thiết bị khách đã hỗ trợ ARC trước khi di chuyển sang ext4 để chạy ARC và nếu chính sách ArcEnabled được đặt thành true thì tùy chọn này sẽ hoạt động giống như AskUser (giá trị 3). Trong tất cả các trường hợp khác (nếu kiểu thiết bị không hỗ trợ ARC từ trước hoặc nếu chính sách ArcEnabled được đặt thành false), thì giá trị này sẽ tương đương với DisallowArc (giá trị 0).</translation>
+<translation id="3519432185185398282">Định cấu hình tính sẵn sàng và hành vi của chức năng cập nhật chương trình cơ sở TPM.
+
+      Có thể chỉ định từng cài đặt trong thuộc tính JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Nếu được đặt thành <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, thì người dùng có thể kích hoạt luồng powerwash để cài đặt một bản cập nhật chương trình cơ sở TPM.
+
+      Nếu chính sách không được đặt, thì chức năng cập nhật chương trình cơ sở TPM sẽ không hoạt động.</translation>
 <translation id="3528000905991875314">Bật các trang lỗi thay thế</translation>
 <translation id="3547954654003013442">Cài đặt proxy</translation>
 <translation id="3591584750136265240">Định cấu hình hành vi xác thực thông tin đăng nhập</translation>

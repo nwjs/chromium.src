@@ -833,7 +833,7 @@ Quan hàgiu creat un usuari supervisat, podeu gestionar-ne la configuració en q
 <translation id="2271088077909873520">Gestiona les dades sincronitzades al <ph name="BEGIN_LINK" />Tauler de control de Google<ph name="END_LINK" />.</translation>
 <translation id="2272570998639520080">Copa de Martini</translation>
 <translation id="2276503375879033601">Afegeix més aplicacions</translation>
-<translation id="2277255602909579701">Totes les galetes i les dades del lloc</translation>
+<translation id="2277255602909579701">Totes les galetes i les dades del lloc web</translation>
 <translation id="2277769717710009150">{COUNT,plural, =1{1 element copiat}other{# elements copiats}}</translation>
 <translation id="2278562042389100163">Obre una finestra del navegador</translation>
 <translation id="2279874276457403668">Només es pot crear una sessió cada vegada.</translation>
@@ -1004,7 +1004,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="2541423446708352368">Mostra totes les baixades</translation>
 <translation id="2542049655219295786">Taula de Google</translation>
 <translation id="2544853746127077729">La xarxa ha rebutjat el certificat d'autenticació</translation>
-<translation id="2546283357679194313">Dades de llocs i galetes</translation>
+<translation id="2546283357679194313">Dades de llocs web i galetes</translation>
 <translation id="2547921442987553570">Afegeix a <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Memòria intercanviada</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> no s'ha pogut connectar a <ph name="NETWORK_ID" />. Seleccioneu una altra xarxa o bé torneu-ho a provar.</translation>
@@ -1291,7 +1291,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="2948300991547862301">Ves a <ph name="PAGE_TITLE" /></translation>
 <translation id="2948320633360386059">Bloquejats en llocs web que acostumen a mostrar anuncis intrusius</translation>
 <translation id="29488703364906173">Un navegador web ràpid, senzill i segur dissenyat per al web modern.</translation>
-<translation id="2949037475046662832">Amb aquesta acció, s'esborraran les galetes i les dades de tots els llocs, com ara:</translation>
+<translation id="2949037475046662832">Amb aquesta acció, s'esborraran les galetes i les dades de tots els llocs web, com ara:</translation>
 <translation id="2951247061394563839">Finestra central</translation>
 <translation id="2951721188322348056">Informació del vídeo</translation>
 <translation id="2956763290572484660"><ph name="COOKIES" /> galetes</translation>
@@ -2149,7 +2149,7 @@ Tots els usuaris han de tancar la sessió per continuar.</translation>
 <translation id="4256316378292851214">De&amp;sa el vídeo com a...</translation>
 <translation id="4258348331913189841">Sistemes de fitxers</translation>
 <translation id="4261901459838235729">Presentació de Google</translation>
-<translation id="4262241142610945528">SMS connect</translation>
+<translation id="4262241142610945528">Connexió d'SMS</translation>
 <translation id="4262366363486082931">Mou el focus a la barra d'eines</translation>
 <translation id="4263757076580287579">El registre de la impressora s'ha cancel·lat.</translation>
 <translation id="426564820080660648">Per comprovar si hi ha actualitzacions, feu servir Ethernet, Wi-Fi o dades mòbils.</translation>
@@ -2384,7 +2384,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="466481852929361583">S'està instal·lant el mòdul de seguretat. Tingues paciència; el procés pot tardar una estona.</translation>
 <translation id="4665014895760275686">Fabricant</translation>
 <translation id="466506872045057845">Chrome restablirà la configuració predeterminada dels permisos</translation>
-<translation id="4667176955651319626">Bloqueja les galetes de tercers i les dades de llocs</translation>
+<translation id="4667176955651319626">Bloqueja les galetes de tercers i les dades de llocs web</translation>
 <translation id="4668721319092543482">Fes clic per activar <ph name="PLUGIN_NAME" /></translation>
 <translation id="4668954208278016290">S'ha produït un problema en extreure la imatge a l'equip.</translation>
 <translation id="4669109953235344059">TORNA-HO A PROVAR</translation>
@@ -2713,7 +2713,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="5171343362375269016">Memòria intercanviada</translation>
 <translation id="5175870427301879686"><ph name="URL" /> vol emmagatzemar de forma permanent dades a l'equip local.</translation>
 <translation id="5177479852722101802">Continua bloquejant l'accés a la càmera i al micròfon</translation>
-<translation id="5177526793333269655">Visualització de miniatura</translation>
+<translation id="5177526793333269655">Visualització de miniatures</translation>
 <translation id="5177549709747445269">Esteu utilitzant dades mòbils</translation>
 <translation id="5178667623289523808">Cerca l'anterior</translation>
 <translation id="5181140330217080051">S'està baixant</translation>
@@ -3662,7 +3662,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="6606070663386660533">Pestanya 8</translation>
 <translation id="6607272825297743757">Informació del fitxer</translation>
 <translation id="6607831829715835317">Més eine&amp;s</translation>
-<translation id="6608140561353073361">Totes les galetes i dades del lloc...</translation>
+<translation id="6608140561353073361">Totes les galetes i dades del lloc web...</translation>
 <translation id="6610183966322615106">S'ha produït un error en afegir la impressora</translation>
 <translation id="6612358246767739896">Contingut protegit</translation>
 <translation id="6613452264606394692">Afegeix aquesta pàgina a les adreces d'interès per poder-hi tornar ràpidament</translation>
@@ -4322,7 +4322,7 @@ Utilitza aquesta funció només amb comptes de confiança.</translation>
 <translation id="7685049629764448582">Memòria de JavaScript </translation>
 <translation id="7690294790491645610">Confirma la contrasenya nova</translation>
 <translation id="7690853182226561458">Afegeix una &amp;carpeta...</translation>
-<translation id="7693221960936265065">l'inici (tots)</translation>
+<translation id="7693221960936265065">l'inici</translation>
 <translation id="769569204874261517"><ph name="USER_DISPLAY_NAME" /> (ja és en aquest dispositiu)</translation>
 <translation id="7701040980221191251">Cap</translation>
 <translation id="7701869757853594372">Controls d'USUARI</translation>

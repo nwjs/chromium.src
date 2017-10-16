@@ -418,9 +418,9 @@ Sera hii ikiondolewa, chaguo-msingi zitatumika kwa mipangilio yote.</translation
 
      Sera hii ikiwekwa kuwa Sivyo, ujumbe wa hitilafu utaonyeshwa badala ya ombi la kusanidi mtandao.</translation>
 <translation id="2498238926436517902">Ficha rafu otomatiki kila wakati</translation>
-<translation id="2514328368635166290">Inabainisha ikoni ya URL pendwa ya mtoaji chaguo-msingi wa utafutaji.
+<translation id="2514328368635166290">Inabainisha aikoni ya URL pendwa ya mtoaji chaguo-msingi wa utafutaji.
 
-          Sera hii ni ya hiari. Ikiwa haitawekwa, hakuna ikoni itakayokuwepo kwa mtojai wa utafutaji.
+          Sera hii ni ya hiari. Ikiwa haitawekwa, hakuna aikoni itakayokuwepo kwa mtojai wa utafutaji.
 
           Sera hii inafuatiliwa tu ikiwa sera ya 'DefaultSearchProviderEnabled' imewezeshwa.</translation>
 <translation id="2516600974234263142">Huwasha kuchapisha katika <ph name="PRODUCT_NAME" /> na huzuia watumiaji kubadilisha mpangilio huu.
@@ -570,6 +570,7 @@ Sera hii ikiondolewa, chaguo-msingi zitatumika kwa mipangilio yote.</translation
 
           Ikiwa sera hii itasalia kama haijawekwa, 'AllowJavaScript' itatumiwa na mtumiaji ataweza kuibadilisha.</translation>
 <translation id="3038323923255997294">Endelea kuendesha programu za mandharinyuma wakati <ph name="PRODUCT_NAME" /> imefungwa</translation>
+<translation id="3039065003245994702">Weka mipangilio ya sasisho la utendaji wa programu dhibiti ya TPM</translation>
 <translation id="3046192273793919231">Tuma vifurushi vya mtandao kwenye seva ya udhibiti ili kufuatilia hali ya mtandao</translation>
 <translation id="3048744057455266684">Sera hii ikiwekwa na URL ya utafutaji inayopendekezwa kutoka kwenye sandukuu iwe na kigezo hiki katika mtiririko wa hoja au katika kitambulishi cha kipande, basi pendekezo litaonyesha maneno ya utafutaji na mtoa huduma ya utafutaji badala ya URL ya utafutaji ghafi.
 
@@ -701,12 +702,19 @@ Sera hii inatumika tu kama sera ya 'DefaultSearchProviderEnabled' imewashwa.</tr
           Sera hii itatumika tu endapo sera ya 'DefaultSearchProviderEnabled' imewashwa.</translation>
 <translation id="350797926066071931">Wezesha Tafsiri</translation>
 <translation id="3512226956150568738">Ikiwa muundo wa kifaa teja tayari unatumia ARC kabla ya kuhamishiwa kwenye ext4 ili kutumia ARC na sera ya ArcEnabled imewekwa kuwa ndivyo, chaguo hili litafanya kazi kama AskUser (thamani ya 3). Katika hali zingine zote (ikiwa muundo wa kifaa haukuwa unatumia ARC hapo awali, au kama sera ya ArcEnabled imewekwa kuwa sivyo), thamani hii inalingana na DisallowArc (thamani ya 0).</translation>
+<translation id="3519432185185398282">Huweka mipangilio ya upatikanaji na utendaji wa kipengele cha kusasisha programu dhibiti ya TPM.
+
+      Mipangilio mahususi inaweza kubainishwa katika sifa za JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Ikiwekwa kuwa <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, watumiaji watawezesha utaratibu wa Powerwash wa kusakinisha sasisho la programu dhibiti ya TPM.
+
+      Ikiwa sera hii haijawekwa, kipengele cha kusasisha programu dhibiti ya TPM hakitapatikana.</translation>
 <translation id="3528000905991875314">Wezesha kurasa badala za hitilafu</translation>
 <translation id="3547954654003013442">Mipangilio ya proksi</translation>
 <translation id="3591584750136265240">Weka mipangilio ya tabia ya kithibitishaji cha kuingia katika akaunti</translation>
 <translation id="3627678165642179114">Wezesha au lemaza huduma ya wavuti ya ukaguzi tahajia</translation>
 <translation id="3646859102161347133">Weka aina ya kikuza skrini</translation>
-<translation id="3653237928288822292">Ikoni ya mtoaji wa utafutaji chaguo-msingi</translation>
+<translation id="3653237928288822292">Aikoni ya mtoaji wa utafutaji chaguo-msingi</translation>
 <translation id="3660562134618097814">Hamisha vidakuzi vya SAML IdP wakati wa kuingia katika akaunti</translation>
 <translation id="3687282113223807271">Huduma ya Kuvinjari Salama huonyesha ukurasa wa kuonya wakati watumiaji wanapovinjari tovuti ambazo zimetiwa alama kuwa hasidi. Kuwasha mipangilio hii kunawazuia watumiaji kuondoka kwenye ukurasa wa kuonya hadi kwenye tovuti hasidi.
 

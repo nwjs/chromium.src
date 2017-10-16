@@ -562,6 +562,7 @@
 <translation id="3030000825273123558">Ativar relatório de métricas</translation>
 <translation id="3034580675120919256">Permite definir se os Web sites estão autorizados a executar JavaScript. A execução de JavaScript pode ser permitida para todos os Web sites ou negada para todos os Web sites. Se esta política não for definida, será utilizada a definição "AllowJavaScript" e o utilizador poderá alterá-la.</translation>
 <translation id="3038323923255997294">Continuar a executar aplicações em segundo plano quando o <ph name="PRODUCT_NAME" /> está fechado</translation>
+<translation id="3039065003245994702">Configurar o comportamento de atualização de firmware do TPM</translation>
 <translation id="3046192273793919231">Enviar pacotes de rede para o servidor de gestão para monitorizar o estado online</translation>
 <translation id="3048744057455266684">Se esta política estiver definida e um URL de pesquisa sugerido pela caixa geral tiver incluído este parâmetro na cadeia de consulta ou no identificador de fragmento, a sugestão apresentará os termos de pesquisa e o fornecedor de pesquisa em vez do URL de pesquisa não processado.
 
@@ -688,6 +689,13 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
           Esta política só será seguida se a política "DefaultSearchProviderEnabled" estiver ativada.</translation>
 <translation id="350797926066071931">Ativar Google Tradutor</translation>
 <translation id="3512226956150568738">Se o modelo do dispositivo do cliente já era compatível com ARC antes de a migração para ext4 ser necessária para executar ARC e se a política ArcEnabled estiver definida como verdadeira, esta opção comporta-se como AskUser (valor 3). Em todos os outros casos (se o modelo do dispositivo não era compatível com ARC anteriormente ou se a política ArcEnabled estiver definida como falsa), este valor é equivalente a DisallowArc (valor 0).</translation>
+<translation id="3519432185185398282">Configura a disponibilidade e o comportamento da funcionalidade de atualização de firmware do TPM.
+
+      É possível especificar definições individuais nas propriedades de JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: se for definida como <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, os utilizadores podem acionar o fluxo de Powerwash para instalar uma atualização de firmware do TPM.
+
+      Se a política não for definida, a funcionalidade de atualização de firmware do TPM não estará disponível.</translation>
 <translation id="3528000905991875314">Ativar páginas de erro alternativas</translation>
 <translation id="3547954654003013442">Definições de proxy</translation>
 <translation id="3591584750136265240">Configurar o comportamento de autenticação de início de sessão</translation>

@@ -579,6 +579,7 @@
 
           Kung hinayaang hindi nakatakda ang patakarang ito, gagamitin ang 'AllowJavaScript' at magagawa ng user na baguhin ito.</translation>
 <translation id="3038323923255997294">Magpatuloy sa pagpapatakbo ng apps sa background kapag nakasara ang <ph name="PRODUCT_NAME" /></translation>
+<translation id="3039065003245994702">I-configure ang gawi sa pag-update ng TPM firmware</translation>
 <translation id="3046192273793919231">Magpadala ng mga network packet sa server sa pamamahala upang masubaybayan ang online status</translation>
 <translation id="3048744057455266684">Kung nakatakda ang patakarang ito at may URL sa paghahanap na iminungkahi mula sa omnibox na naglalaman ng parameter na ito sa string ng query o sa tagatukoy ng fragment, ipapakita ng suhestiyon ang mga termino para sa paghahanap at search provider sa halip na ang mismong URL sa paghahanap.
 
@@ -708,6 +709,13 @@
           Iginagalang lang ang patakarang ito kung naka-enable ang patakarang 'DefaultSearchProviderEnabled.'</translation>
 <translation id="350797926066071931">Paganahin ang I-translate</translation>
 <translation id="3512226956150568738">Kung sinusuportahan na ng modelo ng device ng kliyente ang ARC bago kailanganin ang paglipat sa ext4 upang mapatakbo ang ARC at kung nakatakda sa true ang patakarang ArcEnabled, gagana ang opsyong ito bilang AskUser (value 3). Sa lahat ng iba pang sitwasyon (kung hindi sinusuportahan ng modelo ng device ang ARC dati, o kung nakatakda sa false ang patakarang ArcEnabled), ang value na ito ay katumbas ng DisallowArc (value 0).</translation>
+<translation id="3519432185185398282">Nagko-configure ng availability at gawi ng functionality ng pag-update sa TPM firmware.
+
+      Maaaring tumukoy ng mga indibidwal na setting sa mga property ng JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Kung nakatakda sa <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, mati-trigger ng mga user ang powerwash flow upang mag-install ng update sa TPM firmware.
+
+      Kung hindi nakatakda ang patakaran, magiging hindi available ang functionality ng pag-update sa TPM firmware.</translation>
 <translation id="3528000905991875314">Paganahin ang mga kahaliling pahina ng error</translation>
 <translation id="3547954654003013442">Mga setting ng proxy</translation>
 <translation id="3591584750136265240">I-configure ang gawi sa pagpapatotoo sa pag-log in</translation>

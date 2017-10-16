@@ -570,6 +570,7 @@
 <translation id="3034580675120919256">Gjør at du kan angi om nettsteder får kjøre JavaScript. Kjøring av JavaScript kan tillates for alle nettsteder, eller nektes for alle nettsteder.
           Hvis denne retningslinjen ikke angis, brukes AllowJavaScript, og brukeren kan endre på dette.</translation>
 <translation id="3038323923255997294">Fortsett å kjøre bakgrunnsprogrammer når <ph name="PRODUCT_NAME" /> er lukket</translation>
+<translation id="3039065003245994702">Konfigurer oppdatering av TMP-fastvaren</translation>
 <translation id="3046192273793919231">Send nettverkspakker til administreringstjeneren for å overvåke nettstatusen</translation>
 <translation id="3048744057455266684">Hvis denne innstillingen er angitt og en nettadresse som blir foreslått av søkefeltet inneholder denne parameteren i søkestrengen eller fragmentidentifikatoren, viser forslaget søkeordene og søkeleverandøren i stedet for søkenettadressen.
 
@@ -692,6 +693,13 @@
           Denne innstillingen brukes bare hvis «DefaultSearchProviderEnabled»-innstillingen er aktivert.</translation>
 <translation id="350797926066071931">Aktiver oversettelse</translation>
 <translation id="3512226956150568738">Hvis klientens enhetsmodell allerede støttet ARC før overføringen til ext4 var nødvendig for å kjøre ARC, og hvis ArcEnabled-regelen er satt til sann, har dette alternativet samme effekt som AskUser (verdi 3). I alle andre tilfeller (hvis enhetsmodellen ikke støttet ARC tidligere, eller hvis ArcEnabled-regelen er satt til usann), tilsvarer denne verdien DisallowArc (verdi 0).</translation>
+<translation id="3519432185185398282">Konfigurerer tilgjengeligheten og funksjonaliteten for oppdatering av TMP-fastvaren.
+
+      Enkeltinnstillinger kan angis i JSON-egenskaper:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Hvis den er satt til <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, kan brukere utløse Powerwash-prosessen for å installere en oppdatering for TMP-fastvaren.
+
+      Hvis regelen ikke er aktivert, er ikke funksjonaliteten for oppdatering av TMP-fastvaren tilgjengelig.</translation>
 <translation id="3528000905991875314">Aktiver alternative feilsider</translation>
 <translation id="3547954654003013442">Innstillinger for proxy-tjener</translation>
 <translation id="3591584750136265240">Konfigurer autentiseringsatferden ved pålogging</translation>

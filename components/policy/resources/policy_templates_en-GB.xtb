@@ -583,6 +583,7 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
 
           If this policy is left unset, 'AllowJavaScript' will be used and the user will be able to change it.</translation>
 <translation id="3038323923255997294">Continue running background apps when <ph name="PRODUCT_NAME" /> is closed</translation>
+<translation id="3039065003245994702">Configure TPM firmware update behaviour</translation>
 <translation id="3046192273793919231">Send network packets to the management server to monitor online status</translation>
 <translation id="3048744057455266684">If this policy is set and a search URL suggested from the omnibox contains this parameter in the query string or in the fragment identifier, then the suggestion will show the search terms and search provider instead of the raw search URL.
 
@@ -713,6 +714,13 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
           This policy is only respected if the 'DefaultSearchProviderEnabled' policy is enabled.</translation>
 <translation id="350797926066071931">Enable Translate</translation>
 <translation id="3512226956150568738">If the client device model already supported ARC before migration to ext4 was necessary to run ARC and if the ArcEnabled policy is set to true, this option will behave as AskUser (value 3). In all other cases (if the device model did not support ARC before, or if ArcEnabled policy is set to false), this value is equivalent to DisallowArc (value 0).</translation>
+<translation id="3519432185185398282">Configures availability and behaviour of TPM firmware update functionality.
+
+      Individual settings can be specified in JSON properties:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: If set to <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, users will be able to trigger the powerwash flow to install a TPM firmware update.
+
+      If the policy is not set, TPM firmware update functionality will not be available.</translation>
 <translation id="3528000905991875314">Enable alternate error pages</translation>
 <translation id="3547954654003013442">Proxy settings</translation>
 <translation id="3591584750136265240">Configure the login authentication behaviour</translation>

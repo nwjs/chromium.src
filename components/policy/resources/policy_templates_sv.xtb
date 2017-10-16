@@ -584,6 +584,7 @@
 
           Om policyn inte anges används AllowJavaScript och användaren kan ändra inställningen.</translation>
 <translation id="3038323923255997294">Fortsätt köra bakgrundsappar när <ph name="PRODUCT_NAME" /> avslutas</translation>
+<translation id="3039065003245994702">Konfigurera beteende för uppdatering av firmware för TPM</translation>
 <translation id="3046192273793919231">Skicka nätverkspaket för övervakning av onlinestatusen till hanteringsservern</translation>
 <translation id="3048744057455266684">Om den här policyn ställs in och en sökadress som har föreslagits från adressfältet innehåller den här parametern i sökfrågan eller i fragmentidentifieraren kommer förslaget att visa sökorden och sökleverantören istället för själva sökadressen.
 
@@ -714,6 +715,13 @@
           Policyn följs endast om policyn DefaultSearchProviderEnabled är aktiverad.</translation>
 <translation id="350797926066071931">Aktivera Översätt</translation>
 <translation id="3512226956150568738">Om klientmodellen hade stöd för ARC redan innan det blev nödvändigt att migrera till ext4 för att köra ARC och om principen ArcEnabled är inställd på sant fungerar det här alternativet som AskUser (värde 3). I alla andra fall (om enhetsmodellen inte hade stöd för ARC tidigare eller om principen ArcEnabled är inställd på falskt) är det här värdet likvärdigt med DisallowArc (värde 0).</translation>
+<translation id="3519432185185398282">Konfigurerar tillgängligheten och beteendet för uppdateringar av firmware för TPM.
+
+      Enskilda inställningar kan anges som JSON-egenskaper:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Om värdet <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" /> anges för principen kan användare aktivera Powerwash så att uppdateringar av firmware för TPM kan installeras.
+
+      Om inget värde anges för principen är uppdateringar av firmware för TPM inte tillgängliga.</translation>
 <translation id="3528000905991875314">Aktivera alternativa felsidor</translation>
 <translation id="3547954654003013442">Proxyinställningar</translation>
 <translation id="3591584750136265240">Konfigurera vad som ska göras vid inloggningsautentisering</translation>

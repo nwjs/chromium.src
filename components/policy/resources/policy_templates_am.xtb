@@ -581,6 +581,7 @@
 
           ይህ መመሪያ እንዳልተዋቀረ ከተተወ «AllowJavaScript» ስራ ላይ ይውልና ተጠቃሚው ሊቀይረው ይችላል።</translation>
 <translation id="3038323923255997294"><ph name="PRODUCT_NAME" /> ሲዘጋ የጀርባ መተግበሪያዎችን ማሂዱን ይቀጥሉ</translation>
+<translation id="3039065003245994702">የTPM ጽኑ ትዕዛዝ ዝማኔ ባህሪን ያዋቅሩ</translation>
 <translation id="3046192273793919231">የመስመር ላይ ሁኔታን ለመከታተል የአውታረ መረብ ጥቅሎችን ወደ የአስተዳደር አገልጋይ ይላኩ</translation>
 <translation id="3048744057455266684">ይህ መመሪያ ከተዋቀረና አንድ ከኦምኒቦክሱ የተጠቆመ የፍለጋ ዩአርኤል በሕብረቁምፊው ወይም በቁራጭ ለዪው ውስጥ የተጠቆመው ይህን ልኬት ከያዘ የጥቆማ አስተያየቱ ከጥሬ ፍለጋ ዩአርኤል ይልቅ የፍለጋ ቃላቱ እና የፍለጋ አቅራቢውን ያሳያል።
 
@@ -712,6 +713,13 @@
 ይህ መመሪያ የሚከበረው የ«DefaultSearchProviderEnabled» መመሪያው ሲነቃ ብቻ ነው።</translation>
 <translation id="350797926066071931">ተርጉምን ያንቁ</translation>
 <translation id="3512226956150568738">የደንበኛ መሣሪያ ሞዴሉ ወደ ext4 ከማፍለስ በፊት ቀደም ብሎ ARCን የሚደግፍ ከሆነ እና የArcEnabled መመሪያ ወደ እውነት ከተዋቀረ ይህ አማራጭ እንደ AskUser (እሴት 3) ይሆናል። በሌሎች ሁኔታዎች ሁሉ (የመሣሪያው ሞዴል ከዚህ ቀደም ARC የማይደግፍ ከሆነ ወይም የArcEnabled መመሪያ ወደ ሀሰት ከተዋቀረ) ይህ እሴት ከDisallowArc (እሴት 0) ጋር እኩል ነው።</translation>
+<translation id="3519432185185398282">የTPM ጽኑ ትዕዛዝ ዝማኔ ተግባር ተገኝነትን እና ባህሪን ያዋቅራል።
+
+      ተናጠል ቅንብሮች በJSON ልኬቶች ውስጥ ሊገለጹ ይችላሉ፦
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />፦ ወደ <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" /> ከተዋቀረ ተጠቃሚዎች የTPM ጽኑ ትዕዛዝ ዝማኔን ለመጫን የpowerwash ፍሰቱን መቀስቀስ ይችላሉ።
+
+      መመሪያው ካልተዋቀረ የTPM ጽኑ ትዕዛዝ ዝማኔ ተግባሩ የሚገኝ አይሆንም።</translation>
 <translation id="3528000905991875314">ተለዋጭ የስህተት ገጾችን ያንቁ</translation>
 <translation id="3547954654003013442">የተኪ ቅንብሮች</translation>
 <translation id="3591584750136265240">የመግባት ማረጋገጥ ባህሪውን ያዋቅሩ</translation>

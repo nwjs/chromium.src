@@ -114,7 +114,7 @@ Zur Verwendung von Physical Web müssen Bluetooth und der Standortdienst aktivie
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB sonstiger Apps</translation>
 <translation id="2011013297378343166">Durch die Nutzung dieser App stimmen Sie den Chrome-<ph name="BEGIN_LINK1" />Nutzungsbedingungen<ph name="END_LINK1" />, den Chrome-<ph name="BEGIN_LINK2" />Datenschutzhinweisen<ph name="END_LINK2" /> und den <ph name="BEGIN_LINK3" />Datenschutzhinweisen für in Family Link erstellte Google-Konten<ph name="END_LINK3" /> zu.</translation>
 <translation id="2017836877785168846">Löscht den Verlauf sowie Autovervollständigungen in der Adressleiste.</translation>
-<translation id="2038563949887743358">"Desktopversion anfordern" aktivieren</translation>
+<translation id="2038563949887743358">"Desktopversion ansehen" aktivieren</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> GB sonstiger Apps</translation>
 <translation id="2079545284768500474">Rückgängig machen</translation>
 <translation id="2082238445998314030">Ergebnis <ph name="RESULT_NUMBER" /> von <ph name="TOTAL_RESULTS" /></translation>
@@ -802,7 +802,7 @@ Eventuell finden Sie unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="8523928698583292556">Gespeichertes Passwort löschen</translation>
 <translation id="854522910157234410">Diese Seite öffnen</translation>
 <translation id="8562452229998620586">Gespeicherte Passwörter erscheinen hier.</translation>
-<translation id="856481929701340285">Desktopversion anfordern</translation>
+<translation id="856481929701340285">Desktopversion ansehen</translation>
 <translation id="8569404424186215731">seit <ph name="DATE" /></translation>
 <translation id="8571213806525832805">Letzte 4 Wochen</translation>
 <translation id="857509777403223202">Weitere Artikel werden in Kürze erscheinen. Schönen Abend!</translation>
@@ -854,7 +854,7 @@ Um neue Lizenzen zu erwerben, stellen Sie eine Internetverbindung her und spiele
 </translation>
 <translation id="9050666287014529139">Passphrase</translation>
 <translation id="9060538597317784206">App <ph name="APP_NAME" /> im Play Store anzeigen. Bewertung: <ph name="APP_RATING" /></translation>
-<translation id="9063523880881406963">"Desktopversion anfordern" deaktivieren</translation>
+<translation id="9063523880881406963">"Desktopversion ansehen" deaktivieren</translation>
 <translation id="9065203028668620118">Bearbeiten</translation>
 <translation id="9070377983101773829">Sprachsuche starten</translation>
 <translation id="9071742570345586758">Google VR Services installieren, um Virtual-Reality-Inhalte zu sehen</translation>

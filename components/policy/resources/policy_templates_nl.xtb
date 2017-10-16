@@ -579,6 +579,7 @@
 
           Als dit beleid niet wordt ingesteld, wordt 'AllowJavaScript' gebruikt en kan de gebruiker dit aanpassen.</translation>
 <translation id="3038323923255997294">Doorgaan met uitvoeren van achtergrondapps als <ph name="PRODUCT_NAME" /> is gesloten</translation>
+<translation id="3039065003245994702">Updategedrag voor TPM-firmware configureren</translation>
 <translation id="3046192273793919231">Netwerkpakketten verzenden naar de beheerserver om de online status bij te houden</translation>
 <translation id="3048744057455266684">Als dit beleid is ingesteld en een zoek-URL die is voorgesteld vanuit de omnibox, deze parameter in de zoekreeks of in de fragment-ID bevat, geeft de suggestie de zoektermen en zoekprovider weer en niet de onbewerkte zoek-URL.
 
@@ -709,6 +710,13 @@
           Dit beleid wordt alleen gerespecteerd als het beleid 'DefaultSearchProviderEnabled' is ingeschakeld.</translation>
 <translation id="350797926066071931">Vertalen inschakelen</translation>
 <translation id="3512226956150568738">Als het apparaatmodel van de klant al ondersteuning voor ARC bood voordat migratie naar ext4 nodig werd om ARC uit te voeren en als het beleid ArcEnabled is ingesteld op 'true' (waar), wordt AskUser (waarde 3) gebruikt voor deze optie. In alle andere gevallen (als het apparaatmodel voorheen geen ondersteuning voor ARC bood of als het beleid ArcEnabled op 'false' (onwaar) is ingesteld), is deze waarde gelijk aan DisallowArc (waarde 0).</translation>
+<translation id="3519432185185398282">Hiermee configureer je de beschikbaarheid en het gedrag van de updatefunctionaliteit voor TPM-firmware.
+
+      Afzonderlijke instellingen kunnen worden gespecificeerd in JSON-eigenschappen:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Als dit is ingesteld op <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, kunnen gebruikers het Powerwash-proces activeren om een TPM-firmware-update te installeren.
+
+      Als het beleid niet is ingesteld, is de updatefunctionaliteit voor TPM-firmware niet beschikbaar.</translation>
 <translation id="3528000905991875314">Alternatieve foutpagina's inschakelen</translation>
 <translation id="3547954654003013442">Proxyinstellingen</translation>
 <translation id="3591584750136265240">Het verificatiegedrag voor inloggen configureren</translation>

@@ -534,6 +534,7 @@
 <translation id="3030000825273123558">启用指标报告</translation>
 <translation id="3034580675120919256">可让您设置是否允许网站运行 JavaScript。可以针对所有网站允许或拒绝运行 JavaScript。如果未设置此政策，系统将使用“AllowJavaScript”并允许用户更改此设置。</translation>
 <translation id="3038323923255997294">在<ph name="PRODUCT_NAME" />关闭后继续运行后台应用</translation>
+<translation id="3039065003245994702">配置 TPM 固件更新行为</translation>
 <translation id="3046192273793919231">将网络数据包发送到管理服务器以监控联网状态</translation>
 <translation id="3048744057455266684">如果设置了此政策，且多功能框建议的搜索网址在查询字符串或片段标识符中包含此参数，则该建议将显示搜索字词和搜索服务提供商，而不是原始的搜索网址。
 
@@ -657,6 +658,13 @@
           此政策只在启用了“DefaultSearchProviderEnabled”政策的前提下才会生效。</translation>
 <translation id="350797926066071931">启用翻译</translation>
 <translation id="3512226956150568738">如果客户端设备型号在需要迁移到 ext4 才能运行 ARC 之前就已支持 ARC，且 ArcEnabled 政策已设为 true，该选项的行为便会和 AskUser（值 3）的行为一样。在所有其他情形（如果相应的设备型号之前不支持 ARC，或者如果 ArcEnabled 政策被设为 false）下，此值将会等同于 DisallowArc（值 0）。</translation>
+<translation id="3519432185185398282">配置 TPM 固件更新功能的可用性和行为。
+
+      各项具体设置可在 JSON 属性中进行指定：
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />：如果设为 <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />，用户将能够触发 Powerwash 流程以安装 TPM 固件更新。
+
+      如果未设置此政策，TPM 固件更新功能将会不可用。</translation>
 <translation id="3528000905991875314">启用备用的错误页面</translation>
 <translation id="3547954654003013442">代理设置</translation>
 <translation id="3591584750136265240">配置登录身份验证行为</translation>

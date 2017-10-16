@@ -533,7 +533,7 @@
 <translation id="180035236176489073">このファイルにアクセスするには、オンライン接続が必要です。</translation>
 <translation id="1801298019027379214">PIN が正しくありません。もう一度入力してください。あと <ph name="TRIES_COUNT" /> 回入力できます。</translation>
 <translation id="1801827354178857021">期間</translation>
-<translation id="1803545009660609783">再登録</translation>
+<translation id="1803545009660609783">再認識</translation>
 <translation id="1807938677607439181">すべてのファイル</translation>
 <translation id="1809734401532861917">自分のブックマーク、履歴、パスワード、その他の設定を <ph name="USER_EMAIL_ADDRESS" /> に追加します</translation>
 <translation id="1810107444790159527">リスト ボックス</translation>
@@ -2960,7 +2960,7 @@
 <translation id="5527463195266282916">拡張機能のダウングレードが試行されました。</translation>
 <translation id="5527474464531963247">別のネットワークも選択できます。</translation>
 <translation id="5528368756083817449">ブックマーク マネージャ</translation>
-<translation id="5531274207066050939">Google ペイメント</translation>
+<translation id="5531274207066050939">Google Payments</translation>
 <translation id="5532223876348815659">グローバル</translation>
 <translation id="5533001281916885985"><ph name="SITE_NAME" /> が次の許可を求めています</translation>
 <translation id="5534520101572674276">サイズを計算しています</translation>

@@ -486,8 +486,7 @@ Cada entrada de la llista especifica un identificador, que s'utilitza internamen
 
       Aquesta política només s'utilitza si se selecciona BlacklistRestriction per a NativePrintersBulkAccessMode.
 
-      Si s'utilitza aquesta política, l'usuari té accés a totes les impressores excepte als identificadors que s'inclouen a la política.
-      </translation>
+      Si s'utilitza, l'usuari té accés a totes les impressores tret de les identificades en aquesta política.</translation>
 <translation id="2801230735743888564">Permet que els usuaris juguin al joc del dinosaure que apareix per sorpresa quan el dispositiu està sense connexió.
 
        Si aquesta política s'estableix en "false", els usuaris no podran jugar-hi quan el dispositiu estigui sense connexió. En canvi, si s'estableix en "true", els usuaris podran jugar-hi. Si es deixa sense establir, els usuaris no podran jugar a aquest joc en un dispositiu Chrome OS inscrit, però sí que ho podran fer en altres circumstàncies.</translation>
@@ -550,6 +549,7 @@ Cada entrada de la llista especifica un identificador, que s'utilitza internamen
 <translation id="3030000825273123558">Activa la creació d'informes de mètriques</translation>
 <translation id="3034580675120919256">Us permet definir si els llocs web poden executar JavaScript. L'execució de JavaScript es pot autoritzar o denegar per a tots els llocs web. Si no es defineix aquesta política, s'utilitzarà el paràmetre "AllowJavaScript" i l'usuari podrà canviar-lo.</translation>
 <translation id="3038323923255997294">Continua executant les aplicacions en segon pla quan es tanqui <ph name="PRODUCT_NAME" /></translation>
+<translation id="3039065003245994702">Configura el comportament de l'actualització del microprogramari de TPM</translation>
 <translation id="3046192273793919231">Envia paquets de xarxa al servidor de gestió per supervisar l'estat en línia</translation>
 <translation id="3048744057455266684">Si es defineix aquesta política i un URL de cerca suggerit a l'omnibox conté aquest paràmetre a la cadena de consulta o a l'identificador de fragment, el suggeriment mostra els termes de cerca i el proveïdor de cerca en comptes de l'URL de cerca sense processar.
 
@@ -675,6 +675,13 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
           Aquesta política només es respecta si la política "DefaultSearchProviderEnabled" està activada.</translation>
 <translation id="350797926066071931">Activa Google Traductor</translation>
 <translation id="3512226956150568738">Si el model de dispositiu del client ja admetia ARC abans que la migració a ext4 fos necessària per executar ARC, i si la política ArcEnabled s'estableix en "true", aquesta opció es comportarà com AskUser (valor 3). En la resta de casos (si abans el model de dispositiu no admetia ARC o si la política ArcEnabled s'estableix en "false"), aquest valor és equivalent a DisallowArc (valor 0).</translation>
+<translation id="3519432185185398282">Configura la disponibilitat i el comportament de la funcionalitat d'actualització del microprogramari de TPM.
+
+      Les opcions de configuració individuals es poden especificar a les propietats de JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: si es defineix en <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, els usuaris podran activar el flux de Powerwash per instal·lar una actualització del microprogramari de TPM.
+
+      Si la política no es defineix, la funcionalitat d'actualització del microprogramari de TPM no estarà disponible.</translation>
 <translation id="3528000905991875314">Activa les pàgines d'error alternatives</translation>
 <translation id="3547954654003013442">Configuració del servidor intermediari</translation>
 <translation id="3591584750136265240">Configura el comportament de l'autenticació d'inici de sessió</translation>

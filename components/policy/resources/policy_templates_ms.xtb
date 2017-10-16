@@ -581,6 +581,7 @@
 
           Jika dasar ini dibiarkan tanpa ditetapkan, 'AllowJavaScript' akan digunakan dan pengguna akan boleh mengubahnya.</translation>
 <translation id="3038323923255997294">Terus jalankan apl latar belakang apabila <ph name="PRODUCT_NAME" /> ditutup</translation>
+<translation id="3039065003245994702">Konfigurasikan gelagat kemas kini perisian tegar TPM</translation>
 <translation id="3046192273793919231">Hantar bingkisan rangkaian ke pelayan pengurusan untuk memantau status dalam talian</translation>
 <translation id="3048744057455266684">Jika dasar ini ditetapkan dan URL carian yang dicadangkan dari kotak omni mengandungi parameter ini dalam rentetan pertanyaan atau dalam pengecam serpihan, maka cadangan akan memaparkan istilah carian dan penyedia carian, bukannya URL carian mentah.
 
@@ -711,6 +712,13 @@
           Dasar ini hanya dipatuhi jika dasar 'DefaultSearchProviderEnabled' didayakan.</translation>
 <translation id="350797926066071931">Dayakan Terjemahan</translation>
 <translation id="3512226956150568738">Jika model peranti pelanggan sudah menyokong ARC sebelum penghijrahan kepada ext4 yang diperlukan untuk menjalankan ARC dan jika dasar ArcEnabled ditetapkan kepada benar, pilihan ini akan berkelakuan seperti AskUser (nilai 3). Dalam semua keadaan lain, (jika model peranti tidak menyokong ARC sebelum ini atau jika dasar ArcEnabled ditetapkan kepada palsu), nilai ini bersamaan dengan DisallowArc (nilai 0).</translation>
+<translation id="3519432185185398282">Mengkonfigurasikan ketersediaan dan gelagat fungsi kemas kini perisian TPM.
+
+      Tetapan individu boleh ditentukan dalam sifat JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Jika ditetapkan kepada <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, pengguna akan boleh mencetuskan aliran powerwash untuk memasang kemas kini perisian tegar TPM.
+
+      Jika dasar tidak ditetapkan, fungsi kemas kini perisian tegar TPM tidak akan tersedia.</translation>
 <translation id="3528000905991875314">Dayakan halaman ralat ganti</translation>
 <translation id="3547954654003013442">Tetapan proksi</translation>
 <translation id="3591584750136265240">Konfigurasikan gelagat pengesahan log masuk</translation>

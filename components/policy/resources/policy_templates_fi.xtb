@@ -555,6 +555,7 @@ Kaikki luettelon kohteet ovat tunnuksia, joiden perusteella erotetaan laitteesee
 <translation id="3030000825273123558">Ota tilastoraportit käyttöön</translation>
 <translation id="3034580675120919256">Voit määrittää, saavatko sivustot suorittaa JavaScriptiä. JavaScriptin suorittaminen voidaan joko sallia kaikille sivustoille tai kieltää kaikilta sivustoilta. Jos tätä käytäntöä ei ole asetettu, käytetään AllowJavaScript-määritystä, ja käyttäjä voi muuttaa sitä.</translation>
 <translation id="3038323923255997294">Jätä taustasovellukset käyntiin, kun <ph name="PRODUCT_NAME" /> suljetaan</translation>
+<translation id="3039065003245994702">Määritä TPM-laiteohjelmiston päivittäminen</translation>
 <translation id="3046192273793919231">Lähetä hallintapalvelimelle verkkopaketteja verkkotilan valvontaa varten</translation>
 <translation id="3048744057455266684">Jos tämä käytäntö on määritetty ja jos omniboxin kautta ehdotettu hakuosoite sisältää tämän parametrin kyselymerkkijonossa tai osatunnisteessa, ehdotus näyttää hakutermit ja hakupalvelun tarjoajan eikä raakamuotoista hakuosoitetta.
 
@@ -681,6 +682,13 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
           Käytäntö on voimassa vain, jos käytäntö DefaultSearchProviderEnabled on käytössä.</translation>
 <translation id="350797926066071931">Ota Kääntäjä käyttöön</translation>
 <translation id="3512226956150568738">Jos asiakkaan laitemalli tuki ARC:tä jo ennen kuin siirtyminen ext4:ään oli pakollista ARC:n suorittamiseksi ja jos ArcEnabled-käytännön arvoksi on asetettu tosi, tämä vaihtoehto toimii samalla tavalla kuin AskUser (arvo 3). Kaikissa muissa tapauksissa (jos laitemalli ei tukenut ARC:tä ennen tai jos ArcEnabled-käytännön arvoksi on asetettu epätosi), tämä arvo on sama kuin DisallowArc (arvo 0).</translation>
+<translation id="3519432185185398282">Määrittää TPM-laiteohjelmiston päivitystoiminnon saatavuuden ja toiminnan.
+
+      Tarkemmat asetukset voidaan määrittää JSON-arvoissa:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Jos tämän arvo on <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, käyttäjä voi käynnistää powerwash-toiminnon, joka asentaa TPM:n laiteohjelmistopäivityksen.
+
+      Jos käytäntöä ei määritetä, TPM-laiteohjelmiston päivitystoiminto ei ole saatavilla.</translation>
 <translation id="3528000905991875314">Ota vaihtoehtoiset virhesivut käyttöön</translation>
 <translation id="3547954654003013442">Välityspalvelimen asetukset</translation>
 <translation id="3591584750136265240">Määritä kirjautumistodennuksen käytös.</translation>

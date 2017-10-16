@@ -560,6 +560,7 @@ Pokud zásadu nenastavíte, bude se považovat za aktivované (viz popis výše)
 
          Pokud zásadu nenastavíte, použije se zásada AllowJavaScript a uživatelé ji budou moci změnit.</translation>
 <translation id="3038323923255997294">Po ukončení prohlížeče <ph name="PRODUCT_NAME" /> nechat aplikace na pozadí spuštěné</translation>
+<translation id="3039065003245994702">Konfigurace chování aktualizace firmwaru TPM</translation>
 <translation id="3046192273793919231">Odesílat na server správy síťové pakety ke sledování stavu online</translation>
 <translation id="3048744057455266684">Pokud je tato zásada nastavena a adresa URL pro vyhledávání navržená v omniboxu obsahuje tento parametr v řetězci dotazu nebo v identifikátoru fragmentu, jako návrh budou namísto samotné adresy URL zobrazeny vyhledávací dotazy a poskytovatel vyhledávání.
 
@@ -688,6 +689,13 @@ Pokud tuto zásadu nenastavíte, použije se pro všechny webové stránky glob�
           Tato zásada je respektována pouze v případě, že je aktivována zásada DefaultSearchProviderEnabled.</translation>
 <translation id="350797926066071931">Aktivovat Překladač</translation>
 <translation id="3512226956150568738">Pokud model zařízení klienta podporoval ARC již předtím, než kvůli spuštění ARC bylo potřeba migrovat na ext4, a zásada ArcEnabled je nastavena na hodnotu true, bude se tato možnost chovat jako AskUser (hodnota 3). Ve všech ostatních případech (model zařízení dříve ARC nepodporoval nebo je zásada ArcEnabled nastavena na hodnotu false) se tato možnost bude chovat jako DisallowArc (hodnota 0).</translation>
+<translation id="3519432185185398282">Slouží ke konfigurace dostupnosti a chování funkce aktualizace firmwaru TPM.
+
+      Jednotlivá nastavení lze zadat ve vlastnostech souboru JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Pokud je nastavena hodnota <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, uživatelé budou moci spustit proces Powerwash a nainstalovat aktualizaci firmwaru TPM.
+
+      Pokud zásada není nastavena, funkce aktualizace firmwaru TPM nebude k dispozici.</translation>
 <translation id="3528000905991875314">Aktivovat alternativní chybové stránky</translation>
 <translation id="3547954654003013442">Nastavení proxy serveru</translation>
 <translation id="3591584750136265240">Konfigurace chování přihlašovacího ověření</translation>

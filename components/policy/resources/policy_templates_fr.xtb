@@ -592,6 +592,7 @@ Si cette règle est définie sur "False", les utilisateurs ne pourront pas jouer
 
 Si cette règle n'est pas configurée, le paramètre "AllowJavaScript" est utilisé et l'utilisateur est en mesure de le modifier.</translation>
 <translation id="3038323923255997294">Poursuivre l'exécution des applications en arrière-plan après la fermeture de <ph name="PRODUCT_NAME" /></translation>
+<translation id="3039065003245994702">Configurer le comportement de la fonctionnalité de mise à jour du micrologiciel TPM</translation>
 <translation id="3046192273793919231">Envoyer des paquets réseau au serveur de gestion pour contrôler l'état en ligne</translation>
 <translation id="3048744057455266684">Si cette règle est définie et que la chaîne de requête ou l'identifiant du fragment d'une URL de recherche suggérée à partir de l'Omnibox contient ce paramètre, la suggestion affiche les termes et le moteur de recherche, et non l'URL de recherche brute.
 
@@ -722,6 +723,13 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
           Cette règle n'est respectée que si la règle "DefaultSearchProviderEnabled" est activée.</translation>
 <translation id="350797926066071931">Activer Google Traduction</translation>
 <translation id="3512226956150568738">Si le modèle de l'appareil client était déjà compatible avec ARC avant que la migration vers ext4 soit nécessaire pour exécuter ARC, et si la règle "ArcEnabled" est définie sur "true", cette option se comportera comme "AskUser" (valeur 3). Dans tous les autres cas (si le modèle de l'appareil n'était pas compatible avec ARC auparavant, ou si la règle "ArcEnabled" est définie sur "false"), cette valeur est équivalente à "DisallowArc" (valeur 0).</translation>
+<translation id="3519432185185398282">Configure la disponibilité et le comportement de la fonctionnalité de mise à jour du micrologiciel TPM.
+
+      Les paramètres individuels peuvent être spécifiés dans les propriétés JSON :
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" /> : Si vous définissez cette règle sur "<ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />", les utilisateurs pourront déclencher le flux Powerwash pour installer une mise à jour du micrologiciel TPM.
+
+      Si cette règle n'est pas définie, la fonctionnalité de mise à jour du micrologiciel TPM ne sera pas disponible.</translation>
 <translation id="3528000905991875314">Activer les pages d'erreur alternatives</translation>
 <translation id="3547954654003013442">Paramètres de proxy</translation>
 <translation id="3591584750136265240">Configurer le mode d'authentification lors de la connexion</translation>

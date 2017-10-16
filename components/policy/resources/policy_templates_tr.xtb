@@ -582,6 +582,7 @@
 
           Bu politika ayarlanmadan bırakılırsa, 'AllowJavaScript' kullanılır ve kullanıcı ayarı değiştirebilir.</translation>
 <translation id="3038323923255997294"><ph name="PRODUCT_NAME" /> kapandığında arka plan uygulamalarını çalıştırmaya devam et</translation>
+<translation id="3039065003245994702">TPM donanım yazılımını güncelleme davranışını yapılandır</translation>
 <translation id="3046192273793919231">Çevrimiçi durumu izlemek için ağ paketlerini yönetim sunucusuna gönder</translation>
 <translation id="3048744057455266684">Bu politika ayarlanırsa ve çok amaçlı adres çubuğundan önerilen bir arama URL'sinde, sorgu dizesinde veya parça tanımlayıcısında bu parametre bulunursa, öneri, ham arama URL'si yerine arama terimlerini ve arama sağlayıcısını gösterir.
 
@@ -710,6 +711,13 @@ Bu ayar Kapalı değerine getirilirse veya herhangi bir değer belirlenmezse <ph
           Bu politika sadece "DefaultSearchProviderEnabled" politikası etkinleştirilmişse dikkate alınır.</translation>
 <translation id="350797926066071931">Google Çeviri'yi etkinleştir</translation>
 <translation id="3512226956150568738">Müşterinin cihaz modeli, ARC'yi çalıştırmak için ext4'e taşıma işlemi zorunlu olmadan önce ARC'yi destekliyorsa ve ArcEnabled politikası doğru değerine ayarlanmışsa, bu seçenek AskUser (3 değeri) gibi çalışır. Diğer tüm durumlarda (cihaz modeli daha önce ARC'yi desteklemiyorsa veya ArcEnabled politikası yanlış değerine ayarlanmışsa), bu değer DisallowArc'a (0 değeri) eşdeğer olur.</translation>
+<translation id="3519432185185398282">TPM donanım yazılımını güncelleme işlevinin kullanımını ve davranışını yapılandırır.
+
+      Bağımsız ayarlar JSON özelliklerinde belirtilebilir:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" /> olarak ayarlanırsa kullanıcılar TPM donanım yazılımı güncellemesini yüklemek için powerwash sürecini tetikleyebilirler.
+
+      Politika ayarlanmazsa TPM donanım yazılımını güncelleme işlevi kullanılamaz.</translation>
 <translation id="3528000905991875314">Alternatif hata sayfalarını etkinleştir</translation>
 <translation id="3547954654003013442">Proxy ayarları</translation>
 <translation id="3591584750136265240">Giriş için kimlik doğrulama yöntemini yapılandır</translation>

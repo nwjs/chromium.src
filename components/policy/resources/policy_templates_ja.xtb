@@ -550,6 +550,7 @@
 <translation id="3030000825273123558">統計情報のレポート送信を有効にする</translation>
 <translation id="3034580675120919256">ウェブサイトに対して JavaScript の実行を許可するかどうかを設定できます。JavaScript の実行は、すべてのウェブサイトに対して許可または禁止することができます。このポリシーが未設定の場合、「AllowJavaScript」が使用され、ユーザーはこの設定を変更できます。</translation>
 <translation id="3038323923255997294"><ph name="PRODUCT_NAME" /> を閉じた際にバックグラウンド アプリの処理を続行する</translation>
+<translation id="3039065003245994702">TPM ファームウェア アップデートの動作を設定する</translation>
 <translation id="3046192273793919231">オンライン ステータス監視のためにネットワーク パケットを管理サーバーに送信する</translation>
 <translation id="3048744057455266684">このポリシーを設定していて、アドレスバーの検索 URL 候補のクエリ文字列やフラグメント識別子にこのパラメータが含まれる場合、元の検索 URL を検索キーワードや検索プロバイダに置き換えた候補が表示されます。
 
@@ -676,6 +677,13 @@
           このポリシーは「DefaultSearchProviderEnabled」ポリシーが有効な場合にのみ適用されます。</translation>
 <translation id="350797926066071931">翻訳を有効にする</translation>
 <translation id="3512226956150568738">ARC の実行に ext4 への移行が必要となる前からすでにクライアント端末機種で ARC がサポートされていて、かつ ArcEnabled ポリシーが true に設定されている場合、このオプションの動作は AskUser（値 3）と同じになります。その他すべての場合（端末機種で以前より ARC がサポートされていなかった場合、または ArcEnabled ポリシーが false に設定されている場合）、この値は DisallowArc（値 0）と同じになります。</translation>
+<translation id="3519432185185398282">TPM ファームウェア アップデート機能が利用可能かどうか、利用可能な場合はその動作を設定します。
+
+      個々の設定は JSON プロパティで指定できます。
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" /> に設定されている場合、ユーザーは TPM ファームウェア アップデートをインストールするために Powerwash のフローを開始できます。
+
+      このポリシーが未設定の場合、TPM ファームウェア アップデート機能は利用できません。</translation>
 <translation id="3528000905991875314">別のエラー ページを有効にする</translation>
 <translation id="3547954654003013442">プロキシ設定</translation>
 <translation id="3591584750136265240">ログイン認証の動作を設定する</translation>

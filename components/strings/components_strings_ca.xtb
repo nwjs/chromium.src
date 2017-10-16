@@ -320,7 +320,7 @@
 <translation id="3361596688432910856">Chrome <ph name="BEGIN_EMPHASIS" />no desarà<ph name="END_EMPHASIS" /> la informació següent:
         <ph name="BEGIN_LIST" />
           <ph name="LIST_ITEM" />El teu historial de navegació
-          <ph name="LIST_ITEM" />Les galetes i les dades de llocs
+          <ph name="LIST_ITEM" />Les galetes i les dades de llocs web
           <ph name="LIST_ITEM" />La informació que introdueixis en formularis
         <ph name="END_LIST" /></translation>
 <translation id="3369192424181595722">Error de rellotge</translation>

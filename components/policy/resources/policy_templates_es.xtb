@@ -578,6 +578,7 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 
           Si no se establece esta política, se usará la política AllowJavaScript y el usuario podrá modificarla.</translation>
 <translation id="3038323923255997294">Continuar ejecutando aplicaciones en segundo plano cuando <ph name="PRODUCT_NAME" /> esté cerrado</translation>
+<translation id="3039065003245994702">Configurar el comportamiento de actualización del firmware de TPM</translation>
 <translation id="3046192273793919231">Enviar paquetes de red al servidor de gestión para supervisar el estado online</translation>
 <translation id="3048744057455266684">En caso de que se establezca esta política y de que una URL de búsqueda sugerida del omnibox incluya este parámetro en la cadena de consulta o en el identificador de fragmentos, la sugerencia mostrará los términos de búsqueda y el proveedor de búsqueda en lugar de la URL de búsqueda sin procesar.
 
@@ -708,6 +709,13 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
           Esta política solo se respeta si se habilita la política "DefaultSearchProviderEnabled".</translation>
 <translation id="350797926066071931">Habilitar el Traductor</translation>
 <translation id="3512226956150568738">Si el modelo de dispositivo del cliente ya admitía ARC antes de que fuera necesario realizar la migración a ext4 para ejecutar ese formato y si se ha asignado el valor "True" a la política ArcEnabled, esta opción se comportará como AskUser (valor 3). En el resto de los casos (si el modelo de dispositivo no admitía ARC antes o si se ha asignado el valor "False" a la política ArcEnabled), este valor es equivalente a DisallowArc (valor 0).</translation>
+<translation id="3519432185185398282">Configura la disponibilidad y el comportamiento de la función de actualización del firmware de TPM.
+
+      Los ajustes individuales se pueden especificar en las propiedades del archivo JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: si se le asigna el valor <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, los usuarios pueden activar el flujo de Powerwash para instalar una actualización del firmware de TPM.
+
+      Si no se le asigna ningún valor a la política, no se puede actualizar el firmware de TPM.</translation>
 <translation id="3528000905991875314">Habilitar páginas de error alternativas</translation>
 <translation id="3547954654003013442">Configuración de proxy</translation>
 <translation id="3591584750136265240">Configurar el comportamiento de la autenticación de inicio de sesión</translation>

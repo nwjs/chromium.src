@@ -536,6 +536,7 @@ Il valore della norma deve essere specificato in millisecondi. I valori devono e
 <translation id="3030000825273123558">Attiva rapporti sulle metriche</translation>
 <translation id="3034580675120919256">Permette di stabilire se consentire o meno l'esecuzione di JavaScript nei siti web. L'esecuzione di JavaScript può essere consentita o negata per tutti i siti web. Se questa norma non viene impostata, verrà utilizzato il valore "AllowJavaScript", che potrà essere modificato dagli utenti.</translation>
 <translation id="3038323923255997294">Continua a eseguire applicazioni in background dopo la chiusura di <ph name="PRODUCT_NAME" /></translation>
+<translation id="3039065003245994702">Configura il comportamento di aggiornamento del firmware TPM</translation>
 <translation id="3046192273793919231">Invia pacchetti di rete al server di gestione per monitorare lo stato online</translation>
 <translation id="3048744057455266684">Se questa norma viene impostata e un URL di ricerca suggerito dalla omnibox contiene questo parametro nella stringa di ricerca o nell'identificatore del frammento, il suggerimento visualizzerà i termini di ricerca e il fornitore del servizio di ricerca anziché l'URL di ricerca non elaborato.
 
@@ -660,6 +661,13 @@ Questa norma è facoltativa. Se non viene impostata, non verrà utilizzata la ri
 Questa norma viene rispettata soltanto se viene attivata la norma "DefaultSearchProviderEnabled".</translation>
 <translation id="350797926066071931">Abilita traduzione</translation>
 <translation id="3512226956150568738">Se il modello del dispositivo client supportava già ARC prima che fosse necessaria la migrazione a ext4 per eseguire ARC e se la norma ArcEnabled è impostata su true, questa opzione si comporterà come AskUser (valore 3). In tutti gli altri casi (se il modello del dispositivo non supportava ARC in precedenza o se la norma ArcEnabled è impostata su false), questo valore equivale a DisallowArc (valore 0).</translation>
+<translation id="3519432185185398282">Consente di configurare la disponibilità e il comportamento della funzionalità di aggiornamento del firmware TPM.
+
+      È possibile specificare le singole impostazioni nelle proprietà JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: se viene impostata l'opzione <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, gli utenti potranno attivare il flusso della funzione Powerwash per l'installazione di un aggiornamento del firmware TPM.
+
+      Se la norma non viene impostata, la funzionalità di aggiornamento del firmware TPM non sarà disponibile.</translation>
 <translation id="3528000905991875314">Attiva pagine di errore sostitutive</translation>
 <translation id="3547954654003013442">Impostazioni proxy</translation>
 <translation id="3591584750136265240">Configura il comportamento di autenticazione dell'accesso</translation>

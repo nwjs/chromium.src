@@ -584,6 +584,7 @@
 
           Ja šī politika nav iestatīta, tiks lietota politika AllowJavaScript un lietotājs to varēs mainīt.</translation>
 <translation id="3038323923255997294">Turpināt lietotņu izpildi fonā, kad produkts <ph name="PRODUCT_NAME" /> ir aizvērts</translation>
+<translation id="3039065003245994702">TPM programmaparatūras atjauninājuma darbības konfigurēšana</translation>
 <translation id="3046192273793919231">Tīkla pakešu sūtīšana uz pārvaldības serveri, lai pārraudzītu tiešsaistes statusu</translation>
 <translation id="3048744057455266684">Ja šī politika ir iestatīta un universālajā lodziņā ieteiktā URL vaicājuma virkne vai fragmenta identifikators satur šo parametru, kā ieteikums tiks rādīti meklēšanas vienumi un meklētājprogramma, nevis neapstrādāts meklēšanas URL.
 
@@ -712,6 +713,13 @@ Ja šim iestatījumam ir izvēlēta vērtība “Izslēgts” vai vērtība nav 
           Šī politika ir spēkā tikai tad, ja ir iespējota politika “DefaultSearchProviderEnabled”.</translation>
 <translation id="350797926066071931">Iespējo Tulkotāju</translation>
 <translation id="3512226956150568738">Ja klienta ierīces modelis jau atbalstīja ARC pirms migrācijas uz ext4, kas bija nepieciešama, lai izpildītu ARC, un ja politika ArcEnabled ir iestatīta kā “true”, šī opcija darbosies kā politikas AskUser vērtība (vērtība 3). Visos citos gadījumos (ja ierīces modelis iepriekš neatbalstīja ARC vai ja politika ArcEnabled ir iestatīta kā “false”), šī vērtība ir ekvivalenta politikas DisallowArc vērtībai (vērtība 0).</translation>
+<translation id="3519432185185398282">Tiek konfigurēta TPM programmaparatūras atjauninājuma funkcionalitātes pieejamība un darbība.
+
+      Atsevišķus iestatījumus var norādīt JSON rekvizītos.
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: ja politika iestatīta kā “<ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />”, lietotāji varēs aktivizēt funkcijas Powerwash plūsmu, lai instalētu TPM programmaparatūras atjauninājumu.
+
+      Ja politika nav iestatīta, TPM programmaparatūras atjauninājuma funkcionalitāte nebūs pieejama.</translation>
 <translation id="3528000905991875314">Iespējo alternatīvas kļūdu lapas</translation>
 <translation id="3547954654003013442">Starpniekservera iestatījumi</translation>
 <translation id="3591584750136265240">Pieteikšanās autentifikācijas darbības konfigurēšana</translation>

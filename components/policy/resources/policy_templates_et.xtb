@@ -583,6 +583,7 @@
 
           Kui jätate selle reegli määramata, siis kasutatakse reeglit „AllowJavaScript” ja kasutaja saab seda muuta.</translation>
 <translation id="3038323923255997294">Jätka taustarakenduste käitamist pärast rakenduse <ph name="PRODUCT_NAME" /> sulgemist</translation>
+<translation id="3039065003245994702">TPM-i püsivaravärskenduse käitumise seadistamine</translation>
 <translation id="3046192273793919231">Veebioleku jälgimiseks võrgupakettide haldusserverisse saatmine</translation>
 <translation id="3048744057455266684">Kui see reegel määratakse ja omnikastikeses olev otsingu URL sisaldab seda parameetrit päringustringis või fragmendi identifikaatoris, siis kuvatakse soovituses otsinguterminid ja otsingupakkuja, mitte ainult otsingu URL.
 
@@ -709,6 +710,13 @@
           Reeglit järgitakse ainult siis, kui lubatud on reegel „DefaultSearchProviderEnabled”.</translation>
 <translation id="350797926066071931">Luba Tõlge</translation>
 <translation id="3512226956150568738">Kui kliendi seadme mudel toetas ARC-d juba enne seda, kui üleminek ext4-le oli ARC käitamiseks vajalik, ja kui reegli ArcEnabled väärtuseks on määratud Tõene, siis toimib see valik sarnaselt väärtusega AskUser (väärtus 3). Kõigil muudel juhtudel (kui seadme mudel varem ARC-d ei toetanud või kui reegli ArcEnabled väärtuseks on määratud Väär) on see väärtus võrdne väärtusega DisallowArc (väärtus 0).</translation>
+<translation id="3519432185185398282">Seadistab TPM-i püsivaravärskenduse funktsiooni saadavaloleku ja käitumise.
+
+      JSON-i atribuutides saab määrata üksikud seaded.
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: kui see on määratud väärtusele <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, saavad kasutajad TPM-i püsivaravärskenduse installimiseks käivitada Powerwashi voo.
+
+      Kui reegel on määramata, ei ole TPM-i püsivaravärskenduse funktsioon saadaval.</translation>
 <translation id="3528000905991875314">Luba alternatiivsed vealehed</translation>
 <translation id="3547954654003013442">Puhverserveri seaded</translation>
 <translation id="3591584750136265240">Sisselogimise autentimise käitumise seadistamine</translation>

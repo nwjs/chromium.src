@@ -166,7 +166,7 @@ Heu de tenir activats el Bluetooth i la ubicació per poder utilitzar el Web fí
 <translation id="2526148617758225454">L'Economitzador de dades està activat. Gestioneu-lo a Configuració.</translation>
 <translation id="2532336938189706096">Visualització web</translation>
 <translation id="2536728043171574184">S'està mostrant una còpia sense connexió d'aquesta pàgina</translation>
-<translation id="2546283357679194313">Dades de llocs i galetes</translation>
+<translation id="2546283357679194313">Dades de llocs web i galetes</translation>
 <translation id="2567385386134582609">IMATGE</translation>
 <translation id="257931822824936280">Vista desplegada (feu clic per replegar-la)</translation>
 <translation id="2581165646603367611">Amb aquesta acció, se suprimiran les galetes, la memòria cau i altres dades de llocs que Chrome no consideri importants.</translation>
@@ -768,7 +768,7 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="813082847718468539">Mostra la informació del lloc</translation>
 <translation id="8137558756159375272">La funció Toca per cercar envia la paraula seleccionada i la pàgina actual com a context a la Cerca de Google. La podeu desactivar a <ph name="BEGIN_LINK" />Configuració<ph name="END_LINK" />.</translation>
 <translation id="8168435359814927499">Contingut</translation>
-<translation id="8173098127580644436">des de l'inici (totes)</translation>
+<translation id="8173098127580644436">l'inici</translation>
 <translation id="8186512483418048923">Queden <ph name="FILES" /> fitxers</translation>
 <translation id="8190358571722158785">Queda 1 dia</translation>
 <translation id="8200772114523450471">Reprèn</translation>

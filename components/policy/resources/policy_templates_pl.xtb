@@ -554,6 +554,7 @@
 <translation id="3030000825273123558">Włącz raportowanie danych</translation>
 <translation id="3034580675120919256">Umożliwia określenie, czy w witrynach może być wykonywany kod JavaScript. Wykonanie kodu JavaScript może być dozwolone lub zabronione we wszystkich witrynach. W przypadku nieskonfigurowania tej zasady będzie używane ustawienie „AllowJavaScript”, a użytkownik będzie mógł je zmienić.</translation>
 <translation id="3038323923255997294">Kontynuuj działanie aplikacji w tle po zamknięciu <ph name="PRODUCT_NAME" /></translation>
+<translation id="3039065003245994702">Konfigurowanie zachowania aktualizacji oprogramowania TPM</translation>
 <translation id="3046192273793919231">Wysyłaj pakiety sieciowe na serwer zarządzania w celu monitorowania stanu online</translation>
 <translation id="3048744057455266684">Jeśli ta zasada jest ustawiona, a URL wyszukiwania zaproponowany przez omnibox zawiera ten parametr w ciągu zapytania lub identyfikatorze fragmentu, wtedy sugestia zamiast nieprzetworzonego adresu URL wyszukiwania pokaże wyszukiwane hasła i dostawcę wyszukiwania.
 
@@ -678,6 +679,13 @@ Jeśli nie podasz wartości albo wybierzesz ustawienie „Wyłącz”, stosowani
           Ta zasada jest uwzględniana tylko wtedy, gdy włączona jest zasada „DefaultSearchProviderEnabled”.</translation>
 <translation id="350797926066071931">Włącz Tłumacza</translation>
 <translation id="3512226956150568738">Jeśli model urządzenia klienta obsługiwał środowisko ARC już wtedy, gdy do uruchomienia ARC nie była konieczna migracja do ext4, i jeśli zasada ArcEnabled jest ustawiona na wartość prawda, ta opcja będzie zachowywać się tak jak opcja AskUser (wartość 3). We wszystkich pozostałych przypadkach (jeśli model urządzenia nie obsługiwał wcześniej ARC lub jeśli zasada ArcEnabled jest ustawiona na wartość fałsz), ta wartość jest równoznaczna z opcją DisallowArc (wartość 0).</translation>
+<translation id="3519432185185398282">Konfiguruje dostępność i zachowanie funkcji aktualizacji oprogramowania TPM.
+
+      Poszczególne ustawienia można określić we właściwościach JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: jeśli ustawiono na wartość <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, użytkownicy mogą wyzwalać procedurę Powerwash, by zainstalować aktualizację oprogramowania TPM.
+
+      Jeśli zasada nie jest ustawiona, funkcja aktualizacji oprogramowania TPM nie jest dostępna.</translation>
 <translation id="3528000905991875314">Włącz alternatywne strony błędów</translation>
 <translation id="3547954654003013442">Ustawienia serwera proxy</translation>
 <translation id="3591584750136265240">Skonfiguruj sposób uwierzytelniania logowania</translation>

@@ -575,6 +575,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 
           Ak toto pravidlo ponecháte nenastavené, použije sa pravidlo „AllowJavaScript“ a používateľ to bude môcť zmeniť.</translation>
 <translation id="3038323923255997294">Po zatvorení prehliadača <ph name="PRODUCT_NAME" /> nechať aplikácie na pozadí spustené</translation>
+<translation id="3039065003245994702">Konfigurácia správania aktualizácie firmvéru TPM</translation>
 <translation id="3046192273793919231">Odosielať sieťové pakety na správcovský server s cieľom sledovania online stavu</translation>
 <translation id="3048744057455266684">Ak je toto pravidlo nastavené a webová adresa vyhľadávania navrhnutá vo všeobecnom poli obsahuje tento parameter v reťazci dopytu alebo v identifikátore fragmentu, potom odporúčanie zobrazí hľadané výrazy a poskytovateľa vyhľadávania namiesto nespracovanej webovej adresy vyhľadávania.
 
@@ -704,6 +705,13 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
           Toto pravidlo sa rešpektuje iba v prípade, ak je povolené pravidlo DefaultSearchProviderEnabled.</translation>
 <translation id="350797926066071931">Povoliť službu Translate</translation>
 <translation id="3512226956150568738">Ak model klientskeho zariadenia podporoval ARC už predtým, ako bolo na spustenie ARC potrebné migrovať na ext4, a ak je pravidlo ArcEnabled nastavené na hodnotu True, táto možnosť sa bude správať ako parameter AskUser (hodnota 3). Vo všetkých ostatných prípadoch (ak model zariadenia predtým ARC nepodporoval alebo ak je pravidlo ArcEnabled nastavené na hodnotu False), táto hodnota sa bude zhodovať s parametrom DisallowArc (hodnota 0).</translation>
+<translation id="3519432185185398282">Umožňuje konfigurovať dostupnosť a správanie funkcií aktualizácie firmvéru TPM.
+
+      Jednotlivé nastavenia môžete určiť vo vlastnostiach JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Ak nastavíte možnosť <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, používatelia budú môcť spustiť postup Powerwash na inštaláciu aktualizácie firmvéru TPM.
+
+      Ak toto pravidlo nenastavíte, funkcie aktualizácie firmvéru TPM nebudú k dispozícii.</translation>
 <translation id="3528000905991875314">Povoliť alternatívne chybové stránky</translation>
 <translation id="3547954654003013442">Nastavenia servera proxy</translation>
 <translation id="3591584750136265240">Konfigurácia správania pri overovaní prihlasovacích údajov</translation>

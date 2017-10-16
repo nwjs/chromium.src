@@ -555,6 +555,7 @@
 <translation id="3030000825273123558">Aktifkan pelaporan metrik</translation>
 <translation id="3034580675120919256">Memungkinkan Anda menyetel apakah situs web diizinkan menjalankan JavaScript. Menjalankan JavaScript dapat diizinkan atau ditolak untuk semua situs web. Jika kebijakan ini tidak disetel, 'AllowJavaScript' akan digunakan dan pengguna dapat mengubahnya.</translation>
 <translation id="3038323923255997294">Terus jalankan aplikasi latar belakang saat <ph name="PRODUCT_NAME" /> ditutup</translation>
+<translation id="3039065003245994702">Konfigurasi perilaku update firmware TPM</translation>
 <translation id="3046192273793919231">Kirim paket jaringan ke server pengelolaan untuk memantau status online</translation>
 <translation id="3048744057455266684">Jika kebijakan ini disetel dan URL penelusuran yang disarankan dari omnibox berisi parameter ini dalam string kueri atau dalam pengenal fragmen, maka saran akan menampilkan istilah penelusuran dan penyedia penelusuran dan bukan URL penelusuran mentah.
 
@@ -681,6 +682,13 @@
           Kebijakan ini hanya dipatuhi jika kebijakan 'DefaultSearchProviderEnabled' diaktifkan.</translation>
 <translation id="350797926066071931">Aktifkan Terjemahan</translation>
 <translation id="3512226956150568738">Jika model perangkat klien sudah mendukung ARC sebelum migrasi ke ext4 diperlukan untuk menjalankan ARC, dan jika kebijakan ArcEnabled disetel ke true, opsi ini akan berperilaku seperti AskUser (nilai 3). Pada semua kasus lainnya (jika sebelumnya model perangkat tidak mendukung ARC, atau jika kebijakan ArcEnabled disetel ke false), nilai ini setara dengan DisallowArc (nilai 0).</translation>
+<translation id="3519432185185398282">Mengonfigurasi ketersediaan dan perilaku fungsi update firmware TPM.
+
+      Setiap setelan dapat ditentukan di properti JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Jika disetel ke <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, pengguna dapat memicu alur powerwash untuk menginstal update firmware TPM.
+
+      Jika kebijakan ini tidak disetel, fungsi update firmware TPM tidak akan tersedia.</translation>
 <translation id="3528000905991875314">Mengaktifkan halaman kesalahan alternatif</translation>
 <translation id="3547954654003013442">Setelan proxy</translation>
 <translation id="3591584750136265240">Mengonfigurasi perilaku autentikasi proses masuk</translation>

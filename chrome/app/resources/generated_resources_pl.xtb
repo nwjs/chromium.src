@@ -785,7 +785,7 @@
 <translation id="2218947405056773815">Kurczę! W <ph name="API_NAME" /> wystąpił problem.</translation>
 <translation id="2220529011494928058">Zgłoś problem</translation>
 <translation id="2220572644011485463">Kod PIN lub hasło</translation>
-<translation id="2222641695352322289">Jedynym sposobem cofnięcia tej czynności jest ponowna instalacja <ph name="IDS_SHORT_PRODUCT_OS_NAME" />.</translation>
+<translation id="2222641695352322289">Jedynym sposobem cofnięcia tej czynności jest ponowna instalacja systemu <ph name="IDS_SHORT_PRODUCT_OS_NAME" />.</translation>
 <translation id="2224444042887712269">To ustawienie należy do <ph name="OWNER_EMAIL" />.</translation>
 <translation id="2224551243087462610">Edytuj nazwę folderu</translation>
 <translation id="2226449515541314767">Pełny dostęp do sterowania urządzeniami MIDI został dla tej witryny zablokowany.</translation>

@@ -558,6 +558,7 @@
 <translation id="3030000825273123558">Activați raportarea statisticilor</translation>
 <translation id="3034580675120919256">Vă permite să setați dacă site-urile web au permisiunea de a rula JavaScript. Rularea JavaScript poate fi permisă sau refuzată în bloc pentru toate site-urile web. Dacă această politică este lăsată nesetată, va fi utilizată politica „AllowJavaScript”, dar utilizatorul va putea să o schimbe.</translation>
 <translation id="3038323923255997294">Continuă executarea aplicațiilor de fundal atunci când <ph name="PRODUCT_NAME" /> este închis</translation>
+<translation id="3039065003245994702">Configurează comportamentul de actualizare a firmware-ului cipului TPM</translation>
 <translation id="3046192273793919231">Trimite pachete din rețea serverului de gestionare, pentru a monitoriza starea online</translation>
 <translation id="3048744057455266684">Dacă această politică este setată și o adresă URL de căutare sugerată din caseta polivalentă conține acest parametru în șirul interogării sau în identificatorul pentru fragment, atunci sugestia va afișa termenii de căutare și furnizorul serviciilor de căutare, în locul adresei URL efective de căutare.
 
@@ -684,6 +685,13 @@
           Această politică este urmată numai dacă este activată politica „DefaultSearchProviderEnabled”.</translation>
 <translation id="350797926066071931">Activează Google Traducere</translation>
 <translation id="3512226956150568738">Dacă modelul de dispozitiv al clientului era compatibil deja cu ARC înainte ca migrarea la ext4 să fie necesară pentru rularea ARC și dacă politica ArcEnabled este activată, această opțiune va funcționa ca AskUser (valoarea 3). În restul cazurilor (dacă modelul de dispozitiv nu era compatibil cu ARC înainte sau dacă politica ArcEnabled este dezactivată), această valoare este echivalentă cu DisallowArc (valoarea 0).</translation>
+<translation id="3519432185185398282">Configurează disponibilitatea și comportamentul funcției de actualizare a firmware-ului cipului TPM.
+
+      Setările individuale pot fi specificate în proprietățile JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: dacă opțiunea este setată la <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, utilizatorii vor putea să declanșeze fluxul de powerwash pentru a instala o actualizare a firmware-ului cipului TPM.
+
+      Dacă politica nu este configurată, funcția de actualizare a firmware-ului cipului TPM nu va fi disponibilă.</translation>
 <translation id="3528000905991875314">Activează pagini de eroare alternative</translation>
 <translation id="3547954654003013442">Setări proxy</translation>
 <translation id="3591584750136265240">Configurează comportamentul de autentificare la conectare</translation>

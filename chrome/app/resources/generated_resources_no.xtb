@@ -1081,7 +1081,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="2663302507110284145">Språk</translation>
 <translation id="2665394472441560184">Legg til et nytt ord</translation>
 <translation id="2665717534925640469">Denne siden vises nå i fullskjermsvisning, og har deaktivert markøren din.</translation>
-<translation id="2665919335226618153">Å nei! Det oppsto en feil under formateringen.</translation>
+<translation id="2665919335226618153">Æsj! Det oppsto en feil under formateringen.</translation>
 <translation id="2667463864537187133">Administrer stavekontroll</translation>
 <translation id="2670102641511624474"><ph name="APP_NAME" /> deler en Chrome-fane.</translation>
 <translation id="2670531586141364277">Aktivering av <ph name="NAME" /> krever nettverkstilkobling.</translation>
@@ -4156,7 +4156,7 @@ Du bør bare bruke denne funksjonen med kontoer du stoler på.</translation>
 <translation id="7427348830195639090">Bakgrunnsside: <ph name="BACKGROUND_PAGE_URL" /></translation>
 <translation id="7433692219247014412">{COUNT,plural, =0{Åpne alle i &amp;nye vinduer}=1{Åpne i et &amp;nytt vindu}other{Åpne alle (#) i &amp;nye vinduer}}</translation>
 <translation id="7434509671034404296">Utvikler</translation>
-<translation id="7436921188514130341">Å nei! Det oppsto en feil under navneendringen.</translation>
+<translation id="7436921188514130341">Æsj! Det oppsto en feil under navneendringen.</translation>
 <translation id="743823505716061814">Søkene blir knyttet til Google-kontoen din. Du kan se og slette dem i <ph name="BEGIN_LINK" />kontohistorikken<ph name="END_LINK" />.</translation>
 <translation id="7438940380767210568">Konfigurerer skriveren …</translation>
 <translation id="7439964298085099379">Høy kontrast-modusen er aktivert. Vil du installere Høy kontrast-utvidelsen vår og et mørkt tema?</translation>

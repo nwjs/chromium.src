@@ -550,6 +550,7 @@
 <translation id="3030000825273123558">הפעל דיווח על מדדים</translation>
 <translation id="3034580675120919256">‏מאפשר לך לקבוע אם מותר לאתרים להפעיל JavaScript. ניתן להפעיל JavaScript עבור כל האתרים או לבטל את ההגדרה עבור כל האתרים. אם לא הגדרת מדיניות זו, המערכת תשתמש ב-'AllowJavaScript' והמשתמש יוכל לשנות זאת.</translation>
 <translation id="3038323923255997294">המשך הפעלת יישומים ברקע כאשר <ph name="PRODUCT_NAME" /> סגור</translation>
+<translation id="3039065003245994702">‏קביעת התנהגות עדכון הקושחה של TPM</translation>
 <translation id="3046192273793919231">שלח מנות רשת לשרת הניהול כדי לנטר את הסטטוס המקוון</translation>
 <translation id="3048744057455266684">‏אם המדיניות הזו מוגדרת, וכתובת אתר של חיפוש המוצעת מסרגל הכתובות מכילה את הפרמטר הזה במחרוזת השאילתה או במזהה המקטע, ההצעה תציג את מונחי החיפוש ואת ספק החיפוש במקום את כתובת האתר המקורית של החיפוש.
 
@@ -675,6 +676,13 @@
           מדיניות זו מכובדת רק אם המדיניות 'DefaultSearchProviderEnabled' מופעלת.</translation>
 <translation id="350797926066071931">‏הפוך את Google Translate לפעיל</translation>
 <translation id="3512226956150568738">‏אם הדגם של מכשיר הלקוח תמך ב-ARC לפני שהיה צורך בהעברה אל ext4 כדי להפעיל ARC, ואם המדיניות ArcEnabled מוגדרת כ-true, ההתנהגות של אפשרות זו תהיה זהה ל-AskUser (ערך 3). בכל המקרים האחרים (אם דגם המכשיר לא תמך לפני כן ב-ARC, או אם מדיניות ArcEnabled מוגדרת כ-false), הערך הזה זהה ל-DisallowArc (ערך 0).</translation>
+<translation id="3519432185185398282">‏מגדירה את הזמינות וההתנהגות של עדכון הקושחה של TPM.
+
+      אפשר לציין הגדרות נפרדות בנכסי JSON:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: אם נבחרה האפשרות <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, משתמשים יכולים להפעיל את תהליך ה-Powerwash כדי להתקין עדכון של קושחת TPM.
+
+      אם המדיניות לא הוגדרה, לא ניתן לעדכן את הקושחה של TPM.</translation>
 <translation id="3528000905991875314">הפעל דפי שגיאה חלופיים</translation>
 <translation id="3547954654003013442">‏הגדרות Proxy</translation>
 <translation id="3591584750136265240">הגדרה של התנהגות האימות בהתחברות</translation>

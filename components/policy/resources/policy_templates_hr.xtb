@@ -555,6 +555,7 @@
 <translation id="3030000825273123558">Omogući izvješće o metrici</translation>
 <translation id="3034580675120919256">Omogućuje da postavite smiju li web-lokacije pokretati JavaScript. Pokretanje JavaScripta može biti dopušteno za sve web-lokacije ili odbijeno za sve web-lokacije. Ako ovo pravilo nije postavljeno, upotrebljavat će se pravilo "AllowJavaScript", a korisnik će to moći promijeniti.</translation>
 <translation id="3038323923255997294">Nastavi izvršavati ​​pozadinske aplikacije po zatvaranju usluge <ph name="PRODUCT_NAME" /></translation>
+<translation id="3039065003245994702">Konfiguriranje ponašanja ažuriranja TPM opreme</translation>
 <translation id="3046192273793919231">Šalji mrežne pakete poslužitelju za upravljanje radi praćenja online statusa</translation>
 <translation id="3048744057455266684">Ako je ovo pravilo postavljeno i ako URL pretraživanja predloženog u višenamjenskom okviru sadrži taj parametar u nizu upita ili identifikatoru fragmenta, prijedlog će prikazati pojmove za pretraživanje i pružatelja usluge pretraživanja umjesto neobrađenog URL-a pretraživanja.
 
@@ -678,6 +679,13 @@
           To se pravilo poštuje samo ako je omogućeno pravilo "DefaultSearchProviderEnabled".</translation>
 <translation id="350797926066071931">Omogući Prevoditelj</translation>
 <translation id="3512226956150568738">Ako je klijentov model uređaja već podržavao ARC prije nego što je premještanje na ext4 bilo obavezno za izvođenje ARC-a i ako je pravilo ArcEnabled postavljeno na true, ta će se opcija ponašati kao AskUser (vrijednost 3). U svim ostalim slučajevima (ako model uređaja nije podržavao ARC ili ako je pravilo ArcEnabled postavljeno na false), ta je vrijednost ekvivalentna pravilu DisallowArc (vrijednost 0).</translation>
+<translation id="3519432185185398282">Konfigurira dostupnost i ponašanje funkcije ažuriranja TPM opreme.
+
+      Pojedinačne postavke mogu se navesti u JSON entitetima:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: ako se postavi na <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, korisnici će moći pokrenuti tijek powerwasha da bi instalirali ažuriranje TPM opreme.
+
+      Ako se to pravilo ne postavi, funkcija ažuriranja TPM opreme neće biti dostupna.</translation>
 <translation id="3528000905991875314">Omogući alternativne stranice pogrešaka</translation>
 <translation id="3547954654003013442">Proxy postavke</translation>
 <translation id="3591584750136265240">Konfiguriraj ponašanje autentifikacije tijekom prijave</translation>

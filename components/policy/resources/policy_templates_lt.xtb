@@ -583,6 +583,7 @@
 
           Nenustačius šios politikos, bus naudojama „Leisti „JavaScript“ ir naudotojas (-a) galės tai pakeisti.</translation>
 <translation id="3038323923255997294">Uždarius „<ph name="PRODUCT_NAME" />“ toliau leisti fonines programas</translation>
+<translation id="3039065003245994702">TPM programinės aparatinės įrangos atnaujinimo elgsenos konfigūravimas</translation>
 <translation id="3046192273793919231">Tinklo paketų siuntimas į valdymo serverį, siekiant stebėti prisijungimo būseną</translation>
 <translation id="3048744057455266684">Jei ši politika yra nustatyta ir paieškos URL, pasiūlyto „Omnibox“, užklausos eilutėje ar fragmento identifikatoriuje yra šis parametras, pasiūlyme bus rodomi paieškos terminai ir paieškos teikėjas, o ne tiesiog paieškos URL.
 
@@ -713,6 +714,13 @@
           Šios politikos laikomasi, tik jei įgalinta politika „DefaultSearchProviderEnabled“.</translation>
 <translation id="350797926066071931">Įgalinti vertimą</translation>
 <translation id="3512226956150568738">Jei kliento turimo modelio įrenginyje jau buvo palaikomas failų formatas ARC, kol dar perėjimas prie „ext4“ šifruotės nebuvo būtinas, kad būtų galima vykdyti ARC failus, ir jei politika „ArcEnabled“ nustatyta į „true“, ši parinktis veiks kaip „AskUser“ (3 vertė). Visais kitais atvejais (jei įrenginio modelyje nebuvo nepalaikomas failų formatas ARC arba jei politika „ArcEnabled“ nustatyta į „false“) ši vertė bus lygi „DisallowArc“ (0 vertė).</translation>
+<translation id="3519432185185398282">Konfigūruojami TPM aparatinės programinės įrangos atnaujinimo funkcijų pasiekiamumas ir elgsena.
+
+      Atskirus nustatymus galima nurodyti JSON nuosavybėse.
+
+      „<ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />“: jei nustatyta į „<ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />“, naudotojai galės suaktyvinti funkcijos „Powerwash“ srautą ir įdiegti TPM aparatinės programinės įrangos naujinį.
+
+      Jei politika nenustatyta, TPM aparatinės programinės įrangos atnaujinimo funkcijos nebus pasiekiamos.</translation>
 <translation id="3528000905991875314">Įgalinti kitus klaidų puslapius</translation>
 <translation id="3547954654003013442">Įgaliotojo serverio nustatymai</translation>
 <translation id="3591584750136265240">Konfigūruoti prisijungimo autentifikavimo elgseną</translation>

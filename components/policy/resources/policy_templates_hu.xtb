@@ -556,6 +556,7 @@
 <translation id="3030000825273123558">Mutatók jelentéseinek engedélyezése</translation>
 <translation id="3034580675120919256">Meghatározhatja, hogy a webhelyek futtathatnak-e JavaScriptet. A JavaScript futtatását engedélyezheti vagy letilthatja minden webhely számára. Ha a házirend beállítatlanul marad, a rendszer az "AllowJavaScript" értéket használja, amelyet a felhasználó módosíthat.</translation>
 <translation id="3038323923255997294">A háttéralkalmazások továbbfuttatása a(z) <ph name="PRODUCT_NAME" /> alkalmazás bezárása esetén</translation>
+<translation id="3039065003245994702">TPM-firmware frissítési szokásainak beállítása</translation>
 <translation id="3046192273793919231">Hálózati csomagok küldése a kezelőszerverre az online állapot ellenőrzésének céljából</translation>
 <translation id="3048744057455266684">Ha ez a házirend be van állítva, és egy, a cím- és keresősávban javasolt keresési URL tartalmazza ezt a paramétert a lekérdezési karakterláncban vagy a töredékazonosítóban, akkor a javaslat a keresési kifejezéseket és a keresőszolgáltatót fogja mutatni a nyers keresési URL helyett.
 
@@ -680,6 +681,13 @@
           A házirend csak akkor érvényesül, ha a „DefaultSearchProviderEnabled” házirend engedélyezve van.</translation>
 <translation id="350797926066071931">Fordítás engedélyezése</translation>
 <translation id="3512226956150568738">Ha a kliens eszközmodellje már azelőtt támogatta az ARC-t, hogy az ARC futtatásához az ext4-re való migráció szükséges lett volna, valamint ha az ArcEnabled házirend igaz értékre van beállítva, akkor ez a beállítás az AskUser (3. érték) módjára viselkedik. Az érték minden egyéb esetben (ha az eszköz nem támogatta előtte az ARC-t, vagy ha az ArcEnabled házirend hamis értékre van beállítva) megegyezik a DisallowArc (0. érték) értékével.</translation>
+<translation id="3519432185185398282">A TPM-firmware frissítési funkciójának elérhetőségét és viselkedését állítja be.
+
+      Az egyedi beállításokat a JSON tulajdonságainál lehet megadni:
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Ha a beállítás értéke <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, a felhasználók aktiválhatják a powerwash-folyamatot a TPM-firmware frissítésének telepítéséhez.
+
+      Amennyiben ez a házirend nincs beállítva, a TPM-firmware frissítési funkciója nem lesz elérhető.</translation>
 <translation id="3528000905991875314">Alternatív hibaoldalak engedélyezése</translation>
 <translation id="3547954654003013442">Proxybeállítások</translation>
 <translation id="3591584750136265240">Bejelentkezési hitelesítési viselkedés konfigurálása</translation>

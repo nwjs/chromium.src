@@ -555,6 +555,7 @@
 <translation id="3030000825273123558">啟用計量報告</translation>
 <translation id="3034580675120919256">允許你設定是否要讓網站執行 JavaScript。你可以允許或禁止所有網站執行 JavaScript。如果未設定這項政策，系統會使用「AllowJavaScript」，不過使用者可以變更設定。</translation>
 <translation id="3038323923255997294">在 <ph name="PRODUCT_NAME" /> 關閉時繼續執行背景應用程式 </translation>
+<translation id="3039065003245994702">設定 TPM 韌體更新行為</translation>
 <translation id="3046192273793919231">將監控線上狀態所需的網路封包傳送到管理伺服器</translation>
 <translation id="3048744057455266684">如果你設定這項政策，且網址列所建議的搜尋網址在查詢字串或片段識別碼中含有這項 參數，則搜尋建議會顯示搜尋字詞和搜尋引擎供應商，而不是顯示原始的搜尋網址。
 
@@ -681,6 +682,13 @@
           只有在啟用「DefaultSearchProviderEnabled」政策時，系統才會遵循這項政策。</translation>
 <translation id="350797926066071931">啟用翻譯</translation>
 <translation id="3512226956150568738">如果用戶端裝置型號在必須遷移至 Ext4 才能執行 ARC 之前已支援 ARC，且 ArcEnabled 政策設為 True，這個選項的行為會與 AskUser 相同 (值 3)。在所有其他情況下 (如果用戶端裝置型號之前不支援 ARC，或 ArcEnabled 政策設為 False)，這個值會等同於 DisallowArc (值 0)。</translation>
+<translation id="3519432185185398282">設定 TPM 韌體更新功能的可用性和行為。
+
+      可在 JSON 屬性中指定個別設定：
+
+      <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />：如果設為 <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />，則使用者可觸發 Powerwash 流程來安裝 TPM 韌體更新。
+
+      如果未設定這項政策，則不提供 TPM 韌體更新功能。</translation>
 <translation id="3528000905991875314">啟用替代的錯誤網頁</translation>
 <translation id="3547954654003013442">Proxy 設定</translation>
 <translation id="3591584750136265240">設定登入驗證行為</translation>
