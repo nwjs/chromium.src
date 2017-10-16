@@ -120,9 +120,6 @@ enum CellType {
 - (NSInteger)numberOfSectionsBeforeSessionOrOtherDevicesSections;
 // Dismisses the modal containing the Recent Tabs panel (iPhone only).
 - (void)dismissRecentTabsModal;
-// Dismisses the modal containing the Recent Tabs panel, with completion
-// handler (iPhone only).
-- (void)dismissRecentTabsModalWithCompletion:(ProceduralBlock)completion;
 // Opens a new tab with the content of |distantTab|.
 - (void)openTabWithContentOfDistantTab:
     (synced_sessions::DistantTab const*)distantTab;
@@ -361,11 +358,7 @@ enum CellType {
 #pragma mark - Helpers to open tabs, or show the full history view.
 
 - (void)dismissRecentTabsModal {
-  [self dismissRecentTabsModalWithCompletion:nil];
-}
-
-- (void)dismissRecentTabsModalWithCompletion:(ProceduralBlock)completion {
-  [self.handsetCommandHandler dismissRecentTabs];
+  [self.handsetCommandHandler dismissRecentTabsWithCompletion:nil];
 }
 
 - (void)openTabWithContentOfDistantTab:
@@ -421,10 +414,10 @@ enum CellType {
     [weakSelf.dispatcher showHistory];
   };
   // Dismiss modal, if shown, and open history.
-  if (IsIPadIdiom()) {
-    openHistory();
+  if (self.handsetCommandHandler) {
+    [self.handsetCommandHandler dismissRecentTabsWithCompletion:openHistory];
   } else {
-    [self dismissRecentTabsModalWithCompletion:openHistory];
+    openHistory();
   }
 }
 
