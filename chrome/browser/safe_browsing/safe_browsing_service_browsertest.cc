@@ -63,6 +63,7 @@
 #include "components/safe_browsing/common/safebrowsing_switches.h"
 #include "components/safe_browsing_db/database_manager.h"
 #include "components/safe_browsing_db/metadata.pb.h"
+#include "components/safe_browsing_db/notification_types.h"
 #include "components/safe_browsing_db/test_database_manager.h"
 #include "components/safe_browsing_db/util.h"
 #include "components/safe_browsing_db/v4_database.h"
@@ -1875,7 +1876,7 @@ class SafeBrowsingDatabaseManagerCookieTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(SafeBrowsingDatabaseManagerCookieTest,
                        TestSBUpdateCookies) {
   content::WindowedNotificationObserver observer(
-      chrome::NOTIFICATION_SAFE_BROWSING_UPDATE_COMPLETE,
+      NOTIFICATION_SAFE_BROWSING_UPDATE_COMPLETE,
       content::Source<SafeBrowsingDatabaseManager>(
           sb_factory_->test_safe_browsing_service()->database_manager().get()));
   BrowserThread::PostTask(
