@@ -905,7 +905,6 @@ void DesktopWindowTreeHostWin::HandleInputLanguageChange(
 
 void DesktopWindowTreeHostWin::HandlePaintAccelerated(
     const gfx::Rect& invalid_rect) {
-  if (content::g_force_cpu_draw) return;
   if (compositor())
     compositor()->ScheduleRedrawRect(invalid_rect);
 }
