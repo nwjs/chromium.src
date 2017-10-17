@@ -1223,6 +1223,8 @@ bool HWNDMessageHandler::GetClientAreaInsets(gfx::Insets* insets) const {
     return false;
 
   if (IsMaximized()) {
+    if (content::g_force_cpu_draw && is_translucent_ && !delegate_->HasFrame())
+      return false;
     // Windows automatically adds a standard width border to all sides when a
     // window is maximized.
     int border_thickness = GetSystemMetrics(SM_CXSIZEFRAME);
@@ -1262,16 +1264,16 @@ void HWNDMessageHandler::ResetWindowRegion(bool force, bool redraw) {
   if (custom_window_region_.is_valid()) {
     new_region.reset(CreateRectRgn(0, 0, 0, 0));
     CombineRgn(new_region.get(), custom_window_region_.get(), NULL, RGN_COPY);
-  } else if (content::g_support_transparency && is_translucent_) {
-    RECT work_rect = window_rect;
-    OffsetRect(&work_rect, -window_rect.left, -window_rect.top);
-    new_region.reset(CreateRectRgnIndirect(&work_rect));
   } else if (IsMaximized()) {
     HMONITOR monitor = MonitorFromWindow(hwnd(), MONITOR_DEFAULTTONEAREST);
     MONITORINFO mi;
     mi.cbSize = sizeof mi;
     GetMonitorInfo(monitor, &mi);
     RECT work_rect = mi.rcWork;
+    OffsetRect(&work_rect, -window_rect.left, -window_rect.top);
+    new_region.reset(CreateRectRgnIndirect(&work_rect));
+  } else if (content::g_support_transparency && is_translucent_) {
+    RECT work_rect = window_rect;
     OffsetRect(&work_rect, -window_rect.left, -window_rect.top);
     new_region.reset(CreateRectRgnIndirect(&work_rect));
   } else {
