@@ -1026,7 +1026,7 @@ void PaintController::ShowSequenceUnderInvalidationError(
   LOG(ERROR) << under_invalidation_message_prefix_ << " " << reason;
   LOG(ERROR) << "Subsequence client: " << client.DebugName();
 #ifndef NDEBUG
-//  showDebugData();
+  ShowDebugData();
 #else
   LOG(ERROR) << "Run debug build to get more details.";
 #endif
