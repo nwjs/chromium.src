@@ -215,14 +215,13 @@ struct CONTENT_EXPORT WebPreferences {
   float text_track_margin_percentage;
 
   bool page_popups_suppressed;
-
+  bool double_tap_to_zoom_enabled;
 #if defined(OS_ANDROID)
   bool text_autosizing_enabled;
   float font_scale_factor;
   float device_scale_adjustment;
   bool force_enable_zoom;
   bool fullscreen_supported;
-  bool double_tap_to_zoom_enabled;
   std::string media_playback_gesture_whitelist_scope;
   GURL default_video_poster_url;
   bool support_deprecated_target_density_dpi;

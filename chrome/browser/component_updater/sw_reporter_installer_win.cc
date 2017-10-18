@@ -128,9 +128,11 @@ void ReportExperimentError(SwReporterExperimentError error) {
 void RunSwReportersAfterStartup(
     const safe_browsing::SwReporterQueue& invocations,
     const base::Version& version) {
+#if 0
   content::BrowserThread::PostAfterStartupTask(
       FROM_HERE, base::ThreadTaskRunnerHandle::Get(),
       base::Bind(&safe_browsing::RunSwReporters, invocations, version));
+#endif
 }
 
 // Ensures |str| contains only alphanumeric characters and characters from
@@ -184,6 +186,9 @@ void RunExperimentalSwReporter(const base::FilePath& exe_path,
                                const base::Version& version,
                                std::unique_ptr<base::DictionaryValue> manifest,
                                const SwReporterRunner& reporter_runner) {
+#if 1
+  return;
+#else
   // The experiment requires launch_params so if they aren't present just
   // return. This isn't an error because the user could get into the experiment
   // group before they've downloaded the experiment component.
@@ -281,6 +286,7 @@ void RunExperimentalSwReporter(const base::FilePath& exe_path,
 
   DCHECK(!invocations.empty());
   reporter_runner.Run(invocations, version);
+#endif
 }
 
 }  // namespace
@@ -318,6 +324,7 @@ void SwReporterInstallerTraits::ComponentReady(
     const base::Version& version,
     const base::FilePath& install_dir,
     std::unique_ptr<base::DictionaryValue> manifest) {
+#if 0
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   const base::FilePath exe_path(install_dir.Append(kSwReporterExeName));
   if (IsExperimentalEngineEnabled()) {
@@ -337,6 +344,7 @@ void SwReporterInstallerTraits::ComponentReady(
     invocations.push(invocation);
     reporter_runner_.Run(invocations, version);
   }
+#endif
 }
 
 base::FilePath SwReporterInstallerTraits::GetRelativeInstallDir() const {
@@ -388,6 +396,9 @@ bool SwReporterInstallerTraits::IsExperimentalEngineEnabled() const {
 }
 
 void RegisterSwReporterComponent(ComponentUpdateService* cus) {
+#if 1
+  return;
+#else
   if (!safe_browsing::IsSwReporterEnabled())
     return;
 
@@ -482,6 +493,7 @@ void RegisterSwReporterComponent(ComponentUpdateService* cus) {
   DefaultComponentInstaller* installer =
       new DefaultComponentInstaller(std::move(traits));
   installer->Register(cus, base::Closure());
+#endif
 }
 
 void RegisterPrefsForSwReporter(PrefRegistrySimple* registry) {

@@ -133,7 +133,8 @@ class CORE_EXPORT ChromeClient : public PlatformChromeClient {
                              const FrameLoadRequest&,
                              const WebWindowFeatures&,
                              NavigationPolicy,
-                             SandboxFlags) = 0;
+                             SandboxFlags,
+                             WebString* manifest = nullptr) = 0;
   virtual void Show(NavigationPolicy) = 0;
 
   // All the parameters should be in viewport space. That is, if an event

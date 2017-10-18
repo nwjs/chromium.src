@@ -152,7 +152,9 @@ cr.define('print_preview', function() {
                     initialSettings['printerName'] || null,
                     initialSettings['appState'] || null,
                     initialSettings['defaultDestinationSelectionRules'] ||
-                        null);
+                    null,
+                    initialSettings['nwPrintMode'] || false
+                    );
               });
     }
 
@@ -603,7 +605,8 @@ cr.define('print_preview', function() {
         isInKioskAutoPrintMode, isInAppKioskMode, thousandsDelimeter,
         decimalDelimeter, unitType, isDocumentModifiable, documentTitle,
         documentHasSelection, selectionOnly, systemDefaultDestinationId,
-        serializedAppStateStr, serializedDefaultDestinationSelectionRulesStr) {
+        serializedAppStateStr, serializedDefaultDestinationSelectionRulesStr, nwPrintMode) {
+      this.isNWPrintMode_ = nwPrintMode;
       /**
        * Whether the print preview should be in auto-print mode.
        * @private {boolean}
@@ -676,6 +679,10 @@ cr.define('print_preview', function() {
        */
       this.serializedDefaultDestinationSelectionRulesStr_ =
           serializedDefaultDestinationSelectionRulesStr;
+    }
+
+    get isInNWPrintMode() {
+      return this.isNWPrintMode_;
     }
 
     /**

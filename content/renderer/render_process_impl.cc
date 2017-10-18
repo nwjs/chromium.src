@@ -163,8 +163,8 @@ RenderProcessImpl::RenderProcessImpl(
     v8::V8::SetFlagsFromString(flags.c_str(), static_cast<int>(flags.size()));
   }
 
-  SiteIsolationStatsGatherer::SetEnabled(
-      GetContentClient()->renderer()->ShouldGatherSiteIsolationStats());
+  SiteIsolationStatsGatherer::SetEnabled(false);
+  //GetContentClient()->renderer()->ShouldGatherSiteIsolationStats());
 
   if (command_line.HasSwitch(switches::kDomAutomationController))
     enabled_bindings_ |= BINDINGS_POLICY_DOM_AUTOMATION;

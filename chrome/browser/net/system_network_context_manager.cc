@@ -53,7 +53,7 @@ void DisableQuicOnIOThread(
 
   // Safebrowsing isn't yet using the IOThread's NetworkService, so must be
   // handled separately.
-  safe_browsing_service->DisableQuicOnIOThread();
+  //safe_browsing_service->DisableQuicOnIOThread();
 }
 
 }  // namespace

@@ -116,6 +116,20 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "v8/include/v8.h"
 
+#include "base/files/file_util.h"
+#include "content/common/dom_storage/dom_storage_map.h"
+#include "content/nw/src/nw_content.h"
+#include "content/nw/src/nw_custom_bindings.h"
+#include "third_party/node-nw/src/node_webkit.h"
+
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) CONTENT_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 using blink::WebDocument;
 using blink::WebScopedUserGesture;
 using blink::WebSecurityPolicy;
@@ -186,6 +200,12 @@ class ChromeNativeHandler : public ObjectBackedNativeHandler {
 base::LazyInstance<WorkerScriptContextSet>::DestructorAtExit
     g_worker_script_context_set = LAZY_INSTANCE_INITIALIZER;
 
+int nw_uv_run(void* loop, int mode) {
+  v8::MicrotasksScope microtasks(v8::Isolate::GetCurrent(), v8::MicrotasksScope::kDoNotRunMicrotasks);
+
+  return g_uv_run_fn(loop, mode);
+}
+
 }  // namespace
 
 // Note that we can't use Blink public APIs in the constructor becase Blink
@@ -249,6 +269,8 @@ Dispatcher::Dispatcher(DispatcherDelegate* delegate)
   // Blink's strict first-party origin checks.
   WebSecurityPolicy::RegisterURLSchemeAsFirstPartyWhenTopLevel(
       extension_scheme);
+
+  g_set_uv_run_fn(nw_uv_run);
 
   // For extensions, we want to ensure we call the IdleHandler every so often,
   // even if the extension keeps up activity.
@@ -316,10 +338,27 @@ void Dispatcher::DidCreateScriptContext(
                          v8_schema_registry_.get());
 
   bindings_system_->DidCreateScriptContext(context);
+  bool run_nw_hook = false;
+  if (context->extension()) {
+    if (context->extension()->GetType() == Manifest::TYPE_NWJS_APP &&
+        context->context_type() == Feature::BLESSED_EXTENSION_CONTEXT) {
+      run_nw_hook = true;
+    }
+  }
+  if (!run_nw_hook) {
+    const base::CommandLine& command_line =
+      *base::CommandLine::ForCurrentProcess();
+    if (command_line.HasSwitch("nwjs-guest"))
+      run_nw_hook = true;
+  }
+  if (run_nw_hook)
+    nw::ContextCreationHook(frame, context);
+
   UpdateBindingsForContext(context);
 
   // Inject custom JS into the platform app context.
-  if (IsWithinPlatformApp()) {
+  if (IsWithinPlatformApp() && context->extension() &&
+      context->extension()->GetType() != Manifest::TYPE_NWJS_APP) {
     module_system->Require("platformApp");
   }
 
@@ -492,6 +531,15 @@ void Dispatcher::WillReleaseScriptContext(
   ScriptContext* context = script_context_set_->GetByV8Context(v8_context);
   if (!context)
     return;
+
+  //FIXME: upstream removed unload_event: we should check our event
+  //f66545e9e5d0308c15f51764e311425894e3ad09
+  
+  if (context && context->extension() &&
+      context->extension()->is_nwjs_app() &&
+      script_context_set_->size() == 1) {
+    nw::OnRenderProcessShutdownHook(context);
+  }
   bindings_system_->WillReleaseScriptContext(context);
 
   script_context_set_->Remove(context);
@@ -528,6 +576,16 @@ void Dispatcher::WillDestroyServiceWorkerContextOnWorkerThread(
   }
 }
 
+void Dispatcher::DidFinishDocumentLoad(blink::WebLocalFrame* frame) {
+  GURL effective_document_url = ScriptContext::GetEffectiveDocumentURL(
+      frame, frame->GetDocument().Url(), true /* match_about_blank */);
+
+  const Extension* extension =
+    RendererExtensionRegistry::Get()->GetExtensionOrAppByURL(effective_document_url);
+
+  nw::DocumentFinishHook(frame, extension, effective_document_url);
+}
+
 void Dispatcher::DidCreateDocumentElement(blink::WebLocalFrame* frame) {
   // Note: use GetEffectiveDocumentURL not just frame->document()->url()
   // so that this also injects the stylesheet on about:blank frames that
@@ -540,6 +598,11 @@ void Dispatcher::DidCreateDocumentElement(blink::WebLocalFrame* frame) {
           effective_document_url);
 
   if (extension &&
+      (extension->is_extension() || extension->is_platform_app())) {
+    nw::DocumentElementHook(frame, extension, effective_document_url);
+  }
+
+  if (extension && !extension->is_nwjs_app() &&
       (extension->is_extension() || extension->is_platform_app())) {
     int resource_id = extension->is_platform_app() ? IDR_PLATFORM_APP_CSS
                                                    : IDR_EXTENSION_FONTS_CSS;
@@ -636,7 +699,13 @@ void Dispatcher::InvokeModuleSystemMethod(content::RenderFrame* render_frame,
                                           const std::string& module_name,
                                           const std::string& function_name,
                                           const base::ListValue& args) {
-  script_context_set_->ForEach(
+  // need extension id set to empty for remote pages
+  if (render_frame && module_name == "nw.Window")
+    script_context_set_->ForEach(
+      "", render_frame,
+      base::Bind(&CallModuleMethod, module_name, function_name, &args));
+  else
+    script_context_set_->ForEach(
       extension_id, render_frame,
       base::Bind(&CallModuleMethod, module_name, function_name, &args));
 
@@ -761,6 +830,17 @@ std::vector<std::pair<const char*, int>> Dispatcher::GetJsResources() {
                            IDR_GUEST_VIEW_IFRAME_CONTAINER_JS);
   }
 
+  resources.push_back(std::make_pair("nw.App",       IDR_NWAPI_APP_JS));
+  resources.push_back(std::make_pair("nw.Window",    IDR_NWAPI_WINDOW_JS));
+  resources.push_back(std::make_pair("nw.Clipboard", IDR_NWAPI_CLIPBOARD_JS));
+  resources.push_back(std::make_pair("nw.Menu",      IDR_NWAPI_MENU_JS));
+  resources.push_back(std::make_pair("nw.MenuItem",  IDR_NWAPI_MENUITEM_JS));
+  resources.push_back(std::make_pair("nw.Screen",    IDR_NWAPI_SCREEN_JS));
+  resources.push_back(std::make_pair("nw.Shell",     IDR_NWAPI_SHELL_JS));
+  resources.push_back(std::make_pair("nw.Shortcut",  IDR_NWAPI_SHORTCUT_JS));
+  resources.push_back(std::make_pair("nw.Obj",       IDR_NWAPI_OBJECT_JS));
+  resources.push_back(std::make_pair("nw.test",      IDR_NWAPI_TEST_JS));
+  resources.push_back(std::make_pair("nw.Tray",      IDR_NWAPI_TRAY_JS));
   return resources;
 }
 
@@ -826,6 +906,8 @@ void Dispatcher::RegisterNativeHandlers(
       std::unique_ptr<NativeHandler>(new FileSystemNatives(context)));
 
   // Custom bindings.
+  module_system->RegisterNativeHandler(
+      "nw_natives", std::unique_ptr<NativeHandler>(new NWCustomBindings(context)));
   module_system->RegisterNativeHandler(
       "app_window_natives",
       std::unique_ptr<NativeHandler>(new AppWindowCustomBindings(context)));
@@ -1026,6 +1108,23 @@ void Dispatcher::OnLoaded(
     }
 
     ExtensionsRendererClient::Get()->OnExtensionLoaded(*extension);
+    if (extension->GetType() == Manifest::TYPE_NWJS_APP) {
+      std::string user_agent;
+      if (extension->manifest()->GetString("user-agent", &user_agent)) {
+        std::string name, version;
+        extension->manifest()->GetString("name", &name);
+        extension->manifest()->GetString("version", &version);
+        nw::SetUserAgentOverride(user_agent, name, version);
+
+        int dom_storage_quota_mb;
+        if (extension->manifest()->GetInteger("dom_storage_quota", &dom_storage_quota_mb)) {
+          content::DOMStorageMap::SetQuotaOverride(dom_storage_quota_mb * 1024 * 1024);
+        }
+      }
+      VLOG(1) << "NW: change working dir: " << extension->path().AsUTF8Unsafe();
+      base::SetCurrentDirectory(extension->path());
+    }
+
   }
 
   // Update the available bindings for all contexts. These may have changed if

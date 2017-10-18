@@ -261,7 +261,8 @@ Page* ChromeClientImpl::CreateWindow(LocalFrame* frame,
                                      const FrameLoadRequest& r,
                                      const WebWindowFeatures& features,
                                      NavigationPolicy navigation_policy,
-                                     SandboxFlags sandbox_flags) {
+                                     SandboxFlags sandbox_flags,
+                                     WebString* manifest) {
   if (!web_view_->Client())
     return nullptr;
 
@@ -277,7 +278,7 @@ Page* ChromeClientImpl::CreateWindow(LocalFrame* frame,
           WrappedResourceRequest(r.GetResourceRequest()), features, frame_name,
           static_cast<WebNavigationPolicy>(navigation_policy),
           r.GetShouldSetOpener() == kNeverSetOpener,
-          static_cast<WebSandboxFlags>(sandbox_flags)));
+          static_cast<WebSandboxFlags>(sandbox_flags), manifest));
   if (!new_view)
     return nullptr;
   return new_view->GetPage();
@@ -588,6 +589,7 @@ void ChromeClientImpl::OpenFileChooser(LocalFrame* frame,
     return;
 
   const WebFileChooserParams& params = file_chooser->Params();
+
   WebFileChooserCompletionImpl* chooser_completion =
       new WebFileChooserCompletionImpl(std::move(file_chooser));
   if (client->RunFileChooser(params, chooser_completion))

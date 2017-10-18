@@ -70,12 +70,18 @@ enum class UserGestureStatus { kActive, kNone };
 class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
  public:
   virtual ~Frame();
+  void setNodeJS(bool node) { nodejs_ = node; }
+  bool isNodeJS() const { return nodejs_; }
+  bool isNwDisabledChildFrame() const;
+  bool isNwFakeTop() const;
 
   DECLARE_VIRTUAL_TRACE();
 
   virtual bool IsLocalFrame() const = 0;
   virtual bool IsRemoteFrame() const = 0;
 
+  void setDevtoolsJail(Frame* iframe);
+  Frame* getDevtoolsJail() { return devtools_jail_; }
   virtual void Navigate(Document& origin_document,
                         const KURL&,
                         bool replace_current_item,
@@ -195,6 +201,9 @@ class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
   Member<FrameClient> client_;
   const Member<WindowProxyManager> window_proxy_manager_;
   // TODO(sashab): Investigate if this can be represented with m_lifecycle.
+  Member<Frame> devtools_jail_;
+  Member<Frame> dev_jail_owner_;
+  bool nodejs_;
   bool is_loading_;
 };
 

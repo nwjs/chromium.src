@@ -207,7 +207,9 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
   CaptivePortalServiceFactory::GetInstance();
 #endif
+#if 0
   CertificateReportingServiceFactory::GetInstance();
+#endif
 #if defined(OS_ANDROID)
   chrome::android::DataUseUITabModelFactory::GetInstance();
 #endif

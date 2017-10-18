@@ -13,10 +13,32 @@
 #include "ui/gfx/skia_util.h"
 
 namespace content {
+extern bool g_force_cpu_draw;
+  
+SoftwareOutputDeviceForceCPUMac::SoftwareOutputDeviceForceCPUMac(ui::Compositor* compositor)
+    : compositor_(compositor), scale_factor_(1) {
+  // this class should be created for g_force_cpu_draw
+  assert(g_force_cpu_draw);
+}
+
+SoftwareOutputDeviceForceCPUMac::~SoftwareOutputDeviceForceCPUMac() {
+}
 
 SoftwareOutputDeviceMac::Buffer::Buffer() = default;
 SoftwareOutputDeviceMac::Buffer::~Buffer() = default;
 
+void SoftwareOutputDeviceForceCPUMac::Resize(const gfx::Size& pixel_size,
+                                     float scale_factor) {
+  scale_factor_ = scale_factor;
+  cc::SoftwareOutputDevice::Resize(pixel_size, scale_factor);
+}
+
+void SoftwareOutputDeviceForceCPUMac::EndPaint() {
+  SoftwareOutputDevice::EndPaint();
+  ui::AcceleratedWidgetMacGotSoftwareFrame(
+      compositor_->widget(), scale_factor_, surface_->getCanvas());
+}
+  
 SoftwareOutputDeviceMac::SoftwareOutputDeviceMac(ui::Compositor* compositor)
     : compositor_(compositor) {}
 

@@ -740,6 +740,8 @@ void ProcessManager::DecrementLazyKeepaliveCount(
 
 void ProcessManager::OnLazyBackgroundPageIdle(const std::string& extension_id,
                                               uint64_t sequence_id) {
+  // bg page will be destroyed if main points to remote page NWJS#5282
+#if 0
   ExtensionHost* host = GetBackgroundHostForExtension(extension_id);
   if (host && !background_page_data_[extension_id].is_closing &&
       sequence_id == background_page_data_[extension_id].close_sequence_id) {
@@ -752,6 +754,7 @@ void ProcessManager::OnLazyBackgroundPageIdle(const std::string& extension_id,
     host->render_process_host()->Send(new ExtensionMsg_ShouldSuspend(
         extension_id, sequence_id));
   }
+#endif
 }
 
 void ProcessManager::OnLazyBackgroundPageActive(

@@ -326,6 +326,7 @@ void ToolbarView::ShowTranslateBubble(
     translate::TranslateStep step,
     translate::TranslateErrors::Type error_type,
     bool is_user_gesture) {
+#if 0
   views::View* anchor_view = location_bar();
   BubbleIconView* translate_icon_view = location_bar()->translate_icon_view();
   if (!ui::MaterialDesignController::IsSecondaryUiMaterial()) {
@@ -341,6 +342,7 @@ void ToolbarView::ShowTranslateBubble(
                       : TranslateBubbleView::AUTOMATIC);
   if (bubble_widget && translate_icon_view)
     bubble_widget->AddObserver(translate_icon_view);
+#endif
 }
 
 int ToolbarView::GetMaxBrowserActionsWidth() const {

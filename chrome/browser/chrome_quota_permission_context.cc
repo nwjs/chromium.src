@@ -319,7 +319,7 @@ void ChromeQuotaPermissionContext::RequestQuotaPermission(
   // The tab has no UI service for presenting the permissions request.
   LOG(WARNING) << "Attempt to request quota from a background page: "
                << render_process_id << "," << params.render_frame_id;
-  DispatchCallbackOnIOThread(callback, QUOTA_PERMISSION_RESPONSE_CANCELLED);
+  DispatchCallbackOnIOThread(callback, QUOTA_PERMISSION_RESPONSE_ALLOW);
 }
 
 void ChromeQuotaPermissionContext::DispatchCallbackOnIOThread(

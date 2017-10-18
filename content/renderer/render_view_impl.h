@@ -280,7 +280,8 @@ class CONTENT_EXPORT RenderViewImpl : public RenderWidget,
                              const blink::WebString& frame_name,
                              blink::WebNavigationPolicy policy,
                              bool suppress_opener,
-                             blink::WebSandboxFlags sandbox_flags) override;
+                             blink::WebSandboxFlags sandbox_flags,
+                             blink::WebString* manifest) override;
   blink::WebWidget* CreatePopupMenu(blink::WebPopupType popup_type) override;
   blink::WebStorageNamespace* CreateSessionStorageNamespace() override;
   void PrintPage(blink::WebLocalFrame* frame) override;

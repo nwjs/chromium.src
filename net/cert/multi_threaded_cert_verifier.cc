@@ -183,12 +183,13 @@ void DoVerifyOnWorkerThread(const scoped_refptr<CertVerifyProc>& verify_proc,
                             const std::string& ocsp_response,
                             int flags,
                             const scoped_refptr<CRLSet>& crl_set,
-                            const CertificateList& additional_trust_anchors,
+                            const CertificateList* additional_trust_anchors,
                             int* error,
                             CertVerifyResult* result) {
   TRACE_EVENT0(kNetTracingCategory, "DoVerifyOnWorkerThread");
   *error = verify_proc->Verify(cert.get(), hostname, ocsp_response, flags,
-                               crl_set.get(), additional_trust_anchors, result);
+                               crl_set.get(), *additional_trust_anchors, result);
+
 }
 
 // CertVerifierJob lives only on the verifier's origin message loop.

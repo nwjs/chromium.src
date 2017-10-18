@@ -4,6 +4,8 @@
 
 #include "chrome/app/chrome_main_delegate.h"
 
+#include "chrome_elf/chrome_elf_main.h"
+
 #include <stddef.h>
 #include <string>
 
@@ -62,6 +64,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_switches.h"
 
+#include "content/nw/src/nw_base.h"
 #if defined(OS_WIN)
 #include <atlbase.h>
 #include <malloc.h>
@@ -171,6 +174,16 @@
 #if !defined(CHROME_MULTIPLE_DLL_BROWSER)
 #include "chrome/child/pdf_child_init.h"
 
+#include "third_party/node-nw/src/node_webkit.h"
+#include "third_party/zlib/google/zip_reader.h"
+#include "base/native_library.h"
+#include "base/strings/utf_string_conversions.h"
+#if defined(OS_MACOSX)
+#include "base/mac/bundle_locations.h"
+#include "base/strings/sys_string_conversions.h"
+#endif
+
+
 base::LazyInstance<ChromeContentGpuClient>::DestructorAtExit
     g_chrome_content_gpu_client = LAZY_INSTANCE_INITIALIZER;
 base::LazyInstance<ChromeContentRendererClient>::DestructorAtExit
@@ -196,6 +209,13 @@ const char* const ChromeMainDelegate::kNonWildcardDomainNonPortSchemes[] = {
     extensions::kExtensionScheme, chrome::kChromeSearchScheme};
 const size_t ChromeMainDelegate::kNonWildcardDomainNonPortSchemesSize =
     arraysize(kNonWildcardDomainNonPortSchemes);
+
+#if defined(COMPONENT_BUILD)
+CONTENT_EXPORT NodeStartFn g_node_start_fn;
+#else
+extern NodeStartFn g_node_start_fn;
+#endif
+SetBlobPathFn g_set_blob_path_fn = nullptr;
 
 namespace {
 
@@ -395,7 +415,7 @@ struct MainFunction {
 
 // Initializes the user data dir. Must be called before InitializeLocalState().
 void InitializeUserDataDir(base::CommandLine* command_line) {
-#if defined(OS_WIN)
+#if 0
   // Reach out to chrome_elf for the truth on the user data directory.
   // Note that in tests, this links to chrome_elf_test_stubs.
   wchar_t user_data_dir_buf[MAX_PATH], invalid_user_data_dir_buf[MAX_PATH];
@@ -432,9 +452,14 @@ void InitializeUserDataDir(base::CommandLine* command_line) {
     }
   }
 #endif  // OS_LINUX
-#if defined(OS_MACOSX)
+#if defined(OS_MACOSX) || defined(OS_WIN)
   policy::path_parser::CheckUserDataDirPolicy(&user_data_dir);
 #endif  // OS_MAC
+
+  // On Windows, trailing separators leave Chrome in a bad state.
+  // See crbug.com/464616.
+  if (user_data_dir.EndsWithSeparator())
+    user_data_dir = user_data_dir.StripTrailingSeparators();
 
   const bool specified_directory_was_invalid = !user_data_dir.empty() &&
       !PathService::OverrideAndCreateIfNeeded(chrome::DIR_USER_DATA,
@@ -465,7 +490,7 @@ void InitializeUserDataDir(base::CommandLine* command_line) {
 
   // Append the fallback user data directory to the commandline. Otherwise,
   // child or service processes will attempt to use the invalid directory.
-  if (specified_directory_was_invalid)
+  //if (specified_directory_was_invalid)
     command_line->AppendSwitchPath(switches::kUserDataDir, user_data_dir);
 #endif  // OS_WIN
 }
@@ -533,7 +558,7 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
   chromeos::BootTimesRecorder::Get()->SaveChromeMainStats();
 #endif
 
-  const base::CommandLine& command_line =
+  base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
 
 #if defined(OS_WIN)
@@ -558,6 +583,37 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
 #if !defined(CHROME_MULTIPLE_DLL_BROWSER)
   ChildProfiling::ProcessStarted();
 #endif
+
+  const base::CommandLine::StringVector& args = command_line.GetArgs();
+  if (args.size() > 0) {
+    zip::ZipReader reader;
+    base::FilePath fp(args[0]);
+    //LOG(WARNING) << "final extension: " << fp.FinalExtension();
+    if (!command_line.HasSwitch(switches::kProcessType) && fp.FinalExtension() == FILE_PATH_LITERAL(".js") &&
+        base::PathExists(fp) && !base::DirectoryExists(fp) && !reader.Open(fp)) {
+      base::NativeLibraryLoadError error;
+#if defined(OS_MACOSX)
+      base::FilePath node_dll_path = base::mac::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node")));
+      base::ScopedCFTypeRef<CFStringRef> natives_file_name(base::SysUTF8ToCFStringRef("natives_blob.bin"));
+      std::string blob_path = base::mac::PathForFrameworkBundleResource(natives_file_name).AsUTF8Unsafe();
+#else
+      base::FilePath node_dll_path = base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node"));
+#endif
+      base::NativeLibrary node_dll = base::LoadNativeLibrary(node_dll_path, &error);
+      if(!node_dll)
+        LOG(FATAL) << "Failed to load node library (error: " << error.ToString() << ")";
+      else {
+#if defined(OS_MACOSX)
+        g_set_blob_path_fn = (SetBlobPathFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_set_blob_path");
+        g_set_blob_path_fn(blob_path.c_str());
+#endif
+        g_node_start_fn = (NodeStartFn)base::GetFunctionPointerFromNativeLibrary(node_dll, "g_node_start");
+        *exit_code = g_node_start_fn(command_line.argc0(), command_line.argv0());
+      }
+      return true;
+    }
+  }
+
   Profiling::ProcessStarted();
 
   base::trace_event::TraceLog::GetInstance()->SetArgumentFilterPredicate(
@@ -715,6 +771,22 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
   metrics::LeakDetector::InitTLSSlot();
 #endif
 
+  std::wstring product_name, product_version;
+  std::string report_url;
+
+  nw::InitNWPackage();
+  std::string name = nw::package()->GetName();
+  std::string version;
+  product_name = std::wstring(name.begin(), name.end());
+  nw::package()->root()->GetString("version", &version);
+  product_version = std::wstring(version.begin(), version.end());
+#if defined(OS_WIN)
+  SignalInitializeCrashReporting(&product_name, &product_version);
+  if (nw::package()->root()->GetString("crash_report_url", &report_url)) {
+    crash_reporter::CrashReporterClient* client = (crash_reporter::CrashReporterClient*)ElfGetReporterClient();
+    client->SetUploadDump(true);
+  }
+#endif
   return false;
 }
 
@@ -787,13 +859,31 @@ void ChromeMainDelegate::PreSandboxStartup() {
   crash_reporter::SetCrashReporterClient(g_chrome_crash_client.Pointer());
 #endif
 
+  std::string report_url;
+  if (nw::package()->root()->GetString("crash_report_url", &report_url)) {
+#if !defined(OS_WIN)
+    crash_reporter::CrashReporterClient* client = crash_reporter::GetCrashReporterClient();
+    client->SetUploadDump(true);
+    client->product_name_ = nw::package()->GetName();
+    nw::package()->root()->GetString("version", &client->product_version_);
+#endif
+  }
+
 #if defined(OS_MACOSX)
   // On the Mac, the child executable lives at a predefined location within
   // the app bundle's versioned directory.
+  std::string product_string;
+  if (nw::package()->root()->GetString("product_string", &product_string)) {
+    std::string helperProcessExecutablePath = (product_string + " Helper.app/Contents/MacOS/" + product_string + " Helper");
+    PathService::Override(content::CHILD_PROCESS_EXE,
+                          chrome::GetVersionedDirectory().
+                          Append(helperProcessExecutablePath));
+  }else{
   PathService::Override(content::CHILD_PROCESS_EXE,
                         chrome::GetVersionedDirectory().
                         Append(chrome::kHelperProcessExecutablePath));
 
+  }
   InitMacCrashReporter(command_line, process_type);
   SetUpInstallerPreferences(command_line);
 #endif
@@ -810,7 +900,7 @@ void ChromeMainDelegate::PreSandboxStartup() {
   // Initialize the user data dir for any process type that needs it.
   if (chrome::ProcessNeedsProfileDir(process_type)) {
     InitializeUserDataDir(base::CommandLine::ForCurrentProcess());
-#if defined(OS_WIN) && !defined(CHROME_MULTIPLE_DLL_CHILD)
+#if 0
     if (downgrade::IsMSIInstall()) {
       downgrade::MoveUserDataForFirstRunAfterDowngrade();
       base::FilePath user_data_dir;
@@ -820,11 +910,13 @@ void ChromeMainDelegate::PreSandboxStartup() {
 #endif
   }
 
+#if 0
   // Register component_updater PathProvider after DIR_USER_DATA overidden by
   // command line flags. Maybe move the chrome PathProvider down here also?
   component_updater::RegisterPathProvider(chrome::DIR_COMPONENTS,
                                           chrome::DIR_INTERNAL_PLUGINS,
                                           chrome::DIR_USER_DATA);
+#endif
 
 #if !defined(OS_ANDROID) && !defined(OS_WIN)
   // Android does InitLogging when library is loaded. Skip here.
@@ -943,6 +1035,12 @@ void ChromeMainDelegate::PreSandboxStartup() {
   // After all the platform Breakpads have been initialized, store the command
   // line for crash reporting.
   crash_keys::SetCrashKeysFromCommandLine(command_line);
+#if 1 //!defined(OS_WIN)
+  if (!report_url.empty()) {
+    GURL url(report_url);
+    chrome_content_client_.SetNWReportURL(url);
+  }
+#endif
 }
 
 void ChromeMainDelegate::SandboxInitialized(const std::string& process_type) {

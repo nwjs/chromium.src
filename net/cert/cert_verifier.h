@@ -122,8 +122,8 @@ class NET_EXPORT CertVerifier {
     const std::string& hostname() const { return hostname_; }
     int flags() const { return flags_; }
     const std::string& ocsp_response() const { return ocsp_response_; }
-    const CertificateList& additional_trust_anchors() const {
-      return additional_trust_anchors_;
+    const CertificateList* additional_trust_anchors() const {
+      return &additional_trust_anchors_;
     }
 
     bool operator==(const RequestParams& other) const;

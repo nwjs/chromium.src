@@ -5,6 +5,17 @@
 #include "core/workers/WorkerBackingThread.h"
 
 #include <memory>
+#include "third_party/node-nw/src/node_webkit.h"
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 #include "bindings/core/v8/V8BindingForCore.h"
 #include "bindings/core/v8/V8ContextSnapshot.h"
 #include "bindings/core/v8/V8GCController.h"
@@ -22,6 +33,9 @@
 #include "public/web/WebKit.h"
 
 namespace blink {
+void set_web_worker_hooks(void* fn_start) {
+  g_web_worker_start_thread_fn = (VoidPtr4Fn)fn_start;
+}
 
 // Wrapper functions defined in WebKit.h
 void MemoryPressureNotificationToWorkerThreadIsolates(

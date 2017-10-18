@@ -187,6 +187,8 @@ static_library("common") {
     "url_constants.h",
     "web_application_info.cc",
     "web_application_info.h",
+    "safe_browsing/pe_image_reader_win.cc",
+    "safe_browsing/pe_image_reader_win.h",
   ]
   defines = []
 
@@ -243,8 +245,8 @@ static_library("common") {
     "//components/signin/core/common",
     "//components/signin/core/common:signin_features",
     "//components/strings",
-    "//components/translate/content/common",
-    "//components/translate/core/common",
+    #"//components/translate/content/common",
+    #"//components/translate/core/common",
     "//components/url_formatter",
     "//components/variations",
     "//components/visitedlink/common",
@@ -360,6 +362,7 @@ static_library("common") {
     ]
     public_deps += [
       "//chrome/common/extensions:mojo_bindings",
+      "//content/nw/src/api:nw_api",
       "//chrome/common/extensions/api",
       "//chrome/common/extensions/api:extensions_features",
       "//device/usb",
