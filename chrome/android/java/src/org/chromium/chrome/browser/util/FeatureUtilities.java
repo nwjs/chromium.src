@@ -54,6 +54,7 @@ public class FeatureUtilities {
     private static Boolean sHasGoogleAccountAuthenticator;
     private static Boolean sHasRecognitionIntentHandler;
     private static Boolean sChromeHomeEnabled;
+    private static Boolean sChromeHomePendingState;
     private static String sChromeHomeSwipeLogicType;
 
     private static String sCachedHerbFlavor;
@@ -202,6 +203,16 @@ public class FeatureUtilities {
     }
 
     /**
+     * Finalize any static settings that will change when the browser restarts.
+     */
+    public static void finalizePendingFeatures() {
+        if (sChromeHomePendingState != null) {
+            sChromeHomeEnabled = sChromeHomePendingState;
+            sChromeHomePendingState = null;
+        }
+    }
+
+    /**
      * Caches which flavor of Herb the user prefers from native.
      */
     private static void cacheHerbFlavor() {
@@ -279,7 +290,7 @@ public class FeatureUtilities {
      */
     public static void switchChromeHomeUserSetting(boolean enabled) {
         ChromePreferenceManager.getInstance().setChromeHomeUserEnabled(enabled);
-        sChromeHomeEnabled = enabled;
+        sChromeHomePendingState = enabled;
     }
 
     /**
