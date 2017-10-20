@@ -100,7 +100,6 @@ public class OAuth2TokenServiceIntegrationTest {
                 mOAuth2TokenService.validateAccounts(false);
             }
         });
-        AccountManagerFacade.resetAccountManagerFacadeForTests();
     }
 
     private void mapAccountNamesToIds() {
@@ -157,6 +156,16 @@ public class OAuth2TokenServiceIntegrationTest {
                 mOAuth2TokenService.addObserver(observer);
             }
         });
+    }
+
+    private void addAccount(AccountHolder accountHolder) {
+        mAccountManager.addAccountHolderBlocking(accountHolder);
+        ThreadUtils.runOnUiThreadBlocking(this::seedAccountTrackerService);
+    }
+
+    private void removeAccount(AccountHolder accountHolder) {
+        mAccountManager.removeAccountHolderBlocking(accountHolder);
+        ThreadUtils.runOnUiThreadBlocking(this::seedAccountTrackerService);
     }
 
     @Test
@@ -259,7 +268,7 @@ public class OAuth2TokenServiceIntegrationTest {
     @Test
     @MediumTest
     public void testValidateAccountsOneAccountsRegisteredAndNoSignedInUser() throws Throwable {
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_1);
+        addAccount(TEST_ACCOUNT_HOLDER_1);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
@@ -278,7 +287,7 @@ public class OAuth2TokenServiceIntegrationTest {
     @Test
     @MediumTest
     public void testValidateAccountsOneAccountsRegisteredSignedIn() throws Throwable {
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_1);
+        addAccount(TEST_ACCOUNT_HOLDER_1);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
@@ -312,7 +321,7 @@ public class OAuth2TokenServiceIntegrationTest {
     @Test
     @MediumTest
     public void testValidateAccountsSingleAccountWithoutChanges() throws Throwable {
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_1);
+        addAccount(TEST_ACCOUNT_HOLDER_1);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
@@ -338,7 +347,7 @@ public class OAuth2TokenServiceIntegrationTest {
     @Test
     @MediumTest
     public void testValidateAccountsSingleAccountThenAddOne() throws Throwable {
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_1);
+        addAccount(TEST_ACCOUNT_HOLDER_1);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
@@ -355,14 +364,11 @@ public class OAuth2TokenServiceIntegrationTest {
         });
 
         // Add another account.
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_2);
+        addAccount(TEST_ACCOUNT_HOLDER_2);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                // Seed AccountTrackerService again since accounts changed after last validation.
-                seedAccountTrackerService(mContext);
-
                 // Re-run validation.
                 mOAuth2TokenService.validateAccounts(false);
                 Assert.assertEquals(2, mObserver.getAvailableCallCount());
@@ -376,8 +382,8 @@ public class OAuth2TokenServiceIntegrationTest {
     @MediumTest
     public void testValidateAccountsTwoAccountsThenRemoveOne() throws Throwable {
         // Add accounts.
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_1);
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_2);
+        addAccount(TEST_ACCOUNT_HOLDER_1);
+        addAccount(TEST_ACCOUNT_HOLDER_2);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
@@ -391,7 +397,7 @@ public class OAuth2TokenServiceIntegrationTest {
             }
         });
 
-        mAccountManager.removeAccountHolderBlocking(TEST_ACCOUNT_HOLDER_2);
+        removeAccount(TEST_ACCOUNT_HOLDER_2);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
@@ -409,8 +415,8 @@ public class OAuth2TokenServiceIntegrationTest {
     @MediumTest
     public void testValidateAccountsTwoAccountsThenRemoveAll() throws Throwable {
         // Add accounts.
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_1);
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_2);
+        addAccount(TEST_ACCOUNT_HOLDER_1);
+        addAccount(TEST_ACCOUNT_HOLDER_2);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
@@ -424,8 +430,8 @@ public class OAuth2TokenServiceIntegrationTest {
         });
 
         // Remove all.
-        mAccountManager.removeAccountHolderBlocking(TEST_ACCOUNT_HOLDER_1);
-        mAccountManager.removeAccountHolderBlocking(TEST_ACCOUNT_HOLDER_2);
+        removeAccount(TEST_ACCOUNT_HOLDER_1);
+        removeAccount(TEST_ACCOUNT_HOLDER_2);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
@@ -443,8 +449,8 @@ public class OAuth2TokenServiceIntegrationTest {
     @RetryOnFailure
     public void testValidateAccountsTwoAccountsThenRemoveAllSignOut() throws Throwable {
         // Add accounts.
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_1);
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_2);
+        addAccount(TEST_ACCOUNT_HOLDER_1);
+        addAccount(TEST_ACCOUNT_HOLDER_2);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
@@ -460,8 +466,8 @@ public class OAuth2TokenServiceIntegrationTest {
             }
         });
 
-        mAccountManager.removeAccountHolderBlocking(TEST_ACCOUNT_HOLDER_1);
-        mAccountManager.removeAccountHolderBlocking(TEST_ACCOUNT_HOLDER_2);
+        removeAccount(TEST_ACCOUNT_HOLDER_1);
+        removeAccount(TEST_ACCOUNT_HOLDER_2);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
@@ -478,8 +484,8 @@ public class OAuth2TokenServiceIntegrationTest {
     @MediumTest
     public void testValidateAccountsTwoAccountsRegisteredAndOneSignedIn() throws Throwable {
         // Add accounts.
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_1);
-        mAccountManager.addAccountHolderBlocking(TEST_ACCOUNT_HOLDER_2);
+        addAccount(TEST_ACCOUNT_HOLDER_1);
+        addAccount(TEST_ACCOUNT_HOLDER_2);
 
         mUiThreadTestRule.runOnUiThread(new Runnable() {
             @Override
