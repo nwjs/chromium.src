@@ -913,29 +913,6 @@ StyleRuleKeyframe* CSSParserImpl::ConsumeKeyframeStyleRule(
       CreateStylePropertySet(parsed_properties_, context_->Mode()));
 }
 
-static void ObserveSelectors(CSSParserObserverWrapper& wrapper,
-                             CSSParserTokenRange selectors) {
-  // This is easier than hooking into the CSSSelectorParser
-  selectors.ConsumeWhitespace();
-  CSSParserTokenRange original_range = selectors;
-  wrapper.Observer().StartRuleHeader(StyleRule::kStyle,
-                                     wrapper.StartOffset(original_range));
-
-  while (!selectors.AtEnd()) {
-    const CSSParserToken* selector_start = &selectors.Peek();
-    while (!selectors.AtEnd() && selectors.Peek().GetType() != kCommaToken)
-      selectors.ConsumeComponentValue();
-    CSSParserTokenRange selector =
-        selectors.MakeSubRange(selector_start, &selectors.Peek());
-    selectors.ConsumeIncludingWhitespace();
-
-    wrapper.Observer().ObserveSelector(wrapper.StartOffset(selector),
-                                       wrapper.EndOffset(selector));
-  }
-
-  wrapper.Observer().EndRuleHeader(wrapper.EndOffset(original_range));
-}
-
 StyleRule* CSSParserImpl::ConsumeStyleRule(
     CSSParserScopedTokenBuffer prelude_buffer,
     const RangeOffset& prelude_offset,
