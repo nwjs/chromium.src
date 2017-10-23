@@ -2986,6 +2986,7 @@ TEST_F(DisplayManagerTest, DisconnectedInternalDisplayShouldUpdateDisplayInfo) {
           .SetId(external_id)
           .SetNativeMode(MakeDisplayMode())
           .AddMode(MakeDisplayMode())
+          .SetOrigin({0, 1000})
           .Build();
   // "Connectd display" has the current mode.
   external_snapshot->set_current_mode(external_snapshot->native_mode());
