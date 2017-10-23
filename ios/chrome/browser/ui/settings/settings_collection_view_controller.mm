@@ -99,7 +99,7 @@ namespace {
 
 const CGFloat kAccountProfilePhotoDimension = 40.0f;
 
-const int kAutomaticSigninPromoViewDismissCount = 5;
+const int kAutomaticSigninPromoViewDismissCount = 20;
 
 typedef NS_ENUM(NSInteger, SectionIdentifier) {
   SectionIdentifierSignIn = kSectionIdentifierEnumZero,
@@ -316,6 +316,15 @@ void SigninObserverBridge::GoogleSignedOut(const std::string& account_id,
   return _signinInteractionController;
 }
 
+- (void)signinPromoCloseButtonAction {
+  PrefService* prefs = _browserState->GetPrefs();
+  prefs->SetBoolean(prefs::kIosSettingsPromoAlreadySeen, true);
+  UMA_HISTOGRAM_COUNTS_100(
+      "MobileSignInPromo.SettingsManager.ImpressionsTilXButton",
+      prefs->GetInteger(prefs::kIosSettingsSigninPromoDisplayedCount));
+  [self reloadData];
+}
+
 #pragma mark View lifecycle
 
 // TODO(crbug.com/661915): Refactor TemplateURLObserver and re-implement this so
@@ -348,7 +357,8 @@ void SigninObserverBridge::GoogleSignedOut(const std::string& account_id,
     PrefService* prefs = _browserState->GetPrefs();
     int displayedCount =
         prefs->GetInteger(prefs::kIosSettingsSigninPromoDisplayedCount);
-    if (displayedCount < kAutomaticSigninPromoViewDismissCount) {
+    if (displayedCount < kAutomaticSigninPromoViewDismissCount &&
+        !prefs->GetBoolean(prefs::kIosSettingsPromoAlreadySeen)) {
       if (!_signinPromoViewMediator) {
         _signinPromoViewMediator = [[SigninPromoViewMediator alloc]
             initWithBrowserState:_browserState
@@ -359,6 +369,9 @@ void SigninObserverBridge::GoogleSignedOut(const std::string& account_id,
         prefs->SetInteger(prefs::kIosSettingsSigninPromoDisplayedCount,
                           displayedCount + 1);
       }
+    } else {
+      [_signinPromoViewMediator signinPromoViewRemoved];
+      _signinPromoViewMediator = nil;
     }
     [model addItem:[self signInTextItem]
         toSectionWithIdentifier:SectionIdentifierSignIn];
@@ -679,6 +692,10 @@ void SigninObserverBridge::GoogleSignedOut(const std::string& account_id,
       SigninPromoCell* signinPromoCell =
           base::mac::ObjCCast<SigninPromoCell>(cell);
       signinPromoCell.signinPromoView.delegate = self;
+      __weak SettingsCollectionViewController* weakSelf = self;
+      signinPromoCell.signinPromoView.closeButtonAction = ^() {
+        [weakSelf signinPromoCloseButtonAction];
+      };
       break;
     }
     case ItemTypeViewSource: {
