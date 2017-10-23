@@ -280,6 +280,11 @@ public class FeatureUtilities {
             manager.clearChromeHomeUserPreference();
         }
 
+        if (manager.isChromeHomeUserPreferenceSet()) {
+            RecordHistogram.recordBooleanHistogram(
+                    "Android.ChromeHome.UserPreference.Enabled", manager.isChromeHomeUserEnabled());
+        }
+
         UmaSessionStats.registerSyntheticFieldTrial(SYNTHETIC_CHROME_HOME_EXPERIMENT_NAME,
                 isChromeHomeEnabled() ? ENABLED_EXPERIMENT_GROUP : DISABLED_EXPERIMENT_GROUP);
     }
@@ -311,8 +316,6 @@ public class FeatureUtilities {
                 if (ChromePreferenceManager.getInstance().isChromeHomeUserPreferenceSet()) {
                     isUserPreferenceSet = true;
                     sChromeHomeEnabled = prefManager.isChromeHomeUserEnabled();
-                    RecordHistogram.recordBooleanHistogram(
-                            "Android.ChromeHome.UserPreference.Enabled", sChromeHomeEnabled);
                 } else {
                     sChromeHomeEnabled = prefManager.isChromeHomeEnabled();
                 }
