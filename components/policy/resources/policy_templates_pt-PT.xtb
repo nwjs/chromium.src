@@ -16,6 +16,13 @@
 
       Esta política afeta os utilizadores cujo domínio coincide com o domínio de inscrição apenas do dispositivo. Para todos os outros utilizadores, os cookies definidos pelo IdP são transferidos para o perfil do utilizador durante o seu primeiro início de sessão apenas no dispositivo.</translation>
 <translation id="1040446814317236570">Ativar a remoção de URL de PAC (para https://)</translation>
+<translation id="1041454584879384845">Configura o comportamento dos avatares de utilizador que representam os utilizadores no ecrã de início de sessão.
+
+      É possível especificar definições individuais nas propriedades de JSON:
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: se a política estiver definida como <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, os utilizadores podem utilizar vídeos nas imagens de avatar.
+
+      Se esta política não estiver definida, é possível utilizar vídeos nas imagens de avatar.</translation>
 <translation id="1044878202534415707">Comunicar estatísticas de hardware como a utilização de CPU/RAM.
 
       Se a política estiver definida como falsa, as estatísticas não são comunicadas.
@@ -98,6 +105,7 @@
 <translation id="1435659902881071157">Configuração de rede ao nível do aparelho</translation>
 <translation id="1438739959477268107">Predefinição de geração de chaves</translation>
 <translation id="1454846751303307294">Permite definir uma lista de padrões de URL que especificam os Web sites não autorizados a executar JavaScript. Se esta política não for definida, será utilizado o valor global predefinido para todos os Web sites, seja a partir da política "DefaultJavaScriptSetting", caso esteja definida, ou a partir da configuração pessoal do utilizador.</translation>
+<translation id="1456822151187621582">Windows (clientes <ph name="PRODUCT_OS_NAME" />):</translation>
 <translation id="1464848559468748897">Controle o comportamento do utilizador numa sessão multiperfil em dispositivos <ph name="PRODUCT_OS_NAME" />.
 
       Se esta política estiver definida para "MultiProfileUserBehaviorUnrestricted", o utilizador pode ser um utilizador primário ou secundário numa sessão multiperfil.
@@ -547,6 +555,7 @@
           Se esta definição estiver desativada e as ligações UDP de saída forem filtradas pela firewall, esta máquina apenas permitirá ligações de máquinas cliente dentro da rede local.
 
           Se deixar esta política por definir, a definição será ativada.</translation>
+<translation id="2823870601012066791">Localização da base de dados de registo do Windows para os clientes <ph name="PRODUCT_OS_NAME" />:</translation>
 <translation id="2824715612115726353">Ativar o modo de navegação anónima</translation>
 <translation id="2838830882081735096">Não permitir a migração de dados nem ARC</translation>
 <translation id="2844404652289407061">Ativa a disponibilidade de Tocar para pesquisar na vista de conteúdo do <ph name="PRODUCT_NAME" />.
@@ -1436,6 +1445,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="6076099373507468537">Define a lista de dispositivos USB que estão autorizados a ser desligados do respetivo controlador de kernel para serem utilizados diretamente através da API chrome.usb numa aplicação Web. As entradas são pares de identificador de fornecedor de USB e identificador de produto para identificar um hardware específico.
 
       Se esta política não estiver configurada, a lista de dispositivos USB amovíveis fica vazia.</translation>
+<translation id="6083631234867522991">Windows (clientes Windows):</translation>
 <translation id="6093156968240188330">Permitir que os utilizadores remotos interajam com janelas de prioridade elevada nas sessões de assistência remota</translation>
 <translation id="6095999036251797924">Especifica o período de tempo sem atividade do utilizador após o qual o ecrã é bloqueado durante o funcionamento com corrente alternada ou bateria.
 
@@ -1500,6 +1510,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="6310223829319187614">Ativar o preenchimento automático do nome do domínio durante o início de sessão do utilizador</translation>
 <translation id="6315673513957120120">O Chrome mostra uma página de aviso quando os utilizadores navegam para sites com erros de SSL. Por predefinição ou quando esta política está definida como verdadeira, os utilizadores estão autorizados a clicar nestas páginas de aviso.
       Definir esta política como falsa desautoriza os utilizadores a clicar em qualquer página de aviso.</translation>
+<translation id="6320758134170712450">Configurar o comportamento do avatar de utilizador</translation>
 <translation id="6353901068939575220">Especifica os parâmetros utilizados ao pesquisar um URL com POST. Consiste em pares de nome/valor separados por vírgulas. Se um valor for o parâmetro de um modelo, como {searchTerms} no exemplo acima, será substituído por dados dos termos de pesquisa reais.
 
           Esta política é opcional. Se não for definida, será enviado um pedido de pesquisa através do método GET.
@@ -1906,6 +1917,39 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="7841880500990419427">Versão TLS mínima como alternativa</translation>
 <translation id="7842869978353666042">Configurar as opções do Google Drive</translation>
 <translation id="7843525027689416831">Especifica os sinalizadores que devem ser aplicados ao <ph name="PRODUCT_NAME" /> quando este inicia. Os sinalizadores especificados são aplicados apenas no ecrã de início de sessão. Os sinalizadores definidos através desta política não se propagam para as sessões de utilizador.</translation>
+<translation id="7844537954833753199">Configura definições de gestão de extensões para o <ph name="PRODUCT_NAME" />.
+
+          Esta política controla várias definições, incluindo definições controladas por quaisquer políticas existentes relativas a extensões. Além disso, substitui todas as políticas antigas, caso estejam ambas definidas.
+
+          Esta política mapeia um ID de extensão ou um URL de atualização para a respetiva configuração. Com um ID de extensão, a configuração é aplicada apenas à extensão especificada. É possível predefinir uma configuração para o ID especial <ph name="DEFAULT_SCOPE" />, que é aplicada a todas as extensões que não tenham uma configuração personalizada definida nesta política. Com um URL de atualização, a configuração é aplicada a todas as extensões com o URL de atualização exato indicado no manifesto desta extensão, conforme descrito em <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          A configuração de cada extensão (ou extensões com o mesmo URL de atualização) é outro dicionário que pode conter os campos documentados abaixo.
+
+          <ph name="INSTALLATION_MODE" />: mapeia para uma string que indica o modo de instalação para a extensão. As strings válidas são:
+          * <ph name="ALLOWED" />: permite que a extensão seja instalada pelo utilizador. Este é o comportamento predefinido.
+          * <ph name="BLOCKED" />: bloqueia a instalação da extensão.
+          * <ph name="FORCE_INSTALLED" />: a extensão é instalada automaticamente e o utilizador não a pode remover.
+          * <ph name="NORMAL_INSTALLED" />: a extensão é instalada automaticamente, mas o utilizador pode desativá-la.
+
+          Também é possível configurar o <ph name="INSTALLTION_MODE" /> para várias extensões, incluindo a extensão <ph name="DEFAULT_SCOPE" /> (como predefinições) e extensões com o mesmo URL de atualização. Neste caso, só é possível utilizar os valores <ph name="ALLOWED" /> e <ph name="BLOCKED" />.
+
+          Se o modo estiver definido como <ph name="FORCE_INSTALLED" /> ou <ph name="NORMAL_INSTALLED" />, também é necessário configurar um <ph name="UPDATE_URL" />. Tenha em atenção que o URL de atualização definido nesta política é utilizado apenas para a instalação inicial; as atualizações subsequentes da extensão utilizam o URL de atualização indicado no manifesto da extensão. O URL de atualização deve apontar para um documento XML de manifesto de atualização, conforme mencionado acima.
+
+          <ph name="BLOCKED_PERMISSIONS" />: mapeia para uma lista de strings que indicam as autorizações de API bloqueadas para a extensão. Os nomes das autorizações são os mesmos que as strings de autorização declaradas no manifesto da extensão, conforme descrito em <ph name="LINK_TO_EXTENSION_DOC3" />. Também é possível configurar esta definição para a extensão <ph name="DEFAULT_SCOPE" />. Se a extensão necessitar de uma autorização que faz parte da lista de bloqueio, o carregamento não é permitido. Se incluir uma autorização bloqueada como requisito opcional, esta é processada normalmente. No entanto, a solicitação de autorizações em conflito é recusada automaticamente no tempo de execução.
+
+          <ph name="ALLOWED_PERMISSIONS" />: é semelhante a <ph name="BLOCKED_PERMISSIONS" />, porém, permite explicitamente algumas autorizações que podem estar bloqueadas na lista global de autorizações bloqueadas e que, por isso, não podem ser configuradas para a extensão <ph name="DEFAULT_SCOPE" />. Tenha em atenção que esta definição não concede autorizações a extensões automaticamente.
+
+          <ph name="MINIMUM_VERSION_REQUIRED" />: mapeia para uma string de versão. O formato da string de versão é igual ao utilizado no manifesto da extensão, conforme descrito em <ph name="LINK_TO_EXTENSION_DOC4" />. As extensões com uma versão mais antiga do que a versão mínima especificada são desativadas. Isto também se aplica a extensões de instalação forçada.
+
+          As seguintes definições apenas podem ser utilizadas para a configuração <ph name="DEFAULT_SCOPE" /> predefinida:
+
+          <ph name="INSTALL_SOURCES" />: cada item nesta lista é um padrão de correspondência ao estilo de extensão (<ph name="LINK_TO_MATCH_PATTERNS" />). Os utilizadores podem instalar itens facilmente a partir de qualquer URL que corresponda a um item nesta lista. Tanto a localização do ficheiro <ph name="EXTENSION_SUFFIX_WILDCARD" /> como a página a partir da qual foi iniciada a transferência (ou seja, o referenciador) têm de estar autorizadas por estes padrões.
+
+          <ph name="ALLOWED_TYPES" />: esta definição adiciona à lista de autorizações os tipos permitidos de extensões/aplicações que podem ser instalados no <ph name="PRODUCT_NAME" />. O valor é uma lista de strings, em que cada uma deve ser de um dos seguintes tipos: <ph name="VALID_ALLOWED_TYPES" />. Consulte a documentação de extensões do <ph name="PRODUCT_NAME" /> para mais informações sobre estes tipos.
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: se um utilizador tentar instalar uma extensão, mas esta estiver bloqueada pela política, a Web Store do Chrome apresenta uma mensagem de erro genérica. Esta definição permite-lhe anexar texto à mensagem de erro. Isto pode ser utilizado para direcionar os utilizadores para o serviço de assistência, explicar os motivos do bloqueio de uma determinada extensão ou outras questões. Esta mensagem de erro é truncada se exceder o limite de 1000 carateres.
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: aceita uma lista de anfitriões com os quais uma extensão está impedida de interagir. Isto inclui a injeção de JavaScript, a alteração e a visualização de webRequests/webNavigation, a visualização e a alteração de cookies. O formato é semelhante aos padrões de correspondência <ph name="LINK_TO_MATCH_PATTERNS" />, com a diferença de que não é possível definir caminhos, por exemplo, "*://*.example.com". Também suporta a atribuição eficaz de carateres universais TLD, por exemplo, "*://example.*".
+          <ph name="RUNTIME_ALLOWED_HOSTS" />: aceita uma lista de anfitriões com os quais uma extensão pode interagir, independentemente de estarem listados em <ph name="RUNTIME_BLOCKED_HOSTS" />. O formato é igual a <ph name="RUNTIME_BLOCKED_HOSTS" />.
+          </translation>
 <translation id="787125417158068494">Se estiverem definidos para SyncDisabled ou não estiverem configurados, os certificados do <ph name="PRODUCT_OS_NAME" /> não ficam disponíveis para aplicações ARC.
 
       Se estiverem definidos para CopyCaCerts, todos os certificados da AC (Autoridade de certificação) instalados pelo ONC com <ph name="WEB_TRUSTED_BIT" /> ficam disponíveis para aplicações ARC.</translation>
@@ -2108,6 +2152,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
           Se esta definição for falsa, o dispositivo não utilizará a comprovação remota para proteção de conteúdo e o dispositivo poderá não conseguir reproduzir conteúdo protegido.
 
           Se esta definição for verdadeira ou se não estiver definida, a comprovação remota poderá ser utilizada para a proteção de conteúdo.</translation>
+<translation id="8650974590712548439">Localização da base de dados de registo do Windows para os clientes Windows:</translation>
 <translation id="8654286232573430130">Especifica os servidores que devem ser incluídos na lista de autorizações para a autenticação integrada. A autenticação integrada apenas está ativada quando o <ph name="PRODUCT_NAME" /> recebe um teste de autenticação de um proxy ou de um servidor que está nesta lista permitida.
 
           Separe os vários nomes de servidor por vírgulas. Os carateres universais (*) são permitidos.

@@ -529,7 +529,7 @@
 <translation id="180035236176489073">Sharti uwe mtandaoni ili ufikie faili hizi.</translation>
 <translation id="1801298019027379214">PIN siyo sahihi, tafadhali jaribu tena. Majaribio yaliyosalia: <ph name="TRIES_COUNT" /></translation>
 <translation id="1801827354178857021">Muda</translation>
-<translation id="1802931390041703523">Mweko umezuiwa kwenye ukurasa huu</translation>
+<translation id="1802931390041703523">Flash imezuiwa kwenye ukurasa huu</translation>
 <translation id="1803545009660609783">Funza upya</translation>
 <translation id="1807938677607439181">Faili zote</translation>
 <translation id="1809734401532861917">Ongeza alamisho, historia, manenosiri na mipangilio yangu mingine kwenye <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -870,7 +870,7 @@ Imebakisha <ph name="HOUR" />:<ph name="MINUTE" /> ijae</translation>
 <translation id="2350796302381711542">Ungependa kuruhusu <ph name="HANDLER_HOSTNAME" /> kufungua viungo vyote vya <ph name="PROTOCOL" /> badala ya <ph name="REPLACED_HANDLER_TITLE" />?</translation>
 <translation id="2351266942280602854">Lugha na uingizaji</translation>
 <translation id="2352662711729498748">&lt;MB 1</translation>
-<translation id="2353297238722298836">Inaruhusu kamera na maikrofoni</translation>
+<translation id="2353297238722298836">Kamera na maikrofoni zimeruhusiwa</translation>
 <translation id="2356070529366658676">Uliza</translation>
 <translation id="2357949918965361754">Unaweza kutumia kipengele hiki kuonyesha maudhui kutoka Chrome kwenye televisheni au vifaa vyako vingine.</translation>
 <translation id="2359345697448000899">Dhibiti viendelezi vyako kwa kubofya Viendelezi katika menyu ya Zana.</translation>
@@ -1135,7 +1135,7 @@ Sidhani ikiwa tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="2755367719610958252">Dhibiti vipengele vya zana za walio na matatizo ya kuona au kusikia</translation>
 <translation id="275662540872599901">skrini imezimwa</translation>
 <translation id="2756798847867733934">SIM kadi imelemazwa</translation>
-<translation id="2762441749940182211">Imezuia kamera</translation>
+<translation id="2762441749940182211">Kamera imezuiwa</translation>
 <translation id="2765217105034171413">Ndogo</translation>
 <translation id="2766006623206032690">&amp;Bandika na uende</translation>
 <translation id="276969039800130567">Umeingia kama <ph name="USER_EMAIL_ADDRESS" />.</translation>
@@ -1523,7 +1523,7 @@ Kutoka <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3313622045786997898">Thamani ya Sahihi ya Cheti</translation>
 <translation id="3315158641124845231">Ficha <ph name="PRODUCT_NAME" /></translation>
 <translation id="3317459757438853210">Pande mbili</translation>
-<translation id="3317678681329786349">Imezuia kamera na maikrofoni</translation>
+<translation id="3317678681329786349">Kamera na maikrofoni zimezuiwa</translation>
 <translation id="3319048459796106952">Dirisha &amp;fiche jipya</translation>
 <translation id="3320021301628644560">Ongeza anwani ya kutuma bili</translation>
 <translation id="3320859581025497771">mtoaji wako wa huduma</translation>
@@ -1988,7 +1988,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4022426551683927403">Ongez&amp;a kwenye Kamusi</translation>
 <translation id="4023146161712577481">Inaamua usanidi wa kifaa.</translation>
 <translation id="4027804175521224372">(Unakosekana—<ph name="IDS_SYNC_PROMO_NOT_SIGNED_IN_STATUS_LINK" />)</translation>
-<translation id="4031179711345676612">Imezuia maikrofoni</translation>
+<translation id="4031179711345676612">Maikrofoni imeruhusiwa</translation>
 <translation id="4031910098617850788">F5</translation>
 <translation id="4033471457476425443">Ongeza folda mpya</translation>
 <translation id="4034042927394659004">Punguza ung'aavu wa kitufe</translation>
@@ -2048,7 +2048,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4120817667028078560">Kijia ni kirefu mno</translation>
 <translation id="4121428309786185360">Muda Wake Unakwisha</translation>
 <translation id="412730574613779332">Spandex</translation>
-<translation id="412940972494182898">Pakia Mweko kwa wakati huu</translation>
+<translation id="412940972494182898">Ruhusu Flash kwa wakati huu</translation>
 <translation id="4130199216115862831">Kumbukumbu ya Kifaa</translation>
 <translation id="4130207949184424187">Kiendelezi hiki kimebadilisha ukurasa unaoonyeshwa unapotafuta kutoka Sanduku Kuu.</translation>
 <translation id="413121957363593859">Vipengele</translation>
@@ -2337,7 +2337,7 @@ Bonyeza kitufe chochote ili kuendelea kuchunguza.</translation>
 <translation id="4656293982926141856">Kompyuta hii</translation>
 <translation id="4658312088164718891">Weka nenosiri lako ili uwashe Smart Lock. Wakati ujao, utaitumia simu yako kufungua <ph name="DEVICE_TYPE" /> yako. Zima Smart Lock katika Mipangilio.</translation>
 <translation id="4662788913887017617">Shiriki alamisho hii na iPhone yako</translation>
-<translation id="4663373278480897665">Inaruhusu kamera</translation>
+<translation id="4663373278480897665">Kamera imeruhusiwa</translation>
 <translation id="4664482161435122549">Hitilafu ya Kuhamisha ya PKCS #12</translation>
 <translation id="466481852929361583">Sehemu salama inawekwa. Tafadhali subiri; huenda hatua hii ikachukua dakika chache.</translation>
 <translation id="4665014895760275686">Mtengenezaji</translation>
@@ -4674,7 +4674,7 @@ Huenda watu wengine wenye miunganisho ya polepole hawataona maudhui yako.</trans
 <translation id="8357224663288891423">Mikato ya Kibodi kwa Viendelezi na Programu</translation>
 <translation id="8358685469073206162">Rejesha kurasa?</translation>
 <translation id="8363095875018065315">imara</translation>
-<translation id="8363142353806532503">Imezuia maikrofoni</translation>
+<translation id="8363142353806532503">Maikrofoni imezuiwa</translation>
 <translation id="8366396658833131068">Muunganisho wa mtandao wako umerejeshwa. Tafadhali chagua mtandao tofauti au bonyeza kitufe cha 'Endelea' hapo chini ili uzindue programu ya kioski.</translation>
 <translation id="8366947248864804596">Fungua kwa kuchagua tu iwapo simu yako imefunguliwa na ipo karibu. Vinginevyo, weka nenosiri lako au PIN.</translation>
 <translation id="8368859634510605990">&amp;Fungua alamisho zote</translation>
@@ -5048,7 +5048,7 @@ Huenda watu wengine wenye miunganisho ya polepole hawataona maudhui yako.</trans
 <translation id="8973557916016709913">Ondoa kiwango cha kukuza</translation>
 <translation id="8973596347849323817">Unaweza kubadilisha mipangilio ya kifaa hiki kulingana na mahitaji yako. Vipengele hivi vya zana za walio na matatizo ya kuona au kusikia vinaweza kubadilishwa baadaye kwenye Mipangilio.</translation>
 <translation id="897414447285476047">Faili inayotumwa haikukamilika kutokana na hitilafu ya muunganisho.</translation>
-<translation id="8976520271376534479">Mweko umezuiwa kwenye ukurasa huu.</translation>
+<translation id="8976520271376534479">Flash imezuiwa kwenye ukurasa huu</translation>
 <translation id="8977811652087512276">Nenosiri si sahihi au faili imeharibika</translation>
 <translation id="8978154919215542464">Imewashwa - sawazisha kila kitu</translation>
 <translation id="8978526688207379569">Tovuti hii ilipakua faili nyingi kiotomatiki.</translation>

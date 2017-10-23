@@ -16,6 +16,13 @@
 
       Dasar ini mempengaruhi pengguna yang mempunyai domain yang sepadan dengan domain pendaftaran peranti sahaja. Bagi semua pengguna lain, kuki yang ditetapkan oleh IdP dipindahkan ke profil pengguna semasa log masuk mereka yang pertama pada peranti tersebut sahaja.</translation>
 <translation id="1040446814317236570">Dayakan pengeluaran URL PAC (untuk https://)</translation>
+<translation id="1041454584879384845">Mengkonfigurasi gelagat avatar pengguna yang mewakili pengguna pada skrin log masuk.
+
+      Tetapan individu boleh ditetapkan dalam sifat JSON:
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Jika ditetapkan kepada <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, pengguna akan dibenarkan untuk menggunakan video bagi imej avatar.
+
+      Jika dasar ini tidak ditetapkan, video untuk imej avatar dibenarkan.</translation>
 <translation id="1044878202534415707">Laporkan statistik perkakasan seperti penggunaan CPU/RAM.
 
       Jika dasar ditetapkan sebagai palsu, statistik tidak akan dilaporkan.
@@ -100,6 +107,7 @@
 <translation id="1454846751303307294">Membolehkan anda menetapkan senarai pola url yang menentukan tapak yang tidak dibenarkan untuk menjalankan JavaScript.
 
           Jika dasar ini dibiarkan tanpa ditetapkan, nilai lalai global akan digunakan untuk semua tapak sama ada dari dasar 'DefaultJavaScriptSetting' jika ia ditetapkan atau konfigurasi peribadi pengguna tersebut jika sebaliknya.</translation>
+<translation id="1456822151187621582">Windows (klien <ph name="PRODUCT_OS_NAME" />):</translation>
 <translation id="1464848559468748897">Mengawal tingkah laku pengguna dalam sesi berbilang profil pada peranti <ph name="PRODUCT_OS_NAME" />.
 
       Jika dasar ini ditetapkan kepada 'MultiProfileUserBehaviorUnrestricted', pengguna boleh menjadi sama ada pengguna utama atau sekunder dalam sesi berbilang profil.
@@ -564,6 +572,7 @@
           Jika tetapan ini dilumpuhkan dan sambungan UDP keluar ditapis oleh firewall, maka mesin ini hanya akan membenarkan sambungan dari mesin pelanggan di dalam rangkaian setempat sahaja.
 
           Jika dasar ini dibiarkan tanpa ditetapkan, tetapan ini akan didayakan.</translation>
+<translation id="2823870601012066791">Lokasi pendaftaran Windows untuk klien <ph name="PRODUCT_OS_NAME" />:</translation>
 <translation id="2824715612115726353">Dayakan mod Inkognito</translation>
 <translation id="2838830882081735096">Tidak membenarkan penghijrahan data dan ARC</translation>
 <translation id="2844404652289407061">Mendayakan ketersediaan Sentuh untuk Cari dalam paparan kandungan <ph name="PRODUCT_NAME" />.
@@ -1506,6 +1515,7 @@
 <translation id="6076099373507468537">Menentukan senarai peranti USB yang dibenarkan untuk ditanggalkan daripada pemacu inti peranti tersebut untuk digunakan menerusi API chrome.usb terus dalam aplikasi web. Entri ialah pasangan Pengecam Vendor USB dan Pengecam Produk untuk mengenal pasti perkakasan khusus.
 
       Jika dasar ini tidak dikonfigurasikan, senarai peranti USB yang boleh ditanggalkan ditetapkan sebagai kosong.</translation>
+<translation id="6083631234867522991">Windows (klien Windows):</translation>
 <translation id="6093156968240188330">Benarkan pengguna jauh berinteraksi dengan tetingkap ternaik dalam sesi bantuan jauh</translation>
 <translation id="6095999036251797924">Menyatakan tempoh masa tanpa input pengguna yang selepas itu skrin dikunci semasa berfungsi dengan kuasa AC atau bateri.
 
@@ -1576,6 +1586,7 @@
 <translation id="6310223829319187614">Dayakan autolengkap nama domain semasa log masuk pengguna</translation>
 <translation id="6315673513957120120">Chrome memaparkan halaman amaran apabila pengguna menavigasi ke tapak yang mempunyai ralat SSL. Secara lalai atau apabila dasar ini ditetapkan kepada benar, pengguna dibenarkan mengklik lalu halaman amaran ini.
       Pengguna tidak dibenarkan mengklik lalu sebarang halaman amaran apabila dasar ini ditetapkan kepada palsu.</translation>
+<translation id="6320758134170712450">Konfigurasikan gelagat avatar pengguna</translation>
 <translation id="6353901068939575220">Menentukan parameter yang digunakan apabila mencari URL dengan POST. Parameter ini mengandungi pasangan nama/nilai yang dipisahkan koma. Jika nilai merupakan parameter templat, seperti {searchTerms} dalam contoh di atas, nilai ini akan digantikan dengan data istilah carian sebenar.
 
           Dasar ini tidak wajib. Jika tidak ditetapkan, permintaan carian akan dihantar menggunakan kaedah GET.
@@ -2013,6 +2024,39 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
 <translation id="7841880500990419427">Versi TLS minimum untuk jatuh balik ke</translation>
 <translation id="7842869978353666042">Konfigurasi pilihan Google Drive</translation>
 <translation id="7843525027689416831">Menetapkan bendera yang harus digunakan pada <ph name="PRODUCT_NAME" /> semasa bermula. Bendera yang ditetapkan akan digunakan pada skrin log masuk sahaja. Bendera yang ditetapkan melalui dasar ini tidak disebarkan ke dalam sesi pengguna.</translation>
+<translation id="7844537954833753199">Mengkonfigurasi tetapan pengurusan sambungan untuk <ph name="PRODUCT_NAME" />.
+
+          Dasar ini mengawal berbilang tetapan, termasuk tetapan yang dikawal oleh mana-mana dasar berkaitan sambungan yang sedia ada. Dasar ini akan mengatasi sebarang dasar lama jika kedua-duanya ditetapkan.
+
+          Dasar ini memetakan ID sambungan atau URL kemas kini kepada konfigurasinya. Dengan ID sambungan, konfigurasi akan diterapkan pada sambungan yang dinyatakan sahaja. Konfigurasi lalai boleh ditetapkan untuk ID khas <ph name="DEFAULT_SCOPE" />, yang akan diterapkan pada semua sambungan yang tidak menetapkan konfigurasi tersuai dalam dasar ini. Dengan URL kemas kini, konfigurasi akan diterapkan pada semua sambungan dengan URL kemas kini sebenar yang dinyatakan dalam manifes sambungan ini, seperti yang dihuraikan di <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          Konfigurasi bagi setiap sambungan (atau sambungan dengan URL kemas kini yang sama) ialah kamus lain yang boleh mengandungi medan yang didokumenkan di bawah.
+
+          <ph name="INSTALLATION_MODE" />: memetakan kepada rententan yang menunjukkan mod pemasangan bagi sambungan tersebut. Rentetan yang sah adalah:
+          * <ph name="ALLOWED" />: membenarkan sambungan dipasang oleh pengguna. Gelagat ini merupakan gelagat lalai.
+          * <ph name="BLOCKED" />: menyekat pemasangan sambungan.
+          * <ph name="FORCE_INSTALLED" />: sambungan dipasang secara automatik dan tidak boleh dialih keluar oleh pengguna.
+          * <ph name="NORMAL_INSTALLED" />: sambungan dipasang secara automatik tetapi boleh dilumpuhkan oleh pengguna.
+
+          <ph name="INSTALLTION_MODE" /> boleh dikonfigurasikan untuk berbilang sambungan juga, termasuk sambungan <ph name="DEFAULT_SCOPE" /> (sebagai tetapan lalai) dan sambungan dengan URL kemas kini yang sama. Hanya nilai <ph name="ALLOWED" /> dan <ph name="BLOCKED" /> boleh digunakan dalam keadaan ini.
+
+          Jika mod ditetapkan kepada <ph name="FORCE_INSTALLED" /> atau <ph name="NORMAL_INSTALLED" />, maka <ph name="UPDATE_URL" /> mesti dikonfigurasikan juga. Sila ambil perhatian bahawa URL kemas kini yang ditetapkan dalam dasar ini hanya digunakan untuk pemasangan awal; kemas kini yang berikutnya bagi sambungan tersebut akan menggunakan URL kemas kini yang ditunjukkan dalam manifes sambungan. URL kemas kini harus menunjuk kepada dokumen XML Manifes Kemas Kini seperti disebut di atas.
+
+          <ph name="BLOCKED_PERMISSIONS" />: memetakan kepada senarai rentetan yang menujukkan kebenaran API yang disekat untuk sambungan. Nama kebenaran adalah sama seperti rentetan kebenaran yang diisytiharkan dalam manifes sambungan seperti yang dihuraikan di <ph name="LINK_TO_EXTENSION_DOC3" />. Tetapan ini turut boleh dikonfiguraskan untuk sambungan <ph name="DEFAULT_SCOPE" />. Jika sambungan memerlukan kebenaran yang terdapat dalam senarai sekat, pemuatan sambungan tersebut tidak akan dibenarkan. Jika sambungan tersebut mengandungi kebenaran yang disekat sebagai keperluan pilihan, sambungan akan dikendalikan seperti biasa, tetapi meminta kebenaran yang bercanggah akan ditolak secara automatik pada waktu jalan.
+
+          <ph name="ALLOWED_PERMISSIONS" />: serupa dengan <ph name="BLOCKED_PERMISSIONS" />, tetapi membenarkan dengan jelas sesetengah kebenaran yang mungkin disekat oleh senarai kebenaran disekat global, dengan itu tidak boleh dikonfigurasikan untuk sambungan <ph name="DEFAULT_SCOPE" />. Sila ambil perhatian bahawa tetapan ini tidak memberikan kebenaran kepada sambungan secara automatik.
+
+          <ph name="MINIMUM_VERSION_REQUIRED" />: memetakan kepada rentetan versi. Format rentetan versi adalah sama dengan rentetan yang digunakan dalam manifes sambungan, seperti yang dihuraikan di <ph name="LINK_TO_EXTENSION_DOC4" />. Sambungan dengan versi yang lebih lama daripada versi minimum yang dinyatakan akan dilumpuhkan. Peraturan ini turut dikenakan kepada sambungan yang dipasang secara paksa.
+
+          Tetapan berikut boleh digunakan untuk konfigurasi <ph name="DEFAULT_SCOPE" /> lalai sahaja:
+
+          <ph name="INSTALL_SOURCES" />: Setiap item dalam senarai ini ialah pola padanan gaya sambungan (<ph name="LINK_TO_MATCH_PATTERNS" />). Pengguna boleh memasang item dengan mudah daripada mana-mana URL yang sepadan dengan item dalam senarai ini. Kedua-dua lokasi fail <ph name="EXTENSION_SUFFIX_WILDCARD" /> dan halaman tempat muat turun dimulakan (iaitu perujuk) mestilah dibenarkan   oleh pola ini.
+
+          <ph name="ALLOWED_TYPES" />: Tetapan ini menyenarai putih jenis sambungan/apl yang dibenarkan, yang boleh dipasang dalam <ph name="PRODUCT_NAME" />.  Nilai ialah senarai rentetan, setiap satu haruslah satu daripada yang berikut: <ph name="VALID_ALLOWED_TYPES" />. Lihat dokumentasi sambungan <ph name="PRODUCT_NAME" /> untuk mendapatkan maklumat lanjut tentang jenis ini.
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: Jika pengguna cuba memasang sambungan tetapi sambungan tersebut disekat oleh dasar, Gedung Web Chrome akan memaparkan mesej ralat umum. Tetapan ini membenarkan anda melampirkan teks pada mesej ralat tersebut. Mesej ini mungkin boleh digunakan untuk menghalakan pengguna ke meja bantuan anda, menerangkan sebab sambungan tertentu disekat atau sesuatu yang lain. Mesej ralat ini akan dipangkas jika melebihi 1,000 aksara.
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: Menerima senarai hos yang akan menyekat sambungan daripada berinteraksi dengan hos tersebut. Ini merangkumi menyuntik javascript, mengubah dan melihat webRequests / webNavigation, melihat dan mengubah kuki. Format adalah serupa dengan Pola Padanan <ph name="LINK_TO_MATCH_PATTERNS" /> kecuali mungkin tiada laluan ditakrifkan. mis. "*://*.example.com". Ini turut menyokong kad bebas TLD berkesan, mis. "*://example.*".
+          <ph name="RUNTIME_ALLOWED_HOSTS" />: Menerima senarai hos yang boleh berinteraksi dengan sambungan tanpa mengira sama ada hos tersebut disenaraikan dalam <ph name="RUNTIME_BLOCKED_HOSTS" />. Format ini sama dengan format <ph name="RUNTIME_BLOCKED_HOSTS" />.
+          </translation>
 <translation id="787125417158068494">Jika ditetapkan kepada SyncDisabled atau tidak dikonfigurasikan, sijil <ph name="PRODUCT_OS_NAME" /> tidak  tersedia untuk apl ARC.
 
       Jika ditetapkan kepada CopyCaCerts, semua sijil CA yang dipasang ONC dengan <ph name="WEB_TRUSTED_BIT" /> tersedia untuk apl ARC.</translation>
@@ -2212,6 +2256,7 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
           Jika tetapan ini palsu, peranti tidak akan menggunakan pembuktian jauh untuk perlindungan kandungan dan peranti mungkin tidak dapat memainkan kandungan yang dilindungi.
 
           Jika tetapan ini benar atau tidak ditetapkan, pembuktian jauh boleh digunakan untuk perlindungan kandungan.</translation>
+<translation id="8650974590712548439">Lokasi pendaftaran Windows untuk klien Windows:</translation>
 <translation id="8654286232573430130">Menentukan pelayan yang harus disenaraiputihkan untuk pengesahan bersepadu. Pengesahan bersepadu hanya didayakan apabila <ph name="PRODUCT_NAME" /> menerima cabaran pengesahan daripada proksi atau daripada pelayan yang dibenarkan dalam senarai ini.
 
           Asingkan berbilang nama pelayan dengan koma. Kad bebas (*) dibenarkan.

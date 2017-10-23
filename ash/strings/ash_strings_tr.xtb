@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Yüksek kontrast modu</translation>
 <translation id="2597972630681408282">Gece Işığı: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Gönder</translation>
+<translation id="2675319268637823299">Bir yönetici <ph name="USER_EMAIL" /> için çoklu oturum açmayı engellemiş.
+    Tüm kullanıcılar devam etmek için çıkış yapmalıdır.</translation>
 <translation id="2700058918926273959">Oturumun süresi <ph name="SESSION_TIME_REMAINING" /> içinde bitiyor. Süre dolduğunda oturumunuz kapatılacaktır.</translation>
 <translation id="2727977024730340865">Düşük güçlü bir şarj cihazına takıldı. Şarj durumu güvenilir olmayabilir.</translation>
 <translation id="2761704814324807722">Durum tepsisi, saat: <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -112,6 +114,7 @@
 <translation id="3606978283550408104">Braille ekranı bağlandı.</translation>
 <translation id="3621202678540785336">Giriş</translation>
 <translation id="3626281679859535460">Parlaklık</translation>
+<translation id="3631369015426612114">Şunlardan gelen bildirimlere izin ver:</translation>
 <translation id="3712407551474845318">Alan yakala</translation>
 <translation id="371370241367527062">Ön mikrofon</translation>
 <translation id="3771549900096082774">Yüksek Kontrast Modu</translation>
@@ -204,6 +207,7 @@
 <translation id="632744581670418035">Klavye yer paylaşımı</translation>
 <translation id="639644700271529076">CAPS LOCK kapalı</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Tümü bitti</translation>
 <translation id="6452181791372256707">Reddet</translation>
 <translation id="6453179446719226835">Dil değiştirildi</translation>
 <translation id="6459472438155181876">Ekran şuraya genişletiliyor: <ph name="DISPLAY_NAME" /></translation>
@@ -297,6 +301,7 @@ Pencereler taşındıktan sonra gelen bildirimler, pencereler ve iletişim kutul
 <translation id="8825534185036233643">İkiden fazla ekranla yansıtma desteklenmez.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Ara+Esc</translation>
+<translation id="8870509716567206129">Uygulama bölünmüş ekranı desteklemiyor.</translation>
 <translation id="8878886163241303700">Genişletilmiş ekran</translation>
 <translation id="8921624153894383499">Google Asistan bu dili konuşmuyor.</translation>
 <translation id="8938800817013097409">USB-C cihaz (arkadaki sağ bağlantı noktası)</translation>

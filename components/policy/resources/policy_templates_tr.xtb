@@ -16,6 +16,13 @@
 
       Bu politika yalnızca, alan adı ile cihazın kaydolduğu alan adı eşleşen kullanıcıları etkiler. Diğer tüm kullanıcılar için, IdP tarafından ayarlanan çerezler kullanıcının profiline sadece cihazda ilk defa giriş yaparken aktarılır.</translation>
 <translation id="1040446814317236570">PAC URL ayırmayı etkinleştir (https:// için)</translation>
+<translation id="1041454584879384845">Kullanıcıları oturum açma ekranında temsil eden kullanıcı avatarlarının davranışını yapılandırır.
+
+      JSON özelliklerinde tek tek ayarlar belirtilebilir:
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" /> değerine ayarlanırsa kullanıcıların avatar resimleri için video kullanmalarına izin verilir.
+
+      Bu politika ayarlanmazsa avatar resmi için videolara izin verilir.</translation>
 <translation id="1044878202534415707">CPU/RAM kullanımı gibi donanım istatistiklerini bildirin.
 
       Politika yanlış seçeneğine ayarlanırsa istatistikler bildirilmez.
@@ -101,6 +108,7 @@
 <translation id="1454846751303307294">JavaScript'i çalıştırmasına izin verilmeyen sitelerin belirtildiği bir URL kalıpları listesi ayarlamanıza olanak tanır.
 
           Bu politika ayarlanmadan bırakılırsa, 'DefaultJavaScriptSetting' politikası ayarlandıysa buradaki değer, aksi takdirde kullanıcının kişisel yapılandırması tüm siteler için genel varsayılan değer olarak kullanılır.</translation>
+<translation id="1456822151187621582">Windows (<ph name="PRODUCT_OS_NAME" /> istemcileri):</translation>
 <translation id="1464848559468748897"><ph name="PRODUCT_OS_NAME" /> cihazlarda çoklu profil içeren oturumdaki kullanıcı davranışını denetle.
 
       Bu politika "MultiProfileUserBehaviorUnrestricted" olarak ayarlanırsa, kullanıcı çoklu profil içeren bir oturumda birincil veya ikincil kullanıcı olabilir.
@@ -115,6 +123,11 @@
 
       Politika ayarlanmadan bırakılırsa, varsayılan değer kurumsal olarak yönetilen kullanıcılar için "MultiProfileUserBehaviorMustBePrimary" ve yönetilmeyen kullanıcılar için "MultiProfileUserBehaviorUnrestricted" olur.</translation>
 <translation id="1465619815762735808">Tıklandığında oynat</translation>
+<translation id="1466133662354365542"><ph name="PRODUCT_NAME" /> Otomatik Doldurma özelliğini etkinleştirir ve kullanıcıların web formlarındaki kredi kartı ve adres bilgilerini önceden kaydedilmiş bilgilerle otomatik olarak doldurmasına olanak tanır.
+
+      Bu ayarı devre dışı bırakırsanız Otomatik Doldurma hiçbir zaman öneride bulunmaz, kredi kartı bilgilerini doldurmaz veya kullanıcının internette gezerken gönderebileceği ek kredi kartı bilgilerini kaydetmez.
+
+      Bu ayarı etkinleştirirseniz veya bir değer ayarlamazsanız kullanıcı, kullanıcı arayüzündeki genel otomatik doldurma özelliğini (kredi kartları dahil) kontrol edebilir.</translation>
 <translation id="1468307069016535757">Giriş ekranında yüksek kontrast modu erişilebilirlik özelliğinin varsayılan durumunu ayarla.
 
           Bu politika true (doğru) olarak ayarlanırsa, giriş ekranı görüntülendiğinde yüksek kontrast modu etkinleştirilir.
@@ -374,6 +387,7 @@
 <translation id="2294382669900758280">Bu politika <ph name="TRUE" /> seçeneğine ayarlansa bile Android uygulamalarında video oynatma dikkate alınmaz.</translation>
 <translation id="2298647742290373702"><ph name="PRODUCT_NAME" /> ürününde varsayılan Yeni Sekme sayfasını yapılandırın.</translation>
 <translation id="2299220924812062390">Etkinleştirilmiş eklentilerin listesini belirt</translation>
+<translation id="2303795211377219696">Kredi kartları için Otomatik Doldurma özelliğini etkinleştirme</translation>
 <translation id="2309390639296060546">Varsayılan coğrafi konum ayarı</translation>
 <translation id="2312134445771258233">Başlangıçta yüklenen sayfaları yapılandırmanıza olanak verir. 'Başlangıçtaki işlem' içinde 'URL listesi aç'ı seçmediğiniz sürece 'Başlangıçta açılan URL'ler' listesinin içeriği göz ardı edilir.</translation>
 <translation id="2337466621458842053">Resimleri görüntülemelerine izin verilen sitelerin belirtildiği bir URL kalıpları listesini ayarlamanıza olanak tanır.
@@ -561,6 +575,7 @@
           Bu ayar devre dışı bırakılırsa ve giden UDP bağlantıları güvenlik duvarı tarafından filtreleniyorsa, bu makine yalnızca yerel ağ içindeki istemci makinelerden gelen bağlantılara izin verir.
 
           Bu politika ayarlanmadan bırakılırsa, ayar etkinleşir.</translation>
+<translation id="2823870601012066791"><ph name="PRODUCT_OS_NAME" /> istemcileri için Windows kayıt defteri konumu:</translation>
 <translation id="2824715612115726353">Gizli modu etkinleştir</translation>
 <translation id="2838830882081735096">Veri taşıma ve ARC'ye izin verme</translation>
 <translation id="2844404652289407061"><ph name="PRODUCT_NAME" /> ürününün içerik görünümünde Dokun ve Ara özelliğinin kullanılabilmesini sağlar.
@@ -1150,6 +1165,7 @@ politikayı geçersiz kılamaz.
           Değer, dizeleştirilmiş bir JSON sözlükleri dizisi olmalıdır. Her sözlük { "pattern": "$URL_PATTERN", "filter" : $FILTER } biçiminde olmalıdır; burada $URL_PATTERN içerik ayarı kalıbıdır. $FILTER, tarayıcının otomatik olarak seçeceği istemci sertifikalarını kısıtlar. Filtre ayarı ne olursa olsun, sadece sunucunun sertifika isteğiyle eşleşen sertifikalar seçilir. $FILTER ifadesi { "ISSUER": { "CN": "$ISSUER_CN" } } biçimindeyse, bunun yanı sıra sadece CommonName $ISSUER_CN olarak belirtilmiş bir sertifika tarafından yayınlanan istemci sertifikaları seçilir. $FILTER boş bir sözlük {} olursa, istemci sertifikalarının seçimi üzerinde başka kısıtlanma uygulanmaz.
 
           Bu politika ayarlanmadan bırakılırsa hiçbir site otomatik olarak seçilmez.</translation>
+<translation id="4978405676361550165">"OffHours" politikası ayarlanırsa belirtilen cihaz politikaları, tanımlanan zaman aralıklarında yoksayılır (bu politikaların varsayılan ayarları kullanılır). "OffHours" döneminin başladığı veya sona erdiği her etkinlikte cihaz politikaları Chrome tarafından yeniden uygulanır. "OffHours" süresi sona erdiğinde kullanıcı bilgilendirilip çıkış yapmaya zorlanır ve cihaz politikası ayarları değiştirilir (ör. kullanıcı izin verilen bir hesapla giriş yapmadığında).</translation>
 <translation id="4980635395568992380">Veri türü:</translation>
 <translation id="4983201894483989687">Eski eklentilerin çalıştırılmasına izin ver</translation>
 <translation id="4988291787868618635">Boşta kalma gecikme süresine ulaşıldığında uygulanacak işlem</translation>
@@ -1436,6 +1452,53 @@ politikayı geçersiz kılamaz.
 
       Bu politika ayarlanmazsa veya yanlış seçeneğine ayarlanırsa, yazdırma komutları yazdırma önizleme ekranını tetikler.</translation>
 <translation id="6022948604095165524">Başlangıçtaki işlem</translation>
+<translation id="6023030044732320798">ARC çalışma zamanına devredilecek politika grubunu belirtir. Değer, geçerli JSON olmalıdır.
+
+      Bu politika, cihaza hangi Android uygulamalarının otomatik olarak yükleneceğini yapılandırmak için kullanılabilir:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android uygulama tanımlayıcısı, ör. Gmail için "com.google.android.gm"",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Bir uygulamanın nasıl yüklendiğini belirtir. İSTEĞE BAĞLI: Uygulama otomatik olarak yüklenmez ancak kullanıcı uygulamayı yükleyebilir. Bu ayar, bu politika belirtilmemişse varsayılan değer olur. PRELOAD: Uygulama otomatik olarak yüklenir ancak kullanıcı yüklemesini kaldırabilir. FORCE_INSTALLED: Uygulama otomatik olarak yüklenir ve kullanıcı yüklemesini kaldıramaz. BLOCKED: Uygulama engellenir ve yüklenemez. Uygulama, önceki bir politika kapsamında yüklenmişse yüklemesi kaldırılır.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Uygulamalara izin istekleri veren politika. PERMISSION_POLICY_UNSPECIFIED: Politika belirtilmemiştir. Herhangi bir düzeyde bir izin için herhangi bir politika belirtilmemişse varsayılan olarak 'PROMPT' davranışı kullanılır. PROMPT: Kullanıcıdan izin vermesi istenir. GRANT: Bir izni otomatik olarak verir. DENY: Bir izni otomatik olarak reddeder.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Bir anahtar/değer çifti grubuna sahip uygulamaya özel JSON yapılandırma nesnesi; ör. '"managedConfiguration": { "key1": value1, "key2": value2 }'. Anahtarlar, uygulama manifest dosyasında tanımlanır.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Uygulamaları Launcher'a sabitlemek için PinnedLauncherApps politikasına bakın.</translation>
 <translation id="602728333950205286">Varsayılan arama sağlayıcı anında arama URL'si</translation>
 <translation id="603410445099326293">POST kullanan öneri URL'si parametreleri</translation>
 <translation id="6036523166753287175">Uzaktan erişim ana makinesinden güvenlik duvarı geçişini etkinleştir</translation>
@@ -1444,6 +1507,7 @@ politikayı geçersiz kılamaz.
 <translation id="6076099373507468537">chrome.usb API'sı aracılığıyla doğrudan bir web uygulaması içinde kullanılması için çekirdek sürücüsünden çıkarılmasına izin verilen USB cihazlarının listesini tanımlar. Girişler, belirli bir donanımı tanımlamak için kullanılan USB Tedarikçi Tanımlayıcısı ve Ürün Tanımlayıcısı çiftlerinden oluşmaktadır.
 
       Bu politika yapılandırılmazsa, çıkarılabilecek USB cihazları listesi boş olur.</translation>
+<translation id="6083631234867522991">Windows (Windows istemcileri):</translation>
 <translation id="6093156968240188330">Uzaktan yardım oturumlarında uzak kullanıcıların yükseltilmiş pencerelerle etkileşimde bulunmasına izin ver</translation>
 <translation id="6095999036251797924">AC gücü veya pil gücü kullanılırken, ekranın kilitlenmesinden önce kullanıcı girişi olmadan geçmesi gereken süreyi belirtir.
 
@@ -1514,6 +1578,7 @@ politikayı geçersiz kılamaz.
 <translation id="6310223829319187614">Kullanıcı oturum açarken alan adı otomatik doldurma özelliğini etkinleştir</translation>
 <translation id="6315673513957120120">Kullanıcılar SSL hatalarına neden olan sitelere gittiğinde Chrome bir uyarı iletisi görüntüler. Varsayılan olarak veya bu politika doğru seçeneğine ayarlandığında, kullanıcıların bu uyarı sayfalarını tıklamalarına izin verilir.
       Bu politika yanlış seçeneğine ayarlanırsa, kullanıcılar uyarı sayfalarını tıklayamazlar.</translation>
+<translation id="6320758134170712450">Kullanıcı avatarı davranışını yapılandırma</translation>
 <translation id="6353901068939575220">POST ile bir URL ararken kullanılacak parametreleri belirtir. Virgülle ayrılmış ad/değer çiftlerini içeren bir listeden oluşur. Bir değer, yukarıdaki örnekteki {searchTerms} gibi bir şablon parametresi ise, gerçek arama terimleri verisiyle değiştirilir.
 
           Bu politika isteğe bağlıdır. Ayarlanmazsa, arama isteği GET yöntemi kullanılarak gönderilir.
@@ -1950,6 +2015,39 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
 <translation id="7841880500990419427">Yedek olarak kullanılacak minimum TLS sürümü</translation>
 <translation id="7842869978353666042">Google Drive seçeneklerini yapılandırma</translation>
 <translation id="7843525027689416831">Başlatıldığında <ph name="PRODUCT_NAME" /> ürününe uygulanacak işaretleri belirtir. Belirtilen işaretler, yalnızca giriş ekranında uygulanır. Bu politika aracılığıyla ayarlanan işaretler, kullanıcı oturumlarına yayılmaz.</translation>
+<translation id="7844537954833753199"><ph name="PRODUCT_NAME" /> için uzantı yönetimi ayarlarını yapılandırır.
+
+Bu politika, uzantıyla ilgili mevcut politikaların kontrol ettiği ayarlar dahil olmak üzere çeşitli ayarları denetler. Bu politikayla birlikte ayarlanan eski politikalar geçersiz kılınır.
+
+Bu politika, bir uzantı kimliğini veya güncelleme URL'sini kendi yapılandırmasıyla eşleştirir. Bir uzantı kimliği kullanıldığında, yapılandırma sadece belirtilen uzantıya uygulanır. Özel <ph name="DEFAULT_SCOPE" /> kimliği için varsayılan bir yapılandırma ayarlanabilir ve bu, politikada ayarlanmış özel bir yapılandırmaya sahip olmayan tüm uzantılara uygulanır. Bir güncelleme URL'si kullanıldığında yapılandırma, <ph name="LINK_TO_EXTENSION_DOC1" /> adresinde açıklandığı gibi, bu uzantının manifest dosyasında tamamen aynı güncelleme URL'sine sahip tüm uzantılara uygulanır.
+
+Her bir uzantının (veya aynı güncelleme URL'sine sahip uzantıların) yapılandırması aşağıda açıklanan alanların yer aldığı ayrı bir sözlüktür.
+
+<ph name="INSTALLATION_MODE" />: Uzantı için yükleme modunu belirten bir dizeye eşler. Geçerli dizeler şunlardır:
+* <ph name="ALLOWED" />: Kullanıcının uzantıyı yüklemesine izin verir. Bu varsayılan davranıştır.
+* <ph name="BLOCKED" />: Uzantının yüklenmesini engeller.
+* <ph name="FORCE_INSTALLED" />: Uzantı otomatik olarak yüklenir ve kullanıcı tarafından kaldırılamaz.
+* <ph name="NORMAL_INSTALLED" />: Uzantı otomatik olarak yüklenir, ancak kullanıcı tarafından devre dışı bırakılabilir.
+
+<ph name="INSTALLTION_MODE" />, <ph name="DEFAULT_SCOPE" /> uzantısı (varsayılan ayarlar olarak) dahil olmak üzere birden fazla uzantı ve aynı güncelleme URL'sine sahip uzantılar için de yapılandırılabilir. Bu durumda sadece <ph name="ALLOWED" /> ve <ph name="BLOCKED" /> değerleri kullanılabilir.
+
+Mod <ph name="FORCE_INSTALLED" /> veya <ph name="NORMAL_INSTALLED" /> seçeneğine ayarlanırsa ayrıca <ph name="UPDATE_URL" /> yapılandırılmalıdır. Bu politikada ayarlanmış olan güncelleme URL'sinin sadece ilk yükleme için kullanıldığını unutmayın. Uzantının sonraki güncellemelerinde, uzantının manifest dosyasında belirtilen güncelleme URL'si kullanılır. Güncelleme URL'si, yukarıda belirtildiği gibi bir Güncelleme Manifest XML dokümanını işaret etmelidir.
+
+<ph name="BLOCKED_PERMISSIONS" />: Uzantı için engellenen API izinlerini belirten dizeleri barındıran bir listeye eşlenir. İzin adları, <ph name="LINK_TO_EXTENSION_DOC3" /> adresinde açıklandığı gibi, uzantının manifest dosyasında belirtilen izin dizeleri ile aynıdır. Bu ayar <ph name="DEFAULT_SCOPE" /> uzantısı için de yapılandırılabilir. Uzantı, kara listeye alınmış bir izni gerektiriyorsa yüklemesine izin verilmez. İsteğe bağlı koşul olarak engellenmiş bir izin içeriyorsa normal şekilde işlem yapılır, ancak çakışan izinler istenirse çalışma zamanında otomatik olarak reddedilir.
+
+<ph name="ALLOWED_PERMISSIONS" />: <ph name="BLOCKED_PERMISSIONS" /> dizesine benzer, ancak izin listesi tarafından genel olarak engellenmiş olabilecek ve böylece <ph name="DEFAULT_SCOPE" /> uzantısı için yapılandırılamayan bazı izinler açık şekilde sağlanır. Bu ayarın izinleri uzantılara otomatik olarak vermediğini unutmayın.
+
+<ph name="MINIMUM_VERSION_REQUIRED" />: Bir sürüm dizesine eşlenir. Sürüm dizesinin biçimi, <ph name="LINK_TO_EXTENSION_DOC4" /> adresinde açıklandığı gibi, uzantı manifest dosyasında kullanılan biçimle aynıdır. Belirtilen minimum sürümden daha eski sürüme sahip uzantılar devre dışı bırakılır. Bu, yüklenmeye zorlanan uzantılar için de geçerlidir.
+
+Aşağıdaki ayarlar sadece varsayılan <ph name="DEFAULT_SCOPE" /> yapılandırması için kullanılabilir:
+
+<ph name="INSTALL_SOURCES" />: Bu listedeki her öğe, uzantı tarzında bir eşleme kalıbıdır (bkz. <ph name="LINK_TO_MATCH_PATTERNS" />). Kullanıcılar bu listedeki bir öğeyle eşleşen herhangi bir URL'den kolayca öğe yükleyebilirler. Bu kalıplar hem <ph name="EXTENSION_SUFFIX_WILDCARD" /> dosyasının konumuna hem de indirme işleminin başlatıldığı sayfaya (yani yönlendiren) izin vermelidir.
+
+<ph name="ALLOWED_TYPES" />: Bu ayar, izin verilen ve <ph name="PRODUCT_NAME" /> ürününe yüklenebilen uzantı/uygulama türlerini beyaz listeye ekler. Değer, her biri şunlardan biri olması gereken dizelerden oluşan bir listedir: <ph name="VALID_ALLOWED_TYPES" />. Bu türlerle ilgili daha fazla bilgi için <ph name="PRODUCT_NAME" /> uzantılarıyla ilgili dokümanlara bakın.
+<ph name="BLOCKED_INSTALL_MESSAGE" />: Bir kullanıcı bir uzantıyı yüklemeyi dener ancak politika tarafından engellenirse, Chrome Web Mağazası bir genel hata mesajı görüntüler. Bu ayar, hata mesajına metin eklemenize olanak tanır. Bu işlem, kullanıcıları yardım masanıza yönlendirmek, belirli bir uzantının engellenme nedenini açıklamak veya başka bir amaçla kullanılabilir. Bu hata mesajı 1.000 karakterden uzun olursa kesilir.
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: Bir uzantının etkileşimde bulunmasının engelleneceği ana makinelerin listesini kabul eder. Bu etkileşim javascript ekleme, webRequest / webNavigation öğelerini değiştirme ve görüntüleme, çerezleri görüntüleme ve değiştirmeyi içerir. Biçim, Eşleşme Kalıplarına (<ph name="LINK_TO_MATCH_PATTERNS" />) benzer ancak herhangi bir yol (ör. "*://*.example.com") tanımlanamaz. Bu, etkili TLD joker karakterlerini de (ör. "*://example.*") destekler.
+          <ph name="RUNTIME_ALLOWED_HOSTS" />: <ph name="RUNTIME_BLOCKED_HOSTS" /> içinde listelenip listelenmediklerinden bağımsız olarak bir uzantının etkileşimde bulunabileceği ana makinelerin bir listesini kabul eder. Bu, <ph name="RUNTIME_BLOCKED_HOSTS" /> ile aynı biçimdir.
+          </translation>
 <translation id="787125417158068494">SyncDisabled seçeneğine ayarlanırsa veya hiç yapılandırılmazsa, ARC uygulamaları için <ph name="PRODUCT_OS_NAME" /> sertifikaları kullanılamaz.
 
       CopyCaCerts seçeneğine ayarlanırsa ONC tarafından yüklenen ve <ph name="WEB_TRUSTED_BIT" /> içeren tüm CA sertifikaları ARC uygulamaları için kullanılabilir.</translation>
@@ -2152,6 +2250,7 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
           Bu ayar yanlış seçeneğine ayarlanırsa cihaz, içerik koruma için uzaktan onay işlevini kullanmaz ve korumalı içeriği oynatamaz.
 
           Bu ayar doğru seçeneğine ayarlanırsa veya hiç ayarlanmazsa içerik koruma için uzaktan onay kullanılabilir.</translation>
+<translation id="8650974590712548439">Windows istemcileri için Windows kayıt defteri konumu:</translation>
 <translation id="8654286232573430130">Entegre kimlik doğrulamada hangi sunucuların beyaz listeye eklenmesi gerektiğini gösterir. Entegre kimlik doğrulama yalnızca <ph name="PRODUCT_NAME" />, bu izin verilen listede bulunan bir proxy veya sunucudan kimlik doğrulama daveti aldığında etkinleştirilir.
 
           Birden fazla sunucu adını virgülle ayırın. Joker karakterlere (*) izin verilir.

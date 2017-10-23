@@ -393,6 +393,7 @@
 <translation id="3778403066972421603">Vil du gemme dette kort på din Google-konto og på denne enhed?</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3787705759683870569">Udløber <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
+<translation id="3808375843007691220">Advarsel! Testfunktioner forude.</translation>
 <translation id="382518646247711829">Hvis du bruger en proxyserver...</translation>
 <translation id="3828924085048779000">Tomme adgangssætninger er ikke tilladt.</translation>
 <translation id="385051799172605136">Tilbage</translation>
@@ -448,6 +449,7 @@
 <translation id="4269787794583293679">(Intet brugernavn)</translation>
 <translation id="4275830172053184480">Genstart din enhed</translation>
 <translation id="4280429058323657511">udløber <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4292213515608230699">Der er ingen matchende tests</translation>
 <translation id="4304224509867189079">Log ind</translation>
 <translation id="4312866146174492540">Bloker (standardindstilling)</translation>
 <translation id="4325863107915753736">Artiklen blev ikke fundet.</translation>
@@ -518,6 +520,7 @@
 <translation id="495170559598752135">Handlinger</translation>
 <translation id="4958444002117714549">Udvid liste</translation>
 <translation id="4974590756084640048">Genaktiver advarsler</translation>
+<translation id="4989542687859782284">Ikke tilgængelige</translation>
 <translation id="4989809363548539747">Dette plugin understøttes ikke</translation>
 <translation id="5002932099480077015">Hvis denne indstilling er slået til, gemmer Chrome en kopi af dit kort på denne enhed for at gøre det hurtigere at udfylde formularer.</translation>
 <translation id="5018422839182700155">Denne side kan ikke åbnes</translation>
@@ -571,6 +574,7 @@
 <translation id="5355557959165512791">Du kan ikke besøge <ph name="SITE" /> lige nu, da dets certifikat er blevet tilbagekaldt. Netværksfejl og angreb er normalt midlertidige, så siden vil sandsynligvis fungere igen senere.</translation>
 <translation id="536296301121032821">Der kunne ikke gemmes indstillinger for politik</translation>
 <translation id="5386426401304769735">Certifikatkæden for dette website indeholder et certifikat, der er signeret med SHA-1.</translation>
+<translation id="5401815295726769233">Søg efter funktioner, der kan slås til og fra</translation>
 <translation id="5402410679244714488">Udløbsdato: <ph name="EXPIRATION_DATE_ABBR" />, sidst anvendt for mere end et år siden</translation>
 <translation id="540969355065856584">Denne server kunne ikke bevise, at den er <ph name="DOMAIN" />, da dens sikkerhedscertifikat ikke er gyldigt i øjeblikket. Dette kan skyldes en fejlkonfiguration, eller at en hacker har opfanget din forbindelse.</translation>
 <translation id="5421136146218899937">Ryd browserdata...</translation>
@@ -623,6 +627,7 @@
 <translation id="5732392974455271431">Dine forældre kan fjerne blokeringen for dig</translation>
 <translation id="5763042198335101085">Angiv en gyldig mailadresse</translation>
 <translation id="5765072501007116331">Vælg en adresse for at se leveringsmetoder og -krav</translation>
+<translation id="5770114862687765385">Filen ser ud til at være beskadiget. Klik på knappen "Nulstil" for at nulstille sessionen.</translation>
 <translation id="5778550464785688721">Fuld kontrol over MIDI</translation>
 <translation id="5784606427469807560">Der opstod et problem under bekræftelsen af dit kort. Kontrollér, at du har forbindelse til internettet, og prøv igen.</translation>
 <translation id="5785756445106461925">Desuden indeholder denne side andre ressourcer, som ikke er sikre. Disse ressourcer kan ses af andre under overførslen og kan ændres af en hacker, så siden ser anderledes ud.</translation>
@@ -636,6 +641,7 @@
 <translation id="5869522115854928033">Gemte adgangskoder</translation>
 <translation id="5893752035575986141">Kreditkort accepteres.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (synkroniseret)</translation>
+<translation id="5909194079078764042">Hvis du aktiverer disse funktioner, kan du miste browserdata eller kompromittere din sikkerhed eller dit privatliv. Aktiverede funktioner gælder for alle brugerne i denne browser.</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 i brug}one{# i brug}other{# i brug}}</translation>
 <translation id="5939518447894949180">Nulstil</translation>
 <translation id="5959728338436674663">Send automatisk <ph name="BEGIN_WHITEPAPER_LINK" />nogle systemoplysninger og noget sideindhold<ph name="END_WHITEPAPER_LINK" /> til Google som en hjælp til at registrere skadelige apps og websites. <ph name="PRIVACY_PAGE_LINK" /></translation>
@@ -683,6 +689,7 @@
 <translation id="6305205051461490394"><ph name="URL" /> kan ikke nås.</translation>
 <translation id="6319915415804115995">Sidst anvendt for mere end et år siden</translation>
 <translation id="6321917430147971392">Kontrollér dine DNS-indstillinger</translation>
+<translation id="6325286409953503969">Er du interesseret i nye, smarte Chrome-funktioner? Prøv vores <ph name="BEGIN_LINK" />udviklerkanal<ph name="END_LINK" />.</translation>
 <translation id="6328639280570009161">Prøv at deaktivere netværksforslag</translation>
 <translation id="6328786501058569169">Dette website er vildledende</translation>
 <translation id="6337133576188860026">Frigiver mindre end <ph name="SIZE" />. Nogle websites indlæses muligvis langsommere under dit næste besøg.</translation>
@@ -785,6 +792,7 @@
 <translation id="7298195798382681320">Anbefalet</translation>
 <translation id="7309308571273880165">Nedbrudsrapport registreret <ph name="CRASH_TIME" /> (upload, som brugeren anmodede om, er endnu ikke uploadet)</translation>
 <translation id="7334320624316649418">&amp;Annuller fortryd omarrangering</translation>
+<translation id="7337706099755338005">Ikke tilgængelig på din platform.</translation>
 <translation id="733923710415886693">Servercertifikatet blev ikke fremvist via Certifikatsgennemsigtighed.</translation>
 <translation id="7353601530677266744">Kommandolinje</translation>
 <translation id="7372973238305370288">søgeresultat</translation>
@@ -792,6 +800,7 @@
 <translation id="7378627244592794276">Nej</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">Bekræft kort</translation>
+<translation id="739697976928952788">Se alle gemte adgangskoder</translation>
 <translation id="7400418766976504921">Webadresse</translation>
 <translation id="7419106976560586862">Profilsti</translation>
 <translation id="7424977062513257142">En integreret side på denne webside siger:</translation>
@@ -838,6 +847,7 @@
 <translation id="7668654391829183341">Ukendt enhed</translation>
 <translation id="7669271284792375604">Hackere på dette website kan forsøge at narre dig til at installere programmer, der skader din browseroplevelse (f.eks. ved at ændre din startside eller vise flere annoncer på de websites, du besøger).</translation>
 <translation id="7682287625158474539">Forsendelse</translation>
+<translation id="7695552107151968219">Er du interesseret i nye, smarte Chrome-funktioner? Prøv vores <ph name="BEGIN_LINK" />betakanal<ph name="END_LINK" />.</translation>
 <translation id="7699293099605015246">Der er ingen tilgængelige artikler lige nu</translation>
 <translation id="7701040980221191251">Ingen</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Fortsæt til <ph name="SITE" /> (usikkert)<ph name="END_LINK" /></translation>

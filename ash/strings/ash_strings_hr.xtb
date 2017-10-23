@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Način visokog kontrasta</translation>
 <translation id="2597972630681408282">Noćno svjetlo: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Pošalji</translation>
+<translation id="2675319268637823299">Administrator je onemogućio višestruku prijavu za <ph name="USER_EMAIL" />.
+    Svi se korisnici moraju prijaviti za nastavak.</translation>
 <translation id="2700058918926273959">Sesija će završiti za <ph name="SESSION_TIME_REMAINING" />. Odjavit ćete se.</translation>
 <translation id="2727977024730340865">Uređaj je priključen na punjač male snage. Punjenje baterije možda nije pouzdano.</translation>
 <translation id="2761704814324807722">Traka statusa, vrijeme <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">Preklapanje tipkovnice</translation>
 <translation id="639644700271529076">Tipka CAPS LOCK isključena</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Dovršeno</translation>
 <translation id="6452181791372256707">Odbaci</translation>
 <translation id="6453179446719226835">Jezik je promijenjen</translation>
 <translation id="6459472438155181876">Proširivanje zaslona na zaslon <ph name="DISPLAY_NAME" /></translation>
@@ -297,6 +300,7 @@ Naknadne obavijesti, prozori i dijaloški okviri mogu biti podijeljeni između r
 <translation id="8825534185036233643">Zrcaljenje s više od dva zaslona nije podržano.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Pretraživanje + Esc</translation>
+<translation id="8870509716567206129">Aplikacija ne podržava podijeljeni zaslon.</translation>
 <translation id="8878886163241303700">Produljenje zaslona</translation>
 <translation id="8921624153894383499">Google asistent ne govori taj jezik.</translation>
 <translation id="8938800817013097409">USB-C uređaj (desni priključak sa stražnje strane)</translation>

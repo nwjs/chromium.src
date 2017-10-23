@@ -112,6 +112,11 @@ Pokud je tato zásada nastavena na hodnotu False, <ph name="PRODUCT_NAME" /> vyt
 
       Pokud tato zásada není nastavena, bude pro uživatele spravované organizací použita výchozí hodnota „MultiProfileUserBehaviorMustBePrimary“ a pro uživatele, kteří nejsou spravováni, bude použita hodnota „MultiProfileUserBehaviorUnrestricted“.</translation>
 <translation id="1465619815762735808">Spustit kliknutím</translation>
+<translation id="1466133662354365542">Aktivuje v prohlížeči <ph name="PRODUCT_NAME" /> funkci automatického vyplňování a umožní uživatelům vyplňovat ve webových formulářích informace o platebních kartách a adresách pomocí dříve uložených informací.
+
+      Pokud toto nastavení zakážete, nebude automatické vyplňování navrhovat ani vyplňovat informace o platebních kartách a nebude ani ukládat další informace o platebních kartách, které uživatel při prohlížení webu odešle.
+
+      Pokud toto nastavení povolíte nebo nenastavíte žádnou hodnotu, bude uživatel funkci automatického vyplňování (včetně platebních karet) moci ovládat v uživatelském rozhraní.</translation>
 <translation id="1468307069016535757">Nastavuje výchozí stav funkce usnadnění přístupu pomocí režimu vysokého kontrastu na přihlašovací obrazovce.
 
 Pokud je tato zásada nastavena na hodnotu true, bude při zobrazení obrazovky přihlášení režim vysokého kontrastu aktivní.
@@ -351,6 +356,7 @@ Tato zásada se netýká terminálových aplikací – ty jsou migrovány automa
 <translation id="2294382669900758280">Přehrávání videí v aplikacích Android není bráno v potaz ani v případě, že je tato zásada nastavena na hodnotu <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Konfiguruje výchozí stránku Nová karta v prohlížeči <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Zadat seznam aktivovaných pluginů</translation>
+<translation id="2303795211377219696">Povolit automatické vyplňování pro platební karty</translation>
 <translation id="2309390639296060546">Výchozí nastavení geolokace</translation>
 <translation id="2312134445771258233">Umožňuje konfigurovat stránky, které se načtou při spuštění.
 
@@ -1130,6 +1136,7 @@ Pokud ji ponecháte nenastavenou, velký kurzor bude ve výchozím nastavení de
           Hodnota musí být pole slovníků JSON převedených na řetězce. Každý slovník musí mít tvar { "pattern": "$URL_PATTERN", "filter" : $FILTER }, kde $URL_PATTERN je vzor nastavení obsahu. $FILTER omezuje klientské certifikáty, ze kterých bude prohlížeč automaticky vybírat. Nezávisle na filtru budou vybrány pouze ty certifikáty, které odpovídají žádosti serveru o certifikát. Pokud má $FILTER tvar { "ISSUER": { "CN": "$ISSUER_CN" } }, budou navíc vybrány pouze ty klientské certifikáty, které byly vydány certifikátem s běžným názvem $ISSUER_CN. Pokud je $FILTER prázdný slovník {}, výběr klientských certifikátů není nijak dále omezen.
 
           Je-li tato zásada ponechána nenastavená, nebude se automatický výběr provádět pro žádný web.</translation>
+<translation id="4978405676361550165">Pokud je nastavena zásada OffHours, jsou v zadaných časových intervalech ignorovány určené zásady zařízení (použije se jejich výchozí nastavení). Na začátku a konci každého intervalu zadaného v zásadě OffHours prohlížeč Chrome znovu použije zásady zařízení. Pokud se na konci intervalu OffHours zásady zařízení změní, bude o tom uživatel informován a bude se muset odhlásit (například pokud je přihlášen pomocí účtu, který již není povolen).</translation>
 <translation id="4980635395568992380">Typ údajů:</translation>
 <translation id="4983201894483989687">Povolit spouštění zastaralých pluginů</translation>
 <translation id="4988291787868618635">Akce prováděná po určité době nečinnosti</translation>
@@ -1418,6 +1425,53 @@ Pokud tato zásada není nastavena nebo je nastavena na hodnotu False, <ph name=
 
       Pokud tato zásada není nastavena nebo je nastavena na hodnotu false, příkaz tisku zobrazí obrazovku s náhledem tisku.</translation>
 <translation id="6022948604095165524">Akce při spuštění</translation>
+<translation id="6023030044732320798">Určuje sadu zásad, které budou předány běhovému prostředí ARC. Hodnota musí být platný objekt JSON.
+
+      Pomocí této zásady lze nakonfigurovat, které aplikace Android budou v zařízení automaticky nainstalovány:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Identifikátor aplikace Android, například „com.google.android.gm“ pro Gmail.",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Udává typ instalace aplikace. OPTIONAL: Aplikace není nainstalována automaticky, ale uživatel ji může nainstalovat. Toto je výchozí nastavení, pokud tato zásada není zadána. PRELOAD: Aplikace je automaticky nainstalována, ale uživatel ji může odinstalovat. FORCE_INSTALLED: Aplikace je automaticky nainstalována a uživatel ji nemůže odinstalovat. BLOCKED: Aplikace je blokována a nelze ji nainstalovat. Pokud byla na základě předchozí zásady nainstalována, odinstaluje se.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Zásada k udělování žádostí o oprávnění aplikacím. PERMISSION_POLICY_UNSPECIFIED: Zásada není zadána. Pokud pro oprávnění není zadána žádná zásada na žádné úrovni, použije se ve výchozím nastavení chování PROMPT. PROMPT: Vyzvat uživatele k udělení oprávnění. GRANT: Automaticky oprávnění udělit. DENY: Automaticky oprávnění zamítnout.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Konfigurační objekt JSON specifický pro aplikaci tvořený sadou párů klíč–hodnota, například "managedConfiguration": { "key1": value1, "key2": value2 }. Klíče jsou definovány v manifestu aplikace.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Chcete-li aplikace připnout ke spouštěči, vyhledejte zásadu PinnedLauncherApps.</translation>
 <translation id="602728333950205286">Adresa URL dynamického vyhledávání výchozího poskytovatele vyhledávání</translation>
 <translation id="603410445099326293">Parametry pro adresu URL návrhu, která používá metodu POST</translation>
 <translation id="6036523166753287175">Povolení přechodu přes bránu firewall z hostitele vzdáleného připojení</translation>

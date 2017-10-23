@@ -343,7 +343,7 @@
     <ph name="LINK_START" />프록시 설정<ph name="LINK_END" />을 조정하세요.</translation>
 <translation id="1510907582379248592"><ph name="ORIGIN" />에 저장된 비밀번호:</translation>
 <translation id="1511388193702657997">웹 비밀번호를 저장하도록 제안</translation>
-<translation id="1512210426710821809">이 작업을 실행취소하려면 <ph name="IDS_SHORT_PRODUCT_OS_NAME" />을(를) 다시 설치해야 합니다.</translation>
+<translation id="1512210426710821809">이 작업을 실행취소하려면 <ph name="IDS_SHORT_PRODUCT_OS_NAME" />을(를) 다시 설치해야 합니다</translation>
 <translation id="1514215615641002767">바탕화면에 추가</translation>
 <translation id="151501797353681931">Safari에서 가져온 북마크</translation>
 <translation id="1515163294334130951">실행</translation>
@@ -1425,7 +1425,7 @@
 <translation id="3154429428035006212">1달 이상 오프라인 상태</translation>
 <translation id="3156815148496352304">OS 업데이트 설치</translation>
 <translation id="3157931365184549694">복구</translation>
-<translation id="3160842278951476457"><ph name="ISSUED_BY" /> [<ph name="ISSUED_TO" />](하드웨어 지원)</translation>
+<translation id="3160842278951476457"><ph name="ISSUED_BY" /> [<ph name="ISSUED_TO" />](하드웨어에 백업됨)</translation>
 <translation id="316125635462764134">앱 제거</translation>
 <translation id="3161522574479303604">모든 언어</translation>
 <translation id="316307797510303346">이 사용자가 방문하는 웹사이트를 <ph name="CUSTODIAN_EMAIL" />에서 제어하고 조회합니다.
@@ -3954,7 +3954,7 @@
 <translation id="7191454237977785534">다른 이름으로 저장</translation>
 <translation id="7196835305346730603">근처의 Chromebox를 검색하는 중...</translation>
 <translation id="7199158086730159431">도움말 보기</translation>
-<translation id="720110658997053098">이 기기를 키오스크 모드로 고정합니다.</translation>
+<translation id="720110658997053098">이 기기를 키오스크 모드로 영구 고정</translation>
 <translation id="7201118060536064622">'<ph name="DELETED_ITEM_NAME" />' 삭제됨</translation>
 <translation id="7201354769043018523">오른쪽 괄호</translation>
 <translation id="7205869271332034173">SSID:</translation>

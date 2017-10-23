@@ -160,13 +160,13 @@
 
       O arquivo é transferido por download e armazenado em cache. O download dele será feito novamente sempre que o URL ou hash for alterado.
 
-      Se esta política for definida, o <ph name="PRODUCT_OS_NAME" /> fará o download do arquivo para as configurações de impressora e disponibilizará as impressoras de acordo com <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> e <ph name="DEVICE_PRINTERS_BLACKLIST" />.
+      Se esta política for definida, o <ph name="PRODUCT_OS_NAME" /> fará o download do arquivo de configuração de impressoras e disponibilizará as impressoras de acordo com <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> e <ph name="DEVICE_PRINTERS_BLACKLIST" />.
 
-      Esta política não afeta a possibilidade de os usuários poderem ou não configurar impressoras em dispositivos individuais. Ela se destina a complementar a configuração de impressoras por usuários individuais.
+      Esta política não afeta a possibilidade de os usuários configurarem ou não impressoras em dispositivos individuais. Ela se destina a complementar a configuração de impressoras por usuários individuais.
 
       Esta política complementa <ph name="BULK_PRINTERS_POLICY" />.
 
-      Se esta política for deixada sem definição, não haverá nenhuma impressora, e as outras políticas <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> serão ignoradas.</translation>
+      Se esta política for deixada sem definição, não haverá nenhuma impressora vinculada a dispositivos, e as outras políticas <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> serão ignoradas.</translation>
 <translation id="1608755754295374538">URLs que terão acesso a dispositivos de captura de áudio sem solicitação</translation>
 <translation id="1617235075406854669">Ativar exclusão do histórico do navegador e de downloads</translation>
 <translation id="163200210584085447">Os padrões nesta lista serão comparados com a origem
@@ -893,7 +893,7 @@
           O valor da política deve ser especificado em milissegundos.</translation>
 <translation id="4105989332710272578">Desativar a aplicação da Transparência dos certificados para uma lista de URLs</translation>
 <translation id="4121350739760194865">Evitar que promoções de aplicativos apareçam na página nova guia</translation>
-<translation id="4133144443101280166">Intervalos de horas extras quando a política OffHours |ignored_policy_proto_tags| do dispositivo é lançada</translation>
+<translation id="4133144443101280166">Intervalos de horas de inatividade quando a política OffHours |ignored_policy_proto_tags| do dispositivo é lançada</translation>
 <translation id="4157003184375321727">Informar a versão do sistema operacional e do firmware</translation>
 <translation id="4183229833636799228">Configuração padrão de <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="4192388905594723944">URL para validação do token de autenticação do cliente de acesso remoto</translation>
@@ -2128,11 +2128,11 @@
 
       O arquivo é transferido por download e armazenado em cache. O download dele será feito novamente sempre que o URL ou hash forem alterados.
 
-      Se esta política for definida, o <ph name="PRODUCT_OS_NAME" /> fará o download do arquivo para as configurações de impressora e disponibilizará as impressoras de acordo com <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> e <ph name="BULK_PRINTERS_BLACKLIST" />.
+      Se esta política for definida, o <ph name="PRODUCT_OS_NAME" /> fará o download do arquivo de configuração das impressoras e disponibilizará as impressoras de acordo com <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> e <ph name="BULK_PRINTERS_BLACKLIST" />.
 
       Se esta política for definida, os usuários não poderão alterá-la ou modificá-la.
 
-      Esta política não afeta a possibilidade de os usuários poderem ou não configurar impressoras em dispositivos individuais. Ela se destina a complementar a configuração de impressoras por usuários individuais.
+      Esta política não afeta a possibilidade de os usuários configurarem ou não impressoras em dispositivos individuais. Ela se destina a complementar a configuração de impressoras por usuários individuais.
       </translation>
 <translation id="8947415621777543415">Informar a localização do dispositivo</translation>
 <translation id="8951350807133946005">Definir o diretório de cache de disco</translation>

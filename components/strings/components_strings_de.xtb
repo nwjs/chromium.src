@@ -573,7 +573,7 @@
 <translation id="5355557959165512791">Sie können <ph name="SITE" /> zurzeit nicht aufrufen, da das Zertifikat widerrufen wurde. Netzwerkfehler und Angriffe sind in der Regel nur vorübergehend, sodass die Seite wahrscheinlich später wieder funktioniert.</translation>
 <translation id="536296301121032821">Fehler beim Speichern der Richtlinieneinstellungen</translation>
 <translation id="5386426401304769735">Die Zertifikatskette für diese Website enthält ein Zertifikat mit SHA-1-Signatur.</translation>
-<translation id="5401815295726769233">Nach Markierungen suchen</translation>
+<translation id="5401815295726769233">Flags durchsuchen</translation>
 <translation id="5402410679244714488">Gültig bis: <ph name="EXPIRATION_DATE_ABBR" />, vor über einem Jahr zuletzt verwendet</translation>
 <translation id="540969355065856584">Dieser Server konnte nicht beweisen, dass er <ph name="DOMAIN" /> ist. Sein Sicherheitszertifikat ist zurzeit ungültig. Mögliche Gründe sind eine fehlerhafte Konfiguration oder ein Angreifer, der Ihre Verbindung abfängt.</translation>
 <translation id="5421136146218899937">Browserdaten löschen...</translation>
@@ -626,7 +626,7 @@
 <translation id="5732392974455271431">Deine Eltern können die Blockierung aufheben</translation>
 <translation id="5763042198335101085">Geben Sie eine gültige E-Mail-Adresse ein</translation>
 <translation id="5765072501007116331">Wählen Sie eine Adresse aus, um Lieferoptionen und -anforderungen zu sehen</translation>
-<translation id="5770114862687765385">Die Datei scheint beschädigt zu sein. Klicken Sie auf die Schaltfläche "Zurücksetzen, um die Sitzung zurückzusetzen.</translation>
+<translation id="5770114862687765385">Die Datei scheint beschädigt zu sein. Klicken Sie auf die Schaltfläche "Zurücksetzen", um die Sitzung zurückzusetzen.</translation>
 <translation id="5778550464785688721">MIDI-Geräte: volle Kontrolle</translation>
 <translation id="5784606427469807560">Beim Bestätigen Ihrer Karte ist ein Problem aufgetreten. Überprüfen Sie Ihre Internetverbindung und versuchen Sie es noch einmal.</translation>
 <translation id="5785756445106461925">Außerdem enthält diese Seite andere, nicht sichere Ressourcen. Diese Ressourcen können während der Übertragung von anderen Nutzern angezeigt und von Angreifern bearbeitet werden, die das Layout der Seite verändern.</translation>

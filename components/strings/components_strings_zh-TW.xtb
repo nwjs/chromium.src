@@ -520,7 +520,7 @@
 <translation id="495170559598752135">動作</translation>
 <translation id="4958444002117714549">展開清單</translation>
 <translation id="4974590756084640048">重新啟用警告功能</translation>
-<translation id="4989542687859782284">尚未提供</translation>
+<translation id="4989542687859782284">尚未支援</translation>
 <translation id="4989809363548539747">這是不支援的外掛程式</translation>
 <translation id="5002932099480077015">啟用後，Chrome 會將您的信用卡複本儲存在這個裝置上，以加快表單填寫速度。</translation>
 <translation id="5018422839182700155">無法開啟這個網頁</translation>
@@ -641,7 +641,7 @@
 <translation id="5869522115854928033">已儲存的密碼</translation>
 <translation id="5893752035575986141">接受簽帳金融卡。</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (已同步)</translation>
-<translation id="5909194079078764042">啟用這些功能可能會造成瀏覽器資料遺失，或導致你的安全性或隱私權面臨威脅。這項操作將為此瀏覽器的所有使用者啟用這些功能。</translation>
+<translation id="5909194079078764042">啟用這些功能可能會造成瀏覽器資料遺失，或導致你的安全性或隱私權面臨威脅，而且瀏覽器的所有使用者都會套用這項設定。</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{目前使用 1 個 Cookie}other{目前使用 # 個 Cookie}}</translation>
 <translation id="5939518447894949180">重設</translation>
 <translation id="5959728338436674663">自動傳送部分<ph name="BEGIN_WHITEPAPER_LINK" />系統資訊和網頁內容<ph name="END_WHITEPAPER_LINK" />給 Google，協助偵測危險的應用程式和網站。<ph name="PRIVACY_PAGE_LINK" /></translation>

@@ -114,6 +114,11 @@
 
       Hvis innstillingen ikke angis, gjelder standardverdien «MultiProfileUserBehaviorUnrestricted» for virksomhetsadministrerte brukere, og «MultiProfileUserBehaviorUnrestricted» for ikke-administrerte brukere.</translation>
 <translation id="1465619815762735808">Klikk for å spille av</translation>
+<translation id="1466133662354365542">Slår på autofyllfunksjonen i <ph name="PRODUCT_NAME" /> og gjør det mulig for brukere å fylle ut informasjon om kredittkort og adresse i nettskjemaer automatisk. Dette er mulig ved at autofyllfunksjonen bruker informasjon som har blitt lagret tidligere.
+
+      Hvis du slår av denne innstillingen, gir ikke autofyllfunksjonen forslag, og den fyller ikke inn informasjon automatisk. Den lagrer heller ikke lenger kredittkortinformasjon som brukeren sender inn på nettet.
+
+      Hvis du slår på denne innstillingen eller ikke angir noen verdi, kan brukeren kontrollere all funksjonalitet for autofyllfunksjonen (inkludert kredittkort) i brukergrensesnittet.</translation>
 <translation id="1468307069016535757">Angi standard tilstand for tilgjengelighetsfunksjonen for høykontrastmodus på påloggingsskjermen.
 
           Hvis denne innstillingen angis til «true», aktiveres høykontrastmodus når påloggingssiden vises.
@@ -367,6 +372,7 @@
 <translation id="2294382669900758280">Videoavspilling i Android-apper tas ikke med i betraktningen – selv ikke når denne regelen er angitt som <ph name="TRUE" />.</translation>
 <translation id="2298647742290373702">Konfigurer standardsiden for nye faner i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Angi en liste over aktiverte programtillegg</translation>
+<translation id="2303795211377219696">Slå på autofyll for kredittkort</translation>
 <translation id="2309390639296060546">Standardinnstilling for geoposisjonering</translation>
 <translation id="2312134445771258233">Lar deg konfigurere sidene som lastes inn ved oppstart. Innholdet i listen «Nettadresser som skal åpnes ved oppstart» ignoreres, med mindre du velger «Åpne en liste over nettadresser» i «Handling ved oppstart».</translation>
 <translation id="2337466621458842053">Gjør at du kan angi en liste over nettadressemønstre for nettsteder som kan vise bilder. Hvis denne retningslinjen ikke angis, blir den globale standardverdien brukt for alle nettsteder, enten fra retningslinjen DefaultImagesSetting hvis den er angitt, eller fra brukerens egen konfigurasjon hvis nevnte retningslinje ikke er angitt.</translation>
@@ -1130,6 +1136,7 @@
           Verdien må være en matrise med JSON-ordlister i strengformat. Hver ordliste må ha formen { "mønster": "$URL_PATTERN", "filter" : $FILTER }, der $URL_PATTERN er et mønster for spesifisering av innhold. $FILTER begrenser klientsertifikatene nettleseren automatisk velger fra. Uavhengig av hvilket filter som brukes, blir det bare valgt sertifikater som stemmer overens med tjenerens sertifikatforespørsel. Hvis $FILTER har formen { "ISSUER": { "CN": "$ISSUER_CN" } }, velges det bare klientsertifikater som er utstedt av et sertifikat med CommonName $ISSUER_CN. Hvis $FILTER er den tomme katalogen {}, brukes det ikke ytterligere begrensninger for valg av klientsertifikater.
 
           Hvis du ikke spesifiserer denne regelen, blir det ikke valgt klientsertifikat automatisk for noen nettsteder.</translation>
+<translation id="4978405676361550165">Hvis regelen «OffHours» er angitt, ignoreres de spesifiserte enhetsreglene (og standardverdiene for disse reglene brukes i stedet) i løpet av de definerte tidsintervallene. Enhetsreglene brukes på nytt av Chrome hver gang perioden for «OffHours» begynner og slutter. Brukeren blir varslet og tvunget til å logge av når «OffHours»-perioden slutter og enhetsinnstillingene for regelen blir endret (for eksempel når brukeren er logget på med en konto som ikke er tillatt).</translation>
 <translation id="4980635395568992380">Datatype:</translation>
 <translation id="4983201894483989687">Tillat kjøring av foreldede programtillegg</translation>
 <translation id="4988291787868618635">Handling som skal utføres når inaktivitetsforsinkelsen blir overskredet</translation>
@@ -1413,6 +1420,53 @@
 
       Hvis denne innstillingen ikke angis, eller angis som feil, kommer utskriftskommandoene til å utløse forhåndsvisningsskjermen for utskrifter.</translation>
 <translation id="6022948604095165524">Handling ved oppstart</translation>
+<translation id="6023030044732320798">Angir et sett med regler som overleveres til ARC-kjøringen. Verdien må være gyldig JSON.
+
+      Denne regelen kan brukes til å konfigurere hvilke Android-apper som installeres automatisk på enheten:
+
+      {
+        "type": "object",
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packageName": {
+                  "description": "Android app-identifikator, for eksempel "com.google.android.gm" for Gmail",
+                  "type": "string"
+                },
+                "installType": {
+                  "description": "Spesifiserer hvordan en app skal installeres. OPTIONAL: Appen installeres ikke automatisk, men brukeren kan installere den. Denne brukes som standard hvis regelen ikke er angitt. PRELOAD: Appen installeres automatisk, men brukeren kan avinstallere den. FORCE_INSTALLED: Appen installeres automatisk, og brukeren kan ikke avinstallere den. BLOCKED: Appen blokkeres og kan ikke installeres. Hvis appen ble installert under en annen regel, blir den avinstallert.",
+                  "type": "string",
+                  "enum": [
+                    "OPTIONAL",
+                    "PRELOAD",
+                    "FORCE_INSTALLED",
+                    "BLOCKED"
+                  ]
+                },
+                "defaultPermissionPolicy": {
+                  "description": "Regel for å gi tillatelser til apper på forespørsel. PERMISSION_POLICY_UNSPECIFIED: Ingen regel er angitt. Hvis ingen regel er angitt for en tillatelse på noe nivå, brukes funksjonaliteten for `PROMPT` som standard. PROMPT: Spør brukeren om å gi tillatelse. GRANT: Gi tillatelse automatisk. DENY: Avvis tillatelse automatisk.",
+                  "type": "string",
+                  "enum": [
+                    "PERMISSION_POLICY_UNSPECIFIED",
+                    "PROMPT",
+                    "GRANT",
+                    "DENY"
+                  ]
+                },
+                "managedConfiguration": {
+                  "description": "Appspesifikt JSON-konfigureringsobjekt med et sett med nøkkelverdi-par, for eksempel '"managedConfiguration": { "nøkkel1": verdi1, "nøkkel2": verdi2}'. Nøklene er definert i appmanifestet.",
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      For å feste apper til appoversikten, se PinnedLauncherApps.</translation>
 <translation id="602728333950205286">Umiddelbar nettadresse for standard søkeleverandør</translation>
 <translation id="603410445099326293">Parametere for forslagsnettadressser som bruker POST</translation>
 <translation id="6036523166753287175">Muliggjør kryssing av brannmur fra ekstern tilgangsvert</translation>

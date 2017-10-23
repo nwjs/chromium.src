@@ -1155,7 +1155,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Giá trị phải là một dãy từ điển JSON dạng chuỗi. Mỗi từ điển đều phải có dạng { "pattern": "$URL_PATTERN", "filter" : $FILTER }, trong đó $URL_PATTERN là mẫu cài đặt nội dung. $FILTER giới hạn các chứng chỉ ứng dụng mà trình duyệt sẽ tự động chọn. Bất kể bộ lọc, chỉ các chứng chỉ khớp với yêu cầu chứng chỉ của máy chủ mới được chọn. Nếu $FILTER có dạng { "ISSUER": { "CN": "$ISSUER_CN" } } thì thêm nữa, chỉ những chứng chỉ ứng dụng do chứng chỉ có CommonName $ISSUER_CN cấp mới được chọn. Nếu $FILTER là từ điển trống {}, lựa chọn chứng chỉ ứng dụng sẽ không bị hạn chế thêm.
 
           Nếu bạn không đặt chính sách này, sẽ không có thao tác tự động chọn nào được thực hiện cho bất kỳ trang web nào.</translation>
-<translation id="4978405676361550165">Nếu bạn đặt chính sách "OffHours" thì các chính sách thiết bị đã chỉ định sẽ bị bỏ qua (sử dụng cài đặt mặc định của những chính sách này) trong khoảng thời gian đã định. Chính sách thiết bị được Chrome áp dụng lại trên mọi sự kiện khi khoảng thời gian "OffHours" bắt đầu hoặc kết thúc. Người dùng sẽ được thông báo và bắt buộc phải đăng xuất khi kết thúc thời gian "OffHours" và cài đặt chính sách thiết bị thay đổi (tức là khi người dùng đăng nhập không phải bằng tài khoản được cho phép).</translation>
+<translation id="4978405676361550165">Nếu bạn đặt chính sách "OffHours" thì Chrome sẽ bỏ qua các chính sách thiết bị đã chỉ định (sử dụng cài đặt mặc định của những chính sách này) trong khoảng thời gian đã định. Chrome sẽ áp dụng lại các chính sách thiết bị đối với mọi sự kiện khi khoảng thời gian "OffHours" bắt đầu hoặc kết thúc. Người dùng sẽ được thông báo và bắt buộc phải đăng xuất khi kết thúc thời gian "OffHours" và khi các cài đặt của chính sách thiết bị thay đổi (ví dụ: khi người dùng đăng nhập bằng một tài khoản không được phép).</translation>
 <translation id="4980635395568992380">Loại dữ liệu:</translation>
 <translation id="4983201894483989687">Cho phép chạy các plugin đã lỗi thời</translation>
 <translation id="4988291787868618635">Hành động cần thực hiện khi đạt tới độ trễ khi không sử dụng</translation>
@@ -1448,9 +1448,9 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
        Nếu chính sách này không được đặt hoặc bị đặt thành sai, lệnh in sẽ chạy màn hình chế độ xem trước bản in.</translation>
 <translation id="6022948604095165524">Tác vụ khi khởi động</translation>
-<translation id="6023030044732320798">Chỉ định một nhóm chính sách sẽ được chuyển giao cho ARC trong thời gian chạy. Giá trị phải là JSON hợp lệ.
+<translation id="6023030044732320798">Chỉ định một nhóm chính sách sẽ được chuyển giao cho thư viện thời gian chạy ARC. Giá trị phải là định dạng JSON hợp lệ.
 
-      Chính sách này có thể được sử dụng để định cấu hình ứng dụng Android nào sẽ được tự động cài đặt trên thiết bị:
+      Chính sách này có thể dùng để định cấu hình ứng dụng Android nào sẽ được tự động cài đặt trên thiết bị:
 
       {
         "type": "object",
@@ -1461,11 +1461,11 @@ Khi chính sách này được đặt thành false hoặc không được địn
               "type": "object",
               "properties": {
                 "packageName": {
-                  "description": "Android app identifier, e.g. "com.google.android.gm" for Gmail",
+                  "description": "Giá trị nhận dạng ứng dụng Android, ví dụ: "com.google.android.gm" cho Gmail",
                   "type": "string"
                 },
                 "installType": {
-                  "description": "Specifies how an app is installed. OPTIONAL: The app is not installed automatically, but the user can install it. This is the default if this policy is not specified. PRELOAD: The app is installed automatically, but the user can uninstall it. FORCE_INSTALLED: The app is installed automatically and the user cannot uninstall it. BLOCKED: The app is blocked and cannot be installed. If the app was installed under a previous policy it will be uninstalled.",
+                  "description": "Chỉ định cách cài đặt ứng dụng. OPTIONAL: Ứng dụng không được cài đặt tự động, nhưng người dùng có thể tự cài đặt. Đây là cài đặt mặc định nếu không chỉ định chính sách này. PRELOAD: Ứng dụng được cài đặt tự động, nhưng người dùng có thể gỡ cài đặt. FORCE_INSTALLED: Ứng dụng được cài đặt tự động và người dùng không thể gỡ cài đặt. BLOCKED: Ứng dụng bị chặn và không thể cài đặt. Nếu ứng dụng đã được cài đặt theo một chính sách trước đây thì nó sẽ bị gỡ cài đặt.",
                   "type": "string",
                   "enum": [
                     "OPTIONAL",
@@ -1475,7 +1475,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
                   ]
                 },
                 "defaultPermissionPolicy": {
-                  "description": "Policy for granting permission requests to apps. PERMISSION_POLICY_UNSPECIFIED: Policy not specified. If no policy is specified for a permission at any level, then the `PROMPT` behavior is used by default. PROMPT: Prompt the user to grant a permission. GRANT: Automatically grant a permission. DENY: Automatically deny a permission.",
+                  "description": "Chính sách yêu cầu cấp quyền cho ứng dụng. PERMISSION_POLICY_UNSPECIFIED: Không chỉ định chính sách. Nếu không có chính sách cấp quyền ở cấp nào, hành vi `PROMPT` sẽ được áp dụng theo mặc định. PROMPT: Nhắc người dùng cấp quyền. GRANT: Tự động cấp quyền. DENY: Tự động từ chối quyền.",
                   "type": "string",
                   "enum": [
                     "PERMISSION_POLICY_UNSPECIFIED",
@@ -1485,7 +1485,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
                   ]
                 },
                 "managedConfiguration": {
-                  "description": "App-specific JSON configuration object with a set of key-value pairs, e.g. '"managedConfiguration": { "key1": value1, "key2": value2 }'. The keys are defined in the app manifest.",
+                  "description": "Đối tượng cấu hình JSON riêng cho ứng dụng, chứa một tập hợp các cặp khóa-giá trị, ví dụ: '"managedConfiguration": { "key1": value1, "key2": value2 }'. Các khóa được định nghĩa trong trong tệp kê khai của ứng dụng.",
                   "type": "object"
                 }
               }

@@ -393,6 +393,7 @@
 <translation id="3778403066972421603">Vols desar aquesta targeta al teu compte de Google i en aquest dispositiu?</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3787705759683870569">Data de caducitat: <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
+<translation id="3808375843007691220">Advertiment: s'han detectat funcions experimentals.</translation>
 <translation id="382518646247711829">Si feu servir un servidor intermediari...</translation>
 <translation id="3828924085048779000">Les frases de contrasenya no poder estar buides.</translation>
 <translation id="385051799172605136">Enrere</translation>
@@ -448,6 +449,7 @@
 <translation id="4269787794583293679">(Sense nom d'usuari)</translation>
 <translation id="4275830172053184480">Reinici del dispositiu</translation>
 <translation id="4280429058323657511">, caduca el dia <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4292213515608230699">No hi ha cap experiment que coincideixi</translation>
 <translation id="4304224509867189079">Accedeix</translation>
 <translation id="4312866146174492540">Bloqueja (opció predeterminada)</translation>
 <translation id="4325863107915753736">No s'ha pogut trobar l'article</translation>
@@ -518,6 +520,7 @@
 <translation id="495170559598752135">Accions</translation>
 <translation id="4958444002117714549">Desplega la llista</translation>
 <translation id="4974590756084640048">Torna a activar els advertiments</translation>
+<translation id="4989542687859782284">No disponibles</translation>
 <translation id="4989809363548539747">Aquest connector no és compatible</translation>
 <translation id="5002932099480077015">Si s'activa, Chrome emmagatzemarà una còpia de la targeta en aquest dispositiu per agilitzar l'emplenament de formularis.</translation>
 <translation id="5018422839182700155">No es pot obrir aquesta pàgina</translation>
@@ -571,6 +574,7 @@
 <translation id="5355557959165512791">En aquest moment no pots visitar <ph name="SITE" /> perquè se li ha revocat el certificat. Els atacs i els errors de xarxa acostumen a ser temporals, o sigui que probablement la pàgina funcionarà més endavant.</translation>
 <translation id="536296301121032821">No s'ha pogut emmagatzemar la configuració de la política</translation>
 <translation id="5386426401304769735">La cadena de certificats d'aquest lloc conté un certificat que s'ha signat amb SHA-1.</translation>
+<translation id="5401815295726769233">Cerca marques</translation>
 <translation id="5402410679244714488">Data de caducitat: <ph name="EXPIRATION_DATE_ABBR" />, última utilització fa més d'un any</translation>
 <translation id="540969355065856584">Aquest servidor no ha pogut demostrar que sigui <ph name="DOMAIN" /> perquè el seu certificat de seguretat no és vàlid en aquest moment. Això pot ser a causa d'una configuració incorrecta o d'un atacant que intercepta la connexió.</translation>
 <translation id="5421136146218899937">Esborra les dades de navegació...</translation>
@@ -623,6 +627,7 @@
 <translation id="5732392974455271431">Els teus pares te'l poden desbloquejar</translation>
 <translation id="5763042198335101085">Introdueix una adreça electrònica vàlida</translation>
 <translation id="5765072501007116331">Per veure els mètodes i els requisits d'entrega, selecciona una adreça</translation>
+<translation id="5770114862687765385">Sembla que el fitxer està malmès. Fes clic al botó Restableix per restablir la sessió.</translation>
 <translation id="5778550464785688721">Control total dels dispositius MIDI</translation>
 <translation id="5784606427469807560">S'ha produït un problema en confirmar la targeta. Comprova la connexió a Internet i torna-ho a provar.</translation>
 <translation id="5785756445106461925">A més, aquesta pàgina conté altres recursos que no són segurs. La resta d'usuaris poden visualitzar-los mentre estan en trànsit, i algun atacant podria modificar-los per canviar l'aparença de la pàgina.</translation>
@@ -636,6 +641,7 @@
 <translation id="5869522115854928033">Contrasenyes desades</translation>
 <translation id="5893752035575986141">S'accepten targetes de crèdit.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (informació sincronitzada)</translation>
+<translation id="5909194079078764042">En activar aquestes funcions, podries perdre dades del navegador o posar en perill la teva seguretat o privadesa. Les funcions activades afecten tots els usuaris d'aquest navegador.</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 en ús}other{# en ús}}</translation>
 <translation id="5939518447894949180">Restableix</translation>
 <translation id="5959728338436674663">Envia automàticament algunes <ph name="BEGIN_WHITEPAPER_LINK" />dades del sistema i contingut de les pàgines<ph name="END_WHITEPAPER_LINK" /> a Google per ajudar a detectar les aplicacions i els llocs perillosos. <ph name="PRIVACY_PAGE_LINK" /></translation>
@@ -683,6 +689,7 @@
 <translation id="6305205051461490394">No es pot accedir a <ph name="URL" />.</translation>
 <translation id="6319915415804115995">Última utilització fa més d'un any</translation>
 <translation id="6321917430147971392">Reviseu la configuració de DNS</translation>
+<translation id="6325286409953503969">Si les funcions noves de Chrome et semblen atractives i interessants, prova el nostre <ph name="BEGIN_LINK" />canal per a desenvolupadors<ph name="END_LINK" />.</translation>
 <translation id="6328639280570009161">Proveu de desactivar la predicció de xarxa</translation>
 <translation id="6328786501058569169">Aquest lloc web és enganyós</translation>
 <translation id="6337133576188860026">Allibera menys de <ph name="SIZE" />. És possible que alguns llocs web es carreguin més a poc a poc la propera vegada que els visitis.</translation>
@@ -785,6 +792,7 @@
 <translation id="7298195798382681320">Recomanada</translation>
 <translation id="7309308571273880165">S'ha capturat un informe d'error (<ph name="CRASH_TIME" />) (càrrega sol·licitada per l'usuari, encara no s'ha dut a terme)</translation>
 <translation id="7334320624316649418">&amp;Refés el canvi d'ordre</translation>
+<translation id="7337706099755338005">No està disponible a la teva plataforma.</translation>
 <translation id="733923710415886693">El certificat del servidor no s'ha divulgat mitjançant la Transparència de certificats.</translation>
 <translation id="7353601530677266744">Línia d'ordres</translation>
 <translation id="7372973238305370288">resultat de la cerca</translation>
@@ -792,6 +800,7 @@
 <translation id="7378627244592794276">No</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">Confirma la targeta</translation>
+<translation id="739697976928952788">Mostra totes les contrasenyes desades</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7419106976560586862">Camí del perfil</translation>
 <translation id="7424977062513257142">Una pàgina inserida en aquesta pàgina web diu:</translation>
@@ -838,6 +847,7 @@
 <translation id="7668654391829183341">Dispositiu desconegut</translation>
 <translation id="7669271284792375604">És possible que els atacants d'aquest lloc intentin enganyar-te perquè instal·lis programes que perjudiquen la teva navegació (per exemple, et poden canviar la pàgina d'inici o mostrar anuncis addicionals als llocs que visites).</translation>
 <translation id="7682287625158474539">Enviament</translation>
+<translation id="7695552107151968219">Si les funcions noves de Chrome et semblen atractives i interessants, prova el nostre <ph name="BEGIN_LINK" />canal beta<ph name="END_LINK" />.</translation>
 <translation id="7699293099605015246">En aquests moments no hi ha articles disponibles</translation>
 <translation id="7701040980221191251">Cap</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Continua per accedir a <ph name="SITE" /> (no segur)<ph name="END_LINK" /></translation>

@@ -9,10 +9,12 @@
 <translation id="1010833424573920260">{NUM_PAGES,plural, =1{Page Unresponsive}other{Pages Unresponsive}}</translation>
 <translation id="1012794136286421601">Your Docs, Sheets, Slides and Drawings files are being synced. Open the Google Drive app to access them online or offline.</translation>
 <translation id="1013707859758800957">An unsandboxed plug-in was allowed to run on this page.</translation>
+<translation id="1015318665228971643">Edit Folder Name</translation>
 <translation id="1016437870506746108">{COUNT,plural, =0{Open all in &amp;new window}=1{Open in &amp;new window}other{Open all (#) in &amp;new window}}</translation>
 <translation id="1016566241875885511">Additional info (optional)</translation>
 <translation id="1017280919048282932">&amp;Add to dictionary</translation>
 <translation id="1018656279737460067">Cancelled</translation>
+<translation id="102272308210570439">Let Assistant use what's on your screen</translation>
 <translation id="1026822031284433028">Load Image</translation>
 <translation id="1029317248976101138">Zoom</translation>
 <translation id="1031362278801463162">Loading preview</translation>
@@ -36,6 +38,7 @@
 <translation id="1049926623896334335">Word document</translation>
 <translation id="1054153489933238809">Open Original Image in New Tab</translation>
 <translation id="1055806300943943258">Searching for Bluetooth and USB devices...</translation>
+<translation id="1056775291175587022">No networks</translation>
 <translation id="1056898198331236512">Warning</translation>
 <translation id="1058262162121953039">PUK</translation>
 <translation id="1058418043520174283"><ph name="INDEX" /> of <ph name="COUNT" /></translation>
@@ -796,6 +799,7 @@
 <translation id="222949136907494149"><ph name="URL" /> wants to use your computer's location.</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2230062665678605299">Unable to create folder "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="223106756035922488">Click to view today’s doodle</translation>
 <translation id="2231238007119540260">If you delete a server certificate, you restore the usual security checks for that server and require that it uses a valid certificate.</translation>
 <translation id="2231990265377706070">Exclamation point</translation>
 <translation id="2232876851878324699">The file contained one certificate, which was not imported:</translation>
@@ -975,6 +979,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2509495747794740764">Scale amount must be a number between 10 and 200.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="251662399991179012">Let's train your <ph name="DEVICE_TYPE" /></translation>
+<translation id="2517472476991765520">Scan</translation>
 <translation id="2518024842978892609">Use your client certificates</translation>
 <translation id="2520644704042891903">Waiting for available socket...</translation>
 <translation id="252219247728877310">Component not updated</translation>
@@ -1000,6 +1005,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2554553592469060349">Selected file is too big (max size: 3mb).</translation>
 <translation id="2557899542277210112">For quick access, place your bookmarks here on the bookmarks bar.</translation>
 <translation id="2558578666171469771">Google Play Store now on your <ph name="DEVICE_TYPE" /></translation>
+<translation id="2558896001721082624">Always show accessibility options in the system menu</translation>
 <translation id="2562685439590298522">Docs</translation>
 <translation id="2562743677925229011">Not signed in to <ph name="SHORT_PRODUCT_NAME" /></translation>
 <translation id="2563856802393254086">Congratulations! Your '<ph name="NAME" />' data service has been activated and is ready to go.</translation>
@@ -1008,6 +1014,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2570000010887652771">Saved data.</translation>
 <translation id="2570648609346224037">There was a problem during recovery image download.</translation>
 <translation id="257088987046510401">Themes</translation>
+<translation id="2571964818629181240">Close Firefox before importing</translation>
 <translation id="2572032849266859634">Read-only access to <ph name="VOLUME_NAME" /> has been granted.</translation>
 <translation id="2573269395582837871">Choose a picture and name</translation>
 <translation id="2574102660421949343">Cookies from <ph name="DOMAIN" /> allowed.</translation>
@@ -1059,6 +1066,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2642111877055905627">Football</translation>
 <translation id="2643698698624765890">Manage your extensions by clicking Extensions in the Window menu.</translation>
 <translation id="2647142853114880570">reload</translation>
+<translation id="2647269890314209800">Cookies in Use</translation>
 <translation id="2648831393319960979">Adding the device to your account – this may take a moment...</translation>
 <translation id="2649045351178520408">Base64-encoded ASCII, certificate chain</translation>
 <translation id="2653266418988778031">If you delete a Certification Authority (CA) certificate, your browser will no longer trust any certificates issued by that CA.</translation>
@@ -1109,6 +1117,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2715751256863167692">This upgrade resets your Chromebook and removes current user data.</translation>
 <translation id="2718395828230677721">Night Light</translation>
 <translation id="2718998670920917754">Anti-virus software detected a virus.</translation>
+<translation id="2719936478972253983">The following cookies were blocked</translation>
 <translation id="2721037002783622288">&amp;Search <ph name="SEARCH_ENGINE" /> for image</translation>
 <translation id="2721334646575696520">Microsoft Edge</translation>
 <translation id="2721695630904737430">Supervised users have been disabled by your administrator.</translation>
@@ -1192,6 +1201,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2815500128677761940">Bookmark bar</translation>
 <translation id="2815693974042551705">Bookmark folder</translation>
 <translation id="2818476747334107629">Printer details</translation>
+<translation id="2820957248982571256">Scanning…</translation>
 <translation id="2822634587701817431">Shrink/Expand</translation>
 <translation id="2825758591930162672">Subject's Public Key</translation>
 <translation id="2828650939514476812">Connect to Wi-Fi network</translation>
@@ -1744,6 +1754,7 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="363903084947548957">Next input method</translation>
 <translation id="3640006360782160348">Cancel printer setup</translation>
 <translation id="3640214691812501263">Add "<ph name="EXTENSION_NAME" />" for <ph name="USER_NAME" />?</translation>
+<translation id="3643225892037417978">Extension management is not available to Guest users. Please sign in to manage extensions.</translation>
 <translation id="3643454140968246241">Syncing <ph name="COUNT" /> files...</translation>
 <translation id="3644896802912593514">Width</translation>
 <translation id="3646789916214779970">Reset to default theme</translation>
@@ -2246,6 +2257,7 @@ Press any key to continue exploring.</translation>
 <translation id="4482194545587547824">Google may use your browsing history to personalise Search and other Google services</translation>
 <translation id="4492190037599258964">Search results for '<ph name="SEARCH_STRING" />'</translation>
 <translation id="4495419450179050807">Don't show on this page</translation>
+<translation id="4499108478945817980">Your administrator requires you to sign in to Chrome.</translation>
 <translation id="450099669180426158">Exclamation mark icon</translation>
 <translation id="4501530680793980440">Confirm Removal</translation>
 <translation id="4504940961672722399">Use this extension by clicking on this icon or by pressing <ph name="EXTENSION_SHORTCUT" />.</translation>
@@ -2258,6 +2270,7 @@ Press any key to continue exploring.</translation>
 <translation id="4514542542275172126">Set up new supervised user</translation>
 <translation id="451515744433878153">Remove</translation>
 <translation id="4518677423782794009">Is Chrome crashing, showing unusual start-up pages, toolbars or unexpected ads you can't get rid of, or otherwise changing your browsing experience? You may be able to fix the problem by running the Chrome Clean-Up Tool.</translation>
+<translation id="4520385623207007473">Cookies in use</translation>
 <translation id="452039078290142656">unknown devices from <ph name="VENDOR_NAME" /></translation>
 <translation id="4522570452068850558">Details</translation>
 <translation id="4530494379350999373">Origin</translation>
@@ -2316,6 +2329,7 @@ Press any key to continue exploring.</translation>
 <translation id="4610637590575890427">Did you mean to go to <ph name="SITE" />?</translation>
 <translation id="4611114513649582138">Data connection available</translation>
 <translation id="4613271546271159013">An extension has changed what page is shown when you open a new tab.</translation>
+<translation id="4615586811063744755">no cookie selected</translation>
 <translation id="4617270414136722281">Extension options</translation>
 <translation id="4618990963915449444">All files on <ph name="DEVICE_NAME" /> will be erased.</translation>
 <translation id="4619615317237390068">Tabs from other devices</translation>
@@ -2385,6 +2399,7 @@ Press any key to continue exploring.</translation>
 <translation id="4716483597559580346">Powerwash for added security</translation>
 <translation id="471800408830181311">Failed to output private key.</translation>
 <translation id="4720113199587244118">Add Devices</translation>
+<translation id="4720185134442950733">Mobile data network</translation>
 <translation id="4722920479021006856"><ph name="APP_NAME" /> is sharing your screen.</translation>
 <translation id="4724450788351008910">Affiliation Changed</translation>
 <translation id="4724850507808590449"><ph name="FILE_COUNT" /> photos backed up</translation>
@@ -2392,6 +2407,7 @@ Press any key to continue exploring.</translation>
 <translation id="4728558894243024398">Platform</translation>
 <translation id="4731422630970790516">Shelf item 3</translation>
 <translation id="4732760563705710320">Sorry, this video is not supported by your cast device.</translation>
+<translation id="4733793249294335256">Location</translation>
 <translation id="4734518477988699048">Input value is invalid.</translation>
 <translation id="473546211690256853">This account is managed by <ph name="DOMAIN" /></translation>
 <translation id="4737715515457435632">Please connect to a network</translation>
@@ -2408,6 +2424,7 @@ Press any key to continue exploring.</translation>
 <translation id="4759238208242260848">Downloads</translation>
 <translation id="4761104368405085019">Use your microphone</translation>
 <translation id="4762718786438001384">Device disk space critically low</translation>
+<translation id="4763408175235639573">The following cookies were set when you viewed this page</translation>
 <translation id="4763830802490665879">Cookies from multiple sites will be cleared on exit.</translation>
 <translation id="4768332406694066911">You have certificates from these organisations that identify you</translation>
 <translation id="4776917500594043016">Password for <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -2549,6 +2566,7 @@ Press any key to continue exploring.</translation>
 <translation id="4971412780836297815">Open when done</translation>
 <translation id="4972129977812092092">Edit printer</translation>
 <translation id="4973307593867026061">Add printers</translation>
+<translation id="4973523518332075481">Use a name that's <ph name="MAX_LENGTH" /> characters or less</translation>
 <translation id="497421865427891073">go forward</translation>
 <translation id="4974733135013075877">Exit and child lock</translation>
 <translation id="4977942889532008999">Confirm Access</translation>
@@ -2690,6 +2708,7 @@ Press any key to continue exploring.</translation>
 <translation id="5213891612754844763">Show proxy settings</translation>
 <translation id="521582610500777512">Photo was discarded</translation>
 <translation id="5222676887888702881">Sign out</translation>
+<translation id="52232769093306234">Packing failed.</translation>
 <translation id="5225324770654022472">Show apps shortcut</translation>
 <translation id="5225360179303283478">Reset site settings</translation>
 <translation id="5227536357203429560">Add private network...</translation>
@@ -2784,6 +2803,8 @@ Press any key to continue exploring.</translation>
 <translation id="5337771866151525739">Installed by a third party.</translation>
 <translation id="5338503421962489998">Local storage</translation>
 <translation id="5340217413897845242">Shelf item 6</translation>
+<translation id="5341793073192892252">The following cookies were blocked (third-party cookies are being blocked without exception)</translation>
+<translation id="5341980496415249280">Please wait, packing…</translation>
 <translation id="5342091991439452114">PIN must be at least <ph name="MINIMUM" /> digits</translation>
 <translation id="534916491091036097">Left paren</translation>
 <translation id="5350965906220856151">Uh-oh!</translation>
@@ -2827,6 +2848,7 @@ Press any key to continue exploring.</translation>
 <translation id="5409029099497331039">Surprise Me</translation>
 <translation id="5411472733320185105">Do not use the proxy settings for these hosts and domains:</translation>
 <translation id="5414566801737831689">Read the icons of the websites that you visit</translation>
+<translation id="5417312524372586921">Browser themes</translation>
 <translation id="5417998409611691946">Your <ph name="DEVICE_TYPE" /> can now:</translation>
 <translation id="5419294236999569767">System time</translation>
 <translation id="5422221874247253874">Access Point</translation>
@@ -2850,6 +2872,7 @@ Press any key to continue exploring.</translation>
 <translation id="5438224778284622050">Delete offline files?</translation>
 <translation id="5438430601586617544">(Unpacked)</translation>
 <translation id="544083962418256601">Create shortcuts...</translation>
+<translation id="5442550868130618860">Turn on auto-update</translation>
 <translation id="5446983216438178612">Show certificates for organisation</translation>
 <translation id="5448293924669608770">Oops, something went wrong with signing in</translation>
 <translation id="5449551289610225147">Invalid password</translation>
@@ -3492,6 +3515,7 @@ Press any key to continue exploring.</translation>
 <translation id="6451180435462401570">Manage Cloud Print devices</translation>
 <translation id="6451689256222386810">If you forget your passphrase or want to change this setting, <ph name="BEGIN_LINK" />reset sync<ph name="END_LINK" />.</translation>
 <translation id="6452181791372256707">Reject</translation>
+<translation id="6455894534188563617">&amp;New Folder</translation>
 <translation id="6456394469623773452">Fine</translation>
 <translation id="6456631036739229488">Smart Lock phone changed. Enter your password to update Smart Lock. Next time, your phone will unlock your <ph name="DEVICE_TYPE" />. Turn off Smart Lock in Settings.</translation>
 <translation id="645705751491738698">Continue blocking JavaScript</translation>
@@ -3526,6 +3550,7 @@ Press any key to continue exploring.</translation>
 
     This doesn’t affect apps or content on other devices.</translation>
 <translation id="6499143127267478107">Resolving host in proxy script...</translation>
+<translation id="6499681088828539489">Disallow proxies for shared networks</translation>
 <translation id="6503077044568424649">Most visited</translation>
 <translation id="6504611359718185067">Connect to the Internet to add a printer</translation>
 <translation id="650584126816009598">Your printer is ready.</translation>
@@ -4691,6 +4716,7 @@ Calculating time until full</translation>
 <translation id="8378285435971754261">Let Google’s location service help apps find your location quickly and accurately, which can reduce battery consumption. Anonymous location data will be sent to Google, even when no apps are running. <ph name="BEGIN_LINK1" />Learn More<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">Manage camera settings...</translation>
 <translation id="8382913212082956454">Copy &amp;email address</translation>
+<translation id="8386903983509584791">Scan completed</translation>
 <translation id="8390029840652165810">Please make sure your network connection is working and if the problem persists, please sign out and sign in again to refresh your credentials.</translation>
 <translation id="8390449457866780408">Server unavailable.</translation>
 <translation id="8392234662362215700">Tap Control-Shift-Space to switch keyboard layout.</translation>
@@ -4821,6 +4847,7 @@ Calculating time until full</translation>
 <translation id="8620617069779373398">Roaming status</translation>
 <translation id="8620765578342452535">Configure network connections</translation>
 <translation id="8623004009673949077">App with 'kiosk_only' manifest attribute must be installed in Chrome OS kiosk mode.</translation>
+<translation id="8624205858755890468">Enables the Assistant to show you related info, apps and actions.</translation>
 <translation id="862542460444371744">&amp;Extensions</translation>
 <translation id="8627151598708688654">Select source</translation>
 <translation id="862727964348362408">Suspended</translation>
@@ -4899,6 +4926,7 @@ Calculating time until full</translation>
 <translation id="8725066075913043281">Try again</translation>
 <translation id="8725178340343806893">Favourites/bookmarks</translation>
 <translation id="8726206820263995930">Error when fetching policy settings from the server: <ph name="CLIENT_ERROR" />.</translation>
+<translation id="8726718463424335668">Skip import</translation>
 <translation id="8727142376512517020">Don’t show this again</translation>
 <translation id="8730621377337864115">Done</translation>
 <translation id="8732030010853991079">Use this extension by clicking on this icon.</translation>

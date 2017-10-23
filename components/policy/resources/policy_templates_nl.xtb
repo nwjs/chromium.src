@@ -16,6 +16,13 @@
 
       Dit beleid is alleen van invloed op gebruikers waarvan het domein overeenkomt met het inschrijvingsdomein van het apparaat. Voor alle overige gebruikers worden cookies die zijn ingesteld door de IdP, alleen de eerste keer dat de gebruiker inlogt op een apparaat, overgedragen naar het profiel van de gebruiker.</translation>
 <translation id="1040446814317236570">Verwijderen van gegevens uit PAC-URL's toestaan (voor https://)</translation>
+<translation id="1041454584879384845">Hiermee wordt het gedrag ingesteld van avatars waarmee gebruikers worden vertegenwoordigd op het inlogscherm.
+
+      Afzonderlijke instellingen kunnen worden gespecificeerd in JSON-eigenschappen:
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Als dit is ingesteld op <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, mogen gebruikers video's gebruiken voor avatarafbeeldingen.
+
+      Als dit beleid niet is ingesteld, zijn video's voor avatarafbeeldingen toegestaan.</translation>
 <translation id="1044878202534415707">Hardwarestatistieken melden, zoals CPU-/RAM-gebruik.
 
       Als het beleid is ingesteld op 'onwaar', worden de statistieken niet gemeld.
@@ -99,6 +106,7 @@
 <translation id="1454846751303307294">Hiermee kun je een lijst URL-patronen instellen waarmee sites worden gespecificeerd die JavaScript niet mogen uitvoeren.
 
           Als dit beleid niet wordt ingesteld, wordt de algemene standaardwaarde gebruikt voor alle sites op basis van het beleid 'DefaultJavaScriptSetting' (als dit is ingesteld) of anders op basis van de configuratie van de gebruiker.</translation>
+<translation id="1456822151187621582">Windows (<ph name="PRODUCT_OS_NAME" />-clients):</translation>
 <translation id="1464848559468748897">Bepaal het gebruikersgedrag tijdens een sessie met meerdere profielen op <ph name="PRODUCT_OS_NAME" />-apparaten.
 
       Als dit beleid is ingesteld op 'MultiProfileUserBehaviorUnrestricted', kan de gebruiker de primaire of secundaire gebruiker in een sessie met meerdere profielen zijn.
@@ -564,6 +572,7 @@
           Als deze instelling is uitgeschakeld en uitgaande UDP-verbindingen worden gefilterd door de firewall, staat dit apparaat alleen verbindingen toe met clientapparaten binnen het lokale netwerk.
 
           Als dit beleid niet wordt ingesteld, wordt de instelling ingeschakeld.</translation>
+<translation id="2823870601012066791">Locatie van Windows-register voor <ph name="PRODUCT_OS_NAME" />-clients:</translation>
 <translation id="2824715612115726353">Incognitomodus inschakelen</translation>
 <translation id="2838830882081735096">Gegevensmigratie en ARC niet toestaan</translation>
 <translation id="2844404652289407061">Hiermee wordt de beschikbaarheid van 'Tikken om te zoeken' ingeschakeld in de inhoudsweergave van <ph name="PRODUCT_NAME" />.
@@ -1505,6 +1514,7 @@
 <translation id="6076099373507468537">Hiermee wordt de lijst met USB-apparaten gedefinieerd die mogen worden ontkoppeld van hun kernel-driver, zodat ze via de chrome.usb-API rechtstreeks kunnen worden gebruikt in een webapplicatie. Items zijn paren van de ID van de USB-leverancier en de ID van het product, zodat specifieke hardware kan worden geïdentificeerd.
 
       Als dit beleid niet is geconfigureerd, is de lijst met USB-apparaten die kunnen worden ontkoppeld leeg.</translation>
+<translation id="6083631234867522991">Windows (Windows-clients):</translation>
 <translation id="6093156968240188330">Externe gebruikers toestaan om een vensters met verhoogde bevoegdheid te gebruiken tijdens een sessie voor ondersteuning op afstand</translation>
 <translation id="6095999036251797924">Specificeert de periode zonder gebruikersinvoer waarna het scherm wordt vergrendeld wanneer het apparaat op netstroom of op de batterij werkt.
 
@@ -1575,6 +1585,7 @@
 <translation id="6310223829319187614">Automatisch aanvullen van domeinnaam bij inloggen van gebruiker inschakelen</translation>
 <translation id="6315673513957120120">Chrome toont een waarschuwingspagina wanneer gebruikers naar sites met SSL-fouten navigeren. Gebruikers kunnen standaard, of wanneer dit beleid is ingesteld op 'waar', door deze waarschuwingspagina's klikken.
       Als dit beleid wordt ingesteld op 'onwaar', kunnen gebruikers niet door waarschuwingspagina's klikken.</translation>
+<translation id="6320758134170712450">Gedrag van avatars van gebruikers instellen</translation>
 <translation id="6353901068939575220">Specificeert de parameters die worden gebruikt wanneer een URL wordt gezocht met POST. Het bestaat uit door komma's gescheiden naam/waarde-paren. Als een waarde een templateparameter, zoals {searchTerms} in het bovenstaande voorbeeld, is, wordt de waarde vervangen door echte zoektermgegevens.
 
           Dit beleid is optioneel. Als het beleid niet is ingesteld, wordt de zoekopdracht verzonden met de GET-methode.
@@ -2011,6 +2022,39 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="7841880500990419427">Minimale TLS-versie om op terug te vallen</translation>
 <translation id="7842869978353666042">Opties voor Google Drive configureren</translation>
 <translation id="7843525027689416831">Hiermee worden de markeringen gespecificeerd die bij het starten moeten worden toegepast op <ph name="PRODUCT_NAME" />. De opgegeven markeringen worden alleen toegepast op het inlogscherm. Markeringen die worden ingesteld via dit beleid, worden niet doorgevoerd in gebruikerssessies.</translation>
+<translation id="7844537954833753199">Hiermee worden extensiebeheerinstellingen voor <ph name="PRODUCT_NAME" /> geconfigureerd.
+
+          Met dit beleid worden meerdere instellingen beheerd, waaronder instellingen die worden beheerd door bestaande, aan extensies gerelateerde beleidsregels. Dit beleid overschrijft alle oudere beleidsregels als beide zijn ingesteld.
+
+          Dit beleid wijst een extensie-ID of update-URL toe aan de configuratie. Bij een extensie-ID wordt de configuratie uitsluitend op de opgegeven extensie toegepast. Er kan een standaardconfiguratie worden ingesteld voor de speciale ID <ph name="DEFAULT_SCOPE" />. Deze wordt vervolgens toegepast op alle extensies waarvoor geen aangepaste configuratie is ingesteld in dit beleid. Bij een update-URL wordt de configuratie toegepast op alle extensies met de exacte update-URL die wordt vermeld in het manifest van deze extensie, zoals beschreven in <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          De configuratie voor elke extensie (of extensies met dezelfde update-URL) is een woordenboek dat de onderstaande velden kan bevatten.
+
+          <ph name="INSTALLATION_MODE" />: Is toegewezen aan een tekenreeks die de installatiemodus voor de extensie aangeeft. De geldige tekenreeksen zijn:
+          * <ph name="ALLOWED" />: Staat toe dat de extensie wordt geïnstalleerd door de gebruiker. Dit is het standaardgedrag.
+          * <ph name="BLOCKED" />: Blokkeert de installatie van de extensie.
+          * <ph name="FORCE_INSTALLED" />: De extensie wordt automatisch geïnstalleerd en kan niet worden verwijderd door de gebruiker.
+          * <ph name="NORMAL_INSTALLED" />: De extensie wordt automatisch geïnstalleerd, maar kan worden uitgeschakeld door de gebruiker.
+
+          De <ph name="INSTALLTION_MODE" /> kan ook worden geconfigureerd voor meerdere extensies, waaronder de extensie <ph name="DEFAULT_SCOPE" /> (als standaardinstellingen) en extensies met dezelfde update-URL. Alleen de waarden <ph name="ALLOWED" /> en <ph name="BLOCKED" /> kunnen in dit geval worden gebruikt.
+
+          Als de modus is ingesteld op <ph name="FORCE_INSTALLED" /> of <ph name="NORMAL_INSTALLED" />, moet er ook een <ph name="UPDATE_URL" /> worden geconfigureerd. Houd er rekening mee dat de in dit beleid ingestelde update-URL alleen wordt gebruikt voor de eerste installatie. Daaropvolgende updates van de extensie gebruiken de update-URL die in het manifest van de extensie is opgenomen. De update-URL moet naar een XML-document met een updatemanifest verwijzen, zoals hierboven genoemd.
+
+          <ph name="BLOCKED_PERMISSIONS" />: Is toegewezen aan een lijst met tekenreeksen die de geblokkeerde API-machtigingen voor de extensie aangeven. De namen van de machtigingen zijn hetzelfde als de tekenreeksen voor machtigingen die zijn opgenomen in het manifest van de extensie, zoals beschreven in <ph name="LINK_TO_EXTENSION_DOC3" />. Deze instelling kan ook worden geconfigureerd voor de extensie <ph name="DEFAULT_SCOPE" />. Als de extensie een machtiging nodig heeft die op de blokkeerlijst staat, kan deze niet worden geladen. Als de extensie een geblokkeerde machtiging bevat als optionele vereiste, wordt deze als gebruikelijk behandeld, maar wordt het aanvragen van conflicterende machtigingen automatisch afgewezen tijdens de uitvoering.
+
+          <ph name="ALLOWED_PERMISSIONS" />: Vergelijkbaar met <ph name="BLOCKED_PERMISSIONS" />, maar in dit geval worden sommige machtigingen expliciet toegestaan die wellicht zijn geblokkeerd via lijsten met globaal geblokkeerde machtigingen. Deze instelling kan daarom niet worden geconfigureerd voor de extensie <ph name="DEFAULT_SCOPE" />. Houd er rekening mee dat deze instelling niet automatisch verleende machtigingen aan extensies geeft.
+
+          <ph name="MINIMUM_VERSION_REQUIRED" />: Is toegewezen aan een versietekenreeks. De indeling van de versietekenreeks is hetzelfde als de indeling in het manifest van de extensie, zoals beschreven in <ph name="LINK_TO_EXTENSION_DOC4" />. Een extensie met een versie ouder dan de opgegeven minimum versie wordt uitgeschakeld. Dit is ook van toepassing op automatisch geïnstalleerde extensies.
+
+          De volgende instellingen kunnen alleen worden gebruikt voor de standaardconfiguratie <ph name="DEFAULT_SCOPE" />:
+
+          <ph name="INSTALL_SOURCES" />: Elk item in deze lijst is een overeenkomstpatroon voor een extensie (<ph name="LINK_TO_MATCH_PATTERNS" />). Gebruikers kunnen gemakkelijk items installeren vanaf elke URL die overeenkomt met een item in deze lijst. De locatie van het <ph name="EXTENSION_SUFFIX_WILDCARD" />-bestand en de pagina waar de download wordt gestart (dat wil zeggen, de verwijzing), moeten beide zijn toegestaan op basis van deze patronen.
+
+          <ph name="ALLOWED_TYPES" />: Met deze instelling worden de toegestane typen extensies/apps die in <ph name="PRODUCT_NAME" /> kunnen worden geïnstalleerd, op een witte lijst gezet. De waarde is een lijst met tekenreeksen waarbij elke tekenreeks een van de volgende moet zijn: <ph name="VALID_ALLOWED_TYPES" />. Raadpleeg de documentatie over <ph name="PRODUCT_NAME" />-extensies voor meer informatie over deze typen.
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: Als een gebruiker probeert een extensie te installeren, maar deze wordt geblokkeerd door beleid, geeft de Chrome Web Store een algemene foutmelding weer. Met deze instelling kun je tekst toevoegen aan de foutmelding. Deze tekst kan bijvoorbeeld worden gebruikt om gebruikers naar je helpdesk te brengen of uit te leggen waarom een bepaalde extensie wordt geblokkeerd. De foutmelding wordt afgekapt als deze meer dan 1000 tekens bevat.
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: Accepteert een lijst met hosts waarmee een extensie geen interactie mag hebben. Dit omvat het invoegen van JavaScript, het aanpassen en bekijken van webRequests/webNavigation en het bekijken en aanpassen van cookies. De indeling is vergelijkbaar met overeenkomstpatronen <ph name="LINK_TO_MATCH_PATTERNS" />, behalve dat er geen paden kunnen worden gedefinieerd (zoals "*://*.example.com"). Dit biedt ook ondersteuning voor effectieve TLD-jokertekens ("*://example.*").
+          <ph name="RUNTIME_ALLOWED_HOSTS" />: Accepteert een lijst met hosts waarmee een extensie interactie mag hebben, ongeacht of ze worden vermeld in <ph name="RUNTIME_BLOCKED_HOSTS" />. Dit is dezelfde indeling als <ph name="RUNTIME_BLOCKED_HOSTS" />.
+          </translation>
 <translation id="787125417158068494">Als dit is ingesteld op SyncDisabled of niet is geconfigureerd, zijn certificaten van <ph name="PRODUCT_OS_NAME" /> niet beschikbaar voor ARC-apps.
 
       Als dit is ingesteld op CopyCaCerts, zijn alle door ONC geïnstalleerde CA-certificaten met <ph name="WEB_TRUSTED_BIT" /> beschikbaar voor ARC-apps.</translation>
@@ -2210,6 +2254,7 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
           Als deze instelling is ingesteld op 'niet waar', gebruikt het apparaat geen externe verificatie om content te beveiligen en kan het apparaat beveiligde content mogelijk niet afspelen.
 
           Als deze instelling is ingesteld op 'waar' of als deze niet is geconfigureerd, kan externe verificatie worden gebruikt voor het beveiligen van content.</translation>
+<translation id="8650974590712548439">Locatie van Windows-register voor Windows-clients:</translation>
 <translation id="8654286232573430130">Hiermee wordt gespecificeerd welke servers op de witte lijst voor geïntegreerde verificatie moeten worden geplaatst. Geïntegreerde verificatie wordt alleen ingeschakeld wanneer <ph name="PRODUCT_NAME" /> een verificatieverzoek ontvangt van een proxy of van een server die op deze toegestane lijst staat.
 
           Scheid meerdere servernamen van elkaar met komma's. Jokertekens (*) zijn toegestaan.

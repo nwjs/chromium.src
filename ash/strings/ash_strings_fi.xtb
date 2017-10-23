@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Suuri kontrasti -tila</translation>
 <translation id="2597972630681408282">Yövalo: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Lähetä</translation>
+<translation id="2675319268637823299">Järjestelmänvalvojan kiellon vuoksi <ph name="USER_EMAIL" /> ei voi käyttää usealle tilille kirjautumista.
+    Kaikkien käyttäjien on kirjauduttava ulos ennen jatkamista.</translation>
 <translation id="2700058918926273959">Istunnon loppumiseen on <ph name="SESSION_TIME_REMAINING" />. Sinut kirjataan ulos.</translation>
 <translation id="2727977024730340865">Pienitehoinen laturi kytketty. Akku ei ehkä lataudu luotettavasti.</translation>
 <translation id="2761704814324807722">Tila-alue, aika <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">Näppäimistön peitto</translation>
 <translation id="639644700271529076">CAPS LOCK on pois päältä</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Valmis</translation>
 <translation id="6452181791372256707">Hylkää</translation>
 <translation id="6453179446719226835">Kieli muutettu</translation>
 <translation id="6459472438155181876">Ruutua laajennetaan: <ph name="DISPLAY_NAME" /></translation>
@@ -297,6 +300,7 @@ Myöhemmät ilmoitukset, ikkunat ja valintaikkunat voidaan jakaa työpöytien v�
 <translation id="8825534185036233643">Peilaamista yli kahdelle näytölle ei tueta.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Haku+Esc</translation>
+<translation id="8870509716567206129">Sovellus ei tue jaetun näytön tilaa.</translation>
 <translation id="8878886163241303700">Laajennettu näyttö</translation>
 <translation id="8921624153894383499">Google Assistant ei ole käytettävissä tällä kielellä.</translation>
 <translation id="8938800817013097409">C-tyypin USB-laite (oikeanpuoleinen takaportti)</translation>

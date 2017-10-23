@@ -1382,7 +1382,7 @@ Wenn diese Einstellung deaktiviert oder nicht konfiguriert ist, wird kein Proxy 
                   "type": "string"
                 },
                 "installType": {
-                  "description": "Gibt an, wie eine App installiert wird. OPTIONAL: Die App wird nicht automatisch installiert, der Nutzer kann sie jedoch installieren. Dies ist die Standardeinstellung, falls diese Richtlinie nicht konfiguriert wurde. PRELOAD: Die App wird automatisch installiert, aber der Nutzer kann sie deinstallieren. FORCE_INSTALLED: Die App wird automatisch installiert und der Nutzer kann sie nicht deinstallieren. BLOCKED: Die App wird blockiert und kann nicht deinstalliert werden. Wenn die App im Rahmen einer vorherigen Richtlinie installiert wurde, wird sie deinstalliert.",
+                  "description": "Gibt an, wie eine App installiert wird. OPTIONAL: Die App wird nicht automatisch installiert, der Nutzer kann sie jedoch installieren. Dies ist die Standardeinstellung, falls diese Richtlinie nicht konfiguriert wurde. PRELOAD: Die App wird automatisch installiert, aber der Nutzer kann sie deinstallieren. FORCE_INSTALLED: Die App wird automatisch installiert und der Nutzer kann sie nicht deinstallieren. BLOCKED: Die App wird blockiert und kann nicht installiert werden. Wenn die App im Rahmen einer vorherigen Richtlinie installiert wurde, wird sie deinstalliert.",
                   "type": "string",
                   "enum": [
                     "OPTIONAL",
@@ -1392,7 +1392,7 @@ Wenn diese Einstellung deaktiviert oder nicht konfiguriert ist, wird kein Proxy 
                   ]
                 },
                 "defaultPermissionPolicy": {
-                  "description": "Richtlinie bezüglich der Erlaubnis für Berechtigungsanfragen an Apps. PERMISSION_POLICY_UNSPECIFIED: Die Richtlinie ist nicht konfiguriert. Wenn keine Richtlinie für Berechtigungen auf allen Ebenen konfiguriert wird, wird das Verhalten 'PROMPT' standardmäßig verwendet. PROMPT: Fordern Sie den Nutzer dazu auf, eine Erlaubnis zu erteilen. GRANT: Eine Erlaubnis wird automatisch erteilt. DENY: Eine Erlaubnis wird automatisch abgelehnt.",
+                  "description": "Richtlinie bezüglich der Erlaubnis für Berechtigungsanfragen an Apps. PERMISSION_POLICY_UNSPECIFIED: Die Richtlinie ist nicht konfiguriert. Wenn keine Richtlinie für Berechtigungen auf allen Ebenen konfiguriert wird, wird das Verhalten 'PROMPT' standardmäßig verwendet. PROMPT: Der Nutzer wird aufgefordert, eine Erlaubnis zu erteilen. GRANT: Eine Erlaubnis wird automatisch erteilt. DENY: Eine Erlaubnis wird automatisch abgelehnt.",
                   "type": "string",
                   "enum": [
                     "PERMISSION_POLICY_UNSPECIFIED",

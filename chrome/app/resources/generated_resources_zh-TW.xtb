@@ -3183,7 +3183,7 @@
 <translation id="5972708806901999743">移至頂端</translation>
 <translation id="5972826969634861500">啟動 <ph name="PRODUCT_NAME" /></translation>
 <translation id="5975083100439434680">縮小</translation>
-<translation id="5975730206036440725">找不到 PPD，請確認 Chromebook 已連線至網路，然後再試一次。</translation>
+<translation id="5975730206036440725">找不到 PPD，請確認 Chromebook 已連上網路，然後再試一次。</translation>
 <translation id="5975792506968920132">電池充電百分比</translation>
 <translation id="5976160379964388480">其他</translation>
 <translation id="5978264784700053212">訊息中心</translation>
@@ -4017,7 +4017,7 @@
 <translation id="729761647156315797">選擇語言和鍵盤</translation>
 <translation id="7299337219131431707">啟用訪客瀏覽</translation>
 <translation id="730515362922783851">與區域網路或網際網路中的任何裝置交換資料</translation>
-<translation id="7308002049209013926">使用啟動器快速存取新的應用程式和活動。如要使用鍵盤前往啟動器，請按下 Alt + Shift + L 鍵。</translation>
+<translation id="7308002049209013926">使用啟動器快速存取新的應用程式和活動。如要使用鍵盤開啟這個畫面，請按下 Alt + Shift + L 鍵。</translation>
 <translation id="7309257895202129721">顯示控制介面(&amp;C)</translation>
 <translation id="7311079019872751559">無沙箱防護的外掛程式存取行為</translation>
 <translation id="7311891583377621132">請稍微移動手指，讓系統擷取完整指紋</translation>
@@ -4527,7 +4527,7 @@
 <translation id="8116190140324504026">更多資訊...</translation>
 <translation id="8116925261070264013">已設為靜音</translation>
 <translation id="8116972784401310538">書籤管理員(&amp;B)</translation>
-<translation id="8117620576188476503">透過狀態匣管理連線、更新和設定。如要使用鍵盤前往狀態匣，請按下 Alt + Shift + S 鍵。</translation>
+<translation id="8117620576188476503">透過狀態匣管理連線、更新和設定。如要使用鍵盤開啟這個畫面，請按下 Alt + Shift + S 鍵。</translation>
 <translation id="8118362518458010043">這個擴充功能可能不安全，因此遭到 Chrome 停用。</translation>
 <translation id="8118860139461251237">管理下載內容</translation>
 <translation id="81238879832906896">黃色和白色花朵</translation>

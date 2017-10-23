@@ -77,6 +77,7 @@
 <translation id="1549470594296187301">JavaScript must be enabled to use this feature.</translation>
 <translation id="1559528461873125649">No such file or directory</translation>
 <translation id="1583429793053364125">Something went wrong while displaying this web page.</translation>
+<translation id="1590457302292452960">Generate a strong password…</translation>
 <translation id="1592005682883173041">Local Data Access</translation>
 <translation id="1594030484168838125">Choose</translation>
 <translation id="1620510694547887537">Camera</translation>
@@ -119,12 +120,14 @@
 <translation id="1842969606798536927">Pay</translation>
 <translation id="1871208020102129563">Proxy is set to use fixed proxy servers, not a .pac script URL.</translation>
 <translation id="1871284979644508959">Required field</translation>
+<translation id="1874765382782611674">Accepted Debit Cards</translation>
 <translation id="187918866476621466">Open startup pages</translation>
 <translation id="1883255238294161206">Collapse list</translation>
 <translation id="1898423065542865115">Filtering</translation>
 <translation id="1916770123977586577">To apply your updated settings to this site, reload this page</translation>
 <translation id="1919345977826869612">Ads</translation>
 <translation id="192020519938775529">{COUNT,plural, =0{None}=1{1 site}other{# sites}}</translation>
+<translation id="1927235823738766038">Accepted Credit and Debit Cards</translation>
 <translation id="194030505837763158">Go to <ph name="LINK" /></translation>
 <translation id="1948773908305951926">Accepted prepaid cards</translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> Bookmarks</translation>
@@ -158,6 +161,7 @@
 <translation id="2166049586286450108">Full Admin Access</translation>
 <translation id="2166378884831602661">This site can’t provide a secure connection</translation>
 <translation id="2181821976797666341">Policies</translation>
+<translation id="2183608646556468874">Phone Number</translation>
 <translation id="2184405333245229118">{COUNT,plural, =1{1 address}other{# addresses}}</translation>
 <translation id="2187317261103489799">Detect (default)</translation>
 <translation id="2202020181578195191">Enter a valid expiry year</translation>
@@ -220,6 +224,7 @@
 <translation id="2670429602441959756">This page contains features not yet supported in VR. Exiting...</translation>
 <translation id="2674170444375937751">Are you sure that you want to delete these pages from your history?</translation>
 <translation id="2677748264148917807">Leave</translation>
+<translation id="2699302886720511147">Accepted Cards</translation>
 <translation id="2702801445560668637">Reading List</translation>
 <translation id="2704283930420550640">Value doesn't match format.</translation>
 <translation id="2704951214193499422">Chromium was unable to confirm your card at this time. Please try again later.</translation>
@@ -296,6 +301,7 @@
       <ph name="PLATFORM_TEXT" /></translation>
 <translation id="320323717674993345">Cancel payment</translation>
 <translation id="3207960819495026254">Bookmarked</translation>
+<translation id="3209375525920864198">Please enter a valid session name.</translation>
 <translation id="3211223744486044430">To pay faster next time, save this card to your Google Account and to this device.</translation>
 <translation id="3225919329040284222">The server presented a certificate that doesn't match built-in expectations. These expectations are included for certain, high-security websites in order to protect you.</translation>
 <translation id="3226128629678568754">Press the reload button to resubmit the data needed to load the page.</translation>
@@ -338,6 +344,7 @@
 <translation id="3431636764301398940">Save this card to this device</translation>
 <translation id="3435896845095436175">Enable</translation>
 <translation id="3447661539832366887">The owner of this device turned off the dinosaur game.</translation>
+<translation id="3447884698081792621">Show certificate (issued by <ph name="ISSUER" />)</translation>
 <translation id="3452404311384756672">Fetch interval:</translation>
 <translation id="3462200631372590220">Hide advanced</translation>
 <translation id="3467763166455606212">Cardholder name required</translation>
@@ -455,6 +462,7 @@
 <translation id="4325863107915753736">Failed to find article</translation>
 <translation id="4326324639298822553">Check your expiry date and try again</translation>
 <translation id="4331708818696583467">Not Secure</translation>
+<translation id="4346197816712207223">Accepted Credit Cards</translation>
 <translation id="4356973930735388585">Attackers on this site might attempt to install dangerous programs on your computer that steal or delete your information (for example, photos, passwords, messages and credit cards).</translation>
 <translation id="4372948949327679948">Expected <ph name="VALUE_TYPE" /> value.</translation>
 <translation id="4377125064752653719">You attempted to reach <ph name="DOMAIN" />, but the certificate that the server presented has been revoked by its issuer. This means that the security credentials the server presented absolutely should not be trusted. You may be communicating with an attacker.</translation>
@@ -499,6 +507,7 @@
 <translation id="4759118997339041434">Payment autofilling disabled</translation>
 <translation id="4764776831041365478">The web page at <ph name="URL" /> might be temporarily down or it may have moved permanently to a new web address.</translation>
 <translation id="4771973620359291008">An unknown error has occurred.</translation>
+<translation id="4792143361752574037">There was a problem accessing the session files. Saving to disk is currently disabled. Please reload the page to try again.</translation>
 <translation id="4800132727771399293">Check your expiration date and CVC and try again</translation>
 <translation id="4803924862070940586"><ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
 <translation id="4807049035289105102">You cannot visit <ph name="SITE" /> at the moment because the website sent scrambled credentials that Google Chrome cannot process. Network errors and attacks are usually temporary, so this page will probably work later.</translation>
@@ -565,6 +574,7 @@
     <ph name="LIST_ITEM" />Click <ph name="BEGIN_BOLD" />Apply<ph name="END_BOLD" />, then click <ph name="BEGIN_BOLD" />OK<ph name="END_BOLD" />
     <ph name="LIST_ITEM" />Visit the <ph name="BEGIN_LEARN_MORE_LINK" />Chrome help centre<ph name="END_LEARN_MORE_LINK" /> to learn how to permanently remove the software from your computer
     <ph name="END_LIST" /></translation>
+<translation id="5285570108065881030">Show all saved passwords</translation>
 <translation id="5299298092464848405">Error parsing policy</translation>
 <translation id="5308380583665731573">Connect</translation>
 <translation id="5308689395849655368">Crash reporting is disabled.</translation>
@@ -739,6 +749,7 @@
 <translation id="6753269504797312559">Policy Value</translation>
 <translation id="6757797048963528358">Your device went to sleep.</translation>
 <translation id="6778737459546443941">Your parent hasn't approved it yet</translation>
+<translation id="681021252041861472">Required Field</translation>
 <translation id="6810899417690483278">Customisation ID</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6824266427216888781">Failed loading regions data</translation>
@@ -788,6 +799,7 @@
 <translation id="724691107663265825">The site ahead contains malware</translation>
 <translation id="724975217298816891">Enter the expiry date and CVC for <ph name="CREDIT_CARD" /> to update your card details. Once you've confirmed, your card details will be shared with this site.</translation>
 <translation id="7260504762447901703">Revoke access</translation>
+<translation id="7271803869921933038">Accepted Prepaid Cards</translation>
 <translation id="7275334191706090484">Managed Bookmarks</translation>
 <translation id="7298195798382681320">Recommended</translation>
 <translation id="7309308571273880165">Crash report captured on <ph name="CRASH_TIME" /> (upload requested by user, not yet uploaded)</translation>
@@ -874,12 +886,14 @@
 <translation id="7812922009395017822">Mir</translation>
 <translation id="7813600968533626083">Remove form suggestion from Chrome?</translation>
 <translation id="7815407501681723534">Found <ph name="NUMBER_OF_RESULTS" /> <ph name="SEARCH_RESULTS" /> for '<ph name="SEARCH_STRING" />'</translation>
+<translation id="7818867226424560206">Policy management</translation>
 <translation id="782886543891417279">The Wi-Fi that you are using (<ph name="WIFI_NAME" />) may require you to visit its login page.</translation>
 <translation id="785549533363645510">However, you aren’t invisible. Going incognito doesn’t hide your browsing from your employer, your Internet service provider or the websites that you visit.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
 <translation id="7878176543348854470">Debit and prepaid cards are accepted.</translation>
 <translation id="7878562273885520351">Your password may be compromised</translation>
 <translation id="7887683347370398519">Check your CVC and try again</translation>
+<translation id="7893255318348328562">Session name</translation>
 <translation id="79338296614623784">Enter a valid phone number</translation>
 <translation id="7935318582918952113">DOM Distiller</translation>
 <translation id="7938958445268990899">Server's certificate is not yet valid.</translation>
@@ -922,12 +936,14 @@
 <translation id="8253091569723639551">Billing address required</translation>
 <translation id="8261506727792406068">Delete</translation>
 <translation id="8267698848189296333">Signing in as <ph name="USERNAME" /></translation>
+<translation id="8288807391153049143">Show certificate</translation>
 <translation id="8289355894181816810">Contact your network administrator if you're not sure what this means.</translation>
 <translation id="8293206222192510085">Add Bookmark</translation>
 <translation id="8294431847097064396">Source</translation>
 <translation id="8298115750975731693">The Wi-Fi that you are using (<ph name="WIFI_NAME" />) may require you to visit <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
 <translation id="8306404619377842860">A private connection to <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> can't be established because your device's date and time (<ph name="DATE_AND_TIME" />) are incorrect. <ph name="BEGIN_LEARN_MORE_LINK" />Learn more<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="8308427013383895095">The translation failed because of a problem with the network connection.</translation>
+<translation id="8311129316111205805">Load session</translation>
 <translation id="8332188693563227489">Access to <ph name="HOST_NAME" /> was denied</translation>
 <translation id="834457929814110454">If you understand the risks to your security, you may <ph name="BEGIN_LINK" />visit this site<ph name="END_LINK" /> before the harmful programs have been removed.</translation>
 <translation id="8349305172487531364">Bookmarks bar</translation>
@@ -955,6 +971,7 @@
 <translation id="858637041960032120">Add phone no.</translation>
 <translation id="859285277496340001">The certificate does not specify a mechanism to check whether it has been revoked.</translation>
 <translation id="8620436878122366504">Your parents haven't approved it yet</translation>
+<translation id="8625384913736129811">Save This Card to This Device</translation>
 <translation id="8647750283161643317">Reset all to default</translation>
 <translation id="8660471606262461360">From Google Payments</translation>
 <translation id="8688672835843460752">Available</translation>
@@ -965,6 +982,7 @@
 <translation id="8730621377337864115">Done</translation>
 <translation id="8738058698779197622">To establish a secure connection, your clock needs to be set correctly. This is because the certificates that websites use to identify themselves are only valid for specific periods of time. Since your device's clock is incorrect, Chromium cannot verify these certificates.</translation>
 <translation id="8740359287975076522"><ph name="HOST_NAME" />’s &lt;abbr id="dnsDefinition"&gt;DNS address&lt;/abbr&gt; could not be found. Diagnosing the problem.</translation>
+<translation id="874846938927089722">Accepted Credit and Prepaid Cards</translation>
 <translation id="8759274551635299824">This card has expired</translation>
 <translation id="8761567432415473239">Google Safe Browsing recently <ph name="BEGIN_LINK" />found harmful programs<ph name="END_LINK" /> on <ph name="SITE" />.</translation>
 <translation id="8790007591277257123">&amp;Redo delete</translation>
@@ -1027,6 +1045,7 @@
 <translation id="933712198907837967">Diners Club</translation>
 <translation id="935608979562296692">CLEAR FORM</translation>
 <translation id="939736085109172342">New folder</translation>
+<translation id="951104842009476243">Accepted Debit and Prepaid Cards</translation>
 <translation id="969892804517981540">Official Build</translation>
 <translation id="975560348586398090">{COUNT,plural, =0{None}=1{1 item}other{# items}}</translation>
 <translation id="981121421437150478">Offline</translation>

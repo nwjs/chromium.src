@@ -1158,7 +1158,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
           El valor debe ser un conjunto de diccionarios JSON de tipo Stringify. Cada diccionario debe tener la forma { "pattern": "$URL_PATTERN", "filter" : $FILTER }, donde $URL_PATTERN es un patrón de configuración de contenido. $FILTER limita desde qué certificados de cliente podrá seleccionar el navegador automáticamente. Independientemente del filtro, solo se seleccionarán certificados que coincidan con la solicitud de certificado del servidor. Además, si $FILTER tiene la forma { "ISSUER": { "CN": "$ISSUER_CN" } }, solo se seleccionarán certificados de cliente emitidos por un certificado con el valor $ISSUER_CN para CommonName. Si $FILTER es el diccionario vacío {}, no se limitará de forma adicional la selección de los certificados de cliente.
 
           Si esta política no se configura, no se aplicará la selección automática en ningún sitio web.</translation>
-<translation id="4978405676361550165">Si se establece la política OffHours, se ignorarán las políticas de dispositivos especificadas (se utiliza la configuración predeterminada de estas políticas) durante los intervalos de tiempo establecidos. Chrome vuelve a aplicar las políticas de dispositivos en cada evento cuando se inicia o finaliza el periodo de OffHours. El usuario recibirá una notificación y tendrá que cerrar sesión cuando finalice OffHours y se modifique la configuración de la política de dispositivos (es decir, cuando el usuario no haya iniciado sesión con una cuenta permitida).</translation>
+<translation id="4978405676361550165">Si se establece la política "OffHours", se ignorarán las políticas de dispositivos especificadas (se utiliza la configuración predeterminada de estas políticas) durante los intervalos de tiempo establecidos. Chrome vuelve a aplicar las políticas de dispositivos cada vez que se inicia o finaliza el periodo de "OffHours". El usuario recibirá una notificación y tendrá que cerrar sesión cuando se modifique la configuración de la política de dispositivos y la hora de finalización de "OffHours" (por ejemplo, cuando el usuario no haya iniciado sesión con una cuenta permitida).</translation>
 <translation id="4980635395568992380">Tipo de datos:</translation>
 <translation id="4983201894483989687">Permitir la ejecución de complementos obsoletos</translation>
 <translation id="4988291787868618635">Acción que se realiza al alcanzar el retraso de inactividad</translation>
@@ -1450,9 +1450,9 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
 
       Si esta política no se establece o se establece en falsa, los comandos de impresión muestran la pantalla de vista previa de impresión.</translation>
 <translation id="6022948604095165524">Acción al iniciar</translation>
-<translation id="6023030044732320798">Especifica las políticas que se enviarán al tiempo en ejecución ARC. . Se debe usar un valor JSON válido.
+<translation id="6023030044732320798">Especifica las políticas que se enviarán al tiempo de ejecución ARC. Se debe usar un valor JSON válido.
 
-      Esta política se puede utilizar para configurar qué aplicaciones Android se instalan automáticamente en el dispositivo: 
+      Esta política se puede utilizar para configurar qué aplicaciones Android se instalan automáticamente en el dispositivo:
 
       {
         "type": "object",
@@ -1487,7 +1487,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
                   ]
                 },
                 "managedConfiguration": {
-                  "description": "Objeto de configuración JSON específico de la aplicación con un conjunto de pares clave/valor, p. ej., "managedConfiguration". { "key1": value1, "key2": value2 }'. Las teclas se definen en el archivo de manifiesto de la aplicación.",
+                  "description": "Objeto de configuración JSON específico de la aplicación con un conjunto de pares clave/valor, p. ej., "managedConfiguration". { "key1": value1, "key2": value2 }'. Las claves se definen en el archivo de manifiesto de la aplicación.",
                   "type": "object"
                 }
               }

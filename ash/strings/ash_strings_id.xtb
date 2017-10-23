@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Mode kontras tinggi</translation>
 <translation id="2597972630681408282">Cahaya Malam: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Kirim</translation>
+<translation id="2675319268637823299">Administrator tidak mengizinkan penggunaan login multipel untuk <ph name="USER_EMAIL" />.
+    Semua pengguna harus logout untuk melanjutkan.</translation>
 <translation id="2700058918926273959">Sesi berakhir dalam <ph name="SESSION_TIME_REMAINING" />. Anda akan keluar.</translation>
 <translation id="2727977024730340865">Dipasang ke pengisi daya rendah. Pengisian daya baterai mungkin tidak dapat diandalkan.</translation>
 <translation id="2761704814324807722">Baki status, waktu <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">Hamparan keyboard</translation>
 <translation id="639644700271529076">CAPS LOCK tidak aktif</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Selesai</translation>
 <translation id="6452181791372256707">Tolak</translation>
 <translation id="6453179446719226835">Bahasa telah diubah</translation>
 <translation id="6459472438155181876">Memperpanjang layar ke <ph name="DISPLAY_NAME" /></translation>
@@ -297,6 +300,7 @@ Notifikasi, jendela, dan dialog berikutnya dapat terpisah antar-desktop.</transl
 <translation id="8825534185036233643">Pencerminan dengan lebih dari dua layar tidak didukung.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Search+Esc</translation>
+<translation id="8870509716567206129">Aplikasi tidak mendukung layar terpisah.</translation>
 <translation id="8878886163241303700">Memperluas layar</translation>
 <translation id="8921624153894383499">Asisten Google tidak berbicara dalam bahasa ini.</translation>
 <translation id="8938800817013097409">Perangkat USB-C (port belakang sebelah kanan)</translation>

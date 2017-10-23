@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Modo de alto contraste</translation>
 <translation id="2597972630681408282">Luz noturna: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Submeter</translation>
+<translation id="2675319268637823299">Um administrador não permitiu o início de sessão integrado para <ph name="USER_EMAIL" />.
+    Todos os utilizadores têm de terminar sessão para continuar.</translation>
 <translation id="2700058918926273959">A sessão termina em <ph name="SESSION_TIME_REMAINING" />. A sua sessão será terminada.</translation>
 <translation id="2727977024730340865">Ligado a um carregador de baixo consumo. O carregamento da bateria pode não ser fiável.</translation>
 <translation id="2761704814324807722">Tabuleiro do estado, hora <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">Sobreposição de teclado</translation>
 <translation id="639644700271529076">CAPS LOCK está desativado</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Tudo concluído</translation>
 <translation id="6452181791372256707">Rejeitar</translation>
 <translation id="6453179446719226835">O idioma foi alterado</translation>
 <translation id="6459472438155181876">A prolongar ecrã para <ph name="DISPLAY_NAME" /></translation>
@@ -297,6 +300,7 @@ Utilize esta funcionalidade apenas com contas fidedignas.</translation>
 <translation id="8825534185036233643">O espelhamento com mais do que dois ecrãs não é suportado.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Pesquisa+Esc</translation>
+<translation id="8870509716567206129">A aplicação não é compatível com o ecrã dividido.</translation>
 <translation id="8878886163241303700">Ecrã alargado</translation>
 <translation id="8921624153894383499">O Assistente do Google não fala este idioma.</translation>
 <translation id="8938800817013097409">Dispositivo USB-C (porta traseira direita)</translation>

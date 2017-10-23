@@ -94,6 +94,7 @@
 <translation id="1829244130665387512">חפש בדף</translation>
 <translation id="1832521218263067499">תקריות אבטחה</translation>
 <translation id="1853692000353488670">כרטיסייה חדשה לגלישה בסתר</translation>
+<translation id="1880072593381090678">‏דפים פופולריים מ-Chrome</translation>
 <translation id="189172778771606813">סגור את חלונית ההזזה לניווט</translation>
 <translation id="1897409700584096124">האתר משדר</translation>
 <translation id="1919345977826869612">מודעות</translation>
@@ -121,6 +122,7 @@
 <translation id="2096396629993765042">‏לא תבוצע יציאה מחשבון Google שלך. ייתכן שתוכל לגשת לסוגים אחרים של היסטוריית גלישה בחשבון Google בכתובת <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />.</translation>
 <translation id="2100273922101894616">כניסה אוטומטית</translation>
 <translation id="2111511281910874386">מעבר לדף</translation>
+<translation id="2122601567107267586">לא ניתן היה לפתוח את היישום</translation>
 <translation id="2126426811489709554">‏מבוסס על Chrome</translation>
 <translation id="2131665479022868825"><ph name="DATA" /> נשמרו</translation>
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> נסגר</translation>
@@ -137,6 +139,7 @@
 <translation id="2268044343513325586">צמצם</translation>
 <translation id="2283599456633275070">נסיעות</translation>
 <translation id="2286841657746966508">כתובת לחיוב</translation>
+<translation id="2300590596239819242">הפעלה של תצוגה נקייה בכל המאמרים</translation>
 <translation id="2315043854645842844">מערכת ההפעלה אינה תומכת בבחירת אישור בצד הלקוח.</translation>
 <translation id="2321958826496381788">גרור את המחוון עד שתוכל לקרוא את הקטע הזה בצורה נוחה. לאחר שתקיש פעמיים על פיסקה, הטקסט אמור להיות מוצג בגודל הזה לפחות.</translation>
 <translation id="2323763861024343754">נתוני אתר מאוחסנים</translation>
@@ -161,6 +164,7 @@
 <translation id="2496180316473517155">היסטוריית גלישה</translation>
 <translation id="2498359688066513246">עזרה ומשוב</translation>
 <translation id="2501278716633472235">חזור</translation>
+<translation id="2503472621226270518">הרחבת חלונית הניווט</translation>
 <translation id="2512222046227390255">מילוי אוטומטי של טפסים</translation>
 <translation id="2526148617758225454">‏חוסך הנתונים (Data Saver) פועל. תוכל לנהל אותו ב'הגדרות'.</translation>
 <translation id="2532336938189706096">תצוגת אינטרנט</translation>
@@ -285,6 +289,7 @@
 <translation id="3744111309925758534">‏‎<ph name="MEGABYTES" /> MB ליישומים אחרים</translation>
 <translation id="3744111561329211289">סינכרון ברקע</translation>
 <translation id="3773755127849930740">‏<ph name="BEGIN_LINK" />הפעל את Bluetooth<ph name="END_LINK" /> כדי לאפשר התאמה</translation>
+<translation id="3778956594442850293">נוסף למסך דף הבית</translation>
 <translation id="3789841737615482174">התקן</translation>
 <translation id="3810838688059735925">וידאו</translation>
 <translation id="3810973564298564668">נהל</translation>
@@ -379,6 +384,7 @@
 <translation id="4699172675775169585">תמונות וקבצים בזכרון השמור</translation>
 <translation id="4714588616299687897">חסוך עד 60% בשימוש בנתונים</translation>
 <translation id="4720023427747327413">פתח ב-<ph name="PRODUCT_NAME" /></translation>
+<translation id="472631402238783923">‏נשמח לקבל עזרה בשיפור Chrome. <ph name="BEGIN_LINK" />למילוי הסקר<ph name="END_LINK" /></translation>
 <translation id="4730876730346568982">‏אתה עובר מחשבון סינכרון <ph name="ACCOUNT_EMAIL_OLD" /> אל חשבון סינכרון <ph name="ACCOUNT_EMAIL_NEW" />. הנתונים הקיימים שלך ב-Chrome מנוהלים על-ידי <ph name="MANAGED_DOMAIN" />. פעולה זו תמחק את הנתונים מהמכשיר הזה, אבל הם יישארו ב-<ph name="ACCOUNT_EMAIL_OLD" />.</translation>
 <translation id="473775607612524610">עדכן</translation>
 <translation id="4738836084190194332">סונכרן לאחרונה: <ph name="WHEN" /></translation>
@@ -432,6 +438,7 @@
 <translation id="5210286577605176222">חזור לכרטיסייה הקודמת</translation>
 <translation id="5210365745912300556">סגור כרטיסייה</translation>
 <translation id="5222676887888702881">יציאה</translation>
+<translation id="5224771365102442243">כולל סרטון</translation>
 <translation id="5233638681132016545">כרטיסייה חדשה</translation>
 <translation id="5271967389191913893">המכשיר לא מצליח לפתוח את התוכן להורדה.</translation>
 <translation id="528192093759286357">כדי לצאת ממסך מלא, גרור מלמעלה וגע בלחצן 'הקודם'.</translation>
@@ -547,6 +554,7 @@
 <translation id="618555311922999635">חלונית הניווט נפתחה בגובה מלא</translation>
 <translation id="6192792657125177640">יוצאי דופן</translation>
 <translation id="6210748933810148297">אינך <ph name="EMAIL" />?</translation>
+<translation id="6221892641068781024">תצוגה נקייה</translation>
 <translation id="6232535412751077445">אם תפעיל את התכונה 'אל תעקוב', בקשה זו תיכלל בתנועת הגלישה שלך. השפעת הבקשה תלויה באופן הפעולה של כל אתר - אם הוא מגיב לבקשה או לא, וכיצד הוא מפרש אותה.
 
 לדוגמה, ייתכן שבתגובה לבקשה, אתרים מסוימים יציגו מודעות שאינן מבוססות על אתרים אחרים שבהם ביקרת. אתרים רבים ימשיכו לאסוף את נתוני הגלישה שלך ולהשתמש בהם, למשל כדי לשפר את האבטחה, כדי לספק תוכן, מודעות והמלצות וכדי ליצור נתונים סטטיסטיים לדיווח.</translation>
@@ -591,6 +599,7 @@
 <translation id="6573431926118603307">‏כרטיסיות שפתחת ב-Chrome במכשירים האחרים שלך יופיעו כאן.</translation>
 <translation id="6575643671698722332">האיפוס נכשל. ודא שהמכשיר שלך במצב מקוון ונסה שוב.</translation>
 <translation id="6583199322650523874">סמן את הדף הנוכחי בסימנייה</translation>
+<translation id="6593061639179217415">אתר למחשבים</translation>
 <translation id="6600954340915313787">‏הועתק אל Chrome</translation>
 <translation id="6612358246767739896">תוכן מוגן</translation>
 <translation id="6627583120233659107">ערוך תיקיה</translation>
@@ -728,6 +737,7 @@
 <translation id="7846076177841592234">בטל את הבחירה</translation>
 <translation id="784934925303690534">טווח זמן</translation>
 <translation id="7851858861565204677">מכשירים אחרים</translation>
+<translation id="785312750761189439">אפשר לגשת בקלות אל אתרים ומאמרים פופולריים, הורדות ועוד על-ידי החלקה כלפי מעלה מתחתית המסך או הקשה על לחצן ההרחבה.</translation>
 <translation id="7875915731392087153">צור הודעת אימייל</translation>
 <translation id="7876243839304621966">הסר הכל</translation>
 <translation id="7882131421121961860">לא נמצאה היסטוריה</translation>

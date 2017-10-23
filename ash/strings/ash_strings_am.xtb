@@ -70,6 +70,7 @@
 <translation id="2532589005999780174">ባለከፍተኛ ንፅፅር ሁነታ</translation>
 <translation id="2597972630681408282">የሌሊት ብርሃን፦ <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">አስገባ</translation>
+<translation id="2675319268637823299">አንድ አስተዳዳሪ ለ<ph name="USER_EMAIL" /> በርካታ በመለያ መግባቶችን ከልክሏል። ለመቀጠል ሁሉም ተጠቃሚዎች ዘግተው መውጣት አለባቸው።</translation>
 <translation id="2700058918926273959">ክፍለ-ጊዜ በ<ph name="SESSION_TIME_REMAINING" /> ውስጥ ያበቃል። ዘግተው እንዲወጡ ይደረጋሉ።</translation>
 <translation id="2727977024730340865">አነስተኛ ኃይል ወዳለው ባትሪ መሙያ ተሰክቷል። የባትሪ መሙላት አስተማማኝ ላይሆን ይችላል።</translation>
 <translation id="2761704814324807722">የሁኔታ መሣቢያ፣ ሰዓት <ph name="TIME" />፣ <ph name="BATTERY" /></translation>
@@ -204,6 +205,7 @@
 <translation id="632744581670418035">የቁልፍ ሰሌዳ ተደራቢ</translation>
 <translation id="639644700271529076">CAPS LOCK ጠፍቷል</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">ሁሉም ተከናውኗል</translation>
 <translation id="6452181791372256707">አይቀበሉ</translation>
 <translation id="6453179446719226835">ቋንቋ ተለውጧል</translation>
 <translation id="6459472438155181876">ማያ ገጽ ወደ <ph name="DISPLAY_NAME" /> በመቀጠል ላይ</translation>
@@ -297,6 +299,7 @@
 <translation id="8825534185036233643">ከሁለት ማሳያዎች በላይ ማንጸባረቅ አይደገፍም።</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Search+Esc</translation>
+<translation id="8870509716567206129">መተግበሪያው የተከፈለ ማያ ገጽን አይደግፍም።</translation>
 <translation id="8878886163241303700">ማያ ገጽ በማስቀጠል ላይ</translation>
 <translation id="8921624153894383499">የGoogle ረዳቱ ይህን ቋንቋ አይናገርም።</translation>
 <translation id="8938800817013097409">USB-C መሣሪያ (የቀኝ ወደብ ከኋላ በኩል)</translation>

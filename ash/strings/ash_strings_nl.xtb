@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Modus voor hoog contrast</translation>
 <translation id="2597972630681408282">Nachtverlichting: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Verzenden</translation>
+<translation id="2675319268637823299">Een beheerder heeft <ph name="USER_EMAIL" /> geen toestemming gegeven voor toegang tot meerdere accounts.
+Alle gebruikers moeten uitloggen om door te gaan.</translation>
 <translation id="2700058918926273959">Sessie loopt af over <ph name="SESSION_TIME_REMAINING" />. Je wordt uitgelogd.</translation>
 <translation id="2727977024730340865">Aangesloten op een laag-vermogen-lader. Opladen van de batterij mogelijk niet betrouwbaar.</translation>
 <translation id="2761704814324807722">Statusvak, tijd <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">Overlay voor toetsenbord</translation>
 <translation id="639644700271529076">CAPS LOCK is uitgeschakeld</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Klaar</translation>
 <translation id="6452181791372256707">Weigeren</translation>
 <translation id="6453179446719226835">Taal is gewijzigd</translation>
 <translation id="6459472438155181876">Scherm uitbreiden naar <ph name="DISPLAY_NAME" /></translation>
@@ -297,6 +300,7 @@ Verdere meldingen, vensters en dialoogvensters worden mogelijk verdeeld over de 
 <translation id="8825534185036233643">Mirroring met meer dan twee displays wordt niet ondersteund.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Zoeken+Esc</translation>
+<translation id="8870509716567206129">App biedt geen ondersteuning voor gesplitst scherm.</translation>
 <translation id="8878886163241303700">Uitgebreid scherm</translation>
 <translation id="8921624153894383499">De Google Assistent spreekt deze taal niet.</translation>
 <translation id="8938800817013097409">USB-C-apparaat (poort rechts aan de achterkant)</translation>

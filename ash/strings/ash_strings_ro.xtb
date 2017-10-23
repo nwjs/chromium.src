@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Mod de contrast ridicat</translation>
 <translation id="2597972630681408282">Lumină de noapte: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Trimite</translation>
+<translation id="2675319268637823299">Un administrator a interzis conectarea multiplă pentru <ph name="USER_EMAIL" />.
+    Toți utilizatorii trebuie să se deconecteze pentru a continua.</translation>
 <translation id="2700058918926273959">Sesiunea se încheie peste <ph name="SESSION_TIME_REMAINING" />. Veți fi deconectat(ă).</translation>
 <translation id="2727977024730340865">V-ați conectat la un încărcător de putere joasă. Încărcarea bateriei poate fi nesigură.</translation>
 <translation id="2761704814324807722">Bară de stare, durată <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">Suprapunere a tastaturii</translation>
 <translation id="639644700271529076">Tasta CAPS LOCK este dezactivată</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Gata</translation>
 <translation id="6452181791372256707">Respingeți</translation>
 <translation id="6453179446719226835">Limba a fost schimbată</translation>
 <translation id="6459472438155181876">Se extinde ecranul pe <ph name="DISPLAY_NAME" /></translation>
@@ -296,6 +299,7 @@ Notificările, ferestrele și casetele de dialog ulterioare ar putea fi împăr�
 <translation id="8825534185036233643">Oglindirea cu mai mult de două afișaje nu este acceptată.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Tasta de căutare + Esc</translation>
+<translation id="8870509716567206129">Aplicația nu acceptă ecranul împărțit.</translation>
 <translation id="8878886163241303700">Ecran extins</translation>
 <translation id="8921624153894383499">Asistentul Google nu vorbește în această limbă.</translation>
 <translation id="8938800817013097409">Dispozitiv USB-C (portul din dreapta în spate)</translation>

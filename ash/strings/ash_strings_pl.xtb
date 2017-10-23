@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Tryb wysokiego kontrastu</translation>
 <translation id="2597972630681408282">Podświetlenie nocne: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Prześlij</translation>
+<translation id="2675319268637823299">Administrator nie zezwolił na wielokrotne logowanie użytkownika <ph name="USER_EMAIL" />.
+    Aby kontynuować, wszyscy użytkownicy muszą się wylogować.</translation>
 <translation id="2700058918926273959">Sesja kończy się za <ph name="SESSION_TIME_REMAINING" />. Zostaniesz wylogowany.</translation>
 <translation id="2727977024730340865">Podłączono ładowarkę o małej mocy. Ładowanie baterii może być nieprawidłowe.</translation>
 <translation id="2761704814324807722">Pasek stanu, godzina <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">Nakładka klawiatury</translation>
 <translation id="639644700271529076">CAPS LOCK jest wyłączony</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Wszystko gotowe</translation>
 <translation id="6452181791372256707">Odrzuć</translation>
 <translation id="6453179446719226835">Język został zmieniony</translation>
 <translation id="6459472438155181876">Rozszerzanie ekranu na <ph name="DISPLAY_NAME" /></translation>
@@ -297,6 +300,7 @@ Kolejne powiadomienia, okna i okna dialogowe mogą być dzielone między pulpita
 <translation id="8825534185036233643">Odbicie lustrzane na więcej niż dwóch wyświetlaczach nie jest obsługiwane.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Szukaj+Esc</translation>
+<translation id="8870509716567206129">Aplikacja nie obsługuje dzielonego ekranu.</translation>
 <translation id="8878886163241303700">Rozszerzony ekran</translation>
 <translation id="8921624153894383499">Asystent Google nie mówi w tym języku.</translation>
 <translation id="8938800817013097409">Urządzenie USB-C (prawy port z tyłu)</translation>

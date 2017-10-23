@@ -16,6 +16,13 @@
 
       Tämä käytäntö vaikuttaa vain käyttäjiin, joiden verkkotunnus vastaa verkkotunnusta, johon laite on rekisteröity. Muiden käyttäjien osalta tunnistuspalvelun asettamat evästeet siirretään käyttäjän profiiliin vain käyttäjän kirjautuessa laitteelle ensimmäisen kerran.</translation>
 <translation id="1040446814317236570">Ota PAC-URL-osoitteiden karsinta käyttöön (https://)</translation>
+<translation id="1041454584879384845">Tämä määrittää käyttäjiä kirjautumisnäytöllä esittävien avatarien toiminnan.
+
+      Voit määrittää yksittäisiä asetuksia JSON-asetusten kautta:
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Jos tämän käytännön arvo on <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, käyttäjä voi asettaa videon avatarikseen.
+
+      Jos tätä käytäntöä ei määritetä, videoita ei voi käyttää avatareina.</translation>
 <translation id="1044878202534415707">Raportoi laitteistotietoja, kuten suorittimen ja RAM-muistin käyttötietoja.
 
       Jos käytännön arvo on Epätosi, tietoja ei raportoida.
@@ -98,6 +105,7 @@
 <translation id="1435659902881071157">Laitetason verkon määritys</translation>
 <translation id="1438739959477268107">Oletusavaimen luomisasetus</translation>
 <translation id="1454846751303307294">Voit määrittää luettelon URL-malleja, joissa määritetään sivustot, jotka eivät saa suorittaa JavaScriptiä. Jos tätä käytäntöä ei ole määritetty, kaikille sivustoille käytetään joko DefaultJavaScriptSetting-käytännön yleistä oletusarvoa, jos se on asetettu, tai käyttäjän henkilökohtaisia määrityksiä.</translation>
+<translation id="1456822151187621582">Windows (käyttöjärjestelmässä <ph name="PRODUCT_OS_NAME" /> toimivat asiakkaat):</translation>
 <translation id="1464848559468748897">Hallinnoi käyttäjien toimia monen profiilin käyttökerralla tuotetta <ph name="PRODUCT_OS_NAME" /> käyttävillä laitteilla.
 
       Jos käytännön arvoksi asetetaan MultiProfileUserBehaviorUnrestricted, käyttäjä voi olla joko monen profiilin käyttökerran ensi- tai toissijainen käyttäjä.
@@ -112,7 +120,7 @@
 
       Jos käytäntöä ei määritetä, oletusarvoa MultiProfileUserBehaviorMustBePrimary käytetään yrityksen valvomille käyttäjille ja arvoa MultiProfileUserBehaviorUnrestricted käytetään valvomattomille käyttäjille.</translation>
 <translation id="1465619815762735808">Käynnistä klikkaamalla</translation>
-<translation id="1466133662354365542">Kun tämä on käytössä, <ph name="PRODUCT_NAME" /> voi täyttää kenttiä automaattisesti. Käyttäjät voivat täyttää verkkolomakkeisiin aiemmin tallennettuja tietoja, esimerkiksi luottokortti- tai osoitetietoja.
+<translation id="1466133662354365542">Kun tämä on käytössä, <ph name="PRODUCT_NAME" /> voi täyttää kenttiä automaattisesti. Käyttäjät voivat täyttää verkkolomakkeita aiemmin tallennetuilla luottokortti- tai osoitetiedoilla.
 
       Jos poistat asetuksen käytöstä, automaattinen täyttö ei ehdota luottokorttitietoja, täytä niitä tai tallenna uusia luottokorttitietoja myöhempää käyttöä varten selailun yhteydessä.
 
@@ -540,6 +548,7 @@ Kaikki luettelon kohteet ovat tunnuksia, joiden perusteella erotetaan laitteesee
       Jos asetus ei ole käytössä ja lähtevät UDP-yhteydet menevät palomuurin kautta, tämä kone hyväksyy vain paikallisessa verkossa olevien asiakaskoneiden yhteydet.
 
       Jos käytäntöä ei määritetä, asetus on käytössä.</translation>
+<translation id="2823870601012066791">Käyttöjärjestelmässä <ph name="PRODUCT_OS_NAME" /> toimivien asiakkaiden sijainti Windows-rekisterissä:</translation>
 <translation id="2824715612115726353">Ota incognito-tila käyttöön</translation>
 <translation id="2838830882081735096">Estä tietojen siirtäminen ja ARC</translation>
 <translation id="2844404652289407061">Määrittää, näyttääkö <ph name="PRODUCT_NAME" /> Koskettamalla hakemisen sisältönäkymässä.
@@ -1427,6 +1436,7 @@ Jos tämä asetus ei ole käytössä tai jos sen arvo on false, tulostuskomento 
 <translation id="6076099373507468537">Tämä käytäntö määrittää USB-laitteet, joita voidaan irrottaa kernel-ajurista ja käyttää suoraan verkkosovelluksessa chrome.usb-sovellusliittymän kautta. Kukin merkintä sisältää USB-toimittajan tunnuksen ja tuotetunnuksen, joita käytetään laitteiden tunnistamiseen.
 
       Jos tätä käytäntöä ei määritetä, irrotettavien USB-laitteiden luettelo on tyhjä.</translation>
+<translation id="6083631234867522991">Windows (Windows-asiakkaat):</translation>
 <translation id="6093156968240188330">Salli etätukea antavien etäkäyttäjien käyttää järjestelmänvalvojan oikeuksia edellyttäviä ikkunoita</translation>
 <translation id="6095999036251797924">Määrittää ajan, jonka jälkeen näyttö lukitaan verkko- tai akkuvirtaa käytettäessä, jos käyttäjä ei tee mitään.
 
@@ -1491,6 +1501,7 @@ Jos tämä asetus ei ole käytössä tai jos sen arvo on false, tulostuskomento 
 <translation id="6310223829319187614">Verkkotunnuksen automaattinen täydennys kirjautumisen yhteydessä</translation>
 <translation id="6315673513957120120">Chrome näyttää varoitussivun, jos käyttäjä avaa SSL-virheitä sisältävän sivuston. Jos käytännön arvo on Tosi, käyttäjä voi ohittaa varoitussivun. Tämä on myös oletusarvo.
       Käytännön arvo Epätosi estää varoitussivujen ohittamisen.</translation>
+<translation id="6320758134170712450">Määritä käyttäjien avatarien toiminta</translation>
 <translation id="6353901068939575220">Määrittää parametrit, joita käytetään tehtäessä URL-osoitteiden hakuja POST-metodin avulla. Se koostuu pilkuilla erotetuista nimi/arvo-pareista. Jos arvo on malliparametri kuten yllä olevan esimerkin {searchTerms}, se korvataan oikeilla hakusanatiedoilla.
 
           Tämä käytäntö on valinnainen. Jos sitä ei ole määritetty, hakupyyntö lähetetään GET-metodin avulla.
@@ -1895,6 +1906,39 @@ Jos tätä käytäntöä ei ole määritetty, käytetään oletusarvoa (32).</tr
 <translation id="7841880500990419427">TLS:n käytettävä vähimmäisversio</translation>
 <translation id="7842869978353666042">Määritä Google Driven asetukset</translation>
 <translation id="7843525027689416831">Määrittää merkinnät, joita käytetään sovelluksessa <ph name="PRODUCT_NAME" /> sen käynnistyksen yhteydessä. Määritettyjä merkintöjä käytetään vain kirjautumisnäytöllä. Tämän käytännön kautta määritettyjä merkintöjä ei oteta yleisesti käyttöön käyttäjäistunnoissa.</translation>
+<translation id="7844537954833753199">Tämä määrittää laajennusten hallinta-asetuksia, joita <ph name="PRODUCT_NAME" /> käyttää.
+
+          Tämä käytäntö hallitsee useita asetuksia, mukaan lukien nykyisten laajennuksiin liittyvien käytäntöjen hallitsemia asetuksia. Tämä käytäntö ohittaa mahdolliset aiemmin määritetyt käytännöt.
+
+          Tämä käytäntö yhdistää määritykseen laajennustunnuksen tai päivitys-URL-osoitteen. Laajennustunnuksen avulla määritys kohdistetaan vain tiettyyn laajennukseen. Erikoistunnus <ph name="DEFAULT_SCOPE" /> voi käyttää oletusmääritystä, ja kyseinen tunnus yhdistetään kaikkiin laajennuksiin, joille ei aseteta tässä käytännössä muokattua määritystä. Päivitys-URL-osoitteen avulla määritys kohdistetaan kaikkiin laajennuksiin, joiden päivitys-URL-osoite vastaa tarkasti tämän laajennuksen teknisissä tiedoissa olevaa osoitetta. Tarkempi kuvaus on luettavissa täällä: <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          Kunkin laajennuksen (tai samaa päivitys-URL-osoitetta käyttävien laajennusten) määritys on erillinen tietohakemisto, joka voi sisältää alla luetellut kentät.
+
+          <ph name="INSTALLATION_MODE" />: Tämä yhdistetään merkkijonoon, joka kertoo laajennuksen asennustilan. Kelvollisia merkkijonoja ovat:
+          * <ph name="ALLOWED" />: Tämä antaa käyttäjälle oikeuden laajennuksen asentamiseen. Tätä valintaa käytetään oletuksena.
+          * <ph name="BLOCKED" />: Tämä estää laajennuksen asentamisen.
+          * <ph name="FORCE_INSTALLED" />: Laajennus asennetaan automaattisesti, eikä käyttäjä voi poistaa sitä.
+          * <ph name="NORMAL_INSTALLED" />: Laajennus asennetaan automaattisesti, mutta käyttäjä voi poistaa sen käytöstä.
+
+          <ph name="INSTALLTION_MODE" /> on määritettävissä myös useita laajennuksia varten, jolloin sitä voivat käyttää <ph name="DEFAULT_SCOPE" /> (oletusasetuksina) ja samaa päivitys-URL-osoitetta käyttävät laajennukset. Tällöin <ph name="ALLOWED" /> ja <ph name="BLOCKED" /> ovat ainoat kelvolliset arvot.
+
+          Jos tila on <ph name="FORCE_INSTALLED" /> tai <ph name="NORMAL_INSTALLED" />, myös <ph name="UPDATE_URL" /> täytyy määrittää. Huomaa, että tässä käytännössä asetettua päivitys-URL-osoitetta käytetään vain ensimmäisellä asennuskerralla, ja laajennuksen myöhemmillä päivityskerroilla käytetään laajennuksen teknisissä tiedoissa olevaa päivitys-URL-osoitetta. Kuten yllä todetaan, päivitys-URL-osoitteen tulee johtaa tekniset päivitystiedot sisältävään XML-tiedostoon (Update Manifest XML).
+
+          <ph name="BLOCKED_PERMISSIONS" />: Tämä yhdistetään merkkijonoluetteloon, joka sisältää laajennukselta estetyt API-käyttöoikeudet. Käyttöoikeuksien nimet vastaavat laajennuksen teknisissä tiedoissa olevia käyttöoikeusmerkkijonoja, mistä on saatavilla lisätietoja täällä: <ph name="LINK_TO_EXTENSION_DOC3" />. Tämä asetus on määritettävissä myös laajennusta <ph name="DEFAULT_SCOPE" /> varten. Jos laajennus tarvitsee estoluettelossa olevaa käyttöoikeutta, laajennuksen latautuminen estetään. Jos laajennus tarvitsee estettyä käyttöoikeutta vain valinnaisesti, se käsitellään tavalliseen tapaan, mutta ristiriitaiset käyttöoikeuspyynnöt hylätään automaattisesti laajennuksen suorituksen aikana.
+
+          <ph name="ALLOWED_PERMISSIONS" />: Tämä toimii samaan tapaan kuin <ph name="BLOCKED_PERMISSIONS" />, mutta se nimenomaisesti sallii joitakin käyttöoikeuksia, joiden käyttö voi olla estetty yleisen estoluettelon mukaan. Tällöin käyttöoikeuksia ei voida määrittää laajennusta <ph name="DEFAULT_SCOPE" /> varten. Huomaa, että tämä asetus ei myönnä hyväksyttyjä käyttöoikeuksia laajennuksille automaattisesti.
+
+          <ph name="MINIMUM_VERSION_REQUIRED" />: Tämä yhdistetään versiomerkkijonoon. Versiomerkkijono on samassa muodossa kuin laajennuksen teknisissä tiedoissa oleva merkkijono, mistä on saatavilla lisätietoja täällä: <ph name="LINK_TO_EXTENSION_DOC4" />. Laajennus poistetaan käytöstä, jos sen versio on määritettyä vähimmäisversiota vanhempi. Tämä koskee myös automaattisesti asennettavia laajennuksia, joita käyttäjät eivät voi poistaa käytöstä.
+
+          Seuraavat asetukset ovat käytettävissä vain, kun käytössä on <ph name="DEFAULT_SCOPE" /> ja se on määritetty oletusasetuksiin:
+
+          <ph name="INSTALL_SOURCES" />: Kukin tämän luettelon kohde on laajennuksen kaltainen vastaavuusmalli (<ph name="LINK_TO_MATCH_PATTERNS" />). Käyttäjät voivat helposti asentaa kohteita URL-osoitteista, jotka vastaavat tässä luettelossa olevia kohteita. Sekä tiedoston <ph name="EXTENSION_SUFFIX_WILDCARD" /> sijainnin että latauksen aloitussivun (eli viittaavan sivun) täytyy olla sallittuja näiden mallien perusteella.
+
+          <ph name="ALLOWED_TYPES" />: Tämä asetus lisää sallittujen luetteloon kaikki laajennukset/sovellukset, joiden asentamisen <ph name="PRODUCT_NAME" /> sallii. Asetuksen arvo on merkkijonoluettelo, jonka kunkin kohteen tulee olla jokin seuraavista: <ph name="VALID_ALLOWED_TYPES" />. Lisätietoja tyypeistä on saatavilla tuotteen <ph name="PRODUCT_NAME" /> laajennusdokumentaatiosta.
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: Jos käyttäjä yrittää asentaa laajennuksen, mutta asennus estetään käytännön perusteella, Chrome Web Store näyttää käyttäjälle yleisen virheilmoituksen. Tämän asetuksen avulla voit lisätä tekstiä virheilmoitukseen, jolloin voit esimerkiksi ohjata käyttäjän asiakastukeen tai kertoa, miksi laajennus on estetty. Virheilmoituksen tekstiä ei näytetä kokonaan, jos sen pituus on yli 1 000 merkkiä.
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: Tämä hyväksyy luettelon isännistä, joiden toiminta laajennuksen kanssa estetään. Tällaiseen toimintaan sisältyvät JavaScript-koodin syöttäminen, webRequest- ja webNavigation-kohteiden katselu ja muuttaminen sekä evästeiden katselu ja muuttaminen. Luettelokohteiden muoto muistuttaa vastaavuusmalleja (<ph name="LINK_TO_MATCH_PATTERNS" />), mutta ne eivät saa sisältää polkuja, kuten "*://*.example.com". Tämä asetus tukee myös TLD-jokerimerkkien käyttöä. Esimerkiksi: "*://example.*".
+          <ph name="RUNTIME_ALLOWED_HOSTS" />: Tämä hyväksyy luettelon isännistä, joiden toiminta laajennuksen kanssa sallitaan riippumatta siitä, sisältääkö <ph name="RUNTIME_BLOCKED_HOSTS" /> niitä. Tämä asetus ja <ph name="RUNTIME_BLOCKED_HOSTS" /> käyttävät samanlaista luettelokohteiden muotoilua.
+          </translation>
 <translation id="787125417158068494">Jos tämän käytännön arvo on SyncDisabled tai sitä ei ole määritetty, ARC-sovellukset eivät voi käyttää <ph name="PRODUCT_OS_NAME" /> -varmenteita.
 
       Jos tämän käytännön arvo on CopyCaCerts, ARC-sovellukset voivat käyttää kaikkia ONC-asennettuja CA-varmenteita, joissa on <ph name="WEB_TRUSTED_BIT" />.</translation>
@@ -2081,6 +2125,7 @@ Tämä käytäntö ei ole käytössä tavallisilla käyttäjätileillä.</transl
           Jos tämän asetuksen arvoksi on asetettu epätosi, laite ei käytä etävahvistusta sisällön suojaamiseen eikä laite välttämättä voi toistaa suojattua sisältöä.
 
           Jos tämän asetuksen arvoksi on asetettu tosi tai jos sitä ei ole asetettu, etävahvistusta voidaan käyttää sisällön suojaamiseen.</translation>
+<translation id="8650974590712548439">Windows-asiakkaiden sijainti Windows-rekisterissä:</translation>
 <translation id="8654286232573430130">Määrittää integroidun todennuksen sallittujen luetteloon lisättävät palvelimet. Integroitu todennus on käytössä vain, kun <ph name="PRODUCT_NAME" /> saa todennushaasteen välityspalvelimelta tai palvelimelta, joka on tässä sallittujen luettelossa.
 
           Erota palvelinten nimet pilkulla. Jokerimerkit (*) sallitaan.

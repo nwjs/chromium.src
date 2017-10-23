@@ -449,7 +449,7 @@
 <translation id="4269787794583293679">(Không có tên người dùng)</translation>
 <translation id="4275830172053184480">Khởi động lại thiết bị của bạn</translation>
 <translation id="4280429058323657511">, hết hạn <ph name="EXPIRATION_DATE_ABBR" /></translation>
-<translation id="4292213515608230699">Không có kết quả thử nghiệm phù hợp</translation>
+<translation id="4292213515608230699">Không có thử nghiệm phù hợp</translation>
 <translation id="4304224509867189079">Đăng nhập</translation>
 <translation id="4312866146174492540">Chặn (mặc định)</translation>
 <translation id="4325863107915753736">Không tìm được bài viết</translation>
@@ -574,7 +574,7 @@
 <translation id="5355557959165512791">Bạn không thể truy cập vào <ph name="SITE" /> ngay bây giờ vì chứng chỉ của trang này đã bị thu hồi. Lỗi mạng và các cuộc tấn công mạng thường chỉ là tạm thời nên trang này có thể sẽ hoạt động lại sau.</translation>
 <translation id="536296301121032821">Không thể lưu trữ cài đặt chính sách</translation>
 <translation id="5386426401304769735">Chuỗi chứng chỉ cho trang web này có chứa một chứng chỉ đã ký bằng SHA-1.</translation>
-<translation id="5401815295726769233">Cờ tìm kiếm</translation>
+<translation id="5401815295726769233">Search flags</translation>
 <translation id="5402410679244714488">Hết hạn: <ph name="EXPIRATION_DATE_ABBR" />, sử dụng lần cuối hơn một năm trước</translation>
 <translation id="540969355065856584">Máy chủ này không chứng minh được rằng đó là <ph name="DOMAIN" />; chứng chỉ bảo mật của máy chủ này không hợp lệ tại thời điểm này. Điều này có thể do định cấu hình sai hoặc có kẻ tấn công chặn kết nối của bạn.</translation>
 <translation id="5421136146218899937">Xóa dữ liệu duyệt web...</translation>
@@ -689,7 +689,7 @@
 <translation id="6305205051461490394">Không thể truy cập <ph name="URL" />.</translation>
 <translation id="6319915415804115995">Sử dụng lần cuối hơn một năm trước</translation>
 <translation id="6321917430147971392">Kiểm tra cài đặt DNS của bạn</translation>
-<translation id="6325286409953503969">Bạn thích các tính năng mới, tuyệt vời của Chrome? Hãy thử khám phá <ph name="BEGIN_LINK" />kênh nhà phát triển<ph name="END_LINK" /> của chúng tôi.</translation>
+<translation id="6325286409953503969">Bạn có thích những tính năng mới cực kỳ thú vị của Chrome không? Hãy thử khám phá <ph name="BEGIN_LINK" />kênh nhà phát triển<ph name="END_LINK" /> của chúng tôi.</translation>
 <translation id="6328639280570009161">Thử tắt dự đoán mạng</translation>
 <translation id="6328786501058569169">Đây là trang web lừa đảo</translation>
 <translation id="6337133576188860026">Bộ nhớ cache còn chưa đầy <ph name="SIZE" />. Một số trang web có thể tải chậm hơn vào lần tới bạn truy cập.</translation>
@@ -847,7 +847,7 @@
 <translation id="7668654391829183341">Thiết bị không xác định</translation>
 <translation id="7669271284792375604">Những kẻ tấn công trên trang web này có thể đánh lừa bạn cài đặt các chương trình ảnh hưởng đến trải nghiệm duyệt web của bạn (ví dụ: bằng cách thay đổi trang chủ của bạn hoặc hiển thị thêm quảng cáo trên các trang web bạn truy cập).</translation>
 <translation id="7682287625158474539">Địa chỉ gửi hàng</translation>
-<translation id="7695552107151968219">Bạn thích các tính năng mới, tuyệt vời của Chrome? Hãy thử khám phá <ph name="BEGIN_LINK" />kênh beta<ph name="END_LINK" /> của chúng tôi.</translation>
+<translation id="7695552107151968219">Bạn có thích những tính năng mới cực kỳ thú vị của Chrome không? Hãy thử khám phá <ph name="BEGIN_LINK" />kênh beta<ph name="END_LINK" /> của chúng tôi.</translation>
 <translation id="7699293099605015246">Không có bài viết nào ngay lúc này</translation>
 <translation id="7701040980221191251">Không</translation>
 <translation id="7704050614460855821"><ph name="BEGIN_LINK" />Tiếp tục truy cập <ph name="SITE" /> (không an toàn)<ph name="END_LINK" /></translation>

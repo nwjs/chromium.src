@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Режим высокой контрастности</translation>
 <translation id="2597972630681408282">Ночной режим: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Отправить</translation>
+<translation id="2675319268637823299">Администратор отключил множественный вход для аккаунта <ph name="USER_EMAIL" />.
+Чтобы вы смогли войти в этот аккаунт, все остальные пользователи должны выйти из него.</translation>
 <translation id="2700058918926273959">Сеанс закончится через <ph name="SESSION_TIME_REMAINING" />. После этого будет выполнен выход.</translation>
 <translation id="2727977024730340865">Подключено маломощное зарядное устройство. Возможны проблемы при зарядке.</translation>
 <translation id="2761704814324807722">Строка состояния, время <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -112,6 +114,7 @@
 <translation id="3606978283550408104">Брайлевский дисплей подключен</translation>
 <translation id="3621202678540785336">Вход</translation>
 <translation id="3626281679859535460">Яркость</translation>
+<translation id="3631369015426612114">Разрешить уведомления из следующих источников</translation>
 <translation id="3712407551474845318">Снимок области</translation>
 <translation id="371370241367527062">Фронтальный микрофон</translation>
 <translation id="3771549900096082774">Режим высокой контрастности</translation>
@@ -203,6 +206,7 @@
 <translation id="632744581670418035">Накладка на клавиатуру</translation>
 <translation id="639644700271529076">CAPS LOCK отключен</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Уведомлений больше нет</translation>
 <translation id="6452181791372256707">Отклонить</translation>
 <translation id="6453179446719226835">Язык изменен</translation>
 <translation id="6459472438155181876">Расширение экрана на <ph name="DISPLAY_NAME" /></translation>
@@ -296,6 +300,7 @@
 <translation id="8825534185036233643">Зеркалирование более двух дисплеев не поддерживается.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Клавиша поиска + Esc</translation>
+<translation id="8870509716567206129">Приложение не поддерживает разделение экрана.</translation>
 <translation id="8878886163241303700">Раскрытый экран</translation>
 <translation id="8921624153894383499">Google Ассистент не говорит на этом языке</translation>
 <translation id="8938800817013097409">Устройство USB-C (порт справа на задней панели)</translation>

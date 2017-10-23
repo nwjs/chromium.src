@@ -16,6 +16,13 @@
 
       Această politică afectează doar utilizatorii ale căror domenii corespund cu domeniul de înregistrare al dispozitivului. Pentru ceilalți utilizatori, cookie-urile setate de furnizorul de identitate sunt transferate în profilurile acestora doar la prima conectare pe un dispozitiv.</translation>
 <translation id="1040446814317236570">Activează eliminarea unor părți din adresele URL pentru PAC (pentru https://)</translation>
+<translation id="1041454584879384845">Configurează comportamentul avatarurilor de utilizator care reprezintă utilizatorii pe ecranul de conectare.
+
+      Setările individuale pot fi specificate în proprietățile JSON:
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: dacă opțiunea este setată la <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, utilizatorii au permisiunea să folosească videoclipuri ca imagini de avatar.
+
+      Dacă această politică nu este setată, este permisă folosirea videoclipurilor ca imagini de avatar.</translation>
 <translation id="1044878202534415707">Raportează statisticile privind hardware-ul cum ar fi utilizarea CPU/RAM.
 
       Dacă politica este dezactivată, statisticile nu vor fi raportate.
@@ -98,6 +105,7 @@
 <translation id="1435659902881071157">Configurare de rețea la nivel de dispozitiv</translation>
 <translation id="1438739959477268107">Setarea prestabilită pentru generarea cheilor</translation>
 <translation id="1454846751303307294">Vă permite să setați o listă de modele pentru adresele URL ce specifică site-urile care nu au permisiunea de a rula JavaScript. Dacă această politică nu este setată, va fi utilizată valoarea prestabilită la nivel global pentru toate site-urile, fie din politica „DefaultJavaScriptSetting”, dacă aceasta este setată, fie din configurația personală a utilizatorului, în caz contrar.</translation>
+<translation id="1456822151187621582">Windows (clienți <ph name="PRODUCT_OS_NAME" />):</translation>
 <translation id="1464848559468748897">Controlează comportamentul utilizatorilor în timpul unei sesiuni cu profiluri multiple pe dispozitivele <ph name="PRODUCT_OS_NAME" />.
 
       Dacă politica este setată la „MultiProfileUserBehaviorUnrestricted”, utilizatorul poate fi atât unul principal, cât și unul secundar într-o sesiune cu profiluri multiple.
@@ -543,6 +551,7 @@
           Dacă setarea este dezactivată, iar conexiunile UDP de ieșire sunt filtrate de firewall, acest computer va accepta numai conexiunile de la computerele client din rețeaua locală.
 
           Dacă politica nu este configurată, setarea va fi activată.</translation>
+<translation id="2823870601012066791">Locația din registry-ul Windows pentru clienții <ph name="PRODUCT_OS_NAME" />:</translation>
 <translation id="2824715612115726353">Activează modul incognito</translation>
 <translation id="2838830882081735096">Nu permite migrarea datelor și ARC</translation>
 <translation id="2844404652289407061">Activează disponibilitatea funcției Atinge pentru a căuta în timpul afișării conținutului din <ph name="PRODUCT_NAME" />.
@@ -1388,7 +1397,7 @@
 <translation id="6022948604095165524">Acțiune la pornire</translation>
 <translation id="6023030044732320798">Specifică un set de politici care vor fi trimise în procesul ARC. Valoarea trebuie să fie un fișier JSON valid.
 
-      Această politică poate fi folosită pentru a configura aplicațiile Android care sunt instalate automat pe dispozitiv:
+      Această politică poate fi folosită pentru a configura ce aplicații Android sunt instalate automat pe dispozitiv:
 
       {
         "type": "object",
@@ -1441,6 +1450,7 @@
 <translation id="6076099373507468537">Definește lista de dispozitive USB care pot fi detașate de driverul kernel pentru a fi folosite prin API-ul chrome.usb direct într-o aplicație web. Pentru a se identifica un anumit hardware, intrările sunt perechi formate din Identificatorul furnizorului USB și Identificatorul produsului USB.
 
       Dacă această politică nu este configurată, lista de dispozitive USB detașabile este necompletată.</translation>
+<translation id="6083631234867522991">Windows (clienți Windows):</translation>
 <translation id="6093156968240188330">Permite utilizatorilor la distanță să interacționeze cu ferestrele cu privilegii superioare din sesiunile de asistență la distanță</translation>
 <translation id="6095999036251797924">Indică intervalul de timp fără intervenția utilizatorului după care ecranul este blocat atunci când dispozitivul funcționează pe c.a. sau pe baterie.
 
@@ -1505,6 +1515,7 @@
 <translation id="6310223829319187614">Activează completarea automată a numelui de domeniu la conectarea utilizatorului</translation>
 <translation id="6315673513957120120">Chrome afișează o pagină de avertisment atunci când utilizatorii accesează site-uri care au erori SSL. În mod prestabilit sau atunci când această politică este activată, utilizatorii au permisiunea să-și continue navigarea dând clic pe aceste pagini de avertisment.
       Dacă această politică este dezactivată, utilizatorii nu mai au permisiunea să-și continue navigarea dând clic pe aceste pagini de avertisment.</translation>
+<translation id="6320758134170712450">Configurează comportamentul avatarului de utilizator</translation>
 <translation id="6353901068939575220">Specifică parametrii utilizați la căutarea unei adrese URL cu POST. Politica este alcătuită din perechi nume/valoare separate prin virgulă. Dacă o valoare este un parametru șablon, precum {searchTerms} din exemplul de mai sus, acesta va fi înlocuit cu datele termenilor de căutare reali.
 
           Această politică este opțională. Dacă nu este setată, solicitarea de căutare va fi trimisă prin metoda GET.
@@ -1911,6 +1922,39 @@ nu poate fi stabilit de utilizator din setările browserului.
 <translation id="7841880500990419427">Versiunea minimă TLS la care se revine</translation>
 <translation id="7842869978353666042">Configurați opțiunile pentru Google Drive</translation>
 <translation id="7843525027689416831">Specifică semnalizatoarele de aplicat pentru <ph name="PRODUCT_NAME" /> la pornirea acestuia. Semnalizatoarele specificate se aplică numai pe ecranul de conectare. Semnalizatoarele stabilite prin această politică nu se propagă în sesiunile utilizatorilor.</translation>
+<translation id="7844537954833753199">Configurează setările de gestionare a extensiilor pentru <ph name="PRODUCT_NAME" />.
+
+          Această politică stabilește mai multe setări, inclusiv pe cele controlate de eventualele politici existente privind extensiile. Această politică va suprascrie eventualele politici vechi dacă ambele sunt setate.
+
+          Această politică asociază un ID de extensie sau o adresă URL de actualizare la configurația sa. În cazul unui ID de extensie, configurația va fi aplicată numai pentru extensia specificată. O configurație prestabilită poate fi setată pentru ID-ul special <ph name="DEFAULT_SCOPE" />, care se va aplica pentru toate extensiile care nu au o configurație personalizată setată în această politică. În cazul unei adrese URL de actualizare, configurația se va aplica pentru toate extensiile cu adresa URL de actualizare exactă specificată în manifestul acestei extensii, conform descrierii de la <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          Configurația pentru fiecare extensie (sau pentru extensiile cu aceeași adresă URL de actualizare) este alt dicționar care poate să conțină câmpurile prezentate mai jos.
+
+          <ph name="INSTALLATION_MODE" />: corespunde unui șir care indică modul de instalare pentru extensie. Șirurile valide sunt:
+          * <ph name="ALLOWED" />: permite instalarea extensiei de către utilizator. Acesta este comportamentul prestabilit.
+          * <ph name="BLOCKED" />: blochează instalarea extensiei;
+          * <ph name="FORCE_INSTALLED" />: extensia este instalată automat și nu poate fi eliminată de utilizator;
+          * <ph name="NORMAL_INSTALLED" />: extensia este instalată automat, însă poate fi dezactivată de utilizator.
+
+          <ph name="INSTALLTION_MODE" /> poate fi configurat și pentru mai multe extensii, inclusiv pentru extensia <ph name="DEFAULT_SCOPE" /> (ca setări prestabilite) și pentru extensiile cu aceeași adresă URL de actualizare. În acest caz, numai valorile <ph name="ALLOWED" /> și <ph name="BLOCKED" /> pot fi folosite.
+
+          Dacă modul este setat la <ph name="FORCE_INSTALLED" /> sau la <ph name="NORMAL_INSTALLED" />, trebuie să se configureze și o valoare <ph name="UPDATE_URL" />. Reține că adresa URL de actualizare setată în această politică este folosită numai pentru instalarea inițială. Actualizările ulterioare ale extensiei vor folosi adresa URL de actualizare indicată în manifestul extensiei. Adresa URL de actualizare trebuie să trimită la un document XML cu manifestul de actualizare, după cum s-a menționat mai sus.
+
+          <ph name="BLOCKED_PERMISSIONS" />: corespunde unei liste de șiruri care trimit la permisiunile API blocate pentru extensia respectivă. Numele permisiunilor sunt aceleași cu șirurile de permisiuni declarate în manifestul extensiei, conform descrierii de la <ph name="LINK_TO_EXTENSION_DOC3" />. Această setare poate fi configurată și pentru extensia <ph name="DEFAULT_SCOPE" />. Dacă extensia necesită o permisiune aflată pe lista de blocare, nu se va putea încărca. Dacă include o permisiune blocată ca cerință opțională, aceasta va fi gestionată ca de obicei, însă solicitarea de permisiuni contradictorii va fi blocată automat la executare.
+
+          <ph name="ALLOWED_PERMISSIONS" />: similară cu <ph name="BLOCKED_PERMISSIONS" />, însă permite în mod explicit anumite permisiuni care ar putea fi blocate de lista globală a permisiunilor blocate și, din acest motiv, nu poate fi configurată pentru extensia <ph name="DEFAULT_SCOPE" />. Reține că această setare nu atribuie automat extensiilor permisiunile acordate.
+
+          <ph name="MINIMUM_VERSION_REQUIRED" />: corespunde unui șir care indică versiunea. Formatul șirului pentru versiune este același cu cel folosit în manifestul extensiei, conform descrierii de la <ph name="LINK_TO_EXTENSION_DOC4" />. Eventualele extensii cu o versiune mai veche decât versiunea minimă specificată vor fi dezactivate. Acest lucru este valabil și în cazul extensiilor instalate forțat.
+
+          Următoarele setări pot fi folosite numai pentru configurația <ph name="DEFAULT_SCOPE" /> prestabilită:
+
+          <ph name="INSTALL_SOURCES" />: fiecare element din această listă este un model de potrivire pentru stilul extensiei (<ph name="LINK_TO_MATCH_PATTERNS" />). Utilizatorii vor putea instala cu ușurință elemente de la orice adresă URL care se potrivește cu un element din această listă. Aceste modele trebuie să permită atât locația fișierului <ph name="EXTENSION_SUFFIX_WILDCARD" />, cât și pagina de pe care începe instalarea (adică adresa URL sursă).
+
+          <ph name="ALLOWED_TYPES" />: această setare trece pe lista albă tipurile permise de extensii/aplicații care pot fi instalate în <ph name="PRODUCT_NAME" />.  Valoarea este o listă de șiruri, iar fiecare șir trebuie să fie unul dintre următoarele: <ph name="VALID_ALLOWED_TYPES" />. Pentru mai multe informații despre aceste tipuri, consultă documentația extensiilor <ph name="PRODUCT_NAME" />.
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: dacă un utilizator încearcă să instaleze o extensie, dar aceasta este blocată de politică, Magazinul web Chrome afișează un mesaj generic de eroare. Cu această setare poți să adaugi text la mesajul de eroare. Opțiunea poate fi utilizată pentru a îndruma utilizatorii spre biroul de asistență, pentru a explica motivul blocării unei anumite extensii sau altele. Acest mesaj de eroare va fi trunchiat dacă este mai lung de 1000 de caractere.
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: acceptă o listă de gazde a căror interacțiune cu o anumită extensie va fi blocată. Aceasta include inserarea JavaScript, modificarea și vizualizarea solicitărilor web/navigării pe web, vizualizarea și modificarea cookie-urilor. Formatul este similar cu cel al Modelelor de potrivire <ph name="LINK_TO_MATCH_PATTERNS" />, cu excepția faptului că nu pot fi definite căi. De ex., „.*://*.example.com”. Aceasta acceptă, de asemenea, utilizarea efectivă a metacaracterelor TLD, de ex., „*://example.*”.
+          <ph name="RUNTIME_ALLOWED_HOSTS" />: acceptă o listă de gazde cu care o extensie poate interacționa, indiferent dacă acestea sunt afișate sau nu în <ph name="RUNTIME_BLOCKED_HOSTS" />. Formatul este identic cu cel din <ph name="RUNTIME_BLOCKED_HOSTS" />.
+          </translation>
 <translation id="787125417158068494">Dacă politica este setată la SyncDisabled sau nu este configurată, certificatele <ph name="PRODUCT_OS_NAME" /> nu sunt disponibile pentru aplicațiile ARC.
 
       Dacă politica este setată la CopyCaCerts, toate certificatele CA instalate prin ONC cu <ph name="WEB_TRUSTED_BIT" /> sunt disponibile pentru aplicațiile ARC.</translation>
@@ -2096,6 +2140,7 @@ nu poate fi stabilit de utilizator din setările browserului.
           Dacă setarea nu este activată, dispozitivul nu va utiliza atestarea de la distanță pentru protejarea conținutului, iar dispozitivul nu va putea reda conținutul protejat.
 
           Dacă setarea este activată sau este neconfigurată, atestarea de la distanță poate fi utilizată pentru protejarea conținutului.</translation>
+<translation id="8650974590712548439">Locația din registry-ul Windows pentru clienții Windows:</translation>
 <translation id="8654286232573430130">Specifică serverele care trebuie trecute pe lista albă pentru autentificarea integrată. Autentificarea integrată este activată numai atunci când <ph name="PRODUCT_NAME" /> primește o verificare de autentificare de la un proxy sau de la un server care se află în această listă cu servere acceptate.
 
           Separă numele serverelor prin virgulă. Sunt permise metacaracterele (*).

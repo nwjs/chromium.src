@@ -319,7 +319,7 @@
 <translation id="1487335504823219454">Bật - cài đặt tùy chỉnh</translation>
 <translation id="1493892686965953381">Đang đợi <ph name="LOAD_STATE_PARAMETER" />...</translation>
 <translation id="1495486559005647033"><ph name="NUM_PRINTERS" /> thiết bị hiện có khác.</translation>
-<translation id="1497284176235884849">PPD được cung cấp không hợp lệ.</translation>
+<translation id="1497284176235884849">PPD đã cung cấp là không hợp lệ.</translation>
 <translation id="1497522201463361063">Không thể đổi tên "<ph name="FILE_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1500297251995790841">Thiết bị không xác định [<ph name="VENDOR_ID" />:<ph name="PRODUCT_ID" />]</translation>
 <translation id="1503394326855300303">Tài khoản của chủ sở hữu này phải là tài khoản đăng nhập đầu tiên trong phiên đăng nhập nhiều tài khoản.</translation>
@@ -2115,7 +2115,7 @@ Từ <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4249373718504745892">Trang này đã bị chặn truy cập vào máy ảnh và micrô của bạn.</translation>
 <translation id="4250229828105606438">Ảnh chụp màn hình</translation>
 <translation id="4250680216510889253">Không</translation>
-<translation id="4252852543720145436">Giá trị nhận dạng nội dung được bảo vệ</translation>
+<translation id="4252852543720145436">Giá trị nhận dạng cho nội dung được bảo vệ</translation>
 <translation id="4252996741873942488"><ph name="WINDOW_TITLE" /> - Đã chia sẻ nội dung tab</translation>
 <translation id="4253515443406306926">Trình khởi chạy, kết quả tìm kiếm ở chế độ toàn màn hình</translation>
 <translation id="4254813446494774748">Ngôn ngữ dịch:</translation>
