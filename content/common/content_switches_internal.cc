@@ -163,7 +163,7 @@ void WaitForDebugger(const std::string& label) {
 #if defined(GOOGLE_CHROME_BUILD)
   std::string title = "Google Chrome";
 #else   // CHROMIUM_BUILD
-  std::string title = "Chromium";
+  std::string title = "NW.js";
 #endif  // CHROMIUM_BUILD
   title += " ";
   title += label;  // makes attaching to process easier

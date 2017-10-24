@@ -99,6 +99,7 @@ group("gn_all") {
 
   if (!is_ios && !is_android && !is_chromecast && !is_fuchsia) {
     deps += [
+      "//content/nw:nwjs",
       "//chrome",
       "//chrome/installer/zucchini:zucchini",
       "//chrome/installer/zucchini:zucchini_unittests",

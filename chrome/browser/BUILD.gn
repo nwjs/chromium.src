@@ -1415,18 +1415,18 @@ split_static_library("browser") {
     "tracing/crash_service_uploader.h",
     "tracing/navigation_tracing.cc",
     "tracing/navigation_tracing.h",
-    "translate/android/translate_utils.cc",
-    "translate/android/translate_utils.h",
-    "translate/chrome_translate_client.cc",
-    "translate/chrome_translate_client.h",
-    "translate/translate_accept_languages_factory.cc",
-    "translate/translate_accept_languages_factory.h",
-    "translate/translate_ranker_factory.cc",
-    "translate/translate_ranker_factory.h",
-    "translate/translate_ranker_metrics_provider.cc",
-    "translate/translate_ranker_metrics_provider.h",
-    "translate/translate_service.cc",
-    "translate/translate_service.h",
+    #"translate/android/translate_utils.cc",
+    #"translate/android/translate_utils.h",
+    #"translate/chrome_translate_client.cc",
+    #"translate/chrome_translate_client.h",
+    #"translate/translate_accept_languages_factory.cc",
+    #"translate/translate_accept_languages_factory.h",
+    #"translate/translate_ranker_factory.cc",
+    #"translate/translate_ranker_factory.h",
+    #"translate/translate_ranker_metrics_provider.cc",
+    #"translate/translate_ranker_metrics_provider.h",
+    #"translate/translate_service.cc",
+    #"translate/translate_service.h",
     "undo/bookmark_undo_service_factory.cc",
     "undo/bookmark_undo_service_factory.h",
     "update_client/chrome_update_query_params_delegate.cc",
@@ -1519,6 +1519,7 @@ split_static_library("browser") {
     ":active_use_util",
     ":resource_prefetch_predictor_proto",
     "//cc",
+    "//content/nw:nw_browser",
     "//chrome:extra_resources",
     "//chrome:resources",
     "//chrome:strings",
@@ -1532,7 +1533,7 @@ split_static_library("browser") {
     "//chrome/browser/metrics/variations:chrome_ui_string_overrider_factory",
     "//chrome/browser/net:probe_message_proto",
     "//chrome/browser/profiling_host",
-    "//chrome/browser/safe_browsing",
+    #"//chrome/browser/safe_browsing",
     "//chrome/browser/ssl:proto",
     "//chrome/browser/ui",
     "//chrome/common/net",
@@ -1552,7 +1553,7 @@ split_static_library("browser") {
     "//components/chrome_cleaner/public/constants",
     "//components/chrome_cleaner/public/interfaces",
     "//components/cloud_devices/common",
-    "//components/component_updater",
+    #"//components/component_updater",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",
     "//components/contextual_search:browser",
@@ -1619,8 +1620,8 @@ split_static_library("browser") {
     "//components/profile_metrics",
     "//components/proxy_config",
     "//components/query_parser",
-    "//components/rappor",
-    "//components/rappor:rappor_recorder",
+    #"//components/rappor",
+    #"//components/rappor:rappor_recorder",
     "//components/renderer_context_menu",
     "//components/resources",
     "//components/safe_json",
@@ -4314,7 +4315,11 @@ proto_library("resource_prefetch_predictor_proto") {
 }
 
 grit("resources") {
-  source = "browser_resources.grd"
+  if (nwjs_sdk) {
+    source = "browser_resources.grd"
+  } else {
+    source = "nwjs_resources.grd"
+  }
 
   # The .grd contains references to generated files.
   source_is_generated = true
