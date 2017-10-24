@@ -79,10 +79,6 @@ VrShellDelegate* VrShellDelegate::GetNativeVrShellDelegate(
 void VrShellDelegate::SetDelegate(VrShell* vr_shell,
                                   gvr::ViewerType viewer_type) {
   vr_shell_ = vr_shell;
-  device::GvrDevice* device = static_cast<device::GvrDevice*>(GetDevice());
-  if (device)
-    device->SetInBrowsingMode(true);
-
   if (pending_successful_present_request_) {
     CHECK(!present_callback_.is_null());
     base::ResetAndReturn(&present_callback_).Run(true);
@@ -94,11 +90,9 @@ void VrShellDelegate::SetDelegate(VrShell* vr_shell,
 
 void VrShellDelegate::RemoveDelegate() {
   vr_shell_ = nullptr;
-  device::GvrDevice* device = static_cast<device::GvrDevice*>(GetDevice());
-  if (device) {
-    device->SetInBrowsingMode(false);
+  device::VRDevice* device = GetDevice();
+  if (device)
     device->OnExitPresent();
-  }
 }
 
 void VrShellDelegate::SetPresentResult(JNIEnv* env,
@@ -176,11 +170,6 @@ void VrShellDelegate::Destroy(JNIEnv* env, const JavaParamRef<jobject>& obj) {
 
 void VrShellDelegate::SetDeviceId(unsigned int device_id) {
   device_id_ = device_id;
-  if (vr_shell_) {
-    device::GvrDevice* device = static_cast<device::GvrDevice*>(GetDevice());
-    if (device)
-      device->SetInBrowsingMode(true);
-  }
 }
 
 void VrShellDelegate::RequestWebVRPresent(
