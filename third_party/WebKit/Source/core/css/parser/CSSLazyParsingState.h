@@ -6,6 +6,8 @@
 #define CSSLazyParsingState_h
 
 #include "core/css/CSSSelectorList.h"
+#include "core/css/RuleSet.h"
+#include "core/css/StyleEngine.h"
 #include "core/css/StyleSheetContents.h"
 #include "core/css/parser/CSSParserMode.h"
 #include "platform/wtf/Vector.h"
@@ -34,8 +36,12 @@ class CSSLazyParsingState
 
   const CSSParserContext* Context();
   const String& SheetText() const { return sheet_text_; }
+  StyleEngine& GetStyleEngine();
+
+  RuleSet& GetRuleSet() { return owning_contents_->GetRuleSet(); }
+  bool HasRuleSet() { return owning_contents_->HasRuleSet(); }
+
   void CountRuleParsed();
-  bool ShouldLazilyParseProperties(const CSSSelectorList&) const;
 
   DECLARE_TRACE();
 
