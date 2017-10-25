@@ -2012,8 +2012,8 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       break;
 
     case IDC_CONTENT_CONTEXT_GENERATEPASSWORD:
-      ChromePasswordManagerClient::FromWebContents(source_web_contents_)->
-          GeneratePassword();
+      password_manager_util::UserTriggeredManualGenerationFromContextMenu(
+          ChromePasswordManagerClient::FromWebContents(source_web_contents_));
       break;
 
     case IDC_CONTENT_CONTEXT_SHOWALLSAVEDPASSWORDS:
