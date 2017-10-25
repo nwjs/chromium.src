@@ -39,18 +39,9 @@ struct NET_EXPORT CertPrincipal {
 
 #if BUILDFLAG(USE_BYTE_CERTS) || (defined(OS_MACOSX) && !defined(OS_IOS)) || \
     defined(OS_WIN)
-  // Configures handling of PrintableString values in the DistinguishedName. Do
-  // not use non-default handling without consulting //net owners. With
-  // kAsUTF8Hack, PrintableStrings are interpreted as UTF-8 strings.
-  enum class PrintableStringHandling { kDefault, kAsUTF8Hack };
-
   // Parses a BER-format DistinguishedName.
   // TODO(mattm): change this to take a der::Input.
-  bool ParseDistinguishedName(
-      const void* ber_name_data,
-      size_t length,
-      PrintableStringHandling printable_string_handling =
-          PrintableStringHandling::kDefault);
+  bool ParseDistinguishedName(const void* ber_name_data, size_t length);
 #endif
 
   // Returns a name that can be used to represent the issuer.  It tries in this

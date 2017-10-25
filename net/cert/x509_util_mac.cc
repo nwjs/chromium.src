@@ -94,13 +94,6 @@ CreateSecCertificateFromX509Certificate(const X509Certificate* cert) {
 scoped_refptr<X509Certificate> CreateX509CertificateFromSecCertificate(
     SecCertificateRef sec_cert,
     const std::vector<SecCertificateRef>& sec_chain) {
-  return CreateX509CertificateFromSecCertificate(sec_cert, sec_chain, {});
-}
-
-scoped_refptr<X509Certificate> CreateX509CertificateFromSecCertificate(
-    SecCertificateRef sec_cert,
-    const std::vector<SecCertificateRef>& sec_chain,
-    X509Certificate::UnsafeCreateOptions options) {
 #if BUILDFLAG(USE_BYTE_CERTS)
   CSSM_DATA der_data;
   if (!sec_cert || SecCertificateGetData(sec_cert, &der_data) != noErr)
@@ -126,8 +119,7 @@ scoped_refptr<X509Certificate> CreateX509CertificateFromSecCertificate(
     intermediates.push_back(std::move(intermediate_cert_handle));
   }
   scoped_refptr<X509Certificate> result(
-      X509Certificate::CreateFromHandleUnsafeOptions(
-          cert_handle.get(), intermediates_raw, options));
+      X509Certificate::CreateFromHandle(cert_handle.get(), intermediates_raw));
   return result;
 #else
   return X509Certificate::CreateFromHandle(sec_cert, sec_chain);

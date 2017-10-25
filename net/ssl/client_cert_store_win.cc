@@ -194,14 +194,9 @@ ClientCertIdentityList GetClientCertsImpl(HCERTSTORE cert_store,
     // X509Certificate with CreateFromBytes and route cert_context2 into the
     // SSLPrivateKey. Probably changing CertificateList to be a
     // pair<X509Certificate, SSLPrivateKeyCallback>.
-
-    // Allow UTF-8 inside PrintableStrings in client certificates. See
-    // crbug.com/770323.
-    X509Certificate::UnsafeCreateOptions options;
-    options.printable_string_is_utf8 = true;
     scoped_refptr<X509Certificate> cert =
-        x509_util::CreateX509CertificateFromCertContexts(
-            cert_context2, intermediates, options);
+        x509_util::CreateX509CertificateFromCertContexts(cert_context2,
+                                                         intermediates);
     if (cert) {
       selected_identities.push_back(std::make_unique<ClientCertIdentityWin>(
           std::move(cert),

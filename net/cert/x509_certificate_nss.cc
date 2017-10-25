@@ -201,7 +201,7 @@ bool IsCertificateIssuedBy(const std::vector<CERTCertificate*>& cert_chain,
 
 }  // namespace
 
-bool X509Certificate::Initialize(UnsafeCreateOptions) {
+bool X509Certificate::Initialize() {
   serial_number_ = ParseSerialNumber(cert_handle_);
 
   return (!serial_number_.empty() &&

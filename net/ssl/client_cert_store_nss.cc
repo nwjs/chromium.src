@@ -187,13 +187,8 @@ void ClientCertStoreNSS::GetPlatformCertsOnWorkerThread(
   }
   for (CERTCertListNode* node = CERT_LIST_HEAD(found_certs);
        !CERT_LIST_END(node, found_certs); node = CERT_LIST_NEXT(node)) {
-    // Allow UTF-8 inside PrintableStrings in client certificates. See
-    // crbug.com/770323.
-    X509Certificate::UnsafeCreateOptions options;
-    options.printable_string_is_utf8 = true;
     scoped_refptr<X509Certificate> cert =
-        x509_util::CreateX509CertificateFromCERTCertificate(node->cert, {},
-                                                            options);
+        x509_util::CreateX509CertificateFromCERTCertificate(node->cert);
     if (!cert) {
       DVLOG(2) << "x509_util::CreateX509CertificateFromCERTCertificate failed";
       continue;

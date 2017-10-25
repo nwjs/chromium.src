@@ -41,18 +41,6 @@ bool ImportSensitiveKeyFromFile(const base::FilePath& dir,
   return !!private_key;
 }
 
-bool ImportClientCertToSlot(CERTCertificate* nss_cert, PK11SlotInfo* slot) {
-  std::string nickname =
-      x509_util::GetDefaultUniqueNickname(nss_cert, USER_CERT, slot);
-  SECStatus rv = PK11_ImportCert(slot, nss_cert, CK_INVALID_HANDLE,
-                                 nickname.c_str(), PR_FALSE);
-  if (rv != SECSuccess) {
-    LOG(ERROR) << "Could not import cert";
-    return false;
-  }
-  return true;
-}
-
 ScopedCERTCertificate ImportClientCertToSlot(
     const scoped_refptr<X509Certificate>& cert,
     PK11SlotInfo* slot) {
@@ -60,10 +48,14 @@ ScopedCERTCertificate ImportClientCertToSlot(
       x509_util::CreateCERTCertificateFromX509Certificate(cert.get());
   if (!nss_cert)
     return nullptr;
-
-  if (!ImportClientCertToSlot(nss_cert.get(), slot))
+  std::string nickname =
+      x509_util::GetDefaultUniqueNickname(nss_cert.get(), USER_CERT, slot);
+  SECStatus rv = PK11_ImportCert(slot, nss_cert.get(), CK_INVALID_HANDLE,
+                                 nickname.c_str(), PR_FALSE);
+  if (rv != SECSuccess) {
+    LOG(ERROR) << "Could not import cert";
     return nullptr;
-
+  }
   return nss_cert;
 }
 
