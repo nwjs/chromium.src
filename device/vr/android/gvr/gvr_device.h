@@ -41,6 +41,11 @@ class DEVICE_VR_EXPORT GvrDevice : public VRDevice {
   void OnDIPScaleChanged(JNIEnv* env,
                          const base::android::JavaRef<jobject>& obj);
 
+  // TODO(mthiesse): Make this functionality cross-platform.
+  void SetInBrowsingMode(bool in_browsing_mode) {
+    in_browsing_mode_ = in_browsing_mode;
+  }
+
  private:
   void OnRequestPresentResult(
       mojom::VRDisplayHost::RequestPresentCallback callback,
@@ -54,6 +59,7 @@ class DEVICE_VR_EXPORT GvrDevice : public VRDevice {
   base::android::ScopedJavaGlobalRef<jobject> non_presenting_context_;
   std::unique_ptr<gvr::GvrApi> gvr_api_;
   mojom::VRDisplayInfoPtr display_info_;
+  bool in_browsing_mode_ = false;
 
   base::WeakPtrFactory<GvrDevice> weak_ptr_factory_;
 
