@@ -1443,7 +1443,7 @@ using ios::material::TimingFunction;
     // to avoid interfering with the omnibox animation.
     [_webToolbar setAutoresizesSubviews:NO];
     CGRect expandedFrame =
-        RectShiftedDownAndResizedForStatusBar(self.view.bounds);
+        RectShiftedDownAndResizedForStatusBar(self.contentView.bounds);
     [_webToolbar
         setFrame:growOmnibox ? expandedFrame : [self specificControlsArea]];
     [_webToolbar setAutoresizesSubviews:YES];
