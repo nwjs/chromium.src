@@ -887,13 +887,12 @@ void HWNDMessageHandler::SizeConstraintsChanged() {
 
   // Windows cannot have WS_THICKFRAME set if translucent.
   // See CalculateWindowStylesFromInitParams().
-  if (delegate_->CanResize() && !is_translucent_) {
+  if (delegate_->CanResize() && (content::g_support_transparency || !is_translucent_)) {
     style |= WS_THICKFRAME | WS_MAXIMIZEBOX;
     if (!delegate_->CanMaximize())
       style &= ~WS_MAXIMIZEBOX;
   } else {
-    if (!content::g_support_transparency)
-      style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
   }
   if (delegate_->CanMinimize()) {
     style |= WS_MINIMIZEBOX;
@@ -1227,7 +1226,7 @@ bool HWNDMessageHandler::GetClientAreaInsets(gfx::Insets* insets) const {
     return false;
 
   if (IsMaximized()) {
-    if (content::g_force_cpu_draw && is_translucent_ && !delegate_->HasFrame())
+    if (content::g_support_transparency && is_translucent_ && !delegate_->HasFrame())
       return false;
     // Windows automatically adds a standard width border to all sides when a
     // window is maximized.
@@ -2870,6 +2869,11 @@ void HWNDMessageHandler::PerformDwmTransition() {
     const int im = ui::win::IsAeroGlassEnabled() ? -1 : 0;
     MARGINS m = { im, im, im, im };
     DwmExtendFrameIntoClientArea(hwnd(), &m);
+	LONG ex_style = GetWindowLong(hwnd(), GWL_EXSTYLE);
+	if (ui::win::IsAeroGlassEnabled())
+      SetWindowLong(hwnd(), GWL_EXSTYLE, ex_style | WS_EX_COMPOSITED);
+	else 
+      SetWindowLong(hwnd(), GWL_EXSTYLE, ex_style & ~WS_EX_COMPOSITED);
   }
 
   UpdateDwmNcRenderingPolicy();

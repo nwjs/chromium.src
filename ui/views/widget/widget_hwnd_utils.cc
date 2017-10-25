@@ -93,13 +93,17 @@ void CalculateWindowStylesFromInitParams(
           native_widget_delegate->IsDialogBox() ? WS_EX_DLGMODALFRAME : 0;
 
       // See layered window comment below.
-      if (content::g_support_transparency) {
-        if (is_translucent && params.remove_standard_frame)
+      if (content::g_support_transparency && is_translucent) {
+        if (params.remove_standard_frame) {
           *style &= ~(WS_CAPTION);
-        if (content::g_force_cpu_draw && is_translucent && !(native_widget_delegate->IsDialogBox() || native_widget_delegate->IsModal()))
-          *ex_style |= WS_EX_LAYERED;
-      }
-      else {
+        }
+        if (!native_widget_delegate->IsDialogBox() && !native_widget_delegate->IsModal()) {
+          if (content::g_force_cpu_draw)
+            *ex_style |= WS_EX_LAYERED;
+          else if (ui::win::IsAeroGlassEnabled())
+            *ex_style |= WS_EX_COMPOSITED;
+        }
+      } else {
         if (is_translucent)
           *style &= ~(WS_THICKFRAME | WS_CAPTION);
       }
