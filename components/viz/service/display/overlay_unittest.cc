@@ -2421,8 +2421,6 @@ TEST_F(GLRendererWithOverlaysTest, OverlayQuadNotDrawn) {
   output_surface_->GetOverlayCandidateValidator()->AddExpectedRect(
       gfx::RectF(kOverlayBottomRightRect));
 
-  gfx::Size viewport_size(16, 16);
-
   std::unique_ptr<RenderPass> pass = CreateRenderPass();
 
   CreateCandidateQuadAt(
@@ -2447,7 +2445,7 @@ TEST_F(GLRendererWithOverlaysTest, OverlayQuadNotDrawn) {
                                    kOverlayBottomRightRect,
                                    BoundingRect(kUVTopLeft, kUVBottomRight)))
       .Times(1);
-  DrawFrame(&pass_list, viewport_size);
+  DrawFrame(&pass_list, kDisplaySize);
   EXPECT_EQ(1U, output_surface_->bind_framebuffer_count());
 
   SwapBuffers();
@@ -2460,7 +2458,6 @@ TEST_F(GLRendererWithOverlaysTest, OccludedQuadInUnderlay) {
   bool use_validator = true;
   Init(use_validator);
   renderer_->set_expect_overlays(true);
-  gfx::Size viewport_size(16, 16);
 
   std::unique_ptr<RenderPass> pass = CreateRenderPass();
 
@@ -2487,7 +2484,7 @@ TEST_F(GLRendererWithOverlaysTest, OccludedQuadInUnderlay) {
               Schedule(-1, gfx::OVERLAY_TRANSFORM_NONE, _, kOverlayRect,
                        BoundingRect(kUVTopLeft, kUVBottomRight)))
       .Times(1);
-  DrawFrame(&pass_list, viewport_size);
+  DrawFrame(&pass_list, kDisplaySize);
   EXPECT_EQ(1U, output_surface_->bind_framebuffer_count());
 
   SwapBuffers();
@@ -2500,7 +2497,6 @@ TEST_F(GLRendererWithOverlaysTest, NoValidatorNoOverlay) {
   bool use_validator = false;
   Init(use_validator);
   renderer_->set_expect_overlays(false);
-  gfx::Size viewport_size(16, 16);
 
   std::unique_ptr<RenderPass> pass = CreateRenderPass();
 
@@ -2520,7 +2516,7 @@ TEST_F(GLRendererWithOverlaysTest, NoValidatorNoOverlay) {
   output_surface_->set_is_displayed_as_overlay_plane(false);
   EXPECT_CALL(*renderer_, DoDrawQuad(_, _)).Times(3);
   EXPECT_CALL(scheduler_, Schedule(_, _, _, _, _)).Times(0);
-  DrawFrame(&pass_list, viewport_size);
+  DrawFrame(&pass_list, kDisplaySize);
   EXPECT_EQ(1U, output_surface_->bind_framebuffer_count());
   SwapBuffers();
   Mock::VerifyAndClearExpectations(renderer_.get());
@@ -2534,7 +2530,6 @@ TEST_F(GLRendererWithOverlaysTest, OccludedQuadNotDrawnWhenPartialSwapEnabled) {
   bool use_validator = true;
   Init(use_validator);
   renderer_->set_expect_overlays(true);
-  gfx::Size viewport_size(16, 16);
 
   std::unique_ptr<RenderPass> pass = CreateRenderPass();
 
@@ -2552,7 +2547,7 @@ TEST_F(GLRendererWithOverlaysTest, OccludedQuadNotDrawnWhenPartialSwapEnabled) {
   output_surface_->set_is_displayed_as_overlay_plane(true);
   EXPECT_CALL(*renderer_, DoDrawQuad(_, _)).Times(0);
   EXPECT_CALL(scheduler_, Schedule(_, _, _, _, _)).Times(2);
-  DrawFrame(&pass_list, viewport_size);
+  DrawFrame(&pass_list, kDisplaySize);
   EXPECT_EQ(0U, output_surface_->bind_framebuffer_count());
   SwapBuffers();
   Mock::VerifyAndClearExpectations(renderer_.get());
@@ -2565,7 +2560,6 @@ TEST_F(GLRendererWithOverlaysTest, OccludedQuadNotDrawnWhenEmptySwapAllowed) {
   bool use_validator = true;
   Init(use_validator);
   renderer_->set_expect_overlays(true);
-  gfx::Size viewport_size(16, 16);
 
   std::unique_ptr<RenderPass> pass = CreateRenderPass();
 
@@ -2584,7 +2578,7 @@ TEST_F(GLRendererWithOverlaysTest, OccludedQuadNotDrawnWhenEmptySwapAllowed) {
   output_surface_->set_is_displayed_as_overlay_plane(true);
   EXPECT_CALL(*renderer_, DoDrawQuad(_, _)).Times(0);
   EXPECT_CALL(scheduler_, Schedule(_, _, _, _, _)).Times(2);
-  DrawFrame(&pass_list, viewport_size);
+  DrawFrame(&pass_list, kDisplaySize);
   EXPECT_EQ(0U, output_surface_->bind_framebuffer_count());
   SwapBuffers();
   Mock::VerifyAndClearExpectations(renderer_.get());
