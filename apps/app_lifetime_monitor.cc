@@ -77,8 +77,10 @@ void AppLifetimeMonitor::OnAppWindowRemoved(AppWindow* app_window) {
 }
 
 void AppLifetimeMonitor::OnAppWindowHidden(AppWindow* app_window) {
+#if 0
   if (!HasOtherVisibleAppWindows(app_window))
     NotifyAppDeactivated(app_window->extension_id());
+#endif
 }
 
 void AppLifetimeMonitor::OnAppWindowShown(AppWindow* app_window,

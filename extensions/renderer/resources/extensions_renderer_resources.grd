@@ -85,6 +85,19 @@
 
       <!-- Extension styles. -->
       <include name="IDR_EXTENSION_FONTS_CSS" file="extension_fonts.css" type="BINDATA"/>
+
+      <include name="IDR_NW_PRE13_SHIM_JS"    file="../../../content/nw/src/resources/nw_pre13_shim.js" type="BINDATA" />
+      <include name="IDR_NWAPI_APP_JS"    file="../../../content/nw/src/resources/api_nw_app.js" type="BINDATA" />
+      <include name="IDR_NWAPI_WINDOW_JS" file="../../../content/nw/src/resources/api_nw_window.js" type="BINDATA" />
+      <include name="IDR_NWAPI_CLIPBOARD_JS" file="../../../content/nw/src/resources/api_nw_clipboard.js" type="BINDATA" />
+      <include name="IDR_NWAPI_MENU_JS" file="../../../content/nw/src/resources/api_nw_menu.js" type="BINDATA" />
+      <include name="IDR_NWAPI_MENUITEM_JS" file="../../../content/nw/src/resources/api_nw_menuitem.js" type="BINDATA" />
+      <include name="IDR_NWAPI_SCREEN_JS" file="../../../content/nw/src/resources/api_nw_screen.js" type="BINDATA" />
+      <include name="IDR_NWAPI_SHORTCUT_JS" file="../../../content/nw/src/resources/api_nw_shortcut.js" type="BINDATA" />
+      <include name="IDR_NWAPI_SHELL_JS" file="../../../content/nw/src/resources/api_nw_shell.js" type="BINDATA" />
+      <include name="IDR_NWAPI_OBJECT_JS" file="../../../content/nw/src/resources/api_nw_object.js" type="BINDATA" />
+      <include name="IDR_NWAPI_TEST_JS" file="../../../content/nw/src/resources/api_nw_test.js" type="BINDATA" />
+      <include name="IDR_NWAPI_TRAY_JS" file="../../../content/nw/src/resources/api_nw_tray.js" type="BINDATA" />
     </includes>
     <structures>
       <!-- Extension styles. -->

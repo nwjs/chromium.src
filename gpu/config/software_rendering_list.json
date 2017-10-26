@@ -1,6 +1,6 @@
 {
   "name": "software rendering list",
-  "version": "13.12",
+  "version": "13.13",
   "entries": [
     {
       "id": 1,
@@ -1530,6 +1530,24 @@
       },
       "gl_renderer": ".*VideoCore V.*",
       "features": [
+        "gpu_rasterization"
+      ]
+    },
+    {
+      "id": 150,
+      "description": "Macs with NVidia GPUs experience rendering issues on High Sierra",
+      "cr_bugs": [773705],
+      "os": {
+        "type": "macosx",
+        "version": {
+          "op": ">=",
+          "value": "10.13"
+        }
+      },
+      "vendor_id": "0x10de",
+      "multi_gpu_category": "any",
+      "features": [
+        "accelerated_2d_canvas",
         "gpu_rasterization"
       ]
     }

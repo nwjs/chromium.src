@@ -4,6 +4,7 @@
 
 #import "chrome/browser/ui/cocoa/permission_bubble/chooser_bubble_ui_cocoa.h"
 
+#include "extensions/browser/app_window/app_window.h"
 #include <stddef.h>
 
 #include <algorithm>
@@ -41,10 +42,12 @@
   NSButton* cancelButton_;   // Weak.
 
   Browser* browser_;  // Weak.
+  extensions::AppWindow* app_window_;
 }
 
 // Designated initializer.  |browser| and |bridge| must both be non-nil.
 - (id)initWithBrowser:(Browser*)browser
+    appWindow:(extensions::AppWindow*)app_window
     chooserController:(std::unique_ptr<ChooserController>)chooserController
                bridge:(ChooserBubbleUiCocoa*)bridge;
 
@@ -78,13 +81,15 @@
 @implementation ChooserBubbleUiController
 
 - (id)initWithBrowser:(Browser*)browser
+    appWindow:(extensions::AppWindow*)app_window
     chooserController:(std::unique_ptr<ChooserController>)chooserController
                bridge:(ChooserBubbleUiCocoa*)bridge {
-  DCHECK(browser);
+  //DCHECK(browser);
   DCHECK(chooserController);
   DCHECK(bridge);
 
   browser_ = browser;
+  app_window_ = app_window;
 
   base::scoped_nsobject<InfoBubbleWindow> window([[InfoBubbleWindow alloc]
       initWithContentRect:ui::kWindowSizeDeterminedLater
@@ -220,12 +225,16 @@
 }
 
 - (info_bubble::BubbleArrowLocation)getExpectedArrowLocation {
-  return info_bubble::kTopLeading;
+  return info_bubble::kNoArrow;
 }
 
 - (NSWindow*)getExpectedParentWindow {
-  DCHECK(browser_->window());
-  return browser_->window()->GetNativeWindow();
+  if (browser_) {
+    DCHECK(browser_->window());
+    return browser_->window()->GetNativeWindow();
+  } else {
+    return app_window_->GetNativeWindow();
+  }
 }
 
 + (CGFloat)matchWidthsOf:(NSView*)viewA andOf:(NSView*)viewB {
@@ -265,13 +274,16 @@
 
 ChooserBubbleUiCocoa::ChooserBubbleUiCocoa(
     Browser* browser,
+    extensions::AppWindow* app_window,
     std::unique_ptr<ChooserController> chooser_controller)
     : browser_(browser),
+      app_window_(app_window),
       chooser_bubble_ui_controller_(nil) {
-  DCHECK(browser_);
+  //DCHECK(browser_);
   DCHECK(chooser_controller);
   chooser_bubble_ui_controller_ = [[ChooserBubbleUiController alloc]
         initWithBrowser:browser_
+        appWindow:app_window_
       chooserController:std::move(chooser_controller)
                  bridge:this];
 }

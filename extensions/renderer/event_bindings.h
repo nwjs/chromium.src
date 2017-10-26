@@ -40,6 +40,7 @@ class EventBindings : public ObjectBackedNativeHandler {
                                      ScriptContext* context);
 
  private:
+  void MatchAgainstEventFilter(const v8::FunctionCallbackInfo<v8::Value>& args);
   // JavaScript handler which forwards to AttachEvent().
   // args[0] forwards to |event_name|.
   void AttachEventHandler(const v8::FunctionCallbackInfo<v8::Value>& args);
