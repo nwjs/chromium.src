@@ -5,6 +5,7 @@
 #include "net/cert/cert_verify_proc_mac.h"
 
 #include <CommonCrypto/CommonDigest.h>
+#include <CoreFoundation/CFArray.h>
 #include <CoreServices/CoreServices.h>
 #include <Security/Security.h>
 
@@ -509,6 +510,7 @@ int BuildAndEvaluateSecTrustRef(CFArrayRef cert_array,
                                 CFArrayRef trust_policies,
                                 int flags,
                                 CFArrayRef keychain_search_list,
+                                const CertificateList& additional_trust_anchors,
                                 ScopedCFTypeRef<SecTrustRef>* trust_ref,
                                 SecTrustResultType* trust_result,
                                 ScopedCFTypeRef<CFArrayRef>* verified_chain,
@@ -619,6 +621,7 @@ int VerifyWithGivenFlags(X509Certificate* cert,
                          const int flags,
                          CRLSet* crl_set,
                          CertVerifyResult* verify_result,
+                         const CertificateList& additional_trust_anchors,
                          CRLSetResult* completed_chain_crl_result) {
   ScopedCFTypeRef<CFArrayRef> trust_policies;
   OSStatus status = CreateTrustPolicies(flags, &trust_policies);
@@ -763,7 +766,7 @@ int VerifyWithGivenFlags(X509Certificate* cert,
 
       int rv = BuildAndEvaluateSecTrustRef(
           cert_array, trust_policies, flags,
-          scoped_alternate_keychain_search_list.get(), &temp_ref,
+          scoped_alternate_keychain_search_list.get(), additional_trust_anchors, &temp_ref,
           &temp_trust_result, &temp_chain, &temp_chain_info);
       if (rv != OK)
         return rv;
@@ -987,7 +990,7 @@ CertVerifyProcMac::CertVerifyProcMac() {}
 CertVerifyProcMac::~CertVerifyProcMac() {}
 
 bool CertVerifyProcMac::SupportsAdditionalTrustAnchors() const {
-  return false;
+  return true;
 }
 
 bool CertVerifyProcMac::SupportsOCSPStapling() const {
@@ -1014,7 +1017,7 @@ int CertVerifyProcMac::VerifyInternal(
     GetCandidateEVPolicy(cert, &candidate_ev_policy_oid);
 
   CRLSetResult completed_chain_crl_result;
-  int rv = VerifyWithGivenFlags(cert, hostname, flags, crl_set, verify_result,
+  int rv = VerifyWithGivenFlags(cert, hostname, flags, crl_set, verify_result, additional_trust_anchors,
                                 &completed_chain_crl_result);
   if (rv != OK)
     return rv;
@@ -1036,7 +1039,7 @@ int CertVerifyProcMac::VerifyInternal(
       int tmp_rv = VerifyWithGivenFlags(
           verify_result->verified_cert.get(), hostname,
           flags | CertVerifier::VERIFY_REV_CHECKING_ENABLED, crl_set,
-          verify_result, &completed_chain_crl_result);
+          verify_result, additional_trust_anchors, &completed_chain_crl_result);
       // If re-verification failed, return those results without setting EV
       // status.
       if (tmp_rv != OK)

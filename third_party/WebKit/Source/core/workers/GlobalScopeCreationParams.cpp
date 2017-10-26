@@ -11,6 +11,7 @@
 namespace blink {
 
 GlobalScopeCreationParams::GlobalScopeCreationParams(
+    bool isNodeJS, const std::string& main_script,
     const KURL& script_url,
     const String& user_agent,
     const String& source_code,
@@ -25,6 +26,7 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
     std::unique_ptr<WorkerSettings> worker_settings,
     V8CacheOptions v8_cache_options)
     : script_url(script_url.Copy()),
+      nodejs_(isNodeJS), main_script_(main_script),
       user_agent(user_agent.IsolatedCopy()),
       source_code(source_code.IsolatedCopy()),
       cached_meta_data(std::move(cached_meta_data)),

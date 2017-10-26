@@ -16,7 +16,7 @@ int ContentMain(const ContentMainParams& params) {
   main_params.argc = params.argc;
   main_params.argv = params.argv;
 #endif
-  return service_manager::Main(main_params);
+ return service_manager::Main(main_params);
 }
 
 }  // namespace content

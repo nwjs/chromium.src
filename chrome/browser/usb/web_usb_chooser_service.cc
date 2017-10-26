@@ -4,6 +4,7 @@
 
 #include "chrome/browser/usb/web_usb_chooser_service.h"
 
+#include "chrome/browser/ui/chrome_bubble_manager.h"
 #include <utility>
 
 #include "chrome/browser/ui/browser_finder.h"
@@ -40,7 +41,14 @@ void WebUsbChooserService::GetPermission(
   std::unique_ptr<ChooserBubbleDelegate> chooser_bubble_delegate(
       new ChooserBubbleDelegate(render_frame_host_,
                                 std::move(usb_chooser_controller)));
-  BubbleReference bubble_reference = browser->GetBubbleManager()->ShowBubble(
+  ChromeBubbleManager* mgr = nullptr;
+  if (!browser) {
+    if (!bubble_mgr_)
+      bubble_mgr_.reset(new ChromeBubbleManager(nullptr));
+    mgr = bubble_mgr_.get();
+  } else
+    mgr = browser->GetBubbleManager();
+  BubbleReference bubble_reference = mgr->ShowBubble(
       std::move(chooser_bubble_delegate));
   bubbles_.push_back(bubble_reference);
 }

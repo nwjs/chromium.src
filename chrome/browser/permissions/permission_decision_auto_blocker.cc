@@ -292,6 +292,7 @@ void PermissionDecisionAutoBlocker::CheckSafeBrowsingBlacklist(
   DCHECK_EQ(CONTENT_SETTING_ASK,
             GetEmbargoResult(request_origin, permission).content_setting);
 
+#if 0
   if (base::FeatureList::IsEnabled(features::kPermissionsBlacklist) &&
       db_manager_) {
     // The CheckSafeBrowsingResult callback won't be called if the profile is
@@ -305,7 +306,7 @@ void PermissionDecisionAutoBlocker::CheckSafeBrowsingBlacklist(
                    callback));
     return;
   }
-
+#endif
   callback.Run(false /* permission blocked */);
 }
 
@@ -435,10 +436,12 @@ PermissionDecisionAutoBlocker::PermissionDecisionAutoBlocker(Profile* profile)
       db_manager_(nullptr),
       safe_browsing_timeout_(kCheckUrlTimeoutMs),
       clock_(new base::DefaultClock()) {
+#if 0
   safe_browsing::SafeBrowsingService* sb_service =
       g_browser_process->safe_browsing_service();
   if (sb_service)
     db_manager_ = sb_service->database_manager();
+#endif
 }
 
 PermissionDecisionAutoBlocker::~PermissionDecisionAutoBlocker() {}
