@@ -61,6 +61,63 @@ int RequestSender::GetNextRequestId() const {
   return next_request_id++;
 }
 
+bool RequestSender::StartRequestSync(Source* source,
+                                     const std::string& name,
+                                     int request_id,
+                                     bool has_callback,
+                                     bool for_io_thread,
+                                     base::ListValue* value_args,
+                                     bool* success,
+                                     base::ListValue* response,
+                                     std::string* error) {
+  ScriptContext* context = source->GetContext();
+  if (!context)
+    return false;
+
+  bool for_service_worker =
+      context->context_type() == Feature::SERVICE_WORKER_CONTEXT;
+  // Get the current RenderFrame so that we can send a routed IPC message from
+  // the correct source.
+  // Note that |render_frame| would be nullptr for Service Workers. Service
+  // Workers use control IPC instead.
+  content::RenderFrame* render_frame = context->GetRenderFrame();
+  if (!for_service_worker && !render_frame) {
+    // It is important to early exit here for non Service Worker contexts so
+    // that we do not create orphaned PendingRequests below.
+    return false;
+  }
+
+  // TODO(koz): See if we can make this a CHECK.
+  if (!context->HasAccessOrThrowError(name))
+    return false;
+
+  GURL source_url;
+  if (blink::WebLocalFrame* webframe = context->web_frame())
+    source_url = webframe->GetDocument().Url();
+
+  // InsertRequest(request_id, new PendingRequest(name, source,
+  //     blink::WebUserGestureIndicator::currentUserGestureToken()));
+
+  auto params = base::MakeUnique<ExtensionHostMsg_Request_Params>();
+  params->name = name;
+  params->arguments.Swap(value_args);
+  params->extension_id = context->GetExtensionID();
+  params->source_url = source_url;
+  params->request_id = request_id;
+  params->has_callback = has_callback;
+  params->user_gesture =
+      blink::WebUserGestureIndicator::IsProcessingUserGesture();
+
+  // Set Service Worker specific params to default values.
+  params->worker_thread_id = -1;
+  params->service_worker_version_id = kInvalidServiceWorkerVersionId;
+
+  binding::RequestThread thread =
+      for_io_thread ? binding::RequestThread::IO : binding::RequestThread::UI;
+  ipc_message_sender_->SendRequestIPC(context, std::move(params), thread, true, success, response, error);
+  return true;
+}
+
 bool RequestSender::StartRequest(Source* source,
                                  const std::string& name,
                                  int request_id,

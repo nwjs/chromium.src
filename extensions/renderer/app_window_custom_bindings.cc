@@ -4,6 +4,9 @@
 
 #include "extensions/renderer/app_window_custom_bindings.h"
 
+#include "third_party/WebKit/public/web/WebKit.h"
+
+
 #include "base/command_line.h"
 #include "content/public/child/v8_value_converter.h"
 #include "content/public/renderer/render_frame.h"
@@ -24,6 +27,18 @@ AppWindowCustomBindings::AppWindowCustomBindings(ScriptContext* context)
     : ObjectBackedNativeHandler(context) {
   RouteFunction("GetFrame", base::Bind(&AppWindowCustomBindings::GetFrame,
                                        base::Unretained(this)));
+  RouteFunction("FixGamePadAPI",
+                base::Bind(&AppWindowCustomBindings::FixGamePadAPI,
+                           base::Unretained(this)));
+}
+
+void AppWindowCustomBindings::FixGamePadAPI(
+    const v8::FunctionCallbackInfo<v8::Value>& args) {
+  content::RenderFrame* render_frame = context()->GetRenderFrame();
+  if (!render_frame)
+    return;
+  blink::WebLocalFrame* main_frame = render_frame->GetWebFrame();
+  blink::fix_gamepad_nw(main_frame);
 }
 
 void AppWindowCustomBindings::GetFrame(

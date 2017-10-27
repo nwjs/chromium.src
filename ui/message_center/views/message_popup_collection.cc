@@ -203,6 +203,7 @@ void MessagePopupCollection::UpdateWidgets() {
 #endif  // defined(OS_CHROMEOS)
     view->SetExpanded(true);
 
+#if 0
     // TODO(yoshiki): Temporary disable context menu on custom notifications.
     // See crbug.com/750307 for detail.
     if (notification.type() != NOTIFICATION_TYPE_CUSTOM &&
@@ -210,6 +211,7 @@ void MessagePopupCollection::UpdateWidgets() {
         notification.delegate()->ShouldDisplaySettingsButton()) {
       view->set_context_menu_controller(context_menu_controller_.get());
     }
+#endif
 
     int view_height = ToastContentsView::GetToastSizeForView(view).height();
     int height_available =

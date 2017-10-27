@@ -17,7 +17,7 @@ NavigationRequestInfo::NavigationRequestInfo(
     int frame_tree_node_id,
     bool is_for_guests_only,
     bool report_raw_headers,
-    blink::WebPageVisibilityState page_visibility_state)
+    blink::WebPageVisibilityState page_visibility_state, bool nw_trusted)
     : common_params(common_params),
       begin_params(begin_params),
       site_for_cookies(site_for_cookies),
@@ -27,7 +27,7 @@ NavigationRequestInfo::NavigationRequestInfo(
       frame_tree_node_id(frame_tree_node_id),
       is_for_guests_only(is_for_guests_only),
       report_raw_headers(report_raw_headers),
-      page_visibility_state(page_visibility_state) {}
+      page_visibility_state(page_visibility_state), nw_trusted(nw_trusted) {}
 
 NavigationRequestInfo::~NavigationRequestInfo() {}
 

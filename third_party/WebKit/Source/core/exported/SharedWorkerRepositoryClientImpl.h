@@ -58,7 +58,7 @@ class CORE_EXPORT SharedWorkerRepositoryClientImpl final
   void Connect(SharedWorker*,
                MessagePortChannel,
                const KURL&,
-               const String& name) override;
+               const String& name, bool) override;
   void DocumentDetached(Document*) override;
 
  private:
