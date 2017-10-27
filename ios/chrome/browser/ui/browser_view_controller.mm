@@ -561,10 +561,6 @@ NSString* const kBrowserViewControllerSnackbarCategory =
 
   // Fake status bar view used to blend the toolbar into the status bar.
   UIView* _fakeStatusBarView;
-
-  // Constraint specifying the height of the toolbar. Used to update the height
-  // of the toolbar if the safe area changes.
-  __weak NSLayoutConstraint* toolbarHeightConstraint_;
 }
 
 // The browser's side swipe controller.  Lazily instantiated on the first call.
@@ -1317,7 +1313,7 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
   }
   if (base::FeatureList::IsEnabled(kSafeAreaCompatibleToolbar)) {
     [_toolbarCoordinator.webToolbarController safeAreaInsetsDidChange];
-    toolbarHeightConstraint_.constant =
+    _toolbarCoordinator.webToolbarController.heightConstraint.constant =
         [_toolbarCoordinator.webToolbarController
                 preferredToolbarHeightWhenAlignedToTopOfScreen];
   }
@@ -1896,11 +1892,10 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
 }
 
 - (void)addConstraintsToToolbar {
-  toolbarHeightConstraint_ = [[_toolbarCoordinator view].heightAnchor
-      constraintEqualToConstant:
-          [_toolbarCoordinator.webToolbarController
-
-                  preferredToolbarHeightWhenAlignedToTopOfScreen]];
+  [_toolbarCoordinator.webToolbarController heightConstraint].constant =
+      [_toolbarCoordinator.webToolbarController
+              preferredToolbarHeightWhenAlignedToTopOfScreen];
+  [_toolbarCoordinator.webToolbarController heightConstraint].active = YES;
 
   [NSLayoutConstraint activateConstraints:@[
     [[_toolbarCoordinator view].leadingAnchor
@@ -1909,7 +1904,6 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
         constraintEqualToAnchor:[self view].topAnchor],
     [[_toolbarCoordinator view].trailingAnchor
         constraintEqualToAnchor:[self view].trailingAnchor],
-    toolbarHeightConstraint_
   ]];
   [[self view] layoutIfNeeded];
 }
