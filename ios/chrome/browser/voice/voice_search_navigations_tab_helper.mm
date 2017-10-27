@@ -53,7 +53,6 @@ bool VoiceSearchNavigationTabHelper::IsNavigationFromVoiceSearch(
 }
 
 void VoiceSearchNavigationTabHelper::NavigationItemCommitted(
-    web::WebState* web_state_,
     const web::LoadCommittedDetails& load_details) {
   if (will_navigate_to_voice_search_result_) {
     load_details.item->SetUserData(

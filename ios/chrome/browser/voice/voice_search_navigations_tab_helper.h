@@ -33,7 +33,6 @@ class VoiceSearchNavigationTabHelper
 
   // WebStateObserver:
   void NavigationItemCommitted(
-      web::WebState* web_state,
       const web::LoadCommittedDetails& load_details) override;
 
   // Whether a voice search navigation is expected.
