@@ -447,7 +447,9 @@ void PresentationServiceDelegateImpl::StartPresentation(
     const content::PresentationRequest& request,
     content::PresentationConnectionCallback success_cb,
     content::PresentationConnectionErrorCallback error_cb) {
+#if defined(NWJS_SDK)
   const auto& render_frame_host_id = request.render_frame_host_id;
+#endif
   const auto& presentation_urls = request.presentation_urls;
   if (presentation_urls.empty()) {
     std::move(error_cb).Run(
@@ -466,6 +468,7 @@ void PresentationServiceDelegateImpl::StartPresentation(
     return;
   }
 
+#if defined(NWJS_SDK)
   MediaRouterDialogController* controller =
       MediaRouterDialogController::GetOrCreateForWebContents(web_contents_);
   if (!controller->ShowMediaRouterDialogForPresentation(
@@ -474,6 +477,9 @@ void PresentationServiceDelegateImpl::StartPresentation(
               &PresentationServiceDelegateImpl::OnStartPresentationSucceeded,
               GetWeakPtr(), render_frame_host_id, std::move(success_cb)),
           std::move(error_cb))) {
+#else
+    if (true) {
+#endif
     LOG(ERROR)
         << "StartPresentation failed: unable to create Media Router dialog.";
   }

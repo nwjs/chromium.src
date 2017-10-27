@@ -274,7 +274,7 @@ void SSLConfigServiceManagerPref::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(ssl_config::prefs::kCertEnableSha1LocalAnchors,
                                 false);
   registry->RegisterBooleanPref(
-      ssl_config::prefs::kCertEnableCommonNameFallbackLocalAnchors, false);
+      ssl_config::prefs::kCertEnableCommonNameFallbackLocalAnchors, true);
   registry->RegisterStringPref(ssl_config::prefs::kSSLVersionMin,
                                std::string());
   registry->RegisterStringPref(ssl_config::prefs::kSSLVersionMax,

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/macros.h"
+#include "base/files/file_path.h"
 #include "content/child/child_message_filter.h"
 #include "content/child/scoped_child_process_reference.h"
 #include "ipc/ipc_listener.h"
@@ -46,7 +47,7 @@ class WebMessagePortChannelImpl;
 class EmbeddedSharedWorkerStub : public IPC::Listener,
                                  public blink::WebSharedWorkerClient {
  public:
-  EmbeddedSharedWorkerStub(
+   EmbeddedSharedWorkerStub(bool nodejs, const base::FilePath& root_path,
       const GURL& url,
       const base::string16& name,
       const base::string16& content_security_policy,
@@ -101,6 +102,8 @@ class EmbeddedSharedWorkerStub : public IPC::Listener,
   base::string16 name_;
   bool running_ = false;
   GURL url_;
+  bool nodejs_ = false;
+  base::FilePath root_path_;
   blink::WebSharedWorker* impl_ = nullptr;
   std::unique_ptr<SharedWorkerDevToolsAgent> worker_devtools_agent_;
 
