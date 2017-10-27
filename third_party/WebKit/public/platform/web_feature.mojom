@@ -1716,6 +1716,7 @@ enum WebFeature {
   kCrossOriginWorkerTextPlain = 2185,
   kCrossOriginWorkerTextXml = 2186,
   kImageCaptureSetOptions = 2187,
+  kHTMLMediaElementMediaPlaybackRateOutOfRange = 2192,
   kBatteryStatusGetBattery = 2198,
   kBatteryStatusInsecureOrigin = 2199,
   kBatteryStatusCrossOrigin = 2200,

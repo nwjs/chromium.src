@@ -16611,6 +16611,7 @@ uploading your change for review.  These are checked by presubmit scripts.
   <int value="2185" label="CrossOriginWorkerTextPlain"/>
   <int value="2186" label="CrossOriginWorkerTextXml"/>
   <int value="2187" label="ImageCaptureSetOptions"/>
+  <int value="2192" label="HTMLMediaElementMediaPlaybackRateOutOfRange"/>
   <int value="2198" label="BatteryStatusGetBattery"/>
   <int value="2199" label="BatteryStatusInsecureOrigin"/>
   <int value="2200" label="BatteryStatusCrossOrigin"/>
