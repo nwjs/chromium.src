@@ -1207,7 +1207,6 @@ bool UseCounter::HasRecordedMeasurement(WebFeature feature) const {
   return features_recorded_.QuickGet(static_cast<int>(feature));
 }
 
-void UseCounter::Trace(blink::Visitor* visitor) {
 // Static
 void UseCounter::CountIfFeatureWouldBeBlockedByFeaturePolicy(
     const LocalFrame& frame,
