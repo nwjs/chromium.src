@@ -24,6 +24,10 @@ extern const char kCaptivePortalDescription[];
 extern const char kContextualSearch[];
 extern const char kContextualSearchDescription[];
 
+// Title and description for the flag to enable History batch filtering.
+extern const char kHistoryBatchUpdatesFilterName[];
+extern const char kHistoryBatchUpdatesFilterDescription[];
+
 // Title and description for the flag to enable feature_engagement::Tracker
 // demo mode.
 extern const char kInProductHelpDemoModeName[];
