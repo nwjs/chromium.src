@@ -2454,8 +2454,9 @@ bubblePresenterForFeature:(const base::Feature&)feature
     tabHelper->SetLauncher(self);
   tab.webState->SetDelegate(_webStateDelegate.get());
   // BrowserViewController owns the coordinator that displays the Sad Tab.
-  if (!SadTabTabHelper::FromWebState(tab.webState))
+  if (!SadTabTabHelper::FromWebState(tab.webState)) {
     SadTabTabHelper::CreateForWebState(tab.webState, _sadTabCoordinator);
+  }
   PrintTabHelper::CreateForWebState(tab.webState, self);
   RepostFormTabHelper::CreateForWebState(tab.webState, self);
   NetExportTabHelper::CreateForWebState(tab.webState, self);
@@ -4762,10 +4763,6 @@ bubblePresenterForFeature:(const base::Feature&)feature
   [self updateVoiceSearchBarVisibilityAnimated:NO];
 
   [_paymentRequestManager setActiveWebState:newTab.webState];
-
-  // Update the Sad Tab coordinator webstate so it matches the current tab
-  // webstate.
-  _sadTabCoordinator.webState = newTab.webState;
 
   [self tabSelected:newTab];
   DCHECK_EQ(newTab, [model currentTab]);

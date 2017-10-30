@@ -11,19 +11,11 @@
 
 @class CommandDispatcher;
 
-namespace web {
-class WebState;
-}
-
 // Coordinator that displays a SadTab view.
 @interface SadTabLegacyCoordinator : NSObject<SadTabTabHelperDelegate>
 
 // The dispatcher for this Coordinator.
 @property(nonatomic, weak) CommandDispatcher* dispatcher;
-
-// The web state this SadTabLegacyCoordinator is handling. This might change
-// during the life of the Coordinator and might be null.
-@property(nonatomic, assign) web::WebState* webState;
 
 @end
 
