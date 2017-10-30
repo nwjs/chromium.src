@@ -50,11 +50,9 @@ InternetDetailDialogUI::InternetDetailDialogUI(content::WebUI* web_ui)
       chrome::kChromeUIInternetDetailDialogHost);
 
   AddInternetStrings(source);
-
+  source->AddLocalizedString("title", IDS_SETTINGS_INTERNET_DETAIL);
   source->SetJsonPath("strings.js");
   source->SetDefaultResource(IDR_INTERNET_DETAIL_DIALOG_HTML);
-  source->DisableContentSecurityPolicy();
-
   source->AddResourcePath("internet_detail_dialog.js",
                           IDR_INTERNET_DETAIL_DIALOG_JS);
 
