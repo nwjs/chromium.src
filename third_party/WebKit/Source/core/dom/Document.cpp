@@ -2020,9 +2020,9 @@ void Document::PropagateStyleToViewport(StyleRecalcChange change) {
   ScrollBehavior scroll_behavior = document_element_style->GetScrollBehavior();
 
   EScrollBoundaryBehavior scroll_boundary_behavior_x =
-      overflow_style->ScrollBoundaryBehaviorX();
+      overflow_style->OverscrollBehaviorX();
   EScrollBoundaryBehavior scroll_boundary_behavior_y =
-      overflow_style->ScrollBoundaryBehaviorY();
+      overflow_style->OverscrollBehaviorY();
   using ScrollBoundaryBehaviorType =
       WebScrollBoundaryBehavior::ScrollBoundaryBehaviorType;
   if (RuntimeEnabledFeatures::CSSScrollBoundaryBehaviorEnabled() &&
@@ -2052,8 +2052,8 @@ void Document::PropagateStyleToViewport(StyleRecalcChange change) {
         old_style.ColumnGap() == column_gap &&
         old_style.GetScrollSnapType() == snap_type &&
         old_style.GetScrollBehavior() == scroll_behavior &&
-        old_style.ScrollBoundaryBehaviorX() == scroll_boundary_behavior_x &&
-        old_style.ScrollBoundaryBehaviorY() == scroll_boundary_behavior_y) {
+        old_style.OverscrollBehaviorX() == scroll_boundary_behavior_x &&
+        old_style.OverscrollBehaviorY() == scroll_boundary_behavior_y) {
       return;
     }
     viewport_style = ComputedStyle::Clone(old_style);
@@ -2072,8 +2072,8 @@ void Document::PropagateStyleToViewport(StyleRecalcChange change) {
     viewport_style->SetColumnGap(column_gap);
   viewport_style->SetScrollSnapType(snap_type);
   viewport_style->SetScrollBehavior(scroll_behavior);
-  viewport_style->SetScrollBoundaryBehaviorX(scroll_boundary_behavior_x);
-  viewport_style->SetScrollBoundaryBehaviorY(scroll_boundary_behavior_y);
+  viewport_style->SetOverscrollBehaviorX(scroll_boundary_behavior_x);
+  viewport_style->SetOverscrollBehaviorY(scroll_boundary_behavior_y);
   GetLayoutViewItem().SetStyle(viewport_style);
   SetupFontBuilder(*viewport_style);
 }
