@@ -214,6 +214,10 @@ void ContentBrowserClient::AllowWorkerFileSystem(
   callback.Run(true);
 }
 
+base::FilePath ContentBrowserClient::GetRootPath() {
+  return base::FilePath();
+}
+
 bool ContentBrowserClient::AllowWorkerIndexedDB(
     const GURL& url,
     const base::string16& name,

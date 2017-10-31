@@ -11,6 +11,7 @@ visibility = [
   ":*",
   "//mojo/public/cpp/bindings/*",
   "//third_party/WebKit/*",
+  "//content/nw/*",
 ]
 
 config("wtf_config") {

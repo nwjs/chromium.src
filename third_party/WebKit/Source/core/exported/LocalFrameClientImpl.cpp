@@ -137,6 +137,14 @@ bool IsBackForwardNavigationInProgress(LocalFrame* local_frame) {
 
 }  // namespace
 
+void LocalFrameClientImpl::willHandleNavigationPolicy(const ResourceRequest& request, NavigationPolicy* policy, WebString* manifest, bool new_win)
+{
+  if (web_frame_->Client()) {
+    WrappedResourceRequest webreq(request);
+    web_frame_->Client()->willHandleNavigationPolicy(web_frame_, webreq, (WebNavigationPolicy*)policy, manifest, new_win);
+  }
+}
+
 LocalFrameClientImpl::LocalFrameClientImpl(WebLocalFrameImpl* frame)
     : web_frame_(frame) {}
 
@@ -892,14 +900,15 @@ void LocalFrameClientImpl::DidChangeFrameOwnerProperties(
   if (!web_frame_->Client())
     return;
 
-  web_frame_->Client()->DidChangeFrameOwnerProperties(
-      WebFrame::FromFrame(frame_element->ContentFrame()),
-      WebFrameOwnerProperties(
+  WebFrameOwnerProperties ownerProperties(
           frame_element->BrowsingContextContainerName(),
           frame_element->ScrollingMode(), frame_element->MarginWidth(),
           frame_element->MarginHeight(), frame_element->AllowFullscreen(),
           frame_element->AllowPaymentRequest(), frame_element->IsDisplayNone(),
-          frame_element->Csp()));
+          frame_element->Csp());
+  ownerProperties.nwFakeTop = frame_element->FastHasAttribute(HTMLNames::nwfaketopAttr);
+  web_frame_->Client()->DidChangeFrameOwnerProperties(
+       WebFrame::FromFrame(frame_element->ContentFrame()), ownerProperties);
 }
 
 void LocalFrameClientImpl::DispatchWillStartUsingPeerConnectionHandler(
