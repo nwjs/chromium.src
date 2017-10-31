@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "ash/public/cpp/ash_switches.h"
 #include "ash/public/cpp/config.h"
 #include "ash/session/session_controller.h"
 #include "ash/shell.h"
@@ -14,12 +15,12 @@
 #include "ash/shutdown_reason.h"
 #include "ash/system/power/power_button_controller.h"
 #include "ash/system/power/power_button_test_base.h"
-#include "ash/system/tray/system_tray.h"
-#include "ash/test_screenshot_delegate.h"
+#include "ash/touch/touch_devices_controller.h"
 #include "ash/wm/lock_state_controller_test_api.h"
 #include "ash/wm/session_state_animator.h"
 #include "ash/wm/test_session_state_animator.h"
 #include "base/command_line.h"
+#include "base/run_loop.h"
 #include "base/time/time.h"
 #include "chromeos/dbus/fake_power_manager_client.h"
 #include "chromeos/dbus/fake_session_manager_client.h"
@@ -1020,74 +1021,41 @@ TEST_F(LockStateControllerTest, CancelClamshellDisplayOffAfterLock) {
   UnlockScreen();
 }
 
-TEST_F(LockStateControllerTest, Screenshot) {
-  TestScreenshotDelegate* delegate = GetScreenshotDelegate();
-  delegate->set_can_take_screenshot(true);
+// Tests the default behavior of disabling the touchscreen when the screen is
+// turned off due to user inactivity.
+TEST_F(LockStateControllerTest, DisableTouchscreenForScreenOff) {
+  Initialize(ButtonType::NORMAL, LoginStatus::USER);
+  // Run the event loop so PowerButtonDisplayController will get the initial
+  // backlights-forced-off state from chromeos::PowerManagerClient.
+  base::RunLoop().RunUntilIdle();
 
-  EnableTabletMode(false);
+  // Manually turn the screen off and check that the touchscreen is enabled.
+  power_manager_client_->SendBrightnessChanged(0, true /* user_initiated */);
+  EXPECT_TRUE(Shell::Get()->touch_devices_controller()->GetTouchscreenEnabled(
+      TouchscreenEnabledSource::GLOBAL));
 
-  // Screenshot handling should not be active when not in tablet mode.
-  ASSERT_EQ(0, delegate->handle_take_screenshot_count());
-  PressKey(ui::VKEY_VOLUME_DOWN);
-  PressPowerButton();
-  ReleasePowerButton();
-  ReleaseKey(ui::VKEY_VOLUME_DOWN);
-  EXPECT_EQ(0, delegate->handle_take_screenshot_count());
-
-  EnableTabletMode(true);
-
-  // Pressing power alone does not take a screenshot.
-  PressPowerButton();
-  ReleasePowerButton();
-  EXPECT_EQ(0, delegate->handle_take_screenshot_count());
-
-  // Press & release volume then pressing power does not take a screenshot.
-  ASSERT_EQ(0, delegate->handle_take_screenshot_count());
-  PressKey(ui::VKEY_VOLUME_DOWN);
-  ReleaseKey(ui::VKEY_VOLUME_DOWN);
-  PressPowerButton();
-  ReleasePowerButton();
-  EXPECT_EQ(0, delegate->handle_take_screenshot_count());
-
-  // Pressing power and then volume does not take a screenshot.
-  ASSERT_EQ(0, delegate->handle_take_screenshot_count());
-  PressPowerButton();
-  ReleasePowerButton();
-  PressKey(ui::VKEY_VOLUME_DOWN);
-  ReleaseKey(ui::VKEY_VOLUME_DOWN);
-  EXPECT_EQ(0, delegate->handle_take_screenshot_count());
-
-  // Holding volume down and pressing power takes a screenshot.
-  ASSERT_EQ(0, delegate->handle_take_screenshot_count());
-  PressKey(ui::VKEY_VOLUME_DOWN);
-  PressPowerButton();
-  ReleasePowerButton();
-  ReleaseKey(ui::VKEY_VOLUME_DOWN);
-  EXPECT_EQ(1, delegate->handle_take_screenshot_count());
+  // It should be disabled if the screen is turned off due to user inactivity.
+  power_manager_client_->SendBrightnessChanged(100, true /* user_initiated */);
+  power_manager_client_->SendBrightnessChanged(0, false /* user_initiated */);
+  EXPECT_FALSE(Shell::Get()->touch_devices_controller()->GetTouchscreenEnabled(
+      TouchscreenEnabledSource::GLOBAL));
 }
 
-// Tests that volume down key event is properly handled by power button
-// controller when system tray bubble is shown. This is a regression test for
-// crbug.com/765473.
-TEST_F(LockStateControllerTest, VolumeDownKeyWithTrayBubbleShown) {
-  TestScreenshotDelegate* delegate = GetScreenshotDelegate();
-  delegate->set_can_take_screenshot(true);
-  EnableTabletMode(true);
+// Tests that the kTouchscreenUsableWhileScreenOff switch keeps the touchscreen
+// enabled when the screen is turned off due to user inactivity.
+TEST_F(LockStateControllerTest, TouchscreenUnableWhileScreenOff) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kTouchscreenUsableWhileScreenOff);
+  ResetPowerButtonController();
+  Initialize(ButtonType::NORMAL, LoginStatus::USER);
+  // Run the event loop so PowerButtonDisplayController will get the initial
+  // backlights-forced-off state from chromeos::PowerManagerClient.
+  base::RunLoop().RunUntilIdle();
 
-  ASSERT_EQ(0, delegate->handle_take_screenshot_count());
-  // Simulate that pressing volume down key triggers volume bubble view.
-  PressKey(ui::VKEY_VOLUME_DOWN);
-  SystemTray* tray = GetPrimarySystemTray();
-  tray->ShowDefaultView(BUBBLE_CREATE_NEW, false /* show_by_click */);
-  // Release volume down key while tray bubble is still shown.
-  ASSERT_TRUE(tray->IsSystemBubbleVisible());
-  ReleaseKey(ui::VKEY_VOLUME_DOWN);
-  tray->CloseBubble();
-  EXPECT_FALSE(tray->IsSystemBubbleVisible());
-  // Now press power button, verify that it doesn't do screenshot.
-  PressPowerButton();
-  ReleasePowerButton();
-  EXPECT_EQ(0, delegate->handle_take_screenshot_count());
+  // The touchscreen should remain enabled.
+  power_manager_client_->SendBrightnessChanged(0, false /* user_initiated */);
+  EXPECT_TRUE(Shell::Get()->touch_devices_controller()->GetTouchscreenEnabled(
+      TouchscreenEnabledSource::GLOBAL));
 }
 
 }  // namespace ash
