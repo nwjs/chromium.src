@@ -950,6 +950,8 @@ class MockOverscrollController {
 };
 #endif  // defined(USE_AURA)
 
+WebContents* GetEmbedderForGuest(content::WebContents* guest);
+
 }  // namespace content
 
 #endif  // CONTENT_PUBLIC_TEST_BROWSER_TEST_UTILS_H_

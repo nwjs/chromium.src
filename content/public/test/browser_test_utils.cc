@@ -2256,4 +2256,9 @@ MockOverscrollController* MockOverscrollController::Create(
 
 #endif  // defined(USE_AURA)
 
+WebContents* GetEmbedderForGuest(content::WebContents* guest) {
+  CHECK(guest);
+  return static_cast<content::WebContentsImpl*>(guest)->GetOuterWebContents();
+}
+
 }  // namespace content
