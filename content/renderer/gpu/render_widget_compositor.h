@@ -11,6 +11,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "cc/input/browser_controls_state.h"
 #include "cc/trees/layer_tree_host_client.h"
 #include "cc/trees/layer_tree_host_single_thread_client.h"
@@ -218,6 +219,14 @@ class CONTENT_EXPORT RenderWidgetCompositor
   void DidLoseLayerTreeFrameSink() override;
   void RequestBeginMainFrameNotExpected(bool new_state) override;
 
+  enum {
+#if defined(OS_ANDROID)
+    LAYER_TREE_FRAME_SINK_RETRIES_BEFORE_FALLBACK = 4,
+#else
+    LAYER_TREE_FRAME_SINK_RETRIES_BEFORE_FALLBACK = 1,
+#endif
+  };
+
  protected:
   friend class RenderViewImplScaleFactorTest;
 
@@ -234,7 +243,7 @@ class CONTENT_EXPORT RenderWidgetCompositor
   bool CompositeIsSynchronous() const;
   void SynchronouslyComposite();
 
-  bool attempt_software_fallback_ = false;
+  int num_failed_recreate_attempts_;
   RenderWidgetCompositorDelegate* const delegate_;
   CompositorDependencies* const compositor_deps_;
   const bool threaded_;

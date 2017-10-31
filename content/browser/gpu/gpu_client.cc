@@ -4,6 +4,7 @@
 
 #include "content/browser/gpu/gpu_client.h"
 
+#include "build/build_config.h"
 #include "content/browser/gpu/browser_gpu_memory_buffer_manager.h"
 #include "content/browser/gpu/gpu_process_host.h"
 #include "content/common/child_process_host_impl.h"
@@ -44,6 +45,7 @@ void GpuClient::OnEstablishGpuChannel(
     const gpu::GPUInfo& gpu_info,
     const gpu::GpuFeatureInfo& gpu_feature_info,
     GpuProcessHost::EstablishChannelStatus status) {
+#if !defined(OS_ANDROID)
   if (status == GpuProcessHost::EstablishChannelStatus::GPU_ACCESS_DENIED) {
     // GPU access is not allowed. Notify the client immediately.
     DCHECK(!channel.mojo_handle.is_valid());
@@ -59,6 +61,7 @@ void GpuClient::OnEstablishGpuChannel(
     return;
   }
   DCHECK(channel.mojo_handle.is_valid());
+#endif
   mojo::ScopedMessagePipeHandle channel_handle;
   channel_handle.reset(channel.mojo_handle);
   callback.Run(render_process_id_, std::move(channel_handle), gpu_info,
