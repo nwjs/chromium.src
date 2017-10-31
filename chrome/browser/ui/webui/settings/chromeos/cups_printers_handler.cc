@@ -501,6 +501,14 @@ void CupsPrintersHandler::HandleAddCupsPrinter(const base::ListValue* args) {
     printer_uri += "/" + printer_queue;
   }
 
+  // Validate uri before continuing.
+  PrinterUri uri;
+  if (!ParseUri(printer_uri, &uri)) {
+    LOG(ERROR) << "Failed to parse printer";
+    OnAddPrinterError();
+    return;
+  }
+
   // Read PPD selection if it was used.
   std::string ppd_manufacturer;
   std::string ppd_model;
