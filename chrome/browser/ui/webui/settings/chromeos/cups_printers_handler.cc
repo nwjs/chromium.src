@@ -524,6 +524,12 @@ void CupsPrintersHandler::HandleAddCupsPrinter(const base::ListValue* args) {
   CHECK(args->GetDictionary(0, &printer_dict));
 
   Printer printer = DictToPrinter(*printer_dict);
+  PrinterUri uri;
+  if (!ParseUri(printer.uri(), &uri)) {
+    LOG(ERROR) << "Failed to parse printer";
+    OnAddPrinterError(PrinterSetupResult::kFatalError);
+    return;
+  }
 
   // Read PPD selection if it was used.
   std::string ppd_manufacturer;
