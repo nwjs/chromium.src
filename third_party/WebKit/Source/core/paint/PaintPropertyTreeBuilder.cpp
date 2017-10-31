@@ -1610,7 +1610,8 @@ void PaintPropertyTreeBuilder::UpdateFragments(
             context.fixed_position.paint_offset_root = &object;
 
     full_context.fragments.Fill(context, 1);
-    object.GetMutableForPainting().FirstFragment().ClearNextFragment();
+    if (object.GetMutableForPainting().FirstFragment())
+      object.GetMutableForPainting().FirstFragment()->ClearNextFragment();
   }
 }
 
