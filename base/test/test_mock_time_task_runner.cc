@@ -372,16 +372,16 @@ bool TestMockTimeTaskRunner::DequeueNextTask(const TimeTicks& reference,
   return false;
 }
 
-void TestMockTimeTaskRunner::Run(bool application_tasks_allowed) {
+void TestMockTimeTaskRunner::Run() {
   DCHECK(thread_checker_.CalledOnValidThread());
 
   // Since TestMockTimeTaskRunner doesn't process system messages: there's no
-  // hope for anything but an application task to call Quit(). If this RunLoop
-  // can't process application tasks (i.e. disallowed by default in nested
-  // RunLoops) it's guaranteed to hang...
-  DCHECK(application_tasks_allowed)
+  // hope for anything but a chrome task to call Quit(). If this RunLoop can't
+  // process chrome tasks (i.e. disallowed by default in nested RunLoops), it's
+  // thereby guaranteed to hang...
+  DCHECK(run_loop_client_->ProcessingTasksAllowed())
       << "This is a nested RunLoop instance and needs to be of "
-         "Type::kNestableTasksAllowed.";
+         "Type::NESTABLE_TASKS_ALLOWED.";
 
   while (!quit_run_loop_) {
     RunUntilIdle();
