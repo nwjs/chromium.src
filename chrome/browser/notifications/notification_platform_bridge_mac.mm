@@ -17,6 +17,7 @@
 #include "base/mac/scoped_mach_port.h"
 #include "base/mac/scoped_nsobject.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/optional.h"
 #include "base/strings/nullable_string16.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/sys_string_conversions.h"
@@ -376,6 +377,12 @@ void NotificationPlatformBridgeMac::ProcessNotificationResponse(
   NSNumber* notification_type =
       [response objectForKey:notification_constants::kNotificationType];
 
+  base::Optional<int> action_index;
+  if (button_index.intValue !=
+      notification_constants::kNotificationInvalidButtonIndex) {
+    action_index = button_index.intValue;
+  }
+
   content::BrowserThread::PostTask(
       content::BrowserThread::UI, FROM_HERE,
       base::Bind(DoProcessNotificationResponse,
@@ -384,8 +391,8 @@ void NotificationPlatformBridgeMac::ProcessNotificationResponse(
                  static_cast<NotificationCommon::Type>(
                      notification_type.unsignedIntValue),
                  profile_id, [is_incognito boolValue], notification_origin,
-                 notification_id, button_index.intValue /* action_index */,
-                 base::nullopt /* reply */, true /* by_user */));
+                 notification_id, action_index, base::nullopt /* reply */,
+                 true /* by_user */));
 }
 
 // static
@@ -413,7 +420,8 @@ bool NotificationPlatformBridgeMac::VerifyNotificationData(
   NSNumber* notification_type =
       [response objectForKey:notification_constants::kNotificationType];
 
-  if (button_index.intValue < -1 ||
+  if (button_index.intValue <
+          notification_constants::kNotificationInvalidButtonIndex ||
       button_index.intValue >=
           static_cast<int>(blink::kWebNotificationMaxActions)) {
     LOG(ERROR) << "Invalid number of buttons supplied "
