@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Modo de contraste alto</translation>
 <translation id="2597972630681408282">Luz nocturna: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Enviar</translation>
+<translation id="2675319268637823299">Un administrador inhabilitó el acceso múltiple para <ph name="USER_EMAIL" />.
+Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="2700058918926273959">La sesión terminará en <ph name="SESSION_TIME_REMAINING" /> y se cerrará.</translation>
 <translation id="2727977024730340865">Conexión a un cargador de baja potencia. Es posible que la carga de la batería no sea confiable.</translation>
 <translation id="2761704814324807722">Bandeja de estado, hora <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">Superposición de teclado</translation>
 <translation id="639644700271529076">El bloqueo de mayúsculas está desactivado.</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Todo listo</translation>
 <translation id="6452181791372256707">Rechazar</translation>
 <translation id="6453179446719226835">Se cambió el idioma</translation>
 <translation id="6459472438155181876">Ampliando pantalla para <ph name="DISPLAY_NAME" /></translation>
@@ -297,6 +300,7 @@ Es posible que las notificaciones, las ventanas y los diálogos posteriores se d
 <translation id="8825534185036233643">La duplicación con más de dos pantallas no es compatible.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Tecla de búsqueda + Esc</translation>
+<translation id="8870509716567206129">La app no es compatible con la función de pantalla dividida.</translation>
 <translation id="8878886163241303700">Ampliando pantalla</translation>
 <translation id="8921624153894383499">El Asistente de Google no habla este idioma</translation>
 <translation id="8938800817013097409">Dispositivo USB-C (puerto derecho en la parte posterior)</translation>

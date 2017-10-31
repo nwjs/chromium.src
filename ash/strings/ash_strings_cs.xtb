@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Režim vysokého kontrastu</translation>
 <translation id="2597972630681408282">Noční režim: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Odeslat</translation>
+<translation id="2675319268637823299">Administrátor vícenásobné přihlášení pro účet <ph name="USER_EMAIL" /> zakázal.
+    Všichni uživatelé se před pokračováním musejí odhlásit.</translation>
 <translation id="2700058918926273959">Relace skončí za <ph name="SESSION_TIME_REMAINING" />. Poté budete odhlášeni.</translation>
 <translation id="2727977024730340865">Byla připojena nabíječka s nízkým výkonem. Nabíjení baterie nemusí probíhat spolehlivě.</translation>
 <translation id="2761704814324807722">Systémový panel, čas <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">Překryvná klávesnice</translation>
 <translation id="639644700271529076">CAPS LOCK je vypnutý</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Vše je hotovo</translation>
 <translation id="6452181791372256707">Odmítnout</translation>
 <translation id="6453179446719226835">Jazyk se změnil</translation>
 <translation id="6459472438155181876">Rozšíření obrazovky na displej <ph name="DISPLAY_NAME" /></translation>
@@ -297,6 +300,7 @@ Následné oznámení, okna a dialogy mohou být rozděleny mezi plochy.</trans
 <translation id="8825534185036233643">Zrcadlení s více než dvěma obrazovkami není podporováno.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Hledat+Esc</translation>
+<translation id="8870509716567206129">Aplikace nepodporuje režim rozdělené obrazovky.</translation>
 <translation id="8878886163241303700">Rozšíření obrazovky</translation>
 <translation id="8921624153894383499">Tímto jazykem Asistent Google nehovoří.</translation>
 <translation id="8938800817013097409">Zařízení USB Type-C (pravý zadní port)</translation>

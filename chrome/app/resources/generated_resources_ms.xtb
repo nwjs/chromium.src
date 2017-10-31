@@ -2399,7 +2399,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="4716483597559580346">Powerwash untuk keselamatan tambahan</translation>
 <translation id="471800408830181311">Gagal untuk output kunci persendirian.</translation>
 <translation id="4720113199587244118">Tambah Peranti</translation>
-<translation id="4720185134442950733">Rangkaian data mudah ali</translation>
+<translation id="4720185134442950733">Rangkaian data mudah alih</translation>
 <translation id="4722920479021006856"><ph name="APP_NAME" /> berkongsi skrin anda.</translation>
 <translation id="4724450788351008910">Penggabungan Ditukar</translation>
 <translation id="4724850507808590449"><ph name="FILE_COUNT" /> foto disandarkan</translation>
@@ -3921,6 +3921,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="7077829361966535409">Halaman log masuk gagal dimuatkan menggunakan tetapan proksi semasa. Sila <ph name="GAIA_RELOAD_LINK_START" />cuba log masuk sekali lagi<ph name="GAIA_RELOAD_LINK_END" /> atau gunakan <ph name="PROXY_SETTINGS_LINK_START" />tetapan proksi<ph name="PROXY_SETTINGS_LINK_END" /> yang berbeza.</translation>
 <translation id="7078120482318506217">Semua rangkaian</translation>
 <translation id="708060913198414444">S&amp;alin alamat audio</translation>
+<translation id="708278670402572152">Putuskan sambungan untuk mendayakan pengimbasan</translation>
 <translation id="7084192839369222683">Jalankan kandungan penting sahaja</translation>
 <translation id="7088434364990739311">Semakan kemas kini gagal dimulakan (kod ralat <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver - Buka dan muatkan fail ZIP dalam apl Fail.</translation>
@@ -4128,7 +4129,7 @@ Tekan sebarang kekunci untuk terus meneroka.</translation>
 <translation id="7438940380767210568">Sediakan pencetak...</translation>
 <translation id="7439964298085099379">Anda telah mendayakan mod Kontras Tinggi. Adakah anda mahu memasang sambungan Kontras Tinggi dan tema gelap kami?</translation>
 <translation id="7441830548568730290">Pengguna lain</translation>
-<translation id="7442465037756169001">Perkakasan Hangout Meet anda sudah boleh disediakan.</translation>
+<translation id="7442465037756169001">Hangouts Meet hardware anda sudah boleh disediakan.</translation>
 <translation id="744341768939279100">Buat profil baharu</translation>
 <translation id="7444726222535375658">Teruskan ke Hangout Meet</translation>
 <translation id="7444983668544353857">Lumpuhkan <ph name="NETWORKDEVICE" /></translation>

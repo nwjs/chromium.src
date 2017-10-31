@@ -3920,6 +3920,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="7077829361966535409">Nie można wczytać strony logowania przy bieżących ustawieniach serwera proxy. <ph name="GAIA_RELOAD_LINK_START" />Zaloguj się jeszcze raz<ph name="GAIA_RELOAD_LINK_END" /> lub użyj innych <ph name="PROXY_SETTINGS_LINK_START" />ustawień serwera proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="7078120482318506217">Wszystkie sieci</translation>
 <translation id="708060913198414444">K&amp;opiuj adres audio</translation>
+<translation id="708278670402572152">Rozłącz, by włączyć skanowanie</translation>
 <translation id="7084192839369222683">Uruchamiaj tylko ważną treść</translation>
 <translation id="7088434364990739311">Nie udało się uruchomić sprawdzania aktualizacji (kod błędu <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver – otwieraj i pakuj pliki ZIP w aplikacji Pliki.</translation>
@@ -4121,7 +4122,7 @@ Naciśnij dowolny klawisz, by kontynuować przeglądanie.</translation>
 <translation id="7438940380767210568">Konfiguruję drukarkę…</translation>
 <translation id="7439964298085099379">Masz włączony tryb wysokiego kontrastu. Chcesz zainstalować nasze rozszerzenie High Contrast i ciemny motyw?</translation>
 <translation id="7441830548568730290">Inni użytkownicy</translation>
-<translation id="7442465037756169001">Sprzęt do Hangouts Meet jest gotowy do konfiguracji.</translation>
+<translation id="7442465037756169001">Hardware Hangouts Meet jest gotowy do konfiguracji.</translation>
 <translation id="744341768939279100">Utwórz nowy profil</translation>
 <translation id="7444726222535375658">Otwórz Hangouts Meet</translation>
 <translation id="7444983668544353857">Wyłącz – <ph name="NETWORKDEVICE" /></translation>

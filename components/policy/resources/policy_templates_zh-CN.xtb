@@ -16,6 +16,13 @@
 
       此政策只会影响所在网域与设备注册网域匹配的用户。对于所有其他用户，仅当他们首次在设备上登录时，由 IdP 设置的 Cookie 才会被转移到其个人资料中。</translation>
 <translation id="1040446814317236570">启用 PAC 网址剔除功能（适用于 https:// 类网址）</translation>
+<translation id="1041454584879384845">配置在登录屏幕上代表用户的用户头像的行为。
+
+      可在 JSON 属性中指定各项具体设置：
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />：如果设为 <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />，用户将可以使用视频作为头像图片。
+
+      如果未设置此政策，则不允许使用视频作为头像图片。</translation>
 <translation id="1044878202534415707">报告硬件统计数据，例如 CPU/RAM 使用情况。
 
       如果此政策设为 false，系统将不会报告硬件统计数据。
@@ -97,6 +104,7 @@
 <translation id="1435659902881071157">设备级网络配置</translation>
 <translation id="1438739959477268107">默认的密钥生成设置</translation>
 <translation id="1454846751303307294">可让您设置网址格式的列表，这些网址格式用于指定不允许运行 JavaScript 的网站。在未设置此政策的情况下，如果设置了“DefaultJavaScriptSetting”政策，那么将对该政策中的所有网站使用全局默认值，否则将对用户个人配置中的所有网站使用全局默认值。</translation>
+<translation id="1456822151187621582">Windows（<ph name="PRODUCT_OS_NAME" />客户端）：</translation>
 <translation id="1464848559468748897">控制<ph name="PRODUCT_OS_NAME" />设备上多个人资料会话中的用户行为。
 
       如果此政策设为“MultiProfileUserBehaviorUnrestricted”，用户将能够以主用户或次要用户的身份登录多个人资料会话。
@@ -521,6 +529,7 @@
           此政策处于停用状态并且出站UDP连接会被防火墙阻止时，此机器将只允许通过本地网络内的客户端机器建立连接。
 
           如果此政策未设置，系统将启用此政策。</translation>
+<translation id="2823870601012066791"><ph name="PRODUCT_OS_NAME" />客户端的 Windows 注册表位置：</translation>
 <translation id="2824715612115726353">启用隐身模式</translation>
 <translation id="2838830882081735096">禁止数据迁移和 ARC</translation>
 <translation id="2844404652289407061">在 <ph name="PRODUCT_NAME" /> 的内容视图中启用“触摸搜索”功能。
@@ -1396,6 +1405,7 @@
 <translation id="6076099373507468537">定义可从其内核驱动程序分离以便直接通过网络应用内的 chrome.usb API 使用的 USB 设备列表。列表中的条目是成对的用于标识特定硬件的 USB 供应商标识符和产品标识符。
 
       如果此政策未配置，则分离式 USB 设备列表为空。</translation>
+<translation id="6083631234867522991">Windows（Windows 客户端）：</translation>
 <translation id="6093156968240188330">允许远程用户在远程协助会话中操控提权后的窗口</translation>
 <translation id="6095999036251797924">指定在设备闲置多长时间后屏幕将锁定（使用交流电源或电池供电时）。
 
@@ -1460,6 +1470,7 @@
 <translation id="6310223829319187614">允许在用户登录期间自动填充域名</translation>
 <translation id="6315673513957120120">当用户访问存在 SSL 错误的网站时，Chrome 将显示警告页面。默认情况下，或当此政策设为 true 时，用户可以在点击这些警告页面后继续操作。
       如果将此政策设为 false，用户将无法通过点击任何警告页面继续操作。</translation>
+<translation id="6320758134170712450">配置用户头像行为</translation>
 <translation id="6353901068939575220">指定通过 POST 搜索网址时使用的参数。该参数由以英文逗号分隔的名称/值对组成。如果值为模板参数（例如上例中的 {searchTerms}），那么系统会将其替换成真正的搜索字词数据。
 
           此为可选政策。如果未设置此政策，系统将使用 GET 方法发送搜索请求。
@@ -1864,6 +1875,39 @@
 <translation id="7841880500990419427">要回退到的最低 TLS 版本</translation>
 <translation id="7842869978353666042">配置 Google 云端硬盘选项</translation>
 <translation id="7843525027689416831">指定应在 <ph name="PRODUCT_NAME" /> 启动时应用于它的选项。指定的选项仅会应用于登录屏幕。通过此政策设置的选项不会反映在用户会话中。</translation>
+<translation id="7844537954833753199">为 <ph name="PRODUCT_NAME" /> 配置扩展程序管理设置。
+
+          此政策可控制多项设置，其中包括由任何现有的扩展程序相关政策控制的设置。此政策将会替换所有旧版政策（如果同时设置了这两种政策的话）。
+
+          此政策可将某个扩展程序 ID 或某个更新网址映射至其配置。对于扩展程序 ID，配置将只会应用于所指定的扩展程序。您可为特殊 ID“<ph name="DEFAULT_SCOPE" />”设置默认配置，该配置将会应用于未在此政策中设置自定义配置的所有扩展程序。对于更新网址，配置则会应用于具有此扩展程序的清单中所注明的确切更新网址的所有扩展程序（如 <ph name="LINK_TO_EXTENSION_DOC1" /> 中所述）。
+
+          每个扩展程序（或具有相同更新网址的扩展程序）的配置都是一个单独的字典条目，其中可以包含下述字段。
+
+          <ph name="INSTALLATION_MODE" />：会映射至一个字符串，该字符串用于指明相应扩展程序的安装模式。有效字符串为：
+          * <ph name="ALLOWED" />：允许用户安装相应扩展程序。这是默认行为。
+          * <ph name="BLOCKED" />：禁止安装相应扩展程序。
+          * <ph name="FORCE_INSTALLED" />：自动安装相应扩展程序，且用户无法将其卸载。
+          * <ph name="NORMAL_INSTALLED" />：自动安装相应扩展程序，但用户可将其停用。
+
+          您也可同时为多个扩展程序配置“<ph name="INSTALLTION_MODE" />”，其中包括“<ph name="DEFAULT_SCOPE" />”扩展程序（以作为默认设置）和具有相同更新网址的扩展程序。在这种情况下，只能使用“<ph name="ALLOWED" />”和“<ph name="BLOCKED" />”这两个值。
+
+          如果此模式设为“<ph name="FORCE_INSTALLED" />”或“<ph name="NORMAL_INSTALLED" />”，那么您还必须配置“<ph name="UPDATE_URL" />”。请注意，此政策中设置的更新网址仅会用于初次安装，相应扩展程序的后续更新将会使用其清单中指定的更新网址。更新网址应指向更新清单 XML 文档（如上所述）。
+
+          <ph name="BLOCKED_PERMISSIONS" />：会映射至一系列字符串，这些字符串用于指明相应扩展程序的已被屏蔽的 API 权限。权限名称与扩展程序清单中声明的权限字符串相同（如 <ph name="LINK_TO_EXTENSION_DOC3" /> 中所述）。您也可为“<ph name="DEFAULT_SCOPE" />”扩展程序配置此设置。如果相应扩展程序请求获得屏蔽名单中的某项权限，它将无法进行加载。如果相应扩展程序包含某项已被屏蔽的权限，而这项权限只是作为可选请求，系统将会按照正常方式予以处理，但如果相应扩展程序请求获得冲突的权限，在运行时将会被系统自动拒绝。
+
+          <ph name="ALLOWED_PERMISSIONS" />：与“<ph name="BLOCKED_PERMISSIONS" />”类似，但该设置会明确允许某些可能已被全局屏蔽权限列表屏蔽的权限，因此您无法为“<ph name="DEFAULT_SCOPE" />”扩展程序配置此设置。请注意，此设置不会自动向扩展程序授予所允许的权限。
+
+          <ph name="MINIMUM_VERSION_REQUIRED" />：会映射至一个版本字符串。版本字符串的格式与扩展程序清单中使用的格式相同（如 <ph name="LINK_TO_EXTENSION_DOC4" /> 中所述）。系统将会停用在版本方面低于所指定的最低版本的扩展程序。此设置也适用于强制安装的扩展程序。
+
+          以下设置仅适用于默认的“<ph name="DEFAULT_SCOPE" />”配置：
+
+          <ph name="INSTALL_SOURCES" />：此列表中的每一项都是一种扩展程序样式的匹配模式（请访问 <ph name="LINK_TO_MATCH_PATTERNS" />）。用户将能够从任何与此列表中的扩展程序匹配的网址上轻松地安装扩展程序。<ph name="EXTENSION_SUFFIX_WILDCARD" /> 文件的位置和下载所始于的网页（即引荐来源网址）都必须由这些模式授权。
+
+          <ph name="ALLOWED_TYPES" />：通过此设置，您可将允许在 <ph name="PRODUCT_NAME" /> 中安装的扩展程序/应用的类型列入白名单。此设置的值是一系列字符串，其中每个字符串都应是以下类型之一：<ph name="VALID_ALLOWED_TYPES" />。要详细了解这些类型，请参阅 <ph name="PRODUCT_NAME" /> 扩展程序文档。
+          <ph name="BLOCKED_INSTALL_MESSAGE" />：如果用户尝试安装的扩展程序已被相关政策屏蔽，Chrome 网上应用店就会显示一条常规的错误消息。此设置可让您向这类错误消息附加文本，以便将用户引导至您的支持部门、解释相应扩展程序为何会被屏蔽，或用于其他用途。如果此类错误消息的长度超过 1000 个字符，则会被截断。
+          <ph name="RUNTIME_BLOCKED_HOSTS" />：此设置的值是一系列主机名称，用于指明相应扩展程序将被禁止与哪些主机交互（包括注入 JavaScript、更改和查看 webRequests / webNavigation，以及查看和更改 Cookie）。格式与匹配模式（请访问 <ph name="LINK_TO_MATCH_PATTERNS" />）类似，但无法定义任何路径（例如“*://*.example.com”）。也支持有效的顶级域名 (TLD) 通配符（例如“*://example.*”）。
+          <ph name="RUNTIME_ALLOWED_HOSTS" />：此设置的值是一系列主机名称，用于指明相应扩展程序可与哪些主机交互，无论它们是否已列在“<ph name="RUNTIME_BLOCKED_HOSTS" />”中。格式与“<ph name="RUNTIME_BLOCKED_HOSTS" />”相同。
+          </translation>
 <translation id="787125417158068494">如果设置为 SyncDisabled 或未配置，ARC 应用便无法使用 <ph name="PRODUCT_OS_NAME" /> 证书。
 
       如果设置为 CopyCaCerts，ARC 应用便可使用所有已安装 ONC 且带有 <ph name="WEB_TRUSTED_BIT" /> 的 CA 证书。</translation>
@@ -2041,6 +2085,7 @@
           如果该设置为 False，设备将不使用远程凭证来保护内容，并且设备可能无法播放受保护内容。
 
           如果该设置为 True 或未设置，设备可以使用远程凭证来保护内容。</translation>
+<translation id="8650974590712548439">Windows 客户端的 Windows 注册表位置：</translation>
 <translation id="8654286232573430130">指定应将哪些服务器列入可请求集成身份验证的白名单。只有当 <ph name="PRODUCT_NAME" /> 收到此名单中的代理服务器或服务器发出的身份验证请求时，才会启用集成身份验证。
 
           如果有多个服务器名称，要使用英文逗号分隔。允许使用通配符 (*)。

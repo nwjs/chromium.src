@@ -16,6 +16,13 @@
 
       Cette règle ne concerne que les utilisateurs dont le domaine correspond au domaine d'inscription de l'appareil. Pour tous les autres utilisateurs, les cookies définis par le fournisseur d'identification ne sont transférés au profil de l'utilisateur lors de sa première connexion que sur l'appareil.</translation>
 <translation id="1040446814317236570">Activer la suppression des URL via PAC (pour "https://")</translation>
+<translation id="1041454584879384845">Configure le comportement des avatars qui représentent les utilisateurs sur l'écran de connexion.
+
+      Les paramètres individuels peuvent être spécifiés dans les propriétés JSON :
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" /> : si la règle est définie sur "<ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />", les utilisateurs sont autorisés à utiliser des vidéos comme image d'avatar.
+
+      Si cette règle n'est pas définie, l'utilisation de vidéos comme image d'avatar est autorisée.</translation>
 <translation id="1044878202534415707">Envoyer des rapports sur les statistiques matérielles tels que l'utilisation du processeur et de la RAM.
 
       Si cette règle est définie sur "False", les statistiques ne seront pas envoyées.
@@ -100,6 +107,7 @@
 <translation id="1454846751303307294">Permet de définir une liste de formats d'URL spécifiant les sites qui ne sont pas autorisés à exécuter JavaScript. 
 
 Si cette règle n'est pas configurée, la valeur par défaut globale sera utilisée pour tous les sites à partir de la règle "DefaultJavaScriptSetting", si elle est définie, ou à défaut, à partir de la configuration personnelle de l'utilisateur.</translation>
+<translation id="1456822151187621582">Windows (clients <ph name="PRODUCT_OS_NAME" />) :</translation>
 <translation id="1464848559468748897">Contrôle le comportement des utilisateurs dans une session multiprofil sur des appareils <ph name="PRODUCT_OS_NAME" />.
 
      Si cette règle est définie sur "MultiProfileUserBehaviorUnrestricted", l'utilisateur peut être utilisateur principal ou secondaire dans une session multiprofil.
@@ -574,6 +582,7 @@ Si cette règle est définie sur "False", les utilisateurs ne pourront pas jouer
           Si ce paramètre est désactivé et si les connexions UDP sortantes sont filtrées par le pare-feu, ce poste autorise uniquement les connexions émanant des postes clients au sein du réseau local.
 
           Si cette règle n'est pas configurée, le paramètre est activé.</translation>
+<translation id="2823870601012066791">Emplacement du registre Windows pour les clients <ph name="PRODUCT_OS_NAME" /> :</translation>
 <translation id="2824715612115726353">Activer le mode navigation privée</translation>
 <translation id="2838830882081735096">Interdire la migration de données et ARC</translation>
 <translation id="2844404652289407061">Active la fonctionnalité Appuyer pour rechercher dans l'affichage du contenu de <ph name="PRODUCT_NAME" />.
@@ -1524,6 +1533,7 @@ Si l'option "Forcé" est sélectionnée, les pages peuvent être ouvertes UNIQUE
 <translation id="6076099373507468537">Définit la liste des appareils USB autorisés à être dissociés de leur pilote de noyau afin d'être utilisés directement au sein d'une application Web via l'API chrome.usb. Les entrées sont des paires composées d'un identifiant de fournisseur USB et d'un identifiant produit associé à un appareil spécifique.
 
       Si cette règle n'est pas configurée, la liste des appareils USB amovibles est vide.</translation>
+<translation id="6083631234867522991">Windows (clients Windows) :</translation>
 <translation id="6093156968240188330">Permettre aux utilisateurs distants d'interagir avec des fenêtres élevées dans les sessions d'assistance à distance</translation>
 <translation id="6095999036251797924">Indique la période sans activité de la part de l'utilisateur à l'issue de laquelle l'écran est verrouillé lorsque l'appareil est branché sur une prise de courant alternatif ou fonctionne sur batterie.
 
@@ -1593,6 +1603,7 @@ Si vous désactivez ce paramètre ou si vous ne le configurez pas, le SPN Kerber
 <translation id="6310223829319187614">Activer la saisie automatique du nom de domaine lors de la connexion de l'utilisateur</translation>
 <translation id="6315673513957120120">Chrome affiche une page d'avertissement lorsque les utilisateurs naviguent vers des sites présentant des erreurs SSL. Par défaut, ou quand cette règle est définie sur "True", les utilisateurs sont autorisés à poursuivre leur navigation vers la page concernée.
       Définir cette règle sur "False" empêche les utilisateurs de poursuivre leur navigation au-delà de la page d'avertissement.</translation>
+<translation id="6320758134170712450">Configurer le comportement de l'avatar de l'utilisateur</translation>
 <translation id="6353901068939575220">Spécifie les paramètres utilisés pour la recherche d'URL avec POST. Il s'agit de paires de noms et de valeurs séparées par une virgule. Si une valeur est équivalente à un paramètre modèle, comme "{searchTerms}" dans l'exemple ci-dessus, elle est remplacée par des termes de recherche réels.
 
           Cette règle est facultative. Si elle n'est pas définie, la requête de recherche sera envoyée à l'aide la méthode GET.
@@ -2032,6 +2043,39 @@ Si cette règle n'est pas configurée, la règle "AllowImages" est utilisée, et
 <translation id="7841880500990419427">Version minimale de TLS à utiliser en remplacement</translation>
 <translation id="7842869978353666042">Configurer les options Google Drive</translation>
 <translation id="7843525027689416831">Spécifie les indicateurs à appliquer à <ph name="PRODUCT_NAME" /> au démarrage. Ceux-ci ne sont appliqués que sur l'écran de connexion. Les indicateurs définis par cette règle ne se propagent pas dans les sessions utilisateur.</translation>
+<translation id="7844537954833753199">Configure les paramètres de gestion d'extension pour <ph name="PRODUCT_NAME" />.
+
+          Cette règle contrôle plusieurs paramètres, y compris ceux contrôlés par des règles associées à une extension. Le cas échéant, elle remplace les anciennes règles.
+
+          Cette règle fait correspondre un ID d'extension ou une URL de mise à jour avec sa configuration. Avec un ID d'extension, la configuration n'est appliquée qu'à l'extension spécifiée. Une configuration par défaut peut être définie pour l'ID spécial <ph name="DEFAULT_SCOPE" />, lequel s'applique à toutes les extensions dépourvues d'une configuration personnalisée dans cette règle. Avec une URL de mise à jour, la configuration est appliquée à l'ensemble des extensions avec l'URL de mise à jour telle qu'elle est indiquée dans le fichier manifeste de cette extension, comme précisé sur la page <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          La configuration de chaque extension (ou des extensions ayant la même URL de mise à jour) constitue un autre dictionnaire pouvant contenir les champs documentés ci-dessous.
+
+          <ph name="INSTALLATION_MODE" /> : mappe vers une chaîne qui indique le mode d'installation de l'extension. Les chaînes valides sont les suivantes :
+          * <ph name="ALLOWED" /> : permet l'installation de l'extension par l'utilisateur. Il s'agit du comportement par défaut.
+          * <ph name="BLOCKED" /> : bloque l'installation de l'extension.
+          * <ph name="FORCE_INSTALLED" /> : l'extension est installée automatiquement et ne peut pas être supprimée par l'utilisateur.
+          * <ph name="NORMAL_INSTALLED" /> : l'extension est installée automatiquement, mais elle peut être désactivée par l'utilisateur.
+
+          Le champ "<ph name="INSTALLTION_MODE" />" peut également être configuré pour plusieurs extensions, dont l'extension <ph name="DEFAULT_SCOPE" /> (comme paramètre par défaut) et les extensions ayant la même URL de mise à jour. Dans ce cas, seules les valeurs <ph name="ALLOWED" /> et <ph name="BLOCKED" /> peuvent être utilisées.
+
+          Si le mode est défini sur "<ph name="FORCE_INSTALLED" />" ou "<ph name="NORMAL_INSTALLED" />", une URL de mise à jour ("<ph name="UPDATE_URL" />") doit également être configurée. Notez que l'URL de mise à jour définie dans cette règle est seulement utilisée pour l'installation initiale ; les mises à jour ultérieures de l'extension utiliseront l'URL qui est indiquée dans le fichier manifeste de l'extension. L'URL de mise à jour doit toujours pointer vers un document XML "Update Manifest", comme précisé ci-dessus.
+
+          <ph name="BLOCKED_PERMISSIONS" /> : mappe vers une liste de chaînes indiquant les autorisations d'API bloquées pour l'extension. Les noms des autorisations sont identiques aux chaînes d'autorisations déclarées dans le fichier manifeste de l'extension, comme indiqué sur la page <ph name="LINK_TO_EXTENSION_DOC3" />. Ce paramètre peut également être configuré pour l'extension "<ph name="DEFAULT_SCOPE" />". Si l'extension nécessite une autorisation qui figure sur la liste de blocage, son chargement n'est pas autorisé. Si elle contient une autorisation bloquée en tant qu'exigence facultative, elle est traitée normalement, mais les autorisations en conflit seront refusées automatiquement au moment de l'exécution.
+
+          <ph name="ALLOWED_PERMISSIONS" /> : semblable à "<ph name="BLOCKED_PERMISSIONS" />", mais autorise explicitement certaines autorisations qui sont peut-être bloquées par une liste de blocage globale ; la configuration étant donc impossible pour l'extension "<ph name="DEFAULT_SCOPE" />". Notez que ce paramètre n'accorde pas automatiquement d'autorisations aux extensions.
+
+          <ph name="MINIMUM_VERSION_REQUIRED" /> : mappe vers une chaîne de version. Le format de cette chaîne de version est identique à celui utilisé dans le fichier manifeste de l'extension, comme indiqué sur la page <ph name="LINK_TO_EXTENSION_DOC4" />. Une extension présentant une version plus ancienne que la version minimale spécifiée sera désactivée. Cela s'applique également aux extensions de type "force-installed".
+
+          Les paramètres suivants ne peuvent être utilisés que pour la configuration "<ph name="DEFAULT_SCOPE" />" par défaut :
+
+          <ph name="INSTALL_SOURCES" /> : chaque élément de cette liste est un schéma de correspondance de style extension (voir <ph name="LINK_TO_MATCH_PATTERNS" />). Les utilisateurs pourront facilement installer des éléments depuis n'importe quelle URL correspondant à un élément de cette liste. L'emplacement du fichier <ph name="EXTENSION_SUFFIX_WILDCARD" /> et la page de téléchargement (page de provenance) doivent tous deux être autorisés par ces schémas.
+
+          <ph name="ALLOWED_TYPES" /> : ce paramètre ajoute à la liste blanche les types d'extensions ou d'applications qui peuvent être installés dans <ph name="PRODUCT_NAME" />. Il s'agit d'une liste de chaînes qui peuvent prendre les valeurs suivantes : <ph name="VALID_ALLOWED_TYPES" />. Pour obtenir davantage d'informations sur ces types, veuillez consulter la documentation relative aux extensions de <ph name="PRODUCT_NAME" />.
+          <ph name="BLOCKED_INSTALL_MESSAGE" /> : si un utilisateur essaie d'installer une extension, mais qu'elle est bloquée par une règle, le Chrome Web Store affiche un message d'erreur générique. Ce paramètre vous permet d'ajouter du texte au message d'erreur. Ceci peut être utilisé pour rediriger les utilisateurs vers votre centre d'assistance, expliquer pourquoi une extension spécifique est bloquée ou pour tout autre message. Ce message d'erreur sera tronqué s'il dépasse 1 000 caractères.
+          <ph name="RUNTIME_BLOCKED_HOSTS" /> : accepte une liste d'hôtes avec lesquels une extension ne pourra pas interagir. Cela inclut l'injection de JavaScript, la modification et l'affichage de webRequests/webNavigation, ainsi que la modification et l'affichage de cookies. Le format est semblable à Match Patterns (<ph name="LINK_TO_MATCH_PATTERNS" />), sauf qu'aucun chemin ne peut être défini. Par exemple : "*://*.example.com". Les caractères génériques TLD (par exemple : "*://example.*") sont également acceptés.
+          <ph name="RUNTIME_ALLOWED_HOSTS" /> : accepte une liste d'hôtes avec lesquels une extension peut interagir, qu'ils soient répertoriés dans <ph name="RUNTIME_BLOCKED_HOSTS" /> ou non. Il s'agit du même format que <ph name="RUNTIME_BLOCKED_HOSTS" />.
+          </translation>
 <translation id="787125417158068494">Si la règle est définie sur SyncDisabled ou n'est pas configurée, les certificats <ph name="PRODUCT_OS_NAME" /> ne sont pas disponibles pour les applications ARC.
 
       Si la règle est définie sur CopyCaCerts, tous les certificats CA installés via ONC avec <ph name="WEB_TRUSTED_BIT" /> sont disponibles pour les applications ARC.</translation>
@@ -2231,6 +2275,7 @@ Si ce paramètre n'est pas défini, l'utilisateur peut décider d'utiliser cette
           Si ce paramètre est défini sur "False", l'attestation à distance n'est pas utilisée pour la protection du contenu, et vous ne pourrez peut-être pas lire du contenu protégé.
 
           Si ce paramètre est défini sur "True", ou s'il n'est pas configuré, l'attestation à distance peut être utilisée pour la protection du contenu.</translation>
+<translation id="8650974590712548439">Emplacement du registre Windows pour les clients Windows :</translation>
 <translation id="8654286232573430130">Indique les serveurs autorisés pour l'authentification intégrée. L'authentification intégrée ne s'active que lorsque <ph name="PRODUCT_NAME" /> reçoit une demande d'authentification d'un proxy ou d'un serveur faisant partie de la liste blanche.
 
           Si vous utilisez plusieurs serveurs, séparez leur nom par une virgule. Les caractères génériques (*) sont autorisés.

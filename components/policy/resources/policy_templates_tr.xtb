@@ -2029,7 +2029,7 @@ Her bir uzantının (veya aynı güncelleme URL'sine sahip uzantıların) yapıl
 * <ph name="FORCE_INSTALLED" />: Uzantı otomatik olarak yüklenir ve kullanıcı tarafından kaldırılamaz.
 * <ph name="NORMAL_INSTALLED" />: Uzantı otomatik olarak yüklenir, ancak kullanıcı tarafından devre dışı bırakılabilir.
 
-<ph name="INSTALLTION_MODE" />, <ph name="DEFAULT_SCOPE" /> uzantısı (varsayılan ayarlar olarak) dahil olmak üzere birden fazla uzantı ve aynı güncelleme URL'sine sahip uzantılar için de yapılandırılabilir. Bu durumda sadece <ph name="ALLOWED" /> ve <ph name="BLOCKED" /> değerleri kullanılabilir.
+<ph name="INSTALLTION_MODE" />, <ph name="DEFAULT_SCOPE" /> uzantısı dahil olmak üzere birden fazla uzantı ve aynı güncelleme URL'sine sahip uzantılar için de (varsayılan ayarlar olarak) yapılandırılabilir. Bu durumda sadece <ph name="ALLOWED" /> ve <ph name="BLOCKED" /> değerleri kullanılabilir.
 
 Mod <ph name="FORCE_INSTALLED" /> veya <ph name="NORMAL_INSTALLED" /> seçeneğine ayarlanırsa ayrıca <ph name="UPDATE_URL" /> yapılandırılmalıdır. Bu politikada ayarlanmış olan güncelleme URL'sinin sadece ilk yükleme için kullanıldığını unutmayın. Uzantının sonraki güncellemelerinde, uzantının manifest dosyasında belirtilen güncelleme URL'si kullanılır. Güncelleme URL'si, yukarıda belirtildiği gibi bir Güncelleme Manifest XML dokümanını işaret etmelidir.
 

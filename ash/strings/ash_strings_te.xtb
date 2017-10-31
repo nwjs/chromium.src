@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">అధిక కాంట్రాస్ట్ మోడ్</translation>
 <translation id="2597972630681408282">రాత్రి కాంతి: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">సమర్పించు</translation>
+<translation id="2675319268637823299">ఒక నిర్వాహకుడు <ph name="USER_EMAIL" /> కోసం బహుళ సైన్-ఇన్ అనుమతిని తిరస్కరించారు.
+    కొనసాగించాలంటే అందరు వినియోగదారులు తప్పనిసరిగా సైన్ అవుట్ చేయాలి.</translation>
 <translation id="2700058918926273959">సెషన్ <ph name="SESSION_TIME_REMAINING" />లో ముగుస్తుంది. మీరు సైన్ అవుట్ చేయబడతారు.</translation>
 <translation id="2727977024730340865">తక్కువ-పవర్ గల ఛార్జర్‌కు ప్లగిన్ చేయబడింది. బ్యాటరీ ఛార్జింగ్ విశ్వసనీయంగా ఉండకపోవచ్చు.</translation>
 <translation id="2761704814324807722">స్థితి ట్రే, సమయం <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">కీబోర్డ్ అతివ్యాప్తి</translation>
 <translation id="639644700271529076">CAPS LOCK ఆపివేయబడింది</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">పూర్తయింది</translation>
 <translation id="6452181791372256707">తిరస్కరించు</translation>
 <translation id="6453179446719226835">భాష మార్చబడింది</translation>
 <translation id="6459472438155181876"><ph name="DISPLAY_NAME" />కు స్క్రీన్‌ను విస్తరిస్తోంది</translation>
@@ -297,6 +300,7 @@
 <translation id="8825534185036233643">రెండింటి కంటే ఎక్కువ డిస్‌ప్లేలతో మిర్రరింగ్ చేయడానికి మద్దతు లేదు.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Search+Esc</translation>
+<translation id="8870509716567206129">యాప్‌లో విభజన స్క్రీన్‌కి మద్దతు లేదు.</translation>
 <translation id="8878886163241303700">స్క్రీన్ విస్తరించబడుతోంది</translation>
 <translation id="8921624153894383499">Google సహాయకం ఈ భాషను మాట్లాడదు.</translation>
 <translation id="8938800817013097409">USB-C పరికరం (వెనుక భాగంలో కుడి పోర్ట్)</translation>

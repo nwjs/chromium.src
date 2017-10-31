@@ -349,7 +349,7 @@
 <translation id="2223598546285729819">Setelan pemberitahuan default</translation>
 <translation id="2231817271680715693">Impor riwayat browseran dari browser default saat pertama kali dijalankan</translation>
 <translation id="2236488539271255289">Jangan izinkan situs mana pun menyetel data lokal</translation>
-<translation id="2240879329269430151">Memungkinkan Anda menyetel apakah situs web diizinkan untuk menampilkan munculan. Menampilkan munculan dapat diizinkan untuk semua situs web atau ditolak untuk semua situs web. Jika kebijakan ini dibiarkan tidak disetel, 'BlockPopups' akan digunakan dan pengguna dapat mengubahnya.</translation>
+<translation id="2240879329269430151">Memungkinkan Anda menentukan apakah situs diizinkan untuk menampilkan pop-up. Menampilkan pop-up dapat diizinkan atau diblokir untuk semua situs. Jika kebijakan ini tidak disetel, 'BlockPopups' akan digunakan dan pengguna dapat mengubahnya.</translation>
 <translation id="2274864612594831715">Kebijakan ini mengonfigurasi pengaktifkan keyboard virtual sebagai perangkat masukan di ChromeOS. Pengguna tidak dapat mengganti kebijakan ini.
 
       Jika kebijakan ini disetel ke true, keyboard virtual di layar akan selalu diaktifkan.
@@ -815,7 +815,7 @@
           Nilai daftar hitam * menunjukkan bahwa semua hosting perpesanan asli dimasukkan dalam daftar hitam dan hanya hosting perpesanan asli yang tercantum dalam daftar putih yang akan dimuat.
 
           Secara default, semua hosting perpesanan asli dimasukkan dalam daftar putih, namun jika semua hosting perpesanan asli telah dimasukkan dalam daftar hitam sesuai dengan kebijakan, daftar putih dapat digunakan untuk menggantikan kebijakan tersebut.</translation>
-<translation id="384743459174066962">Memungkinkan Anda menyetel daftar pola URL yang menentukan situs yang tidak diizinkan untuk membuka munculan. Jika kebijakan ini tidak disetel, nilai default global akan digunakan untuk semua situs baik dari kebijakan 'DefaultPopupsSetting', jika disetel, atau konfigurasi pribadi pengguna.</translation>
+<translation id="384743459174066962">Memungkinkan Anda menyetel daftar pola URL yang menentukan situs yang tidak diizinkan untuk membuka pop-up. Jika kebijakan ini tidak disetel, nilai default global akan digunakan untuk semua situs baik dari kebijakan 'DefaultPopupsSetting', jika disetel, atau konfigurasi pribadi pengguna.</translation>
 <translation id="3851039766298741586">Laporkan informasi tentang sesi kios aktif, misalnya
       ID dan versi aplikasi.
 
@@ -1217,7 +1217,7 @@
 <translation id="5423197884968724595">Nama batasan Android WebView:</translation>
 <translation id="5447306928176905178">Aktifkan pelaporan info memori (JS heap size) ke halaman (dipensiunkan)</translation>
 <translation id="5457065417344056871">Mengaktifkan mode tamu dalam browser</translation>
-<translation id="5457924070961220141">Memungkinkan Anda mengonfigurasi perender HTML default saat <ph name="PRODUCT_FRAME_NAME" /> dipasang. Setelan default yang digunakan ketika kebijakan ini tidak disetel adalah mengizinkan browser host melakukan perenderan, tetapi Anda dapat menimpanya secara opsional dan membiarkan <ph name="PRODUCT_FRAME_NAME" /> merender halaman HTML secara default.</translation>
+<translation id="5457924070961220141">Memungkinkan Anda mengonfigurasi perender HTML default saat <ph name="PRODUCT_FRAME_NAME" /> dipasang. Setelan default yang digunakan ketika kebijakan ini tidak disetel adalah mengizinkan browser host melakukan rendering, tetapi Anda dapat menimpanya secara opsional dan membiarkan <ph name="PRODUCT_FRAME_NAME" /> merender halaman HTML secara default.</translation>
 <translation id="5464816904705580310">Mengonfigurasi setelan untuk pengguna yang dikelola.</translation>
 <translation id="546726650689747237">Penundaan peredupan layar saat menggunakan daya AC</translation>
 <translation id="5469484020713359236">Memungkinkan Anda menyetel daftar pola url yang menentukan situs yang diizinkan untuk menyetel cookie. Jika kebijakan ini dibiarkan tidak disetel, nilai default global akan digunakan untuk semua situs, baik dari kebijakan 'DefaultCookiesSetting', jika disetel, atau konfigurasi pribadi pengguna.</translation>
@@ -1383,7 +1383,7 @@
 
       Jika kebijakan ini tidak disetel atau disetel ke salah, perintah cetak memicu layar pratinjau cetak.</translation>
 <translation id="6022948604095165524">Tindakan saat permulaan</translation>
-<translation id="6023030044732320798">Menentukan kumpulan kebijakan yang akan diteruskan ke waktu proses ARC. Nilainya harus JSON yang valid.
+<translation id="6023030044732320798">Menentukan kumpulan kebijakan yang akan diteruskan ke ARC runtime. Nilainya harus JSON yang valid.
 
       Kebijakan ini dapat digunakan untuk mengonfigurasi aplikasi Android mana yang dapat diinstal secara otomatis di perangkat: 
 
@@ -1470,7 +1470,7 @@
 <translation id="6181608880636987460">Memungkinkan Anda menetapkan daftar pola URL yang menentukan situs yang tidak diizinkan untuk menjalankan plugin <ph name="FLASH_PLUGIN_NAME" />.
 
           Jika kebijakan ini tidak disetel, nilai default global akan digunakan untuk semua situs, baik dari kebijakan 'DefaultPluginsSetting' jika disetel, atau konfigurasi pribadi pengguna.</translation>
-<translation id="6190022522129724693">Setelan munculan default</translation>
+<translation id="6190022522129724693">Setelan pop-up default</translation>
 <translation id="6197453924249895891">Memberikan akses ke kunci perusahaan ke ekstensi.
 
       Kunci hanya ditujukan untuk pemakaian dalam perusahaan jika dibuat menggunakan API chrome.enterprise.platformKeys pada akun yang dikelola. Kunci yang diimpor atau dibuat dengan cara lain tidak boleh digunakan untuk perusahaan.
@@ -1677,10 +1677,10 @@
 <translation id="7040229947030068419">Nilai contoh:</translation>
 <translation id="7049373494483449255">Mengizinkan <ph name="PRODUCT_NAME" /> mengirimkan dokumen ke <ph name="CLOUD_PRINT_NAME" /> untuk pencetakan. CATATAN: Setelan ini hanya memengaruhi dukungan <ph name="CLOUD_PRINT_NAME" /> dalam <ph name="PRODUCT_NAME" />. Setelan ini tidak mencegah pengguna mengirimkan pekerjaan cetak di situs web. Jika setelan ini diaktifkan atau tidak dikonfigurasi, pengguna dapat mencetak ke <ph name="CLOUD_PRINT_NAME" /> dari dialog cetak <ph name="PRODUCT_NAME" />. Jika setelan ini dinonaktifkan, pengguna tidak dapat mencetak ke <ph name="CLOUD_PRINT_NAME" /> dari dialog pencetakan <ph name="PRODUCT_NAME" /></translation>
 <translation id="7053678646221257043">Kebijakan ini memaksa bookmark diimpor dari browser default saat ini, jika diaktifkan. Jika diaktifkan, kebijakan ini juga memengaruhi dialog impor. Jika dinonaktifkan, tidak ada bookmark yang diimpor. Jika tidak disetel, pengguna mungkin akan diminta untuk mengimpor, atau pengimporan dapat terjadi secara otomatis.</translation>
-<translation id="7063895219334505671">Izinkan munculan di situs ini</translation>
+<translation id="7063895219334505671">Izinkan pop-up di situs ini</translation>
 <translation id="706669471845501145">Izinkan situs menampilkan pemberitahuan desktop</translation>
 <translation id="7072406291414141328">Mengaktifkan pembatasan bandwidth jaringan</translation>
-<translation id="7079519252486108041">Cekal munculan di situs ini</translation>
+<translation id="7079519252486108041">Cekal pop-up di situs ini</translation>
 <translation id="7091198954851103976">Selalu jalankan plugin yang membutuhkan otorisasi</translation>
 <translation id="7106631983877564505">Mengaktifkan kunci jika perangkat <ph name="PRODUCT_OS_NAME" /> menganggur atau ditangguhkan.
 
@@ -1793,7 +1793,7 @@
 <translation id="7511361072385293666">Jika kebijakan ini disetel ke True atau tidak disetel, penggunaan protokol QUIC di <ph name="PRODUCT_NAME" /> akan diizinkan.
       Jika kebijakan ini disetel ke False, penggunaan protokol QUIC tidak diizinkan.</translation>
 <translation id="7519251620064708155">Izinkan pembuatan kunci di situs ini</translation>
-<translation id="7529100000224450960">Memungkinkan Anda menyetel daftar pola url yang menentukan situs yang diizinkan membuka munculan. Jika kebijakan ini tidak disetel, nilai default global akan digunakan untuk semua situs, baik dari kebijakan 'DefaultPopupsSetting', jika disetel, atau konfigurasi pribadi pengguna.</translation>
+<translation id="7529100000224450960">Memungkinkan Anda menyetel daftar pola url yang menentukan situs yang diizinkan membuka pop-up. Jika kebijakan ini tidak disetel, nilai default global akan digunakan untuk semua situs, baik dari kebijakan 'DefaultPopupsSetting', jika disetel, atau konfigurasi pribadi pengguna.</translation>
 <translation id="7529144158022474049">Faktor penyebaran pembaruan otomatis</translation>
 <translation id="7534199150025803530">Kebijakan ini tidak memengaruhi aplikasi Google Drive Android. Jika ingin mencegah penggunaan Google Drive melalui sambungan seluler, sebaiknya Anda tidak mengizinkan pemasangan aplikasi Google Drive Android.</translation>
 <translation id="7553535237300701827">Jika kebijakan ini disetel, alur autentikasi proses masuk akan menggunakan salah satu cara berikut tergantung nilai setelan:
@@ -2101,7 +2101,7 @@
 <translation id="8426231401662877819">Putar layar searah jarum jam sebesar 90 derajat</translation>
 <translation id="8451988835943702790">Gunakan Laman Tab Baru sebagai beranda</translation>
 <translation id="8465065632133292531">Parameter untuk URL instan yang menggunakan POST</translation>
-<translation id="847472800012384958">Jangan izinkan situs mana pun menampilkan munculan</translation>
+<translation id="847472800012384958">Jangan izinkan situs mana pun menampilkan pop-up</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
 <translation id="8484458986062090479">Menyesuaikan daftar pola URL yang harus selalu dirender oleh browser host.
 

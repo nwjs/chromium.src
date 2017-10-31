@@ -14,7 +14,7 @@
 <translation id="1016566241875885511">Info tambahan (opsional)</translation>
 <translation id="1017280919048282932">&amp;Tambahkan ke kamus</translation>
 <translation id="1018656279737460067">Dibatalkan</translation>
-<translation id="102272308210570439">Izinkan Asisten menggunakan apa saja yang ada di layar</translation>
+<translation id="102272308210570439">Izinkan Asisten menggunakan item yang ada di layar</translation>
 <translation id="1026822031284433028">Muat Gambar</translation>
 <translation id="1029317248976101138">Zoom</translation>
 <translation id="1031362278801463162">Memuat pratinjau</translation>
@@ -524,7 +524,7 @@
 <translation id="1782924894173027610">Server sinkronisasi sibuk. Coba lagi nanti.</translation>
 <translation id="1784849162047402014">Perangkat hampir kehabisan ruang disk</translation>
 <translation id="1786636458339910689">Drive Tim</translation>
-<translation id="1789575671122666129">Munculan</translation>
+<translation id="1789575671122666129">Pop-up</translation>
 <translation id="1792619191750875668">Tampilan yang diperluas</translation>
 <translation id="1793119619663054394">Yakin ingin menghapus "<ph name="PROFILE_NAME" />" dan semua data Chrome yang terkait dari komputer ini? Tindakan ini tidak dapat diurungkan.</translation>
 <translation id="1794791083288629568">Kirim masukan untuk membantu kami menyelesaikan masalah ini.</translation>
@@ -1805,7 +1805,7 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3725367690636977613">halaman</translation>
 <translation id="3726463242007121105">Perangkat ini tidak dapat dibuka karena sistem berkasnya tidak didukung.</translation>
 <translation id="3727148787322499904">Perubahan pada setelan ini akan berpengaruh pada semua jaringan bersama</translation>
-<translation id="3727187387656390258">Periksa munculan</translation>
+<translation id="3727187387656390258">Periksa pop-up</translation>
 <translation id="3728067901555601989">OTP:</translation>
 <translation id="3730639321086573427">Tujuan Lokal</translation>
 <translation id="3733127536501031542">Server SSL dengan Step-up</translation>
@@ -2268,7 +2268,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="451407183922382411">Diberdayakan oleh <ph name="COMPANY_NAME" /></translation>
 <translation id="4514542542275172126">Menyiapkan pengguna yang dilindungi yang baru</translation>
 <translation id="451515744433878153">Hapus</translation>
-<translation id="4518677423782794009">Apakah Chrome mogok, menampilkan halaman mulai, bilah alat yang tidak biasanya, iklan munculan yang tidak dapat ditutup, atau mengubah pengahalaman penjelajahan? Anda dapat memperbaiki masalah ini dengan menjalankan Alat Pembersih Chrome.</translation>
+<translation id="4518677423782794009">Apakah Chrome tidak bekerja, menampilkan halaman mulai, toolbar yang tidak biasanya, iklan pop-up yang tidak dapat ditutup, atau mengubah pengalaman penjelajahan web Anda? Anda dapat memperbaiki masalah ini dengan menjalankan Alat Pembersih Chrome.</translation>
 <translation id="4520385623207007473">Cookie yang sedang digunakan</translation>
 <translation id="452039078290142656">perangkat tak dikenal dari <ph name="VENDOR_NAME" /></translation>
 <translation id="4522570452068850558">Detail</translation>
@@ -3810,7 +3810,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="6915804003454593391">Pengguna:</translation>
 <translation id="6916590542764765824">Kelola Ekstensi</translation>
 <translation id="6920989436227028121">Buka sebagai tab biasa</translation>
-<translation id="6922128026973287222">Hemat data dan jelajahi dengan lebih cepat menggunakan Penghemat Data Google. Klik untuk mempelajari lebih lanjut.</translation>
+<translation id="6922128026973287222">Hemat data dan jelajahi dengan lebih cepat menggunakan Penghemat Kuota Internet Google. Klik untuk mempelajari lebih lanjut.</translation>
 <translation id="6929555043669117778">Lanjutkan memblokir pop-up</translation>
 <translation id="6930242544192836755">Durasi</translation>
 <translation id="693807610556624488">Operasi menulis melebihi panjang maksimum atribut ke: "<ph name="DEVICE_NAME" />".</translation>
@@ -3820,7 +3820,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="6945221475159498467">Pilih</translation>
 <translation id="6948064128393024347">Peluncur, hasil penelusuran</translation>
 <translation id="6949306908218145636">Bookmark Laman Aktif...</translation>
-<translation id="6955446738988643816">Periksa Munculan</translation>
+<translation id="6955446738988643816">Periksa Pop-up</translation>
 <translation id="6957231940976260713">Nama layanan</translation>
 <translation id="695755122858488207">Tombol radio yang tidak dipilih</translation>
 <translation id="696203921837389374">Aktifkan sinkronisasi melalui data seluler</translation>
@@ -3920,11 +3920,12 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="7077829361966535409">Laman proses masuk gagal dimuat menggunakan setelan proxy saat ini. <ph name="GAIA_RELOAD_LINK_START" />Coba masuk lagi nanti<ph name="GAIA_RELOAD_LINK_END" />, atau gunakan <ph name="PROXY_SETTINGS_LINK_START" />setelan proxy yang lain<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="7078120482318506217">Semua jaringan</translation>
 <translation id="708060913198414444">S&amp;alin alamat audio</translation>
+<translation id="708278670402572152">Putuskan hubungan untuk mengaktifkan pemindaian</translation>
 <translation id="7084192839369222683">Jalankan konten penting saja</translation>
 <translation id="7088434364990739311">Pengecekan pembaruan gagal dilakukan (kode kesalahan <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver - Buka dan kemas file ZIP di aplikasi Files.</translation>
 <translation id="7088674813905715446">Perangkat ini telah dialihkan ke status dibatalkan penetapannya oleh administrator. Agar bisa dipakai untuk pendaftaran, minta administrator mengubah status perangkat menjadi menunggu keputusan.</translation>
-<translation id="7092106376816104">Pengecualian munculan</translation>
+<translation id="7092106376816104">Pengecualian pop-up</translation>
 <translation id="7093434536568905704">GTK+</translation>
 <translation id="7093866338626856921">Menukar data dengan perangkat yang bernama: <ph name="HOSTNAMES" /></translation>
 <translation id="7096108453481049031">Pengguna baru yang dilindungi tersebut tidak dapat diimpor. Periksa sambungan jaringan Anda dan coba lagi.</translation>
@@ -4106,7 +4107,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="740083207982962331">Tunggu saat Chromebox dimulai ulang...</translation>
 <translation id="7400839060291901923">Siapkan koneksi di <ph name="PHONE_NAME" /> Anda</translation>
 <translation id="7401543881546089382">Hapus pintasan</translation>
-<translation id="740624631517654988">Jendela munculan dicekal</translation>
+<translation id="740624631517654988">Pop-up diblokir</translation>
 <translation id="7406691462051376731">Untuk saat ini perangkat mengirimkan data diagnostik dan penggunaan ke Google. <ph name="BEGIN_LINK1" />Setelan<ph name="END_LINK1" /> ini diberlakukan oleh pemilik. <ph name="BEGIN_LINK2" />Pelajari Lebih Lanjut<ph name="END_LINK2" /></translation>
 <translation id="7407430846095439694">Impor dan Kaitkan</translation>
 <translation id="7409233648990234464">Luncurkan Kembali dan Powerwash</translation>
@@ -4128,7 +4129,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="7438940380767210568">Siapkan printer...</translation>
 <translation id="7439964298085099379">Mode Kontras Tinggi Anda diaktifkan. Anda ingin memasang ekstensi Kontras Tinggi dan tema gelap kami?</translation>
 <translation id="7441830548568730290">Pengguna lainnya</translation>
-<translation id="7442465037756169001">Hardware Hangouts Meet sudah bisa disiapkan.</translation>
+<translation id="7442465037756169001">Hangouts Meet Hardware sudah bisa disiapkan.</translation>
 <translation id="744341768939279100">Buat profil baru</translation>
 <translation id="7444726222535375658">Lanjutkan ke Hangouts Meet</translation>
 <translation id="7444983668544353857">Nonaktifkan <ph name="NETWORKDEVICE" /></translation>
@@ -4441,7 +4442,7 @@ Tekan sembarang tombol untuk melanjutkan penjelajahan.</translation>
 <translation id="7953739707111622108">Perangkat ini tidak dapat dibuka karena sistem berkasnya tidak dikenali.</translation>
 <translation id="7953955868932471628">Kelola pintasan</translation>
 <translation id="7955383984025963790">Tab 5</translation>
-<translation id="7957054228628133943">Kelola pencekalan munculan...</translation>
+<translation id="7957054228628133943">Kelola pemblokiran pop-up...</translation>
 <translation id="7957615753207896812">Buka setelan perangkat keyboard</translation>
 <translation id="7959074893852789871">File berisi beberapa sertifikat, beberapa di antaranya tidak diimpor.</translation>
 <translation id="7959700692661109221"><ph name="BEGIN_PARAGRAPH" />Layanan lokasi Google menggunakan sumber seperti Wi-Fi untuk membantu memperkirakan lokasi perangkat dengan lebih cepat dan lebih akurat. Jika layanan lokasi Google diaktifkan, perangkat Anda masuk ke mode yang menggunakan Wi-Fi untuk memberikan informasi lokasi. Anda dapat menonaktifkan layanan ini kapan saja di setelan lokasi.<ph name="END_PARAGRAPH" /></translation>

@@ -3922,6 +3922,7 @@ Press any key to continue exploring.</translation>
 <translation id="7077829361966535409">The sign-in page failed to load using the current proxy settings. Please <ph name="GAIA_RELOAD_LINK_START" />try to sign in again<ph name="GAIA_RELOAD_LINK_END" /> or use different <ph name="PROXY_SETTINGS_LINK_START" />proxy settings<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="7078120482318506217">All networks</translation>
 <translation id="708060913198414444">C&amp;opy audio address</translation>
+<translation id="708278670402572152">Disconnect to enable scanning</translation>
 <translation id="7084192839369222683">Run only important content</translation>
 <translation id="7088434364990739311">Update check failed to start (error code <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver – Open and pack ZIP files in Files app.</translation>

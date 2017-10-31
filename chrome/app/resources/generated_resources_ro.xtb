@@ -3920,6 +3920,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="7077829361966535409">Pagina de conectare nu s-a putut încărca utilizând setările de proxy actuale. <ph name="GAIA_RELOAD_LINK_START" />Încercați să vă conectați din nou<ph name="GAIA_RELOAD_LINK_END" /> sau utilizați alte <ph name="PROXY_SETTINGS_LINK_START" />setări de proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="7078120482318506217">Toate rețelele</translation>
 <translation id="708060913198414444">C&amp;opiază adresa conținutului audio</translation>
+<translation id="708278670402572152">Deconectează-te pentru a permite scanarea</translation>
 <translation id="7084192839369222683">Rulează numai conținutul important</translation>
 <translation id="7088434364990739311">Nu a reușit pornirea verificării actualizării (cod de eroare <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver – deschide și împachetează fișierele ZIP în aplicația Fișiere.</translation>
@@ -4128,7 +4129,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="7438940380767210568">Configurează imprimanta…</translation>
 <translation id="7439964298085099379">Ați activat modul Contrast ridicat. Doriți să instalați extensia noastră Contrast ridicat și o temă în culori întunecate?</translation>
 <translation id="7441830548568730290">Alți utilizatori</translation>
-<translation id="7442465037756169001">Hardware-ul pentru Hangouts Meet este gata pentru configurare.</translation>
+<translation id="7442465037756169001">Hardware-ul Hangouts Meet este gata pentru configurare.</translation>
 <translation id="744341768939279100">Creați un profil nou</translation>
 <translation id="7444726222535375658">Accesează Hangouts Meet</translation>
 <translation id="7444983668544353857">Dezactivează <ph name="NETWORKDEVICE" /></translation>

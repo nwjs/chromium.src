@@ -14,7 +14,7 @@
 <translation id="1016566241875885511">Дополнительная информация (необязательно)</translation>
 <translation id="1017280919048282932">&amp;Добавить в словарь</translation>
 <translation id="1018656279737460067">Отменено</translation>
-<translation id="102272308210570439">Разрешить Ассистенту доступ к экрану</translation>
+<translation id="102272308210570439">Открыть Ассистенту доступ к экрану</translation>
 <translation id="1026822031284433028">Загрузить изображение</translation>
 <translation id="1029317248976101138">Масштаб</translation>
 <translation id="1031362278801463162">Загрузка данных для предварительного просмотра</translation>
@@ -1011,7 +1011,7 @@
 <translation id="2570000010887652771">Экономия трафика.</translation>
 <translation id="2570648609346224037">При скачивании образа для восстановления произошла ошибка.</translation>
 <translation id="257088987046510401">Темы</translation>
-<translation id="2571964818629181240">Закройте Firefox перед импортированием</translation>
+<translation id="2571964818629181240">Закройте Firefox перед импортом</translation>
 <translation id="2572032849266859634">Предоставлен доступ к тому <ph name="VOLUME_NAME" /> (только чтение).</translation>
 <translation id="2573269395582837871">Выберите изображение и имя</translation>
 <translation id="2574102660421949343">Файлы cookie с сайта <ph name="DOMAIN" /> разрешены.</translation>
@@ -1201,7 +1201,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="2815500128677761940">Панель закладок</translation>
 <translation id="2815693974042551705">Папка с закладками</translation>
 <translation id="2818476747334107629">Сведения о принтере</translation>
-<translation id="2820957248982571256">Поиск…</translation>
+<translation id="2820957248982571256">Выполняется поиск…</translation>
 <translation id="2822634587701817431">Свернуть или развернуть</translation>
 <translation id="2825758591930162672">Открытый ключ субъекта</translation>
 <translation id="2828650939514476812">Подключитесь к сети Wi-Fi</translation>
@@ -3922,6 +3922,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7077829361966535409">При загрузке текущих настроек прокси-сервера на главной странице произошла ошибка. <ph name="GAIA_RELOAD_LINK_START" />Выполните вход повторно<ph name="GAIA_RELOAD_LINK_END" /> или измените <ph name="PROXY_SETTINGS_LINK_START" />параметры прокси-сервера<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="7078120482318506217">Все сети</translation>
 <translation id="708060913198414444">&amp;Копировать URL аудио</translation>
+<translation id="708278670402572152">Чтобы запустить сканирование, отключитесь от сети.</translation>
 <translation id="7084192839369222683">Запускать только важный контент</translation>
 <translation id="7088434364990739311">Не удалось выполнить проверку обновлений (код ошибки: <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver – работа с ZIP-архивами в приложении "Файлы"</translation>
@@ -5097,7 +5098,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="9003647077635673607">Разрешить на всех сайтах</translation>
 <translation id="9003677638446136377">Проверить снова</translation>
 <translation id="9003704114456258138">Частота</translation>
-<translation id="9004952710076978168">Получено оповещение о неопознанном принтере.</translation>
+<translation id="9004952710076978168">Получено уведомление о неопознанном принтере.</translation>
 <translation id="9008201768610948239">Пропустить</translation>
 <translation id="9009299913548444929">В настоящее время эта функция недоступна. <ph name="BEGIN_LINK" />Справка<ph name="END_LINK" /></translation>
 <translation id="9009369504041480176">Загрузка (<ph name="PROGRESS_PERCENT" />%)...</translation>

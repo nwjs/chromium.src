@@ -16,6 +16,13 @@
 
       Šī politika attiecas tikai uz tiem lietotājiem, kuru domēns ir tāds pats kā ierīces reģistrācijas domēns. Visiem citiem lietotājiem identitātes nodrošinātāja iestatītie sīkfaili tiek pārsūtīti uz lietotāja profilu tikai pirmajā reizē, kad lietotājs piesakās kādā ierīcē.</translation>
 <translation id="1040446814317236570">Iespējot PAC URL noņemšanu (protokolam https://)</translation>
+<translation id="1041454584879384845">Konfigurē lietotāju iemiesojumu darbību, kas attēlo lietotājus pieteikšanās ekrānā.
+
+      Atsevišķus iestatījumus var norādīt JSON rekvizītos.
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: ja politika ir iestatīta kā “<ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />”, lietotājiem ir atļauts izmantot videoklipus kā iemiesojuma attēlus.
+
+      Ja politika nav iestatīta, ir atļauts izmantot videoklipus kā iemiesojuma attēlus.</translation>
 <translation id="1044878202534415707">Tiek ziņota aparatūras statistika, piemēram, centrālā procesora/RAM lietojums.
 
       Ja politikai ir iestatīta vērtība Nepatiesa, statistika netiks ziņota.
@@ -100,6 +107,7 @@
 <translation id="1454846751303307294">Ļauj iestatīt URL rakstu sarakstu, kurā ir norādītas vietnes, kurām nav atļauts izpildīt JavaScript.
 
           Ja šī politika nav iestatīta, visām vietnēm tiks izmantota globālā noklusējuma vērtība no politikas DefaultJavaScriptSetting (ja tā ir iestatīta) vai pretējā gadījumā no lietotāja personīgās konfigurācijas.</translation>
+<translation id="1456822151187621582">Windows (<ph name="PRODUCT_OS_NAME" /> klientiem):</translation>
 <translation id="1464848559468748897">Kontrolējiet lietotāju rīcību daudzprofilu sesijā <ph name="PRODUCT_OS_NAME" /> ierīcēs.
 
       Ja politikai ir izvēlēts iestatījums “MultiProfileUserBehaviorUnrestricted”, lietotājs var būt gan primārais, gan sekundārais lietotājs daudzprofilu sesijā.
@@ -567,6 +575,7 @@
           Ja šis iestatījums ir atspējots un ugunsmūris filtrē izejošos UDP savienojumus, ierīce atļaus savienojumus tikai no lokālā tīkla klientu ierīcēm.
 
           Ja šī politika netiek iestatīta, iestatījums tiek iespējots.</translation>
+<translation id="2823870601012066791">Windows reģistra atrašanās vieta <ph name="PRODUCT_OS_NAME" /> klientiem:</translation>
 <translation id="2824715612115726353">Iespējo inkognito režīmu</translation>
 <translation id="2838830882081735096">Aizliegt datu migrēšanu un ARC</translation>
 <translation id="2844404652289407061">Izmantojot šo politiku, pārlūka <ph name="PRODUCT_NAME" /> satura skatā var iespējot funkciju “Meklēšana pieskaroties”.
@@ -1510,6 +1519,7 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
 <translation id="6076099373507468537">Definē USB ierīces, kuras ir atļauts atvienot no kodola draiveriem, lai tās izmantotu ar chrome.usb API tieši tīmekļa lietojumprogrammā. Katru ierakstu veido USB pakalpojumu sniedzēja identifikators un produkta identifikators, kas identificē aparatūru.
 
       Ja šī politika netiek konfigurēta, atvienojamo USB ierīču saraksts ir tukšs.</translation>
+<translation id="6083631234867522991">Windows (Windows klientiem):</translation>
 <translation id="6093156968240188330">Atļaut attālajiem lietotājiem veikt darbības ar privileģētajiem logiem attālās palīdzības sesijās</translation>
 <translation id="6095999036251797924">Norāda lietotāja neaktivitātes laiku, pēc kura ekrāns tiek bloķēts, kad ierīce darbojas ar maiņstrāvas barošanu vai akumulatoru.
 
@@ -1576,6 +1586,7 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
 <translation id="6310223829319187614">Domēna nosaukuma automātiskās pabeigšanas iespējošana lietotāja pierakstīšanās laikā</translation>
 <translation id="6315673513957120120">Ja lietotāji atver vietnes, kurās ir SSL kļūdas, pārlūkā Chrome tiek parādīta brīdinājuma lapa. Pēc noklusējuma, kā arī tad, ja šai politikai ir iestatīta vērtība Patiesa, lietotājiem ir atļauts no brīdinājuma lapas pāriet uz vietni.
       Ja politikai ir iestatīta vērtība Nepatiesa, lietotājiem tiek liegts no brīdinājuma lapas pāriet uz vietni.</translation>
+<translation id="6320758134170712450">Lietotāju iemiesojumu darbību konfigurēšana</translation>
 <translation id="6353901068939575220">Norāda parametrus, kas tiek izmantoti, meklējot URL ar metodi POST. Izmantojot šo metodi, tiek meklēti ar komatu atdalītu vārdu/vērtību pāri. Ja vērtība ir veidnes parametrs, piemēram, {searchTerms} (iepriekšējā piemērā), tas tiks aizstāts ar īstiem meklēšanas vienumu datiem.
 
           Šī politika nav obligāta. Ja tā nav iestatīta, meklēšanas pieprasījums tiks nosūtīts, izmantojot metodi GET.
@@ -2015,6 +2026,39 @@ Lietotāja fiziskās klātbūtnes noteikšanai tiek izmantota ierīces barošana
 <translation id="7841880500990419427">Minimālā TLS versija, uz kuru atkāpties</translation>
 <translation id="7842869978353666042">Pakalpojuma Google disks opciju konfigurēšana</translation>
 <translation id="7843525027689416831">Tiek norādītas atzīmes, kas jāizmanto pārlūkā <ph name="PRODUCT_NAME" />, kad tas tiek startēts. Norādītās atzīmes tiek izmantotas tikai pieteikšanās ekrānā. Šīs politikas ietvaros iestatītās atzīmes netiek izmantotas lietotāju sesijās.</translation>
+<translation id="7844537954833753199">Šī politika tiek izmantota, lai konfigurētu <ph name="PRODUCT_NAME" /> paplašinājumu pārvaldības iestatījumus.
+
+          Ar šo politiku tiek regulēti vairāki iestatījumi, tostarp iestatījumi, kas tiek regulēti esošās ar paplašinājumiem saistītās politikās. Ja šī politika ir iestatīta, ar to tiek ignorētas jebkādas iestatītās mantotās politikas.
+
+          Izmantojot šo politiku, paplašinājuma ID vai atjauninājuma vietrādis URL tiek kartēts tā konfigurācijā. Izmantojot paplašinājuma ID, konfigurācija tiek lietota tikai konkrētajam paplašinājumam. Īpašajam ID <ph name="DEFAULT_SCOPE" /> var iestatīt noklusējuma konfigurāciju, kas tiks lietota visiem paplašinājumiem, kuriem šajā politikā nav iestatīta pielāgota konfigurācija. Izmantojot atjauninājuma vietrādi URL, konfigurācija tiek lietota visiem paplašinājumiem, kuru manifestā ir norādīts konkrētais atjauninājuma vietrādis URL (kā aprakstīts šeit: <ph name="LINK_TO_EXTENSION_DOC1" />).
+
+          Katra paplašinājuma konfigurācija (vai paplašinājumi ar vienādu atjauninājuma vietrādi URL) ir atsevišķa vārdnīca, kurā var būt ietverti tālāk norādītie lauki.
+
+          “<ph name="INSTALLATION_MODE" />”: veic kartēšanu uz virkni, kas norāda paplašinājuma instalēšanas režīmu. Derīgas ir šādas virknes:
+          * “<ph name="ALLOWED" />”: atļauj lietotājam instalēt paplašinājumus (noklusējuma darbība);
+          * “<ph name="BLOCKED" />”: bloķē paplašinājuma instalēšanu;
+          * “<ph name="FORCE_INSTALLED" />”: paplašinājums tiek instalēts automātiski, un lietotājs nevar to noņemt;
+          * “<ph name="NORMAL_INSTALLED" />”: paplašinājums tiek instalēts automātiski, taču lietotājs var to atspējot.
+
+          Lauku “<ph name="INSTALLTION_MODE" />” var konfigurēt arī vairākiem paplašinājumiem, tostarp paplašinājumam ar apzīmējumu “<ph name="DEFAULT_SCOPE" />” (kā noklusējuma iestatījumam) un paplašinājumiem ar vienādu atjauninājuma vietrādi URL. Šādā gadījumā var izmantot tikai vērtības “<ph name="ALLOWED" />” un “<ph name="BLOCKED" />”.
+
+          Ja režīms ir iestatīts uz “<ph name="FORCE_INSTALLED" />” vai “<ph name="NORMAL_INSTALLED" />”, ir jākongifurē arī lauks “<ph name="UPDATE_URL" />”. Ņemiet vērā, ka šajā politikā iestatītais atjauninājuma vietrādis URL tiek izmantots tikai sākotnējai instalēšanai; turpmākiem paplašinājuma atjauninājumiem tiek izmantots paplašinājuma manifestā norādītais atjauninājuma vietrādis URL. Atjauninājuma vietrādim URL ir jānorāda uz atjauninājuma manifesta XML dokumentu, kā aprakstīts iepriekš.
+
+          “<ph name="BLOCKED_PERMISSIONS" />”: veic kartēšanu uz virkņu sarakstu, kas norāda bloķētās paplašinājuma API atļaujas. Atļauju nosaukumi ir tādi paši kā atļauju virknes, kas norādītas paplašinājuma manifestā (kā aprakstīts šeit: <ph name="LINK_TO_EXTENSION_DOC3" />. Šo iestatījumu var konfigurēt arī paplašinājumam ar atzīmi “<ph name="DEFAULT_SCOPE" />”. Ja paplašinājumam ir nepieciešama atļauja, kas norādīta bloķēšanas sarakstā, tā ielāde netiks atļauta. Ja bloķēta atļauja tajā ir norādīta kā neobligāta prasība, tā tiks apstrādāta kā parasti, taču izpildlaikā tiks automātiski noraidīta konfliktējošu atļauju pieprasīšana.
+
+          “<ph name="ALLOWED_PERMISSIONS" />”: darbojas kā iestatījums “<ph name="BLOCKED_PERMISSIONS" />”, taču skaidri piešķir dažas atļaujas, kas var būt bloķētas vispārējā bloķēto atļauju sarakstā, tādēļ to nevar konfigurēt paplašinājumam, kas atzīmēts ar “<ph name="DEFAULT_SCOPE" />”. Ņemiet vērā, ka ar šo iestatījumu netiek automātiski sniegtas paplašinājumiem piešķirtās atļaujas.
+
+          “<ph name="MINIMUM_VERSION_REQUIRED" />”: veic kartēšanu uz versijas virkni. Versijas virknes formāts ir tāds pats kā paplašinājuma manifestā izmantotais formāts (aprakstīts šeit: <ph name="LINK_TO_EXTENSION_DOC4" />). Paplašinājums, kura versija ir vecāka nekā norādītā minimālā versija, tiek atspējots. Tas attiecas arī uz piespiedu kārtā instalētiem paplašinājumiem.
+
+          Tālāk norādītos iestatījumus var izmantot tikai noklusējuma “<ph name="DEFAULT_SCOPE" />” konfigurācijai:
+
+          “<ph name="INSTALL_SOURCES" />”: katrs šī saraksta vienums ir paplašinājuma veida atbilstības modelis (<ph name="LINK_TO_MATCH_PATTERNS" />). Lietotāji var ērti instalēt vienumus no jebkura URL, kas atbilst kādam saraksta vienumam. Šiem modeļiem ir jāatļauj gan <ph name="EXTENSION_SUFFIX_WILDCARD" /> faila atrašanās vieta, gan lapa, no kuras tiek sākta lejupielāde (t.i., novirzītājs).
+
+          “<ph name="ALLOWED_TYPES" />”: izmantojot šo iestatījumu, baltajā sarakstā tiek ievietoti atļauto paplašinājumu/lietotņu veidi, ko var instalēt pārlūkā <ph name="PRODUCT_NAME" />. Vērtība ir virkņu saraksts, un katrai virknei ir jābūt vienai no šīm: <ph name="VALID_ALLOWED_TYPES" />. Plašāku informāciju par šiem veidiem skatiet <ph name="PRODUCT_NAME" /> paplašinājumu dokumentācijā.
+          “<ph name="BLOCKED_INSTALL_MESSAGE" />”: ja lietotājs mēģina instalēt paplašinājumu, taču instalēšanu bloķē politika, Chrome interneta veikalā tiek rādīts vispārīgs kļūdas ziņojums. Izmantojot šo iestatījumu, varat kļūdas ziņojumam pievienot tekstu. To var izmantot, lai novirzītu lietotājus uz jūsu palīdzības dienestu, izskaidrotu, kāpēc ir bloķēts konkrēts paplašinājums, vai citos nolūkos. Šis kļūdas ziņojums tiks saīsināts, ja tas pārsniegs 1000 rakstzīmju ierobežojumu.
+          “<ph name="RUNTIME_BLOCKED_HOSTS" />”: pieņem tādu saimniekdatoru sarakstu, kuru paplašinājumi tiks bloķēti mijiedarbībai. Tas attiecas arī uz javascript ievadīšanu, webRequests / webNavigation mainīšanu un skatīšanu, kā arī sīkfailu skatīšanu un mainīšanu. Formāts ir līdzīgs formātam “Match Patterns” (<ph name="LINK_TO_MATCH_PATTERNS" />), taču tajā nevar definēt ceļus, piemēram, “*://*.example.com”. Šeit tiek atbalstīta arī TLD aizstājējzīmju izmantošana, piemēram,. “*://example.*”.
+          “<ph name="RUNTIME_ALLOWED_HOSTS" />”: pieņem tādu saimniekdatoru sarakstu, ar kuru paplašinājumiem var mijiedarboties neatkarīgi no tā, vai tie ir norādīti sarakstā “<ph name="RUNTIME_BLOCKED_HOSTS" />”. Šis formāts ir tāds pats kā “<ph name="RUNTIME_BLOCKED_HOSTS" />”.
+          </translation>
 <translation id="787125417158068494">Ja politikai ir iestatīta vērtība SyncDisabled vai tā nav konfigurēta, <ph name="PRODUCT_OS_NAME" /> sertifikāti nav pieejami ARC lietotnēm.
 
       Ja ir iestatīta vērtība CopyCaCerts, visi ONC instalētie CA sertifikāti ar <ph name="WEB_TRUSTED_BIT" /> ir pieejami ARC lietotnēm.</translation>
@@ -2214,6 +2258,7 @@ Lietotāja fiziskās klātbūtnes noteikšanai tiek izmantota ierīces barošana
           Ja šis iestatījums ir “False”, ierīcē satura aizsardzībai netiks izmantota attālā apstiprināšana un, iespējams, nevarēs atskaņot aizsargāto saturu.
 
           Ja šis iestatījums ir “True” vai tas nav iestatīts, satura aizsardzībai varēs izmantot attālo apstiprināšanu.</translation>
+<translation id="8650974590712548439">Windows reģistra atrašanās vieta Windows klientiem:</translation>
 <translation id="8654286232573430130">Tiek noteikts, kuri serveri ir jāiekļauj baltajā sarakstā integrētas autentifikācijas veikšanai. Integrēta autentifikācija tiek iespējota tikai tad, ja <ph name="PRODUCT_NAME" /> saņem autentifikācijas pārbaudi no starpniekservera vai servera, kas iekļauts atļauto serveru sarakstā.
 
           Serveru nosaukumus atdaliet ar komatu. Ir atļautas aizstājējzīmes (*).

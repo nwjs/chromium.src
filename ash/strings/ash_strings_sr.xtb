@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Режим високог контраста</translation>
 <translation id="2597972630681408282">Ноћно светло: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Пошаљи</translation>
+<translation id="2675319268637823299">Администратор је забранио вишеструко пријављивање за <ph name="USER_EMAIL" />.
+Сви корисници морају да се одјаве да бисмо наставили са сесијом.</translation>
 <translation id="2700058918926273959">Сесија се завршава за <ph name="SESSION_TIME_REMAINING" />. Бићете одјављени.</translation>
 <translation id="2727977024730340865">Уређај је укључен у пуњач мале снаге. Пуњење батерије можда неће бити поуздано.</translation>
 <translation id="2761704814324807722">Статусна трака, време <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">Постављени елемент тастатуре</translation>
 <translation id="639644700271529076">CAPS LOCK је искључен</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Готово</translation>
 <translation id="6452181791372256707">Одбиј</translation>
 <translation id="6453179446719226835">Језик је промењен</translation>
 <translation id="6459472438155181876">Проширивање екрана у <ph name="DISPLAY_NAME" /></translation>
@@ -297,6 +300,7 @@
 <translation id="8825534185036233643">Пресликавање са више од два екрана није подржано.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Search+Esc</translation>
+<translation id="8870509716567206129">Апликација не подржава подељени екран.</translation>
 <translation id="8878886163241303700">Проширени екран</translation>
 <translation id="8921624153894383499">Google помоћник не говори овај језик.</translation>
 <translation id="8938800817013097409">Уређај са USB прикључком типа C (задњи десни порт)</translation>

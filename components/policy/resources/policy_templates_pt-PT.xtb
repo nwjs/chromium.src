@@ -268,7 +268,7 @@
       Se esta política for definida como verdadeira, o <ph name="PRODUCT_OS_NAME" /> tentará transferir payloads de atualização automática através de HTTP. Se esta política for definida como falsa ou não for definida, será utilizado HTTPS para transferir payloads de atualização automática.</translation>
 <translation id="2006530844219044261">Gestão de energia</translation>
 <translation id="201557587962247231">Frequência de carregamentos de relatórios de estado do dispositivo</translation>
-<translation id="2018836497795982119">Especifica o período em milissegundos no qual o serviço de gestão de dispositivos é consultado quanto a informações da política do utilizador.
+<translation id="2018836497795982119">Especifica o período em milissegundos no qual o serviço de gestão de dispositivos é consultado quanto a informações da Política do Utilizador.
 
       A definição desta política substitui o valor predefinido de 3 horas. Os valores válidos para esta política encontram-se no intervalo de 1 800 000 (30 minutos) a 86 400 000 (1 dia). Quaisquer valores que não se encontrem neste intervalo são ajustados para o respetivo limite. Se a plataforma suportar notificações sobre políticas, o atraso de atualização é definido para 24 horas porque é esperado que as notificações sobre políticas forcem uma atualização automaticamente, sempre que a política sofrer alterações.
 
@@ -1028,7 +1028,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 
       Se deixar esta política por definir, a definição será ativada mas o utilizador poderá alterá-la.</translation>
 <translation id="4525521128313814366">Permite definir uma lista de padrões de URL que especificam os Web sites não autorizados a apresentar imagens. Se esta política não for definida, será utilizado o valor global predefinido para todos os Web sites, seja a partir da política "DefaultImagesSetting", caso esteja definida, ou a partir da configuração pessoal do utilizador.</translation>
-<translation id="4531706050939927436">As aplicações Android podem ser instaladas à força a partir da Consola do administrador do Google através do Google Play. Essas aplicações não utilizam esta política.</translation>
+<translation id="4531706050939927436">As aplicações Android podem ser instaladas à força a partir da Consola do gestor do Google através do Google Play. Essas aplicações não utilizam esta política.</translation>
 <translation id="4534500438517478692">Nome de restrição Android:</translation>
 <translation id="4541530620466526913">Contas locais do dispositivo</translation>
 <translation id="4555850956567117258">Permitir a comprovação remota para o utilizador</translation>
@@ -1603,7 +1603,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="6689792153960219308">Comunicar o estado do hardware</translation>
 <translation id="6693751878507293182">Se configurar esta definição como ativada, a pesquisa automática e a instalação de plug-ins em falta serão desativadas no <ph name="PRODUCT_NAME" />. Se definir desta opção como desativada ou não a definir, o localizador de plug-ins estará ativo.</translation>
 <translation id="6699880231565102694">Ativar a autenticação de dois fatores para anfitriões de acesso remoto</translation>
-<translation id="6724842112053619797">Se ativar esta definição, as definições armazenadas nos perfis do <ph name="PRODUCT_NAME" />, tais como marcadores, dados de preenchimento automático, palavras-passe, etc., também são escritas num ficheiro armazenado na pasta do perfil de utilizador Roaming ou numa localização especificada pelo administrador através da política <ph name="ROAMING_PROFILE_LOCATION_POLICY_NAME" />. Se ativar esta política, desativa a sincronização na nuvem.
+<translation id="6724842112053619797">Se ativar esta definição, as definições armazenadas nos perfis do <ph name="PRODUCT_NAME" />, tais como marcadores, dados de preenchimento automático, palavras-passe, etc., também são escritas num ficheiro armazenado na pasta do perfil de utilizador Roaming ou numa localização especificada pelo gestor através da política <ph name="ROAMING_PROFILE_LOCATION_POLICY_NAME" />. Se ativar esta política, desativa a sincronização na nuvem.
 
       Se esta política estiver desativada ou não estiver definida, apenas são utilizados os perfis locais normais.
 
@@ -1946,7 +1946,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
           <ph name="INSTALL_SOURCES" />: cada item nesta lista é um padrão de correspondência ao estilo de extensão (<ph name="LINK_TO_MATCH_PATTERNS" />). Os utilizadores podem instalar itens facilmente a partir de qualquer URL que corresponda a um item nesta lista. Tanto a localização do ficheiro <ph name="EXTENSION_SUFFIX_WILDCARD" /> como a página a partir da qual foi iniciada a transferência (ou seja, o referenciador) têm de estar autorizadas por estes padrões.
 
           <ph name="ALLOWED_TYPES" />: esta definição adiciona à lista de autorizações os tipos permitidos de extensões/aplicações que podem ser instalados no <ph name="PRODUCT_NAME" />. O valor é uma lista de strings, em que cada uma deve ser de um dos seguintes tipos: <ph name="VALID_ALLOWED_TYPES" />. Consulte a documentação de extensões do <ph name="PRODUCT_NAME" /> para mais informações sobre estes tipos.
-          <ph name="BLOCKED_INSTALL_MESSAGE" />: se um utilizador tentar instalar uma extensão, mas esta estiver bloqueada pela política, a Web Store do Chrome apresenta uma mensagem de erro genérica. Esta definição permite-lhe anexar texto à mensagem de erro. Isto pode ser utilizado para direcionar os utilizadores para o serviço de assistência, explicar os motivos do bloqueio de uma determinada extensão ou outras questões. Esta mensagem de erro é truncada se exceder o limite de 1000 carateres.
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: se um utilizador tentar instalar uma extensão, mas esta estiver bloqueada pela política, a Web Store do Chrome apresenta uma mensagem de erro genérica. Esta definição permite-lhe anexar texto à mensagem de erro. Isto pode ser utilizado para direcionar os utilizadores para o serviço de assistência, explicar os motivos do bloqueio de uma determinada extensão ou outras questões. Esta mensagem de erro é cortada se exceder o limite de 1000 carateres.
           <ph name="RUNTIME_BLOCKED_HOSTS" />: aceita uma lista de anfitriões com os quais uma extensão está impedida de interagir. Isto inclui a injeção de JavaScript, a alteração e a visualização de webRequests/webNavigation, a visualização e a alteração de cookies. O formato é semelhante aos padrões de correspondência <ph name="LINK_TO_MATCH_PATTERNS" />, com a diferença de que não é possível definir caminhos, por exemplo, "*://*.example.com". Também suporta a atribuição eficaz de carateres universais TLD, por exemplo, "*://example.*".
           <ph name="RUNTIME_ALLOWED_HOSTS" />: aceita uma lista de anfitriões com os quais uma extensão pode interagir, independentemente de estarem listados em <ph name="RUNTIME_BLOCKED_HOSTS" />. O formato é igual a <ph name="RUNTIME_BLOCKED_HOSTS" />.
           </translation>
@@ -2230,7 +2230,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 
       Se deixar esta política por definir, o Google Sync está disponível para o utilizador decidir se pretende ou não utilizá-lo.
 
-      Para desativar totalmente o Google Sync, recomenda-se que desative o serviço Google Sync na Consola do administrador do Google.
+      Para desativar totalmente o Google Sync, recomenda-se que desative o serviço Google Sync na Consola do gestor do Google.
 
       Não deve ativar esta política quando a política <ph name="ROAMING_PROFILE_SUPPORT_ENABLED_POLICY_NAME" /> estiver ativada, uma vez que essa funcionalidade partilha a mesma funcionalidade do lado do cliente. Neste caso, a sincronização alojada no Google é totalmente desativada.</translation>
 <translation id="8955719471735800169">Voltar ao início</translation>

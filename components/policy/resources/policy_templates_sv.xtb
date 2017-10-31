@@ -16,6 +16,13 @@
 
       Den här policyn gäller bara användare vars domän matchar enhetens registreringsdomän. För alla andra användare överförs cookies som anges av IdP:n bara till användarens profil under den första inloggningen på enheten.</translation>
 <translation id="1040446814317236570">Aktivera filtrering av webbadresser för PAC (för https://)</translation>
+<translation id="1041454584879384845">Konfigurerar beteendet för avatarer som representerar användare på inloggningsskärmen.
+
+      Individuella inställningar kan anges i egenskaperna för JSON:
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Om policyn är inställd på <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" /> kommer användarna kunna använda videor i sina avatarer.
+
+      Om inställningen inte är konfigurerad tillåts videor i avatarer som standard.</translation>
 <translation id="1044878202534415707">Rapportera maskinvarustatistik som exempelvis användning av processor eller RAM-minne.
 
       Om policyn är inställd på falskt kommer statistiken inte att rapporteras.
@@ -100,6 +107,7 @@
 <translation id="1454846751303307294">Policyn gör att du kan ställa in en lista med webbadressmönster som anger webbplatser som inte får köra JavaScript.
 
           Om policyn inte anges används det globala standardvärdet för alla webbplatser. Standardvärdet hämtas från policyn DefaultJavaScriptSetting om den har ställts in. Annars används användarens personliga konfiguration.</translation>
+<translation id="1456822151187621582">Windows (<ph name="PRODUCT_OS_NAME" />-klienter):</translation>
 <translation id="1464848559468748897">Kontrollera användarbeteendet i en session med flera profiler på <ph name="PRODUCT_OS_NAME" />-enheter.
 
       Om MultiProfileUserBehaviorUnrestricted har angetts som policy kan användaren vara antingen en primär eller en sekundär användare i en session med flera profiler.
@@ -567,6 +575,7 @@
           Om inställningen har inaktiverats och utgående UDP-anslutningar filtreras av brandväggen, tillåter datorn bara anslutningar från klientdatorer inom det lokala nätverket.
 
           Om policyn inte har angetts är inställningen aktiverad.</translation>
+<translation id="2823870601012066791">Windows-registerplats för <ph name="PRODUCT_OS_NAME" />-klienter:</translation>
 <translation id="2824715612115726353">Aktivera inkognitoläge</translation>
 <translation id="2838830882081735096">Tillåt inte datamigrering och ARC</translation>
 <translation id="2844404652289407061">Aktiverar tillgången till Tryck för att söka i innehållsvyn i <ph name="PRODUCT_NAME" />.
@@ -1514,6 +1523,7 @@
 <translation id="6076099373507468537">Definierar vilka USB-enheter som får kopplas bort från sina kärndrivrutiner så att de kan användas direkt i en webbapp med API:et chrome.usb. Posterna i listan består av id-par för USB, leverantörs-id och produkt-id, som tillsammans identifierar maskinvaran.
 
       Om principen inte har konfigurerats är listan med frånkopplingsbara USB-enheter tom.</translation>
+<translation id="6083631234867522991">Windows (Windows-klienter):</translation>
 <translation id="6093156968240188330">Tillåt att fjärranvändare kan interagera med fönster som öppnats med adminbehörighet i fjärrhjälpsessioner</translation>
 <translation id="6095999036251797924">Anger efter hur lång tid skärmen släcks när användaren är inaktiv och enheten drivs med batteri eller ström.
 
@@ -1584,6 +1594,7 @@
 <translation id="6310223829319187614">Aktivera autoslutför av domännamn vid användarinloggning</translation>
 <translation id="6315673513957120120">Chrome visar en varningssida när användare besöker webbplatser med SSL-fel. Som standardinställning eller om den här principen är inställd på sant ges användare möjligheten att klicka sig förbi dessa varningssidor.
       Om principen är inställd på falskt hindras användare från att klicka sig förbi varningssidor.</translation>
+<translation id="6320758134170712450">Konfigurera beteende för användaravatarer</translation>
 <translation id="6353901068939575220">Anger parametrarna som används vid sökning efter en webbadress med POST. Den består av kommaavgränsade namn-/värdepar. Om ett värde är en mallparameter, t.ex. {searchTerms} i ovanstående exempel, ersätts det av riktiga söktermer.
 
           Policyn är valfri. Om den inte anges skickas sökförfrågningar via GET-metoden.
@@ -2021,6 +2032,41 @@
 <translation id="7841880500990419427">Lägsta TLS-version som kan användas som alternativ</translation>
 <translation id="7842869978353666042">Konfigurera alternativ för Google Drive</translation>
 <translation id="7843525027689416831">Anger de flaggor som ska användas i <ph name="PRODUCT_NAME" /> vid start. De angivna flaggorna används bara för inloggningsskärmen. Flaggor som angetts via denna princip påverkar inte användarsessioner.</translation>
+<translation id="7844537954833753199">Konfigurerar  inställningar för tilläggshantering för <ph name="PRODUCT_NAME" />.
+
+          Policyn styr flera inställningar, bland annat inställningar som styrs av befintliga tilläggsrelaterande policyer. Policyn åsidosätter alla äldre policyer om båda är angivna.
+
+          Policyn mappar ett tilläggs-id eller en uppdateringsadress till dess konfiguration. Med ett tilläggs-id tillämpas konfigurationen endast på det angivna tillägget. En standardkonfiguration kan anges för det särskilda id:et <ph name="DEFAULT_SCOPE" /> som tillämpas på alla tillägg som inte har en anpassad konfiguration i den här policyn. Med en uppdateringsadress tillämpas konfigurationen på alla tillägg med den exakta uppdateringsadressen som angetts i manifestet för tillägget, så som beskrivs på <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          Konfigurationen för varje tillägg (eller tillägg med samma uppdateringsadress) är en annan ordlista som kan innehålla fälten nedan.
+
+          <ph name="INSTALLATION_MODE" />: mappar till en sträng som anger installationsläget för tillägget. De giltiga strängarna är:
+          * <ph name="ALLOWED" />: tillåter att användaren installerar tillägget. Detta är standardbeteende.
+          * <ph name="BLOCKED" />: blockerar installationen av tillägget.
+          * <ph name="FORCE_INSTALLED" />: tillägget installeras automatiskt och kan inte tas bort av användaren.
+          * <ph name="NORMAL_INSTALLED" />: tillägget installeras automatiskt men kan inaktiveras av användaren.
+
+          <ph name="INSTALLTION_MODE" /> kan även konfigureras för flera tillägg, bland annat tillägget <ph name="DEFAULT_SCOPE" /> (som standardinställningar) och tillägg med samma uppdateringsadress. Endast värdena <ph name="ALLOWED" /> och <ph name="BLOCKED" /> kan användas i det här fallet.
+
+          Om läget är inställt på <ph name="FORCE_INSTALLED" /> eller <ph name="NORMAL_INSTALLED" /> måste även en <ph name="UPDATE_URL" /> konfigureras. Tänk på att uppdateringsadressen som anges i den här policyn endast används för den första installationen. Vid senare uppdateringar av tillägget används uppdateringsadressen som anges i tilläggets manifest. Uppdateringsadressen ska peka på ett Update Manifest-dokument i XML-format så som nämnts ovan.
+
+          <ph name="BLOCKED_PERMISSIONS" />: mappar till en lista med strängar som anger de blockerade API-behörigheterna för tillägget. Namnen på behörigheterna är desamma som behörighetssträngarna som deklarerats i manifestet för tillägget som beskrivs på <ph name="LINK_TO_EXTENSION_DOC3" />. Inställningen kan även konfigureras för tillägget <ph name="DEFAULT_SCOPE" />. Om tillägget kräver en behörighet som finns med på blockeringslistan läses den inte in. Om det innehåller en blockerad behörighet som inte är obligatorisk hanteras det som vanligt, men begäran om motstridiga behörigheter nekas automatiskt vid körning.
+
+          <ph name="ALLOWED_PERMISSIONS" />: liknar <ph name="BLOCKED_PERMISSIONS" />men tillåter uttryckligen vissa behörigheter som kan vara blockerade av en global lista över blockerade behörigheter och kan därmed inte konfigureras för tillägget <ph name="DEFAULT_SCOPE" />. Tänk på att den här inställningen inte automatiskt tilldelar tilläggen beviljade behörigheter.
+
+          <ph name="MINIMUM_VERSION_REQUIRED" />: mappar till en versionssträng. Formatet för versionssträngen är detsamma som det som används i tilläggets manifest, som beskrivs på <ph name="LINK_TO_EXTENSION_DOC4" />. Ett tillägg med en version som är äldre än den angivna lägsta versionen kommer att inaktiveras. Detta gäller även för tillägg som måste installeras.
+
+          Följande inställningar kan endast användas för standardkonfigurationen <ph name="DEFAULT_SCOPE" />:
+
+          <ph name="INSTALL_SOURCES" />: Varje objekt i listan motsvarar en matchning i form av ett tillägg (läs mer här: <ph name="LINK_TO_MATCH_PATTERNS" />). Användarna kan enkelt installera objekt från alla webbadresser som matchar ett objekt i listan. Både platsen för <ph name="EXTENSION_SUFFIX_WILDCARD" />-filen och sidan där nedladdningen påbörjades (dvs. hänvisningsadressen) måste tillåtas av mönstren.
+
+          <ph name="ALLOWED_TYPES" />: Den här inställningen godkänner de tillåtna typerna med tillägg/appar som kan installeras i <ph name="PRODUCT_NAME" />.  Värdet är en lista med strängar där varje månste vara något av följande: <ph name="VALID_ALLOWED_TYPES" />. Mer information om dessa typer finns i dokumentationen för tillägget <ph name="PRODUCT_NAME" />.
+
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: Om en användare försöker installera ett tillägg som blockeras av en policy visas ett allmänt felmeddelande i Chrome Webstore. Med den här inställningen kan du lägga till text i felmeddelandet. Du kan till exempel hänvisa användarna till din support, förklara varför ett visst tillägg är blockerat eller annat. Felmeddelandet blir avklippt om det överstiger 1 000 tecken.
+
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: Tar emot en lista över värdar som tillägget blockeras från att använda. Detta inkluderar att lägga till JavaScript, ändra och visa webRequests/webNavigation och att visa och ändra cookies. Formatet liknar matchningsmönstren <ph name="LINK_TO_MATCH_PATTERNS" /> förutom att sökvägar,. t.ex. *://*.example.com, inte kan användas. Detta stöder även jokertoppdomäner, t.ex. *://example.*.
+          <ph name="RUNTIME_ALLOWED_HOSTS" />: Tar emot en lista över värdar som tillägget kan använda oavsett om de finns med på listan över <ph name="RUNTIME_BLOCKED_HOSTS" />. Detta är samma format som <ph name="RUNTIME_BLOCKED_HOSTS" />.
+          </translation>
 <translation id="787125417158068494">Om principen är inställd på SyncDisabled eller inte har konfigurerats blir inga certifikat i <ph name="PRODUCT_OS_NAME" /> tillgängliga för ARC-appar.
 
       Om principen är inställd på CopyCaCerts blir alla CA-certifikat som installerats via ONC med <ph name="WEB_TRUSTED_BIT" /> tillgängliga för ARC-appar.</translation>
@@ -2220,6 +2266,7 @@
           Om inställningen är Falskt kommer enheten inte att använda fjärrstyrd attestering för innehållsskydd och skyddat innehåll kanske inte kan spelas upp på enheten.
 
           Om inställningen är Sant eller om den inte anges kan fjärrstyrd attestering användas för innehållsskydd.</translation>
+<translation id="8650974590712548439">Windows-registerplats för Windows-klienter:</translation>
 <translation id="8654286232573430130">Anger vilka servrar som ska godkännas för integrerad autentisering. Integrerad autentisering är endast aktiverad när <ph name="PRODUCT_NAME" /> får en autentiseringsutmaning från en proxyserver som finns i listan över godkända servrar.
 
           Avgränsa flera servernamn med kommatecken. Jokertecken (*) tillåts.

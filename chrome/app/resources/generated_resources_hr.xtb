@@ -3920,6 +3920,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="7077829361966535409">Nije uspjelo učitavanje stranice za prijavu pomoću trenutačnih postavki proxy poslužitelja. <ph name="GAIA_RELOAD_LINK_START" />Pokušajte se ponovo prijaviti<ph name="GAIA_RELOAD_LINK_END" /> ili upotrijebite druge <ph name="PROXY_SETTINGS_LINK_START" />postavke proxy poslužitelja<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="7078120482318506217">Sve mreže</translation>
 <translation id="708060913198414444">K&amp;opiraj adresu audiozapisa</translation>
+<translation id="708278670402572152">Prekinite vezu da biste omogućili pretraživanje</translation>
 <translation id="7084192839369222683">Pokreni samo važan sadržaj</translation>
 <translation id="7088434364990739311">Nije uspjelo pokretanje ažuriranja (kôd pogreške <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver – otvaranje i pakiranje ZIP datoteka u aplikaciji Datoteke.</translation>
@@ -4127,7 +4128,7 @@ Pritisnite bilo koju tipku da biste nastavili istraživati.</translation>
 <translation id="7438940380767210568">Postavljanje pisača...</translation>
 <translation id="7439964298085099379">Omogućen vam je način visokog kontrasta. Želite li instalirati naše proširenje za visoki kontrast i neku tamnu temu?</translation>
 <translation id="7441830548568730290">Ostali korisnici</translation>
-<translation id="7442465037756169001">Uređaj za Hangouts Meet spreman je za postavljanje.</translation>
+<translation id="7442465037756169001">Hangouts Meet hardware spreman je za postavljanje.</translation>
 <translation id="744341768939279100">Izradi novi profil</translation>
 <translation id="7444726222535375658">Nastavi na Hangouts Meet</translation>
 <translation id="7444983668544353857">Onemogući <ph name="NETWORKDEVICE" /></translation>

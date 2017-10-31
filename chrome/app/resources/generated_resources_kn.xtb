@@ -3717,7 +3717,7 @@
 <translation id="6751344591405861699"><ph name="WINDOW_TITLE" /> (ಅದೃಶ್ಯ)</translation>
 <translation id="6757101664402245801">URL ನಕಲಿಸಲಾಗಿದೆ</translation>
 <translation id="6758056191028427665">ನಮ್ಮ ಕೆಲಸದ ಕುರಿತು ನಿಮ್ಮ ಅಭಿಪ್ರಾಯವನ್ನು ತಿಳಿಸಿ.</translation>
-<translation id="6759193508432371551">ಫ್ಯಾಕ್ಟರಿ ಮರುಹೊಂದಿಸು</translation>
+<translation id="6759193508432371551">ಫ್ಯಾಕ್ಟರಿ ರಿಸೆಟ್‌</translation>
 <translation id="6766101255664245434">ಹೊಸ ಫೋಟೋ ತೆಗೆದುಕೊಳ್ಳಿ ಅಥವಾ ಅಸ್ತಿತ್ವದಲ್ಲಿರುವ ಫೋಟೊ ಹಾಗೂ ಐಕಾನ್‌ ಅನ್ನು ಆಯ್ಕೆ ಮಾಡಿ.
 <ph name="LINE_BREAK" />
 ಈ ಚಿತ್ರವನ್ನು Chromebook ಸೈನ್‌ ಇನ್‌ ಪರದೆ ಮತ್ತು ಲಾಕ್‌ ಪರದೆಯ ಮೇಲೆ ತೋರಿಸಲಾಗುತ್ತದೆ.</translation>
@@ -3922,6 +3922,7 @@
 <translation id="7077829361966535409">ಪ್ರಸ್ತುತ ಪ್ರಾಕ್ಸಿ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ಬಳಸಿಕೊಂಡು ಲೋಡ್ ಮಾಡುವಲ್ಲಿ ಸೈನ್-ಇನ್ ಪುಟವು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು <ph name="GAIA_RELOAD_LINK_START" />ಮತ್ತೆ ಸೈನ್ ಇನ್ ಮಾಡಲು ಪ್ರಯತ್ನಿಸಿ<ph name="GAIA_RELOAD_LINK_END" />, ಅಥವಾ ಬೇರೆಯ <ph name="PROXY_SETTINGS_LINK_START" />ಪ್ರಾಕ್ಸಿ ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು<ph name="PROXY_SETTINGS_LINK_END" /> ಬಳಸಿ.</translation>
 <translation id="7078120482318506217">ಎಲ್ಲಾ ನೆಟ್‌ವರ್ಕ್‌ಗಳು</translation>
 <translation id="708060913198414444">ಆಡಿಯೋ ವಿಳಾಸವನ್ನು ನ&amp;ಕಲಿಸಿ</translation>
+<translation id="708278670402572152">ಸ್ಕ್ಯಾನಿಂಗ್ ಸಕ್ರಿಯಗೊಳಿಸಲು ಸಂಪರ್ಕ ಕಡಿತಗೊಳಿಸಿ</translation>
 <translation id="7084192839369222683">ಮುಖ್ಯ ವಿಷಯವನ್ನು ಮಾತ್ರ ರನ್ ಮಾಡಿ</translation>
 <translation id="7088434364990739311">ಅಪ್‌ಡೇಟ್‌‌ ಪರಿಶೀಲನೆಯು ಪ್ರಾರಂಭಿಸಲು ವಿಫಲವಾಗಿದೆ (ದೋಷ ಕೋಡ್ <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip ಆರ್ಕೈವರ್ - ಫೈಲ್‌ಗಳ ಅಪ್ಲಿಕೇಶನ್‌ನಲ್ಲಿ ZIP ಫೈಲ್‌ಗಳನ್ನು ತೆರೆಯಿರಿ ಮತ್ತು ಪ್ಯಾಕ್ ಮಾಡಿ .</translation>
@@ -4130,7 +4131,7 @@
 <translation id="7438940380767210568">ಪ್ರಿಂಟರ್‌ ಅನ್ನು ಹೊಂದಿಸಿ...</translation>
 <translation id="7439964298085099379">ನೀವು ಉನ್ನತ ಕಾಂಟ್ರಾಸ್ಟ್ ಮೋಡ್ ಅನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿರುವಿರಿ. ನಮ್ಮ ಉನ್ನತ ಕಾಂಟ್ರಾಸ್ಟ್ ವಿಸ್ತರಣೆ ಮತ್ತು ಗಾಢ ಥೀಮ್ ಅನ್ನು ಸ್ಥಾಪಿಸಲು ನೀವು ಬಯಸುವಿರಾ?</translation>
 <translation id="7441830548568730290">ಇತರ ಬಳಕೆದಾರರು</translation>
-<translation id="7442465037756169001">ನಿಮ್ಮ Hangouts ಮೀಟ್‌ನ ಹಾರ್ಡ್‌ವೇರ್ ಸೆಟಪ್‌ಗೆ ಎಲ್ಲ ರೀತಿಯಲ್ಲಿಯೂ ಸಿದ್ಧವಾಗಿದೆ.</translation>
+<translation id="7442465037756169001">ನಿಮ್ಮ Hangouts Meet hardware ಸೆಟಪ್‌ಗೆ ಎಲ್ಲ ರೀತಿಯಲ್ಲಿಯೂ ಸಿದ್ಧವಾಗಿದೆ.</translation>
 <translation id="744341768939279100">ಹೊಸ ಪ್ರೊಫೈಲ್ ರಚಿಸಿ</translation>
 <translation id="7444726222535375658">Hangouts ಮೀಟ್‌ಗಾಗಿ ಮುಂದುವರಿಯಿರಿ</translation>
 <translation id="7444983668544353857"><ph name="NETWORKDEVICE" /> ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ</translation>

@@ -16,6 +16,13 @@
 
       Denne regelen berører bare brukere med domener som samsvarer med enhetens registreringsdomene. For alle andre brukere overføres informasjonskapslene som angis av IdP-en, til brukerens profil bare første gang vedkommende logger på enheten.</translation>
 <translation id="1040446814317236570">Slå på PAC-nettadressestripping (for https://)</translation>
+<translation id="1041454584879384845">Konfigurerer funksjonaliteten for brukerbilder som representerer brukerne på påloggingsskjermen.
+
+     Enkeltinnstillinger kan angis i JSON-egenskapene:
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Hvis denne er angitt som <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, får brukerne tillatelse til å legge inn videoer som brukerbilder.
+
+      Hvis denne regelen ikke er angitt, tillates bruk av videoer som brukerbilder.</translation>
 <translation id="1044878202534415707">Rapportér maskinvarestatistikk, for eksempel bruk av prosessor og minne.
 
       Hvis regelen settes til «false» (usann), rapporteres ikke statistikken.
@@ -100,6 +107,7 @@
 <translation id="1454846751303307294">Gjør at du kan angi en liste over nettadressemønstre som spesifiserer nettsteder som ikke tillates å kjøre JavaScript.
 
           Hvis denne retningslinjen ikke angis, brukes den globale standardverdien for alle nettsteder, enten fra retningslinjen DefaultJavaScriptSetting hvis den er angitt, eller fra brukerens egen konfigurasjon hvis nevnte retningslinje ikke er angitt.</translation>
+<translation id="1456822151187621582">Windows (<ph name="PRODUCT_OS_NAME" />-klienter):</translation>
 <translation id="1464848559468748897">Kontrollér brukeratferden i flerprofiløkter på <ph name="PRODUCT_OS_NAME" />-enheter.
 
       Hvis denne innstillingen angis til «MultiProfileUserBehaviorUnrestricted», kan brukeren enten være en primær eller sekundær bruker i en flerprofiløkt.
@@ -554,6 +562,7 @@
           Hvis denne innstillingen er deaktivert og utgående UDP-tilkoblinger filtreres ut av brannmuren, vil denne maskinen bare tillate forbindelser fra klientmaskiner i det lokale nettverket.
 
           Hvis denne retningslinjen ikke angis, er innstillingen aktivert.</translation>
+<translation id="2823870601012066791">Plasseringen av Windows-registeret for <ph name="PRODUCT_OS_NAME" />-klienter:</translation>
 <translation id="2824715612115726353">Aktiver inkognitomodus</translation>
 <translation id="2838830882081735096">Ikke tillat dataoverføring og ARC</translation>
 <translation id="2844404652289407061">Gjør «Trykk for å søke» tilgjengelig i innholdsvisningen i <ph name="PRODUCT_NAME" />.
@@ -1475,6 +1484,7 @@
 <translation id="6076099373507468537">Definerer listen over USB-enheter som kan kobles fra kjernedriveren, så de kan brukes via chrome.usb API direkte i nettprogrammer. Oppføringene er parvise leverandør- og produktkoder som identifiserer spesifikke USB-enheter.
 
       Hvis denne regelen ikke er spesifisert, er listen over frakoblingsbare USB-enheter tom.</translation>
+<translation id="6083631234867522991">Windows (Windows-klienter):</translation>
 <translation id="6093156968240188330">Tillat at eksterne brukere kommuniserer via uthevede vinduer i fjernhjelpøkter.</translation>
 <translation id="6095999036251797924">Angir hvor mye tid som kan gå uten brukeraktivitet før skjermen låses når nettstrøm eller batteri brukes.
 
@@ -1545,6 +1555,7 @@
 <translation id="6310223829319187614">Slå på autofullføring av domenenavn ved brukerpålogging</translation>
 <translation id="6315673513957120120">Brukerne ser advarselssider i Chrome når de åpner nettsteder med SSL-feil. Som standard, eller når denne regelen er satt til true (sann), kan brukerne klikke seg forbi disse advarselssidene.
       Hvis denne regelen settes til false (usann), kan ikke brukerne klikke seg forbi advarselssider.</translation>
+<translation id="6320758134170712450">Konfigurer funksjonaliteten for brukerbilder</translation>
 <translation id="6353901068939575220">Angir parameterene som brukes når du utfører søker på en nettadresse med POST. De består av kommainndelte navn og verdi-par. Hvis en verdi er et malparameter, som {searchTerms} i eksempelet ovenfor, blir den erstattet med virkelig søkeordsdata.
 
           Denne innstillingen er valgfri. Hvis den ikke er angitt, blir forespørsler om søkeforslag sendt via GET-metoden.
@@ -1978,6 +1989,39 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 <translation id="7841880500990419427">Laveste TLS-versjon som kan brukes som reserve</translation>
 <translation id="7842869978353666042">Konfigurer Google Disk-alternativer</translation>
 <translation id="7843525027689416831">Spesifiserer flaggene som skal gjelde for <ph name="PRODUCT_NAME" /> når det startes opp. De spesifiserte flaggene brukes bare på påloggingsskjermen. Flagg som angis via denne regelen, videreføres ikke til brukerøkter.</translation>
+<translation id="7844537954833753199">Konfigurerer innstillingene for administrering av utvidelser for <ph name="PRODUCT_NAME" />.
+
+          Denne regelen bestemmer flere innstillinger, inkludert innstillinger kontrollert av eventuelle eksisterende regler som er relatert til utvidelser. Denne regelen overstyrer eventuelle eldre regler som også er aktive.
+
+          Denne regelen knytter en utvidelses-ID eller en nettadresse for oppdatering til en konfigurasjon. Hvis det brukes en utvidelses-ID, blir konfigurasjonen bare angitt for den spesifiserte utvidelsen. En standard konfigurasjon kan angis for den spesielle ID-en <ph name="DEFAULT_SCOPE" />, som så gjelder for alle utvidelser det ikke er angitt noen tilpasset konfigurasjon for i denne regelen. Hvis det brukes en nettadresse for oppdatering, brukes konfigurasjonen for alle utvidelser med nøyaktig den nettadressen for oppdatering som er oppgitt i utvidelsens manifest, som beskrevet i <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          Konfigurasjonen for hver enkelt utvidelse (eller utvidelser med samme nettadresse for oppdatering) er en oppslagsliste som kan inneholde feltene dokumentert nedenfor.
+
+          <ph name="INSTALLATION_MODE" />: knyttes til en streng som indikerer installasjonsmodusen for utvidelsen. De gyldige strengene er
+          * <ph name="ALLOWED" />: tillater at utvidelsen installeres av brukeren (denne funksjonaliteten brukes som standard)
+          * <ph name="BLOCKED" />: blokkerer installasjon av utvidelsen
+          * <ph name="FORCE_INSTALLED" />: gjør at utvidelsen installeres automatisk, men kan ikke fjernes av brukeren
+          * <ph name="NORMAL_INSTALLED" />: gjør at utvidelsen installeres automatisk, men brukeren kan slå den av
+
+          <ph name="INSTALLTION_MODE" /> kan også konfigureres for flere utvidelser, inkludert ved bruk av <ph name="DEFAULT_SCOPE" />-utvidelsen (som standardinnstillinger) samt utvidelser med samme nettadresse for oppdatering. I dette tilfellet kan bare verdiene <ph name="ALLOWED" /> og <ph name="BLOCKED" /> brukes.
+
+          Hvis modusen er angitt som <ph name="FORCE_INSTALLED" /> eller <ph name="NORMAL_INSTALLED" />, må en <ph name="UPDATE_URL" /> konfigureres også. Merk at nettadressen for oppdatering som er angitt i denne regelen, bare brukes for første installasjon – påfølgende oppdateringer av utvidelsen bruker nettadressen for oppdatering som er oppgitt i utvidelsens manifest. Nettadressen for oppdatering skal peke til et oppdateringsmanifest i XML-format som nevnt ovenfor.
+
+          <ph name="BLOCKED_PERMISSIONS" />: knyttes til en liste over strenger som indikerer hvilke API-tillatelser som er blokkert for utvidelsen. Tillatelsesnavnene er identiske med tillatelsesstrengene som oppgis i manifestet for utvidelsen, som beskrevet her: <ph name="LINK_TO_EXTENSION_DOC3" />. Denne innstillingen kan også konfigureres for <ph name="DEFAULT_SCOPE" />-utvidelse. Hvis utvidelsen krever en tillatelse som er på blokkeringslisten, får den ikke tillatelse til å kjøre. Hvis utvidelsen inneholder en blokkert tillatelse som en valgfri tillatelse, behandles den som vanlig, men forespørsler om blokkerte tillatelser blir avvist automatisk under kjøring.
+
+          <ph name="ALLOWED_PERMISSIONS" />: ligner på <ph name="BLOCKED_PERMISSIONS" />, men tillater i stedet uttrykkelig noen tillatelser som kan være blokkert av den globale listen for blokkerte tillatelser. Denne innstillingen kan derfor ikke konfigureres for <ph name="DEFAULT_SCOPE" />-utvidelse. Merk at denne innstillingen ikke gir innvilgede tillatelser til utvidelser automatisk.
+
+          <ph name="MINIMUM_VERSION_REQUIRED" />: knyttes til en versjonsstreng. Formatet for versjonsstrengen er det samme som er brukt i utvidelsesmanifestet, som beskrevet her: <ph name="LINK_TO_EXTENSION_DOC4" />. Utvidelser med en versjon som er eldre enn den spesifiserte minimumsversjonen, blir deaktivert. Dette gjelder for utvidelser med tvungen installering (FORCE_INSTALLED) også.
+
+          Følgende innstillinger kan bare brukes for standardkonfigurasjonen <ph name="DEFAULT_SCOPE" />:
+
+          <ph name="INSTALL_SOURCES" />: Hvert element i denne listen er et samsvarsmønster av typen som brukes for utvidelser (<ph name="LINK_TO_MATCH_PATTERNS" />). Brukere kan enkelt installere elementer fra alle nettadresser som samsvarer med et element på denne listen. Både plasseringen av <ph name="EXTENSION_SUFFIX_WILDCARD" />-filen og siden der nedlastingen startes fra (dvs. henvisningsadressen), må samsvare med disse mønstrene.
+
+          <ph name="ALLOWED_TYPES" />: Denne innstillingen er en godkjenningsliste for de tillatte typene utvidelser/apper som kan installeres på <ph name="PRODUCT_NAME" />. Verdien er en liste over strenger, og hver streng må være ett av følgende: <ph name="VALID_ALLOWED_TYPES" />. Slå opp i dokumentasjonen for <ph name="PRODUCT_NAME" />-utvidelser for mer informasjon om disse typene.
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: Hvis en bruker prøver å installere en utvidelse, men forsøket blir blokkert i henhold til en regel, viser Chrome Nettmarked en generisk feilmelding. Denne innstillingen har støtte for egendefinert tekst for feilmeldingen. Dette kan brukes til å henvise brukere til brukerstøtten din, forklare hvorfor en bestemt utvidelse er blokkert, eller noe annet. Feilmeldingen blir avkortet hvis den er lengre enn 1000 tegn.
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: Godtar en liste over verter som en utvidelse blir blokkert fra å interagere med. Dette omfatter injisering av JavaScript-kode, endring og åpning av webRequests/webNavigation samt endring og åpning av informasjonskapsler. Dette formatet ligner på Match Patterns (<ph name="LINK_TO_MATCH_PATTERNS" />), bortsett fra at det ikke er nødvendig å angi noen bane etter nettstedsnavnet (for eksempel støttes «*://*.example.com»). Formatet støtter også effektive TLD-jokertegn, for eksempel «*://example.*».
+          <ph name="RUNTIME_ALLOWED_HOSTS" />: Godtar en liste over verter som utvidelsen kan interagere med, uansett om de er oppført i <ph name="RUNTIME_BLOCKED_HOSTS" /> eller ikke. Dette er det samme formatet som <ph name="RUNTIME_BLOCKED_HOSTS" />.
+          </translation>
 <translation id="787125417158068494">Hvis denne er angitt som SyncDisabled eller ikke er konfigurert, er ikke <ph name="PRODUCT_OS_NAME" />-sertifikater tilgjengelige for ARC-apper.
 
       Hvis denne er angitt som CopyCaCerts, er alle ONC-installerte CA-sertifikater med <ph name="WEB_TRUSTED_BIT" /> tilgjengelige for ARC-apper.</translation>
@@ -2173,6 +2217,7 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
           Hvis denne innstillingen angis til «false», kommer ikke enheten til å bruke ekstern godkjenning for innholdsbeskyttelse, og enheten kan sannsynligvis ikke spille av beskyttet innhold.
 
           Hvis denne innstillingen angis til «true», eller ikke angis i det hele tatt, kan ekstern godkjenning brukes for innholdsbeskyttelse.</translation>
+<translation id="8650974590712548439">Plasseringen av Windows-registeret for Windows-klienter:</translation>
 <translation id="8654286232573430130">Angi hvilke tjenere som skal godkjennes for integrert autentisering. Integrert autentisering er bare på når <ph name="PRODUCT_NAME" /> mottar en autentiseringoppgave fra en proxy-tjener eller en tjener i denne tillatt-listen.
 
           Adskill tjenernavn med komma. Jokertegn (*) er tillatt.

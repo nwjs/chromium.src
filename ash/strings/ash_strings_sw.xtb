@@ -70,6 +70,8 @@
 <translation id="2532589005999780174">Hali ya juu ya utofautishaji</translation>
 <translation id="2597972630681408282">Mwanga wa Usiku: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Wasilisha</translation>
+<translation id="2675319268637823299">Msimamizi amezuia uwezo wa kuingia katika akaunti nyingi kwa wakati mmoja kwa <ph name="USER_EMAIL" />.
+    Watumiaji wote lazima waondoke ili waendelee.</translation>
 <translation id="2700058918926273959">Kipindi kitakwisha baada ya <ph name="SESSION_TIME_REMAINING" />. Utaondolewa katika akaunti.</translation>
 <translation id="2727977024730340865">Imechomekwa katika chaja ya kawi ya chini. Huenda kuchaji kwa betri hakutakuwa kuzuri.</translation>
 <translation id="2761704814324807722">Treya ya hali, saa <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -204,6 +206,7 @@
 <translation id="632744581670418035">Kuelea kwa kibodi</translation>
 <translation id="639644700271529076">CAPS LOCK imezimwa</translation>
 <translation id="6406704438230478924">altgr</translation>
+<translation id="643147933154517414">Hakuna arifa</translation>
 <translation id="6452181791372256707">Kataa</translation>
 <translation id="6453179446719226835">Lugha imebadilishwa</translation>
 <translation id="6459472438155181876">Inapanua skrini kwenye <ph name="DISPLAY_NAME" /></translation>
@@ -297,6 +300,7 @@ Arifa, madirisha na vidirisha vya baadaye vitagawanywa baina ya maeneo-kazi.</tr
 <translation id="8825534185036233643">Kuakisi ukitumia zaidi ya skrini mbili hakuruhusiwi.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8850991929411075241">Search+Esc</translation>
+<translation id="8870509716567206129">Programu haiwezi kutumia skrini iliyogawanywa.</translation>
 <translation id="8878886163241303700">Kuongeza skrini</translation>
 <translation id="8921624153894383499">Programu ya Mratibu wa Google haina huduma ya lugha hii.</translation>
 <translation id="8938800817013097409">Kifaa cha USB-C (mlango wa kulia nyuma)</translation>

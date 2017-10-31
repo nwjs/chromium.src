@@ -2708,7 +2708,7 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="5213891612754844763">Zobraziť nastavenia proxy servera</translation>
 <translation id="521582610500777512">Fotka bola zahodená</translation>
 <translation id="5222676887888702881">Odhlásiť sa</translation>
-<translation id="52232769093306234">Nepodarilo sa zabaliť.</translation>
+<translation id="52232769093306234">Nepodarilo sa zbaliť.</translation>
 <translation id="5225324770654022472">Zobrazovať odkaz aplikácií</translation>
 <translation id="5225360179303283478">Obnoviť nastavenia webu</translation>
 <translation id="5227536357203429560">Pridať súkromnú sieť...</translation>
@@ -3919,6 +3919,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="7077829361966535409">Prihlasovaciu stránku sa pomocou aktuálneho nastavenia servera proxy nepodarilo načítať. <ph name="GAIA_RELOAD_LINK_START" />Skúste sa prihlásiť znova<ph name="GAIA_RELOAD_LINK_END" /> alebo použite iné <ph name="PROXY_SETTINGS_LINK_START" />nastavenia servera proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="7078120482318506217">Všetky siete</translation>
 <translation id="708060913198414444">K&amp;opírovať adresu zvuku</translation>
+<translation id="708278670402572152">Ak chcete aktivovať vyhľadávanie, odpojte sa</translation>
 <translation id="7084192839369222683">Spúšťať iba dôležitý obsah</translation>
 <translation id="7088434364990739311">Kontrolu aktualizácií sa nepodarilo spustiť (kód chyby: <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver – Otvárajte a komprimujte súbory ZIP v aplikácii Súbory.</translation>
@@ -4127,7 +4128,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="7438940380767210568">Nastavenie tlačiarne…</translation>
 <translation id="7439964298085099379">Máte povolený režim Vysoký kontrast. Chcete nainštalovať rozšírenie Vysoký kontrast a tmavý motív?</translation>
 <translation id="7441830548568730290">Ostatní používatelia</translation>
-<translation id="7442465037756169001">Hardvér podporujúci Hangouts Meet je pripravený na nastavenie.</translation>
+<translation id="7442465037756169001">Ovládač Hangouts Meet hardware je pripravený na nastavenie.</translation>
 <translation id="744341768939279100">Vytvoriť nový profil</translation>
 <translation id="7444726222535375658">Pokračovať do služby Hangouts Meet</translation>
 <translation id="7444983668544353857">Zakázať zariadenie <ph name="NETWORKDEVICE" /></translation>

@@ -16,6 +16,13 @@
 
       Tato zásada má vliv pouze na uživatele, jejichž doména odpovídá doméně, ve které je zařízení zaregistrováno. V případě ostatních uživatelů se soubory cookie vytvořené poskytovatelem identity do profilu uživatele přenesou pouze při prvním přihlášení do zařízení.</translation>
 <translation id="1040446814317236570">Před odesláním skriptu PAC z adres se schématem https:// odstraňovat citlivá data</translation>
+<translation id="1041454584879384845">Konfiguruje chování avatarů uživatelů, které představují uživatele na přihlašovací obrazovce.
+
+      Jednotlivá nastavení lze zadat ve vlastnostech objektu JSON:
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Pokud je tato vlastnost nastavena na hodnotu <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, uživatelé budou moci jako obrázky avatarů používat videa.
+
+      Pokud tato zásada není nastavena, videa pro obrázek avatara jsou povoleny.</translation>
 <translation id="1044878202534415707">Nahlášení statistik hardwaru, například využití CPU/RAM.
 
 Pokud je tato zásada nastavena na hodnotu false, statistiky nebudou hlášeny.
@@ -99,6 +106,7 @@ Pokud je tato zásada nastavena na hodnotu False, <ph name="PRODUCT_NAME" /> vyt
 <translation id="1454846751303307294">Umožňuje nastavit seznam vzorů adres URL stránek, kterým není povoleno spouštět JavaScript.
 
           Pokud zásadu nenastavíte, použije se pro všechny webové stránky globální výchozí hodnota buď ze zásady DefaultJavaScriptSetting (pokud je nastavena), nebo z osobního nastavení uživatele.</translation>
+<translation id="1456822151187621582">Windows (klienti <ph name="PRODUCT_OS_NAME" />):</translation>
 <translation id="1464848559468748897">Určuje chování uživatele v multiprofilové relaci v zařízeních se systémem <ph name="PRODUCT_OS_NAME" />.
       Pokud je tato zásada nastavena na hodnotu MultiProfileUserBehaviorUnrestricted, uživatel může být v multiprofilové relaci buď primárním, nebo sekundárním uživatelem.
 
@@ -545,6 +553,7 @@ Pokud je zásada nastavena na hodnotu False nebo nastavena není, budou ikony vi
           Pokud je toto nastavení deaktivováno a odchozí připojení UDP jsou filtrována bránou firewall, lze se k tomuto počítači připojit pouze z klientských počítačů v místní síti.
 
           Pokud tato zásada není nastavena, bude nastavení aktivováno.</translation>
+<translation id="2823870601012066791">Umístění v registru systému Windows pro klienty <ph name="PRODUCT_OS_NAME" />:</translation>
 <translation id="2824715612115726353">Povolit anonymní režim</translation>
 <translation id="2838830882081735096">Zakázat migraci dat a rozšíření ARC</translation>
 <translation id="2844404652289407061">Aktivuje dostupnost Vyhledání klepnutím v zobrazení obsahu prohlížeče <ph name="PRODUCT_NAME" />.
@@ -1480,6 +1489,7 @@ Pokud tato zásada není nastavena nebo je nastavena na hodnotu False, <ph name=
 <translation id="6076099373507468537">Definuje seznam zařízení USB, která lze odpojit od ovladače jádra a použít přímo ve webové aplikaci prostřednictvím rozhraní chrome.usb API. Hodnotami jsou páry identifikátorů (dodavatel a produkt), které určují konkrétní hardwarové zařízení.
 
       Pokud tato zásada není nastavena, seznam odpojitelných zařízení USB je prázdný.</translation>
+<translation id="6083631234867522991">Windows (klienti Windows):</translation>
 <translation id="6093156968240188330">Při relacích vzdálené pomoci vzdáleným uživatelům povolit interakci s okny, která vyžadují zvýšená oprávnění</translation>
 <translation id="6095999036251797924">Udává dobu bez interakce uživatele, po jejímž uplynutí se při napájení ze sítě nebo z baterie uzamkne obrazovka.
 
@@ -1550,6 +1560,7 @@ Není-li zásada nastavena, může se uživatelům zobrazit výzva, zda chtějí
 <translation id="6310223829319187614">Aktivovat automatické doplňování názvu domény při přihlášení uživatele</translation>
 <translation id="6315673513957120120">Pokud uživatel přejde na web, který obsahuje chyby protokolu SSL, Chrome zobrazí stránku s upozorněním. Když je tato zásada nastavena na hodnotu True, mohou uživatelé stránky s upozorněním přeskočit a pokračovat. Platí to také ve výchozím nastavení.
 Nastavením této zásady na hodnotu False přeskočení stránky s upozorněním zakážete.</translation>
+<translation id="6320758134170712450">Konfigurace chování avatarů uživatelů</translation>
 <translation id="6353901068939575220">Udává parametry, které budou použity při vyhledávání adresy URL pomocí metody POST. Sestává z párů název–hodnota oddělených čárkou. Pokud je hodnotou parametr šablony (např. {searchTerms} v příkladu výše), bude nahrazen skutečnými údaji vyhledávacích dotazů.
 
           Tato zásada je nepovinná. Pokud není nastavena, požadavek na vyhledávání bude odeslán pomocí metody GET.
@@ -1982,6 +1993,39 @@ Tato zásada je určena k internímu použití prohlížečem <ph name="PRODUCT_
 <translation id="7841880500990419427">Nejnižší verze zálohy TLS</translation>
 <translation id="7842869978353666042">Konfigurace možností Disku Google</translation>
 <translation id="7843525027689416831">Udává příznaky, které mají být na prohlížeč <ph name="PRODUCT_NAME" /> použity při spuštění (použijí se pouze na přihlašovací obrazovce). Příznaky nastavené prostřednictvím této zásady nezasahují do uživatelských relací.</translation>
+<translation id="7844537954833753199">Konfiguruje nastavení správy rozšíření prohlížeče <ph name="PRODUCT_NAME" />.
+
+          Tato zásada řídí několik nastavení, včetně těch, která jsou konfigurována existujícími zásadami pro rozšíření. Pokud je tato zásada nastavena, přepíše všechny starší nastavené zásady.
+
+          Tato zásada mapuje konfiguraci na ID rozšíření nebo adresu URL. Pokud je definováno ID rozšíření, bude konfigurace použita pouze na konkrétní rozšíření. Pro zvláštní ID <ph name="DEFAULT_SCOPE" /> lze nastavit výchozí konfiguraci. Tato konfigurace bude použita na všechna rozšíření, která nemají v této zásadě nastavenou vlastní konfiguraci. Pokud je definována adresa URL pro aktualizaci, bude konfigurace použita na všechna rozšíření, která mají v manifestu uvedenou přesně tuto adresu URL pro aktualizaci (viz <ph name="LINK_TO_EXTENSION_DOC1" />).
+
+          Konfigurace pro jednotlivá rozšíření (nebo rozšíření se stejnou adresou URL pro aktualizaci) představuje další slovník, který může obsahovat níže popsaná pole.
+
+          <ph name="INSTALLATION_MODE" />: mapuje se na řetězec udávající režim instalace rozšíření. Platné řetězce:
+          * <ph name="ALLOWED" />: umožňuje, aby bylo rozšíření nainstalováno uživatelem. Toto chování je výchozí.
+          * <ph name="BLOCKED" />: blokuje instalaci rozšíření.
+          * <ph name="FORCE_INSTALLED" />: rozšíření je instalováno automaticky a uživatel ho nemůže odstranit.
+          * <ph name="NORMAL_INSTALLED" />: rozšíření je instalováno automaticky, ale uživatel ho může deaktivovat.
+
+          Pole <ph name="INSTALLTION_MODE" /> může být nakonfigurováno i pro několik rozšíření najednou, a to včetně rozšíření <ph name="DEFAULT_SCOPE" /> (jako výchozí nastavení) a rozšíření se stejnou adresou URL pro aktualizaci. V tomto případě lze použít pouze hodnoty <ph name="ALLOWED" /> a <ph name="BLOCKED" />.
+
+          Pokud je režim nastaven na hodnotu <ph name="FORCE_INSTALLED" /> nebo <ph name="NORMAL_INSTALLED" />, musí být nakonfigurována i adresa URL <ph name="UPDATE_URL" />. Adresa URL pro aktualizaci nastavená v této zásadě slouží pouze k počáteční instalaci. Další aktualizace rozšíření budou používat adresu URL pro aktualizaci uvedenou v manifestu rozšíření. Adresa URL pro aktualizaci by měla odkazovat na dokument XML manifestu aktualizace (viz výše).
+
+          <ph name="BLOCKED_PERMISSIONS" />: mapuje se na seznam řetězců, které definují blokovaná oprávnění rozhraní API daného rozšíření. Názvy oprávnění jsou stejné jako řetězce oprávnění deklarované v manifestu rozšíření (viz <ph name="LINK_TO_EXTENSION_DOC3" />). Toto nastavení lze nakonfigurovat také pro rozšíření <ph name="DEFAULT_SCOPE" />. Pokud rozšíření vyžaduje oprávnění, které se nachází na seznamu blokovaných položek, nebude se moci načíst. Pokud je blokované oprávnění vyžadováno volitelně, rozšíření bude spuštěno normálním způsobem, ale žádost o konfliktní oprávnění bude za běhu automaticky zamítnuta.
+
+          <ph name="ALLOWED_PERMISSIONS" />: toto pole je podobné jako pole <ph name="BLOCKED_PERMISSIONS" />, ale na rozdíl od něj explicitně povoluje některá oprávnění, která by mohla být blokována seznamem globálně blokovaných oprávnění. Toto pole proto nelze nakonfigurovat pro rozšíření <ph name="DEFAULT_SCOPE" />. Upozorňujeme, že toto nastavení neposkytuje rozšířením udělená oprávnění automaticky.
+
+          <ph name="MINIMUM_VERSION_REQUIRED" />: mapuje se na řetězec verze. Formát řetězce verze je stejný jako ten v manifestu rozšíření (viz <ph name="LINK_TO_EXTENSION_DOC4" />). Rozšíření nižší verze, než je stanovená minimální verze, bude deaktivováno. Toto nastavení se vztahuje i na rozšíření, jejichž instalace byla vynucena.
+
+          Následující nastavení lze použít pouze pro výchozí konfiguraci <ph name="DEFAULT_SCOPE" />:
+
+          <ph name="INSTALL_SOURCES" />: každá položka v tomto seznamu představuje vzor podobný jako u rozšíření (<ph name="LINK_TO_MATCH_PATTERNS" />). Uživatelé budou moci jednoduše instalovat položky z jakékoli adresy, která odpovídá položce v tomto seznamu. V těchto vzorech musí být povoleno umístění souboru <ph name="EXTENSION_SUFFIX_WILDCARD" /> i stránka, ze které bude zahájeno stahování (tj. zdroj odkazu).
+
+          <ph name="ALLOWED_TYPES" />: toto nastavení vytvoří seznam povolených rozšíření nebo aplikací, které lze nainstalovat do prohlížeče <ph name="PRODUCT_NAME" />. Hodnota představuje seznam řetězců. Musí se jednat o řetězce z následujícího výčtu: <ph name="VALID_ALLOWED_TYPES" />. Další informace o těchto typech naleznete v dokumentaci k rozšířením prohlížeče <ph name="PRODUCT_NAME" />.
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: Pokud se uživatel pokouší nainstalovat rozšíření, které je blokováno zásadami, zobrazí Internetový obchod Chrome obecnou chybovou zprávu. Pomocí tohoto nastavení lze k chybové zprávě přidat text. Můžete pomocí něj uživatele nasměrovat na oddělení nápovědy, vysvětlit, proč je konkrétní rozšíření blokováno, nebo poskytnou jiné informace. Pokud tato chybová zpráva bude delší než 1000 znaků, bude oříznuta.
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: Představuje seznam hostitelů, se kterými rozšíření nebude smět interagovat. Týká se to vkládání JavaScriptu, úprav a zobrazování požadavků webRequest a webNavigation a zobrazování a úprav souborů cookie. Formát se podobá vzorům (<ph name="LINK_TO_MATCH_PATTERNS" />), ale není dovoleno zadávat cesty, například „*://*.example.com“. Jsou podporovány také zástupné znaky pro domény nejvyšší úrovně, například „*://example.*“.
+          <ph name="RUNTIME_ALLOWED_HOSTS" />: Představuje seznam hostitelů, se kterými rozšíření může interagovat bez ohledu na to, zda jsou uvedeni v seznamu <ph name="RUNTIME_BLOCKED_HOSTS" />. Formát je stejný jako u seznamu <ph name="RUNTIME_BLOCKED_HOSTS" />.
+          </translation>
 <translation id="787125417158068494">Pokud je tato zásada nastavena na hodnotu SyncDisabled nebo není nakonfigurována, certifikáty systému <ph name="PRODUCT_OS_NAME" /> nejsou k dispozici aplikacím ARC.
 
       Pokud je nastavena na hodnotu CopyCaCerts, všechny certifikáty CA nainstalované prostřednictvím ONC s atributem <ph name="WEB_TRUSTED_BIT" /> jsou k dispozici aplikacím ARC.</translation>
@@ -2171,6 +2215,7 @@ Pokud tuto zásadu nenastavíte, použije se zásada BlockKeygen a uživatel ji
           Pokud zásadu nastavíte na hodnotu False, zařízení nebude u chráněného obsahu používat vzdálené ověření identity, a chráněný obsah proto nemusí být možné přehrát.
 
           Pokud zásadu nastavíte na hodnotu True nebo ji nenastavíte, u chráněného obsahu bude použito vzdálené ověření identity.</translation>
+<translation id="8650974590712548439">Umístění v registru systému Windows pro klienty Windows:</translation>
 <translation id="8654286232573430130">Určuje, které servery mají být umístěny na bílou listinu pro integrované ověření. Integrované ověření je povoleno pouze v případě, že <ph name="PRODUCT_NAME" /> obdrží výzvu ověřování z proxy serveru nebo jiného serveru, který je uveden v tomto seznamu povolených serverů.
 
 Chcete-li zadat několik názvů serverů, oddělte je čárkami. Zástupné znaky (*) jsou povoleny.

@@ -3922,6 +3922,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7077829361966535409">Oturum açma sayfası, mevcut proxy ayarları kullanılarak yüklenemedi. Lütfen <ph name="GAIA_RELOAD_LINK_START" />tekrar oturum açmayı deneyin<ph name="GAIA_RELOAD_LINK_END" /> veya farklı <ph name="PROXY_SETTINGS_LINK_START" />proxy ayarları<ph name="PROXY_SETTINGS_LINK_END" /> kullanın.</translation>
 <translation id="7078120482318506217">Tüm ağlar</translation>
 <translation id="708060913198414444">Ses adresini k&amp;opyala</translation>
+<translation id="708278670402572152">Taramayı etkinleştirmek için bağlantıyı kesin</translation>
 <translation id="7084192839369222683">Yalnızca önemli içeriği çalıştır</translation>
 <translation id="7088434364990739311">Güncelleme denetimi başlatılamadı (hata kodu <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver - ZIP dosyalarını Dosyalar uygulamasında açın ve paketleyin.</translation>
@@ -4130,7 +4131,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7438940380767210568">Yazıcı ayarlanıyor…</translation>
 <translation id="7439964298085099379">Yüksek Kontrast modunuz etkin. Yüksek Kontrast uzantımızı ve koyu renkli bir temayı yüklemek ister misiniz?</translation>
 <translation id="7441830548568730290">Diğer kullanıcılar</translation>
-<translation id="7442465037756169001">Hangouts Meet donanımınız kuruluma hazır.</translation>
+<translation id="7442465037756169001">Hangouts Meet hardware cihazınız kuruluma hazır.</translation>
 <translation id="744341768939279100">Yeni profil oluştur</translation>
 <translation id="7444726222535375658">Hangouts Meet'e devam et</translation>
 <translation id="7444983668544353857"><ph name="NETWORKDEVICE" /> ağ cihazını devre dışı bırak</translation>

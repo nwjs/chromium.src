@@ -16,6 +16,13 @@
 
       Esta política afecta solo a los usuarios cuyo dominio coincide con el dominio de inscripción del dispositivo. Para todos los demás usuarios, las cookies que establece el IdP se transfieren al perfil del usuario únicamente durante el primer acceso en el dispositivo.</translation>
 <translation id="1040446814317236570">Habilitar la eliminación de URL de PAC (para https://)</translation>
+<translation id="1041454584879384845">Configura el comportamiento de los avatares de usuarios, que representan a los usuarios en la pantalla de acceso.
+
+      La configuración individual se puede especificar en las propiedades JSON:
+
+      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Si se establece como <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, los usuarios podrán usar videos como imágenes de avatar.
+
+      Si esta política no se establece, se pueden usar videos como imágenes de avatar.</translation>
 <translation id="1044878202534415707">Informar estadísticas de hardware, como el uso de CPU/RAM
 
       Si esta política se establece en false, las estadísticas no se informarán.
@@ -97,6 +104,7 @@
 <translation id="1435659902881071157">Configuración de red de dispositivo</translation>
 <translation id="1438739959477268107">Configuración predeterminada de generación de claves</translation>
 <translation id="1454846751303307294">Te permite configurar una lista de patrones de URL que especifican los sitios a los que no se les permite ejecutar JavaScript. Si esta política no se configura, se usará el valor predeterminado global para todos los sitios, ya sea de la política "DefaultJavaScriptSetting", si está configurada, o de otro tipo de configuración personal del usuario.</translation>
+<translation id="1456822151187621582">Windows (clientes de <ph name="PRODUCT_OS_NAME" />):</translation>
 <translation id="1464848559468748897">Controla el comportamiento del usuario durante una sesión de perfiles múltiples en dispositivos con <ph name="PRODUCT_OS_NAME" />.
 
       Si esta política se establece en "MultiProfileUserBehaviorUnrestricted", el usuario puede ser primario o secundario durante una sesión de perfiles múltiples.
@@ -533,6 +541,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
           Si se inhabilita esta configuración y el firewall filtra las conexiones UDP de salida, esta computadora solo permitirá las conexiones de computadoras cliente que se encuentren en la red local.
 
           Si esta política no se establece, la configuración estará habilitada.</translation>
+<translation id="2823870601012066791">Ubicación del registro de Windows para los clientes de <ph name="PRODUCT_OS_NAME" />:</translation>
 <translation id="2824715612115726353">Activar el modo de incógnito</translation>
 <translation id="2838830882081735096">No permitir la migración de datos y ARC</translation>
 <translation id="2844404652289407061">Habilita la disponibilidad de Tocar para buscar en la vista de contenido de <ph name="PRODUCT_NAME" />.
@@ -1418,6 +1427,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="6076099373507468537">Define la lista de dispositivos USB que tienen autorización para separarse del controlador en modo kernel para usarse a través de la API chrome.usb directamente en la aplicación web. Las entradas son pares formados por el identificador del producto y del proveedor USB que permiten reconocer un hardware específico.
 
       Si esta política no se configura, la lista de dispositivos USB que se pueden separar está vacía.</translation>
+<translation id="6083631234867522991">Windows (clientes de Windows):</translation>
 <translation id="6093156968240188330">Permitir que los usuarios remotos interactúen con las ventanas con permisos elevados en sesiones de asistencia remota</translation>
 <translation id="6095999036251797924">Especifica el tiempo que debe transcurrir sin que el usuario realice una acción antes de que la pantalla se bloquee cuando se utiliza CA o batería.
 
@@ -1482,6 +1492,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="6310223829319187614">Habilitar la opción de autocompletar el nombre de dominio durante el accceso del usuario</translation>
 <translation id="6315673513957120120">Chrome muestra una página de advertencia cuando los usuarios visitan sitios que tienen errores de SSL. De forma predeterminada o cuando esta política se establece en true, los usuarios pueden hacer clic en estas páginas de advertencia.
       Al establecer esta política en false, los usuarios no pueden hacer clic en ninguna página de advertencia.</translation>
+<translation id="6320758134170712450">Configurar el comportamiento del avatar del usuario</translation>
 <translation id="6353901068939575220">Especifica los parámetros utilizados al buscar una URL con POST. Se compone de pares de nombre/valor separados por comas. Si un valor es un parámetro de plantilla, como {searchTerms} en el ejemplo anterior, se reemplazará por datos de términos de búsqueda reales.
 
           Esta política es opcional. Si no se establece, la solicitud de búsqueda se enviará mediante el método GET.
@@ -1888,6 +1899,39 @@ Si se selecciona "U2F_EXTENDED", el segundo factor integrado proporcionará func
 <translation id="7841880500990419427">Versión mínima de TLS para resguardo</translation>
 <translation id="7842869978353666042">Opciones de configuración de Google Drive</translation>
 <translation id="7843525027689416831">Especifica las marcas que se deben aplicar a <ph name="PRODUCT_NAME" /> cuando se inicia. Las marcas especificadas se aplican solo en la pantalla de acceso. Las marcas establecidas mediante esta política no se propagan a las sesiones de usuario.</translation>
+<translation id="7844537954833753199">Establece la configuración de la administración de extensiones para <ph name="PRODUCT_NAME" />.
+
+          Esta política controla diferentes opciones de configuración, incluidas las que controlan las políticas existentes relacionadas con las extensiones. Esta política anulará cualquier política heredada, si ambas están configuradas.
+
+          Esta política asigna una ID de extensión o una URL de actualización a su configuración. Con una ID de extensión, la configuración se aplicará solo a la extensión específica. Se puede establecer una configuración predeterminada para <ph name="DEFAULT_SCOPE" /> del ID especial, que se aplicará a todas las extensiones que no tengan una configuración a medida establecida en esta política. Con una URL de actualización, la configuración se aplicará a todas las extensiones con la URL de actualización exacta que se indica en el manifiesto de esta extensión, como se describe en <ph name="LINK_TO_EXTENSION_DOC1" />.
+
+          La configuración para cada extensión (o extensiones con la misma URL de actualización) es otro diccionario que puede contener los campos que se documentan a continuación.
+
+          <ph name="INSTALLATION_MODE" />: Especifica una string que indica el modo de instalación para la extensión. Las strings válidas son:
+          * <ph name="ALLOWED" />: Permite que el usuario instale la extensión. Este es el comportamiento predeterminado.
+          * <ph name="BLOCKED" />: Bloquea la instalación de la extensión.
+          * <ph name="FORCE_INSTALLED" />: La extensión se instala automáticamente, y el usuario no puede quitarla.
+          * <ph name="NORMAL_INSTALLED" />: La extensión se instala automáticamente, pero el usuario puede inhabilitarla.
+
+          El <ph name="INSTALLTION_MODE" /> también se puede configurar para varias extensiones, incluida la extensión <ph name="DEFAULT_SCOPE" /> (como configuración predeterminada) y las extensiones con la misma URL de actualización. En este caso, solo se pueden usar los valores <ph name="ALLOWED" /> y <ph name="BLOCKED" />.
+
+          Si el modo se establece como <ph name="FORCE_INSTALLED" /> o <ph name="NORMAL_INSTALLED" />, entonces también se debe establecer una <ph name="UPDATE_URL" />. Ten en cuenta que el conjunto de URL de actualización que se establece en esta política solo se usa para la primera instalación; las actualizaciones posteriores de la extensión usarán la URL de actualización que se indica en el manifiesto de la extensión. La URL de actualización debe indicar un documento XML de manifiesto de actualización, como se mencionó anteriormente.
+
+          <ph name="BLOCKED_PERMISSIONS" />: Especifica una lista de strings que indica los permisos de API bloqueados para la extensión. Los nombres de los permisos son los mismos que las strings de permisos declaradas en el manifiesto de la extensión, como se describe en <ph name="LINK_TO_EXTENSION_DOC3" />. Esta configuración también se puede configurar para la extensión <ph name="DEFAULT_SCOPE" />. Si la extensión requiere un permiso que se encuentra en la lista de elementos bloqueados, no se permitirá la carga. Si contiene un permiso bloqueado como requisito opcional, se ejecutará normalmente, pero la solicitud de los permisos conflictivos se negará automáticamente en el tiempo de ejecución.
+
+          <ph name="ALLOWED_PERMISSIONS" />: Similar a <ph name="BLOCKED_PERMISSIONS" />, pero permite de forma explícita algunos permisos que pueden estar incluidos en la lista de permisos bloqueados global. De esta manera, no se puede configurar para la extensión <ph name="DEFAULT_SCOPE" />. Ten en cuenta que esta configuración no otorga permisos a las extensiones de forma automática.
+
+          <ph name="MINIMUM_VERSION_REQUIRED" />: Especifica una string de versiones. El formato de la string de versiones es el mismo que se usa en el manifiesto de extensiones, como se describe en <ph name="LINK_TO_EXTENSION_DOC4" />. Se inhabilitará cualquier extensión con una versión anterior a la versión mínima especificada. Esto se aplica también a las extensiones que se instalan a la fuerza.
+
+          Las siguientes opciones solo se pueden usar para la configuración <ph name="DEFAULT_SCOPE" /> predeterminada:
+
+          <ph name="INSTALL_SOURCES" />: Cada elemento en esta lista es un patrón de coincidencia de estilo-extensión (<ph name="LINK_TO_MATCH_PATTERNS" />). Los usuarios podrán instalar elementos fácilmente desde cualquier URL que coincida con un elemento en la esta lista. Estos patrones deben permitir tanto la ubicación del archivo de <ph name="EXTENSION_SUFFIX_WILDCARD" /> como la página donde se inicia la descarga (es decir, la URL de referencia).
+
+          <ph name="ALLOWED_TYPES" />: Esta opción indica los tipos permitidos de extensiones o apps que se pueden instalar en <ph name="PRODUCT_NAME" />. El valor es una lista de strings; cada una debe ser una de las siguientes: <ph name="VALID_ALLOWED_TYPES" />. Consulta la documentación sobre extensiones de <ph name="PRODUCT_NAME" /> para obtener más información sobre estos tipos.
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: Si un usuario intenta instalar una extensión, pero está bloqueada por una política, Chrome Webstore muestra un mensaje de error general. Esta opción te permite agregar texto al mensaje de error. Se puede usar para dirigir a los usuarios al servicio de asistencia, explicar por qué una extensión específica está bloqueada o mostrar otro mensaje. Este mensaje se error se mostrará cortado si excede los 1000 caracteres.
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: Acepta una lista de hosts en los que se bloqueará la interacción con una extensión. Incluye agregar javascript, alterar y ver webRequests/webNavigation, y ver y alterar cookies. Tiene un formato similar al de Match Patterns <ph name="LINK_TO_MATCH_PATTERNS" />, excepto que pueden no definirse rutas. p. ej. "*://*.ejemplo.com". También es compatible con los comodines TLD efectivos, p. ej. "*://ejemplo.*".
+          <ph name="RUNTIME_ALLOWED_HOSTS" />: Acepta una lista de hosts con las que una extensión puede interactuar, más allá de que se indiquen en <ph name="RUNTIME_BLOCKED_HOSTS" />. Tiene el mismo formato que <ph name="RUNTIME_BLOCKED_HOSTS" />.
+          </translation>
 <translation id="787125417158068494">Si se establece en SyncDisabled o no se configura, los certificados de <ph name="PRODUCT_OS_NAME" /> no estarán disponibles para las apps de ARC.
 
       Si se establece en CopyCaCerts, todos los certificados de CA de ONC instalado con <ph name="WEB_TRUSTED_BIT" /> estarán disponibles para las apps de ARC.</translation>
@@ -2078,6 +2122,7 @@ Si se selecciona "U2F_EXTENDED", el segundo factor integrado proporcionará func
           Si esta opción está establecida en False, el dispositivo no utilizará la confirmación remota para la protección del contenido y es posible que el dispositivo no pueda reproducir contenido protegido.
 
           Si esta opción está establecida en True o no está establecida, se podrá utilizar la confirmación remota para la protección del contenido.</translation>
+<translation id="8650974590712548439">Ubicación del registro de Windows para clientes de Windows:</translation>
 <translation id="8654286232573430130">Permite especificar qué servidores deben incluirse en la lista blanca para la autenticación integrada. La autenticación integrada solo se habilita cuando <ph name="PRODUCT_NAME" /> recibe una prueba de autenticación de un servidor proxy o de un servidor que se encuentra en esta lista permitida.
 
           Los distintos nombres de servidor se deben separar con comas. Se permite el uso de caracteres comodín (*).

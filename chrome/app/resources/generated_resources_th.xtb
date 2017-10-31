@@ -1003,7 +1003,7 @@
 <translation id="2554553592469060349">ไฟล์ที่เลือกมีขนาดใหญ่เกินไป (ขนาดสูงสุด: 3 MB)</translation>
 <translation id="2557899542277210112">วางบุ๊กมาร์กของคุณบนแถบบุ๊กมาร์กนี้ เพื่อให้สามารถเข้าเว็บโปรดได้อย่างรวดเร็ว</translation>
 <translation id="2558578666171469771">Google Play Store อยู่บน <ph name="DEVICE_TYPE" /> ของคุณแล้ว</translation>
-<translation id="2558896001721082624">แสดงตัวเลือกการเข้าถึงในเมนูระบบ</translation>
+<translation id="2558896001721082624">แสดงตัวเลือกการเข้าถึงในเมนูระบบไว้เสมอ</translation>
 <translation id="2562685439590298522">เอกสาร</translation>
 <translation id="2562743677925229011">ไม่ได้ลงชื่อเข้าใช้ <ph name="SHORT_PRODUCT_NAME" /></translation>
 <translation id="2563856802393254086">ขอแสดงความยินดี! บริการข้อมูล "<ph name="NAME" />" ของคุณได้เปิดใช้งานและพร้อมใช้งานแล้ว</translation>
@@ -1116,7 +1116,7 @@
 <translation id="2715751256863167692">การอัปเกรดนี้จะรีเซ็ต Chromebook และนำข้อมูลผู้ใช้ปัจจุบันออก</translation>
 <translation id="2718395828230677721">แสงตอนกลางคืน</translation>
 <translation id="2718998670920917754">ซอฟแวร์ป้องกันไวรัสตรวจพบไวรัส</translation>
-<translation id="2719936478972253983">ระบบจะบล็อกคุกกี้ต่อไปนี้</translation>
+<translation id="2719936478972253983">ระบบบล็อกคุกกี้ต่อไปนี้แล้ว</translation>
 <translation id="2721037002783622288">&amp;ค้นหารูปภาพจาก <ph name="SEARCH_ENGINE" /></translation>
 <translation id="2721334646575696520">Microsoft Edge</translation>
 <translation id="2721695630904737430">ผู้ดูแลระบบปิดใช้ผู้ใช้ภายใต้การดูแล</translation>
@@ -3920,6 +3920,7 @@
 <translation id="7077829361966535409">หน้าลงชื่อเข้าใช้ไม่สามารถโหลดโดยใช้การตั้งค่าพร็อกซีในปัจจุบัน โปรด <ph name="GAIA_RELOAD_LINK_START" />ลองลงชื่อเข้าใช้อีกครั้ง<ph name="GAIA_RELOAD_LINK_END" /> หรือใช้<ph name="PROXY_SETTINGS_LINK_START" />การตั้งค่าพร็อกซี<ph name="PROXY_SETTINGS_LINK_END" />อื่นๆ</translation>
 <translation id="7078120482318506217">ทุกเครือข่าย</translation>
 <translation id="708060913198414444">คัด&amp;ลอกที่อยู่ของเสียง</translation>
+<translation id="708278670402572152">ยกเลิกการเชื่อมต่อเพื่อเปิดใช้การสแกน</translation>
 <translation id="7084192839369222683">เรียกใช้เฉพาะเนื้อหาที่สำคัญ</translation>
 <translation id="7088434364990739311">การเริ่มต้นการตรวจสอบการอัปเดตล้มเหลว (รหัสข้อผิดพลาด <ph name="ERROR" />)</translation>
 <translation id="7088561041432335295">ที่เก็บ ZIP ถาวร - เปิดและแพ็กไฟล์ ZIP ในแอป Files</translation>
@@ -4128,7 +4129,7 @@
 <translation id="7438940380767210568">ตั้งค่าเครื่องพิมพ์...</translation>
 <translation id="7439964298085099379">คุณเปิดใช้งานโหมดความเปรียบต่างสูงไว้ คุณต้องการติดตั้งส่วนขยายความเปรียบต่างสูงของเราและธีมสีเข้มหรือไม่</translation>
 <translation id="7441830548568730290">ผู้ใช้รายอื่น</translation>
-<translation id="7442465037756169001">พร้อมตั้งค่าฮาร์ดแวร์การประชุม Hangouts แล้ว</translation>
+<translation id="7442465037756169001">พร้อมตั้งค่า Hangouts Meet hardware แล้ว</translation>
 <translation id="744341768939279100">สร้างโปรไฟล์ใหม่</translation>
 <translation id="7444726222535375658">ดำเนินการต่อไปยังการประชุม Hangouts </translation>
 <translation id="7444983668544353857">ปิดการใช้งาน<ph name="NETWORKDEVICE" /></translation>
@@ -4712,7 +4713,7 @@
 <translation id="8378285435971754261">ให้บริการตำแหน่งของ Google ช่วยแอปค้นหาตำแหน่งของคุณอย่างรวดเร็วและแม่นยำ ซึ่งจะช่วยประหยัดการใช้แบตเตอรี่ ข้อมูลตำแหน่งที่ไม่ระบุชื่อจะส่งไปยัง Google แม้ในขณะที่แอปไม่ได้ทำงาน <ph name="BEGIN_LINK1" />เรียนรู้เพิ่มเติม<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">จัดการการตั้งค่ากล้องถ่ายรูป...</translation>
 <translation id="8382913212082956454">คัดลอก&amp;ที่อยู่อีเมล</translation>
-<translation id="8386903983509584791">สแกนเรียบร้อยแล้ว</translation>
+<translation id="8386903983509584791">สแกนสำเร็จแล้ว</translation>
 <translation id="8390029840652165810">โปรดตรวจสอบให้แน่ใจการเชื่อมต่อเครือข่ายของคุณทำงานอยู่ และหากปัญหายังคงอยู่ โปรดออกจากระบบและลงชื่อเข้าใช้อีกครั้งเพื่อรีเฟรชข้อมูลรับรองของคุณ</translation>
 <translation id="8390449457866780408">เซิร์ฟเวอร์ไม่พร้อมใช้งาน</translation>
 <translation id="8392234662362215700">กด Control-Shift-Space เพื่อสลับรูปแบบแป้นพิมพ์</translation>
