@@ -304,7 +304,13 @@ void PaintLayerClipper::CalculateRects(
     ClipRect& foreground_rect,
     const LayoutPoint* offset_from_root) const {
   if (use_geometry_mapper_) {
-    if (!layer_.GetLayoutObject().FirstFragment())
+    auto* first_fragment = layer_.GetLayoutObject().FirstFragment();
+    auto* local_borderbox =
+        first_fragment ? first_fragment->LocalBorderBoxProperties() : nullptr;
+    DCHECK(first_fragment && local_borderbox);
+    // TODO(chrishtr): find the root cause of not having a fragment and fix
+    // it.
+    if (!first_fragment || !local_borderbox)
       return;
     CalculateRectsWithGeometryMapper(context, paint_dirty_rect, layer_bounds,
                                      background_rect, foreground_rect,
@@ -529,6 +535,15 @@ void PaintLayerClipper::CalculateBackgroundClipRect(
     const ClipRectsContext& context,
     ClipRect& output) const {
   if (use_geometry_mapper_) {
+    auto* first_fragment = layer_.GetLayoutObject().FirstFragment();
+    auto* local_borderbox =
+        first_fragment ? first_fragment->LocalBorderBoxProperties() : nullptr;
+    DCHECK(first_fragment && local_borderbox);
+    // TODO(chrishtr): find the root cause of not having a fragment and fix
+    // it.
+    if (!first_fragment || !local_borderbox)
+      return;
+
     CalculateBackgroundClipRectWithGeometryMapper(context, output);
     return;
   }
