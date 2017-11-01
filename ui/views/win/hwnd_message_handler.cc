@@ -1226,8 +1226,6 @@ bool HWNDMessageHandler::GetClientAreaInsets(gfx::Insets* insets) const {
     return false;
 
   if (IsMaximized()) {
-    if (content::g_support_transparency && is_translucent_ && !delegate_->HasFrame())
-      return false;
     // Windows automatically adds a standard width border to all sides when a
     // window is maximized.
     int border_thickness = GetSystemMetrics(SM_CXSIZEFRAME);
@@ -1235,6 +1233,10 @@ bool HWNDMessageHandler::GetClientAreaInsets(gfx::Insets* insets) const {
       border_thickness -= 1;
     *insets = gfx::Insets(
         border_thickness, border_thickness, border_thickness, border_thickness);
+    if (content::g_force_cpu_draw && is_translucent_ && !delegate_->HasFrame()) {
+      //part of maximize_hack code
+      insets->Set(0, 0, -1, -1);
+    }
     return true;
   }
 
@@ -2433,12 +2435,13 @@ void HWNDMessageHandler::OnWindowPosChanging(WINDOWPOS* window_pos) {
         if (GetClientAreaInsets(&client_area_insets))
           expected_maximized_bounds.Inset(client_area_insets.Scale(-1));
       }
+      const bool maximize_hack = content::g_force_cpu_draw && is_translucent_;
       // Sometimes Windows incorrectly changes bounds of maximized windows after
       // attaching or detaching additional displays. In this case user can see
       // non-client area of the window (that should be hidden in normal case).
       // We should restore window position if problem occurs.
       const bool incorrect_maximized_bounds =
-          IsMaximized() && have_new_window_rect &&
+          IsMaximized() && (maximize_hack || have_new_window_rect) &&
           (expected_maximized_bounds.x() != window_pos->x ||
            expected_maximized_bounds.y() != window_pos->y ||
            expected_maximized_bounds.width() != window_pos->cx ||
@@ -2486,7 +2489,7 @@ void HWNDMessageHandler::OnWindowPosChanging(WINDOWPOS* window_pos) {
         // Now ignore all immediately-following SetWindowPos() changes.  Windows
         // likes to (incorrectly) recalculate what our position/size should be
         // and send us further updates.
-        ignore_window_pos_changes_ = true;
+        ignore_window_pos_changes_ = !maximize_hack;
         base::ThreadTaskRunnerHandle::Get()->PostTask(
             FROM_HERE, base::Bind(&HWNDMessageHandler::StopIgnoringPosChanges,
                                   weak_factory_.GetWeakPtr()));
