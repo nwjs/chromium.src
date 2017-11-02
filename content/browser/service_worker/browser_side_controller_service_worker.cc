@@ -67,11 +67,6 @@ class BrowserSideControllerServiceWorker::ResponseCallback
     callback->OnResponseBlob(response, std::move(body_as_blob),
                              dispatch_event_time);
   }
-  void OnResponseLegacyBlob(const ServiceWorkerResponse& response,
-                            base::Time dispatch_event_time,
-                            OnResponseLegacyBlobCallback callback) override {
-    NOTREACHED();
-  }
   void OnResponseStream(
       const ServiceWorkerResponse& response,
       blink::mojom::ServiceWorkerStreamHandlePtr body_as_stream,
