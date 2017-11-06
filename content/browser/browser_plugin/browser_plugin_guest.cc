@@ -4,6 +4,10 @@
 
 #include "content/browser/browser_plugin/browser_plugin_guest.h"
 
+#include "content/nw/src/nw_base.h"
+#include "content/nw/src/common/shell_switches.h"
+#include "base/files/file_util.h"
+
 #include <stddef.h>
 
 #include <algorithm>
@@ -372,6 +376,20 @@ void BrowserPluginGuest::InitInternal(
   renderer_prefs->browser_handles_all_top_level_requests = false;
   // Disable "client blocked" error page for browser plugin.
   renderer_prefs->disable_client_blocked_error_page = true;
+
+  base::ThreadRestrictions::ScopedAllowIO allow_io;
+  nw::Package* package = nw::package();
+  std::string js_doc_start, js_doc_end;
+  package->root()->GetString(::switches::kmInjectJSDocStart, &js_doc_start);
+  if (!js_doc_start.empty()) {
+    std::string fpath = base::MakeAbsoluteFilePath(package->path()).AppendASCII(js_doc_start).AsUTF8Unsafe();
+    renderer_prefs->nw_inject_js_doc_start = fpath;
+  }
+  package->root()->GetString(::switches::kmInjectJSDocEnd, &js_doc_end);
+  if (!js_doc_end.empty()) {
+    std::string fpath = base::MakeAbsoluteFilePath(package->path()).AppendASCII(js_doc_end).AsUTF8Unsafe();
+    renderer_prefs->nw_inject_js_doc_end = fpath;
+  }
 
   embedder_visibility_observer_.reset(new EmbedderVisibilityObserver(this));
 

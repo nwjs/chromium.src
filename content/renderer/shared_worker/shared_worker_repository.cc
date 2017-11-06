@@ -9,6 +9,8 @@
 #include "content/renderer/shared_worker/websharedworker_proxy.h"
 #include "third_party/WebKit/public/web/WebSharedWorkerConnectListener.h"
 
+#include "content/public/renderer/content_renderer_client.h"
+
 namespace content {
 
 SharedWorkerRepository::SharedWorkerRepository(RenderFrameImpl* render_frame)
@@ -17,6 +19,7 @@ SharedWorkerRepository::SharedWorkerRepository(RenderFrameImpl* render_frame)
 SharedWorkerRepository::~SharedWorkerRepository() = default;
 
 void SharedWorkerRepository::Connect(
+    bool isNodeJS,
     const blink::WebURL& url,
     const blink::WebString& name,
     DocumentID document_id,
@@ -30,6 +33,8 @@ void SharedWorkerRepository::Connect(
   documents_with_workers_.insert(document_id);
 
   ViewHostMsg_CreateWorker_Params params;
+  params.is_node_js = isNodeJS;
+  params.root_path = GetContentClient()->renderer()->GetRootPath();
   params.url = url;
   params.name = name.Utf16();
   params.content_security_policy = content_security_policy.Utf16();

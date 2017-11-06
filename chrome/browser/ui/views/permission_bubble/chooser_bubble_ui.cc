@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/views/permission_bubble/chooser_bubble_ui.h"
 
+#include "extensions/components/native_app_window/native_app_window_views.h"
+
 #include "base/strings/string16.h"
 #include "chrome/browser/chooser_controller/chooser_controller.h"
 #include "chrome/browser/ui/browser_dialogs.h"
@@ -178,12 +180,13 @@ void ChooserBubbleUiViewDelegate::UpdateTableView() const {
 // ChooserBubbleUi
 ChooserBubbleUi::ChooserBubbleUi(
     Browser* browser,
+    void* app_window,
     std::unique_ptr<ChooserController> chooser_controller)
-    : browser_(browser), chooser_bubble_ui_view_delegate_(nullptr) {
-  DCHECK(browser_);
+  : browser_(browser), app_window_((extensions::AppWindow*)app_window), chooser_bubble_ui_view_delegate_(nullptr) {
+  //DCHECK(browser_);
   DCHECK(chooser_controller);
   chooser_bubble_ui_view_delegate_ =
-      new ChooserBubbleUiViewDelegate(browser, std::move(chooser_controller));
+      new ChooserBubbleUiViewDelegate(nullptr, std::move(chooser_controller));
 }
 
 ChooserBubbleUi::~ChooserBubbleUi() {

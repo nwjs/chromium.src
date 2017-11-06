@@ -100,7 +100,10 @@ DOMStringList* Location::ancestorOrigins() const {
        frame = frame->Tree().Parent()) {
     origins->Append(
         frame->GetSecurityContext()->GetSecurityOrigin()->ToString());
+    if (dom_window_->GetFrame()->isNwFakeTop())
+      break;
   }
+
   return origins;
 }
 

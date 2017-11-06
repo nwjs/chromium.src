@@ -279,6 +279,8 @@ class ScriptContext : public RequestSender::Source {
   std::unique_ptr<Runner> runner_;
 
   base::ThreadChecker thread_checker_;
+ public:
+  base::WeakPtrFactory<ScriptContext> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ScriptContext);
 };
