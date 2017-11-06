@@ -18,7 +18,6 @@ IDBRequestLoader::IDBRequestLoader(IDBRequestQueueItem* queue_item,
                                    Vector<RefPtr<IDBValue>>* result_values)
     : queue_item_(queue_item), values_(result_values) {
   DCHECK(IDBValueUnwrapper::IsWrapped(*values_));
-  loader_ = FileReaderLoader::Create(FileReaderLoader::kReadByClient, this);
 }
 
 IDBRequestLoader::~IDBRequestLoader() {
@@ -48,7 +47,8 @@ void IDBRequestLoader::Cancel() {
   DCHECK(file_reader_loading_);
   file_reader_loading_ = false;
 #endif  // DCHECK_IS_ON()
-  loader_->Cancel();
+  if (loader_)
+    loader_->Cancel();
 }
 
 void IDBRequestLoader::StartNextValue() {
@@ -77,6 +77,7 @@ void IDBRequestLoader::StartNextValue() {
   DCHECK(!file_reader_loading_);
   file_reader_loading_ = true;
 #endif  // DCHECK_IS_ON()
+  loader_ = FileReaderLoader::Create(FileReaderLoader::kReadByClient, this);
   loader_->Start(context, unwrapper.WrapperBlobHandle());
 }
 

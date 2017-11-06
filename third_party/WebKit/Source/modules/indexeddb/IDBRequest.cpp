@@ -259,7 +259,6 @@ void IDBRequest::SetResultCursor(IDBCursor* cursor,
   cursor_key_ = key;
   cursor_primary_key_ = primary_key;
   cursor_value_ = std::move(value);
-  AckReceivedBlobs(cursor_value_.get());
 
   EnqueueResultInternal(IDBAny::Create(cursor));
 }
@@ -347,6 +346,7 @@ void IDBRequest::HandleResponse(std::unique_ptr<WebIDBCursor> backend,
                                 RefPtr<IDBValue>&& value) {
   DCHECK(transit_blob_handles_.IsEmpty());
   DCHECK(transaction_);
+  AckReceivedBlobs(value.get());
   bool is_wrapped = IDBValueUnwrapper::IsWrapped(value.get());
   if (!transaction_->HasQueuedResults() && !is_wrapped) {
     return EnqueueResponse(std::move(backend), key, primary_key,
@@ -361,6 +361,7 @@ void IDBRequest::HandleResponse(std::unique_ptr<WebIDBCursor> backend,
 void IDBRequest::HandleResponse(RefPtr<IDBValue>&& value) {
   DCHECK(transit_blob_handles_.IsEmpty());
   DCHECK(transaction_);
+  AckReceivedBlobs(value.get());
   bool is_wrapped = IDBValueUnwrapper::IsWrapped(value.get());
   if (!transaction_->HasQueuedResults() && !is_wrapped)
     return EnqueueResponse(std::move(value));
@@ -373,6 +374,7 @@ void IDBRequest::HandleResponse(RefPtr<IDBValue>&& value) {
 void IDBRequest::HandleResponse(const Vector<RefPtr<IDBValue>>& values) {
   DCHECK(transit_blob_handles_.IsEmpty());
   DCHECK(transaction_);
+  AckReceivedBlobs(values);
   bool is_wrapped = IDBValueUnwrapper::IsWrapped(values);
   if (!transaction_->HasQueuedResults() && !is_wrapped)
     return EnqueueResponse(values);
@@ -387,6 +389,7 @@ void IDBRequest::HandleResponse(IDBKey* key,
                                 RefPtr<IDBValue>&& value) {
   DCHECK(transit_blob_handles_.IsEmpty());
   DCHECK(transaction_);
+  AckReceivedBlobs(value.get());
   bool is_wrapped = IDBValueUnwrapper::IsWrapped(value.get());
   if (!transaction_->HasQueuedResults() && !is_wrapped)
     return EnqueueResponse(key, primary_key, std::move(value));
@@ -486,7 +489,6 @@ void IDBRequest::EnqueueResponse(const Vector<RefPtr<IDBValue>>& values) {
     return;
   }
 
-  AckReceivedBlobs(values);
   EnqueueResultInternal(IDBAny::Create(values));
   metrics_.RecordAndReset();
 }
@@ -510,8 +512,6 @@ void IDBRequest::EnqueueResponse(RefPtr<IDBValue>&& value) {
     metrics_.RecordAndReset();
     return;
   }
-
-  AckReceivedBlobs(value.get());
 
   if (pending_cursor_) {
     // Value should be null, signifying the end of the cursor's range.
