@@ -2072,7 +2072,6 @@
 <translation id="4138267921960073861">Приказуј корисничка имена и слике на екрану за пријављивање</translation>
 <translation id="4140559601186535628">Искачуће поруке</translation>
 <translation id="4146026355784316281">Увек отварај помоћу системског приказивача</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> жели да провери да ли Chrome ОС уређај испуњава услове за понуду. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Екран</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 картица}one{# картица}few{# картице}other{# картица}}</translation>
 <translation id="4154664944169082762">Отисци</translation>

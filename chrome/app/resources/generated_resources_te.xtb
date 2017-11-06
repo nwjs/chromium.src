@@ -2074,7 +2074,6 @@
 <translation id="4138267921960073861">సైన్-ఇన్ స్క్రీన్‌లో వినియోగదారు పేర్లను మరియు ఫోటోలను చూపించు</translation>
 <translation id="4140559601186535628">పుష్ సందేశాలు</translation>
 <translation id="4146026355784316281">ఎల్లప్పుడూ సిస్టమ్ వ్యూయర్‌తో తెరువు</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> ఒక ఆఫర్‌కు మీ Chrome OS పరికరం అర్హత కలిగి ఉందో లేదో తనిఖీ చేయడానికి అనుమతి కోరుతోంది. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">ప్రదర్శన</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 ట్యాబ్}other{# ట్యాబ్‌లు}}</translation>
 <translation id="4154664944169082762">వేలిముద్రలు</translation>
@@ -3920,6 +3919,7 @@
 <translation id="7077829361966535409">సైన్ ఇన్ పేజీ ప్రస్తుత ప్రాక్సీ సెట్టింగ్‌లను ఉపయోగించి లోడ్ కావడంలో విఫలమైంది. దయచేసి <ph name="GAIA_RELOAD_LINK_START" />మళ్లీ సైన్ ఇన్ చేయడానికి ప్రయత్నించండి<ph name="GAIA_RELOAD_LINK_END" /> లేదా విభిన్న <ph name="PROXY_SETTINGS_LINK_START" />ప్రాక్సీ సెట్టింగ్‌ల<ph name="PROXY_SETTINGS_LINK_END" />ను ఉపయోగించండి.</translation>
 <translation id="7078120482318506217">అన్ని నెట్‌వర్క్‌లు</translation>
 <translation id="708060913198414444">ఆడియో చిరునామాను కా&amp;పీ చేయి</translation>
+<translation id="708278670402572152">స్కానింగ్‌ని ప్రారంభించడం కోసం డిస్‌కనెక్ట్ చేయండి</translation>
 <translation id="7084192839369222683">కేవలం ముఖ్యమైన కంటెంట్‌ను అమలు చేయి</translation>
 <translation id="7088434364990739311">నవీకరణ తనిఖీ ప్రారంభం విఫలమైంది (లోపం కోడ్ <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">జిప్ ఆర్కైవర్ - ఫైల్‌లు యాప్‌లో జిప్ ఫైల్‌లను తెరవండి మరియు ప్యాక్ చేయండి.</translation>

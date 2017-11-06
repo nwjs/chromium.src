@@ -2074,7 +2074,6 @@ s <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4138267921960073861">Prikaži korisnička imena i fotografije na zaslonu za prijavu</translation>
 <translation id="4140559601186535628">Push poruke</translation>
 <translation id="4146026355784316281">Uvijek otvori u pregledniku sustava</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> želi provjeriti ispunjava li vaš uređaj s OS-om Chrome uvjete ponude. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Zaslon</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 kartica}one{# kartica}few{# kartice}other{# kartica}}</translation>
 <translation id="4154664944169082762">Otisci prstiju</translation>

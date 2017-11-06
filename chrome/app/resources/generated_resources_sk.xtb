@@ -2075,7 +2075,6 @@ z domény <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4138267921960073861">Zobraziť používateľské mená a fotografie na prihlasovacej obrazovke</translation>
 <translation id="4140559601186535628">Správy push</translation>
 <translation id="4146026355784316281">Vždy otvárať pomocou systémového zobrazovača</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> chce skontrolovať, či vaše zariadenie OS Chrome spĺňa podmienky ponuky. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Displej</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 karta}few{# karty}many{# karty}other{# kariet}}</translation>
 <translation id="4154664944169082762">Odtlačky</translation>

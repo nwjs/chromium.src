@@ -2074,7 +2074,6 @@ De la <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4138267921960073861">Afișează numele de utilizatori și fotografiile pe ecranul de conectare</translation>
 <translation id="4140559601186535628">Mesaje push</translation>
 <translation id="4146026355784316281">Deschide întotdeauna cu Utilitarul de vizualizare al sistemului</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> dorește să verifice dacă dispozitivul dvs. cu sistemul de operare Chrome este eligibil pentru o ofertă. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Ecran</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{O filă}few{# file}other{# de file}}</translation>
 <translation id="4154664944169082762">Amprente digitale</translation>
@@ -4698,7 +4697,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8349826889576450703">lansator</translation>
 <translation id="8351419472474436977">Această extensie a preluat controlul asupra setărilor de proxy, ceea ce înseamnă că poate modifica, întrerupe sau intercepta tot ceea ce faceți online. Dacă nu știți sigur de ce a apărut această modificare, probabil că nu ați aprobat-o.</translation>
 <translation id="8352772353338965963">Adăugați un cont pentru conectarea multiplă. Conturile conectate pot fi accesate fără parolă, prin urmare, această funcție trebuie folosită numai cu conturile de încredere.</translation>
-<translation id="8353683614194668312">Aceasta poate să:</translation>
+<translation id="8353683614194668312">Permisiuni:</translation>
 <translation id="8356197132883132838"><ph name="TITLE" /> – <ph name="COUNT" /></translation>
 <translation id="8357224663288891423">Comenzi rapide de la tastatură pentru extensii și aplicații</translation>
 <translation id="8358685469073206162">Restabiliți paginile?</translation>

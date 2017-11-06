@@ -2076,7 +2076,6 @@ Từ <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4138267921960073861">Hiển thị tên người dùng và ảnh trên màn hình đăng nhập</translation>
 <translation id="4140559601186535628">Thông báo đẩy</translation>
 <translation id="4146026355784316281">Luôn mở bằng trình xem hệ thống</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> muốn kiểm tra xem thiết bị Chrome OS có đủ điều kiện để nhận được ưu đãi hay không. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Hiển thị</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 tab}other{# tab}}</translation>
 <translation id="4154664944169082762">Dấu vân tay</translation>

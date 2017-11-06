@@ -2075,7 +2075,6 @@
 <translation id="4138267921960073861">ログイン ページにユーザー名と写真を表示する</translation>
 <translation id="4140559601186535628">プッシュ メッセージ</translation>
 <translation id="4146026355784316281">常にシステム ビューアで開く</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> が、Chrome OS 搭載デバイスで特典を利用できるかどうかを確認するための許可を求めています。<ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">表示</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 個のタブ}other{# 個のタブ}}</translation>
 <translation id="4154664944169082762">指紋</translation>

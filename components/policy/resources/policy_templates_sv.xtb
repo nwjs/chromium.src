@@ -1689,7 +1689,7 @@
       Om du ställer in den här inställningen på ”alltid”, ”aldrig” eller ”endast Wi-Fi” kan inte användare ändra eller åsidosätta inställningen i <ph name="PRODUCT_NAME" />.
 
       Om policyn inte ställs in aktiveras nätverksförslag, men användaren kan då ändra det.</translation>
-<translation id="6658245400435704251">Anger hur många sekunder en hämtning av en uppdatering via en enhet får försenas slumpmässigt från den tidpunkt då uppdateringen först skickades till servern. Enheten kan hållas i vänteläge dels under en vanlig tidsperiod, dels beroende på antalet uppdateringskontroller. Spridningen är alltid bunden till en övre tidsgräns så att en enhet aldrig fastnar för gott medan en uppdatering håller på att laddas ned.</translation>
+<translation id="6658245400435704251">Anger hur många sekunder en nedladdning av en uppdatering via en enhet får försenas slumpmässigt från den tidpunkt då uppdateringen först skickades till servern. Enheten kan hållas i vänteläge dels under en vanlig tidsperiod, dels beroende på antalet uppdateringskontroller. Spridningen är alltid bunden till en övre tidsgräns så att en enhet aldrig fastnar för gott medan en uppdatering håller på att laddas ned.</translation>
 <translation id="6689792153960219308">Rapportera maskinvarustatus</translation>
 <translation id="6693751878507293182">Om inställningen är aktiverad inaktiveras automatisk sökning efter och installation av plugin-program som saknas i <ph name="PRODUCT_NAME" />.
 

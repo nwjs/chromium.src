@@ -2074,7 +2074,6 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="4138267921960073861">Pokaż nazwy użytkowników i zdjęcia na stronie logowania</translation>
 <translation id="4140559601186535628">Wiadomości push</translation>
 <translation id="4146026355784316281">Zawsze otwieraj w przeglądarce systemowej</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> chce sprawdzić, czy Twoje urządzenie z Chrome OS kwalifikuje się do skorzystania z oferty. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Wyświetlacz</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 karta}few{# karty}many{# kart}other{# karty}}</translation>
 <translation id="4154664944169082762">Odciski cyfrowe</translation>

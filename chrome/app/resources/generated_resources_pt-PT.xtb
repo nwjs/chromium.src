@@ -2076,7 +2076,6 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4138267921960073861">Mostrar nomes de utilizador e fotografias no ecrã de início de sessão</translation>
 <translation id="4140559601186535628">Mensagens push</translation>
 <translation id="4146026355784316281">Abrir sempre com o visualizador do sistema</translation>
-<translation id="4146175323503586871">O <ph name="SERVICE_NAME" /> pretende verificar se o seu dispositivo com Chrome OS é elegível para uma oferta. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Visualização</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 separador}one{# tabs}other{# separadores}}</translation>
 <translation id="4154664944169082762">Impressões digitais</translation>

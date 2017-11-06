@@ -2075,7 +2075,6 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="4138267921960073861">Rādīt lietotājvārdus un fotoattēlus pierakstīšanās ekrānā</translation>
 <translation id="4140559601186535628">Pašpiegādes ziņojumi</translation>
 <translation id="4146026355784316281">Vienmēr atvērt, izmantojot sistēmas skatītāju</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> vēlas pārbaudīt, vai jūsu Chrome OS ierīce ir piemērota šim piedāvājumam. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Displejs</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 cilne}zero{# ciļņu}one{# cilne}other{# cilnes}}</translation>
 <translation id="4154664944169082762">Pirkstu nospiedumi</translation>

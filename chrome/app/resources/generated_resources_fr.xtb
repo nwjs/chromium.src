@@ -2074,7 +2074,6 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4138267921960073861">Afficher les noms d'utilisateurs et leur photo sur la page de connexion</translation>
 <translation id="4140559601186535628">Messages Push</translation>
 <translation id="4146026355784316281">Toujours ouvrir avec le lecteur système</translation>
-<translation id="4146175323503586871">Une demande de vérification pour déterminer si votre appareil Chrome OS est éligible à une offre a été envoyée depuis <ph name="SERVICE_NAME" />. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Écran</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 onglet}one{# onglet}other{# onglets}}</translation>
 <translation id="4154664944169082762">Empreintes</translation>
@@ -3921,7 +3920,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7077829361966535409">Échec du chargement de la page de connexion avec les paramètres de proxy actuels. Veuillez <ph name="GAIA_RELOAD_LINK_START" />essayer de vous reconnecter<ph name="GAIA_RELOAD_LINK_END" /> ou utiliser d'autres <ph name="PROXY_SETTINGS_LINK_START" />paramètres de proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="7078120482318506217">Tous les réseaux</translation>
 <translation id="708060913198414444">C&amp;opier l'adresse audio</translation>
-<translation id="708278670402572152">Déconnecter le réseau pour permettre l'analyse</translation>
+<translation id="708278670402572152">Déconnecter pour permettre la recherche</translation>
 <translation id="7084192839369222683">Exécuter seulement le contenu important</translation>
 <translation id="7088434364990739311">Échec du lancement de la vérification des mises à jour (code d'erreur <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver – Ouvrir et regrouper des fichiers au format ZIP dans l'application Fichiers.</translation>

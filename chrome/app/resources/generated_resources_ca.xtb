@@ -2071,7 +2071,6 @@ Del domini <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4138267921960073861">Mostra els noms d'usuari i les fotos a la pantalla d'inici de sessió</translation>
 <translation id="4140559601186535628">Missatges de tramesa automàtica</translation>
 <translation id="4146026355784316281">Obrir sempre amb el visualitzador del sistema</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> vol comprovar si el dispositiu Chrome OS compleix els requisits per accedir a una oferta. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Pantalla</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 pestanya}other{# pestanyes}}</translation>
 <translation id="4154664944169082762">Empremtes</translation>
@@ -2568,7 +2567,7 @@ Premeu qualsevol tecla per continuar explorant.</translation>
 <translation id="4974733135013075877">Surt i estableix el bloqueig infantil</translation>
 <translation id="4977942889532008999">Confirmació de l'accés</translation>
 <translation id="4980805016576257426">Aquesta extensió conté programari maliciós.</translation>
-<translation id="498294082491145744">Modifiqueu la configuració que controla l'accés dels llocs web a elements com les galetes, JavaScript, els connectors, la ubicació geogràfica, el micròfon, la càmera, etc.</translation>
+<translation id="498294082491145744">Modifiqueu la configuració que controla l'accés dels llocs web a elements com les galetes, JavaScript, els connectors, la ubicació, el micròfon, la càmera, etc.</translation>
 <translation id="4988526792673242964">Pàgines</translation>
 <translation id="4988792151665380515">No s'ha pogut exportar la clau pública.</translation>
 <translation id="49896407730300355">Gira en el sentit con&amp;trari a les agulles del rellotge</translation>

@@ -2,7 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="id">
 <translation id="1016495303386450659">Item diperbarui</translation>
-<translation id="1047726139967079566">Bookmark Laman Ini...</translation>
+<translation id="1047726139967079566">Bookmark Halaman Ini...</translation>
 <translation id="1049743911850919806">Penyamaran</translation>
 <translation id="1076421457278169141">Kode telah dipindai</translation>
 <translation id="1084365883616172403">Kirim Facebook selesai.</translation>
@@ -81,7 +81,7 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="2529021024822217800">Buka Semua</translation>
 <translation id="2572712655377361602">Kebijakan perangkat memblokir akses ke foto Anda</translation>
 <translation id="2584132361465095047">Tambahkan Akun…</translation>
-<translation id="2593774076813182497">Laman ini tidak dapat dicetak.</translation>
+<translation id="2593774076813182497">Halaman ini tidak dapat dicetak.</translation>
 <translation id="2625189173221582860">Sandi disalin</translation>
 <translation id="2648803196158606475">Hapus yang Sudah Dibaca</translation>
 <translation id="2653659639078652383">Kirim</translation>
@@ -106,7 +106,7 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="2903493209154104877">Alamat</translation>
 <translation id="2909437209446960244">Tab Terbaru</translation>
 <translation id="291754862089661335">Letakkan kode QR atau kode batang dalam bingkai ini</translation>
-<translation id="2921219216347069551">Gagal Berbagi Laman</translation>
+<translation id="2921219216347069551">Gagal Berbagi Halaman</translation>
 <translation id="292639812446257861">Tandai Belum Dibaca</translation>
 <translation id="2933759065870693102">Senter</translation>
 <translation id="2969979262385602596">Gagal masuk. Coba lagi nanti.</translation>
@@ -178,7 +178,7 @@ Untuk menyesuaikan istilah penelusuran, tekan lama untuk memilih. Untuk menyarin
 <translation id="430793432425771671">Sinkronkan Semua</translation>
 <translation id="4342284590510997375">Baru</translation>
 <translation id="434816576838749873">Pilih Aplikasi Email</translation>
-<translation id="4359125752503270327">Laman ini akan dibuka di aplikasi lain.</translation>
+<translation id="4359125752503270327">Halaman ini akan dibuka di aplikasi lain.</translation>
 <translation id="4370827530403103842">Sinkronisasi tidak berfungsi. Ketuk untuk memperbaiki.</translation>
 <translation id="4375040482473363939">Telusuri kode QR</translation>
 <translation id="4378154925671717803">Telepon</translation>
@@ -225,7 +225,7 @@ Data Anda dienkripsi dengan frasa sandi sinkronisasi. Masukkan frasa sandi untuk
 <translation id="5388358297987318779">Buka Gambar</translation>
 <translation id="5409365236829784218">Tidak ada aplikasi terpasang yang dapat membuka file ini.</translation>
 <translation id="5433691172869980887">Nama pengguna disalin</translation>
-<translation id="54401264925851789">Informasi Keamanan Laman</translation>
+<translation id="54401264925851789">Informasi Keamanan Halaman</translation>
 <translation id="5525269841082836315">Buat Frasa Sandi</translation>
 <translation id="5531274207066050939">Google Payments</translation>
 <translation id="5548760955356983418">Handoff memungkinkan Anda memulai penjelajahan situs web pada perangkat ini dan melanjutkan di Mac dengan mudah. Situs web yang saat ini terbuka akan muncul di Dock pada Mac Anda.

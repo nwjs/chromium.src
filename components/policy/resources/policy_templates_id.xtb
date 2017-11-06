@@ -87,7 +87,7 @@
 <translation id="1330145147221172764">Aktifkan keyboard di layar</translation>
 <translation id="1330985749576490863">Menonaktifkan Google Drive melalui sambungan seluler di aplikasi File <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="13356285923490863">Nama Kebijakan</translation>
-<translation id="1353966721814789986">Laman permulaan</translation>
+<translation id="1353966721814789986">Halaman permulaan</translation>
 <translation id="1359553908012294236">Jika kebijakan ini disetel ke True atau tidak dikonfigurasi, <ph name="PRODUCT_NAME" /> akan mengaktifkan proses masuk tamu. Proses masuk tamu adalah profil <ph name="PRODUCT_NAME" /> dengan semua jendela dalam mode penyamaran.
 
       Jika kebijakan ini disetel ke False, <ph name="PRODUCT_NAME" /> tidak akan mengizinkan profil tamu dimulai.</translation>
@@ -509,7 +509,7 @@
 <translation id="2682225790874070339">Menonaktifkan Drive di aplikasi File <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="268577405881275241">Aktifkan fitur proxy kompresi data</translation>
 <translation id="2731627323327011390">Menonaktifkan penggunaan sertifikat <ph name="PRODUCT_OS_NAME" /> untuk aplikasi ARC</translation>
-<translation id="2742843273354638707">Menyembunyikan aplikasi Toko Web Chrome serta tautan footer dari Laman Tab Baru dan peluncur aplikasi <ph name="PRODUCT_OS_NAME" />.
+<translation id="2742843273354638707">Menyembunyikan aplikasi Toko Web Chrome serta tautan footer dari Halaman Tab Baru dan peluncur aplikasi <ph name="PRODUCT_OS_NAME" />.
 
       Jika kebijakan ini disetel ke true, ikon akan disembunyikan.
 
@@ -1853,7 +1853,7 @@
           Jika setelan ini diaktifkan, maka pengguna harus memberikan kode dua faktor yang valid saat mengakses hosting.
 
           Jika setelan ini dinonaktifkan atau tidak disetel, maka dua faktor tidak akan diaktifkan dan perilaku default yaitu menggunakan PIN yang ditentukan pengguna, akan digunakan.</translation>
-<translation id="7750991880413385988">Buka Laman Tab Baru</translation>
+<translation id="7750991880413385988">Buka Halaman Tab Baru</translation>
 <translation id="7761446981238915769">Konfigurasi daftar aplikasi yang terpasang di layar masuk</translation>
 <translation id="7761526206824804472">Menyetel satu atau beberapa bahasa yang disarankan untuk sesi publik memungkinkan pengguna memilih salah satu bahasa tersebut dengan mudah.
 
@@ -1885,7 +1885,7 @@
 
           Untuk opsi lain dan contoh detailnya, buka:
           <ph name="PROXY_HELP_URL" />.</translation>
-<translation id="7781069478569868053">Laman Tab Baru</translation>
+<translation id="7781069478569868053">Halaman Tab Baru</translation>
 <translation id="7788511847830146438">Per Profil</translation>
 <translation id="7801886189430766248">Jika kebijakan ini disetel ke true, data aplikasi Android akan diupload ke server Pencadangan Android dan dipulihkan saat pemasangan ulang aplikasi untuk aplikasi yang kompatibel.
 
@@ -2099,7 +2099,7 @@
 <translation id="8412312801707973447">Apakah pemeriksaan OCSP/CRL online dilakukan atau tidak</translation>
 <translation id="8424255554404582727">Setel pemutaran layar default, diterapkan kembali setiap kali melakukan boot ulang</translation>
 <translation id="8426231401662877819">Putar layar searah jarum jam sebesar 90 derajat</translation>
-<translation id="8451988835943702790">Gunakan Laman Tab Baru sebagai beranda</translation>
+<translation id="8451988835943702790">Gunakan Halaman Tab Baru sebagai beranda</translation>
 <translation id="8465065632133292531">Parameter untuk URL instan yang menggunakan POST</translation>
 <translation id="847472800012384958">Jangan izinkan situs mana pun menampilkan pop-up</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>
@@ -2119,7 +2119,7 @@
       </translation>
 <translation id="8544375438507658205">Pengurai HTML default untuk <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Memperingatkan saat mengunjungi situs di luar paket konten</translation>
-<translation id="8566842294717252664">Menyembunyikan toko web dari Laman Tab Baru dan peluncur aplikasi</translation>
+<translation id="8566842294717252664">Menyembunyikan toko web dari Halaman Tab Baru dan peluncur aplikasi</translation>
 <translation id="8587229956764455752">Mengizinkan pembuatan akun pengguna baru</translation>
 <translation id="8614804915612153606">Nonaktifkan Pembaruan Otomatis</translation>
 <translation id="8631434304112909927">sampai versi <ph name="UNTIL_VERSION" /></translation>

@@ -524,7 +524,7 @@
 <translation id="1789575671122666129">חלונות קופצים</translation>
 <translation id="1792619191750875668">תצוגה מורחבת</translation>
 <translation id="1793119619663054394">‏האם אתה בטוח שברצונך להסיר את "<ph name="PROFILE_NAME" />" ואת כל הנתונים הקשורים ל-Chrome ממחשב זה? לא ניתן לבטל פעולה זו.</translation>
-<translation id="1794791083288629568">שלח משוב כדי לעזור לנו לפתור את הבעיה.</translation>
+<translation id="1794791083288629568"> שליחת משוב כדי לעזור לנו לפתור את הבעיה.</translation>
 <translation id="1795214765651529549">השתמש בעיצוב קלאסי</translation>
 <translation id="179767530217573436">מ-4 השבועות האחרונים</translation>
 <translation id="1799071797295057738">התוסף "<ph name="EXTENSION_NAME" />" הושבת באופן אוטומטי.</translation>
@@ -2070,7 +2070,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4138267921960073861">הצג שמות משתמשים ותמונות במסך הכניסה</translation>
 <translation id="4140559601186535628">הודעות בדחיפה</translation>
 <translation id="4146026355784316281">פתח תמיד באמצעות מציג המערכת</translation>
-<translation id="4146175323503586871">‏<ph name="SERVICE_NAME" /> רוצה לבדוק אם המכשיר שלך המשתמש במערכת ההפעלה של Chrome זכאי למבצע. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">תצוגה</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{כרטיסייה אחת}two{# כרטיסיות}many{# כרטיסיות}other{# כרטיסיות}}</translation>
 <translation id="4154664944169082762">טביעות אצבע</translation>
@@ -5234,7 +5233,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="941543339607623937">מפתח פרטי לא חוקי.</translation>
 <translation id="942532530371314860">‏<ph name="APP_NAME" /> משתף כרטיסייה ואודיו של Chrome.</translation>
 <translation id="942954117721265519">אין תמונות בספריה הזו.</translation>
-<translation id="945522503751344254">שלח משוב</translation>
+<translation id="945522503751344254"> שליחת משוב</translation>
 <translation id="951981865514037445"><ph name="URL" />‏ רוצה להשתמש במיקום המכשיר שלך.</translation>
 <translation id="952992212772159698">לא פעיל</translation>
 <translation id="9580706199804957">‏לא ניתן היה להתחבר אל שירותי Google</translation>

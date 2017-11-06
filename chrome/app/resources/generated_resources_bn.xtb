@@ -2070,7 +2070,6 @@
 <translation id="4138267921960073861">সাইন-ইন স্ক্রিনে ব্যবহারকারীর নামগুলি এবং ফটো দেখান</translation>
 <translation id="4140559601186535628">পুশ বার্তা</translation>
 <translation id="4146026355784316281">সর্বদা সিস্টেম নিরীক্ষকের সাথে খুলুন</translation>
-<translation id="4146175323503586871">আপনার Chrome OS ডিভাইস অফারের জন্য  যোগ্য কিনা <ph name="SERVICE_NAME" /> তা চেক করতে চাইছে। <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">প্রদর্শন</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{১টি ট্যাব}one{#টি ট্যাব}other{#টি ট্যাব}}</translation>
 <translation id="4154664944169082762">আঙ্গুলের ছাপ</translation>
@@ -3303,7 +3302,7 @@
 <translation id="6138680304137685902">SHA-384 সহ X9.62 ECDSA স্বাক্ষর</translation>
 <translation id="6143186082490678276">সহায়তা পান</translation>
 <translation id="6144938890088808325">আমাদের Chromebooks উন্নত করতে সাহায্য করুন</translation>
-<translation id="6146563240635539929">ভিডিওগুলি</translation>
+<translation id="6146563240635539929">ভিডিও</translation>
 <translation id="6147020289383635445">প্রিন্ট পূর্বরূপ ব্যর্থ হয়েছে৷</translation>
 <translation id="6150853954427645995">অফলাইনে ব্যবহারের জন্য এই ফাইলটি সেভ করুন, অনলাইন ফিরে পেতে, ফাইলের ডানদিকে ক্লিক করুন, এবং <ph name="OFFLINE_CHECKBOX_NAME" /> বিকল্প নির্বাচন করুন৷</translation>
 <translation id="6151323131516309312"><ph name="SITE_NAME" /> অনুসন্ধানের জন্য <ph name="SEARCH_KEY" /> টিপুন</translation>
@@ -3913,6 +3912,7 @@
 <translation id="7077829361966535409">সাইন-ইন পৃষ্ঠাটি বর্তমান প্রক্সি সেটিংস ব্যবহার করে লোড হতে ব্যর্থ হয়েছে৷ দয়া করে <ph name="GAIA_RELOAD_LINK_START" />আবার প্রবেশ করার চেষ্টা করুন<ph name="GAIA_RELOAD_LINK_END" />, অথবা পৃথক <ph name="PROXY_SETTINGS_LINK_START" />প্রক্সি সেটিংস<ph name="PROXY_SETTINGS_LINK_END" /> ব্যবহার করুন৷</translation>
 <translation id="7078120482318506217">সকল নেটওয়ার্কগুলি</translation>
 <translation id="708060913198414444">অ&amp;ডিও ঠিকানা কপি করুন</translation>
+<translation id="708278670402572152">স্ক্যানিং সক্রিয় করতে সংযোগ বিচ্ছিন্ন করুন</translation>
 <translation id="7084192839369222683">শুধুমাত্র গুরুত্বপূর্ণ সামগ্রী চালান</translation>
 <translation id="7088434364990739311">আপডেট যাচাই সূচনা হতে ব্যর্থ হয়েছে (ত্রুটি কোড <ph name="ERROR" />)৷</translation>
 <translation id="7088561041432335295">জিপ আর্কাইভার - Files অ্যাপে জিপ ফাইলগুলি খুলুন ও প্যাক করুন</translation>
@@ -4106,7 +4106,7 @@
 <translation id="7410344089573941623"><ph name="HOST" /> আপনার ক্যামেরা এবং মাইক্রোফোন অ্যাক্সেস  করতে চায় কিনা জিজ্ঞাসা করুন</translation>
 <translation id="7412226954991670867">GPU মেমোরি</translation>
 <translation id="7416362041876611053">অজানা নেটওয়ার্ক ত্রুটি৷</translation>
-<translation id="7417705661718309329">Google মানচিত্র</translation>
+<translation id="7417705661718309329">Google ম্যাপ</translation>
 <translation id="741906494724992817">এই অ্যাপ্লিকেশানটির জন্য কোনো বিশেষ অনুমতির প্রয়োজন নেই।</translation>
 <translation id="7421925624202799674">পৃষ্ঠা উৎস &amp;দেখুন</translation>
 <translation id="7422192691352527311">অভিরুচিসমূহ...</translation>

@@ -2067,7 +2067,6 @@
 <translation id="4138267921960073861">在登录屏幕上显示用户名和照片</translation>
 <translation id="4140559601186535628">推送消息</translation>
 <translation id="4146026355784316281">始终使用系统查看器打开</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" />需要检查您的Chrome操作系统设备是否能享受优惠。<ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">显示</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 个标签页}other{# 个标签页}}</translation>
 <translation id="4154664944169082762">指纹</translation>

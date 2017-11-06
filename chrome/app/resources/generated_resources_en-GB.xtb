@@ -2075,7 +2075,6 @@ From <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4138267921960073861">Show usernames and photos on the sign-in screen</translation>
 <translation id="4140559601186535628">Push Messages</translation>
 <translation id="4146026355784316281">Always Open With System Viewer</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> wants to check if your Chrome OS device is eligible for an offer. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Display</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 tab}other{# tabs}}</translation>
 <translation id="4154664944169082762">Fingerprints</translation>

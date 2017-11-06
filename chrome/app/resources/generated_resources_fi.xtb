@@ -2072,7 +2072,6 @@ verkkotunnuksesta <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4138267921960073861">Näytä käyttäjänimet ja valokuvat kirjautumisruudulla</translation>
 <translation id="4140559601186535628">Push-viestit</translation>
 <translation id="4146026355784316281">Avaa aina järjestelmän katselusovelluksella</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> haluaa tarkistaa, voiko Chrome-käyttöjärjestelmälaitteellasi lunastaa tarjouksen. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Näyttö</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 välilehti}other{# välilehteä}}</translation>
 <translation id="4154664944169082762">Tunnistetiedostot</translation>

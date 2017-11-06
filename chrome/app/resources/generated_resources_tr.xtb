@@ -2075,7 +2075,6 @@ Daha fazla bilgi için <ph name="BEGIN_LINK" />Yardım Merkezimizi<ph name="END_
 <translation id="4138267921960073861">Oturum açma ekranında kullanıcı adlarını ve fotoğrafları göster</translation>
 <translation id="4140559601186535628">Push Mesajları</translation>
 <translation id="4146026355784316281">Her Zaman Sistem Görüntüleyici ile Aç</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" />, Chrome OS cihazınızın bir teklif için uygun olup olmadığını kontrol etmek istiyor. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Ekran</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 sekme}other{# sekme}}</translation>
 <translation id="4154664944169082762">Parmak izleri</translation>

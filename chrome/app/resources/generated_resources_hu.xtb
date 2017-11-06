@@ -2074,7 +2074,6 @@ Elindítja a következőt: <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation
 <translation id="4138267921960073861">Felhasználónevek és képek megjelenítése a bejelentkezési oldalon</translation>
 <translation id="4140559601186535628">Push üzenetek</translation>
 <translation id="4146026355784316281">Megnyitás mindig a rendszer megtekintőjével</translation>
-<translation id="4146175323503586871">A(z)<ph name="SERVICE_NAME" /> ellenőrizni kívánja, hogy az Ön Chrome OS-t futtató eszköze jogosult-e egy ajánlatra. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Megjelenítés</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 lap}other{# lap}}</translation>
 <translation id="4154664944169082762">Ujjlenyomatok</translation>

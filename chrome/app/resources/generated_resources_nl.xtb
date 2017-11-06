@@ -2075,7 +2075,6 @@ van <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4138267921960073861">Gebruikersnamen en foto's weergeven in het inlogscherm</translation>
 <translation id="4140559601186535628">Pushberichten</translation>
 <translation id="4146026355784316281">Altijd openen met systeemviewer</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> wil controleren of je Chrome OS-apparaat in aanmerking komt voor een aanbieding. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Weergave</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 tabblad}other{# tabbladen}}</translation>
 <translation id="4154664944169082762">Vingerafdrukken</translation>

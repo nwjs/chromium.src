@@ -2075,7 +2075,6 @@ kasutades juhtpaneeli funktsiooni <ph name="CONTROL_PANEL_APPLET_NAME" />.
 <translation id="4138267921960073861">Kuva sisselogimisekraanil kasutajanimed ja fotod</translation>
 <translation id="4140559601186535628">Tõukesõnumid</translation>
 <translation id="4146026355784316281">Ava alati süsteemivaaturiga</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> tahab kontrollida, kas teie Chrome OS-i seade on sobilik pakkumise kasutamiseks. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Kuva</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 vaheleht}other{# vahelehte}}</translation>
 <translation id="4154664944169082762">Sõrmejäljed</translation>

@@ -2069,7 +2069,6 @@
 <translation id="4138267921960073861">عرض أسماء المستخدمين والصور على شاشة تسجيل الدخول</translation>
 <translation id="4140559601186535628">رسائل الدفع</translation>
 <translation id="4146026355784316281">افتح دائمًا باستخدام عرض النظام</translation>
-<translation id="4146175323503586871">‏<ph name="SERVICE_NAME" /> ترغب في التحقق إذا كان جهاز Chrome OS مؤهلاً للحصول على عرض. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">عرض</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{علامة تبويب واحدة}zero{# من علامات التبويب}two{علامتا تبويب (#)}few{# علامات تبويب}many{# علامة تبويب}other{# من علامات التبويب}}</translation>
 <translation id="4154664944169082762">بصمات الأصابع</translation>
@@ -4737,7 +4736,7 @@
 <translation id="8425755597197517046">ل&amp;صق وبحث</translation>
 <translation id="8426713856918551002">جارٍ التمكين</translation>
 <translation id="8427292751741042100">مضمن في أي مضيف</translation>
-<translation id="8428213095426709021">إعدادات</translation>
+<translation id="8428213095426709021">الإعدادات</translation>
 <translation id="8431909052837336408">‏تغيير رمز PIN لشريحة SIM</translation>
 <translation id="8434480141477525001">‏منفذ تصحيح أخطاء NaCl</translation>
 <translation id="8437331208797669910">الوصول إلى الصفحة</translation>

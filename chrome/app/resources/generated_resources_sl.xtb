@@ -2076,7 +2076,6 @@ Iz <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4138267921960073861">Prikaži uporabniška imena in fotografije na prijavnem zaslonu</translation>
 <translation id="4140559601186535628">Potisna sporočila</translation>
 <translation id="4146026355784316281">Vedno odpri s sistemskim pregledovalnikom</translation>
-<translation id="4146175323503586871">Storitev <ph name="SERVICE_NAME" /> želi preveriti, ali je vaša naprava s sistemom Chrome OS ustrezna za ponudbo. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Prikaz</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 zavihek}one{# zavihek}two{# zavihka}few{# zavihki}other{# zavihkov}}</translation>
 <translation id="4154664944169082762">Prstni odtisi</translation>

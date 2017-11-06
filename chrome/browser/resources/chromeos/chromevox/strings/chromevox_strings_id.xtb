@@ -239,7 +239,7 @@ Jika telah menyelesaikan tutorial, gunakan ChromeVox untuk mengakses tombol Tutu
 <translation id="3299925995433437805">Tidak ada tautan yang dikunjungi selanjutnya.</translation>
 <translation id="3300348286427369683">Dukungan teks kaya. Kini, ChromeVox mendukung kolom teks kaya, termasuk perintah lewati, perutean kursor braille, pilihan, dan masih banyak lagi.</translation>
 <translation id="3307886118343381874">Berpindah ke akhir tabel</translation>
-<translation id="3311969765485641742">Tekan Alt+Shift+A untuk memeriksa lansiran</translation>
+<translation id="3311969765485641742">Tekan Alt+Shift+A untuk memeriksa notifikasi</translation>
 <translation id="3312997241656799641">Tautan yang dikunjungi selanjutnya</translation>
 <translation id="3313245066383501820">Tombol pengubah ChromeVox</translation>
 <translation id="3317212938060708859">Penggeser</translation>
@@ -624,7 +624,7 @@ Untuk membuka menu browser Chrome, tekan Alt+F.</translation>
 <translation id="6414968628640960377">Elemen berbeda sebelumnya.</translation>
 <translation id="641759969622533235">{COUNT,plural, =1{titik dua}other{# titik dua}}</translation>
 <translation id="6438968337250688271"><ph name="NAME" />, menu</translation>
-<translation id="6444046323172968959">Dialog lansiran</translation>
+<translation id="6444046323172968959">Dialog notifikasi</translation>
 <translation id="6459511626086141404">Peta tombol datar</translation>
 <translation id="6468049171101508116">Tombol berikutnya</translation>
 <translation id="6493991254603208962">mengurangi Kecerahan</translation>

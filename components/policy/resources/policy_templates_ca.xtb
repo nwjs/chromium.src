@@ -372,7 +372,7 @@
 <translation id="2298647742290373702">Configura la pàgina Pestanya nova predeterminada a <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2299220924812062390">Especifica una llista de connectors activats</translation>
 <translation id="2303795211377219696">Activa la funció Emplenament automàtic per a les targetes de crèdit</translation>
-<translation id="2309390639296060546">Configuració d'ubicació geogràfica predeterminada</translation>
+<translation id="2309390639296060546">Configuració d'ubicació predeterminada</translation>
 <translation id="2312134445771258233">Us permet configurar les pàgines que es carreguen en iniciar. El contingut de la llista "URL que s'han d'obrir en iniciar" s'ignora tret que seleccioneu "Obre una llista d'URL" a "Acció a l'inici".</translation>
 <translation id="2337466621458842053">Us permet definir una llista de patrons d'URL que especifiquen els llocs que poden mostrar imatges. Si no es defineix aquesta política, s'utilitzarà el valor global predeterminat per a tots els llocs tant de la política "DefaultImagesSetting", si es defineix, com d'un altre tipus de configuració personal de l'usuari.</translation>
 <translation id="2372547058085956601">Retard d'inici de sessió automàtic de la sessió pública.

@@ -347,7 +347,7 @@
 <translation id="1511388193702657997">Preguntar si quieres guardar tus contraseñas web</translation>
 <translation id="1512210426710821809">La única forma de deshacer esta acción es volver a instalar <ph name="IDS_SHORT_PRODUCT_OS_NAME" /></translation>
 <translation id="1514215615641002767">Añadir al escritorio</translation>
-<translation id="151501797353681931">Importados de Safari</translation>
+<translation id="151501797353681931">Importado desde Safari</translation>
 <translation id="1515163294334130951">Iniciar</translation>
 <translation id="1521442365706402292">Gestionar certificados</translation>
 <translation id="152234381334907219">Contraseñas que nunca se guardan</translation>
@@ -361,7 +361,7 @@
 <translation id="1531004739673299060">Ventana de la aplicación</translation>
 <translation id="1533897085022183721">Menos de <ph name="MINUTES" /></translation>
 <translation id="15373452373711364">Cursor del ratón grande</translation>
-<translation id="1543284117603151572">Importados desde Edge</translation>
+<translation id="1543284117603151572">Importado desde Edge</translation>
 <translation id="1545177026077493356">Modo kiosco automático</translation>
 <translation id="1545786162090505744">URL con %s en el lugar de la consulta</translation>
 <translation id="1546280085599573572">Esta extensión ha cambiado la página que se muestra al hacer clic en el botón Página de inicio.</translation>
@@ -1008,7 +1008,7 @@ No creo que este sitio deba bloquearse</translation>
 <translation id="2562685439590298522">Docs</translation>
 <translation id="2562743677925229011">No has iniciado sesión en <ph name="SHORT_PRODUCT_NAME" />.</translation>
 <translation id="2563856802393254086">¡Enhorabuena! Tu servicio de datos <ph name="NAME" /> se ha activado y está listo para que lo uses.</translation>
-<translation id="2566124945717127842">Haz un Powerwash y restablece los datos de fábrica de tu dispositivo <ph name="IDS_SHORT_PRODUCT_NAME" /> para que quede como nuevo.</translation>
+<translation id="2566124945717127842">Haz un Powerwash y restablece el estado de fábrica de tu dispositivo <ph name="IDS_SHORT_PRODUCT_NAME" /> para que quede como nuevo.</translation>
 <translation id="2568774940984945469">Contenedor de barra de información</translation>
 <translation id="2570000010887652771">Consumo de datos reducido.</translation>
 <translation id="2570648609346224037">Se ha producido un error durante la descarga de la imagen de recuperación.</translation>
@@ -1963,7 +1963,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="3948116654032448504">&amp;Buscar imagen en <ph name="SEARCH_ENGINE" /></translation>
 <translation id="3949371968208420848">¡Te damos la bienvenida a Hangouts Meet!</translation>
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
-<translation id="394984172568887996">Importado de Internet Explorer</translation>
+<translation id="394984172568887996">Importado desde Internet Explorer</translation>
 <translation id="3950820424414687140">Iniciar sesión</translation>
 <translation id="3954354850384043518">En curso</translation>
 <translation id="3955193568934677022">Permitir que los sitios web reproduzcan contenido protegido (recomendado)</translation>
@@ -2074,7 +2074,6 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="4138267921960073861">Mostrar nombres de usuario y fotos en la pantalla de inicio de sesión</translation>
 <translation id="4140559601186535628">Mensajes push</translation>
 <translation id="4146026355784316281">Abrir siempre con el visor del sistema</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> quiere comprobar si tu dispositivo Chrome OS puede optar a una oferta. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Pantalla</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 pestaña}other{# pestañas}}</translation>
 <translation id="4154664944169082762">Huellas digitales</translation>
@@ -3715,7 +3714,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6751344591405861699"><ph name="WINDOW_TITLE" /> (incógnito)</translation>
 <translation id="6757101664402245801">URL copiada</translation>
 <translation id="6758056191028427665">Envíanos tu opinión sobre nuestro servicio.</translation>
-<translation id="6759193508432371551">Restablecer datos de fábrica</translation>
+<translation id="6759193508432371551">Restablecer estado de fábrica</translation>
 <translation id="6766101255664245434">Haz una foto o selecciona una foto o un icono que ya tengas.
           <ph name="LINE_BREAK" />
           Esta imagen se mostrará en la pantalla de bloqueo y en la de inicio de sesión del Chromebook.</translation>

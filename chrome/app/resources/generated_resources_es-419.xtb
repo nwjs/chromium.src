@@ -2071,7 +2071,6 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4138267921960073861">Mostrar nombres de usuarios y fotos en la pantalla de inicio</translation>
 <translation id="4140559601186535628">Mensajes de inserción</translation>
 <translation id="4146026355784316281">Abrir siempre con el visualizador del sistema</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> desea comprobar si tu dispositivo con Sistema operativo Chrome es elegible para una oferta. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Pantalla</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 pestaña}other{# pestañas}}</translation>
 <translation id="4154664944169082762">Huellas digitales</translation>

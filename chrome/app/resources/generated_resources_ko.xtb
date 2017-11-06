@@ -2075,7 +2075,6 @@
 <translation id="4138267921960073861">로그인 화면에 사용자 이름과 사진 표시</translation>
 <translation id="4140559601186535628">푸시 메시지</translation>
 <translation id="4146026355784316281">항상 시스템 뷰어로 열기</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" />에서 Chrome OS 기기에서 쿠폰을 사용할 수 있는지 확인하려고 합니다. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">디스플레이</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{탭 1개}other{탭 #개}}</translation>
 <translation id="4154664944169082762">지문</translation>
@@ -3921,7 +3920,7 @@
 <translation id="7077829361966535409">현재 프록시 설정을 사용하여 로그인 페이지를 로드하지 못했습니다. <ph name="GAIA_RELOAD_LINK_START" />다시 로그인<ph name="GAIA_RELOAD_LINK_END" />하거나 다른 <ph name="PROXY_SETTINGS_LINK_START" />프록시 설정<ph name="PROXY_SETTINGS_LINK_END" />을 사용합니다.</translation>
 <translation id="7078120482318506217">모든 네트워크</translation>
 <translation id="708060913198414444">오디오 주소 복사(&amp;O)</translation>
-<translation id="708278670402572152">검색을 사용하려면 연결 해제하세요</translation>
+<translation id="708278670402572152">검색하려면 연결 해제하세요</translation>
 <translation id="7084192839369222683">중요한 콘텐츠만 실행</translation>
 <translation id="7088434364990739311">업데이트 확인을 시작하지 못했습니다(오류 코드: <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver - 파일 앱에서 ZIP 파일을 열고 압축합니다.</translation>

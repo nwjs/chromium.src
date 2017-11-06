@@ -2074,7 +2074,6 @@
 <translation id="4138267921960073861">Показувати імена користувачів і фото на екрані входу</translation>
 <translation id="4140559601186535628">Push-повідомлення</translation>
 <translation id="4146026355784316281">Завжди відкривати за допомогою системного переглядача</translation>
-<translation id="4146175323503586871">Служба <ph name="SERVICE_NAME" /> хоче перевірити, чи ваш пристрій з ОС Chrome відповідає умовам для цієї пропозиції. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Екран</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 вкладка}one{# вкладка}few{# вкладки}many{# вкладок}other{# вкладки}}</translation>
 <translation id="4154664944169082762">Відбитки</translation>

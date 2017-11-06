@@ -2073,7 +2073,6 @@
 <translation id="4138267921960073861">在登入畫面中顯示使用者名稱和相片</translation>
 <translation id="4140559601186535628">推送訊息</translation>
 <translation id="4146026355784316281">一律使用系統檢視器開啟</translation>
-<translation id="4146175323503586871">「<ph name="SERVICE_NAME" />」要求確認你的 Chrome 作業系統裝置是否符合優惠兌換資格。<ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">顯示設定</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 個分頁}other{# 個分頁}}</translation>
 <translation id="4154664944169082762">指紋</translation>

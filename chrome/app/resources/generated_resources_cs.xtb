@@ -2073,7 +2073,6 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="4138267921960073861">Zobrazit na přihlašovací obrazovce uživatelská jména a fotografie</translation>
 <translation id="4140559601186535628">Nabízené zprávy</translation>
 <translation id="4146026355784316281">Vždy otevřít pomocí systémového prohlížeče</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> chce zkontrolovat, zda se nabídka vztahuje na vaše zařízení se systémem Chrome OS. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Displej</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 karta}few{# karty}many{# karty}other{# karet}}</translation>
 <translation id="4154664944169082762">Digitální otisky</translation>

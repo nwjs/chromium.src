@@ -2074,7 +2074,6 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4138267921960073861">Vis brugernavne og billeder på loginskærmen</translation>
 <translation id="4140559601186535628">Push-meddelelser</translation>
 <translation id="4146026355784316281">Åbn altid med systemets visningsprogram</translation>
-<translation id="4146175323503586871"><ph name="SERVICE_NAME" /> vil gerne kontrollere, om din Chrome OS-enhed er berettiget til et tilbud. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="4150201353443180367">Visning</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 fane}one{# faner}other{# faner}}</translation>
 <translation id="4154664944169082762">Fingeraftryk</translation>
