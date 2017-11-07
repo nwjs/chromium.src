@@ -40,11 +40,7 @@ const char kJsScreenPath[] = "login.UserImageScreen";
 namespace chromeos {
 
 UserImageScreenHandler::UserImageScreenHandler()
-    : BaseScreenHandler(kScreenId),
-      device_settings_observer_(CrosSettings::Get()->AddSettingsObserver(
-          kAllowUserAvatarVideos,
-          base::Bind(&UserImageScreenHandler::UpdateAllowVideoMode,
-                     base::Unretained(this)))) {
+    : BaseScreenHandler(kScreenId) {
   set_call_js_prefix(kJsScreenPath);
   ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
   media::SoundsManager* manager = media::SoundsManager::Get();
@@ -128,7 +124,6 @@ void UserImageScreenHandler::HandleGetImages() {
       default_user_image::GetAsDictionary(true /* all */);
   result.Set("images", std::move(default_images));
   CallJS("setDefaultImages", result);
-  UpdateAllowVideoMode();
 }
 
 void UserImageScreenHandler::HandleScreenReady() {
@@ -182,12 +177,6 @@ void UserImageScreenHandler::HandleScreenShown() {
 
 void UserImageScreenHandler::HideCurtain() {
   CallJS("hideCurtain");
-}
-
-void UserImageScreenHandler::UpdateAllowVideoMode() {
-  bool allow_video_mode = false;
-  CrosSettings::Get()->GetBoolean(kAllowUserAvatarVideos, &allow_video_mode);
-  CallJS("setAllowVideoMode", base::Value(allow_video_mode));
 }
 
 }  // namespace chromeos
