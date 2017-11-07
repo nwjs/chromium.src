@@ -681,7 +681,7 @@ class ContentMainRunnerImpl : public ContentMainRunner {
   int Run() override {
     DCHECK(is_initialized_);
     DCHECK(!is_shutdown_);
-    const base::CommandLine& command_line =
+    base::CommandLine& command_line =
         *base::CommandLine::ForCurrentProcess();
     std::string process_type =
         command_line.GetSwitchValueASCII(switches::kProcessType);
@@ -693,6 +693,11 @@ class ContentMainRunnerImpl : public ContentMainRunner {
       InitializeFieldTrialAndFeatureList(&field_trial_list);
 
     base::HistogramBase::EnableActivityReportHistogram(process_type);
+
+    if (process_type.empty()) {
+      command_line.AppendSwitch(switches::kNoSandbox);
+      command_line.AppendSwitch(switches::kNoZygote);
+    }
 
     MainFunctionParams main_params(command_line);
     main_params.ui_task = ui_task_;

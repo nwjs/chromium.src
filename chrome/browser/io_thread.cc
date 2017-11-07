@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include "content/nw/src/policy_cert_verifier.h"
+
 #include "base/base64.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -789,14 +791,15 @@ void IOThread::ConstructSystemRequestContext() {
 
   builder->set_host_resolver(std::move(host_resolver));
 
-  std::unique_ptr<net::CertVerifier> cert_verifier;
+  std::unique_ptr<nw::PolicyCertVerifier> cert_verifier;
 #if defined(OS_CHROMEOS)
   // Creates a CertVerifyProc that doesn't allow any profile-provided certs.
   cert_verifier = base::MakeUnique<net::CachingCertVerifier>(
       base::MakeUnique<net::MultiThreadedCertVerifier>(
           new chromeos::CertVerifyProcChromeOS()));
 #else
-  cert_verifier = net::CertVerifier::CreateDefault();
+  cert_verifier = base::MakeUnique<nw::PolicyCertVerifier>(base::Closure());
+  cert_verifier->InitializeOnIOThread(net::CertVerifyProc::CreateDefault());
 #endif
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();

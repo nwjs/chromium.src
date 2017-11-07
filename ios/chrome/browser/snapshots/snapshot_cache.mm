@@ -78,7 +78,7 @@ bool GetSnapshotsCacheDirectory(base::FilePath* snapshots_cache_directory) {
     return false;
 
   *snapshots_cache_directory =
-      cache_directory.Append(FILE_PATH_LITERAL("Chromium"))
+      cache_directory.Append(FILE_PATH_LITERAL("nwjs"))
           .Append(FILE_PATH_LITERAL("Snapshots"));
   return true;
 }

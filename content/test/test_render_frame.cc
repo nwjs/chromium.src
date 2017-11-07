@@ -22,6 +22,7 @@ class MockFrameHost : public mojom::FrameHost {
   MockFrameHost() : binding_(this) {}
   ~MockFrameHost() override = default;
 
+  void SetNodeJS(bool) override {}
   void CreateNewWindow(mojom::CreateNewWindowParamsPtr params,
                        CreateNewWindowCallback callback) override {
     mojom::CreateNewWindowReplyPtr reply = mojom::CreateNewWindowReply::New();
