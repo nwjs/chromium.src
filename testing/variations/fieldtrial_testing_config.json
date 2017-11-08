@@ -2786,7 +2786,7 @@
             ]
         }
     ],
-    "SerializeCoreAudioPauseResume": [
+    "SerializeCoreAudioPauseAndResumeDuringSystemSleep": [
         {
             "platforms": [
                 "mac"
