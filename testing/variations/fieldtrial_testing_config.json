@@ -2786,6 +2786,21 @@
             ]
         }
     ],
+    "SerializeCoreAudioPauseResume": [
+        {
+            "platforms": [
+                "mac"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "SerializeCoreAudioPauseResume"
+                    ]
+                }
+            ]
+        }
+    ],
     "ServiceWorkerNavigationPreload": [
         {
             "platforms": [
