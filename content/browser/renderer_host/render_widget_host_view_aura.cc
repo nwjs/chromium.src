@@ -157,6 +157,11 @@ class WinScreenKeyboardObserver : public ui::OnScreenKeyboardObserver {
     host_view_->SetInsets(gfx::Insets());
   }
 
+  ~WinScreenKeyboardObserver() override {
+    if (auto* instance = ui::OnScreenKeyboardDisplayManager::GetInstance())
+      instance->RemoveObserver(this);
+  }
+
   // base::win::OnScreenKeyboardObserver overrides.
   void OnKeyboardVisible(const gfx::Rect& keyboard_rect_pixels) override {
     gfx::Point location_in_pixels =
@@ -779,8 +784,6 @@ void RenderWidgetHostViewAura::FocusedNodeTouched(
       ui::OnScreenKeyboardDisplayManager::GetInstance();
   DCHECK(osk_display_manager);
   if (editable && host_->GetView() && host_->delegate()) {
-    if (keyboard_observer_)
-      osk_display_manager->RemoveObserver(keyboard_observer_.get());
     keyboard_observer_.reset(new WinScreenKeyboardObserver(
         this, location_dips_screen, device_scale_factor_, window_));
     virtual_keyboard_requested_ =
@@ -1901,14 +1904,6 @@ RenderWidgetHostViewAura::~RenderWidgetHostViewAura() {
   // RenderWidgetHostViewAura::OnWindowDestroying and the pointer should
   // be set to NULL.
   DCHECK(!legacy_render_widget_host_HWND_);
-  if (virtual_keyboard_requested_) {
-    DCHECK(keyboard_observer_.get());
-    ui::OnScreenKeyboardDisplayManager* osk_display_manager =
-        ui::OnScreenKeyboardDisplayManager::GetInstance();
-    DCHECK(osk_display_manager);
-    osk_display_manager->RemoveObserver(keyboard_observer_.get());
-  }
-
 #endif
 
   if (text_input_manager_)
