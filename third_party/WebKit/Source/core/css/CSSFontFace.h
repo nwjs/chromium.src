@@ -68,8 +68,7 @@ class CORE_EXPORT CSSFontFace final
   void AddSource(CSSFontFaceSource*);
 
   void DidBeginLoad();
-  enum class LoadFinishReason { WasCancelled, NormalFinish };
-  void FontLoaded(RemoteFontFaceSource*, LoadFinishReason);
+  void FontLoaded(RemoteFontFaceSource*);
   void DidBecomeVisibleFallback(RemoteFontFaceSource*);
 
   RefPtr<SimpleFontData> GetFontData(const FontDescription&);
