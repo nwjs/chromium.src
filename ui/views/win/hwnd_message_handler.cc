@@ -2872,11 +2872,6 @@ void HWNDMessageHandler::PerformDwmTransition() {
     const int im = ui::win::IsAeroGlassEnabled() ? -1 : 0;
     MARGINS m = { im, im, im, im };
     DwmExtendFrameIntoClientArea(hwnd(), &m);
-	LONG ex_style = GetWindowLong(hwnd(), GWL_EXSTYLE);
-	if (ui::win::IsAeroGlassEnabled())
-      SetWindowLong(hwnd(), GWL_EXSTYLE, ex_style | WS_EX_COMPOSITED);
-	else 
-      SetWindowLong(hwnd(), GWL_EXSTYLE, ex_style & ~WS_EX_COMPOSITED);
   }
 
   UpdateDwmNcRenderingPolicy();

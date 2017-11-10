@@ -100,8 +100,6 @@ void CalculateWindowStylesFromInitParams(
         if (!native_widget_delegate->IsDialogBox() && !native_widget_delegate->IsModal()) {
           if (content::g_force_cpu_draw)
             *ex_style |= WS_EX_LAYERED;
-          else if (ui::win::IsAeroGlassEnabled())
-            *ex_style |= WS_EX_COMPOSITED;
         }
       } else {
         if (is_translucent)
