@@ -86,6 +86,12 @@ class BrowserURLLoaderThrottle : public content::URLLoaderThrottle {
 
   NetEventLogger* net_event_logger_ = nullptr;
 
+  // The total delay caused by SafeBrowsing deferring the resource load.
+  base::TimeDelta total_delay_;
+  // Whether the interstitial page has been shown and therefore user action has
+  // been involved.
+  bool user_action_involved_ = false;
+
   DISALLOW_COPY_AND_ASSIGN(BrowserURLLoaderThrottle);
 };
 

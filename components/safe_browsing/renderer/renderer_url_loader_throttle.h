@@ -71,6 +71,12 @@ class RendererURLLoaderThrottle : public content::URLLoaderThrottle,
   base::TimeTicks defer_start_time_;
   bool deferred_ = false;
 
+  // The total delay caused by SafeBrowsing deferring the resource load.
+  base::TimeDelta total_delay_;
+  // Whether the interstitial page has been shown and therefore user action has
+  // been involved.
+  bool user_action_involved_ = false;
+
   std::unique_ptr<mojo::BindingSet<mojom::UrlCheckNotifier>> notifier_bindings_;
 
   base::WeakPtrFactory<RendererURLLoaderThrottle> weak_factory_;

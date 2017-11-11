@@ -40,6 +40,9 @@ BrowserURLLoaderThrottle::~BrowserURLLoaderThrottle() {
     net_event_logger_->EndNetLogEvent(
         net::NetLogEventType::SAFE_BROWSING_DEFERRED, nullptr, nullptr);
   }
+
+  if (!user_action_involved_)
+    LogNoUserActionResourceLoadingDelay(total_delay_);
 }
 
 void BrowserURLLoaderThrottle::WillStartRequest(
@@ -90,10 +93,8 @@ void BrowserURLLoaderThrottle::WillProcessResponse(bool* defer) {
     return;
   }
 
-  if (pending_checks_ == 0) {
-    LogDelay(base::TimeDelta());
+  if (pending_checks_ == 0)
     return;
-  }
 
   DCHECK(!deferred_);
   deferred_ = true;
@@ -126,12 +127,17 @@ void BrowserURLLoaderThrottle::OnCompleteCheck(bool slow_check,
     pending_slow_checks_--;
   }
 
+  user_action_involved_ = user_action_involved_ || showed_interstitial;
+  // If the resource load is currently deferred and is going to exit that state
+  // (either being cancelled or resumed), record the total delay.
+  if (deferred_ && (!proceed || pending_checks_ == 0))
+    total_delay_ = base::TimeTicks::Now() - defer_start_time_;
+
   if (proceed) {
     if (pending_slow_checks_ == 0 && slow_check)
       delegate_->ResumeReadingBodyFromNet();
 
     if (pending_checks_ == 0 && deferred_) {
-      LogDelay(base::TimeTicks::Now() - defer_start_time_);
       deferred_ = false;
       if (net_event_logger_) {
         net_event_logger_->EndNetLogEvent(
