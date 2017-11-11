@@ -10,6 +10,10 @@
 #import "ios/web/public/web_state/web_state_observer.h"
 #import "ios/web/public/web_state/web_state_user_data.h"
 
+namespace web {
+class NavigationItem;
+}
+
 // A helper object that tracks whether JavaScript dialogs should be blocked for
 // a given WebState.  State is reset every time a navigation is committed.
 class JavaScriptDialogBlockingState
@@ -23,14 +27,14 @@ class JavaScriptDialogBlockingState
   bool show_blocking_option() { return dialog_count_ > 0; }
   // Whether the blocking option has been selected for its WebState's most
   // recent navigation.
-  bool blocked() { return blocked_; }
+  bool blocked() { return blocked_item_ != nullptr; }
 
   // Notifies the blocking state that a JavaScript dialog has been shown for its
   // WebState.
   void JavaScriptDialogWasShown() { ++dialog_count_; }
   // Notifies the blocking state that the JavaScript dialog blocking option has
   // been selected for its WebState's most recent navigation.
-  void JavaScriptDialogBlockingOptionSelected() { blocked_ = true; }
+  void JavaScriptDialogBlockingOptionSelected();
 
  private:
   friend class web::WebStateUserData<JavaScriptDialogBlockingState>;
@@ -39,14 +43,13 @@ class JavaScriptDialogBlockingState
   explicit JavaScriptDialogBlockingState(web::WebState* web_state);
 
   // WebStateObserver:
-  void NavigationItemCommitted(
-      const web::LoadCommittedDetails& load_details) override;
+  void DidStartNavigation(web::NavigationContext* navigation_context) override;
   void WebStateDestroyed() override;
 
   // Whether to show the blocking option.
-  size_t dialog_count_;
-  // Whether the blocking option has been selected.
-  bool blocked_;
+  size_t dialog_count_ = 0;
+  // The NavigationItem for which JavaScript dialogs were blocked.
+  web::NavigationItem* blocked_item_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(JavaScriptDialogBlockingState);
 };
