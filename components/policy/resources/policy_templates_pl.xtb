@@ -16,13 +16,6 @@
 
       Ta zasada dotyczy tylko tych użytkowników, których domena odpowiada domenie rejestracji urządzenia. W przypadku wszystkich pozostałych użytkowników pliki cookie ustawione przez dostawcę tożsamości są przesyłane do profilu użytkownika tylko podczas jego pierwszego logowania na urządzeniu.</translation>
 <translation id="1040446814317236570">Włącz wycinanie elementów adresów URL PAC (na potrzeby https://)</translation>
-<translation id="1041454584879384845">Konfiguruje zachowanie awatarów, które reprezentują użytkowników na ekranie logowania.
-
-      Poszczególne ustawienia można określić we właściwościach JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: jeśli ustawiono na wartość <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, użytkownicy mogą używać filmów jako awatarów graficznych.
-
-      Jeśli ta zasada nie jest ustawiona, filmy mogą być używane jako awatary graficzne.</translation>
 <translation id="1044878202534415707">Raportuj statystki sprzętu, np. użycie procesora i pamięci RAM.
 
       Jeśli ta zasada jest wyłączona, statystyki nie będą raportowane.
@@ -1493,7 +1486,6 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="6310223829319187614">Włącz autouzupełnianie nazw domen w czasie logowania użytkownika</translation>
 <translation id="6315673513957120120">Chrome wyświetla stronę z ostrzeżeniem, gdy użytkownicy otworzą witrynę, w której występują błędy SSL. Domyślnie lub wtedy, gdy ta zasada jest włączona, użytkownicy mogą zignorować i zamknąć stronę z ostrzeżeniem.
       Po wyłączeniu tej zasady użytkownicy nie będą mogli zamknąć strony z ostrzeżeniem.</translation>
-<translation id="6320758134170712450">Konfigurowanie zachowania awatara użytkownika</translation>
 <translation id="6353901068939575220">Określa parametry używane przy wyszukiwaniu URL-a z użyciem POST. Składa się z rozdzielonych przecinkami par nazwy i wartości. Jeśli wartość jest parametrem szablonu, tak jak w przykładzie powyżej {searchTerms}, zostanie ona zastąpiona rzeczywistymi danymi wyszukiwanych słów.
 
           Ta zasada jest opcjonalna. Jeśli nie jest ustawiona, żądania wyszukiwań są wysyłane przy użyciu metody GET.

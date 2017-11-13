@@ -16,13 +16,6 @@
 
       此政策只会影响所在网域与设备注册网域匹配的用户。对于所有其他用户，仅当他们首次在设备上登录时，由 IdP 设置的 Cookie 才会被转移到其个人资料中。</translation>
 <translation id="1040446814317236570">启用 PAC 网址剔除功能（适用于 https:// 类网址）</translation>
-<translation id="1041454584879384845">配置在登录屏幕上代表用户的用户头像的行为。
-
-      可在 JSON 属性中指定各项具体设置：
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />：如果设为 <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />，用户将可以使用视频作为头像图片。
-
-      如果未设置此政策，则不允许使用视频作为头像图片。</translation>
 <translation id="1044878202534415707">报告硬件统计数据，例如 CPU/RAM 使用情况。
 
       如果此政策设为 false，系统将不会报告硬件统计数据。
@@ -1470,7 +1463,6 @@
 <translation id="6310223829319187614">允许在用户登录期间自动填充域名</translation>
 <translation id="6315673513957120120">当用户访问存在 SSL 错误的网站时，Chrome 将显示警告页面。默认情况下，或当此政策设为 true 时，用户可以在点击这些警告页面后继续操作。
       如果将此政策设为 false，用户将无法通过点击任何警告页面继续操作。</translation>
-<translation id="6320758134170712450">配置用户头像行为</translation>
 <translation id="6353901068939575220">指定通过 POST 搜索网址时使用的参数。该参数由以英文逗号分隔的名称/值对组成。如果值为模板参数（例如上例中的 {searchTerms}），那么系统会将其替换成真正的搜索字词数据。
 
           此为可选政策。如果未设置此政策，系统将使用 GET 方法发送搜索请求。

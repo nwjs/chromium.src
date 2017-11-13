@@ -16,13 +16,6 @@
 
       Sera hii inaathiri watumiaji ambao vikoa vyao vinalingana na kikoa cha usajili wa kifaa pekee. Kwa watumiaji wengine wote, vidakuzi vinavyowekwa na IdP huhamishiwa kwenye wasifu wa mtumiaji anapoingia kwa mara ya kwanza kwenye kifaa chake pekee.</translation>
 <translation id="1040446814317236570">Washa kipengee cha kuondoa URL ya PAC (kwa https://)</translation>
-<translation id="1041454584879384845">Huweka mipangilio ya jinsi mtumiaji anavyotumia ishara ambazo zinawakilisha watumiaji kwenye skrini ya kuingia.
-
-      Mipangilio mahususi inaweza kubainishwa katika sifa za JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Ikiwekwa kuwa <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, watumiaji wataruhusiwa kutumia video kama picha za ishara.
-
-      Ikiwa sera hii haijawekwa, kutumia video kama picha ya ishara kunaruhusiwa.</translation>
 <translation id="1044878202534415707">Ripoti takwimu za maunzi kama vile matumizi ya CPU/RAM.
 
      Sera ikiwekwa kuwa sivyo, takwimu hazitaripotiwa.
@@ -1569,7 +1562,6 @@ Thamani ya sera inapaswa kubainishwa katika milisekunde. Thamani huwekwa pamoja 
 <translation id="6310223829319187614">Washa kipengee cha jina la kikoa cha kukamilisha kiotomatiki wakati wa mtumiaji kuingia katika akaunti</translation>
 <translation id="6315673513957120120">Chrome huonyesha ukurasa wa onyo watumiaji wanapoenda kwenye tovuti ambazo zina hitilafu za SSL. Kwa chaguo-msingi au sera hii ikiwekwa kuwa ndivyo, watumiaji wanaruhusiwa kubofya kwenye kurasa hizi za onyo.
       Kuweka sera kuwa sivyo hakuwaruhusu watumiaji kubofya ukurasa wowote wa onyo.</translation>
-<translation id="6320758134170712450">Weka mipangilio ya tabia ya mtumiaji wa ishara</translation>
 <translation id="6353901068939575220">Hubainisha vigezo vinavyotumika wakati wa kutafuta URL kwa kutumia POST.  Ina vikundi vya jina/thamani vinavyotenganishwa na koma. Kama thamani ni kigezo cha kiolezo, kama {Hoja za utafutaji} katika mfano hapo juu, itabadilishwa na data ya hoja za utafutaji halisi.
 
           Sera hii ni ya hiari. Isipowekwa, ombi la utafutaji litatumwa kutumia mbinu ya GET.

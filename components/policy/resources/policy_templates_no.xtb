@@ -16,13 +16,6 @@
 
       Denne regelen berører bare brukere med domener som samsvarer med enhetens registreringsdomene. For alle andre brukere overføres informasjonskapslene som angis av IdP-en, til brukerens profil bare første gang vedkommende logger på enheten.</translation>
 <translation id="1040446814317236570">Slå på PAC-nettadressestripping (for https://)</translation>
-<translation id="1041454584879384845">Konfigurerer funksjonaliteten for brukerbilder som representerer brukerne på påloggingsskjermen.
-
-     Enkeltinnstillinger kan angis i JSON-egenskapene:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Hvis denne er angitt som <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, får brukerne tillatelse til å legge inn videoer som brukerbilder.
-
-      Hvis denne regelen ikke er angitt, tillates bruk av videoer som brukerbilder.</translation>
 <translation id="1044878202534415707">Rapportér maskinvarestatistikk, for eksempel bruk av prosessor og minne.
 
       Hvis regelen settes til «false» (usann), rapporteres ikke statistikken.
@@ -1555,7 +1548,6 @@
 <translation id="6310223829319187614">Slå på autofullføring av domenenavn ved brukerpålogging</translation>
 <translation id="6315673513957120120">Brukerne ser advarselssider i Chrome når de åpner nettsteder med SSL-feil. Som standard, eller når denne regelen er satt til true (sann), kan brukerne klikke seg forbi disse advarselssidene.
       Hvis denne regelen settes til false (usann), kan ikke brukerne klikke seg forbi advarselssider.</translation>
-<translation id="6320758134170712450">Konfigurer funksjonaliteten for brukerbilder</translation>
 <translation id="6353901068939575220">Angir parameterene som brukes når du utfører søker på en nettadresse med POST. De består av kommainndelte navn og verdi-par. Hvis en verdi er et malparameter, som {searchTerms} i eksempelet ovenfor, blir den erstattet med virkelig søkeordsdata.
 
           Denne innstillingen er valgfri. Hvis den ikke er angitt, blir forespørsler om søkeforslag sendt via GET-metoden.

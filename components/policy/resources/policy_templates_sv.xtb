@@ -16,13 +16,6 @@
 
       Den här policyn gäller bara användare vars domän matchar enhetens registreringsdomän. För alla andra användare överförs cookies som anges av IdP:n bara till användarens profil under den första inloggningen på enheten.</translation>
 <translation id="1040446814317236570">Aktivera filtrering av webbadresser för PAC (för https://)</translation>
-<translation id="1041454584879384845">Konfigurerar beteendet för avatarer som representerar användare på inloggningsskärmen.
-
-      Individuella inställningar kan anges i egenskaperna för JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Om policyn är inställd på <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" /> kommer användarna kunna använda videor i sina avatarer.
-
-      Om inställningen inte är konfigurerad tillåts videor i avatarer som standard.</translation>
 <translation id="1044878202534415707">Rapportera maskinvarustatistik som exempelvis användning av processor eller RAM-minne.
 
       Om policyn är inställd på falskt kommer statistiken inte att rapporteras.
@@ -1594,7 +1587,6 @@
 <translation id="6310223829319187614">Aktivera autoslutför av domännamn vid användarinloggning</translation>
 <translation id="6315673513957120120">Chrome visar en varningssida när användare besöker webbplatser med SSL-fel. Som standardinställning eller om den här principen är inställd på sant ges användare möjligheten att klicka sig förbi dessa varningssidor.
       Om principen är inställd på falskt hindras användare från att klicka sig förbi varningssidor.</translation>
-<translation id="6320758134170712450">Konfigurera beteende för användaravatarer</translation>
 <translation id="6353901068939575220">Anger parametrarna som används vid sökning efter en webbadress med POST. Den består av kommaavgränsade namn-/värdepar. Om ett värde är en mallparameter, t.ex. {searchTerms} i ovanstående exempel, ersätts det av riktiga söktermer.
 
           Policyn är valfri. Om den inte anges skickas sökförfrågningar via GET-metoden.

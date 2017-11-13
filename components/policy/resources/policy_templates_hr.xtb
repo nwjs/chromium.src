@@ -16,13 +16,6 @@
 
       To pravilo utječe samo na korisnike čija se domena podudara s domenom upisa uređaja. Za sve ostale korisnike kolačići koje postavi IdP prenose se na profil korisnika samo prilikom prve prijave na uređaj.</translation>
 <translation id="1040446814317236570">Omogući uklanjanje dijelova URL-a za PAC (za https://)</translation>
-<translation id="1041454584879384845">Konfigurira ponašanje korisničkih avatara koji predstavljaju korisnike na zaslonu za prijavu.
-
-      Pojedinačne se postavke mogu odrediti u JSON entitetima:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: ako se postavi na <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, korisnici će moći upotrebljavati videozapise za slike avatara.
-
-      Ako se pravilo ne postavi, dopušteni su videozapisi za slike avatara.</translation>
 <translation id="1044878202534415707">Izvješćivanje o statističkim podacima o hardveru, primjerice, o upotrebi procesora/RAM-a.
 
       Ako se pravilo postavi na "neistinito", neće se izvješćivati o statističkim podacima.
@@ -1504,7 +1497,6 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
 <translation id="6310223829319187614">Omogući samodovršavanje naziva domene tijekom prijave korisnika</translation>
 <translation id="6315673513957120120">Chrome prikazuje stranicu upozorenja kada korisnici dođu do web-lokacija koje sadrže pogreške SSL-a. Prema zadanim postavkama ili kada se to pravilo postavi na "True", korisnicima je dopušteno klikanjem proći stranice upozorenja.
       Ako se pravilo postavi na "False", korisnici neće moći klikanjem proći stranice upozorenja.</translation>
-<translation id="6320758134170712450">Konfiguriraj ponašanje korisničkog avatara</translation>
 <translation id="6353901068939575220">Određuje parametre koji se upotrebljavaju prilikom pretraživanja URL-ova pomoću POST metode. Sastoji se od zarezom odvojenih parova naziv/vrijednost. Ako je vrijednost parametar predloška, primjerice {searchTerms} u gornjem primjeru, zamijenit će se podacima stvarnih pojmova za pretraživanje.
 
           To je pravilo izborno. Ako nije postavljeno, poslat će se zahtjev za pretraživanje pomoću GET metode.

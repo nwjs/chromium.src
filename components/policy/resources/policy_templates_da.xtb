@@ -16,13 +16,6 @@
 
       Denne politik berører kun brugere, hvis domæne svarer til enhedens registreringsdomæne. For alle andre brugere overføres cookies, der er angivet af IdP'en, kun til brugerens profil, første gang vedkommende logger ind på enheden.</translation>
 <translation id="1040446814317236570">Aktivér PAC til fjernelse af webadresser (for https://)</translation>
-<translation id="1041454584879384845">Konfigurerer adfærden for brugeravatarer, der repræsenterer brugerne på loginskærmen.
-
-      Individuelle indstillinger kan specificeres i JSON-egenskaberne:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Hvis politikken er angivet som <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, kan brugerne bruge videoer til avatarbilleder.
-
-      Hvis denne politik ikke er angivet, tillades brugen af videoer til avatarbilleder.</translation>
 <translation id="1044878202534415707">Rapportér hardwarestatistik, f.eks. CPU/RAM-forbrug.
 
       Hvis politikken angives som Falsk, rapporteres statistikken ikke.
@@ -809,11 +802,11 @@ Hvis denne indstilling ikke er angivet, vil <ph name="PRODUCT_NAME" /> tillade b
 
           Hvis denne politik ikke er angivet, vil skærmtastaturet være slået fra som udgangspunkt, men brugeren kan til enhver tid aktivere det.</translation>
 <translation id="382476126209906314">Konfigurer TalkGadget-præfikset for værter med fjernadgang</translation>
-<translation id="383466854578875212">Giver dig mulighed for at angive, hvilke indbyggede beskedhosts der ikke skal være omfattet af spærrelisten.
+<translation id="383466854578875212">Giver dig mulighed for at angive, hvilke indbyggede beskedhosts der ikke skal være omfattet af sortlisten.
 
-          En spærrelisteværdi på * betyder, at alle indbyggede beskedhosts er på spærrelisten, og at kun indbyggede beskedhosts på hvidlisten vil blive indlæst.
+          En sortlisteværdi på * betyder, at alle indbyggede beskedhosts er på sortlisten, og at kun indbyggede beskedhosts på hvidlisten vil blive indlæst.
 
-          Som standard sættes alle indbyggede beskedhosts på hvidlisten, men hvis alle indbyggede beskedhosts er blevet sat på spærrelisten via en politik, kan hvidlisten bruges til at tilsidesætte denne politik.</translation>
+          Som standard sættes alle indbyggede beskedhosts på hvidlisten, men hvis alle indbyggede beskedhosts er blevet sat på sortlisten via en politik, kan hvidlisten bruges til at tilsidesætte denne politik.</translation>
 <translation id="384743459174066962">Giver dig mulighed for at oprette en liste over webadressemønstre, der angiver websites, som ikke må åbne pop op-vinduer. Hvis denne politik ikke angives, anvendes den globale standardværdi på alle websites, enten fra politikken "DefaultPopupsSetting", hvis den er angivet, eller brugerens personlige konfiguration.</translation>
 <translation id="3851039766298741586">Rapportér oplysninger om aktive terminalsessioner, f.eks.
       app-id og -version.
@@ -1026,7 +1019,7 @@ Mens selve politikken understøttes på ovenstående platforme, kan den funktion
 <translation id="4555850956567117258">Aktivér fjernattestering for brugeren</translation>
 <translation id="4557134566541205630">Webadresse for siden Ny fane i standardsøgemaskinen</translation>
 <translation id="4600786265870346112">Aktivér Stor markør</translation>
-<translation id="4604931264910482931">Konfigurer spærrelisten for indbyggede beskedhosts</translation>
+<translation id="4604931264910482931">Konfigurer sortlisten for indbyggede beskedhosts</translation>
 <translation id="4617338332148204752">Spring kontrol af metatag over i <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="4625915093043961294">Konfigurer hvidliste for installation af udvidelser</translation>
 <translation id="4632343302005518762">Tillad, at <ph name="PRODUCT_FRAME_NAME" /> håndterer de angivne indholdstyper</translation>
@@ -1035,7 +1028,7 @@ Mens selve politikken understøttes på ovenstående platforme, kan den funktion
           Hvis denne politik er angivet til Sand, vil den øverste række med taster på tastaturet som standard være funktionstaster. For igen at gøre tasterne til medietaster skal man trykke på søgetasten.
 
           Hvis denne politik er angivet til Falsk, eller hvis den ikke er indstillet, vil tastaturet skulle bruges som medietaster som standard og funktionstaster, når søgefeltet anvendes.</translation>
-<translation id="4639407427807680016">Navne på de indbyggede beskedhosts, som fritages fra spærrelisten</translation>
+<translation id="4639407427807680016">Navne på de indbyggede beskedhosts, som fritages fra sortlisten</translation>
 <translation id="4650759511838826572">Deaktiver protokolskemaer for webadresser</translation>
 <translation id="465099050592230505">Webadresse for virksomhedens webshop (udfaset)</translation>
 <translation id="4665897631924472251">Indstillinger for administration af udvidelser</translation>
@@ -1161,7 +1154,7 @@ Hvis denne politik slås fra eller indstilles til False (falsk), er udviklertils
 <translation id="5255162913209987122">Kan anbefales</translation>
 <translation id="527237119693897329">Giver dig mulighed for at angive, hvilke indbyggede beskedhosts der ikke skal indlæses.
 
-          En spærrelisteværdi på "*" betyder, at alle indbyggede beskedhosts er på spærrelisten, medmindre de udtrykkeligt opføres på hvidlisten.
+          En sortlisteværdi på "*" betyder, at alle indbyggede beskedhosts er på sortlisten, medmindre de udtrykkeligt opføres på hvidlisten.
 
           Hvis ikke denne politik angives, vil <ph name="PRODUCT_NAME" /> indlæse alle installerede indbyggede beskedhosts.</translation>
 <translation id="5272684451155669299">Hvis denne er angivet som sand, kan brugeren benytte hardwaren på Chrome-enheder til at fjernbekræfte sin identitet over for privatlivs-CA'en via <ph name="ENTERPRISE_PLATFORM_KEYS_API" /> med <ph name="CHALLENGE_USER_KEY_FUNCTION" />.
@@ -1487,7 +1480,6 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
 <translation id="6310223829319187614">Aktivér autofuldførelse af domænenavn under brugers login</translation>
 <translation id="6315673513957120120">Chrome viser en advarselsside, når brugerne går til websites med SSL-fejl. Som standard, eller når denne politik er angivet til sand, kan brugerne klikke sig videre fra disse advarselssider.
       Hvis denne politik angives til falsk, kan brugerne ikke klikke sig videre fra nogen advarselssider.</translation>
-<translation id="6320758134170712450">Konfigurer brugeravatars adfærd</translation>
 <translation id="6353901068939575220">Specificerer de anvendte parametre ved søgning efter en webadresse med POST. De består af kommaseparerede navne/værdipar. Hvis en værdi er en skabelonparameter såsom {searchTerms} i ovenstående eksempel, erstattes de med rigtige søgetermdata.
 
           Denne politik er valgfri. Hvis den ikke angives, sendes der søgeanmodninger ved hjælp af GET-metoden.

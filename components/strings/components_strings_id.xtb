@@ -86,7 +86,7 @@
 <translation id="1640180200866533862">Kebijakan pengguna</translation>
 <translation id="1640244768702815859">Coba <ph name="BEGIN_LINK" />buka beranda situs<ph name="END_LINK" />.</translation>
 <translation id="1644184664548287040">Konfigurasi cadangan tidak valid dan tidak dapat diimpor.</translation>
-<translation id="1644574205037202324">Riwayat</translation>
+<translation id="1644574205037202324">Histori</translation>
 <translation id="1645368109819982629">Protokol yang tidak didukung</translation>
 <translation id="1655462015569774233">{1,plural, =1{Server ini tidak dapat membuktikan bahwa ini adalah <ph name="DOMAIN" />; masa berlaku sertifikat keamanannya telah berakhir kemarin. Hal ini mungkin disebabkan oleh kesalahan konfigurasi, atau ada penyerang yang memintas sambungan internet Anda. Jam komputer Anda saat ini diatur ke <ph name="CURRENT_DATE" />. Apakah terlihat sesuai? Jika tidak, Anda harus membenarkan jam sistem dan menyegarkan halaman ini.}other{Server ini tidak dapat membuktikan bahwa ini adalah <ph name="DOMAIN" />; masa berlaku sertifikat keamanannya telah berakhir # hari yang lalu. Hal ini mungkin disebabkan oleh kesalahan konfigurasi, atau ada penyerang yang memintas sambungan internet Anda. Jam komputer Anda saat ini diatur ke <ph name="CURRENT_DATE" />. Apakah terlihat sesuai? Jika tidak, Anda harus membenarkan jam sistem dan menyegarkan halaman ini.}}</translation>
 <translation id="1656489000284462475">Pengambilan</translation>
@@ -222,7 +222,7 @@
 <translation id="2653659639078652383">Kirim</translation>
 <translation id="2666117266261740852">Tutup tab atau aplikasi lain</translation>
 <translation id="2670429602441959756">Halaman ini berisi fitur yang belum didukung dalam VR. Keluar...</translation>
-<translation id="2674170444375937751">Yakin ingin menghapus halaman ini dari riwayat?</translation>
+<translation id="2674170444375937751">Yakin ingin menghapus halaman ini dari histori?</translation>
 <translation id="2677748264148917807">Keluar</translation>
 <translation id="2699302886720511147">Kartu yang Diterima</translation>
 <translation id="2702801445560668637">Daftar Bacaan</translation>
@@ -292,7 +292,7 @@
 <translation id="3154506275960390542">Halaman ini berisi formulir yang mungkin tidak dikirim dengan aman. Data yang Anda kirim dapat dilihat oleh orang lain saat transit atau dapat diubah oleh penyerang untuk mengubah data yang akan diterima server.</translation>
 <translation id="3157931365184549694">Pulihkan</translation>
 <translation id="3162559335345991374">Wi-Fi yang digunakan mungkin mewajibkan Anda mengunjungi halaman masuknya.</translation>
-<translation id="3167968892399408617">Halaman yang Anda lihat di tab penyamaran tidak akan disimpan dalam riwayat browser, penyimpanan cookie, atau riwayat penelusuran setelah Anda menutup semua tab penyamaran. File apa pun yang didownload atau bookmark yang dibuat akan tetap tersimpan.</translation>
+<translation id="3167968892399408617">Halaman yang Anda lihat di tab penyamaran tidak akan disimpan dalam histori browser, penyimpanan cookie, atau histori penelusuran setelah Anda menutup semua tab penyamaran. File apa pun yang didownload atau bookmark yang dibuat akan tetap tersimpan.</translation>
 <translation id="3169472444629675720">Discover</translation>
 <translation id="3174168572213147020">Pulau</translation>
 <translation id="3176929007561373547">Periksa setelan proxy atau hubungi administrator jaringan untuk
@@ -325,7 +325,7 @@
 <translation id="3355823806454867987">Ubah setelan proxy...</translation>
 <translation id="3361596688432910856">Chrome <ph name="BEGIN_EMPHASIS" />tidak akan menyimpan<ph name="END_EMPHASIS" /> informasi berikut:
         <ph name="BEGIN_LIST" />
-          <ph name="LIST_ITEM" />Riwayat penjelajahan Anda
+          <ph name="LIST_ITEM" />Histori penjelajahan Anda
           <ph name="LIST_ITEM" />Cookie dan data situs
           <ph name="LIST_ITEM" />Informasi yang dimasukkan dalam formulir
         <ph name="END_LIST" /></translation>
@@ -370,7 +370,7 @@
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
 <translation id="3615877443314183785">Masukkan tanggal masa berlaku yang valid</translation>
 <translation id="36224234498066874">Hapus Data Browsing...</translation>
-<translation id="362276910939193118">Tampilkan Riwayat Lengkap</translation>
+<translation id="362276910939193118">Tampilkan Histori Lengkap</translation>
 <translation id="3623476034248543066">Tampilkan nilai</translation>
 <translation id="3630155396527302611">Jika sudah tercantum sebagai program yang diizinkan untuk mengakses jaringan,
       coba hapus dari daftar dan tambahkan lagi.</translation>
@@ -517,7 +517,7 @@
 <translation id="4850886885716139402">Lihat</translation>
 <translation id="4854362297993841467">Metode pengiriman tidak tersedia. Coba metode lain.</translation>
 <translation id="4858792381671956233">Kamu telah meminta izin kepada orang tua untuk mengunjungi situs ini</translation>
-<translation id="4880827082731008257">Telusuri riwayat</translation>
+<translation id="4880827082731008257">Telusuri histori</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /></translation>
 <translation id="4913131542719409934">Perlu autentikasi</translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{dan 1 halaman web lainnya}other{dan # halaman web lainnya}}</translation>
@@ -656,7 +656,7 @@
 <translation id="5939518447894949180">Setel ulang</translation>
 <translation id="5959728338436674663">Kirim beberapa <ph name="BEGIN_WHITEPAPER_LINK" />informasi sistem dan konten halaman<ph name="END_WHITEPAPER_LINK" /> secara otomatis ke Google untuk membantu mendeteksi aplikasi dan situs berbahaya. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="5967592137238574583">Edit Info Kontak</translation>
-<translation id="5967867314010545767">Hapus dari riwayat</translation>
+<translation id="5967867314010545767">Hapus dari histori</translation>
 <translation id="5975083100439434680">Perkecil</translation>
 <translation id="597552863672748783">Konfirmasi kode keamanan</translation>
 <translation id="598637245381783098">Tidak dapat membuka aplikasi pembayaran</translation>
@@ -770,7 +770,7 @@
 <translation id="6973656660372572881">Server proxy tetap dan URL skrip .pac telah ditentukan.</translation>
 <translation id="6989763994942163495">Tampilkan setelan lanjutan...</translation>
 <translation id="7012363358306927923">China UnionPay</translation>
-<translation id="7012372675181957985">Akun Google Anda mungkin memiliki bentuk riwayat penjelajahan lainnya di <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /></translation>
+<translation id="7012372675181957985">Akun Google Anda mungkin memiliki bentuk histori penjelajahan lainnya di <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /></translation>
 <translation id="7029809446516969842">Sandi</translation>
 <translation id="7050187094878475250">Anda berusaha menjangkau <ph name="DOMAIN" />, namun server memberikan sertifikat yang masa berlakunya terlalu lama untuk dapat dipercaya.</translation>
 <translation id="7053983685419859001">Blokir</translation>

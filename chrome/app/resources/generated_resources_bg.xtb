@@ -3529,6 +3529,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6473842110411557830">Илюстрация на Powerwash</translation>
 <translation id="6474706907372204693">Предишният метод на въвеждане</translation>
 <translation id="6474884162850599008">Прекратяване на връзката с профила в Google Диск</translation>
+<translation id="6475079491906995455"><ph name="SERVICE_NAME" /> иска да провери дали използвате отговарящо на условията устройство с Chrome OS. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> иска да сподели съдържанието на екрана ви. Изберете какво да се сподели.</translation>
 <translation id="6478248366783946499">Да се запази ли опасният файл?</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> се отваря...</translation>

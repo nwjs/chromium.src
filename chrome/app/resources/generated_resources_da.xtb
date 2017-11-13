@@ -3532,6 +3532,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6473842110411557830">Powerwash-illustration</translation>
 <translation id="6474706907372204693">Forrige indtastningsmetode</translation>
 <translation id="6474884162850599008">Fjern tilknytningen af din Google Drev-konto</translation>
+<translation id="6475079491906995455"><ph name="SERVICE_NAME" /> vil gerne tjekke, om du bruger en kvalificeret Chrome OS-enhed. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> vil gerne dele indholdet af din skærm. Vælg det, du gerne vil dele.</translation>
 <translation id="6478248366783946499">Vil du beholde den farlige fil?</translation>
 <translation id="6483805311199035658">Åbner <ph name="FILE" />...</translation>
@@ -5097,7 +5098,7 @@ Beregner resterende tid</translation>
 <translation id="9003647077635673607">Tillad på alle websites</translation>
 <translation id="9003677638446136377">Kontrollér igen</translation>
 <translation id="9003704114456258138">Frekvens</translation>
-<translation id="9004952710076978168">Modtog en meddelelse om en ukendt printer.</translation>
+<translation id="9004952710076978168">Modtog en underretning om en ukendt printer.</translation>
 <translation id="9008201768610948239">Ignorer</translation>
 <translation id="9009299913548444929">Denne funktion er midlertidigt utilgængelig. <ph name="BEGIN_LINK" />Hjælp<ph name="END_LINK" /></translation>
 <translation id="9009369504041480176">Uploader (<ph name="PROGRESS_PERCENT" /> %)...</translation>

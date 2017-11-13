@@ -16,13 +16,6 @@
 
       Ši politika paveikia tik tuos naudotojus, kurių domenas sutampa su įrenginio registracijos domenu. Kitų naudotojų atvejais IdP nustatyti slapukai perkeliami į naudotojo profilį, tik kai naudotojas pirmą kartą prisijungia įrenginyje.</translation>
 <translation id="1040446814317236570">PAC URL perdavimo įgalinimas (skirta https://)</translation>
-<translation id="1041454584879384845">Konfigūruojama naudotojų pseudoportretų, kurie pristato naudotojus prisijungimo ekrane, elgsena.
-
-      Atskirus nustatymus galima nurodyti JSON ypatybėse.
-
-      „<ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />“: jei nustatyta į „<ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />“, naudotojai galės naudoti vaizdo įrašus kaip pseudoportretų vaizdus.
-
-      Jei ši politika nenustatyta, naudoti vaizdo įrašų kaip pseudoportretų vaizdų neleidžiama.</translation>
 <translation id="1044878202534415707">Teikiamos aparatinės įrangos statistikos, pvz., centrinio procesoriaus / laisvosios prieigos atminties naudojimo, ataskaitos.
 
       Jei ši politika nustatyta į „false“, nebus teikiamos statistikos ataskaitos.
@@ -1591,7 +1584,6 @@
 <translation id="6310223829319187614">Domeno pavadinimo automatinio užbaigimo prisijungiant naudotojui įgalinimas</translation>
 <translation id="6315673513957120120">„Chrome“ rodo įspėjimo puslapį, kai naudotojai naršo svetaines su SSL klaidomis. Pagal numatytuosius nustatymus arba kai ši politika nustatyta į „true“, naudotojams leidžiama spustelėjus pašalinti šiuos įspėjimo puslapius.
       Kai ši politika nustatyta į „false“, naudotojams neleidžiama spustelėjus pašalinti šių įspėjimo puslapių.</translation>
-<translation id="6320758134170712450">Naudotojų pseudoportretų elgsenos konfigūravimas</translation>
 <translation id="6353901068939575220">Nurodomi parametrai, naudojami ieškant URL naudojant POST. Jie sudaryti iš kableliais atskirtų pavadinimų / verčių porų. Jei vertė yra šablono parametras, pvz., {searchTerms} anksčiau pateiktame pavyzdyje, ji pakeičiama realiais paieškos terminų duomenimis.
 
           Ši politika pasirenkama. Jei nenustatyta, paieškos užklausa siunčiama naudojant GET metodą.

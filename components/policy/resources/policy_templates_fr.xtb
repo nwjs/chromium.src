@@ -16,13 +16,6 @@
 
       Cette règle ne concerne que les utilisateurs dont le domaine correspond au domaine d'inscription de l'appareil. Pour tous les autres utilisateurs, les cookies définis par le fournisseur d'identification ne sont transférés au profil de l'utilisateur lors de sa première connexion que sur l'appareil.</translation>
 <translation id="1040446814317236570">Activer la suppression des URL via PAC (pour "https://")</translation>
-<translation id="1041454584879384845">Configure le comportement des avatars qui représentent les utilisateurs sur l'écran de connexion.
-
-      Les paramètres individuels peuvent être spécifiés dans les propriétés JSON :
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" /> : si la règle est définie sur "<ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />", les utilisateurs sont autorisés à utiliser des vidéos comme image d'avatar.
-
-      Si cette règle n'est pas définie, l'utilisation de vidéos comme image d'avatar est autorisée.</translation>
 <translation id="1044878202534415707">Envoyer des rapports sur les statistiques matérielles tels que l'utilisation du processeur et de la RAM.
 
       Si cette règle est définie sur "False", les statistiques ne seront pas envoyées.
@@ -1603,7 +1596,6 @@ Si vous désactivez ce paramètre ou si vous ne le configurez pas, le SPN Kerber
 <translation id="6310223829319187614">Activer la saisie automatique du nom de domaine lors de la connexion de l'utilisateur</translation>
 <translation id="6315673513957120120">Chrome affiche une page d'avertissement lorsque les utilisateurs naviguent vers des sites présentant des erreurs SSL. Par défaut, ou quand cette règle est définie sur "True", les utilisateurs sont autorisés à poursuivre leur navigation vers la page concernée.
       Définir cette règle sur "False" empêche les utilisateurs de poursuivre leur navigation au-delà de la page d'avertissement.</translation>
-<translation id="6320758134170712450">Configurer le comportement de l'avatar de l'utilisateur</translation>
 <translation id="6353901068939575220">Spécifie les paramètres utilisés pour la recherche d'URL avec POST. Il s'agit de paires de noms et de valeurs séparées par une virgule. Si une valeur est équivalente à un paramètre modèle, comme "{searchTerms}" dans l'exemple ci-dessus, elle est remplacée par des termes de recherche réels.
 
           Cette règle est facultative. Si elle n'est pas définie, la requête de recherche sera envoyée à l'aide la méthode GET.

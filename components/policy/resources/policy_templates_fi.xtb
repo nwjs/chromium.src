@@ -16,13 +16,6 @@
 
       Tämä käytäntö vaikuttaa vain käyttäjiin, joiden verkkotunnus vastaa verkkotunnusta, johon laite on rekisteröity. Muiden käyttäjien osalta tunnistuspalvelun asettamat evästeet siirretään käyttäjän profiiliin vain käyttäjän kirjautuessa laitteelle ensimmäisen kerran.</translation>
 <translation id="1040446814317236570">Ota PAC-URL-osoitteiden karsinta käyttöön (https://)</translation>
-<translation id="1041454584879384845">Tämä määrittää käyttäjiä kirjautumisnäytöllä esittävien avatarien toiminnan.
-
-      Voit määrittää yksittäisiä asetuksia JSON-asetusten kautta:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Jos tämän käytännön arvo on <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, käyttäjä voi asettaa videon avatarikseen.
-
-      Jos tätä käytäntöä ei määritetä, videoita ei voi käyttää avatareina.</translation>
 <translation id="1044878202534415707">Raportoi laitteistotietoja, kuten suorittimen ja RAM-muistin käyttötietoja.
 
       Jos käytännön arvo on Epätosi, tietoja ei raportoida.
@@ -1501,7 +1494,6 @@ Jos tämä asetus ei ole käytössä tai jos sen arvo on false, tulostuskomento 
 <translation id="6310223829319187614">Verkkotunnuksen automaattinen täydennys kirjautumisen yhteydessä</translation>
 <translation id="6315673513957120120">Chrome näyttää varoitussivun, jos käyttäjä avaa SSL-virheitä sisältävän sivuston. Jos käytännön arvo on Tosi, käyttäjä voi ohittaa varoitussivun. Tämä on myös oletusarvo.
       Käytännön arvo Epätosi estää varoitussivujen ohittamisen.</translation>
-<translation id="6320758134170712450">Määritä käyttäjien avatarien toiminta</translation>
 <translation id="6353901068939575220">Määrittää parametrit, joita käytetään tehtäessä URL-osoitteiden hakuja POST-metodin avulla. Se koostuu pilkuilla erotetuista nimi/arvo-pareista. Jos arvo on malliparametri kuten yllä olevan esimerkin {searchTerms}, se korvataan oikeilla hakusanatiedoilla.
 
           Tämä käytäntö on valinnainen. Jos sitä ei ole määritetty, hakupyyntö lähetetään GET-metodin avulla.

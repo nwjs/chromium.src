@@ -16,13 +16,6 @@
 
       Ta pravilnik vpliva na uporabnike, katerih domena se ujema samo z domeno za včlanitev naprave. Pri vseh drugih uporabnikih se piškotki, ki jih nastavi IdP, prenesejo v uporabnikov profil samo pri prvi prijavi uporabnika v napravi.</translation>
 <translation id="1040446814317236570">Omogočanje odstranjevanja elementov iz URL-jev za skripte PAC (za https://)</translation>
-<translation id="1041454584879384845">Konfigurira delovanje avatarjev uporabnikov, ki predstavljajo uporabnike na zaslonu za prijavo.
-
-      Posamezne nastavitve je mogoče določiti v lastnostih v datoteki JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Če je pravilnik nastavljen na <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, bo uporabnikom dovoljeno uporabljati videoposnetke za slike avatarjev.
-
-      Če ta pravilnik ni nastavljen, so videoposnetki za slike avatarjev dovoljeni.</translation>
 <translation id="1044878202534415707">Poročanje statističnih podatkov o strojni opremi, kot je poraba CPE-ja/RAM-a.
 
       Če je pravilnik onemogočen, se statistični podatki ne poročajo.
@@ -1591,7 +1584,6 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 <translation id="6310223829319187614">Omogočanje samodokončanja imena domene med prijavo uporabnika</translation>
 <translation id="6315673513957120120">Chrome prikaže opozorilno stran, ko uporabniki prikrmarijo na spletna mesta, na katerih so napake SSL. Uporabnikom je privzeto (ali če je ta pravilnik omogočen) dovoljeno, da s klikom opustijo te strani z opozorilom.
       Če onemogočite ta pravilnik, uporabnikom ni dovoljeno s klikom opustiti katere koli strani z opozorilom.</translation>
-<translation id="6320758134170712450">Konfiguriranje delovanja avatarjev uporabnikov</translation>
 <translation id="6353901068939575220">Določa parametre, uporabljene pri iskanju URL-ja z metodo POST. Sestavljena je iz parov ime/vrednost, ločenih z vejico. Če je vrednost parameter predloge, kot je v zgornjih primerih {searchTerms}, bo zamenjana s pravimi podatki iskalnih izrazov.
 
           Ta pravilnik je izbiren. Če ni nastavljen, bo zahteva za iskanje poslana z metodo GET.

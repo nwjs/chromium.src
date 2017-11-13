@@ -16,13 +16,6 @@
 
       Tato zásada má vliv pouze na uživatele, jejichž doména odpovídá doméně, ve které je zařízení zaregistrováno. V případě ostatních uživatelů se soubory cookie vytvořené poskytovatelem identity do profilu uživatele přenesou pouze při prvním přihlášení do zařízení.</translation>
 <translation id="1040446814317236570">Před odesláním skriptu PAC z adres se schématem https:// odstraňovat citlivá data</translation>
-<translation id="1041454584879384845">Konfiguruje chování avatarů uživatelů, které představují uživatele na přihlašovací obrazovce.
-
-      Jednotlivá nastavení lze zadat ve vlastnostech objektu JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Pokud je tato vlastnost nastavena na hodnotu <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, uživatelé budou moci jako obrázky avatarů používat videa.
-
-      Pokud tato zásada není nastavena, videa pro obrázek avatara jsou povoleny.</translation>
 <translation id="1044878202534415707">Nahlášení statistik hardwaru, například využití CPU/RAM.
 
 Pokud je tato zásada nastavena na hodnotu false, statistiky nebudou hlášeny.
@@ -1560,7 +1553,6 @@ Není-li zásada nastavena, může se uživatelům zobrazit výzva, zda chtějí
 <translation id="6310223829319187614">Aktivovat automatické doplňování názvu domény při přihlášení uživatele</translation>
 <translation id="6315673513957120120">Pokud uživatel přejde na web, který obsahuje chyby protokolu SSL, Chrome zobrazí stránku s upozorněním. Když je tato zásada nastavena na hodnotu True, mohou uživatelé stránky s upozorněním přeskočit a pokračovat. Platí to také ve výchozím nastavení.
 Nastavením této zásady na hodnotu False přeskočení stránky s upozorněním zakážete.</translation>
-<translation id="6320758134170712450">Konfigurace chování avatarů uživatelů</translation>
 <translation id="6353901068939575220">Udává parametry, které budou použity při vyhledávání adresy URL pomocí metody POST. Sestává z párů název–hodnota oddělených čárkou. Pokud je hodnotou parametr šablony (např. {searchTerms} v příkladu výše), bude nahrazen skutečnými údaji vyhledávacích dotazů.
 
           Tato zásada je nepovinná. Pokud není nastavena, požadavek na vyhledávání bude odeslán pomocí metody GET.

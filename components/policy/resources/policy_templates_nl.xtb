@@ -16,13 +16,6 @@
 
       Dit beleid is alleen van invloed op gebruikers waarvan het domein overeenkomt met het inschrijvingsdomein van het apparaat. Voor alle overige gebruikers worden cookies die zijn ingesteld door de IdP, alleen de eerste keer dat de gebruiker inlogt op een apparaat, overgedragen naar het profiel van de gebruiker.</translation>
 <translation id="1040446814317236570">Verwijderen van gegevens uit PAC-URL's toestaan (voor https://)</translation>
-<translation id="1041454584879384845">Hiermee wordt het gedrag ingesteld van avatars waarmee gebruikers worden vertegenwoordigd op het inlogscherm.
-
-      Afzonderlijke instellingen kunnen worden gespecificeerd in JSON-eigenschappen:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Als dit is ingesteld op <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, mogen gebruikers video's gebruiken voor avatarafbeeldingen.
-
-      Als dit beleid niet is ingesteld, zijn video's voor avatarafbeeldingen toegestaan.</translation>
 <translation id="1044878202534415707">Hardwarestatistieken melden, zoals CPU-/RAM-gebruik.
 
       Als het beleid is ingesteld op 'onwaar', worden de statistieken niet gemeld.
@@ -1585,7 +1578,6 @@
 <translation id="6310223829319187614">Automatisch aanvullen van domeinnaam bij inloggen van gebruiker inschakelen</translation>
 <translation id="6315673513957120120">Chrome toont een waarschuwingspagina wanneer gebruikers naar sites met SSL-fouten navigeren. Gebruikers kunnen standaard, of wanneer dit beleid is ingesteld op 'waar', door deze waarschuwingspagina's klikken.
       Als dit beleid wordt ingesteld op 'onwaar', kunnen gebruikers niet door waarschuwingspagina's klikken.</translation>
-<translation id="6320758134170712450">Gedrag van avatars van gebruikers instellen</translation>
 <translation id="6353901068939575220">Specificeert de parameters die worden gebruikt wanneer een URL wordt gezocht met POST. Het bestaat uit door komma's gescheiden naam/waarde-paren. Als een waarde een templateparameter, zoals {searchTerms} in het bovenstaande voorbeeld, is, wordt de waarde vervangen door echte zoektermgegevens.
 
           Dit beleid is optioneel. Als het beleid niet is ingesteld, wordt de zoekopdracht verzonden met de GET-methode.

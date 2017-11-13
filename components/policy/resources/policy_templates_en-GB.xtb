@@ -16,13 +16,6 @@
 
       This policy affects users whose domain matches the device's enrolment domain only. For all other users, cookies set by the IdP are transferred to the user's profile during their first login on the device only.</translation>
 <translation id="1040446814317236570">Enable PAC URL stripping (for https://)</translation>
-<translation id="1041454584879384845">Configures behaviour of user avatars that represent the users on the login screen.
-
-      Individual settings can be specified in JSON properties:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: If set to <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, users will be allowed to use videos for avatar images.
-
-      If this policy is not set, videos for avatar image is allowed.</translation>
 <translation id="1044878202534415707">Report hardware statistics such as CPU/RAM usage.
 
       If the policy is set to false, the statistics will not be reported.
@@ -1589,7 +1582,6 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 <translation id="6310223829319187614">Enable domain name autocomplete during user sign in</translation>
 <translation id="6315673513957120120">Chrome shows a warning page when users navigate to sites that have SSL errors. By default or when this policy is set to true, users are allowed to click through these warning pages.
       Setting this policy to false disallows users to click through any warning page.</translation>
-<translation id="6320758134170712450">Configure user avatar behaviour</translation>
 <translation id="6353901068939575220">Specifies the parameters used when searching a URL with POST. It consists of comma-separated name/value pairs. If a value is a template parameter, like {searchTerms} in above example, it will be replaced with real search terms data.
 
           This policy is optional. If not set, search request will be sent using the GET method.

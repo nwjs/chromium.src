@@ -2921,7 +2921,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="551752069230578406">מוסיף את המדפסת לחשבון שלך - התהליך עשוי להימשך מספר רגעים...</translation>
 <translation id="5518584115117143805">אישור הצפנת אימייל</translation>
 <translation id="5521078259930077036">האם זהו דף הבית שציפית לראות?</translation>
-<translation id="5521348028713515143">הוסף קיצור דרך בשולחן העבודה</translation>
+<translation id="5521348028713515143">הוספת קיצור דרך בשולחן העבודה</translation>
 <translation id="5522156646677899028">התוסף הזה מכיל נקודת תורפה חמורה באבטחה.</translation>
 <translation id="5524517123096967210">הקובץ לא ניתן לקריאה.</translation>
 <translation id="5525677322972469346">צור משתמש חדש בפיקוח</translation>
@@ -3528,6 +3528,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6473842110411557830">‏איור Powerwash</translation>
 <translation id="6474706907372204693">שיטת קלט קודמת</translation>
 <translation id="6474884162850599008">‏נתק חשבון Google Drive</translation>
+<translation id="6475079491906995455">‏<ph name="SERVICE_NAME" /> מבקש לבדוק אם מכשיר ה-Chrome OS שלך כשיר למימוש המבצע‏. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> רוצה לשתף את תוכן המסך שלך. בחר את התוכן שברצונך לשתף.</translation>
 <translation id="6478248366783946499">להשאיר את הקובץ המסוכן?</translation>
 <translation id="6483805311199035658">פותח את <ph name="FILE" />...</translation>

@@ -16,13 +16,6 @@
 
       . Questa norma è valida soltanto per gli utenti il cui dominio corrisponde al dominio di registrazione del dispositivo. Per tutti gli altri utenti, i cookie impostati dall'IdP vengono trasferiti al profilo dell'utente soltanto durante il primo accesso sul dispositivo.</translation>
 <translation id="1040446814317236570">Attiva la rimozione per gli URL PAC (https://)</translation>
-<translation id="1041454584879384845">Configura il comportamento degli avatar utente che rappresentano gli utenti sulla schermata di accesso.
-
-      Le impostazioni individuali possono essere specificate nelle proprietà JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Se impostato su <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, gli utenti possono utilizzare i video come immagini avatar.
-
-      Se la norma non viene impostata, sono consentiti i video come immagini avatar.</translation>
 <translation id="1044878202534415707">Consente di segnalare statistiche relative all'hardware, ad esempio l'utilizzo di CPU/RAM.
 
       Se la norma viene impostata su false, le statistiche non vengono segnalate.
@@ -1468,7 +1461,6 @@ Il valore della norma deve essere specificato in millisecondi. I valori devono e
 <translation id="6310223829319187614">Consente il completamento automatico del nome di dominio durante l'accesso dell'utente</translation>
 <translation id="6315673513957120120">Chrome mostra una pagina di avviso quando gli utenti visitano siti che presentano errori SSL. Per impostazione predefinita, o se la norma viene impostata su true, gli utenti possono fare clic nelle pagine di avviso.
       Se questa norma viene impostata su false, gli utenti non possono fare clic nelle pagine di avviso.</translation>
-<translation id="6320758134170712450">Configura il comportamento dell'avatar utente</translation>
 <translation id="6353901068939575220">Consente di specificare i parametri utilizzati durante la ricerca di un URL con POST. Si tratta di coppie di nome/valore separate da virgole. Se un valore è il parametro di un modello, come {searchTerms} nell'esempio precedente, verrà sostituito con i dati dei termini di ricerca reali.
 
 Questa norma è facoltativa. Se non viene impostata, la richiesta di ricerca verrà inviata utilizzando il metodo GET.

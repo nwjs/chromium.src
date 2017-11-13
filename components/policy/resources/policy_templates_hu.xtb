@@ -16,13 +16,6 @@
 
       Ez a házirend csak azokat a felhasználókat érinti, akiknek a domainje egyezik az eszköz regisztrációs domainjével. Minden más felhasználó esetében az IdP által beállított cookie-k csak az eszközön történő első bejelentkezéskor kerülnek át az adott felhasználó profiljába.</translation>
 <translation id="1040446814317236570">PAC URL-levágás engedélyezése (https:// esetén)</translation>
-<translation id="1041454584879384845">A felhasználókat a bejelentkezési képernyőn jelképező felhasználói avatarok viselkedését konfigurálja.
-
-      Egyedi beállítások JSON-tulajdonságokban adhatók meg:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Ha az értéke <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, akkor felhasználók használhatnak videókat az avatarképük helyén.
-
-      Ha nincs beállítva ez a házirend, az avatarkép lehet videó.</translation>
 <translation id="1044878202534415707">Hardverstatisztikák, például a processzor- vagy memóriahasználat jelentése.
 
       Ha a házirend értéke hamis, a böngésző nem jelenti a statisztikákat.
@@ -1497,7 +1490,6 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 <translation id="6310223829319187614">A domainnév felhasználói bejelentkezés közbeni automatikus kiegészítésének engedélyezése</translation>
 <translation id="6315673513957120120">A Chrome figyelmeztető oldalt jelenít meg, amikor a felhasználó SSL-hibával rendelkező webhelyre navigál. Alapértelmezés szerint, illetve a házirend igaz értékre állításakor a felhasználók továbbléphetnek az ilyen figyelmeztető oldalakról.
       Ha a házirend értéke hamis, akkor a felhasználók nem juthatnak tovább a figyelmeztető oldalon.</translation>
-<translation id="6320758134170712450">A felhasználói avatar viselkedésének konfigurálása</translation>
 <translation id="6353901068939575220">Megadja az URL-ek POST metódussal történő keresésekor használt paramétereket. Vesszővel elválasztott név–érték párokat tartalmaz. Ha az egyik érték egy sablonparaméter, ami a fenti példában a {searchTerms}, valódi keresési kifejezések kerülnek a helyére.
 
           Ez egy opcionális házirend. Ha nincs beállítva, a keresési kérelmet a rendszer a GET metódus segítségével továbbítja.

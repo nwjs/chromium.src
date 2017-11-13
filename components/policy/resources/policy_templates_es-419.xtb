@@ -16,13 +16,6 @@
 
       Esta política afecta solo a los usuarios cuyo dominio coincide con el dominio de inscripción del dispositivo. Para todos los demás usuarios, las cookies que establece el IdP se transfieren al perfil del usuario únicamente durante el primer acceso en el dispositivo.</translation>
 <translation id="1040446814317236570">Habilitar la eliminación de URL de PAC (para https://)</translation>
-<translation id="1041454584879384845">Configura el comportamiento de los avatares de usuarios, que representan a los usuarios en la pantalla de acceso.
-
-      La configuración individual se puede especificar en las propiedades JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Si se establece como <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, los usuarios podrán usar videos como imágenes de avatar.
-
-      Si esta política no se establece, se pueden usar videos como imágenes de avatar.</translation>
 <translation id="1044878202534415707">Informar estadísticas de hardware, como el uso de CPU/RAM
 
       Si esta política se establece en false, las estadísticas no se informarán.
@@ -1492,7 +1485,6 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="6310223829319187614">Habilitar la opción de autocompletar el nombre de dominio durante el accceso del usuario</translation>
 <translation id="6315673513957120120">Chrome muestra una página de advertencia cuando los usuarios visitan sitios que tienen errores de SSL. De forma predeterminada o cuando esta política se establece en true, los usuarios pueden hacer clic en estas páginas de advertencia.
       Al establecer esta política en false, los usuarios no pueden hacer clic en ninguna página de advertencia.</translation>
-<translation id="6320758134170712450">Configurar el comportamiento del avatar del usuario</translation>
 <translation id="6353901068939575220">Especifica los parámetros utilizados al buscar una URL con POST. Se compone de pares de nombre/valor separados por comas. Si un valor es un parámetro de plantilla, como {searchTerms} en el ejemplo anterior, se reemplazará por datos de términos de búsqueda reales.
 
           Esta política es opcional. Si no se establece, la solicitud de búsqueda se enviará mediante el método GET.

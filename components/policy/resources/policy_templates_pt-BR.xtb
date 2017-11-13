@@ -16,13 +16,6 @@
 
       Esta política afeta os usuários cujo domínio corresponde apenas ao domínio de inscrição do dispositivo. Para todos os outros usuários, os cookies definidos pelo IdP são transferidos para o perfil do usuário somente durante o primeiro login no dispositivo.</translation>
 <translation id="1040446814317236570">Ativar a retirada de URL PAC (para https://)</translation>
-<translation id="1041454584879384845">Configura o comportamento dos avatares de usuários que representam os usuários na tela de login.
-
-      As configurações individuais podem ser especificadas nas propriedades JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: se esta opção estiver definida como <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, os usuários poderão usar vídeos como imagem de avatar.
-
-      Se esta política não estiver definida, será permitido usar vídeos como imagem de avatar.</translation>
 <translation id="1044878202534415707">Relatórios sobre estatísticas de hardware, como o uso de CPU/RAM.
 
       Se a política é definida como "false", as estatísticas não são informadas.
@@ -1489,7 +1482,6 @@
 <translation id="6310223829319187614">Ativar preenchimento automático do nome de domínio durante login do usuário</translation>
 <translation id="6315673513957120120">O Chrome mostra uma página de aviso quando os usuários navegam para sites que têm erros de SSL. Por padrão ou quando esta política é definida como "true", os usuários têm permissão para clicar nessas páginas de aviso.
       A definição desta política como "false" não permite que os usuários cliquem em qualquer página de aviso.</translation>
-<translation id="6320758134170712450">Configurar o comportamento de avatar do usuário</translation>
 <translation id="6353901068939575220">Especifica os parâmetros usados ao pesquisar URL com POST. Consiste em pares de nomes/valores separados por vírgula. Se um valor for um parâmetro de modelos, como {searchTerms} no exemplo acima, será substituído por dados de termos de pesquisa reais.
 
           Esta política é opcional. Se não for definida, a solicitação de pesquisa será enviada usando o método GET.

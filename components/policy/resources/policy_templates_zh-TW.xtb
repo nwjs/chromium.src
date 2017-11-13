@@ -16,13 +16,6 @@
 
       這項政策只會影響所屬網域和裝置註冊網域相符的使用者。其他使用者則只有在首次登入裝置時，系統才會將 IdP 設定的 Cookie 轉移到使用者的設定檔。</translation>
 <translation id="1040446814317236570">啟用 PAC 網址分解功能 (適用於 https://)</translation>
-<translation id="1041454584879384845">設定使用者顯示圖片 (在登入畫面代表使用者) 的行為。
-
-      可在 JSON 屬性中指定個別設定：
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />：如果設為 <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />，使用者將可使用影片做為顯示圖片。
-
-      如果未設定這項政策，則允許使用影片做為顯示圖片。</translation>
 <translation id="1044878202534415707">回報硬體統計資料，例如 CPU/RAM 使用量。
 
       如果將這項政策設為 False，系統將不會回報統計資料。
@@ -1501,7 +1494,6 @@
 <translation id="6310223829319187614">允許在使用者登入過程中以自動完成功能填入網域名稱</translation>
 <translation id="6315673513957120120">當使用者瀏覽出現 SSL 錯誤的網站，Chrome 會顯示警告網頁。在預設或政策設為 True 的情況下，使用者可以忽略這類警告網頁，繼續前往原先指定的頁面。
       這項政策設為 False 時，系統會禁止使用者忽略任何警告網頁。</translation>
-<translation id="6320758134170712450">設定使用者顯示圖片行為</translation>
 <translation id="6353901068939575220">指定使用 POST 搜尋網址時所用的參數，包含以逗號分隔的名稱/數值配對。如果數值為範本參數 (例如上例中的 {searchTerms})，系統將會以實際的搜尋字詞資料替代這個數值。
 
           這項政策是選擇性的，如果未設定，系統將使用 GET 方法傳送搜尋要求。

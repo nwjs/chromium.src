@@ -3532,6 +3532,7 @@
 <translation id="6473842110411557830">Powerwash の説明図</translation>
 <translation id="6474706907372204693">前の入力方法</translation>
 <translation id="6474884162850599008">Google ドライブ アカウントを切断</translation>
+<translation id="6475079491906995455"><ph name="SERVICE_NAME" /> により、お使いの Chrome OS デバイスが対象かどうかの確認が行われます。<ph name="MORE_INFO_LINK" /></translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> が画面コンテンツの共有をリクエストしています。共有する部分を選択してください。</translation>
 <translation id="6478248366783946499">危険なファイルを保存しますか？</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> を開いています...</translation>

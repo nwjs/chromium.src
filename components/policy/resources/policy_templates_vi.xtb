@@ -16,13 +16,6 @@
 
       Chính sách này chỉ ảnh hưởng đến những người có miền khớp với miền đăng ký của thiết bị. Đối với tất cả người dùng khác, cookie do IdP đặt chỉ được chuyển tới hồ sơ của người dùng trong lần đăng nhập đầu tiên của họ trên thiết bị.</translation>
 <translation id="1040446814317236570">Bật tách URL PAC (cho https://)</translation>
-<translation id="1041454584879384845">Định cấu hình chức năng của hình đại diện cho người dùng trên màn hình đăng nhập.
-
-      Các cài đặt riêng lẻ có thể được chỉ định trong các thuộc tính JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Nếu bạn đặt thành <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, người dùng sẽ được phép sử dụng video cho hình đại diện.
-
-      Nếu bạn không đặt chính sách này, người dùng sẽ không được phép sử dụng video cho hình đại diện.</translation>
 <translation id="1044878202534415707">Báo cáo thống kê phần cứng chẳng hạn như mức sử dụng CPU/RAM.
 
       Nếu chính sách này được đặt thành false thì thống kê sẽ không được báo cáo.
@@ -1583,7 +1576,6 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="6310223829319187614">Bật tự động hoàn tất tên miền trong khi người dùng đăng nhập</translation>
 <translation id="6315673513957120120">Chrome hiển thị trang cảnh báo khi người dùng truy cập các trang web gặp lỗi SSL. Theo mặc định hoặc khi chính sách này được đặt thành true, người dùng được phép nhấp qua các trang cảnh báo này.
       Đặt chính sách này thành false sẽ không cho phép người dùng nhấp qua bất kỳ trang cảnh báo nào.</translation>
-<translation id="6320758134170712450">Định cấu hình chức năng của hình đại diện cho người dùng</translation>
 <translation id="6353901068939575220">Chỉ định tham số được dùng khi tìm kiếm URL với POST. Tham số này bao gồm các cặp tên/giá trị phân tách bằng dấu phẩy. Nếu một giá trị là tham số mẫu như {searchTerms} trong ví dụ trên, tham số đó sẽ được thay thế bằng dữ liệu cụm từ tìm kiếm thực.
 
           Chính sách này là tùy chọn. Nếu không đặt, yêu cầu tìm kiếm sẽ được gửi bằng phương thức GET.

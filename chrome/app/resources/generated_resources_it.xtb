@@ -3527,6 +3527,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="6473842110411557830">Illustrazione Powerwash</translation>
 <translation id="6474706907372204693">Metodo di immissione precedente</translation>
 <translation id="6474884162850599008">Scollega account Google Drive</translation>
+<translation id="6475079491906995455"><ph name="SERVICE_NAME" /> chiede di controllare che tu stia utilizzando un dispositivo Chrome OS idoneo. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> vuole condividere i contenuti del tuo schermo. Scegli i contenuti che desideri condividere.</translation>
 <translation id="6478248366783946499">Conservare il file pericoloso?</translation>
 <translation id="6483805311199035658">Apertura di <ph name="FILE" /> in corso...</translation>
@@ -4982,7 +4983,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8837103518490433332">Vuoi che <ph name="PASSWORD_MANAGER_BRAND" /> salvi la password del sito <ph name="ORIGIN" />?</translation>
 <translation id="8838770651474809439">Hamburger</translation>
 <translation id="883911313571074303">Annota immagine</translation>
-<translation id="8845001906332463065">Accedi al Centro assistenza</translation>
+<translation id="8845001906332463065">Richiedi assistenza</translation>
 <translation id="8846141544112579928">Ricerca tastiera in corso...</translation>
 <translation id="8847988622838149491">USB</translation>
 <translation id="8858798938034909167">Accedi alle tue password da qualsiasi dispositivo all'indirizzo <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /></translation>

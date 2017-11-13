@@ -16,13 +16,6 @@
 
       Toto pravidlo má vplyv iba na používateľov, ktorých doména sa zhoduje s doménou registrácie zariadenia. Pre všetkých ostatných používateľov platí, že súbory cookie nastavené poskytovateľom identity sa prenesú do profilu používateľa iba počas prvého prihlásenia používateľa na zariadení.</translation>
 <translation id="1040446814317236570">Aktivovať odstraňovanie častí z webových adries pred odoslaním do skriptov PAC (pre adresy https://)</translation>
-<translation id="1041454584879384845">Umožňuje konfiguráciu správania avatarov predstavujúcich používateľov na prihlasovacej obrazovke.
-
-      Jednotlivé nastavenia môžete určiť vo vlastnostiach JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Ak toto pravidlo nastavíte na <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, používatelia budú môcť ako obrázky avatarov používať videá.
-
-      Ak toto pravidlo nenastavíte, používanie videí ako obrázkov avatarov je povolené.</translation>
 <translation id="1044878202534415707">Nahlasovanie štatistík hardvéru, napríklad využitia CPU/RAM.
       Ak je pravidlo nastavené na možnosť False, štatistiky nebudú hlásené.
       Ak je nastavené na možnosť True alebo nie je nastavené, štatistiky budú hlásené.</translation>
@@ -1574,7 +1567,6 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
 <translation id="6310223829319187614">Povolenie automatického dopĺňania názvu domény počas prihlasovania používateľa</translation>
 <translation id="6315673513957120120">Keď používateľ prejde na weby, ktoré obsahujú chyby protokolu SSL, Chrome zobrazí stránku s upozornením. V predvolenom nastavení alebo vtedy, keď je toto pravidlo nastavené na možnosť True, môžu používatelia preskočiť tieto stránky s upozornením prostredníctvom kliknutia.
       Nastavením tohto pravidla na možnosť False zakážete používateľom, aby mohli stránku s upozornením preskočiť kliknutím.</translation>
-<translation id="6320758134170712450">Konfigurácia správania avatarov používateľov</translation>
 <translation id="6353901068939575220">Určuje parametre, ktoré sa použijú vyhľadávaní webovej adresy pomocou metódy POST. Pozostáva z párov názov/hodnota oddelených čiarkami. Ak je hodnota parameter šablóny, napr. hodnota {searchTerms} v príklade vyššie, bude nahradená údajmi skutočných vyhľadávaných výrazov.
 
           Toto pravidlo je voliteľné. Ak nie je nastavené, žiadosť o vyhľadávanie sa odošle pomocou metódy GET.

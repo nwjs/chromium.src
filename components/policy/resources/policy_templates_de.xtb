@@ -16,13 +16,6 @@
 
       Diese Richtlinie betrifft nur Nutzer, deren Domain der Geräteanmeldedomain entspricht. Bei allen anderen Nutzern werden die vom IdP gesetzten Cookies nur während der ersten Anmeldung auf dem Gerät an das Nutzerprofil gesendet.</translation>
 <translation id="1040446814317236570">Stripping von PAC-URLs für https:// aktivieren</translation>
-<translation id="1041454584879384845">Konfiguriert das Verhalten des Nutzeravatars auf dem Anmeldebildschirm.
-
-      Einzelne Einstellungen können in den JSON-Eigenschaften festgelegt werden:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Wenn für diese Richtlinie <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" /> festgelegt ist, können Nutzer Videos als Avatarbilder verwenden.
-
-      Wenn diese Richtlinie nicht festgelegt ist, ist die Verwendung von Videos als Avatarbilder zulässig.</translation>
 <translation id="1044878202534415707">Mit dieser Richtlinie können Hardwarestatistiken wie CPU/RAM-Auslastung abgerufen werden.
 
       Wenn die Richtlinie auf "false" eingestellt ist, werden keine Statistiken ausgegeben.
@@ -1494,7 +1487,6 @@ Wenn diese Einstellung deaktiviert oder nicht konfiguriert ist, wird kein Proxy 
 <translation id="6310223829319187614">Automatische Vervollständigung des Domainnamens während der Nutzeranmeldung aktivieren</translation>
 <translation id="6315673513957120120">Chrome zeigt eine Seite mit einer Warnmeldung an, wenn Nutzer Websites aufrufen, die SSL-Fehler aufweisen. Standardmäßig oder bei Festlegung von "true" für diese Richtlinie ist es Nutzern gestattet, durch diese Seiten mit Warnmeldung zu klicken.
       Wenn für die Richtlinie "false" festgelegt wird, können Nutzer nicht mehr durch diese Seiten klicken.</translation>
-<translation id="6320758134170712450">Verhalten des Nutzeravatars konfigurieren</translation>
 <translation id="6353901068939575220">Gibt die Parameter für die Suche nach einer URL mit POST an. Sie besteht aus durch Komma getrennten Name/Wert-Paaren. Wenn ein Wert ein Vorlagenparameter wie z. B. {searchTerms} im obigen Beispiel ist, wird er durch echte Suchbegriffsdaten ersetzt.
 
           Diese Richtlinie ist optional. Wenn sie nicht festlegt ist, wird die Suchanfrage mithilfe der GET-Methode gesendet.

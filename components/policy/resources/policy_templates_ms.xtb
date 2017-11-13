@@ -16,13 +16,6 @@
 
       Dasar ini mempengaruhi pengguna yang mempunyai domain yang sepadan dengan domain pendaftaran peranti sahaja. Bagi semua pengguna lain, kuki yang ditetapkan oleh IdP dipindahkan ke profil pengguna semasa log masuk mereka yang pertama pada peranti tersebut sahaja.</translation>
 <translation id="1040446814317236570">Dayakan pengeluaran URL PAC (untuk https://)</translation>
-<translation id="1041454584879384845">Mengkonfigurasi gelagat avatar pengguna yang mewakili pengguna pada skrin log masuk.
-
-      Tetapan individu boleh ditetapkan dalam sifat JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Jika ditetapkan kepada <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, pengguna akan dibenarkan untuk menggunakan video bagi imej avatar.
-
-      Jika dasar ini tidak ditetapkan, video untuk imej avatar dibenarkan.</translation>
 <translation id="1044878202534415707">Laporkan statistik perkakasan seperti penggunaan CPU/RAM.
 
       Jika dasar ditetapkan sebagai palsu, statistik tidak akan dilaporkan.
@@ -1586,7 +1579,6 @@
 <translation id="6310223829319187614">Dayakan autolengkap nama domain semasa log masuk pengguna</translation>
 <translation id="6315673513957120120">Chrome memaparkan halaman amaran apabila pengguna menavigasi ke tapak yang mempunyai ralat SSL. Secara lalai atau apabila dasar ini ditetapkan kepada benar, pengguna dibenarkan mengklik lalu halaman amaran ini.
       Pengguna tidak dibenarkan mengklik lalu sebarang halaman amaran apabila dasar ini ditetapkan kepada palsu.</translation>
-<translation id="6320758134170712450">Konfigurasikan gelagat avatar pengguna</translation>
 <translation id="6353901068939575220">Menentukan parameter yang digunakan apabila mencari URL dengan POST. Parameter ini mengandungi pasangan nama/nilai yang dipisahkan koma. Jika nilai merupakan parameter templat, seperti {searchTerms} dalam contoh di atas, nilai ini akan digantikan dengan data istilah carian sebenar.
 
           Dasar ini tidak wajib. Jika tidak ditetapkan, permintaan carian akan dihantar menggunakan kaedah GET.

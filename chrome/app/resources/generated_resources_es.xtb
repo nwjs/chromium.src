@@ -3529,6 +3529,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6473842110411557830">Ilustración de Powerwash</translation>
 <translation id="6474706907372204693">Método de entrada anterior</translation>
 <translation id="6474884162850599008">Desconectar cuenta de Google Drive</translation>
+<translation id="6475079491906995455"><ph name="SERVICE_NAME" /> quiere comprobar si estás utilizando un dispositivo Chrome OS adecuado. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> quiere compartir contenido de tu pantalla. Elige lo que quieres compartir.</translation>
 <translation id="6478248366783946499">¿Quieres conservar el archivo peligroso?</translation>
 <translation id="6483805311199035658">Abriendo <ph name="FILE" />...</translation>

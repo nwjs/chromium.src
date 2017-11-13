@@ -16,13 +16,6 @@
 
       Naaapektuhan ng patakarang ito ang mga user na tumutugma ang domain sa domain sa pag-enroll lang ng device. Para sa lahat ng iba pang user, ililipat ang cookies na itatakda ng IdP sa profile ng user sa unang pag-log in lang sa device.</translation>
 <translation id="1040446814317236570">I-enable ang pag-strip ng PAC URL (para sa https://)</translation>
-<translation id="1041454584879384845">Kino-configure ang gawi ng mga avatar ng user na kumakatawan sa mga user na nasa screen ng pag-log in.
-
-      Maaaring tukuyin ang mga individual na setting sa mga property ng JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: Kung nakatakda sa <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, papayagan ang mga user na gumamit ng mga video para sa mga larawan ng avatar.
-
-      Kung hindi nakatakda ang patakaran, papayagan ang mga video para sa larawan ng avatar.</translation>
 <translation id="1044878202534415707">Mag-ulat ng mga istatistika ng hardware gaya ng paggamit ng CPU/RAM.
 
       Kung itatakda ang patakaran sa false, hindi iuulat ang mga istatistika.
@@ -1579,7 +1572,6 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
 <translation id="6310223829319187614">I-enable ang pag-autocomplete ng domain name sa pag-sign in ng user</translation>
 <translation id="6315673513957120120">Nagpapakita ang Chrome ng page ng babala kapag nag-navigate ang mga user sa mga site na may mga SSL error. Bilang default o kapag itinakda ang patakarang ito sa true, maaaring mag-click ang mga user sa mga page ng babala na ito.
       Kapag itinakda ang patakarang ito sa false, hindi makakapag-click ang mga user sa anumang page ng babala.</translation>
-<translation id="6320758134170712450">I-configure ang gawi ng avatar ng user</translation>
 <translation id="6353901068939575220">Tinutukoy ang mga parameter na ginamit kapag naghahanap ng URL gamit ang POST. Binubuo ito ng mga pares ng pangalan/value na pinaghihiwalay ng kuwit. Kung isang parameter ng template ang isang value, tulad ng {searchTerms} sa halimbawa sa itaas, papalitan ito ng data ng tunay na mga termino para sa paghahanap.
 
           Opsyonal ang patakarang ito. Kung hindi nakatakda, ipapadala ang kahilingan sa paghahanap gamit ang GET na paraan.

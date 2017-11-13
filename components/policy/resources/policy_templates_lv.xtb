@@ -16,13 +16,6 @@
 
       Šī politika attiecas tikai uz tiem lietotājiem, kuru domēns ir tāds pats kā ierīces reģistrācijas domēns. Visiem citiem lietotājiem identitātes nodrošinātāja iestatītie sīkfaili tiek pārsūtīti uz lietotāja profilu tikai pirmajā reizē, kad lietotājs piesakās kādā ierīcē.</translation>
 <translation id="1040446814317236570">Iespējot PAC URL noņemšanu (protokolam https://)</translation>
-<translation id="1041454584879384845">Konfigurē lietotāju iemiesojumu darbību, kas attēlo lietotājus pieteikšanās ekrānā.
-
-      Atsevišķus iestatījumus var norādīt JSON rekvizītos.
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: ja politika ir iestatīta kā “<ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />”, lietotājiem ir atļauts izmantot videoklipus kā iemiesojuma attēlus.
-
-      Ja politika nav iestatīta, ir atļauts izmantot videoklipus kā iemiesojuma attēlus.</translation>
 <translation id="1044878202534415707">Tiek ziņota aparatūras statistika, piemēram, centrālā procesora/RAM lietojums.
 
       Ja politikai ir iestatīta vērtība Nepatiesa, statistika netiks ziņota.
@@ -1586,7 +1579,6 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
 <translation id="6310223829319187614">Domēna nosaukuma automātiskās pabeigšanas iespējošana lietotāja pierakstīšanās laikā</translation>
 <translation id="6315673513957120120">Ja lietotāji atver vietnes, kurās ir SSL kļūdas, pārlūkā Chrome tiek parādīta brīdinājuma lapa. Pēc noklusējuma, kā arī tad, ja šai politikai ir iestatīta vērtība Patiesa, lietotājiem ir atļauts no brīdinājuma lapas pāriet uz vietni.
       Ja politikai ir iestatīta vērtība Nepatiesa, lietotājiem tiek liegts no brīdinājuma lapas pāriet uz vietni.</translation>
-<translation id="6320758134170712450">Lietotāju iemiesojumu darbību konfigurēšana</translation>
 <translation id="6353901068939575220">Norāda parametrus, kas tiek izmantoti, meklējot URL ar metodi POST. Izmantojot šo metodi, tiek meklēti ar komatu atdalītu vārdu/vērtību pāri. Ja vērtība ir veidnes parametrs, piemēram, {searchTerms} (iepriekšējā piemērā), tas tiks aizstāts ar īstiem meklēšanas vienumu datiem.
 
           Šī politika nav obligāta. Ja tā nav iestatīta, meklēšanas pieprasījums tiks nosūtīts, izmantojot metodi GET.

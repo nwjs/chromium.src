@@ -16,13 +16,6 @@
 
       Această politică afectează doar utilizatorii ale căror domenii corespund cu domeniul de înregistrare al dispozitivului. Pentru ceilalți utilizatori, cookie-urile setate de furnizorul de identitate sunt transferate în profilurile acestora doar la prima conectare pe un dispozitiv.</translation>
 <translation id="1040446814317236570">Activează eliminarea unor părți din adresele URL pentru PAC (pentru https://)</translation>
-<translation id="1041454584879384845">Configurează comportamentul avatarurilor de utilizator care reprezintă utilizatorii pe ecranul de conectare.
-
-      Setările individuale pot fi specificate în proprietățile JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: dacă opțiunea este setată la <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, utilizatorii au permisiunea să folosească videoclipuri ca imagini de avatar.
-
-      Dacă această politică nu este setată, este permisă folosirea videoclipurilor ca imagini de avatar.</translation>
 <translation id="1044878202534415707">Raportează statisticile privind hardware-ul cum ar fi utilizarea CPU/RAM.
 
       Dacă politica este dezactivată, statisticile nu vor fi raportate.
@@ -1515,7 +1508,6 @@
 <translation id="6310223829319187614">Activează completarea automată a numelui de domeniu la conectarea utilizatorului</translation>
 <translation id="6315673513957120120">Chrome afișează o pagină de avertisment atunci când utilizatorii accesează site-uri care au erori SSL. În mod prestabilit sau atunci când această politică este activată, utilizatorii au permisiunea să-și continue navigarea dând clic pe aceste pagini de avertisment.
       Dacă această politică este dezactivată, utilizatorii nu mai au permisiunea să-și continue navigarea dând clic pe aceste pagini de avertisment.</translation>
-<translation id="6320758134170712450">Configurează comportamentul avatarului de utilizator</translation>
 <translation id="6353901068939575220">Specifică parametrii utilizați la căutarea unei adrese URL cu POST. Politica este alcătuită din perechi nume/valoare separate prin virgulă. Dacă o valoare este un parametru șablon, precum {searchTerms} din exemplul de mai sus, acesta va fi înlocuit cu datele termenilor de căutare reali.
 
           Această politică este opțională. Dacă nu este setată, solicitarea de căutare va fi trimisă prin metoda GET.

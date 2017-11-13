@@ -3532,6 +3532,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6473842110411557830">Иллюстрация Powerwash</translation>
 <translation id="6474706907372204693">Предыдущий способ ввода</translation>
 <translation id="6474884162850599008">Отключить аккаунт Google Диска</translation>
+<translation id="6475079491906995455">Сервис "<ph name="SERVICE_NAME" />" запрашивает информацию об устройстве Chrome OS. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> хочет предоставить доступ к вашему экрану. Выберите окно, которое нужно показать.</translation>
 <translation id="6478248366783946499">Сохранить опасный файл?</translation>
 <translation id="6483805311199035658">Открывается <ph name="FILE" />...</translation>

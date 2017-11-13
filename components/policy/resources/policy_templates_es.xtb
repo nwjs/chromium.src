@@ -16,13 +16,6 @@
 
       Esta política afecta a los usuarios cuyo dominio coincida con el dominio de registro del dispositivo. En el caso del resto de usuarios, las cookies establecidas por el proveedor de identidad se transfieren al perfil del usuario solo la primera vez que inicie sesión en un dispositivo.</translation>
 <translation id="1040446814317236570">Habilitar eliminación de URL PAC (para https://)</translation>
-<translation id="1041454584879384845">Configura el comportamiento de los avatares que representan a los usuarios en la pantalla de inicio de sesión.
-
-      Los ajustes individuales se pueden especificar en las propiedades del archivo JSON:
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: si se le asigna el valor <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, los usuarios pueden utilizar vídeos como imagen de avatar.
-
-      Si no se define esta política, se pueden utilizar vídeos como imagen de avatar.</translation>
 <translation id="1044878202534415707">Informa sobre estadísticas de hardware, como el uso de CPU o de RAM.
 
       Si se asigna el valor false a esta política, no se informará sobre las estadísticas.
@@ -1585,7 +1578,6 @@ Si esta opción no está establecida o está establecida en True, los dispositiv
 <translation id="6310223829319187614">Habilitar la opción de autocompletar nombre de dominio durante el inicio de sesión del usuario</translation>
 <translation id="6315673513957120120">Chrome muestra una página de advertencia cuando los usuarios intentan acceder a sitios web con errores SSL. De forma predeterminada o cuando se establezca el valor true en esta política, los usuarios podrán hacer clic para ignorar estas páginas de advertencia.
       Si se asigna el valor false, los usuarios no tendrán permiso para ignorar ninguna página de advertencia.</translation>
-<translation id="6320758134170712450">Configurar comportamiento del avatar del usuario</translation>
 <translation id="6353901068939575220">Especifica los parámetros utilizados al buscar una URL con POST. Se compone de pares de valor/nombre separados por comas. Si un valor es un parámetro de plantilla, como {searchTerms} en el ejemplo anterior, se sustituirá por datos de términos de búsqueda reales.
 
           Esta política es opcional. Si no se establece, la solicitud de búsqueda se enviará mediante el método GET.

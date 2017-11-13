@@ -16,13 +16,6 @@
 
       Reegel mõjutab ainult kasutajaid, kelle domeen kattub seadme registreerimisel kasutatava domeeniga. Kõigi muude kasutajate puhul kantakse IdP määratud küpsisefailid kasutajaprofiilile üle ainult tema esimesel sisselogimisel seadmesse.</translation>
 <translation id="1040446814317236570">Luba PAC URL-i eemaldamine (https:// puhul)</translation>
-<translation id="1041454584879384845">Seadistab sisselogimiskuval kasutajaid esindavate avataride käitumise.
-
-      JSON-i atribuutides saab määrata individuaalsed seaded.
-
-      <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS" />: kui valik on seatud väärtusele <ph name="USER_AVATAR_SETTINGS_ALLOW_VIDEOS_TRUE" />, on kasutajatel lubatud kasutada avataridena videoid.
-
-      Kui reegel on määramata, on videote avatarina kasutamine lubatud.</translation>
 <translation id="1044878202534415707">Saatke aruandeid riistvara statistika kohta (nt protsessori/RAM-i kasutus).
 
       Kui reegli väärtuseks on määratud Väär, siis statistikat ei saadeta.
@@ -1580,7 +1573,6 @@
 <translation id="6310223829319187614">Domeeni nime automaatse täitmise lubamine kasutaja sisselogimise ajal</translation>
 <translation id="6315673513957120120">Chrome kuvab hoiatuslehe, kui kasutajad liiguvad SSL-i vigadega saitidele. Vaikimisi või siis, kui selle reegli väärtuseks määratakse Tõene, lubatakse kasutajatel nendelt hoiatuslehtedelt kliki abil edasi liikuda.
       Kui selle reegli väärtuseks määratakse Väär, ei lubata kasutajatel hoiatuslehelt kliki abil edasi liikuda.</translation>
-<translation id="6320758134170712450">Kasutaja avatari käitumise seadistamine</translation>
 <translation id="6353901068939575220">Määrab, mis parameetreid kasutatakse POST-meetodiga URL-i otsimisel. See koosneb komaga eraldatud nime/väärtuse paaridest. Kui väärtus on malliparameeter, nt {searchTerms} ülalolevas näites, siis asendatakse see otsingutermini andmetega.
 
           See reegel on valikuline. Kui see pole määratud, siis saadetakse soovituse otsingu taotlus GET-meetodiga.

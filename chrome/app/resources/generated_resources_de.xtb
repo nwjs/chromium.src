@@ -452,7 +452,7 @@
 <translation id="167832068858235403">Leiser</translation>
 <translation id="1679068421605151609">Entwicklertools</translation>
 <translation id="1681120471812444678">Einrichten und Drucker hinzufügen…</translation>
-<translation id="1682548588986054654">Neues &amp;Inkognito-Fenster</translation>
+<translation id="1682548588986054654">Neues &amp;Inkognitofenster</translation>
 <translation id="1682889864035450286">Webbrowser</translation>
 <translation id="168991973552362966">Drucker in der Nähe hinzufügen</translation>
 <translation id="1691063574428301566">Der Computer wird neu gestartet, sobald die Aktualisierung abgeschlossen ist.</translation>
@@ -3527,6 +3527,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="6473842110411557830">Powerwash-Illustration</translation>
 <translation id="6474706907372204693">Vorherige Eingabemethode</translation>
 <translation id="6474884162850599008">Verbindung zu Google Drive-Konto aufheben</translation>
+<translation id="6475079491906995455"><ph name="SERVICE_NAME" /> möchte überprüfen, ob Sie ein unterstütztes Chrome OS-Gerät verwenden. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> möchte den Inhalt Ihres Bildschirms teilen. Wählen Sie aus, was geteilt werden soll.</translation>
 <translation id="6478248366783946499">Schädliche Datei beibehalten?</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> wird geöffnet...</translation>

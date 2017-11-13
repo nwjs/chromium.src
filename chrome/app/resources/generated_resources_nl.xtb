@@ -2580,7 +2580,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="499165176004408815">Modus voor hoog contrast gebruiken</translation>
 <translation id="4992066212339426712">Dempen opheffen</translation>
 <translation id="4992458225095111526">Powerwash bevestigen</translation>
-<translation id="4994474651455208930">Websites laten vragen of u ze als de standaardhandler voor protocollen wilt instellen.</translation>
+<translation id="4994474651455208930">Websites laten vragen of je ze als de standaardhandler voor protocollen wilt instellen.</translation>
 <translation id="4994754230098574403">Instellen</translation>
 <translation id="4996978546172906250">Delen via</translation>
 <translation id="4997086284911172121">Geen internetverbinding.</translation>
@@ -3533,6 +3533,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="6473842110411557830">Powerwash-illustratie</translation>
 <translation id="6474706907372204693">Vorige invoermethode</translation>
 <translation id="6474884162850599008">Google Drive-account ontkoppelen</translation>
+<translation id="6475079491906995455"><ph name="SERVICE_NAME" /> wil controleren of je een geschikt Chrome OS-apparaat gebruikt. <ph name="MORE_INFO_LINK" /></translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> wil de content op je scherm delen. Kies wat je wilt delen.</translation>
 <translation id="6478248366783946499">Gevaarlijk bestand behouden?</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> openen...</translation>
