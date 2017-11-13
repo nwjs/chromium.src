@@ -142,8 +142,10 @@ void CheckAllMemoryMetrics(const base::HistogramTester& histogram_tester,
                            int count,
                            int number_of_renderer_processes = 1u,
                            int number_of_extenstion_processes = 0u) {
+#if !defined(OS_WIN)
   CheckMemoryMetric("Memory.Experimental.Browser2.Malloc", histogram_tester,
                     count, true);
+#endif
 #if !defined(OS_MACOSX)
   CheckMemoryMetric("Memory.Experimental.Browser2.Resident", histogram_tester,
                     count, true);
@@ -151,8 +153,10 @@ void CheckAllMemoryMetrics(const base::HistogramTester& histogram_tester,
   CheckMemoryMetric("Memory.Experimental.Browser2.PrivateMemoryFootprint",
                     histogram_tester, count, true);
   if (number_of_renderer_processes) {
+#if !defined(OS_WIN)
     CheckMemoryMetric("Memory.Experimental.Renderer2.Malloc", histogram_tester,
                       count, true, number_of_renderer_processes);
+#endif
 #if !defined(OS_MACOSX)
     CheckMemoryMetric("Memory.Experimental.Renderer2.Resident",
                       histogram_tester, count, true,
@@ -170,8 +174,10 @@ void CheckAllMemoryMetrics(const base::HistogramTester& histogram_tester,
                       number_of_renderer_processes);
   }
   if (number_of_extenstion_processes) {
+#if !defined(OS_WIN)
     CheckMemoryMetric("Memory.Experimental.Extension2.Malloc", histogram_tester,
                       count, true, number_of_extenstion_processes);
+#endif
 #if !defined(OS_MACOSX)
     CheckMemoryMetric("Memory.Experimental.Extension2.Resident",
                       histogram_tester, count, true,
@@ -305,8 +311,10 @@ class ProcessMemoryMetricsEmitterTest : public ExtensionBrowserTest {
   }
 
   void CheckUkmRendererSource(ukm::SourceId source_id, size_t metric_count) {
+#if !defined(OS_WIN)
     CheckMemoryMetricWithName(source_id, UkmEntry::kMallocName, false,
                               metric_count);
+#endif
 #if !defined(OS_MACOSX)
     CheckMemoryMetricWithName(source_id, UkmEntry::kResidentName, false,
                               metric_count);
@@ -326,8 +334,10 @@ class ProcessMemoryMetricsEmitterTest : public ExtensionBrowserTest {
 
   void CheckUkmBrowserSource(ukm::SourceId source_id,
                              size_t metric_count = 1u) {
+#if !defined(OS_WIN)
     CheckMemoryMetricWithName(source_id, UkmEntry::kMallocName, false,
                               metric_count);
+#endif
 #if !defined(OS_MACOSX)
     CheckMemoryMetricWithName(source_id, UkmEntry::kResidentName, false,
                               metric_count);
