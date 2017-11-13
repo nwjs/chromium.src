@@ -198,4 +198,35 @@ public class UrlUtilitiesTest {
         Assert.assertFalse(UrlUtilities.urlsFragmentsDiffer(url, url));
         Assert.assertTrue(UrlUtilities.urlsFragmentsDiffer(url + "#fragment", url));
     }
+
+    @Test
+    @SmallTest
+    public void testIsHttpOrHttps() {
+        Assert.assertTrue(
+                UrlUtilities.isHttpOrHttps("https://user:pass@awesome.com:9000/bad-scheme/#fake"));
+        Assert.assertTrue(UrlUtilities.isHttpOrHttps("http://awesome.example.com/"));
+        Assert.assertTrue(UrlUtilities.isHttpOrHttps("http:example.com"));
+        Assert.assertTrue(UrlUtilities.isHttpOrHttps("http:"));
+        Assert.assertTrue(UrlUtilities.isHttpOrHttps("http:go"));
+        Assert.assertTrue(UrlUtilities.isHttpOrHttps("https:example.com://looks-invalid-but-not"));
+        // The [] in path would trigger java.net.URI to throw URISyntaxException, but works fine in
+        // java.net.URL.
+        Assert.assertTrue(UrlUtilities.isHttpOrHttps("http://foo.bar/has[square].html"));
+
+        Assert.assertFalse(UrlUtilities.isHttpOrHttps("example.com"));
+        Assert.assertFalse(UrlUtilities.isHttpOrHttps("about:awesome"));
+        Assert.assertFalse(UrlUtilities.isHttpOrHttps("data:data"));
+        Assert.assertFalse(UrlUtilities.isHttpOrHttps("file://hostname/path/to/file"));
+        Assert.assertFalse(UrlUtilities.isHttpOrHttps("inline:skates.co.uk"));
+        Assert.assertFalse(UrlUtilities.isHttpOrHttps("javascript:alert(1)"));
+
+        Assert.assertFalse(UrlUtilities.isHttpOrHttps("super:awesome"));
+        Assert.assertFalse(UrlUtilities.isHttpOrHttps("ftp://https:password@example.com/"));
+        Assert.assertFalse(
+                UrlUtilities.isHttpOrHttps("ftp://https:password@example.com/?http:#http:"));
+        Assert.assertFalse(UrlUtilities.isHttpOrHttps(
+                "google-search://https:password@example.com/?http:#http:"));
+        Assert.assertFalse(UrlUtilities.isHttpOrHttps("chrome://http://version"));
+        Assert.assertFalse(UrlUtilities.isHttpOrHttps(""));
+    }
 }
