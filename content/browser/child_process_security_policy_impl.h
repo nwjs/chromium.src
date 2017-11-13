@@ -48,6 +48,7 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   static ChildProcessSecurityPolicyImpl* GetInstance();
 
   // ChildProcessSecurityPolicy implementation.
+  void GrantAll(int child_id) override;
   void RegisterWebSafeScheme(const std::string& scheme) override;
   void RegisterWebSafeIsolatedScheme(
       const std::string& scheme,

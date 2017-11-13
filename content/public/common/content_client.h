@@ -81,6 +81,7 @@ class CONTENT_EXPORT ContentClient {
 
   // Sets the currently active URL.  Use GURL() to clear the URL.
   virtual void SetActiveURL(const GURL& url) {}
+  virtual void SetNWReportURL(const GURL& url) {}
 
   // Sets the data on the current gpu.
   virtual void SetGpuInfo(const gpu::GPUInfo& gpu_info) {}

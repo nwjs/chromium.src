@@ -38,7 +38,7 @@ class CrashReporterClient;
 // runtime.
 void SetCrashReporterClient(CrashReporterClient* client);
 
-#if defined(CRASH_IMPLEMENTATION)
+#if 1
 // The components's embedder API should only be used by the component.
 CrashReporterClient* GetCrashReporterClient();
 #endif
@@ -59,7 +59,7 @@ class CrashReporterClient {
   // not be set directly by the client.
   virtual void SetCrashReporterClientIdFromGUID(const std::string& client_guid);
 #endif
-
+  virtual void SetUploadDump(bool);
 #if defined(OS_WIN)
   // Returns true if the pipe name to connect to breakpad should be computed and
   // stored in the process's environment block. By default, returns true for the
@@ -104,7 +104,7 @@ class CrashReporterClient {
   virtual int GetResultCodeRespawnFailed();
 #endif
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_IOS)
+#if defined(OS_POSIX) && !defined(OS_IOS)
   // Returns a textual description of the product type and version to include
   // in the crash report. Neither out parameter should be set to NULL.
   virtual void GetProductNameAndVersion(const char** product_name,
@@ -197,6 +197,10 @@ class CrashReporterClient {
 
   // Returns true if breakpad should run in the given process type.
   virtual bool EnableBreakpadForProcess(const std::string& process_type);
+
+  bool enable_upload_;
+  std::string product_name_;
+  std::string product_version_;
 };
 
 }  // namespace crash_reporter

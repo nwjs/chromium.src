@@ -192,7 +192,9 @@ class EventRouter : public KeyedService,
   // Returns true if the extension is listening to the given event.
   // (virtual for testing only.)
   virtual bool ExtensionHasEventListener(const std::string& extension_id,
-                                         const std::string& event_name) const;
+                                         const std::string& event_name,
+                                         int instance_id = -1,
+                                         std::string* out_extension_id = nullptr) const;
 
   // Broadcasts an event to every listener registered for that event.
   virtual void BroadcastEvent(std::unique_ptr<Event> event);
@@ -386,7 +388,7 @@ struct Event {
   // If non-null, then the event will not be sent to other BrowserContexts
   // unless the extension has permission (e.g. incognito tab update -> normal
   // tab only works if extension is allowed incognito access).
-  content::BrowserContext* const restrict_to_browser_context;
+  content::BrowserContext* restrict_to_browser_context;
 
   // If not empty, the event is only sent to extensions with host permissions
   // for this url.

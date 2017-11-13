@@ -80,6 +80,10 @@ void SharedWorkerHost::Start(bool pause_on_start) {
       instance_->url(), this, mojo::MakeRequest(&content_settings));
 
   WorkerProcessMsg_CreateWorker_Params params;
+  params.nodejs = instance_->nodejs();
+  if (params.nodejs) {
+    params.root_path = instance_->root_path();
+  }
   params.url = instance_->url();
   params.name = instance_->name();
   params.content_security_policy = instance_->content_security_policy();

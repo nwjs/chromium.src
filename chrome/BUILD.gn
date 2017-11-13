@@ -49,13 +49,13 @@ if (is_win) {
     # See comment in chrome_dll.gypi in the hardlink_to_output
     # target for why this cannot be 'initial' like the DLL.
     inputs = [
-      "$root_out_dir/initialexe/chrome.exe",
+      "$root_out_dir/initialexe/nw.exe",
     ]
     outputs = [
-      "$root_out_dir/chrome.exe",
+      "$root_out_dir/nw.exe",
     ]
     if (symbol_level != 0) {
-      outputs += [ "$root_out_dir/chrome.exe.pdb" ]
+      outputs += [ "$root_out_dir/nw.exe.pdb" ]
     }
     args = [
       "-i",
@@ -169,7 +169,7 @@ if (!is_android && !is_mac) {
       data += [ "$root_out_dir/resources.pak" ]
       if (is_linux || is_win) {
         data += [
-          "$root_out_dir/chrome_100_percent.pak",
+          "$root_out_dir/nw_100_percent.pak",
           "$root_out_dir/locales/en-US.pak",
           "$root_out_dir/locales/fr.pak",
         ]
@@ -248,13 +248,24 @@ if (!is_android && !is_mac) {
       }
 
       if (is_linux) {
-        sources += [
-          "app/chrome_dll_resource.h",
-          "app/chrome_main.cc",
-          "app/chrome_main_delegate.cc",
-          "app/chrome_main_delegate.h",
-        ]
+        if (!is_component_build) {
+          # Set rpath to find our own libfreetype even in a non-component build.
+          configs += [ "//build/config/gcc:rpath_for_built_shared_libraries" ]
+        }
 
+        # NWJS: we use upstream like config in component build, but put everything in
+        # main dll in static build, as we did before GN migration
+
+        if (is_component_build) {
+          sources += [
+            "app/chrome_dll_resource.h",
+            "app/chrome_main.cc",
+            "app/chrome_main_delegate.cc",
+            "app/chrome_main_delegate.h",
+          ]
+        }
+
+        if (is_component_build) {
         deps += [
           # On Linux, link the dependencies (libraries) that make up actual
           # Chromium functionality directly into the executable.
@@ -271,11 +282,19 @@ if (!is_android && !is_mac) {
           "//headless:headless_shell_lib",
           "//services/service_manager/embedder",
         ]
+        } else {
+          deps += [
+            ":chrome_dll",
+            ":main_dll",
+          ]
+        }  
 
+        if (is_component_build) {
         public_deps = [
           ":xdg_mime",  # Needs to be public for installer to consume files.
           "//chrome/common:features",
         ]
+        }
 
         ldflags = [ "-pie" ]
 
@@ -285,9 +304,11 @@ if (!is_android && !is_mac) {
           ldflags += [ "-Wl,--long-plt" ]
         }
 
+        if (is_component_build) {
         if (use_pango || use_cairo) {
           # Needed for chrome_main.cc initialization of libraries.
           configs += [ "//build/config/linux/pangocairo" ]
+        }
         }
 
         if (use_x11) {
@@ -323,9 +344,17 @@ if (!is_android && !is_mac) {
 
   chrome_binary("chrome_initial") {
     if (is_win) {
-      output_name = "initialexe/chrome"
+      output_name = "initialexe/nw"
     } else {
-      output_name = "chrome"
+      output_name = "nw"
+    }
+    deps = [
+      "//content/nw:nw_base",
+    ]
+    if (is_component_build) {
+    deps += [
+      "//components/startup_metric_utils/browser:lib",
+    ]
     }
 
     sources = []
@@ -354,7 +383,7 @@ if (!is_android && !is_mac) {
   }
 }  # !is_android && !is_mac
 
-if (is_win) {
+if (is_win || (is_linux && !is_component_build)) {
   # This target is a forwarding target to compile the necessary DLLs used
   # by Chrome.
   group("chrome_dll") {
@@ -369,6 +398,7 @@ if (is_win) {
   shared_library("main_dll") {
     configs += [ "//build/config/compiler:wexit_time_destructors" ]
     defines = []
+    ldflags = []
 
     sources = [
       "//base/win/dllmain.cc",
@@ -379,36 +409,41 @@ if (is_win) {
       "app/chrome_main_mac.mm",
     ]
 
-    output_name = "chrome"
+    output_name = "nw"
 
     deps = [
       ":browser_dependencies",
-      ":chrome_dll_manifest",
-      ":chrome_dll_version",
-      "//base/trace_event/etw_manifest:chrome_events_win",
       "//build/config:exe_and_shlib_deps",
       "//chrome/app:chrome_dll_resources",
       "//chrome/app:command_ids",
-      "//chrome/app/theme:chrome_unscaled_resources",
       "//chrome/common:features",
-      "//chrome/install_static:install_static_util",
-      "//chrome/install_static:secondary_module",
-      "//chrome_elf",
-      "//components/crash/content/app",
-      "//components/policy:generated",
-      "//content/app/resources",
-      "//content/public/common:service_names",
-      "//crypto",
-      "//headless:headless_shell_browser_lib",
-      "//net:net_resources",
-      "//ppapi/features",
-      "//services/service_manager/embedder",
-      "//third_party/cld",
-      "//third_party/wtl",
-      "//ui/views",
+      #"//third_party/cld",
     ]
 
-    ldflags = [
+    # reverts commit a2052ac9b6ec749735f3d8e269bf5a5600935914
+    if (is_win) {
+    deps += [
+        ":chrome_dll_manifest",
+        ":chrome_dll_version",
+        "//base/trace_event/etw_manifest:chrome_events_win",
+        "//chrome/app/theme:chrome_unscaled_resources",
+        "//chrome/install_static:install_static_util",
+        "//chrome/install_static:secondary_module",
+        "//chrome_elf",
+        "//components/crash/content/app",
+        "//components/policy:generated",
+        "//content/app/resources",
+        "//content/public/common:service_names",
+        "//crypto",
+        "//headless:headless_shell_browser_lib",
+        "//net:net_resources",
+        "//ppapi/features",
+        "//services/service_manager/embedder",
+        "//third_party/wtl",
+        "//ui/views",
+    ]
+    
+    ldflags += [
       "/DELAYLOAD:comdlg32.dll",
       "/DELAYLOAD:crypt32.dll",
       "/DELAYLOAD:cryptui.dll",
@@ -433,6 +468,7 @@ if (is_win) {
       configs +=
           [ "//build/config/win:default_large_module_incremental_linking" ]
     }
+    } #is_win
 
     if (use_aura) {
       deps += [ "//ui/compositor" ]
@@ -452,6 +488,9 @@ if (is_win) {
         ":child_dependencies",
         "//content/public/app:both",
       ]
+      if (is_linux) {
+        deps += [ "//headless:headless_shell_lib", ]
+      }
     }
 
     if (enable_package_mash_services) {
@@ -500,9 +539,6 @@ if (is_win) {
         "//build/config:exe_and_shlib_deps",
         "//chrome/browser/policy:path_parser",
         "//chrome/common:features",
-        "//chrome/install_static:install_static_util",
-        "//chrome/install_static:secondary_module",
-        "//chrome_elf",
         "//components/browser_watcher:browser_watcher_client",
         "//components/crash/content/app",
         "//content/public/app:child",
@@ -511,6 +547,12 @@ if (is_win) {
         "//services/service_manager/embedder",
       ]
 
+      if (is_win) {
+      deps += [
+        "//chrome/install_static:install_static_util",
+        "//chrome/install_static:secondary_module",
+        "//chrome_elf",
+      ]
       ldflags = [
         "/DELAYLOAD:d3d11.dll",
         "/DELAYLOAD:d3d9.dll",
@@ -544,8 +586,10 @@ if (is_win) {
         configs += [ "//build/config/win:no_incremental_linking" ]
       }
       configs += [ "//build/config/compiler/pgo:default_pgo_flags" ]
+      } #is_win
     }
   }
+  if (is_win) {
   copy("copy_first_run") {
     sources = [
       "app/FirstRun",
@@ -553,6 +597,7 @@ if (is_win) {
     outputs = [
       "$root_out_dir/First Run",
     ]
+  }
   }
 } else if (is_mac) {
   chrome_helper_name = chrome_product_full_name + " Helper"
@@ -638,7 +683,7 @@ if (is_win) {
 
     # Remove the default strip configuration (which strips all symbols) so that
     # a saves file can be specified.
-    if (enable_stripping) {
+    if (false) {
       remove_configs = [ "//build/config/mac:strip_all" ]
 
       ldflags =
@@ -832,7 +877,7 @@ if (is_win) {
 
     # Remove the default strip configuration (which strips all symbols) so that
     # a saves file can be specified.
-    if (enable_stripping) {
+    if (false) {
       remove_configs = [ "//build/config/mac:strip_all" ]
 
       ldflags +=
@@ -959,7 +1004,8 @@ if (is_win) {
         } else if (current_cpu == "x64") {
           sources += [ "$root_out_dir/nacl_irt_x86_64.nexe" ]
         }
-        public_deps += [ "//ppapi/native_client:irt" ]
+        sources += [ "$root_out_dir/pnacl" ]
+        public_deps += [ "//ppapi/native_client:irt", "//ppapi/native_client/src/untrusted/pnacl_support_extension:pnacl_support_extension" ]
       }
     }
   } else {
@@ -1165,6 +1211,8 @@ if (is_win) {
       ":chrome_framework_shared_library",
     ]
 
+    output_name = "nw"
+
     sources = [
       "app/chrome_crash_reporter_client.cc",
       "app/chrome_crash_reporter_client.h",
@@ -1188,7 +1236,8 @@ if (is_win) {
       "//content/public/common:service_names",
       "//headless:headless_shell_lib",
       "//services/service_manager/embedder",
-      "//third_party/cld",
+      #"//third_party/cld",
+      "//ui/events:dom_keycode_converter",
     ]
 
     if (is_component_build) {
@@ -1273,7 +1322,7 @@ if (is_win) {
       ldflags += [
         "-rpath",
         "@loader_path/../../../../..",
-        "-Wl,-reexport_library,libchrome_dll.dylib",
+        "-Wl,-reexport_library,libnw.dylib",
       ]
 
       data_deps = [
@@ -1292,7 +1341,7 @@ if (is_win) {
   assert(_framework_binary_path != "",
          "Ignore configuration-dependent unused variable warning")
 
-  if (!is_asan && !is_component_build) {
+  if (!is_asan && !is_component_build && false) {
     action("verify_chrome_framework_order") {
       script = "//chrome/tools/build/mac/run_verify_order.py"
       stamp_file = "$target_out_dir/run_$target_name.stamp"
@@ -1355,6 +1404,7 @@ if (is_win) {
       # Use an absolute path to dump_syms in case a user has it in their path.
       args = rebase_path(outputs, root_out_dir) + [
                rebase_path("$root_out_dir/dump_syms"),
+               "-a", "x86_64",
                "-g",
                rebase_path(
                    "$root_out_dir/{{source_name_part}}.dSYM/Contents/Resources/DWARF/{{source_name_part}}",
@@ -1367,6 +1417,37 @@ if (is_win) {
         ":chrome_framework",
         ":chrome_helper_app",
         "//breakpad:dump_syms",
+        "//chrome/browser/ui/cocoa/notifications:alert_notification_xpc_service",
+        "//third_party/crashpad/crashpad/handler:crashpad_handler",
+      ]
+    }
+
+    action("nw_sym_archive") {
+      script = "//content/nw/tools/archive_symbols.py"
+
+      _syms = [
+        "$root_out_dir/$chrome_framework_name-$chrome_version_full.breakpad",
+        "$root_out_dir/$chrome_helper_name-$chrome_version_full.breakpad",
+        "$root_out_dir/$chrome_product_full_name-$chrome_version_full.breakpad",
+        "$root_out_dir/crashpad_handler-$chrome_version_full.breakpad",
+      ]
+
+      sources = _chrome_symbols_sources
+
+      _output = "$root_out_dir/nwjs.breakpad.tar"
+
+      outputs = [
+        _output,
+      ]
+
+      args = [ rebase_path(_output, root_out_dir) ] +
+             rebase_path(_syms, root_out_dir)
+
+      deps = [
+        ":chrome_app",
+        ":chrome_dump_syms",
+        ":chrome_framework",
+        ":chrome_helper_app",
         "//chrome/browser/ui/cocoa/notifications:alert_notification_xpc_service",
         "//third_party/crashpad/crashpad/handler:crashpad_handler",
       ]
@@ -1825,7 +1906,7 @@ if (is_linux) {
       dump_syms_binary =
           get_label_info(dump_syms_label, "root_out_dir") + "/" + "dump_syms"
 
-      chrome_binary = "$root_out_dir/chrome"
+      chrome_binary = "$root_out_dir/nw"
       if (current_cpu == "x86") {
         # GYP used "ia32" so keep that naming for back-compat.
         symbol_file = "$root_out_dir/chrome.breakpad.ia32"

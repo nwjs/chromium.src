@@ -19,6 +19,7 @@ struct WebFrameOwnerProperties {
 
   WebString name;  // browsing context container's name
   ScrollingMode scrolling_mode;
+  bool nwFakeTop;
   int margin_width;
   int margin_height;
   bool allow_fullscreen;
@@ -28,7 +29,7 @@ struct WebFrameOwnerProperties {
 
  public:
   WebFrameOwnerProperties()
-      : scrolling_mode(ScrollingMode::kAuto),
+      : scrolling_mode(ScrollingMode::kAuto), nwFakeTop(false),
         margin_width(-1),
         margin_height(-1),
         allow_fullscreen(false),
@@ -46,6 +47,7 @@ struct WebFrameOwnerProperties {
                           const WebString& required_csp)
       : name(name),
         scrolling_mode(static_cast<ScrollingMode>(scrolling_mode)),
+        nwFakeTop(false),
         margin_width(margin_width),
         margin_height(margin_height),
         allow_fullscreen(allow_fullscreen),

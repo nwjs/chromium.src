@@ -130,6 +130,8 @@ struct Capabilities {
 
   std::vector<std::string> extensions;
 
+  std::vector<std::string> arguments;
+
   // True if should always use DevTools for taking screenshots.
   // This is experimental and may be removed at a later point.
   bool force_devtools_screenshot;

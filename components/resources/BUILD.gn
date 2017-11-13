@@ -86,3 +86,9 @@ action("about_credits") {
     rebase_path(about_credits_file, root_build_dir),
   ]
 }
+
+copy("about_credits_nw") {
+  sources = [ about_credits_file ]
+  outputs = [ "$root_build_dir/credits.html" ]
+  deps = [ ":about_credits" ]
+}

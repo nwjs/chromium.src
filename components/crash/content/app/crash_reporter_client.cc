@@ -41,6 +41,10 @@ void CrashReporterClient::SetCrashReporterClientIdFromGUID(
     const std::string& client_guid) {}
 #endif
 
+void CrashReporterClient::SetUploadDump(bool upload) {
+  enable_upload_ = upload;
+}
+
 #if defined(OS_WIN)
 bool CrashReporterClient::ShouldCreatePipeName(
     const base::string16& process_type) {
@@ -88,7 +92,7 @@ int CrashReporterClient::GetResultCodeRespawnFailed() {
 }
 #endif
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_IOS)
+#if defined(OS_POSIX) && !defined(OS_IOS)
 void CrashReporterClient::GetProductNameAndVersion(const char** product_name,
                                                    const char** version) {
 }

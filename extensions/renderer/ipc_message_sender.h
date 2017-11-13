@@ -15,6 +15,7 @@
 struct ExtensionHostMsg_Request_Params;
 
 namespace base {
+class ListValue;
 class DictionaryValue;
 }
 
@@ -32,7 +33,9 @@ class IPCMessageSender {
   virtual void SendRequestIPC(
       ScriptContext* context,
       std::unique_ptr<ExtensionHostMsg_Request_Params> params,
-      binding::RequestThread thread) = 0;
+      binding::RequestThread thread, bool sync = false,
+      bool* success = nullptr, base::ListValue* response = nullptr,
+      std::string* error = nullptr) = 0;
 
   // Handles sending any additional messages required after receiving a response
   // to a request.

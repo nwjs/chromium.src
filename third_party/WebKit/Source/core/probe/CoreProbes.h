@@ -70,6 +70,26 @@ inline CoreProbeSink* ToCoreProbeSink(LocalFrame* frame) {
 }
 
 inline CoreProbeSink* ToCoreProbeSink(Document& document) {
+  LocalFrame* frame = document.GetFrame();
+  if (!frame && document.TemplateDocumentHost())
+    frame = document.TemplateDocumentHost()->GetFrame();
+  // filter out non-jail frame instrumentations
+  if (frame) {
+    Frame* jail_frame = NULL;
+    if ((jail_frame = frame->getDevtoolsJail()) != NULL) {
+      Frame* f = document.GetFrame();
+      bool in_jail_frame = false;
+      while (f) {
+        if (f == jail_frame) {
+          in_jail_frame = true;
+          break;
+        }
+        f = f->Tree().Parent();
+      }
+      if (!in_jail_frame)
+        return NULL;
+    }
+  }
   return document.GetProbeSink();
 }
 

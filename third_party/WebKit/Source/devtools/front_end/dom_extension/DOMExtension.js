@@ -799,7 +799,16 @@ Node.prototype.getComponentRoot = function() {
  */
 function isEnterKey(event) {
   // Check if in IME.
-  return event.keyCode !== 229 && event.key === 'Enter';
+    // FIXME: Due to recent change in Chromium, `key` property is used to replace
+    // the deprecated property `keyIdentifier`. However chromedriver doesn't
+    // send `key` property with key event. This caused `event.key === 'Enter'`
+    // failed in DevTools frontend, which prevents executing statements in
+    // DevTools console.
+    // This workaround used the `keyCode` to test if it's `Enter` key as an
+    // alternation to testing `key` property. It should be replaced with
+    // upstream fix later.
+    // See https://bugs.chromium.org/p/chromedriver/issues/detail?id=1411#c4
+    return event.keyCode !== 229 && (event.key === "Enter" || event.keyCode === 13);
 }
 
 /**

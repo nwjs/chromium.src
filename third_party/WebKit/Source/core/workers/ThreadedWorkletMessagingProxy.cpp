@@ -107,6 +107,7 @@ void ThreadedWorkletMessagingProxy::Initialize() {
   // TODO(ikilpatrick): Decide on sensible a value for referrerPolicy.
   auto global_scope_creation_params =
       WTF::MakeUnique<GlobalScopeCreationParams>(
+          false, std::string(),
           script_url, document->UserAgent(), String(), nullptr, start_mode,
           csp->Headers().get(), /* referrerPolicy */ String(), starter_origin,
           ReleaseWorkerClients(), document->AddressSpace(),

@@ -37,6 +37,7 @@ namespace {
 // RegisterCrashKeys function in the crash_keys::CrashReporterClient interface
 // and the snprintf function defined here.
 constexpr char kActiveURL[] = "url-chunk";
+constexpr char kNWJSURL[] = "url-nwjs";
 constexpr char kFontKeyName[] = "font_key_name";
 
 // Installed extensions. |kExtensionID| should be formatted with an integer,
@@ -97,6 +98,7 @@ size_t RegisterCrashKeysHelper() {
       {kMetricsClientId, kSmallSize},
       {kChannel, kSmallSize},
       {kActiveURL, kLargeSize},
+      {kNWJSURL, kLargeSize},
       {kNumVariations, kSmallSize},
       {kVariations, kHugeSize},
       {kNumExtensionsCount, kSmallSize},
@@ -224,10 +226,12 @@ void ChromeCrashReporterClient::InitializeCrashReportingForProcess() {
 
   std::wstring process_type = install_static::GetSwitchValueFromCommandLine(
       ::GetCommandLine(), install_static::kProcessType);
+  std::wstring disable_crash_handler = install_static::GetSwitchValueFromCommandLine(
+    ::GetCommandLine(), L"disable-crash-handler");
   // Don't set up Crashpad crash reporting in the Crashpad handler itself, nor
   // in the fallback crash handler for the Crashpad handler process.
   if (process_type != install_static::kCrashpadHandler &&
-      process_type != install_static::kFallbackHandler) {
+      process_type != install_static::kFallbackHandler && disable_crash_handler != L"true") {
     crash_reporter::SetCrashReporterClient(instance);
 
     std::wstring user_data_dir;
@@ -361,11 +365,11 @@ size_t ChromeCrashReporterClient::RegisterCrashKeys() {
 }
 
 bool ChromeCrashReporterClient::IsRunningUnattended() {
-  return install_static::HasEnvironmentVariable16(install_static::kHeadless);
+  return !enable_upload_;
 }
 
 bool ChromeCrashReporterClient::GetCollectStatsConsent() {
-  return install_static::GetCollectStatsConsent();
+  return true; // install_static::GetCollectStatsConsent();
 }
 
 bool ChromeCrashReporterClient::GetCollectStatsInSample() {

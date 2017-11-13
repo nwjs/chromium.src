@@ -347,6 +347,22 @@ class WebViewInternalLoadDataWithBaseUrlFunction
   DISALLOW_COPY_AND_ASSIGN(WebViewInternalLoadDataWithBaseUrlFunction);
 };
 
+class WebViewInternalShowDevToolsFunction
+    : public LegacyWebViewInternalExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("webViewInternal.showDevTools", UNKNOWN);
+
+  WebViewInternalShowDevToolsFunction();
+
+ protected:
+  ~WebViewInternalShowDevToolsFunction() override;
+
+ private:
+  bool RunAsyncSafe(WebViewGuest* guest) override;
+
+  DISALLOW_COPY_AND_ASSIGN(WebViewInternalShowDevToolsFunction);
+};
+
 class WebViewInternalGoFunction : public WebViewInternalExtensionFunction {
  public:
   DECLARE_EXTENSION_FUNCTION("webViewInternal.go", WEBVIEWINTERNAL_GO);

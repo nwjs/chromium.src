@@ -24,9 +24,7 @@ declare_args() {
   # Enables Native Client support.
   # Temporarily disable nacl on arm64 linux to get rid of compilation errors.
   # TODO(mcgrathr): When mipsel-nacl-clang is available, drop the exclusion.
-  enable_nacl = !is_ios && !is_android && !is_fuchsia && !is_chromecast &&
-                current_cpu != "mipsel" && current_cpu != "mips64el" &&
-                !(is_linux && target_cpu == "arm64")
+  enable_nacl = false
 
   # Non-SFI is not yet supported on mipsel
   enable_nacl_nonsfi = current_cpu != "mipsel" && current_cpu != "mips64el"
@@ -36,7 +34,7 @@ declare_args() {
   #
   # Note: this flag is used by WebRTC which is DEPSed into Chrome. Moving it
   # out of //build will require using the build_overrides directory.
-  proprietary_codecs = is_chrome_branded || is_chromecast
+  proprietary_codecs = true
 
   # Variable safe_browsing is used to control the build time configuration for
   # safe browsing feature. Safe browsing can be compiled in 3 different levels:
@@ -47,7 +45,7 @@ declare_args() {
   } else if (is_android) {
     safe_browsing_mode = 2
   } else {
-    safe_browsing_mode = 1
+    safe_browsing_mode = 0
   }
 
   # Set to true make a build that disables activation of field trial tests

@@ -69,7 +69,7 @@ std::vector<display::Display> GetFallbackDisplayList() {
   if (!display::Display::HasForceDeviceScaleFactor() &&
       !display::IsDisplaySizeBlackListed(physical_size)) {
     const float device_scale_factor = GetDeviceScaleFactor();
-    DCHECK_LE(1.0f, device_scale_factor);
+    //DCHECK_LE(1.0f, device_scale_factor);
     gfx_display.SetScaleAndBounds(device_scale_factor, bounds_in_pixels);
   }
 

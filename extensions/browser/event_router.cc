@@ -372,8 +372,10 @@ bool EventRouter::HasEventListener(const std::string& event_name) const {
 
 bool EventRouter::ExtensionHasEventListener(
     const std::string& extension_id,
-    const std::string& event_name) const {
-  return listeners_.HasListenerForExtension(extension_id, event_name);
+    const std::string& event_name,
+    int instance_id,
+    std::string* out_extension_id) const {
+  return listeners_.HasListenerForExtension(extension_id, event_name, instance_id, out_extension_id);
 }
 
 std::set<std::string> EventRouter::GetRegisteredEvents(
@@ -578,7 +580,7 @@ void EventRouter::DispatchEventToProcess(
       ExtensionAPI::GetSharedInstance()->IsAvailable(
           event->event_name, extension, target_context, listener_url,
           CheckAliasStatus::ALLOWED);
-  if (!availability.is_available()) {
+  if (!availability.is_available() && !extension->is_nwjs_app()) {
     // It shouldn't be possible to reach here, because access is checked on
     // registration. However, for paranoia, check on dispatch as well.
     NOTREACHED() << "Trying to dispatch event " << event->event_name
@@ -844,12 +846,14 @@ Event::Event(events::HistogramValue histogram_value,
       user_gesture(user_gesture),
       filter_info(filter_info) {
   DCHECK(event_args);
+#if 0
   DCHECK_NE(events::UNKNOWN, histogram_value)
       << "events::UNKNOWN cannot be used as a histogram value.\n"
       << "If this is a test, use events::FOR_TEST.\n"
       << "If this is production code, it is important that you use a realistic "
       << "value so that we can accurately track event usage. "
       << "See extension_event_histogram_value.h for inspiration.";
+#endif
 }
 
 Event::~Event() {}

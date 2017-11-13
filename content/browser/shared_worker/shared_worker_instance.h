@@ -7,6 +7,8 @@
 
 #include <string>
 
+#include "base/files/file_path.h"
+
 #include "content/browser/shared_worker/worker_storage_partition.h"
 #include "content/common/content_export.h"
 #include "third_party/WebKit/public/platform/WebAddressSpace.h"
@@ -21,7 +23,7 @@ class ResourceContext;
 // the UI thread and be used for comparison in SharedWorkerDevToolsManager.
 class CONTENT_EXPORT SharedWorkerInstance {
  public:
-  SharedWorkerInstance(
+  SharedWorkerInstance(bool is_node_js, const base::FilePath& root_path,
       const GURL& url,
       const base::string16& name,
       const base::string16& content_security_policy,
@@ -47,6 +49,8 @@ class CONTENT_EXPORT SharedWorkerInstance {
   bool Matches(const SharedWorkerInstance& other) const;
 
   // Accessors.
+  bool nodejs() const { return is_node_js_; }
+  const base::FilePath& root_path() const { return root_path_; }
   const GURL& url() const { return url_; }
   const base::string16 name() const { return name_; }
   const base::string16 content_security_policy() const {
@@ -68,6 +72,8 @@ class CONTENT_EXPORT SharedWorkerInstance {
   bool data_saver_enabled() const { return data_saver_enabled_; }
 
  private:
+  bool is_node_js_;
+  const base::FilePath root_path_;
   const GURL url_;
   const base::string16 name_;
   const base::string16 content_security_policy_;

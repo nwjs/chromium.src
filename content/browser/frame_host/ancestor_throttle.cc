@@ -114,6 +114,9 @@ AncestorThrottle::WillProcessResponse() {
   HeaderDisposition disposition =
       ParseHeader(handle->GetResponseHeaders(), &header_value);
 
+  if (handle->frame_tree_node()->frame_owner_properties().nwfaketop)
+    return NavigationThrottle::PROCEED;
+
   switch (disposition) {
     case HeaderDisposition::CONFLICT:
       ParseError(header_value, disposition);

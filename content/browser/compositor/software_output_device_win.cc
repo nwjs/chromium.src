@@ -12,6 +12,7 @@
 #include "skia/ext/skia_utils_win.h"
 #include "ui/base/win/internal_constants.h"
 #include "ui/compositor/compositor.h"
+#include "ui/display/display.h"
 #include "ui/gfx/gdi_util.h"
 #include "ui/gfx/skia_util.h"
 
@@ -172,6 +173,10 @@ void SoftwareOutputDeviceWin::EndPaint() {
     RECT wr;
     GetWindowRect(hwnd_, &wr);
     SIZE size = {wr.right - wr.left, wr.bottom - wr.top};
+    if (g_force_cpu_draw) {
+      size.cx = contents_->getDeviceClipBounds().width();
+      size.cy = contents_->getDeviceClipBounds().height();
+    }
     POINT position = {wr.left, wr.top};
     POINT zero = {0, 0};
     BLENDFUNCTION blend = {AC_SRC_OVER, 0x00, 0xFF, AC_SRC_ALPHA};

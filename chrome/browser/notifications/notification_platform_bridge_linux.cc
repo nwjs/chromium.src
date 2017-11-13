@@ -583,12 +583,14 @@ class NotificationPlatformBridgeLinuxImpl
         actions.push_back(kDefaultButtonId);
         actions.push_back("");
       }
+#if 0
       // Always add a settings button for web notifications.
       if (notification_type != NotificationCommon::EXTENSION) {
         actions.push_back(kSettingsButtonId);
         actions.push_back(
             l10n_util::GetStringUTF8(IDS_NOTIFICATION_BUTTON_SETTINGS));
       }
+#endif
     }
     writer.AppendArrayOfStrings(actions);
 
