@@ -5,9 +5,6 @@
 cr.define('settings', function() {
   /** @interface */
   class ChangePasswordBrowserProxy {
-    /** Initialize the change password handler.*/
-    initializeChangePasswordHandler() {}
-
     /**
      * Inform PasswordProtectionService that the change password card is
      * showing.
@@ -26,11 +23,6 @@ cr.define('settings', function() {
    * @implements {settings.ChangePasswordBrowserProxy}
    */
   class ChangePasswordBrowserProxyImpl {
-    /** @override */
-    initializeChangePasswordHandler() {
-      chrome.send('initializeChangePasswordHandler');
-    }
-
     /** @override */
     onChangePasswordPageShown() {
       chrome.send('onChangePasswordPageShown');

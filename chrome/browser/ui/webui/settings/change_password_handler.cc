@@ -26,10 +26,6 @@ ChangePasswordHandler::~ChangePasswordHandler() {}
 
 void ChangePasswordHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(
-      "initializeChangePasswordHandler",
-      base::Bind(&ChangePasswordHandler::HandleInitialize,
-                 base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
       "onChangePasswordPageShown",
       base::Bind(&ChangePasswordHandler::HandleChangePasswordPageShown,
                  base::Unretained(this)));
@@ -39,6 +35,8 @@ void ChangePasswordHandler::RegisterMessages() {
 }
 
 void ChangePasswordHandler::OnJavascriptAllowed() {
+  service_ = safe_browsing::ChromePasswordProtectionService::
+      GetPasswordProtectionService(profile_);
   if (service_)
     password_protection_observer_.Add(service_);
 }
@@ -58,10 +56,6 @@ void ChangePasswordHandler::OnMarkingSiteAsLegitimate(const GURL& url) {
   }
 }
 
-void ChangePasswordHandler::OnGaiaPasswordReuseWarningShown() {
-  FireWebUIListener("change-password-on-show");
-}
-
 void ChangePasswordHandler::InvokeActionForTesting(
     ChromePasswordProtectionService::WarningAction action) {
   if (!ChromePasswordProtectionService::ShouldShowChangePasswordSettingUI(
@@ -78,20 +72,13 @@ ChangePasswordHandler::GetObserverType() {
   return ChromePasswordProtectionService::CHROME_SETTINGS;
 }
 
-void ChangePasswordHandler::HandleInitialize(const base::ListValue* args) {
-  service_ = safe_browsing::ChromePasswordProtectionService::
-      GetPasswordProtectionService(profile_);
-  if (service_)
-    AllowJavascript();
-}
-
 void ChangePasswordHandler::HandleChangePasswordPageShown(
     const base::ListValue* args) {
   AllowJavascript();
   if (service_) {
-    service_->RecordWarningAction(
-        safe_browsing::PasswordProtectionService::CHROME_SETTINGS,
-        safe_browsing::PasswordProtectionService::SHOWN);
+    service_->OnWarningShown(
+        web_ui()->GetWebContents(),
+        safe_browsing::PasswordProtectionService::CHROME_SETTINGS);
   }
 }
 
