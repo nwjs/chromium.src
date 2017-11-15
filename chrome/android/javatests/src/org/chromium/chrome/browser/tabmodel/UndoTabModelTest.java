@@ -27,7 +27,7 @@ import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity2;
-import org.chromium.chrome.browser.multiwindow.MultiWindowUtilsTest;
+import org.chromium.chrome.browser.multiwindow.MultiWindowTestHelper;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel.TabSelectionType;
@@ -1574,7 +1574,7 @@ public class UndoTabModelTest {
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     public void testOpenRecentlyClosedTabMultiWindow() throws InterruptedException {
         final ChromeTabbedActivity2 secondActivity =
-                MultiWindowUtilsTest.createSecondChromeTabbedActivity(
+                MultiWindowTestHelper.createSecondChromeTabbedActivity(
                         mActivityTestRule.getActivity());
 
         // Wait for the second window to be fully initialized.
@@ -1654,7 +1654,7 @@ public class UndoTabModelTest {
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     public void testOpenRecentlyClosedTabMultiWindowFallback() throws InterruptedException {
         final ChromeTabbedActivity2 secondActivity =
-                MultiWindowUtilsTest.createSecondChromeTabbedActivity(
+                MultiWindowTestHelper.createSecondChromeTabbedActivity(
                         mActivityTestRule.getActivity());
         // Wait for the second window to be fully initialized.
         CriteriaHelper.pollUiThread(new Criteria() {
