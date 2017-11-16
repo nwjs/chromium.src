@@ -674,8 +674,9 @@ NSString* const kBrowserViewControllerSnackbarCategory =
 // Updates view-related functionality with the given tab model and browser
 // state. The view must have been loaded.  Uses |_browserState| and |_model|.
 - (void)addUIFunctionalityForModelAndBrowserState;
-// Sets the correct frame and hierarchy for subviews and helper views.
-- (void)setUpViewLayout;
+// Sets the correct frame and hierarchy for subviews and helper views.  Only
+// insert views on |initialLayout|.
+- (void)setUpViewLayout:(BOOL)initialLayout;
 // Makes |tab| the currently visible tab, displaying its view.  Calls
 // -selectedTabChanged on the toolbar only if |newSelection| is YES.
 - (void)displayTab:(Tab*)tab isNewSelection:(BOOL)newSelection;
@@ -1295,7 +1296,7 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
   // Install fake status bar for iPad iOS7
   [self installFakeStatusBar];
   [self buildToolbarAndTabStrip];
-  [self setUpViewLayout];
+  [self setUpViewLayout:YES];
   if (base::FeatureList::IsEnabled(kSafeAreaCompatibleToolbar)) {
     [self addConstraintsToToolbar];
   }
@@ -1318,7 +1319,7 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
   // Gate this behind iPhone X, since it's currently the only device that
   // needs layout updates here after startup.
   if (IsIPhoneX()) {
-    [self setUpViewLayout];
+    [self setUpViewLayout:NO];
   }
   if (base::FeatureList::IsEnabled(kSafeAreaCompatibleToolbar)) {
     [_toolbarCoordinator.webToolbarController safeAreaInsetsDidChange];
@@ -1989,7 +1990,7 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
 }
 
 // Set the frame for the various views. View must be loaded.
-- (void)setUpViewLayout {
+- (void)setUpViewLayout:(BOOL)initialLayout {
   DCHECK([self isViewLoaded]);
   CGFloat widthOfView = CGRectGetWidth([self view].bounds);
   CGFloat minY = [self headerOffset];
@@ -2014,11 +2015,13 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
 
   // Place the infobar container above the content area.
   InfoBarContainerView* infoBarContainerView = _infoBarContainer->view();
-  [self.view insertSubview:infoBarContainerView aboveSubview:_contentArea];
+  if (initialLayout)
+    [self.view insertSubview:infoBarContainerView aboveSubview:_contentArea];
 
   // Place the toolbar controller above the infobar container.
-  [[self view] insertSubview:[_toolbarCoordinator view]
-                aboveSubview:infoBarContainerView];
+  if (initialLayout)
+    [[self view] insertSubview:[_toolbarCoordinator view]
+                  aboveSubview:infoBarContainerView];
   minY += CGRectGetHeight(toolbarFrame);
 
   // Account for the toolbar's drop shadow.  The toolbar overlaps with the web
@@ -2042,7 +2045,8 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
 
   // Attach the typing shield to the content area but have it hidden.
   [_typingShield setFrame:[_contentArea frame]];
-  [[self view] insertSubview:_typingShield aboveSubview:_contentArea];
+  if (initialLayout)
+    [[self view] insertSubview:_typingShield aboveSubview:_contentArea];
   [_typingShield setHidden:YES];
   _typingShield.accessibilityIdentifier = @"Typing Shield";
   _typingShield.accessibilityLabel = l10n_util::GetNSString(IDS_CANCEL);
