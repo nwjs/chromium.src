@@ -52,7 +52,8 @@ public class SmartSelectionClient implements SelectionClient {
      */
     public static SmartSelectionClient create(ResultCallback callback, WebContents webContents) {
         WindowAndroid windowAndroid = webContents.getTopLevelNativeWindow();
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || windowAndroid == null) return null;
+        // TODO(donnd): update to "SDK_INT < Build.VERSION_CODES.O_MR1" once MR1 is supported.
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.O || windowAndroid == null) return null;
 
         SmartSelectionProvider provider = new SmartSelectionProvider(callback, windowAndroid);
         return new SmartSelectionClient(provider, callback, webContents);
@@ -60,7 +61,7 @@ public class SmartSelectionClient implements SelectionClient {
 
     private SmartSelectionClient(
             SmartSelectionProvider provider, ResultCallback callback, WebContents webContents) {
-        assert Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
+        assert Build.VERSION.SDK_INT > Build.VERSION_CODES.O;
         mProvider = provider;
         mCallback = callback;
         mNativeSmartSelectionClient = nativeInit(webContents);
