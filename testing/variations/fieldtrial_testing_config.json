@@ -751,6 +751,21 @@
             ]
         }
     ],
+    "ChromeSmartSelection": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "ChromeSmartSelection"
+                    ]
+                }
+            ]
+        }
+    ],
     "ClearOldOnDemandFavicons": [
         {
             "platforms": [
