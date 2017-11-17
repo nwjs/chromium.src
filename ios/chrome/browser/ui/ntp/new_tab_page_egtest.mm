@@ -11,6 +11,7 @@
 #include "ios/chrome/browser/bookmarks/bookmark_new_generation_features.h"
 #import "ios/chrome/browser/ui/commands/browser_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
+#import "ios/chrome/browser/ui/ntp/modal_ntp.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_controller.h"
 #include "ios/chrome/browser/ui/ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
@@ -115,9 +116,8 @@ void AssertNTPScrolledToTop(bool scrolledToTop) {
 }
 
 // Tests that all items are accessible on the bookmarks page.
-// TODO(crbug.com/695749): Check if we need to rewrite this test for the new
-// Bookmarks UI.
 - (void)testAccessibilityOnBookmarks {
+  // TODO(crbug.com/782551): Rewrite this test for the new Bookmarks UI.
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndDisableFeature(kBookmarkNewGeneration);
 
@@ -215,6 +215,15 @@ void AssertNTPScrolledToTop(bool scrolledToTop) {
 
 // Tests focusing and defocusing the NTP's omnibox.
 - (void)testOmnibox {
+  // TODO(crbug.com/782551): Rewrite this test for the new Bookmarks UI.
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(kBookmarkNewGeneration);
+
+  // TODO(crbug.com/782551): Remove the following when this test is rewritten.
+  // Re-open tabs so that scoped_feature_list will take effect on the NTP.
+  chrome_test_util::CloseAllTabs();
+  chrome_test_util::OpenNewTab();
+
   // Empty the pasteboard: if it contains a link the Google Landing will not be
   // interactable.
   [UIPasteboard generalPasteboard].string = @"";
