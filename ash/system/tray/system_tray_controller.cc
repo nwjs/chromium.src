@@ -172,6 +172,7 @@ void SystemTrayController::SetPrimaryTrayVisible(bool visible) {
   if (visible) {
     tray->GetWidget()->Show();
   } else {
+    tray->CloseBubble();
     tray->GetWidget()->Hide();
   }
 }
