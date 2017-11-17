@@ -64,6 +64,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kChromeHomeDestroySuggestions,
     &kChromeHomeDoodle,
     &kChromeHomePromo,
+    &kChromeHomePromoOnStartup,
     &kChromeHomeOptOutSnackbar,
     &kChromeHomeSwipeLogic,
     &kChromeSmartSelection,
@@ -179,6 +180,9 @@ const base::Feature kChromeHomeDoodle{"ChromeHomeDoodle",
 
 const base::Feature kChromeHomePromo{"ChromeHomePromo",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kChromeHomePromoOnStartup{"ChromeHomePromoOnStartup",
+                                              base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kChromeHomeOptOutSnackbar{
     "ChromeHomeOptOutSnackbar", base::FEATURE_DISABLED_BY_DEFAULT};
