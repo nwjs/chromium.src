@@ -17,8 +17,7 @@ namespace blink {
 V8IntersectionObserverDelegate::V8IntersectionObserverDelegate(
     V8IntersectionObserverCallback* callback,
     ScriptState* script_state)
-    : ContextClient(ExecutionContext::From(script_state)),
-      callback_(callback) {}
+    : callback_(callback), script_state_(script_state) {}
 
 V8IntersectionObserverDelegate::~V8IntersectionObserverDelegate() {}
 
@@ -31,16 +30,11 @@ void V8IntersectionObserverDelegate::Deliver(
 DEFINE_TRACE(V8IntersectionObserverDelegate) {
   visitor->Trace(callback_);
   IntersectionObserverDelegate::Trace(visitor);
-  ContextClient::Trace(visitor);
 }
 
 DEFINE_TRACE_WRAPPERS(V8IntersectionObserverDelegate) {
   visitor->TraceWrappers(callback_);
   IntersectionObserverDelegate::TraceWrappers(visitor);
-}
-
-ExecutionContext* V8IntersectionObserverDelegate::GetExecutionContext() const {
-  return ContextClient::GetExecutionContext();
 }
 
 }  // namespace blink

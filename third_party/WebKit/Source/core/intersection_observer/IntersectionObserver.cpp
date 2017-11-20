@@ -329,7 +329,6 @@ String IntersectionObserver::rootMargin() const {
 
 void IntersectionObserver::EnqueueIntersectionObserverEntry(
     IntersectionObserverEntry& entry) {
-  DCHECK(delegate_->GetExecutionContext());
   entries_.push_back(&entry);
   ToDocument(delegate_->GetExecutionContext())
       ->EnsureIntersectionObserverController()
