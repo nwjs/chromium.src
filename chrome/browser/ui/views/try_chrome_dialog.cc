@@ -142,6 +142,8 @@ std::unique_ptr<views::LabelButton> CreateWin10StyleButton(
   // Request specific 32pt height, 160+pt width.
   button->SetMinSize(gfx::Size(160, 32));
   button->SetMaxSize(gfx::Size(0, 32));
+  // Make button focusable for keyboard navigation.
+  button->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
   return button;
 }
 
@@ -433,7 +435,7 @@ void TryChromeDialog::OnTaskbarIconRect(const gfx::Rect& icon_rect) {
   popup_->SetBounds(bounds);
   popup_->SetContentsView(contents_view.release());
 
-  popup_->Show();
+  popup_->ShowInactive();
   delegate_->SetToastLocation(location);
 }
 
