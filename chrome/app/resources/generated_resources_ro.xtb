@@ -2422,7 +2422,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="4759238208242260848">Descărcări</translation>
 <translation id="4761104368405085019">Utilizează microfonul</translation>
 <translation id="4762718786438001384">Spațiul de pe hard diskul dispozitivului este foarte redus</translation>
-<translation id="4763408175235639573">Când s-a afișat această pagină au fost setate următoarele cookie-uri</translation>
+<translation id="4763408175235639573">La afișarea paginii au fost setate următoarele cookie-uri</translation>
 <translation id="4763830802490665879">Cookie-urile de la mai multe site-uri vor fi șterse la ieșire.</translation>
 <translation id="4768332406694066911">Ai certificate de la aceste organizații care te identifică</translation>
 <translation id="4776917500594043016">Parolă pentru <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -2801,7 +2801,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="5337771866151525739">Instalată de o terță parte.</translation>
 <translation id="5338503421962489998">Stocare la nivel local</translation>
 <translation id="5340217413897845242">Elementul 6 din raft</translation>
-<translation id="5341793073192892252">Au fost blocate următoarele cookie-uri (cookie-urile terță parte sunt blocate fără excepții)</translation>
+<translation id="5341793073192892252">Următoarele cookie-uri au fost blocate (cookie-urile terță parte sunt blocate fără excepții)</translation>
 <translation id="5341980496415249280">Așteaptă, se împachetează...</translation>
 <translation id="5342091991439452114">Codul PIN trebuie să conțină minimum <ph name="MINIMUM" /> cifre</translation>
 <translation id="534916491091036097">Parant. desch.</translation>
@@ -3025,6 +3025,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="5678955352098267522">Citește datele de pe <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Identificator articol</translation>
 <translation id="5687326903064479980">Fus orar</translation>
+<translation id="5689516760719285838">Locație</translation>
 <translation id="56907980372820799">Conectați datele</translation>
 <translation id="5691511426247308406">Familie</translation>
 <translation id="5691596662111998220">Hopa, <ph name="FILE_NAME" /> nu mai există.</translation>
@@ -3767,7 +3768,7 @@ Apăsați pe orice tastă pentru a continua explorarea.</translation>
 <translation id="683373380308365518">Comută la un browser inteligent și securizat</translation>
 <translation id="6835762382653651563">Accesează internetul pentru a actualiza dispozitivul <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6839225236531462745">Eroare de ștergere a certificatului</translation>
-<translation id="6840155290835956714">Solicită permisiunea înainte de trimitere</translation>
+<translation id="6840155290835956714">Întreabă înainte de a trimite</translation>
 <translation id="6840184929775541289">Nu este o Autoritate de certificare</translation>
 <translation id="6840313690797192085">$1 PB</translation>
 <translation id="6841186874966388268">Erori</translation>
@@ -4923,7 +4924,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8725066075913043281">Încearcă din nou</translation>
 <translation id="8725178340343806893">Preferințe/Marcaje</translation>
 <translation id="8726206820263995930">Eroare la preluarea setărilor politicii de pe server: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8726718463424335668">Ignoră importul</translation>
+<translation id="8726718463424335668">Omite importul</translation>
 <translation id="8727142376512517020">Nu mai afișa acest mesaj</translation>
 <translation id="8730621377337864115">Terminat</translation>
 <translation id="8732030010853991079">Utilizați extensia dând clic pe această pictogramă.</translation>

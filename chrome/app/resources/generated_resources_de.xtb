@@ -794,7 +794,7 @@
 <translation id="222949136907494149"><ph name="URL" /> möchte den Standort Ihres Computers nutzen.</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2230062665678605299">Ordner "<ph name="FOLDER_NAME" />" kann nicht erstellt werden. <ph name="ERROR_MESSAGE" /></translation>
-<translation id="223106756035922488">Zum Ansehen des aktuellen Doodles klicken</translation>
+<translation id="223106756035922488">Zum Ansehen des heutigen Doodles klicken</translation>
 <translation id="2231238007119540260">Wenn Sie ein Serverzertifikat löschen, werden die üblichen Sicherheitsprüfungen für den jeweiligen Server wieder aktiviert und es muss ein gültiges Zertifikat verwendet werden.</translation>
 <translation id="2231990265377706070">Ausrufezeichen</translation>
 <translation id="2232876851878324699">Die Datei enthielt ein Zertifikat, das nicht importiert wurde:</translation>
@@ -974,7 +974,7 @@ Ich glaube nicht, dass diese Website blockiert werden sollte.</translation>
 <translation id="2509495747794740764">Der Wert für die Skalierung muss zwischen 10 und 200 liegen.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="251662399991179012">Ihr <ph name="DEVICE_TYPE" /> trainieren</translation>
-<translation id="2517472476991765520">Scannen</translation>
+<translation id="2517472476991765520">Suchen</translation>
 <translation id="2518024842978892609">Clientzertifikate verwenden</translation>
 <translation id="2520644704042891903">Warten auf verfügbaren Socket...</translation>
 <translation id="252219247728877310">Komponente nicht aktualisiert</translation>
@@ -2401,7 +2401,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="4728558894243024398">Plattform</translation>
 <translation id="4731422630970790516">Ablageartikel 3</translation>
 <translation id="4732760563705710320">Das Video wird von Ihrem Übertragungsgerät leider nicht unterstützt.</translation>
-<translation id="4733793249294335256">Speicherort</translation>
+<translation id="4733793249294335256">Ort</translation>
 <translation id="4734518477988699048">Der Eingabewert ist ungültig.</translation>
 <translation id="473546211690256853">Dieses Konto wird von <ph name="DOMAIN" /> verwaltet.</translation>
 <translation id="4737715515457435632">Bitte stellen Sie eine Verbindung zu einem Netzwerk her.</translation>
@@ -2797,7 +2797,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5337771866151525739">Von einem Drittanbieter installiert</translation>
 <translation id="5338503421962489998">Lokaler Speicher</translation>
 <translation id="5340217413897845242">Ablageartikel 6</translation>
-<translation id="5341793073192892252">Die folgenden Cookies wurden blockiert (Cookies von Drittanbietern werden ohne Ausnahme blockiert)</translation>
+<translation id="5341793073192892252">Die folgenden Cookies wurden blockiert (Cookies von Drittanbietern werden ausnahmslos blockiert)</translation>
 <translation id="5341980496415249280">Bitte warten, Paket wird erstellt...</translation>
 <translation id="5342091991439452114">PIN muss mindestens <ph name="MINIMUM" /> Ziffern umfassen</translation>
 <translation id="534916491091036097">Linke Klammer</translation>
@@ -3021,6 +3021,7 @@ Drücken Sie eine beliebige Taste, um fortzufahren.</translation>
 <translation id="5678955352098267522">Ihre Daten auf <ph name="WEBSITE_1" /> lesen</translation>
 <translation id="5684661240348539843">Geräte-ID</translation>
 <translation id="5687326903064479980">Zeitzone</translation>
+<translation id="5689516760719285838">Ort</translation>
 <translation id="56907980372820799">Daten verknüpfen</translation>
 <translation id="5691511426247308406">Familie</translation>
 <translation id="5691596662111998220">Hoppla, <ph name="FILE_NAME" /> existiert nicht mehr.</translation>

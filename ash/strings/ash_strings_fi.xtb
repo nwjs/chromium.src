@@ -70,8 +70,8 @@
 <translation id="2532589005999780174">Suuri kontrasti -tila</translation>
 <translation id="2597972630681408282">Yövalo: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Lähetä</translation>
-<translation id="2675319268637823299">Järjestelmänvalvojan kiellon vuoksi <ph name="USER_EMAIL" /> ei voi käyttää usealle tilille kirjautumista.
-    Kaikkien käyttäjien on kirjauduttava ulos ennen jatkamista.</translation>
+<translation id="2675319268637823299">Järjestelmänvalvoja on kieltänyt käyttäjää <ph name="USER_EMAIL" /> kirjautumasta sisään useille tileille.
+    Kaikkien käyttäjien on kirjauduttava ulos jatkaakseen käyttöä.</translation>
 <translation id="2700058918926273959">Istunnon loppumiseen on <ph name="SESSION_TIME_REMAINING" />. Sinut kirjataan ulos.</translation>
 <translation id="2727977024730340865">Pienitehoinen laturi kytketty. Akku ei ehkä lataudu luotettavasti.</translation>
 <translation id="2761704814324807722">Tila-alue, aika <ph name="TIME" />, <ph name="BATTERY" /></translation>

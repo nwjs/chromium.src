@@ -161,7 +161,7 @@
 <translation id="2166049586286450108">Acceso de administrador completo</translation>
 <translation id="2166378884831602661">Este sitio web no puede proporcionar una conexión segura</translation>
 <translation id="2181821976797666341">Políticas</translation>
-<translation id="2183608646556468874">Número de teléfono</translation>
+<translation id="2183608646556468874">N.º de teléfono</translation>
 <translation id="2184405333245229118">{COUNT,plural, =1{Una dirección}other{# direcciones}}</translation>
 <translation id="2187317261103489799">Detectar (predeterminado)</translation>
 <translation id="2202020181578195191">Introduce un año de vencimiento válido</translation>
@@ -631,6 +631,7 @@
 <translation id="5669703222995421982">Obtener contenido personalizado</translation>
 <translation id="5675650730144413517">Esta página no funciona</translation>
 <translation id="5689199277474810259">Exportar a JSON</translation>
+<translation id="5689516760719285838">Ubicación</translation>
 <translation id="5710435578057952990">No se ha verificado la identidad de este sitio web.</translation>
 <translation id="5719499550583120431">Se aceptan tarjetas prepago.</translation>
 <translation id="5720705177508910913">Usuario actual</translation>

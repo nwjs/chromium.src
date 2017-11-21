@@ -794,7 +794,7 @@
 <translation id="222949136907494149"><ph name="URL" /> می‌خواهد از موقعیت مکانی رایانه شما استفاده کند.</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2230062665678605299">پوشه «<ph name="FOLDER_NAME" />» را نمی‌توان ایجاد کرد.<ph name="ERROR_MESSAGE" /></translation>
-<translation id="223106756035922488">‏برای مشاهده doodle امروز کلیک کنید</translation>
+<translation id="223106756035922488">‏برای مشاهده doodle امروز، کلیک کنید</translation>
 <translation id="2231238007119540260">درصورتی‌که یک مجوز سرور را حذف کنید، بررسی های امنیتی معمولی را برای آن سرور بازیابی می‌کنید و سرور ملزم به استفاده از یک مجوز معتبر می‌شود.</translation>
 <translation id="2231990265377706070">علامت تعجب</translation>
 <translation id="2232876851878324699">این فایل دارای یک مجوز است، که وارد نشده است:</translation>
@@ -1009,7 +1009,7 @@
 <translation id="2570000010887652771">داده‌های ذخیره‌‌شده.</translation>
 <translation id="2570648609346224037">در طول بارگیری تصویر بازیابی، مشکلی روی داد.</translation>
 <translation id="257088987046510401">طرح‌‌های قسمت</translation>
-<translation id="2571964818629181240">‏بستن Firefox قبل از وارد کردن</translation>
+<translation id="2571964818629181240">‏قبل از وارد کردن، Firefox را ببندید</translation>
 <translation id="2572032849266859634">مجوز دسترسی فقط خواندنی به <ph name="VOLUME_NAME" /> صادر شد.</translation>
 <translation id="2573269395582837871">انتخاب عکس و نام</translation>
 <translation id="2574102660421949343">کوکی‌های <ph name="DOMAIN" /> مجاز است.</translation>
@@ -1061,7 +1061,7 @@
 <translation id="2642111877055905627">توپ فوتبال</translation>
 <translation id="2643698698624765890">با کلیک کردن روی افزونه‌ها در منوی پنجره، برنامه‌های افزودنی نصب شده خود را مدیریت کنید.</translation>
 <translation id="2647142853114880570">بازخوانی</translation>
-<translation id="2647269890314209800">کوکی‌های درحال استفاده</translation>
+<translation id="2647269890314209800">کوکی‌ها درحال استفاده هستند</translation>
 <translation id="2648831393319960979">در حال افزودن دستگاه به حسابتان - ممکن است چند لحظه طول بکشد...</translation>
 <translation id="2649045351178520408">‏Base64-ASCII رمزگذاری‌شده، زنجیره گواهی</translation>
 <translation id="2653266418988778031">‏درصورتی‌که مجوز یک ارائه دهنده مجوز (CA) را حذف کنید، مرورگر شما دیگر به مجوزهای ارائه شده توسط آن CA اطمینان نخواهد کرد.</translation>
@@ -1196,7 +1196,7 @@
 <translation id="2815500128677761940">نوار نشانک‌ها</translation>
 <translation id="2815693974042551705">پوشه نشانک</translation>
 <translation id="2818476747334107629">جزئیات چاپگر</translation>
-<translation id="2820957248982571256">درحال اسکن کردن...</translation>
+<translation id="2820957248982571256">درحال اسکن کردن…</translation>
 <translation id="2822634587701817431">کوچک کردن / بزرگ کردن</translation>
 <translation id="2825758591930162672">کلید عمومی موضوع</translation>
 <translation id="2828650939514476812">‏اتصال به شبکه Wi-Fi</translation>
@@ -2323,7 +2323,7 @@
 <translation id="4610637590575890427">آیا می‌خواستید به <ph name="SITE" /> بروید؟</translation>
 <translation id="4611114513649582138">اتصال داده دردسترس است</translation>
 <translation id="4613271546271159013">یک برنامه افزودنی صفحه‌ای را که موقع باز کردن برگه جدید نشان داده می‌شود، تغییر داده است.</translation>
-<translation id="4615586811063744755">هیچ کوکی انتخاب نشده است</translation>
+<translation id="4615586811063744755">کوکی‌ای انتخاب نشده است</translation>
 <translation id="4617270414136722281">گزینه‌های افزونه</translation>
 <translation id="4618990963915449444">همه فایل‌های موجود در <ph name="DEVICE_NAME" /> پاک می‌شوند.</translation>
 <translation id="4619615317237390068">برگه‌ها از دستگاه‌های دیگر</translation>
@@ -2418,7 +2418,7 @@
 <translation id="4759238208242260848">بارگیری‌ها</translation>
 <translation id="4761104368405085019">استفاده از میکروفون خود</translation>
 <translation id="4762718786438001384">فضای دیسک دستگاه بسیار کم است</translation>
-<translation id="4763408175235639573">وقتی از این صفحه بازدید کردید، کوکی‌های زیر تنظیم شدند</translation>
+<translation id="4763408175235639573">وقتی این صفحه را مشاهده کردید، کوکی‌های زیر تنظیم شدند</translation>
 <translation id="4763830802490665879">کوکی‌های سایت‌های مختلف در هنگام خروج پاک خواهند شد.</translation>
 <translation id="4768332406694066911">گواهی‌هایی از این سازمان‌ها دارید که هویت شما را شناسایی می‌کنند</translation>
 <translation id="4776917500594043016">گذرواژه <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -3020,6 +3020,7 @@
 <translation id="5678955352098267522">خواندن داده‌های شما در <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">شناسه دارایی</translation>
 <translation id="5687326903064479980">منطقه زمانی</translation>
+<translation id="5689516760719285838">مکان</translation>
 <translation id="56907980372820799">داده‌های پیوند</translation>
 <translation id="5691511426247308406">خانواده</translation>
 <translation id="5691596662111998220">اوه، <ph name="FILE_NAME" /> دیگر وجود ندارد.</translation>
@@ -4709,7 +4710,7 @@
 <translation id="8378285435971754261">‏به سرویس مکان Google اجازه دهید به برنامه‌ها در یافتن سریع و دقیق مکان شما کمک کند و بدین‌ترتیب به کاهش مصرف باتری کمک کنید. حتی زمانی که هیچ برنامه‌ای درحال اجرا نیست، داده‌های مکان به‌صورت بی‌نام به Google ارسال می‌شوند. <ph name="BEGIN_LINK1" />بیشتر بدانید<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">مدیریت تنظیمات دوربین...</translation>
 <translation id="8382913212082956454">کپی آدرس &amp;ایمیل</translation>
-<translation id="8386903983509584791">اسکن انجام شد</translation>
+<translation id="8386903983509584791">اسکن کامل شد</translation>
 <translation id="8390029840652165810">لطفاً مطمئن شوید که اتصال به شبکه شما کار می‌کند و اگر مشکل همچنان ادامه دارد، لطفاً از سیستم خارج شوید و دوباره وارد سیستم شوید تا مدارک صلاحیت خود را بازخوانی کنید.</translation>
 <translation id="8390449457866780408">سرور در دسترس نیست.</translation>
 <translation id="8392234662362215700">‏برای تغییر طرح کلی صفحه‌کلید، Control-Shift و فاصله را فشار دهید.</translation>
@@ -4840,7 +4841,7 @@
 <translation id="8620617069779373398">وضعیت رومینگ</translation>
 <translation id="8620765578342452535">پیکربندی اتصالات شبکه</translation>
 <translation id="8623004009673949077">‏برنامه با ویژگی مانیفست «kiosk_only» باید در حالت کیوسک سیستم عامل Chrome نصب شود.</translation>
-<translation id="8624205858755890468">«دستیار» را برای نمایش اطلاعات، برنامه‌ها و فعالیت‌های مرتبط فعال می‌کند.</translation>
+<translation id="8624205858755890468">«دستیار» را برای نمایش اطلاعات، برنامه‌ها و اقدام‌های مرتبط فعال می‌کند.</translation>
 <translation id="862542460444371744">&amp;برنامه های افزودنی</translation>
 <translation id="8627151598708688654">انتخاب منبع</translation>
 <translation id="862727964348362408">معلق شد</translation>

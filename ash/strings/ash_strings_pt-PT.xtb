@@ -70,7 +70,7 @@
 <translation id="2532589005999780174">Modo de alto contraste</translation>
 <translation id="2597972630681408282">Luz noturna: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Submeter</translation>
-<translation id="2675319268637823299">Um gestor não permitiu o início de sessão integrado para <ph name="USER_EMAIL" />.
+<translation id="2675319268637823299">Um administrador não permitiu o início de sessão integrado para <ph name="USER_EMAIL" />.
     Todos os utilizadores têm de terminar sessão para continuar.</translation>
 <translation id="2700058918926273959">A sessão termina em <ph name="SESSION_TIME_REMAINING" />. A sua sessão será terminada.</translation>
 <translation id="2727977024730340865">Ligado a um carregador de baixo consumo. O carregamento da bateria pode não ser fiável.</translation>

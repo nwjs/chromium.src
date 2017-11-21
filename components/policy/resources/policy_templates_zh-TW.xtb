@@ -728,7 +728,7 @@
 <translation id="3512226956150568738">如果用戶端裝置型號在必須遷移至 Ext4 才能執行 ARC 之前已支援 ARC，且 ArcEnabled 政策設為 True，這個選項的行為會與 AskUser 相同 (值 3)。在所有其他情況下 (如果用戶端裝置型號之前不支援 ARC，或 ArcEnabled 政策設為 False)，這個值會等同於 DisallowArc (值 0)。</translation>
 <translation id="3519432185185398282">設定 TPM 韌體更新功能的可用性和行為。
 
-      可在 JSON 屬性中指定個別設定：
+      可在 JSON 屬性中指定個別設定： 
 
       <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />：如果設為 <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />，則使用者可觸發 Powerwash 流程來安裝 TPM 韌體更新。
 
@@ -1916,7 +1916,7 @@
 
           如果將模式設為 <ph name="FORCE_INSTALLED" /> 或 <ph name="NORMAL_INSTALLED" />，則必須一併設定 <ph name="UPDATE_URL" />。請注意，系統只會在初次安裝擴充功能時使用你在這項政策中設定的更新網址，後續更新擴充功能時則會使用擴充功能的資訊清單指示的更新網址。更新網址應指向前述更新資訊清單 XML 檔案。
 
-          <ph name="BLOCKED_PERMISSIONS" />：對應到字串清單，指示擴充功能的封鎖 API 權限。權限名稱與擴充功能資訊清單宣告的權限字串相同 (如 <ph name="LINK_TO_EXTENSION_DOC3" /> 所述)。你也可以針對 <ph name="DEFAULT_SCOPE" /> 擴充功能配置這項設定。如果擴充功能要求封鎖清單中的權限，則無法載入。如果擴充功能含有封鎖的權限，但屬於選擇性要求，系統會以一般方式進行處理。不過，一旦要求的權限發生衝突，系統會自動在執行階段拒絕要求。 
+          <ph name="BLOCKED_PERMISSIONS" />：對應到字串清單，指示擴充功能的封鎖 API 權限。權限名稱與擴充功能資訊清單宣告的權限字串相同 (如 <ph name="LINK_TO_EXTENSION_DOC3" /> 所述)。你也可以針對 <ph name="DEFAULT_SCOPE" /> 擴充功能配置這項設定。如果擴充功能要求封鎖清單中的權限，則無法載入。如果擴充功能含有封鎖的權限，但屬於選擇性要求，系統會以一般方式進行處理。不過，一旦要求的權限發生衝突，系統會自動在執行階段拒絕要求。
 
           <ph name="ALLOWED_PERMISSIONS" />：與 <ph name="BLOCKED_PERMISSIONS" /> 相似，但明確允許部分可能遭到全域封鎖權限清單封鎖的權限，因此無法針對 <ph name="DEFAULT_SCOPE" /> 擴充功能進行設定。請注意，這項設定不會自動將權限授予擴充功能。
 

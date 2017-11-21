@@ -758,7 +758,7 @@
 <translation id="3512226956150568738">클라이언트 기기 모델에서 ARC를 실행하기 위해 ext4로 이전해야 했던 시점 전에 ARC를 이미 지원했으며 ArcEnabled 정책이 true로 설정된 경우, 이 옵션은 AskUser(값 3)로 작동합니다. 다른 모든 경우(기기 모델이 이전에 ARC를 지원하지 않았거나 ArcEnabled 정책이 false로 설정된 경우), 이 값은 DisallowArc(값 0)와 동일합니다.</translation>
 <translation id="3519432185185398282">TPM 펌웨어 업데이트 기능의 사용 가능 여부 및 동작을 설정합니다.
 
-      개별 설정을 JASON 속성으로 지정할 수 있습니다.
+      개별 설정을 JSON 속성으로 지정할 수 있습니다.
 
       <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />(으)로 설정되어 있는 경우, 사용자가 파워워시 절차를 실행하여 TPM 펌웨어 업데이트를 설치할 수 있습니다.
 
@@ -2017,9 +2017,9 @@
 
           이 정책은 기존의 모든 확장 프로그램과 관련된 정책에 따라 컨트롤되는 설정을 비롯한 여러가지 설정을 컨트롤하며, 기존 정책도 설정된 경우 모든 기존 정책을 무시합니다.
 
-          이 정책은 확장 프로그램 ID나 업데이트 URL을 설정에 매핑합니다. 확장 프로그램 ID를 이용, 지정된 확장 프로그램에만 설정이 적용됩니다. 특수 ID <ph name="DEFAULT_SCOPE" />에 기본 설정이 적용될 수 있으며 이 기본 설정은 본 정책에서 맞춤 설정을 지정하지 않은 모든 확장 프로그램에 적용됩니다. 설정은 업데이트 URL을 이용해 <ph name="LINK_TO_EXTENSION_DOC1" /> 에 설명된 것과 같이 이 확장 프로그램의 매니페스트에 명시된 정확한 업데이트 URL로 모든 확장 프로그램에 적용됩니다.
+          이 정책은 확장 프로그램 ID나 업데이트 URL을 설정에 매핑합니다. 확장 프로그램 ID를 사용하며, 지정된 확장 프로그램에만 설정이 적용됩니다. 특수 ID <ph name="DEFAULT_SCOPE" />에 기본 설정이 적용될 수 있으며, 이 기본 설정은 본 정책에서 맞춤 설정을 지정하지 않은 모든 확장 프로그램에 적용됩니다. <ph name="LINK_TO_EXTENSION_DOC1" />에 설명된 것과 같이, 설정은 업데이트 URL을 사용하여 이 확장 프로그램의 매니페스트에 명시된 정확한 업데이트 URL로 모든 확장 프로그램에 적용됩니다.
 
-          각 확장 프로그램(또는 동일한 업데이트 URL을 가지는 확장 프로그램)은 아래에서 설명하는 입력란을 포함할 수 있는 또 다른 사전입니다.
+          각 확장 프로그램(또는 동일한 업데이트 URL을 가지는 확장 프로그램)의 설정은 아래에서 설명하는 입력란을 포함할 수 있는 또 다른 사전입니다.
 
           <ph name="INSTALLATION_MODE" />: 확장 프로그램의 설치 모드를 표시하는 문자열에 매핑됩니다. 유효한 문자열은 다음과 같습니다.
           * <ph name="ALLOWED" />: 사용자가 확장 프로그램을 설치할 수 있도록 허용합니다. 기본 동작입니다.
@@ -2029,7 +2029,7 @@
 
           <ph name="INSTALLTION_MODE" />는 <ph name="DEFAULT_SCOPE" /> 확장 프로그램(기본 설정) 및 동일한 업데이트 URL이 포함된 확장 프로그램 등 여러 확장 프로그램에 설정할 수도 있습니다. 이 경우 <ph name="ALLOWED" /> 및 <ph name="BLOCKED" /> 값만 사용할 수 있습니다.
 
-          모드가 <ph name="FORCE_INSTALLED" /> 또는 <ph name="NORMAL_INSTALLED" />로 설정된 경우 <ph name="UPDATE_URL" />도 설정해야 합니다. 이 정책에 설정된 업데이트 URL은 최초 설치 시에만 사용되며 이후 확장 프로그램 업데이트는 확장 프로그램의 매니페스트에 표시된 업데이트 URL을 사용하게 됩니다. 업데이트 URL은 위에서 설명한 대로 매니페스트 XML 업데이트 문서로 연결되어야 합니다.
+          모드가 <ph name="FORCE_INSTALLED" /> 또는 <ph name="NORMAL_INSTALLED" />로 설정된 경우 <ph name="UPDATE_URL" />도 설정해야 합니다. 이 정책에 설정된 업데이트 URL은 최초 설치 시에만 사용되며 이후 확장 프로그램 업데이트는 확장 프로그램의 매니페스트에 표시된 업데이트 URL을 사용하게 됩니다. 업데이트 URL은 위에서 설명한 대로 메니페스트 XML 업데이트 문서로 연결되어야 합니다.
 
           <ph name="BLOCKED_PERMISSIONS" />: 확장 프로그램에서 차단된 API 권한을 나타내는 문자열 목록으로 매핑됩니다. 권한 이름은 <ph name="LINK_TO_EXTENSION_DOC3" />에서 설명한 대로 확장 프로그램의 매니페스트에서 정의된 권한 문자열과 동일합니다. 이 설정 또한 <ph name="DEFAULT_SCOPE" /> 확장 프로그램에 설정할 수 있습니다. 확장 프로그램에서 차단 목록에 있는 권한을 요구하는 경우 로드가 허용되지 않습니다. 선택 요구사항에 차단된 권한이 포함된 경우 정상적인 방식으로 처리되지만 상충되는 권한을 요청하는 경우 런타임 시 자동으로 거부됩니다.
 
@@ -2039,11 +2039,11 @@
 
           다음 설정은 기본 <ph name="DEFAULT_SCOPE" /> 설정에만 사용됩니다.
 
-          <ph name="INSTALL_SOURCES" />: 이 목록에 포함된 각 항목은 확장 프로그램 스타일의 일치 패턴입니다(<ph name="LINK_TO_MATCH_PATTERNS" /> 참조). 사용자는 이 목록에 포함된 항목과 일치하는 모든 URL의 항목을 간편하게 설치할 수 있습니다. <ph name="EXTENSION_SUFFIX_WILDCARD" />  파일과 다운로드 시작 페이지(예: 리퍼러) 위치는 이 패턴에 따라 허용되어야 합니다.
+          <ph name="INSTALL_SOURCES" />: 이 목록에 포함된 각 항목은 확장 프로그램 스타일의 일치 패턴입니다(<ph name="LINK_TO_MATCH_PATTERNS" /> 참조). 사용자는 이 목록에 포함된 항목과 일치하는 모든 URL의 항목을 간편하게 설치할 수 있습니다. <ph name="EXTENSION_SUFFIX_WILDCARD" /> 파일과 다운로드 시작 페이지(예: 리퍼러) 위치는 이 패턴에 따라 허용되어야 합니다.
 
-          <ph name="ALLOWED_TYPES" />: 이 설정은 <ph name="PRODUCT_NAME" />에 설치할 수 있는 확장 프로그램/앱의 허용 유형을 허용 목록에 추가합니다. 이 값은 문자열 목록으로 각각은 <ph name="VALID_ALLOWED_TYPES" /> 중 한 가지로 표시됩니다. 이러한 유형에 대해 자세히 알아보려면 <ph name="PRODUCT_NAME" /> 확장 프로그램 관련 문서를 참조하세요.
-          <ph name="BLOCKED_INSTALL_MESSAGE" />: 사용자가 확장 프로그램을 설치하려고 하지만 정책에 의해 차단된 경우 Chrome 웹 스토어에서 일반 오류 메시지를 표시합니다. 이 설정을 통해 오류 메시지에 텍스트를 추가할 수 있습니다. 이는 고객센터로 사용자를 안내하거나, 이 확장 프로그램이 차단된 이유를 설명하는 등에 사용됩니다. 오류 메시지는 한글 500자(영문 1,000자)보다 긴 경우 잘립니다.
-          <ph name="RUNTIME_BLOCKED_HOSTS" />: 확장 프로그램이 상호작용하지 못하도록 차단하는 호스트의 목록을 허용합니다. 여기에는 자바스크립트를 삽입하고, webRequests / webNavigation을 변경 및 확인하고, 쿠키를 확인하고 변경하는 등의 작업이 포함됩니다. 형식은 어떠한 경로도 정의되지 않는다는 점을 제외하면 일치 패턴 <ph name="LINK_TO_MATCH_PATTERNS" />과 유사합니다(예: ‘*://*.example.com’). 이는 효과적인 TLD 와일드카드도 지원합니다(예:’ *://example.*’.)
+          <ph name="ALLOWED_TYPES" />: 이 설정은 <ph name="PRODUCT_NAME" />에 설치할 수 있는 확장 프로그램/앱의 허용된 유형을 허용 목록에 추가합니다. 이 값은 문자열의 목록으로 각각은 <ph name="VALID_ALLOWED_TYPES" /> 중 한 가지로 표시됩니다. 이러한 유형에 관해 자세히 알아보려면 <ph name="PRODUCT_NAME" /> 확장 프로그램 관련 문서를 참조하세요.
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: 사용자가 확장 프로그램을 설치하려고 하지만 정책에 의해 차단된 경우 Chrome 웹 스토어에서 일반 오류 메시지를 표시합니다. 이 설정을 통해 오류 메시지에 텍스트를 추가할 수 있습니다. 이는 고객센터로 사용자를 안내하거나, 이 확장 프로그램이 차단된 이유를 설명하는 등의 경우에 사용됩니다. 오류 메시지는 한글 500자(영문 1,000자)보다 긴 경우 잘립니다.
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: 확장 프로그램이 상호작용하지 못하도록 차단하는 호스트의 목록을 허용합니다. 여기에는 자바스크립트를 삽입하고, webRequests/webNavigation을 변경 및 확인하고, 쿠키를 확인하고 변경하는 등의 작업이 포함됩니다. 형식은 어떠한 경로도 정의되지 않는다는 점을 제외하면 일치 패턴(<ph name="LINK_TO_MATCH_PATTERNS" />)과 유사합니다(예: ‘*://*.example.com’). 이는 효과적인 TLD 와일드 카드도 지원합니다(예:’ *://example.*’.)
           <ph name="RUNTIME_ALLOWED_HOSTS" />: <ph name="RUNTIME_BLOCKED_HOSTS" />에 나열되어 있는지와 관계없이 확장 프로그램이 상호작용할 수 있는 호스트의 목록을 허용합니다. <ph name="RUNTIME_BLOCKED_HOSTS" />와 형식이 같습니다.
           </translation>
 <translation id="787125417158068494">SyncDisabled로 설정하거나 설정하지 않으면 <ph name="PRODUCT_OS_NAME" /> 인증서를 ARC 앱에 사용할 수 없습니다.

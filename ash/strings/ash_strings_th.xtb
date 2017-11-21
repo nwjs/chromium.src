@@ -70,7 +70,7 @@
 <translation id="2532589005999780174">โหมดคอนทราสต์สูง</translation>
 <translation id="2597972630681408282">แสงตอนกลางคืน: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">ส่ง</translation>
-<translation id="2675319268637823299">ผู้ดูแลระบบไม่อนุญาตให้ <ph name="USER_EMAIL" />.ลงชื่อเข้าสู่ระบบพร้อมกันหลายบัญชี
+<translation id="2675319268637823299">ผู้ดูแลระบบไม่อนุญาตให้ <ph name="USER_EMAIL" /> ลงชื่อเข้าสู่ระบบพร้อมกันหลายบัญชี
     ผู้ใช้ทุกคนต้องออกจากระบบเพื่อดำเนินการต่อ</translation>
 <translation id="2700058918926273959">เซสชันจะสิ้นสุดใน <ph name="SESSION_TIME_REMAINING" /> ระบบจะให้คุณออกจากระบบ</translation>
 <translation id="2727977024730340865">เสียบอยู่กับที่ชาร์จพลังงานต่ำ การชาร์จแบตเตอรี่อาจไม่น่าเชื่อถือ</translation>

@@ -978,7 +978,7 @@ Acho que este site não deveria estar bloqueado.</translation>
 <translation id="2509495747794740764">O valor de dimensionamento tem de ser um número entre 10 e 200.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="251662399991179012">Vamos configurar o <ph name="DEVICE_TYPE" /></translation>
-<translation id="2517472476991765520">Procurar</translation>
+<translation id="2517472476991765520">Analisar</translation>
 <translation id="2518024842978892609">Utilizar os certificados de cliente</translation>
 <translation id="2520644704042891903">A aguardar ligação disponível...</translation>
 <translation id="252219247728877310">Componente não atualizado</translation>
@@ -1013,7 +1013,7 @@ Acho que este site não deveria estar bloqueado.</translation>
 <translation id="2570000010887652771">Poupou dados.</translation>
 <translation id="2570648609346224037">Ocorreu um problema durante a transferência da imagem de recuperação.</translation>
 <translation id="257088987046510401">Temas</translation>
-<translation id="2571964818629181240">Fechar o Firefox antes da importação</translation>
+<translation id="2571964818629181240">Feche o Firefox antes da importação</translation>
 <translation id="2572032849266859634">Autorizações só de leitura concedidas a <ph name="VOLUME_NAME" />.</translation>
 <translation id="2573269395582837871">Escolha uma fotografia e um nome</translation>
 <translation id="2574102660421949343">Cookies de <ph name="DOMAIN" /> permitidos.</translation>
@@ -1201,7 +1201,7 @@ Acho que este site não deveria estar bloqueado.</translation>
 <translation id="2815500128677761940">Barra de marcadores</translation>
 <translation id="2815693974042551705">Pasta de marcadores</translation>
 <translation id="2818476747334107629">Detalhes da impressora</translation>
-<translation id="2820957248982571256">A procurar...</translation>
+<translation id="2820957248982571256">A analisar...</translation>
 <translation id="2822634587701817431">Reduzir/expandir</translation>
 <translation id="2825758591930162672">Chave pública do requerente</translation>
 <translation id="2828650939514476812">Estabelecer ligação à rede Wi-Fi</translation>
@@ -2407,7 +2407,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="4728558894243024398">Plataforma</translation>
 <translation id="4731422630970790516">Artigo de prateleira 3</translation>
 <translation id="4732760563705710320">Lamentamos, mas o seu dispositivo de transmissão não suporta este vídeo.</translation>
-<translation id="4733793249294335256">Localização</translation>
+<translation id="4733793249294335256">Local</translation>
 <translation id="4734518477988699048">O valor de entrada é inválido.</translation>
 <translation id="473546211690256853">Esta conta é gerida por <ph name="DOMAIN" /></translation>
 <translation id="4737715515457435632">Ligue-se a uma rede</translation>
@@ -2424,7 +2424,7 @@ Prima qualquer tecla para continuar a explorar.</translation>
 <translation id="4759238208242260848">Transferências</translation>
 <translation id="4761104368405085019">Utilizar o seu microfone</translation>
 <translation id="4762718786438001384">Espaço em disco do dispositivo criticamente baixo</translation>
-<translation id="4763408175235639573">Os seguintes cookies foram definidos quando visualizou esta página</translation>
+<translation id="4763408175235639573">Foram definidos os seguintes cookies quando visualizou esta página</translation>
 <translation id="4763830802490665879">Os cookies de vários Sites serão apagados à saída.</translation>
 <translation id="4768332406694066911">Tem certificados destas entidades que o identificam</translation>
 <translation id="4776917500594043016">Palavra-passe para <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -3028,6 +3028,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="5678955352098267522">Ler os seus dados em <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Identificador de recursos</translation>
 <translation id="5687326903064479980">Fuso horário</translation>
+<translation id="5689516760719285838">Local</translation>
 <translation id="56907980372820799">Associar dados</translation>
 <translation id="5691511426247308406">Família</translation>
 <translation id="5691596662111998220">Ups, <ph name="FILE_NAME" /> já não existe.</translation>
@@ -4716,7 +4717,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8378285435971754261">Permita que o serviço de localização da Google ajude as aplicações a encontrarem a sua localização com precisão e rapidez, o que pode reduzir o consumo de bateria. São enviados à Google dados de localização anónimos, mesmo quando não estão a ser executadas quaisquer aplicações. <ph name="BEGIN_LINK1" />Saiba mais<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">Gerir definições da câmara...</translation>
 <translation id="8382913212082956454">Copiar &amp;endereço de email</translation>
-<translation id="8386903983509584791">Procura concluída</translation>
+<translation id="8386903983509584791">Análise concluída</translation>
 <translation id="8390029840652165810">Certifique-se de que a ligação de rede está a funcionar e, se o problema persistir, termine sessão e inicie novamente para atualizar as credenciais.</translation>
 <translation id="8390449457866780408">O servidor não se encontra disponível.</translation>
 <translation id="8392234662362215700">Prima Control-Shift-Espaço para mudar o esquema de teclado.</translation>

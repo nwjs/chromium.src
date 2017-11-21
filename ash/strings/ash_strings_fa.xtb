@@ -70,8 +70,8 @@
 <translation id="2532589005999780174">حالت کنتراست بالا</translation>
 <translation id="2597972630681408282">«نور شب»: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">ارائه</translation>
-<translation id="2675319268637823299">سرپرستی ورود چندگانه به سیستم را برای <ph name="USER_EMAIL" /> غیرمجاز کرده است.
-    برای ادامه، همه کاربران باید از سیستم خارج شوند.</translation>
+<translation id="2675319268637823299">یکی از سرپرست‌ها ورود چندگانه به سیستم را برای <ph name="USER_EMAIL" /> غیرمجاز کرده است.
+    برای ادامه دادن، همه کاربران باید از سیستم خارج شوند.</translation>
 <translation id="2700058918926273959">جلسه در <ph name="SESSION_TIME_REMAINING" /> به پایان می‌رسد. از سیستم خارج خواهید شد.</translation>
 <translation id="2727977024730340865">باتری به شارژر برق ضعیف متصل است. شارژ باتری ممکن است قابل اطمینان نباشد.</translation>
 <translation id="2761704814324807722">سینی وضعیت، زمان <ph name="TIME" />، ‏<ph name="BATTERY" /></translation>

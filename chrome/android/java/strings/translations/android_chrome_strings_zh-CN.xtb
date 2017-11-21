@@ -502,6 +502,7 @@
 <translation id="5676636989614905379">无法在<ph name="SCREEN_NAME" />上播放视频。</translation>
 <translation id="5677928146339483299">已屏蔽</translation>
 <translation id="5684874026226664614">糟糕，此网页内容无法翻译。</translation>
+<translation id="5689516760719285838">位置</translation>
 <translation id="5719837394786370183">在您关闭所有隐身标签页后，您在这些标签页中查看的网页不会在浏览器历史记录、Cookie 存储区或搜索记录中留下任何痕迹。不过，您下载的所有文件或创建的书签均会保留下来。
 
 但是，这并不意味着您能完全隐身。即使您进入隐身模式，您的雇主、互联网服务提供商和您访问的网站仍然能看到您的浏览活动。</translation>
@@ -801,7 +802,7 @@
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> 及更多网站</translation>
 <translation id="8334426458436697004">将某个特定网站静音。</translation>
 <translation id="8339163506404995330">系统不会自动翻译源语言为<ph name="LANGUAGE" />的网页</translation>
-<translation id="8363501664269050863">导航面板。向下滑动即可关闭。</translation>
+<translation id="8363501664269050863">导航面板。向下滑动手指即可关闭。</translation>
 <translation id="8372721116225477180">社交</translation>
 <translation id="8372893542064058268">允许特定网站进行后台同步。</translation>
 <translation id="8374821112118309944">您需要将 TalkBack 更新到更高版本。</translation>

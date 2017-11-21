@@ -2421,7 +2421,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4759238208242260848">Downloads</translation>
 <translation id="4761104368405085019">Usar microfone</translation>
 <translation id="4762718786438001384">Dispositivo com espaço em disco criticamente baixo</translation>
-<translation id="4763408175235639573">Os seguintes cookies foram definidos quando você visualizou esta página</translation>
+<translation id="4763408175235639573">Os cookies a seguir foram definidos quando você visualizou esta página</translation>
 <translation id="4763830802490665879">Os cookies de vários sites serão apagados na saída.</translation>
 <translation id="4768332406694066911">Você tem certificados das seguintes empresas que identificam você</translation>
 <translation id="4776917500594043016">Senha para <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -3024,6 +3024,7 @@ Não exponha nenhuma informação confidencial.</translation>
 <translation id="5678955352098267522">Leia seus dados em <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Identificador de recurso</translation>
 <translation id="5687326903064479980">Fuso horário</translation>
+<translation id="5689516760719285838">Local</translation>
 <translation id="56907980372820799">Vincular dados</translation>
 <translation id="5691511426247308406">Família</translation>
 <translation id="5691596662111998220">O item <ph name="FILE_NAME" /> não existe mais.</translation>

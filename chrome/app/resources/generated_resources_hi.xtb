@@ -1065,7 +1065,7 @@
 <translation id="2642111877055905627">सॉकर बॉल</translation>
 <translation id="2643698698624765890">विंडो मेनू में एक्सटेंशन क्लिक करके अपने एक्सटेंशन प्रबंधित करें.</translation>
 <translation id="2647142853114880570">पुन: लोड करें</translation>
-<translation id="2647269890314209800">उपयोग की जा रही कुकी</translation>
+<translation id="2647269890314209800">इस्तेमाल की जा रही कुकी</translation>
 <translation id="2648831393319960979">आपके खाते में डिवाइस जोड़ा रहा है - इसमें कुछ समय लग सकता है...</translation>
 <translation id="2649045351178520408">Base64-एन्कोड किया गया ASCII, प्रमाणपत्र चेन</translation>
 <translation id="2653266418988778031">यदि आप किसी प्रमाणन प्राधिकरण (CA) प्रमाणपत्र को हटाते हैं, तो आपका ब्राउज़र उस CA द्वारा जारी किए गए किसी भी प्रमाणपत्र पर विश्‍वास नहीं करेगा.</translation>
@@ -1116,7 +1116,7 @@
 <translation id="2715751256863167692">इस तरह बेहतर बनाने से आपका Chromebook रीसेट हो जाता है और मौजूदा उपयोगकर्ता डेटा निकल जाता है.</translation>
 <translation id="2718395828230677721">नाइट लाइट</translation>
 <translation id="2718998670920917754">एंटी-वायरस सॉफ़्टवेयर ने वायरस का पता लगाया है.</translation>
-<translation id="2719936478972253983">इन कुकी को ब्लॉक कर दिया गया था:</translation>
+<translation id="2719936478972253983">इन कुकी को ब्लॉक कर दिया गया था</translation>
 <translation id="2721037002783622288">चित्र को <ph name="SEARCH_ENGINE" /> पर &amp;खोजें</translation>
 <translation id="2721334646575696520">Microsoft Edge</translation>
 <translation id="2721695630904737430">निगरानी में रखे गए उपयोगकर्ताओं को आपके व्यवस्थापक ने अक्षम कर दिया है.</translation>
@@ -2267,7 +2267,7 @@
 <translation id="4514542542275172126">नया निगरानी में रखा गया उपयोगकर्ता सेट करें</translation>
 <translation id="451515744433878153">निकालें</translation>
 <translation id="4518677423782794009">क्‍या Chrome क्रैश हो रहा है, असामान्‍य स्‍टार्टअप पृष्‍ठ, टूलबार या ऐसे अनपेक्षित विज्ञापन दिखा रहा है जिनसे आपको छुटकारा नहीं मिल रहा है या आपके ब्राउज़िंग अनुभव में अन्‍यथा बदलाव आ रहा है? तो हो सकता है कि आप Chrome सॉफ़्टवेयर सफ़ाई टूल को चलाकर समस्‍या को ठीक कर पाएं.</translation>
-<translation id="4520385623207007473">उपयोग की जा रही कुकी</translation>
+<translation id="4520385623207007473">इस्तेमाल की जा रही कुकी</translation>
 <translation id="452039078290142656"><ph name="VENDOR_NAME" /> के अज्ञात डिवाइस</translation>
 <translation id="4522570452068850558">विवरण</translation>
 <translation id="4530494379350999373">मूल</translation>
@@ -3024,6 +3024,7 @@
 <translation id="5678955352098267522"><ph name="WEBSITE_1" /> पर अपना डेटा पढ़ें</translation>
 <translation id="5684661240348539843">एसेट पहचानकर्ता</translation>
 <translation id="5687326903064479980">समय क्षेत्र</translation>
+<translation id="5689516760719285838">स्थान</translation>
 <translation id="56907980372820799">डेटा लिंक करें</translation>
 <translation id="5691511426247308406">परिवार</translation>
 <translation id="5691596662111998220">ओह, <ph name="FILE_NAME" /> अब मौजूद नहीं है.</translation>

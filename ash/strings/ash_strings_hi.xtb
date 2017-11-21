@@ -70,7 +70,7 @@
 <translation id="2532589005999780174">उच्च कंट्रास्ट मोड</translation>
 <translation id="2597972630681408282">नाइट लाइट: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">सबमिट करें</translation>
-<translation id="2675319268637823299">किसी व्यवस्थापक ने <ph name="USER_EMAIL" /> के लिए एक से ज़्यादा साइन-इन की अनुमति नहीं दी है.
+<translation id="2675319268637823299">किसी एडमिन ने <ph name="USER_EMAIL" /> के लिए एक से ज़्यादा साइन-इन की अनुमति नहीं दी है.
     जारी रखने के लिए सभी उपयोगकर्ताओं को साइन आउट करना होगा.</translation>
 <translation id="2700058918926273959">सत्र <ph name="SESSION_TIME_REMAINING" /> में समाप्त होने वाला है. आप प्रस्थान कर जाएंगे.</translation>
 <translation id="2727977024730340865">कम-शक्ति वाले चार्जर में प्लग इन करें. बैटरी चार्ज करना संभवत: विश्वसनीय नहीं होगा.</translation>

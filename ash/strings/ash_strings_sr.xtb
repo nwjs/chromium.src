@@ -71,7 +71,7 @@
 <translation id="2597972630681408282">Ноћно светло: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Пошаљи</translation>
 <translation id="2675319268637823299">Администратор је забранио вишеструко пријављивање за <ph name="USER_EMAIL" />.
-Сви корисници морају да се одјаве да бисмо наставили са сесијом.</translation>
+    Сви корисници морају да се одјаве да бисмо наставили са сесијом.</translation>
 <translation id="2700058918926273959">Сесија се завршава за <ph name="SESSION_TIME_REMAINING" />. Бићете одјављени.</translation>
 <translation id="2727977024730340865">Уређај је укључен у пуњач мале снаге. Пуњење батерије можда неће бити поуздано.</translation>
 <translation id="2761704814324807722">Статусна трака, време <ph name="TIME" />, <ph name="BATTERY" /></translation>

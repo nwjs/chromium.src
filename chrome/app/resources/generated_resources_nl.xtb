@@ -126,7 +126,7 @@
 <translation id="1187722533808055681">Activeringen vanuit inactief</translation>
 <translation id="1188807932851744811">Logbestand niet geüpload.</translation>
 <translation id="1189418886587279221">Schakel toegankelijkheidsfuncties in om je apparaat gebruiksvriendelijker te maken.</translation>
-<translation id="1190144681599273207">Voor het ophalen van dit bestand wordt ongeveer <ph name="FILE_SIZE" /> aan mobiele gegevens gebruikt.</translation>
+<translation id="1190144681599273207">Voor het ophalen van dit bestand wordt ongeveer <ph name="FILE_SIZE" /> aan mobiele data gebruikt.</translation>
 <translation id="11901918071949011">{NUM_FILES,plural, =1{Toegang tot een bestand dat op je computer is opgeslagen}other{Toegang tot # bestanden die op je computer zijn opgeslagen}}</translation>
 <translation id="1195076408729068893">Als je Smart Lock wilt starten, geef je je wachtwoord op. De volgende keer kun je je <ph name="DEVICE_TYPE" /> ontgrendelen met je telefoon.</translation>
 <translation id="1195447618553298278">Onbekende fout</translation>
@@ -369,7 +369,7 @@
 <translation id="1548132948283577726">Sites die nooit wachtwoorden opslaan, worden hier weergegeven.</translation>
 <translation id="1549045574060481141">Downloaden bevestigen</translation>
 <translation id="1549078091075571455">Wil je dat Google deze pagina vertaalt van het <ph name="SOURCE_LANGUAGE" /> naar het <ph name="TARGET_LANGUAGE" />?</translation>
-<translation id="1549788673239553762"><ph name="APP_NAME" /> wil toegang tot <ph name="VOLUME_NAME" />. Hierdoor worden uw bestanden mogelijk aangepast of verwijderd.</translation>
+<translation id="1549788673239553762"><ph name="APP_NAME" /> wil toegang tot <ph name="VOLUME_NAME" />. Hierdoor worden je bestanden mogelijk aangepast of verwijderd.</translation>
 <translation id="1553538517812678578">onbeperkt</translation>
 <translation id="1554390798506296774">Plug-ins zonder sandbox altijd toestaan op <ph name="HOST" /></translation>
 <translation id="1556189134700913550">Op alles toepassen</translation>
@@ -1201,7 +1201,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="2815500128677761940">Bladwijzerbalk</translation>
 <translation id="2815693974042551705">Bladwijzer voor map toevoegen</translation>
 <translation id="2818476747334107629">Printergegevens</translation>
-<translation id="2820957248982571256">Scannen...</translation>
+<translation id="2820957248982571256">Scannen…</translation>
 <translation id="2822634587701817431">Verkleinen/vergroten</translation>
 <translation id="2825758591930162672">Openbare sleutel van entiteit</translation>
 <translation id="2828650939514476812">Verbinding maken met een wifi-netwerk</translation>
@@ -1295,7 +1295,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="2961090598421146107"><ph name="CERTIFICATE_NAME" /> (door extensie geleverd)</translation>
 <translation id="2961695502793809356">Klik om verder te gaan, houd ingedrukt om de geschiedenis weer te geven</translation>
 <translation id="2963151496262057773">De volgende plug-in reageert niet meer: <ph name="PLUGIN_NAME" />Wil je deze beëindigen?</translation>
-<translation id="2966449113954629791">Je hebt misschien je mobiele gegevensquotum verbruikt. Ga naar de activeringsportal van <ph name="NAME" /> om meer gegevens te kopen.</translation>
+<translation id="2966449113954629791">Je hebt misschien je quotum voor mobiele data verbruikt. Ga naar de activeringsportal van <ph name="NAME" /> om meer data te kopen.</translation>
 <translation id="2966937470348689686">Android-voorkeuren beheren</translation>
 <translation id="2971033837577180453">&lt;span&gt;ID:&lt;/span&gt;<ph name="EXTENSION_ID" /></translation>
 <translation id="2971213274238188218">helderheid lager</translation>
@@ -1424,7 +1424,7 @@ Ga naar ons <ph name="BEGIN_LINK" />Helpcentrum<ph name="END_LINK" /> voor meer 
 <translation id="3144647712221361880">Link openen als</translation>
 <translation id="3149510190863420837">Chrome-apps</translation>
 <translation id="3150927491400159470">Geforceerd opnieuw laden</translation>
-<translation id="315116470104423982">Mobiele gegevens</translation>
+<translation id="315116470104423982">Mobiele data</translation>
 <translation id="3151539355209957474">Begintijd</translation>
 <translation id="3151562827395986343">Geschiedenis, cookies, cache en meer wissen</translation>
 <translation id="3151786313568798007">Stand</translation>
@@ -1782,7 +1782,7 @@ van <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="3681311097828166361">Bedankt voor je feedback. Je bent nu offline en je rapport wordt later verzonden.</translation>
 <translation id="3683023058278427253">We hebben meerdere licentietypen gedetecteerd voor je domein. Kies er een om door te gaan.</translation>
 <translation id="3683524264665795342">Verzoek voor scherm delen van <ph name="APP_NAME" /></translation>
-<translation id="3685122418104378273">De synchronisatie van Google Drive is bij het gebruik van mobiele gegevens standaard uitgeschakeld.</translation>
+<translation id="3685122418104378273">De synchronisatie van Google Drive is bij het gebruik van mobiele data standaard uitgeschakeld.</translation>
 <translation id="368789413795732264">Er is een fout opgetreden bij het genereren van het bestand: <ph name="ERROR_TEXT" />.</translation>
 <translation id="3688507211863392146">Schrijven naar bestanden en mappen die je opent in de app</translation>
 <translation id="3688526734140524629">Kanaal wijzigen</translation>
@@ -2134,7 +2134,7 @@ van <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4261901459838235729">Google-presentatie</translation>
 <translation id="4262366363486082931">Focus op werkbalk</translation>
 <translation id="4263757076580287579">Printerregistratie is geannuleerd.</translation>
-<translation id="426564820080660648">Gebruik Ethernet, wifi of mobiele gegevens om op updates te controleren.</translation>
+<translation id="426564820080660648">Gebruik Ethernet, wifi of mobiele data om op updates te controleren.</translation>
 <translation id="4268025649754414643">Sleutelcodering</translation>
 <translation id="4270393598798225102">Versie <ph name="NUMBER" /></translation>
 <translation id="4271396100647220620">Geen overeenkomsten</translation>
@@ -2689,7 +2689,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5175870427301879686"><ph name="URL" /> vraagt toestemming om permanent gegevens op je lokale computer op te slaan.</translation>
 <translation id="5177479852722101802">Toegang tot de camera en microfoon blijven blokkeren</translation>
 <translation id="5177526793333269655">Miniatuurweergave</translation>
-<translation id="5177549709747445269">Je gebruikt mobiele gegevens</translation>
+<translation id="5177549709747445269">Je gebruikt mobiele data</translation>
 <translation id="5178667623289523808">Zoek vorige</translation>
 <translation id="5181140330217080051">Downloaden</translation>
 <translation id="5184063094292164363">&amp;JavaScript-console</translation>
@@ -3027,6 +3027,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="5678955352098267522">Je gegevens voor <ph name="WEBSITE_1" /> lezen</translation>
 <translation id="5684661240348539843">Item-ID</translation>
 <translation id="5687326903064479980">Tijdzone</translation>
+<translation id="5689516760719285838">Locatie</translation>
 <translation id="56907980372820799">Gegevens koppelen</translation>
 <translation id="5691511426247308406">Familie</translation>
 <translation id="5691596662111998220"><ph name="FILE_NAME" /> bestaat niet meer.</translation>
@@ -3825,7 +3826,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="6955446738988643816">Pop-up controleren</translation>
 <translation id="6957231940976260713">Servicenaam</translation>
 <translation id="695755122858488207">Niet-geselecteerd keuzerondje</translation>
-<translation id="696203921837389374">Synchroniseren via mobiele gegevens inschakelen</translation>
+<translation id="696203921837389374">Synchroniseren via mobiele data inschakelen</translation>
 <translation id="6964390816189577014">Held</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="6965648386495488594">Poort</translation>
@@ -3927,7 +3928,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="7084192839369222683">Alleen belangrijke content uitvoeren</translation>
 <translation id="7088434364990739311">Het starten van de updatecontrole is mislukt (foutcode <ph name="ERROR" />).</translation>
 <translation id="7088561041432335295">Zip Archiver: zip-bestanden openen en inpakken in de Bestanden-app.</translation>
-<translation id="7088674813905715446">Dit apparaat is uit bedrijf genomen door de beheerder. Vraag uw beheerder om het apparaat op 'in behandeling' in te stellen, zodat het kan worden aangemeld.</translation>
+<translation id="7088674813905715446">Dit apparaat is uit bedrijf genomen door de beheerder. Vraag je beheerder om het apparaat op 'in behandeling' in te stellen, zodat het kan worden aangemeld.</translation>
 <translation id="7092106376816104">Uitzonderingen voor pop-ups</translation>
 <translation id="7093434536568905704">GTK+</translation>
 <translation id="7093866338626856921">Gegevens uitwisselen met de apparaten met de naam: <ph name="HOSTNAMES" /></translation>
@@ -4373,7 +4374,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="7837776265184002579">Je homepage is gewijzigd in <ph name="URL" />.</translation>
 <translation id="7839051173341654115">Media bekijken/back-up maken</translation>
 <translation id="7839192898639727867">Sleutel-ID van certificaatonderwerp</translation>
-<translation id="7839804798877833423">Voor het ophalen van deze bestanden wordt ongeveer <ph name="FILE_SIZE" /> aan mobiele gegevens gebruikt.</translation>
+<translation id="7839804798877833423">Voor het ophalen van deze bestanden wordt ongeveer <ph name="FILE_SIZE" /> aan mobiele data gebruikt.</translation>
 <translation id="7844992432319478437">Diff bijwerken</translation>
 <translation id="7846076177841592234">Selectie opheffen</translation>
 <translation id="7846634333498149051">Toetsenbord</translation>
@@ -4427,7 +4428,7 @@ Druk op een toets om door te gaan met verkennen.</translation>
 <translation id="7915471803647590281">Vertel ons wat er aan de hand is voordat je de feedback verzendt.</translation>
 <translation id="7925247922861151263">AAA-controle mislukt</translation>
 <translation id="7925285046818567682">Wachten op <ph name="HOST_NAME" />...</translation>
-<translation id="7925686952655276919">Geen mobiele gegevens gebruiken voor synchronisatie</translation>
+<translation id="7925686952655276919">Geen mobiele data gebruiken voor synchronisatie</translation>
 <translation id="7926423016278357561">Dit was ik niet.</translation>
 <translation id="7928710562641958568">Apparaat uitwerpen</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> deelt je scherm en audio.</translation>
@@ -4576,7 +4577,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="8138082791834443598">Optioneel: Voer nieuwe informatie in of update bestaande informatie die aan dit apparaat moet worden gekoppeld.</translation>
 <translation id="813913629614996137">Starten...</translation>
 <translation id="8140778357236808512">Een bestaande gebruiker met beperkte rechten importeren</translation>
-<translation id="8141725884565838206">Uw wachtwoorden beheren</translation>
+<translation id="8141725884565838206">Je wachtwoorden beheren</translation>
 <translation id="8142732521333266922">OK, alles synchroniseren</translation>
 <translation id="8143442547342702591">Ongeldige app</translation>
 <translation id="8146177459103116374">Als je al bent geregistreerd op dit apparaat, kun je <ph name="LINK2_START" />inloggen als een bestaande gebruiker<ph name="LINK2_END" />.</translation>

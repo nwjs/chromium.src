@@ -725,11 +725,11 @@
 <translation id="3512226956150568738">Ako je klijentov model uređaja već podržavao ARC prije nego što je premještanje na ext4 bilo obavezno za izvođenje ARC-a i ako je pravilo ArcEnabled postavljeno na true, ta će se opcija ponašati kao AskUser (vrijednost 3). U svim ostalim slučajevima (ako model uređaja nije podržavao ARC ili ako je pravilo ArcEnabled postavljeno na false), ta je vrijednost ekvivalentna pravilu DisallowArc (vrijednost 0).</translation>
 <translation id="3519432185185398282">Konfigurira dostupnost i ponašanje funkcije ažuriranja TPM opreme.
 
-      Pojedinačne postavke mogu se navesti u JSON entitetima:
+      Pojedinačne postavke mogu se navesti u JSON svojstvima:
 
       <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: ako se postavi na <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, korisnici će moći pokrenuti tijek powerwasha da bi instalirali ažuriranje TPM opreme.
 
-      Ako se to pravilo ne postavi, funkcija ažuriranja TPM opreme neće biti dostupna.</translation>
+       Ako se to pravilo ne postavi, funkcija ažuriranja TPM opreme neće biti dostupna.</translation>
 <translation id="3528000905991875314">Omogući alternativne stranice pogrešaka</translation>
 <translation id="3547954654003013442">Proxy postavke</translation>
 <translation id="3591584750136265240">Konfiguriraj ponašanje autentifikacije tijekom prijave</translation>
@@ -1903,7 +1903,7 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
 <translation id="7843525027689416831">Određuje oznake koje se trebaju primijeniti na <ph name="PRODUCT_NAME" /> prilikom pokretanja. Navedene oznake primjenjuju se samo na zaslonu za prijavu. Oznake postavljene ovim pravilom ne primjenjuju se na korisničke sesije.</translation>
 <translation id="7844537954833753199">Konfigurira postavke upravljanja proširenjima za <ph name="PRODUCT_NAME" />.
 
-          Pravilo kontrolira više postavki, uključujući postavke kojima upravljaju postojeća pravila za proširenja. Ovo će pravilo nadjačati bilo koje starije pravilo ako se postave oba pravila.
+          Pravilo kontrolira više postavki, uključujući postavke kojima upravljaju postojeća pravila za proširenja. Ovo će pravilo nadjačati bilo koje starije pravilo ako su postavljena oba pravila.
 
           Ovo pravilo mapira ID proširenja ili URL ažuriranja na svoju konfiguraciju. Uz ID proširenja konfiguracija će se primijeniti samo na navedeno proširenje. Zadana se konfiguracija može postaviti za posebni ID <ph name="DEFAULT_SCOPE" /> koja će se primjenjivati na sva proširenja za koja nije postavljena prilagođena konfiguracija u tom pravilu. Uz URL ažuriranja konfiguracija će se primjenjivati na sva proširenja s točnim URL-om ažuriranja navedenim u manifestu tog proširenja kako je opisano na stranici <ph name="LINK_TO_EXTENSION_DOC1" />.
 

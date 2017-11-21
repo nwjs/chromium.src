@@ -732,7 +732,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 
       <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Jos tämän arvo on <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" />, käyttäjä voi käynnistää powerwash-toiminnon, joka asentaa TPM:n laiteohjelmistopäivityksen.
 
-      Jos käytäntöä ei määritetä, TPM-laiteohjelmiston päivitystoiminto ei ole saatavilla.</translation>
+      Jos käytäntöä ei ole määritetty, TPM-laiteohjelmiston päivitystoiminto ei ole saatavilla.</translation>
 <translation id="3528000905991875314">Ota vaihtoehtoiset virhesivut käyttöön</translation>
 <translation id="3547954654003013442">Välityspalvelimen asetukset</translation>
 <translation id="3591584750136265240">Määritä kirjautumistodennuksen käytös.</translation>
@@ -1898,7 +1898,7 @@ Jos tätä käytäntöä ei ole määritetty, käytetään oletusarvoa (32).</tr
 <translation id="7841880500990419427">TLS:n käytettävä vähimmäisversio</translation>
 <translation id="7842869978353666042">Määritä Google Driven asetukset</translation>
 <translation id="7843525027689416831">Määrittää merkinnät, joita käytetään sovelluksessa <ph name="PRODUCT_NAME" /> sen käynnistyksen yhteydessä. Määritettyjä merkintöjä käytetään vain kirjautumisnäytöllä. Tämän käytännön kautta määritettyjä merkintöjä ei oteta yleisesti käyttöön käyttäjäistunnoissa.</translation>
-<translation id="7844537954833753199">Tämä määrittää laajennusten hallinta-asetuksia, joita <ph name="PRODUCT_NAME" /> käyttää.
+<translation id="7844537954833753199">Määrittää laajennusten hallinta-asetuksia, joita <ph name="PRODUCT_NAME" /> käyttää
 
           Tämä käytäntö hallitsee useita asetuksia, mukaan lukien nykyisten laajennuksiin liittyvien käytäntöjen hallitsemia asetuksia. Tämä käytäntö ohittaa mahdolliset aiemmin määritetyt käytännöt.
 
@@ -1912,7 +1912,7 @@ Jos tätä käytäntöä ei ole määritetty, käytetään oletusarvoa (32).</tr
           * <ph name="FORCE_INSTALLED" />: Laajennus asennetaan automaattisesti, eikä käyttäjä voi poistaa sitä.
           * <ph name="NORMAL_INSTALLED" />: Laajennus asennetaan automaattisesti, mutta käyttäjä voi poistaa sen käytöstä.
 
-          <ph name="INSTALLTION_MODE" /> on määritettävissä myös useita laajennuksia varten, jolloin sitä voivat käyttää <ph name="DEFAULT_SCOPE" /> (oletusasetuksina) ja samaa päivitys-URL-osoitetta käyttävät laajennukset. Tällöin <ph name="ALLOWED" /> ja <ph name="BLOCKED" /> ovat ainoat kelvolliset arvot.
+          <ph name="INSTALLTION_MODE" /> on määritettävissä myös useita laajennuksia varten, jolloin sitä voivat käyttää <ph name="DEFAULT_SCOPE" /> oletusasetuksina) ja samaa päivitys-URL-osoitetta käyttävät laajennukset. Tällöin <ph name="ALLOWED" /> ja <ph name="BLOCKED" /> ovat ainoat kelvolliset arvot.
 
           Jos tila on <ph name="FORCE_INSTALLED" /> tai <ph name="NORMAL_INSTALLED" />, myös <ph name="UPDATE_URL" /> täytyy määrittää. Huomaa, että tässä käytännössä asetettua päivitys-URL-osoitetta käytetään vain ensimmäisellä asennuskerralla, ja laajennuksen myöhemmillä päivityskerroilla käytetään laajennuksen teknisissä tiedoissa olevaa päivitys-URL-osoitetta. Kuten yllä todetaan, päivitys-URL-osoitteen tulee johtaa tekniset päivitystiedot sisältävään XML-tiedostoon (Update Manifest XML).
 
@@ -1927,8 +1927,8 @@ Jos tätä käytäntöä ei ole määritetty, käytetään oletusarvoa (32).</tr
           <ph name="INSTALL_SOURCES" />: Kukin tämän luettelon kohde on laajennuksen kaltainen vastaavuusmalli (<ph name="LINK_TO_MATCH_PATTERNS" />). Käyttäjät voivat helposti asentaa kohteita URL-osoitteista, jotka vastaavat tässä luettelossa olevia kohteita. Sekä tiedoston <ph name="EXTENSION_SUFFIX_WILDCARD" /> sijainnin että latauksen aloitussivun (eli viittaavan sivun) täytyy olla sallittuja näiden mallien perusteella.
 
           <ph name="ALLOWED_TYPES" />: Tämä asetus lisää sallittujen luetteloon kaikki laajennukset/sovellukset, joiden asentamisen <ph name="PRODUCT_NAME" /> sallii. Asetuksen arvo on merkkijonoluettelo, jonka kunkin kohteen tulee olla jokin seuraavista: <ph name="VALID_ALLOWED_TYPES" />. Lisätietoja tyypeistä on saatavilla tuotteen <ph name="PRODUCT_NAME" /> laajennusdokumentaatiosta.
-          <ph name="BLOCKED_INSTALL_MESSAGE" />: Jos käyttäjä yrittää asentaa laajennuksen, mutta asennus estetään käytännön perusteella, Chrome Web Store näyttää käyttäjälle yleisen virheilmoituksen. Tämän asetuksen avulla voit lisätä tekstiä virheilmoitukseen, jolloin voit esimerkiksi ohjata käyttäjän asiakastukeen tai kertoa, miksi laajennus on estetty. Virheilmoituksen tekstiä ei näytetä kokonaan, jos sen pituus on yli 1 000 merkkiä.
-          <ph name="RUNTIME_BLOCKED_HOSTS" />: Tämä hyväksyy luettelon isännistä, joiden toiminta laajennuksen kanssa estetään. Tällaiseen toimintaan sisältyvät JavaScript-koodin syöttäminen, webRequest- ja webNavigation-kohteiden katselu ja muuttaminen sekä evästeiden katselu ja muuttaminen. Luettelokohteiden muoto muistuttaa vastaavuusmalleja (<ph name="LINK_TO_MATCH_PATTERNS" />), mutta ne eivät saa sisältää polkuja, kuten "*://*.example.com". Tämä asetus tukee myös TLD-jokerimerkkien käyttöä. Esimerkiksi: "*://example.*".
+          <ph name="BLOCKED_INSTALL_MESSAGE" />: Jos käyttäjä yrittää asentaa laajennuksen, mutta asennus estetään käytännön perusteella, Chrome Web Store näyttää käyttäjälle yleisen virheilmoituksen. Tämän asetuksen avulla voit lisätä tekstiä virheilmoitukseen, jolloin voit esimerkiksi ohjata käyttäjän asiakastukeen tai kertoa, miksi laajennus on estetty. Virheilmoituksen tekstiä ei näytetä kokonaan, jos sen pituus on yli 1 000 merkkiä.
+          <ph name="RUNTIME_BLOCKED_HOSTS" />: Tämä hyväksyy luettelon isännistä, joiden toiminta laajennuksen kanssa estetään. Tällaiseen toimintaan sisältyvät JavaScript-koodin syöttäminen, webRequest- ja webNavigation-kohteiden katselu ja muuttaminen sekä evästeiden katselu ja muuttaminen. Luettelokohteiden muoto muistuttaa vastaavuusmalleja <ph name="LINK_TO_MATCH_PATTERNS" />, mutta ne eivät saa sisältää polkuja, kuten "*://*.example.com". Tämä asetus tukee myös TLD-jokerimerkkien käyttöä. Esimerkiksi: "*://example.*".
           <ph name="RUNTIME_ALLOWED_HOSTS" />: Tämä hyväksyy luettelon isännistä, joiden toiminta laajennuksen kanssa sallitaan riippumatta siitä, sisältääkö <ph name="RUNTIME_BLOCKED_HOSTS" /> niitä. Tämä asetus ja <ph name="RUNTIME_BLOCKED_HOSTS" /> käyttävät samanlaista luettelokohteiden muotoilua.
           </translation>
 <translation id="787125417158068494">Jos tämän käytännön arvo on SyncDisabled tai sitä ei ole määritetty, ARC-sovellukset eivät voi käyttää <ph name="PRODUCT_OS_NAME" /> -varmenteita.

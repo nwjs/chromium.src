@@ -14,7 +14,7 @@
 <translation id="1016566241875885511">अतिरिक्त माहिती (पर्यायी)</translation>
 <translation id="1017280919048282932">शब्दकोशात &amp;जोडा</translation>
 <translation id="1018656279737460067">रद्द झाले</translation>
-<translation id="102272308210570439">तुमच्या स्क्रीनवर असलेले साहाय्यकाला वापरू द्या</translation>
+<translation id="102272308210570439">तुमच्या स्‍क्रीनवर जे काही आहे ते Assistant ला वापरू द्या</translation>
 <translation id="1026822031284433028">प्रतिमा लोड करा</translation>
 <translation id="1029317248976101138">झूम करा</translation>
 <translation id="1031362278801463162">पूर्वावलोकन लोड करत आहे</translation>
@@ -796,7 +796,7 @@
 <translation id="222949136907494149"><ph name="URL" /> आपल्या संगणकाचे स्थान वापरू इच्छिते.</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2230062665678605299">फोल्डर "<ph name="FOLDER_NAME" />" तयार करण्‍यात अक्षम. <ph name="ERROR_MESSAGE" /></translation>
-<translation id="223106756035922488">आजचे डूडल पाहण्यासाठी क्लिक करा</translation>
+<translation id="223106756035922488">आजचे डुडल पाहण्यासाठी क्लिक करा</translation>
 <translation id="2231238007119540260">आपण एक सर्व्हर प्रमाणपत्र हटविल्यास, आपण त्या सर्व्हरसाठी नेहमीचे सुरक्षा चेक पुनर्संचयित करता आणि त्यास एक वैध प्रमाणपत्र वापरणे आवश्यक आहे.</translation>
 <translation id="2231990265377706070">उद्गार चिन्ह</translation>
 <translation id="2232876851878324699">फाइलमध्ये एक प्रमाणपत्र आहे, जे आयात झाले नाही:</translation>
@@ -1064,7 +1064,7 @@
 <translation id="2642111877055905627">सॉकर बॉल</translation>
 <translation id="2643698698624765890">विंडो मेनूमध्‍ये विस्तारांवर क्लिक करुन ‍आपले विस्तार व्यवस्थापित करा.</translation>
 <translation id="2647142853114880570">रीलोड करा</translation>
-<translation id="2647269890314209800">वापरात असलेल्या कुकीज</translation>
+<translation id="2647269890314209800">वापरात असलेल्या कुकी</translation>
 <translation id="2648831393319960979">आपल्या खात्यास डिव्हाइस जोडत आहे - यास एक क्षण लागू शकतो...</translation>
 <translation id="2649045351178520408">Base64-encoded ASCII, प्रमाणपत्र श्रृंखला</translation>
 <translation id="2653266418988778031">आपण एक प्रमाणन अधिकृतता (CA) प्रमाणपत्र हटविल्यास, आपला ब्राउझर त्या CA द्वारे जारी केलेल्या कोणत्याही प्रमाणपत्रावर यापुढे विश्वास ठेवणार नाही.</translation>
@@ -1115,7 +1115,7 @@
 <translation id="2715751256863167692">हे अपडेट तुमचे Chromebook रीसेट करते आणि तुमचा सद्य वापरकर्ता डेटा काढून टाकते.</translation>
 <translation id="2718395828230677721">रात्रीचा प्रकाश</translation>
 <translation id="2718998670920917754">अँटी-व्हायरस सॉफ्टवेअरला एक व्हायरस आढळला.</translation>
-<translation id="2719936478972253983">पुढील कुकीज ब्लॉक केल्या गेल्या</translation>
+<translation id="2719936478972253983">पुढील कुकी ब्लॉक केल्या होत्‍या</translation>
 <translation id="2721037002783622288">प्रतिमा <ph name="SEARCH_ENGINE" /> वर शोधा</translation>
 <translation id="2721334646575696520">Microsoft Edge</translation>
 <translation id="2721695630904737430">आपल्या प्रशासकाने पर्यवेक्षित वापरकर्ते अक्षम केले आहेत.</translation>
@@ -1199,7 +1199,7 @@
 <translation id="2815500128677761940">बुकमार्क बार</translation>
 <translation id="2815693974042551705">बुकमार्क फोल्डर</translation>
 <translation id="2818476747334107629">प्रिंटर तपशील</translation>
-<translation id="2820957248982571256">स्कॅन करत आहे...</translation>
+<translation id="2820957248982571256">स्कॅन होत आहे...</translation>
 <translation id="2822634587701817431">संकुचित करा / विस्तृत करा</translation>
 <translation id="2825758591930162672">विषयाची सार्वजनिक की</translation>
 <translation id="2828650939514476812">Wi-Fi नेटवर्कवर कनेक्ट करा</translation>
@@ -2261,7 +2261,7 @@
 <translation id="4514542542275172126">नवीन पर्यवेक्षी वापरकर्ता सेट अप करा</translation>
 <translation id="451515744433878153">काढा</translation>
 <translation id="4518677423782794009">Chrome क्रॅश होत आहे का, असामान्य प्रारंभ पृष्‍ठे, टूलबार किंवा आपण ज्यापासून सुटका करून घेऊ शकत नाहीत त्या अनपेक्षित जाहिराती दाखवत आहे किंवा अन्यथा आपला ब्राउझिंग अनुभव बदलत आहे? आपण Chrome क्लीनअप साधन चालवून समस्येचे निराकरण करण्‍यात सक्षम  असाल.</translation>
-<translation id="4520385623207007473">वापरात असलेल्या कुकीज</translation>
+<translation id="4520385623207007473">वापरात असलेल्या कुकी</translation>
 <translation id="452039078290142656"><ph name="VENDOR_NAME" /> कडील अज्ञात डीव्हाइस</translation>
 <translation id="4522570452068850558">तपशील</translation>
 <translation id="4530494379350999373">मूळ</translation>
@@ -2320,7 +2320,7 @@
 <translation id="4610637590575890427">आपल्याला <ph name="SITE" /> कडे जायचे असे म्हणायचे होते काय?</translation>
 <translation id="4611114513649582138">डेटा कनेक्शन उपलब्ध आहे</translation>
 <translation id="4613271546271159013">आपण नवीन टॅब उघडता तेव्हा कोणते पृष्ठ दर्शविले जाते हे विस्ताराने बदलले आहे.</translation>
-<translation id="4615586811063744755">कुकी निवडलेली नाही</translation>
+<translation id="4615586811063744755">कोणतीही कुकी निवडलेली नाही</translation>
 <translation id="4617270414136722281">विस्तार पर्याय</translation>
 <translation id="4618990963915449444"><ph name="DEVICE_NAME" /> वरील सर्व फायली मिटविल्या जातील.</translation>
 <translation id="4619615317237390068">अन्य डिव्हाइसेसमधील टॅब</translation>
@@ -2415,7 +2415,7 @@
 <translation id="4759238208242260848">डाउनलोड</translation>
 <translation id="4761104368405085019">आपला मायक्रोफोन वापरा</translation>
 <translation id="4762718786438001384">डिव्हाइस डिस्क स्थान खूपच कमी आहे</translation>
-<translation id="4763408175235639573">तुम्ही हा पेज पाहिला तेव्हा पुढील कुकीज सेट केल्या गेल्या</translation>
+<translation id="4763408175235639573">तुम्ही हे पेज पाहिले तेव्हा पुढील कुकी सेट केल्या गेल्या</translation>
 <translation id="4763830802490665879">बाहेर पडताना एकाधिक साइट्सवरील कुकीज साफ केल्या जातील.</translation>
 <translation id="4768332406694066911">आपल्‍याकडे या संस्थांकडील प्रमाणपत्रे आहेत जी आपल्‍याला ओळखतात</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> साठी पासवर्ड</translation>
@@ -2795,7 +2795,7 @@
 <translation id="5337771866151525739">एका तृतीय पक्षाद्वारे इंस्टॉल.</translation>
 <translation id="5338503421962489998">स्‍थानिक संचयन</translation>
 <translation id="5340217413897845242">शेल्फ आयटम 6</translation>
-<translation id="5341793073192892252">पुढील कुकीज ब्लॉक केल्या गेल्या आहेत (तृतीय-पक्ष कुकीज अपवादाशिवाय ब्लॉक केल्या जात आहेत)</translation>
+<translation id="5341793073192892252">पुढील कुकी ब्लॉक केल्या होत्‍या (तृतीय पक्षाच्या कुकी अपवादाशिवाय ब्लॉक केलेल्या आहेत)</translation>
 <translation id="5341980496415249280">कृपया वाट पहा, पॅकिंग करत आहे...</translation>
 <translation id="5342091991439452114">पिन किमान <ph name="MINIMUM" /> अंकांचा असणे आवश्यक आहे</translation>
 <translation id="534916491091036097">डावा कंस</translation>
@@ -3019,6 +3019,7 @@
 <translation id="5678955352098267522"><ph name="WEBSITE_1" /> वर आपला डेटा वाचा</translation>
 <translation id="5684661240348539843">मालमत्ता अभिज्ञापक</translation>
 <translation id="5687326903064479980">टाइमझोन</translation>
+<translation id="5689516760719285838">स्थान</translation>
 <translation id="56907980372820799">डेटा चा दुवा जोडा</translation>
 <translation id="5691511426247308406">कुटुंब</translation>
 <translation id="5691596662111998220">अरेरे, <ph name="FILE_NAME" /> यापुढे अस्तित्वात नाही.</translation>
@@ -4837,7 +4838,7 @@
 <translation id="8620617069779373398">रोमिंग स्थिती</translation>
 <translation id="8620765578342452535">नेटवर्क कनेक्‍शन कॉन्फिगर करा</translation>
 <translation id="8623004009673949077">'kiosk_only' मॅनिफेस्ट विशेषता असलेला अ‍ॅप Chrome OS कियोस्क मोडमध्ये इंस्टॉल करणे आवश्यक आहे.</translation>
-<translation id="8624205858755890468">साहाय्यकाला तुम्हाला संबंधित माहिती, अ‍ॅप्स आणि कृती दाखवू देतो.</translation>
+<translation id="8624205858755890468">Assistant ला तुम्हाला संबंधित माहिती, अ‍ॅप्स आणि क्रिया दाखवू देते.</translation>
 <translation id="862542460444371744">&amp;विस्तार</translation>
 <translation id="8627151598708688654">स्त्रोत निवडा</translation>
 <translation id="862727964348362408">निलंबित</translation>
@@ -4916,7 +4917,7 @@
 <translation id="8725066075913043281">पुन्हा प्रयत्न करा</translation>
 <translation id="8725178340343806893">मनपसंत/बुकमार्क</translation>
 <translation id="8726206820263995930">सर्व्हरवरून धोरण सेटिंग्ज आणताना त्रुटी: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8726718463424335668">आयात करणे वगळा</translation>
+<translation id="8726718463424335668">आयात वगळा</translation>
 <translation id="8727142376512517020">हे पुन्हा दर्शवू नका</translation>
 <translation id="8730621377337864115">पूर्ण झाले</translation>
 <translation id="8732030010853991079">या चिन्हावर क्लिक करुन हा विस्तार वापरा.</translation>

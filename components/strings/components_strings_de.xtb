@@ -630,6 +630,7 @@
 <translation id="5669703222995421982">Personalisierte Inhalte erhalten</translation>
 <translation id="5675650730144413517">Diese Seite funktioniert nicht</translation>
 <translation id="5689199277474810259">Als JSON exportieren</translation>
+<translation id="5689516760719285838">Ort</translation>
 <translation id="5710435578057952990">Die Identität dieser Website wurde nicht verifiziert.</translation>
 <translation id="5719499550583120431">Prepaidkarten werden akzeptiert.</translation>
 <translation id="5720705177508910913">Aktueller Nutzer</translation>
@@ -748,7 +749,7 @@
 <translation id="6753269504797312559">Wert der Richtlinie</translation>
 <translation id="6757797048963528358">Ihr Gerät ist im Ruhemodus.</translation>
 <translation id="6778737459546443941">Dein Elternteil hat die Berechtigung noch nicht erteilt</translation>
-<translation id="681021252041861472">Pflichtfeld</translation>
+<translation id="681021252041861472">Erforderliches Feld</translation>
 <translation id="6810899417690483278">Personalisierungs-ID</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6824266427216888781">Fehler beim Laden der Regionsdaten</translation>
@@ -971,7 +972,7 @@
 </translation>
 <translation id="859285277496340001">In dem Zertifikat ist kein Mechanismus angegeben, mit dem geprüft werden kann, ob es zurückgerufen wurde.</translation>
 <translation id="8620436878122366504">Deine Eltern haben die Berechtigung noch nicht erteilt</translation>
-<translation id="8625384913736129811">Diese Karte auf diesem Gerät speichern</translation>
+<translation id="8625384913736129811">Diese Karte für dieses Gerät speichern</translation>
 <translation id="8647750283161643317">Alle auf Standardeinstellung zurücksetzen</translation>
 <translation id="8660471606262461360">Aus Google Payments</translation>
 <translation id="8688672835843460752">Verfügbar</translation>

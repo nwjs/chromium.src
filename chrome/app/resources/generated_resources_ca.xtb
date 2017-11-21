@@ -183,7 +183,7 @@
 <translation id="1272079795634619415">Atura</translation>
 <translation id="1272978324304772054">Aquest compte d'usuari no pertany al domini on s'ha registrat el dispositiu. Si el voleu registrar en un domini diferent, primer cal que apliqueu el procés de recuperació del dispositiu.</translation>
 <translation id="1274977772557788323">Configuració d'emmagatzematge d'Adobe Flash Player</translation>
-<translation id="1274997165432133392">Galetes i altres dades dels llocs</translation>
+<translation id="1274997165432133392">Galetes i altres dades dels llocs web</translation>
 <translation id="1275718070701477396">Seleccionat</translation>
 <translation id="127668050356036882">Tanca totes les finestres</translation>
 <translation id="1277908057200820621">Mostra la llista de dispositius</translation>
@@ -940,7 +940,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="2470702053775288986">Extensions no compatibles desactivades</translation>
 <translation id="2473195200299095979">Tradueix aquesta pàgina</translation>
 <translation id="2475982808118771221">S'ha produït un error</translation>
-<translation id="2476578072172137802">Configuració del lloc</translation>
+<translation id="2476578072172137802">Configuració del lloc web</translation>
 <translation id="2478176599153288112">Permisos de fitxer multimèdia per a "<ph name="EXTENSION" />"</translation>
 <translation id="247949520305900375">Comparteix l'àudio</translation>
 <translation id="2480868415629598489">Modifica les dades que copies i enganxes</translation>
@@ -1199,7 +1199,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="2815500128677761940">Barra d'adreces d'interès</translation>
 <translation id="2815693974042551705">Carpeta d'adreces d'interès</translation>
 <translation id="2818476747334107629">Detalls de la impressora</translation>
-<translation id="2820957248982571256">S'està cercant…</translation>
+<translation id="2820957248982571256">S'està cercant...</translation>
 <translation id="2822634587701817431">Redueix o amplia</translation>
 <translation id="2825758591930162672">Clau pública del subjecte</translation>
 <translation id="2828650939514476812">Connectar a una xarxa Wi-Fi</translation>
@@ -3025,6 +3025,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="5678955352098267522">Llegir les dades del lloc <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Identificador d'elements</translation>
 <translation id="5687326903064479980">Zona horària</translation>
+<translation id="5689516760719285838">Ubicació</translation>
 <translation id="56907980372820799">Enllaça les dades</translation>
 <translation id="5691511426247308406">Família</translation>
 <translation id="5691596662111998220"><ph name="FILE_NAME" /> ja no existeix.</translation>
@@ -4705,7 +4706,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8378285435971754261">Permet que el servei d'ubicació de Google ajudi les aplicacions a trobar la teva ubicació de manera ràpida i precisa, la qual cosa pot reduir el consum de bateria. A més, s'enviaran dades d'ubicació anònimes a Google, fins i tot quan no s'estigui executant cap aplicació. <ph name="BEGIN_LINK1" />Més informació<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">Gestioneu la configuració de la càmera…</translation>
 <translation id="8382913212082956454">Copia l'&amp;adreça electrònica</translation>
-<translation id="8386903983509584791">La cerca s'ha completat</translation>
+<translation id="8386903983509584791">S'ha completat la cerca</translation>
 <translation id="8390029840652165810">Assegureu-vos que la vostra connexió a la xarxa funciona i, si el problema persisteix, tanqueu la sessió i torneu a iniciar-la per actualitzar les vostres credencials.</translation>
 <translation id="8390449457866780408">El servidor no està disponible.</translation>
 <translation id="8392234662362215700">Premeu Ctrl+Maj+espai per canviar la disposició del teclat.</translation>

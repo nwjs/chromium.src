@@ -1199,7 +1199,7 @@ Non credo che questo sito debba essere bloccato.</translation>
 <translation id="2815500128677761940">Barra dei Preferiti</translation>
 <translation id="2815693974042551705">Aggiungi la cartella ai segnalibri</translation>
 <translation id="2818476747334107629">Dettagli stampante</translation>
-<translation id="2820957248982571256">Ricerca in corso...</translation>
+<translation id="2820957248982571256">Scansione…</translation>
 <translation id="2822634587701817431">Comprimi/Espandi</translation>
 <translation id="2825758591930162672">Chiave pubblica del soggetto</translation>
 <translation id="2828650939514476812">Collegati alla rete Wi-Fi</translation>
@@ -2402,7 +2402,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="4728558894243024398">Piattaforma</translation>
 <translation id="4731422630970790516">Elemento 3 della shelf</translation>
 <translation id="4732760563705710320">Spiacenti, questo video non è supportato dal tuo dispositivo di trasmissione.</translation>
-<translation id="4733793249294335256">Posizione</translation>
+<translation id="4733793249294335256">Luogo</translation>
 <translation id="4734518477988699048">Il valore di input non è valido.</translation>
 <translation id="473546211690256853">Questo account è gestito da <ph name="DOMAIN" /></translation>
 <translation id="4737715515457435632">Collegati a una rete</translation>
@@ -3021,6 +3021,7 @@ Premi un tasto qualsiasi per continuare a esplorare.</translation>
 <translation id="5678955352098267522">Lettura dei dati su <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Identificatore asset</translation>
 <translation id="5687326903064479980">Fuso orario</translation>
+<translation id="5689516760719285838">Luogo</translation>
 <translation id="56907980372820799">Collega dati</translation>
 <translation id="5691511426247308406">Famiglia</translation>
 <translation id="5691596662111998220">Spiacenti. <ph name="FILE_NAME" /> non esiste più.</translation>
@@ -4700,7 +4701,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8378285435971754261">Consenti al servizio di geolocalizzazione di Google di aiutare le app a rilevare la tua posizione in modo veloce e preciso, riducendo allo stesso tempo il consumo di batteria. A Google verranno inviati dati anonimi sulla posizione, anche quando non ci sono app in esecuzione. <ph name="BEGIN_LINK1" />Ulteriori informazioni<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">Gestisci le impostazioni della videocamera...</translation>
 <translation id="8382913212082956454">Copia indirizzo &amp;email</translation>
-<translation id="8386903983509584791">Ricerca completata</translation>
+<translation id="8386903983509584791">Scansione completata</translation>
 <translation id="8390029840652165810">Assicurati che la connessione di rete sia attiva; se il problema persiste, esci e accedi nuovamente per aggiornare le credenziali.</translation>
 <translation id="8390449457866780408">Server non disponibile.</translation>
 <translation id="8392234662362215700">Premi CTRL + MAIUSC + barra spaziatrice per cambiare il layout della tastiera.</translation>

@@ -70,8 +70,8 @@
 <translation id="2532589005999780174">Hali ya juu ya utofautishaji</translation>
 <translation id="2597972630681408282">Mwanga wa Usiku: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Wasilisha</translation>
-<translation id="2675319268637823299">Msimamizi amezuia uwezo wa kuingia katika akaunti nyingi kwa wakati mmoja kwa <ph name="USER_EMAIL" />.
-    Watumiaji wote lazima waondoke ili waendelee.</translation>
+<translation id="2675319268637823299">Msimamizi amezuia uwezo wa kuingia katika akaunti nyingi kwa wakati mmoja kwa kutumia <ph name="USER_EMAIL" />.
+    Ni lazima watumiaji wote waondoke katika akaunti ili uendelee.</translation>
 <translation id="2700058918926273959">Kipindi kitakwisha baada ya <ph name="SESSION_TIME_REMAINING" />. Utaondolewa katika akaunti.</translation>
 <translation id="2727977024730340865">Imechomekwa katika chaja ya kawi ya chini. Huenda kuchaji kwa betri hakutakuwa kuzuri.</translation>
 <translation id="2761704814324807722">Treya ya hali, saa <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -281,7 +281,7 @@ Tumia kipengele hiki kwa akaunti unazoamini pekee.</translation>
 <translation id="8261506727792406068">Futa</translation>
 <translation id="8308637677604853869">Menyu ya awali</translation>
 <translation id="8351131234907093545">Unda kidokezo</translation>
-<translation id="8392234662362215700">Gonga Control-Shift-Space ili ubadilishe muundo wa kibodi.</translation>
+<translation id="8392234662362215700">Gusa Control-Shift-Space ili ubadilishe muundo wa kibodi.</translation>
 <translation id="8428213095426709021">Mipangilio</translation>
 <translation id="8433186206711564395">Mipangilio ya mtandao</translation>
 <translation id="8433977262951327081">Njia ya mkato ya kuonyesha kiputo cha menyu ya chaguo za kuingiza data katika rafu imebadilika. Tafadhali tumia <ph name="NEW_SHORTCUT" /> badala ya <ph name="OLD_SHORTCUT" />.</translation>

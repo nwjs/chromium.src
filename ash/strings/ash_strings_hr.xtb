@@ -71,7 +71,7 @@
 <translation id="2597972630681408282">Noćno svjetlo: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Pošalji</translation>
 <translation id="2675319268637823299">Administrator je onemogućio višestruku prijavu za <ph name="USER_EMAIL" />.
-    Svi se korisnici moraju prijaviti za nastavak.</translation>
+    Svi se korisnici moraju odjaviti za nastavak.</translation>
 <translation id="2700058918926273959">Sesija će završiti za <ph name="SESSION_TIME_REMAINING" />. Odjavit ćete se.</translation>
 <translation id="2727977024730340865">Uređaj je priključen na punjač male snage. Punjenje baterije možda nije pouzdano.</translation>
 <translation id="2761704814324807722">Traka statusa, vrijeme <ph name="TIME" />, <ph name="BATTERY" /></translation>

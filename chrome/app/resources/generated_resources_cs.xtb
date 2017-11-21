@@ -1014,7 +1014,7 @@ Tento web by podle mě neměl být blokován.</translation>
 <translation id="2570000010887652771">Využívání dat sníženo.</translation>
 <translation id="2570648609346224037">Při stahování obrazu pro obnovení došlo k potížím.</translation>
 <translation id="257088987046510401">Motivy</translation>
-<translation id="2571964818629181240">Před importem zavřete prohlížeč Firefox</translation>
+<translation id="2571964818629181240">Před importem zavřete Firefox</translation>
 <translation id="2572032849266859634">Byl udělen přístup pouze ke čtení ke svazku <ph name="VOLUME_NAME" />.</translation>
 <translation id="2573269395582837871">Vybrat obrázek a jméno</translation>
 <translation id="2574102660421949343">Soubory cookie z webu <ph name="DOMAIN" /> byly povoleny.</translation>
@@ -3023,6 +3023,7 @@ Chcete-li pokračovat v práci, stiskněte libovolnou klávesu.</translation>
 <translation id="5678955352098267522">Čtení vašich dat na webu <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Identifikátor položky</translation>
 <translation id="5687326903064479980">Časové pásmo</translation>
+<translation id="5689516760719285838">Poloha</translation>
 <translation id="56907980372820799">Propojit data</translation>
 <translation id="5691511426247308406">Rodina</translation>
 <translation id="5691596662111998220">Jejda, soubor <ph name="FILE_NAME" /> již neexistuje.</translation>

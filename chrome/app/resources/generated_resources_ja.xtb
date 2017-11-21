@@ -1201,7 +1201,7 @@
 <translation id="2815500128677761940">ブックマーク バー</translation>
 <translation id="2815693974042551705">ブックマーク フォルダ</translation>
 <translation id="2818476747334107629">プリンタの詳細</translation>
-<translation id="2820957248982571256">スキャンしています...</translation>
+<translation id="2820957248982571256">スキャンしています…</translation>
 <translation id="2822634587701817431">拡大または縮小</translation>
 <translation id="2825758591930162672">サブジェクトの公開鍵</translation>
 <translation id="2828650939514476812">Wi-Fi ネットワークへの接続</translation>
@@ -2406,7 +2406,7 @@
 <translation id="4728558894243024398">プラットフォーム</translation>
 <translation id="4731422630970790516">シェルフ アイテム 3</translation>
 <translation id="4732760563705710320">この動画はキャスト デバイスでサポートされていません。</translation>
-<translation id="4733793249294335256">場所</translation>
+<translation id="4733793249294335256">保存先</translation>
 <translation id="4734518477988699048">入力値が無効です。</translation>
 <translation id="473546211690256853">このアカウントは <ph name="DOMAIN" /> によって管理されています。</translation>
 <translation id="4737715515457435632">ネットワークに接続してください</translation>
@@ -3026,6 +3026,7 @@
 <translation id="5678955352098267522"><ph name="WEBSITE_1" /> でのユーザーデータの読み取り</translation>
 <translation id="5684661240348539843">アセット ID</translation>
 <translation id="5687326903064479980">タイムゾーン</translation>
+<translation id="5689516760719285838">現在地</translation>
 <translation id="56907980372820799">データをリンク</translation>
 <translation id="5691511426247308406">ファミリー</translation>
 <translation id="5691596662111998220"><ph name="FILE_NAME" /> が存在しません。</translation>
@@ -4717,7 +4718,7 @@
 <translation id="8378285435971754261">Google の位置情報サービスを有効にすると、アプリで現在地をすばやく正確に特定できるようになるため、バッテリーの消費を抑えることができます。アプリが起動していない場合でも、匿名の位置情報が Google に送信されます。<ph name="BEGIN_LINK1" />詳細<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">カメラの設定を管理...</translation>
 <translation id="8382913212082956454">メール アドレスをコピー(&amp;E)</translation>
-<translation id="8386903983509584791">スキャン完了</translation>
+<translation id="8386903983509584791">スキャンが完了しました</translation>
 <translation id="8390029840652165810">ネットワーク接続が正常であるかどうかを確認してください。問題が解決しない場合は、ログアウトしてからもう一度ログインし、認証情報を更新してください。</translation>
 <translation id="8390449457866780408">サーバーを使用できません。</translation>
 <translation id="8392234662362215700">キーボードのレイアウトを切り替えるには Ctrl+Shift+Space を押してください。</translation>

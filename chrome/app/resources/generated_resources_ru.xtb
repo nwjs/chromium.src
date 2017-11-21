@@ -14,7 +14,7 @@
 <translation id="1016566241875885511">Дополнительная информация (необязательно)</translation>
 <translation id="1017280919048282932">&amp;Добавить в словарь</translation>
 <translation id="1018656279737460067">Отменено</translation>
-<translation id="102272308210570439">Открыть Ассистенту доступ к экрану</translation>
+<translation id="102272308210570439">Разрешить Ассистенту доступ к экрану</translation>
 <translation id="1026822031284433028">Загрузить изображение</translation>
 <translation id="1029317248976101138">Масштаб</translation>
 <translation id="1031362278801463162">Загрузка данных для предварительного просмотра</translation>
@@ -1201,7 +1201,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="2815500128677761940">Панель закладок</translation>
 <translation id="2815693974042551705">Папка с закладками</translation>
 <translation id="2818476747334107629">Сведения о принтере</translation>
-<translation id="2820957248982571256">Выполняется поиск…</translation>
+<translation id="2820957248982571256">Поиск…</translation>
 <translation id="2822634587701817431">Свернуть или развернуть</translation>
 <translation id="2825758591930162672">Открытый ключ субъекта</translation>
 <translation id="2828650939514476812">Подключитесь к сети Wi-Fi</translation>
@@ -2328,7 +2328,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4610637590575890427">Возможно, вы хотели перейти на <ph name="SITE" />?</translation>
 <translation id="4611114513649582138">Доступно Интернет-подключение</translation>
 <translation id="4613271546271159013">Одно из расширений изменило страницу, которая открывается в новой вкладке.</translation>
-<translation id="4615586811063744755">файлы не выбраны</translation>
+<translation id="4615586811063744755">файлы cookie не выбраны</translation>
 <translation id="4617270414136722281">Параметры расширений</translation>
 <translation id="4618990963915449444">Все файлы, записанные на носителе "<ph name="DEVICE_NAME" />", будут удалены.</translation>
 <translation id="4619615317237390068">Вкладки с других устройств</translation>
@@ -2406,7 +2406,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4728558894243024398">Платформа</translation>
 <translation id="4731422630970790516">3-й объект на панели запуска</translation>
 <translation id="4732760563705710320">Это видео не поддерживается на вашем Cast-устройстве.</translation>
-<translation id="4733793249294335256">Путь</translation>
+<translation id="4733793249294335256">Папка</translation>
 <translation id="4734518477988699048">Введено недопустимое значение.</translation>
 <translation id="473546211690256853">Этот аккаунт находится в домене <ph name="DOMAIN" /></translation>
 <translation id="4737715515457435632">Подключитесь к Интернету</translation>
@@ -2423,7 +2423,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4759238208242260848">Скачанные файлы</translation>
 <translation id="4761104368405085019">Использование микрофона</translation>
 <translation id="4762718786438001384">Свободное пространство почти закончилось</translation>
-<translation id="4763408175235639573">Во время просмотра этой страницы были сохранены следующие файлы cookie:</translation>
+<translation id="4763408175235639573">При посещении этой страницы на вашем компьютере были сохранены следующие файлы cookie:</translation>
 <translation id="4763830802490665879">Файлы cookie с нескольких сайтов будут удалены при завершении сеанса.</translation>
 <translation id="4768332406694066911">У вас есть идентифицирующие вас сертификаты этих организаций</translation>
 <translation id="4776917500594043016">Пароль для адреса электронной почты <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -2802,7 +2802,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5337771866151525739">Установлено независимым поставщиком.</translation>
 <translation id="5338503421962489998">Локальное хранилище</translation>
 <translation id="5340217413897845242">6-й объект на панели запуска</translation>
-<translation id="5341793073192892252">Заблокированные файлы cookie (сторонние файлы cookie блокируются без исключения):</translation>
+<translation id="5341793073192892252">Были заблокированы следующие файлы cookie (сторонние файлы cookie блокируются без исключения):</translation>
 <translation id="5341980496415249280">Выполняется сжатие…</translation>
 <translation id="5342091991439452114">PIN-код должен содержать не менее <ph name="MINIMUM" /> знаков</translation>
 <translation id="534916491091036097">Левая скобка</translation>
@@ -3026,6 +3026,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5678955352098267522">Просмотр данных на сайте <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Идентификатор объекта</translation>
 <translation id="5687326903064479980">Часовой пояс</translation>
+<translation id="5689516760719285838">Геоданные</translation>
 <translation id="56907980372820799">Связать аккаунты</translation>
 <translation id="5691511426247308406">Семейство</translation>
 <translation id="5691596662111998220">Элемент "<ph name="FILE_NAME" />" удален</translation>
@@ -4846,7 +4847,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8620617069779373398">Статус роуминга</translation>
 <translation id="8620765578342452535">Настройка сетевых подключений</translation>
 <translation id="8623004009673949077">Приложения, у которых в манифесте есть атрибут kiosk_only, можно устанавливать только в режиме информационного киоска Chrome OS</translation>
-<translation id="8624205858755890468">Позволяет Ассистенту показывать похожую информацию, приложения и действия.</translation>
+<translation id="8624205858755890468">Разрешить Ассистенту показывать похожую информацию, приложения и действия.</translation>
 <translation id="862542460444371744">Расширения</translation>
 <translation id="8627151598708688654">Выбор источника</translation>
 <translation id="862727964348362408">Приостановлено</translation>

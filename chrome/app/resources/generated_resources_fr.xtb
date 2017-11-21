@@ -977,7 +977,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2509495747794740764">La valeur d'échelle doit être un nombre compris entre 10 et 200.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="251662399991179012">C'est le moment d'apprendre à votre appareil <ph name="DEVICE_TYPE" /> à reconnaître votre empreinte vocale</translation>
-<translation id="2517472476991765520">Analyser</translation>
+<translation id="2517472476991765520">Rechercher</translation>
 <translation id="2518024842978892609">Utiliser vos certificats client</translation>
 <translation id="2520644704042891903">En attente d'une interface de connexion disponible…</translation>
 <translation id="252219247728877310">Composant non mis à jour</translation>
@@ -1200,7 +1200,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2815500128677761940">Barre de favoris</translation>
 <translation id="2815693974042551705">Dossier de favoris</translation>
 <translation id="2818476747334107629">Détails de l'imprimante</translation>
-<translation id="2820957248982571256">Analyse…</translation>
+<translation id="2820957248982571256">Recherche…</translation>
 <translation id="2822634587701817431">Réduire/Développer</translation>
 <translation id="2825758591930162672">Clé publique de l'objet</translation>
 <translation id="2828650939514476812">Se connecter au réseau Wi-Fi</translation>
@@ -3026,6 +3026,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="5678955352098267522">Lire vos données sur <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Identifiant d'élément</translation>
 <translation id="5687326903064479980">Fuseau horaire</translation>
+<translation id="5689516760719285838">Position</translation>
 <translation id="56907980372820799">Associer les données</translation>
 <translation id="5691511426247308406">Famille</translation>
 <translation id="5691596662111998220">Désolé, le fichier <ph name="FILE_NAME" /> n'existe plus.</translation>
@@ -4715,7 +4716,7 @@ Calcul de la durée restante</translation>
 <translation id="8378285435971754261">Activez les services de localisation de Google afin de permettre aux applications de déterminer rapidement et précisément votre position, et ainsi d'économiser la batterie. Des données de localisation anonymes sont envoyées à Google, même quand aucune application n'est exécutée. <ph name="BEGIN_LINK1" />En savoir plus<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">Gérer les paramètres de l'appareil photo…</translation>
 <translation id="8382913212082956454">Copi&amp;er l'adresse e-mail</translation>
-<translation id="8386903983509584791">Analyse terminée</translation>
+<translation id="8386903983509584791">Recherche terminée</translation>
 <translation id="8390029840652165810">Veuillez vérifier que votre connexion réseau fonctionne. Si le problème persiste, veuillez vous déconnecter, puis vous reconnecter afin d'actualiser vos certificats.</translation>
 <translation id="8390449457866780408">Serveur indisponible.</translation>
 <translation id="8392234662362215700">Appuyez sur Ctrl+Maj+Espace pour changer la disposition du clavier.</translation>
@@ -4826,7 +4827,7 @@ Calcul de la durée restante</translation>
 <translation id="8569764466147087991">Sélectionnez le fichier à ouvrir</translation>
 <translation id="8571213806525832805">Les 4 dernières semaines</translation>
 <translation id="8579285237314169903">Synchronisation de <ph name="NUMBER_OF_FILES" /> éléments en cours…</translation>
-<translation id="857943718398505171">Autorisée (recommandé)</translation>
+<translation id="857943718398505171">Autorisé (recommandé)</translation>
 <translation id="8581809080475256101">Appuyer pour avancer, menu contextuel pour afficher l'historique</translation>
 <translation id="8584280235376696778">Ou&amp;vrir la vidéo dans un nouvel onglet</translation>
 <translation id="8588866096426746242">Afficher les statistiques du profil</translation>

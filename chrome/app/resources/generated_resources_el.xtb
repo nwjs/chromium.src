@@ -14,7 +14,7 @@
 <translation id="1016566241875885511">Πρόσθετες πληροφορίες (προαιρετικό)</translation>
 <translation id="1017280919048282932">&amp;Προσθήκη στο λεξικό</translation>
 <translation id="1018656279737460067">Ακυρώθηκε</translation>
-<translation id="102272308210570439">Να χρησιμοποιεί ο Βοηθός το περιεχόμενο της οθόνης σας</translation>
+<translation id="102272308210570439">Επιτρέψτε στον Βοηθό να χρησιμοποιεί το περιεχόμενο της οθόνης σας</translation>
 <translation id="1026822031284433028">Φόρτωση εικόνας</translation>
 <translation id="1029317248976101138">Μεγέθυνση</translation>
 <translation id="1031362278801463162">Φόρτωση προεπισκόπησης</translation>
@@ -2329,7 +2329,7 @@
 <translation id="4610637590575890427">Μήπως θέλετε να μεταβείτε στο <ph name="SITE" />;</translation>
 <translation id="4611114513649582138">Διαθέσιμα δεδομένα σύνδεσης</translation>
 <translation id="4613271546271159013">Κάποια επέκταση άλλαξε το περιεχόμενο της σελίδας όταν ανοίγετε μια νέα καρτέλα.</translation>
-<translation id="4615586811063744755">δεν έχει επιλεγεί cookie</translation>
+<translation id="4615586811063744755">δεν έχουν επιλεγεί cookie</translation>
 <translation id="4617270414136722281">Επιλογές επεκτάσεων</translation>
 <translation id="4618990963915449444">Όλα τα αρχεία στη συσκευή <ph name="DEVICE_NAME" /> θα διαγραφούν.</translation>
 <translation id="4619615317237390068">Καρτέλες από άλλες συσκευές</translation>
@@ -3028,6 +3028,7 @@
 <translation id="5678955352098267522">Ανάγνωση των δεδομένων σας στο <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Αναγνωριστικό στοιχείου</translation>
 <translation id="5687326903064479980">Ζώνη ώρας</translation>
+<translation id="5689516760719285838">Τοποθεσία</translation>
 <translation id="56907980372820799">Σύνδεση δεδομένων</translation>
 <translation id="5691511426247308406">Οικογένεια</translation>
 <translation id="5691596662111998220">Ωχ! Το αρχείο <ph name="FILE_NAME" /> δεν υπάρχει πια.</translation>

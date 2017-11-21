@@ -14,7 +14,7 @@
 <translation id="1016566241875885511">Mer information (valfritt)</translation>
 <translation id="1017280919048282932">&amp;Lägg till i ordlistan</translation>
 <translation id="1018656279737460067">Avbröts</translation>
-<translation id="102272308210570439">Ge assistenten tillgång till det som visas på skärmen</translation>
+<translation id="102272308210570439">Låt assistenten använda det som visas på skärmen</translation>
 <translation id="1026822031284433028">Läs in bild</translation>
 <translation id="1029317248976101138">Zooma in</translation>
 <translation id="1031362278801463162">Läser in förhandsgranskning</translation>
@@ -38,7 +38,7 @@
 <translation id="1049926623896334335">Word-dokument</translation>
 <translation id="1054153489933238809">Öppna originalbilden i en ny flik</translation>
 <translation id="1055806300943943258">Söker efter Bluetooth- och USB-enheter …</translation>
-<translation id="1056775291175587022">Inga nätverk hittades</translation>
+<translation id="1056775291175587022">Inga nätverk</translation>
 <translation id="1056898198331236512">Varning</translation>
 <translation id="1058262162121953039">PUK-kod</translation>
 <translation id="1058418043520174283"><ph name="INDEX" /> av <ph name="COUNT" /></translation>
@@ -797,7 +797,7 @@
 <translation id="222949136907494149"><ph name="URL" /> vill använda enhetens platsinfo.</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2230062665678605299">Det går inte att skapa mappen <ph name="FOLDER_NAME" />. <ph name="ERROR_MESSAGE" /></translation>
-<translation id="223106756035922488">Klicka här om du vill se dagens doodle</translation>
+<translation id="223106756035922488">Klicka här om du vill visa dagens doodle</translation>
 <translation id="2231238007119540260">Om du tar bort ett servercertifikat återställer du de vanliga säkerhetskontrollerna för servern. Därefter måste servern använda ett giltigt certifikat.</translation>
 <translation id="2231990265377706070">Utropstecken</translation>
 <translation id="2232876851878324699">Filen innehöll ett certifikat och det importerades inte:</translation>
@@ -1012,7 +1012,7 @@ Jag tycker inte att den här webbplatsen ska blockeras!</translation>
 <translation id="2570000010887652771">Data sparas.</translation>
 <translation id="2570648609346224037">Det uppstod ett problem när återställningsavbildningen laddades ned.</translation>
 <translation id="257088987046510401">Teman</translation>
-<translation id="2571964818629181240">Avsluta Firefox innan importeringen</translation>
+<translation id="2571964818629181240">Stäng Firefox före import</translation>
 <translation id="2572032849266859634">Skrivskyddad åtkomst till <ph name="VOLUME_NAME" /> har beviljats.</translation>
 <translation id="2573269395582837871">Välj bild och namn</translation>
 <translation id="2574102660421949343">Cookies tillåts från <ph name="DOMAIN" />.</translation>
@@ -2327,7 +2327,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="4610637590575890427">Ville du besöka <ph name="SITE" />?</translation>
 <translation id="4611114513649582138">Dataanslutningar är tillgängliga</translation>
 <translation id="4613271546271159013">Vilken sida som visas när du öppnar en ny flik har ändrats av ett tillägg.</translation>
-<translation id="4615586811063744755">ingen cookie är vald</translation>
+<translation id="4615586811063744755">inga cookies har valts</translation>
 <translation id="4617270414136722281">Tilläggsalternativ</translation>
 <translation id="4618990963915449444">Alla filer på <ph name="DEVICE_NAME" /> kommer att tas bort.</translation>
 <translation id="4619615317237390068">Flikar från andra enheter</translation>
@@ -2801,7 +2801,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="5337771866151525739">Installerad av tredje part.</translation>
 <translation id="5338503421962489998">Lokal lagring</translation>
 <translation id="5340217413897845242">Hyllobjekt 6</translation>
-<translation id="5341793073192892252">Följande cookies blockerades (cookies från tredje part blockeras alltid)</translation>
+<translation id="5341793073192892252">Följande cookies har blockerats (cookies från tredje part blockeras alltid)</translation>
 <translation id="5341980496415249280">Komprimering pågår, vänta …</translation>
 <translation id="5342091991439452114">Pinkoden måste bestå av minst <ph name="MINIMUM" /> siffror</translation>
 <translation id="534916491091036097">Vänsterparen</translation>
@@ -3025,6 +3025,7 @@ Tryck på någon tangent om du vill fortsätta utforska.</translation>
 <translation id="5678955352098267522">Läsa din data på <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Tillgångsidentifierare</translation>
 <translation id="5687326903064479980">Tidszon</translation>
+<translation id="5689516760719285838">Plats</translation>
 <translation id="56907980372820799">Länkdata</translation>
 <translation id="5691511426247308406">Familj</translation>
 <translation id="5691596662111998220"><ph name="FILE_NAME" /> finns tyvärr inte längre.</translation>
@@ -4843,7 +4844,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8620617069779373398">Dirigeringsstatus</translation>
 <translation id="8620765578342452535">Konfigurera nätverksanslutningar</translation>
 <translation id="8623004009673949077">En app med manifestattributet kiosk_only måste installeras i kioskläget i Chrome OS.</translation>
-<translation id="8624205858755890468">Tillåt att assistenten visar relaterade uppgifter, appar och åtgärder.</translation>
+<translation id="8624205858755890468">Tillåter att assistenten visar relaterade uppgifter, appar och åtgärder.</translation>
 <translation id="862542460444371744">&amp;Tillägg</translation>
 <translation id="8627151598708688654">Välj källa</translation>
 <translation id="862727964348362408">Tillfälligt avstängd</translation>
@@ -4922,7 +4923,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8725066075913043281">Försök igen</translation>
 <translation id="8725178340343806893">Favoriter/bokmärken</translation>
 <translation id="8726206820263995930">Det uppstod ett fel när policyinställningarna hämtades från servern: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8726718463424335668">Hoppa över importeringen</translation>
+<translation id="8726718463424335668">Hoppa över import</translation>
 <translation id="8727142376512517020">Visa inte det här igen</translation>
 <translation id="8730621377337864115">Klart</translation>
 <translation id="8732030010853991079">Använd tillägget genom att klicka på den här ikonen.</translation>

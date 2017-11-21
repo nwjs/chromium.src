@@ -71,7 +71,7 @@
 <translation id="2597972630681408282">Nachtverlichting: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Verzenden</translation>
 <translation id="2675319268637823299">Een beheerder heeft <ph name="USER_EMAIL" /> geen toestemming gegeven voor toegang tot meerdere accounts.
-Alle gebruikers moeten uitloggen om door te gaan.</translation>
+    Alle gebruikers moet uitloggen om door te gaan.</translation>
 <translation id="2700058918926273959">Sessie loopt af over <ph name="SESSION_TIME_REMAINING" />. Je wordt uitgelogd.</translation>
 <translation id="2727977024730340865">Aangesloten op een laag-vermogen-lader. Opladen van de batterij mogelijk niet betrouwbaar.</translation>
 <translation id="2761704814324807722">Statusvak, tijd <ph name="TIME" />, <ph name="BATTERY" /></translation>
@@ -97,7 +97,7 @@ Alle gebruikers moeten uitloggen om door te gaan.</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
 <translation id="3126069444801937830">Opnieuw starten om updates uit te voeren</translation>
 <translation id="3147142846278915599">Launcher (apps synchroniseren...)</translation>
-<translation id="315116470104423982">Mobiele gegevens</translation>
+<translation id="315116470104423982">Mobiele data</translation>
 <translation id="3236488194889173876">Geen mobiel netwerk beschikbaar</translation>
 <translation id="3294437725009624529">Gast</translation>
 <translation id="332587331255250389">Vervang de batterij</translation>

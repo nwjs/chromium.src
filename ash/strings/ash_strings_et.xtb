@@ -70,7 +70,7 @@
 <translation id="2532589005999780174">Suure kontrastsusega režiim</translation>
 <translation id="2597972630681408282">Öövalgus: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Esita</translation>
-<translation id="2675319268637823299">Administraator on keelanud e-posti aadressi <ph name="USER_EMAIL" /> jaoks mitmele kontole sisselogimise.
+<translation id="2675319268637823299">Administraator on keelanud e-posti aadressi <ph name="USER_EMAIL" /> puhul mitmele kontole sisselogimise.
     Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="2700058918926273959">Seansi lõpuni on jäänud <ph name="SESSION_TIME_REMAINING" />. Teid logitakse välja.</translation>
 <translation id="2727977024730340865">Ühendatud väikese energiakuluga laadijaga. Aku laadimine võib olla ebastabiilne.</translation>

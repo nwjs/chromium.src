@@ -799,7 +799,7 @@ Do úplného nabitia zostáva: <ph name="HOUR" />:<ph name="MINUTE" /></translat
 <translation id="222949136907494149">Stránky <ph name="URL" /> chcú použiť polohu vášho počítača.</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2230062665678605299">Priečinok <ph name="FOLDER_NAME" /> sa nepodarilo vytvoriť. <ph name="ERROR_MESSAGE" /></translation>
-<translation id="223106756035922488">Kliknutím zobrazte dnešný doodle</translation>
+<translation id="223106756035922488">Kliknutím zobrazíte dnešný doodle</translation>
 <translation id="2231238007119540260">Ak odstránite certifikát servera, obnovíte zvyčajné bezpečnostné kontroly servera a server bude musieť používať platný certifikát.</translation>
 <translation id="2231990265377706070">Výkričník</translation>
 <translation id="2232876851878324699">Súbor obsahoval jeden certifikát, ktorý nebol importovaný:</translation>
@@ -1014,7 +1014,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="2570000010887652771">Uložené dáta.</translation>
 <translation id="2570648609346224037">Pri sťahovaní obrazu na obnovenie sa vyskytol problém.</translation>
 <translation id="257088987046510401">Motívy</translation>
-<translation id="2571964818629181240">Pred importovaním zatvoriť Firefox</translation>
+<translation id="2571964818629181240">Pred importovaním zatvorte Firefox</translation>
 <translation id="2572032849266859634">Bol udelený prístup k médiu <ph name="VOLUME_NAME" /> s povolením iba na čítanie.</translation>
 <translation id="2573269395582837871">Vyberte obrázok a meno</translation>
 <translation id="2574102660421949343">Boli povolené súbory cookie zo stránok <ph name="DOMAIN" />.</translation>
@@ -1117,7 +1117,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="2715751256863167692">Táto inovácia resetuje Chromebook a odstráni aktuálne dáta používateľa.</translation>
 <translation id="2718395828230677721">Nočný režim</translation>
 <translation id="2718998670920917754">Antivírusový softvér našiel vírus.</translation>
-<translation id="2719936478972253983">Boli zablokované nasledujúce súbory cookie</translation>
+<translation id="2719936478972253983">Boli zablokované nasledujúce súbory cookie:</translation>
 <translation id="2721037002783622288">&amp;Hľadať obrázok v službe <ph name="SEARCH_ENGINE" /></translation>
 <translation id="2721334646575696520">Microsoft Edge</translation>
 <translation id="2721695630904737430">Kontrolovaní používatelia boli zakázaní správcom.</translation>
@@ -2406,7 +2406,7 @@ Ak chcete pokračovať v práci, stlačte ľubovoľný kláves.</translation>
 <translation id="4728558894243024398">Platforma</translation>
 <translation id="4731422630970790516">3. položka na poličke</translation>
 <translation id="4732760563705710320">Je nám to ľúto, ale vaše zariadenie na prenos nepodporuje toto video</translation>
-<translation id="4733793249294335256">Poloha</translation>
+<translation id="4733793249294335256">Umiestnenie</translation>
 <translation id="4734518477988699048">Hodnota vstupu je neplatná.</translation>
 <translation id="473546211690256853">Tento účet spravuje doména <ph name="DOMAIN" />.</translation>
 <translation id="4737715515457435632">Pripojte sa k sieti</translation>
@@ -2802,7 +2802,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="5337771866151525739">Nainštalované treťou stranou.</translation>
 <translation id="5338503421962489998">Miestny ukladací priestor</translation>
 <translation id="5340217413897845242">6. položka na poličke</translation>
-<translation id="5341793073192892252">Nasledujúce súbory cookie boli zablokované (súbory cookie tretej strany sú blokované bez výnimky)</translation>
+<translation id="5341793073192892252">Nasledujúce súbory cookie boli zablokované (súbory cookie tretej strany sú blokované bez výnimky):</translation>
 <translation id="5341980496415249280">Čakajte, prebieha balenie…</translation>
 <translation id="5342091991439452114">Minimálny počet číslic kódu PIN: <ph name="MINIMUM" /></translation>
 <translation id="534916491091036097">Ľavá zátvorka</translation>
@@ -3026,6 +3026,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="5678955352098267522">Čítať vaše údaje na: <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Identifikátor obsahu</translation>
 <translation id="5687326903064479980">Časové pásmo</translation>
+<translation id="5689516760719285838">Poloha</translation>
 <translation id="56907980372820799">Prepojiť údaje</translation>
 <translation id="5691511426247308406">Rodina</translation>
 <translation id="5691596662111998220">Hops, súbor <ph name="FILE_NAME" /> už neexistuje.</translation>
@@ -4844,7 +4845,7 @@ Prebieha výpočet času do úplného nabitia</translation>
 <translation id="8620617069779373398">Stav roamingu</translation>
 <translation id="8620765578342452535">Konfigurovať sieťové pripojenia</translation>
 <translation id="8623004009673949077">Aplikácie s atribútom manifestu „kiosk_only“ musia byť nainštalované v režime verejného terminálu systému OS Chrome.</translation>
-<translation id="8624205858755890468">Umožňuje Asistentovi zobrazovať súvisiace informácie, aplikácie a akcie.</translation>
+<translation id="8624205858755890468">Umožňuje Asistentovi zobraziť vám súvisiace informácie, aplikácie a akcie.</translation>
 <translation id="862542460444371744">&amp;Rozšírenia</translation>
 <translation id="8627151598708688654">Výber zdroja</translation>
 <translation id="862727964348362408">Pozastavené</translation>

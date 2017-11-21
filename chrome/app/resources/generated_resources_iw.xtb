@@ -14,7 +14,7 @@
 <translation id="1016566241875885511">מידע נוסף (אופציונלי)</translation>
 <translation id="1017280919048282932">&amp;הוסף למילון</translation>
 <translation id="1018656279737460067">בוטל</translation>
-<translation id="102272308210570439">‏הרשאה ל-Assistant להשתמש במה שמופיע במסך</translation>
+<translation id="102272308210570439">‏מתן הרשאה ל-Assistant להשתמש בתוכן שמופיע במסך</translation>
 <translation id="1026822031284433028">טען תמונה</translation>
 <translation id="1029317248976101138">התקרב</translation>
 <translation id="1031362278801463162">טוען תצוגה מקדימה</translation>
@@ -794,7 +794,7 @@
 <translation id="222949136907494149"><ph name="URL" /> רוצה להשתמש במיקום המחשב שלך.</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2230062665678605299">לא ניתן ליצור את התיקיה "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
-<translation id="223106756035922488">לחיצה תציג את השרבוט היומי</translation>
+<translation id="223106756035922488">לחיצה תציג את הדודל היומי</translation>
 <translation id="2231238007119540260">אם אתה מוחק אישור שרת, אתה משחזר את בדיקות האבטחה הרגילות לשרת זה ודורש שהוא ישתמש באישור חוקי.</translation>
 <translation id="2231990265377706070">סימן קריאה</translation>
 <translation id="2232876851878324699">הקובץ הכיל אישור אחד, שלא יובא:</translation>
@@ -2798,7 +2798,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5337771866151525739">הותקן על ידי צד שלישי.</translation>
 <translation id="5338503421962489998">אחסון מקומי</translation>
 <translation id="5340217413897845242">פריט מדף 6</translation>
-<translation id="5341793073192892252">‏קובצי ה-Cookie הבאים נחסמו (קובצי Cookie מצד שלישי נחסמים ללא יוצא מן הכלל)</translation>
+<translation id="5341793073192892252">‏קובצי ה-Cookie הבאים נחסמו (קובצי Cookie של צד שלישי נחסמים ללא יוצא מן הכלל)</translation>
 <translation id="5341980496415249280">האריזה מתבצעת...</translation>
 <translation id="5342091991439452114">‏ה-PIN חייב להיות באורך <ph name="MINIMUM" /> ספרות לפחות</translation>
 <translation id="534916491091036097">צד שמאל של הסוגריים</translation>
@@ -3022,6 +3022,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5678955352098267522">קריאת הנתונים שלך באתר <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">מזהה נכסים</translation>
 <translation id="5687326903064479980">אזור זמן</translation>
+<translation id="5689516760719285838">מיקום</translation>
 <translation id="56907980372820799">קשר נתונים</translation>
 <translation id="5691511426247308406">משפחה</translation>
 <translation id="5691596662111998220">אופס, <ph name="FILE_NAME" /> כבר לא קיים.</translation>
@@ -4911,7 +4912,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8725066075913043281">נסה שוב</translation>
 <translation id="8725178340343806893">מועדפים/סימניות</translation>
 <translation id="8726206820263995930">אירעה שגיאה בעת הבאת הגדרות מדיניות מהשרת: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8726718463424335668">דילוג על ייבוא</translation>
+<translation id="8726718463424335668">ביטול ייבוא</translation>
 <translation id="8727142376512517020">אל תציג הודעה זו שוב</translation>
 <translation id="8730621377337864115">בוצע</translation>
 <translation id="8732030010853991079">השתמש בתוסף זה על ידי לחיצה על סמל זה.</translation>

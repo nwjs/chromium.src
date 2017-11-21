@@ -70,7 +70,7 @@
 <translation id="2532589005999780174">وضع التباين العالي</translation>
 <translation id="2597972630681408282">إضاءة ليلية: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">إرسال</translation>
-<translation id="2675319268637823299">منع أحد المشرفين <ph name="USER_EMAIL" /> من الدخول المتعدد.
+<translation id="2675319268637823299">منع أحد المشرفين الدخول المتعدد لـ <ph name="USER_EMAIL" />.
     يجب على جميع المستخدمين تسجيل الخروج للمتابعة.</translation>
 <translation id="2700058918926273959">تنتهي الجلسة في <ph name="SESSION_TIME_REMAINING" />. وسيتم إخراجك.</translation>
 <translation id="2727977024730340865">تمّ توصيل شاحن منخفض الطاقة. لذا قد لا تكون عملية شحن البطارية جديرة بالثقة.</translation>

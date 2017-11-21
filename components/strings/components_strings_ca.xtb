@@ -77,7 +77,7 @@
 <translation id="1549470594296187301">Heu d'activar el JavaScript per utilitzar aquesta funció.</translation>
 <translation id="1559528461873125649">No existeix el fitxer o el directori</translation>
 <translation id="1583429793053364125">S'ha produït un error en mostrar aquesta pàgina web.</translation>
-<translation id="1590457302292452960">Genera una contrasenya segura…</translation>
+<translation id="1590457302292452960">Genera una contrasenya segura...</translation>
 <translation id="1592005682883173041">Accés a les dades locals</translation>
 <translation id="1594030484168838125">Tria</translation>
 <translation id="1620510694547887537">Càmera</translation>
@@ -430,14 +430,14 @@
 <translation id="4103249731201008433">El número de sèrie del dispositiu no és vàlid</translation>
 <translation id="410351446219883937">Reproducció automàtica</translation>
 <translation id="4103763322291513355">Visiteu &lt;strong&gt;chrome://policy&lt;/strong&gt; per veure la llista d'URL inclosos a la llista negra i altres polítiques aplicades per l'administrador del sistema.</translation>
-<translation id="4116663294526079822">Permet sempre en aquest lloc</translation>
+<translation id="4116663294526079822">Permet sempre en aquest lloc web</translation>
 <translation id="4117700440116928470">L'àmbit de la política no s'admet.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 element més}other{# elements més}}</translation>
 <translation id="4130226655945681476">Comproveu els cables de xarxa, el mòdem i l'encaminador</translation>
 <translation id="413544239732274901">Més informació</translation>
 <translation id="4148925816941278100">American Express</translation>
 <translation id="4151403195736952345">Utilitza el valor predeterminat global (detecta)</translation>
-<translation id="4165986682804962316">Configuració del lloc</translation>
+<translation id="4165986682804962316">Configuració del lloc web</translation>
 <translation id="4169947484918424451">Voleu que Chromium desi aquesta targeta?</translation>
 <translation id="4171400957073367226">La signatura de verificació és incorrecta</translation>
 <translation id="4173827307318847180">{MORE_ITEMS,plural, =1{<ph name="ITEM_COUNT" /> element més}other{<ph name="ITEM_COUNT" /> elements més}}</translation>
@@ -631,6 +631,7 @@
 <translation id="5669703222995421982">Obtén contingut personalitzat</translation>
 <translation id="5675650730144413517">Aquesta pàgina no funciona</translation>
 <translation id="5689199277474810259">Exporta a JSON</translation>
+<translation id="5689516760719285838">Ubicació</translation>
 <translation id="5710435578057952990">La identitat d'aquest lloc web no ha estat verificada.</translation>
 <translation id="5719499550583120431">S'accepten targetes de prepagament.</translation>
 <translation id="5720705177508910913">Usuari actual</translation>

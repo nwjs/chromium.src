@@ -71,7 +71,7 @@
 <translation id="2597972630681408282">Luminosità notturna: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2653659639078652383">Invia</translation>
 <translation id="2675319268637823299">Un amministratore ha vietato l'accesso simultaneo per <ph name="USER_EMAIL" />.
-Per continuare, devono disconnettersi tutti gli utenti.</translation>
+    Per continuare, devono disconnettersi tutti gli utenti.</translation>
 <translation id="2700058918926273959">La sessione terminerà tra <ph name="SESSION_TIME_REMAINING" />. Verrà eseguita la disconnessione.</translation>
 <translation id="2727977024730340865">Collegato a un caricabatterie a basso consumo. La carica della batteria potrebbe non essere affidabile.</translation>
 <translation id="2761704814324807722">Barra di stato, ora: <ph name="TIME" />, <ph name="BATTERY" /></translation>

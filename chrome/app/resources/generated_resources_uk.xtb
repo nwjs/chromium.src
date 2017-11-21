@@ -977,7 +977,7 @@
 <translation id="2509495747794740764">Розмір масштабування має бути числом від 10 до 200.</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="251662399991179012">Навчімо ваш пристрій <ph name="DEVICE_TYPE" /></translation>
-<translation id="2517472476991765520">Шукати</translation>
+<translation id="2517472476991765520">Сканувати</translation>
 <translation id="2518024842978892609">Використовувати сертифікати клієнта</translation>
 <translation id="2520644704042891903">Очікування доступного сокета…</translation>
 <translation id="252219247728877310">Компонент не оновлено</translation>
@@ -1200,7 +1200,7 @@
 <translation id="2815500128677761940">Панель закладок</translation>
 <translation id="2815693974042551705">Папка із закладками</translation>
 <translation id="2818476747334107629">Дані принтера</translation>
-<translation id="2820957248982571256">Пошук…</translation>
+<translation id="2820957248982571256">Сканування…</translation>
 <translation id="2822634587701817431">Зменшити/збільшити</translation>
 <translation id="2825758591930162672">Відкритий ключ суб'єкта</translation>
 <translation id="2828650939514476812">З’єднання з мережею Wi-Fi</translation>
@@ -2422,7 +2422,7 @@
 <translation id="4759238208242260848">Завантаження</translation>
 <translation id="4761104368405085019">Використовувати ваш мікрофон</translation>
 <translation id="4762718786438001384">На диску пристрою дуже мало вільного місця</translation>
-<translation id="4763408175235639573">Під час перегляду вами цієї сторінки було створено такі файли cookie:</translation>
+<translation id="4763408175235639573">Коли ви переглядали цю сторінку, було створено такі файли cookie:</translation>
 <translation id="4763830802490665879">Файли cookie з багатьох сайтів буде очищено під час виходу.</translation>
 <translation id="4768332406694066911">Вас ідентифікують сертифікати від цих організацій</translation>
 <translation id="4776917500594043016">Пароль користувача  <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -3025,6 +3025,7 @@
 <translation id="5678955352098267522">Переглядати ваші дані на веб-сайті <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Ідентифікатор об’єкта</translation>
 <translation id="5687326903064479980">Часовий пояс</translation>
+<translation id="5689516760719285838">Місцезнаходження</translation>
 <translation id="56907980372820799">Зв’язати облікові записи</translation>
 <translation id="5691511426247308406">Сім’я</translation>
 <translation id="5691596662111998220">На жаль, файл "<ph name="FILE_NAME" />" більше не існує.</translation>
@@ -4713,7 +4714,7 @@
 <translation id="8378285435971754261">Завдяки службі локації Google додатки швидко й точно визначають ваше місцезнаходження та споживають менше заряду акумулятора. Анонімні геодані надсилаються в Google, навіть коли додатки не запущено. <ph name="BEGIN_LINK1" />Докладніше<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">Налаштувати камеру…</translation>
 <translation id="8382913212082956454">Копіювати &amp;адресу електронної пошти</translation>
-<translation id="8386903983509584791">Пошук завершено</translation>
+<translation id="8386903983509584791">Сканування завершено</translation>
 <translation id="8390029840652165810">Переконайтеся, що з’єднання з мережею працює. Якщо проблема не зникне, вийдіть з облікового запису й увійдіть знову, щоб оновити облікові дані.</translation>
 <translation id="8390449457866780408">Сервер не доступний.</translation>
 <translation id="8392234662362215700">Натисніть комбінацію клавіш Control-Shift-Space, щоб змінити розкладку клавіатури.</translation>

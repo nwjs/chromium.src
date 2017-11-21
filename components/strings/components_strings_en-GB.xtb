@@ -77,7 +77,7 @@
 <translation id="1549470594296187301">JavaScript must be enabled to use this feature.</translation>
 <translation id="1559528461873125649">No such file or directory</translation>
 <translation id="1583429793053364125">Something went wrong while displaying this web page.</translation>
-<translation id="1590457302292452960">Generate a strong password…</translation>
+<translation id="1590457302292452960">Generate a strong password...</translation>
 <translation id="1592005682883173041">Local Data Access</translation>
 <translation id="1594030484168838125">Choose</translation>
 <translation id="1620510694547887537">Camera</translation>
@@ -631,6 +631,7 @@
 <translation id="5669703222995421982">Get personalised content</translation>
 <translation id="5675650730144413517">This page isn’t working</translation>
 <translation id="5689199277474810259">Export to JSON</translation>
+<translation id="5689516760719285838">Location</translation>
 <translation id="5710435578057952990">The identity of this website has not been verified.</translation>
 <translation id="5719499550583120431">Prepaid cards are accepted.</translation>
 <translation id="5720705177508910913">Current user</translation>

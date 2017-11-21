@@ -1880,7 +1880,7 @@ Se questa norma non viene impostata, <ph name="PRODUCT_NAME" /> utilizzerà il v
 
           Il campo <ph name="INSTALLTION_MODE" /> può anche essere configurato per più estensioni, compresa l'estensione <ph name="DEFAULT_SCOPE" /> (come impostazione predefinita) e le estensioni con lo stesso URL di aggiornamento. In questo caso possono essere utilizzati solo i valori <ph name="ALLOWED" /> e <ph name="BLOCKED" />.
 
-          Se la modalità è impostata su <ph name="FORCE_INSTALLED" /> o <ph name="NORMAL_INSTALLED" /> è necessario configurare anche un campo <ph name="UPDATE_URL" />. L'URL di aggiornamento impostato in questa norma viene utilizzato solo per l'installazione iniziale. Per i successivi aggiornamenti dell'estensione verrà utilizzato l'URL di aggiornamento indicato nel file manifest del'estensione. L'URL di aggiornamento dovrebbe rimandare a un documento XML Manifest di aggiornamento come descritto in precedenza.
+          Se la modalità è impostata su <ph name="FORCE_INSTALLED" /> o <ph name="NORMAL_INSTALLED" /> è necessario configurare anche un campo <ph name="UPDATE_URL" />. L'URL di aggiornamento impostato in questa norma viene utilizzato solo per l'installazione iniziale. Per i successivi aggiornamenti dell'estensione verrà utilizzato l'URL di aggiornamento indicato nel file manifest dell'estensione L'URL di aggiornamento dovrebbe rimandare a un documento XML Manifest di aggiornamento come descritto in precedenza.
 
           <ph name="BLOCKED_PERMISSIONS" />: corrisponde a un elenco di stringhe indicanti le autorizzazioni API per l'estensione. I nomi delle autorizzazioni corrispondono alle stringhe di autorizzazione indicate nel file manifest dell'estensione, come descritto all'indirizzo <ph name="LINK_TO_EXTENSION_DOC3" />. Questa impostazione può essere configurata anche per l'estensione <ph name="DEFAULT_SCOPE" />. Se per l'estensione è necessaria un'autorizzazione che è presente nell'elenco di quelle bloccate, non potrà essere caricata. Se contiene un'autorizzazione bloccata come requisito opzionale, verrà trattata normalmente, ma la richiesta di autorizzazioni in conflitto verrà declinata automaticamente in fase di runtime.
 
@@ -1888,7 +1888,7 @@ Se questa norma non viene impostata, <ph name="PRODUCT_NAME" /> utilizzerà il v
 
           <ph name="MINIMUM_VERSION_REQUIRED" />: corrisponde a una stringa della versione. Il formato della stringa della versione corrisponde a quello utilizzato nel file manifest delle estensioni, come descritto all'indirizzo <ph name="LINK_TO_EXTENSION_DOC4" />. Un'estensione con una versione precedente rispetto alla versione minima specificata viene disattivata. Ciò vale anche per le estensioni con installazione imposta.
 
-          Le seguenti impostazioni possono essere utilizzate solo per la configurazione <ph name="DEFAULT_SCOPE" />:
+          Le seguenti impostazioni possono essere utilizzate solo per la configurazione <ph name="DEFAULT_SCOPE" /> predefinita:
 
           <ph name="INSTALL_SOURCES" />: ogni voce presente in questo elenco è uno schema di corrispondenza in stile di estensione (<ph name="LINK_TO_MATCH_PATTERNS" />). Gli utenti potranno installare facilmente elementi dagli URL corrispondenti a una voce nell'elenco. Questi schemi devono consentire sia la posizione del file <ph name="EXTENSION_SUFFIX_WILDCARD" /> sia la pagina da cui viene avviato il download (il referrer).
 

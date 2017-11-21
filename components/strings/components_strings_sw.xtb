@@ -631,6 +631,7 @@
 <translation id="5669703222995421982">Pata maudhui yanayokufaa</translation>
 <translation id="5675650730144413517">Ukurasa huu haufanyi kazi</translation>
 <translation id="5689199277474810259">Tuma katika mfumo wa JSON</translation>
+<translation id="5689516760719285838">Mahali</translation>
 <translation id="5710435578057952990">Utambulisho wa tovuti hii haujathibitishwa.</translation>
 <translation id="5719499550583120431">Kadi za kulipia awali zinakubaliwa.</translation>
 <translation id="5720705177508910913">Mtumiaji wa sasa</translation>
@@ -943,7 +944,7 @@
 <translation id="8298115750975731693">Wi-Fi unayotumia (<ph name="WIFI_NAME" />) inaweza kukuhitaji kutembelea <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
 <translation id="8306404619377842860">Muunganisho wa faragha kwenye <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> haujatambuliwa kwa sababu tarehe na saa za kifaa chako (<ph name="DATE_AND_TIME" />) si sahihi. <ph name="BEGIN_LEARN_MORE_LINK" />Pata maelezo zaidi<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="8308427013383895095">Utafsiri haukufanikiwa kwa sababu ya hitilafu ya seva.</translation>
-<translation id="8311129316111205805">Pakia kipindi kilichotajwa</translation>
+<translation id="8311129316111205805">Pakia kipindi</translation>
 <translation id="8332188693563227489">Ufikiaji wa <ph name="HOST_NAME" /> umekataliwa</translation>
 <translation id="834457929814110454">Ikiwa unaelewa hatari kwa usalama wako, unaweza <ph name="BEGIN_LINK" />kutembelea tovuti hii<ph name="END_LINK" /> kabla programu hatari hazijaondolewa.</translation>
 <translation id="8349305172487531364">Sehemu ya Alamisho</translation>
@@ -972,7 +973,7 @@
 </translation>
 <translation id="859285277496340001">Cheti hakibainishi utaratibu wa kuangalia iwapo kimekataliwa.</translation>
 <translation id="8620436878122366504">Wazazi wako bado hawajaiidhinisha</translation>
-<translation id="8625384913736129811">Hifadhi Kadi Hii kwenye Kifaa Hiki</translation>
+<translation id="8625384913736129811">Hifadhi Maelezo ya Kadi Hii kwenye Kifaa Hiki</translation>
 <translation id="8647750283161643317">Rudisha zote katika chaguo-msingi</translation>
 <translation id="8660471606262461360">Kutoka Google Payments</translation>
 <translation id="8688672835843460752">Inapatikana</translation>
