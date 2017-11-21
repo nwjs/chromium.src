@@ -1150,13 +1150,28 @@ IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("iframe-cross-process.html"));
 }
 
+// Flaky on Mac and Win
+#if defined(OS_WIN) || defined(OS_MACOSX)
+#define MAYBE_AccessibilityIframeCoordinates \
+  DISABLED_AccessibilityIframeCoordinates
+#else
+#define MAYBE_AccessibilityIframeCoordinates AccessibilityIframeCoordinates
+#endif
 IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
-                       AccessibilityIframeCoordinates) {
+                       MAYBE_AccessibilityIframeCoordinates) {
   RunHtmlTest(FILE_PATH_LITERAL("iframe-coordinates.html"));
 }
 
+// Flaky on Mac and Win
+#if defined(OS_WIN) || defined(OS_MACOSX)
+#define MAYBE_AccessibilityIframeCoordinatesCrossProcess \
+  DISABLED_AccessibilityIframeCoordinatesCrossProcess
+#else
+#define MAYBE_AccessibilityIframeCoordinatesCrossProcess \
+  AccessibilityIframeCoordinatesCrossProcess
+#endif
 IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
-                       AccessibilityIframeCoordinatesCrossProcess) {
+                       MAYBE_AccessibilityIframeCoordinatesCrossProcess) {
   RunHtmlTest(FILE_PATH_LITERAL("iframe-coordinates-cross-process.html"));
 }
 
@@ -1182,17 +1197,18 @@ IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
 }
 
 IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
-                       AccessibilityIframeTransformNested) {
+                       DISABLED_AccessibilityIframeTransformNested) {
   RunHtmlTest(FILE_PATH_LITERAL("iframe-transform-nested.html"));
 }
 
-IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
-                       AccessibilityIframeTransformNestedCrossProcess) {
+IN_PROC_BROWSER_TEST_F(
+    DumpAccessibilityTreeTest,
+    DISABLED_AccessibilityIframeTransformNestedCrossProcess) {
   RunHtmlTest(FILE_PATH_LITERAL("iframe-transform-nested-cross-process.html"));
 }
 
 IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
-                       AccessibilityIframeTransformScrolled) {
+                       DISABLED_AccessibilityIframeTransformScrolled) {
   RunHtmlTest(FILE_PATH_LITERAL("iframe-transform-scrolled.html"));
 }
 
@@ -1677,7 +1693,7 @@ IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest, AccessibilityWbr) {
 }
 
 IN_PROC_BROWSER_TEST_F(DumpAccessibilityTreeTest,
-                       AccessibilityWindowCropsItems) {
+                       DISABLED_AccessibilityWindowCropsItems) {
   RunHtmlTest(FILE_PATH_LITERAL("window-crops-items.html"));
 }
 

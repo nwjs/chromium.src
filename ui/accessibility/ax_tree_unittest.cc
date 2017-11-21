@@ -947,7 +947,7 @@ TEST(AXTreeTest, GetBoundsEmptyBoundsInheritsFromParent) {
   EXPECT_EQ("(300, 200) size (100 x 100)", GetBoundsAsString(tree, 3));
 }
 
-TEST(AXTreeTest, GetBoundsCropsChildToRoot) {
+TEST(AXTreeTest, DISABLED_GetBoundsCropsChildToRoot) {
   AXTreeUpdate tree_update;
   tree_update.root_id = 1;
   tree_update.nodes.resize(5);
