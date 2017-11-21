@@ -638,6 +638,7 @@ bool LocationBarViewMac::RefreshContentSettingsDecorations() {
 }
 
 void LocationBarViewMac::UpdateTranslateDecoration() {
+#if 0
   if (!TranslateService::IsTranslateBubbleEnabled())
     return;
 
@@ -651,6 +652,7 @@ void LocationBarViewMac::UpdateTranslateDecoration() {
   translate_decoration_->SetVisible(enabled);
   translate_decoration_->SetLit(language_state.IsPageTranslated(),
                                 IsLocationBarDark());
+#endif
 }
 
 bool LocationBarViewMac::UpdateZoomDecoration(bool default_zoom_changed) {

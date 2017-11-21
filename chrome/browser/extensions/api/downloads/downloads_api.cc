@@ -1343,6 +1343,7 @@ void DownloadsAcceptDangerFunction::PromptOrWait(int download_id, int retries) {
     return;
   }
   RecordApiFunctions(DOWNLOADS_FUNCTION_ACCEPT_DANGER);
+#if 0
   // DownloadDangerPrompt displays a modal dialog using native widgets that the
   // user must either accept or cancel. It cannot be scripted.
   DownloadDangerPrompt* prompt = DownloadDangerPrompt::Create(
@@ -1355,6 +1356,8 @@ void DownloadsAcceptDangerFunction::PromptOrWait(int download_id, int retries) {
   if (on_prompt_created_ && !on_prompt_created_->is_null())
     on_prompt_created_->Run(prompt);
   // Function finishes in DangerPromptCallback().
+#endif
+  DangerPromptCallback(download_id, DownloadDangerPrompt::ACCEPT);
 }
 
 void DownloadsAcceptDangerFunction::DangerPromptCallback(

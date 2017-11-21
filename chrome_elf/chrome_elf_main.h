@@ -22,9 +22,10 @@ bool GetUserDataDirectoryThunk(wchar_t* user_data_dir,
 // This function is a temporary workaround for https://crbug.com/655788. We
 // need to come up with a better way to initialize crash reporting that can
 // happen inside DllMain().
-void SignalInitializeCrashReporting();
+void SignalInitializeCrashReporting(void*, void*);
 void SignalChromeElf();
 
 }  // extern "C"
+extern "C" void* ElfGetReporterClient();
 
 #endif  // CHROME_ELF_CHROME_ELF_MAIN_H_

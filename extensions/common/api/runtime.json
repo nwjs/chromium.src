@@ -433,6 +433,11 @@
         "description": "Fired when a profile that has this extension installed first starts up. This event is not fired when an incognito profile is started, even if this extension is operating in 'split' incognito mode."
       },
       {
+        "name": "onInstalledNW",
+        "type": "function",
+        "description": ""
+      },
+      {
         "name": "onInstalled",
         "type": "function",
         "description": "Fired when the extension is first installed, when the extension is updated to a new version, and when Chrome is updated to a new version.",

@@ -162,6 +162,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
                       int render_process_id,
                       int render_frame_id,
                       const net::CookieOptions& options) override;
+  base::FilePath GetRootPath() override;
   void AllowWorkerFileSystem(
       const GURL& url,
       content::ResourceContext* context,

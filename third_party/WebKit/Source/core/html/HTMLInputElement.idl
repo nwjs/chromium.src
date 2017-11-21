@@ -108,6 +108,9 @@ enum SelectionMode { "select", "start", "end", "preserve" };
     // Using DOMString as enum cannot be reflected. https://github.com/w3c/html-media-capture/issues/12
     [Measure, RuntimeEnabled=MediaCapture, Reflect] attribute DOMString capture;
 
+    attribute DOMString nwworkingdir;
+    [Reflect] attribute boolean nwdirectory;
+    attribute DOMString nwsaveas;
     // Non-standard APIs
     [Reflect, MeasureAs=PrefixedDirectoryAttribute] attribute boolean webkitdirectory;
     [Reflect, MeasureAs=IncrementalAttribute] attribute boolean incremental;

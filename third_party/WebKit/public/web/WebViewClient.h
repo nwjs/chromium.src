@@ -77,7 +77,8 @@ class WebViewClient : protected WebWidgetClient {
                               const WebString& name,
                               WebNavigationPolicy policy,
                               bool suppress_opener,
-                              WebSandboxFlags) {
+                              WebSandboxFlags,
+                              WebString* manifest = nullptr) {
     return 0;
   }
 

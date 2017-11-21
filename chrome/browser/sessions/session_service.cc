@@ -4,6 +4,11 @@
 
 #include "chrome/browser/sessions/session_service.h"
 
+#include "content/nw/src/nw_content.h"
+#include "extensions/browser/extension_system.h"
+#include "extensions/browser/app_window/app_window_registry.h"
+#include "chrome/browser/extensions/extension_service.h"
+
 #include <stddef.h>
 
 #include <algorithm>
@@ -853,6 +858,24 @@ void SessionService::MaybeDeleteSessionOnlyData() {
   // Check for any open windows for the current profile that we aren't tracking.
   for (auto* browser : *BrowserList::GetInstance()) {
     if (browser->profile() == profile())
+      return;
+  }
+  std::string id = nw::GetMainExtensionId();
+  base::FilePath path;
+  extensions::ExtensionSystem* extension_system =
+    extensions::ExtensionSystem::Get(ProfileManager::GetPrimaryUserProfile());
+  if (!id.empty() && extension_system) {
+    ExtensionService* extension_service =
+      extension_system->extension_service();
+    const extensions::Extension* extension =
+      extension_service->GetExtensionById(id, true);
+    if (extension) {
+      if (extensions::ProcessManager::Get(profile())->GetLazyKeepaliveCount(extension) > 0)
+        return;
+    }
+    //additional checking for NWJS#5355
+    extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Factory::GetForBrowserContext(profile(), false);
+    if (registry && !registry->app_windows().empty())
       return;
   }
   DeleteSessionOnlyData(profile());

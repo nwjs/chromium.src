@@ -129,7 +129,7 @@ class ContentHashFetcherJob
   // Will call the callback, if we haven't been cancelled.
   void DispatchCallback();
 
-  net::URLRequestContextGetter* request_context_;
+  //net::URLRequestContextGetter* request_context_;
   std::string extension_id_;
   base::FilePath extension_path_;
 
@@ -179,7 +179,7 @@ ContentHashFetcherJob::ContentHashFetcherJob(
     const GURL& fetch_url,
     bool force,
     const CompletionCallback& callback)
-    : request_context_(request_context),
+    : 
       extension_id_(extension_id),
       extension_path_(extension_path),
       fetch_url_(fetch_url),
@@ -234,8 +234,10 @@ bool ContentHashFetcherJob::LoadVerifiedContents(const base::FilePath& path) {
   verified_contents_.reset(new VerifiedContents(key_.data, key_.size));
   if (!verified_contents_->InitFrom(path)) {
     verified_contents_.reset();
+#if 0
     if (!base::DeleteFile(path, false))
       LOG(WARNING) << "Failed to delete " << path.value();
+#endif
     return false;
   }
   return true;
@@ -248,7 +250,9 @@ void ContentHashFetcherJob::DoneCheckingForVerifiedContents(bool found) {
     VLOG(1) << "Found verified contents for " << extension_id_;
     DoneFetchingVerifiedContents(true);
   } else {
-    VLOG(1) << "Missing verified contents for " << extension_id_
+    VLOG(1) << "Missing verified contents for " << extension_id_;
+    DoneFetchingVerifiedContents(false);
+#if 0
             << ", fetching...";
     net::NetworkTrafficAnnotationTag traffic_annotation =
         net::DefineNetworkTrafficAnnotation("content_hash_verification_job", R"(
@@ -282,6 +286,7 @@ void ContentHashFetcherJob::DoneCheckingForVerifiedContents(bool found) {
                                net::LOAD_DISABLE_CACHE);
     url_fetcher_->SetAutomaticallyRetryOnNetworkChanges(3);
     url_fetcher_->Start();
+#endif
   }
 }
 
@@ -436,7 +441,7 @@ bool ContentHashFetcherJob::CreateHashes(const base::FilePath& hashes_file) {
     std::string root =
         ComputeTreeHashRoot(hashes, block_size_ / crypto::kSHA256Length);
     if (!verified_contents_->TreeHashRootEquals(relative_unix_path, root)) {
-      VLOG(1) << "content mismatch for " << relative_unix_path.AsUTF8Unsafe();
+      LOG(INFO) << "content mismatch for " << relative_unix_path.AsUTF8Unsafe();
       hash_mismatch_unix_paths_.insert(relative_unix_path);
       continue;
     }

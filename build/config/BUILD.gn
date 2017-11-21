@@ -133,6 +133,9 @@ config("feature_flags") {
   if (is_official_build) {
     defines += [ "OFFICIAL_BUILD" ]
   }
+  if (nwjs_sdk) {
+    defines += [ "NWJS_SDK" ]
+  }
   if (is_chrome_branded) {
     defines += [ "GOOGLE_CHROME_BUILD" ]
   } else {

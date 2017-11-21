@@ -40,6 +40,8 @@ IPC_STRUCT_END()
 
 // Parameter structure for WorkerProcessMsg_CreateWorker.
 IPC_STRUCT_BEGIN(WorkerProcessMsg_CreateWorker_Params)
+  IPC_STRUCT_MEMBER(bool, nodejs)
+  IPC_STRUCT_MEMBER(base::FilePath, root_path)
   IPC_STRUCT_MEMBER(GURL, url)
   IPC_STRUCT_MEMBER(base::string16, name)
   IPC_STRUCT_MEMBER(base::string16, content_security_policy)

@@ -158,11 +158,11 @@ class PluginObserver::ComponentObserver
       : observer_(observer),
         routing_id_(routing_id),
         component_id_(component_id) {
-    g_browser_process->component_updater()->AddObserver(this);
+    //g_browser_process->component_updater()->AddObserver(this);
   }
 
   ~ComponentObserver() override {
-    g_browser_process->component_updater()->RemoveObserver(this);
+    //g_browser_process->component_updater()->RemoveObserver(this);
   }
 
   void OnEvent(Events event, const std::string& id) override {
@@ -295,10 +295,12 @@ void PluginObserver::OnBlockedOutdatedPlugin(int placeholder_id,
 void PluginObserver::OnBlockedComponentUpdatedPlugin(
     int placeholder_id,
     const std::string& identifier) {
+#if 0
   component_observers_[placeholder_id] =
       base::MakeUnique<ComponentObserver>(this, placeholder_id, identifier);
   g_browser_process->component_updater()->GetOnDemandUpdater().OnDemandUpdate(
       identifier, component_updater::Callback());
+#endif
 }
 
 void PluginObserver::RemoveComponentObserver(int placeholder_id) {
