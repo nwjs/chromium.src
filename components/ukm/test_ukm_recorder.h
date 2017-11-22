@@ -27,6 +27,8 @@ class TestUkmRecorder : public UkmRecorderImpl {
   TestUkmRecorder();
   ~TestUkmRecorder() override;
 
+  bool ShouldRestrictToWhitelistedSourceIds() const override;
+
   size_t sources_count() const { return sources().size(); }
 
   // Get all SourceIds with any data associated with them.

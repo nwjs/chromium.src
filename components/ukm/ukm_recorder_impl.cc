@@ -13,6 +13,7 @@
 #include "components/metrics/proto/ukm/report.pb.h"
 #include "components/metrics/proto/ukm/source.pb.h"
 #include "components/ukm/ukm_source.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 
 namespace ukm {
 
@@ -23,6 +24,11 @@ namespace {
 std::string GetWhitelistEntries() {
   return base::GetFieldTrialParamValueByFeature(kUkmFeature,
                                                 "WhitelistEntries");
+}
+
+bool IsWhitelistedSourceId(SourceId source_id) {
+  return (static_cast<int64_t>(source_id) &
+          static_cast<int64_t>(SourceIdType::NAVIGATION_ID)) != 0;
 }
 
 // Gets the maximum number of Sources we'll keep in memory before discarding any
@@ -118,12 +124,23 @@ void UkmRecorderImpl::StoreRecordingsInReport(Report* report) {
   entries_.clear();
 }
 
+bool UkmRecorderImpl::ShouldRestrictToWhitelistedSourceIds() const {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kUkmFeature, "RestrictToWhitelistedSourceIds", true);
+}
+
 void UkmRecorderImpl::UpdateSourceURL(ukm::SourceId source_id,
                                       const GURL& url) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   if (!recording_enabled_) {
     RecordDroppedSource(DroppedDataReason::RECORDING_DISABLED);
+    return;
+  }
+
+  if (ShouldRestrictToWhitelistedSourceIds() &&
+      !IsWhitelistedSourceId(source_id)) {
+    RecordDroppedSource(DroppedDataReason::NOT_WHITELISTED);
     return;
   }
 
