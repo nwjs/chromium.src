@@ -1361,6 +1361,7 @@ test("browser_tests") {
       "../browser/policy/policy_network_browsertest.cc",
       "../browser/policy/policy_prefs_browsertest.cc",
       "../browser/policy/policy_startup_browsertest.cc",
+      "../browser/policy/site_isolation_policy_browsertest.cc",
       "../browser/predictors/loading_test_util.cc",
       "../browser/predictors/loading_test_util.h",
       "../browser/predictors/resource_prefetch_predictor_browsertest.cc",

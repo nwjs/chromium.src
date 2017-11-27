@@ -11625,6 +11625,8 @@ uploading your change for review.  These are checked by presubmit scripts.
   <int value="390" label="DeviceTPMFirmwareUpdateSettings"/>
   <int value="391" label="RunAllFlashInAllowMode"/>
   <int value="392" label="AutoFillCreditCardEnabled"/>
+  <int value="398" label="IsolateOrigins"/>
+  <int value="399" label="SitePerProcess"/>
 </enum>
 
 <enum name="EnterprisePolicyInvalidations">

@@ -891,6 +891,9 @@ extern const char kPrefetchUsageMixedCount[];
 
 extern const char kMediaEngagementSchemaVersion[];
 
+extern const char kIsolateOrigins[];
+extern const char kSitePerProcess[];
+
 }  // namespace prefs
 
 #endif  // CHROME_COMMON_PREF_NAMES_H_

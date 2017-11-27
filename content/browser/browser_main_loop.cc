@@ -764,13 +764,6 @@ void BrowserMainLoop::PostMainMessageLoopStart() {
     LevelDBWrapperImpl::EnableAggressiveCommitDelay();
   }
 
-  if (parsed_command_line_.HasSwitch(switches::kIsolateOrigins)) {
-    ChildProcessSecurityPolicyImpl* policy =
-        ChildProcessSecurityPolicyImpl::GetInstance();
-    policy->AddIsolatedOriginsFromCommandLine(
-        parsed_command_line_.GetSwitchValueASCII(switches::kIsolateOrigins));
-  }
-
   // Enable memory-infra dump providers.
   InitSkiaEventTracer();
   base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
@@ -880,6 +873,13 @@ int BrowserMainLoop::PreCreateThreads() {
 
   EVP_set_buggy_rsa_parser(
       base::FeatureList::IsEnabled(features::kBuggyRSAParser));
+
+  // The command line values must be read after `parts_->PreCreateThreads()` so
+  // that embedders can append values via policy.
+  if (parsed_command_line_.HasSwitch(switches::kIsolateOrigins)) {
+    policy->AddIsolatedOriginsFromCommandLine(
+        parsed_command_line_.GetSwitchValueASCII(switches::kIsolateOrigins));
+  }
 
   return result_code_;
 }

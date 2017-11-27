@@ -2491,4 +2491,11 @@ const char kPrefetchUsageMixedCount[] = "offline_pages.prefetch_mixed_count";
 // will be wiped.
 const char kMediaEngagementSchemaVersion[] = "media.engagement.schema_version";
 
+// Boolean that specifies opting into --isolate-origins=... (selective Site
+// Isolation).
+const char kIsolateOrigins[] = "site_isolation.isolate_origins";
+
+// Boolean that specifies opting into --site-per-process (full Site Isolation).
+const char kSitePerProcess[] = "site_isolation.site_per_process";
+
 }  // namespace prefs
