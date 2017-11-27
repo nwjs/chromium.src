@@ -23,13 +23,7 @@ LocationIconView::LocationIconView(const gfx::FontList& font_list,
       location_bar_(location_bar),
       animation_(this) {
   set_id(VIEW_ID_LOCATION_ICON);
-  SetInkDropMode(InkDropMode::ON);
-
-#if defined(OS_MACOSX)
-  SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
-#else
-  SetFocusBehavior(FocusBehavior::ALWAYS);
-#endif
+  Update();
 
   animation_.SetSlideDuration(kOpenTimeMS);
 }
@@ -112,13 +106,25 @@ void LocationIconView::SetTextVisibility(bool should_show,
   OnNativeThemeChanged(GetNativeTheme());
 }
 
-void LocationIconView::UpdateInkDropMode() {
-  // If the omnibox is empty or editing, the ink drop mode should be off
-  // since the icon isn't clickable in this state.
-  InkDropMode mode = location_bar_->GetOmniboxView()->IsEditingOrEmpty()
-                         ? InkDropMode::OFF
-                         : InkDropMode::ON;
-  SetInkDropMode(mode);
+void LocationIconView::Update() {
+  // If the omnibox is empty or editing, the user should not be able to left
+  // click on the icon. As such, the icon should not show a highlight or be
+  // focusable. Note: using the middle mouse to copy-and-paste should still
+  // work on the icon.
+  if (location_bar_->GetOmniboxView() &&
+      location_bar_->GetOmniboxView()->IsEditingOrEmpty()) {
+    SetInkDropMode(InkDropMode::OFF);
+    SetFocusBehavior(FocusBehavior::NEVER);
+    return;
+  }
+
+  SetInkDropMode(InkDropMode::ON);
+
+#if defined(OS_MACOSX)
+  SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
+#else
+  SetFocusBehavior(FocusBehavior::ALWAYS);
+#endif
 }
 
 bool LocationIconView::IsTriggerableEvent(const ui::Event& event) {
