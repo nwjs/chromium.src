@@ -385,6 +385,8 @@ class WebGL2ConformanceExpectations(WebGLConformanceExpectations):
     self.Flaky('conformance2/textures/image_bitmap_from_video/' +
         'tex-2d-rgba16f-rgba-half_float.html',
         ['mac', ('nvidia', 0xfe9)], bug=682834)
+    self.Fail('conformance/glsl/bugs/init-array-with-loop.html',
+        ['mac', ('nvidia', 0xfe9)], bug=784817)
 
     self.Fail('deqp/functional/gles3/draw/random.html',
         ['sierra', ('nvidia', 0xfe9)], bug=716652)

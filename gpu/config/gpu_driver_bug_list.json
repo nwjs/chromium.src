@@ -1,6 +1,6 @@
 {
   "name": "gpu driver bug list",
-  "version": "10.33",
+  "version": "10.34",
   "entries": [
     {
       "id": 1,
@@ -2640,6 +2640,23 @@
       "gl_renderer": "Adreno \\(TM\\) 4.*",
       "features": [
         "dont_initialize_uninitialized_locals"
+      ]
+    },
+    {
+      "id": 250,
+      "description": "Depth/stencil renderbuffers can't be resized on NVIDIA on macOS 10.13",
+      "cr_bugs": [775202],
+      "os": {
+        "type": "macosx",
+        "version": {
+          "op": ">=",
+          "value": "10.13.0"
+        }
+      },
+      "vendor_id": "0x10de",
+      "multi_gpu_category": "any",
+      "features": [
+        "depth_stencil_renderbuffer_resize_emulation"
       ]
     }
   ],
