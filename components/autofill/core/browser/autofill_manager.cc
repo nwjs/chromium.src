@@ -20,6 +20,7 @@
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/guid.h"
+#include "base/i18n/rtl.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/message_loop/message_loop.h"
@@ -114,7 +115,12 @@ bool SectionIsAutofilled(const FormStructure& form_structure,
 // characters removed.
 base::string16 SanitizeCreditCardFieldValue(const base::string16& value) {
   base::string16 sanitized;
+  // We remove whitespace as well as some invisible unicode characters.
   base::TrimWhitespace(value, base::TRIM_ALL, &sanitized);
+  base::TrimString(sanitized,
+                   base::string16({base::i18n::kRightToLeftMark,
+                                   base::i18n::kLeftToRightMark}),
+                   &sanitized);
   // Some sites have ____-____-____-____ in their credit card number fields, for
   // example.
   base::ReplaceChars(sanitized, base::ASCIIToUTF16("-_"),
