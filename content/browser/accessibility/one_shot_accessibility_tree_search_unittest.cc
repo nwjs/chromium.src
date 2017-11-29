@@ -187,7 +187,7 @@ TEST_F(MAYBE_OneShotAccessibilityTreeSearchTest,
   EXPECT_EQ(4, search.GetMatchAtIndex(0)->GetId());
 }
 
-TEST_F(MAYBE_OneShotAccessibilityTreeSearchTest, VisibleOnly) {
+TEST_F(MAYBE_OneShotAccessibilityTreeSearchTest, DISABLED_VisibleOnly) {
   OneShotAccessibilityTreeSearch search(tree_->GetRoot());
   search.SetVisibleOnly(true);
   ASSERT_EQ(5U, search.CountMatches());
