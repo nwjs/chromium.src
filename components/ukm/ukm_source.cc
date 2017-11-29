@@ -39,9 +39,7 @@ void UkmSource::SetCustomTabVisible(bool visible) {
   g_custom_tab_state = visible ? kCustomTabTrue : kCustomTabFalse;
 }
 
-UkmSource::UkmSource()
-    : custom_tab_state_(g_custom_tab_state),
-      creation_time_(base::TimeTicks::Now()) {}
+UkmSource::UkmSource() : custom_tab_state_(g_custom_tab_state) {}
 
 UkmSource::~UkmSource() = default;
 
