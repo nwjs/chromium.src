@@ -49,6 +49,12 @@ void WebFaviconDriver::CreateForWebState(
                              web_state, favicon_service, history_service)));
 }
 
+void WebFaviconDriver::FetchFavicon(const GURL& page_url,
+                                    bool is_same_document) {
+  fetch_favicon_url_ = page_url;
+  FaviconDriverImpl::FetchFavicon(page_url, is_same_document);
+}
+
 gfx::Image WebFaviconDriver::GetFavicon() const {
   web::NavigationItem* item =
       web_state()->GetNavigationManager()->GetLastCommittedItem();
@@ -117,13 +123,10 @@ void WebFaviconDriver::OnFaviconUpdated(
   // On iOS, the active URL can change between calls to FetchFavicon(). For
   // instance, FetchFavicon() is not synchronously called when the active URL
   // changes as a result of CRWSessionController::goToEntry().
-  if (GetActiveURL() != page_url && !page_url.is_empty()) {
-    return;
-  }
-
   web::NavigationItem* item =
       web_state()->GetNavigationManager()->GetVisibleItem();
-  DCHECK(item);
+  if (!item || item->GetURL() != page_url)
+    return;
 
   web::FaviconStatus& favicon_status = item->GetFavicon();
   favicon_status.valid = true;
@@ -143,40 +146,24 @@ WebFaviconDriver::WebFaviconDriver(web::WebState* web_state,
 WebFaviconDriver::~WebFaviconDriver() {
 }
 
-void WebFaviconDriver::DidStartNavigation(
-    web::NavigationContext* navigation_context) {
-  SetFaviconOutOfDateForPage(navigation_context->GetUrl(),
-                             /*force_reload=*/false);
+void WebFaviconDriver::NavigationItemCommitted(
+    const web::LoadCommittedDetails& load_details) {
+  FetchFavicon(web_state()->GetLastCommittedURL(), load_details.is_in_page);
 }
 
 void WebFaviconDriver::DidFinishNavigation(
     web::NavigationContext* navigation_context) {
-  if (navigation_context->GetError())
-    return;
-
-  // Fetch the favicon for the new URL.
-  FetchFavicon(navigation_context->GetUrl(),
-               navigation_context->IsSameDocument());
-
   if (navigation_context->IsSameDocument()) {
-    if (!candidates_.empty()) {
-      FaviconUrlUpdatedInternal(candidates_);
-    }
-  } else {
-    candidates_.clear();
+    // Fetch the favicon for the new URL.
+    FetchFavicon(navigation_context->GetUrl(), /*is_same_document=*/true);
   }
 }
 
 void WebFaviconDriver::FaviconUrlUpdated(
     const std::vector<web::FaviconURL>& candidates) {
   DCHECK(!candidates.empty());
-  candidates_ = FaviconURLsFromWebFaviconURLs(candidates);
-  FaviconUrlUpdatedInternal(candidates_);
-}
-
-void WebFaviconDriver::FaviconUrlUpdatedInternal(
-    const std::vector<favicon::FaviconURL>& candidates) {
-  OnUpdateCandidates(GetActiveURL(), candidates, GURL());
+  OnUpdateCandidates(GetActiveURL(), FaviconURLsFromWebFaviconURLs(candidates),
+                     GURL());
 }
 
 }  // namespace favicon
