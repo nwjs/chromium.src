@@ -668,8 +668,8 @@ TEST_F(UkmServiceTest, UnreferencedNonWhitelistedSources) {
       }
 
       ids.push_back(GetNonWhitelistedSourceId(i));
-      recorder.UpdateSourceURL(ids.back(), GURL("https://google.com/foobar" +
-                                                base::NumberToString(i)));
+      recorder.UpdateSourceURL(
+          ids.back(), GURL("https://google.com/foobar" + base::IntToString(i)));
       last_time = base::TimeTicks::Now();
     }
 
