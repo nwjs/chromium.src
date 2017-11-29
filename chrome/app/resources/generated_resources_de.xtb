@@ -1348,7 +1348,7 @@ Mehr dazu erfahren Sie in <ph name="BEGIN_LINK" />unserer Hilfe<ph name="END_LIN
 <translation id="3031417829280473749">Agentin X</translation>
 <translation id="3031557471081358569">Zu importierende Daten wählen:</translation>
 <translation id="3031601332414921114">Druckvorgang fortsetzen</translation>
-<translation id="303198083543495566">Geografie</translation>
+<translation id="303198083543495566">Längen- und Breitengrad</translation>
 <translation id="3036546437875325427">Blitz aktivieren</translation>
 <translation id="3038612606416062604">Drucker manuell hinzufügen</translation>
 <translation id="3038675903128704560">Verwendung von Plug-ins für den Zugriff auf Ihren Computer für keine Website zulassen</translation>
@@ -4538,7 +4538,7 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="8072988827236813198">Tabs anheften</translation>
 <translation id="8074127646604999664">Fertigstellen des Datenversands und -empfangs von kürzlich geschlossen Websites erlauben</translation>
 <translation id="8075191520954018715">Speicherstatus</translation>
-<translation id="8077684120002777443">Nutzername, z. B. nutzer@ihrebeispielurl.de</translation>
+<translation id="8077684120002777443">Nutzername, z. B. nutzer@example.com</translation>
 <translation id="8077816382010018681">Titel der Benachrichtigung für schnelles Entsperren hier einfügen</translation>
 <translation id="8079530767338315840">Wiederholen</translation>
 <translation id="8083739373364455075">Erhalten Sie kostenlos 100 GB bei Google Drive.</translation>
@@ -4714,7 +4714,7 @@ Andere Personen mit langsamen Verbindungen sehen Ihre Inhalte möglicherweise ni
 <translation id="8378285435971754261">Durch den Standortdienst von Google können Apps Ihren Standort schnell und genau erfassen. Dadurch kann der Akkuverbrauch gesenkt werden. Anonyme Standortdaten werden an Google gesendet, auch wenn keine Apps ausgeführt werden. <ph name="BEGIN_LINK1" />Weitere Informationen<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">Kameraeinstellungen verwalten...</translation>
 <translation id="8382913212082956454">E-Mail-Adr&amp;esse kopieren</translation>
-<translation id="8386903983509584791">Scan abgeschlossen</translation>
+<translation id="8386903983509584791">Suche abgeschlossen</translation>
 <translation id="8390029840652165810">Überprüfen Sie, ob Ihre Netzwerkverbindung funktioniert. Falls das Problem weiterhin besteht, melden Sie sich ab und wieder an, um Ihre Anmeldedaten neu zu laden.</translation>
 <translation id="8390449457866780408">Der Server ist nicht verfügbar.</translation>
 <translation id="8392234662362215700">Drücken Sie Strg + Shift + Leertaste, um das Tastaturlayout zu ändern.</translation>

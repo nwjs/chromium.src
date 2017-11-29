@@ -402,7 +402,7 @@ Aby dostosować wyszukiwane hasło, naciśnij je i przytrzymaj, by je zaznaczyć
 <translation id="4797039098279997504">Kliknij, by wrócić na <ph name="URL_OF_THE_CURRENT_TAB" /></translation>
 <translation id="4807098396393229769">Imię i nazwisko na karcie</translation>
 <translation id="4807963036345170158">Oszczędzanie danych jest wyłączone</translation>
-<translation id="4811736444948656478">Panel nawigacji otwarty do połowy wysokości</translation>
+<translation id="4811736444948656478">Panel użytkownika otwarty do połowy wysokości</translation>
 <translation id="4816465935029283692">Typy danych</translation>
 <translation id="4837753911714442426">Otwórz opcje drukowania strony</translation>
 <translation id="4842092870884894799">Pokazuję wyskakujące okienko generowania hasła</translation>
@@ -561,7 +561,7 @@ To jednak nie oznacza, że Cię nie widać. Nawet gdy przejdziesz w tryb incogni
 <translation id="6177111841848151710">Zablokowano dostęp obecnej wyszukiwarce</translation>
 <translation id="6177390657002841081">Włącz Oszczędzanie danych</translation>
 <translation id="6181444274883918285">Dodaj witrynę do wyjątków</translation>
-<translation id="618555311922999635">Panel nawigacji otwarty na całą wysokość</translation>
+<translation id="618555311922999635">Panel użytkownika otwarty na całą wysokość</translation>
 <translation id="6192792657125177640">Wyjątki</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" /> to nie Ty?</translation>
 <translation id="6221892641068781024">Widok uproszczony</translation>
@@ -780,7 +780,7 @@ Inne rodzaje historii przeglądania, takie jak wyszukiwania i aktywność w inny
 <translation id="8076014560081431679">Zapisane ustawienia witryn nie zostaną usunięte i mogą zawierać informacje o Twoim korzystaniu z przeglądarki. <ph name="BEGIN_LINK" />Więcej informacji<ph name="END_LINK" /></translation>
 <translation id="8084114998886531721">Zapisane hasło</translation>
 <translation id="8087000398470557479">Treść z <ph name="DOMAIN_NAME" /> dostarczana przez Google.</translation>
-<translation id="8100932616285851614">Zamknięto panel nawigacji</translation>
+<translation id="8100932616285851614">Zamknięto panel użytkownika</translation>
 <translation id="8103578431304235997">Karta incognito</translation>
 <translation id="8116925261070264013">Wyciszone</translation>
 <translation id="813082847718468539">Wyświetl informacje o witrynie</translation>
@@ -802,7 +802,7 @@ Inne rodzaje historii przeglądania, takie jak wyszukiwania i aktywność w inny
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> i więcej stron</translation>
 <translation id="8334426458436697004">Wycisz dźwięk na konkretnej stronie.</translation>
 <translation id="8339163506404995330">Strony, których językiem jest <ph name="LANGUAGE" />, nie będą tłumaczone</translation>
-<translation id="8363501664269050863">Panel nawigacyjny. Przesuń w dół, by go zamknąć.</translation>
+<translation id="8363501664269050863">Panel użytkownika. Przesuń w dół, by go zamknąć.</translation>
 <translation id="8372721116225477180">Społecznościowe</translation>
 <translation id="8372893542064058268">Zezwalaj na synchronizowanie w tle z określoną stroną.</translation>
 <translation id="8374821112118309944">Musisz zainstalować nowszą wersję TalkBack.</translation>

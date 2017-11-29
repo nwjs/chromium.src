@@ -31,6 +31,7 @@
 
           Bu ayar devre dışı bırakılır veya yapılandırılmazsa uzaktan yardım ana makinesi, kullanıcının içeriğinde çalışır ve uzak kullanıcılar, masaüstündeki yükseltilmiş pencerelerle etkileşimde bulunamaz.</translation>
 <translation id="1096105751829466145">Varsayılan arama sağlayıcı</translation>
+<translation id="1099282607296956954">Site İzolasyonu'nu her site için etkinleştirme</translation>
 <translation id="1117535567637097036">Bu politika aracılığıyla ayarlanan protokol işleyicileri, Android amaçları işlenirken kullanılmaz.</translation>
 <translation id="1122282995569868661"><ph name="PRODUCT_NAME" /> araç çubuğu simgesini gösterir</translation>
 <translation id="1128903365609589950"><ph name="PRODUCT_NAME" /> uygulamasının önbelleğe alınan dosyaları diskte saklamak için kullanacağı dizini yapılandırır.
@@ -715,6 +716,16 @@
 <translation id="332771718998993005"><ph name="PRODUCT_NAME" /> hedefi olarak tanıtılan adı belirleyin.
 
           Bu politika boş olmayan bir dizeye ayarlanırsa, söz konusu dize <ph name="PRODUCT_NAME" /> hedefinin adı olarak kullanılır. Aksi halde hedef adı cihaz adı olur. Bu politika ayarlanmazsa hedef adı cihaz adı olur ve cihaz sahibi (veya alandan cihazı yöneten bir kullanıcı), adı değiştirme iznine sahip olur. Ad, 24 karakterle sınırlıdır.</translation>
+<translation id="3356249700768900657">
+      NOT: Bu politika deneme niteliğinde olup işleyişi bozabilir!
+      Hem izolasyondan hem de kullanıcılar için sınırlı etkiden en iyi şekilde yararlanmak
+      üzere IsolateOrigins politika ayarına bakmak isteyebilirsiniz. Bunun için, izole
+      etmek istediğiniz sitelerin listesiyle IsolateOrigins'i kullanabilirsiniz. Bu ayar
+      (SitePerProcess) tüm siteleri izole eder.
+      Bu politikanın etkinleştirilmesi halinde her site kendi işleminde çalışır.
+      Bu politikanın devre dışı bırakılması halinde Site İzolasyonu öncesi işlem yönetimi mantığı etkin olur.
+      Bu politikanın yapılandırılmaması halinde kullanıcı bu ayarı değiştirebilir.
+      </translation>
 <translation id="3381968327636295719">Varsayılan olarak ana makine tarayıcısını kullan</translation>
 <translation id="3395348522300156660">Bir kullanıcının kullanabileceği yazıcıları belirtir.
 
@@ -1084,6 +1095,7 @@ politikayı geçersiz kılamaz.
           Örnek kalıplar için https://www.chromium.org/developers/how-tos/chrome-frame-getting-started adresine bakın.</translation>
 <translation id="467449052039111439">URL listesi aç</translation>
 <translation id="4680961954980851756">Otomatik Doldurmayı etkinleştir</translation>
+<translation id="4722122254122249791">Site İzolasyonu'nu belirtilen kaynaklar için etkinleştirme</translation>
 <translation id="4722399051042571387">False (yanlış) değerinde, kullanıcılar zayıf ve kolayca tahmin edilebilecek PIN'ler ayarlayamaz.
 
           Zayıf PIN'lere ilişkin bazı örnekler: Yalnızca bir rakam içeren PIN'ler (1111), değerleri 1 artan rakamlardan oluşan PIN'ler (1234), değerleri 1 azalan rakamlardan oluşan PIN'ler (4321) ve yaygın şekilde kullanılan PIN'ler.
@@ -1162,6 +1174,16 @@ politikayı geçersiz kılamaz.
 <translation id="4980635395568992380">Veri türü:</translation>
 <translation id="4983201894483989687">Eski eklentilerin çalıştırılmasına izin ver</translation>
 <translation id="4988291787868618635">Boşta kalma gecikme süresine ulaşıldığında uygulanacak işlem</translation>
+<translation id="5027819375434797927">
+      NOT: Bu politika deneme niteliğinde olup işleyişi bozabilir!
+      Bu politikanın etkinleştirilmesi halinde, virgülle ayrılmış listede adı verilen her
+      kaynak kendi işleminde çalışır. Bu politika ayrıca alt alan adlarıyla adlandırılan
+      kaynakları da izole eder; örneğin, https://example.com/ adresinin belirtilmesi,
+      https://example.com/ sitesinin bir parçası olarak https://foo.example.com/ sitesinin de
+      izole edilmesine neden olur.
+      Bu politikanın devre dışı bırakılması halinde Site İzolasyonu öncesi işlem yönetimi mantığı etkin olur.
+      Bu politikanın yapılandırılmaması halinde kullanıcı bu ayarı değiştirebilir.
+      </translation>
 <translation id="5047604665028708335">İçerik paketlerinin dışındaki sitelere erişime izin ver</translation>
 <translation id="5052081091120171147">Bu politika, göz atma geçmişini etkin olması durumunda geçerli varsayılan tarayıcıdan içe aktarır. Bu politika etkinleştirilirse, içe aktarma iletişim kutusunu da etkiler.
 
@@ -2025,7 +2047,7 @@ Her bir uzantının (veya aynı güncelleme URL'sine sahip uzantıların) yapıl
 
 Mod <ph name="FORCE_INSTALLED" /> veya <ph name="NORMAL_INSTALLED" /> seçeneğine ayarlanırsa ayrıca <ph name="UPDATE_URL" /> yapılandırılmalıdır. Bu politikada ayarlanmış olan güncelleme URL'sinin sadece ilk yükleme için kullanıldığını unutmayın. Uzantının sonraki güncellemelerinde, uzantının manifest dosyasında belirtilen güncelleme URL'si kullanılır. Güncelleme URL'si, yukarıda belirtildiği gibi bir Güncelleme Manifest XML dokümanını işaret etmelidir.
 
-<ph name="BLOCKED_PERMISSIONS" />: Uzantı için engellenen API izinlerini belirten dizeleri barındıran bir listeye eşlenir. İzin adları, <ph name="LINK_TO_EXTENSION_DOC3" /> adresinde açıklandığı gibi, uzantının manifest dosyasında belirtilen izin dizeleri ile aynıdır. Bu ayar <ph name="DEFAULT_SCOPE" /> uzantısı için de yapılandırılabilir. Uzantı, kara listeye alınmış bir izni gerektiriyorsa yüklemesine izin verilmez. İsteğe bağlı koşul olarak engellenmiş bir izin içeriyorsa normal şekilde işlem yapılır, ancak çakışan izinler istenirse çalışma zamanında otomatik olarak reddedilir.
+<ph name="BLOCKED_PERMISSIONS" />: Uzantı için engellenen API izinlerini belirten dizeleri barındıran bir listeye eşlenir. İzin adları, <ph name="LINK_TO_EXTENSION_DOC3" /> adresinde açıklandığı gibi, uzantının manifest dosyasında belirtilen izin dizeleri ile aynıdır. Bu ayar <ph name="DEFAULT_SCOPE" /> uzantısı için de yapılandırılabilir. Uzantı, engelleme listesine alınmış bir izni gerektiriyorsa yüklemesine izin verilmez. İsteğe bağlı koşul olarak engellenmiş bir izin içeriyorsa normal şekilde işlem yapılır, ancak çakışan izinler istenirse çalışma zamanında otomatik olarak reddedilir.
 
 <ph name="ALLOWED_PERMISSIONS" />: <ph name="BLOCKED_PERMISSIONS" /> dizesine benzer, ancak izin listesi tarafından genel olarak engellenmiş olabilecek ve böylece <ph name="DEFAULT_SCOPE" /> uzantısı için yapılandırılamayan bazı izinler açık şekilde sağlanır. Bu ayarın izinleri uzantılara otomatik olarak vermediğini unutmayın.
 
@@ -2033,7 +2055,7 @@ Mod <ph name="FORCE_INSTALLED" /> veya <ph name="NORMAL_INSTALLED" /> seçeneği
 
 Aşağıdaki ayarlar sadece varsayılan <ph name="DEFAULT_SCOPE" /> yapılandırması için kullanılabilir:
 
-<ph name="INSTALL_SOURCES" />: Bu listedeki her öğe, uzantı tarzında bir eşleme kalıbıdır (bkz. <ph name="LINK_TO_MATCH_PATTERNS" />). Kullanıcılar bu listedeki bir öğeyle eşleşen herhangi bir URL'den kolayca öğe yükleyebilirler. Bu kalıplar hem <ph name="EXTENSION_SUFFIX_WILDCARD" /> dosyasının konumuna hem de indirme işleminin başlatıldığı sayfaya (yani yönlendiren) izin vermelidir.
+<ph name="INSTALL_SOURCES" />: Bu listedeki her öğe, uzantı tarzında bir eşleşme kalıbıdır (bkz. <ph name="LINK_TO_MATCH_PATTERNS" />). Kullanıcılar bu listedeki bir öğeyle eşleşen herhangi bir URL'den kolayca öğe yükleyebilirler. Bu kalıplar hem <ph name="EXTENSION_SUFFIX_WILDCARD" /> dosyasının konumuna hem de indirme işleminin başlatıldığı sayfaya (yani yönlendiren) izin vermelidir.
 
 <ph name="ALLOWED_TYPES" />: Bu ayar, izin verilen ve <ph name="PRODUCT_NAME" /> ürününe yüklenebilen uzantı/uygulama türlerini beyaz listeye ekler. Değer, her biri şunlardan biri olması gereken dizelerden oluşan bir listedir: <ph name="VALID_ALLOWED_TYPES" />. Bu türlerle ilgili daha fazla bilgi için <ph name="PRODUCT_NAME" /> uzantılarıyla ilgili dokümanlara bakın.
 <ph name="BLOCKED_INSTALL_MESSAGE" />: Bir kullanıcı bir uzantıyı yüklemeyi dener ancak politika tarafından engellenirse, Chrome Web Mağazası bir genel hata mesajı görüntüler. Bu ayar, hata mesajına metin eklemenize olanak tanır. Bu işlem, kullanıcıları yardım masanıza yönlendirmek, belirli bir uzantının engellenme nedenini açıklamak veya başka bir amaçla kullanılabilir. Bu hata mesajı 1.000 karakterden uzun olursa kesilir.

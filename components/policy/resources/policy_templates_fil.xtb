@@ -30,6 +30,7 @@
 
           Kung naka-disable o hindi naka-configure ang setting na ito, ang host ng remote na tulong ay patatakbuhin sa konteksto ng user at hindi magagawa ng mga remote na user na makipag-ugnayan sa mga elevated window sa desktop.</translation>
 <translation id="1096105751829466145">Default na provider ng paghahanap</translation>
+<translation id="1099282607296956954">I-enable ang Paghihiwalay ng Site para sa bawat site</translation>
 <translation id="1117535567637097036">Ang mga tagapangasiwa ng protocol na itinakda sa pamamagitan ng patakarang ito ay hindi ginagamit kapag nangangasiwa ng mga intent sa Android.</translation>
 <translation id="1122282995569868661">Ipinapakita ang icon ng toolbar ng <ph name="PRODUCT_NAME" /></translation>
 <translation id="1128903365609589950">Kino-configure ang direktoryong gagamitin ng <ph name="PRODUCT_NAME" /> para sa pag-iimbak ng mga naka-cache na file sa disk.
@@ -709,6 +710,16 @@
 <translation id="332771718998993005">Tinutukoy ang pangalang na-advertise bilang destinasyon ng <ph name="PRODUCT_NAME" />.
 
           Kung nakatakda ang patakarang ito sa isang may lamang string, gagamitin ang string na iyon bilang pangalan ng destinasyon ng <ph name="PRODUCT_NAME" />. Kung hindi, ang pangalan ng device ang magiging pangalan ng destinasyon. Kung hindi nakatakda ang patakarang ito, ang pangalan ng device ang magiging pangalan ng destinasyon, at papayagan ang may-ari ng device (o isang user mula sa domain na namamahala sa device) na palitan ito. Nalilimitahan ang pangalan sa 24 na character.</translation>
+<translation id="3356249700768900657">
+      TANDAAN: Ang patakarang ito ay pang-eksperimento at maaari nitong masira ang paggana!
+      Maaari mong tingnan ang setting ng patakaran ng IsolateOrigins upang parehong
+      masulit ang paghihiwalay at pagkakaroon ng limitadong epekto sa mga user, sa pamamagitan ng paggamit ng
+      IsolateOrigins na may listahan ng mga site na gusto mong ihiwalay. Hinihiwalay ng setting na ito na
+      SitePerProcess ang lahat ng site.
+      Kung naka-enable ang patakaran, magpapatakbo ang bawat site ng sarili nitong proseso.
+      Kung naka-disable ang patakaran, magkakaroon ng bisa ang logic sa pamamahala ng proseso bago ang Paghihiwalay ng Site.
+      Kung hindi naka-configure ang patakaran, mababago ng user ang setting na ito.
+      </translation>
 <translation id="3381968327636295719">Gamitin ang host browser bilang default</translation>
 <translation id="3395348522300156660">Tumutukoy sa mga printer na magagamit ng user.
 
@@ -1082,6 +1093,7 @@
           Para sa mga halimbawang pattern, tingnan ang https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Magbukas ng listahan ng mga URL</translation>
 <translation id="4680961954980851756">Paganahin ang AutoFill</translation>
+<translation id="4722122254122249791">I-enable ang Paghihiwalay ng Site para sa mga tinukoy na pinagmulan</translation>
 <translation id="4722399051042571387">Kung false, hindi makakapagtakda ang mga user ng mga madaling mahulaan na PIN.
 
           Ilang halimbawa ng mga madaling mahulaan na PIN: Mga PIN na naglalaman lang ng magkakaparehong digit (1111), mga PIN na sunud-sunod ang bilang pataas (1234), mga PIN na sunud-sunod ang bilang pababa (4321), at mga PIN na karaniwang ginagamit.
@@ -1160,6 +1172,16 @@
 <translation id="4980635395568992380">Uri ng data:</translation>
 <translation id="4983201894483989687">Payagan ang pagpapatakbo ng mga plugin na wala na sa panahon</translation>
 <translation id="4988291787868618635">Pagkilos na gagawin kapag naabot ang idle delay</translation>
+<translation id="5027819375434797927">
+      TANDAAN: Ang patakarang ito ay pang-eksperimento at maaari nitong masira ang paggana!
+      Kung naka-enable ang patakaran, ang bawat pinagmulan na pinangalanan sa
+      listahan na pinaghihiwalay ng kuwit ay magpapatakbo ng sarili nitong proseso. Ihihiwalay rin nito
+      ang mga pinagmulan na pinangalanan ayon sa mga subdomain; hal. ang pagtukoy sa https://example.com/ ay
+      magreresulta rin sa paghihiwalay sa https://foo.example.com/ bilang bahagi ng site ng
+      https://example.com/.
+      Kung naka-disable ang patakaran, magkakaroon ng bisa ang logic ng pamamahala sa proseso bago ang Paghihiwalay ng Site.
+      Kung hindi naka-configure ang patakaran, mababago ng user ang setting na ito.
+      </translation>
 <translation id="5047604665028708335">Payagan ang access sa mga site na nasa labas ng mga pack ng nilalaman</translation>
 <translation id="5052081091120171147">Pinupwersa ng patakarang ito na ma-import mula sa kasalukuyang default na browser ang kasaysayan ng pagba-browse kung pinagana. Kung pinagana, naaapektuhan rin ng patakarang ito ang dialog ng pag-import.
 

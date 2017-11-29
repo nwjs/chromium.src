@@ -347,7 +347,7 @@
 <translation id="151501797353681931">Importert fra Safari</translation>
 <translation id="1515163294334130951">Start</translation>
 <translation id="1521442365706402292">Administrer sertifikater</translation>
-<translation id="152234381334907219">Aldri lagrede</translation>
+<translation id="152234381334907219">Aldri lagret</translation>
 <translation id="1524430321211440688">Tastatur</translation>
 <translation id="1526560967942511387">Dokument uten tittel</translation>
 <translation id="1526925867532626635">Bekreft innstillingene for synkronisering</translation>
@@ -4996,7 +4996,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8870413625673593573">Nylig lukket</translation>
 <translation id="8871551568777368300">Festet av administratoren</translation>
 <translation id="8871696467337989339">Du bruker et kommandolinjeflagg som ikke håndteres: <ph name="BAD_FLAG" />. Dette vil skade stabiliteten og sikkerheten.</translation>
-<translation id="8871974300055371298">Innstillinger for innhold</translation>
+<translation id="8871974300055371298">Innholdsinnstillinger</translation>
 <translation id="8872155268274985541">Fant ugyldig ekstern manifestfil for Kiosk-oppdatering. Kunne ikke oppdatere Kiosk-appen. Ta ut USB-pinnen.</translation>
 <translation id="8874184842967597500">Ikke tilkoblet</translation>
 <translation id="8876215549894133151">Format:</translation>

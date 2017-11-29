@@ -38,7 +38,7 @@
 <translation id="1049926623896334335">‏مستند Word</translation>
 <translation id="1054153489933238809">فتح الصورة الأصلية في علامة تبويب جديدة</translation>
 <translation id="1055806300943943258">‏جارٍ البحث عن أجهزة Bluetooth وUSB...</translation>
-<translation id="1056775291175587022">لم يتم العثور على أي شبكات</translation>
+<translation id="1056775291175587022">لم يتم العثور على أي شبكات.</translation>
 <translation id="1056898198331236512">تحذير</translation>
 <translation id="1058262162121953039">PUK</translation>
 <translation id="1058418043520174283"><ph name="INDEX" /> من <ph name="COUNT" /></translation>
@@ -798,7 +798,7 @@
 <translation id="222949136907494149">يريد <ph name="URL" /> استخدام موقع جهاز الكمبيوتر.</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2230062665678605299">تعذر إنشاء المجلد "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
-<translation id="223106756035922488">انقر لعرض رسومات الشعار المبتكرة لهذا اليوم</translation>
+<translation id="223106756035922488">انقر لعرض رسومات الشعار المبتكرة لهذا اليوم.</translation>
 <translation id="2231238007119540260">في حالة حذف شهادة الخادم، تتم استعادة العمليات المعتادة للتحقق من الأمان لذلك الخادم وسيتطلب الأمر استخدامه لشهادة صالحة.</translation>
 <translation id="2231990265377706070">علامة تعجب</translation>
 <translation id="2232876851878324699">احتوى الملف على شهادة واحدة، لم يتم استيرادها:</translation>
@@ -2322,7 +2322,7 @@
 <translation id="4610637590575890427">هل قصدت الذهاب إلى الموقع <ph name="SITE" />؟</translation>
 <translation id="4611114513649582138">اتصال البيانات متاح</translation>
 <translation id="4613271546271159013">لقد غيّرت الإضافة الصفحة المعروضة عندما فتحت علامة تبويب جديدة.</translation>
-<translation id="4615586811063744755">لم يتم تحديد أي ملفات تعريف ارتباط</translation>
+<translation id="4615586811063744755">لم يتم تحديد أي ملفات تعريف ارتباط.</translation>
 <translation id="4617270414136722281">خيارات الإضافات</translation>
 <translation id="4618990963915449444">سيتم مسح كل الملفات على <ph name="DEVICE_NAME" />.</translation>
 <translation id="4619615317237390068">علامات التبويب من الأجهزة الأخرى</translation>
@@ -2864,7 +2864,7 @@
 <translation id="5438224778284622050">هل تريد حذف الملفات في وضع عدم الاتصال؟</translation>
 <translation id="5438430601586617544">(تم فك الحزمة)</translation>
 <translation id="544083962418256601">إنشاء اختصارات...</translation>
-<translation id="5442550868130618860">تشغيل التحديث التلقائي</translation>
+<translation id="5442550868130618860">تفعيل التحديث التلقائي</translation>
 <translation id="5446983216438178612">عرض الشهادات للمؤسسة</translation>
 <translation id="5448293924669608770">عفوًا، حدث خطأ ما عند تسجيل الدخول</translation>
 <translation id="5449551289610225147">كلمة المرور غير صالحة</translation>
@@ -4711,7 +4711,7 @@
 <translation id="8378285435971754261">‏السماح لخدمة الموقع من Google بمساعدة التطبيقات في العثور على موقعك بسرعة وبدقة، الأمر الذي يمكن أن يحد من استهلاك البطارية. وسيتم إرسال بيانات الموقع المجهولة الهوية إلى Google، حتى في حالة عدم تشغيل أي تطبيقات. <ph name="BEGIN_LINK1" />مزيد من المعلومات<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">إدارة إعدادات الكاميرا...</translation>
 <translation id="8382913212082956454">نسخ عنوان البريد الإل&amp;كتروني</translation>
-<translation id="8386903983509584791">اكتملت عملية الفحص</translation>
+<translation id="8386903983509584791">اكتملت عملية الفحص.</translation>
 <translation id="8390029840652165810">يُرجى التأكد من عمل اتصال الشبكة وإذا استمرت المشكلة، فيُرجى الخروج وإعادة تسجيل الدخول مرة أخرى لتحديث بيانات الاعتماد.</translation>
 <translation id="8390449457866780408">الخادم غير متاح.</translation>
 <translation id="8392234662362215700">‏انقر على Control-Shift-Space لتبديل تخطيط لوحة المفاتيح.</translation>
@@ -4842,7 +4842,7 @@
 <translation id="8620617069779373398">حالة التجوال</translation>
 <translation id="8620765578342452535">تهيئة اتصالات الشبكة</translation>
 <translation id="8623004009673949077">‏يجب أن يتم تثبيت التطبيق الذي يتضمن السمة الظاهرة "kiosk_only" في وضع الكشك على نظام تشغيل Chrome.</translation>
-<translation id="8624205858755890468">يعمل على تفعيل المساعد لعرض الإجراءات والتطبيقات والمعلومات ذات الصلة.</translation>
+<translation id="8624205858755890468">يعمل على تفعيل "المساعد" لعرض الإجراءات والتطبيقات والمعلومات ذات الصلة.</translation>
 <translation id="862542460444371744">&amp;الإضافات</translation>
 <translation id="8627151598708688654">تحديد مصدر</translation>
 <translation id="862727964348362408">معلقة</translation>

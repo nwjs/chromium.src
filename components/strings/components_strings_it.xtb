@@ -161,7 +161,7 @@
 <translation id="2166049586286450108">Accesso amministrativo completo</translation>
 <translation id="2166378884831602661">Il sito non può fornire una connessione protetta</translation>
 <translation id="2181821976797666341">Criteri</translation>
-<translation id="2183608646556468874">Numero telefono</translation>
+<translation id="2183608646556468874">Numero di telefono</translation>
 <translation id="2184405333245229118">{COUNT,plural, =1{1 indirizzo}other{# indirizzi}}</translation>
 <translation id="2187317261103489799">Rileva (predefinita)</translation>
 <translation id="2202020181578195191">Inserisci un anno di scadenza valido</translation>
@@ -628,7 +628,7 @@
 <translation id="5669703222995421982">Ricevi contenuti suggeriti appositamente per te</translation>
 <translation id="5675650730144413517">La pagina non funziona</translation>
 <translation id="5689199277474810259">Esporta in JSON</translation>
-<translation id="5689516760719285838">Luogo</translation>
+<translation id="5689516760719285838">Posizione</translation>
 <translation id="5710435578057952990">L'identità di questo sito web non è stata verificata.</translation>
 <translation id="5719499550583120431">Le carte prepagate sono accettate.</translation>
 <translation id="5720705177508910913">Utente corrente</translation>
@@ -968,7 +968,7 @@
 <translation id="858637041960032120">Aggiungi telefono</translation>
 <translation id="859285277496340001">Il certificato non specifica un meccanismo per il controllo della sua revoca.</translation>
 <translation id="8620436878122366504">I tuoi genitori non hanno ancora approvato la richiesta</translation>
-<translation id="8625384913736129811">Salva la carta per questo dispositivo</translation>
+<translation id="8625384913736129811">Salva la carta su questo dispositivo</translation>
 <translation id="8647750283161643317">Ripristina i valori predefiniti per tutto</translation>
 <translation id="8660471606262461360">Da Google Payments</translation>
 <translation id="8688672835843460752">Disponibile</translation>

@@ -387,7 +387,7 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 <translation id="4684427112815847243">Synkroniser alt</translation>
 <translation id="4686372254213217147">Oprindelig størrelse</translation>
 <translation id="4695891336199304370">{SHIPPING_OPTIONS,plural, =1{<ph name="SHIPPING_OPTION_PREVIEW" />\u2026 og <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> mere}one{<ph name="SHIPPING_OPTION_PREVIEW" />\u2026 og <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> mere}other{<ph name="SHIPPING_OPTION_PREVIEW" />\u2026 og <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> mere}}</translation>
-<translation id="4698034686595694889">Se indholdet offline i <ph name="APP_NAME" /></translation>
+<translation id="4698034686595694889">Se offline i <ph name="APP_NAME" /></translation>
 <translation id="4698413471314543145">Vigtig funktionalitet, som kræves for at køre Chrome, mangler. Enten er Chrome-installationen ufuldstændig eller ikke kompatibel med denne version af Android.</translation>
 <translation id="4699172675775169585">Billeder og filer, der er gemt i cache</translation>
 <translation id="4714588616299687897">Spar op til 60 % af dine data</translation>

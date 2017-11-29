@@ -30,6 +30,7 @@
 
           If this setting is disabled or not configured, the remote assistance host will run in the user's context and remote users cannot interact with elevated windows on the desktop.</translation>
 <translation id="1096105751829466145">Default search provider</translation>
+<translation id="1099282607296956954">Enable Site Isolation for every site</translation>
 <translation id="1117535567637097036">The protocol handlers set via this policy are not used when handling Android intents.</translation>
 <translation id="1122282995569868661">Shows the <ph name="PRODUCT_NAME" /> toolbar icon</translation>
 <translation id="1128903365609589950">Configures the directory that <ph name="PRODUCT_NAME" /> will use for storing cached files on the disk.
@@ -714,6 +715,16 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
 <translation id="332771718998993005">Determine the name advertised as a <ph name="PRODUCT_NAME" /> destination.
 
           If this policy is set to a non-empty string, that string will be used as the name of the <ph name="PRODUCT_NAME" /> destination. Otherwise, the destination name will be the device name. If this policy is not set, the destination name will be the device name, and the owner of the device (or a user from the domain managing the device) will be allowed to change it. The name is limited to 24 characters.</translation>
+<translation id="3356249700768900657">
+      NOTE: This policy is experimental and may break functionality!
+      You might want to look at the IsolateOrigins policy setting to get the
+      best of both worlds, isolation and limited impact for users, by using
+      IsolateOrigins with a list of the sites that you want to isolate. This setting,
+      SitePerProcess, isolates all sites.
+      If the policy is enabled, each site will run in its own process.
+      If the policy is disabled, the pre-Site Isolation process management logic will take effect.
+      If the policy is not configured, the user will be able to change this setting.
+      </translation>
 <translation id="3381968327636295719">Use the host browser by default</translation>
 <translation id="3395348522300156660">Specifies the printers which a user can use.
 
@@ -1093,6 +1104,7 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
           For example patterns see https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Open a list of URLs</translation>
 <translation id="4680961954980851756">Enable AutoFill</translation>
+<translation id="4722122254122249791">Enable Site Isolation for specified origins</translation>
 <translation id="4722399051042571387">If false, users will be unable to set PINs which are weak and easy to guess.
 
           Some example weak PINs: PINs containing only one digit (1111), PINs whose digits are increasing by 1 (1234), PINs whose digits are decreasing by 1 (4321) and PINs which are commonly used.
@@ -1171,6 +1183,16 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 <translation id="4980635395568992380">Data Types</translation>
 <translation id="4983201894483989687">Allow running plug-ins that are outdated</translation>
 <translation id="4988291787868618635">Action to take when the idle delay is reached</translation>
+<translation id="5027819375434797927">
+      NOTE: This policy is experimental and may break functionality!
+      If the policy is enabled, each of the named origins in a
+      comma-separated list will run in its own process. This will also isolate
+      origins named by subdomains, e.g. specifying https://example.com/ will
+      also cause https://foo.example.com/ to be isolated as part of the
+      https://example.com/ site.
+      If the policy is disabled, the pre-Site Isolation process management logic will take effect.
+      If the policy is not configured, the user will be able to change this setting.
+      </translation>
 <translation id="5047604665028708335">Allow access to sites outside of content packs</translation>
 <translation id="5052081091120171147">This policy forces the browsing history to be imported from the current default browser, if enabled. If enabled, this policy also affects the import dialogue.
 

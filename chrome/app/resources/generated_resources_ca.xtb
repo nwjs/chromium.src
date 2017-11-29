@@ -986,7 +986,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="2526590354069164005">Escriptori</translation>
 <translation id="2526619973349913024">Cerca actualitzacions</translation>
 <translation id="2527167509808613699">Qualsevol tipus de connexió</translation>
-<translation id="2527591341887670429">Ús de la bateria: <ph name="PRECENTAGE" />%</translation>
+<translation id="2527591341887670429">Consum de la bateria: <ph name="PRECENTAGE" />%</translation>
 <translation id="2532026602297547439">El sensor està brut</translation>
 <translation id="2532589005999780174">Mode d'alt contrast</translation>
 <translation id="253434972992662860">P&amp;ausa</translation>
@@ -4308,7 +4308,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="7760004034676677601">Aquesta pàgina d'inici és la que esperàveu?</translation>
 <translation id="7764225426217299476">Afegeix una adreça</translation>
 <translation id="7764256770584298012"><ph name="DOWNLOAD_RECEIVED" /> del domini <ph name="DOWNLOAD_DOMAIN" /></translation>
-<translation id="7765158879357617694">Desplaça</translation>
+<translation id="7765158879357617694">Mou</translation>
 <translation id="7766807826975222231">Visita guiada</translation>
 <translation id="7766838926148951335">Accepta els permisos</translation>
 <translation id="7769672763586021400">Identificador del model</translation>

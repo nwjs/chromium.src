@@ -797,7 +797,7 @@
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /> sobre este problema.</translation>
 <translation id="7219179957768738017">La conexión utiliza <ph name="SSL_VERSION" />.</translation>
 <translation id="7220786058474068424">Procesando pago</translation>
-<translation id="724691107663265825">El sitio al que vas a acceder contiene software malicioso</translation>
+<translation id="724691107663265825">El sitio web al que vas a acceder contiene software malicioso</translation>
 <translation id="724975217298816891">Introduce la fecha de caducidad y el código CVC de la tarjeta <ph name="CREDIT_CARD" /> para actualizar sus detalles. Cuando la confirmes, su información se compartirá con este sitio web.</translation>
 <translation id="7260504762447901703">Revoca el acceso</translation>
 <translation id="7271803869921933038">Tarjetas prepago aceptadas</translation>
@@ -1007,7 +1007,7 @@
 <translation id="8957210676456822347">Autorización de portal cautivo</translation>
 <translation id="8971063699422889582">El certificado del servidor ha caducado.</translation>
 <translation id="8989148748219918422"><ph name="ORGANIZATION" /> [<ph name="COUNTRY" />]</translation>
-<translation id="8996941253935762404">El sitio al que vas a acceder contiene programas dañinos</translation>
+<translation id="8996941253935762404">El sitio web al que vas a acceder contiene programas dañinos</translation>
 <translation id="8997023839087525404">El servidor ha mostrado un certificado que no se ha hecho público mediante la Política de Transparencia en los Certificados. Este requisito se aplica a algunos certificados para garantizar que son de confianza y ofrecer protección contra los atacantes.</translation>
 <translation id="9001074447101275817">El proxy <ph name="DOMAIN" /> requiere un nombre de usuario y una contraseña.</translation>
 <translation id="9005998258318286617">Se ha producido un error al cargar el documento PDF.</translation>

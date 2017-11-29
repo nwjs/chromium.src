@@ -30,6 +30,7 @@
 
           Jei šis nustatymas išjungtas arba nesukonfigūruotas, nuotolinės pagalbos prieglobos serveris bus vykdomas naudotojo kontekste ir nuotoliniai naudotojai negalės sąveikauti su pakeltais langais staliniame kompiuteryje.</translation>
 <translation id="1096105751829466145">Numatytasis paieškos teikėjas</translation>
+<translation id="1099282607296956954">Įgalinti visų svetainių atskyrimą</translation>
 <translation id="1117535567637097036">Protokolų doroklės, nustatytos pagal šią politiką, nenaudojamos apdorojant „Android“ tikslus.</translation>
 <translation id="1122282995569868661">Rodoma „<ph name="PRODUCT_NAME" />“ įrankių juostos piktograma</translation>
 <translation id="1128903365609589950">Konfigūruojamas katalogas, kurį „<ph name="PRODUCT_NAME" />“ naudos, kad išsaugotų talpykloje saugomus failus diske.
@@ -714,6 +715,16 @@
 <translation id="332771718998993005">Pavadinimo, reklamuojamo kaip „<ph name="PRODUCT_NAME" />“ paskirties vieta, nustatymas.
 
           Jei ši politika nustatyta kaip ne tuščia eilutė, ta eilutė bus naudojama kaip „<ph name="PRODUCT_NAME" />“ paskirties vietos pavadinimas. Kitu atveju paskirties vietos pavadinimas bus įrenginio pavadinimas. Jei ši politika nenustatyta, paskirties vietos pavadinimas bus įrenginio pavadinimas, o įrenginio savininkas (arba naudotojas iš domeno, kuriame tvarkomas įrenginys) galės jį pakeisti. Pavadinimas ribojamas iki 24 simbolių.</translation>
+<translation id="3356249700768900657">
+      PASTABA. Ši politika yra eksperimentinė ir gali sugadinti kai kurias funkcijas!
+      Jums gali būti naudinga peržiūrėti politikos nustatymą „IsolateOrigins“, kad galėtumėte geriausiai
+      išnaudoti tiek atskyrimą, tiek ribotą įtaką naudotojams, pasitelkdami
+      „IsolateOrigins“ su norimų atskirti svetainių sąrašu. Nustatymu
+      „SitePerProcess“ atskiriamos visos svetainės.
+      Įgalinus politiką kiekviena svetainė vykdys savo procesą.
+      Išjungus politiką įsigalios išankstinio svetainės atskyrimo proceso tvarkymo logika.
+      Jei politika nesukonfigūruota, naudotojas šį nustatymą galės pakeisti.
+      </translation>
 <translation id="3381968327636295719">Pagal numatytuosius nustatymus naudoti prieglobos naršyklę</translation>
 <translation id="3395348522300156660">Nurodomi spausdintuvai, kuriuos gali naudoti naudotojas.
 
@@ -1093,6 +1104,7 @@
           Šablonų pavyzdžių pateikiama apsilankius adresu https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Atidaryti URL sąrašą</translation>
 <translation id="4680961954980851756">Įgalinti automatinį pildymą</translation>
+<translation id="4722122254122249791">Įgalinti konkrečių šaltinių svetainių atskyrimą</translation>
 <translation id="4722399051042571387">Jei ši politika nustatyta į „false“, naudotojai negalės nustatyti PIN kodų, kurie yra nesaugūs ir lengvai atspėjami.
 
           Nesaugių PIN kodų pavyzdžiai: tik iš vieno skaitmens sudaryti PIN kodai (1111), PIN kodai, kurių skaitmenys didėja 1 (1234), PIN kodai, kurių skaitmenys mažėja 1 (4321), ir dažnai naudojami PIN kodai.
@@ -1170,6 +1182,16 @@
 <translation id="4980635395568992380">Duomenų tipas:</translation>
 <translation id="4983201894483989687">Leisti paleisti pasenusius papildinius</translation>
 <translation id="4988291787868618635">Veiksmas, kuris bus atliktas, kai bus pasiektas neveikos delsos laikas</translation>
+<translation id="5027819375434797927">
+      PASTABA. Ši politika yra eksperimentinė ir gali sugadinti kai kurias funkcijas!
+      Įgalinus politiką kiekvienas pavadinimą turintis šaltinis, įtrauktas
+      į kableliais atskirtų verčių sąrašą, vykdys savo procesą. Taip pat bus atskiriami
+      šaltiniai, pavadinti pagal padomenius, pvz., nurodžius https://example.com/ taip pat
+      bus atskiriamas ir padomenis https://foo.example.com/
+      kaip svetainės https://example.com/ dalis.
+      Išjungus politiką įsigalios išankstinio svetainės atskyrimo proceso tvarkymo logika.
+      Jei politika nesukonfigūruota, naudotojas šį nustatymą galės pakeisti.
+      </translation>
 <translation id="5047604665028708335">Leisti pasiekti svetaines, nesančias turinio paketuose</translation>
 <translation id="5052081091120171147">Pagal šią politiką naršymo istorija priverstinai importuojama iš esamos numatytosios naršyklės (jei įgalinta). Be to, jei įgalinta, ši politika turi įtakos importavimo dialogo langui.
 
@@ -2052,7 +2074,7 @@
 
           „<ph name="ALLOWED_TYPES" />“: nustačius šį nustatymą leidžiami plėtinio / programų, kuriuos galima įdiegti „<ph name="PRODUCT_NAME" />“, tipai įtraukiami į baltąjį sąrašą. Vertė – tai eilučių, kurių kiekviena turi būti vienos iš šių verčių: <ph name="VALID_ALLOWED_TYPES" />, sąrašas. Jei reikia daugiau informacijos apie šiuos tipus, žr. „<ph name="PRODUCT_NAME" />“ plėtinių dokumentus.
           „<ph name="BLOCKED_INSTALL_MESSAGE" />“: jei naudotojas bando įdiegti plėtinį, bet jis blokuojamas atsižvelgiant į politiką, „Chrome“ internetinėje parduotuvėje rodomas bendrosios klaidos pranešimas. Naudojant šį nustatymą galima pridėti teksto prie klaidos pranešimo. Tai gali būti naudojama naudotojams nukreipti į pagalbos centrą, paaiškinti, kodėl tam tikras plėtinys blokuojamas, ir kitais tikslais. Šis klaidos pranešimas bus sutrumpintas, jei bus ilgesnis nei 1 000 simbolių ilgio.
-          „<ph name="RUNTIME_BLOCKED_HOSTS" />“: priimamas prieglobos serverių, su kuriais bus blokuojamos plėtinio sąveikos, sąrašas. Tai apima „javascript“ įtraukimą, „webRequest“ / „webNavigation“ keitimą ir peržiūrą, slapukų peržiūrą ir keitimą. Formatas yra panašus į atitikties šablonus <ph name="LINK_TO_MATCH_PATTERNS" />, išskyrus tai, kad negalima nustatyti jokių kelių, pvz., „*://*.example.com“. aip pat palaikomi veiksmingi TLD pakaitos simboliai, pvz., „*://example.*“.
+          „<ph name="RUNTIME_BLOCKED_HOSTS" />“: priimamas prieglobos serverių, su kuriais bus blokuojamos plėtinio sąveikos, sąrašas. Tai apima „javascript“ įtraukimą, „webRequest“ / „webNavigation“ keitimą ir peržiūrą, slapukų peržiūrą ir keitimą. Formatas yra panašus į atitikties šablonus <ph name="LINK_TO_MATCH_PATTERNS" />, išskyrus tai, kad negalima nustatyti jokių kelių, pvz., „*://*.example.com“. Taip pat palaikomi veiksmingi TLD pakaitos simboliai, pvz., „*://example.*“.
           „<ph name="RUNTIME_ALLOWED_HOSTS" />“: priimamas prieglobos serverių, su kuriais plėtinys gali sąveikauti, sąrašas, neatsižvelgiant į tai, ar jie pateikiami sąraše „<ph name="RUNTIME_BLOCKED_HOSTS" />“. Sąrašas pateikiamas tokiu pačiu formatu kaip ir „<ph name="RUNTIME_BLOCKED_HOSTS" />“.
           </translation>
 <translation id="787125417158068494">Nustačius „SyncDisabled“ arba nesukonfigūravus, <ph name="PRODUCT_OS_NAME" /> sertifikatų nebus galima naudoti ARC programose.

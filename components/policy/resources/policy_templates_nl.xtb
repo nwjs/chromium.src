@@ -30,6 +30,7 @@
 
           Als deze instelling is uitgeschakeld of niet geconfigureerd, wordt de host voor ondersteuning op afstand uitgevoerd in de context van de gebruiker en kan de externe gebruiker geen vensters met een verhoogde bevoegdheid op de desktop gebruiken.</translation>
 <translation id="1096105751829466145">Standaardzoekprovider</translation>
+<translation id="1099282607296956954">Site-isolatie inschakelen voor elke site</translation>
 <translation id="1117535567637097036">De protocolhandlers die via dit beleid zijn ingesteld, worden niet gebruikt bij de verwerking van Android-intenties.</translation>
 <translation id="1122282995569868661">Hiermee geef je het werkbalkicoon van <ph name="PRODUCT_NAME" /> weer</translation>
 <translation id="1128903365609589950">Hiermee wordt de directory geconfigureerd die <ph name="PRODUCT_NAME" /> gebruikt om gecachte bestanden op schijf op te slaan.
@@ -712,6 +713,13 @@
 <translation id="332771718998993005">De naam bepalen die wordt geadverteerd als een bestemming van <ph name="PRODUCT_NAME" />.
 
           Als dit beleid is ingesteld op een niet-lege tekenreeks, wordt die tekenreeks gebruikt als de naam van de <ph name="PRODUCT_NAME" />-bestemming. Anders wordt de apparaatnaam gebruikt voor de bestemmingsnaam. Als dit beleid niet is ingesteld, is de naam van de bestemming de apparaatnaam en kan de eigenaar van het apparaat (of een gebruiker in het domein dat het apparaat beheert) deze naam wijzigen. De naam mag maximaal 24 tekens lang zijn.</translation>
+<translation id="3356249700768900657">
+      OPMERKING: Dit beleid is experimenteel en kan de functionaliteit verstoren.
+      Je kunt de beleidsinstelling IsolateOrigins bekijken om optimaal gebruik te maken van beide functies (isolatie en beperkte impact voor gebruikers) door IsolateOrigins te gebruiken met een lijst van de sites die je wilt isoleren. Met deze instelling (SitePerProcess) worden alle sites geïsoleerd.
+      Als het beleid is ingeschakeld, wordt elke site uitgevoerd in een eigen proces.
+      Als het beleid is uitgeschakeld, wordt de procesbeheerlogica die voorafgaat aan site-isolatie van kracht.
+      Als het beleid niet is geconfigureerd, kan de gebruiker deze instelling wijzigen.
+      </translation>
 <translation id="3381968327636295719"> gebruiken</translation>
 <translation id="3395348522300156660">Hiermee worden de printers gespecificeerd die een gebruiker kan gebruiken.
 
@@ -1090,6 +1098,7 @@
           Ga voor voorbeeldpatronen naar https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Een lijst met URL's openen</translation>
 <translation id="4680961954980851756">Automatisch aanvullen inschakelen</translation>
+<translation id="4722122254122249791">Site-isolatie inschakelen voor gespecificeerde herkomsten</translation>
 <translation id="4722399051042571387">Als dit is ingesteld op 'false' (onwaar), kunnen gebruikers geen pincodes instellen die als zwak worden beschouwd en gemakkelijk kunnen worden geraden.
 
           Enkele voorbeelden van zwakke pincodes: pincodes die slechts één cijfer bevatten (1111), pincodes met een oplopende cijferreeks (1234), pincodes met een aflopende cijferreeks (4321) en pincodes die te algemeen zijn.
@@ -1164,6 +1173,12 @@
 <translation id="4980635395568992380">Gegevenstype:</translation>
 <translation id="4983201894483989687">Verouderde plug-ins toestaan die actief zijn</translation>
 <translation id="4988291787868618635">Actie die wordt ondernomen wanneer de inactieve vertraging wordt bereikt</translation>
+<translation id="5027819375434797927">
+      OPMERKING: Dit beleid is experimenteel en kan de functionaliteit verstoren.
+      Als het beleid is ingeschakeld, wordt elk van de benoemde herkomsten in een door komma's gescheiden lijst uitgevoerd in een eigen proces. Hiermee worden ook herkomsten geïsoleerd die worden benoemd door subdomeinen (als je https://example.com/ specificeert, wordt ook https://foo.example.com/ geïsoleerd als onderdeel van de site https://example.com/).
+      Als het beleid is uitgeschakeld, wordt de procesbeheerlogica die voorafgaat aan site-isolatie van kracht.
+      Als het beleid niet is geconfigureerd, kan de gebruiker deze instelling wijzigen.
+      </translation>
 <translation id="5047604665028708335">Toegang toestaan tot sites die zich niet in de inhoudspakketten bevinden</translation>
 <translation id="5052081091120171147">Indien ingeschakeld, wordt met dit beleid afgedwongen dat de browsergeschiedenis wordt geïmporteerd uit de huidige standaardbrowser. Als het beleid is ingeschakeld, is dit ook van invloed op het dialoogvenster voor importeren.
 

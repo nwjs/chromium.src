@@ -1012,7 +1012,7 @@
 <translation id="2570000010887652771">Заощадження трафіку.</translation>
 <translation id="2570648609346224037">Під час завантаження образу для відновлення виникла проблема.</translation>
 <translation id="257088987046510401">Теми</translation>
-<translation id="2571964818629181240">Закрити Firefox перед імпортуванням</translation>
+<translation id="2571964818629181240">Закрити Firefox перед імпортом</translation>
 <translation id="2572032849266859634">Надано доступ лише для перегляду (<ph name="VOLUME_NAME" />).</translation>
 <translation id="2573269395582837871">Виберіть зображення та ім’я</translation>
 <translation id="2574102660421949343">Файли cookie з домену <ph name="DOMAIN" /> дозволено.</translation>
@@ -1065,7 +1065,7 @@
 <translation id="2642111877055905627">Футбольний м’яч</translation>
 <translation id="2643698698624765890">Керуйте своїми розширеннями, натиснувши вкладку "Розширення" в меню Window (Вікно).</translation>
 <translation id="2647142853114880570">оновити</translation>
-<translation id="2647269890314209800">Файли cookie, що використовуються</translation>
+<translation id="2647269890314209800">Активні файли cookie</translation>
 <translation id="2648831393319960979">Додавання пристрою в обліковий запис. Це може тривати деякий час…</translation>
 <translation id="2649045351178520408">ASCII Base64-кодування, ланцюжок сертифікатів</translation>
 <translation id="2653266418988778031">Якщо видалити сертифікат Центру сертифікації (ЦС), ваш веб-переглядач більше не буде довіряти жодному сертифікату, виданому цим ЦС.</translation>
@@ -1116,7 +1116,7 @@
 <translation id="2715751256863167692">Це оновлення скидає налаштування Chromebook і вилучає дані поточного користувача.</translation>
 <translation id="2718395828230677721">Нічний режим</translation>
 <translation id="2718998670920917754">Антивірусне програмне забезпечення виявило вірус.</translation>
-<translation id="2719936478972253983">Заблоковано такі файли cookie:</translation>
+<translation id="2719936478972253983">Заблоковані файли cookie</translation>
 <translation id="2721037002783622288">Шукати зображення в <ph name="SEARCH_ENGINE" /></translation>
 <translation id="2721334646575696520">Microsoft Edge</translation>
 <translation id="2721695630904737430">Ваш адміністратор вимкнув контрольованих користувачів.</translation>
@@ -2268,7 +2268,7 @@
 <translation id="4514542542275172126">Створити нового контрольованого користувача</translation>
 <translation id="451515744433878153">Видалити</translation>
 <translation id="4518677423782794009">Chrome припиняє роботу, показує незвичні початкові сторінки, панелі інструментів або неочікувані оголошення, яких ви не можете позбутися, тощо? Можливо, вам удасться вирішити цю проблему за допомогою Майстра очищення Chrome.</translation>
-<translation id="4520385623207007473">Файли cookie, що використовуються</translation>
+<translation id="4520385623207007473">Активні файли cookie</translation>
 <translation id="452039078290142656">невідомі пристрої від постачальника <ph name="VENDOR_NAME" /></translation>
 <translation id="4522570452068850558">Деталі</translation>
 <translation id="4530494379350999373">Походження</translation>
@@ -2422,7 +2422,7 @@
 <translation id="4759238208242260848">Завантаження</translation>
 <translation id="4761104368405085019">Використовувати ваш мікрофон</translation>
 <translation id="4762718786438001384">На диску пристрою дуже мало вільного місця</translation>
-<translation id="4763408175235639573">Коли ви переглядали цю сторінку, було створено такі файли cookie:</translation>
+<translation id="4763408175235639573">Файли cookie, створені під час перегляду сторінки</translation>
 <translation id="4763830802490665879">Файли cookie з багатьох сайтів буде очищено під час виходу.</translation>
 <translation id="4768332406694066911">Вас ідентифікують сертифікати від цих організацій</translation>
 <translation id="4776917500594043016">Пароль користувача  <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -2801,7 +2801,7 @@
 <translation id="5337771866151525739">Встановлено третьою стороною.</translation>
 <translation id="5338503421962489998">Локальна пам’ять</translation>
 <translation id="5340217413897845242">Елемент полиці 6</translation>
-<translation id="5341793073192892252">Заблоковано такі файли cookie (сторонні файли cookie блокуються без винятку):</translation>
+<translation id="5341793073192892252">Заблоковані файли cookie (сторонні файли cookie блокуються без винятку)</translation>
 <translation id="5341980496415249280">Пакування. Зачекайте…</translation>
 <translation id="5342091991439452114">Мінімальна кількість цифр у PIN-коді: <ph name="MINIMUM" /></translation>
 <translation id="534916491091036097">Ліва дужка</translation>

@@ -30,6 +30,7 @@
 
           Jika tetapan ini dilumpuhkan atau tidak dikonfigurasi, hos bantuan jauh akan dijalankan dalam konteks pengguna dan pengguna jauh tidak boleh berinteraksi dengan tetingkap ternaik pada desktop.</translation>
 <translation id="1096105751829466145">Pembekal carian lalai</translation>
+<translation id="1099282607296956954">Dayakan Pengasingan Tapak untuk setiap tapak</translation>
 <translation id="1117535567637097036">Pengendali protokol yang ditetapkan melalui dasar ini tidak digunakan semasa mengendalikan niat Android.</translation>
 <translation id="1122282995569868661">Menunjukkan ikon bar alat <ph name="PRODUCT_NAME" /></translation>
 <translation id="1128903365609589950">Mengkonfigurasi direktori yang akan digunakan oleh <ph name="PRODUCT_NAME" /> untuk menyimpan fail cache pada cakera.
@@ -712,6 +713,16 @@
 <translation id="332771718998993005">Tentukan nama yang diiklankan sebagai destinasi <ph name="PRODUCT_NAME" />.
 
           Jika dasar ini ditetapkan kepada rentetan tidak kosong, rentetan itu akan digunakan sebagai nama bagi destinasi <ph name="PRODUCT_NAME" />. Jika tidak, nama peranti akan dijadikan nama destinasi. Jika dasar ini tidak ditetapkan, nama peranti akan dijadikan nama destinasi dan pemilik peranti (atau pengguna daripada domain yang mengurus peranti tersebut) akan dibenarkan untuk menukar nama itu. Nama dihadkan kepada 24 aksara.</translation>
+<translation id="3356249700768900657">
+      NOTA: Dasar ini adalah percubaan dan mungkin keluar daripada fungsi!
+      Anda mungkin ingin melihat pada tetapan dasar IsolateOrigins untuk mendapatkan
+      yang terbaik daripada kedua-duanya, pengasingan dan impak terhad untuk
+      pengguna dengan menggunakan IsolateOrigins yang mempunyai senarai
+      tapak yang hendak diasingkan. Tetapan SitePerProcess ini mengasingkan semua tapak.
+      Jika dasar ini didayakan, setiap tapak akan menjalankannya dalam prosesnya sendiri.
+      Jika dasar ini dilumpuhkan, logik pengurusan proses Pengasingan pra-Tapak akan berkuat kuasa.
+      Jika dasar tidak dikonfiguraskan, pengguna akan dapat mengubah tetapan ini.
+      </translation>
 <translation id="3381968327636295719">Gunakan penyemak imbas hos secara lalai</translation>
 <translation id="3395348522300156660">Menentukan pencetak yang boleh digunakan oleh pengguna.
 
@@ -1090,6 +1101,7 @@
           Untuk melihat contoh pola, lawati http://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Buka senarai URL</translation>
 <translation id="4680961954980851756">Dayakan Auto Isi</translation>
+<translation id="4722122254122249791">Dayakan Pengasingan Tapak untuk asal yang ditentukan</translation>
 <translation id="4722399051042571387">Jika palsu, pengguna tidak akan dapat menetapkan PIN yang lemah dan mudah diteka.
 
           Beberapa contoh PIN yang lemah: PIN yang mengandungi hanya satu angka (1111), PIN dengan nombor yang ditokok 1 (1234), PIN dengan nombor yang ditolak 1 (4321) dan PIN yang biasa digunakan.
@@ -1168,6 +1180,16 @@
 <translation id="4980635395568992380">Jenis data:</translation>
 <translation id="4983201894483989687">Benarkan pemalam yang lapuk dijalankan</translation>
 <translation id="4988291787868618635">Tindakan yang perlu diambil apabila kelewatan melahu dicapai</translation>
+<translation id="5027819375434797927">
+      NOTA: Dasar ini adalah percubaan dan mungkin keluar daripada fungsi!
+      Jika dasar ini didayakan, setiap asal yang dinamakan dalam senarai yang
+      dipisahkan koma akan berjalan dalam prosesnya sendiri. Proses ini turut
+      akan mengasingkan asal yang dinamakan oleh subdomain; misalnya menentukan https://example.com/ akan
+      turut menyebabkan https://foo.example.com/ diasingkan sebagai sebahagian daripada
+      tapak https://example.com/.
+      Jika dasar ini dilumpuhkan, logik pengurusan proses Pengasingan pra-Tapak akan berkuat kuasa.
+      Jika dasar tidak dikonfiguraskan, pengguna akan dapat mengubah tetapan ini.
+      </translation>
 <translation id="5047604665028708335">Benarkan akses ke tapak di luar pek kandungan</translation>
 <translation id="5052081091120171147">Jika didayakan, dasar ini memaksa sejarah penyemakan imbas diimport dari penyemak imbas lalai semasa. Jika didayakan, dasar ini juga memberikan kesan terhadap dialog import.
 

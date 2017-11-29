@@ -30,6 +30,7 @@
 
           Ist diese Einstellung deaktiviert oder nicht konfiguriert, läuft der Host für Remote-Unterstützung nur im Nutzerbereich. Remote-Nutzer können nicht mit geöffneten Fenstern auf dem Desktop arbeiten.</translation>
 <translation id="1096105751829466145">Standardsuchmaschine</translation>
+<translation id="1099282607296956954">Website-Isolierung für jede Website aktivieren</translation>
 <translation id="1117535567637097036">Die über diese Richtlinie festgelegten Protokoll-Handler werden bei der Verarbeitung von Android-Intents nicht verwendet.</translation>
 <translation id="1122282995569868661">Zeigt das Toolbar-Symbol für <ph name="PRODUCT_NAME" /></translation>
 <translation id="1128903365609589950">Konfiguriert das Verzeichnis, in dem die Cachedateien von <ph name="PRODUCT_NAME" /> auf dem Datenträger gespeichert werden.
@@ -677,6 +678,21 @@ Falls die Richtlinie auf "false" gesetzt wird, kann eine verzögerungsfreie auto
 <translation id="332771718998993005">Hiermit wird der Name von <ph name="PRODUCT_NAME" />-Zielen festgelegt.
 
           Wird für diese Richtlinie ein nicht-leerer String definiert, dann wird dieser als Name für das <ph name="PRODUCT_NAME" />-Ziel verwendet. Andernfalls wird der Gerätename als Zielname verwendet. Ist diese Richtlinie nicht definiert, wird der Gerätename als Zielname verwendet und der Geräteeigentümer oder ein Nutzer der Domain, von der das Gerät verwaltet wird, hat die Möglichkeit, den Namen zu ändern. Der Name darf maximal 24 Zeichen enthalten.</translation>
+<translation id="3356249700768900657">
+      HINWEIS: Diese Richtlinie ist experimentell und kann die Funktionalität
+      beeinträchtigen!
+      Sie sollten sich die IsolateOrigins-Richtlinieneinstellung ansehen, um die
+      Auswirkungen auf die Nutzer bei der Isolierung von Websites
+      gering zu halten. Verwenden Sie dazu IsolateOrigins mit einer
+      Liste von Websites, die Sie isolieren möchten. Mit der Einstellung
+      "SitePerProcess" werden alle Websites isoliert.
+      Wenn die Richtlinie aktiviert ist, wird auf jeder Website ein eigener Prozess
+      ausgeführt.
+      Wenn die Richtlinie deaktiviert ist, wird die Prozessverwaltungslogik vor der
+      Website-Isolierung übernommen.
+      Wenn die Richtlinie nicht konfiguriert ist, kann der Nutzer diese Einstellung
+      ändern.
+      </translation>
 <translation id="3381968327636295719">Standardmäßig Host-Browser verwenden</translation>
 <translation id="3395348522300156660">Gibt die Drucker an, die ein Nutzer verwenden kann.
 
@@ -718,13 +734,13 @@ Wenn diese Einstellung auf "Aus" oder kein Wert festgelegt wird, wird der einges
           Diese Richtlinie wird nur berücksichtigt, wenn die Richtlinie "DefaultSearchProviderEnabled" aktiviert ist.</translation>
 <translation id="350797926066071931">Übersetzung aktivieren</translation>
 <translation id="3512226956150568738">Wenn das Client-Gerätemodell ARC bereits unterstützt hat, bevor die Migration zu ext4 für die ARC-Ausführung erforderlich war, verhält sich diese Option so, als ob "AskUser" (Wert 3) festgelegt wurde. Beachten Sie, dass die ArcEnabled-Richtlinie hierbei auf "true" festgelegt werden muss. In allen anderen Fällen entspricht dieser Wert "DisallowArc" (Wert 0) – beispielsweise, wenn das Gerätemodell ARC zuvor nicht unterstützt hat, oder wenn die ArcEnabled-Richtlinie auf "false" gesetzt wird.</translation>
-<translation id="3519432185185398282">Konfiguriert Verfügbarkeit und Verhalten der Updatefunktion von TPM-Firmware.
+<translation id="3519432185185398282">Konfiguriert Verfügbarkeit und Verhalten der Updatefunktion für die TPM-Firmware.
 
       Einzelne Einstellungen können in den JSON-Eigenschaften festgelegt werden:
 
       <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH" />: Wenn diese Richtlinie auf <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_ALLOW_USER_INITIATED_POWERWASH_TRUE" /> gesetzt ist, können Nutzer mithilfe von Powerwash ein Update der TPM-Firmware installieren.
 
-      Wenn diese Richtlinie nicht festgelegt ist, ist die Updatefunktion von TPM-Firmware nicht verfügbar.</translation>
+      Wenn diese Richtlinie nicht festgelegt ist, ist die Updatefunktion für die TPM-Firmware nicht verfügbar.</translation>
 <translation id="3528000905991875314">Alternative Fehlerseiten aktivieren</translation>
 <translation id="3547954654003013442">Proxy-Einstellungen</translation>
 <translation id="3591584750136265240">Verhalten der Log-in-Authentifizierung konfigurieren</translation>
@@ -1032,6 +1048,7 @@ Wenn die Richtlinie auf "FALSE" gesetzt oder nicht festgelegt wird, führt die T
           Beispielmuster finden Sie unter https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">URL-Liste öffnen</translation>
 <translation id="4680961954980851756">AutoFill aktivieren</translation>
+<translation id="4722122254122249791">Website-Isolierung für angegebene Ursprünge aktivieren</translation>
 <translation id="4722399051042571387">Wenn "false" eingestellt ist, können Nutzer keine schwache PIN festlegen, die leicht zu erraten ist.
 
           Beispiele für schwache PINs: PINs, die nur aus einer Ziffer bestehen (1111), PINs, die eine Zahlenfolge enthalten, bei der die Zahlen stets um 1 erhöht werden (1234), PINs, die eine Zahlenfolge enthalten, bei der die Zahlen stets um 1 verringert werden (4321) und PINs, die häufig genutzt werden.
@@ -1111,6 +1128,19 @@ Falls die Richtlinie auf "false" gesetzt wird, werden Anfragen für Bildschirm-W
 <translation id="4980635395568992380">Datentyp:</translation>
 <translation id="4983201894483989687">Ausführung veralteter Plug-ins zulassen</translation>
 <translation id="4988291787868618635">Auszuführende Aktion bei Erreichen der Inaktivitätsverzögerung</translation>
+<translation id="5027819375434797927">
+      HINWEIS: Diese Richtlinie ist experimentell und kann die Funktionalität
+      beeinträchtigen!
+      Wenn die Richtlinie aktiviert ist, wird für jeden der benannten Ursprünge in
+      einer durch Kommas getrennten Liste ein eigener Prozess ausgeführt.
+      Dadurch werden auch durch Subdomains benannte Ursprünge isoliert; z. B.
+      wenn Sie https://example.com/ angeben, wird auch
+      https://foo.example.com/ als Teil der Website https://example.com/ isoliert.
+      Wenn die Richtlinie deaktiviert ist, wird die Prozessverwaltungslogik vor der
+      Website-Isolierung übernommen.
+      Wenn die Richtlinie nicht konfiguriert ist, kann der Nutzer diese Einstellung
+      ändern.
+      </translation>
 <translation id="5047604665028708335">Zugriff auf Websites außerhalb von Inhaltspaketen erlauben</translation>
 <translation id="5052081091120171147">Diese Richtlinie erzwingt, sofern aktiv, den Import des Browserverlaufs aus dem aktuellen Standardbrowser. Ist die Richtlinie aktiviert, wirkt sie sich auch auf den Importdialog aus. Wenn sie deaktiviert ist, erfolgt kein Import des Browserverlaufs. Sollte sie nicht konfiguriert sein, so wird der Nutzer möglicherweise gefragt, ob ein Import erfolgen soll, oder der Import findet automatisch statt.</translation>
 <translation id="5056708224511062314">Lupe deaktiviert</translation>
@@ -1923,7 +1953,7 @@ Die folgenden Einstellungen können nur für die Standardkonfiguration von <ph n
 
 <ph name="ALLOWED_TYPES" />: Mit dieser Einstellung werden die zulässigen Typen von Erweiterungen/Apps, die in <ph name="PRODUCT_NAME" /> installiert werden können, auf die weiße Liste gesetzt. Jeder Wert besteht aus einer Liste mit folgenden Strings: <ph name="VALID_ALLOWED_TYPES" />. Weitere Informationen zu diesen Typen finden Sie in der Dokumentation zu den Erweiterungen in <ph name="PRODUCT_NAME" />.
 <ph name="BLOCKED_INSTALL_MESSAGE" />: Wenn der Nutzer versucht, eine Erweiterung zu installieren, die von der Richtlinie blockiert wird, wird im Chrome Web Store eine allgemeine Fehlermeldung angezeigt. Mit dieser Einstellung können Sie den Text der Fehlermeldung ergänzen. So können Sie beispielsweise Nutzer an Ihren Helpdesk verweisen oder eine Erklärung für den Grund der Richtlinienblockierung einfügen. Wenn die Fehlermeldung mehr als 1.000 Zeichen lang ist, wird sie abgeschnitten.
-<ph name="RUNTIME_BLOCKED_HOSTS" />: Lässt eine Liste von Hosts zu, mit denen eine Erweiterung nicht interagieren kann. Dazu gehören das Einfügen von JavaScript, das Ändern oder Aufrufen von webRequests/webNavigation sowie das Aufrufen oder Ändern von Cookies. Das Format ähnelt den Übereinstimmungsmustern (siehe <ph name="LINK_TO_MATCH_PATTERNS" />), allerdings müssen keine Pfade wie "*://*.example.com" angegeben werden. Dadurch werden auch effektive TLD-Platzhalter wie "*://example.*" unterstützt.
+<ph name="RUNTIME_BLOCKED_HOSTS" />: Lässt eine Liste von Hosts zu, mit denen eine Erweiterung nicht interagieren kann. Dazu gehören das Einfügen von JavaScript, das Ändern oder Aufrufen von webRequests/webNavigation sowie das Aufrufen oder Ändern von Cookies. Das Format ähnelt den Übereinstimmungsmustern (siehe <ph name="LINK_TO_MATCH_PATTERNS" />), allerdings müssen keine Pfade wie "*://*.ihrewebsite.bsp" angegeben werden. Dadurch werden auch effektive TLD-Platzhalter wie "*://ihrewebsite.*" unterstützt.
 <ph name="RUNTIME_ALLOWED_HOSTS" />: Lässt eine Liste von Hosts zu, mit denen eine Erweiterung interagieren kann, auch wenn diese nicht unter <ph name="RUNTIME_BLOCKED_HOSTS" /> aufgeführt sind. Das Format ist mit <ph name="RUNTIME_BLOCKED_HOSTS" /> identisch.
           </translation>
 <translation id="787125417158068494"><ph name="PRODUCT_OS_NAME" />-Zertifikate sind nicht für ARC-Apps verfügbar, wenn "SyncDisabled" festgelegt wurde oder die Zertifikate nicht konfiguriert wurden.

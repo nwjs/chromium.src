@@ -30,6 +30,7 @@
 
           Kui seade on keelatud või seadistamata, käitatakse kaugabi hosti kasutaja kontekstis ja kaugkasutajad ei saa töölaual suhelda administraatoriõigusi nõudvate akendega.</translation>
 <translation id="1096105751829466145">Vaikeotsingupakkuja</translation>
+<translation id="1099282607296956954">Saidi isoleerimise lubamine igal saidil</translation>
 <translation id="1117535567637097036">Selle reegliga määratud protokollitöötlejaid Androidi kavatsuste käsitlemisel ei kasutata.</translation>
 <translation id="1122282995569868661">Kuvatakse teenuse <ph name="PRODUCT_NAME" /> tööriistariba ikoon</translation>
 <translation id="1128903365609589950">Seadistab kataloogi, mida <ph name="PRODUCT_NAME" /> kasutab vahemälus olevate failide kettale salvestamiseks.
@@ -710,6 +711,16 @@
 <translation id="332771718998993005">Määratakse nimi, mida esitatakse teenuse <ph name="PRODUCT_NAME" /> sihtkohana.
 
           Kui selle reegli väärtuseks määratakse mõni täidetud string, kasutatakse seda stringi teenuse <ph name="PRODUCT_NAME" /> sihtkohana. Muul juhul on sihtkoha nimeks seadme nimi. Kui see reegel jäetakse määramata, on sihtkoha nimeks seadme nimi ja seadme omanik (või seadet haldava domeeni kasutaja) saab seda muuta. Nimi tohib olla maksimaalselt 24 tähemärki.</translation>
+<translation id="3356249700768900657">
+      MÄRKUS. See reegel on katseline ja funktsioonid ei pruugi töötada.
+      Soovitame teil vaadata reegli IsolateOrigins seadet, et kasutada
+      nii isoleerimist kui ka piirata mõju kasutajate jaoks, kasutades reeglit
+      IsolateOrigins saitide puhul, mille soovite isoleerida. Seade
+      SitePerProcess isoleerib kõik saidid.
+      Kui reegel on lubatud, käitab iga sait siiski oma protsesse.
+      Kui reegel on keelatud, jõustub saidi isoleerimise eelse protsessihalduse loogika.
+      Kui reegel on seadistamata, saab kasutaja seda seadet muuta.
+      </translation>
 <translation id="3381968327636295719">Kasuta vaikimisi hostbrauserit</translation>
 <translation id="3395348522300156660">Määrab printerid, mida kasutaja saab kasutada.
 
@@ -1083,6 +1094,7 @@
           Vaadake näidismustreid aadressilt http://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Ava URL-ide loend</translation>
 <translation id="4680961954980851756">Luba automaatne täitmine</translation>
+<translation id="4722122254122249791">Saidi isoleerimise lubamine konkreetsete lähtekohtade puhul</translation>
 <translation id="4722399051042571387">Kui see on vale, ei saa kasutajad määrata PIN-koode, mis on nõrgad ja hõlpsalt äraarvatavad.
 
           Mõned nõrga PIN-koodi näited: PIN-koodid, mis sisaldavad ainult ühte numbrit (1111); PIN-koodid, milles olevad numbrid suurenevad ühe võrra (1234); PIN-koodid, milles olevad numbrid vähenevad ühe võrra (4321); sageli kasutatavad PIN-koodid.
@@ -1162,6 +1174,16 @@
 <translation id="4980635395568992380">Andmetüüp:</translation>
 <translation id="4983201894483989687">Luba vananenud pistikprogrammide käitamine</translation>
 <translation id="4988291787868618635">Tehtav toiming, kui möödub jõudeoleku viiteaeg</translation>
+<translation id="5027819375434797927">
+      MÄRKUS. See reegel on katseline ja funktsioonid ei pruugi töötada.
+      Kui reegel on lubatud, käitab iga komadega eraldatud loendis
+      nimetatud lähtekoht oma protsesse. See isoleerib ka
+      alamdomeenide nimetatud lähtekohad; nt määrates aadressi https://example.com/
+      isoleeritakse ka aadress https://foo.example.com/ saidi
+      https://example.com/ osana.
+      Kui reegel on keelatud, jõustub saidi isoleerimise eelse protsessihalduse loogika.
+      Kui reegel on seadistamata, saab kasutaja seda seadet muuta.
+      </translation>
 <translation id="5047604665028708335">Sisupakettidest väljaspool olevatele saitidele juurdepääsu lubamine</translation>
 <translation id="5052081091120171147">Selle reegli lubamisel imporditakse sirvimisajalugu praegusest vaikebrauserist. Lubamisel mõjutab reegel ka importimisdialoogi.
 

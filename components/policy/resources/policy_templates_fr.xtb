@@ -30,6 +30,7 @@
 
           Si ce paramètre est désactivé ou non configuré, l'hôte d'assistance à distance est exécuté dans le contexte de l'utilisateur et les utilisateurs distants ne peuvent pas interagir avec des fenêtres élevées sur le Bureau.</translation>
 <translation id="1096105751829466145">Moteur de recherche par défaut</translation>
+<translation id="1099282607296956954">Activer l'isolation des sites pour tous les sites</translation>
 <translation id="1117535567637097036">Les gestionnaires de protocoles définis par cette règle ne sont pas utilisés pour gérer les intents Android.</translation>
 <translation id="1122282995569868661">Affiche l'icône de la barre d'outils <ph name="PRODUCT_NAME" /></translation>
 <translation id="1128903365609589950">Cette règle permet de configurer le répertoire utilisé par <ph name="PRODUCT_NAME" /> pour stocker les fichiers mis en cache sur le disque.
@@ -722,6 +723,16 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
 <translation id="332771718998993005">Détermine le nom de la destination <ph name="PRODUCT_NAME" />.
 
           Si cette règle est définie sur une chaîne non vide, cette chaîne devient le nom de la destination <ph name="PRODUCT_NAME" />. Sinon, le nom de la destination est le nom de l'appareil. Si cette règle n'est pas définie, le nom de la destination est celui de l'appareil, et le propriétaire de l'appareil (ou un utilisateur du domaine gérant l'appareil) peut le modifier. Le nom est limité à 24 caractères.</translation>
+<translation id="3356249700768900657">
+      REMARQUE : Il s'agit d'une règle expérimentale qui peut bloquer certaines fonctionnalités.
+      Nous vous conseillons d'examiner le paramètre de la règle IsolateOrigins pour obtenir
+      le meilleur résultat, c'est-à-dire l'isolation avec un impact limité sur les utilisateurs, et d'utiliser
+      IsolateOrigins avec une liste des sites que vous souhaitez isoler. Le paramètre
+      SitePerProcess isole tous les sites.
+      Si cette règle est activée, chaque site exécute son propre processus.
+      Si elle est désactivée, la logique préliminaire de gestion du processus d'isolation de site prend effet.
+      Si elle n'est pas configurée, l'utilisateur peut modifier ce paramètre.
+      </translation>
 <translation id="3381968327636295719">Utiliser le navigateur hôte par défaut</translation>
 <translation id="3395348522300156660">Indique les imprimantes qu'un utilisateur peut employer.
 
@@ -1102,6 +1113,7 @@ Si cette règle n'est pas configurée, la valeur par défaut globale est utilis�
           Pour voir des exemples de formats, accédez à l'adresse https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Ouvrir une liste d'URL</translation>
 <translation id="4680961954980851756">Activer la saisie automatique</translation>
+<translation id="4722122254122249791">Activer l'isolation des sites pour des origines définies</translation>
 <translation id="4722399051042571387">Si la règle est configurée sur "false", les utilisateurs ne pourront pas définir un code faible et facile à deviner.
 
           Quelques exemples de codes faibles : ceux qui ne contiennent qu'un chiffre (1111), les suites de chiffres croissantes (1234) et décroissantes (4321), et les codes trop communs.
@@ -1180,6 +1192,17 @@ Si cette règle n'est pas configurée, la valeur par défaut globale est utilis�
 <translation id="4980635395568992380">Type de données :</translation>
 <translation id="4983201894483989687">Autoriser l'exécution de plug-ins obsolètes</translation>
 <translation id="4988291787868618635">Action à effectuer au terme du délai d'inactivité</translation>
+<translation id="5027819375434797927">
+      REMARQUE : Il s'agit d'une règle expérimentale qui peut bloquer certaines fonctionnalités.
+      Si cette règle est activée, chacune des origines définies et répertoriées dans
+      une liste d'éléments séparés par des virgules exécute son propre processus. Elle isole également
+      les origines par sous-domaines. Par exemple, si vous indiquez
+      "https://example.com/",
+      https://foo.example.com/ est également isolé en tant que partie du site
+      https://example.com/.
+      Si cette règle est désactivée, la logique préliminaire de gestion du processus d'isolation de site prend effet.
+      Si cette règle n'est pas configurée, l'utilisateur peut modifier ce paramètre.
+      </translation>
 <translation id="5047604665028708335">Autoriser l'accès aux sites en dehors des packs de contenu</translation>
 <translation id="5052081091120171147">Lorsqu'elle est activée, cette règle force l'importation de l'historique de navigation à partir du navigateur par défaut actuel. Si elle est activée, elle affecte également la boîte de dialogue d'importation. 
 

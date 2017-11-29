@@ -30,6 +30,7 @@ Pokud je nastavena na hodnotu true nebo nastavena není, statistiky hlášeny bu
 
           Pokud je toto nastavení vypnuto nebo není nakonfigurováno, hostitel vzdálené pomoci poběží v kontextu uživatele a vzdálení uživatelé na počítači nebudou moci provádět interakci s okny, která vyžadují zvýšená oprávnění.</translation>
 <translation id="1096105751829466145">Výchozí poskytovatel vyhledávání</translation>
+<translation id="1099282607296956954">Aktivace izolace webů u všech webů</translation>
 <translation id="1117535567637097036">Obslužné nástroje protokolů nastavené pomocí této zásady se nepoužívají při zpracovávání zpráv Intent systému Android.</translation>
 <translation id="1122282995569868661">Zobrazuje ikonu <ph name="PRODUCT_NAME" /> na panelu nástrojů</translation>
 <translation id="1128903365609589950">Slouží ke konfiguraci adresáře, který bude <ph name="PRODUCT_NAME" /> používat k ukládání souborů do mezipaměti na disku.
@@ -693,6 +694,17 @@ Pokud tuto zásadu nenastavíte, použije se pro všechny webové stránky glob�
 <translation id="332771718998993005">Určuje název uváděný jako cíl služby <ph name="PRODUCT_NAME" />.
 
           Je-li tato zásada nastavena na neprázdný řetězec, bude jako název cíle služby <ph name="PRODUCT_NAME" /> použit příslušný řetězec. V opačném případě bude jako název cíle použit název zařízení. Pokud tato zásada není nastavena, bude jako název cíle použit název zařízení a vlastník zařízení (nebo uživatel z domény, která zařízení spravuje) jej bude moci změnit. Název smí mít maximálně 24 znaků.</translation>
+<translation id="3356249700768900657">
+      POZNÁMKA: Tato zásada je experimentální a může narušit fungování!
+      Chcete-li využívat výhody obou možností (izolace a omezení vlivu
+      na uživatele), můžete použít nastavení zásady IsolateOrigins
+      a aplikovat zásadu v kombinaci se seznamem webů, které chcete
+      izolovat. Nastavení SitePerProcess izoluje všechny weby.
+      Pokud je tato zásada povolena, každý web bude spouštěn ve vlastním procesu.
+      Pokud je tato zásada zakázána, bude použita logika správy procesů
+      pro předběžnou izolaci webů.
+      Pokud tato zásada není nakonfigurována, uživatel může toto nastavení změnit.
+      </translation>
 <translation id="3381968327636295719">Používat ve výchozím nastavení hostitelský prohlížeč</translation>
 <translation id="3395348522300156660">Určuje, které tiskárny uživatel může používat.
 
@@ -735,7 +747,7 @@ Pokud tuto zásadu nenastavíte, použije se pro všechny webové stránky glob�
           Tato zásada je respektována pouze v případě, že je aktivována zásada DefaultSearchProviderEnabled.</translation>
 <translation id="350797926066071931">Aktivovat Překladač</translation>
 <translation id="3512226956150568738">Pokud model zařízení klienta podporoval ARC již předtím, než kvůli spuštění ARC bylo potřeba migrovat na ext4, a zásada ArcEnabled je nastavena na hodnotu true, bude se tato možnost chovat jako AskUser (hodnota 3). Ve všech ostatních případech (model zařízení dříve ARC nepodporoval nebo je zásada ArcEnabled nastavena na hodnotu false) se tato možnost bude chovat jako DisallowArc (hodnota 0).</translation>
-<translation id="3519432185185398282">Slouží ke konfigurace dostupnosti a chování funkce aktualizace firmwaru TPM.
+<translation id="3519432185185398282">Slouží ke konfiguraci dostupnosti a chování funkce aktualizace firmwaru TPM.
 
       Jednotlivá nastavení lze zadat ve vlastnostech objektu JSON:
 
@@ -1065,6 +1077,7 @@ Samotná zásada je na výše uvedených platformách podporována. Funkce, kter
           Ukázkové vzory naleznete na stránce https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Otevřít seznam adres URL</translation>
 <translation id="4680961954980851756">Aktivovat Automatické vyplňování</translation>
+<translation id="4722122254122249791">Aktivace izolace webů u určených zdrojů</translation>
 <translation id="4722399051042571387">Pokud je tato zásada nastavena na hodnotu false, uživatelé nebudou moci nastavit PIN, který je slabý a lze jej snadno uhodnout.
 
           Příklady slabých kódů PIN: PIN tvořený pouze jednou opakující se číslicí (1111), PIN se vzestupnou nebo sestupnou řadou číslic (1234 nebo 4321), často používané kódy PIN.
@@ -1142,6 +1155,16 @@ Pokud ji ponecháte nenastavenou, velký kurzor bude ve výchozím nastavení de
 <translation id="4980635395568992380">Typ údajů:</translation>
 <translation id="4983201894483989687">Povolit spouštění zastaralých pluginů</translation>
 <translation id="4988291787868618635">Akce prováděná po určité době nečinnosti</translation>
+<translation id="5027819375434797927">
+      POZNÁMKA: Tato zásada je experimentální a může narušit fungování!
+      Pokud je tato zásada povolena, každý z uvedených zdrojů na seznamu
+      odděleném čárkami bude spouštěn ve vlastním procesu. Také budou izolovány
+      zdroje uvedené v subdoménách; např. pokud zadáte web https://example.com/,
+      bude izolována také subdoména https://foo.example.com/, která je jeho součástí.
+      Pokud je tato zásada zakázána, bude použita logika správy procesů
+      pro předběžnou izolaci webů.
+      Pokud tato zásada není nakonfigurována, uživatel může toto nastavení změnit.
+      </translation>
 <translation id="5047604665028708335">Povolit přístup k webům mimo obsahové balíčky</translation>
 <translation id="5052081091120171147">Je-li tato zásada aktivovaná, vynucuje import historie procházení z aktuálního výchozího prohlížeče. Aktivace této zásady má také vliv na dialogové okno importu
      

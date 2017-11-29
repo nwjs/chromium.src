@@ -183,7 +183,7 @@
 <translation id="1272079795634619415">停止</translation>
 <translation id="1272978324304772054">此用户帐号不属于设备所注册的域。如果想注册其他域，那么您首先需要执行设备恢复。</translation>
 <translation id="1274977772557788323">Adobe Flash Player 存储设置</translation>
-<translation id="1274997165432133392">Cookie及其他网站数据</translation>
+<translation id="1274997165432133392">Cookie 及其他网站数据</translation>
 <translation id="1275718070701477396">已选中</translation>
 <translation id="127668050356036882">关闭所有窗口</translation>
 <translation id="1277908057200820621">查看设备列表</translation>
@@ -2415,7 +2415,7 @@
 <translation id="4759238208242260848">下载内容</translation>
 <translation id="4761104368405085019">使用您的麦克风</translation>
 <translation id="4762718786438001384">设备磁盘空间严重不足</translation>
-<translation id="4763408175235639573">以下 Cookie 是在您查看此网页时设置的</translation>
+<translation id="4763408175235639573">以下 Cookie 是系统在您查看此网页时设置的</translation>
 <translation id="4763830802490665879">退出时会清除来自多个网站的 Cookie。</translation>
 <translation id="4768332406694066911">您有以下组织发给您的身份证书</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> 的密码</translation>

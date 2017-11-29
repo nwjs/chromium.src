@@ -30,6 +30,7 @@
 
           Ja šis iestatījums ir atspējots vai nav konfigurēts, attālās palīdzības saimniekdators darbosies lietotāja kontekstā un attālie lietotāji nevarēs veikt darbības ar privileģētajiem logiem darbvirsmā.</translation>
 <translation id="1096105751829466145">Noklusējuma meklētājprogramma</translation>
+<translation id="1099282607296956954">Iespējot izolāciju visām vietnēm</translation>
 <translation id="1117535567637097036">Protokolu apdarinātāji, kas iestatīti, izmantojot šo politiku, netiek lietoti, kad tiek apstrādāti Android nolūki.</translation>
 <translation id="1122282995569868661">Parādīt <ph name="PRODUCT_NAME" /> rīkjoslas ikonu</translation>
 <translation id="1128903365609589950">Konfigurē direktoriju, kuru <ph name="PRODUCT_NAME" /> izmantos kešatmiņā ievietoto failu glabāšanai diskā.
@@ -715,6 +716,16 @@
 <translation id="332771718998993005">Nosakiet pārraidīto nosaukumu kā <ph name="PRODUCT_NAME" /> galamērķi.
 
           Ja šai politikai tiks iestatīta virkne, kas nav tukša, šī virkne tiks izmantota kā <ph name="PRODUCT_NAME" /> galamērķa nosaukums. Pretējā gadījumā kā galamērķa nosaukums tiks izmantots ierīces nosaukums. Ja šī politika netiks iestatīta, kā galamērķa nosaukums tiks izmantots ierīces nosaukums un to varēs mainīt ierīces īpašnieks vai lietotājs no domēna, kurā ierīce tiek pārvaldīta. Nosaukuma garums nedrīkst pārsniegt 24 rakstzīmes.</translation>
+<translation id="3356249700768900657">
+      PIEZĪME: Šī politika ir eksperimentāla, un tās izmantošana var traucēt funkcionalitāti.
+      Ieteicams izmantot politikas IsolateOrigins iestatījumu, lai gūtu
+      vislabākos rezultātus, izolētu tikai vietnes, kuras vēlaties izolēt, un
+      ierobežotu ietekmi lietotājiem. Izmantojot politiku
+      SitePerProcess, tiek izolētas visas vietnes.
+      Ja politika ir iespējota, katrai vietnei tiks izpildīts atsevišķs process.
+      Ja politika ir atspējota, tiks ievērota iepriekšēja vietnes izolācijas procesa pārvaldības loģika.
+      Ja politika nav konfigurēta, lietotājs varēs mainīt šo iestatījumu.
+      </translation>
 <translation id="3381968327636295719">Pēc noklusējuma lieto saimniekdatora pārlūku</translation>
 <translation id="3395348522300156660">Norāda printerus, ko lietotājs var izmantot.
 
@@ -1089,6 +1100,7 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
           Šablonu piemērus skatiet šeit: https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Atvērt vietrāžu URL sarakstu</translation>
 <translation id="4680961954980851756">Iespējo automātisko aizpildi</translation>
+<translation id="4722122254122249791">Iespējot izolāciju noteiktām vietnēm</translation>
 <translation id="4722399051042571387">Ja ir konfigurēta vērtība “false”, tiek novērsta nedrošu un viegli uzminamu PIN iestatīšana.
 
           Piemēram, nedroši ir tādi PIN, kuros ir vienādi cipari (1111), četri cipari pēc kārtas augošā secībā (1234), četri cipari pēc kārtas dilstošā secībā (4321) vai izplatīta ciparu kombinācija.
@@ -1167,6 +1179,16 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
 <translation id="4980635395568992380">Datu tips:</translation>
 <translation id="4983201894483989687">Atļauj palaist novecojušus spraudņus</translation>
 <translation id="4988291787868618635">Darbība, kas ir jāveic, kad ir aizritējis laiks līdz dīkstāvei</translation>
+<translation id="5027819375434797927">
+      PIEZĪME: Šī politika ir eksperimentāla, un tās izmantošana var traucēt funkcionalitāti.
+      Ja politika ir iespējota, katrai komatatdalītā sarakstā norādītajai
+      vietnei tiks izpildīts atsevišķs process. Vietnes tiks arī izolētas
+      pēc apakšdomēniem, piemēram, norādot https://example.com/,
+      tiks izolēta arī vietne https://foo.example.com/ kā daļa no vietnes
+      https://example.com/.
+      Ja politika ir atspējota, tiks ievērota iepriekšēja vietnes izolācijas procesa pārvaldības loģikas.
+      Ja politika nav konfigurēta, lietotājs varēs mainīt šo iestatījumu.
+      </translation>
 <translation id="5047604665028708335">Atļaut piekļuvi vietnēm, kas nav iekļautas satura pakotnēs.</translation>
 <translation id="5052081091120171147">Šī politika (ja tā ir iespējota) liek importēt pārlūkošanas vēsturi no pašreizējā noklusējuma pārlūka. Ja šī politika ir iespējota, tā arī maina importēšanas dialoglodziņu.
 

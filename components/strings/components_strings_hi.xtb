@@ -853,7 +853,7 @@
 <translation id="7613889955535752492">समय-सीमा समाप्त: <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="7615602087246926389">आपके पास पहले से ऐसा डेटा है, जिसे आपके Google खाते के पासवर्ड के किसी भिन्‍न वर्शन का उपयोग करके एन्क्रिप्ट किया गया है. कृपया उसे नीचे लिखें.</translation>
 <translation id="7637571805876720304">क्रोमियम से क्रेडिट कार्ड निकालें?</translation>
-<translation id="765676359832457558">उन्नत सेटिंग्स छिपाएं...</translation>
+<translation id="765676359832457558">उन्नत सेटिंग छिपाएं...</translation>
 <translation id="7658239707568436148">अभी नहीं</translation>
 <translation id="7662298039739062396">सेटिंग किसी एक्सटेंशन से नियंत्रित है</translation>
 <translation id="7667346355482952095">वापस लौटा हुआ नीति टोकन खाली है या उसका मिलान वर्तमान टोकन से नहीं होता</translation>
@@ -957,7 +957,7 @@
 <translation id="8412145213513410671">क्रैश (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">आपको वही पासफ़्रेज़ दोबारा दर्ज करना होगा.</translation>
 <translation id="8424582179843326029"><ph name="FIRST_LABEL" /> <ph name="SECOND_LABEL" /> <ph name="THIRD_LABEL" /></translation>
-<translation id="8428213095426709021">सेटिंग्स</translation>
+<translation id="8428213095426709021">सेटिंग</translation>
 <translation id="8433057134996913067">इससे आप अधिकांश वेबसाइट से प्रस्थान कर जाएंगे.</translation>
 <translation id="8437238597147034694">&amp;ले जाना वापस लाएं</translation>
 <translation id="8466379296835108687">{COUNT,plural, =1{1 क्रेडिट कार्ड}one{# क्रेडिट कार्ड}other{# क्रेडिट कार्ड}}</translation>
