@@ -1,0 +1,25 @@
+basic test that the patches build
+
+1. gclient sync
+
+2. export CC=gcc CXX=g++
+
+3.
+mkdir -p third_party/node/linux/node-linux-x64/bin
+ln -s /usr/bin/node third_party/node/linux/node-linux-x64/bin/
+
+4.
+"DEPS" contains a commit hash for WebRTC which `gclient sync` does not
+download, because that commit is not on a branch. Do it manually:
+ cd webrtc/
+ git ls-remote origin | grep 024118622a7a892560644a12127fe584cef49135
+   02411...   refs/branch-heads/71
+ git fetch origin refs/branch-heads/71
+ git reset --hard FETCH_HEAD
+
+
+5.
+gn gen '--args= custom_toolchain="./toolchain:default" linux_use_bundled_binutils=false use_custom_libcxx=false is_debug=false enable_nacl=false use_swiftshader_with_subzero=true is_component_ffmpeg=true use_cups=true use_aura=true symbol_level=1 remove_webcore_debug_symbols=true use_kerberos=true enable_vr=false use_pulseaudio=true link_pulseaudio=true is_component_build=false use_sysroot=false fatal_linker_warnings=false use_allocator="tcmalloc" fieldtrial_testing_like_official_build=true use_gold=true use_lld=false use_vaapi=true use_sysroot=false treat_warnings_as_errors=false enable_widevine=false use_system_harfbuzz=true use_system_freetype=true enable_hangout_services_extension=true enable_vulkan=false is_clang=false proprietary_codecs=true ffmpeg_branding="Chrome"' out/Release
+
+6.
+ninja -C out/Release chrome chrome_sandbox chromedriver
