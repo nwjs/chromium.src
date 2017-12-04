@@ -105,7 +105,7 @@
 <translation id="1156185823432343624">Volume: Sem som</translation>
 <translation id="1156488781945104845">Hora atual</translation>
 <translation id="1161575384898972166">Faça login no <ph name="TOKEN_NAME" /> para exportar o certificado do cliente.</translation>
-<translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{Um download está em andamento. Deseja cancelar o download e sair do modo sem rastros?}one{# downloads estão em andamento. Deseja cancelar os downloads e sair do modo sem rastros?}other{# downloads estão em andamento. Deseja cancelar os downloads e sair do modo sem rastros?}}</translation>
+<translation id="1163361280229063150">{NUM_DOWNLOAD,plural, =1{Um download está em andamento. Deseja cancelar o download e sair do modo de navegação anônima?}one{# downloads estão em andamento. Deseja cancelar os downloads e sair do modo de navegação anônima?}other{# downloads estão em andamento. Deseja cancelar os downloads e sair do modo de navegação anônima?}}</translation>
 <translation id="1163931534039071049">&amp;Exibir código fonte do frame</translation>
 <translation id="1164674268730883318">Desativar o Smart Lock para <ph name="DEVICE_TYPE" />?</translation>
 <translation id="1164899421101904659">Informar chave para desbloqueio de PIN</translation>
@@ -2826,7 +2826,7 @@ De <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="5379268888377976432">Desfazer exclusão</translation>
 <translation id="5380103295189760361">Pressione Control, Alt, Shift ou "Pesquisar" para visualizar os atalhos do teclado para estes modificadores.</translation>
 <translation id="5382591305415226340">Gerenciar links compatíveis</translation>
-<translation id="5384883051496921101">Este site está prestes a compartilhar informações com um app fora do modo sem rastros.</translation>
+<translation id="5384883051496921101">Este site está prestes a compartilhar informações com um app fora do modo de navegação anônima.</translation>
 <translation id="5388588172257446328">Nome de usuário:</translation>
 <translation id="5388885445722491159">Emparelhado</translation>
 <translation id="5389237414310520250">Não foi possível criar o novo usuário. Verifique o espaço no seu disco rígido e suas permissões e tente novamente.</translation>
@@ -5066,7 +5066,7 @@ Pessoas com conexões mais lentas talvez não vejam seu conteúdo.</translation>
 <translation id="8946284507644756416">Seu <ph name="DEVICE_TYPE" /> pode ser desbloqueado com seu smartphone Android.</translation>
 <translation id="8946359700442089734">Os recursos de depuração não foram completamente ativados neste dispositivo <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
 <translation id="8948677146203372548">Atualização concluída. Agora você pode usar apps Android.</translation>
-<translation id="894871326938397531">Sair do modo sem rastros?</translation>
+<translation id="894871326938397531">Sair do modo de navegação anônima?</translation>
 <translation id="895347679606913382">Iniciando...</translation>
 <translation id="8954952943849489823">Falha na transferência, erro inesperado: $1</translation>
 <translation id="895586998699996576">Imagem $1</translation>

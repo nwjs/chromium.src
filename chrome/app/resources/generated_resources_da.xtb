@@ -344,7 +344,7 @@
     proxyserveren fungerer. Hvis du ikke mener, at der er grund til at anvende en
     proxyserver, skal du justere dine <ph name="LINK_START" />proxyindstillinger<ph name="LINK_END" />.</translation>
 <translation id="1510907582379248592">Gemte adgangskoder til <ph name="ORIGIN" />:</translation>
-<translation id="1511388193702657997">Tilbyd at gemme dine adgangskoder på nettet</translation>
+<translation id="1511388193702657997">Tilbyd at gemme dine adgangskoder fra nettet</translation>
 <translation id="1512210426710821809">Den eneste måde at fortryde dette på er ved at geninstallere <ph name="IDS_SHORT_PRODUCT_OS_NAME" /></translation>
 <translation id="1514215615641002767">Føj til skrivebordet</translation>
 <translation id="151501797353681931">Importeret fra Safari</translation>
@@ -3181,7 +3181,7 @@ Tryk på en vilkårlig tast for at fortsætte udforskningen.</translation>
 <translation id="5924047253200400718">Få hjælp<ph name="SCANNING_STATUS" /></translation>
 <translation id="5925147183566400388">Markør for erklæring om certificeringspraksis</translation>
 <translation id="5927692884057333064">Omdøber...</translation>
-<translation id="592880897588170157">Download PDF-filer, i stedet for at de downloades automatisk i Chrome</translation>
+<translation id="592880897588170157">Download PDF-filer, i stedet for at de åbnes automatisk i Chrome</translation>
 <translation id="5931146425219109062">Læse og redigere alle dine data på de websites, du besøger</translation>
 <translation id="5932881020239635062">Serienummer</translation>
 <translation id="5933376509899483611">Tidszone</translation>

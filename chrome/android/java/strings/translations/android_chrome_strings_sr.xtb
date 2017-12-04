@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="sr">
 <translation id="1006017844123154345">Отвори онлајн</translation>
+<translation id="1036348656032585052">Искључи</translation>
 <translation id="1036727731225946849">Додаје се <ph name="WEBAPK_NAME" />...</translation>
 <translation id="1041308826830691739">Са веб-сајтова</translation>
 <translation id="1049743911850919806">Без архивирања</translation>
@@ -173,7 +174,6 @@
 <translation id="2512222046227390255">Аутоматско попуњавање образаца</translation>
 <translation id="2526148617758225454">Уштеда података је укључена. Управљајте њом у Подешавањима.</translation>
 <translation id="2532336938189706096">Веб-приказ</translation>
-<translation id="2533871075713227669">Користи нови Chrome</translation>
 <translation id="2536728043171574184">Прегледате офлајн копију ове странице</translation>
 <translation id="2546283357679194313">Колачићи и подаци о сајтовима</translation>
 <translation id="2567385386134582609">СЛИКА</translation>
@@ -260,6 +260,7 @@
 <translation id="3414952576877147120">Величина:</translation>
 <translation id="3443221991560634068">Поновно учитавање актуелне странице</translation>
 <translation id="3452612588551937789">Пријавите се на Google налог да би вам обележивачи, историја, лозинке и друга подешавања били доступни на свим уређајима.</translation>
+<translation id="3479552764303398839">Не сада</translation>
 <translation id="3487093336331957349">Предлози за претрагу и сајтове</translation>
 <translation id="3492207499832628349">Нова картица без архивирања</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Сазнајте више<ph name="END_LINK" /> о предложеном садржају</translation>
@@ -647,6 +648,7 @@
 <translation id="688738109438487280">Додавање постојећих података на <ph name="TO_ACCOUNT" />.</translation>
 <translation id="6891858906296486776">{OPEN_TABS,plural, =1{%1$d отворена картица}one{%1$d отворена картица}few{%1$d отворене картице}other{%1$d отворених картица}}</translation>
 <translation id="6896758677409633944">Копирај</translation>
+<translation id="6905163627763043954">Испробај</translation>
 <translation id="6910211073230771657">Избрисано</translation>
 <translation id="6945221475159498467">Изабери</translation>
 <translation id="6963766334940102469">Избриши обележиваче</translation>
