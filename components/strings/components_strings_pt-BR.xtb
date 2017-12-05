@@ -285,7 +285,7 @@
 <translation id="3039538478787849737">Salvar cartão no Google?</translation>
 <translation id="3041612393474885105">Informações do certificado</translation>
 <translation id="3063697135517575841">Não foi possível confirmar seu cartão com o Chrome no momento. Tente novamente mais tarde.</translation>
-<translation id="3064966200440839136">Saindo do modo sem rastros para pagar usando um aplicativo externo. Continuar?</translation>
+<translation id="3064966200440839136">Saindo do modo de navegação anônima para pagar usando um aplicativo externo. Continuar?</translation>
 <translation id="3083099961703215236">{COUNT,plural, =0{Nenhuma}=1{1 senha}one{# senha}other{# senhas}}</translation>
 <translation id="3093245981617870298">Você está off-line.</translation>
 <translation id="3096100844101284527">Adicionar endereço de retirada</translation>

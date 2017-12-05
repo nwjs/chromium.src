@@ -10,7 +10,7 @@
 <translation id="1112015203684611006">मुद्रण अयशस्वी झाले.</translation>
 <translation id="1125564390852150847">नवीन टॅब तयार करा.</translation>
 <translation id="1145536944570833626">विद्यमान डेटा हटवा.</translation>
-<translation id="1165039591588034296">त्रुटी</translation>
+<translation id="1165039591588034296">एरर</translation>
 <translation id="1172898394251786223">पुढील फील्ड</translation>
 <translation id="1176932207622159128">प्रतिमा जतन करू शकत नाही</translation>
 <translation id="1181037720776840403">काढा</translation>
@@ -417,4 +417,5 @@
 <translation id="976982866697960176">संकालित केलेला डेटा व्यवस्थापित करा...</translation>
 <translation id="988141524645182168">इतर डिव्हायसेस</translation>
 <translation id="989988560359834682">पत्ता संपादित करा</translation>
+<translation id="994757059139821576">लेख सूचना</translation>
 </translationbundle>
