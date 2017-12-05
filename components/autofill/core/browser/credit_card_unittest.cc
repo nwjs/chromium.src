@@ -15,6 +15,7 @@
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/credit_card.h"
+#include "components/autofill/core/browser/test_autofill_clock.h"
 #include "components/autofill/core/browser/validation.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/form_field_data.h"
@@ -1235,6 +1236,9 @@ TEST(CreditCardTest, GetLastUsedDateForDisplay) {
   base::Time kArbitraryTime;
   EXPECT_TRUE(
       base::Time::FromLocalExploded(kTestDateTimeExploded, &kArbitraryTime));
+
+  TestAutofillClock test_clock;
+  test_clock.SetNow(kArbitraryTime);
 
   // Test for added to chrome/chromium.
   CreditCard credit_card0(base::GenerateGUID(), "https://www.example.com");
