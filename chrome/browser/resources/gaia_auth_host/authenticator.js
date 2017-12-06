@@ -92,6 +92,8 @@ cr.define('cr.login', function() {
     'menuKeyboardOptions',       // Enables "Keyboard options" menu item
     'menuEnterpriseEnrollment',  // Enables "Enterprise enrollment" menu item.
     'lsbReleaseBoard',           // Chrome OS Release board name
+    'isFirstUser',               // True if this is non-enterprise device,
+                                 // and there are no users yet.
 
     // The email fields allow for the following possibilities:
     //
@@ -332,6 +334,8 @@ cr.define('cr.login', function() {
 
         if (data.lsbReleaseBoard)
           url = appendParam(url, 'chromeos_board', data.lsbReleaseBoard);
+        if (data.isFirstUser)
+          url = appendParam(url, 'is_first_user', true);
       }
     } else {
       url = appendParam(url, 'continue', this.continueUrl_);
