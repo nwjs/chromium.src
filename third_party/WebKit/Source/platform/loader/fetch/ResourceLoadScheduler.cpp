@@ -134,6 +134,9 @@ void ResourceLoadScheduler::TrafficMonitor::OnThrottlingStateChanged(
 
 void ResourceLoadScheduler::TrafficMonitor::Report(
     const ResourceLoadScheduler::TrafficReportHints& hints) {
+  // Currently we only care about stats from frames.
+  if (!IsMainThread())
+    return;
   if (!hints.IsValid())
     return;
 
@@ -218,6 +221,9 @@ void ResourceLoadScheduler::TrafficMonitor::Report(
 }
 
 void ResourceLoadScheduler::TrafficMonitor::ReportAll() {
+  // Currently we only care about stats from frames.
+  if (!IsMainThread())
+    return;
   if (report_all_is_called_)
     return;
   report_all_is_called_ = true;
