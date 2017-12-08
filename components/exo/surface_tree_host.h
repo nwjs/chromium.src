@@ -89,7 +89,6 @@ class SurfaceTreeHost : public SurfaceDelegate,
   void OnSurfaceCommit() override;
   bool IsSurfaceSynchronized() const override;
   void OnSetFrame(SurfaceFrameType type) override {}
-  void OnSetParent(Surface* parent, const gfx::Point& position) override {}
 
   // Overridden from cc::BeginFrameObserverBase:
   bool OnBeginFrameDerivedImpl(const viz::BeginFrameArgs& args) override;

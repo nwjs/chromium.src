@@ -194,7 +194,6 @@ class ShellSurface : public SurfaceTreeHost,
   // Overridden from SurfaceDelegate:
   void OnSurfaceCommit() override;
   void OnSetFrame(SurfaceFrameType type) override;
-  void OnSetParent(Surface* parent, const gfx::Point& position) override;
 
   // Overridden from SurfaceObserver:
   void OnSurfaceDestroying(Surface* surface) override;
@@ -281,9 +280,6 @@ class ShellSurface : public SurfaceTreeHost,
   // Returns the window that has capture during dragging.
   aura::Window* GetDragWindow();
 
-  // End current drag operation.
-  void EndDrag(bool revert);
-
   // Returns true if surface is currently being resized.
   bool IsResizing() const;
 
@@ -317,7 +313,7 @@ class ShellSurface : public SurfaceTreeHost,
 
   views::Widget* widget_ = nullptr;
   aura::Window* parent_ = nullptr;
-  // TODO(oshima): Move to xdg private or internal.
+  // TODO(oshima): Move to xdg private or internal.n
   BoundsMode bounds_mode_ = BoundsMode::SHELL;
   gfx::Point origin_;
 
@@ -338,15 +334,15 @@ class ShellSurface : public SurfaceTreeHost,
 
   class ScopedAnimationsDisabled;
 
+  // End current drag operation.
+  void EndDrag(bool revert);
+
   // Returns the "visible bounds" for the surface from the user's perspective.
   gfx::Rect GetVisibleBounds() const;
 
   // Returns the origin for the surface taking visible bounds and current
   // resize direction into account.
   gfx::Point GetSurfaceOrigin() const;
-
-  // Set the parent window of this surface.
-  void SetParentWindow(aura::Window* parent);
 
   bool activatable_ = true;
   bool can_minimize_ = true;
