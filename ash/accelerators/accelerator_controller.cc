@@ -20,6 +20,7 @@
 #include "ash/media_controller.h"
 #include "ash/multi_profile_uma.h"
 #include "ash/new_window_controller.h"
+#include "ash/public/cpp/ash_switches.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/root_window_controller.h"
 #include "ash/rotator/window_rotation.h"
@@ -641,6 +642,8 @@ void HandleLock() {
 }
 
 bool CanHandleMoveWindowBetweenDisplays() {
+  if (!switches::IsDisplayMoveWindowAccelsEnabled())
+    return false;
   display::DisplayManager* display_manager = Shell::Get()->display_manager();
   // Accelerators to move window between displays on unified desktop mode and
   // mirror mode is disabled.
