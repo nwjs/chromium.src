@@ -27,7 +27,6 @@
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "components/signin/core/account_id/account_id.h"
 #include "components/user_manager/user_image/user_image.h"
-#include "components/user_manager/user_manager.h"
 #include "components/wallpaper/wallpaper_export.h"
 #include "components/wallpaper/wallpaper_info.h"
 #include "content/public/browser/notification_observer.h"
@@ -49,7 +48,6 @@ class ImageSkia;
 }  // namespace gfx
 
 namespace user_manager {
-class User;
 class UserImage;
 }  // namespace user_manager
 
@@ -95,7 +93,6 @@ extern const int kWallpaperThumbnailHeight;
 extern const char kUsersWallpaperInfo[];
 
 class WallpaperManager : public content::NotificationObserver,
-                         public user_manager::UserManager::Observer,
                          public wm::ActivationChangeObserver,
                          public aura::WindowObserver {
  public:
@@ -379,9 +376,6 @@ class WallpaperManager : public content::NotificationObserver,
   void Observe(int type,
                const content::NotificationSource& source,
                const content::NotificationDetails& details) override;
-
-  // user_manager::UserManager::Observer:
-  void OnChildStatusChanged(const user_manager::User& user) override;
 
   // wm::ActivationChangeObserver:
   void OnWindowActivated(ActivationReason reason,

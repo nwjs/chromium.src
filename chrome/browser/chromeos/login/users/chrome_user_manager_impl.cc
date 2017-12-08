@@ -788,8 +788,10 @@ void ChromeUserManagerImpl::GuestUserLoggedIn() {
   WallpaperManager::Get()->ShowUserWallpaper(user_manager::GuestAccountId());
 }
 
-void ChromeUserManagerImpl::RegularUserLoggedIn(const AccountId& account_id) {
-  ChromeUserManager::RegularUserLoggedIn(account_id);
+void ChromeUserManagerImpl::RegularUserLoggedIn(
+    const AccountId& account_id,
+    const user_manager::UserType user_type) {
+  ChromeUserManager::RegularUserLoggedIn(account_id, user_type);
 
   if (FakeOwnership()) {
     const AccountId owner_account_id = GetActiveUser()->GetAccountId();
@@ -811,9 +813,10 @@ void ChromeUserManagerImpl::RegularUserLoggedIn(const AccountId& account_id) {
 }
 
 void ChromeUserManagerImpl::RegularUserLoggedInAsEphemeral(
-    const AccountId& account_id) {
+    const AccountId& account_id,
+    const user_manager::UserType user_type) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  ChromeUserManager::RegularUserLoggedInAsEphemeral(account_id);
+  ChromeUserManager::RegularUserLoggedInAsEphemeral(account_id, user_type);
 
   GetUserImageManager(account_id)->UserLoggedIn(IsCurrentUserNew(), false);
   WallpaperManager::Get()->ShowUserWallpaper(account_id);

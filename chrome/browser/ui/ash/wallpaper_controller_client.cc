@@ -6,6 +6,7 @@
 
 #include "ash/public/interfaces/constants.mojom.h"
 #include "chrome/browser/chromeos/login/users/wallpaper/wallpaper_manager.h"
+#include "components/user_manager/user_manager.h"
 #include "components/wallpaper/wallpaper_files_id.h"
 #include "content/public/common/service_manager_connection.h"
 #include "services/service_manager/public/cpp/connector.h"
