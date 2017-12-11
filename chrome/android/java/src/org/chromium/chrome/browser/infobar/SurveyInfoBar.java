@@ -91,13 +91,18 @@ public class SurveyInfoBar extends InfoBar {
         });
 
         NoUnderlineClickableSpan clickableSpan = new NoUnderlineClickableSpan() {
+            /** Prevent double clicking on the text span .*/
+            private boolean mClicked;
+
             @Override
             public void onClick(View widget) {
+                if (mClicked) return;
                 mDelegate.onSurveyTriggered();
 
                 SurveyController.getInstance().showSurveyIfAvailable(
                         tab.getActivity(), mSiteId, mShowAsBottomSheet, mDisplayLogoResId);
-                onCloseButtonClicked();
+                closeInfoBar();
+                mClicked = true;
             }
         };
 
@@ -113,7 +118,8 @@ public class SurveyInfoBar extends InfoBar {
     }
 
     /**
-     * Closes the infobar without calling the {@link SurveyInfoBarDelegate}'s onSurveyInfoBarClosed.
+     * Closes the infobar without calling the {@link SurveyInfoBarDelegate}'s
+     * onSurveyInfoBarCloseButtonClicked.
      */
     private void closeInfoBar() {
         // TODO(mdjones): add a proper close method to programatically close the infobar.
@@ -122,7 +128,7 @@ public class SurveyInfoBar extends InfoBar {
 
     @Override
     public void onCloseButtonClicked() {
-        mDelegate.onSurveyInfoBarClosed();
+        mDelegate.onSurveyInfoBarCloseButtonClicked();
         super.onCloseButtonClicked();
     }
 
