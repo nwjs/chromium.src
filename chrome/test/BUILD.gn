@@ -2659,7 +2659,10 @@ test("unit_tests") {
   }
 
   if (enable_dice_support) {
-    sources += [ "../browser/signin/dice_response_handler_unittest.cc" ]
+    sources += [
+      "../browser/signin/dice_response_handler_unittest.cc",
+      "../browser/signin/dice_tab_helper_unittest.cc",
+    ]
   }
 
   if (enable_offline_pages) {
