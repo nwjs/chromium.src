@@ -1663,31 +1663,6 @@ const char kBackgroundLoaderForDownloadsDescription[] =
     "Enables downloading pages in the background in case page is not yet "
     "loaded in current tab.";
 
-const char kChromeHomeName[] = "Chrome Home";
-const char kChromeHomeDescription[] =
-    "Enables Chrome Home on Android. You must restart the browser"
-    " twice for changes to take effect.";
-
-const char kChromeHomeBottomNavLabelsName[] =
-    "Chrome Home bottom navigation menu item labels.";
-const char kChromeHomeBottomNavLabelsDescription[] =
-    "Enables text labels for Chrome Home bottom navigation menu items.";
-
-const char kChromeHomeClearUrlOnOpenName[] = "Chrome Home clear url on open";
-const char kChromeHomeClearUrlOnOpenDescription[] =
-    "Clear omnibox URL when the bottom sheet is opened.";
-
-const char kChromeHomeEnableSurveyName[] = "Enable Chrome Home survey";
-const char kChromeHomeEnableSurveyDescription[] =
-    "If enabled, the survey process will allow surveys using sample "
-    "parameters.";
-
-const char kChromeHomeInactivitySheetExpansionName[] =
-    "Expansion of Chrome Home bottom sheet on startup";
-const char kChromeHomeInactivitySheetExpansionDescription[] =
-    "Expand bottom sheet on startup in Chrome Home after a period of"
-    " inactivity.";
-
 const char kChromeHomeOptOutSnackbarName[] = "Chrome Home Opt-out Snackbar";
 const char kChromeHomeOptOutSnackbarDescription[] =
     "Show a snackbar prompting users to take a survey the first time they"

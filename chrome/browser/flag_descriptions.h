@@ -1030,12 +1030,6 @@ extern const char kBackgroundLoaderForDownloadsDescription[];
 extern const char kChromeHomeBottomNavLabelsName[];
 extern const char kChromeHomeBottomNavLabelsDescription[];
 
-extern const char kChromeHomeClearUrlOnOpenName[];
-extern const char kChromeHomeClearUrlOnOpenDescription[];
-
-extern const char kChromeHomeEnableSurveyName[];
-extern const char kChromeHomeEnableSurveyDescription[];
-
 extern const char kChromeHomeInactivitySheetExpansionName[];
 extern const char kChromeHomeInactivitySheetExpansionDescription[];
 

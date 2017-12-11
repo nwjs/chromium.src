@@ -32,8 +32,6 @@ extern const base::Feature kChromeHomePromo;
 extern const base::Feature kChromeHomePromoInfoOnly;
 extern const base::Feature kChromeHomePromoOnStartup;
 extern const base::Feature kChromeHomeOptOutSnackbar;
-extern const base::Feature kChromeHomeShowGoogleGWhenUrlCleared;
-extern const base::Feature kChromeHomeSurvey;
 extern const base::Feature kChromeHomeSwipeLogic;
 extern const base::Feature kChromeHomeSwipeLogicVelocity;
 extern const base::Feature kChromeMemexFeature;
