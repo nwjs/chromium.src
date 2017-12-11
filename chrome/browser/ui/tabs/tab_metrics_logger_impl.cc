@@ -107,5 +107,6 @@ void TabMetricsLoggerImpl::LogBackgroundTab(ukm::SourceId ukm_source_id,
   entry.SetIsPinned(tab_strip_model->IsTabPinned(index))
       .SetHasFormEntry(
           web_contents->GetPageImportanceSignals().had_form_interaction)
+      .SetSequenceId(++sequence_id_)
       .Record(ukm_recorder);
 }
