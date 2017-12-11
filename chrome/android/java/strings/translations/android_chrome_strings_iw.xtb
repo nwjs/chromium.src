@@ -66,6 +66,7 @@
 <translation id="1539064842193522527">‏הקישור נפתח ב-Chrome</translation>
 <translation id="1549000191223877751">העבר לחלון האחר</translation>
 <translation id="1553358976309200471">‏עדכן את Chrome</translation>
+<translation id="1566400915470565838">כדי להשתמש ב-<ph name="APP_NAME" /> יש להתחבר לאינטרנט.</translation>
 <translation id="1569387923882100876">מכשיר מחובר</translation>
 <translation id="1571304935088121812">העתק שם משתמש</translation>
 <translation id="1612196535745283361">‏כדי לבצע סריקה לאיתור מכשירים, Chrome זקוק לגישה לנתוני מיקום. הגישה למיקום <ph name="BEGIN_LINK" />כבויה במכשיר הזה<ph name="END_LINK" />.</translation>
@@ -791,6 +792,7 @@
 <translation id="8493948351860045254">פנה שטח אחסון</translation>
 <translation id="8497726226069778601">אין מה לראות כאן… בינתיים</translation>
 <translation id="8503813439785031346">שם משתמש</translation>
+<translation id="8514477925623180633">‏ייצוא סיסמאות המאוחסנות ב-Chrome</translation>
 <translation id="8514577642972634246">עבור למצב גלישה בסתר</translation>
 <translation id="8523928698583292556">מחק את הסיסמה השמורה</translation>
 <translation id="854522910157234410">פתח דף זה</translation>

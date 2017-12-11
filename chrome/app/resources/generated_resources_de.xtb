@@ -3275,7 +3275,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="6314335155547195432">Passwort erstellen</translation>
 <translation id="6314819609899340042">Sie haben die Debugging-Funktionen auf diesem <ph name="IDS_SHORT_PRODUCT_NAME" />-Gerät aktiviert.</translation>
 <translation id="6315343732431721770">Ihre "Beim Start"-Seiten wurden geändert und enthalten nun <ph name="URL" />. Zum Deaktivieren von Erweiterungen, die Ihre "Beim Start"-Seite ändern, klicken Sie auf "Wiederherstellen".</translation>
-<translation id="6315493146179903667">Alle nach vorne bringen</translation>
+<translation id="6315493146179903667">Alle nach vorn bringen</translation>
 <translation id="6316806695097060329">Dieses <ph name="SHORT_PRODUCT_NAME" />-Gerät wurde so konzipiert, dass Sie das Web optimal nutzen und genießen können.</translation>
 <translation id="6317369057005134371">Warten auf Anwendungsfenster...</translation>
 <translation id="6322279351188361895">Privater Schlüssel konnte nicht gelesen werden.</translation>
@@ -4445,7 +4445,7 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="825483282309623688">Zur Wiederherstellung Ihrer Daten benötigen Sie eine Internetverbindung.</translation>
 <translation id="8256319818471787266">Bello</translation>
 <translation id="8257950718085972371">Zugriff auf die Kamera weiter blockieren</translation>
-<translation id="8259239505248583312">Los geht's!</translation>
+<translation id="8259239505248583312">Los gehts!</translation>
 <translation id="8260126382462817229">Melden Sie sich noch einmal an</translation>
 <translation id="8260864402787962391">Maus</translation>
 <translation id="8261378640211443080">Diese Erweiterung ist nicht im <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> aufgeführt und wurde möglicherweise ohne Ihr Wissen hinzugefügt.</translation>
@@ -4918,7 +4918,7 @@ Andere Personen mit langsamen Verbindungen sehen Ihre Inhalte möglicherweise ni
 <translation id="9064275926664971810">AutoFill aktivieren, um Webformulare mit nur einem Klick auszufüllen</translation>
 <translation id="9064939804718829769">Übertragung wird durchgeführt...</translation>
 <translation id="9065203028668620118">Bearbeiten</translation>
-<translation id="9066782832737749352">Text-in-Sprache</translation>
+<translation id="9066782832737749352">Sprachausgabe</translation>
 <translation id="9070219033670098627">Person wechseln</translation>
 <translation id="907148966137935206">Anzeige von Pop-ups für keine Website zulassen (empfohlen)</translation>
 <translation id="9072550133391925347">Mit <ph name="PASSWORD_MANAGER_BRAND" /> werden Sie mit Ihren gespeicherten Passwörtern automatisch auf allen entsprechenden Websites und Apps angemeldet.</translation>

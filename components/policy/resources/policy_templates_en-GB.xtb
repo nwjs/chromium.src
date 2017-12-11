@@ -1466,6 +1466,9 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
       If 'Disabled' is selected, pages may not be opened in Incognito mode.
 
       If 'Forced' is selected, pages may be opened ONLY in Incognito mode.</translation>
+<translation id="5835124959204887277">Specifies URLs and domains for which no prompt will be shown when attestation certificates from Security Keys are requested. Additionally, a signal will be sent to the Security Key indicating that individual attestation may be used. Without this, users will be prompted in Chrome 65+ when sites request attestation of Security Keys.
+
+      URLs (like https://example.com/some/path) will only match as U2F appIDs. Domains (like example.com) only match as webauthn RP IDs. Thus, to cover both U2F and webauthn APIs for a given site, both the appID URL and domain would need to be listed.</translation>
 <translation id="5836064773277134605">Restrict the UDP port range used by the remote access host</translation>
 <translation id="5862253018042179045">Set the default state of the spoken feedback accessibility feature on the login screen.
 
@@ -1646,6 +1649,7 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
       If disabled, the autofill form data is not imported.
 
       If it is not set, the user may be asked whether to import or importing may happen automatically.</translation>
+<translation id="6224304369267200483">URLs/domains automatically permitted direct Security Key attestation</translation>
 <translation id="6233173491898450179">Set download directory</translation>
 <translation id="6244210204546589761">URLs to open on start-up</translation>
 <translation id="6258193603492867656">Specifies whether the generated Kerberos SPN should include a non-standard port. If you enable this setting, and a non-standard port (i.e. a port other than 80 or 443) is entered, it will be included in the generated Kerberos SPN. If you disable this setting, the generated Kerberos SPN will not include a port in any case.</translation>
@@ -1895,6 +1899,13 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 <translation id="7202925763179776247">Allow download restrictions</translation>
 <translation id="7207095846245296855">Force Google SafeSearch</translation>
 <translation id="7216442368414164495">Allow users to opt in to Safe Browsing extended reporting</translation>
+<translation id="7221822638060296742">Allows you to set whether websites are allowed to automatically run the <ph name="FLASH_PLUGIN_NAME" /> plug-in. Automatically running the <ph name="FLASH_PLUGIN_NAME" /> plug-in can be either allowed for all websites or denied for all websites.
+
+          Click to play allows the <ph name="FLASH_PLUGIN_NAME" /> plug-in to run but the user must click on the placeholder to start its execution.
+
+          Automatic playback is only allowed for domains explicitly listed in the <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME" /> policy. If you want to enabled automatic playback for all sites, consider adding http://* and https://* to this list.
+
+          If this policy is left not set, the user will be able to change this setting manually.</translation>
 <translation id="7234280155140786597">Names of the forbidden native messaging hosts (or * for all)</translation>
 <translation id="7236775576470542603">Set the default type of screen magnifier that is enabled on the login screen.
 

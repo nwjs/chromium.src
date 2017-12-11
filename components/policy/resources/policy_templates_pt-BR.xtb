@@ -1368,6 +1368,9 @@
 
       Se a política não for definida, será usado o diretório padrão do perfil.</translation>
 <translation id="5826047473100157858">Especifica se o usuário pode abrir páginas no modo de navegação anônima em <ph name="PRODUCT_NAME" />. Se a opção "Ativado" for selecionada ou a política for deixada sem configuração, as páginas podem ser abertas no modo de navegação anônima. Se a opção "Destivado" for selecionada, as páginas não poderão ser abertas no modo de navegação anônima. Se a opção "Forçado" for selecionada, as páginas podem ser abertas somente no modo de navegação anônima.</translation>
+<translation id="5835124959204887277">Especifica os URLs e domínios para os quais nenhuma solicitação será exibida quando os certificados de declaração das chaves de segurança forem solicitados. Além disso, um sinal será enviado para a chave de segurança indicando que a declaração individual pode ser usada. Sem isso, os usuários receberão uma solicitação no Chrome 65 ou versão posterior quando os sites solicitarem a declaração das chaves de segurança.
+
+      Os URLs (como https://example.com/algum/caminho) só terão correspondência como U2F appIDs. Os domínios (como example.com) só terão correspondência como webauthn RP IDs. Sendo assim, para abranger as APIs U2F e webauthn de um determinado site, tanto o domínio quanto o URL do appID precisarão ser listados.</translation>
 <translation id="5836064773277134605">Restringir o intervalo de portas UDP usado pelo host de acesso remoto</translation>
 <translation id="5862253018042179045">Definir o estado padrão do recurso de acessibilidade do feedback falado na tela de login.
 
@@ -1546,6 +1549,7 @@
       Se desativada, os dados de preenchimento automático não são importados.
 
       Se não estiver configurada, o usuário poderá ter que responder se deseja importar ou permitir a importação automática.</translation>
+<translation id="6224304369267200483">Os URLs/domínios permitidos automaticamente direcionam a declaração da chave de segurança</translation>
 <translation id="6233173491898450179">Definir diretório de download</translation>
 <translation id="6244210204546589761">URLs que devem ser abertos na inicialização</translation>
 <translation id="6258193603492867656">Especifica se o SPN do Kerberos gerado deve incluir uma porta fora do padrão. Se ativar esta configuração e uma porta fora do padrão (uma porta diferente da 80 ou 443, por exemplo) for inserida, ela será incluída no SPN do Kerberos gerado. De qualquer maneira, se desativar esta configuração ou deixar sem definição, o SPN do Kerberos não incluirá uma porta.</translation>
@@ -1773,6 +1777,13 @@
 <translation id="7202925763179776247">Permitir restrições de downloads</translation>
 <translation id="7207095846245296855">Forçar o Google SafeSearch</translation>
 <translation id="7216442368414164495">Permitir que os usuários ativem os relatórios estendidos do Navegação segura</translation>
+<translation id="7221822638060296742">Permite definir se os sites têm permissão para executar automaticamente o plug-in <ph name="FLASH_PLUGIN_NAME" />. A execução automática do plug-in <ph name="FLASH_PLUGIN_NAME" /> pode ser permitida para todos os sites ou negada para todos eles.
+
+          "Clicar para reproduzir" permite que o plug-in <ph name="FLASH_PLUGIN_NAME" /> seja executado, mas o usuário precisa clicar no marcador para começar a execução dele.
+
+          A reprodução automática só é permitida para domínios explicitamente listados na política <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME" />. Se você quiser ativar a reprodução automática para todos os sites, recomendamos que adicione http://* e https://* a essa lista.
+
+          Se esta política for deixada sem definição, o usuário poderá alterar essa configuração manualmente.</translation>
 <translation id="7234280155140786597">Nomes dos hosts de mensagens nativas proibidos (ou "*" para todos)</translation>
 <translation id="7236775576470542603">Definir o tipo de padrão de lupa ativada na tela de login.
 

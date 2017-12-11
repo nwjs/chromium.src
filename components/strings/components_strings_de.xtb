@@ -724,7 +724,6 @@
 <translation id="6447842834002726250">Cookies</translation>
 <translation id="6451458296329894277">Erneute Formular-Übermittlung bestätigen</translation>
 <translation id="6456339708790392414">Bezahlung</translation>
-<translation id="6458467102616083041">Ignoriert, da Standardsuche durch Richtlinie deaktiviert</translation>
 <translation id="647261751007945333">Geräterichtlinien</translation>
 <translation id="6477321094435799029">Chrome hat auf dieser Seite ungewöhnlichen Code erfasst und diese Seite daher blockiert, um Ihre personenbezogenen Daten wie Passwörter, Telefonnummern oder Kreditkarteninformationen zu schützen.</translation>
 <translation id="6489534406876378309">Hochladen von Abstürzen starten</translation>
@@ -1001,7 +1000,7 @@
 <translation id="8870413625673593573">Kürzlich geschlossen</translation>
 <translation id="8874824191258364635">Geben Sie eine gültige Kartennummer ein</translation>
 <translation id="8876793034577346603">Fehler beim Parsen der Netzwerkkonfiguration</translation>
-<translation id="8891727572606052622">Ungültiger Proxy-Modus</translation>
+<translation id="8891727572606052622">Ungültiger Proxymodus</translation>
 <translation id="8903921497873541725">Vergrößern</translation>
 <translation id="8931333241327730545">Möchten Sie diese Karte in Ihrem Google-Konto speichern?</translation>
 <translation id="8932102934695377596">Ihre Uhr geht nach.</translation>

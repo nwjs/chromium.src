@@ -1382,6 +1382,9 @@
 
       Jika setelan ini tidak disetel, direktori profil default akan digunakan.</translation>
 <translation id="5826047473100157858">Menentukan apakah pengguna dapat membuka halaman dalam mode Penyamaran di <ph name="PRODUCT_NAME" />. Jika 'Aktifkan' dipilih atau kebijakan dibiarkan tidak disetel, halaman dapat dibuka dalam mode Penyamaran. Jika 'Nonaktifkan' dipilih, halaman tidak dapat dibuka dalam mode Penyamaran. Jika 'Paksa' dipilih, halaman dapat dibuka HANYA dalam mode Penyamaran.</translation>
+<translation id="5835124959204887277">Menentukan URL dan domain yang tidak akan diperlihatkan perintah saat sertifikat pengesahan dari Kunci Keamanan diminta. Selain itu, sinyal akan dikirimkan ke Kuanci Keamanan yang menandakan bahwa pengesahan satu per satu mungkin digunakan. Tanpa ini, pengguna akan diminta di Chrome 65+ jika situs meminta pengesahan Kunci Keamanan.
+
+      URL (seperti https://example.com/some/path) hanya akan cocok sebagai U2F appID. Domain (seperti example.com) hanya akan cocok sebagai webauthn RP ID. Oleh karena itu, guna mencakup U2F dan webauthn API untuk situs tertentu, appID URL dan domain perlu dicantumkan.</translation>
 <translation id="5836064773277134605">Batasi jangkauan port UDP yang digunakan oleh hosting akses jarak jauh</translation>
 <translation id="5862253018042179045">Menyetel status default fitur aksesibilitas masukan yang diucapkan di layar masuk.
 
@@ -1560,6 +1563,7 @@
       Jika dinonaktifkan, data formulir isi-otomatis tidak akan diimpor.
 
       Jika tidak disetel, pengguna mungkin akan ditanya apakah ingin mengimpor atau proses impor dapat berlangsung secara otomatis.</translation>
+<translation id="6224304369267200483">URL/domain otomatis mengizinkan pengesahan langsung Kunci Keamanan</translation>
 <translation id="6233173491898450179">Setel direktori download</translation>
 <translation id="6244210204546589761">URL untuk membuka saat permulaan</translation>
 <translation id="6258193603492867656">Menentukan apakah SPN Kerberos yang dihasilkan harus mencakup port non-standar. Jika Anda mengaktifkan setelan ini, dan port non-standar (selain port 80 atau 443) dimasukkan, port ini akan dimasukkan ke SPN Kerberos yang dihasilkan. Jika Anda menonaktifkan setelan ini atau membiarkannya tidak disetel, SPN Kerberos yang dihasilkan tidak akan pernah mencakup port.</translation>
@@ -1789,6 +1793,13 @@
 <translation id="7202925763179776247">Izinkan batasan download</translation>
 <translation id="7207095846245296855">Paksa Google SafeSearch</translation>
 <translation id="7216442368414164495">Memungkinkan pengguna ikut serta dalam pelaporan yang diperluas Safe Browsing</translation>
+<translation id="7221822638060296742">Memungkinkan Anda menyetel apakah situs diizinkan menjalankan plugin <ph name="FLASH_PLUGIN_NAME" />. Otomatis menjalankan plugin <ph name="FLASH_PLUGIN_NAME" /> dapat diizinkan atau ditolak untuk semua situs.
+
+          Klik untuk memutar memungkinkan plugin <ph name="FLASH_PLUGIN_NAME" /> dijalankan, tetapi pengguna harus mengklik placeholder untuk memulai eksekusinya.
+
+          Pemutaran otomatis hanya diizinkan untuk domain yang secara eksplisit dicantumkan di kebijakan <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME" />. Jika Anda ingin mengaktifkan pemutaran otomatis untuk semua situs, pertimbangkanlah menambahkan http://* dan https://* ke daftar ini.
+
+          Jika kebijakan ini tidak disetel, pengguna dapat mengubah setelan ini secara manual.</translation>
 <translation id="7234280155140786597">Nama hosting perpesanan asli yang dilarang (atau * untuk semua)</translation>
 <translation id="7236775576470542603">Menyetel jenis lup default yang diaktifkan di layar masuk.
 
