@@ -54,12 +54,6 @@ TEST_F(SourceUrlRecorderWebContentsObserverTest, InitialUrl) {
   }
 }
 
-TEST_F(SourceUrlRecorderWebContentsObserverTest, IgnoreUnsupportedScheme) {
-  NavigationSimulator::NavigateAndCommitFromBrowser(web_contents(),
-                                                    GURL("about:blank"));
-  EXPECT_EQ(0ul, test_ukm_recorder_.sources_count());
-}
-
 TEST_F(SourceUrlRecorderWebContentsObserverTest, IgnoreUrlInSubframe) {
   GURL main_frame_url("https://www.example.com/");
   GURL sub_frame_url("https://www.example.com/iframe.html");
