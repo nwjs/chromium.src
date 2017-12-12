@@ -172,6 +172,7 @@ public abstract class ChromeFeatureList {
     public static final String CHROME_HOME_PROMO = "ChromeHomePromo";
     public static final String CHROME_HOME_PROMO_INFO_ONLY = "ChromeHomePromoInfoOnly";
     public static final String CHROME_HOME_PROMO_ON_STARTUP = "ChromeHomePromoOnStartup";
+    public static final String CHROME_HOME_SURVEY = "ChromeHomeSurvey";
     public static final String CHROME_HOME_SWIPE_VELOCITY_FEATURE = "ChromeHomeSwipeLogicVelocity";
     public static final String CHROME_MEMEX = "ChromeMemex";
     public static final String CHROME_SMART_SELECTION = "ChromeSmartSelection";

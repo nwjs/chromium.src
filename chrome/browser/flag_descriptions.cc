@@ -1663,6 +1663,11 @@ const char kBackgroundLoaderForDownloadsDescription[] =
     "Enables downloading pages in the background in case page is not yet "
     "loaded in current tab.";
 
+const char kChromeHomeEnableSurveyName[] = "Enable Chrome Home survey";
+const char kChromeHomeEnableSurveyDescription[] =
+    "If enabled, the survey process will allow surveys using sample "
+    "parameters.";
+
 const char kChromeHomeOptOutSnackbarName[] = "Chrome Home Opt-out Snackbar";
 const char kChromeHomeOptOutSnackbarDescription[] =
     "Show a snackbar prompting users to take a survey the first time they"
