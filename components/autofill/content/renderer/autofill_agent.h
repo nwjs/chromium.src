@@ -82,6 +82,7 @@ class AutofillAgent : public content::RenderFrameObserver,
       const PasswordFormFillData& form_data) override;
   void SetUserGestureRequired(bool required) override;
   void SetSecureContextRequired(bool required) override;
+  void SetFocusRequiresScroll(bool require) override;
 
   void ShowNotSecureWarning(const blink::WebInputElement& element);
 
@@ -286,6 +287,9 @@ class AutofillAgent : public content::RenderFrameObserver,
   bool was_focused_before_now_ = false;
   blink::WebFormControlElement last_clicked_form_control_element_for_testing_;
   bool last_clicked_form_control_element_was_focused_for_testing_ = false;
+
+  // Whether or not we delay focus handling until scrolling occurs.
+  bool focus_requires_scroll_ = true;
 
   mojo::Binding<mojom::AutofillAgent> binding_;
 
