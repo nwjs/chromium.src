@@ -111,6 +111,7 @@ specific_include_rules = {
   "resource_dispatcher_host_impl\.(cc|h)": [
     "-content",
     "+content/browser/loader/async_resource_handler.h",
+    "+content/browser/loader/cross_site_document_resource_handler.h",
     "+content/browser/loader/global_routing_id.h",
     "+content/browser/loader/loader_delegate.h",
     "+content/browser/loader/mojo_async_resource_handler.h",
