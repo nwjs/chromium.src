@@ -874,6 +874,9 @@ int BrowserMainLoop::PreCreateThreads() {
   EVP_set_buggy_rsa_parser(
       base::FeatureList::IsEnabled(features::kBuggyRSAParser));
 
+  // Record metrics about which site isolation flags have been turned on.
+  SiteIsolationPolicy::RecordSiteIsolationFlagUsage();
+
   return result_code_;
 }
 
