@@ -1626,6 +1626,7 @@ void LocalDOMWindow::TraceWrappers(
   visitor->TraceWrappers(modulator_);
   visitor->TraceWrappers(navigator_);
   DOMWindow::TraceWrappers(visitor);
+  Supplementable<LocalDOMWindow>::TraceWrappers(visitor);
 }
 
 }  // namespace blink
