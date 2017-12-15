@@ -1048,6 +1048,9 @@ extern const char kChromeHomePersonalizedOmniboxSuggestionsDescription[];
 extern const char kChromeHomePromoName[];
 extern const char kChromeHomePromoDescription[];
 
+extern const char kChromeHomePullToRefreshIphAtTopName[];
+extern const char kChromeHomePullToRefreshIphAtTopDescription[];
+
 extern const char kChromeHomeSwipeLogicName[];
 extern const char kChromeHomeSwipeLogicDescription[];
 extern const char kChromeHomeSwipeLogicRestrictArea[];

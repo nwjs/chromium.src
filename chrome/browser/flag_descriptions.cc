@@ -1687,6 +1687,11 @@ const char kChromeHomePromoName[] = "Chrome Home Promo";
 const char kChromeHomePromoDescription[] =
     "Enable showing the opt-in/out Chrome Home promo.";
 
+const char kChromeHomePullToRefreshIphAtTopName[] =
+    "Chrome Home Pull-To-Refresh Iph At Top";
+const char kChromeHomePullToRefreshIphAtTopDescription[] =
+    "Show the Chrome Home pull-to-refresh help bubble at the top of the screen";
+
 const char kChromeHomeSwipeLogicName[] = "Chrome Home Swipe Logic";
 const char kChromeHomeSwipeLogicDescription[] =
     "Various swipe logic options for Chrome Home for sheet expansion.";
