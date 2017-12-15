@@ -73,8 +73,6 @@ TEST_F(MediaRouterDesktopTest, EnableMdnsAfterEachRegister) {
   RegisterExtensionProvider();
   base::RunLoop().RunUntilIdle();
 
-  EXPECT_CALL(mock_extension_provider_,
-              UpdateMediaSinks(MediaSourceForDesktop().id()));
   EXPECT_CALL(mock_extension_provider_, EnableMdnsDiscovery());
   router()->OnUserGesture();
   base::RunLoop().RunUntilIdle();

@@ -53,7 +53,6 @@ class MediaRouterDesktop : public MediaRouterMojoImpl {
 
  private:
   friend class MediaRouterDesktopTest;
-  friend class MediaRouterDesktopTestTest;
   friend class MediaRouterFactory;
   FRIEND_TEST_ALL_PREFIXES(MediaRouterDesktopTest, TestProvideSinks);
 
