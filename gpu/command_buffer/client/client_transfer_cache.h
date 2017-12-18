@@ -5,6 +5,7 @@
 #ifndef GPU_COMMAND_BUFFER_CLIENT_CLIENT_TRANSFER_CACHE_H_
 #define GPU_COMMAND_BUFFER_CLIENT_CLIENT_TRANSFER_CACHE_H_
 
+#include "base/synchronization/lock.h"
 #include "cc/paint/transfer_cache_entry.h"
 #include "gpu/command_buffer/client/client_discardable_manager.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
@@ -28,6 +29,10 @@ namespace gpu {
 // If an entry is no longer needed:
 //   5) DeleteTransferCacheEntry
 //
+// NOTE: The presence of locking on this class does not make it threadsafe.
+// The underlying locking *only* allows calling LockTransferCacheEntry
+// without holding the GL context lock. All other calls still require that
+// the context lock be held.
 class GPU_EXPORT ClientTransferCache {
  public:
   ClientTransferCache();
@@ -49,6 +54,8 @@ class GPU_EXPORT ClientTransferCache {
   }
 
  private:
+  // Access to other members must always be done with |lock_| held.
+  base::Lock lock_;
   ClientDiscardableManager discardable_manager_;
 };
 

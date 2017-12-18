@@ -13,6 +13,7 @@ TransferCacheEntryId ClientTransferCache::CreateCacheEntry(
     gles2::GLES2Interface* gl,
     CommandBuffer* command_buffer,
     const cc::ClientTransferCacheEntry& entry) {
+  base::AutoLock hold(lock_);
   TransferCacheEntryId id = discardable_manager_.CreateHandle(command_buffer);
   ClientDiscardableHandle handle = discardable_manager_.GetHandle(id);
   gl->CreateTransferCacheEntryCHROMIUM(id.GetUnsafeValue(), handle.shm_id(),
@@ -21,6 +22,7 @@ TransferCacheEntryId ClientTransferCache::CreateCacheEntry(
 }
 
 bool ClientTransferCache::LockTransferCacheEntry(TransferCacheEntryId id) {
+  base::AutoLock hold(lock_);
   if (discardable_manager_.LockHandle(id))
     return true;
 
@@ -32,11 +34,13 @@ bool ClientTransferCache::LockTransferCacheEntry(TransferCacheEntryId id) {
 
 void ClientTransferCache::UnlockTransferCacheEntry(gles2::GLES2Interface* gl,
                                                    TransferCacheEntryId id) {
+  base::AutoLock hold(lock_);
   gl->UnlockTransferCacheEntryCHROMIUM(id.GetUnsafeValue());
 }
 
 void ClientTransferCache::DeleteTransferCacheEntry(gles2::GLES2Interface* gl,
                                                    TransferCacheEntryId id) {
+  base::AutoLock hold(lock_);
   discardable_manager_.FreeHandle(id);
   gl->DeleteTransferCacheEntryCHROMIUM(id.GetUnsafeValue());
 }
