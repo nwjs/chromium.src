@@ -1757,6 +1757,7 @@ using ios::material::TimingFunction;
   // animation_util, and do all of the bounds/position calculations above in
   // terms of frames.
 
+  _locationBarView.frame = LayoutRectGetRect(toLayout);
   CABasicAnimation* resizeAnimation =
       [CABasicAnimation animationWithKeyPath:@"bounds"];
   resizeAnimation.delegate = self;
