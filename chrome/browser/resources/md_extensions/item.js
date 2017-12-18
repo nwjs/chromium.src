@@ -44,7 +44,15 @@ cr.define('extensions', function() {
      */
     inspectItemView(id, view) {}
 
-    /** @param {string} id */
+    /**
+     * @param {string} url
+     */
+    openUrl(url) {}
+
+    /**
+     * @param {string} id
+     * @return {!Promise}
+     */
     reloadItem(id) {}
 
     /** @param {string} id */
