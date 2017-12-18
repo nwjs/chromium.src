@@ -1696,6 +1696,11 @@ const char kChromeHomePullToRefreshIphAtTopName[] =
 const char kChromeHomePullToRefreshIphAtTopDescription[] =
     "Show the Chrome Home pull-to-refresh help bubble at the top of the screen";
 
+const char kChromeHomeShowGoogleGName[] = "Chrome Home Show Google G";
+const char kChromeHomeShowGoogleGDescription[] =
+    "Show the Google G when the url is cleared. The flag to clear the url "
+    "when the sheet is opened must also be set.";
+
 const char kChromeHomeSwipeLogicName[] = "Chrome Home Swipe Logic";
 const char kChromeHomeSwipeLogicDescription[] =
     "Various swipe logic options for Chrome Home for sheet expansion.";

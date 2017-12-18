@@ -1054,6 +1054,9 @@ extern const char kChromeHomePromoDescription[];
 extern const char kChromeHomePullToRefreshIphAtTopName[];
 extern const char kChromeHomePullToRefreshIphAtTopDescription[];
 
+extern const char kChromeHomeShowGoogleGName[];
+extern const char kChromeHomeShowGoogleGDescription[];
+
 extern const char kChromeHomeSwipeLogicName[];
 extern const char kChromeHomeSwipeLogicDescription[];
 extern const char kChromeHomeSwipeLogicRestrictArea[];
