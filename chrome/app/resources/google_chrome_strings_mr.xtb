@@ -19,6 +19,7 @@
 <translation id="1457721931618994305">Google Chrome अपडेट करीत आहे...</translation>
 <translation id="1469002951682717133">Chrome App लाँचर</translation>
 <translation id="1553358976309200471">Chrome अपडेट करा</translation>
+<translation id="1585657529869845941">ते दिसल्यास <ph name="BEGIN_BOLD" />कसेही स्विच करा<ph name="END_BOLD" /> वर क्लिक करा</translation>
 <translation id="1587223624401073077">Google Chrome आपला कॅमेरा वापरत आहे.</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" /> धोकादायक आहे, त्यामुळे Chrom ने ते अवरोधित केले आहे.</translation>
 <translation id="1619887657840448962">Chrome अधिक सुरक्षित करण्यासाठी, आम्ही <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> मध्ये सूचीबद्ध नसलेला आणि आपल्या माहितीशिवाय कदाचित जोडला गेलेला खालील विस्तार अक्षम केला आहे.</translation>
@@ -67,6 +68,7 @@
 <translation id="2664962310688259219">Chrome OS खुला स्त्रोत परवाने</translation>
 <translation id="2665296953892887393">Google कडे क्रॅश अहवाल आणि <ph name="UMA_LINK" /> पाठवून Google Chrome ला</translation>
 <translation id="2689103672227170538">आपण Chrome प्रारंभ करता तेव्हा कोणते पृष्ठ दर्शविले जाते हे या विस्ताराने बदलले आहे.</translation>
+<translation id="2705403826523567092">सर्व डिव्हाइसवर सिंक केलेला, पर्सनलाइझ केलेला ब्राउझिंग अनुभव मिळवण्यासाठी साइन इन करा</translation>
 <translation id="2769762047821873045">Google Chrome आपला डीफॉल्ट ब्राउझर नाही.</translation>
 <translation id="2770231113462710648">डीफॉल्ट ब्राउझर यावर बदला:</translation>
 <translation id="2799223571221894425">पुन्हा लाँच करा</translation>
@@ -96,6 +98,7 @@
 <translation id="3612333635265770873">यासारख्या नावाचे मॉड्यूल Google Chrome बरोबर संघर्षाकरिता ओळखले जाते. </translation>
 <translation id="3622797965165704966">आता आपल्या Google खात्यावर आणि सामायिक केलेल्या संगणकांवर Chrome वापरणे अधिक सुलभ आहे.</translation>
 <translation id="3637702109597584617">Google Chrome OS <ph name="TERMS_OF_SERVICE_LINK" />सेवा अटी<ph name="END_TERMS_OF_SERVICE_LINK" /></translation>
+<translation id="3716182511346448902">हे पेज खूपच जास्त मेमरी वापरत असल्यामुळे Chrome ने ते थांबवून ठेवलेले आहे.</translation>
 <translation id="3718181793972440140">हे या डिव्‍हाइस मधून 1 आयटम हटवेल. नंतर आपला डेटा पुनर्प्राप्त करण्‍यासाठी, Chrome मध्ये <ph name="USER_EMAIL" /> म्हणून साइन इन करा.</translation>
 <translation id="3735758079232443276">आपण Chrome प्रारंभ करता तेव्हा कोणते पृष्ठ दर्शविले जाते हे "<ph name="EXTENSION_NAME" />" विस्ताराने बदलले आहे.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
@@ -104,6 +107,7 @@
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="3873044882194371212">लिंक Chrome गु&amp;प्त विंडोमध्ये उघडा</translation>
 <translation id="3889417619312448367">Google Chrome अनइंस्टॉल करा</translation>
+<translation id="3898493977366060150">Google smarts सह वेब ब्राउझिंग</translation>
 <translation id="4028693306634653894">Chrome वर अधिक जलद या</translation>
 <translation id="4031074602479304239">Chrome ने या साइटला तुम्हाला यावर नेण्यापासून थांबवले</translation>
 <translation id="4042449298237264661">Windows XP आणि Windows Vista यापुढे समर्थित नसल्याने या संगणकास यापुढे Google Chrome अपडेट प्राप्त होणार नाहीत.</translation>

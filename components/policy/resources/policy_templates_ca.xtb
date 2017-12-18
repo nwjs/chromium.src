@@ -1357,6 +1357,9 @@ Si la política no es defineix, els usuaris podran triar si el prestatge s'ha d'
 
       Si no es defineix aquesta opció, s'utilitzarà el directori de perfil predeterminat.</translation>
 <translation id="5826047473100157858">Especifica si l'usuari pot obrir les pàgines en mode d'incògnit a <ph name="PRODUCT_NAME" />. Si se selecciona l'opció "activat" o no es defineix la política, les pàgines es podran obrir en mode d'incògnit. Si se selecciona l'opció "desactivat", les pàgines no es podran obrir en mode d'incògnit. Si se selecciona l'opció "forçat", les pàgines NOMÉS es podran obrir en mode d'incògnit.</translation>
+<translation id="5835124959204887277">Especifica els URL i els dominis per als quals no es mostrarà cap avís quan se sol·licitin certificats de confirmació de les claus de seguretat. A més, s'enviarà un senyal a la clau de seguretat per indicar que es pot utilitzar una confirmació individual. En cas contrari, els usuaris de Chrome 65 i versions posteriors rebran un avís quan els llocs web sol·licitin una confirmació de les claus de seguretat.
+
+      Els URL (com ara https://example.com/un/camí) només s'identifiquen com a appID d'U2F. Els dominis (com ara example.com) només tornaran resultats com a identificadors RP de WebAuthn. Per tant, per permetre alhora les API de WebAuthn i d'U2F en un lloc web determinat, s'ha d'incloure tant el domini com l'URL de WebAuthn.</translation>
 <translation id="5836064773277134605">Restringeix l'interval de port UDP utilitzat per l'amfitrió d'accés remot</translation>
 <translation id="5862253018042179045">Estableix l'estat predeterminat de la funció d'accessibilitat de comentaris de veu a la pantalla d'inici de sessió.
 
@@ -1534,6 +1537,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
       Si està desactivada, les dades d'emplenament automàtic de formularis no s'importen.
 
       Si no s'estableix, pot ser que es demani a l'usuari si vol importar-les o bé la importació es pot produir de manera automàtica.</translation>
+<translation id="6224304369267200483">Els URL i els dominis han permès automàticament la confirmació directa de la clau de seguretat</translation>
 <translation id="6233173491898450179">Estableix el directori de baixada</translation>
 <translation id="6244210204546589761">URL que s'han d'obrir en iniciar</translation>
 <translation id="6258193603492867656">Especifica si l'SPN de Kerberos que es genera ha d'incloure un port no estàndard. Si activeu aquest paràmetre i introduïu un port no estàndard (p. ex. un port diferent de 80 o de 443), s'inclourà a l'SPN de Kerberos que es generi. Si desactiveu aquest paràmetre o no el definiu, l'SPN del Kerberos que es generi no inclourà cap port en cap cas.</translation>
@@ -1763,6 +1767,13 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 <translation id="7202925763179776247">Permet les restriccions de baixada</translation>
 <translation id="7207095846245296855">Força l'aplicació de Google SafeSearch</translation>
 <translation id="7216442368414164495">Permet que els usuaris activin els informes ampliats de Navegació segura</translation>
+<translation id="7221822638060296742">Permet establir si els llocs web poden executar automàticament el connector <ph name="FLASH_PLUGIN_NAME" /> o no. L'execució automàtica del connector <ph name="FLASH_PLUGIN_NAME" /> pot permetre's o denegar-se per a tots els llocs web.
+
+          La funció Clic per executar permet que el connector <ph name="FLASH_PLUGIN_NAME" /> s'executi, però l'usuari haurà de fer clic a l'espai reservat per iniciar-ne l'execució.
+
+          L'execució automàtica només es permet per als dominis enumerats de manera expressa a la política <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME" />. Per permetre-la per a tots els llocs web, us recomanem afegir http://* i https://* a aquesta enumeració.
+
+          Si aquesta política no es defineix, l'usuari podrà canviar l'opció de configuració manualment.</translation>
 <translation id="7234280155140786597">Noms dels amfitrions de missatgeria nativa prohibits (o bé * per a tots)</translation>
 <translation id="7236775576470542603">Establiu el tipus de lupa predeterminada activada a la pàgina d'inici de sessió.
 

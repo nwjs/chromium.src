@@ -724,16 +724,14 @@
 <translation id="332771718998993005">Tentukan nama yang diiklankan sebagai tujuan <ph name="PRODUCT_NAME" />.
 
           Jika kebijakan ini disetel ke string yang tidak kosong, string tersebut akan digunakan sebagai nama tujuan <ph name="PRODUCT_NAME" />. Jika tidak, nama tujuan akan menjadi nama perangkat. Jika kebijakan ini tidak disetel, nama tujuan akan menjadi nama perangkat, dan pemilik perangkat (atau pengguna dari domain yang mengelola perangkat) akan diizinkan untuk mengubahnya. Karakter nama dibatasi hingga 24 karakter.</translation>
-<translation id="3356249700768900657">
-      CATATAN: Kebijakan ini merupakan eksperimental dan mungkin mengganggu fungsi.
+<translation id="3356249700768900657">CATATAN: Kebijakan ini merupakan eksperimental dan mungkin mengganggu fungsi.
       Anda mungkin ingin melihat setelan kebijakan IsolateOrigins untuk mendapatkan
-      yang terbaik dari kedua kebijakan, isolasi dan dampak terbatas bagi pengguna, dengan
+      manfaat isolasi dan dampak terbatas bagi pengguna, dengan
       menggunakan IsolateOrigins yang berisi daftar situs yang ingin diisolasi. Setelan ini,
       SitePerProcess, mengisolasi semua situs.
       Jika kebijakan ini diaktifkan, setiap situs akan dijalankan dalam prosesnya sendiri.
       Jika kebijakan ini dinonaktifkan, logika manajemen sebelum proses Isolasi Situs akan berlaku
-      Jika kebijakan ini tidak dikonfigurasi, pengguna akan dapat mengubah setelan ini.
-      </translation>
+      Jika kebijakan ini tidak dikonfigurasi, pengguna akan dapat mengubah setelan ini.</translation>
 <translation id="3381968327636295719">Gunakan browser host jika tidak diubah</translation>
 <translation id="3395348522300156660">Menentukan printer yang dapat digunakan pengguna.
 

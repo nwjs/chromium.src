@@ -20,6 +20,7 @@
 <translation id="1457721931618994305">Google Chrome અપડેટ થઈ રહ્યું છે...</translation>
 <translation id="1469002951682717133">Chrome ઍપ્લિકેશન લૉંચર</translation>
 <translation id="1553358976309200471">Chrome અપડેટ કરો</translation>
+<translation id="1585657529869845941">જો <ph name="BEGIN_BOLD" />છતાં સ્વિચ કરો<ph name="END_BOLD" /> દેખાય, તો તેના પર ક્લિક કરો</translation>
 <translation id="1587223624401073077">Google Chrome તમારા કેમેરાનો ઉપયોગ કરી રહ્યું છે.</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" /> જોખમી છે, તેથી Chrome એ તેને અવરોધિત કરેલ છે.</translation>
 <translation id="1619887657840448962">Chrome ને સુરક્ષિત બનાવવા માટે, અમે નીચેના એક્સ્ટેન્શનને અક્ષમ કર્યું છે કે જે <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> માં સૂચિબદ્ધ નથી અને તમારી જાણ વિના ઉમેરવામાં આવ્યું હોઈ શકે છે.</translation>
@@ -68,6 +69,7 @@
 <translation id="2664962310688259219">Chrome OS ખુલ્લા સ્ત્રોત લાઇસેંસેસ</translation>
 <translation id="2665296953892887393">ક્રેશ રિપોર્ટ્સ અને <ph name="UMA_LINK" /> Google ને મોકલીને Google Chrome ને વધુ સારું બનાવવામાં સહાય કરો.</translation>
 <translation id="2689103672227170538">જ્યારે તમે Chrome શરૂ કરો છો ત્યારે જે પૃષ્ઠ દર્શાવવામાં આવે છે તે આ એક્સટેન્શને બદલ્યું છે.</translation>
+<translation id="2705403826523567092">બધા ઉપકરણો પર સિંક કરેલ વ્યક્તિગત બ્રાઉઝિંગ અનુભવ મેળવવા માટે સાઇન ઇન કરો</translation>
 <translation id="2769762047821873045">Google Chrome તમારુ ડિફોલ્ટ બ્રાઉઝર નથીં.</translation>
 <translation id="2770231113462710648">ડિફૉલ્ટ બ્રાઉઝરને આના પર બદલો:</translation>
 <translation id="2799223571221894425">ફરીથી લોંચ કરો</translation>
@@ -98,6 +100,7 @@
 <translation id="3612333635265770873">આ જ નામનું એક મોડ્યુલ Google Chrome સાથે વિરોધાભાસમાં જાણમાં આવ્યું છે.</translation>
 <translation id="3622797965165704966">હવે તમારા Google એકાઉન્ટ સાથે અને શેર કરેલ કમ્પ્યુટર્સ પર Chrome નો ઉપયોગ કરવો વધુ સરળ છે.</translation>
 <translation id="3637702109597584617">Google Chrome OS <ph name="TERMS_OF_SERVICE_LINK" />સેવાની શરતો<ph name="END_TERMS_OF_SERVICE_LINK" /></translation>
+<translation id="3716182511346448902">આ પેજ ઘણી વધુ મેમરીનો ઉપયોગ કરે છે, તેથી Chromeએ તેને થોભાવ્યું છે.</translation>
 <translation id="3718181793972440140">આ, 1 આઇટમને આ ઉપકરણમાંથી કાઢી નાખશે. પછીથી તમારો ડેટા પુનઃપ્રાપ્ત કરવા માટે, Chrome માં <ph name="USER_EMAIL" /> તરીકે સાઇન ઇન કરો.</translation>
 <translation id="3735758079232443276">જ્યારે તમે Chrome શરૂ કરો છો ત્યારે જે પૃષ્ઠ દર્શાવવામાં આવે છે તે <ph name="EXTENSION_NAME" /> એક્સટેન્શને બદલ્યું છે.</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
@@ -106,6 +109,7 @@
 <translation id="3870154837782082782">Google Inc.</translation>
 <translation id="3873044882194371212">Chrome છુ&amp;પી વિંડોમાં લિંક ખોલો</translation>
 <translation id="3889417619312448367">Google Chrome ને અનઇન્સ્ટોલ કરો</translation>
+<translation id="3898493977366060150">Google સ્માર્ટ સાથે વેબ બ્રાઉઝ કરો</translation>
 <translation id="4028693306634653894">Chrome પર વધુ ઝડપથી જાઓ</translation>
 <translation id="4031074602479304239">Chromeએ આ સાઇટ અટકાવીને તમને અહીં જતા રોક્યા</translation>
 <translation id="4042449298237264661">આ કમ્પ્યુટર હવેથી Google Chrome અપડેટ્સ પ્રાપ્ત કરશે નહિ કારણકે Windows XP અને Windows Vista હવેથી સમર્થિત નથી.</translation>

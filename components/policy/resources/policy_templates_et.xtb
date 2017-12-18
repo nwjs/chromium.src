@@ -1452,6 +1452,9 @@
       Kui valite seade „Keelatud”, siis ei saa lehti inkognito režiimis avada.
 
       Kui valite seade „Jõustatud”, siis saab lehti avada AINULT inkognito režiimis.</translation>
+<translation id="5835124959204887277">Määrab URL-id ja domeenid, mille puhul viipa ei kuvata, kui turvavõtmetelt nõutakse atesteerimise sertifikaate. Lisaks saadetakse turvavõtmele signaal, mis näitab, et kasutada võib individuaalset atesteerimist. Ilma selleta esitatakse kasutajatele Chrome'i versioonis 65 ja uuemates versioonides viip, kui saidid nõuavad turvavõtmete atesteerimist.
+
+      URL-id (nt https://example.com/mingi/tee) vastendatakse ainul U2F appID-dega. Domeenid (nt example.com) vastendatakse ainult webauthn RP ID-dena. Seega antud saidil nii U2F-i kui ka webauthn API-de kasutamiseks tuleb loendisse lisada nii appID URL kui ka domeen.</translation>
 <translation id="5836064773277134605">Piira kaugjuurdepääsuhosti kasutatavate UDP-portide vahemikku</translation>
 <translation id="5862253018042179045">Sisselogimisekraanil suulise tagasiside hõlbustusfunktsiooni vaikeoleku määramine.
 
@@ -1632,6 +1635,7 @@
       Reegli keelamisel automaatselt täidetud vormi andmeid ei impordita.
 
       Kui jätate selle reegli määramata, siis võidakse kasutajalt küsida, kas ta soovib importida, või võib importimine toimuda automaatselt.</translation>
+<translation id="6224304369267200483">URL-id/domeenid, millel on turvavõtme otsene atesteerimine automaatselt lubatud</translation>
 <translation id="6233173491898450179">Määra allalaadimiskataloog</translation>
 <translation id="6244210204546589761">Käivitamisel avatavad URL-id</translation>
 <translation id="6258193603492867656">Määrab, kas Kerberose SPN peab hõlmama ebastandardset porti.
@@ -1886,6 +1890,13 @@
 <translation id="7202925763179776247">Luba allalaadimise piirangud</translation>
 <translation id="7207095846245296855">Google SafeSearchi jõustamine</translation>
 <translation id="7216442368414164495">Kasutajatel lubatakse ohutu sirvimise laiendatud aruannete lubamine</translation>
+<translation id="7221822638060296742">Võimaldab määrata, kas veebisaitidel on lubatud automaatselt käitada pistikprogrammi <ph name="FLASH_PLUGIN_NAME" />. Pistikprogrammi <ph name="FLASH_PLUGIN_NAME" /> automaatne käitamine võib kõikide veebisaitide jaoks olla lubatud või keelatud.
+
+          Funktsioon Klõpsa esitamiseks lubab pistikprogrammi <ph name="FLASH_PLUGIN_NAME" /> käitada, kuid kasutaja peab selle käivitamiseks klõpsama kohahoidjal.
+
+          Automaatne taasesitus on lubatud ainult domeenidel, mis on reeglis <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME" /> selgesõnaliselt loetletud. Kui soovite lubada automaatse taasesituse kõigil saitidel, kaaluge sellesse loendisse protokollide http://* ja https://* lisamist.
+
+          Kui see reegel on määramata, saab kasutaja seda seadet käsitsi muuta.</translation>
 <translation id="7234280155140786597">Keelatud omasõnumside hostide nimed (või väärtus * kõikide keelamiseks)</translation>
 <translation id="7236775576470542603">Sisselogimisekraanil lubatud ekraaniluubi vaiketüübi määramine.
 

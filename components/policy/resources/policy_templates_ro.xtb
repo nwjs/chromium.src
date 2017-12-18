@@ -1394,6 +1394,9 @@
 
       Dacă această setare nu este configurată, va fi folosit directorul prestabilit al profilului.</translation>
 <translation id="5826047473100157858">Specifică dacă utilizatorul poate deschide pagini în modul incognito în <ph name="PRODUCT_NAME" />. Dacă politica este activată sau nu este setată, paginile pot fi deschise în modul incognito. Dacă este dezactivată, paginile nu pot fi deschise în modul incognito. Dacă este selectat „Forțat”, paginile pot fi deschise NUMAI în modul incognito.</translation>
+<translation id="5835124959204887277">Specifică adresele URL și domeniile pentru care nu va fi afișată nicio solicitare atunci când sunt solicitate certificate de atestare de la Cheile de securitate. În plus, va fi transmis un semnal către Cheia de securitate, indicând faptul că poate fi folosită atestarea individuală. Fără aceasta, utilizatorii vor fi atenționați în Chrome 65+ atunci când site-urile necesită atestarea Cheilor de securitate.
+
+      Adresele URL (cum ar fi https://example.com/some/path) vor putea fi folosite numai drept coduri ale aplicației U2F. Domeniile (cum ar fi example.com) vor putea fi folosite numai ca ID-uri webauthn RP. Prin urmare, pentru a acoperi atât API-urile U2F, cât și API-urile webauthn pentru un anumit site, trebuie listate atât adresa URL, cât și domeniul cu codul aplicației.</translation>
 <translation id="5836064773277134605">Limitați intervalul pentru portul UDP folosit de gazda de acces la distanță</translation>
 <translation id="5862253018042179045">Setați funcția de accesibilitate pentru feedback vocal ca stare prestabilită pe ecranul de conectare.
 
@@ -1572,6 +1575,7 @@
       Dacă este dezactivată, datele salvate pentru completarea automată a formularelor nu sunt importate.
 
       Dacă nu este configurată, utilizatorul poate fi întrebat dacă importă datele sau este posibil ca acestea să fie importate automat.</translation>
+<translation id="6224304369267200483">Adresele URL/domeniile pentru care se permite automat atestarea directă a Cheilor de securitate</translation>
 <translation id="6233173491898450179">Setează directorul de descărcare</translation>
 <translation id="6244210204546589761">Adrese URL care se deschid la pornire</translation>
 <translation id="6258193603492867656">Specifică dacă în protocolul Kerberos numele SPN generate ar trebui să includă un port non-standard. Dacă activați această setare și este introdus un port non-standard (de exemplu, un alt port decât 80 sau 443), acesta va fi inclus în numele SPN generate în protocolul Kerberos. Dacă dezactivați această setare sau o lăsați nesetată, codurile SPN generate în Kerberos nu vor include un port.</translation>
@@ -1801,6 +1805,13 @@ nu poate fi stabilit de utilizator din setările browserului.
 <translation id="7202925763179776247">Permite restricții privind descărcarea</translation>
 <translation id="7207095846245296855">Impune Căutarea sigură Google</translation>
 <translation id="7216442368414164495">Permite utilizatorilor să activeze raportarea detaliată privind Navigarea sigură</translation>
+<translation id="7221822638060296742">Îți permite să setezi dacă site-urile au permisiunea să ruleze automat pluginul <ph name="FLASH_PLUGIN_NAME" />. Rularea automată a pluginului <ph name="FLASH_PLUGIN_NAME" /> poate fi permisă sau refuzată în bloc pentru toate site-urile.
+
+          Opțiunea „Dă clic pentru redare” îi permite pluginului <ph name="FLASH_PLUGIN_NAME" /> să ruleze, dar utilizatorul trebuie să dea clic pe substituent pentru a începe executarea.
+
+          Redarea automată este permisă numai pentru domeniile listate în mod explicit în politica <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME" />. Dacă dorești să activezi redarea automată pentru toate site-urile, îți recomandăm să adaugi http://* și https://* în această listă.
+
+          Dacă politica nu este setată, utilizatorul va putea modifica această setare manual.</translation>
 <translation id="7234280155140786597">Numele gazdelor de mesagerie nativă interzise (sau * pentru toate)</translation>
 <translation id="7236775576470542603">Setați tipul prestabilit al lupei pentru ecran activate pe ecranul de conectare.
 

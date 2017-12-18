@@ -1335,6 +1335,9 @@
 
       如果此政策未设置，系统将使用默认的个人资料目录。</translation>
 <translation id="5826047473100157858">指定用户是否可以在 <ph name="PRODUCT_NAME" />中以隐身模式打开网页。如果选择“已启用”或未设置此政策，则允许以隐身模式打开网页。如果选择“已停用”，则不能以隐身模式打开网页。如果选择“强制”，则只能以隐身模式打开网页。</translation>
+<translation id="5835124959204887277">指定网址和网域，当相应网站需要取得安全密钥认证证书时，系统将不会显示任何提示。此外，系统还将向安全密钥发送信号，以指明可能会使用个人认证。如果未设置此政策，当网站需要取得安全密钥认证时，Chrome 65+ 将会提示用户。
+
+      网址（如 https://example.com/some/path）将仅匹配为 U2F appID。网域（如 example.com）将仅匹配为 webauthn RP ID。因此，要同时涵盖指定网址的 U2F 和 webauthn API，必须同时列出 appID 网址和网域。</translation>
 <translation id="5836064773277134605">限制远程访问主机使用的UDP端口范围</translation>
 <translation id="5862253018042179045">设置登录屏幕上语音反馈辅助功能的默认状态。
 
@@ -1512,6 +1515,7 @@
       如果您停用了此政策，系统将不会导入自动填充表单数据。
 
       如果此政策未设置，系统可能会询问用户是否导入，也可能会自动执行导入操作。</translation>
+<translation id="6224304369267200483">自动允许直接安全密钥认证的网址/网域</translation>
 <translation id="6233173491898450179">设置下载目录</translation>
 <translation id="6244210204546589761">启动时打开的网址</translation>
 <translation id="6258193603492867656">指定生成的 Kerberos SPN 是否应包括非标准端口。如果您启用了此设置，并输入某个非标准端口（即除 80 或 443 以外的端口），该端口就会包括在生成的 Kerberos SPN 中。如果您停用或未配置此设置，生成的 Kerberos SPN 在任何情况下都不会包括端口。</translation>
@@ -1739,6 +1743,13 @@
 <translation id="7202925763179776247">允许下载限制</translation>
 <translation id="7207095846245296855">强制启用 Google 安全搜索功能</translation>
 <translation id="7216442368414164495">允许用户启用安全浏览延期报告功能</translation>
+<translation id="7221822638060296742">可让您设置是否允许网站自动运行 <ph name="FLASH_PLUGIN_NAME" /> 插件。可以允许或拒绝所有网站自动运行 <ph name="FLASH_PLUGIN_NAME" /> 插件。
+
+          如果启用“点击播放”，用户必须点击相应的占位符，<ph name="FLASH_PLUGIN_NAME" /> 插件才能开始运行。
+
+          “自动播放”仅适用于 <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME" /> 政策中明确列出的网域。如果要为所有网站启用“自动播放”，可以将 http://* 和 https://* 添加到此列表。
+
+          如果此策略未设置，用户将能够手动更改此项设置。</translation>
 <translation id="7234280155140786597">被禁的本地消息传递主机的名称（用“*”则表示全部禁止）</translation>
 <translation id="7236775576470542603">设置登录屏幕上启用的放大镜默认类型。
 

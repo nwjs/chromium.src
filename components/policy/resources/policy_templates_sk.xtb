@@ -1448,6 +1448,9 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
       Ak vyberiete možnosť „Zakázané“, stránky v režime Inkognito nebude možné otvoriť.
 
       Ak vyberiete možnosť „Vynútené“, stránky bude možné otvoriť LEN v režime Inkognito.</translation>
+<translation id="5835124959204887277">Umožňuje určiť webové adresy a domény, pri ktorých sa nebude zobrazovať žiadna výzva, keď sa budú vyžadovať atestačné certifikáty z bezpečnostných kľúčov. Okrem toho bude do bezpečnostného kľúča odoslaný signál označujúci, že je možné použiť individuálnu atestáciu. Bez toho sa používateľom v Chrome 65 alebo novšom zobrazí výzva, keď budú weby požadovať atestáciu bezpečnostných kľúčov.
+
+      Webové adresy (ako https://príklad.com/nejaká/cesta) sa budú zhodovať iba ako identifikátory aplikácie U2F. Domény (ako príklad.com) sa budú zhodovať iba ako identifikátory webauthn RP. Ak majú byť pokryté obe rozhrania U2F aj webauthn API pre daný web, je potrebné uviesť webovú adresu a doménu identifikátora aplikácie.</translation>
 <translation id="5836064773277134605">Obmedzí rozsah portov UDP používaných hostiteľom vzdialeného prístupu</translation>
 <translation id="5862253018042179045">Nastaví predvolený stav hlasovej odozvy (funkcia na uľahčenie prístupu) na prihlasovacej obrazovke.
 
@@ -1627,6 +1630,7 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
       Ak je pravidlo zakázané, údaje automatického dopĺňania formulárov nebudú importované.
 
       Ak nie je nastavené, môže sa používateľovi zobraziť výzva, či chce údaje importovať, alebo môže import prebehnúť automaticky.</translation>
+<translation id="6224304369267200483">Automatické povolenie priamej atestácie bezpečnostných kľúčov webovými adresami alebo doménami</translation>
 <translation id="6233173491898450179">Nastaviť adresár na sťahovanie</translation>
 <translation id="6244210204546589761">Webové adresy otvárané pri spustení</translation>
 <translation id="6258193603492867656">Určuje, či má generovaný hlavný názov služby protokolu Kerberos zahŕňať neštandardný port.
@@ -1880,6 +1884,13 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
 <translation id="7202925763179776247">Povoliť obmedzenia súborov na stiahnutie</translation>
 <translation id="7207095846245296855">Vynútiť Bezpečné vyhľadávanie Google</translation>
 <translation id="7216442368414164495">Umožniť používateľom prihlásenie do rozšírených prehľadov Bezpečného prehliadania</translation>
+<translation id="7221822638060296742">Umožňuje nastaviť, či môžu weby automaticky spúšťať doplnok <ph name="FLASH_PLUGIN_NAME" />. Automatické spúšťanie doplnku <ph name="FLASH_PLUGIN_NAME" /> je možné pre všetky weby buď povoliť, alebo zakázať.
+
+          Spustenie doplnku <ph name="FLASH_PLUGIN_NAME" /> umožní kliknutie na tlačidlo prehrávania, ale používateľ musí kliknúť na zástupný symbol, aby spustil jeho aktiváciu.
+
+          Automatické prehrávanie je povolené iba pre domény výslovne uvedené v pravidle <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME" />. Ak chcete povoliť automatické prehrávanie pre všetky weby, odporúčame do tohto zoznamu pridať výrazy http://* a https://*.
+
+          Ak toto pravidlo nenastavíte, používateľ bude môcť nastavenie zmeniť ručne.</translation>
 <translation id="7234280155140786597">Názvy zakázaných hostiteľov pre odosielanie natívnych správ (všetkých označíte pomocou znaku *)</translation>
 <translation id="7236775576470542603">Nastaví predvolený typ lupy obrazovky, ktorý je povolený na prihlasovacej obrazovke.
 
