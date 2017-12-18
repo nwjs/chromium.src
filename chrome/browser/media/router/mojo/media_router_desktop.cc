@@ -224,7 +224,7 @@ void MediaRouterDesktop::EnsureMdnsDiscoveryEnabled() {
   if (cast_media_sink_service_) {
     cast_media_sink_service_->StartMdnsDiscovery();
   } else {
-    media_route_providers_[MediaRouteProviderId::EXTENSION]
+    media_route_providers_[mojom::MediaRouteProvider::Id::EXTENSION]
         ->EnableMdnsDiscovery();
   }
 
