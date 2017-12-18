@@ -1663,6 +1663,10 @@ const char kBackgroundLoaderForDownloadsDescription[] =
     "Enables downloading pages in the background in case page is not yet "
     "loaded in current tab.";
 
+const char kChromeHomeClearUrlOnOpenName[] = "Chrome Home clear url on open";
+const char kChromeHomeClearUrlOnOpenDescription[] =
+    "Clear omnibox URL when the bottom sheet is opened.";
+
 const char kChromeHomeEnableSurveyName[] = "Enable Chrome Home survey";
 const char kChromeHomeEnableSurveyDescription[] =
     "If enabled, the survey process will allow surveys using sample "
