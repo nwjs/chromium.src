@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/common/child_process_logging.h"
+#include "chrome_elf/chrome_elf_main.h"
 
 #include <windows.h>
 
@@ -46,6 +47,7 @@ void Init() {
       GoogleUpdateSettings::LoadMetricsClientInfo();
 
 #if !defined(COMPONENT_BUILD)
+  if (ElfGetReporterClient())
   crash_keys::RegisterChromeCrashKeys();
 #endif
 

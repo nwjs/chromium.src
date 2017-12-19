@@ -214,7 +214,7 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
 
   std::unique_ptr<blink::WebTrialTokenValidator> TrialTokenValidator() override;
   std::unique_ptr<blink::TrialPolicy> OriginTrialPolicy() override;
-  void WorkerContextCreated(const v8::Local<v8::Context>& worker) override;
+  void WorkerContextCreated(const v8::Local<v8::Context>& worker, bool, const std::string&) override;
 
   // Set the PlatformEventObserverBase in |platform_event_observers_| associated
   // with |type| to |observer|. If there was already an observer associated to

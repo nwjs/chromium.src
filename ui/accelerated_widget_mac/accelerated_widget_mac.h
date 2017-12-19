@@ -19,6 +19,8 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/native_widget_types.h"
 
+class SkCanvas;
+
 namespace ui {
 
 class FullscreenLowPowerCoordinator;
@@ -76,6 +78,9 @@ class ACCELERATED_WIDGET_MAC_EXPORT AcceleratedWidgetMac {
                          const gfx::Size& pixel_size,
                          float scale_factor);
 
+  void GotSoftwareFrame(float scale_factor,
+                        SkCanvas* canvas);
+
  private:
   // The AcceleratedWidgetMacNSView that is using this as its internals.
   AcceleratedWidgetMacNSView* view_;
@@ -109,6 +114,10 @@ class ACCELERATED_WIDGET_MAC_EXPORT AcceleratedWidgetMac {
 
   DISALLOW_COPY_AND_ASSIGN(AcceleratedWidgetMac);
 };
+
+ACCELERATED_WIDGET_MAC_EXPORT
+void AcceleratedWidgetMacGotSoftwareFrame(
+    gfx::AcceleratedWidget widget, float scale_factor, SkCanvas* canvas);
 
 }  // namespace ui
 

@@ -194,6 +194,9 @@ void SelectFileDialogImpl::SelectFileImpl(
       file_types ? file_types->extensions.size() > 1 : true;
 
   if (type == SELECT_SAVEAS_FILE) {
+#if 1 //NWJS#6091: extension was hidden
+    [dialog setExtensionHidden:NO];
+#else
     // When file extensions are hidden and removing the extension from
     // the default filename gives one which still has an extension
     // that OS X recognizes, it will get confused and think the user
@@ -208,6 +211,7 @@ void SelectFileDialogImpl::SelectFileImpl(
     } else {
       [dialog setCanSelectHiddenExtension:YES];
     }
+#endif
   } else {
     NSOpenPanel* open_dialog = (NSOpenPanel*)dialog;
 
@@ -220,7 +224,7 @@ void SelectFileDialogImpl::SelectFileImpl(
       [open_dialog setCanChooseFiles:NO];
       [open_dialog setCanChooseDirectories:YES];
       [open_dialog setCanCreateDirectories:YES];
-      NSString *prompt = (type == SELECT_UPLOAD_FOLDER)
+      NSString *prompt = (false && type == SELECT_UPLOAD_FOLDER)
           ? l10n_util::GetNSString(IDS_SELECT_UPLOAD_FOLDER_BUTTON_TITLE)
           : l10n_util::GetNSString(IDS_SELECT_FOLDER_BUTTON_TITLE);
       [open_dialog setPrompt:prompt];

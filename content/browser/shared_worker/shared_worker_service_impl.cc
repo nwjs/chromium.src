@@ -119,7 +119,7 @@ void SharedWorkerServiceImpl::ConnectToWorker(
     const WorkerStoragePartitionId& partition_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  auto instance = std::make_unique<SharedWorkerInstance>(
+  auto instance = std::make_unique<SharedWorkerInstance>(info->is_node_js, info->root_path,
       info->url, info->name, info->content_security_policy,
       info->content_security_policy_type, info->creation_address_space,
       resource_context, partition_id, creation_context_type,

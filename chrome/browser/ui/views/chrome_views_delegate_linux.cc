@@ -6,6 +6,8 @@
 
 #include "base/environment.h"
 #include "base/nix/xdg_util.h"
+#include "content/nw/src/nw_content.h"
+
 #include "chrome/browser/ui/views/native_widget_factory.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -34,6 +36,9 @@ views::NativeWidget* ChromeViewsDelegate::CreateNativeWidget(
 }
 
 gfx::ImageSkia* ChromeViewsDelegate::GetDefaultWindowIcon() const {
+  gfx::ImageSkia* ret = nw::GetAppIcon();
+  if (ret)
+    return ret;
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   return rb.GetImageSkiaNamed(IDR_PRODUCT_LOGO_64);
 }

@@ -87,6 +87,7 @@ class PLATFORM_EXPORT SecurityOrigin : public RefCounted<SecurityOrigin> {
   String Host() const { return host_; }
   String Domain() const { return domain_; }
   unsigned short Port() const { return port_; }
+  bool hasUniversalAccess() const { return universal_access_; }
 
   // |port()| will return 0 if the port is the default for an origin. This
   // method instead returns the effective port, even if it is the default port

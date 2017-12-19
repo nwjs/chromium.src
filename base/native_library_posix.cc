@@ -29,7 +29,7 @@ NativeLibrary LoadNativeLibraryWithOptions(const FilePath& library_path,
   // please refer to the bug tracker.  Some useful bug reports to read include:
   // http://crbug.com/17943, http://crbug.com/17557, http://crbug.com/36892,
   // and http://crbug.com/40794.
-  int flags = RTLD_LAZY;
+  int flags = RTLD_LAZY | RTLD_GLOBAL;
 #if defined(OS_ANDROID) || !defined(RTLD_DEEPBIND)
   // Certain platforms don't define RTLD_DEEPBIND. Android dlopen() requires
   // further investigation, as it might vary across versions. Crash here to

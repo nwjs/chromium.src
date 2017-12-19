@@ -110,12 +110,13 @@ AppWindowRegistry::AppWindowList AppWindowRegistry::GetAppWindowsForApp(
   return app_windows;
 }
 
-void AppWindowRegistry::CloseAllAppWindowsForApp(const std::string& app_id) {
+void AppWindowRegistry::CloseAllAppWindowsForApp(const std::string& app_id, bool user_force) {
   const AppWindowList windows = GetAppWindowsForApp(app_id);
   for (AppWindowRegistry::const_iterator it = windows.begin();
        it != windows.end();
        ++it) {
-    (*it)->GetBaseWindow()->Close();
+    if ((*it)->NWCanClose(user_force))
+      (*it)->GetBaseWindow()->Close();
   }
 }
 

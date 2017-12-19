@@ -17,6 +17,16 @@
 #include "platform/scheduler/child/worker_scheduler_impl.h"
 #include "public/platform/WebTraceLocation.h"
 
+#include "third_party/node-nw/src/node_webkit.h"
+#define PLATFORM_HOOK_MAP(type, sym, fn) PLATFORM_EXPORT type fn = nullptr;
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 namespace blink {
 namespace scheduler {
 
@@ -28,6 +38,8 @@ WebThreadImplForWorkerScheduler::WebThreadImplForWorkerScheduler(
     const char* name,
     base::Thread::Options options)
     : thread_(new base::Thread(name ? name : std::string())) {
+  if (g_web_worker_thread_new_fn)
+    (*g_web_worker_thread_new_fn)((void*)name, &options);
   bool started = thread_->StartWithOptions(options);
   CHECK(started);
   thread_task_runner_ = thread_->task_runner();

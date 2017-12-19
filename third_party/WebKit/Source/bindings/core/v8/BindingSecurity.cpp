@@ -313,6 +313,8 @@ bool BindingSecurity::ShouldAllowAccessToCreationContext(
     return true;
 
   v8::Isolate* isolate = creation_context->GetIsolate();
+  if (isolate->GetCurrentContext()->GetAlignedPointerFromEmbedderData(33) == (void*)0x08110800)
+    return true;
   LocalFrame* frame = ToLocalFrameIfNotDetached(creation_context);
   ExceptionState exception_state(isolate, ExceptionState::kConstructionContext,
                                  type->interface_name);

@@ -15,6 +15,10 @@ namespace content {
 class RenderFrameHost;
 }
 
+namespace extensions {
+  class AppWindow;
+}
+
 // ChooserBubbleDelegate overrides GetName() to identify the bubble
 // you define for collecting metrics. Create an instance of this
 // class and pass it to BubbleManager::ShowBubble() to show the bubble.
@@ -32,6 +36,7 @@ class ChooserBubbleDelegate : public BubbleDelegate {
  private:
   const content::RenderFrameHost* const owning_frame_;
   Browser* browser_;
+  extensions::AppWindow* app_window_;
   // |chooser_controller_| is not owned by this class, it is owned by
   // DeviceChooserContentView[Cocoa].
   // This field only temporarily owns the ChooserController. It is moved

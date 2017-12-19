@@ -18,6 +18,7 @@ class AppWindowCustomBindings : public ObjectBackedNativeHandler {
  private:
   void GetFrame(const v8::FunctionCallbackInfo<v8::Value>& args);
 
+  void FixGamePadAPI(const v8::FunctionCallbackInfo<v8::Value>& args);
   DISALLOW_COPY_AND_ASSIGN(AppWindowCustomBindings);
 };
 
