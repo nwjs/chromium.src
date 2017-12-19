@@ -125,6 +125,11 @@ cr.define('extension_test_util', function() {
 
     /** @override */
     showInFolder: function(id) {},
+
+    /** @override */
+    getExtensionSize: function(id) {
+      return Promise.resolve('10 MB');
+    },
   };
 
   /**

@@ -8,6 +8,7 @@ cr.define('extensions', function() {
     constructor() {
       super([
         'getExtensionsInfo',
+        'getExtensionSize',
         'getProfileConfiguration',
         'loadUnpacked',
         'retryLoadUnpacked',
@@ -41,6 +42,12 @@ cr.define('extensions', function() {
     getExtensionsInfo() {
       this.methodCalled('getExtensionsInfo');
       return Promise.resolve([]);
+    }
+
+    /** @override */
+    getExtensionSize() {
+      this.methodCalled('getExtensionSize');
+      return Promise.resolve('20 MB');
     }
 
     /** @override */
