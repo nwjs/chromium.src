@@ -10,6 +10,7 @@ Niektoré funkcie nemusia byť k dispozícii a zmeny vykonané v predvoľbách s
 <translation id="1104959162601287462">Informácie o systéme &amp;Chrome OS</translation>
 <translation id="110877069173485804">Toto je váš prehliadač Chrome</translation>
 <translation id="1142745911746664600">Chrome sa nedá aktualizovať</translation>
+<translation id="1154147086299354128">&amp;Otvoriť v Chrome</translation>
 <translation id="123620459398936149">Systému OS Chrome sa nepodarilo synchronizovať vaše údaje. Aktualizujte prístupovú frázu synchronizácie.</translation>
 <translation id="127345590676626841">Chrome sa aktualizuje automaticky, aby ste mali vždy k dispozícii najnovšiu verziu. Po dokončení sťahovania sa Chrome reštartujte a začnete používať aktuálnu verziu.</translation>
 <translation id="1302523850133262269">Počkajte, kým Chrome nainštaluje najnovšie aktualizácie systému.</translation>
@@ -156,6 +157,7 @@ Niektoré funkcie môžu byť nedostupné. Zadajte iný adresár profilu alebo p
 <translation id="5243785881901838525">Google Payments (skopírované do Chromu)</translation>
 <translation id="5251420635869119124">Hostia môžu používať prehliadač Chrome bez toho, aby po sebe zanechali akékoľvek informácie.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome sa reštartuje o 1 sekundu.}few{Google Chrome sa reštartuje o # sekundy.}many{Google Chrome sa reštartuje o # sekundy.}other{Google Chrome sa reštartuje o # sekúnd.}}</translation>
+<translation id="532046782124376502">Upozornenie: Google Chrome nemôže zabrániť rozšíreniam v zaznamenávaní vašej histórie prehliadania. Ak chcete dané rozšírenie v režime inkognito zakázať, zrušte výber tejto možnosti.</translation>
 <translation id="5334545119300433702">Tento modul zvykne spôsobovať konflikt s prehliadačom Google Chrome.</translation>
 <translation id="5386244825306882791">Tiež určuje, ktorá stránka sa zobrazí pri spustení prehliadača Chrome alebo pri vyhľadávaní pomocou všeobecného poľa.</translation>
 <translation id="5430073640787465221">Súbor predvolieb je poškodený alebo neplatný. 

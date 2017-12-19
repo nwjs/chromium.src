@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">Informazioni su &amp;Chrome OS</translation>
 <translation id="110877069173485804">Questo è il tuo Chrome</translation>
 <translation id="1142745911746664600">Impossibile aggiornare Chrome</translation>
+<translation id="1154147086299354128">&amp;Apri in Chrome</translation>
 <translation id="123620459398936149">Impossibile sincronizzare i tuoi dati in Chrome OS. Aggiorna la passphrase di sincronizzazione.</translation>
 <translation id="127345590676626841">Chrome si aggiorna automaticamente per consentirti di avere sempre la versione più recente. Al termine del download, Chrome si riavvierà e potrai procedere.</translation>
 <translation id="1302523850133262269">Attendi mentre Chrome installa gli aggiornamenti di sistema più recenti.</translation>
@@ -153,6 +154,7 @@ Per ulteriori informazioni, controlla l'email all'indirizzo <ph name="ACCOUNT_EM
 <translation id="5243785881901838525">Google Payments (copiato in Chrome)</translation>
 <translation id="5251420635869119124">Gli ospiti possono utilizzare Chrome senza lasciare tracce.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome sarà riavviato tra 1 secondo.}other{Google Chrome sarà riavviato tra # secondi.}}</translation>
+<translation id="532046782124376502">Avviso: Google Chrome non è in grado di impedire alle estensioni di registrare la tua cronologia di navigazione. Per disattivare questa estensione in modalità di navigazione in incognito, deseleziona questa opzione.</translation>
 <translation id="5334545119300433702">Questo modulo è in conflitto con Google Chrome.</translation>
 <translation id="5386244825306882791">Controlla anche la pagina visualizzata all'avvio di Chrome o quando esegui ricerche dalla Omnibox.</translation>
 <translation id="5430073640787465221">Il file delle preferenze è danneggiato o non valido. Google Chrome non è in grado di recuperare le impostazioni.</translation>

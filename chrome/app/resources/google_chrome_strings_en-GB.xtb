@@ -10,6 +10,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="1104959162601287462">About &amp;Chrome OS</translation>
 <translation id="110877069173485804">This is your Chrome</translation>
 <translation id="1142745911746664600">Can't update Chrome</translation>
+<translation id="1154147086299354128">&amp;Open in Chrome</translation>
 <translation id="123620459398936149">Chrome OS could not sync your data. Please update your Sync passphrase.</translation>
 <translation id="127345590676626841">Chrome updates automatically so that you always have the freshest version. When this download completes, Chrome will restart and you'll be on your way.</translation>
 <translation id="1302523850133262269">Please wait while Chrome installs the latest system updates.</translation>
@@ -158,6 +159,7 @@ Some features may be unavailable. Please specify a different profile directory o
 <translation id="5243785881901838525">Google Payments (copied to Chrome)</translation>
 <translation id="5251420635869119124">Guests can use Chrome without leaving anything behind.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome will restart in 1 second.}other{Google Chrome will restart in # seconds.}}</translation>
+<translation id="532046782124376502">Warning: Google Chrome cannot prevent extensions from recording your browsing history. To disable this extension in incognito mode, unselect this option.</translation>
 <translation id="5334545119300433702">This module is known to conflict with Google Chrome.</translation>
 <translation id="5386244825306882791">It also controls what page is shown when you start Chrome or search from the Omnibox.</translation>
 <translation id="5430073640787465221">Your preferences file is corrupt or invalid.

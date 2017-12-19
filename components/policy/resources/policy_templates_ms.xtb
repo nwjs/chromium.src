@@ -327,6 +327,11 @@
 
           Jika dasar ini dibiarkan tanpa ditetapkan, kesemua empat skim akan digunakan.</translation>
 <translation id="2067011586099792101">Sekat akses ke tapak web di luar pek kandungan</translation>
+<translation id="2075030897098958514">Mengawal sama ada NTLMv2 didayakan.
+
+          Semua versi terbaharu pelayan Samba dan Windows menyokong NTLMv2. Ciri ini harus dilumpuhkan untuk keserasian mundur sahaja dan mengurangkan keselamatan pengesahan.
+
+          Nilai lalai apabila dasar ini tidak ditakrifkan ialah palsu pada masa ini untuk keserasian mundur, tetapi akan berubah kepada benar pada masa hadapan.</translation>
 <translation id="2077129598763517140">Gunakan pecutan perkakasan apabila tersedia</translation>
 <translation id="2077273864382355561">Kelewatan pemadaman skrin apabila dijalankan dengan kuasa bateri</translation>
 <translation id="2082205219176343977">Konfigurasikan versi Chrome minimum yang dibenarkan untuk peranti ini.</translation>
@@ -418,6 +423,7 @@
 <translation id="2312134445771258233">Membenarkan anda mengkonfigurasi halaman yang dimuatkan pada permulaan.
 
       Kandungan senarai 'URL untuk dibuka semasa permulaan' diabaikan melainkan anda memilih 'Buka senarai URL' dalam 'Tindakan pada permulaan'.</translation>
+<translation id="2327252517317514801">Tentukan domain yang dibenarkan untuk mengakses G Suite</translation>
 <translation id="2334591568684482454">Mengkonfigurasikan ketersediaan dan gelagat fungsi kemas kini perisian tegar <ph name="TPM_FIRMWARE_UPDATE_TPM" />.
 
       Tetapan individu boleh ditentukan dalam sifat JSON:
@@ -1020,6 +1026,7 @@
           Dasar ini tidak wajib. Jika tidak ditetapkan, permintaan carian imej akan dihantar menggunakan kaedah GET.
 
           Dasar ini hanya dipatuhi jika dasar 'DefaultSearchProviderEnabled' didayakan.</translation>
+<translation id="4285674129118156176">Benarkan pengguna yang bukan ahli gabungan menggunakan ARC</translation>
 <translation id="4294280661005713627">Menetapkan versi sasaran untuk Kemas Kini Automatik.
 
       Menentukan awalan versi sasaran <ph name="PRODUCT_OS_NAME" /> yang akan dikemas kini. Jika peranti menjalankan versi sebelum awalan yang dinyatakan, peranti akan dikemas kini kepada versi terkini dengan awalan yang diberikan. Jika peranti sudah menggunakan versi lebih baharu, tiada apa-apa akan berlaku (cth. penurunan taraf tidak akan dilakukan) dan peranti akan kekal berada pada versi semasa. Format awalan berfungsi mengikut komponen seperti yang ditunjukkan dalam contoh berikut:
@@ -1193,6 +1200,7 @@
           Jika dasar ini ditetapkan kepada benar atau dibiarkan tanpa ditetapkan, kunci bangkit skrin akan digunakan untuk pengurusan kuasa.
 
           Jika dasar ini ditetapkan kepada palsu, permintaan kunci bangkit skrin akan diabaikan.</translation>
+<translation id="487460824085252184">Pindahkan secara automatik, jangan minta persetujuan pengguna.</translation>
 <translation id="4876805738539874299">Versi SSL maksimum didayakan</translation>
 <translation id="4881315447528084360">Menentukan senarai apl dan sambungan yang akan dipasang secara senyap,
           tanpa interaksi pengguna dan yang tidak boleh dinyahpasang mahupun
@@ -1301,6 +1309,7 @@
 <translation id="5272684451155669299">Jika benar, pengguna boleh menggunakan perkakasan pada peranti Chrome untuk membuktikan identitinya dari jauh pada CA privasi melalui <ph name="ENTERPRISE_PLATFORM_KEYS_API" /> menggunakan <ph name="CHALLENGE_USER_KEY_FUNCTION" />.
 
           Jika ditetapkan kepada palsu atau tidak ditetapkan, panggilan kepada API ini akan gagal dengan kod ralat.</translation>
+<translation id="5283457834853986457">Lumpuhkan pencari pemalam (ditamatkan)</translation>
 <translation id="5288772341821359899">Jika dasar ini ditetapkan, julat port UDP yang digunakan oleh WebRTC dihadkan kepada selang port yang ditentukan (termasuk titik akhir).
 
       Jika dasar ini tidak ditetapkan, atau ditetapkan pada rentetan kosong atau julat port yang tidak sah, WebRTC dibenarkan untuk menggunakan mana-mana port UDP setempat yang tersedia.</translation>
@@ -1324,6 +1333,11 @@
           Jika dasar ini ditetapkan kepada Palsu, pengguna tidak akan dapat menghantar kandungan ke peranti mereka. Jika dasar ini ditetapkan kepada Benar, pengguna dibenarkan menghantar kandungan. Jika dasar ini tidak ditetapkan, pengguna tidak dibenarkan menghantar kandungan ke peranti OS Chrome berdaftar, tetapi dibenarkan berbuat demikian ke peranti OS Chrome tidak berdaftar.</translation>
 <translation id="5330684698007383292">Benarkan <ph name="PRODUCT_FRAME_NAME" /> mengendalikan jenis kandungan berikut</translation>
 <translation id="5365946944967967336">Paparkan butang Halaman Utama pada bar alat</translation>
+<translation id="5366745336748853475">Membolehkan anda menentukan senarai pola url yang menentukan tapak yang sijil pelanggannya dipilih secara automatik pada skrin log masuk dalam bingkai yang mengehoskan aliran SAML, jika tapak tersebut meminta sijil. Satu contoh penggunaan adalah untuk mengkonfigurasikan sijil seluruh peranti yang akan disampaikan kepada SAML IdP.
+
+      Nilai tersebut mestilah tatasusunan kamus JSON yang berentetan. Setiap kamus mestilah berbentuk { "pattern": "$URL_PATTERN", "filter" : $FILTER }, dengan $URL_PATTERN ialah pola tetapan kandungan. $FILTER mengehadkan sumber sijil pelanggan yang akan dipilih secara automatik oleh penyemak imbas. Tanpa bergantung pada penapis, hanya sijil akan dipilih apabila sepadan dengan permintaan sijil pelayan. Jika $FILTER berbentuk { "ISSUER": { "CN": "$ISSUER_CN" } }, selain itu, hanya sijil pelanggan dipilih yang dikeluarkan oleh sijil dengan CommonName $ISSUER_CN. Jika $FILTER ialah kamus kosong {}, pemilihan sijil pelanggan tidak dihadkan sebagai tambahan.
+
+      Jika dasar ini dibiarkan tanpa ditetapkan, tiada autopilihan akan dibuat untuk mana-mana tapak.</translation>
 <translation id="5366977351895725771">Jika ditetapkan kepada palsu, penghasilan pengguna diselia oleh pengguna ini akan dilumpuhkan. Mana-mana pengguna diselia yang sedia ada masih akan tersedia.
 
           Jika ditetapkan kepada benar atau tidak dikonfigurasi, pengguna diselia boleh dihasilkan dan diuruskan oleh pengguna ini.</translation>
@@ -1392,6 +1406,7 @@
       Jika ditetapkan, parameter pertanyaan yang dipanggil 'hadkan' akan ditambahkan kepada URL yang digunakan untuk mengambil benih Variasi. Nilai yang dinyatakan dalam dasar ini akan menjadi nilai parameter.
 
       Jika tidak ditetapkan, URL benih Variasi tidak akan diubah suai.</translation>
+<translation id="5561811616825571914">Memilih sijil pelanggan secara automatik untuk tapak ini pada skrin log masuk</translation>
 <translation id="556941986578702361">Mengawal penyembunyian automatik rak <ph name="PRODUCT_OS_NAME" />.
 
       Jika dasar ini ditetapkan kepada 'AlwaysAutoHideShelf', rak akan sentiasa disembunyikan secara automatik.
@@ -1458,6 +1473,11 @@
       Jika 'Dilumpuhkan' dipilih, halaman tidak akan boleh dibuka dalam mod Inkognito.
 
       Jika 'Dipaksa' dipilih, halaman boleh dibuka HANYA dalam mod Inkognito.</translation>
+<translation id="583091600226586337">
+      Jika dasar in didayakan, pengguna akan ditanya tempat untuk menyimpan setiap fail sebelum muat turun.
+      Jika dasar ini dilumpuhkan, muat turun akan bermula dengan serta-merta dan pengguna tidak akan ditanya tempat untuk menyimpan fail.
+      Jika dasar ini tidak dikonfigurasi, pengguna dapat menukar tetapan ini.
+      </translation>
 <translation id="5835124959204887277">Menentukan URL dan domain yang mana gesaan tidak akan ditunjukkan apabila sijil pembuktian daripada Kunci Keselamatan diminta. Selain itu, isyarat akan dihantar kepada Kunci Keselamatan yang menunjukkan bahawa pembuktian individu boleh digunakan. Tanpa ini, pengguna akan digesa dalam Chrome 65+ apabila tapak meminta pembuktian Kunci Keselamatan.
 
       URL (seperti https://example.com/some/path) hanya akan sepadan sebagai appID U2F. Domain (seperti example.com) hanya sepadan sebagai ID RP webauthn. Oleh sebab itu, untuk meliputi kedua-dua API U2F dan webauthn bagi tapak tertentu, kedua-dua URL dan domain appID perlu disenaraikan.</translation>
@@ -1516,6 +1536,7 @@
 <translation id="5966615072639944554">Sambungan dibenarkan untuk mengguna API pembuktian jauh</translation>
 <translation id="5983708779415553259">Gelagat lalai untuk tapak yang tidak didapati dalam mana-mana pek kandungan</translation>
 <translation id="5997543603646547632">Gunakan jam 24 jam secara lalai</translation>
+<translation id="5997846976342452720">Tentukan sama ada pencari pemalam harus dilumpuhkan (ditamatkan)</translation>
 <translation id="6005179188836322782">Mendayakan ciri Penyemakan Imbas Selamat <ph name="PRODUCT_NAME" /> dan menghalang pengguna daripada mengubah tetapan ini.
 
       Jika anda mendayakan tetapan ini, Penyemakan Imbas Selamat akan sentiasa aktif.
@@ -1781,6 +1802,26 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
 <translation id="6903814433019432303">Dasar ini aktif dalam mod runcit sahaja.
 
       Memastikan set URL yang akan dimuatkan apabila sesi tunjuk cara dimulakan. Dasar ini akan mengatasi mana-mana mekanisme lain yang digunakan untuk menetapkan URL permulaan dan dengan itu, hanya boleh dilaksanakan ke atas sesi yang tidak berkaitan dengan pengguna tertentu.</translation>
+<translation id="6908347296939885026">Mendayakan ciri log masuk terhad <ph name="PRODUCT_NAME" /> dalam G Suite dan menghalang pengguna daripada menukar tetapan ini.
+
+      Jika anda mentakrifkan tetapan ini, pengguna hanya dapat mengakses
+      Google Apps menggunakan akaun daripada domain yang ditentukan (sila
+      ambil perhatian bahawa tetapan ini tidak berfungsi untuk
+      gmail.com/googlemail.com).
+
+      Tetapan ini TIDAK akan menghalang pengguna daripada log masuk pada
+      peranti terurus yang memerlukan pengesahan Google. Pengguna masih akan
+      dibenarkan log masuk ke akaun daripada domain lain tetapi mereka akan
+      menerima ralat semasa cuba menggunakan G Suite dengan akaun itu.
+
+      Jika anda membiarkan tetapan ini kosong/tidak dikonfigurasi, pengguna
+      akan dapat mengakses G Suite dengan mana-mana akaun.
+
+      Dasar ini menyebabkan pengepala X-GoogApps-Allowed-Domains ditambahkan pada
+      semua permintaan HTTP dan HTTPS pada semua domain google.com, seperti
+      yang diterangkan dalam https://support.google.com/a/answer/1668854.
+
+      Pengguna tidak boleh menukar atau membatalkan tetapan ini.</translation>
 <translation id="6908640907898649429">Mengkonfigurasi pembekal carian lalai. Anda boleh menentukan pembekal carian lalai yang akan digunakan atau dipilih oleh pengguna untuk mendayakan atau melumpuhkan carian lalai.</translation>
 <translation id="6915442654606973733">Dayakan ciri kebolehcapaian maklum balas pertuturan.
 
@@ -1914,6 +1955,9 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
 <translation id="7258823566580374486">Dayakan pengadangan hos akses jauh</translation>
 <translation id="7260277299188117560">Auto kemas kini p2p didayakan</translation>
 <translation id="7261252191178797385">Imej kertas dinding peranti</translation>
+<translation id="7266471712301230894">Dasar ini telah dialih keluar pada <ph name="PRODUCT_NAME" /> 64.
+
+      Carian dan pemasangan automatik pemalam yang tiada tidak disokong lagi.</translation>
 <translation id="7267809745244694722">Kekunci media lalai kepada kekunci fungsi</translation>
 <translation id="7271085005502526897">Import halaman utama daripada penyemak imbas lalai pada kali pertama menjalankannya</translation>
 <translation id="7273823081800296768">Jika tetapan ini didayakan atau tidak dikonfigurasi, maka pengguna boleh memilih untuk memasangkan pelanggan dan hos pada masa sambungan, lantas menyingkirkan keperluan untuk memasukkan PIN setiap kali.
@@ -2214,6 +2258,14 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
       Jika dasar ini dibiarkan tanpa ditetapkan, <ph name="PRODUCT_OS_NAME" /> akan menggunakan ID akaun e-mel akaun setempat peranti sebagai nama paparan pada skrin log masuk.
 
       Dasar ini diabaikan untuk akaun pengguna biasa.</translation>
+<translation id="8259375588339409826">Chromium dan Google Chrome menyokong set dasar yang sama. Harap maklum bahawa dokumen ini mungkin menyertakan dasar yang belum dikeluarkan (contohnya masukan 'Disokong pada' ciri ini merujuk pada versi <ph name="PRODUCT_NAME" /> yang belum dikeluarkan) yang tertakluk pada perubahan atau pengalihan keluar tanpa notis dan tidak memberikan sebarang jenis jaminan, termasuk tiada jaminan berhubung sifat keselamatan dan privasi ciri ini.
+
+Tujuan dasar ini adalah semata-mata untuk digunakan dalam mengkonfigurasi tika <ph name="PRODUCT_NAME" /> dalaman untuk organisasi anda. Penggunaan dasar ini di luar organisasi anda (contohnya, dalam atur cara yang diedarkan secara terbuka) dianggap perisian hasad dan akan dilabelkan sebagai perisian hasad oleh Google dan vendor antivirus.
+
+Tetapan ini tidak perlu dikonfigurasikan secara manual! Templat yang mudah digunakan untuk Windows, Mac dan Linux tersedia untuk dimuat turun daripada <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" />.
+
+Cara yang disyorkan untuk mengkonfigurasikan dasar pada Windows adalah melalui GPO, walaupun memperuntukkan dasar melalui daftaran masih disokong untuk tika Windows yang dihubungkan ke domain <ph name="MS_AD_NAME" />.</translation>
+<translation id="8274603902181597201">Padam bersih direktori laman utama ecryptfs pengguna dan mulakan dengan direktori laman utama disulitkan ext4 yang baharu.</translation>
 <translation id="8279832363395120715">Mengeluarkan bahagian privasi dan keselamatan yang sensitif daripada URL https:// sebelum menyerahkannya kepada skrip PAC (Konfigurasi Automatik Proksi) yang digunakan oleh <ph name="PRODUCT_NAME" /> semasa penyelesaian proksi.
 
       Apabila Benar, ciri keselamatan didayakan dan URL https://
@@ -2298,6 +2350,11 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
 <translation id="8549772397068118889">Beri amaran apabila melawat tapak web di luar pek kandungan</translation>
 <translation id="8566842294717252664">Sembunyikan gedung web daripada Halaman Tab Baharu dan pelancar apl</translation>
 <translation id="8587229956764455752">Benarkan ciptaan akaun pengguna baharu</translation>
+<translation id="8598350264853261122">Jika dasar ditetapkan kepada palsu, pengguna bukan anggota gabungan tidak akan dibenarkan menggunakan ARC.
+
+      Jika dasar tidak ditetapkan atau ditetapkan kepada benar, semua pengguna dibenarkan menggunakan ARC (melainkan ARC dilumpuhkan melalui cara lain).
+
+      Perubahan kepada dasar hanya akan diterapkan semasa ARC tidak dijalankan, misalnya semasa OS Chrome bermula.</translation>
 <translation id="8614804915612153606">Lumpuhkan Kemas Kini Auto</translation>
 <translation id="8631434304112909927">sehingga versi <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Untuk apl Android, dasar ini memberi kesan terhadap kamera terbina dalam sahaja. Apabila dasar ini ditetapkan kepada benar, kamera dilumpuhkan untuk semua apl Android tanpa pengecualian.</translation>
@@ -2439,6 +2496,7 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
           Sebagai contoh, untuk membenarkan setiap mod buka kunci pantas, gunakan ["semua"]. Untuk membenarkan buka kunci dengan PIN sahaja, gunakan ["PIN"]. Untuk melumpuhkan semua mod buka kunci pantas, gunakan [].
 
           Secara lalai, tiada mod buka kunci pantas tersedia untuk peranti yang diurus.</translation>
+<translation id="9136399279941091445">Selang luar waktu apabila dasar peranti yang dinyatakan dikeluarkan</translation>
 <translation id="9147029539363974059">Hantar log sistem ke pelayan pengurusan, untuk membolehkan
       pentadbir memantau log sistem.
 
