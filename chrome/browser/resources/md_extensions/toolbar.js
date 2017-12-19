@@ -71,6 +71,10 @@ cr.define('extensions', function() {
         /** @suppress {suspiciousCode} */ drawer.offsetTop;
       }
       this.expanded_ = !this.expanded_;
+
+      chrome.metricsPrivate.recordUserAction(
+          'Options_ToggleDeveloperMode_' +
+          (this.expanded_ ? 'Enabled' : 'Disabled'));
     },
 
     /** @private */
@@ -85,11 +89,13 @@ cr.define('extensions', function() {
       this.delegate.loadUnpacked().catch(loadError => {
         this.fire('load-error', loadError);
       });
+      chrome.metricsPrivate.recordUserAction('Options_LoadUnpackedExtension');
     },
 
     /** @private */
     onPackTap_: function() {
       this.fire('pack-tap');
+      chrome.metricsPrivate.recordUserAction('Options_PackExtension');
     },
 
     // <if expr="chromeos">

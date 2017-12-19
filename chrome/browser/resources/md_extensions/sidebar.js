@@ -25,6 +25,11 @@ cr.define('extensions', function() {
     onKeyboardShortcutsTap_: function() {
       extensions.navigation.navigateTo({page: Page.SHORTCUTS});
     },
+
+    /** @private */
+    onMoreExtensionsTap_: function() {
+      chrome.metricsPrivate.recordUserAction('Options_GetMoreExtensions');
+    },
   });
 
   return {Sidebar: Sidebar};
