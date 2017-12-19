@@ -178,7 +178,9 @@ cr.define('extensions', function() {
 
     /** @private */
     onReloadTap_: function() {
-      this.delegate.reloadItem(this.data.id);
+      this.delegate.reloadItem(this.data.id).catch(loadError => {
+        this.fire('load-error', loadError);
+      });
     },
 
     /** @private */

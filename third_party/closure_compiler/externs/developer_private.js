@@ -416,7 +416,8 @@ chrome.developerPrivate.ExtensionCommandUpdate;
 
 /**
  * @typedef {{
- *   failQuietly: (boolean|undefined)
+ *   failQuietly: (boolean|undefined),
+ *   populateErrorForUnpacked: (boolean|undefined)
  * }}
  * @see https://developer.chrome.com/extensions/developerPrivate#type-ReloadOptions
  */
@@ -653,7 +654,8 @@ chrome.developerPrivate.showPermissionsDialog = function(extensionId, callback) 
  * @param {string} extensionId The id of the extension to reload.
  * @param {!chrome.developerPrivate.ReloadOptions=} options Additional
  *     configuration parameters.
- * @param {function():void=} callback
+ * @param {function((!chrome.developerPrivate.LoadError|undefined)):void=}
+ *     callback
  * @see https://developer.chrome.com/extensions/developerPrivate#method-reload
  */
 chrome.developerPrivate.reload = function(extensionId, options, callback) {};

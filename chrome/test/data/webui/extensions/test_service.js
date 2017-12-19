@@ -12,6 +12,7 @@ cr.define('extensions', function() {
         'getProfileConfiguration',
         'loadUnpacked',
         'retryLoadUnpacked',
+        'reloadItem',
         'setProfileInDevMode',
         'setShortcutHandlingSuspended',
         'updateAllExtensions',
@@ -20,6 +21,16 @@ cr.define('extensions', function() {
 
       this.itemStateChangedTarget = new FakeChromeEvent();
       this.profileStateChangedTarget = new FakeChromeEvent();
+
+      /** @type {boolean} */
+      this.forceReloadItemError_ = false;
+    }
+
+    /**
+     * @param {boolean} force
+     */
+    setForceReloadItemError(force) {
+      this.forceReloadItemError_ = force;
     }
 
     /** @override */
@@ -65,6 +76,12 @@ cr.define('extensions', function() {
     loadUnpacked() {
       this.methodCalled('loadUnpacked');
       return Promise.resolve();
+    }
+
+    /** @override */
+    reloadItem(id) {
+      this.methodCalled('reloadItem', id);
+      return this.forceReloadItemError_ ? Promise.reject() : Promise.resolve();
     }
 
     /** @override */
