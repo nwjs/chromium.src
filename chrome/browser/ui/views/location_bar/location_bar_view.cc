@@ -776,11 +776,8 @@ bool LocationBarView::RefreshSaveCreditCardIconView() {
   autofill::SaveCardBubbleControllerImpl* controller =
       autofill::SaveCardBubbleControllerImpl::FromWebContents(web_contents);
   bool enabled = controller && controller->IsIconVisible();
-  if (!command_updater()->UpdateCommandEnabled(
-          IDC_SAVE_CREDIT_CARD_FOR_PAGE, enabled)) {
-    enabled = enabled && command_updater()->IsCommandEnabled(
-        IDC_SAVE_CREDIT_CARD_FOR_PAGE);
-  }
+  command_updater()->UpdateCommandEnabled(IDC_SAVE_CREDIT_CARD_FOR_PAGE,
+                                          enabled);
   save_credit_card_icon_view_->SetVisible(enabled);
 
   return was_visible != save_credit_card_icon_view_->visible();
@@ -807,10 +804,7 @@ void LocationBarView::RefreshTranslateIcon() {
   translate::LanguageState& language_state =
       ChromeTranslateClient::FromWebContents(web_contents)->GetLanguageState();
   bool enabled = language_state.translate_enabled();
-  if (!command_updater()->UpdateCommandEnabled(IDC_TRANSLATE_PAGE, enabled)) {
-    enabled = enabled && command_updater()->IsCommandEnabled(
-        IDC_TRANSLATE_PAGE);
-  }
+  command_updater()->UpdateCommandEnabled(IDC_TRANSLATE_PAGE, enabled);
   translate_icon_view_->SetVisible(enabled);
   if (!enabled)
     TranslateBubbleView::CloseCurrentBubble();

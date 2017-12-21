@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/command_updater_impl.h"
+#include "chrome/browser/command_updater.h"
 
 #include "base/compiler_specific.h"
 #include "chrome/browser/command_observer.h"
@@ -30,9 +30,9 @@ class FakeCommandObserver : public CommandObserver {
   bool enabled_;
 };
 
-TEST(CommandUpdaterImplTest, TestBasicAPI) {
+TEST(CommandUpdaterTest, TestBasicAPI) {
   FakeCommandUpdaterDelegate delegate;
-  CommandUpdaterImpl command_updater(&delegate);
+  CommandUpdater command_updater(&delegate);
 
   // Unsupported command
   EXPECT_FALSE(command_updater.SupportsCommand(0));
@@ -56,9 +56,9 @@ TEST(CommandUpdaterImplTest, TestBasicAPI) {
   command_updater.ExecuteCommand(2);
 }
 
-TEST(CommandUpdaterImplTest, TestObservers) {
+TEST(CommandUpdaterTest, TestObservers) {
   FakeCommandUpdaterDelegate delegate;
-  CommandUpdaterImpl command_updater(&delegate);
+  CommandUpdater command_updater(&delegate);
 
   // Create an observer for the command 2 and add it to the controller, then
   // update the command.
@@ -75,9 +75,9 @@ TEST(CommandUpdaterImplTest, TestObservers) {
   EXPECT_FALSE(observer.enabled());
 }
 
-TEST(CommandUpdaterImplTest, TestObserverRemovingAllCommands) {
+TEST(CommandUpdaterTest, TestObserverRemovingAllCommands) {
   FakeCommandUpdaterDelegate delegate;
-  CommandUpdaterImpl command_updater(&delegate);
+  CommandUpdater command_updater(&delegate);
 
   // Create two observers for the commands 1-3 as true, remove one using the
   // single remove command, then set the command to false. Ensure that the

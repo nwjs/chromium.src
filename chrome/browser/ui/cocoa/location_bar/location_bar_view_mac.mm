@@ -192,11 +192,8 @@ void LocationBarViewMac::UpdateSaveCreditCardIcon() {
   autofill::SaveCardBubbleControllerImpl* controller =
       autofill::SaveCardBubbleControllerImpl::FromWebContents(web_contents);
   bool enabled = controller && controller->IsIconVisible();
-  if (!command_updater()->UpdateCommandEnabled(
-          IDC_SAVE_CREDIT_CARD_FOR_PAGE, enabled)) {
-    enabled = enabled && command_updater()->IsCommandEnabled(
-        IDC_SAVE_CREDIT_CARD_FOR_PAGE);
-  }
+  command_updater()->UpdateCommandEnabled(IDC_SAVE_CREDIT_CARD_FOR_PAGE,
+                                          enabled);
   save_credit_card_decoration_->SetIcon(IsLocationBarDark());
   save_credit_card_decoration_->SetVisible(enabled);
   OnDecorationsChanged();
@@ -629,10 +626,7 @@ void LocationBarViewMac::UpdateTranslateDecoration() {
   translate::LanguageState& language_state =
       ChromeTranslateClient::FromWebContents(web_contents)->GetLanguageState();
   bool enabled = language_state.translate_enabled();
-  if (!command_updater()->UpdateCommandEnabled(IDC_TRANSLATE_PAGE, enabled)) {
-    enabled = enabled && command_updater()->IsCommandEnabled(
-        IDC_TRANSLATE_PAGE);
-  }
+  command_updater()->UpdateCommandEnabled(IDC_TRANSLATE_PAGE, enabled);
   translate_decoration_->SetVisible(enabled);
   translate_decoration_->SetLit(language_state.IsPageTranslated(),
                                 IsLocationBarDark());

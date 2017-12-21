@@ -59,7 +59,7 @@ class BrowserWindowTouchBarUnitTest : public CocoaProfileTest {
         isKindOfClass:[BrowserWindowController class]];
     [[bwc_ stub] invalidateTouchBar];
 
-    command_updater_ = browser()->command_controller();
+    command_updater_ = browser()->command_controller()->command_updater();
 
     touch_bar_.reset([[BrowserWindowTouchBar alloc] initWithBrowser:browser()
                                             browserWindowController:bwc_]);

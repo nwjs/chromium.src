@@ -14,7 +14,6 @@
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/ui/browser_command_controller.h"
-#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -580,7 +579,8 @@ void ManagePasswordsUIController::ShowBubbleWithoutUserInteraction() {
   if (!browser || browser->toolbar_model()->input_in_progress())
     return;
 
-  chrome::ExecuteCommand(browser, IDC_MANAGE_PASSWORDS_FOR_PAGE);
+  CommandUpdater* updater = browser->command_controller()->command_updater();
+  updater->ExecuteCommand(IDC_MANAGE_PASSWORDS_FOR_PAGE);
 }
 
 void ManagePasswordsUIController::DestroyAccountChooser() {
