@@ -327,7 +327,8 @@ ProfileChooserView::ProfileChooserView(views::View* anchor_view,
       browser_(browser),
       view_mode_(view_mode),
       gaia_service_type_(service_type),
-      access_point_(access_point) {
+      access_point_(access_point),
+      close_bubble_helper_(this, browser) {
   // The sign in webview will be clipped on the bottom corners without these
   // margins, see related bug <http://crbug.com/593203>.
   set_margins(gfx::Insets(0, 0, 2, 0));
