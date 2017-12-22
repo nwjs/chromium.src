@@ -1213,6 +1213,11 @@ void VrShellGl::OnResume() {
     ScheduleOrCancelWebVrFrameTimeout();
 }
 
+void VrShellGl::OnExitPresent() {
+  webvr_frame_timeout_.Cancel();
+  webvr_spinner_timeout_.Cancel();
+}
+
 void VrShellGl::SetWebVrMode(bool enabled) {
   web_vr_mode_ = enabled;
 

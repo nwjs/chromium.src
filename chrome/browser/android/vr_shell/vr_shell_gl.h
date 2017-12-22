@@ -92,6 +92,7 @@ class VrShellGl : public device::mojom::VRPresentationProvider {
   void OnResume();
   void DrawKeyboard();
   void CreateKeyboard();
+  void OnExitPresent();
 
   base::WeakPtr<vr::BrowserUiInterface> GetBrowserUiWeakPtr();
 
