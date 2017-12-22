@@ -295,6 +295,9 @@ const char kDisableMdOobe[] = "disable-md-oobe";
 // Disables material design Error screen.
 const char kDisableMdErrorScreen[] = "disable-md-error-screen";
 
+// Enables using a random url for captive portal detection.
+const char kEnableCaptivePortalRandomUrl[] = "enable-captive-portal-random-url";
+
 // Enables notifications about captive portals in session.
 const char kEnableNetworkPortalNotification[] =
     "enable-network-portal-notification";
