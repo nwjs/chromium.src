@@ -33,6 +33,8 @@ MojoVideoDecoder::MojoVideoDecoder(
     : task_runner_(task_runner),
       remote_decoder_info_(remote_decoder.PassInterface()),
       gpu_factories_(gpu_factories),
+      writer_capacity_(
+          GetDefaultDecoderBufferConverterCapacity(DemuxerStream::VIDEO)),
       client_binding_(this),
       media_log_service_(media_log),
       media_log_binding_(&media_log_service_),
@@ -225,7 +227,7 @@ void MojoVideoDecoder::BindRemoteDecoder() {
   // TODO(sandersd): Better buffer sizing.
   mojo::ScopedDataPipeConsumerHandle remote_consumer_handle;
   mojo_decoder_buffer_writer_ = MojoDecoderBufferWriter::Create(
-      DemuxerStream::VIDEO, &remote_consumer_handle);
+      writer_capacity_, &remote_consumer_handle);
 
   media::mojom::CommandBufferIdPtr command_buffer_id;
   if (gpu_factories_) {
