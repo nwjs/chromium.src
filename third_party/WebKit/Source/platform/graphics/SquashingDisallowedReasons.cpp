@@ -65,6 +65,9 @@ const SquashingDisallowedReasonStringMap kSquashingDisallowedReasonStringMap[] =
         {kSquashingDisallowedReasonFragmentedContent,
          "SquashingDisallowedReasonFragmentedContent",
          "Cannot squash layers that are inside fragmentation contexts."},
+        {kSquashingDisallowedReasonPrecedingLayerPrecludesSquashing,
+         "SquashingDisallowedReasonPrecedingLayerPrecludesSquashing",
+         "A preceding layer in paint order prevented subsequent squashing."},
 };
 
 const size_t kNumberOfSquashingDisallowedReasons =
