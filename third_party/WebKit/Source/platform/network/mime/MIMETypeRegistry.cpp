@@ -65,8 +65,10 @@ String MIMETypeRegistry::GetMIMETypeForExtension(const String& ext) {
   // these calls over to the browser process.
   DEFINE_STATIC_LOCAL(MimeRegistryPtrHolder, registry_holder, ());
   String mime_type;
-  if (!registry_holder.mime_registry->GetMimeTypeFromExtension(ext, &mime_type))
+  if (!registry_holder.mime_registry->GetMimeTypeFromExtension(
+          ext.IsNull() ? "" : ext, &mime_type)) {
     return String();
+  }
   return mime_type;
 }
 
