@@ -1455,22 +1455,22 @@ RenderFrameHostManager::DetermineSiteInstanceForURL(
   if (IsCurrentlySameSite(render_frame_host_.get(), dest_url))
     return SiteInstanceDescriptor(render_frame_host_->GetSiteInstance());
 
-  if (SiteIsolationPolicy::IsTopDocumentIsolationEnabled()) {
-    // TODO(nick): Looking at the main frame and openers is required for TDI
-    // mode, but should be safe to enable unconditionally.
-    if (!frame_tree_node_->IsMainFrame()) {
-      RenderFrameHostImpl* main_frame =
-          frame_tree_node_->frame_tree()->root()->current_frame_host();
-      if (IsCurrentlySameSite(main_frame, dest_url))
-        return SiteInstanceDescriptor(main_frame->GetSiteInstance());
-    }
-
-    if (frame_tree_node_->opener()) {
-      RenderFrameHostImpl* opener_frame =
-          frame_tree_node_->opener()->current_frame_host();
-      if (IsCurrentlySameSite(opener_frame, dest_url))
-        return SiteInstanceDescriptor(opener_frame->GetSiteInstance());
-    }
+  // Shortcut some common cases for reusing an existing frame's SiteInstance.
+  // Looking at the main frame and openers is required for TDI mode.  It also
+  // avoids putting same-site iframes into different processes after
+  // navigations from isolated origins.  This matters for some OAuth flows; see
+  // https://crbug.com/796912.
+  if (!frame_tree_node_->IsMainFrame()) {
+    RenderFrameHostImpl* main_frame =
+        frame_tree_node_->frame_tree()->root()->current_frame_host();
+    if (IsCurrentlySameSite(main_frame, dest_url))
+      return SiteInstanceDescriptor(main_frame->GetSiteInstance());
+  }
+  if (frame_tree_node_->opener()) {
+    RenderFrameHostImpl* opener_frame =
+        frame_tree_node_->opener()->current_frame_host();
+    if (IsCurrentlySameSite(opener_frame, dest_url))
+      return SiteInstanceDescriptor(opener_frame->GetSiteInstance());
   }
 
   if (!frame_tree_node_->IsMainFrame() &&
