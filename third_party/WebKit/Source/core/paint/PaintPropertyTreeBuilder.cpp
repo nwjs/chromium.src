@@ -1536,7 +1536,6 @@ void ObjectPaintPropertyTreeBuilder::InitSingleFragmentFromParent(
   FragmentData& first_fragment =
       object_.GetMutableForPainting().FirstFragment();
   first_fragment.ClearNextFragment();
-  first_fragment.SetPaginationOffset(LayoutPoint());
   if (needs_paint_properties)
     first_fragment.EnsureRarePaintData().EnsurePaintProperties();
   if (context_.fragments.IsEmpty()) {
