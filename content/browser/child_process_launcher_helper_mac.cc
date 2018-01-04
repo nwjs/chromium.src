@@ -45,7 +45,7 @@ ChildProcessLauncherHelper::GetFilesToMap() {
       command_line());
 }
 
-void ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
+bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
     const FileMappedForLaunch& files_to_register,
     base::LaunchOptions* options) {
   // Convert FD mapping to FileHandleMappingVector.
@@ -69,6 +69,10 @@ void ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
     SetupRendererSandboxParameters(seatbelt_exec_client_.get());
 
     int pipe = seatbelt_exec_client_->SendProfileAndGetFD();
+    if (pipe < 0) {
+      LOG(ERROR) << "pipe for sending sandbox profile is an invalid FD";
+      return false;
+    }
 
     base::FilePath helper_executable;
     CHECK(PathService::Get(content::CHILD_PROCESS_EXE, &helper_executable));
@@ -94,6 +98,8 @@ void ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
   // Make sure the MachBroker is running, and inform it to expect a check-in
   // from the new process.
   broker->EnsureRunning();
+
+  return true;
 }
 
 ChildProcessLauncherHelper::Process
