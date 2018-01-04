@@ -102,7 +102,8 @@ class SensorProxy final : public GarbageCollectedFinalized<SensorProxy>,
   void HandleSensorError();
 
   // mojo call callbacks.
-  void OnSensorCreated(device::mojom::blink::SensorInitParamsPtr);
+  void OnSensorCreated(device::mojom::blink::SensorInitParamsPtr,
+                       device::mojom::blink::SensorClientRequest);
 
   void OnPollingTimer(TimerBase*);
 

@@ -36,12 +36,13 @@ void SensorProviderProxyImpl::Bind(
 
 void SensorProviderProxyImpl::GetSensor(
     device::mojom::SensorType type,
+    device::mojom::SensorRequest sensor_request,
     GetSensorCallback callback) {
   ServiceManagerConnection* connection =
       ServiceManagerConnection::GetForProcess();
 
   if (!connection || !CheckPermission(type)) {
-    std::move(callback).Run(nullptr);
+    std::move(callback).Run(nullptr, nullptr);
     return;
   }
 
@@ -52,7 +53,8 @@ void SensorProviderProxyImpl::GetSensor(
         base::BindOnce(&device::mojom::SensorProviderPtr::reset,
                        base::Unretained(&sensor_provider_)));
   }
-  sensor_provider_->GetSensor(type, std::move(callback));
+  sensor_provider_->GetSensor(type, std::move(sensor_request),
+                              std::move(callback));
 }
 
 bool SensorProviderProxyImpl::CheckPermission(

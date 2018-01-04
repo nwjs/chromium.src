@@ -10,6 +10,7 @@
 #include "device/geolocation/geolocation_provider_impl.h"
 #include "device/geolocation/public/interfaces/geolocation_context.mojom.h"
 #include "device/screen_orientation/public/interfaces/screen_orientation.mojom.h"
+#include "device/sensors/public/interfaces/orientation.mojom.h"
 #include "mojo/public/cpp/bindings/binding_set.h"
 #include "services/device/public/interfaces/battery_monitor.mojom.h"
 #include "services/device/public/interfaces/fingerprint.mojom.h"
@@ -91,6 +92,11 @@ class DeviceService : public service_manager::Service {
 #if defined(OS_LINUX) && defined(USE_UDEV)
   void BindInputDeviceManagerRequest(mojom::InputDeviceManagerRequest request);
 #endif
+
+  void BindOrientationSensorRequest(mojom::OrientationSensorRequest request);
+
+  void BindOrientationAbsoluteSensorRequest(
+      mojom::OrientationAbsoluteSensorRequest request);
 
 #if !defined(OS_ANDROID)
   void BindBatteryMonitorRequest(mojom::BatteryMonitorRequest request);

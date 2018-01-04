@@ -203,6 +203,11 @@ function sensorMocks() {
 
   }
 
+  // Helper function that returns resolved promise for getSensor() function.
+  function getSensorResponse(initParams, clientRequest) {
+    return Promise.resolve({initParams, clientRequest});
+  }
+
   // Class that mocks SensorProvider interface defined in
   // sensor_provider.mojom
   class MockSensorProvider {
@@ -231,9 +236,10 @@ function sensorMocks() {
     }
 
     // Returns initialized Sensor proxy to the client.
-    async getSensor(type) {
+    getSensor(type, request) {
       if (this.getSensorShouldFail_) {
-        return {initParams: null};
+        var ignored = new device.mojom.SensorClientPtr();
+        return getSensorResponse(null, mojo.makeRequest(ignored));
       }
 
       let offset = (device.mojom.SensorType.LAST - type) *
@@ -243,13 +249,10 @@ function sensorMocks() {
         reportingMode = device.mojom.ReportingMode.CONTINUOUS;
       }
 
-      let sensorPtr = new device.mojom.SensorPtr();
       if (this.activeSensor_ == null) {
-        let mockSensor = new MockSensor(
-            mojo.makeRequest(sensorPtr), this.sharedBufferHandle_, offset,
-            this.readingSizeInBytes_, reportingMode);
+        let mockSensor = new MockSensor(request, this.sharedBufferHandle_,
+            offset, this.readingSizeInBytes_, reportingMode);
         this.activeSensor_ = mockSensor;
-        this.activeSensor_.client_ = new device.mojom.SensorClientPtr();
       }
 
       let rv = this.sharedBufferHandle_.duplicateBufferHandle();
@@ -265,22 +268,22 @@ function sensorMocks() {
           this.maxFrequency_ = 10;
       }
 
-      let initParams = new device.mojom.SensorInitParams({
-        sensor: sensorPtr,
-        clientRequest: mojo.makeRequest(this.activeSensor_.client_),
-        memory: rv.handle,
-        bufferOffset: offset,
-        mode: reportingMode,
-        defaultConfiguration: defaultConfig,
-        minimumFrequency: this.minFrequency_,
-        maximumFrequency: this.maxFrequency_
-      });
+      let initParams =
+          new device.mojom.SensorInitParams(
+              { memory: rv.handle,
+                bufferOffset: offset,
+                mode: reportingMode,
+                defaultConfiguration: defaultConfig,
+                minimumFrequency: this.minFrequency_,
+                maximumFrequency: this.maxFrequency_});
 
       if (this.resolveFunc_ !== null) {
         this.resolveFunc_(this.activeSensor_);
       }
 
-      return {initParams};
+      this.activeSensor_.client_ = new device.mojom.SensorClientPtr();
+      return getSensorResponse(
+          initParams, mojo.makeRequest(this.activeSensor_.client_));
     }
 
     // Binds object to mojo message pipe

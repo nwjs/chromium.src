@@ -143,22 +143,21 @@ class FakeSensorProvider : public device::mojom::SensorProvider {
 
   // device::mojom::sensorProvider implementation.
   void GetSensor(device::mojom::SensorType type,
+                 device::mojom::SensorRequest sensor_request,
                  GetSensorCallback callback) override {
     switch (type) {
       case device::mojom::SensorType::AMBIENT_LIGHT: {
         auto sensor = std::make_unique<FakeAmbientLightSensor>();
 
         auto init_params = device::mojom::SensorInitParams::New();
-        init_params->client_request = sensor->GetClient();
         init_params->memory = sensor->GetSharedBufferHandle();
         init_params->buffer_offset = sensor->GetBufferOffset();
         init_params->default_configuration = sensor->GetDefaultConfiguration();
         init_params->maximum_frequency = sensor->GetMaximumSupportedFrequency();
         init_params->minimum_frequency = sensor->GetMinimumSupportedFrequency();
 
-        mojo::MakeStrongBinding(std::move(sensor),
-                                mojo::MakeRequest(&init_params->sensor));
-        std::move(callback).Run(std::move(init_params));
+        std::move(callback).Run(std::move(init_params), sensor->GetClient());
+        mojo::MakeStrongBinding(std::move(sensor), std::move(sensor_request));
         break;
       }
       default:
