@@ -383,6 +383,7 @@ void ShowCloseBrowserFirstMessageBox() {
 }
 
 void MaybePostSettingsResetPrompt() {
+#if 0
   if (base::FeatureList::IsEnabled(safe_browsing::kSettingsResetPrompt)) {
     content::BrowserThread::PostAfterStartupTask(
         FROM_HERE,
@@ -390,6 +391,7 @@ void MaybePostSettingsResetPrompt() {
             content::BrowserThread::UI),
         base::Bind(safe_browsing::MaybeShowSettingsResetPromptWithDelay));
   }
+#endif
 }
 
 }  // namespace
@@ -526,6 +528,7 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
   // complete run of the Chrome Cleanup tool. If post-cleanup settings reset is
   // enabled, we delay checks for settings reset prompt until the scheduled
   // reset is finished.
+#if 0
   if (safe_browsing::PostCleanupSettingsResetter::IsEnabled()) {
     // Using last opened profiles, because we want to find reset the profile
     // that was open in the last Chrome run, which may not be open yet in
@@ -538,6 +541,7 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
   } else {
     MaybePostSettingsResetPrompt();
   }
+#endif
 
   // Record UMA data about whether the fault-tolerant heap is enabled.
   // Use a delayed task to minimize the impact on startup time.

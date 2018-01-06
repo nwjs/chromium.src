@@ -68,6 +68,8 @@ class UI_BASE_EXPORT SimpleMenuModel : public MenuModel {
     bool GetAcceleratorForCommandId(
         int command_id,
         ui::Accelerator* accelerator) const override;
+
+    virtual bool HasIcon(int command_id);
   };
 
   // The Delegate can be NULL, though if it is items can't be checked or

@@ -35,6 +35,8 @@
 #include "printing/units.h"
 #include "ui/gfx/geometry/size.h"
 
+#include "chrome/browser/ui/webui/print_preview/print_preview_handler.h"
+
 namespace {
 
 class PrintingContextDelegate : public printing::PrintingContext::Delegate {
@@ -178,6 +180,10 @@ void PdfPrinterHandler::StartPrint(
     const scoped_refptr<base::RefCountedBytes>& print_data,
     const PrintCallback& callback) {
   print_data_ = print_data;
+  if (!chrome::NWPrintGetPDFPath().empty() && chrome::NWPrintGetCustomPrinting()) {
+    print_to_pdf_path_ = chrome::NWPrintGetPDFPath();
+    print_callback_ = callback;
+  }
   if (!print_to_pdf_path_.empty()) {
     // User has already selected a path, no need to show the dialog again.
     PostPrintToPdfTask();

@@ -11,7 +11,6 @@ import("//build/config/ui.gni")
 import("//media/media_options.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//testing/test.gni")
-import("//third_party/ffmpeg/ffmpeg_options.gni")
 
 buildflag_header("media_features") {
   header = "media_features.h"
@@ -33,15 +32,6 @@ buildflag_header("media_features") {
   ]
 }
 
-if (proprietary_codecs && media_use_ffmpeg) {
-  assert(
-      ffmpeg_branding != "Chromium",
-      "proprietary codecs and ffmpeg_branding set to Chromium are incompatible")
-}
-
-# Common configuration for targets in the media directory; these must not be
-# exported since things like USE_NEON and USE_CRAS have different meanings
-# elsewhere in the code base.
 config("media_config") {
   configs = [ ":media_dependent_config" ]
   defines = []

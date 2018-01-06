@@ -5,6 +5,7 @@
 #include "extensions/renderer/runtime_custom_bindings.h"
 
 #include <stdint.h>
+#include "extensions/renderer/script_context_set.h"
 
 #include <memory>
 
@@ -78,8 +79,13 @@ void RuntimeCustomBindings::GetExtensionViews(
   }
 
   const std::string& extension_id = context()->GetExtensionID();
-  if (extension_id.empty())
-    return;
+  // id is empty while calling from external page. we want to do
+  // this for window controlling. note the case that there are
+  // multiple extensions in the process, e.g. the automation extension
+  // for chromedriver
+
+  // if (extension_id.empty())
+  //   return;
 
   std::vector<content::RenderFrame*> frames =
       ExtensionFrameHelper::GetExtensionFrames(extension_id, browser_window_id,
@@ -96,11 +102,19 @@ void RuntimeCustomBindings::GetExtensionViews(
     if (web_frame->Top() != web_frame)
       continue;
 
+#if 0
+    //remote page need to call GetExtensionViews in api_nw_window.js #5312
     if (!blink::WebFrame::ScriptCanAccess(web_frame))
       continue;
+#endif
 
     v8::Local<v8::Context> context = web_frame->MainWorldScriptContext();
     if (!context.IsEmpty()) {
+      if (extension_id.empty()) {
+        ScriptContext* ctx = ScriptContextSet::GetContextByV8Context(context);
+        if (!ctx->extension()->is_nwjs_app())
+          continue;
+      }
       v8::Local<v8::Value> window = context->Global();
       CHECK(!window.IsEmpty());
       v8::Maybe<bool> maybe =

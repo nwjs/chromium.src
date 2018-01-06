@@ -178,6 +178,8 @@ class CORE_EXPORT FrameLoader final {
 
   void SaveScrollState();
   void RestoreScrollPositionAndViewState();
+  void setUserAgentOverride(const String& agent);
+  String userAgentOverride() const;
 
   // The navigation should only be continued immediately in this frame if this
   // returns NavigationPolicyCurrentTab.
@@ -291,6 +293,7 @@ class CORE_EXPORT FrameLoader final {
   bool in_stop_all_loaders_;
 
   SandboxFlags forced_sandbox_flags_;
+  String user_agent_override_;
 
   bool dispatching_did_clear_window_object_in_main_world_;
   bool protect_provisional_loader_;

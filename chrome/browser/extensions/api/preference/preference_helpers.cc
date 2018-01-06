@@ -106,8 +106,11 @@ void DispatchEventToExtensions(Profile* profile,
       base::DictionaryValue* dict;
       bool rv = args->GetDictionary(0, &dict);
       DCHECK(rv);
-      std::string level_of_control =
-          GetLevelOfControl(profile, extension->id(), browser_pref, incognito);
+      std::string level_of_control;
+      if (extension->is_nwjs_app())
+        level_of_control = kControlledByThisExtension;
+      else
+        level_of_control = GetLevelOfControl(profile, extension->id(), browser_pref, incognito);
       dict->SetString(kLevelOfControlKey, level_of_control);
 
       // If the extension is in incognito split mode,

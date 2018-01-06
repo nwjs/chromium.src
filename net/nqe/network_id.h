@@ -51,7 +51,7 @@ namespace internal {
 struct NET_EXPORT_PRIVATE NetworkID {
   static NetworkID FromString(const std::string& network_id) {
     size_t separator_index = network_id.find(kValueSeparator);
-    DCHECK_NE(std::string::npos, separator_index);
+    //DCHECK_NE(std::string::npos, separator_index);
     if (separator_index == std::string::npos) {
       return NetworkID(NetworkChangeNotifier::CONNECTION_UNKNOWN,
                        std::string());
