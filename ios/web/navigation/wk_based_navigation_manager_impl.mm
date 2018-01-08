@@ -457,7 +457,9 @@ NavigationItemImpl* WKBasedNavigationManagerImpl::GetTransientItemImpl() const {
   return transient_item_.get();
 }
 
-void WKBasedNavigationManagerImpl::FinishGoToIndex(int index) {
+void WKBasedNavigationManagerImpl::FinishGoToIndex(
+    int index,
+    NavigationInitiationType type) {
   DiscardNonCommittedItems();
   WKBackForwardListItem* wk_item = GetWKItemAtIndex(index);
   DCHECK(wk_item);
