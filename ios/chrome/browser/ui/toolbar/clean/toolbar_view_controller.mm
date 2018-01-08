@@ -438,7 +438,8 @@
     return;
   }
   view.translatesAutoresizingMaskIntoConstraints = NO;
-
+  view.clipsToBounds = YES;
+  
   if ([self isViewLoaded]) {
     [_locationBarView removeFromSuperview];
     [self.locationBarContainer addSubview:view];
