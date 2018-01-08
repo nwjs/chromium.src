@@ -6,6 +6,7 @@ include_rules = [
     "+base/bind_helpers.h",
     "+base/callback.h",
     "+base/callback_forward.h",
+    "+base/bit_cast.h",
     "+base/feature_list.h",
     "+base/files",
     "+base/guid.h",
