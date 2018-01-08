@@ -15,6 +15,7 @@
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/credit_card.h"
+#include "components/autofill/core/browser/test_autofill_clock.h"
 #include "components/autofill/core/browser/validation.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/form_field_data.h"
@@ -1272,6 +1273,7 @@ INSTANTIATE_TEST_CASE_P(
 // Test that credit card last used date suggestion can be generated correctly
 // in different variations.
 TEST(CreditCardTest, GetLastUsedDateForDisplay) {
+  TestAutofillClock test_clock;
   const base::Time::Exploded kTestDateTimeExploded = {
       2016, 12, 6, 10,  // Sat, Dec 10, 2016
       15,   42, 7, 0    // 15:42:07.000
@@ -1279,6 +1281,7 @@ TEST(CreditCardTest, GetLastUsedDateForDisplay) {
   base::Time kArbitraryTime;
   EXPECT_TRUE(
       base::Time::FromLocalExploded(kTestDateTimeExploded, &kArbitraryTime));
+  test_clock.SetNow(kArbitraryTime);
 
   // Test for added to chrome/chromium.
   CreditCard credit_card0(base::GenerateGUID(), "https://www.example.com");
