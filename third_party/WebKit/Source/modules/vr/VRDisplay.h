@@ -99,6 +99,7 @@ class VRDisplay final : public EventTargetWithInlineData,
   void FocusChanged();
 
   void OnMagicWindowVSync(double timestamp);
+  int PendingMagicWindowVSyncId() { return pending_magic_window_vsync_id_; }
 
   void Trace(blink::Visitor*) override;
   void TraceWrappers(const ScriptWrappableVisitor*) const override;

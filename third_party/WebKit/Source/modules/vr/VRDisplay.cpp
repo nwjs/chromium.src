@@ -62,6 +62,8 @@ class VRDisplayFrameRequestCallback
       : vr_display_(vr_display) {}
   ~VRDisplayFrameRequestCallback() override {}
   void Invoke(double high_res_time_ms) override {
+    if (Id() != vr_display_->PendingMagicWindowVSyncId())
+      return;
     double monotonic_time;
     if (!vr_display_->GetDocument() || !vr_display_->GetDocument()->Loader()) {
       monotonic_time = WTF::MonotonicallyIncreasingTime();
@@ -239,6 +241,7 @@ void VRDisplay::RequestVSync() {
   // before rAF (b), after rAF (c), or not at all (d). If rAF isn't called at
   // all, there won't be future frames.
 
+  pending_magic_window_vsync_ = false;
   pending_presenting_vsync_ = true;
   vr_presentation_provider_->GetVSync(ConvertToBaseCallback(
       WTF::Bind(&VRDisplay::OnPresentingVSync, WrapWeakPersistent(this))));
@@ -859,6 +862,7 @@ void VRDisplay::StopPresenting() {
   pending_submit_frame_ = false;
   pending_previous_frame_render_ = false;
   did_submit_this_frame_ = false;
+  RequestVSync();
 }
 
 void VRDisplay::OnActivate(device::mojom::blink::VRDisplayEventReason reason,
