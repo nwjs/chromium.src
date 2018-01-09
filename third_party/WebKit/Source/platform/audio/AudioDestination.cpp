@@ -35,6 +35,7 @@
 #include "platform/audio/AudioUtilities.h"
 #include "platform/audio/PushPullFIFO.h"
 #include "platform/instrumentation/tracing/TraceEvent.h"
+#include "platform/runtime_enabled_features.h"
 #include "platform/weborigin/SecurityOrigin.h"
 #include "platform/wtf/PtrUtil.h"
 #include "public/platform/Platform.h"
@@ -202,6 +203,7 @@ void AudioDestination::Start() {
 void AudioDestination::StartWithWorkletThread(
     WebThread* worklet_backing_thread) {
   DCHECK(IsMainThread());
+  DCHECK(RuntimeEnabledFeatures::AudioWorkletEnabled());
 
   if (web_audio_device_ && !is_playing_) {
     TRACE_EVENT0("webaudio", "AudioDestination::Start");
