@@ -98,6 +98,7 @@ Per poter utilizzare il Physical Web, devi attivare il Bluetooth e la geolocaliz
 <translation id="1832521218263067499">Problemi di sicurezza</translation>
 <translation id="1853692000353488670">Nuova scheda in incognito</translation>
 <translation id="1880072593381090678">Pagine più visitate di Chrome</translation>
+<translation id="1891331835972267886">L'app <ph name="APP_NAME" /> verrà aperta in Chrome. Se continui, accetti i <ph name="BEGIN_LINK1" />Termini di servizio<ph name="END_LINK1" /> e l'<ph name="BEGIN_LINK2" />Informativa sulla Privacy<ph name="END_LINK2" /> di Chrome.</translation>
 <translation id="189172778771606813">Chiudi riquadro di navigazione a scomparsa</translation>
 <translation id="1897409700584096124">Trasmissione del sito web in corso</translation>
 <translation id="1919345977826869612">Annunci</translation>
@@ -419,6 +420,7 @@ Il tuo account Google potrebbe avere altre forme di cronologia di navigazione, a
 <translation id="4874967477260347223">Licenze multimediali</translation>
 <translation id="4875775213178255010">Contenuti suggeriti</translation>
 <translation id="4876188919622883022">Visualizzazione semplificata</translation>
+<translation id="4878404682131129617">Creazione di un tunnel tramite server proxy non riuscita</translation>
 <translation id="4881695831933465202">Apri</translation>
 <translation id="4885273946141277891">Numero di istanze di Chrome non supportato.</translation>
 <translation id="4910889077668685004">App di pagamento</translation>
@@ -715,6 +717,7 @@ Ad esempio, alcuni siti web potrebbero rispondere alla richiesta mostrando annun
 <translation id="7493994139787901920"><ph name="VERSION" /> (Ultimo aggiornamento: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Attendi…</translation>
 <translation id="7514365320538308">Scarica</translation>
+<translation id="751961395872307827">Impossibile connettersi al sito</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Impossibile ricevere suggerimenti</translation>
 <translation id="7562080006725997899">Cancellazione dei dati di navigazione in corso</translation>
@@ -844,6 +847,7 @@ Per ottenere nuove licenze, connettiti a Internet e riproduci i contenuti scaric
 <translation id="8748850008226585750">Contenuti nascosti</translation>
 <translation id="8788968922598763114">Riapri l'ultima scheda chiusa</translation>
 <translation id="8812260976093120287">In alcuni siti web puoi pagare con le suddette app di pagamento supportate sul tuo dispositivo.</translation>
+<translation id="8816439037877937734">L'app <ph name="APP_NAME" /> verrà aperta in Chrome. Se continui, accetti i <ph name="BEGIN_LINK1" />Termini di servizio<ph name="END_LINK1" /> e l'<ph name="BEGIN_LINK2" />Informativa sulla privacy<ph name="END_LINK2" /> di Chrome, nonché l'<ph name="BEGIN_LINK3" />Informatica sulla privacy per gli account Google gestiti tramite Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Preferiti</translation>
 <translation id="883635517171802338">Impedisci ai siti di mostrare popup (opzione consigliata)</translation>
 <translation id="883806473910249246">Si è verificato un errore durante il download dei contenuti.</translation>

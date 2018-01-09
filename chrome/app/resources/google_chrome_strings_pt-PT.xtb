@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">Acerca do SO &amp;Chrome</translation>
 <translation id="110877069173485804">Este é o seu Chrome</translation>
 <translation id="1142745911746664600">Não é possível atualizar o Chrome</translation>
+<translation id="1154147086299354128">&amp;Abrir no Chrome</translation>
 <translation id="123620459398936149">O Chrome OS não conseguiu sincronizar os dados. Atualize a sua frase de acesso de sincronização.</translation>
 <translation id="127345590676626841">O Chrome é atualizado automaticamente para que tenha sempre a versão mais recente. Quando a transferência estiver concluída, o Chrome irá reiniciar e o processo estará terminado.</translation>
 <translation id="1302523850133262269">Aguarde até que o Chrome instale as atualizações do sistema mais recentes.</translation>
@@ -152,6 +153,7 @@ Para obter mais instruções, verifique o seu email em <ph name="ACCOUNT_EMAIL" 
 <translation id="5243785881901838525">Google Payments (copiado para o Chrome)</translation>
 <translation id="5251420635869119124">Os convidados podem utilizar o Chrome sem perder qualquer funcionalidade.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{O Google Chrome irá reiniciar dentro de 1 segundo.}other{O Google Chrome irá reiniciar dentro de # segundos.}}</translation>
+<translation id="532046782124376502">Aviso: o Google Chrome não pode impedir que as extensões gravem o seu histórico de navegação. Para desativar esta extensão no modo de navegação anónima, desselecione esta opção.</translation>
 <translation id="5334545119300433702">Este módulo é conhecido por entrar em conflito com o Google Chrome.</translation>
 <translation id="5386244825306882791">Também controla a página apresentada quando inicia o Chrome ou pesquisa a partir da Caixa geral.</translation>
 <translation id="5430073640787465221">O ficheiro de preferências está danificado ou não é válido. O Google Chrome não consegue recuperar as suas definições.</translation>

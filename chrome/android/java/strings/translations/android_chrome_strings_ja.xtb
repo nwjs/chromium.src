@@ -98,6 +98,7 @@
 <translation id="1832521218263067499">セキュリティに関する事象</translation>
 <translation id="1853692000353488670">新しいシークレット タブ</translation>
 <translation id="1880072593381090678">Chrome でよくアクセスするページ</translation>
+<translation id="1891331835972267886">Chrome で <ph name="APP_NAME" /> を開きます。続行すると、Chrome の<ph name="BEGIN_LINK1" />利用規約<ph name="END_LINK1" />と<ph name="BEGIN_LINK2" />プライバシーに関するお知らせ<ph name="END_LINK2" />に同意したことになります。</translation>
 <translation id="189172778771606813">操作パネルを閉じる</translation>
 <translation id="1897409700584096124">ウェブサイトが発信されています</translation>
 <translation id="1919345977826869612">広告</translation>
@@ -419,6 +420,7 @@
 <translation id="4874967477260347223">メディア ライセンス</translation>
 <translation id="4875775213178255010">おすすめのコンテンツ</translation>
 <translation id="4876188919622883022">簡易表示</translation>
+<translation id="4878404682131129617">プロキシ サーバー経由のトンネルを確立できませんでした</translation>
 <translation id="4881695831933465202">開く</translation>
 <translation id="4885273946141277891">Chrome のインスタンス数の上限を超えています。</translation>
 <translation id="4910889077668685004">お支払いアプリ</translation>
@@ -502,6 +504,7 @@
 <translation id="5585019845078534178">カード</translation>
 <translation id="5595485650161345191">住所の編集</translation>
 <translation id="5596627076506792578">その他のオプション</translation>
+<translation id="5620655347161642930">パスワードをエクスポート...</translation>
 <translation id="5620928963363755975">[その他のオプション] から [ダウンロード] を開いて自分のファイルやページを探すことができます</translation>
 <translation id="5626134646977739690">名前:</translation>
 <translation id="5639724618331995626">すべてのサイトを許可</translation>
@@ -714,6 +717,7 @@
 <translation id="7493994139787901920"><ph name="VERSION" />（<ph name="TIME_SINCE_UPDATE" />に更新）</translation>
 <translation id="7498271377022651285">お待ちください…</translation>
 <translation id="7514365320538308">ダウンロード</translation>
+<translation id="751961395872307827">サイトに接続できません</translation>
 <translation id="7521387064766892559">Javascript</translation>
 <translation id="7542481630195938534">候補を取得できません</translation>
 <translation id="7562080006725997899">閲覧データの消去</translation>
@@ -843,6 +847,7 @@
 <translation id="8748850008226585750">メッセージは非表示です</translation>
 <translation id="8788968922598763114">最後に閉じたタブを開く</translation>
 <translation id="8812260976093120287">一部のウェブサイトでは、端末でサポートされている上記のお支払いアプリを使って支払いができます。</translation>
+<translation id="8816439037877937734">Chrome で <ph name="APP_NAME" /> を開きます。続行すると、Chrome の<ph name="BEGIN_LINK1" />利用規約<ph name="END_LINK1" />と<ph name="BEGIN_LINK2" />プライバシーに関するお知らせ<ph name="END_LINK2" />、および <ph name="BEGIN_LINK3" />Family Link で作成された Google アカウントのプライバシーに関するお知らせ<ph name="END_LINK3" />に同意したことになります。</translation>
 <translation id="8820817407110198400">ブックマーク</translation>
 <translation id="883635517171802338">サイトでのポップアップ表示をブロックする（推奨）</translation>
 <translation id="883806473910249246">コンテンツのダウンロード中にエラーが発生しました。</translation>

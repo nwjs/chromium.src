@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">Om &amp;Chrome OS</translation>
 <translation id="110877069173485804">Dette er din Chrome</translation>
 <translation id="1142745911746664600">Kan ikke oppdatere Chrome</translation>
+<translation id="1154147086299354128">&amp;Åpne i Chrome</translation>
 <translation id="123620459398936149">Chrome OS kunne ikke synkronisere dataene dine. Oppdater passordfrasen for synkronisering.</translation>
 <translation id="127345590676626841">Chrome oppdateres automatisk, sånn at du alltid har den nyeste versjonen. Når denne nedlastingen er fullført, kommer Chrome til å starte på nytt, og du er i gang.</translation>
 <translation id="1302523850133262269">Vent mens Chrome installerer de nyeste systemoppdateringene.</translation>
@@ -152,6 +153,7 @@ Vi har sendt deg (<ph name="ACCOUNT_EMAIL" />) en e-post med nærmere instruksjo
 <translation id="5243785881901838525">Google Payments (kopiert til Chrome)</translation>
 <translation id="5251420635869119124">Gjester kan bruke Chrome uten å etterlate seg spor.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome startes på nytt om ett sekund.}other{Google Chrome startes på nytt om # sekunder.}}</translation>
+<translation id="532046782124376502">Advarsel: Google Chrome kan ikke hindre utvidelser i å registrere nettlesingsloggen din. Du kan deaktivere utvidelsen i inkognitomodus ved å fjerne avmerkingen for dette alternativet.</translation>
 <translation id="5334545119300433702">Denne modulen har en kjent konflikt med Google Chrome.</translation>
 <translation id="5386244825306882791">Den styrer også hvilken side som vises når du starter Chrome eller søker fra multifunksjonsfeltet.</translation>
 <translation id="5430073640787465221">Innstillingsfilen er skadet eller ugyldig. Google Chrome kan ikke gjenopprette innstillingene dine.</translation>

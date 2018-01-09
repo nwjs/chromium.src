@@ -98,6 +98,7 @@ Debes activar la ubicación y el Bluetooth para utilizar la Web física.</transl
 <translation id="1832521218263067499">Incidentes de seguridad</translation>
 <translation id="1853692000353488670">Nueva pestaña de incógnito</translation>
 <translation id="1880072593381090678">Páginas populares de Chrome</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> se abrirá en Chrome. Si continúas, aceptas las <ph name="BEGIN_LINK1" />condiciones de servicio<ph name="END_LINK1" /> y el <ph name="BEGIN_LINK2" />aviso de privacidad<ph name="END_LINK2" /> de Chrome.</translation>
 <translation id="189172778771606813">Cerrar panel de navegación</translation>
 <translation id="1897409700584096124">La página web se está transmitiendo</translation>
 <translation id="1919345977826869612">Anuncios</translation>
@@ -419,6 +420,7 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="4874967477260347223">Licencias de contenido multimedia</translation>
 <translation id="4875775213178255010">Sugerencias de contenido</translation>
 <translation id="4876188919622883022">Vista simplificada</translation>
+<translation id="4878404682131129617">No se ha podido establecer conexión a través del servidor proxy</translation>
 <translation id="4881695831933465202">Abrir</translation>
 <translation id="4885273946141277891">Número de instancias de Chrome no admitido.</translation>
 <translation id="4910889077668685004">Aplicaciones para pagar</translation>
@@ -502,6 +504,7 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="5585019845078534178">Tarjetas</translation>
 <translation id="5595485650161345191">Editar dirección</translation>
 <translation id="5596627076506792578">Más opciones</translation>
+<translation id="5620655347161642930">Exportar contraseñas...</translation>
 <translation id="5620928963363755975">Encuentra tus archivos y páginas en la sección Descargas con el botón Más opciones</translation>
 <translation id="5626134646977739690">Nombre:</translation>
 <translation id="5639724618331995626">Permitir todos los sitios web</translation>
@@ -714,6 +717,7 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mostrándote anu
 <translation id="7493994139787901920"><ph name="VERSION" /> (actualizada el <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Espera…</translation>
 <translation id="7514365320538308">Descargar</translation>
+<translation id="751961395872307827">No se puede establecer conexión con el sitio web</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">No se pueden obtener sugerencias</translation>
 <translation id="7562080006725997899">Borrando datos de navegación</translation>
@@ -843,6 +847,7 @@ Para obtener nuevas licencias, conéctate a Internet y reproduce el contenido de
 <translation id="8748850008226585750">Contenidos ocultos</translation>
 <translation id="8788968922598763114">Vuelve a abrir la última pestaña cerrada</translation>
 <translation id="8812260976093120287">En algunos sitios web, puedes realizar pagos en tu dispositivo con las aplicaciones compatibles mencionadas anteriormente.</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> se abrirá en Chrome. Si continúas, aceptas las <ph name="BEGIN_LINK1" />condiciones de servicio<ph name="END_LINK1" /> y el <ph name="BEGIN_LINK2" />aviso de privacidad<ph name="END_LINK2" /> de Chrome, así como el <ph name="BEGIN_LINK3" />aviso de privacidad para cuentas de Google gestionadas con Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Marcadores</translation>
 <translation id="883635517171802338">Impedir que los sitios web muestren ventanas emergentes (recomendado)</translation>
 <translation id="883806473910249246">No se ha podido descargar el contenido.</translation>

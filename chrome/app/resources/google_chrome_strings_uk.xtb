@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">Про &amp;ОС Chrome</translation>
 <translation id="110877069173485804">Це ваш Chrome</translation>
 <translation id="1142745911746664600">Не вдається оновити Chrome</translation>
+<translation id="1154147086299354128">&amp;Відкрити в Chrome</translation>
 <translation id="123620459398936149">ОС Chrome не вдалося синхронізувати ваші дані. Оновіть свою парольну фразу для синхронізації.</translation>
 <translation id="127345590676626841">Chrome оновлюється автоматично, щоб у вас завжди була найновіша версія. Коли це завантаження завершиться, Chrome перезапуститься, і ви зможете продовжувати роботу.</translation>
 <translation id="1302523850133262269">Зачекайте, доки Chrome установить найновіші оновлення системи.</translation>
@@ -152,6 +153,7 @@
 <translation id="5243785881901838525">Google Payments (скопійовано в Chrome)</translation>
 <translation id="5251420635869119124">Гості можуть анонімно користуватися Chrome.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome перезапуститься через 1 секунду.}one{Google Chrome перезапуститься через # секунду.}few{Google Chrome перезапуститься через # секунди.}many{Google Chrome перезапуститься через # секунд.}other{Google Chrome перезапуститься через # секунди.}}</translation>
+<translation id="532046782124376502">Застереження. Google Chrome не може заборонити розширенням реєструвати історію веб-перегляду. Щоб розширення не працювало в режимі анонімного перегляду, зніміть прапорець біля цієї опції.</translation>
 <translation id="5334545119300433702">Відомо, що цей модуль конфліктує з Google Chrome.</translation>
 <translation id="5386244825306882791">Розширення також змінило сторінку, яка відкривається під час запуску Chrome або пошуку в універсальному вікні пошуку.</translation>
 <translation id="5430073640787465221">Ваш файл налаштувань пошкоджений або недійсний. Google Chrome не може відновити ваші налаштування.</translation>

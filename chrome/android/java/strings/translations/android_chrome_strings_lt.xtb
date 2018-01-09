@@ -98,6 +98,7 @@ Kad galėtumėte naudoti Fizinį žiniatinklį, būtina įgalinti „Bluetooth�
 <translation id="1832521218263067499">Su sauga susiję įvykiai</translation>
 <translation id="1853692000353488670">Naujas inkognito skirtukas</translation>
 <translation id="1880072593381090678">Populiarūs „Chrome“ puslapiai</translation>
+<translation id="1891331835972267886">Programa „<ph name="APP_NAME" />“ bus atidaryta naršyklėje „Chrome“. Tęsdami sutinkate su „Chrome“ <ph name="BEGIN_LINK1" />paslaugų teikimo sąlygomis<ph name="END_LINK1" /> ir <ph name="BEGIN_LINK2" />privatumo pranešimu<ph name="END_LINK2" />.</translation>
 <translation id="189172778771606813">Uždaryti naršymo skydelį</translation>
 <translation id="1897409700584096124">Svetainė transliuoja</translation>
 <translation id="1919345977826869612">Skelbimai</translation>
@@ -419,6 +420,7 @@ Adresu <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> gali 
 <translation id="4874967477260347223">Medijos licencijos</translation>
 <translation id="4875775213178255010">Turinio pasiūlymai</translation>
 <translation id="4876188919622883022">Supaprastintas rodinys</translation>
+<translation id="4878404682131129617">Nepavyko užmegzti tunelinio ryšio per tarpinį serverį</translation>
 <translation id="4881695831933465202">Atidaryti</translation>
 <translation id="4885273946141277891">Nepalaikomas „Chrome“ atvejų skaičius.</translation>
 <translation id="4910889077668685004">Mokėjimo programos</translation>
@@ -502,6 +504,7 @@ Adresu <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> gali 
 <translation id="5585019845078534178">Kortelės</translation>
 <translation id="5595485650161345191">Adreso redagavimas</translation>
 <translation id="5596627076506792578">Daugiau parinkčių</translation>
+<translation id="5620655347161642930">Eksportuoti slaptažodžius...</translation>
 <translation id="5620928963363755975">Suraskite failus ir puslapius „Atsisiuntimų“ skiltyje spustelėję mygtuką „Daugiau parinkčių“</translation>
 <translation id="5626134646977739690">Pavadinimas:</translation>
 <translation id="5639724618331995626">Leisti visas svetaines</translation>
@@ -714,6 +717,7 @@ Pavyzdžiui, kai kurios svetainės gali atsakyti į šią užklausą rodydamos j
 <translation id="7493994139787901920"><ph name="VERSION" /> (atnaujinta <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Palaukite…</translation>
 <translation id="7514365320538308">Atsisiųsti</translation>
+<translation id="751961395872307827">Nepavyksta prisijungti prie svetainės</translation>
 <translation id="7521387064766892559">„JavaScript“</translation>
 <translation id="7542481630195938534">Nepavyksta gauti pasiūlymų</translation>
 <translation id="7562080006725997899">Naršymo duomenų išvalymas</translation>
@@ -843,6 +847,7 @@ Jei norite gauti naujas licencijas, prisijunkite prie interneto ir leiskite atsi
 <translation id="8748850008226585750">Turinys paslėptas</translation>
 <translation id="8788968922598763114">Iš naujo atidaryti paskutinį uždarytą skirtuką</translation>
 <translation id="8812260976093120287">Kai kuriose svetainėse galite mokėti naudodami įrenginyje įdiegtas anksčiau nurodytas palaikomas mokėjimo programas.</translation>
+<translation id="8816439037877937734">Programa „<ph name="APP_NAME" />“ bus atidaryta naršyklėje „Chrome“. Tęsdami sutinkate su „Chrome“ <ph name="BEGIN_LINK1" />paslaugų teikimo sąlygomis<ph name="END_LINK1" />, <ph name="BEGIN_LINK2" />privatumo pranešimu<ph name="END_LINK2" /> ir <ph name="BEGIN_LINK3" />privatumo pranešimu, skirtu „Google“ paskyroms, tvarkomoms naudojant „Family Link“<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Žymės</translation>
 <translation id="883635517171802338">Blokuoti, kad svetainėse nebūtų rodomi iššokantieji langai (rekomenduojama)</translation>
 <translation id="883806473910249246">Atsisiunčiant turinį įvyko klaida.</translation>

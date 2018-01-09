@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">Tietoja &amp;Chrome-käyttöjärjestelmästä</translation>
 <translation id="110877069173485804">Tämä on oma Chromesi</translation>
 <translation id="1142745911746664600">Chromen päivitys epäonnistui</translation>
+<translation id="1154147086299354128">Avaa Chr&amp;omessa</translation>
 <translation id="123620459398936149">Chrome-käyttöjärjestelmä ei voinut synkronoida tietoja. Päivitä synkronoinnin tunnuslause.</translation>
 <translation id="127345590676626841">Chrome päivittyy automaattisesti, joten käytössäsi on aina uusin versio. Kun lataus on valmis, Chrome käynnistyy uudelleen ja voit aloittaa käytön.</translation>
 <translation id="1302523850133262269">Odota hetki, Chrome asentaa uusimpia järjestelmäpäivityksiä.</translation>
@@ -153,6 +154,7 @@ Lähetimme lisäohjeita sähköpostiisi osoitteeseen <ph name="ACCOUNT_EMAIL" />
 <translation id="5243785881901838525">Google Payments (kopioitu Chromeen)</translation>
 <translation id="5251420635869119124">Vierailijat voivat käyttää Chromea jälkiä jättämättä.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome käynnistyy uudelleen 1 sekunnin kuluttua}other{Google Chrome käynnistyy uudelleen # sekunnin kuluttua}}</translation>
+<translation id="532046782124376502">Varoitus: Google Chrome ei voi estää laajennuksia tallentamasta selaushistoriaasi. Voit poistaa tämän laajennuksen käytöstä incognito-tilassa poistamalla tämän valinnan.</translation>
 <translation id="5334545119300433702">Tämän moduulin tiedetään aiheuttavan ristiriitoja Google Chromen kanssa.</translation>
 <translation id="5386244825306882791">Määrittää myös Chromen ja omnibox-hakujen aloitussivun.</translation>
 <translation id="5430073640787465221">Asetustiedostosi on virheellinen. Google Chrome ei voi palauttaa asetuksiasi.</translation>

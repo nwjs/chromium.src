@@ -327,6 +327,11 @@
 
           Om principen inte anges används alla fyra.</translation>
 <translation id="2067011586099792101">Blockera åtkomst till webbplatser utanför innehållspaket</translation>
+<translation id="2075030897098958514">Styr om NTLMv2 är aktiverat.
+
+          Alla nyare versioner av Samba- och Windows-servrar har stöd för NTLMv2. Detta bör bara inaktiveras om det krävs för bakåtkompatibilitet eftersom det gör autentiseringen mindre säker.
+
+          Standardvärdet när principen lämnats odefinierad är för närvarande Falskt för bakåtkompatibilitetens skull, men det ändras till Sant i framtiden.</translation>
 <translation id="2077129598763517140">Använd maskinvaruacceleration när det är tillgängligt</translation>
 <translation id="2077273864382355561">Skärmavstängningstid när enheten drivs av batteriet</translation>
 <translation id="2082205219176343977">Konfigurera lägsta tillåtna Chrome-version för enheten.</translation>
@@ -418,6 +423,7 @@
 <translation id="2312134445771258233">Innebär att du kan konfigurera sidorna som läses in vid start.
 
       Innehållet på listan "Webbadresser att öppna vid start" ignoreras om du inte väljer "Öppna följande sidor" i "Vid start".</translation>
+<translation id="2327252517317514801">Ange vilka domäner som ska ha tillgång till G Suite</translation>
 <translation id="2334591568684482454">Konfigurerar tillgängligheten och beteendet för uppdateringar av firmware för <ph name="TPM_FIRMWARE_UPDATE_TPM" />.
 
       Enskilda inställningar kan anges som JSON-egenskaper:
@@ -1024,6 +1030,7 @@
           Den här policyn är valfri. Om den inte anges kommer begäran om bildsökning att skickas via GET-metoden.
 
           Den här policyn följs endast om policyn DefaultSearchProviderEnabled är aktiverad.</translation>
+<translation id="4285674129118156176">Tillåt oanknutna användare att använda ARC</translation>
 <translation id="4294280661005713627">Ställer in en målversion för automatiska uppdateringar.
 
       Anger med hjälp av ett prefix vilken målversion som <ph name="PRODUCT_OS_NAME" /> ska uppdateras till. Om en version som är äldre än det angivna prefixet körs på enheten uppdateras den till den senaste versionen som har prefixet i fråga. Om en senare version redan körs på enheten händer ingenting (versionen nedgraderas med andra ord inte) och den aktuella versionen blir kvar på enheten. Prefixets format anger komponent som exemplet nedan visar:
@@ -1197,6 +1204,7 @@
           Om denna policy har inställningen sant, eller inte har ställts in, kommer skärmaktiveringslåsen att användas för näthantering.
 
           Om policyn har inställningen falskt kommer skärmaktiveringslåset att ignoreras.</translation>
+<translation id="487460824085252184">Migrera automatiskt utan att fråga efter användarens samtycke.</translation>
 <translation id="4876805738539874299">Högsta SSL-version har aktiverats</translation>
 <translation id="4881315447528084360">Anger en lista med appar och tillägg som installeras tyst, utan att
           användaren gör något, och som användaren inte får
@@ -1310,6 +1318,7 @@
 <translation id="5272684451155669299">Om den är inställd på sant kan användaren använda maskinvaran i Chrome-enheten för att fjärrattestera sin identitet i sekretessinställningarna CA via <ph name="ENTERPRISE_PLATFORM_KEYS_API" /> med hjälp av <ph name="CHALLENGE_USER_KEY_FUNCTION" />.
 
           Om den är inställd på falskt, eller om den saknar inställning, fungerar inte anslutningen till API:et och en felkod visas.</translation>
+<translation id="5283457834853986457">Inaktivera plugin-sökaren (utfasad)</translation>
 <translation id="5288772341821359899">Om den här principen har angetts används bara UDP-portarna inom det angivna intervallet (ändvärdena inräknade) för WebRTC.
 
       Om principen inte anges eller om den har ställts in på den tomma strängen eller ett ogiltigt portintervall får vilken tillgänglig lokal UDP-port som helst användas för WebRTC.</translation>
@@ -1333,6 +1342,11 @@
           Om principen är inställd på falskt kan användarna inte casta till enheten. Om principen är inställd på sant får användarna casta innehåll. Om principen lämnas utan inställning får användarna inte casta till registrerade Chrome OS-enheter, men däremot till enheter som inte är registrerade.</translation>
 <translation id="5330684698007383292">Tillåt att <ph name="PRODUCT_FRAME_NAME" /> hanterar följande innehållstyper</translation>
 <translation id="5365946944967967336">Visa knappen Startsida i verktygsfältet</translation>
+<translation id="5366745336748853475">Låter dig ange en lista med webbadressmönster som anger webbplatser för vilka ett klientcertifikat väljs automatiskt på inloggningsskärmen i den ram som står värd för SAML-flödet, om webbplatsen kräver ett certifikat. Ett möjligt användningsområde är att konfigurera ett certifikat för hela enheten som ska uppvisas för SAML-identitetsleverantören.
+
+      Värdet måste vara en vektor med JSON-ordlistor som konverterats till strängar. Varje ordlista måste ha formatet { "pattern": "$URL_PATTERN", "filter": $FILTER } där $URL_PATTERN är ett inställningsmönster. $FILTER begränsar urvalet klientcertifikat som webbläsaren automatiskt ska välja bland. Oavsett filter väljs endast sådana certifikat som matchar serverns certifikatbegäran. Om $FILTER har formatet { "ISSUER": { "CN": "$ISSUER_CN" } } väljs dessutom enbart sådana klientcertifikat som har utfärdats med ett certifikat som har $ISSUER_CN som CommonName. Om $FILTER är den tomma ordlistan {} begränsas inte valet av klientcertifikat ytterligare.
+
+      Om principen lämnas utan inställning görs inget automatiskt val för någon webbplats.</translation>
 <translation id="5366977351895725771">Om "false" anges inaktiveras alternativet att skapa kontrollerade användare för den här användaren. Eventuella befintliga kontrollerade användare är fortfarande tillgängliga.
 
           Om "true" anges eller ingen konfiguration utförs kan den här användaren skapa och hantera kontrollerade användare.</translation>
@@ -1400,6 +1414,7 @@
       Om den anges läggs en frågeparameter som kallas "restrict" till i webbadressen som används för att hämta startvärdet för Variations. Värdet för parametern kommer att vara det värde som anges i policyn.
 
       Om den inte anges ändras inte webbadressen för startvärdet för Variations.</translation>
+<translation id="5561811616825571914">Välj klientcertifikat automatiskt för dessa webbplatser på inloggningsskärmen</translation>
 <translation id="556941986578702361">Kontrollera hur <ph name="PRODUCT_OS_NAME" />-hyllan döljs automatiskt.
 
       Om policyn har angetts till AlwaysAutoHideShelf döljs alltid hyllan automatiskt.
@@ -1466,6 +1481,11 @@
       Om policyn är inaktiverad kan sidor inte öppnas i inkognitoläge.
 
       Om tvingat läge är valt kan sidor BARA öppnas i inkognitoläge.</translation>
+<translation id="583091600226586337">
+      Om principen har aktiverats blir användaren tillfrågad var filen ska sparas innan nedladdningen börjar.
+      Om principen har inaktiverats påbörjas nedladdningen genast och användaren blir inte tillfrågad om var den ska sparas.
+      Om principen inte konfigureras kan användaren ändra inställningen.
+      </translation>
 <translation id="5835124959204887277">Anger webbadresser och domäner som det inte visas meddelanden för när attesteringscertifikat begärs från säkerhetsnycklar. Dessutom skickas en signal till säkerhetsnyckeln som indikerar att enskild attestering kan användas. Utan detta meddelas användare i version 65 eller senare av Chrome när webbplatser begär attestering för säkerhetsnycklar.
 
       Webbadresser (som https://example.com/some/path) matchar endast som U2F appID. Domäner (som example.com) matchar endast som WebAuthn RP ID. Därför måste både webbadressen och domänen för appID anges om båda API:erna U2F och WebAuthn ska täcka en viss webbplats.</translation>
@@ -1525,6 +1545,7 @@
 <translation id="5966615072639944554">Tilläggen får använda API:et för fjärrattestering</translation>
 <translation id="5983708779415553259">Standardbeteende för webbplatser som inte ingår i ett innehållspaket</translation>
 <translation id="5997543603646547632">Använd 24-timmarsklocka som standard</translation>
+<translation id="5997846976342452720">Ange om plugin-sökaren ska inaktiveras (utfasad)</translation>
 <translation id="6005179188836322782">Aktiverar funktionen Säker webbsökning i <ph name="PRODUCT_NAME" /> och hindrar användarna från att ändra inställningen.
 
       Om du aktiverar inställningen är Säker webbsökning alltid aktiverad.
@@ -1791,6 +1812,25 @@
 <translation id="6903814433019432303">Den här policyn är bara aktiv i återförsäljarläge.
 
       Policyn avgör om webbadresser ska läsas in när demosessionen startas. Policyn ersätter andra funktioner som anger startadresser och kan därför bara användas i sessioner som inte är kopplade till någon enskild användare.</translation>
+<translation id="6908347296939885026">Aktiverar den begränsade inloggningsfunktionen i <ph name="PRODUCT_NAME" /> för G Suite och förhindrar att användarna ändrar inställningen.
+
+      När den här inställningen har definierats kan användarna bara använda
+      Google Apps med konton på de angivna domänerna (observera att detta
+      inte gäller för gmail.com/googlemail.com).
+
+      Inställningen förhindrar INTE att användaren loggar in på en hanterad enhet
+      som kräver autentisering hos Google. Användarna kan fortfarande logga in
+      på konton på andra domäner, men får ett felmeddelande om de försöker
+      använda G Suite med ett sådant konto.
+
+      Om du lämnar inställningen tom eller okonfigurerad kan användaren
+      använda G Suite med alla slags konton.
+
+      Principen gör att fältet X-GoogApps-Allowed-Domains läggs till i huvudet
+      på varje HTTP- och HTTPS-begäran till alla underdomäner på google.com,
+      på det sätt som beskrivs på https://support.google.com/a/answer/1668854.
+
+      Inställningen kan inte ändras eller åsidosättas av användarna.</translation>
 <translation id="6908640907898649429">Konfigurerar standardsökleverantör. Du kan ange vilken standardsökleverantör som ska användas eller inaktivera standardsökning.</translation>
 <translation id="6915442654606973733">Aktivera hjälpmedelsfunktionen talad feedback.
 
@@ -1922,6 +1962,9 @@
 <translation id="7258823566580374486">Aktivera avskärmning av fjärråtkomstvärdar</translation>
 <translation id="7260277299188117560">Automatisk uppdatering av p2p har aktiverats</translation>
 <translation id="7261252191178797385">Enhetens bakgrundsbild</translation>
+<translation id="7266471712301230894">Den här principen togs bort i version 64 av <ph name="PRODUCT_NAME" />.
+
+      Automatisk sökning efter och installation av saknade pluginprogram stöds inte längre.</translation>
 <translation id="7267809745244694722">Standard för medieknappar ändras till funktionstangenter</translation>
 <translation id="7271085005502526897">Importera startsida från standardwebbläsaren första gången den körs</translation>
 <translation id="7273823081800296768">Om inställningen är aktiverad eller inte konfigurerad kan användare välja att koppla ihop klienter och värdar vid anslutningstillfället så att de slipper ange en pinkod varje gång.
@@ -2222,6 +2265,14 @@
       Om policyn inte tillämpas använder <ph name="PRODUCT_OS_NAME" /> det lokala kontot på enhetens e-postkonto-ID som visningsnamn på inloggningsskärmen.
 
       Policyn ignoreras för vanliga användarkonton.</translation>
+<translation id="8259375588339409826">Chromium och Google Chrome stöder samma uppsättning principer. Observera att principer som ännu inte har lanserats kan finnas med i det här dokumentet (en version av <ph name="PRODUCT_NAME" /> som inte har släppts ännu anges i fältet Stöds av). Sådana principer kan ändras eller tas bort utan föregående meddelande och vi ger inga som helst garantier för dem, vad gäller säkerhet eller sekretess eller något annat.
+
+De här principerna ska endast användas för att konfigurera instanser av <ph name="PRODUCT_NAME" /> internt inom organisationen. All användning av principerna utanför organisationen (t.ex. i ett program som är allmänt tillgängligt) är att uppfatta som skadlig programvara och skulle sannolikt märkas som sådan av Google och av antivirusleverantörer.
+
+Du behöver inte konfigurera de här inställningarna manuellt. Lättanvända mallar för Windows, Mac och Linux kan laddas ned från <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" />.
+
+Det rekommenderade sättet att konfigurera principer på när du använder Windows är via grupprincipobjekt, men att göra det via registret stöds för Windows-instanser som har fogats till en <ph name="MS_AD_NAME" />-domän.</translation>
+<translation id="8274603902181597201">Rensa bort användarens ecryptfs-krypterade hemkatalog och börja om med en ny ext4-krypterad hemkatalog.</translation>
 <translation id="8279832363395120715">Tar bort sekretess- och säkerhetskänsliga delar av https://-adresser innan de skickas till PAC-skript (Proxy Auto Config) som används av <ph name="PRODUCT_NAME" /> under proxytolkning.
 
       Om värdet är Sant är säkerhetsfunktionen aktiverad och https://-adresser
@@ -2306,6 +2357,11 @@
 <translation id="8549772397068118889">Varna när du besöker webbplatser utanför innehållspaket</translation>
 <translation id="8566842294717252664">Dölj webbutiken från sidan ny flik och startprogrammet för appar</translation>
 <translation id="8587229956764455752">Tillåt att nya användarkonton skapas</translation>
+<translation id="8598350264853261122">Om principen är inställd på falskt får oanknutna användare inte använda ARC.
+
+      Om principen lämnas utan inställning eller ställs in på sant får alla användare använda ARC (såvida inte ARC har inaktiverats på något annat sätt).
+
+      Om principen ändras kommer ändringen att tillämpas först när ARC inte körs, d.v.s. när Chrome OS startas.</translation>
 <translation id="8614804915612153606">Inaktiverar automatisk uppdatering</translation>
 <translation id="8631434304112909927">till och med version <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">För Android-appar påverkar den här principen endast den inbyggda kameran. När principen är inställd på sant är kameran avstängd i alla Android-appar utan undantag.</translation>
@@ -2446,6 +2502,7 @@
           Om du vill tillåta alla snabbupplåsningslägen använder du [alla]. I de fall du vill tillåta endast upplåsning med pinkod använder du [pinkod]. Med [] inaktiverar du alla snabbupplåsningslägen.
 
           Som standard är inga snabbupplåsningslägen tillgängliga för hanterade enheter.</translation>
+<translation id="9136399279941091445">Intervall för användning utanför arbetstid när de angivna enhetsprinciperna lanseras</translation>
 <translation id="9147029539363974059">Skickar systemloggar till hanteringsservern så att administratörer kan
       övervaka systemloggarna.
 

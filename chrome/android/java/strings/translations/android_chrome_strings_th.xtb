@@ -98,6 +98,7 @@
 <translation id="1832521218263067499">เหตุการณ์ด้านความปลอดภัย</translation>
 <translation id="1853692000353488670">แท็บใหม่ที่ไม่ระบุตัวตน</translation>
 <translation id="1880072593381090678">หน้ายอดนิยมจาก Chrome</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> จะเปิดขึ้นใน Chrome การดำเนินการต่อแสดงว่าคุณยอมรับ<ph name="BEGIN_LINK1" />ข้อกำหนดในการให้บริการ<ph name="END_LINK1" />และ<ph name="BEGIN_LINK2" />ประกาศเกี่ยวกับนโยบายความเป็นส่วนตัว<ph name="END_LINK2" />ของ Chrome</translation>
 <translation id="189172778771606813">ปิดลิ้นชักการนำทาง</translation>
 <translation id="1897409700584096124">เว็บไซต์กำลังออกอากาศ</translation>
 <translation id="1919345977826869612">โฆษณา</translation>
@@ -419,6 +420,7 @@
 <translation id="4874967477260347223">ใบอนุญาตสื่อ</translation>
 <translation id="4875775213178255010">การแนะนำเนื้อหา</translation>
 <translation id="4876188919622883022">มุมมองอย่างง่าย</translation>
+<translation id="4878404682131129617">สร้างช่องทางผ่านพร็อกซีเซิร์ฟเวอร์ไม่ได้</translation>
 <translation id="4881695831933465202">เปิด</translation>
 <translation id="4885273946141277891">อินสแตนซ์ของ Chrome เกินจำนวนที่สนับสนุน</translation>
 <translation id="4910889077668685004">แอปชำระเงิน</translation>
@@ -502,6 +504,7 @@
 <translation id="5585019845078534178">บัตร</translation>
 <translation id="5595485650161345191">แก้ไขที่อยู่</translation>
 <translation id="5596627076506792578">ตัวเลือกเพิ่มเติม</translation>
+<translation id="5620655347161642930">ส่งออกรหัสผ่าน...</translation>
 <translation id="5620928963363755975">หาไฟล์และหน้าในโฟลเดอร์ดาวน์โหลดจากปุ่มตัวเลือกเพิ่มเติม</translation>
 <translation id="5626134646977739690">ชื่อ:</translation>
 <translation id="5639724618331995626">อนุญาตทุกไซต์</translation>
@@ -714,6 +717,7 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (อัปเดตเมื่อ <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">โปรดรอสักครู่…</translation>
 <translation id="7514365320538308">ดาวน์โหลด</translation>
+<translation id="751961395872307827">เชื่อมต่อเว็บไซต์ไม่ได้</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">รับคำแนะนำไม่ได้</translation>
 <translation id="7562080006725997899">กำลังล้างข้อมูลการท่องเว็บ</translation>
@@ -843,6 +847,7 @@
 <translation id="8748850008226585750">เนื้อหาถูกซ่อนไว้</translation>
 <translation id="8788968922598763114">เปิดแท็บที่เพิ่งปิดอีกครั้ง</translation>
 <translation id="8812260976093120287">ในบางเว็บไซต์ คุณสามารถชำระเงินด้วยแอปชำระเงินที่รองรับด้านบนในอุปกรณ์ของคุณ</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> จะเปิดขึ้นใน Chrome การดำเนินการต่อแสดงว่าคุณยอมรับ<ph name="BEGIN_LINK1" />ข้อกำหนดในการให้บริการ<ph name="END_LINK1" />และ<ph name="BEGIN_LINK2" />ประกาศเกี่ยวกับนโยบายความเป็นส่วนตัว<ph name="END_LINK2" />ของ Chrome รวมถึง<ph name="BEGIN_LINK3" />ประกาศเกี่ยวกับนโยบายความเป็นส่วนตัวสำหรับบัญชี Google ที่จัดการด้วย Family Link<ph name="END_LINK3" /></translation>
 <translation id="8820817407110198400">บุ๊กมาร์ก</translation>
 <translation id="883635517171802338">บล็อกเว็บไซต์ไม่ให้แสดงป๊อปอัป (แนะนำ)</translation>
 <translation id="883806473910249246">เกิดข้อผิดพลาดขณะดาวน์โหลดเนื้อหา</translation>

@@ -28,7 +28,7 @@
 <translation id="1158211211994409885"><ph name="HOST_NAME" /> অপ্রত্যাশিতভাবে সংযোগ বন্ধ করেছে।</translation>
 <translation id="1161325031994447685">ওয়াই-ফাই এ আবার সংযুক্ত করে দেখুন</translation>
 <translation id="1165039591588034296">ত্রুটি</translation>
-<translation id="1175364870820465910">&amp;মুদ্রণ...</translation>
+<translation id="1175364870820465910">&amp;প্রিন্ট...</translation>
 <translation id="1181037720776840403">সরান</translation>
 <translation id="1184214524891303587">নিরাপত্তার সম্ভাব্য লঙ্ঘনের ঘটনাগুলির বিস্তারিত বিবরণ Google এর কাছে <ph name="BEGIN_WHITEPAPER_LINK" />স্বয়ংক্রিয়ভাবে প্রতিবেদন করুন<ph name="END_WHITEPAPER_LINK" />। <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="1193706408197842297">পেমেন্ট করা যায়নি</translation>
@@ -60,7 +60,7 @@
 <translation id="1344588688991793829">Chromium স্বতঃপূর্ণ সেটিংস...</translation>
 <translation id="1348198688976932919">যে সাইট খুলতে চলেছেন সেটিতে বিপজ্জনক অ্যাপ আছে</translation>
 <translation id="1374468813861204354">প্রস্তাবনাগুলি</translation>
-<translation id="1375198122581997741">সংস্করণ সম্পর্কে</translation>
+<translation id="1375198122581997741">ভার্সন সম্পর্কে</translation>
 <translation id="1377321085342047638">কার্ড নম্বর</translation>
 <translation id="139305205187523129"><ph name="HOST_NAME" /> কোনো তথ্য পাঠায়নি।</translation>
 <translation id="1407135791313364759">সব খুলুন</translation>
@@ -229,7 +229,7 @@
 <translation id="2639739919103226564">স্থিতি: </translation>
 <translation id="2649204054376361687"><ph name="CITY" />, <ph name="COUNTRY" /></translation>
 <translation id="2650446666397867134">ফাইলে অ্যাক্সেস অস্বীকৃত হয়েছে</translation>
-<translation id="2653659639078652383">জমা</translation>
+<translation id="2653659639078652383">জমা দিন</translation>
 <translation id="2666117266261740852">অন্যান্য ট্যাব বা অ্যাপ্লিকেশানগুলি বন্ধ করুন</translation>
 <translation id="2674170444375937751">আপনি কি আপনার ইতিহাস থেকে এই পৃষ্ঠাগুলি মোছার বিষয়ে নিশ্চিত?</translation>
 <translation id="2677748264148917807">ছেড়ে চলে যান</translation>
@@ -380,7 +380,7 @@
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
 <translation id="3615877443314183785">মেয়াদ শেষ হওয়ার তারিখের সঠিক মান লিখুন</translation>
 <translation id="36224234498066874">ব্রাউজ করা ডেটা সাফ করুন...</translation>
-<translation id="362276910939193118">সম্পূর্ণ ইতিহাস দেখান</translation>
+<translation id="362276910939193118">সম্পূর্ণ ইতিহাস দেখুন</translation>
 <translation id="3623476034248543066">মান দেখান</translation>
 <translation id="3630155396527302611">নেটওয়ার্ক অ্যাক্সেস করতে এটি যদি ইতোমধ্যে মঞ্জুরিকৃত প্রোগ্রাম হিসাবে তালিকাতে থাকে, তাহলে
       তালিকাটি থেকে এটি সরানোর চেষ্টা করে আবার যোগ করে দেখুন।</translation>
@@ -528,7 +528,7 @@
 <translation id="4850886885716139402">দেখুন</translation>
 <translation id="4854362297993841467">এই পদ্ধতিতে ডেলিভারি করা যাবে না। অন্য পদ্ধতি ব্যবহার করুন।</translation>
 <translation id="4858792381671956233">এই সাইটটি দেখার জন্য উপযুক্ত কিনা তা আপনি আপনার পিতামাতাকে জিজ্ঞাসা করেছেন</translation>
-<translation id="4880827082731008257">ইতিহাস অনুসন্ধান</translation>
+<translation id="4880827082731008257">সার্চের ইতিহাস</translation>
 <translation id="4895877746940133817"><ph name="TYPE_1" />, <ph name="TYPE_2" />, <ph name="TYPE_3" /></translation>
 <translation id="4913131542719409934">প্রমাণীকরণ প্রয়োজন</translation>
 <translation id="4914479371620770914">{URL_count,plural, =1{এবং আরও ১টি ওয়েব পৃষ্ঠা}one{এবং আরও #টি ওয়েব পৃষ্ঠা}other{এবং আরও #টি ওয়েব পৃষ্ঠা}}</translation>
@@ -899,7 +899,7 @@
 <translation id="7763386264682878361">পেমেন্ট ম্যানিফেস্ট বিশ্লেষক</translation>
 <translation id="7764225426217299476">ঠিকানা যোগ করুন</translation>
 <translation id="777702478322588152">জেলা</translation>
-<translation id="7791543448312431591">যুক্ত করুন</translation>
+<translation id="7791543448312431591">জুড়ুন</translation>
 <translation id="7793553086574152071">পরের বার আরও দ্রুত পেমেন্ট করা জন্য এই কার্ডটি Google অ্যাকাউন্টে সেভ করে রাখুন</translation>
 <translation id="7793809570500803535"><ph name="SITE" />-এ থাকা ওয়েবপৃষ্ঠাটি অস্থায়ীভাবে ডাউন থাকতে পারে অথবা এটিকে স্থায়ীভাবে কোনো নতুন ওয়েব ঠিকানাতে সরানো হয়েছে৷</translation>
 <translation id="7800304661137206267">বার্তা প্রমাণীকরণ এবং <ph name="KX" />-কে কী এক্সচেঞ্জ নির্মাণকৌশল হিসাবে সংযোগটি <ph name="CIPHER" /> ব্যবহার করে <ph name="MAC" />-এর সাথে এনক্রিপ্ট হয়েছে৷</translation>
@@ -1006,7 +1006,7 @@
 <translation id="8718314106902482036">পেমেন্ট করা যায়নি</translation>
 <translation id="8725066075913043281">আবার চেষ্টা করুন</translation>
 <translation id="8728672262656704056">আপনি গুপ্ত মোডে চলে গেছেন</translation>
-<translation id="8730621377337864115">সম্পন্ন হয়েছে</translation>
+<translation id="8730621377337864115">হয়ে গেছে</translation>
 <translation id="8738058698779197622">নিরাপদ নেটওয়ার্ক সংযোগ স্থাপন করতে আপনার ঘড়িকে সঠিকভাবে সেট করতে হবে৷ নিরাপদ সংযোগ স্থাপন করার জন্য নিজেদের সনাক্ত করার জন্য ওয়েবসাইটগুলি যে শংসাপত্রগুলি ব্যবহার করে, সেগুলি শুধুমাত্র নির্দিষ্ট সময়ের জন্য বৈধ থাকে৷ যেহেতু আপনার ডিভাইসের ঘড়িটি ভুল, সেই জন্য Chromium সঠিকভাবে শংসাপত্রগুলি পরীক্ষা করতে পারে না৷</translation>
 <translation id="8740359287975076522"><ph name="HOST_NAME" /> এর &lt;abbr id="dnsDefinition"&gt;DNS ঠিকানা&lt;/abbr&gt; পাওয়া যায়নি। সমস্যা নির্ণয় করা হচ্ছে।</translation>
 <translation id="874846938927089722">এই ক্রেডিট ও প্রিপেড কার্ডগুলি গ্রহণ করা হয়</translation>
@@ -1014,7 +1014,7 @@
 <translation id="8761567432415473239">Google নিরাপদ ব্রাউজিং সম্প্রতি <ph name="SITE" /> এ <ph name="BEGIN_LINK" />ক্ষতিকারক প্রোগ্রামগুলি খুঁজে পেয়েছে<ph name="END_LINK" />৷</translation>
 <translation id="8790007591277257123">&amp;মুছে ফেলাকে আবার করুন</translation>
 <translation id="8800988563907321413">আপনার জন্য আশেপাশের প্রস্তাবনাগুলি এখানে দেখা যাবে</translation>
-<translation id="8820817407110198400">বুকমার্কস</translation>
+<translation id="8820817407110198400">বুকমার্ক</translation>
 <translation id="883848425547221593">অন্যান্য বুকমার্ক</translation>
 <translation id="884264119367021077">শিপিং ঠিকানা</translation>
 <translation id="884923133447025588">কোন প্রত্যাহার নির্মাণকৌশল পাওয়া যায় নি৷</translation>

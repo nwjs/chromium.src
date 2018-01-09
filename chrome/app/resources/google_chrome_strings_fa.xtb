@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">‏درباره سیستم عامل &amp;Chrome</translation>
 <translation id="110877069173485804">‏این Chrome شماست</translation>
 <translation id="1142745911746664600">‏به‌روزرسانی Chrome امکان‌پذیر نیست</translation>
+<translation id="1154147086299354128">‏&amp;باز کردن در Chrome</translation>
 <translation id="123620459398936149">‏سیستم‌عامل Chrome قادر به همگام‌سازی داده‌های شما نبود. لطفاً رمز عبارتی همگام‌سازی خود را به‌روز کنید.</translation>
 <translation id="127345590676626841">‏Chrome به صورت خودکار به‌روزرسانی می‌شود بنابراین همیشه جدیدترین نسخه را دارید. وقتی این بارگیری تمام شد، Chrome مجدداً شروع به کار می‌کند و می‌توانید کارتان را ادامه دهید.</translation>
 <translation id="1302523850133262269">‏لطفاً صبر کنید تا Chrome جدیدترین به‌روزرسانی‌های سیستم را نصب کند.</translation>
@@ -153,6 +154,7 @@
 <translation id="5243785881901838525">‏Google Payments (در Chrome کپی شد)</translation>
 <translation id="5251420635869119124">‏مهمان‌‌ها می‌توانند از Chrome استفاده کنند بدون اینکه اثری از خود به جا بگذارند.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{‏Google Chrome بعد از ۱ ثانیه راه‌اندازی مجدد می‌شود.}one{‏Google Chrome بعد از # ثانیه راه‌اندازی مجدد می‌شود.}other{‏Google Chrome بعد از # ثانیه راه‌اندازی مجدد می‌شود.}}</translation>
+<translation id="532046782124376502">‏اخطار: Google Chrome نمی تواند مانع از ثبت سابقه مرور شما توسط افزونه‌ها شود. برای غیرفعال کردن این افزونه در حالت ناشناس، این گزینه را لغو انتخاب کنید.</translation>
 <translation id="5334545119300433702">‏این مدول با Google Chrome تداخل دارد.</translation>
 <translation id="5386244825306882791">‏این برنامه همچنین صفحه‌ای را که هنگام راه‌اندازی Chrome یا جستجو از Omnibox نشان داده می‌شود، کنترل می‌کند.</translation>
 <translation id="5430073640787465221">‏فایل تنظیمات برگزیده شما خراب یا نامعتبر است. Google Chrome نمی‌تواند تنظیمات شما را بازیابی کند.</translation>

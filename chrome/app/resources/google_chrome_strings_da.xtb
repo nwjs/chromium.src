@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">Om &amp;Chrome OS</translation>
 <translation id="110877069173485804">Dette er din Chrome-browser</translation>
 <translation id="1142745911746664600">Chrome kan ikke opdateres</translation>
+<translation id="1154147086299354128">Åbn i Chr&amp;ome</translation>
 <translation id="123620459398936149">Chrome OS kunne ikke synkronisere dine data. Opdater din adgangssætning til synkronisering.</translation>
 <translation id="127345590676626841">Chrome opdateres automatisk, så du altid har den nyeste version. Når downloaden er fuldført, genstartes Chrome, og så er du godt på vej.</translation>
 <translation id="1302523850133262269">Vent, mens Chrome installerer de nyeste systemopdateringer.</translation>
@@ -152,6 +153,7 @@ Gå til din e-mail på <ph name="ACCOUNT_EMAIL" /> for at få yderligere vejledn
 <translation id="5243785881901838525">Google Payments (kopieret til Chrome)</translation>
 <translation id="5251420635869119124">Gæster kan bruge Chrome uden at efterlade noget.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome genstarter om 1 sekund.}one{Google Chrome genstarter om # sekund.}other{Google Chrome genstarter om # sekunder.}}</translation>
+<translation id="532046782124376502">Advarsel! Google Chrome kan ikke forhindre udvidelser i at registrere din browserhistorik. Fravælg denne indstilling for at deaktivere udvidelsen i inkognitotilstand.</translation>
 <translation id="5334545119300433702">Dette modul er kendt for at konflikte med Google Chrome.</translation>
 <translation id="5386244825306882791">Den styrer også, hvilken side der vises, når du åbner Chrome eller søger via omnifeltet.</translation>
 <translation id="5430073640787465221">Din præferencefil er beskadiget eller ugyldig. Google Chrome kan ikke gendanne dine præferencer.</translation>

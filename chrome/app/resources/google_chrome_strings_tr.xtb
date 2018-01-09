@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">&amp;Chrome OS hakkında</translation>
 <translation id="110877069173485804">Bu sizin Chrome'unuz</translation>
 <translation id="1142745911746664600">Chrome güncellenemiyor</translation>
+<translation id="1154147086299354128">&amp;Chrome'da aç</translation>
 <translation id="123620459398936149">Chrome OS, verilerinizi senkronize edemedi. Lütfen Senkronizasyon parolanızı güncelleyin.</translation>
 <translation id="127345590676626841">Chrome otomatik olarak güncellenerek her zaman en yeni sürüme sahip olmanızı sağlar. Bu indirme işlemi tamamlandığında Chrome yeniden başlatılacak ve yolunuza devam edeceksiniz.</translation>
 <translation id="1302523850133262269">Chrome en son sistem güncellemelerini yüklerken lütfen bekleyin.</translation>
@@ -155,6 +156,7 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="5243785881901838525">Google Payments (Chrome'a kopyalandı)</translation>
 <translation id="5251420635869119124">Misafirler Chrome'u geride hiçbir şey bırakmadan kullanabilirler.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome 1 saniye içinde yeniden başlatılacak.}other{Google Chrome # saniye içinde yeniden başlatılacak.}}</translation>
+<translation id="532046782124376502">Uyarı: Google Chrome, uzantıların göz atma geçmişinizi kaydetmesini önleyemez. Gizli modda bu uzantıyı devre dışı bırakmak için bu seçeneğin onay işaretini kaldırın.</translation>
 <translation id="5334545119300433702">Bu modülün Google Chrome'la çakıştığı biliniyor.</translation>
 <translation id="5386244825306882791">Ayrıca, Chrome'u başlattığınızda veya Çok Amaçlı Adres Çubuğu'ndan arama yaptığınızda gösterilecek sayfayı da denetler.</translation>
 <translation id="5430073640787465221">Tercih dosyanız bozuk veya geçersiz. Google Chrome, ayarlarınızı kurtaramıyor.</translation>

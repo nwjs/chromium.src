@@ -98,6 +98,7 @@ Vous devez activer le Bluetooth et les services de localisation pour utiliser le
 <translation id="1832521218263067499">Incidents de sécurité</translation>
 <translation id="1853692000353488670">Nouvel onglet de navigation privée</translation>
 <translation id="1880072593381090678">Pages populaires de Chrome</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> va s'ouvrir dans Chrome. En continuant, vous acceptez les <ph name="BEGIN_LINK1" />Conditions d'utilisation<ph name="END_LINK1" /> et l'<ph name="BEGIN_LINK2" />Avis de confidentialité<ph name="END_LINK2" /> de Chrome.</translation>
 <translation id="189172778771606813">Fermer le panneau de navigation</translation>
 <translation id="1897409700584096124">Le site Web est bien diffusé</translation>
 <translation id="1919345977826869612">Annonces</translation>
@@ -419,6 +420,7 @@ Votre compte Google conserve peut-être d'autres contenus d'historique de naviga
 <translation id="4874967477260347223">Licences multimédias</translation>
 <translation id="4875775213178255010">Recommandations de contenus</translation>
 <translation id="4876188919622883022">Vue simplifiée</translation>
+<translation id="4878404682131129617">Échec de l'établissement d'un tunnel via un serveur proxy</translation>
 <translation id="4881695831933465202">Ouvrir</translation>
 <translation id="4885273946141277891">Le nombre d'instances de Chrome n'est pas compatible.</translation>
 <translation id="4910889077668685004">Applications de paiement</translation>
@@ -502,6 +504,7 @@ Votre compte Google conserve peut-être d'autres contenus d'historique de naviga
 <translation id="5585019845078534178">Cartes</translation>
 <translation id="5595485650161345191">Modifier l'adresse</translation>
 <translation id="5596627076506792578">Plus d'options</translation>
+<translation id="5620655347161642930">Exporter les mots de passe…</translation>
 <translation id="5620928963363755975">Recherchez vos fichiers et vos pages dans les téléchargements, à partir du bouton "Plus d'options"</translation>
 <translation id="5626134646977739690">Nom :</translation>
 <translation id="5639724618331995626">Autoriser tous les sites</translation>
@@ -714,6 +717,7 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="7493994139787901920"><ph name="VERSION" /> (Dernière mise à jour <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Veuillez patienter…</translation>
 <translation id="7514365320538308">Télécharger</translation>
+<translation id="751961395872307827">Impossible de se connecter au site</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Impossible d'obtenir des suggestions</translation>
 <translation id="7562080006725997899">Effacement des données de navigation en cours</translation>
@@ -843,6 +847,7 @@ Pour obtenir de nouvelles licences, connectez-vous à Internet et lisez le conte
 <translation id="8748850008226585750">Contenu masqué</translation>
 <translation id="8788968922598763114">Rouvrir le dernier onglet fermé</translation>
 <translation id="8812260976093120287">Sur certains sites Web, vous pouvez payer depuis votre appareil avec les applications de paiement compatibles indiquées ci-dessus.</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> va s'ouvrir dans Chrome. En continuant, vous acceptez les <ph name="BEGIN_LINK1" />Conditions d'utilisation<ph name="END_LINK1" /> et l'<ph name="BEGIN_LINK2" />Avis de confidentialité<ph name="END_LINK2" /> de Chrome, ainsi que l'<ph name="BEGIN_LINK3" />Avis de confidentialité relatif aux comptes Google gérés dans Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Favoris</translation>
 <translation id="883635517171802338">Bloquer l'affichage de fenêtres pop-up par les sites (recommandé)</translation>
 <translation id="883806473910249246">Une erreur s'est produite lors du téléchargement du contenu.</translation>

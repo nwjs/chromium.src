@@ -98,6 +98,7 @@ Je moet Bluetooth en Locatie hebben ingeschakeld om het Fysieke web te gebruiken
 <translation id="1832521218263067499">Beveiligingsincidenten</translation>
 <translation id="1853692000353488670">Nieuw incognitotabblad</translation>
 <translation id="1880072593381090678">Populaire pagina's uit Chrome</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> wordt geopend in Chrome. Als je doorgaat, ga je akkoord met de <ph name="BEGIN_LINK1" />Servicevoorwaarden<ph name="END_LINK1" /> en het <ph name="BEGIN_LINK2" />Privacybeleid<ph name="END_LINK2" /> van Chrome.</translation>
 <translation id="189172778771606813">Zijmenu sluiten</translation>
 <translation id="1897409700584096124">Website is aan het uitzenden</translation>
 <translation id="1919345977826869612">Advertenties</translation>
@@ -419,6 +420,7 @@ Voor je Google-account kunnen andere vormen van browsegeschiedenis (zoals zoekop
 <translation id="4874967477260347223">Medialicenties</translation>
 <translation id="4875775213178255010">Contentsuggesties</translation>
 <translation id="4876188919622883022">Vereenvoudigde weergave</translation>
+<translation id="4878404682131129617">Kan geen tunnel tot stand brengen via de proxyserver</translation>
 <translation id="4881695831933465202">Openen</translation>
 <translation id="4885273946141277891">Niet-ondersteund aantal Chrome-instanties.</translation>
 <translation id="4910889077668685004">Betaal-apps</translation>
@@ -460,7 +462,7 @@ Voor je Google-account kunnen andere vormen van browsegeschiedenis (zoals zoekop
 <translation id="5271967389191913893">Het apparaat kan de content niet openen die moet worden gedownload.</translation>
 <translation id="528192093759286357">Sleep vanaf de bovenkant en tik op de knop Terug om het volledige scherm te sluiten.</translation>
 <translation id="5284584623296338184">Wijzigingen in je bladwijzers, geschiedenis, wachtwoorden en andere instellingen worden niet meer gesynchroniseerd met je Google-account. Je bestaande gegevens blijven echter opgeslagen in je Google-account.</translation>
-<translation id="5301954838959518834">OK</translation>
+<translation id="5301954838959518834">OK, begrepen</translation>
 <translation id="5304593522240415983">Dit veld mag niet leeg zijn</translation>
 <translation id="5308380583665731573">Verbinding maken</translation>
 <translation id="5308603654685598744">Wanneer deze functie is ingeschakeld, biedt Chrome aan pagina's die zijn geschreven in andere talen, te vertalen met Google Translate.</translation>
@@ -502,6 +504,7 @@ Voor je Google-account kunnen andere vormen van browsegeschiedenis (zoals zoekop
 <translation id="5585019845078534178">Kaarten</translation>
 <translation id="5595485650161345191">Adres bewerken</translation>
 <translation id="5596627076506792578">Meer opties</translation>
+<translation id="5620655347161642930">Wachtwoorden exporteren...</translation>
 <translation id="5620928963363755975">Vind je bestanden en pagina's in 'Downloads' via de knop 'Meer opties'</translation>
 <translation id="5626134646977739690">Naam:</translation>
 <translation id="5639724618331995626">Alle sites toestaan</translation>
@@ -714,6 +717,7 @@ Zo kunnen sommige websites op dit verzoek reageren door advertenties weer te gev
 <translation id="7493994139787901920"><ph name="VERSION" /> (geüpdatet: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Een ogenblik geduld…</translation>
 <translation id="7514365320538308">Downloaden</translation>
+<translation id="751961395872307827">Kan geen verbinding maken met de site</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Kan suggesties niet ophalen</translation>
 <translation id="7562080006725997899">Browsegegevens wissen</translation>
@@ -843,6 +847,7 @@ Maak verbinding met internet en speel je gedownloade content af om nieuwe licent
 <translation id="8748850008226585750">Content verborgen</translation>
 <translation id="8788968922598763114">Het laatst gesloten tabblad opnieuw openen</translation>
 <translation id="8812260976093120287">Op sommige websites kun je betalen met de bovenstaande ondersteunde betaal-apps op je apparaat.</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> wordt geopend in Chrome. Als je doorgaat, ga je akkoord met de <ph name="BEGIN_LINK1" />Servicevoorwaarden<ph name="END_LINK1" /> en het <ph name="BEGIN_LINK2" />Privacybeleid<ph name="END_LINK2" /> van Chrome en het <ph name="BEGIN_LINK3" />Privacybeleid voor Google-accounts die worden beheerd met Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Bladwijzers</translation>
 <translation id="883635517171802338">Sites niet toestaan pop-ups weer te geven (aanbevolen)</translation>
 <translation id="883806473910249246">Er is een fout opgetreden tijdens het downloaden van de content.</translation>

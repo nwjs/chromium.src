@@ -37,7 +37,7 @@
 <translation id="2265088490657775772">use o Chromium no seu iPhone</translation>
 <translation id="2316129865977710310">Não.</translation>
 <translation id="2347108572062610441">Esta extensão alterou a página que é exibida quando você inicia o Chromium.</translation>
-<translation id="2389622953163669926">{NUM_DOWNLOAD,plural, =1{Um download está em andamento. Deseja cancelar o download e sair do Chromium?}one{# downloads estão em andamento. Deseja cancelar os downloads e sair do Chromium?}other{# downloads estão em andamento. Deseja cancelar os downloads e sair do Chromium?}}</translation>
+<translation id="2389622953163669926">{NUM_DOWNLOAD,plural, =1{Um download está em andamento. Quer cancelar o download e sair do Chromium?}one{# downloads estão em andamento. Quer cancelar os downloads e sair do Chromium?}other{# downloads estão em andamento. Quer cancelar os downloads e sair do Chromium?}}</translation>
 <translation id="2396765026452590966">A extensão "<ph name="EXTENSION_NAME" />" alterou a página que é exibida quando você inicia o Chromium.</translation>
 <translation id="2483889755041906834">No Chromium</translation>
 <translation id="2485422356828889247">Desinstalar</translation>
@@ -46,7 +46,7 @@
 <translation id="2535480412977113886">O Chromium OS não pôde sincronizar seus dados porque os detalhes de login da sua conta estão desatualizados.</translation>
 <translation id="2572494885440352020">Assistente do Chromium</translation>
 <translation id="2587578672395088481">É necessário reiniciar o Chromium OS para que a atualização seja aplicada.</translation>
-<translation id="2647554856022461007">O Chromium pode usar serviços da Web para melhorar sua experiência de navegação. Se desejar, você pode desativar esses serviços. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
+<translation id="2647554856022461007">O Chromium pode usar serviços da Web para melhorar sua experiência de navegação. Se preferir, você pode desativar esses serviços. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="2648074677641340862">Ocorreu um erro no sistema operacional durante a instalação. Faça o download do Chromium novamente.</translation>
 <translation id="2685838254101182273">O Chromium parou de ser atualizado e não oferece mais suporte para esta versão do seu sistema operacional.</translation>
 <translation id="2705403826523567092">Faça login para ter uma experiência de navegação personalizada e sincronizada entre seus dispositivos</translation>
@@ -155,7 +155,7 @@
 <translation id="6309712487085796862">O Chromium está usando sua câmera.</translation>
 <translation id="6333502561965082103">Outra operação está em progresso no Chromium. Tente novamente mais tarde.</translation>
 <translation id="6334986366598267305">Agora ficou mais fácil usar o Chromium com sua Conta do Google e em computadores compartilhados.</translation>
-<translation id="6373523479360886564">Tem certeza de que deseja desinstalar o Chromium?</translation>
+<translation id="6373523479360886564">Tem certeza que quer desinstalar o Chromium?</translation>
 <translation id="6394232988457703198">Você deve reiniciar o Chromium agora.</translation>
 <translation id="6403826409255603130">O Chromium é um navegador que executa páginas e aplicativos da web com alta velocidade. É rápido, estável e fácil de usar. Navegue na web com mais segurança com a proteção contra malware e phishing incorporada ao Chromium.</translation>
 <translation id="6475912303565314141">Controla também qual página deve ser exibida quando você inicia o Chromium.</translation>

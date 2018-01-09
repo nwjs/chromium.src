@@ -98,6 +98,7 @@
 <translation id="1832521218263067499">Случаи нарушения безопасности</translation>
 <translation id="1853692000353488670">Новая вкладка инкогнито</translation>
 <translation id="1880072593381090678">Популярные страницы из Chrome</translation>
+<translation id="1891331835972267886">Приложение "<ph name="APP_NAME" />" откроется в Chrome. Продолжая, вы соглашаетесь с <ph name="BEGIN_LINK1" />Условиями использования<ph name="END_LINK1" /> и <ph name="BEGIN_LINK2" />Примечанием о конфиденциальности<ph name="END_LINK2" /> Chrome.</translation>
 <translation id="189172778771606813">Закрыть панель навигации</translation>
 <translation id="1897409700584096124">Идет трансляция с сайта</translation>
 <translation id="1919345977826869612">Реклама</translation>
@@ -419,6 +420,7 @@
 <translation id="4874967477260347223">Медиалицензии</translation>
 <translation id="4875775213178255010">Предлагаемый контент</translation>
 <translation id="4876188919622883022">Упрощенный просмотр</translation>
+<translation id="4878404682131129617">Не удалось создать туннель через прокси-сервер.</translation>
 <translation id="4881695831933465202">Открыть</translation>
 <translation id="4885273946141277891">Конфликт версий Chrome</translation>
 <translation id="4910889077668685004">Платежные приложения</translation>
@@ -502,6 +504,7 @@
 <translation id="5585019845078534178">Подсказки</translation>
 <translation id="5595485650161345191">Изменить адрес</translation>
 <translation id="5596627076506792578">Ещё</translation>
+<translation id="5620655347161642930">Экспорт паролей</translation>
 <translation id="5620928963363755975">Чтобы найти скачанные файлы и веб-страницы, нажмите кнопку "Ещё" и выберите соответствующий пункт</translation>
 <translation id="5626134646977739690">Имя:</translation>
 <translation id="5639724618331995626">Разрешить доступ ко всем сайтам</translation>
@@ -659,7 +662,7 @@
 <translation id="6910211073230771657">Удалено</translation>
 <translation id="6945221475159498467">Выбрать</translation>
 <translation id="6963766334940102469">Удалить закладки</translation>
-<translation id="6965382102122355670">OK</translation>
+<translation id="6965382102122355670">ОК</translation>
 <translation id="6978479750597523876">Сбросить настройки перевода</translation>
 <translation id="6979737339423435258">Все время</translation>
 <translation id="6981982820502123353">Специальные возможности</translation>
@@ -714,6 +717,7 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (последнее обновление: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Подождите…</translation>
 <translation id="7514365320538308">Скачать</translation>
+<translation id="751961395872307827">Не удалось подключиться к сайту</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Не удалось получить рекомендации</translation>
 <translation id="7562080006725997899">Очистить историю</translation>
@@ -843,6 +847,7 @@
 <translation id="8748850008226585750">Содержимое скрыто</translation>
 <translation id="8788968922598763114">Открыть последнюю закрытую вкладку</translation>
 <translation id="8812260976093120287">На некоторых сайтах вы можете совершать платежи со своего устройства с помощью перечисленных выше приложений.</translation>
+<translation id="8816439037877937734">Приложение "<ph name="APP_NAME" />" откроется в Chrome. Продолжая, вы соглашаетесь с <ph name="BEGIN_LINK1" />Условиями использования<ph name="END_LINK1" /> и <ph name="BEGIN_LINK2" />Примечанием о конфиденциальности<ph name="END_LINK2" /> Chrome, а также с <ph name="BEGIN_LINK3" />Примечанием о конфиденциальности для аккаунтов Google, управляемых с помощью Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Закладки</translation>
 <translation id="883635517171802338">Блокировать всплывающие окна на сайтах (рекомендуется)</translation>
 <translation id="883806473910249246">При скачивании контента произошла ошибка.</translation>

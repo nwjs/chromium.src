@@ -242,7 +242,7 @@ Du måste även aktivera Handoff i avsnittet Allmänt i inställningarna och sam
 <translation id="5857090052475505287">Ny mapp</translation>
 <translation id="5857770089550859117">Lösenfras krävs för att starta synkroniseringen.</translation>
 <translation id="5860033963881614850">Av</translation>
-<translation id="5869029295770560994">OK</translation>
+<translation id="5869029295770560994">Ok, jag förstår</translation>
 <translation id="5871497086027727873">1 objekt flyttades</translation>
 <translation id="5911030830365207728">Google Översätt</translation>
 <translation id="5916664084637901428">På</translation>
@@ -324,7 +324,7 @@ Din data krypterades med lösenfrasen den <ph name="TIME" />. Ange den om du vil
 <translation id="722055596168483966">Anpassa Googles tjänster</translation>
 <translation id="7272437679830969316">Det gick inte att verifiera din identitet. Lösenordet har inte kopierats.</translation>
 <translation id="7336264872878993241"><ph name="PERCENT" /> procent har laddats ned</translation>
-<translation id="7346909386216857016">OK, jag förstår</translation>
+<translation id="7346909386216857016">Ok, jag förstår</translation>
 <translation id="7400418766976504921">Webbadress</translation>
 <translation id="7425346204213733349">Ändringar i bokmärken, historik, lösenord och andra inställningar synkroniseras inte längre med ditt Google-konto. Befintlig data fortsätter dock att lagras i Google-kontot.</translation>
 <translation id="744343212394640790">Inte <ph name="EMAIL" /></translation>

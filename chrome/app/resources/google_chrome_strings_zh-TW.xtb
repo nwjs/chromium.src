@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">關於 Chrome 作業系統(&amp;C)</translation>
 <translation id="110877069173485804">這是你專屬的 Chrome</translation>
 <translation id="1142745911746664600">無法更新 Chrome</translation>
+<translation id="1154147086299354128">在 Chrome 中開啟(&amp;O)</translation>
 <translation id="123620459398936149">Chrome OS 無法同步處理你的資料，請更新你的同步通關密語。</translation>
 <translation id="127345590676626841">Chrome 會自動更新，隨時讓你使用最新版本。完成這項下載作業後，Chrome 會重新啟動，自動為你進行更新。</translation>
 <translation id="1302523850133262269">請稍候，Chrome 正在安裝最新的系統更新。</translation>
@@ -152,6 +153,7 @@
 <translation id="5243785881901838525">Google Payments (已複製到 Chrome)</translation>
 <translation id="5251420635869119124">以訪客身分使用 Chrome 不會留下任何紀錄。</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome 將於 1 秒後重新啟動。}other{Google Chrome 將於 # 秒後重新啟動。}}</translation>
+<translation id="532046782124376502">警告：Google Chrome 無法禁止擴充功能記錄你的瀏覽活動。如要在無痕模式中停用這個擴充功能，請取消選取這個選項。</translation>
 <translation id="5334545119300433702">已知這個模組與 Google Chrome 衝突。</translation>
 <translation id="5386244825306882791">這個擴充功能也會控管 Chrome 啟動時或你使用網址列搜尋時所顯示的網頁。</translation>
 <translation id="5430073640787465221">你的偏好設定檔已毀損或無效。
@@ -238,7 +240,7 @@ Google Chrome 無法復原你的設定。</translation>
 <translation id="795025003224538582">不要重新啟動</translation>
 <translation id="8005540215158006229">Chrome 即將準備就緒。</translation>
 <translation id="8008534537613507642">重新安裝 Chrome</translation>
-<translation id="8030318113982266900">正在將裝置更新至「<ph name="CHANNEL_NAME" />」版...</translation>
+<translation id="8030318113982266900">正在將裝置更新至「<ph name="CHANNEL_NAME" />」...</translation>
 <translation id="8032142183999901390">將你的帳戶從 Chrome 移除後，可能需要重新載入開啟的分頁，操作才會生效。</translation>
 <translation id="8129812357326543296">關於 Google Chrome(&amp;G)</translation>
 <translation id="8179874765710681175">在手機上安裝 Chrome。我們會傳送簡訊到你的手機。</translation>

@@ -98,6 +98,7 @@ Lai izmantotu fizisko tīmekli, ir jābūt ieslēgtam Bluetooth savienojumam un 
 <translation id="1832521218263067499">Drošības problēmas</translation>
 <translation id="1853692000353488670">Jauna inkognito cilne</translation>
 <translation id="1880072593381090678">Populārākās lapas no pārlūka Chrome</translation>
+<translation id="1891331835972267886">Lietotne <ph name="APP_NAME" /> tiks atvērta pārlūkā Chrome. Turpinot jūs piekrītat Chrome <ph name="BEGIN_LINK1" />pakalpojumu sniegšanas noteikumiem<ph name="END_LINK1" /> un <ph name="BEGIN_LINK2" />konfidencialitātes paziņojumam<ph name="END_LINK2" />.</translation>
 <translation id="189172778771606813">Aizvērt navigācijas atvilktni</translation>
 <translation id="1897409700584096124">Vietne tiek apraidīta</translation>
 <translation id="1919345977826869612">Reklāmas</translation>
@@ -419,6 +420,7 @@ Jūsu Google kontam vietnē <ph name="BEGIN_LINK" />myactivity.google.com<ph nam
 <translation id="4874967477260347223">Multivides licences</translation>
 <translation id="4875775213178255010">Satura ieteikumi</translation>
 <translation id="4876188919622883022">Vienkāršotais skats</translation>
+<translation id="4878404682131129617">Neizdevās iestatīt porta pārsūtīšanu, izmantojot starpniekserveri.</translation>
 <translation id="4881695831933465202">Atvērt</translation>
 <translation id="4885273946141277891">Neatbalstīts Chrome instanču skaits</translation>
 <translation id="4910889077668685004">Maksājumu lietotnes</translation>
@@ -460,7 +462,7 @@ Jūsu Google kontam vietnē <ph name="BEGIN_LINK" />myactivity.google.com<ph nam
 <translation id="5271967389191913893">Ierīcē nevar atvērt lejupielādējamo saturu.</translation>
 <translation id="528192093759286357">Lai izietu no pilnekrāna režīma, velciet no augšas un pieskarieties pogai Atpakaļ.</translation>
 <translation id="5284584623296338184">Grāmatzīmju, vēstures, paroļu un citu iestatījumu izmaiņas vairs netiks sinhronizētas ar jūsu Google kontu. Tomēr esošie dati joprojām tiks glabāti jūsu Google kontā.</translation>
-<translation id="5301954838959518834">Es sapratu</translation>
+<translation id="5301954838959518834">Labi, sapratu</translation>
 <translation id="5304593522240415983">Šis lauks nevar būt tukšs.</translation>
 <translation id="5308380583665731573">Pievienošana</translation>
 <translation id="5308603654685598744">Ja šī funkcija ir ieslēgta, Chrome piedāvā tulkot citās valodās rakstītas lapas, izmantojot Google tulkotāju.</translation>
@@ -502,6 +504,7 @@ Jūsu Google kontam vietnē <ph name="BEGIN_LINK" />myactivity.google.com<ph nam
 <translation id="5585019845078534178">Kartes</translation>
 <translation id="5595485650161345191">Rediģēt adresi</translation>
 <translation id="5596627076506792578">Citas opcijas</translation>
+<translation id="5620655347161642930">Eksportēt paroles...</translation>
 <translation id="5620928963363755975">Atrodiet savus failus un lapas sadaļā Lejupielādes, nospiežot pogu Vairāk opciju</translation>
 <translation id="5626134646977739690">Nosaukums:</translation>
 <translation id="5639724618331995626">Atļaut apmeklēt visas vietnes</translation>
@@ -714,6 +717,7 @@ Piemēram, dažas vietnes, reaģējot uz šo pieprasījumu, var rādīt jums rek
 <translation id="7493994139787901920"><ph name="VERSION" /> (atjaunināts: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Lūdzu, uzgaidiet...</translation>
 <translation id="7514365320538308">Lejupielādēt</translation>
+<translation id="751961395872307827">Nevar izveidot savienojumu ar vietni.</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Nevar iegūt ieteikumus.</translation>
 <translation id="7562080006725997899">Notiek pārlūkošanas datu notīrīšana</translation>
@@ -843,6 +847,7 @@ Lai iegūtu jaunas licences, izveidojiet savienojumu ar internetu un atskaņojie
 <translation id="8748850008226585750">Saturs paslēpts</translation>
 <translation id="8788968922598763114">Atkārtoti atvērt pēdējo aizvērto cilni</translation>
 <translation id="8812260976093120287">Dažās vietnēs var norēķināties, ierīcē izmantojot iepriekš norādītās atbalstītās maksājumu lietotnes.</translation>
+<translation id="8816439037877937734">Lietotne <ph name="APP_NAME" /> tiks atvērta pārlūkā Chrome. Turpinot jūs piekrītat Chrome <ph name="BEGIN_LINK1" />pakalpojumu sniegšanas noteikumiem<ph name="END_LINK1" /> un <ph name="BEGIN_LINK2" />konfidencialitātes paziņojumam<ph name="END_LINK2" />, kā arī <ph name="BEGIN_LINK3" />konfidencialitātes paziņojumam Google kontiem, kas tiek pārvaldīti lietotnē Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Grāmatzīmes</translation>
 <translation id="883635517171802338">Neļaut vietnēm rādīt uznirstošos elementus (ieteicams)</translation>
 <translation id="883806473910249246">Lejupielādējot saturu, radās kļūda.</translation>

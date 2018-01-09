@@ -10,6 +10,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="1104959162601287462">Om &amp;Chrome OS</translation>
 <translation id="110877069173485804">Det här är Chrome</translation>
 <translation id="1142745911746664600">Det gick inte att uppdatera Chrome</translation>
+<translation id="1154147086299354128">&amp;Öppna i Chrome</translation>
 <translation id="123620459398936149">Det gick inte att synkronisera data med Chrome OS. Uppdatera lösenfrasen för synkronisering.</translation>
 <translation id="127345590676626841">Chrome uppdateras automatiskt så att du alltid har den senaste versionen. När den här nedladdningen är klar startas Chrome om och sedan är du igång.</translation>
 <translation id="1302523850133262269">Vänta medan de senaste systemuppdateringarna installeras av Chrome.</translation>
@@ -158,6 +159,7 @@ Vissa funktioner är kanske inte tillgängliga. Ange en annan profilkatalog om d
 <translation id="5243785881901838525">Google Payments (har kopierats till Chrome)</translation>
 <translation id="5251420635869119124">Gäster kan använda Chrome utan att lämna spår.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome startas om om en sekund.}other{Google Chrome startas om om # sekunder.}}</translation>
+<translation id="532046782124376502">Varning! Google Chrome kan inte förhindra tillägg från att registrera din webbhistorik. Om du vill inaktivera det här tillägget i inkognitoläge avmarkerar du detta alternativ.</translation>
 <translation id="5334545119300433702">Den här modulen har tidigare varit i konflikt med Google Chrome.</translation>
 <translation id="5386244825306882791">Det styr också vilken sida som visas när du startar Chrome eller söker i adressfältet.</translation>
 <translation id="5430073640787465221">Inställningsfilen är skadad eller ogiltig.

@@ -98,6 +98,7 @@ Bluetooth och Plats måste vara aktiverade om du vill använda Physical Web-tjä
 <translation id="1832521218263067499">Incidenter som rör säkerheten</translation>
 <translation id="1853692000353488670">Ny inkognitoflik</translation>
 <translation id="1880072593381090678">Populära sidor från Chrome</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> öppnas i Chrome. Genom att fortsätta godkänner du Chromes <ph name="BEGIN_LINK1" />användarvillkor<ph name="END_LINK1" /> och <ph name="BEGIN_LINK2" />sekretesspolicy<ph name="END_LINK2" />.</translation>
 <translation id="189172778771606813">Stäng navigeringspanelen</translation>
 <translation id="1897409700584096124">Webbplatsen sänds</translation>
 <translation id="1919345977826869612">Annonser</translation>
@@ -419,6 +420,7 @@ Det kan finnas andra former av webbhistorik i Google-kontot på <ph name="BEGIN_
 <translation id="4874967477260347223">Medielicenser</translation>
 <translation id="4875775213178255010">Förslag på innehåll</translation>
 <translation id="4876188919622883022">Förenklad visning</translation>
+<translation id="4878404682131129617">Det gick inte att upprätta en tunnel via proxyserver</translation>
 <translation id="4881695831933465202">Öppna</translation>
 <translation id="4885273946141277891">Fler Chrome-förekomster än det finns stöd för.</translation>
 <translation id="4910889077668685004">Betalningsappar</translation>
@@ -460,7 +462,7 @@ Det kan finnas andra former av webbhistorik i Google-kontot på <ph name="BEGIN_
 <translation id="5271967389191913893">Innehållet som skulle laddas ned gick inte att öppna på enheten.</translation>
 <translation id="528192093759286357">Dra uppifrån och tryck på bakåtknappen för att lämna helskärmsläget.</translation>
 <translation id="5284584623296338184">Ändringar i bokmärken, historik, lösenord och andra inställningar synkroniseras inte längre med ditt Google-konto. Befintlig data fortsätter dock att lagras i Google-kontot.</translation>
-<translation id="5301954838959518834">OK, jag fattar</translation>
+<translation id="5301954838959518834">Ok, jag förstår</translation>
 <translation id="5304593522240415983">Fältet får inte vara tomt</translation>
 <translation id="5308380583665731573">Ansluta</translation>
 <translation id="5308603654685598744">När den här funktionen är aktiverad blir du tillfrågad om Chrome ska översätta sidor på andra språk med hjälp av Google Översätt.</translation>
@@ -502,6 +504,7 @@ Det kan finnas andra former av webbhistorik i Google-kontot på <ph name="BEGIN_
 <translation id="5585019845078534178">Kort</translation>
 <translation id="5595485650161345191">Redigera adress</translation>
 <translation id="5596627076506792578">Fler alternativ</translation>
+<translation id="5620655347161642930">Exportera lösenord …</translation>
 <translation id="5620928963363755975">Du hittar filerna och sidorna i Nedladdningar via knappen Fler alternativ</translation>
 <translation id="5626134646977739690">Namn:</translation>
 <translation id="5639724618331995626">Tillåt alla webbplatser</translation>
@@ -714,6 +717,7 @@ Vissa webbplatser kan till exempel svara på begäran genom att visa annonser so
 <translation id="7493994139787901920"><ph name="VERSION" /> (uppdaterades <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Vänta …</translation>
 <translation id="7514365320538308">Ladda ned</translation>
+<translation id="751961395872307827">Det gick inte att ansluta till webbplatsen</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Det går inte att få förslag</translation>
 <translation id="7562080006725997899">Tar bort webbinformation</translation>
@@ -843,6 +847,7 @@ Du hämtar nya licenser genom att ansluta till internet och spela upp det nedlad
 <translation id="8748850008226585750">Innehållet har dolts</translation>
 <translation id="8788968922598763114">Öppna den senast stängda fliken igen</translation>
 <translation id="8812260976093120287">På vissa webbplatser kan du betala med ovanstående betalningsappar som stöds på enheten.</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> öppnas i Chrome. Genom att fortsätta godkänner du Chromes <ph name="BEGIN_LINK1" />användarvillkor<ph name="END_LINK1" /> och <ph name="BEGIN_LINK2" />sekretesspolicy<ph name="END_LINK2" /> samt <ph name="BEGIN_LINK3" />sekretessmeddelandet för  Google-konton som hanteras via Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Bokmärken</translation>
 <translation id="883635517171802338">Blockera webbplatser från att visa popup-fönster (rekommenderas)</translation>
 <translation id="883806473910249246">Ett fel uppstod när innehållet skulle laddas ned.</translation>

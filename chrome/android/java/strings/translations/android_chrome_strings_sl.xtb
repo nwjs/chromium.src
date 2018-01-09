@@ -98,6 +98,7 @@
 <translation id="1832521218263067499">Varnostni dogodki</translation>
 <translation id="1853692000353488670">Nov zavihek brez beleženja zgodovine</translation>
 <translation id="1880072593381090678">Strani, priljubljene med uporabniki Chroma</translation>
+<translation id="1891331835972267886">Aplikacija <ph name="APP_NAME" /> se bo odprla v Chromu. Če nadaljujete, se strinjate s Chromovimi <ph name="BEGIN_LINK1" />pogoji storitve<ph name="END_LINK1" /> in <ph name="BEGIN_LINK2" />pravilnikom o zasebnosti<ph name="END_LINK2" />.</translation>
 <translation id="189172778771606813">Zapri predal za krmarjenje</translation>
 <translation id="1897409700584096124">Spletno mesto oddaja</translation>
 <translation id="1919345977826869612">Oglasi</translation>
@@ -419,6 +420,7 @@ V Google Računu so morda druge vrste zgodovine brskanja, kot so iskanja in deja
 <translation id="4874967477260347223">Predstavnostne licence</translation>
 <translation id="4875775213178255010">Predlogi za vsebino</translation>
 <translation id="4876188919622883022">Poenostavljen pogled</translation>
+<translation id="4878404682131129617">Vzpostavljanje tunela prek strežnika proxy ni uspelo</translation>
 <translation id="4881695831933465202">Odpri</translation>
 <translation id="4885273946141277891">To število primerkov Chroma ni podprto.</translation>
 <translation id="4910889077668685004">Aplikacije za plačevanje</translation>
@@ -502,6 +504,7 @@ V Google Računu so morda druge vrste zgodovine brskanja, kot so iskanja in deja
 <translation id="5585019845078534178">Kartice</translation>
 <translation id="5595485650161345191">Uredi naslov</translation>
 <translation id="5596627076506792578">Več možnosti</translation>
+<translation id="5620655347161642930">Izvoz gesel ...</translation>
 <translation id="5620928963363755975">Iskanje datotek in strani v prenosih z gumbom »Več možnosti«</translation>
 <translation id="5626134646977739690">Ime:</translation>
 <translation id="5639724618331995626">Dovoli vsa spletna mesta</translation>
@@ -714,6 +717,7 @@ Nekatera spletna mesta se lahko na primer na zahtevo odzovejo tako, da prikažej
 <translation id="7493994139787901920"><ph name="VERSION" /> (Posodobljeno: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Počakajte …</translation>
 <translation id="7514365320538308">Prenos</translation>
+<translation id="751961395872307827">Povezave s spletnim mestom ni mogoče vzpostaviti</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Prejemanje predlogov ni mogoče</translation>
 <translation id="7562080006725997899">Brisanje podatkov brskanja</translation>
@@ -843,6 +847,7 @@ Nove licence dobite tako, da se povežete v internet in predvajate preneseno vse
 <translation id="8748850008226585750">Vsebina je skrita</translation>
 <translation id="8788968922598763114">Vnovično odpiranje nazadnje zaprtega zavihka</translation>
 <translation id="8812260976093120287">Na nekaterih spletnih mestih je mogoče plačevati z zgoraj navedenimi podprtimi aplikacijami v napravi.</translation>
+<translation id="8816439037877937734">Aplikacija <ph name="APP_NAME" /> se bo odprla v Chromu. Če nadaljujete, se strinjate s Chromovimi <ph name="BEGIN_LINK1" />pogoji storitve<ph name="END_LINK1" /> in <ph name="BEGIN_LINK2" />pravilnikom o zasebnosti<ph name="END_LINK2" /> ter <ph name="BEGIN_LINK3" />obvestilom o zasebnosti za Google Račune, upravljane s Family Linkom<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Zaznamki</translation>
 <translation id="883635517171802338">Spletnim mestom prepreči prikazovanje pojavnih oken (priporočeno)</translation>
 <translation id="883806473910249246">Pri prenosu vsebine je prišlo do napake.</translation>

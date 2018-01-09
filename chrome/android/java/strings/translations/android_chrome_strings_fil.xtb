@@ -98,6 +98,7 @@ Dapat na na-on mo ang Bluetooth at Lokasyon upang magamit ang Pisikal na Web.</t
 <translation id="1832521218263067499">Mga insidenteng nauugnay sa seguridad</translation>
 <translation id="1853692000353488670">Bagong tab na incognito</translation>
 <translation id="1880072593381090678">Mga sikat na page mula sa Chrome</translation>
+<translation id="1891331835972267886">Bubukas ang <ph name="APP_NAME" /> sa Chrome. Sa pamamagitan ng pagpapatuloy, sumasang-ayon ka sa <ph name="BEGIN_LINK1" />Mga Tuntunin ng Serbisyo<ph name="END_LINK1" /> at <ph name="BEGIN_LINK2" />Notification ng Privacy<ph name="END_LINK2" /> ng Chrome.</translation>
 <translation id="189172778771606813">Isara ang navigation drawer</translation>
 <translation id="1897409700584096124">Nagbo-broadcast ang website</translation>
 <translation id="1919345977826869612">Mga Ad</translation>
@@ -419,6 +420,7 @@ Maaaring may ibang uri ng history ng pag-browse ang iyong Google account tulad n
 <translation id="4874967477260347223">Mga Lisensya ng Media</translation>
 <translation id="4875775213178255010">Mga Iminumungkahing Content</translation>
 <translation id="4876188919622883022">Pinasimpleng view</translation>
+<translation id="4878404682131129617">Hindi nakagawa ng tunnel sa pamamagitan ng proxy server</translation>
 <translation id="4881695831933465202">Buksan</translation>
 <translation id="4885273946141277891">Hindi sinusuportahang bilang ng mga instance ng Chrome.</translation>
 <translation id="4910889077668685004">Mga app sa pagbabayad</translation>
@@ -460,7 +462,7 @@ Maaaring may ibang uri ng history ng pag-browse ang iyong Google account tulad n
 <translation id="5271967389191913893">Hindi mabuksan ng device ang content na ida-download.</translation>
 <translation id="528192093759286357">I-drag mula sa itaas at pindutin ang button na bumalik upang lumabas sa full screen.</translation>
 <translation id="5284584623296338184">Hindi na masi-sync sa iyong Google Account ang mga pagbabago sa iyong mga bookmark, history, password at iba pang mga setting. Gayunpaman, mananatiling nakaimbak sa iyong Google account ang iyong kasalukuyang data.</translation>
-<translation id="5301954838959518834">OK, nakuha ko na</translation>
+<translation id="5301954838959518834">OK, nakuha ko</translation>
 <translation id="5304593522240415983">Hindi maaaring maging blangko ang field na ito</translation>
 <translation id="5308380583665731573">Kumonekta</translation>
 <translation id="5308603654685598744">Kapag naka-on ang feature na ito, mag-aalok ang Chrome na magsalin ng mga page na nakasulat sa iba pang mga wika gamit ang Google Translate.</translation>
@@ -502,6 +504,7 @@ Maaaring may ibang uri ng history ng pag-browse ang iyong Google account tulad n
 <translation id="5585019845078534178">Mga Card</translation>
 <translation id="5595485650161345191">Mag-edit ng address</translation>
 <translation id="5596627076506792578">Higit pang opsyon</translation>
+<translation id="5620655347161642930">I-export ang mga password...</translation>
 <translation id="5620928963363755975">Hanapin ang iyong mga file at page sa Mga Download mula sa button na Higit Pang Opsyon</translation>
 <translation id="5626134646977739690">Pangalan:</translation>
 <translation id="5639724618331995626">Payagan ang lahat ng site</translation>
@@ -714,6 +717,7 @@ Halimbawa, maaaring tumugon ang ilang website sa kahilingang ito sa pamamagitan 
 <translation id="7493994139787901920"><ph name="VERSION" /> (Na-update <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Mangyaring maghintay…</translation>
 <translation id="7514365320538308">I-download</translation>
+<translation id="751961395872307827">Hindi makakonekta sa site</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Hindi makakuha ng mga suhestyon</translation>
 <translation id="7562080006725997899">Kini-clear ang data mula sa pagba-browse</translation>
@@ -843,6 +847,7 @@ Upang makakuha ng mga bagong lisensya, kumonekta sa internet at i-play ang iyong
 <translation id="8748850008226585750">Nakatago ang mga content</translation>
 <translation id="8788968922598763114">Muling buksan ang huling isinarang tab</translation>
 <translation id="8812260976093120287">Sa ilang website, maaari kang magbayad sa iyong device gamit ang mga sinusuportahang app sa pagbabayad sa itaas.</translation>
+<translation id="8816439037877937734">Bubukas ang <ph name="APP_NAME" /> sa Chrome. Sa pamamagitan ng pagpapatuloy, sumasang-ayon ka sa <ph name="BEGIN_LINK1" />Mga Tuntunin ng Serbisyo<ph name="END_LINK1" /> at <ph name="BEGIN_LINK2" />Notification ng Privacy<ph name="END_LINK2" /> ng Chrome, at sa <ph name="BEGIN_LINK3" />Notification ng Privacy para sa Mga Google Account na Pinamamahalaan gamit ang Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Mga Bookmark</translation>
 <translation id="883635517171802338">I-block ang mga site sa pagpapakita ng mga pop-up (inirerekomenda)</translation>
 <translation id="883806473910249246">Nagka-error habang dina-download ang content.</translation>

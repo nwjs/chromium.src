@@ -10,6 +10,7 @@
 <translation id="1104959162601287462">О &amp;Chrome ОС-у</translation>
 <translation id="110877069173485804">Ово је ваш Chrome</translation>
 <translation id="1142745911746664600">Не можете да ажурирате Chrome</translation>
+<translation id="1154147086299354128">&amp;Отвори у Chrome-у</translation>
 <translation id="123620459398936149">Chrome ОС не може да синхронизује податке. Ажурирајте приступну фразу за Синхронизацију.</translation>
 <translation id="127345590676626841">Chrome се аутоматски ажурира, па увек имате најновију верзију. Када ово преузимање буде довршено, Chrome ће се поново покренути и бићете спремни.</translation>
 <translation id="1302523850133262269">Сачекајте да Chrome инсталира најновија ажурирања система.</translation>
@@ -26,7 +27,7 @@
 <translation id="1619887657840448962">Да бисмо учинили Chrome безбеднијим, онемогућили смо следећи додатак који <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> не наводи и који је можда додат без вашег знања.</translation>
 <translation id="1628000112320670027">Пронађите помоћ за Chrome</translation>
 <translation id="163860049029591106">Почетни кораци за Chrome ОС</translation>
-<translation id="1653828314016431939">У реду – Поново покрени одмах</translation>
+<translation id="1653828314016431939">Важи – Поново покрени одмах</translation>
 <translation id="1674870198290878346">Отвори линк у Chrome прозору без архи&amp;вирања</translation>
 <translation id="1682634494516646069">Google Chrome не може да чита податке из свог директоријума са подацима нити да их у њих уписује:
 
@@ -158,6 +159,7 @@
 <translation id="5243785881901838525">Google Payments (копирано у Chrome)</translation>
 <translation id="5251420635869119124">Гости могу да користе Chrome а да не остављају никакве трагове.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome ће се поново покренути за 1 секунду.}one{Google Chrome ће се поново покренути за # секунду.}few{Google Chrome ће се поново покренути за # секунде.}other{Google Chrome ће се поново покренути за # секунди.}}</translation>
+<translation id="532046782124376502">Упозорење: Google Chrome не може да спречи додатке да снимају вашу историју прегледања. Да бисте онемогућили овај додатак у режиму без архивирања, опозовите избор ове опције.</translation>
 <translation id="5334545119300433702">За овај модул је познато да се сукобљава са Google Chrome прегледачем.</translation>
 <translation id="5386244825306882791">Контролише и страницу која се приказује када покренете Chrome или претражујете из омнибокса.</translation>
 <translation id="5430073640787465221">Датотека подешавања је оштећена или неважећа.

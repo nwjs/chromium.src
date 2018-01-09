@@ -2329,7 +2329,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="4668721319092543482">Fai clic per attivare <ph name="PLUGIN_NAME" /></translation>
 <translation id="4669606053856530811">I membri di "<ph name="SOURCE_NAME" />" non avranno più accesso, a meno che questi elementi vengano condivisi con loro.</translation>
 <translation id="4672657274720418656">Pagina Distill</translation>
-<translation id="4673442866648850031">Apri gli strumenti per stilo quando lo stilo viene rimosso</translation>
+<translation id="4673442866648850031">Apri strumenti stilo quando lo stilo viene rimosso</translation>
 <translation id="4677692029604506169">Il telefono usato per sbloccare il dispositivo <ph name="DEVICE_TYPE" /> deve avere un blocco schermo per motivi di sicurezza, ad esempio un PIN, una sequenza o una password. Hai già un blocco schermo? Seleziona "Controlla" per verificare e procedere con la configurazione.</translation>
 <translation id="4677772697204437347">Memoria GPU</translation>
 <translation id="4681930562518940301">Apri &amp;originale in nuova scheda</translation>
@@ -3088,7 +3088,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="5860209693144823476">Scheda 3</translation>
 <translation id="5860491529813859533">Attiva</translation>
 <translation id="5860494867054883682">Aggiornamento del dispositivo al canale <ph name="CHANNEL_NAME" /> in corso (<ph name="PROGRESS_PERCENT" />)</translation>
-<translation id="5862109781435984885">Mostra gli strumenti per stilo sullo scaffale</translation>
+<translation id="5862109781435984885">Mostra strumenti stilo nello shelf</translation>
 <translation id="58625595078799656"><ph name="PRODUCT_NAME" /> richiede di criptare i tuoi dati utilizzando la tua passphrase o password Google.</translation>
 <translation id="5863445608433396414">Attiva funzioni di debug</translation>
 <translation id="5864471791310927901">Ricerca DHCP non riuscita</translation>

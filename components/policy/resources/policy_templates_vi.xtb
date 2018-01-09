@@ -321,6 +321,11 @@
 
           Nếu không thiết lập chính sách này, tất cả bốn cơ chế sẽ được sử dụng.</translation>
 <translation id="2067011586099792101">Chặn truy cập vào các trang web nằm ngoài gói nội dung</translation>
+<translation id="2075030897098958514">Kiểm soát xem NTLMv2 có được bật hay không.
+
+          Tất cả phiên bản gần đây của máy chủ Samba và Windows đều hỗ trợ NTLMv2. Chỉ nên tắt cài đặt này trong trường hợp muốn có khả năng tương thích ngược và giảm tính bảo mật của quá trình xác thực.
+
+          Giá trị mặc định khi chính sách này không được xác định hiện là false để có khả năng tương thích ngược nhưng sẽ thay đổi thành true trong tương lai.</translation>
 <translation id="2077129598763517140">Sử dụng chế độ tăng tốc phần cứng khi khả dụng</translation>
 <translation id="2077273864382355561">Độ trễ tắt màn hình khi chạy trên nguồn pin</translation>
 <translation id="2082205219176343977">Định cấu hình phiên bản Chrome tối thiểu được phép cho thiết bị.</translation>
@@ -417,6 +422,7 @@
 <translation id="2303795211377219696">Bật tính năng Tự động điền cho thẻ tín dụng</translation>
 <translation id="2309390639296060546">Cài đặt vị trí địa lý mặc định</translation>
 <translation id="2312134445771258233">Cho phép bạn định cấu hình các trang được tải khi khởi động. Nội dung của danh sách 'Các URL được mở khi khởi động' bị bỏ qua trừ khi bạn chọn 'Mở danh sách các URL' trong' Tác vụ khi khởi động'.</translation>
+<translation id="2327252517317514801">Xác định miền được phép truy cập vào G Suite</translation>
 <translation id="2334591568684482454">Định cấu hình tính sẵn sàng và hành vi của chức năng cập nhật chương trình cơ sở <ph name="TPM_FIRMWARE_UPDATE_TPM" />.
 
       Bạn có thể chỉ định từng cài đặt trong thuộc tính JSON:
@@ -1014,6 +1020,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Chính sách này là tùy chọn. Nếu không đặt, yêu cầu tìm kiếm theo hình ảnh sẽ được gửi bằng phương thức GET.
 
           Chính sách này chỉ được tuân theo nếu kích hoạt chính sách 'DefaultSearchProviderEnabled'.</translation>
+<translation id="4285674129118156176">Cho phép người dùng không được liên kết sử dụng ARC</translation>
 <translation id="4294280661005713627">Đặt phiên bản đích cho Cập nhật tự động.
 
       Chỉ định tiền tố của phiên bản đích mà <ph name="PRODUCT_OS_NAME" /> sẽ cập nhật. Nếu thiết bị đang chạy một phiên bản có trước tiền tố được chỉ định, thiết bị sẽ cập nhật lên phiên bản mới nhất với tiền tố đã cho. Nếu thiết bị đã chạy phiên bản mới hơn thì sẽ không có ảnh hưởng (tức là không bị hạ cấp) và thiết bị sẽ vẫn chạy trên phiên bản hiện tại. Định dạng tiền tố hoạt động theo từng thành phần như được minh họa trong ví dụ sau:
@@ -1186,6 +1193,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Nếu chính sách này được đặt thành true hoặc không được đặt, khóa chế độ thức màn hình sẽ được đặt để quản lý công suất.
 
           Nếu chính sách này được đặt thành false, yêu cầu khóa chế độ thức màn hình sẽ bị bỏ qua.</translation>
+<translation id="487460824085252184">Tự động di chuyển, không cần yêu cầu sự chấp thuận của người dùng.</translation>
 <translation id="4876805738539874299">Đã bật phiên bản SSL tối đa</translation>
 <translation id="4881315447528084360">Chỉ định danh sách các ứng dụng và tiện ích được cài đặt tự động
           mà không có sự tương tác của người dùng và người dùng không thể gỡ cài đặt hoặc
@@ -1295,6 +1303,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="5272684451155669299">Nếu true, người dùng có thể sử dụng phần cứng trên thiết bị Chrome để chứng thực từ xa danh tính của thiết bị với CA bảo mật qua <ph name="ENTERPRISE_PLATFORM_KEYS_API" /> bằng <ph name="CHALLENGE_USER_KEY_FUNCTION" />.
 
           Nếu cài đặt được đặt thành false hoặc chưa được đặt, cuộc gọi tới API sẽ không thực hiện được với mã lỗi.</translation>
+<translation id="5283457834853986457">Tắt trình tìm kiếm plugin (không được dùng nữa)</translation>
 <translation id="5288772341821359899">Nếu đã đặt chính sách, phạm vi cổng UDP mà WebRTC sử dụng sẽ được hạn chế đến phạm vi cổng được chỉ định (đã bao gồm cả điểm cuối).
 
       Nếu chưa đặt chính sách hoặc nếu chính sách được đặt thành chuỗi trống hoặc phạm vi cổng không hợp lệ thì WebRTC được phép sử dụng bất kỳ cổng UDP cục bộ khả dụng nào.</translation>
@@ -1322,6 +1331,11 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Nếu bạn đặt chính sách này thành False, người dùng sẽ không thể truyền nội dung đến thiết bị của họ. Nếu bạn đặt chính sách này thành True, người dùng sẽ được phép truyền nội dung. Nếu bạn không đặt chính sách này, người dùng sẽ không được phép truyền nội dung đến thiết bị Chrome OS đã đăng ký, nhưng có thể truyền đến các thiết bị không được đăng ký.</translation>
 <translation id="5330684698007383292">Cho phép <ph name="PRODUCT_FRAME_NAME" /> xử lý các loại nội dung sau</translation>
 <translation id="5365946944967967336">Hiển thị nút Trang chủ trên thanh công cụ</translation>
+<translation id="5366745336748853475">Cho phép bạn chỉ định danh sách mẫu url. Những mẫu url này chỉ định các trang web có chứng chỉ ứng dụng được chọn tự động trên màn hình đăng nhập trong khung lưu trữ luồng SAML nếu trang web yêu cầu chứng chỉ. Việc sử dụng mẫu là để định cấu hình chứng chỉ sẽ được hiển thị cho SAML IdP cho toàn bộ thiết bị.
+
+      Giá trị phải là một dãy từ điển JSON dạng chuỗi. Mỗi từ điển phải có dạng { "pattern": "$URL_PATTERN", "filter" : $FILTER }, trong đó $URL_PATTERN là mẫu cài đặt nội dung. $FILTER giới hạn các chứng chỉ ứng dụng mà trình duyệt sẽ tự động chọn. Bất kể bộ lọc là gì, chỉ các chứng chỉ khớp với yêu cầu chứng chỉ của máy chủ mới được chọn. Nếu $FILTER có dạng { "ISSUER": { "CN": "$ISSUER_CN" } }, thì ngoài ra, chỉ các chứng chỉ ứng dụng do chứng chỉ có CommonName $ISSUER_CN cấp mới được chọn. Nếu $FILTER là từ điển trống {}, thì việc chọn chứng chỉ ứng dụng sẽ không có các hạn chế bổ sung.
+
+      Nếu bạn không đặt chính sách này thì sẽ không có thao tác tự động chọn nào được thực hiện cho bất kỳ trang web nào.</translation>
 <translation id="5366977351895725771">Nếu đặt thành sai, tác vụ tạo tài khoản người dùng bị giám sát của người dùng này sẽ bị tắt. Mọi tài khoản người dùng bị giám sát hiện có sẽ vẫn khả dụng.
 
           Nếu đặt thành đúng hoặc không định cấu hình, người dùng này có thể tạo và quản lý tài khoản người dùng bị giám sát.</translation>
@@ -1390,6 +1404,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Nếu được chỉ định, sẽ thêm thông số truy vấn được gọi là 'restrict' vào URL được sử dụng để tìm nạp khởi đầu Biến thể. Giá trị của thông số sẽ là giá trị được chỉ định trong chính sách này.
 
       Nếu không được chỉ định, sẽ không sửa đổi URL khởi đầu Biến thể.</translation>
+<translation id="5561811616825571914">Tự động chọn chứng chỉ ứng dụng cho những trang web này trên màn hình đăng nhập</translation>
 <translation id="556941986578702361">Kiểm soát tự động ẩn giá <ph name="PRODUCT_OS_NAME" />.
 
       Nếu chính sách này được đặt thành 'Luôn tự động ẩn giá', giá sẽ luôn tự động ẩn.
@@ -1456,6 +1471,11 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Nếu chọn 'Tắt', bạn không thể mở trang ở chế độ Ẩn danh.
 
       Nếu chọn 'Bắt buộc', bạn CHỈ có thể mở trang ở chế độ Ẩn danh.</translation>
+<translation id="583091600226586337">
+      Nếu bạn bật chính sách này thì người dùng sẽ được hỏi vị trí lưu mỗi tệp trước khi tải xuống.
+      Nếu bạn tắt chính sách này thì quá trình tải xuống sẽ bắt đầu ngay lập tức và người dùng sẽ không được hỏi vị trí lưu tệp.
+      Nếu bạn không định cấu hình chính sách này thì người dùng sẽ có thể thay đổi cài đặt này.
+      </translation>
 <translation id="5835124959204887277">Chỉ định các URL và miền để lời nhắc không hiển thị khi chứng chỉ chứng thực từ Khóa bảo mật được yêu cầu. Ngoài ra, một tín hiệu sẽ được gửi đến Khóa bảo mật cho biết rằng có thể sử dụng chứng thực cá nhân. Nếu không có tín hiệu này, trên trình duyệt Chrome 65 trở lên, người dùng sẽ được nhắc khi trang web yêu cầu chứng thực của Khóa bảo mật.
 
       Các URL (như https://example.com/some/path) sẽ chỉ khớp dưới dạng U2F appID. Các miền (như example.com) chỉ khớp dưới dạng ID RP webauthn. Do đó, để bao gồm cả API U2F và API webauthn cho một trang web cho trước, cần liệt kê cả miền và URL appID.</translation>
@@ -1514,6 +1534,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="5966615072639944554">Tiện ích được phép sử dụng API chứng thực từ xa</translation>
 <translation id="5983708779415553259">Thao tác mặc định cho trang web không nằm trong bất kỳ gói nội dung nào</translation>
 <translation id="5997543603646547632">Sử dụng đồng hồ 24 giờ theo mặc định</translation>
+<translation id="5997846976342452720">Chỉ định xem có nên tắt trình tìm kiếm plugin hay không (không được dùng nữa)</translation>
 <translation id="6005179188836322782">Bật tính năng Duyệt web an toàn của <ph name="PRODUCT_NAME" /> và ngăn người dùng thay đổi cài đặt này.
 
       Nếu bạn bật cài đặt này, Duyệt web an toàn sẽ luôn hoạt động.
@@ -1775,6 +1796,25 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="6903814433019432303">Chính sách này chỉ hoạt động ở chế độ bán lẻ.
 
       Xác định nhóm URL được tải khi phiên trình diễn bắt đầu. Chính sách này sẽ ghi đè bất kỳ cơ chế nào khác dành cho cài đặt URL ban đầu và do đó, chỉ có thể áp dụng cho phiên không được liên kết với người dùng cụ thể.</translation>
+<translation id="6908347296939885026">Bật tính năng đăng nhập bị hạn chế của <ph name="PRODUCT_NAME" /> trong G Suite và ngăn người dùng thay đổi cài đặt này.
+
+      Nếu bạn xác định cài đặt này thì người dùng sẽ chỉ có thể truy cập vào Google
+      Apps bằng tài khoản từ các miền đã chỉ định (lưu ý rằng cài đặt này không
+      hoạt động đối với gmail.com/googlemail.com).
+
+      Cài đặt này sẽ KHÔNG ngăn người dùng đăng nhập trên thiết bị được quản
+      lý yêu cầu có sự xác thực của Google. Người dùng sẽ vẫn được phép
+      đăng nhập vào tài khoản từ các miền khác nhưng họ sẽ nhận được thông báo lỗi
+      khi cố gắng sử dụng G Suite bằng những tài khoản đó.
+
+      Nếu bạn để trống/không định cấu hình cài đặt này thì người dùng
+      có thể truy cập vào G Suite bằng bất kỳ tài khoản nào.
+
+      Chính sách này sẽ thêm tiêu đề X-GoogApps-Allowed-Domains vào
+      tất cả các yêu cầu HTTP và HTTPS đối với tất cả các miền google.com như được
+      mô tả trong https://support.google.com/a/answer/1668854.
+
+      Người dùng không thể thay đổi hoặc ghi đè cài đặt này.</translation>
 <translation id="6908640907898649429">Định cấu hình nhà cung cấp dịch vụ tìm kiếm mặc định. Bạn có thể chỉ định nhà cung cấp dịch vụ tìm kiếm mặc định mà người dùng sẽ sử dụng hoặc chọn tắt tìm kiếm mặc định.</translation>
 <translation id="6915442654606973733">Bật tính năng trợ năng phản hồi bằng giọng nói.
 
@@ -1905,6 +1945,9 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="7258823566580374486">Bật tính năng ẩn của máy chủ truy cập từ xa</translation>
 <translation id="7260277299188117560">Tự động cập nhật p2p được bật</translation>
 <translation id="7261252191178797385">Hình nền của thiết bị</translation>
+<translation id="7266471712301230894">Chính sách này đã bị xóa kể từ phiên bản <ph name="PRODUCT_NAME" /> 64.
+
+      Tính năng tự động tìm kiếm và cài đặt các plugin bị thiếu không còn được hỗ trợ nữa.</translation>
 <translation id="7267809745244694722">Các phím phương tiện mặc định cho phím chức năng</translation>
 <translation id="7271085005502526897">Nhập trang chủ từ trình duyệt mặc định trong lần chạy đầu tiên</translation>
 <translation id="7273823081800296768">Nếu kích hoạt hoặc không định cấu hình cài đặt này, người dùng có thể chọn ghép nối máy khách và máy chủ tại thời điểm kết nối và không cần phải nhập mã PIN.
@@ -2196,6 +2239,14 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Nếu chính sách không được đặt, <ph name="PRODUCT_OS_NAME" /> sẽ sử dụng ID tài khoản email của tài khoản trong thiết bị làm tên hiển thị trên màn hình đăng nhập.
 
       Chính sách này bị bỏ qua đối với các tài khoản người dùng thông thường.</translation>
+<translation id="8259375588339409826">Cả Chromium và Google Chrome đều hỗ trợ nhóm chính sách giống nhau. Xin lưu ý rằng tài liệu này có thể bao gồm các chính sách chưa được ban hành (nghĩa là mục 'Được hỗ trợ trên' của các chính sách này đề cập đến một phiên bản <ph name="PRODUCT_NAME" /> chưa phát hành). Những chính sách này có thể bị thay đổi hoặc xóa bỏ mà không thông báo trước. Chúng tôi không bảo đảm bất kỳ điều gì, kể cả bảo đảm cho các thuộc tính bảo mật và quyền riêng tư.
+
+Những chính sách này chỉ dùng cho mục đích định cấu hình các phiên bản <ph name="PRODUCT_NAME" /> nội bộ trong tổ chức của bạn. Việc sử dụng các chính sách này bên ngoài tổ chức (ví dụ: trong một chương trình được phân phối công khai) sẽ bị coi là phần mềm độc hại và có thể bị Google và các nhà cung cấp phần mềm diệt vi-rút gắn nhãn là phần mềm độc hại.
+
+Bạn không cần định cấu hình các cài đặt này theo cách thủ công! Bạn có thể tải xuống các mẫu dễ sử dụng dành cho Windows, Mac và Linux từ <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" />.
+
+Bạn nên định cấu hình chính sách trên Windows qua GPO, mặc dù việc cấp phép chính sách qua cổng đăng ký vẫn được hỗ trợ cho các phiên bản Windows tham gia miền <ph name="MS_AD_NAME" />.</translation>
+<translation id="8274603902181597201">Xóa thư mục chính ecryptf của người dùng và bắt đầu bằng một thư mục chính mới được mã hóa ext4.</translation>
 <translation id="8279832363395120715">Xóa phần thông tin nhạy cảm trong bảo mật và quyền riêng tư của URL https:// trước khi gửi URL này tới tập lệnh PAC (Tự động định cấu hình proxy) do <ph name="PRODUCT_NAME" /> sử dụng trong quá trình phân giải proxy.
 
       Nếu cài đặt là True, tính năng bảo mật sẽ được bật và URL https:// sẽ bị
@@ -2297,6 +2348,11 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="8549772397068118889">Cảnh báo khi truy cập vào các trang web nằm ngoài gói nội dung</translation>
 <translation id="8566842294717252664">Ẩn cửa hàng trực tuyến khỏi trang tab mới và trình chạy ứng dụng</translation>
 <translation id="8587229956764455752">Cho phép tạo tài khoản người dùng mới</translation>
+<translation id="8598350264853261122">Nếu bạn đặt chính sách thành false thì người dùng không liên kết sẽ không được phép sử dụng ARC.
+
+      Nếu bạn không đặt hoặc đặt chính sách thành true thì tất cả người dùng sẽ được phép sử dụng ARC (trừ khi ARC bị tắt bởi các phương tiện khác).
+
+      Các thay đổi đối với chính sách sẽ chỉ được áp dụng trong khi ARC không chạy, ví dụ như khi Chrome OS đang khởi động.</translation>
 <translation id="8614804915612153606">Tắt cập nhật tự động</translation>
 <translation id="8631434304112909927">cho đến phiên bản <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Đối với các ứng dụng Android, chính sách này chỉ ảnh hưởng đến máy ảnh được tích hợp sẵn. Khi chính sách này được đặt thành true thì máy ảnh sẽ bị tắt cho tất cả ứng dụng Android mà không có ngoại lệ nào.</translation>
@@ -2435,6 +2491,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Ví dụ: để cho phép mọi chế độ mở khóa nhanh, hãy sử dụng ["all"]. Để chỉ cho phép mở khóa bằng mã PIN, hãy sử dụng ["PIN"]. Để tắt tất cả chế độ mở khóa nhanh, hãy sử dụng [].
 
           Theo mặc định, không có chế độ mở khóa nhanh nào khả dụng cho thiết bị được quản lý.</translation>
+<translation id="9136399279941091445">Khoảng thời gian tắt khi chính sách thiết bị đã chỉ định được phát hành</translation>
 <translation id="9147029539363974059">Gửi nhật ký hệ thống đến máy chủ quản lý để cho phép
       quản trị viên theo dõi nhật ký hệ thống.
 

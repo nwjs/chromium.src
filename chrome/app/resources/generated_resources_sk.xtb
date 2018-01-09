@@ -839,7 +839,7 @@ dotyku</translation>
 <translation id="230927227160767054">Táto stránka chce nainštalovať obslužný nástroj služby.</translation>
 <translation id="2311496337038385958">Rok nahrávky</translation>
 <translation id="2316129865977710310">Nie, ďakujem</translation>
-<translation id="2317842250900878657">Dokončené: <ph name="PROGRESS_PERCENT" /> %</translation>
+<translation id="2317842250900878657">Dokončené: <ph name="PROGRESS_PERCENT" />%</translation>
 <translation id="2318143611928805047">Veľkosť papiera</translation>
 <translation id="2318817390901984578">Ak chcete používať aplikácie pre Android, nabite a aktualizujte zariadenie <ph name="DEVICE_TYPE" />.</translation>
 <translation id="2318923050469484167">Aktuálna relácia inkognito (<ph name="EMBEDDING" />)</translation>
@@ -2729,7 +2729,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="5299682071747318445">Všetky údaje sú šifrované pomocou vlastnej prístupovej frázy pre synchronizáciu</translation>
 <translation id="5300589172476337783">Zobraziť</translation>
 <translation id="5301751748813680278">Vstupujete ako hosť.</translation>
-<translation id="5301954838959518834">Áno, rozumiem</translation>
+<translation id="5301954838959518834">Ok, rozumiem</translation>
 <translation id="5302048478445481009">Jazyk</translation>
 <translation id="5305688511332277257">Žiadne nainštalované</translation>
 <translation id="5308380583665731573">Pripojenie</translation>
@@ -3099,7 +3099,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="586567932979200359">Prehliadač <ph name="PRODUCT_NAME" /> je spustený z jeho obrazu disku. Inštalácia do počítača vám umožní spustiť ho bez obrazu disku a zabezpečí jeho aktualizáciu.</translation>
 <translation id="5866557323934807206">Vymazať tieto nastavenia pre ďalšie návštevy</translation>
 <translation id="5866840822086176774">Veľmi silné</translation>
-<translation id="5869029295770560994">OK, dobre</translation>
+<translation id="5869029295770560994">Ok, rozumiem</translation>
 <translation id="5869522115854928033">Uložené heslá</translation>
 <translation id="5870086504539785141">Zavrieť ponuku zjednodušenia ovládania</translation>
 <translation id="5870155679953074650">Závažné chyby</translation>
@@ -3982,7 +3982,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="7339898014177206373">Nové okno</translation>
 <translation id="7340431621085453413">Stránka <ph name="FULLSCREEN_ORIGIN" /> sa teraz zobrazuje na celú obrazovku.</translation>
 <translation id="7345706641791090287">Potvrdenie hesla</translation>
-<translation id="7346909386216857016">Ok, dobre</translation>
+<translation id="7346909386216857016">Ok, rozumiem</translation>
 <translation id="7347751611463936647">Ak chcete použiť toto rozšírenie, zadajte text „<ph name="EXTENSION_KEYWORD" />“, stlačte kláves Tab a začnite písať svoj príkaz alebo vyhľadávaný výraz.</translation>
 <translation id="7348093485538360975">Klávesnica na obrazovke</translation>
 <translation id="7352651011704765696">Vyskytla sa chyba</translation>

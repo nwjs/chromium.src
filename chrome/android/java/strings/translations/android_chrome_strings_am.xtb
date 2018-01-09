@@ -98,6 +98,7 @@
 <translation id="1832521218263067499">የደህንነት ክስተቶች</translation>
 <translation id="1853692000353488670">አዲስ ማንነት የማያሳውቅ ትር</translation>
 <translation id="1880072593381090678">ታዋቂ ገጾች ከChrome</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> በChrome ውስጥ ይከፈታል። በመቀጠልዎ በChrome <ph name="BEGIN_LINK1" />አገልግሎት ውል<ph name="END_LINK1" /> እና <ph name="BEGIN_LINK2" />የግላዊነት ማስታወቂያ<ph name="END_LINK2" /> ተስማምተዋል።</translation>
 <translation id="189172778771606813">የአሰሳ መሳቢያ ዝጋ</translation>
 <translation id="1897409700584096124">ድር ጣቢያ በማሠራጨት ላይ ነው</translation>
 <translation id="1919345977826869612">ማስታወቂያዎች</translation>
@@ -419,6 +420,7 @@
 <translation id="4874967477260347223">የማህደረመረጃ ፈቃዶች</translation>
 <translation id="4875775213178255010">የይዘት አስተያየት ጥቆማዎች</translation>
 <translation id="4876188919622883022">የተቃለለ እይታ</translation>
+<translation id="4878404682131129617">በተኪ አገልጋይ በኩል ዋሻን መመስረት አልተሳካም</translation>
 <translation id="4881695831933465202">ክፈት</translation>
 <translation id="4885273946141277891">የማይደገፍ የChrome አብነቶች ብዛት።</translation>
 <translation id="4910889077668685004">የክፍያ መተግበሪያዎች</translation>
@@ -502,6 +504,7 @@
 <translation id="5585019845078534178">ካርዶች</translation>
 <translation id="5595485650161345191">አድራሻ አርትዕ</translation>
 <translation id="5596627076506792578">ተጨማሪ አማራጮች</translation>
+<translation id="5620655347161642930">የይለፍ ቃላትን ወደ ውጭ በመላክ ላይ...</translation>
 <translation id="5620928963363755975">ከተጨማሪ አማራጮች አዝራር ሆነው የእርስዎን ፋይሎች እና ገጾች በውርዶች ውስጥ ያግኙ</translation>
 <translation id="5626134646977739690">ስም፦</translation>
 <translation id="5639724618331995626">ሁሉንም ጣቢያዎች ፍቀድ</translation>
@@ -714,6 +717,7 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (የተዘመነው በ<ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">እባክዎ ይጠብቁ…</translation>
 <translation id="7514365320538308">አውርድ</translation>
+<translation id="751961395872307827">ከበይነመረቡ ጋር መገናኘት አልተቻለም</translation>
 <translation id="7521387064766892559">ጃቫስክሪፕት</translation>
 <translation id="7542481630195938534">የአስተያየት ጥቆማዎችን ማግኘት አልተቻለም</translation>
 <translation id="7562080006725997899">የአሰሳ ውሂብን በማጽዳት ላይ</translation>
@@ -843,6 +847,7 @@
 <translation id="8748850008226585750">ይዘቶች ተደብቀዋል</translation>
 <translation id="8788968922598763114">መጨረሻ ላይ የተዘጋውን ትር ዳግም ክፈት</translation>
 <translation id="8812260976093120287">በአንዳንድ ድር ጣቢያዎች ላይ ከላይ ባሉ የሚደገፉ የክፍያ መተግበሪያዎች በመሣሪያዎ ላይ መክፈል ይችላሉ።</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> በChrome ውስጥ ይከፈታል። በመቀጠልዎ በChrome <ph name="BEGIN_LINK1" />አገልግሎት ውል<ph name="END_LINK1" /> እና <ph name="BEGIN_LINK2" />የግላዊነት ማስታወቂያ<ph name="END_LINK2" />፣ እና በ<ph name="BEGIN_LINK3" />በFamily Link የሚተዳደሩ የGoogle መለያዎች ግላዊነት ማስታወቂያ<ph name="END_LINK3" /> ተስማምተዋል።</translation>
 <translation id="8820817407110198400">ዕልባቶች</translation>
 <translation id="883635517171802338">ጣቢያዎች ብቅ-ባዮችን እንዳያሳዩ ያግዱ (የሚመከር)</translation>
 <translation id="883806473910249246">ይዘቱን በማውረድ ላይ ሳለ አንድ ስህተት ተከስቷል።</translation>

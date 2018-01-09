@@ -10,6 +10,7 @@ Nekatere funkcije morda niso na voljo in spremembe nastavitev ne bodo shranjene.
 <translation id="1104959162601287462">O &amp;sistemu Chrome OS</translation>
 <translation id="110877069173485804">To je vaš Chrome</translation>
 <translation id="1142745911746664600">Chroma ni mogoče posodobiti</translation>
+<translation id="1154147086299354128">&amp;Odpri v Chromu</translation>
 <translation id="123620459398936149">Chrome OS ne more sinhronizirati vaših podatkov. Posodobite geslo za Google Sync.</translation>
 <translation id="127345590676626841">Chrome se samodejno posodablja, zato boste vedno imeli najnovejšo različico. Ko bo ta prenos končan, se bo Chrome znova zagnal in lahko boste nadaljevali z delom.</translation>
 <translation id="1302523850133262269">Počakajte, da Chrome namesti najnovejše sistemske posodobitve.</translation>
@@ -158,6 +159,7 @@ Nekatere funkcije morda ne bodo na voljo. Navedite drug imenik profila ali upora
 <translation id="5243785881901838525">Google Payments (kopirano v Chrome)</translation>
 <translation id="5251420635869119124">Gostje lahko uporabljajo Chrome, ne da bi za seboj pustili kar koli.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome se bo znova zagnal čez 1 sekundo.}one{Google Chrome se bo znova zagnal čez # sekundo.}two{Google Chrome se bo znova zagnal čez # sekundi.}few{Google Chrome se bo znova zagnal čez # sekunde.}other{Google Chrome se bo znova zagnal čez # sekund.}}</translation>
+<translation id="532046782124376502">Opozorilo: Google Chrome razširitvam ne more preprečiti beleženja zgodovine brskanja. Če želite onemogočiti to razširitev v načinu brez beleženja zgodovine, počistite to možnost.</translation>
 <translation id="5334545119300433702">Za ta modul je znano, da je v sporu z Google Chromom.</translation>
 <translation id="5386244825306882791">Določa tudi, katera stran je prikazana, ko zaženete Chrome ali iščete v naslovni vrstici.</translation>
 <translation id="5430073640787465221">Datoteka z nastavitvami je poškodovana ali neveljavna.

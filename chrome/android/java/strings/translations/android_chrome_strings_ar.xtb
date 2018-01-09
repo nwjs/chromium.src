@@ -98,6 +98,7 @@
 <translation id="1832521218263067499">حوادث تتعلق بالأمن</translation>
 <translation id="1853692000353488670">علامة تبويب جديدة للتصفح المتخفي</translation>
 <translation id="1880072593381090678">‏الصفحات الشائعة من Chrome</translation>
+<translation id="1891331835972267886">‏سيتم فتح <ph name="APP_NAME" /> في Chrome. بالمتابعة، أنت توافق على <ph name="BEGIN_LINK1" />بنود الخدمة<ph name="END_LINK1" /> و<ph name="BEGIN_LINK2" />إشعار الخصوصية<ph name="END_LINK2" /> في Chrome.</translation>
 <translation id="189172778771606813">إغلاق لائحة التنقل</translation>
 <translation id="1897409700584096124">يتم بث موقع الويب</translation>
 <translation id="1919345977826869612">إعلانات</translation>
@@ -420,6 +421,7 @@
 <translation id="4874967477260347223">تراخيص وسائل الإعلام</translation>
 <translation id="4875775213178255010">اقتراحات المحتوى</translation>
 <translation id="4876188919622883022">العرض المبسَّط</translation>
+<translation id="4878404682131129617">أخفق إنشاء نفق عبر الخادم الوكيل.</translation>
 <translation id="4881695831933465202">فتح</translation>
 <translation id="4885273946141277891">‏عدد نسخ Chrome غير متوافق.</translation>
 <translation id="4910889077668685004">تطبيقات الدفع</translation>
@@ -503,6 +505,7 @@
 <translation id="5585019845078534178">بطاقات</translation>
 <translation id="5595485650161345191">تعديل العنوان</translation>
 <translation id="5596627076506792578">خيارات إضافية</translation>
+<translation id="5620655347161642930">جارٍ تصدير كلمات المرور...</translation>
 <translation id="5620928963363755975">العثور على الملفات والصفحات في التنزيلات من الزر "مزيد من الخيارات"</translation>
 <translation id="5626134646977739690">الاسم:</translation>
 <translation id="5639724618331995626">السماح بجميع المواقع</translation>
@@ -715,6 +718,7 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (تم التحديث منذ <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">يُرجى الانتظار...</translation>
 <translation id="7514365320538308">تنزيل</translation>
+<translation id="751961395872307827">يتعذّر الاتصال بالموقع</translation>
 <translation id="7521387064766892559">جافا سكريبت</translation>
 <translation id="7542481630195938534">يتعذر الحصول على الاقتراحات</translation>
 <translation id="7562080006725997899">جارٍ محو بيانات التصفح</translation>
@@ -845,6 +849,7 @@
 <translation id="8748850008226585750">المحتويات مخفية</translation>
 <translation id="8788968922598763114">إعادة فتح آخر علامة تبويب تم إغلاقها</translation>
 <translation id="8812260976093120287">يمكنك على مواقع ويب معيّنة الدفع باستخدام تطبيقات الدفع المتوافقة أعلاه على جهازك.</translation>
+<translation id="8816439037877937734">‏سيتم فتح <ph name="APP_NAME" /> في Chrome. بالمتابعة، أنت توافق على <ph name="BEGIN_LINK1" />بنود الخدمة<ph name="END_LINK1" /> و<ph name="BEGIN_LINK2" />إشعار الخصوصية<ph name="END_LINK2" /> في Chrome، و<ph name="BEGIN_LINK3" />إشعار الخصوصية لحسابات Google المُدارة من خلال Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">إشارات</translation>
 <translation id="883635517171802338">منع مواقع الويب من عرض النوافذ المنبثقة (موصى به)</translation>
 <translation id="883806473910249246">حدث خطأ أثناء تنزيل المحتوى.</translation>

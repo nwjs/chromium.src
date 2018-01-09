@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">‏حول &amp;نظام التشغيل Google Chrome</translation>
 <translation id="110877069173485804">‏هذا Chrome الخاص بك</translation>
 <translation id="1142745911746664600">‏تعذّر تحديث Chrome</translation>
+<translation id="1154147086299354128">‏&amp;فتح في Chrome</translation>
 <translation id="123620459398936149">‏تعذر على نظام التشغيل Chrome مزامنة البيانات. يُرجى تحديث عبارة مرور المزامنة.</translation>
 <translation id="127345590676626841">‏يجري تحديث Chrome تلقائيًا بحيث يكون لديك أحدث إصدار. عند اكتمال هذا التحميل، ستتم إعادة تشغيل Chrome وستبدأ العمل.</translation>
 <translation id="1302523850133262269">‏يُرجى الانتظار لحين تثبيت Chrome لآخر تحديثات النظام.</translation>
@@ -156,6 +157,7 @@
 <translation id="5243785881901838525">‏Google Payments (تم النسخ إلى Chrome)</translation>
 <translation id="5251420635869119124">‏يمكن للضيف استخدام Chrome بدون أن يترك أي أثر وراءه.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{‏ستتم إعادة تشغيل Google Chrome خلال ثانية واحدة (1).}zero{‏ستتم إعادة تشغيل Google Chrome خلال # ثانية.}two{‏ستتم إعادة تشغيل Google Chrome خلال ثانيتين (#).}few{‏ستتم إعادة تشغيل Google Chrome خلال # ثوانٍ.}many{‏ستتم إعادة تشغيل Google Chrome خلال # ثانية.}other{‏ستتم إعادة تشغيل Google Chrome خلال # ثانية.}}</translation>
+<translation id="532046782124376502">‏تحذير: يتعذّر على Google Chrome منع الإضافات من تسجيل سجل تصفحك. لإيقاف هذه الإضافة في وضع التصفح المتخفي، ألغِ تحديد هذا الخيار.</translation>
 <translation id="5334545119300433702">‏هذه الوحدة معروف أنها تتعارض مع Google Chrome.</translation>
 <translation id="5386244825306882791">‏كما أنها تتحكم في الصفحة التي تظهر عند تشغيل Chrome أو إجراء بحث من المربع متعدد الاستخدامات.</translation>
 <translation id="5430073640787465221">‏ملف التفضيلات تالف أو غير صالح. يتعذر على Google Chrome استرداد إعداداتك.</translation>

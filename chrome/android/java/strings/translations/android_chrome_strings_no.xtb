@@ -98,6 +98,7 @@ Du må ha slått på Bluetooth og Posisjon for å bruke det fysiske nettet.</tra
 <translation id="1832521218263067499">Sikkerhetshendelser</translation>
 <translation id="1853692000353488670">Ny inkognitofane</translation>
 <translation id="1880072593381090678">Populære sider fra Chrome</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> åpnes i Chrome. Ved å fortsette godtar du <ph name="BEGIN_LINK1" />vilkårene for bruk<ph name="END_LINK1" /> av Chrome og <ph name="BEGIN_LINK2" />merknaden om personvern<ph name="END_LINK2" />.</translation>
 <translation id="189172778771606813">Lukk uttrekksmenyen</translation>
 <translation id="1897409700584096124">Nettstedet kringkastes</translation>
 <translation id="1919345977826869612">Annonser</translation>
@@ -419,6 +420,7 @@ Google-kontoen din kan ha andre former for nettlesingslogg, for eksempel søk og
 <translation id="4874967477260347223">Medielisenser</translation>
 <translation id="4875775213178255010">Innholdsforslag</translation>
 <translation id="4876188919622883022">Forenklet visning</translation>
+<translation id="4878404682131129617">Kunne ikke opprette tunnel via proxy-tjener.</translation>
 <translation id="4881695831933465202">Åpne</translation>
 <translation id="4885273946141277891">For mange Chrome-forekomster.</translation>
 <translation id="4910889077668685004">Betalingsapper</translation>
@@ -502,6 +504,7 @@ Google-kontoen din kan ha andre former for nettlesingslogg, for eksempel søk og
 <translation id="5585019845078534178">Kort</translation>
 <translation id="5595485650161345191">Rediger adresse</translation>
 <translation id="5596627076506792578">Flere alternativer</translation>
+<translation id="5620655347161642930">Eksportér passord</translation>
 <translation id="5620928963363755975">Du finner filene og sidene dine under Nedlastinger via Flere alternativer-knappen</translation>
 <translation id="5626134646977739690">Navn:</translation>
 <translation id="5639724618331995626">Tillat alle nettsteder</translation>
@@ -714,6 +717,7 @@ Noen nettsteder kan for eksempel svare på denne forespørselen ved å vise deg 
 <translation id="7493994139787901920"><ph name="VERSION" /> (oppdatert <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Vent litt</translation>
 <translation id="7514365320538308">Last ned</translation>
+<translation id="751961395872307827">Kan ikke koble til nettstedet</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Kan ikke hente forslag</translation>
 <translation id="7562080006725997899">Sletter nettlesingsdata</translation>
@@ -843,6 +847,7 @@ For å få nye lisenser må du koble deg til Internett og spille av innholdet du
 <translation id="8748850008226585750">Innholdet er skjult</translation>
 <translation id="8788968922598763114">Åpne den sist lukkede fanen på nytt</translation>
 <translation id="8812260976093120287">På noen nettsteder kan du betale med de støttede betalingsappene ovenfor på enheten din.</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> åpnes i Chrome. Ved å fortsette godtar du <ph name="BEGIN_LINK1" />vilkårene for bruk<ph name="END_LINK1" /> av Chrome og <ph name="BEGIN_LINK2" />merknaden om personvern<ph name="END_LINK2" /> samt <ph name="BEGIN_LINK3" />merknaden om personvern for Google-kontoer som administreres med Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Bokmerker</translation>
 <translation id="883635517171802338">Blokkér nettsteder fra å vise forgrunnsvinduer (anbefales)</translation>
 <translation id="883806473910249246">Det oppsto en feil under nedlastingen av innholdet.</translation>

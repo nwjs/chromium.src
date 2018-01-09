@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">เกี่ยวกับ &amp;Chrome OS</translation>
 <translation id="110877069173485804">นี่คือ Chrome ของคุณ</translation>
 <translation id="1142745911746664600">อัปเดต Chrome ไม่ได้</translation>
+<translation id="1154147086299354128">เ&amp;ปิดใน Chrome</translation>
 <translation id="123620459398936149">Chrome OS ไม่สามารถซิงค์ข้อมูลของคุณ โปรดอัปเดตข้อความรหัสผ่านสำหรับการซิงค์</translation>
 <translation id="127345590676626841">Chrome ทำการอัปเดตโดยอัตโนมัติเพื่อให้คุณมีเวอร์ชันใหม่ล่าสุดเสมอ เมื่อดาวน์โหลดเสร็จ Chrome จะรีสตาร์ท และคุณจะสามารถใช้งานได้ทันที</translation>
 <translation id="1302523850133262269">โปรดรอขณะที่ Chrome ติดตั้งการอัปเดตระบบล่าสุด</translation>
@@ -153,6 +154,7 @@
 <translation id="5243785881901838525">Google Payments (คัดลอกลงใน Chrome แล้ว)</translation>
 <translation id="5251420635869119124">ผู้เยี่ยมชมสามารถใช้ Chrome ได้โดยไม่ทิ้งร่องรอยไว้</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome จะรีสตาร์ทใน 1 วินาที}other{Google Chrome จะรีสตาร์ทใน # วินาที}}</translation>
+<translation id="532046782124376502">คำเตือน: Google Chrome ไม่สามารถป้องกันไม่ให้ส่วนขยายบันทึกประวัติการเข้าชม หากต้องการปิดใช้ส่วนขยายนี้ในโหมดไม่ระบุตัวตน ให้ยกเลิกการเลือกตัวเลือกนี้</translation>
 <translation id="5334545119300433702">เป็นที่ทราบว่าโมดูลนี้ขัดแย้งกับ Google Chrome</translation>
 <translation id="5386244825306882791">อีกทั้งยังควบคุมหน้าที่จะแสดงเมื่อคุณเปิด Chrome หรือทำการค้นหาจากแถบอเนกประสงค์ด้วย</translation>
 <translation id="5430073640787465221">ไฟล์ค่ากำหนดของคุณขัดข้องหรือไม่ถูกต้อง Google Chrome ไม่สามารถกู้คืนการตั้งค่าของคุณได้</translation>

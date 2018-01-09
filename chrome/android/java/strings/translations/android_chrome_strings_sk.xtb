@@ -98,6 +98,7 @@ Ak chcete používať Fyzický web, musíte mať zapnuté rozhranie Bluetooth a�
 <translation id="1832521218263067499">Bezpečnostné problémy</translation>
 <translation id="1853692000353488670">Nová karta inkognito</translation>
 <translation id="1880072593381090678">Populárne stránky z Chromu</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> sa otvorí v Chrome. Pokračovaním vyjadrujete súhlas so <ph name="BEGIN_LINK1" />zmluvnými podmienkami<ph name="END_LINK1" /> a <ph name="BEGIN_LINK2" />upozornením o ochrane súkromia<ph name="END_LINK2" /> Chromu.</translation>
 <translation id="189172778771606813">Zavrieť navigačný vysúvací panel</translation>
 <translation id="1897409700584096124">Na webe prebieha vysielanie</translation>
 <translation id="1919345977826869612">Reklamy</translation>
@@ -419,6 +420,7 @@ Váš účet Google môže mať na adrese <ph name="BEGIN_LINK" />myactivity.goo
 <translation id="4874967477260347223">Licencie médií</translation>
 <translation id="4875775213178255010">Návrhy obsahu</translation>
 <translation id="4876188919622883022">Zjednodušené zobrazenie</translation>
+<translation id="4878404682131129617">Vytvorenie tunela prostredníctvom proxy servera zlyhalo</translation>
 <translation id="4881695831933465202">Otvoriť</translation>
 <translation id="4885273946141277891">Nepodporovaný počet inštancií prehliadača Chrome.</translation>
 <translation id="4910889077668685004">Platobné aplikácie</translation>
@@ -460,7 +462,7 @@ Váš účet Google môže mať na adrese <ph name="BEGIN_LINK" />myactivity.goo
 <translation id="5271967389191913893">Zariadenie nemôže otvoriť obsah na stiahnutie</translation>
 <translation id="528192093759286357">Režim celej obrazovky ukončíte potiahnutím z hornej časti a klepnutím na tlačidlo Späť.</translation>
 <translation id="5284584623296338184">Záložky, história, heslá a ďalšie nastavenia sa už nebudú ďalej synchronizovať do vášho účtu Google. Vaše súčasné údaje však zostanú v účte Google zachované.</translation>
-<translation id="5301954838959518834">Áno, rozumiem</translation>
+<translation id="5301954838959518834">Ok, rozumiem</translation>
 <translation id="5304593522240415983">Toto pole nesmie byť prázdne</translation>
 <translation id="5308380583665731573">Pripojenie</translation>
 <translation id="5308603654685598744">Keď je táto funkcia zapnutá, prehliadač Chrome vám ponúkne preklad stránok napísaných v iných jazykoch pomocou služby Prekladač Google.</translation>
@@ -715,6 +717,7 @@ Niektoré weby môžu napríklad na túto žiadosť reagovať tak, že vám zobr
 <translation id="7493994139787901920"><ph name="VERSION" /> (Aktualizované <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Čakajte…</translation>
 <translation id="7514365320538308">Stiahnuť</translation>
+<translation id="751961395872307827">Nedá sa pripojiť k webu</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Návrhy sa nedajú získať</translation>
 <translation id="7562080006725997899">Vymazávajú sa údaje prehliadania</translation>
@@ -842,6 +845,7 @@ Niektoré weby môžu napríklad na túto žiadosť reagovať tak, že vám zobr
 <translation id="8748850008226585750">Obsah je skrytý</translation>
 <translation id="8788968922598763114">Opätovné otvorenie poslednej zavretej karty</translation>
 <translation id="8812260976093120287">Na niektorých weboch môžete platiť pomocou podporovaných platobných aplikácií na zariadení.</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> sa otvorí v Chrome. Pokračovaním vyjadrujete súhlas so <ph name="BEGIN_LINK1" />zmluvnými podmienkami<ph name="END_LINK1" /> a <ph name="BEGIN_LINK2" />oznámením o ochrane súkromia<ph name="END_LINK2" /> Chromu, ako aj <ph name="BEGIN_LINK3" />oznámením o ochrane súkromia pre účty Google spravované pomocou aplikácie Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Záložky</translation>
 <translation id="883635517171802338">Blokovať na weboch zobrazovanie kontextových okien (odporúčané)</translation>
 <translation id="883806473910249246">Pri sťahovaní obsahu sa vyskytla chyba.</translation>

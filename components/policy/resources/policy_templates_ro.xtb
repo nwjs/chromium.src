@@ -320,6 +320,11 @@
 
           Dacă politica nu este configurată, vor fi utilizate toate cele patru scheme.</translation>
 <translation id="2067011586099792101">Se blochează accesul la site-urile din afara pachetelor de conținut</translation>
+<translation id="2075030897098958514">Controlează dacă este activată autentificarea NTLMv2.
+
+          Toate versiunile recente de servere Samba și Windows acceptă autentificarea NTLMv2. Aceasta trebuie dezactivată doar pentru compatibilitate inversă, iar prin dezactivare se reduce siguranța autentificării.
+
+          Valoarea prestabilită atunci când această politică nu este definită este acum „false” pentru compatibilitate inversă, dar se va modifica la „true” în viitor.</translation>
 <translation id="2077129598763517140">Utilizează accelerarea hardware când este disponibilă</translation>
 <translation id="2077273864382355561">Interval până la oprirea ecranului la funcționarea pe baterie</translation>
 <translation id="2082205219176343977">Configurează versiunea Chrome minimă acceptată pentru dispozitiv.</translation>
@@ -409,6 +414,7 @@
 <translation id="2312134445771258233">Poți să configurezi paginile încărcate la pornire.
 
       Conținutul listei „Adrese URL care se deschid la pornire” este ignorat, cu excepția cazului în care selectezi „Deschide o listă cu adrese URL” în „Acțiune la pornire”.</translation>
+<translation id="2327252517317514801">Definește domeniile care au permisiunea să acceseze G Suite</translation>
 <translation id="2334591568684482454">Configurează disponibilitatea și comportamentul funcției de actualizare a firmware-ului cipului <ph name="TPM_FIRMWARE_UPDATE_TPM" />.
 
       Setările individuale pot fi specificate în proprietățile JSON:
@@ -990,6 +996,7 @@
           Această politică este opțională. Dacă nu este setată, solicitarea de căutare a imaginilor va fi trimisă prin metoda GET.
 
           Această politică este urmată numai dacă este activată politica „DefaultSearchProviderEnabled”.</translation>
+<translation id="4285674129118156176">Permite utilizatorilor neafiliați să folosească ARC</translation>
 <translation id="4294280661005713627">Setează o versiune țintă pentru actualizările automate.
 
       Specifică prefixul unei versiuni țintă la care <ph name="PRODUCT_OS_NAME" /> trebuie să se actualizeze. Dacă dispozitivul rulează o versiune care este inferioară prefixului specificat, actualizarea se va face la cea mai recentă versiune care are prefixul dat. Dacă pe dispozitiv este instalată deja o versiune superioară, nu se întâmplă nimic (adică nu se face downgrade), iar dispozitivul va rămâne la versiunea curentă. Formatul prefixului reflectă structura componentelor, ca în următorul exemplu:
@@ -1153,6 +1160,7 @@
           Dacă această politică este activată sau nu este configurată, se va bloca activarea ecranului pentru gestionarea consumului de energie.
 
           Dacă această politică este dezactivată, solicitările de blocare a activării ecranului vor fi ignorate.</translation>
+<translation id="487460824085252184">Migrează automat, nu cere consimțământul utilizatorului.</translation>
 <translation id="4876805738539874299">Versiunea maximă SSL a fost activată</translation>
 <translation id="4881315447528084360">Specifică o listă de aplicații și extensii instalate în fundal,
           fără intervenția utilizatorului și care nu pot fi nici dezinstalate, nici
@@ -1252,6 +1260,7 @@
 <translation id="5272684451155669299">Dacă este activată, utilizatorul poate folosi hardware-ul de pe dispozitivele Chrome pentru a-și atesta la distanță identitatea către autoritatea de certificare pentru confidențialitate prin <ph name="ENTERPRISE_PLATFORM_KEYS_API" /> folosind <ph name="CHALLENGE_USER_KEY_FUNCTION" />.
 
           Dacă este dezactivată sau dacă nu este configurată, apelurile către API nu vor reuși și vor genera un cod de eroare.</translation>
+<translation id="5283457834853986457">Dezactivează instrumentul de găsire de pluginuri (învechit)</translation>
 <translation id="5288772341821359899">Dacă politica este configurată, intervalul de porturi UDP folosit de WebRTC este limitat la intervalul de porturi specificat (porturile limită ale intervalului sunt incluse).
 
       Dacă politica nu este configurată sau dacă este setată la un șir gol ori la un interval de porturi nevalid, WebRTC poate să folosească orice port UDP local disponibil.</translation>
@@ -1275,6 +1284,11 @@
           Dacă această politică este dezactivată, utilizatorii nu vor putea să proiecteze conținut pe dispozitivul lor. Dacă această politică este activată, utilizatorii pot să proiecteze conținut. Dacă această politică nu este configurată, utilizatorii nu pot să proiecteze conținut pe dispozitivele cu sistemul de operare Chrome înregistrate, însă pot să facă acest lucru pe dispozitive neînregistrate.</translation>
 <translation id="5330684698007383292">Permiteți ca <ph name="PRODUCT_FRAME_NAME" /> să gestioneze următoarele tipuri de conținut</translation>
 <translation id="5365946944967967336">Afișează butonul Pagina de pornire în bara de instrumente</translation>
+<translation id="5366745336748853475">Îți permite să specifici o listă de șabloane de adrese URL care stabilesc site-urile pentru care este selectat automat un certificat de client pe ecranul de conectare din cadrul care găzduiește fluxul SAML, dacă site-ul solicită un astfel de certificat. Un exemplu de utilizare este configurarea unui certificat la nivel de dispozitiv care trebuie prezentat furnizorului de identitate SAML.
+
+      Valoarea trebuie să fie o serie de dicționare JSON sub formă de șiruri de caractere. Fiecare dicționar trebuie să aibă forma { „pattern”: „$URL_PATTERN”, „filter” : $FILTER }, unde $URL_PATTERN este un șablon pentru setarea de conținut. Valoarea pentru $FILTER limitează certificatele de client din care va selecta automat browserul. Indiferent de filtru, se vor selecta numai certificatele care se potrivesc cu solicitarea de certificat a serverului. Dacă $FILTER are forma { „ISSUER”: { „CN”: „$ISSUER_CN” } }, se vor selecta numai certificatele de client emise de o autoritate de certificare cu numele comun $ISSUER_CN. Dacă $FILTER este dicționarul gol {}, nu mai există alte restricții privind selectarea certificatelor de client.
+
+      Dacă această politică nu este configurată, nu se va efectua nicio selectare automată, pentru niciun site.</translation>
 <translation id="5366977351895725771">Dacă această politică nu este activată, crearea utilizatorilor monitorizați de către acest utilizator va fi dezactivată. Utilizatorii monitorizați existenți vor fi în continuare disponibili.
 
           Dacă această politică este activată sau nu este configurată, acest utilizator poate crea și gestiona utilizatori monitorizați.</translation>
@@ -1334,6 +1348,7 @@
       Dacă este specificată, politica va adăuga un parametru de interogare numit „restrict” la adresa URL utilizată pentru preluarea valorii de bază pentru variante. Valoarea parametrului va fi valoarea specificată în această politică.
 
       Dacă nu este specificată, politica nu va modifica adresa URL a valorii de bază pentru variante.</translation>
+<translation id="5561811616825571914">Selectează automat certificatele de client pentru aceste site-uri pe ecranul de conectare</translation>
 <translation id="556941986578702361">Controlați ascunderea automată a raftului <ph name="PRODUCT_OS_NAME" />.
 
       Dacă această politică este setată la „AlwaysAutoHideShelf”, raftul va fi întotdeauna ascuns automat.
@@ -1394,6 +1409,11 @@
 
       Dacă această setare nu este configurată, va fi folosit directorul prestabilit al profilului.</translation>
 <translation id="5826047473100157858">Specifică dacă utilizatorul poate deschide pagini în modul incognito în <ph name="PRODUCT_NAME" />. Dacă politica este activată sau nu este setată, paginile pot fi deschise în modul incognito. Dacă este dezactivată, paginile nu pot fi deschise în modul incognito. Dacă este selectat „Forțat”, paginile pot fi deschise NUMAI în modul incognito.</translation>
+<translation id="583091600226586337">
+      Dacă politica este activată, utilizatorului i se va arăta unde să salveze fiecare fișier înainte de descărcare.
+      Dacă politica este dezactivată, descărcările vor începe imediat și utilizatorului nu i se va arăta unde să salveze fișierul.
+      Dacă politica nu este configurată, utilizatorul va putea să modifice această setare.
+      </translation>
 <translation id="5835124959204887277">Specifică adresele URL și domeniile pentru care nu va fi afișată nicio solicitare atunci când sunt solicitate certificate de atestare de la Cheile de securitate. În plus, va fi transmis un semnal către Cheia de securitate, indicând faptul că poate fi folosită atestarea individuală. Fără aceasta, utilizatorii vor fi atenționați în Chrome 65+ atunci când site-urile necesită atestarea Cheilor de securitate.
 
       Adresele URL (cum ar fi https://example.com/some/path) vor putea fi folosite numai drept coduri ale aplicației U2F. Domeniile (cum ar fi example.com) vor putea fi folosite numai ca ID-uri webauthn RP. Prin urmare, pentru a acoperi atât API-urile U2F, cât și API-urile webauthn pentru un anumit site, trebuie listate atât adresa URL, cât și domeniul cu codul aplicației.</translation>
@@ -1452,6 +1472,7 @@
 <translation id="5966615072639944554">Extensii cărora li se permite să utilizeze API-ul de atestare la distanță</translation>
 <translation id="5983708779415553259">Comportamentul prestabilit pentru site-urile care nu sunt incluse în niciun pachet de conținut</translation>
 <translation id="5997543603646547632">Utilizați în mod prestabilit formatul de 24 de ore</translation>
+<translation id="5997846976342452720">Specifică dacă instrumentul de găsire de pluginuri trebuie dezactivat (învechit)</translation>
 <translation id="6005179188836322782">Activează funcția Navigare sigură din <ph name="PRODUCT_NAME" /> și nu le permite utilizatorilor să modifice această setare.
 
       Dacă activezi această setare, Navigarea sigură este activată întotdeauna.
@@ -1706,6 +1727,25 @@
 <translation id="6903814433019432303">Această politică este activă numai în modul Vânzare. 
 
       Stabilește setul de adrese URL de încărcat la pornirea sesiunii demonstrative. Această politică va înlocui orice alte mecanisme de stabilire a adresei URL inițiale și astfel poate fi aplicată unei sesiuni care nu este asociată cu un anumit utilizator.</translation>
+<translation id="6908347296939885026">Activează funcția de conectare restricționată la G Suite din <ph name="PRODUCT_NAME" /> și împiedică utilizatorii să modifice această setare.
+
+      Dacă definești această setare, utilizatorul va putea accesa Google
+      Apps numai folosind conturi din domeniile specificate (reține că acest lucru nu
+      funcționează pentru gmail.com/googlemail.com).
+
+      Această setare NU va împiedica utilizatorul să se conecteze pe un dispozitiv
+      gestionat care necesită autentificarea cu un cont Google. Utilizatorul va avea în   continuare permisiunea să se
+      conecteze la conturi din alte domenii, dar i se va afișa o eroare
+      atunci când încearcă să folosească G Suite cu acele conturi.
+
+      Dacă lași această setare necompletată/neconfigurată, utilizatorul va putea să
+      acceseze G Suite cu orice cont.
+
+      Această politică determină anexarea antetului X-GoogApps-Allowed-Domains la toate solicitările
+      HTTP and HTTPS pentru toate domeniile google.com, așa cum se descrie la
+      https://support.google.com/a/answer/1668854.
+
+     Utilizatorii nu pot modifica sau anula această setare.</translation>
 <translation id="6908640907898649429">Configurează furnizorul de căutare prestabilit. Poți specifica furnizorul de căutare prestabilit pe care utilizatorul îl va folosi sau poți alege să dezactivezi căutarea prestabilită.</translation>
 <translation id="6915442654606973733">Activați funcția de accesibilitate pentru feedback vocal.
 
@@ -1824,6 +1864,9 @@ nu poate fi stabilit de utilizator din setările browserului.
 <translation id="7258823566580374486">Permite protecția gazdelor de acces la distanță</translation>
 <translation id="7260277299188117560">Actualizare automată p2p este activată</translation>
 <translation id="7261252191178797385">Imaginea de fundal a dispozitivului</translation>
+<translation id="7266471712301230894">Această politică a fost retrasă începând cu <ph name="PRODUCT_NAME" /> versiunea 64.
+
+      Căutarea și instalarea automată a pluginurilor care lipsesc nu mai este acceptată.</translation>
 <translation id="7267809745244694722">Tastele media au în mod prestabilit rolul de taste pentru funcții</translation>
 <translation id="7271085005502526897">Importați pagina de pornire din browserul prestabilit, la prima rulare</translation>
 <translation id="7273823081800296768">Dacă această setare este activată sau nu este configurată, utilizatorii pot alege să împerecheze clienții și gazdele în momentul conectării, eliminând necesitatea de a introduce un PIN de fiecare dată.
@@ -2109,6 +2152,14 @@ nu poate fi stabilit de utilizator din setările browserului.
       Dacă această politică nu este setată, <ph name="PRODUCT_OS_NAME" /> va utiliza codul contului de e-mail al contului local de pe gadget ca nume afișat pe ecranul de conectare.
 
       Această politică este ignorată pentru conturile de utilizator obișnuite.</translation>
+<translation id="8259375588339409826">Chromium și Google Chrome acceptă același set de politici. Reține că acest document poate să includă politici nelansate (adică, în cazul acestora, intrarea „compatibilă cu” se referă la o versiune <ph name="PRODUCT_NAME" /> nelansată încă), care pot fi modificate sau eliminate fără notificare în prealabil și pentru care nu se oferă nicio garanție, de niciun fel, inclusiv nicio garanție privind proprietățile de securitate și confidențialitate.
+
+Aceste politici sunt destinate exclusiv pentru a configura instanțe ale <ph name="PRODUCT_NAME" /> din organizația ta. Folosirea acestor politici în afara organizației (de exemplu, într-un program distribuit public) se consideră program malware și este posibil să fie etichetată ca atare de Google și de furnizorii de programe antivirus.
+
+Nu e nevoie ca aceste setări să fie configurate manual! Poți să descarci șabloane ușor de folosit pentru Windows, Mac și Linux de la <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" />.
+
+Este recomandat să configurezi politica în Windows prin GPO, cu toate că gestionarea politicii prin registry este încă acceptată pentru instanțele Windows care sunt asociate unui domeniu <ph name="MS_AD_NAME" />.</translation>
+<translation id="8274603902181597201">Șterge directorul principal ecryptfs al utilizatorului și începe cu un nou director principal ext4-encrypted.</translation>
 <translation id="8279832363395120715">Elimină părțile sensibile legate de confidențialitate și de securitate din adresele URL https:// înainte să le trimită la scripturile PAC (Proxy Auto Config) folosite de <ph name="PRODUCT_NAME" /> în timpul rezolvării proxy-ului.
 
       Când politica este activată, funcția de securitate este activată, iar părțile respective sunt eliminate din adresele URL https://
@@ -2192,6 +2243,11 @@ nu poate fi stabilit de utilizator din setările browserului.
 <translation id="8549772397068118889">Avertisment la accesarea site-urilor din afara pachetelor de conținut</translation>
 <translation id="8566842294717252664">Ascunde magazinul web în pagina Filă nouă și în lansatorul de aplicații</translation>
 <translation id="8587229956764455752">Permite crearea de noi conturi de utilizator</translation>
+<translation id="8598350264853261122">Dacă politica este setată la false, utilizatorii neafiliați nu vor avea permisiunea de a folosi ARC.
+
+      Dacă politica nu este configurată sau este setată la true, toți utilizatorii au permisiunea de a folosi ARC (cu excepția cazului în care ARC este dezactivat prin alte mijloace).
+
+      Modificările politicii se vor aplica numai dacă ARC nu rulează, de exemplu în timpul pornirii sistemului de operare Chrome.</translation>
 <translation id="8614804915612153606">Dezactivează actualizarea automată</translation>
 <translation id="8631434304112909927">până la versiunea <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">În cazul aplicațiilor Android, această politică afectează numai camera foto încorporată. Când politica este activată, camera foto este dezactivată pentru toate aplicațiile Android, fără excepții.</translation>
@@ -2324,6 +2380,7 @@ nu poate fi stabilit de utilizator din setările browserului.
           De exemplu, pentru a permite toate modurile de deblocare rapidă, folosește [„toate”]. Pentru a permite numai deblocarea prin codul PIN, folosește [„PIN”]. Pentru a dezactiva toate modurile de deblocare rapidă, folosește [].
 
           În mod prestabilit, nu sunt disponibile moduri de deblocare rapidă pentru dispozitivele gestionate.</translation>
+<translation id="9136399279941091445">Intervalele de inactivitate când politicile specificate ale dispozitivului sunt lansate</translation>
 <translation id="9147029539363974059">Trimite jurnalele de sistem pe serverul de gestionare, pentru ca administratorii
       să poată gestiona jurnalele de sistem.
 

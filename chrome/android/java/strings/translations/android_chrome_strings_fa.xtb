@@ -98,6 +98,7 @@
 <translation id="1832521218263067499">حوادث امنیتی</translation>
 <translation id="1853692000353488670">برگه جدید ناشناس</translation>
 <translation id="1880072593381090678">‏صفحه‌های پرطرفدار Chrome</translation>
+<translation id="1891331835972267886">‏<ph name="APP_NAME" /> در Chrome باز می‌شود. درصورت ادامه دادن، با <ph name="BEGIN_LINK1" />شرایط خدمات<ph name="END_LINK1" /> و <ph name="BEGIN_LINK2" />اعلان حریم خصوصی<ph name="END_LINK2" /> Chrome موافقت می‌کنید.</translation>
 <translation id="189172778771606813">بستن کشوی پیمایش</translation>
 <translation id="1897409700584096124">وب‌سایت درحال پخش است</translation>
 <translation id="1919345977826869612">آگهی‌ها</translation>
@@ -419,6 +420,7 @@
 <translation id="4874967477260347223">مجوزهای رسانه</translation>
 <translation id="4875775213178255010">محتواهای پیشنهادی</translation>
 <translation id="4876188919622883022">نمای ساده‌شده</translation>
+<translation id="4878404682131129617">برقراری تونل ازطریق سرور پروکسی ناموفق بود</translation>
 <translation id="4881695831933465202">باز کردن</translation>
 <translation id="4885273946141277891">‏این تعداد از نسخه‌های Chrome پشتیبانی نمی‌شود.</translation>
 <translation id="4910889077668685004">برنامه‌های پرداخت</translation>
@@ -502,6 +504,7 @@
 <translation id="5585019845078534178">کارت‌ها</translation>
 <translation id="5595485650161345191">ویرایش آدرس</translation>
 <translation id="5596627076506792578">گزینه‌های بیشتر</translation>
+<translation id="5620655347161642930">صادر کردن گذرواژه‌ها...</translation>
 <translation id="5620928963363755975">با استفاده از دکمه «گزینه‌های بیشتر»، فایل‌ها و صفحه‌هایتان را در «بارگیری‌ها» پیدا کنید</translation>
 <translation id="5626134646977739690">نام:</translation>
 <translation id="5639724618331995626">همه سایت‌ها مجاز هستند</translation>
@@ -713,6 +716,7 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (زمان به‌روزرسانی <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">لطفاً صبر کنید...</translation>
 <translation id="7514365320538308">بارگیری</translation>
+<translation id="751961395872307827">نمی‌توان به این سایت متصل شد</translation>
 <translation id="7521387064766892559">جاوا اسکریپت</translation>
 <translation id="7542481630195938534">دریافت پیشنهادها امکان‌پذیر نیست</translation>
 <translation id="7562080006725997899">پاک کردن داده‌های مرور</translation>
@@ -842,6 +846,7 @@
 <translation id="8748850008226585750">محتوا پنهان است</translation>
 <translation id="8788968922598763114">دوباره باز کردن آخرین برگه بسته‌شده</translation>
 <translation id="8812260976093120287">در بعضی از وب‌سایت‌ها، می‌توانید با برنامه‌های پرداخت پشتیبانی‌شده بالا در دستگاهتان پرداخت کنید.</translation>
+<translation id="8816439037877937734">‏<ph name="APP_NAME" /> در Chrome باز خواهد شد. درصورت ادامه دادن، با <ph name="BEGIN_LINK1" />شرایط خدمات<ph name="END_LINK1" /> و <ph name="BEGIN_LINK2" />اعلان حریم خصوصی<ph name="END_LINK2" /> Chrome و <ph name="BEGIN_LINK3" />اعلان حریم خصوصی برای حساب‌های Google مدیریت‌شده با Family<ph name="END_LINK3" /> موافقت می‌کنید.</translation>
 <translation id="8820817407110198400">نشانک‌ها</translation>
 <translation id="883635517171802338">مسدود کردن نمایش پنجره‌های بازشو در سایت‌ها (توصیه می‌شود)</translation>
 <translation id="883806473910249246">هنگام بارگیری محتوا خطایی روی داد.</translation>

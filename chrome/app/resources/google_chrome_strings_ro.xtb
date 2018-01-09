@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">Despre sistemul de operare &amp;Chrome</translation>
 <translation id="110877069173485804">Acesta este browserul dvs. Chrome</translation>
 <translation id="1142745911746664600">Chrome nu se poate actualiza</translation>
+<translation id="1154147086299354128">&amp;Deschide în Chrome</translation>
 <translation id="123620459398936149">Sistemul de operare Chrome nu a putut sincroniza datele. Actualizați parola de acces pentru sincronizare.</translation>
 <translation id="127345590676626841">Chrome se actualizează automat, deci vei avea întotdeauna cea mai recentă versiune. După această descărcare, Chrome va reporni și va fi gata de utilizare.</translation>
 <translation id="1302523850133262269">Așteaptă până când Chrome instalează cele mai recente actualizări de sistem.</translation>
@@ -152,6 +153,7 @@ Verifică e-mailul la <ph name="ACCOUNT_EMAIL" /> pentru instrucțiuni supliment
 <translation id="5243785881901838525">Google Payments (copiat în Chrome)</translation>
 <translation id="5251420635869119124">Invitații pot folosi Chrome fără a lăsa nicio urmă.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome va reporni într-o secundă.}few{Google Chrome va reporni în # secunde.}other{Google Chrome va reporni în # de secunde.}}</translation>
+<translation id="532046782124376502">Avertisment: Google Chrome nu poate împiedica extensiile să înregistreze istoricul de navigare. Pentru a dezactiva această extensie în modul incognito, debifează această opțiune.</translation>
 <translation id="5334545119300433702">Acest modul este cunoscut că intră în conflict cu Google Chrome.</translation>
 <translation id="5386244825306882791">Stabilește și ce pagină se afișează când porniți Chrome sau când căutați din caseta polivalentă.</translation>
 <translation id="5430073640787465221">Fișierul dvs. de preferințe este fie deteriorat, fie nevalid. Google Chrome nu poate recupera setările dvs.</translation>

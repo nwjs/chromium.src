@@ -10,6 +10,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="1104959162601287462">Over &amp;Chrome OS</translation>
 <translation id="110877069173485804">Personaliseer jouw Chrome</translation>
 <translation id="1142745911746664600">Kan Chrome niet updaten</translation>
+<translation id="1154147086299354128">&amp;Openen in Chrome</translation>
 <translation id="123620459398936149">Chrome OS kan je gegevens niet synchroniseren. Update je wachtwoordzin voor synchronisatie.</translation>
 <translation id="127345590676626841">Chrome wordt automatisch bijgewerkt, zodat je altijd beschikt over de nieuwste versie. Wanneer deze download is voltooid, wordt Chrome opnieuw gestart en kun je doorgaan.</translation>
 <translation id="1302523850133262269">Wacht terwijl Chrome de nieuwste systeemupdates installeert.</translation>
@@ -158,6 +159,7 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="5243785881901838525">Google Payments (gekopieerd naar Chrome)</translation>
 <translation id="5251420635869119124">Gasten kunnen Chrome gebruiken zonder iets achter te laten.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome wordt over één seconde opnieuw gestart.}other{Google Chrome wordt over # seconden opnieuw gestart.}}</translation>
+<translation id="532046782124376502">Waarschuwing: Google Chrome kan niet voorkomen dat extensies je browsegeschiedenis registreren. Als je deze extensie in de incognitomodus wilt uitschakelen, verwijder je het vinkje bij deze optie.</translation>
 <translation id="5334545119300433702">Van deze module is bekend dat deze conflicteert met Google Chrome.</translation>
 <translation id="5386244825306882791">Hiermee wordt ook gecontroleerd welke pagina wordt weergegeven wanneer je Chrome start of vanuit de omnibox zoekt.</translation>
 <translation id="5430073640787465221">Je bestand met voorkeuren is beschadigd of ongeldig. Google Chrome kan je instellingen niet herstellen.</translation>

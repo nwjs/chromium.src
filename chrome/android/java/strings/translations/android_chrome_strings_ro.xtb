@@ -98,6 +98,7 @@ Pentru a folosi Webul material, trebuie să activezi Bluetooth și Locația.</tr
 <translation id="1832521218263067499">Incidente privind securitatea</translation>
 <translation id="1853692000353488670">Filă incognito nouă</translation>
 <translation id="1880072593381090678">Pagini populare din Chrome</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> se va deschide în Chrome. Continuând, ești de acord cu <ph name="BEGIN_LINK1" />Termenii și condițiile<ph name="END_LINK1" /> și <ph name="BEGIN_LINK2" />Notificarea privind confidențialitatea<ph name="END_LINK2" /> Chrome.</translation>
 <translation id="189172778771606813">Închide panoul de navigare</translation>
 <translation id="1897409700584096124">Site-ul difuzează</translation>
 <translation id="1919345977826869612">Anunțuri</translation>
@@ -419,6 +420,7 @@ Contul Google poate să ofere alte forme ale istoricului de navigare, cum ar fi 
 <translation id="4874967477260347223">Licențe media</translation>
 <translation id="4875775213178255010">Sugestii de conținut</translation>
 <translation id="4876188919622883022">Afișare simplificată</translation>
+<translation id="4878404682131129617">Nu s-a putut stabili un tunel prin serverul proxy</translation>
 <translation id="4881695831933465202">Deschide</translation>
 <translation id="4885273946141277891">Număr de instanțe Chrome neacceptat.</translation>
 <translation id="4910889077668685004">Aplicații pentru plăți</translation>
@@ -502,6 +504,7 @@ Contul Google poate să ofere alte forme ale istoricului de navigare, cum ar fi 
 <translation id="5585019845078534178">Carduri</translation>
 <translation id="5595485650161345191">Editează adresa</translation>
 <translation id="5596627076506792578">Mai multe opțiuni</translation>
+<translation id="5620655347161642930">Exportă parolele...</translation>
 <translation id="5620928963363755975">Găsește fișierele și paginile în Descărcări folosind butonul Mai multe opțiuni</translation>
 <translation id="5626134646977739690">Nume:</translation>
 <translation id="5639724618331995626">Permite toate site-urile</translation>
@@ -655,7 +658,7 @@ De exemplu, unele site-uri pot răspunde la această solicitare afișând anunț
 <translation id="6891726759199484455">Deblochează pentru a copia parola</translation>
 <translation id="6891858906296486776">{OPEN_TABS,plural, =1{%1$d filă deschisă}few{%1$d file deschise}other{%1$d de file deschise}}</translation>
 <translation id="6896758677409633944">Copiază</translation>
-<translation id="6905163627763043954">Încercați-o</translation>
+<translation id="6905163627763043954">Încearcă-l</translation>
 <translation id="6910211073230771657">Șters</translation>
 <translation id="6945221475159498467">Selectează</translation>
 <translation id="6963766334940102469">Șterge marcaje</translation>
@@ -714,6 +717,7 @@ De exemplu, unele site-uri pot răspunde la această solicitare afișând anunț
 <translation id="7493994139787901920"><ph name="VERSION" /> (Actualizată la <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Așteaptă...</translation>
 <translation id="7514365320538308">Descarcă</translation>
+<translation id="751961395872307827">Nu se poate realiza conexiunea la site</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Nu se pot obține sugestii</translation>
 <translation id="7562080006725997899">Se șterg datele de navigare</translation>
@@ -843,6 +847,7 @@ Pentru licențe noi, conectează-te la internet și redă conținutul descărcat
 <translation id="8748850008226585750">Conținutul este ascuns</translation>
 <translation id="8788968922598763114">Redeschide ultima filă închisă</translation>
 <translation id="8812260976093120287">Pe unele site-uri, poți plăti folosind aplicațiile acceptate pentru plăți de mai sus de pe dispozitiv.</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> se va deschide în Chrome. Continuând, ești de acord cu <ph name="BEGIN_LINK1" />Termenii și condițiile<ph name="END_LINK1" /> și <ph name="BEGIN_LINK2" />Notificarea privind confidențialitatea<ph name="END_LINK2" /> Chrome și cu <ph name="BEGIN_LINK3" />Notificarea privind confidențialitatea pentru Conturile Google gestionate cu Family<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Marcaje</translation>
 <translation id="883635517171802338">Blochează afișarea ferestrelor pop-up de către site-uri (recomandat)</translation>
 <translation id="883806473910249246">A apărut o eroare la descărcarea conținutului.</translation>

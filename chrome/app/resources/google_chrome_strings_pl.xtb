@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">System operacyjny &amp;Chrome – informacje</translation>
 <translation id="110877069173485804">Oto Twój Chrome</translation>
 <translation id="1142745911746664600">Nie można zaktualizować Chrome</translation>
+<translation id="1154147086299354128">&amp;Otwórz w Chrome</translation>
 <translation id="123620459398936149">System operacyjny Chrome nie może zsynchronizować danych. Zaktualizuj hasło synchronizacji.</translation>
 <translation id="127345590676626841">Chrome aktualizuje się automatycznie, więc zawsze masz najnowszą wersję. Po zakończeniu pobierania Chrome uruchomi się ponownie i będzie gotowy do działania.</translation>
 <translation id="1302523850133262269">Poczekaj, aż Chrome zainstaluje najnowsze aktualizacje systemu.</translation>
@@ -153,6 +154,7 @@ Więcej instrukcji znajdziesz w e-mailu wysłanym na adres <ph name="ACCOUNT_EM
 <translation id="5243785881901838525">Google Payments (skopiowana do Chrome)</translation>
 <translation id="5251420635869119124">Goście mogą korzystać z Chrome, nie pozostawiając żadnych danych.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome uruchomi się ponownie za sekundę.}few{Google Chrome uruchomi się ponownie za # sekundy.}many{Google Chrome uruchomi się ponownie za # sekund.}other{Google Chrome uruchomi się ponownie za # sekundy.}}</translation>
+<translation id="532046782124376502">Ostrzeżenie: Google Chrome nie może uniemożliwić rozszerzeniom zapisywania historii przeglądania. Aby wyłączyć to rozszerzenie w trybie incognito, odznacz tę opcję.</translation>
 <translation id="5334545119300433702">Znane są przypadki konfliktu tego modułu z przeglądarką Google Chrome.</translation>
 <translation id="5386244825306882791">Kontroluje także to, jaka strona wyświetla się po uruchomieniu Chrome lub wyszukiwaniu w omniboksie.</translation>
 <translation id="5430073640787465221">Plik ustawień jest uszkodzony lub nieprawidłowy. Google Chrome nie może odzyskać ustawień.</translation>

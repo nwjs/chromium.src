@@ -98,6 +98,7 @@ A Fizikai web használatához be kell kapcsolnia a Bluetooth funkciót és a hel
 <translation id="1832521218263067499">Biztonsággal kapcsolatos események</translation>
 <translation id="1853692000353488670">Új inkognitólap</translation>
 <translation id="1880072593381090678">Népszerű oldalak a Chrome-ból</translation>
+<translation id="1891331835972267886">A(z) <ph name="APP_NAME" /> a Chrome-ban nyílik meg. A folytatással elfogadja a Chrome <ph name="BEGIN_LINK1" />Általános Szerződési Feltételeit<ph name="END_LINK1" /> és <ph name="BEGIN_LINK2" />Adatvédelmi közleményét<ph name="END_LINK2" />.</translation>
 <translation id="189172778771606813">Navigációs fiók bezárása</translation>
 <translation id="1897409700584096124">A webhely sugároz</translation>
 <translation id="1919345977826869612">Hirdetések</translation>
@@ -419,6 +420,7 @@ Előfordulhat, hogy Google-fiókjában (a <ph name="BEGIN_LINK" />myactivity.goo
 <translation id="4874967477260347223">Médiaengedélyek</translation>
 <translation id="4875775213178255010">Javasolt tartalmak</translation>
 <translation id="4876188919622883022">Egyszerűsített nézet</translation>
+<translation id="4878404682131129617">Nem sikerült a proxyszerveren keresztüli alagút kialakítása</translation>
 <translation id="4881695831933465202">Megnyitás</translation>
 <translation id="4885273946141277891">Ilyen sok Chrome-példány nem futhat egyszerre.</translation>
 <translation id="4910889077668685004">Fizetési alkalmazások</translation>
@@ -502,6 +504,7 @@ Előfordulhat, hogy Google-fiókjában (a <ph name="BEGIN_LINK" />myactivity.goo
 <translation id="5585019845078534178">Kártyák</translation>
 <translation id="5595485650161345191">Cím szerkesztése</translation>
 <translation id="5596627076506792578">További lehetőségek</translation>
+<translation id="5620655347161642930">Jelszavak exportálása…</translation>
 <translation id="5620928963363755975">A fájlokat és oldalakat a További lehetőségek gomb Letöltések menüpontjában találhatja meg</translation>
 <translation id="5626134646977739690">Név:</translation>
 <translation id="5639724618331995626">Minden webhely engedélyezése</translation>
@@ -714,6 +717,7 @@ Egyes webhelyek például válaszolhatnak rá úgy, hogy olyan hirdetéseket jel
 <translation id="7493994139787901920"><ph name="VERSION" /> (Frissítve: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Kérjük, várjon…</translation>
 <translation id="7514365320538308">Letöltés</translation>
+<translation id="751961395872307827">Nem lehet csatlakozni a webhelyhez</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Nem sikerült lekérni a javaslatokat</translation>
 <translation id="7562080006725997899">Böngészési adatok törlése</translation>
@@ -843,6 +847,7 @@ Az új engedélyek beszerzéséhez kapcsolódjon az internethez, és játssza le
 <translation id="8748850008226585750">Tartalom elrejtve</translation>
 <translation id="8788968922598763114">A legutóbb bezárt lap újranyitása</translation>
 <translation id="8812260976093120287">Bizonyos webhelyeken fizethet eszközén a fenti támogatott fizetési alkalmazásokkal.</translation>
+<translation id="8816439037877937734">A(z) <ph name="APP_NAME" /> a Chrome-ban nyílik meg. A folytatással elfogadja a Chrome <ph name="BEGIN_LINK1" />Általános Szerződési Feltételeit<ph name="END_LINK1" /> és <ph name="BEGIN_LINK2" />Adatvédelmi közleményét<ph name="END_LINK2" />, valamint <ph name="BEGIN_LINK3" />A Family Link szolgáltatással kezelt Google-fiókokra vonatkozó Adatvédelmi közleményt<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Könyvjelzők</translation>
 <translation id="883635517171802338">Előugró ablakok megjelenítésének letiltása a webhelyeken (ajánlott)</translation>
 <translation id="883806473910249246">Hiba történt a tartalom letöltésekor.</translation>

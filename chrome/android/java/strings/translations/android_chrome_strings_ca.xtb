@@ -57,7 +57,7 @@ Heu de tenir activats el Bluetooth i la ubicació per poder utilitzar el Web fí
 <translation id="1414981605391750300">S'està contactant amb Google. Aquest procés pot trigar una estona…</translation>
 <translation id="1416550906796893042">Versió de l'aplicació</translation>
 <translation id="1423209968422390786">L'accés a la ubicació <ph name="BEGIN_LINK" />està desactivat per a aquest dispositiu<ph name="END_LINK" />.</translation>
-<translation id="1430915738399379752">Impressió</translation>
+<translation id="1430915738399379752">Imprimeix</translation>
 <translation id="1445680696957526815">Els components de Chrome no són compatibles entre ells. És possible que Chrome s'estigui actualitzant. Torneu-ho a provar d'aquí a uns quants minuts. Si el problema continua, desinstal·leu Chrome i torneu-lo a instal·lar.</translation>
 <translation id="1446450296470737166">Permet control total disp. MIDI</translation>
 <translation id="145097072038377568">Aquest permís està desactivat a la configuració d'Android</translation>
@@ -98,6 +98,7 @@ Heu de tenir activats el Bluetooth i la ubicació per poder utilitzar el Web fí
 <translation id="1832521218263067499">Incidències de seguretat</translation>
 <translation id="1853692000353488670">Pestanya d'incògnit nova</translation>
 <translation id="1880072593381090678">Pàgines populars de Chrome</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> s'obrirà a Chrome. En continuar, acceptes les <ph name="BEGIN_LINK1" />condicions del servei<ph name="END_LINK1" /> i l'<ph name="BEGIN_LINK2" />avís de privadesa<ph name="END_LINK2" /> de Chrome.</translation>
 <translation id="189172778771606813">Tanca el tauler de navegació</translation>
 <translation id="1897409700584096124">El lloc web està emetent</translation>
 <translation id="1919345977826869612">Anuncis</translation>
@@ -203,7 +204,7 @@ Heu de tenir activats el Bluetooth i la ubicació per poder utilitzar el Web fí
 <translation id="2874939134665556319">Pista anterior</translation>
 <translation id="2876764156902388290">Chrome utilitza menys dades per mostrar-te aquesta pàgina</translation>
 <translation id="2888126860611144412">Sobre Chrome</translation>
-<translation id="2891154217021530873">Atura la càrrega de la pàgina</translation>
+<translation id="2891154217021530873">Atura la pujada de la pàgina</translation>
 <translation id="2892933203342091350">Activa la visualització simplificada en tots els articles</translation>
 <translation id="2900528713135656174">Crea un esdeveniment</translation>
 <translation id="2902702728133930130">S'ha produït un error inesperat amb Chrome durant l'arrencada.</translation>
@@ -419,6 +420,7 @@ Per ajustar el terme de la cerca, manteniu-lo premut per seleccionar-lo. Per def
 <translation id="4874967477260347223">Llicències de contingut multimèdia</translation>
 <translation id="4875775213178255010">Suggeriments de contingut</translation>
 <translation id="4876188919622883022">Visualització simplificada</translation>
+<translation id="4878404682131129617">S'ha produït un error en establir un túnel mitjançant el servidor intermediari</translation>
 <translation id="4881695831933465202">Obre</translation>
 <translation id="4885273946141277891">No s'admet aquest nombre d'instàncies de Chrome.</translation>
 <translation id="4910889077668685004">Aplicacions de pagament</translation>
@@ -502,6 +504,7 @@ Per ajustar el terme de la cerca, manteniu-lo premut per seleccionar-lo. Per def
 <translation id="5585019845078534178">Targetes</translation>
 <translation id="5595485650161345191">Edita l'adreça</translation>
 <translation id="5596627076506792578">Més opcions</translation>
+<translation id="5620655347161642930">Exporta les contrasenyes...</translation>
 <translation id="5620928963363755975">Per veure els teus fitxers i les teves pàgines, toca el botó Més opcions i ves a la secció Baixades</translation>
 <translation id="5626134646977739690">Nom:</translation>
 <translation id="5639724618331995626">Permet tots els llocs</translation>
@@ -614,7 +617,7 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="6556716549745717622">Bloqueja si el lloc web acostuma a mostrar anuncis intrusius (opció recomanada)</translation>
 <translation id="6560414384669816528">Cerca amb Sogou</translation>
 <translation id="6566259936974865419">Chrome t'ha estalviat <ph name="GIGABYTES" /> GB</translation>
-<translation id="656628257199996201">Tradueix sempre de: <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="656628257199996201">Tradueix sempre el text en <ph name="SOURCE_LANGUAGE" /></translation>
 <translation id="6573431926118603307">Les pestanyes que tingueu obertes a Chrome als altres dispositius es mostraran aquí.</translation>
 <translation id="6575643671698722332">El restabliment ha fallat. Assegureu-vos que el dispositiu estigui en línia i torneu-ho a provar.</translation>
 <translation id="6583199322650523874">Afegeix la pàgina actual a les adreces d'interès</translation>
@@ -714,6 +717,7 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="7493994139787901920"><ph name="VERSION" /> (última actualització: <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Espereu...</translation>
 <translation id="7514365320538308">Baixa</translation>
+<translation id="751961395872307827">No es pot connectar amb el lloc web</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">No es poden obtenir suggeriments</translation>
 <translation id="7562080006725997899">S'estan esborrant les dades de navegació</translation>
@@ -843,6 +847,7 @@ Per obtenir llicències noves, connecteu-vos a Internet i reproduïu el contingu
 <translation id="8748850008226585750">Contingut amagat</translation>
 <translation id="8788968922598763114">Torna a obrir l'última pestanya tancada</translation>
 <translation id="8812260976093120287">En alguns llocs web, pots fer servir el teu dispositiu per pagar amb les aplicacions de pagament anteriors admeses.</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> s'obrirà a Chrome. En continuar, acceptes les <ph name="BEGIN_LINK1" />condicions del servei<ph name="END_LINK1" /> i l'<ph name="BEGIN_LINK2" />avís de privadesa<ph name="END_LINK2" /> de Chrome, així com l'<ph name="BEGIN_LINK3" />avís de privadesa per als comptes de Google gestionats amb Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Adreces d'interès</translation>
 <translation id="883635517171802338">Bloqueja les finestres emergents als llocs web (opció recomanada)</translation>
 <translation id="883806473910249246">S'ha produït un error en baixar el contingut.</translation>

@@ -98,6 +98,7 @@ Tem de ter a Localização e o Bluetooth ativados para poder utilizar a Web fís
 <translation id="1832521218263067499">Incidentes de segurança</translation>
 <translation id="1853692000353488670">Novo separador anónimo</translation>
 <translation id="1880072593381090678">Páginas populares do Chrome</translation>
+<translation id="1891331835972267886">A aplicação <ph name="APP_NAME" /> será aberta no Chrome. Ao continuar, aceita os <ph name="BEGIN_LINK1" />Termos de Utilização<ph name="END_LINK1" /> e o <ph name="BEGIN_LINK2" />Aviso de Privacidade<ph name="END_LINK2" /> do Chrome.</translation>
 <translation id="189172778771606813">Fechar a gaveta de navegação</translation>
 <translation id="1897409700584096124">O Website está a transmitir</translation>
 <translation id="1919345977826869612">Anúncios</translation>
@@ -419,6 +420,7 @@ A sua Conta Google pode ter outras formas do histórico de navegação, como pes
 <translation id="4874967477260347223">Licenças de multimédia</translation>
 <translation id="4875775213178255010">Sugestões de conteúdo</translation>
 <translation id="4876188919622883022">Vista simplificada</translation>
+<translation id="4878404682131129617">Falha ao estabelecer um túnel através do servidor proxy.</translation>
 <translation id="4881695831933465202">Abrir</translation>
 <translation id="4885273946141277891">Número não suportado de instâncias do Chrome.</translation>
 <translation id="4910889077668685004">Aplicações de pagamento</translation>
@@ -460,7 +462,7 @@ A sua Conta Google pode ter outras formas do histórico de navegação, como pes
 <translation id="5271967389191913893">O dispositivo não consegue abrir o conteúdo a transferir.</translation>
 <translation id="528192093759286357">Arraste a partir da parte superior e toque no botão de retrocesso para sair do ecrã inteiro.</translation>
 <translation id="5284584623296338184">As alterações aos marcadores, ao histórico, às palavras-passe e a outras definições deixam de ser sincronizadas com a Conta Google. Contudo, os dados existentes permanecem armazenados na Conta Google.</translation>
-<translation id="5301954838959518834">OK, já percebi</translation>
+<translation id="5301954838959518834">OK, compreendi</translation>
 <translation id="5304593522240415983">Este campo não pode estar em branco</translation>
 <translation id="5308380583665731573">Ligar</translation>
 <translation id="5308603654685598744">Quando esta funcionalidade está ativada, o Chrome oferece a possibilidade de traduzir páginas escritas noutros idiomas com o Google Tradutor.</translation>
@@ -502,6 +504,7 @@ A sua Conta Google pode ter outras formas do histórico de navegação, como pes
 <translation id="5585019845078534178">Cartões</translation>
 <translation id="5595485650161345191">Editar morada</translation>
 <translation id="5596627076506792578">Mais opções</translation>
+<translation id="5620655347161642930">Exportar palavras-passe…</translation>
 <translation id="5620928963363755975">Encontre os seus ficheiros e páginas nas Transferências através do botão Mais opções.</translation>
 <translation id="5626134646977739690">Nome:</translation>
 <translation id="5639724618331995626">Permitir todos os sites</translation>
@@ -714,6 +717,7 @@ Por exemplo, alguns Sites podem responder a este pedido ao mostrar-lhe anúncios
 <translation id="7493994139787901920"><ph name="VERSION" /> (atualizado há <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Aguarde…</translation>
 <translation id="7514365320538308">Transferir</translation>
+<translation id="751961395872307827">Não é possível estabelecer ligação ao site.</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Não é possível obter sugestões</translation>
 <translation id="7562080006725997899">A limpar dados de navegação</translation>
@@ -843,6 +847,7 @@ Para obter licenças novas, ligue-se à Internet e reproduza o conteúdo transfe
 <translation id="8748850008226585750">Conteúdo ocultado</translation>
 <translation id="8788968922598763114">Reabrir o último separador fechado</translation>
 <translation id="8812260976093120287">Nalguns Sites, é possível pagar com as aplicações de pagamento compatíveis acima no dispositivo.</translation>
+<translation id="8816439037877937734">A aplicação <ph name="APP_NAME" /> será aberta no Chrome. Ao continuar, aceita os <ph name="BEGIN_LINK1" />Termos de Utilização<ph name="END_LINK1" /> e o <ph name="BEGIN_LINK2" />Aviso de Privacidade<ph name="END_LINK2" /> do Chrome, bem como o <ph name="BEGIN_LINK3" />Aviso de Privacidade para Contas Google Geridas com o Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Marcadores</translation>
 <translation id="883635517171802338">Impedir a apresentação de pop-ups por parte dos sites (recomendado)</translation>
 <translation id="883806473910249246">Ocorreu um erro ao transferir o conteúdo.</translation>

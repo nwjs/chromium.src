@@ -313,6 +313,11 @@ Hodnota je analyzována jako slovník JSON s mapováním názvu zásady na hodno
 
           Pokud tuto zásadu nenastavíte, budou se používat všechna čtyři schémata.</translation>
 <translation id="2067011586099792101">Blokování přístupu k webům mimo obsahové balíčky</translation>
+<translation id="2075030897098958514">Udává, zda je povolen protokol NTLMv2.
+
+          Všechny verze serverů Samba a Windows z poslední doby protokol NTLMv2 podporují. Jeho zakázání snižuje bezpečnost ověřování a měli byste k němu přistupovat jen v případě, že potřebujete zajistit zpětnou kompatibilitu.
+
+          Pokud tato zásada není definována, používá se v současné době výchozí hodnota false. V budoucnu ale výchozí hodnota bude změněna na true.</translation>
 <translation id="2077129598763517140">V případě dostupnosti použít hardwarovou akceleraci</translation>
 <translation id="2077273864382355561">Prodleva vypnutí obrazovky při napájení z baterie</translation>
 <translation id="2082205219176343977">Konfigurace minimální povolené verze Chromu v zařízení.</translation>
@@ -398,6 +403,7 @@ Tato zásada se netýká terminálových aplikací – ty jsou migrovány automa
 <translation id="2312134445771258233">Umožňuje konfigurovat stránky, které se načtou při spuštění.
 
       Pokud jste v části „Akce při spuštění“ nezvolili možnost „Otevřít seznam adres URL“, budou položky v seznamu „Adresy URL otevírané při spuštění“ ignorovány.</translation>
+<translation id="2327252517317514801">Definování domén, kterým je povolen přístup ke službám G Suite</translation>
 <translation id="2334591568684482454">Konfiguruje dostupnost a chování funkce aktualizace firmwaru <ph name="TPM_FIRMWARE_UPDATE_TPM" />.
 
 Jednotlivá nastavení lze zadat ve vlastnostech objektu JSON:
@@ -996,6 +1002,7 @@ Pokud tuto zásadu nenastavíte, použije se pro všechny webové stránky glob�
           Tato zásada je nepovinná. Pokud není nastavena, požadavek na vyhledávání podle obrázku bude odeslán pomocí metody GET.
 
           Tato zásada je respektována pouze v případě, že je aktivována zásada DefaultSearchProviderEnabled.</translation>
+<translation id="4285674129118156176">Povolit cizím uživatelům používat ARC</translation>
 <translation id="4294280661005713627">Nastavuje cílovou verzi pro automatické aktualizace.
 
       Určuje předponu cílové verze, na kterou by se měl systém <ph name="PRODUCT_OS_NAME" /> aktualizovat. Pokud je v zařízení spuštěna verze, která zadané předponě předchází, aktualizuje se na nejnovější verzi s danou předponou. Je-li v zařízení již nainstalována novější verze, tato zásada se nijak neprojeví (tj. nebude proveden downgrade) a v zařízení zůstane aktuální verze. Formát předpony funguje po součástech, jak ukazuje následující příklad:
@@ -1169,6 +1176,7 @@ Pokud ji ponecháte nenastavenou, velký kurzor bude ve výchozím nastavení de
           Pokud má tato zásada má hodnotu true nebo není nastavena, bude se správa napájení řídit nastavením uzamčení obrazovky při probuzení.
 
           Pokud má tato zásada hodnotu false, budou požadavky na uzamčení obrazovky při probuzení ignorovány.</translation>
+<translation id="487460824085252184">Migrovat automaticky, nežádat uživatele o souhlas.</translation>
 <translation id="4876805738539874299">Maximální povolená verze SSL</translation>
 <translation id="4881315447528084360">Určuje seznam aplikací a rozšíření, které se instalují na pozadí bez zásahu uživatele a které uživatel nemůže odinstalovat ani deaktivovat. Všechna oprávnění požadovaná aplikacemi nebo rozšířeními jsou udělována implicitně bez zásahu uživatele, a to včetně všech dodatečných oprávnění požadovaných budoucími verzemi aplikace nebo rozšíření. Kromě toho jsou udělována také oprávnění k používání těchto rozhraní API pro rozšíření: enterprise.deviceAttributes a enterprise.platformKeys. (Tato rozhraní API jsou k dispozici pouze u aplikací/rozšíření, jejichž instalace je vynucena.)
 
@@ -1271,6 +1279,7 @@ Je-li tato zásada ponechána nenastavená, žádné aplikace ani rozšíření 
 <translation id="5272684451155669299">Pokud má hodnotu true, uživatel může pomocí hardwaru, který je součástí zařízení Chrome, vzdáleně potvrdit svou identitu certifikační autoritě (CA) pro zajištění soukromí prostřednictvím rozhraní <ph name="ENTERPRISE_PLATFORM_KEYS_API" /> pomocí funkce <ph name="CHALLENGE_USER_KEY_FUNCTION" />.
 
           Pokud má tato zásada hodnotu false nebo není nastavena, volání rozhraní API se nezdaří a bude vrácen kód chyby.</translation>
+<translation id="5283457834853986457">Deaktivovat nástroj pro vyhledávání pluginů (podpora ukončena)</translation>
 <translation id="5288772341821359899">Je-li nastavena tato zásada, je rozsah portů UDP používaný rozhraním WebRTC omezen na zadaný interval portů (včetně mezních hodnot).
 
       Pokud tato zásada není nastavena nebo je nastavena na prázdný řetězec nebo neplatný rozsah portů, má rozhraní WebRTC povoleno používat libovolný dostupný místní port UDP.</translation>
@@ -1294,6 +1303,10 @@ Pokud zásadu nastavíte, můžete nakonfigurovat, zda má uživatel oprávněn�
           Je-li tato zásada nastavena na hodnotu False, uživatelé do svého zařízení nebudou moci odesílat obsah. Je-li tato zásada nastavena na hodnotu True, uživatelé obsah odesílat mohou. Pokud tato zásada není nastavena, uživatelé nemohou odesílat obsah do zaregistrovaných zařízení se systémem Chrome OS, ale do nezaregistrovaných zařízení jej odesílat mohou.</translation>
 <translation id="5330684698007383292">Umožnit pluginu <ph name="PRODUCT_FRAME_NAME" /> zpracovávat následující typy obsahu</translation>
 <translation id="5365946944967967336">Zobrazit na liště tlačítko Domů</translation>
+<translation id="5366745336748853475">Umožňuje zadat seznam vzorů adres URL webů, pro které se na přihlašovací obrazovce v rámci procesu SAML automaticky vybere certifikát klienta, pokud o něj daný web požádá. Tuto zásadu lze využít například k nakonfigurování certifikátu pro celé zařízení, který bude předkládán poskytovateli identity SAML.
+
+      Hodnota musí být pole slovníků JSON převedených na řetězce. Každý slovník musí mít tvar { "pattern": "$URL_PATTERN", "filter" : $FILTER }, kde $URL_PATTERN je vzor nastavení obsahu. $FILTER omezuje klientské certifikáty, ze kterých bude prohlížeč automaticky vybírat. Nezávisle na filtru budou vybrány pouze certifikáty, které odpovídají žádosti serveru o certifikát. Pokud má $FILTER tvar { "ISSUER": { "CN": "$ISSUER_CN" } }, budou navíc vybrány pouze ty klientské certifikáty, které byly vydány certifikátem s běžným názvem $ISSUER_CN. Pokud je $FILTER prázdný slovník, není výběr klientských certifikátů dále nijak omezen.
+      Je-li tato zásada ponechána nenastavená, nebude se automatický výběr provádět pro žádný web.</translation>
 <translation id="5366977351895725771">Pokud tuto zásadu nastavíte na hodnotu false, vytváření a přihlašování dozorovaných uživatelů bude zakázáno. Všichni existující dozorovaní uživatelé budou stále k dispozici.
 
           Pokud tuto zásahu nenakonfigurujete nebo ji nastavíte na hodnotu true, tento uživatel bude moci vytvářet a spravovat dozorovaného uživatele.</translation>
@@ -1360,6 +1373,7 @@ Pokud zásadu nastavíte, můžete nakonfigurovat, zda má uživatel oprávněn�
       Je-li zásada stanovena, bude k adrese URL přidán parametr dotazu s názvem „omezit“, který se použije k načtení počáteční hodnoty variace. Hodnota parametru bude představovat hodnotu stanovenou v této zásadě.
 
      Pokud zásada stanovena není, adresa URL počáteční hodnoty variace se nezmění.</translation>
+<translation id="5561811616825571914">Automatický výběr certifikátů klienta pro uvedené weby na přihlašovací obrazovce</translation>
 <translation id="556941986578702361">Řídí automatické skrývání poličky systému <ph name="PRODUCT_OS_NAME" />.
 
 Pokud je tato zásada nastavena na hodnotu AlwaysAutoHideShelf, polička se vždy automaticky skryje.
@@ -1426,6 +1440,11 @@ Pokud tato zásada není nastavena nebo je nastavena na hodnotu false, prohlíž
      Je-li zvolena možnost Zakázáno, stránky nelze otevřít v anonymním režimu. 
 
      Je-li zvolena možnost Povinné, stránky lze otevřít POUZE v anonymním režimu.</translation>
+<translation id="583091600226586337">
+      Pokud je tato zásada povolena, bude uživatel před stažením každého souboru dotázán, kam jej chce uložit.
+      Je-li tato zásada zakázána, bude se stahování souborů spouštět ihned a uživatel nebude tázán, kam chce soubor uložit.
+      Pokud tato zásada není nakonfigurována, uživatel může toto nastavení změnit.
+      </translation>
 <translation id="5835124959204887277">Určuje adresy URL a domény, pro které se při žádosti o atestační certifikáty z bezpečnostních klíčů nezobrazí žádná výzva. Kromě toho se bezpečnostnímu klíči odešle signál, že je možné použít individuální atestaci. Bez tohoto nastavení se uživatelům v Chromu verze 65 nebo vyšší při žádosti webů o atestaci bezpečnostních klíčů zobrazí výzva.
 
       Adresy URL (jako je https://example.com/nejaka/cesta) se budou porovnávat pouze jako U2F appID. Domény (například example.com) se porovnávají pouze jako ID přijímající strany webauthn. K pokrytí rozhraní API U2F i webauthn pro konkrétní web je proto potřeba uvést jak adresu URL appID, tak doménu.</translation>
@@ -1484,6 +1503,7 @@ Pokud tato zásada není nastavena nebo je nastavena na hodnotu False, <ph name=
 <translation id="5966615072639944554">Rozšíření, která mohou používat rozhraní API vzdáleného ověření identity</translation>
 <translation id="5983708779415553259">Výchozí chování pro stránky, které nejsou součástí žádného obsahového balíčku</translation>
 <translation id="5997543603646547632">Ve výchozím nastavení použít 24hodinový formát</translation>
+<translation id="5997846976342452720">Určuje, zda má být deaktivován nástroj pro vyhledávání pluginů (podpora ukončena)</translation>
 <translation id="6005179188836322782">Aktivuje v prohlížeči <ph name="PRODUCT_NAME" /> funkci Bezpečné prohlížení a brání uživatelům ve změně tohoto nastavení.
 
       Pokud toto nastavení aktivujete, Bezpečné prohlížení bude vždy aktivní.
@@ -1747,6 +1767,17 @@ Není-li tato zásada nastavena na konkrétní hodnotu, bude předvídání sít
 <translation id="6903814433019432303">Tato zásada je aktivní pouze v režimu prodeje.
 
       Určuje soubor adres URL, které se načtou po zahájení ukázkové relace. Tato zásada přepíše ostatní mechanismy pro nastavení úvodní adresy URL a může být tedy uplatněna pouze u relace, která není přiřazena konkrétnímu uživateli.</translation>
+<translation id="6908347296939885026">Aktivuje ve službě G Suite funkci omezeného přihlašování prohlížeče <ph name="PRODUCT_NAME" /> a znemožní uživatelům toto nastavení změnit.
+
+      Pokud toto nastavení definujete, bude uživatel aplikace Google moci používat pouze pomocí účtů ze zadaných domén. (Tuto funkci nelze použít pro domény gmail.com/googlemail.com.)
+
+      Toto nastavení uživateli NEZABRÁNÍ v přihlášení do spravovaného zařízení, které vyžaduje ověření Google. Uživatel se i nadále bude moci přihlašovat k účtům v jiných doménách, ale při pokusu o použití služby G Suite s těmito účty se mu zobrazí chyba.
+
+      Pokud toto nastavení ponecháte prázdné nebo nenakonfigurované, bude uživatel moci služby G Suite používat pomocí libovolného účtu.
+
+      Tato zásada způsobí, že bude k požadavkům HTTP a HTTPS odesílaným do domén google.com přidáno záhlaví X-GoogApps-Allowed-Domains popsané na stránce https://support.google.com/a/answer/1668854.
+
+      Uživatelé toto nastavení nemohou změnit ani přepsat.</translation>
 <translation id="6908640907898649429">Slouží ke konfiguraci výchozího poskytovatele vyhledávání. Můžete uživatelům zvolit výchozího poskytovatele vyhledávání nebo výchozí vyhledávání deaktivovat.</translation>
 <translation id="6915442654606973733">Aktivuje funkci usnadnění přístupu pomocí hlasové odezvy.
 
@@ -1878,6 +1909,9 @@ Pokud tuto zásadu nenastavíte, bude při prvním zobrazení přihlašovací ob
 <translation id="7258823566580374486">Povolit blokování uživatelského rozhraní hostitelů vzdáleného přístupu</translation>
 <translation id="7260277299188117560">Automatické aktualizace pomocí sítě p2p aktivovány</translation>
 <translation id="7261252191178797385">Obrázek tapety zařízení</translation>
+<translation id="7266471712301230894">Tato zásada byla z prohlížeče <ph name="PRODUCT_NAME" /> verze 64 odstraněna.
+
+      Automatické vyhledávání a instalace chybějících pluginů již nejsou podporovány.</translation>
 <translation id="7267809745244694722">Mediální klávesy ve výchozím nastavení slouží jako funkční klávesy</translation>
 <translation id="7271085005502526897">Importování domovské stránky z výchozího prohlížeče při prvním spuštění</translation>
 <translation id="7273823081800296768">Pokud je toto nastavení aktivní nebo není nakonfigurováno, uživatelé mohou zapnout párování klientů a hostitelů při připojování. Pak nebude nutné zadávat pokaždé kód PIN.
@@ -2173,6 +2207,14 @@ Pokud ji ponecháte nenastavenou, režim vysokého kontrastu bude ve výchozím 
       Pokud tuto zásadu ponecháte nenastavenou, systém <ph name="PRODUCT_OS_NAME" /> použije jako viditelný název na přihlašovací obrazovce ID e-mailového účtu spojeného s místním účtem v zařízení.
 
       U běžných uživatelských účtů je tato zásada ignorována.</translation>
+<translation id="8259375588339409826">Prohlížeče Chromium a Google Chrome podporují stejné zásady. Upozorňujeme, že tento dokument může obsahovat nevydané zásady (tj. jejich údaj „Podpora“ může odkazovat na dosud nevydanou verzi prohlížeče <ph name="PRODUCT_NAME" />). Takové zásady mohou být bez předchozího oznámení změněny nebo odstraněny a nevztahují se na ně žádné záruky, tedy ani záruky ohledně zabezpečení a ochrany soukromí.
+
+Zásady jsou určeny pouze ke konfiguraci interních instancí prohlížeče <ph name="PRODUCT_NAME" /> ve vaší organizaci. Použití zásad mimo organizaci (např. ve veřejně distribuovaném programu) je považováno za malware a pravděpodobně za něj bude společností Google a dodavateli antivirového softwaru označeno.
+
+Nastavení není potřeba konfigurovat ručně. Na adrese <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" /> jsou k dispozici ke stažení snadno použitelné šablony pro Windows, Mac a Linux.
+
+Doporučený způsob nastavení zásad ve Windows je prostřednictvím objektu zásad skupiny (GPO). V instancích Windows připojených k doméně <ph name="MS_AD_NAME" /> je však stále podporována i správa zásad prostřednictvím registru.</translation>
+<translation id="8274603902181597201">Vymazat domovský adresář ecryptfs uživatele a začít s novým zašifrovaným domovským adresářem ext4.</translation>
 <translation id="8279832363395120715">Před odesláním skriptům PAC (Proxy Auto Config), které prohlížeč <ph name="PRODUCT_NAME" /> používá ke zjištění proxy serveru, budou z adres URL se schématem https:// odstraněny části citlivé z hlediska zabezpečení a ochrany soukromí.
 
       Když je tato zásada nastavena na hodnotu True, je tato bezpečnostní funkce zapnuta a z adres URL se schématem https:// se před odesláním do skriptu PAC odstraní potenciálně citlivé informace. Skript PAC tak nemůže získat přístup k údajům, které jsou běžně chráněny šifrovaným kanálem (jako jsou cesta a dotaz).
@@ -2248,6 +2290,11 @@ Verzí v tomto případě může být přesná verze, například „61.0.3163.
 <translation id="8549772397068118889">Při návštěvě webů mimo obsahové balíčky zobrazit upozornění</translation>
 <translation id="8566842294717252664">Skrýt internetový obchod z karty Nová stránka a ze spouštěče aplikací</translation>
 <translation id="8587229956764455752">Povolit vytváření nových uživatelských účtů</translation>
+<translation id="8598350264853261122">Je-li tato zásada nastavena na hodnotu false, cizí uživatelé nebudou moci používat ARC.
+
+      Pokud tato zásada není nastavena nebo je nastavena na hodnotu true, mohou ARC používat všichni uživatelé (není-li ARC zakázáno jiným způsobem).
+
+      Změny této zásady se projeví jen v době, kdy ARC neběží, tj. při spouštění systému Chrome OS.</translation>
 <translation id="8614804915612153606">Zakáže automatické aktualizace</translation>
 <translation id="8631434304112909927">naposledy ve verzi <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">U aplikací Android má tato zásada vliv pouze na vestavěný fotoaparát. Když je tato zásada nastavena na hodnotu True, je fotoaparát pro všechny aplikace Android bez výjimky zakázán.</translation>
@@ -2386,6 +2433,7 @@ POZNÁMKA: Až do verze 45 byla tato zásada podporována pouze v režimu veře
           Příklad: Chcete-li povolit všechny metody rychlého odemknutí, použijte hodnotu [„all“]. Chcete-li povolit pouze odemknutí pomocí kódu PIN, použijte hodnotu [„PIN“]. Chcete-li všechny metody rychlého odemknutí zakázat, použijte hodnotu [].
 
           Ve výchozím nastavení nejsou pro spravovaná zařízení k dispozici žádné metody rychlého odemknutí.</translation>
+<translation id="9136399279941091445">Intervaly, v nichž nebudou uplatňovány zadané zásady zařízení</translation>
 <translation id="9147029539363974059">Odesílá systémové protokoly na server správy, což umožňuje jejich kontrolu ze strany administrátorů.
 
 Pokud je zásada nastavena na hodnotu true, systémové protokoly budou odesílány. Pokud tuto zásadu nenakonfigurujete nebo ji nastavíte na hodnotu false, systémové protokoly odesílány nebudou.</translation>

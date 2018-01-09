@@ -245,7 +245,7 @@
 <translation id="2728127805433021124">Сертифікат сервера підписано з використанням слабкого алгоритму підпису.</translation>
 <translation id="2730326759066348565"><ph name="BEGIN_LINK" />провести діагностику з’єднання<ph name="END_LINK" /></translation>
 <translation id="2738330467931008676">Вибрати адресу отримання</translation>
-<translation id="2740531572673183784">Ok</translation>
+<translation id="2740531572673183784">OK</translation>
 <translation id="2742870351467570537">Видалити вибрані елементи</translation>
 <translation id="277133753123645258">Спосіб відправлення</translation>
 <translation id="277499241957683684">Відсутній запис пристрою</translation>
@@ -787,7 +787,7 @@
 <translation id="6945221475159498467">Вибрати</translation>
 <translation id="6948701128805548767">Укажіть адресу, щоб переглянути способи отримання та вимоги.</translation>
 <translation id="6957887021205513506">Схоже, що сертифікат сервера підроблено.</translation>
-<translation id="6965382102122355670">ТАК</translation>
+<translation id="6965382102122355670">OK</translation>
 <translation id="6965978654500191972">Пристрій</translation>
 <translation id="6970216967273061347">Район або округ</translation>
 <translation id="6973656660372572881">Указано фіксовані проксі-сервери та URL-адреса сценарію .pac.</translation>

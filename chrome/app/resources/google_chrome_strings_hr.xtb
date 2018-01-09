@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">O OS-u &amp;Chrome</translation>
 <translation id="110877069173485804">Ovo je vaš Chrome</translation>
 <translation id="1142745911746664600">Nije moguće ažurirati Chrome</translation>
+<translation id="1154147086299354128">&amp;Otvori u Chromeu</translation>
 <translation id="123620459398936149">OS Chrome nije mogao sinkronizirati vaše podatke. Ažurirajte zaporku za sinkronizaciju.</translation>
 <translation id="127345590676626841">Chrome se ažurira automatski, pa uvijek imate najnoviju verziju. Kada se ovo preuzimanje dovrši, Chrome će se ponovo pokrenuti i moći ćete nastaviti.</translation>
 <translation id="1302523850133262269">Pričekajte da Chrome instalira najnovija ažuriranja sustava.</translation>
@@ -152,6 +153,7 @@ Daljnje upute poslali smo vam na e-adresu <ph name="ACCOUNT_EMAIL" />.</translat
 <translation id="5243785881901838525">Google Payments (kopirano na Chrome)</translation>
 <translation id="5251420635869119124">Gosti mogu upotrebljavati Chrome bez ostavljanja tragova o upotrebi.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome ponovo će se pokrenuti za 1 sekundu.}one{Google Chrome ponovo će se pokrenuti za # sekundu.}few{Google Chrome ponovo će se pokrenuti za # sekunde.}other{Google Chrome ponovo će se pokrenuti za # sekundi.}}</translation>
+<translation id="532046782124376502">Upozorenje: Google Chrome ne može spriječiti proširenja u evidentiranju vaše povijesti pregledavanja. Da biste onemogućili proširenje u anonimnom načinu, isključite ovu opciju.</translation>
 <translation id="5334545119300433702">Za taj se modul već zna da je u konfliktu s programom Google Chrome.</translation>
 <translation id="5386244825306882791">Upravlja i time koja se stranica prikazuje prilikom pokretanja Chromea ili pretraživanja putem višenamjenskog okvira.</translation>
 <translation id="5430073640787465221">Datoteka vaših postavki oštećena je ili nevažeća. Google Chrome nema mogućnost oporavka vaših postavki.</translation>

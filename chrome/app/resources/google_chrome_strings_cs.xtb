@@ -10,6 +10,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="1104959162601287462">O operačním systému &amp;Chrome</translation>
 <translation id="110877069173485804">Toto je váš Chrome</translation>
 <translation id="1142745911746664600">Chrome nelze aktualizovat</translation>
+<translation id="1154147086299354128">&amp;Otevřít v Chromu</translation>
 <translation id="123620459398936149">Chrome OS vaše data nemohl synchronizovat. Aktualizujte prosím heslovou frázi pro synchronizaci.</translation>
 <translation id="127345590676626841">Chrome se automaticky aktualizuje, abyste měli vždy nejaktuálnější verzi. Až toto stahování skončí, Chrome se restartuje a budete moci pokračovat.</translation>
 <translation id="1302523850133262269">Počkejte prosím, než Chrome nainstaluje nejnovější aktualizace systému.</translation>
@@ -158,6 +159,7 @@ Některé funkce mohou být nedostupné. Zadejte prosím jiný adresář profilu
 <translation id="5243785881901838525">Google Payments (zkopírováno do prohlížeče Chrome)</translation>
 <translation id="5251420635869119124">Hosté mohou Chrome používat, aniž by po nich zůstaly jakékoliv stopy.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome se za 1 sekundu restartuje.}few{Google Chrome se za # sekundy restartuje.}many{Google Chrome se za # sekundy restartuje.}other{Google Chrome se za # sekund restartuje.}}</translation>
+<translation id="532046782124376502">Upozornění: Google Chrome nemůže rozšířením zabránit v zaznamenávání vaší historie prohlížení. Chcete-li toto rozšíření v anonymním režimu deaktivovat, zrušte výběr této možnosti.</translation>
 <translation id="5334545119300433702">U tohoto modulu se vyskytuje známý konflikt s aplikací Google Chrome.</translation>
 <translation id="5386244825306882791">Také řídí, která stránka se zobrazí, když spustíte Chrome nebo budete vyhledávat v omniboxu.</translation>
 <translation id="5430073640787465221">Soubor nastavení je poškozený nebo neplatný.

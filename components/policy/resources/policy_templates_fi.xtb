@@ -318,6 +318,11 @@
           Mahdollisia arvoja ovat basic, digest, ntlm ja negotiate. Erota arvot toisistaan pilkuilla.
           Jos tätä käytäntöä ei ole määritetty, kaikkia neljää todennustapaa tuetaan.</translation>
 <translation id="2067011586099792101">Estä pääsy sisältöpakkauksiin kuulumattomiin sivustoihin</translation>
+<translation id="2075030897098958514">Hallinnoi NTLMv2:n käyttöä
+
+          Kaikki Samba- ja Windows-palvelinten viimeaikaiset versiot tukevat NTLMv2:ta. Se pitäisi poistaa käytöstä vain takautuvan yhteensopivuuden vuoksi, sillä tämä heikentää todennuksen turvallisuutta.
+
+          Jos tätä käytäntöä ei ole määritetty, sen oletusarvo on tällä hetkellä epätosi takautuvan yhteensopivuuden vuoksi, mutta tilanne muuttuu tulevaisuudessa.</translation>
 <translation id="2077129598763517140">Käytä laitteistokiihdytystä, jos mahdollista</translation>
 <translation id="2077273864382355561">Ruudun sammutuksen viive käytettäessä laitetta akkuvirralla</translation>
 <translation id="2082205219176343977">Määritä vanhin sallittu Chrome-versio laitteelle.</translation>
@@ -406,6 +411,7 @@
 <translation id="2303795211377219696">Salli luottokorttitietojen automaattinen täyttö</translation>
 <translation id="2309390639296060546">Maantieteellisen sijainnin oletusasetus</translation>
 <translation id="2312134445771258233">Voit määrittää käynnistettäessä avattavat sivut. Käynnistettäessä avattavat sivut -luettelo ohitetaan, jos et valitse Toiminto käynnistettäessä -asetukseksi vaihtoehtoa Avaa seuraavat sivut:.</translation>
+<translation id="2327252517317514801">Määritä verkkotunnukset, joilla on G Suiten käyttöoikeus</translation>
 <translation id="2334591568684482454">Määrittää <ph name="TPM_FIRMWARE_UPDATE_TPM" />-laiteohjelmiston päivitystoiminnon saatavuuden ja toiminnan
 
       Tarkemmat asetukset voidaan määrittää JSON-arvoissa:
@@ -982,6 +988,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
           Tämä käytäntö on valinnainen. Jos sitä ei ole määritetty, kuvahakupyyntö lähetetään GET-metodin avulla.
 
           Käytäntö on voimassa vain, jos käytäntö DefaultSearchProviderEnabled on käytössä.</translation>
+<translation id="4285674129118156176">Salli ulkopuolisten käyttäjien käyttää ARC:tä</translation>
 <translation id="4294280661005713627">Asettaa automaattisille päivityksille halutun version.
 
       Määrittää etuliitteen versiolle, johon <ph name="PRODUCT_OS_NAME" /> tulee päivittää. Jos laite käyttää versiota, jonka numero on määritettyä etuliitettä vanhempi, versioksi päivitetään uusin, annettua etuliitettä käyttävä versio. Jos laite käyttää jo uudempaa versiota, päivitystä ei suoriteta eikä versiota vaihdeta vanhemmaksi. Etuliitteen muoto toimii seuraavan esimerkin mukaisesti:
@@ -1145,6 +1152,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
           Jos käytännön asetus on tosi tai arvoa ei ole asetettu, virranhallinta noudattaa näytön herätyksen lukitusta.
 
           Jos käytännön asetus on epätosi, näytön herätyksen lukituspyynnöt ohitetaan.</translation>
+<translation id="487460824085252184">Siirrä automaattisesti, älä kysy käyttäjältä</translation>
 <translation id="4876805738539874299">Uusin SSL-versio käytössä</translation>
 <translation id="4881315447528084360">Määrittää sovellukset ja laajennukset, jotka asennetaan huomaamattomasti
           ilman käyttäjän vuorovaikutusta ja joita käyttäjä ei voi poistaa tai
@@ -1239,6 +1247,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 <translation id="5272684451155669299">Jos tämän käytännön arvo on tosi, käyttäjä voi etätodentaa henkilöllisyytensä tietosuojavarmenteen myöntäjälle Chrome-laitteiston avulla, mihin käytetään <ph name="ENTERPRISE_PLATFORM_KEYS_API" />a ja funktiota <ph name="CHALLENGE_USER_KEY_FUNCTION" />.
 
           Jos käytännön arvo on epätosi tai sitä ei ole määritetty, kutsujen lähettäminen sovellusliittymälle epäonnistuu ja palauttaa virhekoodin.</translation>
+<translation id="5283457834853986457">Poista laajennusten haku käytöstä (poistettu käytöstä)</translation>
 <translation id="5288772341821359899">Jos tämä käytäntö on määritetty, WebRTC voi käyttää vain määritetyllä välillä olevia UDP-portteja (välin päätepisteet ovat käytettävissä).
 
       Jos käytäntöä ei määritetä tai sen arvo on tyhjä merkkijono tai virheellinen porttiväli, WebRTC voi käyttää kaikkia käytettävissä olevia paikallisia UDP-portteja.</translation>
@@ -1262,6 +1271,11 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
           Jos tämän käytännön arvo on epätosi, käyttäjät eivät voi suoratoistaa sisältöä laitteeseen. Jos arvo on tosi, käyttäjät saavat suoratoistaa sisältöä. Jos tätä käytäntöä ei ole määritetty, käyttäjät eivät voi suoratoistaa sisältöä rekisteröityihin Chrome-käyttöjärjestelmää käyttäviin laitteisiin, mutta he voivat suoratoistaa sisältöä rekisteröimättömiin laitteisiin.</translation>
 <translation id="5330684698007383292">Anna tuotteen <ph name="PRODUCT_FRAME_NAME" /> käsitellä seuraavia sisältötyyppejä</translation>
 <translation id="5365946944967967336">Näytä etusivupainike työkalupalkissa</translation>
+<translation id="5366745336748853475">Antaa määrittää URL-osoitemallien luettelon, jota vastaaville sivustoille valitaan kirjautumisnäytöltä automaattisesti käyttöoikeusvarmenne SAML-työnkulkua isännöivässä kehyksessä, jos sivusto pyytää varmennetta. Tätä voidaan käyttää esimerkiksi niin, että määritetään laitteen laajuinen varmenne, joka näytetään SAML-tunnistuspalvelulle.
+
+      Arvon on oltava joukko merkkijonoiksi muutettuja JSON-sanakirjoja. Jokaisen sanakirjamerkinnän on oltava muotoa { "pattern": "$URL_PATTERN", "filter" : $FILTER }, jossa $URL_PATTERN on sisältöasetuksen malli. $FILTER määrittää, mitkä asiakasvarmenteet selain valitsee automaattisesti. Suodattimesta riippumatta valitaan vain palvelimen varmennepyyntöä vastaavia varmenteita. Lisäksi jos $FILTER annetaan muodossa { "ISSUER": { "CN": "$ISSUER_CN" } }, selain valitsee vain käyttöoikeusvarmenteita, joihin liittyvään varmenteeseen merkitty CommonName-nimi on $ISSUER_CN. Jos $FILTER on tyhjä sanastomerkintä {}, asiakasvarmenteiden valintaan ei sovelleta lisärajoituksia.
+
+      Jos tätä käytäntöä ei aseteta, varmenteiden automaattista valintaa ei käytetä millään sivustolla.</translation>
 <translation id="5366977351895725771">Jos asetuksen arvo on epätosi, tämä käyttäjä ei voi luoda valvottuja käyttäjiä. Kaikki aiemmin luodut valvotut käyttäjät ovat kuitenkin käytettävissä.
 
           Jos asetuksen arvo on tosi tai sitä ei ole määritetty, tämä käyttäjä voi luoda ja hallinnoida valvottuja käyttäjiä.</translation>
@@ -1321,6 +1335,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
       Jos käytäntö määritetään, kyselyparametri "restrict" lisätään Variations-siemenarvon hakemiseen käytettävään URL-osoitteeseen. Parametrin arvo on tässä käytännössä määritetty arvo.
 
       Jos käytäntöä ei määritetä, Variations-siemenarvon URL-osoitetta ei muokata.</translation>
+<translation id="5561811616825571914">Valitse automaattisesti näiden sivustojen asiakasvarmenteet kirjautumisnäytöltä</translation>
 <translation id="556941986578702361">Hallinnoi <ph name="PRODUCT_OS_NAME" /> -hyllyn automaattista piilottamista.
 
 Jos tämän käytännön arvo on AlwaysAutoHideShelf, hylly piilotetaan aina automaattisesti.
@@ -1381,6 +1396,11 @@ Jos käytäntöä ei määritetä, käyttäjät voivat valita, tuleeko hylly pii
 
       Jos tätä käytäntöä ei ole määritetty, käytetään oletusprofiilin hakemistoa.</translation>
 <translation id="5826047473100157858">Määrittää, voiko käyttäjä avata sivuja incognito-tilassa tuotteessa <ph name="PRODUCT_NAME" />. Jos "Käytössä" on valittu tai käytäntöä ei ole määritetty, sivuja voi avata incognito-tilassa. Jos "Ei käytössä" on valittu, sivuja ei voi avata incognito-tilassa. Jos "Pakotettu" on valittu, sivuja voidaan avata VAIN incognito-tilassa.</translation>
+<translation id="583091600226586337">
+      Jos käytäntö on käytössä, käyttäjältä kysytään, minne kukin tiedosto tallennetaan ennen lataamista.
+      Jos käytäntö on poistettu käytöstä, lataukset alkavat heti eikä käyttäjältä kysytä tiedoston tallennuskohdetta.
+      Jos käytäntöä ei ole määritetty, käyttäjä voi muuttaa asetuksen.
+      </translation>
 <translation id="5835124959204887277">Määrittää URL-osoitteet ja verkkotunnukset, joista ei näytetä kehotetta suojausavaimen todennusvarmenteen pyynnön yhteydessä. Suojausavain saa lisäksi signaalin, joka kertoo, että yksilöllinen todennus saattaa olla käytössä. Muissa tapauksissa käyttäjä saa kehotteen Chrome 65+:ssa, kun sivusto pyytää suojausavainten todennusta.
 
       URL-osoitteet (esim. https://example.com/joku/polku) vastaavat ainoastaan U2F-sovellustunnuksia. Verkkotunnukset (esim. example.com) vastaavat ainoastaan webauthn RP ‑tunnuksia. Sekä sovellustunnuksen URL-osoitteen että verkkotunnuksen tulee siis olla luettelossa, jotta ne kattavat tietyn sivun U2F- ja webauthn-sovellusliittymän.</translation>
@@ -1439,6 +1459,7 @@ Jos tämä asetus ei ole käytössä tai jos sitä ei määritetä, SafeSearchia
 <translation id="5966615072639944554">Laajennukset, joille sallitaan etätodennussovellusliittymän käyttö</translation>
 <translation id="5983708779415553259">Mihinkään sisältöpakettiin kuulumattomien sivustojen oletustoiminta</translation>
 <translation id="5997543603646547632">Käytä oletuksena 24 tunnin kelloa</translation>
+<translation id="5997846976342452720">Valitse, onko laajennushaku käytössä (poistettu käytöstä)</translation>
 <translation id="6005179188836322782">Kun tämä valitaan, <ph name="PRODUCT_NAME" /> käyttää Selaussuoja-ominaisuutta ja estää käyttäjiä muuttamasta tätä asetusta.
 
       Jos otat tämän asetuksen käyttöön, Selaussuoja on aina aktiivinen.
@@ -1689,6 +1710,25 @@ Jos tämä asetus ei ole käytössä tai jos sen arvo on false, tulostuskomento 
 <translation id="6903814433019432303">Tämä käytäntö on aktiivisena vain jälleenmyyntitilassa.
 
       Määrittää URL-osoitteet, jotka ladataan esittelykäyttökerran alkaessa. Tämä käytäntö korvaa kaikki muut aloitusosoitteiden määritystavat, joten sitä voidaan käyttää vain käyttökerroilla, jotka eivät liity tiettyihin käyttäjiin.</translation>
+<translation id="6908347296939885026"><ph name="PRODUCT_NAME" /> saa käyttää rajoitettua G Suite ‑kirjautumistoimintoa, eikä käyttäjä voi muuttaa tätä asetusta
+
+      Jos määrität tämän asetuksen, käyttäjä pääsee Google Apps
+      ‑sovelluksiin vain määrättyjen verkkotunnusten tileiltä (huomaa, että
+      tämä ei toimi gmail.comin/googlemail.comin kohdalla).
+
+      Asetus EI estä käyttäjää kirjautumasta sisään hallinnoidulla laitteella,
+      joka edellyttää Google-todennusta. Käyttäjä voi silti kirjautua muiden
+      verkkotunnusten tileille, mutta hän näkee virheilmoituksen yrittäessään
+      käyttää G Suitea näillä tileillä.
+
+      Jos tätä asetusta ei määritetä, käyttäjä voi käyttää G Suitea
+      millä tahansa tilillä.
+
+      Tämän käytännön seurauksena X-GoogApps-Allowed-Domains-otsikko
+      lisätään kaikkiin google.com-verkkotunnuksiin tehtäviin HTTP- ja HTTPS-
+      pyyntöihin. Lisätietoja on artikkelissa https://support.google.com/a/answer/1668854.
+
+      Käyttäjät eivät voi muuttaa tai ohittaa tätä asetusta.</translation>
 <translation id="6908640907898649429">Määrittää oletushakupalvelun. Voit määrittää käytettävän oletushakupalvelun tai poistaa oletushaun käytöstä.</translation>
 <translation id="6915442654606973733">Ota käyttöön äänipalautteen käytettävyysominaisuus.
 
@@ -1807,6 +1847,9 @@ Jos tätä käytäntöä ei ole määritetty, käytetään oletusarvoa (32).</tr
 <translation id="7258823566580374486">Ota etäisäntien verhoaminen käyttöön</translation>
 <translation id="7260277299188117560">Automaattinen p2p-päivitys käytössä</translation>
 <translation id="7261252191178797385">Laitteen taustakuva</translation>
+<translation id="7266471712301230894">Tämä käytäntö on poistettu <ph name="PRODUCT_NAME" /> ‑versiosta 64 lähtien.
+
+      Puuttuvien laajennusten automaattista hakemista ja asentamista ei enää tueta.</translation>
 <translation id="7267809745244694722">Medianäppäimet toimivat oletuksena toimintonäppäiminä</translation>
 <translation id="7271085005502526897">Tuo saapumissivu oletusselaimesta ensimmäisellä käyttökerralla</translation>
 <translation id="7273823081800296768">Jos tämä asetus on käytössä tai sen arvoa ei ole määritetty, käyttäjät voivat muodostaa laiteparin asiakkaiden ja isäntien välille yhteyden muodostamishetkellä. Tällöin PIN-koodia ei tarvitse antaa joka kerta.
@@ -2092,6 +2135,14 @@ Jos tämä käytäntö on määritetty, kirjautumisruudussa käytetään kunkin 
 Jos tätä käytäntöä ei määritetä, <ph name="PRODUCT_OS_NAME" /> näyttää kirjautumisruudulla laitteeseen lisätyn tilin sähköpostitilin tunnuksen.
 
 Tämä käytäntö ei ole käytössä tavallisilla käyttäjätileillä.</translation>
+<translation id="8259375588339409826">Chromium ja Google Chrome tukevat samoja käytäntöjä. Huomaa, että tämä dokumentti voi sisältää julkaisemattomia käytäntöjä (joiden tuettu-merkintä viittaa julkaisemattomaan <ph name="PRODUCT_NAME" /> ‑versioon), joita voidaan muuttaa tai poistaa ilman erillistä ilmoitusta ja joille ei tarjota minkäänlaisia takuita, ei edes tietoturva- tai tietosuojaominaisuuksiin liittyviä takuita.
+
+Näiden käytäntöjen tarkoituksena on vain <ph name="PRODUCT_NAME" /> ‑esiintymien määrittäminen organisaation sisäistä käyttöä varten. Näiden käytäntöjen käyttöä organisaation ulkopuolella (esimerkiksi julkisesti jaeltavassa ohjelmassa) käsitellään samalla tavoin kuin haittaohjelmia, ja Google ja virustorjuntapalvelujen tarjoajat todennäköisesti merkitsevät tällaisen käytön haitalliseksi.
+
+Näitä asetuksia ei tarvitse määrittää manuaalisesti. Voit ladata helppokäyttöisiä malleja Windowsille, Macille ja Linuxille täältä: <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" />.
+
+Suosittelemme määrittämään käytännöt Windowsissa ryhmäkäytäntöobjekteina, mutta <ph name="MS_AD_NAME" /> ‑verkkotunnukseen yhdistetyt Windows-esiintymät tukevat myös käytäntöjen jakelua rekisterin avulla.</translation>
+<translation id="8274603902181597201">Pyyhi käyttäjän ecryptfs-kotihakemisto ja aloita uudella ext4-salatulla kotihakemistolla</translation>
 <translation id="8279832363395120715">Tämä karsii https://-alkuisista URL-osoitteista yksityisyyden ja tietoturvan kannalta riskialttiit osat, ennen kuin osoitteet lähetetään PAC-ohjelmille (Proxy Auto Config), joita <ph name="PRODUCT_NAME" /> käyttää välityspalvelimen selvityksen aikana.
 
       Jos käytännön arvo on Tosi, tämä suojaustoiminto on käytössä, ja https://-
@@ -2176,6 +2227,11 @@ Tämä käytäntö ei ole käytössä tavallisilla käyttäjätileillä.</transl
 <translation id="8549772397068118889">Varoita, kun sisältöpaketteihin kuulumaton sivusto avataan</translation>
 <translation id="8566842294717252664">Piilota verkkokauppa uusi välilehti -sivulla ja sovellusten käynnistysohjelmassa</translation>
 <translation id="8587229956764455752">Salli uusien käyttäjätilien luominen</translation>
+<translation id="8598350264853261122">Jos käytännön arvo on epätosi, riippumattomilla käyttäjillä ei ole oikeutta käyttää ARC:tä.
+
+      Jos käytännölle ei ole määritetty arvoa tai sen arvo on tosi, kaikilla käyttäjillä on oikeus käyttää ARC:tä (paitsi jos ARC on poistettu käytöstä toisella tavalla).
+
+      Käytäntöön tehtyjä muutoksia sovelletaan vain, jos ARC ei ole käynnissä, esimerkiksi Chrome-käyttöjärjestelmän käynnistyksen aikana.</translation>
 <translation id="8614804915612153606">Poistaa automaattisen päivityksen käytöstä</translation>
 <translation id="8631434304112909927">versioon <ph name="UNTIL_VERSION" /> saakka</translation>
 <translation id="863319402127182273">Android-sovellusten kohdalla tämä käytäntö vaikuttaa vain sisäänrakennettuun kameraan. Kun käytännön arvoksi on määritetty tosi, kamera ei ole minkään Android-sovellusten käytössä, ilman poikkeuksia.</translation>
@@ -2306,6 +2362,7 @@ Tämä käytäntö ei ole käytössä tavallisilla käyttäjätileillä.</transl
           Jos esimerkiksi haluat sallia kaikki lukituksen pika-avaamisen tilat, valitse ["all"]. Jos haluat sallia vain PIN-koodin avaamisen, valitse ["PIN"]. Jos haluat poistaa käytöstä kaikki lukituksen pika-avaamisen tilat, valitse [].
 
           Oletuksena mitkään lukituksen pika-avaamisen tilat eivät ole käytettävissä hallinnoiduilla laitteilla.</translation>
+<translation id="9136399279941091445">Ei-aktiivinen aika tiettyjen laitekäytäntöjen julkaisemisen yhteydessä</translation>
 <translation id="9147029539363974059">Lähettää hallintapalvelimelle järjestelmän lokitietoja ja sallii
       järjestelmänvalvojien seurata järjestelmälokeja.
 

@@ -98,6 +98,7 @@
 <translation id="1832521218263067499">安全事件</translation>
 <translation id="1853692000353488670">打开新的无痕式标签页</translation>
 <translation id="1880072593381090678">Chrome 中的热门网页</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" />将在 Chrome 中打开。继续操作即表示您同意 Chrome 的<ph name="BEGIN_LINK1" />服务条款<ph name="END_LINK1" />和<ph name="BEGIN_LINK2" />隐私权声明<ph name="END_LINK2" />。</translation>
 <translation id="189172778771606813">关闭抽屉式导航栏</translation>
 <translation id="1897409700584096124">网站正在广播</translation>
 <translation id="1919345977826869612">广告</translation>
@@ -419,6 +420,7 @@
 <translation id="4874967477260347223">媒体许可</translation>
 <translation id="4875775213178255010">内容建议</translation>
 <translation id="4876188919622883022">简化版视图</translation>
+<translation id="4878404682131129617">未能成功通过代理服务器建立隧道</translation>
 <translation id="4881695831933465202">打开</translation>
 <translation id="4885273946141277891">Chrome 实例数量已超出上限。</translation>
 <translation id="4910889077668685004">付款应用</translation>
@@ -502,6 +504,7 @@
 <translation id="5585019845078534178">卡片</translation>
 <translation id="5595485650161345191">修改地址</translation>
 <translation id="5596627076506792578">更多选项</translation>
+<translation id="5620655347161642930">导出密码…</translation>
 <translation id="5620928963363755975">通过“更多选项”按钮在“下载内容”中查找您的文件和网页</translation>
 <translation id="5626134646977739690">名字：</translation>
 <translation id="5639724618331995626">允许访问所有网站</translation>
@@ -714,6 +717,7 @@
 <translation id="7493994139787901920"><ph name="VERSION" />（上次更新时间：<ph name="TIME_SINCE_UPDATE" />）</translation>
 <translation id="7498271377022651285">请稍候…</translation>
 <translation id="7514365320538308">下载</translation>
+<translation id="751961395872307827">无法连接到该网站</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">无法获取建议</translation>
 <translation id="7562080006725997899">正在清除浏览数据</translation>
@@ -738,7 +742,7 @@
 <translation id="7658239707568436148">取消</translation>
 <translation id="7665369617277396874">添加帐号</translation>
 <translation id="7698359219371678927">在 <ph name="APP_NAME" /> 中创建电子邮件</translation>
-<translation id="773466115871691567">一律翻译源语言为<ph name="SOURCE_LANGUAGE" />的网页</translation>
+<translation id="773466115871691567">一律翻译<ph name="SOURCE_LANGUAGE" />网页</translation>
 <translation id="7735672056998735387"><ph name="SPACE_FREE" />（<ph name="SPACE_OTHER" />）</translation>
 <translation id="7764225426217299476">添加地址</translation>
 <translation id="7765158879357617694">移动</translation>
@@ -809,7 +813,7 @@
 <translation id="8428213095426709021">设置</translation>
 <translation id="8441146129660941386">后退</translation>
 <translation id="8447861592752582886">撤消设备权限</translation>
-<translation id="8487700953926739672">可离线查看</translation>
+<translation id="8487700953926739672">可离线使用</translation>
 <translation id="8489271220582375723">打开历史记录页</translation>
 <translation id="8493948351860045254">释放空间</translation>
 <translation id="8497726226069778601">目前还未列出任何网页…</translation>
@@ -843,6 +847,7 @@
 <translation id="8748850008226585750">内容已隐藏</translation>
 <translation id="8788968922598763114">重新打开上次关闭的标签页</translation>
 <translation id="8812260976093120287">在某些网站上，您可以使用自己的设备通过上述支持的付款应用付款。</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" />将在 Chrome 中打开。继续操作即表示您同意 Chrome 的<ph name="BEGIN_LINK1" />服务条款<ph name="END_LINK1" />和<ph name="BEGIN_LINK2" />隐私权声明<ph name="END_LINK2" />，以及<ph name="BEGIN_LINK3" />针对通过 Family Link 管理的 Google 帐号的隐私权声明<ph name="END_LINK3" />。</translation>
 <translation id="8820817407110198400">书签</translation>
 <translation id="883635517171802338">禁止网站显示弹出式窗口（推荐）</translation>
 <translation id="883806473910249246">下载此内容时出错。</translation>

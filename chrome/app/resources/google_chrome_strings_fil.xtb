@@ -10,6 +10,7 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="1104959162601287462">Tungkol sa &amp;Chrome OS</translation>
 <translation id="110877069173485804">Ito ang iyong Chrome</translation>
 <translation id="1142745911746664600">Hindi ma-update ang Chrome</translation>
+<translation id="1154147086299354128">Buksan sa Chr&amp;ome</translation>
 <translation id="123620459398936149">Hindi ma-sync ng Chrome OS ang iyong data. Paki-update ang iyong Passphrase sa pag-sync.</translation>
 <translation id="127345590676626841">Awtomatikong nag-a-update ang Chrome upang palagi kang may pinakabagong bersyon. Kapag nakumpleto ang pag-download na ito, magre-restart ang Chrome at makakapagpatuloy ka na.</translation>
 <translation id="1302523850133262269">Mangyaring maghintay habang ini-install ng Chrome ang mga pinakabagong update sa system.</translation>
@@ -158,6 +159,7 @@ Maaaring hindi available ang ilang tampok. Mangyaring tumukoy ng ibang direktory
 <translation id="5243785881901838525">Google Payments (kinopya sa Chrome)</translation>
 <translation id="5251420635869119124">Makakagamit ng Chrome ang mga bisita nang hindi nag-iiwan ng anumang bakas.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Magre-restart ang Google Chrome pagkalipas ng 1 segundo.}one{Magre-restart ang Google Chrome pagkalipas ng # segundo}other{Magre-restart ang Google Chrome pagkalipas ng # na segundo}}</translation>
+<translation id="532046782124376502">Babala: Hindi mapipigilan ng Google Chrome ang pagtatala ng mga extension sa iyong history ng pag-browse. Upang i-disable ang extension na ito sa incognito mode, alisin sa pagkakapili ang opsyong ito.</translation>
 <translation id="5334545119300433702">Ang module na ito ay kilala bilang salungat sa Google Chrome.</translation>
 <translation id="5386244825306882791">Kinokontrol din nito kung anong pahina ang ipinapakita kapag sinimulan mo ang Chrome o naghanap mula sa Omnibox.</translation>
 <translation id="5430073640787465221">Sira o di-wasto ang iyong file ng mga kagustuhan.

@@ -798,14 +798,14 @@
 <translation id="7053983685419859001">Blokir</translation>
 <translation id="7064851114919012435">Info kontak</translation>
 <translation id="7079718277001814089">Situs ini berisi malware</translation>
-<translation id="7087282848513945231">County</translation>
+<translation id="7087282848513945231">Wilayah</translation>
 <translation id="7090678807593890770">Telusuri <ph name="LINK" /> di Google</translation>
 <translation id="7108819624672055576">Diizinkan oleh ekstensi</translation>
 <translation id="7111012039238467737">(Valid)</translation>
 <translation id="7119414471315195487">Tutup tab atau program lain</translation>
 <translation id="7129409597930077180">Tidak dapat mengirim ke alamat ini. Pilih alamat lain.</translation>
 <translation id="7138472120740807366">Metode pengiriman</translation>
-<translation id="7139724024395191329">Emirate</translation>
+<translation id="7139724024395191329">Emirat</translation>
 <translation id="7153549335910886479">{PAYMENT_METHOD,plural, =0{<ph name="PAYMENT_METHOD_PREVIEW" />}=1{<ph name="PAYMENT_METHOD_PREVIEW" /> dan <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> lainnya}other{<ph name="PAYMENT_METHOD_PREVIEW" /> dan <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> lainnya}}</translation>
 <translation id="7155487117670177674">Pembayaran tidak aman</translation>
 <translation id="7175401108899573750">{SHIPPING_OPTIONS,plural, =0{<ph name="SHIPPING_OPTION_PREVIEW" />}=1{<ph name="SHIPPING_OPTION_PREVIEW" /> dan <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> lainnya}other{<ph name="SHIPPING_OPTION_PREVIEW" /> dan <ph name="NUMBER_OF_ADDITIONAL_SHIPPING_OPTIONS" /> lainnya}}</translation>

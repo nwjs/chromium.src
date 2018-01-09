@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">&amp;Chrome OS সম্বন্ধে</translation>
 <translation id="110877069173485804">এটি হল আপনার Chrome</translation>
 <translation id="1142745911746664600">Chrome আপডেট করা যাচ্ছে না</translation>
+<translation id="1154147086299354128">&amp;Chrome এ খুলুন</translation>
 <translation id="123620459398936149">Chrome OS আপনার ডেটা সিঙ্ক করতে পারেনি৷ দয়া করে আপনার সিঙ্ক পাসফ্রেজ আপডেট করুন৷</translation>
 <translation id="127345590676626841">Chrome স্বয়ংক্রিয়ভাবে আপডেট হয় তাই আপনার কাছে সর্বদা নবীনতম সংস্করণটি থাকে৷ এই ডাউনলোডটি সম্পূর্ণ হলে, Chrome আবার চালু হবে এবং আপনি আবার আগের মতো Chrome ব্যবহার করতে পারবেন৷</translation>
 <translation id="1302523850133262269">Chrome যখন সাম্প্রতিক সিস্টেম আপডেটগুলিকে ইনস্টল করে তখন দয়া করে অপেক্ষা করুন৷</translation>
@@ -156,6 +157,7 @@
 <translation id="5243785881901838525">Google Payments (Chrome এ অনুলিপি করা হয়েছে)</translation>
 <translation id="5251420635869119124">অতিথিগণ কোনো কিছুর জন্য অভাব বোধ না করেই Chrome ব্যবহার করতে পারবেন৷</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome ১ সেকেন্ডের মধ্যে পুনরায় চালু হবে।}one{Google Chrome # সেকেন্ডের মধ্যে পুনরায় চালু হবে।}other{Google Chrome # সেকেন্ডের মধ্যে পুনরায় চালু হবে।}}</translation>
+<translation id="532046782124376502">সতর্কতা: Google Chrome কোনও এক্সটেনশনকে আপনার ব্রাউজিং ইতিহাস রেকর্ড করা থেকে বিরত করতে পারে না। ছদ্মবেশী মোডে এই এক্সটেনশনটি অক্ষম করার জন্য এই বিকল্পটি বন্ধ করুন।</translation>
 <translation id="5334545119300433702">এই মডিউলটি Google Chrome-এর সাথে বিবাদের জন্য পরিচিত৷</translation>
 <translation id="5386244825306882791">আপনি Chrome শুরু করলে বা Omnibox থেকে অনুসন্ধান করলে কোন পৃষ্ঠাটি দেখানো হবে তাও এটি নিয়ন্ত্রণ করে।</translation>
 <translation id="5430073640787465221">আপনার অভিরুচিসমূহ ফাইল দূষিত অথবা অবৈধ৷\n\nGoogle Chrome আপনার সেটিংস পুনরুদ্ধার করতে অক্ষম৷</translation>

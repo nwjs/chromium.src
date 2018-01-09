@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">关于 Chrome 操作系统(&amp;C)</translation>
 <translation id="110877069173485804">这是您的专属Chrome</translation>
 <translation id="1142745911746664600">无法更新 Chrome</translation>
+<translation id="1154147086299354128">在 Chrome 中打开(&amp;O)</translation>
 <translation id="123620459398936149">Chrome操作系统无法同步您的数据。请更新您的同步密码。</translation>
 <translation id="127345590676626841">Chrome会自动更新，因此您使用的始终都是最新版本。更新内容下载完毕后，Chrome会重新启动，然后您就可以开始使用了。</translation>
 <translation id="1302523850133262269">Chrome正在安装最新的系统更新，请稍候。</translation>
@@ -153,6 +154,7 @@
 <translation id="5243785881901838525">Google Payments（已同步到 Chrome）</translation>
 <translation id="5251420635869119124">访客使用Chrome不会留下任何痕迹。</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome 将在 1 秒后重新启动。}other{Google Chrome 将在 # 秒后重新启动。}}</translation>
+<translation id="532046782124376502">警告：Google Chrome 无法阻止扩展程序记录您的浏览活动。要在无痕模式下停用该扩展程序，请取消选中此选项。</translation>
 <translation id="5334545119300433702">已知此模块与 Google Chrome 浏览器存在冲突。</translation>
 <translation id="5386244825306882791">它还能够控制您启动Chrome后或通过多功能框进行搜索时系统显示的页面。</translation>
 <translation id="5430073640787465221">您的偏好设置文件已损坏或无效。Google Chrome 浏览器无法恢复您的设置。</translation>

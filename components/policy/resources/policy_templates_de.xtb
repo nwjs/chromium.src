@@ -313,6 +313,11 @@ Wenn diese Richtlinie nicht konfiguriert wird, so wird das standardmäßige Cach
 
           Wenn diese Richtlinie nicht konfiguriert ist, kommen alle vier Schemas zum Einsatz.</translation>
 <translation id="2067011586099792101">Zugriff auf Websites außerhalb von Inhaltspaketen blockieren</translation>
+<translation id="2075030897098958514">Steuert, ob NTLMv2 aktiviert ist.
+
+          Alle aktuellen Versionen der Samba- und Windows-Server unterstützen NTLMv2. Eine Deaktivierung sollte nur zum Zweck der Rückwärtskompatibilität erfolgen und verringert die Sicherheit der Authentifizierung.
+
+          Wenn diese Richtlinie nicht konfiguriert ist, ist der Standardwert für die Rückwärtskompatibilität zurzeit "false", wird aber in Zukunft "true" lauten.</translation>
 <translation id="2077129598763517140">Hardwarebeschleunigung verwenden, falls verfügbar</translation>
 <translation id="2077273864382355561">Verzögerung für die Bildschirmabschaltung im Akkubetrieb</translation>
 <translation id="2082205219176343977">Konfigurieren Sie die für das Gerät erforderliche Mindestversion von Chrome.</translation>
@@ -401,6 +406,7 @@ Wenn diese Richtlinie nicht konfiguriert wird, so wird das standardmäßige Cach
 <translation id="2303795211377219696">AutoFill für Kreditkarten aktivieren</translation>
 <translation id="2309390639296060546">Standardeinstellung für "Standortbestimmung"</translation>
 <translation id="2312134445771258233">Mit dieser Richtlinie können Sie konfigurieren, welche Seiten beim Start geladen werden. Der Inhalt der Liste "Beim Start zu öffnende URLs" wird ignoriert, sofern die Option "URL-Liste öffnen" unter "Aktion beim Start" nicht ausgewählt ist.</translation>
+<translation id="2327252517317514801">Domains definieren, die auf die G Suite zugreifen dürfen</translation>
 <translation id="2334591568684482454">Konfiguriert Verfügbarkeit und Verhalten der Update-Funktion von <ph name="TPM_FIRMWARE_UPDATE_TPM" />-Firmware.
 
       Einzelne Einstellungen können in den JSON-Eigenschaften festgelegt werden:
@@ -977,6 +983,7 @@ Wird die Richtlinie auf "false" gesetzt oder nicht konfiguriert, wird kein Zerti
           Diese Richtlinie ist optional. Wenn sie nicht festlegt ist, wird die Bildsuchanfrage mithilfe der GET-Methode gesendet.
 
           Diese Richtlinie wird nur berücksichtigt, wenn die Richtlinie "DefaultSearchProviderEnabled" aktiviert ist.</translation>
+<translation id="4285674129118156176">Nicht verknüpften Nutzern die Verwendung von ARC gestatten</translation>
 <translation id="4294280661005713627">Legt eine Zielversion für automatische Updates fest.
 
       Gibt das Präfix einer Zielversion an, auf die <ph name="PRODUCT_OS_NAME" /> aktualisiert werden soll. Wenn das Gerät eine niedrigere Version als im Präfix festgelegt ausführt, wird ein Update auf die neueste Version mit diesem Präfix durchgeführt. Sollte das Gerät bereits eine neuere Version ausführen, hat diese Richtlinie keine Auswirkungen, das heißt, es werden keine Downgrades ausgeführt und das Gerät verwendet weiterhin die momentan installierte Version. Das Format des Präfixes bezieht sich auf die jeweilige Komponente, wie im folgenden Beispiel dargestellt:
@@ -1141,6 +1148,7 @@ alle Proxy-Optionen, die in der Eingabeaufforderung angegeben werden.
 Falls diese Richtlinie auf "true" gesetzt oder nicht festgelegt wird, werden Bildschirm-Wakelocks bei der Energieverwaltung zugelassen.
 
 Falls die Richtlinie auf "false" gesetzt wird, werden Anfragen für Bildschirm-Wakelocks ignoriert.</translation>
+<translation id="487460824085252184">Automatisch migrieren, ohne die Zustimmung des Nutzers einzuholen</translation>
 <translation id="4876805738539874299">SSL-Höchstversion aktiviert</translation>
 <translation id="4881315447528084360">Gibt eine Liste von Apps und Erweiterungen an, die automatisch und ohne Zutun
           des Nutzers installiert werden und von diesem weder deinstalliert noch
@@ -1240,6 +1248,7 @@ Falls die Richtlinie auf "false" gesetzt wird, werden Anfragen für Bildschirm-W
 <translation id="5272684451155669299">Falls die Richtlinie auf "true" gesetzt wird, ist die Remote-Bestätigung der Nutzeridentität gegenüber der Datenschutz-Zertifizierungsstelle anhand der Hardware des Chrome-Geräts möglich. Dies geschieht mithilfe der <ph name="CHALLENGE_USER_KEY_FUNCTION" /> über die <ph name="ENTERPRISE_PLATFORM_KEYS_API" />.
 
           Falls die Richtlinie auf "false" gesetzt oder nicht festgelegt wird, treten bei API-Aufrufen Fehler auf und ein Fehlercode wird angezeigt.</translation>
+<translation id="5283457834853986457">Plug-in-Suchfunktion deaktivieren (eingestellt)</translation>
 <translation id="5288772341821359899">Wenn die Richtlinie konfiguriert ist, wird der von WebRTC verwendete UDP-Port-Bereich auf den festgelegten Portintervall, einschließlich der Endpunkte, beschränkt.
 
       Wenn die Richtlinie nicht konfiguriert ist oder sie auf den leeren String oder einen ungültigen Portbereich eingestellt ist, kann von WebRTC jeder beliebige verfügbare lokale UDP-Port verwendet werden.</translation>
@@ -1263,6 +1272,11 @@ Falls die Richtlinie auf "false" gesetzt wird, werden Anfragen für Bildschirm-W
           Wird diese Richtlinie auf "false" gesetzt, ist es Nutzern nicht möglich, Inhalte auf ihr Gerät zu streamen. Wird diese Richtlinie auf "true" gesetzt, können Nutzer Inhalte streamen. Ist diese Richtlinie nicht definiert, so können Nutzer zwar keine Inhalte an angemeldete Chrome OS-Geräte streamen, aber an andere Geräte.</translation>
 <translation id="5330684698007383292">Verarbeitung der folgenden Inhaltstypen durch <ph name="PRODUCT_FRAME_NAME" /> zulassen</translation>
 <translation id="5365946944967967336">Startseiten-Schaltfläche auf Symbolleiste anzeigen</translation>
+<translation id="5366745336748853475">Ermöglicht Ihnen die Zusammenstellung einer Liste mit URL-Mustern, die Websites angeben, für die auf dem Anmeldebildschirm im Frame, der den SAML-Flow hostet, automatisch ein Clientzertifikat ausgewählt wird, wenn die Website ein Zertifikat anfordert. Zum Beispiel kann damit ein geräteübergreifendes Zertifikat konfiguriert werden, das dem SAML IdP präsentiert wird.
+
+      Der Wert muss ein Array von String-JSON-Wörterbüchern sein. Jedes Wörterbuch muss das Format { "pattern": "$URL_PATTERN", "filter" : $FILTER } aufweisen, wobei $URL_PATTERN ein Muster zur Festlegung der Inhalte ist. $FILTER schränkt ein, aus welchen Clientzertifikaten der Browser automatisch auswählt. Unabhängig vom Filter werden nur Zertifikate ausgewählt, die mit der Zertifizierungsanfrage des Servers übereinstimmen. Wenn $FILTER das Format { "ISSUER": { "CN": "$ISSUER_CN" } } hat, werden außerdem nur Clientzertifikate ausgewählt, die von einem Zertifikat mit dem CommonName $ISSUER_CN ausgestellt werden. Wenn $FILTER das leere Wörterbuch {} ist, wird die Auswahl an Clientzertifikaten nicht zusätzlich eingeschränkt.
+
+      Wenn diese Richtlinie nicht konfiguriert ist, erfolgt keine automatische Auswahl für Websites.</translation>
 <translation id="5366977351895725771">Wurde "false" festgelegt, kann dieser Nutzer keine betreuten Nutzer erstellen. Alle vorhandenen betreuten Nutzer sind weiterhin verfügbar.
 
           Wurde "true" oder "not configured" festgelegt, kann dieser Nutzer betreute Nutzer erstellen und verwalten.</translation>
@@ -1322,6 +1336,7 @@ Falls die Richtlinie auf "false" gesetzt wird, werden Anfragen für Bildschirm-W
       Ist die Richtlinie konfiguriert, wird der Abfrageparameter "restrict" zu der URL hinzugefügt, über die der Varianten-Seed abgerufen wird. Den Wert des Parameters legen Sie in dieser Richtlinie fest.
 
       Ist die Richtlinie nicht konfiguriert, bleibt die URL zum Abrufen des Varianten-Seeds unverändert.</translation>
+<translation id="5561811616825571914">Clientzertifikate für diese Websites automatisch auf dem Anmeldebildschirm auswählen</translation>
 <translation id="556941986578702361">Automatisches Ausblenden der <ph name="PRODUCT_OS_NAME" />-Ablage verwalten
 
       Wenn diese Richtlinie auf "AlwaysAutoHideShelf" gesetzt ist, wird die Ablage immer automatisch ausgeblendet.
@@ -1382,6 +1397,11 @@ Falls die Richtlinie auf "false" gesetzt wird, werden Anfragen für Bildschirm-W
 
       Wird diese Einstellung nicht konfiguriert, wird das Standardverzeichnis des Profils verwendet.</translation>
 <translation id="5826047473100157858">Gibt an, ob der Nutzer Seiten in <ph name="PRODUCT_NAME" /> im Inkognitomodus öffnen kann. Ist diese Richtlinie aktiviert oder nicht konfiguriert, so können Seiten im Inkognitomodus geöffnet werden. Wenn sie deaktiviert ist, so können Seiten nicht im Inkognitomodus geöffnet werden. Mit dem Wert "Forced" können Seiten ausschließlich im Inkognitomodus geöffnet werden.</translation>
+<translation id="583091600226586337">
+      Wenn die Richtlinie aktiviert ist, wird der Nutzer vor dem Download gefragt, wo die jeweilige Datei gespeichert werden soll.
+      Wenn die Richtlinie deaktiviert ist, startet der Download sofort und der Nutzer wird nicht nach einem Speicherort gefragt.
+      Wenn die Richtlinie nicht konfiguriert ist, kann der Nutzer diese Einstellung ändern.
+      </translation>
 <translation id="5835124959204887277">In der Richtlinie werden URLs und Domains spezifiziert, für die keine Eingabeaufforderung angezeigt werden, wenn Nachweiszertifikate von Sicherheitsschlüsseln angefordert werden. Zusätzlich wird an den Sicherheitsschlüssel ein Signal gesendet, das angibt, dass individuelle Nachweise verwendet werden können. Andernfalls erhalten Nutzer in Chrome 65 und höher eine Eingabeaufforderung, wenn von Websites ein Nachweis für Sicherheitsschlüssel angefordert wird.
 
       URLs, wie z. B. https://example.com/some/path, werden nur durch U2F-AppIDs bestimmt. Domains, wie z. B. example.com, werden nur durch Webauthn-RP-IDs bestimmt. Um sowohl U2F- als auch Webauthn-APIs in eine bestimmte Website einzubeziehen, müssen deshalb sowohl die AppID-URL als auch die Domain aufgeführt werden.</translation>
@@ -1440,6 +1460,7 @@ Wenn diese Einstellung deaktiviert oder nicht konfiguriert ist, wird kein Proxy 
 <translation id="5966615072639944554">Erweiterungen, die die Remote Attestation API zur Bestätigung der Nutzeridentität verwenden dürfen</translation>
 <translation id="5983708779415553259">Standardverhalten für Websites, die nicht zu einem Inhaltspaket gehören</translation>
 <translation id="5997543603646547632">Standardmäßig 24-Stunden-Uhr verwenden</translation>
+<translation id="5997846976342452720">Angeben, ob Plug-in-Suchfunktion deaktiviert werden soll (eingestellt)</translation>
 <translation id="6005179188836322782">Hiermit wird die Safe Browsing-Funktion von <ph name="PRODUCT_NAME" /> aktiviert und verhindert, dass Nutzer diese Einstellung ändern können.
 
       Wenn Sie diese Einstellung aktivieren, ist Safe Browsing immer aktiv.
@@ -1693,6 +1714,27 @@ Speicherinformationen werden unabhängig von der gewählten Option an die Seite 
 <translation id="6903814433019432303">Diese Richtlinie ist nur im Händlermodus aktiv.
 
       Bestimmt, welche URLs beim Start der Demo-Sitzung geladen werden. Mit dieser Richtlinie werden alle anderen Mechanismen zum Festlegen der Start-URL außer Kraft gesetzt. Die Richtlinie kann darum nur auf eine Sitzung angewandt werden, die keinem bestimmten Nutzer zugeordnet ist.</translation>
+<translation id="6908347296939885026">Aktiviert die eingeschränkte Anmeldefunktion von <ph name="PRODUCT_NAME" /> in der G Suite und verhindert, dass Nutzer diese Einstellung ändern.
+
+      Wenn Sie diese Einstellung festlegen, können Nutzer nur über Konten der
+      angegebenen Domains auf Apps von Google zugreifen. Dies funktioniert
+      jedoch nicht für gmail.com/googlemail.com.
+
+      Diese Einstellung verhindert NICHT, dass Nutzer sich über ein verwaltetes
+      Gerät anmelden, für das eine Google-Authentifizierung erforderlich ist. Nutzer
+      dürfen sich weiterhin über andere Domains in Konten anmelden, erhalten
+      jedoch Fehlermeldungen, wenn sie versuchen, die G Suite mit diesen
+      Konten zu verwenden.
+
+      Wenn Sie diese Einstellung leer lassen bzw. nicht konfigurieren, können
+      Nutzer über beliebige Konten auf die G Suite zugreifen.
+
+      Durch diese Richtlinie wird der Header "X-GoogApps-Allowed-Domains" –
+      wie unter https://support.google.com/a/answer/1668854 beschrieben – an alle
+      HTTP- und HTTPS-Anforderungen angehängt, die an google.com-Domains
+      gesendet werden.
+
+      Nutzer können diese Einstellung weder ändern noch überschreiben.</translation>
 <translation id="6908640907898649429">Konfiguriert die Standardsuchmaschine. Sie können die Standardsuchmaschine für die Nutzer auswählen oder die Standardsuche deaktivieren.</translation>
 <translation id="6915442654606973733">Hiermit wird die Bedienungshilfefunktion für das gesprochene Feedback aktiviert.
 
@@ -1811,6 +1853,9 @@ Wird diese Richtlinie nicht konfiguriert, wird der standardmäßige Profilpfad v
 <translation id="7258823566580374486">Zugangsbeschränkung für Remote-Zugriff-Hosts aktivieren</translation>
 <translation id="7260277299188117560">P2P für automatische Updates aktivieren</translation>
 <translation id="7261252191178797385">Gerätehintergrundbild</translation>
+<translation id="7266471712301230894">Diese Richtlinie ist ab <ph name="PRODUCT_NAME" /> 64 nicht mehr verfügbar.
+
+      Die automatische Suche und Installation von fehlenden Plug-ins wird nicht mehr unterstützt.</translation>
 <translation id="7267809745244694722">Medientasten standardmäßig als Funktionstasten verwenden</translation>
 <translation id="7271085005502526897">Startseite bei erster Ausführung aus Standardbrowser importieren</translation>
 <translation id="7273823081800296768">Wenn diese Einstellung aktiviert oder nicht konfiguriert ist, kann der Nutzer beim Herstellen der Verbindung Clients und Hosts koppeln. Dadurch braucht nicht jedes Mal eine PIN eingegeben zu werden.
@@ -2096,6 +2141,14 @@ Wird diese Richtlinie nicht konfiguriert, wird der standardmäßige Profilpfad v
       Wenn diese Richtlinie nicht eingerichtet wurde, verwendet <ph name="PRODUCT_OS_NAME" /> die E-Mail-Konto-ID des entsprechenden lokalen Gerätekontos als Anzeigename auf der Anmeldeseite.
 
       Diese Richtlinie ist für reguläre Nutzerkonten nicht relevant.</translation>
+<translation id="8259375588339409826">Chromium und Google Chrome unterstützen dieselbe Gruppe von Richtlinien. Beachten Sie, dass dieses Dokument unveröffentlichte Richtlinien umfassen kann, d. h. ihre Unterstützung für eine noch nicht veröffentlichte Version von <ph name="PRODUCT_NAME" /> gilt, und dass solche Richtlinien ohne vorherige Ankündigung geändert oder entfernt werden können. Für diese Richtlinien wird keinerlei Garantie abgegeben, auch nicht in Bezug auf ihre Sicherheit und Datenschutzeigenschaften.
+
+Diese Richtlinien dienen ausschließlich der Konfiguration von internen <ph name="PRODUCT_NAME" />-Instanzen innerhalb Ihrer Organisation. Eine Anwendung dieser Richtlinien außerhalb Ihrer Organisation, z. B. in einem öffentlich bereitgestellten Programm, wird als Malware angesehen und von Google sowie Anbietern von Antivirensoftware mit hoher Wahrscheinlichkeit als Malware gekennzeichnet.
+
+Diese Einstellungen müssen nicht manuell konfiguriert werden. Nutzerfreundliche Vorlagen für Windows, Mac und Linux sind unter <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" /> zum Download verfügbar.
+
+Unter Windows ist es empfehlenswert, Richtlinien über Gruppenrichtlinienobjekte zu konfigurieren, die Bereitstellung von Richtlinien über die Registrierung wird jedoch auch weiterhin von Windows-Instanzen unterstützt, die Teil einer <ph name="MS_AD_NAME" />-Domain sind.</translation>
+<translation id="8274603902181597201">ecryptfs-Basisverzeichnis des Nutzers löschen und durch ein neues ext4-verschlüsseltes Basisverzeichnis ersetzen.</translation>
 <translation id="8279832363395120715">Entfernt datenschutz- und sicherheitsrelevante Teile aus https://-URLs, bevor diese an PAC-Skripts (Proxy Auto Config) weitergeleitet werden, die von <ph name="PRODUCT_NAME" /> während der Proxy-Auflösung verwendet werden.
 
 Wird diese Richtlinie nicht festgelegt oder auf "true" gesetzt, wird für https://-URLs vor der Weiterleitung an ein PAC-Skript standardmäßig ein Stripping durchgeführt. Auf diese Weise können für das PAC-Skript keine Daten eingesehen werden, die normalerweise durch einen verschlüsselten Kanal wie Pfad und Abfrage der URL geschützt sind.
@@ -2171,6 +2224,11 @@ Diese Außerkraftsetzung soll in Zukunft beseitigt werden.</translation>
 <translation id="8549772397068118889">Vor dem Besuch von Websites außerhalb von Inhaltspaketen warnen</translation>
 <translation id="8566842294717252664">Web Store auf der "Neuer Tab"-Seite und im App Launcher ausblenden</translation>
 <translation id="8587229956764455752">Erstellung neuer Nutzerkonten erlauben</translation>
+<translation id="8598350264853261122">Wenn die Richtlinie auf "false" festgelegt ist, können nicht verknüpfte Nutzer ARC nicht verwenden.
+
+      Wenn die Richtlinie nicht konfiguriert oder auf "true" festgelegt ist, können alle Nutzer ARC verwenden, es sei denn, ARC wurde anderweitig deaktiviert.
+
+       Änderungen an dieser Richtlinie werden nur angewendet, wenn ARC nicht ausgeführt wird, z. B. beim Start von Chrome OS.</translation>
 <translation id="8614804915612153606">Automatische Updates deaktivieren</translation>
 <translation id="8631434304112909927">Bis Version <ph name="UNTIL_VERSION" /></translation>
 <translation id="863319402127182273">Bei Android-Apps betrifft diese Richtlinie nur die eingebaute Kamera. Wenn die Richtlinie auf "true" gesetzt ist, wird die Kamera ohne Ausnahme für alle Android-Apps deaktiviert.</translation>
@@ -2301,6 +2359,7 @@ Diese Außerkraftsetzung soll in Zukunft beseitigt werden.</translation>
           Beispiel: Verwenden Sie ["alle"], um alle Modi für das schnelle Entsperren zu erlauben. Oder verwenden Sie ["PIN"], um nur das Entsperren mit der PIN zu erlauben. Wenn Sie alle Modi zum schnellen Entsperren deaktivieren möchten, verwenden Sie [].
 
           Bei verwalteten Geräten sind standardmäßig keine Modi für das schnelle Entsperren verfügbar.</translation>
+<translation id="9136399279941091445">Intervalle für Abwesenheitszeiten, wenn die angegebenen Geräterichtlinien veröffentlicht werden</translation>
 <translation id="9147029539363974059">Systemprotokolle an den Verwaltungsserver senden, um Administratoren die
       Überwachung von Systemprotokollen zu ermöglichen.
 

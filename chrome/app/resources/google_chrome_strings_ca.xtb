@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">Quant a &amp;SO Chrome</translation>
 <translation id="110877069173485804">Aquest és el vostre Chrome</translation>
 <translation id="1142745911746664600">Chrome no es pot actualitzar</translation>
+<translation id="1154147086299354128">&amp;Obre a Chrome</translation>
 <translation id="123620459398936149">Chrome OS no ha pogut sincronitzar les vostres dades. Actualitzeu la contrasenya de sincronització.</translation>
 <translation id="127345590676626841">Chrome s'actualitza automàticament perquè en tingueu sempre la versió més recent. Quan es completi aquesta baixada, Chrome es reiniciarà i ja el podreu utilitzar.</translation>
 <translation id="1302523850133262269">Espereu mentre Chrome instal·la les actualitzacions més recents del sistema.</translation>
@@ -152,6 +153,7 @@ Per obtenir més instruccions, consulteu el correu electrònic a <ph name="ACCOU
 <translation id="5243785881901838525">Google Payments (copiada a Chrome)</translation>
 <translation id="5251420635869119124">Els convidats poden utilitzar Chrome sense deixar-hi rastre.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome es reiniciarà d'aquí a 1 segon.}other{Google Chrome es reiniciarà d'aquí a # segons.}}</translation>
+<translation id="532046782124376502">Advertiment: Google Chrome no pot impedir que les extensions registrin el teu historial de navegació. Per desactivar aquesta extensió en mode d'incògnit, desselecciona aquesta opció.</translation>
 <translation id="5334545119300433702">Se sap que aquest mòdul entra en conflicte amb Google Chrome.</translation>
 <translation id="5386244825306882791">També controla la pàgina que es mostra quan inicieu Chrome o quan feu una cerca des de l'omnibox.</translation>
 <translation id="5430073640787465221">El fitxer de preferències està malmès o no és vàlid. Google Chrome no pot recuperar la configuració.</translation>
@@ -218,7 +220,7 @@ Per obtenir més instruccions, consulteu el correu electrònic a <ph name="ACCOU
 <translation id="7473136999113284234">Chrome s'actualitza automàticament perquè en tingueu sempre la versió més recent.</translation>
 <translation id="7494905215383356681">Llicències de programari lliure de Chrome</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
-<translation id="7552219221109926349">Mostra Google Chrome en aquest idioma</translation>
+<translation id="7552219221109926349">Mostra Chrome OS en aquest idioma</translation>
 <translation id="7592736734348559088">Google Chrome no ha pogut sincronitzar les dades perquè els detalls d'inici de sessió del compte no estan actualitzats.</translation>
 <translation id="7626032353295482388">Us donem la benvinguda a Chrome</translation>
 <translation id="7747138024166251722">L'instal·lador no ha pogut crear un directori temporal. Comprova que hi ha espai lliure al disc i que tens permís per instal·lar el programari.</translation>

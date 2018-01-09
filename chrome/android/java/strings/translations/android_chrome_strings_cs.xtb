@@ -98,6 +98,7 @@ Chcete-li fyzický web používat, je třeba aktivovat Bluetooth a určování 
 <translation id="1832521218263067499">Narušení zabezpečení</translation>
 <translation id="1853692000353488670">Nová anonymní karta</translation>
 <translation id="1880072593381090678">Oblíbené stránky z Chromu</translation>
+<translation id="1891331835972267886">Aplikace <ph name="APP_NAME" /> se otevře v Chromu. Pokračováním vyjadřujete souhlas se <ph name="BEGIN_LINK1" />smluvními podmínkami<ph name="END_LINK1" /> a <ph name="BEGIN_LINK2" />upozorněním ve věci ochrany osobních údajů<ph name="END_LINK2" />.</translation>
 <translation id="189172778771606813">Zavřít vysouvací panel navigace</translation>
 <translation id="1897409700584096124">Web vysílá</translation>
 <translation id="1919345977826869612">Reklamy</translation>
@@ -419,6 +420,7 @@ Na stránce <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> moh
 <translation id="4874967477260347223">Licence médií</translation>
 <translation id="4875775213178255010">Návrhy obsahu</translation>
 <translation id="4876188919622883022">Zjednodušené zobrazení</translation>
+<translation id="4878404682131129617">Vytvoření tunelu prostřednictvím proxy serveru se nezdařilo</translation>
 <translation id="4881695831933465202">Otevřít</translation>
 <translation id="4885273946141277891">Nepodporovaný počet instancí Chromu.</translation>
 <translation id="4910889077668685004">Platební aplikace</translation>
@@ -460,7 +462,7 @@ Na stránce <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> moh
 <translation id="5271967389191913893">Zařízení obsah ke stažení nemůže otevřít.</translation>
 <translation id="528192093759286357">Režim celé obrazovky ukončíte přetažením z horního okraje obrazovky a klepnutím na tlačítko Zpět.</translation>
 <translation id="5284584623296338184">Změny záložek, historie, hesel a dalších nastavení se již nebudou synchronizovat do vašeho účtu Google. Vaše existující data však v účtu Google uložena zůstanou.</translation>
-<translation id="5301954838959518834">Ano, chápu</translation>
+<translation id="5301954838959518834">Dobře, rozumím</translation>
 <translation id="5304593522240415983">Toto pole nesmí být prázdné</translation>
 <translation id="5308380583665731573">Připojení</translation>
 <translation id="5308603654685598744">Pokud je tato funkce zapnutá, bude Chrome nabízet překlad stránek v jiných jazycích pomocí Překladače Google.</translation>
@@ -502,6 +504,7 @@ Na stránce <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> moh
 <translation id="5585019845078534178">Karty</translation>
 <translation id="5595485650161345191">Upravit adresu</translation>
 <translation id="5596627076506792578">Další možnosti</translation>
+<translation id="5620655347161642930">Exportovat hesla...</translation>
 <translation id="5620928963363755975">Stažené soubory a stránky můžete najít pomocí tlačítka Další možnosti</translation>
 <translation id="5626134646977739690">Jméno:</translation>
 <translation id="5639724618331995626">Povolit všechny weby</translation>
@@ -714,6 +717,7 @@ Některé weby mohou například na tento požadavek reagovat tak, že vám zobr
 <translation id="7493994139787901920"><ph name="VERSION" /> (aktualizováno <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Čekejte prosím…</translation>
 <translation id="7514365320538308">Stáhnout</translation>
+<translation id="751961395872307827">K webu se nelze připojit</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Návrhy nelze načíst</translation>
 <translation id="7562080006725997899">Mazání údajů o prohlížení</translation>
@@ -843,6 +847,7 @@ Chcete-li získat nové licence, připojte se k internetu a přehrajte stažen
 <translation id="8748850008226585750">Skrytý obsah</translation>
 <translation id="8788968922598763114">Znovu otevřít naposledy zavřenou kartu</translation>
 <translation id="8812260976093120287">Na některých webech můžete platit pomocí výše uvedených podporovaných platebních aplikací v zařízení.</translation>
+<translation id="8816439037877937734">Aplikace <ph name="APP_NAME" /> se otevře v Chromu. Pokračováním vyjadřujete souhlas se <ph name="BEGIN_LINK1" />smluvními podmínkami<ph name="END_LINK1" /> a <ph name="BEGIN_LINK2" />upozorněním ve věci ochrany osobních údajů<ph name="END_LINK2" /> prohlížeče Chrome a <ph name="BEGIN_LINK3" />upozorněním ve věci ochrany osobních údajů pro účty Google spravované prostřednictvím služby Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Záložky</translation>
 <translation id="883635517171802338">Bránit webům v zobrazování vyskakovacích oken (doporučeno)</translation>
 <translation id="883806473910249246">Při stahování obsahu došlo k chybě.</translation>

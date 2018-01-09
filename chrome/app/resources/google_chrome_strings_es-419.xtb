@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">Acerca del &amp;sistema operativo de Chrome</translation>
 <translation id="110877069173485804">Este es tu navegador Chrome</translation>
 <translation id="1142745911746664600">No se puede actualizar Chrome</translation>
+<translation id="1154147086299354128">&amp;Abrir en Chrome</translation>
 <translation id="123620459398936149">El Sistema operativo Chrome no pudo sincronizar los datos. Actualiza la frase de contraseña de sincronización.</translation>
 <translation id="127345590676626841">Chrome se actualiza automáticamente para que siempre tengas la versión más reciente. Cuando se complete esta descarga, Chrome se reiniciará y podrás usarlo.</translation>
 <translation id="1302523850133262269">Espera mientras Chrome instala las últimas actualizaciones del sistema.</translation>
@@ -152,6 +153,7 @@ Para obtener más instrucciones, revisa tu correo electrónico en <ph name="ACCO
 <translation id="5243785881901838525">Google Payments (copiada enChrome)</translation>
 <translation id="5251420635869119124">Los invitados pueden utilizar Chrome sin dejar nada detrás.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome se reiniciará en 1 segundo.}other{Google Chrome se reiniciará en # segundos.}}</translation>
+<translation id="532046782124376502">Advertencia: Google Chrome no puede impedir que las extensiones guarden tu historial de navegación. Para inhabilitar esta extensión en modo de navegación incógnito, desmarca esta opción.</translation>
 <translation id="5334545119300433702">Se sabe que este módulo es conflictivo con Google Chrome.</translation>
 <translation id="5386244825306882791">También controla qué página se muestra al iniciar Chrome o al realizar búsquedas desde el cuadro multifunción.</translation>
 <translation id="5430073640787465221">Tu archivo de preferencias está dañado o no es válido. Google Chrome no puede recuperar tu configuración.</translation>

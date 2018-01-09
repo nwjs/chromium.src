@@ -98,6 +98,7 @@
 <translation id="1832521218263067499">보안 사고</translation>
 <translation id="1853692000353488670">새 시크릿 탭</translation>
 <translation id="1880072593381090678">Chrome 인기 페이지</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" />이(가) Chrome에서 열립니다. 계속하면 Chrome의 <ph name="BEGIN_LINK1" />서비스 약관<ph name="END_LINK1" /> 및 <ph name="BEGIN_LINK2" />개인정보처리방침<ph name="END_LINK2" />에 동의하는 것으로 간주됩니다.</translation>
 <translation id="189172778771606813">탐색 창 닫기</translation>
 <translation id="1897409700584096124">웹사이트에서 브로드캐스트 중입니다.</translation>
 <translation id="1919345977826869612">광고</translation>
@@ -419,6 +420,7 @@
 <translation id="4874967477260347223">미디어 라이선스</translation>
 <translation id="4875775213178255010">콘텐츠 추천</translation>
 <translation id="4876188919622883022">간단히 보기</translation>
+<translation id="4878404682131129617">프록시 서버를 통한 터널 설정에 실패했습니다</translation>
 <translation id="4881695831933465202">열기</translation>
 <translation id="4885273946141277891">지원되지 않는 Chrome 인스턴스 수입니다.</translation>
 <translation id="4910889077668685004">결제 앱</translation>
@@ -502,6 +504,7 @@
 <translation id="5585019845078534178">카드</translation>
 <translation id="5595485650161345191">주소 수정</translation>
 <translation id="5596627076506792578">옵션 더보기</translation>
+<translation id="5620655347161642930">비밀번호 내보내기...</translation>
 <translation id="5620928963363755975">옵션 더보기 버튼을 눌러 다운로드에서 파일 및 페이지를 찾아보세요.</translation>
 <translation id="5626134646977739690">이름:</translation>
 <translation id="5639724618331995626">모든 사이트 허용</translation>
@@ -714,6 +717,7 @@
 <translation id="7493994139787901920"><ph name="VERSION" />(<ph name="TIME_SINCE_UPDATE" />에 업데이트됨)</translation>
 <translation id="7498271377022651285">잠시 기다려 주세요…</translation>
 <translation id="7514365320538308">다운로드</translation>
+<translation id="751961395872307827">사이트에 연결할 수 없습니다</translation>
 <translation id="7521387064766892559">자바스크립트</translation>
 <translation id="7542481630195938534">추천을 받을 수 없음</translation>
 <translation id="7562080006725997899">인터넷 사용 기록 삭제</translation>
@@ -843,6 +847,7 @@
 <translation id="8748850008226585750">숨겨진 콘텐츠</translation>
 <translation id="8788968922598763114">마지막으로 닫은 탭 다시 열기</translation>
 <translation id="8812260976093120287">일부 웹사이트에서는 위의 결제 앱을 사용하여 내 기기에서 결제할 수 있습니다.</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" />이(가) Chrome에서 열립니다. 계속하면 Chrome의 <ph name="BEGIN_LINK1" />서비스 약관<ph name="END_LINK1" />, <ph name="BEGIN_LINK2" />개인정보처리방침<ph name="END_LINK2" /> 및 <ph name="BEGIN_LINK3" />Family Link로 관리되는 Google 계정용 개인정보처리방침<ph name="END_LINK3" />에 동의하는 것으로 간주됩니다.</translation>
 <translation id="8820817407110198400">북마크</translation>
 <translation id="883635517171802338">사이트에서 팝업을 표시하지 못하도록 차단(권장)</translation>
 <translation id="883806473910249246">콘텐츠를 다운로드하는 중에 오류가 발생했습니다.</translation>

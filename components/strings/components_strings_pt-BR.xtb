@@ -87,7 +87,7 @@
 <translation id="1592005682883173041">Acesso a dados locais</translation>
 <translation id="1594030484168838125">Escolher</translation>
 <translation id="1620510694547887537">Câmera</translation>
-<translation id="1629803312968146339">Deseja que o Chrome salve este cartão?</translation>
+<translation id="1629803312968146339">Quer que o Chrome salve este cartão?</translation>
 <translation id="1639239467298939599">Carregando</translation>
 <translation id="1640180200866533862">Políticas de usuário</translation>
 <translation id="1640244768702815859">Tente <ph name="BEGIN_LINK" />visitar a página inicial do site<ph name="END_LINK" />.</translation>
@@ -230,7 +230,7 @@
 <translation id="2650446666397867134">O acesso ao arquivo foi negado</translation>
 <translation id="2653659639078652383">Enviar</translation>
 <translation id="2666117266261740852">Fechar outras guias ou apps</translation>
-<translation id="2674170444375937751">Tem certeza de que deseja excluir essas páginas do seu histórico?</translation>
+<translation id="2674170444375937751">Tem certeza que quer excluir essas páginas do seu histórico?</translation>
 <translation id="2677748264148917807">Sair</translation>
 <translation id="2699302886720511147">Cartões aceitos</translation>
 <translation id="2702801445560668637">Lista de leitura</translation>
@@ -286,7 +286,7 @@
 <translation id="3010559122411665027">Entrada de lista "<ph name="ENTRY_INDEX" />": <ph name="ERROR" /></translation>
 <translation id="301521992641321250">Bloqueada automaticamente</translation>
 <translation id="3024663005179499861">Tipo de política incorreto</translation>
-<translation id="3032412215588512954">Deseja atualizar este site?</translation>
+<translation id="3032412215588512954">Quer atualizar este site?</translation>
 <translation id="3037605927509011580">Ah, não!</translation>
 <translation id="3039538478787849737">Salvar cartão no Google?</translation>
 <translation id="3041612393474885105">Informações do certificado</translation>
@@ -406,7 +406,7 @@
 <translation id="375403751935624634">A tradução falhou devido a um erro no servidor.</translation>
 <translation id="3759461132968374835">Você não relatou falhas recentemente. As falhas que ocorreram quando o relatório de erros estava desativado não aparecerão aqui.</translation>
 <translation id="3765032636089507299">A página de navegação segura está em construção.</translation>
-<translation id="3778403066972421603">Deseja salvar este cartão na sua Conta do Google e neste dispositivo?</translation>
+<translation id="3778403066972421603">Quer salvar este cartão na sua Conta do Google e neste dispositivo?</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3787705759683870569">Validade: <ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="3808375843007691220">Aviso: recursos experimentais à vista!</translation>
@@ -447,7 +447,7 @@
 <translation id="4148925816941278100">American Express</translation>
 <translation id="4151403195736952345">Usar padrão global (Detectar)</translation>
 <translation id="4165986682804962316">Configurações do site</translation>
-<translation id="4169947484918424451">Deseja que o Chromium salve este cartão?</translation>
+<translation id="4169947484918424451">Quer que o Chromium salve este cartão?</translation>
 <translation id="4171400957073367226">Assinatura de verificação inválida</translation>
 <translation id="4173827307318847180">{MORE_ITEMS,plural, =1{Mais <ph name="ITEM_COUNT" /> item}one{Mais <ph name="ITEM_COUNT" /> item}other{Mais <ph name="ITEM_COUNT" /> itens}}</translation>
 <translation id="4179515394835346607"><ph name="ROW_NAME" />: <ph name="ROW_CONTENT" /></translation>
@@ -640,7 +640,7 @@
 <translation id="5610142619324316209">Verificar a conexão</translation>
 <translation id="5610807607761827392">É possível gerenciar cartões e endereços em <ph name="BEGIN_LINK" />Configurações<ph name="END_LINK" />.</translation>
 <translation id="5617949217645503996">Redirecionamento em excesso por <ph name="HOST_NAME" /></translation>
-<translation id="5622887735448669177">Deseja sair deste site?</translation>
+<translation id="5622887735448669177">Quer sair deste site?</translation>
 <translation id="5629630648637658800">Falha ao carregar as configurações da política</translation>
 <translation id="5631439013527180824">Token de gerenciamento de dispositivo inválido</translation>
 <translation id="5633066919399395251">Invasores que estão em <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> no momento podem tentar instalar programas perigosos no seu computador e roubar ou excluir suas informações (por exemplo, fotos, senhas, mensagens e cartões de crédito). <ph name="BEGIN_LEARN_MORE_LINK" />Saiba mais<ph name="END_LEARN_MORE_LINK" /></translation>
@@ -661,8 +661,8 @@
 <translation id="5778550464785688721">Controle total de dispositivos MIDI</translation>
 <translation id="5784606427469807560">Ocorreu um problema ao confirmar seu cartão. Verifique a conexão com a Internet e tente novamente.</translation>
 <translation id="5785756445106461925">Além disso, esta página inclui outros recursos que não são seguros. Esses recursos podem ser visualizados por outros usuários enquanto eles navegam e podem ser modificados por um invasor para alterar o comportamento da página.</translation>
-<translation id="5786044859038896871">Deseja preencher as informações do cartão?</translation>
-<translation id="5803412860119678065">Deseja preencher as informações do seu cartão <ph name="CARD_DETAIL" />?</translation>
+<translation id="5786044859038896871">Quer preencher as informações do cartão?</translation>
+<translation id="5803412860119678065">Quer preencher as informações do seu cartão <ph name="CARD_DETAIL" />?</translation>
 <translation id="5810442152076338065">Sua conexão com <ph name="DOMAIN" /> está criptografada com um pacote de criptografia obsoleto.</translation>
 <translation id="5813119285467412249">&amp;Refazer adicionar</translation>
 <translation id="5838278095973806738">Você não deve fornecer nenhuma informação confidencial nesse site (por exemplo, senhas ou cartões de crédito), porque elas podem ser roubadas por invasores.</translation>
@@ -954,7 +954,7 @@
 <translation id="8225771182978767009">A pessoa que configurou este computador optou por bloquear esse site.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>
 <translation id="8238581221633243064">Abrir página em uma nova guia anônima</translation>
-<translation id="8241707690549784388">A página que você está procurando usou as informações inseridas. Voltar à essa página poderá fazer com que todas as ações realizadas antes sejam repetidas. Deseja continuar?</translation>
+<translation id="8241707690549784388">A página que você está procurando usou as informações inseridas. Voltar à essa página poderá fazer com que todas as ações realizadas antes sejam repetidas. Quer continuar?</translation>
 <translation id="8241712895048303527">Bloquear neste site</translation>
 <translation id="8249320324621329438">Última busca:</translation>
 <translation id="8253091569723639551">Endereço de faturamento necessário</translation>
@@ -1026,7 +1026,7 @@
 <translation id="8876793034577346603">Falha ao analisar a configuração de rede.</translation>
 <translation id="8891727572606052622">Modo de proxy inválido.</translation>
 <translation id="8903921497873541725">Aumentar zoom</translation>
-<translation id="8931333241327730545">Deseja salvar este cartão na sua Conta do Google?</translation>
+<translation id="8931333241327730545">Quer salvar este cartão na sua Conta do Google?</translation>
 <translation id="8932102934695377596">Seu relógio está atrasado</translation>
 <translation id="893332455753468063">Adicione um Nome</translation>
 <translation id="8938939909778640821">Cartões de crédito e pré-pagos aceitos</translation>

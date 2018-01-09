@@ -319,10 +319,15 @@
 
           如果未設定這項政策，系統將全部採用以上 4 種機制。</translation>
 <translation id="2067011586099792101">禁止存取內容套件以外的網站</translation>
+<translation id="2075030897098958514">控制是否啟用 NTLMv2。
+
+          近期的所有 Samba 和 Windows 伺服器版本均支援 NTLMv2。除非是為了回溯相容性的緣故，否則請勿停用這項功能 (驗證功能的安全性會因此下降)。
+
+          未定義這項政策時，預設值目前為 false (因應回溯相容性需求)，但日後將變更為 true。</translation>
 <translation id="2077129598763517140">在可用時使用硬體加速</translation>
 <translation id="2077273864382355561">在電池供電環境下執行時的螢幕關閉延遲時間</translation>
 <translation id="2082205219176343977">設定裝置的最低 Chrome 版本限制。</translation>
-<translation id="209586405398070749">穩定頻道</translation>
+<translation id="209586405398070749">穩定版</translation>
 <translation id="2098658257603918882">啟用使用量和當機相關資料的報告功能</translation>
 <translation id="2113068765175018713">透過自動重新啟動的方式限制裝置的正常運作時間</translation>
 <translation id="2127599828444728326">允許這些網站的通知</translation>
@@ -406,6 +411,7 @@
 <translation id="2303795211377219696">啟用信用卡的自動填入功能</translation>
 <translation id="2309390639296060546">預設地理位置設定</translation>
 <translation id="2312134445771258233">允許你設定起始時載入的網頁。系統會略過 [起始時開啟的網址] 網頁清單內容，除非你在 [起始動作] 中選取 [開啟網址清單]。</translation>
+<translation id="2327252517317514801">定義可存取 G Suite 的網域</translation>
 <translation id="2334591568684482454">設定 <ph name="TPM_FIRMWARE_UPDATE_TPM" /> 韌體更新功能的可用性和行為。
 
       可在 JSON 屬性中指定個別設定： 
@@ -980,6 +986,7 @@
           這項政策是選擇性的，如果未設定，系統將使用 GET 方法圖片搜尋要求。
 
           只有在啟用「DefaultSearchProviderEnabled」時，系統才會遵循這項政策。</translation>
+<translation id="4285674129118156176">允許無關聯的使用者使用 ARC</translation>
 <translation id="4294280661005713627">設定自動更新的目標版本。
 
       指定要更新的 <ph name="PRODUCT_OS_NAME" /> 目標版本前置碼。如果裝置執行的版本比指定的前置碼版本更舊，系統會自動更新至指定前置碼的最新版本。如果裝置使用的是最新版本則無影響 (不會執行降級)，裝置將保留目前版本。前置碼格式需按部分逐一指定，如下列範例所示：
@@ -1143,6 +1150,7 @@
           如果這項政策設為「True」或未設定，系統將啟用螢幕喚醒鎖，以強化電源管理效能。
 
           如果這項政策設為「False」，則螢幕喚醒鎖要求會受到忽略。</translation>
+<translation id="487460824085252184">自動遷移，不要求使用者同意。</translation>
 <translation id="4876805738539874299">已啟用 SSL 最高版本</translation>
 <translation id="4881315447528084360">指定以無訊息方式安裝 (使用者無需操作) 的應用程式和
           擴充功能清單 (使用者無法解除安裝或停用這些
@@ -1238,6 +1246,7 @@
 <translation id="5272684451155669299">如果設為 true，使用者就可以使用 Chrome 裝置上的硬體，從遠端透過 <ph name="ENTERPRISE_PLATFORM_KEYS_API" /> (使用 <ph name="CHALLENGE_USER_KEY_FUNCTION" />) 向隱私權 CA 證明身分。
 
           如果設為 false 或未設定，API 呼叫作業將會失敗，並傳回錯誤代碼。</translation>
+<translation id="5283457834853986457">停用外掛程式尋找工具 (已淘汰)</translation>
 <translation id="5288772341821359899">如果設定這項政策，系統會將 WebRTC 所使用的 UDP 通訊埠範圍限於指定的通訊埠區間 (包括端點)。
 
       如果未設定這項政策，或是將這項政策設為空白字串或無效的通訊埠範圍，WebRTC 即可使用任何可用的本機 UDP 通訊埠。</translation>
@@ -1261,6 +1270,11 @@
           如果這項政策設為 False，使用者就無法將內容投放至自己的裝置。如果這項政策設為 True，則使用者可投放內容。如果未設定這項政策，使用者就無法將內容投放至已註冊的 Chrome 作業系統裝置，但可投放至未註冊的裝置。</translation>
 <translation id="5330684698007383292">允許 <ph name="PRODUCT_FRAME_NAME" /> 處理列出的內容類型</translation>
 <translation id="5365946944967967336">在工具列上顯示 [首頁] 按鈕</translation>
+<translation id="5366745336748853475">允許以清單列出網址模式，指定要在 SAML 流程代管架構的登入畫面自動選取用戶端憑證的網站 (如果網站要求憑證的話)。實際應用範例為設定要提供給 SAML IdP 的裝置通用憑證。
+
+      這個值必須是字串化的 JSON 字典陣列。每個字典的格式都必須是 { "pattern": "$URL_PATTERN", "filter" : $FILTER } (其中的 $URL_PATTERN 是內容設定模式，$FILTER 則限定瀏覽器自動選取的用戶端憑證)。無論是否設定篩選條件，瀏覽器只會選取符合伺服器憑證要求的憑證。如果 $FILTER 的格式為 { "ISSUER": { "CN": "$ISSUER_CN" } }，則瀏覽器只會選取 CommonName 做為 $ISSUER_CN 的憑證所核發的用戶端憑證。如果 $FILTER 是空白的字典 {}，那麼瀏覽器在選擇用戶端憑證時就不會受到額外限制。
+
+      如果未設定這項政策，系統將不會為任何網站自動選取憑證。</translation>
 <translation id="5366977351895725771">如果設為 False，這位使用者將無法建立受監督的使用者。目前如有任何受監督的使用者帳戶，則仍然可供存取。
 
           如果設為 True 或不予設定，這位使用者即可建立並管理受監督的使用者。</translation>
@@ -1320,6 +1334,7 @@
       如果指定這項政策，系統在連結變異版本種子的擷取網址時，會加入「restrict」這個查詢參數。參數值即為這項政策中指定的值。
 
       如果未指定這項政策，則系統不會修改變異版本種子網址。</translation>
+<translation id="5561811616825571914">在登入畫面自動為這些網站選取用戶端憑證</translation>
 <translation id="556941986578702361">設定 <ph name="PRODUCT_OS_NAME" /> 檔案櫃的自動隱藏功能。
 
       如果你將這項政策設為「AlwaysAutoHideShelf」，檔案櫃就會一律自動隱藏。
@@ -1380,6 +1395,11 @@
 
       如未設定這項政策，系統會使用預設的設定檔目錄。</translation>
 <translation id="5826047473100157858">指定使用者是否可以在「<ph name="PRODUCT_NAME" />」中以無痕模式開啟網頁。如果選取的是 [啟用] 或未設定政策，網頁能以無痕模式開啟。如果選取的是 [停用]，則網頁可能無法以無痕模式開啟。如果選取的是 [強制]，系統只會以無痕模式開啟網頁。</translation>
+<translation id="583091600226586337">
+      如果啟用這項政策，系統在下載檔案前一律會詢問使用者儲存位置。
+      如果停用這項政策，系統會立即開始下載檔案，而不會詢問使用者儲存位置。
+      如果未設定這項政策，使用者則可變更這項設定。
+      </translation>
 <translation id="5835124959204887277">指定在必須取得安全金鑰認證憑證的情況下不會顯示提示的網址和網域。此外，系統會傳送信號給安全金鑰，指出可能會使用個別認證。如未設定這項政策，當網站要求安全金鑰認證時，Chrome 65 以上版本的使用者會收到提示。
 
       網址 (例如 https://example.com/some/path) 只會比對為 U2F appID，網域 (例如 example.com) 則只會比對為 WebAuthn RP ID。因此，如要同時涵蓋指定網站的 U2F API 和 WebAuthn API，必須一併列出 appID 網址和網域。</translation>
@@ -1438,6 +1458,7 @@
 <translation id="5966615072639944554">允許擴充功能使用 Remote Attestation API</translation>
 <translation id="5983708779415553259">非任何內容套件中網站的預設行為</translation>
 <translation id="5997543603646547632">預設使用 24 小時制時鐘</translation>
+<translation id="5997846976342452720">指定是否要停用外掛程式尋找工具 (已淘汰)</translation>
 <translation id="6005179188836322782">啟用 <ph name="PRODUCT_NAME" /> 的「安全瀏覽」功能並禁止使用者變更這項設定。
 
       如果啟用這項設定，系統會一律啟動「安全瀏覽」功能。
@@ -1690,6 +1711,25 @@
 <translation id="6903814433019432303">僅在零售模式下啟用這項政策。
 
       決定在啟用示範工作階段時，要載入的網址組。這項政策會覆寫任何其他機制，設定起始網址，因此只可以套用至與特定使用者無關的工作階段。</translation>
+<translation id="6908347296939885026">啟用 <ph name="PRODUCT_NAME" /> 的 G Suite 受限登入功能，並且禁止使用者變更這項設定。
+
+      定義這項設定後，使用者只能使用指定網域中的帳戶
+      存取 Google Apps 服務 (請注意，這項限制不適用於
+      gmail.com/googlemail.com)。
+
+      這項設定「不會」禁止使用者在需要通過 Google 驗證程序的
+      受管理裝置上登入帳戶。使用者仍可
+      登入其他網域中的帳戶，但使用這類帳戶
+      存取 G Suite 時會收到錯誤訊息。
+
+      如果將這項設定留空 (即不予設定)，使用者就可以
+      使用任何帳戶存取 G Suite。
+
+      套用這項政策後，傳送給所有 google.com 網域的 HTTP 和 HTTPS 要求
+      都會加上 X-GoogApps-Allowed-Domains 標頭。詳情請參閱以下說明文章：
+      https://support.google.com/a/answer/1668854。
+
+      使用者無法變更或覆寫這項設定。</translation>
 <translation id="6908640907898649429">設定預設搜尋引擎。你可以指定使用者要使用的預設搜尋引擎或選擇停用預設搜尋。</translation>
 <translation id="6915442654606973733">啟用互動朗讀協助功能。
 
@@ -1808,6 +1848,9 @@
 <translation id="7258823566580374486">啟用遠端存取主機遮幕</translation>
 <translation id="7260277299188117560">已啟用自動更新 P2P</translation>
 <translation id="7261252191178797385">裝置桌布圖片</translation>
+<translation id="7266471712301230894">自 <ph name="PRODUCT_NAME" /> 64 起，我們已移除這項政策。
+
+      系統不會再自動搜尋並安裝缺少的外掛程式。</translation>
 <translation id="7267809745244694722">媒體鍵預設為功能鍵</translation>
 <translation id="7271085005502526897">第一次執行時從預設瀏覽器匯入首頁</translation>
 <translation id="7273823081800296768">不論這項政策處於啟用或未設定的狀態，使用者都可以選擇讓用戶端與主機在連線時自動配對，不需要每次都輸入 PIN。
@@ -2093,6 +2136,14 @@
       如未設定這項政策，<ph name="PRODUCT_OS_NAME" /> 就會使用裝置本機帳戶的電子郵件帳戶 ID 當做登入畫面的顯示名稱。
 
       這項政策對於一般使用者帳戶無效。</translation>
+<translation id="8259375588339409826">Chromium 和 Google Chrome 支援同一套政策。請注意，這份文件可能包含未發佈的政策 (即「支援環境」項目是指尚未發佈的 <ph name="PRODUCT_NAME" /> 版本)，後續有關這些政策的變更與移除恕不另行通知，我們也不提供任何方面的保證，包括安全性和隱私權方面的保證。
+
+這些政策僅適用於設定貴機構內部的 <ph name="PRODUCT_NAME" /> 執行個體。如果在機構外 (例如公開發佈的程式中) 使用這些政策，會被視為惡意軟體行徑，且 Google 和防毒軟體廠商可能會將其標示為惡意軟體。
+
+這些設定不需手動配置！你可以在 <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" /> 下載簡單易用的範本，直接在 Windows、Mac 和 Linux 系統中使用。
+
+你仍可在已加入 <ph name="MS_AD_NAME" /> 網域的 Windows 執行個體透過登錄檔佈建政策，但我們建議你在 Windows 透過 GPO 設定政策。</translation>
+<translation id="8274603902181597201">清除使用者的 eCryptfs 主目錄，改用全新的 Ext4 加密主目錄。</translation>
 <translation id="8279832363395120715">先將 https:// 網址中攸關隱私和安全性的敏感部分去除，再轉送給 PAC (Proxy Auto Config) 指令碼，供 <ph name="PRODUCT_NAME" /> 在 Proxy 解析期間使用。
 
       設為 True 時會啟用安全性功能，先將 https:// 網址分解再提交給 PAC 指令碼。如此一來，PAC 指令碼便無法檢視原本受加密通道保護的資料 (例如網址的路徑和查詢)。
@@ -2168,6 +2219,11 @@
 <translation id="8549772397068118889">瀏覽內容套件以外的網站時顯示警告</translation>
 <translation id="8566842294717252664">在新分頁和應用程式啟動畫面中隱藏線上應用程式商店</translation>
 <translation id="8587229956764455752">允許建立新的使用者帳戶</translation>
+<translation id="8598350264853261122">如果將這項政策設為 false，無關聯使用者將無法使用 ARC。
+
+      如果將這項政策設為 true 或不予設定，所有使用者皆可使用 ARC (除非透過其他方法停用 ARC)。
+
+      政策變更只會在 ARC 未執行時套用，例如 Chrome 作業系統啟動時。</translation>
 <translation id="8614804915612153606">停用自動更新</translation>
 <translation id="8631434304112909927">到第 <ph name="UNTIL_VERSION" /> 版為止</translation>
 <translation id="863319402127182273">這項政策對 Android 應用程式的影響僅限於內建攝影機。將這項政策設為 true 時，所有 Android 應用程式皆無法使用攝影機，沒有任何例外。</translation>
@@ -2298,6 +2354,7 @@
           也就是說，如要允許所有快速解鎖模式，請使用 [all]；如果只想允許 PIN 解鎖，請使用 [PIN]；如要停用所有快速解鎖模式，請將清單保留空白。
 
           在預設情況下，使用者無法在受管理的裝置上使用任何快速解鎖模式。</translation>
+<translation id="9136399279941091445">發佈指定裝置政策時的停機時間間隔</translation>
 <translation id="9147029539363974059">將系統紀錄傳送到管理伺服器，
       讓管理員監控系統紀錄。
 

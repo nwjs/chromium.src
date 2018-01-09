@@ -10,6 +10,7 @@
 <translation id="1104959162601287462">Chrome OS 정보(&amp;C)</translation>
 <translation id="110877069173485804">나만의 Chrome</translation>
 <translation id="1142745911746664600">Chrome을 업데이트할 수 없음</translation>
+<translation id="1154147086299354128">Chrome에서 열기(&amp;O)</translation>
 <translation id="123620459398936149">Chrome OS에서 데이터를 동기화하지 못했습니다. 동기화 암호를 업데이트하세요.</translation>
 <translation id="127345590676626841">Chrome은 자동으로 업데이트되므로 항상 최신 버전을 사용할 수 있습니다. 이 다운로드가 완료되면 Chrome이 다시 시작되며 계속 작업할 수 있습니다.</translation>
 <translation id="1302523850133262269">Chrome에서 최신 시스템 업데이트를 설치하는 동안 잠시 기다려 주세요.</translation>
@@ -158,6 +159,7 @@
 <translation id="5243785881901838525">Google Payments(Chrome에 복사됨)</translation>
 <translation id="5251420635869119124">손님으로 사용 기록을 남기지 않고 Chrome을 사용할 수 있습니다.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{1초 후에 Chrome이 다시 시작됩니다.}other{#초 후에 Chrome이 다시 시작됩니다.}}</translation>
+<translation id="532046782124376502">경고: Chrome에서는 확장 프로그램에 인터넷 사용 기록이 저장될 수 있습니다. 시크릿 모드에서 이 확장 프로그램을 사용 중지하려면 옵션을 선택 취소하세요.</translation>
 <translation id="5334545119300433702">이 모듈은 Chrome과 충돌하는 것으로 알려져 있습니다.</translation>
 <translation id="5386244825306882791">또한 Chrome을 시작하거나 검색주소창에서 검색할 때 표시되는 페이지를 설정합니다.</translation>
 <translation id="5430073640787465221">환경설정 파일이 손상되었거나 잘못되었습니다.

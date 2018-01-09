@@ -98,6 +98,7 @@ Aby korzystać z internetu rzeczy, musisz włączyć Bluetooth i Lokalizację.</
 <translation id="1832521218263067499">Incydenty dotyczące zabezpieczeń</translation>
 <translation id="1853692000353488670">Nowa karta incognito</translation>
 <translation id="1880072593381090678">Popularne strony z Chrome</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> otworzy się w Chrome. Przechodząc dalej, akceptujesz <ph name="BEGIN_LINK1" />Warunki korzystania z usługi<ph name="END_LINK1" /> Chrome i <ph name="BEGIN_LINK2" />Informacje na temat ochrony prywatności<ph name="END_LINK2" />.</translation>
 <translation id="189172778771606813">Zamknij panel nawigacji</translation>
 <translation id="1897409700584096124">Strona internetowa jest nadawana</translation>
 <translation id="1919345977826869612">Reklamy</translation>
@@ -419,6 +420,7 @@ Na stronie <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> n
 <translation id="4874967477260347223">Licencje multimediów</translation>
 <translation id="4875775213178255010">Polecane treści</translation>
 <translation id="4876188919622883022">Widok uproszczony</translation>
+<translation id="4878404682131129617">Nie udało się utworzyć tunelu przez serwer proxy</translation>
 <translation id="4881695831933465202">Otwórz</translation>
 <translation id="4885273946141277891">Nieobsługiwana liczba wystąpień Chrome.</translation>
 <translation id="4910889077668685004">Aplikacje do płatności</translation>
@@ -460,7 +462,7 @@ Na stronie <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> n
 <translation id="5271967389191913893">Na tym urządzeniu nie można otworzyć treści, które chcesz pobrać.</translation>
 <translation id="528192093759286357">Przeciągnij od góry i kliknij przycisk Wstecz, by wyjść z trybu pełnoekranowego.</translation>
 <translation id="5284584623296338184">Zmiany w zakładkach, historii, hasłach i innych ustawieniach nie będą już synchronizowane z kontem Google. Twoje istniejące dane będą jednak nadal na nim przechowywane.</translation>
-<translation id="5301954838959518834">OK, rozumiem</translation>
+<translation id="5301954838959518834">Rozumiem</translation>
 <translation id="5304593522240415983">To pole nie może być puste</translation>
 <translation id="5308380583665731573">Połącz</translation>
 <translation id="5308603654685598744">Po włączeniu tej funkcji Chrome będzie proponować tłumaczenie stron w innych językach przez Tłumacza Google.</translation>
@@ -502,6 +504,7 @@ Na stronie <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> n
 <translation id="5585019845078534178">Karty</translation>
 <translation id="5595485650161345191">Edytuj adres</translation>
 <translation id="5596627076506792578">Więcej opcji</translation>
+<translation id="5620655347161642930">Eksportuj hasła…</translation>
 <translation id="5620928963363755975">Znajdź pliki i strony w Pobranych plikach, używając przycisku Więcej opcji</translation>
 <translation id="5626134646977739690">Nazwa:</translation>
 <translation id="5639724618331995626">Pozwól na otwieranie wszystkich stron</translation>
@@ -714,6 +717,7 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="7493994139787901920"><ph name="VERSION" /> (zaktualizowana <ph name="TIME_SINCE_UPDATE" />)</translation>
 <translation id="7498271377022651285">Czekaj…</translation>
 <translation id="7514365320538308">Pobierz</translation>
+<translation id="751961395872307827">Nie można połączyć się ze stroną</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">Nie można uzyskać sugestii</translation>
 <translation id="7562080006725997899">Czyszczenie danych przeglądania</translation>
@@ -843,6 +847,7 @@ Aby otrzymać nowe licencje, połącz się z internetem i odtwórz pobrane treś
 <translation id="8748850008226585750">Treści ukryte</translation>
 <translation id="8788968922598763114">Ponownie otwórz ostatnio zamknięte karty</translation>
 <translation id="8812260976093120287">Używając swojego urządzenia, na niektórych stronach możesz płacić za pomocą powyższych obsługiwanych aplikacji do płatności.</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> otworzy się w Chrome. Przechodząc dalej, akceptujesz <ph name="BEGIN_LINK1" />Warunki korzystania z usługi<ph name="END_LINK1" /> Chrome, <ph name="BEGIN_LINK2" />Informacje na temat ochrony prywatności<ph name="END_LINK2" /> i <ph name="BEGIN_LINK3" />Informacje na temat ochrony prywatności dotyczące kont Google zarządzanych przez Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8820817407110198400">Zakładki</translation>
 <translation id="883635517171802338">Blokuj próby pokazywania wyskakujących okienek na stronach (zalecane)</translation>
 <translation id="883806473910249246">Podczas pobierania treści wystąpił błąd.</translation>

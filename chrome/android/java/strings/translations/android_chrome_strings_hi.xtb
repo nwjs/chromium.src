@@ -98,6 +98,7 @@
 <translation id="1832521218263067499">सुरक्षा संबंधी घटनाएं</translation>
 <translation id="1853692000353488670">नया गुप्त टैब</translation>
 <translation id="1880072593381090678">Chrome से लोकप्रिय पेज</translation>
+<translation id="1891331835972267886"><ph name="APP_NAME" /> Chrome में खुलेगा. जारी रखकर, आप Chrome की <ph name="BEGIN_LINK1" />सेवा की शर्तों<ph name="END_LINK1" /> और <ph name="BEGIN_LINK2" />निजता सूचना<ph name="END_LINK2" /> से सहमत होते हैं.</translation>
 <translation id="189172778771606813">मार्गदर्शक ड्रॉवर बंद करें</translation>
 <translation id="1897409700584096124">वेबसाइट प्रसारित हो रही है</translation>
 <translation id="1919345977826869612">विज्ञापन</translation>
@@ -419,6 +420,7 @@
 <translation id="4874967477260347223">मीडिया लाइसेंस</translation>
 <translation id="4875775213178255010">सामग्री के सुझाव</translation>
 <translation id="4876188919622883022">सरल बनाया गया व्यू</translation>
+<translation id="4878404682131129617">प्रॉक्सी सर्वर के ज़रिए सुरंग बनाना विफल रहा</translation>
 <translation id="4881695831933465202">खोलें</translation>
 <translation id="4885273946141277891">Chrome इंस्टेंस की असमर्थित संख्या.</translation>
 <translation id="4910889077668685004">भुगतान ऐप्लिकेशन</translation>
@@ -460,7 +462,7 @@
 <translation id="5271967389191913893">डाउनलोड की जाने वाली सामग्री को डिवाइस नहीं खोल सकता.</translation>
 <translation id="528192093759286357">पूर्ण स्क्रीन से बाहर निकलने के लिए ऊपर से खींचें और वापस जाएं स्पर्श करें.</translation>
 <translation id="5284584623296338184">आपके बुकमार्क, इतिहास, पासवर्ड और अन्य सेटिंग में किए गए बदलाव अब आपके Google खाते में समन्वयित नहीं किए जाएंगे. हालांकि, आपका मौजूदा डेटा आपके Google खाते में संग्रहित रहेगा.</translation>
-<translation id="5301954838959518834">ठीक है, समझ गया/गई</translation>
+<translation id="5301954838959518834">ठीक है, समझ लिया</translation>
 <translation id="5304593522240415983">यह फ़ील्‍ड खाली नहीं छोड़ी जा सकती</translation>
 <translation id="5308380583665731573">कनेक्ट करें</translation>
 <translation id="5308603654685598744">जब यह सुविधा चालू होती है तो Chrome, Google अनुवाद का उपयोग करके अन्य भाषाओं में लिखे गए पृष्ठों का अनुवाद करना ऑफ़र करेगा.</translation>
@@ -502,6 +504,7 @@
 <translation id="5585019845078534178">कार्ड</translation>
 <translation id="5595485650161345191">पता संपादित करें</translation>
 <translation id="5596627076506792578">अधिक विकल्प</translation>
+<translation id="5620655347161642930">पासवर्ड निर्यात करें...</translation>
 <translation id="5620928963363755975">अधिक विकल्प बटन से डाउनलोड में जाकर अपनी फ़ाइलें और पेज पाएं</translation>
 <translation id="5626134646977739690">नाम:</translation>
 <translation id="5639724618331995626">सभी साइटों को अनुमति दें</translation>
@@ -659,7 +662,7 @@
 <translation id="6910211073230771657">हटाया गया</translation>
 <translation id="6945221475159498467">चुनें</translation>
 <translation id="6963766334940102469">बुकमार्क हटाएं</translation>
-<translation id="6965382102122355670">ठीक</translation>
+<translation id="6965382102122355670">ठीक है</translation>
 <translation id="6978479750597523876">अनुवाद सेटिंग रीसेट करें</translation>
 <translation id="6979737339423435258">हमेशा</translation>
 <translation id="6981982820502123353">पहुंच क्षमता</translation>
@@ -714,6 +717,7 @@
 <translation id="7493994139787901920"><ph name="VERSION" /> (<ph name="TIME_SINCE_UPDATE" /> अपडेट किया गया)</translation>
 <translation id="7498271377022651285">कृपया प्रतीक्षा करें...</translation>
 <translation id="7514365320538308">डाउनलोड करें</translation>
+<translation id="751961395872307827">साइट से कनेक्ट नहीं किया जा सका</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7542481630195938534">सुझाव नहीं मिल पा रहे हैं</translation>
 <translation id="7562080006725997899">ब्राउज़िंग डेटा साफ़ हो रहा है</translation>
@@ -843,6 +847,7 @@
 <translation id="8748850008226585750">छिपी हुई सामग्री</translation>
 <translation id="8788968922598763114">अभी बंद किया हुआ टैब खोलें</translation>
 <translation id="8812260976093120287">कुछ वेबसाइटों पर, आप ऊपर समर्थित भुगतान ऐप्लिकेशन के ज़रिए अपने डिवाइस पर भुगतान कर सकते हैं.</translation>
+<translation id="8816439037877937734"><ph name="APP_NAME" /> Chrome में खुलेगा. जारी रखकर, आप Chrome की <ph name="BEGIN_LINK1" />सेवा की शर्तों<ph name="END_LINK1" /> और <ph name="BEGIN_LINK2" />निजता सूचना<ph name="END_LINK2" /> और <ph name="BEGIN_LINK3" />Family Link से प्रबंधित होने वाले Google खातों के लिए निजता सूचना<ph name="END_LINK3" /> से सहमत होते हैं.</translation>
 <translation id="8820817407110198400">बुकमार्क</translation>
 <translation id="883635517171802338">साइट को पॉप-अप दिखाने से अवरुद्ध करें (अनुशंसित)</translation>
 <translation id="883806473910249246">सामग्री डाउनलोड करते समय कोई गड़बड़ी हुई.</translation>

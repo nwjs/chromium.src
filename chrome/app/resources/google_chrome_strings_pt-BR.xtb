@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">Sobre o Chrome OS</translation>
 <translation id="110877069173485804">Este é seu Chrome</translation>
 <translation id="1142745911746664600">Não é possível atualizar o Chrome</translation>
+<translation id="1154147086299354128">&amp;Abrir no Chrome</translation>
 <translation id="123620459398936149">O Google Chrome não pôde sincronizar seus dados. Atualize sua senha de sincronização.</translation>
 <translation id="127345590676626841">O Chrome é atualizado automaticamente para que você sempre tenha a versão mais recente. Quando o download estiver concluído, o Chrome será reiniciado e você estará pronto.</translation>
 <translation id="1302523850133262269">Aguarde enquanto o Chrome instala as últimas atualizações do sistema.</translation>
@@ -46,7 +47,7 @@
 <translation id="2252923619938421629">Ajude a melhorar o Google Chrome informando as configurações atuais</translation>
 <translation id="2286950485307333924">Você está conectado ao Chrome no momento</translation>
 <translation id="2290014774651636340">As chaves da API do Google não foram encontradas. Algumas funcionalidades do Google Chrome serão desativadas.</translation>
-<translation id="2290095356545025170">Tem certeza de que deseja desinstalar o Google Chrome?</translation>
+<translation id="2290095356545025170">Tem certeza que quer desinstalar o Google Chrome?</translation>
 <translation id="2309047409763057870">Como esta é uma instalação secundária do Google Chrome, ele não pode se tornar seu navegador padrão.</translation>
 <translation id="2316129865977710310">Não.</translation>
 <translation id="2334084861041072223">Copyright <ph name="YEAR" /> Google Inc. Todos os direitos reservados.</translation>
@@ -153,6 +154,7 @@ Verifique seu e-mail em <ph name="ACCOUNT_EMAIL" /> para ver mais instruções.<
 <translation id="5243785881901838525">Google Payments (copiado para o Chrome)</translation>
 <translation id="5251420635869119124">Convidados podem usar o Google Chrome sem deixar nada para trás.</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{O Google Chrome será reiniciado em 1 segundo.}one{O Google Chrome será reiniciado em # segundos.}other{O Google Chrome será reiniciado em # segundos.}}</translation>
+<translation id="532046782124376502">Aviso: o Google Chrome não impede que as extensões registrem seu histórico de navegação. Para desativar esta extensão no modo anônimo, desmarque esta opção.</translation>
 <translation id="5334545119300433702">Este módulo é conhecido por entrar em conflito com o Google Chrome.</translation>
 <translation id="5386244825306882791">Controla também qual página deve ser exibida quando você inicia o Chrome ou faz uma pesquisa na Omnibox.</translation>
 <translation id="5430073640787465221">Seu arquivo de preferências está corrompido ou é inválido. O Google Chrome não foi capaz de recuperar suas configurações.</translation>
@@ -187,7 +189,7 @@ Verifique seu e-mail em <ph name="ACCOUNT_EMAIL" /> para ver mais instruções.<
 <translation id="6400076122676892962">Este computador em breve parará de receber atualizações do Google Chrome porque o Mac OS X 10.6, 10.7 e 10.8 não serão mais compatíveis.</translation>
 <translation id="6410540444482791104">Você pode ajudar a tornar o Chrome mais seguro e mais fácil de usar, enviando automaticamente algumas informações do sistema e conteúdos de página ao Google para ajudar a detectar apps e sites perigosos.</translation>
 <translation id="6470176598693778404">Este computador não receberá mais atualizações do Google Chrome porque o Mac OS X 10.6, 10.7 e 10.8 não são mais compatíveis.</translation>
-<translation id="6477562832195530369">{NUM_DOWNLOAD,plural, =1{Um download está em andamento. Deseja cancelar o download e sair do Google Chrome?}one{# downloads estão em andamento. Deseja cancelar os downloads e sair do Google Chrome?}other{# downloads estão em andamento. Deseja cancelar os downloads e sair do Google Chrome?}}</translation>
+<translation id="6477562832195530369">{NUM_DOWNLOAD,plural, =1{Um download está em andamento. Quer cancelar o download e sair do Google Chrome?}one{# downloads estão em andamento. Quer cancelar os downloads e sair do Google Chrome?}other{# downloads estão em andamento. Quer cancelar os downloads e sair do Google Chrome?}}</translation>
 <translation id="6566149418543181476">Atualizando o Google Chrome (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6598387184982954187">Você está usando <ph name="PROFILE_EMAIL" /> para sincronizar suas informações do Google Chrome. Para atualizar suas preferências de sincronização ou usar o Chrome sem uma Conta do Google, vá para <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6600954340915313787">Copiado no Chrome</translation>
@@ -255,7 +257,7 @@ Verifique seu e-mail em <ph name="ACCOUNT_EMAIL" /> para ver mais instruções.<
 <translation id="8547799825197623713">Iniciador de aplicativos do Google Chrome no Canary</translation>
 <translation id="8556340503434111824">Há uma nova versão ainda mais rápida do Google Chrome disponível.</translation>
 <translation id="8568392309447938879">É necessário fazer login no Google Chrome para usar aplicativos. Isso permite que o Chrome sincronize seus aplicativos, favoritos, histórico, senhas e outras configurações entre os dispositivos.</translation>
-<translation id="8606668294522778825">O Google Chrome pode usar os serviços da Web para melhorar sua experiência de navegação. Se desejar, é possível desativar esses serviços. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
+<translation id="8606668294522778825">O Google Chrome pode usar os serviços da Web para melhorar sua experiência de navegação. Se preferir, é possível desativar esses serviços. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">O Google Chrome não responde. Reiniciar agora?</translation>
 <translation id="8667808506758191620">Seu dispositivo <ph name="DEVICE_TYPE" /> está atualizado.</translation>
 <translation id="8669527147644353129">Auxiliar do Google Chrome</translation>

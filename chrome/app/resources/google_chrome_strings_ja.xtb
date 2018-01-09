@@ -8,6 +8,7 @@
 <translation id="1104959162601287462">Chrome OS について(&amp;C)</translation>
 <translation id="110877069173485804">自分好みに設定</translation>
 <translation id="1142745911746664600">Chrome を更新できません</translation>
+<translation id="1154147086299354128">Chrome で開く(&amp;O)</translation>
 <translation id="123620459398936149">Chrome OS はデータを同期できませんでした。同期パスフレーズを更新してください。</translation>
 <translation id="127345590676626841">Chrome は自動的に更新されるため、常に最新版をご利用になれます。このダウンロードが完了すると、Chrome が再起動し、すぐにお使いいただけます。</translation>
 <translation id="1302523850133262269">Chrome は最新のシステム アップデートをインストールしています。しばらくお待ちください。</translation>
@@ -152,6 +153,7 @@
 <translation id="5243785881901838525">Google ペイメント（Chrome にコピー）</translation>
 <translation id="5251420635869119124">ゲスト ユーザーは、記録を残さずに Chrome を使用できます。</translation>
 <translation id="5284703908158630707">{SECONDS,plural, =1{Google Chrome は 1 秒後に再起動します。}other{Google Chrome は # 秒後に再起動します。}}</translation>
+<translation id="532046782124376502">警告: 拡張機能による閲覧履歴の記録を Google Chrome で停止することはできません。シークレット モードでこの拡張機能を無効にするには、このオプションの選択を解除してください。</translation>
 <translation id="5334545119300433702">このモジュールは Google Chrome と競合することがわかっています。</translation>
 <translation id="5386244825306882791">この拡張機能では、Chrome の起動時、またはアドレスバーからの検索時に表示されるページも制御されます。</translation>
 <translation id="5430073640787465221">ユーザー設定ファイルが壊れているか無効です。設定を復元できません。</translation>
