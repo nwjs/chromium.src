@@ -99,8 +99,8 @@ public class BottomSheetContentController
     private int mBottomNavHeight;
 
     private final Map<Integer, BottomSheetContent> mBottomSheetContents = new HashMap<>();
-
     private boolean mLabelsEnabled;
+    private boolean mDestroyed;
 
     private final BottomSheetObserver mBottomSheetObserver = new EmptyBottomSheetObserver() {
         @Override
@@ -219,6 +219,7 @@ public class BottomSheetContentController
 
     /** Called when the activity containing the bottom sheet is destroyed. */
     public void destroy() {
+        mDestroyed = true;
         clearBottomSheetContents(true);
         if (mPlaceholderContent != null) {
             mPlaceholderContent.destroy();
@@ -228,6 +229,20 @@ public class BottomSheetContentController
             mTabModelSelector.removeObserver(mTabModelSelectorObserver);
             mTabModelSelector = null;
         }
+    }
+
+    @Override
+    public void onFinishInflate() {
+        BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
+                .addStartupCompletedObserver(new BrowserStartupController.StartupCallback() {
+                    @Override
+                    public void onSuccess(boolean alreadyStarted) {
+                        initBottomNavMenu();
+                    }
+
+                    @Override
+                    public void onFailure() {}
+                });
     }
 
     /**
@@ -242,17 +257,6 @@ public class BottomSheetContentController
         mBottomSheet.addObserver(mBottomSheetObserver);
         mActivity = activity;
         mTabModelSelector = tabModelSelector;
-
-        BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                .addStartupCompletedObserver(new BrowserStartupController.StartupCallback() {
-                    @Override
-                    public void onSuccess(boolean alreadyStarted) {
-                        initBottomNavMenu();
-                    }
-
-                    @Override
-                    public void onFailure() {}
-                });
 
         mTabModelSelectorObserver = new EmptyTabModelSelectorObserver() {
             @Override
@@ -338,6 +342,8 @@ public class BottomSheetContentController
      * Needs to be called after the native library is loaded.
      */
     private void initializeMenuView() {
+        if (mDestroyed) return;
+
         mLabelsEnabled =
                 ChromeFeatureList.isEnabled(ChromeFeatureList.CHROME_HOME_BOTTOM_NAV_LABELS);
         if (mLabelsEnabled) {
