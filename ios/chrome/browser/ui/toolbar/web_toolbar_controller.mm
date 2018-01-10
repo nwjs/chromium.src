@@ -119,7 +119,6 @@ using ios::material::TimingFunction;
   // Progress bar used to show what fraction of the page has loaded.
   MDCProgressView* _determinateProgressView;
   UIImageView* _omniboxBackground;
-  BOOL _prerenderAnimating;
   UIImageView* _incognitoIcon;
   UIView* _clippingView;
 
@@ -148,6 +147,14 @@ using ios::material::TimingFunction;
   ToolbarAssistiveKeyboardDelegateImpl* _keyboardDelegate;
 }
 
+// Whether the current WebState is loading.
+@property(nonatomic, assign, getter=isLoading) BOOL loading;
+// Whether the progress view stop animation is occurring.
+@property(nonatomic, assign, getter=isAnimatingStop) BOOL animatingStop;
+// Whether the progress view prerender animation is occurring.
+@property(nonatomic, assign, getter=isAnimatingPrerender)
+    BOOL animatingPrerender;
+
 // Accessor for cancel button. Handles lazy initialization.
 - (UIButton*)cancelButton;
 // Handler called after user pressed the cancel button.
@@ -162,7 +169,6 @@ using ios::material::TimingFunction;
 - (void)setForwardButtonEnabled:(BOOL)enabled;
 - (void)startProgressBar;
 - (void)stopProgressBar;
-- (void)hideProgressBar;
 - (void)showReloadButton;
 - (void)showStopButton;
 // Called by long press gesture recognizer, used to display back/forward
@@ -212,6 +218,9 @@ using ios::material::TimingFunction;
 @synthesize buttonUpdater = _buttonUpdater;
 @synthesize delegate = _delegate;
 @synthesize urlLoader = _urlLoader;
+@synthesize loading = _loading;
+@synthesize animatingStop = _animatingStop;
+@synthesize animatingPrerender = _animatingPrerender;
 
 - (instancetype)initWithDelegate:(id<WebToolbarDelegate>)delegate
                        urlLoader:(id<UrlLoader>)urlLoader
@@ -575,6 +584,19 @@ using ios::material::TimingFunction;
     [self startObservingTTSNotifications];
 }
 
+- (void)setLoading:(BOOL)loading {
+  if (_loading == loading)
+    return;
+  _loading = loading;
+  if (_loading) {
+    [self showStopButton];
+    [self startProgressBar];
+  } else {
+    [self stopProgressBar];
+    [self showReloadButton];
+  }
+}
+
 #pragma mark -
 #pragma mark Public methods.
 
@@ -588,16 +610,12 @@ using ios::material::TimingFunction;
 
 - (void)updateToolbarState {
   ToolbarModelIOS* toolbarModelIOS = [self.delegate toolbarModelIOS];
-  if (toolbarModelIOS->IsLoading()) {
-    [self showStopButton];
-    [self startProgressBar];
+  self.loading = toolbarModelIOS->IsLoading();
+  if (self.loading) {
     [_determinateProgressView
         setProgress:toolbarModelIOS->GetLoadProgressFraction()
            animated:YES
          completion:nil];
-  } else {
-    [self stopProgressBar];
-    [self showReloadButton];
   }
 
   _locationBar->SetShouldShowHintText(toolbarModelIOS->ShouldDisplayHintText());
@@ -651,22 +669,47 @@ using ios::material::TimingFunction;
 }
 
 - (void)showPrerenderingAnimation {
-  _prerenderAnimating = YES;
+  // Early return if there's no progress bar or if a hiding animation is
+  // already occurring.
+  if (IsIPadIdiom() || self.animatingPrerender || self.animatingStop)
+    return;
+
+  // Set |animatingPrerender| to YES while the stop animation is occurring,
+  // resetting it in the completion block.
+  self.animatingPrerender = YES;
+  __weak WebToolbarController* weakSelf = self;
+  void (^hideCompletion)(BOOL finished) = ^void(BOOL finished) {
+    if (finished)
+      [weakSelf setAnimatingPrerender:NO];
+  };
+
+  // After the progress is animated, perform a hide animation.
   __weak MDCProgressView* weakDeterminateProgressView =
       _determinateProgressView;
+  void (^progressCompletion)(BOOL finished) = ^void(BOOL finished) {
+    if (!finished || !self.animatingPrerender)
+      return;
+    [weakDeterminateProgressView setHidden:YES
+                                  animated:YES
+                                completion:hideCompletion];
+  };
+
+  // After the progress bar is animated to be visible, animate its progress to
+  // 1.0.
+  void (^showCompletion)(BOOL finished) = ^void(BOOL finished) {
+    if (!finished || !self.animatingPrerender)
+      return;
+    [weakDeterminateProgressView setProgress:1.0
+                                    animated:YES
+                                  completion:progressCompletion];
+  };
+
+  // Prepare the progress bar from an animation from 0.0 => 1.0, then make the
+  // progress bar visible and start the animation.
   [_determinateProgressView setProgress:0];
   [_determinateProgressView setHidden:NO
                              animated:YES
-                           completion:^(BOOL finished) {
-                             [weakDeterminateProgressView
-                                 setProgress:1
-                                    animated:YES
-                                  completion:^(BOOL finished) {
-                                    [weakDeterminateProgressView setHidden:YES
-                                                                  animated:YES
-                                                                completion:nil];
-                                  }];
-                           }];
+                           completion:showCompletion];
 }
 
 - (void)currentPageLoadStarted {
@@ -1296,46 +1339,44 @@ using ios::material::TimingFunction;
 }
 
 - (void)startProgressBar {
-  if ([_determinateProgressView isHidden]) {
+  if ([_determinateProgressView isHidden] || self.animatingPrerender ||
+      self.animatingStop) {
     [_determinateProgressView setProgress:0];
     [_determinateProgressView setHidden:NO animated:YES completion:nil];
+    self.animatingStop = NO;
+    self.animatingPrerender = NO;
   }
 }
 
 - (void)stopProgressBar {
-  if (_determinateProgressView && ![_determinateProgressView isHidden]) {
-    // Update the toolbar snapshot, but only after the progress bar has
-    // disappeared.
-
-    if (!_prerenderAnimating) {
-      __weak MDCProgressView* weakDeterminateProgressView =
-          _determinateProgressView;
-      // Calling -completeAndHide while a prerender animation is in progress
-      // will result in hiding the progress bar before the animation is
-      // complete.
-      [_determinateProgressView setProgress:1
-                                   animated:YES
-                                 completion:^(BOOL finished) {
-                                   [weakDeterminateProgressView setHidden:YES
-                                                                 animated:YES
-                                                               completion:nil];
-                                 }];
-    }
-    CGFloat delay = _unitTesting ? 0 : kLoadCompleteHideProgressBarDelay;
-    [self performSelector:@selector(hideProgressBar)
-               withObject:nil
-               afterDelay:delay];
-  }
-}
-
-- (void)hideProgressBar {
-  // The UI may have been torn down while this selector was queued.  If
-  // |self.delegate| is nil, it is not safe to continue.
-  if (!self.delegate)
+  // Early return if there's no progress bar or if a hiding animation is
+  // already occurring.
+  if (IsIPadIdiom() || self.animatingPrerender || self.animatingStop)
     return;
 
-  [_determinateProgressView setHidden:YES];
-  _prerenderAnimating = NO;
+  // Set |animatingStop| to YES while the stop animation is occurring, resetting
+  // it in the completion block when the progress bar is removed.
+  self.animatingStop = YES;
+  __weak WebToolbarController* weakSelf = self;
+  void (^hideCompletion)(BOOL finished) = ^void(BOOL finished) {
+    if (finished)
+      [weakSelf setAnimatingStop:NO];
+  };
+
+  // After the progress is animated, perform a hide animation.
+  __weak MDCProgressView* weakDeterminateProgressView =
+      _determinateProgressView;
+  void (^progressCompletion)(BOOL finished) = ^void(BOOL finished) {
+    if (!finished || !weakSelf.animatingStop)
+      return;
+    [weakDeterminateProgressView setHidden:YES
+                                  animated:YES
+                                completion:hideCompletion];
+  };
+
+  [_determinateProgressView setProgress:1
+                               animated:YES
+                             completion:progressCompletion];
 }
 
 - (void)showReloadButton {
@@ -2194,12 +2235,8 @@ using ios::material::TimingFunction;
   return base::UTF16ToUTF8([_locationBarView.textField displayedText]);
 }
 
-- (BOOL)isLoading {
-  return ![_determinateProgressView isHidden];
-}
-
 - (BOOL)isPrerenderAnimationRunning {
-  return _prerenderAnimating;
+  return self.animatingPrerender;
 }
 
 - (OmniboxTextFieldIOS*)omnibox {
