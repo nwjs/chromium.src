@@ -134,21 +134,24 @@
     if (hasTabStrip)
       [windowView addSubview:tabStripView_];
 
-    // |windowWillEnterFullScreen:| and |windowWillExitFullScreen:| are already
-    // called because self is a delegate for the window. However this class is
-    // designed for subclassing and can not implement NSWindowDelegate methods
-    // (because subclasses can do so as well and they should be able to).
-    // TODO(crbug.com/654656): Move |visualEffectView_| to subclass.
-    [[NSNotificationCenter defaultCenter]
-        addObserver:self
-           selector:@selector(windowWillEnterFullScreenNotification:)
-               name:NSWindowWillEnterFullScreenNotification
-             object:window];
-    [[NSNotificationCenter defaultCenter]
-        addObserver:self
-           selector:@selector(windowWillExitFullScreenNotification:)
-               name:NSWindowWillExitFullScreenNotification
-             object:window];
+    if (chrome::ShouldUseFullSizeContentView()) {
+      // |windowWillEnterFullScreen:| and |windowWillExitFullScreen:| are
+      // already called because self is a delegate for the window. However this
+      // class is designed for subclassing and can not implement
+      // NSWindowDelegate methods (because subclasses can do so as well and they
+      // should be able to). TODO(crbug.com/654656): Move |visualEffectView_| to
+      // subclass.
+      [[NSNotificationCenter defaultCenter]
+          addObserver:self
+             selector:@selector(windowWillEnterFullScreenNotification:)
+                 name:NSWindowWillEnterFullScreenNotification
+               object:window];
+      [[NSNotificationCenter defaultCenter]
+          addObserver:self
+             selector:@selector(windowWillExitFullScreenNotification:)
+                 name:NSWindowWillExitFullScreenNotification
+               object:window];
+    }
   }
   return self;
 }
@@ -457,14 +460,18 @@
 
     [visualEffectWrapperView addSubview:visualEffectView_];
 
-    [[window contentView] addSubview:visualEffectWrapperView];
+    [[window contentView] addSubview:visualEffectWrapperView
+                          positioned:NSWindowBelow
+                          relativeTo:nil];
 
     // Make the |tabStripBackgroundView_| a child of the NSVisualEffectView.
     [tabStripBackgroundView_ setFrame:[visualEffectView_ bounds]];
     [visualEffectView_ addSubview:tabStripBackgroundView_];
   } else {
     DCHECK(!chrome::ShouldUseFullSizeContentView());
-    [[window contentView] addSubview:tabStripBackgroundView_];
+    [[window contentView] addSubview:tabStripBackgroundView_
+                          positioned:NSWindowBelow
+                          relativeTo:nil];
   }
 }
 
@@ -475,13 +482,11 @@
 }
 
 - (void)windowWillEnterFullScreenNotification:(NSNotification*)notification {
-  [(visualEffectView_ ? visualEffectView_.get()
-                      : tabStripBackgroundView_.get()) setHidden:YES];
+  [[visualEffectView_ animator] setAlphaValue:0.0];
 }
 
 - (void)windowWillExitFullScreenNotification:(NSNotification*)notification {
-  [(visualEffectView_ ? visualEffectView_.get()
-                      : tabStripBackgroundView_.get()) setHidden:NO];
+  [[visualEffectView_ animator] setAlphaValue:1.0];
 }
 
 @end

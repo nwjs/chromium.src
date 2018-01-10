@@ -34,7 +34,8 @@
 @implementation FramedBrowserWindow
 
 + (CGFloat)browserFrameViewPaintHeight {
-  return chrome::kTabStripHeight;
+  return chrome::ShouldUseFullSizeContentView() ? chrome::kTabStripHeight
+                                                : 60.0;
 }
 
 + (NSUInteger)defaultStyleMask {
