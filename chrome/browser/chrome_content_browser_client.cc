@@ -1871,7 +1871,6 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kForcePNaClSubzero,
 #endif
       switches::kForceUIDirection,
-      switches::kIsolateOrigins,
       switches::kJavaScriptHarmony,
       switches::kOriginTrialDisabledFeatures,
       switches::kOriginTrialDisabledTokens,
