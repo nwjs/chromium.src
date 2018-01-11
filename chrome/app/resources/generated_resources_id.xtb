@@ -293,7 +293,7 @@
 <translation id="1444628761356461360">Setelan ini dikelola oleh pemilik perangkat, <ph name="OWNER_EMAIL" />.</translation>
 <translation id="144518587530125858">Tidak dapat memuat '<ph name="IMAGE_PATH" />' untuk tema.</translation>
 <translation id="1451375123200651445">Halaman web, File Tunggal</translation>
-<translation id="1451917004835509682">Tambahkan Orang yang Dilindungi</translation>
+<translation id="1451917004835509682">Tambahkan Pengguna yang Dilindungi</translation>
 <translation id="1454223536435069390">Ambil screenshot</translation>
 <translation id="1459967076783105826">Mesin telusur ditambahkan oleh ekstensi</translation>
 <translation id="146000042969587795">Bingkai ini diblokir karena berisi sejumlah konten tidak aman.</translation>
@@ -793,7 +793,7 @@
 <translation id="2232876851878324699">File berisi satu sertifikat, yang tidak diimpor:</translation>
 <translation id="2233502537820838181">Infor&amp;masi selengkapnya</translation>
 <translation id="2238379619048995541">Data Status Frekuensi</translation>
-<translation id="2239921694246509981">Tambahkan orang yang dilindungi</translation>
+<translation id="2239921694246509981">Tambahkan pengguna yang dilindungi</translation>
 <translation id="2241053333139545397">Membaca dan mengubah data Anda di sejumlah situs web</translation>
 <translation id="2242687258748107519">Info File</translation>
 <translation id="2245240762616536227">Mengontrol cara histori browsing mempersonalisasi Penelusuran, iklan, dan layanan Google lainnya</translation>
@@ -1358,7 +1358,7 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="3071624960923923138">Anda dapat mengklik di sini untuk membuka tab baru</translation>
 <translation id="3074037959626057712">Anda telah login dan mengaktifkan Sinkronisasi</translation>
 <translation id="3075874217500066906">Anda perlu memulai ulang untuk memulai proses Powerwash. Setelah proses mulai ulang, Anda akan diminta untuk mengonfirmasi apakah ingin melanjutkan.</translation>
-<translation id="3076677906922146425">Izinkan siapa pun menambahkan orang ke Chrome</translation>
+<translation id="3076677906922146425">Izinkan siapa pun menambahkan pengguna ke Chrome</translation>
 <translation id="3076909148546628648"><ph name="DOWNLOAD_RECEIVED" />/<ph name="DOWNLOAD_TOTAL" /></translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3078461028045006476">Bagikan dengan <ph name="EXTENSION_NAME" /></translation>
@@ -3062,7 +3062,7 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="5829401023154985950">Kelola...</translation>
 <translation id="5830410401012830739">Mengelola setelan lokasi...</translation>
 <translation id="5830720307094128296">Simp&amp;an Halaman Sebagai...</translation>
-<translation id="5832805196449965646">Tambahkan Orang</translation>
+<translation id="5832805196449965646">Tambahkan Pengguna</translation>
 <translation id="583281660410589416">Tidak dikenal</translation>
 <translation id="5832976493438355584">Terkunci</translation>
 <translation id="5833610766403489739">File ini tidak terdeteksi berada di mana. Periksa setelan lokasi download dan coba lagi.</translation>
@@ -3136,7 +3136,7 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="5933376509899483611">Zona waktu</translation>
 <translation id="5934281776477898549">Tidak ada pembaruan</translation>
 <translation id="5939518447894949180">Setel ulang</translation>
-<translation id="5941153596444580863">Tambahkan orang...</translation>
+<translation id="5941153596444580863">Tambahkan pengguna...</translation>
 <translation id="5941343993301164315">Harap masuk ke <ph name="TOKEN_NAME" />.</translation>
 <translation id="5941711191222866238">Perkecil</translation>
 <translation id="5946591249682680882">ID Laporan <ph name="WEBRTC_LOG_REPORT_ID" /></translation>
@@ -3667,7 +3667,7 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="6788210894632713004">Ektensi yang belum dibuka</translation>
 <translation id="6790428901817661496">Putar</translation>
 <translation id="6790497603648687708"><ph name="EXTENSION_NAME" /> telah ditambahkan dari jauh</translation>
-<translation id="6790820461102226165">Tambahkan Orang...</translation>
+<translation id="6790820461102226165">Tambahkan Pengguna...</translation>
 <translation id="6792072150955115067"><ph name="APP_NAME" /> ingin membagikan konten layar Anda dengan <ph name="TARGET_NAME" />. Pilih konten yang ingin Anda bagikan.</translation>
 <translation id="6793604637258913070">Sorot tempat penyisipan teks saat muncul atau berpindah</translation>
 <translation id="6797493596609571643">Ups, ada yang tidak beres.</translation>
@@ -4056,7 +4056,7 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="7456142309650173560">dev</translation>
 <translation id="7456847797759667638">Buka Lokasi...</translation>
 <translation id="7461924472993315131">Pasang Pin</translation>
-<translation id="7463006580194749499">Tambahkan orang</translation>
+<translation id="7463006580194749499">Tambahkan pengguna</translation>
 <translation id="7464490149090366184">Gagal membuat file zip, item sudah ada: "$1"</translation>
 <translation id="7465778193084373987">Netscape Certificate Revocation URL</translation>
 <translation id="7469894403370665791">Sambungkan ke jaringan ini secara otomatis</translation>

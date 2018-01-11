@@ -1811,7 +1811,7 @@
 <translation id="3764314093345384080">اطلاعات دقیق ساخت</translation>
 <translation id="3764583730281406327">{NUM_DEVICES,plural, =1{‏ارتباط با یک دستگاه USB}one{‏ارتباط با # دستگاه USB}other{‏ارتباط با # دستگاه USB}}</translation>
 <translation id="3764986667044728669">ثبت‌نام ممکن نیست</translation>
-<translation id="3766223500670287046">پخش از راه دور صفحه‌نمایش</translation>
+<translation id="3766223500670287046">پخش ازراه‌دور صفحه‌نمایش</translation>
 <translation id="3768037234834996183">در حال همگام‌سازی تنظیمات ترجیحی...</translation>
 <translation id="3771294271822695279">فایل‌های ویدئویی</translation>
 <translation id="3775432569830822555">‏گواهی سرور SSL</translation>
@@ -2171,7 +2171,7 @@
 <translation id="4384312707950789900">افزودن به شبکه‌های برگزیده</translation>
 <translation id="4384652540891215547">فعال کردن افزونه</translation>
 <translation id="438503109373656455">اسب</translation>
-<translation id="4387004326333427325">گواهینامه راستی‌آزمایی، از راه دور، رد شد</translation>
+<translation id="4387004326333427325">گواهینامه راستی‌آزمایی، ازراه‌دور، رد شد</translation>
 <translation id="4389091756366370506">کاربر <ph name="VALUE" /></translation>
 <translation id="4394049700291259645">غیر فعال کردن</translation>
 <translation id="4400367121200150367">سایت‌هایی که هرگز گذرواژه را ذخیره نمی‌کنند در اینجا نشان داده نخواهند شد</translation>
@@ -3208,7 +3208,7 @@
 <translation id="6059925163896151826">‏دستگاه‌های USB</translation>
 <translation id="6064217302520318294">قفل صفحه</translation>
 <translation id="6065289257230303064">ویژگی‌های دایرکتوری موضوع گواهی</translation>
-<translation id="6068338049763724728">فعال کردن ثبت‌نام از راه دور</translation>
+<translation id="6068338049763724728">فعال کردن ثبت‌نام ازراه‌دور</translation>
 <translation id="6071181508177083058">تأیید گذرواژه</translation>
 <translation id="6073903501322152803">افزودن قابلیت‌های دسترس‌پذیری</translation>
 <translation id="6074825444536523002">‏فرم Google</translation>
@@ -3662,7 +3662,7 @@
 <translation id="6787839852456839824">میان‌برهای صفحه‌کلید</translation>
 <translation id="6788210894632713004">افزونه غیر فشرده</translation>
 <translation id="6790428901817661496">پخش</translation>
-<translation id="6790497603648687708"><ph name="EXTENSION_NAME" /> از راه دور اضافه شد</translation>
+<translation id="6790497603648687708"><ph name="EXTENSION_NAME" /> ازراه‌دور اضافه شد</translation>
 <translation id="6790820461102226165">افزودن شخص...</translation>
 <translation id="6792072150955115067"><ph name="APP_NAME" /> می‌خواهد محتوای صفحه شما را با <ph name="TARGET_NAME" /> به اشتراک بگذارد. آنچه را می‌خواهید به اشتراک بگذارید، انتخاب کنید.</translation>
 <translation id="6793604637258913070">برجسته کردن نشانگر نوشتار درصورتی‌که ظاهر شود یا حرکت کند</translation>
