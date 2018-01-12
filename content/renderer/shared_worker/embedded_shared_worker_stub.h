@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/macros.h"
+#include "base/files/file_path.h"
 #include "content/child/child_message_filter.h"
 #include "content/child/scoped_child_process_reference.h"
 #include "content/common/shared_worker/shared_worker.mojom.h"
@@ -106,6 +107,8 @@ class EmbeddedSharedWorkerStub : public IPC::Listener,
   const std::string name_;
   bool running_ = false;
   GURL url_;
+  bool nodejs_ = false;
+  base::FilePath root_path_;
   blink::WebSharedWorker* impl_ = nullptr;
   std::unique_ptr<SharedWorkerDevToolsAgent> worker_devtools_agent_;
 

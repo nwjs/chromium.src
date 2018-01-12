@@ -49,7 +49,7 @@ class WebSharedWorkerRepositoryClient {
   using DocumentID = unsigned long long;
 
   // Connects to a shared worker.
-  virtual void Connect(
+  virtual void Connect(bool,
       const WebURL&,
       const WebString& name,
       DocumentID,

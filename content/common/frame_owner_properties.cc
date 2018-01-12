@@ -8,6 +8,7 @@ namespace content {
 
 FrameOwnerProperties::FrameOwnerProperties()
     : scrolling_mode(blink::WebFrameOwnerProperties::ScrollingMode::kAuto),
+      nwfaketop(false),
       margin_width(-1),
       margin_height(-1),
       allow_fullscreen(false),
@@ -21,6 +22,7 @@ FrameOwnerProperties::~FrameOwnerProperties() {}
 
 bool FrameOwnerProperties::operator==(const FrameOwnerProperties& other) const {
   return name == other.name && scrolling_mode == other.scrolling_mode &&
+         nwfaketop == other.nwfaketop &&
          margin_width == other.margin_width &&
          margin_height == other.margin_height &&
          allow_fullscreen == other.allow_fullscreen &&

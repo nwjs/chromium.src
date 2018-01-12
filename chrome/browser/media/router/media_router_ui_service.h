@@ -31,7 +31,9 @@ class MediaRouterUIService : public KeyedService {
  private:
   friend class MediaRouterUIBrowserTest;
 
+#if defined(NWJS_SDK)
   std::unique_ptr<MediaRouterActionController> action_controller_;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(MediaRouterUIService);
 };
