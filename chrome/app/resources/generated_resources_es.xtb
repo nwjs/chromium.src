@@ -312,7 +312,7 @@
 <translation id="1476607407192946488">&amp;Configuración de idioma</translation>
 <translation id="1476949146811612304">Especifica el motor de búsqueda que se debe utilizar al realizar una búsqueda desde el <ph name="BEGIN_LINK" />omnibox<ph name="END_LINK" />.</translation>
 <translation id="1477301030751268706">Caché del token de la API de identidad</translation>
-<translation id="1478233201128522094">La próxima vez, un teléfono nuevo desbloqueará este <ph name="DEVICE_TYPE" />. Desactiva Smart Lock en Ajustes.</translation>
+<translation id="1478233201128522094">La próxima vez, un teléfono nuevo desbloqueará este <ph name="DEVICE_TYPE" />. Desactiva Smart Lock en Configuración.</translation>
 <translation id="1478340334823509079">Detalles: <ph name="FILE_NAME" /></translation>
 <translation id="1482124012545051544">Listo para realizar la copia de seguridad de <ph name="FILE_COUNT" /> fotos nuevas</translation>
 <translation id="1483493594462132177">Enviar</translation>
@@ -929,7 +929,7 @@ No creo que este sitio deba bloquearse</translation>
 <translation id="2470702053775288986">Extensiones no admitidas inhabilitadas</translation>
 <translation id="2473195200299095979">Traducir esta página</translation>
 <translation id="2475982808118771221">Se ha producido un error.</translation>
-<translation id="2476578072172137802">Ajustes del sitio</translation>
+<translation id="2476578072172137802">Configuración del sitio</translation>
 <translation id="2478176599153288112">Permisos de archivos multimedia para "<ph name="EXTENSION" />"</translation>
 <translation id="247949520305900375">Compartir audio</translation>
 <translation id="2480868415629598489">Modificar los datos que se copian y se pegan</translation>
@@ -1098,7 +1098,7 @@ y su configuración no se sincronizan en otros dispositivos con la función de s
 <translation id="2706892089432507937">Dispositivos USB</translation>
 <translation id="2707024448553392710">Descargando componente</translation>
 <translation id="270921614578699633">Por encima de la media</translation>
-<translation id="2709453993673701466">¿Quieres administrar la sincronización y personalización antes de que se activen? Accede a <ph name="BEGIN_LINK" />Ajustes<ph name="END_LINK" />.</translation>
+<translation id="2709453993673701466">¿Quieres administrar la sincronización y personalización antes de que se activen? Accede a <ph name="BEGIN_LINK" />Configuración<ph name="END_LINK" />.</translation>
 <translation id="2709516037105925701">Autocompletar</translation>
 <translation id="271033894570825754">Nuevo</translation>
 <translation id="2714393097308983682">Google Play Store</translation>
@@ -1638,7 +1638,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="3493881266323043047">Validez</translation>
 <translation id="3494769164076977169">Preguntar cuando un sitio intente descargar archivos automáticamente después del primer archivo (recomendado)</translation>
 <translation id="3495304270784461826"><ph name="COUNT" /> errores.</translation>
-<translation id="3495660573538963482">Ajustes del Asistente de Google</translation>
+<translation id="3495660573538963482">Configuración del Asistente de Google</translation>
 <translation id="3496213124478423963">Alejar</translation>
 <translation id="3504135463003295723">Nombre del grupo:</translation>
 <translation id="3505030558724226696">Revocar acceso al dispositivo</translation>
@@ -1843,7 +1843,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="3798449238516105146">Versión</translation>
 <translation id="3799201711591988491">{COUNT,plural, =0{&amp;Abrir todas}=1{&amp;Abrir marcador}other{&amp;Abrir (#)}}</translation>
 <translation id="3800806661949714323">Mostrar todo (recomendado)</translation>
-<translation id="3802282970260083766">Ajustes del dispositivo</translation>
+<translation id="3802282970260083766">Configuración del dispositivo</translation>
 <translation id="380408572480438692">Habilitar la recogida de datos de rendimiento ayudará a Google a mejorar el sistema en el futuro. No se enviará ningún dato hasta que no envíes un informe de comentarios (Alt-Mayús-I) e incluyas datos de rendimiento. Puedes volver a esta pantalla para inhabilitar la recogida de datos en cualquier momento.</translation>
 <translation id="3806965327722135869">Buscar y quitar software dañino</translation>
 <translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (ID de extensión "<ph name="EXTENSION_ID" />") no se puede utilizar en una pantalla de inicio de sesión.</translation>
@@ -2090,7 +2090,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="4235813040357936597">Añadir cuenta de <ph name="PROFILE_NAME" /></translation>
 <translation id="4235965441080806197">Cancelar inicio de sesión</translation>
 <translation id="4240511609794012987">Memoria compartida</translation>
-<translation id="4242533952199664413">Abrir Ajustes</translation>
+<translation id="4242533952199664413">Abrir Configuración</translation>
 <translation id="4242577469625748426">Se ha producido un error al instalar la configuración de política en el dispositivo (<ph name="VALIDATION_ERROR" />).</translation>
 <translation id="4244238649050961491">Buscar más aplicaciones para el lápiz óptico</translation>
 <translation id="424546999567421758">Se ha detectado un uso elevado del disco</translation>
@@ -2321,7 +2321,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="4648499713050786492">Desbloquea tu perfil antes de añadir a un usuario.</translation>
 <translation id="465499440663162826">No se ha podido establecer conexión con Chrome Web Store.</translation>
 <translation id="4656293982926141856">Este ordenador</translation>
-<translation id="4658312088164718891">Introduce tu contraseña para activar Smart Lock. La próxima vez, el teléfono desbloqueará tu <ph name="DEVICE_TYPE" />. Desactiva Smart Lock en Ajustes.</translation>
+<translation id="4658312088164718891">Introduce tu contraseña para activar Smart Lock. La próxima vez, el teléfono desbloqueará tu <ph name="DEVICE_TYPE" />. Desactiva Smart Lock en Configuración.</translation>
 <translation id="4662788913887017617">Compartir este marcador con tu iPhone</translation>
 <translation id="4663373278480897665">Cámara permitida</translation>
 <translation id="4664482161435122549">Error de exportación de archivos PKCS #12</translation>
@@ -2993,7 +2993,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="5711983031544731014">No se puede realizar el desbloqueo. Introduce tu contraseña.</translation>
 <translation id="5715711091495208045">Agente de complementos: <ph name="PLUGIN_NAME" /></translation>
 <translation id="5719603411793408026">Motores de búsqueda predeterminados</translation>
-<translation id="572155275267014074">Ajustes de Android</translation>
+<translation id="572155275267014074">Configuración de Android</translation>
 <translation id="572328651809341494">Pestañas recientes</translation>
 <translation id="5723508132121499792">No se están ejecutando aplicaciones en segundo plano.</translation>
 <translation id="572392919096807438">Recordar mi decisión</translation>
@@ -3461,7 +3461,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6452181791372256707">Rechazar</translation>
 <translation id="6455894534188563617">&amp;Nueva carpeta</translation>
 <translation id="6456394469623773452">Aceptable</translation>
-<translation id="6456631036739229488">Se ha cambiado el teléfono de Smart Lock. Introduce la contraseña para actualizar Smart Lock. La próxima vez, el teléfono desbloqueará tu <ph name="DEVICE_TYPE" />. Desactiva Smart Lock en Ajustes.</translation>
+<translation id="6456631036739229488">Se ha cambiado el teléfono de Smart Lock. Introduce la contraseña para actualizar Smart Lock. La próxima vez, el teléfono desbloqueará tu <ph name="DEVICE_TYPE" />. Desactiva Smart Lock en Configuración.</translation>
 <translation id="645705751491738698">Seguir bloqueando JavaScript</translation>
 <translation id="6458308652667395253">Administrar bloqueo de JavaScript...</translation>
 <translation id="6459488832681039634">Usar selección para buscar</translation>
@@ -4643,7 +4643,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8425755597197517046">&amp;Pegar y buscar</translation>
 <translation id="8426713856918551002">Habilitando</translation>
 <translation id="8427292751741042100">insertado en otro host</translation>
-<translation id="8428213095426709021">Ajustes</translation>
+<translation id="8428213095426709021">Configuración</translation>
 <translation id="8431909052837336408">Cambiar PIN de la tarjeta SIM</translation>
 <translation id="8434480141477525001">Puerto de depuración NaCl</translation>
 <translation id="8437331208797669910">Acceso a página</translation>
@@ -4977,7 +4977,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8970203673128054105">Ver la lista del modo de envío</translation>
 <translation id="89720367119469899">Esc</translation>
 <translation id="8973557916016709913">Quitar el nivel de zoom</translation>
-<translation id="8973596347849323817">Personaliza este dispositivo para adaptarlo a tus necesidades. Puedes modificar las funciones de accesibilidad posteriormente en Ajustes.</translation>
+<translation id="8973596347849323817">Personaliza este dispositivo para adaptarlo a tus necesidades. Puedes modificar las funciones de accesibilidad posteriormente en Configuración.</translation>
 <translation id="897414447285476047">El archivo de destino está incompleto debido a un problema relacionado con la conexión.</translation>
 <translation id="8976520271376534479">Se ha bloqueado Flash en esta página.</translation>
 <translation id="8977811652087512276">La contraseña es incorrecta o el archivo está dañado</translation>
@@ -5018,7 +5018,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="9035012421917565900">Estos elementos no se pueden volver a mover a "<ph name="DESTINATION_NAME" />", por lo que no podrás deshacer esta acción.</translation>
 <translation id="9037008143807155145">https://www.google.com/calendar/render?cid=%s</translation>
 <translation id="9037965129289936994">Mostrar original</translation>
-<translation id="9038430547971207796">La próxima vez, el teléfono desbloqueará tu <ph name="DEVICE_TYPE" />. Desactiva Smart Lock en Ajustes.</translation>
+<translation id="9038430547971207796">La próxima vez, el teléfono desbloqueará tu <ph name="DEVICE_TYPE" />. Desactiva Smart Lock en Configuración.</translation>
 <translation id="9038649477754266430">Utilizar un servicio de predicciones para que las páginas se carguen más rápido</translation>
 <translation id="9039663905644212491">PEAP</translation>
 <translation id="9039890312082871605">Silenciar pestañas</translation>

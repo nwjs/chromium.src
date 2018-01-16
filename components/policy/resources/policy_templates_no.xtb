@@ -327,7 +327,7 @@
 <translation id="2067011586099792101">Blokkér tilgang til nettsteder som ikke inngår i innholdspakker</translation>
 <translation id="2075030897098958514">Kontrollerer om NTLMv2 er aktivert.
 
-          Alle nylige versjoner av Samba og Windows-tjenere støtter NTLMv2. Mv2 må bare slås av for bakoverkompatibilitet, siden sikkerheten for autentisering reduseres.
+          Alle nylige versjoner av Samba- og Windows-tjenere støtter NTLMv2. Mv2 må bare slås av for bakoverkompatibilitet, siden sikkerheten for autentisering reduseres.
 
           Standardverdien når denne regelen ikke er definert, er for øyeblikket «usann» for bakoverkompatibilitet, men skal endres til «sann» senere.</translation>
 <translation id="2077129598763517140">Bruk maskinvareakselerasjon når det er tilgjengelig</translation>
@@ -1765,7 +1765,7 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
       tilgang til G Suite med hvilken som helst konto.
 
       Denne regelen gjør at hodeelementet X-GoogApps-Allowed-Domains blir lagt til i
-      alle HTTP- og HTTPS-forespørsler til alle google.com-domener, som beskrevet i
+      alle HTTP- og HTTPS-forespørsler for alle google.com-domener, som beskrevet i
       https://support.google.com/a/answer/1668854.
 
       Brukere kan ikke endre eller overstyre denne innstillingen.</translation>

@@ -196,7 +196,7 @@
 <translation id="2367567093518048410">Livello</translation>
 <translation id="2384307209577226199">Valore predefinito aziendale</translation>
 <translation id="2386255080630008482">Il certificato del server è stato revocato.</translation>
-<translation id="2392959068659972793">Mostra norme senza valori</translation>
+<translation id="2392959068659972793">Mostra criteri senza valori</translation>
 <translation id="239429038616798445">Questo metodo di spedizione non è disponibile. Prova un metodo diverso.</translation>
 <translation id="2396249848217231973">&amp;Annulla eliminazione</translation>
 <translation id="2413528052993050574">Questo server non è riuscito a dimostrare che si tratta di <ph name="DOMAIN" />; il relativo certificato di sicurezza potrebbe essere revocato. Il problema potrebbe essere dovuto a un'errata configurazione o a un malintenzionato che intercetta la connessione.</translation>
@@ -968,7 +968,7 @@
 <translation id="834457929814110454">Se sei consapevole dei rischi per la tua sicurezza, potresti <ph name="BEGIN_LINK" />visitare questo sito<ph name="END_LINK" /> senza aspettare che vengano rimossi i programmi pericolosi.</translation>
 <translation id="8349305172487531364">Barra dei Preferiti</translation>
 <translation id="8363502534493474904">Disattivare la modalità aereo</translation>
-<translation id="8364627913115013041">Non impostata.</translation>
+<translation id="8364627913115013041">Non impostato.</translation>
 <translation id="8368476060205742148">Google Play Services</translation>
 <translation id="8380941800586852976">Pericolosa</translation>
 <translation id="8382348898565613901">I preferiti visitati di recente vengono visualizzati qui</translation>

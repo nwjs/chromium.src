@@ -3855,7 +3855,7 @@
 <translation id="7106346894903675391">خرید فضای ذخیره بیشتر...</translation>
 <translation id="7108338896283013870">عدم نمایش</translation>
 <translation id="7108668606237948702">Enter</translation>
-<translation id="7113502843173351041">دیدن آدرس رایانامه شما</translation>
+<translation id="7113502843173351041">دیدن نشانی رایانامه شما</translation>
 <translation id="7114054701490058191">گذرواژه‌ها مطابقت ندارند</translation>
 <translation id="7117247127439884114">ورود مجدد به سیستم...</translation>
 <translation id="711840821796638741">نمایش نشانک‌های مدیریت شده</translation>
@@ -3912,7 +3912,7 @@
 <translation id="7221155467930685510">$1 گیگابایت</translation>
 <translation id="7221855153210829124">نمایش اعلان‌ها</translation>
 <translation id="7221869452894271364">تازه‌سازی این صفحه</translation>
-<translation id="7222232353993864120">آدرس رایانامه</translation>
+<translation id="7222232353993864120">نشانی رایانامه</translation>
 <translation id="7222373446505536781">F11</translation>
 <translation id="722363467515709460">فعال کردن بزرگ‌کننده صفحه</translation>
 <translation id="7223775956298141902">اوه... برنامهٔ افزودنی ندارید :-(</translation>
@@ -4434,7 +4434,7 @@
 <translation id="8053390638574070785">تازه سازی این صفحه</translation>
 <translation id="8054029954190364711">قابلیت باز کردن قفل اثر انگشت</translation>
 <translation id="8054517699425078995">این نوع فایل می‌تواند به دستگاه شما آسیب برساند. با این حال می‌خواهید <ph name="FILE_NAME" /> را نگه دارید؟</translation>
-<translation id="8054563304616131773">لطفاً یک آدرس رایانامه معتبر وارد کنید</translation>
+<translation id="8054563304616131773">لطفاً یک نشانی رایانامه معتبر وارد کنید</translation>
 <translation id="8054921503121346576">‏صفحه‌کلید USB متصل شد</translation>
 <translation id="8058655154417507695">سال انقضا</translation>
 <translation id="8059178146866384858">فایلی به نام «$1» از قبل وجود دارد. لطفاً نام دیگری انتخاب کنید.</translation>
