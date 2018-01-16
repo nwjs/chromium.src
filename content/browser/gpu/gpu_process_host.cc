@@ -467,6 +467,7 @@ GpuProcessHost::GpuProcessHost(int host_id, GpuProcessKind kind)
       swiftshader_rendering_(false),
       kind_(kind),
       process_launched_(false),
+	  closing_(false),
       status_(UNKNOWN),
       gpu_host_binding_(this),
       weak_ptr_factory_(this) {
@@ -489,7 +490,7 @@ GpuProcessHost::GpuProcessHost(int host_id, GpuProcessKind kind)
 
 GpuProcessHost::~GpuProcessHost() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
+  closing_ = true;
   SendOutstandingReplies();
 
   if (status_ == UNKNOWN) {
@@ -686,7 +687,8 @@ void GpuProcessHost::EstablishGpuChannel(
     const EstablishChannelCallback& callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT0("gpu", "GpuProcessHost::EstablishGpuChannel");
-
+  if (in_process_ && closing_)
+	  return;
   // If GPU features are already blacklisted, no need to establish the channel.
   if (!GpuDataManagerImpl::GetInstance()->GpuAccessAllowed(nullptr)) {
     DVLOG(1) << "GPU blacklisted, refusing to open a GPU channel.";

@@ -127,7 +127,9 @@ class ScriptContextSet {
       const Extension* extension,
       int world_id,
       const GURL& url,
-      const blink::WebSecurityOrigin& origin);
+      const blink::WebSecurityOrigin& origin,
+      const blink::WebLocalFrame* frame = nullptr
+                                             );
 
   // Weak reference to all installed Extensions that are also active in this
   // process.

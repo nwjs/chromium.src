@@ -39,6 +39,7 @@ source_set("chrome_elf_main_include") {
 # We should move chrome_result_codes.h to another target which does not bring
 # in the world.
 shared_library("chrome_elf") {
+  output_name = "nw_elf"
   sources = [
     "chrome_elf_main.cc",
     "chrome_elf_main.h",

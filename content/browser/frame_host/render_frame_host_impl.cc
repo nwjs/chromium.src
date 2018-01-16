@@ -461,6 +461,14 @@ void RenderFrameHostImpl::SetNetworkFactoryForTesting(
   g_url_loader_factory_callback_for_test.Get() = url_loader_factory_callback;
 }
 
+void RenderFrameHostImpl::SetNodeJS(bool node) {
+  nodejs_ = node;
+}
+
+void RenderFrameHostImpl::SetContextCreated(bool created) {
+  context_created_ = created;
+}
+
 RenderFrameHostImpl::RenderFrameHostImpl(SiteInstance* site_instance,
                                          RenderViewHostImpl* render_view_host,
                                          RenderFrameHostDelegate* delegate,
@@ -482,6 +490,8 @@ RenderFrameHostImpl::RenderFrameHostImpl(SiteInstance* site_instance,
       routing_id_(routing_id),
       is_waiting_for_swapout_ack_(false),
       render_frame_created_(false),
+      nodejs_(false),
+      context_created_(false),
       navigations_suspended_(false),
       is_waiting_for_beforeunload_ack_(false),
       unload_ack_is_for_navigation_(false),
@@ -642,6 +652,14 @@ int RenderFrameHostImpl::GetRoutingID() {
 
 ui::AXTreeIDRegistry::AXTreeID RenderFrameHostImpl::GetAXTreeID() {
   return ax_tree_id_;
+}
+
+bool RenderFrameHostImpl::nodejs() {
+  return nodejs_;
+}
+
+bool RenderFrameHostImpl::context_created() {
+  return context_created_;
 }
 
 const base::UnguessableToken& RenderFrameHostImpl::GetOverlayRoutingToken() {

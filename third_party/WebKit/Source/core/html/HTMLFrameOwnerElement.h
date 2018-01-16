@@ -103,6 +103,12 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
   AtomicString BrowsingContextContainerName() const override {
     return getAttribute(HTMLNames::nameAttr);
   }
+  AtomicString nwuseragent() const override {
+    return getAttribute(HTMLNames::nwuseragentAttr);
+  }
+  bool nwfaketop() const override {
+    return hasAttribute(HTMLNames::nwfaketopAttr);
+  }
   ScrollbarMode ScrollingMode() const override { return kScrollbarAuto; }
   int MarginWidth() const override { return -1; }
   int MarginHeight() const override { return -1; }

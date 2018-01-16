@@ -18,6 +18,16 @@
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/icc_profile.h"
 
+namespace content {
+
+// Switch to enable / disable code for window's transparency
+DISPLAY_EXPORT bool g_support_transparency = true;
+
+// Switch to force cpu drawing, is used to enable click through on alpha pixels
+extern bool g_force_cpu_draw;
+bool g_force_cpu_draw = false;
+}
+
 namespace display {
 namespace {
 

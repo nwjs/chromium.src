@@ -196,7 +196,7 @@ class WebViewTestProxy : public Base, public WebViewTestProxyBase {
                                         policy, suppress_opener, sandbox_flags))
       return nullptr;
     return Base::CreateView(creator, request, features, frame_name, policy,
-                            suppress_opener, sandbox_flags);
+                            suppress_opener, sandbox_flags, nullptr);
   }
   void PrintPage(blink::WebLocalFrame* frame) override {
     view_test_client()->PrintPage(frame);

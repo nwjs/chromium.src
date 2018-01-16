@@ -16,11 +16,13 @@ FrameOwnerProperties ConvertWebFrameOwnerPropertiesToFrameOwnerProperties(
     const blink::WebFrameOwnerProperties& web_frame_owner_properties) {
   FrameOwnerProperties result;
 
+  result.nwuseragent = web_frame_owner_properties.nwuseragent.Utf8();
   result.name = web_frame_owner_properties.name.Utf8();
   result.scrolling_mode = web_frame_owner_properties.scrolling_mode;
   result.margin_width = web_frame_owner_properties.margin_width;
   result.margin_height = web_frame_owner_properties.margin_height;
   result.allow_fullscreen = web_frame_owner_properties.allow_fullscreen;
+  result.nwfaketop = web_frame_owner_properties.nwFakeTop;
   result.allow_payment_request =
       web_frame_owner_properties.allow_payment_request;
   result.required_csp = web_frame_owner_properties.required_csp.Utf8();
@@ -38,6 +40,7 @@ ConvertFrameOwnerPropertiesToWebFrameOwnerProperties(
   result.margin_width = frame_owner_properties.margin_width;
   result.margin_height = frame_owner_properties.margin_height;
   result.allow_fullscreen = frame_owner_properties.allow_fullscreen;
+  result.nwFakeTop = frame_owner_properties.nwfaketop;
   result.allow_payment_request = frame_owner_properties.allow_payment_request;
   result.required_csp =
       blink::WebString::FromUTF8(frame_owner_properties.required_csp);
