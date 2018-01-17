@@ -465,8 +465,8 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget,
 
   bool isOpaque = [cocoa_view_ isOpaque];
   if (content::g_support_transparency) {
-  [background_layer_ setBackgroundColor: (isOpaque || !content::g_support_transparency) ?
-  CGColorGetConstantColor(kCGColorWhite) : CGColorGetConstantColor(kCGColorClear)];
+    [background_layer_ setBackgroundColor: (isOpaque || !content::g_support_transparency) ?
+      CGColorGetConstantColor(kCGColorWhite) : CGColorGetConstantColor(kCGColorClear)];
   }
 
   [cocoa_view_ setLayer:background_layer_];
@@ -1942,7 +1942,10 @@ void RenderWidgetHostViewMac::OnDisplayMetricsChanged(
   if (content::g_force_cpu_draw) {
     CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
     CGContextClipToRect(ctx, NSRectToCGRect(dirty));
-    [[self layer] renderInContext:ctx];
+    //High Sierra 10.13 fix, previously we use [self layer],
+    //since we have set the layer to nil in AcceleratedWidgetMac::GotSoftwareFrame,
+    //we access the layer "directly" which is the "background_layer_" (see RenderWidgetHostViewMac constructor)
+    [renderWidgetHostView_->background_layer_ renderInContext:ctx];
   } else {
     [super drawRect:dirty];
   }
