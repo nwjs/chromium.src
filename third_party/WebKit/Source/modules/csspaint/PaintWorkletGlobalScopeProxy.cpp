@@ -30,7 +30,7 @@ PaintWorkletGlobalScopeProxy::PaintWorkletGlobalScopeProxy(
       std::make_unique<MainThreadWorkletReportingProxy>(document);
 
   // TODO(nhiroki): Set CSP headers (https://crbug.com/773786).
-  auto creation_params = std::make_unique<GlobalScopeCreationParams>(
+  auto creation_params = std::make_unique<GlobalScopeCreationParams>(false, std::string(),
       document->Url(), document->UserAgent(), String() /* source_code */,
       nullptr /* cached_meta_data */,
       nullptr /* content_security_policy_parsed_headers */,

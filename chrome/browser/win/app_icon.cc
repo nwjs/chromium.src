@@ -4,6 +4,8 @@
 
 #include "chrome/browser/win/app_icon.h"
 
+#include "content/nw/src/nw_content.h"
+
 #include "chrome/common/chrome_constants.h"
 #include "chrome/install_static/install_details.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -21,6 +23,11 @@ int GetAppIconResourceId() {
 }  // namespace
 
 HICON GetAppIcon() {
+#if 0
+  HICON ret = nw::GetWindowHIcon();
+  if (ret)
+    return ret;
+#endif
   // TODO(mgiuca): Use GetAppIconImageFamily/CreateExact instead of LoadIcon, to
   // get correct scaling. (See http://crbug.com/551256)
   const int icon_id = GetAppIconResourceId();
@@ -30,6 +37,11 @@ HICON GetAppIcon() {
 }
 
 HICON GetSmallAppIcon() {
+#if 0
+  HICON ret = nw::GetAppHIcon();
+  if (ret)
+    return ret;
+#endif
   // TODO(mgiuca): Use GetAppIconImageFamily/CreateExact instead of LoadIcon, to
   // get correct scaling. (See http://crbug.com/551256)
   const int icon_id = GetAppIconResourceId();

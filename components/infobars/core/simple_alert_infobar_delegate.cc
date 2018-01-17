@@ -17,6 +17,9 @@ void SimpleAlertInfoBarDelegate::Create(
     const gfx::VectorIcon* vector_icon,
     const base::string16& message,
     bool auto_expire) {
+  //NWJS#6340: Crash on select file dialog when policy deny it
+  if (!infobar_manager)
+    return;
   infobar_manager->AddInfoBar(infobar_manager->CreateConfirmInfoBar(
       std::unique_ptr<ConfirmInfoBarDelegate>(new SimpleAlertInfoBarDelegate(
           infobar_identifier, vector_icon, message, auto_expire))));

@@ -80,6 +80,7 @@ const base::FilePath::CharType kSwReporterExeName[] =
 constexpr base::Feature kComponentTagFeature{kComponentTagFeatureName,
                                              base::FEATURE_DISABLED_BY_DEFAULT};
 
+#if 0
 void SRTHasCompleted(SRTCompleted value) {
   UMA_HISTOGRAM_ENUMERATION("SoftwareReporter.Cleaner.HasCompleted", value,
                             SRT_COMPLETED_MAX);
@@ -116,11 +117,13 @@ void ReportUploadsWithUma(const base::string16& upload_results) {
   UMA_HISTOGRAM_BOOLEAN("SoftwareReporter.LastUploadResult", last_result);
 }
 
+#endif
 void ReportExperimentError(SoftwareReporterExperimentError error) {
   UMA_HISTOGRAM_ENUMERATION("SoftwareReporter.ExperimentErrors", error,
                             SW_REPORTER_EXPERIMENT_ERROR_MAX);
 }
 
+#if 0
 // Once the Software Reporter is downloaded, schedules it to run sometime after
 // the current browser startup is complete. (This is the default
 // |reporter_runner| function passed to the |SwReporterInstallerPolicy|
@@ -128,12 +131,15 @@ void ReportExperimentError(SoftwareReporterExperimentError error) {
 void RunSwReportersAfterStartup(
     SwReporterInvocationType invocation_type,
     safe_browsing::SwReporterInvocationSequence&& invocations) {
+#if 0
   content::BrowserThread::PostAfterStartupTask(
       FROM_HERE, base::ThreadTaskRunnerHandle::Get(),
       base::Bind(&safe_browsing::RunSwReporters, invocation_type,
                  base::Passed(&invocations)));
+#endif
 }
 
+#endif
 // Ensures |str| contains only alphanumeric characters and characters from
 // |extras|, and is not longer than |max_length|.
 bool ValidateString(const std::string& str,
@@ -145,6 +151,8 @@ bool ValidateString(const std::string& str,
                   extras.find(c) != std::string::npos;
          });
 }
+
+#if 0
 
 std::string GenerateSessionId() {
   std::string session_id;
@@ -187,6 +195,9 @@ void RunSwReporters(const base::FilePath& exe_path,
                     const SwReporterRunner& reporter_runner,
                     SwReporterInvocationType invocation_type,
                     OnReporterSequenceDone on_sequence_done) {
+#if 1
+  return;
+#else
   const base::ListValue* parameter_list = nullptr;
 
   // Allow an empty or missing launch_params list, but log an error if
@@ -287,7 +298,10 @@ void RunSwReporters(const base::FilePath& exe_path,
 
   DCHECK(!invocations.container().empty());
   reporter_runner.Run(invocation_type, std::move(invocations));
+#endif
 }
+
+#endif
 
 }  // namespace
 
@@ -328,10 +342,12 @@ void SwReporterInstallerPolicy::ComponentReady(
     const base::Version& version,
     const base::FilePath& install_dir,
     std::unique_ptr<base::DictionaryValue> manifest) {
+#if 0
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   const base::FilePath exe_path(install_dir.Append(kSwReporterExeName));
   RunSwReporters(exe_path, version, std::move(manifest), reporter_runner_,
                  invocation_type_, std::move(on_sequence_done_));
+#endif
 }
 
 base::FilePath SwReporterInstallerPolicy::GetRelativeInstallDir() const {
@@ -381,6 +397,9 @@ void RegisterSwReporterComponentWithParams(
     safe_browsing::SwReporterInvocationType invocation_type,
     OnReporterSequenceDone on_sequence_done,
     ComponentUpdateService* cus) {
+#if 1
+  return;
+#else
   // Check if we have information from Cleaner and record UMA statistics.
   base::string16 cleaner_key_name(
       chrome_cleaner::kSoftwareRemovalToolRegistryKey);
@@ -460,6 +479,7 @@ void RegisterSwReporterComponentWithParams(
           base::Bind(&RunSwReportersAfterStartup), invocation_type,
           std::move(on_sequence_done)));
   installer->Register(cus, base::OnceClosure());
+#endif
 }
 
 void RegisterSwReporterComponent(ComponentUpdateService* cus) {

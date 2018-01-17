@@ -148,7 +148,7 @@ void ColorInputType::HandleDOMActivateEvent(Event* event) {
   if (GetElement().IsDisabledFormControl())
     return;
 
-  if (!Frame::HasTransientUserActivation(GetElement().GetDocument().GetFrame()))
+  if (!Frame::HasTransientUserActivation(GetElement().GetDocument().GetFrame()) && !GetElement().GetDocument().GetFrame()->isNodeJS())
     return;
 
   ChromeClient* chrome_client = this->GetChromeClient();

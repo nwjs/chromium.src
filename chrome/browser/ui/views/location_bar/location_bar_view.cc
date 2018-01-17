@@ -241,7 +241,8 @@ void LocationBarView::Init() {
                new ManagePasswordsIconViews(command_updater()));
   add_icon(save_credit_card_icon_view_ =
                new autofill::SaveCardIconView(command_updater(), browser_));
-  add_icon(translate_icon_view_ = new TranslateIconView(command_updater()));
+  //add_icon(translate_icon_view_ = new TranslateIconView(command_updater()));
+
 #if defined(OS_CHROMEOS)
   add_icon(intent_picker_view_ = new IntentPickerView(browser_));
 #endif
@@ -450,7 +451,7 @@ gfx::Size LocationBarView::CalculatePreferredSize() const {
   // Compute width of omnibox-trailing content.
   int trailing_width = edge_thickness;
   trailing_width += IncrementalMinimumWidth(star_view_) +
-                    IncrementalMinimumWidth(translate_icon_view_) +
+    //                IncrementalMinimumWidth(translate_icon_view_) +
                     IncrementalMinimumWidth(save_credit_card_icon_view_) +
                     IncrementalMinimumWidth(manage_passwords_icon_view_) +
                     IncrementalMinimumWidth(zoom_view_);
@@ -539,7 +540,7 @@ void LocationBarView::Layout() {
 #endif
   add_trailing_decoration(star_view_);
   add_trailing_decoration(find_bar_icon_);
-  add_trailing_decoration(translate_icon_view_);
+  //add_trailing_decoration(translate_icon_view_);
   add_trailing_decoration(save_credit_card_icon_view_);
   add_trailing_decoration(manage_passwords_icon_view_);
   add_trailing_decoration(zoom_view_);
@@ -801,6 +802,7 @@ bool LocationBarView::RefreshFindBarIcon() {
 }
 
 void LocationBarView::RefreshTranslateIcon() {
+#if 0
   WebContents* web_contents = GetWebContents();
   if (!web_contents)
     return;
@@ -814,6 +816,7 @@ void LocationBarView::RefreshTranslateIcon() {
   translate_icon_view_->SetVisible(enabled);
   if (!enabled)
     TranslateBubbleView::CloseCurrentBubble();
+#endif
 }
 
 bool LocationBarView::RefreshManagePasswordsIconView() {
