@@ -175,6 +175,7 @@ AtkUtilAuraLinux* AtkUtilAuraLinux::GetInstance() {
 }
 
 void AtkUtilAuraLinux::InitializeAsync() {
+#if 0
   // Register our util class.
   g_type_class_unref(g_type_class_ref(ATK_UTIL_AURALINUX_TYPE));
 
@@ -186,6 +187,7 @@ void AtkUtilAuraLinux::InitializeAsync() {
       {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::Bind(&GetAccessibilityModuleInitFunc),
       base::Bind(&FinishAccessibilityInitOnMainThread));
+#endif
 }
 
 }  // namespace ui

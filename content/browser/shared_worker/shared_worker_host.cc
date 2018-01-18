@@ -82,7 +82,7 @@ void SharedWorkerHost::Start(mojom::SharedWorkerFactoryPtr factory,
   mojom::SharedWorkerHostPtr host;
   binding_.Bind(mojo::MakeRequest(&host));
 
-  mojom::SharedWorkerInfoPtr info(mojom::SharedWorkerInfo::New(
+  mojom::SharedWorkerInfoPtr info(mojom::SharedWorkerInfo::New(instance_->nodejs(), instance_->root_path(),
       instance_->url(), instance_->name(), instance_->content_security_policy(),
       instance_->content_security_policy_type(),
       instance_->creation_address_space(), instance_->data_saver_enabled()));

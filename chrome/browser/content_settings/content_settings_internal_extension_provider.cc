@@ -89,7 +89,7 @@ void InternalExtensionProvider::Observe(
   DCHECK_EQ(extensions::NOTIFICATION_EXTENSION_HOST_CREATED, type);
   const extensions::ExtensionHost* host =
       content::Details<extensions::ExtensionHost>(details).ptr();
-  if (host->extension()->is_platform_app()) {
+  if (host->extension()->is_platform_app() && !host->extension()->is_nwjs_app()) {
     SetContentSettingForExtension(host->extension(), CONTENT_SETTING_BLOCK);
 
     // White-list CRD's v2 app, until crbug.com/134216 is complete.

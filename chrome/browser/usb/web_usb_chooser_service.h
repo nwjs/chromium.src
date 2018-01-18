@@ -16,7 +16,7 @@
 namespace content {
 class RenderFrameHost;
 }
-
+class ChromeBubbleManager;
 // Implementation of the public device::usb::ChooserService interface.
 // This interface can be used by a webpage to request permission from user
 // to access a certain device.
@@ -37,6 +37,7 @@ class WebUsbChooserService : public device::mojom::UsbChooserService {
   content::RenderFrameHost* const render_frame_host_;
   mojo::BindingSet<device::mojom::UsbChooserService> bindings_;
   std::vector<BubbleReference> bubbles_;
+  std::unique_ptr<ChromeBubbleManager> bubble_mgr_;
 
   DISALLOW_COPY_AND_ASSIGN(WebUsbChooserService);
 };

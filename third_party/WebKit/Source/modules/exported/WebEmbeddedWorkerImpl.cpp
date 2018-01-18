@@ -31,6 +31,20 @@
 #include "modules/exported/WebEmbeddedWorkerImpl.h"
 
 #include <memory>
+
+#include "third_party/node-nw/src/node_webkit.h"
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) CORE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
+#include "base/command_line.h"
+
 #include "bindings/core/v8/SourceLocation.h"
 #include "core/dom/SecurityContext.h"
 #include "core/dom/TaskRunnerHelper.h"
@@ -347,6 +361,8 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
   DCHECK(!asked_to_terminate_);
 
   Document* document = shadow_page_->GetDocument();
+  const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
+  bool isNodeJS = document->GetFrame() && document->GetFrame()->isNodeJS() && command_line.HasSwitch("enable-node-worker");
 
   // FIXME: this document's origin is pristine and without any extra privileges.
   // (crbug.com/254993)
@@ -381,6 +397,11 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
   std::unique_ptr<WorkerSettings> worker_settings =
       WTF::MakeUnique<WorkerSettings>(document->GetSettings());
 
+  std::string main_script;
+  KURL script_url = worker_start_data_.script_url;
+  if (g_web_worker_start_thread_fn) {
+    (*g_web_worker_start_thread_fn)(shadow_page_->GetDocument()->GetFrame(), (void*)script_url.GetPath().Utf8().data(), &main_script, &isNodeJS);
+  }
   std::unique_ptr<GlobalScopeCreationParams> global_scope_creation_params;
   // |main_script_loader_| isn't created if the InstalledScriptsManager had the
   // script.
@@ -391,6 +412,7 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
         main_script_loader_->ReleaseContentSecurityPolicy(),
         main_script_loader_->GetReferrerPolicy());
     global_scope_creation_params = WTF::MakeUnique<GlobalScopeCreationParams>(
+        isNodeJS, main_script,
         worker_start_data_.script_url, worker_start_data_.user_agent,
         main_script_loader_->SourceText(),
         main_script_loader_->ReleaseCachedMetadata(), start_mode,
@@ -405,6 +427,7 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
     // SetContentSecurityPolicyAndReferrerPolicy() before evaluating the main
     // script.
     global_scope_creation_params = WTF::MakeUnique<GlobalScopeCreationParams>(
+        isNodeJS, main_script,
         worker_start_data_.script_url, worker_start_data_.user_agent,
         "" /* SourceText */, nullptr /* CachedMetadata */, start_mode,
         nullptr /* ContentSecurityPolicy */, "" /* ReferrerPolicy */,

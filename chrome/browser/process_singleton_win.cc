@@ -416,6 +416,7 @@ bool ProcessSingleton::Create() {
             base::Bind(&ProcessLaunchNotification, notification_callback_),
             user_data_dir_.value());
         CHECK(result && window_.hwnd());
+	::ChangeWindowMessageFilter(WM_COPYDATA, MSGFLT_ADD);
       }
     }
   }
