@@ -1143,8 +1143,7 @@ void ChromeContentBrowserClient::RenderProcessWillLaunch(
 
 GURL ChromeContentBrowserClient::GetEffectiveURL(
     content::BrowserContext* browser_context,
-    const GURL& url,
-    bool is_isolated_origin) {
+    const GURL& url) {
   Profile* profile = Profile::FromBrowserContext(browser_context);
   if (!profile)
     return url;
@@ -1157,8 +1156,8 @@ GURL ChromeContentBrowserClient::GetEffectiveURL(
     return search::GetEffectiveURLForInstant(url, profile);
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-  return ChromeContentBrowserClientExtensionsPart::GetEffectiveURL(
-      profile, url, is_isolated_origin);
+  return ChromeContentBrowserClientExtensionsPart::GetEffectiveURL(profile,
+                                                                   url);
 #else
   return url;
 #endif
