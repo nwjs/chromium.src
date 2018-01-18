@@ -255,12 +255,8 @@ void AcceleratedWidgetMac::GotSoftwareFrame(float scale_factor,
     [io_surface_layer_ setContentsGravity:kCAGravityTopLeft];
     [io_surface_layer_ setAnchorPoint:CGPointMake(0, 0)];
     [flipped_layer_ addSublayer:io_surface_layer_];
-    if (content::g_force_cpu_draw) {
+    if (content::g_force_cpu_draw)
       [io_surface_layer_.get() setBackgroundColor:[flipped_layer_.get() backgroundColor]];
-      //High Sierra 10.13 fix, RenderWidgetHostViewCocoa CALayer must be nil
-      //so we can do drawRect "manually"
-      [view_->AcceleratedWidgetGetNSView() setLayer:nil];
-    }
   }
 
   // Set the software layer to draw the provided canvas.

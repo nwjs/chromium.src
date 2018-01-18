@@ -2913,12 +2913,21 @@ void RenderWidgetHostViewMac::OnDisplayMetricsChanged(
 - (void)setFrameSize:(NSSize)newSize {
   TRACE_EVENT0("browser", "RenderWidgetHostViewCocoa::setFrameSize");
 
+  //High Sierra 10.13 fix, RenderWidgetHostViewCocoa CALayer must be nil
+  //so we can do drawRect "manually"
+  //here, we temporarily assign back the layer during resize, so the background_layer_ can be resized properly
+  if (content::g_force_cpu_draw)
+    [self setLayer:renderWidgetHostView_->background_layer_];
+
   // NB: -[NSView setFrame:] calls through -setFrameSize:, so overriding
   // -setFrame: isn't neccessary.
   [super setFrameSize:newSize];
 
-  if (!renderWidgetHostView_->render_widget_host_)
+  if (!renderWidgetHostView_->render_widget_host_) {
+    if (content::g_force_cpu_draw)
+      [self setLayer:nil];
     return;
+  }
 
   if (renderWidgetHostView_->render_widget_host_->delegate())
     renderWidgetHostView_->render_widget_host_->delegate()->SendScreenRects();
@@ -2933,6 +2942,8 @@ void RenderWidgetHostViewMac::OnDisplayMetricsChanged(
   // because the view widget is still hidden, and the pause call in WasShown
   // will have this effect for us.
   renderWidgetHostView_->PauseForPendingResizeOrRepaintsAndDraw();
+  if (content::g_force_cpu_draw)
+    [self setLayer:nil];
 }
 
 - (BOOL)canBecomeKeyView {
