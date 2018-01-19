@@ -539,6 +539,7 @@
 -DeclarativeNetRequestBrowserTest.Whitelist/0
 -DeclarativeNetRequestBrowserTest.Whitelist/1
 -DeclarativeNetRequestBrowserTest_Packed.BrowserRestart/0
+-DevToolsFrontendInWebRequestApiTest.HiddenRequests
 -ExtensionWebRequestApiTest.DeclarativeSendMessage
 -ExtensionWebRequestApiTest.ExtensionRequests
 -ExtensionWebRequestApiTest.HostedAppRequest

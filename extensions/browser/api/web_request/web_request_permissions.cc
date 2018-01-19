@@ -10,6 +10,7 @@
 #include "chromeos/login/login_state.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/resource_request_info.h"
+#include "extensions/browser/api/extensions_api_client.h"
 #include "extensions/browser/api/web_request/web_request_api_constants.h"
 #include "extensions/browser/extension_navigation_ui_data.h"
 #include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
@@ -95,6 +96,14 @@ bool IsSensitiveURL(const GURL& url,
                             base::StartsWith(url.path_piece(), "/webstore",
                                              base::CompareCase::SENSITIVE));
   }
+
+  if (is_request_from_browser_or_webui_renderer) {
+    sensitive_chrome_url =
+        sensitive_chrome_url ||
+        extensions::ExtensionsAPIClient::Get()->ShouldHideBrowserNetworkRequest(
+            url);
+  }
+
   return sensitive_chrome_url || extension_urls::IsWebstoreUpdateUrl(url) ||
          extension_urls::IsBlacklistUpdateUrl(url) ||
          extension_urls::IsSafeBrowsingUrl(origin, url.path_piece());
