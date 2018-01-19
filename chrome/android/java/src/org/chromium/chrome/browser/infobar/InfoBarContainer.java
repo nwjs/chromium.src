@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.infobar;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
+import android.support.annotation.Nullable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -545,6 +546,15 @@ public class InfoBarContainer extends SwipableOverlayView {
             }
         });
         mScrollDirectionChangeAnimation.start();
+    }
+
+    /**
+     * @return The infobar in front.
+     */
+    @Nullable
+    InfoBar getFrontInfoBar() {
+        if (mInfoBars.isEmpty()) return null;
+        return mInfoBars.get(0);
     }
 
     private native long nativeInit();
