@@ -917,7 +917,7 @@ int BrowserMainLoop::PreCreateThreads() {
       GetContentClient()->browser()->GetOriginsRequiringDedicatedProcess());
 
   // Record metrics about which site isolation flags have been turned on.
-  SiteIsolationPolicy::RecordSiteIsolationFlagUsage();
+  SiteIsolationPolicy::StartRecordingSiteIsolationFlagUsage();
 
   return result_code_;
 }

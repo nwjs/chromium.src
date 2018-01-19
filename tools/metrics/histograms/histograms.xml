@@ -81120,7 +81120,8 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   <owner>alexmos@chromium.org</owner>
   <summary>
     True if the --isolate-origins mode was enabled from the command line,
-    about:flags, or enterprise policy.  Recorded on browser startup.
+    about:flags, or enterprise policy.  Recorded on browser startup and then
+    once every 24 hours.
   </summary>
 </histogram>
 
@@ -81128,7 +81129,8 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   <owner>alexmos@chromium.org</owner>
   <summary>
     True if the --site-per-process mode was enabled from the command line,
-    about:flags, or enterprise policy.  Recorded on browser startup.
+    about:flags, or enterprise policy.  Recorded on browser startup and then
+    once every 24 hours.
   </summary>
 </histogram>
 
