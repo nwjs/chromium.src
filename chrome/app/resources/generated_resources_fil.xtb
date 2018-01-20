@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">HTML File ng Mga Bookmark</translation>
 <translation id="1303671224831497365">Walang nakitang Bluetooth device</translation>
 <translation id="1306606229401759371">Baguhin ang mga setting</translation>
-<translation id="1307398858972670978">I-access ang iyong mga password mula sa anumang device sa <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1307559529304613120">Oops!  Nabigo ang system na i-imbak ang pangmatagalang token sa pag-access sa API para sa device na ito.</translation>
 <translation id="1313405956111467313">Awtomatikong proxy configuration</translation>
 <translation id="131364520783682672">Caps Lock</translation>
@@ -443,11 +442,9 @@
     <ph name="BEGIN_BOLD" />suriin<ph name="END_BOLD" /> ang mga website na binisita ng pinangangasiwaang user, at
     <ph name="BEGIN_BOLD" />pamahalaan<ph name="END_BOLD" /> ang iba pang mga setting.</translation>
 <translation id="1648943974594387137">Luma na ang mga detalye ng pag-sign in</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" /> (na) linya ang hindi ipinapakita&gt;</translation>
 <translation id="1650371550981945235">Ipakita ang mga opsyon sa pag-input</translation>
 <translation id="1650709179466243265">Idagdag ang www. at .com at bukas na address</translation>
 <translation id="1651008383952180276">Dapat mong ilagay ang katulad na passphrase nang dalawang beses</translation>
-<translation id="1652972346408808053">Na-save ang password. I-access ang iyong mga password mula sa anumang device sa <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Idagdag ang printer sa Google Cloud Print nang sa gayon ay makakapag-print ka kahit saan.}one{Idagdag ang # printer sa Google Cloud Print nang sa gayon ay makakapag-print ka kahit saan.}other{Idagdag ang # na printer sa Google Cloud Print nang sa gayon ay makakapag-print ka kahit saan.}}</translation>
 <translation id="1657406563541664238">Tulungan ang <ph name="PRODUCT_NAME" /> na maging mas mahusay sa pamamagitan ng awtomatikong pagpapadala ng mga istatistika ng paggamit at mga crash report sa Google</translation>
 <translation id="1658424621194652532">Ina-access ng pahinang ito ang iyong mikropono.</translation>
@@ -883,7 +880,6 @@
 <translation id="236141728043665931">Palaging i-block ang pag-access sa mikropono</translation>
 <translation id="2367972762794486313">Ipakita ang apps</translation>
 <translation id="2371076942591664043">Buksan kapag &amp;tapos na</translation>
-<translation id="237336063998926520">Gamitin ang iyong IP address upang malaman ang lokasyon</translation>
 <translation id="2377319039870049694">Lumipat sa list view</translation>
 <translation id="2377667304966270281">Mga Hard Fault</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> (na) file ang pinili</translation>
@@ -930,7 +926,6 @@ Sa palagay ko, hindi dapat i-block ang site na ito!</translation>
 <translation id="2457246892030921239">Gustong kumopya ng <ph name="APP_NAME" /> ng mga file mula sa <ph name="VOLUME_NAME" />.</translation>
 <translation id="2462724976360937186">Certification Authority Key ID</translation>
 <translation id="2462752602710430187">Idinagdag ang <ph name="PRINTER_NAME" /></translation>
-<translation id="246335896104539386">Mag-import ng Mga Bookmark</translation>
 <translation id="2464089476039395325">HTTP Proxy</translation>
 <translation id="2468902267404883140">Hindi makakonekta sa iyong telepono. Siguraduhing gumagamit ka ng tugmang Android phone na naka-on at malapit. &lt;a&gt;Matuto pa&lt;/a&gt;</translation>
 <translation id="2470702053775288986">Na-disable ang mga hindi sinusuportahang extension</translation>
@@ -1068,7 +1063,6 @@ Sa palagay ko, hindi dapat i-block ang site na ito!</translation>
 <translation id="2653266418988778031">Kapag nagtanggal ka ng certificate ng Certification Authority (CA), hindi na pagkakatiwalaan ng iyong browser ang anumang mga certificate na ibinigay ng CA na iyon.</translation>
 <translation id="2653659639078652383">Isumite</translation>
 <translation id="265390580714150011">Field Value</translation>
-<translation id="2654286334048437383">Mag-export ng Mga Bookmark</translation>
 <translation id="2655386581175833247">Certificate ng user:</translation>
 <translation id="2660779039299703961">Kaganapan</translation>
 <translation id="2661146741306740526">16x9</translation>
@@ -1360,7 +1354,7 @@ Para sa higit pang impormasyon, bisitahin ang aming <ph name="BEGIN_LINK" />Help
 <translation id="3051523411789012618">Itaas ang window</translation>
 <translation id="3053013834507634016">Paggamit ng Certificate Key </translation>
 <translation id="3057861065630527966">I-back up ang iyong mga larawan at video</translation>
-<translation id="3060379269883947824">I-enable ang select-to-speak</translation>
+<translation id="3060379269883947824">I-enable ang Select to Speak</translation>
 <translation id="3061707000357573562">Serbisyo sa Pag-patch</translation>
 <translation id="3064410671692449875">Hindi sapat ang data</translation>
 <translation id="3065041951436100775">Feedback na isinara ang tab</translation>
@@ -1525,7 +1519,6 @@ Para sa higit pang impormasyon, bisitahin ang aming <ph name="BEGIN_LINK" />Help
 <translation id="3309747692199697901">Patakbuhin sa Lahat ng Site sa Lahat ng Pagkakataon</translation>
 <translation id="3312424061798279731">Mga naka-enable na wika</translation>
 <translation id="3312903956926554846">I-install sa desktop</translation>
-<translation id="3313473140726597081">Naging <ph name="URL" /> ang iyong page sa pagsisimula. Upang i-disable ang mga extension na binabago ang page sa pagsisimula mo, i-click ang I-restore.</translation>
 <translation id="3313590242757056087">Upang itakda kung aling mga website ang maaring tingnan ng pinangangasiwaang user, maisasaayos mo ang mga paghihigpit
     at setting sa pamamagitan ng pagbisita sa <ph name="MANAGEMENT_URL" />.
     Kung hindi mo babaguhin ang mga default na setting, maba-browse ni <ph name="USER_DISPLAY_NAME" />
@@ -1850,7 +1843,6 @@ Para sa higit pang impormasyon, bisitahin ang aming <ph name="BEGIN_LINK" />Help
 <translation id="379082410132524484">Nag-expire na ang iyong card</translation>
 <translation id="3792890930871100565">Idiskonekta ang mga printer</translation>
 <translation id="379422718204375917">Gamitin ang Smart Lock upang mag-sign in sa iyong account</translation>
-<translation id="3794595850995182458">Umalis sa page</translation>
 <translation id="3796648294839530037">Mga Paboritong Network:</translation>
 <translation id="3797900183766075808">&amp;Maghanap sa <ph name="SEARCH_ENGINE" /> ng “<ph name="SEARCH_TERMS" />”</translation>
 <translation id="3798325802885154040">Nagbibigay-daan sa iyong i-enable/i-disable ang tap-to-click</translation>
@@ -3346,7 +3338,6 @@ Para sa higit pang impormasyon, bisitahin ang aming <ph name="BEGIN_LINK" />Help
 <translation id="6237816943013845465">Nagbibigay-daan sa iyong i-adjust ang resolution ng iyong screen</translation>
 <translation id="6238923052227198598">Panatilihin ang pinakabagong tala sa lock screen</translation>
 <translation id="6239558157302047471">I-reload ang &amp;frame</translation>
-<translation id="624022915548992686">Umalis sa Page</translation>
 <translation id="6241530762627360640">Mag-access ng impormasyon tungkol sa mga Bluetooth device na nakapares sa iyong system at tumuklas ng mga kalapit na Bluetooth device.</translation>
 <translation id="6243774244933267674">Hindi available ang server</translation>
 <translation id="6246413617632217567">Hindi ma-import ang pinangangasiwaang user. Pakitingnan ang espasyo sa iyong hard drive at mga pahintulot at subukang muli.</translation>
@@ -3395,7 +3386,6 @@ Para sa higit pang impormasyon, bisitahin ang aming <ph name="BEGIN_LINK" />Help
 <translation id="6312403991423642364">Hindi alam na error sa network</translation>
 <translation id="6313641880021325787">LUMABAS SA VR</translation>
 <translation id="6314819609899340042">Matagumpay mong na-enable ang mga feature para sa pagde-debug sa <ph name="IDS_SHORT_PRODUCT_NAME" /> device na ito.</translation>
-<translation id="6315343732431721770">Binago ang iyong mga page sa pagsisimula upang isama ang <ph name="URL" />. Upang i-disable ang mga extension na binabago ang page sa pagsisimula mo, i-click ang I-restore.</translation>
 <translation id="6315493146179903667">Bring All to Front</translation>
 <translation id="6316806695097060329">Idinisenyo ang <ph name="SHORT_PRODUCT_NAME" /> device upang maihatid ang pinakamahusay na karanasan sa web sa iyo.</translation>
 <translation id="6317318380444133405">Hindi na sinusuportahan.</translation>
@@ -3410,7 +3400,6 @@ Para sa higit pang impormasyon, bisitahin ang aming <ph name="BEGIN_LINK" />Help
 <translation id="6333049849394141510">Piliin kung ano ang isi-sync</translation>
 <translation id="6333064448949140209">Ipapadala ang file sa Google para sa pagde-debug</translation>
 <translation id="6333834492048057036">I-focus ang address bar para sa paghahanap</translation>
-<translation id="6336907568130557310">Makikita ng sinumang nakakakita sa na-export na file ang mga password mo. Huwag ibahagi ang file sa kahit sino at i-delete ito pagkatapos itong i-import.</translation>
 <translation id="6339668969738228384">Gumawa ng bagong profile para sa <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6340017061976355871">Hindi makakonekta sa server. Pakitingnan ang iyong koneksyon sa network at subukang muli. Kung magpapatuloy ang problema, i-restart ang Chromebook mo.</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
@@ -4172,7 +4161,6 @@ Para sa higit pang impormasyon, bisitahin ang aming <ph name="BEGIN_LINK" />Help
     subukang gumawa ulit ng pinapangasiwaang user.</translation>
 <translation id="756445078718366910">Magbukas ng Window ng Browser</translation>
 <translation id="7564847347806291057">Tapusin ang proseso</translation>
-<translation id="7565291891798266313">Ginawang <ph name="URL" /> ang iyong search engine. Upang i-disable ang mga extension na binabago ang search engine mo, i-click ang I-restore.</translation>
 <translation id="7566118625369982896">Pamahalaan ang mga link ng app sa Play</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Na-clear ang data ng Chrome</translation>
@@ -4181,7 +4169,6 @@ Para sa higit pang impormasyon, bisitahin ang aming <ph name="BEGIN_LINK" />Help
 <translation id="7573172247376861652">Charge ng Baterya</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Tipunin</translation>
-<translation id="7577815336900970562">Gumamit ng WiFi o cellular network upang matukoy ang lokasyon</translation>
 <translation id="7579149537961810247">I-mute ang Mga Site</translation>
 <translation id="7580671184200851182">I-play ang parehong audio sa lahat ng speaker (mono audio)</translation>
 <translation id="7581462281756524039">Isang tool sa paglilinis</translation>
@@ -4567,7 +4554,6 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="8191230140820435481">Pamahalaan ang iyong apps, mga extension, at tema</translation>
 <translation id="8191453843330043793">Panglutas ng Proxy ng V8</translation>
 <translation id="8195027750202970175">Sukat sa disk</translation>
-<translation id="8195739004487400241">Ginawang <ph name="URL" /> ang iyong homepage. Upang i-disable ang mga extension na binabago ang homepage mo, i-click ang I-restore.</translation>
 <translation id="8199300056570174101">Mga property ng Network (Serbisyo) at Device</translation>
 <translation id="8200772114523450471">Resume</translation>
 <translation id="8202160505685531999">Mangyaring ilagay muli ang iyong password upang i-update ang iyong profile sa <ph name="DEVICE_TYPE" />.</translation>
@@ -4714,6 +4700,7 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="8454288007744638700">O kaya, pumili ng bagong network:</translation>
 <translation id="845627346958584683">Oras ng Expiration</translation>
 <translation id="8456681095658380701">Di-wastong pangalan</translation>
+<translation id="8457451314607652708">Mag-import ng mga bookmark</translation>
 <translation id="8460336040822756677">Kung io-off mo ang Smart Lock para sa <ph name="DEVICE_TYPE" />, hindi mo maa-unlock ang iyong mga Chrome device gamit ang iyong telepono. Kakailanganin mong i-type ang iyong password.</translation>
 <translation id="8461329675984532579">Pangalan ng home provider</translation>
 <translation id="84613761564611563">Hiniling ang network configure UI, mangyaring maghintay...</translation>
@@ -4950,7 +4937,6 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="882204272221080310">I-update ang firmware para sa karagdagang seguridad.</translation>
 <translation id="8823514049557262177">Kopyahin ang text ng link</translation>
 <translation id="8824701697284169214">Magdagdag ng Pahina...</translation>
-<translation id="8827850355924932817">Gumamit ng WiFi network upang matukoy ang lokasyon</translation>
 <translation id="8828933418460119530">Pangalan ng DNS</translation>
 <translation id="8830796635868321089">Nabigo ang pagsusuri sa update gamit ang mga kasalukuyang setting ng proxy. Mangyaring isaayos ang iyong <ph name="PROXY_SETTINGS_LINK_START" />mga setting ng proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="8834039744648160717">Ang configuration ng network ay kinokontrol ng <ph name="USER_EMAIL" />.</translation>
@@ -4994,7 +4980,7 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="8899285681604219177">Na-disable ang Mga Hindi Sinusuportahang Extension</translation>
 <translation id="8899551033019439140">Naghahanap ng printer...</translation>
 <translation id="8899851313684471736">Buksan ang link sa bagong &amp;window</translation>
-<translation id="8902667442496790482">Buksan ang mga setting ng select-to-speak</translation>
+<translation id="8902667442496790482">Buksan ang mga setting ng Select to Speak</translation>
 <translation id="8903921497873541725">Mag-zoom in</translation>
 <translation id="8904976895050290827">Chrome Sync</translation>
 <translation id="8908902564709148335">Babala: Na-enable mo ang flag na --scripts-require-action sa computer na ito, na naglilimita sa mga kakayahan ng extension na ito. Gayunpaman, maaaring hindi suportahan o hindi i-enable ng ibang mga device ang flag na ito. Sa mga device na ito, maaari ding gawin ng extension na ito ang mga sumusunod:</translation>

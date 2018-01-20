@@ -116,7 +116,7 @@ Per poter utilizzare il Physical Web, devi attivare il Bluetooth e la geolocaliz
 <translation id="1993768208584545658">Il sito <ph name="SITE" /> desidera accoppiarsi</translation>
 <translation id="1994173015038366702">URL sito</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> kB per altre app</translation>
-<translation id="2015632741368427174">Reindirizzamento al sito bloccato:</translation>
+<translation id="2015632741368427174">Reindirizzamento bloccato al seguente sito:</translation>
 <translation id="2017836877785168846">Consente di cancellare la cronologia e i completamenti automatici nella barra degli indirizzi.</translation>
 <translation id="2021896219286479412">Controlli sito a schermo intero</translation>
 <translation id="2038563949887743358">Attiva Richiedi sito desktop</translation>
@@ -206,7 +206,6 @@ Per poter utilizzare il Physical Web, devi attivare il Bluetooth e la geolocaliz
 <translation id="2876764156902388290">Chrome usa meno dati per mostrarti questa pagina</translation>
 <translation id="2888126860611144412">Informazioni su Chrome</translation>
 <translation id="2891154217021530873">Interrompe il caricamento della pagina</translation>
-<translation id="2892933203342091350">Attiva la Visualizzazione semplificata per tutti gli articoli</translation>
 <translation id="2900528713135656174">Crea evento</translation>
 <translation id="2902702728133930130">Impossibile avviare Chrome a causa di un errore imprevisto.</translation>
 <translation id="2903493209154104877">Indirizzi</translation>
@@ -294,7 +293,6 @@ Per modificare il termine di ricerca, premi a lungo per selezionarlo. Per perfez
 <translation id="3661699943263275414">I siti web di terze parti possono salvare e leggere i dati dei cookie</translation>
 <translation id="3662546969139119822">Nessuna cronologia presente</translation>
 <translation id="3672452749423051839">Suggerimenti per gli errori di navigazione</translation>
-<translation id="3682249951633602029">Le tue password saranno visibili a chiunque abbia accesso al file di password esportato.</translation>
 <translation id="3712575778697986964">Vuoi reimpostare il Risparmio dati?</translation>
 <translation id="3714981814255182093">Apri la barra Trova</translation>
 <translation id="3716182511346448902">Questa pagina è stata messa in pausa da Chromium perché utilizza troppa memoria.</translation>
@@ -618,7 +616,6 @@ Ad esempio, alcuni siti web potrebbero rispondere alla richiesta mostrando annun
 <translation id="6538442820324228105">Sono stati scaricati <ph name="GBS" /> GB</translation>
 <translation id="654446541061731451">Seleziona una scheda da trasmettere</translation>
 <translation id="6545017243486555795">Cancella tutti i dati</translation>
-<translation id="6550675742724504774">Opzioni</translation>
 <translation id="6556716549745717622">Blocca se il sito tende a mostrare annunci invasivi (opzione consigliata)</translation>
 <translation id="6560414384669816528">Ricerche con Sogou</translation>
 <translation id="6566259936974865419">Chrome ti ha fatto risparmiare <ph name="GIGABYTES" /> GB</translation>

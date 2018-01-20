@@ -206,7 +206,6 @@ Debes activar la ubicación y el Bluetooth para utilizar la Web física.</transl
 <translation id="2876764156902388290">Chrome está utilizando menos datos para mostrarte esta página</translation>
 <translation id="2888126860611144412">Información de Chrome</translation>
 <translation id="2891154217021530873">Detener la carga de la página</translation>
-<translation id="2892933203342091350">Habilita la vista simplificada en todos los artículos</translation>
 <translation id="2900528713135656174">Crear evento</translation>
 <translation id="2902702728133930130">Se ha producido un error inesperado en Chrome durante el inicio.</translation>
 <translation id="2903493209154104877">Direcciones</translation>
@@ -294,7 +293,6 @@ Para ajustar el término de búsqueda, mantén pulsado el texto para seleccionar
 <translation id="3661699943263275414">Los sitios web externos pueden guardar y leer datos de cookies</translation>
 <translation id="3662546969139119822">Ningún elemento del historial</translation>
 <translation id="3672452749423051839">Sugerencias para errores de navegación</translation>
-<translation id="3682249951633602029">Cualquier usuario que pueda ver el archivo de contraseñas exportado podrá ver tus contraseñas.</translation>
 <translation id="3712575778697986964">¿Quieres vaciar el historial de ahorro de datos?</translation>
 <translation id="3714981814255182093">Abre la barra de búsqueda</translation>
 <translation id="3716182511346448902">Esta página utiliza demasiada memoria y Chrome la ha pausado.</translation>
@@ -618,7 +616,6 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mostrándote anu
 <translation id="6538442820324228105">GB descargados: <ph name="GBS" /></translation>
 <translation id="654446541061731451">Selecciona una pestaña para compartir</translation>
 <translation id="6545017243486555795">Borrar todos los datos</translation>
-<translation id="6550675742724504774">Configuración</translation>
 <translation id="6556716549745717622">Bloquear si el sitio web suele mostrar anuncios invasivos (recomendado)</translation>
 <translation id="6560414384669816528">Realizar búsquedas con Sogou</translation>
 <translation id="6566259936974865419">Chrome te ha permitido ahorrar <ph name="GIGABYTES" /> GB</translation>

@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">બુકમાર્ક્સ HTML ફાઇલ</translation>
 <translation id="1303671224831497365">કોઈ Bluetooth ઉપકરણો મળ્યાં નથી</translation>
 <translation id="1306606229401759371">સેટિંગ્સ બદલો</translation>
-<translation id="1307398858972670978"><ph name="SAVED_PASSWORDS_LINK" /> પર કોઈ પણ ઉપકરણ પરથી તમારા પાસવર્ડને ઍક્સેસ કરો</translation>
 <translation id="1307559529304613120">અરેરે!  સિસ્ટમ આ ઉપકરણ માટે એક લાંબા ગાળાનું API ઍક્સેસ ટોકન સ્ટોર કરવામાં નિષ્ફળ થઈ.</translation>
 <translation id="1313405956111467313">સ્વયંચાલિત પ્રોક્સી કન્ફિગરેશન</translation>
 <translation id="131364520783682672">Caps Lock</translation>
@@ -439,11 +438,9 @@
     નિરીક્ષણ કરેલ વપરાશકર્તાએ મુલાકાત લીધેલી વેબસાઇટ્સની <ph name="BEGIN_BOLD" />સમીક્ષા<ph name="END_BOLD" /> કરી શકો છો, અને
     અન્ય સેટિંગ્સનું <ph name="BEGIN_BOLD" />સંચાલન<ph name="END_BOLD" /> કરી શકો છો.</translation>
 <translation id="1648943974594387137">સાઇન-ઇન વિગતો જૂની થઈ ગઈ છે</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" /> પંક્તિઓ બતાવેલ નથી&gt;</translation>
 <translation id="1650371550981945235">ઇનપુટ વિકલ્પો બતાવો</translation>
 <translation id="1650709179466243265">www. અને .com ઉમેરો અને સરનામું ખોલો</translation>
 <translation id="1651008383952180276">તમારે તે જ પાસફ્રેઝ બે વાર દાખલ કરવો આવશ્યક છે</translation>
-<translation id="1652972346408808053">પાસવર્ડ સાચવ્યો. <ph name="SAVED_PASSWORDS_LINK" /> પર કોઈ પણ ઉપકરણ પરથી તમારા પાસવર્ડને ઍક્સેસ કરો</translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Google મેઘ મુદ્રણમાં પ્રિન્ટર ઉમેરો જેથી તમે ગમે-ત્યાંથી છાપી શકો.}one{Google મેઘ મુદ્રણમાં # પ્રિન્ટર્સ ઉમેરો જેથી તમે ગમે-ત્યાંથી છાપી શકો.}other{Google મેઘ મુદ્રણમાં # પ્રિન્ટર્સ ઉમેરો જેથી તમે ગમે-ત્યાંથી છાપી શકો.}}</translation>
 <translation id="1657406563541664238">ઉપયોગનાં આંકડાઓ અને ક્રેશ રિપોર્ટ્સ આપમેળે Google ને મોકલીને <ph name="PRODUCT_NAME" /> ને વધુ સારુ બનાવવામાં સહાય કરો</translation>
 <translation id="1658424621194652532">આ પૃષ્ઠ તમારા માઇક્રોફોનને ઍક્સેસ કરી રહ્યું છે.</translation>
@@ -879,7 +876,6 @@
 <translation id="236141728043665931">માઇક્રોફોનની ઍક્સેસને હંમેશા અવરોધિત કરો</translation>
 <translation id="2367972762794486313">ઍપ્લિકેશનો બતાવો</translation>
 <translation id="2371076942591664043">&amp;પૂર્ણ થાય ત્યારે ખોલો</translation>
-<translation id="237336063998926520">સ્થાન નક્કી કરવા માટે તમારા IP ઍડ્રેસનો ઉપયોગ કરો</translation>
 <translation id="2377319039870049694">સૂચિ દૃશ્ય પર સ્વિચ કરો</translation>
 <translation id="2377667304966270281">Hard Faults</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> ફાઇલો પસંદ કરી</translation>
@@ -926,7 +922,6 @@
 <translation id="2457246892030921239"><ph name="APP_NAME" /> <ph name="VOLUME_NAME" /> માંથી ફાઈલ્સ કોપી કરવા માંગે છે.</translation>
 <translation id="2462724976360937186">પ્રમાણન અધિકારી કી ID</translation>
 <translation id="2462752602710430187"><ph name="PRINTER_NAME" /> ઉમેર્યું</translation>
-<translation id="246335896104539386">બુકમાર્ક આયાત કરો</translation>
 <translation id="2464089476039395325">HTTP પ્રોક્સી</translation>
 <translation id="2468902267404883140">તમારા ફોન સાથે કનેક્ટ કરી શકાતું નથી. ખાતરી કરો કે તમે સુસંગત Android ફોનનો ઉપયોગ કરી રહ્યા છો જે ચાલુ છે અને હાથવગો છે. &lt;a&gt;વધુ જાણો&lt;/a&gt;</translation>
 <translation id="2470702053775288986">અસમર્થિત એક્સ્ટેન્શન્સ અક્ષમ કર્યાં</translation>
@@ -1064,7 +1059,6 @@
 <translation id="2653266418988778031">જો તમે સર્ટિફિકેશન ઑથોરિટી (CA) ને કાઢો છો, તો તમારું બ્રાઉઝર તે CA દ્વારા રજૂ કરાયેલા કોઈપણ પ્રમાણપત્રો પર વિશ્વાસ કરશે નહીં.</translation>
 <translation id="2653659639078652383">સબમિટ કરો</translation>
 <translation id="265390580714150011">ફીલ્ડ મૂલ્ય</translation>
-<translation id="2654286334048437383">બુકમાર્ક નિકાસ કરો</translation>
 <translation id="2655386581175833247">વપરાશકર્તા પ્રમાણપત્ર:</translation>
 <translation id="2660779039299703961">ઇવેન્ટ</translation>
 <translation id="2661146741306740526">16x9</translation>
@@ -1356,7 +1350,7 @@
 <translation id="3051523411789012618">Window અપ</translation>
 <translation id="3053013834507634016">પ્રમાણપત્ર કી ઉપયોગ</translation>
 <translation id="3057861065630527966">તમારા ફોટો અને વિડિઓઝનો બેકઅપ લો</translation>
-<translation id="3060379269883947824">બોલવા માટે પસંદ કરોને ચાલુ કરો</translation>
+<translation id="3060379269883947824">સાંભળવા માટે પસંદ કરોને ચાલુ કરો</translation>
 <translation id="3061707000357573562">પૅચ સેવા</translation>
 <translation id="3064410671692449875">અપૂરતો ડેટા</translation>
 <translation id="3065041951436100775">ટેબ ફરજિયાત બંધ કરવાનો પ્રતિસાદ.</translation>
@@ -1521,7 +1515,6 @@
 <translation id="3309747692199697901">હંમેશાં બધી સાઇટ્સ પર ચલાવો</translation>
 <translation id="3312424061798279731">સક્ષમ કરેલ ભાષાઓ</translation>
 <translation id="3312903956926554846">ડેસ્કટૉપ પર ઇન્સ્ટૉલ કરો</translation>
-<translation id="3313473140726597081">તમારું સ્ટાર્ટઅપ પૃષ્ઠ <ph name="URL" /> પર બદલ્યું હતું. તમારા સ્ટાર્ટઅપ પૃષ્ઠને બદલનારા એક્સ્ટેન્શનને અક્ષમ કરવા માટે, પુનઃસ્થાપિત કરો ક્લિક કરો.</translation>
 <translation id="3313590242757056087">નિરીક્ષણ કરેલ વપરાશકર્તા કઈ વેબસાઇટ્સ જોઈ શકે છે તે સેટ કરવા માટે, તમે પ્રતિબંધો અને
     સેટિંગ્સને <ph name="MANAGEMENT_URL" /> ની મુલાકાત લઈને ગોઠવી શકો છો.
     જો તમે ડિફોલ્ટ સેટિંગ્સ બદલતા નથી, તો <ph name="USER_DISPLAY_NAME" />
@@ -1846,7 +1839,6 @@
 <translation id="379082410132524484">તમારા કાર્ડની સમયસીમા સમાપ્ત થઈ ગઈ છે</translation>
 <translation id="3792890930871100565">પ્રિંટર્સ ડિસ્કનેક્ટ કરો</translation>
 <translation id="379422718204375917">તમારા એકાઉન્ટમાં સાઇન ઇન કરવા માટે Smart Lockનો ઉપયોગ કરો</translation>
-<translation id="3794595850995182458">પેજમાંથી બહાર નીકળો</translation>
 <translation id="3796648294839530037">મનપસંદ નેટવર્ક્સ:</translation>
 <translation id="3797900183766075808">“<ph name="SEARCH_TERMS" />” માટે <ph name="SEARCH_ENGINE" /> માં &amp;શોધ કરો</translation>
 <translation id="3798325802885154040">તમને ક્લિક કરવા હલકું દબાવવું સક્ષમ/અક્ષમ કરવાની મંજૂરી આપે છે</translation>
@@ -3343,7 +3335,6 @@
 <translation id="6237816943013845465">તમને તમારું સ્ક્રીન રિઝોલ્યૂશન સમાયોજિત કરવાની મંજૂરી આપે છે</translation>
 <translation id="6238923052227198598">લૉક સ્ક્રીન પર એક એકદમ નવી નોંધ રાખો</translation>
 <translation id="6239558157302047471">&amp;ફ્રેમ ફરીથી લોડ કરો</translation>
-<translation id="624022915548992686">પેજમાંથી બહાર નીકળો</translation>
 <translation id="6241530762627360640">તમારા સિસ્ટમ સાથે જોડી બનાવેલા Bluetooth ઉપકરણો વિશેની માહિતી ઍક્સેસ કરો અને નજીકના Bluetooth ઉપકરણોની શોધ કરો.</translation>
 <translation id="6243774244933267674">સર્વર અનુપલબ્ધ</translation>
 <translation id="6246413617632217567">નિરીક્ષિત વપરાશકર્તા આયાત કરી શક્યાં નથી. કૃપા કરીને તમારું હાર્ડ ડ્રાઇવ સ્થાન અને પરવાનગીઓ તપાસો અને ફરીથી પ્રયાસ કરો.</translation>
@@ -3392,7 +3383,6 @@
 <translation id="6312403991423642364">અજ્ઞાત નેટવર્ક ભૂલ</translation>
 <translation id="6313641880021325787">VRથી બહાર નીકળો</translation>
 <translation id="6314819609899340042">આ <ph name="IDS_SHORT_PRODUCT_NAME" /> ઉપકરણ પર તમે સફળતાપૂર્વક ડિબગિંગ સુવિધાઓ સક્ષમ કરેલી છે.</translation>
-<translation id="6315343732431721770"><ph name="URL" /> ને શામેલ કરવા માટે તમારા સ્ટાર્ટઅપ પૃષ્ઠો બદલવામાં આવ્યાં હતાં. તમારા સ્ટાર્ટઅપ પૃષ્ઠને બદલનારા એક્સ્ટેન્શનને અક્ષમ કરવા માટે, પુનઃસ્થાપિત કરો ક્લિક કરો.</translation>
 <translation id="6315493146179903667">બધાને આગળ લાવો</translation>
 <translation id="6316806695097060329">તમને વેબનો શ્રેષ્ઠ અનુભવ આપવા માટે આ <ph name="SHORT_PRODUCT_NAME" /> ઉપકરણને રચવામાં આવ્યું હતું.</translation>
 <translation id="6317318380444133405">હવે સમર્થિત રહ્યું નથી.</translation>
@@ -3407,7 +3397,6 @@
 <translation id="6333049849394141510">શું સમન્વયન કરવાનું છે તે પસંદ કરો</translation>
 <translation id="6333064448949140209">ડીબગિંગ માટે ફાઇલ Google ને મોકલવામાં આવશે</translation>
 <translation id="6333834492048057036">શોધ માટે સરનામાં બાર પર ફોકસ કરો</translation>
-<translation id="6336907568130557310">તમારો પાસવર્ડ જે નિકાસ કરેલી ફાઇલને જોઈ શકે છે તે કોઈ પણ વ્યક્તિને દૃશ્યક્ષમ હશે. ફાઇલને કોઈની પણ સાથે શેર ન કરશો અને તેને આયાત કર્યા પછી ડિલીટ કરશો.</translation>
 <translation id="6339668969738228384"><ph name="USER_EMAIL_ADDRESS" /> માટે એક નવી પ્રોફાઇલ બનાવો</translation>
 <translation id="6340017061976355871">સર્વર સાથે કનેક્ટ ન કરી શક્યાં. કૃપા કરીને તમારું નેટવર્ક કનેક્શન તપાસો અને ફરી પ્રયાસ કરો. જો સમસ્યા ચાલુ રહે, તો તમારી Chromebook ફરી શરૂ કરો.</translation>
 <translation id="6340071272923955280">ઇન્ટરનેટ પ્રિંટિંગ પ્રોટોકોલ (IPPS)</translation>
@@ -4169,7 +4158,6 @@
     કરી શકો છો અને ફરીથી નિરીક્ષિત વપરાશકર્તા બનાવવાનો પ્રયાસ કરી શકો છો.</translation>
 <translation id="756445078718366910">બ્રાઉઝર વિંડો ખોલો</translation>
 <translation id="7564847347806291057">પ્રક્રિયાનો અંત કરો</translation>
-<translation id="7565291891798266313">તમારું શોધ એંજિન, <ph name="URL" /> પર બદલ્યું હતું. તમારા શોધ એંજિનને બદલનારા એક્સ્ટેન્શનને અક્ષમ કરવા માટે, પુનઃસ્થાપિત કરો ક્લિક કરો.</translation>
 <translation id="7566118625369982896">Play ઍપ લિંક મેનેજ કરો</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome ડેટા સાફ કર્યો</translation>
@@ -4178,7 +4166,6 @@
 <translation id="7573172247376861652">બેટરી ચાર્જ</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">કૉલેટ</translation>
-<translation id="7577815336900970562">સ્થાન નક્કી કરવા માટે વાઇ-ફાઇ અથવા સેલ્યુલર નેટવર્કનો ઉપયોગ કરો</translation>
 <translation id="7579149537961810247">સાઇટને મ્યૂટ કરો</translation>
 <translation id="7580671184200851182">તમામ સ્પીકર્સ મારફતે સમાન ઑડિઓ ચલાવો (મોનો ઑડિઓ)</translation>
 <translation id="7581462281756524039">સફાઈ સાધન</translation>
@@ -4558,7 +4545,6 @@
 <translation id="8191230140820435481">તમારી ઍપ્લિકેશનો, એક્સ્ટેન્શન અને થીમ્સ મેનેજ કરો</translation>
 <translation id="8191453843330043793">V8 પ્રોક્સી રિઝોલ્વર</translation>
 <translation id="8195027750202970175">ડિસ્ક પર કદ</translation>
-<translation id="8195739004487400241">તમારું હોમપેજ પૃષ્ઠ, <ph name="URL" /> પર બદલ્યું હતું. તમારા હોમપેજને બદલનારા એક્સ્ટેન્શનને અક્ષમ કરવા માટે, પુનઃસ્થાપિત કરો ક્લિક કરો.</translation>
 <translation id="8199300056570174101">નેટવર્ક (સેવા) અને ઉપકરણના ગુણધર્મો</translation>
 <translation id="8200772114523450471">રિઝ્યુમે</translation>
 <translation id="8202160505685531999">તમારી <ph name="DEVICE_TYPE" /> પ્રોફાઇલને અપડેટ કરવા માટે કૃપા કરીને તમારો પાસવર્ડ ફરીથી દાખલ કરો.</translation>
@@ -4703,6 +4689,7 @@
 <translation id="8454288007744638700">અથવા, એક નવું નેટવર્ક પસંદ કરો:</translation>
 <translation id="845627346958584683">સમાપ્તિ સમય</translation>
 <translation id="8456681095658380701">અમાન્ય નામ</translation>
+<translation id="8457451314607652708">બુકમાર્ક્સ આયાત કરો</translation>
 <translation id="8460336040822756677">જો તમે <ph name="DEVICE_TYPE" /> માટે Smart Lock બંધ કરો, તો તમે તમારા ફોનનો ઉપયોગ કરીને તમારા Chrome ઉપકરણોને અનલૉક કરવામાં સમર્થ હશો નહીં. તમારે તમારો પાસવર્ડ લખવો પડશે.</translation>
 <translation id="8461329675984532579">હોમ પ્રદાતાનું નામ</translation>
 <translation id="84613761564611563">નેટવર્ક ગોઠવણી UI ની વિનંતી કરી, કૃપા કરીને રાહ જુઓ...</translation>
@@ -4939,7 +4926,6 @@
 <translation id="882204272221080310">વધારાની સુરક્ષા માટે ફર્મવેયર અપડેટ કરો.</translation>
 <translation id="8823514049557262177">લિંક ટે&amp;ક્સ્ટને કૉપિ કરો</translation>
 <translation id="8824701697284169214">પૃ&amp;ષ્ઠ ઉમેરો...</translation>
-<translation id="8827850355924932817">સ્થાન નક્કી કરવા માટે વાઇ-ફાઇ નેટવર્કનો ઉપયોગ કરો</translation>
 <translation id="8828933418460119530">DNS નામ</translation>
 <translation id="8830796635868321089">વર્તમાન પ્રોક્સી સેટિંગ્સનો ઉપયોગ કરીને અપડેટ ચકાસણી નિષ્ફળ થયું. કૃપા કરીને તમારી <ph name="PROXY_SETTINGS_LINK_START" />પ્રોક્સી સેટિંગ્સ<ph name="PROXY_SETTINGS_LINK_END" /> સમાયોજિત કરો.</translation>
 <translation id="8834039744648160717">નેટવર્ક ગોઠવણી, <ph name="USER_EMAIL" /> દ્વારા નિયંત્રિત થાય છે.</translation>
@@ -4982,7 +4968,7 @@
 <translation id="8899285681604219177">અસમર્થિત એક્સ્ટેન્શન્સ અક્ષમ કર્યાં</translation>
 <translation id="8899551033019439140">પ્રિન્ટર શોધી રહ્યાં છે...</translation>
 <translation id="8899851313684471736">નવી &amp;વિંડોમાં લિંક ખોલો</translation>
-<translation id="8902667442496790482">બોલવા માટે પસંદ કરોના સેટિંગ ખોલો</translation>
+<translation id="8902667442496790482">સાંભળવા માટે પસંદ કરોના સેટિંગ ખોલો</translation>
 <translation id="8903921497873541725">ઝૂમ વધારો</translation>
 <translation id="8904976895050290827">Chrome Sync</translation>
 <translation id="8908902564709148335">ચેતવણી: તમે આ કમ્પ્યુટર પર --scripts-require-action ફ્લેગ સક્ષમ કરેલ છે, જે આ એક્સ્ટેન્શનની ક્ષમતાઓને મર્યાદિત કરે છે. જો કે, અન્ય ઉપકરણો, આ ફ્લેગનું સમર્થન કરી શકશે નહીં અથવા તેમાં સક્ષમ કરેલ હોઈ શકે છે. આ ઉપકરણો પર, આ એક્સ્ટેન્શન આ પણ કરી શકે છે:</translation>

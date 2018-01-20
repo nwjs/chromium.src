@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">Plik HTML z zakładkami</translation>
 <translation id="1303671224831497365">Nie znaleziono urządzeń Bluetooth</translation>
 <translation id="1306606229401759371">Zmień ustawienia</translation>
-<translation id="1307398858972670978">Odczytuj swoje hasła na dowolnym urządzeniu na <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1307559529304613120">Ups. System nie może zapisać długoterminowego tokena dostępu API dla tego urządzenia.</translation>
 <translation id="1313405956111467313">Automatyczna konfiguracja serwera proxy</translation>
 <translation id="131364520783682672">Caps Lock</translation>
@@ -443,11 +442,9 @@
     <ph name="BEGIN_BOLD" />sprawdzać<ph name="END_BOLD" />, na jakie strony wszedł użytkownik nadzorowany, oraz
     <ph name="BEGIN_BOLD" />zarządzać<ph name="END_BOLD" /> innymi ustawieniami.</translation>
 <translation id="1648943974594387137">Dane logowania są nieaktualne</translation>
-<translation id="1649641629389702691">&lt;Niewyświetlane linie kodu: <ph name="LINE_COUNT" />&gt;</translation>
 <translation id="1650371550981945235">Pokaż opcje wprowadzania tekstu</translation>
 <translation id="1650709179466243265">Dodaj www. i .com, po czym otwórz adres</translation>
 <translation id="1651008383952180276">Musisz dwukrotnie wpisać to samo hasło</translation>
-<translation id="1652972346408808053">Hasło zostało zapisane. Dostęp do swoich haseł z dowolnego urządzenia masz na <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Dodaj drukarkę do Google Cloud Print, by móc drukować z dowolnego miejsca.}few{Dodaj # drukarki do Google Cloud Print, by móc drukować z dowolnego miejsca.}many{Dodaj # drukarek do Google Cloud Print, by móc drukować z dowolnego miejsca.}other{Dodaj # drukarki do Google Cloud Print, by móc drukować z dowolnego miejsca.}}</translation>
 <translation id="1657406563541664238">Pomóż ulepszyć <ph name="PRODUCT_NAME" />, przesyłając do Google statystyki użytkowania i raporty o awariach</translation>
 <translation id="1658424621194652532">Ta strona ma dostęp do mikrofonu.</translation>
@@ -762,7 +759,7 @@
 <translation id="2178614541317717477">Naruszenie bezpieczeństwa urzędu certyfikacji</translation>
 <translation id="218070003709087997">Wpisz wartość numeryczną, by określić liczbę kopii do wydrukowania (od 1 do 999).</translation>
 <translation id="2187895286714876935">Błąd importowania certyfikatu serwera</translation>
-<translation id="2187906491731510095">Rozszerzenia zostały zaktualizowane</translation>
+<translation id="2187906491731510095">Rozszerzenia zaktualizowane</translation>
 <translation id="2188881192257509750">Otwórz <ph name="APPLICATION" /></translation>
 <translation id="2190069059097339078">Program do pobierania danych logowania do Wi-Fi</translation>
 <translation id="219008588003277019">Moduł klienta natywnego: <ph name="NEXE_NAME" /></translation>
@@ -883,7 +880,6 @@
 <translation id="236141728043665931">Zawsze blokuj dostęp do mikrofonu</translation>
 <translation id="2367972762794486313">Pokaż aplikacje</translation>
 <translation id="2371076942591664043">Otwórz po &amp;zakończeniu</translation>
-<translation id="237336063998926520">Użyj swojego adresu IP, by określić lokalizację</translation>
 <translation id="2377319039870049694">Przełącz na widok listy</translation>
 <translation id="2377667304966270281">Poważne błędy</translation>
 <translation id="2378075407703503998">Wybrano <ph name="SELCTED_FILE_COUNT" /> pliki(ów)</translation>
@@ -930,7 +926,6 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="2457246892030921239"><ph name="APP_NAME" /> chce skopiować pliki z dysku <ph name="VOLUME_NAME" />.</translation>
 <translation id="2462724976360937186">Identyfikator klucza urzędu certyfikacji</translation>
 <translation id="2462752602710430187">Dodano: <ph name="PRINTER_NAME" /></translation>
-<translation id="246335896104539386">Importuj zakładki</translation>
 <translation id="2464089476039395325">Serwer proxy HTTP</translation>
 <translation id="2468902267404883140">Nie można połączyć się z telefonem. Upewnij się, że używasz zgodnego telefonu z Androidem oraz że jest on włączony i znajduje się w zasięgu ręki. &lt;a&gt;Więcej informacji&lt;/a&gt;</translation>
 <translation id="2470702053775288986">Wyłączono nieobsługiwane rozszerzenia</translation>
@@ -1068,7 +1063,6 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="2653266418988778031">Jeśli usuniesz certyfikat urzędu certyfikacji, Twoja przeglądarka nie będzie już ufać żadnym certyfikatom wydanym przez ten urząd certyfikacji.</translation>
 <translation id="2653659639078652383">Prześlij</translation>
 <translation id="265390580714150011">Wartość pola</translation>
-<translation id="2654286334048437383">Eksportuj zakładki</translation>
 <translation id="2655386581175833247">Certyfikat użytkownika:</translation>
 <translation id="2660779039299703961">Wydarzenie</translation>
 <translation id="2661146741306740526">16 x 9</translation>
@@ -1525,7 +1519,6 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="3309747692199697901">Zawsze uruchamiaj na wszystkich stronach</translation>
 <translation id="3312424061798279731">Włączone języki</translation>
 <translation id="3312903956926554846">Zainstaluj na pulpicie</translation>
-<translation id="3313473140726597081">Strona początkowa została zmieniona na <ph name="URL" />. Aby wyłączyć rozszerzenia, które zmieniają stronę początkową, kliknij Przywróć.</translation>
 <translation id="3313590242757056087">Aby określić, jakie strony będzie mógł przeglądać użytkownik nadzorowany,
     skonfiguruj ograniczenia i ustawienia na <ph name="MANAGEMENT_URL" />.
     Jeśli nie zmienisz ustawień domyślnych, użytkownik <ph name="USER_DISPLAY_NAME" />
@@ -1594,7 +1587,7 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="3423858849633684918">Ponownie uruchom przeglądarkę <ph name="PRODUCT_NAME" /></translation>
 <translation id="3424969259347320884">Opisz, co robiłeś, gdy wystąpiła awaria karty</translation>
 <translation id="3427092606871434483">Zezwalaj (domyślnie)</translation>
-<translation id="3428419049384081277">Jesteś teraz zalogowany!</translation>
+<translation id="3428419049384081277">Jesteś zalogowany</translation>
 <translation id="3429275422858276529">Dodaj tę stronę do zakładek, by później łatwo ją znaleźć</translation>
 <translation id="3429599832623003132">Elementy: $1</translation>
 <translation id="3432227430032737297">Usuń wszystkie wyświetlone</translation>
@@ -1850,7 +1843,6 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="379082410132524484">Twoja karta straciła ważność</translation>
 <translation id="3792890930871100565">Odłącz drukarki</translation>
 <translation id="379422718204375917">Używaj funkcji Smart Lock, by logować się na konto</translation>
-<translation id="3794595850995182458">Zamknij stronę</translation>
 <translation id="3796648294839530037">Ulubione sieci:</translation>
 <translation id="3797900183766075808">Wy&amp;szukaj „<ph name="SEARCH_TERMS" />” w <ph name="SEARCH_ENGINE" /></translation>
 <translation id="3798325802885154040">Pozwala włączyć lub wyłączyć kliknięcie przez dotknięcie</translation>
@@ -3346,7 +3338,6 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="6237816943013845465">Pozwala zmienić rozdzielczość ekranu</translation>
 <translation id="6238923052227198598">Wyświetlaj najnowszą notatkę na ekranie blokady</translation>
 <translation id="6239558157302047471">Załaduj ponownie &amp;ramkę</translation>
-<translation id="624022915548992686">Zamknij stronę</translation>
 <translation id="6241530762627360640">Dostęp do informacji o urządzeniach Bluetooth sparowanych z systemem oraz wykrywanie urządzeń Bluetooth w pobliżu</translation>
 <translation id="6243774244933267674">Serwer niedostępny</translation>
 <translation id="6246413617632217567">Nie udało się zaimportować nadzorowanego użytkownika. Sprawdź miejsce na dysku twardym i uprawnienia, a potem spróbuj ponownie.</translation>
@@ -3395,7 +3386,6 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="6312403991423642364">Nieznany błąd sieci</translation>
 <translation id="6313641880021325787">WYŁĄCZ TRYB VR</translation>
 <translation id="6314819609899340042">Funkcje debugowania zostały włączone na urządzeniu <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
-<translation id="6315343732431721770">Strony początkowe zostały zmienione i zawierają <ph name="URL" />. Aby wyłączyć rozszerzenia, które zmieniają stronę początkową, kliknij Przywróć.</translation>
 <translation id="6315493146179903667">Przenieś wszystko na wierzch</translation>
 <translation id="6316806695097060329">To urządzenie <ph name="SHORT_PRODUCT_NAME" /> zostało zaprojektowane, by umożliwić Ci jak najwygodniejsze korzystanie z internetu.</translation>
 <translation id="6317318380444133405">Nie jest już obsługiwana.</translation>
@@ -3410,7 +3400,6 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="6333049849394141510">Wybierz elementy do synchronizacji</translation>
 <translation id="6333064448949140209">Plik zostanie wysłany do Google w celu debugowania</translation>
 <translation id="6333834492048057036">Zaznacz pasek adresu, by przeprowadzić wyszukiwanie</translation>
-<translation id="6336907568130557310">Twoje hasła będą widoczne dla każdego, kto może zobaczyć wyeksportowany plik. Nie udostępniaj nikomu pliku i usuń go po zaimportowaniu.</translation>
 <translation id="6339668969738228384">Utwórz nowy profil dla adresu <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6340017061976355871">Nie udało połączyć się z serwerem. Sprawdź połączenie sieciowe i spróbuj ponownie. Jeśli problem nie zniknie, uruchom ponownie Chromebooka.</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
@@ -4165,7 +4154,6 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
     i spróbuj ponownie utworzyć użytkownika nadzorowanego.</translation>
 <translation id="756445078718366910">Otwórz okno przeglądarki</translation>
 <translation id="7564847347806291057">Zakończ proces</translation>
-<translation id="7565291891798266313">Wyszukiwarka została zmieniona na <ph name="URL" />. Aby wyłączyć rozszerzenia, które zmieniają wyszukiwarkę, kliknij Przywróć.</translation>
 <translation id="7566118625369982896">Zarządzaj linkami aplikacji Play</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Wyczyszczono dane Chrome</translation>
@@ -4174,7 +4162,6 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="7573172247376861652">Poziom naładowania akumulatora</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Sortuj</translation>
-<translation id="7577815336900970562">Użyj Wi-Fi lub sieci komórkowej, by określić lokalizację</translation>
 <translation id="7579149537961810247">Wycisz strony</translation>
 <translation id="7580671184200851182">Odtwarzaj ten sam dźwięk na wszystkich głośnikach (dźwięk mono)</translation>
 <translation id="7581462281756524039">Narzędzie do czyszczenia</translation>
@@ -4560,7 +4547,6 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8191230140820435481">Zarządzanie Twoimi aplikacjami, rozszerzeniami i motywami</translation>
 <translation id="8191453843330043793">Program do rozpoznawania serwera proxy V8</translation>
 <translation id="8195027750202970175">Rozmiar na dysku</translation>
-<translation id="8195739004487400241">Strona główna została zmieniona na <ph name="URL" />. Aby wyłączyć rozszerzenia, które zmieniają stronę główną, kliknij Przywróć.</translation>
 <translation id="8199300056570174101">Właściwości sieci (usługi) i urządzenia</translation>
 <translation id="8200772114523450471">Wznów</translation>
 <translation id="8202160505685531999">Wpisz hasło ponownie, by zaktualizować swój profil na urządzeniu <ph name="DEVICE_TYPE" />.</translation>
@@ -4706,6 +4692,7 @@ Osoby z wolnym połączeniem mogą nie zobaczyć treści, które przesyłasz.</
 <translation id="8454288007744638700">Lub wybierz nową sieć:</translation>
 <translation id="845627346958584683">Data ważności</translation>
 <translation id="8456681095658380701">Nieprawidłowa nazwa</translation>
+<translation id="8457451314607652708">Importuj zakładki</translation>
 <translation id="8460336040822756677">Jeśli wyłączysz Smart Lock na urządzenie <ph name="DEVICE_TYPE" />, nie odblokujesz urządzenia z Chrome przy użyciu telefonu. Trzeba będzie wpisać hasło.</translation>
 <translation id="8461329675984532579">Nazwa operatora macierzystego</translation>
 <translation id="84613761564611563">Wywołano interfejs użytkownika do konfigurowania sieci. Zaczekaj...</translation>
@@ -4942,7 +4929,6 @@ Osoby z wolnym połączeniem mogą nie zobaczyć treści, które przesyłasz.</
 <translation id="882204272221080310">Zaktualizuj oprogramowanie, by zwiększyć bezpieczeństwo.</translation>
 <translation id="8823514049557262177">Kopiuj te&amp;kst linku</translation>
 <translation id="8824701697284169214">Dodaj &amp;stronę</translation>
-<translation id="8827850355924932817">Użyj sieci Wi-Fi, by określić lokalizację</translation>
 <translation id="8828933418460119530">Nazwa DNS</translation>
 <translation id="8830796635868321089">Sprawdzenie aktualizacji przy użyciu obecnych ustawień serwera proxy nie powiodło się. Popraw <ph name="PROXY_SETTINGS_LINK_START" />ustawienia serwera proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="8834039744648160717">Konfiguracją sieci zarządza <ph name="USER_EMAIL" />.</translation>

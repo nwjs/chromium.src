@@ -116,7 +116,7 @@ Pentru a folosi Webul material, trebuie să activezi Bluetooth și Locația.</tr
 <translation id="1993768208584545658"><ph name="SITE" /> dorește să se asocieze</translation>
 <translation id="1994173015038366702">Adresa URL a site-ului</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB pentru alte aplicații</translation>
-<translation id="2015632741368427174">Redirecționarea a fost blocată pentru site-ul:</translation>
+<translation id="2015632741368427174">S-a blocat redirecționarea către site-ul:</translation>
 <translation id="2017836877785168846">Șterge istoricul și completările automate din bara de adrese.</translation>
 <translation id="2021896219286479412">Comenzi site în ecran complet</translation>
 <translation id="2038563949887743358">Activează opțiunea Versiune site pentru desktop</translation>
@@ -206,7 +206,6 @@ Pentru a folosi Webul material, trebuie să activezi Bluetooth și Locația.</tr
 <translation id="2876764156902388290">Chrome folosește mai puține date pentru a afișa această pagină</translation>
 <translation id="2888126860611144412">Despre Chrome</translation>
 <translation id="2891154217021530873">Oprește încărcarea paginii</translation>
-<translation id="2892933203342091350">Activează afișarea simplificată pentru toate articolele</translation>
 <translation id="2900528713135656174">Creează un eveniment</translation>
 <translation id="2902702728133930130">Chrome nu a pornit. A apărut o eroare neașteptată.</translation>
 <translation id="2903493209154104877">Adrese</translation>
@@ -294,7 +293,6 @@ Pentru a ajusta termenii căutării, apasă lung pentru a selecta. Pentru a rafi
 <translation id="3661699943263275414">Site-urile terță parte pot să salveze și să citească datele asociate cookie-urilor</translation>
 <translation id="3662546969139119822">Istoric gol</translation>
 <translation id="3672452749423051839">Sugestii pentru erori de navigare</translation>
-<translation id="3682249951633602029">Parolele vor fi vizibile pentru toți cei care pot vedea fișierul de parole exportat.</translation>
 <translation id="3712575778697986964">Resetezi Economizorul de date?</translation>
 <translation id="3714981814255182093">Deschide Bara de căutare</translation>
 <translation id="3716182511346448902">Această pagină folosește prea multă memorie, prin urmare Chrome a întrerupt-o.</translation>
@@ -618,7 +616,6 @@ De exemplu, unele site-uri pot răspunde la această solicitare afișând anunț
 <translation id="6538442820324228105"><ph name="GBS" /> GB descărcați</translation>
 <translation id="654446541061731451">Selectează o filă pentru transmitere</translation>
 <translation id="6545017243486555795">Șterge toate datele</translation>
-<translation id="6550675742724504774">Opțiuni</translation>
 <translation id="6556716549745717622">Blochează dacă site-ul tinde să afișeze anunțuri deranjante (recomandat)</translation>
 <translation id="6560414384669816528">Caută cu Sogou</translation>
 <translation id="6566259936974865419">Chrome a economisit <ph name="GIGABYTES" /> GB</translation>

@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">HTML-fil med bokmerker</translation>
 <translation id="1303671224831497365">Fant ingen Bluetooth-enheter</translation>
 <translation id="1306606229401759371">Endre innstillingene</translation>
-<translation id="1307398858972670978">Du kan finne passordene dine fra alle enheter på <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1307559529304613120">Beklager. Systemet kunne ikke lagre noe langvarig API-tilgangstoken for denne enheten.</translation>
 <translation id="1313405956111467313">Automatisk konfigurasjon av mellomtjener</translation>
 <translation id="131364520783682672">Caps Lock</translation>
@@ -440,11 +439,9 @@
     <ph name="BEGIN_BOLD" />gjennomgå<ph name="END_BOLD" /> nettsteder den administrerte brukeren har besøkt og
     <ph name="BEGIN_BOLD" />administrere<ph name="END_BOLD" /> andre innstillinger.</translation>
 <translation id="1648943974594387137">Påloggingsdetaljene er utdatert.</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" /> linjer vises ikke&gt;</translation>
 <translation id="1650371550981945235">Vis inndataalternativer</translation>
 <translation id="1650709179466243265">Legg til www og .com og åpne adressen</translation>
 <translation id="1651008383952180276">Du må skrive inn den samme passordfrasen to ganger</translation>
-<translation id="1652972346408808053">Passordet er lagret. Du kan finne passordene dine fra alle enheter på <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Legg til skriveren i Google Cloud Print, slik at du kan skrive ut fra hvor som helst.}other{Legg til # skrivere i Google Cloud Print, slik at du kan skrive ut fra hvor som helst.}}</translation>
 <translation id="1657406563541664238">Bidra til å gjøre <ph name="PRODUCT_NAME" /> bedre ved å sende brukerstatistikk og programstopprapporter til Google automatisk</translation>
 <translation id="1658424621194652532">Denne siden bruker mikrofonen din.</translation>
@@ -880,7 +877,6 @@
 <translation id="236141728043665931">Blokkér alltid bruk av mikrofonen</translation>
 <translation id="2367972762794486313">Vis apper</translation>
 <translation id="2371076942591664043">Åpne når ne&amp;dlastingen er ferdig</translation>
-<translation id="237336063998926520">Bruk IP-adressen din for å fastslå posisjonen</translation>
 <translation id="2377319039870049694">Bytt til listevisning</translation>
 <translation id="2377667304966270281">Harde feil</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> filer valgt</translation>
@@ -927,7 +923,6 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="2457246892030921239"><ph name="APP_NAME" /> vil kopiere filer fra <ph name="VOLUME_NAME" />.</translation>
 <translation id="2462724976360937186">Nøkkel-ID for sertifiseringsinstans</translation>
 <translation id="2462752602710430187"><ph name="PRINTER_NAME" /> er lagt til</translation>
-<translation id="246335896104539386">Importér bokmerker</translation>
 <translation id="2464089476039395325">HTTP-proxy-tjener</translation>
 <translation id="2468902267404883140">Kan ikke koble til telefonen. Sørg for at du bruker en kompatibel Android-telefon som er slått på og i nærheten. &lt;a&gt;Finn ut mer&lt;/a&gt;</translation>
 <translation id="2470702053775288986">Ustøttede utvidelser slått av</translation>
@@ -1064,7 +1059,6 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="2653266418988778031">Hvis du sletter et CA-sertifikat (sertifiseringsinstans), vil nettleseren ikke lenger stole på noen sertifikater som er utstedt av denne sertifiseringsinstansen.</translation>
 <translation id="2653659639078652383">Send</translation>
 <translation id="265390580714150011">Feltverdi</translation>
-<translation id="2654286334048437383">Eksportér bokmerker</translation>
 <translation id="2655386581175833247">Brukersertifikat:</translation>
 <translation id="2660779039299703961">Aktivitet</translation>
 <translation id="2661146741306740526">16 x 9</translation>
@@ -1521,7 +1515,6 @@ Du finner mer informasjon i <ph name="BEGIN_LINK" />brukerstøtten<ph name="END_
 <translation id="3309747692199697901">Kjør alltid på alle nettsteder</translation>
 <translation id="3312424061798279731">Språk som er slått på</translation>
 <translation id="3312903956926554846">Installer på skrivebordet</translation>
-<translation id="3313473140726597081">Oppstartssiden er endret til <ph name="URL" />. Du kan slå av utvidelser som endrer oppstartssiden, ved å klikke på Gjenopprett.</translation>
 <translation id="3313590242757056087">For å angi hvilke nettsteder den administrerte brukeren kan bruke, kan du konfigurere begrensninger og innstillinger ved å gå til <ph name="MANAGEMENT_URL" />.
     Hvis du ikke endrer standardinnstillingene, kan <ph name="USER_DISPLAY_NAME" />
     surfe på hele nettet.</translation>
@@ -1845,7 +1838,6 @@ Du finner mer informasjon i <ph name="BEGIN_LINK" />brukerstøtten<ph name="END_
 <translation id="379082410132524484">Kortet ditt er utløpt</translation>
 <translation id="3792890930871100565">Koble fra skrivere</translation>
 <translation id="379422718204375917">Bruk Smart Lock til å logge på kontoen din</translation>
-<translation id="3794595850995182458">Lukk siden</translation>
 <translation id="3796648294839530037">Favorittnettverk:</translation>
 <translation id="3797900183766075808">&amp;Søk etter «<ph name="SEARCH_TERMS" />» på <ph name="SEARCH_ENGINE" /></translation>
 <translation id="3798325802885154040">Lar deg slå på og av berøringsklikk</translation>
@@ -3338,7 +3330,6 @@ Du finner mer informasjon i <ph name="BEGIN_LINK" />brukerstøtten<ph name="END_
 <translation id="6237816943013845465">Lar deg justere skjermoppløsningen</translation>
 <translation id="6238923052227198598">Hold det siste notatet på låseskjermen</translation>
 <translation id="6239558157302047471">Last inn &amp;rammen på nytt</translation>
-<translation id="624022915548992686">Lukk siden</translation>
 <translation id="6241530762627360640">bruke informasjon om Bluetooth-enheter tilkoblet systemet ditt og oppdage Bluetooth-enheter i nærheten.</translation>
 <translation id="6243774244933267674">Tjeneren er ikke tilgjengelig</translation>
 <translation id="6246413617632217567">Den administrerte brukeren kunne ikke importeres. Sjekk hvor mye plass du har på harddisken, og hvilke tillatelser som er aktive, og prøv på nytt.</translation>
@@ -3387,7 +3378,6 @@ Du finner mer informasjon i <ph name="BEGIN_LINK" />brukerstøtten<ph name="END_
 <translation id="6312403991423642364">Ukjent nettverksfeil</translation>
 <translation id="6313641880021325787">AVSLUTT VR</translation>
 <translation id="6314819609899340042">Nå har du slått på feilsøkingsfunksjoner på denne <ph name="IDS_SHORT_PRODUCT_NAME" />-enheten.</translation>
-<translation id="6315343732431721770">Oppstartssidene er endret til å inkludere <ph name="URL" />. Du kan slå av utvidelser som endrer oppstartssiden, ved å klikke på Gjenopprett.</translation>
 <translation id="6315493146179903667">Legg alle i forgrunnen</translation>
 <translation id="6316806695097060329">Denne <ph name="SHORT_PRODUCT_NAME" />-enheten er utviklet for å gi deg den beste nettopplevelsen.</translation>
 <translation id="6317318380444133405">Støttes ikke lenger.</translation>
@@ -3402,7 +3392,6 @@ Du finner mer informasjon i <ph name="BEGIN_LINK" />brukerstøtten<ph name="END_
 <translation id="6333049849394141510">Velg hva som skal synkroniseres</translation>
 <translation id="6333064448949140209">Filen sendes til Google for feilsøking</translation>
 <translation id="6333834492048057036">Fokusér på adressefeltet for søk</translation>
-<translation id="6336907568130557310">Passordene dine blir synlige for alle som kan se den eksporterte filen. Ikke del filen med noen, og slett den etter du har importert den.</translation>
 <translation id="6339668969738228384">Opprett en ny profil for <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6340017061976355871">Kunne ikke koble til tjeneren. Kontrollér nettverkstilkoblingen din, og prøv igjen. Start Chromebooken på nytt hvis problemet vedvarer.</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
@@ -4155,7 +4144,6 @@ Du finner mer informasjon i <ph name="BEGIN_LINK" />brukerstøtten<ph name="END_
 <translation id="7563991800558061108">For å rette opp i denne feilen må du logge på Google-kontoen din fra påloggingssiden. Deretter kan du logge av Google-kontoen, og prøve å opprette en administrert bruker på nytt.</translation>
 <translation id="756445078718366910">Åpne nettleservindu</translation>
 <translation id="7564847347806291057">Avslutt prosessen</translation>
-<translation id="7565291891798266313">Søkemotoren er endret til <ph name="URL" />. Du kan slå av utvidelser som endrer søkemotoren, ved å klikke på Gjenopprett.</translation>
 <translation id="7566118625369982896">Administrer Play-applinker</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome-dataene er slettet</translation>
@@ -4164,7 +4152,6 @@ Du finner mer informasjon i <ph name="BEGIN_LINK" />brukerstøtten<ph name="END_
 <translation id="7573172247376861652">Batterilading</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">I rekkefølge</translation>
-<translation id="7577815336900970562">Bruk Wi-Fi eller mobilnettverk til å fastslå posisjonen</translation>
 <translation id="7579149537961810247">Kutt lyden for nettsteder</translation>
 <translation id="7580671184200851182">Spill den samme lyden på alle høyttalere (monolyd)</translation>
 <translation id="7581462281756524039">Et opprydningsverktøy</translation>
@@ -4550,7 +4537,6 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8191230140820435481">Administrering av programmer, utvidelser og temaer</translation>
 <translation id="8191453843330043793">V8 Proxy Resolver</translation>
 <translation id="8195027750202970175">Lagringsstørrelse</translation>
-<translation id="8195739004487400241">Startsiden er endret til <ph name="URL" />. Du kan slå av utvidelser som endrer startsiden, ved å klikke på Gjenopprett.</translation>
 <translation id="8199300056570174101">Egenskaper for nettverk (tjeneste) og enhet</translation>
 <translation id="8200772114523450471">Fortsett</translation>
 <translation id="8202160505685531999">Legg inn passordet på nytt for å oppdatere <ph name="DEVICE_TYPE" />-profilen din.</translation>
@@ -4695,6 +4681,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8454288007744638700">Eller velg et nytt nettverk:</translation>
 <translation id="845627346958584683">Utløpstid</translation>
 <translation id="8456681095658380701">Ugyldig navn</translation>
+<translation id="8457451314607652708">Importér bokmerker</translation>
 <translation id="8460336040822756677">Hvis du slår av Smart Lock for <ph name="DEVICE_TYPE" />, kan du ikke låse opp Chrome-enhetene dine ved hjelp av telefonen. Du må skrive inn passordet.</translation>
 <translation id="8461329675984532579">Navn på leverandøren for hjemmeenheten</translation>
 <translation id="84613761564611563">UI for nettverkskonfigurasjon er forespurt. Vent litt …</translation>
@@ -4903,7 +4890,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8784626084144195648">Gjennomsnitt av grupperte data</translation>
 <translation id="8785622406424941542">Pekepenn</translation>
 <translation id="8787254343425541995">Gi tillatelse til mellomtjenere for delte nettverk</translation>
-<translation id="8791260615011736453">Elementer som ikke er oppført her, kan også fjernes, hvis det er nødvendig. Finn ut mer om &lt;a href="<ph name="URL" />"&gt;beskyttelse mot uønsket programvare&lt;/a&gt; i Chromes åpne infodokument («white paper») om personvern.</translation>
+<translation id="8791260615011736453">Elementer som ikke er oppført her, kan også fjernes, hvis det er nødvendig. Finn ut mer om &lt;a href="<ph name="URL" />"&gt;beskyttelse mot uønsket programvare&lt;/a&gt; i Teknisk dokument om personvern i Google Chrome.</translation>
 <translation id="8791534160414513928">Send en «Ingen sporing»-forespørsel med nettrafikken din</translation>
 <translation id="8792609692701651064">Det aktive vinduet er flyttet til venstre skjerm</translation>
 <translation id="8794025342371547160">Begrenset IP</translation>
@@ -4931,7 +4918,6 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="882204272221080310">Oppdater fastvaren for å øke sikkerheten.</translation>
 <translation id="8823514049557262177">Kopiér linkte&amp;kst</translation>
 <translation id="8824701697284169214">Legg til si&amp;de</translation>
-<translation id="8827850355924932817">Bruk Wi-Fi-nettverk til å fastslå posisjonen</translation>
 <translation id="8828933418460119530">DNS-navn</translation>
 <translation id="8830796635868321089">Oppdateringssjekken mislyktes med de gjeldende mellomtjenerinnstillingene. Du må endre <ph name="PROXY_SETTINGS_LINK_START" />mellomtjenerinnstillingene<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="8834039744648160717">Nettverkskonfigurasjonen kontrolleres av <ph name="USER_EMAIL" />.</translation>

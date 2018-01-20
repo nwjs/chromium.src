@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">Yer İşaretleri HTML Dosyası</translation>
 <translation id="1303671224831497365">Bluetooth cihazı bulunamadı</translation>
 <translation id="1306606229401759371">Ayarları değiştir</translation>
-<translation id="1307398858972670978"><ph name="SAVED_PASSWORDS_LINK" /> adresine giderek şifrelerinize istediğiniz cihazdan erişin</translation>
 <translation id="1307559529304613120">Hata! Sistem bu cihaza ait uzun vadeli API erişim verisini kaydedemedi.</translation>
 <translation id="1313405956111467313">Otomatik proxy yapılandırması</translation>
 <translation id="131364520783682672">Caps Lock</translation>
@@ -443,11 +442,9 @@
     denetlenen kullanıcının ziyaret ettiği web sitelerini <ph name="BEGIN_BOLD" />inceleyebilir<ph name="END_BOLD" />
     ve diğer ayarları <ph name="BEGIN_BOLD" />yönetebilirsiniz<ph name="END_BOLD" />.</translation>
 <translation id="1648943974594387137">Oturum açma ayrıntıları güncel değil</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" /> satır gösterilmiyor&gt;</translation>
 <translation id="1650371550981945235">Giriş seçeneklerini göster</translation>
 <translation id="1650709179466243265">www. ve .com ekleyin ve adresi açın</translation>
 <translation id="1651008383952180276">Aynı parolayı iki kez girmelisiniz</translation>
-<translation id="1652972346408808053">Şifre kaydedildi. <ph name="SAVED_PASSWORDS_LINK" /> adresine giderek şifrelerinize istediğiniz cihazdan erişin</translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{İstediğiniz yerden yazdırma işlemi yapabilmek için yazıcıyı Google Cloud Print'e ekleyin.}other{İstediğiniz yerden yazdırma işlemi yapabilmek için # yazıcıyı Google Cloud Print'e ekleyin.}}</translation>
 <translation id="1657406563541664238">Google'a otomatik olarak kullanım istatistikleri ve kilitlenme raporları göndererek <ph name="PRODUCT_NAME" /> ürününü iyileştirmemize yardımcı olun.</translation>
 <translation id="1658424621194652532">Bu sayfa mikrofonunuza erişiyor.</translation>
@@ -883,7 +880,6 @@
 <translation id="236141728043665931">Mikrofon erişimini her zaman engelle</translation>
 <translation id="2367972762794486313">Uygulamaları göster</translation>
 <translation id="2371076942591664043">İşlem tamamlandığın&amp;da aç</translation>
-<translation id="237336063998926520">Konumu belirlemek için IP adresinizi kullanın</translation>
 <translation id="2377319039870049694">Liste görünümüne geç</translation>
 <translation id="2377667304966270281">Donanım Hataları</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> dosya seçildi</translation>
@@ -930,7 +926,6 @@ Bu sitenin engellenmesi gerektiğini düşünmüyorum!</translation>
 <translation id="2457246892030921239"><ph name="APP_NAME" />, <ph name="VOLUME_NAME" /> birimindeki dosyaları kopyalamak istiyor.</translation>
 <translation id="2462724976360937186">Sertifika Yetkilisi Anahtar Kimliği</translation>
 <translation id="2462752602710430187"><ph name="PRINTER_NAME" /> eklendi</translation>
-<translation id="246335896104539386">Yer İşaretlerini İçe Aktar</translation>
 <translation id="2464089476039395325">HTTP Proxy'si</translation>
 <translation id="2468902267404883140">Telefonunuza bağlanılamıyor. Uyumlu bir Android telefon kullandığınızdan, ayrıca telefonunuzun açık ve yakında olduğundan emin olun. &lt;a&gt;Daha fazla bilgi&lt;/a&gt;</translation>
 <translation id="2470702053775288986">Desteklenmeyen uzantılar devre dışı bırakıldı</translation>
@@ -1068,7 +1063,6 @@ Bu sitenin engellenmesi gerektiğini düşünmüyorum!</translation>
 <translation id="2653266418988778031">Bir Sertifika Yetkilisi (CA) sertifikasını silerseniz, tarayıcınız bundan sonra söz konusu CA tarafından yayınlanan hiçbir sertifikaya güvenmez.</translation>
 <translation id="2653659639078652383">Gönder</translation>
 <translation id="265390580714150011">Alan Değeri</translation>
-<translation id="2654286334048437383">Yer İşaretlerini Dışa Aktar</translation>
 <translation id="2655386581175833247">Kullanıcı sertifikası:</translation>
 <translation id="2660779039299703961">Etkinlik</translation>
 <translation id="2661146741306740526">16x9</translation>
@@ -1525,7 +1519,6 @@ Daha fazla bilgi için <ph name="BEGIN_LINK" />Yardım Merkezimizi<ph name="END_
 <translation id="3309747692199697901">Tüm sitelerde her zaman çalıştır</translation>
 <translation id="3312424061798279731">Etkin diller</translation>
 <translation id="3312903956926554846">Masaüstüne yükleme</translation>
-<translation id="3313473140726597081">Başlangıç sayfanız <ph name="URL" /> olarak değiştirildi. Başlangıç sayfanızı değiştiren uzantıları devre dışı bırakmak için Geri Yükle'yi tıklayın.</translation>
 <translation id="3313590242757056087">Denetlenen kullanıcının hangi web sitelerini görebileceğini belirlemek için kısıtlamaları
     ve ayarları yapılandırmak üzere <ph name="MANAGEMENT_URL" /> adresini ziyaret edebilirsiniz.
     Varsayılan ayarları değiştirmezseniz, <ph name="USER_DISPLAY_NAME" />
@@ -1850,7 +1843,6 @@ Daha fazla bilgi için <ph name="BEGIN_LINK" />Yardım Merkezimizi<ph name="END_
 <translation id="379082410132524484">Kartınızın süresi doldu</translation>
 <translation id="3792890930871100565">Yazıcıların bağlantısını kes</translation>
 <translation id="379422718204375917">Hesabınızda oturum açmak için Smart Lock'u kullanın</translation>
-<translation id="3794595850995182458">Sayfadan çık</translation>
 <translation id="3796648294839530037">Sık Kullanılan Ağlar:</translation>
 <translation id="3797900183766075808">"<ph name="SEARCH_TERMS" />" İçin <ph name="SEARCH_ENGINE" /> &amp;Üzerinde Arama Yap</translation>
 <translation id="3798325802885154040">Dokunarak tıklama işlevini etkinleştirmenize/devre dışı bırakmanıza olanak tanır</translation>
@@ -3347,7 +3339,6 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6237816943013845465">Ekran çözünürlüğünü ayarlamanıza olanak tanır</translation>
 <translation id="6238923052227198598">En son notu kilit ekranında tut</translation>
 <translation id="6239558157302047471">Ç&amp;erçeveyi yeniden yükle</translation>
-<translation id="624022915548992686">Sayfadan Çık</translation>
 <translation id="6241530762627360640">Sisteminizle eşlenen Bluetooth cihazlarıyla ilgili bilgilere erişme ve yakındaki Bluetooth cihazlarını keşfetme.</translation>
 <translation id="6243774244933267674">Sunucu kullanılamıyor</translation>
 <translation id="6246413617632217567">Denetlenen kullanıcı içe aktarılamadı. Lütfen sabit disk alanınızı ve izinlerinizi kontrol edip tekrar deneyin.</translation>
@@ -3396,7 +3387,6 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6312403991423642364">Bilinmeyen ağ hatası</translation>
 <translation id="6313641880021325787">VR'DAN ÇIK</translation>
 <translation id="6314819609899340042">Bu <ph name="IDS_SHORT_PRODUCT_NAME" /> cihazında hata ayıklama özelliklerini başarıyla etkinleştirdiniz.</translation>
-<translation id="6315343732431721770">Başlangıç sayfalarınız <ph name="URL" /> olarak değiştirildi. Başlangıç sayfanızı değiştiren uzantıları devre dışı bırakmak için Geri Yükle'yi tıklayın.</translation>
 <translation id="6315493146179903667">Tümünü Öne Getir</translation>
 <translation id="6316806695097060329">Bu <ph name="SHORT_PRODUCT_NAME" /> cihaz, size web'de en iyi deneyimi sunacak şekilde tasarlandı.</translation>
 <translation id="6317318380444133405">Artık desteklenmiyor.</translation>
@@ -3411,7 +3401,6 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6333049849394141510">Nelerin senkronize edileceğini seçin</translation>
 <translation id="6333064448949140209">Dosya, hata ayıklama amacıyla Google'a gönderilecektir</translation>
 <translation id="6333834492048057036">Aramak için adres çubuğuna odaklan</translation>
-<translation id="6336907568130557310">Şifreleriniz dışa aktarılan dosyayı görebilen herkes tarafından görülebilir. Dosyayı kimseyle paylaşmayın ve içe aktardıktan sonra silin.</translation>
 <translation id="6339668969738228384"><ph name="USER_EMAIL_ADDRESS" /> için yeni profil oluştur</translation>
 <translation id="6340017061976355871">Sunucuya bağlanamadı. Lütfen ağ bağlantınızı kontrol edip tekrar deneyin. Sorun devam ederse Chromebook'unuzu yeniden başlatın.</translation>
 <translation id="6340071272923955280">İnternet Yazdırma Protokolü (IPPS)</translation>
@@ -4173,7 +4162,6 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
     denetlenen kullanıcı oluşturmayı yeniden deneyebilirsiniz.</translation>
 <translation id="756445078718366910">Tarayıcı Penceresini Aç</translation>
 <translation id="7564847347806291057">İşlemi bitir</translation>
-<translation id="7565291891798266313">Arama motorunuz <ph name="URL" /> olarak değiştirildi. Arama motorunuzu değiştiren uzantıları devre dışı bırakmak için Geri Yükle'yi tıklayın.</translation>
 <translation id="7566118625369982896">Play uygulama bağlantılarını yönet</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome verileri temizlendi</translation>
@@ -4182,7 +4170,6 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7573172247376861652">Pil Şarjı</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Harmanla</translation>
-<translation id="7577815336900970562">Konumu belirlemek için kablosuz veya hücresel ağ kullanma</translation>
 <translation id="7579149537961810247">Sitelerin Sesini Kapat</translation>
 <translation id="7580671184200851182">Tüm hoparlörlerden aynı sesi çal (mono ses)</translation>
 <translation id="7581462281756524039">Temizleme aracı</translation>
@@ -4568,7 +4555,6 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="8191230140820435481">Uygulamalarınızı, uzantılarınızı ve temalarınızı yönetme</translation>
 <translation id="8191453843330043793">V8 Proxy Çözümleyici</translation>
 <translation id="8195027750202970175">Diskteki boyut</translation>
-<translation id="8195739004487400241">Ana sayfanız <ph name="URL" /> olarak değiştirildi. Ana sayfanızı değiştiren uzantıları devre dışı bırakmak için Geri Yükle'yi tıklayın.</translation>
 <translation id="8199300056570174101">Ağ (Hizmet) ve Cihaz özellikleri</translation>
 <translation id="8200772114523450471">Sürdür</translation>
 <translation id="8202160505685531999"><ph name="DEVICE_TYPE" /> profilinizi güncellemek için lütfen şifrenizi tekrar girin.</translation>
@@ -4713,6 +4699,7 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="8454288007744638700">Veya yeni bir ağ seçin:</translation>
 <translation id="845627346958584683">Son Kullanma Tarihi</translation>
 <translation id="8456681095658380701">Geçersiz ad</translation>
+<translation id="8457451314607652708">Yer işaretlerini içe aktar</translation>
 <translation id="8460336040822756677"><ph name="DEVICE_TYPE" /> için Smart Lock'u kapatırsanız, telefonunuzu kullanarak Chrome cihazlarınızın kilidini açamazsınız. Şifrenizi yazmanız gerekecektir.</translation>
 <translation id="8461329675984532579">Ev sağlayıcısının adı</translation>
 <translation id="84613761564611563">Ağ yapılandırma kullanıcı arayüzü istendi, lütfen bekleyin...</translation>
@@ -4949,7 +4936,6 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="882204272221080310">Daha fazla güvenlik için donanım yazılımını güncelle.</translation>
 <translation id="8823514049557262177">&amp;Bağlantı metnini kopyala</translation>
 <translation id="8824701697284169214">Say&amp;fa Ekle...</translation>
-<translation id="8827850355924932817">Konumu belirlemek için kablosuz ağ kullanma</translation>
 <translation id="8828933418460119530">DNS Adı</translation>
 <translation id="8830796635868321089">Mevcut proxy ayarları kullanılarak yapılan güncelleme kontrolü başarısız oldu. Lütfen <ph name="PROXY_SETTINGS_LINK_START" />proxy ayarlarınızı<ph name="PROXY_SETTINGS_LINK_END" /> düzenleyin.</translation>
 <translation id="8834039744648160717">Ağ yapılandırması, <ph name="USER_EMAIL" /> tarafından kontrol ediliyor.</translation>

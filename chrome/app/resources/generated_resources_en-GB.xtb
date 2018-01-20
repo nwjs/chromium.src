@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">Bookmarks HTML File</translation>
 <translation id="1303671224831497365">No Bluetooth devices found</translation>
 <translation id="1306606229401759371">Change settings</translation>
-<translation id="1307398858972670978">Access your passwords from any device at <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1307559529304613120">Oops!  The system failed to store the long-term API access token for this device.</translation>
 <translation id="1313405956111467313">Automatic proxy configuration</translation>
 <translation id="131364520783682672">Caps Lock</translation>
@@ -444,11 +443,9 @@
     <ph name="BEGIN_BOLD" />review<ph name="END_BOLD" /> websites the supervised user has visited and
     <ph name="BEGIN_BOLD" />manage<ph name="END_BOLD" /> other settings.</translation>
 <translation id="1648943974594387137">Sign-in details are out of date</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" /> lines not shown&gt;</translation>
 <translation id="1650371550981945235">Show input options</translation>
 <translation id="1650709179466243265">Add www. and .com, and open address</translation>
 <translation id="1651008383952180276">You must enter the same passphrase twice</translation>
-<translation id="1652972346408808053">Password saved. Access your passwords from any device at <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Add the printer to Google Cloud Print so that you can print from anywhere.}other{Add # printers to Google Cloud Print so that you can print from anywhere.}}</translation>
 <translation id="1657406563541664238">Help make <ph name="PRODUCT_NAME" /> better by automatically sending usage statistics and crash reports to Google.</translation>
 <translation id="1658424621194652532">This page is accessing your microphone.</translation>
@@ -884,7 +881,6 @@
 <translation id="236141728043665931">Always block microphone access</translation>
 <translation id="2367972762794486313">Show apps</translation>
 <translation id="2371076942591664043">Open when &amp;done</translation>
-<translation id="237336063998926520">Use your IP address to determine location</translation>
 <translation id="2377319039870049694">Switch to list view</translation>
 <translation id="2377667304966270281">Hard Faults</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> files selected</translation>
@@ -931,7 +927,6 @@ I don't think this site should be blocked!</translation>
 <translation id="2457246892030921239"><ph name="APP_NAME" /> wants to copy files from <ph name="VOLUME_NAME" />.</translation>
 <translation id="2462724976360937186">Certification Authority Key ID</translation>
 <translation id="2462752602710430187">Added <ph name="PRINTER_NAME" /></translation>
-<translation id="246335896104539386">Import bookmarks</translation>
 <translation id="2464089476039395325">HTTP Proxy</translation>
 <translation id="2468902267404883140">Can't connect to your phone. Make sure that you’re using a compatible Android phone that is turned on and handy. &lt;a&gt;Learn more&lt;/a&gt;</translation>
 <translation id="2470702053775288986">Unsupported extensions disabled</translation>
@@ -1068,7 +1063,6 @@ I don't think this site should be blocked!</translation>
 <translation id="2653266418988778031">If you delete a Certification Authority (CA) certificate, your browser will no longer trust any certificates issued by that CA.</translation>
 <translation id="2653659639078652383">Submit</translation>
 <translation id="265390580714150011">Field Value</translation>
-<translation id="2654286334048437383">Export bookmarks</translation>
 <translation id="2655386581175833247">User certificate:</translation>
 <translation id="2660779039299703961">Event</translation>
 <translation id="2661146741306740526">16 x 9</translation>
@@ -1360,7 +1354,7 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="3051523411789012618">Window up</translation>
 <translation id="3053013834507634016">Certificate Key Usage</translation>
 <translation id="3057861065630527966">Backup your photos and videos</translation>
-<translation id="3060379269883947824">Enable select-to-speak</translation>
+<translation id="3060379269883947824">Enable Select to Speak</translation>
 <translation id="3061707000357573562">Patch Service</translation>
 <translation id="3064410671692449875">Insufficient data</translation>
 <translation id="3065041951436100775">Tab killed feedback.</translation>
@@ -1525,7 +1519,6 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="3309747692199697901">Always Run on All Sites</translation>
 <translation id="3312424061798279731">Enabled languages</translation>
 <translation id="3312903956926554846">Install to desktop</translation>
-<translation id="3313473140726597081">Your start-up page was changed to <ph name="URL" />. To disable extensions that change your start-up page, click Restore.</translation>
 <translation id="3313590242757056087">To set which websites the supervised user can view, you can configure restrictions
     and settings by visiting <ph name="MANAGEMENT_URL" />.
     If you do not change the default settings, <ph name="USER_DISPLAY_NAME" />
@@ -1850,7 +1843,6 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="379082410132524484">Your card has expired</translation>
 <translation id="3792890930871100565">Disconnect printers</translation>
 <translation id="379422718204375917">Use Smart Lock to sign in to your account</translation>
-<translation id="3794595850995182458">Exit page</translation>
 <translation id="3796648294839530037">Favourite Networks:</translation>
 <translation id="3797900183766075808">&amp;Search <ph name="SEARCH_ENGINE" /> for “<ph name="SEARCH_TERMS" />”</translation>
 <translation id="3798325802885154040">Allows you to enable/disable tap-to-click</translation>
@@ -3346,7 +3338,6 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="6237816943013845465">Allows you to adjust your screen resolution</translation>
 <translation id="6238923052227198598">Keep latest note on lock screen</translation>
 <translation id="6239558157302047471">Reload &amp;frame</translation>
-<translation id="624022915548992686">Exit Page</translation>
 <translation id="6241530762627360640">Access information about Bluetooth devices paired with your system and discover nearby Bluetooth devices.</translation>
 <translation id="6243774244933267674">Server unavailable</translation>
 <translation id="6246413617632217567">The supervised user couldn't be imported. Please check your hard drive space and permissions and try again.</translation>
@@ -3395,7 +3386,6 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="6312403991423642364">Unknown network error</translation>
 <translation id="6313641880021325787">EXIT VR</translation>
 <translation id="6314819609899340042">You have successfully enabled debugging features on this <ph name="IDS_SHORT_PRODUCT_NAME" /> device.</translation>
-<translation id="6315343732431721770">Your start-up pages were changed to include <ph name="URL" />. To disable extensions that change your start-up page, click Restore.</translation>
 <translation id="6315493146179903667">Bring All to Front</translation>
 <translation id="6316806695097060329">This <ph name="SHORT_PRODUCT_NAME" /> device was designed to deliver the best experience of the web to you.</translation>
 <translation id="6317318380444133405">No longer supported.</translation>
@@ -3410,7 +3400,6 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="6333049849394141510">Choose what to sync</translation>
 <translation id="6333064448949140209">File will be sent to Google for debugging</translation>
 <translation id="6333834492048057036">Focus address bar for search</translation>
-<translation id="6336907568130557310">Your passwords will be visible to anyone who can see the exported file. Do not share the file with anyone and delete it after importing it.</translation>
 <translation id="6339668969738228384">Create a new profile for <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6340017061976355871">Couldn’t connect with the server. Please check your network connection and try again. If the problem persists, restart your Chromebook.</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
@@ -4172,7 +4161,6 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
     try creating a supervised user again.</translation>
 <translation id="756445078718366910">Open Browser Window</translation>
 <translation id="7564847347806291057">End process</translation>
-<translation id="7565291891798266313">Your search engine was changed to <ph name="URL" />. To disable extensions that change your search engine, click Restore.</translation>
 <translation id="7566118625369982896">Manage Play app links</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Cleared Chrome data</translation>
@@ -4181,7 +4169,6 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="7573172247376861652">Battery Charge</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Collate</translation>
-<translation id="7577815336900970562">Use Wi-Fi or mobile network to determine location</translation>
 <translation id="7579149537961810247">Mute Sites</translation>
 <translation id="7580671184200851182">Play the same audio through all speakers (mono audio)</translation>
 <translation id="7581462281756524039">A cleanup tool</translation>
@@ -4567,7 +4554,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8191230140820435481">Manage your apps, extensions, and themes</translation>
 <translation id="8191453843330043793">V8 Proxy Resolver</translation>
 <translation id="8195027750202970175">Size on disk</translation>
-<translation id="8195739004487400241">Your homepage page was changed to <ph name="URL" />. To disable extensions that change your homepage, click Restore.</translation>
 <translation id="8199300056570174101">Network (Service) and Device properties</translation>
 <translation id="8200772114523450471">Resume</translation>
 <translation id="8202160505685531999">Please re-enter your password to update your <ph name="DEVICE_TYPE" /> profile.</translation>
@@ -4712,6 +4698,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8454288007744638700">Or, select a new network:</translation>
 <translation id="845627346958584683">Expiry Time</translation>
 <translation id="8456681095658380701">Invalid name</translation>
+<translation id="8457451314607652708">Import bookmarks</translation>
 <translation id="8460336040822756677">If you turn off Smart Lock for <ph name="DEVICE_TYPE" />, you won’t be able to unlock your Chrome devices using your phone. You'll need to type your password.</translation>
 <translation id="8461329675984532579">Home provider name</translation>
 <translation id="84613761564611563">Network configure UI requested, please wait...</translation>
@@ -4948,7 +4935,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="882204272221080310">Update firmware for added security.</translation>
 <translation id="8823514049557262177">Copy link te&amp;xt</translation>
 <translation id="8824701697284169214">Add Pa&amp;ge...</translation>
-<translation id="8827850355924932817">Use Wi-Fi network to determine location</translation>
 <translation id="8828933418460119530">DNS Name</translation>
 <translation id="8830796635868321089">The update check failed using the current proxy settings. Please adjust your <ph name="PROXY_SETTINGS_LINK_START" />proxy settings<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="8834039744648160717">Network configuration is controlled by <ph name="USER_EMAIL" />.</translation>
@@ -4991,7 +4977,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8899285681604219177">Unsupported Extensions Disabled</translation>
 <translation id="8899551033019439140">Searching for printer...</translation>
 <translation id="8899851313684471736">Open link in new &amp;window</translation>
-<translation id="8902667442496790482">Open select-to-speak settings</translation>
+<translation id="8902667442496790482">Open Select to Speak settings</translation>
 <translation id="8903921497873541725">Zoom in</translation>
 <translation id="8904976895050290827">Chrome Sync</translation>
 <translation id="8908902564709148335">Warning: You've enabled the -scripts-require-action flag on this computer, which limits the capabilities of this extension. However, other devices may not support this flag or have it enabled. On these devices, this extension can also:</translation>

@@ -206,7 +206,6 @@ A Fizikai web használatához be kell kapcsolnia a Bluetooth funkciót és a hel
 <translation id="2876764156902388290">A Chrome kevesebb adatot használ az oldal megjelenítéséhez.</translation>
 <translation id="2888126860611144412">A Chrome névjegye</translation>
 <translation id="2891154217021530873">Oldal betöltésének leállítása</translation>
-<translation id="2892933203342091350">Az egyszerűsített nézet engedélyezése minden cikknél</translation>
 <translation id="2900528713135656174">Esemény létrehozása</translation>
 <translation id="2902702728133930130">A Chrome indítása sikertelen volt egy váratlan hiba miatt.</translation>
 <translation id="2903493209154104877">Címek</translation>
@@ -294,7 +293,6 @@ A keresési kifejezés módosításához hosszú nyomva tartással hajthat végr
 <translation id="3661699943263275414">A hamardik felek webhelyei menthetik és olvashatják a cookie-adatokat</translation>
 <translation id="3662546969139119822">Nincsenek előzmények</translation>
 <translation id="3672452749423051839">Navigálási hibákkal kapcsolatos javaslatok</translation>
-<translation id="3682249951633602029">Jelszavai mindenki számára láthatók lesznek, aki hozzáfér az exportált jelszavakat tartalmazó fájlhoz.</translation>
 <translation id="3712575778697986964">Alaphelyzetbe állítja az Adatforgalom-csökkentőt?</translation>
 <translation id="3714981814255182093">A keresősáv megnyitása</translation>
 <translation id="3716182511346448902">Ez az oldal túl sok memóriát használ, ezért a Chrome szünetelteti.</translation>
@@ -618,7 +616,6 @@ Egyes webhelyek például válaszolhatnak rá úgy, hogy olyan hirdetéseket jel
 <translation id="6538442820324228105"><ph name="GBS" /> GB letöltve</translation>
 <translation id="654446541061731451">Válassza ki a sugározni kívánt lapot</translation>
 <translation id="6545017243486555795">Összes adat törlése</translation>
-<translation id="6550675742724504774">Beállítások</translation>
 <translation id="6556716549745717622">Letiltás, ha a webhely jellemzően tolakodó hirdetéseket jelenít meg (ajánlott)</translation>
 <translation id="6560414384669816528">Keresés a Sogou használatával</translation>
 <translation id="6566259936974865419">A Chrome megspórolt Önnek <ph name="GIGABYTES" /> GB-ot</translation>

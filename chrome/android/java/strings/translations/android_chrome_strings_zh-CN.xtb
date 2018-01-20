@@ -83,7 +83,7 @@
 <translation id="1660204651932907780">允许网站播放声音（推荐）</translation>
 <translation id="1670399744444387456">基本</translation>
 <translation id="1671236975893690980">正在等待下载…</translation>
-<translation id="1674523662097951983">正在移动“书签”文件夹。下次，您只需上拉地址栏即可查看书签。</translation>
+<translation id="1674523662097951983">“书签”的位置即将变更。下次只需上拉地址栏即可查看书签。</translation>
 <translation id="169033420419426091">未能成功下载 <ph name="FILE_NAME" />，因为找不到 SD 卡。</translation>
 <translation id="1709438864123551175">流量节省程序</translation>
 <translation id="1718835860248848330">过去一小时</translation>
@@ -206,7 +206,6 @@
 <translation id="2876764156902388290">Chrome 向您显示此网页时消耗的数据流量更少</translation>
 <translation id="2888126860611144412">关于 Chrome</translation>
 <translation id="2891154217021530873">停止加载网页</translation>
-<translation id="2892933203342091350">为所有文章启用简化版视图</translation>
 <translation id="2900528713135656174">创建活动</translation>
 <translation id="2902702728133930130">由于出现意外错误，Chrome 启动失败。</translation>
 <translation id="2903493209154104877">地址</translation>
@@ -294,7 +293,6 @@
 <translation id="3661699943263275414">第三方网站可以保存和读取 Cookie 数据</translation>
 <translation id="3662546969139119822">此处没有任何历史记录</translation>
 <translation id="3672452749423051839">导航错误建议</translation>
-<translation id="3682249951633602029">所有能查看这个被导出的密码文件的人员都能看到您的密码。</translation>
 <translation id="3712575778697986964">重置流量节省程序？</translation>
 <translation id="3714981814255182093">打开查找栏</translation>
 <translation id="3716182511346448902">此网页占用的内存过多，因此 Chrome 已将其暂停。</translation>
@@ -555,7 +553,7 @@
 <translation id="5956665950594638604">在新标签页中打开 Chrome 帮助中心</translation>
 <translation id="5958275228015807058">在“下载内容”中查找您的文件和网页</translation>
 <translation id="5962718611393537961">点按即可收起</translation>
-<translation id="5974562976030145789">正在移动“下载内容”文件夹。下次，您只需上拉地址栏即可查看下载内容。</translation>
+<translation id="5974562976030145789">“下载内容”的位置即将变更。下次只需上拉地址栏即可查看下载内容。</translation>
 <translation id="6000066717592683814">继续使用 Google</translation>
 <translation id="6031101910111098835">已收起 - 点击即可展开</translation>
 <translation id="6039379616847168523">跳转到下一个标签页</translation>
@@ -618,7 +616,6 @@
 <translation id="6538442820324228105">已下载 <ph name="GBS" /> GB</translation>
 <translation id="654446541061731451">选择要传输的标签页</translation>
 <translation id="6545017243486555795">清除所有数据</translation>
-<translation id="6550675742724504774">选项</translation>
 <translation id="6556716549745717622">如果网站常常会展示侵扰性广告，则予以阻止（推荐）</translation>
 <translation id="6560414384669816528">改用搜狗搜索</translation>
 <translation id="6566259936974865419">Chrome 已为您保存的数据量：<ph name="GIGABYTES" /> GB</translation>
@@ -820,7 +817,7 @@
 <translation id="8487700953926739672">可离线使用</translation>
 <translation id="8489271220582375723">打开历史记录页</translation>
 <translation id="8493948351860045254">释放空间</translation>
-<translation id="8494508527479967437">正在移动“历史记录”文件夹。下次，您只需上拉地址栏即可查看历史记录。</translation>
+<translation id="8494508527479967437">“历史记录”的位置即将变更。下次只需上拉地址栏即可查看历史记录。</translation>
 <translation id="8497726226069778601">目前还未列出任何网页…</translation>
 <translation id="8503813439785031346">用户名</translation>
 <translation id="8514477925623180633">导出存储在 Chrome 中的密码</translation>

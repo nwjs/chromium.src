@@ -206,7 +206,6 @@ Debes activar Bluetooth y la Ubicación para poder utilizar la Web física.</tra
 <translation id="2876764156902388290">Chrome usa menos datos para mostrarte esta página</translation>
 <translation id="2888126860611144412">Acerca de Chrome</translation>
 <translation id="2891154217021530873">Detener la carga de la página</translation>
-<translation id="2892933203342091350">Habilitar la vista simplificada en todos los artículos</translation>
 <translation id="2900528713135656174">Crear evento</translation>
 <translation id="2902702728133930130">Se produjo un error inesperado durante el inicio de Chrome.</translation>
 <translation id="2903493209154104877">Direcciones</translation>
@@ -294,7 +293,6 @@ Para ajustar el término de búsqueda, mantén presionado el texto y seleccióna
 <translation id="3661699943263275414">Los sitios web de terceros pueden guardar y leer datos de cookies.</translation>
 <translation id="3662546969139119822">Aquí no hay elementos en el historial</translation>
 <translation id="3672452749423051839">Sugerencias relacionadas con errores de navegación</translation>
-<translation id="3682249951633602029">Las personas que tengan acceso al archivo de contraseñas exportado podrán ver tus contraseñas.</translation>
 <translation id="3712575778697986964">¿Deseas restablecer Reducir datos?</translation>
 <translation id="3714981814255182093">Abrir la barra de búsqueda</translation>
 <translation id="3716182511346448902">Chrome pausó esta página porque usa demasiada memoria.</translation>
@@ -618,7 +616,6 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mediante anuncio
 <translation id="6538442820324228105">Se descargaron <ph name="GBS" /> GB</translation>
 <translation id="654446541061731451">Elige una pestaña para transmitir.</translation>
 <translation id="6545017243486555795">Borrar todos los datos</translation>
-<translation id="6550675742724504774">Opciones</translation>
 <translation id="6556716549745717622">Bloquear si el sitio tiende a mostrar anuncios intrusivos (opción recomendada)</translation>
 <translation id="6560414384669816528">Buscar con Sogou</translation>
 <translation id="6566259936974865419">Chrome te permitió ahorrar <ph name="GIGABYTES" /> gigabytes</translation>

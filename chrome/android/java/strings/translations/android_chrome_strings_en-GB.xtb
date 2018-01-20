@@ -206,7 +206,6 @@ You must have Bluetooth and Location turned on in order to use the Physical Web.
 <translation id="2876764156902388290">Chrome is using less data to show you this page</translation>
 <translation id="2888126860611144412">About Chrome</translation>
 <translation id="2891154217021530873">Stop page loading</translation>
-<translation id="2892933203342091350">Enable simplified view on all articles</translation>
 <translation id="2900528713135656174">Create event</translation>
 <translation id="2902702728133930130">Chrome failed during start-up with an unexpected error.</translation>
 <translation id="2903493209154104877">Addresses</translation>
@@ -294,7 +293,6 @@ To adjust your search term, long press to select. To refine your search, slide t
 <translation id="3661699943263275414">Third-party websites can save and read cookie data</translation>
 <translation id="3662546969139119822">No history here</translation>
 <translation id="3672452749423051839">Navigation error suggestions</translation>
-<translation id="3682249951633602029">Your passwords will be visible to anyone who can see the exported passwords file.</translation>
 <translation id="3712575778697986964">Reset Data Saver?</translation>
 <translation id="3714981814255182093">Open the Find Bar</translation>
 <translation id="3716182511346448902">This page uses too much memory, so Chrome paused it.</translation>
@@ -618,7 +616,6 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="6538442820324228105">Downloaded <ph name="GBS" /> GB</translation>
 <translation id="654446541061731451">Select a tab to beam</translation>
 <translation id="6545017243486555795">Clear All Data</translation>
-<translation id="6550675742724504774">Options</translation>
 <translation id="6556716549745717622">Block if site tends to show intrusive ads (recommended)</translation>
 <translation id="6560414384669816528">Search with Sogou</translation>
 <translation id="6566259936974865419">Chrome has saved you <ph name="GIGABYTES" /> GB</translation>

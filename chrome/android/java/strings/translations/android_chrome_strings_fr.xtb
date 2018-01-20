@@ -206,7 +206,6 @@ Vous devez activer le Bluetooth et les services de localisation pour utiliser le
 <translation id="2876764156902388290">Chrome utilise moins de données pour afficher cette page</translation>
 <translation id="2888126860611144412">À propos de Chrome</translation>
 <translation id="2891154217021530873">Arrêter le chargement de la page</translation>
-<translation id="2892933203342091350">Activer la vue simplifiée pour tous les articles</translation>
 <translation id="2900528713135656174">Créer un événement</translation>
 <translation id="2902702728133930130">Échec du démarrage de Chrome, en raison d'une erreur inattendue.</translation>
 <translation id="2903493209154104877">Adresses</translation>
@@ -294,7 +293,6 @@ Pour modifier le terme de recherche, appuyez sur celui-ci de manière prolongée
 <translation id="3661699943263275414">Les sites tiers peuvent enregistrer et lire les données des cookies.</translation>
 <translation id="3662546969139119822">Aucun historique ici</translation>
 <translation id="3672452749423051839">Suggestions en cas d'erreur de navigation</translation>
-<translation id="3682249951633602029">Toute personne ayant accès au fichier exporté de mots de passe pourra voir ces mots de passe.</translation>
 <translation id="3712575778697986964">Réinitialiser l'économiseur de données ?</translation>
 <translation id="3714981814255182093">Ouvrir la barre de recherche</translation>
 <translation id="3716182511346448902">Cette page utilise trop de mémoire, Chrome a donc interrompu son chargement.</translation>
@@ -618,7 +616,6 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="6538442820324228105"><ph name="GBS" /> Go téléchargé(s)</translation>
 <translation id="654446541061731451">Sélectionnez un onglet à partager.</translation>
 <translation id="6545017243486555795">Supprimer toutes les données</translation>
-<translation id="6550675742724504774">Options</translation>
 <translation id="6556716549745717622">Bloquer si le site a tendance à afficher des annonces intrusives (recommandé)</translation>
 <translation id="6560414384669816528">Rechercher avec Sogou</translation>
 <translation id="6566259936974865419">Chrome vous a permis de gagner <ph name="GIGABYTES" /> Go</translation>

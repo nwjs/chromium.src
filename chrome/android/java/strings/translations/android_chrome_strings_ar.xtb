@@ -206,7 +206,6 @@
 <translation id="2876764156902388290">‏يستخدم Chrome بيانات أقل لعرض هذه الصفحة لك</translation>
 <translation id="2888126860611144412">‏حول Chrome</translation>
 <translation id="2891154217021530873">إيقاف تحميل الصفحة</translation>
-<translation id="2892933203342091350">تفعيل العرض المبسَّط في جميع المقالات</translation>
 <translation id="2900528713135656174">إنشاء حدث</translation>
 <translation id="2902702728133930130">‏تعذّر Chrome أثناء بدء التشغيل بسبب خطأ غير متوقع.</translation>
 <translation id="2903493209154104877">العناوين</translation>
@@ -294,7 +293,6 @@
 <translation id="3661699943263275414">يمكن للمواقع الإلكترونية التابعة لجهات خارجية حفظ بيانات ملفات تعريف الارتباط وقراءتها</translation>
 <translation id="3662546969139119822">لا يوجد سجلّ هنا</translation>
 <translation id="3672452749423051839">اقتراحات أخطاء التنقل</translation>
-<translation id="3682249951633602029">ستكون كلمات مرورك مرئية لأي شخص يمكنه الاطلاع على ملف كلمات المرور الذي تم تصديره.</translation>
 <translation id="3712575778697986964">أترغب في إعادة ضبط توفير البيانات؟</translation>
 <translation id="3714981814255182093">فتح شريط البحث</translation>
 <translation id="3716182511346448902">‏تستهلك هذه الصفحة مساحة كبيرة من الذاكرة، لذلك أوقفها Chrome مؤقتًا.</translation>
@@ -619,7 +617,6 @@
 <translation id="6538442820324228105">تم التنزيل بحجم <ph name="GBS" /> غيغابايت</translation>
 <translation id="654446541061731451">حدد علامة تبويب لإرسالها باستخدام الشعاع</translation>
 <translation id="6545017243486555795">مسح جميع البيانات</translation>
-<translation id="6550675742724504774">خيارات</translation>
 <translation id="6556716549745717622">الحظر إذا كان موقع الويب يميل إلى عرض إعلانات متداخلة (مستحسن)</translation>
 <translation id="6560414384669816528">‏البحث باستخدام Sogou</translation>
 <translation id="6566259936974865419">‏لقد وفر Chrome لك <ph name="GIGABYTES" /> غيغابايت</translation>

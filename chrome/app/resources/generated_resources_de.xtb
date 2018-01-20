@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">Lesezeichen-HTML-Datei</translation>
 <translation id="1303671224831497365">Keine Bluetooth-Geräte gefunden</translation>
 <translation id="1306606229401759371">Einstellungen ändern</translation>
-<translation id="1307398858972670978">Unter <ph name="SAVED_PASSWORDS_LINK" /> haben Sie von jedem Gerät aus Zugriff auf Ihre Passwörter</translation>
 <translation id="1307559529304613120">Hoppla! Das System konnte das langfristig gültige API-Zugriffstoken für das Gerät nicht speichern.</translation>
 <translation id="1313405956111467313">Automatische Proxy-Konfiguration</translation>
 <translation id="131364520783682672">Feststelltaste</translation>
@@ -245,7 +244,7 @@
 <translation id="1368832886055348810">Rechtsläufig</translation>
 <translation id="1370646789215800222">Person entfernen?</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{1 zu entfernendes Element}other{# zu entfernende Elemente}}</translation>
-<translation id="1372841398847029212">Mit Ihrem Konto synchronisieren</translation>
+<translation id="1372841398847029212">Mit meinem Konto synchronisieren</translation>
 <translation id="1374844444528092021">Das vom Netzwerk "<ph name="NETWORK_NAME" />" benötigte Zertifikat ist entweder nicht installiert oder nicht mehr gültig. Bitte fordern Sie ein neues Zertifikat an und versuchen Sie es erneut.</translation>
 <translation id="1374962581120570592">Cookies gesetzt</translation>
 <translation id="1375321115329958930">Gespeicherte Passwörter</translation>
@@ -440,11 +439,9 @@
     vom betreuten Nutzer besuchte Websites <ph name="BEGIN_BOLD" />prüfen<ph name="END_BOLD" /> und
     andere Einstellungen <ph name="BEGIN_BOLD" />verwalten<ph name="END_BOLD" />.</translation>
 <translation id="1648943974594387137">Die Anmeldeinformationen sind veraltet</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" /> Zeilen werden nicht angezeigt&gt;</translation>
 <translation id="1650371550981945235">Eingabeoptionen anzeigen</translation>
 <translation id="1650709179466243265">www. und .com hinzufügen und Adresse öffnen</translation>
 <translation id="1651008383952180276">Sie müssen zweimal dieselbe Passphrase eingeben</translation>
-<translation id="1652972346408808053">Passwort gespeichert. Unter <ph name="SAVED_PASSWORDS_LINK" /> können Sie von jedem Gerät aus auf Ihre Passwörter zugreifen.</translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Fügen Sie den Drucker zu Google Cloud Print hinzu, damit Sie von überall aus drucken können.}other{Fügen Sie # Drucker zu Google Cloud Print hinzu, damit Sie von überall aus drucken können.}}</translation>
 <translation id="1657406563541664238">Zur Verbesserung von <ph name="PRODUCT_NAME" /> Nutzungsstatistiken und Absturzberichte automatisch an Google senden</translation>
 <translation id="1658424621194652532">Diese Seite greift auf Ihr Mikrofon zu.</translation>
@@ -880,7 +877,6 @@
 <translation id="236141728043665931">Zugriff auf das Mikrofon immer blockieren</translation>
 <translation id="2367972762794486313">Apps anzeigen</translation>
 <translation id="2371076942591664043">Nach &amp;Download öffnen</translation>
-<translation id="237336063998926520">IP-Adresse zur Standortbestimmung verwenden</translation>
 <translation id="2377319039870049694">Zur Listenansicht wechseln</translation>
 <translation id="2377667304966270281">Harte Fehler</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> Dateien ausgewählt</translation>
@@ -927,7 +923,6 @@ Ich glaube nicht, dass diese Website blockiert werden sollte.</translation>
 <translation id="2457246892030921239"><ph name="APP_NAME" /> möchte Dateien von <ph name="VOLUME_NAME" /> kopieren.</translation>
 <translation id="2462724976360937186">Schlüssel-ID der Zertifizierungsstelle</translation>
 <translation id="2462752602710430187"><ph name="PRINTER_NAME" /> hinzugefügt</translation>
-<translation id="246335896104539386">Lesezeichen importieren</translation>
 <translation id="2464089476039395325">HTTP-Proxy</translation>
 <translation id="2468902267404883140">Verbindung zum Smartphone konnte nicht hergestellt werden. Ihr Smartphone muss ein kompatibles Android-Smartphone sein, das eingeschaltet ist und sich in Reichweite befindet. &lt;a&gt;Weitere Informationen&lt;/a&gt;</translation>
 <translation id="2470702053775288986">Nicht unterstützte Erweiterungen deaktiviert</translation>
@@ -1064,7 +1059,6 @@ Ich glaube nicht, dass diese Website blockiert werden sollte.</translation>
 <translation id="2653266418988778031">Wenn Sie das Zertifikat einer Zertifizierungsstelle (CA) löschen, vertraut Ihr Server keinen von dieser Zertifizierungsstelle ausgestellten Zertifikaten mehr.</translation>
 <translation id="2653659639078652383">Senden</translation>
 <translation id="265390580714150011">Feldwert</translation>
-<translation id="2654286334048437383">Lesezeichen exportieren</translation>
 <translation id="2655386581175833247">Nutzerzertifikat:</translation>
 <translation id="2660779039299703961">Ereignis</translation>
 <translation id="2661146741306740526">16 x 9</translation>
@@ -1521,7 +1515,6 @@ Mehr dazu erfahren Sie in <ph name="BEGIN_LINK" />unserer Hilfe<ph name="END_LIN
 <translation id="3309747692199697901">Immer auf allen Websites ausführen</translation>
 <translation id="3312424061798279731">Aktivierte Sprachen</translation>
 <translation id="3312903956926554846">Auf dem Desktop installieren</translation>
-<translation id="3313473140726597081">Ihre "Beim Start"-Seite wurde in <ph name="URL" /> geändert. Zum Deaktivieren von Erweiterungen, die Ihre "Beim Start"-Seite ändern, klicken Sie auf "Wiederherstellen".</translation>
 <translation id="3313590242757056087">Zum Auswählen der Websites, die der betreute Nutzer besuchen kann,
     können Sie unter <ph name="MANAGEMENT_URL" /> Beschränkungen und Einstellungen festlegen.
     Wenn Sie die Standardeinstellungen nicht ändern, kann <ph name="USER_DISPLAY_NAME" />
@@ -1846,7 +1839,6 @@ Mehr dazu erfahren Sie in <ph name="BEGIN_LINK" />unserer Hilfe<ph name="END_LIN
 <translation id="379082410132524484">Ihre Karte ist abgelaufen.</translation>
 <translation id="3792890930871100565">Druckerverbindungen trennen</translation>
 <translation id="379422718204375917">Zum Anmelden im Konto Smart Lock verwenden</translation>
-<translation id="3794595850995182458">Seite verlassen</translation>
 <translation id="3796648294839530037">Bevorzugte Netzwerke:</translation>
 <translation id="3797900183766075808"><ph name="SEARCH_ENGINE" /> nach "<ph name="SEARCH_TERMS" />" durchsuchen</translation>
 <translation id="3798325802885154040">Ermöglicht das Aktivieren/Deaktivieren des Touchpad-Klicks</translation>
@@ -3342,7 +3334,6 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="6237816943013845465">Ermöglicht die Anpassung der Bildschirmauflösung</translation>
 <translation id="6238923052227198598">Neueste Notiz auf Sperrbildschirm anzeigen</translation>
 <translation id="6239558157302047471">&amp;Frame neu laden</translation>
-<translation id="624022915548992686">Seite Verlassen</translation>
 <translation id="6241530762627360640">Informationen zu mit ihrem System gekoppelten Bluetooth-Geräten abrufen und Bluetooth-Geräte in der Nähe finden</translation>
 <translation id="6243774244933267674">Server nicht verfügbar</translation>
 <translation id="6246413617632217567">Der betreute Nutzer konnte nicht importiert werden. Bitte überprüfen Sie Ihren Festplattenspeicherplatz und Ihre Berechtigungen und versuchen Sie es noch einmal.</translation>
@@ -3391,7 +3382,6 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="6312403991423642364">Unbekannter Netzwerkfehler</translation>
 <translation id="6313641880021325787">VR BEENDEN</translation>
 <translation id="6314819609899340042">Sie haben die Debugging-Funktionen auf diesem <ph name="IDS_SHORT_PRODUCT_NAME" />-Gerät aktiviert.</translation>
-<translation id="6315343732431721770">Ihre "Beim Start"-Seiten wurden geändert und enthalten nun <ph name="URL" />. Zum Deaktivieren von Erweiterungen, die Ihre "Beim Start"-Seite ändern, klicken Sie auf "Wiederherstellen".</translation>
 <translation id="6315493146179903667">Alle nach vorn bringen</translation>
 <translation id="6316806695097060329">Dieses <ph name="SHORT_PRODUCT_NAME" />-Gerät wurde so konzipiert, dass Sie das Web optimal nutzen und genießen können.</translation>
 <translation id="6317318380444133405">Wird nicht mehr unterstützt.</translation>
@@ -3406,7 +3396,6 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="6333049849394141510">Auswahl synchronisieren</translation>
 <translation id="6333064448949140209">Datei wird zur Fehlerbehebung an Google gesendet</translation>
 <translation id="6333834492048057036">Adressleiste für die Suche fokussieren</translation>
-<translation id="6336907568130557310">Ihre Passwörter sind für jeden zugänglich, der die exportierte Datei sehen kann. Geben Sie die Datei nicht an andere weiter und löschen Sie sie nach dem Import.</translation>
 <translation id="6339668969738228384">Neues Profil für <ph name="USER_EMAIL_ADDRESS" /> erstellen</translation>
 <translation id="6340017061976355871">Keine Verbindung mit dem Server möglich. Bitte überprüfen Sie Ihre Netzwerkverbindung und versuchen Sie es noch einmal. Sollte das Problem weiterhin bestehen, starten Sie Ihr Chromebook neu.</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
@@ -4171,7 +4160,6 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
     und erneut versuchen, einen betreuten Nutzer zu erstellen.</translation>
 <translation id="756445078718366910">Browserfenster öffnen</translation>
 <translation id="7564847347806291057">Prozess beenden</translation>
-<translation id="7565291891798266313">Ihre Suchmaschine wurde in <ph name="URL" /> geändert. Zum Deaktivieren von Erweiterungen, die Ihre Suchmaschine ändern, klicken Sie auf "Wiederherstellen".</translation>
 <translation id="7566118625369982896">Play-App-Links verwalten</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Gelöschte Chrome-Daten</translation>
@@ -4180,7 +4168,6 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="7573172247376861652">Akkustand</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Zuordnen</translation>
-<translation id="7577815336900970562">WLAN oder Mobilfunknetz zur Standortbestimmung nutzen</translation>
 <translation id="7579149537961810247">Websites stummschalten</translation>
 <translation id="7580671184200851182">Dieselben Audioinhalte über alle Boxen wiedergeben (Mono-Audio)</translation>
 <translation id="7581462281756524039">Ein Bereinigungstool</translation>
@@ -4566,7 +4553,6 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="8191230140820435481">Apps, Erweiterungen und Designs verwalten</translation>
 <translation id="8191453843330043793">V8-Proxy-Resolver</translation>
 <translation id="8195027750202970175">Dateigröße</translation>
-<translation id="8195739004487400241">Ihre Startseite wurde in <ph name="URL" /> geändert. Zum Deaktivieren von Erweiterungen, die Ihre Startseite ändern, klicken Sie auf "Wiederherstellen".</translation>
 <translation id="8199300056570174101">Netzwerk(dienst) und Geräteeigenschaften</translation>
 <translation id="8200772114523450471">Fortsetzen</translation>
 <translation id="8202160505685531999">Geben Sie Ihr Passwort erneut ein, um Ihr <ph name="DEVICE_TYPE" />-Profil zu aktualisieren.</translation>
@@ -4712,6 +4698,7 @@ Andere Personen mit langsamen Verbindungen sehen Ihre Inhalte möglicherweise ni
 <translation id="8454288007744638700">Sie können auch ein anderes Netzwerk auswählen:</translation>
 <translation id="845627346958584683">Ablaufzeit</translation>
 <translation id="8456681095658380701">Ungültiger Name</translation>
+<translation id="8457451314607652708">Lesezeichen importieren</translation>
 <translation id="8460336040822756677">Wenn Sie Smart Lock für <ph name="DEVICE_TYPE" /> deaktivieren, können Sie Ihre Chrome-Geräte nicht mit Ihrem Smartphone entsperren, sondern müssen Ihr Passwort eingeben.</translation>
 <translation id="8461329675984532579">Name des Homepageanbieters</translation>
 <translation id="84613761564611563">UI zur Netzwerkkonfiguration angefordert. Bitte warten…</translation>
@@ -4948,7 +4935,6 @@ Andere Personen mit langsamen Verbindungen sehen Ihre Inhalte möglicherweise ni
 <translation id="882204272221080310">Für mehr Sicherheit Firmware aktualisieren.</translation>
 <translation id="8823514049557262177">Linkte&amp;xt kopieren</translation>
 <translation id="8824701697284169214">&amp;Seite hinzufügen...</translation>
-<translation id="8827850355924932817">WLAN zur Standortbestimmung nutzen</translation>
 <translation id="8828933418460119530">DNS-Name</translation>
 <translation id="8830796635868321089">Mit den aktuellen Proxyeinstellungen ist bei der Suche nach Updates ein Fehler aufgetreten. Passen Sie Ihre <ph name="PROXY_SETTINGS_LINK_START" />Proxyeinstellungen<ph name="PROXY_SETTINGS_LINK_END" /> an.</translation>
 <translation id="8834039744648160717">Die Netzwerkkonfiguration wird von <ph name="USER_EMAIL" /> festgelegt.</translation>

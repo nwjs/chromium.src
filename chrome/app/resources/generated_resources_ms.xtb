@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">Menandakan Fail HTML</translation>
 <translation id="1303671224831497365">Peranti Bluetooth tidak ditemui</translation>
 <translation id="1306606229401759371">Tukar tetapan</translation>
-<translation id="1307398858972670978">Akses kata laluan anda daripada sebarang peranti di <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1307559529304613120">Op!  Sistem gagal menyimpan token akses API jangka panjang untuk peranti ini.</translation>
 <translation id="1313405956111467313">Konfigurasi proksi automatik</translation>
 <translation id="131364520783682672">Kunci Huruf Besar</translation>
@@ -443,11 +442,9 @@
     <ph name="BEGIN_BOLD" />semak<ph name="END_BOLD" /> tapak web yang telah dilawati pengguna diselia, dan
     <ph name="BEGIN_BOLD" />urus<ph name="END_BOLD" /> tetapan lain.</translation>
 <translation id="1648943974594387137">Butiran log masuk sudah lapuk</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" /> garisan tidak ditunjukkan&gt;</translation>
 <translation id="1650371550981945235">Tunjukkan pilihan input</translation>
 <translation id="1650709179466243265">Tambah www. dan .com dan buka alamat</translation>
 <translation id="1651008383952180276">Anda mesti memasukkan ungkapan laluan yang sama dua kali</translation>
-<translation id="1652972346408808053">Kata laluan disimpan. Akses kata laluan anda daripada sebarang peranti di <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Tambahkan pencetak kepada Pencetak Awan Google supaya anda dapat mencetak dari mana-mana sahaja.}other{Tambahkan # pencetak kepada Pencetak Awan Google supaya anda dapat mencetak dari mana-mana sahaja.}}</translation>
 <translation id="1657406563541664238">Bantu jadikan <ph name="PRODUCT_NAME" /> lebih baik dengan menghantar statistik dan laporan nahas secara automatik kepada Google</translation>
 <translation id="1658424621194652532">Halaman ini mengakses mikrofon anda.</translation>
@@ -883,7 +880,6 @@
 <translation id="236141728043665931">Sentiasa sekat akses mikrofon</translation>
 <translation id="2367972762794486313">Paparkan apl</translation>
 <translation id="2371076942591664043">Buka apabila &amp;selesai</translation>
-<translation id="237336063998926520">Gunakan alamat IP anda untuk menentukan lokasi</translation>
 <translation id="2377319039870049694">Tukar kepada paparan senarai</translation>
 <translation id="2377667304966270281">Kesalahan Keras</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> fail dipilih</translation>
@@ -930,7 +926,6 @@ Saya tidak fikir tapak web ini perlu disekat!</translation>
 <translation id="2457246892030921239"><ph name="APP_NAME" /> ingin menyalin fail daripada <ph name="VOLUME_NAME" />.</translation>
 <translation id="2462724976360937186">ID Kekunci Pihak Berkuasa Pensijilan</translation>
 <translation id="2462752602710430187"><ph name="PRINTER_NAME" /> ditambahkan</translation>
-<translation id="246335896104539386">Import Penanda Halaman</translation>
 <translation id="2464089476039395325">Proksi HTTP</translation>
 <translation id="2468902267404883140">Tidak dapat menyambung ke telefon anda. Pastikan anda menggunakan telefon Android yang serasi, telah dihidupkan dan ada bersama anda. &lt;a&gt;Ketahui lebih lanjut&lt;/a&gt;</translation>
 <translation id="2470702053775288986">Pelanjutan yang tidak disokong dilumpuhkan</translation>
@@ -1069,7 +1064,6 @@ Saya tidak fikir tapak web ini perlu disekat!</translation>
 <translation id="2653266418988778031">Jika anda memadamkan sijil Pihak Berkuasa Pensijilan (CA), penyemak imbas anda tidak akan lagi mempercayai mana-mana sijil yang dikeluarkan oleh CA tersebut.</translation>
 <translation id="2653659639078652383">Serah</translation>
 <translation id="265390580714150011">Nilai Medan</translation>
-<translation id="2654286334048437383">Eksport Penanda Halaman</translation>
 <translation id="2655386581175833247">Sijil pengguna:</translation>
 <translation id="2660779039299703961">Acara</translation>
 <translation id="2661146741306740526">16x9</translation>
@@ -1526,7 +1520,6 @@ Untuk mendapatkan maklumat lanjut, lawati <ph name="BEGIN_LINK" />Pusat Bantuan<
 <translation id="3309747692199697901">Sentiasa Jalankan pada Semua Tapak</translation>
 <translation id="3312424061798279731">Bahasa yang didayakan</translation>
 <translation id="3312903956926554846">Pasang pada desktop</translation>
-<translation id="3313473140726597081">Halaman permulaan anda telah diubah kepada <ph name="URL" />. Untuk melumpuhkan sambungan yang menukar halaman permulaan anda, klik Pulihkan.</translation>
 <translation id="3313590242757056087">Untuk menetapkan tapak web yang boleh dilihat oleh pengguna diselia,
     anda boleh mengkonfigurasi sekatan dan tetapan dengan melawati <ph name="MANAGEMENT_URL" />.
     Jika anda tidak mengubah tetapan lalai, <ph name="USER_DISPLAY_NAME" />
@@ -1851,7 +1844,6 @@ Untuk mendapatkan maklumat lanjut, lawati <ph name="BEGIN_LINK" />Pusat Bantuan<
 <translation id="379082410132524484">Kad anda telah tamat tempoh</translation>
 <translation id="3792890930871100565">Putuskan sambungan pencetak</translation>
 <translation id="379422718204375917">Gunakan Smart Lock untuk mengelog masuk ke akaun anda</translation>
-<translation id="3794595850995182458">Keluar daripada halaman</translation>
 <translation id="3796648294839530037">Rangkaian Kegemaran:</translation>
 <translation id="3797900183766075808">&amp;Cari “<ph name="SEARCH_TERMS" />” di <ph name="SEARCH_ENGINE" /></translation>
 <translation id="3798325802885154040">Membolehkan anda mendayakan/melumpuhkan ketik-untuk-klik</translation>
@@ -3347,7 +3339,6 @@ Untuk mendapatkan maklumat lanjut, lawati <ph name="BEGIN_LINK" />Pusat Bantuan<
 <translation id="6237816943013845465">Membolehkan anda melaraskan peleraian skrin anda</translation>
 <translation id="6238923052227198598">Simpan nota terkini pada skrin kunci</translation>
 <translation id="6239558157302047471">Muat semula &amp;bingkai</translation>
-<translation id="624022915548992686">Keluar daripada Halaman</translation>
 <translation id="6241530762627360640">Akses maklumat mengenai peranti Bluetooth yang dipasangkan dengan sistem anda dan temui peranti Bluetooth berhampiran.</translation>
 <translation id="6243774244933267674">Pelayan tidak tersedia</translation>
 <translation id="6246413617632217567">Pengguna di bawah seliaan tidak dapat diimport. Sila semak ruang pemacu keras dan kebenaran anda, kemudian cuba lagi.</translation>
@@ -3396,7 +3387,6 @@ Untuk mendapatkan maklumat lanjut, lawati <ph name="BEGIN_LINK" />Pusat Bantuan<
 <translation id="6312403991423642364">Ralat rangkaian tidak diketahui</translation>
 <translation id="6313641880021325787">KELUAR DARIPADA VR</translation>
 <translation id="6314819609899340042">Anda telah berjaya mendayakan ciri penyahpepijatan pada <ph name="IDS_SHORT_PRODUCT_NAME" /> peranti ini.</translation>
-<translation id="6315343732431721770">Halaman permulaan anda telah diubah untuk menyertakan <ph name="URL" />. Untuk melumpuhkan sambungan yang menukar halaman permulaan anda, klik Pulihkan.</translation>
 <translation id="6315493146179903667">Bring All to Front</translation>
 <translation id="6316806695097060329">Peranti <ph name="SHORT_PRODUCT_NAME" /> ini telah direka untuk menyampaikan pengalaman terbaik web kepada anda.</translation>
 <translation id="6317318380444133405">Tidak disokong lagi.</translation>
@@ -3411,7 +3401,6 @@ Untuk mendapatkan maklumat lanjut, lawati <ph name="BEGIN_LINK" />Pusat Bantuan<
 <translation id="6333049849394141510">Pilih yang hendak disegerakkan</translation>
 <translation id="6333064448949140209">Fail akan dihantar kepada Google untuk dinyahpepijat</translation>
 <translation id="6333834492048057036">Fokus bar alamat untuk carian</translation>
-<translation id="6336907568130557310">Kata laluan anda akan dapat dilihat oleh sesiapa sahaja yang dapat melihat fail yang dieksport. Jangan kongsi fail dengan sesiapa dan padamkan fail tersebut selepas diimport.</translation>
 <translation id="6339668969738228384">Buat profil baharu untuk <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6340017061976355871">Tidak dapat menyambung ke pelayan. Sila semak sambungan rangkaian anda dan cuba lagi. Sekiranya masalah ini berterusan, mulakan semula Chromebook anda.</translation>
 <translation id="6340071272923955280">Protokol Cetakan Internet (IPPS)</translation>
@@ -4172,7 +4161,6 @@ Untuk mendapatkan maklumat lanjut, lawati <ph name="BEGIN_LINK" />Pusat Bantuan<
     cuba hasilkan pengguna diselia sekali lagi.</translation>
 <translation id="756445078718366910">Buka Tetingkap Penyemak Imbas</translation>
 <translation id="7564847347806291057">Tamatkan proses</translation>
-<translation id="7565291891798266313">Enjin carian anda telah ditukar kepada <ph name="URL" />. Untuk melumpuhkan sambungan yang menukar enjin carian anda, klik Pulihkan.</translation>
 <translation id="7566118625369982896">Urus pautan apl Play</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Data Chrome dikosongkan</translation>
@@ -4181,7 +4169,6 @@ Untuk mendapatkan maklumat lanjut, lawati <ph name="BEGIN_LINK" />Pusat Bantuan<
 <translation id="7573172247376861652">Cas Bateri</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Kumpul semak</translation>
-<translation id="7577815336900970562">Gunakan Wi-Fi atau rangkaian selular untuk menentukan lokasi</translation>
 <translation id="7579149537961810247">Redam Tapak</translation>
 <translation id="7580671184200851182">Mainkan audio yang sama melalui semua pembesar suara (audio mono)</translation>
 <translation id="7581462281756524039">Pembersih</translation>
@@ -4567,7 +4554,6 @@ Simpan fail kunci anda di tempat selamat. Anda akan memerlukannya untuk mencipta
 <translation id="8191230140820435481">Uruskan apl, sambungan dan tema anda</translation>
 <translation id="8191453843330043793">Pelerai Proksi V8</translation>
 <translation id="8195027750202970175">Saiz pada cakera</translation>
-<translation id="8195739004487400241">Halaman utama anda telah diubah kepada <ph name="URL" />. Untuk melumpuhkan sambungan yang menukar halaman utama anda, klik Pulihkan.</translation>
 <translation id="8199300056570174101">Sifat Rangkaian (Perkhidmatan) dan Peranti</translation>
 <translation id="8200772114523450471">Sambung semula</translation>
 <translation id="8202160505685531999">Sila masukkan semula kata laluan untuk mengemaskinikan profil <ph name="DEVICE_TYPE" /> anda.</translation>
@@ -4713,6 +4699,7 @@ perubahan ini berlaku, anda mungkin tidak mahukannya.</translation>
 <translation id="8454288007744638700">Selain itu, pilih rangkaian baharu:</translation>
 <translation id="845627346958584683">Masa Tamat Tempoh</translation>
 <translation id="8456681095658380701">Nama tidak sah</translation>
+<translation id="8457451314607652708">Import penanda halaman</translation>
 <translation id="8460336040822756677">Jika anda mematikan Smart Lock untuk <ph name="DEVICE_TYPE" />, anda tidak akan dapat membuka kunci peranti Chrome anda menggunakan telefon. Anda perlu menaip kata laluan.</translation>
 <translation id="8461329675984532579">Nama pembekal tempatan</translation>
 <translation id="84613761564611563">UI yang dikonfigurasi rangkaian diminta, sila tunggu...</translation>
@@ -4949,7 +4936,6 @@ perubahan ini berlaku, anda mungkin tidak mahukannya.</translation>
 <translation id="882204272221080310">Kemas kini perisian tegar untuk keselamatan tambahan.</translation>
 <translation id="8823514049557262177">Salin te&amp;ks pautan</translation>
 <translation id="8824701697284169214">Tambah Ha&amp;laman...</translation>
-<translation id="8827850355924932817">Gunakan rangkaian Wi-Fi untuk menentukan lokasi</translation>
 <translation id="8828933418460119530">Nama DNS</translation>
 <translation id="8830796635868321089">Semakan kemas kini yang menggunakan tetapan proksi semasa gagal. Sila laraskan <ph name="PROXY_SETTINGS_LINK_START" />tetapan proksi<ph name="PROXY_SETTINGS_LINK_END" /> anda.</translation>
 <translation id="8834039744648160717">Konfigurasi rangkaian dikawal oleh <ph name="USER_EMAIL" />.</translation>

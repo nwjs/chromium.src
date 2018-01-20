@@ -116,7 +116,7 @@ Tem de ter a Localização e o Bluetooth ativados para poder utilizar a Web fís
 <translation id="1993768208584545658"><ph name="SITE" /> pretende sincronizar</translation>
 <translation id="1994173015038366702">URL do site</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB de outras aplicações</translation>
-<translation id="2015632741368427174">Redirecionamento bloqueado para o site:</translation>
+<translation id="2015632741368427174">Redirecionamento bloqueado para o seguinte site:</translation>
 <translation id="2017836877785168846">Limpa o histórico e os preenchimentos automáticos da barra de endereço.</translation>
 <translation id="2021896219286479412">Controlos de site em ecrã int.</translation>
 <translation id="2038563949887743358">Ativar Pedir site para computador</translation>
@@ -206,7 +206,6 @@ Tem de ter a Localização e o Bluetooth ativados para poder utilizar a Web fís
 <translation id="2876764156902388290">O Chrome está a utilizar menos dados para lhe mostrar esta página.</translation>
 <translation id="2888126860611144412">Acerca do Chrome</translation>
 <translation id="2891154217021530873">Parar carregamento da página</translation>
-<translation id="2892933203342091350">Ativar a vista simplificada em todos os artigos</translation>
 <translation id="2900528713135656174">Criar evento</translation>
 <translation id="2902702728133930130">O Chrome falhou durante o arranque com um erro inesperado.</translation>
 <translation id="2903493209154104877">Endereços</translation>
@@ -294,7 +293,6 @@ Para ajustar o termo de pesquisa, prima continuamente para selecionar. Para refi
 <translation id="3661699943263275414">Os Sites de terceiros podem guardar e ler dados de cookies</translation>
 <translation id="3662546969139119822">Sem histórico</translation>
 <translation id="3672452749423051839">Sugestões de erros de navegação</translation>
-<translation id="3682249951633602029">As suas palavras-passe serão visíveis para todas as pessoas que consigam ver o ficheiro de palavras-passe exportado.</translation>
 <translation id="3712575778697986964">Pretende repor a Poupança de dados?</translation>
 <translation id="3714981814255182093">Abrir a barra Localizar</translation>
 <translation id="3716182511346448902">Esta página utiliza demasiada memória, pelo que o Chrome a colocou em pausa.</translation>
@@ -618,7 +616,6 @@ Por exemplo, alguns Sites podem responder a este pedido ao mostrar-lhe anúncios
 <translation id="6538442820324228105"><ph name="GBS" /> GB transferido(s)</translation>
 <translation id="654446541061731451">Selecione um separador a transmitir</translation>
 <translation id="6545017243486555795">Limpar todos os dados</translation>
-<translation id="6550675742724504774">Opções</translation>
 <translation id="6556716549745717622">Bloquear se o site tiver tendência para mostrar anúncios intrusivos (recomendado)</translation>
 <translation id="6560414384669816528">Pesquisar com o Sogou</translation>
 <translation id="6566259936974865419">O Chrome permitiu-lhe poupar <ph name="GIGABYTES" /> GB</translation>

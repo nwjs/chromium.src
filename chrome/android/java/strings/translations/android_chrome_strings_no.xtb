@@ -206,7 +206,6 @@ Du må ha slått på Bluetooth og Posisjon for å bruke det fysiske nettet.</tra
 <translation id="2876764156902388290">Chrome bruker mindre data for å vise deg denne siden</translation>
 <translation id="2888126860611144412">Om Chrome</translation>
 <translation id="2891154217021530873">Stopp innlastingen av siden</translation>
-<translation id="2892933203342091350">Slå på forenklet visning for alle artikler</translation>
 <translation id="2900528713135656174">Opprett hendelse</translation>
 <translation id="2902702728133930130">Kunne ikke starte Chrome på grunn av en uventet feil.</translation>
 <translation id="2903493209154104877">Adresser</translation>
@@ -294,7 +293,6 @@ Hvis du vil endre søkeordet, kan du trykke på det og holde for å merke det. H
 <translation id="3661699943263275414">Tredjepartsnettsteder kan lagre og lese data i informasjonskapsler.</translation>
 <translation id="3662546969139119822">Her er det ingen logg</translation>
 <translation id="3672452749423051839">Forslag ved navigasjonsfeil</translation>
-<translation id="3682249951633602029">Passordene dine blir synlige for alle som kan se den eksporterte passordfilen.</translation>
 <translation id="3712575778697986964">Vil du tilbakestille Datasparing?</translation>
 <translation id="3714981814255182093">Åpne søkeraden</translation>
 <translation id="3716182511346448902">Denne siden bruker for mye minne, så Chrome har satt den på pause.</translation>
@@ -618,7 +616,6 @@ Noen nettsteder kan for eksempel svare på denne forespørselen ved å vise deg 
 <translation id="6538442820324228105"><ph name="GBS" /> GB er lastet ned</translation>
 <translation id="654446541061731451">Velg en fane for beaming</translation>
 <translation id="6545017243486555795">Slett alle data</translation>
-<translation id="6550675742724504774">Alternativer</translation>
 <translation id="6556716549745717622">Blokkér hvis nettstedet ofte viser forstyrrende annonser (anbefalt)</translation>
 <translation id="6560414384669816528">Søk med Sogou</translation>
 <translation id="6566259936974865419">Chrome har spart deg for <ph name="GIGABYTES" /> GB</translation>

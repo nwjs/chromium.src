@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">Tilføjer HTML-fil som bogmærke</translation>
 <translation id="1303671224831497365">Der blev ikke fundet nogen Bluetooth-enheder</translation>
 <translation id="1306606229401759371">Skift indstillinger</translation>
-<translation id="1307398858972670978">Få adgang til dine adgangskoder fra en hvilken som helst enhed via <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1307559529304613120">Ups! Systemet kunne ikke gemme det langfristede API-adgangstoken for denne enhed.</translation>
 <translation id="1313405956111467313">Automatisk proxykonfiguration</translation>
 <translation id="131364520783682672">Caps Lock</translation>
@@ -440,11 +439,9 @@
 <translation id="1646982517418478057">Angiv en adgangskode til kryptering af dette certifikat</translation>
 <translation id="164814987133974965">En administreret bruger kan gå på internettet med din vejledning. Som administrator af en administreret bruger kan du <ph name="BEGIN_BOLD" />tillade eller forbyde<ph name="END_BOLD" /> visse websites, <ph name="BEGIN_BOLD" />gennemgå<ph name="END_BOLD" /> websites, som den administrerede bruger har besøgt, og <ph name="BEGIN_BOLD" />administrere<ph name="END_BOLD" /> andre indstillinger.</translation>
 <translation id="1648943974594387137">Loginoplysningerne er forældede</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" /> linjer vises ikke&gt;</translation>
 <translation id="1650371550981945235">Vis inputmuligheder</translation>
 <translation id="1650709179466243265">Tilføj www. og .com, og åbn adresse</translation>
 <translation id="1651008383952180276">Du skal angive den samme adgangssætning to gange</translation>
-<translation id="1652972346408808053">Adgangskoden blev gemt. Få adgang til dine adgangskoder fra en hvilken som helst enhed via <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Føj printeren til Google Cloudprinter, så du kan udskrive, uanset hvor du befinder dig.}one{Føj # printere til Google Cloudprinter, så du kan udskrive, uanset hvor du befinder dig.}other{Føj # printere til Google Cloudprinter, så du kan udskrive, uanset hvor du befinder dig.}}</translation>
 <translation id="1657406563541664238">Vær med til at gøre <ph name="PRODUCT_NAME" /> bedre ved automatisk at sende forbrugsstatistikker og rapportere om nedbrud til Google</translation>
 <translation id="1658424621194652532">Denne side har adgang til din mikrofon.</translation>
@@ -880,7 +877,6 @@
 <translation id="236141728043665931">Bloker altid mikrofonadgang</translation>
 <translation id="2367972762794486313">Vis apps</translation>
 <translation id="2371076942591664043">Åbn når &amp;færdigt</translation>
-<translation id="237336063998926520">Brug din IP-adresse til at fastslå placeringen</translation>
 <translation id="2377319039870049694">Skift til listevisning</translation>
 <translation id="2377667304966270281">Hårde fejl</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> filer valgt</translation>
@@ -927,7 +923,6 @@ Jeg synes ikke, dette website skal blokeres.</translation>
 <translation id="2457246892030921239"><ph name="APP_NAME" /> ønsker at kopiere filer fra <ph name="VOLUME_NAME" />.</translation>
 <translation id="2462724976360937186">Nøgle-id for certifikatautoritet</translation>
 <translation id="2462752602710430187"><ph name="PRINTER_NAME" /> blev tilføjet</translation>
-<translation id="246335896104539386">Importér bogmærker</translation>
 <translation id="2464089476039395325">HTTP-proxy</translation>
 <translation id="2468902267404883140">Der kan ikke oprettes forbindelse til din telefon. Sørg for at bruge en kompatibel Android-telefon, der er tændt og befinder sig i nærheden. &lt;a&gt;Få flere oplysninger&lt;/a&gt;</translation>
 <translation id="2470702053775288986">Understøttede udvidelser er blevet deaktiveret</translation>
@@ -1066,7 +1061,6 @@ Jeg synes ikke, dette website skal blokeres.</translation>
 <translation id="2653266418988778031">Hvis du sletter et certifikat med certificeringsautoritet (CA), vil din browser ikke længere have tillid til certifikater, der er udstedt af denne CA.</translation>
 <translation id="2653659639078652383">Indsend</translation>
 <translation id="265390580714150011">Feltværdi</translation>
-<translation id="2654286334048437383">Eksportér bogmærker</translation>
 <translation id="2655386581175833247">Brugercertifikat:</translation>
 <translation id="2660779039299703961">Hændelse</translation>
 <translation id="2661146741306740526">16 x 9</translation>
@@ -1525,7 +1519,6 @@ Få flere oplysninger i <ph name="BEGIN_LINK" />Hjælp<ph name="END_LINK" />.</t
 <translation id="3309747692199697901">Kør altid på alle websites</translation>
 <translation id="3312424061798279731">Aktiverede sprog</translation>
 <translation id="3312903956926554846">Installer på computeren</translation>
-<translation id="3313473140726597081">Din opstartsside blev ændret til <ph name="URL" />. Hvis du vil deaktivere udvidelser, der ændrer din opstartsside, skal du klikke på Gendan.</translation>
 <translation id="3313590242757056087">Du kan angive, hvilke websites den administrerede bruger skal kunne se, ved at konfigurere begrænsninger
     og indstillinger på <ph name="MANAGEMENT_URL" />.
     Hvis du ikke ændrer standardindstillingerne, kan <ph name="USER_DISPLAY_NAME" />
@@ -1850,7 +1843,6 @@ Få flere oplysninger i <ph name="BEGIN_LINK" />Hjælp<ph name="END_LINK" />.</t
 <translation id="379082410132524484">Dit kort er udløbet</translation>
 <translation id="3792890930871100565">Afbryd printere</translation>
 <translation id="379422718204375917">Brug Smart Lock til at logge ind på din konto</translation>
-<translation id="3794595850995182458">Afslut side</translation>
 <translation id="3796648294839530037">Foretrukne netværk:</translation>
 <translation id="3797900183766075808">&amp;Søg på <ph name="SEARCH_ENGINE" /> efter "<ph name="SEARCH_TERMS" />"</translation>
 <translation id="3798325802885154040">Giver dig mulighed for at aktivere/deaktivere tryk-hurtigt-for-at-klikke</translation>
@@ -3347,7 +3339,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6237816943013845465">Giver dig mulighed for at justere skærmopløsningen</translation>
 <translation id="6238923052227198598">Behold den nyeste note på låseskærmen</translation>
 <translation id="6239558157302047471">Genindlæs &amp;ramme</translation>
-<translation id="624022915548992686">Afslut side</translation>
 <translation id="6241530762627360640">Få adgang til oplysninger om Bluetooth-enheder, der er parret med dit system, og registrér Bluetooth-enheder i nærheden.</translation>
 <translation id="6243774244933267674">Serveren er utilgængelig</translation>
 <translation id="6246413617632217567">Den administrerede bruger kunne ikke importeres. Kontrollér, om der er ledig plads på din harddisk, og at du har de rette tilladelser, og prøv igen.</translation>
@@ -3396,7 +3387,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6312403991423642364">Ukendt netværksfejl</translation>
 <translation id="6313641880021325787">LUK VR</translation>
 <translation id="6314819609899340042">Du har aktiveret fejlfindingsfunktioner på denne <ph name="IDS_SHORT_PRODUCT_NAME" />-enhed.</translation>
-<translation id="6315343732431721770"><ph name="URL" /> blev inkluderet i dine opstartssider. Hvis du vil deaktivere udvidelser, der ændrer din opstartsside, skal du klikke på Gendan.</translation>
 <translation id="6315493146179903667">Læg alle forrest</translation>
 <translation id="6316806695097060329">Denne <ph name="SHORT_PRODUCT_NAME" />-enhed er designet til at give dig den optimale internetoplevelse.</translation>
 <translation id="6317318380444133405">Understøttes ikke længere.</translation>
@@ -3411,7 +3401,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6333049849394141510">Vælg, hvad der skal synkroniseres</translation>
 <translation id="6333064448949140209">Filen sendes til Google til fejlretning</translation>
 <translation id="6333834492048057036">Fokuser adresselinje i søgetilstand</translation>
-<translation id="6336907568130557310">Dine adgangskoder vil være synlige for alle, der kan se den eksporterede fil. Del ikke filen med nogen, og slet den, når du har importeret den.</translation>
 <translation id="6339668969738228384">Opret en ny profil for <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6340017061976355871">Der kunne ikke oprettes forbindelse til serveren. Tjek din netværksforbindelse, og prøv igen. Genstart din Chromebook, hvis problemet fortsætter.</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
@@ -4173,7 +4162,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
     prøve at oprette en administreret bruger igen.</translation>
 <translation id="756445078718366910">Åbn browservindue</translation>
 <translation id="7564847347806291057">Afslut proces</translation>
-<translation id="7565291891798266313">Din søgemaskine blev ændret til <ph name="URL" />. Hvis du vil deaktivere udvidelser, der ændrer din søgemaskine, skal du klikke på Gendan.</translation>
 <translation id="7566118625369982896">Administrer applinks til Play</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome-dataene blev ryddet</translation>
@@ -4182,7 +4170,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="7573172247376861652">Batteriopladning</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Saml</translation>
-<translation id="7577815336900970562">Brug Wi-Fi eller mobilnetværk til at fastslå placering</translation>
 <translation id="7579149537961810247">Slå lyden fra på websites</translation>
 <translation id="7580671184200851182">Afspil den samme lyd via alle højttalere (monolyd)</translation>
 <translation id="7581462281756524039">Et oprydningsværktøj</translation>
@@ -4567,7 +4554,6 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 <translation id="8191230140820435481">Administrere dine apps, udvidelser og temaer</translation>
 <translation id="8191453843330043793">V8-proxyresolver</translation>
 <translation id="8195027750202970175">Filstørrelse</translation>
-<translation id="8195739004487400241">Din startside blev ændret til <ph name="URL" />. Hvis du vil deaktivere udvidelser, der ændrer din startside, skal du klikke på Gendan.</translation>
 <translation id="8199300056570174101">Egenskaber for netværkstjeneste og enhed</translation>
 <translation id="8200772114523450471">Genoptag</translation>
 <translation id="8202160505685531999">Angiv adgangskoden igen for at opdatere din <ph name="DEVICE_TYPE" />-profil.</translation>
@@ -4712,6 +4698,7 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 <translation id="8454288007744638700">Du kan også vælge et nyt netværk:</translation>
 <translation id="845627346958584683">Udløbstid</translation>
 <translation id="8456681095658380701">Ugyldigt navn</translation>
+<translation id="8457451314607652708">Importér bogmærker</translation>
 <translation id="8460336040822756677">Hvis du slår Smart Lock fra for <ph name="DEVICE_TYPE" />, kan du ikke låse dine Chrome-enheder op via din telefon. Du bliver nødt til at indtaste din adgangskode.</translation>
 <translation id="8461329675984532579">Navn på udbyder til hjem</translation>
 <translation id="84613761564611563">Der er anmodet om grænseflade for netværkskonfiguration. Vent...</translation>
@@ -4949,7 +4936,6 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 <translation id="882204272221080310">Opdater firmwaren for ekstra beskyttelse.</translation>
 <translation id="8823514049557262177">Kopiér linkte&amp;kst</translation>
 <translation id="8824701697284169214">Tilføj si&amp;de...</translation>
-<translation id="8827850355924932817">Brug Wi-Fi-netværk til at fastslå placering</translation>
 <translation id="8828933418460119530">DNS-navn</translation>
 <translation id="8830796635868321089">Opdateringskontrollen kunne ikke anvende de aktuelle indstillinger for proxy. Tilpas dine <ph name="PROXY_SETTINGS_LINK_START" />Indstillinger for proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="8834039744648160717">Netværkskonfiguration kontrolleres af <ph name="USER_EMAIL" />.</translation>

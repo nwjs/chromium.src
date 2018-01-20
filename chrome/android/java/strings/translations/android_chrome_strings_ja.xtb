@@ -206,7 +206,6 @@
 <translation id="2876764156902388290">Chrome ではデータ使用量を削減してこのページを表示しています</translation>
 <translation id="2888126860611144412">Chrome について</translation>
 <translation id="2891154217021530873">ページの読み込みを停止</translation>
-<translation id="2892933203342091350">すべての記事で簡易表示を有効にする</translation>
 <translation id="2900528713135656174">予定を作成</translation>
 <translation id="2902702728133930130">Chrome の起動時に予期しないエラーが発生し、起動できませんでした。</translation>
 <translation id="2903493209154104877">住所</translation>
@@ -294,7 +293,6 @@
 <translation id="3661699943263275414">サードパーティのウェブサイトに Cookie データの保存と読み取りを許可する</translation>
 <translation id="3662546969139119822">履歴はありません</translation>
 <translation id="3672452749423051839">アクセスエラー時の候補表示</translation>
-<translation id="3682249951633602029">あなたのパスワードは、エクスポートしたパスワード ファイルにアクセスできるユーザーに見られる可能性があります。</translation>
 <translation id="3712575778697986964">データセーバーをリセットしますか？</translation>
 <translation id="3714981814255182093">検索バーを開く</translation>
 <translation id="3716182511346448902">このページは大量のメモリを使用しているため、Chrome により一時停止されました。</translation>
@@ -618,7 +616,6 @@
 <translation id="6538442820324228105"><ph name="GBS" /> GB をダウンロード済み</translation>
 <translation id="654446541061731451">ビームするにはタブを選択してください</translation>
 <translation id="6545017243486555795">すべてのデータを消去</translation>
-<translation id="6550675742724504774">オプション</translation>
 <translation id="6556716549745717622">煩わしい広告がよく表示されるサイトの場合にブロック（推奨）</translation>
 <translation id="6560414384669816528">Sogou で検索します</translation>
 <translation id="6566259936974865419">Chrome で <ph name="GIGABYTES" /> GB の容量を節約しました</translation>

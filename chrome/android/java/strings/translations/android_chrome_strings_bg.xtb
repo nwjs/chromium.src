@@ -206,7 +206,6 @@
 <translation id="2876764156902388290">Chrome използва по-малко данни, за да ви покаже тази страница</translation>
 <translation id="2888126860611144412">Всичко за Chrome</translation>
 <translation id="2891154217021530873">Спиране на зареждането на страницата</translation>
-<translation id="2892933203342091350">Активиране на опростения изглед за всички статии</translation>
 <translation id="2900528713135656174">Създайте събитие</translation>
 <translation id="2902702728133930130">Стартирането на Chrome не бе успешно поради неочаквана грешка.</translation>
 <translation id="2903493209154104877">Адреси</translation>
@@ -294,7 +293,6 @@
 <translation id="3661699943263275414">Уебсайтовете на трети страни могат да запазват „бисквитки“ и да четат данни от такива</translation>
 <translation id="3662546969139119822">Тук няма история</translation>
 <translation id="3672452749423051839">Предложения в случай на грешки при сърфиране</translation>
-<translation id="3682249951633602029">Паролите ви ще бъдат видими за всички, които могат да видят съответния експортиран файл.</translation>
 <translation id="3712575778697986964">Да се нулира ли статистиката от Икономия на данни?</translation>
 <translation id="3714981814255182093">Отваряне на лентата за търсене</translation>
 <translation id="3716182511346448902">Тази страница използва твърде много памет, така че Chrome я постави на пауза.</translation>
@@ -618,7 +616,6 @@
 <translation id="6538442820324228105">Изтеглено: <ph name="GBS" /> ГБ</translation>
 <translation id="654446541061731451">Изберете раздел за излъчване</translation>
 <translation id="6545017243486555795">Изчистване на всички данни</translation>
-<translation id="6550675742724504774">Опции</translation>
 <translation id="6556716549745717622">Блокиране, ако на сайта обикновено се показват натрапчиви реклами (препоръчително)</translation>
 <translation id="6560414384669816528">Търсене със Sogou</translation>
 <translation id="6566259936974865419">Chrome ви спести <ph name="GIGABYTES" /> ГБ</translation>

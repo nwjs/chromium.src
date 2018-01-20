@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">HTML файл с отметки</translation>
 <translation id="1303671224831497365">Няма намерени устройства с Bluetooth</translation>
 <translation id="1306606229401759371">Промяна на настройките</translation>
-<translation id="1307398858972670978">Осъществявайте достъп до паролите си от всяко устройство на адрес <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1307559529304613120">Ами сега!  Системата не успя да съхрани дългосрочното означение за достъп на това устройство до приложния програмен интерфейс (API).</translation>
 <translation id="1313405956111467313">Автоматична конфигурация на прокси сървър</translation>
 <translation id="131364520783682672">Caps Lock</translation>
@@ -440,11 +439,9 @@
 <ph name="BEGIN_BOLD" />да преглеждате<ph name="END_BOLD" /> посетените от контролирания потребител уебсайтове;
 <ph name="BEGIN_BOLD" />да управлявате<ph name="END_BOLD" /> други настройки.</translation>
 <translation id="1648943974594387137">Данните за вход не са актуални</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" /> реда не са показани&gt;</translation>
 <translation id="1650371550981945235">Показване на опциите за въвеждане</translation>
 <translation id="1650709179466243265">Добавяне на „www.“ и „.com“ и отваряне на адреса</translation>
 <translation id="1651008383952180276">Трябва да въведете един и същ пропуск два пъти</translation>
-<translation id="1652972346408808053">Паролата е запазена. Осъществявайте достъп до паролите си от всяко устройство на адрес <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Добавете принтера към Google Отпечатване в облак, за да можете да печатате от всяко място.}other{Добавете # принтера към Google Отпечатване в облак, за да можете да печатате от всяко място.}}</translation>
 <translation id="1657406563541664238">Помогнете ни да подобрим <ph name="PRODUCT_NAME" /> като автоматично изпращате на Google статистически данни за използването му и сигнали за сривове</translation>
 <translation id="1658424621194652532">Тази страница осъществява достъп до микрофона ви.</translation>
@@ -880,7 +877,6 @@
 <translation id="236141728043665931">Достъпът до микрофона да се блокира винаги</translation>
 <translation id="2367972762794486313">Показване на приложенията</translation>
 <translation id="2371076942591664043">Отваряне &amp;след изтегляне</translation>
-<translation id="237336063998926520">Използване на IP адреса ви за определяне на местоположението</translation>
 <translation id="2377319039870049694">Превключване към списъчен изглед</translation>
 <translation id="2377667304966270281">Съществени грешки</translation>
 <translation id="2378075407703503998">Избрани са <ph name="SELCTED_FILE_COUNT" /> файла</translation>
@@ -927,7 +923,6 @@
 <translation id="2457246892030921239"><ph name="APP_NAME" /> иска да копира файлове от „<ph name="VOLUME_NAME" />“.</translation>
 <translation id="2462724976360937186">Идентификатор (ИД) на ключ на сертифициращия орган</translation>
 <translation id="2462752602710430187">Добавихте <ph name="PRINTER_NAME" /></translation>
-<translation id="246335896104539386">Импортиране на отметки</translation>
 <translation id="2464089476039395325">HTTP прокси сървър</translation>
 <translation id="2468902267404883140">Не може да се установи връзка с телефона ви. Уверете се, че използвате съвместим телефон с Android, който е включен и е подръка. &lt;a&gt;Научете повече&lt;/a&gt;</translation>
 <translation id="2470702053775288986">Неподдържаните разширения са деактивирани</translation>
@@ -1065,7 +1060,6 @@
 <translation id="2653266418988778031">Ако изтриете сертификат на сертифициращ орган (CA), браузърът ви повече няма да има доверие на нито един сертификат, издаден от този орган.</translation>
 <translation id="2653659639078652383">Изпращане</translation>
 <translation id="265390580714150011">Стойност на полето</translation>
-<translation id="2654286334048437383">Експортиране на отметки</translation>
 <translation id="2655386581175833247">Потребителски сертификат:</translation>
 <translation id="2660779039299703961">Събитие</translation>
 <translation id="2661146741306740526">16 x 9</translation>
@@ -1522,7 +1516,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3309747692199697901">Стартиране винаги на всички сайтове</translation>
 <translation id="3312424061798279731">Активирани езици</translation>
 <translation id="3312903956926554846">Инсталиране на работния плот</translation>
-<translation id="3313473140726597081">Страницата ви при стартиране бе променена на <ph name="URL" />. За да деактивирате разширенията, които я променят, кликнете върху „Възстановяване“.</translation>
 <translation id="3313590242757056087">За да зададете уебсайтовете, които контролираният потребител може да преглежда, можете да конфигурирате ограничения
     и настройки на адрес <ph name="MANAGEMENT_URL" />.
     Ако не промените стандартните настройки, <ph name="USER_DISPLAY_NAME" />
@@ -1847,7 +1840,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="379082410132524484">Картата ви е изтекла</translation>
 <translation id="3792890930871100565">Прекъсване на връзката с принтерите</translation>
 <translation id="379422718204375917">Използване на Smart Lock за влизане в профила ви</translation>
-<translation id="3794595850995182458">Изход от страницата</translation>
 <translation id="3796648294839530037">Любими мрежи:</translation>
 <translation id="3797900183766075808">&amp;Търсене на „<ph name="SEARCH_TERMS" />“ със: <ph name="SEARCH_ENGINE" /></translation>
 <translation id="3798325802885154040">Позволява ви да активирате/деактивирате кликването с докосване</translation>
@@ -3344,7 +3336,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6237816943013845465">Позволява ви да коригирате разделителната способност на екрана</translation>
 <translation id="6238923052227198598">Запазване на най-новата бележка на заключения екран</translation>
 <translation id="6239558157302047471">Презареждане на рамката</translation>
-<translation id="624022915548992686">Изход от страницата</translation>
 <translation id="6241530762627360640">Да осъществява достъп до информацията за сдвоените със системата ви устройства с Bluetooth и да открива тези, които са наблизо.</translation>
 <translation id="6243774244933267674">Няма достъп до сървъра</translation>
 <translation id="6246413617632217567">Контролираният потребител не можа да бъде импортиран. Моля, проверете свободното място и разрешенията на твърдия си диск и опитайте отново.</translation>
@@ -3393,7 +3384,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6312403991423642364">Неизвестна мрежова грешка</translation>
 <translation id="6313641880021325787">ИЗХОД ОТ VR</translation>
 <translation id="6314819609899340042">Успешно активирахте функциите за отстраняване на грешки на това устройство <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
-<translation id="6315343732431721770">Страниците ви при стартиране бяха променени така, че да включват <ph name="URL" />. За да деактивирате разширенията, които ги променят, кликнете върху „Възстановяване“.</translation>
 <translation id="6315493146179903667">Изнасяне на всичко на преден план</translation>
 <translation id="6316806695097060329">Това устройство с <ph name="SHORT_PRODUCT_NAME" /> е създадено, за да ви предостави най-доброто от мрежата.</translation>
 <translation id="6317318380444133405">Вече не се поддържа.</translation>
@@ -3408,7 +3398,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6333049849394141510">Изберете какво да синхронизирате</translation>
 <translation id="6333064448949140209">Файлът ще бъде изпратен до Google за отстраняване на грешки</translation>
 <translation id="6333834492048057036">Преместване на фокуса върху адресната лента за търсене</translation>
-<translation id="6336907568130557310">Паролите ви ще бъдат видими за всички, които могат да видят експортирания файл. Не споделяйте файла с никого и го изтрийте, след като го импортирате.</translation>
 <translation id="6339668969738228384">Създаване на нов потребителски профил за <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6340017061976355871">Не можа да се установи връзка със сървъра. Моля, проверете мрежовата си връзка и опитайте отново. Ако проблемът продължи, рестартирайте своя Chromebook.</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
@@ -4170,7 +4159,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
     и да опитате отново да създадете контролиран потребител.</translation>
 <translation id="756445078718366910">Отваряне на прозореца на браузъра</translation>
 <translation id="7564847347806291057">Прекратяване на процеса</translation>
-<translation id="7565291891798266313">Търсещата ви машина бе променена на <ph name="URL" />. За да деактивирате разширенията, които я променят, кликнете върху „Възстановяване“.</translation>
 <translation id="7566118625369982896">Управление на връзките към приложения в Google Play</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Данните в Chrome са изчистени</translation>
@@ -4179,7 +4167,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7573172247376861652">Заряд на батерията</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Комплектуване</translation>
-<translation id="7577815336900970562">Използване на Wi-Fi или мобилни мрежи за определяне на местоположението</translation>
 <translation id="7579149537961810247">Заглушаване на сайтовете</translation>
 <translation id="7580671184200851182">Възпроизвеждане на един и същ звук през всички високоговорители (моно)</translation>
 <translation id="7581462281756524039">Инструмент за почистване</translation>
@@ -4565,7 +4552,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8191230140820435481">Управление на вашите приложения, разширения и теми</translation>
 <translation id="8191453843330043793">Основано на V8 преобразуване на прокси сървъри</translation>
 <translation id="8195027750202970175">Размер върху диска</translation>
-<translation id="8195739004487400241">Началната ви страница бе променена на <ph name="URL" />. За да деактивирате разширенията, които я променят, кликнете върху „Възстановяване“.</translation>
 <translation id="8199300056570174101">Свойства на мрежата (услугата) и устройството</translation>
 <translation id="8200772114523450471">Възобновяване</translation>
 <translation id="8202160505685531999">Моля, въведете отново паролата си, за да актуализирате потребителския си профил за <ph name="DEVICE_TYPE" />.</translation>
@@ -4710,6 +4696,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8454288007744638700">Или изберете нова мрежа:</translation>
 <translation id="845627346958584683">Час на изтичане</translation>
 <translation id="8456681095658380701">Невалидно име</translation>
+<translation id="8457451314607652708">Импортиране на отметки</translation>
 <translation id="8460336040822756677">Ако изключите Smart Lock за <ph name="DEVICE_TYPE" />, няма да можете да отключвате устройствата си с Chrome чрез телефона си. Ще трябва да въвеждате паролата си.</translation>
 <translation id="8461329675984532579">Име на собствения доставчик</translation>
 <translation id="84613761564611563">Заявен е ПИ за конфигуриране на мрежата. Моля, изчакайте...</translation>
@@ -4946,7 +4933,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="882204272221080310">За допълнителна сигурност актуализирайте фърмуера.</translation>
 <translation id="8823514049557262177">Копиране на тек&amp;ста на връзката</translation>
 <translation id="8824701697284169214">Добавяне на &amp;страница...</translation>
-<translation id="8827850355924932817">Използване на Wi-Fi мрежи за определяне на местоположението</translation>
 <translation id="8828933418460119530">DNS име</translation>
 <translation id="8830796635868321089">Проверката за актуализации не бе успешна посредством текущите настройки на прокси сървъра. Моля, <ph name="PROXY_SETTINGS_LINK_START" />коригирайте ги<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="8834039744648160717">Конфигурацията на мрежата се контролира от <ph name="USER_EMAIL" />.</translation>

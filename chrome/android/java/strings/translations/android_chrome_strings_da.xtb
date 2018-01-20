@@ -206,7 +206,6 @@ Du skal aktivere Bluetooth og Placering for at kunne bruge Fysisk web.</translat
 <translation id="2876764156902388290">Chrome anvender færre data til at vise dig denne side</translation>
 <translation id="2888126860611144412">Om Chrome</translation>
 <translation id="2891154217021530873">Stop sideindlæsning</translation>
-<translation id="2892933203342091350">Aktivér Enkel visning for alle artikler</translation>
 <translation id="2900528713135656174">Opret begivenhed</translation>
 <translation id="2902702728133930130">Der opstod en uventet fejl under start af Chrome.</translation>
 <translation id="2903493209154104877">Adresser</translation>
@@ -294,7 +293,6 @@ Tryk længe på din søgeterm for at vælge den og tilpasse den. Du kan afgræns
 <translation id="3661699943263275414">Tredjepartswebsites kan gemme og læse cookiedata</translation>
 <translation id="3662546969139119822">Der er ingen historik her</translation>
 <translation id="3672452749423051839">Forslag ved navigationsfejl</translation>
-<translation id="3682249951633602029">Dine adgangskoder vil være synlige for alle, der kan se den eksporterede fil med adgangskoder.</translation>
 <translation id="3712575778697986964">Vil du nulstille Datasparefunktion?</translation>
 <translation id="3714981814255182093">Åbn søgefeltet</translation>
 <translation id="3716182511346448902">Denne side anvender for meget hukommelse, så Chrome har sat den på pause.</translation>
@@ -618,7 +616,6 @@ Nogle websites kan f.eks. reagere på denne anmodning ved at vise dig annoncer, 
 <translation id="6538442820324228105">Der er downloadet <ph name="GBS" /> GB</translation>
 <translation id="654446541061731451">Vælg en fane, der skal overføres</translation>
 <translation id="6545017243486555795">Ryd alle data</translation>
-<translation id="6550675742724504774">Valgmuligheder</translation>
 <translation id="6556716549745717622">Blokér, hvis websitet har tendens til at vise påtrængende annoncer (anbefales)</translation>
 <translation id="6560414384669816528">Søg via Sogou</translation>
 <translation id="6566259936974865419">Chrome har sparet dig <ph name="GIGABYTES" /> GB</translation>

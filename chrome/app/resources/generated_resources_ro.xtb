@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">Fișier HTML cu marcaje</translation>
 <translation id="1303671224831497365">Nu s-a găsit niciun dispozitiv Bluetooth</translation>
 <translation id="1306606229401759371">Modificați setările</translation>
-<translation id="1307398858972670978">Accesează-ți parolele de pe orice dispozitiv la <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1307559529304613120">Hopa! Sistemul nu a putut stoca indicativul de acces pe termen lung la API pentru acest dispozitiv.</translation>
 <translation id="1313405956111467313">Configurare automată pentru proxy</translation>
 <translation id="131364520783682672">Caps Lock</translation>
@@ -443,11 +442,9 @@
     <ph name="BEGIN_BOLD" />să examinați<ph name="END_BOLD" /> site-urile accesate de utilizatorul monitorizat;
     <ph name="BEGIN_BOLD" />să gestionați<ph name="END_BOLD" /> alte setări.</translation>
 <translation id="1648943974594387137">Detaliile de conectare au expirat</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" /> linii nu sunt afișate&gt;</translation>
 <translation id="1650371550981945235">Afișează opțiunile de introducere a textului</translation>
 <translation id="1650709179466243265">Adaugă www. și .com și deschide adresa</translation>
 <translation id="1651008383952180276">Trebuie să introduci aceeași expresie de acces de două ori</translation>
-<translation id="1652972346408808053">Parola a fost salvată. Accesează-ți parolele de pe orice dispozitiv la <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Pentru a putea printa de oriunde, adaugă imprimanta în Google Cloud Print.}few{Pentru a putea printa de oriunde, adaugă cele # imprimante în Google Cloud Print.}other{Pentru a putea printa de oriunde, adaugă cele # de imprimante în Google Cloud Print.}}</translation>
 <translation id="1657406563541664238">Trimite automat statistici de utilizare și rapoarte de blocare la Google pentru a contribui la îmbunătățirea <ph name="PRODUCT_NAME" />.</translation>
 <translation id="1658424621194652532">Această pagină vă accesează microfonul.</translation>
@@ -654,7 +651,7 @@
 <translation id="1999115740519098545">La pornire</translation>
 <translation id="2006638907958895361">Deschide linkul în <ph name="APP" /></translation>
 <translation id="2007404777272201486">Raportează o problemă...</translation>
-<translation id="2015632741368427174">Redirecționarea a fost blocată pentru site-ul:</translation>
+<translation id="2015632741368427174">S-a blocat redirecționarea către site-ul:</translation>
 <translation id="2016430552235416146">Tradițională</translation>
 <translation id="2017334798163366053">Dezactivați culegerea datelor privind performanța</translation>
 <translation id="2017836877785168846">Șterge istoricul și completările automate din bara de adrese.</translation>
@@ -883,7 +880,6 @@
 <translation id="236141728043665931">Blocați întotdeauna accesul la microfon</translation>
 <translation id="2367972762794486313">Afișați aplicații</translation>
 <translation id="2371076942591664043">Deschide când s-a &amp;descărcat</translation>
-<translation id="237336063998926520">Folosește adresa IP pentru a detecta locația</translation>
 <translation id="2377319039870049694">Comută la afișarea listă</translation>
 <translation id="2377667304966270281">Erori de hardware</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> fișiere selectate</translation>
@@ -930,7 +926,6 @@ Nu cred că acest site ar trebui blocat!</translation>
 <translation id="2457246892030921239"><ph name="APP_NAME" /> dorește să copieze fișiere din <ph name="VOLUME_NAME" />.</translation>
 <translation id="2462724976360937186">ID-ul cheii autorității de certificare</translation>
 <translation id="2462752602710430187">S-a adăugat <ph name="PRINTER_NAME" /></translation>
-<translation id="246335896104539386">Importă marcajele</translation>
 <translation id="2464089476039395325">Proxy HTTP</translation>
 <translation id="2468902267404883140">Nu se poate conecta la telefon. Asigură-te că folosești un telefon Android compatibil care este pornit și la îndemână.&lt;a&gt;Află mai multe&lt;/a&gt;</translation>
 <translation id="2470702053775288986">Extensiile necompatibile au fost dezactivate</translation>
@@ -1068,7 +1063,6 @@ Nu cred că acest site ar trebui blocat!</translation>
 <translation id="2653266418988778031">Dacă ștergi un certificat al unei autorități de certificare (CA), browserul nu va mai avea încredere în niciun certificat emis de acea CA.</translation>
 <translation id="2653659639078652383">Trimite</translation>
 <translation id="265390580714150011">Valoarea câmpului</translation>
-<translation id="2654286334048437383">Exportă marcajele</translation>
 <translation id="2655386581175833247">Certificat de utilizator:</translation>
 <translation id="2660779039299703961">Eveniment</translation>
 <translation id="2661146741306740526">16x9</translation>
@@ -1360,7 +1354,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="3051523411789012618">Mută fereastra în sus</translation>
 <translation id="3053013834507634016">Folosirea cheii de certificat</translation>
 <translation id="3057861065630527966">Fă backup pentru fotografii și videoclipuri</translation>
-<translation id="3060379269883947824">Activează Selectează pentru a se rosti</translation>
+<translation id="3060379269883947824">Activează „Selectează și ascultă”</translation>
 <translation id="3061707000357573562">Serviciu de corecție</translation>
 <translation id="3064410671692449875">Date insuficiente</translation>
 <translation id="3065041951436100775">Feedback despre fila eliminată.</translation>
@@ -1525,7 +1519,6 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="3309747692199697901">Rulează întotdeauna pe toate site-urile</translation>
 <translation id="3312424061798279731">Limbi activate</translation>
 <translation id="3312903956926554846">Instalează pe computer</translation>
-<translation id="3313473140726597081">Pagina de pornire a fost înlocuită cu <ph name="URL" />. Pentru a dezactiva extensiile care îți modifică pagina de pornire, dă clic pe Restabilește.</translation>
 <translation id="3313590242757056087">Pentru a configura site-urile web pe care le poate accesa utilizatorul monitorizat, puteți aplica restricții
     și setări accesând <ph name="MANAGEMENT_URL" />.
     Dacă nu modificați setările implicite, <ph name="USER_DISPLAY_NAME" />
@@ -1657,7 +1650,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="3504135463003295723">Numele grupului:</translation>
 <translation id="3505030558724226696">Revocă accesul la dispozitiv</translation>
 <translation id="3507421388498836150">Permisiuni actuale pentru „<ph name="EXTENSION_NAME" />”</translation>
-<translation id="3507888235492474624">Scanează din nou dispozitivele Bluetooth</translation>
+<translation id="3507888235492474624">Caută din nou dispozitive Bluetooth</translation>
 <translation id="3508920295779105875">Alegeți alt dosar...</translation>
 <translation id="3510797500218907545">WiMAX</translation>
 <translation id="3511200754045804813">Rescanează</translation>
@@ -1850,7 +1843,6 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="379082410132524484">Cardul a expirat</translation>
 <translation id="3792890930871100565">Deconectați imprimantele</translation>
 <translation id="379422718204375917">Folosește Smart Lock pentru a te conecta la cont</translation>
-<translation id="3794595850995182458">Închide pagina</translation>
 <translation id="3796648294839530037">Rețele preferate:</translation>
 <translation id="3797900183766075808">&amp;Caută „<ph name="SEARCH_TERMS" />” pe <ph name="SEARCH_ENGINE" /></translation>
 <translation id="3798325802885154040">Cu ajutorul acestor setări, poți să activezi/dezactivezi funcția „Atinge pentru clic”</translation>
@@ -2573,7 +2565,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="5015762597229892204">Selectează o aplicație pentru driverele de imprimantă</translation>
 <translation id="5017508259293544172">LEAP</translation>
 <translation id="5017633213534173756">Reține</translation>
-<translation id="5018207570537526145">Deschide site-ul pentru extensii</translation>
+<translation id="5018207570537526145">Deschide site-ul extensiei</translation>
 <translation id="5024856940085636730">O operațiune durează mai mult decât ar trebui. Dorești să o anulezi?</translation>
 <translation id="5026874946691314267">Nu mai afișați acest mesaj din nou</translation>
 <translation id="5027550639139316293">Certificat pentru e-mail</translation>
@@ -3346,7 +3338,6 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="6237816943013845465">Cu ajutorul acestei setări, poți să ajustezi rezoluția ecranului</translation>
 <translation id="6238923052227198598">Păstrează cea mai recentă notă pe ecranul de blocare</translation>
 <translation id="6239558157302047471">Reîncarcă &amp;cadrul</translation>
-<translation id="624022915548992686">Închide pagina</translation>
 <translation id="6241530762627360640">Accesează informațiile despre dispozitivele Bluetooth conectate cu sistemul dvs. și descoperă dispozitivele Bluetooth din apropiere.</translation>
 <translation id="6243774244933267674">Server indisponibil</translation>
 <translation id="6246413617632217567">Utilizatorul monitorizat nu a putut fi importat. Verifică spațiul de pe hard disk și permisiunile, apoi încearcă din nou.</translation>
@@ -3395,7 +3386,6 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="6312403991423642364">Eroare de rețea necunoscută</translation>
 <translation id="6313641880021325787">IEȘI DIN RV</translation>
 <translation id="6314819609899340042">Ai activat funcțiile de remediere a erorilor pe acest dispozitiv <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
-<translation id="6315343732431721770">Paginile de pornire au fost modificate pentru a include <ph name="URL" />. Pentru a dezactiva extensiile care îți modifică pagina de pornire, dă clic pe Restabilește.</translation>
 <translation id="6315493146179903667">Toate în față</translation>
 <translation id="6316806695097060329">Acest dispozitiv <ph name="SHORT_PRODUCT_NAME" /> a fost creat pentru a vă oferi cea mai bună experiență pe web.</translation>
 <translation id="6317318380444133405">Nu mai este acceptată.</translation>
@@ -3410,7 +3400,6 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="6333049849394141510">Alege elementele de sincronizat</translation>
 <translation id="6333064448949140209">Fișierul va fi trimis la Google pentru remedierea erorilor</translation>
 <translation id="6333834492048057036">Focalizează pe bara de adrese pentru căutare</translation>
-<translation id="6336907568130557310">Parolele vor fi vizibile pentru toți cei care pot vedea fișierul exportat. Nu permite nimănui accesul la fișier și șterge-l după ce l-ai importat.</translation>
 <translation id="6339668969738228384">Creează un profil nou pentru <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6340017061976355871">Nu s-a putut conecta la server. Verifică conexiunea la rețea și încearcă din nou. Dacă problema persistă, repornește Chromebookul.</translation>
 <translation id="6340071272923955280">Internet Printing Protocol (IPPS)</translation>
@@ -4172,7 +4161,6 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
     să încercați din nou să creați un utilizator monitorizat.</translation>
 <translation id="756445078718366910">Deschide fereastra de browser</translation>
 <translation id="7564847347806291057">Oprește procesul</translation>
-<translation id="7565291891798266313">Motorul de căutare a fost înlocuit cu <ph name="URL" />. Pentru a dezactiva extensiile care îți modifică motorul de căutare, dă clic pe Restabilește.</translation>
 <translation id="7566118625369982896">Gestionează linkurile aplicației Play</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Datele Chrome au fost șterse</translation>
@@ -4181,7 +4169,6 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="7573172247376861652">Încărcarea bateriei</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">Colaționează</translation>
-<translation id="7577815336900970562">Folosește Wi-Fi sau rețelele mobile pentru determinarea locației</translation>
 <translation id="7579149537961810247">Dezactivează sunetul pentru site-uri</translation>
 <translation id="7580671184200851182">Redă același conținut audio în toate difuzoarele (audio mono)</translation>
 <translation id="7581462281756524039">Un instrument de curățare</translation>
@@ -4567,7 +4554,6 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8191230140820435481">Gestionează aplicațiile, extensiile și temele dvs.</translation>
 <translation id="8191453843330043793">Rezolvitorul proxy-ului V8</translation>
 <translation id="8195027750202970175">Dimensiune pe disc</translation>
-<translation id="8195739004487400241">Pagina principală a fost înlocuită cu <ph name="URL" />. Pentru a dezactiva extensiile care îți modifică pagina principală, dă clic pe Restabilește.</translation>
 <translation id="8199300056570174101">Proprietăți pentru dispozitiv și rețea (serviciu)</translation>
 <translation id="8200772114523450471">Reia</translation>
 <translation id="8202160505685531999">Reintrodu parola pentru a actualiza profilul <ph name="DEVICE_TYPE" />.</translation>
@@ -4712,6 +4698,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8454288007744638700">Sau selectează o rețea nouă:</translation>
 <translation id="845627346958584683">Ora expirării</translation>
 <translation id="8456681095658380701">Nume nevalid</translation>
+<translation id="8457451314607652708">Importă marcajele</translation>
 <translation id="8460336040822756677">Dacă dezactivezi Smart Lock pentru <ph name="DEVICE_TYPE" />, nu vei putea debloca dispozitivele Chrome folosind telefonul. Va fi necesar să introduci parola.</translation>
 <translation id="8461329675984532579">Numele furnizorului local</translation>
 <translation id="84613761564611563">S-a solicitat interfața de utilizare pentru configurarea rețelei, așteaptă...</translation>
@@ -4948,7 +4935,6 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="882204272221080310">Actualizează firmware-ul pentru securitate suplimentară.</translation>
 <translation id="8823514049557262177">Copiază te&amp;xtul linkului</translation>
 <translation id="8824701697284169214">Adăugați pa&amp;gina...</translation>
-<translation id="8827850355924932817">Folosește rețeaua Wi-Fi pentru a stabili locația</translation>
 <translation id="8828933418460119530">Nume DNS</translation>
 <translation id="8830796635868321089">Căutarea actualizărilor utilizând setările de proxy actuale nu a reușit. Ajustați <ph name="PROXY_SETTINGS_LINK_START" />setările de proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="8834039744648160717">Configurarea rețelei este controlată de <ph name="USER_EMAIL" />.</translation>
@@ -4991,7 +4977,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8899285681604219177">Extensiile necompatibile au fost dezactivate</translation>
 <translation id="8899551033019439140">Se caută o imprimantă…</translation>
 <translation id="8899851313684471736">Deschide linkul într-o &amp;fereastră nouă</translation>
-<translation id="8902667442496790482">Deschide setările Selectează pentru a se rosti</translation>
+<translation id="8902667442496790482">Deschide setările „Selectează și ascultă”</translation>
 <translation id="8903921497873541725">Mărește</translation>
 <translation id="8904976895050290827">Chrome Sync</translation>
 <translation id="8908902564709148335">Avertisment: ai activat marcajul scripts-require-action pe acest computer, care limitează capacitățile acestei extensii. Totuși, este posibil ca alte dispozitive să nu accepte acest marcaj sau să îl aibă activat. Pe aceste dispozitive, această extensie poate să:</translation>

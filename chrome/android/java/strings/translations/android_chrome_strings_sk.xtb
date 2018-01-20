@@ -206,7 +206,6 @@ Ak chcete používať Fyzický web, musíte mať zapnuté rozhranie Bluetooth a�
 <translation id="2876764156902388290">Chrome spotrebúva na zobrazenie tejto stránky menej dát</translation>
 <translation id="2888126860611144412">O aplikácii Chrome</translation>
 <translation id="2891154217021530873">Zastaviť načítavanie stránky</translation>
-<translation id="2892933203342091350">Aktivovať zjednodušené zobrazenie pre všetky články</translation>
 <translation id="2900528713135656174">Vytvorte udalosť</translation>
 <translation id="2902702728133930130">Prehliadač Chrome sa nepodarilo spustiť, pretože sa vyskytla neočakávaná chyba</translation>
 <translation id="2903493209154104877">Adresy</translation>
@@ -294,7 +293,6 @@ Ak chcete upraviť hľadaný výraz, vyberte ho dlhým stlačením. Ak chcete vy
 <translation id="3661699943263275414">Webové stránky tretej strany môžu ukladať a čítať údaje súborov cookie</translation>
 <translation id="3662546969139119822">Žiadna história</translation>
 <translation id="3672452749423051839">Návrhy v prípade chýb navigácie</translation>
-<translation id="3682249951633602029">Vaše heslá sa zobrazia všetkým používateľom, ktorí vidia exportovaný súbor hesiel.</translation>
 <translation id="3712575778697986964">Resetovať Šetrič dát?</translation>
 <translation id="3714981814255182093">Otvorenie Panela vyhľadávania</translation>
 <translation id="3716182511346448902">Táto stránka využíva príliš veľa pamäte, a preto ju Chrome pozastavil.</translation>
@@ -618,7 +616,6 @@ Niektoré weby môžu napríklad na túto žiadosť reagovať tak, že vám zobr
 <translation id="6538442820324228105">Stiahnuté: <ph name="GBS" /> GB</translation>
 <translation id="654446541061731451">Vyberte kartu, ktorú chcete preniesť</translation>
 <translation id="6545017243486555795">Vymazať všetky dáta</translation>
-<translation id="6550675742724504774">Možnosti</translation>
 <translation id="6556716549745717622">Blokovať, ak web zvykne zobrazovať obťažujúce reklamy (odporúčané)</translation>
 <translation id="6560414384669816528">Vyhľadávať pomocou Sogou</translation>
 <translation id="6566259936974865419">Chrome ušetril <ph name="GIGABYTES" /> GB</translation>

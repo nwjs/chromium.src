@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">Ajouter le fichier HTML aux favoris</translation>
 <translation id="1303671224831497365">Aucun appareil Bluetooth détecté</translation>
 <translation id="1306606229401759371">Modifier les paramètres</translation>
-<translation id="1307398858972670978">Accédez à vos mots de passe depuis n'importe quel appareil à l'adresse <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1307559529304613120">Échec de l'enregistrement du jeton d'accès aux API à long terme pour cet appareil.</translation>
 <translation id="1313405956111467313">Configuration automatique du proxy</translation>
 <translation id="131364520783682672">Verr. maj.</translation>
@@ -443,11 +442,9 @@
     <ph name="BEGIN_BOLD" />vérifier<ph name="END_BOLD" /> les sites Web que l'utilisateur supervisé a consultés ; et
     <ph name="BEGIN_BOLD" />gérer<ph name="END_BOLD" /> d'autres paramètres.</translation>
 <translation id="1648943974594387137">Les informations de connexion sont obsolètes</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" /> lignes non affichées&gt;</translation>
 <translation id="1650371550981945235">Afficher les options de saisie</translation>
 <translation id="1650709179466243265">Ajouter www. et .com, puis ouvrir la page</translation>
 <translation id="1651008383952180276">Vous devez saisir deux fois la même phrase secrète</translation>
-<translation id="1652972346408808053">Mot de passe enregistré. Accédez à vos mots de passe depuis n'importe quel appareil sur la page <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Ajoutez l'imprimante à Google Cloud Print pour imprimer des documents où que vous soyez.}one{Ajoutez # imprimante à Google Cloud Print pour imprimer des documents où que vous soyez.}other{Ajoutez # imprimantes à Google Cloud Print pour imprimer des documents où que vous soyez.}}</translation>
 <translation id="1657406563541664238">Nous aider à améliorer <ph name="PRODUCT_NAME" /> en envoyant automatiquement les statistiques d'utilisation et les rapports d'erreur à Google</translation>
 <translation id="1658424621194652532">Cette page a accès à votre micro</translation>
@@ -883,7 +880,6 @@
 <translation id="236141728043665931">Toujours bloquer l'accès au micro</translation>
 <translation id="2367972762794486313">Afficher les applications</translation>
 <translation id="2371076942591664043">Ouvrir une fois le téléchargement &amp;terminé</translation>
-<translation id="237336063998926520">Utilisez votre adresse IP pour déterminer votre position</translation>
 <translation id="2377319039870049694">Passer en mode Liste</translation>
 <translation id="2377667304966270281">Défauts matériels</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" /> fichiers sélectionnés</translation>
@@ -930,7 +926,6 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2457246892030921239">"<ph name="APP_NAME" />" souhaite copier des fichiers depuis "<ph name="VOLUME_NAME" />".</translation>
 <translation id="2462724976360937186">ID de clé de l'autorité de certification</translation>
 <translation id="2462752602710430187">L'imprimante <ph name="PRINTER_NAME" /> a bien été ajoutée.</translation>
-<translation id="246335896104539386">Importer des favoris</translation>
 <translation id="2464089476039395325">Proxy HTTP</translation>
 <translation id="2468902267404883140">Impossible de se connecter à votre téléphone. Assurez-vous qu'il s'agit bien d'un téléphone Android compatible, qu'il est allumé et qu'il se trouve à proximité. &lt;a&gt;En savoir plus&lt;/a&gt;</translation>
 <translation id="2470702053775288986">Désactivation des extensions non compatibles</translation>
@@ -1068,7 +1063,6 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2653266418988778031">Si vous supprimez le certificat d'une autorité de certification, votre navigateur ne fera plus confiance aux certificats émis par cette autorité de certification.</translation>
 <translation id="2653659639078652383">Valider</translation>
 <translation id="265390580714150011">Valeur du champ</translation>
-<translation id="2654286334048437383">Exporter des favoris</translation>
 <translation id="2655386581175833247">Certificat utilisateur :</translation>
 <translation id="2660779039299703961">Événement</translation>
 <translation id="2661146741306740526">16 x 9</translation>
@@ -1525,7 +1519,6 @@ Pour en savoir plus, consultez notre <ph name="BEGIN_LINK" />Centre d'aide<ph na
 <translation id="3309747692199697901">Toujours exécuter pour tous les sites</translation>
 <translation id="3312424061798279731">Langues activées</translation>
 <translation id="3312903956926554846">Installer sur le bureau</translation>
-<translation id="3313473140726597081">Votre page de démarrage a été remplacée par <ph name="URL" />. Pour désactiver les extensions qui changent la page de démarrage, cliquez sur "Restaurer".</translation>
 <translation id="3313590242757056087">Pour définir les sites Web que l'utilisateur supervisé peut consulter, vous pouvez configurer des restrictions
     et des paramètres sur le site <ph name="MANAGEMENT_URL" />.
     Si vous conservez les paramètres par défaut, <ph name="USER_DISPLAY_NAME" />
@@ -1850,7 +1843,6 @@ Pour en savoir plus, consultez notre <ph name="BEGIN_LINK" />Centre d'aide<ph na
 <translation id="379082410132524484">Votre carte est arrivée à expiration</translation>
 <translation id="3792890930871100565">Déconnecter des imprimantes</translation>
 <translation id="379422718204375917">Utiliser Smart Lock pour vous connecter à votre compte</translation>
-<translation id="3794595850995182458">Quitter la page</translation>
 <translation id="3796648294839530037">Réseaux favoris :</translation>
 <translation id="3797900183766075808">&amp;Rechercher "<ph name="SEARCH_TERMS" />" avec <ph name="SEARCH_ENGINE" /></translation>
 <translation id="3798325802885154040">Permet d'activer ou de désactiver la fonctionnalité Taper pour cliquer</translation>
@@ -3347,7 +3339,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6237816943013845465">Permet d'ajuster la résolution de l'écran</translation>
 <translation id="6238923052227198598">Conserver la dernière note sur l'écran de verrouillage</translation>
 <translation id="6239558157302047471">Actualiser le &amp;cadre</translation>
-<translation id="624022915548992686">Quitter la page</translation>
 <translation id="6241530762627360640">Accéder aux informations relatives aux appareils Bluetooth associés à votre système et détecter les appareils Bluetooth à proximité</translation>
 <translation id="6243774244933267674">Serveur indisponible.</translation>
 <translation id="6246413617632217567">Impossible d'importer l'utilisateur supervisé. Veuillez vérifier l'espace disponible sur votre disque dur et vos autorisations, puis réessayer.</translation>
@@ -3396,7 +3387,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6312403991423642364">Erreur de réseau inconnue.</translation>
 <translation id="6313641880021325787">QUITTER LA RV</translation>
 <translation id="6314819609899340042">Les fonctionnalités de débogage ont été activées sur cet appareil <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
-<translation id="6315343732431721770">Vos pages de démarrage ont été modifiées pour inclure <ph name="URL" />. Pour désactiver les extensions qui changent vos pages de démarrage, cliquez sur "Restaurer".</translation>
 <translation id="6315493146179903667">Tout ramener au premier plan</translation>
 <translation id="6316806695097060329">Cet appareil <ph name="SHORT_PRODUCT_NAME" /> a été conçu pour vous proposer la meilleure expérience possible sur le Web.</translation>
 <translation id="6317318380444133405">L'imprimante est désormais incompatible.</translation>
@@ -3411,7 +3401,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6333049849394141510">Choisir les éléments à synchroniser</translation>
 <translation id="6333064448949140209">Le fichier sera envoyé à Google pour être débogué.</translation>
 <translation id="6333834492048057036">Centrer sur la barre d'adresse pour la recherche</translation>
-<translation id="6336907568130557310">Toute personne ayant accès au fichier exporté pourra voir vos mots de passe. Veillez à ne jamais partager ce fichier avec des tiers et à le supprimer après son importation.</translation>
 <translation id="6339668969738228384">Créer un profil pour <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6340017061976355871">Impossible de se connecter au serveur. Veuillez vérifier votre connexion réseau et réessayer. Si le problème persiste, redémarrez votre Chromebook.</translation>
 <translation id="6340071272923955280">Protocole d'impression Internet (IPPS)</translation>
@@ -4173,7 +4162,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
     réessayer de créer un compte utilisateur supervisé.</translation>
 <translation id="756445078718366910">Ouvrir une fenêtre du navigateur</translation>
 <translation id="7564847347806291057">Arrêter le processus</translation>
-<translation id="7565291891798266313">Votre moteur de recherche a été remplacé par <ph name="URL" />. Pour désactiver les extensions qui changent le moteur de recherche, cliquez sur "Restaurer".</translation>
 <translation id="7566118625369982896">Gérer les liens de l'application Play</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Données de Chrome effacées</translation>
@@ -4182,7 +4170,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7573172247376861652">Charge de la batterie</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Assembler</translation>
-<translation id="7577815336900970562">Utiliser le réseau Wi‑Fi ou mobile pour déterminer la position</translation>
 <translation id="7579149537961810247">Couper le son des sites</translation>
 <translation id="7580671184200851182">Lire le même contenu audio sur toutes les enceintes (son mono)</translation>
 <translation id="7581462281756524039">Un outil de nettoyage</translation>
@@ -4568,7 +4555,6 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8191230140820435481">Gérer vos applications, vos extensions et vos thèmes</translation>
 <translation id="8191453843330043793">Résolution de proxy V8</translation>
 <translation id="8195027750202970175">Taille sur le disque</translation>
-<translation id="8195739004487400241">Votre page d'accueil a été remplacée par <ph name="URL" />. Pour désactiver les extensions qui changent la page d'accueil, cliquez sur "Restaurer".</translation>
 <translation id="8199300056570174101">Propriétés du réseau (service) et de l'appareil</translation>
 <translation id="8200772114523450471">Reprendre</translation>
 <translation id="8202160505685531999">Saisissez à nouveau votre mot de passe pour modifier votre profil <ph name="DEVICE_TYPE" /></translation>
@@ -4713,6 +4699,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8454288007744638700">Ou sélectionnez un nouveau réseau :</translation>
 <translation id="845627346958584683">Délai d'expiration</translation>
 <translation id="8456681095658380701">Ce nom n'est pas valide.</translation>
+<translation id="8457451314607652708">Importer les favoris</translation>
 <translation id="8460336040822756677">Si vous désactivez Smart Lock pour <ph name="DEVICE_TYPE" />, vous ne pourrez pas déverrouiller vos appareils Chrome avec votre téléphone. Vous devrez saisir votre mot de passe.</translation>
 <translation id="8461329675984532579">Nom du fournisseur personnel</translation>
 <translation id="84613761564611563">Demande d'interface utilisateur en cours pour la configuration réseau. Merci de patienter…</translation>
@@ -4949,7 +4936,6 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="882204272221080310">Mettre à jour le micrologiciel pour plus de sécurité.</translation>
 <translation id="8823514049557262177">Copier le te&amp;xte du lien</translation>
 <translation id="8824701697284169214">Ajouter une pa&amp;ge...</translation>
-<translation id="8827850355924932817">Utiliser le réseau Wi-Fi pour déterminer la position</translation>
 <translation id="8828933418460119530">Nom DNS</translation>
 <translation id="8830796635868321089">Échec de la vérification de mise à jour avec les paramètres de proxy actuels. Veuillez modifier vos <ph name="PROXY_SETTINGS_LINK_START" />paramètres de proxy<ph name="PROXY_SETTINGS_LINK_END" />.</translation>
 <translation id="8834039744648160717">La configuration réseau est contrôlée par <ph name="USER_EMAIL" />.</translation>
@@ -4992,7 +4978,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8899285681604219177">Désactivation des extensions non compatibles</translation>
 <translation id="8899551033019439140">Recherche de l'imprimante…</translation>
 <translation id="8899851313684471736">Ouvrir le lien dans une nouvelle &amp;fenêtre</translation>
-<translation id="8902667442496790482">Ouvrir les paramètres "Sélectionner pour prononcer"</translation>
+<translation id="8902667442496790482">Ouvrir les paramètres de "Sélectionner pour prononcer"</translation>
 <translation id="8903921497873541725">Zoom avant</translation>
 <translation id="8904976895050290827">Synchronisation Google Chrome</translation>
 <translation id="8908902564709148335">Avertissement : Vous avez activé l'indicateur --scripts-require-action sur cet ordinateur, ce qui limite les fonctionnalités de cette extension. Cependant, sur d'autres appareils, cet indicateur n'est pas compatible ou n'est pas activé. Sur ces appareils, cette extension peut également :</translation>

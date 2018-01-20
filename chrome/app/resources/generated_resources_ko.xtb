@@ -205,7 +205,6 @@
 <translation id="1303101771013849280">HTML 파일 북마크하기</translation>
 <translation id="1303671224831497365">블루투스 기기를 찾을 수 없습니다.</translation>
 <translation id="1306606229401759371">설정 변경</translation>
-<translation id="1307398858972670978"><ph name="SAVED_PASSWORDS_LINK" /> 링크를 통해 어느 기기에서나 비밀번호에 액세스할 수 있습니다.</translation>
 <translation id="1307559529304613120">시스템이 이 기기에 대한 장기 API 액세스 토큰을 저장하지 못했습니다.</translation>
 <translation id="1313405956111467313">자동 프록시 설정</translation>
 <translation id="131364520783682672">Caps Lock</translation>
@@ -444,11 +443,9 @@
     관리 대상 사용자가 방문한 웹사이트 <ph name="BEGIN_BOLD" />검토<ph name="END_BOLD" />
     기타 설정 <ph name="BEGIN_BOLD" />관리<ph name="END_BOLD" /></translation>
 <translation id="1648943974594387137">로그인 세부정보의 유효기간이 만료되었습니다.</translation>
-<translation id="1649641629389702691">&lt;<ph name="LINE_COUNT" />줄이 표시되지 않음&gt;</translation>
 <translation id="1650371550981945235">입력 옵션 표시</translation>
 <translation id="1650709179466243265">www.와 .com을 추가하여 주소 열기</translation>
 <translation id="1651008383952180276">동일한 암호를 두 번 입력해야 합니다.</translation>
-<translation id="1652972346408808053">비밀번호가 저장되었습니다. <ph name="SAVED_PASSWORDS_LINK" /> 링크를 통해 어느 기기에서나 비밀번호에 액세스할 수 있습니다.</translation>
 <translation id="1653526288038954982">{NUM_PRINTER,plural, =1{Google 클라우드 프린트에 프린터를 추가하여 어디서나 인쇄하세요.}other{Google 클라우드 프린트에 프린터 #개를 추가하여 어디서나 인쇄하세요.}}</translation>
 <translation id="1657406563541664238">사용 통계 및 비정상 종료 보고서가 Google로 자동 전송되게 하여 <ph name="PRODUCT_NAME" /> 개선에 도움 주기</translation>
 <translation id="1658424621194652532">마이크에 액세스하는 페이지입니다.</translation>
@@ -884,7 +881,6 @@
 <translation id="236141728043665931">마이크 액세스 항상 차단</translation>
 <translation id="2367972762794486313">앱 표시</translation>
 <translation id="2371076942591664043">완료되면 열기(&amp;D)</translation>
-<translation id="237336063998926520">IP 주소를 사용하여 위치 파악</translation>
 <translation id="2377319039870049694">목록 보기로 전환</translation>
 <translation id="2377667304966270281">하드 결함</translation>
 <translation id="2378075407703503998"><ph name="SELCTED_FILE_COUNT" />개의 파일이 선택됨</translation>
@@ -931,7 +927,6 @@
 <translation id="2457246892030921239"><ph name="APP_NAME" />에서 <ph name="VOLUME_NAME" />에 있는 파일을 복사하려고 합니다.</translation>
 <translation id="2462724976360937186">인증 기관 키 ID</translation>
 <translation id="2462752602710430187"><ph name="PRINTER_NAME" /> 추가됨</translation>
-<translation id="246335896104539386">북마크 가져오기</translation>
 <translation id="2464089476039395325">HTTP 프록시</translation>
 <translation id="2468902267404883140">휴대전화에 연결할 수 없습니다. 호환 가능한 Android 휴대전화를 사용 중인지, 휴대전화의 전원이 켜져 있는지, 손에 닿는 거리에 있는지 확인하세요. &lt;a&gt;자세히 알아보기&lt;/a&gt;</translation>
 <translation id="2470702053775288986">지원되지 않는 확장 프로그램이 사용 중지됨</translation>
@@ -1069,7 +1064,6 @@
 <translation id="2653266418988778031">인증 기관(CA) 인증서를 삭제하면 브라우저가 해당 CA에서 발급된 인증서를 더 이상 신뢰하지 않습니다.</translation>
 <translation id="2653659639078652383">제출</translation>
 <translation id="265390580714150011">필드 값</translation>
-<translation id="2654286334048437383">북마크 내보내기</translation>
 <translation id="2655386581175833247">사용자 인증서:</translation>
 <translation id="2660779039299703961">이벤트</translation>
 <translation id="2661146741306740526">16x9</translation>
@@ -1361,7 +1355,7 @@
 <translation id="3051523411789012618">창 올리기</translation>
 <translation id="3053013834507634016">인증서 키 사용</translation>
 <translation id="3057861065630527966">사진 및 동영상을 백업합니다.</translation>
-<translation id="3060379269883947824">음성 안내 사용</translation>
+<translation id="3060379269883947824">텍스트 읽어주기 사용</translation>
 <translation id="3061707000357573562">서비스 패치</translation>
 <translation id="3064410671692449875">데이터 부족</translation>
 <translation id="3065041951436100775">탭 사용 중지 관련 피드백</translation>
@@ -1526,7 +1520,6 @@
 <translation id="3309747692199697901">항상 모든 사이트에서 실행</translation>
 <translation id="3312424061798279731">사용 설정된 언어</translation>
 <translation id="3312903956926554846">데스크톱에 설치</translation>
-<translation id="3313473140726597081">시작 페이지가 <ph name="URL" />(으)로 변경되었습니다. 시작 페이지를 변경하는 확장 프로그램을 사용하지 않으려면 복원을 클릭하세요.</translation>
 <translation id="3313590242757056087">관리 대상 사용자가 볼 수 있는 웹사이트를 설정하려면
     <ph name="MANAGEMENT_URL" /> 페이지에 방문하여 제한사항 및 설정을 지정할 수 있습니다.
     기본 설정을 변경하지 않으면 <ph name="USER_DISPLAY_NAME" />님이
@@ -1851,7 +1844,6 @@
 <translation id="379082410132524484">카드가 만료됨</translation>
 <translation id="3792890930871100565">프린터 연결 해제</translation>
 <translation id="379422718204375917">Smart Lock을 사용하여 계정에 로그인</translation>
-<translation id="3794595850995182458">페이지 나가기</translation>
 <translation id="3796648294839530037">자주 이용하는 네트워크:</translation>
 <translation id="3797900183766075808"><ph name="SEARCH_ENGINE" />에서 '<ph name="SEARCH_TERMS" />' 검색(&amp;S)</translation>
 <translation id="3798325802885154040">탭하여 클릭을 사용/사용 중지</translation>
@@ -3346,7 +3338,6 @@
 <translation id="6237816943013845465">화면 해상도를 조정할 수 있습니다.</translation>
 <translation id="6238923052227198598">잠금 화면에 최근 메모 보관</translation>
 <translation id="6239558157302047471">프레임 새로고침(&amp;F)</translation>
-<translation id="624022915548992686">페이지 나가기</translation>
 <translation id="6241530762627360640">시스템과 페어링된 블루투스 기기 관련 정보에 액세스하고 근처의 블루투스 기기를 검색합니다.</translation>
 <translation id="6243774244933267674">서버를 사용할 수 없음</translation>
 <translation id="6246413617632217567">관리 대상 사용자를 가져오지 못했습니다. 하드 드라이브 공간 및 권한을 확인한 후 다시 시도해 주세요.</translation>
@@ -3395,7 +3386,6 @@
 <translation id="6312403991423642364">알려지지 않은 네트워크 오류</translation>
 <translation id="6313641880021325787">VR 종료</translation>
 <translation id="6314819609899340042">이 <ph name="IDS_SHORT_PRODUCT_NAME" /> 기기에서 디버깅 기능을 사용 설정했습니다.</translation>
-<translation id="6315343732431721770">시작 페이지가 <ph name="URL" />을(를) 포함하도록 변경되었습니다. 시작 페이지를 변경하는 확장 프로그램을 사용하지 않으려면 복원을 클릭하세요.</translation>
 <translation id="6315493146179903667">앞으로 모두 가져오기</translation>
 <translation id="6316806695097060329"><ph name="SHORT_PRODUCT_NAME" /> 기기는 최상의 웹 환경을 제공하도록 설계되었습니다.</translation>
 <translation id="6317318380444133405">프린터가 더 이상 지원되지 않습니다.</translation>
@@ -3410,7 +3400,6 @@
 <translation id="6333049849394141510">동기화할 대상 선택</translation>
 <translation id="6333064448949140209">디버깅을 위해 파일이 Google로 전송됩니다.</translation>
 <translation id="6333834492048057036">검색을 위해 주소 표시줄로 이동</translation>
-<translation id="6336907568130557310">내보낸 파일을 볼 수 있는 모든 사용자에게 비밀번호가 표시됩니다. 다른 사람과 파일을 공유하지 말고 가져온 후에는 삭제하세요.</translation>
 <translation id="6339668969738228384"><ph name="USER_EMAIL_ADDRESS" />의 새 프로필을 만드세요.</translation>
 <translation id="6340017061976355871">서버에 연결할 수 없습니다. 네트워크 연결을 확인하고 다시 시도해 주세요. 문제가 지속되면 Chromebook을 다시 시작하세요.</translation>
 <translation id="6340071272923955280">인터넷 인쇄 프로토콜(IPPS)</translation>
@@ -4172,7 +4161,6 @@
     관리 대상 사용자를 다시 만들어볼 수 있습니다.</translation>
 <translation id="756445078718366910">브라우저 창 열기</translation>
 <translation id="7564847347806291057">프로세스 종료</translation>
-<translation id="7565291891798266313">검색 엔진이 <ph name="URL" />(으)로 변경되었습니다. 검색 엔진을 변경하는 확장 프로그램을 사용하지 않으려면 복원을 클릭하세요.</translation>
 <translation id="7566118625369982896">Play 앱 링크 관리</translation>
 <translation id="7566723889363720618">F12</translation>
 <translation id="756809126120519699">Chrome 데이터 삭제됨</translation>
@@ -4181,7 +4169,6 @@
 <translation id="7573172247376861652">배터리 충전</translation>
 <translation id="7576032389798113292">6x4</translation>
 <translation id="7576690715254076113">한 부씩 인쇄</translation>
-<translation id="7577815336900970562">Wi-Fi 또는 모바일 네트워크를 사용하여 위치 파악</translation>
 <translation id="7579149537961810247">사이트 음소거</translation>
 <translation id="7580671184200851182">모든 스피커에서 동일한 오디오 실행(모노 오디오)</translation>
 <translation id="7581462281756524039">정리도구</translation>
@@ -4567,7 +4554,6 @@
 <translation id="8191230140820435481">앱, 확장 프로그램 및 테마 관리</translation>
 <translation id="8191453843330043793">V8 프록시 리졸버</translation>
 <translation id="8195027750202970175">디스크 크기</translation>
-<translation id="8195739004487400241">홈페이지가 <ph name="URL" />(으)로 변경되었습니다. 홈페이지를 변경하는 확장 프로그램을 사용하지 않으려면 복원을 클릭하세요.</translation>
 <translation id="8199300056570174101">네트워크(서비스) 및 기기 속성</translation>
 <translation id="8200772114523450471">다시 시작</translation>
 <translation id="8202160505685531999"><ph name="DEVICE_TYPE" /> 프로필을 업데이트하려면 비밀번호 다시 입력</translation>
@@ -4712,6 +4698,7 @@
 <translation id="8454288007744638700">또는 새로운 네트워크 선택</translation>
 <translation id="845627346958584683">만료 시간</translation>
 <translation id="8456681095658380701">잘못된 이름입니다.</translation>
+<translation id="8457451314607652708">북마크 가져오기</translation>
 <translation id="8460336040822756677"><ph name="DEVICE_TYPE" />용 Smart Lock을 사용 중지하면 휴대전화를 사용하여 Chrome 기기를 잠금 해제할 수 없으며 비밀번호를 입력해야 합니다.</translation>
 <translation id="8461329675984532579">홈 공급자 이름</translation>
 <translation id="84613761564611563">네트워크 구성 UI를 요청했습니다. 잠시만 기다려 주세요.</translation>
@@ -4948,7 +4935,6 @@
 <translation id="882204272221080310">펌웨어를 업데이트하여 보안 강화</translation>
 <translation id="8823514049557262177">링크 텍스트 복사(&amp;X)</translation>
 <translation id="8824701697284169214">페이지 추가(&amp;G)...</translation>
-<translation id="8827850355924932817">Wi-Fi 네트워크를 사용하여 위치 파악</translation>
 <translation id="8828933418460119530">DNS 이름</translation>
 <translation id="8830796635868321089">현재 프록시 설정을 사용하여 업데이트를 확인하지 못했습니다. <ph name="PROXY_SETTINGS_LINK_START" />프록시 설정<ph name="PROXY_SETTINGS_LINK_END" />을 조정하세요.</translation>
 <translation id="8834039744648160717">네트워크 구성은 <ph name="USER_EMAIL" />님이 관리합니다.</translation>
@@ -4991,7 +4977,7 @@
 <translation id="8899285681604219177">지원되지 않는 확장 프로그램이 사용 중지됨</translation>
 <translation id="8899551033019439140">프린터 검색 중...</translation>
 <translation id="8899851313684471736">새 창에서 링크 열기(&amp;W)</translation>
-<translation id="8902667442496790482">음성 안내 설정 열기</translation>
+<translation id="8902667442496790482">텍스트 읽어주기 설정 열기</translation>
 <translation id="8903921497873541725">확대</translation>
 <translation id="8904976895050290827">크롬 동기화</translation>
 <translation id="8908902564709148335">경고: 이 컴퓨터에 확장 프로그램 기능을 제한하는 --scripts-require-action 플래그를 사용하도록 설정했습니다. 하지만 다른 기기에서 이 플래그를 지원하지 않거나 사용하도록 설정하지 않았을 수도 있습니다. 이러한 기기에서 이 확장 프로그램이 수행할 수 있는 작업은 다음과 같습니다.</translation>

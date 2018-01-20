@@ -206,7 +206,6 @@ Fiziksel Web'i kullanabilmeniz için Bluetooth ve Konum özelliklerinin açık o
 <translation id="2876764156902388290">Chrome bu sayfayı göstermek için daha az veri kullanıyor</translation>
 <translation id="2888126860611144412">Chrome hakkında</translation>
 <translation id="2891154217021530873">Sayfa yüklemeyi durdur</translation>
-<translation id="2892933203342091350">Tüm makalelerde basitleştirilmiş görünümü etkinleştir</translation>
 <translation id="2900528713135656174">Etkinlik oluştur</translation>
 <translation id="2902702728133930130">Chrome başlatılırken beklenmeyen bir hata yüzünden başarısız oldu.</translation>
 <translation id="2903493209154104877">Adresler</translation>
@@ -294,7 +293,6 @@ Arama teriminizi düzeltmek için uzun basarak terimi seçin. Aramanızı ayrın
 <translation id="3661699943263275414">Üçüncü taraf web siteleri, çerez verilerini kaydedebilir ve okuyabilir.</translation>
 <translation id="3662546969139119822">Burada geçmiş yok</translation>
 <translation id="3672452749423051839">Gezinme hataları ile ilgili öneriler</translation>
-<translation id="3682249951633602029">Şifreleriniz, dışa aktarılan şifre dosyasını görebilen herkes tarafından görülebilir.</translation>
 <translation id="3712575778697986964">Veri Tasarrufu sıfırlansın mı?</translation>
 <translation id="3714981814255182093">Bulma Çubuğu'nu açar</translation>
 <translation id="3716182511346448902">Bu sayfa, bellekte çok fazla yer kapladığından Chrome tarafından duraklatıldı.</translation>
@@ -618,7 +616,6 @@ Yine de, görünmez olmazsınız. Gizli moda geçmeniz web'de yaptıklarınızı
 <translation id="6538442820324228105"><ph name="GBS" /> GB indirildi</translation>
 <translation id="654446541061731451">Işınlamak için bir sekme seçin</translation>
 <translation id="6545017243486555795">Tüm Verileri Temizle</translation>
-<translation id="6550675742724504774">Seçenekler</translation>
 <translation id="6556716549745717622">Site, araya giren reklamlar gösterme eğiliminde olduğunda engelle (önerilen)</translation>
 <translation id="6560414384669816528">Sogou ile arama</translation>
 <translation id="6566259936974865419">Chrome <ph name="GIGABYTES" /> GB tasarruf sağladı</translation>
