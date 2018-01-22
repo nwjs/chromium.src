@@ -344,6 +344,7 @@
   // Stop button.
   self.stopButton = [self.buttonFactory stopToolbarButton];
   self.stopButton.visibilityMask = ToolbarComponentVisibilityRegularWidth;
+  self.stopButton.hiddenInCurrentState = YES;
   [buttonConstraints
       addObject:[self.stopButton.widthAnchor
                     constraintEqualToConstant:kToolbarButtonWidth]];
