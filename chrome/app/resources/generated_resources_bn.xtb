@@ -148,7 +148,7 @@
 <translation id="1213037489357051291"><ph name="NUM_FINGERPRINTS" />টি আঙ্গুলের ছাপের সেট আপ</translation>
 <translation id="1215411991991485844">নতুন পটভূমি অ্যাপ্লিকেশন জোড়া হয়েছে</translation>
 <translation id="1216654534877302979">সাইটগুলি মিউট করুন</translation>
-<translation id="1216659994753476700">আমরা দুঃখিত। আমরা আপনার প্রোফাইল অ্যাক্সেস করতে পারছি না। এই ডিভাইসে সঞ্চিত ফাইল এবং ডেটা হয়ত হারিয়ে গেছে।<ph name="BR" />
+<translation id="1216659994753476700">আমরা দুঃখিত। আমরা আপনার প্রোফাইল অ্যাক্সেস করতে পারছি না। এই ডিভাইসে সঞ্চিত ফাইল এবং ডেটা হয়তো হারিয়ে গেছে।<ph name="BR" />
     <ph name="BR" />
     আপনাকে আপনার প্রোফাইল আবার সেট আপ করতে হবে।<ph name="BR" />
     <ph name="BR" />
@@ -1557,7 +1557,7 @@
 <translation id="3369624026883419694">হোস্ট স্থির করা হচ্ছে...</translation>
 <translation id="337286756654493126">আপনি অ্যাপ্লিকেশানটিতে খোলেন এমন ফোল্ডারগুলি পড়ে</translation>
 <translation id="3378503599595235699">আপনি আপনার ব্রাউজার ছেড়ে যাওয়া পর্যন্ত কেবল স্থানীয় ডেটা রাখুন</translation>
-<translation id="3378572629723696641">এই এক্সটেনশানটি হয়ত ক্ষতিগ্রস্ত হয়েছে৷</translation>
+<translation id="3378572629723696641">এই এক্সটেনশানটি হয়তো ক্ষতিগ্রস্ত হয়েছে৷</translation>
 <translation id="3378630551672149129">প্রবেশ করুন, ইনপুট উপাদানের সঙ্গে যোগাযোগের জন্য ট্যাব কী টিপুন</translation>
 <translation id="337920581046691015"><ph name="PRODUCT_NAME" /> ইনস্টল করা হবে৷</translation>
 <translation id="3380365263193509176">অজানা ত্রুটি</translation>
@@ -2889,7 +2889,7 @@
 <translation id="5525677322972469346">একটি নতুনত ত্ত্বাবধানে থাকা ব্যবহারকারী তৈরি করুন</translation>
 <translation id="5525695896049981561">হ্যাঁ, আমি এটা দেখেছি</translation>
 <translation id="5527463195266282916">এক্সটেনশান ডাউনগ্রেড করার প্রয়াস করা হয়েছে৷</translation>
-<translation id="5527474464531963247">আপনি হয়ত অন্য নেটওয়ার্ক নির্বাচন করতে পারেন৷</translation>
+<translation id="5527474464531963247">আপনি হয়তো অন্য নেটওয়ার্ক নির্বাচন করতে পারেন৷</translation>
 <translation id="5528368756083817449">বুকমার্ক পরিচালক</translation>
 <translation id="5532223876348815659">সার্বিক</translation>
 <translation id="5533001281916885985"><ph name="SITE_NAME" /> চায়</translation>
@@ -3184,7 +3184,7 @@
 <translation id="5990386583461751448">অনূদিত</translation>
 <translation id="5991049340509704927">বিবর্ধিত করুন</translation>
 <translation id="5993332328670040093">আপনার ডেটা ব্যবহার আর পরিমাপ করা হবে না।</translation>
-<translation id="6003177993629630467"><ph name="PRODUCT_NAME" /> নিজেকে আপডেট রাখতে হয়ত সক্ষম নয়।</translation>
+<translation id="6003177993629630467"><ph name="PRODUCT_NAME" /> নিজেকে আপডেট রাখতে হয়তো সক্ষম নয়।</translation>
 <translation id="600424552813877586">অবৈধ অ্যাপ্লিকেশান৷</translation>
 <translation id="6005695835120147974">মিডিয়া রাউটার</translation>
 <translation id="6006484371116297560">ক্লাসিক</translation>
@@ -4112,7 +4112,7 @@
 <translation id="749028671485790643">ব্যক্তি <ph name="VALUE" /></translation>
 <translation id="7490813197707563893">MAC ঠিকানা</translation>
 <translation id="7491962110804786152">ট্যাব</translation>
-<translation id="7493386493263658176"><ph name="EXTENSION_NAME" /> এক্সটেনশান হয়ত ব্যক্তিগত ডেটা যেমন পাসওয়ার্ড ও ক্রেডিট কার্ড নম্বরগুলি সহ আপনি যা টাইপ করেন সেসব পাঠ্য সংগ্রহ করতে পারে। আপনি কি এই এক্সটেনশান ব্যবহার করতে চান?</translation>
+<translation id="7493386493263658176"><ph name="EXTENSION_NAME" /> এক্সটেনশান হয়তো ব্যক্তিগত ডেটা যেমন পাসওয়ার্ড ও ক্রেডিট কার্ড নম্বরগুলি সহ আপনি যা টাইপ করেন সেসব পাঠ্য সংগ্রহ করতে পারে। আপনি কি এই এক্সটেনশান ব্যবহার করতে চান?</translation>
 <translation id="7494065396242762445">Windows সেটিংস খুলুন</translation>
 <translation id="7494694779888133066"><ph name="WIDTH" /> x <ph name="HEIGHT" /></translation>
 <translation id="7495778526395737099">আপনার পুরানো পাসওয়ার্ড ভুলে গেছেন?</translation>
@@ -4428,7 +4428,7 @@
 নিজের কী ফাইল কোন নিরাপদ স্থানে রাখুন৷ আপনাকে নিজের এক্সটেনশানের নতুন সংস্করণ তৈরি করতে হবে৷</translation>
 <translation id="799923393800005025">দেখতে পারবেন</translation>
 <translation id="8000066093800657092">কোনও নেটওয়ার্ক নেই</translation>
-<translation id="8001504501378762252">একটি সাইট হয়ত আপনার পাসওয়ার্ড চুরি করেছে</translation>
+<translation id="8001504501378762252">একটি সাইট হয়তো আপনার পাসওয়ার্ড চুরি করেছে</translation>
 <translation id="8004582292198964060">ব্রাউজার</translation>
 <translation id="8008356846765065031">ইন্টারনেট সংযোগ বিচ্ছিন্ন হয়েছে৷ দয়া করে আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন৷</translation>
 <translation id="8008765610824028412"><ph name="PLUGIN_NAME" /> লোড করা যায়নি।</translation>
@@ -4588,7 +4588,7 @@
 <translation id="8259239505248583312">চলুন যাই</translation>
 <translation id="8260126382462817229">আবার সাইন ইন করার চেষ্টা করুন</translation>
 <translation id="8260864402787962391">মাউস</translation>
-<translation id="8261378640211443080">এই এক্সটেনশানটি <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> এ তালিকাভুক্ত নেই এবং হয়ত আপনাকে না জানিয়ে যোগ করা হয়েছে৷</translation>
+<translation id="8261378640211443080">এই এক্সটেনশানটি <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> এ তালিকাভুক্ত নেই এবং হয়তো আপনাকে না জানিয়ে যোগ করা হয়েছে৷</translation>
 <translation id="8261387128019234107"><ph name="PROFILE_NAME" /> এর জন্য অ্যাকাউন্ট যোগ করুন</translation>
 <translation id="8261506727792406068">মুছুন</translation>
 <translation id="826246685091802258">এই বিল্ডে <ph name="BAD_FLAG" /> এর সুবিধা নেই।</translation>

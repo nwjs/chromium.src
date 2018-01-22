@@ -119,7 +119,7 @@
 <translation id="117624967391683467">S'està copiant <ph name="FILE_NAME" />...</translation>
 <translation id="1177113976278858832">Vols restaurar el motor de cerca predeterminat?</translation>
 <translation id="1177863135347784049">Personalitzat</translation>
-<translation id="1178581264944972037">Pausa</translation>
+<translation id="1178581264944972037">Posa en pausa</translation>
 <translation id="1179803038870941185"><ph name="URL" /> vol obtenir un control total dels vostres dispositius MIDI.</translation>
 <translation id="1181037720776840403">Suprimeix</translation>
 <translation id="1183237619868651138">No es pot instal·lar <ph name="EXTERNAL_CRX_FILE" /> a la memòria cau local.</translation>
@@ -1190,7 +1190,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="281133045296806353">S'ha creat una finestra nova a la sessió del navegador existent.</translation>
 <translation id="2812944337881233323">Tanca la sessió i torna-la a iniciar</translation>
 <translation id="2812989263793994277">No mostris cap imatge</translation>
-<translation id="2814489978934728345">Atura la pujada d'aquesta pàgina</translation>
+<translation id="2814489978934728345">Atura la càrrega d'aquesta pàgina</translation>
 <translation id="2815500128677761940">Barra d'adreces d'interès</translation>
 <translation id="2815693974042551705">Carpeta d'adreces d'interès</translation>
 <translation id="2818476747334107629">Detalls de la impressora</translation>
