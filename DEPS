@@ -49,6 +49,8 @@ allowed_hosts = [
 ]
 
 deps = {
+  'src/third_party/ffmpeg':
+    'https://github.com/kjthegod/ffmpeg.git',
   'src/breakpad/src':
     (Var("chromium_git")) + '/breakpad/breakpad/src.git@7c70f47255713629c8053826008bd00f98d71ced',
   'src/buildtools':
@@ -85,8 +87,6 @@ deps = {
     (Var("chromium_git")) + '/external/colorama.git@799604a1041e9b3bc5d2789ecbd7e8db2e18e6b8',
   'src/third_party/dom_distiller_js/dist':
     (Var("chromium_git")) + '/external/github.com/chromium/dom-distiller-dist.git@e87b378779c5641f50fc7ef885a2f88f26e47b7f',
-  'src/third_party/ffmpeg':
-    (Var("chromium_git")) + '/chromium/third_party/ffmpeg.git@d45f90eac6d5eb22be6120b1f7cb145f7a7c88b0',
   'src/third_party/flac':
     (Var("chromium_git")) + '/chromium/deps/flac.git@812243a85937e06102ba312c6caf8823e243b35b',
   'src/third_party/flatbuffers/src':
