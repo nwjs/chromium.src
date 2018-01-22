@@ -1351,7 +1351,7 @@ Para obter mais informações, aceda ao nosso <ph name="BEGIN_LINK" />Centro de 
 <translation id="3051523411789012618">Mover a janela para cima</translation>
 <translation id="3053013834507634016">Utilização de chave de certificado</translation>
 <translation id="3057861065630527966">Fazer uma cópia de segurança de fotografias e vídeos</translation>
-<translation id="3060379269883947824">Ativar Selecionar para falar</translation>
+<translation id="3060379269883947824">Ativar Selecionar para ativar voz</translation>
 <translation id="3061707000357573562">Serviço de patch</translation>
 <translation id="3064410671692449875">Dados insuficientes</translation>
 <translation id="3065041951436100775">Comentários acerca de separador desativado.</translation>
@@ -3539,7 +3539,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="656293578423618167">O caminho ou nome do ficheiro é demasiado longo. Guarde com um nome mais curto ou noutra localização.</translation>
 <translation id="656398493051028875">A eliminar "<ph name="FILENAME" />"...</translation>
 <translation id="6565108107088666812">Esta ação limpa os dados sincronizados de todos os dispositivos.</translation>
-<translation id="6567688344210276845">Não foi possível carregar o ícone "<ph name="ICON" />" para a acção da página.</translation>
+<translation id="6567688344210276845">Não foi possível carregar o ícone "<ph name="ICON" />" para a ação da página.</translation>
 <translation id="657402800789773160">&amp;Recarregar esta página</translation>
 <translation id="6578664922716508575">Encriptar as palavras-passe sincronizadas com o seu nome de utilizador e palavra-passe Google</translation>
 <translation id="6580151766480067746">Versão do ARC</translation>
@@ -4094,7 +4094,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="7502658306369382406">Endereço IPv6</translation>
 <translation id="7503191893372251637">Tipo de certificado Netscape</translation>
 <translation id="7503607651407946808">Esta página está a ser traduzida…</translation>
-<translation id="7503821294401948377">Não foi possível carregar o ícone "<ph name="ICON" />" para a acção do navegador.</translation>
+<translation id="7503821294401948377">Não foi possível carregar o ícone "<ph name="ICON" />" para a ação do navegador.</translation>
 <translation id="750509436279396091">Abrir a pasta de transferências</translation>
 <translation id="7505167922889582512">Mostrar ficheiros ocultos</translation>
 <translation id="7506541170099744506">O seu <ph name="DEVICE_TYPE" /> foi inscrito com êxito para gestão empresarial.</translation>
@@ -4942,7 +4942,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="8899285681604219177">Extensões não suportadas desativadas</translation>
 <translation id="8899551033019439140">A procurar impressora…</translation>
 <translation id="8899851313684471736">Abrir link numa nova &amp;janela</translation>
-<translation id="8902667442496790482">Abrir as definições de Selecionar para falar</translation>
+<translation id="8902667442496790482">Abrir as definições de Selecionar para ativar voz</translation>
 <translation id="8903921497873541725">Ampliar</translation>
 <translation id="8904976895050290827">Sincronização do Google Chrome</translation>
 <translation id="8908902564709148335">Aviso: Ativou o sinalizador --scripts-require-action neste computador, o que limita as capacidades desta extensão. Contudo, outros dispositivos poderão não suportar este sinalizador ou tê-lo ativado. Nesses dispositivos, esta extensão também pode:</translation>

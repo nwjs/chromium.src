@@ -1346,7 +1346,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="3051523411789012618">Ventana hacia arriba</translation>
 <translation id="3053013834507634016">Uso de la clave del certificado</translation>
 <translation id="3057861065630527966">Crea una copia de seguridad de tus fotos y videos.</translation>
-<translation id="3060379269883947824">Habilitar Seleccionar para hablar</translation>
+<translation id="3060379269883947824">Habilitar Seleccionar para pronunciar</translation>
 <translation id="3061707000357573562">Aplicar parche al servicio</translation>
 <translation id="3064410671692449875">Datos insuficientes</translation>
 <translation id="3065041951436100775">La pestaña terminó los comentarios.</translation>
@@ -4937,7 +4937,7 @@ Es posible que los usuarios con conexiones lentas no puedan ver tu contenido.</t
 <translation id="8899285681604219177">Extensiones no admitidas inhabilitadas</translation>
 <translation id="8899551033019439140">Buscando impresora…</translation>
 <translation id="8899851313684471736">Abrir enlace en una &amp;ventana nueva</translation>
-<translation id="8902667442496790482">Abrir configuración de Seleccionar para hablar</translation>
+<translation id="8902667442496790482">Abrir configuración de Seleccionar para pronunciar</translation>
 <translation id="8903921497873541725">Acercar</translation>
 <translation id="8904976895050290827">Chrome Sync</translation>
 <translation id="8908902564709148335">Advertencia: Habilitaste la marca --scripts-require-action en esta computadora, lo que limita las capacidades de esta extensión. Sin embargo, es posible que otros dispositivos no admitan la marca o que la tengan habilitada. En esos dispositivos, la extensión también puede realizar lo siguiente:</translation>

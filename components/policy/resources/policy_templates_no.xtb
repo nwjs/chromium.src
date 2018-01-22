@@ -1283,7 +1283,7 @@
 <translation id="5365946944967967336">Vis startsideknappen på verktøylinjen</translation>
 <translation id="5366745336748853475">Gjør det mulig å spesifisere en liste over nettadressemønstre som angir hvilke nettsteder det automatisk skal velges et klientsertifikat for. Dette skjer på påloggingsskjermen i rammen som er vert for SAML-flyten, hvis nettstedet krever et sertifikat. Et eksempel på bruk er å konfigurere et enhetsgjeldende sertifikat som skal presenteres til SAML IdP.
 
-      Verdien må være en matrise med JSON-kataloger i strengformat. Hver katalog må ha formen { "mønster": "$URL_PATTERN", "filter" : $FILTER }, der $URL_PATTERN er et mønster for spesifisering av innhold. $FILTER begrenser klientsertifikatene nettleseren automatisk velger fra. Uavhengig av hvilket filter som brukes, blir det bare valgt sertifikater som samsvarer med tjenerens sertifikatforespørsel. Hvis $FILTER har formen { "ISSUER": { "CN": "$ISSUER_CN" } }, velges det bare klientsertifikater som er utstedt av et sertifikat med CommonName $ISSUER_CN. Hvis $FILTER er den tomme katalogen {}, brukes det ikke ytterligere begrensninger for valg av klientsertifikater.
+      Verdien må være en matrise med JSON-kataloger i strengformat. Hver katalog må ha formen { "pattern": "$URL_PATTERN", "filter" : $FILTER }, der $URL_PATTERN er et mønster for spesifisering av innhold. $FILTER begrenser klientsertifikatene nettleseren automatisk velger fra. Uavhengig av hvilket filter som brukes, blir det bare valgt sertifikater som samsvarer med tjenerens sertifikatforespørsel. Hvis $FILTER har formen { "ISSUER": { "CN": "$ISSUER_CN" } }, velges det bare klientsertifikater som er utstedt av et sertifikat med CommonName $ISSUER_CN. Hvis $FILTER er den tomme katalogen {}, brukes det ikke ytterligere begrensninger for valg av klientsertifikater.
 
       Hvis du ikke spesifiserer denne regelen, blir det ikke valgt klientsertifikat automatisk for noen nettsteder.</translation>
 <translation id="5366977351895725771">Hvis angitt til «false» kan ikke denne brukeren opprette administrerte brukere. Eksisterende administrerte brukere er fortsatt tilgjengelige.
@@ -1761,7 +1761,7 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
       logge på kontoene sine fra andre domener, men de får opp en feil
       når de prøver å bruke G Suite med disse kontoene.
 
-      Hvis du lar denne innstillingen stå tom / ikke konfigurerer den, har brukerne
+      Hvis du lar denne innstillingen stå tom / ikke konfigurert, har brukerne
       tilgang til G Suite med hvilken som helst konto.
 
       Denne regelen gjør at hodeelementet X-GoogApps-Allowed-Domains blir lagt til i

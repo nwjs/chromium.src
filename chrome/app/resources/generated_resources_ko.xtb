@@ -1350,7 +1350,7 @@
 <translation id="3051523411789012618">창 올리기</translation>
 <translation id="3053013834507634016">인증서 키 사용</translation>
 <translation id="3057861065630527966">사진 및 동영상을 백업합니다.</translation>
-<translation id="3060379269883947824">음성 안내 사용</translation>
+<translation id="3060379269883947824">텍스트 읽어주기 사용</translation>
 <translation id="3061707000357573562">서비스 패치</translation>
 <translation id="3064410671692449875">데이터 부족</translation>
 <translation id="3065041951436100775">탭 사용 중지 관련 피드백</translation>
@@ -4939,7 +4939,7 @@
 <translation id="8899285681604219177">지원되지 않는 확장 프로그램이 사용 중지됨</translation>
 <translation id="8899551033019439140">프린터 검색 중...</translation>
 <translation id="8899851313684471736">새 창에서 링크 열기(&amp;W)</translation>
-<translation id="8902667442496790482">음성 안내 설정 열기</translation>
+<translation id="8902667442496790482">텍스트 읽어주기 설정 열기</translation>
 <translation id="8903921497873541725">확대</translation>
 <translation id="8904976895050290827">크롬 동기화</translation>
 <translation id="8908902564709148335">경고: 이 컴퓨터에 확장 프로그램 기능을 제한하는 --scripts-require-action 플래그를 사용하도록 설정했습니다. 하지만 다른 기기에서 이 플래그를 지원하지 않거나 사용하도록 설정하지 않았을 수도 있습니다. 이러한 기기에서 이 확장 프로그램이 수행할 수 있는 작업은 다음과 같습니다.</translation>

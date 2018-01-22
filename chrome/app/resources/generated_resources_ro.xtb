@@ -1349,7 +1349,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="3051523411789012618">Mută fereastra în sus</translation>
 <translation id="3053013834507634016">Folosirea cheii de certificat</translation>
 <translation id="3057861065630527966">Fă backup pentru fotografii și videoclipuri</translation>
-<translation id="3060379269883947824">Activează Selectează pentru a se rosti</translation>
+<translation id="3060379269883947824">Activează „Selectează și ascultă”</translation>
 <translation id="3061707000357573562">Serviciu de corecție</translation>
 <translation id="3064410671692449875">Date insuficiente</translation>
 <translation id="3065041951436100775">Feedback despre fila eliminată.</translation>
@@ -4939,7 +4939,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8899285681604219177">Extensiile necompatibile au fost dezactivate</translation>
 <translation id="8899551033019439140">Se caută o imprimantă…</translation>
 <translation id="8899851313684471736">Deschide linkul într-o &amp;fereastră nouă</translation>
-<translation id="8902667442496790482">Deschide setările Selectează pentru a se rosti</translation>
+<translation id="8902667442496790482">Deschide setările „Selectează și ascultă”</translation>
 <translation id="8903921497873541725">Mărește</translation>
 <translation id="8904976895050290827">Chrome Sync</translation>
 <translation id="8908902564709148335">Avertisment: ai activat marcajul scripts-require-action pe acest computer, care limitează capacitățile acestei extensii. Totuși, este posibil ca alte dispozitive să nu accepte acest marcaj sau să îl aibă activat. Pe aceste dispozitive, această extensie poate să:</translation>

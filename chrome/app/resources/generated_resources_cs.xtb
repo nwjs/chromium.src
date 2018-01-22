@@ -1350,7 +1350,7 @@ Další informace naleznete v <ph name="BEGIN_LINK" />centru nápovědy<ph name
 <translation id="3051523411789012618">Okno nahoru</translation>
 <translation id="3053013834507634016">Použití klíče certifikátu</translation>
 <translation id="3057861065630527966">Zálohovat fotky a videa</translation>
-<translation id="3060379269883947824">Zapnout hlasovou odezvu po výběru</translation>
+<translation id="3060379269883947824">Zapnout poslech vybraného textu</translation>
 <translation id="3061707000357573562">Služba oprav</translation>
 <translation id="3064410671692449875">Nedostatek dat</translation>
 <translation id="3065041951436100775">Zpětná vazba k ukončení procesu karty</translation>
@@ -4932,7 +4932,7 @@ Svůj soubor klíče uchovávejte na bezpečném místě. Budete jej potřebovat
 <translation id="8899285681604219177">Nepodporovaná rozšíření jsou zakázána</translation>
 <translation id="8899551033019439140">Hledání tiskárny...</translation>
 <translation id="8899851313684471736">Otevřít o&amp;dkaz v novém okně</translation>
-<translation id="8902667442496790482">Otevřít nastavení hlasové odezvy po výběru</translation>
+<translation id="8902667442496790482">Otevřít nastavení poslechu vybraného textu</translation>
 <translation id="8903921497873541725">Přiblížit</translation>
 <translation id="8904976895050290827">Chrome Sync</translation>
 <translation id="8908902564709148335">Upozornění: V počítači jste aktivovali příznak --scripts-require-action, který omezuje funkce tohoto rozšíření. Ostatní zařízení však tento příznak nemusejí podporovat nebo v nich nemusí být aktivován. V těchto zařízeních má rozšíření také následující oprávnění:</translation>

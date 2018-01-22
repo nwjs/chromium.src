@@ -1346,7 +1346,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3051523411789012618">הזזת חלון כלפי מטה</translation>
 <translation id="3053013834507634016">שימוש במפתח אישור </translation>
 <translation id="3057861065630527966">גבה את התמונות והסרטונים</translation>
-<translation id="3060379269883947824">הפעל בחירת טקסט להקראה בקול</translation>
+<translation id="3060379269883947824">הפעלת הקראה</translation>
 <translation id="3061707000357573562">שירות תיקון</translation>
 <translation id="3064410671692449875">אין מספיק נתונים</translation>
 <translation id="3065041951436100775">משוב על כרטיסייה שנסגרה.</translation>
@@ -1486,7 +1486,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3289856944988573801">‏כדי לבדוק אם יש עדכונים, השתמש ב-Ethernet או ב-Wi-Fi.</translation>
 <translation id="3294437725009624529">אורח</translation>
 <translation id="329650768420594634">אזהרת 'ארוז תוסף'</translation>
-<translation id="329838636886466101">בצע תיקון</translation>
+<translation id="329838636886466101">תיקון</translation>
 <translation id="3298789223962368867">הוזנה כתובת אתר לא חוקית.</translation>
 <translation id="32991397311664836">מכשירים:</translation>
 <translation id="3300394989536077382">נחתם על ידי</translation>
@@ -2388,7 +2388,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4777825441726637019">‏חנות Play</translation>
 <translation id="4779083564647765204">מרחק מתצוגה</translation>
 <translation id="477945296921629067">{NUM_POPUPS,plural, =1{חלון קופץ נחסם}two{# חלונות קופצים נחסמו}many{# חלונות קופצים נחסמו}other{# חלונות קופצים נחסמו}}</translation>
-<translation id="4780321648949301421">שמור דף כ...</translation>
+<translation id="4780321648949301421">שמירת הדף בשם...</translation>
 <translation id="4781787911582943401">התקרב לתצוגה</translation>
 <translation id="4784330909746505604">‏מצגת PowerPoint</translation>
 <translation id="4790972063719531840">‏שליחה אוטומטית של נתוני אבחון ושימוש אל Google</translation>
@@ -2556,7 +2556,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5024856940085636730">פעולה מסוימת נמשכת זמן רב מהצפוי. האם ברצונך לבטל אותה?</translation>
 <translation id="5026874946691314267">אל תציג הודעה זו שוב</translation>
 <translation id="5027550639139316293">אישור אימייל</translation>
-<translation id="5027562294707732951">הוסף את התוסף</translation>
+<translation id="5027562294707732951">התקנת התוסף</translation>
 <translation id="5028012205542821824">ההתקנה אינה מופעלת.</translation>
 <translation id="5029568752722684782">נקה את העותק</translation>
 <translation id="5030338702439866405">הונפק על ידי</translation>
@@ -4927,7 +4927,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8899285681604219177">תוספים שאינם נתמכים הושבתו</translation>
 <translation id="8899551033019439140">מחפש מדפסת...</translation>
 <translation id="8899851313684471736">פתח קישור &amp;בחלון חדש</translation>
-<translation id="8902667442496790482">פתח את ההגדרות של בחירת טקסט להקראה בקול</translation>
+<translation id="8902667442496790482">פתיחה של הגדרות ההקראה</translation>
 <translation id="8903921497873541725">התקרב</translation>
 <translation id="8904976895050290827">Chrome Sync</translation>
 <translation id="8908902564709148335">אזהרה: הפעלת את סימן הסקריפטים-דורשים-פעולה במחשב זה, אשר מגביל את יכולותיו של תוסף זה. עם זאת, ייתכן שמכשירים אחרים אינם תומכים בסמל זה או שהוא כבר מופעל בהם. במכשירים אלו, תוסף זה יכול גם:</translation>
@@ -5120,7 +5120,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="932508678520956232">לא ניתן להתחיל הדפסה.</translation>
 <translation id="93393615658292258">סיסמה בלבד</translation>
 <translation id="936801553271523408">נתוני אבחון של מערכת</translation>
-<translation id="93766956588638423">תקן את התוסף</translation>
+<translation id="93766956588638423">תיקון התוסף</translation>
 <translation id="938470336146445890">התקן אישור משתמש.</translation>
 <translation id="938582441709398163">שכבת-על של מקלדת</translation>
 <translation id="939252827960237676">שמירת צילום המסך נכשלה</translation>

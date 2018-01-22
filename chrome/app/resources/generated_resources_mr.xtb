@@ -365,7 +365,7 @@
 <translation id="1545177026077493356">स्वयंचलित कियोस्क मोड</translation>
 <translation id="1545786162090505744">क्वेरीच्या जागेवर % सह URL</translation>
 <translation id="1546280085599573572">आपण होम बटण क्लिक करता तेव्हा कोणते पृष्ठ दर्शविले जाते हे या विस्ताराने बदलले आहे.</translation>
-<translation id="1547572086206517271">रीफ्रेश करण्याची आवश्यकता आहे</translation>
+<translation id="1547572086206517271">रिफ्रेश करण्याची आवश्यकता आहे</translation>
 <translation id="1548132948283577726">ज्या साइट पासवर्ड जतन करत नाहीत त्या येथे दिसून येतील.</translation>
 <translation id="1549045574060481141">डाउनलोडची पुष्टी करा</translation>
 <translation id="1549078091075571455">Google ने हे पृष्ठ <ph name="SOURCE_LANGUAGE" /> मधून <ph name="TARGET_LANGUAGE" /> मध्ये भाषांतरित करावे असे आपण इच्छिता?</translation>
@@ -798,7 +798,7 @@
 <translation id="2245240762616536227">तुमचा ब्राउझिंग इतिहास शोध, जाहिराती आणि इतर Google सेवांना कसा पर्सनलाइझ करतो यावर नियंत्रण ठेवा</translation>
 <translation id="2249605167705922988">उदा. 1-5, 8, 11-13</translation>
 <translation id="2251218783371366160">सिस्टम दर्शकासह उघडा</translation>
-<translation id="225163402930830576">नेटवर्क रीफ्रेश करा</translation>
+<translation id="225163402930830576">नेटवर्क रिफ्रेश करा</translation>
 <translation id="225240747099314620">संरक्षित सामग्रीसाठी अभिज्ञापकांना अनुमती द्या (संगणक रीस्टार्ट करणे आवश्यक असू शकते)</translation>
 <translation id="2254681226363050822">सहमत आहे</translation>
 <translation id="2255317897038918278">Microsoft Time Stamping</translation>
@@ -902,7 +902,7 @@
 <translation id="2424091190911472304">नेहमी <ph name="ORIGIN" /> वर चालवा</translation>
 <translation id="2425665904502185219">एकूण फाइल आकार</translation>
 <translation id="2428510569851653187">टॅब क्रॅश झाला तेव्हा तुम्ही नेमके काय करत होता ते सांगा</translation>
-<translation id="2433452467737464329">पृष्ठ स्वयं-रीफ्रेश करण्यासाठी URL मध्ये क्वेरी परम जोडा: chrome://network/?refresh=&lt;sec&gt;</translation>
+<translation id="2433452467737464329">पृष्ठ स्वयं-रिफ्रेश करण्यासाठी URL मध्ये क्वेरी परम जोडा: chrome://network/?refresh=&lt;sec&gt;</translation>
 <translation id="2433507940547922241">स्वरूप</translation>
 <translation id="2435248616906486374">नेटवर्क डिस्कनेक्ट झाले</translation>
 <translation id="2435457462613246316">पासवर्ड दर्शवा</translation>
@@ -2701,7 +2701,7 @@
 <translation id="5266113311903163739">प्रमाणन अधिकृतता आयात एरर</translation>
 <translation id="5269977353971873915">प्रिंट अयशस्वी</translation>
 <translation id="5271549068863921519">पासवर्ड सेव्ह करा</translation>
-<translation id="5275194674756975076">ठीक आहे, रीफ्रेश करा</translation>
+<translation id="5275194674756975076">ठीक आहे, रिफ्रेश करा</translation>
 <translation id="5275352920323889391">कुत्रा</translation>
 <translation id="5275973617553375938">Google ड्राइव्ह वरून पुनर्प्राप्त केलेल्‍या फायली</translation>
 <translation id="527605719918376753">टॅब नि:शब्द करा</translation>
@@ -3305,7 +3305,7 @@
 <translation id="6227235786875481728">ही फाइल प्ले केली जाणे शक्य झाले नाही.</translation>
 <translation id="6228691855869374890">या साइटवर MIDI डिव्हाइसचे पूर्ण नियंत्रण आहे.</translation>
 <translation id="6229890768313448549">Google Play सेवा अटी लोड केल्या जाऊ शकत नाहीत. कृपया पुन्हा प्रयत्न करा.</translation>
-<translation id="6231881193380278751">पृष्ठ स्वयं-रीफ्रेश करण्यासाठी एक क्वेरी परम जोडा: chrome://device-log/?refresh=&lt;sec&gt;</translation>
+<translation id="6231881193380278751">पृष्ठ स्वयं-रिफ्रेश करण्यासाठी एक क्वेरी परम जोडा: chrome://device-log/?refresh=&lt;sec&gt;</translation>
 <translation id="6232017090690406397">बॅटरी</translation>
 <translation id="6232116551750539448"><ph name="NAME" /> वरील कनेक्शन गमावले गेले आहे</translation>
 <translation id="6237816943013845465">आपले स्क्रीन रिझोल्यूशन समायोजित करण्याची आपल्याला अनुमती देते</translation>
@@ -3791,7 +3791,7 @@
 <translation id="7006634003215061422">तळाचा समास</translation>
 <translation id="7006844981395428048">$1 ऑडिओ</translation>
 <translation id="7007648447224463482">सर्व नवीन विंडोमध्ये उघडा</translation>
-<translation id="7008270479623533562">हा विस्तार चालविण्यासाठी, आपण पृष्ठ रीफ्रेश करणे आवश्यक आहे. आपण विस्तार चिन्हावर उजवे-क्लिक करून या साइटवर स्वयंचलितपणे हा विस्तार चालवू शकता.</translation>
+<translation id="7008270479623533562">हा विस्तार चालविण्यासाठी, आपण पृष्ठ रिफ्रेश करणे आवश्यक आहे. आपण विस्तार चिन्हावर उजवे-क्लिक करून या साइटवर स्वयंचलितपणे हा विस्तार चालवू शकता.</translation>
 <translation id="701080569351381435">स्त्रोत पहा</translation>
 <translation id="7012372675181957985">आपल्या Google खात्यात <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> वर ब्राउझिंग इतिहासाची अन्य स्वरूपे असू शकतात</translation>
 <translation id="7013485839273047434">अधिक विस्तार मिळवा</translation>
@@ -3893,7 +3893,7 @@
 <translation id="7173917244679555">आपण त्या नावाने आधीपासून एका वापरकर्त्यास व्यवस्थापित करत असल्याचे दिसते. आपल्याला या डिव्हाइसवर <ph name="BEGIN_LINK" />आयात <ph name="PROFILE_NAME" /><ph name="END_LINK" /> करावयाचे होते?</translation>
 <translation id="7175037578838465313"><ph name="NAME" /> कॉन्फिगर करा</translation>
 <translation id="7175353351958621980">येथून लोड केले:</translation>
-<translation id="7180611975245234373">रीफ्रेश करा</translation>
+<translation id="7180611975245234373">रिफ्रेश करा</translation>
 <translation id="7180865173735832675">सानुकूल करा</translation>
 <translation id="7186088072322679094">टूलबारमध्ये ठेवा</translation>
 <translation id="7191159667348037">अज्ञात मुद्रक (USB)</translation>
@@ -4397,7 +4397,7 @@
 <translation id="8008356846765065031">इंटरनेट डिस्कनेक्ट झाले. कृपया आपले इंटरनेट कनेक्शन तपासा.</translation>
 <translation id="8008818777654712271">धोकादायक अ‍ॅप्स आणि साइट शोधण्यात मदत करण्यासाठी Google ला काही सिस्टम माहिती आणि पृष्ठ सामग्री स्वयंचलितपणे पाठवा.</translation>
 <translation id="8012382203418782830">हे पृष्ठ भाषांतरित केले गेले आहे.</translation>
-<translation id="8014154204619229810">अद्यतनकर्ता सध्या चालू आहे. पुन्हा तपासण्यासाठी एक मिनिटात रीफ्रेश करा.</translation>
+<translation id="8014154204619229810">अद्यतनकर्ता सध्या चालू आहे. पुन्हा तपासण्यासाठी एक मिनिटात रिफ्रेश करा.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> पूर्वी इंस्टॉल केलेल्या आवृत्तीवर परत करण्यात अक्षम आहे. कृपया आपले डिव्हाइस Powerwash करण्यासाठी पुन्हा प्रयत्न करा.</translation>
 <translation id="8016266267177410919">तात्पुरता संचय</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
@@ -4615,7 +4615,7 @@
 <translation id="8381179624334829711">कॅमेरा सेटिंग्ज व्यवस्थापित करा...</translation>
 <translation id="8382913212082956454">&amp;ईमेल पत्ता कॉपी करा</translation>
 <translation id="8386903983509584791">स्कॅन पूर्ण झाले</translation>
-<translation id="8390029840652165810">कृपया आपले नेटवर्क कनेक्शन कार्यरत असल्याचे सुनिश्चित करा आणि समस्या कायम राहिल्यास, कृपया साइन आउट करा आणि आपली क्रेडेन्शियल रीफ्रेश करण्यासाठी पुन्हा साइन इन करा.</translation>
+<translation id="8390029840652165810">कृपया आपले नेटवर्क कनेक्शन कार्यरत असल्याचे सुनिश्चित करा आणि समस्या कायम राहिल्यास, कृपया साइन आउट करा आणि आपली क्रेडेन्शियल रिफ्रेश करण्यासाठी पुन्हा साइन इन करा.</translation>
 <translation id="8390449457866780408">सर्व्हर अनुपलब्ध.</translation>
 <translation id="8392234662362215700">कीबोर्ड लेआउट वरून स्विच करण्यासाठी Control-Shift-Space दाबा.</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> साठी पर्याय मेनू</translation>

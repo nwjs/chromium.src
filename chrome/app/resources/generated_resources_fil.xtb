@@ -1349,7 +1349,7 @@ Para sa higit pang impormasyon, bisitahin ang aming <ph name="BEGIN_LINK" />Help
 <translation id="3051523411789012618">Itaas ang window</translation>
 <translation id="3053013834507634016">Paggamit ng Certificate Key </translation>
 <translation id="3057861065630527966">I-back up ang iyong mga larawan at video</translation>
-<translation id="3060379269883947824">I-enable ang select-to-speak</translation>
+<translation id="3060379269883947824">I-enable ang Select to Speak</translation>
 <translation id="3061707000357573562">Serbisyo sa Pag-patch</translation>
 <translation id="3064410671692449875">Hindi sapat ang data</translation>
 <translation id="3065041951436100775">Feedback na isinara ang tab</translation>
@@ -4942,7 +4942,7 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="8899285681604219177">Na-disable ang Mga Hindi Sinusuportahang Extension</translation>
 <translation id="8899551033019439140">Naghahanap ng printer...</translation>
 <translation id="8899851313684471736">Buksan ang link sa bagong &amp;window</translation>
-<translation id="8902667442496790482">Buksan ang mga setting ng select-to-speak</translation>
+<translation id="8902667442496790482">Buksan ang mga setting ng Select to Speak</translation>
 <translation id="8903921497873541725">Mag-zoom in</translation>
 <translation id="8904976895050290827">Chrome Sync</translation>
 <translation id="8908902564709148335">Babala: Na-enable mo ang flag na --scripts-require-action sa computer na ito, na naglilimita sa mga kakayahan ng extension na ito. Gayunpaman, maaaring hindi suportahan o hindi i-enable ng ibang mga device ang flag na ito. Sa mga device na ito, maaari ding gawin ng extension na ito ang mga sumusunod:</translation>

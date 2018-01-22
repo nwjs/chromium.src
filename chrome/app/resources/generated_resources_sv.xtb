@@ -1348,7 +1348,7 @@ Besök vårt <ph name="BEGIN_LINK" />hjälpcenter<ph name="END_LINK" /> om du vi
 <translation id="3051523411789012618">Flytta upp fönstret</translation>
 <translation id="3053013834507634016">Certifikatnyckelanvändning</translation>
 <translation id="3057861065630527966">Säkerhetskopiera foton och videor</translation>
-<translation id="3060379269883947824">Aktivera uppläsning av markerad text</translation>
+<translation id="3060379269883947824">Aktivera Textuppläsning</translation>
 <translation id="3061707000357573562">Tjänst för programkorrigering</translation>
 <translation id="3064410671692449875">Otillräckligt med data</translation>
 <translation id="3065041951436100775">Feedback vid stängd flik.</translation>
@@ -4937,7 +4937,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8899285681604219177">Tillägg som inte stöds har inaktiverats</translation>
 <translation id="8899551033019439140">Söker efter skrivare …</translation>
 <translation id="8899851313684471736">Öppna länk i nytt f&amp;önster</translation>
-<translation id="8902667442496790482">Öppna inställningarna för uppläsning av markerad text</translation>
+<translation id="8902667442496790482">Öppna inställningarna för Textuppläsning</translation>
 <translation id="8903921497873541725">Zooma in</translation>
 <translation id="8904976895050290827">Synkronisera med Chrome</translation>
 <translation id="8908902564709148335">Varning! Du har aktiverat flaggan --scripts-require-action på den här datorn, vilket begränsar det här tilläggets funktioner. I andra enheter finns det kanske inte stöd för flaggan, eller så kan den vara inaktiverad. I sådana enheter kan tillägget även:</translation>

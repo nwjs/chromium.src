@@ -345,7 +345,7 @@
     proxy bekerja. Jika Anda merasa tidak seharusnya menggunakan
     server proxy, sesuaikan <ph name="LINK_START" />setelan proxy<ph name="LINK_END" /> Anda.</translation>
 <translation id="1510907582379248592">Sandi tersimpan untuk <ph name="ORIGIN" />:</translation>
-<translation id="1511388193702657997">Tawaran untuk menyimpan sandi web Anda</translation>
+<translation id="1511388193702657997">Tawarkan untuk menyimpan sandi web Anda</translation>
 <translation id="1512210426710821809">Satu-satunya cara untuk mengurungkan tindakan ini adalah dengan menginstal ulang <ph name="IDS_SHORT_PRODUCT_OS_NAME" /></translation>
 <translation id="1514215615641002767">Tambahkan ke desktop</translation>
 <translation id="151501797353681931">Diimpor Dari Safari</translation>
@@ -1349,7 +1349,7 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="3051523411789012618">Jendela ke atas</translation>
 <translation id="3053013834507634016">Penggunaan Kunci Sertifikat</translation>
 <translation id="3057861065630527966">Cadangkan foto dan video</translation>
-<translation id="3060379269883947824">Aktifkan klik untuk diucapkan</translation>
+<translation id="3060379269883947824">Aktifkan fitur klik untuk diucapkan</translation>
 <translation id="3061707000357573562">Layanan Patch</translation>
 <translation id="3064410671692449875">Data tidak cukup</translation>
 <translation id="3065041951436100775">Masukan tab yang ditutup.</translation>
@@ -2066,7 +2066,7 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="4176463684765177261">Dinonaktifkan</translation>
 <translation id="4180788401304023883">Hapus sertifikat CA "<ph name="CERTIFICATE_NAME" />"?</translation>
 <translation id="4181841719683918333">Bahasa</translation>
-<translation id="4184885522552335684">Seret untuk memindahkan tampilan</translation>
+<translation id="4184885522552335684">Tarik untuk memindahkan tampilan</translation>
 <translation id="4193154014135846272">Dokumen Google</translation>
 <translation id="4194570336751258953">Aktifkan ketuk-untuk-mengeklik</translation>
 <translation id="4195643157523330669">Buka di tab baru</translation>
@@ -3642,7 +3642,7 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="6742339027238151589">Dapat diakses ke skrip</translation>
 <translation id="6745592621698551453">Perbarui sekarang</translation>
 <translation id="6746124502594467657">Berpindah ke bawah</translation>
-<translation id="674632704103926902">Aktifkan ketuk seret</translation>
+<translation id="674632704103926902">Aktifkan ketuk tarik</translation>
 <translation id="6746392203843147041">keraskan vol.</translation>
 <translation id="6748217015615267851">Perender: <ph name="RENDERER_URL" /></translation>
 <translation id="6748465660675848252">Anda dapat melanjutkan, namun hanya setelan dan data yang disinkronkan yang akan dipulihkan. Semua data lokal akan hilang.</translation>
@@ -3773,7 +3773,7 @@ Dari <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="6979737339423435258">Semua</translation>
 <translation id="6980462514016882061">Google dapat menggunakan histori penjelajahan Anda untuk mempersonalisasi Penelusuran, iklan, dan layanan Google lainnya</translation>
 <translation id="6981982820502123353">Aksesibilitas</translation>
-<translation id="6983201004195852174">Tekan dan tahan tombol Penelusuran, lalu klik atau seret untuk memilih konten yang akan dibaca dengan lantang</translation>
+<translation id="6983201004195852174">Tekan dan tahan tombol Penelusuran, lalu klik atau tarik untuk memilih konten yang akan dibaca dengan lantang</translation>
 <translation id="6983783921975806247">OID terdaftar</translation>
 <translation id="6983991971286645866">Semua pengeditan akan disimpan ke $1.</translation>
 <translation id="6984299437918708277">Pilih gambar yang akan ditampilkan untuk akun Anda di layar login</translation>

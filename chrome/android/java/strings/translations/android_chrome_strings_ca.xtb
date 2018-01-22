@@ -16,7 +16,7 @@
 <translation id="1145536944570833626">Suprimeix les dades existents.</translation>
 <translation id="1146678959555564648">Activa el mode RV</translation>
 <translation id="116280672541001035">Dades utilitzades</translation>
-<translation id="1178581264944972037">Pausa</translation>
+<translation id="1178581264944972037">Posa en pausa</translation>
 <translation id="1181037720776840403">Suprimeix</translation>
 <translation id="1197267115302279827">Mou les adreces d'interès</translation>
 <translation id="119944043368869598">Esborra-ho tot</translation>
@@ -204,7 +204,7 @@ Heu de tenir activats el Bluetooth i la ubicació per poder utilitzar el Web fí
 <translation id="2874939134665556319">Pista anterior</translation>
 <translation id="2876764156902388290">Chrome utilitza menys dades per mostrar-te aquesta pàgina</translation>
 <translation id="2888126860611144412">Sobre Chrome</translation>
-<translation id="2891154217021530873">Atura la pujada de la pàgina</translation>
+<translation id="2891154217021530873">Atura la càrrega de la pàgina</translation>
 <translation id="2892933203342091350">Activa la visualització simplificada en tots els articles</translation>
 <translation id="2900528713135656174">Crea un esdeveniment</translation>
 <translation id="2902702728133930130">S'ha produït un error inesperat amb Chrome durant l'arrencada.</translation>
@@ -573,7 +573,7 @@ Tanmateix, no sou invisible. El vostre cap, el vostre proveïdor de serveis d'In
 <translation id="6165508094623778733">Més informació</translation>
 <translation id="6177111841848151710">S'ha bloquejat per al motor de cerca actual</translation>
 <translation id="6177390657002841081">Activa l'Economitzador de dades</translation>
-<translation id="6181444274883918285">Afegeix una excepció per a un lloc</translation>
+<translation id="6181444274883918285">Afegeix una excepció per a un lloc web</translation>
 <translation id="618555311922999635">El tauler de navegació ocupa tota la pantalla</translation>
 <translation id="6192792657125177640">Excepcions</translation>
 <translation id="6210748933810148297">No ets <ph name="EMAIL" />?</translation>

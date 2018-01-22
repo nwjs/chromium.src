@@ -1349,7 +1349,7 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="3051523411789012618">Window up</translation>
 <translation id="3053013834507634016">Certificate Key Usage</translation>
 <translation id="3057861065630527966">Backup your photos and videos</translation>
-<translation id="3060379269883947824">Enable select-to-speak</translation>
+<translation id="3060379269883947824">Enable Select to Speak</translation>
 <translation id="3061707000357573562">Patch Service</translation>
 <translation id="3064410671692449875">Insufficient data</translation>
 <translation id="3065041951436100775">Tab killed feedback.</translation>
@@ -4939,7 +4939,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8899285681604219177">Unsupported Extensions Disabled</translation>
 <translation id="8899551033019439140">Searching for printer...</translation>
 <translation id="8899851313684471736">Open link in new &amp;window</translation>
-<translation id="8902667442496790482">Open select-to-speak settings</translation>
+<translation id="8902667442496790482">Open Select to Speak settings</translation>
 <translation id="8903921497873541725">Zoom in</translation>
 <translation id="8904976895050290827">Chrome Sync</translation>
 <translation id="8908902564709148335">Warning: You've enabled the -scripts-require-action flag on this computer, which limits the capabilities of this extension. However, other devices may not support this flag or have it enabled. On these devices, this extension can also:</translation>
