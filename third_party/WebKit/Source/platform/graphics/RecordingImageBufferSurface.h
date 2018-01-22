@@ -42,6 +42,7 @@ class PLATFORM_EXPORT RecordingImageBufferSurface : public ImageBufferSurface {
   void SetCanvasResourceHost(CanvasResourceHost* host) {
     resource_host_ = host;
   }
+  CanvasResourceHost* GetCanvasResourceHost() { return resource_host_; }
 
   void DidDraw(const FloatRect&) override;
   bool IsValid() const override { return true; }

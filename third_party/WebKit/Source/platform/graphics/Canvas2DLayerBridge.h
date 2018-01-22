@@ -114,6 +114,7 @@ class PLATFORM_EXPORT Canvas2DLayerBridge : public cc::TextureLayerClient,
   void SetCanvasResourceHost(CanvasResourceHost* host) {
     resource_host_ = host;
   }
+  CanvasResourceHost* GetCanvasResourceHost() { return resource_host_; }
 
   void BeginDestruction();
   void Hibernate();

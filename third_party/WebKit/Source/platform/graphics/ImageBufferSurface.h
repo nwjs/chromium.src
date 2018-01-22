@@ -91,6 +91,7 @@ class PLATFORM_EXPORT ImageBufferSurface {
                            int x,
                            int y) = 0;
   virtual void SetCanvasResourceHost(CanvasResourceHost*) {}
+  virtual CanvasResourceHost* GetCanvasResourceHost() { return nullptr; }
 
   // May return nullptr if the surface is GPU-backed and the GPU context was
   // lost.
