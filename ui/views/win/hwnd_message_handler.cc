@@ -391,6 +391,16 @@ void HWNDMessageHandler::Init(HWND parent, const gfx::Rect& bounds) {
 
   // Create the window.
   WindowImpl::Init(parent, bounds);
+  if (content::g_support_transparency && is_translucent_ && !content::g_force_cpu_draw) {
+    //WS_CAPTION style is somehow applied, during window creation, needs to update the style
+	  set_window_style((DWORD)GetWindowLong(hwnd(), GWL_STYLE));
+    //copied from WindowImpl::Init, see "First nccalcszie" comment
+    if (window_style() & WS_CAPTION) {
+      SetWindowPos(hwnd(), NULL, 0, 0, 0, 0,
+        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE |
+        SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
+    }
+  }
 
   if (!called_enable_non_client_dpi_scaling_ &&
       delegate_->HasFrame() &&
@@ -898,6 +908,10 @@ void HWNDMessageHandler::SizeConstraintsChanged() {
     style |= WS_MINIMIZEBOX;
   } else {
     style &= ~WS_MINIMIZEBOX;
+  }
+  if (content::g_support_transparency && is_translucent_ && !content::g_force_cpu_draw) {
+    //WS_CAPTION needs to be removed on transparent window, or else the Title bar will be rendered
+    style &= ~WS_CAPTION;
   }
   SetWindowLong(hwnd(), GWL_STYLE, style);
 }
