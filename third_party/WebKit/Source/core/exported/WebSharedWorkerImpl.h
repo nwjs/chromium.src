@@ -83,6 +83,7 @@ class CORE_EXPORT WebSharedWorkerImpl final : public WebSharedWorker,
 
   // WebSharedWorker methods:
   void StartWorkerContext(
+                          bool, const base::FilePath&,
       const WebURL&,
       const WebString& name,
       const WebString& content_security_policy,
@@ -142,6 +143,8 @@ class CORE_EXPORT WebSharedWorkerImpl final : public WebSharedWorker,
   // Kept around only while main script loading is ongoing.
   RefPtr<WorkerScriptLoader> main_script_loader_;
 
+  bool nodejs_;
+  base::FilePath root_path_;
   WebURL url_;
   WebString name_;
   WebAddressSpace creation_address_space_;

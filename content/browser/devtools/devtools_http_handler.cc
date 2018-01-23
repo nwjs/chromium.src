@@ -57,10 +57,14 @@ namespace {
 const base::FilePath::CharType kDevToolsActivePortFileName[] =
     FILE_PATH_LITERAL("DevToolsActivePort");
 
+#if defined(NWJS_SDK)
 const char kDevToolsHandlerThreadName[] = "Chrome_DevToolsHandlerThread";
+#endif
 
 const char kPageUrlPrefix[] = "/devtools/page/";
+#if defined(NWJS_SDK)
 const char kBrowserUrlPrefix[] = "/devtools/browser";
+#endif
 
 const char kTargetIdField[] = "id";
 const char kTargetParentIdField[] = "parentId";
@@ -725,6 +729,7 @@ DevToolsHttpHandler::DevToolsHttpHandler(
     const base::FilePath& output_directory,
     const base::FilePath& debug_frontend_dir)
     : frontend_url_(frontend_url), delegate_(delegate), weak_factory_(this) {
+#if defined(NWJS_SDK)
   browser_guid_ = delegate_->IsBrowserTargetDiscoverable()
                       ? kBrowserUrlPrefix
                       : base::StringPrintf("%s/%s", kBrowserUrlPrefix,
@@ -746,6 +751,7 @@ DevToolsHttpHandler::DevToolsHttpHandler(
                        output_directory, debug_frontend_dir, browser_guid_,
                        bundles_resources));
   }
+#endif
 }
 
 void DevToolsHttpHandler::ServerStarted(

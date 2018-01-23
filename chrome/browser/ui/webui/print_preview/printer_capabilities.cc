@@ -86,6 +86,10 @@ std::string GetUserFriendlyName(const std::string& printer_name) {
 }
 #endif
 
+} // namespace
+} // namespace printing
+
+namespace chrome {
 void PrintersToValues(const printing::PrinterList& printer_list,
                       base::ListValue* printers) {
   for (const printing::PrinterBasicInfo& printer : printer_list) {
@@ -118,8 +122,9 @@ void PrintersToValues(const printing::PrinterList& printer_list,
   }
 }
 
-}  // namespace
+}  // namespace chrome
 
+namespace printing {
 std::pair<std::string, std::string> GetPrinterNameAndDescription(
     const PrinterBasicInfo& printer) {
 #if defined(OS_MACOSX) || defined(OS_CHROMEOS)
@@ -173,7 +178,7 @@ void ConvertPrinterListForCallback(
     const PrinterHandler::GetPrintersDoneCallback& done_callback,
     const printing::PrinterList& printer_list) {
   base::ListValue printers;
-  PrintersToValues(printer_list, &printers);
+  chrome::PrintersToValues(printer_list, &printers);
 
   VLOG(1) << "Enumerate printers finished, found " << printers.GetSize()
           << " printers";

@@ -236,10 +236,12 @@ void LocationBarView::Init() {
   save_credit_card_icon_view_->SetVisible(false);
   AddChildView(save_credit_card_icon_view_);
 
+#if 0
   translate_icon_view_ = new TranslateIconView(command_updater());
   translate_icon_view_->Init();
   translate_icon_view_->SetVisible(false);
   AddChildView(translate_icon_view_);
+#endif
 
   star_view_ = new StarView(command_updater(), browser_);
   star_view_->Init();
@@ -448,7 +450,7 @@ gfx::Size LocationBarView::CalculatePreferredSize() const {
   // Compute width of omnibox-trailing content.
   int trailing_width = edge_thickness;
   trailing_width += IncrementalMinimumWidth(star_view_) +
-                    IncrementalMinimumWidth(translate_icon_view_) +
+    //                IncrementalMinimumWidth(translate_icon_view_) +
                     IncrementalMinimumWidth(save_credit_card_icon_view_) +
                     IncrementalMinimumWidth(manage_passwords_icon_view_) +
                     IncrementalMinimumWidth(zoom_view_);
@@ -523,10 +525,12 @@ void LocationBarView::Layout() {
     trailing_decorations.AddDecoration(vertical_padding, location_height,
                                        star_view_);
   }
+#if 0
   if (translate_icon_view_->visible()) {
     trailing_decorations.AddDecoration(vertical_padding, location_height,
                                        translate_icon_view_);
   }
+#endif
   if (save_credit_card_icon_view_->visible()) {
     trailing_decorations.AddDecoration(vertical_padding, location_height,
                                        save_credit_card_icon_view_);
@@ -769,6 +773,7 @@ bool LocationBarView::RefreshSaveCreditCardIconView() {
 }
 
 void LocationBarView::RefreshTranslateIcon() {
+#if 0
   WebContents* web_contents = GetWebContents();
   if (!web_contents)
     return;
@@ -779,6 +784,7 @@ void LocationBarView::RefreshTranslateIcon() {
   translate_icon_view_->SetVisible(enabled);
   if (!enabled)
     TranslateBubbleView::CloseCurrentBubble();
+#endif
 }
 
 bool LocationBarView::RefreshManagePasswordsIconView() {

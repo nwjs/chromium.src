@@ -14,6 +14,8 @@ namespace cookie_config {
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
 namespace {
 
+bool g_should_encrypt = true;
+
 // Use the operating system's mechanisms to encrypt cookies before writing
 // them to persistent store.  Currently this only is done with desktop OS's
 // because ChromeOS and Android already protect the entire profile contents.
@@ -39,7 +41,7 @@ bool CookieOSCryptoDelegate::ShouldEncrypt() {
   // rewritten.
   return false;
 #else
-  return true;
+  return g_should_encrypt;
 #endif
 }
 
@@ -63,6 +65,11 @@ base::LazyInstance<CookieOSCryptoDelegate>::DestructorAtExit
 net::CookieCryptoDelegate* GetCookieCryptoDelegate() {
   return g_cookie_crypto_delegate.Pointer();
 }
+
+void SetEnableCookieCrypto(bool enable) {
+  g_should_encrypt = enable;
+}
+
 #else   // defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
 net::CookieCryptoDelegate* GetCookieCryptoDelegate() {
   return NULL;

@@ -29,7 +29,7 @@ using safe_browsing::ReferrerChain;
 namespace {
 
 // The number of user gestures to trace back for CWS pings.
-const int kExtensionReferrerUserGestureLimit = 2;
+//const int kExtensionReferrerUserGestureLimit = 2;
 }
 
 namespace extensions {
@@ -115,7 +115,7 @@ bool WebstoreInlineInstaller::IsRequestorPermitted(
 }
 
 bool WebstoreInlineInstaller::SafeBrowsingNavigationEventsEnabled() const {
-  return SafeBrowsingNavigationObserverManager::IsEnabledAndReady(profile());
+  return false; //SafeBrowsingNavigationObserverManager::IsEnabledAndReady(profile());
 }
 
 std::string WebstoreInlineInstaller::GetJsonPostData() {
@@ -131,6 +131,7 @@ std::string WebstoreInlineInstaller::GetJsonPostData() {
 
   auto redirect_chain = base::MakeUnique<base::ListValue>();
 
+#if 0
   if (SafeBrowsingNavigationEventsEnabled()) {
     // If we have it, use the new referrer checker.
     safe_browsing::SafeBrowsingService* safe_browsing_service =
@@ -169,7 +170,9 @@ std::string WebstoreInlineInstaller::GetJsonPostData() {
         }
       }
     }
-  } else {
+  } else
+#endif
+    {
     content::NavigationController& navigation_controller =
         web_contents()->GetController();
     content::NavigationEntry* navigation_entry =

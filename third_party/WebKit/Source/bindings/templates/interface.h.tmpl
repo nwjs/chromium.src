@@ -141,7 +141,7 @@ class {{v8_class}} {
 
   {% for feature in optional_features %}
 
-  static void install{{feature.name}}(v8::Isolate*, const DOMWrapperWorld&, v8::Local<v8::Object> instance, v8::Local<v8::Object> prototype, v8::Local<v8::Function> interface);
+  static void install{{feature.name}}(v8::Isolate*, const DOMWrapperWorld&, v8::Local<v8::Object> instance, v8::Local<v8::Object> prototype, v8::Local<v8::Function> interface0);
   static void install{{feature.name}}(ScriptState*, v8::Local<v8::Object> instance);
   {% if not feature.needs_instance %}
   static void install{{feature.name}}(ScriptState*);
@@ -261,7 +261,7 @@ class {{v8_class}} {
       const DOMWrapperWorld& world,
       v8::Local<v8::Object> instance,
       v8::Local<v8::Object> prototype,
-      v8::Local<v8::Function> interface);
+      v8::Local<v8::Function> interface0);
 
   {% if has_partial_interface %}
   static InstallRuntimeEnabledFeaturesFunction

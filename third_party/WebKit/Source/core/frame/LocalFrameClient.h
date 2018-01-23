@@ -107,6 +107,7 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
   virtual WebFrame* GetWebFrame() const { return nullptr; }
 
   virtual bool HasWebView() const = 0;  // mainly for assertions
+  virtual void willHandleNavigationPolicy(const ResourceRequest& request, NavigationPolicy* policy, WebString* manifest = NULL, bool new_win = true) {}
 
   virtual void DispatchWillSendRequest(ResourceRequest&) = 0;
   virtual void DispatchDidReceiveResponse(const ResourceResponse&) = 0;

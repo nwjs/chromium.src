@@ -153,6 +153,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // RenderFrameHost
   int GetRoutingID() override;
   ui::AXTreeIDRegistry::AXTreeID GetAXTreeID() override;
+  bool nodejs() override;
   SiteInstanceImpl* GetSiteInstance() override;
   RenderProcessHost* GetProcess() override;
   RenderWidgetHostView* GetView() override;
@@ -851,6 +852,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
                                        int main_frame_widget_route_id,
                                        int cloned_session_storage_namespace_id);
 
+  void SetNodeJS(bool node) override;
+
   // Registers Mojo interfaces that this frame host makes available.
   void RegisterMojoInterfaces();
 
@@ -1084,6 +1087,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // TODO(creis): Use this for main frames as well when RVH goes away.
   bool render_frame_created_;
 
+  bool nodejs_;
   // Whether we should buffer outgoing Navigate messages rather than sending
   // them. This will be true when a RenderFrameHost is created for a cross-site
   // request, until we hear back from the onbeforeunload handler of the old
