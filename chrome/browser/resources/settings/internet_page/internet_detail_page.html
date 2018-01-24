@@ -96,7 +96,7 @@
       <paper-button class="primary-button" on-tap="onConnectTap_"
           hidden$="[[!showConnect_(networkProperties, globalPolicy)]]"
           disabled="[[!enableConnect_(networkProperties, defaultNetwork,
-              globalPolicy)]]">
+              globalPolicy, networkPropertiesReceived_)]]">
         $i18n{networkButtonConnect}
       </paper-button>
       <paper-button class="primary-button" on-tap="onDisconnectTap_"
