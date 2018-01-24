@@ -181,6 +181,8 @@ class AutofillAgent : public content::RenderFrameObserver,
   // http://bugs.webkit.org/show_bug.cgi?id=16976
   void TextFieldDidChangeImpl(const blink::WebFormControlElement& element);
 
+  void DidChangeScrollOffsetImpl(const blink::WebFormControlElement& element);
+
   // Shows the autofill suggestions for |element|. This call is asynchronous
   // and may or may not lead to the showing of a suggestion popup (no popup is
   // shown if there are no available suggestions).
