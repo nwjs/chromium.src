@@ -614,11 +614,13 @@ public class ContentViewCoreImpl
         mAttachedToWindow = true;
         addDisplayAndroidObserverIfNeeded();
         setAccessibilityState(mAccessibilityManager.isEnabled());
-        if (mWebContents != null) updateTextSelectionUI(true);
+        if (mWebContents != null) {
+            updateTextSelectionUI(true);
+            getImeAdapter().onViewAttachedToWindow();
+        }
         GamepadList.onAttachedToWindow(mContext);
         mAccessibilityManager.addAccessibilityStateChangeListener(this);
         mSystemCaptioningBridge.addListener(this);
-        getImeAdapter().onViewAttachedToWindow();
         if (mWebContentsAccessibility != null) {
             mWebContentsAccessibility.onAttachedToWindow();
         }
