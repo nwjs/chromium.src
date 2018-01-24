@@ -147,9 +147,11 @@ class BrowserProcessImpl : public BrowserProcess,
 #endif
 
   net_log::ChromeNetLog* net_log() override;
+#if 0
   component_updater::ComponentUpdateService* component_updater() override;
   component_updater::SupervisedUserWhitelistInstaller*
   supervised_user_whitelist_installer() override;
+#endif
   MediaFileSystemRegistry* media_file_system_registry() override;
 #if BUILDFLAG(ENABLE_WEBRTC)
   WebRtcLogUploader* webrtc_log_uploader() override;

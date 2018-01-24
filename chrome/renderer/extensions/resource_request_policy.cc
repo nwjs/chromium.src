@@ -79,7 +79,10 @@ bool ResourceRequestPolicy::CanRequestResource(
   // resources:
 
   // Empty urls (needed for some edge cases when we have empty urls).
-  if (frame_url.is_empty())
+  // NWJS: about:blank here when load iframe in document-start-end
+  // case starting from cr53
+    bool is_empty_origin = frame_url.is_empty() || frame_url == GURL(url::kAboutBlankURL);
+  if (is_empty_origin)
     return true;
 
   // Extensions requesting their own resources (frame_url check is for images,

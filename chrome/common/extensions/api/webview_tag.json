@@ -905,6 +905,13 @@
         "parameters": []
       },
       {
+        "name": "getGuestId",
+        "type": "function",
+        "returns": { "type": "integer" },
+        "description": "",
+        "parameters": []
+      },
+      {
         "name": "getUserAgent",
         "type": "function",
         "returns": { "type": "string" },
@@ -1116,6 +1123,41 @@
             "name": "virtualUrl",
             "description": "The URL that will be displayed to the user (in the address bar).",
 	    "optional": true
+          }
+        ]
+      },
+      {
+	"name": "showDevTools",
+	"type": "function",
+	"description": "Open or close devtools for this webview.",
+	"parameters": [
+          {
+            "type": "boolean",
+            "name": "show",
+            "description" : "show or close."
+          },
+          {
+            "type": "object",
+            "name": "container",
+            "description" : "where to show the devtools, should be a webview",
+            "optional": true
+          }
+        ]
+      },
+      {
+	"name": "inspectElementAt",
+	"type": "function",
+	"description": "inpsect element in this webview in devtools opened previously.",
+	"parameters": [
+          {
+            "type": "integer",
+            "name": "x",
+            "description" : "coordinate x of the element."
+          },
+          {
+            "type": "integer",
+            "name": "y",
+            "description" : "coordinate y of the element"
           }
         ]
       },

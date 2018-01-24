@@ -33,6 +33,7 @@ class ModuleMap::Entry final : public GarbageCollectedFinalized<Entry>,
   ModuleScript* GetModuleScript() const;
 
  private:
+  friend class ModuleMap;
   explicit Entry(ModuleMap*);
 
   void DispatchFinishedNotificationAsync(SingleModuleClient*);
@@ -111,6 +112,14 @@ void ModuleMap::Trace(blink::Visitor* visitor) {
 void ModuleMap::TraceWrappers(const ScriptWrappableVisitor* visitor) const {
   for (const auto& it : map_)
     visitor->TraceWrappers(it.value);
+}
+
+void ModuleMap::AddToMap(const KURL& url, ModuleScript* script) {
+  MapImpl::AddResult result = map_.insert(url, nullptr);
+  TraceWrapperMember<Entry>& entry = result.stored_value->value;
+  entry = Entry::Create(this);
+  entry->module_script_ = script;
+  entry->is_fetching_ = false;
 }
 
 void ModuleMap::FetchSingleModuleScript(const ModuleScriptFetchRequest& request,

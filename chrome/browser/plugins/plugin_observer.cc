@@ -164,11 +164,11 @@ class PluginObserver::ComponentObserver
     plugin_renderer_interface_.set_connection_error_handler(
         base::Bind(&PluginObserver::RemoveComponentObserver,
                    base::Unretained(observer_), this));
-    g_browser_process->component_updater()->AddObserver(this);
+    //g_browser_process->component_updater()->AddObserver(this);
   }
 
   ~ComponentObserver() override {
-    g_browser_process->component_updater()->RemoveObserver(this);
+    //g_browser_process->component_updater()->RemoveObserver(this);
   }
 
   void OnEvent(Events event, const std::string& id) override {
@@ -285,12 +285,14 @@ void PluginObserver::BlockedOutdatedPlugin(
 void PluginObserver::BlockedComponentUpdatedPlugin(
     chrome::mojom::PluginRendererPtr plugin_renderer,
     const std::string& identifier) {
+#if 0
   auto component_observer = base::MakeUnique<ComponentObserver>(
       this, identifier, std::move(plugin_renderer));
   component_observers_[component_observer.get()] =
       std::move(component_observer);
   g_browser_process->component_updater()->GetOnDemandUpdater().OnDemandUpdate(
       identifier, component_updater::Callback());
+#endif
 }
 
 void PluginObserver::RemoveComponentObserver(

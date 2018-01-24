@@ -58,6 +58,10 @@ class CORE_EXPORT File final : public Blob {
   enum UserVisibility { kIsUserVisible, kIsNotUserVisible };
 
   // Constructor in File.idl
+   static File* Create(ExecutionContext*, const String& path, const String& name, ExceptionState&)
+   {
+     return CreateForUserProvidedFile(path, name);
+   }
   static File* Create(
       ExecutionContext*,
       const HeapVector<ArrayBufferOrArrayBufferViewOrBlobOrUSVString>&,
@@ -167,7 +171,7 @@ class CORE_EXPORT File final : public Blob {
     return path_;
   }
   const String& name() const { return name_; }
-
+  const String& path() const { return path_; }
   // Getter for the lastModified IDL attribute,
   // http://dev.w3.org/2006/webapi/FileAPI/#file-attrs
   long long lastModified() const;
