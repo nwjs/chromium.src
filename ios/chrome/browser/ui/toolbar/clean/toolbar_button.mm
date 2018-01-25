@@ -74,9 +74,8 @@
       self.visibilityMask & ToolbarComponentVisibilityIPhoneOnly) {
     newHiddenValue = NO;
   }
-  if (isCompactWidth &&
-      (self.visibilityMask &
-       ToolbarComponentVisibilityCompactWidthOnlyWhenEnabled)) {
+  if (newHiddenValue &&
+      self.visibilityMask & ToolbarComponentVisibilityOnlyWhenEnabled) {
     newHiddenValue = !self.enabled;
   }
 
