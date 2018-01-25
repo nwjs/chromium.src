@@ -678,6 +678,8 @@ class CaptureGroupNameSocketPool : public ParentPool {
     return last_group_name_;
   }
 
+  bool socket_requested() const { return socket_requested_; }
+
   int RequestSocket(const std::string& group_name,
                     const void* socket_params,
                     RequestPriority priority,
@@ -687,6 +689,7 @@ class CaptureGroupNameSocketPool : public ParentPool {
                     const CompletionCallback& callback,
                     const NetLogWithSource& net_log) override {
     last_group_name_ = group_name;
+    socket_requested_ = true;
     return ERR_IO_PENDING;
   }
   void CancelRequest(const std::string& group_name,
@@ -710,6 +713,7 @@ class CaptureGroupNameSocketPool : public ParentPool {
 
  private:
   std::string last_group_name_;
+  bool socket_requested_ = false;
 };
 
 typedef CaptureGroupNameSocketPool<TransportClientSocketPool>
@@ -9942,12 +9946,18 @@ TEST_F(HttpNetworkTransactionTest, GroupNameForDirectConnections) {
 
     EXPECT_EQ(ERR_IO_PENDING,
               GroupNameTransactionHelper(tests[i].url, session.get()));
-    if (tests[i].ssl)
+    if (tests[i].ssl) {
       EXPECT_EQ(tests[i].expected_group_name,
                 ssl_conn_pool->last_group_name_received());
-    else
+    } else {
       EXPECT_EQ(tests[i].expected_group_name,
                 transport_conn_pool->last_group_name_received());
+    }
+    // When SSL proxy is in use, socket must be requested from |ssl_conn_pool|.
+    EXPECT_EQ(tests[i].ssl, ssl_conn_pool->socket_requested());
+    // When SSL proxy is not in use, socket must be requested from
+    // |transport_conn_pool|.
+    EXPECT_EQ(!tests[i].ssl, transport_conn_pool->socket_requested());
   }
 }
 
