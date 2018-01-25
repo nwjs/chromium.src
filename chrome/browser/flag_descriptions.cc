@@ -2520,6 +2520,11 @@ const char kEnableChromevoxArcSupportName[] = "ChromeVox ARC support";
 const char kEnableChromevoxArcSupportDescription[] =
     "Enable ChromeVox screen reader features in ARC";
 
+const char kEnableDisplayZoomSettingName[] = "Enable display zoom settings";
+const char kEnableDisplayZoomSettingDescription[] =
+    "Allows the user to modify the display size or zoom via the chrome display "
+    "settings page.";
+
 const char kEnableEhvInputName[] =
     "Emoji, handwriting and voice input on opt-in IME menu";
 const char kEnableEhvInputDescription[] =
