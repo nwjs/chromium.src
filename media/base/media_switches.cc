@@ -270,7 +270,7 @@ const base::Feature kUseR16Texture{"use-r16-texture",
 // Enables the Unified Autoplay policy by overriding the platform's default
 // autoplay policy.
 const base::Feature kUnifiedAutoplay{"UnifiedAutoplay",
-                                     base::FEATURE_ENABLED_BY_DEFAULT};
+                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Use SurfaceLayer instead of VideoLayer.
 const base::Feature kUseSurfaceLayerForVideo{"UseSurfaceLayerForVideo",
@@ -306,7 +306,7 @@ const base::Feature kRecordMediaEngagementScores{
 // Enables the Media Engagement Index to override autoplay policies if an
 // origins engagement score is high enough.
 const base::Feature kMediaEngagementBypassAutoplayPolicies{
-    "MediaEngagementBypassAutoplayPolicies", base::FEATURE_ENABLED_BY_DEFAULT};
+    "MediaEngagementBypassAutoplayPolicies", base::FEATURE_DISABLED_BY_DEFAULT};
 
 #if defined(OS_ANDROID)
 // Lock the screen orientation when a video goes fullscreen.
@@ -376,12 +376,7 @@ const base::Feature kUseModernMediaControls{"UseModernMediaControls",
 
 // Allows Media Engagement to use preloaded data to decide whether an origin has
 // a high media engagement.
-#if defined(OS_ANDROID) || defined(OS_IOS)
 const base::Feature kPreloadMediaEngagementData{
     "PreloadMediaEngagementData", base::FEATURE_DISABLED_BY_DEFAULT};
-#else
-const base::Feature kPreloadMediaEngagementData{
-    "PreloadMediaEngagementData", base::FEATURE_ENABLED_BY_DEFAULT};
-#endif
 
 }  // namespace media
