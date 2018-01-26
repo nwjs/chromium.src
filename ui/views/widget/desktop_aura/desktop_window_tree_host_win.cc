@@ -762,6 +762,9 @@ void DesktopWindowTreeHostWin::HandleCaptureLost() {
 
 void DesktopWindowTreeHostWin::HandleClose() {
   GetWidget()->Close();
+  //bugfix where transparent window size is getting smaller during closing
+  if (content::g_support_transparency && message_handler_->is_translucent())
+    window_enlargement_ = gfx::Vector2d(0, 0);
 }
 
 bool DesktopWindowTreeHostWin::HandleCommand(int command) {
