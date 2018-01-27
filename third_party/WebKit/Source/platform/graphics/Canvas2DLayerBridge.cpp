@@ -481,8 +481,8 @@ bool Canvas2DLayerBridge::WritePixels(const SkImageInfo& orig_info,
     FlushRecording();
   }
 
-  GetOrCreateResourceProvider()->WritePixels(orig_info, pixels, row_bytes, x,
-                                             y);
+  GetOrCreateResourceProvider()->GetSkSurface()->getCanvas()->writePixels(
+      orig_info, pixels, row_bytes, x, y);
   DidDraw(FloatRect(x, y, orig_info.width(), orig_info.height()));
 
   return true;
