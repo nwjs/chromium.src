@@ -85,7 +85,7 @@ Debes activar Bluetooth y la Ubicación para poder utilizar la Web física.</tra
 <translation id="1671236975893690980">Descarga pendiente…</translation>
 <translation id="1674523662097951983">Estamos moviendo "Favoritos". La próxima vez, desliza la barra de direcciones hacia arriba.</translation>
 <translation id="169033420419426091"><ph name="FILE_NAME" /> no se pudo descargar porque falta la tarjeta SD.</translation>
-<translation id="1709438864123551175">Reducir datos</translation>
+<translation id="1709438864123551175">Ahorro de datos</translation>
 <translation id="1718835860248848330">Última hora</translation>
 <translation id="1729516292547892356">Para ver contenido de realidad virtual, actualiza los servicios de RV de Google</translation>
 <translation id="1742134235943978220">Traducido al <ph name="TARGET_LANGUAGE" /></translation>
@@ -98,6 +98,7 @@ Debes activar Bluetooth y la Ubicación para poder utilizar la Web física.</tra
 <translation id="1832521218263067499">Incidentes de seguridad</translation>
 <translation id="1853692000353488670">Nueva pestaña de incógnito</translation>
 <translation id="1880072593381090678">Páginas populares de Chrome</translation>
+<translation id="1887786770086287077">En este dispositivo, el acceso a la ubicación está desactivado. Actívalo en la <ph name="BEGIN_LINK" />Configuración de Android<ph name="END_LINK" />.</translation>
 <translation id="1891331835972267886"><ph name="APP_NAME" /> se abrirá en Chrome. Al continuar, aceptas las <ph name="BEGIN_LINK1" />Condiciones del servicio<ph name="END_LINK1" /> y el <ph name="BEGIN_LINK2" />Aviso de privacidad<ph name="END_LINK2" /> de Chrome.</translation>
 <translation id="189172778771606813">Cerrar panel lateral de navegación</translation>
 <translation id="1897409700584096124">El sitio web está transmitiendo</translation>
@@ -110,6 +111,7 @@ Debes activar Bluetooth y la Ubicación para poder utilizar la Web física.</tra
 <translation id="1946005195648379376">Controla la forma en que Google usa tu historial de navegación para personalizar Búsqueda y otros servicios de Google.</translation>
 <translation id="1952172573699511566">Los sitios web mostrarán texto en tu idioma preferido, cuando sea posible.</translation>
 <translation id="1966710179511230534">Actualiza los datos de acceso.</translation>
+<translation id="196723829409668860">Otras personas también vieron</translation>
 <translation id="1974060860693918893">Avanzada</translation>
 <translation id="1984937141057606926">Permitidas, salvo de terceros</translation>
 <translation id="1989112275319619282">Navegar</translation>
@@ -175,11 +177,12 @@ Debes activar Bluetooth y la Ubicación para poder utilizar la Web física.</tra
 <translation id="2501278716633472235">Ir atrás</translation>
 <translation id="2503472621226270518">Expandir el panel de navegación</translation>
 <translation id="2512222046227390255">Autocompletar formularios</translation>
-<translation id="2526148617758225454">La extensión Reducir datos está activada. Accede a Configuración para administrarla.</translation>
+<translation id="2526148617758225454">La extensión Ahorro de datos está activada. Accede a Configuración para administrarla.</translation>
 <translation id="2532336938189706096">Vista web</translation>
 <translation id="2536728043171574184">Visualizando una copia sin conexión de la página</translation>
 <translation id="2546283357679194313">Datos de sitios y cookies</translation>
 <translation id="2567385386134582609">IMAGEN</translation>
+<translation id="2570922361219980984">El acceso a la ubicación también está desactivado en este dispositivo. Actívalo en la <ph name="BEGIN_LINK" />Configuración de Android<ph name="END_LINK" />.</translation>
 <translation id="257931822824936280">Expandido; haz clic para contraer.</translation>
 <translation id="2581165646603367611">Esta acción borrará la caché, cookies y otros datos de sitios que Chrome no considera importantes.</translation>
 <translation id="2587052924345400782">Nueva versión disponible</translation>
@@ -187,7 +190,7 @@ Debes activar Bluetooth y la Ubicación para poder utilizar la Web física.</tra
 <translation id="2612676031748830579">Número de tarjeta</translation>
 <translation id="2621115761605608342">Permitir la ejecución de JavaScript para un sitio específico</translation>
 <translation id="2625189173221582860">Se copió la contraseña</translation>
-<translation id="2631006050119455616">Guardados</translation>
+<translation id="2631006050119455616">Ahorrados</translation>
 <translation id="2647434099613338025">Agregar idioma</translation>
 <translation id="2653659639078652383">Enviar</translation>
 <translation id="2677748264148917807">Abandonar</translation>
@@ -256,7 +259,7 @@ Debes activar Bluetooth y la Ubicación para poder utilizar la Web física.</tra
 <translation id="3328801116991980348">Información del sitio</translation>
 <translation id="3341058695485821946">Consulta cuántos datos redujiste</translation>
 <translation id="3350687908700087792">Cerrar todas las pestañas de incógnito</translation>
-<translation id="3365671512111106261">No está disponible cuando la función Reducir datos está activada</translation>
+<translation id="3365671512111106261">No está disponible cuando la función Ahorro de datos está activada</translation>
 <translation id="3367813778245106622">Volver a acceder para iniciar la sincronización</translation>
 <translation id="3384347053049321195">Compartir imagen</translation>
 <translation id="3386292677130313581">Preguntar antes de permitir que los sitios conozcan tu ubicación (recomendado)</translation>
@@ -286,14 +289,14 @@ Debes activar Bluetooth y la Ubicación para poder utilizar la Web física.</tra
 
 Para ajustar el término de búsqueda, mantén presionado el texto y selecciónalo. Para perfeccionar la búsqueda, desliza el panel hacia arriba y toca el cuadro de búsqueda.</translation>
 <translation id="3616113530831147358">Audio</translation>
-<translation id="3620176948598597475">Si se restablece Reducir datos, se borra su historial, incluida la lista de sitios visitados.</translation>
+<translation id="3620176948598597475">Si se restablece el Ahorro de datos, se borra su historial, incluida la lista de sitios visitados.</translation>
 <translation id="3632295766818638029">Quitar máscara de la contraseña</translation>
 <translation id="363596933471559332">Permite acceder automáticamente a los sitios web con las credenciales almacenadas Si la función está desactivada, siempre se solicitará verificación antes de acceder a un sitio web.</translation>
 <translation id="3649663272864015643">Se seleccionó la pestaña de la página principal</translation>
 <translation id="3661699943263275414">Los sitios web de terceros pueden guardar y leer datos de cookies.</translation>
 <translation id="3662546969139119822">Aquí no hay elementos en el historial</translation>
 <translation id="3672452749423051839">Sugerencias relacionadas con errores de navegación</translation>
-<translation id="3712575778697986964">¿Deseas restablecer Reducir datos?</translation>
+<translation id="3712575778697986964">¿Deseas restablecer Ahorro de datos?</translation>
 <translation id="3714981814255182093">Abrir la barra de búsqueda</translation>
 <translation id="3716182511346448902">Chrome pausó esta página porque usa demasiada memoria.</translation>
 <translation id="3734660163659757482">Desliza hacia arriba para ver tus favoritos y más contenido</translation>
@@ -406,10 +409,10 @@ Es posible que tu cuenta de Google tenga otros formularios de historial de naveg
 <translation id="4738836084190194332">Última sincronización: <ph name="WHEN" /></translation>
 <translation id="4749960740855309258">Abrir una pestaña nueva</translation>
 <translation id="4759238208242260848">Descargas</translation>
-<translation id="4766369052440583386">Reducir datos está activada</translation>
+<translation id="4766369052440583386">La extensión Ahorro de datos está activada</translation>
 <translation id="4797039098279997504">Toca para volver a <ph name="URL_OF_THE_CURRENT_TAB" /></translation>
 <translation id="4807098396393229769">Nombre en la tarjeta</translation>
-<translation id="4807963036345170158">Reducir datos está desactivada</translation>
+<translation id="4807963036345170158">La extensión Ahorro de datos está desactivada</translation>
 <translation id="4811736444948656478">Se abrió el panel de navegación a media altura</translation>
 <translation id="4816465935029283692">Tipos de datos</translation>
 <translation id="482201002591920174">Almacenamiento principal</translation>
@@ -498,6 +501,7 @@ Es posible que tu cuenta de Google tenga otros formularios de historial de naveg
 <translation id="5534640966246046842">Se copió el sitio</translation>
 <translation id="5537099431952529648">Tú y tus padres pueden administrar Sincronización de Chrome y la personalización en <ph name="BEGIN_LINK1" />Configuración<ph name="END_LINK1" /></translation>
 <translation id="5556459405103347317">Cargar de nuevo</translation>
+<translation id="5561549206367097665">Esperando red…</translation>
 <translation id="557283862590186398">Chrome necesita permiso para acceder a tu micrófono para este sitio.</translation>
 <translation id="55737423895878184">La ubicación y las notificaciones están habilitadas</translation>
 <translation id="5578795271662203820">Buscar esta imagen en <ph name="SEARCH_ENGINE" /></translation>
@@ -542,6 +546,7 @@ Sin embargo, no vas a pasar completamente desapercibido. El modo de navegación 
 <translation id="5854790677617711513">Hace más de 30 días</translation>
 <translation id="5858741533101922242">Chrome no puede activar el adaptador Bluetooth</translation>
 <translation id="5860033963881614850">Desactivado</translation>
+<translation id="5864419784173784555">Esperando que finalice otra descarga…</translation>
 <translation id="5869522115854928033">Contraseñas almacenadas</translation>
 <translation id="5878455346526065919">Bloquear anuncios de sitios que tienden a mostrar anuncios intrusivos</translation>
 <translation id="5902828464777634901">Se eliminarán todos los datos almacenados en este sitio web, incluidas las cookies.</translation>
@@ -573,11 +578,12 @@ Sin embargo, no vas a pasar completamente desapercibido. El modo de navegación 
 <translation id="6159335304067198720"><ph name="PERCENT" /> de ahorro de datos</translation>
 <translation id="6165508094623778733">Más información</translation>
 <translation id="6177111841848151710">Se bloqueó para el motor de búsqueda actual</translation>
-<translation id="6177390657002841081">Activar la extensión Reducir datos</translation>
+<translation id="6177390657002841081">Activar la extensión Ahorro de datos</translation>
 <translation id="6181444274883918285">Agregar excepción del sitio</translation>
 <translation id="618555311922999635">Se abrió el panel de navegación por completo</translation>
 <translation id="6192792657125177640">Excepciones</translation>
 <translation id="6210748933810148297">¿No eres <ph name="EMAIL" />?</translation>
+<translation id="6216432067784365534">Opciones de <ph name="NAME_OF_LIST_ITEM" /></translation>
 <translation id="6221633008163990886">Desbloquea la pantalla para exportar tus contraseñas</translation>
 <translation id="6232535412751077445">Si se habilita la opción de "No realizar seguimiento", se incluirá una solicitud con tu tráfico de navegación. Los efectos dependerán de si hay algún sitio web que responda a la solicitud y de cómo se interprete.
 
@@ -661,6 +667,7 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mediante anuncio
 <translation id="6896758677409633944">Copiar</translation>
 <translation id="6905163627763043954">Probar la contraseña</translation>
 <translation id="6910211073230771657">Eliminado</translation>
+<translation id="6914783257214138813">Las personas que tengan acceso al archivo exportado podrán ver tus contraseñas.</translation>
 <translation id="6945221475159498467">Seleccionar</translation>
 <translation id="6959661084585705671">Almacenamiento secundario</translation>
 <translation id="6963766334940102469">Borrar favoritos</translation>
@@ -678,6 +685,7 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mediante anuncio
 <translation id="7022756207310403729">Abrir en el navegador</translation>
 <translation id="7029809446516969842">Contraseñas</translation>
 <translation id="7031882061095297553">Sincronizar con</translation>
+<translation id="7034608350006174882">Tarjetas y direcciones que usan Google Pay</translation>
 <translation id="7053983685419859001">Bloquear</translation>
 <translation id="7062545763355031412">Aceptar y cambiar de cuenta</translation>
 <translation id="7063006564040364415">No se pudo establecer conexión con el servidor de sincronización.</translation>
@@ -874,6 +882,7 @@ Conéctate a Internet y reproduce el contenido descargado para obtener licencias
 <translation id="8993760627012879038">Abrir ventana nueva en modo de navegación incógnito</translation>
 <translation id="8998729206196772491">Estás accediendo con una cuenta administrada por <ph name="MANAGED_DOMAIN" /> y dándole permiso a su administrador para que controle tus datos de Chrome. Tus datos se vincularán de forma permanente a esta cuenta. Si sales de Chrome, tus datos se borrarán en este dispositivo, pero quedarán guardados en tu cuenta de Google.</translation>
 <translation id="9019902583201351841">Administrado por tus padres</translation>
+<translation id="9040142327097499898">Las notificaciones están habilitadas. La ubicación está desactivada en este dispositivo.</translation>
 <translation id="9050666287014529139">Frase de contraseña</translation>
 <translation id="9060538597317784206">Ver aplicación <ph name="APP_NAME" /> en Play Store (calificación: <ph name="APP_RATING" />)</translation>
 <translation id="9063523880881406963">Desactivar la opción para solicitar versión de escritorio</translation>
@@ -883,6 +892,7 @@ Conéctate a Internet y reproduce el contenido descargado para obtener licencias
 <translation id="9086455579313502267">No se puede acceder a la red</translation>
 <translation id="9099018167121903954">Contenido descargado: <ph name="KILOBYTES" /> kilobytes</translation>
 <translation id="9099292894781394535">Ahorro de datos</translation>
+<translation id="9100505651305367705">Se ofrece mostrar artículos en una vista simplificada, cuando es compatible</translation>
 <translation id="9100610230175265781">Se necesita una frase de contraseña.</translation>
 <translation id="9133515669113036225">Restablecer credenciales de dispositivo</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>

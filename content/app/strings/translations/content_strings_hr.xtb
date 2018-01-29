@@ -25,6 +25,7 @@
 <translation id="1921819250265091946">dd</translation>
 <translation id="1930711995431081526">status</translation>
 <translation id="1938124657309484470">Vrijednost mora biti <ph name="MAXIMUM_DATE_OR_TIME" /> ili prije toga.</translation>
+<translation id="1993104285338243655">Prebačeno na zrcaljenje</translation>
 <translation id="2060505056492490888">Znak "<ph name="DOT" />" upotrebljava se na pogrešnom položaju u domeni "<ph name="INVALIDDOMAIN" />".</translation>
 <translation id="2148716181193084225">Danas</translation>
 <translation id="2226276347425096477">Skratite taj tekst na <ph name="MAX_CHARACTERS" /> znakova ili manje (trenutačno upotrebljavate <ph name="CURRENT_LENGTH" /> znakova).</translation>
@@ -128,6 +129,7 @@
 <translation id="6643016212128521049">Izbriši</translation>
 <translation id="668171684555832681">Ostalo...</translation>
 <translation id="6692633176391053278">povećanje/smanjenje strelicama gore/dolje (stepper)</translation>
+<translation id="6709570249143506788">Loša kvaliteta reprodukcije</translation>
 <translation id="6755330956360078551">opis</translation>
 <translation id="6790428901817661496">Reproduciraj</translation>
 <translation id="6820355525329141109">Nije bilo moguće učitati dodatak.</translation>
@@ -176,6 +178,7 @@
 <translation id="8785498733064193001">početak reprodukcije</translation>
 <translation id="8845239796550121995">Emitira se na televizoru</translation>
 <translation id="8851136666856101339">glav</translation>
+<translation id="8875657656876809964">Pogreška pri reprodukciji videozapisa</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> KB</translation>
 <translation id="8987927404178983737">Mjesec</translation>
 <translation id="901493112792887934">trenutačno vrijeme u sekundama</translation>

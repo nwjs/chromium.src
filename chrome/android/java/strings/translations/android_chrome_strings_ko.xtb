@@ -98,6 +98,7 @@
 <translation id="1832521218263067499">보안 사고</translation>
 <translation id="1853692000353488670">새 시크릿 탭</translation>
 <translation id="1880072593381090678">Chrome 인기 페이지</translation>
+<translation id="1887786770086287077">이 기기의 위치 액세스가 사용 중지되었습니다. <ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서 사용 설정하세요.</translation>
 <translation id="1891331835972267886"><ph name="APP_NAME" />이(가) Chrome에서 열립니다. 계속하면 Chrome의 <ph name="BEGIN_LINK1" />서비스 약관<ph name="END_LINK1" /> 및 <ph name="BEGIN_LINK2" />개인정보처리방침<ph name="END_LINK2" />에 동의하는 것으로 간주됩니다.</translation>
 <translation id="189172778771606813">탐색 창 닫기</translation>
 <translation id="1897409700584096124">웹사이트에서 브로드캐스트 중입니다.</translation>
@@ -110,6 +111,7 @@
 <translation id="1946005195648379376">Google이 검색 및 다른 Google 서비스를 맞춤설정하기 위하여 내 인터넷 사용 기록을 사용하는 방법을 제어하세요.</translation>
 <translation id="1952172573699511566">가능한 경우 웹사이트에서 텍스트를 선호하는 언어로 표시합니다.</translation>
 <translation id="1966710179511230534">로그인 세부정보를 업데이트하세요.</translation>
+<translation id="196723829409668860">사용자가 본 다른 항목</translation>
 <translation id="1974060860693918893">고급</translation>
 <translation id="1984937141057606926">타사 쿠키만 제외하고 허용</translation>
 <translation id="1989112275319619282">찾아보기</translation>
@@ -180,6 +182,7 @@
 <translation id="2536728043171574184">이 페이지의 오프라인 사본 보는 중</translation>
 <translation id="2546283357679194313">쿠키 및 사이트 데이터</translation>
 <translation id="2567385386134582609">이미지</translation>
+<translation id="2570922361219980984">이 기기의 위치 정보 액세스도 사용 중지되었습니다. <ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서 사용 설정하세요.</translation>
 <translation id="257931822824936280">펼쳐짐 - 접으려면 클릭</translation>
 <translation id="2581165646603367611">이를 통해 쿠키, 캐시 및 Chrome에서 중요하다고 간주하지 않는 사이트의 기타 데이터가 삭제됩니다.</translation>
 <translation id="2587052924345400782">최신 버전 사용 가능</translation>
@@ -498,6 +501,7 @@
 <translation id="5534640966246046842">사이트 복사됨</translation>
 <translation id="5537099431952529648">나와 부모님이 <ph name="BEGIN_LINK1" />설정<ph name="END_LINK1" />에서 Chrome 동기화 및 맞춤설정을 관리할 수 있습니다.</translation>
 <translation id="5556459405103347317">새로고침</translation>
+<translation id="5561549206367097665">네트워크 대기 중…</translation>
 <translation id="557283862590186398">Chrome이 이 사이트에서 마이크에 액세스하려면 권한이 필요합니다.</translation>
 <translation id="55737423895878184">위치 및 알림이 허용되었습니다</translation>
 <translation id="5578795271662203820"><ph name="SEARCH_ENGINE" />에서 이 이미지 검색</translation>
@@ -542,6 +546,7 @@
 <translation id="5854790677617711513">30일 이상 전</translation>
 <translation id="5858741533101922242">Chrome에서 블루투스 어댑터를 사용 설정할 수 없습니다.</translation>
 <translation id="5860033963881614850">사용 안함</translation>
+<translation id="5864419784173784555">다른 다운로드 대기 중…</translation>
 <translation id="5869522115854928033">저장된 비밀번호</translation>
 <translation id="5878455346526065919">방해가 되는 광고를 표시하는 경향이 있는 사이트의 광고 차단</translation>
 <translation id="5902828464777634901">쿠키를 포함하여 이 웹사이트에 의해 저장된 모든 로컬 데이터가 삭제됩니다.</translation>
@@ -578,6 +583,7 @@
 <translation id="618555311922999635">전체 높이로 탐색 패널이 열림</translation>
 <translation id="6192792657125177640">예외</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" />이(가) 아닌가요?</translation>
+<translation id="6216432067784365534"><ph name="NAME_OF_LIST_ITEM" /> 옵션</translation>
 <translation id="6221633008163990886">비밀번호를 내보내려면 잠금 해제하세요</translation>
 <translation id="6232535412751077445">‘추적 안함’을 사용하도록 설정하면 요청이 사용자의 인터넷 사용 트래픽에 포함됩니다. 웹사이트가 요청에 응답하는지 여부와 요청이 해석되는 방법에 따라 결과가 결정됩니다.
 
@@ -661,6 +667,7 @@
 <translation id="6896758677409633944">복사</translation>
 <translation id="6905163627763043954">사용해 보기</translation>
 <translation id="6910211073230771657">삭제됨</translation>
+<translation id="6914783257214138813">내보낸 파일을 볼 수 있는 모든 사용자에게 비밀번호가 표시됩니다.</translation>
 <translation id="6945221475159498467">선택</translation>
 <translation id="6959661084585705671">보조 저장소</translation>
 <translation id="6963766334940102469">북마크 삭제</translation>
@@ -678,6 +685,7 @@
 <translation id="7022756207310403729">브라우저에서 열기</translation>
 <translation id="7029809446516969842">비밀번호</translation>
 <translation id="7031882061095297553">동기화 가능 계정</translation>
+<translation id="7034608350006174882">Google Pay를 사용하는 카드 및 주소</translation>
 <translation id="7053983685419859001">차단</translation>
 <translation id="7062545763355031412">동의 및 계정 전환</translation>
 <translation id="7063006564040364415">동기화 서버에 연결할 수 없습니다.</translation>
@@ -874,6 +882,7 @@
 <translation id="8993760627012879038">시크릿 모드로 새 탭 열기</translation>
 <translation id="8998729206196772491"><ph name="MANAGED_DOMAIN" />에서 관리하는 계정으로 로그인합니다. 계정 관리자가 내 Chrome 데이터를 관리하게 되며 데이터는 이 계정에 영구적으로 연결됩니다. Chrome에서 로그아웃하면 데이터가 이 기기에서 삭제되지만 Google 계정에는 그대로 유지됩니다.</translation>
 <translation id="9019902583201351841">부모님이 관리합니다.</translation>
+<translation id="9040142327097499898">알림이 허용되었습니다. 이 기기에서 위치가 사용 중지되었습니다.</translation>
 <translation id="9050666287014529139">암호</translation>
 <translation id="9060538597317784206">Play 스토어에서 <ph name="APP_NAME" /> 앱을 봅니다.  등급은 <ph name="APP_RATING" />입니다.</translation>
 <translation id="9063523880881406963">데스크톱 버전으로 보기 사용 중지</translation>
@@ -883,6 +892,7 @@
 <translation id="9086455579313502267">네트워크에 액세스할 수 없습니다.</translation>
 <translation id="9099018167121903954"><ph name="KILOBYTES" />KB가 다운로드됨</translation>
 <translation id="9099292894781394535">데이터 절약</translation>
+<translation id="9100505651305367705">지원되는 경우 간단히 보기로 기사를 표시하는 기능 제공</translation>
 <translation id="9100610230175265781">암호를 입력해야 합니다.</translation>
 <translation id="9133515669113036225">기기 사용자 인증 정보 재설정</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" />(<ph name="ITEM_ID" />)</translation>

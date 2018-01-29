@@ -34,6 +34,7 @@
 <translation id="145015347812617860"><ph name="COUNT" /> éléments</translation>
 <translation id="1491277525950327607">Appuyer deux fois pour activer/désactiver le paramètre</translation>
 <translation id="152234381334907219">Jamais enregistrés</translation>
+<translation id="1532451416480227577">Afficher adresses/cartes de crédit de Google Pay</translation>
 <translation id="1540800554400757039">Adresse 1</translation>
 <translation id="1545749641540134597">Scanner le code QR</translation>
 <translation id="1580783302095112590">E-mail envoyé.</translation>
@@ -89,13 +90,14 @@ Par exemple, certains sites Web peuvent répondre à cette demande en affichant 
 <translation id="2684815431982545828">Nouvel onglet</translation>
 <translation id="2690858294534178585">Caméra en cours d'utilisation</translation>
 <translation id="2691653761409724435">Indisponible hors connexion</translation>
-<translation id="2702801445560668637">Liste lecture</translation>
+<translation id="2702801445560668637">Liste de lecture</translation>
 <translation id="2704606927547763573">Copié</translation>
 <translation id="2709516037105925701">Saisie automatique</translation>
 <translation id="2712127207578915686">Impossible ouvrir fichier</translation>
 <translation id="2718352093833049315">Wi-Fi uniquement</translation>
 <translation id="2747003861858887689">Champ précédent</translation>
 <translation id="2780046210906776326">Aucun compte messag.</translation>
+<translation id="2781692009645368755">Google Pay</translation>
 <translation id="2800683595868705743">Quitter le sélecteur d'onglets</translation>
 <translation id="283291358677939992">Rechercher dans la page…</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>

@@ -459,6 +459,9 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 <translation id="2466131534462628618">Captive portal-godkendelse ignorerer proxy</translation>
 <translation id="2482676533225429905">Indbyggede beskedhosts</translation>
 <translation id="2483146640187052324">Forudse netværkshandlinger på enhver netværksforbindelse</translation>
+<translation id="2485721741875148980">Hvis denne politik er angivet som sand, skal brugeren logge ind i <ph name="PRODUCT_NAME" /> med sin profil, inden browseren anvendes. Standardværdien for BrowserGuestModeEnabled angives dermed til falsk. Bemærk, at eksisterende profiler, der ikke er logget ind, vil blive låst og ikke længere vil være tilgængelige efter aktivering af denne politik. Du kan få flere oplysninger i artiklen i Hjælp.
+
+      Hvis denne politik er angivet som falsk eller ikke er konfigureret, kan brugeren benytte browseren uden at logge ind i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2486371469462493753">Deaktiverer håndhævelse af krav vedrørende Certifikatsgennemsigtighed for de angivne webadresser.
 
       Denne politik tillader, at certifikater til hostnames i de angivne webadresser ikke fremvises via Certifikatsgennemsigtighed. Dette tillader, at certifikater, der ellers ville være usikre, fordi de ikke blev fremvist korrekt offentligt, fortsat kan bruges. Det gør det dog sværere at registrere certifikater, der er udstedt ved en fejl, for disse hosts.
@@ -1942,6 +1945,7 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
 <translation id="7625444193696794922">Angiver den udgivelseskanal, som denne enhed skal være låst til.</translation>
 <translation id="7632724434767231364">Navn på GSSAPI-samling</translation>
 <translation id="7635471475589566552">Konfigurerer applikationens landestandard i <ph name="PRODUCT_NAME" /> og forhindrer brugerne i at ændre landestandarden. Hvis du aktiverer denne indstilling, anvender <ph name="PRODUCT_NAME" /> den angivne landestandard. Hvis den konfigurerede landestandard ikke understøttes, bruges "en-US" i stedet. Hvis denne indstilling er deaktiveret eller ikke konfigureret, bruger <ph name="PRODUCT_NAME" /> enten den brugerdefinerede landestandard (hvis denne er konfigureret), systemets landestandard eller reservelandestandarden "en-US".</translation>
+<translation id="7643883929273267746">Begræns konti, der er synlige i <ph name="PRODUCT_NAME" /></translation>
 <translation id="7651739109954974365">Bestemmer, om dataroaming skal aktiveres for enheden. Hvis den er indstillet til sand, tillades dataroaming. Hvis den ikke er konfigureret eller er angivet til falsk, vil dataroaming ikke være tilgængelig.</translation>
 <translation id="7683777542468165012">Dynamisk opdatering af politikker</translation>
 <translation id="7694807474048279351">Planlæg en automatisk genstart efter opdatering af <ph name="PRODUCT_OS_NAME" />
@@ -2189,6 +2193,13 @@ Den anbefalede fremgangsmåde til konfiguration af politikker i Windows er via G
 <translation id="8424255554404582727">Angiv en standardrotation for visningen, som genanvendes ved hver genstart</translation>
 <translation id="8426231401662877819">Roter skærmen 90 grader med uret</translation>
 <translation id="8451988835943702790">Brug siden Ny fane som startside</translation>
+<translation id="8460677879226618710">Indeholder en liste med mønstre, som bruges til at kontrollere synligheden af konti i <ph name="PRODUCT_NAME" />.
+
+      En konto på denne enhed vil være synlig i <ph name="PRODUCT_NAME" />, hvis navnet matcher et mønster fra listen. Ellers vil kontoen blive sorteret fra og skjult.
+
+      Jokertegnet '*' kan bruges til at matche ingen eller flere vilkårlige tegn. "Escape"-tegnet er '\', så for at matche reelle '*'- eller  '\'-tegn, kan du skrive '\' foran dem.
+
+      Hvis denne politik ikke angives, vil alle Google-konti på enheden være synlige i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="8465065632133292531">Parametre for direkte webadresse, som bruger POST</translation>
 <translation id="847472800012384958">Tillad ikke, at websites viser pop op-vinduer</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>

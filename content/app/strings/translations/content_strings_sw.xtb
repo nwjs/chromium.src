@@ -25,6 +25,7 @@
 <translation id="1921819250265091946">dd</translation>
 <translation id="1930711995431081526">hali</translation>
 <translation id="1938124657309484470">Thamani lazima iwe <ph name="MAXIMUM_DATE_OR_TIME" /> au mapema.</translation>
+<translation id="1993104285338243655">Inatumia hali ya kuakisi</translation>
 <translation id="2060505056492490888">' <ph name="DOT" /> 'imetumika kwenye nafasi isiyostahili katika '<ph name="INVALIDDOMAIN" />'.</translation>
 <translation id="2148716181193084225">Leo</translation>
 <translation id="2226276347425096477">Tafadhali fupisha maandishi haya hadi vibambo <ph name="MAX_CHARACTERS" /> au chini (kwa sasa unatumia vibambo <ph name="CURRENT_LENGTH" /> ).</translation>
@@ -128,6 +129,7 @@
 <translation id="6643016212128521049">Futa</translation>
 <translation id="668171684555832681">Mengine...</translation>
 <translation id="6692633176391053278">stepper</translation>
+<translation id="6709570249143506788">Ubora wa chini wa kucheza video</translation>
 <translation id="6755330956360078551">kidirisha cha vidokezo</translation>
 <translation id="6790428901817661496">Cheza</translation>
 <translation id="6820355525329141109">Haikuweza kupakia programu-jalizi.</translation>
@@ -176,6 +178,7 @@
 <translation id="8785498733064193001">anza kucheza</translation>
 <translation id="8845239796550121995">Sasa inatuma kwenye TV yako</translation>
 <translation id="8851136666856101339">kuu</translation>
+<translation id="8875657656876809964">Hitilafu ya kucheza video</translation>
 <translation id="8901569739625249689">KB <ph name="QUANTITY" /></translation>
 <translation id="8987927404178983737">Mwezi</translation>
 <translation id="901493112792887934">muda wa sasa kwa sekunde</translation>

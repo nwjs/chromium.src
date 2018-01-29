@@ -25,6 +25,7 @@
 <translation id="1921819250265091946">gg</translation>
 <translation id="1930711995431081526">stato</translation>
 <translation id="1938124657309484470">Il valore deve essere <ph name="MAXIMUM_DATE_OR_TIME" /> o precedente.</translation>
+<translation id="1993104285338243655">Sei passato a mirroring</translation>
 <translation id="2060505056492490888">Il segno "<ph name="DOT" />" è utilizzato in una posizione errata in "<ph name="INVALIDDOMAIN" />".</translation>
 <translation id="2148716181193084225">Oggi</translation>
 <translation id="2226276347425096477">Riduci questo testo a <ph name="MAX_CHARACTERS" /> caratteri o meno (attualmente stai utilizzando <ph name="CURRENT_LENGTH" /> caratteri).</translation>
@@ -128,6 +129,7 @@
 <translation id="6643016212128521049">Cancella</translation>
 <translation id="668171684555832681">Altro...</translation>
 <translation id="6692633176391053278">stepper</translation>
+<translation id="6709570249143506788">Scarsa qualità di riproduzione</translation>
 <translation id="6755330956360078551">descrizione comando</translation>
 <translation id="6790428901817661496">Play</translation>
 <translation id="6820355525329141109">Impossibile caricare il plug-in</translation>
@@ -176,6 +178,7 @@
 <translation id="8785498733064193001">inizia riproduzione</translation>
 <translation id="8845239796550121995">Ora in fase di trasmissione alla TV</translation>
 <translation id="8851136666856101339">main</translation>
+<translation id="8875657656876809964">Errore di riproduzione video</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> kB</translation>
 <translation id="8987927404178983737">Mese</translation>
 <translation id="901493112792887934">tempo attuale in secondi</translation>
