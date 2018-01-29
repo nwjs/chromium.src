@@ -600,7 +600,7 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
       base::MakeUnique<metrics::ScreenInfoMetricsProvider>());
 
   metrics_service_->RegisterMetricsProvider(CreateFileMetricsProvider(
-      ChromeMetricsServiceAccessor::IsMetricsAndCrashReportingEnabled()));
+      metrics_state_manager_->IsMetricsReportingEnabled()));
 
   metrics_service_->RegisterMetricsProvider(
       base::MakeUnique<metrics::DriveMetricsProvider>(
