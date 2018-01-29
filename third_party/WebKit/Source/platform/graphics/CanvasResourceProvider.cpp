@@ -8,7 +8,6 @@
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/common/capabilities.h"
 #include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
-#include "platform/graphics/AcceleratedStaticBitmapImage.h"
 #include "platform/graphics/CanvasResource.h"
 #include "platform/graphics/StaticBitmapImage.h"
 #include "platform/graphics/gpu/SharedGpuContext.h"
@@ -66,14 +65,6 @@ class CanvasResourceProvider_Texture : public CanvasResourceProvider {
             ->ContextProvider()
             ->GetCapabilities()
             .disable_2d_canvas_copy_on_write) {
-      // A readback operation may alter the texture parameters, which may affect
-      // the compositor's behavior. Therefore, we must trigger copy-on-write
-      // even though we are not technically writing to the texture, only to its
-      // parameters.
-      // If this issue with readback affecting state is ever fixed, then we'll
-      // have to do this instead of triggering a copy-on-write:
-      // static_cast<AcceleratedStaticBitmapImage*>(image.get())
-      //  ->RetainOriginalSkImageForCopyOnWrite();
       GetSkSurface()->notifyContentWillChange(
           SkSurface::kRetain_ContentChangeMode);
     }
@@ -339,8 +330,16 @@ scoped_refptr<StaticBitmapImage> CanvasResourceProvider::Snapshot() {
   scoped_refptr<StaticBitmapImage> image = StaticBitmapImage::Create(
       GetSkSurface()->makeImageSnapshot(), ContextProviderWrapper());
   if (IsAccelerated()) {
-    static_cast<AcceleratedStaticBitmapImage*>(image.get())
-        ->RetainOriginalSkImageForCopyOnWrite();
+    // A readback operation may alter the texture parameters, which may affect
+    // the compositor's behavior. Therefore, we must trigger copy-on-write
+    // even though we are not technically writing to the texture, only to its
+    // parameters.
+    // If this issue with readback affecting state is ever fixed, then we'll
+    // have to do this instead of triggering a copy-on-write:
+    // static_cast<AcceleratedStaticBitmapImage*>(image.get())
+    //   ->RetainOriginalSkImageForCopyOnWrite();
+    GetSkSurface()->notifyContentWillChange(
+        SkSurface::kRetain_ContentChangeMode);
   }
   return image;
 }
