@@ -69,8 +69,7 @@ class TestNetworkConnectionHandler : public NetworkConnectionHandler {
   void ConnectToNetwork(const std::string& service_path,
                         const base::Closure& success_callback,
                         const network_handler::ErrorCallback& error_callback,
-                        bool check_error_state,
-                        ConnectCallbackMode mode) override {}
+                        bool check_error_state) override {}
 
   void DisconnectNetwork(
       const std::string& service_path,

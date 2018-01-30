@@ -29,8 +29,7 @@ class CHROMEOS_EXPORT NetworkConnectionHandlerImpl
   void ConnectToNetwork(const std::string& service_path,
                         const base::Closure& success_callback,
                         const network_handler::ErrorCallback& error_callback,
-                        bool check_error_state,
-                        ConnectCallbackMode mode) override;
+                        bool check_error_state) override;
   void DisconnectNetwork(
       const std::string& service_path,
       const base::Closure& success_callback,
@@ -57,8 +56,7 @@ class CHROMEOS_EXPORT NetworkConnectionHandlerImpl
 
  private:
   struct ConnectRequest {
-    ConnectRequest(ConnectCallbackMode mode,
-                   const std::string& service_path,
+    ConnectRequest(const std::string& service_path,
                    const std::string& profile_path,
                    const base::Closure& success,
                    const network_handler::ErrorCallback& error);
@@ -71,7 +69,6 @@ class CHROMEOS_EXPORT NetworkConnectionHandlerImpl
       CONNECT_CONNECTING = 2
     };
 
-    ConnectCallbackMode mode;
     std::string service_path;
     std::string profile_path;
     ConnectState connect_state;
