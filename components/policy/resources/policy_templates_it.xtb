@@ -2158,9 +2158,9 @@ Se questa norma non viene impostata, le pagine saranno sottoposte a scansione pe
 
       L'account sul dispositivo sarà visibile in <ph name="PRODUCT_NAME" /> se il nome coincide con ciascun pattern dell'elenco. In caso contrario l'account sarà filtrato e nascosto.
 
-      Il carattere jolly '*' rappresenta zero o più caratteri arbitrari. Il carattere di escape è '\', quindi per verificare la presenza dei caratteri '*' or '\', puoi inserire '\' davanti a essi.
+      Il carattere jolly "*" rappresenta zero o più caratteri arbitrari. Il carattere di escape è "\", quindi per trovare una corrispondenza con il significato letterale dei caratteri "*" o "\", puoi farli precedere da "\".
 
-      Se questa norma non viene impostata, tutti gli account Google sul dispositivo saranno visibile in <ph name="PRODUCT_NAME" />.</translation>
+      Se questa norma non viene impostata, tutti gli account Google sul dispositivo saranno visibili in <ph name="PRODUCT_NAME" />.</translation>
 <translation id="8465065632133292531">Parametri per l'URL istantaneo che utilizza POST</translation>
 <translation id="847472800012384958">Non consentire la visualizzazione di popup nei siti</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>

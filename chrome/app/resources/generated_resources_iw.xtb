@@ -281,7 +281,7 @@
 <translation id="1410616244180625362">המשך לאפשר ל-<ph name="HOST" /> לגשת למצלמה שלך</translation>
 <translation id="1411668397053040814">‏צריך להתקין או לעדכן את מקלדת Daydream כדי להשתמש ב-Chrome במציאות מדומה</translation>
 <translation id="1414648216875402825">אתה מעדכן לגרסה לא יציבה של <ph name="PRODUCT_NAME" /> המכילה תכונות שנמצאות בתהליך. ייתכנו קריסות מחשב ובאגים לא צפויים. המשך בזהירות.</translation>
-<translation id="1415708812149920388">גישת הקריאה אל לוח העריכה נדחתה</translation>
+<translation id="1415708812149920388">גישת הקריאה אל הלוח נדחתה</translation>
 <translation id="1415990189994829608"><ph name="EXTENSION_NAME" /> (מזהה תוסף "<ph name="EXTENSION_ID" />") אסור בסוג ההפעלה הזה.</translation>
 <translation id="1416836038590872660">EAP-MD5</translation>
 <translation id="1420684932347524586">‏אוי לא! אירע כשל ביצירת מפתח RSA פרטי אקראי.</translation>
@@ -697,7 +697,7 @@
 <translation id="2085470240340828803">כבר קיים קובץ בשם "<ph name="FILENAME" />". מה ברצונך לעשות?</translation>
 <translation id="2087822576218954668">הדפס: <ph name="PRINT_NAME" /></translation>
 <translation id="2089566709556890888">‏גלישה בטוחה עם Google Chrome</translation>
-<translation id="2089795179672254991">יש לשאול כשאתר רוצה גישה אל טקסט ותמונות שהועתקו אל לוח העריכה (מומלץ)</translation>
+<translation id="2089795179672254991">יש לשאול כשאתר רוצה גישה אל טקסט ותמונות שהועתקו אל הלוח (מומלץ)</translation>
 <translation id="2090165459409185032">‏כדי לשחזר את המידע מהחשבון, עבור אל: google.com/accounts/recovery</translation>
 <translation id="2090876986345970080">הגדרה של אבטחת מערכת</translation>
 <translation id="2091887806945687916">צליל</translation>
@@ -1626,7 +1626,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3450157232394774192">אחוז תפוסה במצב לא פעיל</translation>
 <translation id="3453612417627951340">יש צורך באישור</translation>
 <translation id="3454157711543303649">ההפעלה הושלמה</translation>
-<translation id="3454224730401036106">החיבור שלך הועבר אל רשת מאובטחת יותר</translation>
+<translation id="3454224730401036106">החיבור שלך הועבר לרשת מאובטחת יותר</translation>
 <translation id="345693547134384690">פתח &amp;תמונה בכרטיסייה חדשה</translation>
 <translation id="3459509316159669723">הדפסה</translation>
 <translation id="3459697287128633276">‏כדי לאפשר לחשבונך לגשת אל חנות Google Play, עליך לבצע אימות אצל ספק הזהות שלך.</translation>
@@ -1899,7 +1899,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3838486795898716504"><ph name="PAGE_TITLE" /> נוספים</translation>
 <translation id="3838543471119263078">‏קובצי cookie ונתוני אתר ופלאגין נוספים</translation>
 <translation id="383891835335927981">באף אתר לא השתנה המרחק מהתצוגה</translation>
-<translation id="3839516600093027468">יש למנוע תמיד מ-<ph name="HOST" /> לגשת אל לוח העריכה</translation>
+<translation id="3839516600093027468">יש למנוע תמיד מ-<ph name="HOST" /> לגשת אל הלוח</translation>
 <translation id="3840053866656739575">‏אבד החיבור ל-Chromebox שלך. התקרב עוד או בדוק את מכשירך בזמן שאנחנו מנסים להתחבר שוב.</translation>
 <translation id="3842132283799370683">צירוף המכשיר לדומיין נכשל. ייתכן שהסיבה לכך היא בעיות ביחידה הארגונית.</translation>
 <translation id="3842552989725514455">‏גופן Serif</translation>
@@ -1970,7 +1970,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
 <translation id="394984172568887996">‏מיובא מ-IE</translation>
 <translation id="3950820424414687140">כניסה</translation>
-<translation id="3950870029767307261">הדף הזה לא יכול לגשת אל טקסט ותמונות שהועתקו אל לוח העריכה</translation>
+<translation id="3950870029767307261">הדף הזה לא יכול לגשת אל טקסט ותמונות שהועתקו ללוח</translation>
 <translation id="3954354850384043518">מתבצע</translation>
 <translation id="3955193568934677022">התר לאתרים להפעיל תוכן מוגן (מומלץ)</translation>
 <translation id="3956702100721821638">‏לא ניתן היה להתחבר אל Google Play</translation>
@@ -2270,7 +2270,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4520385623207007473">‏קובצי Cookie בשימוש</translation>
 <translation id="452039078290142656">מכשירים בלתי ידועים של <ph name="VENDOR_NAME" /></translation>
 <translation id="4522570452068850558">פרטים</translation>
-<translation id="4522600456902129422">האתר הזה יוכל להמשיך לגשת אל לוח העריכה</translation>
+<translation id="4522600456902129422">האתר הזה יוכל להמשיך לגשת ללוח</translation>
 <translation id="4530494379350999373">מקור</translation>
 <translation id="4532499992208253975">emloading</translation>
 <translation id="4533985347672295764">‏זמן CPU (יחידת עיבוד מרכזית)</translation>
@@ -2459,7 +2459,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4837926214103741331">אין לך אישור להשתמש במכשיר הזה. צור קשר עם בעל המכשיר כדי לקבל הרשאת כניסה.</translation>
 <translation id="4837952862063191349">כדי לבטל את הנעילה של הנתונים המקומיים ולשחזר אותם, הזן את הסיסמה הקודמת שלך עבור <ph name="DEVICE_TYPE" />.</translation>
 <translation id="4838355575774807786">‏אירעה שגיאה כש-Chrome הסיר תוכנות מזיקות.</translation>
-<translation id="4838836835474292213">גישת הקריאה אל לוח העריכה מותרת</translation>
+<translation id="4838836835474292213">גישת הקריאה אל הלוח מותרת</translation>
 <translation id="4839303808932127586">שמ&amp;ור וידאו כ...</translation>
 <translation id="4839847978919684242"><ph name="SELCTED_FILES_COUNT" /> פריטים נבחרו</translation>
 <translation id="4840150926623932060">{NUM_DOWNLOAD,plural, =1{עוד אחד}two{עוד #}many{עוד #}other{עוד #}}</translation>
@@ -2915,7 +2915,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5516183516694518900">‏היכנס אל Chrome עם חשבון Google שלך כדי להפעיל את הסימניות, ההיסטוריה, הסיסמאות והגדרות אחרות בכל המכשירים שלך.</translation>
 <translation id="551752069230578406">מוסיף את המדפסת לחשבון שלך - התהליך עשוי להימשך מספר רגעים...</translation>
 <translation id="5517535964909391608">תוכן לא מאובטח נחסם</translation>
-<translation id="5518219166343146486">יש לשאול כשאתר רוצה לגשת אל טקסט ותמונות שהועתקו אל לוח העריכה</translation>
+<translation id="5518219166343146486">יש לשאול כשאתר רוצה לגשת אל טקסט ותמונות שהועתקו ללוח</translation>
 <translation id="5518584115117143805">אישור הצפנת אימייל</translation>
 <translation id="5521078259930077036">האם זהו דף הבית שציפית לראות?</translation>
 <translation id="5521348028713515143">הוספת קיצור דרך בשולחן העבודה</translation>
@@ -3292,11 +3292,11 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6107012941649240045">מונפק ל</translation>
 <translation id="6112952769866305444">ערוך את המשתמש, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
 <translation id="6115424132962100663">הקש על |<ph name="SHORTCUT" />| כדי לחזור אחורה</translation>
-<translation id="6116338172782435947">גישה אל טקסט ותמונות שהועתקו אל לוח העריכה</translation>
+<translation id="6116338172782435947">גישה אל טקסט ותמונות שהועתקו ללוח</translation>
 <translation id="6116921718742659598">שנה את הגדרות הקלט והשפה</translation>
 <translation id="6120205520491252677">הצמד דף זה למסך הפתיחה...</translation>
 <translation id="6122081475643980456">החיבור שלך לאינטרנט נשלט על ידי גורם כלשהו</translation>
-<translation id="6122095009389448667">המשך חסימת הגישה של האתר הזה אל לוח העריכה</translation>
+<translation id="6122095009389448667">המשך חסימת הגישה של האתר הזה ללוח</translation>
 <translation id="6122875415561139701">פעולת כתיבה אסורה במכשיר: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">התוספים הבאים תלויים בתוסף הזה:</translation>
 <translation id="6125479973208104919">תצטרך להוסיף את החשבון שלך ב-<ph name="DEVICE_TYPE" /> פעם נוספת.</translation>
@@ -4470,7 +4470,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8000066093800657092">אין רשת</translation>
 <translation id="8001504501378762252">ייתכן שאתר גנב את הסיסמה שלך</translation>
 <translation id="8004582292198964060">דפדפן</translation>
-<translation id="8005600846065423578">אפשר תמיד ל-<ph name="HOST" /> לגשת אל לוח העריכה</translation>
+<translation id="8005600846065423578">אפשר תמיד ל-<ph name="HOST" /> לגשת ללוח</translation>
 <translation id="8008356846765065031">האינטרנט מנותק. בדוק את חיבור האינטרנט.</translation>
 <translation id="8008765610824028412">אי אפשר לטעון את <ph name="PLUGIN_NAME" /></translation>
 <translation id="8008818777654712271">‏שלח באופן אוטומטי חלק מפרטי המערכת ותוכן הדף אל Google כדי לעזור בזיהוי של יישומים ואתרים מסוכנים.</translation>

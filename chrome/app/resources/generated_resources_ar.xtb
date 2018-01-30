@@ -2020,7 +2020,7 @@
 <translation id="4037084878352560732">حصان</translation>
 <translation id="4037889604535939429">تعديل الشخص</translation>
 <translation id="4042264909745389898">‏بنود نظام التشغيل Google Chrome</translation>
-<translation id="4042863763121826131">{NUM_PAGES,plural, =1{الخروج من الصفحة}zero{الخروج من الصفحات}two{الخروج من الصفحتين}few{الخروج من الصفحات}many{الخروج من الصفحات}other{الخروج من الصفحات}}</translation>
+<translation id="4042863763121826131">{NUM_PAGES,plural, =1{الخروج من الصفحة}zero{الخروج من صفحة}two{الخروج من الصفحتين}few{الخروج من صفحات}many{الخروج من صفحة}other{الخروج من صفحة}}</translation>
 <translation id="4044612648082411741">إدخال كلمة المرور للشهادة</translation>
 <translation id="404493185430269859">محرك البحث الافتراضي</translation>
 <translation id="4047112090469382184">كم هذا آمن</translation>
@@ -3975,7 +3975,7 @@
 <translation id="7201118060536064622">تم حذف "<ph name="DELETED_ITEM_NAME" />"</translation>
 <translation id="7205869271332034173">SSID:</translation>
 <translation id="7206693748120342859">جارٍ تنزيل <ph name="PLUGIN_NAME" />...</translation>
-<translation id="720715819012336933">{NUM_PAGES,plural, =1{الخروج من الصفجة}zero{الخروج من الصفحات}two{الخروج من الصفحتين}few{الخروج من الصفحات}many{الخروج من الصفحات}other{الخروج من الصفحات}}</translation>
+<translation id="720715819012336933">{NUM_PAGES,plural, =1{الخروج من الصفجة}zero{الخروج من صفحة}two{الخروج من الصفحتين}few{الخروج من صفحات}many{الخروج من صفحة}other{الخروج من صفحة}}</translation>
 <translation id="721331389620694978">لن يتم محو بعض الإعدادات التي قد تعكس عادات التصفح.</translation>
 <translation id="7216409898977639127">موفر شبكة الجوّال</translation>
 <translation id="7216595297012131718">ترتيب اللغات حسب تفضيلك</translation>

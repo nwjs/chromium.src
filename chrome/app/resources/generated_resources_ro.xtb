@@ -52,7 +52,7 @@
 
 <ph name="EXTENSION_NAME" /></translation>
 <translation id="1071917609930274619">Cifrare de date</translation>
-<translation id="1074944608454986967">Pentru a citi conținutul cu voce tare, apasă lung tasta de căutare, apoi dă clic sau trage pentru a selecta conținutul sau evidențiază o regiune și folosește tasta de căutare + S.</translation>
+<translation id="1074944608454986967">Pentru a se rosti conținutul, apasă lung tasta de căutare, apoi dă clic sau trage pentru a selecta conținutul sau evidențiază o regiune și folosește tasta de căutare + S.</translation>
 <translation id="1076698951459398590">Activează tema</translation>
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
 <translation id="1077946062898560804">Configurează actualizările automate pentru toți utilizatorii</translation>
@@ -3299,7 +3299,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="6116921718742659598">Schimbați setările pentru limbă și introducere de text</translation>
 <translation id="6120205520491252677">Fixați această pagină pe ecranul de pornire...</translation>
 <translation id="6122081475643980456">Conexiunea la internet este controlată</translation>
-<translation id="6122095009389448667">Blochează în continuare afișarea clipboardului pentru acest site</translation>
+<translation id="6122095009389448667">Blochează în continuare accesul la clipboard pentru acest site</translation>
 <translation id="6122875415561139701">Operațiunea de scriere nu este permisă pe: „<ph name="DEVICE_NAME" />”.</translation>
 <translation id="6124650939968185064">De această extensie depind următoarele extensii:</translation>
 <translation id="6125479973208104919">Din păcate, va trebui să îți adaugi din nou contul pe acest dispozitiv <ph name="DEVICE_TYPE" />.</translation>
@@ -4094,7 +4094,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="7392118418926456391">Scanarea antivirus nu a reușit</translation>
 <translation id="7392915005464253525">R&amp;edeschide fereastra închisă</translation>
 <translation id="7396845648024431313"><ph name="APP_NAME" /> se va lansa la pornirea sistemului și va continua să ruleze în fundal, chiar după ce ai închis toate celelalte ferestre ale <ph name="PRODUCT_NAME" />.</translation>
-<translation id="7398254312354928459">Conexiune la rețea a fost comutată</translation>
+<translation id="7398254312354928459">Conexiunea la rețea a fost comutată</translation>
 <translation id="7400418766976504921">Adresă URL</translation>
 <translation id="740083207982962331">Așteaptă până când Chromebox repornește...</translation>
 <translation id="7400839060291901923">Configurează conexiunea pe <ph name="PHONE_NAME" /></translation>

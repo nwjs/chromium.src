@@ -281,7 +281,7 @@
 <translation id="1410616244180625362">आपल्या कॅमेर्‍यावर प्रवेश करण्यासाठी <ph name="HOST" /> ला अनुमती देणे सुरू ठेवा</translation>
 <translation id="1411668397053040814">VR मध्ये Chrome वापरण्यासाठी Daydream कीबोर्ड इंस्टॉल किंवा अपडेट करा</translation>
 <translation id="1414648216875402825">आपण <ph name="PRODUCT_NAME" /> च्या अस्थिर आवृत्तीवर अपडेट करत आहात ज्यात प्रगतीपथावर असलेली वैशिष्ट्ये आहेत. क्रॅश आणि अनपेक्षित दोष आढळतील. कृपया सावधगिरीसह पुढे जा.</translation>
-<translation id="1415708812149920388">क्लिपबोर्ड वाचण्याचा अ‍ॅक्सेस नाकारला</translation>
+<translation id="1415708812149920388">क्लिपबोर्डचा रीड अ‍ॅक्सेस नाकारला</translation>
 <translation id="1415990189994829608"><ph name="EXTENSION_NAME" /> ("<ph name="EXTENSION_ID" />" विस्तार आयडी) या प्रकारच्या सत्रामध्ये अनुमत नाही.</translation>
 <translation id="1416836038590872660">EAP-MD5</translation>
 <translation id="1420684932347524586">अरेरे! यादृच्छिक RSA खासगी की व्युत्पन्न करण्यात अयशस्वी.</translation>
@@ -819,7 +819,7 @@
 <translation id="2255317897038918278">Microsoft Time Stamping</translation>
 <translation id="225614027745146050">सुस्वागतम</translation>
 <translation id="225692081236532131">सक्रियन स्थिती</translation>
-<translation id="2261323523305321874">तुमच्या अॅडमिनिस्ट्रेटरने सिस्टम विस्तृत बदल केले आहेत, ज्‍यामुळे काही जुन्या प्रोफाइल बंद होतात.</translation>
+<translation id="2261323523305321874">तुमच्या अॅडमिनिस्ट्रेटरने संपूर्ण सिस्टममध्ये बदल केले आहेत, ज्‍यामुळे काही जुन्या प्रोफाइल बंद झाल्या आहेत.</translation>
 <translation id="2262477216570151239">पुनरावृत्तीपूर्वी विलंब</translation>
 <translation id="2263189956353037928">साइन आउट करून परत साइन इन करा</translation>
 <translation id="2263497240924215535">(अक्षम)</translation>
@@ -1969,7 +1969,7 @@
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
 <translation id="394984172568887996">IE मधून आयातित</translation>
 <translation id="3950820424414687140">साइन इन करा</translation>
-<translation id="3950870029767307261">या पेजला क्लिपबोर्डवर कॉपी केलेला मजकूर आणि इमेज पाहण्यापासन ब्लॉक केले आहे</translation>
+<translation id="3950870029767307261">या पेजला क्लिपबोर्डवर कॉपी केलेला मजकूर आणि इमेज पाहण्यापासून ब्लॉक केले आहे</translation>
 <translation id="3954354850384043518">प्रगतीपथावर</translation>
 <translation id="3955193568934677022">संरक्षित सामग्री प्ले करण्यासाठी साइटना अनुमती द्या (शिफारस केलेले)</translation>
 <translation id="3956702100721821638">Google Play वर पोहोचता आले नाही</translation>

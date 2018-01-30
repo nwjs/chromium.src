@@ -2038,7 +2038,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 
           Per veure exemples detallats, aneu a:
           <ph name="PROXY_HELP_URL" />.</translation>
-<translation id="793134539373873765">Permet especificar si s'utilitzarà la tecnologia d'igual a igual (P2P) per a les càrregues útils d'actualització del sistema operatiu. Si el valor s'estableix com a True, els dispositius compartiran i provaran de consumir les càrregues útils d'actualització a la xarxa LAN, amb la qual cosa és possible que es redueixi l'ús i la congestió de l'amplada de banda d'Internet. Si la pujada útil d'actualització no està disponible a la xarxa LAN, el dispositiu farà les baixades des d'un servidor d'actualitzacions. Si el valor s'estableix com a False o si no es configura, no es farà servir P2P.</translation>
+<translation id="793134539373873765">Permet especificar si s'utilitzarà la tecnologia d'igual a igual (P2P) per a les càrregues útils d'actualització del sistema operatiu. Si el valor s'estableix com a True, els dispositius compartiran i provaran de consumir les càrregues útils d'actualització a la xarxa LAN, amb la qual cosa és possible que es redueixi l'ús i la congestió de l'amplada de banda d'Internet. Si la càrrega útil d'actualització no està disponible a la xarxa LAN, el dispositiu farà les baixades des d'un servidor d'actualitzacions. Si el valor s'estableix com a False o si no es configura, no es farà servir P2P.</translation>
 <translation id="7933141401888114454">Activa la creació d'usuaris supervisats.</translation>
 <translation id="793473937901685727">Estableix la disponibilitat de certificats per a aplicacions ARC</translation>
 <translation id="7937766917976512374">Permet o bloqueja la captura de vídeo</translation>
@@ -2184,9 +2184,9 @@ La manera recomanada de configurar la política a Windows és amb GPO, tot i que
 <translation id="8451988835943702790">Fes servir la pàgina de pestanya nova com a pàgina d'inici</translation>
 <translation id="8460677879226618710">Conté una llista dels patrons que s'utilitzen per controlar la visibilitat dels comptes a <ph name="PRODUCT_NAME" />.
 
-      Si el nom del compte coincideix amb algun dels patrons de la llista, es podrà veure el compte del dispositiu a <ph name="PRODUCT_NAME" />. En cas contrari, el compte es filtrarà i s'amagarà.
+      Si el nom del compte coincideix amb algun dels patrons de la llista, es podrà veure el compte del dispositiu a <ph name="PRODUCT_NAME" />. En cas contrari, el compte s'exclourà i s'amagarà.
 
-      Es pot utilitzar el caràcter comodí "*"' per cercar coincidències de caràcters arbitraris, que poden ser de zero o més. Col·loca un caràcter d'escapada ("\") davant de "*" o "\" per incloure instàncies reals d'aquests caràcters.
+      Es pot utilitzar el caràcter comodí "*" per cercar coincidències de caràcters arbitraris, que poden ser de zero o més. Col·loca un caràcter d'escapada ("\") davant de "*" o "\" per incloure instàncies reals d'aquests caràcters.
 
       Si aquesta política es deixa sense definir, es podran veure tots els comptes de Google del dispositiu a <ph name="PRODUCT_NAME" />.</translation>
 <translation id="8465065632133292531">Paràmetres per a l'URL instantani que utilitza POST</translation>

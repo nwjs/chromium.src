@@ -2363,7 +2363,7 @@ Il est conseillé de configurer les règles sur Windows via GPO, même si la ges
 
       Le caractère générique "*" peut être utilisé pour remplacer des caractères arbitraires. Le caractère d'échappement est "\". Ainsi, pour spécifier les caractères "*" ou "\", saisissez "\" devant ceux-ci.
 
-      Si cette règle n'est pas configurée, tous les comptes Google sur l'appareil seront visibles dans <ph name="PRODUCT_NAME" />.</translation>
+      Si cette règle n'est pas configurée, tous les comptes Google présents sur l'appareil seront visibles dans <ph name="PRODUCT_NAME" />.</translation>
 <translation id="8465065632133292531">Paramètres pour l'URL instantanée utilisant POST</translation>
 <translation id="847472800012384958">Interdire à tous les sites d'afficher des fenêtres pop-up</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>

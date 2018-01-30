@@ -470,7 +470,7 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 <translation id="2466131534462628618">La autenticación del portal cautivo ignora el proxy</translation>
 <translation id="2482676533225429905">Mensajes nativos</translation>
 <translation id="2483146640187052324">Predecir las acciones de red en cualquier conexión de red</translation>
-<translation id="2485721741875148980">Si se asigna el valor "True" a esta política, el usuario deberá iniciar sesión en <ph name="PRODUCT_NAME" /> con su perfil antes de utilizar el navegador. El valor predeterminado que se asigna a BrowserGuestModeEnabled es "False". Ten en cuenta que los perfiles que no hayan iniciado sesión se bloquearán y no se podrá acceder a ellos tras habilitar esta política. Para obtener más información, consulta el artículo del Centro de Ayuda.
+<translation id="2485721741875148980">Si se asigna el valor "True" a esta política, el usuario deberá iniciar sesión en <ph name="PRODUCT_NAME" /> con su perfil antes de utilizar el navegador. El valor predeterminado que se asigna a BrowserGuestModeEnabled es "False". Ten en cuenta que los perfiles con los que no se haya iniciado sesión se bloquearán y no se podrá acceder a ellos tras habilitar esta política. Para obtener más información, consulta el artículo del Centro de Ayuda.
 
       Si se asigna el valor "False" a esta política o no se configura, el usuario podrá utilizar el navegador sin iniciar sesión en <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2486371469462493753">No permite que se apliquen los requisitos de la Transparencia en los Certificados a las URL incluidas.
@@ -2338,7 +2338,7 @@ Te recomendamos que utilices GPO para configurar la política en Windows, aunque
 
       La cuenta del dispositivo podrá verse en <ph name="PRODUCT_NAME" /> si su nombre coincide con alguno de los patrones de la lista. Si no, se excluirá y se ocultará.
 
-      El carácter comodín "*" se puede utilizar para buscar coincidencias con varios caracteres arbitrarios o ninguno. El carácter de escape es "\" y, por tanto, se puede escribir antes de "*" o "\" para obtener coincidencias con los propios caracteres.
+      El carácter comodín "*" se puede utilizar para buscar coincidencias con cero o más caracteres arbitrarios. El carácter de escape es "\" y, por tanto, se puede escribir antes de "*" o "\" para obtener coincidencias con los propios caracteres.
 
       Si esta política no se configura, todas las cuentas de Google del dispositivo podrán verse en <ph name="PRODUCT_NAME" />.</translation>
 <translation id="8465065632133292531">Parámetros para URL instantánea que utiliza POST</translation>

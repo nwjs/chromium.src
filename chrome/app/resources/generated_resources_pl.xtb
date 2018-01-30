@@ -146,7 +146,7 @@
 <translation id="1205489148908752564">Odczytywanie i zmienianie użytkowników z białej listy</translation>
 <translation id="1206407435587370571">Poznaj swojego Chromebooka</translation>
 <translation id="1209796539517632982">Automatyczny wybór serwerów nazw</translation>
-<translation id="1210982357925844241">Zapisane hasła możesz wyświetlać i nimi zarządzać na <ph name="SAVED_PASSWORDS_LINK" /></translation>
+<translation id="1210982357925844241">Możesz wyświetlać zapisane hasła i nimi zarządzać na <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="1211364473545090084">Korzystaj z internetu w oknie incognito, by nie zapisywać historii przeglądania</translation>
 <translation id="1213037489357051291">Skonfigurowane odciski palców: <ph name="NUM_FINGERPRINTS" /></translation>
 <translation id="1215411991991485844">Nowa aplikacja działająca w tle została dodana</translation>
@@ -234,7 +234,7 @@
 <translation id="1347975661240122359">Aktualizacja się uruchomi, gdy bateria naładuje się do <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Importuję <ph name="FILE_COUNT" /> pliki(ów)...</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
-<translation id="1353980523955420967">Nie można znaleźć pliku PPD. Upewnij się, że Chromebook jest online, i spróbuj ponownie.</translation>
+<translation id="1353980523955420967">Nie można znaleźć pliku PPD. Upewnij się, że Chromebook jest podłączony do internetu, i spróbuj ponownie.</translation>
 <translation id="1355466263109342573">Wtyczka <ph name="PLUGIN_NAME" /> jest zablokowana</translation>
 <translation id="1357589289913453911">Identyfikator rozszerzenia</translation>
 <translation id="1358735829858566124">Plik lub katalog nie nadaje się do użycia.</translation>
@@ -1003,7 +1003,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="2562743677925229011">Nie jesteś zalogowany(a) do <ph name="SHORT_PRODUCT_NAME" />.</translation>
 <translation id="2563856802393254086">Gratulacje! Usługa transmisji danych „<ph name="NAME" />” została aktywowana i można z niej korzystać.</translation>
 <translation id="2566124945717127842">Wykonaj Powerwash, by zresetować urządzenie z <ph name="IDS_SHORT_PRODUCT_NAME" /> do ustawień fabrycznych.</translation>
-<translation id="2567257616420533738">Hasło zostało zapisane. Zapisane hasła możesz wyświetlać i nimi zarządzać na <ph name="SAVED_PASSWORDS_LINK" /></translation>
+<translation id="2567257616420533738">Hasło zostało zapisane. Możesz wyświetlać zapisane hasła i nimi zarządzać na <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="2568774940984945469">Kontener paska informacji</translation>
 <translation id="2570000010887652771">Zmniejszono zużycie danych.</translation>
 <translation id="257088987046510401">Motywy</translation>
@@ -1648,7 +1648,7 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="3470502288861289375">Kopiuję...</translation>
 <translation id="3473479545200714844">Lupa</translation>
 <translation id="3475447146579922140">Arkusz kalkulacyjny Google</translation>
-<translation id="3475538074809281797">{LINE_COUNT,plural, =1{&lt;1 wiersz jest niewidoczny&gt;}few{&lt;$1 wiersze są niewidoczne&gt;}many{&lt;$1 wierszy jest niewidocznych&gt;}other{&lt;$1 wiersza jest niewidocznego&gt;}}</translation>
+<translation id="3475538074809281797">{LINE_COUNT,plural, =1{&lt;1 wiersz jest niewidoczny&gt;}few{&lt;$1 wiersze są niewidoczne&gt;}many{&lt;$1 wierszy jest niewidocznych&gt;}other{&lt;$1 wiersza jest niewidoczne&gt;}}</translation>
 <translation id="3475843873335999118">Odcisk palca nie został rozpoznany. Podaj hasło.</translation>
 <translation id="347670947055184738">Ups. System nie mógł pobrać zasad dotyczących Twojego urządzenia.</translation>
 <translation id="347785443197175480">Nadal zezwalaj witrynie <ph name="HOST" /> na dostęp do kamery i mikrofonu</translation>
@@ -2168,7 +2168,7 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="430303754419731728">Masz nową aktualizację systemu operacyjnego. Zaloguj się, by zacząć.</translation>
 <translation id="4305227814872083840">długie (2 s)</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES" /> KB (aktywne <ph name="NUM_KILOBYTES_LIVE" /> KB)</translation>
-<translation id="4310139701823742692">Plik jest w niewłaściwym formacie. Sprawdź plik PPD i spróbuj ponownie.</translation>
+<translation id="4310139701823742692">Plik ma niewłaściwy format. Sprawdź plik PPD i spróbuj ponownie.</translation>
 <translation id="431076611119798497">&amp;Szczegóły</translation>
 <translation id="4312866146174492540">Blokuj (domyślnie)</translation>
 <translation id="4316850752623536204">Witryna programisty</translation>

@@ -2274,7 +2274,7 @@ Ga naar ons <ph name="BEGIN_LINK" />Helpcentrum<ph name="END_LINK" /> voor meer 
 <translation id="4520385623207007473">Gebruikte cookies</translation>
 <translation id="452039078290142656">onbekende apparaten van <ph name="VENDOR_NAME" /></translation>
 <translation id="4522570452068850558">Details</translation>
-<translation id="4522600456902129422">Doorgaan met het toestaan van deze site om het klembord te bekijken</translation>
+<translation id="4522600456902129422">Bekijken van het klembord door deze site blijven toestaan</translation>
 <translation id="4530494379350999373">Herkomst</translation>
 <translation id="4532499992208253975">emloading</translation>
 <translation id="4533985347672295764">CPU-tijd</translation>
@@ -3300,7 +3300,7 @@ Ga naar ons <ph name="BEGIN_LINK" />Helpcentrum<ph name="END_LINK" /> voor meer 
 <translation id="6116921718742659598">Taal- en invoerinstellingen wijzigen</translation>
 <translation id="6120205520491252677">Deze pagina vastzetten op het startscherm...</translation>
 <translation id="6122081475643980456">Je internetverbinding wordt beheerd</translation>
-<translation id="6122095009389448667">Doorgaan met het blokkeren van deze site voor het bekijken van het klembord</translation>
+<translation id="6122095009389448667">Bekijken van het klembord door deze site blijven blokkeren</translation>
 <translation id="6122875415561139701">Schrijfbewerking is niet toegestaan op: <ph name="DEVICE_NAME" />.</translation>
 <translation id="6124650939968185064">De volgende extensies zijn afhankelijk van deze extensie:</translation>
 <translation id="6125479973208104919">Je moet je account opnieuw toevoegen aan deze <ph name="DEVICE_TYPE" />.</translation>

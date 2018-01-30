@@ -52,7 +52,7 @@
 
 <ph name="EXTENSION_NAME" /></translation>
 <translation id="1071917609930274619">Omsætning af data til kode</translation>
-<translation id="1074944608454986967">Hold søgeknappen nede, og klik eller træk derefter for at vælge det indhold, der skal læses op. Du kan også fremhæve et område, og brug søgeknappen+S.</translation>
+<translation id="1074944608454986967">Hold søgeknappen nede, og klik eller træk derefter for at vælge det indhold, der skal læses op. Du kan også fremhæve et område, og brug søgeknappen + S.</translation>
 <translation id="1076698951459398590">Aktivér tema</translation>
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
 <translation id="1077946062898560804">Konfigurer automatiske opdateringer for alle brugere</translation>
@@ -1097,7 +1097,7 @@ Jeg synes ikke, dette website skal blokeres.</translation>
 <translation id="2680208403056680091">Din internetforbindelse bliver overvåget</translation>
 <translation id="268053382412112343">Over&amp;sigt</translation>
 <translation id="2683638487103917598">Mappen er sorteret</translation>
-<translation id="2684004000387153598">Hvis du vil fortsætte, skal du trykke på OK og derefter klikke på Tilføj person for at oprette en ny profil til din mailadresse.</translation>
+<translation id="2684004000387153598">Hvis du vil fortsætte, skal du klikke på OK og derefter klikke på Tilføj person for at oprette en ny profil til din mailadresse.</translation>
 <translation id="2686759344028411998">Der blev ikke registreret nogen indlæste moduler.</translation>
 <translation id="2688196195245426394">Fejl ved registrering af enheden med serveren: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Vis sprogindstillinger</translation>
@@ -2024,7 +2024,7 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4037084878352560732">Hest</translation>
 <translation id="4037889604535939429">Rediger personen</translation>
 <translation id="4042264909745389898">Vilkår for Google Chrome OS</translation>
-<translation id="4042863763121826131">{NUM_PAGES,plural, =1{Afslutningsside}one{Afslutningsside}other{Afslutningssider}}</translation>
+<translation id="4042863763121826131">{NUM_PAGES,plural, =1{Forlad side}one{Forlad side}other{Forlad sider}}</translation>
 <translation id="4044612648082411741">Angiv adgangskoden til dit certifikat</translation>
 <translation id="404493185430269859">Standardsøgemaskine</translation>
 <translation id="4047112090469382184">Hvordan er denne funktion sikker?</translation>
@@ -3391,7 +3391,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6263284346895336537">Ikke kritisk</translation>
 <translation id="6263541650532042179">nulstil synkronisering</translation>
 <translation id="6264365405983206840">Vælg &amp;alle</translation>
-<translation id="6265930187414222160">Udført. Den skadelige software er fjernet.</translation>
+<translation id="6265930187414222160">Sådan! Den skadelige software er fjernet.</translation>
 <translation id="6267166720438879315">Vælg et certifikat til at bekræfte dig selv over for <ph name="HOST_NAME" /></translation>
 <translation id="6268252012308737255">Åbn med <ph name="APP" /></translation>
 <translation id="6268747994388690914">Importér bogmærker fra HTML-fil...</translation>
@@ -3980,7 +3980,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="7201118060536064622">"<ph name="DELETED_ITEM_NAME" />" er slettet</translation>
 <translation id="7205869271332034173">SSID:</translation>
 <translation id="7206693748120342859">Downloader <ph name="PLUGIN_NAME" />...</translation>
-<translation id="720715819012336933">{NUM_PAGES,plural, =1{Afslutningsside}one{Afslutningsside}other{Afslutningssider}}</translation>
+<translation id="720715819012336933">{NUM_PAGES,plural, =1{Forlad side}one{Forlad side}other{Forlad sider}}</translation>
 <translation id="721331389620694978">Visse indstillinger, der kan afspejle dine søgevaner, ryddes ikke.</translation>
 <translation id="7216409898977639127">Mobilselskab</translation>
 <translation id="7216595297012131718">Sortér sprog efter dine præferencer</translation>

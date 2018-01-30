@@ -281,7 +281,7 @@
 <translation id="1410616244180625362">Aj naďalej povoliť stránkam <ph name="HOST" /> prístup ku kamere</translation>
 <translation id="1411668397053040814">Nainštalujte si Klávesnicu Daydream alebo ju aktualizujte, aby ste mohli Chrome používať v režime VR</translation>
 <translation id="1414648216875402825">Chystáte sa vykonať aktualizáciu na nestabilnú verziu prehliadača <ph name="PRODUCT_NAME" />, ktorá obsahuje funkcie vo vývoji. Bude dochádzať ku zlyhaniam a neočakávaným chybám. Postupujte opatrne.</translation>
-<translation id="1415708812149920388">Bol zakázaný prístup na čítanie obsahu schránky</translation>
+<translation id="1415708812149920388">Bol zakázaný prístup k čítaniu obsahu schránky</translation>
 <translation id="1415990189994829608">Rozšírenie <ph name="EXTENSION_NAME" /> (ID rozšírenia <ph name="EXTENSION_ID" />) nie je v tomto type relácie povolené.</translation>
 <translation id="1416836038590872660">EAP-MD5</translation>
 <translation id="1420684932347524586">Generovanie náhodného súkromného kľúča RSA žiaľ zlyhalo.</translation>
@@ -2463,7 +2463,7 @@ Pri vytvorení kontrolovaného používateľa sa nevytvorí účet Google a jeh
 <translation id="4837926214103741331">Nemáte oprávnenie používať toto zariadenie. Ak chcete získať povolenie na prihlásenie, kontaktujte majiteľa zariadenia.</translation>
 <translation id="4837952862063191349">Ak chcete zariadenie odomknúť a obnoviť svoje miestne údaje, zadajte svoje staré heslo pre zariadenie <ph name="DEVICE_TYPE" />.</translation>
 <translation id="4838355575774807786">Pri odstraňovaní škodlivého softvéru sa v Chrome vyskytla chyba.</translation>
-<translation id="4838836835474292213">Je povolený prístup na čítanie schránky</translation>
+<translation id="4838836835474292213">Je povolený prístup k čítaniu schránky</translation>
 <translation id="4839303808932127586">Uložiť &amp;video ako...</translation>
 <translation id="4839847978919684242">Počet vybratých položiek: <ph name="SELCTED_FILES_COUNT" /></translation>
 <translation id="4840150926623932060">{NUM_DOWNLOAD,plural, =1{1 ďalšia položka}few{# ďalšie položky}many{# ďalšej položky}other{# ďalších položiek}}</translation>

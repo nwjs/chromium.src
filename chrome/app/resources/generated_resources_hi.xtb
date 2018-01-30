@@ -1076,7 +1076,7 @@
 <translation id="265390580714150011">फ़ील्ड मान</translation>
 <translation id="2655386581175833247">उपयोगकर्ता प्रमाणपत्र:</translation>
 <translation id="2660779039299703961">इवेंट</translation>
-<translation id="266079277508604648">प्रिंटर से कनेक्ट नहीं किया जा सकता. देखें कि प्रिंटर चालू है और वाई-फ़ाई या USB के ज़रिए आपके Chromebook से कनेक्ट किया हुआ है.</translation>
+<translation id="266079277508604648">प्रिंटर से कनेक्ट नहीं किया जा सका. देखें कि प्रिंटर चालू है और वाई-फ़ाई या USB के ज़रिए आपके Chromebook से कनेक्ट किया हुआ है.</translation>
 <translation id="2661146741306740526">16x9</translation>
 <translation id="2662876636500006917">Chrome Web Store</translation>
 <translation id="2663302507110284145">भाषा</translation>
@@ -1463,7 +1463,7 @@
 <translation id="3202173864863109533">इस टैब का ऑडियो म्‍यूट किया जा रहा है.</translation>
 <translation id="3206175707080061730">"$1" नामक एक फ़ाइल पहले से ही मौजूद है. क्‍या आप इसे प्रतिस्थापित करना चाहते हैं?</translation>
 <translation id="3208703785962634733">पुष्टि न की गई</translation>
-<translation id="3213187967168344806">प्रिंटर नहीं जोड़ा जा सकता. अपना कंप्यूटर रीस्टार्ट करें और दोबारा आज़माएं.</translation>
+<translation id="3213187967168344806">प्रिंटर नहीं जोड़ा जा सका. अपना कंप्यूटर रीस्टार्ट करें और दोबारा आज़माएं.</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="3220586366024592812"><ph name="CLOUD_PRINT_NAME" /> कनेक्‍टर प्रक्रिया क्रैश हो गई है. पुन: प्रारंभ करें?</translation>
 <translation id="3221634914176615296">फ़ाइलें ऐप्स में डिवाइस की सामग्री एक्सप्लोर करें.</translation>
@@ -3919,7 +3919,7 @@
 <translation id="7093866338626856921"><ph name="HOSTNAMES" /> नामक डिवाइस से डेटा का आदान-प्रदान करें</translation>
 <translation id="7096108453481049031">निगरानी में रखे गए उपयोगकर्ता आयात नहीं किया जा सकता. कृपया अपना नेटवर्क कनेक्शन जाँचें और बाद में पुनः प्रयास करें.</translation>
 <translation id="7098447629416471489">सहेजे गए दूसरे खोज इंजन यहां दिखाई देंगे</translation>
-<translation id="7099337801055912064">बड़ा PPD लोड नहीं किया जा सकता. अधिकतम आकार 250 केबी है.</translation>
+<translation id="7099337801055912064">बड़ा PPD लोड नहीं किया जा सका. अधिकतम आकार 250 केबी है.</translation>
 <translation id="7100897339030255923"><ph name="COUNT" /> आइटम चयनित</translation>
 <translation id="7102687220333134671">ऑटोमैटिक अपडेट चालू हैं</translation>
 <translation id="7106346894903675391">अधिक मेमोरी खरीदें...</translation>
@@ -4232,7 +4232,7 @@
 <translation id="7607274158153386860">टेबलेट साइट का अनुरोध करें</translation>
 <translation id="7611008212562900400">अपना डिवाइस, ऐप्लिकेशन, वेब खोजें...</translation>
 <translation id="7615910377284548269">सैंडबॉक्स नहीं किए गए प्लग इन अवरोधित करना प्रबंधित करें...</translation>
-<translation id="7616214729753637086">डिवाइस का नामांकन किया जा रहा है...</translation>
+<translation id="7616214729753637086">डिवाइस का नाम दर्ज किया जा रहा है...</translation>
 <translation id="7617366389578322136">"<ph name="DEVICE_NAME" />" से कनेक्‍ट हो रहा है</translation>
 <translation id="761779991806306006">कोई पासवर्ड नहीं सहेजा गया.</translation>
 <translation id="7622114377921274169">चार्ज हो रहा है.</translation>

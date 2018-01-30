@@ -2193,7 +2193,7 @@ Den anbefalede fremgangsmåde til konfiguration af politikker i Windows er via G
 <translation id="8424255554404582727">Angiv en standardrotation for visningen, som genanvendes ved hver genstart</translation>
 <translation id="8426231401662877819">Roter skærmen 90 grader med uret</translation>
 <translation id="8451988835943702790">Brug siden Ny fane som startside</translation>
-<translation id="8460677879226618710">Indeholder en liste med mønstre, som bruges til at kontrollere synligheden af konti i <ph name="PRODUCT_NAME" />.
+<translation id="8460677879226618710">Indeholder en liste med mønstre, som bruges til at regulere synligheden af konti i <ph name="PRODUCT_NAME" />.
 
       En konto på denne enhed vil være synlig i <ph name="PRODUCT_NAME" />, hvis navnet matcher et mønster fra listen. Ellers vil kontoen blive sorteret fra og skjult.
 

@@ -52,7 +52,7 @@
 
 <ph name="EXTENSION_NAME" /></translation>
 <translation id="1071917609930274619">Veri Şifreleme</translation>
-<translation id="1074944608454986967">İçeriği yüksek sesle okumak için Ara'yı basılı tutun, ardından içeriği seçmek için tıklayın veya sürükleyin. İsterseniz bir bölgeyi vurgulayıp Ara + S tuşlarını kullanabilirsiniz.</translation>
+<translation id="1074944608454986967">İçeriği yüksek sesle okumak için Ara'yı basılı tutun, ardından tıklayarak veya tıklayıp sürükleyerek içeriği seçin. İsterseniz bir bölgeyi vurgulayıp Ara + S tuşlarını kullanabilirsiniz.</translation>
 <translation id="1076698951459398590">Temayı Etkinleştir</translation>
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
 <translation id="1077946062898560804">Tüm Kullanıcılar İçin Otomatik Güncellemeleri Ayarla</translation>
@@ -1076,7 +1076,7 @@ Bu sitenin engellenmesi gerektiğini düşünmüyorum!</translation>
 <translation id="265390580714150011">Alan Değeri</translation>
 <translation id="2655386581175833247">Kullanıcı sertifikası:</translation>
 <translation id="2660779039299703961">Etkinlik</translation>
-<translation id="266079277508604648">Yazıcıya bağlanılamıyor. Yazıcının açık olduğundan ve kablosuz veya USB aracılığıyla Chromebook'unuza bağlı olduğundan emin olun.</translation>
+<translation id="266079277508604648">Yazıcıya bağlanılamıyor. Yazıcının açık olduğundan ve kablosuz ağ üzerinden veya USB kablosuyla Chromebook'unuza bağlı olduğundan emin olun.</translation>
 <translation id="2661146741306740526">16x9</translation>
 <translation id="2662876636500006917">Chrome Web Store</translation>
 <translation id="2663302507110284145">Dil</translation>

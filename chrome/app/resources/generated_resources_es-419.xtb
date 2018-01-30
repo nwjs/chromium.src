@@ -52,7 +52,7 @@
 
 <ph name="EXTENSION_NAME" /></translation>
 <translation id="1071917609930274619">Cifrado de datos</translation>
-<translation id="1074944608454986967">Para leer el contenido en voz alta, mantén presionado el botón de búsqueda y, luego, haz clic en el contenido o arrástralo para seleccionarlo. O bien, destaca una parte y presiona Búsqueda + S.</translation>
+<translation id="1074944608454986967">Para leer el contenido en voz alta, mantén presionado el botón de búsqueda y, luego, haz clic o arrastra el cursor para seleccionar contenido. O bien, destaca una parte y presiona Búsqueda + S.</translation>
 <translation id="1076698951459398590">Habilitar tema</translation>
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
 <translation id="1077946062898560804">Configurar actualizaciones automáticas para todos los usuarios</translation>
@@ -234,7 +234,7 @@
 <translation id="1347975661240122359">La actualización comenzará cuando el nivel de la batería alcance el <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Importando <ph name="FILE_COUNT" /> archivos…</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
-<translation id="1353980523955420967">No se puede encontrar el PPD. Comprueba que tu Chromebook esté en línea y vuelve a intentarlo.</translation>
+<translation id="1353980523955420967">No se puede encontrar el archivo PPD. Comprueba que tu Chromebook esté en línea y vuelve a intentarlo.</translation>
 <translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> está bloqueado</translation>
 <translation id="1357589289913453911">ID de extensión</translation>
 <translation id="1358735829858566124">No se puede utilizar el archivo o el directorio.</translation>
@@ -281,7 +281,7 @@
 <translation id="1410616244180625362">Seguir permitiendo que <ph name="HOST" /> acceda a la cámara</translation>
 <translation id="1411668397053040814">Instalar o actualizar el teclado Daydream para usar Chrome en la realidad virtual</translation>
 <translation id="1414648216875402825">Estás por actualizar a una versión inestable de <ph name="PRODUCT_NAME" /> en la que se incluyen funciones que aún se están desarrollando. Se producirán bloqueos y errores inesperados. Continúa con precaución.</translation>
-<translation id="1415708812149920388">Se denegó el acceso de lectura del portapapeles</translation>
+<translation id="1415708812149920388">Se denegó el acceso de lectura al portapapeles</translation>
 <translation id="1415990189994829608">No se permite <ph name="EXTENSION_NAME" /> (ID de extensión "<ph name="EXTENSION_ID" />") en este tipo de sesión.</translation>
 <translation id="1416836038590872660">EAP-MD5</translation>
 <translation id="1420684932347524586">¡Ay! Error al generar clave privada RSA aleatoria.</translation>
@@ -817,7 +817,7 @@
 <translation id="2255317897038918278">Impresión de fecha de Microsoft</translation>
 <translation id="225614027745146050">Bienvenido</translation>
 <translation id="225692081236532131">Estado de activación</translation>
-<translation id="2261323523305321874">Tu administrador hizo un cambio en todo el sistema que inhabilita algunos perfiles antiguos.</translation>
+<translation id="2261323523305321874">Tu administrador hizo un cambio que afecta todo el sistema e inhabilita algunos perfiles antiguos.</translation>
 <translation id="2262477216570151239">Tiempo para repetición</translation>
 <translation id="2263189956353037928">Salir y volver a acceder</translation>
 <translation id="2263497240924215535">(Deshabilitado)</translation>
@@ -1073,7 +1073,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="265390580714150011">Valor de campo</translation>
 <translation id="2655386581175833247">Certificado de usuario:</translation>
 <translation id="2660779039299703961">Evento</translation>
-<translation id="266079277508604648">No se puede conectar a la impresora. Comprueba que esté encendida y conectada a la Chromebook mediante Wi-Fi o USB.</translation>
+<translation id="266079277508604648">No se puede establecer conexión con la impresora. Comprueba que esté encendida y conectada a la Chromebook mediante Wi-Fi o USB.</translation>
 <translation id="2661146741306740526">16 x 9</translation>
 <translation id="2662876636500006917">Tienda virtual de Chrome</translation>
 <translation id="2663302507110284145">Idioma</translation>
@@ -1096,7 +1096,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="2680208403056680091">Se está controlando tu conexión a Internet</translation>
 <translation id="268053382412112343">Hi&amp;storial</translation>
 <translation id="2683638487103917598">Se ordenó la carpeta</translation>
-<translation id="2684004000387153598">Para continuar, haz clic en Aceptar y, luego, en Agregar persona para crear un nuevo perfil para tu dirección de correo electrónico.</translation>
+<translation id="2684004000387153598">Para continuar, haz clic en Aceptar y, luego, en Agregar un usuario para crear un nuevo perfil para tu dirección de correo electrónico.</translation>
 <translation id="2686759344028411998">No se puede detectar ningún módulo cargado.</translation>
 <translation id="2688196195245426394">Se produjo un error al registrar el dispositivo en el servidor: <ph name="CLIENT_ERROR" />.</translation>
 <translation id="2690024944919328218">Mostrar opciones de idioma</translation>
@@ -1494,7 +1494,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="3268451620468152448">Pestañas abiertas</translation>
 <translation id="3269069891205016797">Se quitará tu información del dispositivo cuando salgas.</translation>
 <translation id="3269093882174072735">Cargar imagen</translation>
-<translation id="3269889795238950578">Esta página puede ver texto e imágenes copiados en el portapapeles.</translation>
+<translation id="3269889795238950578">Esta página puede ver el texto y las imágenes copiados en el portapapeles.</translation>
 <translation id="326999365752735949">Descargando diff</translation>
 <translation id="3270965368676314374">Leer, cambiar y eliminar fotos, música y otro contenido multimedia desde tu computadora</translation>
 <translation id="327147043223061465">Ver todas las cookies y datos de sitios</translation>
@@ -1632,7 +1632,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="3459509316159669723">Impresión</translation>
 <translation id="3459697287128633276">A fin de habilitar tu cuenta para acceder a Google Play Store, autentícala con el Proveedor de identidad.</translation>
 <translation id="3459774175445953971">Última modificación:</translation>
-<translation id="3461266716147554923"><ph name="URL" /> desea ver el texto e las imágenes copiados en el portapapeles</translation>
+<translation id="3461266716147554923"><ph name="URL" /> desea ver el texto y las imágenes copiados en el portapapeles</translation>
 <translation id="3462413494201477527">¿Cancelar la configuración de la cuenta?</translation>
 <translation id="346431825526753">Esta es una cuenta para niños administrada por <ph name="CUSTODIAN_EMAIL" />.</translation>
 <translation id="3465566417615315331">Haz clic en tu foto.</translation>
@@ -1900,7 +1900,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="3838486795898716504">Más <ph name="PAGE_TITLE" /></translation>
 <translation id="3838543471119263078">Cookies y otros datos de sitios y de complementos</translation>
 <translation id="383891835335927981">No se configuró el zoom para ningún sitio</translation>
-<translation id="3839516600093027468">Bloquear <ph name="HOST" /> siempre para que no pueda ver el portapapeles</translation>
+<translation id="3839516600093027468">Nunca permitir que <ph name="HOST" /> vea el portapapeles</translation>
 <translation id="3840053866656739575">Se perdió la conexión con la Chromebox. Acércate más o comprueba el dispositivo mientras intentamos volver a establecer la conexión.</translation>
 <translation id="3842132283799370683">No se pudo unir la computadora con el dominio. Es posible que haya problemas con la unidad organizativa.</translation>
 <translation id="3842552989725514455">Fuente Serif</translation>
@@ -1971,7 +1971,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
 <translation id="394984172568887996">Importado de Internet Explorer</translation>
 <translation id="3950820424414687140">Acceder</translation>
-<translation id="3950870029767307261">Se bloqueó esta página para que no pueda ver el texto ni las imágenes copiados en el portapapeles</translation>
+<translation id="3950870029767307261">No se permite que esta página vea el texto ni las imágenes copiados en el portapapeles</translation>
 <translation id="3954354850384043518">En curso</translation>
 <translation id="3955193568934677022">Permitir que los sitios reproduzcan contenido protegido (recomendado)</translation>
 <translation id="3956702100721821638">No se pudo establecer la conexión con Google Play</translation>
@@ -2460,7 +2460,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="4837926214103741331">No tienes autorización para utilizar este dispositivo. Para obtener permiso de acceso, comunícate con el propietario del dispositivo.</translation>
 <translation id="4837952862063191349">Para desbloquear y restaurar los datos locales, ingresa la contraseña anterior de <ph name="DEVICE_TYPE" />.</translation>
 <translation id="4838355575774807786">Se produjo un error cuando Chrome intentaba quitar software dañino.</translation>
-<translation id="4838836835474292213">Se permitió el acceso de lectura del portapapeles</translation>
+<translation id="4838836835474292213">Se permitió el acceso de lectura al portapapeles</translation>
 <translation id="4839303808932127586">Guardar video como...</translation>
 <translation id="4839847978919684242"><ph name="SELCTED_FILES_COUNT" /> elementos seleccionados</translation>
 <translation id="4840150926623932060">{NUM_DOWNLOAD,plural, =1{1 más}other{# más}}</translation>
@@ -3296,7 +3296,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="6116921718742659598">Cambiar la configuración de idioma y de entrada de texto</translation>
 <translation id="6120205520491252677">Fijar esta página a la Pantalla de inicio...</translation>
 <translation id="6122081475643980456">Se está controlando tu conexión a Internet</translation>
-<translation id="6122095009389448667">Seguir bloqueando este sitio para que no vea el portapapeles</translation>
+<translation id="6122095009389448667">Seguir impidiendo que este sitio vea el portapapeles</translation>
 <translation id="6122875415561139701">No se permite la operación de escritura en: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">Las siguientes extensiones dependen de esta extensión:</translation>
 <translation id="6125479973208104919">Lamentablemente, debes volver a agregar tu cuenta a este dispositivo <ph name="DEVICE_TYPE" />.</translation>
@@ -3917,7 +3917,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="7093866338626856921">Intercambiar datos con los siguientes dispositivos: <ph name="HOSTNAMES" /></translation>
 <translation id="7096108453481049031">No se pudo importar el usuario supervisado. Comprueba la conexión de red y vuelve a intentarlo más tarde.</translation>
 <translation id="7098447629416471489">Los otros motores de búsqueda guardados aparecerán aquí</translation>
-<translation id="7099337801055912064">No se puede cargar archivos PPD grandes. El tamaño máximo es 250 kB.</translation>
+<translation id="7099337801055912064">No se pueden cargar archivos PPD grandes. El tamaño máximo es 250 kB.</translation>
 <translation id="7100897339030255923"><ph name="COUNT" /> elementos seleccionados</translation>
 <translation id="7102687220333134671">Las actualizaciones automáticas están activadas</translation>
 <translation id="7106346894903675391">Comprar más almacenamiento...</translation>
@@ -4259,7 +4259,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="7664620655576155379">Dispositivo Bluetooth no compatible: "<ph name="DEVICE_NAME" />"</translation>
 <translation id="7665369617277396874">Agregar cuenta</translation>
 <translation id="7671130400130574146">Usar la barra de título y los bordes del sistema</translation>
-<translation id="7683373461016844951">Para continuar, haz clic en Aceptar y, luego, en Agregar persona para crear un perfil nuevo para tu dirección de correo electrónico de <ph name="DOMAIN" />.</translation>
+<translation id="7683373461016844951">Para continuar, haz clic en Aceptar y, luego, en Agregar un usuario para crear un perfil nuevo para tu dirección de correo electrónico de <ph name="DOMAIN" />.</translation>
 <translation id="7684212569183643648">Instalado por el administrador</translation>
 <translation id="7684559058815332124">Visitar la página de acceso al portal cautivo</translation>
 <translation id="7685049629764448582">Memoria de JavaScript</translation>
@@ -4808,7 +4808,7 @@ Es posible que los usuarios con conexiones lentas no puedan ver tu contenido.</t
 <translation id="8569764466147087991">Seleccionar un archivo para abrir</translation>
 <translation id="8571213806525832805">Últimas cuatro semanas</translation>
 <translation id="8574990355410201600">Permitir siempre el sonido en <ph name="HOST" /></translation>
-<translation id="8578639784464423491">No se puede superar las 99 letras</translation>
+<translation id="8578639784464423491">No se pueden superar las 99 letras</translation>
 <translation id="8579285237314169903">Sincronizando <ph name="NUMBER_OF_FILES" /> elementos…</translation>
 <translation id="857943718398505171">Permitido (recomendado)</translation>
 <translation id="8581809080475256101">Presiona para avanzar; usa el menú contextual para consultar el historial</translation>

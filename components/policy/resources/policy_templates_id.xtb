@@ -459,7 +459,7 @@
 <translation id="2466131534462628618">Autentikasi portal tawanan mengabaikan proxy</translation>
 <translation id="2482676533225429905">Perpesanan Asli</translation>
 <translation id="2483146640187052324">Prediksi tindakan jaringan di sambungan jaringan apa pun</translation>
-<translation id="2485721741875148980">Jika kebijakan ini disetel ke true, pengguna harus login ke <ph name="PRODUCT_NAME" /> dengan profilnya sebelum menggunakan browser. Nilai default BrowserGuestModeEnabled akan disetel ke false. Harap diperhatikan bahwa profil yang tidak ditetapkan akan dikunci dan tidak dapat diakses setelah kebijakan ini diaktifkan. Untuk informasi selengkapnya, lihat artikel pusat bantuan.
+<translation id="2485721741875148980">Jika kebijakan ini disetel ke true, pengguna harus login ke <ph name="PRODUCT_NAME" /> dengan profilnya sebelum menggunakan browser. Nilai default BrowserGuestModeEnabled akan disetel ke false. Harap diperhatikan bahwa profil yang tidak login akan dikunci dan tidak dapat diakses setelah kebijakan ini diaktifkan. Untuk informasi selengkapnya, lihat artikel pusat bantuan.
 
       Jika kebijakan ini disetel ke false atau tidak dikonfigurasi, pengguna dapat menggunakan browser tanpa harus login ke <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2486371469462493753">Menonaktifkan penerapan persyaratan Transparansi Sertifikat ke URL yang tercantum.

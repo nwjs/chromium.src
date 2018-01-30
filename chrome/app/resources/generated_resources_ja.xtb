@@ -821,7 +821,7 @@
 <translation id="2255317897038918278">Microsoft タイム スタンプ</translation>
 <translation id="225614027745146050">ようこそ</translation>
 <translation id="225692081236532131">起動状態</translation>
-<translation id="2261323523305321874">管理者がシステム全体に行った変更により、古いプロフィールの一部が無効になりました。</translation>
+<translation id="2261323523305321874">管理者がシステム全体に行った変更により、一部の古いプロフィールが無効になりました。</translation>
 <translation id="2262477216570151239">リピートまでの時間</translation>
 <translation id="2263189956353037928">ログアウトして再度ログイン</translation>
 <translation id="2263497240924215535">（無効）</translation>
@@ -1004,7 +1004,7 @@
 <translation id="2562743677925229011"><ph name="SHORT_PRODUCT_NAME" /> にログインしていません</translation>
 <translation id="2563856802393254086">「<ph name="NAME" />」データ サービスが有効になり、使用できるようになりました。</translation>
 <translation id="2566124945717127842">お使いの <ph name="IDS_SHORT_PRODUCT_NAME" /> 搭載デバイスを出荷時の状態にリセットするために、Powerwash を実行します。</translation>
-<translation id="2567257616420533738">パスワードが保存されました。<ph name="SAVED_PASSWORDS_LINK" /> での保存パスワードの表示と管理</translation>
+<translation id="2567257616420533738">パスワードが保存されました。保存パスワードの表示と管理は <ph name="SAVED_PASSWORDS_LINK" /> で行えます。</translation>
 <translation id="2568774940984945469">情報バー コンテナ</translation>
 <translation id="2570000010887652771">データ消費を削減しました。</translation>
 <translation id="257088987046510401">テーマ</translation>
@@ -1025,7 +1025,7 @@
 <translation id="2582253231918033891"><ph name="PRODUCT_NAME" /> <ph name="PRODUCT_VERSION" />（プラットフォーム <ph name="PLATFORM_VERSION" />）<ph name="DEVICE_SERIAL_NUMBER" /></translation>
 <translation id="2585300050980572691">既定の検索設定</translation>
 <translation id="2586657967955657006">クリップボード</translation>
-<translation id="2586672484245266891">これより短い URL を入力してください</translation>
+<translation id="2586672484245266891">URL を短くしてください</translation>
 <translation id="2587922270115112871">監視対象ユーザーを作成しても Google アカウントは作成されません。監視対象ユーザーの設定と
     データは、Chrome Sync で他のデバイスにはコピーされません。監視対象ユーザーはこのデバイスでのみ有効です。</translation>
 <translation id="258932246702879617">[<ph name="BEGIN_BOLD" />タスクバーにピン留めする<ph name="END_BOLD" />] を選択します</translation>
@@ -3391,7 +3391,7 @@
 <translation id="6263284346895336537">非重要</translation>
 <translation id="6263541650532042179">同期をリセット</translation>
 <translation id="6264365405983206840">すべて選択(&amp;A)</translation>
-<translation id="6265930187414222160">完了しました。有害なソフトウェアが削除されました。</translation>
+<translation id="6265930187414222160">有害なソフトウェアが削除されました。</translation>
 <translation id="6267166720438879315"><ph name="HOST_NAME" /> での認証に使用する証明書を選択してください</translation>
 <translation id="6268252012308737255"><ph name="APP" /> で開く</translation>
 <translation id="6268747994388690914">HTML ファイルからブックマークをインポート...</translation>
@@ -3921,7 +3921,7 @@
 <translation id="7093866338626856921">デバイス <ph name="HOSTNAMES" /> とのデータ交換</translation>
 <translation id="7096108453481049031">監視対象ユーザーをインポートできませんでした。ネットワーク接続を確認し、しばらくしてからもう一度お試しください。</translation>
 <translation id="7098447629416471489">保存したその他の検索エンジンがここに表示されます</translation>
-<translation id="7099337801055912064">サイズの大きい PPD を読み込めません。最大サイズは 250 KB です。</translation>
+<translation id="7099337801055912064">サイズの大きい PPD は読み込めません。最大サイズは 250 KB です。</translation>
 <translation id="7100897339030255923"><ph name="COUNT" /> 個のアイテムが選択されています</translation>
 <translation id="7102687220333134671">自動更新が有効です</translation>
 <translation id="7106346894903675391">追加容量を購入...</translation>

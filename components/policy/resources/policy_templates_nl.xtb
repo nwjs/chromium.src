@@ -2311,7 +2311,7 @@ De aanbevolen manier om beleidsregels te configureren op Windows, is via GPO, ma
 
       Accounts op het apparaat zijn zichtbaar in <ph name="PRODUCT_NAME" /> als de naam overeenkomt met een patroon in de lijst. Als dit niet het geval is, worden accounts weggefilterd en verborgen.
 
-      Het jokerteken '*' kan worden gebruikt overeenkomsten met nul of willekeurige tekens te zoeken. Het escapeteken is '\'. Als je dus overeenkomsten met '*' of '\' wilt zoeken, zet je hier een '\' voor.
+      Het jokerteken '*' kan worden gebruikt om overeenkomsten met nul of willekeurige tekens te zoeken. Het escapeteken is '\'. Als je dus overeenkomsten met '*' of '\' wilt zoeken, zet je hier een '\' voor.
 
       Als dit beleid niet is ingesteld, zijn alle Google-accounts op het apparaat zichtbaar in <ph name="PRODUCT_NAME" />.</translation>
 <translation id="8465065632133292531">Parameters voor instant-URL die POST gebruikt</translation>

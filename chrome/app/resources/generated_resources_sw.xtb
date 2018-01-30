@@ -818,7 +818,7 @@
 <translation id="2255317897038918278">Uwekaji Saa wa Microsoft</translation>
 <translation id="225614027745146050">Karibu</translation>
 <translation id="225692081236532131">Hali ya kuwasha</translation>
-<translation id="2261323523305321874">Msimamizi wako amefanya mabadiliko kwenye mfumo wote ambayo yanazima baadhi ya wasifu za awali.</translation>
+<translation id="2261323523305321874">Msimamizi wako amefanya mabadiliko kwenye mfumo wote. Mabadiliko hayo yanazima baadhi ya wasifu wa awali.</translation>
 <translation id="2262477216570151239">Chelewesha kabla ya kurudia</translation>
 <translation id="2263189956353037928">Ondoka na uingie tena kwenye akaunti</translation>
 <translation id="2263497240924215535">(Kimelemazwa)</translation>
@@ -1629,7 +1629,7 @@ Tembelea <ph name="BEGIN_LINK" />Kituo chetu cha Usaidizi<ph name="END_LINK" /> 
 <translation id="3459509316159669723">Kuchapisha</translation>
 <translation id="3459697287128633276">Ili kuiruhusu akaunti yako kufikia Duka la Google Play, tafadhali thibitisha na Mtoa huduma za Kitambulisho.</translation>
 <translation id="3459774175445953971">Ilibadilishwa mwisho:</translation>
-<translation id="3461266716147554923"><ph name="URL" /> ingependa kuona maandishi na pacha zilizonakiliwa kwenye ubao wa klipu</translation>
+<translation id="3461266716147554923"><ph name="URL" /> ingependa kuona maandishi na pacha zilizonakiliwa kwenye ubao wa kunakili</translation>
 <translation id="3462413494201477527">Ungependa kughairi ufunguaji wa akaunti?</translation>
 <translation id="346431825526753">Hii ni akaunti ya watoto inayodhibitiwa na <ph name="CUSTODIAN_EMAIL" />.</translation>
 <translation id="3465566417615315331">Bofya picha yako</translation>
@@ -4475,7 +4475,7 @@ Weka faili yako ya funguo mahali salama. Utaihitaji kuunda matoleo mapya ya kien
 <translation id="8000066093800657092">Hakuna mtandao</translation>
 <translation id="8001504501378762252">Huenda tovuti imeiba nenosiri lako</translation>
 <translation id="8004582292198964060">Kivinjari</translation>
-<translation id="8005600846065423578">Ruhusu kila wakati <ph name="HOST" /> kuona ubao wa kunakili</translation>
+<translation id="8005600846065423578">Ruhusu <ph name="HOST" /> ione ubao wa kunakili kila wakati</translation>
 <translation id="8008356846765065031">Intaneti imekatizwa. Tafadhali kagua muunganisho wako wa intaneti.</translation>
 <translation id="8008765610824028412">Imeshindwa kupakia <ph name="PLUGIN_NAME" />.</translation>
 <translation id="8008818777654712271">Tuma maelezo ya mfumo na maudhui ya ukurasa kwa Google kiotomatiki ili usaidie kugundua programu na tovuti hatari</translation>

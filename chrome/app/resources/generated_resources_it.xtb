@@ -467,7 +467,7 @@
 <translation id="1673103856845176271">Impossibile accedere al file per motivi di sicurezza.</translation>
 <translation id="167832068858235403">abbassa volume</translation>
 <translation id="1679068421605151609">Strumenti per sviluppatori</translation>
-<translation id="16815041330799488">Non consentire ai siti di vedere testi e immagini copiati negli appunti</translation>
+<translation id="16815041330799488">Non consentire ai siti di leggere testi e immagini copiati negli appunti</translation>
 <translation id="1682548588986054654">Nuova finestra di navigazione in incognito</translation>
 <translation id="1688935057616748272">Digita una lettera</translation>
 <translation id="168991973552362966">Aggiungi una stampante vicina</translation>
@@ -700,7 +700,7 @@
 <translation id="2085470240340828803">Esiste già un file denominato "<ph name="FILENAME" />". Che cosa vuoi fare?</translation>
 <translation id="2087822576218954668">Stampa: <ph name="PRINT_NAME" /></translation>
 <translation id="2089566709556890888">Naviga in sicurezza con Google Chrome</translation>
-<translation id="2089795179672254991">Chiedi conferma quando un sito vuole vedere il testo e le immagini copiati negli appunti (opzione consigliata)</translation>
+<translation id="2089795179672254991">Chiedi conferma quando un sito vuole leggere il testo e le immagini copiati negli appunti (opzione consigliata)</translation>
 <translation id="2090165459409185032">Visita il sito google.com/accounts/recovery per recuperare i dati del tuo account</translation>
 <translation id="2090876986345970080">Impostazioni di sicurezza del sistema</translation>
 <translation id="2091887806945687916">Audio</translation>
@@ -1496,7 +1496,7 @@ I dati di accesso del tuo account sono obsoleti.</translation>
 <translation id="3268451620468152448">Schede aperte</translation>
 <translation id="3269069891205016797">I tuoi dati verranno rimossi dal dispositivo al momento della disconnessione.</translation>
 <translation id="3269093882174072735">Carica immagine</translation>
-<translation id="3269889795238950578">Questa pagina può vedere testo e immagini copiati negli appunti.</translation>
+<translation id="3269889795238950578">Questa pagina può leggere testo e immagini copiati negli appunti.</translation>
 <translation id="326999365752735949">Download delle differenze in corso...</translation>
 <translation id="3270965368676314374">Leggere, modificare ed eliminare foto, musica e altri contenuti multimediali del computer</translation>
 <translation id="327147043223061465">Mostra tutti i cookie e i dati dei siti</translation>
@@ -1632,7 +1632,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="3459509316159669723">Stampa</translation>
 <translation id="3459697287128633276">Per accedere al Google Play Store con il tuo account, esegui l'autenticazione con il tuo provider di identità.</translation>
 <translation id="3459774175445953971">Ultima modifica:</translation>
-<translation id="3461266716147554923"><ph name="URL" /> vuole vedere il testo e le immagini copiati negli appunti</translation>
+<translation id="3461266716147554923"><ph name="URL" /> vuole leggere il testo e le immagini copiati negli appunti</translation>
 <translation id="3462413494201477527">Annullare la creazione dell'account?</translation>
 <translation id="346431825526753">Si tratta di un account di minori gestito da <ph name="CUSTODIAN_EMAIL" />.</translation>
 <translation id="3465566417615315331">Fai clic sulla tua foto</translation>
@@ -1678,7 +1678,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="3511528412952710609">Breve</translation>
 <translation id="3512410469020716447">{NUM_DOWNLOAD,plural, =1{Annulla download}other{Annulla download}}</translation>
 <translation id="3514373592552233661">Le reti preferite avranno precedenza su altre reti note se ne sono disponibili più di una</translation>
-<translation id="3520212870468945358"><ph name="URL" /> vuole vedere il numero di serie del tuo token di sicurezza</translation>
+<translation id="3520212870468945358"><ph name="URL" /> vuole leggere il numero di serie del tuo token di sicurezza</translation>
 <translation id="3523642406908660543">Chiedi conferma quando un sito vuole utilizzare un plug-in per accedere al tuo computer (opzione consigliata)</translation>
 <translation id="3525897975040424366">Installa nella shelf</translation>
 <translation id="3527085408025491307">Cartella</translation>
@@ -1900,7 +1900,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="3838486795898716504">Altre <ph name="PAGE_TITLE" /></translation>
 <translation id="3838543471119263078">Cookie e altri dati di siti e plug-in</translation>
 <translation id="383891835335927981">Non è stato aumentato o diminuito lo zoom di alcun sito</translation>
-<translation id="3839516600093027468">Impedisci sempre a <ph name="HOST" /> di visualizzare gli appunti</translation>
+<translation id="3839516600093027468">Impedisci sempre a <ph name="HOST" /> di leggere gli appunti</translation>
 <translation id="3840053866656739575">Connessione con il Chromebox persa. Avvicinati o controlla il dispositivo mentre cerchiamo di ricollegarlo.</translation>
 <translation id="3842132283799370683">Aggiunta della macchina al dominio non riuscita. Ciò potrebbe essere dovuto a problemi con l'unità organizzativa.</translation>
 <translation id="3842552989725514455">Carattere serif</translation>
@@ -1971,7 +1971,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
 <translation id="394984172568887996">Importati da IE</translation>
 <translation id="3950820424414687140">Accedi</translation>
-<translation id="3950870029767307261">A questa pagina è stato impedito di visualizzare testo e immagini copiati negli appunti</translation>
+<translation id="3950870029767307261">A questa pagina è stato impedito di leggere testo e immagini copiati negli appunti</translation>
 <translation id="3954354850384043518">In corso</translation>
 <translation id="3955193568934677022">Consenti ai siti di riprodurre i contenuti protetti (opzione consigliata)</translation>
 <translation id="3956702100721821638">Impossibile raggiungere Google Play</translation>
@@ -2271,7 +2271,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="4520385623207007473">Cookie in uso</translation>
 <translation id="452039078290142656">dispositivi sconosciuti di <ph name="VENDOR_NAME" /></translation>
 <translation id="4522570452068850558">Dettagli</translation>
-<translation id="4522600456902129422">Continua a consentire a questo sito di visualizzare gli appunti</translation>
+<translation id="4522600456902129422">Continua a consentire a questo sito di leggere gli appunti</translation>
 <translation id="4530494379350999373">Origine</translation>
 <translation id="4532499992208253975">emloading</translation>
 <translation id="4533985347672295764">Tempo di CPU</translation>
@@ -2561,7 +2561,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="4970738541803285369">Installa sul desktop...</translation>
 <translation id="4971412780836297815">Apri al termine</translation>
 <translation id="4972129977812092092">Modifica stampante</translation>
-<translation id="497287958838527945">Carte di credito e indirizzi che utilizzano Google Play.</translation>
+<translation id="497287958838527945">Carte di credito e indirizzi che utilizzano Google Pay.</translation>
 <translation id="4973307593867026061">Aggiungi stampanti</translation>
 <translation id="4973523518332075481">Il nome deve contenere un massimo di <ph name="MAX_LENGTH" /> caratteri</translation>
 <translation id="497421865427891073">Avanti</translation>
@@ -2914,7 +2914,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="5516183516694518900">Accedi a Chrome con il tuo account Google per trovare i tuoi preferiti, la cronologia, le password e altre impostazioni su tutti i tuoi dispositivi.</translation>
 <translation id="551752069230578406">Aggiunta della stampante al tuo account; potrebbe occorrere un istante...</translation>
 <translation id="5517535964909391608">Contenuti non sicuri bloccati</translation>
-<translation id="5518219166343146486">Chiedi conferma quando un sito vuole vedere il testo e le immagini copiati negli appunti</translation>
+<translation id="5518219166343146486">Chiedi conferma quando un sito vuole leggere il testo e le immagini copiati negli appunti</translation>
 <translation id="5518584115117143805">Certificato crittografia email</translation>
 <translation id="5521078259930077036">È la pagina iniziale prevista?</translation>
 <translation id="5521348028713515143">Aggiungi collegamento sul desktop</translation>
@@ -3291,11 +3291,11 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="6107012941649240045">Rilasciato a</translation>
 <translation id="6112952769866305444">Modifica persona, <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
 <translation id="6115424132962100663">Premi |<ph name="SHORTCUT" />| per tornare indietro</translation>
-<translation id="6116338172782435947">Vedere testi e immagini copiati negli appunti</translation>
+<translation id="6116338172782435947">Leggere testi e immagini copiati negli appunti</translation>
 <translation id="6116921718742659598">Modifica impostazioni della lingua e di immissione</translation>
 <translation id="6120205520491252677">Blocca questa pagina in schermata iniziale...</translation>
 <translation id="6122081475643980456">La tua connessione Internet è controllata</translation>
-<translation id="6122095009389448667">Continua a impedire a questo sito di visualizzare gli appunti</translation>
+<translation id="6122095009389448667">Continua a impedire a questo sito di leggere gli appunti</translation>
 <translation id="6122875415561139701">Scrittura non consentita su: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="6124650939968185064">Le seguenti estensioni dipendono da questa estensione:</translation>
 <translation id="6125479973208104919">Purtroppo devi aggiungere nuovamente il tuo account al dispositivo <ph name="DEVICE_TYPE" />.</translation>
@@ -3689,7 +3689,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="6736045498964449756">Spiacenti, le password non corrispondono.</translation>
 <translation id="6736243959894955139">Indirizzo</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY" /> [<ph name="ISSUED_TO" />]</translation>
-<translation id="673970589316422346">Sebbene non puoi più accedere al tuo vecchio profilo, puoi rimuoverlo.</translation>
+<translation id="673970589316422346">Anche se non puoi più accedere al tuo vecchio profilo, puoi rimuoverlo.</translation>
 <translation id="6739923123728562974">Mostra collegamento sul desktop</translation>
 <translation id="6740234557573873150"><ph name="FILE_NAME" /> in pausa</translation>
 <translation id="6742339027238151589">Accessibile allo script</translation>
@@ -3706,7 +3706,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="6757101664402245801">URL copiato</translation>
 <translation id="6758056191028427665">Comunicaci la tua opinione sul nostro lavoro.</translation>
 <translation id="6759193508432371551">Ripristino dati di fabbrica</translation>
-<translation id="6765234885931342179">Vedere il numero di serie del tuo token di sicurezza</translation>
+<translation id="6765234885931342179">Leggere il numero di serie del tuo token di sicurezza</translation>
 <translation id="6766101255664245434">Scatta una foto oppure scegli una foto esistente o un'icona.
           <ph name="LINE_BREAK" />
           Questa immagine verrà mostrata nelle schermate di accesso e di blocco del Chromebook.</translation>
@@ -4469,7 +4469,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8000066093800657092">Nessuna rete</translation>
 <translation id="8001504501378762252">Un sito potrebbe avere rubato la tua password</translation>
 <translation id="8004582292198964060">Browser</translation>
-<translation id="8005600846065423578">Consenti sempre a <ph name="HOST" /> di vedere gli appunti</translation>
+<translation id="8005600846065423578">Consenti sempre a <ph name="HOST" /> di leggere gli appunti</translation>
 <translation id="8008356846765065031">Disconnesso da Internet. Controlla la tua connessione Internet.</translation>
 <translation id="8008765610824028412">Impossibile caricare <ph name="PLUGIN_NAME" />.</translation>
 <translation id="8008818777654712271">Invia automaticamente a Google alcune informazioni sul sistema e alcuni contenuti delle pagine per contribuire a rilevare app e siti pericolosi</translation>

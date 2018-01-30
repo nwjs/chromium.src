@@ -58,7 +58,7 @@ Se esegui comunque l'accesso, le informazioni di Chrome come Preferiti, cronolog
 <translation id="2429317896000329049">Impossibile sincronizzare i dati in Google Chrome perché la sincronizzazione non è disponibile per il tuo dominio.</translation>
 <translation id="2446511512801740068">Chrome non è aggiornato perché non viene riavviato da un po'. È disponibile un aggiornamento che verrà applicato non appena riavvierai.</translation>
 <translation id="2485422356828889247">Disinstalla</translation>
-<translation id="2534507159460261402">Google Play (copiato in Chrome)</translation>
+<translation id="2534507159460261402">Google Pay (copiata in Chrome)</translation>
 <translation id="2580411288591421699">Impossibile installare la stessa versione di Google Chrome attualmente in esecuzione. Chiudi Google Chrome e riprova.</translation>
 <translation id="2586406160782125153">Verranno eliminati i tuoi dati di navigazione da questo dispositivo. Per recuperare i dati in un secondo momento, accedi a Chrome come <ph name="USER_EMAIL" />.</translation>
 <translation id="2588322182880276190">Logo di Chrome</translation>
@@ -215,6 +215,7 @@ Per ulteriori informazioni, controlla l'email all'indirizzo <ph name="ACCOUNT_EM
 <translation id="7494905215383356681">Licenze open source di Chrome</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7552219221109926349">Visualizza Chrome OS in questa lingua</translation>
+<translation id="7589360514048265910">Questo computer non riceverà più gli aggiornamenti di Google Chrome perché Mac OS X 10.9 non è più supportato.</translation>
 <translation id="7592736734348559088">Impossibile sincronizzare i dati in Google Chrome perché i dati di accesso dell'account sono obsoleti.</translation>
 <translation id="7626032353295482388">Benvenuto in Chrome</translation>
 <translation id="7747138024166251722">Il programma di installazione non ha creato una directory temporanea. Verifica di disporre di spazio libero sul disco e dell'autorizzazione per l'installazione del software.</translation>

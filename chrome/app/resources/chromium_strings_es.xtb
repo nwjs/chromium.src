@@ -155,6 +155,7 @@ Es posible que algunas funciones no estén disponibles y que no se guarden los c
 <translation id="6334986366598267305">Ahora es más fácil utilizar Chromium con tu cuenta de Google y en ordenadores compartidos.</translation>
 <translation id="6373523479360886564">¿Seguro que quieres desinstalar Chromium?</translation>
 <translation id="6394232988457703198">Debes reiniciar Chromium ahora.</translation>
+<translation id="6400072781405947421">Es posible que Chromium no funcione correctamente porque ya no es compatible con Mac OS X 10.9.</translation>
 <translation id="6403826409255603130">Chromium es un navegador web que ejecuta páginas web y aplicaciones a gran velocidad. Es rápido, estable y fácil de utilizar. Chromium te permite navegar en la Web de forma más segura, ya que incluye protección contra software malicioso y phishing.</translation>
 <translation id="6475912303565314141">También controla qué página se muestra al iniciar Chromium.</translation>
 <translation id="6485906693002546646">Estás utilizando <ph name="PROFILE_EMAIL" /> para sincronizar tu contenido de Chromium. Para actualizar tus preferencias de sincronización o utilizar Chromium sin una cuenta de Google, accede a <ph name="SETTINGS_LINK" />.</translation>

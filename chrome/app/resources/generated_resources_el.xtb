@@ -234,7 +234,7 @@
 <translation id="1347975661240122359">Η ενημέρωση θα ξεκινήσει μόλις το επίπεδο της μπαταρίας φτάσει στο <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Εισαγωγή <ph name="FILE_COUNT" /> αρχείων…</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
-<translation id="1353980523955420967">Δεν είναι δυνατή η εύρεση του PPD. Βεβαιωθείτε ότι το Chromebook σας είναι συνδεδεμένο και δοκιμάστε ξανά.</translation>
+<translation id="1353980523955420967">Δεν είναι δυνατή η εύρεση του PPD. Βεβαιωθείτε ότι το Chromebook είναι συνδεδεμένο και δοκιμάστε ξανά.</translation>
 <translation id="1355466263109342573">Η προσθήκη <ph name="PLUGIN_NAME" /> είναι αποκλεισμένη</translation>
 <translation id="1357589289913453911">Αναγνωριστικό επέκτασης</translation>
 <translation id="1358735829858566124">Το αρχείο ή ο κατάλογος δεν μπορούν να χρησιμοποιηθούν.</translation>
@@ -1004,7 +1004,7 @@
 <translation id="2562743677925229011">Δεν είστε συνδεδεμένος στο <ph name="SHORT_PRODUCT_NAME" /></translation>
 <translation id="2563856802393254086">Συγχαρητήρια! Η υπηρεσία δεδομένων "<ph name="NAME" />" έχει ενεργοποιηθεί και είναι έτοιμη για χρήση.</translation>
 <translation id="2566124945717127842">Το Powerwash θα επαναφέρει τη συσκευή σας <ph name="IDS_SHORT_PRODUCT_NAME" /> και θα την κάνει σαν καινούρια.</translation>
-<translation id="2567257616420533738">Ο κωδικός πρόσβασης αποθηκεύτηκε. Προβάλετε και διαχειριστείτε τους αποθηκευμένους κωδικούς πρόσβασης στη διεύθυνση <ph name="SAVED_PASSWORDS_LINK" /></translation>
+<translation id="2567257616420533738">Ο κωδικός πρόσβασης αποθηκεύτηκε. Δείτε και διαχειριστείτε τους αποθηκευμένους κωδικούς πρόσβασης στη διεύθυνση <ph name="SAVED_PASSWORDS_LINK" /></translation>
 <translation id="2568774940984945469">Υποδοχέας γραμμής πληροφοριών</translation>
 <translation id="2570000010887652771">Εξοικονόμηση δεδομένων.</translation>
 <translation id="257088987046510401">Θέματα</translation>

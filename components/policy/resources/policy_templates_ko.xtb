@@ -473,7 +473,7 @@
 <translation id="2466131534462628618">캡티브 포털 승인에서 프록시를 무시함</translation>
 <translation id="2482676533225429905">기본 메시지</translation>
 <translation id="2483146640187052324">모든 네트워크 연결의 네트워크 활동 예측</translation>
-<translation id="2485721741875148980">이 정책이 true로 설정되어 있으면 사용자가 브라우저를 사용하기 전에 자신의 프로필을 사용해 <ph name="PRODUCT_NAME" />에 로그인해야 합니다. BrowserGuestModeEnabled의 기본값은 false로 설정됩니다. 이 정책을 사용하도록 설정하고 나면 로그인되지 않은 기존 프로필이 잠기면서 액세스할 수 없게 됩니다. 자세한 내용은 고객센터 도움말을 참조하세요.
+<translation id="2485721741875148980">이 정책이 true로 설정되어 있으면 사용자가 브라우저를 사용하기 전에 자신의 프로필을 사용해 <ph name="PRODUCT_NAME" />에 로그인해야 합니다. BrowserGuestModeEnabled의 기본값은 false로 설정됩니다. 이 정책을 사용하도록 설정하고 나면 로그인되지 않은 기존 프로필은 잠겨 액세스할 수 없게 됩니다. 자세한 내용은 고객센터 도움말을 참조하세요.
 
       이 정책이 false로 설정되거나 설정되어 있지 않은 경우 사용자는 <ph name="PRODUCT_NAME" />에 로그인하지 않고도 브라우저를 사용할 수 있습니다.</translation>
 <translation id="2486371469462493753">등록된 URL 목록의 경우 인증서 투명성 요구사항을 시행하지 않도록 사용 중지합니다.

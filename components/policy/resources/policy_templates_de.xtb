@@ -1967,7 +1967,7 @@ Wird diese Richtlinie nicht konfiguriert, wird der standardmäßige Profilpfad v
 <translation id="7625444193696794922">Gibt den Release-Kanal an, an den dieses Gerät gebunden werden soll.</translation>
 <translation id="7632724434767231364">Name der GSSAPI-Bibliothek</translation>
 <translation id="7635471475589566552">Konfiguriert das App-Gebietsschema in <ph name="PRODUCT_NAME" /> und verhindert, dass Nutzer das Gebietsschema ändern. Wenn Sie diese Einstellung aktivieren, verwendet <ph name="PRODUCT_NAME" /> das angegebene Gebietsschema. Wird das konfigurierte Gebietsschema nicht unterstützt, kommt stattdessen "en-US" zum Einsatz. Ist diese Einstellung deaktiviert oder nicht konfiguriert, verwendet <ph name="PRODUCT_NAME" /> das vom Nutzer angegebene bevorzugte Gebietsschema (sofern konfiguriert), das Gebietsschema des Systems oder das Ersatz-Gebietsschema "en-US".</translation>
-<translation id="7643883929273267746">Konten einschränken, die in <ph name="PRODUCT_NAME" /> sichtbar sind</translation>
+<translation id="7643883929273267746">Sichtbarkeit von Konten in <ph name="PRODUCT_NAME" /> einschränken</translation>
 <translation id="7651739109954974365">Legt fest, ob Daten-Roaming für das Gerät aktiviert werden soll. Bei Einstellung auf "true" ist das Roaming erlaubt. Ist die Richtlinie nicht konfiguriert oder auf "false" gesetzt, ist kein Roaming verfügbar.</translation>
 <translation id="7683777542468165012">Dynamische Richtlinienaktualisierung</translation>
 <translation id="7694807474048279351">Hiermit wird ein automatischer Neustart nach einem Update von <ph name="PRODUCT_OS_NAME" /> geplant.
@@ -2209,11 +2209,11 @@ Diese Außerkraftsetzung soll in Zukunft beseitigt werden.</translation>
 <translation id="8424255554404582727">Standarddrehung des Bildschirms festlegen, die bei jedem Neustart erneut angewendet wird</translation>
 <translation id="8426231401662877819">Bildschirm um 90 Grad im Uhrzeigersinn drehen</translation>
 <translation id="8451988835943702790">"Neuer Tab"-Seite als Startseite verwenden</translation>
-<translation id="8460677879226618710">Enthält eine Liste von Mustern, die zur Steuerung der Sichtbarkeit von Konten in <ph name="PRODUCT_NAME" /> verwendet werden.
+<translation id="8460677879226618710">Enthält eine Liste von Mustern, mit denen die Sichtbarkeit von Konten in <ph name="PRODUCT_NAME" /> gesteuert wird.
 
-      Das Konto auf dem Gerät ist in <ph name="PRODUCT_NAME" /> sichtbar, wenn sein Name mit einem beliebigen Muster aus der Liste übereinstimmt. Anderenfalls wird das Konto herausgefiltert und ausgeblendet.
+      Das Konto auf dem Gerät ist in <ph name="PRODUCT_NAME" /> sichtbar, wenn sein Name mit einem der Muster aus der Liste übereinstimmt. Anderenfalls wird das Konto herausgefiltert und ausgeblendet.
 
-      Das Platzhalterzeichen "*" kann verwendet werden, um Null oder beliebige Zeichen zuzuordnen. Als Escapezeichen wird "\" verwendet. Dieses können Sie vor "*" oder "\" setzen, um nach diesen Zeichen (Sternchen bzw. umgekehrter Schrägstrich) zu suchen.
+      Das Platzhalterzeichen "*" kann verwendet werden, um null oder mehr beliebige Zeichen zuzuordnen. Als Escapezeichen wird "\" verwendet. Dieses können Sie vor "*" oder "\" setzen, um nach diesen Zeichen (Sternchen bzw. umgekehrter Schrägstrich) zu suchen.
 
       Wenn diese Richtlinie nicht festgelegt wird, sind alle Google-Konten auf dem Gerät in <ph name="PRODUCT_NAME" /> sichtbar.</translation>
 <translation id="8465065632133292531">Parameter für URL der Suche im Voraus, die POST verwendet</translation>

@@ -52,7 +52,7 @@
 
 <ph name="EXTENSION_NAME" /></translation>
 <translation id="1071917609930274619">Datenverschlüsselung</translation>
-<translation id="1074944608454986967">Halten Sie die Suchtaste gedrückt, um Inhalte laut vorzulesen. Klicken oder ziehen Sie anschließend, um Inhalte auszuwählen. Sie können auch einen Bereich markieren und "Suchtaste" + "S" verwenden.</translation>
+<translation id="1074944608454986967">Um sich Inhalte laut vorlesen zu lassen, halten Sie die Suchtaste gedrückt. Klicken oder ziehen Sie anschließend, um Inhalte auszuwählen. Sie können auch einen Bereich markieren und "Suchtaste" + "S" verwenden.</translation>
 <translation id="1076698951459398590">Design aktivieren</translation>
 <translation id="1076818208934827215">Internet Explorer</translation>
 <translation id="1077946062898560804">Automatische Updates für alle Nutzer einrichten</translation>
@@ -464,7 +464,7 @@
 <translation id="1673103856845176271">Auf die Datei konnte aus Sicherheitsgründen nicht zugegriffen werden.</translation>
 <translation id="167832068858235403">Leiser</translation>
 <translation id="1679068421605151609">Entwicklertools</translation>
-<translation id="16815041330799488">Websites keinen Zugriff auf Texte und Bilder gewähren, die in die Zwischenablage kopiert wurden</translation>
+<translation id="16815041330799488">Websites keinen Zugriff auf Texte und Bilder gewähren, die sich in der Zwischenablage befinden</translation>
 <translation id="1682548588986054654">Neues &amp;Inkognitofenster</translation>
 <translation id="1688935057616748272">Geben Sie einen Buchstaben ein</translation>
 <translation id="168991973552362966">Drucker in der Nähe hinzufügen</translation>
@@ -697,7 +697,7 @@
 <translation id="2085470240340828803">Eine Datei mit dem Namen "<ph name="FILENAME" />" existiert bereits. Was möchten Sie tun?</translation>
 <translation id="2087822576218954668">Drucken: <ph name="PRINT_NAME" /></translation>
 <translation id="2089566709556890888">Sicher surfen mit Google Chrome</translation>
-<translation id="2089795179672254991">Nachfragen, wenn eine Website Texte und Bilder aus Ihrer Zwischenablage aufrufen möchte (empfohlen)</translation>
+<translation id="2089795179672254991">Nachfragen, wenn eine Website Texte und Bilder aus der Zwischenablage abrufen möchte (empfohlen)</translation>
 <translation id="2090165459409185032">Besuchen Sie die folgende Seite, um Ihre Kontoinformationen wiederzuherstellen: google.com/accounts/recovery</translation>
 <translation id="2090876986345970080">Sicherheitseinstellung des Systems</translation>
 <translation id="2091887806945687916">Ton</translation>
@@ -1493,7 +1493,7 @@ Mehr dazu erfahren Sie in <ph name="BEGIN_LINK" />unserer Hilfe<ph name="END_LIN
 <translation id="3268451620468152448">Geöffnete Tabs</translation>
 <translation id="3269069891205016797">Ihre Daten werden von dem Gerät entfernt, wenn Sie sich abmelden.</translation>
 <translation id="3269093882174072735">Bild laden</translation>
-<translation id="3269889795238950578">Diese Seite kann Texte und Bilder in der Zwischenablage aufrufen.</translation>
+<translation id="3269889795238950578">Diese Seite kann Texte und Bilder aus der Zwischenablage abrufen.</translation>
 <translation id="326999365752735949">DIFF-Datei wird heruntergeladen.</translation>
 <translation id="3270965368676314374">Fotos, Musik und andere Medien auf Ihrem Computer lesen, ändern und löschen</translation>
 <translation id="327147043223061465">Alle Cookies und Websitedaten anzeigen</translation>
@@ -1631,7 +1631,7 @@ Mehr dazu erfahren Sie in <ph name="BEGIN_LINK" />unserer Hilfe<ph name="END_LIN
 <translation id="3459509316159669723">Drucken</translation>
 <translation id="3459697287128633276">Damit Ihr Konto Zugriff auf den Google Play Store hat, müssen Sie sich bei Ihrem Identitätsanbieter authentifizieren.</translation>
 <translation id="3459774175445953971">Zuletzt geändert am:</translation>
-<translation id="3461266716147554923"><ph name="URL" /> möchte Texte und Bilder aus Ihrer Zwischenablage aufrufen</translation>
+<translation id="3461266716147554923"><ph name="URL" /> möchte Texte und Bilder aus der Zwischenablage abrufen</translation>
 <translation id="3462413494201477527">Kontoeinrichtung abbrechen?</translation>
 <translation id="346431825526753">Dies ist ein Konto für Kinder, das von <ph name="CUSTODIAN_EMAIL" /> verwaltet wird.</translation>
 <translation id="3465566417615315331">Klicken Sie auf Ihr Foto.</translation>
@@ -1970,7 +1970,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
 <translation id="394984172568887996">Aus Internet Explorer importiert</translation>
 <translation id="3950820424414687140">Anmelden</translation>
-<translation id="3950870029767307261">Diese Seite wurde daran gehindert, Texte und Bilder in der Zwischenablage aufzurufen</translation>
+<translation id="3950870029767307261">Diese Seite wurde daran gehindert, Texte und Bilder aus der Zwischenablage abzurufen</translation>
 <translation id="3954354850384043518">Wird heruntergeladen</translation>
 <translation id="3955193568934677022">Wiedergabe geschützter Inhalte auf Websites zulassen (empfohlen)</translation>
 <translation id="3956702100721821638">Keine Verbindung zu Google Play</translation>
@@ -2560,7 +2560,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="4970738541803285369">Auf dem Desktop installieren...</translation>
 <translation id="4971412780836297815">Nach abgeschlossenem Download öffnen</translation>
 <translation id="4972129977812092092">Druckerinformationen bearbeiten</translation>
-<translation id="497287958838527945">Kreditkarten und Adressen für Google Pay.</translation>
+<translation id="497287958838527945">Kreditkarten und Adressen aus Google Pay.</translation>
 <translation id="4973307593867026061">Drucker hinzufügen</translation>
 <translation id="4973523518332075481">Der Name darf höchstens <ph name="MAX_LENGTH" /> Zeichen lang sein</translation>
 <translation id="497421865427891073">Weiter</translation>
@@ -2914,7 +2914,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="5516183516694518900">Melden Sie sich mit Ihrem Google-Konto in Chrome an, um Lesezeichen, Verlauf, Passwörter und andere Einstellungen auf all Ihren Geräten abrufen zu können.</translation>
 <translation id="551752069230578406">Drucker wird zu Ihrem Konto hinzugefügt. Bitte warten...</translation>
 <translation id="5517535964909391608">Unsichere Inhalte blockiert</translation>
-<translation id="5518219166343146486">Nachfragen, wenn eine Website Texte und Bilder aus der Zwischenablage aufrufen möchte</translation>
+<translation id="5518219166343146486">Nachfragen, wenn eine Website Texte und Bilder aus der Zwischenablage abrufen möchte</translation>
 <translation id="5518584115117143805">Zertifikat für E-Mail-Verschlüsselung</translation>
 <translation id="5521078259930077036">Ist das Ihre erwartete Startseite?</translation>
 <translation id="5521348028713515143">Desktopverknüpfung hinzufügen</translation>
@@ -3291,7 +3291,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="6107012941649240045">Ausgestellt für</translation>
 <translation id="6112952769866305444">Person bearbeiten: <ph name="PROFILE_NAME" />, <ph name="USERNAME" /></translation>
 <translation id="6115424132962100663">Zum Zurückgehen |<ph name="SHORTCUT" />| drücken</translation>
-<translation id="6116338172782435947">Texte und Bilder aus Ihrer Zwischenablage aufrufen</translation>
+<translation id="6116338172782435947">Texte und Bilder aus der Zwischenablage abrufen</translation>
 <translation id="6116921718742659598">Sprach- und Eingabeeinstellungen ändern</translation>
 <translation id="6120205520491252677">Diese Seite an Startbildschirm anheften...</translation>
 <translation id="6122081475643980456">Internetverbindung wird kontrolliert</translation>
@@ -4232,7 +4232,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="7607274158153386860">Tablet-Website anfordern</translation>
 <translation id="7611008212562900400">Gerät, Apps, Internet durchsuchen…</translation>
 <translation id="7615910377284548269">Blockierung von Plug-ins ohne Sandbox verwalten...</translation>
-<translation id="7616214729753637086">Gerät wird angemeldet…</translation>
+<translation id="7616214729753637086">Gerät wird registriert…</translation>
 <translation id="7617366389578322136">Verbindung zu "<ph name="DEVICE_NAME" />" wird hergestellt</translation>
 <translation id="761779991806306006">Es wurden keine Passwörter gespeichert.</translation>
 <translation id="7622114377921274169">Wird aufgeladen.</translation>

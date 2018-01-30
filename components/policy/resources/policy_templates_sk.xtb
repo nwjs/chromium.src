@@ -2328,7 +2328,7 @@ Odporúčaný spôsob nastavenia pravidiel v systéme Windows je prostredníctv
 
       Účet v zariadení bude v prehliadači <ph name="PRODUCT_NAME" /> viditeľný vtedy, ak jeho názov zodpovedá ľubovoľnému zo vzorov v zozname. Inak bude účet odfiltrovaný a skrytý.
 
-      Nulu alebo ďalšie arbitrárne znaky môžete nahradiť zástupným znakom *. Znak ukončenia je \ (opačná lomka), ktorý označuje skutočný význam znaku *, ? alebo \, keď je umiestený pred tieto znaky.
+      Nulu alebo ďalšie arbitrárne znaky môžete nahradiť zástupným znakom *. Znak potlačenia významu je \ (opačná lomka), ktorým sa ruší špeciálny význam znakov *, ? alebo \, keď je umiestený pred tieto znaky.
 
       Ak toto pravidlo nenastavíte, v prehliadači <ph name="PRODUCT_NAME" /> budú viditeľné všetky účty Google v zariadení.</translation>
 <translation id="8465065632133292531">Parametre pre webovú adresu okamžitého vyhľadávania, ktorá používa metódu POST</translation>

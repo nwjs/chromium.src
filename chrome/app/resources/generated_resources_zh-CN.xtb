@@ -52,7 +52,7 @@
 
 <ph name="EXTENSION_NAME" /></translation>
 <translation id="1071917609930274619">数据加密</translation>
-<translation id="1074944608454986967">您可通过下述方法让系统大声朗读屏幕上显示的内容：按住搜索键，然后点击并拖动鼠标以选择所需内容；或者，突出显示相应区域，然后使用“搜索键 + S”组合键。</translation>
+<translation id="1074944608454986967">您可通过以下方法让系统读出屏幕上显示的内容：按住搜索键，然后通过点击或拖动鼠标来选择所需内容；或者，突出显示相应区域，然后使用“搜索键 + S”组合键。</translation>
 <translation id="1076698951459398590">启用主题背景</translation>
 <translation id="1076818208934827215">Microsoft Internet Explorer</translation>
 <translation id="1077946062898560804">为所有用户设置自动更新</translation>
@@ -234,7 +234,7 @@
 <translation id="1347975661240122359">当电池电量达到 <ph name="BATTERY_LEVEL" />% 时将开始更新。</translation>
 <translation id="1351692861129622852">正在导入 <ph name="FILE_COUNT" /> 个文件…</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />：<ph name="NETWORK_NAME" /></translation>
-<translation id="1353980523955420967">找不到所提供的 PPD。请确保您的 Chromebook 已连接到网络，然后重试。</translation>
+<translation id="1353980523955420967">找不到 PPD。请确保您的 Chromebook 已连接到网络，然后重试。</translation>
 <translation id="1355466263109342573"><ph name="PLUGIN_NAME" /> 已被屏蔽</translation>
 <translation id="1357589289913453911">扩展程序 ID</translation>
 <translation id="1358735829858566124">该文件或目录无法使用。</translation>
@@ -1624,7 +1624,7 @@
 <translation id="3450157232394774192">闲置状态占用率</translation>
 <translation id="3453612417627951340">需要获得授权</translation>
 <translation id="3454157711543303649">激活已完成</translation>
-<translation id="3454224730401036106">您的连接已切换到一个更安全的网络</translation>
+<translation id="3454224730401036106">您已切换到一个更安全的网络连接</translation>
 <translation id="345693547134384690">在新标签页中打开图片(&amp;I)</translation>
 <translation id="3459509316159669723">打印</translation>
 <translation id="3459697287128633276">若想让您的帐号有权访问 Google Play 商店，请通过您的身份提供商进行身份验证。</translation>
@@ -2161,7 +2161,7 @@
 <translation id="430303754419731728">您有一项新的操作系统更新。登录即可开始使用。</translation>
 <translation id="4305227814872083840">长（2 秒）</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES" /> K（实际大小为 <ph name="NUM_KILOBYTES_LIVE" /> K）</translation>
-<translation id="4310139701823742692">文件格式有误。请检查所提供的 PPD 文件，然后重试。</translation>
+<translation id="4310139701823742692">文件格式有误。请检查 PPD 文件，然后重试。</translation>
 <translation id="431076611119798497">详细信息(&amp;D)</translation>
 <translation id="4312866146174492540">屏蔽（默认）</translation>
 <translation id="4316850752623536204">开发者网站</translation>
@@ -3906,7 +3906,7 @@
 <translation id="7093866338626856921">与具有下列名称的设备交换数据：<ph name="HOSTNAMES" /></translation>
 <translation id="7096108453481049031">无法导入该受监管用户。请检查您的网络连接，稍后重试。</translation>
 <translation id="7098447629416471489">其他已保存的搜索引擎将显示在这里</translation>
-<translation id="7099337801055912064">无法加载所提供的 PPD，因为它太大了。系统所允许的大小上限为 250 KB。</translation>
+<translation id="7099337801055912064">无法加载过大的 PPD。大小上限为 250 KB。</translation>
 <translation id="7100897339030255923">已选择 <ph name="COUNT" /> 项</translation>
 <translation id="7102687220333134671">已开启自动更新功能</translation>
 <translation id="7106346894903675391">购买更多存储空间...</translation>

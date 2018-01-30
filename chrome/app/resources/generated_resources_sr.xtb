@@ -2020,6 +2020,7 @@
 <translation id="4037084878352560732">Коњ</translation>
 <translation id="4037889604535939429">Измена особе</translation>
 <translation id="4042264909745389898">Услови за Google Chrome ОС</translation>
+<translation id="4042863763121826131">{NUM_PAGES,plural, =1{Затвори страницу}one{Затвори странице}few{Затвори странице}other{Затвори странице}}</translation>
 <translation id="4044612648082411741">Унесите лозинку за сертификат</translation>
 <translation id="404493185430269859">Подразумевани претраживач</translation>
 <translation id="4047112090469382184">Како је ово безбедно</translation>
@@ -3975,6 +3976,7 @@
 <translation id="7201118060536064622">Ставка „<ph name="DELETED_ITEM_NAME" />“ је избрисана</translation>
 <translation id="7205869271332034173">SSID:</translation>
 <translation id="7206693748120342859">Преузимање додатне компоненте <ph name="PLUGIN_NAME" />...</translation>
+<translation id="720715819012336933">{NUM_PAGES,plural, =1{Затвори страницу}one{Затвори странице}few{Затвори странице}other{Затвори странице}}</translation>
 <translation id="721331389620694978">Нека подешавања која можда одражавају навике прегледања неће бити обрисана.</translation>
 <translation id="7216409898977639127">Мобилни оператер</translation>
 <translation id="7216595297012131718">Распоредите језике по жељи</translation>

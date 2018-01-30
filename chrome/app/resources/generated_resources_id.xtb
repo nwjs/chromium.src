@@ -1463,7 +1463,7 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="3202173864863109533">Audio tab ini dinonaktifkan.</translation>
 <translation id="3206175707080061730">File dengan nama "$1" sudah ada. Apakah Anda ingin menggantikannya?</translation>
 <translation id="3208703785962634733">Tidak dipastikan</translation>
-<translation id="3213187967168344806">Tidak dapat menambahkan printer. Harap mulai ulang komputer dan coba lagi.</translation>
+<translation id="3213187967168344806">Tidak dapat menambahkan printer. Harap nyalakan ulang komputer dan coba lagi.</translation>
 <translation id="321799795901478485">Zip Archiver</translation>
 <translation id="3220586366024592812">Proses penyambung <ph name="CLOUD_PRINT_NAME" /> ngadat. Mulai ulang?</translation>
 <translation id="3221634914176615296">Jelajahi konten perangkat di aplikasi File.</translation>
@@ -3979,7 +3979,7 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="7201118060536064622">'<ph name="DELETED_ITEM_NAME" />' dihapus</translation>
 <translation id="7205869271332034173">SSID:</translation>
 <translation id="7206693748120342859">Mendownload <ph name="PLUGIN_NAME" />...</translation>
-<translation id="720715819012336933">{NUM_PAGES,plural, =1{Keluar dari Halaman}other{Keluar dari Halaman}}</translation>
+<translation id="720715819012336933">{NUM_PAGES,plural, =1{Keluar dari halaman}other{Keluar dari halaman}}</translation>
 <translation id="721331389620694978">Beberapa setelan yang mungkin mencerminkan kebiasaan penjelajahan tidak akan dihapus.</translation>
 <translation id="7216409898977639127">Operator seluler</translation>
 <translation id="7216595297012131718">Urutkan bahasa berdasarkan preferensi Anda</translation>
@@ -4094,7 +4094,7 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="7392118418926456391">Pemindaian virus gagal</translation>
 <translation id="7392915005464253525">Buka kembali jendela yang tertutup</translation>
 <translation id="7396845648024431313"><ph name="APP_NAME" /> akan diluncurkan pada permulaan sistem dan tetap berjalan di latar meskipun Anda telah menutup semua jendela <ph name="PRODUCT_NAME" />.</translation>
-<translation id="7398254312354928459">Sambungan jaringan dialihkan</translation>
+<translation id="7398254312354928459">Koneksi jaringan dialihkan</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="740083207982962331">Tunggu saat Chromebox dimulai ulang...</translation>
 <translation id="7400839060291901923">Siapkan koneksi di <ph name="PHONE_NAME" /> Anda</translation>

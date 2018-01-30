@@ -2024,6 +2024,7 @@ Više informacija potražite u našem <ph name="BEGIN_LINK" />centru za pomoć<p
 <translation id="4037084878352560732">Konj</translation>
 <translation id="4037889604535939429">Uređivanje osobe</translation>
 <translation id="4042264909745389898">Uvjeti za OS Google Chrome</translation>
+<translation id="4042863763121826131">{NUM_PAGES,plural, =1{Zatvori stranicu}one{Zatvori stranicu}few{Zatvori stranice}other{Zatvori stranica}}</translation>
 <translation id="4044612648082411741">Unesite zaporku za certifikat</translation>
 <translation id="404493185430269859">Zadana tražilica</translation>
 <translation id="4047112090469382184">Koliko je to sigurno</translation>
@@ -3978,6 +3979,7 @@ Više informacija potražite u našem <ph name="BEGIN_LINK" />centru za pomoć<p
 <translation id="7201118060536064622">Izbrisana je stavka "<ph name="DELETED_ITEM_NAME" />"</translation>
 <translation id="7205869271332034173">SSID:</translation>
 <translation id="7206693748120342859">Preuzimanje dodatka <ph name="PLUGIN_NAME" />...</translation>
+<translation id="720715819012336933">{NUM_PAGES,plural, =1{Zatvori stranicu}one{Zatvori stranicu}few{Zatvori stranice}other{Zatvori stranica}}</translation>
 <translation id="721331389620694978">Neke postavke koje mogu odražavati navike tijekom pregledavanja neće se izbrisati.</translation>
 <translation id="7216409898977639127">Davatelj mobilnih usluga</translation>
 <translation id="7216595297012131718">Poredajte jezike prema svojim preferencijama</translation>

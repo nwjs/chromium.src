@@ -452,7 +452,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="2466131534462628618">La autenticación de portal cautivo ignora el proxy</translation>
 <translation id="2482676533225429905">Mensajería nativa</translation>
 <translation id="2483146640187052324">Predecir acciones de la red en cualquier conexión de red</translation>
-<translation id="2485721741875148980">Si se establece esta política como verdadera, el usuario deberá acceder a <ph name="PRODUCT_NAME" /> con su perfil antes de usar el navegador. El valor predeterminado BrowserGuestModeEnabled se establecerá como falso. Debes tener en cuenta que, una vez habilitada esta política, los perfiles en los que no se haya accedido se bloquearán y no se podrán acceder. Para obtener más información, consulta el artículo del centro de ayuda.
+<translation id="2485721741875148980">Si se establece esta política como verdadera, el usuario deberá acceder a <ph name="PRODUCT_NAME" /> con su perfil antes de usar el navegador. El valor predeterminado de BrowserGuestModeEnabled se establecerá como falso. Debes tener en cuenta que, una vez habilitada esta política, se bloquearán los perfiles a los que no se haya accedido y no podrás ingresar a ellos. Para obtener más información, consulta el artículo del centro de ayuda.
 
       Si se establece esta política como falsa o no se configura, el usuario podrá usar el navegador sin acceder a <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2486371469462493753">Inhabilita la aplicación de los requisitos del Certificado de transparencia para las URL de la lista.
@@ -2227,11 +2227,11 @@ Si se selecciona "U2F_EXTENDED", el segundo factor integrado proporcionará func
 <translation id="8451988835943702790">Usar la página Nueva pestaña como página principal</translation>
 <translation id="8460677879226618710">Contiene una lista de los patrones que se usan para controlar la visibilidad de las cuentas en <ph name="PRODUCT_NAME" />.
 
-      La cuenta en el dispositivo será visible en <ph name="PRODUCT_NAME" /> si el nombre coincide con algún patrón de la lista. De lo contrario, la cuenta se filtrará y quedará oculta.
+      La cuenta en el dispositivo será visible en <ph name="PRODUCT_NAME" /> si el nombre coincide con algún patrón de la lista. De lo contrario, la cuenta se excluirá y quedará oculta.
 
-      Puede usarse el caracter comodín "*" para representar cero o más caracteres arbitrarios. El caracter de escape es "\"; por lo tanto, para representar los caracteres "*" o "\" en sí, puedes ingresar "\" delante de estos.
+      Puede usarse el carácter comodín "*" para buscar coincidencias con cero o más caracteres arbitrarios. El carácter de escape es "\"; por lo tanto, para representar los verdaderos caracteres "*" o "\", puedes ingresar "\" delante de estos.
 
-      Si no se establece esta política, todas las cuentas de Google en el dispositivo serán visibles en <ph name="PRODUCT_NAME" />.</translation>
+      Si no se establece esta política, en <ph name="PRODUCT_NAME" /> estarán visibles todas las cuentas de Google del dispositivo.</translation>
 <translation id="8465065632133292531">Parámetros para URL instantánea que utiliza POST</translation>
 <translation id="847472800012384958">No permitir que ningún sitio muestre ventanas emergentes</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>

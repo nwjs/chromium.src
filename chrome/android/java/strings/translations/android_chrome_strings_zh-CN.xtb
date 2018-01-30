@@ -111,7 +111,7 @@
 <translation id="1946005195648379376">控制 Google 如何使用您的浏览记录对 Google 搜索和其他 Google 服务进行个性化设置。</translation>
 <translation id="1952172573699511566">网站将尽可能以您的首选语言显示文字。</translation>
 <translation id="1966710179511230534">请更新您的登录详细信息。</translation>
-<translation id="196723829409668860">此网页的其他浏览者还查看了以下文章：</translation>
+<translation id="196723829409668860">其他人还查看了以下文章：</translation>
 <translation id="1974060860693918893">高级</translation>
 <translation id="1984937141057606926">允许（第三方除外）</translation>
 <translation id="1989112275319619282">浏览</translation>
@@ -892,7 +892,7 @@
 <translation id="9086455579313502267">无法访问网络</translation>
 <translation id="9099018167121903954">下载内容已占用的空间：<ph name="KILOBYTES" /> KB</translation>
 <translation id="9099292894781394535">数据流量节省情况</translation>
-<translation id="9100505651305367705">使用简化版视图显示受支持的文章</translation>
+<translation id="9100505651305367705">询问是否使用简化版视图显示受支持的文章</translation>
 <translation id="9100610230175265781">必须提供密码</translation>
 <translation id="9133515669113036225">重置设备凭据</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>

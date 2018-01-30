@@ -2151,13 +2151,13 @@
 <translation id="8424255554404582727">设置显示屏默认旋转角度，每次重新启动后都重新应用设置的角度</translation>
 <translation id="8426231401662877819">将屏幕顺时针旋转 90 度</translation>
 <translation id="8451988835943702790">使用“新标签页”作为主页</translation>
-<translation id="8460677879226618710">包含一系列模式，用于控制可在<ph name="PRODUCT_NAME" />中显示的帐号。
+<translation id="8460677879226618710">包含一系列模式，用于控制在<ph name="PRODUCT_NAME" />中可显示哪些帐号。
 
       如果相应设备上的帐号名称与该列表中的任一模式匹配，此帐号即会在<ph name="PRODUCT_NAME" />中显示。否则，系统便会滤除并隐藏此帐号。
 
       您可使用通配符“*”来匹配零个或更多个任意字符。转义字符为“\”，因此若想匹配实际的“*”或“\”字符，您可在这些字符前面加上“\”。
 
-      如果此政策未设置，相应设备上的所有 Google 帐号都会在<ph name="PRODUCT_NAME" />中显示。</translation>
+      如果未设置此政策，相应设备上的所有 Google 帐号都会在<ph name="PRODUCT_NAME" />中显示。</translation>
 <translation id="8465065632133292531">在使用 POST 的即搜即得网址中所需的参数</translation>
 <translation id="847472800012384958">不允许任何网站显示弹出式窗口</translation>
 <translation id="8477885780684655676">TLS 1.0</translation>

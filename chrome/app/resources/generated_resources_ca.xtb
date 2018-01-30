@@ -3210,7 +3210,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="5972708806901999743">Mou a la part superior</translation>
 <translation id="5972826969634861500">Inicia <ph name="PRODUCT_NAME" /></translation>
 <translation id="5975083100439434680">Redueix</translation>
-<translation id="5975792506968920132">Percentatge de pujada de la bateria</translation>
+<translation id="5975792506968920132">Percentatge de càrrega de la bateria</translation>
 <translation id="5976160379964388480">Altres</translation>
 <translation id="5978264784700053212">Centre de missatges</translation>
 <translation id="5979421442488174909">&amp;Tradueix a: <ph name="LANGUAGE" /></translation>
@@ -4019,7 +4019,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="7270858098575133036">Pregunta'm quan un lloc vulgui utilitzar els missatges exclusius del sistema per accedir a dispositius MIDI</translation>
 <translation id="7272674038937250585">No s'ha proporcionat cap descripció</translation>
 <translation id="7273110280511444812">darrera connexió el <ph name="DATE" /></translation>
-<translation id="727441411541283857"><ph name="PERCENTAGE" />% - Temps restant fins que es completi la pujada: <ph name="TIME" /></translation>
+<translation id="727441411541283857"><ph name="PERCENTAGE" />% - Temps restant fins que es completi la càrrega: <ph name="TIME" /></translation>
 <translation id="7278870042769914968">Utilitza el tema GTK+</translation>
 <translation id="727952162645687754">Error de baixada</translation>
 <translation id="7279701417129455881">Gestiona el bloqueig de galetes...</translation>
@@ -4201,7 +4201,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="756809126120519699">S'han esborrat les dades de Chrome</translation>
 <translation id="7568790562536448087">Actualització</translation>
 <translation id="7571643774869182231">No hi ha prou espai d'emmagatzematge per fer l'actualització</translation>
-<translation id="7573172247376861652">Pujada de la bateria</translation>
+<translation id="7573172247376861652">Càrrega de la bateria</translation>
 <translation id="7576032389798113292">6 x 4</translation>
 <translation id="7576690715254076113">Intercala</translation>
 <translation id="7579149537961810247">Silencia els llocs web</translation>

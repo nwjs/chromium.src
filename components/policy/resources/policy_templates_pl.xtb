@@ -458,7 +458,7 @@
 <translation id="2466131534462628618">Uwierzytelnianie w portalu przechwytującym ignoruje serwer proxy</translation>
 <translation id="2482676533225429905">Wiadomości natywne</translation>
 <translation id="2483146640187052324">Przewiduj działania w sieci dla każdego połączenia sieciowego</translation>
-<translation id="2485721741875148980">Jeśli włączysz tę zasadę, użytkownik będzie musiał logować się w <ph name="PRODUCT_NAME" /> przy użyciu swojego profilu, by skorzystać z przeglądarki. Domyślna wartość BrowserGuestModeEnabled zostanie przy tym ustawiona na fałsz. Pamiętaj, że po włączeniu tej zasady istniejące niepodpisane profile zostaną zablokowane i staną się niedostępne. Więcej informacji znajdziesz w artykule w Centrum pomocy.
+<translation id="2485721741875148980">Jeśli włączysz tę zasadę, użytkownik będzie musiał logować się w <ph name="PRODUCT_NAME" /> przy użyciu swojego profilu, by skorzystać z przeglądarki. Domyślnie wartość zasady BrowserGuestModeEnabled zostanie przy tym ustawiona na fałsz. Pamiętaj, że po włączeniu tej zasady istniejące niepodpisane profile zostaną zablokowane i staną się niedostępne. Więcej informacji znajdziesz w artykule w Centrum pomocy.
 
       Jeśli nie włączysz tej zasady lub jej nie skonfigurujesz, użytkownik będzie mógł używać przeglądarki bez logowania się w <ph name="PRODUCT_NAME" />.</translation>
 <translation id="2486371469462493753">Wyłącza egzekwowanie wymogów protokołu Certificate Transparency dla wymienionych adresów URL.
