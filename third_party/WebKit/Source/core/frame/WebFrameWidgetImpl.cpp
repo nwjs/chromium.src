@@ -268,9 +268,7 @@ void WebFrameWidgetImpl::BeginFrame(double last_frame_time_monotonic) {
   DocumentLifecycle::AllowThrottlingScope throttling_scope(
       local_root_->GetFrame()->GetDocument()->Lifecycle());
   PageWidgetDelegate::Animate(*GetPage(), last_frame_time_monotonic);
-  // Animate can cause the local frame to detach.
-  if (local_root_)
-    GetPage()->GetValidationMessageClient().LayoutOverlay();
+  GetPage()->GetValidationMessageClient().LayoutOverlay();
 }
 
 void WebFrameWidgetImpl::UpdateAllLifecyclePhases() {
