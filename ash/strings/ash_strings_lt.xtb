@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Įrenginys valdomas „<ph name="DOMAIN" />“.</translation>
 <translation id="2050339315714019657">Stačias</translation>
 <translation id="2067602449040652523">Klaviatūros šviesumas</translation>
-<translation id="207439088875642105">Tai yra vaikų paskyra, kurią tvarko <ph name="FIRST_PARENT_EMAIL" /> ir <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="2122028596993374965">Sustabdyti „<ph name="TAB_NAME" />“ perdavimą į: <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Mažos galios įkroviklis</translation>
 <translation id="2144487987174258011">Paleiskite iš naujo, kad atnaujintumėte „Adobe Flash Player“</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">Monofoninis garsas</translation>
 <translation id="3009178788565917040">Išvestis</translation>
 <translation id="3019353588588144572">Laikas, likęs iki akumuliatoriaus įkrovimo: <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">Tai yra vaikų paskyra, kurią tvarko <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Apačia</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> („Bluetooth“)</translation>

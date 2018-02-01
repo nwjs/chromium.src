@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Bu cihaz <ph name="DOMAIN" /> tarafından yönetiliyor.</translation>
 <translation id="2050339315714019657">Dikey</translation>
 <translation id="2067602449040652523">Klavye parlaklığı</translation>
-<translation id="207439088875642105">Bu hesap çocuklar içindir ve <ph name="FIRST_PARENT_EMAIL" /> ile <ph name="SECOND_PARENT_EMAIL" /> tarafından yönetilmektedir</translation>
 <translation id="2122028596993374965"><ph name="TAB_NAME" /> sekmesinin <ph name="RECEIVER_NAME" /> cihazına yayınını durdur</translation>
 <translation id="2127372758936585790">Düşük güçlü şarj cihazı</translation>
 <translation id="2144487987174258011">Adobe Flash Player'ı güncellemek için yeniden başlatın</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">Mono ses</translation>
 <translation id="3009178788565917040">Çıkış</translation>
 <translation id="3019353588588144572">Pilin tam olarak şarj olması için kalan süre, <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">Bu hesap çocuklar içindir ve <ph name="MANAGER_EMAIL" /> tarafından yönetilmektedir</translation>
 <translation id="3077734595579995578">üstkrktr</translation>
 <translation id="3087734570205094154">Alt</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>

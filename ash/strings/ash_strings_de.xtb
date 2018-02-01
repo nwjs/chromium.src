@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Dieses Gerät wird durch <ph name="DOMAIN" /> verwaltet.</translation>
 <translation id="2050339315714019657">Hochformat</translation>
 <translation id="2067602449040652523">Tastaturhelligkeit</translation>
-<translation id="207439088875642105">Dies ist ein Konto für Kinder, das von <ph name="FIRST_PARENT_EMAIL" /> und <ph name="SECOND_PARENT_EMAIL" /> verwaltet wird.</translation>
 <translation id="2122028596993374965">Streamen von <ph name="TAB_NAME" /> an <ph name="RECEIVER_NAME" /> beenden</translation>
 <translation id="2127372758936585790">Schwachstrom-Ladegerät</translation>
 <translation id="2144487987174258011">Neu starten, um den Adobe Flash Player zu aktualisieren</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">Mono-Audio</translation>
 <translation id="3009178788565917040">Ausgang</translation>
 <translation id="3019353588588144572">Verbleibende Zeit, bis der Akku vollständig geladen ist: <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">Dies ist ein Konto für Kinder, das von <ph name="MANAGER_EMAIL" /> verwaltet wird.</translation>
 <translation id="3077734595579995578">Shift</translation>
 <translation id="3087734570205094154">Unten</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>

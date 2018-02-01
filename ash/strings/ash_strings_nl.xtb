@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Dit apparaat wordt beheerd door <ph name="DOMAIN" />.</translation>
 <translation id="2050339315714019657">Staand</translation>
 <translation id="2067602449040652523">Toetsenbordhelderheid</translation>
-<translation id="207439088875642105">Dit is een account voor kinderen dat wordt beheerd door <ph name="FIRST_PARENT_EMAIL" /> en <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="2122028596993374965">Casten van <ph name="TAB_NAME" /> naar <ph name="RECEIVER_NAME" /> stopzetten</translation>
 <translation id="2127372758936585790">Laag-vermogen-lader</translation>
 <translation id="2144487987174258011">Start opnieuw op om Adobe Flash Player te updaten</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">Monogeluid</translation>
 <translation id="3009178788565917040">Uitgang</translation>
 <translation id="3019353588588144572">Resterende tijd totdat de batterij volledig is opgeladen: <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">Dit is een account voor kinderen dat wordt beheerd door <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Onderaan</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>

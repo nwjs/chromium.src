@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">この端末は <ph name="DOMAIN" /> によって管理されています。</translation>
 <translation id="2050339315714019657">縦</translation>
 <translation id="2067602449040652523">キーボードの明るさ</translation>
-<translation id="207439088875642105">これは <ph name="FIRST_PARENT_EMAIL" /> と <ph name="SECOND_PARENT_EMAIL" /> によって管理されている子供向けのアカウントです</translation>
 <translation id="2122028596993374965"><ph name="RECEIVER_NAME" /> への <ph name="TAB_NAME" /> のキャストを停止する</translation>
 <translation id="2127372758936585790">低電力の充電器</translation>
 <translation id="2144487987174258011">Adobe Flash Player を更新するには再起動してください</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">モノラル音声</translation>
 <translation id="3009178788565917040">出力</translation>
 <translation id="3019353588588144572">バッテリーがフル充電されるまであと: <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">これは <ph name="MANAGER_EMAIL" /> によって管理されている子供向けのアカウントです</translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">下</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" />（Bluetooth）</translation>

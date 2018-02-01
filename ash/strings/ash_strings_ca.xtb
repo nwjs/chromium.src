@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Aquest dispositiu està gestionat per <ph name="DOMAIN" /></translation>
 <translation id="2050339315714019657">Vertical</translation>
 <translation id="2067602449040652523">Brillantor del teclat</translation>
-<translation id="207439088875642105">Aquest és un compte infantil gestionat per <ph name="FIRST_PARENT_EMAIL" /> i per <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="2122028596993374965">Deixa d'emetre <ph name="TAB_NAME" /> a <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Carregador de baix consum</translation>
 <translation id="2144487987174258011">Reinicia per actualitzar Adobe Flash Player</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">Àudio mono</translation>
 <translation id="3009178788565917040">Sortida</translation>
 <translation id="3019353588588144572">Temps restant fins que la bateria no estigui totalment carregada: <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">Aquest és un compte infantil gestionat per <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3077734595579995578">maj</translation>
 <translation id="3087734570205094154">Part inferior</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>

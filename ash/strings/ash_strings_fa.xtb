@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">این دستگاه توسط <ph name="DOMAIN" /> مدیریت می‌شود.</translation>
 <translation id="2050339315714019657">عمودی</translation>
 <translation id="2067602449040652523">روشنایی صفحه‌کلید</translation>
-<translation id="207439088875642105">این یک حساب مخصوص بچه‌ها است که توسط <ph name="FIRST_PARENT_EMAIL" /> و <ph name="SECOND_PARENT_EMAIL" /> مدیریت می‌شود</translation>
 <translation id="2122028596993374965">شروع ارسال محتوای <ph name="TAB_NAME" /> به <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">شارژر برق ضعیف</translation>
 <translation id="2144487987174258011">‏برای به‌روزرسانی Adobe Flash Player، راه‌اندازی مجدد کنید</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">صدای مونو</translation>
 <translation id="3009178788565917040">خروجی</translation>
 <translation id="3019353588588144572">زمان باقی مانده تا شارژ کامل باتری، <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">این یک حساب مخصوص بچه‌ها است که توسط <ph name="MANAGER_EMAIL" /> مدیریت می‌شود</translation>
 <translation id="3077734595579995578">تبدیل</translation>
 <translation id="3087734570205094154">پایین</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (بلوتوث)</translation>

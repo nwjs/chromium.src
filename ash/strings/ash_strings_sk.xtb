@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Toto zariadenie je spravované doménou <ph name="DOMAIN" />.</translation>
 <translation id="2050339315714019657">Na výšku</translation>
 <translation id="2067602449040652523">Jas klávesnice</translation>
-<translation id="207439088875642105">Toto je detský účet spravovaný používateľmi <ph name="FIRST_PARENT_EMAIL" /> a <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="2122028596993374965">Zastaviť prenos karty <ph name="TAB_NAME" /> do zariadenia <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Nabíjačka s nízkym výkonom</translation>
 <translation id="2144487987174258011">Reštartujte a aktualizujte tak Adobe Flash Player</translation>
@@ -93,7 +92,6 @@ Všetci používatelia sa musia odhlásiť a až potom môžu pokračovať.</tr
 <translation id="3000461861112256445">Zvuk mono</translation>
 <translation id="3009178788565917040">Výstup</translation>
 <translation id="3019353588588144572">Čas zostávajúci do úplného nabitia batérie: <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">Toto je detský účet spravovaný používateľom <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Spodok</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>

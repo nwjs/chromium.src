@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">تتم إدارة هذا الجهاز بواسطة <ph name="DOMAIN" />.</translation>
 <translation id="2050339315714019657">رأسي</translation>
 <translation id="2067602449040652523">سطوع لوحة المفاتيح</translation>
-<translation id="207439088875642105">هذا حساب للأطفال يتم إدارته من خلال <ph name="FIRST_PARENT_EMAIL" /> و<ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="2122028596993374965">إيقاف إرسال <ph name="TAB_NAME" /> إلى <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">شاحن منخفض الطاقة</translation>
 <translation id="2144487987174258011">‏إعادة التشغيل لتحديث Adobe Flash Player</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">صوت أحادي</translation>
 <translation id="3009178788565917040">الإخراج</translation>
 <translation id="3019353588588144572">الوقت المتبقي حتى يتم شحن البطارية بالكامل <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">هذا هو حساب للأطفال يديره <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">أسفل</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (بلوتوث)</translation>

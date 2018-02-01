@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Questo dispositivo è gestito da <ph name="DOMAIN" />.</translation>
 <translation id="2050339315714019657">Verticale</translation>
 <translation id="2067602449040652523">Luminosità della tastiera</translation>
-<translation id="207439088875642105">Si tratta di un account di minori gestito da <ph name="FIRST_PARENT_EMAIL" /> e <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="2122028596993374965">Interrompi la trasmissione di <ph name="TAB_NAME" /> su <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Caricabatterie a basso consumo</translation>
 <translation id="2144487987174258011">Riavvia per aggiornare Adobe Flash Player</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">Audio in formato mono</translation>
 <translation id="3009178788565917040">Uscita</translation>
 <translation id="3019353588588144572">Tempo rimanente al caricamento completo della batteria: <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">Si tratta di un account di minori gestito da <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3077734595579995578">maiusc</translation>
 <translation id="3087734570205094154">In basso</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>

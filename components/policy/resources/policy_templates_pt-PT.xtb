@@ -2170,7 +2170,7 @@ A utilização destas políticas destina-se unicamente à configuração de inst
 Não é necessário configurar estas definições manualmente. Existem modelos de fácil utilização para Windows, Mac e Linux que pode transferir a partir de <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" />.
 
 A forma recomendada para configurar a política no Windows é através do GPO, embora o aprovisionamento da política através de registo ainda seja suportado para instâncias do Windows que estejam associadas a um domínio do <ph name="MS_AD_NAME" />.</translation>
-<translation id="8274603902181597201">Limpe o diretório principal de ecryptfs do utilizador e comece com um diretório principal de ext4 encriptado novo.</translation>
+<translation id="8274603902181597201">Limpe o diretório principal de ecryptfs do utilizador e comece com um diretório principal novo com encriptação ext4.</translation>
 <translation id="8279832363395120715">Remove as partes sensíveis de privacidade e de segurança de URLs https:// antes de os passar para scripts de PAC (Configuração automática do proxy) utilizados pelo <ph name="PRODUCT_NAME" /> durante a resolução de proxy.
 
      Quando definida como Verdadeira, a funcionalidade de segurança está ativada

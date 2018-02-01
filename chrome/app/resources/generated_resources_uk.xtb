@@ -746,7 +746,7 @@
 <translation id="2143778271340628265">Ручна конфігурація проксі-сервера</translation>
 <translation id="2144536955299248197">Перегляд сертифіката: <ph name="CERTIFICATE_NAME" /></translation>
 <translation id="2148756636027685713">Форматування закінчено</translation>
-<translation id="2148892889047469596">Вкладка трансляції</translation>
+<translation id="2148892889047469596">Транслювати вкладку</translation>
 <translation id="2149850907588596975">Паролі та форми</translation>
 <translation id="2150139952286079145">Пошук місць призначення</translation>
 <translation id="2150661552845026580">Додати "<ph name="EXTENSION_NAME" />"?</translation>
@@ -1166,7 +1166,7 @@
 <translation id="2776441542064982094">Схоже, немає пристроїв для реєстрації в мережі. Якщо ваш пристрій увімкнено й під’єднано до Інтернету, спробуйте зареєструвати його, дотримуючись інструкцій у посібнику з експлуатації.</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2783298271312924866">Завантажено</translation>
-<translation id="2783661497142353826">Керувати програмами для терміналів</translation>
+<translation id="2783661497142353826">Керувати додатками-терміналами</translation>
 <translation id="2784407158394623927">Активація служби пересилання мобільних даних</translation>
 <translation id="2785530881066938471">Неможливо завантажити файл "<ph name="RELATIVE_PATH" />" для сценарію вмісту. Кодування файлу не UTF-8.</translation>
 <translation id="2785873697295365461">Опис файлу</translation>
@@ -2255,7 +2255,7 @@
 <translation id="4476590490540813026">Спортсменка</translation>
 <translation id="4477015793815781985">Натискайте Ctrl, Alt або ⌘</translation>
 <translation id="4478664379124702289">Зберегти посиланн&amp;я як...</translation>
-<translation id="4479424953165245642">Керувати програмами для терміналів</translation>
+<translation id="4479424953165245642">Керувати додатками-терміналами</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4481249487722541506">Завантажити розпаковане розширення...</translation>
 <translation id="4481530544597605423">Відключені пристрої</translation>
@@ -3501,7 +3501,7 @@
 <translation id="6431347207794742960"><ph name="PRODUCT_NAME" /> налаштує автоматичні оновлення для всіх користувачів цього комп'ютера.</translation>
 <translation id="6433870913154270462">Інформація про зображення</translation>
 <translation id="6434309073475700221">Скасувати</translation>
-<translation id="6435285122322546452">Керувати додатками для терміналів…</translation>
+<translation id="6435285122322546452">Керувати додатками-терміналами…</translation>
 <translation id="6436164536244065364">Переглянути у веб-магазині</translation>
 <translation id="6437213622978068772">Перезавантажити (Ctrl+R)</translation>
 <translation id="6438234780621650381">Скинути налаштування</translation>

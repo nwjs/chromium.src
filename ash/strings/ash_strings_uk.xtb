@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Цим пристроєм керує домен <ph name="DOMAIN" />.</translation>
 <translation id="2050339315714019657">Портретна</translation>
 <translation id="2067602449040652523">Яскравість клавіатури</translation>
-<translation id="207439088875642105"><ph name="FIRST_PARENT_EMAIL" /> і <ph name="SECOND_PARENT_EMAIL" /> керують цим обліковим записом для дітей</translation>
 <translation id="2122028596993374965">Зупинити трансляцію вкладки "<ph name="TAB_NAME" />" на пристрій "<ph name="RECEIVER_NAME" />"</translation>
 <translation id="2127372758936585790">Зарядний пристрій низької потужності</translation>
 <translation id="2144487987174258011">Перезапустіть Chrome, щоб оновити Adobe Flash Player</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">Монофонічне аудіо</translation>
 <translation id="3009178788565917040">Вихід</translation>
 <translation id="3019353588588144572">До повного зарядження акумулятора залишилося <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454"><ph name="MANAGER_EMAIL" /> керує цим обліковим записом для дітей.</translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Низ</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>

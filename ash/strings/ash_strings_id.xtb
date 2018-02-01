@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Perangkat ini dikelola oleh <ph name="DOMAIN" />.</translation>
 <translation id="2050339315714019657">Potret</translation>
 <translation id="2067602449040652523">Kecerahan keyboard</translation>
-<translation id="207439088875642105">Ini adalah akun untuk anak yang dikelola oleh <ph name="FIRST_PARENT_EMAIL" /> dan <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="2122028596993374965">Hentikan casting <ph name="TAB_NAME" /> ke <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Pengisi daya rendah</translation>
 <translation id="2144487987174258011">Nyalakan ulang untuk mengupdate Adobe Flash Player</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">Audio mono</translation>
 <translation id="3009178788565917040">Keluaran</translation>
 <translation id="3019353588588144572">Waktu yang tersisa hingga baterai terisi penuh, <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">Ini adalah akun untuk anak yang dikelola oleh <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Bawah</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>

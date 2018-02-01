@@ -47,7 +47,6 @@
 <translation id="2049639323467105390"><ph name="DOMAIN" /> administra esta cuenta.</translation>
 <translation id="2050339315714019657">Vertical</translation>
 <translation id="2067602449040652523">Brillo del teclado</translation>
-<translation id="207439088875642105">Esta es una cuenta para niños administrada por <ph name="FIRST_PARENT_EMAIL" /> y <ph name="SECOND_PARENT_EMAIL" />.</translation>
 <translation id="2122028596993374965">Detener la transmisión de <ph name="TAB_NAME" /> a <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Carga lenta</translation>
 <translation id="2144487987174258011">Reinicia para actualizar Adobe Flash Player</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">Audio mono</translation>
 <translation id="3009178788565917040">Salida</translation>
 <translation id="3019353588588144572">Tiempo restante hasta que la batería esté completamente cargada: <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">Esta es una cuenta para niños administrada por <ph name="MANAGER_EMAIL" />.</translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Inferior</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>

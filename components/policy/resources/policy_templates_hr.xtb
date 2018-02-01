@@ -2213,7 +2213,7 @@ Za sustav Windows preporučuje se konfiguriranje pravila putem GPO-a, iako se pr
 
       Račun na uređaju bit će vidljiv u pregledniku <ph name="PRODUCT_NAME" /> ako njegov naziv odgovara nekom uzorku na popisu. U protivnom bit će filtriran i skriven.
 
-      Za nulu ili proizvoljne znakove može se upotrijebiti zamjenski znak "*". Kao prespojni znak upotrebljava se znak "\", tako da za stvarne znakove "*" ili "\" ispred njih stavite "\".
+      Za nulu ili proizvoljne znakove može se upotrijebiti zamjenski znak "*". Kao prespojni znak upotrebljava se znak "\" koji je potrebno staviti ispred stvarnih znakova "*" ili "\".
 
       Ako se to pravilo ne postavi, svi Google računi na uređaju bit će vidljivi u pregledniku <ph name="PRODUCT_NAME" />.</translation>
 <translation id="8465065632133292531">Parametri za URL usluge Instant koji upotrebljava POST</translation>

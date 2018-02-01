@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">यह डिवाइस <ph name="DOMAIN" /> द्वारा प्रबंधित है.</translation>
 <translation id="2050339315714019657">पोर्ट्रेट</translation>
 <translation id="2067602449040652523">कीबोर्ड की रोशनी</translation>
-<translation id="207439088875642105">यह बच्‍चों के लिए बनाया गया खाता है जिसे <ph name="FIRST_PARENT_EMAIL" /> और <ph name="SECOND_PARENT_EMAIL" /> द्वारा प्रबंधित किया जाता है</translation>
 <translation id="2122028596993374965"><ph name="RECEIVER_NAME" /> को <ph name="TAB_NAME" /> कास्ट करना बंद करें</translation>
 <translation id="2127372758936585790">कम-शक्ति वाला चार्जर</translation>
 <translation id="2144487987174258011">Adobe Flash Player को अपडेट करने के लिए फिर से चालू करें</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">मोनो ऑडियो</translation>
 <translation id="3009178788565917040">आउटपुट</translation>
 <translation id="3019353588588144572">बैटरी के पूरी तरह से चार्ज होने में शेष समय, <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">यह बच्‍चों के लिए बनाया गया खाता है जिसे <ph name="MANAGER_EMAIL" /> द्वारा प्रबंधित किया जाता है</translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">नीचे</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (ब्लूटूथ)</translation>

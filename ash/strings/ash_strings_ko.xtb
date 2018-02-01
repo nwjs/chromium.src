@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">기기는 <ph name="DOMAIN" />에서 관리합니다.</translation>
 <translation id="2050339315714019657">세로 방향</translation>
 <translation id="2067602449040652523">키보드 밝기</translation>
-<translation id="207439088875642105"><ph name="FIRST_PARENT_EMAIL" />님과 <ph name="SECOND_PARENT_EMAIL" />님이 관리하는 어린이용 계정입니다.</translation>
 <translation id="2122028596993374965"><ph name="RECEIVER_NAME" />에 <ph name="TAB_NAME" /> 전송 중지</translation>
 <translation id="2127372758936585790">저출력 충전기</translation>
 <translation id="2144487987174258011">Adobe Flash Player를 업데이트하려면 다시 시작하세요.</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">모노 오디오</translation>
 <translation id="3009178788565917040">출력</translation>
 <translation id="3019353588588144572">배터리 충전이 완료될 때까지 남은 시간은 <ph name="TIME_REMAINING" />입니다.</translation>
-<translation id="3047477924825107454"><ph name="MANAGER_EMAIL" />님이 관리하는 어린이용 계정입니다.</translation>
 <translation id="3077734595579995578">Shift</translation>
 <translation id="3087734570205094154">맨 아래</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" />(블루투스)</translation>

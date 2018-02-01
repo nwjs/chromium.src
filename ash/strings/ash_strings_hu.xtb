@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Ezt az eszközt a(z) <ph name="DOMAIN" /> domain kezeli.</translation>
 <translation id="2050339315714019657">Álló</translation>
 <translation id="2067602449040652523">Billentyűzet világossága</translation>
-<translation id="207439088875642105">Ez a fiók gyerekeknek készült; <ph name="FIRST_PARENT_EMAIL" /> és <ph name="SECOND_PARENT_EMAIL" /> felügyelete mellett.</translation>
 <translation id="2122028596993374965">„<ph name="TAB_NAME" />” lap „<ph name="RECEIVER_NAME" />” eszközre történő átküldésének leállítása</translation>
 <translation id="2127372758936585790">Kis teljesítményű töltő</translation>
 <translation id="2144487987174258011">Az Adobe Flash Player frissítéséhez újraindítás szükséges</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">Monó hang</translation>
 <translation id="3009178788565917040">Kimenet</translation>
 <translation id="3019353588588144572">Akkumulátor teljes feltöltéséig hátralévő idő: <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">Ez a fiók gyerekeknek készült; <ph name="MANAGER_EMAIL" /> felügyelete mellett.</translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Alja</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>

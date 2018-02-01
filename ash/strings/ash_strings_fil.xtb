@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Pinamamahalaan ng <ph name="DOMAIN" /> ang device na ito.</translation>
 <translation id="2050339315714019657">Portrait</translation>
 <translation id="2067602449040652523">Liwanag ng keyboard</translation>
-<translation id="207439088875642105">Isa itong account para sa mga bata na pinamamahalaan nina <ph name="FIRST_PARENT_EMAIL" /> at <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="2122028596993374965">Ihinto ang pag-cast ng <ph name="TAB_NAME" /> sa <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Low-power charger</translation>
 <translation id="2144487987174258011">I-restart upang i-update ang Adobe Flash Player</translation>
@@ -93,7 +92,6 @@ Dapat mag-sign out ang lahat ng user upang magpatuloy.</translation>
 <translation id="3000461861112256445">Mono audio</translation>
 <translation id="3009178788565917040">Output</translation>
 <translation id="3019353588588144572">Natitirang oras bago ganap na ma-charge ang baterya, <ph name="TIME_REMAINING" /></translation>
-<translation id="3047477924825107454">Isa itong account para sa mga bata na pinamamahalaan ni <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Sa ilalim</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>

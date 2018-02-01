@@ -47,7 +47,6 @@
 <translation id="2049639323467105390">Šo ierīci pārvalda vietne <ph name="DOMAIN" />.</translation>
 <translation id="2050339315714019657">Portrets</translation>
 <translation id="2067602449040652523">Tastatūras spilgtums</translation>
-<translation id="207439088875642105">Šis ir bērniem paredzēts konts, ko pārvalda <ph name="FIRST_PARENT_EMAIL" /> un <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="2122028596993374965">Apturēt “<ph name="TAB_NAME" />” apraidi uztvērējā “<ph name="RECEIVER_NAME" />”</translation>
 <translation id="2127372758936585790">Lādētājs ar mazu strāvas padevi</translation>
 <translation id="2144487987174258011">Restartējiet, lai atjauninātu Adobe Flash Player</translation>
@@ -93,7 +92,6 @@
 <translation id="3000461861112256445">Mono audio</translation>
 <translation id="3009178788565917040">Izvade</translation>
 <translation id="3019353588588144572">Pilnīgais uzlādei nepieciešamais laiks: <ph name="TIME_REMAINING" />.</translation>
-<translation id="3047477924825107454">Šis ir bērniem paredzēts konts, ko pārvalda <ph name="MANAGER_EMAIL" />.</translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3087734570205094154">Apakšā</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
