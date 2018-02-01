@@ -806,7 +806,7 @@ bool CheckNTLMServerAuth(const AuthChallengeInfo* auth_challenge) {
   if (!auth_challenge)
     return false;
   EXPECT_FALSE(auth_challenge->is_proxy);
-  EXPECT_EQ("https://172.22.68.17", auth_challenge->challenger.Serialize());
+  EXPECT_EQ("https://server", auth_challenge->challenger.Serialize());
   EXPECT_EQ(std::string(), auth_challenge->realm);
   EXPECT_EQ(kNtlmAuthScheme, auth_challenge->scheme);
   return true;
@@ -6199,10 +6199,10 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyThenServer) {
 // [1] https://msdn.microsoft.com/en-us/library/cc236621.aspx
 
 // Enter the correct password and authenticate successfully.
-TEST_F(HttpNetworkTransactionTest, NTLMAuthV1) {
+TEST_F(HttpNetworkTransactionTest, NTLMAuthV2) {
   HttpRequestInfo request;
   request.method = "GET";
-  request.url = GURL("https://172.22.68.17/kids/login.aspx");
+  request.url = GURL("https://server/kids/login.aspx");
 
   // Ensure load is not disrupted by flags which suppress behaviour specific
   // to other auth schemes.
@@ -6221,21 +6221,23 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV1) {
           reinterpret_cast<const char*>(ntlm::test::kExpectedNegotiateMsg),
           arraysize(ntlm::test::kExpectedNegotiateMsg)),
       &negotiate_msg);
-  base::Base64Encode(base::StringPiece(reinterpret_cast<const char*>(
-                                           ntlm::test::kChallengeMsgV1),
-                                       arraysize(ntlm::test::kChallengeMsgV1)),
-                     &challenge_msg);
+  base::Base64Encode(
+      base::StringPiece(
+          reinterpret_cast<const char*>(ntlm::test::kChallengeMsgFromSpecV2),
+          arraysize(ntlm::test::kChallengeMsgFromSpecV2)),
+      &challenge_msg);
   base::Base64Encode(
       base::StringPiece(
           reinterpret_cast<const char*>(
-              ntlm::test::kExpectedAuthenticateMsgSpecResponseV1),
-          arraysize(ntlm::test::kExpectedAuthenticateMsgSpecResponseV1)),
+              ntlm::test::kExpectedAuthenticateMsgEmptyChannelBindingsV2),
+          arraysize(
+              ntlm::test::kExpectedAuthenticateMsgEmptyChannelBindingsV2)),
       &authenticate_msg);
 
   MockWrite data_writes1[] = {
-    MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
-              "Host: 172.22.68.17\r\n"
-              "Connection: keep-alive\r\n\r\n"),
+      MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
+                "Host: server\r\n"
+                "Connection: keep-alive\r\n\r\n"),
   };
 
   MockRead data_reads1[] = {
@@ -6255,7 +6257,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV1) {
       // request we should be issuing -- the final header line contains a Type
       // 1 message.
       MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
-                "Host: 172.22.68.17\r\n"
+                "Host: server\r\n"
                 "Connection: keep-alive\r\n"
                 "Authorization: NTLM "),
       MockWrite(negotiate_msg.c_str()), MockWrite("\r\n\r\n"),
@@ -6264,7 +6266,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV1) {
       // (using correct credentials).  The second request continues on the
       // same connection.
       MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
-                "Host: 172.22.68.17\r\n"
+                "Host: server\r\n"
                 "Connection: keep-alive\r\n"
                 "Authorization: NTLM "),
       MockWrite(authenticate_msg.c_str()), MockWrite("\r\n\r\n"),
@@ -6353,10 +6355,10 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV1) {
 }
 
 // Enter a wrong password, and then the correct one.
-TEST_F(HttpNetworkTransactionTest, NTLMAuthV1WrongThenRightPassword) {
+TEST_F(HttpNetworkTransactionTest, NTLMAuthV2WrongThenRightPassword) {
   HttpRequestInfo request;
   request.method = "GET";
-  request.url = GURL("https://172.22.68.17/kids/login.aspx");
+  request.url = GURL("https://server/kids/login.aspx");
 
   HttpAuthHandlerNTLM::ScopedProcSetter proc_setter(
       MockGetMSTime, MockGenerateRandom, MockGetHostName);
@@ -6371,38 +6373,38 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV1WrongThenRightPassword) {
           reinterpret_cast<const char*>(ntlm::test::kExpectedNegotiateMsg),
           arraysize(ntlm::test::kExpectedNegotiateMsg)),
       &negotiate_msg);
-  base::Base64Encode(base::StringPiece(reinterpret_cast<const char*>(
-                                           ntlm::test::kChallengeMsgV1),
-                                       arraysize(ntlm::test::kChallengeMsgV1)),
-                     &challenge_msg);
+  base::Base64Encode(
+      base::StringPiece(
+          reinterpret_cast<const char*>(ntlm::test::kChallengeMsgFromSpecV2),
+          arraysize(ntlm::test::kChallengeMsgFromSpecV2)),
+      &challenge_msg);
   base::Base64Encode(
       base::StringPiece(
           reinterpret_cast<const char*>(
-              ntlm::test::kExpectedAuthenticateMsgSpecResponseV1),
-          arraysize(ntlm::test::kExpectedAuthenticateMsgSpecResponseV1)),
+              ntlm::test::kExpectedAuthenticateMsgEmptyChannelBindingsV2),
+          arraysize(
+              ntlm::test::kExpectedAuthenticateMsgEmptyChannelBindingsV2)),
       &authenticate_msg);
 
   // The authenticate message when |kWrongPassword| is sent.
   std::string wrong_password_authenticate_msg(
-      "TlRMTVNTUAADAAAAGAAYAEAAAAAYABgAWAAAAAwADABwAAAACAAIAHwAAAAQABAAhAAAAAAA"
-      "AABAAAAAA4IIAKqqqqqqqqqqAAAAAAAAAAAAAAAAAAAAAF2npafgDxlql9qxEIhLlsuuJIEd"
-      "NQHk7kQAbwBtAGEAaQBuAFUAcwBlAHIAQwBPAE0AUABVAFQARQBSAA==");
+      "TlRMTVNTUAADAAAAGAAYAFgAAACKAIoAcAAAAAwADAD6AAAACAAIAAYBAAAQABAADgEAAAAA"
+      "AABYAAAAA4IIAAAAAAAAAAAAAPknEYqtJQtusopDRSfYzAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      "AAAAAOtVz38osnFdRRggUQHUJ3EBAQAAAAAAAIALyP0A1NIBqqqqqqqqqqoAAAAAAgAMAEQA"
+      "bwBtAGEAaQBuAAEADABTAGUAcgB2AGUAcgAGAAQAAgAAAAoAEAAAAAAAAAAAAAAAAAAAAAAA"
+      "CQAWAEgAVABUAFAALwBzAGUAcgB2AGUAcgAAAAAAAAAAAEQAbwBtAGEAaQBuAFUAcwBlAHIA"
+      "QwBPAE0AUABVAFQARQBSAA==");
 
-  // Sanity check that this is the same as |authenticate_msg| except for the
-  // 24 bytes (32 encoded chars) of the NTLM Response.
+  // Sanity check that it's the same length as the correct authenticate message
+  // and that it's different.
   ASSERT_EQ(authenticate_msg.length(),
             wrong_password_authenticate_msg.length());
-  ASSERT_EQ(authenticate_msg.length(), 200u);
-  ASSERT_EQ(base::StringPiece(authenticate_msg.data(), 117),
-            base::StringPiece(wrong_password_authenticate_msg.data(), 117));
-  ASSERT_EQ(
-      base::StringPiece(authenticate_msg.data() + 149, 51),
-      base::StringPiece(wrong_password_authenticate_msg.data() + 149, 51));
+  ASSERT_NE(authenticate_msg, wrong_password_authenticate_msg);
 
   MockWrite data_writes1[] = {
-    MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
-              "Host: 172.22.68.17\r\n"
-              "Connection: keep-alive\r\n\r\n"),
+      MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
+                "Host: server\r\n"
+                "Connection: keep-alive\r\n\r\n"),
   };
 
   MockRead data_reads1[] = {
@@ -6422,7 +6424,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV1WrongThenRightPassword) {
       // request we should be issuing -- the final header line contains a Type
       // 1 message.
       MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
-                "Host: 172.22.68.17\r\n"
+                "Host: server\r\n"
                 "Connection: keep-alive\r\n"
                 "Authorization: NTLM "),
       MockWrite(negotiate_msg.c_str()), MockWrite("\r\n\r\n"),
@@ -6431,7 +6433,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV1WrongThenRightPassword) {
       // (using incorrect credentials).  The second request continues on the
       // same connection.
       MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
-                "Host: 172.22.68.17\r\n"
+                "Host: server\r\n"
                 "Connection: keep-alive\r\n"
                 "Authorization: NTLM "),
       MockWrite(wrong_password_authenticate_msg.c_str()), MockWrite("\r\n\r\n"),
@@ -6458,7 +6460,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV1WrongThenRightPassword) {
       // request we should be issuing -- the final header line contains a Type
       // 1 message.
       MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
-                "Host: 172.22.68.17\r\n"
+                "Host: server\r\n"
                 "Connection: keep-alive\r\n"
                 "Authorization: NTLM "),
       MockWrite(negotiate_msg.c_str()), MockWrite("\r\n\r\n"),
@@ -6467,7 +6469,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV1WrongThenRightPassword) {
       // (the credentials for the origin server).  The second request continues
       // on the same connection.
       MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
-                "Host: 172.22.68.17\r\n"
+                "Host: server\r\n"
                 "Connection: keep-alive\r\n"
                 "Authorization: NTLM "),
       MockWrite(authenticate_msg.c_str()), MockWrite("\r\n\r\n"),
@@ -6588,7 +6590,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMOverHttp2) {
   HttpAuthHandlerNTLM::ScopedProcSetter proc_setter(
       MockGetMSTime, MockGenerateRandom, MockGetHostName);
 
-  const char* kUrl = "https://172.22.68.17/kids/login.aspx";
+  const char* kUrl = "https://server/kids/login.aspx";
 
   HttpRequestInfo request;
   request.method = "GET";
@@ -6617,15 +6619,17 @@ TEST_F(HttpNetworkTransactionTest, NTLMOverHttp2) {
           reinterpret_cast<const char*>(ntlm::test::kExpectedNegotiateMsg),
           arraysize(ntlm::test::kExpectedNegotiateMsg)),
       &negotiate_msg);
-  base::Base64Encode(base::StringPiece(reinterpret_cast<const char*>(
-                                           ntlm::test::kChallengeMsgV1),
-                                       arraysize(ntlm::test::kChallengeMsgV1)),
-                     &challenge_msg);
+  base::Base64Encode(
+      base::StringPiece(
+          reinterpret_cast<const char*>(ntlm::test::kChallengeMsgFromSpecV2),
+          arraysize(ntlm::test::kChallengeMsgFromSpecV2)),
+      &challenge_msg);
   base::Base64Encode(
       base::StringPiece(
           reinterpret_cast<const char*>(
-              ntlm::test::kExpectedAuthenticateMsgSpecResponseV1),
-          arraysize(ntlm::test::kExpectedAuthenticateMsgSpecResponseV1)),
+              ntlm::test::kExpectedAuthenticateMsgEmptyChannelBindingsV2),
+          arraysize(
+              ntlm::test::kExpectedAuthenticateMsgEmptyChannelBindingsV2)),
       &authenticate_msg);
 
   // Retry with authorization header.
@@ -6646,7 +6650,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMOverHttp2) {
       // request we should be issuing -- the final header line contains a Type
       // 1 message.
       MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
-                "Host: 172.22.68.17\r\n"
+                "Host: server\r\n"
                 "Connection: keep-alive\r\n"
                 "Authorization: NTLM "),
       MockWrite(negotiate_msg.c_str()), MockWrite("\r\n\r\n"),
@@ -6655,7 +6659,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMOverHttp2) {
       // (the credentials for the origin server).  The second request continues
       // on the same connection.
       MockWrite("GET /kids/login.aspx HTTP/1.1\r\n"
-                "Host: 172.22.68.17\r\n"
+                "Host: server\r\n"
                 "Connection: keep-alive\r\n"
                 "Authorization: NTLM "),
       MockWrite(authenticate_msg.c_str()), MockWrite("\r\n\r\n"),
