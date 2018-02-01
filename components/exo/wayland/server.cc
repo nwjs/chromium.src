@@ -745,7 +745,7 @@ void linux_buffer_params_create(wl_client* client,
   for (uint32_t i = 0; i < num_planes; ++i) {
     auto plane_it = linux_buffer_params->planes.find(i);
     LinuxBufferParams::Plane& plane = plane_it->second;
-    planes.emplace_back(plane.stride, plane.offset, 0, 0);
+    planes.emplace_back(plane.stride, plane.offset, 0);
     fds.push_back(std::move(plane.fd));
   }
 
@@ -804,7 +804,7 @@ void linux_buffer_params_create_immed(wl_client* client,
   for (uint32_t i = 0; i < num_planes; ++i) {
     auto plane_it = linux_buffer_params->planes.find(i);
     LinuxBufferParams::Plane& plane = plane_it->second;
-    planes.emplace_back(plane.stride, plane.offset, 0, 0);
+    planes.emplace_back(plane.stride, plane.offset, 0);
     fds.push_back(std::move(plane.fd));
   }
 
