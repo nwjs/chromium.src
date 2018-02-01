@@ -130,9 +130,6 @@ public class ImeAdapterImpl implements ImeAdapter {
     // True if ImeAdapter is connected to render process.
     private boolean mIsConnected;
 
-    // True if the instance is properly initialized with |init|.
-    private boolean mInitialized;
-
     /**
      * {@ResultReceiver} passed in InputMethodManager#showSoftInput}. We need this to scroll to the
      * editable node at the right timing, which is after input method window shows up.
@@ -180,7 +177,7 @@ public class ImeAdapterImpl implements ImeAdapter {
     }
 
     private boolean initialized() {
-        return mInitialized;
+        return mNativeImeAdapterAndroid != 0;
     }
 
     /**
@@ -243,7 +240,6 @@ public class ImeAdapterImpl implements ImeAdapter {
             mCursorAnchorInfoController = null;
         }
         mNativeImeAdapterAndroid = nativeInit(mWebContents);
-        mInitialized = true;
     }
 
     @Override
@@ -467,6 +463,7 @@ public class ImeAdapterImpl implements ImeAdapter {
      * Show soft keyboard only if it is the current keyboard configuration.
      */
     private void showSoftKeyboard() {
+        if (!isValid()) return;
         if (DEBUG_LOGS) Log.i(TAG, "showSoftKeyboard");
         mInputMethodManagerWrapper.showSoftInput(mContainerView, 0, getNewShowKeyboardReceiver());
         if (mContainerView.getResources().getConfiguration().keyboard
@@ -530,6 +527,7 @@ public class ImeAdapterImpl implements ImeAdapter {
      * Hide soft keyboard.
      */
     private void hideKeyboard() {
+        if (!isValid()) return;
         if (DEBUG_LOGS) Log.i(TAG, "hideKeyboard");
         View view = mContainerView;
         if (mInputMethodManagerWrapper.isActive(view)) {
@@ -552,6 +550,7 @@ public class ImeAdapterImpl implements ImeAdapter {
      * Call this when keyboard configuration has changed.
      */
     public void onKeyboardConfigurationChanged(Configuration newConfig) {
+        if (!isValid()) return;
         // If configuration unchanged, do nothing.
         if (mCurrentConfig.keyboard == newConfig.keyboard
                 && mCurrentConfig.keyboardHidden == newConfig.keyboardHidden
@@ -679,6 +678,7 @@ public class ImeAdapterImpl implements ImeAdapter {
      * Restart input (finish composition and change EditorInfo, such as input type).
      */
     void restartInput() {
+        if (!isValid()) return;
         // This will eventually cause input method manager to call View#onCreateInputConnection().
         mInputMethodManagerWrapper.restartInput(mContainerView);
         if (mInputConnection != null) mInputConnection.onRestartInputOnUiThread();
