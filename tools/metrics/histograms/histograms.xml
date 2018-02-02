@@ -30935,6 +30935,35 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   </summary>
 </histogram>
 
+<histogram
+    name="InstantTethering.GattConnectionAttempt.EffectiveSuccessRateWithRetries"
+    enum="BooleanSuccess">
+  <owner>hansberry@chromium.org</owner>
+  <summary>
+    Captures the effective count of successful and failed GATT connection
+    attempts, including retries. This means that if a GATT connection attempt
+    fails but then succeeds on a future retry, this is counted as a single
+    success. In the context of this metric, a failure represents a GATT failure
+    in all retry attempts.
+
+    An individual attempt is considered successful if a GATT connection was
+    created and authenticated successfully (i.e., the connection was ready for
+    Instant Tethering to exchange protocol messages).
+  </summary>
+</histogram>
+
+<histogram name="InstantTethering.GattConnectionAttempt.SuccessRate"
+    enum="BooleanSuccess">
+  <owner>hansberry@chromium.org</owner>
+  <summary>
+    Captures the count of successful and failed GATT connection attempts.
+
+    An attempt is considered successful if a GATT connection was created and
+    authenticated successfully (i.e., the connection was ready for Instant
+    Tethering to exchange protocol messages).
+  </summary>
+</histogram>
+
 <histogram name="InstantTethering.HostScanBatchDuration" units="ms">
   <owner>hansberry@chromium.org</owner>
   <summary>
