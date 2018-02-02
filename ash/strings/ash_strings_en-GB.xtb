@@ -112,6 +112,7 @@
 <translation id="3473479545200714844">Screen magnifier</translation>
 <translation id="3477079411857374384">Control-Shift-Space</translation>
 <translation id="3510164367642747937">Highlight mouse cursor</translation>
+<translation id="3513798432020909783">Account managed by <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3573179567135747900">Change back to "<ph name="FROM_LOCALE" />" (requires restart)</translation>
 <translation id="3582792037806681688">Multiple sign-in has been disallowed for a user in this session</translation>
 <translation id="3595596368722241419">Battery full</translation>
@@ -274,6 +275,7 @@ Only use this feature with accounts that you trust.</translation>
 <translation id="7829386189513694949">Strong signal</translation>
 <translation id="7904094684485781019">The administrator for this account has disallowed multiple sign-in.</translation>
 <translation id="7933084174919150729">The Google Assistant is only available for primary profile.</translation>
+<translation id="79341161159229895">Account managed by <ph name="FIRST_PARENT_EMAIL" /> and <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="7977927628060636163">Searching for mobile networks...</translation>
 <translation id="7982789257301363584">Network</translation>
 <translation id="7994370417837006925">Multiple sign-in</translation>

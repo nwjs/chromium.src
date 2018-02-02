@@ -112,6 +112,7 @@
 <translation id="3473479545200714844">स्क्रीन आवर्द्धक</translation>
 <translation id="3477079411857374384">Control-Shift-Space</translation>
 <translation id="3510164367642747937">माउस कर्सर को हाइलाइट करें</translation>
+<translation id="3513798432020909783"><ph name="MANAGER_EMAIL" /> खाता संभालते हैं</translation>
 <translation id="3573179567135747900">"<ph name="FROM_LOCALE" />" में पुन: बदलें (फिर से आरंभ करने की आवश्यकता है)</translation>
 <translation id="3582792037806681688">इस सत्र के उपयोगकर्ता के लिए एकाधिक प्रवेश को अक्षम कर दिया गया है</translation>
 <translation id="3595596368722241419">बैटरी पूर्ण</translation>
@@ -274,6 +275,7 @@
 <translation id="7829386189513694949">मज़बूत सिग्नल</translation>
 <translation id="7904094684485781019">इस खाते के व्यवस्थापक ने एकाधिक प्रवेश को अस्वीकार कर दिया है.</translation>
 <translation id="7933084174919150729">Google Assistant सिर्फ़ प्राथमिक प्रोफ़ाइल के लिए उपलब्ध है.</translation>
+<translation id="79341161159229895"><ph name="FIRST_PARENT_EMAIL" /> और <ph name="SECOND_PARENT_EMAIL" /> खाता संभालते हैं</translation>
 <translation id="7977927628060636163">मोबाइल नेटवर्क खोजे जा रहे हैं...</translation>
 <translation id="7982789257301363584">नेटवर्क</translation>
 <translation id="7994370417837006925">एकाधिक प्रवेश</translation>

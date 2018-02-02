@@ -112,6 +112,7 @@
 <translation id="3473479545200714844">Povećalo</translation>
 <translation id="3477079411857374384">Control-Shift-razmaknica</translation>
 <translation id="3510164367642747937">Istakni pokazivač miša</translation>
+<translation id="3513798432020909783">Računom upravlja <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3573179567135747900">Vratite na "<ph name="FROM_LOCALE" />" (zahtijeva ponovno pokretanje)</translation>
 <translation id="3582792037806681688">Višestruka prijava odbijena je za korisnika u ovoj sesiji</translation>
 <translation id="3595596368722241419">Baterija je puna</translation>
@@ -274,6 +275,7 @@ Tu značajku upotrebljavajte samo s pouzdanim računima.</translation>
 <translation id="7829386189513694949">Jak signal</translation>
 <translation id="7904094684485781019">Administrator ovog računa onemogućio je višestruku prijavu.</translation>
 <translation id="7933084174919150729">Google asistent dostupan je samo za primarni profil.</translation>
+<translation id="79341161159229895">Računom upravljaju <ph name="FIRST_PARENT_EMAIL" /> i <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="7977927628060636163">Traženje mobilnih mreža...</translation>
 <translation id="7982789257301363584">Mreža</translation>
 <translation id="7994370417837006925">Višestruka prijava</translation>

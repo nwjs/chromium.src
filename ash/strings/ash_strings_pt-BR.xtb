@@ -112,6 +112,7 @@
 <translation id="3473479545200714844">Lupa</translation>
 <translation id="3477079411857374384">Control-Shift-Espaço</translation>
 <translation id="3510164367642747937">Destacar cursor do mouse</translation>
+<translation id="3513798432020909783">Conta gerenciada por <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3573179567135747900">Voltar a "<ph name="FROM_LOCALE" />" (exige reinicialização)</translation>
 <translation id="3582792037806681688">O login múltiplo foi desativado para um usuário nesta sessão</translation>
 <translation id="3595596368722241419">Bateria carregada</translation>
@@ -274,6 +275,7 @@ Use esse recurso somente com contas nas quais você confia.</translation>
 <translation id="7829386189513694949">Sinal forte</translation>
 <translation id="7904094684485781019">O administrador desta conta bloqueou o login múltiplo.</translation>
 <translation id="7933084174919150729">O Google Assistente só está disponível para o perfil principal.</translation>
+<translation id="79341161159229895">Conta gerenciada por <ph name="FIRST_PARENT_EMAIL" /> e <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="7977927628060636163">Pesquisando redes móveis…</translation>
 <translation id="7982789257301363584">Rede</translation>
 <translation id="7994370417837006925">Login múltiplo</translation>

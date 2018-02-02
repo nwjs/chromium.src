@@ -112,6 +112,7 @@
 <translation id="3473479545200714844">Lupa</translation>
 <translation id="3477079411857374384">Control-Shift-Espaço</translation>
 <translation id="3510164367642747937">Realçar cursor do rato</translation>
+<translation id="3513798432020909783">Conta gerida por <ph name="MANAGER_EMAIL" />.</translation>
 <translation id="3573179567135747900">Reverter alteração para <ph name="FROM_LOCALE" /> (requer reinicio)</translation>
 <translation id="3582792037806681688">O início de sessão integrado foi desativado para um utilizador nesta sessão</translation>
 <translation id="3595596368722241419">Bateria carregada</translation>
@@ -274,6 +275,7 @@ Utilize esta funcionalidade apenas com contas fidedignas.</translation>
 <translation id="7829386189513694949">Sinal forte</translation>
 <translation id="7904094684485781019">O gestor desta conta removeu a permissão de início de sessão integrado.</translation>
 <translation id="7933084174919150729">O Assistente do Google está disponível apenas no perfil principal.</translation>
+<translation id="79341161159229895">Conta gerida por <ph name="FIRST_PARENT_EMAIL" /> e <ph name="SECOND_PARENT_EMAIL" />.</translation>
 <translation id="7977927628060636163">A pesquisar redes móveis...</translation>
 <translation id="7982789257301363584">Rede</translation>
 <translation id="7994370417837006925">Início de sessão integrado</translation>

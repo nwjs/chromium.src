@@ -112,6 +112,7 @@
 <translation id="3473479545200714844">Лупа</translation>
 <translation id="3477079411857374384">Ctrl + Shift + Пробел</translation>
 <translation id="3510164367642747937">Выделять указатель мыши</translation>
+<translation id="3513798432020909783">Администратор аккаунта: <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3573179567135747900">Вернуться к языку: "<ph name="FROM_LOCALE" />" (потребуется перезагрузка)</translation>
 <translation id="3582792037806681688">Множественный вход для пользователя запрещен в этом сеансе</translation>
 <translation id="3595596368722241419">Аккумулятор заряжен</translation>
@@ -274,6 +275,7 @@
 <translation id="7829386189513694949">хороший сигнал</translation>
 <translation id="7904094684485781019">Администратор этого аккаунта запретил множественный вход</translation>
 <translation id="7933084174919150729">Google Ассистент доступен только в основном профиле</translation>
+<translation id="79341161159229895">Администраторы аккаунта: <ph name="FIRST_PARENT_EMAIL" /> и <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="7977927628060636163">Поиск мобильных сетей...</translation>
 <translation id="7982789257301363584">Сеть</translation>
 <translation id="7994370417837006925">Множественный вход</translation>

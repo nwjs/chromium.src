@@ -459,7 +459,7 @@
 <translation id="2466131534462628618">要求網頁認證入口的驗證機制忽略 Proxy 設定</translation>
 <translation id="2482676533225429905">內建訊息傳遞</translation>
 <translation id="2483146640187052324">無論使用任何網路連線，皆預測網路動作</translation>
-<translation id="2485721741875148980">如果將這項政策設為 true，使用者必須以個人資料登入 <ph name="PRODUCT_NAME" />，才能使用瀏覽器。此外，BrowserGuestModeEnabled 的預設值將設為 false。請注意，啟用這項政策後，未經簽署的現有個人資料會遭到鎖定，無法再存取。詳情請參閱說明中心文章。
+<translation id="2485721741875148980">如果將這項政策設為 true，使用者必須以自己的設定檔登入 <ph name="PRODUCT_NAME" />，才能使用瀏覽器。此外，BrowserGuestModeEnabled 的預設值將設為 false。請注意，啟用這項政策後，未經簽署的現有設定檔會遭到鎖定，無法再使用。詳情請參閱說明中心文章。
 
       如果將這項政策設為 false 或不予設定，使用者不必登入 <ph name="PRODUCT_NAME" /> 即可使用瀏覽器。</translation>
 <translation id="2486371469462493753">不強制要求列出的網址符合憑證透明化規定。

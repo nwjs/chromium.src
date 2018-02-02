@@ -112,6 +112,7 @@
 <translation id="3473479545200714844">Vergrootglas</translation>
 <translation id="3477079411857374384">Ctrl-Shift-spatiebalk</translation>
 <translation id="3510164367642747937">Muisaanwijzer markeren</translation>
+<translation id="3513798432020909783">Account wordt beheerd door <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3573179567135747900">Teruggaan naar '<ph name="FROM_LOCALE" />' (opnieuw starten vereist)</translation>
 <translation id="3582792037806681688">Toegang tot meerdere accounts is niet toegestaan voor een gebruiker in deze sessie</translation>
 <translation id="3595596368722241419">Batterij is vol</translation>
@@ -274,6 +275,7 @@ Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="7829386189513694949">Sterk signaal</translation>
 <translation id="7904094684485781019">De beheerder van dit account heeft toegang tot meerdere accounts niet toegestaan.</translation>
 <translation id="7933084174919150729">De Google Assistent is alleen beschikbaar voor het primaire profiel.</translation>
+<translation id="79341161159229895">Account wordt beheerd door <ph name="FIRST_PARENT_EMAIL" /> en <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="7977927628060636163">Mobiele netwerken zoeken…</translation>
 <translation id="7982789257301363584">Netwerk</translation>
 <translation id="7994370417837006925">Toegang tot meerdere accounts</translation>
