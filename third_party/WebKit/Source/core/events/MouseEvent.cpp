@@ -47,13 +47,12 @@ DoubleSize ContentsScrollOffset(AbstractView* abstract_view) {
   LocalFrame* frame = ToLocalDOMWindow(abstract_view)->GetFrame();
   if (!frame)
     return DoubleSize();
-  ScrollableArea* scrollable_area =
-      frame->View()->LayoutViewportScrollableArea();
-  if (!scrollable_area)
+  LocalFrameView* frame_view = frame->View();
+  if (!frame_view)
     return DoubleSize();
   float scale_factor = frame->PageZoomFactor();
-  return DoubleSize(scrollable_area->ScrollOffsetInt().Width() / scale_factor,
-                    scrollable_area->ScrollOffsetInt().Height() / scale_factor);
+  return DoubleSize(frame_view->ScrollX() / scale_factor,
+                    frame_view->ScrollY() / scale_factor);
 }
 
 float PageZoomFactor(const UIEvent* event) {
@@ -270,13 +269,15 @@ void MouseEvent::InitCoordinatesFromRootFrame(double window_x,
                           ? ToLocalDOMWindow(view())->GetFrame()
                           : nullptr;
   if (frame && HasPosition()) {
-    scroll_offset = ContentsScrollOffset(view());
     if (LocalFrameView* frame_view = frame->View()) {
       adjusted_page_location =
-          frame_view->RootFrameToDocument(FloatPoint(window_x, window_y));
+          frame_view->RootFrameToContents(FloatPoint(window_x, window_y));
+      scroll_offset = frame_view->GetScrollOffset();
       float scale_factor = 1 / frame->PageZoomFactor();
-      if (scale_factor != 1.0f)
+      if (scale_factor != 1.0f) {
         adjusted_page_location.Scale(scale_factor, scale_factor);
+        scroll_offset.Scale(scale_factor, scale_factor);
+      }
     }
   }
 
@@ -497,16 +498,8 @@ DispatchEventResult MouseEvent::DispatchEvent(EventDispatcher& dispatcher) {
 }
 
 void MouseEvent::ComputePageLocation() {
-  LocalFrame* frame = view() && view()->IsLocalDOMWindow()
-                          ? ToLocalDOMWindow(view())->GetFrame()
-                          : nullptr;
-  if (frame && frame->View())
-    absolute_location_ = frame->View()->DocumentToAbsolute(page_location_);
-  else
-    absolute_location_ = page_location_;
-
   float scale_factor = PageZoomFactor(this);
-  absolute_location_.Scale(scale_factor, scale_factor);
+  absolute_location_ = page_location_.ScaledBy(scale_factor);
 }
 
 void MouseEvent::ReceivedTarget() {

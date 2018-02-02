@@ -4,7 +4,10 @@ crbug.com/417782 compositing/squashing/squash-above-fixed-1.html [ Failure ]
 crbug.com/417782 compositing/squashing/squash-above-fixed-3.html [ Failure ]
 crbug.com/417782 compositing/visibility/visibility-image-layers-dynamic.html [ Failure ]
 crbug.com/417782 fast/events/clientXY-in-zoom-and-scroll.html [ Failure ]
+crbug.com/417782 fast/events/pointerevents/pointer-event-mouse-coords-in-zoom-and-scroll.html [ Failure ]
 crbug.com/417782 fast/events/scale-and-scroll-iframe-window.html [ Failure ]
+crbug.com/417782 fast/events/touch/gesture/gesture-tap-frame-scrolled.html [ Failure ]
+crbug.com/417782 fast/events/touch/gesture/gesture-tap-scrolled.html [ Failure ]
 crbug.com/417782 fast/frames/iframe-scaling-with-scroll.html [ Failure ]
 crbug.com/417782 fast/layout/scroll-anchoring/history-restore-anchors.html [ Failure ]
 crbug.com/417782 fast/loader/scroll-position-restoration-without-premature-clamping.html [ Failure ]
@@ -36,6 +39,10 @@ crbug.com/417782 virtual/mouseevent_fractional/fast/events/pointerevents/pointer
 crbug.com/417782 virtual/mouseevent_fractional/fast/events/pointerevents/pointer-event-pen-coords-in-zoom-and-scroll.html [ Failure ]
 crbug.com/417782 virtual/mouseevent_fractional/fast/events/scale-and-scroll-iframe-window.html [ Failure ]
 crbug.com/417782 virtual/scroll_customization/fast/events/touch/compositor-touch-hit-rects-iframes.html [ Failure ]
+crbug.com/417782 virtual/mouseevent_fractional/fast/events/touch/gesture/gesture-tap-frame-scrolled.html [ Failure ]
+crbug.com/417782 virtual/mouseevent_fractional/fast/events/touch/gesture/gesture-tap-scrolled.html [ Failure ]
+crbug.com/417782 virtual/scroll_customization/fast/events/touch/gesture/gesture-tap-frame-scrolled.html [ Failure ]
+crbug.com/417782 virtual/scroll_customization/fast/events/touch/gesture/gesture-tap-scrolled.html [ Failure ]
 crbug.com/417782 virtual/threaded/compositing/visibility/visibility-image-layers-dynamic.html [ Failure ]
 crbug.com/417782 [ Linux Win ] virtual/threaded/fast/scroll-behavior/smooth-scroll/main-thread-scrolling-reason-correctness.html [ Failure ]
 crbug.com/417782 virtual/threaded/http/tests/devtools/tracing/scroll-invalidations.js [ Failure ]
@@ -45,6 +52,9 @@ crbug.com/417782 virtual/threaded/http/tests/devtools/tracing/timeline-paint/tim
 crbug.com/417782 virtual/threaded/http/tests/devtools/tracing/timeline-paint/timeline-paint.js [ Failure ]
 
 # Tests known to be flaky
+crbug.com/417782 virtual/mouseevent_fractional/fast/events/mouse-coords-in-zoom-and-scroll.html [ Failure Timeout ]
+crbug.com/417782 virtual/mouseevent_fractional/fast/events/mouse-right-coords-in-zoom-and-scroll-right.html [ Failure Timeout ]
+crbug.com/417782 fast/events/pointerevents/pointer-event-pen-coords-in-zoom-and-scroll.html [ Failure Timeout ]
 crbug.com/786117 [ Linux ] plugins/mouse-events-fixedpos.html [ Pass Crash ]
 
 # Virtual test suites to skip.

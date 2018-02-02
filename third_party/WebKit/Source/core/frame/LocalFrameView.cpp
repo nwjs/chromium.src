@@ -3673,10 +3673,8 @@ IntPoint LocalFrameView::AbsoluteToRootFrame(
 }
 
 IntRect LocalFrameView::RootFrameToDocument(const IntRect& rect_in_root_frame) {
-  IntPoint offset =
-      FlooredIntPoint(RootFrameToDocument(rect_in_root_frame.Location()));
-  IntRect local_rect = rect_in_root_frame;
-  local_rect.SetLocation(offset);
+  IntRect local_rect = ConvertFromRootFrame(rect_in_root_frame);
+  local_rect.Move(LayoutViewportScrollableArea()->ScrollOffsetInt());
   return local_rect;
 }
 
