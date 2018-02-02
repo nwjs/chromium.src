@@ -12474,6 +12474,7 @@ Called by update_net_error_codes.py.-->
   <int value="408" label="SpellcheckEnabled"/>
   <int value="409" label="AdsSettingForIntrusiveAdsSites"/>
   <int value="410" label="RestrictAccountsToPatterns"/>
+  <int value="414" label="WebDriverOverridesIncompatiblePolicies"/>
 </enum>
 
 <enum name="EnterprisePolicyInvalidations">
