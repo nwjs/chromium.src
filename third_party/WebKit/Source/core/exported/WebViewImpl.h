@@ -470,8 +470,6 @@ class CORE_EXPORT WebViewImpl final
     last_hidden_page_popup_ = page_popup;
   }
 
-  void RequestDecode(const PaintImage&, base::OnceCallback<void(bool)>);
-
  private:
   WebInputEventResult HandleInputEventInternal(
       const WebCoalescedInputEvent&) override;
