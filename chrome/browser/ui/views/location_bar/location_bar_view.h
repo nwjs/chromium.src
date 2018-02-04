@@ -440,7 +440,10 @@ class LocationBarView : public LocationBar,
   // Tracks this preference to determine whether bookmark editing is allowed.
   BooleanPrefMember edit_bookmarks_enabled_;
 
-  DISALLOW_COPY_AND_ASSIGN(LocationBarView);
+  // The security level when the location bar was last updated. Used to decide
+  // whether to animate security level transitions.
+  security_state::SecurityLevel last_update_security_level_ =
+      security_state::NONE;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_LOCATION_BAR_VIEW_H_
