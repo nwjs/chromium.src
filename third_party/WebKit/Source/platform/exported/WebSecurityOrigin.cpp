@@ -149,4 +149,9 @@ WebSecurityOrigin::operator url::Origin() const {
   return Get()->ToUrlOrigin();
 }
 
-}  // namespace blink
+void WebSecurityOrigin::grantUniversalAccess() const
+{
+    Get()->GrantUniversalAccess();
+}
+
+} // namespace blink

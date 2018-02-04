@@ -394,6 +394,7 @@ void BackgroundContentsService::Observe(
     }
     case extensions::NOTIFICATION_EXTENSION_PROCESS_TERMINATED:
     case chrome::NOTIFICATION_BACKGROUND_CONTENTS_TERMINATED: {
+#if 0
       Profile* profile = content::Source<Profile>(source).ptr();
       const Extension* extension = nullptr;
       if (type == chrome::NOTIFICATION_BACKGROUND_CONTENTS_TERMINATED) {
@@ -428,6 +429,7 @@ void BackgroundContentsService::Observe(
         // Restart the extension.
         RestartForceInstalledExtensionOnCrash(extension, profile);
       }
+#endif
       break;
     }
 

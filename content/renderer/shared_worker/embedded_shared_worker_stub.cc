@@ -141,7 +141,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
       host_(std::move(host)),
       route_id_(route_id),
       name_(info->name),
-      url_(info->url) {
+      url_(info->url), nodejs_(info->is_node_js), root_path_(info->root_path) {
   RenderThreadImpl::current()->AddRoute(route_id_, this);
   impl_ = blink::WebSharedWorker::Create(this);
   if (pause_on_start) {
@@ -151,7 +151,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
   }
   worker_devtools_agent_.reset(
       new SharedWorkerDevToolsAgent(route_id, impl_));
-  impl_->StartWorkerContext(
+  impl_->StartWorkerContext(nodejs_, root_path_,
       url_, blink::WebString::FromUTF8(name_),
       blink::WebString::FromUTF8(info->content_security_policy),
       info->content_security_policy_type, info->creation_address_space,

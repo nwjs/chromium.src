@@ -54,7 +54,7 @@ class CORE_EXPORT SharedWorkerRepositoryClient {
   virtual void Connect(SharedWorker*,
                        MessagePortChannel,
                        const KURL&,
-                       const String& name) = 0;
+                       const String& name, bool) = 0;
 
   virtual void DocumentDetached(Document*) = 0;
 };

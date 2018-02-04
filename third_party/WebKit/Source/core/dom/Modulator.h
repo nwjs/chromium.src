@@ -73,6 +73,7 @@ class CORE_EXPORT Modulator : public GarbageCollectedFinalized<Modulator>,
   USING_GARBAGE_COLLECTED_MIXIN(Modulator);
 
  public:
+  virtual void AddToMap(const KURL& url, ModuleScript*) = 0;
   static Modulator* From(ScriptState*);
   virtual ~Modulator();
 

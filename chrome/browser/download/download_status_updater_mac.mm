@@ -202,8 +202,11 @@ void DestroyNSProgress(content::DownloadItem* download,
 void DownloadStatusUpdater::UpdateAppIconDownloadProgress(
     content::DownloadItem* download) {
 
-  // Always update overall progress.
+  NSDockTile *dockTile = [NSApp dockTile];
+  if (dockTile.contentView && [dockTile.contentView.subviews count] > 0)
+    return;
 
+  // Always update overall progress.
   float progress = 0;
   int download_count = 0;
   bool progress_known = GetProgress(&progress, &download_count);

@@ -198,6 +198,7 @@ void SupervisedUserService::Init() {
   if (sync_service)
     sync_service->AddPreferenceProvider(this);
 
+#if 0
   std::string client_id = component_updater::SupervisedUserWhitelistInstaller::
       ClientIdForProfilePath(profile_->GetPath());
   whitelist_service_.reset(new SupervisedUserWhitelistService(
@@ -206,6 +207,7 @@ void SupervisedUserService::Init() {
   whitelist_service_->AddSiteListsChangedCallback(
       base::Bind(&SupervisedUserService::OnSiteListsChanged,
                  weak_ptr_factory_.GetWeakPtr()));
+#endif
 
   SetActive(ProfileIsSupervised());
 }

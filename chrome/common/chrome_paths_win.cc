@@ -19,6 +19,8 @@
 #include "chrome/install_static/install_util.h"
 #include "components/nacl/common/nacl_switches.h"
 
+#include "content/nw/src/nw_base.h"
+
 namespace chrome {
 
 namespace {
@@ -45,7 +47,8 @@ bool GetUserDirectory(int csidl_folder, base::FilePath* result) {
 bool GetDefaultUserDataDirectory(base::FilePath* result) {
   if (!PathService::Get(base::DIR_LOCAL_APP_DATA, result))
     return false;
-  *result = result->Append(install_static::GetChromeInstallSubDirectory());
+  if (nw::package()) //FIXME: crashpad initialized early in cr49
+    *result = result->Append(base::FilePath::FromUTF8Unsafe(nw::package()->GetName()));
   *result = result->Append(chrome::kUserDataDirname);
   return true;
 }
