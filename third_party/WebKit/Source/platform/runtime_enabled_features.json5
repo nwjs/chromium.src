@@ -391,18 +391,21 @@
     },
     {
       name: "FeaturePolicyAutoplayFeature",
-      status: "experimental"
+      status: "experimental",
+      depends_on: ["FeaturePolicy"]
     },
     {
       name: "FeaturePolicyExperimentalFeatures",
     },
     {
       name: "FeaturePolicyForPermissions",
-      status: "stable"
+      status: "stable",
+      depends_on: ["FeaturePolicy"]
     },
     {
       name: "FeaturePolicyJavaScriptInterface",
-      status: "experimental"
+      status: "experimental",
+      depends_on: ["FeaturePolicy"]
     },
     {
       name: "FetchRequestCache",
