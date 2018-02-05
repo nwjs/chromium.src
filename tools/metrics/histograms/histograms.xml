@@ -101591,7 +101591,9 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
 </histogram_suffixes>
 
 <histogram_suffixes name="AppUIComponent" separator=".">
+  <suffix name="Desktop" label="Desktop"/>
   <suffix name="SearchResult" label="Launcher App Search Result"/>
+  <suffix name="Shelf" label="Shelf"/>
   <suffix name="ShelfButton" label="ShelfButton"/>
   <suffix name="SuggestedAppPeeking" label="Suggested App, Peeking Launcher"/>
   <suffix name="SuggestedAppFullscreen"
