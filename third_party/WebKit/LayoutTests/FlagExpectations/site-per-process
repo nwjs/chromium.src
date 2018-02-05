@@ -290,3 +290,5 @@ Bug(none) virtual/mojo-blobs/external/wpt/fetch/api/basic/keepalive.html [ Timeo
 Bug(none) virtual/mojo-blobs/external/wpt/webmessaging/event.origin.sub.htm [ Failure ]
 Bug(none) virtual/mojo-blobs/external/wpt/webmessaging/postMessage_asterisk_xorigin.sub.htm [ Failure ]
 Bug(none) virtual/outofblink-cors/external/wpt/fetch/api/basic/keepalive.html [ Timeout ]
+
+crbug.com/807675 http/tests/images/image-decode-in-frame.html [ Crash Failure ]
