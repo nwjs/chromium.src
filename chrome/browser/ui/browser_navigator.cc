@@ -162,7 +162,7 @@ std::pair<Browser*, int> GetBrowserAndTabForDisposition(
       if (index >= 0)
         return {params.browser, index};
     }
-      FALLTHROUGH;
+    // fall through
     case WindowOpenDisposition::NEW_FOREGROUND_TAB:
     case WindowOpenDisposition::NEW_BACKGROUND_TAB:
       // See if we can open the tab in the window this navigator is bound to.
