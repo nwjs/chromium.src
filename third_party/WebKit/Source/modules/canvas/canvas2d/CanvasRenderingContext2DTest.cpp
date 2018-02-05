@@ -1137,7 +1137,7 @@ TEST_F(CanvasRenderingContext2DTestWithTestingPlatform,
   // Force hibernatation to occur in an immediate task.
   bridge->DontUseIdleSchedulingForTesting();
   CanvasElement().CreateImageBufferUsingSurfaceForTesting(std::move(bridge),
-                                                          size, false);
+                                                          size);
 
   EXPECT_TRUE(CanvasElement().Canvas2DBuffer()->IsAccelerated());
 

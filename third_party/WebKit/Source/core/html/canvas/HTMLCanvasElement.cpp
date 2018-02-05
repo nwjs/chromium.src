@@ -1020,7 +1020,7 @@ CanvasResourceProvider* HTMLCanvasElement::ResourceProvider() const {
   return webgl_resource_provider_.get();
 }
 
-void HTMLCanvasElement::CreateResourceProviderInternal(
+void HTMLCanvasElement::CreateImageBufferInternal(
     std::unique_ptr<Canvas2DLayerBridge> external_canvas2d_bridge) {
   DCHECK(!canvas2d_bridge_ && !webgl_resource_provider_);
 
@@ -1043,18 +1043,19 @@ void HTMLCanvasElement::CreateResourceProviderInternal(
     }
   }
 
-  if (canvas2d_bridge_) {
-    canvas2d_bridge_->SetCanvasResourceHost(this);
-    if (!canvas2d_bridge_->GetOrCreateResourceProvider())
-      return;
-  }
-
   if (Is3d()) {
     webgl_resource_provider_ = CanvasResourceProvider::Create(
         size_, CanvasResourceProvider::kAcceleratedResourceUsage,
         SharedGpuContext::ContextProviderWrapper(), 0, ColorParams());
     if (!webgl_resource_provider_)
       return;
+  } else {
+    DCHECK(Is2d());
+    if (canvas2d_bridge_) {
+      canvas2d_bridge_->SetCanvasResourceHost(this);
+    } else {
+      return;
+    }
   }
 
   did_fail_to_create_resource_provider_ = false;
@@ -1125,7 +1126,7 @@ bool HTMLCanvasElement::TryCreateImageBuffer() {
   DCHECK(context_->GetContextType() !=
          CanvasRenderingContext::kContextImageBitmap);
   if (!HasImageBuffer() && !did_fail_to_create_resource_provider_) {
-    CreateResourceProviderInternal(nullptr);
+    CreateImageBufferInternal(nullptr);
     if (did_fail_to_create_resource_provider_ && Is2d() && !Size().IsEmpty()) {
       context_->LoseContext(CanvasRenderingContext::kSyntheticLostContext);
     }
@@ -1135,15 +1136,11 @@ bool HTMLCanvasElement::TryCreateImageBuffer() {
 
 void HTMLCanvasElement::CreateImageBufferUsingSurfaceForTesting(
     std::unique_ptr<Canvas2DLayerBridge> surface,
-    const IntSize& size,
-    bool is_resource_provider_needed) {
+    const IntSize& size) {
   DiscardImageBuffer();
   SetIntegralAttribute(widthAttr, size.Width());
   SetIntegralAttribute(heightAttr, size.Height());
-  CreateResourceProviderInternal(std::move(surface));
-  if (!is_resource_provider_needed && canvas2d_bridge_) {
-    canvas2d_bridge_->ResetResourceProvider();
-  }
+  CreateImageBufferInternal(std::move(surface));
 }
 
 scoped_refptr<Image> HTMLCanvasElement::CopiedImage(
