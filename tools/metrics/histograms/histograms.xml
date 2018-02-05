@@ -100862,6 +100862,14 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   </summary>
 </histogram>
 
+<histogram name="Windows.HasHighResolutionTimeTicks" enum="Boolean">
+  <owner>gab@chromium.org</owner>
+  <summary>
+    The value of TimeTicks::IsHighResolution(). Reported once per browser
+    session, on startup.
+  </summary>
+</histogram>
+
 <histogram name="Windows.HighResolutionTimerUsage" units="%">
   <owner>stanisc@chromium.org</owner>
   <summary>
