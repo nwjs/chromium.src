@@ -68,6 +68,8 @@ public class ChromePreferenceManager {
 
     public static final String CHROME_HOME_SHARED_PREFERENCES_KEY = "chrome_home_enabled_date";
 
+    private static final String SOLE_INTEGRATION_ENABLED_KEY = "sole_integration_enabled";
+
     private static class LazyHolder {
         static final ChromePreferenceManager INSTANCE = new ChromePreferenceManager();
     }
@@ -453,6 +455,22 @@ public class ChromePreferenceManager {
     /** Returns whether the content suggestions surface has ever been shown. */
     public boolean getSuggestionsSurfaceShown() {
         return mSharedPreferences.getBoolean(CONTENT_SUGGESTIONS_SHOWN_KEY, false);
+    }
+
+    /**
+     * Get whether or not Sole integration is enabled.
+     * @return True if Sole integration is enabled.
+     */
+    public boolean isSoleEnabled() {
+        return mSharedPreferences.getBoolean(SOLE_INTEGRATION_ENABLED_KEY, false);
+    }
+
+    /**
+     * Set whether or not Sole integration is enabled.
+     * @param isEnabled If Sole integration is enabled.
+     */
+    public void setSoleEnabled(boolean isEnabled) {
+        writeBoolean(SOLE_INTEGRATION_ENABLED_KEY, isEnabled);
     }
 
     /**

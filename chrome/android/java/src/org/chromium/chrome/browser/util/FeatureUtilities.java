@@ -63,12 +63,13 @@ public class FeatureUtilities {
     private static boolean sChromeHomeNeedsUpdate;
     private static String sChromeHomeSwipeLogicType;
 
+    private static Boolean sIsSoleEnabled;
     private static String sCachedHerbFlavor;
     private static boolean sIsHerbFlavorCached;
 
     /**
      * Determines whether or not the {@link RecognizerIntent#ACTION_WEB_SEARCH} {@link Intent}
-     * is handled by any {@link android.app.Activity}s in the system.  The result will be cached for
+     * is handled by any {@link android.app.Activity}s in the system.  The result will be cached for33
      * future calls.  Passing {@code false} to {@code useCachedValue} will force it to re-query any
      * {@link android.app.Activity}s that can process the {@link Intent}.
      * @param context        The {@link Context} to use to check to see if the {@link Intent} will
@@ -198,6 +199,7 @@ public class FeatureUtilities {
     public static void cacheNativeFlags() {
         cacheHerbFlavor();
         cacheChromeHomeEnabled();
+        cacheSoleEnabled();
         FirstRunUtils.cacheFirstRunPrefs();
         OmniboxPlaceholderFieldTrial.cacheOmniboxPlaceholderGroup();
 
@@ -415,6 +417,33 @@ public class FeatureUtilities {
         }
 
         return false;
+    }
+
+    /**
+     * Cache whether or not Sole integration is enabled.
+     */
+    public static void cacheSoleEnabled() {
+        boolean featureEnabled = ChromeFeatureList.isEnabled(ChromeFeatureList.SOLE_INTEGRATION);
+        ChromePreferenceManager prefManager = ChromePreferenceManager.getInstance();
+        boolean prefEnabled = prefManager.isSoleEnabled();
+        if (featureEnabled == prefEnabled) return;
+
+        prefManager.setSoleEnabled(featureEnabled);
+    }
+
+    /**
+     * @return Whether or not Sole integration is enabled.
+     */
+    public static boolean isSoleEnabled() {
+        if (sIsSoleEnabled == null) {
+            ChromePreferenceManager prefManager = ChromePreferenceManager.getInstance();
+
+            // Allow disk access for preferences while Sole is in experimentation.
+            try (StrictModeContext unused = StrictModeContext.allowDiskReads()) {
+                sIsSoleEnabled = prefManager.isSoleEnabled();
+            }
+        }
+        return sIsSoleEnabled;
     }
 
     private static native void nativeSetCustomTabVisible(boolean visible);
