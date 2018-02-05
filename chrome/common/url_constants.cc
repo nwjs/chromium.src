@@ -332,4 +332,9 @@ const char kGoogleNameserversLearnMoreURL[] =
     "https://developers.google.com/speed/public-dns";
 #endif
 
+#if defined(OS_CHROMEOS)
+const char kTimeZoneSettingsLearnMoreURL[] =
+    "https://support.google.com/chromebook/answer/177871?hl=%s";
+#endif
+
 }  // namespace chrome
