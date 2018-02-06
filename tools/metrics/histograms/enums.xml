@@ -14600,6 +14600,7 @@ Called by update_net_error_codes.py.-->
   <int value="1209" label="CRYPTOTOKENPRIVATE_ISAPPIDHASHINENTERPRISECONTEXT"/>
   <int value="1210" label="CRYPTOTOKENPRIVATE_CANAPPIDGETATTESTATION"/>
   <int value="1211" label="SYSTEM_DISPLAY_SETMIRRORMODE"/>
+  <int value="1216" label="ACCESSIBILITY_PRIVATE_SENDSYNTHETICKEYEVENT"/>
 </enum>
 
 <enum name="ExtensionIconState">
