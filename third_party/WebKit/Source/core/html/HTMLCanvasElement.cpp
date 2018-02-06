@@ -461,6 +461,7 @@ void HTMLCanvasElement::DisableAcceleration() {
       WTF::WrapUnique(new RecordingImageBufferSurface(
           Size(), RecordingImageBufferSurface::kAllowFallback, ColorParams()));
   if (image_buffer_) {
+    surface->SetCanvasResourceHost(this);
     image_buffer_->SetSurface(std::move(surface));
     UpdateMemoryUsage();
   }
@@ -1328,6 +1329,7 @@ void HTMLCanvasElement::WillDrawImageTo2DContext(CanvasImageSource* source) {
     std::unique_ptr<ImageBufferSurface> surface =
         CreateAcceleratedImageBufferSurface(&msaa_sample_count);
     if (surface) {
+      surface->SetCanvasResourceHost(this);
       GetOrCreateImageBuffer()->SetSurface(std::move(surface));
       UpdateMemoryUsage();
       SetNeedsCompositingUpdate();
