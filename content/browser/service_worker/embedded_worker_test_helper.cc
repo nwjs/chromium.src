@@ -387,6 +387,7 @@ class EmbeddedWorkerTestHelper::MockRendererInterface : public mojom::Renderer {
   }
   void PurgePluginListCache(bool reload_pages) override { NOTREACHED(); }
   void SetProcessBackgrounded(bool backgrounded) override { NOTREACHED(); }
+  void SetSchedulerKeepActive(bool keep_active) override { NOTREACHED(); }
   void ProcessPurgeAndSuspend() override { NOTREACHED(); }
 
   base::WeakPtr<EmbeddedWorkerTestHelper> helper_;
