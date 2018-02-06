@@ -129,6 +129,8 @@ class TestWiredDisplayMediaRouteProvider
     primary_display_ = std::move(primary_display);
   }
 
+  MOCK_CONST_METHOD0(GetPrimaryDisplayInternal, void());
+
  protected:
   // In the actual class, this method returns display::Screen::GetAllDisplays().
   // TODO(takumif): Expand display::test::TestScreen to support multiple
@@ -139,7 +141,10 @@ class TestWiredDisplayMediaRouteProvider
 
   // In the actual class, this method returns
   // display::Screen::GetPrimaryDisplay().
-  Display GetPrimaryDisplay() const override { return primary_display_; }
+  Display GetPrimaryDisplay() const override {
+    GetPrimaryDisplayInternal();
+    return primary_display_;
+  }
 
  private:
   std::vector<Display> all_displays_;
@@ -267,6 +272,20 @@ TEST_F(WiredDisplayMediaRouteProviderTest, NotifyOnDisplayChange) {
   EXPECT_CALL(router_, OnSinksReceived(MediaRouteProviderId::WIRED_DISPLAY, _,
                                        IsEmpty(), _));
   provider_->OnDisplayAdded(mirror_display_);
+  base::RunLoop().RunUntilIdle();
+}
+
+TEST_F(WiredDisplayMediaRouteProviderTest, NoDisplay) {
+  provider_->StartObservingMediaSinks(kPresentationSource);
+  provider_->set_all_displays({primary_display_});
+  provider_->OnDisplayAdded(primary_display_);
+  base::RunLoop().RunUntilIdle();
+
+  // When the display list is empty, |provider_| should not try to get the
+  // primary display, as it would be invalid.
+  EXPECT_CALL(*provider_, GetPrimaryDisplayInternal()).Times(0);
+  provider_->set_all_displays({});
+  provider_->OnDisplayRemoved(primary_display_);
   base::RunLoop().RunUntilIdle();
 }
 
