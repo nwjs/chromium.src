@@ -147,6 +147,7 @@
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_controller.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_controller_factory.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_features.h"
+#import "ios/chrome/browser/ui/fullscreen/fullscreen_foreground_animator.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_scroll_end_animator.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_scroll_to_top_animator.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_ui_element.h"
@@ -3972,6 +3973,14 @@ bubblePresenterForFeature:(const base::Feature&)feature
                           ? -webViewProxy.topContentPadding
                           : 0;
     scrollProxy.contentOffset = contentOffset;
+  }];
+}
+
+- (void)showToolbarForForgroundWithAnimator:
+    (FullscreenForegroundAnimator*)animator {
+  CGFloat finalProgress = animator.finalProgress;
+  [animator addAnimations:^{
+    [self updateForFullscreenProgress:finalProgress];
   }];
 }
 

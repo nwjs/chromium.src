@@ -209,6 +209,10 @@
     (FullscreenScrollToTopAnimator*)animator {
 }
 
+- (void)showToolbarForForgroundWithAnimator:
+    (FullscreenForegroundAnimator*)animator {
+}
+
 #pragma mark - ToolsMenuPresentationProvider
 
 - (UIButton*)presentingButtonForToolsMenuCoordinator:
