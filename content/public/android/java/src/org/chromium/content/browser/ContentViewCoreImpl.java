@@ -1311,10 +1311,12 @@ public class ContentViewCoreImpl
         // ActionMode#invalidate() won't be able to re-layout the floating
         // action mode menu items according to the new rotation. So Chrome
         // has to re-create the action mode.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                && getSelectionPopupController().isActionModeValid()) {
-            hidePopupsAndPreserveSelection();
-            getSelectionPopupController().showActionModeOrClearOnFailure();
+        if (mWebContents != null) {
+            SelectionPopupControllerImpl controller = getSelectionPopupController();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && controller.isActionModeValid()) {
+                hidePopupsAndPreserveSelection();
+                controller.showActionModeOrClearOnFailure();
+            }
         }
         mTextSuggestionHost.hidePopups();
 
