@@ -471,8 +471,6 @@ class CORE_EXPORT WebViewImpl final
     last_hidden_page_popup_ = page_popup;
   }
 
-  void RequestDecode(const PaintImage&, WTF::Function<void(bool)> callback);
-
  private:
   void SetPageScaleFactorAndLocation(float, const FloatPoint&);
   void PropagateZoomFactorToLocalFrameRoots(Frame*, float);

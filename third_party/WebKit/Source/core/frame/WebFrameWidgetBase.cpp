@@ -273,7 +273,14 @@ void WebFrameWidgetBase::DidLosePointerLock() {
 
 void WebFrameWidgetBase::RequestDecode(const PaintImage& image,
                                        WTF::Function<void(bool)> callback) {
-  View()->RequestDecode(image, std::move(callback));
+  // If we have a LayerTreeView, propagate the request, otherwise fail it since
+  // otherwise it would remain in a unresolved and unrejected state.
+  if (WebLayerTreeView* layer_tree_view = GetLayerTreeView()) {
+    layer_tree_view->RequestDecode(image,
+                                   ConvertToBaseCallback(std::move(callback)));
+  } else {
+    std::move(callback).Run(false);
+  }
 }
 
 void WebFrameWidgetBase::Trace(blink::Visitor* visitor) {
