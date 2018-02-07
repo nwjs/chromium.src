@@ -211,7 +211,7 @@ class WebDevToolsAgentImpl::Session : public GarbageCollectedFinalized<Session>,
           mojom::blink::DevToolsSessionAssociatedRequest main_request,
           mojom::blink::DevToolsSessionRequest io_request,
           const String& reattach_state);
-  ~Session() override {}
+  ~Session() override;
 
   virtual void Trace(blink::Visitor*);
   void Detach();
@@ -250,6 +250,7 @@ class WebDevToolsAgentImpl::Session : public GarbageCollectedFinalized<Session>,
   Member<InspectorPageAgent> page_agent_;
   Member<InspectorTracingAgent> tracing_agent_;
   Member<InspectorOverlayAgent> overlay_agent_;
+  bool detached_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(Session);
 };
@@ -331,6 +332,10 @@ WebDevToolsAgentImpl::Session::Session(
   InitializeInspectorSession(reattach_state);
 }
 
+WebDevToolsAgentImpl::Session::~Session() {
+  DCHECK(detached_);
+}
+
 void WebDevToolsAgentImpl::Session::Trace(blink::Visitor* visitor) {
   visitor->Trace(agent_);
   visitor->Trace(frame_);
@@ -341,6 +346,8 @@ void WebDevToolsAgentImpl::Session::Trace(blink::Visitor* visitor) {
 }
 
 void WebDevToolsAgentImpl::Session::Detach() {
+  DCHECK(!detached_);
+  detached_ = true;
   agent_->DetachSession(this);
   binding_.Close();
   host_ptr_.reset();
@@ -392,6 +399,9 @@ void WebDevToolsAgentImpl::Session::SendProtocolMessage(int session_id,
                                                         int call_id,
                                                         const String& response,
                                                         const String& state) {
+  if (detached_)
+    return;
+
   // Make tests more predictable by flushing all sessions before sending
   // protocol response in any of them.
   if (LayoutTestSupport::IsRunningLayoutTest() && call_id)
@@ -418,6 +428,18 @@ void WebDevToolsAgentImpl::Session::DispatchProtocolMessageInternal(
     int call_id,
     const String& method,
     const String& message) {
+  // IOSession does not provide ordering guarantees relative to
+  // Session, so a command may come to IOSession after Session is detached,
+  // and get posted to main thread to this method.
+  //
+  // At the same time, Session may not be garbage collected yet
+  // (even though already detached), and CrossThreadWeakPersistent<Session>
+  // will still be valid.
+  //
+  // Both these factors combined may lead to this method being called after
+  // detach, so we have to check a flag here.
+  if (detached_)
+    return;
   InspectorTaskRunner::IgnoreInterruptsScope scope(
       MainThreadDebugger::Instance()->TaskRunner());
   inspector_session_->DispatchProtocolMessage(method, message);
