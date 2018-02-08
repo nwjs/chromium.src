@@ -34664,6 +34664,28 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   </summary>
 </histogram>
 
+<histogram name="Media.Engagement.Session" enum="MediaEngagementSessionEvent">
+  <owner>mlamouri@chromium.org</owner>
+  <owner>media-dev@chromium.org</owner>
+  <summary>
+    Records creation and playback status of a Media Engagement Session. This is
+    recorded at the same time as the data is commited into the content settings
+    database.
+  </summary>
+</histogram>
+
+<histogram name="Media.Engagement.Session.Restored"
+    enum="MediaEngagementSessionEvent">
+  <owner>mlamouri@chromium.org</owner>
+  <owner>media-dev@chromium.org</owner>
+  <summary>
+    Records creation and playback status of a restored Media Engagement Session.
+    This is recorded at the same time as the data is commited into the content
+    settings database. Restored information are recorded in addition of regular
+    ones (Media.Engagement.Session).
+  </summary>
+</histogram>
+
 <histogram
     name="Media.Engagement.SignificantPlayers.PlayerNotAdded.AfterFirstTime"
     enum="InsignificantPlaybackReason">
