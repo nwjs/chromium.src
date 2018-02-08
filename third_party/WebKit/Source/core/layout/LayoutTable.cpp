@@ -566,6 +566,8 @@ void LayoutTable::SimplifiedNormalFlowLayout() {
 }
 
 bool LayoutTable::RecalcOverflowAfterStyleChange() {
+  RecalcSelfOverflowAfterStyleChange();
+
   if (!ChildNeedsOverflowRecalcAfterStyleChange())
     return false;
   ClearChildNeedsOverflowRecalcAfterStyleChange();

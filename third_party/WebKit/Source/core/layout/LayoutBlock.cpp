@@ -1989,6 +1989,7 @@ bool LayoutBlock::RecalcNormalFlowChildOverflowIfNeeded(
 }
 
 bool LayoutBlock::RecalcChildOverflowAfterStyleChange() {
+  DCHECK(!IsTable());
   DCHECK(ChildNeedsOverflowRecalcAfterStyleChange());
   ClearChildNeedsOverflowRecalcAfterStyleChange();
 
@@ -2032,6 +2033,11 @@ bool LayoutBlock::RecalcOverflowAfterStyleChange() {
   if (!self_needs_overflow_recalc && !children_overflow_changed)
     return false;
 
+  return RecalcSelfOverflowAfterStyleChange();
+}
+
+bool LayoutBlock::RecalcSelfOverflowAfterStyleChange() {
+  bool self_needs_overflow_recalc = SelfNeedsOverflowRecalcAfterStyleChange();
   ClearSelfNeedsOverflowRecalcAfterStyleChange();
   // If the current block needs layout, overflow will be recalculated during
   // layout time anyway. We can safely exit here.
