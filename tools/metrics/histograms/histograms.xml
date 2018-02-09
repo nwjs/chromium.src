@@ -81778,6 +81778,17 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   </summary>
 </histogram>
 
+<histogram name="Signin.ChromePrimaryAccountStateOnWebSignout"
+    enum="ChromePrimaryAccountStateInGaiaCookies">
+  <owner>droger@chromium.org</owner>
+  <summary>
+    Logs the state of the Chrome account when the user signs out on the web.
+    This assumes that a logout of the web is always a complete logout of all the
+    web accounts (e.g. single session signout is not supported). TODO(droger):
+    make this histogram obsolete when Dice is launched.
+  </summary>
+</histogram>
+
 <histogram name="Signin.CookieJar.ChromeAccountRelation" enum="AccountRelation">
   <owner>skym@chromium.org</owner>
   <summary>
