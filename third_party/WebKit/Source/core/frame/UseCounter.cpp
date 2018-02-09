@@ -1261,6 +1261,8 @@ void UseCounter::DidCommitLoad(const LocalFrame* frame) {
       context_ = kDisabledContext;
     else if (!frame->Client() || !frame->Client()->ShouldTrackUseCounter(url))
       context_ = kDisabledContext;
+    else if (frame->GetDocument()->IsPrefetchOnly())
+      context_ = kDisabledContext;
     else if (SchemeRegistry::ShouldTrackUsageMetricsForScheme(url.Protocol()))
       context_ = kDefaultContext;
     else
