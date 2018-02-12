@@ -619,6 +619,12 @@
           Ta zasada jest opcjonalna. Jeśli nie jest ustawiona, nie zachodzi zamiana wyszukiwanego hasła.
 
           Ta zasada jest uwzględniania tylko wtedy, gdy włączona jest zasada „DefaultSearchProviderEnabled”.</translation>
+<translation id="306887062252197004">Ta zasada pozwala użytkownikom funkcji WebDriver na zastępowanie zasad, które mogą zakłócać działanie tej funkcji.
+
+      Obecnie ta zasada wyłącza zasady SitePerProcess i IsolateOrigins.
+
+      Jeśli zasada jest włączona, funkcja WebDriver będzie mogła zastępować niezgodne zasady.
+      Jeśli zasada jest wyłączona lub nie została skonfigurowana, funkcja WebDriver nie będzie mogła zastępować niezgodnych zasad.</translation>
 <translation id="3069958900488014740">Umożliwia wyłączenie optymalizacji WPAD (Web Proxy Auto-Discovery) w <ph name="PRODUCT_NAME" />.
 
       Jeśli ta zasada jest wyłączona, optymalizacja WPAD jest wyłączona. <ph name="PRODUCT_NAME" /> musi wtedy dłużej oczekiwać na serwery WPAD oparte na DNS. Jeśli zasada jest włączona lub nie jest skonfigurowana, optymalizacja WPAD jest włączona.
@@ -1180,6 +1186,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="489803897780524242">Parametr sterujący zamianą wyszukiwanego hasła dla domyślnego dostawcy wyszukiwania</translation>
 <translation id="4899708173828500852">Włącz Bezpieczne przeglądanie</translation>
 <translation id="4906194810004762807">Częstotliwość odświeżania zasad dotyczących urządzeń</translation>
+<translation id="4923806312383904642">Zezwól funkcji WebDriver na zastępowanie niezgodnych zasad</translation>
 <translation id="494613465159630803">Odbiornik Cast</translation>
 <translation id="4962262530309732070">Jeśli ta zasada jest włączona lub nie jest skonfigurowana, <ph name="PRODUCT_NAME" /> zezwala na dodawanie osób z poziomu menedżera użytkowników.
 

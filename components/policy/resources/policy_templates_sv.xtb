@@ -649,6 +649,15 @@
           Policyn är valfri. Om den inte ställs in byts inga sökord ut.
 
           Policyn beaktas bara om policyn DefaultSearchProviderEnabled är aktiverad.</translation>
+<translation id="306887062252197004">Med den här principen kan användare av funktionen WebDriver åsidosätta
+      principer som påverkar dess funktion.
+
+      Principen inaktiverar för närvarande principerna SitePerProcess och IsolateOrigins.
+
+      Om principen WebDriver är aktiverad åsidosätter den inkompatibla
+      principer.
+      Om principen WebDriver är inaktiverad eller inte konfigurerad åsidosätts inte
+      inkompatibla principer.</translation>
 <translation id="3069958900488014740">Tillåter att WPAD-optimering (Web Proxy Auto-Discovery) inaktiveras för <ph name="PRODUCT_NAME" />.
 
       Om principen är inställd på falskt är WPAD-optimeringen inaktiverad, vilket innebär att <ph name="PRODUCT_NAME" /> får vänta längre på DNS-baserade WPAD-servrar. Om principen inte har konfigurerats eller har aktiverats är WPAD-optimeringen aktiverad.
@@ -1245,6 +1254,7 @@
 <translation id="489803897780524242">Parameter som styr sökordsplacering för standardsökleverantören</translation>
 <translation id="4899708173828500852">Aktivera Säker webbsökning</translation>
 <translation id="4906194810004762807">Uppdateringsfrekvens för enhetspolicy</translation>
+<translation id="4923806312383904642">Tillåt att inkompatibla principer åsidosätts med WebDriver</translation>
 <translation id="494613465159630803">Cast-mottagare</translation>
 <translation id="4962262530309732070">Om den här principen är inställd på sant eller inte har konfigurerats tillåts Lägg till person i användarhanteraren av <ph name="PRODUCT_NAME" />.
 

@@ -620,6 +620,15 @@ Kaikki luettelon kohteet ovat tunnuksia, joiden perusteella erotetaan laitteesee
           Tämä on valinnainen käytäntö. Jos sitä ei määritetä, hakutermejä ei korvata.
 
           Tätä käytäntöä noudatetaan vain, jos DefaultSearchProviderEnabled-käytäntö on käytössä.</translation>
+<translation id="306887062252197004">Tämä käytäntö sallii WebDriver-ominaisuuden käyttäjien ohittaa
+      käytäntöjä, jotka voivat häiritä sen toimintaa.
+
+      Tällä hetkellä tämä käytäntö poistaa käytöstä SitePerProcess- ja IsolateOrigins ‑käytännöt.
+
+      Jos käytäntö on käytössä, WebDriver voi ohittaa yhteensopimattomia
+      käytäntöjä.
+      Jos käytäntö on poistettu käytöstä tai sitä ei ole määritetty, WebDriver ei saa
+      ohittaa yhteensopimattomia käytäntöjä.</translation>
 <translation id="3069958900488014740">Määrittää, käyttääkö <ph name="PRODUCT_NAME" /> WPAD-optimointia (Web Proxy Auto-Discovery).
 
       Jos tämän käytännön arvo on Epätosi, WPAD-optimointi poistetaan käytöstä, jolloin <ph name="PRODUCT_NAME" /> odottaa nimipalveluun perustuvia WPAD-palvelimia kauemmin. Jos käytäntöä ei aseteta tai sen arvo on Tosi, WPAD-optimointia käytetään.
@@ -1192,6 +1201,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 <translation id="489803897780524242">Parametri, joka hallitsee oletushakupalvelun hakutermien sijoittelua</translation>
 <translation id="4899708173828500852">Ota selaussuoja käyttöön</translation>
 <translation id="4906194810004762807">Laitekäytännön päivitystiheys</translation>
+<translation id="4923806312383904642">Salli WebDriverin ohittaa yhteensopimattomia käytäntöjä</translation>
 <translation id="494613465159630803">Cast-vastaanotin</translation>
 <translation id="4962262530309732070">Jos tämän käytännön arvoksi on määritetty tosi tai sitä ei ole määritetty, <ph name="PRODUCT_NAME" /> sallii käyttäjien hallinnan lisätä henkilöitä.
 

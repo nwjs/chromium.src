@@ -635,6 +635,13 @@ Sera hii ikiondolewa, chaguo-msingi zitatumika kwa mipangilio yote.</translation
           Sera hii ni ya hiari. Isipowekwa, mabadiliko ya hoja ya utafutaji hayatatekelezwa.
 
           Sera hii inaheshimiwa tu iwapo sera ya 'DefaultSearchProviderEnabled' imewezeshwa.</translation>
+<translation id="306887062252197004">Sera hii inaruhusu watumiaji wa kipengele cha WebDriver kufuta sera ambazo zinaweza kuathiri utendaji wake. 
+
+      Kwa sasa, sera hii inazuia sera za SitePerProcess na IsolateOrigins.
+
+      Kama sera hii imeruhusiwa, WebDriver itaweza kufuta sera zote ambazo hazioani. 
+     
+      Ikiwa sera imezuiwa au haijawekwa, WebDriver haitaruhusiwa kufuta sera ambazo hazioani.</translation>
 <translation id="3069958900488014740">Huruhusu kuzima uboreshaji wa WPAD (Ugunduaji Kiotomatiki wa Seva Mbadala kwenye Wavuti) katika <ph name="PRODUCT_NAME" />.
 
       Sera hii ikiwekwa kuwa sivyo, uboreshaji wa WPAD utazimwa na kusababisha <ph name="PRODUCT_NAME" /> kusubiri muda mrefu zaidi kwa seva za WPAD zinazotegemea DNS. Sera hii isipowekwa au ikiwashwa, uboreshaji wa WPAD utawashwa.
@@ -1211,6 +1218,7 @@ Ikiwa sera hii haijawekwa, hakuna programu au viendelezi vitakavyosakinishwa kio
 <translation id="489803897780524242">Kigezo kinachodhibiti uwekaji wa hoja ya utafutaji kwa mtoa huduma ya utafutaji chaguo-msingi</translation>
 <translation id="4899708173828500852">Wezesha Kuvinjari Salama</translation>
 <translation id="4906194810004762807">Onyesha upya kiwango cha Sera ya Kifaa</translation>
+<translation id="4923806312383904642">Ruhusu WebDriver Ifute Sera Ambazo Hazioani</translation>
 <translation id="494613465159630803">Kipokea Maudhui ya Google Cast</translation>
 <translation id="4962262530309732070">Sera hii ikiwekwa kuwa ndivyo au isipowekwa mipangilio, <ph name="PRODUCT_NAME" /> itaruhusu kipengee cha Ongeza Wasifu kutoka kwenye kidhibiti cha mtumiaji.
 

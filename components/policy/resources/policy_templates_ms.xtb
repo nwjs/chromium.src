@@ -646,6 +646,15 @@
           Dasar ini tidak wajib. Jika tidak ditetapkan, tiada penggantian istilah carian akan dilaksanakan.
 
           Dasar ini dihormati hanya jika dasar 'DefaultSearchProviderEnabled' didayakan.</translation>
+<translation id="306887062252197004">Dasar ini membenarkan pengguna ciri WebDriver untuk mengatasi
+      dasar yang boleh campur tangan dalam operasi ini.
+
+      Dasar ini melumpuhkan dasar SitePerProcess dan IsolateOrigins pada masa ini.
+
+      Jika dasar ini didayakan, WebDriver akan dapat mengatasi dasar
+      yang tidak serasi.
+      Jika dasar ini dilumpuhkan atau tidak dikonfigurasikan, WebDriver tidak akan dibenarkan
+      untuk mengatasi dasar yang tidak serasi.</translation>
 <translation id="3069958900488014740">Membolehkan pengoptimuman WPAD (Penemuan Auto Proksi Web) dimatikan dalam <ph name="PRODUCT_NAME" />. 
 
       Jika dasar ini ditetapkan kepada palsu, pengoptimuman WPAD dilumpuhkan menyebabkan <ph name="PRODUCT_NAME" /> menunggu lebih lama untuk pelayan WPAD berasaskan DNS. Jika dasar ini tidak ditetapkan atau didayakan, pengoptimuman WPAD didayakan.
@@ -1240,6 +1249,7 @@
 <translation id="489803897780524242">Parameter yang mengawal kedudukan istilah carian untuk penyedia carian lalai</translation>
 <translation id="4899708173828500852">Dayakan Penyemakan Imbas Selamat</translation>
 <translation id="4906194810004762807">Segar semula kadar untuk Dasar Peranti</translation>
+<translation id="4923806312383904642">Benarkan WebDriver Mengatasi Dasar Tidak Serasi</translation>
 <translation id="494613465159630803">Penerima Cast</translation>
 <translation id="4962262530309732070">Jika dasar ini ditetapkan kepada benar atau tidak dikonfigurasi, <ph name="PRODUCT_NAME" /> akan membenarkan ciri Tambah Orang daripada pengurus pengguna.
 

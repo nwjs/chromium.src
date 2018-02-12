@@ -646,6 +646,15 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Chính sách này là tùy chọn. Nếu không được đặt, sẽ không có thay thế cụm từ tìm kiếm nào được thực hiện.
 
           Chính sách này chỉ được lưu tâm nếu chính sách 'DefaultSearchProviderEnabled' được bật.</translation>
+<translation id="306887062252197004">Chính sách này cho phép người dùng tính năng WebDriver ghi đè
+      các chính sách có thể can thiệp vào hoạt động của chính sách đó.
+
+      Hiện chính sách này tắt chính sách SitePerProcess và IsolateOrigins.
+
+      Nếu bạn bật chính sách, WebDriver sẽ có thể ghi đè các chính sách
+      không tương thích.
+      Nếu bạn tắt hay chưa định cấu hình chính sách, WebDriver sẽ không được phép
+      ghi đè các chính sách không tương thích.</translation>
 <translation id="3069958900488014740">Cho phép tắt tối ưu hóa WPAD (Tự động phát hiện proxy web) trong <ph name="PRODUCT_NAME" />.
 
       Nếu bạn đặt chính sách này thành false, tối ưu hóa WPAD sẽ bị tắt, điều này khiến <ph name="PRODUCT_NAME" /> phải đợi trong khoảng thời gian lâu hơn đối với máy chủ WPAD dựa trên DNS. Nếu bạn không đặt hoặc nếu bạn bật chính sách này, tối ưu hóa WPAD sẽ được bật.
@@ -1233,6 +1242,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="489803897780524242">Tham số kiểm soát vị trí cụm từ tìm kiếm cho nhà cung cấp dịch vụ tìm kiếm mặc định</translation>
 <translation id="4899708173828500852">Bật Duyệt web an toàn</translation>
 <translation id="4906194810004762807">Chính sách tốc độ làm mới cho thiết bị</translation>
+<translation id="4923806312383904642">Cho phép WebDriver ghi đè các chính sách không tương thích</translation>
 <translation id="494613465159630803">Bộ thu Google Cast</translation>
 <translation id="4962262530309732070">Nếu chính sách này được đặt thành true hoặc không được định cấu hình, <ph name="PRODUCT_NAME" /> sẽ cho phép Thêm người từ trình quản lý người dùng.
 

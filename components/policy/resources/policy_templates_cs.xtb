@@ -627,6 +627,12 @@ Pokud zásadu nenastavíte, bude se považovat za aktivované (viz popis výše)
           Tato zásada je volitelná. Pokud není nastavena, nebudou prováděna žádná nahrazení vyhledávacích dotazů.
 
           Tato zásada je zohledňována pouze v případě, že je aktivována zásada DefaultSearchProviderEnabled.</translation>
+<translation id="306887062252197004">Tato zásada povoluje uživatelům funkce WebDriver přepsat zásady, které by mohly narušovat operace této funkce.
+
+V současné době tato zásada deaktivuje zásady SitePerProcess a IsolateOrigins.
+
+Pokud je tato zásada povolena, funkce WebDriver bude moci přepsat nekompatibilní zásady.
+Pokud je tato zásada zakázána nebo není nakonfigurována, funkce WebDriver nebude moci přepsat nekompatibilní zásady.</translation>
 <translation id="3069958900488014740">Umožňuje vypnout v prohlížeči <ph name="PRODUCT_NAME" /> optimalizaci WPAD (Web Proxy Auto-Discovery).
 
       Je-li tato zásada nastavena na hodnotu false, je optimalizace WPAD zakázána, a <ph name="PRODUCT_NAME" /> proto bude na servery WPAD založené na DNS čekat déle. Pokud tato zásada není nastavena, je optimalizace WPAD povolena.
@@ -1114,11 +1120,11 @@ Samotná zásada je na výše uvedených platformách podporována. Funkce, kter
 <translation id="465099050592230505">Adresa URL podnikového úložiště aplikací (podpora ukončena)</translation>
 <translation id="4665897631924472251">Nastavení správy rozšíření</translation>
 <translation id="4668325077104657568">Výchozí nastavení obrázků</translation>
-<translation id="4671708336564240458">Umožňuje nastavit, zda mají mít weby s podvodným chováním zakázáno otevírat nová okna a karty.
+<translation id="4671708336564240458">Umožňuje nastavit, zda mají mít weby s obtěžujícím chováním zakázáno otevírat nová okna a karty.
 
-      Je-li tato zásada nastavena na hodnotu True, nebudou weby s podvodným chováním moci otevírat nová okna ani karty.
+      Je-li tato zásada nastavena na hodnotu True, nebudou weby s obtěžujícím chováním moci otevírat nová okna ani karty.
       Toto chování se však neprojeví v případě, že je zásada SafeBrowsingEnabled nastavena na hodnotu False.
-      Je-li tato zásada nastavena na hodnotu False, weby s podvodným chováním budou mít otevírání nových oken a karet povoleno.
+      Je-li tato zásada nastavena na hodnotu False, weby s obtěžujícím chováním budou mít otevírání nových oken a karet povoleno.
       Pokud tato zásada není nastavena, použije se hodnota True.</translation>
 <translation id="467236746355332046">Podporované funkce:</translation>
 <translation id="4674167212832291997">Umožňuje personalizovat seznam vzorů adres URL, které by měl vždy vykreslit plugin <ph name="PRODUCT_FRAME_NAME" />.
@@ -1207,6 +1213,7 @@ Je-li tato zásada ponechána nenastavená, žádné aplikace ani rozšíření 
 <translation id="489803897780524242">Parametr nastavující nahrazení vyhledávacích dotazů pro výchozího poskytovatele vyhledávání</translation>
 <translation id="4899708173828500852">Aktivovat Bezpečné prohlížení</translation>
 <translation id="4906194810004762807">Obnovovací frekvence zásad pro zařízení</translation>
+<translation id="4923806312383904642">Povolit funkci WebDriver přepsat nekompatibilní zásady</translation>
 <translation id="494613465159630803">Přijímač Cast</translation>
 <translation id="4962262530309732070">Pokud je tato zásada nastavena na hodnotu true nebo nastavena není, bude <ph name="PRODUCT_NAME" /> povolovat přidávání osob ze správce uživatelů.
 

@@ -646,6 +646,12 @@
           ይህ መመሪያ ከተፈለገ ነው። ካልተዋቀረ ምንም የፍለጋ ቃል መተካት አይከናወንም።
 
           ይህ መመሪያ የ«DefaultSearchProviderEnabled» መመሪያ ከነቃ ብቻ ነው የሚከበረው።</translation>
+<translation id="306887062252197004">ይህ መመሪያ የWebDrive ባህሪው ተጠቃሚዎች በክወናው ላይ ጣልቃ ሊገቡ የሚችሉ መመሪያዎችን እንዲሽሩ ያስችላቸዋል።
+
+      በአሁኑ ጊዜ ይህ መመሪያ የSitePerProcess እና IsolateOrigins መመሪያዎችን ያሰናክላል።
+
+      መመሪያው ከነቃ WebDriver ተኳኋኝ ያልሆኑ መመሪያዎችን መሻር ይችላል።
+      መመሪያ ከተሰናከለ ወይም ካልተዋቀረ WebDriver ተኳኋኝ ያልሆኑ መመሪያዎችን እንዲሽር አይፈቀድለትም።</translation>
 <translation id="3069958900488014740">WPAD (Web Proxy Auto-Discovery) ማትቢያን በ<ph name="PRODUCT_NAME" /> ውስጥ ማጥፋትን ይፈቅዳል።
 
       ይህ መመሪያ ወደ ሐሰት ከተዋቀረ WPAD ማትቢያ በመሰናከል <ph name="PRODUCT_NAME" /> በDNS ላይ ለተመሠረቱ የWPAD አገልጋዮች ለረዥም ጊዜ እንዲጠብቁ ያደርጋል። መመሪያው ካልዋቀረ ወይም ከነቃ WPAD ማትቢያ ይነቃል።
@@ -1235,6 +1241,7 @@
 <translation id="489803897780524242">የነባሪው ፍለጋ አቅራቢ የፍለጋ ቃል ምደባውን የሚቆጣጠር ልኬት</translation>
 <translation id="4899708173828500852">የደህንነት አሰሳን ያንቁ</translation>
 <translation id="4906194810004762807">የመሣሪያ መመሪያ እድሳት ፍጥነት</translation>
+<translation id="4923806312383904642">WebDriver ተኳኋኝ ያልሆኑ መመሪያዎችን እንዲሽር ይፍቀዱ</translation>
 <translation id="494613465159630803">የCast መቀበያ</translation>
 <translation id="4962262530309732070">ይህ መመሪያ ወደ እውነት ከተዋቀረ ወይም ካልተዋቀረ <ph name="PRODUCT_NAME" /> ከተጠቃሚ አስተዳዳሪ ሰው ማከልን ይፈቅዳል።
 

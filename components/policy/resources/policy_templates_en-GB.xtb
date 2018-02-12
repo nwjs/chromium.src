@@ -648,6 +648,15 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
           This policy is optional. If not set, no search term replacement will be performed.
 
           This policy is only respected if the 'DefaultSearchProviderEnabled' policy is enabled.</translation>
+<translation id="306887062252197004">This policy allows users of the WebDriver feature to override
+      policies which can interfere with its operation.
+
+      Currently this policy disables SitePerProcess and IsolateOrigins policies.
+
+      If the policy is enabled, WebDriver will be able to override incompatible
+      policies.
+      If the policy is disabled or not configured, WebDriver will not be allowed
+      to override incompatible policies.</translation>
 <translation id="3069958900488014740">Allows you to turn off WPAD (Web Proxy Auto-Discovery) optimisation in <ph name="PRODUCT_NAME" />.
 
       If this policy is set to false, WPAD optimisation is disabled causing <ph name="PRODUCT_NAME" /> to wait longer for DNS-based WPAD servers. If the policy is not set or is enabled, WPAD optimisation is enabled.
@@ -1243,6 +1252,7 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 <translation id="489803897780524242">Parameter controlling search term placement for the default search provider</translation>
 <translation id="4899708173828500852">Enable Safe Browsing</translation>
 <translation id="4906194810004762807">Refresh rate for Device Policy</translation>
+<translation id="4923806312383904642">Allow WebDriver to Override Incompatible Policies</translation>
 <translation id="494613465159630803">Cast Receiver</translation>
 <translation id="4962262530309732070">If this policy is set to true or not configured, <ph name="PRODUCT_NAME" /> will allow Add Person from the user manager.
 

@@ -620,6 +620,15 @@
           Pravilo nije obavezno. Ako nije postavljeno, neće se vršiti zamjena pojma za pretraživanje.
 
           Pravilo se primjenjuje samo ako je pravilo "DefaultSearchProviderEnabled" omogućeno.</translation>
+<translation id="306887062252197004">Ovo pravilo omogućuje korisnicima značajke WebDriver da nadjačaju
+      pravila koja mogu ometati njezin rad.
+
+      To pravilo trenutačno onemogućuje pravila SitePerProcess i IsolateOrigins.
+
+      Ako je to pravilo omogućeno, WebDriver će moći nadjačati nekompatibilna
+      pravila.
+      Ako je to pravilo onemogućeno ili nije konfigurirano, WebDriver neće moći
+      nadjačati nekompatibilna pravila.</translation>
 <translation id="3069958900488014740">Omogućuje isključivanje optimizacije WPAD-a (automatskog otkrivanja web-proxyja) u pregledniku <ph name="PRODUCT_NAME" />.
 
       Ako se to pravilo postavi na "False", optimizacija WPAD-a nije omogućena, pa <ph name="PRODUCT_NAME" /> dulje čeka WPAD poslužitelje temeljene na DNS-u. Ako se pravilo ne postavi ili ako se omogući, optimizacija WPAD-a omogućena je.
@@ -1189,6 +1198,7 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
 <translation id="489803897780524242">Parametar koji kontrolira položaj pojma za pretraživanje za zadanog pružatelja usluge pretraživanja</translation>
 <translation id="4899708173828500852">Omogući Sigurno pregledavanje</translation>
 <translation id="4906194810004762807">Brzina osvježavanja za pravilo uređaja</translation>
+<translation id="4923806312383904642">Dopusti WebDriveru da nadjača nekompatibilna pravila</translation>
 <translation id="494613465159630803">Cast prijemnik</translation>
 <translation id="4962262530309732070">Ako se pravilo postavi na točno ili se ne konfigurira, <ph name="PRODUCT_NAME" /> dopustit će dodavanje osoba iz upravitelja korisnika.
 

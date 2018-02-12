@@ -619,6 +619,15 @@
           Ez a házirend opcionális. Ha nincs beállítva, a keresési kifejezéseket a rendszer nem cseréli le.
 
           Ezt a házirendet csak akkor veszi figyelembe a rendszer, ha a „DefaultSearchProviderEnabled” házirend engedélyezett.</translation>
+<translation id="306887062252197004">Ez a házirend lehetővé teszi a WebDriver funkció felhasználóinak, hogy felülbírálják
+      azokat a házirendeket, amelyek zavarhatják a működését.
+
+      Ez a házirend jelenleg letiltja a SitePerProcess és az IsolateOrigins házirendeket.
+
+      Ha a házirend be van kapcsolva, a WebDriver felülbírálhatja a nem kompatibilis
+      házirendeket.
+      Ha a házirend le van tiltva vagy nincs beállítva, a WebDriver nem bírálhatja felül
+      a nem kompatibilis házirendeket.</translation>
 <translation id="3069958900488014740">Lehetővé teszi a WPAD (Web Proxy Auto-Discovery) optimalizálásának kikapcsolását a <ph name="PRODUCT_NAME" /> termékben.
 
       Ha a házirend értéke hamis, a WPAD-optimalizálás inaktív lesz, így a <ph name="PRODUCT_NAME" /> hosszabb ideig várakozik a DNS-alapú WPAD-szerverek esetében. Ha nem állítja be, vagy ha engedélyezi a házirendet, akkor a WPAD-optimalizálás aktív lesz.
@@ -1185,6 +1194,7 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 <translation id="489803897780524242">A keresési kifejezések elhelyezését szabályozó paraméter az alapértelmezett keresési szolgáltató esetében</translation>
 <translation id="4899708173828500852">Biztonságos böngészés engedélyezése</translation>
 <translation id="4906194810004762807">Frissítési arány az eszköz irányelveihez</translation>
+<translation id="4923806312383904642">A nem kompatibilis házirendek felülbírálásának engedélyezése a WebDriver számára</translation>
 <translation id="494613465159630803">Cast-erősítő</translation>
 <translation id="4962262530309732070">Ha a házirend értéke igaz, vagy ha nincs beállítva, akkor a(z) <ph name="PRODUCT_NAME" /> lehetővé teszi személyek hozzáadását a felhasználókezelőből.
 

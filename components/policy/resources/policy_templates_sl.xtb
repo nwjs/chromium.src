@@ -648,6 +648,15 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
           Pravilnik je izbiren. Če ga ne nastavite, iskalni izrazi ne bodo nadomeščeni.
 
           Pravilnik se upošteva samo, če je pravilnik »DefaultSearchProviderEnabled« omogočen.</translation>
+<translation id="306887062252197004">Ta pravilnik uporabnikom funkcije WebDriver omogoča preglasitev
+      pravilnikov, ki lahko ovirajo njeno delovanje.
+
+      Ta pravilnik trenutno onemogoča pravilnika SitePerProcess in IsolateOrigins.
+
+      Če je pravilnik omogočen, bo funkcija WebDriver lahko preglasila nezdružljive
+      pravilnike.
+      Če je pravilnik onemogočen ali ni konfiguriran, funkciji WebDriver ne bo dovoljeno
+      preglasiti nezdružljivih pravilnikov.</translation>
 <translation id="3069958900488014740">Omogoča izklop optimizacije WPAD (samodejno odkrivanje strežnikov proxy v spletu) v brskalniku <ph name="PRODUCT_NAME" />.
 
       Če je ta pravilnik onemogočen, je optimizacija WPAD onemogočena, zaradi česa mora <ph name="PRODUCT_NAME" /> čakati dlje na strežnike WPAD, ki temeljijo na DNS-ju. Če pravilnik ni nastavljen ali je omogočen, je optimizacija WPAD omogočena.
@@ -1243,6 +1252,7 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 <translation id="489803897780524242">Parameter, ki nadzira umestitev iskalnega izraza za privzetega ponudnika iskanja</translation>
 <translation id="4899708173828500852">Omogoči varno brskanje</translation>
 <translation id="4906194810004762807">Osveži oceno za pravilnik za naprave</translation>
+<translation id="4923806312383904642">Omogočanje, da funkcija WebDriver preglasi nezdružljive pravilnike</translation>
 <translation id="494613465159630803">Sprejemnik za Google Cast</translation>
 <translation id="4962262530309732070">Če je ta pravilnik omogočen ali ni nastavljen, <ph name="PRODUCT_NAME" /> dovoli dodajanje osebe v upravitelju uporabnikov.
 

@@ -635,6 +635,15 @@
           Denne innstillingen er valgfri. hvis den ikke er angitt, forekommer det ingen søkeordserstatning.
 
           Denne innstillingen brukes bare hvis «DefaultSearchProviderEnabled»-innstillingen er angitt.</translation>
+<translation id="306887062252197004">Denne regelen tillater at brukere av WebDriver-funksjoner overstyrer
+      regler som kan forstyrre bruk av WebDriver.
+
+      For øyeblikket deaktiverer denne regelen SitePerProcess og IsolateOrigins.
+
+      Hvis regelen er aktivert, kan WebDriver overstyre inkompatible
+      regler.
+      Hvis regelen deaktiveres eller ikke konfigureres, kan ikke WebDriver
+      overstyre inkompatible regler.</translation>
 <translation id="3069958900488014740">Gjør det mulig å slå av WPAD-optimalisering (automatisk oppdagelse av nettproxyer) i <ph name="PRODUCT_NAME" />.
 
       Hvis denne regelen er satt til false (usann), er WPAD-optimalisering slått av, noe som fører til at <ph name="PRODUCT_NAME" /> må vente lenger på DNS-baserte WPAD-tjenere. Hvis denne regelen er slått på, eller hvis du ikke har spesifisert den, er WPAD-optimalisering slått på.
@@ -1198,6 +1207,7 @@
 <translation id="489803897780524242">Parametret som kontrollerer søkeordplasseringen for standardsøkemotoren</translation>
 <translation id="4899708173828500852">Aktiver Safe Browsing</translation>
 <translation id="4906194810004762807">Oppdateringsfrekvens for enhetsinnstilling</translation>
+<translation id="4923806312383904642">Tillat at WebDriver overstyrer inkompatible regler</translation>
 <translation id="494613465159630803">Cast-mottaker</translation>
 <translation id="4962262530309732070">Hvis denne regelen angis som «true» (sann) eller ikke konfigureres, tillates «Legg til person» i brukeradministreringen for <ph name="PRODUCT_NAME" />.
 

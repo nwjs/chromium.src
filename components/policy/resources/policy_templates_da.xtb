@@ -618,6 +618,15 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
           Denne politik er valgfri. Hvis den ikke indstilles, udføres der ingen erstatning af søgetermer.
 
           Denne politik respekteres kun, hvis politikken 'DefaultSearchProviderEnabled' aktiveres.</translation>
+<translation id="306887062252197004">Med denne politik kan brugere af funktionen WebDriver tilsidesætte
+      politikker, der kan forstyrre processen.
+
+      Politikken deaktiverer i øjeblikket politikkerne SitePerProcess og IsolateOrigins.
+
+      Hvis politikken er aktiveret, kan WebDriver tilsidesætte inkompatible
+      politikker.
+      Hvis politikken er deaktiveret eller ikke er konfigureret, kan WebDriver ikke
+      tilsidesætte inkompatible politikker.</translation>
 <translation id="3069958900488014740">Tillader deaktivering af WPAD-optimering (Web Proxy Auto-Discovery) i <ph name="PRODUCT_NAME" />.
 
       Hvis denne politik angives som Falsk, deaktiveres WPAD-optimering, så <ph name="PRODUCT_NAME" /> skal vente længere på DNS-baserede WPAD-servere. Hvis politikken ikke er indstillet, eller hvis den er aktiveret, er WPAD-optimering aktiveret.
@@ -1192,6 +1201,7 @@ Mens selve politikken understøttes på ovenstående platforme, kan den funktion
 <translation id="489803897780524242">Parameter, der styrer placeringen af søgeterm i standardsøgemaskinen</translation>
 <translation id="4899708173828500852">Aktiver Beskyttet browsing</translation>
 <translation id="4906194810004762807">Opdateringsfrekvens for enhedspolitik</translation>
+<translation id="4923806312383904642">Tillad, at WebDriver tilsidesætter inkompatible politikker</translation>
 <translation id="494613465159630803">Cast Receiver</translation>
 <translation id="4962262530309732070">Hvis denne politik er indstillet til sand eller ikke konfigureret, tillader <ph name="PRODUCT_NAME" /> tilføjelse af personer fra brugeradministration.
 

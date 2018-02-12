@@ -649,6 +649,15 @@
           Šī politika nav jāiestata obligāti. Ja tā nebūs iestatīta, meklēšanas vienumu aizstāšana nenotiks.
 
           Šī politika ir spēkā tikai tad, ja ir iespējota politika “DefaultSearchProviderEnabled”.</translation>
+<translation id="306887062252197004">Ar šo politiku funkcijas WebDriver lietotāji var ignorēt
+      politikas, kas var ietekmēt šīs funkcijas darbību.
+
+      Pašlaik ar šo politiku tiek atspējota SitePerProcess un IsolateOrigins politika.
+
+      Ja šī politika ir iespējota, funkcija WebDriver varēs ignorēt nesaderīgās
+      politikas.
+      Ja šī politika ir atspējota vai nav konfigurēta, funkcija WebDriver nevarēs
+      ignorēt nesaderīgās politikas.</translation>
 <translation id="3069958900488014740">Pārlūkā <ph name="PRODUCT_NAME" /> tiek atļauta WPAD (Web Proxy Auto-Discovery — tīmekļa starpniekservera automātiskā atklāšana) optimizācijas izslēgšana.
 
       Ja šai politikai ir iestatīta vērtība Nepatiesa, WPAD optimizācija ir atspējota, tādējādi pārlūkā <ph name="PRODUCT_NAME" /> tiek ilgāk gaidīts uz DNS WPAD serveriem. Ja politika nav iestatīta vai ir iespējota, WPAD optimizācija ir iespējota.
@@ -1238,6 +1247,7 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
 <translation id="489803897780524242">Parametrs, kas nosaka meklēšanas vienuma izvietojumu noklusējuma meklētājprogrammā</translation>
 <translation id="4899708173828500852">Iespējo drošu pārlūkošanu</translation>
 <translation id="4906194810004762807">Ierīces politikas atsvaidzes ātrums</translation>
+<translation id="4923806312383904642">Atļaut funkcijai WebDriver ignorēt nesaderīgās politikas</translation>
 <translation id="494613465159630803">Cast uztvērējs</translation>
 <translation id="4962262530309732070">Ja šai politikai ir iestatīta vērtība “True” vai ja politika nav konfigurēta, pārlūkā <ph name="PRODUCT_NAME" /> lietotāju pārvaldniekā ir iespējota funkcija Pievienot personu.
 

@@ -615,6 +615,15 @@
           このポリシーは省略可能です。未設定の場合、検索キーワードに置き換えられることはありません。
 
           このポリシーは「DefaultSearchProviderEnabled」ポリシーが有効な場合にのみ適用されます。</translation>
+<translation id="306887062252197004">このポリシーを使用すると、WebDriver 機能を使用するときに
+      動作を妨げる可能性のあるポリシーをオーバーライドできます。
+
+      現在、このポリシーによって無効にされるのは SitePerProcess ポリシーと IsolateOrigins ポリシーです。
+
+      このポリシーが有効な場合は、WebDriver で互換性のないポリシーを
+      オーバーライドできます。
+      このポリシーが無効または未設定の場合は、WebDriver で互換性のないポリシーを
+      オーバーライドすることはできません。</translation>
 <translation id="3069958900488014740"><ph name="PRODUCT_NAME" /> で WPAD（ウェブプロキシ自動検出）の最適化を無効にできます。
 
       このポリシーを false に設定すると、WPAD の最適化は無効になり、DNS ベースの WPAD サーバーに対する <ph name="PRODUCT_NAME" /> の待機間隔が長くなります。このポリシーを未設定または有効にすると、WPAD の最適化は有効になります。
@@ -1186,6 +1195,7 @@
 <translation id="489803897780524242">デフォルトの検索プロバイダに対する検索キーワードの置き換えを指定するパラメータ</translation>
 <translation id="4899708173828500852">セーフ ブラウジングを有効にする</translation>
 <translation id="4906194810004762807">端末ポリシーの更新間隔</translation>
+<translation id="4923806312383904642">WebDriver による互換性のないポリシーのオーバーライドを許可する</translation>
 <translation id="494613465159630803">Cast Receiver</translation>
 <translation id="4962262530309732070">このポリシーが true に設定されているか未設定の場合は、<ph name="PRODUCT_NAME" /> のユーザー管理画面で [ユーザーを追加] を使用することができます。
 

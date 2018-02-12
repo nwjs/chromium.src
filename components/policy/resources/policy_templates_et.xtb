@@ -648,6 +648,15 @@
           See reegel on valikuline. Kui seda ei määrata, siis otsinguterminit ei asendata.
 
           See reegel kehtib vaid siis, kui reegel „DefaultSearchProviderEnabled” on lubatud.</translation>
+<translation id="306887062252197004">See reegel võimaldab funktsiooni WebDriver kasutajatel alistada
+      reeglid, mis võivad selle tööd häirida.
+
+      See reegel keelab praegu reeglid SitePerProcess ja IsolateOrigins.
+
+      Kui see reegel on lubatud, saab WebDriver alistada ühildumatud
+      reeglid.
+      Kui see reegel on keelatud või seadistamata, ei tohi WebDriver
+      ühildumatuid reegleid alistada.</translation>
 <translation id="3069958900488014740">Lubab teenuses <ph name="PRODUCT_NAME" /> WPAD-i (veebi puhverserveri automaatne avastamine) optimeerimise välja lülitada.
 
       Kui selle reegli väärtuseks on määratud Väär, on WPAD-i optimeerimine keelatud ja teenus <ph name="PRODUCT_NAME" /> peab DNS-põhiseid WPAD-i servereid kauem ootama. Kui reeglit pole määratud või see on lubatud, on WPAD-i optimeerimine lubatud.
@@ -1232,6 +1241,7 @@
 <translation id="489803897780524242">Parameeter, mis juhib otsingutermini paigutust vaikeotsingupakkuja puhul</translation>
 <translation id="4899708173828500852">Luba ohutu sirvimine</translation>
 <translation id="4906194810004762807">Seadme reeglite värskendussagedus</translation>
+<translation id="4923806312383904642">Reeglil WebDriver ühildumatute reeglite alistamise lubamine</translation>
 <translation id="494613465159630803">Cast'i vastuvõtja</translation>
 <translation id="4962262530309732070">Kui selle reegli väärtuseks määratakse Tõene või seda ei seadistata, lubab teenus <ph name="PRODUCT_NAME" /> kasutajahalduris funktsiooni Inimese lisamine.
 

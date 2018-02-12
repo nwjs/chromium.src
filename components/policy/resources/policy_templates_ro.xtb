@@ -623,6 +623,15 @@
           Această politică este opțională. Dacă nu este setată, nu se va efectua înlocuirea termenilor de căutare.
 
           Această politică este respectată doar dacă este activată politica „DefaultSearchProviderEnabled”.</translation>
+<translation id="306887062252197004">Această politică permite utilizatorilor funcției WebDriver să ignore
+      politicile care pot afecta funcționarea acesteia.
+
+      În prezent, această politică dezactivează politicile SitePerProcess și IsolateOrigins.
+
+      Dacă politica este activată, WebDriver va putea să ignore politicile
+      incompatibile.
+      Dacă politica este dezactivată sau nu este configurată, funcției WebDriver nu i se va permite
+      să ignore politicile incompatibile.</translation>
 <translation id="3069958900488014740">Îți permite să dezactivezi optimizarea pentru WPAD (Web Proxy Auto-Discovery) în <ph name="PRODUCT_NAME" />.
 
       Dacă această politică este dezactivată, optimizarea pentru WPAD este, de asemenea, dezactivată, iar <ph name="PRODUCT_NAME" /> va aștepta mai mult timp un răspuns de la serverele WPAD bazate pe DNS. Dacă politica nu este configurată sau este activată, optimizarea pentru WPAD este activată.
@@ -1200,6 +1209,7 @@
 <translation id="489803897780524242">Parametru care controlează poziționarea termenilor de căutare pentru furnizorul prestabilit de servicii de căutare</translation>
 <translation id="4899708173828500852">Activează funcția Navigare sigură</translation>
 <translation id="4906194810004762807">Rata de actualizare pentru Politica privind dispozitivele</translation>
+<translation id="4923806312383904642">Permite WebDriver să ignore politicile incompatibile</translation>
 <translation id="494613465159630803">Cast Receiver</translation>
 <translation id="4962262530309732070">Dacă această politică este activată sau nu este configurată, <ph name="PRODUCT_NAME" /> va permite opțiunea Adaugă o persoană din managerul de utilizatori.
 

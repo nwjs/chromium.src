@@ -620,6 +620,15 @@
           這個政策為選擇性，如果你並未設定這項政策，系統就不會取代任何搜尋字詞。
 
           只有當你啟用「DefaultSearchProviderEnabled」政策時，這項政策才會生效。</translation>
+<translation id="306887062252197004">這項政策可讓使用 WebDriver 功能的使用者覆寫
+      可能干擾此功能運作的政策。
+
+      目前這項政策停用了 SitePerProcess 和 IsolateOrigins 政策。
+
+      如果啟用這項政策，WebDriver 將可以覆寫不相容的
+      政策。
+      如果停用這項政策或未設定，WebDriver 將無法
+      覆寫不相容的政策。</translation>
 <translation id="3069958900488014740">允許關閉 <ph name="PRODUCT_NAME" /> 的 WPAD (Web Proxy Auto Discovery) 最佳化設定。
 
       如果將這項政策設為 False，系統會停用 WPAD 最佳化設定，因而延長 <ph name="PRODUCT_NAME" /> 等待 DNS 型 WPAD 伺服器回應的時間。如果未設定或已啟用這項政策，系統會啟用 WPAD 最佳化設定。
@@ -1190,6 +1199,7 @@
 <translation id="489803897780524242">可使用這個參數來決定是否要為預設搜尋服務商提供替代搜尋字詞。</translation>
 <translation id="4899708173828500852">啟用安全瀏覽</translation>
 <translation id="4906194810004762807">裝置政策的重新整理頻率</translation>
+<translation id="4923806312383904642">允許 WebDriver 覆寫不相容的政策</translation>
 <translation id="494613465159630803">Cast 接收器</translation>
 <translation id="4962262530309732070">如果將這項政策設為 True 或未設定，<ph name="PRODUCT_NAME" /> 將允許從使用者管理工具新增使用者。
 

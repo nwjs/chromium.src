@@ -644,6 +644,15 @@
           Opsyonal ang patakarang ito. Kung hindi nakatakda, hindi magpapalit ng termino para sa paghahanap.
 
           Sinusunod lang ang patakarang ito kung pinagana ang patakarang 'DefaultSearchProviderEnabled.'</translation>
+<translation id="306887062252197004">Pinapayagan ng patakarang ito ang mga user ng feature na WebDriver na mag-override
+      ng mga patakarang makakaapekto sa mga pagpapatakbo nito.
+
+      Sa kasalukuyan ay dini-disable ng patakarang ito ang mga patakaran ng SitePerProcess at IsolateOrigins.
+
+      Kung naka-enable ang patakaran, mao-override ng WebDriver ang mga hindi tugmang
+      patakaran.
+      Kung naka-disable o hindi naka-configure ang patakaran, hindi papayagan ang WebDriver
+      na mag-override ng mga hindi tugmang patakaran.</translation>
 <translation id="3069958900488014740">Pinapayagang i-off ang pag-optimize ng WPAD (Web Proxy Auto-Discovery) sa <ph name="PRODUCT_NAME" />.
 
       Kung nakatakda sa false ang patakarang ito, madi-disable ang pag-optimize ng WPAD na magsasanhi sa <ph name="PRODUCT_NAME" /> na maghintay nang mas matagal para sa mga DNS-based na WPAD server.  Kung hindi nakatakda o naka-enable ang patakarang ito, ie-enable ang pag-optimize ng WPAD.
@@ -1232,6 +1241,7 @@
 <translation id="489803897780524242">Parameter na kumokontrol sa paglalagay ng termino para sa paghahanap para sa default na search provider</translation>
 <translation id="4899708173828500852">Paganahin ang Ligtas na Pagba-browse</translation>
 <translation id="4906194810004762807">I-refresh ang pag-rate para sa Patakaran sa Device</translation>
+<translation id="4923806312383904642">Payagan ang WebDriver na Mag-override ng Mga Hindi Tugmang Patakaran</translation>
 <translation id="494613465159630803">Cast Receiver</translation>
 <translation id="4962262530309732070">Kung nakatakda sa true o hindi naka-configure ang patakarang ito, papayagan ng <ph name="PRODUCT_NAME" /> ang Magdagdag ng Tao mula sa user manager.
 
