@@ -1875,10 +1875,13 @@ crbug.com/626703 [ Linux Mac ] virtual/service-worker-script-streaming/external/
 crbug.com/626703 [ Linux Mac ] virtual/service-worker-script-streaming/external/wpt/service-workers/service-worker/clients-get-cross-origin.https.html [ Timeout ]
 crbug.com/626703 [ Linux Mac ] virtual/mojo-blobs/external/wpt/service-workers/service-worker/clients-get.https.html [ Timeout ]
 crbug.com/626703 external/wpt/service-workers/service-worker/clients-get-cross-origin.https.html [ Timeout ]
+crbug.com/626703 virtual/navigation-mojo-resposne/external/wpt/service-workers/service-worker/clients-get-cross-origin.https.html [ Pass Timeout ]
 crbug.com/626703 external/wpt/service-workers/service-worker/clients-get.https.html [ Timeout ]
+crbug.com/626703 virtual/navigation-mojo-response/external/wpt/service-workers/service-worker/clients-get.https.html [ Pass Timeout ]
 crbug.com/626703 [ Linux Mac ] virtual/mojo-blobs/external/wpt/service-workers/service-worker/clients-get-cross-origin.https.html [ Timeout ]
 crbug.com/626703 [ Linux Mac ] virtual/outofblink-cors/external/wpt/service-workers/service-worker/clients-get-client-types.https.html [ Timeout ]
 crbug.com/626703 external/wpt/service-workers/service-worker/clients-get-client-types.https.html [ Timeout ]
+crbug.com/626703 virtual/navigation-mojo-response/external/wpt/service-workers/service-worker/clients-get-client-types.https.html [ Pass Timeout ]
 crbug.com/626703 [ Linux Mac ] virtual/outofblink-cors/external/wpt/service-workers/service-worker/clients-get.https.html [ Timeout ]
 crbug.com/626703 [ Linux Mac ] virtual/mojo-blobs/external/wpt/service-workers/service-worker/clients-get-client-types.https.html [ Timeout ]
 crbug.com/626703 external/wpt/html/rendering/non-replaced-elements/the-page/body-margin-1i.html [ Failure ]
@@ -2270,6 +2273,7 @@ crbug.com/626703 virtual/outofblink-cors/external/wpt/fetch/api/abort/general.ht
 crbug.com/626703 virtual/outofblink-cors/external/wpt/http/basic-auth-cache-test.html [ Timeout ]
 crbug.com/626703 virtual/outofblink-cors/external/wpt/service-workers/service-worker/update-bytecheck.https.html [ Timeout ]
 crbug.com/626703 virtual/service-worker-script-streaming/external/wpt/service-workers/service-worker/update-bytecheck.https.html [ Timeout ]
+crbug.com/626703 virtual/navigation-mojo-response/external/wpt/service-workers/service-worker/update-bytecheck.https.html [ Timeout ]
 crbug.com/626703 [ Win10 ] external/wpt/preload/delaying-onload-link-preload-after-discovery.html [ Timeout ]
 crbug.com/626703 [ Win ] external/wpt/css/css-writing-modes/box-offsets-rel-pos-vlr-005.xht [ Failure ]
 crbug.com/626703 [ Win ] external/wpt/css/css-writing-modes/box-offsets-rel-pos-vrl-004.xht [ Failure ]
@@ -2483,6 +2487,7 @@ crbug.com/691944 external/wpt/service-workers/service-worker/update-after-oneday
 crbug.com/691944 virtual/service-worker-script-streaming/external/wpt/service-workers/service-worker/update-after-oneday.https.html [ Skip ]
 crbug.com/691944 virtual/mojo-blobs/external/wpt/service-workers/service-worker/update-after-oneday.https.html [ Skip ]
 crbug.com/691944 virtual/outofblink-cors/external/wpt/service-workers/service-worker/update-after-oneday.https.html [ Skip ]
+crbug.com/691944 virtual/navigation-mojo-response/external/wpt/service-workers/service-worker/update-after-oneday.https.html [ Skip ]
 
 # These tests (erroneously) see a platform-specific User-Agent header
 crbug.com/595993 external/wpt/service-workers/service-worker/fetch-header-visibility.https.html [ Failure ]
@@ -2492,7 +2497,9 @@ crbug.com/595993 external/wpt/service-workers/service-worker/request-end-to-end.
 crbug.com/595993 virtual/service-worker-script-streaming/external/wpt/service-workers/service-worker/request-end-to-end.https.html [ Failure ]
 crbug.com/595993 virtual/mojo-blobs/external/wpt/service-workers/service-worker/request-end-to-end.https.html [ Failure ]
 crbug.com/595993 virtual/outofblink-cors/external/wpt/service-workers/service-worker/request-end-to-end.https.html [ Failure ]
+crbug.com/595993 virtual/navigation-mojo-response/external/wpt/service-workers/service-worker/request-end-to-end.https.html [ Failure ]
 crbug.com/595993 virtual/outofblink-cors/external/wpt/service-workers/service-worker/fetch-header-visibility.https.html [ Failure ]
+crbug.com/595993 virtual/navigation-mojo-response/external/wpt/service-workers/service-worker/fetch-header-visibility.https.html [ Failure ]
 
 crbug.com/619427 [ Mac Linux ] fast/overflow/overflow-height-float-not-removed-crash3.html [ Pass Failure ]
 

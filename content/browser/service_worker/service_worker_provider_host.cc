@@ -510,6 +510,8 @@ ServiceWorkerProviderHost::GetOrCreateServiceWorkerHandle(
   if (!context_ || !version)
     return blink::mojom::ServiceWorkerObjectInfo::New();
   if (!dispatcher_host_) {
+    DCHECK(ServiceWorkerUtils::IsServicificationEnabled() ||
+           IsNavigationMojoResponseEnabled());
     // This is called before the dispatcher host is created.
     auto info = blink::mojom::ServiceWorkerObjectInfo::New();
     info->handle_id = context_->GetNewServiceWorkerHandleId();
@@ -613,9 +615,12 @@ void ServiceWorkerProviderHost::CompleteNavigationInitialized(
   if (!controller_)
     return;
 
-  if (ServiceWorkerUtils::IsServicificationEnabled()) {
-    // S13nServiceWorker: register the controller service worker with the
-    // pre-created handle ID.
+  if ((ServiceWorkerUtils::IsServicificationEnabled() ||
+       IsNavigationMojoResponseEnabled()) &&
+      precreated_controller_handle_id_ !=
+          blink::mojom::kInvalidServiceWorkerHandleId) {
+    // S13nServiceWorker: register the pre-created handle for the controller
+    // service worker with the dispatcher host, now that it exists.
     DCHECK_NE(blink::mojom::kInvalidServiceWorkerHandleId,
               precreated_controller_handle_id_);
     std::unique_ptr<ServiceWorkerHandle> new_handle(
@@ -625,10 +630,12 @@ void ServiceWorkerProviderHost::CompleteNavigationInitialized(
     dispatcher_host_->RegisterServiceWorkerHandle(std::move(new_handle));
   }
 
-  // In S13nServiceWorker case the controller is already sent in navigation
-  // commit, but we still need this for S13nServiceWorker case for setting the
-  // use counter correctly.
-  // TODO(kinuko): Stop doing this in S13nServiceWorker case.
+  // In S13nServiceWorker/NavigationMojoResponse case the controller is already
+  // sent in navigation commit, but we still need this for
+  // S13nServiceWorker/NavigationMojoResponse case for setting the use counter
+  // correctly.
+  // TODO(kinuko): Stop doing this in S13nServiceWorker/NavigationMojoResponse
+  // case.
   SendSetControllerServiceWorker(controller_.get(),
                                  false /* notify_controllerchange */);
 }
