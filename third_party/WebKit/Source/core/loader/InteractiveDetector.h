@@ -7,6 +7,7 @@
 
 #include "base/macros.h"
 #include "core/CoreExport.h"
+#include "core/paint/FirstMeaningfulPaintDetector.h"
 #include "platform/LongTaskDetector.h"
 #include "platform/PODInterval.h"
 #include "platform/Supplementable.h"
@@ -55,7 +56,9 @@ class CORE_EXPORT InteractiveDetector
   void OnResourceLoadEnd(WTF::Optional<double> load_finish_time);
 
   void SetNavigationStartTime(double navigation_start_time);
-  void OnFirstMeaningfulPaintDetected(double fmp_time);
+  void OnFirstMeaningfulPaintDetected(
+      double fmp_time,
+      FirstMeaningfulPaintDetector::HadUserInput user_input_before_fmp);
   void OnDomContentLoadedEnd(double dcl_time);
   void OnInvalidatingInputEvent(double timestamp_seconds);
 
@@ -95,6 +98,7 @@ class CORE_EXPORT InteractiveDetector
     double dom_content_loaded_end = 0.0;
     double nav_start = 0.0;
     double first_invalidating_input = 0.0;
+    bool first_meaningful_paint_invalidated = false;
   } page_event_times_;
 
   // Stores sufficiently long quiet windows on main thread and network.

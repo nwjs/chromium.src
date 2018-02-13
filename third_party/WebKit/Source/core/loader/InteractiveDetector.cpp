@@ -94,11 +94,17 @@ void InteractiveDetector::StartOrPostponeCITimer(double timer_fire_time) {
 }
 
 double InteractiveDetector::GetInteractiveTime() const {
-  return interactive_time_;
+  // TODO(crbug.com/808685) Simplify FMP and TTI input invalidation.
+  return page_event_times_.first_meaningful_paint_invalidated
+             ? 0.0
+             : interactive_time_;
 }
 
 double InteractiveDetector::GetInteractiveDetectionTime() const {
-  return interactive_detection_time_;
+  // TODO(crbug.com/808685) Simplify FMP and TTI input invalidation.
+  return page_event_times_.first_meaningful_paint_invalidated
+             ? 0.0
+             : interactive_detection_time_;
 }
 
 double InteractiveDetector::GetFirstInvalidatingInputTime() const {
@@ -182,10 +188,14 @@ void InteractiveDetector::OnLongTaskDetected(double start_time,
   StartOrPostponeCITimer(end_time + kTimeToInteractiveWindowSeconds);
 }
 
-void InteractiveDetector::OnFirstMeaningfulPaintDetected(double fmp_time) {
-  DCHECK(page_event_times_.first_meaningful_paint ==
-         0.0);  // Should not set FMP twice.
+void InteractiveDetector::OnFirstMeaningfulPaintDetected(
+    double fmp_time,
+    FirstMeaningfulPaintDetector::HadUserInput user_input_before_fmp) {
+  // Should not set FMP twice.
+  DCHECK(page_event_times_.first_meaningful_paint == 0.0);
   page_event_times_.first_meaningful_paint = fmp_time;
+  page_event_times_.first_meaningful_paint_invalidated =
+      user_input_before_fmp == FirstMeaningfulPaintDetector::kHadUserInput;
   if (CurrentTimeTicksInSeconds() - fmp_time >=
       kTimeToInteractiveWindowSeconds) {
     // We may have reached TTCI already. Check right away.
@@ -357,8 +367,13 @@ void InteractiveDetector::OnTimeToInteractiveDetected() {
       GetSupplementable()->GetFrame(), "had_user_input_before_interactive",
       had_user_input_before_interactive);
 
-  if (GetSupplementable()->Loader())
-    GetSupplementable()->Loader()->DidChangePerformanceTiming();
+  // We only send TTI to Performance Timing Observers if FMP was not invalidated
+  // by input.
+  // TODO(crbug.com/808685) Simplify FMP and TTI input invalidation.
+  if (!page_event_times_.first_meaningful_paint_invalidated) {
+    if (GetSupplementable()->Loader())
+      GetSupplementable()->Loader()->DidChangePerformanceTiming();
+  }
 }
 
 void InteractiveDetector::Trace(Visitor* visitor) {
