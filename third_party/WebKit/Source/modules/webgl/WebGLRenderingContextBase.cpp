@@ -50,7 +50,6 @@
 #include "core/typed_arrays/DOMTypedArray.h"
 #include "core/typed_arrays/FlexibleArrayBufferView.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
-#include "gpu/config/gpu_feature_info.h"
 #include "modules/webgl/ANGLEInstancedArrays.h"
 #include "modules/webgl/EXTBlendMinMax.h"
 #include "modules/webgl/EXTFragDepth.h"
@@ -1028,16 +1027,6 @@ WebGLRenderingContextBase::WebGLRenderingContextBase(
   drawing_buffer_ = std::move(buffer);
   GetDrawingBuffer()->Bind(GL_FRAMEBUFFER);
   SetupFlags();
-
-  String disabled_webgl_extensions(GetDrawingBuffer()
-                                       ->ContextProvider()
-                                       ->GetGpuFeatureInfo()
-                                       .disabled_webgl_extensions.c_str());
-  Vector<String> disabled_extension_list;
-  disabled_webgl_extensions.Split(' ', disabled_extension_list);
-  for (const auto& entry : disabled_extension_list) {
-    disabled_extensions_.insert(entry);
-  }
 
 #define ADD_VALUES_TO_SET(set, values)                    \
   for (size_t i = 0; i < WTF_ARRAY_LENGTH(values); ++i) { \
@@ -2816,8 +2805,6 @@ bool WebGLRenderingContextBase::ExtensionSupportedAndAllowed(
       !RuntimeEnabledFeatures::WebGLDraftExtensionsEnabled())
     return false;
   if (!tracker->Supported(this))
-    return false;
-  if (disabled_extensions_.Contains(String(tracker->ExtensionName())))
     return false;
   return true;
 }

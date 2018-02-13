@@ -23,10 +23,8 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry1,                    // features
         arraysize(kDisabledExtensionsForEntry1),  // DisabledExtensions size
         kDisabledExtensionsForEntry1,             // DisabledExtensions
-        0,                            // DisabledWebGLExtensions size
-        nullptr,                      // DisabledWebGLExtensions
-        arraysize(kCrBugsForEntry1),  // CrBugs size
-        kCrBugsForEntry1,             // CrBugs
+        arraysize(kCrBugsForEntry1),              // CrBugs size
+        kCrBugsForEntry1,                         // CrBugs
         {
             GpuControlList::kOsMacosx,  // os_type
             {GpuControlList::kEQ, GpuControlList::kVersionStyleNumerical,
@@ -51,8 +49,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry2,             // features
         0,                                 // DisabledExtensions size
         nullptr,                           // DisabledExtensions
-        0,                                 // DisabledWebGLExtensions size
-        nullptr,                           // DisabledWebGLExtensions
         0,                                 // CrBugs size
         nullptr,                           // CrBugs
         {
@@ -79,8 +75,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry3,             // features
         0,                                 // DisabledExtensions size
         nullptr,                           // DisabledExtensions
-        0,                                 // DisabledWebGLExtensions size
-        nullptr,                           // DisabledWebGLExtensions
         0,                                 // CrBugs size
         nullptr,                           // CrBugs
         {
@@ -107,8 +101,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry4,             // features
         0,                                 // DisabledExtensions size
         nullptr,                           // DisabledExtensions
-        0,                                 // DisabledWebGLExtensions size
-        nullptr,                           // DisabledWebGLExtensions
         0,                                 // CrBugs size
         nullptr,                           // CrBugs
         {
@@ -135,8 +127,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry5,             // features
         0,                                 // DisabledExtensions size
         nullptr,                           // DisabledExtensions
-        0,                                 // DisabledWebGLExtensions size
-        nullptr,                           // DisabledWebGLExtensions
         0,                                 // CrBugs size
         nullptr,                           // CrBugs
         {
@@ -163,8 +153,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry6,             // features
         0,                                 // DisabledExtensions size
         nullptr,                           // DisabledExtensions
-        0,                                 // DisabledWebGLExtensions size
-        nullptr,                           // DisabledWebGLExtensions
         0,                                 // CrBugs size
         nullptr,                           // CrBugs
         {
@@ -191,8 +179,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry7,             // features
         0,                                 // DisabledExtensions size
         nullptr,                           // DisabledExtensions
-        0,                                 // DisabledWebGLExtensions size
-        nullptr,                           // DisabledWebGLExtensions
         0,                                 // CrBugs size
         nullptr,                           // CrBugs
         {
@@ -219,8 +205,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry8,             // features
         0,                                 // DisabledExtensions size
         nullptr,                           // DisabledExtensions
-        0,                                 // DisabledWebGLExtensions size
-        nullptr,                           // DisabledWebGLExtensions
         0,                                 // CrBugs size
         nullptr,                           // CrBugs
         {
@@ -247,8 +231,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry9,             // features
         0,                                 // DisabledExtensions size
         nullptr,                           // DisabledExtensions
-        0,                                 // DisabledWebGLExtensions size
-        nullptr,                           // DisabledWebGLExtensions
         0,                                 // CrBugs size
         nullptr,                           // CrBugs
         {
@@ -275,8 +257,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry10,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -303,8 +283,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry11,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -331,8 +309,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry12,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -359,8 +335,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry13,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -387,8 +361,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry14,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -415,8 +387,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry15,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -443,8 +413,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry16,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -471,8 +439,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry17,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -499,8 +465,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry18,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -527,8 +491,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry19,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -555,8 +517,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry20,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -583,8 +543,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry21,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -611,8 +569,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry22,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -639,8 +595,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry23,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -667,8 +621,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry24,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -695,8 +647,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry25,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -723,8 +673,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry26,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -751,8 +699,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry27,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -779,8 +725,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry28,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -807,8 +751,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry29,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -835,8 +777,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry30,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -863,8 +803,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry31,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -891,8 +829,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry32,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -919,8 +855,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry33,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -947,8 +881,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry34,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -975,8 +907,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry35,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1003,8 +933,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry36,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1031,8 +959,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry37,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1059,8 +985,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry38,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1087,8 +1011,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry39,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1115,8 +1037,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry40,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1143,8 +1063,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry41,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1171,8 +1089,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry42,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1199,8 +1115,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry43,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1227,8 +1141,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry44,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1255,8 +1167,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry45,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1283,8 +1193,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry46,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1312,8 +1220,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry47,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1341,8 +1247,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry48,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1369,8 +1273,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry49,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1397,8 +1299,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry50,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1425,8 +1325,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry51,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1453,8 +1351,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry52,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1481,8 +1377,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry53,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1509,8 +1403,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry54,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1537,10 +1429,8 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         nullptr,                                   // features
         arraysize(kDisabledExtensionsForEntry55),  // DisabledExtensions size
         kDisabledExtensionsForEntry55,             // DisabledExtensions
-        0,        // DisabledWebGLExtensions size
-        nullptr,  // DisabledWebGLExtensions
-        0,        // CrBugs size
-        nullptr,  // CrBugs
+        0,                                         // CrBugs size
+        nullptr,                                   // CrBugs
         {
             GpuControlList::kOsWin,  // os_type
             {GpuControlList::kUnknown, GpuControlList::kVersionStyleNumerical,
@@ -1565,10 +1455,8 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         nullptr,                                   // features
         arraysize(kDisabledExtensionsForEntry56),  // DisabledExtensions size
         kDisabledExtensionsForEntry56,             // DisabledExtensions
-        0,        // DisabledWebGLExtensions size
-        nullptr,  // DisabledWebGLExtensions
-        0,        // CrBugs size
-        nullptr,  // CrBugs
+        0,                                         // CrBugs size
+        nullptr,                                   // CrBugs
         {
             GpuControlList::kOsWin,  // os_type
             {GpuControlList::kUnknown, GpuControlList::kVersionStyleNumerical,
@@ -1593,8 +1481,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry57,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1621,8 +1507,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry58,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1649,8 +1533,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry59,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
@@ -1677,8 +1559,6 @@ const GpuControlList::Entry kGpuControlListTestingEntries[] = {
         kFeatureListForEntry60,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
-        0,                                  // DisabledWebGLExtensions size
-        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
