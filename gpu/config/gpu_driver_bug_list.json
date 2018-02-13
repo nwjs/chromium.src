@@ -2788,6 +2788,24 @@
       "features": [
         "max_msaa_sample_count_4"
       ]
+    },
+    {
+      "id": 256,
+      "description": "Don't expose disjoint_timer_query extensions to WebGL",
+      "cr_bugs": [808744],
+      "disabled_webgl_extensions": [
+        "EXT_disjoint_timer_query",
+        "EXT_disjoint_timer_query_webgl2"
+      ]
+    },
+    {
+      "id": 257,
+      "description": "Fake entry for testing disabling of WebGL extensions",
+      "cr_bugs": [808744],
+      "test_group": 2,
+      "disabled_webgl_extensions": [
+        "WEBGL_lose_context"
+      ]
     }
   ]
 }
