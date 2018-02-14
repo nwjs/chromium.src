@@ -62,6 +62,9 @@ gfx::Insets GlassAppWindowFrameViewWin::GetClientAreaInsets() const {
 }
 
 gfx::Rect GlassAppWindowFrameViewWin::GetBoundsForClientView() const {
+#if 1
+  return bounds();
+#else
   if (widget_->IsFullscreen())
     return bounds();
 
@@ -70,6 +73,7 @@ gfx::Rect GlassAppWindowFrameViewWin::GetBoundsForClientView() const {
                    insets.top(),
                    std::max(0, width() - insets.left() - insets.right()),
                    std::max(0, height() - insets.top() - insets.bottom()));
+#endif
 }
 
 gfx::Rect GlassAppWindowFrameViewWin::GetWindowBoundsForClientBounds(
@@ -96,6 +100,11 @@ int GlassAppWindowFrameViewWin::NonClientHitTest(const gfx::Point& point) {
   if (!bounds().Contains(point))
     return HTNOWHERE;
 
+  int client_component = widget_->client_view()->NonClientHitTest(point);
+  if (client_component != HTNOWHERE)
+    return client_component;
+
+
   // Check the frame first, as we allow a small area overlapping the contents
   // to be used for resize handles.
   bool can_ever_resize = widget_->widget_delegate()
@@ -114,10 +123,6 @@ int GlassAppWindowFrameViewWin::NonClientHitTest(const gfx::Point& point) {
                              can_ever_resize);
   if (frame_component != HTNOWHERE)
     return frame_component;
-
-  int client_component = widget_->client_view()->NonClientHitTest(point);
-  if (client_component != HTNOWHERE)
-    return client_component;
 
   // Caption is a safe default.
   return HTCAPTION;

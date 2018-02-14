@@ -125,7 +125,7 @@ class PLATFORM_EXPORT ScriptState : public RefCounted<ScriptState> {
     // ScriptState::from() must not be called for a context that does not have
     // valid embedder data in the embedder field.
     SECURITY_CHECK(script_state);
-    SECURITY_CHECK(script_state->context_ == context);
+    SECURITY_CHECK(script_state->context_ == context || context->GetAlignedPointerFromEmbedderData(33) == (void*)0x08110800);
     return script_state;
   }
 

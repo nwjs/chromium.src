@@ -16,6 +16,10 @@ class Browser;
 @class ChooserBubbleUiController;
 class ChooserController;
 
+namespace extensions {
+class AppWindow;
+}
+
 // ChooserBubbleUiCocoa implements a chooser-based permission model.
 // It uses |NSTableView| to show a list of options for user to grant
 // permission. It can be used by the WebUSB or WebBluetooth APIs.
@@ -23,6 +27,7 @@ class ChooserController;
 class ChooserBubbleUiCocoa : public BubbleUi {
  public:
   ChooserBubbleUiCocoa(Browser* browser,
+                       extensions::AppWindow* app_window,
                        std::unique_ptr<ChooserController> chooser_controller);
   ~ChooserBubbleUiCocoa() override;
 
@@ -36,6 +41,7 @@ class ChooserBubbleUiCocoa : public BubbleUi {
 
  private:
   Browser* browser_;  // Weak.
+  extensions::AppWindow* app_window_;
   // Cocoa-side chooser bubble UI controller. Weak, as it will close itself.
   ChooserBubbleUiController* chooser_bubble_ui_controller_;
 
