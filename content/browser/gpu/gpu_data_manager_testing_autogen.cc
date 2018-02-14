@@ -219,6 +219,8 @@ const GpuControlList::Entry kGpuDataManagerTestingEntries[] = {
         kFeatureListForEntry8,             // features
         0,                                 // DisabledExtensions size
         nullptr,                           // DisabledExtensions
+        0,                                 // DisabledWebGLExtensions size
+        nullptr,                           // DisabledWebGLExtensions
         0,                                 // CrBugs size
         nullptr,                           // CrBugs
         {
@@ -245,6 +247,8 @@ const GpuControlList::Entry kGpuDataManagerTestingEntries[] = {
         kFeatureListForEntry9,             // features
         0,                                 // DisabledExtensions size
         nullptr,                           // DisabledExtensions
+        0,                                 // DisabledWebGLExtensions size
+        nullptr,                           // DisabledWebGLExtensions
         0,                                 // CrBugs size
         nullptr,                           // CrBugs
         {
@@ -271,6 +275,8 @@ const GpuControlList::Entry kGpuDataManagerTestingEntries[] = {
         kFeatureListForEntry10,             // features
         0,                                  // DisabledExtensions size
         nullptr,                            // DisabledExtensions
+        0,                                  // DisabledWebGLExtensions size
+        nullptr,                            // DisabledWebGLExtensions
         0,                                  // CrBugs size
         nullptr,                            // CrBugs
         {
