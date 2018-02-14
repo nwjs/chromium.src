@@ -1,4 +1,6 @@
 -RenderWidgetHostInitialSizeTest.InitialSize
+-RenderWidgetHostInputEventRouterTest.DoNotCoalesceGestureEvents
+-RenderWidgetHostInputEventRouterTest.DoNotCoalesceTouchEvents
 -RenderWidgetHostTest.FrameToken_RendererCrash
 -RenderWidgetHostTest.NewContentRenderingTimeout
 -RenderWidgetHostTest.Resize
