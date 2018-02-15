@@ -111,6 +111,10 @@ double InteractiveDetector::GetFirstInvalidatingInputTime() const {
   return page_event_times_.first_invalidating_input;
 }
 
+double InteractiveDetector::GetFirstInputDelay() const {
+  return page_event_times_.first_input_delay;
+}
+
 void InteractiveDetector::BeginNetworkQuietPeriod(double current_time) {
   // Value of 0.0 indicates there is no currently actively network quiet window.
   DCHECK(active_network_quiet_window_start_ == 0.0);
@@ -218,6 +222,15 @@ void InteractiveDetector::OnInvalidatingInputEvent(double timestamp_seconds) {
     return;
 
   page_event_times_.first_invalidating_input = timestamp_seconds;
+  if (GetSupplementable()->Loader())
+    GetSupplementable()->Loader()->DidChangePerformanceTiming();
+}
+
+void InteractiveDetector::OnFirstInputDelay(double delay) {
+  if (page_event_times_.first_input_delay != 0)
+    return;
+
+  page_event_times_.first_input_delay = delay;
   if (GetSupplementable()->Loader())
     GetSupplementable()->Loader()->DidChangePerformanceTiming();
 }

@@ -61,6 +61,7 @@ class CORE_EXPORT InteractiveDetector
       FirstMeaningfulPaintDetector::HadUserInput user_input_before_fmp);
   void OnDomContentLoadedEnd(double dcl_time);
   void OnInvalidatingInputEvent(double timestamp_seconds);
+  void OnFirstInputDelay(double delay_seconds);
 
   // Returns Interactive Time if already detected, or 0.0 otherwise.
   double GetInteractiveTime() const;
@@ -73,6 +74,10 @@ class CORE_EXPORT InteractiveDetector
   // Returns the first time interactive detector received a significant input
   // that may cause observers to discard the interactive time value.
   double GetFirstInvalidatingInputTime() const;
+
+  // The duration between the hardware timestamp and being queued on the main
+  // thread for the first click, tap or key press.
+  double GetFirstInputDelay() const;
 
   virtual void Trace(Visitor*);
 
@@ -99,6 +104,7 @@ class CORE_EXPORT InteractiveDetector
     double nav_start = 0.0;
     double first_invalidating_input = 0.0;
     bool first_meaningful_paint_invalidated = false;
+    double first_input_delay = 0.0;
   } page_event_times_;
 
   // Stores sufficiently long quiet windows on main thread and network.

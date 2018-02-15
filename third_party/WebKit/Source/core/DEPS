@@ -37,7 +37,7 @@ include_rules = [
 ]
 
 specific_include_rules = {
-    # Allow tests to use Web(Local|Remote)FrameBase.h.
+    # Additional allowed includes for tests.
     ".*Test\.cpp" : [
         "+core/frame/WebLocalFrameImpl.h",
         "+core/frame/WebRemoteFrameImpl.h",

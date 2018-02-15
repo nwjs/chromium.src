@@ -58910,6 +58910,14 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   </summary>
 </histogram>
 
+<histogram name="PageLoad.InteractiveTiming.FirstInputDelay" units="ms">
+  <owner>tdresser@chromium.org</owner>
+  <summary>
+    Measures the time from hardware timestamp until main thread processing of
+    the first click, keypress or tap event per navigation.
+  </summary>
+</histogram>
+
 <histogram name="PageLoad.Internal.ClientRedirect.FirstPaintToNavigation"
     units="ms">
   <owner>bmcquade@chromium.org</owner>
