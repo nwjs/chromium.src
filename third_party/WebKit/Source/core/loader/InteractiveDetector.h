@@ -48,6 +48,9 @@ class CORE_EXPORT InteractiveDetector
   };
 
   static InteractiveDetector* From(Document&);
+  // Exposed for tests. See crbug.com/810381. We must use a consistent address
+  // for the supplement name.
+  static const char* SupplementName();
   virtual ~InteractiveDetector();
 
   // Calls to CurrentTimeTicksInSeconds is expensive, so we try not to call it
@@ -77,9 +80,15 @@ class CORE_EXPORT InteractiveDetector
   double GetFirstInvalidatingInputTime() const;
 
   // The duration between the hardware timestamp and being queued on the main
-  // thread for the first click, tap or key press.
+  // thread for the first click, tap, key press, cancelable touchstart, or
+  // pointer down followed by a pointer up.
   double GetFirstInputDelay() const;
 
+  // The timestamp of the event whose delay is reported by GetFirstInputDelay().
+  double GetFirstInputTimestamp() const;
+
+  // Process an input event, updating first_input_delay and
+  // first_input_timestamp if needed.
   void HandleForFirstInputDelay(const WebInputEvent&);
 
   virtual void Trace(Visitor*);
@@ -108,6 +117,7 @@ class CORE_EXPORT InteractiveDetector
     double first_invalidating_input = 0.0;
     bool first_meaningful_paint_invalidated = false;
     double first_input_delay = 0.0;
+    double first_input_timestamp = 0.0;
   } page_event_times_;
 
   // Stores sufficiently long quiet windows on main thread and network.
@@ -156,6 +166,10 @@ class CORE_EXPORT InteractiveDetector
   // for the previous pointer down. Only non-zero if we've received a pointer
   // down event, and haven't yet reported the first input delay.
   double pending_pointerdown_delay_;
+
+  // The timestamp of a pending pointerdown event. Valid in the same cases as
+  // pending_pointerdown_delay_.
+  double pending_pointerdown_timestamp_;
 
   DISALLOW_COPY_AND_ASSIGN(InteractiveDetector);
 };

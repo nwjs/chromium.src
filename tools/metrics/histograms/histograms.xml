@@ -58913,8 +58913,19 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
 <histogram name="PageLoad.InteractiveTiming.FirstInputDelay" units="ms">
   <owner>tdresser@chromium.org</owner>
   <summary>
-    Measures the time from hardware timestamp until main thread processing of
-    the first click, keypress or tap event per navigation.
+    Measures First Input Delay, the duration between the hardware timestamp and
+    the start of event processing on the main thread for the first meaningful
+    input per navigation. See https://goo.gl/tr1oTZ for a detailed explanation.
+    In ms.
+  </summary>
+</histogram>
+
+<histogram name="PageLoad.InteractiveTiming.FirstInputTimestamp" units="ms">
+  <owner>tdresser@chromium.org</owner>
+  <summary>
+    The duration between navigation start and the hardware timestamp of the
+    first meaningful input per navigation. See https://goo.gl/tr1oTZ for a
+    detailed explanation. In ms.
   </summary>
 </histogram>
 

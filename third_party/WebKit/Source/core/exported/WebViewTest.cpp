@@ -5063,6 +5063,7 @@ TEST_P(WebViewTest, FirstInputDelayReported) {
   ASSERT_NE(nullptr, document);
 
   WTF::ScopedMockClock clock;
+  clock.Advance(TimeDelta::FromMilliseconds(70));
 
   InteractiveDetector* interactive_detector(
       InteractiveDetector::From(*document));
@@ -5079,7 +5080,8 @@ TEST_P(WebViewTest, FirstInputDelayReported) {
   clock.Advance(TimeDelta::FromMilliseconds(50));
   web_view->HandleInputEvent(WebCoalescedInputEvent(key_event1));
 
-  EXPECT_EQ(0.05, interactive_detector->GetFirstInputDelay());
+  EXPECT_NEAR(0.05, interactive_detector->GetFirstInputDelay(), 0.01);
+  EXPECT_EQ(0.07, interactive_detector->GetFirstInputTimestamp());
 
   // Sending a second event won't change the FirstInputDelay.
   WebKeyboardEvent key_event2(WebInputEvent::kRawKeyDown,
@@ -5091,7 +5093,9 @@ TEST_P(WebViewTest, FirstInputDelayReported) {
   key_event2.SetTimeStampSeconds(CurrentTimeTicksInSeconds());
   web_view->HandleInputEvent(WebCoalescedInputEvent(key_event2));
 
-  EXPECT_EQ(0.05, interactive_detector->GetFirstInputDelay());
+  EXPECT_NEAR(0.05, interactive_detector->GetFirstInputDelay(),
+              0.01);
+  EXPECT_EQ(0.07, interactive_detector->GetFirstInputTimestamp());
 }
 
 // Check that first input delay is correctly reported to the document when the
@@ -5109,6 +5113,7 @@ TEST_P(WebViewTest, PointerDownUpFirstInputDelay) {
   ASSERT_NE(nullptr, document);
 
   WTF::ScopedMockClock clock;
+  clock.Advance(TimeDelta::FromMilliseconds(70));
 
   InteractiveDetector* interactive_detector(
       InteractiveDetector::From(*document));
@@ -5133,7 +5138,8 @@ TEST_P(WebViewTest, PointerDownUpFirstInputDelay) {
   pointer_up.SetTimeStampSeconds(CurrentTimeTicksInSeconds());
   web_view->HandleInputEvent(WebCoalescedInputEvent(pointer_up));
 
-  EXPECT_EQ(0.05, interactive_detector->GetFirstInputDelay());
+  EXPECT_FLOAT_EQ(0.05, interactive_detector->GetFirstInputDelay());
+  EXPECT_FLOAT_EQ(0.07, interactive_detector->GetFirstInputTimestamp());
 }
 
 // Check that first input delay isn't reported to the document when the
@@ -5178,6 +5184,7 @@ TEST_P(WebViewTest, PointerDownCancelFirstInputDelay) {
   // We received a pointer cancel, so this is a scroll gesture. No meaningful
   // input has occurred yet.
   EXPECT_EQ(0, interactive_detector->GetFirstInputDelay());
+  EXPECT_EQ(0, interactive_detector->GetFirstInputTimestamp());
 }
 
 // Check that the input delay is correctly reported to the document.

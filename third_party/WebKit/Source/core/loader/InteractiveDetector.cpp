@@ -20,14 +20,15 @@ InteractiveDetector* InteractiveDetector::From(Document& document) {
   InteractiveDetector* detector = static_cast<InteractiveDetector*>(
       Supplement<Document>::From(document, kSupplementName));
   if (!detector) {
-    if (!document.IsInMainFrame()) {
-      return nullptr;
-    }
     detector = new InteractiveDetector(document,
                                        new NetworkActivityChecker(&document));
     Supplement<Document>::ProvideTo(document, kSupplementName, detector);
   }
   return detector;
+}
+
+const char* InteractiveDetector::SupplementName() {
+  return "InteractiveDetector";
 }
 
 InteractiveDetector::InteractiveDetector(
@@ -47,6 +48,11 @@ InteractiveDetector::~InteractiveDetector() {
 void InteractiveDetector::SetNavigationStartTime(double navigation_start_time) {
   // Should not set nav start twice.
   DCHECK(page_event_times_.nav_start == 0.0);
+
+  // Don't record TTI for OOPIFs (yet).
+  // TODO(crbug.com/808086): enable this case.
+  if (!GetSupplementable()->IsInMainFrame())
+    return;
 
   LongTaskDetector::Instance().RegisterObserver(this);
   page_event_times_.nav_start = navigation_start_time;
@@ -116,6 +122,10 @@ double InteractiveDetector::GetFirstInputDelay() const {
   return page_event_times_.first_input_delay;
 }
 
+double InteractiveDetector::GetFirstInputTimestamp() const {
+  return page_event_times_.first_input_timestamp;
+}
+
 // This is called early enough in the pipeline that we don't need to worry about
 // javascript dispatching untrusted input events.
 void InteractiveDetector::HandleForFirstInputDelay(const WebInputEvent& event) {
@@ -129,6 +139,8 @@ void InteractiveDetector::HandleForFirstInputDelay(const WebInputEvent& event) {
   if (event.GetType() == WebInputEvent::kPointerDown) {
     pending_pointerdown_delay_ =
         CurrentTimeTicksInSeconds() - event.TimeStampSeconds();
+    pending_pointerdown_timestamp_ =
+        event.TimeStampSeconds();
     return;
   }
 
@@ -144,17 +156,26 @@ void InteractiveDetector::HandleForFirstInputDelay(const WebInputEvent& event) {
   if (!event_is_meaningful)
     return;
 
-  // It is possible that this pointer up doesn't match with the pointer down
-  // whose delay is stored in pending_pointerdown_delay_. In this case, the user
-  // gesture started by this event contained some non-scroll input, so we
-  // consider it reasonable to use the delay of the initial event.
-  const double delay =
-      event.GetType() == WebInputEvent::kPointerUp
-          ? pending_pointerdown_delay_
-          : CurrentTimeTicksInSeconds() - event.TimeStampSeconds();
+  double delay;
+  double event_timestamp;
+  if (event.GetType() == WebInputEvent::kPointerUp) {
+    // It is possible that this pointer up doesn't match with the pointer down
+    // whose delay is stored in pending_pointerdown_delay_. In this case, the
+    // user gesture started by this event contained some non-scroll input, so we
+    // consider it reasonable to use the delay of the initial event.
+    delay = pending_pointerdown_delay_;
+    event_timestamp = pending_pointerdown_timestamp_;
+  } else {
+    delay = CurrentTimeTicksInSeconds() - event.TimeStampSeconds();
+    event_timestamp = event.TimeStampSeconds();
+  }
+
   pending_pointerdown_delay_ = 0;
+  pending_pointerdown_timestamp_ = 0;
 
   page_event_times_.first_input_delay = delay;
+  page_event_times_.first_input_timestamp = event_timestamp;
+
   if (GetSupplementable()->Loader())
     GetSupplementable()->Loader()->DidChangePerformanceTiming();
 }
