@@ -29,7 +29,7 @@ namespace cc {
 
 class CC_PAINT_EXPORT PaintFilter : public SkRefCnt {
  public:
-  enum class Type : uint8_t {
+  enum class Type : uint32_t {
     // For serialization purposes, we reserve one enum to indicate that there
     // was no PaintFilter, ie the filter is "null".
     kNullFilter,
@@ -58,7 +58,7 @@ class CC_PAINT_EXPORT PaintFilter : public SkRefCnt {
     // Update the following if kLightingSpot is not the max anymore.
     kMaxFilterType = kLightingSpot
   };
-  enum class LightingType : uint8_t {
+  enum class LightingType : uint32_t {
     kDiffuse,
     kSpecular,
     // Update the following if kSpecular is not the max anymore.
@@ -71,6 +71,10 @@ class CC_PAINT_EXPORT PaintFilter : public SkRefCnt {
   ~PaintFilter() override;
 
   static std::string TypeToString(Type type);
+
+  // Returns the size required to serialize the |filter|. Note that |filter| can
+  // be nullptr.
+  static size_t GetFilterSize(const PaintFilter* filter);
 
   Type type() const { return type_; }
   SkIRect filter_bounds(const SkIRect& src,
@@ -87,6 +91,8 @@ class CC_PAINT_EXPORT PaintFilter : public SkRefCnt {
   const CropRect* crop_rect() const {
     return crop_rect_ ? &*crop_rect_ : nullptr;
   }
+
+  virtual size_t SerializedSize() const = 0;
 
   // Note that this operation is potentially slow. It also only compares things
   // that are easy to compare. As an example, it doesn't compare equality of
@@ -106,6 +112,8 @@ class CC_PAINT_EXPORT PaintFilter : public SkRefCnt {
   const sk_sp<SkImageFilter>& cached_sk_filter() const {
     return cached_sk_filter_;
   }
+
+  size_t BaseSerializedSize() const;
 
   // This should be created by each sub-class at construction time, to ensure
   // that subsequent access to the filter is thread-safe.
@@ -135,6 +143,7 @@ class CC_PAINT_EXPORT ColorFilterPaintFilter final : public PaintFilter {
   const sk_sp<SkColorFilter>& color_filter() const { return color_filter_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const ColorFilterPaintFilter& other) const;
 
  private:
@@ -159,6 +168,7 @@ class CC_PAINT_EXPORT BlurPaintFilter final : public PaintFilter {
   SkScalar sigma_y() const { return sigma_y_; }
   TileMode tile_mode() const { return tile_mode_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const BlurPaintFilter& other) const;
 
  private:
@@ -190,6 +200,7 @@ class CC_PAINT_EXPORT DropShadowPaintFilter final : public PaintFilter {
   ShadowMode shadow_mode() const { return shadow_mode_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const DropShadowPaintFilter& other) const;
 
  private:
@@ -215,6 +226,7 @@ class CC_PAINT_EXPORT MagnifierPaintFilter final : public PaintFilter {
   SkScalar inset() const { return inset_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const MagnifierPaintFilter& other) const;
 
  private:
@@ -232,6 +244,7 @@ class CC_PAINT_EXPORT ComposePaintFilter final : public PaintFilter {
   const sk_sp<PaintFilter>& outer() const { return outer_; }
   const sk_sp<PaintFilter>& inner() const { return inner_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const ComposePaintFilter& other) const;
 
  private:
@@ -254,6 +267,7 @@ class CC_PAINT_EXPORT AlphaThresholdPaintFilter final : public PaintFilter {
   SkScalar outer_max() const { return outer_max_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const AlphaThresholdPaintFilter& other) const;
 
  private:
@@ -276,6 +290,7 @@ class CC_PAINT_EXPORT XfermodePaintFilter final : public PaintFilter {
   const sk_sp<PaintFilter>& background() const { return background_; }
   const sk_sp<PaintFilter>& foreground() const { return foreground_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const XfermodePaintFilter& other) const;
 
  private:
@@ -305,6 +320,7 @@ class CC_PAINT_EXPORT ArithmeticPaintFilter final : public PaintFilter {
   const sk_sp<PaintFilter>& background() const { return background_; }
   const sk_sp<PaintFilter>& foreground() const { return foreground_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const ArithmeticPaintFilter& other) const;
 
  private:
@@ -341,6 +357,7 @@ class CC_PAINT_EXPORT MatrixConvolutionPaintFilter final : public PaintFilter {
   bool convolve_alpha() const { return convolve_alpha_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const MatrixConvolutionPaintFilter& other) const;
 
  private:
@@ -373,6 +390,7 @@ class CC_PAINT_EXPORT DisplacementMapEffectPaintFilter final
   const sk_sp<PaintFilter>& displacement() const { return displacement_; }
   const sk_sp<PaintFilter>& color() const { return color_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const DisplacementMapEffectPaintFilter& other) const;
 
  private:
@@ -397,6 +415,7 @@ class CC_PAINT_EXPORT ImagePaintFilter final : public PaintFilter {
   const SkRect& dst_rect() const { return dst_rect_; }
   SkFilterQuality filter_quality() const { return filter_quality_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const ImagePaintFilter& other) const;
 
  private:
@@ -415,6 +434,7 @@ class CC_PAINT_EXPORT RecordPaintFilter final : public PaintFilter {
   const sk_sp<PaintRecord>& record() const { return record_; }
   SkRect record_bounds() const { return record_bounds_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const RecordPaintFilter& other) const;
 
  private:
@@ -436,6 +456,7 @@ class CC_PAINT_EXPORT MergePaintFilter final : public PaintFilter {
     return inputs_[i].get();
   }
 
+  size_t SerializedSize() const override;
   bool operator==(const MergePaintFilter& other) const;
 
  private:
@@ -444,7 +465,7 @@ class CC_PAINT_EXPORT MergePaintFilter final : public PaintFilter {
 
 class CC_PAINT_EXPORT MorphologyPaintFilter final : public PaintFilter {
  public:
-  enum class MorphType : uint8_t { kDilate, kErode, kMaxMorphType = kErode };
+  enum class MorphType : uint32_t { kDilate, kErode, kMaxMorphType = kErode };
   static constexpr Type kType = Type::kMorphology;
   MorphologyPaintFilter(MorphType morph_type,
                         int radius_x,
@@ -458,6 +479,7 @@ class CC_PAINT_EXPORT MorphologyPaintFilter final : public PaintFilter {
   int radius_y() const { return radius_y_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const MorphologyPaintFilter& other) const;
 
  private:
@@ -480,6 +502,7 @@ class CC_PAINT_EXPORT OffsetPaintFilter final : public PaintFilter {
   SkScalar dy() const { return dy_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const OffsetPaintFilter& other) const;
 
  private:
@@ -500,6 +523,7 @@ class CC_PAINT_EXPORT TilePaintFilter final : public PaintFilter {
   const SkRect& dst() const { return dst_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const TilePaintFilter& other) const;
 
  private:
@@ -511,7 +535,7 @@ class CC_PAINT_EXPORT TilePaintFilter final : public PaintFilter {
 class CC_PAINT_EXPORT TurbulencePaintFilter final : public PaintFilter {
  public:
   static constexpr Type kType = Type::kTurbulence;
-  enum class TurbulenceType : uint8_t {
+  enum class TurbulenceType : uint32_t {
     kTurbulence,
     kFractalNoise,
     kMaxTurbulenceType = kFractalNoise
@@ -532,6 +556,7 @@ class CC_PAINT_EXPORT TurbulencePaintFilter final : public PaintFilter {
   SkScalar seed() const { return seed_; }
   SkISize tile_size() const { return tile_size_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const TurbulencePaintFilter& other) const;
 
  private:
@@ -552,6 +577,7 @@ class CC_PAINT_EXPORT PaintFlagsPaintFilter final : public PaintFilter {
 
   const PaintFlags& flags() const { return flags_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const PaintFlagsPaintFilter& other) const;
 
  private:
@@ -570,6 +596,7 @@ class CC_PAINT_EXPORT MatrixPaintFilter final : public PaintFilter {
   SkFilterQuality filter_quality() const { return filter_quality_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const MatrixPaintFilter& other) const;
 
  private:
@@ -602,6 +629,7 @@ class CC_PAINT_EXPORT LightingDistantPaintFilter final : public PaintFilter {
   SkScalar shininess() const { return shininess_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const LightingDistantPaintFilter& other) const;
 
  private:
@@ -638,6 +666,7 @@ class CC_PAINT_EXPORT LightingPointPaintFilter final : public PaintFilter {
   SkScalar shininess() const { return shininess_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const LightingPointPaintFilter& other) const;
 
  private:
@@ -680,6 +709,7 @@ class CC_PAINT_EXPORT LightingSpotPaintFilter final : public PaintFilter {
   SkScalar shininess() const { return shininess_; }
   const sk_sp<PaintFilter>& input() const { return input_; }
 
+  size_t SerializedSize() const override;
   bool operator==(const LightingSpotPaintFilter& other) const;
 
  private:
