@@ -4439,6 +4439,31 @@ registerLoadRequestForURL:(const GURL&)requestURL
   _webStateImpl->UpdateHttpResponseHeaders(_documentURL);
   web::NavigationContextImpl* context =
       [_navigationStates contextForNavigation:navigation];
+
+  if (@available(iOS 11.3, *)) {
+    if (base::FeatureList::IsEnabled(
+            web::features::kWorkaroundForMissingRedirectCallback)) {
+      // On iOS 11.3 didReceiveServerRedirectForProvisionalNavigation: is not
+      // always called. So if URL was unexpectedly changed then it's probably
+      // because redirect callback was not called.
+      // TODO(crbug.com/810911): Remove this workaround.
+      if (context && context->GetUrl() != webViewURL) {
+        context->SetUrl(webViewURL);
+        web::NavigationItemImpl* item = static_cast<web::NavigationItemImpl*>(
+            web::GetItemWithUniqueID(self.navigationManagerImpl,
+                                     context->GetNavigationItemUniqueID()));
+        if (item) {
+          item->SetVirtualURL(webViewURL);
+          item->SetURL(webViewURL);
+          // Redirects (3xx response code), must change POST requests to GETs.
+          item->SetPostData(nil);
+          item->ResetHttpRequestHeaders();
+        }
+        _lastTransferTimeInSeconds = CFAbsoluteTimeGetCurrent();
+      }
+    }
+  }
+
   // |context| will be nil if this navigation has been already committed and
   // finished.
   if (context) {
