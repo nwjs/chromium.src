@@ -191,7 +191,7 @@
 <translation id="1274997165432133392">쿠키 및 기타 사이트 데이터</translation>
 <translation id="127668050356036882">모든 창 닫기</translation>
 <translation id="1277908057200820621">기기 목록 보기</translation>
-<translation id="1278049586634282054">조회 내용 검사:</translation>
+<translation id="1278049586634282054">뷰 검사:</translation>
 <translation id="1280820357415527819">모바일 네트워크 검색 중</translation>
 <translation id="1285320974508926690">이 사이트 번역 안함</translation>
 <translation id="1285484354230578868">Google 드라이브 계정에 데이터 저장</translation>
@@ -928,7 +928,7 @@
 <translation id="2445081178310039857">확장 프로그램 루트 디렉토리가 필요합니다.</translation>
 <translation id="2448312741937722512">유형</translation>
 <translation id="2450223707519584812">Google API 키가 누락되었으므로 사용자를 추가할 수 없습니다. 자세한 내용은 <ph name="DETAILS_URL" /> 페이지를 참조하세요.</translation>
-<translation id="2450849356604136918">활성화된 보기 없음</translation>
+<translation id="2450849356604136918">활성화된 뷰 없음</translation>
 <translation id="2453021845418314664">고급 동기화 설정</translation>
 <translation id="2453576648990281505">이미 존재하는 파일입니다.</translation>
 <translation id="2453860139492968684">완료</translation>

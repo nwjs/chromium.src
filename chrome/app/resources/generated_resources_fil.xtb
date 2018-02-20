@@ -297,7 +297,7 @@
 <translation id="1434696352799406980">Ire-reset nito ang iyong page sa pagsisimula, page ng bagong tab, search engine at mga naka-pin na tab. Idi-disable din nito ang lahat ng extension at iki-clear ang pansamantalang data tulad ng cookies. Hindi iki-clear ang iyong mga bookmark, history at naka-save na password.</translation>
 <translation id="1434886155212424586">Ang homepage ay ang pahina ng Bagong Tab</translation>
 <translation id="1436784010935106834">Inalis</translation>
-<translation id="1438632560381091872">Mag-alis ng mga tab sa pagkaka-mute</translation>
+<translation id="1438632560381091872">Mag-unmute ng mga tab</translation>
 <translation id="1442392616396121389">Routing prefix</translation>
 <translation id="144283815522798837"><ph name="NUMBER_OF_ITEMS_SELECTED" /> ang napili</translation>
 <translation id="1444628761356461360">Ang setting na ito ay pinamamahalaan ng may-ari ng device, <ph name="OWNER_EMAIL" />.</translation>
@@ -1366,7 +1366,7 @@ Para sa higit pang impormasyon, bisitahin ang aming <ph name="BEGIN_LINK" />Help
 <translation id="3039828483675273919">Naglilipat ng $1 (na) item...</translation>
 <translation id="304567287000691532">Ibinabahagi ang screen</translation>
 <translation id="3046910703532196514">Webpage, Kumpleto</translation>
-<translation id="304826556400666995">Mag-alis ng Mga Tab sa Pagkaka-mute</translation>
+<translation id="304826556400666995">Mag-unmute ng Mga Tab</translation>
 <translation id="3051523411789012618">Itaas ang window</translation>
 <translation id="3053013834507634016">Paggamit ng Certificate Key </translation>
 <translation id="3057861065630527966">I-back up ang iyong mga larawan at video</translation>
@@ -2345,7 +2345,7 @@ Para sa higit pang impormasyon, bisitahin ang aming <ph name="BEGIN_LINK" />Help
 <translation id="4628948037717959914">Larawan</translation>
 <translation id="4630590996962964935">Di-wastong character: $1</translation>
 <translation id="4631887759990505102">Artist</translation>
-<translation id="4632483769545853758">Alisin sa Pagkaka-mute ang Tab</translation>
+<translation id="4632483769545853758">I-unmute ang Tab</translation>
 <translation id="4634771451598206121">Muling mag-sign in...</translation>
 <translation id="4636315944522859212">Nakita ang printer</translation>
 <translation id="4640525840053037973">Mag-sign in gamit ang iyong Google Account</translation>
@@ -5208,7 +5208,7 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="920045321358709304">Maghanap sa <ph name="SEARCH_ENGINE" /></translation>
 <translation id="9201220332032049474">Mga opsyon sa lock ng screen</translation>
 <translation id="9203398526606335860">&amp;Pinagana ang pag-profile</translation>
-<translation id="9203478404496196495">Alisin sa pagkaka-mute ang tab</translation>
+<translation id="9203478404496196495">I-unmute ang tab</translation>
 <translation id="9203962528777363226">Hindi pinagana ng administrator ng device na ito ang pagdaragdag ng mga bagong user</translation>
 <translation id="9214520840402538427">Oops!  Nag-time out ang pagpapasimula sa mga katangian ng pag-install at panahon.  Mangyaring makipag-ugnay sa iyong kinatawan ng suporta.</translation>
 <translation id="9214695392875603905">Cupcake</translation>

@@ -191,7 +191,7 @@
 <translation id="1274997165432133392">Küpsised ja muud saidi andmed</translation>
 <translation id="127668050356036882">Sule kõik aknad</translation>
 <translation id="1277908057200820621">Kuva seadmete loend</translation>
-<translation id="1278049586634282054">Uurige vaatamisi:</translation>
+<translation id="1278049586634282054">Kuvade inspekteerimine:</translation>
 <translation id="1280820357415527819">Mobiilsidevõrkude otsimine</translation>
 <translation id="1285320974508926690">Ära kunagi seda saiti tõlgi</translation>
 <translation id="1285484354230578868">Salvestage andmed oma Google Drive'i kontole</translation>
@@ -927,7 +927,7 @@ Ma arvan, et see sait ei tohiks olla blokeeritud.</translation>
 <translation id="2445081178310039857">Laienduse juurkaust on nõutav.</translation>
 <translation id="2448312741937722512">Tüüp</translation>
 <translation id="2450223707519584812">Te ei saa kasutajaid lisada, kuna Google API võtmed puuduvad. Üksikasju vt <ph name="DETAILS_URL" />.</translation>
-<translation id="2450849356604136918">Aktiivseid kuvamisi ei ole</translation>
+<translation id="2450849356604136918">Aktiivsed kuvad puuduvad</translation>
 <translation id="2453021845418314664">Täpsemad sünkroonimisseaded</translation>
 <translation id="2453576648990281505">Fail on juba olemas</translation>
 <translation id="2453860139492968684">Valmis</translation>
