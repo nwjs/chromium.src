@@ -15,8 +15,9 @@ Vector<blink::mojom::blink::SerializedBlobPtr> StructTraits<
   result.ReserveInitialCapacity(input.message->BlobDataHandles().size());
   for (const auto& blob : input.message->BlobDataHandles()) {
     result.push_back(blink::mojom::blink::SerializedBlob::New(
-        blob.value->Uuid(), blob.value->GetType(), blob.value->size(),
-        blob.value->CloneBlobPtr().PassInterface()));
+        blob.value->Uuid(),
+        blob.value->GetType().IsNull() ? g_empty_string : blob.value->GetType(),
+        blob.value->size(), blob.value->CloneBlobPtr().PassInterface()));
   }
   return result;
 }
