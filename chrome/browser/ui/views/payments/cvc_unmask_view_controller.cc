@@ -47,7 +47,8 @@ namespace {
 IdentityProvider* CreateIdentityProviderForWebContents(
     content::WebContents* web_contents) {
   Profile* profile =
-      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+      Profile::FromBrowserContext(web_contents->GetBrowserContext())
+          ->GetOriginalProfile();
   return new ProfileIdentityProvider(
       SigninManagerFactory::GetForProfile(profile),
       ProfileOAuth2TokenServiceFactory::GetForProfile(profile),
