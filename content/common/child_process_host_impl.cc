@@ -22,6 +22,7 @@
 #include "base/third_party/dynamic_annotations/dynamic_annotations.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
+#include "content/common/child_process_messages.h"
 #include "content/public/common/bind_interface_helpers.h"
 #include "content/public/common/child_process_host_delegate.h"
 #include "content/public/common/content_paths.h"

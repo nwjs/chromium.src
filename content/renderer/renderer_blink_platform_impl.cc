@@ -147,6 +147,10 @@
 #endif
 #endif
 
+#if defined(OS_WIN)
+#include "content/common/child_process_messages.h"
+#endif
+
 #if defined(USE_AURA)
 #include "content/renderer/webscrollbarbehavior_impl_aura.h"
 #elif !defined(OS_MACOSX)
