@@ -10,6 +10,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observer.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/sync/sync_startup_tracker.h"
 #include "chrome/browser/ui/browser_list_observer.h"
 #include "chrome/browser/ui/sync/profile_signin_confirmation_helper.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
@@ -33,7 +34,8 @@ class SyncSetupInProgressHandle;
 // Handles details of signing the user in with SigninManager and turning on
 // sync for an account that is already present in the token service.
 class DiceTurnSyncOnHelper : public BrowserListObserver,
-                             public LoginUIService::Observer {
+                             public LoginUIService::Observer,
+                             public SyncStartupTracker::Observer {
  public:
   // Behavior when the signin is aborted (by an error or cancelled by the user).
   enum class SigninAbortedMode {
@@ -51,6 +53,10 @@ class DiceTurnSyncOnHelper : public BrowserListObserver,
                        signin_metrics::Reason signin_reason,
                        const std::string& account_id,
                        SigninAbortedMode signin_aborted_mode);
+
+  // SyncStartupTracker::Observer:
+  void SyncStartupCompleted() override;
+  void SyncStartupFailed() override;
 
  private:
   enum class ProfileMode {
@@ -121,6 +127,11 @@ class DiceTurnSyncOnHelper : public BrowserListObserver,
   // UI.
   void SigninAndShowSyncConfirmationUI();
 
+  // Displays the Sync confirmation UI.
+  // Note: If sync fails to start (e.g. sync is disabled by admin), the sync
+  // confirmation dialog will be updated accordingly.
+  void ShowSyncConfirmationUI();
+
   // LoginUIService::Observer override. Deletes this object.
   void OnSyncConfirmationUIClosed(
       LoginUIService::SyncConfirmationUIClosedResult result) override;
@@ -156,6 +167,7 @@ class DiceTurnSyncOnHelper : public BrowserListObserver,
       scoped_browser_list_observer_;
   ScopedObserver<LoginUIService, LoginUIService::Observer>
       scoped_login_ui_service_observer_;
+  std::unique_ptr<SyncStartupTracker> sync_startup_tracker_;
 
   base::WeakPtrFactory<DiceTurnSyncOnHelper> weak_pointer_factory_;
   DISALLOW_COPY_AND_ASSIGN(DiceTurnSyncOnHelper);

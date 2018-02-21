@@ -376,10 +376,41 @@ void DiceTurnSyncOnHelper::SigninAndShowSyncConfirmationUI() {
   signin_metrics::LogSigninReason(signin_reason_);
   base::RecordAction(base::UserMetricsAction("Signin_Signin_Succeed"));
 
-  // Show Sync confirmation.
   browser_sync::ProfileSyncService* sync_service = GetProfileSyncService();
-  if (sync_service)
+  if (sync_service) {
+    // Take a SyncSetupInProgressHandle, so that the UI code can use
+    // IsFirstSyncSetupInProgress() as a way to know if there is a signin in
+    // progress.
+    // TODO(https://crbug.com/811211): Remove this handle.
     sync_blocker_ = sync_service->GetSetupInProgressHandle();
+    if (SyncStartupTracker::GetSyncServiceState(profile_) ==
+        SyncStartupTracker::SYNC_STARTUP_PENDING) {
+      // Wait until sync is initialized so that the confirmation UI can be
+      // aware of startup errors. This is needed to make sure that the sync
+      // confirmation dialog is shown only after the sync service had a chance
+      // to check whether sync was disabled by admin.
+      // See http://crbug.com/812546
+      sync_startup_tracker_.reset(new SyncStartupTracker(profile_, this));
+      return;
+    }
+  }
+
+  ShowSyncConfirmationUI();
+}
+
+void DiceTurnSyncOnHelper::SyncStartupCompleted() {
+  DCHECK(sync_startup_tracker_);
+  sync_startup_tracker_.reset();
+  ShowSyncConfirmationUI();
+}
+
+void DiceTurnSyncOnHelper::SyncStartupFailed() {
+  DCHECK(sync_startup_tracker_);
+  sync_startup_tracker_.reset();
+  ShowSyncConfirmationUI();
+}
+
+void DiceTurnSyncOnHelper::ShowSyncConfirmationUI() {
   scoped_login_ui_service_observer_.Add(
       LoginUIServiceFactory::GetForProfile(profile_));
   browser_ = EnsureBrowser(browser_, profile_);
