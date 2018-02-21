@@ -37,6 +37,8 @@
 
 #if defined(OS_LINUX)
 #include "base/linux_util.h"
+#elif defined(OS_WIN)
+#include "content/common/font_cache_dispatcher_win.h"
 #endif  // OS_LINUX
 
 namespace {
@@ -78,7 +80,12 @@ base::FilePath ChildProcessHost::GetChildPath(int flags) {
 }
 
 ChildProcessHostImpl::ChildProcessHostImpl(ChildProcessHostDelegate* delegate)
-    : delegate_(delegate), opening_channel_(false) {}
+    : delegate_(delegate),
+      opening_channel_(false) {
+#if defined(OS_WIN)
+  AddFilter(new FontCacheDispatcher());
+#endif
+}
 
 ChildProcessHostImpl::~ChildProcessHostImpl() {
   // If a channel was never created than it wasn't registered and the filters
