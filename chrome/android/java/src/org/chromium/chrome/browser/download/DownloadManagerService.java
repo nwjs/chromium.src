@@ -982,9 +982,11 @@ public class DownloadManagerService
      * Removes a download from the list.
      * @param downloadGuid GUID of the download.
      * @param isOffTheRecord Whether the download is off the record.
+     * @param externallyRemoved If the file is externally removed by other applications.
      */
     @Override
-    public void removeDownload(final String downloadGuid, boolean isOffTheRecord) {
+    public void removeDownload(
+            final String downloadGuid, boolean isOffTheRecord, boolean externallyRemoved) {
         mHandler.post(() -> {
             nativeRemoveDownload(getNativeDownloadManagerService(), downloadGuid, isOffTheRecord);
             removeDownloadProgress(downloadGuid);
@@ -993,7 +995,7 @@ public class DownloadManagerService
         new AsyncTask<Void, Void, Void>() {
             @Override
             public Void doInBackground(Void... params) {
-                mDownloadManagerDelegate.removeCompletedDownload(downloadGuid);
+                mDownloadManagerDelegate.removeCompletedDownload(downloadGuid, externallyRemoved);
                 return null;
             }
         }.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
