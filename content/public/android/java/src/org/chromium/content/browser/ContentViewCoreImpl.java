@@ -1139,6 +1139,7 @@ public class ContentViewCoreImpl
         }
         if (!mWebContentsAccessibility.isEnabled()) {
             mWebContentsAccessibility.enable();
+            return null;
         }
         return mWebContentsAccessibility.getAccessibilityNodeProvider();
     }

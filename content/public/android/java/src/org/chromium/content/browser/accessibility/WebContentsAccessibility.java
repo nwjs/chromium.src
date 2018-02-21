@@ -23,6 +23,7 @@ import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeProvider;
 
+import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.content.browser.RenderCoordinates;
@@ -139,7 +140,8 @@ public class WebContentsAccessibility extends AccessibilityNodeProvider {
     /**
      * Pretend that accessibility is enabled, for testing.
      */
-    static void setAccessibilityEnabledForTesting() {
+    @VisibleForTesting
+    public static void setAccessibilityEnabledForTesting() {
         sAccessibilityEnabledForTesting = true;
     }
 
@@ -651,7 +653,7 @@ public class WebContentsAccessibility extends AccessibilityNodeProvider {
         return bundle;
     }
 
-    private boolean isAccessibilityEnabled() {
+    public boolean isAccessibilityEnabled() {
         return sAccessibilityEnabledForTesting || mAccessibilityManager.isEnabled();
     }
 
