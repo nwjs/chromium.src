@@ -34,6 +34,8 @@ namespace {
 
 // Returns a populated WindowMetrics for the browser.
 WindowMetrics CreateMetrics(const Browser* browser) {
+  DCHECK(browser->window());
+
   WindowMetrics window_metrics;
   window_metrics.window_id = browser->session_id().id();
 
@@ -112,11 +114,19 @@ void WindowActivityWatcher::OnBrowserRemoved(Browser* browser) {
 }
 
 void WindowActivityWatcher::OnBrowserSetLastActive(Browser* browser) {
-  if (!browser->profile()->IsOffTheRecord())
+  // The browser may not have a window yet if activation calls happen during
+  // initialization.
+  // TODO(michaelpg): The browser window check should be unnecessary
+  // (https://crbug.com/811191, https://crbug.com/811243).
+  if (!browser->profile()->IsOffTheRecord() && browser->window())
     CreateOrUpdateWindowMetrics(browser);
 }
 
 void WindowActivityWatcher::OnBrowserNoLongerActive(Browser* browser) {
-  if (!browser->profile()->IsOffTheRecord())
+  // The browser may not have a window yet if activation calls happen during
+  // initialization.
+  // TODO(michaelpg): The browser window check should be unnecessary
+  // (https://crbug.com/811191, https://crbug.com/811243).
+  if (!browser->profile()->IsOffTheRecord() && browser->window())
     CreateOrUpdateWindowMetrics(browser);
 }
