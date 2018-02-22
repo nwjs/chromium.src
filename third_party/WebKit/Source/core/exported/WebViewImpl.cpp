@@ -2780,6 +2780,9 @@ void WebViewImpl::SetDeviceScaleFactor(float scale_factor) {
   if (!GetPage())
     return;
 
+  if (GetPage()->DeviceScaleFactorDeprecated() == scale_factor)
+    return;
+
   GetPage()->SetDeviceScaleFactorDeprecated(scale_factor);
 
   if (layer_tree_view_)
@@ -2788,6 +2791,10 @@ void WebViewImpl::SetDeviceScaleFactor(float scale_factor) {
 
 void WebViewImpl::SetZoomFactorForDeviceScaleFactor(
     float zoom_factor_for_device_scale_factor) {
+  if (zoom_factor_for_device_scale_factor_ ==
+      zoom_factor_for_device_scale_factor) {
+    return;
+  }
   zoom_factor_for_device_scale_factor_ = zoom_factor_for_device_scale_factor;
   if (!layer_tree_view_)
     return;
