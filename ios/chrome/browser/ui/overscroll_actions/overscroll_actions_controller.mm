@@ -742,6 +742,7 @@ NSString* const kOverscrollActionsDidEnd = @"OverscrollActionsDidStop";
       [[NSNotificationCenter defaultCenter]
           postNotificationName:kOverscrollActionsDidEnd
                         object:self];
+      [self resetScrollViewTopContentInset];
       _fullscreenDisabler = nullptr;
       if (_shouldInvalidate) {
         [self invalidate];
