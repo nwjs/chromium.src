@@ -168,6 +168,10 @@ LanguageSettingsPrivateGetLanguageListFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateGetLanguageListFunction::Run() {
+#if 1
+  std::unique_ptr<base::ListValue> language_list(new base::ListValue);
+  return RespondNow(OneArgument(std::move(language_list)));
+#else
   // Collect the language codes from the supported accept-languages.
   const std::string app_locale = g_browser_process->GetApplicationLocale();
   const std::unique_ptr<translate::TranslatePrefs> translate_prefs =
@@ -212,6 +216,7 @@ LanguageSettingsPrivateGetLanguageListFunction::Run() {
     language_list->Append(language.ToValue());
   }
   return RespondNow(OneArgument(std::move(language_list)));
+#endif
 }
 
 LanguageSettingsPrivateEnableLanguageFunction::
@@ -226,6 +231,7 @@ LanguageSettingsPrivateEnableLanguageFunction::Run() {
   const auto parameters =
       language_settings_private::EnableLanguage::Params::Create(*args_);
   EXTENSION_FUNCTION_VALIDATE(parameters.get());
+#if 0
   const std::string& language_code = parameters->language_code;
 
   std::unique_ptr<translate::TranslatePrefs> translate_prefs =
@@ -244,6 +250,7 @@ LanguageSettingsPrivateEnableLanguageFunction::Run() {
 
   translate_prefs->AddToLanguageList(language_code, /*force_blocked=*/false);
 
+#endif
   return RespondNow(NoArguments());
 }
 
@@ -259,6 +266,7 @@ LanguageSettingsPrivateDisableLanguageFunction::Run() {
   const auto parameters =
       language_settings_private::DisableLanguage::Params::Create(*args_);
   EXTENSION_FUNCTION_VALIDATE(parameters.get());
+#if 0
   const std::string& language_code = parameters->language_code;
 
   std::unique_ptr<translate::TranslatePrefs> translate_prefs =
@@ -278,6 +286,7 @@ LanguageSettingsPrivateDisableLanguageFunction::Run() {
 
   translate_prefs->RemoveFromLanguageList(language_code);
 
+#endif
   return RespondNow(NoArguments());
 }
 
@@ -293,6 +302,7 @@ LanguageSettingsPrivateSetEnableTranslationForLanguageFunction::Run() {
   const auto parameters = language_settings_private::
       SetEnableTranslationForLanguage::Params::Create(*args_);
   EXTENSION_FUNCTION_VALIDATE(parameters.get());
+#if 0
   const std::string& language_code = parameters->language_code;
   // True if translation enabled, false if disabled.
   const bool enable = parameters->enable;
@@ -307,6 +317,7 @@ LanguageSettingsPrivateSetEnableTranslationForLanguageFunction::Run() {
     translate_prefs->BlockLanguage(language_code);
   }
 
+#endif
   return RespondNow(NoArguments());
 }
 
@@ -319,6 +330,7 @@ LanguageSettingsPrivateMoveLanguageFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateMoveLanguageFunction::Run() {
+#if 0
   const auto parameters =
       language_settings_private::MoveLanguage::Params::Create(*args_);
   EXTENSION_FUNCTION_VALIDATE(parameters.get());
@@ -356,7 +368,7 @@ LanguageSettingsPrivateMoveLanguageFunction::Run() {
 
   translate_prefs->RearrangeLanguage(language_code, where,
                                      supported_language_codes);
-
+#endif
   return RespondNow(NoArguments());
 }
 
@@ -477,12 +489,16 @@ LanguageSettingsPrivateGetTranslateTargetLanguageFunction::
 
 ExtensionFunction::ResponseAction
 LanguageSettingsPrivateGetTranslateTargetLanguageFunction::Run() {
+#if 0
   Profile* profile = chrome_details_.GetProfile();
   language::LanguageModel* language_model =
       LanguageModelFactory::GetForBrowserContext(profile);
   return RespondNow(OneArgument(
       base::MakeUnique<base::Value>(TranslateService::GetTargetLanguage(
           profile->GetPrefs(), language_model))));
+#else
+  return RespondNow(NoArguments());
+#endif
 }
 
 #if defined(OS_CHROMEOS)

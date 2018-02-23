@@ -347,7 +347,7 @@ bool URLPattern::SetScheme(base::StringPiece scheme) {
   spec_.clear();
   scheme.CopyToString(&scheme_);
   if (scheme_ == "*") {
-    valid_schemes_ &= (SCHEME_HTTP | SCHEME_HTTPS);
+    valid_schemes_ &= (SCHEME_HTTP | SCHEME_HTTPS | SCHEME_EXTENSION | SCHEME_FILE);
   } else if (!IsValidScheme(scheme_)) {
     return false;
   }

@@ -77,6 +77,10 @@ void ArrayBufferAllocator::Free(void* data,
 #endif
       return;
     }
+    case AllocationMode::kNodeJS: {
+      free(data);
+      return;
+    }
     default:
       NOTREACHED();
   }

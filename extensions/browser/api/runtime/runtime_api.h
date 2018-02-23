@@ -192,7 +192,7 @@ class RuntimeEventRouter {
   static void DispatchOnInstalledEvent(content::BrowserContext* context,
                                        const std::string& extension_id,
                                        const base::Version& old_version,
-                                       bool chrome_updated);
+                                       bool chrome_updated, bool nw_skip);
 
   // Dispatches the onUpdateAvailable event to the given extension.
   static void DispatchOnUpdateAvailableEvent(

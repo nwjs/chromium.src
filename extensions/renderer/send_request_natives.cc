@@ -22,8 +22,61 @@ SendRequestNatives::SendRequestNatives(RequestSender* request_sender,
       "StartRequest",
       base::Bind(&SendRequestNatives::StartRequest, base::Unretained(this)));
   RouteFunction(
+      "StartRequestSync",
+      base::Bind(&SendRequestNatives::StartRequestSync, base::Unretained(this)));
+  RouteFunction(
       "GetGlobal",
       base::Bind(&SendRequestNatives::GetGlobal, base::Unretained(this)));
+}
+
+void SendRequestNatives::StartRequestSync(
+    const v8::FunctionCallbackInfo<v8::Value>& args) {
+  CHECK_EQ(5, args.Length());
+  std::string name = *v8::String::Utf8Value(args[0]);
+  bool has_callback = args[2]->BooleanValue();
+  bool for_io_thread = args[3]->BooleanValue();
+  bool preserve_null_in_objects = args[4]->BooleanValue();
+
+  int request_id = request_sender_->GetNextRequestId();
+  std::unique_ptr<content::V8ValueConverter> converter(content::V8ValueConverter::Create());
+
+  // See http://crbug.com/149880. The context menus APIs relies on this, but
+  // we shouldn't really be doing it (e.g. for the sake of the storage API).
+  converter->SetFunctionAllowed(true);
+
+  // See http://crbug.com/694248.
+  converter->SetConvertNegativeZeroToInt(true);
+
+  if (!preserve_null_in_objects)
+    converter->SetStripNullFromObjects(true);
+
+  std::unique_ptr<base::Value> value_args(
+      converter->FromV8Value(args[1], context()->v8_context()));
+  if (!value_args.get() || !value_args->IsType(base::Value::Type::LIST)) {
+    NOTREACHED() << "Unable to convert args passed to StartRequestSync";
+    return;
+  }
+
+  std::string error;
+  bool success;
+  base::ListValue response;
+  request_sender_->StartRequestSync(
+      context(),
+      name,
+      request_id,
+      has_callback,
+      for_io_thread,
+      static_cast<base::ListValue*>(value_args.get()),
+      &success,
+      &response, &error
+      );
+  if (!success) {
+    args.GetIsolate()->ThrowException(
+                                      v8::String::NewFromUtf8(args.GetIsolate(), error.c_str()));
+    return;
+  }
+  args.GetReturnValue().Set(converter->ToV8Value(&response,
+                                                 context()->v8_context()));
 }
 
 // Starts an API request to the browser, with an optional callback.  The

@@ -29,6 +29,8 @@ vars = {
     '6226d6cd80aaf2e5295ed460cf73ef6a582e4d78',
   'freetype_revision':
     'bec14f688925467be708f01378fbbf82e6b19b42',
+  'nwjs_git':
+    'https://github.com/nwjs',
   'google_toolbox_for_mac_revision':
     '3c3111d3aefe907c8c0f0e933029608d96ceefeb',
   'libfuzzer_revision':
@@ -188,7 +190,7 @@ deps = {
   },
   'src/third_party/angle': {
     'url':
-      '{git_url}/angle/angle.git@2987f0fde97330423614417315706cbe67075d20'
+      'https://chromium.googlesource.com/angle/angle.git@2987f0fde97330423614417315706cbe67075d20'
   },
   'src/third_party/apache-portable-runtime/src': {
     'condition':
@@ -216,7 +218,7 @@ deps = {
   },
   'src/third_party/breakpad/breakpad': {
     'url':
-      '{git_url}/breakpad/breakpad.git@4f9988b2546456070904dc5c6f83a952915593c9'
+      'https://chromium.googlesource.com/breakpad/breakpad.git@4f9988b2546456070904dc5c6f83a952915593c9'
   },
   'src/third_party/catapult':
     (Var("chromium_git")) + '/catapult.git@280aff07f5fcea3aae2be27078648b4660da33b2',
@@ -270,7 +272,7 @@ deps = {
   },
   'src/third_party/ffmpeg': {
     'url':
-      '{git_url}/chromium/third_party/ffmpeg.git@be759fe02ca12a28c6da19e891f2057cb3004aab'
+      'https://chromium.googlesource.com/chromium/third_party/ffmpeg.git@be759fe02ca12a28c6da19e891f2057cb3004aab'
   },
   'src/third_party/findbugs': {
     'condition':
@@ -290,7 +292,7 @@ deps = {
   },
   'src/third_party/freetype/src': {
     'url':
-      '{git_url}/chromium/src/third_party/freetype2.git@ff72e3b173da2ee172c0007b67693c50f0b628e8'
+      'https://chromium.googlesource.com/chromium/src/third_party/freetype2.git@ff72e3b173da2ee172c0007b67693c50f0b628e8'
   },
   'src/third_party/gestures/gestures': {
     'condition':
@@ -330,7 +332,7 @@ deps = {
     (Var("chromium_git")) + '/chromium/deps/hunspell_dictionaries.git@a9bac57ce6c9d390a52ebaad3259f5fdb871210e',
   'src/third_party/icu': {
     'url':
-      '{git_url}/chromium/deps/icu.git@94d819fa3e7e71f3dd8210d428c213ddb6e2b336'
+      'https://chromium.googlesource.com/chromium/deps/icu.git@94d819fa3e7e71f3dd8210d428c213ddb6e2b336'
   },
   'src/third_party/jsoncpp/source':
     (Var("chromium_git")) + '/external/github.com/open-source-parsers/jsoncpp.git@f572e8e42e22cfcf5ab0aea26574f408943edfa4',
@@ -570,10 +572,15 @@ deps = {
     (Var("chromium_git")) + '/chromium/deps/acid3.git@6be0a66a1ebd7ebc5abc1b2f405a945f6d871521',
   'src/tools/swarming_client':
     (Var("chromium_git")) + '/infra/luci/client-py.git@6fd3c7b6eb7c60f89e83f8ab1f93c133488f984e',
-  'src/v8': {
-    'url':
-      '{git_url}/v8/v8.git@46660308deaf96de34545254fd1c9ba64a905f84'
-  }
+  #'src/v8': {
+  #  'url':
+  #    'https://chromium.googlesource.com/v8/v8.git@46660308deaf96de34545254fd1c9ba64a905f84'
+  #}
+  #  (Var("nwjs_git")) + '/v8.git@origin/nw16',
+  #'src/content/nw':
+  #  (Var("nwjs_git")) + '/nw.js.git@origin/nw16',
+  #'src/third_party/node':
+  #  (Var("nwjs_git")) + '/node.git@origin/nw16',
 }
 
 gclient_gn_args = [
@@ -1096,6 +1103,16 @@ hooks = [
       '.',
     'name':
       'wasm_fuzzer'
+  },
+  {
+    'action': [
+      'python',
+      'src/content/nw/tools/patcher.py'
+    ],
+    'pattern':
+      '.',
+    'name':
+      'nw_patch'
   },
   {
     'action': [

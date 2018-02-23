@@ -8,7 +8,7 @@
 
 namespace content {
 
-SharedWorkerInstance::SharedWorkerInstance(
+SharedWorkerInstance::SharedWorkerInstance(bool is_node_js, const base::FilePath& root_path,
     const GURL& url,
     const std::string& name,
     const url::Origin& constructor_origin,
@@ -19,7 +19,8 @@ SharedWorkerInstance::SharedWorkerInstance(
     const WorkerStoragePartitionId& partition_id,
     blink::mojom::SharedWorkerCreationContextType creation_context_type,
     const base::UnguessableToken& devtools_worker_token)
-    : url_(url),
+    : is_node_js_(is_node_js), root_path_(root_path),
+      url_(url),
       name_(name),
       constructor_origin_(constructor_origin),
       content_security_policy_(content_security_policy),

@@ -21,13 +21,13 @@ typedef std::map<base::string16, base::NullableString16> DOMStorageValuesMap;
 
 // The quota for each storage area.
 // This value is enforced in renderer processes and the browser process.
-const size_t kPerStorageAreaQuota = 10 * 1024 * 1024;
+const size_t kPerStorageAreaQuota = std::numeric_limits<int32_t>::max();
 
 // In the browser process we allow some overage to
 // accomodate concurrent writes from different renderers
 // that were allowed because the limit imposed in the renderer
 // wasn't exceeded.
-const size_t kPerStorageAreaOverQuotaAllowance = 100 * 1024;
+const size_t kPerStorageAreaOverQuotaAllowance = 0;
 
 // Value to indicate the localstorage namespace vs non-zero
 // values for sessionstorage namespaces.

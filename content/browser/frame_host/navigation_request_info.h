@@ -31,7 +31,8 @@ struct CONTENT_EXPORT NavigationRequestInfo {
       int frame_tree_node_id,
       bool is_for_guests_only,
       bool report_raw_headers,
-      blink::mojom::PageVisibilityState page_visibility_state);
+      blink::mojom::PageVisibilityState page_visibility_state,
+      bool nw_trust = false);
   ~NavigationRequestInfo();
 
   const CommonNavigationParams common_params;
@@ -55,6 +56,7 @@ struct CONTENT_EXPORT NavigationRequestInfo {
   const bool report_raw_headers;
 
   blink::mojom::PageVisibilityState page_visibility_state;
+  bool nw_trusted;
 };
 
 }  // namespace content

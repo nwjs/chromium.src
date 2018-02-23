@@ -11,6 +11,8 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest.h"
 
+#include "content/nw/src/common/shell_switches.h"
+
 using extensions::Extension;
 using extensions::ProcessManager;
 
@@ -39,6 +41,14 @@ bool ContextMenuContentTypePlatformApp::SupportsGroup(int group) {
 
   DCHECK(platform_app->is_platform_app());
 
+#if defined(NWJS_SDK)
+  bool enable_devtools = true;
+  const base::CommandLine* command_line =
+      base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kDisableDevTools))
+    enable_devtools = false;
+#endif
+
   switch (group) {
     // Add undo/redo, cut/copy/paste etc for text fields.
     case ITEM_GROUP_EDITABLE:
@@ -46,12 +56,10 @@ bool ContextMenuContentTypePlatformApp::SupportsGroup(int group) {
       return ContextMenuContentType::SupportsGroup(group);
     case ITEM_GROUP_CURRENT_EXTENSION:
       return true;
+#if defined(NWJS_SDK)
     case ITEM_GROUP_DEVTOOLS_UNPACKED_EXT:
-      // Add dev tools for unpacked extensions.
-      return extensions::Manifest::IsUnpackedLocation(
-                 platform_app->location()) ||
-             base::CommandLine::ForCurrentProcess()->HasSwitch(
-                 switches::kDebugPackedApps);
+      return enable_devtools;
+#endif
     default:
       return false;
   }

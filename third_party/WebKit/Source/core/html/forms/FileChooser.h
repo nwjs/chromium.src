@@ -62,7 +62,7 @@ struct FileChooserFileInfo {
 
 class FileChooserClient : public GarbageCollectedMixin {
  public:
-  virtual void FilesChosen(const Vector<FileChooserFileInfo>&) = 0;
+  virtual void FilesChosen(const Vector<FileChooserFileInfo>&, bool canceled = false) = 0;
   virtual ~FileChooserClient();
 
  protected:
