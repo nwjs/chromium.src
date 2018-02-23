@@ -6211,9 +6211,7 @@ interface VTTCue : TextTrackCue
     attribute @@toStringTag
     getter align
     getter line
-    getter lineAlign
     getter position
-    getter positionAlign
     getter size
     getter snapToLines
     getter text
@@ -6222,9 +6220,7 @@ interface VTTCue : TextTrackCue
     method getCueAsHTML
     setter align
     setter line
-    setter lineAlign
     setter position
-    setter positionAlign
     setter size
     setter snapToLines
     setter text
