@@ -2196,7 +2196,7 @@ La manera recomanada de configurar la política a Windows és amb GPO, tot i que
 
       Si el nom del compte coincideix amb algun dels patrons de la llista, es podrà veure el compte del dispositiu a <ph name="PRODUCT_NAME" />. En cas contrari, el compte s'exclourà i s'amagarà.
 
-      Es pot utilitzar el caràcter comodí "*" per cercar coincidències de caràcters arbitraris, que poden ser de zero o més. Col·loca un caràcter d'escapada ("\") davant de "*" o "\" per incloure instàncies reals d'aquests caràcters.
+      Es pot utilitzar el caràcter comodí "*" per cercar coincidències amb zero o més caràcters arbitraris. El caràcter d'escapada és "\", per tant, col·loca'l davant de "*" o "\" per obtenir instàncies reals d'aquests caràcters.
 
       Si aquesta política es deixa sense definir, es podran veure tots els comptes de Google del dispositiu a <ph name="PRODUCT_NAME" />.</translation>
 <translation id="8465065632133292531">Paràmetres per a l'URL instantani que utilitza POST</translation>

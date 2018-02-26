@@ -1371,7 +1371,7 @@ Para obter mais informações, aceda ao nosso <ph name="BEGIN_LINK" />Centro de 
 <translation id="304826556400666995">Reativar Som dos Separadores</translation>
 <translation id="3051523411789012618">Mover a janela para cima</translation>
 <translation id="3053013834507634016">Utilização de chave de certificado</translation>
-<translation id="3057861065630527966">Fazer uma cópia de segurança de fotografias e vídeos</translation>
+<translation id="3057861065630527966">Fazer uma cópia de segurança de fotos e vídeos</translation>
 <translation id="3060379269883947824">Ativar Selecionar para ativar voz</translation>
 <translation id="3061707000357573562">Serviço de patch</translation>
 <translation id="3064410671692449875">Dados insuficientes</translation>
@@ -1501,7 +1501,7 @@ Para obter mais informações, aceda ao nosso <ph name="BEGIN_LINK" />Centro de 
 <translation id="3269093882174072735">Carregar imagem</translation>
 <translation id="3269889795238950578">Esta página pode ver o texto e as imagens copiados para a área de transferência.</translation>
 <translation id="326999365752735949">A transferir dif.</translation>
-<translation id="3270965368676314374">Ler, alterar e eliminar fotografias, música e outros elementos multimédia do computador</translation>
+<translation id="3270965368676314374">Ler, alterar e eliminar fotos, música e outros elementos multimédia do computador</translation>
 <translation id="327147043223061465">Ver todos os cookies e os dados de sites</translation>
 <translation id="3271648667212143903"><ph name="ORIGIN" /> pretende estabelecer ligação</translation>
 <translation id="327444463633065042">Nome de computador inválido</translation>
@@ -1644,7 +1644,7 @@ Para obter mais informações, aceda ao nosso <ph name="BEGIN_LINK" />Centro de 
 <translation id="3466147780910026086">A analisar o dispositivo multimédia...</translation>
 <translation id="3467267818798281173">Pedir sugestões ao Google</translation>
 <translation id="3468275649641751422">Transmitir um vídeo ou um ficheiro de áudio em fluxo contínuo</translation>
-<translation id="3468522857997926824">Foi feita uma cópia de segurança de <ph name="FILE_COUNT" /> fotografias no <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" /></translation>
+<translation id="3468522857997926824">Foi feita uma cópia de segurança de <ph name="FILE_COUNT" /> fotos no <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" /></translation>
 <translation id="3468745736289470383">Partilhar o ecrã</translation>
 <translation id="3470442499439619530">Remover Este Utilizador</translation>
 <translation id="3470502288861289375">A copiar...</translation>
@@ -1720,7 +1720,7 @@ Para obter mais informações, aceda ao nosso <ph name="BEGIN_LINK" />Centro de 
 <translation id="3576324189521867626">Instalação com êxito</translation>
 <translation id="3578594933904494462">O conteúdo deste separador está a ser partilhado.</translation>
 <translation id="357886715122934472">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt; pretende partilhar uma impressora &lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt; com um grupo de que é proprietário: &lt;strong&gt;<ph name="GROUP_NAME" />&lt;/strong&gt;. Se aceitar, todos os membros do grupo poderão utilizar a impressora.</translation>
-<translation id="3584169441612580296">Ler e alterar fotografias, música e outros elementos multimédia a partir do computador</translation>
+<translation id="3584169441612580296">Ler e alterar fotos, música e outros elementos multimédia a partir do computador</translation>
 <translation id="3587482841069643663">Tudo</translation>
 <translation id="358796204584394954">Introduza este código no "<ph name="DEVICE_NAME" />" para sincronizar:</translation>
 <translation id="3589766037099229847">Conteúdo inseguro bloqueado</translation>
@@ -1825,7 +1825,7 @@ Para obter mais informações, aceda ao nosso <ph name="BEGIN_LINK" />Centro de 
 <translation id="3738924763801731196"><ph name="OID" />:</translation>
 <translation id="3739254215541673094">Pretende abrir <ph name="APPLICATION" />?</translation>
 <translation id="3741158646617793859"><ph name="DEVICE_NAME" /> será agora apresentado na Consola do gestor.</translation>
-<translation id="3741243925913727067">Faça uma cópia de segurança das fotografias e dos vídeos do seu dispositivo multimédia no Google Drive.</translation>
+<translation id="3741243925913727067">Faça uma cópia de segurança das fotos e dos vídeos do seu dispositivo multimédia no Google Drive.</translation>
 <translation id="3742055079367172538">Captura de ecrã efetuada</translation>
 <translation id="3744111561329211289">Sincronização em segundo plano</translation>
 <translation id="3745016858329272300">Informações gerais</translation>
@@ -2085,7 +2085,7 @@ Para obter mais informações, aceda ao nosso <ph name="BEGIN_LINK" />Centro de 
 <translation id="413121957363593859">Componentes</translation>
 <translation id="4131410914670010031">Preto e branco</translation>
 <translation id="4136203100490971508">A Luz noturna irá desativar-se automaticamente ao nascer do sol.</translation>
-<translation id="4138267921960073861">Mostrar nomes de utilizador e fotografias no ecrã de início de sessão</translation>
+<translation id="4138267921960073861">Mostrar nomes de utilizador e fotos no ecrã de início de sessão</translation>
 <translation id="4140559601186535628">Mensagens push</translation>
 <translation id="4146026355784316281">Abrir sempre com o visualizador do sistema</translation>
 <translation id="4146785383423576110">Repor e limpar</translation>
@@ -2400,7 +2400,7 @@ Para obter mais informações, aceda ao nosso <ph name="BEGIN_LINK" />Centro de 
 <translation id="4720185134442950733">Rede de dados móveis</translation>
 <translation id="4722920479021006856"><ph name="APP_NAME" /> está a partilhar o seu ecrã.</translation>
 <translation id="4724450788351008910">A afiliação mudou</translation>
-<translation id="4724850507808590449">Foi feita uma cópia de segurança de <ph name="FILE_COUNT" /> fotografias</translation>
+<translation id="4724850507808590449">Foi feita uma cópia de segurança de <ph name="FILE_COUNT" /> fotos</translation>
 <translation id="4726710629007580002">Foram obtidos avisos ao tentar instalar esta extensão:</translation>
 <translation id="4728558894243024398">Plataforma</translation>
 <translation id="4731422630970790516">Artigo de prateleira 3</translation>
@@ -2878,7 +2878,7 @@ Para obter mais informações, aceda ao nosso <ph name="BEGIN_LINK" />Centro de 
 <translation id="5453029940327926427">Fechar separadores</translation>
 <translation id="5454166040603940656">com <ph name="PROVIDER" /></translation>
 <translation id="5457113250005438886">Inválido</translation>
-<translation id="5457459357461771897">Ler e eliminar fotografias, música e outros elementos multimédia a partir do computador</translation>
+<translation id="5457459357461771897">Ler e eliminar fotos, música e outros elementos multimédia a partir do computador</translation>
 <translation id="5457599981699367932">Navegar como convidado</translation>
 <translation id="5457950659230097883">JavaScript bloqueado</translation>
 <translation id="5458998536542739734">Notas no ecrã de bloqueio</translation>
@@ -4406,7 +4406,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="7887864092952184874">Rato Bluetooth sincronizado</translation>
 <translation id="7889966925761734854">Procurar</translation>
 <translation id="7892100671754994880">Utilizador seguinte</translation>
-<translation id="7893008570150657497">Aceder a fotografias, música e outros elementos multimédia a partir do seu computador</translation>
+<translation id="7893008570150657497">Aceder a fotos, música e outros elementos multimédia a partir do seu computador</translation>
 <translation id="7893153962594818789">O Bluetooth está desativado neste <ph name="DEVICE_TYPE" />. Introduza a palavra-passe e ative o Bluetooth.</translation>
 <translation id="7893393459573308604"><ph name="ENGINE_NAME" /> (Predefinição)</translation>
 <translation id="78957024357676568">esquerda</translation>
