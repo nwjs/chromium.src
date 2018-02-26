@@ -3670,26 +3670,29 @@ void RenderFrameHostImpl::FailedNavigation(
   // completing an unload handler.
   ResetWaitingState();
 
-  StoragePartitionImpl* storage_partition =
-      static_cast<StoragePartitionImpl*>(BrowserContext::GetStoragePartition(
-          GetSiteInstance()->GetBrowserContext(), GetSiteInstance()));
-
-  network::mojom::URLLoaderFactoryPtr default_factory;
-  if (g_url_loader_factory_callback_for_test.Get().is_null()) {
-    storage_partition->GetNetworkContext()->CreateURLLoaderFactory(
-        mojo::MakeRequest(&default_factory), GetProcess()->GetID());
-  } else {
-    network::mojom::URLLoaderFactoryPtr original_factory;
-    storage_partition->GetNetworkContext()->CreateURLLoaderFactory(
-        mojo::MakeRequest(&original_factory), GetProcess()->GetID());
-    g_url_loader_factory_callback_for_test.Get().Run(
-        mojo::MakeRequest(&default_factory), GetProcess()->GetID(),
-        original_factory.PassInterface());
-  }
-
   base::Optional<URLLoaderFactoryBundle> subresource_loader_factories;
-  subresource_loader_factories.emplace();
-  subresource_loader_factories->SetDefaultFactory(std::move(default_factory));
+  if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
+    StoragePartitionImpl* storage_partition =
+        static_cast<StoragePartitionImpl*>(BrowserContext::GetStoragePartition(
+            GetSiteInstance()->GetBrowserContext(), GetSiteInstance()));
+
+    network::mojom::URLLoaderFactoryPtr default_factory;
+    if (g_url_loader_factory_callback_for_test.Get().is_null()) {
+      storage_partition->GetNetworkContext()->CreateURLLoaderFactory(
+          mojo::MakeRequest(&default_factory), GetProcess()->GetID());
+    } else {
+      network::mojom::URLLoaderFactoryPtr original_factory;
+      storage_partition->GetNetworkContext()->CreateURLLoaderFactory(
+          mojo::MakeRequest(&original_factory), GetProcess()->GetID());
+      g_url_loader_factory_callback_for_test.Get().Run(
+          mojo::MakeRequest(&default_factory), GetProcess()->GetID(),
+          original_factory.PassInterface());
+    }
+
+
+    subresource_loader_factories.emplace();
+    subresource_loader_factories->SetDefaultFactory(std::move(default_factory));
+  }
 
   GetNavigationControl()->CommitFailedNavigation(
       common_params, request_params, has_stale_copy_in_cache, error_code,
