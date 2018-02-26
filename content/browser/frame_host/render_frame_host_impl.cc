@@ -3671,7 +3671,7 @@ void RenderFrameHostImpl::FailedNavigation(
   ResetWaitingState();
 
   base::Optional<URLLoaderFactoryBundle> subresource_loader_factories;
-  if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
+  if (base::FeatureList::IsEnabled(features::kNetworkService)) {
     StoragePartitionImpl* storage_partition =
         static_cast<StoragePartitionImpl*>(BrowserContext::GetStoragePartition(
             GetSiteInstance()->GetBrowserContext(), GetSiteInstance()));
