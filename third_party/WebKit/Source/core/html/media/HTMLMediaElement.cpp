@@ -661,9 +661,9 @@ void HTMLMediaElement::ParserDidSetAttributes() {
 // attribute as there is no callback notifying about the end of a cloning
 // operation. Indeed, it is required per spec to set the muted state based on
 // the content attribute when the object is created.
-void HTMLMediaElement::CloneNonAttributePropertiesFrom(const Element& other,
-                                                       CloneChildrenFlag flag) {
-  HTMLElement::CloneNonAttributePropertiesFrom(other, flag);
+void HTMLMediaElement::CopyNonAttributePropertiesFromElement(
+    const Element& other) {
+  HTMLElement::CopyNonAttributePropertiesFromElement(other);
 
   if (FastHasAttribute(mutedAttr))
     muted_ = true;
