@@ -59,6 +59,11 @@
 #include "third_party/WebKit/common/sandbox_flags.h"
 #include "third_party/WebKit/public/platform/WebMixedContentContextType.h"
 
+namespace nw {
+  typedef bool(*RphGuestFilterURLHookFn)(content::RenderProcessHost* rph, const GURL* url);
+  extern RphGuestFilterURLHookFn gRphGuestFilterURLHook;
+}
+
 namespace content {
 
 namespace {
@@ -390,6 +395,15 @@ NavigationRequest::NavigationRequest(
       (entry && entry->GetIsOverridingUserAgent())) {
     user_agent_override =
         frame_tree_node_->navigator()->GetDelegate()->GetUserAgentOverride();
+  }
+  FrameTreeNode* node = frame_tree_node;
+  while (node) {
+    const std::string& nwuseragent = node->frame_owner_properties().nwuseragent;
+    if (!nwuseragent.empty()) {
+      user_agent_override = nwuseragent;
+      break;
+    }
+    node = node->parent();
   }
 
   net::HttpRequestHeaders headers;
@@ -1063,6 +1077,13 @@ void NavigationRequest::OnStartChecksComplete(
       navigation_handle_->GetStartingSiteInstance()->GetSiteURL().
           SchemeIs(kGuestScheme);
 
+  bool nw_trusted = false;
+  if (is_for_guests_only) {
+    GURL dummy;
+    RenderProcessHost* render_process_host = navigating_frame_host->GetProcess();
+    if (nw::gRphGuestFilterURLHook && nw::gRphGuestFilterURLHook(render_process_host, &dummy))
+      nw_trusted = true;
+  }
   bool report_raw_headers =
       RenderFrameDevToolsAgentHost::IsNetworkHandlerEnabled(frame_tree_node_);
 
@@ -1073,7 +1094,7 @@ void NavigationRequest::OnStartChecksComplete(
           frame_tree_node_->IsMainFrame(), parent_is_main_frame,
           IsSecureFrame(frame_tree_node_->parent()),
           frame_tree_node_->frame_tree_node_id(), is_for_guests_only,
-          report_raw_headers, navigating_frame_host->GetVisibilityState()),
+          report_raw_headers, navigating_frame_host->GetVisibilityState(), nw_trusted),
       std::move(navigation_ui_data),
       navigation_handle_->service_worker_handle(),
       navigation_handle_->appcache_handle(), this);

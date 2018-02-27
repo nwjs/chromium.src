@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/views/permission_bubble/chooser_bubble_ui.h"
 
+#include "extensions/components/native_app_window/native_app_window_views.h"
+
 #include "base/memory/ptr_util.h"
 #include "chrome/browser/chooser_controller/chooser_controller.h"
 #include "chrome/browser/ui/browser.h"
@@ -17,16 +19,19 @@
 // functions provide.
 
 std::unique_ptr<BubbleUi> ChooserBubbleDelegate::BuildBubbleUi() {
-  return base::MakeUnique<ChooserBubbleUi>(browser_,
+  return base::MakeUnique<ChooserBubbleUi>(browser_, app_window_,
                                            std::move(chooser_controller_));
 }
 
 void ChooserBubbleUi::CreateAndShow(views::BubbleDialogDelegateView* delegate) {
   // Set |parent_window_| because some valid anchors can become hidden.
-  views::Widget* widget = views::Widget::GetWidgetForNativeWindow(
+  views::Widget* widget = nullptr;
+  if (browser_) {
+    widget = views::Widget::GetWidgetForNativeWindow(
       browser_->window()->GetNativeWindow());
   gfx::NativeView parent = widget->GetNativeView();
   DCHECK(parent);
   delegate->set_parent_window(parent);
+  }
   views::BubbleDialogDelegateView::CreateBubble(delegate)->Show();
 }

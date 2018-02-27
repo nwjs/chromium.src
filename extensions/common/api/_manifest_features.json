@@ -339,7 +339,7 @@
   ],
   "webview": {
     "channel": "stable",
-    "extension_types": ["platform_app"],
+    "extension_types": "all",
     "min_manifest_version": 2
   }
 }

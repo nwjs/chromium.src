@@ -14,6 +14,8 @@
 #include "extensions/browser/extension_web_contents_observer.h"
 #include "extensions/common/stack_frame.h"
 
+#include "components/zoom/zoom_observer.h"
+
 namespace content {
 class RenderFrameHost;
 }
@@ -25,9 +27,13 @@ namespace extensions {
 // renderers.
 class ChromeExtensionWebContentsObserver
     : public ExtensionWebContentsObserver,
+      public zoom::ZoomObserver,
       public content::WebContentsUserData<ChromeExtensionWebContentsObserver> {
  public:
   ~ChromeExtensionWebContentsObserver() override;
+  // ZoomObserver implementation.
+  void OnZoomChanged(
+      const zoom::ZoomController::ZoomChangedEventData& data) override;
 
  private:
   friend class content::WebContentsUserData<ChromeExtensionWebContentsObserver>;

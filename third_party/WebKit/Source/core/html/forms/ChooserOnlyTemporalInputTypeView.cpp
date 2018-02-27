@@ -28,6 +28,7 @@
 #include "bindings/core/v8/ExceptionState.h"
 #include "core/dom/Document.h"
 #include "core/dom/ShadowRoot.h"
+#include "core/frame/LocalFrame.h"
 #include "core/html/HTMLDivElement.h"
 #include "core/html/forms/HTMLInputElement.h"
 #include "core/page/ChromeClient.h"
@@ -59,8 +60,8 @@ void ChooserOnlyTemporalInputTypeView::Trace(blink::Visitor* visitor) {
 
 void ChooserOnlyTemporalInputTypeView::HandleDOMActivateEvent(Event*) {
   if (GetElement().IsDisabledOrReadOnly() || !GetElement().GetLayoutObject() ||
-      !Frame::HasTransientUserActivation(
-          GetElement().GetDocument().GetFrame()) ||
+      (!Frame::HasTransientUserActivation(
+       GetElement().GetDocument().GetFrame()) && !GetElement().GetDocument().GetFrame()->isNodeJS()) ||
       GetElement().OpenShadowRoot())
     return;
 

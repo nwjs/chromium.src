@@ -417,7 +417,7 @@ bool DesktopWindowTreeHostWin::ShouldWindowContentsBeTransparent() const {
   // is therefore transparent. Note: This is not equivalent to calling
   // IsAeroGlassEnabled, because ShouldUseNativeFrame is overridden in a
   // subclass.
-  return ShouldUseNativeFrame() && !IsFullscreen();
+  return ShouldUseNativeFrame() && (content::g_support_transparency || !IsFullscreen());
 }
 
 void DesktopWindowTreeHostWin::FrameTypeChanged() {
@@ -720,8 +720,17 @@ bool DesktopWindowTreeHostWin::ShouldHandleSystemCommands() const {
   return GetWidget()->widget_delegate()->ShouldHandleSystemCommands();
 }
 
+bool DesktopWindowTreeHostWin::ShouldHandleOnSize() const {
+  return GetWidget()->widget_delegate()->ShouldHandleOnSize();
+}
+
 void DesktopWindowTreeHostWin::HandleAppDeactivated() {
   native_widget_delegate_->SetAlwaysRenderAsActive(false);
+}
+
+bool DesktopWindowTreeHostWin::HandleSize(UINT param, const gfx::Size& new_size) {
+  return GetWidget()->widget_delegate() &&
+      GetWidget()->widget_delegate()->HandleSize(param, new_size);
 }
 
 void DesktopWindowTreeHostWin::HandleActivationChanged(bool active) {
@@ -740,7 +749,7 @@ bool DesktopWindowTreeHostWin::HandleAppCommand(short command) {
   // We treat APPCOMMAND ids as an extension of our command namespace, and just
   // let the delegate figure out what to do...
   return GetWidget()->widget_delegate() &&
-      GetWidget()->widget_delegate()->ExecuteWindowsCommand(command);
+      GetWidget()->widget_delegate()->ExecuteAppCommand(command);
 }
 
 void DesktopWindowTreeHostWin::HandleCancelMode() {
@@ -753,6 +762,9 @@ void DesktopWindowTreeHostWin::HandleCaptureLost() {
 
 void DesktopWindowTreeHostWin::HandleClose() {
   GetWidget()->Close();
+  //bugfix where transparent window size is getting smaller during closing
+  if (content::g_support_transparency && message_handler_->is_translucent())
+    window_enlargement_ = gfx::Vector2d(0, 0);
 }
 
 bool DesktopWindowTreeHostWin::HandleCommand(int command) {

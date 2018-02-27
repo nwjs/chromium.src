@@ -11,6 +11,8 @@
 #include "platform/wtf/Noncopyable.h"
 #include "platform/wtf/text/WTFString.h"
 
+#include "core/frame/LocalFrame.h"
+
 namespace blink {
 
 class LocalFrame;
@@ -40,7 +42,11 @@ class CORE_EXPORT InspectedFrames final
 
   InspectedFrames(LocalFrame*, const String& instrumentation_token);
 
-  LocalFrame* Root() { return root_; }
+  LocalFrame* Root() {
+    LocalFrame* f = root_;
+    LocalFrame* jail = (LocalFrame*)f->getDevtoolsJail();
+    return jail ? jail : f;
+  }
   const String& InstrumentationToken() const { return instrumentation_token_; }
   bool Contains(LocalFrame*) const;
   LocalFrame* FrameWithSecurityOrigin(const String& origin_raw_string);

@@ -70,6 +70,8 @@
 #include "extensions/browser/updater/null_extension_cache.h"
 #endif
 
+#include "content/nw/src/api/generated_api_registration.h"
+
 namespace extensions {
 
 namespace {
@@ -289,6 +291,7 @@ void ChromeExtensionsBrowserClient::RegisterExtensionFunctions(
 
   // Generated APIs from lower-level modules.
   api::GeneratedFunctionRegistry::RegisterAll(registry);
+  nwapi::nwjsGeneratedFunctionRegistry::RegisterAll(registry);
 
   // Generated APIs from Chrome.
   api::ChromeGeneratedFunctionRegistry::RegisterAll(registry);

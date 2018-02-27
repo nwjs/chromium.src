@@ -25,6 +25,8 @@
 #include "services/service_manager/sandbox/linux/sandbox_linux.h"
 #include "services/service_manager/sandbox/switches.h"
 
+#include "content/nw/src/common/shell_switches.h"
+
 namespace content {
 
 namespace {
@@ -74,7 +76,7 @@ ZygoteHostImpl* ZygoteHostImpl::GetInstance() {
 }
 
 void ZygoteHostImpl::Init(const base::CommandLine& command_line) {
-  if (command_line.HasSwitch(switches::kNoSandbox)) {
+  if (true && command_line.HasSwitch(switches::kNoSandbox)) {
     return;
   }
 
@@ -115,7 +117,7 @@ void ZygoteHostImpl::Init(const base::CommandLine& command_line) {
   } else if (!command_line.HasSwitch(
                  service_manager::switches::kDisableSetuidSandbox) &&
              !sandbox_binary_.empty()) {
-    use_suid_sandbox_ = true;
+    use_suid_sandbox_ = false;
 
     // Use the SUID sandbox for adjusting OOM scores when we are using
     // the setuid sandbox. This is needed beacuse the processes are
