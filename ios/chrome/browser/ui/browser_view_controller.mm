@@ -163,6 +163,7 @@
 #import "ios/chrome/browser/ui/main_content/main_content_ui_broadcasting_util.h"
 #import "ios/chrome/browser/ui/main_content/main_content_ui_state.h"
 #import "ios/chrome/browser/ui/main_content/web_scroll_view_main_content_ui_forwarder.h"
+#import "ios/chrome/browser/ui/new_foreground_tab_fullscreen_disabler.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_controller.h"
 #import "ios/chrome/browser/ui/ntp/recent_tabs/recent_tabs_handset_coordinator.h"
 #import "ios/chrome/browser/ui/overscroll_actions/overscroll_actions_controller.h"
@@ -597,6 +598,10 @@ NSString* const kBrowserViewControllerSnackbarCategory =
   // The updater that adjusts the toolbar's layout for fullscreen events.
   std::unique_ptr<FullscreenUIUpdater> _fullscreenUIUpdater;
 
+  // The fullscreen disabler for the new foreground tab animation.
+  std::unique_ptr<NewForegroundTabFullscreenDisabler>
+      _foregroundTabAnimationFullscreenDisabler;
+
   // Coordinator for the External Search UI.
   ExternalSearchCoordinator* _externalSearchCoordinator;
 
@@ -999,6 +1004,9 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
     [[UpgradeCenter sharedInstance] registerClient:self
                                     withDispatcher:self.dispatcher];
     _inNewTabAnimation = NO;
+
+    _footerFullscreenProgress = 1.0;
+
     if (model && browserState)
       [self updateWithTabModel:model browserState:browserState];
   }
@@ -1205,10 +1213,7 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
              webStateList:[_model webStateList]];
       StartBroadcastingMainContentUI(self, broadcaster);
 
-      _fullscreenUIUpdater = std::make_unique<FullscreenUIUpdater>(self);
       fullscreenController->AddObserver(_fullscreenUIUpdater.get());
-
-      fullscreenController->SetWebStateList([_model webStateList]);
     } else {
       StopBroadcastingToolbarUI(broadcaster);
       StopBroadcastingMainContentUI(broadcaster);
@@ -1218,8 +1223,6 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
       [_webMainContentUIForwarder disconnect];
       _webMainContentUIForwarder = nil;
       fullscreenController->RemoveObserver(_fullscreenUIUpdater.get());
-      _fullscreenUIUpdater = nullptr;
-      fullscreenController->SetWebStateList(nullptr);
     }
   }
 }
@@ -1349,6 +1352,17 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
   _paymentRequestManager = nil;
   [self.legacyToolbarCoordinator browserStateDestroyed];
   [_model browserStateDestroyed];
+
+  if (base::FeatureList::IsEnabled(fullscreen::features::kNewFullscreen)) {
+    FullscreenController* fullscreenController =
+        FullscreenControllerFactory::GetInstance()->GetForBrowserState(
+            _browserState);
+    _foregroundTabAnimationFullscreenDisabler->Disconnect();
+    _foregroundTabAnimationFullscreenDisabler = nullptr;
+    fullscreenController->RemoveObserver(_fullscreenUIUpdater.get());
+    _fullscreenUIUpdater = nullptr;
+    fullscreenController->SetWebStateList(nullptr);
+  }
 
   // Disconnect child coordinators.
   [_activityServiceCoordinator disconnect];
@@ -1915,6 +1929,20 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
   if (_bookmarkModel) {
     _bookmarkModelBridge.reset(
         new bookmarks::BookmarkModelBridge(self, _bookmarkModel));
+  }
+
+  if (base::FeatureList::IsEnabled(fullscreen::features::kNewFullscreen)) {
+    // Add a FullscreenUIUpdater for self.
+    FullscreenController* controller =
+        FullscreenControllerFactory::GetInstance()->GetForBrowserState(
+            _browserState);
+    _fullscreenUIUpdater = std::make_unique<FullscreenUIUpdater>(self);
+    // Crate the disabler for any new foreground tab animations in the tab model.
+    _foregroundTabAnimationFullscreenDisabler =
+        std::make_unique<NewForegroundTabFullscreenDisabler>(_model.webStateList,
+                                                            controller);
+    // Set the FullscreenController's WebStateList.
+    controller->SetWebStateList(_model.webStateList);
   }
 }
 

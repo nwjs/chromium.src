@@ -315,6 +315,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
 
   void TearDown() override {
     [[bvc_ view] removeFromSuperview];
+    [bvc_ browserStateDestroyed];
     [bvc_ shutdown];
 
     BlockCleanupTest::TearDown();
