@@ -2379,8 +2379,7 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
 }
 
 - (void)updateBroadcastState {
-  self.broadcasting =
-      self.active && self.viewVisible && !self.inNewTabAnimation;
+  self.broadcasting = self.active && self.viewVisible;
 }
 
 - (void)updateDialogPresenterActiveState {
