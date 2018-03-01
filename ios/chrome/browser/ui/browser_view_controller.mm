@@ -1005,8 +1005,6 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
                                     withDispatcher:self.dispatcher];
     _inNewTabAnimation = NO;
 
-    _footerFullscreenProgress = 1.0;
-
     if (model && browserState)
       [self updateWithTabModel:model browserState:browserState];
   }
