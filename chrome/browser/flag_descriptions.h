@@ -1638,8 +1638,8 @@ extern const char kNativeSmbDescription[];
 extern const char kNetworkPortalNotificationName[];
 extern const char kNetworkPortalNotificationDescription[];
 
-extern const char kDisableNetworkSettingsConfigName[];
-extern const char kDisableNetworkSettingsConfigDescription[];
+extern const char kEnableNetworkSettingsConfigName[];
+extern const char kEnableNetworkSettingsConfigDescription[];
 
 extern const char kNewKoreanImeName[];
 extern const char kNewKoreanImeDescription[];

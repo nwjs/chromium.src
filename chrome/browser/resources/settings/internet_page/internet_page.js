@@ -283,6 +283,10 @@ Polymer({
    * @private
    */
   showConfig_: function(type, guid, name) {
+    if (!loadTimeData.getBoolean('networkSettingsConfig')) {
+      chrome.send('configureNetwork', [guid]);
+      return;
+    }
     const configDialog =
         /** @type {!InternetConfigElement} */ (this.$.configDialog);
     configDialog.type =

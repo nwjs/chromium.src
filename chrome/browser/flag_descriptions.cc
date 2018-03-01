@@ -2640,10 +2640,10 @@ const char kNetworkPortalNotificationDescription[] =
     "If enabled, notification is displayed when device is connected to a "
     "network behind captive portal.";
 
-const char kDisableNetworkSettingsConfigName[] =
-    "Disable Settings based Network Configuration";
-const char kDisableNetworkSettingsConfigDescription[] =
-    "Disables the Settings based network configuration UI and restores the "
+const char kEnableNetworkSettingsConfigName[] =
+    "Enable Settings based Network Configuration";
+const char kEnableNetworkSettingsConfigDescription[] =
+    "Enables the Settings based network configuration UI instead of the "
     "Views based configuration dialog.";
 
 const char kNewKoreanImeName[] = "New Korean IME";
