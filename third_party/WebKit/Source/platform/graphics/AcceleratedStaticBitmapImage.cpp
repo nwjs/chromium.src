@@ -174,6 +174,14 @@ bool AcceleratedStaticBitmapImage::CopyToTexture(
   // This drops the |destGL| context's reference on our |m_mailbox|, but it's
   // still held alive by our SkImage.
   dest_gl->DeleteTextures(1, &source_texture_id);
+
+  // We need to update the texture holder's sync token to ensure that when this
+  // image is deleted, the texture resource will not be recycled by skia before
+  // the the above texture copy has completed.
+  gpu::SyncToken sync_token;
+  dest_gl->GenUnverifiedSyncTokenCHROMIUM(sync_token.GetData());
+  texture_holder_->UpdateSyncToken(sync_token);
+
   return true;
 }
 
