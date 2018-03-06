@@ -791,7 +791,7 @@ HRESULT SettingsAppMonitor::Context::InstallObservers() {
 }
 
 void SettingsAppMonitor::Context::MaybeInvokeChooser(
-    IUIAutomationElement* browser_button) const {
+    IUIAutomationElement* browser_button) {
   if (browser_chooser_invoked_ ||
       !base::FeatureList::IsEnabled(
           features::kWin10AcceleratedDefaultBrowserFlow)) {
