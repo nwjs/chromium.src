@@ -561,6 +561,12 @@ const base::Feature kVoiceSearchOnLocalNtp{"VoiceSearchOnLocalNtp",
                                            base::FEATURE_ENABLED_BY_DEFAULT};
 #endif
 
+#if defined(OS_WIN)
+// Enables the accelerated default browser flow for Windows 10.
+const base::Feature kWin10AcceleratedDefaultBrowserFlow{
+    "Win10AcceleratedDefaultBrowserFlow", base::FEATURE_DISABLED_BY_DEFAULT};
+#endif  // defined(OS_WIN)
+
 #if defined(OS_CHROMEOS)
 // Enables or disables the opt-in IME menu in the language settings page.
 const base::Feature kOptInImeMenu{"OptInImeMenu",
@@ -609,12 +615,6 @@ const base::Feature kEasyUnlockPromotions{"EasyUnlockPromotions",
 // Enables or disables TPM firmware update capability on Chrome OS.
 const base::Feature kTPMFirmwareUpdate{"TPMFirmwareUpdate",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
-
-#if defined(OS_WIN)
-// Enables the accelerated default browser flow for Windows 10.
-const base::Feature kWin10AcceleratedDefaultBrowserFlow{
-    "Win10AcceleratedDefaultBrowserFlow", base::FEATURE_DISABLED_BY_DEFAULT};
-#endif  // defined(OS_WIN)
 
 #endif  // defined(OS_CHROMEOS)
 

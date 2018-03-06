@@ -300,6 +300,10 @@ extern const base::Feature kUserActivityEventLogging;
 extern const base::Feature kVoiceSearchOnLocalNtp;
 #endif
 
+#if defined(OS_WIN)
+extern const base::Feature kWin10AcceleratedDefaultBrowserFlow;
+#endif  // defined(OS_WIN)
+
 #if defined(OS_CHROMEOS)
 extern const base::Feature kOptInImeMenu;
 
@@ -325,10 +329,6 @@ extern const base::Feature kEasyUnlockPromotions;
 
 extern const base::Feature kTPMFirmwareUpdate;
 #endif  // defined(OS_CHROMEOS)
-
-#if defined(OS_WIN)
-extern const base::Feature kWin10AcceleratedDefaultBrowserFlow;
-#endif  // defined(OS_WIN)
 
 bool PrefServiceEnabled();
 
